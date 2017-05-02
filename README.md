@@ -3,6 +3,8 @@ RCMC
 Rectified C11 Model Checking
 ----------------------------
 
+---
+
 RCMC is a stateless model checker for C11 programs which works on the
 level of LLVM Intermediate Representation. 
 
