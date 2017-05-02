@@ -278,22 +278,24 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 	return stores;
 }
 
-static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr, GenericValue val)
+static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
+			    GenericValue val, bool isRMW)
 {
 	Thread &thr = g.threads[g.currentT];
 	int &max = g.maxEvents[g.currentT]; 
-	EventLabel lab(W, Event(g.currentT, max), ptr, val);
+	EventLabel lab(W, Event(g.currentT, max), ptr, val, isRMW);
 
 	thr.eventList.push_back(lab);
 	max++;
 	return;
 }
 
-static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr, Event rf)
+static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr,
+			   Event rf, bool isRMW)
 {
 	Thread &thr = g.threads[g.currentT];
 	int &max = g.maxEvents[g.currentT];
-	EventLabel lab(R, Event(g.currentT, max), ptr, rf);
+	EventLabel lab(R, Event(g.currentT, max), ptr, rf, isRMW);
 
 	/* TODO: Make actual consistency checks before adding the event */
 	if (!g.isConsistent())

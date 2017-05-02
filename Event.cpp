@@ -23,19 +23,20 @@
 #include <iostream>
 #include <cassert>
 
-EventLabel::EventLabel(EventType typ, Event e) : type(typ), pos(e) {}
+EventLabel::EventLabel(EventType typ, Event e)
+	: type(typ), pos(e), isRMW(false) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       Event w) : type(typ), pos(e),
-				  addr(addr), rf(w) {}
+		       Event w, bool rmw)
+	: type(typ), pos(e), addr(addr), rf(w), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val) : type(typ), pos(e),
-						 addr(addr), val(val) {}
+		       llvm::GenericValue val, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, std::list<Event> rfm1)
-	: type(typ), pos(e), addr(addr), val(val), rfm1(rfm1) {}
+		       llvm::GenericValue val, std::list<Event> rfm1, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), rfm1(rfm1), isRMW(rmw) {}
 	
 
 std::ostream& operator<<(std::ostream &s, const EventType &t)
