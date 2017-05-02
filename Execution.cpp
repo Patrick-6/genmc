@@ -76,7 +76,7 @@ static void printExecGraph(ExecutionGraph &g)
 {
 	std::cerr << std::endl;
 	printStarLine();
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		std::cerr << thr << std::endl;
 		for (int j = 0; j < g.maxEvents[i]; j++) {
@@ -97,7 +97,7 @@ static void printExecGraph(ExecutionGraph &g)
 		std::cerr << "\t" << l << std::endl;
 	printStarLine();
 	std::cerr << "Max Events:" << std::endl;
-	for (int i = 0; i < g.maxEvents.size(); i++)
+	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
 		std::cerr << "\t" << g.maxEvents[i] << std::endl;
 	printStarLine();
 	std::cerr << std::endl;
@@ -118,7 +118,7 @@ static void printRevisitPair(RevisitPair &p)
 
 static void printRevisitStack(std::vector<RevisitPair> &stack)
 {
-	for (int i = 0; i < stack.size(); i++) 
+	for (unsigned int i = 0; i < stack.size(); i++) 
 		printRevisitPair(stack[i]);
 	return;
 }
@@ -216,7 +216,7 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::list<Event> &es)
 {
 	std::vector<int> a(g.threads.size());
 
-	for (int i = 0; i < a.size(); i++)
+	for (unsigned int i = 0; i < a.size(); i++)
 		a[i] = g.maxEvents[i];
 	
 	for (auto e : es)
@@ -229,7 +229,7 @@ static std::list<Event> getAllStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 {
 	std::list<Event> stores;
 
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -247,7 +247,7 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 	Event l = getLastThreadEvent(g, g.currentT);
 	std::vector<int> before = calcPorfBefore(g, l);
 	
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		while (before[i] > 0 &&
 		       (thr.eventList[before[i]].type != W ||
@@ -256,7 +256,7 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 	}
 	
 	std::list<Event> es;
-	for (int i = 0; i < before.size(); i++)
+	for (unsigned int i = 0; i < before.size(); i++)
 		if (before[i] > 0)
 			es.push_front(Event(i, before[i] - 1));
 	
@@ -265,7 +265,7 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 
 	std::list<Event> stores;
 	std::vector<int> before2 = calcPorfBefore(g, es);
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = before2[i] + 1; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -332,7 +332,7 @@ static std::vector<std::list<Event> > calcPowerSet(std::list<Event> ls)
 	unsigned int pSize = pow(2, ls.size());
 	int i, j;
 	
-	for (i = 1; i < pSize; i++) {
+	for (unsigned i = 1; i < pSize; i++) {
 		std::list<Event> set;
 		j = 0;
 		for (std::list<Event>::iterator it = ls.begin(); it != ls.end(); ++it) {
@@ -347,7 +347,7 @@ static std::vector<std::list<Event> > calcPowerSet(std::list<Event> ls)
 
 static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 {
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		g.maxEvents[i] = before[i] + 1;
 		Thread &thr = g.threads[i];
 		thr.eventList.erase(thr.eventList.begin() + before[i] + 1, thr.eventList.end());
@@ -369,7 +369,7 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 
 static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vector<int> before)
 {
-	for (int i = 0; i < oldG.threads.size(); i++) {
+	for (unsigned int i = 0; i < oldG.threads.size(); i++) {
 		Thread &oldThr = oldG.threads[i];
 		newG.threads.push_back(Thread(oldThr.threadFun, oldThr.id));
 		Thread &newThr = newG.threads[i];
@@ -389,7 +389,7 @@ static void cutGraphAfter(ExecutionGraph &g, std::list<Event> ls)
 		return;
 	
 	std::vector<int> after = calcPorfAfter(g, ls);
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		g.maxEvents[i] = after[i];
 		Thread &thr = g.threads[i];
 		thr.eventList.erase(thr.eventList.begin() + after[i], thr.eventList.end());
@@ -439,9 +439,9 @@ static void modifyRfs(ExecutionGraph &g, std::list<Event> &es, Event store)
 
 static void validateGraph(ExecutionGraph &g)
 {
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
-		WARN_ON(thr.eventList.size() != g.maxEvents[i],
+		WARN_ON(thr.eventList.size() != (unsigned int)g.maxEvents[i],
 			"Max event does not correspond to thread size!\n");
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -1545,7 +1545,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 			if (preds.empty()) { /* TODO: Maybe not create object? */
 				addReadToGraph(*currentEG, ptr, s);
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
-				for (int k = 0; k < currentEG->threads.size(); k++)
+				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
 				currentEG->revisit.push_front(e);
 			} else {
@@ -1588,7 +1588,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		std::vector<std::list<Event> > revisitSets = calcPowerSet(ls);
 		std::vector<int> preds;
 
-		for (int k = 0; k < currentEG->threads.size(); k++)
+		for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 			preds.push_back(currentEG->maxEvents[k] - 1);
 		for (std::vector<std::list<Event> >::iterator it = revisitSets.begin();
 		     it != revisitSets.end(); ++it) {
@@ -2752,7 +2752,7 @@ void Interpreter::callFunction(Function *F,
 
 bool Interpreter::scheduleNext(ExecutionGraph &g)
 {
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		if (!ECStacks[i].empty()) {
 			g.currentT = i;
 			return true;

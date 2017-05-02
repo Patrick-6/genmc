@@ -58,7 +58,6 @@ namespace LLVMModule {
 /* Returns the LLVM module corresponding to the source code stored in src. */
 	llvm::Module *getLLVMModule(std::string &src)
 	{
-		llvm::Module *m;
 		llvm::MemoryBuffer *buf;
 		llvm::SMDiagnostic err;
 		
