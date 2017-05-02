@@ -36,7 +36,9 @@ void Driver::parseLLVMFile(const std::string &fileName)
 	Parser fileParser;
 	sourceCode = fileParser.readFile(fileName);
 }
+
 #include <llvm/Support/Debug.h>
+
 void Driver::run()
 {
 	std::string buf;

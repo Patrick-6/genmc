@@ -20,14 +20,25 @@
 //===----------------------------------------------------------------------===//
 
 #include "Interpreter.h"
-#include "llvm/Config/config.h"     // Detect libffi
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/DynamicLibrary.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Mutex.h"
+#if defined(HAVE_LLVM_IR_DATALAYOUT_H)
+#include <llvm/IR/DataLayout.h>
+#elif defined(HAVE_LLVM_DATALAYOUT_H)
+#include <llvm/DataLayout.h>
+#endif
+#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
+#include <llvm/IR/DerivedTypes.h>
+#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
+#include <llvm/DerivedTypes.h>
+#endif
+#if defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
+#include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/ManagedStatic.h>
+#include <llvm/Support/Mutex.h>
 #include <cmath>
 #include <csignal>
 #include <cstdio>

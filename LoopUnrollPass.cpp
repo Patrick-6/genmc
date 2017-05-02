@@ -18,6 +18,8 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "config.h"
+
 #include "vecset.h"
 #include "LoopUnrollPass.hpp"
 #include "DeclareAssumePass.hpp"
@@ -175,7 +177,11 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 			llvm::BasicBlock *b = llvm::CloneBasicBlock(*it, VMaps[d], ss.str());
 			parentFun->getBasicBlockList().push_back(b);
 			loopBodies.back().push_back(b);
+#ifdef LLVM_GET_ANALYSIS_LOOP_INFO
 			l->addBasicBlockToLoop(b, lpm.getAnalysis<llvm::LoopInfo>().getBase());
+#else
+			l->addBasicBlockToLoop(b, lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo());
+#endif
 		}
 	}
 	
@@ -272,7 +278,11 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 			}
 		}
 	}
+#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+	lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
+#else
 	lpm.deleteLoopFromQueue(l);
+#endif
 	return true;
 }
 	

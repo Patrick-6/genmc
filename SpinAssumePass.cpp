@@ -18,6 +18,8 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "config.h"
+
 #include "vecset.h"
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
@@ -173,7 +175,11 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 
 	if (isSpinLoop(l))
 		if (transformLoop(l, lpm)) {
+#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
+#else
 			lpm.deleteLoopFromQueue(l);
+#endif
 			modified = true;
 		}
 			

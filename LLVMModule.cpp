@@ -18,12 +18,21 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "config.h"
+
 #include "LLVMModule.hpp"
 #include "DeclareAssumePass.hpp"
 #include "SpinAssumePass.hpp"
 #include "LoopUnrollPass.hpp"
 #include "Error.hpp"
+#if defined(HAVE_LLVM_PASSMANAGER_H)
 #include <llvm/PassManager.h>
+#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
+#include <llvm/IR/PassManager.h>
+#endif
+#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
+#include <llvm/IR/LegacyPassManager.h>
+#endif
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/IRReader/IRReader.h>
@@ -61,14 +70,26 @@ namespace LLVMModule {
 		llvm::MemoryBuffer *buf;
 		llvm::SMDiagnostic err;
 		
+#ifdef LLVM_GETMEMBUFFER_RET_PTR	  
 		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false);
+#else
+		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false).release();
+#endif
+#ifdef LLVM_PARSE_IR_MEMBUF_PTR
 		return llvm::ParseIR(buf, err, getLLVMContext());
+#else
+		return llvm::parseIR(buf->getMemBufferRef(), err, getLLVMContext()).release();
+#endif
 	}
 
 	bool transformLLVMModule(llvm::Module &mod, Config *conf)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+		llvm::legacy::PassManager PM;
+#else
 		llvm::PassManager PM;
+#endif
 		bool modified;
 		
 		llvm::initializeCore(Registry);
@@ -77,7 +98,9 @@ namespace LLVMModule {
 		llvm::initializeVectorization(Registry);
 		llvm::initializeIPO(Registry);
 		llvm::initializeAnalysis(Registry);
+#ifdef HAVE_LLVM_INITIALIZE_IPA
 		llvm::initializeIPA(Registry);
+#endif
 		llvm::initializeTransformUtils(Registry);
 		llvm::initializeInstCombine(Registry);
 		llvm::initializeInstrumentation(Registry);
@@ -98,18 +121,39 @@ namespace LLVMModule {
 
 	void printLLVMModule(llvm::Module &mod, std::string &out)
 	{
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+		llvm::legacy::PassManager PM;
+#else
 		llvm::PassManager PM;
-		std::string err;
-		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), err,
+#endif
+#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR	
+		std::string errs;
+#else
+		std::error_code errs;
+#endif
+#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
+		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), errs,
 								 llvm::sys::fs::F_None);
-
+#else
+		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), errs, 0);
+#endif
+		
 		/* TODO: Do we need an exception? If yes, properly handle it */
-		if (err.size()) {
+#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR	
+		if (errs.size()) {
 			delete os;
 			WARN("Failed to write transformed module to file "
-			     + out + ": " + err);
+			     + out + ": " + errs);
 			return;
 		}
+#else
+		if (errs) {
+			delete os;
+			WARN("Failed to write transformed module to file "
+			     + out + ": " + errs.message());
+			return;
+		}
+#endif
 		PM.add(llvm::createPrintModulePass(*os));
 		PM.run(mod);
 		return;
