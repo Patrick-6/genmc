@@ -18,8 +18,8 @@
 
 .PHONY: clean depend
 
-LINK_FLAGS=`llvm-config-3.5 --ldflags --libs --system-libs`
-GXX_FLAGS=`llvm-config-3.5 --cxxflags` -std=c++14 -g
+LINK_FLAGS=`llvm-config --ldflags --libs --system-libs`
+GXX_FLAGS=`llvm-config --cxxflags` -std=c++14 -g
 GXX=clang++
 
 TARGET=rcmc
@@ -27,15 +27,15 @@ FILES=$(addsuffix .o, Config Parser Error LLVMModule Interpreter Execution \
 	ExternalFunctions DeclareAssumePass SpinAssumePass LoopUnrollPass \
 	ExecutionGraph Thread Event Driver main)
 
-default: rcmc
+default: $(TARGET)
 
 %.o: %.cpp %.hpp
-	$(GXX) -c $< $(GXX_FLAGS)
+	$(GXX) -c $< -Wno-unknown-warning-option $(GXX_FLAGS)
 
 %.o: %.cpp
-	$(GXX) -c $< $(GXX_FLAGS)
+	$(GXX) -c $< -Wno-unknown-warning-option $(GXX_FLAGS)
 
-rcmc: $(FILES)
+$(TARGET): $(FILES)
 	$(GXX) -o $(TARGET) $^ $(LINK_FLAGS)
 
 clean:
