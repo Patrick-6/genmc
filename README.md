@@ -29,7 +29,7 @@ following packages:
 
 		clang, llvm-3.5, llvm-3.5-dev
 
-<a name="installing>Installing</a>
+<a name="installing">Installing</a>
 ----------------------------------
 
 * Download RCMC's sources or clone this repository:
@@ -56,7 +56,7 @@ following packages:
 
 TODO
 
-<a name="notes>Notes</a>
+<a name="notes">Notes</a>
 ------------------------
 
 * Testcases should be compiled with `clang -S -emit-llvm` before running `rcmc`.
