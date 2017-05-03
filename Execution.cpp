@@ -65,6 +65,7 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
+#ifdef MY_DEBUG
 static void printStarLine(void)
 {
 	for (int i = 0; i < 80; i++)
@@ -122,6 +123,7 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 		printRevisitPair(stack[i]);
 	return;
 }
+#endif
 
 static EventLabel& getEventLabel(ExecutionGraph &g, Event &e)
 {
@@ -436,7 +438,7 @@ static void modifyRfs(ExecutionGraph &g, std::list<Event> &es, Event store)
 	return;
 }
 
-
+#ifdef MY_DEBUG
 static void validateGraph(ExecutionGraph &g)
 {
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
@@ -477,6 +479,7 @@ static void validateGraph(ExecutionGraph &g)
 	}
 	return;
 }
+#endif
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
