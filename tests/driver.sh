@@ -53,6 +53,10 @@ do
     vars=0
     expected=""
     failed=""
+    if test -f "${dir}/expected.in"
+    then
+	expected=$(head -n 1 "${dir}/expected.in")
+    fi
     for t in $dir/*.c
     do
 	vars=$((vars+1))
@@ -74,7 +78,7 @@ do
     then
 	echo 'FAILED! Inconsistent results:'
 	echo "\t\t${failed}" 'executions were explored, instead of' \
-	     "${expected}" 'that were previously explored!'
+	     "${expected}" 'that were expected!'
     else
 	echo 'Successful (Explored' "${expected}" 'executions in all' \
 	     "${vars}" 'variations)'
