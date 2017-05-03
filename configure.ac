@@ -158,6 +158,25 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
        	[AC_MSG_RESULT([no])])
 
+## Check if Mutexes use the method "lock" or "acquire"
+AC_MSG_CHECKING([for llvm::sys::Mutex::lock])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Mutex.h>
+]],[[
+  llvm::sys::Mutex m;
+  m.lock();
+]])],
+        [AC_DEFINE([LLVM_SYS_MUTEX_LOCK_FN],[lock],
+         [The name of the locking method of llvm::sys::mutex.])
+         AC_DEFINE([LLVM_SYS_MUTEX_UNLOCK_FN],[unlock],
+         [The name of the unlocking method of llvm::sys::mutex.])
+         AC_MSG_RESULT([lock])],
+        [AC_DEFINE([LLVM_SYS_MUTEX_LOCK_FN],[acquire],
+         [The name of the locking method of llvm::sys::mutex.])
+         AC_DEFINE([LLVM_SYS_MUTEX_UNLOCK_FN],[release],
+         [The name of the unlocking method of llvm::sys::mutex.])
+         AC_MSG_RESULT([acquire])])
+
 ## Check the signature of llvm::ParseIR
 AC_MSG_CHECKING([for llvm::ParseIR])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

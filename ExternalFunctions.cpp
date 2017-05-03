@@ -257,18 +257,19 @@ static bool ffiInvoke(RawFunc Fn, Function *F,
 }
 #endif // USE_LIBFFI
 
-GenericValue Interpreter::callExternalFunction(Function *F,
-                                     const std::vector<GenericValue> &ArgVals) {
+GenericValue
+Interpreter::callExternalFunction(Function *F,
+				  const std::vector<GenericValue> &ArgVals) {
   TheInterpreter = this;
 
-  FunctionsLock->acquire();
+  FunctionsLock->LLVM_SYS_MUTEX_LOCK_FN();
 
   // Do a lookup to see if the function is in our cache... this should just be a
   // deferred annotation!
   std::map<const Function *, ExFunc>::iterator FI = ExportedFunctions->find(F);
   if (ExFunc Fn = (FI == ExportedFunctions->end()) ? lookupFunction(F)
                                                    : FI->second) {
-    FunctionsLock->release();
+    FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
     return Fn(F->getFunctionType(), ArgVals);
   }
 
@@ -286,7 +287,7 @@ GenericValue Interpreter::callExternalFunction(Function *F,
     RawFn = RF->second;
   }
 
-  FunctionsLock->release();
+  FunctionsLock->LLVM_SYS_MUTEX_UNLOCK_FN();
 
   GenericValue Result;
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
