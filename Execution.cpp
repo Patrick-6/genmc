@@ -2732,7 +2732,7 @@ void Interpreter::callFunction(Function *F,
   }
 
   // Get pointers to first LLVM BB & Instruction in function.
-  StackFrame.CurBB     = F->begin();
+  StackFrame.CurBB     = &F->front();
   StackFrame.CurInst   = StackFrame.CurBB->begin();
 
   // Run through the function arguments and initialize their values...
@@ -2744,7 +2744,7 @@ void Interpreter::callFunction(Function *F,
   unsigned i = 0;
   for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end(); 
        AI != E; ++AI, ++i)
-    SetValue(AI, ArgVals[i], StackFrame);
+    SetValue(&*AI, ArgVals[i], StackFrame);
 
   // Handle varargs arguments...
   StackFrame.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
