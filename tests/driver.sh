@@ -63,7 +63,8 @@ runtest() {
 	    expected="${expected:-${explored}}"
 	    if test "${expected}" != "${explored}"
 	    then
-		failed="${explored}"
+		explored_failed="${explored}"
+		failed=1
 	    fi
 	    rm -rf "${t%.*}.ll"
 	else
@@ -74,7 +75,7 @@ runtest() {
     if test -n "${failed}"
     then
 	echo 'FAILED! Inconsistent results:'
-	echo "\t\t${failed}" 'executions were explored, instead of' \
+	echo "\t\t${explored_failed:-0}" 'executions were explored, instead of' \
 	     "${expected}" 'that were expected!'
 	failure=1
     else
