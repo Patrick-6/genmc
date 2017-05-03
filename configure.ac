@@ -242,6 +242,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::PassManager requires a template argument.])
          AC_CHECK_HEADERS([llvm/IR/LegacyPassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])])
 
+## Check if the datalayout of an execution engine is a pointer
+AC_MSG_CHECKING([whether DataLayout of ExecutionEngine is a pointer])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+]],[[
+  llvm::ExecutionEngine *E = 0;
+  const llvm::DataLayout *DL = E->getDataLayout();
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_EXECUTIONENGINE_DATALAYOUT_PTR],[1],
+   [Define if the DataLayout field of ExecutionEngine is a pointer.])],
+  [AC_MSG_RESULT([no])])
+
 ## Check if llvm::LoopInfo::markAsRemoved exists
 AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
