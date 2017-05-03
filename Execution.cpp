@@ -330,9 +330,9 @@ static std::vector<std::list<Event> > calcPowerSet(std::list<Event> ls)
 {
 	std::vector<std::list<Event> > powerSet;
 	unsigned int pSize = pow(2, ls.size());
-	int i, j;
+	unsigned int j;
 	
-	for (unsigned i = 1; i < pSize; i++) {
+	for (unsigned int i = 1; i < pSize; i++) {
 		std::list<Event> set;
 		j = 0;
 		for (std::list<Event>::iterator it = ls.begin(); it != ls.end(); ++it) {
