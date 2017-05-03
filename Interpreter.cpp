@@ -13,11 +13,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "config.h"
+
 #include "Interpreter.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
+#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
+#include <llvm/IR/DerivedTypes.h>
+#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
+#include <llvm/DerivedTypes.h>
+#endif
+#if defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
 #include <cstring>
+
 using namespace llvm;
 
 namespace {
@@ -51,7 +62,9 @@ Interpreter::Interpreter(Module *M)
   : ExecutionEngine(M), TD(M) {
       
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   setDataLayout(&TD);
+#endif
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
@@ -74,9 +87,15 @@ void Interpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
+#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
 GenericValue
 Interpreter::runFunction(Function *F,
                          const std::vector<GenericValue> &ArgValues) {
+#else
+GenericValue
+Interpreter::runFunction(Function *F,
+                         ArrayRef<GenericValue> ArgValues) {
+#endif
   assert (F && "Function *F was null at entry to run()");
 
   // Try extra hard not to pass extra args to a function that isn't

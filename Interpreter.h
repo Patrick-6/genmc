@@ -123,10 +123,10 @@ public:
   /// run - Start execution with the specified function and arguments.
   ///
   GenericValue runFunction(Function *F,
-                           const std::vector<GenericValue> &ArgValues) override;
+                           const std::vector<GenericValue> &ArgValues);
 
   void *getPointerToNamedFunction(const std::string &Name,
-                                  bool AbortOnFailure = true) override {
+                                  bool AbortOnFailure = true) {
     // FIXME: not implemented.
     return nullptr;
   }
@@ -134,13 +134,13 @@ public:
   /// recompileAndRelinkFunction - For the interpreter, functions are always
   /// up-to-date.
   ///
-  void *recompileAndRelinkFunction(Function *F) override {
+  void *recompileAndRelinkFunction(Function *F) {
     return getPointerToFunction(F);
   }
 
   /// freeMachineCodeForFunction - The interpreter does not generate any code.
   ///
-  void freeMachineCodeForFunction(Function *F) override { }
+  void freeMachineCodeForFunction(Function *F) { }
 
   /* Main functions for visiting an Execution Graph */
   bool scheduleNext(ExecutionGraph &g);	
@@ -234,8 +234,8 @@ private:  // Helper functions
   //
   void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
 
-  void *getPointerToFunction(Function *F) override { return (void*)F; }
-  void *getPointerToBasicBlock(BasicBlock *BB) override { return (void*)BB; }
+  void *getPointerToFunction(Function *F) { return (void*)F; }
+  void *getPointerToBasicBlock(BasicBlock *BB) { return (void*)BB; }
 
   void initializeExecutionEngine() { }
   void initializeExternalFunctions();
