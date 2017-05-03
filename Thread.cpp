@@ -34,7 +34,7 @@ Thread::Thread(llvm::Function *F) : threadFun(F)
 	eventList = {};
 }
 
-Thread::Thread(llvm::Function *F, int id) : threadFun(F), id(id)
+Thread::Thread(llvm::Function *F, int id) : id(id), threadFun(F)
 {
 	parentId = -1;
 	eventList = {};
