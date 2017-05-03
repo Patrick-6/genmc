@@ -129,10 +129,6 @@ public:
   /// atexit(3), which we intercept and store in AtExitHandlers.
   ///
   void runAtExitHandlers();
-
-  //  static void Register() {
-  //    InterpCtor = create;
-  //  }
   
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///

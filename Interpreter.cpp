@@ -31,14 +31,6 @@
 
 using namespace llvm;
 
-namespace {
-
-  // static struct RegisterInterp {
-  //   RegisterInterp() { Interpreter::Register(); }
-  // } InterpRegistrator;
-
-}
-
 extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
