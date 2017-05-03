@@ -287,7 +287,12 @@ GenericValue Interpreter::callExternalFunction(Function *F,
   FunctionsLock->release();
 
   GenericValue Result;
-  if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, getDataLayout(), Result))
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+  const llvm::DataLayout *DL = getDataLayout();
+#else
+  const llvm::DataLayout *DL = &getDataLayout();
+#endif
+  if (RawFn != 0 && ffiInvoke(RawFn, F, ArgVals, DL, Result))
     return Result;
 #endif // USE_LIBFFI
 
@@ -386,8 +391,13 @@ GenericValue lle_X_sprintf(FunctionType *FT,
       case 'u': case 'o':
       case 'x': case 'X':
         if (HowLong >= 1) {
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+	  llvm::DataLayout *DL = TheInterpreter->getDataLayout();
+#else
+	  llvm::DataLayout *DL = &(TheInterpreter->getDataLayout());
+#endif
           if (HowLong == 1 &&
-              TheInterpreter->getDataLayout()->getPointerSizeInBits() == 64 &&
+              DL->getPointerSizeInBits() == 64 &&
               sizeof(long) < sizeof(int64_t)) {
             // Make sure we use %lld with a 64 bit argument because we might be
             // compiling LLI on a 32 bit compiler.
