@@ -1,11 +1,11 @@
 RCMC
 =====
-Rectified C11 Model Checking
-----------------------------
+Rectified C/C++1 Model Checking
+-------------------------------
 
 ---
 
-RCMC is a stateless model checker for C11 programs which works on the
+RCMC is a stateless model checker for C/C++11 programs which works on the
 level of LLVM Intermediate Representation. 
 
 Author: Michalis Kokologiannakis.
@@ -34,12 +34,10 @@ following packages:
 <a name="installing">Installing</a>
 ----------------------------------
 
-* Download RCMC's sources or clone this repository:
+* For a default build issue:
 
-		git-rts@gitlab.mpi-sws.org:viktor/rcmc.git
-
-* For a default build:
-
+		autoreconf
+		./configure
 		make
 
 <a name="usage">Usage</a>
