@@ -44,18 +44,15 @@ runsuccess() {
     fi
 }
 
-echo '--------------------------------------------------------------------'
-echo '--- Preparing to run CORRECT testcases...'
-echo '--------------------------------------------------------------------'
-for dir in correct/*
-do
+runtest() {
+    dir=$1
     echo -n '\tTestcase:' "${dir##*/}... "
     vars=0
     expected=""
     failed=""
     if test -f "${dir}/expected.in"
     then
-	expected=$(head -n 1 "${dir}/expected.in")
+	expected=`head -n 1 "${dir}/expected.in"`
     fi
     for t in $dir/*.c
     do
@@ -79,20 +76,48 @@ do
 	echo 'FAILED! Inconsistent results:'
 	echo "\t\t${failed}" 'executions were explored, instead of' \
 	     "${expected}" 'that were expected!'
+	consistency_failure=1
     else
 	echo 'Successful (Explored' "${expected}" 'executions in all' \
 	     "${vars}" 'variations)'
     fi
-done
+}
+
+runall() {
+    echo '--------------------------------------------------------------------'
+    echo '--- Preparing to run CORRECT testcases...'
+    echo '--------------------------------------------------------------------\n'
+    for dir in correct/*
+    do
+	runtest "${dir}"
+    done
+}
+
+testcase=$1
+if test -n "${testcase}"
+then
+    echo '--------------------------------------------------------------------'
+    echo '--- Preparing to run testcase' "${testcase}..."
+    echo '--------------------------------------------------------------------\n'    
+    if test -d "${testcase}"
+    then
+	runtest "${testcase}"
+    else
+	echo "\tTestcase does not exist!"
+	failure=1
+    fi
+else
+   runall
+fi
 
 if test -n "$failure"
 then
-    echo '--------------------------------------------------------------------'
+    echo '\n--------------------------------------------------------------------'
     echo '!!! ' UNEXPECTED VERIFICATION RESULTS ' !!!'
     echo '--------------------------------------------------------------------'
     exit 1
 else
-    echo '--------------------------------------------------------------------'
+    echo '\n--------------------------------------------------------------------'
     echo '--- ' Testing proceeded as expected
     echo '--------------------------------------------------------------------'
     exit 0
