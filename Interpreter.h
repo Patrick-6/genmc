@@ -11,20 +11,38 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "config.h"
+
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
 #include "Event.hpp"
 #include "ExecutionGraph.hpp"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstVisitor.h"
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
+#if defined(HAVE_LLVM_IR_DATALAYOUT_H)
+#include <llvm/IR/DataLayout.h>
+#elif defined(HAVE_LLVM_DATALAYOUT_H)
+#include <llvm/DataLayout.h>
+#endif
+#if defined(HAVE_LLVM_IR_FUNCTION_H)
+#include <llvm/IR/Function.h>
+#elif defined(HAVE_LLVM_FUNCTION_H)
+#include <llvm/Function.h>
+#endif
+#if defined(HAVE_LLVM_INSTVISITOR_H)
+#include <llvm/InstVisitor.h>
+#elif defined(HAVE_LLVM_IR_INSTVISITOR_H)
+#include <llvm/IR/InstVisitor.h>
+#elif defined(HAVE_LLVM_SUPPORT_INSTVISITOR_H)
+#include <llvm/Support/InstVisitor.h>
+#endif
+#include <llvm/Support/DataTypes.h>
+#include <llvm/Support/ErrorHandling.h>
+#include <llvm/Support/raw_ostream.h>
+
+
 namespace llvm {
 
 class IntrinsicLowering;
@@ -103,7 +121,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
 public:
   explicit Interpreter(Module *M);
-  ~Interpreter();
+  virtual ~Interpreter();
 
   std::vector<ExecutionContext> *getECStack() { return &ECStacks[currentEG->currentT]; };
 
@@ -112,9 +130,9 @@ public:
   ///
   void runAtExitHandlers();
 
-  static void Register() {
-    InterpCtor = create;
-  }
+  //  static void Register() {
+  //    InterpCtor = create;
+  //  }
   
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
@@ -122,14 +140,25 @@ public:
 
   /// run - Start execution with the specified function and arguments.
   ///
-  GenericValue runFunction(Function *F,
-                           const std::vector<GenericValue> &ArgValues);
+#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
+  virtual GenericValue runFunction(Function *F,
+				   const std::vector<GenericValue> &ArgValues);
+#else
+  virtual GenericValue runFunction(Function *F,
+				   llvm::ArrayRef<GenericValue> ArgValues);
+#endif
 
   void *getPointerToNamedFunction(const std::string &Name,
                                   bool AbortOnFailure = true) {
     // FIXME: not implemented.
     return nullptr;
   }
+
+  void *getPointerToNamedFunction(llvm::StringRef Name,
+                                  bool AbortOnFailure = true) {
+    // FIXME: not implemented.
+    return nullptr;
+  };
 
   /// recompileAndRelinkFunction - For the interpreter, functions are always
   /// up-to-date.

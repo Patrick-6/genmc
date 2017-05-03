@@ -16,7 +16,7 @@
 #include "config.h"
 
 #include "Interpreter.h"
-#include "llvm/CodeGen/IntrinsicLowering.h"
+#include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
 #elif defined(HAVE_LLVM_DERIVEDTYPES_H)
@@ -33,9 +33,9 @@ using namespace llvm;
 
 namespace {
 
-static struct RegisterInterp {
-  RegisterInterp() { Interpreter::Register(); }
-} InterpRegistrator;
+  // static struct RegisterInterp {
+  //   RegisterInterp() { Interpreter::Register(); }
+  // } InterpRegistrator;
 
 }
 
@@ -45,12 +45,26 @@ extern "C" void LLVMLinkInInterpreter() { }
 ///
 ExecutionEngine *Interpreter::create(Module *M, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
+#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
     if (ErrStr)
       *ErrStr = EC.message();
     // We got an error, just return 0
     return nullptr;
   }
+#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
+  if (M->MaterializeAllPermanently(ErrStr)){
+    // We got an error, just return 0
+    return nullptr;
+  }
+#else
+  if(std::error_code EC = M->materializeAll()){
+    if(ErrStr)
+      *ErrStr = EC.message();
+    // We got an error, just return 0
+    return nullptr;
+  }
+#endif
 
   return new Interpreter(M);
 }
@@ -59,7 +73,12 @@ ExecutionEngine *Interpreter::create(Module *M, std::string* ErrStr) {
 // Interpreter ctor - Initialize stuff
 //
 Interpreter::Interpreter(Module *M)
-  : ExecutionEngine(M), TD(M) {
+#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
+  : ExecutionEngine(std::unique_ptr<Module>(M)),
+#else
+  : ExecutionEngine(M),
+#endif
+    TD(M) {
       
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
