@@ -19,6 +19,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "config.h"
+
 #include "Interpreter.h"
 #if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
@@ -392,9 +394,9 @@ GenericValue lle_X_sprintf(FunctionType *FT,
       case 'x': case 'X':
         if (HowLong >= 1) {
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-	  llvm::DataLayout *DL = TheInterpreter->getDataLayout();
+	  const llvm::DataLayout *DL = TheInterpreter->getDataLayout();
 #else
-	  llvm::DataLayout *DL = &(TheInterpreter->getDataLayout());
+	  const llvm::DataLayout *DL = &(TheInterpreter->getDataLayout());
 #endif
           if (HowLong == 1 &&
               DL->getPointerSizeInBits() == 64 &&
