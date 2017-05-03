@@ -76,7 +76,7 @@ runtest() {
 	echo 'FAILED! Inconsistent results:'
 	echo "\t\t${failed}" 'executions were explored, instead of' \
 	     "${expected}" 'that were expected!'
-	consistency_failure=1
+	failure=1
     else
 	echo 'Successful (Explored' "${expected}" 'executions in all' \
 	     "${vars}" 'variations)'
