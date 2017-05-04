@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = -Wno-override
 
 noinst_LIBRARIES = librcmc.a
 librcmc_a_SOURCES = \
-  Config.cpp \
+  Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   Driver.cpp Driver.hpp \
   Error.cpp Error.hpp \
@@ -27,7 +27,4 @@ bin_PROGRAMS = rcmc
 rcmc_SOURCES = main.cpp
 rcmc_LDADD   = librcmc.a
 rcmc_LDFLAGS =`llvm-config --ldflags --libs --system-libs`
-
-#%.o: %.cpp %.hpp
-#	$(GXX) -c $< -Wno-unknown-warning-option $(GXX_FLAGS)
 
