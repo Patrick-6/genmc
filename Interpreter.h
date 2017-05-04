@@ -16,6 +16,7 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
+#include "Config.hpp"
 #include "Event.hpp"
 #include "ExecutionGraph.hpp"
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -105,6 +106,8 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   DataLayout TD;
   IntrinsicLowering *IL;
 
+  Config *userConf;
+
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
   std::vector<ExecutionContext> ECStack;
@@ -120,7 +123,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M);
+  explicit Interpreter(Module *M, Config *conf);
   virtual ~Interpreter();
 
   std::vector<ExecutionContext> *getECStack() { return &ECStacks[currentEG->currentT]; };
@@ -132,7 +135,7 @@ public:
   
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, std::string *ErrorStr = nullptr);
+  static ExecutionEngine *create(Module *M, Config *conf, std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
   ///

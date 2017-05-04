@@ -53,7 +53,7 @@ void Driver::run()
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions. */
-	EE = llvm::Interpreter::create(mod, &buf);
+	EE = llvm::Interpreter::create(mod, userConf, &buf);
 
 	/* Get main program function and run the program */
 	EE->runStaticConstructorsDestructors(false);

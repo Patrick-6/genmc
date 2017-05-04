@@ -15,6 +15,7 @@
 
 #include "config.h"
 
+#include "Config.hpp"
 #include "Interpreter.h"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
@@ -35,7 +36,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(Module *M, Config *conf, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
@@ -58,19 +59,19 @@ ExecutionEngine *Interpreter::create(Module *M, std::string* ErrStr) {
   }
 #endif
 
-  return new Interpreter(M);
+  return new Interpreter(M, conf);
 }
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M)
+Interpreter::Interpreter(Module *M, Config *conf)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
 #else
   : ExecutionEngine(M),
 #endif
-    TD(M) {
+    TD(M), userConf(conf) {
       
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR

@@ -30,7 +30,8 @@ public:
 	std::string transformFile;
 	const char *runCommand;
 	int unroll;
-	bool spinAssume = true;
+	bool spinAssume;
+	bool validateGraph;
 	
 	Config(int argc, char **argv);
 	void getConfigOptions(void);

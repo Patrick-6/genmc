@@ -3072,7 +3072,8 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	}
 
 	while (true) {
-//		validateGraph(g);
+		if (userConf->validateGraph)
+			validateGraph(g);
 		if (scheduleNext(g)) {
 			shouldContinue = true;
 			ExecutionContext &SF = getECStack()->back();

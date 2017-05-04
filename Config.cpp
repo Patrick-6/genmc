@@ -27,6 +27,7 @@ Config::Config(int argc, char **argv)
 
 /* Command-line argument categories */
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
+static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /* Command-line argument types, default values and descriptions */
 static llvm::cl::opt<std::string>
@@ -41,6 +42,9 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation."));
+static llvm::cl::opt<bool>
+clValidateGraph("validate-graph", llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Validate the execution graph in each step."));
 
 
 
@@ -50,7 +54,7 @@ std::string stripExtension(std::string s)
 {
 	return s.erase(s.find_last_of("."), std::string::npos);
 }
-#include<iostream>
+
 void Config::getConfigOptions(void)
 {
 	std::string tmp;
@@ -62,5 +66,6 @@ void Config::getConfigOptions(void)
 	transformFile = clTransformFile;
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
+	validateGraph = clValidateGraph;
 }
 
