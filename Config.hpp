@@ -31,7 +31,8 @@ public:
 	const char *runCommand;
 	int unroll;
 	bool spinAssume;
-	bool validateGraph;
+	bool validateExecGraphs;
+	bool printExecGraphs;
 	
 	Config(int argc, char **argv);
 	void getConfigOptions(void);

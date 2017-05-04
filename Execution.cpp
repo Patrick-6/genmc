@@ -3072,7 +3072,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	}
 
 	while (true) {
-		if (userConf->validateGraph)
+		if (userConf->validateExecGraphs)
 			validateGraph(g);
 		if (scheduleNext(g)) {
 			shouldContinue = true;
@@ -3087,8 +3087,8 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			continue;
 
 		if (workqueue.empty()) {
-//			std::cerr << "Workqueue empty, graph:\n";
-//			printExecGraph(g);
+			if (userConf->printExecGraphs)
+				printExecGraph(g);
 			explored++;
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
@@ -3123,7 +3123,9 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			     it != g.revisit.end(); ++it)
 				if (it->eventIndex <= before[it->threadIndex])
 					g.revisit.erase(it--);
-//			printExecGraph(g);
+
+			if (userConf->printExecGraphs)
+				printExecGraph(g);
 			explored++;
 			ECStacks = initStacks;
 			for (int i = 0; i < initNumThreads; i++)
