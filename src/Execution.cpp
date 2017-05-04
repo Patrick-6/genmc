@@ -230,7 +230,7 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
 {
 	std::vector<int> a(g.threads.size());
 
-	for (int i = 0; i < a.size(); i++)
+	for (unsigned int i = 0; i < a.size(); i++)
 		a[i] = g.maxEvents[i];
 	__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
 	return a;
@@ -291,7 +291,7 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 {
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -312,7 +312,7 @@ static std::vector<Event> getPendingReads(ExecutionGraph &g, Event &RMW, Event &
 {
 	std::vector<Event> pending;
 
-	for (int i = 0; i < g.threads.size(); i++) {
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -399,9 +399,9 @@ static std::vector<std::list<Event> > calcPowerSetElem(std::list<Event> ls, Even
 {
 	std::vector<std::list<Event> > powerSet;
 	unsigned int pSize = pow(2, ls.size());
-	int i, j;
+	unsigned int j;
 	
-	for (i = 1; i < pSize; i++) {
+	for (unsigned i = 1; i < pSize; i++) {
 		std::list<Event> set;
 		bool pushSet = false;
 		j = 0;
@@ -1786,7 +1786,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			
 			/* TODO: Replace this with getGraphState() */
 			std::vector<int> writePreds;
-			for (int k = 0; k < g.threads.size(); k++)
+			for (unsigned int k = 0; k < g.threads.size(); k++)
 				writePreds.push_back(g.maxEvents[k] - 1);
 			
 			for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
@@ -1836,7 +1836,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		if (readPreds.empty()) { /* TODO: Maybe not create object? */
 			addReadToGraph(g, ptr, *it, true);
 			Event e = getLastThreadEvent(g, g.currentT);
-			for (int k = 0; k < g.threads.size(); k++)
+			for (unsigned int k = 0; k < g.threads.size(); k++)
 				readPreds.push_back(g.maxEvents[k] - 1);
 			g.revisit.push_front(e);
 
@@ -1859,7 +1859,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 				/* TODO: Replace this with getGraphState() */
 				std::vector<int> writePreds;
-				for (int k = 0; k < g.threads.size(); k++)
+				for (unsigned int k = 0; k < g.threads.size(); k++)
 					writePreds.push_back(g.maxEvents[k] - 1);
 				
 				for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
