@@ -95,7 +95,7 @@ struct ExecutionContext {
   std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
   CallSite             Caller;     // Holds the call that called subframes.
                                    // NULL if main func or debugger invoked fn
-  //AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
+ AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
 };		
 	
 // Interpreter - This class represents the entirety of the interpreter.
@@ -169,7 +169,12 @@ public:
 
   /* Main functions for visiting an Execution Graph */
   bool scheduleNext(ExecutionGraph &g);	
-  void visitGraph(ExecutionGraph &g);	
+  void visitGraph(ExecutionGraph &g);
+
+	/* Helper functions */
+  GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
+				  Type *typ, GenericValue *ptr,
+				  ExecutionContext &SF);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class? 
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);

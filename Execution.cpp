@@ -57,6 +57,8 @@ std::vector<RevisitPair> *currentStack;
 std::vector<std::vector<ExecutionContext> > initStacks;
 int explored;
 
+bool shouldContinue;
+
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
@@ -226,6 +228,17 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::list<Event> &es)
 	return a;
 }
 
+std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
+{
+	std::vector<int> a(g.threads.size());
+
+	for (int i = 0; i < a.size(); i++)
+		a[i] = g.maxEvents[i];
+	__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
+	return a;
+}
+
+
 static std::list<Event> getAllStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 					  ExecutionContext &SF)
 {
@@ -276,6 +289,40 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 		}
 	}
 	return stores;
+}
+
+static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
+{
+	for (int i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (int j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.rf == write && lab.isRMW) {
+				if (!(std::find(g.revisit.begin(), g.revisit.end(), lab.pos) != g.revisit.end()))
+					return false;
+				std::vector<int> after = calcPorfAfter(g, lab.pos);
+				Event last = getLastThreadEvent(g, g.currentT);
+				if (last.eventIndex >= after[last.threadIndex])
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
+static std::vector<Event> getPendingReads(ExecutionGraph &g, Event &RMW, Event &RMWrf)
+{
+	std::vector<Event> pending;
+
+	for (int i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (int j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.rf == RMWrf && lab.pos != RMW)
+				pending.push_back(lab.pos);
+		}
+	}
+	return pending;
 }
 
 static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
@@ -345,6 +392,31 @@ static std::vector<std::list<Event> > calcPowerSet(std::list<Event> ls)
 			j++;
 		}
 		powerSet.push_back(set);
+	}
+	return powerSet;
+}
+
+/* Calculates all the subsets that contain a particular element for a set of Events */
+static std::vector<std::list<Event> > calcPowerSetElem(std::list<Event> ls, Event elem)
+{
+	std::vector<std::list<Event> > powerSet;
+	unsigned int pSize = pow(2, ls.size());
+	int i, j;
+	
+	for (i = 1; i < pSize; i++) {
+		std::list<Event> set;
+		bool pushSet = false;
+		j = 0;
+		for (std::list<Event>::iterator it = ls.begin(); it != ls.end(); ++it) {
+			if (i & (1 << j)) {
+				if (elem == *it)
+					pushSet = true;
+				set.push_back(*it);
+			}
+			j++;
+		}
+		if (pushSet)
+			powerSet.push_back(set);
 	}
 	return powerSet;
 }
@@ -438,6 +510,22 @@ static void modifyRfs(ExecutionGraph &g, std::list<Event> &es, Event store)
 		if (it->eventIndex <= before[it->threadIndex])
 			g.revisit.erase(it--);
 	return;
+}
+
+/* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
+/* TODO: Maybe return reference? */
+GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
+					     Type *typ, GenericValue *ptr,
+					     ExecutionContext &SF)
+{
+	if (write.isInitializer()) {
+		GenericValue result;
+		LoadValueFromMemory(result, ptr, typ);
+		return result;
+	}
+	
+	EventLabel &lab = getEventLabel(g, write);
+	return lab.val;
 }
 
 #ifdef MY_DEBUG
@@ -1444,8 +1532,35 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitAllocaInst(AllocaInst &I) {
-	if (!dryRun)
+	if (!dryRun) {
+		ExecutionContext &SF = getECStack()->back();
+
+		Type *Ty = I.getType()->getElementType();  // Type to be allocated
+
+		// Get the number of elements being allocated by the array...
+		unsigned NumElements = 
+			getOperandValue(I.getOperand(0), SF).IntVal.getZExtValue();
+
+		unsigned TypeSize = (size_t)TD.getTypeAllocSize(Ty);
+
+		// Avoid malloc-ing zero bytes, use max()...
+		unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
+
+		// Allocate enough memory to hold the type...
+		void *Memory = malloc(MemToAlloc);
+
+		DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x " 
+		      << NumElements << " (Total: " << MemToAlloc << ") at "
+		      << uintptr_t(Memory) << '\n');
+
+		GenericValue Result = PTOGV(Memory);
+		assert(Result.PointerVal && "Null pointer returned by malloc!");
+		SetValue(&I, Result, SF);
+
+		if (I.getOpcode() == Instruction::Alloca)
+			getECStack()->back().Allocas.add(Memory);
 		return;
+	}
   ExecutionContext &SF = ECStack.back();
 
   Type *Ty = I.getType()->getElementType();  // Type to be allocated
@@ -1470,8 +1585,8 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   assert(Result.PointerVal && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
-  /* if (I.getOpcode() == Instruction::Alloca)
-     ECStack.back().Allocas.add(Memory);*/
+   if (I.getOpcode() == Instruction::Alloca)
+	   ECStack.back().Allocas.add(Memory);
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -1536,8 +1651,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		Thread &thr = currentEG->threads[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c) {
 			EventLabel &lab = thr.eventList[c];
-			EventLabel &rfw = getEventLabel(*currentEG, lab.rf);
-			SetValue(&I, rfw.val, SF);
+			GenericValue val = loadValueFromWrite(*currentEG, lab.rf, I.getType(), ptr, SF);
+			SetValue(&I, val, SF);			
 			return;
 		}
 
@@ -1548,7 +1663,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		for (auto s : stores) {
 			/* Mark reads as revisited only in the first graph */
 			if (preds.empty()) { /* TODO: Maybe not create object? */
-				addReadToGraph(*currentEG, ptr, s);
+				addReadToGraph(*currentEG, ptr, s, false);
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
@@ -1582,12 +1697,10 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			return;
 
 		int c = ++globalCount[currentEG->currentT];
-		if (currentEG->maxEvents[currentEG->currentT] > c) {
-			StoreValueToMemory(val, ptr, I.getOperand(0)->getType());
+		if (currentEG->maxEvents[currentEG->currentT] > c)
 			return;
-		}		
 
-		addStoreToGraph(*currentEG, ptr, val);
+		addStoreToGraph(*currentEG, ptr, val, false);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 		std::list<Event> ls = getRevisitLoads(*currentEG, s);
 		std::vector<std::list<Event> > revisitSets = calcPowerSet(ls);
@@ -1597,15 +1710,26 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			preds.push_back(currentEG->maxEvents[k] - 1);
 		for (std::vector<std::list<Event> >::iterator it = revisitSets.begin();
 		     it != revisitSets.end(); ++it) {
-			bool pushSet = true;
+			/* TODO: Replace the below with a function */
+			bool checkSet = true;
 			std::vector<int> after = calcPorfAfter(*currentEG, *it);
 			
 			for (std::list<Event>::iterator li = it->begin();
 			     li != it->end(); ++li) 
 				if (after[li->threadIndex] <= li->eventIndex)
-					pushSet = false;
-			if (pushSet && after[s.threadIndex] > s.eventIndex)
-				currentStack->push_back(RevisitPair(W, s, *it, preds));
+					checkSet = false;
+			if (checkSet && after[s.threadIndex] > s.eventIndex) {
+				RevisitPair p = RevisitPair(W, s, *it, preds);
+//				printRevisitPair(p);
+//				printExecGraph(*currentEG);
+				ExecutionGraph eg;
+//				printExecGraph(g);
+				fillGraphBefore(*currentEG, eg, preds);
+				cutGraphAfter(eg, *it);
+				modifyRfs(eg, *it, s);
+//				printExecGraph(eg);
+				visitGraph(eg);
+			}
 		}
 		return;
 	}
@@ -1619,8 +1743,159 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
-	//std::cerr << "Well, I said hello there\n";
-	dbgs() << "Hello?\n";
+	if (dryRun)
+		dbgs() << "Please do not use CAS operations outside of thread code!\n";
+
+	ExecutionGraph &g = *currentEG;
+	ExecutionContext &SF = getECStack()->back();
+	GenericValue cmpVal = getOperandValue(I.getCompareOperand(), SF);
+	GenericValue newVal = getOperandValue(I.getNewValOperand(), SF);
+	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
+	GenericValue *ptr = (GenericValue *) GVTOP(src);
+	Type *typ = I.getCompareOperand()->getType();
+	GenericValue result;
+
+	/* TODO: Perform the load if it is not a GlobalValue (within if) */
+	if (!isa<GlobalVariable>(I.getPointerOperand()))
+		return;
+
+	int c = ++globalCount[g.currentT];
+	Thread &thr = g.threads[g.currentT];
+	if (c == g.maxEvents[g.currentT] - 1) {
+		EventLabel &lab = thr.eventList[c];
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue()) {
+			std::vector<Event> pendingReads = getPendingReads(g, lab.pos, lab.rf);
+			/* TODO: Fix the check below */
+			WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?\n");
+			if (pendingReads.size() > 1) {
+				std::cerr << lab.pos << " reads from " << lab.rf << std::endl;
+				printExecGraph(g);
+				for (auto r : pendingReads)
+					std::cerr << r << std::endl;
+			}
+			addStoreToGraph(g, ptr, newVal, true);
+			
+			Event s = getLastThreadEvent(g, g.currentT);
+			std::list<Event> ls = getRevisitLoads(g, s);
+			std::vector<std::list<Event> > revisitSets;
+			if (pendingReads.size() == 0) {
+				revisitSets = calcPowerSet(ls);
+			} else {
+				revisitSets = calcPowerSetElem(ls, pendingReads.back());
+				shouldContinue = false;
+			}
+			
+			/* TODO: Replace this with getGraphState() */
+			std::vector<int> writePreds;
+			for (int k = 0; k < g.threads.size(); k++)
+				writePreds.push_back(g.maxEvents[k] - 1);
+			
+			for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
+			     rit != revisitSets.end(); ++rit) {
+				bool checkSet = true;
+				std::vector<int> after = calcPorfAfter(g, *rit);
+				
+				for (std::list<Event>::iterator li = rit->begin();
+				     li != rit->end(); ++li) 
+					if (after[li->threadIndex] <= li->eventIndex)
+						checkSet = false;
+				if (checkSet && after[s.threadIndex] > s.eventIndex) {
+					ExecutionGraph eg;
+//				printExecGraph(g);
+					fillGraphBefore(g, eg, writePreds);
+					cutGraphAfter(eg, *rit);
+					modifyRfs(eg, *rit, s);
+//				printExecGraph(eg);
+					visitGraph(eg);
+				}
+			}
+		}
+			
+		/* TODO: Check move semantics .. */
+		result.AggregateVal.push_back(oldVal);
+		result.AggregateVal.push_back(cmpRes);
+		SetValue(&I, result, SF);
+		return;
+	}
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = thr.eventList[c];
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		result.AggregateVal.push_back(oldVal);
+		result.AggregateVal.push_back(cmpRes);
+		SetValue(&I, result, SF);
+		return;
+	}
+
+	std::list<Event> stores = getStoresToLoc(g, ptr, SF);
+	std::vector<int> readPreds;
+	for (std::list<Event>::iterator it = stores.begin(); it != stores.end(); ++it) {
+		GenericValue oldVal = loadValueFromWrite(g, *it, typ, ptr, SF);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
+			continue;
+		if (readPreds.empty()) { /* TODO: Maybe not create object? */
+			addReadToGraph(g, ptr, *it, true);
+			Event e = getLastThreadEvent(g, g.currentT);
+			for (int k = 0; k < g.threads.size(); k++)
+				readPreds.push_back(g.maxEvents[k] - 1);
+			g.revisit.push_front(e);
+
+			/* Must add store after calling getPendingRMWs() */
+			if (cmpRes.IntVal.getBoolValue()) {
+				std::vector<Event> pendingReads = getPendingReads(g, e, *it);
+				/* TODO: Fix the check below */
+				WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?");
+				addStoreToGraph(g, ptr, newVal, true);
+				
+				Event s = getLastThreadEvent(g, g.currentT);
+				std::list<Event> ls = getRevisitLoads(g, s);
+				std::vector<std::list<Event> > revisitSets;
+				if (pendingReads.size() == 0) {
+					revisitSets = calcPowerSet(ls);
+				} else {
+					revisitSets = calcPowerSetElem(ls, pendingReads.back());
+					shouldContinue = false;
+				}
+
+				/* TODO: Replace this with getGraphState() */
+				std::vector<int> writePreds;
+				for (int k = 0; k < g.threads.size(); k++)
+					writePreds.push_back(g.maxEvents[k] - 1);
+				
+				for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
+				     rit != revisitSets.end(); ++rit) {
+					bool checkSet = true;
+					std::vector<int> after = calcPorfAfter(g, *rit);
+					
+					for (std::list<Event>::iterator li = rit->begin();
+					     li != rit->end(); ++li) 
+						if (after[li->threadIndex] <= li->eventIndex)
+							checkSet = false;
+					if (checkSet && after[s.threadIndex] > s.eventIndex) {
+						ExecutionGraph eg;
+//				printExecGraph(g);
+						fillGraphBefore(g, eg, writePreds);
+						cutGraphAfter(eg, *rit);
+						modifyRfs(eg, *rit, s);
+//				printExecGraph(eg);
+						visitGraph(eg);
+					}
+				}
+			}
+			
+			/* TODO: Check move semantics .. */
+			result.AggregateVal.push_back(oldVal);
+			result.AggregateVal.push_back(cmpRes);
+			SetValue(&I, result, SF);
+		} else {
+			Event e = getLastThreadEvent(g, g.currentT);
+			currentStack->push_back(RevisitPair(R, e, *it, readPreds));
+		}
+	}
+	return;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2219,6 +2494,11 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 }
 
 void Interpreter::visitTruncInst(TruncInst &I) {
+	if (!dryRun) {
+		ExecutionContext &SF = getECStack()->back();
+		SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
+		return;
+	}
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
@@ -2229,6 +2509,12 @@ void Interpreter::visitSExtInst(SExtInst &I) {
 }
 
 void Interpreter::visitZExtInst(ZExtInst &I) {
+	if (!dryRun) {
+		ExecutionContext &SF = getECStack()->back();
+		SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
+		return;
+	}
+		
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
@@ -2449,7 +2735,12 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
 }
 
 void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
-  ExecutionContext &SF = ECStack.back();
+	if (dryRun) {
+		dbgs() << "Please do not use RMWs outside of thread code!\n";
+		return;
+	}
+	
+  ExecutionContext &SF = getECStack()->back();
   Value *Agg = I.getAggregateOperand();
   GenericValue Dest;
   GenericValue Src = getOperandValue(Agg, SF);
@@ -2769,72 +3060,80 @@ bool Interpreter::scheduleNext(ExecutionGraph &g)
 void Interpreter::visitGraph(ExecutionGraph &g)
 {
 	std::vector<RevisitPair> workqueue;
-	
+
+	ExecutionGraph *oldEG = currentEG;
+	std::vector<RevisitPair> *oldStack = currentStack;
+	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
+	bool oldContinue = shouldContinue;
 	currentEG = &g;
 	currentStack = &workqueue;
 	ECStacks = initStacks;
-
-	for (int i = 0; i < initNumThreads; i++)
+	std::vector<int> oldGlobalCount;
+	for (int i = 0; i < initNumThreads; i++) {
+		oldGlobalCount.push_back(globalCount[i]);
 		globalCount[i] = 0;
+	}
 
 	while (true) {
 //		validateGraph(g);
 		if (scheduleNext(g)) {
+			shouldContinue = true;
 			ExecutionContext &SF = getECStack()->back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 		} else {
-			if (workqueue.empty()) {
-//				std::cerr << "Workqueue empty, graph:\n";
-//				printExecGraph(g);
-				explored++;
-				return;
-			}
-			
-			RevisitPair &p = workqueue.back();
-//			std::cerr << "Popping from workqueue...\n";
-
-			if (p.type == R) {
-//				printRevisitPair(p);
-//				printExecGraph(g);
-				cutGraphBefore(g, p.preds);
-
-				EventLabel &lab1 = getEventLabel(g, p.e);
-				Event oldRf = lab1.rf;
-				lab1.rf = p.rf;
-				if (!p.rf.isInitializer()) {
-					EventLabel &lab2 = getEventLabel(g, p.rf);
-					lab2.rfm1.push_front(p.e);
-				}
-				if (!oldRf.isInitializer()) {
-					EventLabel &lab3 = getEventLabel(g, oldRf);
-					lab3.rfm1.remove(p.e);
-				}
-				std::vector<int> before = calcPorfBefore(g, p.e);
-				for (std::list<Event>::iterator it = g.revisit.begin();
-				     it != g.revisit.end(); ++it)
-					if (it->eventIndex <= before[it->threadIndex])
-						g.revisit.erase(it--);
-//				printExecGraph(g);
-				explored++;
-				ECStacks = initStacks;
-				for (int i = 0; i < initNumThreads; i++)
-					globalCount[i] = 0;
-			} else {
-//				printRevisitPair(p);
-				/* Make a new Execution Graph and fill it in */
-				ExecutionGraph eg;
-//				printExecGraph(g);
-				fillGraphBefore(g, eg, p.preds);
-				cutGraphAfter(eg, p.ls);
-				modifyRfs(eg, p.ls, p.e);
-//				printExecGraph(eg);
-				visitGraph(eg);
-				currentEG = &g;
-				currentStack = &workqueue;
-			}
-			workqueue.pop_back();
+			shouldContinue = false;
 		}
+
+		if (shouldContinue)
+			continue;
+
+		if (workqueue.empty()) {
+//			std::cerr << "Workqueue empty, graph:\n";
+//			printExecGraph(g);
+			explored++;
+			for (int i = 0; i < initNumThreads; i++)
+				globalCount[i] = oldGlobalCount[i];
+			shouldContinue = oldContinue;
+			ECStacks = oldECStacks;
+			currentStack = oldStack;
+			currentEG = oldEG;
+			return;
+		}
+			
+		RevisitPair &p = workqueue.back();
+//		std::cerr << "Popping from workqueue...\n";
+
+		if (p.type == R) {
+//			printRevisitPair(p);
+//			printExecGraph(g);
+			cutGraphBefore(g, p.preds);
+			
+			EventLabel &lab1 = getEventLabel(g, p.e);
+			Event oldRf = lab1.rf;
+			lab1.rf = p.rf;
+			if (!p.rf.isInitializer()) {
+				EventLabel &lab2 = getEventLabel(g, p.rf);
+				lab2.rfm1.push_front(p.e);
+			}
+			if (!oldRf.isInitializer()) {
+				EventLabel &lab3 = getEventLabel(g, oldRf);
+				lab3.rfm1.remove(p.e);
+			}
+			std::vector<int> before = calcPorfBefore(g, p.e);
+			for (std::list<Event>::iterator it = g.revisit.begin();
+			     it != g.revisit.end(); ++it)
+				if (it->eventIndex <= before[it->threadIndex])
+					g.revisit.erase(it--);
+//			printExecGraph(g);
+			explored++;
+			ECStacks = initStacks;
+			for (int i = 0; i < initNumThreads; i++)
+				globalCount[i] = 0;
+		} else {
+			WARN("This should not happen\n");
+		}
+		workqueue.pop_back();
 	}
 }
 

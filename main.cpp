@@ -30,11 +30,11 @@ int main(int argc, char **argv)
 	Config *conf = new Config(argc, argv);
 
 	conf->getConfigOptions(); 
-	if (system(conf->runCommand)) { /* TODO: Fix this! Fork process.. */
-		WARN("Compilation failed! Aborting...");
-		delete conf;
-		return -ECOMPILE;
-	}
+	// if (system(conf->runCommand)) { /* TODO: Fix this! Fork process.. */
+	// 	WARN("Compilation failed! Aborting...");
+	// 	delete conf;
+	// 	return -ECOMPILE;
+	// }
 
 	Driver *driver = new Driver(conf);
 	
