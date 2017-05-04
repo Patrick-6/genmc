@@ -53,7 +53,8 @@ std::ostream& operator<<(std::ostream &s, const Event &e)
 	return s << "Event (Thread: " << e.threadIndex << ", Index: " << e.eventIndex << ")";
 }
 
-std::ostream& operator<<(std::ostream &s, const EventLabel &e)
+std::ostream& operator<<(std::ostream &s, const EventLabel &lab)
 {
-	return s << "EventLabel (Type: " << e.type << ", " << e.pos << ")";
+	return s << "EventLabel (Type: " << lab.type << ", "
+		 << lab.pos << (lab.isRMW ? ", RMW" : "") << ")";
 }

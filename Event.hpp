@@ -70,7 +70,7 @@ public:
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
 		   llvm::GenericValue val, bool rmw); /* Writes */
 
-	friend std::ostream& operator<<(std::ostream &s, const EventLabel &e);
+	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);
 };
 
 #endif /* __EVENT_HPP__ */
