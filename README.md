@@ -39,7 +39,7 @@ Most likely, it also works for all those in between.
 
 For a default build issue:
 
-		autoreconf
+		autoreconf --install
 		./configure
 		make
 
