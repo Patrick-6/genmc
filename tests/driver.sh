@@ -18,7 +18,7 @@
 #
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
-RCMC=../rcmc
+RCMC=../src/rcmc
 
 runfailure() {
     test_file=$1
