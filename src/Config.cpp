@@ -43,8 +43,8 @@ static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation."));
 static llvm::cl::opt<bool>
-clValidateExecGraphs("validate-exec-graph", llvm::cl::cat(clDebugging),
-		     llvm::cl::desc("Validate the execution graph in each step."));
+clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
+		     llvm::cl::desc("Validate the execution graphs in each step."));
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs."));
