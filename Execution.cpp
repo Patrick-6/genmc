@@ -1769,12 +1769,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			std::vector<Event> pendingReads = getPendingReads(g, lab.pos, lab.rf);
 			/* TODO: Fix the check below */
 			WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?\n");
-			if (pendingReads.size() > 1) {
-				std::cerr << lab.pos << " reads from " << lab.rf << std::endl;
-				printExecGraph(g);
-				for (auto r : pendingReads)
-					std::cerr << r << std::endl;
-			}
+			// if (pendingReads.size() > 1) {
+			// 	std::cerr << lab.pos << " reads from " << lab.rf << std::endl;
+			// 	printExecGraph(g);
+			// 	for (auto r : pendingReads)
+			// 		std::cerr << r << std::endl;
+			// }
 			addStoreToGraph(g, ptr, newVal, true);
 			
 			Event s = getLastThreadEvent(g, g.currentT);
