@@ -2,11 +2,21 @@ rcmc
 
 *.dwo
 
+.deps
+librcmc.a
+
+Makefile
+Makefile.in
 aclocal.m4
+ar-lib
 autom4te.cache
+compile
 config.h
 config.h.in
 config.guess
 config.status
 configure
+depcomp
+install-sh
+missing
 stamp-*

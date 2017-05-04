@@ -2,14 +2,17 @@ AC_INIT([rcmc], [0.1], [kostis@it.uu.se])
 
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_clang.m4])
-#AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CXX
+AC_PROG_RANLIB
+AM_PROG_AR
 
 AC_LANG([C++])
 
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 
+## XXX: List below is currently INCOMPLETE
 AC_CHECK_HEADERS([\
   stdlib.h \
   llvm/ExecutionEngine/ExecutionEngine.h \
@@ -314,4 +317,5 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 
 
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
