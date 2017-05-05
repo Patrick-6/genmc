@@ -38,7 +38,7 @@ void RCMCDriver::parseLLVMFile(const std::string &fileName)
 void RCMCDriver::parseRun()
 {
 	/* Parse source code from input file and get an LLVM module */
-	parseLLVMFile(userConf->inputBitcodeFile);
+	parseLLVMFile(userConf->inputFile);
 	mod = LLVMModule::getLLVMModule(sourceCode);
 	run();
 }

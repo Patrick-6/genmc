@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	Config *conf = new Config(argc, argv);
 	
 	conf->getConfigOptions();
-	if (conf->inputBitcodeFile != "") {
+	if (conf->inputFromBitcodeFile) {
 		RCMCDriver *driver = new RCMCDriver(conf);
 		driver->parseRun();
 		delete conf;
@@ -95,6 +95,8 @@ int main(int argc, char **argv)
 
 	SmallVector<const char *, 16> Args;//(argv, argv + argc);
 	Args.push_back("-fsyntax-only");
+	for (auto &f : conf->cflags)
+		Args.push_back(f.c_str());
 	Args.push_back(conf->inputFile.c_str());
 	std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
 	if (!C)

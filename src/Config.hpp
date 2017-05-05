@@ -25,11 +25,12 @@
 
 class Config {
 public:
+	std::vector<std::string> cflags;
 	std::string inputFile;
 	std::string transformFile;
-	std::string inputBitcodeFile;
 	int unroll;
 	bool spinAssume;
+	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool printExecGraphs;
 	

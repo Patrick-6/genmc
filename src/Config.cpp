@@ -30,6 +30,8 @@ static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /* Command-line argument types, default values and descriptions */
+llvm::cl::list<std::string>
+clCFLAGS(llvm::cl::Positional, llvm::cl::desc("CFLAGS"), llvm::cl::ZeroOrMore);
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
 static llvm::cl::opt<std::string>
@@ -44,10 +46,9 @@ clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation."));
 
 
-static llvm::cl::opt<std::string>
-clInputBitcodeFile("input-bitcode-file", llvm::cl::cat(clDebugging),
-		   llvm::cl::init(""), llvm::cl::value_desc("file"),
-		   llvm::cl::desc("Read LLVM bitcode directly from file."));
+static llvm::cl::opt<bool>
+clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
+		       llvm::cl::desc("Read LLVM bitcode directly from file."));
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step."));
@@ -55,23 +56,15 @@ static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs."));
 
-
-/* TODO: Maybe move string functions to another file? */
-std::string stripExtension(std::string s)
-{
-	return s.erase(s.find_last_of("."), std::string::npos);
-}
-
 void Config::getConfigOptions(void)
 {
-	std::string tmp;
-	
+	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
 	transformFile = clTransformFile;
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
 	validateExecGraphs = clValidateExecGraphs;
 	printExecGraphs = clPrintExecGraphs;
-	inputBitcodeFile = clInputBitcodeFile;
+	inputFromBitcodeFile = clInputFromBitcodeFile;
 }
 
