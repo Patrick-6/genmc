@@ -61,8 +61,12 @@ clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 
 void Config::getConfigOptions(void)
 {
+#ifdef LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT
 	 llvm::StringMap<llvm::cl::Option*> opts;
 	 llvm::cl::getRegisteredOptions(opts);
+#else
+	 llvm::StringMap<llvm::cl::Option*> &opts = llvm::cl::getRegisteredOptions();
+#endif
 	 for (auto it = opts.begin(); it != opts.end(); ++it)
 		 if (visibleOptions.count(it->getKey()) == 0)
 			 it->getValue()->setHiddenFlag(llvm::cl::Hidden);
