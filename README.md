@@ -43,16 +43,20 @@ For a default build issue:
 		./configure
 		make
 
+This will leave the `rcmc` executable in the `src` directory.
+You can either run it from there (as in the examples below), move it to
+some other place (e.g., in the top-level directory) or create a link to it.
+
 <a name="usage">Usage</a>
 -------------------------
 
 * To see a list of available options run:
 
-		./rcmc --help
+		./src/rcmc --help
 		
 * To run a particular testcase run:
 
-		./rcmc [options] <file>
+		./src/rcmc [options] <file>
 
 <a name="features">Features</a>
 -------------------------------
