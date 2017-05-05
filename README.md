@@ -29,7 +29,7 @@ later. Please see the LICENSE file for details.
 In order to use the tool on a Debian-based installation, you will need the
 following packages:
 
-		autoconf  automake  clang  llvm  llvm-dev  libffi-dev
+		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
 
 We have tested the tool with LLVM versions 3.5.0 and 3.8.1.
 Most likely, it also works for all those in between.
