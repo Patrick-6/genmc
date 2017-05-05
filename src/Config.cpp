@@ -20,10 +20,7 @@
 
 #include "Config.hpp"
 
-Config::Config(int argc, char **argv)
-{
-	llvm::cl::ParseCommandLineOptions(argc, argv);
-}
+Config::Config(int argc, char **argv) : argc(argc), argv(argv) {}
 
 /* Command-line argument categories */
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
@@ -58,6 +55,8 @@ clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 
 void Config::getConfigOptions(void)
 {
+	llvm::cl::ParseCommandLineOptions(argc, argv);
+
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
 	transformFile = clTransformFile;

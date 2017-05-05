@@ -24,6 +24,11 @@
 #include <llvm/Support/CommandLine.h>
 
 class Config {
+
+protected:
+	int argc;
+	const char **argv;
+	
 public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
@@ -33,7 +38,7 @@ public:
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool printExecGraphs;
-	
+
 	Config(int argc, char **argv);
 	void getConfigOptions(void);
 };
