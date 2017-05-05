@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "config.h"
 #include "Config.hpp"
 #include "RCMCDriver.hpp"
 #include "Error.hpp"

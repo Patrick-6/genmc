@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "config.h"
 #include "Config.hpp"
 
 Config::Config(int argc, char **argv) : argc(argc), argv(argv)
