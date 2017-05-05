@@ -22,12 +22,13 @@
 #define __CONFIG_HPP__
 
 #include <llvm/Support/CommandLine.h>
+#include <set>
 
 class Config {
 
 protected:
 	int argc;
-	const char **argv;
+	char **argv;
 	
 public:
 	std::vector<std::string> cflags;
@@ -38,6 +39,7 @@ public:
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool printExecGraphs;
+	std::set<std::string> visibleOptions;
 
 	Config(int argc, char **argv);
 	void getConfigOptions(void);

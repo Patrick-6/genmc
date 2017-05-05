@@ -20,7 +20,13 @@
 
 #include "Config.hpp"
 
-Config::Config(int argc, char **argv) : argc(argc), argv(argv) {}
+Config::Config(int argc, char **argv) : argc(argc), argv(argv)
+{
+	visibleOptions =
+		{"transform-output", "unroll", "disable-spin-assume",
+		 "input-from-bitcode-file", "validate-exec-graphs",
+		 "print-exec-graphs", "version"};
+}
 
 /* Command-line argument categories */
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
@@ -55,6 +61,12 @@ clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 
 void Config::getConfigOptions(void)
 {
+	 llvm::StringMap<llvm::cl::Option*> opts;
+	 llvm::cl::getRegisteredOptions(opts);
+	 for (auto it = opts.begin(); it != opts.end(); ++it)
+		 if (visibleOptions.count(it->getKey()) == 0)
+			 it->getValue()->setHiddenFlag(llvm::cl::Hidden);
+
 	llvm::cl::ParseCommandLineOptions(argc, argv);
 
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());

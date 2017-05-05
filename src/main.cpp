@@ -62,7 +62,6 @@ std::string GetExecutablePath(const char *Argv0)
 int main(int argc, char **argv)
 {
 	Config *conf = new Config(argc, argv);
-	
 	conf->getConfigOptions();
 	if (conf->inputFromBitcodeFile) {
 		RCMCDriver *driver = new RCMCDriver(conf);
@@ -72,7 +71,6 @@ int main(int argc, char **argv)
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 		return 0;
 	}
-		
 
 	void *MainAddr = (void*) (intptr_t) GetExecutablePath;
 	std::string Path = GetExecutablePath(argv[0]);
