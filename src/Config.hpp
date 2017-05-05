@@ -26,9 +26,8 @@
 class Config {
 public:
 	std::string inputFile;
-	std::string IRFile;
 	std::string transformFile;
-	const char *runCommand;
+	std::string inputBitcodeFile;
 	int unroll;
 	bool spinAssume;
 	bool validateExecGraphs;

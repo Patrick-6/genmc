@@ -19,35 +19,35 @@
  */
 
 #include "Config.hpp"
-#include "Driver.hpp"
+#include "RCMCDriver.hpp"
 #include "LLVMModule.hpp"
 #include "ExecutionGraph.hpp"
 #include "Interpreter.h"
 #include <llvm/IR/Verifier.h>
 
-Driver::Driver(Config *conf)
-{
-	userConf = conf;
-}
+RCMCDriver::RCMCDriver(Config *conf) : userConf(conf) {}
+RCMCDriver::RCMCDriver(Config *conf, llvm::Module *mod) : userConf(conf), mod(mod) {}
 
 /* TODO: Need to pass by reference? Maybe const? */
-void Driver::parseLLVMFile(const std::string &fileName)
+void RCMCDriver::parseLLVMFile(const std::string &fileName)
 {
 	Parser fileParser;
 	sourceCode = fileParser.readFile(fileName);
 }
 
-#include <llvm/Support/Debug.h>
+void RCMCDriver::parseRun()
+{
+	/* Parse source code from input file and get an LLVM module */
+	parseLLVMFile(userConf->inputBitcodeFile);
+	mod = LLVMModule::getLLVMModule(sourceCode);
+	run();
+}
 
-void Driver::run()
+void RCMCDriver::run()
 {
 	std::string buf;
-	llvm::Module *mod;
 	llvm::ExecutionEngine *EE;
 
-	/* Parse source code from input file and get an LLVM module */
-	parseLLVMFile(userConf->IRFile);
-	mod = LLVMModule::getLLVMModule(sourceCode);
 	LLVMModule::transformLLVMModule(*mod, userConf);
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);

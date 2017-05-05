@@ -42,14 +42,18 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation."));
+
+
+static llvm::cl::opt<std::string>
+clInputBitcodeFile("input-bitcode-file", llvm::cl::cat(clDebugging),
+		   llvm::cl::init(""), llvm::cl::value_desc("file"),
+		   llvm::cl::desc("Read LLVM bitcode directly from file."));
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step."));
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs."));
-
-
 
 
 /* TODO: Maybe move string functions to another file? */
@@ -63,13 +67,11 @@ void Config::getConfigOptions(void)
 	std::string tmp;
 	
 	inputFile = clInputFile;
-	IRFile = stripExtension(clInputFile) + ".ll";
-	tmp = "clang -o " + IRFile + " -S -emit-llvm " + inputFile;
-	runCommand = tmp.c_str();
 	transformFile = clTransformFile;
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
 	validateExecGraphs = clValidateExecGraphs;
 	printExecGraphs = clPrintExecGraphs;
+	inputBitcodeFile = clInputBitcodeFile;
 }
 

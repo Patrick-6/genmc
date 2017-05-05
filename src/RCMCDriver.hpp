@@ -19,17 +19,21 @@
  */
 
 #include "Parser.hpp"
+#include <llvm/IR/Module.h>
 
-class Driver {
+class RCMCDriver {
 
 private:
 	std::string sourceCode;
 	Config *userConf;
+	llvm::Module *mod;
 
 	void parseLLVMFile(const std::string &fileName);
 	
 public:
-	Driver(Config *cfg); /* TODO: Check pass by ref */
+	RCMCDriver(Config *conf);
+	RCMCDriver(Config *conf, llvm::Module *mod); /* TODO: Check pass by ref */
 	void run();
+	void parseRun();
 };
 	
