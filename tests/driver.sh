@@ -24,7 +24,7 @@ runfailure() {
     test_file=$1
     shift
     
-    if "${RCMC}" "${test_file}"
+    if time -p "${RCMC}" "${test_file}"
     then
 	echo -n 'FAILED! Unexpected test success!'
 	failure=1
@@ -35,7 +35,7 @@ runsuccess() {
     test_file=$1
     shift
     
-    if "${RCMC}" "${test_file}"
+    if time -p "${RCMC}" "${test_file}"
     then
 	:
     else
@@ -44,10 +44,13 @@ runsuccess() {
     fi
 }
 
+total_time=0
+
 runtest() {
     dir=$1
-    echo -n '\tTestcase:' "${dir##*/}... "
+    echo -n 'Testcase:' "${dir##*/}... "
     vars=0
+    test_time=0
     expected=""
     failed=""
     if test -f "${dir}/expected.in"
@@ -59,7 +62,11 @@ runtest() {
 	vars=$((vars+1))
 	if clang -S -emit-llvm -o "${t%.*}.ll" "${t}"
 	then
-	    explored=`runsuccess "${t}" 2>&1 | awk '{ print $5 }'`
+	    output=`runsuccess "${t}" 2>&1`
+	    explored=`echo "${output}" | awk '/explored/ { print $5 }'`
+	    time=`echo "${output}" | awk '/real/ { print $2 }'`
+	    test_time=`echo "${test_time}+${time}" | bc -l`
+	    total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
 	    expected="${expected:-${explored}}"
 	    if test "${expected}" != "${explored}"
 	    then
@@ -74,13 +81,15 @@ runtest() {
     done
     if test -n "${failed}"
     then
+	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
 	echo 'FAILED! Inconsistent results:'
 	echo "\t\t${explored_failed:-0}" 'executions were explored, instead of' \
-	     "${expected}" 'that were expected!'
+	     "${expected}" 'that were expected! Avg.time' "${average_time}"
 	failure=1
     else
+	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
 	echo 'Successful (Explored' "${expected}" 'executions in all' \
-	     "${vars}" 'variations)'
+	     "${vars}" 'variations). Avg. time:' "${average_time}"
     fi
 }
 
@@ -104,7 +113,7 @@ then
     then
 	runtest "${testcase}"
     else
-	echo "\tTestcase does not exist!"
+	echo "Testcase does not exist!"
 	failure=1
     fi
 else
@@ -119,7 +128,7 @@ then
     exit 1
 else
     echo '\n--------------------------------------------------------------------'
-    echo '--- ' Testing proceeded as expected
+    echo '--- ' Testing proceeded as expected. Total time: "${total_time}"
     echo '--------------------------------------------------------------------'
     exit 0
 fi
