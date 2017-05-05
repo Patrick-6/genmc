@@ -60,23 +60,16 @@ runtest() {
     for t in $dir/*.c
     do
 	vars=$((vars+1))
-	if clang -S -emit-llvm -o "${t%.*}.ll" "${t}"
+	output=`runsuccess "${t}" 2>&1`
+	explored=`echo "${output}" | awk '/explored/ { print $5 }'`
+	time=`echo "${output}" | awk '/real/ { print $2 }'`
+	test_time=`echo "${test_time}+${time}" | bc -l`
+	total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
+	expected="${expected:-${explored}}"
+	if test "${expected}" != "${explored}"
 	then
-	    output=`runsuccess "${t}" 2>&1`
-	    explored=`echo "${output}" | awk '/explored/ { print $5 }'`
-	    time=`echo "${output}" | awk '/real/ { print $2 }'`
-	    test_time=`echo "${test_time}+${time}" | bc -l`
-	    total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
-	    expected="${expected:-${explored}}"
-	    if test "${expected}" != "${explored}"
-	    then
-		explored_failed="${explored}"
-		failed=1
-	    fi
-	    rm -rf "${t%.*}.ll"
-	else
-	    echo 'Malformed testcase!!! Exiting...'
-	    exit 2
+	    explored_failed="${explored}"
+	    failed=1
 	fi
     done
     if test -n "${failed}"
