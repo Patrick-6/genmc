@@ -31,7 +31,7 @@ static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /* Command-line argument types, default values and descriptions */
 llvm::cl::list<std::string>
-clCFLAGS(llvm::cl::Positional, llvm::cl::desc("CFLAGS"), llvm::cl::ZeroOrMore);
+clCFLAGS(llvm::cl::Positional, llvm::cl::desc("-- CFLAGS"), llvm::cl::ZeroOrMore);
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
 static llvm::cl::opt<std::string>
