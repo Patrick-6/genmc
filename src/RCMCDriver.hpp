@@ -26,13 +26,13 @@ class RCMCDriver {
 private:
 	std::string sourceCode;
 	Config *userConf;
-	llvm::Module *mod;
+	std::unique_ptr<llvm::Module> mod;
 
 	void parseLLVMFile(const std::string &fileName);
 	
 public:
 	RCMCDriver(Config *conf);
-	RCMCDriver(Config *conf, llvm::Module *mod); /* TODO: Check pass by ref */
+	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod); /* TODO: Check pass by ref */
 	void run();
 	void parseRun();
 };

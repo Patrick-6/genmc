@@ -26,7 +26,7 @@
 #include <llvm/IR/Verifier.h>
 
 RCMCDriver::RCMCDriver(Config *conf) : userConf(conf) {}
-RCMCDriver::RCMCDriver(Config *conf, llvm::Module *mod) : userConf(conf), mod(mod) {}
+RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod) : userConf(conf), mod(std::move(mod)) {}
 
 /* TODO: Need to pass by reference? Maybe const? */
 void RCMCDriver::parseLLVMFile(const std::string &fileName)
@@ -39,7 +39,7 @@ void RCMCDriver::parseRun()
 {
 	/* Parse source code from input file and get an LLVM module */
 	parseLLVMFile(userConf->inputFile);
-	mod = LLVMModule::getLLVMModule(sourceCode);
+	mod = std::unique_ptr<llvm::Module>(LLVMModule::getLLVMModule(sourceCode));
 	run();
 }
 
@@ -53,7 +53,7 @@ void RCMCDriver::run()
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions. */
-	EE = llvm::Interpreter::create(mod, userConf, &buf);
+	EE = llvm::Interpreter::create(&*mod, userConf, &buf);
 
 	/* Get main program function and run the program */
 	EE->runStaticConstructorsDestructors(false);

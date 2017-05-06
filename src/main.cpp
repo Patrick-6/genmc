@@ -139,7 +139,12 @@ int main(int argc, char **argv)
 		return 1;
 
 	int Res = 255;
+#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR	
 	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule());
+#else
+	RCMCDriver *driver =
+		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()));
+#endif
 	
 	driver->run();
 
