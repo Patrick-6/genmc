@@ -308,7 +308,7 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 	return true;
 }
 
-static std::vector<Event> getPendingReads(ExecutionGraph &g, Event &RMW, Event &RMWrf)
+static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &RMWrf)
 {
 	std::vector<Event> pending;
 
@@ -316,7 +316,8 @@ static std::vector<Event> getPendingReads(ExecutionGraph &g, Event &RMW, Event &
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.rf == RMWrf && lab.pos != RMW)
+			if (lab.type == R && lab.isRMW &&
+			    lab.rf == RMWrf && lab.pos != RMW)
 				pending.push_back(lab.pos);
 		}
 	}
@@ -1762,7 +1763,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			std::vector<Event> pendingReads = getPendingReads(g, lab.pos, lab.rf);
+			std::vector<Event> pendingReads = getPendingRMWs(g, lab.pos, lab.rf);
 			/* TODO: Fix the check below */
 			WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?\n");
 			// if (pendingReads.size() > 1) {
@@ -1842,7 +1843,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 			/* Must add store after calling getPendingRMWs() */
 			if (cmpRes.IntVal.getBoolValue()) {
-				std::vector<Event> pendingReads = getPendingReads(g, e, *it);
+				std::vector<Event> pendingReads = getPendingRMWs(g, e, *it);
 				/* TODO: Fix the check below */
 				WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?");
 				addStoreToGraph(g, ptr, newVal, true);
