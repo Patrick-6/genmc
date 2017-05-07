@@ -1640,9 +1640,12 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		/* TODO: Perform the load if it is not a GlobalValue (within if) */
-		if (!isa<GlobalVariable>(I.getPointerOperand()))
-			return;
+		if (!isa<GlobalVariable>(I.getPointerOperand())) {
+			  GenericValue Result;
+			  LoadValueFromMemory(Result, ptr, I.getType());
+			  SetValue(&I, Result, SF);
+			  return;
+		}
 
 		int c = ++globalCount[currentEG->currentT];
 		Thread &thr = currentEG->threads[currentEG->currentT];
@@ -1665,6 +1668,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
 				currentEG->revisit.push_front(e);
+				GenericValue val = loadValueFromWrite(*currentEG, s, I.getType(), ptr, SF);
+				SetValue(&I, val, SF);
 			} else {
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 				currentStack->push_back(RevisitPair(R, e, s, preds));
@@ -1689,9 +1694,10 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		/* TODO: Perform the store if it is not a GlobalValue (within if) */		
-		if (!isa<GlobalVariable>(I.getPointerOperand()))
+		if (!isa<GlobalVariable>(I.getPointerOperand())) {
+			StoreValueToMemory(val, ptr, I.getOperand(0)->getType());
 			return;
+		}
 
 		int c = ++globalCount[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c)
@@ -1752,9 +1758,18 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	Type *typ = I.getCompareOperand()->getType();
 	GenericValue result;
 
-	/* TODO: Perform the load if it is not a GlobalValue (within if) */
-	if (!isa<GlobalVariable>(I.getPointerOperand()))
+	/* TODO: Check if the operations below are correct */
+	if (!isa<GlobalVariable>(I.getPointerOperand())) {
+		GenericValue oldVal;
+		LoadValueFromMemory(oldVal, ptr, typ);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue())
+			StoreValueToMemory(newVal, ptr, typ);
+		result.AggregateVal.push_back(oldVal);
+		result.AggregateVal.push_back(cmpRes);
+		SetValue(&I, result, SF);
 		return;
+	}
 
 	int c = ++globalCount[g.currentT];
 	Thread &thr = g.threads[g.currentT];
@@ -1889,7 +1904,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			result.AggregateVal.push_back(cmpRes);
 			SetValue(&I, result, SF);
 		} else {
-			Event e = getLastThreadEvent(g, g.currentT);
+			Event e = g.threads[g.currentT].eventList[readPreds[g.currentT]].pos;
 			currentStack->push_back(RevisitPair(R, e, *it, readPreds));
 		}
 	}
@@ -3106,8 +3121,10 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		if (p.type == R) {
 //			printRevisitPair(p);
 //			printExecGraph(g);
-			cutGraphBefore(g, p.preds);
+			if (userConf->printExecGraphs)
+				printExecGraph(g);
 			
+			cutGraphBefore(g, p.preds);
 			EventLabel &lab1 = getEventLabel(g, p.e);
 			Event oldRf = lab1.rf;
 			lab1.rf = p.rf;
@@ -3124,9 +3141,6 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			     it != g.revisit.end(); ++it)
 				if (it->eventIndex <= before[it->threadIndex])
 					g.revisit.erase(it--);
-
-			if (userConf->printExecGraphs)
-				printExecGraph(g);
 			explored++;
 			ECStacks = initStacks;
 			for (int i = 0; i < initNumThreads; i++)
