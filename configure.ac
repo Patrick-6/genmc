@@ -112,8 +112,25 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR],[1],
             [Define if Module::MaterializeAllPermanenty has signature std::string* -> bool])
             AC_MSG_RESULT([string* -> bool])],
-           [AC_MSG_RESULT([use materializeAll instead])])
-])
+           [AC_MSG_RESULT([use materializeAll instead])
+	    ## Check the signature of llvm::Module::materializeAll
+	    AC_MSG_CHECKING([the signature of llvm::Module::materializeAll])
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Error.h>
+#if defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#elif defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#endif
+]],[[
+  llvm::Module *M = 0;
+  llvm::Error Err = M->materializeAll();
+]])],
+           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR],[1],
+            [Define if Module::materializeAll has signature () -> llvm::Error])
+            AC_MSG_RESULT([() -> llvm::Error])],
+           [AC_MSG_RESULT([() -> llvm::error_code])])
+])])
 
 ## Check if the value F_None in llvm::sys::fs::OpenFlags exists
 AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags (F_None)])
