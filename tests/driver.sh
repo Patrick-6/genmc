@@ -33,9 +33,10 @@ runfailure() {
 
 runsuccess() {
     test_file=$1
-    shift
-    
-    if time -p "${RCMC}" "${test_file}"
+    test_args=$2
+    shift 2
+
+    if time -p "${RCMC}" -- "${test_args}" "${test_file}"
     then
 	:
     else
@@ -51,16 +52,21 @@ runtest() {
     echo -n 'Testcase:' "${dir##*/}... "
     vars=0
     test_time=0
+    test_args=""
     expected=""
     failed=""
     if test -f "${dir}/expected.in"
     then
 	expected=`head -n 1 "${dir}/expected.in"`
     fi
+    if test -f "${dir}/args.in"
+    then
+	test_args=`head -n 1 "${dir}/args.in"`
+    fi
     for t in $dir/*.c
     do
 	vars=$((vars+1))
-	output=`runsuccess "${t}" 2>&1`
+	output=`runsuccess "${t}" "${test_args}" 2>&1`
 	explored=`echo "${output}" | awk '/explored/ { print $5 }'`
 	time=`echo "${output}" | awk '/real/ { print $2 }'`
 	test_time=`echo "${test_time}+${time}" | bc -l`
@@ -81,7 +87,7 @@ runtest() {
 	failure=1
     else
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	echo 'Successful (Explored' "${expected}" 'executions in all' \
+	echo 'Successful (Explored' "${expected}" 'executions in' \
 	     "${vars}" 'variations). Avg. time:' "${average_time}"
     fi
 }
