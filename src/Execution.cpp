@@ -58,6 +58,7 @@ std::vector<std::vector<ExecutionContext> > initStacks;
 int explored;
 
 bool shouldContinue;
+bool globalAccess = false;
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -1230,7 +1231,7 @@ static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
 }
 
 void Interpreter::visitBinaryOperator(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -1629,6 +1630,14 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 }
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
+	if (!dryRun) {
+		if (isa<Constant>(I.getPointerOperand()))
+			globalAccess = true;
+		ExecutionContext &SF = getECStack()->back();
+		SetValue(&I, executeGEPOperation(I.getPointerOperand(),
+						 gep_type_begin(I), gep_type_end(I), SF), SF);
+		return;
+	}
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                    gep_type_begin(I), gep_type_end(I), SF), SF);
@@ -1640,13 +1649,14 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		if (!isa<GlobalVariable>(I.getPointerOperand())) {
-			  GenericValue Result;
+		if (!isa<GlobalVariable>(I.getPointerOperand()) && !globalAccess) {
+			GenericValue Result;
 			  LoadValueFromMemory(Result, ptr, I.getType());
 			  SetValue(&I, Result, SF);
 			  return;
 		}
 
+		globalAccess = false;
 		int c = ++globalCount[currentEG->currentT];
 		Thread &thr = currentEG->threads[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c) {
@@ -1694,11 +1704,12 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		if (!isa<GlobalVariable>(I.getPointerOperand())) {
+		if (!isa<GlobalVariable>(I.getPointerOperand()) && !globalAccess) {
 			StoreValueToMemory(val, ptr, I.getOperand(0)->getType());
 			return;
 		}
 
+		globalAccess = false;
 		int c = ++globalCount[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c)
 			return;
@@ -2517,6 +2528,11 @@ void Interpreter::visitTruncInst(TruncInst &I) {
 }
 
 void Interpreter::visitSExtInst(SExtInst &I) {
+	if (!dryRun) {
+		ExecutionContext &SF = getECStack()->back();
+		SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
+		return;
+	}
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
@@ -2573,7 +2589,7 @@ void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
 }
 
 void Interpreter::visitBitCastInst(BitCastInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2968,25 +2984,13 @@ void Interpreter::callPthreadCreate(Function *F,
 		SF.CurFunction = calledFun;
 		SF.CurBB = &calledFun->front();
 		SF.CurInst = SF.CurBB->begin();
-		
-		// Run through the function arguments and initialize their values...
-		assert((ArgVals.size() == calledFun->arg_size() ||
-			(ArgVals.size() > calledFun->arg_size() &&
-			 calledFun->getFunctionType()->isVarArg()))&&
-		       "Invalid number of values passed to function invocation!");
-		
-		// Handle non-varargs arguments...
-		unsigned i = 0;
-		for (Function::arg_iterator AI = calledFun->arg_begin(), E = calledFun->arg_end();
-		     AI != E; ++AI, ++i){
-			SetValue(&*AI, ArgVals[i], SF);
-		}
-		
-		// Handle varargs arguments...
-		SF.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
+
+		/* Calling function needs to take only one argument ... */
+		SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
 
 		stackSF.push_back(SF);
 		initStacks.push_back(stackSF);
+		/* TODO: Return a value. Also, perform more checks?? */
 	}
 }
 
