@@ -116,6 +116,7 @@ AC_DEFUN([AX_CLANG],
     ifelse([$1],,
            [AC_SUBST(CLANG)
             AC_SUBST(CLANGXX)
+            AC_DEFINE_UNQUOTED([CLANGPATH],["$CLANG"],[Path of clang executable.])
             :
            ],
            [$1])

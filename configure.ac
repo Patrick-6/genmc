@@ -11,6 +11,11 @@ AM_PROG_AR
 AC_LANG([C++])
 
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
+AX_CLANG(,[
+  AC_MSG_WARN([rcmc cannot be used without clang/clang++.])
+  AC_MSG_WARN([Consider indicating the binaries clang/clang++ with switches --with-clang/--with-clangxx,])
+  AC_MSG_FAILURE([Failed to detect clang/clang++.])
+])
 
 ## XXX: List below is currently INCOMPLETE
 AC_CHECK_HEADERS([\

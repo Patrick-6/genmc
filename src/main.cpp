@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	}
 
 	void *MainAddr = (void*) (intptr_t) GetExecutablePath;
-	std::string Path = GetExecutablePath(argv[0]);
+	std::string Path = CLANGPATH;
 	IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
 	TextDiagnosticPrinter *DiagClient =
 		new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 	if (!Clang.ExecuteAction(*Act))
 		return 1;
 
-	int Res = 255;
+	// int Res = 255;
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR	
 	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule());
 #else
