@@ -20,6 +20,12 @@
 
 RCMC=../src/rcmc
 
+green='\033[0;32m'
+red='\033[0;33m'
+cyan='\033[0;36m'
+lblue='\033[1;34m'
+nc='\033[0m'
+
 runfailure() {
     test_file=$1
     shift
@@ -49,7 +55,7 @@ total_time=0
 
 runtest() {
     dir=$1
-    echo -n 'Testcase:' "${dir##*/}... "
+    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${nc}... "
     vars=0
     test_time=0
     test_args=""
@@ -81,14 +87,14 @@ runtest() {
     if test -n "${failed}"
     then
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	echo 'FAILED! Inconsistent results:'
+	echo "${red}FAILED!${nc} Inconsistent results:"
 	echo "\t\t${explored_failed:-0}" 'executions were explored, instead of' \
 	     "${expected}" 'that were expected! Avg.time' "${average_time}"
 	failure=1
     else
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	echo 'Successful (Explored' "${expected}" 'executions in' \
-	     "${vars}" 'variations). Avg. time:' "${average_time}"
+	echo "${green}Successful${nc} (Explored" "${expected}" 'executions' \
+	     'in' "${vars}" 'variations). Avg. time:' "${average_time}"
     fi
 }
 
