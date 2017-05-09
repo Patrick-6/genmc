@@ -102,8 +102,11 @@ int main(int argc, char **argv)
 		return 0;
 
 	const driver::JobList &Jobs = C->getJobs();
+#ifdef CLANG_LIST_TYPE_JOB_PTR
 	const driver::Command &Cmd = *cast<driver::Command>(*Jobs.begin());
-
+#else
+	const driver::Command &Cmd = cast<driver::Command>(*Jobs.begin());
+#endif
 	const driver::ArgStringList &CCArgs = Cmd.getArguments();
 	CompilerInvocation *CI = new CompilerInvocation;
 	CompilerInvocation::CreateFromArgs(*CI,

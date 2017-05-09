@@ -238,6 +238,22 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([llvm::MemoryBuffer*])],
         [AC_MSG_RESULT([std::unique_ptr<llvm::MemoryBuffer>])])
 
+## Check the type of list_type
+AC_MSG_CHECKING([for the type of list_type])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <clang/Driver/Compilation.h>
+#include <clang/Driver/Job.h>
+]],[[
+   std::unique_ptr<clang::driver::Compilation> C;
+   const clang::driver::JobList &Jobs = C->getJobs();
+   const clang::driver::Command &Cmd =
+     *llvm::cast<clang::driver::Command>(*Jobs.begin());
+ ]])],
+        [AC_DEFINE([CLANG_LIST_TYPE_JOB_PTR],[1],
+         [Define if list_type is a SmallVector of Job*.])
+         AC_MSG_RESULT([Job*])],
+        [AC_MSG_RESULT([std::unique_ptr<Command>])])
+
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
