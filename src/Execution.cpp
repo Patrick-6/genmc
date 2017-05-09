@@ -29,6 +29,7 @@
 #include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
@@ -60,6 +61,9 @@ int explored;
 bool shouldContinue;
 bool executionCompleted = false;
 bool globalAccess = false;
+
+/* TODO: Move this to Interpreter.h, and also remove the relevant header */
+std::unordered_set<GenericValue *> globalVars;
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -1632,9 +1636,9 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 	if (!dryRun) {
-		if (isa<Constant>(I.getPointerOperand()))
-			globalAccess = true;
 		ExecutionContext &SF = getECStack()->back();
+		if (globalVars.find((GenericValue *) GVTOP(getOperandValue(I.getPointerOperand(), SF))) != globalVars.end())
+			globalAccess = true;
 		SetValue(&I, executeGEPOperation(I.getPointerOperand(),
 						 gep_type_begin(I), gep_type_end(I), SF), SF);
 		return;
@@ -1650,11 +1654,11 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		if (!isa<GlobalVariable>(I.getPointerOperand()) && !globalAccess) {
+		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
 			GenericValue Result;
-			  LoadValueFromMemory(Result, ptr, I.getType());
-			  SetValue(&I, Result, SF);
-			  return;
+			LoadValueFromMemory(Result, ptr, I.getType());
+			SetValue(&I, Result, SF);
+			return;
 		}
 
 		globalAccess = false;
@@ -1705,7 +1709,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 
-		if (!isa<GlobalVariable>(I.getPointerOperand()) && !globalAccess) {
+		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
 			StoreValueToMemory(val, ptr, I.getOperand(0)->getType());
 			return;
 		}
@@ -3197,6 +3201,9 @@ DEBUG(
       }
     });
 #endif
+if (globalVars.empty())
+	for (auto &v : I.getParent()->getParent()->getParent()->getGlobalList()) 
+		globalVars.insert((GenericValue *) GVTOP(getOperandValue(&cast<Value>(v), SF)));
   }
 
   dryRun = false;
