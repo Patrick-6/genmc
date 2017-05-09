@@ -58,6 +58,7 @@ std::vector<std::vector<ExecutionContext> > initStacks;
 int explored;
 
 bool shouldContinue;
+bool executionCompleted = false;
 bool globalAccess = false;
 
 //===----------------------------------------------------------------------===//
@@ -3082,6 +3083,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	std::vector<RevisitPair> *oldStack = currentStack;
 	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
 	bool oldContinue = shouldContinue;
+	bool oldCompleted = executionCompleted;
 	currentEG = &g;
 	currentStack = &workqueue;
 	ECStacks = initStacks;
@@ -3096,14 +3098,15 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			validateGraph(g);
 		if (scheduleNext(g)) {
 			shouldContinue = true;
+			executionCompleted = false;
 			ExecutionContext &SF = getECStack()->back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 		} else {
-			shouldContinue = false;
+			executionCompleted = true;
 		}
 
-		if (shouldContinue)
+		if (shouldContinue && !executionCompleted)
 			continue;
 
 		if (workqueue.empty()) {
@@ -3113,6 +3116,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
 			shouldContinue = oldContinue;
+			executionCompleted = oldCompleted;
 			ECStacks = oldECStacks;
 			currentStack = oldStack;
 			currentEG = oldEG;
@@ -3125,8 +3129,11 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		if (p.type == R) {
 //			printRevisitPair(p);
 //			printExecGraph(g);
-			if (userConf->printExecGraphs)
-				printExecGraph(g);
+			if (executionCompleted) {
+				if (userConf->printExecGraphs)
+					printExecGraph(g);
+				explored++;
+			}
 			
 			cutGraphBefore(g, p.preds);
 			EventLabel &lab1 = getEventLabel(g, p.e);
@@ -3145,7 +3152,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			     it != g.revisit.end(); ++it)
 				if (it->eventIndex <= before[it->threadIndex])
 					g.revisit.erase(it--);
-			explored++;
+
 			ECStacks = initStacks;
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = 0;
