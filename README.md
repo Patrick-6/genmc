@@ -1,7 +1,7 @@
 RCMC
 =====
-Rectified C/C++1 Model Checking
--------------------------------
+Rectified C/C++11 Model Checking
+--------------------------------
 
 ---
 
