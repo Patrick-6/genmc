@@ -378,19 +378,18 @@ static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr,
 	return;
 }
 
-static std::vector<Event> getRevisitLoads(ExecutionGraph &g, Event store)
+static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event store)
 {
 	std::vector<int> before = calcPorfBefore(g, store);
 	EventLabel &sLab = getEventLabel(g, store);
-	std::vector<Event> rev;
 
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it) {
 		EventLabel &rLab = getEventLabel(g, *it);
 		if (before[rLab.pos.threadIndex] < rLab.pos.eventIndex && rLab.addr == sLab.addr)
-			rev.push_back(*it);
+			ls.push_back(*it);
 	}
-	return rev;
+	return;
 }
 
 /* Calculates all the subsets for a set of Events */
@@ -1738,10 +1737,11 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 
 		addStoreToGraph(*currentEG, ptr, val, false);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
-		std::vector<Event> ls = getRevisitLoads(*currentEG, s);
+		std::vector<Event> ls;
 		std::vector<std::vector<Event> > rSets;
 		std::vector<int> preds;
 
+		getRevisitLoads(ls, *currentEG, s);
 		calcRevisitSets(rSets, *currentEG, ls, s);
 		for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 			preds.push_back(currentEG->maxEvents[k] - 1);
@@ -1810,8 +1810,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			++globalCount[g.currentT];
 			
 			Event s = getLastThreadEvent(g, g.currentT);
-			std::vector<Event> ls = getRevisitLoads(g, s);
+			std::vector<Event> ls;
 			std::vector<std::vector<Event> > rSets;
+
+			getRevisitLoads(ls, g, s);
 			if (pendingReads.size() == 0) {
 				calcRevisitSets(rSets, g, ls, s);
 			} else {
@@ -1872,8 +1874,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				addStoreToGraph(g, ptr, newVal, true);
 				
 				Event s = getLastThreadEvent(g, g.currentT);
-				std::vector<Event> ls = getRevisitLoads(g, s);
+				std::vector<Event> ls;
 				std::vector<std::vector<Event> > rSets;
+
+				getRevisitLoads(ls, g, s);
 				if (pendingReads.size() == 0) {
 					calcRevisitSets(rSets, g, ls, s);
 				} else {
