@@ -226,7 +226,19 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::list<Event> &es)
 
 	for (unsigned int i = 0; i < a.size(); i++)
 		a[i] = g.maxEvents[i];
-	
+
+	for (auto e : es)
+		__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
+	return a;
+}
+
+std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::vector<Event> &es)
+{
+	std::vector<int> a(g.threads.size());
+
+	for (unsigned int i = 0; i < a.size(); i++)
+		a[i] = g.maxEvents[i];
+
 	for (auto e : es)
 		__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
 	return a;
@@ -381,61 +393,54 @@ static std::list<Event> getRevisitLoads(ExecutionGraph &g, Event store)
 	return rev;
 }
 
-/* Calculates all the subsets (excluding the empty set) for a set of Events */
-static std::vector<std::list<Event> > calcPowerSet(ExecutionGraph &g, std::list<Event> ls,
-						   Event write)
+/* Calculates all the subsets for a set of Events */
+static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
+			    std::list<Event> &ls, Event write)
 {
-	std::vector<std::list<Event> > powerSet;
-	unsigned int pSize = 1 << ls.size();
-	unsigned int j;
-	
-	for (unsigned int i = 1; i < pSize; i++) {
-		std::list<Event> set;
+	rSets.push_back({});
+	for (auto l = ls.begin(); l != ls.end(); ++l) {
+		std::vector<std::vector<Event> > set;
 		bool pushSet = true;
-		j = 0;
-		for (std::list<Event>::iterator it = ls.begin(); it != ls.end(); ++it) {
-			if (i & (1 << j))
-				set.push_back(*it);
-			j++;
+		for (auto r : rSets) {
+			r.push_back(*l);
+			set.push_back(r);
 		}
-		std::vector<int> after = calcPorfAfter(g, set);
-		for (std::list<Event>::iterator li = set.begin(); li != set.end(); ++li)
-			if (after[li->threadIndex] <= li->eventIndex)
-				pushSet = false;
-		if (pushSet && after[write.threadIndex] > write.eventIndex)
-			powerSet.push_back(set);
+		for (auto &&si : set) {
+			std::vector<int> after = calcPorfAfter(g, si);
+			for (auto &ei : si)
+				if (after[ei.threadIndex] <= ei.eventIndex)
+					pushSet = false;
+			if (pushSet && after[write.threadIndex] > write.eventIndex)
+				rSets.push_back(si);
+		}
 	}
-	return powerSet;
+	return;	
 }
 
 /* Calculates all the subsets that contain a particular element for a set of Events */
-static std::vector<std::list<Event> > calcPowerSetElem(ExecutionGraph &g, std::list<Event> ls,
-						       Event write, Event elem)
+static void calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
+				std::list<Event> &ls, Event write, Event elem)
 {
-	std::vector<std::list<Event> > powerSet;
-	unsigned int pSize = 1 << ls.size();
-	unsigned int j;
-	
-	for (unsigned i = 1; i < pSize; i++) {
-		std::list<Event> set;
-		bool pushSet = false;
-		j = 0;
-		for (std::list<Event>::iterator it = ls.begin(); it != ls.end(); ++it) {
-			if (i & (1 << j)) {
-				if (elem == *it)
-					pushSet = true;
-				set.push_back(*it);
-			}
-			j++;
+	rSets.push_back({});
+	for (auto l = ls.begin(); l != ls.end(); ++l) {
+		std::vector<std::vector<Event> > set;
+		bool pushSet = true;
+		for (auto r : rSets) {
+			r.push_back(*l);
+			set.push_back(r);
 		}
-		std::vector<int> after = calcPorfAfter(g, set);
-		for (std::list<Event>::iterator li = set.begin(); li != set.end(); ++li)
-			if (after[li->threadIndex] <= li->eventIndex)
+		for (auto &&si : set) {
+			std::vector<int> after = calcPorfAfter(g, si);
+			for (auto &ei : si)
+				if (after[ei.threadIndex] <= ei.eventIndex)
+					pushSet = false;
+			if (pushSet && std::find(si.begin(), si.end(), elem) == si.end())
 				pushSet = false;
-		if (pushSet && after[write.threadIndex] > write.eventIndex)
-			powerSet.push_back(set);
+			if (pushSet && after[write.threadIndex] > write.eventIndex)
+				rSets.push_back(si);
+		}
 	}
-	return powerSet;
+	return;
 }
 
 static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
@@ -476,7 +481,7 @@ static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vec
 	return;
 }
 
-static void cutGraphAfter(ExecutionGraph &g, std::list<Event> ls)
+static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 {
 	if (ls.empty())
 		return;
@@ -503,12 +508,12 @@ static void cutGraphAfter(ExecutionGraph &g, std::list<Event> ls)
 			g.revisit.erase(it--);
 }
 
-static void modifyRfs(ExecutionGraph &g, std::list<Event> &es, Event store)
+static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 {
 	if (es.empty())
 		return;
 
-	for (std::list<Event>::iterator it = es.begin(); it != es.end(); ++it) {
+	for (std::vector<Event>::iterator it = es.begin(); it != es.end(); ++it) {
 		EventLabel &lab = getEventLabel(g, *it);
 		Event oldRf = lab.rf;
 		lab.rf = store;
@@ -1734,22 +1739,18 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		addStoreToGraph(*currentEG, ptr, val, false);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 		std::list<Event> ls = getRevisitLoads(*currentEG, s);
-		std::vector<std::list<Event> > revisitSets = calcPowerSet(*currentEG, ls, s);
+		std::vector<std::vector<Event> > rSets;
 		std::vector<int> preds;
 
+		calcRevisitSets(rSets, *currentEG, ls, s);
 		for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 			preds.push_back(currentEG->maxEvents[k] - 1);
-		for (std::vector<std::list<Event> >::iterator it = revisitSets.begin();
-		     it != revisitSets.end(); ++it) {
-			RevisitPair p = RevisitPair(W, s, *it, preds);
-//				printRevisitPair(p);
-//				printExecGraph(*currentEG);
+		/* Exclude the empty set */
+		for (auto it = rSets.begin() + 1; it != rSets.end(); ++it) {
 			ExecutionGraph eg;
-//				printExecGraph(g);
 			fillGraphBefore(*currentEG, eg, preds);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
-//				printExecGraph(eg);
 			visitGraph(eg);
 		}
 		return;
@@ -1810,11 +1811,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			
 			Event s = getLastThreadEvent(g, g.currentT);
 			std::list<Event> ls = getRevisitLoads(g, s);
-			std::vector<std::list<Event> > revisitSets;
+			std::vector<std::vector<Event> > rSets;
 			if (pendingReads.size() == 0) {
-				revisitSets = calcPowerSet(g, ls, s);
+				calcRevisitSets(rSets, g, ls, s);
 			} else {
-				revisitSets = calcPowerSetElem(g, ls, s, pendingReads.back());
+				calcRevisitSetsElem(rSets, g, ls, s, pendingReads.back());
 				shouldContinue = false;
 			}
 			
@@ -1823,15 +1824,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			for (unsigned int k = 0; k < g.threads.size(); k++)
 				writePreds.push_back(g.maxEvents[k] - 1);
 			
-			for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
-			     rit != revisitSets.end(); ++rit) {
-					ExecutionGraph eg;
-//				printExecGraph(g);
-					fillGraphBefore(g, eg, writePreds);
-					cutGraphAfter(eg, *rit);
-					modifyRfs(eg, *rit, s);
-//				printExecGraph(eg);
-					visitGraph(eg);
+			for (auto rit = rSets.begin() + 1; rit != rSets.end(); ++rit) {
+				ExecutionGraph eg;
+				fillGraphBefore(g, eg, writePreds);
+				cutGraphAfter(eg, *rit);
+				modifyRfs(eg, *rit, s);
+				visitGraph(eg);
 			}
 		}
 			
@@ -1874,11 +1872,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				
 				Event s = getLastThreadEvent(g, g.currentT);
 				std::list<Event> ls = getRevisitLoads(g, s);
-				std::vector<std::list<Event> > revisitSets;
+				std::vector<std::vector<Event> > rSets;
 				if (pendingReads.size() == 0) {
-					revisitSets = calcPowerSet(g, ls, s);
+					calcRevisitSets(rSets, g, ls, s);
 				} else {
-					revisitSets = calcPowerSetElem(g, ls, s, pendingReads.back());
+					calcRevisitSetsElem(rSets, g, ls, s, pendingReads.back());
 					shouldContinue = false;
 				}
 
@@ -1887,14 +1885,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				for (unsigned int k = 0; k < g.threads.size(); k++)
 					writePreds.push_back(g.maxEvents[k] - 1);
 				
-				for (std::vector<std::list<Event> >::iterator rit = revisitSets.begin();
-				     rit != revisitSets.end(); ++rit) {
+				for (auto rit = rSets.begin() + 1; rit != rSets.end(); ++rit) {
 					ExecutionGraph eg;
-//				printExecGraph(g);
 					fillGraphBefore(g, eg, writePreds);
 					cutGraphAfter(eg, *rit);
 					modifyRfs(eg, *rit, s);
-//				printExecGraph(eg);
 					visitGraph(eg);
 				}
 			}
