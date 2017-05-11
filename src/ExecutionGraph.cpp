@@ -21,12 +21,7 @@
 #include "Thread.hpp"
 #include "ExecutionGraph.hpp"
 
-ExecutionGraph::ExecutionGraph()
-{
-
-	revisit = {};
-	currentT = 0;
-}
+ExecutionGraph::ExecutionGraph() : currentT(0) {}
 
 bool ExecutionGraph::isConsistent()
 {

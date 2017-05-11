@@ -33,12 +33,12 @@ class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
-	std::list<Event> revisit;
+	std::vector<Event> revisit;
 	int currentT;
 
 	ExecutionGraph();
 	ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
-		       std::list<Event> re, int t)
+		       std::vector<Event> re, int t)
 		: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
 	bool isConsistent();
 };

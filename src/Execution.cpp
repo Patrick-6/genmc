@@ -378,14 +378,14 @@ static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr,
 	return;
 }
 
-static std::list<Event> getRevisitLoads(ExecutionGraph &g, Event store)
+static std::vector<Event> getRevisitLoads(ExecutionGraph &g, Event store)
 {
 	std::vector<int> before = calcPorfBefore(g, store);
 	EventLabel &sLab = getEventLabel(g, store);
-	std::list<Event> rev;
+	std::vector<Event> rev;
 
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
-	for (std::list<Event>::iterator it = g.revisit.begin(); it != g.revisit.end(); ++it) {
+	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it) {
 		EventLabel &rLab = getEventLabel(g, *it);
 		if (before[rLab.pos.threadIndex] < rLab.pos.eventIndex && rLab.addr == sLab.addr)
 			rev.push_back(*it);
@@ -395,7 +395,7 @@ static std::list<Event> getRevisitLoads(ExecutionGraph &g, Event store)
 
 /* Calculates all the subsets for a set of Events */
 static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-			    std::list<Event> &ls, Event write)
+			    std::vector<Event> &ls, Event write)
 {
 	rSets.push_back({});
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
@@ -419,7 +419,7 @@ static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGr
 
 /* Calculates all the subsets that contain a particular element for a set of Events */
 static void calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-				std::list<Event> &ls, Event write, Event elem)
+				std::vector<Event> &ls, Event write, Event elem)
 {
 	rSets.push_back({});
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
@@ -459,7 +459,7 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 					lab.rfm1.erase(it--);
 		}
 	}
-	for (std::list<Event>::iterator it = g.revisit.begin(); it != g.revisit.end(); ++it)
+	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->eventIndex > before[it->threadIndex])
 			g.revisit.erase(it--);
 	return;
@@ -475,7 +475,7 @@ static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vec
 			newThr.eventList.push_back(oldThr.eventList[j]);
 		newG.maxEvents.push_back(before[i] + 1);
 	}
-	for (std::list<Event>::iterator it = oldG.revisit.begin(); it != oldG.revisit.end(); ++it)
+	for (auto it = oldG.revisit.begin(); it != oldG.revisit.end(); ++it)
 		if (it->eventIndex < newG.maxEvents[it->threadIndex])
 			newG.revisit.push_back(*it);
 	return;
@@ -502,7 +502,7 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 					lab.rfm1.erase(it--);
 		}
 	}
-	for (std::list<Event>::iterator it = g.revisit.begin(); it != g.revisit.end(); ++it)
+	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->eventIndex >= after[it->threadIndex] ||
 		    (std::find(ls.begin(), ls.end(), *it) != ls.end()))
 			g.revisit.erase(it--);
@@ -526,9 +526,8 @@ static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 	EventLabel &sLab = getEventLabel(g, store);
 	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
 
-//	std::vector<int> before = calcPorfBeforeNoRfs(g, es);
 	std::vector<int> before = calcPorfBefore(g, es);
-	for (std::list<Event>::iterator it = g.revisit.begin(); it != g.revisit.end(); ++it)
+	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->eventIndex <= before[it->threadIndex])
 			g.revisit.erase(it--);
 	return;
@@ -1699,7 +1698,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
-				currentEG->revisit.push_front(e);
+//				currentEG->revisit.push_front(e);
+				currentEG->revisit.push_back(e);
 				GenericValue val = loadValueFromWrite(*currentEG, s, I.getType(), ptr, SF);
 				SetValue(&I, val, SF);
 			} else {
@@ -1738,7 +1738,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 
 		addStoreToGraph(*currentEG, ptr, val, false);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
-		std::list<Event> ls = getRevisitLoads(*currentEG, s);
+		std::vector<Event> ls = getRevisitLoads(*currentEG, s);
 		std::vector<std::vector<Event> > rSets;
 		std::vector<int> preds;
 
@@ -1810,7 +1810,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			++globalCount[g.currentT];
 			
 			Event s = getLastThreadEvent(g, g.currentT);
-			std::list<Event> ls = getRevisitLoads(g, s);
+			std::vector<Event> ls = getRevisitLoads(g, s);
 			std::vector<std::vector<Event> > rSets;
 			if (pendingReads.size() == 0) {
 				calcRevisitSets(rSets, g, ls, s);
@@ -1861,7 +1861,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			Event e = getLastThreadEvent(g, g.currentT);
 			for (unsigned int k = 0; k < g.threads.size(); k++)
 				readPreds.push_back(g.maxEvents[k] - 1);
-			g.revisit.push_front(e);
+//			g.revisit.push_front(e);
+			g.revisit.push_back(e);
 
 			/* Must add store after calling getPendingRMWs() */
 			if (cmpRes.IntVal.getBoolValue()) {
@@ -1871,7 +1872,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				addStoreToGraph(g, ptr, newVal, true);
 				
 				Event s = getLastThreadEvent(g, g.currentT);
-				std::list<Event> ls = getRevisitLoads(g, s);
+				std::vector<Event> ls = getRevisitLoads(g, s);
 				std::vector<std::vector<Event> > rSets;
 				if (pendingReads.size() == 0) {
 					calcRevisitSets(rSets, g, ls, s);
@@ -3131,7 +3132,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 				lab3.rfm1.remove(p.e);
 			}
 			std::vector<int> before = calcPorfBefore(g, p.e);
-			for (std::list<Event>::iterator it = g.revisit.begin();
+			for (auto it = g.revisit.begin();
 			     it != g.revisit.end(); ++it)
 				if (it->eventIndex <= before[it->threadIndex])
 					g.revisit.erase(it--);
