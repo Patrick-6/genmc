@@ -452,8 +452,7 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type != W)
 				continue;
-			for (std::list<Event>::iterator it = lab.rfm1.begin();
-			     it != lab.rfm1.end(); ++it)
+			for (auto it = lab.rfm1.begin(); it != lab.rfm1.end(); ++it)
 				if (it->eventIndex > before[it->threadIndex])
 					lab.rfm1.erase(it--);
 		}
@@ -495,8 +494,7 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 			if (lab.type != W) {
 				continue;
 			}
-			for (std::list<Event>::iterator it = lab.rfm1.begin();
-			     it != lab.rfm1.end(); ++it)
+			for (auto it = lab.rfm1.begin(); it != lab.rfm1.end(); ++it)
 				if (it->eventIndex >= after[it->threadIndex])
 					lab.rfm1.erase(it--);
 		}
