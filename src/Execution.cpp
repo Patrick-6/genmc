@@ -255,25 +255,23 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
 }
 
 
-static std::list<Event> getAllStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
-					  ExecutionContext &SF)
+static void getAllStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
+			      GenericValue *ptr, ExecutionContext &SF)
 {
-	std::list<Event> stores;
-
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type == W && lab.addr == ptr)
-				stores.push_front(lab.pos);
+				stores.push_back(lab.pos);
 		}
 	}
-	stores.push_front(Event()); /* Also push the initializer event */
-	return stores;
+	stores.push_back(Event()); /* Also push the initializer event */
+	return;
 }
 
-static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
-				       ExecutionContext &SF)
+static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
+			   GenericValue *ptr, ExecutionContext &SF)
 {
 	Event l = getLastThreadEvent(g, g.currentT);
 	std::vector<int> before = calcPorfBefore(g, l);
@@ -286,25 +284,26 @@ static std::list<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr,
 			--before[i];
 	}
 	
-	std::list<Event> es;
+	std::vector<Event> es;
 	for (unsigned int i = 0; i < before.size(); i++)
 		if (before[i] > 0)
-			es.push_front(Event(i, before[i] - 1));
+			es.push_back(Event(i, before[i] - 1));
 	
-	if (es.empty())
-		return getAllStoresToLoc(g, ptr, SF);
+	if (es.empty()) {
+		getAllStoresToLoc(stores, g, ptr, SF);
+		return;
+	}
 
-	std::list<Event> stores;
 	std::vector<int> before2 = calcPorfBefore(g, es);
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = before2[i] + 1; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type == W && lab.addr == ptr)
-				stores.push_front(Event(i, j));
+				stores.push_back(Event(i, j));
 		}
 	}
-	return stores;
+	return;
 }
 
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
@@ -1684,24 +1683,24 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 			return;
 		}
 
-		std::list<Event> stores = getStoresToLoc(*currentEG, ptr, SF);
+		std::vector<Event> stores;
 		std::vector<int> preds;
 
-		/* TODO: Replace this with an iterator */
-		for (auto s : stores) {
+		getStoresToLoc(stores, *currentEG, ptr, SF);
+		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
 			/* Mark reads as revisited only in the first graph */
 			if (preds.empty()) { /* TODO: Maybe not create object? */
-				addReadToGraph(*currentEG, ptr, s, false);
+				addReadToGraph(*currentEG, ptr, *rit, false);
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
 //				currentEG->revisit.push_front(e);
 				currentEG->revisit.push_back(e);
-				GenericValue val = loadValueFromWrite(*currentEG, s, I.getType(), ptr, SF);
+				GenericValue val = loadValueFromWrite(*currentEG, *rit, I.getType(), ptr, SF);
 				SetValue(&I, val, SF);
 			} else {
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
-				currentStack->push_back(RevisitPair(R, e, s, preds));
+				currentStack->push_back(RevisitPair(R, e, *rit, preds));
 			}
 		}
 		return;
@@ -1849,9 +1848,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		return;
 	}
 
-	std::list<Event> stores = getStoresToLoc(g, ptr, SF);
+	std::vector<Event> stores;
 	std::vector<int> readPreds;
-	for (std::list<Event>::iterator it = stores.begin(); it != stores.end(); ++it) {
+
+	getStoresToLoc(stores, g, ptr, SF);
+	for (auto it = stores.rbegin(); it != stores.rend(); ++it) {
 		GenericValue oldVal = loadValueFromWrite(g, *it, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
