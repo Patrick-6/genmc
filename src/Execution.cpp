@@ -131,6 +131,11 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 	return;
 }
 
+static EventLabel& getPreviousLabel(ExecutionGraph &g, Event &e)
+{
+	return g.threads[e.threadIndex].eventList[e.eventIndex-1];
+}
+
 static EventLabel& getEventLabel(ExecutionGraph &g, Event &e)
 {
 	Thread &thr = g.threads[e.threadIndex];
@@ -325,10 +330,9 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 	return true;
 }
 
-static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &RMWrf)
+static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
+			   Event RMW, Event RMWrf)
 {
-	std::vector<Event> pending;
-
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (int j = 0; j < g.maxEvents[i]; j++) {
@@ -338,7 +342,7 @@ static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &R
 				pending.push_back(lab.pos);
 		}
 	}
-	return pending;
+	return;
 }
 
 static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
@@ -392,8 +396,8 @@ static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event sto
 }
 
 /* Calculates all the subsets for a set of Events */
-static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-			    std::vector<Event> &ls, Event write)
+static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
+			      std::vector<Event> &ls, Event &write)
 {
 	rSets.push_back({});
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
@@ -416,8 +420,8 @@ static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGr
 }
 
 /* Calculates all the subsets that contain a particular element for a set of Events */
-static void calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-				std::vector<Event> &ls, Event write, Event elem)
+static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
+				  std::vector<Event> &ls, Event &write, Event &elem)
 {
 	rSets.push_back({});
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
@@ -437,6 +441,29 @@ static void calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Executi
 			if (pushSet && after[write.threadIndex] > write.eventIndex)
 				rSets.push_back(si);
 		}
+	}
+	return;
+}
+
+static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
+			    std::vector<Event> &ls, Event &w)
+{
+	if (!getEventLabel(g, w).isRMW) {
+		__calcRevisitSets(rSets, g, ls, w);
+		return;
+	}
+
+	std::vector<Event> pendingRMWs;
+
+	EventLabel rLab = getPreviousLabel(g, w);
+	getPendingRMWs(pendingRMWs, g, rLab.pos, rLab.rf);
+	/* TODO: Fix the check below */
+	WARN_ON(pendingRMWs.size() > 1, "More than 1 pending RMWs?");
+	if (pendingRMWs.size() == 0) {
+		__calcRevisitSets(rSets, g, ls, w);
+	} else {
+		__calcRevisitSetsElem(rSets, g, ls, w, pendingRMWs.back());
+		shouldContinue = false;
 	}
 	return;
 }
@@ -1794,15 +1821,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			std::vector<Event> pendingReads = getPendingRMWs(g, lab.pos, lab.rf);
-			/* TODO: Fix the check below */
-			WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?\n");
-			// if (pendingReads.size() > 1) {
-			// 	std::cerr << lab.pos << " reads from " << lab.rf << std::endl;
-			// 	printExecGraph(g);
-			// 	for (auto r : pendingReads)
-			// 		std::cerr << r << std::endl;
-			// }
 			addStoreToGraph(g, ptr, newVal, true);
 			++globalCount[g.currentT];
 			
@@ -1811,12 +1829,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			std::vector<std::vector<Event> > rSets;
 
 			getRevisitLoads(ls, g, s);
-			if (pendingReads.size() == 0) {
-				calcRevisitSets(rSets, g, ls, s);
-			} else {
-				calcRevisitSetsElem(rSets, g, ls, s, pendingReads.back());
-				shouldContinue = false;
-			}
+			calcRevisitSets(rSets, g, ls, s);
 			
 			/* TODO: Replace this with getGraphState() */
 			std::vector<int> writePreds;
@@ -1867,9 +1880,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 			/* Must add store after calling getPendingRMWs() */
 			if (cmpRes.IntVal.getBoolValue()) {
-				std::vector<Event> pendingReads = getPendingRMWs(g, e, *it);
-				/* TODO: Fix the check below */
-				WARN_ON(pendingReads.size() > 1, "More than 1 pending RMWs?");
 				addStoreToGraph(g, ptr, newVal, true);
 				
 				Event s = getLastThreadEvent(g, g.currentT);
@@ -1877,12 +1887,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				std::vector<std::vector<Event> > rSets;
 
 				getRevisitLoads(ls, g, s);
-				if (pendingReads.size() == 0) {
-					calcRevisitSets(rSets, g, ls, s);
-				} else {
-					calcRevisitSetsElem(rSets, g, ls, s, pendingReads.back());
-					shouldContinue = false;
-				}
+				calcRevisitSets(rSets, g, ls, s);
 
 				/* TODO: Replace this with getGraphState() */
 				std::vector<int> writePreds;
