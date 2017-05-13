@@ -65,6 +65,8 @@ public:
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
 		   Event w, bool rmw); /* Reads */
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+		   llvm::GenericValue expected, Event w, bool rmw);
+	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
 		   llvm::GenericValue val, std::list<Event> rfm1,
 		   bool rmw); /* Writes */
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,

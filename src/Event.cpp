@@ -35,6 +35,10 @@ EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
 	: type(typ), pos(e), addr(addr), val(val), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+		       llvm::GenericValue val, Event w, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), rf(w), isRMW(rmw) {}
+
+EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
 		       llvm::GenericValue val, std::list<Event> rfm1, bool rmw)
 	: type(typ), pos(e), addr(addr), val(val), rfm1(rfm1), isRMW(rmw) {}
 	

@@ -345,31 +345,40 @@ static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
 	return;
 }
 
-static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
-			    GenericValue val, bool isRMW)
+static void __addStoreToGraphCommon(ExecutionGraph &g, EventLabel &lab)
 {
 	Thread &thr = g.threads[g.currentT];
-	int &max = g.maxEvents[g.currentT]; 
-	EventLabel lab(W, Event(g.currentT, max), ptr, val, isRMW);
-
 	thr.eventList.push_back(lab);
-	max++;
+	++g.maxEvents[g.currentT];
 	return;
 }
 
-static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr,
-			   Event rf, bool isRMW)
+static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
+			    GenericValue &val)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(W, Event(g.currentT, max), ptr, val, false);
+	__addStoreToGraphCommon(g, lab);
+}
+
+static void addRMWStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
+			       GenericValue &val)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(W, Event(g.currentT, max), ptr, val, true);
+	__addStoreToGraphCommon(g, lab);
+}
+
+static void __addReadToGraphCommon(ExecutionGraph &g, EventLabel &lab, Event &rf)
 {
 	Thread &thr = g.threads[g.currentT];
-	int &max = g.maxEvents[g.currentT];
-	EventLabel lab(R, Event(g.currentT, max), ptr, rf, isRMW);
 
 	/* TODO: Make actual consistency checks before adding the event */
 	if (!g.isConsistent())
 		return;
-       
+
 	thr.eventList.push_back(lab);
-	max++;
+	++g.maxEvents[g.currentT];
 
 	if (rf.isInitializer())
 		return;
@@ -379,6 +388,21 @@ static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr,
 
 	rfLab.rfm1.push_front(lab.pos);
 	return;
+}
+
+static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr, Event rf)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(R, Event(g.currentT, max), ptr, rf, false);
+	__addReadToGraphCommon(g, lab, rf);
+}
+
+static void addRMWReadToGraph(ExecutionGraph &g, GenericValue *ptr,
+			      GenericValue &val, Event rf)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(R, Event(g.currentT, max), ptr, val, rf, true);
+	__addReadToGraphCommon(g, lab, rf);
 }
 
 static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event store)
@@ -1717,7 +1741,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
 			/* Mark reads as revisited only in the first graph */
 			if (preds.empty()) { /* TODO: Maybe not create object? */
-				addReadToGraph(*currentEG, ptr, *rit, false);
+				addReadToGraph(*currentEG, ptr, *rit);
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 					preds.push_back(currentEG->maxEvents[k] - 1);
@@ -1759,7 +1783,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		if (currentEG->maxEvents[currentEG->currentT] > c)
 			return;
 
-		addStoreToGraph(*currentEG, ptr, val, false);
+		addStoreToGraph(*currentEG, ptr, val);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 		std::vector<Event> ls;
 		std::vector<std::vector<Event> > rSets;
@@ -1821,7 +1845,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			addStoreToGraph(g, ptr, newVal, true);
+			addRMWStoreToGraph(g, ptr, newVal);
 			++globalCount[g.currentT];
 			
 			Event s = getLastThreadEvent(g, g.currentT);
@@ -1871,7 +1895,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
 			continue;
 		if (readPreds.empty()) { /* TODO: Maybe not create object? */
-			addReadToGraph(g, ptr, *it, true);
+			addRMWReadToGraph(g, ptr, cmpVal, *it);
 			Event e = getLastThreadEvent(g, g.currentT);
 			for (unsigned int k = 0; k < g.threads.size(); k++)
 				readPreds.push_back(g.maxEvents[k] - 1);
@@ -1880,7 +1904,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 			/* Must add store after calling getPendingRMWs() */
 			if (cmpRes.IntVal.getBoolValue()) {
-				addStoreToGraph(g, ptr, newVal, true);
+				addRMWStoreToGraph(g, ptr, newVal);
 				
 				Event s = getLastThreadEvent(g, g.currentT);
 				std::vector<Event> ls;
