@@ -27,20 +27,20 @@ EventLabel::EventLabel(EventType typ, Event e)
 	: type(typ), pos(e), isRMW(false) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       Event w, bool rmw)
-	: type(typ), pos(e), addr(addr), rf(w), isRMW(rmw) {}
+		       llvm::Type *valTyp, Event w, bool rmw)
+	: type(typ), pos(e), addr(addr), valTyp(valTyp), rf(w), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), isRMW(rmw) {}
+		       llvm::GenericValue val, llvm::Type *valTyp, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, Event w, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), rf(w), isRMW(rmw) {}
+		       llvm::GenericValue val, llvm::Type *valTyp, Event w, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), rf(w), isRMW(rmw) {}
 
 EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, std::list<Event> rfm1, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), rfm1(rfm1), isRMW(rmw) {}
+		       llvm::GenericValue val, llvm::Type *valTyp, std::list<Event> rfm1, bool rmw)
+	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), rfm1(rfm1), isRMW(rmw) {}
 	
 
 std::ostream& operator<<(std::ostream &s, const EventType &t)

@@ -57,20 +57,22 @@ public:
 	Event pos;
 	llvm::GenericValue *addr;
 	llvm::GenericValue val; /* For Writes */
+	llvm::Type *valTyp;
 	Event rf; /* For Reads */
 	std::list<Event> rfm1; /* For Writes */
 	bool isRMW;
 
 	EventLabel(EventType typ, Event e); /* Start */
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   Event w, bool rmw); /* Reads */
+		   llvm::Type *valTyp, Event w, bool rmw); /* Reads */
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue expected, Event w, bool rmw);
+		   llvm::GenericValue expected, llvm::Type *valTyp,
+		   Event w, bool rmw);
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue val, std::list<Event> rfm1,
-		   bool rmw); /* Writes */
+		   llvm::GenericValue val, llvm::Type *valTyp,
+		   std::list<Event> rfm1, bool rmw); /* Writes */
 	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue val, bool rmw); /* Writes */
+		   llvm::GenericValue val, llvm::Type *valTyp, bool rmw); /* Writes */
 
 	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);
 };
