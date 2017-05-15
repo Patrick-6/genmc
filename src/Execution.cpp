@@ -1926,6 +1926,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			/* Must add store after calling getPendingRMWs() */
 			if (cmpRes.IntVal.getBoolValue()) {
 				addRMWStoreToGraph(g, ptr, newVal, typ);
+				++globalCount[g.currentT];
 				
 				Event s = getLastThreadEvent(g, g.currentT);
 				std::vector<Event> ls;
