@@ -529,14 +529,13 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type != W)
 				continue;
-			for (auto it = lab.rfm1.begin(); it != lab.rfm1.end(); ++it)
-				if (it->eventIndex > before[it->threadIndex])
-					lab.rfm1.erase(it--);
+			lab.rfm1.remove_if([&before](Event &e)
+					   { return e.eventIndex > before[e.threadIndex]; });
 		}
 	}
-	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-		if (it->eventIndex > before[it->threadIndex])
-			g.revisit.erase(it--);
+	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
+				       { return e.eventIndex > before[e.threadIndex]; }),
+			g.revisit.end());
 	return;
 }
 
@@ -571,14 +570,13 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 			if (lab.type != W) {
 				continue;
 			}
-			for (auto it = lab.rfm1.begin(); it != lab.rfm1.end(); ++it)
-				if (it->eventIndex >= after[it->threadIndex])
-					lab.rfm1.erase(it--);
+			lab.rfm1.remove_if([&after](Event &e)
+					   { return e.eventIndex >= after[e.threadIndex]; });
 		}
 	}
-	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-		if (it->eventIndex >= after[it->threadIndex])
-			g.revisit.erase(it--);
+	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&after](Event &e)
+				       { return e.eventIndex >= after[e.threadIndex]; }),
+			g.revisit.end());
 }
 
 static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
@@ -604,9 +602,9 @@ static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 static void filterRevisitSet(ExecutionGraph &g, std::vector<Event> &es, Event store)
 {
 	std::vector<int> before = calcPorfBefore(g, es);
-	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-		if (it->eventIndex <= before[it->threadIndex])
-			g.revisit.erase(it--);
+	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
+				       { return e.eventIndex <= before[e.threadIndex]; }),
+			g.revisit.end());
 	return;
 }
 
