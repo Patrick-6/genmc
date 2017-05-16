@@ -55,6 +55,13 @@ total_time=0
 
 runtest() {
     dir=$1
+    if test -n "${fastrun}"
+    then
+	case "${dir##*/}" in
+	    "big1"|"big2"|"lastzero"|"publish") continue;;
+	    *)                                  ;;
+	esac
+    fi
     echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${nc}... "
     vars=0
     test_time=0
@@ -108,7 +115,16 @@ runall() {
     done
 }
 
-testcase=$1
+# Check for command line options
+option=$1
+if test "${option}" = "--fast"
+then
+    fastrun=1
+else
+    testcase="${option}"
+fi
+
+# Run specified testcases (default: all)
 if test -n "${testcase}"
 then
     echo '--------------------------------------------------------------------'
