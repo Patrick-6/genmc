@@ -569,8 +569,7 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 		}
 	}
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-		if (it->eventIndex >= after[it->threadIndex] ||
-		    (std::find(ls.begin(), ls.end(), *it) != ls.end()))
+		if (it->eventIndex >= after[it->threadIndex])
 			g.revisit.erase(it--);
 }
 
