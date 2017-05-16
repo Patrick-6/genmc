@@ -425,30 +425,32 @@ static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *t
 static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
 			      std::vector<Event> &ls, EventLabel &wLab)
 {
-	rSets.push_back({});
+	std::vector<std::vector<Event> > subsets = {{}};
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
-		std::vector<std::vector<Event> > set;
-		bool pushSet = true;
-		for (auto r : rSets) {
+		std::vector<std::vector<Event> > sets;
+		for (auto r : subsets) {
 			r.push_back(*l);
-			set.push_back(r);
+			sets.push_back(r);
 		}
-		for (auto &&si : set) {
-			std::vector<int> after = calcPorfAfter(g, si);
-			int successfulRMWs = 0;
-			for (auto &ei : si) {
-				if (after[ei.threadIndex] <= ei.eventIndex)
-					pushSet = false;
-				EventLabel &eLab = getEventLabel(g, ei);
-				if (eLab.isRMW &&
-				    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
-					++successfulRMWs;
-			}
-			if (successfulRMWs > 1)
+		subsets.insert(subsets.end(), sets.begin(), sets.end());
+	}
+
+	for (auto &&si : subsets) {
+		std::vector<int> after = calcPorfAfter(g, si);
+		int successfulRMWs = 0;
+		bool pushSet = true;
+		for (auto &ei : si) {
+			if (after[ei.threadIndex] <= ei.eventIndex)
 				pushSet = false;
-			if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
-				rSets.push_back(si);
+			EventLabel &eLab = getEventLabel(g, ei);
+			if (eLab.isRMW &&
+			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
+				++successfulRMWs;
 		}
+		if (successfulRMWs > 1 || si.empty())
+			pushSet = false;
+		if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
+			rSets.push_back(si);
 	}
 	return;	
 }
@@ -457,34 +459,40 @@ static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, Execution
 static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
 				  std::vector<Event> &ls, EventLabel &wLab, Event &elem)
 {
-	rSets.push_back({});
+	std::vector<std::vector<Event> > subsets = {{}};
 	for (auto l = ls.begin(); l != ls.end(); ++l) {
-		std::vector<std::vector<Event> > set;
-		bool pushSet = true;
-		for (auto r : rSets) {
+		std::vector<std::vector<Event> > sets;
+		for (auto r : subsets) {
 			r.push_back(*l);
-			set.push_back(r);
+			sets.push_back(r);
 		}
-		for (auto &&si : set) {
-			std::vector<int> after = calcPorfAfter(g, si);
-			int successfulRMWs = 0;
-			for (auto &ei : si) {
-				if (after[ei.threadIndex] <= ei.eventIndex)
-					pushSet = false;
-				EventLabel &eLab = getEventLabel(g, ei);
-				if (eLab.isRMW &&
-				    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
-					++successfulRMWs;
-			}
-			if (successfulRMWs > 1)
-				pushSet = false;
-			if (pushSet && std::find(si.begin(), si.end(), elem) == si.end())
-				pushSet = false;
-			if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
-				rSets.push_back(si);
-		}
+		subsets.insert(subsets.end(), sets.begin(), sets.end());
 	}
-	return;
+
+	for (auto &&si : subsets) {
+		std::vector<int> after = calcPorfAfter(g, si);
+		std::cerr << "Porf-after of nth set: ";
+		for (auto i : after)
+			std::cerr << i << " ";
+		std::cerr << std::endl;
+		int successfulRMWs = 0;
+		bool pushSet = true;
+		for (auto &ei : si) {
+			if (after[ei.threadIndex] <= ei.eventIndex)
+				pushSet = false;
+			EventLabel &eLab = getEventLabel(g, ei);
+			if (eLab.isRMW &&
+			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
+				++successfulRMWs;
+		}
+		if (successfulRMWs > 1 || si.empty())
+			pushSet = false;
+		if (pushSet && std::find(si.begin(), si.end(), elem) == si.end())
+			pushSet = false;		
+		if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
+			rSets.push_back(si);
+	}
+	return;	
 }
 
 static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
@@ -590,8 +598,29 @@ static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 	/* TODO: Do some check here for initializer or if it is already present? */
 	EventLabel &sLab = getEventLabel(g, store);
 	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
+	return;
+}
 
+static void filterRevisitSet(ExecutionGraph &g, std::vector<Event> &es, Event store)
+{
 	std::vector<int> before = calcPorfBefore(g, es);
+	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
+		if (it->eventIndex <= before[it->threadIndex])
+			g.revisit.erase(it--);
+	return;
+}
+
+static void filterRevisitSet2(ExecutionGraph &g, std::vector<Event> &es, Event store,
+			      Event elem)
+{
+	std::vector<Event> ess;
+	for (auto it = es.begin(); it != es.end(); ++it)
+		if (*it != elem)
+			ess.push_back(*it);
+	// if (ess.empty())
+	// 	return;
+	
+	std::vector<int> before = calcPorfBefore(g, ess);
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->eventIndex <= before[it->threadIndex])
 			g.revisit.erase(it--);
@@ -1814,11 +1843,12 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		for (unsigned int k = 0; k < currentEG->threads.size(); k++)
 			preds.push_back(currentEG->maxEvents[k] - 1);
 		/* Exclude the empty set */
-		for (auto it = rSets.begin() + 1; it != rSets.end(); ++it) {
+		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
 			ExecutionGraph eg;
 			fillGraphBefore(*currentEG, eg, preds);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
+			filterRevisitSet(eg, *it, s);
 			visitGraph(eg);
 		}
 		return;
@@ -1871,20 +1901,28 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			Event s = getLastThreadEvent(g, g.currentT);
 			std::vector<Event> ls;
 			std::vector<std::vector<Event> > rSets;
+			std::vector<Event> pendingRMWs;
 
 			getRevisitLoads(ls, g, s);
 			calcRevisitSets(rSets, g, ls, s);
+			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf);
 			
 			/* TODO: Replace this with getGraphState() */
 			std::vector<int> writePreds;
 			for (unsigned int k = 0; k < g.threads.size(); k++)
 				writePreds.push_back(g.maxEvents[k] - 1);
 			
-			for (auto rit = rSets.begin() + 1; rit != rSets.end(); ++rit) {
+			for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
 				ExecutionGraph eg;
 				fillGraphBefore(g, eg, writePreds);
 				cutGraphAfter(eg, *rit);
 				modifyRfs(eg, *rit, s);
+				if (pendingRMWs.empty()) {
+					filterRevisitSet(eg, *rit, s);
+				}
+				else {
+					filterRevisitSet2(eg, *rit, s, pendingRMWs.back());
+				}
 				visitGraph(eg);
 			}
 		}
@@ -1909,12 +1947,17 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	std::vector<int> readPreds;
 
 	getStoresToLoc(stores, g, ptr, SF);
+	std::cerr << "Stores available:\n";
+	for (auto it = stores.rbegin(); it != stores.rend(); ++it)
+		std::cerr << *it << " ";
+	std::cerr << std::endl;
 	for (auto it = stores.rbegin(); it != stores.rend(); ++it) {
 		GenericValue oldVal = loadValueFromWrite(g, *it, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
 			continue;
 		if (readPreds.empty()) { /* TODO: Maybe not create object? */
+			std::cerr << "Reading from store: " << *it << std::endl;
 			addRMWReadToGraph(g, ptr, cmpVal, typ, *it);
 			Event e = getLastThreadEvent(g, g.currentT);
 			for (unsigned int k = 0; k < g.threads.size(); k++)
@@ -1928,22 +1971,30 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				++globalCount[g.currentT];
 				
 				Event s = getLastThreadEvent(g, g.currentT);
+				EventLabel &lab = getEventLabel(g, e);
 				std::vector<Event> ls;
 				std::vector<std::vector<Event> > rSets;
+				std::vector<Event> pendingRMWs;
 
 				getRevisitLoads(ls, g, s);
 				calcRevisitSets(rSets, g, ls, s);
+				getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf);
 
 				/* TODO: Replace this with getGraphState() */
 				std::vector<int> writePreds;
 				for (unsigned int k = 0; k < g.threads.size(); k++)
 					writePreds.push_back(g.maxEvents[k] - 1);
 				
-				for (auto rit = rSets.begin() + 1; rit != rSets.end(); ++rit) {
+				for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
 					ExecutionGraph eg;
 					fillGraphBefore(g, eg, writePreds);
 					cutGraphAfter(eg, *rit);
 					modifyRfs(eg, *rit, s);
+					if (pendingRMWs.empty())
+						filterRevisitSet(eg, *rit, s);
+					else {
+						filterRevisitSet2(eg, *rit, s, pendingRMWs.back());
+					}
 					visitGraph(eg);
 				}
 			}
