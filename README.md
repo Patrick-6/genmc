@@ -47,6 +47,13 @@ This will leave the `rcmc` executable in the `src` directory.
 You can either run it from there (as in the examples below), move it to
 some other place (e.g., in the top-level directory) or create a link to it.
 
+Alternatively, you can substitute the last step with the following command
+which will build the `rcmc` executable in parallel and will also run a subset
+of all the tests that come with the system to see if the system was built
+correctly or not:
+
+		make -j ftest
+
 <a name="usage">Usage</a>
 -------------------------
 
