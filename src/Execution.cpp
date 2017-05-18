@@ -419,21 +419,35 @@ static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event sto
 	return;
 }
 
+static void calcSubsets(std::vector<std::vector<Event> > &powerset, std::vector<Event> subset,
+			std::vector<Event> set)
+{
+	if (set.empty() && subset.empty())
+		return;
+	if (set.empty()) {
+		powerset.push_back(subset);
+		return;
+	}
+
+	Event &last = set.back();
+	set.pop_back();
+	calcSubsets(powerset, subset, set);
+	subset.push_back(last);
+	set.erase(std::remove_if(set.begin(), set.end(), [&last](Event &e)
+				 { return e.threadIndex == last.threadIndex; }),
+		  set.end());
+	calcSubsets(powerset, subset, set);
+	return;
+}
+
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
 /* Calculates all the subsets for a set of Events */
 static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
 			      std::vector<Event> &ls, EventLabel &wLab)
 {
-	std::vector<std::vector<Event> > subsets = {{}};
-	for (auto l = ls.begin(); l != ls.end(); ++l) {
-		std::vector<std::vector<Event> > sets;
-		for (auto r : subsets) {
-			r.push_back(*l);
-			sets.push_back(r);
-		}
-		subsets.insert(subsets.end(), sets.begin(), sets.end());
-	}
+	std::vector<std::vector<Event> > subsets;
+	calcSubsets(subsets, {}, ls);
 
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
@@ -459,15 +473,8 @@ static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, Execution
 static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
 				  std::vector<Event> &ls, EventLabel &wLab, Event &elem)
 {
-	std::vector<std::vector<Event> > subsets = {{}};
-	for (auto l = ls.begin(); l != ls.end(); ++l) {
-		std::vector<std::vector<Event> > sets;
-		for (auto r : subsets) {
-			r.push_back(*l);
-			sets.push_back(r);
-		}
-		subsets.insert(subsets.end(), sets.begin(), sets.end());
-	}
+	std::vector<std::vector<Event> > subsets;
+	calcSubsets(subsets, {}, ls);
 
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
