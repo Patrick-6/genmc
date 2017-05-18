@@ -54,7 +54,7 @@ std::ostream& operator<<(std::ostream &s, const EventType &t)
 
 std::ostream& operator<<(std::ostream &s, const Event &e)
 {
-	return s << "Event (Thread: " << e.threadIndex << ", Index: " << e.eventIndex << ")";
+	return s << "Event (" << e.thread << ", " << e.index << ")";
 }
 
 std::ostream& operator<<(std::ostream &s, const EventLabel &lab)

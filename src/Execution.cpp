@@ -133,33 +133,33 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 
 static EventLabel& getPreviousLabel(ExecutionGraph &g, Event &e)
 {
-	return g.threads[e.threadIndex].eventList[e.eventIndex-1];
+	return g.threads[e.thread].eventList[e.index-1];
 }
 
 static EventLabel& getEventLabel(ExecutionGraph &g, Event &e)
 {
-	Thread &thr = g.threads[e.threadIndex];
-	return thr.eventList[e.eventIndex];
+	Thread &thr = g.threads[e.thread];
+	return thr.eventList[e.index];
 }
 
 /* TODO: Check if pass by reference is appropriate here */
-static Event getLastThreadEvent(ExecutionGraph &g, int threadIndex)
+static Event getLastThreadEvent(ExecutionGraph &g, int thread)
 {
-	Thread &thr = g.threads[threadIndex];
-	int last = g.maxEvents[threadIndex];
+	Thread &thr = g.threads[thread];
+	int last = g.maxEvents[thread];
 
 	return thr.eventList[last - 1].pos;
 }
 
 void __calcPorfBefore(ExecutionGraph &g, const Event &e, std::vector<int> &a)
 {
-	int ai = a[e.threadIndex];
-	if (e.eventIndex <= ai)
+	int ai = a[e.thread];
+	if (e.index <= ai)
 		return;
 
-	a[e.threadIndex] = e.eventIndex;
-	Thread &thr = g.threads[e.threadIndex];
-	for (int i = ai; i <= e.eventIndex; i++) {
+	a[e.thread] = e.index;
+	Thread &thr = g.threads[e.thread];
+	for (int i = ai; i <= e.index; i++) {
 		EventLabel &lab = thr.eventList[i];
 		if (lab.type == R && !lab.rf.isInitializer())
 			__calcPorfBefore(g, lab.rf, a);
@@ -198,23 +198,23 @@ std::vector<int> calcPorfBeforeNoRfs(ExecutionGraph &g, const std::list<Event> &
 	std::vector<int> a(g.threads.size(), 0);
 
 	for (auto &e : es)
-		__calcPorfBefore(g, Event(e.threadIndex, e.eventIndex - 1), a);
+		__calcPorfBefore(g, Event(e.thread, e.index - 1), a);
 	for (auto &e : es)
-		if (a[e.threadIndex] < e.eventIndex)
-			a[e.threadIndex] = e.eventIndex;
+		if (a[e.thread] < e.index)
+			a[e.thread] = e.index;
 	return a;
 }
 
 void __calcPorfAfter(ExecutionGraph &g, const Event &e, std::vector<int> &a)
 {
-	int ai = a[e.threadIndex];
-	if (e.eventIndex >= ai)
+	int ai = a[e.thread];
+	if (e.index >= ai)
 		return;
 
-	a[e.threadIndex] = e.eventIndex;
-	Thread &thr = g.threads[e.threadIndex];
-	for (int i = e.eventIndex; i <= ai; i++) {
-		if (i >= g.maxEvents[e.threadIndex])
+	a[e.thread] = e.index;
+	Thread &thr = g.threads[e.thread];
+	for (int i = e.index; i <= ai; i++) {
+		if (i >= g.maxEvents[e.thread])
 			break;
 		EventLabel &lab = thr.eventList[i];
 		if (lab.type == W) /* TODO: Maybe reference before r? */
@@ -233,7 +233,7 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::list<Event> &es)
 		a[i] = g.maxEvents[i];
 
 	for (auto e : es)
-		__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
+		__calcPorfAfter(g, Event(e.thread, e.index + 1), a);
 	return a;
 }
 
@@ -245,7 +245,7 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const std::vector<Event> &es)
 		a[i] = g.maxEvents[i];
 
 	for (auto e : es)
-		__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
+		__calcPorfAfter(g, Event(e.thread, e.index + 1), a);
 	return a;
 }
 
@@ -255,7 +255,7 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
 
 	for (unsigned int i = 0; i < a.size(); i++)
 		a[i] = g.maxEvents[i];
-	__calcPorfAfter(g, Event(e.threadIndex, e.eventIndex + 1), a);
+	__calcPorfAfter(g, Event(e.thread, e.index + 1), a);
 	return a;
 }
 
@@ -322,7 +322,7 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 					return false;
 				std::vector<int> after = calcPorfAfter(g, lab.pos);
 				Event last = getLastThreadEvent(g, g.currentT);
-				if (last.eventIndex >= after[last.threadIndex])
+				if (last.index >= after[last.thread])
 					return false;
 			}
 		}
@@ -383,8 +383,8 @@ static void __addReadToGraphCommon(ExecutionGraph &g, EventLabel &lab, Event &rf
 	if (rf.isInitializer())
 		return;
 
-	Thread &rfThr = g.threads[rf.threadIndex];
-	EventLabel &rfLab = rfThr.eventList[rf.eventIndex];
+	Thread &rfThr = g.threads[rf.thread];
+	EventLabel &rfLab = rfThr.eventList[rf.index];
 
 	rfLab.rfm1.push_front(lab.pos);
 	return;
@@ -413,7 +413,7 @@ static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event sto
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it) {
 		EventLabel &rLab = getEventLabel(g, *it);
-		if (before[rLab.pos.threadIndex] < rLab.pos.eventIndex && rLab.addr == sLab.addr)
+		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
 			ls.push_back(*it);
 	}
 	return;
@@ -440,7 +440,7 @@ static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 	/* Calculate subsets with ev but filter out events from the same thread */
 	acc.push_back(ev);
 	set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
-				 { return e.threadIndex == ev.threadIndex; }),
+				 { return e.thread == ev.thread; }),
 		  set.end());
 	__calcNotEmptyPowerSet(powerSet, acc, set);
 	return;
@@ -466,7 +466,7 @@ static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, Execution
 		int successfulRMWs = 0;
 		bool pushSet = true;
 		for (auto &ei : si) {
-			if (after[ei.threadIndex] <= ei.eventIndex)
+			if (after[ei.thread] <= ei.index)
 				pushSet = false;
 			EventLabel &eLab = getEventLabel(g, ei);
 			if (eLab.isRMW &&
@@ -475,7 +475,7 @@ static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, Execution
 		}
 		if (successfulRMWs > 1 || si.empty())
 			pushSet = false;
-		if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
+		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
 			rSets.push_back(si);
 	}
 	return;	
@@ -497,7 +497,7 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 		int successfulRMWs = 0;
 		bool pushSet = true;
 		for (auto &ei : si) {
-			if (after[ei.threadIndex] <= ei.eventIndex)
+			if (after[ei.thread] <= ei.index)
 				pushSet = false;
 			EventLabel &eLab = getEventLabel(g, ei);
 			if (eLab.isRMW &&
@@ -508,7 +508,7 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 			pushSet = false;
 		if (pushSet && std::find(si.begin(), si.end(), elem) == si.end())
 			pushSet = false;		
-		if (pushSet && after[wLab.pos.threadIndex] > wLab.pos.eventIndex)
+		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
 			rSets.push_back(si);
 	}
 	return;	
@@ -549,11 +549,11 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 			if (lab.type != W)
 				continue;
 			lab.rfm1.remove_if([&before](Event &e)
-					   { return e.eventIndex > before[e.threadIndex]; });
+					   { return e.index > before[e.thread]; });
 		}
 	}
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				       { return e.eventIndex > before[e.threadIndex]; }),
+				       { return e.index > before[e.thread]; }),
 			g.revisit.end());
 	return;
 }
@@ -569,7 +569,7 @@ static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vec
 		newG.maxEvents.push_back(before[i] + 1);
 	}
 	for (auto it = oldG.revisit.begin(); it != oldG.revisit.end(); ++it)
-		if (it->eventIndex < newG.maxEvents[it->threadIndex])
+		if (it->index < newG.maxEvents[it->thread])
 			newG.revisit.push_back(*it);
 	return;
 }
@@ -590,11 +590,11 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 				continue;
 			}
 			lab.rfm1.remove_if([&after](Event &e)
-					   { return e.eventIndex >= after[e.threadIndex]; });
+					   { return e.index >= after[e.thread]; });
 		}
 	}
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&after](Event &e)
-				       { return e.eventIndex >= after[e.threadIndex]; }),
+				       { return e.index >= after[e.thread]; }),
 			g.revisit.end());
 }
 
@@ -622,7 +622,7 @@ static void filterRevisitSet(ExecutionGraph &g, std::vector<Event> &es, Event st
 {
 	std::vector<int> before = calcPorfBefore(g, es);
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				       { return e.eventIndex <= before[e.threadIndex]; }),
+				       { return e.index <= before[e.thread]; }),
 			g.revisit.end());
 	return;
 }
@@ -639,7 +639,7 @@ static void filterRevisitSet2(ExecutionGraph &g, std::vector<Event> &es, Event s
 	
 	std::vector<int> before = calcPorfBefore(g, ess);
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-		if (it->eventIndex <= before[it->threadIndex])
+		if (it->index <= before[it->thread])
 			g.revisit.erase(it--);
 	return;
 }
@@ -3255,7 +3255,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			std::vector<int> before = calcPorfBefore(g, p.e);
 			for (auto it = g.revisit.begin();
 			     it != g.revisit.end(); ++it)
-				if (it->eventIndex <= before[it->threadIndex])
+				if (it->index <= before[it->thread])
 					g.revisit.erase(it--);
 
 			ECStacks = initStacks;

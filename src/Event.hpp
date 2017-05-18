@@ -30,20 +30,20 @@
 enum EventType { R, W, NA };
 
 struct Event {
-	int threadIndex;
-	int eventIndex;
+	int thread;
+	int index;
 
-	Event() : threadIndex(0), eventIndex(0) {}; /* Initializer event */
-	Event(int t, int e) : threadIndex(t), eventIndex(e) {};
-	Event(int t, int e, bool rmw) : threadIndex(t), eventIndex(e) {};
+	Event() : thread(0), index(0) {}; /* Initializer event */
+	Event(int t, int e) : thread(t), index(e) {};
+	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 
-	bool isInitializer() { return threadIndex == 0 && eventIndex == 0; };
+	bool isInitializer() { return thread == 0 && index == 0; };
 
 	friend std::ostream& operator<<(std::ostream &s, const Event &e);
 
 	inline bool operator==(const Event &e) const {
-		return e.threadIndex == threadIndex &&
-			e.eventIndex == eventIndex;
+		return e.thread == thread &&
+			e.index == index;
 	}
 	inline bool operator!=(const Event &e) const {
 		return !(*this == e);
