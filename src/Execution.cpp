@@ -317,11 +317,24 @@ static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 	return;
 }
 
+static bool notReadByRMW(ExecutionGraph &g, Event &w)
+{
+	for (auto i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.isRMW && lab.rf == w)
+				return false;
+		}
+	}
+	return true;
+}
+
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 {
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
-		for (int j = 0; j < g.maxEvents[i]; j++) {
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type == R && lab.rf == write && lab.isRMW) {
 				if (!(std::find(g.revisit.begin(), g.revisit.end(), lab.pos) != g.revisit.end()))
