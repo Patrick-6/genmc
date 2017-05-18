@@ -131,6 +131,12 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 	return;
 }
 
+static void saveGraphState(std::vector<int> &state, ExecutionGraph &g)
+{
+	for (auto i = 0; i < g.threads.size(); ++i)
+		state.push_back(g.maxEvents[i] - 1);
+}
+
 static EventLabel& getPreviousLabel(ExecutionGraph &g, Event &e)
 {
 	return g.threads[e.thread].eventList[e.index-1];
