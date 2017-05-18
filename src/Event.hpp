@@ -33,7 +33,8 @@ struct Event {
 	int thread;
 	int index;
 
-	Event() : thread(0), index(0) {}; /* Initializer event */
+//	Event() : thread(0), index(0) {}; /* Initializer event */
+	Event() : thread(-42), index(-42) {};
 	Event(int t, int e) : thread(t), index(e) {};
 	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 

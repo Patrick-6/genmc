@@ -277,7 +277,7 @@ static void getAllStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 				stores.push_back(lab.pos);
 		}
 	}
-	stores.push_back(Event()); /* Also push the initializer event */
+	stores.push_back(Event(0,0)); /* Also push the initializer event */
 	return;
 }
 
