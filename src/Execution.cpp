@@ -419,25 +419,37 @@ static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event sto
 	return;
 }
 
-static void calcSubsets(std::vector<std::vector<Event> > &powerset, std::vector<Event> subset,
-			std::vector<Event> set)
+static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+				   std::vector<Event> acc, std::vector<Event> set)
 {
-	if (set.empty() && subset.empty())
+	/* Base case -- empty set */
+	if (set.empty() && acc.empty())
 		return;
+	/* Base case -- not empty set */
 	if (set.empty()) {
-		powerset.push_back(subset);
+		powerSet.push_back(acc);
 		return;
 	}
 
-	Event &last = set.back();
+	Event &ev = set.back();
 	set.pop_back();
-	calcSubsets(powerset, subset, set);
-	subset.push_back(last);
-	set.erase(std::remove_if(set.begin(), set.end(), [&last](Event &e)
-				 { return e.threadIndex == last.threadIndex; }),
+
+	/* Calculate all subsets that do not contain ev. */
+	__calcNotEmptyPowerSet(powerSet, acc, set);
+
+	/* Calculate subsets with ev but filter out events from the same thread */
+	acc.push_back(ev);
+	set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
+				 { return e.threadIndex == ev.threadIndex; }),
 		  set.end());
-	calcSubsets(powerset, subset, set);
+	__calcNotEmptyPowerSet(powerSet, acc, set);
 	return;
+}
+
+static void calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+				 std::vector<Event> &set)
+{
+	__calcNotEmptyPowerSet(powerSet, {}, set);
 }
 
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
@@ -447,7 +459,7 @@ static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, Execution
 			      std::vector<Event> &ls, EventLabel &wLab)
 {
 	std::vector<std::vector<Event> > subsets;
-	calcSubsets(subsets, {}, ls);
+	calcNotEmptyPowerSet(subsets, ls);
 
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
@@ -474,7 +486,7 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 				  std::vector<Event> &ls, EventLabel &wLab, Event &elem)
 {
 	std::vector<std::vector<Event> > subsets;
-	calcSubsets(subsets, {}, ls);
+	calcNotEmptyPowerSet(subsets, ls);
 
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
