@@ -1823,8 +1823,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 			if (preds.empty()) { /* TODO: Maybe not create object? */
 				addReadToGraph(*currentEG, ptr, typ, *rit);
 				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
-				for (unsigned int k = 0; k < currentEG->threads.size(); k++)
-					preds.push_back(currentEG->maxEvents[k] - 1);
+				saveGraphState(preds, *currentEG);
 //				currentEG->revisit.push_front(e);
 				currentEG->revisit.push_back(e);
 				GenericValue val = loadValueFromWrite(*currentEG, *rit, typ, ptr, SF);
@@ -1872,8 +1871,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 
 		getRevisitLoads(ls, *currentEG, s);
 		calcRevisitSets(rSets, *currentEG, ls, s);
-		for (unsigned int k = 0; k < currentEG->threads.size(); k++)
-			preds.push_back(currentEG->maxEvents[k] - 1);
+		saveGraphState(preds, *currentEG);
 		/* Exclude the empty set */
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
 			ExecutionGraph eg;
@@ -1939,11 +1937,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			calcRevisitSets(rSets, g, ls, s);
 			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf);
 			
-			/* TODO: Replace this with getGraphState() */
 			std::vector<int> writePreds;
-			for (unsigned int k = 0; k < g.threads.size(); k++)
-				writePreds.push_back(g.maxEvents[k] - 1);
-			
+			saveGraphState(writePreds, g);
 			for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
 				ExecutionGraph eg;
 				fillGraphBefore(g, eg, writePreds);
@@ -1987,8 +1982,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		if (readPreds.empty()) { /* TODO: Maybe not create object? */
 			addRMWReadToGraph(g, ptr, cmpVal, typ, *it);
 			Event e = getLastThreadEvent(g, g.currentT);
-			for (unsigned int k = 0; k < g.threads.size(); k++)
-				readPreds.push_back(g.maxEvents[k] - 1);
+			saveGraphState(readPreds, g);
 //			g.revisit.push_front(e);
 			g.revisit.push_back(e);
 
@@ -2009,9 +2003,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 				/* TODO: Replace this with getGraphState() */
 				std::vector<int> writePreds;
-				for (unsigned int k = 0; k < g.threads.size(); k++)
-					writePreds.push_back(g.maxEvents[k] - 1);
-				
+				saveGraphState(writePreds, g);
 				for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
 					ExecutionGraph eg;
 					fillGraphBefore(g, eg, writePreds);
