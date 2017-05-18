@@ -509,10 +509,6 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
-		std::cerr << "Porf-after of nth set: ";
-		for (auto i : after)
-			std::cerr << i << " ";
-		std::cerr << std::endl;
 		int successfulRMWs = 0;
 		bool pushSet = true;
 		for (auto &ei : si) {
@@ -1983,17 +1979,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	std::vector<int> readPreds;
 
 	getStoresToLoc(stores, g, ptr, SF);
-	std::cerr << "Stores available:\n";
-	for (auto it = stores.rbegin(); it != stores.rend(); ++it)
-		std::cerr << *it << " ";
-	std::cerr << std::endl;
 	for (auto it = stores.rbegin(); it != stores.rend(); ++it) {
 		GenericValue oldVal = loadValueFromWrite(g, *it, typ, ptr, SF);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
 			continue;
 		if (readPreds.empty()) { /* TODO: Maybe not create object? */
-			std::cerr << "Reading from store: " << *it << std::endl;
 			addRMWReadToGraph(g, ptr, cmpVal, typ, *it);
 			Event e = getLastThreadEvent(g, g.currentT);
 			for (unsigned int k = 0; k < g.threads.size(); k++)
