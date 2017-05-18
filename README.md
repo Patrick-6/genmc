@@ -73,5 +73,4 @@ TODO
 <a name="notes">Notes</a>
 ------------------------
 
-* Testcases should be compiled with `clang -S -emit-llvm` before running `rcmc`.
-* RMWs are not yet supported.
+
