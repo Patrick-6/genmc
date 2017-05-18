@@ -58,8 +58,8 @@ runtest() {
     if test -n "${fastrun}"
     then
 	case "${dir##*/}" in
-	    "big1"|"big2"|"lastzero"|"publish") continue;;
-	    *)                                  ;;
+	    "big1"|"big2"|"lastzero") continue;;
+	    *)                                ;;
 	esac
     fi
     echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${nc}... "
