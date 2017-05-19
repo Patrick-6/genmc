@@ -96,7 +96,7 @@ runtest() {
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
 	echo "${red}FAILED!${nc} Inconsistent results:"
 	echo "\t\t${explored_failed:-0}" 'executions were explored, instead of' \
-	     "${expected}" 'that were expected! Avg.time' "${average_time}"
+	     "${expected}" 'that were expected! Avg. time' "${average_time}"
 	failure=1
     else
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
