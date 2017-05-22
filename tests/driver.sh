@@ -144,7 +144,7 @@ fi
 if test -n "$failure"
 then
     echo '\n--------------------------------------------------------------------'
-    echo '!!! ' UNEXPECTED VERIFICATION RESULTS ' !!!'
+    echo '!!! ' UNEXPECTED TESTING RESULTS ' !!!'
     echo '--------------------------------------------------------------------'
     exit 1
 else
