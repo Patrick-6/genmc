@@ -1926,6 +1926,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			
 			Event s = getLastThreadEvent(g, g.currentT);
 			EventLabel &sLab = getEventLabel(g, s);
+			EventLabel &lab = getPreviousLabel(g, s); /* Need to refetch! */
 			std::vector<Event> ls;
 			std::vector<std::vector<Event> > rSets;
 			std::vector<Event> pendingRMWs;
