@@ -5,15 +5,7 @@
 
 _Atomic int x;
 
-void *thread_one(void *arg)
-{
-	int r = 0;
-
-	atomic_compare_exchange_strong(&x, &r, 42);
-	return NULL;
-}
-
-void *thread_two(void *arg)
+void *thread_n(void *unused)
 {
 	int r = 0;
 
@@ -23,12 +15,11 @@ void *thread_two(void *arg)
 
 int main()
 {
-	pthread_t t1, t2;
+	pthread_t t[N];
 
-	if (pthread_create(&t1, NULL, thread_one, NULL))
-		abort();
-	if (pthread_create(&t2, NULL, thread_two, NULL))
-		abort();
+	for (int i = 0; i < N; ++i)
+		if (pthread_create(&t[i], NULL, thread_n, NULL))
+			abort();
 
 	return 0;
 }
