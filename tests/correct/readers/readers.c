@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include "stdatomic.h"
 
 int x;
 int idx[N];
