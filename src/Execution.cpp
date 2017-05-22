@@ -133,7 +133,7 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 
 static void saveGraphState(std::vector<int> &state, ExecutionGraph &g)
 {
-	for (auto i = 0; i < g.threads.size(); ++i)
+	for (auto i = 0u; i < g.threads.size(); ++i)
 		state.push_back(g.maxEvents[i] - 1);
 }
 
@@ -602,7 +602,7 @@ GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
 static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
 			   Event &RMW, Event &RMWrf, GenericValue &rfVal)
 {
-	for (auto i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -619,7 +619,7 @@ static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write,
 				GenericValue &wVal, Type *typ)
 {
-	for (auto i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -642,7 +642,7 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write,
 static bool notReadByAtomicRead(ExecutionGraph &g, Event w, GenericValue &wVal,
 				Type *typ, GenericValue *ptr)
 {
-	for (auto i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
