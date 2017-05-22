@@ -133,7 +133,7 @@ static void printRevisitStack(std::vector<RevisitPair> &stack)
 
 static void saveGraphState(std::vector<int> &state, ExecutionGraph &g)
 {
-	for (unsigned int i = 0; i < g.threads.size(); ++i)
+	for (auto i = 0; i < g.threads.size(); ++i)
 		state.push_back(g.maxEvents[i] - 1);
 }
 
@@ -319,7 +319,7 @@ static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 
 static bool notReadByRMW(ExecutionGraph &g, Event &w)
 {
-	for (unsigned long i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
@@ -332,7 +332,7 @@ static bool notReadByRMW(ExecutionGraph &g, Event &w)
 
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
 {
-	for (unsigned long i = 0; i < g.threads.size(); i++) {
+	for (auto i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
