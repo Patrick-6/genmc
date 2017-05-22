@@ -2032,6 +2032,17 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	return;
 }
 
+void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
+{
+	if (asmString == "") {
+		/* Plain compiler fence */
+		;
+	} else {
+		WARN("Arbitrary inline assembly not supported: " + asmString);
+	}
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 //                 Miscellaneous Instruction Implementations
 //===----------------------------------------------------------------------===//

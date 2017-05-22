@@ -184,8 +184,6 @@ public:
   void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
 
-  void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
-
   // Methods used to execute code:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
@@ -238,6 +236,9 @@ public:
 
   void visitExtractValueInst(ExtractValueInst &I);
   void visitInsertValueInst(InsertValueInst &I);
+
+  void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
+  void visitInlineAsm(CallSite &CS, const std::string &asmString);	
 
   void visitInstruction(Instruction &I) {
     errs() << I << "\n";
