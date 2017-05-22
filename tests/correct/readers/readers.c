@@ -20,7 +20,7 @@ void *thread_reader(void *arg)
 
 int main()
 {
-	pthread_t t[N];
+	pthread_t t[N+1];
 
 	for (int i = 0; i <= N; i++) {
 		idx[i] = i;
