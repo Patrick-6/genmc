@@ -176,8 +176,7 @@ public:
 
 	/* Helper functions */
   GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
-				  Type *typ, GenericValue *ptr,
-				  ExecutionContext &SF);
+				  Type *typ, GenericValue *ptr);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class? 
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);

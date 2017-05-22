@@ -199,7 +199,7 @@ std::vector<int> calcPorfBefore(ExecutionGraph &g, const std::list<Event> &es)
 	return a;
 }
 
-std::vector<int> calcPorfBeforeNoRfs(ExecutionGraph &g, const std::list<Event> &es)
+std::vector<int> calcPorfBeforeNoRfs(ExecutionGraph &g, const std::vector<Event> &es)
 {
 	std::vector<int> a(g.threads.size(), 0);
 
@@ -317,53 +317,6 @@ static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 	return;
 }
 
-static bool notReadByRMW(ExecutionGraph &g, Event &w)
-{
-	for (auto i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.isRMW && lab.rf == w)
-				return false;
-		}
-	}
-	return true;
-}
-
-static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write)
-{
-	for (auto i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.rf == write && lab.isRMW) {
-				if (!(std::find(g.revisit.begin(), g.revisit.end(), lab.pos) != g.revisit.end()))
-					return false;
-				std::vector<int> after = calcPorfAfter(g, lab.pos);
-				Event last = getLastThreadEvent(g, g.currentT);
-				if (last.index >= after[last.thread])
-					return false;
-			}
-		}
-	}
-	return true;
-}
-
-static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
-			   Event RMW, Event RMWrf)
-{
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.isRMW &&
-			    lab.rf == RMWrf && lab.pos != RMW)
-				pending.push_back(lab.pos);
-		}
-	}
-	return;
-}
-
 static void __addStoreToGraphCommon(ExecutionGraph &g, EventLabel &lab)
 {
 	Thread &thr = g.threads[g.currentT];
@@ -473,40 +426,12 @@ static void calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
-/* Calculates all the subsets for a set of Events */
-static void __calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-			      std::vector<Event> &ls, EventLabel &wLab)
-{
-	std::vector<std::vector<Event> > subsets;
-	calcNotEmptyPowerSet(subsets, ls);
-
-	for (auto &&si : subsets) {
-		std::vector<int> after = calcPorfAfter(g, si);
-		int successfulRMWs = 0;
-		bool pushSet = true;
-		for (auto &ei : si) {
-			if (after[ei.thread] <= ei.index)
-				pushSet = false;
-			EventLabel &eLab = getEventLabel(g, ei);
-			if (eLab.isRMW &&
-			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
-				++successfulRMWs;
-		}
-		if (successfulRMWs > 1 || si.empty())
-			pushSet = false;
-		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
-			rSets.push_back(si);
-	}
-	return;	
-}
-
 /* Calculates all the subsets that contain a particular element for a set of Events */
-static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-				  std::vector<Event> &ls, EventLabel &wLab, Event &elem)
+static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
+			   std::vector<std::vector<Event> > &subsets,
+			   ExecutionGraph &g, std::vector<Event> &K,
+			   std::vector<Event> &K0, EventLabel &wLab)
 {
-	std::vector<std::vector<Event> > subsets;
-	calcNotEmptyPowerSet(subsets, ls);
-
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
 		int successfulRMWs = 0;
@@ -516,13 +441,21 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 				pushSet = false;
 			EventLabel &eLab = getEventLabel(g, ei);
 			if (eLab.isRMW &&
-			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp).IntVal.getBoolValue())
+			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp)
+			    .IntVal.getBoolValue())
 				++successfulRMWs;
 		}
-		if (successfulRMWs > 1 || si.empty())
+		if (successfulRMWs > 1)
 			pushSet = false;
-		if (pushSet && std::find(si.begin(), si.end(), elem) == si.end())
-			pushSet = false;		
+		if (pushSet && !K0.empty()) {
+			WARN_ON(K0.size() > 1, "There can't be more than pending RMWs!");
+			if (K0.size() > 1)
+				printExecGraph(g);
+			Event &e = K0.back();
+			if ((std::find(si.begin(), si.end(), e) == si.end() &&
+			     e.index < after[e.thread]))
+				pushSet = false;
+		}
 		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
 			rSets.push_back(si);
 	}
@@ -530,26 +463,11 @@ static void __calcRevisitSetsElem(std::vector<std::vector<Event> > &rSets, Execu
 }
 
 static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-			    std::vector<Event> &ls, Event &w)
+			    std::vector<Event> &K, std::vector<Event> K0, EventLabel &wLab)
 {
-	EventLabel &wLab = getEventLabel(g, w);
-	if (!wLab.isRMW) {
-		__calcRevisitSets(rSets, g, ls, wLab);
-		return;
-	}
-
-	std::vector<Event> pendingRMWs;
-
-	EventLabel rLab = getPreviousLabel(g, w);
-	getPendingRMWs(pendingRMWs, g, rLab.pos, rLab.rf);
-	/* TODO: Fix the check below */
-	WARN_ON(pendingRMWs.size() > 1, "More than 1 pending RMWs?");
-	if (pendingRMWs.size() == 0) {
-		__calcRevisitSets(rSets, g, ls, wLab);
-	} else {
-		__calcRevisitSetsElem(rSets, g, ls, wLab, pendingRMWs.back());
-		shouldContinue = false;
-	}
+	std::vector<std::vector<Event> > subsets;
+	calcNotEmptyPowerSet(subsets, K);
+	filterPowerSet(rSets, subsets, g, K, K0, wLab);
 	return;
 }
 
@@ -633,26 +551,33 @@ static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 	return;
 }
 
-static void filterRevisitSet(ExecutionGraph &g, std::vector<Event> &es, Event store)
+static void markReadsAsVisited(ExecutionGraph &g, std::vector<Event> &K,
+			       std::vector<Event> K0, Event store)
 {
-	std::vector<int> before = calcPorfBefore(g, es);
-	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				       { return e.index <= before[e.thread]; }),
-			g.revisit.end());
-	return;
-}
+	if (K0.empty()) {
+		std::vector<int> before = calcPorfBefore(g, K);
+		g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(),
+					       [&before](Event &e)
+					       { return e.index <= before[e.thread]; }),
+				g.revisit.end());
+		return;
+	}
 
-static void filterRevisitSet2(ExecutionGraph &g, std::vector<Event> &es, Event store,
-			      Event elem)
-{
-	std::vector<Event> ess;
-	for (auto it = es.begin(); it != es.end(); ++it)
-		if (*it != elem)
-			ess.push_back(*it);
-	// if (ess.empty())
-	// 	return;
+	if (K.size() == 1 && K.back() == K0.back()) {
+		std::vector<int> before = calcPorfBeforeNoRfs(g, K);
+		g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(),
+					       [&before](Event &e)
+					       { return e.index <= before[e.thread]; } ),
+				g.revisit.end());
+		return;
+	}
+
+	std::vector<Event> K1;
+	for (auto it = K.begin(); it != K.end(); ++it)
+		if (*it != K0.back())
+			K1.push_back(*it);
 	
-	std::vector<int> before = calcPorfBefore(g, ess);
+	std::vector<int> before = calcPorfBefore(g, K1);
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->index <= before[it->thread])
 			g.revisit.erase(it--);
@@ -662,8 +587,7 @@ static void filterRevisitSet2(ExecutionGraph &g, std::vector<Event> &es, Event s
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
 /* TODO: Maybe return reference? */
 GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
-					     Type *typ, GenericValue *ptr,
-					     ExecutionContext &SF)
+					     Type *typ, GenericValue *ptr)
 {
 	if (write.isInitializer()) {
 		GenericValue result;
@@ -673,6 +597,61 @@ GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
 	
 	EventLabel &lab = getEventLabel(g, write);
 	return lab.val;
+}
+
+static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
+			   Event &RMW, Event &RMWrf, GenericValue &rfVal)
+{
+	for (auto i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.isRMW && lab.pos != RMW && lab.rf == RMWrf &&
+			    executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue()) {
+				pending.push_back(lab.pos);
+				shouldContinue = false;
+			}
+		}
+	}
+	return;
+}
+
+static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write,
+				GenericValue &wVal, Type *typ)
+{
+	for (auto i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.rf == write && lab.isRMW) {
+				if (!executeICMP_EQ(lab.val, wVal, typ).IntVal.getBoolValue())
+					continue;
+				if (!(std::find(g.revisit.begin(), g.revisit.end(),
+						lab.pos) != g.revisit.end()))
+					return false;
+				std::vector<int> after = calcPorfAfter(g, lab.pos);
+				Event last = getLastThreadEvent(g, g.currentT);
+				if (last.index >= after[last.thread])
+					return false;
+			}
+		}
+	}
+	return true;
+}
+
+static bool notReadByAtomicRead(ExecutionGraph &g, Event w, GenericValue &wVal,
+				Type *typ, GenericValue *ptr)
+{
+	for (auto i = 0; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.isRMW && lab.rf == w &&
+			    executeICMP_EQ(lab.val, wVal, typ).IntVal.getBoolValue())
+				return false;
+		}
+	}
+	return true;
 }
 
 static void validateGraph(ExecutionGraph &g)
@@ -1797,6 +1776,11 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getType();
 
+		/* 
+		 * A global access is an access to a global variable, or an access
+		 * to some offset of a global variable (obtained by getelementptr).
+		 * If this is not a global access just perform the load. 
+		 */
 		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
 			GenericValue Result;
 			LoadValueFromMemory(Result, ptr, typ);
@@ -1804,35 +1788,46 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 			return;
 		}
 
+
+		/* Is the execution driven by an existing graph? */
 		globalAccess = false;
-		int c = ++globalCount[currentEG->currentT];
-		Thread &thr = currentEG->threads[currentEG->currentT];
+		int c = ++globalCount[currentEG->currentT];	       
 		if (currentEG->maxEvents[currentEG->currentT] > c) {
+			Thread &thr = currentEG->threads[currentEG->currentT];
 			EventLabel &lab = thr.eventList[c];
-			GenericValue val = loadValueFromWrite(*currentEG, lab.rf, typ, ptr, SF);
+			GenericValue val = loadValueFromWrite(*currentEG, lab.rf, typ, ptr);
 			SetValue(&I, val, SF);			
 			return;
 		}
 
 		std::vector<Event> stores;
 		std::vector<int> preds;
+		Event rf;
 
+		/* Calculate the appropriate write to read from */
 		getStoresToLoc(stores, *currentEG, ptr, SF);
 		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
-			/* Mark reads as revisited only in the first graph */
-			if (preds.empty()) { /* TODO: Maybe not create object? */
-				addReadToGraph(*currentEG, ptr, typ, *rit);
-				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
-				saveGraphState(preds, *currentEG);
-//				currentEG->revisit.push_front(e);
-				currentEG->revisit.push_back(e);
-				GenericValue val = loadValueFromWrite(*currentEG, *rit, typ, ptr, SF);
-				SetValue(&I, val, SF);
-			} else {
-				Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
-				currentStack->push_back(RevisitPair(R, e, *rit, preds));
+			GenericValue wVal = loadValueFromWrite(*currentEG, *rit, typ, ptr);
+			if (notReadByAtomicRead(*currentEG, *rit, wVal, typ, ptr)) {
+				rf = *rit;
+				break;
 			}
 		}
+		
+		/* ... and add a label for the new read to the graph */
+		addReadToGraph(*currentEG, ptr, typ, rf);
+		Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
+		saveGraphState(preds, *currentEG);
+		currentEG->revisit.push_back(e);
+		
+		/* Push the rest of the stores we can read from to the stack */
+		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit)
+			if (*rit != rf)
+				currentStack->push_back(RevisitPair(R, e, *rit, preds));
+		
+		/* Return the appropriate value for this instruction */
+		GenericValue val = loadValueFromWrite(*currentEG, rf, typ, ptr);
+		SetValue(&I, val, SF);
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1865,12 +1860,13 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 
 		addStoreToGraph(*currentEG, ptr, val, typ);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
+		EventLabel &sLab = getEventLabel(*currentEG, s);
 		std::vector<Event> ls;
 		std::vector<std::vector<Event> > rSets;
 		std::vector<int> preds;
 
 		getRevisitLoads(ls, *currentEG, s);
-		calcRevisitSets(rSets, *currentEG, ls, s);
+		calcRevisitSets(rSets, *currentEG, ls, {}, sLab);
 		saveGraphState(preds, *currentEG);
 		/* Exclude the empty set */
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -1878,7 +1874,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			fillGraphBefore(*currentEG, eg, preds);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
-			filterRevisitSet(eg, *it, s);
+			markReadsAsVisited(eg, *it, {}, s);
 			visitGraph(eg);
 		}
 		return;
@@ -1922,34 +1918,30 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	Thread &thr = g.threads[g.currentT];
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = thr.eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			addRMWStoreToGraph(g, ptr, newVal, typ);
 			++globalCount[g.currentT];
 			
 			Event s = getLastThreadEvent(g, g.currentT);
+			EventLabel &sLab = getEventLabel(g, s);
 			std::vector<Event> ls;
 			std::vector<std::vector<Event> > rSets;
 			std::vector<Event> pendingRMWs;
 
 			getRevisitLoads(ls, g, s);
-			calcRevisitSets(rSets, g, ls, s);
-			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf);
+			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, oldVal);
+			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 			
 			std::vector<int> writePreds;
 			saveGraphState(writePreds, g);
-			for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
+			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
 				ExecutionGraph eg;
 				fillGraphBefore(g, eg, writePreds);
-				cutGraphAfter(eg, *rit);
-				modifyRfs(eg, *rit, s);
-				if (pendingRMWs.empty()) {
-					filterRevisitSet(eg, *rit, s);
-				}
-				else {
-					filterRevisitSet2(eg, *rit, s, pendingRMWs.back());
-				}
+				cutGraphAfter(eg, *it);
+				modifyRfs(eg, *it, s);
+				markReadsAsVisited(eg, *it, pendingRMWs, s);
 				visitGraph(eg);
 			}
 		}
@@ -1962,7 +1954,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = thr.eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr, SF);
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		result.AggregateVal.push_back(oldVal);
 		result.AggregateVal.push_back(cmpRes);
@@ -1971,62 +1963,71 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 
 	std::vector<Event> stores;
+	std::vector<Event> validStores;
 	std::vector<int> readPreds;
+	bool found = false;
 
+	/* Calculate the stores that we can actually read from */
 	getStoresToLoc(stores, g, ptr, SF);
-	for (auto it = stores.rbegin(); it != stores.rend(); ++it) {
-		GenericValue oldVal = loadValueFromWrite(g, *it, typ, ptr, SF);
+	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
+		GenericValue oldVal = loadValueFromWrite(g, *rit, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		if (cmpRes.IntVal.getBoolValue() && !RMWCanReadFromWrite(g, *it))
-			continue;
-		if (readPreds.empty()) { /* TODO: Maybe not create object? */
-			addRMWReadToGraph(g, ptr, cmpVal, typ, *it);
-			Event e = getLastThreadEvent(g, g.currentT);
-			saveGraphState(readPreds, g);
-//			g.revisit.push_front(e);
-			g.revisit.push_back(e);
-
-			/* Must add store after calling getPendingRMWs() */
-			if (cmpRes.IntVal.getBoolValue()) {
-				addRMWStoreToGraph(g, ptr, newVal, typ);
-				++globalCount[g.currentT];
-				
-				Event s = getLastThreadEvent(g, g.currentT);
-				EventLabel &lab = getEventLabel(g, e);
-				std::vector<Event> ls;
-				std::vector<std::vector<Event> > rSets;
-				std::vector<Event> pendingRMWs;
-
-				getRevisitLoads(ls, g, s);
-				calcRevisitSets(rSets, g, ls, s);
-				getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf);
-
-				/* TODO: Replace this with getGraphState() */
-				std::vector<int> writePreds;
-				saveGraphState(writePreds, g);
-				for (auto rit = rSets.begin(); rit != rSets.end(); ++rit) {
-					ExecutionGraph eg;
-					fillGraphBefore(g, eg, writePreds);
-					cutGraphAfter(eg, *rit);
-					modifyRfs(eg, *rit, s);
-					if (pendingRMWs.empty())
-						filterRevisitSet(eg, *rit, s);
-					else {
-						filterRevisitSet2(eg, *rit, s, pendingRMWs.back());
-					}
-					visitGraph(eg);
-				}
+		if (cmpRes.IntVal.getBoolValue() == 0 ||
+		    RMWCanReadFromWrite(g, *rit, oldVal, typ)) {
+			if (notReadByAtomicRead(g, *rit, oldVal, typ, ptr) && !found) {
+				/* ... and add a label with the appropriate store. */
+				addRMWReadToGraph(g, ptr, cmpVal, typ, *rit);
+				Event e = getLastThreadEvent(g, g.currentT);
+				saveGraphState(readPreds, g);
+				g.revisit.push_back(e);
+				found = true;
+			} else {
+				/* Push the rest of the stores in a vector */
+				validStores.push_back(*rit);
 			}
-			
-			/* TODO: Check move semantics .. */
-			result.AggregateVal.push_back(oldVal);
-			result.AggregateVal.push_back(cmpRes);
-			SetValue(&I, result, SF);
-		} else {
-			Event e = g.threads[g.currentT].eventList[readPreds[g.currentT]].pos;
-			currentStack->push_back(RevisitPair(R, e, *it, readPreds));
 		}
 	}
+
+	Event e = getLastThreadEvent(g, g.currentT);
+	/* Choose the appropriate store to read from */
+	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
+		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
+	}
+
+	/* Did the CAS operation succeed? */
+	GenericValue oldVal = loadValueFromWrite(g, getEventLabel(g, e).rf, typ, ptr);
+	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue()) {
+		addRMWStoreToGraph(g, ptr, newVal, typ);
+		++globalCount[g.currentT];
+				
+		Event s = getLastThreadEvent(g, g.currentT);
+		EventLabel &sLab = getEventLabel(g, s);
+		EventLabel &lab = getEventLabel(g, e);
+		std::vector<Event> ls;
+		std::vector<std::vector<Event> > rSets;
+		std::vector<Event> pendingRMWs;
+
+		getRevisitLoads(ls, g, s);
+		getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, lab.val);
+		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+
+		std::vector<int> writePreds;
+		saveGraphState(writePreds, g);
+		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+			ExecutionGraph eg;
+			fillGraphBefore(g, eg, writePreds);
+			cutGraphAfter(eg, *it);
+			modifyRfs(eg, *it, s);
+			markReadsAsVisited(eg, *it, pendingRMWs, s);
+			visitGraph(eg);
+		}
+	}
+
+	/* Return the appropriate result */
+	result.AggregateVal.push_back(oldVal);
+	result.AggregateVal.push_back(cmpRes);
+	SetValue(&I, result, SF);
 	return;
 }
 
@@ -3210,6 +3211,9 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 		} else {
+			if (userConf->printExecGraphs)
+				printExecGraph(g);
+			++explored;
 			executionCompleted = true;
 		}
 
@@ -3217,9 +3221,9 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			continue;
 
 		if (workqueue.empty()) {
-			if (userConf->printExecGraphs)
-				printExecGraph(g);
-			explored++;
+			// if (userConf->printExecGraphs)
+			// 	printExecGraph(g);
+//			explored++;
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
 			shouldContinue = oldContinue;
@@ -3237,9 +3241,9 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 //			printRevisitPair(p);
 //			printExecGraph(g);
 			if (executionCompleted) {
-				if (userConf->printExecGraphs)
-					printExecGraph(g);
-				explored++;
+				// if (userConf->printExecGraphs)
+				// 	printExecGraph(g);
+//				explored++;
 			}
 			
 			cutGraphBefore(g, p.preds);
