@@ -62,7 +62,6 @@ runtest() {
 	    *)                                ;;
 	esac
     fi
-    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${nc}... "
     vars=0
     test_time=0
     test_args=""
@@ -75,7 +74,11 @@ runtest() {
     if test -f "${dir}/args.in"
     then
 	test_args=`head -n 1 "${dir}/args.in"`
+	n="(${test_args##*="})"   ## assumes that the -DN=... arg appears last
+    else
+        n=""
     fi
+    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${n}${nc}... "
     for t in $dir/*.c
     do
 	vars=$((vars+1))
