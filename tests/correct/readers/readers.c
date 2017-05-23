@@ -31,6 +31,10 @@ int main()
 			if (pthread_create(&t[i], NULL, thread_reader, &idx[i-1]))
 				abort();
 		}
+	}
+
+	for (int i = 0; i <= N; i++) {
+		pthread_join(t[i], NULL);
 	}	
 
 	return 0;
