@@ -42,16 +42,12 @@ static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 /* Types and variables */
 /* TODO: integrate this into EventLabel?? */
 struct RevisitPair {
-	EventType type; /* Only {R,W} are valid */
 	Event e;
 	Event rf;
-	std::list<Event> ls;
 	std::vector<int> preds;
 
-	RevisitPair(EventType t, Event e, Event rf, std::vector<int> preds)
-		: type(t), e(e), rf(rf), preds(preds) {} ;
-	RevisitPair(EventType t, Event e, std::list<Event> ls, std::vector<int> preds)
-		: type(t), e(e), ls(ls), preds(preds) {};
+	RevisitPair(Event e, Event rf, std::vector<int> preds)
+		: e(e), rf(rf), preds(preds) {};
 };
 
 std::vector<RevisitPair> *currentStack;
@@ -113,15 +109,7 @@ static void printExecGraph(ExecutionGraph &g)
 
 static void printRevisitPair(RevisitPair &p)
 {
-	if (p.type == R)
-		std::cerr << p.e << " needs to read from " << p.rf
-			  << std::endl;
-	else {
-		std::cerr << "The following list has to read from "
-			  << p.e << std::endl;
-		for (auto &l : p.ls)
-			std::cerr << "\t" << l << std::endl;
-	}
+	std::cerr << p.e << " needs to read from " << p.rf << std::endl;
 }
 
 static void printRevisitStack(std::vector<RevisitPair> &stack)
@@ -1844,7 +1832,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		/* Push the rest of the stores we can read from to the stack */
 		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit)
 			if (*rit != rf)
-				currentStack->push_back(RevisitPair(R, e, *rit, preds));
+				currentStack->push_back(RevisitPair(e, *rit, preds));
 
 		/* Return the appropriate value for this instruction */
 		GenericValue val = loadValueFromWrite(*currentEG, rf, typ, ptr);
@@ -2013,7 +2001,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	Event e = getLastThreadEvent(g, g.currentT);
 	/* Push all the valid alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
-		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
+		currentStack->push_back(RevisitPair(e, *it, readPreds));
 	}
 
 	/* Did the CAS operation succeed? */
@@ -2170,7 +2158,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	Event e = getLastThreadEvent(g, g.currentT);
 	/* Push all the valid alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
-		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
+		currentStack->push_back(RevisitPair(e, *it, readPreds));
 	}
 
 	/* Calculate the result of the RMW and add an appropriate event to the graph */
@@ -3406,9 +3394,6 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			continue;
 
 		if (workqueue.empty()) {
-			// if (userConf->printExecGraphs)
-			// 	printExecGraph(g);
-//			explored++;
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
 			shouldContinue = oldContinue;
@@ -3422,39 +3407,27 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		RevisitPair &p = workqueue.back();
 //		std::cerr << "Popping from workqueue...\n";
 
-		if (p.type == R) {
-//			printRevisitPair(p);
-//			printExecGraph(g);
-			if (executionCompleted) {
-				// if (userConf->printExecGraphs)
-				// 	printExecGraph(g);
-//				explored++;
-			}
-
-			cutGraphBefore(g, p.preds);
-			EventLabel &lab1 = getEventLabel(g, p.e);
-			Event oldRf = lab1.rf;
-			lab1.rf = p.rf;
-			if (!p.rf.isInitializer()) {
-				EventLabel &lab2 = getEventLabel(g, p.rf);
-				lab2.rfm1.push_front(p.e);
-			}
-			if (!oldRf.isInitializer()) {
-				EventLabel &lab3 = getEventLabel(g, oldRf);
-				lab3.rfm1.remove(p.e);
-			}
-			std::vector<int> before = calcPorfBefore(g, p.e);
-			for (auto it = g.revisit.begin();
-			     it != g.revisit.end(); ++it)
-				if (it->index <= before[it->thread])
-					g.revisit.erase(it--);
-
-			ECStacks = initStacks;
-			for (int i = 0; i < initNumThreads; i++)
-				globalCount[i] = 0;
-		} else {
-			WARN("This should not happen\n");
+		cutGraphBefore(g, p.preds);
+		EventLabel &lab1 = getEventLabel(g, p.e);
+		Event oldRf = lab1.rf;
+		lab1.rf = p.rf;
+		if (!p.rf.isInitializer()) {
+			EventLabel &lab2 = getEventLabel(g, p.rf);
+			lab2.rfm1.push_front(p.e);
 		}
+		if (!oldRf.isInitializer()) {
+			EventLabel &lab3 = getEventLabel(g, oldRf);
+			lab3.rfm1.remove(p.e);
+		}
+		std::vector<int> before = calcPorfBefore(g, p.e);
+		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
+			if (it->index <= before[it->thread])
+				g.revisit.erase(it--);
+
+		ECStacks = initStacks;
+		for (int i = 0; i < initNumThreads; i++)
+			globalCount[i] = 0;
+
 		workqueue.pop_back();
 	}
 }
