@@ -24,31 +24,45 @@
 #include <cassert>
 
 EventLabel::EventLabel(EventType typ, Event e)
-	: type(typ), pos(e), isRMW(false) {}
+	: type(typ), pos(e) {}
 
-EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::Type *valTyp, Event w, bool rmw)
-	: type(typ), pos(e), addr(addr), valTyp(valTyp), rf(w), isRMW(rmw) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, Event e,
+		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), isRMW(rmw) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
+		       llvm::GenericValue val, llvm::Type *valTyp)
+	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
-EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp, Event w, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), rf(w), isRMW(rmw) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
+		       llvm::GenericValue val, llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp, std::list<Event> rfm1, bool rmw)
-	: type(typ), pos(e), addr(addr), val(val), valTyp(valTyp), rfm1(rfm1), isRMW(rmw) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
+		       llvm::GenericValue val, llvm::Type *valTyp, std::list<Event> rfm1)
+	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp), rfm1(rfm1) {}
 	
+
+bool EventLabel::isRMW() const
+{
+	return attr != Plain;
+}
 
 std::ostream& operator<<(std::ostream &s, const EventType &t)
 {
 	switch (t) {
-	case 0 : return s << "R";
-	case 1 : return s << "W";
-	case 2 : return s << "NA";
+	case R : return s << "R";
+	case W : return s << "W";
+	case NA : return s << "NA";
+	}
+}
+
+std::ostream& operator<<(std::ostream &s, const EventAttr &a)
+{
+	switch (a) {
+	case Plain : return s << "";
+	case CAS : return s << "CAS";
+	case RMW : return s << "RMW";
 	}
 }
 
@@ -60,5 +74,6 @@ std::ostream& operator<<(std::ostream &s, const Event &e)
 std::ostream& operator<<(std::ostream &s, const EventLabel &lab)
 {
 	return s << "EventLabel (Type: " << lab.type << ", "
-		 << lab.pos << (lab.isRMW ? ", RMW" : "") << ")";
+		 << lab.pos << (lab.isRMW() ? ", " : "")
+		 << lab.attr << ")";
 }

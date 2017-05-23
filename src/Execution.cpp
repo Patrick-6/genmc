@@ -329,7 +329,15 @@ static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
 			    GenericValue &val, Type *typ)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(W, Event(g.currentT, max), ptr, val, typ, false);
+	EventLabel lab(W, Plain, Event(g.currentT, max), ptr, val, typ);
+	__addStoreToGraphCommon(g, lab);
+}
+
+static void addCASStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
+			       GenericValue &val, Type *typ)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(W, CAS, Event(g.currentT, max), ptr, val, typ);
 	__addStoreToGraphCommon(g, lab);
 }
 
@@ -337,7 +345,7 @@ static void addRMWStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
 			       GenericValue &val, Type *typ)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(W, Event(g.currentT, max), ptr, val, typ, true);
+	EventLabel lab(W, RMW, Event(g.currentT, max), ptr, val, typ);
 	__addStoreToGraphCommon(g, lab);
 }
 
@@ -365,15 +373,23 @@ static void __addReadToGraphCommon(ExecutionGraph &g, EventLabel &lab, Event &rf
 static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr, Type *typ, Event rf)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(R, Event(g.currentT, max), ptr, typ, rf, false);
+	EventLabel lab(R, Plain, Event(g.currentT, max), ptr, typ, rf);
+	__addReadToGraphCommon(g, lab, rf);
+}
+
+static void addCASReadToGraph(ExecutionGraph &g, GenericValue *ptr,
+			      GenericValue &val, Type *typ, Event rf)
+{
+	int max = g.maxEvents[g.currentT];
+	EventLabel lab(R, CAS, Event(g.currentT, max), ptr, val, typ, rf);
 	__addReadToGraphCommon(g, lab, rf);
 }
 
 static void addRMWReadToGraph(ExecutionGraph &g, GenericValue *ptr,
-			      GenericValue &val, Type *typ, Event rf)
+			      Type *typ, Event rf)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(R, Event(g.currentT, max), ptr, val, typ, rf, true);
+	EventLabel lab(R, RMW, Event(g.currentT, max), ptr, typ, rf);
 	__addReadToGraphCommon(g, lab, rf);
 }
 
@@ -426,6 +442,15 @@ static void calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
+static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
+{
+	if (lab.attr == Plain)
+		return false;
+	if (lab.attr == RMW)
+		return true;
+	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
+}
+
 /* Calculates all the subsets that contain a particular element for a set of Events */
 static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
 			   std::vector<std::vector<Event> > &subsets,
@@ -440,17 +465,13 @@ static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
 			if (after[ei.thread] <= ei.index)
 				pushSet = false;
 			EventLabel &eLab = getEventLabel(g, ei);
-			if (eLab.isRMW &&
-			    executeICMP_EQ(eLab.val, wLab.val, eLab.valTyp)
-			    .IntVal.getBoolValue())
+			if (eLab.isRMW() && isSuccessfulRMW(eLab, wLab.val))
 				++successfulRMWs;
 		}
 		if (successfulRMWs > 1)
 			pushSet = false;
 		if (pushSet && !K0.empty()) {
-			WARN_ON(K0.size() > 1, "There can't be more than pending RMWs!");
-			if (K0.size() > 1)
-				printExecGraph(g);
+			WARN_ON(K0.size() > 1, "There can't be more than 1 pending RMWs!");
 			Event &e = K0.back();
 			if ((std::find(si.begin(), si.end(), e) == si.end() &&
 			     e.index < after[e.thread]))
@@ -606,8 +627,8 @@ static void getPendingRMWs(std::vector<Event> &pending, ExecutionGraph &g,
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.isRMW && lab.pos != RMW && lab.rf == RMWrf &&
-			    executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue()) {
+			if (lab.type == R && lab.isRMW() && lab.pos != RMW &&
+			    lab.rf == RMWrf && isSuccessfulRMW(lab, rfVal)) {
 				pending.push_back(lab.pos);
 				shouldContinue = false;
 			}
@@ -623,8 +644,8 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write,
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.rf == write && lab.isRMW) {
-				if (!executeICMP_EQ(lab.val, wVal, typ).IntVal.getBoolValue())
+			if (lab.type == R && lab.rf == write && lab.isRMW()) {
+				if (!isSuccessfulRMW(lab, wVal))
 					continue;
 				if (!(std::find(g.revisit.begin(), g.revisit.end(),
 						lab.pos) != g.revisit.end()))
@@ -646,8 +667,8 @@ static bool notReadByAtomicRead(ExecutionGraph &g, Event w, GenericValue &wVal,
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.isRMW && lab.rf == w &&
-			    executeICMP_EQ(lab.val, wVal, typ).IntVal.getBoolValue())
+			if (lab.type == R && lab.isRMW() &&
+			    lab.rf == w && isSuccessfulRMW(lab, wVal))
 				return false;
 		}
 	}
@@ -1921,7 +1942,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			addRMWStoreToGraph(g, ptr, newVal, typ);
+			addCASStoreToGraph(g, ptr, newVal, typ);
 			++globalCount[g.currentT];
 			
 			Event s = getLastThreadEvent(g, g.currentT);
@@ -1977,7 +1998,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		    RMWCanReadFromWrite(g, *rit, oldVal, typ)) {
 			if (notReadByAtomicRead(g, *rit, oldVal, typ, ptr) && !found) {
 				/* ... and add a label with the appropriate store. */
-				addRMWReadToGraph(g, ptr, cmpVal, typ, *rit);
+				addCASReadToGraph(g, ptr, cmpVal, typ, *rit);
 				Event e = getLastThreadEvent(g, g.currentT);
 				saveGraphState(readPreds, g);
 				g.revisit.push_back(e);
@@ -1990,7 +2011,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 
 	Event e = getLastThreadEvent(g, g.currentT);
-	/* Choose the appropriate store to read from */
+	/* Push all the valid alternatives choices to the Stack */	
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
 		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
 	}
@@ -1999,7 +2020,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue oldVal = loadValueFromWrite(g, getEventLabel(g, e).rf, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
-		addRMWStoreToGraph(g, ptr, newVal, typ);
+		addCASStoreToGraph(g, ptr, newVal, typ);
 		++globalCount[g.currentT];
 				
 		Event s = getLastThreadEvent(g, g.currentT);
@@ -2030,6 +2051,158 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	result.AggregateVal.push_back(cmpRes);
 	SetValue(&I, result, SF);
 	return;
+}
+
+void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
+					    GenericValue &val, AtomicRMWInst::BinOp op)
+{
+	switch (op) {
+	case AtomicRMWInst::Xchg:
+		result = val;
+		break;
+	case AtomicRMWInst::Add:
+		result.IntVal = oldVal.IntVal + val.IntVal;
+		break;
+	case AtomicRMWInst::Sub:
+		result.IntVal = oldVal.IntVal - val.IntVal;
+		break;
+	case AtomicRMWInst::Or:
+		result.IntVal = oldVal.IntVal | val.IntVal;
+		break;
+	case AtomicRMWInst::Xor:
+		result.IntVal = oldVal.IntVal ^ val.IntVal;
+		break;
+	case AtomicRMWInst::And:
+		result.IntVal = oldVal.IntVal & val.IntVal;
+		break;
+	default:
+		/* TODO: Do not abort in default case */
+		WARN("Usupported operation in RMW instruction!");
+		abort();
+	}
+}
+
+void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
+{
+	ExecutionGraph &g = *currentEG;
+	ExecutionContext &SF = getECStack()->back();
+	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
+	GenericValue *ptr = (GenericValue *) GVTOP(src);
+	GenericValue val = getOperandValue(I.getValOperand(), SF);
+	Type *typ = I.getType();
+	GenericValue oldVal, newVal;
+
+	WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument");
+
+	/* TODO: Fix check for global access for both RMW types */
+	if (!isa<GlobalVariable>(I.getPointerOperand())) {
+		LoadValueFromMemory(oldVal, ptr, typ);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+		StoreValueToMemory(newVal, ptr, typ);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
+
+	int c = ++globalCount[g.currentT];
+	if (c == g.maxEvents[g.currentT] - 1) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+		
+		addRMWStoreToGraph(g, ptr, newVal, typ);
+		++globalCount[g.currentT];
+			
+		Event s = getLastThreadEvent(g, g.currentT);
+		EventLabel &sLab = getEventLabel(g, s);
+		EventLabel &rLab = getPreviousLabel(g, s); /* Need to refetch! */
+		std::vector<Event> ls;
+		std::vector<std::vector<Event> > rSets;
+		std::vector<Event> pendingRMWs;
+
+		getRevisitLoads(ls, g, s);
+		getPendingRMWs(pendingRMWs, g, rLab.pos, rLab.rf, oldVal);
+		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+			
+		std::vector<int> writePreds;
+		saveGraphState(writePreds, g);
+		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+			ExecutionGraph eg;
+			fillGraphBefore(g, eg, writePreds);
+			cutGraphAfter(eg, *it);
+			modifyRfs(eg, *it, s);
+			markReadsAsVisited(eg, *it, pendingRMWs, s);
+			visitGraph(eg);
+		}
+		SetValue(&I, oldVal, SF);
+		return;
+	}
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
+
+	std::vector<Event> stores;
+	std::vector<Event> validStores;
+	std::vector<int> readPreds;
+	bool found = false;
+
+	/* Calculate the stores that we can actually read from */
+	getStoresToLoc(stores, g, ptr, SF);
+	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
+		oldVal = loadValueFromWrite(g, *rit, typ, ptr);
+		if (RMWCanReadFromWrite(g, *rit, oldVal, typ)) {
+			if (notReadByAtomicRead(g, *rit, oldVal, typ, ptr) && !found) {
+				/* ... and add a label with the appropriate store. */
+				addRMWReadToGraph(g, ptr, typ, *rit);
+				Event e = getLastThreadEvent(g, g.currentT);
+				saveGraphState(readPreds, g);
+				g.revisit.push_back(e);
+				found = true;
+			} else {
+				/* Push the rest of the stores in a vector */
+				validStores.push_back(*rit);
+			}
+		}
+	}
+
+	Event e = getLastThreadEvent(g, g.currentT);
+	/* Push all the valid alternatives choices to the Stack */
+	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
+		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
+	}
+
+	/* Calculate the result of the RMW and add an appropriate event to the graph */
+	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+	addRMWStoreToGraph(g, ptr, newVal, typ);
+	++globalCount[g.currentT];
+				
+	Event s = getLastThreadEvent(g, g.currentT);
+	EventLabel &sLab = getEventLabel(g, s);
+	EventLabel &lab = getEventLabel(g, e);
+	std::vector<Event> ls;
+	std::vector<std::vector<Event> > rSets;
+	std::vector<Event> pendingRMWs;
+	
+	getRevisitLoads(ls, g, s);
+	getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, lab.val);
+	calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+	
+	std::vector<int> writePreds;
+	saveGraphState(writePreds, g);
+	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+		ExecutionGraph eg;
+		fillGraphBefore(g, eg, writePreds);
+		cutGraphAfter(eg, *it);
+		modifyRfs(eg, *it, s);
+		markReadsAsVisited(eg, *it, pendingRMWs, s);
+		visitGraph(eg);
+	}
+
+	/* Return the appropriate result */
+	SetValue(&I, oldVal, SF);
+	return;	
 }
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)

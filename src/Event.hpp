@@ -28,6 +28,7 @@
 #include <list>
 
 enum EventType { R, W, NA };
+enum EventAttr { Plain, CAS, RMW};
 
 struct Event {
 	int thread;
@@ -55,26 +56,29 @@ class EventLabel {
 	
 public:
 	EventType type;
+	EventAttr attr;
 	Event pos;
 	llvm::GenericValue *addr;
 	llvm::GenericValue val; /* For Writes */
 	llvm::Type *valTyp;
 	Event rf; /* For Reads */
 	std::list<Event> rfm1; /* For Writes */
-	bool isRMW;
 
 	EventLabel(EventType typ, Event e); /* Start */
-	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::Type *valTyp, Event w, bool rmw); /* Reads */
-	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue expected, llvm::Type *valTyp,
-		   Event w, bool rmw);
-	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue val, llvm::Type *valTyp,
-		   std::list<Event> rfm1, bool rmw); /* Writes */
-	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
-		   llvm::GenericValue val, llvm::Type *valTyp, bool rmw); /* Writes */
+	EventLabel(EventType typ, EventAttr attr, Event e,
+		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
+	EventLabel(EventType typ, EventAttr attr, Event e,
+		   llvm::GenericValue *addr, llvm::GenericValue expected,
+		   llvm::Type *valTyp, Event w);
+	EventLabel(EventType typ, EventAttr attr, Event e,
+		   llvm::GenericValue *addr, llvm::GenericValue val,
+		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */
+	EventLabel(EventType typ, EventAttr attr, Event e,
+		   llvm::GenericValue *addr, llvm::GenericValue val,
+		   llvm::Type *valTyp); /* Writes */
 
+	bool isRMW() const;
+	
 	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);
 };
 

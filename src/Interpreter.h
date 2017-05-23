@@ -238,6 +238,7 @@ public:
   void visitInsertValueInst(InsertValueInst &I);
 
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
+  void visitAtomicRMWInst(AtomicRMWInst &I);
   void visitInlineAsm(CallSite &CS, const std::string &asmString);	
 
   void visitInstruction(Instruction &I) {
@@ -260,6 +261,8 @@ public:
 private:  // Helper functions
   GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
                                    gep_type_iterator E, ExecutionContext &SF);
+  void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
+				 GenericValue &val, AtomicRMWInst::BinOp op);
 
   // SwitchToNewBasicBlock - Start execution in a new basic block and run any
   // PHI nodes in the top of the block.  This is used for intraprocedural
