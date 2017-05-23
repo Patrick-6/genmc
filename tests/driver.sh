@@ -67,6 +67,7 @@ runtest() {
     test_args=""
     expected=""
     failed=""
+    n=""
     if test -f "${dir}/expected.in"
     then
 	expected=`head -n 1 "${dir}/expected.in"`
@@ -74,9 +75,8 @@ runtest() {
     if test -f "${dir}/args.in"
     then
 	test_args=`head -n 1 "${dir}/args.in"`
-	n="(${test_args##*="})"   ## assumes that the -DN=... arg appears last
-    else
-        n=""
+	n="/`echo "${test_args}" |
+             awk ' { if (match($0, "-DN=[0-9]+")) print substr($0, RSTART+4, RLENGTH-4) } '`"
     fi
     echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${n}${nc}... "
     for t in $dir/*.c
