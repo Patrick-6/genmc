@@ -126,7 +126,7 @@ static void printRevisitPair(RevisitPair &p)
 
 static void printRevisitStack(std::vector<RevisitPair> &stack)
 {
-	for (unsigned int i = 0; i < stack.size(); i++) 
+	for (unsigned int i = 0; i < stack.size(); i++)
 		printRevisitPair(stack[i]);
 	return;
 }
@@ -170,13 +170,13 @@ void __calcPorfBefore(ExecutionGraph &g, const Event &e, std::vector<int> &a)
 		if (lab.type == R && !lab.rf.isInitializer())
 			__calcPorfBefore(g, lab.rf, a);
 	}
-	return;			
+	return;
 }
 
 std::vector<int> calcPorfBefore(ExecutionGraph &g, const Event &e)
 {
 	std::vector<int> a(g.threads.size(), 0);
-	
+
 	__calcPorfBefore(g, e, a);
 	return a;
 }
@@ -286,7 +286,7 @@ static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 {
 	Event l = getLastThreadEvent(g, g.currentT);
 	std::vector<int> before = calcPorfBefore(g, l);
-	
+
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		while (before[i] > 0 &&
@@ -294,12 +294,12 @@ static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
 			thr.eventList[before[i]].addr != ptr))
 			--before[i];
 	}
-	
+
 	std::vector<Event> es;
 	for (unsigned int i = 0; i < before.size(); i++)
 		if (before[i] > 0)
 			es.push_back(Event(i, before[i] - 1));
-	
+
 	if (es.empty()) {
 		getAllStoresToLoc(stores, g, ptr, SF);
 		return;
@@ -480,7 +480,7 @@ static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
 		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
 			rSets.push_back(si);
 	}
-	return;	
+	return;
 }
 
 static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
@@ -532,7 +532,7 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 {
 	if (ls.empty())
 		return;
-	
+
 	std::vector<int> after = calcPorfAfter(g, ls);
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		g.maxEvents[i] = after[i];
@@ -597,7 +597,7 @@ static void markReadsAsVisited(ExecutionGraph &g, std::vector<Event> &K,
 	for (auto it = K.begin(); it != K.end(); ++it)
 		if (*it != K0.back())
 			K1.push_back(*it);
-	
+
 	std::vector<int> before = calcPorfBefore(g, K1);
 	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 		if (it->index <= before[it->thread])
@@ -615,7 +615,7 @@ GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
 		LoadValueFromMemory(result, ptr, typ);
 		return result;
 	}
-	
+
 	EventLabel &lab = getEventLabel(g, write);
 	return lab.val;
 }
@@ -758,7 +758,7 @@ static void executeFMulInst(GenericValue &Dest, GenericValue Src1,
   }
 }
 
-static void executeFDivInst(GenericValue &Dest, GenericValue Src1, 
+static void executeFDivInst(GenericValue &Dest, GenericValue Src1,
                             GenericValue Src2, Type *Ty) {
   switch (Ty->getTypeID()) {
     IMPLEMENT_BINARY_OPERATOR(/, Float);
@@ -769,7 +769,7 @@ static void executeFDivInst(GenericValue &Dest, GenericValue Src1,
   }
 }
 
-static void executeFRemInst(GenericValue &Dest, GenericValue Src1, 
+static void executeFRemInst(GenericValue &Dest, GenericValue Src1,
                             GenericValue Src2, Type *Ty) {
   switch (Ty->getTypeID()) {
   case Type::FloatTyID:
@@ -955,7 +955,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
 		GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
 		GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
 		GenericValue R;   // Result
-  
+
 		switch (I.getPredicate()) {
 		case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
 		case ICmpInst::ICMP_NE:  R = executeICMP_NE(Src1,  Src2, Ty); break;
@@ -971,7 +971,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
 			dbgs() << "Don't know how to handle this ICmp predicate!\n-->" << I;
 			llvm_unreachable(nullptr);
 		}
-		
+
 		SetValue(&I, R, SF);
 		return;
 	}
@@ -980,7 +980,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
-  
+
   switch (I.getPredicate()) {
   case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
   case ICmpInst::ICMP_NE:  R = executeICMP_NE(Src1,  Src2, Ty); break;
@@ -996,7 +996,7 @@ void Interpreter::visitICmpInst(ICmpInst &I) {
     dbgs() << "Don't know how to handle this ICmp predicate!\n-->" << I;
     llvm_unreachable(nullptr);
   }
- 
+
   SetValue(&I, R, SF);
 }
 
@@ -1251,10 +1251,10 @@ static GenericValue executeFCMP_ORD(GenericValue Src1, GenericValue Src2,
         Src2.AggregateVal[_i].DoubleVal)));
     }
   } else if (Ty->isFloatTy())
-    Dest.IntVal = APInt(1,(Src1.FloatVal == Src1.FloatVal && 
+    Dest.IntVal = APInt(1,(Src1.FloatVal == Src1.FloatVal &&
                            Src2.FloatVal == Src2.FloatVal));
   else {
-    Dest.IntVal = APInt(1,(Src1.DoubleVal == Src1.DoubleVal && 
+    Dest.IntVal = APInt(1,(Src1.DoubleVal == Src1.DoubleVal &&
                            Src2.DoubleVal == Src2.DoubleVal));
   }
   return Dest;
@@ -1282,10 +1282,10 @@ static GenericValue executeFCMP_UNO(GenericValue Src1, GenericValue Src2,
              Src2.AggregateVal[_i].DoubleVal)));
       }
   } else if (Ty->isFloatTy())
-    Dest.IntVal = APInt(1,(Src1.FloatVal != Src1.FloatVal || 
+    Dest.IntVal = APInt(1,(Src1.FloatVal != Src1.FloatVal ||
                            Src2.FloatVal != Src2.FloatVal));
   else {
-    Dest.IntVal = APInt(1,(Src1.DoubleVal != Src1.DoubleVal || 
+    Dest.IntVal = APInt(1,(Src1.DoubleVal != Src1.DoubleVal ||
                            Src2.DoubleVal != Src2.DoubleVal));
   }
   return Dest;
@@ -1312,15 +1312,15 @@ void Interpreter::visitFCmpInst(FCmpInst &I) {
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
-  
+
   switch (I.getPredicate()) {
   default:
     dbgs() << "Don't know how to handle this FCmp predicate!\n-->" << I;
     llvm_unreachable(nullptr);
   break;
-  case FCmpInst::FCMP_FALSE: R = executeFCMP_BOOL(Src1, Src2, Ty, false); 
+  case FCmpInst::FCMP_FALSE: R = executeFCMP_BOOL(Src1, Src2, Ty, false);
   break;
-  case FCmpInst::FCMP_TRUE:  R = executeFCMP_BOOL(Src1, Src2, Ty, true); 
+  case FCmpInst::FCMP_TRUE:  R = executeFCMP_BOOL(Src1, Src2, Ty, true);
   break;
   case FCmpInst::FCMP_ORD:   R = executeFCMP_ORD(Src1, Src2, Ty); break;
   case FCmpInst::FCMP_UNO:   R = executeFCMP_UNO(Src1, Src2, Ty); break;
@@ -1337,11 +1337,11 @@ void Interpreter::visitFCmpInst(FCmpInst &I) {
   case FCmpInst::FCMP_UGE:   R = executeFCMP_UGE(Src1, Src2, Ty); break;
   case FCmpInst::FCMP_OGE:   R = executeFCMP_OGE(Src1, Src2, Ty); break;
   }
- 
+
   SetValue(&I, R, SF);
 }
 
-static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1, 
+static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
                                    GenericValue Src2, Type *Ty) {
   GenericValue Result;
   switch (predicate) {
@@ -1446,12 +1446,12 @@ void Interpreter::visitBinaryOperator(BinaryOperator &I) {
     case Instruction::FRem:
       if (dyn_cast<VectorType>(Ty)->getElementType()->isFloatTy())
         for (unsigned i = 0; i < R.AggregateVal.size(); ++i)
-          R.AggregateVal[i].FloatVal = 
+          R.AggregateVal[i].FloatVal =
           fmod(Src1.AggregateVal[i].FloatVal, Src2.AggregateVal[i].FloatVal);
       else {
         if (dyn_cast<VectorType>(Ty)->getElementType()->isDoubleTy())
           for (unsigned i = 0; i < R.AggregateVal.size(); ++i)
-            R.AggregateVal[i].DoubleVal = 
+            R.AggregateVal[i].DoubleVal =
             fmod(Src1.AggregateVal[i].DoubleVal, Src2.AggregateVal[i].DoubleVal);
         else {
           dbgs() << "Unhandled type for Rem instruction: " << *Ty << "\n";
@@ -1564,7 +1564,7 @@ void Interpreter::visitReturnInst(ReturnInst &I) {
 	if (!dryRun) {
 		getECStack()->pop_back();
 		return;
-	}	
+	}
   ExecutionContext &SF = ECStack.back();
   Type *RetTy = Type::getVoidTy(I.getContext());
   GenericValue Result;
@@ -1593,7 +1593,7 @@ void Interpreter::visitBranchInst(BranchInst &I) {
 			if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
 				Dest = I.getSuccessor(1);
 		}
-		SwitchToNewBasicBlock(Dest, SF);		
+		SwitchToNewBasicBlock(Dest, SF);
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1683,7 +1683,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 		Type *Ty = I.getType()->getElementType();  // Type to be allocated
 
 		// Get the number of elements being allocated by the array...
-		unsigned NumElements = 
+		unsigned NumElements =
 			getOperandValue(I.getOperand(0), SF).IntVal.getZExtValue();
 
 		unsigned TypeSize = (size_t)TD.getTypeAllocSize(Ty);
@@ -1694,7 +1694,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 		// Allocate enough memory to hold the type...
 		void *Memory = malloc(MemToAlloc);
 
-		DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x " 
+		DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
 		      << NumElements << " (Total: " << MemToAlloc << ") at "
 		      << uintptr_t(Memory) << '\n');
 
@@ -1711,7 +1711,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   Type *Ty = I.getType()->getElementType();  // Type to be allocated
 
   // Get the number of elements being allocated by the array...
-  unsigned NumElements = 
+  unsigned NumElements =
     getOperandValue(I.getOperand(0), SF).IntVal.getZExtValue();
 
   unsigned TypeSize = (size_t)TD.getTypeAllocSize(Ty);
@@ -1722,7 +1722,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   // Allocate enough memory to hold the type...
   void *Memory = malloc(MemToAlloc);
 
-  DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x " 
+  DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
                << NumElements << " (Total: " << MemToAlloc << ") at "
                << uintptr_t(Memory) << '\n');
 
@@ -1758,7 +1758,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
       GenericValue IdxGV = getOperandValue(I.getOperand(), SF);
 
       int64_t Idx;
-      unsigned BitWidth = 
+      unsigned BitWidth =
         cast<IntegerType>(I.getOperand()->getType())->getBitWidth();
       if (BitWidth == 32)
         Idx = (int64_t)(int32_t)IdxGV.IntVal.getZExtValue();
@@ -1797,10 +1797,10 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getType();
 
-		/* 
+		/*
 		 * A global access is an access to a global variable, or an access
 		 * to some offset of a global variable (obtained by getelementptr).
-		 * If this is not a global access just perform the load. 
+		 * If this is not a global access just perform the load.
 		 */
 		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
 			GenericValue Result;
@@ -1812,12 +1812,12 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
 		/* Is the execution driven by an existing graph? */
 		globalAccess = false;
-		int c = ++globalCount[currentEG->currentT];	       
+		int c = ++globalCount[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c) {
 			Thread &thr = currentEG->threads[currentEG->currentT];
 			EventLabel &lab = thr.eventList[c];
 			GenericValue val = loadValueFromWrite(*currentEG, lab.rf, typ, ptr);
-			SetValue(&I, val, SF);			
+			SetValue(&I, val, SF);
 			return;
 		}
 
@@ -1834,18 +1834,18 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 				break;
 			}
 		}
-		
+
 		/* ... and add a label for the new read to the graph */
 		addReadToGraph(*currentEG, ptr, typ, rf);
 		Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 		saveGraphState(preds, *currentEG);
 		currentEG->revisit.push_back(e);
-		
+
 		/* Push the rest of the stores we can read from to the stack */
 		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit)
 			if (*rit != rf)
 				currentStack->push_back(RevisitPair(R, e, *rit, preds));
-		
+
 		/* Return the appropriate value for this instruction */
 		GenericValue val = loadValueFromWrite(*currentEG, rf, typ, ptr);
 		SetValue(&I, val, SF);
@@ -1944,7 +1944,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		if (cmpRes.IntVal.getBoolValue()) {
 			addCASStoreToGraph(g, ptr, newVal, typ);
 			++globalCount[g.currentT];
-			
+
 			Event s = getLastThreadEvent(g, g.currentT);
 			EventLabel &sLab = getEventLabel(g, s);
 			EventLabel &lab = getPreviousLabel(g, s); /* Need to refetch! */
@@ -1955,7 +1955,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			getRevisitLoads(ls, g, s);
 			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, oldVal);
 			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
-			
+
 			std::vector<int> writePreds;
 			saveGraphState(writePreds, g);
 			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -1967,7 +1967,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 				visitGraph(eg);
 			}
 		}
-			
+
 		/* TODO: Check move semantics .. */
 		result.AggregateVal.push_back(oldVal);
 		result.AggregateVal.push_back(cmpRes);
@@ -2011,7 +2011,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 
 	Event e = getLastThreadEvent(g, g.currentT);
-	/* Push all the valid alternatives choices to the Stack */	
+	/* Push all the valid alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
 		currentStack->push_back(RevisitPair(R, e, *it, readPreds));
 	}
@@ -2022,7 +2022,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	if (cmpRes.IntVal.getBoolValue()) {
 		addCASStoreToGraph(g, ptr, newVal, typ);
 		++globalCount[g.currentT];
-				
+
 		Event s = getLastThreadEvent(g, g.currentT);
 		EventLabel &sLab = getEventLabel(g, s);
 		EventLabel &lab = getEventLabel(g, e);
@@ -2108,10 +2108,10 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-		
+
 		addRMWStoreToGraph(g, ptr, newVal, typ);
 		++globalCount[g.currentT];
-			
+
 		Event s = getLastThreadEvent(g, g.currentT);
 		EventLabel &sLab = getEventLabel(g, s);
 		EventLabel &rLab = getPreviousLabel(g, s); /* Need to refetch! */
@@ -2122,7 +2122,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		getRevisitLoads(ls, g, s);
 		getPendingRMWs(pendingRMWs, g, rLab.pos, rLab.rf, oldVal);
 		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
-			
+
 		std::vector<int> writePreds;
 		saveGraphState(writePreds, g);
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -2177,18 +2177,18 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 	addRMWStoreToGraph(g, ptr, newVal, typ);
 	++globalCount[g.currentT];
-				
+
 	Event s = getLastThreadEvent(g, g.currentT);
 	EventLabel &sLab = getEventLabel(g, s);
 	EventLabel &lab = getEventLabel(g, e);
 	std::vector<Event> ls;
 	std::vector<std::vector<Event> > rSets;
 	std::vector<Event> pendingRMWs;
-	
+
 	getRevisitLoads(ls, g, s);
 	getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, lab.val);
 	calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
-	
+
 	std::vector<int> writePreds;
 	saveGraphState(writePreds, g);
 	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -2202,7 +2202,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 
 	/* Return the appropriate result */
 	SetValue(&I, oldVal, SF);
-	return;	
+	return;
 }
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
@@ -2837,7 +2837,7 @@ void Interpreter::visitZExtInst(ZExtInst &I) {
 		SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 		return;
 	}
-		
+
   ExecutionContext &SF = ECStack.back();
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
@@ -3062,7 +3062,7 @@ void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
 		dbgs() << "Please do not use RMWs outside of thread code!\n";
 		return;
 	}
-	
+
   ExecutionContext &SF = getECStack()->back();
   Value *Agg = I.getAggregateOperand();
   GenericValue Dest;
@@ -3218,13 +3218,13 @@ GenericValue Interpreter::getConstantExprValue (ConstantExpr *CE,
   case Instruction::And:  Dest.IntVal = Op0.IntVal & Op1.IntVal; break;
   case Instruction::Or:   Dest.IntVal = Op0.IntVal | Op1.IntVal; break;
   case Instruction::Xor:  Dest.IntVal = Op0.IntVal ^ Op1.IntVal; break;
-  case Instruction::Shl:  
+  case Instruction::Shl:
     Dest.IntVal = Op0.IntVal.shl(Op1.IntVal.getZExtValue());
     break;
-  case Instruction::LShr: 
+  case Instruction::LShr:
     Dest.IntVal = Op0.IntVal.lshr(Op1.IntVal.getZExtValue());
     break;
-  case Instruction::AShr: 
+  case Instruction::AShr:
     Dest.IntVal = Op0.IntVal.ashr(Op1.IntVal.getZExtValue());
     break;
   default:
@@ -3269,12 +3269,12 @@ void Interpreter::callPthreadCreate(Function *F,
 	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
 	ExecutionContext SF;
 	std::vector<llvm::ExecutionContext> stackSF;
-	
+
 	if (dryRun) {
 		initNumThreads++;
 		Thread thr(calledFun, initNumThreads);
 		initGraph.threads.push_back(thr);
-		
+
 		SF.CurFunction = calledFun;
 		SF.CurBB = &calledFun->front();
 		SF.CurInst = SF.CurBB->begin();
@@ -3321,7 +3321,7 @@ void Interpreter::callFunction(Function *F,
 	  callPthreadExit(F, ArgVals);
 	  return;
   }
-	
+
   assert((ECStack.empty() || !ECStack.back().Caller.getInstruction() ||
           ECStack.back().Caller.arg_size() == ArgVals.size()) &&
          "Incorrect number of arguments passed into function call!");
@@ -3349,7 +3349,7 @@ void Interpreter::callFunction(Function *F,
 
   // Handle non-varargs arguments...
   unsigned i = 0;
-  for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end(); 
+  for (Function::arg_iterator AI = F->arg_begin(), E = F->arg_end();
        AI != E; ++AI, ++i)
     SetValue(&*AI, ArgVals[i], StackFrame);
 
@@ -3418,7 +3418,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			currentEG = oldEG;
 			return;
 		}
-			
+
 		RevisitPair &p = workqueue.back();
 //		std::cerr << "Popping from workqueue...\n";
 
@@ -3430,7 +3430,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 				// 	printExecGraph(g);
 //				explored++;
 			}
-			
+
 			cutGraphBefore(g, p.preds);
 			EventLabel &lab1 = getEventLabel(g, p.e);
 			Event oldRf = lab1.rf;
@@ -3474,7 +3474,7 @@ void Interpreter::run() {
 #if 0
     // This is not safe, as visiting the instruction could lower it and free I.
 DEBUG(
-    if (!isa<CallInst>(I) && !isa<InvokeInst>(I) && 
+    if (!isa<CallInst>(I) && !isa<InvokeInst>(I) &&
         I.getType() != Type::VoidTy) {
       dbgs() << "  --> ";
       const GenericValue &Val = SF.Values[&I];
@@ -3485,7 +3485,7 @@ DEBUG(
       case Type::DoubleTyID:  dbgs() << "double " << Val.DoubleVal; break;
       case Type::PointerTyID: dbgs() << "void* " << intptr_t(Val.PointerVal);
         break;
-      case Type::IntegerTyID: 
+      case Type::IntegerTyID:
         dbgs() << "i" << Val.IntVal.getBitWidth() << " "
                << Val.IntVal.toStringUnsigned(10)
                << " (0x" << Val.IntVal.toStringUnsigned(16) << ")\n";
@@ -3494,13 +3494,13 @@ DEBUG(
     });
 #endif
 if (globalVars.empty())
-	for (auto &v : I.getParent()->getParent()->getParent()->getGlobalList()) 
+	for (auto &v : I.getParent()->getParent()->getParent()->getGlobalList())
 		globalVars.insert((GenericValue *) GVTOP(getOperandValue(&cast<Value>(v), SF)));
   }
 
   dryRun = false;
   /* There is not an event for any thread -- yet */
-  /* maxEvents points to the array index of the next event */ 
+  /* maxEvents points to the array index of the next event */
   for (int i = 0; i < initNumThreads; i++) {
 	  Thread &t = initGraph.threads[i];
 	  t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
