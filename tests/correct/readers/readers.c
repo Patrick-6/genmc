@@ -3,7 +3,7 @@
 #include <pthread.h>
 
 int x;
-int idx[N];
+int idx[N+1];
 
 void *thread_writer(void *unused)
 {
