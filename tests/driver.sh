@@ -51,34 +51,11 @@ runsuccess() {
     fi
 }
 
-total_time=0
-
-runtest() {
-    dir=$1
-    if test -n "${fastrun}"
-    then
-	case "${dir##*/}" in
-	    "big1"|"big2"|"lastzero") continue;;
-	    *)                                ;;
-	esac
-    fi
+runvariants() {
+    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${n}${nc}... "
     vars=0
     test_time=0
-    test_args=""
-    expected=""
     failed=""
-    n=""
-    if test -f "${dir}/expected.in"
-    then
-	expected=`head -n 1 "${dir}/expected.in"`
-    fi
-    if test -f "${dir}/args.in"
-    then
-	test_args=`head -n 1 "${dir}/args.in"`
-	n="/`echo "${test_args}" |
-             awk ' { if (match($0, "-DN=[0-9]+")) print substr($0, RSTART+4, RLENGTH-4) } '`"
-    fi
-    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${n}${nc}... "
     for t in $dir/*.c
     do
 	vars=$((vars+1))
@@ -108,6 +85,32 @@ runtest() {
     fi
 }
 
+total_time=0
+
+runtest() {
+    dir=$1
+    if test -n "${fastrun}"
+    then
+	case "${dir##*/}" in
+	    "big1"|"big2"|"lastzero") continue;;
+	    *)                                ;;
+	esac
+    fi
+    if test -f "${dir}/args.in"
+    then
+	while read test_args <&3 && read expected <&4; do
+	    n="/`echo ${test_args} |
+                 awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
+	    runvariants
+	done 3<"${dir}/args.in" 4<"${dir}/expected.in"
+    else
+	test_args=""
+	n=""
+	expected=`head -n 1 "${dir}/expected.in"`
+	runvariants
+    fi
+}
+
 runall() {
     echo '--------------------------------------------------------------------'
     echo '--- Preparing to run CORRECT testcases...'
@@ -131,7 +134,7 @@ fi
 if test -n "${testcase}"
 then
     echo '--------------------------------------------------------------------'
-    echo '--- Preparing to run testcase' "${testcase}..."
+    echo '--- Preparing to run testcase' "${testcase##*/}..."
     echo '--------------------------------------------------------------------\n'    
     if test -d "${testcase}"
     then
