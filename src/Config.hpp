@@ -24,6 +24,8 @@
 #include <llvm/Support/CommandLine.h>
 #include <set>
 
+enum ModelType { WeakRA, MO, WB };
+
 class Config {
 
 protected:
@@ -33,6 +35,7 @@ protected:
 public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
+	ModelType model;
 	std::string transformFile;
 	int unroll;
 	bool spinAssume;
