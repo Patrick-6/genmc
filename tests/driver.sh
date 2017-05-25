@@ -56,7 +56,7 @@ runvariants() {
     vars=0
     test_time=0
     failed=""
-    for t in $dir/*.c
+    for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
 	output=`runsuccess "${t}" "${test_args}" 2>&1`
