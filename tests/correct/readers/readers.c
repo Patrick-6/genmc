@@ -1,20 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "../../stdatomic.h"
 
-int x;
-int idx[N+1];
+atomic_int x;
+atomic_int idx[N+1];
 
 void *thread_writer(void *unused)
 {
-	x = 42;
+	atomic_store_explicit(&x, 42, memory_order_release);
 	return NULL;
 }
 
 void *thread_reader(void *arg)
 {
 	int r = *((int *) arg);
-	r = x;
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 

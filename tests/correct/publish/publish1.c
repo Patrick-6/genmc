@@ -2,14 +2,15 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <pthread.h>
+#include "../../stdatomic.h"
 
-int x;
-int flag;
+atomic_int x;
+atomic_int flag;
 
 void *thread_writer(void *arg)
 {
-	x = 42;
-	flag = 1;
+	atomic_store_explicit(&x, 42, memory_order_release);
+	atomic_store_explicit(&flag, 1, memory_order_release);
 	return NULL;
 }
 
@@ -18,15 +19,15 @@ void *thread_reader(void *arg)
 	int local = 0;
 	int count = 0;
 	
-	local = flag;
+	local = atomic_load_explicit(&flag, memory_order_acquire);
 	while (local != 1) {
 		count++;
 		if (count > 40)
 			return NULL;
-		local = flag;
+		local = atomic_load_explicit(&flag, memory_order_acquire);
 	}
 	// printf("got it!\n");
-	assert(x == 42);
+	assert(atomic_load_explicit(&x, memory_order_acquire) == 42);
 	return NULL;
 }
 

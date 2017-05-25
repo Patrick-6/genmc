@@ -1,9 +1,10 @@
 #include <stdlib.h>
 #include <pthread.h>
+#include "../../stdatomic.h"
 
-int x;
-int y;
-int z;
+int _Atomic x;
+int _Atomic y;
+int _Atomic z;
 
 int idx[N];
 
@@ -11,9 +12,9 @@ void *thread_one(void *unused)
 {
 	int r;
 
-	x = 1;
-	r = y;
-	r = x;
+	atomic_store_explicit(&x, 1, memory_order_release);
+	r = atomic_load_explicit(&y, memory_order_acquire);
+	r = atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 
@@ -21,9 +22,9 @@ void *thread_two(void *unused)
 {
 	int r;
 
-	x = 2;
-	r = z;
-	r = x;
+	atomic_store_explicit(&x, 2, memory_order_release);
+	r = atomic_load_explicit(&z, memory_order_acquire);
+	r = atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 
@@ -31,8 +32,8 @@ void *thread_n(void *arg)
 {
 	int i = *((int *) arg);
 
-	y = i;
-	z = i;
+	atomic_store_explicit(&y, i, memory_order_release);
+	atomic_store_explicit(&z, i, memory_order_release);
 	return NULL;
 }
 

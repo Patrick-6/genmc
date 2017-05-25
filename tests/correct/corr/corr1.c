@@ -1,16 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "../../stdatomic.h"
 
-int x;
-int y;
+int _Atomic x;
+int _Atomic y;
 
 void *thread_one(void *arg)
 {
 	int r;
 
-	x = 1;
-	x = 2;
+	atomic_store_explicit(&x, 1, memory_order_release);
+	atomic_store_explicit(&x, 2, memory_order_release);
 	return NULL;
 }
 
@@ -18,8 +19,8 @@ void *thread_two(void *arg)
 {
 	int r_x;
 
-	r_x = x;
-	r_x = x;
+	r_x = atomic_load_explicit(&x, memory_order_acquire);
+	r_x = atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 

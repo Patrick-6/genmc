@@ -1,21 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include "../../stdatomic.h"
 
-int x;
-int y;
-int z;
-int w;
+atomic_int x;
+atomic_int y;
+atomic_int z;
+atomic_int w;
 
 void *thread_one(void *arg)
 {
-	int r;
-
-	r = x;
-	r = y;
-	r = z;
-	r = x;
-	r = y;
+	atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&y, memory_order_acquire);
+	atomic_load_explicit(&z, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&y, memory_order_acquire);
 	return NULL;
 }
 
@@ -23,32 +22,32 @@ void *thread_two(void *arg)
 {
 	int r;
 
-	r = x;
-	r = y;
-	r = z;
-	r = x;
+	atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&y, memory_order_acquire);
+	atomic_load_explicit(&z, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 
 void *thread_three(void *arg)
 {
-	x = 1;
-	y = 1;
-	z = 1;
-	x = 2;
-	y = 2;
-	z = 2;
+	atomic_store_explicit(&x, 1, memory_order_release);
+	atomic_store_explicit(&y, 1, memory_order_release);
+	atomic_store_explicit(&z, 1, memory_order_release);
+	atomic_store_explicit(&x, 2, memory_order_release);
+	atomic_store_explicit(&y, 2, memory_order_release);
+	atomic_store_explicit(&z, 2, memory_order_release);
 	return NULL;
 }
 
 void *thread_four(void *arg)
 {
-	x = 3;
-	y = 3;
-	z = 3;
-	x = 4;
-	y = 4;
-	z = 4;
+	atomic_store_explicit(&x, 3, memory_order_release);
+	atomic_store_explicit(&y, 3, memory_order_release);
+	atomic_store_explicit(&z, 3, memory_order_release);
+	atomic_store_explicit(&x, 4, memory_order_release);
+	atomic_store_explicit(&y, 4, memory_order_release);
+	atomic_store_explicit(&z, 4, memory_order_release);
 	return NULL;
 }
 
