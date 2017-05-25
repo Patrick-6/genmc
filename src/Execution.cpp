@@ -288,58 +288,6 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
 	return a;
 }
 
-
-// static void getAllStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
-// 			      GenericValue *ptr, ExecutionContext &SF)
-// {
-// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
-// 		Thread &thr = g.threads[i];
-// 		for (int j = 0; j < g.maxEvents[i]; j++) {
-// 			EventLabel &lab = thr.eventList[j];
-// 			if (lab.type == W && lab.addr == ptr)
-// 				stores.push_back(lab.pos);
-// 		}
-// 	}
-// 	stores.push_back(Event(0,0)); /* Also push the initializer event */
-// 	return;
-// }
-
-// static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
-// 			   GenericValue *ptr, ExecutionContext &SF)
-// {
-// 	Event l = getLastThreadEvent(g, g.currentT);
-// 	std::vector<int> before = calcPorfBefore(g, l);
-
-// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
-// 		Thread &thr = g.threads[i];
-// 		while (before[i] > 0 &&
-// 		       (thr.eventList[before[i]].type != W ||
-// 			thr.eventList[before[i]].addr != ptr))
-// 			--before[i];
-// 	}
-
-// 	std::vector<Event> es;
-// 	for (unsigned int i = 0; i < before.size(); i++)
-// 		if (before[i] > 0)
-// 			es.push_back(Event(i, before[i] - 1));
-
-// 	if (es.empty()) {
-// 		getAllStoresToLoc(stores, g, ptr, SF);
-// 		return;
-// 	}
-
-// 	std::vector<int> before2 = calcPorfBefore(g, es);
-// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
-// 		Thread &thr = g.threads[i];
-// 		for (int j = before2[i] + 1; j < g.maxEvents[i]; j++) {
-// 			EventLabel &lab = thr.eventList[j];
-// 			if (lab.type == W && lab.addr == ptr)
-// 				stores.push_back(Event(i, j));
-// 		}
-// 	}
-// 	return;
-// }
-
 static std::vector<Event> getLocModOrder(ExecutionGraph &g, GenericValue *addr)
 {
 	if (!g.modOrder.count(addr))
