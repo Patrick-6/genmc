@@ -40,6 +40,7 @@ struct Event {
 	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 
 	bool isInitializer() { return thread == 0 && index == 0; };
+	Event prev() { return Event(thread, index-1); };
 
 	friend std::ostream& operator<<(std::ostream &s, const Event &e);
 
@@ -57,6 +58,7 @@ class EventLabel {
 public:
 	EventType type;
 	EventAttr attr;
+	llvm::AtomicOrdering ord;
 	Event pos;
 	llvm::GenericValue *addr;
 	llvm::GenericValue val; /* For Writes */
@@ -65,18 +67,22 @@ public:
 	std::list<Event> rfm1; /* For Writes */
 
 	EventLabel(EventType typ, Event e); /* Start */
-	EventLabel(EventType typ, EventAttr attr, Event e,
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
-	EventLabel(EventType typ, EventAttr attr, Event e,
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue expected,
 		   llvm::Type *valTyp, Event w);
-	EventLabel(EventType typ, EventAttr attr, Event e,
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */
-	EventLabel(EventType typ, EventAttr attr, Event e,
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp); /* Writes */
 
+	bool isRead() const;
+	bool isWrite() const;
+	bool isAtLeastAcquire() const;
+	bool isAtLeastRelease() const;
 	bool isRMW() const;
 	
 	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);

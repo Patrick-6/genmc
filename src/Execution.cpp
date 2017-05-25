@@ -145,7 +145,7 @@ static Event getLastThreadEvent(ExecutionGraph &g, int thread)
 	return thr.eventList[last - 1].pos;
 }
 
-void __calcPorfBefore(ExecutionGraph &g, const Event &e, std::vector<int> &a)
+void __calcPorfBefore(ExecutionGraph &g, Event e, std::vector<int> &a)
 {
 	int ai = a[e.thread];
 	if (e.index <= ai)
@@ -161,7 +161,7 @@ void __calcPorfBefore(ExecutionGraph &g, const Event &e, std::vector<int> &a)
 	return;
 }
 
-std::vector<int> calcPorfBefore(ExecutionGraph &g, const Event &e)
+std::vector<int> calcPorfBefore(ExecutionGraph &g, Event &e)
 {
 	std::vector<int> a(g.threads.size(), 0);
 
@@ -169,7 +169,7 @@ std::vector<int> calcPorfBefore(ExecutionGraph &g, const Event &e)
 	return a;
 }
 
-std::vector<int> calcPorfBefore(ExecutionGraph &g, const std::vector<Event> &es)
+std::vector<int> calcPorfBefore(ExecutionGraph &g, std::vector<Event> &es)
 {
 	std::vector<int> a(g.threads.size(), 0);
 
@@ -178,7 +178,7 @@ std::vector<int> calcPorfBefore(ExecutionGraph &g, const std::vector<Event> &es)
 	return a;
 }
 
-std::vector<int> calcPorfBefore(ExecutionGraph &g, const std::list<Event> &es)
+std::vector<int> calcPorfBefore(ExecutionGraph &g, std::list<Event> &es)
 {
 	std::vector<int> a(g.threads.size(), 0);
 
@@ -187,15 +187,50 @@ std::vector<int> calcPorfBefore(ExecutionGraph &g, const std::list<Event> &es)
 	return a;
 }
 
-std::vector<int> calcPorfBeforeNoRfs(ExecutionGraph &g, const std::vector<Event> &es)
+std::vector<int> calcPorfBeforeNoRfs(ExecutionGraph &g, std::vector<Event> &es)
 {
 	std::vector<int> a(g.threads.size(), 0);
 
 	for (auto &e : es)
-		__calcPorfBefore(g, Event(e.thread, e.index - 1), a);
+		__calcPorfBefore(g, e.prev(), a);
 	for (auto &e : es)
 		if (a[e.thread] < e.index)
 			a[e.thread] = e.index;
+	return a;
+}
+
+void __calcHbBefore(ExecutionGraph &g, const Event &e, std::vector<int> &a)
+{
+	int ai = a[e.thread];
+	if (e.index <= ai)
+		return;
+
+	a[e.thread] = e.index;
+	Thread &thr = g.threads[e.thread];
+	for (int i = ai; i <= e.index; i++) {
+		EventLabel &lab = thr.eventList[i];
+		if (lab.isRead() && lab.isAtLeastAcquire() && !lab.rf.isInitializer()) {
+			EventLabel &rfLab = getEventLabel(g, lab.rf);
+			if (rfLab.isAtLeastRelease())
+				__calcHbBefore(g, rfLab.pos, a);
+		}
+	}
+	return;
+}
+
+std::vector<int> calcHbBefore(ExecutionGraph &g, const std::vector<Event> &es)
+{
+	std::vector<int> a(g.threads.size(), 0);
+
+	for (auto &e : es)
+		__calcHbBefore(g, e, a);
+	return a;
+}
+
+std::vector<int> calcHbBefore(ExecutionGraph &g, Event e)
+{
+	std::vector<int> a(g.threads.size(), 0);
+	__calcHbBefore(g, e, a);
 	return a;
 }
 
@@ -254,70 +289,131 @@ std::vector<int> calcPorfAfter(ExecutionGraph &g, const Event &e)
 }
 
 
-static void getAllStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
-			      GenericValue *ptr, ExecutionContext &SF)
+// static void getAllStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
+// 			      GenericValue *ptr, ExecutionContext &SF)
+// {
+// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
+// 		Thread &thr = g.threads[i];
+// 		for (int j = 0; j < g.maxEvents[i]; j++) {
+// 			EventLabel &lab = thr.eventList[j];
+// 			if (lab.type == W && lab.addr == ptr)
+// 				stores.push_back(lab.pos);
+// 		}
+// 	}
+// 	stores.push_back(Event(0,0)); /* Also push the initializer event */
+// 	return;
+// }
+
+// static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
+// 			   GenericValue *ptr, ExecutionContext &SF)
+// {
+// 	Event l = getLastThreadEvent(g, g.currentT);
+// 	std::vector<int> before = calcPorfBefore(g, l);
+
+// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
+// 		Thread &thr = g.threads[i];
+// 		while (before[i] > 0 &&
+// 		       (thr.eventList[before[i]].type != W ||
+// 			thr.eventList[before[i]].addr != ptr))
+// 			--before[i];
+// 	}
+
+// 	std::vector<Event> es;
+// 	for (unsigned int i = 0; i < before.size(); i++)
+// 		if (before[i] > 0)
+// 			es.push_back(Event(i, before[i] - 1));
+
+// 	if (es.empty()) {
+// 		getAllStoresToLoc(stores, g, ptr, SF);
+// 		return;
+// 	}
+
+// 	std::vector<int> before2 = calcPorfBefore(g, es);
+// 	for (unsigned int i = 0; i < g.threads.size(); i++) {
+// 		Thread &thr = g.threads[i];
+// 		for (int j = before2[i] + 1; j < g.maxEvents[i]; j++) {
+// 			EventLabel &lab = thr.eventList[j];
+// 			if (lab.type == W && lab.addr == ptr)
+// 				stores.push_back(Event(i, j));
+// 		}
+// 	}
+// 	return;
+// }
+
+static std::vector<Event> getLocModOrder(ExecutionGraph &g, GenericValue *addr)
 {
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == W && lab.addr == ptr)
-				stores.push_back(lab.pos);
-		}
-	}
-	stores.push_back(Event(0,0)); /* Also push the initializer event */
-	return;
+	if (!g.modOrder.count(addr))
+		return std::vector<Event>();
+	return g.modOrder[addr];
 }
 
-static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g,
-			   GenericValue *ptr, ExecutionContext &SF)
+static bool isWriteRfBefore(ExecutionGraph &g, std::vector<int> &before, Event e)
 {
-	Event l = getLastThreadEvent(g, g.currentT);
-	std::vector<int> before = calcPorfBefore(g, l);
+	if (e.index <= before[e.thread])
+		return true;
 
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		while (before[i] > 0 &&
-		       (thr.eventList[before[i]].type != W ||
-			thr.eventList[before[i]].addr != ptr))
-			--before[i];
+	EventLabel &lab = getEventLabel(g, e);
+	WARN_ON(lab.type != W, "Modification order should contain writes only!");
+	for (auto &e : lab.rfm1) {
+		bool inRev = std::find(g.revisit.begin(), g.revisit.end(), e) != g.revisit.end();
+		if (e.index <= before[e.thread] && !inRev)
+			return true;
 	}
+	return false;
+}
 
-	std::vector<Event> es;
-	for (unsigned int i = 0; i < before.size(); i++)
-		if (before[i] > 0)
-			es.push_back(Event(i, before[i] - 1));
+static std::vector<Event> findOverwrittenBoundary(ExecutionGraph &g, GenericValue *addr,
+						  int thread)
+{
+	std::vector<Event> boundary;
+	std::vector<int> before = calcHbBefore(g, getLastThreadEvent(g, thread));
+	for (auto &e : getLocModOrder(g, addr))
+		if (isWriteRfBefore(g, before, e))
+			boundary.push_back(e.prev());
+	return boundary;
+}
 
-	if (es.empty()) {
-		getAllStoresToLoc(stores, g, ptr, SF);
+static void getStoresToLoc(std::vector<Event> &stores, ExecutionGraph &g, GenericValue *addr)
+{
+	std::vector<Event> overwritten = findOverwrittenBoundary(g, addr, g.currentT);
+	if (overwritten.empty()) {
+		std::vector<Event> locMO = getLocModOrder(g, addr);
+		stores.push_back(Event(0, 0));
+		stores.insert(stores.end(), locMO.begin(), locMO.end());
 		return;
 	}
 
-	std::vector<int> before2 = calcPorfBefore(g, es);
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
+	std::vector<int> before = calcHbBefore(g, overwritten);
+	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
-		for (int j = before2[i] + 1; j < g.maxEvents[i]; j++) {
+		for (auto j = before[i] + 1; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == W && lab.addr == ptr)
-				stores.push_back(Event(i, j));
+			if (lab.isWrite() && lab.addr == addr)
+				stores.push_back(lab.pos);
 		}
 	}
 	return;
 }
 
-static void __addStoreToGraphCommon(ExecutionGraph &g, EventLabel &lab)
+static void insertToGraph(ExecutionGraph &g, EventLabel &lab)
 {
 	Thread &thr = g.threads[g.currentT];
 	thr.eventList.push_back(lab);
 	++g.maxEvents[g.currentT];
+}
+
+static void __addStoreToGraphCommon(ExecutionGraph &g, EventLabel &lab)
+{
+	insertToGraph(g, lab);
+	g.modOrder[lab.addr].push_back(lab.pos);
 	return;
 }
 
-static void addStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
-			    GenericValue &val, Type *typ)
+static void addStoreToGraph(ExecutionGraph &g, AtomicOrdering ord,
+			    GenericValue *ptr, GenericValue &val, Type *typ)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(W, Plain, Event(g.currentT, max), ptr, val, typ);
+	EventLabel lab(W, Plain, ord, Event(g.currentT, max), ptr, val, typ);
 	__addStoreToGraphCommon(g, lab);
 }
 
@@ -325,7 +421,7 @@ static void addCASStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
 			       GenericValue &val, Type *typ)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(W, CAS, Event(g.currentT, max), ptr, val, typ);
+	EventLabel lab(W, CAS, Unordered, Event(g.currentT, max), ptr, val, typ);
 	__addStoreToGraphCommon(g, lab);
 }
 
@@ -333,35 +429,27 @@ static void addRMWStoreToGraph(ExecutionGraph &g, GenericValue *ptr,
 			       GenericValue &val, Type *typ)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(W, RMW, Event(g.currentT, max), ptr, val, typ);
+	EventLabel lab(W, RMW, Unordered, Event(g.currentT, max), ptr, val, typ);
 	__addStoreToGraphCommon(g, lab);
 }
 
 static void __addReadToGraphCommon(ExecutionGraph &g, EventLabel &lab, Event &rf)
 {
-	Thread &thr = g.threads[g.currentT];
-
-	/* TODO: Make actual consistency checks before adding the event */
-	if (!g.isConsistent())
-		return;
-
-	thr.eventList.push_back(lab);
-	++g.maxEvents[g.currentT];
-
+	insertToGraph(g, lab);
 	if (rf.isInitializer())
 		return;
 
 	Thread &rfThr = g.threads[rf.thread];
 	EventLabel &rfLab = rfThr.eventList[rf.index];
-
 	rfLab.rfm1.push_front(lab.pos);
 	return;
 }
 
-static void addReadToGraph(ExecutionGraph &g, GenericValue *ptr, Type *typ, Event rf)
+static void addReadToGraph(ExecutionGraph &g, AtomicOrdering ord,
+			   GenericValue *ptr, Type *typ, Event rf)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(R, Plain, Event(g.currentT, max), ptr, typ, rf);
+	EventLabel lab(R, Plain, ord, Event(g.currentT, max), ptr, typ, rf);
 	__addReadToGraphCommon(g, lab, rf);
 }
 
@@ -369,7 +457,7 @@ static void addCASReadToGraph(ExecutionGraph &g, GenericValue *ptr,
 			      GenericValue &val, Type *typ, Event rf)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(R, CAS, Event(g.currentT, max), ptr, val, typ, rf);
+	EventLabel lab(R, CAS, Unordered, Event(g.currentT, max), ptr, val, typ, rf);
 	__addReadToGraphCommon(g, lab, rf);
 }
 
@@ -377,7 +465,7 @@ static void addRMWReadToGraph(ExecutionGraph &g, GenericValue *ptr,
 			      Type *typ, Event rf)
 {
 	int max = g.maxEvents[g.currentT];
-	EventLabel lab(R, RMW, Event(g.currentT, max), ptr, typ, rf);
+	EventLabel lab(R, RMW, Unordered, Event(g.currentT, max), ptr, typ, rf);
 	__addReadToGraphCommon(g, lab, rf);
 }
 
@@ -497,6 +585,11 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
 				       { return e.index > before[e.thread]; }),
 			g.revisit.end());
+	for (auto it = g.modOrder.begin(); it != g.modOrder.end(); ++it)
+		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
+						[&before](Event &e)
+						{ return e.index > before[e.thread]; }),
+				 it->second.end());
 	return;
 }
 
@@ -513,6 +606,10 @@ static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vec
 	for (auto it = oldG.revisit.begin(); it != oldG.revisit.end(); ++it)
 		if (it->index < newG.maxEvents[it->thread])
 			newG.revisit.push_back(*it);
+	for (auto it = oldG.modOrder.begin(); it != oldG.modOrder.end(); ++it)
+		for (auto eit = it->second.begin(); eit != it->second.end(); ++eit)
+			if (eit->index < newG.maxEvents[eit->thread])
+				newG.modOrder[it->first].push_back(*eit);
 	return;
 }
 
@@ -538,6 +635,11 @@ static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&after](Event &e)
 				       { return e.index >= after[e.thread]; }),
 			g.revisit.end());
+	for (auto it = g.modOrder.begin(); it != g.modOrder.end(); ++it)
+		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
+						[&after](Event &e)
+						{ return e.index >= after[e.thread]; }),
+				 it->second.end());
 }
 
 static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
@@ -1767,8 +1869,9 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 	if (!dryRun) {
 		ExecutionContext &SF = getECStack()->back();
-		if (globalVars.find((GenericValue *) GVTOP(getOperandValue(I.getPointerOperand(), SF))) != globalVars.end())
-			globalAccess = true;
+		/* TODO: Check whether condition below is necessary */
+		// if (globalVars.find((GenericValue *) GVTOP(getOperandValue(I.getPointerOperand(), SF))) != globalVars.end())
+		// 	globalAccess = true;
 		SetValue(&I, executeGEPOperation(I.getPointerOperand(),
 						 gep_type_begin(I), gep_type_end(I), SF), SF);
 		return;
@@ -1790,7 +1893,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		 * to some offset of a global variable (obtained by getelementptr).
 		 * If this is not a global access just perform the load.
 		 */
-		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
+		if (globalVars.find(ptr) == globalVars.end() && !I.isAtomic()) {
 			GenericValue Result;
 			LoadValueFromMemory(Result, ptr, typ);
 			SetValue(&I, Result, SF);
@@ -1799,7 +1902,6 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
 
 		/* Is the execution driven by an existing graph? */
-		globalAccess = false;
 		int c = ++globalCount[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c) {
 			Thread &thr = currentEG->threads[currentEG->currentT];
@@ -1814,17 +1916,17 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		Event rf;
 
 		/* Calculate the appropriate write to read from */
-		getStoresToLoc(stores, *currentEG, ptr, SF);
-		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
-			GenericValue wVal = loadValueFromWrite(*currentEG, *rit, typ, ptr);
-			if (notReadByAtomicRead(*currentEG, *rit, wVal, typ, ptr)) {
-				rf = *rit;
+		getStoresToLoc(stores, *currentEG, ptr);
+		for (auto it = stores.begin(); it != stores.end(); ++it) {
+			GenericValue wVal = loadValueFromWrite(*currentEG, *it, typ, ptr);
+			if (notReadByAtomicRead(*currentEG, *it, wVal, typ, ptr)) {
+				rf = *it;
 				break;
 			}
 		}
 
 		/* ... and add a label for the new read to the graph */
-		addReadToGraph(*currentEG, ptr, typ, rf);
+		addReadToGraph(*currentEG, I.getOrdering(), ptr, typ, rf);
 		Event e = getLastThreadEvent(*currentEG, currentEG->currentT);
 		saveGraphState(preds, *currentEG);
 		currentEG->revisit.push_back(e);
@@ -1857,17 +1959,16 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getOperand(0)->getType();
 
-		if (globalVars.find(ptr) == globalVars.end() && !globalAccess) {
+		if (globalVars.find(ptr) == globalVars.end() && !I.isAtomic()) {
 			StoreValueToMemory(val, ptr, typ);
 			return;
 		}
 
-		globalAccess = false;
 		int c = ++globalCount[currentEG->currentT];
 		if (currentEG->maxEvents[currentEG->currentT] > c)
 			return;
 
-		addStoreToGraph(*currentEG, ptr, val, typ);
+		addStoreToGraph(*currentEG, I.getOrdering(), ptr, val, typ);
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 		EventLabel &sLab = getEventLabel(*currentEG, s);
 		std::vector<Event> ls;
@@ -1978,7 +2079,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	bool found = false;
 
 	/* Calculate the stores that we can actually read from */
-	getStoresToLoc(stores, g, ptr, SF);
+	getStoresToLoc(stores, g, ptr);
 	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
 		GenericValue oldVal = loadValueFromWrite(g, *rit, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
@@ -2137,7 +2238,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	bool found = false;
 
 	/* Calculate the stores that we can actually read from */
-	getStoresToLoc(stores, g, ptr, SF);
+	getStoresToLoc(stores, g, ptr);
 	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
 		oldVal = loadValueFromWrite(g, *rit, typ, ptr);
 		if (RMWCanReadFromWrite(g, *rit, oldVal, typ)) {
@@ -2866,7 +2967,7 @@ void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
 }
 
 void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
   SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
 }
 

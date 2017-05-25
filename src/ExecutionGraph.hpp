@@ -24,7 +24,7 @@
 #include "Event.hpp"
 #include "Thread.hpp"
 
-#include <list>
+#include <unordered_map>
 
 /*
  * ExecutionGraph class - This class represents an execution graph
@@ -34,6 +34,7 @@ public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
 	std::vector<Event> revisit;
+	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
 	int currentT;
 
 	ExecutionGraph();

@@ -19,6 +19,7 @@
  */
 
 #include "Event.hpp"
+#include <llvm/IR/Instructions.h>
 
 #include <iostream>
 #include <cassert>
@@ -26,22 +27,52 @@
 EventLabel::EventLabel(EventType typ, Event e)
 	: type(typ), pos(e) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, Event e,
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
 		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp)
-	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp), rf(w) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+		       llvm::GenericValue *addr, llvm::GenericValue val,
+		       llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
+	  valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, Event e, llvm::GenericValue *addr,
-		       llvm::GenericValue val, llvm::Type *valTyp, std::list<Event> rfm1)
-	: type(typ), attr(attr), pos(e), addr(addr), val(val), valTyp(valTyp), rfm1(rfm1) {}
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+		       llvm::GenericValue *addr, llvm::GenericValue val,
+		       llvm::Type *valTyp, std::list<Event> rfm1)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
+	  valTyp(valTyp), rfm1(rfm1) {}
 	
+
+bool EventLabel::isRead() const
+{
+	return type == R;
+}
+
+bool EventLabel::isWrite() const
+{
+	return type == W;
+}
+
+bool EventLabel::isAtLeastAcquire() const
+{
+	return (ord == llvm::Acquire ||
+		ord == llvm::AcquireRelease ||
+		ord == llvm::SequentiallyConsistent);
+	// return llvm::isAtLeastAcquire(ord);
+}
+
+bool EventLabel::isAtLeastRelease() const
+{
+	return (ord == llvm::Release ||
+		ord == llvm::AcquireRelease ||
+		ord == llvm::SequentiallyConsistent);
+	// return llvm::isAtLeastRelease(ord);
+}
 
 bool EventLabel::isRMW() const
 {
