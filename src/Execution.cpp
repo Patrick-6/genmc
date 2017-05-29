@@ -540,26 +540,6 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> preds, std::vecto
 	return;
 }
 
-static void fillGraphBefore(ExecutionGraph &oldG, ExecutionGraph &newG, std::vector<int> before)
-{
-	for (unsigned int i = 0; i < oldG.threads.size(); i++) {
-		Thread &oldThr = oldG.threads[i];
-		newG.threads.push_back(Thread(oldThr.threadFun, oldThr.id));
-		Thread &newThr = newG.threads[i];
-		for (int j = 0; j <= before[i]; j++)
-			newThr.eventList.push_back(oldThr.eventList[j]);
-		newG.maxEvents.push_back(before[i] + 1);
-	}
-	for (auto it = oldG.revisit.begin(); it != oldG.revisit.end(); ++it)
-		if (it->index < newG.maxEvents[it->thread])
-			newG.revisit.push_back(*it);
-	for (auto it = oldG.modOrder.begin(); it != oldG.modOrder.end(); ++it)
-		for (auto eit = it->second.begin(); eit != it->second.end(); ++eit)
-			if (eit->index < newG.maxEvents[eit->thread])
-				newG.modOrder[it->first].push_back(*eit);
-	return;
-}
-
 static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
 {
 	if (ls.empty())
@@ -1927,8 +1907,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		saveGraphState(preds, *currentEG);
 		/* Exclude the empty set */
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg;
-			fillGraphBefore(*currentEG, eg, preds);
+			ExecutionGraph eg(*currentEG);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
 			markReadsAsVisited(eg, *it, {}, s);
@@ -1992,11 +1971,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, oldVal);
 			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
-			std::vector<int> writePreds;
-			saveGraphState(writePreds, g);
 			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-				ExecutionGraph eg;
-				fillGraphBefore(g, eg, writePreds);
+				ExecutionGraph eg(g);
 				cutGraphAfter(eg, *it);
 				modifyRfs(eg, *it, s);
 				markReadsAsVisited(eg, *it, pendingRMWs, s);
@@ -2070,11 +2046,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, lab.val);
 		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
-		std::vector<int> writePreds;
-		saveGraphState(writePreds, g);
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg;
-			fillGraphBefore(g, eg, writePreds);
+			ExecutionGraph eg(g);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
 			markReadsAsVisited(eg, *it, pendingRMWs, s);
@@ -2159,11 +2132,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		getPendingRMWs(pendingRMWs, g, rLab.pos, rLab.rf, oldVal);
 		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
-		std::vector<int> writePreds;
-		saveGraphState(writePreds, g);
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg;
-			fillGraphBefore(g, eg, writePreds);
+			ExecutionGraph eg(g);
 			cutGraphAfter(eg, *it);
 			modifyRfs(eg, *it, s);
 			markReadsAsVisited(eg, *it, pendingRMWs, s);
@@ -2225,11 +2195,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	getPendingRMWs(pendingRMWs, g, lab.pos, lab.rf, lab.val);
 	calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
-	std::vector<int> writePreds;
-	saveGraphState(writePreds, g);
 	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-		ExecutionGraph eg;
-		fillGraphBefore(g, eg, writePreds);
+		ExecutionGraph eg(g);
 		cutGraphAfter(eg, *it);
 		modifyRfs(eg, *it, s);
 		markReadsAsVisited(eg, *it, pendingRMWs, s);
