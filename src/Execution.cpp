@@ -45,9 +45,10 @@ struct RevisitPair {
 	Event e;
 	Event rf;
 	std::vector<int> preds;
+	std::vector<Event> revisit;
 
-	RevisitPair(Event e, Event rf, std::vector<int> preds)
-		: e(e), rf(rf), preds(preds) {};
+	RevisitPair(Event e, Event rf, std::vector<int> preds, std::vector<Event> revisit)
+		: e(e), rf(rf), preds(preds), revisit(revisit) {};
 };
 
 std::vector<RevisitPair> *currentStack;
@@ -516,27 +517,25 @@ static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGr
 	return;
 }
 
-static void cutGraphBefore(ExecutionGraph &g, std::vector<int> before)
+static void cutGraphBefore(ExecutionGraph &g, std::vector<int> preds, std::vector<Event> &rev)
 {
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		g.maxEvents[i] = before[i] + 1;
+		g.maxEvents[i] = preds[i] + 1;
 		Thread &thr = g.threads[i];
-		thr.eventList.erase(thr.eventList.begin() + before[i] + 1, thr.eventList.end());
+		thr.eventList.erase(thr.eventList.begin() + preds[i] + 1, thr.eventList.end());
 		for (int j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type != W)
 				continue;
-			lab.rfm1.remove_if([&before](Event &e)
-					   { return e.index > before[e.thread]; });
+			lab.rfm1.remove_if([&preds](Event &e)
+					   { return e.index > preds[e.thread]; });
 		}
 	}
-	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				       { return e.index > before[e.thread]; }),
-			g.revisit.end());
+	g.revisit = rev;
 	for (auto it = g.modOrder.begin(); it != g.modOrder.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&before](Event &e)
-						{ return e.index > before[e.thread]; }),
+						[&preds](Event &e)
+						{ return e.index > preds[e.thread]; }),
 				 it->second.end());
 	return;
 }
@@ -1880,9 +1879,9 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		currentEG->revisit.push_back(e);
 
 		/* Push the rest of the stores we can read from to the stack */
-		for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit)
-			if (*rit != rf)
-				currentStack->push_back(RevisitPair(e, *rit, preds));
+		for (auto it = stores.begin(); it != stores.end(); ++it)
+			if (*it != rf)
+				currentStack->push_back(RevisitPair(e, *it, preds, currentEG->revisit));
 
 		/* Return the appropriate value for this instruction */
 		GenericValue val = loadValueFromWrite(*currentEG, rf, typ, ptr);
@@ -2050,7 +2049,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	Event e = getLastThreadEvent(g, g.currentT);
 	/* Push all the valid alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
-		currentStack->push_back(RevisitPair(e, *it, readPreds));
+		currentStack->push_back(RevisitPair(e, *it, readPreds, g.revisit));
 	}
 
 	/* Did the CAS operation succeed? */
@@ -2207,7 +2206,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	Event e = getLastThreadEvent(g, g.currentT);
 	/* Push all the valid alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end(); ++it) {
-		currentStack->push_back(RevisitPair(e, *it, readPreds));
+		currentStack->push_back(RevisitPair(e, *it, readPreds, g.revisit));
 	}
 
 	/* Calculate the result of the RMW and add an appropriate event to the graph */
@@ -3456,7 +3455,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		RevisitPair &p = workqueue.back();
 //		std::cerr << "Popping from workqueue...\n";
 
-		cutGraphBefore(g, p.preds);
+		cutGraphBefore(g, p.preds, p.revisit);
 		EventLabel &lab1 = getEventLabel(g, p.e);
 		Event oldRf = lab1.rf;
 		lab1.rf = p.rf;
