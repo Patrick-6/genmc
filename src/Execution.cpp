@@ -2330,7 +2330,7 @@ static unsigned getShiftAmount(uint64_t orgShiftAmount,
 
 
 void Interpreter::visitShl(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
