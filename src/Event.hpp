@@ -41,6 +41,7 @@ struct Event {
 
 	bool isInitializer() { return thread == 0 && index == 0; };
 	Event prev() { return Event(thread, index-1); };
+	Event next() { return Event(thread, index+1); };
 
 	friend std::ostream& operator<<(std::ostream &s, const Event &e);
 
@@ -54,7 +55,7 @@ struct Event {
 };
 
 class EventLabel {
-	
+
 public:
 	EventType type;
 	EventAttr attr;
@@ -84,7 +85,7 @@ public:
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;
 	bool isRMW() const;
-	
+
 	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);
 };
 

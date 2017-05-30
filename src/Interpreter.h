@@ -97,8 +97,8 @@ struct ExecutionContext {
   CallSite             Caller;     // Holds the call that called subframes.
                                    // NULL if main func or debugger invoked fn
  AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
-};		
-	
+};
+
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
@@ -132,7 +132,7 @@ public:
   /// atexit(3), which we intercept and store in AtExitHandlers.
   ///
   void runAtExitHandlers();
-  
+
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
   static ExecutionEngine *create(Module *M, Config *conf, std::string *ErrorStr = nullptr);
@@ -171,14 +171,19 @@ public:
   void freeMachineCodeForFunction(Function *F) { }
 
   /* Main functions for visiting an Execution Graph */
-  bool scheduleNext(ExecutionGraph &g);	
+  bool scheduleNext(ExecutionGraph &g);
   void visitGraph(ExecutionGraph &g);
 
-	/* Helper functions */
+  /* Helper functions */
   GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
 				  Type *typ, GenericValue *ptr);
+  std::vector<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr);
+  std::vector<Event> properlyOrderStores(ExecutionGraph &g, Type *typ, GenericValue *ptr,
+					 GenericValue &cmpVal, std::vector<Event> &stores);
+  Event getFirstNonConflicting(ExecutionGraph &g, Event tentative, Type *typ,
+			       GenericValue *ptr, GenericValue &cmpVal);
 
-  /* Custom Opcode Implementations */ // TODO: Remove call* from the class? 
+  /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
@@ -202,8 +207,8 @@ public:
   void visitLoadInst(LoadInst &I);
   void visitStoreInst(StoreInst &I);
   void visitGetElementPtrInst(GetElementPtrInst &I);
-  void visitPHINode(PHINode &PN) { 
-    llvm_unreachable("PHI nodes already handled!"); 
+  void visitPHINode(PHINode &PN) {
+    llvm_unreachable("PHI nodes already handled!");
   }
   void visitTruncInst(TruncInst &I);
   void visitZExtInst(ZExtInst &I);
@@ -239,7 +244,7 @@ public:
 
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
   void visitAtomicRMWInst(AtomicRMWInst &I);
-  void visitInlineAsm(CallSite &CS, const std::string &asmString);	
+  void visitInlineAsm(CallSite &CS, const std::string &asmString);
 
   void visitInstruction(Instruction &I) {
     errs() << I << "\n";
@@ -301,7 +306,7 @@ private:  // Helper functions
                                    ExecutionContext &SF);
   GenericValue executeBitCastInst(Value *SrcVal, Type *DstTy,
                                   ExecutionContext &SF);
-  GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal, 
+  GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
                                     Type *Ty, ExecutionContext &SF);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
