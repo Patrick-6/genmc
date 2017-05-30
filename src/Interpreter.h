@@ -178,10 +178,15 @@ public:
   GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
 				  Type *typ, GenericValue *ptr);
   std::vector<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr);
-  std::vector<Event> properlyOrderStores(ExecutionGraph &g, Type *typ, GenericValue *ptr,
-					 GenericValue &cmpVal, std::vector<Event> &stores);
-  Event getFirstNonConflicting(ExecutionGraph &g, Event tentative, Type *typ,
-			       GenericValue *ptr, GenericValue &cmpVal);
+  std::vector<Event> properlyOrderStores(ExecutionGraph &g, EventAttr attr, Type *typ,
+					 GenericValue *ptr, std::vector<GenericValue> expVal,
+					 std::vector<Event> &stores);
+  Event getFirstNonConflicting(ExecutionGraph &g, EventAttr attr, Event tentative,
+			       Type *typ, GenericValue *ptr, std::vector<GenericValue>& expVal);
+  Event getFirstNonConflictingCAS(ExecutionGraph &g, Event tentative, Type *typ,
+				  GenericValue *ptr, GenericValue &cmpVal);
+  Event getFirstNonConflictingRMW(ExecutionGraph &g, Event tentative, Type *typ,
+				  GenericValue *ptr);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);

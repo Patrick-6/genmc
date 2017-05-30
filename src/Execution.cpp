@@ -635,26 +635,16 @@ GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
 }
 
 static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &RMWrf,
-					 GenericValue &rfVal)
+					 GenericValue *ptr, GenericValue &wVal)
 {
 	std::vector<Event> pending;
-	if (!RMWrf.isInitializer()) {
-		EventLabel &wLab = getEventLabel(g, RMWrf);
-		for (auto &e : wLab.rfm1) {
-			EventLabel &lab = getEventLabel(g, e);
-			if (lab.type == R && lab.isRMW() && lab.pos != RMW &&
-			    lab.rf == RMWrf && isSuccessfulRMW(lab, rfVal))
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R && lab.isRMW() && lab.addr == ptr &&
+			    lab.pos != RMW && lab.rf == RMWrf && isSuccessfulRMW(lab, wVal))
 				pending.push_back(lab.pos);
-		}
-	} else {
-		for (auto i = 0u; i < g.threads.size(); i++) {
-			Thread &thr = g.threads[i];
-			for (auto j = 0; j < g.maxEvents[i]; j++) {
-				EventLabel &lab = thr.eventList[j];
-				if (lab.type == R && lab.isRMW() && lab.pos != RMW &&
-				    lab.rf == RMWrf && isSuccessfulRMW(lab, rfVal))
-					pending.push_back(lab.pos);
-			}
 		}
 	}
 	WARN_ON(pending.size() > 1, "There can't be more than one pending RMWs!");
@@ -707,7 +697,7 @@ static bool isReadByAtomicRead(ExecutionGraph &g, Event w, GenericValue &wVal,
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.isRMW() &&
+			if (lab.type == R && lab.isRMW() && lab.addr == ptr &&
 			    lab.rf == w && isSuccessfulRMW(lab, wVal))
 				return true;
 		}
@@ -726,7 +716,7 @@ static AtomicOrdering getOrdCntprt(AtomicOrdering ord)
 		return AcquireRelease;
 	case SequentiallyConsistent:
 		return SequentiallyConsistent;
-	case default:
+	default:
 		WARN("getOrdCntprt ordering argument does not apply to reads!");
 		return Monotonic;
 	}
@@ -1968,8 +1958,8 @@ Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 	return Event();
 }
 
-Event Interpreter::getFirstNonConflicting(ExecutionGraph &g, Event tentative, Type *typ,
-					  GenericValue *ptr, GenericValue &cmpVal)
+Event Interpreter::getFirstNonConflictingCAS(ExecutionGraph &g, Event tentative, Type *typ,
+					     GenericValue *ptr, GenericValue &cmpVal)
 {
 	Event final = tentative;
 	GenericValue oldVal = loadValueFromWrite(g, final, typ, ptr);
@@ -1983,23 +1973,61 @@ Event Interpreter::getFirstNonConflicting(ExecutionGraph &g, Event tentative, Ty
 	return final;
 }
 
-std::vector<Event> Interpreter::properlyOrderStores(ExecutionGraph &g, Type *typ, GenericValue *ptr,
-				       GenericValue &cmpVal, std::vector<Event> &stores)
+Event Interpreter::getFirstNonConflictingRMW(ExecutionGraph &g, Event tentative, Type *typ,
+					     GenericValue *ptr)
+{
+	Event final = tentative;
+	GenericValue oldVal = loadValueFromWrite(g, final, typ, ptr);
+	while (isReadByAtomicRead(g, final, oldVal, typ, ptr)) {
+		final = getPendingRMWSucc(g, final, oldVal, typ);
+		oldVal = loadValueFromWrite(g, final, typ, ptr);
+	}
+	return final;
+}
+
+Event Interpreter::getFirstNonConflicting(ExecutionGraph &g, EventAttr attr, Event tentative,
+					  Type *typ, GenericValue *ptr,
+					  std::vector<GenericValue> &expVal)
+{
+	switch (attr) {
+	case Plain:
+		return tentative;
+	case CAS:
+		return getFirstNonConflictingCAS(g, tentative, typ, ptr, expVal.back());
+	case RMW:
+		return getFirstNonConflictingRMW(g, tentative, typ, ptr);
+	default:
+		WARN("Unreachable");
+		return Event();
+	}
+}
+
+std::vector<Event> Interpreter::properlyOrderStores(ExecutionGraph &g, EventAttr attr,
+						    Type *typ, GenericValue *ptr,
+						    std::vector<GenericValue> expVal,
+						    std::vector<Event> &stores)
 {
 	std::vector<Event> validStores;
 	std::vector<int> before = calcPorfBefore(g, getLastThreadEvent(g, g.currentT));
 	Event tentative = choosePriorEvent(stores, before);
-	Event final = getFirstNonConflicting(g, tentative, typ, ptr, cmpVal);
+	Event final = getFirstNonConflicting(g, attr, tentative, typ, ptr, expVal);
 
 	validStores.push_back(final);
 	for (auto &s : stores) {
 		if (s == final)
 			continue;
 		GenericValue oldVal = loadValueFromWrite(g, s, typ, ptr);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		if (cmpRes.IntVal.getBoolValue() == 0 ||
-		    RMWCanReadFromWrite(g, s, oldVal, typ))
-			validStores.push_back(s);
+		if (attr == CAS) {
+			GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
+			if (cmpRes.IntVal.getBoolValue() == 0 ||
+			    RMWCanReadFromWrite(g, s, oldVal, typ))
+				validStores.push_back(s);
+		} else if (attr == RMW) {
+			if (RMWCanReadFromWrite(g, s, oldVal, typ))
+				validStores.push_back(s);
+		} else {
+			WARN("Unreachable\n");
+		}
 	}
 	return validStores;
 }
@@ -2046,7 +2074,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			std::vector<std::vector<Event> > rSets;
 
 			getRevisitLoads(ls, g, s);
-			std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, oldVal);
+			std::vector<Event> pendingRMWs =
+				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
 			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
 			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -2082,7 +2111,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	/* Calculate the stores that we can actually read from */
 	std::vector<Event> stores = getStoresToLoc(g, ptr);
 	std::vector<Event> validStores =
-		properlyOrderStores(g, typ, ptr, cmpVal, stores);
+		properlyOrderStores(g, CAS, typ, ptr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	addCASReadToGraph(g, I.getSuccessOrdering(), ptr, cmpVal, typ, validStores[0]);
@@ -2111,7 +2140,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		std::vector<std::vector<Event> > rSets;
 
 		getRevisitLoads(ls, g, s);
-		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, lab.val);
+		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
 		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
 
 		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
@@ -2165,24 +2194,24 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &
 
 void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 {
-	// ExecutionGraph &g = *currentEG;
-	// ExecutionContext &SF = getECStack()->back();
-	// GenericValue src = getOperandValue(I.getPointerOperand(), SF);
-	// GenericValue *ptr = (GenericValue *) GVTOP(src);
-	// GenericValue val = getOperandValue(I.getValOperand(), SF);
-	// Type *typ = I.getType();
-	// GenericValue oldVal, newVal;
+	ExecutionGraph &g = *currentEG;
+	ExecutionContext &SF = getECStack()->back();
+	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
+	GenericValue *ptr = (GenericValue *) GVTOP(src);
+	GenericValue val = getOperandValue(I.getValOperand(), SF);
+	Type *typ = I.getType();
+	GenericValue oldVal, newVal;
 
-	// WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument");
+	WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument");
 
-	// /* TODO: Fix check for global access for both RMW types */
-	// if (!isa<GlobalVariable>(I.getPointerOperand())) {
-	// 	LoadValueFromMemory(oldVal, ptr, typ);
-	// 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-	// 	StoreValueToMemory(newVal, ptr, typ);
-	// 	SetValue(&I, oldVal, SF);
-	// 	return;
-	// }
+	/* TODO: Fix check for global access for both RMW types */
+	if (!isa<GlobalVariable>(I.getPointerOperand())) {
+		LoadValueFromMemory(oldVal, ptr, typ);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+		StoreValueToMemory(newVal, ptr, typ);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
 
 	// int c = ++globalCount[g.currentT];
 	// if (c == g.maxEvents[g.currentT] - 1) {
@@ -2220,6 +2249,45 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	// 	SetValue(&I, oldVal, SF);
 	// 	return;
 	// }
+
+	int c = ++globalCount[g.currentT];
+	if (c == g.maxEvents[g.currentT] - 1) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+
+		addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
+		++globalCount[g.currentT];
+
+		Event s = getLastThreadEvent(g, g.currentT);
+		EventLabel &sLab = getEventLabel(g, s);
+		EventLabel &rLab = getPreviousLabel(g, s); /* Need to refetch! */
+		std::vector<Event> ls;
+		std::vector<std::vector<Event> > rSets;
+
+		getRevisitLoads(ls, g, s);
+		std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, oldVal);
+		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+
+		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+			ExecutionGraph eg(g);
+			cutGraphAfter(eg, *it);
+			modifyRfs(eg, *it, s);
+			markReadsAsVisited(eg, *it, pendingRMWs, s);
+			visitGraph(eg);
+		}
+		if (!pendingRMWs.empty())
+			shouldContinue = false;
+		SetValue(&I, oldVal, SF);
+		return;
+	}
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		++globalCount[g.currentT];
+		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
 
 	// std::vector<Event> stores;
 	// std::vector<Event> validStores;
@@ -2278,6 +2346,54 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	// /* Return the appropriate result */
 	// SetValue(&I, oldVal, SF);
 	// return;
+
+	std::vector<int> readPreds;
+
+	/* Calculate the stores that we can actually read from */
+	std::vector<Event> stores = getStoresToLoc(g, ptr);
+	std::vector<Event> validStores =
+		properlyOrderStores(g, RMW, typ, ptr, {}, stores);
+
+	/* ... and add a label with the appropriate store. */
+	addRMWReadToGraph(g, I.getOrdering(), ptr, typ, validStores[0]);
+	Event e = getLastThreadEvent(g, g.currentT);
+	saveGraphState(readPreds, g);
+	g.revisit.push_back(e);
+
+	EventLabel &lab = getEventLabel(g, e);
+	/* Push all the other alternatives choices to the Stack */
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
+		currentStack->push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
+	}
+
+	oldVal = loadValueFromWrite(g, validStores[0], typ, ptr);
+	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+	addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
+	++globalCount[g.currentT];
+
+	Event s = getLastThreadEvent(g, g.currentT);
+	EventLabel &sLab = getEventLabel(g, s);
+	EventLabel &rLab = getPreviousLabel(g, s);
+	std::vector<Event> ls;
+	std::vector<std::vector<Event> > rSets;
+
+	getRevisitLoads(ls, g, s);
+	std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, rLab.val);
+	calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+
+	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+		ExecutionGraph eg(g);
+		cutGraphAfter(eg, *it);
+		modifyRfs(eg, *it, s);
+		markReadsAsVisited(eg, *it, pendingRMWs, s);
+		visitGraph(eg);
+	}
+	if (!pendingRMWs.empty())
+		shouldContinue = false;
+
+	/* Return the appropriate result */
+	SetValue(&I, oldVal, SF);
+	return;
 }
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
