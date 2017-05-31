@@ -99,13 +99,6 @@ total_time=0
 
 runtest() {
     dir=$1
-    if test -n "${fastrun}"
-    then
-	case "${dir##*/}" in
-	    "big1"|"big2"|"lastzero") continue;;
-	    *)                                ;;
-	esac
-    fi
     if test -f "${dir}/args.in"
     then
 	while read test_args <&3 && read expected <&4; do
@@ -141,6 +134,13 @@ runall() {
     # Run correct testcases
     for dir in correct/*
     do
+	if test -n "${fastrun}"
+	then
+	    case "${dir##*/}" in
+		"big1"|"big2"|"lastzero") continue;;
+		*)                                ;;
+	    esac
+	fi
 	runtest "${dir}"
     done
 }
