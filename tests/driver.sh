@@ -29,7 +29,7 @@ nc='\033[0m'
 runfailure() {
     test_file=$1
     shift
-    
+
     if time -p "${RCMC}" "${test_file}"
     then
 	echo -n 'FAILED! Unexpected test success!'
@@ -135,7 +135,7 @@ if test -n "${testcase}"
 then
     echo '--------------------------------------------------------------------'
     echo '--- Preparing to run testcase' "${testcase##*/}..."
-    echo '--------------------------------------------------------------------\n'    
+    echo '--------------------------------------------------------------------\n'
     if test -d "${testcase}"
     then
 	runtest "${testcase}"
@@ -150,7 +150,7 @@ fi
 if test -n "$failure"
 then
     echo '\n--------------------------------------------------------------------'
-    echo '!!! ' UNEXPECTED TESTING RESULTS ' !!!'
+    echo '!!! ' UNEXPECTED TESTING RESULTS ' !!!' Total time: "${total_time}"
     echo '--------------------------------------------------------------------'
     exit 1
 else
