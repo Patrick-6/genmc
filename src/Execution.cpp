@@ -652,13 +652,14 @@ static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &R
 }
 
 static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write, GenericValue &wVal,
-				Type *typ)
+				Type *typ, GenericValue *ptr)
 {
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.rf == write && lab.isRMW()) {
+			if (lab.type == R && lab.rf == write &&
+			    lab.addr == ptr && lab.isRMW()) {
 				if (!isSuccessfulRMW(lab, wVal))
 					continue;
 				if (!(std::find(g.revisit.begin(), g.revisit.end(),
@@ -675,13 +676,13 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write, GenericValue &w
 }
 
 static Event getPendingRMWSucc(ExecutionGraph &g, Event &write, GenericValue &wVal,
-			       Type *typ)
+			       Type *typ, GenericValue *ptr)
 {
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R && lab.rf == write &&
+			if (lab.type == R && lab.rf == write && lab.addr == ptr &&
 			    lab.isRMW() && isSuccessfulRMW(lab, wVal))
 				return lab.pos.next();
 			}
@@ -1967,7 +1968,7 @@ Event Interpreter::getFirstNonConflictingCAS(ExecutionGraph &g, Event tentative,
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	while (cmpRes.IntVal.getBoolValue() &&
 	       isReadByAtomicRead(g, final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(g, final, oldVal, typ);
+		final = getPendingRMWSucc(g, final, oldVal, typ, ptr);
 		oldVal = loadValueFromWrite(g, final, typ, ptr);
 		cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	}
@@ -1980,7 +1981,7 @@ Event Interpreter::getFirstNonConflictingRMW(ExecutionGraph &g, Event tentative,
 	Event final = tentative;
 	GenericValue oldVal = loadValueFromWrite(g, final, typ, ptr);
 	while (isReadByAtomicRead(g, final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(g, final, oldVal, typ);
+		final = getPendingRMWSucc(g, final, oldVal, typ, ptr);
 		oldVal = loadValueFromWrite(g, final, typ, ptr);
 	}
 	return final;
@@ -2021,10 +2022,10 @@ std::vector<Event> Interpreter::properlyOrderStores(ExecutionGraph &g, EventAttr
 		if (attr == CAS) {
 			GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
 			if (cmpRes.IntVal.getBoolValue() == 0 ||
-			    RMWCanReadFromWrite(g, s, oldVal, typ))
+			    RMWCanReadFromWrite(g, s, oldVal, typ, ptr))
 				validStores.push_back(s);
 		} else if (attr == RMW) {
-			if (RMWCanReadFromWrite(g, s, oldVal, typ))
+			if (RMWCanReadFromWrite(g, s, oldVal, typ, ptr))
 				validStores.push_back(s);
 		} else {
 			WARN("Unreachable\n");
