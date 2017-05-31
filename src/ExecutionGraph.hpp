@@ -29,7 +29,7 @@
 /*
  * ExecutionGraph class - This class represents an execution graph
  */
-class ExecutionGraph {	
+class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
@@ -41,10 +41,13 @@ public:
 	ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
 		       std::vector<Event> re, int t)
 		: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
+
 	bool isConsistent();
+
+	friend std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g);
 };
 
 extern ExecutionGraph initGraph;
 extern ExecutionGraph *currentEG;
-	
+
 #endif /* __EXECUTION_GRAPH_HPP__ */

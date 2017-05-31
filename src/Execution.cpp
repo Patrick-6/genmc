@@ -72,44 +72,6 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-static void printStarLine(void)
-{
-	for (int i = 0; i < 80; i++)
-		std::cerr << "=";
-	std::cerr << std::endl;
-}
-
-static void printExecGraph(ExecutionGraph &g)
-{
-	std::cerr << std::endl;
-	printStarLine();
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		std::cerr << thr << std::endl;
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			std::cerr << "\t" << lab;
-			if (lab.type == R)
-				std::cerr << "\n\t\treads from: " << lab.rf;
-			else if (lab.type == W) {
-				for (auto &r : lab.rfm1)
-					std::cerr << "\n\t\t is read from: " << r;
-			}
-			std::cerr << std::endl;
-		}
-	}
-	printStarLine();
-	std::cerr << "Revisit Set:" << std::endl;
-	for (auto &l : g.revisit)
-		std::cerr << "\t" << l << std::endl;
-	printStarLine();
-	std::cerr << "Max Events:" << std::endl;
-	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
-		std::cerr << "\t" << g.maxEvents[i] << std::endl;
-	printStarLine();
-	std::cerr << std::endl;
-}
-
 static void printRevisitPair(RevisitPair &p)
 {
 	std::cerr << p.e << " needs to read from " << p.rf << std::endl;
@@ -742,7 +704,7 @@ static void validateGraph(ExecutionGraph &g)
 				if (!readExists) {
 					WARN("Read event is not the appropriate rf-1 list!\n");
 					std::cerr << lab.pos << std::endl;
-					printExecGraph(g);
+					std::cerr << g << std::endl;
 					abort();
 				}
 			} else if (lab.type == W) {
@@ -755,7 +717,7 @@ static void validateGraph(ExecutionGraph &g)
 				if (!writeExists) {
 					WARN("Write event is not marked in the read event!\n");
 					std::cerr << lab.pos << std::endl;
-					printExecGraph(g);
+					std::cerr << g << std::endl;
 					abort();
 				}
 			}
@@ -3590,7 +3552,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			visit(I);
 		} else {
 			if (userConf->printExecGraphs)
-				printExecGraph(g);
+				std::cerr << g << std::endl;
 			++explored;
 			executionCompleted = true;
 		}
