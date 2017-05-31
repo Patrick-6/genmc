@@ -84,13 +84,13 @@ runvariants() {
     if test -n "${failed}"
     then
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	printf "%-20s | %-11s | %-11s | %-11s |\n" \
+	printf "%-15s | %-11s | %-5s | %-11s |\n" \
 	       "${RED}FAILED${NC}" "${explored_failed:-0}/${expected}" \
 	       "${vars}" "${average_time}"
 	failure=1
     else
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	printf "%-20s | %-11s | %-11s | %-11s |\n" \
+	printf "%-15s | %-11s | %-5s | %-11s |\n" \
 	       "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"
     fi
 }
@@ -115,7 +115,7 @@ runtest() {
 }
 
 printline() {
-    for _ in {0..75}; do echo -n '-'; done; echo ''
+    for _ in {0..64}; do echo -n '-'; done; echo ''
 }
 
 runall() {
@@ -126,9 +126,9 @@ runall() {
 
     # Print table's header
     printline
-    printf "| %-25s | %-20s | %-20s | %-20s | %-20s |\n" \
+    printf "| %-25s | %-10s | %-20s | %-10s | %-20s |\n" \
 	   "${CYAN}Testcase${NC}" "${CYAN}Result${NC}" "${CYAN}Executions${NC}" \
-	   "${CYAN}Variations${NC}" "${CYAN}Avg. time${NC}"
+	   "${CYAN}Files${NC}" "${CYAN}Avg. time${NC}"
     printline
 
     # Run correct testcases
