@@ -1851,7 +1851,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		 * to some offset of a global variable (obtained by getelementptr).
 		 * If this is not a global access just perform the load.
 		 */
-		if (globalVars.find(ptr) == globalVars.end() || !I.isAtomic()) {
+		if (!I.isAtomic()) {
 			GenericValue Result;
 			LoadValueFromMemory(Result, ptr, typ);
 			SetValue(&I, Result, SF);
@@ -1913,7 +1913,8 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getOperand(0)->getType();
 
-		if (globalVars.find(ptr) == globalVars.end() || !I.isAtomic()) {
+		/* TODO: Detect globalVars.find(ptr) == globalVars.end() */
+		if (!I.isAtomic()) {
 			StoreValueToMemory(val, ptr, typ);
 			return;
 		}
