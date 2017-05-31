@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Driver script for running tests with RCMC.
 #
@@ -20,11 +20,21 @@
 
 RCMC=../src/rcmc
 
-green='\033[0;32m'
-red='\033[0;33m'
-cyan='\033[0;36m'
-lblue='\033[1;34m'
-nc='\033[0m'
+BLACK=$(tput setaf 0)
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+LIME_YELLOW=$(tput setaf 190)
+POWDER_BLUE=$(tput setaf 153)
+BLUE=$(tput setaf 4)
+MAGENTA=$(tput setaf 5)
+CYAN=$(tput setaf 6)
+WHITE=$(tput setaf 7)
+BRIGHT=$(tput bold)
+NC=$(tput sgr0)
+BLINK=$(tput blink)
+REVERSE=$(tput smso)
+UNDERLINE=$(tput smul)
 
 runfailure() {
     test_file=$1
@@ -52,7 +62,7 @@ runsuccess() {
 }
 
 runvariants() {
-    echo -n "${cyan}Testcase:${nc}" "${lblue}${dir##*/}${n}${nc}... "
+    printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
     vars=0
     test_time=0
     failed=""
@@ -74,14 +84,14 @@ runvariants() {
     if test -n "${failed}"
     then
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	echo "${red}FAILED!${nc} Inconsistent results:"
-	echo "\t\t${explored_failed:-0}" 'executions were explored, instead of' \
-	     "${expected}" 'that were expected! Avg. time' "${average_time}"
+	printf "%-20s | %-11s | %-11s | %-11s |\n" \
+	       "${RED}FAILED${NC}" "${explored_failed:-0}/${expected}" \
+	       "${vars}" "${average_time}"
 	failure=1
     else
 	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	echo "${green}Successful${nc} (Explored" "${expected}" 'executions' \
-	     'in' "${vars}" 'variations). Avg. time:' "${average_time}"
+	printf "%-20s | %-11s | %-11s | %-11s |\n" \
+	       "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"
     fi
 }
 
@@ -111,10 +121,24 @@ runtest() {
     fi
 }
 
+printline() {
+    for _ in {0..75}; do echo -n '-'; done; echo ''
+}
+
 runall() {
-    echo '--------------------------------------------------------------------'
+    # First run the testcases in the correct/ directory
+    echo ''; printline
     echo '--- Preparing to run CORRECT testcases...'
-    echo '--------------------------------------------------------------------\n'
+    printline; echo ''
+
+    # Print table's header
+    printline
+    printf "| %-25s | %-20s | %-20s | %-20s | %-20s |\n" \
+	   "${CYAN}Testcase${NC}" "${CYAN}Result${NC}" "${CYAN}Executions${NC}" \
+	   "${CYAN}Variations${NC}" "${CYAN}Avg. time${NC}"
+    printline
+
+    # Run correct testcases
     for dir in correct/*
     do
 	runtest "${dir}"
@@ -133,9 +157,9 @@ fi
 # Run specified testcases (default: all)
 if test -n "${testcase}"
 then
-    echo '--------------------------------------------------------------------'
+    printline
     echo '--- Preparing to run testcase' "${testcase##*/}..."
-    echo '--------------------------------------------------------------------\n'
+    printline
     if test -d "${testcase}"
     then
 	runtest "${testcase}"
@@ -149,13 +173,13 @@ fi
 
 if test -n "$failure"
 then
-    echo '\n--------------------------------------------------------------------'
+    echo ''; printline
     echo '!!! ' UNEXPECTED TESTING RESULTS ' !!!' Total time: "${total_time}"
-    echo '--------------------------------------------------------------------'
+    printline
     exit 1
 else
-    echo '\n--------------------------------------------------------------------'
+    echo ''; printline
     echo '--- ' Testing proceeded as expected. Total time: "${total_time}"
-    echo '--------------------------------------------------------------------'
+    printline
     exit 0
 fi
