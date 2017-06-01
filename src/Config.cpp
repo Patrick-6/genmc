@@ -27,7 +27,7 @@ Config::Config(int argc, char **argv) : argc(argc), argv(argv)
 		{"model-type", "transform-output", "unroll",
 		 "disable-spin-assume", "input-from-bitcode-file",
 		 "validate-exec-graphs", "print-exec-graphs",
-		 "version"};
+		 "count-duplicate-execs", "version"};
 }
 
 /* Command-line argument categories */
@@ -66,6 +66,9 @@ clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs."));
+static llvm::cl::opt<bool>
+clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
+		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
 
 void Config::getConfigOptions(void)
 {
@@ -89,6 +92,6 @@ void Config::getConfigOptions(void)
 	spinAssume = !clDisableSpinAssume;
 	validateExecGraphs = clValidateExecGraphs;
 	printExecGraphs = clPrintExecGraphs;
+	countDuplicateExecs = clCountDuplicateExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 }
-

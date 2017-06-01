@@ -31,7 +31,7 @@ class Config {
 protected:
 	int argc;
 	char **argv;
-	
+
 public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
@@ -42,6 +42,7 @@ public:
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool printExecGraphs;
+	bool countDuplicateExecs;
 	std::set<std::string> visibleOptions;
 
 	Config(int argc, char **argv);

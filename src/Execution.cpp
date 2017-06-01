@@ -29,6 +29,7 @@
 #include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <unordered_set>
 using namespace llvm;
 
@@ -56,6 +57,7 @@ struct RevisitPair {
 std::vector<RevisitPair> *currentStack;
 std::vector<std::vector<ExecutionContext> > initStacks;
 int explored;
+int duplicates;
 
 bool shouldContinue;
 bool executionCompleted = false;
@@ -63,6 +65,7 @@ bool globalAccess = false;
 
 /* TODO: Move this to Interpreter.h, and also remove the relevant header */
 std::unordered_set<GenericValue *> globalVars;
+std::unordered_set<std::string> uniqueExecs;
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -3553,6 +3556,14 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		} else {
 			if (userConf->printExecGraphs)
 				std::cerr << g << std::endl;
+			if (userConf->countDuplicateExecs) {
+				std::stringstream buf;
+				buf << g;
+				if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+					++duplicates;
+				else
+					uniqueExecs.insert(buf.str());
+			}
 			++explored;
 			executionCompleted = true;
 		}
@@ -3651,5 +3662,10 @@ if (globalVars.empty())
 
   visitGraph(initGraph);
 
-  std::cerr << "Number of explored executions: " << explored << std::endl;
+  std::stringstream buf;
+  buf << " (" << duplicates << " duplicates)";
+
+  std::cerr << "Number of explored executions: " << explored
+	    << ((userConf->countDuplicateExecs) ? buf.str() : "")
+	    << std::endl;
 }
