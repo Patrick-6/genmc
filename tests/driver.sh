@@ -70,7 +70,7 @@ runvariants() {
     do
 	vars=$((vars+1))
 	output=`runsuccess "${t}" "${test_args}" 2>&1`
-	explored=`echo "${output}" | awk '/explored/ { print $5 }'`
+	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/real/ { print $2 }'`
 	test_time=`echo "${test_time}+${time}" | bc -l`
 	total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`

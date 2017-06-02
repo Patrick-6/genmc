@@ -62,6 +62,7 @@ int duplicates;
 bool shouldContinue;
 bool executionCompleted = false;
 bool globalAccess = false;
+std::vector<bool> threadBlocked;
 
 /* TODO: Move this to Interpreter.h, and also remove the relevant header */
 std::unordered_set<GenericValue *> globalVars;
@@ -1573,6 +1574,21 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   }
 }
 
+void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
+{
+	assert(!ECStack()->empty());
+	// fill in the return value...
+	ExecutionContext &CallingSF = getECStack()->back();
+	if (Instruction *I = CallingSF.Caller.getInstruction()) {
+		// Save result...
+		if (!CallingSF.Caller.getType()->isVoidTy())
+			SetValue(I, Result, CallingSF);
+		if (InvokeInst *II = dyn_cast<InvokeInst> (I))
+			SwitchToNewBasicBlock (II->getNormalDest (), CallingSF);
+		CallingSF.Caller = CallSite();          // We returned from the call...
+	}
+}
+
 void Interpreter::visitReturnInst(ReturnInst &I) {
 	if (!dryRun) {
 		getECStack()->pop_back();
@@ -2013,17 +2029,17 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue result;
 
 	/* TODO: Check if the operations below are correct */
-	if (!isa<GlobalVariable>(I.getPointerOperand())) {
-		GenericValue oldVal;
-		LoadValueFromMemory(oldVal, ptr, typ);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		if (cmpRes.IntVal.getBoolValue())
-			StoreValueToMemory(newVal, ptr, typ);
-		result.AggregateVal.push_back(oldVal);
-		result.AggregateVal.push_back(cmpRes);
-		SetValue(&I, result, SF);
-		return;
-	}
+	// if (globalVars.find(ptr) == globalVars.end()) {
+	// 	GenericValue oldVal;
+	// 	LoadValueFromMemory(oldVal, ptr, typ);
+	// 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	// 	if (cmpRes.IntVal.getBoolValue())
+	// 		StoreValueToMemory(newVal, ptr, typ);
+	// 	result.AggregateVal.push_back(oldVal);
+	// 	result.AggregateVal.push_back(cmpRes);
+	// 	SetValue(&I, result, SF);
+	// 	return;
+	// }
 
 	int c = ++globalCount[g.currentT];
 	if (c == g.maxEvents[g.currentT] - 1) {
@@ -2379,7 +2395,7 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitCallSite(CallSite CS) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
 
   // Check to see if this is an intrinsic function call...
   Function *F = CS.getCalledFunction();
@@ -3216,12 +3232,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
 }
 
 void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
-	if (dryRun) {
-		dbgs() << "Please do not use RMWs outside of thread code!\n";
-		return;
-	}
-
-  ExecutionContext &SF = getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
   Value *Agg = I.getAggregateOperand();
   GenericValue Dest;
   GenericValue Src = getOperandValue(Agg, SF);
@@ -3420,6 +3431,39 @@ void Interpreter::callAssertFail(Function *F,
 	abort();
 }
 
+void Interpreter::callVerifierAssume(Function *F,
+				     const std::vector<GenericValue> &ArgVals)
+{
+	if (dryRun) {
+		popStackAndReturnValueToCaller(Type::getVoidTy(F->getContext()),
+					       GenericValue());
+		return;
+	}
+
+	ExecutionGraph &g = *currentEG;
+	bool cond = ArgVals[0].IntVal.getBoolValue();
+
+	/* TODO: When support for nested functions is added, rewrite this */
+	if (!cond) {
+		Event e = getLastThreadEvent(g, g.currentT);
+		std::vector<int> before = calcPorfBefore(g, e);
+		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
+				{ return e.index > before[e.thread]; })) {
+			ECStacks.clear();
+			shouldContinue = false;
+			return;
+		}
+
+//		getECStack()->pop_back();
+		getECStack()->clear();
+		threadBlocked[g.currentT] = true;
+		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
+		// 		[](std::vector<ExecutionContext> &SF)
+		// 		{ return SF.empty(); }))
+		// 	shouldContinue = false;
+	}
+}
+
 /* callPthreadCreate - Call to pthread_create() function */
 void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
@@ -3458,6 +3502,204 @@ void Interpreter::callPthreadExit(Function *F,
 {
 }
 
+void Interpreter::callPthreadMutexLock(Function *F,
+				       const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *currentEG;
+	ExecutionContext &SF = getECStack()->back();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	Type *typ = F->getReturnType();
+	GenericValue cmpVal, newVal, result;
+
+	if (ptr == nullptr) {
+		WARN("pthread_mutex_lock called with NULL pointer!");
+		abort();
+	}
+
+	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
+	if (globalVars.find(ptr) == globalVars.end()) {
+		WARN("All mutexes should be declared as globals!");
+		return;
+	}
+
+	int c = ++globalCount[g.currentT];
+	if (c == g.maxEvents[g.currentT] - 1) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue()) {
+			addCASStoreToGraph(g, Release, ptr, newVal, typ);
+			++globalCount[g.currentT];
+
+			Event s = getLastThreadEvent(g, g.currentT);
+			EventLabel &sLab = getEventLabel(g, s);
+			EventLabel &lab = getPreviousLabel(g, s); /* Need to refetch! */
+			std::vector<Event> ls;
+			std::vector<std::vector<Event> > rSets;
+
+			getRevisitLoads(ls, g, s);
+			std::vector<Event> pendingRMWs =
+				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
+			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+
+			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+				ExecutionGraph eg(g);
+				cutGraphAfter(eg, *it);
+				modifyRfs(eg, *it, s);
+				markReadsAsVisited(eg, *it, pendingRMWs, s);
+				visitGraph(eg);
+			}
+			if (!pendingRMWs.empty())
+				shouldContinue = false;
+		} else {
+			Event e = getLastThreadEvent(g, g.currentT);
+			std::vector<int> before = calcPorfBefore(g, e);
+			if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
+					{ return e.index > before[e.thread]; })) {
+				ECStacks.clear();
+				shouldContinue = false;
+				return;
+			}
+//			getECStack()->pop_back();
+			getECStack()->clear();
+			threadBlocked[g.currentT] = true;
+			// if (std::all_of(ECStacks.begin(), ECStacks.end(),
+			// 		[](std::vector<ExecutionContext> &SF)
+			// 		{ return SF.empty(); }))
+			// 	shouldContinue = false;
+			return;
+		}
+
+		/* TODO: Check move semantics .. */
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		globalCount[g.currentT] += cmpRes.IntVal.getBoolValue();
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+
+	std::vector<int> readPreds;
+
+	/* Calculate the stores that we can actually read from */
+	std::vector<Event> stores = getStoresToLoc(g, ptr);
+	std::vector<Event> validStores =
+		properlyOrderStores(g, CAS, typ, ptr, {cmpVal}, stores);
+
+	/* ... and add a label with the appropriate store. */
+	addCASReadToGraph(g, Acquire, ptr, cmpVal, typ, validStores[0]);
+	Event e = getLastThreadEvent(g, g.currentT);
+	saveGraphState(readPreds, g);
+	g.revisit.push_back(e);
+
+	EventLabel &lab = getEventLabel(g, e);
+	/* Push all the other alternatives choices to the Stack */
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
+		currentStack->push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
+	}
+
+	/* Did the CAS operation succeed? */
+	GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue()) {
+		addCASStoreToGraph(g, Release, ptr, newVal, typ);
+		++globalCount[g.currentT];
+
+		Event s = getLastThreadEvent(g, g.currentT);
+		Event r = s.prev();
+		EventLabel &sLab = getEventLabel(g, s);
+		EventLabel &lab = getEventLabel(g, r);
+		std::vector<Event> ls;
+		std::vector<std::vector<Event> > rSets;
+
+		getRevisitLoads(ls, g, s);
+		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
+		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+
+		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+			ExecutionGraph eg(g);
+			cutGraphAfter(eg, *it);
+			modifyRfs(eg, *it, s);
+			markReadsAsVisited(eg, *it, pendingRMWs, s);
+			visitGraph(eg);
+		}
+		if (!pendingRMWs.empty())
+			shouldContinue = false;
+	} else {
+		Event e = getLastThreadEvent(g, g.currentT);
+		std::vector<int> before = calcPorfBefore(g, e);
+		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
+				{ return e.index > before[e.thread]; })) {
+			ECStacks.clear();
+			shouldContinue = false;
+			return;
+		}
+//		getECStack()->pop_back();
+		getECStack()->clear();
+		threadBlocked[g.currentT] = true;
+		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
+		// 		[](std::vector<ExecutionContext> &SF)
+		// 		{ return SF.empty(); }))
+		// 	shouldContinue = false;
+		return;
+	}
+
+	/* Return the appropriate result */
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
+void Interpreter::callPthreadMutexUnlock(Function *F,
+					 const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionContext &SF = getECStack()->back();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	Type *typ = F->getReturnType();
+	GenericValue val;
+
+	if (ptr == nullptr) {
+		WARN("pthread_mutex_lock called with NULL pointer!");
+		abort();
+	}
+
+	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	if (globalVars.find(ptr) == globalVars.end()) {
+		WARN("All mutexes should be declared as globals!");
+		return;
+	}
+
+
+	int c = ++globalCount[currentEG->currentT];
+	if (currentEG->maxEvents[currentEG->currentT] > c)
+		return;
+
+	addStoreToGraph(*currentEG, Release, ptr, val, typ);
+	Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
+	EventLabel &sLab = getEventLabel(*currentEG, s);
+	std::vector<Event> ls;
+	std::vector<std::vector<Event> > rSets;
+
+	getRevisitLoads(ls, *currentEG, s);
+	calcRevisitSets(rSets, *currentEG, ls, {}, sLab);
+	/* Exclude the empty set */
+	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
+		ExecutionGraph eg(*currentEG);
+		cutGraphAfter(eg, *it);
+		modifyRfs(eg, *it, s);
+		markReadsAsVisited(eg, *it, {}, s);
+		visitGraph(eg);
+	}
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -3469,6 +3711,9 @@ void Interpreter::callFunction(Function *F,
   if (functionName == "__assert_fail") {
 	  callAssertFail(F, ArgVals);
 	  return;
+  } else if (functionName == "__VERIFIER_assume") {
+	  callVerifierAssume(F, ArgVals);
+	  return;
   } else if (functionName == "pthread_create") {
 	  callPthreadCreate(F, ArgVals);
 	  return;
@@ -3477,6 +3722,12 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "pthread_exit") {
 	  callPthreadExit(F, ArgVals);
+	  return;
+  } else if (functionName == "pthread_mutex_lock") {
+	  callPthreadMutexLock(F, ArgVals);
+	  return;
+  } else if (functionName == "pthread_mutex_unlock") {
+	  callPthreadMutexUnlock(F, ArgVals);
 	  return;
   }
 
@@ -3535,6 +3786,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
 	bool oldContinue = shouldContinue;
 	bool oldCompleted = executionCompleted;
+	std::vector<bool> oldBlocked = threadBlocked;
 	currentEG = &g;
 	currentStack = &workqueue;
 	ECStacks = initStacks;
@@ -3542,6 +3794,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	for (int i = 0; i < initNumThreads; i++) {
 		oldGlobalCount.push_back(globalCount[i]);
 		globalCount[i] = 0;
+		threadBlocked[i] = false;
 	}
 
 	while (true) {
@@ -3553,6 +3806,9 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			ExecutionContext &SF = getECStack()->back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
+		} else if (std::any_of(threadBlocked.begin(), threadBlocked.end(),
+				       [](bool b){ return b; })) {
+			executionCompleted = true;
 		} else {
 			if (userConf->printExecGraphs)
 				std::cerr << g << std::endl;
@@ -3574,6 +3830,7 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 		if (workqueue.empty()) {
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
+			threadBlocked = oldBlocked;
 			shouldContinue = oldContinue;
 			executionCompleted = oldCompleted;
 			ECStacks = oldECStacks;
@@ -3597,15 +3854,17 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 			EventLabel &lab3 = getEventLabel(g, oldRf);
 			lab3.rfm1.remove(p.e);
 		}
-		std::vector<Event> cutBefore({p.e});//, p.rf});
-		std::vector<int> before = calcPorfBefore(g, cutBefore);
+
+		std::vector<int> before = calcPorfBefore(g, p.e);
 		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 			if (it->index <= before[it->thread])
 				g.revisit.erase(it--);
 //		std::cerr << "After restriction: \n"; printExecGraph(g);
 		ECStacks = initStacks;
-		for (int i = 0; i < initNumThreads; i++)
+		for (int i = 0; i < initNumThreads; i++) {
 			globalCount[i] = 0;
+			threadBlocked[i] = false;
+		}
 
 		workqueue.pop_back();
 	}
@@ -3658,6 +3917,7 @@ if (globalVars.empty())
 	  t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
 	  initGraph.maxEvents.push_back(1);
 	  globalCount.push_back(0);
+	  threadBlocked.push_back(false);
   }
 
   visitGraph(initGraph);
@@ -3665,7 +3925,7 @@ if (globalVars.empty())
   std::stringstream buf;
   buf << " (" << duplicates << " duplicates)";
 
-  std::cerr << "Number of explored executions: " << explored
+  std::cerr << "Number of complete executions explored: " << explored
 	    << ((userConf->countDuplicateExecs) ? buf.str() : "")
 	    << std::endl;
 }

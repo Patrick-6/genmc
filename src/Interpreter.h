@@ -190,9 +190,13 @@ public:
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
+
 
   // Methods used to execute code:
   // Place a call on the stack
@@ -313,6 +317,7 @@ private:  // Helper functions
                                   ExecutionContext &SF);
   GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
                                     Type *Ty, ExecutionContext &SF);
+  void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
 };
