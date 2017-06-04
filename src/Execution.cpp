@@ -414,7 +414,19 @@ static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event sto
 	return;
 }
 
+static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
+
+static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
+{
+	if (lab.attr == Plain)
+		return false;
+	if (lab.attr == RMW)
+		return true;
+	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
+}
+
 static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+				   ExecutionGraph &g, EventLabel &wLab,
 				   std::vector<Event> acc, std::vector<Event> set)
 {
 	/* Base case -- empty set */
@@ -430,32 +442,30 @@ static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 	set.pop_back();
 
 	/* Calculate all subsets that do not contain ev. */
-	__calcNotEmptyPowerSet(powerSet, acc, set);
+	__calcNotEmptyPowerSet(powerSet, g, wLab, acc, set);
 
 	/* Calculate subsets with ev but filter out events from the same thread */
+	EventLabel &lab = getEventLabel(g, ev);
+	if (isSuccessfulRMW(lab, wLab.val))
+		set.erase(std::remove_if(set.begin(), set.end(), [&g, &wLab, &ev](Event &e)
+					 { EventLabel &eLab = getEventLabel(g, e);
+					   return e.thread == ev.thread ||
+						  isSuccessfulRMW(eLab, wLab.val); }),
+			  set.end());
+	else
+		set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
+					 { return e.thread == ev.thread; }),
+			  set.end());
 	acc.push_back(ev);
-	set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
-				 { return e.thread == ev.thread; }),
-		  set.end());
-	__calcNotEmptyPowerSet(powerSet, acc, set);
+	__calcNotEmptyPowerSet(powerSet, g, wLab, acc, set);
 	return;
 }
 
 static void calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+				 ExecutionGraph &g, EventLabel &wLab,
 				 std::vector<Event> &set)
 {
-	__calcNotEmptyPowerSet(powerSet, {}, set);
-}
-
-static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
-
-static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
-{
-	if (lab.attr == Plain)
-		return false;
-	if (lab.attr == RMW)
-		return true;
-	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
+	__calcNotEmptyPowerSet(powerSet, g, wLab, {}, set);
 }
 
 /* Calculates all the subsets that contain a particular element for a set of Events */
@@ -466,21 +476,18 @@ static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
 {
 	for (auto &&si : subsets) {
 		std::vector<int> after = calcPorfAfter(g, si);
-		int successfulRMWs = 0;
+		int hasSuccessfulRMWs = 0;
 		bool pushSet = true;
 		for (auto &ei : si) {
 			if (after[ei.thread] <= ei.index)
 				pushSet = false;
 			EventLabel &eLab = getEventLabel(g, ei);
-			if (eLab.isRMW() && isSuccessfulRMW(eLab, wLab.val))
-				++successfulRMWs;
+			if (isSuccessfulRMW(eLab, wLab.val))
+				++hasSuccessfulRMWs;
 		}
-		if (successfulRMWs > 1)
-			pushSet = false;
 		if (pushSet && !K0.empty()) {
 			Event &e = K0.back();
-			if ((std::find(si.begin(), si.end(), e) == si.end() &&
-			     e.index < after[e.thread]))
+			if ((std::find(si.begin(), si.end(), e) == si.end()))
 				pushSet = false;
 		}
 		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
@@ -493,7 +500,7 @@ static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGr
 			    std::vector<Event> &ls, std::vector<Event> K0, EventLabel &wLab)
 {
 	std::vector<std::vector<Event> > subsets;
-	calcNotEmptyPowerSet(subsets, ls);
+	calcNotEmptyPowerSet(subsets, g, wLab, ls);
 	filterPowerSet(rSets, subsets, g, ls, K0, wLab);
 	return;
 }
