@@ -425,14 +425,14 @@ static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
 	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
 }
 
-static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+static void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 				   ExecutionGraph &g, EventLabel &wLab,
 				   std::vector<Event> acc, std::vector<Event> set)
 {
 	/* Base case -- empty set */
 	if (set.empty() && acc.empty())
 		return;
-	/* Base case -- not empty set */
+	/* Base case -- not empty set*/
 	if (set.empty()) {
 		powerSet.push_back(acc);
 		return;
@@ -442,7 +442,7 @@ static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 	set.pop_back();
 
 	/* Calculate all subsets that do not contain ev. */
-	__calcNotEmptyPowerSet(powerSet, g, wLab, acc, set);
+	__calcPowerSet(powerSet, g, wLab, acc, set);
 
 	/* Calculate subsets with ev but filter out events from the same thread */
 	EventLabel &lab = getEventLabel(g, ev);
@@ -456,53 +456,25 @@ static void __calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
 		set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
 					 { return e.thread == ev.thread; }),
 			  set.end());
+
 	acc.push_back(ev);
-	__calcNotEmptyPowerSet(powerSet, g, wLab, acc, set);
+	__calcPowerSet(powerSet, g, wLab, acc, set);
 	return;
 }
 
-static void calcNotEmptyPowerSet(std::vector<std::vector<Event> > &powerSet,
+static void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 				 ExecutionGraph &g, EventLabel &wLab,
 				 std::vector<Event> &set)
 {
-	__calcNotEmptyPowerSet(powerSet, g, wLab, {}, set);
+	__calcPowerSet(powerSet, g, wLab, {}, set);
 }
 
-/* Calculates all the subsets that contain a particular element for a set of Events */
-static void filterPowerSet(std::vector<std::vector<Event> > &rSets,
-			   std::vector<std::vector<Event> > &subsets,
-			   ExecutionGraph &g, std::vector<Event> &K,
-			   std::vector<Event> &K0, EventLabel &wLab)
-{
-	for (auto &&si : subsets) {
-		std::vector<int> after = calcPorfAfter(g, si);
-		int hasSuccessfulRMWs = 0;
-		bool pushSet = true;
-		for (auto &ei : si) {
-			if (after[ei.thread] <= ei.index)
-				pushSet = false;
-			EventLabel &eLab = getEventLabel(g, ei);
-			if (isSuccessfulRMW(eLab, wLab.val))
-				++hasSuccessfulRMWs;
-		}
-		if (pushSet && !K0.empty()) {
-			Event &e = K0.back();
-			if ((std::find(si.begin(), si.end(), e) == si.end()))
-				pushSet = false;
-		}
-		if (pushSet && after[wLab.pos.thread] > wLab.pos.index)
-			rSets.push_back(si);
-	}
-	return;
-}
-
-static void calcRevisitSets(std::vector<std::vector<Event> > &rSets, ExecutionGraph &g,
-			    std::vector<Event> &ls, std::vector<Event> K0, EventLabel &wLab)
+std::vector<std::vector<Event> > calcRevisitSets(ExecutionGraph &g, std::vector<Event> &ls,
+						 std::vector<Event> K0, EventLabel &wLab)
 {
 	std::vector<std::vector<Event> > subsets;
-	calcNotEmptyPowerSet(subsets, g, wLab, ls);
-	filterPowerSet(rSets, subsets, g, ls, K0, wLab);
-	return;
+	calcPowerSet(subsets, g, wLab, ls);
+	return subsets;
 }
 
 static void cutGraphBefore(ExecutionGraph &g, std::vector<int> preds, std::vector<Event> &rev)
@@ -528,12 +500,8 @@ static void cutGraphBefore(ExecutionGraph &g, std::vector<int> preds, std::vecto
 	return;
 }
 
-static void cutGraphAfter(ExecutionGraph &g, std::vector<Event> ls)
+static void cutGraphAfter(ExecutionGraph &g, std::vector<int> &after)
 {
-	if (ls.empty())
-		return;
-
-	std::vector<int> after = calcPorfAfter(g, ls);
 	for (unsigned int i = 0; i < g.threads.size(); i++) {
 		g.maxEvents[i] = after[i];
 		Thread &thr = g.threads[i];
@@ -580,9 +548,11 @@ static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
 static void markReadsAsVisited(ExecutionGraph &g, std::vector<Event> &K,
 			       std::vector<Event> K0, Event store)
 {
-	if (!K0.empty())
+	if (!K0.empty()) {
 		K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
-				       { return e == K0.back(); }), K.end());
+				       { return e == K0.back(); }),
+			K.end());
+	}
 
 	std::vector<int> before = calcPorfBefore(g, K);
 	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(),
@@ -1916,18 +1886,11 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 		EventLabel &sLab = getEventLabel(*currentEG, s);
 		std::vector<Event> ls;
-		std::vector<std::vector<Event> > rSets;
 
 		getRevisitLoads(ls, *currentEG, s);
-		calcRevisitSets(rSets, *currentEG, ls, {}, sLab);
-		/* Exclude the empty set */
-		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg(*currentEG);
-			cutGraphAfter(eg, *it);
-			modifyRfs(eg, *it, s);
-			markReadsAsVisited(eg, *it, {}, s);
-			visitGraph(eg);
-		}
+		std::vector<std::vector<Event > > rSets =
+			calcRevisitSets(*currentEG, ls, {}, sLab);
+		revisitReads(*currentEG, rSets, {}, sLab);
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -2061,20 +2024,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			EventLabel &sLab = getEventLabel(g, s);
 			EventLabel &lab = getPreviousLabel(g, s); /* Need to refetch! */
 			std::vector<Event> ls;
-			std::vector<std::vector<Event> > rSets;
 
 			getRevisitLoads(ls, g, s);
 			std::vector<Event> pendingRMWs =
 				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
-			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+			std::vector<std::vector<Event> > rSets =
+				calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-				ExecutionGraph eg(g);
-				cutGraphAfter(eg, *it);
-				modifyRfs(eg, *it, s);
-				markReadsAsVisited(eg, *it, pendingRMWs, s);
-				visitGraph(eg);
-			}
+			revisitReads(g, rSets, pendingRMWs, sLab);
 			if (!pendingRMWs.empty())
 				shouldContinue = false;
 		}
@@ -2127,19 +2084,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		EventLabel &sLab = getEventLabel(g, s);
 		EventLabel &lab = getEventLabel(g, r);
 		std::vector<Event> ls;
-		std::vector<std::vector<Event> > rSets;
 
 		getRevisitLoads(ls, g, s);
 		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
-		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+		std::vector<std::vector<Event> > rSets =
+			calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg(g);
-			cutGraphAfter(eg, *it);
-			modifyRfs(eg, *it, s);
-			markReadsAsVisited(eg, *it, pendingRMWs, s);
-			visitGraph(eg);
-		}
+		revisitReads(g, rSets, pendingRMWs, sLab);
 		if (!pendingRMWs.empty())
 			shouldContinue = false;
 	} else {
@@ -2253,19 +2204,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		EventLabel &sLab = getEventLabel(g, s);
 		EventLabel &rLab = getPreviousLabel(g, s); /* Need to refetch! */
 		std::vector<Event> ls;
-		std::vector<std::vector<Event> > rSets;
 
 		getRevisitLoads(ls, g, s);
 		std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, oldVal);
-		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+		std::vector<std::vector<Event> > rSets =
+			calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg(g);
-			cutGraphAfter(eg, *it);
-			modifyRfs(eg, *it, s);
-			markReadsAsVisited(eg, *it, pendingRMWs, s);
-			visitGraph(eg);
-		}
+		revisitReads(g, rSets, pendingRMWs, sLab);
 		if (!pendingRMWs.empty())
 			shouldContinue = false;
 		SetValue(&I, oldVal, SF);
@@ -2365,19 +2310,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	EventLabel &sLab = getEventLabel(g, s);
 	EventLabel &rLab = getPreviousLabel(g, s);
 	std::vector<Event> ls;
-	std::vector<std::vector<Event> > rSets;
 
 	getRevisitLoads(ls, g, s);
 	std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, rLab.val);
-	calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+	std::vector<std::vector<Event> > rSets =
+		calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-		ExecutionGraph eg(g);
-		cutGraphAfter(eg, *it);
-		modifyRfs(eg, *it, s);
-		markReadsAsVisited(eg, *it, pendingRMWs, s);
-		visitGraph(eg);
-	}
+	revisitReads(g, rSets, pendingRMWs, sLab);
 	if (!pendingRMWs.empty())
 		shouldContinue = false;
 
@@ -3543,20 +3482,14 @@ void Interpreter::callPthreadMutexLock(Function *F,
 			EventLabel &sLab = getEventLabel(g, s);
 			EventLabel &lab = getPreviousLabel(g, s); /* Need to refetch! */
 			std::vector<Event> ls;
-			std::vector<std::vector<Event> > rSets;
 
 			getRevisitLoads(ls, g, s);
 			std::vector<Event> pendingRMWs =
 				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
-			calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+			std::vector<std::vector<Event> > rSets =
+				calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-			for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-				ExecutionGraph eg(g);
-				cutGraphAfter(eg, *it);
-				modifyRfs(eg, *it, s);
-				markReadsAsVisited(eg, *it, pendingRMWs, s);
-				visitGraph(eg);
-			}
+			revisitReads(g, rSets, pendingRMWs, sLab);
 			if (!pendingRMWs.empty())
 				shouldContinue = false;
 		} else {
@@ -3624,19 +3557,13 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		EventLabel &sLab = getEventLabel(g, s);
 		EventLabel &lab = getEventLabel(g, r);
 		std::vector<Event> ls;
-		std::vector<std::vector<Event> > rSets;
 
 		getRevisitLoads(ls, g, s);
 		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
-		calcRevisitSets(rSets, g, ls, pendingRMWs, sLab);
+		std::vector<std::vector<Event> > rSets =
+			calcRevisitSets(g, ls, pendingRMWs, sLab);
 
-		for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-			ExecutionGraph eg(g);
-			cutGraphAfter(eg, *it);
-			modifyRfs(eg, *it, s);
-			markReadsAsVisited(eg, *it, pendingRMWs, s);
-			visitGraph(eg);
-		}
+		revisitReads(g, rSets, pendingRMWs, sLab);
 		if (!pendingRMWs.empty())
 			shouldContinue = false;
 	} else {
@@ -3692,18 +3619,12 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	Event s = getLastThreadEvent(*currentEG, currentEG->currentT);
 	EventLabel &sLab = getEventLabel(*currentEG, s);
 	std::vector<Event> ls;
-	std::vector<std::vector<Event> > rSets;
 
 	getRevisitLoads(ls, *currentEG, s);
-	calcRevisitSets(rSets, *currentEG, ls, {}, sLab);
-	/* Exclude the empty set */
-	for (auto it = rSets.begin(); it != rSets.end(); ++it) {
-		ExecutionGraph eg(*currentEG);
-		cutGraphAfter(eg, *it);
-		modifyRfs(eg, *it, s);
-		markReadsAsVisited(eg, *it, {}, s);
-		visitGraph(eg);
-	}
+	std::vector<std::vector<Event> > rSets =
+		calcRevisitSets(*currentEG, ls, {}, sLab);
+
+	revisitReads(*currentEG, rSets, {}, sLab);
 	return;
 }
 
@@ -3877,6 +3798,48 @@ void Interpreter::visitGraph(ExecutionGraph &g)
 	}
 }
 
+void Interpreter::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
+			       std::vector<Event> K0, EventLabel &wLab)
+{
+	for (auto &si : subsets) {
+		std::vector<Event> ls(si);
+		ls.insert(ls.end(), K0.begin(), K0.end());
+		std::vector<int> after = calcPorfAfter(g, ls);
+		if (std::any_of(si.begin(), si.end(), [&after](Event &e)
+				{ return e.index >= after[e.thread]; }))
+			continue;
+
+		if (K0.empty() ||
+		    (!K0.empty() && std::find(si.begin(), si.end(), K0.back()) != si.end())) {
+			ExecutionGraph eg(g);
+			cutGraphAfter(eg, after);
+			modifyRfs(eg, si, wLab.pos);
+			markReadsAsVisited(eg, si, K0, wLab.pos);
+			visitGraph(eg);
+		} else if (std::any_of(K0.begin(), K0.end(), [&g, &wLab](Event &e)
+				       { EventLabel &eLab = getEventLabel(g, e);
+					       return isSuccessfulRMW(eLab, wLab.val); }) &&
+			   std::any_of(K0.begin(), K0.end(), [&g, &wLab](Event &e)
+				       { EventLabel &eLab = getEventLabel(g, e);
+					       return isSuccessfulRMW(eLab, wLab.val); })) {
+			after[K0.back().thread] = K0.back().index;
+			ExecutionGraph eg(g);
+			cutGraphAfter(eg, after);
+			modifyRfs(eg, si, wLab.pos);
+			std::vector<int> before = calcPorfBefore(eg, si);
+			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
+						       [&before](Event &e)
+						       { return e.index <= before[e.thread]; }),
+					eg.revisit.end());
+			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
+						       [&K0](Event &e)
+						       { return K0.back() == e; }),
+					eg.revisit.end());
+			visitGraph(eg);
+		}
+	}
+	return;
+}
 
 void Interpreter::run() {
   while (!ECStack.empty()) {

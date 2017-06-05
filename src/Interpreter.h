@@ -173,6 +173,8 @@ public:
   /* Main functions for visiting an Execution Graph */
   bool scheduleNext(ExecutionGraph &g);
   void visitGraph(ExecutionGraph &g);
+  void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
+		    std::vector<Event> K0, EventLabel &wLab);
 
   /* Helper functions */
   GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
