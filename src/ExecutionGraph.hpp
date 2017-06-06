@@ -37,14 +37,37 @@ public:
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
 	int currentT;
 
+	/* Constructors */
 	ExecutionGraph();
 	ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
 		       std::vector<Event> re, int t)
 		: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
 
+	/* Consistency checks */
 	bool isConsistent();
 
+	/* Basic getter methods */
+	EventLabel& getEventLabel(Event &e);
+	EventLabel& getPreviousLabel(Event &e);
+	Event getLastThreadEvent(int thread);
+	std::vector<int> getGraphState();
+
+	/* Calculation of [(po U rf)*] predecessors and successors */
+	std::vector<int> getPorfAfter(Event e);
+	std::vector<int> getPorfAfter(const std::vector<Event > &es);
+	std::vector<int> getPorfBefore(Event e);
+	std::vector<int> getPorfBefore(const std::vector<Event> &es);
+	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
+	std::vector<int> getHbBefore(Event e);
+	std::vector<int> getHbBefore(const std::vector<Event> &es);
+
+	/* Overloaded operators */
 	friend std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g);
+
+protected:
+	void calcPorfAfter(const Event &e, std::vector<int> &a);
+	void calcPorfBefore(const Event &e, std::vector<int> &a);
+	void calcHbBefore(const Event &e, std::vector<int> &a);
 };
 
 extern ExecutionGraph initGraph;
