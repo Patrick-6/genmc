@@ -21,10 +21,12 @@
 #ifndef __EXECUTION_GRAPH_HPP__
 #define __EXECUTION_GRAPH_HPP__
 
+#include "Error.hpp"
 #include "Event.hpp"
 #include "Thread.hpp"
 
 #include <unordered_map>
+#include <unordered_set>
 
 /*
  * ExecutionGraph class - This class represents an execution graph
@@ -46,11 +48,26 @@ public:
 	/* Consistency checks */
 	bool isConsistent();
 
+	/* Debugging methods */
+	void validateGraph(void);
+
+	/* Graph exploration methods */
+	bool scheduleNext(void);
+
 	/* Basic getter methods */
 	EventLabel& getEventLabel(Event &e);
 	EventLabel& getPreviousLabel(Event &e);
 	Event getLastThreadEvent(int thread);
-	std::vector<int> getGraphState();
+	std::vector<int> getGraphState(void);
+
+	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
+	std::vector<Event> getRevisitLoads(Event store);
+
+	/* Graph modification methods */
+	void cutBefore(std::vector<int> &preds, std::vector<Event> &rev);
+	void cutAfter(std::vector<int> &after);
+	void modifyRfs(std::vector<Event> &es, Event store);
+	void markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0, Event store);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	std::vector<int> getPorfAfter(Event e);
@@ -69,6 +86,37 @@ protected:
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
 };
+
+/* Types and variables */
+/* TODO: integrate this into EventLabel?? */
+struct RevisitPair {
+	Event e;
+	Event rf;
+	Event shouldRf;
+	std::vector<int> preds;
+	std::vector<Event> revisit;
+
+	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
+		    std::vector<Event> revisit)
+		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
+};
+
+extern std::vector<RevisitPair> *currentStack;
+extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
+extern int explored;
+extern int duplicates;
+extern std::vector<int> globalCount;
+
+extern bool shouldContinue;
+extern bool executionCompleted;
+extern bool globalAccess;
+extern std::vector<bool> threadBlocked;
+extern bool interpStore;
+extern bool interpRMW;
+
+/* TODO: Move this to Interpreter.h, and also remove the relevant header */
+extern std::unordered_set<llvm::GenericValue *> globalVars;
+extern std::unordered_set<std::string> uniqueExecs;
 
 extern ExecutionGraph initGraph;
 extern ExecutionGraph *currentEG;

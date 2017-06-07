@@ -19,14 +19,18 @@
  */
 
 #include "Config.hpp"
-#include "RCMCDriver.hpp"
 #include "LLVMModule.hpp"
-#include "ExecutionGraph.hpp"
+#include "RCMCDriver.hpp"
 #include "Interpreter.h"
 #include <llvm/IR/Verifier.h>
 
-RCMCDriver::RCMCDriver(Config *conf) : userConf(conf) {}
-RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod) : userConf(conf), mod(std::move(mod)) {}
+#include <algorithm>
+#include <sstream>
+#include <unordered_set>
+
+RCMCDriver::RCMCDriver(Config *conf) : userConf(conf), explored(0), duplicates(0) {}
+RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod)
+	: userConf(conf), mod(std::move(mod)), explored(0), duplicates(0) {}
 
 /* TODO: Need to pass by reference? Maybe const? */
 void RCMCDriver::parseLLVMFile(const std::string &fileName)
@@ -43,22 +47,225 @@ void RCMCDriver::parseRun()
 	run();
 }
 
+ std::vector<int> globalCount;
+ std::vector<RevisitPair> *currentStack;
+ std::vector<std::vector<llvm::ExecutionContext> > initStacks;
+ int explored;
+ int duplicates;
+
+ bool shouldContinue;
+ bool executionCompleted = false;
+ bool globalAccess = false;
+ std::vector<bool> threadBlocked;
+bool interpStore = false;
+bool interpRMW = false;
+
+/* TODO: Move this to Interpreter.h, and also remove the relevant header */
+ std::unordered_set<llvm::GenericValue *> globalVars;
+ std::unordered_set<std::string> uniqueExecs;
+
 void RCMCDriver::run()
 {
 	std::string buf;
-	llvm::ExecutionEngine *EE;
 
 	LLVMModule::transformLLVMModule(*mod, userConf);
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions. */
-	EE = llvm::Interpreter::create(&*mod, userConf, &buf);
+	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, userConf, &buf);
 
 	/* Get main program function and run the program */
 	EE->runStaticConstructorsDestructors(false);
 	EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
 	EE->runStaticConstructorsDestructors(true);
+
+	dryRun = false;
+	/* There is not an event for any thread -- yet */
+	/* maxEvents points to the array index of the next event */
+	for (int i = 0; i < initNumThreads; i++) {
+		Thread &t = initGraph.threads[i];
+		t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
+		initGraph.maxEvents.push_back(1);
+		globalCount.push_back(0);
+		threadBlocked.push_back(false);
+	}
+
+	visitGraph(initGraph);
+
+	std::stringstream dups;
+        dups << " (" << duplicates << " duplicates)";
+	std::cerr << "Number of complete executions explored: " << explored
+		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
+		  << std::endl;
+}
+
+void RCMCDriver::visitGraph(ExecutionGraph &g)
+{
+	std::vector<RevisitPair> workqueue;
+
+	ExecutionGraph *oldEG = currentEG;
+	std::vector<RevisitPair> *oldStack = currentStack;
+//	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
+	bool oldContinue = shouldContinue;
+	bool oldCompleted = executionCompleted;
+	std::vector<bool> oldBlocked = threadBlocked;
+	currentEG = &g;
+	currentStack = &workqueue;
+	std::vector<int> oldGlobalCount;
+	for (int i = 0; i < initNumThreads; i++) {
+		g.threads[i].ECStack = initStacks[i];
+		oldGlobalCount.push_back(globalCount[i]);
+		globalCount[i] = 0;
+		threadBlocked[i] = false;
+	}
+
+	while (true) {
+		interpStore = false;
+		interpRMW = false;
+		if (userConf->validateExecGraphs)
+			g.validateGraph();
+		if (g.scheduleNext()) {
+			shouldContinue = true;
+			executionCompleted = false;
+			llvm::ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
+			llvm::Instruction &I = *SF.CurInst++;
+			EE->visit(I);
+			if (interpStore) {
+				Event s = g.getLastThreadEvent(g.currentT);
+				EventLabel &sLab = g.getEventLabel(s);
+
+				std::vector<Event> ls = g.getRevisitLoads(s);
+				std::vector<std::vector<Event > > rSets =
+					EE->calcRevisitSets(ls, {}, sLab);
+				revisitReads(g, rSets, {}, sLab);
+			} else if (interpRMW) {
+				Event s = g.getLastThreadEvent(g.currentT);
+				EventLabel &sLab = g.getEventLabel(s);
+				EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
+				std::vector<Event> ls = g.getRevisitLoads(s);
+				llvm::Type *typ;
+				if (llvm::isa<llvm::AtomicCmpXchgInst>(I))
+					typ = llvm::cast<llvm::AtomicCmpXchgInst>(I).getCompareOperand()->getType();
+				else
+					typ = I.getType();
+				llvm::GenericValue val =
+					EE->loadValueFromWrite(lab.rf, typ, lab.addr);
+				std::vector<Event> pendingRMWs =
+					EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
+				std::vector<std::vector<Event> > rSets =
+					EE->calcRevisitSets(ls, pendingRMWs, sLab);
+
+				revisitReads(g, rSets, pendingRMWs, sLab);
+				if (!pendingRMWs.empty())
+					shouldContinue = false;
+			}
+		} else if (std::any_of(threadBlocked.begin(), threadBlocked.end(),
+				       [](bool b){ return b; })) {
+			executionCompleted = true;
+		} else {
+			if (userConf->printExecGraphs)
+				std::cerr << g << std::endl;
+			if (userConf->countDuplicateExecs) {
+				std::stringstream buf;
+				buf << g;
+				if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+					++duplicates;
+				else
+					uniqueExecs.insert(buf.str());
+			}
+			++explored;
+			executionCompleted = true;
+		}
+
+		if (shouldContinue && !executionCompleted)
+			continue;
+
+		if (workqueue.empty()) {
+			for (int i = 0; i < initNumThreads; i++)
+				globalCount[i] = oldGlobalCount[i];
+			threadBlocked = oldBlocked;
+			shouldContinue = oldContinue;
+			executionCompleted = oldCompleted;
+			currentStack = oldStack;
+			currentEG = oldEG;
+			return;
+		}
+
+		RevisitPair &p = workqueue.back();
+//		std::cerr << "Popping from workqueue...\n"; printExecGraph(g);
+
+		g.cutBefore(p.preds, p.revisit);
+		EventLabel &lab1 = g.getEventLabel(p.e);
+		Event oldRf = lab1.rf;
+		lab1.rf = p.shouldRf;
+		if (!p.shouldRf.isInitializer()) {
+			EventLabel &lab2 = g.getEventLabel(p.shouldRf);
+			lab2.rfm1.push_front(p.e);
+		}
+		if (!oldRf.isInitializer()) {
+			EventLabel &lab3 = g.getEventLabel(oldRf);
+			lab3.rfm1.remove(p.e);
+		}
+
+		std::vector<int> before = g.getPorfBefore(p.e);
+		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
+			if (it->index <= before[it->thread])
+				g.revisit.erase(it--);
+//		std::cerr << "After restriction: \n"; printExecGraph(g);
+
+		for (int i = 0; i < initNumThreads; i++) {
+			g.threads[i].ECStack = initStacks[i];
+			globalCount[i] = 0;
+			threadBlocked[i] = false;
+		}
+
+		workqueue.pop_back();
+	}
+}
+
+void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
+			      std::vector<Event> K0, EventLabel &wLab)
+{
+	for (auto &si : subsets) {
+		std::vector<Event> ls(si);
+		ls.insert(ls.end(), K0.begin(), K0.end());
+		std::vector<int> after = g.getPorfAfter(ls);
+		if (std::any_of(si.begin(), si.end(), [&after](Event &e)
+				{ return e.index >= after[e.thread]; }))
+			continue;
+
+		llvm::Interpreter *interp = EE;
+		if (K0.empty() ||
+		    (!K0.empty() && std::find(si.begin(), si.end(), K0.back()) != si.end())) {
+			ExecutionGraph eg(g);
+			eg.cutAfter(after);
+			eg.modifyRfs(si, wLab.pos);
+			eg.markReadsAsVisited(si, K0, wLab.pos);
+			visitGraph(eg);
+		} else if (std::any_of(K0.begin(), K0.end(), [&interp, &g, &wLab](Event &e)
+				       { EventLabel &eLab = g.getEventLabel(e);
+					       return interp->isSuccessfulRMW(eLab, wLab.val); }) &&
+			   std::any_of(K0.begin(), K0.end(), [&interp, &g, &wLab](Event &e)
+				       { EventLabel &eLab = g.getEventLabel(e);
+					       return interp->isSuccessfulRMW(eLab, wLab.val); })) {
+			after[K0.back().thread] = K0.back().index;
+			ExecutionGraph eg(g);
+			eg.cutAfter(after);
+			eg.modifyRfs(si, wLab.pos);
+			std::vector<int> before = eg.getPorfBefore(si);
+			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
+						       [&before](Event &e)
+						       { return e.index <= before[e.thread]; }),
+					eg.revisit.end());
+			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
+						       [&K0](Event &e)
+						       { return K0.back() == e; }),
+					eg.revisit.end());
+			visitGraph(eg);
+		}
+	}
+	return;
 }
 
 /* TODO: Fix destructors for Driver and config (basically for every class) */

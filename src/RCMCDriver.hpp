@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "ExecutionGraph.hpp"
 #include "Parser.hpp"
 #include <llvm/IR/Module.h>
 
@@ -27,13 +28,20 @@ private:
 	std::string sourceCode;
 	Config *userConf;
 	std::unique_ptr<llvm::Module> mod;
+	llvm::Interpreter *EE;
+	int explored;
+	int duplicates;
 
 	void parseLLVMFile(const std::string &fileName);
-	
+
 public:
 	RCMCDriver(Config *conf);
 	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod); /* TODO: Check pass by ref */
 	void run();
 	void parseRun();
+
+protected:
+	void visitGraph(ExecutionGraph &g);
+	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
+			  std::vector<Event> K0, EventLabel &wLab);
 };
-	

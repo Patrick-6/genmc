@@ -29,8 +29,6 @@
 #include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cmath>
-#include <sstream>
-#include <unordered_set>
 using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
@@ -40,34 +38,6 @@ STATISTIC(NumDynamicInsts, "Number of dynamic instructions executed");
 static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
           cl::desc("make the interpreter print every volatile load and store"));
 
-/* Types and variables */
-/* TODO: integrate this into EventLabel?? */
-struct RevisitPair {
-	Event e;
-	Event rf;
-	Event shouldRf;
-	std::vector<int> preds;
-	std::vector<Event> revisit;
-
-	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		    std::vector<Event> revisit)
-		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
-};
-
-std::vector<RevisitPair> *currentStack;
-std::vector<std::vector<ExecutionContext> > initStacks;
-int explored;
-int duplicates;
-
-bool shouldContinue;
-bool executionCompleted = false;
-bool globalAccess = false;
-std::vector<bool> threadBlocked;
-
-/* TODO: Move this to Interpreter.h, and also remove the relevant header */
-std::unordered_set<GenericValue *> globalVars;
-std::unordered_set<std::string> uniqueExecs;
-
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
@@ -76,17 +46,17 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-static void printRevisitPair(RevisitPair &p)
-{
-	std::cerr << p.e << " needs to read from " << p.rf << std::endl;
-}
+// static void printRevisitPair(RevisitPair &p)
+// {
+// 	std::cerr << p.e << " needs to read from " << p.rf << std::endl;
+// }
 
-static void printRevisitStack(std::vector<RevisitPair> &stack)
-{
-	for (unsigned int i = 0; i < stack.size(); i++)
-		printRevisitPair(stack[i]);
-	return;
-}
+// static void printRevisitStack(std::vector<RevisitPair> &stack)
+// {
+// 	for (unsigned int i = 0; i < stack.size(); i++)
+// 		printRevisitPair(stack[i]);
+// 	return;
+// }
 
 static void printSubsets(std::vector<std::vector<Event> > &subsets)
 {
@@ -134,8 +104,9 @@ static std::vector<Event> findOverwrittenBoundary(ExecutionGraph &g, GenericValu
 	return boundary;
 }
 
-std::vector<Event> Interpreter::getStoresToLoc(ExecutionGraph &g, GenericValue *addr)
+std::vector<Event> Interpreter::getStoresToLoc(GenericValue *addr)
 {
+	ExecutionGraph &g = *currentEG;
 	std::vector<Event> stores;
 	std::vector<Event> overwritten = findOverwrittenBoundary(g, addr, g.currentT);
 	if (overwritten.empty()) {
@@ -231,23 +202,9 @@ static void addRMWReadToGraph(ExecutionGraph &g, AtomicOrdering ord,
 	__addReadToGraphCommon(g, lab, rf);
 }
 
-static void getRevisitLoads(std::vector<Event> &ls, ExecutionGraph &g, Event store)
-{
-	std::vector<int> before = g.getPorfBefore(store);
-	EventLabel &sLab = g.getEventLabel(store);
-
-	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
-	for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it) {
-		EventLabel &rLab = g.getEventLabel(*it);
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
-			ls.push_back(*it);
-	}
-	return;
-}
-
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
-static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
+bool Interpreter::isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
 {
 	if (lab.attr == Plain)
 		return false;
@@ -256,10 +213,11 @@ static bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
 	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
 }
 
-static void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-				   ExecutionGraph &g, EventLabel &wLab,
-				   std::vector<Event> acc, std::vector<Event> set)
+void Interpreter::__calcPowerSet(std::vector<std::vector<Event> > &powerSet,
+				   EventLabel &wLab, std::vector<Event> acc,
+				 std::vector<Event> set)
 {
+	ExecutionGraph &g = *currentEG;
 	/* Base case -- empty set */
 	if (set.empty() && acc.empty())
 		return;
@@ -273,15 +231,16 @@ static void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 	set.pop_back();
 
 	/* Calculate all subsets that do not contain ev. */
-	__calcPowerSet(powerSet, g, wLab, acc, set);
+	__calcPowerSet(powerSet, wLab, acc, set);
 
 	/* Calculate subsets with ev but filter out events from the same thread */
 	EventLabel &lab = g.getEventLabel(ev);
+	Interpreter *interp = this;
 	if (isSuccessfulRMW(lab, wLab.val))
-		set.erase(std::remove_if(set.begin(), set.end(), [&g, &wLab, &ev](Event &e)
+		set.erase(std::remove_if(set.begin(), set.end(), [&interp, &g, &wLab, &ev](Event &e)
 					 { EventLabel &eLab = g.getEventLabel(e);
 					   return e.thread == ev.thread ||
-						  isSuccessfulRMW(eLab, wLab.val); }),
+						  interp->isSuccessfulRMW(eLab, wLab.val); }),
 			  set.end());
 	else
 		set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
@@ -289,115 +248,31 @@ static void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 			  set.end());
 
 	acc.push_back(ev);
-	__calcPowerSet(powerSet, g, wLab, acc, set);
+	__calcPowerSet(powerSet, wLab, acc, set);
 	return;
 }
 
-static void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-				 ExecutionGraph &g, EventLabel &wLab,
-				 std::vector<Event> &set)
+void Interpreter::calcPowerSet(std::vector<std::vector<Event> > &powerSet,
+			       EventLabel &wLab, std::vector<Event> &set)
 {
-	__calcPowerSet(powerSet, g, wLab, {}, set);
+	ExecutionGraph &g = *currentEG;
+	__calcPowerSet(powerSet, wLab, {}, set);
 }
 
-std::vector<std::vector<Event> > calcRevisitSets(ExecutionGraph &g, std::vector<Event> &ls,
+std::vector<std::vector<Event> > Interpreter::calcRevisitSets(std::vector<Event> &ls,
 						 std::vector<Event> K0, EventLabel &wLab)
 {
+	ExecutionGraph &g = *currentEG;
 	std::vector<std::vector<Event> > subsets;
-	calcPowerSet(subsets, g, wLab, ls);
+	calcPowerSet(subsets, wLab, ls);
 	return subsets;
-}
-
-static void cutGraphBefore(ExecutionGraph &g, std::vector<int> preds, std::vector<Event> &rev)
-{
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		g.maxEvents[i] = preds[i] + 1;
-		Thread &thr = g.threads[i];
-		thr.eventList.erase(thr.eventList.begin() + preds[i] + 1, thr.eventList.end());
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type != W)
-				continue;
-			lab.rfm1.remove_if([&preds](Event &e)
-					   { return e.index > preds[e.thread]; });
-		}
-	}
-	g.revisit = rev;
-	for (auto it = g.modOrder.begin(); it != g.modOrder.end(); ++it)
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&preds](Event &e)
-						{ return e.index > preds[e.thread]; }),
-				 it->second.end());
-	return;
-}
-
-static void cutGraphAfter(ExecutionGraph &g, std::vector<int> &after)
-{
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		g.maxEvents[i] = after[i];
-		Thread &thr = g.threads[i];
-		thr.eventList.erase(thr.eventList.begin() + after[i], thr.eventList.end());
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type != W) {
-				continue;
-			}
-			lab.rfm1.remove_if([&after](Event &e)
-					   { return e.index >= after[e.thread]; });
-		}
-	}
-	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(), [&after](Event &e)
-				       { return e.index >= after[e.thread]; }),
-			g.revisit.end());
-	for (auto it = g.modOrder.begin(); it != g.modOrder.end(); ++it)
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&after](Event &e)
-						{ return e.index >= after[e.thread]; }),
-				 it->second.end());
-}
-
-static void modifyRfs(ExecutionGraph &g, std::vector<Event> &es, Event store)
-{
-	if (es.empty())
-		return;
-
-	for (std::vector<Event>::iterator it = es.begin(); it != es.end(); ++it) {
-		EventLabel &lab = g.getEventLabel(*it);
-		Event oldRf = lab.rf;
-		lab.rf = store;
-		if (!oldRf.isInitializer()) {
-			EventLabel &oldL = g.getEventLabel(oldRf);
-			oldL.rfm1.remove(*it);
-		}
-	}
-	/* TODO: Do some check here for initializer or if it is already present? */
-	EventLabel &sLab = g.getEventLabel(store);
-	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
-	return;
-}
-
-static void markReadsAsVisited(ExecutionGraph &g, std::vector<Event> &K,
-			       std::vector<Event> K0, Event store)
-{
-	if (!K0.empty()) {
-		K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
-				       { return e == K0.back(); }),
-			K.end());
-	}
-
-	std::vector<int> before = g.getPorfBefore(K);
-	g.revisit.erase(std::remove_if(g.revisit.begin(), g.revisit.end(),
-				       [&before](Event &e)
-				       { return e.index <= before[e.thread]; }),
-			g.revisit.end());
-	return;
 }
 
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
 /* TODO: Maybe return reference? */
-GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
-					     Type *typ, GenericValue *ptr)
+GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericValue *ptr)
 {
+	ExecutionGraph &g = *currentEG;
 	if (write.isInitializer()) {
 		GenericValue result;
 		LoadValueFromMemory(result, ptr, typ);
@@ -408,9 +283,10 @@ GenericValue Interpreter::loadValueFromWrite(ExecutionGraph &g, Event &write,
 	return lab.val;
 }
 
-static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &RMWrf,
-					 GenericValue *ptr, GenericValue &wVal)
+std::vector<Event> Interpreter::getPendingRMWs(Event &RMW, Event &RMWrf,
+					       GenericValue *ptr, GenericValue &wVal)
 {
+	ExecutionGraph &g = *currentEG;
 	std::vector<Event> pending;
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
@@ -425,9 +301,10 @@ static std::vector<Event> getPendingRMWs(ExecutionGraph &g, Event &RMW, Event &R
 	return pending;
 }
 
-static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write, GenericValue &wVal,
-				Type *typ, GenericValue *ptr)
+bool Interpreter::RMWCanReadFromWrite(Event &write, GenericValue &wVal,
+				      Type *typ, GenericValue *ptr)
 {
+	ExecutionGraph &g = *currentEG;
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
@@ -449,9 +326,10 @@ static bool RMWCanReadFromWrite(ExecutionGraph &g, Event &write, GenericValue &w
 	return true;
 }
 
-static Event getPendingRMWSucc(ExecutionGraph &g, Event &write, GenericValue &wVal,
-			       Type *typ, GenericValue *ptr)
+Event Interpreter::getPendingRMWSucc(Event &write, GenericValue &wVal,
+				     Type *typ, GenericValue *ptr)
 {
+	ExecutionGraph &g = *currentEG;
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
@@ -465,9 +343,10 @@ static Event getPendingRMWSucc(ExecutionGraph &g, Event &write, GenericValue &wV
 	return Event();
 }
 
-static bool isReadByAtomicRead(ExecutionGraph &g, Event w, GenericValue &wVal,
-			       Type *typ, GenericValue *ptr)
+bool Interpreter::isReadByAtomicRead(Event w, GenericValue &wVal,
+				     Type *typ, GenericValue *ptr)
 {
+	ExecutionGraph &g = *currentEG;
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
@@ -495,47 +374,6 @@ static AtomicOrdering getOrdCntprt(AtomicOrdering ord)
 		WARN("getOrdCntprt ordering argument does not apply to reads!");
 		return Monotonic;
 	}
-}
-
-static void validateGraph(ExecutionGraph &g)
-{
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		WARN_ON(thr.eventList.size() != (unsigned int)g.maxEvents[i],
-			"Max event does not correspond to thread size!\n");
-		for (int j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R) {
-				Event &rf = lab.rf;
-				if (lab.rf.isInitializer())
-					continue;
-				bool readExists = false;
-				for (auto &r : g.getEventLabel(rf).rfm1)
-					if (r == lab.pos)
-						readExists = true;
-				if (!readExists) {
-					WARN("Read event is not the appropriate rf-1 list!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << g << std::endl;
-					abort();
-				}
-			} else if (lab.type == W) {
-				if (lab.rfm1.empty())
-					continue;
-				bool writeExists = false;
-				for (auto &e : lab.rfm1)
-					if (g.getEventLabel(e).rf == lab.pos)
-						writeExists = true;
-				if (!writeExists) {
-					WARN("Write event is not marked in the read event!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << g << std::endl;
-					abort();
-				}
-			}
-		}
-	}
-	return;
 }
 
 //===----------------------------------------------------------------------===//
@@ -771,33 +609,7 @@ static GenericValue executeICMP_SGE(GenericValue Src1, GenericValue Src2,
 }
 
 void Interpreter::visitICmpInst(ICmpInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
-		Type *Ty    = I.getOperand(0)->getType();
-		GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
-		GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
-		GenericValue R;   // Result
-
-		switch (I.getPredicate()) {
-		case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
-		case ICmpInst::ICMP_NE:  R = executeICMP_NE(Src1,  Src2, Ty); break;
-		case ICmpInst::ICMP_ULT: R = executeICMP_ULT(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_SLT: R = executeICMP_SLT(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_UGT: R = executeICMP_UGT(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_SGT: R = executeICMP_SGT(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_ULE: R = executeICMP_ULE(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_SLE: R = executeICMP_SLE(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_UGE: R = executeICMP_UGE(Src1, Src2, Ty); break;
-		case ICmpInst::ICMP_SGE: R = executeICMP_SGE(Src1, Src2, Ty); break;
-		default:
-			dbgs() << "Don't know how to handle this ICmp predicate!\n-->" << I;
-			llvm_unreachable(nullptr);
-		}
-
-		SetValue(&I, R, SF);
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -1200,7 +1012,7 @@ static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
 }
 
 void Interpreter::visitBinaryOperator(BinaryOperator &I) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -1386,7 +1198,7 @@ void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
 {
 	assert(!ECStack()->empty());
 	// fill in the return value...
-	ExecutionContext &CallingSF = getECStack()->back();
+	ExecutionContext &CallingSF = currentEG->getThreadECStack(currentEG->currentT).back();
 	if (Instruction *I = CallingSF.Caller.getInstruction()) {
 		// Save result...
 		if (!CallingSF.Caller.getType()->isVoidTy())
@@ -1399,7 +1211,7 @@ void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
 
 void Interpreter::visitReturnInst(ReturnInst &I) {
 	if (!dryRun) {
-		getECStack()->pop_back();
+		currentEG->getThreadECStack(currentEG->currentT).pop_back();
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1421,7 +1233,7 @@ void Interpreter::visitUnreachableInst(UnreachableInst &I) {
 
 void Interpreter::visitBranchInst(BranchInst &I) {
 	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
+		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
 		BasicBlock *Dest;
 
 		Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -1514,36 +1326,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitAllocaInst(AllocaInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
-
-		Type *Ty = I.getType()->getElementType();  // Type to be allocated
-
-		// Get the number of elements being allocated by the array...
-		unsigned NumElements =
-			getOperandValue(I.getOperand(0), SF).IntVal.getZExtValue();
-
-		unsigned TypeSize = (size_t)TD.getTypeAllocSize(Ty);
-
-		// Avoid malloc-ing zero bytes, use max()...
-		unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
-
-		// Allocate enough memory to hold the type...
-		void *Memory = malloc(MemToAlloc);
-
-		DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
-		      << NumElements << " (Total: " << MemToAlloc << ") at "
-		      << uintptr_t(Memory) << '\n');
-
-		GenericValue Result = PTOGV(Memory);
-		assert(Result.PointerVal && "Null pointer returned by malloc!");
-		SetValue(&I, Result, SF);
-
-		if (I.getOpcode() == Instruction::Alloca)
-			getECStack()->back().Allocas.add(Memory);
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
 
   Type *Ty = I.getType()->getElementType();  // Type to be allocated
 
@@ -1567,8 +1350,12 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   assert(Result.PointerVal && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
-   if (I.getOpcode() == Instruction::Alloca)
-	   ECStack.back().Allocas.add(Memory);
+  if (I.getOpcode() == Instruction::Alloca) {
+	  if (dryRun)
+		  ECStack.back().Allocas.add(Memory);
+	  else
+		  currentEG->getThreadECStack(currentEG->currentT).back().Allocas.add(Memory);
+  }
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -1615,7 +1402,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
+		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
 		/* TODO: Check whether condition below is necessary */
 		// if (globalVars.find((GenericValue *) GVTOP(getOperandValue(I.getPointerOperand(), SF))) != globalVars.end())
 		// 	globalAccess = true;
@@ -1631,7 +1418,7 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 void Interpreter::visitLoadInst(LoadInst &I) {
 	if(!dryRun) {
 		ExecutionGraph &g = *currentEG;
-		ExecutionContext &SF = getECStack()->back();
+		ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getType();
@@ -1652,13 +1439,13 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		int c = ++globalCount[g.currentT];
 		if (g.maxEvents[g.currentT] > c) {
 			EventLabel &lab = g.threads[g.currentT].eventList[c];
-			GenericValue val = loadValueFromWrite(g, lab.rf, typ, ptr);
+			GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
 			SetValue(&I, val, SF);
 			return;
 		}
 
 		/* Get all stores to this location from which we can read from */
-		std::vector<Event> stores = getStoresToLoc(g, ptr);
+		std::vector<Event> stores = getStoresToLoc(ptr);
 		std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 
 		/* Calculate the appropriate write to read from */
@@ -1671,7 +1458,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 				preds = g.getGraphState();
 				g.revisit.push_back(e);
 				/* Also, set the return value for this instruction */
-				SetValue(&I, loadValueFromWrite(g, *it, typ, ptr), SF);
+				SetValue(&I, loadValueFromWrite(*it, typ, ptr), SF);
 				/* Finally, erase from the vector the store we read from */
 				stores.erase(it);
 				break;
@@ -1697,7 +1484,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
 void Interpreter::visitStoreInst(StoreInst &I) {
 	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
+		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
 		GenericValue val = getOperandValue(I.getOperand(0), SF);
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
@@ -1714,14 +1501,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			return;
 
 		addStoreToGraph(*currentEG, I.getOrdering(), ptr, val, typ);
-		Event s = currentEG->getLastThreadEvent(currentEG->currentT);
-		EventLabel &sLab = currentEG->getEventLabel(s);
-		std::vector<Event> ls;
-
-		getRevisitLoads(ls, *currentEG, s);
-		std::vector<std::vector<Event > > rSets =
-			calcRevisitSets(*currentEG, ls, {}, sLab);
-		revisitReads(*currentEG, rSets, {}, sLab);
+		interpStore = true;
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1742,72 +1522,76 @@ Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 	return Event();
 }
 
-Event Interpreter::getFirstNonConflictingCAS(ExecutionGraph &g, Event tentative, Type *typ,
+Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
 					     GenericValue *ptr, GenericValue &cmpVal)
 {
+	ExecutionGraph &g = *currentEG;
 	Event final = tentative;
-	GenericValue oldVal = loadValueFromWrite(g, final, typ, ptr);
+	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	while (cmpRes.IntVal.getBoolValue() &&
-	       isReadByAtomicRead(g, final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(g, final, oldVal, typ, ptr);
-		oldVal = loadValueFromWrite(g, final, typ, ptr);
+	       isReadByAtomicRead(final, oldVal, typ, ptr)) {
+		final = getPendingRMWSucc(final, oldVal, typ, ptr);
+		oldVal = loadValueFromWrite(final, typ, ptr);
 		cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	}
 	return final;
 }
 
-Event Interpreter::getFirstNonConflictingRMW(ExecutionGraph &g, Event tentative, Type *typ,
+Event Interpreter::getFirstNonConflictingRMW(Event tentative, Type *typ,
 					     GenericValue *ptr)
 {
+	ExecutionGraph &g = *currentEG;
 	Event final = tentative;
-	GenericValue oldVal = loadValueFromWrite(g, final, typ, ptr);
-	while (isReadByAtomicRead(g, final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(g, final, oldVal, typ, ptr);
-		oldVal = loadValueFromWrite(g, final, typ, ptr);
+	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
+	while (isReadByAtomicRead(final, oldVal, typ, ptr)) {
+		final = getPendingRMWSucc(final, oldVal, typ, ptr);
+		oldVal = loadValueFromWrite(final, typ, ptr);
 	}
 	return final;
 }
 
-Event Interpreter::getFirstNonConflicting(ExecutionGraph &g, EventAttr attr, Event tentative,
+Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
 					  Type *typ, GenericValue *ptr,
 					  std::vector<GenericValue> &expVal)
 {
+	ExecutionGraph &g = *currentEG;
 	switch (attr) {
 	case Plain:
 		return tentative;
 	case CAS:
-		return getFirstNonConflictingCAS(g, tentative, typ, ptr, expVal.back());
+		return getFirstNonConflictingCAS(tentative, typ, ptr, expVal.back());
 	case RMW:
-		return getFirstNonConflictingRMW(g, tentative, typ, ptr);
+		return getFirstNonConflictingRMW(tentative, typ, ptr);
 	default:
 		WARN("Unreachable");
 		return Event();
 	}
 }
 
-std::vector<Event> Interpreter::properlyOrderStores(ExecutionGraph &g, EventAttr attr,
-						    Type *typ, GenericValue *ptr,
+std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
+						    GenericValue *ptr,
 						    std::vector<GenericValue> expVal,
 						    std::vector<Event> &stores)
 {
+	ExecutionGraph &g = *currentEG;
 	std::vector<Event> validStores;
 	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 	Event tentative = choosePriorEvent(stores, before);
-	Event final = getFirstNonConflicting(g, attr, tentative, typ, ptr, expVal);
+	Event final = getFirstNonConflicting(attr, tentative, typ, ptr, expVal);
 
 	validStores.push_back(final);
 	for (auto &s : stores) {
 		if (s == final)
 			continue;
-		GenericValue oldVal = loadValueFromWrite(g, s, typ, ptr);
+		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
 		if (attr == CAS) {
 			GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
 			if (cmpRes.IntVal.getBoolValue() == 0 ||
-			    RMWCanReadFromWrite(g, s, oldVal, typ, ptr))
+			    RMWCanReadFromWrite(s, oldVal, typ, ptr))
 				validStores.push_back(s);
 		} else if (attr == RMW) {
-			if (RMWCanReadFromWrite(g, s, oldVal, typ, ptr))
+			if (RMWCanReadFromWrite(s, oldVal, typ, ptr))
 				validStores.push_back(s);
 		} else {
 			WARN("Unreachable\n");
@@ -1821,7 +1605,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		dbgs() << "Please do not use CAS operations outside of thread code!\n";
 
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = getECStack()->back();
+	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue cmpVal = getOperandValue(I.getCompareOperand(), SF);
 	GenericValue newVal = getOperandValue(I.getNewValOperand(), SF);
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
@@ -1845,26 +1629,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	int c = ++globalCount[g.currentT];
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			addCASStoreToGraph(g, getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
 			++globalCount[g.currentT];
 
-			Event s = g.getLastThreadEvent(g.currentT);
-			EventLabel &sLab = g.getEventLabel(s);
-			EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
-			std::vector<Event> ls;
-
-			getRevisitLoads(ls, g, s);
-			std::vector<Event> pendingRMWs =
-				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
-			std::vector<std::vector<Event> > rSets =
-				calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-			revisitReads(g, rSets, pendingRMWs, sLab);
-			if (!pendingRMWs.empty())
-				shouldContinue = false;
+			interpRMW = true;
 		}
 
 		/* TODO: Check move semantics .. */
@@ -1875,7 +1646,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		globalCount[g.currentT] += cmpRes.IntVal.getBoolValue();
 		result.AggregateVal.push_back(oldVal);
@@ -1887,9 +1658,9 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(g, ptr);
+	std::vector<Event> stores = getStoresToLoc(ptr);
 	std::vector<Event> validStores =
-		properlyOrderStores(g, CAS, typ, ptr, {cmpVal}, stores);
+		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	addCASReadToGraph(g, I.getSuccessOrdering(), ptr, cmpVal, typ, validStores[0]);
@@ -1904,25 +1675,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 
 	/* Did the CAS operation succeed? */
-	GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		addCASStoreToGraph(g, getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
 		++globalCount[g.currentT];
 
-		Event s = g.getLastThreadEvent(g.currentT);
-		EventLabel &sLab = g.getEventLabel(s);
-		EventLabel &lab = g.getPreviousLabel(s);
-		std::vector<Event> ls;
-
-		getRevisitLoads(ls, g, s);
-		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
-		std::vector<std::vector<Event> > rSets =
-			calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-		revisitReads(g, rSets, pendingRMWs, sLab);
-		if (!pendingRMWs.empty())
-			shouldContinue = false;
+		interpRMW = true;
 	} else {
 		lab.ord = I.getFailureOrdering();
 	}
@@ -1966,7 +1725,7 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &
 void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 {
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = getECStack()->back();
+	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	GenericValue val = getOperandValue(I.getValOperand(), SF);
@@ -2024,32 +1783,20 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	int c = ++globalCount[g.currentT];
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
 		addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
 		++globalCount[g.currentT];
 
-		Event s = g.getLastThreadEvent(g.currentT);
-		EventLabel &sLab = g.getEventLabel(s);
-		EventLabel &rLab = g.getPreviousLabel(s); /* Need to refetch! */
-		std::vector<Event> ls;
-
-		getRevisitLoads(ls, g, s);
-		std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, oldVal);
-		std::vector<std::vector<Event> > rSets =
-			calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-		revisitReads(g, rSets, pendingRMWs, sLab);
-		if (!pendingRMWs.empty())
-			shouldContinue = false;
+		interpRMW = true;
 		SetValue(&I, oldVal, SF);
 		return;
 	}
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		++globalCount[g.currentT];
-		oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		SetValue(&I, oldVal, SF);
 		return;
 	}
@@ -2115,9 +1862,9 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(g, ptr);
+	std::vector<Event> stores = getStoresToLoc(ptr);
 	std::vector<Event> validStores =
-		properlyOrderStores(g, RMW, typ, ptr, {}, stores);
+		properlyOrderStores(RMW, typ, ptr, {}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	addRMWReadToGraph(g, I.getOrdering(), ptr, typ, validStores[0]);
@@ -2131,25 +1878,12 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		currentStack->push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
 	}
 
-	oldVal = loadValueFromWrite(g, validStores[0], typ, ptr);
+	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 	addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
 	++globalCount[g.currentT];
 
-	Event s = g.getLastThreadEvent(g.currentT);
-	EventLabel &sLab = g.getEventLabel(s);
-	EventLabel &rLab = g.getPreviousLabel(s);
-	std::vector<Event> ls;
-
-	getRevisitLoads(ls, g, s);
-	std::vector<Event> pendingRMWs = getPendingRMWs(g, rLab.pos, rLab.rf, ptr, rLab.val);
-	std::vector<std::vector<Event> > rSets =
-		calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-	revisitReads(g, rSets, pendingRMWs, sLab);
-	if (!pendingRMWs.empty())
-		shouldContinue = false;
-
+	interpRMW = true;
 	/* Return the appropriate result */
 	SetValue(&I, oldVal, SF);
 	return;
@@ -2171,7 +1905,7 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitCallSite(CallSite CS) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
 
   // Check to see if this is an intrinsic function call...
   Function *F = CS.getCalledFunction();
@@ -2244,7 +1978,7 @@ static unsigned getShiftAmount(uint64_t orgShiftAmount,
 
 
 void Interpreter::visitShl(BinaryOperator &I) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
@@ -2762,33 +2496,17 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 }
 
 void Interpreter::visitTruncInst(TruncInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
-		SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitSExtInst(SExtInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
-		SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitZExtInst(ZExtInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = getECStack()->back();
-		SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
-		return;
-	}
-
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2828,12 +2546,12 @@ void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
 }
 
 void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitBitCastInst(BitCastInst &I) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -3008,7 +2726,7 @@ void Interpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
 }
 
 void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : getECStack()->back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   Value *Agg = I.getAggregateOperand();
   GenericValue Dest;
   GenericValue Src = getOperandValue(Agg, SF);
@@ -3225,13 +2943,15 @@ void Interpreter::callVerifierAssume(Function *F,
 		std::vector<int> before = g.getPorfBefore(e);
 		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
 				{ return e.index > before[e.thread]; })) {
-			ECStacks.clear();
+//			ECStacks.clear();
+			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
+				      { t.ECStack.clear(); });
 			shouldContinue = false;
 			return;
 		}
 
 //		getECStack()->pop_back();
-		getECStack()->clear();
+		g.getThreadECStack(g.currentT).clear();
 		threadBlocked[g.currentT] = true;
 		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 		// 		[](std::vector<ExecutionContext> &SF)
@@ -3246,13 +2966,8 @@ void Interpreter::callPthreadCreate(Function *F,
 {
 	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
 	ExecutionContext SF;
-	std::vector<llvm::ExecutionContext> stackSF;
 
 	if (dryRun) {
-		initNumThreads++;
-		Thread thr(calledFun, initNumThreads);
-		initGraph.threads.push_back(thr);
-
 		SF.CurFunction = calledFun;
 		SF.CurBB = &calledFun->front();
 		SF.CurInst = SF.CurBB->begin();
@@ -3260,8 +2975,12 @@ void Interpreter::callPthreadCreate(Function *F,
 		/* Calling function needs to take only one argument ... */
 		SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
 
-		stackSF.push_back(SF);
-		initStacks.push_back(stackSF);
+		initStacks.push_back({SF});
+
+		initNumThreads++;
+		Thread thr(calledFun, initNumThreads);
+		initGraph.threads.push_back(thr);
+
 		/* TODO: Return a value. Also, perform more checks?? */
 	}
 }
@@ -3282,7 +3001,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 				       const std::vector<GenericValue> &ArgVals)
 {
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = getECStack()->back();
+	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue cmpVal, newVal, result;
@@ -3302,37 +3021,26 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	int c = ++globalCount[g.currentT];
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			addCASStoreToGraph(g, Release, ptr, newVal, typ);
 			++globalCount[g.currentT];
 
-			Event s = g.getLastThreadEvent(g.currentT);
-			EventLabel &sLab = g.getEventLabel(s);
-			EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
-			std::vector<Event> ls;
-
-			getRevisitLoads(ls, g, s);
-			std::vector<Event> pendingRMWs =
-				getPendingRMWs(g, lab.pos, lab.rf, ptr, oldVal);
-			std::vector<std::vector<Event> > rSets =
-				calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-			revisitReads(g, rSets, pendingRMWs, sLab);
-			if (!pendingRMWs.empty())
-				shouldContinue = false;
+			interpRMW = true;
 		} else {
 			Event e = g.getLastThreadEvent(g.currentT);
 			std::vector<int> before = g.getPorfBefore(e);
 			if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
 					{ return e.index > before[e.thread]; })) {
-				ECStacks.clear();
+				std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
+					      { t.ECStack.clear(); });
+//				ECStacks.clear();
 				shouldContinue = false;
 				return;
 			}
 //			getECStack()->pop_back();
-			getECStack()->clear();
+			g.getThreadECStack(g.currentT).clear();
 			threadBlocked[g.currentT] = true;
 			// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 			// 		[](std::vector<ExecutionContext> &SF)
@@ -3348,7 +3056,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	}
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		globalCount[g.currentT] += cmpRes.IntVal.getBoolValue();
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
@@ -3359,9 +3067,9 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(g, ptr);
+	std::vector<Event> stores = getStoresToLoc(ptr);
 	std::vector<Event> validStores =
-		properlyOrderStores(g, CAS, typ, ptr, {cmpVal}, stores);
+		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	addCASReadToGraph(g, Acquire, ptr, cmpVal, typ, validStores[0]);
@@ -3376,36 +3084,26 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	}
 
 	/* Did the CAS operation succeed? */
-	GenericValue oldVal = loadValueFromWrite(g, lab.rf, typ, ptr);
+	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		addCASStoreToGraph(g, Release, ptr, newVal, typ);
 		++globalCount[g.currentT];
 
-		Event s = g.getLastThreadEvent(g.currentT);
-		EventLabel &sLab = g.getEventLabel(s);
-		EventLabel &lab = g.getPreviousLabel(s);
-		std::vector<Event> ls;
-
-		getRevisitLoads(ls, g, s);
-		std::vector<Event> pendingRMWs = getPendingRMWs(g, lab.pos, lab.rf, ptr, lab.val);
-		std::vector<std::vector<Event> > rSets =
-			calcRevisitSets(g, ls, pendingRMWs, sLab);
-
-		revisitReads(g, rSets, pendingRMWs, sLab);
-		if (!pendingRMWs.empty())
-			shouldContinue = false;
+		interpRMW = true;
 	} else {
 		Event e = g.getLastThreadEvent(g.currentT);
 		std::vector<int> before = g.getPorfBefore(e);
 		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
 				{ return e.index > before[e.thread]; })) {
-			ECStacks.clear();
+//			ECStacks.clear();
+			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
+				      { t.ECStack.clear(); });
 			shouldContinue = false;
 			return;
 		}
 //		getECStack()->pop_back();
-		getECStack()->clear();
+		g.getThreadECStack(g.currentT).clear();
 		threadBlocked[g.currentT] = true;
 		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 		// 		[](std::vector<ExecutionContext> &SF)
@@ -3423,7 +3121,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 void Interpreter::callPthreadMutexUnlock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionContext &SF = getECStack()->back();
+	ExecutionGraph &g = *currentEG;
+	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue val;
@@ -3445,15 +3144,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 		return;
 
 	addStoreToGraph(*currentEG, Release, ptr, val, typ);
-	Event s = currentEG->getLastThreadEvent(currentEG->currentT);
-	EventLabel &sLab = currentEG->getEventLabel(s);
-	std::vector<Event> ls;
-
-	getRevisitLoads(ls, *currentEG, s);
-	std::vector<std::vector<Event> > rSets =
-		calcRevisitSets(*currentEG, ls, {}, sLab);
-
-	revisitReads(*currentEG, rSets, {}, sLab);
+	interpStore = true;
 	return;
 }
 
@@ -3523,153 +3214,6 @@ void Interpreter::callFunction(Function *F,
   StackFrame.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
 }
 
-bool Interpreter::scheduleNext(ExecutionGraph &g)
-{
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
-		if (!ECStacks[i].empty()) {
-			g.currentT = i;
-			return true;
-		}
-	}
-	return false;
-}
-
-void Interpreter::visitGraph(ExecutionGraph &g)
-{
-	std::vector<RevisitPair> workqueue;
-
-	ExecutionGraph *oldEG = currentEG;
-	std::vector<RevisitPair> *oldStack = currentStack;
-	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
-	bool oldContinue = shouldContinue;
-	bool oldCompleted = executionCompleted;
-	std::vector<bool> oldBlocked = threadBlocked;
-	currentEG = &g;
-	currentStack = &workqueue;
-	ECStacks = initStacks;
-	std::vector<int> oldGlobalCount;
-	for (int i = 0; i < initNumThreads; i++) {
-		oldGlobalCount.push_back(globalCount[i]);
-		globalCount[i] = 0;
-		threadBlocked[i] = false;
-	}
-
-	while (true) {
-		if (userConf->validateExecGraphs)
-			validateGraph(g);
-		if (scheduleNext(g)) {
-			shouldContinue = true;
-			executionCompleted = false;
-			ExecutionContext &SF = getECStack()->back();
-			Instruction &I = *SF.CurInst++;
-			visit(I);
-		} else if (std::any_of(threadBlocked.begin(), threadBlocked.end(),
-				       [](bool b){ return b; })) {
-			executionCompleted = true;
-		} else {
-			if (userConf->printExecGraphs)
-				std::cerr << g << std::endl;
-			if (userConf->countDuplicateExecs) {
-				std::stringstream buf;
-				buf << g;
-				if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-					++duplicates;
-				else
-					uniqueExecs.insert(buf.str());
-			}
-			++explored;
-			executionCompleted = true;
-		}
-
-		if (shouldContinue && !executionCompleted)
-			continue;
-
-		if (workqueue.empty()) {
-			for (int i = 0; i < initNumThreads; i++)
-				globalCount[i] = oldGlobalCount[i];
-			threadBlocked = oldBlocked;
-			shouldContinue = oldContinue;
-			executionCompleted = oldCompleted;
-			ECStacks = oldECStacks;
-			currentStack = oldStack;
-			currentEG = oldEG;
-			return;
-		}
-
-		RevisitPair &p = workqueue.back();
-//		std::cerr << "Popping from workqueue...\n"; printExecGraph(g);
-
-		cutGraphBefore(g, p.preds, p.revisit);
-		EventLabel &lab1 = g.getEventLabel(p.e);
-		Event oldRf = lab1.rf;
-		lab1.rf = p.shouldRf;
-		if (!p.shouldRf.isInitializer()) {
-			EventLabel &lab2 = g.getEventLabel(p.shouldRf);
-			lab2.rfm1.push_front(p.e);
-		}
-		if (!oldRf.isInitializer()) {
-			EventLabel &lab3 = g.getEventLabel(oldRf);
-			lab3.rfm1.remove(p.e);
-		}
-
-		std::vector<int> before = g.getPorfBefore(p.e);
-		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-			if (it->index <= before[it->thread])
-				g.revisit.erase(it--);
-//		std::cerr << "After restriction: \n"; printExecGraph(g);
-		ECStacks = initStacks;
-		for (int i = 0; i < initNumThreads; i++) {
-			globalCount[i] = 0;
-			threadBlocked[i] = false;
-		}
-
-		workqueue.pop_back();
-	}
-}
-
-void Interpreter::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
-			       std::vector<Event> K0, EventLabel &wLab)
-{
-	for (auto &si : subsets) {
-		std::vector<Event> ls(si);
-		ls.insert(ls.end(), K0.begin(), K0.end());
-		std::vector<int> after = g.getPorfAfter(ls);
-		if (std::any_of(si.begin(), si.end(), [&after](Event &e)
-				{ return e.index >= after[e.thread]; }))
-			continue;
-
-		if (K0.empty() ||
-		    (!K0.empty() && std::find(si.begin(), si.end(), K0.back()) != si.end())) {
-			ExecutionGraph eg(g);
-			cutGraphAfter(eg, after);
-			modifyRfs(eg, si, wLab.pos);
-			markReadsAsVisited(eg, si, K0, wLab.pos);
-			visitGraph(eg);
-		} else if (std::any_of(K0.begin(), K0.end(), [&g, &wLab](Event &e)
-				       { EventLabel &eLab = g.getEventLabel(e);
-					       return isSuccessfulRMW(eLab, wLab.val); }) &&
-			   std::any_of(K0.begin(), K0.end(), [&g, &wLab](Event &e)
-				       { EventLabel &eLab = g.getEventLabel(e);
-					       return isSuccessfulRMW(eLab, wLab.val); })) {
-			after[K0.back().thread] = K0.back().index;
-			ExecutionGraph eg(g);
-			cutGraphAfter(eg, after);
-			modifyRfs(eg, si, wLab.pos);
-			std::vector<int> before = eg.getPorfBefore(si);
-			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
-						       [&before](Event &e)
-						       { return e.index <= before[e.thread]; }),
-					eg.revisit.end());
-			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
-						       [&K0](Event &e)
-						       { return K0.back() == e; }),
-					eg.revisit.end());
-			visitGraph(eg);
-		}
-	}
-	return;
-}
-
 void Interpreter::run() {
   while (!ECStack.empty()) {
     // Interpret a single instruction & increment the "PC".
@@ -3706,25 +3250,6 @@ DEBUG(
 if (globalVars.empty())
 	for (auto &v : I.getParent()->getParent()->getParent()->getGlobalList())
 		globalVars.insert((GenericValue *) GVTOP(getOperandValue(&cast<Value>(v), SF)));
+
   }
-
-  dryRun = false;
-  /* There is not an event for any thread -- yet */
-  /* maxEvents points to the array index of the next event */
-  for (int i = 0; i < initNumThreads; i++) {
-	  Thread &t = initGraph.threads[i];
-	  t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
-	  initGraph.maxEvents.push_back(1);
-	  globalCount.push_back(0);
-	  threadBlocked.push_back(false);
-  }
-
-  visitGraph(initGraph);
-
-  std::stringstream buf;
-  buf << " (" << duplicates << " duplicates)";
-
-  std::cerr << "Number of complete executions explored: " << explored
-	    << ((userConf->countDuplicateExecs) ? buf.str() : "")
-	    << std::endl;
 }

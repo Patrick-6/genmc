@@ -18,7 +18,6 @@
 
 #include "Config.hpp"
 #include "Event.hpp"
-#include "ExecutionGraph.hpp"
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
@@ -112,12 +111,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   // function record.
   std::vector<ExecutionContext> ECStack;
 
-  /* The runtime stack of executing code (per thread) */
-  std::vector<std::vector<ExecutionContext> > ECStacks;
-
-  /* Number of global instructions (per thread) */
-  std::vector<int> globalCount;
-
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
@@ -125,8 +118,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 public:
   explicit Interpreter(Module *M, Config *conf);
   virtual ~Interpreter();
-
-  std::vector<ExecutionContext> *getECStack() { return &ECStacks[currentEG->currentT]; };
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -170,25 +161,29 @@ public:
   ///
   void freeMachineCodeForFunction(Function *F) { }
 
-  /* Main functions for visiting an Execution Graph */
-  bool scheduleNext(ExecutionGraph &g);
-  void visitGraph(ExecutionGraph &g);
-  void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
-		    std::vector<Event> K0, EventLabel &wLab);
-
   /* Helper functions */
-  GenericValue loadValueFromWrite(ExecutionGraph &g, Event &w,
-				  Type *typ, GenericValue *ptr);
-  std::vector<Event> getStoresToLoc(ExecutionGraph &g, GenericValue *ptr);
-  std::vector<Event> properlyOrderStores(ExecutionGraph &g, EventAttr attr, Type *typ,
+  bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
+  Event getPendingRMWSucc(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
+  std::vector<Event> getPendingRMWs(Event &RMW, Event &RMWrf, GenericValue *ptr,
+				    GenericValue &wVal);
+  bool RMWCanReadFromWrite(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
+  void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
+		      EventLabel &wLab, std::vector<Event> acc, std::vector<Event> set);
+  void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
+		    EventLabel &wLab, std::vector<Event> &set);
+std::vector<std::vector<Event> > calcRevisitSets(std::vector<Event> &ls,
+						 std::vector<Event> K0, EventLabel &wLab);
+  bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal);
+  GenericValue loadValueFromWrite(Event &w, Type *typ, GenericValue *ptr);
+  std::vector<Event> getStoresToLoc(GenericValue *ptr);
+  std::vector<Event> properlyOrderStores(EventAttr attr, Type *typ,
 					 GenericValue *ptr, std::vector<GenericValue> expVal,
 					 std::vector<Event> &stores);
-  Event getFirstNonConflicting(ExecutionGraph &g, EventAttr attr, Event tentative,
+  Event getFirstNonConflicting(EventAttr attr, Event tentative,
 			       Type *typ, GenericValue *ptr, std::vector<GenericValue>& expVal);
-  Event getFirstNonConflictingCAS(ExecutionGraph &g, Event tentative, Type *typ,
+  Event getFirstNonConflictingCAS(Event tentative, Type *typ,
 				  GenericValue *ptr, GenericValue &cmpVal);
-  Event getFirstNonConflictingRMW(ExecutionGraph &g, Event tentative, Type *typ,
-				  GenericValue *ptr);
+  Event getFirstNonConflictingRMW(Event tentative, Type *typ, GenericValue *ptr);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);

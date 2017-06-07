@@ -28,7 +28,7 @@ Thread::Thread() {}
 Thread::Thread(llvm::Function *F) : threadFun(F)
 {
 	static int _id = 1;
-	
+
 	id = _id++;
 	parentId = -1;
 	eventList = {};

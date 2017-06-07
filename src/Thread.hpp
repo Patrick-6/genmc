@@ -22,17 +22,19 @@
 #define __THREAD_HPP__
 
 #include "Event.hpp"
+#include "Interpreter.h"
 #include <llvm/IR/Function.h>
 
-/* 
+/*
  * Thread class - This class represents each program thread
  */
-class Thread {	
+class Thread {
 public:
 	int id;
 	int parentId;
 	llvm::Function *threadFun;
 	std::vector<EventLabel> eventList;
+	std::vector<llvm::ExecutionContext> ECStack;
 
 	Thread();
 	Thread(llvm::Function *F);
