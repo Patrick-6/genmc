@@ -41,6 +41,7 @@ public:
 
 	/* Constructors */
 	ExecutionGraph();
+	ExecutionGraph(std::vector<std::vector<llvm::ExecutionContext> > &ECStacks);
 	ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
 		       std::vector<Event> re, int t)
 		: threads(ts), maxEvents(es), revisit(re), currentT(t) {};

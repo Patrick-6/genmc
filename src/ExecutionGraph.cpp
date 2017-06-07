@@ -23,6 +23,13 @@
 
 ExecutionGraph::ExecutionGraph() : currentT(0) {}
 
+ExecutionGraph::ExecutionGraph(std::vector<std::vector<llvm::ExecutionContext> > &ECStacks)
+{
+	currentT = 0;
+	for (auto i = 0u; i < threads.size(); i++)
+		threads[i].ECStack = ECStacks[i];
+}
+
 bool ExecutionGraph::isConsistent(void)
 {
 	return true;
