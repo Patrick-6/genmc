@@ -238,8 +238,8 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 		llvm::Interpreter *interp = EE;
 		if (K0.empty() ||
 		    (!K0.empty() && std::find(si.begin(), si.end(), K0.back()) != si.end())) {
-			ExecutionGraph eg(g);
-			eg.cutAfter(after);
+			ExecutionGraph eg;
+			eg.cutToCopyAfter(g, after);
 			eg.modifyRfs(si, wLab.pos);
 			eg.markReadsAsVisited(si, K0, wLab.pos);
 			visitGraph(eg);
@@ -250,8 +250,8 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 				       { EventLabel &eLab = g.getEventLabel(e);
 					       return interp->isSuccessfulRMW(eLab, wLab.val); })) {
 			after[K0.back().thread] = K0.back().index;
-			ExecutionGraph eg(g);
-			eg.cutAfter(after);
+			ExecutionGraph eg;
+			eg.cutToCopyAfter(g, after);
 			eg.modifyRfs(si, wLab.pos);
 			std::vector<int> before = eg.getPorfBefore(si);
 			eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),

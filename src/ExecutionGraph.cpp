@@ -23,13 +23,6 @@
 
 ExecutionGraph::ExecutionGraph() : currentT(0) {}
 
-ExecutionGraph::ExecutionGraph(std::vector<std::vector<llvm::ExecutionContext> > &ECStacks)
-{
-	currentT = 0;
-	for (auto i = 0u; i < threads.size(); i++)
-		threads[i].ECStack = ECStacks[i];
-}
-
 bool ExecutionGraph::isConsistent(void)
 {
 	return true;
@@ -110,29 +103,31 @@ void ExecutionGraph::cutBefore(std::vector<int> &preds, std::vector<Event> &rev)
 	return;
 }
 
-void ExecutionGraph::cutAfter(std::vector<int> &after)
+void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
 {
-	for (auto i = 0u; i < threads.size(); i++) {
-		maxEvents[i] = after[i];
+	for (auto i = 0u; i < other.threads.size(); i++) {
+		maxEvents.push_back(after[i]);
+		Thread &oThr = other.threads[i];
+		threads.push_back(Thread(oThr.threadFun, oThr.id));
 		Thread &thr = threads[i];
-		thr.eventList.erase(thr.eventList.begin() + after[i], thr.eventList.end());
-		for (int j = 0; j < maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type != W) {
-				continue;
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			EventLabel &oLab = oThr.eventList[j];
+			if (oLab.type != W) {
+				thr.eventList.push_back(oLab);
+			} else {
+				thr.eventList.push_back(oLab);
+				EventLabel &lab = getEventLabel(oLab.pos);
+				lab.rfm1.remove_if([&after](Event &e)
+						   { return e.index >= after[e.thread]; });
 			}
-			lab.rfm1.remove_if([&after](Event &e)
-					   { return e.index >= after[e.thread]; });
 		}
 	}
-	revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&after](Event &e)
-				       { return e.index >= after[e.thread]; }),
-			revisit.end());
-	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&after](Event &e)
-						{ return e.index >= after[e.thread]; }),
-				 it->second.end());
+	std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
+		     [&after](Event &e) { return e.index < after[e.thread]; });
+	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it)
+		std::copy_if(it->second.begin(), it->second.end(),
+			     std::back_inserter(modOrder[it->first]),
+			     [&after](Event &e) { return e.index < after[e.thread]; });
 }
 
 void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
