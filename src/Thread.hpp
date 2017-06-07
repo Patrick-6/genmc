@@ -35,6 +35,7 @@ public:
 	llvm::Function *threadFun;
 	std::vector<EventLabel> eventList;
 	std::vector<llvm::ExecutionContext> ECStack;
+	int globalInstructions;
 	bool isBlocked;
 
 	Thread();

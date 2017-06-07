@@ -47,7 +47,6 @@ void RCMCDriver::parseRun()
 	run();
 }
 
- std::vector<int> globalCount;
  std::vector<std::vector<llvm::ExecutionContext> > initStacks;
  int explored;
  int duplicates;
@@ -85,8 +84,6 @@ void RCMCDriver::run()
 		Thread &t = initGraph.threads[i];
 		t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
 		initGraph.maxEvents.push_back(1);
-		globalCount.push_back(0);
-		t.isBlocked = false;
 	}
 
 	visitGraph(initGraph);
@@ -104,12 +101,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 	bool oldContinue = shouldContinue;
 	bool oldCompleted = executionCompleted;
 	currentEG = &g;
-	std::vector<int> oldGlobalCount;
 	for (int i = 0; i < initNumThreads; i++) {
 		g.threads[i].ECStack = initStacks[i];
-		g.threads[i].isBlocked = false;
-		oldGlobalCount.push_back(globalCount[i]);
-		globalCount[i] = 0;
 	}
 
 	while (true) {
@@ -174,8 +167,6 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			continue;
 
 		if (g.workqueue.empty()) {
-			for (int i = 0; i < initNumThreads; i++)
-				globalCount[i] = oldGlobalCount[i];
 			shouldContinue = oldContinue;
 			executionCompleted = oldCompleted;
 			currentEG = oldEG;
@@ -207,7 +198,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		for (int i = 0; i < initNumThreads; i++) {
 			g.threads[i].ECStack = initStacks[i];
 			g.threads[i].isBlocked = false;
-			globalCount[i] = 0;
+			g.threads[i].globalInstructions = 0;
 		}
 
 		g.workqueue.pop_back();

@@ -105,7 +105,6 @@ protected:
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
 extern int explored;
 extern int duplicates;
-extern std::vector<int> globalCount;
 
 extern bool shouldContinue;
 extern bool executionCompleted;

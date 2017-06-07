@@ -1436,7 +1436,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		}
 
 		/* Is the execution driven by an existing graph? */
-		int c = ++globalCount[g.currentT];
+		int c = ++g.threads[g.currentT].globalInstructions;
 		if (g.maxEvents[g.currentT] > c) {
 			EventLabel &lab = g.threads[g.currentT].eventList[c];
 			GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
@@ -1496,7 +1496,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			return;
 		}
 
-		int c = ++globalCount[currentEG->currentT];
+		int c = ++currentEG->threads[currentEG->currentT].globalInstructions;
 		if (currentEG->maxEvents[currentEG->currentT] > c)
 			return;
 
@@ -1626,15 +1626,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	// 	return;
 	// }
 
-	int c = ++globalCount[g.currentT];
+	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			addCASStoreToGraph(g, getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
-			++globalCount[g.currentT];
-
+			++g.threads[g.currentT].globalInstructions;
 			interpRMW = true;
 		}
 
@@ -1648,7 +1647,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		globalCount[g.currentT] += cmpRes.IntVal.getBoolValue();
+		g.threads[g.currentT].globalInstructions += cmpRes.IntVal.getBoolValue();
 		result.AggregateVal.push_back(oldVal);
 		result.AggregateVal.push_back(cmpRes);
 		SetValue(&I, result, SF);
@@ -1679,7 +1678,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		addCASStoreToGraph(g, getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
-		++globalCount[g.currentT];
+		++g.threads[g.currentT].globalInstructions;
 
 		interpRMW = true;
 	} else {
@@ -1780,14 +1779,14 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	// 	return;
 	// }
 
-	int c = ++globalCount[g.currentT];
+	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
 		addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
-		++globalCount[g.currentT];
+		++g.threads[g.currentT].globalInstructions;
 
 		interpRMW = true;
 		SetValue(&I, oldVal, SF);
@@ -1795,7 +1794,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		++globalCount[g.currentT];
+		++g.threads[g.currentT].globalInstructions;
 		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		SetValue(&I, oldVal, SF);
 		return;
@@ -1881,7 +1880,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 	addRMWStoreToGraph(g, getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
-	++globalCount[g.currentT];
+	++g.threads[g.currentT].globalInstructions;
 
 	interpRMW = true;
 	/* Return the appropriate result */
@@ -3018,14 +3017,14 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		return;
 	}
 
-	int c = ++globalCount[g.currentT];
+	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			addCASStoreToGraph(g, Release, ptr, newVal, typ);
-			++globalCount[g.currentT];
+			++g.threads[g.currentT].globalInstructions;
 
 			interpRMW = true;
 		} else {
@@ -3058,7 +3057,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		globalCount[g.currentT] += cmpRes.IntVal.getBoolValue();
+		g.threads[g.currentT].globalInstructions += cmpRes.IntVal.getBoolValue();
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 		returnValueToCaller(F->getReturnType(), result);
 		return;
@@ -3088,7 +3087,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		addCASStoreToGraph(g, Release, ptr, newVal, typ);
-		++globalCount[g.currentT];
+		++g.threads[g.currentT].globalInstructions;
 
 		interpRMW = true;
 	} else {
@@ -3139,7 +3138,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	}
 
 
-	int c = ++globalCount[currentEG->currentT];
+	int c = ++currentEG->threads[currentEG->currentT].globalInstructions;
 	if (currentEG->maxEvents[currentEG->currentT] > c)
 		return;
 

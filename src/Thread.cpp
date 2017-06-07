@@ -25,18 +25,16 @@ int initNumThreads = 0;
 
 Thread::Thread() {}
 
-Thread::Thread(llvm::Function *F) : threadFun(F), parentId(-1), isBlocked(false)
+Thread::Thread(llvm::Function *F)
+	: parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false)
 {
 	static int _id = 1;
 
 	id = _id++;
-	parentId = -1;
 }
 
-Thread::Thread(llvm::Function *F, int id) : id(id), threadFun(F), isBlocked(false)
-{
-	parentId = -1;
-}
+Thread::Thread(llvm::Function *F, int id)
+	: parentId(-1), id(id), threadFun(F), globalInstructions(0), isBlocked(false) {}
 
 std::ostream& operator<<(std::ostream &s, const Thread &t)
 {
