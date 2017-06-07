@@ -48,8 +48,6 @@ void RCMCDriver::parseRun()
 }
 
  std::vector<std::vector<llvm::ExecutionContext> > initStacks;
- int explored;
- int duplicates;
 
  bool shouldContinue;
  bool executionCompleted = false;

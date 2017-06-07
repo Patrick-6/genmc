@@ -103,8 +103,6 @@ protected:
 };
 
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
-extern int explored;
-extern int duplicates;
 
 extern bool shouldContinue;
 extern bool executionCompleted;
