@@ -48,7 +48,6 @@ void RCMCDriver::parseRun()
 }
 
  std::vector<int> globalCount;
- std::vector<RevisitPair> *currentStack;
  std::vector<std::vector<llvm::ExecutionContext> > initStacks;
  int explored;
  int duplicates;
@@ -101,14 +100,10 @@ void RCMCDriver::run()
 
 void RCMCDriver::visitGraph(ExecutionGraph &g)
 {
-	std::vector<RevisitPair> workqueue;
-
 	ExecutionGraph *oldEG = currentEG;
-	std::vector<RevisitPair> *oldStack = currentStack;
 	bool oldContinue = shouldContinue;
 	bool oldCompleted = executionCompleted;
 	currentEG = &g;
-	currentStack = &workqueue;
 	std::vector<int> oldGlobalCount;
 	for (int i = 0; i < initNumThreads; i++) {
 		g.threads[i].ECStack = initStacks[i];
@@ -178,17 +173,16 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		if (shouldContinue && !executionCompleted)
 			continue;
 
-		if (workqueue.empty()) {
+		if (g.workqueue.empty()) {
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
 			shouldContinue = oldContinue;
 			executionCompleted = oldCompleted;
-			currentStack = oldStack;
 			currentEG = oldEG;
 			return;
 		}
 
-		RevisitPair &p = workqueue.back();
+		RevisitPair &p = g.workqueue.back();
 //		std::cerr << "Popping from workqueue...\n"; printExecGraph(g);
 
 		g.cutBefore(p.preds, p.revisit);
@@ -216,7 +210,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			globalCount[i] = 0;
 		}
 
-		workqueue.pop_back();
+		g.workqueue.pop_back();
 	}
 }
 

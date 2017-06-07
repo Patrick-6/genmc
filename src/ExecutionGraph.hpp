@@ -28,6 +28,20 @@
 #include <unordered_map>
 #include <unordered_set>
 
+/* Types and variables */
+/* TODO: integrate this into EventLabel?? */
+struct RevisitPair {
+	Event e;
+	Event rf;
+	Event shouldRf;
+	std::vector<int> preds;
+	std::vector<Event> revisit;
+
+	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
+		    std::vector<Event> revisit)
+		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
+};
+
 /*
  * ExecutionGraph class - This class represents an execution graph
  */
@@ -37,6 +51,7 @@ public:
 	std::vector<int> maxEvents;
 	std::vector<Event> revisit;
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
+	std::vector<RevisitPair> workqueue;
 	int currentT;
 
 	/* Constructors */
@@ -87,21 +102,6 @@ protected:
 	void calcHbBefore(const Event &e, std::vector<int> &a);
 };
 
-/* Types and variables */
-/* TODO: integrate this into EventLabel?? */
-struct RevisitPair {
-	Event e;
-	Event rf;
-	Event shouldRf;
-	std::vector<int> preds;
-	std::vector<Event> revisit;
-
-	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		    std::vector<Event> revisit)
-		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
-};
-
-extern std::vector<RevisitPair> *currentStack;
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
 extern int explored;
 extern int duplicates;
