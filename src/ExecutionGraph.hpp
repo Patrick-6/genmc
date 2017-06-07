@@ -110,7 +110,6 @@ extern std::vector<int> globalCount;
 extern bool shouldContinue;
 extern bool executionCompleted;
 extern bool globalAccess;
-extern std::vector<bool> threadBlocked;
 extern bool interpStore;
 extern bool interpRMW;
 

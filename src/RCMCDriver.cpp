@@ -56,7 +56,6 @@ void RCMCDriver::parseRun()
  bool shouldContinue;
  bool executionCompleted = false;
  bool globalAccess = false;
- std::vector<bool> threadBlocked;
 bool interpStore = false;
 bool interpRMW = false;
 
@@ -88,7 +87,7 @@ void RCMCDriver::run()
 		t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
 		initGraph.maxEvents.push_back(1);
 		globalCount.push_back(0);
-		threadBlocked.push_back(false);
+		t.isBlocked = false;
 	}
 
 	visitGraph(initGraph);
@@ -106,18 +105,16 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 
 	ExecutionGraph *oldEG = currentEG;
 	std::vector<RevisitPair> *oldStack = currentStack;
-//	std::vector<std::vector<ExecutionContext> > oldECStacks = ECStacks;
 	bool oldContinue = shouldContinue;
 	bool oldCompleted = executionCompleted;
-	std::vector<bool> oldBlocked = threadBlocked;
 	currentEG = &g;
 	currentStack = &workqueue;
 	std::vector<int> oldGlobalCount;
 	for (int i = 0; i < initNumThreads; i++) {
 		g.threads[i].ECStack = initStacks[i];
+		g.threads[i].isBlocked = false;
 		oldGlobalCount.push_back(globalCount[i]);
 		globalCount[i] = 0;
-		threadBlocked[i] = false;
 	}
 
 	while (true) {
@@ -160,8 +157,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				if (!pendingRMWs.empty())
 					shouldContinue = false;
 			}
-		} else if (std::any_of(threadBlocked.begin(), threadBlocked.end(),
-				       [](bool b){ return b; })) {
+		} else if (std::any_of(g.threads.begin(), g.threads.end(),
+				       [](Thread &thr){ return thr.isBlocked; })) {
 			executionCompleted = true;
 		} else {
 			if (userConf->printExecGraphs)
@@ -184,7 +181,6 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		if (workqueue.empty()) {
 			for (int i = 0; i < initNumThreads; i++)
 				globalCount[i] = oldGlobalCount[i];
-			threadBlocked = oldBlocked;
 			shouldContinue = oldContinue;
 			executionCompleted = oldCompleted;
 			currentStack = oldStack;
@@ -216,8 +212,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 
 		for (int i = 0; i < initNumThreads; i++) {
 			g.threads[i].ECStack = initStacks[i];
+			g.threads[i].isBlocked = false;
 			globalCount[i] = 0;
-			threadBlocked[i] = false;
 		}
 
 		workqueue.pop_back();

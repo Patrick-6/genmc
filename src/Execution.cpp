@@ -2952,7 +2952,7 @@ void Interpreter::callVerifierAssume(Function *F,
 
 //		getECStack()->pop_back();
 		g.getThreadECStack(g.currentT).clear();
-		threadBlocked[g.currentT] = true;
+		g.threads[g.currentT].isBlocked = true;
 		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 		// 		[](std::vector<ExecutionContext> &SF)
 		// 		{ return SF.empty(); }))
@@ -3041,7 +3041,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 			}
 //			getECStack()->pop_back();
 			g.getThreadECStack(g.currentT).clear();
-			threadBlocked[g.currentT] = true;
+			g.threads[g.currentT].isBlocked = true;
 			// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 			// 		[](std::vector<ExecutionContext> &SF)
 			// 		{ return SF.empty(); }))
@@ -3104,7 +3104,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		}
 //		getECStack()->pop_back();
 		g.getThreadECStack(g.currentT).clear();
-		threadBlocked[g.currentT] = true;
+		g.threads[g.currentT].isBlocked = true;
 		// if (std::all_of(ECStacks.begin(), ECStacks.end(),
 		// 		[](std::vector<ExecutionContext> &SF)
 		// 		{ return SF.empty(); }))
