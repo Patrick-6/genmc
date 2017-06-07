@@ -210,6 +210,80 @@ std::vector<llvm::ExecutionContext>& ExecutionGraph::getThreadECStack(int thread
 	return threads[thread].ECStack;
 }
 
+void ExecutionGraph::addEventToGraph(EventLabel &lab)
+{
+	Thread &thr = threads[currentT];
+	thr.eventList.push_back(lab);
+	++maxEvents[currentT];
+}
+
+void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
+{
+	addEventToGraph(lab);
+	if (rf.isInitializer())
+		return;
+
+	Thread &rfThr = threads[rf.thread];
+	EventLabel &rfLab = rfThr.eventList[rf.index];
+	rfLab.rfm1.push_front(lab.pos);
+	return;
+}
+
+void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				    llvm::Type *typ, Event rf)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(R, Plain, ord, Event(currentT, max), ptr, typ, rf);
+	addReadToGraphCommon(lab, rf);
+}
+
+void ExecutionGraph::addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				       llvm::GenericValue &val, llvm::Type *typ, Event rf)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(R, CAS, ord, Event(currentT, max), ptr, val, typ, rf);
+	addReadToGraphCommon(lab, rf);
+}
+
+void ExecutionGraph::addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				       llvm::Type *typ, Event rf)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(R, RMW, ord, Event(currentT, max), ptr, typ, rf);
+	addReadToGraphCommon(lab, rf);
+}
+
+void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
+{
+	addEventToGraph(lab);
+	modOrder[lab.addr].push_back(lab.pos);
+	return;
+}
+
+void ExecutionGraph::addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				     llvm::GenericValue &val, llvm::Type *typ)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(W, Plain, ord, Event(currentT, max), ptr, val, typ);
+	addStoreToGraphCommon(lab);
+}
+
+void ExecutionGraph::addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+					llvm::GenericValue &val, llvm::Type *typ)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(W, CAS, ord, Event(currentT, max), ptr, val, typ);
+	addStoreToGraphCommon(lab);
+}
+
+void ExecutionGraph::addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+					llvm::GenericValue &val, llvm::Type *typ)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(W, RMW, ord, Event(currentT, max), ptr, val, typ);
+	addStoreToGraphCommon(lab);
+}
+
 void ExecutionGraph::calcPorfAfter(const Event &e, std::vector<int> &a)
 {
 	int ai = a[e.thread];

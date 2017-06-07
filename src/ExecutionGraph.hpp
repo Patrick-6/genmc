@@ -69,6 +69,20 @@ public:
 	/* Graph exploration methods */
 	bool scheduleNext(void);
 
+	/* Basic setter methods */
+	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			    llvm::Type *typ, Event rf);
+	void addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			       llvm::GenericValue &val, llvm::Type *typ, Event rf);
+	void addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			       llvm::Type *typ, Event rf);
+	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			     llvm::GenericValue &val, llvm::Type *typ);
+	void addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				llvm::GenericValue &val, llvm::Type *typ);
+	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				llvm::GenericValue &val, llvm::Type *typ);
+
 	/* Basic getter methods */
 	EventLabel& getEventLabel(Event &e);
 	EventLabel& getPreviousLabel(Event &e);
@@ -97,6 +111,9 @@ public:
 	friend std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g);
 
 protected:
+	void addEventToGraph(EventLabel &lab);
+	void addReadToGraphCommon(EventLabel &lab, Event &rf);
+	void addStoreToGraphCommon(EventLabel &lab);
 	void calcPorfAfter(const Event &e, std::vector<int> &a);
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
