@@ -21,6 +21,7 @@
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
+#include <llvm/IR/DebugInfo.h>
 #if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
 #elif defined(HAVE_LLVM_DATALAYOUT_H)
@@ -162,6 +163,7 @@ public:
   void freeMachineCodeForFunction(Function *F) { }
 
   /* Helper functions */
+  void replayExecutionBefore(std::vector<int> &before);
   bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
   Event getPendingRMWSucc(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
   std::vector<Event> getPendingRMWs(Event &RMW, Event &RMWrf, GenericValue *ptr,
@@ -171,8 +173,8 @@ public:
 		      EventLabel &wLab, std::vector<Event> acc, std::vector<Event> set);
   void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 		    EventLabel &wLab, std::vector<Event> &set);
-std::vector<std::vector<Event> > calcRevisitSets(std::vector<Event> &ls,
-						 std::vector<Event> K0, EventLabel &wLab);
+  std::vector<std::vector<Event> > calcRevisitSets(std::vector<Event> &ls,
+						   std::vector<Event> K0, EventLabel &wLab);
   bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal);
   GenericValue loadValueFromWrite(Event &w, Type *typ, GenericValue *ptr);
   std::vector<Event> getStoresToLoc(GenericValue *ptr);

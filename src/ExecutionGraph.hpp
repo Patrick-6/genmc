@@ -107,6 +107,9 @@ public:
 	std::vector<int> getHbBefore(Event e);
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 
+	/* Printing facilities */
+	void printTraceBefore(Event e);
+
 	/* Overloaded operators */
 	friend std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g);
 
@@ -117,6 +120,7 @@ protected:
 	void calcPorfAfter(const Event &e, std::vector<int> &a);
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
+	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 };
 
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;

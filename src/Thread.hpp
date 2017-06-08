@@ -37,6 +37,7 @@ public:
 	std::vector<llvm::ExecutionContext> ECStack;
 	int globalInstructions;
 	bool isBlocked;
+	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
 
 	Thread();
 	Thread(llvm::Function *F);

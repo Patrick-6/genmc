@@ -43,6 +43,7 @@ public:
 	bool validateExecGraphs;
 	bool printExecGraphs;
 	bool countDuplicateExecs;
+	bool printErrorTrace;
 	std::set<std::string> visibleOptions;
 
 	Config(int argc, char **argv);

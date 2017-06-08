@@ -20,6 +20,10 @@
 
 #include "Thread.hpp"
 #include "ExecutionGraph.hpp"
+#include <llvm/IR/DebugInfo.h>
+
+#include <fstream>
+#include <sstream>
 
 ExecutionGraph::ExecutionGraph() : currentT(0) {}
 
@@ -405,6 +409,67 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	for (auto &e : es)
 		calcHbBefore(e, a);
 	return a;
+}
+
+static void getInstFromMData(std::stringstream &ss, Thread &thr, int i)
+{
+	auto &prefix = thr.prefixLOC[i];
+	for (auto &pair : prefix) {
+		int line = pair.first;
+		std::string absPath = pair.second;
+
+		std::ifstream ifs(absPath);
+		std::string s;
+		int curLine = 0;
+		while (ifs.good() && curLine < line) {
+			std::getline(ifs, s);
+			++curLine;
+		}
+
+		s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+			std::not1(std::ptr_fun<int, int>(std::isspace))));
+		s.erase(std::find_if(s.rbegin(), s.rend(),
+                        std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+
+		ss << "[" << thr.threadFun->getName().str() << "] ";
+		auto i = absPath.find_last_of('/');
+		if (i == std::string::npos)
+			ss << absPath;
+		else
+			ss << absPath.substr(i + 1);
+
+		ss << ": " << line << ": ";
+		ss << s << std::endl;
+	}
+}
+
+void ExecutionGraph::calcTraceBefore(const Event &e, std::vector<int> &a,
+				     std::stringstream &buf)
+{
+	int ai = a[e.thread];
+	if (e.index <= ai)
+		return;
+
+	a[e.thread] = e.index;
+	Thread &thr = threads[e.thread];
+	for (int i = ai; i <= e.index; i++) {
+		EventLabel &lab = thr.eventList[i];
+		if (lab.type == R && !lab.rf.isInitializer()) {
+			calcTraceBefore(lab.rf, a, buf);
+			getInstFromMData(buf, thr, i);
+		} else if (lab.type != NA) {
+			getInstFromMData(buf, thr, i);
+		}
+	}
+	return;
+}
+
+void ExecutionGraph::printTraceBefore(Event e)
+{
+	std::stringstream buf;
+	std::vector<int> a(threads.size(), 0);
+	calcTraceBefore(e, a, buf);
+	std::cerr << buf.str();
 }
 
 std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)

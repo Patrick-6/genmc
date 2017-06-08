@@ -52,7 +52,7 @@ using namespace clang::driver;
 
 std::string GetExecutablePath(const char *Argv0)
 {
-	/* 
+	/*
 	 * This just needs to be some symbol in the binary; C++ doesn't
 	 * allow taking the address of ::main however.
 	 */
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 		RCMCDriver *driver = new RCMCDriver(conf);
 		driver->parseRun();
 		delete conf;
-		delete driver;	
+		delete driver;
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 		return 0;
 	}
@@ -142,17 +142,17 @@ int main(int argc, char **argv)
 		return 1;
 
 	// int Res = 255;
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR	
+#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
 	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule());
 #else
 	RCMCDriver *driver =
 		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()));
 #endif
-	
+
 	driver->run();
 
 	delete conf;
-	delete driver;	
+	delete driver;
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 
 	return 0;

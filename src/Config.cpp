@@ -27,7 +27,7 @@ Config::Config(int argc, char **argv) : argc(argc), argv(argv)
 		{"model-type", "transform-output", "unroll",
 		 "disable-spin-assume", "input-from-bitcode-file",
 		 "validate-exec-graphs", "print-exec-graphs",
-		 "count-duplicate-execs", "version"};
+		 "count-duplicate-execs", "print-error-trace", "version"};
 }
 
 /* Command-line argument categories */
@@ -48,6 +48,9 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 static llvm::cl::opt<std::string>
 clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
 		llvm::cl::desc("Output the transformed LLVM code to transform file"));
+static llvm::cl::opt<bool>
+clPrintErrorTrace("print-error-trace", llvm::cl::desc("Print error traces."));
+
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 	     llvm::cl::cat(clTransformation),
@@ -84,12 +87,18 @@ void Config::getConfigOptions(void)
 
 	llvm::cl::ParseCommandLineOptions(argc, argv);
 
+	/* Store general options */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
 	model = clModelType;
 	transformFile = clTransformFile;
+	printErrorTrace = clPrintErrorTrace;
+
+	/* Store transformation otpions */
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
+
+	/* Store debugging options */
 	validateExecGraphs = clValidateExecGraphs;
 	printExecGraphs = clPrintExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;

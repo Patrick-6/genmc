@@ -2838,6 +2838,60 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 //                        Dispatch and Execution Code
 //===----------------------------------------------------------------------===//
 
+std::string getFilenameFromMData(MDNode *node)
+{
+	DILocation loc(node);
+	std::string file = loc.getFilename();
+	std::string dir = loc.getDirectory();
+
+	if (!file.size() || !dir.size()) {
+		WARN("Could not get filename and/or directory from LLVM metadata!\n");
+		abort();
+	}
+
+	std::string absPath;
+	if (file.front() == '/') {
+		absPath = file;
+	} else {
+		absPath = dir;
+		if (absPath.back() != '/')
+			absPath += "/";
+		absPath += file;
+	}
+	return absPath;
+}
+
+void Interpreter::replayExecutionBefore(std::vector<int> &before)
+{
+	ExecutionGraph &g = *currentEG;
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		g.threads[i].globalInstructions = 0;
+		g.threads[i].ECStack = initStacks[i];
+		g.threads[i].prefixLOC.resize(g.threads[i].eventList.size());
+		g.currentT = i;
+		while (g.threads[i].globalInstructions < before[i]) {
+			int snap = g.threads[i].globalInstructions;
+			ExecutionContext &SF = g.getThreadECStack(i).back();
+			Instruction &I = *SF.CurInst++;
+			if (I.getMetadata("dbg")) {
+				int line = I.getDebugLoc().getLine();
+				std::string file = getFilenameFromMData(I.getMetadata("dbg"));
+				std::vector<std::pair<int, std::string> > &prefix =
+					g.threads[i].prefixLOC[snap + 1];
+				if (prefix.empty()) {
+					std::vector<std::pair<int, std::string> > &prev =
+						g.threads[i].prefixLOC[snap];
+					if (prev.empty() || prev.back().first != line )
+						prefix.push_back(std::pair<int, std::string>(line, file));
+				} else if (prefix.back().first != line) {
+					prefix.push_back(std::pair<int, std::string>(line, file));
+				}
+			}
+			visit(I);
+		}
+	}
+}
+
 /* callAssertFail - Call to assert() macro */
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
@@ -2846,6 +2900,17 @@ void Interpreter::callAssertFail(Function *F,
 
 	err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 /* TODO: Construct an Error class that will take care of the error handling */
+	if (!userConf->printErrorTrace) {
+		dbgs() << "Assertion violation: " << err << "\n";
+		abort();
+	}
+
+	ExecutionGraph &g = *currentEG;
+	int assertThr = g.currentT;
+	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(assertThr));
+
+	replayExecutionBefore(before);
+	g.printTraceBefore(g.getLastThreadEvent(assertThr));
 	dbgs() << "Assertion violation: " << err << "\n";
 	abort();
 }
