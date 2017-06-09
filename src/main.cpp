@@ -96,7 +96,6 @@ int main(int argc, char **argv)
 	Args.push_back("-fsyntax-only");
 	for (auto &f : conf->cflags)
 		Args.push_back(f.c_str());
-	Args.push_back("-g"); /* Compile with -g in order to have metadata */
 	Args.push_back(conf->inputFile.c_str());
 	std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
 	if (!C)
