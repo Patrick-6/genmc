@@ -165,6 +165,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			continue;
 
 		if (g.workqueue.empty()) {
+			for (auto mem : g.stackAllocas)
+				free(mem); /* No need to clear vector */
 			shouldContinue = oldContinue;
 			executionCompleted = oldCompleted;
 			currentEG = oldEG;
@@ -198,6 +200,9 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			g.threads[i].isBlocked = false;
 			g.threads[i].globalInstructions = 0;
 		}
+		for (auto mem : g.stackAllocas)
+			free(mem);
+		g.stackAllocas.clear();
 
 		g.workqueue.pop_back();
 	}

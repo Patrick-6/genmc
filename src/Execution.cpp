@@ -1275,12 +1275,8 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   assert(Result.PointerVal && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
-  if (I.getOpcode() == Instruction::Alloca) {
-	  if (dryRun)
-		  ECStack.back().Allocas.add(Memory);
-	  else
-		  currentEG->getThreadECStack(currentEG->currentT).back().Allocas.add(Memory);
-  }
+  if (I.getOpcode() == Instruction::Alloca)
+	  currentEG->stackAllocas.push_back(Memory);
 }
 
 // getElementOffset - The workhorse for getelementptr.

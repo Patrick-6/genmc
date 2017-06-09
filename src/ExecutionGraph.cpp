@@ -551,4 +551,4 @@ std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 }
 
 ExecutionGraph initGraph;
-ExecutionGraph *currentEG;
+ExecutionGraph *currentEG = &initGraph;
