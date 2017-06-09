@@ -1096,15 +1096,18 @@ void Interpreter::exitCalled(GenericValue GV) {
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
 
+  std::vector<ExecutionContext> &ECStack = (dryRun) ? this->ECStack : currentEG->getThreadECStack(currentEG->currentT); /* Temporary hack -- Hide Interpreter's ECStack if necessary */
   // Pop the current stack frame.
   ECStack.pop_back();
 
-  if (ECStack.empty()) {  // Finished main.  Put result into exit code...
-    if (RetTy && !RetTy->isVoidTy()) {          // Nonvoid return type?
-      ExitValue = Result;   // Capture the exit value of the program
-    } else {
-      memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-    }
+  // if (ECStack.empty()) {  // Finished main.  Put result into exit code...
+  //   if (RetTy && !RetTy->isVoidTy()) {          // Nonvoid return type?
+  //     ExitValue = Result;   // Capture the exit value of the program
+  //   } else {
+  //     memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
+  //   }
+  if (ECStack.empty()) {
+	  ; // do nothing
   } else {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
@@ -1136,11 +1139,7 @@ void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
 }
 
 void Interpreter::visitReturnInst(ReturnInst &I) {
-	if (!dryRun) {
-		currentEG->getThreadECStack(currentEG->currentT).pop_back();
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   Type *RetTy = Type::getVoidTy(I.getContext());
   GenericValue Result;
 
@@ -3169,12 +3168,23 @@ void Interpreter::callFunction(Function *F,
 	  return;
   }
 
-  assert((ECStack.empty() || !ECStack.back().Caller.getInstruction() ||
-          ECStack.back().Caller.arg_size() == ArgVals.size()) &&
-         "Incorrect number of arguments passed into function call!");
-  // Make a new stack frame... and fill it in.
-  ECStack.push_back(ExecutionContext());
-  ExecutionContext &StackFrame = ECStack.back();
+  if (dryRun) {
+	  assert((ECStack.empty() || !ECStack.back().Caller.getInstruction() ||
+		  ECStack.back().Caller.arg_size() == ArgVals.size()) &&
+		 "Incorrect number of arguments passed into function call!");
+	  // Make a new stack frame... and fill it in.
+	  ECStack.push_back(ExecutionContext());
+  } else {
+	  ExecutionGraph &g = *currentEG;
+	  assert((g.getThreadECStack(g.currentT).empty() ||
+		  !g.getThreadECStack(g.currentT).back().Caller.getInstruction() ||
+		  g.getThreadECStack(g.currentT).back().Caller.arg_size() == ArgVals.size()) &&
+		 "Incorrect number of arguments passed into function call!");
+	  // Make a new stack frame... and fill it in.
+	  g.getThreadECStack(g.currentT).push_back(ExecutionContext());
+  }
+
+  ExecutionContext &StackFrame = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   StackFrame.CurFunction = F;
 
   // Special handling for external functions.
