@@ -25,165 +25,17 @@
 #include <fstream>
 #include <sstream>
 
+
+/************************************************************
+ ** Class Constructors
+ ***********************************************************/
+
 ExecutionGraph::ExecutionGraph() : currentT(0) {}
 
-bool ExecutionGraph::isConsistent(void)
-{
-	return true;
-}
 
-bool ExecutionGraph::scheduleNext(void)
-{
-	for (unsigned int i = 0; i < threads.size(); i++) {
-		if (!getThreadECStack(i).empty()) {
-			currentT = i;
-			return true;
-		}
-	}
-	return false;
-}
-
-void ExecutionGraph::validateGraph(void)
-{
-	for (auto i = 0u; i < threads.size(); i++) {
-		Thread &thr = threads[i];
-		WARN_ON(thr.eventList.size() != (unsigned int) maxEvents[i],
-			"Max event does not correspond to thread size!\n");
-		for (int j = 0; j < maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type == R) {
-				Event &rf = lab.rf;
-				if (lab.rf.isInitializer())
-					continue;
-				bool readExists = false;
-				for (auto &r : getEventLabel(rf).rfm1)
-					if (r == lab.pos)
-						readExists = true;
-				if (!readExists) {
-					WARN("Read event is not the appropriate rf-1 list!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << *this << std::endl;
-					abort();
-				}
-			} else if (lab.type == W) {
-				if (lab.rfm1.empty())
-					continue;
-				bool writeExists = false;
-				for (auto &e : lab.rfm1)
-					if (getEventLabel(e).rf == lab.pos)
-						writeExists = true;
-				if (!writeExists) {
-					WARN("Write event is not marked in the read event!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << *this << std::endl;
-					abort();
-				}
-			}
-		}
-	}
-	return;
-}
-
-void ExecutionGraph::cutBefore(std::vector<int> &preds, std::vector<Event> &rev)
-{
-	for (auto i = 0u; i < threads.size(); i++) {
-		maxEvents[i] = preds[i] + 1;
-		Thread &thr = threads[i];
-		thr.eventList.erase(thr.eventList.begin() + preds[i] + 1, thr.eventList.end());
-		for (int j = 0; j < maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.type != W)
-				continue;
-			lab.rfm1.remove_if([&preds](Event &e)
-					   { return e.index > preds[e.thread]; });
-		}
-	}
-	revisit = rev;
-	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&preds](Event &e)
-						{ return e.index > preds[e.thread]; }),
-				 it->second.end());
-	return;
-}
-
-void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
-{
-	for (auto i = 0u; i < other.threads.size(); i++) {
-		maxEvents.push_back(after[i]);
-		Thread &oThr = other.threads[i];
-		threads.push_back(Thread(oThr.threadFun, oThr.id));
-		Thread &thr = threads[i];
-		for (auto j = 0; j < maxEvents[i]; j++) {
-			EventLabel &oLab = oThr.eventList[j];
-			if (oLab.type != W) {
-				thr.eventList.push_back(oLab);
-			} else {
-				thr.eventList.push_back(oLab);
-				EventLabel &lab = getEventLabel(oLab.pos);
-				lab.rfm1.remove_if([&after](Event &e)
-						   { return e.index >= after[e.thread]; });
-			}
-		}
-	}
-	std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
-		     [&after](Event &e) { return e.index < after[e.thread]; });
-	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it)
-		std::copy_if(it->second.begin(), it->second.end(),
-			     std::back_inserter(modOrder[it->first]),
-			     [&after](Event &e) { return e.index < after[e.thread]; });
-}
-
-void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
-{
-	if (es.empty())
-		return;
-
-	for (std::vector<Event>::iterator it = es.begin(); it != es.end(); ++it) {
-		EventLabel &lab = getEventLabel(*it);
-		Event oldRf = lab.rf;
-		lab.rf = store;
-		if (!oldRf.isInitializer()) {
-			EventLabel &oldL = getEventLabel(oldRf);
-			oldL.rfm1.remove(*it);
-		}
-	}
-	/* TODO: Do some check here for initializer or if it is already present? */
-	EventLabel &sLab = getEventLabel(store);
-	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
-	return;
-}
-
-void ExecutionGraph::markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0,
-					Event store)
-{
-	if (!K0.empty()) {
-		K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
-				       { return e == K0.back(); }),
-			K.end());
-	}
-
-	std::vector<int> before = getPorfBefore(K);
-	revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&before](Event &e)
-				     { return e.index <= before[e.thread]; }),
-			revisit.end());
-	return;
-}
-
-std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
-{
-	std::vector<Event> ls;
-	std::vector<int> before = getPorfBefore(store);
-	EventLabel &sLab = getEventLabel(store);
-
-	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
-	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
-		EventLabel &rLab = getEventLabel(*it);
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
-			ls.push_back(*it);
-	}
-	return ls;
-}
+/************************************************************
+ ** Basic getter methods
+ ***********************************************************/
 
 EventLabel& ExecutionGraph::getEventLabel(Event &e)
 {
@@ -213,6 +65,26 @@ std::vector<llvm::ExecutionContext>& ExecutionGraph::getThreadECStack(int thread
 {
 	return threads[thread].ECStack;
 }
+
+std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
+{
+	std::vector<Event> ls;
+	std::vector<int> before = getPorfBefore(store);
+	EventLabel &sLab = getEventLabel(store);
+
+	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
+	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
+		EventLabel &rLab = getEventLabel(*it);
+		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
+			ls.push_back(*it);
+	}
+	return ls;
+}
+
+
+/************************************************************
+ ** Basic setter methods
+ ***********************************************************/
 
 void ExecutionGraph::addEventToGraph(EventLabel &lab)
 {
@@ -287,6 +159,11 @@ void ExecutionGraph::addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericV
 	EventLabel lab(W, RMW, ord, Event(currentT, max), ptr, val, typ);
 	addStoreToGraphCommon(lab);
 }
+
+
+/************************************************************
+ ** Calculation of [(po U rf)*] predecessors and successors
+ ***********************************************************/
 
 void ExecutionGraph::calcPorfAfter(const Event &e, std::vector<int> &a)
 {
@@ -411,6 +288,174 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	return a;
 }
 
+
+/************************************************************
+ ** Graph modification methods
+ ***********************************************************/
+
+void ExecutionGraph::cutBefore(std::vector<int> &preds, std::vector<Event> &rev)
+{
+	for (auto i = 0u; i < threads.size(); i++) {
+		maxEvents[i] = preds[i] + 1;
+		Thread &thr = threads[i];
+		thr.eventList.erase(thr.eventList.begin() + preds[i] + 1, thr.eventList.end());
+		for (int j = 0; j < maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type != W)
+				continue;
+			lab.rfm1.remove_if([&preds](Event &e)
+					   { return e.index > preds[e.thread]; });
+		}
+	}
+	revisit = rev;
+	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
+		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
+						[&preds](Event &e)
+						{ return e.index > preds[e.thread]; }),
+				 it->second.end());
+	return;
+}
+
+void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
+{
+	for (auto i = 0u; i < other.threads.size(); i++) {
+		maxEvents.push_back(after[i]);
+		Thread &oThr = other.threads[i];
+		threads.push_back(Thread(oThr.threadFun, oThr.id));
+		Thread &thr = threads[i];
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			EventLabel &oLab = oThr.eventList[j];
+			if (oLab.type != W) {
+				thr.eventList.push_back(oLab);
+			} else {
+				thr.eventList.push_back(oLab);
+				EventLabel &lab = getEventLabel(oLab.pos);
+				lab.rfm1.remove_if([&after](Event &e)
+						   { return e.index >= after[e.thread]; });
+			}
+		}
+	}
+	std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
+		     [&after](Event &e) { return e.index < after[e.thread]; });
+	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it)
+		std::copy_if(it->second.begin(), it->second.end(),
+			     std::back_inserter(modOrder[it->first]),
+			     [&after](Event &e) { return e.index < after[e.thread]; });
+}
+
+void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
+{
+	if (es.empty())
+		return;
+
+	for (std::vector<Event>::iterator it = es.begin(); it != es.end(); ++it) {
+		EventLabel &lab = getEventLabel(*it);
+		Event oldRf = lab.rf;
+		lab.rf = store;
+		if (!oldRf.isInitializer()) {
+			EventLabel &oldL = getEventLabel(oldRf);
+			oldL.rfm1.remove(*it);
+		}
+	}
+	/* TODO: Do some check here for initializer or if it is already present? */
+	EventLabel &sLab = getEventLabel(store);
+	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
+	return;
+}
+
+void ExecutionGraph::markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0,
+					Event store)
+{
+	if (!K0.empty()) {
+		K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
+				       { return e == K0.back(); }),
+			K.end());
+	}
+
+	std::vector<int> before = getPorfBefore(K);
+	revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&before](Event &e)
+				     { return e.index <= before[e.thread]; }),
+			revisit.end());
+	return;
+}
+
+
+/************************************************************
+ ** Consistency checks
+ ***********************************************************/
+
+bool ExecutionGraph::isConsistent(void)
+{
+	return true;
+}
+
+
+/************************************************************
+ ** Graph exploration methods
+ ***********************************************************/
+
+bool ExecutionGraph::scheduleNext(void)
+{
+	for (unsigned int i = 0; i < threads.size(); i++) {
+		if (!getThreadECStack(i).empty()) {
+			currentT = i;
+			return true;
+		}
+	}
+	return false;
+}
+
+
+/************************************************************
+ ** Debugging methods
+ ***********************************************************/
+
+void ExecutionGraph::validateGraph(void)
+{
+	for (auto i = 0u; i < threads.size(); i++) {
+		Thread &thr = threads[i];
+		WARN_ON(thr.eventList.size() != (unsigned int) maxEvents[i],
+			"Max event does not correspond to thread size!\n");
+		for (int j = 0; j < maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.type == R) {
+				Event &rf = lab.rf;
+				if (lab.rf.isInitializer())
+					continue;
+				bool readExists = false;
+				for (auto &r : getEventLabel(rf).rfm1)
+					if (r == lab.pos)
+						readExists = true;
+				if (!readExists) {
+					WARN("Read event is not the appropriate rf-1 list!\n");
+					std::cerr << lab.pos << std::endl;
+					std::cerr << *this << std::endl;
+					abort();
+				}
+			} else if (lab.type == W) {
+				if (lab.rfm1.empty())
+					continue;
+				bool writeExists = false;
+				for (auto &e : lab.rfm1)
+					if (getEventLabel(e).rf == lab.pos)
+						writeExists = true;
+				if (!writeExists) {
+					WARN("Write event is not marked in the read event!\n");
+					std::cerr << lab.pos << std::endl;
+					std::cerr << *this << std::endl;
+					abort();
+				}
+			}
+		}
+	}
+	return;
+}
+
+
+/************************************************************
+ ** Printing facilities
+ ***********************************************************/
+
 static void getInstFromMData(std::stringstream &ss, Thread &thr, int i)
 {
 	auto &prefix = thr.prefixLOC[i];
@@ -471,6 +516,11 @@ void ExecutionGraph::printTraceBefore(Event e)
 	calcTraceBefore(e, a, buf);
 	std::cerr << buf.str();
 }
+
+
+/************************************************************
+ ** Overloaded operators
+ ***********************************************************/
 
 std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 {

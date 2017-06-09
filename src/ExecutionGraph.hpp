@@ -56,18 +56,17 @@ public:
 
 	/* Constructors */
 	ExecutionGraph();
-	ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
-		       std::vector<Event> re, int t)
-		: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
+	// ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
+	// 	       std::vector<Event> re, int t)
+	// 	: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
 
-	/* Consistency checks */
-	bool isConsistent();
-
-	/* Debugging methods */
-	void validateGraph(void);
-
-	/* Graph exploration methods */
-	bool scheduleNext(void);
+	/* Basic getter methods */
+	EventLabel& getEventLabel(Event &e);
+	EventLabel& getPreviousLabel(Event &e);
+	Event getLastThreadEvent(int thread);
+	std::vector<int> getGraphState(void);
+	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
+	std::vector<Event> getRevisitLoads(Event store);
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -83,21 +82,6 @@ public:
 	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, llvm::Type *typ);
 
-	/* Basic getter methods */
-	EventLabel& getEventLabel(Event &e);
-	EventLabel& getPreviousLabel(Event &e);
-	Event getLastThreadEvent(int thread);
-	std::vector<int> getGraphState(void);
-
-	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
-	std::vector<Event> getRevisitLoads(Event store);
-
-	/* Graph modification methods */
-	void cutBefore(std::vector<int> &preds, std::vector<Event> &rev);
-	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
-	void modifyRfs(std::vector<Event> &es, Event store);
-	void markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0, Event store);
-
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	std::vector<int> getPorfAfter(Event e);
 	std::vector<int> getPorfAfter(const std::vector<Event > &es);
@@ -106,6 +90,21 @@ public:
 	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
 	std::vector<int> getHbBefore(Event e);
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
+
+	/* Graph modification methods */
+	void cutBefore(std::vector<int> &preds, std::vector<Event> &rev);
+	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
+	void modifyRfs(std::vector<Event> &es, Event store);
+	void markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0, Event store);
+
+	/* Consistency checks */
+	bool isConsistent();
+
+	/* Graph exploration methods */
+	bool scheduleNext(void);
+
+	/* Debugging methods */
+	void validateGraph(void);
 
 	/* Printing facilities */
 	void printTraceBefore(Event e);
