@@ -25,8 +25,15 @@
 #include <llvm/IR/Verifier.h>
 
 #include <algorithm>
+#include <csignal>
+#include <iostream>
 #include <sstream>
 #include <unordered_set>
+
+void abortHandler(int signum)
+{
+	exit(42);
+}
 
 RCMCDriver::RCMCDriver(Config *conf) : userConf(conf), explored(0), duplicates(0) {}
 RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod)
@@ -63,6 +70,7 @@ void RCMCDriver::run()
 {
 	std::string buf;
 
+	std::signal(SIGABRT, abortHandler);
 	LLVMModule::transformLLVMModule(*mod, userConf);
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
@@ -87,10 +95,11 @@ void RCMCDriver::run()
 	visitGraph(initGraph);
 
 	std::stringstream dups;
-        dups << " (" << duplicates << " duplicates)";
+	dups << " (" << duplicates << " duplicates)";
 	std::cerr << "Number of complete executions explored: " << explored
 		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
 		  << std::endl;
+	return;
 }
 
 void RCMCDriver::visitGraph(ExecutionGraph &g)

@@ -29,6 +29,7 @@
 
 namespace LLVMModule {
 	llvm::LLVMContext &getLLVMContext(void);
+	void destroyLLVMContext(void);
 	llvm::Module *getLLVMModule(std::string &src);
 	bool transformLLVMModule(llvm::Module &mod, Config *conf);
 	void printLLVMModule(llvm::Module &mod, std::string &out);
