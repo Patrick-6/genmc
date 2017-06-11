@@ -2835,7 +2835,11 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 
 std::string getFilenameFromMData(MDNode *node)
 {
-	DILocation loc(node);
+#ifdef LLVM_DILOCATION_IS_MDNODE
+	const llvm::DILocation &loc = llvm::cast<const llvm::DILocation&>(*node);
+#else
+	llvm::DILocation loc(node);
+#endif
 	std::string file = loc.getFilename();
 	std::string dir = loc.getDirectory();
 

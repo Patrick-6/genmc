@@ -315,6 +315,25 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::PassManager requires a template argument.])
          AC_CHECK_HEADERS([llvm/IR/LegacyPassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])])
 
+## Checking if an llvm::DILocation is an llvm::MDNode
+AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_DEBUGINFO_H)
+#include <llvm/DebugInfo.h>
+#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
+#include <llvm/IR/DebugInfo.h>
+#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
+#include <llvm/Analysis/DebugInfo.h>
+#endif
+]],[[
+  llvm::MDNode *m = 0;
+  llvm::DILocation *l = static_cast<llvm::DILocation*>(m);
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_DILOCATION_IS_MDNODE],[1],
+         [Define if an llvm::DILocation is an MDNode.])],
+        [AC_MSG_RESULT([no])])
+
 ## Check if the datalayout of an execution engine is a pointer
 AC_MSG_CHECKING([whether DataLayout of ExecutionEngine is a pointer])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
