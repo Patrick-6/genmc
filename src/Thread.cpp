@@ -34,7 +34,7 @@ Thread::Thread(llvm::Function *F)
 }
 
 Thread::Thread(llvm::Function *F, int id)
-	: parentId(-1), id(id), threadFun(F), globalInstructions(0), isBlocked(false) {}
+	: id(id), parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false) {}
 
 std::ostream& operator<<(std::ostream &s, const Thread &t)
 {

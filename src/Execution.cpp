@@ -58,18 +58,18 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
 // 	return;
 // }
 
-static void printSubsets(std::vector<std::vector<Event> > &subsets)
-{
-	std::cerr << "{";
-	for (auto &s : subsets) {
-		std::cerr << "{";
-		for (auto &e : s)
-			std::cerr << e << ", ";
-		std::cerr << "\b\b}";
-	}
-	std::cerr << "}\n";
-	return;
-}
+// static void printSubsets(std::vector<std::vector<Event> > &subsets)
+// {
+// 	std::cerr << "{";
+// 	for (auto &s : subsets) {
+// 		std::cerr << "{";
+// 		for (auto &e : s)
+// 			std::cerr << e << ", ";
+// 		std::cerr << "\b\b}";
+// 	}
+// 	std::cerr << "}\n";
+// 	return;
+// }
 
 static std::vector<Event> getLocModOrder(ExecutionGraph &g, GenericValue *addr)
 {
@@ -181,14 +181,14 @@ void Interpreter::__calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 void Interpreter::calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 			       EventLabel &wLab, std::vector<Event> &set)
 {
-	ExecutionGraph &g = *currentEG;
+	// ExecutionGraph &g = *currentEG;
 	__calcPowerSet(powerSet, wLab, {}, set);
 }
 
 std::vector<std::vector<Event> > Interpreter::calcRevisitSets(std::vector<Event> &ls,
 						 std::vector<Event> K0, EventLabel &wLab)
 {
-	ExecutionGraph &g = *currentEG;
+	// ExecutionGraph &g = *currentEG;
 	std::vector<std::vector<Event> > subsets;
 	calcPowerSet(subsets, wLab, ls);
 	return subsets;
@@ -1446,7 +1446,7 @@ Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
 					     GenericValue *ptr, GenericValue &cmpVal)
 {
-	ExecutionGraph &g = *currentEG;
+	// ExecutionGraph &g = *currentEG;
 	Event final = tentative;
 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
@@ -1462,7 +1462,7 @@ Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
 Event Interpreter::getFirstNonConflictingRMW(Event tentative, Type *typ,
 					     GenericValue *ptr)
 {
-	ExecutionGraph &g = *currentEG;
+	// ExecutionGraph &g = *currentEG;
 	Event final = tentative;
 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
 	while (isReadByAtomicRead(final, oldVal, typ, ptr)) {
@@ -1476,7 +1476,7 @@ Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
 					  Type *typ, GenericValue *ptr,
 					  std::vector<GenericValue> &expVal)
 {
-	ExecutionGraph &g = *currentEG;
+	// ExecutionGraph &g = *currentEG;
 	switch (attr) {
 	case Plain:
 		return tentative;
@@ -2990,7 +2990,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 				       const std::vector<GenericValue> &ArgVals)
 {
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
+	// ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue cmpVal, newVal, result;
@@ -3110,8 +3110,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 void Interpreter::callPthreadMutexUnlock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
+	// ExecutionGraph &g = *currentEG;
+	// ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue val;
