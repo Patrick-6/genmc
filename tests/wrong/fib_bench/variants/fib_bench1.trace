@@ -1,0 +1,60 @@
+[t3] fib_bench.c: 30: void *t3(void *arg)
+[t3] fib_bench.c: 32: if (atomic_load_explicit(&i, memory_order_relaxed) >= 144 ||
+[t1] fib_bench.c: 6: void *t1(void* arg)
+[t1] fib_bench.c: 8: int k = 0;
+[t1] fib_bench.c: 10: for (k = 0; k < NUM; k++) {
+[t1] fib_bench.c: 11: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t1] fib_bench.c: 12: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t2] fib_bench.c: 18: void *t2(void* arg)
+[t2] fib_bench.c: 20: int k = 0;
+[t2] fib_bench.c: 22: for (k = 0; k < NUM; k++) {
+[t2] fib_bench.c: 23: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t2] fib_bench.c: 24: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t2] fib_bench.c: 25: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 14: }
+[t1] fib_bench.c: 10: for (k = 0; k < NUM; k++) {
+[t1] fib_bench.c: 11: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t1] fib_bench.c: 12: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t2] fib_bench.c: 26: }
+[t2] fib_bench.c: 22: for (k = 0; k < NUM; k++) {
+[t2] fib_bench.c: 23: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t2] fib_bench.c: 24: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t2] fib_bench.c: 25: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 14: }
+[t1] fib_bench.c: 10: for (k = 0; k < NUM; k++) {
+[t1] fib_bench.c: 11: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t1] fib_bench.c: 12: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t2] fib_bench.c: 26: }
+[t2] fib_bench.c: 22: for (k = 0; k < NUM; k++) {
+[t2] fib_bench.c: 23: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t2] fib_bench.c: 24: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t2] fib_bench.c: 25: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 14: }
+[t1] fib_bench.c: 10: for (k = 0; k < NUM; k++) {
+[t1] fib_bench.c: 11: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t1] fib_bench.c: 12: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t2] fib_bench.c: 26: }
+[t2] fib_bench.c: 22: for (k = 0; k < NUM; k++) {
+[t2] fib_bench.c: 23: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t2] fib_bench.c: 24: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t2] fib_bench.c: 25: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t1] fib_bench.c: 14: }
+[t1] fib_bench.c: 10: for (k = 0; k < NUM; k++) {
+[t1] fib_bench.c: 11: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t1] fib_bench.c: 12: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t1] fib_bench.c: 13: atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
+[t2] fib_bench.c: 26: }
+[t2] fib_bench.c: 22: for (k = 0; k < NUM; k++) {
+[t2] fib_bench.c: 23: int prevI = atomic_load_explicit(&i, memory_order_relaxed);
+[t2] fib_bench.c: 24: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
+[t2] fib_bench.c: 25: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
+Assertion violation: 0
+Number of complete executions explored: 112717
