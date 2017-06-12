@@ -7,5 +7,4 @@
 [thread_two] dekker.c: 18: if (!atomic_load_explicit(&y, memory_order_relaxed)) {
 [thread_two] dekker.c: 19: atomic_store_explicit(&c, 0, memory_order_relaxed);
 [thread_one] dekker.c: 10: assert(atomic_load_explicit(&c, memory_order_relaxed) == 1);
-Assertion violation: __c11_atomic_load(&c, memory_order_relaxed) == 1
 Number of complete executions explored: 2
