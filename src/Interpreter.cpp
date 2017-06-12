@@ -36,7 +36,8 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, Config *conf, std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(Module *M, Config *conf, RCMCDriver *driver,
+				     std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
@@ -59,20 +60,20 @@ ExecutionEngine *Interpreter::create(Module *M, Config *conf, std::string* ErrSt
   }
 #endif
 
-  return new Interpreter(M, conf);
+  return new Interpreter(M, conf, driver);
 }
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, Config *conf)
+Interpreter::Interpreter(Module *M, Config *conf, RCMCDriver *driver)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
 #else
   : ExecutionEngine(M),
 #endif
-    TD(M), userConf(conf) {
-      
+    TD(M), userConf(conf), driver(driver) {
+
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
   setDataLayout(&TD);

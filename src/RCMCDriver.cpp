@@ -66,6 +66,15 @@ bool interpRMW = false;
  std::unordered_set<llvm::GenericValue *> globalVars;
  std::unordered_set<std::string> uniqueExecs;
 
+void RCMCDriver::printResults()
+{
+	std::stringstream dups;
+	dups << " (" << duplicates << " duplicates)";
+	std::cerr << "Number of complete executions explored: " << explored
+		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
+		  << std::endl;
+}
+
 void RCMCDriver::run()
 {
 	std::string buf;
@@ -76,7 +85,7 @@ void RCMCDriver::run()
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions. */
-	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, userConf, &buf);
+	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, userConf, this, &buf);
 
 	/* Get main program function and run the program */
 	EE->runStaticConstructorsDestructors(false);
@@ -93,12 +102,7 @@ void RCMCDriver::run()
 	}
 
 	visitGraph(initGraph);
-
-	std::stringstream dups;
-	dups << " (" << duplicates << " duplicates)";
-	std::cerr << "Number of complete executions explored: " << explored
-		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
-		  << std::endl;
+	printResults();
 	return;
 }
 

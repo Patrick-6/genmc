@@ -15,6 +15,7 @@
 #include "Event.hpp"
 #include "Thread.hpp"
 #include "ExecutionGraph.hpp"
+#include "RCMCDriver.hpp"
 #include "Interpreter.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
@@ -2909,6 +2910,7 @@ void Interpreter::callAssertFail(Function *F,
 /* TODO: Construct an Error class that will take care of the error handling */
 	if (!userConf->printErrorTrace) {
 		dbgs() << "Assertion violation: " << err << "\n";
+		driver->printResults();
 		abort();
 	}
 
@@ -2919,6 +2921,7 @@ void Interpreter::callAssertFail(Function *F,
 	replayExecutionBefore(before);
 	g.printTraceBefore(g.getLastThreadEvent(assertThr));
 	dbgs() << "Assertion violation: " << err << "\n";
+	driver->printResults();
 	abort();
 }
 

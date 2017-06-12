@@ -43,6 +43,7 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 
+class RCMCDriver;
 
 namespace llvm {
 
@@ -107,6 +108,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   IntrinsicLowering *IL;
 
   Config *userConf;
+  RCMCDriver *driver;
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
@@ -117,7 +119,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, Config *conf);
+  explicit Interpreter(Module *M, Config *conf, RCMCDriver *driver);
   virtual ~Interpreter();
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
@@ -127,7 +129,8 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, Config *conf, std::string *ErrorStr = nullptr);
+  static ExecutionEngine *create(Module *M, Config *conf, RCMCDriver *driver,
+				 std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
   ///

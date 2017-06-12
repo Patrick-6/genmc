@@ -39,6 +39,7 @@ public:
 	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod); /* TODO: Check pass by ref */
 	void run();
 	void parseRun();
+	void printResults();
 
 protected:
 	void visitGraph(ExecutionGraph &g);
