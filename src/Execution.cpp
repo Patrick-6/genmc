@@ -1825,7 +1825,8 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitCallSite(CallSite CS) {
-  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
+  std::vector<ExecutionContext> &ECStack = (dryRun) ? this->ECStack : currentEG->getThreadECStack(currentEG->currentT);
+  ExecutionContext &SF = ECStack.back(); /* Temporary hack to get the correct ECStack ... */
 
   // Check to see if this is an intrinsic function call...
   Function *F = CS.getCalledFunction();
@@ -1846,6 +1847,13 @@ void Interpreter::visitCallSite(CallSite CS) {
       SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
       return;
     default:
+
+	    if(F->getName().str() == "llvm.dbg.value" ||
+	       F->getName().str() == "llvm.dbg.declare") {
+		    /* Ignore this intrinsic function */
+		    return;
+	    }
+	    WARN("Unknown intrinstic function encountered!\n");
       // If it is an unknown intrinsic function, use the intrinsic lowering
       // class to transform it into hopefully tasty LLVM code.
       //
