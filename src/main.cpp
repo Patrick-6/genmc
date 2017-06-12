@@ -94,6 +94,7 @@ int main(int argc, char **argv)
 
 	SmallVector<const char *, 16> Args;//(argv, argv + argc);
 	Args.push_back("-fsyntax-only");
+	Args.push_back("-g"); /* Compile with -g to get debugging mdata */
 	for (auto &f : conf->cflags)
 		Args.push_back(f.c_str());
 	Args.push_back(conf->inputFile.c_str());
