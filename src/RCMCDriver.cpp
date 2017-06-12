@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <csignal>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
@@ -35,9 +36,10 @@ void abortHandler(int signum)
 	exit(42);
 }
 
-RCMCDriver::RCMCDriver(Config *conf) : userConf(conf), explored(0), duplicates(0) {}
-RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod)
-	: userConf(conf), mod(std::move(mod)), explored(0), duplicates(0) {}
+RCMCDriver::RCMCDriver(Config *conf, clock_t start)
+	: userConf(conf), explored(0), duplicates(0), start(start) {}
+RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod, clock_t start)
+	: userConf(conf), mod(std::move(mod)), explored(0), duplicates(0), start(start) {}
 
 /* TODO: Need to pass by reference? Maybe const? */
 void RCMCDriver::parseLLVMFile(const std::string &fileName)
@@ -73,6 +75,9 @@ void RCMCDriver::printResults()
 	std::cerr << "Number of complete executions explored: " << explored
 		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
 		  << std::endl;
+	std::cerr << "Total wall-clock time: " << std::fixed << std::setprecision(2)
+		  << ((float) clock() - start)/CLOCKS_PER_SEC
+		  << "s" << std::endl;
 }
 
 void RCMCDriver::run()

@@ -45,6 +45,7 @@
 #include <memory>
 
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 
 using namespace clang;
@@ -62,10 +63,11 @@ std::string GetExecutablePath(const char *Argv0)
 
 int main(int argc, char **argv)
 {
+	clock_t start = clock();
 	Config *conf = new Config(argc, argv);
 	conf->getConfigOptions();
 	if (conf->inputFromBitcodeFile) {
-		RCMCDriver *driver = new RCMCDriver(conf);
+		RCMCDriver *driver = new RCMCDriver(conf, start);
 		driver->parseRun();
 		delete conf;
 		delete driver;
@@ -143,10 +145,10 @@ int main(int argc, char **argv)
 		return 1;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule());
+	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule(), start);
 #else
 	RCMCDriver *driver =
-		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()));
+		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()), start);
 #endif
 
 	driver->run();

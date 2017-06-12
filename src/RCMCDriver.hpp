@@ -22,6 +22,8 @@
 #include "Parser.hpp"
 #include <llvm/IR/Module.h>
 
+#include <ctime>
+
 class RCMCDriver {
 
 private:
@@ -31,12 +33,13 @@ private:
 	llvm::Interpreter *EE;
 	int explored;
 	int duplicates;
+	clock_t start;
 
 	void parseLLVMFile(const std::string &fileName);
 
 public:
-	RCMCDriver(Config *conf);
-	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod); /* TODO: Check pass by ref */
+	RCMCDriver(Config *conf, clock_t start);
+	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod, clock_t start); /* TODO: Check pass by ref */
 	void run();
 	void parseRun();
 	void printResults();
