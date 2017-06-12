@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <assert.h>
-#include "../../stdatomic.h"
+#include "../../../stdatomic.h"
 
 atomic_int x;
 atomic_int y;

@@ -38,9 +38,10 @@ UNDERLINE=$(tput smul)
 
 runfailure() {
     test_file=$1
+    test_args=$2
     shift
 
-    if time -p "${RCMC}" "${test_file}"
+    if time -p "${RCMC}" -print-error-trace -- "${test_args}" "${test_file}"
     then
 	echo -n 'FAILED! Unexpected test success!'
 	failure=1
@@ -62,36 +63,46 @@ runsuccess() {
 }
 
 runvariants() {
-    printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
-    vars=0
-    test_time=0
-    failed=""
-    for t in $dir/variants/*.c
-    do
-	vars=$((vars+1))
-	output=`runsuccess "${t}" "${test_args}" 2>&1`
-	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
-	time=`echo "${output}" | awk '/real/ { print $2 }'`
-	test_time=`echo "${test_time}+${time}" | bc -l`
-	total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
-	expected="${expected:-${explored}}"
-	if test "${expected}" != "${explored}"
-	then
-	    explored_failed="${explored}"
-	    failed=1
-	fi
-    done
-    if test -n "${failed}"
+    if test "$1" = "correct"
     then
-	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	printf "%-15s | %-11s | %-5s | %-11s |\n" \
-	       "${RED}FAILED${NC}" "${explored_failed:-0}/${expected}" \
-	       "${vars}" "${average_time}"
-	failure=1
+	printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
+	vars=0
+	test_time=0
+	failed=""
+	for t in $dir/variants/*.c
+	do
+	    vars=$((vars+1))
+	    output=`runsuccess "${t}" "${test_args}" 2>&1`
+	    explored=`echo "${output}" | awk '/explored/ { print $6 }'`
+	    time=`echo "${output}" | awk '/real/ { print $2 }'`
+	    test_time=`echo "${test_time}+${time}" | bc -l`
+	    total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
+	    expected="${expected:-${explored}}"
+	    if test "${expected}" != "${explored}"
+	    then
+		explored_failed="${explored}"
+		failed=1
+	    fi
+	done
+	if test -n "${failed}"
+	then
+	    average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
+	    printf "%-15s | %-11s | %-5s | %-11s |\n" \
+		   "${RED}FAILED${NC}" "${explored_failed:-0}/${expected}" \
+		   "${vars}" "${average_time}"
+	    failure=1
+	else
+	    average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
+	    printf "%-15s | %-11s | %-5s | %-11s |\n" \
+		   "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"
+	fi
     else
-	average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
-	printf "%-15s | %-11s | %-5s | %-11s |\n" \
-	       "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"
+	for t in $dir/variants/*.c
+	do
+	    n=""
+	    echo "${POWDER_BLUE}${dir##*/}${n}${NC}"
+	    output=`runfailure "${t}" "${test_args}" `
+	done
     fi
 }
 
@@ -99,18 +110,25 @@ total_time=0
 
 runtest() {
     dir=$1
-    if test -f "${dir}/args.in"
-    then
-	while read test_args <&3 && read expected <&4; do
-	    n="/`echo ${test_args} |
-                 awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
-	    runvariants
-	done 3<"${dir}/args.in" 4<"${dir}/expected.in"
+    type=$2
+    if test "${type}" = "correct"
+       then
+	   if test -f "${dir}/args.in"
+	   then
+	       while read test_args <&3 && read expected <&4; do
+		   n="/`echo ${test_args} |
+                     awk ' { if (match($0, /-DN=[0-9]+/)) \
+                     print substr($0, RSTART+4, RLENGTH-4) } '`"
+		   runvariants "correct"
+	       done 3<"${dir}/args.in" 4<"${dir}/expected.in"
+	   else
+	       test_args=""
+	       n=""
+	       expected=`head -n 1 "${dir}/expected.in"`
+	       runvariants "correct"
+	   fi
     else
-	test_args=""
-	n=""
-	expected=`head -n 1 "${dir}/expected.in"`
-	runvariants
+	runvariants "wrong"
     fi
 }
 
@@ -141,7 +159,18 @@ runall() {
 		*)                                            ;;
 	    esac
 	fi
-	runtest "${dir}"
+	runtest "${dir}" "correct"
+    done
+    printline
+
+    echo ''; printline
+    echo '--- Preparing to run WRONG testcases...'
+    printline; echo ''
+
+    # Run wrong testcases
+    for dir in wrong/*
+    do
+	runtest "${dir}" "wrong"
     done
 }
 
