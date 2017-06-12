@@ -5,9 +5,7 @@ atomic_int j = 1;
 
 void *t1(void* arg)
 {
-	int k = 0;
-
-	for (k = 0; k < NUM; k++) {
+	for (int k = 0; k < NUM; k++) {
 		int prevI = atomic_load_explicit(&i, memory_order_relaxed);
 		int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
 		atomic_store_explicit(&i, prevI + prevJ, memory_order_relaxed);
@@ -17,9 +15,7 @@ void *t1(void* arg)
 
 void *t2(void* arg)
 {
-	int k = 0;
-
-	for (k = 0; k < NUM; k++) {
+	for (int k = 0; k < NUM; k++) {
 		int prevI = atomic_load_explicit(&i, memory_order_relaxed);
 		int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
 		atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
@@ -32,5 +28,5 @@ void *t3(void *arg)
 	if (atomic_load_explicit(&i, memory_order_relaxed) >= 144 ||
 	    atomic_load_explicit(&j, memory_order_relaxed) >= 144)
 		assert(0);
-    return NULL;
+	return NULL;
 }
