@@ -21,6 +21,9 @@
 source terminal.sh
 RCMC=./src/rcmc
 
+tmp=`clang --version | grep "clang version" | sed 's/[^0-9\.\-]*//g'`
+LLVM_VERSION=${tmp%-*}  # remove suffix ending with "-"
+
 total_time=0
 
 # Check for command line options

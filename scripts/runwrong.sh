@@ -42,8 +42,8 @@ runvariants() {
 	then
 	    outcome_failure=1
 	fi
-	trace=`echo "${output}" | awk '!/status|time|violation/ {print $0 }' > tmp.trace`
-	diff=`diff tmp.trace "${t%.*}.trace"`
+	trace=`echo "${output}" | awk '!/status|time/ {print $0 }' > tmp.trace`
+	diff=`diff tmp.trace "${t%.*}.trace-${LLVM_VERSION}"`
 	if test -n "${diff}"
 	then
 	    failure=1
