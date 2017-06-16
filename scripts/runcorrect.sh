@@ -57,12 +57,13 @@ runvariants() {
     then
 	printf "%-15s | %-11s | %-5s | %-11s |\n" \
 	       "${RED}ERROR${NC}" "${explored}" "${vars}" "${average_time}"
+	result=1
     elif test -n "${failure}"
     then
 	printf "%-15s | %-11s | %-5s | %-11s |\n" \
 	       "${LIME_YELLOW}FAILED${NC}" "${explored_failed:-0}/${expected}" \
 	       "${vars}" "${average_time}"
-	failure=1
+	result=1
     else
 	printf "%-15s | %-11s | %-5s | %-11s |\n" \
 	       "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"

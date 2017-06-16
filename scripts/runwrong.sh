@@ -59,10 +59,12 @@ runvariants() {
     then
 	printf "%-22s | %-10s | %-13s |\n" \
 	       "${RED}BUG NOT FOUND${NC}" "${vars}" "${average_time}"
+	result=1
     elif test -n "${failure}"
     then
 	printf "%-28s | %-10s | %-13s |\n" \
 	       "${LIME_YELLOW}TRACE DIFF${NC}" "${vars}" "${average_time}"
+	result=1
     else
 	printf "%-22s | %-10s | %-13s |\n" \
 	       "${GREEN}BUG FOUND${NC}" "${vars}" "${average_time}"

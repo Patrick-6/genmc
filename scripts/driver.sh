@@ -25,6 +25,7 @@ tmp=`clang --version | grep "clang version" | sed 's/[^0-9\.\-]*//g'`
 LLVM_VERSION=${tmp%-*}  # remove suffix ending with "-"
 
 total_time=0
+result=""
 
 # Check for command line options
 if test "$1" = "--fast"
@@ -46,7 +47,7 @@ printline; echo ''
 
 source runwrong.sh
 
-if test -n "$failure"
+if test -n "$result"
 then
     echo ''; printline
     echo '!!! ' UNEXPECTED TESTING RESULTS ' !!!' Total time: "${total_time}"
