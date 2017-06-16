@@ -87,9 +87,12 @@ static bool isWriteRfBefore(ExecutionGraph &g, std::vector<int> &before, Event e
 	EventLabel &lab = g.getEventLabel(e);
 	WARN_ON(lab.type != W, "Modification order should contain writes only!");
 	for (auto &e : lab.rfm1) {
-		bool inRev = std::find(g.revisit.begin(), g.revisit.end(), e) != g.revisit.end();
-		if (e.index <= before[e.thread] && !inRev)
-			return true;
+//		bool inRev = std::find(g.revisit.begin(), g.revisit.end(), e) != g.revisit.end();
+		if (e.index <= before[e.thread])
+			if (std::all_of(g.revisit.begin(), g.revisit.end(),
+					[&e](decltype(*g.revisit.cbegin()) &kvp)
+					{ return kvp.first != e; }))
+				return true;
 	}
 	return false;
 }
@@ -146,8 +149,8 @@ void Interpreter::__calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 {
 	ExecutionGraph &g = *currentEG;
 	/* Base case -- empty set */
-	if (set.empty() && acc.empty())
-		return;
+	// if (set.empty() && acc.empty())
+	// 	return;
 	/* Base case -- not empty set*/
 	if (set.empty()) {
 		powerSet.push_back(acc);
@@ -240,9 +243,13 @@ bool Interpreter::RMWCanReadFromWrite(Event &write, GenericValue &wVal,
 			    lab.addr == ptr && lab.isRMW()) {
 				if (!isSuccessfulRMW(lab, wVal))
 					continue;
-				if (!(std::find(g.revisit.begin(), g.revisit.end(),
-						lab.pos) != g.revisit.end()))
+				if (std::all_of(g.revisit.begin(), g.revisit.end(),
+						[&lab](decltype(*g.revisit.cbegin()) &kvp)
+						{ return kvp.first != lab.pos; }))
 					return false;
+				// if (!(std::find(g.revisit.begin(), g.revisit.end(),
+				// 		lab.pos) != g.revisit.end()))
+				// 	return false;
 				std::vector<int> after = g.getPorfAfter(lab.pos);
 				Event last = g.getLastThreadEvent(g.currentT);
 				if (last.index >= after[last.thread])
@@ -1378,7 +1385,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 				g.addReadToGraph(I.getOrdering(), ptr, typ, *it);
 				Event e = g.getLastThreadEvent(g.currentT);
 				preds = g.getGraphState();
-				g.revisit.push_back(e);
+//				g.revisit.push_back(e);
+				g.revisit.push_back(std::make_pair(e, std::vector<Event>()));
 				/* Also, set the return value for this instruction */
 				SetValue(&I, loadValueFromWrite(*it, typ, ptr), SF);
 				/* Finally, erase from the vector the store we read from */
@@ -1587,7 +1595,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	g.addCASReadToGraph(I.getSuccessOrdering(), ptr, cmpVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	readPreds = g.getGraphState();
-	g.revisit.push_back(e);
+//	g.revisit.push_back(e);
+	g.revisit.push_back(std::make_pair(e, std::vector<Event>()));
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
@@ -1791,7 +1800,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	g.addRMWReadToGraph(I.getOrdering(), ptr, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	readPreds = g.getGraphState();
-	g.revisit.push_back(e);
+//	g.revisit.push_back(e);
+	g.revisit.push_back(std::make_pair(e, std::vector<Event>()));
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
@@ -2941,8 +2951,9 @@ void Interpreter::callVerifierAssume(Function *F,
 	if (!cond) {
 		Event e = g.getLastThreadEvent(g.currentT);
 		std::vector<int> before = g.getPorfBefore(e);
-		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				{ return e.index > before[e.thread]; })) {
+		if (std::all_of(g.revisit.begin(), g.revisit.end(),
+				[&before](decltype(*g.revisit.cbegin()) &kvp)
+				{ return kvp.first.index > before[kvp.first.thread]; })) {
 //			ECStacks.clear();
 			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
 				      { t.ECStack.clear(); });
@@ -3031,8 +3042,9 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		} else {
 			Event e = g.getLastThreadEvent(g.currentT);
 			std::vector<int> before = g.getPorfBefore(e);
-			if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-					{ return e.index > before[e.thread]; })) {
+			if (std::all_of(g.revisit.begin(), g.revisit.end(),
+					[&before](decltype(*g.revisit.cbegin()) &kvp)
+					{ return kvp.first.index > before[kvp.first.thread]; })) {
 				std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
 					      { t.ECStack.clear(); });
 //				ECStacks.clear();
@@ -3075,7 +3087,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	g.addCASReadToGraph(Acquire, ptr, cmpVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	readPreds = g.getGraphState();
-	g.revisit.push_back(e);
+//	g.revisit.push_back(e);
+	g.revisit.push_back(std::make_pair(e, std::vector<Event>()));
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
@@ -3094,8 +3107,9 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	} else {
 		Event e = g.getLastThreadEvent(g.currentT);
 		std::vector<int> before = g.getPorfBefore(e);
-		if (std::all_of(g.revisit.begin(), g.revisit.end(), [&before](Event &e)
-				{ return e.index > before[e.thread]; })) {
+		if (std::all_of(g.revisit.begin(), g.revisit.end(),
+				[&before](decltype(*g.revisit.cbegin()) &kvp)
+				{ return kvp.first.index > before[kvp.first.thread]; })) {
 //			ECStacks.clear();
 			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
 				      { t.ECStack.clear(); });

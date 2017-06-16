@@ -67,16 +67,21 @@ std::vector<llvm::ExecutionContext>& ExecutionGraph::getThreadECStack(int thread
 }
 
 std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
-{
+{// also fix cuttocopyafter and markreadsasvisited and printexecgraph and includemap .hpp
 	std::vector<Event> ls;
 	std::vector<int> before = getPorfBefore(store);
 	EventLabel &sLab = getEventLabel(store);
 
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
 	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
-		EventLabel &rLab = getEventLabel(*it);
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
-			ls.push_back(*it);
+		Event ev = it->first;
+		EventLabel &rLab = getEventLabel(ev);
+		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr) {
+			if (std::all_of(it->second.begin(), it->second.end(),
+					[&before](Event &e)
+					{ return e.index <= before[e.thread]; }))
+				ls.push_back(rLab.pos);
+		}
 	}
 	return ls;
 }
@@ -293,7 +298,8 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
  ** Graph modification methods
  ***********************************************************/
 
-void ExecutionGraph::cutBefore(std::vector<int> &preds, std::vector<Event> &rev)
+void ExecutionGraph::cutBefore(std::vector<int> &preds,
+			       std::vector<std::pair<Event, std::vector<Event> > > &rev)
 {
 	for (auto i = 0u; i < threads.size(); i++) {
 		maxEvents[i] = preds[i] + 1;
@@ -335,8 +341,19 @@ void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &aft
 			}
 		}
 	}
-	std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
-		     [&after](Event &e) { return e.index < after[e.thread]; });
+	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
+		if (it->first.index >= after[it->first.thread]) {
+			continue;
+		} else {
+			std::vector<Event> val = {};
+			std::copy_if(it->second.begin(), it->second.end(),
+				     std::back_inserter(val),
+				     [&after](Event &e){return e.index < after[e.thread]; });
+			revisit.push_back(std::make_pair(it->first, val));
+		}
+	}
+	// std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
+	// 	     [&after](Event &e) { return e.index < after[e.thread]; });
 	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it)
 		std::copy_if(it->second.begin(), it->second.end(),
 			     std::back_inserter(modOrder[it->first]),
@@ -366,17 +383,17 @@ void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
 void ExecutionGraph::markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0,
 					Event store)
 {
-	if (!K0.empty()) {
-		K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
-				       { return e == K0.back(); }),
-			K.end());
-	}
+	// if (!K0.empty()) {
+	// 	K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
+	// 			       { return e == K0.back(); }),
+	// 		K.end());
+	// }
 
-	std::vector<int> before = getPorfBefore(K);
-	revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&before](Event &e)
-				     { return e.index <= before[e.thread]; }),
-			revisit.end());
-	return;
+	// std::vector<int> before = getPorfBefore(K);
+	// revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&before](Event &e)
+	// 			     { return e.index <= before[e.thread]; }),
+	// 		revisit.end());
+	// return;
 }
 
 
@@ -533,16 +550,16 @@ std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 			s << "\t" << lab;
 			if (lab.type == R)
 				s << "\n\t\treads from: " << lab.rf;
-			else if (lab.type == W) {
-				for (auto &r : lab.rfm1)
-					s << "\n\t\t is read from: " << r;
-			}
 			s << std::endl;
 		}
 	}
 	s << "Revisit Set:" << std::endl;
-	for (auto &l : g.revisit)
-		s << "\t" << l << std::endl;
+	for (auto &l : g.revisit) {
+		s << "\t" << l.first << " [";
+		for (auto &r : l.second)
+			s << r << ", ";
+		s << "]" << std::endl;
+	}
 	s << "Max Events:" << std::endl;
 	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
 		s << "\t" << g.maxEvents[i] << std::endl;

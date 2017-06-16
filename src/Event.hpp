@@ -46,8 +46,7 @@ struct Event {
 	friend std::ostream& operator<<(std::ostream &s, const Event &e);
 
 	inline bool operator==(const Event &e) const {
-		return e.thread == thread &&
-			e.index == index;
+		return e.index == index && e.thread == thread;
 	}
 	inline bool operator!=(const Event &e) const {
 		return !(*this == e);

@@ -25,6 +25,7 @@
 #include "Event.hpp"
 #include "Thread.hpp"
 
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -35,10 +36,10 @@ struct RevisitPair {
 	Event rf;
 	Event shouldRf;
 	std::vector<int> preds;
-	std::vector<Event> revisit;
+	std::vector<std::pair<Event, std::vector<Event> > > revisit;
 
 	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		    std::vector<Event> revisit)
+		    std::vector<std::pair<Event, std::vector<Event> > > revisit)
 		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
 };
 
@@ -49,7 +50,7 @@ class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
-	std::vector<Event> revisit;
+	std::vector<std::pair<Event, std::vector<Event> > > revisit;
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
 	std::vector<RevisitPair> workqueue;
 	std::vector<void *> stackAllocas;
@@ -93,7 +94,8 @@ public:
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 
 	/* Graph modification methods */
-	void cutBefore(std::vector<int> &preds, std::vector<Event> &rev);
+	void cutBefore(std::vector<int> &preds,
+		       std::vector<std::pair<Event, std::vector<Event> > > &rev);
 	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
 	void modifyRfs(std::vector<Event> &es, Event store);
 	void markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0, Event store);
