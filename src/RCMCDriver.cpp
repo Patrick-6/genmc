@@ -233,28 +233,24 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			      std::vector<Event> K0, EventLabel &wLab)
 {
-	llvm::Interpreter *interp = EE;
+	if (!K0.empty()) {
+		std::vector<int> before = g.getPorfBefore(wLab.pos);
+		for (auto &r : g.revisit) {
+			if (K0.back() != r.first)
+				continue;
+			if (std::any_of(r.second.begin(), r.second.end(),
+					[&before](Event &e)
+					{ return e.index > before[e.thread]; }))
+				return;
+		}
+	}
+
 	for (auto &si : subsets) {
 		std::vector<Event> ls(si);
 		ls.insert(ls.end(), K0.begin(), K0.end());
 
 		if (ls.empty() || (!K0.empty() &&
 				   std::find(si.begin(), si.end(), K0.back()) != si.end()))
-			continue;
-
-		bool visit = true;
-		if (!K0.empty() && si.empty()) {
-			std::vector<int> before = g.getPorfBefore(wLab.pos);
-			for (auto &r : g.revisit) {
-				if (K0.back() != r.first)
-					continue;
-				if (std::any_of(r.second.begin(), r.second.end(),
-						[&before](Event &e)
-						{ return e.index > before[e.thread]; }))
-					visit = false;
-			}
-		}
-		if (!visit)
 			continue;
 
 		std::vector<int> after = g.getPorfAfter(ls);
@@ -291,36 +287,6 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 					it->second.push_back(s);
 		}
 		visitGraph(eg);
-
-
-		// if (K0.empty() ||
-		//     (!K0.empty() && std::find(si.begin(), si.end(), K0.back()) != si.end())) {
-		// 	ExecutionGraph eg;
-		// 	eg.cutToCopyAfter(g, after);
-		// 	eg.modifyRfs(si, wLab.pos);
-		// 	eg.markReadsAsVisited(si, K0, wLab.pos);
-		// 	visitGraph(eg);
-		// } else if (std::any_of(K0.begin(), K0.end(), [&interp, &g, &wLab](Event &e)
-		// 		       { EventLabel &eLab = g.getEventLabel(e);
-		// 			       return interp->isSuccessfulRMW(eLab, wLab.val); }) &&
-		// 	   std::any_of(K0.begin(), K0.end(), [&interp, &g, &wLab](Event &e)
-		// 		       { EventLabel &eLab = g.getEventLabel(e);
-		// 			       return interp->isSuccessfulRMW(eLab, wLab.val); })) {
-		// 	after[K0.back().thread] = K0.back().index;
-		// 	ExecutionGraph eg;
-		// 	eg.cutToCopyAfter(g, after);
-		// 	eg.modifyRfs(si, wLab.pos);
-		// 	std::vector<int> before = eg.getPorfBefore(si);
-		// 	eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
-		// 				       [&before](Event &e)
-		// 				       { return e.index <= before[e.thread]; }),
-		// 			eg.revisit.end());
-		// 	eg.revisit.erase(std::remove_if(eg.revisit.begin(), eg.revisit.end(),
-		// 				       [&K0](Event &e)
-		// 				       { return K0.back() == e; }),
-		// 			eg.revisit.end());
-		// 	visitGraph(eg);
-		// }
 	}
 	return;
 }
