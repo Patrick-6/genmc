@@ -67,17 +67,16 @@ std::vector<llvm::ExecutionContext>& ExecutionGraph::getThreadECStack(int thread
 }
 
 std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
-{// also fix cuttocopyafter and markreadsasvisited and printexecgraph and includemap .hpp
+{
 	std::vector<Event> ls;
 	std::vector<int> before = getPorfBefore(store);
 	EventLabel &sLab = getEventLabel(store);
 
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
-	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
-		Event ev = it->first;
-		EventLabel &rLab = getEventLabel(ev);
+	for (auto &r : revisit) {
+		EventLabel &rLab = getEventLabel(r.first);
 		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr) {
-			if (std::all_of(it->second.begin(), it->second.end(),
+			if (std::all_of(r.second.begin(), r.second.end(),
 					[&before](Event &e)
 					{ return e.index <= before[e.thread]; }))
 				ls.push_back(rLab.pos);
@@ -341,23 +340,19 @@ void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &aft
 			}
 		}
 	}
-	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
-		if (it->first.index >= after[it->first.thread]) {
+	for (auto &r : other.revisit) {
+		if (r.first.index >= after[r.first.thread])
 			continue;
-		} else {
-			std::vector<Event> val = {};
-			std::copy_if(it->second.begin(), it->second.end(),
-				     std::back_inserter(val),
-				     [&after](Event &e){return e.index < after[e.thread]; });
-			revisit.push_back(std::make_pair(it->first, val));
-		}
+		std::vector<Event> val = {};
+		std::copy_if(r.second.begin(), r.second.end(), std::back_inserter(val),
+			     [&after](Event &e){return e.index < after[e.thread]; });
+		revisit.push_back(std::make_pair(r.first, val));
 	}
-	// std::copy_if(other.revisit.begin(), other.revisit.end(), std::back_inserter(revisit),
-	// 	     [&after](Event &e) { return e.index < after[e.thread]; });
-	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it)
-		std::copy_if(it->second.begin(), it->second.end(),
-			     std::back_inserter(modOrder[it->first]),
+	for (auto &o : other.modOrder) {
+		std::copy_if(o.second.begin(), o.second.end(),
+			     std::back_inserter(modOrder[o.first]),
 			     [&after](Event &e) { return e.index < after[e.thread]; });
+	}
 }
 
 void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
@@ -379,23 +374,6 @@ void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
 	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
 	return;
 }
-
-void ExecutionGraph::markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0,
-					Event store)
-{
-	// if (!K0.empty()) {
-	// 	K.erase(std::remove_if(K.begin(), K.end(), [&K0](Event &e)
-	// 			       { return e == K0.back(); }),
-	// 		K.end());
-	// }
-
-	// std::vector<int> before = getPorfBefore(K);
-	// revisit.erase(std::remove_if(revisit.begin(), revisit.end(), [&before](Event &e)
-	// 			     { return e.index <= before[e.thread]; }),
-	// 		revisit.end());
-	// return;
-}
-
 
 /************************************************************
  ** Consistency checks
@@ -555,9 +533,9 @@ std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 	}
 	s << "Revisit Set:" << std::endl;
 	for (auto &l : g.revisit) {
-		s << "\t" << l.first << " [";
+		s << "\t" << l.first << " [ ";
 		for (auto &r : l.second)
-			s << r << ", ";
+			s << r << " ";
 		s << "]" << std::endl;
 	}
 	s << "Max Events:" << std::endl;

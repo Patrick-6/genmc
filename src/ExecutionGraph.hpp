@@ -25,7 +25,6 @@
 #include "Event.hpp"
 #include "Thread.hpp"
 
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -98,7 +97,6 @@ public:
 		       std::vector<std::pair<Event, std::vector<Event> > > &rev);
 	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
 	void modifyRfs(std::vector<Event> &es, Event store);
-	void markReadsAsVisited(std::vector<Event> &K, std::vector<Event> K0, Event store);
 
 	/* Consistency checks */
 	bool isConsistent();
