@@ -2912,6 +2912,12 @@ void Interpreter::callPthreadJoin(Function *F,
 void Interpreter::callPthreadExit(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
+	ExecutionGraph &g = *currentEG;
+
+	auto &ECStack = g.getThreadECStack(g.currentT);
+	while (ECStack.size() > 1)
+		ECStack.pop_back();
+	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 
 void Interpreter::callPthreadMutexLock(Function *F,
