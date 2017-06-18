@@ -12,12 +12,12 @@ void *thread_reader(void *arg)
 {
 	int local = 0;
 	int count = 0;
-	
+
 	local = atomic_load_explicit(&flag, memory_order_acquire);
 	while (local != 1) {
 		count++;
 		if (count > 40)
-			return NULL;
+			pthread_exit(NULL);
 		local = atomic_load_explicit(&flag, memory_order_acquire);
 	}
 	// printf("got it!\n");
