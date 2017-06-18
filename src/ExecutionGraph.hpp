@@ -53,6 +53,8 @@ public:
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
 	std::vector<RevisitPair> workqueue;
 	std::vector<void *> stackAllocas;
+	std::vector<void *> heapAllocas;
+	std::vector<void *> freedMem;
 	int currentT;
 
 	/* Constructors */

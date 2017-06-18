@@ -2832,6 +2832,51 @@ void Interpreter::callVerifierAssume(Function *F,
 	}
 }
 
+void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *currentEG;
+	GenericValue res;
+
+	/* Allocate the appropriate amount of memory */
+	WARN_ON(ArgVals[0].IntVal.getBitWidth() > 64,
+		"Larger than 64-bit alignment in malloc()'s argument!\n");
+	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
+	res.PointerVal = malloc(size);
+
+	/* Keep track of the memory allocated and return value to caller */
+	g.heapAllocas.push_back(res.PointerVal);
+	returnValueToCaller(F->getReturnType(), res);
+	return;
+}
+
+void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *currentEG;
+	void *ptr = (void *) GVTOP(ArgVals[0]);
+
+	/* Attempt to free a NULL pointer */
+	if (ptr == NULL)
+		return;
+
+	/* Attempt to free stack memory */
+	if (std::find(g.stackAllocas.begin(), g.stackAllocas.end(), ptr)
+	    != g.stackAllocas.end()) {
+		WARN("Attempt to free stack memory!\n");
+		abort();
+		return;
+	}
+
+	/* Check to see whether this memory block has already been freed */
+	if (std::find(g.freedMem.begin(), g.freedMem.end(), ptr)
+	    != g.freedMem.end()) {
+		WARN("Double-free error!\n");
+		abort();
+		return;
+	}
+	g.freedMem.push_back(ptr);
+	return;
+}
+
 /* callPthreadCreate - Call to pthread_create() function */
 void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
@@ -3024,6 +3069,12 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "__VERIFIER_assume") {
 	  callVerifierAssume(F, ArgVals);
+	  return;
+  } else if (functionName == "malloc") {
+	  callMalloc(F, ArgVals);
+	  return;
+  } else if (functionName == "free") {
+	  callFree(F, ArgVals);
 	  return;
   } else if (functionName == "pthread_create") {
 	  callPthreadCreate(F, ArgVals);
