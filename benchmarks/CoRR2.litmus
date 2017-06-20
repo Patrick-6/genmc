@@ -1,0 +1,25 @@
+C CoRR2
+
+{ [x] = 0; }
+
+P0 (atomic_int *x)
+{
+	atomic_store_explicit(x, 1, memory_order_release);
+}
+
+P1 (atomic_int *x)
+{
+	atomic_store_explicit(x, 2, memory_order_release);
+}
+
+P2 (atomic_int *x)
+{
+	int r1 = atomic_load_explicit(x, memory_order_acquire);
+	int r1 = atomic_load_explicit(x, memory_order_acquire);
+}
+
+P3 (atomic_int *x)
+{
+	int r1 = atomic_load_explicit(x, memory_order_acquire);
+	int r1 = atomic_load_explicit(x, memory_order_acquire);
+}
