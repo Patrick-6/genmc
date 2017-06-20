@@ -1,5 +1,4 @@
 atomic_int x;
-atomic_int y;
 
 void *thread_one(void *arg)
 {
@@ -10,6 +9,6 @@ void *thread_one(void *arg)
 
 void *thread_two(void *arg)
 {
-	atomic_store_explicit(&x, 2, memory_order_release);	
+	atomic_store_explicit(&x, 2, memory_order_release);
 	return NULL;
 }

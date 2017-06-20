@@ -1,15 +1,15 @@
-int _Atomic x;
-int _Atomic y;
+atomic_int x;
+atomic_int y;
 
 void *thread_one(void *arg)
 {
-	int r = atomic_load_explicit(&y, memory_order_acquire);
+	atomic_load_explicit(&y, memory_order_acquire);
 	return NULL;
 }
 
 void *thread_two(void *arg)
 {
-	int r = atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 

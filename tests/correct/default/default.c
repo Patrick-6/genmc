@@ -1,11 +1,9 @@
-int _Atomic x;
+atomic_int x;
 
 void *thread_one(void *arg)
 {
-	int r;
-
-	r = atomic_load_explicit(&x, memory_order_acquire);
-	r = atomic_load_explicit(&x, memory_order_acquire);	
+	atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 

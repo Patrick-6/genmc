@@ -15,8 +15,6 @@ void *thread_one(void *arg)
 
 void *thread_two(void *arg)
 {
-	int r;
-
 	atomic_load_explicit(&x, memory_order_acquire);
 	atomic_load_explicit(&y, memory_order_acquire);
 	atomic_load_explicit(&z, memory_order_acquire);

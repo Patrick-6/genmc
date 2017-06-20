@@ -1,26 +1,22 @@
-int _Atomic x;
-int _Atomic y;
-int _Atomic z;
+atomic_int x;
+atomic_int y;
+atomic_int z;
 
 int idx[N];
 
 void *thread_one(void *unused)
 {
-	int r;
-
 	atomic_store_explicit(&x, 1, memory_order_release);
-	r = atomic_load_explicit(&y, memory_order_acquire);
-	r = atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&y, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 
 void *thread_two(void *unused)
 {
-	int r;
-
 	atomic_store_explicit(&x, 2, memory_order_release);
-	r = atomic_load_explicit(&z, memory_order_acquire);
-	r = atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&z, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 

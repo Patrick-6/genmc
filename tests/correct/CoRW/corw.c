@@ -1,5 +1,4 @@
 atomic_int x;
-atomic_int y;
 
 void *thread_one(void *arg)
 {

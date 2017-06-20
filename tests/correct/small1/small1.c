@@ -1,15 +1,13 @@
-int _Atomic x;
-int _Atomic y;
-int _Atomic z;
-int _Atomic w;
+atomic_int x;
+atomic_int y;
+atomic_int z;
+atomic_int w;
 
 void *thread_one(void *arg)
 {
-	int r;
-
-	r = atomic_load_explicit(&z, memory_order_acquire);
-	r = atomic_load_explicit(&w, memory_order_acquire);
-	r = atomic_load_explicit(&x, memory_order_acquire);
+	atomic_load_explicit(&z, memory_order_acquire);
+	atomic_load_explicit(&w, memory_order_acquire);
+	atomic_load_explicit(&x, memory_order_acquire);
 	return NULL;
 }
 
