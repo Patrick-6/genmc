@@ -22,6 +22,7 @@
 
 #include "LLVMModule.hpp"
 #include "DeclareAssumePass.hpp"
+#include "DeclareEndLoopPass.hpp"
 #include "SpinAssumePass.hpp"
 #include "LoopUnrollPass.hpp"
 #include "Error.hpp"
@@ -46,7 +47,7 @@
 namespace LLVMModule {
 /* Global variable to handle the LLVM context */
 	llvm::LLVMContext *globalContext = nullptr;
-	
+
 /* Returns the LLVM context */
 	llvm::LLVMContext &getLLVMContext(void)
 	{
@@ -54,8 +55,8 @@ namespace LLVMModule {
 			globalContext = new llvm::LLVMContext();
 		return *globalContext;
 	}
-	
-/* 
+
+/*
  * Destroys the LLVM context. This function should be called explicitly
  * when we are done managing the LLVM data.
  */
@@ -63,14 +64,14 @@ namespace LLVMModule {
 	{
 		delete globalContext;
 	}
-	
+
 /* Returns the LLVM module corresponding to the source code stored in src. */
 	llvm::Module *getLLVMModule(std::string &src)
 	{
 		llvm::MemoryBuffer *buf;
 		llvm::SMDiagnostic err;
-		
-#ifdef LLVM_GETMEMBUFFER_RET_PTR	  
+
+#ifdef LLVM_GETMEMBUFFER_RET_PTR
 		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false);
 #else
 		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false).release();
@@ -91,7 +92,7 @@ namespace LLVMModule {
 		llvm::PassManager PM;
 #endif
 		bool modified;
-		
+
 		llvm::initializeCore(Registry);
 		llvm::initializeScalarOpts(Registry);
 		llvm::initializeObjCARCOpts(Registry);
@@ -107,9 +108,10 @@ namespace LLVMModule {
 		llvm::initializeTarget(Registry);
 
 		PM.add(new DeclareAssumePass());
+		PM.add(new DeclareEndLoopPass());
 		if (conf->spinAssume){
 			PM.add(new SpinAssumePass());
-		} 
+		}
 		if (conf->unroll >= 0){
 			PM.add(new LoopUnrollPass(conf->unroll));
 		}
@@ -126,7 +128,7 @@ namespace LLVMModule {
 #else
 		llvm::PassManager PM;
 #endif
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR	
+#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
 		std::string errs;
 #else
 		std::error_code errs;
@@ -137,9 +139,9 @@ namespace LLVMModule {
 #else
 		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), errs, 0);
 #endif
-		
+
 		/* TODO: Do we need an exception? If yes, properly handle it */
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR	
+#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
 		if (errs.size()) {
 			delete os;
 			WARN("Failed to write transformed module to file "

@@ -194,7 +194,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		}
 
 		RevisitPair &p = g.workqueue.back();
-//		std::cerr << "Popping from workqueue...\n"; printExecGraph(g);
+		// std::cerr << "Popping from workqueue " << p.e << " should rf "
+		// 	  << p.shouldRf << "\n" << g << std::endl;
 
 		g.cutBefore(p.preds, p.revisit);
 		EventLabel &lab1 = g.getEventLabel(p.e);
@@ -217,7 +218,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
 			if (it->first.index <= before[it->first.thread])
 				it->second.push_back(p.e);
-//		std::cerr << "After restriction: \n"; printExecGraph(g);
+//		std::cerr << "After restriction: \n" << g << std::endl;
 
 		for (int i = 0; i < initNumThreads; i++) {
 			g.threads[i].ECStack = initStacks[i];

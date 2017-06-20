@@ -192,6 +192,7 @@ public:
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
   void callFree(Function *F, const std::vector<GenericValue> &ArgVals);

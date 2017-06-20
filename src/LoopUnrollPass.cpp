@@ -23,6 +23,7 @@
 #include "vecset.h"
 #include "LoopUnrollPass.hpp"
 #include "DeclareAssumePass.hpp"
+#include "DeclareEndLoopPass.hpp"
 #include "SpinAssumePass.hpp"
 #include "Error.hpp"
 #include <llvm/IR/Module.h>
@@ -40,25 +41,22 @@ const char *LoopUnrollPass::getPassName() const
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	llvm::LoopPass::getAnalysisUsage(au);
-	au.addRequired<DeclareAssumePass>();
-	au.addPreserved<DeclareAssumePass>();
+	au.addRequired<DeclareEndLoopPass>();
+	au.addPreserved<DeclareEndLoopPass>();
 }
 /* TODO: Refactor this brainfucked code */
 llvm::BasicBlock *LoopUnrollPass::makeDivergeBlock(llvm::Loop *l)
 {
-	llvm::Function *parentFun, *assumeFun;
-	llvm::Type *assumeArgTyp;
+	llvm::Function *parentFun, *endLoopFun;
 	llvm::BasicBlock *divergeBlock;
 
 	parentFun = (*l->block_begin())->getParent();
 	divergeBlock = llvm::BasicBlock::Create(parentFun->getContext(), "diverge", parentFun);
 
-	assumeFun = parentFun->getParent()->getFunction("__VERIFIER_assume");
-	BUG_ON(!assumeFun);
-	assumeArgTyp = assumeFun->arg_begin()->getType();
-	
-	llvm::CallInst::Create(assumeFun, {llvm::ConstantInt::get(assumeArgTyp, 0)},
-			       "", divergeBlock);
+	endLoopFun = parentFun->getParent()->getFunction("__end_loop");
+	BUG_ON(!endLoopFun);
+
+	llvm::CallInst::Create(endLoopFun, {}, "", divergeBlock);
 	llvm::BranchInst::Create(divergeBlock, divergeBlock);
 	return divergeBlock;
 }
@@ -76,14 +74,14 @@ void LoopUnrollPass::redirectBranch(int bodyIdx, int blockIdx, int unrollDepth,
 	ti = loopBodies[bodyIdx][blockIdx]->getTerminator();
 	nsucc = ti->getNumSuccessors();
 	for (int i = 0; i < nsucc; i++) {
-		/* 
+		/*
 		 * Check the successors of this block. If one of them directs
 		 * within the loop body we have to check whether it directs
 		 * to the header. Else, we do nothing.
 		 */
 		succ = ti->getSuccessor(i);
 		if (loopBlockIdx.count(succ)) {
-			/* 
+			/*
 			 * This successor directs to the loop header. We either have to
 			 * redirect it to the next loop body, or, if it is the last body,
 			 * to the divergence block. In a different case, we just connect
@@ -98,7 +96,7 @@ void LoopUnrollPass::redirectBranch(int bodyIdx, int blockIdx, int unrollDepth,
 			} else
 				ti->setSuccessor(i, loopBodies[bodyIdx][targetBlock]);
 		}
-	}	
+	}
 }
 
 void LoopUnrollPass::redirectPHIOrValue(int bodyIdx, int blockIdx,
@@ -110,7 +108,7 @@ void LoopUnrollPass::redirectPHIOrValue(int bodyIdx, int blockIdx,
 	int targetIdx;
 	int nvals;
 	int nops;
-	
+
 	for (auto it = loopBodies[bodyIdx][blockIdx]->begin(); it != loopBodies[bodyIdx][blockIdx]->end(); it++) {
 		if (llvm::isa<llvm::PHINode>(*it)) {
 			p = static_cast<llvm::PHINode *>(&*it);
@@ -146,11 +144,11 @@ void LoopUnrollPass::redirectPHIOrValue(int bodyIdx, int blockIdx,
 			}
 		} else {
 			nops = it->getNumOperands();
-			for (int k = 0; k < nops; k++) 
-				if (VMaps[bodyIdx].count(it->getOperand(k))) 
+			for (int k = 0; k < nops; k++)
+				if (VMaps[bodyIdx].count(it->getOperand(k)))
 					it->setOperand(k, VMaps[bodyIdx][it->getOperand(k)]);
 		}
-	}	
+	}
 }
 
 bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
@@ -184,75 +182,19 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 #endif
 		}
 	}
-	
+
 	/* Redirect all branches, value uses, and Φ nodes to the correct loop version */
 	for (int i = 0; i < unrollDepth; i++) {
 		for (int j = 0; j < int(loopBodies[i].size()); j++) {
-			// llvm::TerminatorInst *ti = loopBodies[i][j]->getTerminator();
-			// int nsucc = ti->getNumSuccessors();
-			// for (int k = 0; k < nsucc; k++) {
-			// 	llvm::BasicBlock *succ = ti->getSuccessor(k);
-			// 	if (loopBlockIdx.count(succ)) {
-			// 		int tb = loopBlockIdx[succ];
-			// 		if (tb == 0) {
-			// 			if (i < unrollDepth - 1)
-			// 				ti->setSuccessor(k, loopBodies[i+1][tb]);
-			// 			else
-			// 				ti->setSuccessor(k, divergeBlock);
-			// 		} else
-			// 			ti->setSuccessor(k, loopBodies[i][tb]);
-			// 	}
-			// }
 			redirectBranch(i, j, unrollDepth, divergeBlock, loopBlockIdx, loopBodies);
 			redirectPHIOrValue(i, j, VMaps, loopBlockIdx, loopBodies);
-			// llvm::PHINode *p;
-			// for (auto it = loopBodies[i][j]->begin(); it != loopBodies[i][j]->end(); it++) {
-			// 	if (llvm::isa<llvm::PHINode>(*it)) {
-			// 		p = static_cast<llvm::PHINode *>(&*it);
-			// 		int nvals = p->getNumIncomingValues();
-			// 		for (int k = 0; k < nvals; k++) {
-			// 			if (loopBlockIdx.count(p->getIncomingBlock(k))) {
-			// 				int target = loopBlockIdx[p->getIncomingBlock(k)];
-			// 				if (j == 0) {
-			// 					if (i == 0) {
-			// 						p->removeIncomingValue(k);
-			// 						k--;
-			// 						nvals--;
-			// 					} else {
-			// 						p->setIncomingBlock(k, loopBodies[i-1][target]);
-			// 						if (i - 1 != 0 && VMaps[i].count(p->getIncomingValue(k)))
-			// 							p->setIncomingValue(k, VMaps[i-1][p->getIncomingValue(k)]);
-			// 					}
-			// 				} else {
-			// 					p->setIncomingBlock(k, loopBodies[i][target]);
-			// 					if (i != 0 && VMaps[i].count(p->getIncomingValue(k)))
-			// 						p->setIncomingValue(k, VMaps[i][p->getIncomingValue(k)]);
-			// 				}
-			// 			} else {
-			// 				if (i == 0)
-			// 					;
-			// 				else {
-			// 					p->removeIncomingValue(k);
-			// 					k--;
-			// 					nvals--;
-			// 				}
-			// 			}
-			// 		}
-			// 	} else {
-			// 		int nops = it->getNumOperands();
-			// 		for (int k = 0; k < nops; k++) 
-			// 			if (VMaps[i].count(it->getOperand(k))) 
-			// 				it->setOperand(k, VMaps[i][it->getOperand(k)]);
-			// 	}
-			// }
-
 		}
 	}
 
 	VecSet<llvm::BasicBlock *> uniqueSuccBlocks(succBlocks.begin(), succBlocks.end());
 	for (llvm::BasicBlock *sb : uniqueSuccBlocks) {
 		for (auto it = sb->begin(); llvm::isa<llvm::PHINode>(*it) && it != sb->end(); it++) {
-			
+
 			llvm::PHINode *p = static_cast<llvm::PHINode *>(&*it);
 			std::vector<llvm::Value *> inVals;
 			std::vector<llvm::BasicBlock *> inBlocks;
@@ -285,8 +227,8 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 #endif
 	return true;
 }
-	
-			
+
+
 
 
 char LoopUnrollPass::ID = 42;

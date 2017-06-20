@@ -5,6 +5,7 @@ noinst_LIBRARIES = librcmc.a
 librcmc_a_SOURCES = \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
+  DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
   RCMCDriver.cpp RCMCDriver.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
@@ -26,4 +27,3 @@ bin_PROGRAMS = rcmc
 rcmc_SOURCES = main.cpp
 rcmc_LDADD   = librcmc.a -lclangFrontendTool -lclangFrontend -lclangDriver -lclangSerialization -lclangCodeGen -lclangParse -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend -lclangEdit -lclangAST -lclangLex -lclangBasic
 rcmc_LDFLAGS =`llvm-config --ldflags --libs --system-libs`
-

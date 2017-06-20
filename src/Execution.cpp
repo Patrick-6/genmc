@@ -2801,9 +2801,23 @@ void Interpreter::callAssertFail(Function *F,
 	abort();
 }
 
+void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	/* TODO: Fix check below */
+	if (dryRun) {
+		popStackAndReturnValueToCaller(Type::getVoidTy(F->getContext()),
+					       GenericValue());
+		return;
+	}
+
+	ExecutionGraph &g = *currentEG;
+	g.getThreadECStack(g.currentT).clear();
+}
+
 void Interpreter::callVerifierAssume(Function *F,
 				     const std::vector<GenericValue> &ArgVals)
 {
+	/* TODO: Fix check below */
 	if (dryRun) {
 		popStackAndReturnValueToCaller(Type::getVoidTy(F->getContext()),
 					       GenericValue());
@@ -3072,6 +3086,9 @@ void Interpreter::callFunction(Function *F,
   std::string functionName = F->getName().str();
   if (functionName == "__assert_fail") {
 	  callAssertFail(F, ArgVals);
+	  return;
+  } else if (functionName == "__end_loop") {
+	  callEndLoop(F, ArgVals);
 	  return;
   } else if (functionName == "__VERIFIER_assume") {
 	  callVerifierAssume(F, ArgVals);
