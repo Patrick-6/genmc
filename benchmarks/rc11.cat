@@ -1,0 +1,46 @@
+"RC11" withinit
+
+include "cross.cat"
+
+let mobase = co0
+with mo from generate_orders(W&(A|I),mobase)
+
+let asw = I * (M \ I)
+let sb = po
+
+let cacq = ACQ | (SC & (R | F)) | ACQ_REL | (F & CON)
+let crel = REL | (SC & (W | F)) | ACQ_REL
+
+show mo,fr
+
+let fsb = sb & (F * _)
+let sbf = sb & (_ * F)
+
+let fr = (rf^-1 ; mo) \ id
+let eco = (rf | mo | fr)+
+
+let rs = toid(W) ; (sb & loc)? ; toid(A & W) ; (rf ; toid(R & W))*
+		       
+let sw = 
+ (toid(crel) ; fsb? ; toid(A & W) ; rs ; rf ;
+ toid(R & A) ; sbf? ; toid(cacq))
+								     
+let hb = (asw | sb | sw)+ 
+acyclic hb as Hb
+
+irreflexive (hb? ; eco) as Coh
+
+irreflexive eco as Rmw
+
+acyclic (po | asw | rf) as nothinair
+
+(*
+let psc = ((SC * SC) & (fsb?; (mo | fr | hb); sbf?)) \ id
+acyclic psc as Ssimp 
+*)
+
+(* data_races *)
+let cnf = ((W * _) | (_ * W)) & loc
+let dr = (cnf \ hb \ (hb^-1) \ (A * A))
+
+undefined_unless empty dr as Dr 
