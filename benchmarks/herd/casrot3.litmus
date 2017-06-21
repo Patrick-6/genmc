@@ -1,4 +1,4 @@
-C casrot3
+C casrot/3
 
 { [x] = 0; [zero] = 0; [one] = 1; [two] = 2;}
 
