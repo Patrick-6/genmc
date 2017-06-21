@@ -33,10 +33,11 @@ runvariants() {
     test_time=0
     failure=""
     outcome_failure=""
+    unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1
