@@ -18,12 +18,10 @@ P1 (atomic_int *x, atomic_int *z)
 
 P2 (atomic_int *y, atomic_int *z)
 {
-	atomic_store_explicit(y, 0, memory_order_release);
-	atomic_store_explicit(z, 0, memory_order_release);
+	atomic_store_explicit(y, 1, memory_order_release);
 }
 
 P3 (atomic_int *y, atomic_int *z)
 {
-	atomic_store_explicit(y, 1, memory_order_release);
 	atomic_store_explicit(z, 1, memory_order_release);
 }
