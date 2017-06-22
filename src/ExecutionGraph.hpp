@@ -28,17 +28,19 @@
 #include <unordered_map>
 #include <unordered_set>
 
-/* Types and variables */
-/* TODO: integrate this into EventLabel?? */
-struct RevisitPair {
+/*
+ * StackItem class - This class represents alternative choices for reads which
+ * are pushed to a stack to be visited later.
+ */
+struct StackItem {
 	Event e;
 	Event rf;
 	Event shouldRf;
 	std::vector<int> preds;
 	std::vector<std::pair<Event, std::vector<Event> > > revisit;
 
-	RevisitPair(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		    std::vector<std::pair<Event, std::vector<Event> > > revisit)
+	StackItem(Event e, Event rf, Event shouldRf, std::vector<int> preds,
+		  std::vector<std::pair<Event, std::vector<Event> > > revisit)
 		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
 };
 
@@ -51,7 +53,7 @@ public:
 	std::vector<int> maxEvents;
 	std::vector<std::pair<Event, std::vector<Event> > > revisit;
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
-	std::vector<RevisitPair> workqueue;
+	std::vector<StackItem> workqueue;
 	std::vector<void *> stackAllocas;
 	std::vector<void *> heapAllocas;
 	std::vector<void *> freedMem;

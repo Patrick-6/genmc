@@ -193,7 +193,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			return;
 		}
 
-		RevisitPair &p = g.workqueue.back();
+		StackItem &p = g.workqueue.back();
 		// std::cerr << "Popping from workqueue " << p.e << " should rf "
 		// 	  << p.shouldRf << "\n" << g << std::endl;
 

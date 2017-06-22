@@ -1388,7 +1388,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		Event e = g.getLastThreadEvent(g.currentT);
 		EventLabel &lab = g.getEventLabel(e);
 		for (auto it = stores.begin(); it != stores.end(); ++it)
-			g.workqueue.push_back(RevisitPair(e, lab.rf, *it, preds, g.revisit));
+			g.workqueue.push_back(StackItem(e, lab.rf, *it, preds, g.revisit));
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1587,7 +1587,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
+		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
 	}
 
 	/* Did the CAS operation succeed? */
@@ -1696,7 +1696,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
+		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
 	}
 
 	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
@@ -3055,7 +3055,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(RevisitPair(e, lab.rf, *it, readPreds, g.revisit));
+		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
 	}
 
 	/* Did the CAS operation succeed? */
