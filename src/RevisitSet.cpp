@@ -30,6 +30,17 @@ RevisitSet::RevisitSet() : rev_({}) {}
 
 
 /************************************************************
+ ** Iterators
+ ***********************************************************/
+
+RevisitSet::iterator RevisitSet::begin() { return rev_.begin(); }
+RevisitSet::iterator RevisitSet::end()   { return rev_.end(); }
+
+RevisitSet::const_iterator RevisitSet::cbegin() { return rev_.cbegin(); }
+RevisitSet::const_iterator RevisitSet::cend()   { return rev_.cend(); }
+
+
+/************************************************************
  ** Basic getter/setter methods and existential checks
  ***********************************************************/
 
@@ -77,8 +88,10 @@ void RevisitSet::removePorfAfter(std::vector<int> &after)
  ** Iterators
  ***********************************************************/
 
-RevisitSet::iterator RevisitSet::begin() { return rev_.begin(); }
-RevisitSet::iterator RevisitSet::end()   { return rev_.end(); }
-
-RevisitSet::const_iterator RevisitSet::cbegin() { return rev_.cbegin(); }
-RevisitSet::const_iterator RevisitSet::cend()   { return rev_.cend(); }
+std::ostream& operator<<(std::ostream &s, const RevisitSet &rev)
+{
+	s << "Revisit Set:" << std::endl;
+	for (auto &r : rev.rev_)
+		s << "\t" << r << std::endl;
+	return s;
+}

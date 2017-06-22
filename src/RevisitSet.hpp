@@ -52,6 +52,9 @@ public:
 	/* Set modification methods */
 	void removePorfBefore(std::vector<int> &before);
 	void removePorfAfter(std::vector<int> &before);
+
+	/* Overloaded operators */
+	friend std::ostream& operator<<(std::ostream &s, const RevisitSet &rev);
 };
 
 #endif /* __REVISIT_SET_HPP__ */

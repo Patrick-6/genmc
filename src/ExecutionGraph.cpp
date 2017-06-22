@@ -524,13 +524,7 @@ std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 			s << std::endl;
 		}
 	}
-	// s << "Revisit Set:" << std::endl;
-	// for (auto &l : g.revisit) {
-	// 	s << "\t" << l.first << " [ ";
-	// 	for (auto &r : l.second)
-	// 		s << r << " ";
-	// 	s << "]" << std::endl;
-	// }
+	s << g.revisit;
 	s << "Max Events:" << std::endl;
 	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
 		s << "\t" << g.maxEvents[i] << std::endl;
