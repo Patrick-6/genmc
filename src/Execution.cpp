@@ -259,7 +259,26 @@ bool Interpreter::isReadByAtomicRead(Event w, GenericValue &wVal,
 	return false;
 }
 
-static AtomicOrdering getOrdCntprt(AtomicOrdering ord)
+static AtomicOrdering getReadOrdering(AtomicOrdering ord)
+{
+	switch (ord) {
+	case Monotonic:
+		return Monotonic;
+	case Acquire:
+		return Acquire;
+	case AcquireRelease:
+		return AcquireRelease;
+	case Release:
+		return Acquire;
+	case SequentiallyConsistent:
+		return SequentiallyConsistent;
+	default:
+		WARN("Unreachable\n");
+		return Monotonic;
+	}
+}
+
+static AtomicOrdering getWriteOrdering(AtomicOrdering ord)
 {
 	switch (ord) {
 	case Monotonic:
@@ -268,10 +287,12 @@ static AtomicOrdering getOrdCntprt(AtomicOrdering ord)
 		return Release;
 	case AcquireRelease:
 		return AcquireRelease;
+	case Release:
+		return Release;
 	case SequentiallyConsistent:
 		return SequentiallyConsistent;
 	default:
-		WARN("getOrdCntprt ordering argument does not apply to reads!");
+		WARN("Unreachable\n");
 		return Monotonic;
 	}
 }
@@ -1524,7 +1545,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			g.addCASStoreToGraph(getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
+			g.addCASStoreToGraph(getWriteOrdering(I.getSuccessOrdering()), ptr, newVal, typ);
 			++g.threads[g.currentT].globalInstructions;
 			interpRMW = true;
 		}
@@ -1554,7 +1575,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
-	g.addCASReadToGraph(I.getSuccessOrdering(), ptr, cmpVal, typ, validStores[0]);
+	g.addCASReadToGraph(getReadOrdering(I.getSuccessOrdering()), ptr, cmpVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	readPreds = g.getGraphState();
 //	g.revisit.push_back(e);
@@ -1570,12 +1591,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
-		g.addCASStoreToGraph(getOrdCntprt(I.getSuccessOrdering()), ptr, newVal, typ);
+		g.addCASStoreToGraph(getWriteOrdering(I.getSuccessOrdering()), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
 
 		interpRMW = true;
 	} else {
-		lab.ord = I.getFailureOrdering();
+		lab.ord = getReadOrdering(I.getFailureOrdering());
 	}
 
 	/* Return the appropriate result */
@@ -1624,16 +1645,16 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	Type *typ = I.getType();
 	GenericValue oldVal, newVal;
 
-	WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument");
+	WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument!\n");
 
 	/* TODO: Fix check for global access for both RMW types */
-	if (!isa<GlobalVariable>(I.getPointerOperand())) {
-		LoadValueFromMemory(oldVal, ptr, typ);
-		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-		StoreValueToMemory(newVal, ptr, typ);
-		SetValue(&I, oldVal, SF);
-		return;
-	}
+	// if (!isa<GlobalVariable>(I.getPointerOperand())) {
+	// 	LoadValueFromMemory(oldVal, ptr, typ);
+	// 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+	// 	StoreValueToMemory(newVal, ptr, typ);
+	// 	SetValue(&I, oldVal, SF);
+	// 	return;
+	// }
 
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
@@ -1641,7 +1662,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
-		g.addRMWStoreToGraph(getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
+		g.addRMWStoreToGraph(getWriteOrdering(I.getOrdering()), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
 
 		interpRMW = true;
@@ -1664,7 +1685,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		properlyOrderStores(RMW, typ, ptr, {}, stores);
 
 	/* ... and add a label with the appropriate store. */
-	g.addRMWReadToGraph(I.getOrdering(), ptr, typ, validStores[0]);
+	g.addRMWReadToGraph(getReadOrdering(I.getOrdering()), ptr, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	readPreds = g.getGraphState();
 	g.revisit.push_back(std::make_pair(e, std::vector<Event>()));
@@ -1677,7 +1698,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 
 	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-	g.addRMWStoreToGraph(getOrdCntprt(I.getOrdering()), ptr, newVal, typ);
+	g.addRMWStoreToGraph(getWriteOrdering(I.getOrdering()), ptr, newVal, typ);
 	++g.threads[g.currentT].globalInstructions;
 
 	interpRMW = true;
