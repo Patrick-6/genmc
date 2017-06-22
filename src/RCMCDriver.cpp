@@ -211,13 +211,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		}
 
 		std::vector<int> before = g.getPorfBefore(p.e);
-		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-			if (it->first.index <= before[it->first.thread])
-				g.revisit.erase(it--);
-		before = g.getPorfBefore(p.rf);
-		for (auto it = g.revisit.begin(); it != g.revisit.end(); ++it)
-			if (it->first.index <= before[it->first.thread])
-				it->second.push_back(p.e);
+		g.revisit.removePorfBefore(before);
 //		std::cerr << "After restriction: \n" << g << std::endl;
 
 		for (int i = 0; i < initNumThreads; i++) {
@@ -240,18 +234,6 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			      std::vector<Event> K0, EventLabel &wLab)
 {
-	if (!K0.empty()) {
-		std::vector<int> before = g.getPorfBefore(wLab.pos);
-		for (auto &r : g.revisit) {
-			if (K0.back() != r.first)
-				continue;
-			if (std::any_of(r.second.begin(), r.second.end(),
-					[&before](Event &e)
-					{ return e.index > before[e.thread]; }))
-				return;
-		}
-	}
-
 	for (auto &si : subsets) {
 		std::vector<Event> ls(si);
 		ls.insert(ls.end(), K0.begin(), K0.end());
@@ -278,21 +260,7 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 		eg.cutToCopyAfter(g, after);
 		eg.modifyRfs(ls1, wLab.pos);
 		std::vector<int> before = eg.getPorfBefore(si);
-		for (auto it = eg.revisit.begin(); it != eg.revisit.end(); ++it) {
-			if (it->first.index <= before[it->first.thread])
-				eg.revisit.erase(it--);
-			else
-				it->second.erase(std::remove_if(it->second.begin(),
-						 it->second.end(), [&before](Event &e)
-						 { return e.index <= before[e.thread]; }),
-						 it->second.end());
-		}
-		for (auto it = eg.revisit.begin(); it != eg.revisit.end(); ++it) {
-			after = g.getPorfAfter(it->first);
-			for (auto &s : si)
-				if (s.index >= after[s.thread])
-					it->second.push_back(s);
-		}
+		eg.revisit.removePorfBefore(before);
 		visitGraph(eg);
 	}
 	return;

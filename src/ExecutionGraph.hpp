@@ -23,6 +23,7 @@
 
 #include "Error.hpp"
 #include "Event.hpp"
+#include "RevisitSet.hpp"
 #include "Thread.hpp"
 
 #include <unordered_map>
@@ -37,10 +38,10 @@ struct StackItem {
 	Event rf;
 	Event shouldRf;
 	std::vector<int> preds;
-	std::vector<std::pair<Event, std::vector<Event> > > revisit;
+	RevisitSet revisit;
 
 	StackItem(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		  std::vector<std::pair<Event, std::vector<Event> > > revisit)
+		  RevisitSet revisit)
 		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
 };
 
@@ -51,7 +52,7 @@ class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
-	std::vector<std::pair<Event, std::vector<Event> > > revisit;
+	RevisitSet revisit;
 	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
 	std::vector<StackItem> workqueue;
 	std::vector<void *> stackAllocas;
@@ -97,8 +98,7 @@ public:
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 
 	/* Graph modification methods */
-	void cutBefore(std::vector<int> &preds,
-		       std::vector<std::pair<Event, std::vector<Event> > > &rev);
+	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
 	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
 	void modifyRfs(std::vector<Event> &es, Event store);
 

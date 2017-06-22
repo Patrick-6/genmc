@@ -73,14 +73,10 @@ std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
 	EventLabel &sLab = getEventLabel(store);
 
 	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
-	for (auto &r : revisit) {
-		EventLabel &rLab = getEventLabel(r.first);
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr) {
-			if (std::all_of(r.second.begin(), r.second.end(),
-					[&before](Event &e)
-					{ return e.index <= before[e.thread]; }))
-				ls.push_back(rLab.pos);
-		}
+	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
+		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
+		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
+			ls.push_back(rLab.pos);
 	}
 	return ls;
 }
@@ -297,8 +293,7 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
  ** Graph modification methods
  ***********************************************************/
 
-void ExecutionGraph::cutBefore(std::vector<int> &preds,
-			       std::vector<std::pair<Event, std::vector<Event> > > &rev)
+void ExecutionGraph::cutBefore(std::vector<int> &preds, RevisitSet &rev)
 {
 	for (auto i = 0u; i < threads.size(); i++) {
 		maxEvents[i] = preds[i] + 1;
@@ -340,13 +335,11 @@ void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &aft
 			}
 		}
 	}
-	for (auto &r : other.revisit) {
-		if (r.first.index >= after[r.first.thread])
+	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
+		Event &e = other.revisit.getAtPos(it);
+		if (e.index >= after[e.thread])
 			continue;
-		std::vector<Event> val = {};
-		std::copy_if(r.second.begin(), r.second.end(), std::back_inserter(val),
-			     [&after](Event &e){return e.index < after[e.thread]; });
-		revisit.push_back(std::make_pair(r.first, val));
+		revisit.add(e);
 	}
 	for (auto &o : other.modOrder) {
 		std::copy_if(o.second.begin(), o.second.end(),
@@ -531,13 +524,13 @@ std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
 			s << std::endl;
 		}
 	}
-	s << "Revisit Set:" << std::endl;
-	for (auto &l : g.revisit) {
-		s << "\t" << l.first << " [ ";
-		for (auto &r : l.second)
-			s << r << " ";
-		s << "]" << std::endl;
-	}
+	// s << "Revisit Set:" << std::endl;
+	// for (auto &l : g.revisit) {
+	// 	s << "\t" << l.first << " [ ";
+	// 	for (auto &r : l.second)
+	// 		s << r << " ";
+	// 	s << "]" << std::endl;
+	// }
 	s << "Max Events:" << std::endl;
 	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
 		s << "\t" << g.maxEvents[i] << std::endl;
