@@ -1120,9 +1120,12 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
 
 void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
 {
-	assert(!ECStack()->empty());
+	std::vector<ExecutionContext> ECStack =
+		(dryRun) ? this->ECStack : currentEG->getThreadECStack(currentEG->currentT);
+
+	assert(!ECStack.empty());
 	// fill in the return value...
-	ExecutionContext &CallingSF = currentEG->getThreadECStack(currentEG->currentT).back();
+	ExecutionContext &CallingSF = ECStack.back();
 	if (Instruction *I = CallingSF.Caller.getInstruction()) {
 		// Save result...
 		if (!CallingSF.Caller.getType()->isVoidTy())
@@ -2826,8 +2829,7 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 {
 	/* TODO: Fix check below */
 	if (dryRun) {
-		popStackAndReturnValueToCaller(Type::getVoidTy(F->getContext()),
-					       GenericValue());
+		returnValueToCaller(Type::getVoidTy(F->getContext()), GenericValue());
 		return;
 	}
 
@@ -2840,8 +2842,7 @@ void Interpreter::callVerifierAssume(Function *F,
 {
 	/* TODO: Fix check below */
 	if (dryRun) {
-		popStackAndReturnValueToCaller(Type::getVoidTy(F->getContext()),
-					       GenericValue());
+		returnValueToCaller(Type::getVoidTy(F->getContext()), GenericValue());
 		return;
 	}
 
@@ -2916,25 +2917,30 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
 {
+	if (!dryRun) {
+		WARN("Dynamic thread creation is not supported yet.\n");
+		return;
+	}
+
 	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
 	ExecutionContext SF;
+	GenericValue result;
 
-	if (dryRun) {
-		SF.CurFunction = calledFun;
-		SF.CurBB = &calledFun->front();
-		SF.CurInst = SF.CurBB->begin();
+	SF.CurFunction = calledFun;
+	SF.CurBB = &calledFun->front();
+	SF.CurInst = SF.CurBB->begin();
 
-		/* Calling function needs to take only one argument ... */
-		SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
+	/* Calling function needs to take only one argument ... */
+	SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
 
-		initStacks.push_back({SF});
+	initStacks.push_back({SF});
 
-		initNumThreads++;
-		Thread thr(calledFun, initNumThreads);
-		initGraph.threads.push_back(thr);
+	initNumThreads++;
+	Thread thr(calledFun, initNumThreads);
+	initGraph.threads.push_back(thr);
 
-		/* TODO: Return a value. Also, perform more checks?? */
-	}
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
+	returnValueToCaller(F->getReturnType(), result);
 }
 
 /* callPthreadJoin - Call to pthread_join() function */
