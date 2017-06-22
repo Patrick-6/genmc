@@ -199,6 +199,7 @@ public:
   void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
 

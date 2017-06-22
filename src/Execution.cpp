@@ -2961,6 +2961,21 @@ void Interpreter::callPthreadExit(Function *F,
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 
+void Interpreter::callPthreadMutexInit(Function *F,
+				       const std::vector<GenericValue> &ArgVals)
+{
+	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
+
+	if (attr)
+		WARN("WARNING: Ignoring non-null argument given to pthread_mutex_init.\n");
+
+	/* Just return 0 */
+	GenericValue result;
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
+	returnValueToCaller(F->getReturnType(), result);
+}
+
 void Interpreter::callPthreadMutexLock(Function *F,
 				       const std::vector<GenericValue> &ArgVals)
 {
@@ -3134,6 +3149,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "pthread_exit") {
 	  callPthreadExit(F, ArgVals);
+	  return;
+  } else if (functionName == "pthread_mutex_init") {
+	  callPthreadMutexInit(F, ArgVals);
 	  return;
   } else if (functionName == "pthread_mutex_lock") {
 	  callPthreadMutexLock(F, ArgVals);
