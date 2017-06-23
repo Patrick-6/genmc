@@ -88,10 +88,10 @@ void RevisitSet::removePorfAfter(std::vector<int> &after)
  ** Iterators
  ***********************************************************/
 
-std::ostream& operator<<(std::ostream &s, const RevisitSet &rev)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev)
 {
-	s << "Revisit Set:" << std::endl;
+	s << "Revisit Set:\n";
 	for (auto &r : rev.rev_)
-		s << "\t" << r << std::endl;
+		s << "\t" << r << "\n";
 	return s;
 }

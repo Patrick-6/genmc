@@ -23,8 +23,8 @@
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/Support/raw_ostream.h>
 
-#include <iostream>
 #include <list>
 
 enum EventType { R, W, NA };
@@ -43,7 +43,7 @@ struct Event {
 	Event prev() { return Event(thread, index-1); };
 	Event next() { return Event(thread, index+1); };
 
-	friend std::ostream& operator<<(std::ostream &s, const Event &e);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e);
 
 	inline bool operator==(const Event &e) const {
 		return e.index == index && e.thread == thread;
@@ -85,7 +85,7 @@ public:
 	bool isAtLeastRelease() const;
 	bool isRMW() const;
 
-	friend std::ostream& operator<<(std::ostream &s, const EventLabel &lab);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };
 
 #endif /* __EVENT_HPP__ */

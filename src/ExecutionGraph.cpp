@@ -436,8 +436,8 @@ void ExecutionGraph::validateGraph(void)
 						readExists = true;
 				if (!readExists) {
 					WARN("Read event is not the appropriate rf-1 list!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << *this << std::endl;
+					llvm::dbgs() << lab.pos << "\n";
+					llvm::dbgs() << *this << "\n";
 					abort();
 				}
 			} else if (lab.type == W) {
@@ -449,8 +449,8 @@ void ExecutionGraph::validateGraph(void)
 						writeExists = true;
 				if (!writeExists) {
 					WARN("Write event is not marked in the read event!\n");
-					std::cerr << lab.pos << std::endl;
-					std::cerr << *this << std::endl;
+					llvm::dbgs() << lab.pos << "\n";
+					llvm::dbgs() << *this << "\n";
 					abort();
 				}
 			}
@@ -522,7 +522,7 @@ void ExecutionGraph::printTraceBefore(Event e)
 	std::stringstream buf;
 	std::vector<int> a(threads.size(), 0);
 	calcTraceBefore(e, a, buf);
-	std::cerr << buf.str();
+	llvm::dbgs() << buf.str();
 }
 
 
@@ -530,25 +530,22 @@ void ExecutionGraph::printTraceBefore(Event e)
  ** Overloaded operators
  ***********************************************************/
 
-std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 {
-	s << std::endl;
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		const Thread &thr = g.threads[i];
-		s << thr << std::endl;
+		s << thr << "\n";
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			const EventLabel &lab = thr.eventList[j];
-			s << "\t" << lab;
+			s << "\t" << lab << "\n";
 			if (lab.type == R)
-				s << "\n\t\treads from: " << lab.rf;
-			s << std::endl;
+				s << "\t\treads from: " << lab.rf << "\n";
 		}
 	}
 	s << g.revisit;
-	s << "Max Events:" << std::endl;
+	s << "Max Events:\n";
 	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
-		s << "\t" << g.maxEvents[i] << std::endl;
-	s << std::endl;
+		s << "\t" << g.maxEvents[i] << "\n";
 	return s;
 }
 

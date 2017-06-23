@@ -21,32 +21,31 @@
 #include "Event.hpp"
 #include <llvm/IR/Instructions.h>
 
-#include <iostream>
 #include <cassert>
 
 EventLabel::EventLabel(EventType typ, Event e)
 	: type(typ), pos(e) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val,
 		       llvm::Type *valTyp, Event w)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
 	  valTyp(valTyp), rf(w) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e, 
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val,
 		       llvm::Type *valTyp, std::list<Event> rfm1)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
 	  valTyp(valTyp), rfm1(rfm1) {}
-	
+
 
 bool EventLabel::isRead() const
 {
@@ -79,7 +78,7 @@ bool EventLabel::isRMW() const
 	return attr != Plain;
 }
 
-std::ostream& operator<<(std::ostream &s, const EventType &t)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 {
 	switch (t) {
 	case R : return s << "R";
@@ -88,7 +87,7 @@ std::ostream& operator<<(std::ostream &s, const EventType &t)
 	}
 }
 
-std::ostream& operator<<(std::ostream &s, const EventAttr &a)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
 {
 	switch (a) {
 	case Plain : return s << "";
@@ -97,12 +96,12 @@ std::ostream& operator<<(std::ostream &s, const EventAttr &a)
 	}
 }
 
-std::ostream& operator<<(std::ostream &s, const Event &e)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
 {
 	return s << "Event (" << e.thread << ", " << e.index << ")";
 }
 
-std::ostream& operator<<(std::ostream &s, const EventLabel &lab)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab)
 {
 	return s << "EventLabel (Type: " << lab.type << ", "
 		 << lab.pos << (lab.isRMW() ? ", " : "")

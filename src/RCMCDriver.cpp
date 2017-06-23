@@ -23,11 +23,10 @@
 #include "RCMCDriver.hpp"
 #include "Interpreter.h"
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/Format.h>
 
 #include <algorithm>
 #include <csignal>
-#include <iomanip>
-#include <iostream>
 #include <sstream>
 #include <unordered_set>
 
@@ -72,12 +71,11 @@ void RCMCDriver::printResults()
 {
 	std::stringstream dups;
 	dups << " (" << duplicates << " duplicates)";
-	std::cerr << "Number of complete executions explored: " << explored
-		  << ((userConf->countDuplicateExecs) ? dups.str() : "")
-		  << std::endl;
-	std::cerr << "Total wall-clock time: " << std::fixed << std::setprecision(2)
-		  << ((float) clock() - start)/CLOCKS_PER_SEC
-		  << "s" << std::endl;
+	llvm::dbgs() << "Number of complete executions explored: " << explored
+		     << ((userConf->countDuplicateExecs) ? dups.str() : "") << "\n";
+	llvm::dbgs() << "Total wall-clock time: "
+		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
+		     << "s\n";
 }
 
 void RCMCDriver::run()
@@ -166,9 +164,10 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			executionCompleted = true;
 		} else {
 			if (userConf->printExecGraphs)
-				std::cerr << g << std::endl;
+				llvm::dbgs() << g << "\n";
 			if (userConf->countDuplicateExecs) {
-				std::stringstream buf;
+				std::string exec;
+				llvm::raw_string_ostream buf(exec);
 				buf << g;
 				if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
 					++duplicates;

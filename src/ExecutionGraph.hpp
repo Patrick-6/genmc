@@ -117,7 +117,7 @@ public:
 	void printTraceBefore(Event e);
 
 	/* Overloaded operators */
-	friend std::ostream& operator<<(std::ostream &s, const ExecutionGraph &g);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
 	void addEventToGraph(EventLabel &lab);

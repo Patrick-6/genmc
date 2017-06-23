@@ -22,6 +22,7 @@
 #define __REVISIT_SET_HPP__
 
 #include "Event.hpp"
+#include <llvm/Support/raw_ostream.h>
 
 /*
  * RevisitSet class - This class represents the revisit set of an ExecutionGraph
@@ -54,7 +55,7 @@ public:
 	void removePorfAfter(std::vector<int> &before);
 
 	/* Overloaded operators */
-	friend std::ostream& operator<<(std::ostream &s, const RevisitSet &rev);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev);
 };
 
 #endif /* __REVISIT_SET_HPP__ */

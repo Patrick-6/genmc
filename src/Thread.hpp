@@ -42,7 +42,7 @@ public:
 	Thread();
 	Thread(llvm::Function *F);
 	Thread(llvm::Function *F, int id);
-	friend std::ostream& operator<<(std::ostream &s, const Thread &t);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t);
 };
 
 extern bool dryRun;

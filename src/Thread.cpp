@@ -36,7 +36,7 @@ Thread::Thread(llvm::Function *F)
 Thread::Thread(llvm::Function *F, int id)
 	: id(id), parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false) {}
 
-std::ostream& operator<<(std::ostream &s, const Thread &t)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t)
 {
 	return s << "Thread (id: " << t.id << ", parent: " << t.parentId << ", function: "
 		 << t.threadFun->getName().str() << ")";
