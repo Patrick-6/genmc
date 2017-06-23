@@ -542,7 +542,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 				s << "\t\treads from: " << lab.rf << "\n";
 		}
 	}
-	s << g.revisit;
 	s << "Max Events:\n";
 	for (unsigned int i = 0; i < g.maxEvents.size(); i++)
 		s << "\t" << g.maxEvents[i] << "\n";

@@ -164,7 +164,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			executionCompleted = true;
 		} else {
 			if (userConf->printExecGraphs)
-				llvm::dbgs() << g << "\n";
+				llvm::dbgs() << g << g.revisit << "\n";
 			if (userConf->countDuplicateExecs) {
 				std::string exec;
 				llvm::raw_string_ostream buf(exec);
