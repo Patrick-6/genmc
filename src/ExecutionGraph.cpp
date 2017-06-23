@@ -52,6 +52,13 @@ Event ExecutionGraph::getLastThreadEvent(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].pos;
 }
 
+std::vector<Event> ExecutionGraph::getLocModOrder(llvm::GenericValue *addr)
+{
+	if (!modOrder.count(addr))
+		return std::vector<Event>();
+	return modOrder[addr];
+}
+
 std::vector<int> ExecutionGraph::getGraphState(void)
 {
 	std::vector<int> state;
@@ -290,6 +297,58 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 
 
 /************************************************************
+ ** Calculation of writes a read can read from
+ ***********************************************************/
+
+bool ExecutionGraph::isWriteRfBefore(std::vector<int> &before, Event e)
+{
+	if (e.index <= before[e.thread])
+		return true;
+
+	EventLabel &lab = getEventLabel(e);
+	WARN_ON(!lab.isWrite(), "Modification order should contain writes only!");
+	for (auto &e : lab.rfm1) {
+		if (e.index <= before[e.thread] && !revisit.contains(e))
+			return true;
+	}
+	return false;
+}
+
+std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *addr, int thread)
+{
+	std::vector<Event> boundary;
+	std::vector<int> before = getHbBefore(getLastThreadEvent(thread));
+	for (auto &e : getLocModOrder(addr))
+		if (isWriteRfBefore(before, e))
+			boundary.push_back(e.prev());
+	return boundary;
+}
+
+std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr)
+{
+	std::vector<Event> stores;
+	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
+	if (overwritten.empty()) {
+		std::vector<Event> locMO = getLocModOrder(addr);
+		stores.push_back(Event(0, 0));
+		stores.insert(stores.end(), locMO.begin(), locMO.end());
+		return stores;
+	}
+
+	std::vector<int> before = getHbBefore(overwritten);
+	for (auto i = 0u; i < threads.size(); i++) {
+		Thread &thr = threads[i];
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.isWrite() && lab.addr == addr)
+				stores.push_back(lab.pos);
+		}
+	}
+	return stores;
+}
+
+
+/************************************************************
  ** Graph modification methods
  ***********************************************************/
 
@@ -373,6 +432,7 @@ void ExecutionGraph::clearAllStacks(void)
 	std::for_each(threads.begin(), threads.end(), [](Thread &t)
 		      { t.ECStack.clear(); });
 }
+
 
 /************************************************************
  ** Consistency checks

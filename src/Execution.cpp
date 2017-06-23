@@ -47,62 +47,6 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-static std::vector<Event> getLocModOrder(ExecutionGraph &g, GenericValue *addr)
-{
-	if (!g.modOrder.count(addr))
-		return std::vector<Event>();
-	return g.modOrder[addr];
-}
-
-static bool isWriteRfBefore(ExecutionGraph &g, std::vector<int> &before, Event e)
-{
-	if (e.index <= before[e.thread])
-		return true;
-
-	EventLabel &lab = g.getEventLabel(e);
-	WARN_ON(lab.type != W, "Modification order should contain writes only!");
-	for (auto &e : lab.rfm1) {
-		if (e.index <= before[e.thread] && !g.revisit.contains(e))
-			return true;
-	}
-	return false;
-}
-
-static std::vector<Event> findOverwrittenBoundary(ExecutionGraph &g, GenericValue *addr,
-						  int thread)
-{
-	std::vector<Event> boundary;
-	std::vector<int> before = g.getHbBefore(g.getLastThreadEvent(thread));
-	for (auto &e : getLocModOrder(g, addr))
-		if (isWriteRfBefore(g, before, e))
-			boundary.push_back(e.prev());
-	return boundary;
-}
-
-std::vector<Event> Interpreter::getStoresToLoc(GenericValue *addr)
-{
-	ExecutionGraph &g = *currentEG;
-	std::vector<Event> stores;
-	std::vector<Event> overwritten = findOverwrittenBoundary(g, addr, g.currentT);
-	if (overwritten.empty()) {
-		std::vector<Event> locMO = getLocModOrder(g, addr);
-		stores.push_back(Event(0, 0));
-		stores.insert(stores.end(), locMO.begin(), locMO.end());
-		return stores;
-	}
-
-	std::vector<int> before = g.getHbBefore(overwritten);
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = before[i] + 1; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isWrite() && lab.addr == addr)
-				stores.push_back(lab.pos);
-		}
-	}
-	return stores;
-}
-
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
 bool Interpreter::isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
@@ -1359,7 +1303,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		}
 
 		/* Get all stores to this location from which we can read from */
-		std::vector<Event> stores = getStoresToLoc(ptr);
+		std::vector<Event> stores = g.getStoresToLoc(ptr);
 		std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 
 		/* Calculate the appropriate write to read from */
@@ -1568,7 +1512,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
@@ -1677,7 +1621,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(RMW, typ, ptr, {}, stores);
 
@@ -3009,7 +2953,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 

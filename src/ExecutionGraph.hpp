@@ -21,6 +21,7 @@
 #ifndef __EXECUTION_GRAPH_HPP__
 #define __EXECUTION_GRAPH_HPP__
 
+#include "Config.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
 #include "RevisitSet.hpp"
@@ -70,6 +71,7 @@ public:
 	EventLabel& getEventLabel(Event &e);
 	EventLabel& getPreviousLabel(Event &e);
 	Event getLastThreadEvent(int thread);
+	std::vector<Event> getLocModOrder(llvm::GenericValue *addr);
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
 	std::vector<Event> getRevisitLoads(Event store);
@@ -96,6 +98,9 @@ public:
 	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
 	std::vector<int> getHbBefore(Event e);
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
+
+	/* Calculation of writes a read can read from */
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 
 	/* Graph modification methods */
 	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
@@ -127,6 +132,8 @@ protected:
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
+	bool isWriteRfBefore(std::vector<int> &before, Event e);
+	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 };
 
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
