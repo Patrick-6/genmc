@@ -2844,19 +2844,8 @@ void Interpreter::callVerifierAssume(Function *F,
 	bool cond = ArgVals[0].IntVal.getBoolValue();
 
 	/* TODO: When support for nested functions is added, rewrite this */
-	if (!cond) {
-		Event e = g.getLastThreadEvent(g.currentT);
-		std::vector<int> before = g.getPorfBefore(e);
-		if (!g.revisit.containsPorfBefore(before)) {
-			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
-				      { t.ECStack.clear(); });
-			shouldContinue = false;
-			return;
-		}
-
-		g.getThreadECStack(g.currentT).clear();
-		g.threads[g.currentT].isBlocked = true;
-	}
+	if (!cond)
+		g.tryToBacktrack();
 }
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2998,17 +2987,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
 			interpRMW = true;
 		} else {
-			Event e = g.getLastThreadEvent(g.currentT);
-			std::vector<int> before = g.getPorfBefore(e);
-			if (!g.revisit.containsPorfBefore(before)) {
-				std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
-					      { t.ECStack.clear(); });
-//				ECStacks.clear();
-				shouldContinue = false;
-				return;
-			}
-			g.getThreadECStack(g.currentT).clear();
-			g.threads[g.currentT].isBlocked = true;
+			g.tryToBacktrack();
 			return;
 		}
 
@@ -3055,17 +3034,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
 		interpRMW = true;
 	} else {
-		Event e = g.getLastThreadEvent(g.currentT);
-		std::vector<int> before = g.getPorfBefore(e);
-		if (!g.revisit.containsPorfBefore(before)) {
-			std::for_each(g.threads.begin(), g.threads.end(), [](Thread &t)
-				      { t.ECStack.clear(); });
-			shouldContinue = false;
-			return;
-		}
-//		getECStack()->pop_back();
-		g.getThreadECStack(g.currentT).clear();
-		g.threads[g.currentT].isBlocked = true;
+		g.tryToBacktrack();
 		return;
 	}
 

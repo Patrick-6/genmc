@@ -368,6 +368,12 @@ void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
 	return;
 }
 
+void ExecutionGraph::clearAllStacks(void)
+{
+	std::for_each(threads.begin(), threads.end(), [](Thread &t)
+		      { t.ECStack.clear(); });
+}
+
 /************************************************************
  ** Consistency checks
  ***********************************************************/
@@ -391,6 +397,20 @@ bool ExecutionGraph::scheduleNext(void)
 		}
 	}
 	return false;
+}
+
+void ExecutionGraph::tryToBacktrack(void)
+{
+	Event e = getLastThreadEvent(currentT);
+	std::vector<int> before = getPorfBefore(e);
+	if (!revisit.containsPorfBefore(before)) {
+		clearAllStacks();
+		shouldContinue = false;
+		return;
+	}
+
+	getThreadECStack(currentT).clear();
+	threads[currentT].isBlocked = true;
 }
 
 

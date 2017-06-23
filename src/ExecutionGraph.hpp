@@ -101,12 +101,14 @@ public:
 	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
 	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
 	void modifyRfs(std::vector<Event> &es, Event store);
+	void clearAllStacks(void);
 
 	/* Consistency checks */
 	bool isConsistent();
 
 	/* Graph exploration methods */
 	bool scheduleNext(void);
+	void tryToBacktrack(void);
 
 	/* Debugging methods */
 	void validateGraph(void);
