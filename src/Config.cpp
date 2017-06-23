@@ -36,7 +36,7 @@ static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /* Command-line argument types, default values and descriptions */
 llvm::cl::opt<ModelType>
-clModelType("model-type", llvm::cl::values(
+clModelType("model", llvm::cl::values(
 		    clEnumVal(WeakRA, "WeakRA model"),
 		    clEnumVal(MO, "MO model"),
 		    clEnumVal(WB, "WB model"), NULL),

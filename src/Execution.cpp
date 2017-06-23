@@ -1303,31 +1303,25 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		}
 
 		/* Get all stores to this location from which we can read from */
-		std::vector<Event> stores = g.getStoresToLoc(ptr);
-		std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+		std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+		std::vector<Event> validStores =
+			properlyOrderStores(Plain, typ, ptr, {}, stores);
 
-		/* Calculate the appropriate write to read from */
-		std::vector<int> preds;
-		for (auto it = stores.begin(); it != stores.end(); ++it) {
-			/* ... and add a label for the new read to the graph */
-			if (it->index <= before[it->thread]) {
-				g.addReadToGraph(I.getOrdering(), ptr, typ, *it);
-				Event e = g.getLastThreadEvent(g.currentT);
-				preds = g.getGraphState();
-				g.revisit.add(e);
-				/* Also, set the return value for this instruction */
-				SetValue(&I, loadValueFromWrite(*it, typ, ptr), SF);
-				/* Finally, erase from the vector the store we read from */
-				stores.erase(it);
-				break;
-			}
+		/* ... and add a label with the appropriate store. */
+		g.addReadToGraph(I.getOrdering(), ptr, typ, validStores[0]);
+		Event e = g.getLastThreadEvent(g.currentT);
+		g.revisit.add(e);
+
+
+		/* Push all the other alternatives choices to the Stack */
+		std::vector<int> preds = g.getGraphState();
+		EventLabel &lab = g.getEventLabel(e);
+		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
+			g.workqueue.push_back(StackItem(e, lab.rf, *it, preds, g.revisit));
 		}
 
-		/* Push the rest of the stores we can read from to the stack */
-		Event e = g.getLastThreadEvent(g.currentT);
-		EventLabel &lab = g.getEventLabel(e);
-		for (auto it = stores.begin(); it != stores.end(); ++it)
-			g.workqueue.push_back(StackItem(e, lab.rf, *it, preds, g.revisit));
+		/* Last, set the return value for this instruction */
+		SetValue(&I, loadValueFromWrite(validStores[0], typ, ptr), SF);
 		return;
 	}
   ExecutionContext &SF = ECStack.back();
@@ -1376,8 +1370,8 @@ Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 	for (auto &e : es)
 		if (e.index <= before[e.thread])
 			return e;
-	WARN("ERROR! No (po U rf)-before event found in store list!");
-	return Event();
+	WARN("ERROR! No (po U rf)-before event found in store list!\n");
+	abort();
 }
 
 Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
@@ -1419,8 +1413,8 @@ Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
 	case RMW:
 		return getFirstNonConflictingRMW(tentative, typ, ptr);
 	default:
-		WARN("Unreachable");
-		return Event();
+		WARN("Unreachable\n");
+		abort();
 	}
 }
 
@@ -1440,7 +1434,9 @@ std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
 		if (s == final)
 			continue;
 		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
-		if (attr == CAS) {
+		if (attr == Plain) {
+			validStores.push_back(s);
+		} else if (attr == CAS) {
 			GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
 			if (cmpRes.IntVal.getBoolValue() == 0 ||
 			    RMWCanReadFromWrite(s, oldVal, typ, ptr))
@@ -1450,6 +1446,7 @@ std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
 				validStores.push_back(s);
 		} else {
 			WARN("Unreachable\n");
+			abort();
 		}
 	}
 	return validStores;
@@ -1512,7 +1509,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
@@ -1621,7 +1618,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 	std::vector<Event> validStores =
 		properlyOrderStores(RMW, typ, ptr, {}, stores);
 
@@ -2953,7 +2950,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	std::vector<int> readPreds;
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr);
+	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 

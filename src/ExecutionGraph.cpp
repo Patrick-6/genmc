@@ -324,7 +324,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 	return boundary;
 }
 
-std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr)
+std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
@@ -345,6 +345,23 @@ std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr)
 		}
 	}
 	return stores;
+}
+
+std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
+{
+}
+
+std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, ModelType model)
+{
+	switch (model) {
+	case WeakRA:
+		return getStoresWeakRA(addr);
+	case MO:
+		return getStoresMO(addr);
+	default:
+		WARN("Unimplemented model.\n");
+		abort();
+	}
 }
 
 

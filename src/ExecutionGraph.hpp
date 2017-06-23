@@ -100,7 +100,7 @@ public:
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 
 	/* Calculation of writes a read can read from */
-	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr, ModelType model);
 
 	/* Graph modification methods */
 	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
@@ -134,6 +134,8 @@ protected:
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
+	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
+	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 };
 
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
