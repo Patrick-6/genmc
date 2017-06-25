@@ -134,7 +134,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				Event s = g.getLastThreadEvent(g.currentT);
 				EventLabel &sLab = g.getEventLabel(s);
 
-				g.modOrder.addAtLoc(sLab.addr, sLab.pos);
+				g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
 				std::vector<Event> ls = g.getRevisitLoads(s);
 				std::vector<std::vector<Event > > rSets =
 					EE->calcRevisitSets(ls, {}, sLab);
@@ -239,7 +239,7 @@ void RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
 	EventLabel &sLab = g.getEventLabel(s);
 	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
 
-	g.modOrder.addAtLoc(sLab.addr, sLab.pos);
+	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
 	std::vector<Event> ls = g.getRevisitLoads(s);
 	llvm::GenericValue val =
 		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
@@ -259,8 +259,15 @@ void RCMCDriver::visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ)
 	EventLabel &sLab = g.getEventLabel(s);
 	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
 
-	g.modOrder.addAtLoc(sLab.addr, sLab.pos);
-	std::vector<Event> ls = g.getRevisitLoads(s);
+	std::vector<Event> ls;
+	std::vector<Event>::iterator pos = g.modOrder.getRMWPos(lab.addr, lab.rf);
+	if (pos == g.modOrder.getAtLoc(lab.addr).end()) {
+		g.modOrder.addAtLocEnd(lab.addr, s);
+		ls = g.getRevisitLoads(s);
+	} else {
+		g.modOrder.addAtLocPos(lab.addr, pos, s);
+		ls = g.getRevisitLoadsNonMaximal(s);
+	}
 	llvm::GenericValue val =
 		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
 	std::vector<Event> pendingRMWs =

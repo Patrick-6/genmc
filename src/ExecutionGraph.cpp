@@ -81,6 +81,44 @@ std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
 	return ls;
 }
 
+void ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO,
+				     std::vector<Event> &ls)
+{
+	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
+		if (*rit == store)
+			return;
+		EventLabel &lab = getEventLabel(*rit);
+		if (lab.isWrite()) {
+			ls.push_back(lab.pos);
+			for (auto &l : lab.rfm1)
+				ls.push_back(l);
+		}
+	}
+	WARN("Store has to be present in this location's modification order\n");
+	abort();
+}
+
+std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
+{
+	std::vector<Event> ls;
+	std::vector<int> before = getPorfBefore(store);
+	EventLabel &sLab = getEventLabel(store);
+
+	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
+	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
+		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
+		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
+			ls.push_back(rLab.pos);
+	}
+
+	std::vector<Event> locMO = modOrder.getAtLoc(sLab.addr);
+	calcOptionalRfs(store, locMO, ls);
+	std::vector<int> after = getHbAfter(ls);
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&after](Event e)
+				{ return after[e.thread] > e.index; }), ls.end());
+	return ls;
+}
+
 
 /************************************************************
  ** Basic setter methods
@@ -271,6 +309,52 @@ void ExecutionGraph::calcHbBefore(const Event &e, std::vector<int> &a)
 	return;
 }
 
+void ExecutionGraph::calcHbAfter(const Event &e, std::vector<int> &a)
+{
+	int ai = a[e.thread];
+	if (e.index >= ai)
+		return;
+
+	a[e.thread] = e.index;
+	Thread &thr = threads[e.thread];
+	for (int i = e.index; i <= ai; i++) {
+		if (i >= maxEvents[e.thread])
+			break;
+		EventLabel &lab = thr.eventList[i];
+		if (lab.isWrite() && lab.isAtLeastRelease()) {
+			for (auto &r : lab.rfm1) {
+				EventLabel &rLab = getEventLabel(r);
+				if (rLab.isAtLeastAcquire())
+					calcHbAfter(r, a);
+			}
+		}
+	}
+	return;
+}
+
+std::vector<int> ExecutionGraph::getHbAfter(Event e)
+{
+	std::vector<int> a(threads.size());
+
+	for (auto i = 0u; i < a.size(); i++)
+		a[i] = maxEvents[i];
+
+	calcHbAfter(Event(e.thread, e.index + 1), a);
+	return a;
+}
+
+std::vector<int> ExecutionGraph::getHbAfter(const std::vector<Event> &es)
+{
+	std::vector<int> a(threads.size());
+
+	for (auto i = 0u; i < a.size(); i++)
+		a[i] = maxEvents[i];
+
+	for (auto &e : es)
+		calcHbAfter(Event(e.thread, e.index + 1), a);
+	return a;
+}
+
 std::vector<int> ExecutionGraph::getHbBefore(Event e)
 {
 	std::vector<int> a(threads.size(), 0);
@@ -447,7 +531,7 @@ void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &aft
 		std::vector<Event> locMO = other.modOrder.getAtLoc(addr);
 		for (auto &s : locMO)
 			if (s.index < after[s.thread])
-				modOrder.addAtLoc(addr, s);
+				modOrder.addAtLocEnd(addr, s);
 	}
 }
 

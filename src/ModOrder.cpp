@@ -54,9 +54,14 @@ std::vector<Event> ModOrder::getAtLoc(llvm::GenericValue *addr)
 	return mo_[addr];
 }
 
-void ModOrder::addAtLoc(llvm::GenericValue *addr, Event e)
+void ModOrder::addAtLocEnd(llvm::GenericValue *addr, Event e)
 {
 	mo_[addr].push_back(e);
+}
+
+void ModOrder::addAtLocPos(llvm::GenericValue *addr, std::vector<Event>::iterator it, Event e)
+{
+	mo_[addr].insert(it, e);
 }
 
 void ModOrder::setLoc(llvm::GenericValue *addr, std::vector<Event> &locMO)
@@ -64,6 +69,16 @@ void ModOrder::setLoc(llvm::GenericValue *addr, std::vector<Event> &locMO)
 	mo_[addr] = locMO;
 }
 
+std::vector<Event>::iterator ModOrder::getRMWPos(llvm::GenericValue *addr, Event rf)
+{
+	if (rf.isInitializer())
+		return mo_[addr].begin();
+
+	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it)
+		if (*it == rf)
+			return ++it;
+	return mo_[addr].end();
+}
 
 /************************************************************
  ** Overloaded operators

@@ -75,6 +75,7 @@ public:
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
 	std::vector<Event> getRevisitLoads(Event store);
+	std::vector<Event> getRevisitLoadsNonMaximal(Event store);
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -96,6 +97,8 @@ public:
 	std::vector<int> getPorfBefore(Event e);
 	std::vector<int> getPorfBefore(const std::vector<Event> &es);
 	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
+	std::vector<int> getHbAfter(Event e);
+	std::vector<int> getHbAfter(const std::vector<Event> &es);
 	std::vector<int> getHbBefore(Event e);
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 
@@ -130,8 +133,10 @@ protected:
 	void addStoreToGraphCommon(EventLabel &lab);
 	void calcPorfAfter(const Event &e, std::vector<int> &a);
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
+	void calcHbAfter(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
+	void calcOptionalRfs(Event store, std::vector<Event> &locMO, std::vector<Event> &ls);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<std::vector<Event> > splitLocMOBefore(std::vector<int> &before,
