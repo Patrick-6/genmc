@@ -134,6 +134,8 @@ protected:
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
+	std::vector<std::vector<Event> > partitionLocMO(std::vector<int> &before,
+							std::vector<Event> &stores);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 };

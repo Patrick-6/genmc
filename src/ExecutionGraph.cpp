@@ -54,8 +54,8 @@ Event ExecutionGraph::getLastThreadEvent(int thread)
 
 std::vector<Event> ExecutionGraph::getLocModOrder(llvm::GenericValue *addr)
 {
-	if (!modOrder.count(addr))
-		return std::vector<Event>();
+	// if (!modOrder.count(addr))
+	// 	return std::vector<Event>();
 	return modOrder[addr];
 }
 
@@ -139,7 +139,6 @@ void ExecutionGraph::addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericVa
 void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 {
 	addEventToGraph(lab);
-	modOrder[lab.addr].push_back(lab.pos);
 	return;
 }
 
@@ -306,7 +305,7 @@ bool ExecutionGraph::isWriteRfBefore(std::vector<int> &before, Event e)
 		return true;
 
 	EventLabel &lab = getEventLabel(e);
-	WARN_ON(!lab.isWrite(), "Modification order should contain writes only!");
+	WARN_ON(!lab.isWrite(), "Modification order should contain writes only!\n");
 	for (auto &e : lab.rfm1) {
 		if (e.index <= before[e.thread] && !revisit.contains(e))
 			return true;
@@ -347,8 +346,41 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 	return stores;
 }
 
+std::vector<std::vector<Event> > ExecutionGraph::partitionLocMO(std::vector<int> &before,
+								std::vector<Event> &stores)
+{
+	std::vector<std::vector<Event> > result;
+	std::vector<Event> revConcStores;
+	std::vector<Event> prevStores;
+	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
+		if (!isWriteRfBefore(before, *rit)) {
+			revConcStores.push_back(*rit);
+		} else {
+			prevStores.push_back(*rit);
+			result.push_back(revConcStores);
+			result.push_back(prevStores);
+			return result;
+		}
+	}
+	result.push_back(revConcStores);
+	result.push_back({});
+	return result;
+
+}
+
 std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
 {
+	std::vector<Event> stores;
+	std::vector<int> before = getHbBefore(getLastThreadEvent(currentT));
+	std::vector<Event> locMO = getLocModOrder(addr);
+
+	std::vector<std::vector<Event> > partStores = partitionLocMO(before, locMO);
+	if (partStores[1].empty())
+		stores.push_back(Event(0, 0));
+	else
+		stores.push_back(partStores[1].back());
+	stores.insert(stores.end(), partStores[0].begin(), partStores[0].end());
+	return stores;
 }
 
 std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, ModelType model)

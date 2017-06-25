@@ -134,30 +134,18 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				Event s = g.getLastThreadEvent(g.currentT);
 				EventLabel &sLab = g.getEventLabel(s);
 
+				g.modOrder[sLab.addr].push_back(sLab.pos);
 				std::vector<Event> ls = g.getRevisitLoads(s);
 				std::vector<std::vector<Event > > rSets =
 					EE->calcRevisitSets(ls, {}, sLab);
 				revisitReads(g, rSets, {}, sLab);
 			} else if (interpRMW) {
-				Event s = g.getLastThreadEvent(g.currentT);
-				EventLabel &sLab = g.getEventLabel(s);
-				EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
-				std::vector<Event> ls = g.getRevisitLoads(s);
 				llvm::Type *typ;
 				if (llvm::isa<llvm::AtomicCmpXchgInst>(I))
 					typ = llvm::cast<llvm::AtomicCmpXchgInst>(I).getCompareOperand()->getType();
 				else
 					typ = I.getType();
-				llvm::GenericValue val =
-					EE->loadValueFromWrite(lab.rf, typ, lab.addr);
-				std::vector<Event> pendingRMWs =
-					EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
-				std::vector<std::vector<Event> > rSets =
-					EE->calcRevisitSets(ls, pendingRMWs, sLab);
-
-				revisitReads(g, rSets, pendingRMWs, sLab);
-				if (!pendingRMWs.empty())
-					shouldContinue = false;
+				visitRMWStore(g, typ);
 			}
 		} else if (std::any_of(g.threads.begin(), g.threads.end(),
 				       [](Thread &thr){ return thr.isBlocked; })) {
@@ -228,6 +216,61 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 
 		g.workqueue.pop_back();
 	}
+}
+
+void RCMCDriver::visitRMWStore(ExecutionGraph &g, llvm::Type *typ)
+{
+	switch (userConf->model) {
+	case WeakRA:
+		visitRMWStoreWeakRA(g, typ);
+		return;
+	case MO:
+		visitRMWStoreMO(g, typ);
+		return;
+	case WB:
+		WARN("Unimplemented\n");
+		abort();
+	}
+}
+
+void RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
+{
+	Event s = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(s);
+	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
+
+	g.modOrder[sLab.addr].push_back(sLab.pos);
+	std::vector<Event> ls = g.getRevisitLoads(s);
+	llvm::GenericValue val =
+		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
+	std::vector<Event> pendingRMWs =
+		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
+	std::vector<std::vector<Event> > rSets =
+		EE->calcRevisitSets(ls, pendingRMWs, sLab);
+
+	revisitReads(g, rSets, pendingRMWs, sLab);
+	if (!pendingRMWs.empty())
+		shouldContinue = false;
+}
+
+void RCMCDriver::visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ)
+{
+	Event s = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(s);
+	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
+
+	g.modOrder[sLab.addr].push_back(sLab.pos);
+	std::vector<Event> ls = g.getRevisitLoads(s);
+	llvm::GenericValue val =
+		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
+	std::vector<Event> pendingRMWs =
+		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
+	std::vector<std::vector<Event> > rSets =
+		EE->calcRevisitSets(ls, pendingRMWs, sLab);
+
+	revisitReads(g, rSets, pendingRMWs, sLab);
+	if (!pendingRMWs.empty())
+		shouldContinue = false;
 }
 
 void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,

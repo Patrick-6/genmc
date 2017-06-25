@@ -46,6 +46,9 @@ public:
 
 protected:
 	void visitGraph(ExecutionGraph &g);
+	void visitRMWStore(ExecutionGraph &g, llvm::Type *typ);
+	void visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ);
+	void visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ);
 	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			  std::vector<Event> K0, EventLabel &wLab);
 };
