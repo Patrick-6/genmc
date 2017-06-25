@@ -24,10 +24,10 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
+#include "ModOrder.hpp"
 #include "RevisitSet.hpp"
 #include "Thread.hpp"
 
-#include <unordered_map>
 #include <unordered_set>
 
 /*
@@ -54,7 +54,7 @@ public:
 	std::vector<Thread> threads;
 	std::vector<int> maxEvents;
 	RevisitSet revisit;
-	std::unordered_map<llvm::GenericValue *, std::vector<Event> > modOrder;
+	ModOrder modOrder;
 	std::vector<StackItem> workqueue;
 	std::vector<void *> stackAllocas;
 	std::vector<void *> heapAllocas;
@@ -134,8 +134,8 @@ protected:
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
-	std::vector<std::vector<Event> > partitionLocMO(std::vector<int> &before,
-							std::vector<Event> &stores);
+	std::vector<std::vector<Event> > splitLocMOBefore(std::vector<int> &before,
+							  std::vector<Event> &stores);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 };

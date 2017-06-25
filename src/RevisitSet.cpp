@@ -85,7 +85,7 @@ void RevisitSet::removePorfAfter(std::vector<int> &after)
 
 
 /************************************************************
- ** Iterators
+ ** Overloaded Operators
  ***********************************************************/
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev)

@@ -10,6 +10,7 @@ librcmc_a_SOURCES = \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
   Execution.cpp \
+  ModOrder.cpp ModOrder.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \

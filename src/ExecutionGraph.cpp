@@ -52,13 +52,6 @@ Event ExecutionGraph::getLastThreadEvent(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].pos;
 }
 
-std::vector<Event> ExecutionGraph::getLocModOrder(llvm::GenericValue *addr)
-{
-	// if (!modOrder.count(addr))
-	// 	return std::vector<Event>();
-	return modOrder[addr];
-}
-
 std::vector<int> ExecutionGraph::getGraphState(void)
 {
 	std::vector<int> state;
@@ -317,7 +310,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 {
 	std::vector<Event> boundary;
 	std::vector<int> before = getHbBefore(getLastThreadEvent(thread));
-	for (auto &e : getLocModOrder(addr))
+	for (auto &e : modOrder.getAtLoc(addr))
 		if (isWriteRfBefore(before, e))
 			boundary.push_back(e.prev());
 	return boundary;
@@ -328,7 +321,7 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 	std::vector<Event> stores;
 	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
 	if (overwritten.empty()) {
-		std::vector<Event> locMO = getLocModOrder(addr);
+		std::vector<Event> locMO = modOrder.getAtLoc(addr);
 		stores.push_back(Event(0, 0));
 		stores.insert(stores.end(), locMO.begin(), locMO.end());
 		return stores;
@@ -346,8 +339,8 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 	return stores;
 }
 
-std::vector<std::vector<Event> > ExecutionGraph::partitionLocMO(std::vector<int> &before,
-								std::vector<Event> &stores)
+std::vector<std::vector<Event> > ExecutionGraph::splitLocMOBefore(std::vector<int> &before,
+								  std::vector<Event> &stores)
 {
 	std::vector<std::vector<Event> > result;
 	std::vector<Event> revConcStores;
@@ -372,9 +365,9 @@ std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 	std::vector<int> before = getHbBefore(getLastThreadEvent(currentT));
-	std::vector<Event> locMO = getLocModOrder(addr);
+	std::vector<Event> locMO = modOrder.getAtLoc(addr);
 
-	std::vector<std::vector<Event> > partStores = partitionLocMO(before, locMO);
+	std::vector<std::vector<Event> > partStores = splitLocMOBefore(before, locMO);
 	if (partStores[1].empty())
 		stores.push_back(Event(0, 0));
 	else
@@ -449,10 +442,12 @@ void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &aft
 			continue;
 		revisit.add(e);
 	}
-	for (auto &o : other.modOrder) {
-		std::copy_if(o.second.begin(), o.second.end(),
-			     std::back_inserter(modOrder[o.first]),
-			     [&after](Event &e) { return e.index < after[e.thread]; });
+	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it) {
+		llvm::GenericValue *addr = other.modOrder.getAddrAtPos(it);
+		std::vector<Event> locMO = other.modOrder.getAtLoc(addr);
+		for (auto &s : locMO)
+			if (s.index < after[s.thread])
+				modOrder.addAtLoc(addr, s);
 	}
 }
 

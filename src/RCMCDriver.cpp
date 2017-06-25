@@ -134,7 +134,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				Event s = g.getLastThreadEvent(g.currentT);
 				EventLabel &sLab = g.getEventLabel(s);
 
-				g.modOrder[sLab.addr].push_back(sLab.pos);
+				g.modOrder.addAtLoc(sLab.addr, sLab.pos);
 				std::vector<Event> ls = g.getRevisitLoads(s);
 				std::vector<std::vector<Event > > rSets =
 					EE->calcRevisitSets(ls, {}, sLab);
@@ -239,7 +239,7 @@ void RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
 	EventLabel &sLab = g.getEventLabel(s);
 	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
 
-	g.modOrder[sLab.addr].push_back(sLab.pos);
+	g.modOrder.addAtLoc(sLab.addr, sLab.pos);
 	std::vector<Event> ls = g.getRevisitLoads(s);
 	llvm::GenericValue val =
 		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
@@ -259,7 +259,7 @@ void RCMCDriver::visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ)
 	EventLabel &sLab = g.getEventLabel(s);
 	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
 
-	g.modOrder[sLab.addr].push_back(sLab.pos);
+	g.modOrder.addAtLoc(sLab.addr, sLab.pos);
 	std::vector<Event> ls = g.getRevisitLoads(s);
 	llvm::GenericValue val =
 		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
