@@ -224,22 +224,14 @@ void ExecutionGraph::calcPorfAfter(const Event &e, std::vector<int> &a)
 
 std::vector<int> ExecutionGraph::getPorfAfter(Event e)
 {
-	std::vector<int> a(threads.size());
-
-	for (auto i = 0u; i < a.size(); i++)
-		a[i] = maxEvents[i];
-
+	std::vector<int> a(maxEvents);
 	calcPorfAfter(Event(e.thread, e.index + 1), a);
 	return a;
 }
 
 std::vector<int> ExecutionGraph::getPorfAfter(const std::vector<Event> &es)
 {
-	std::vector<int> a(threads.size());
-
-	for (auto i = 0u; i < a.size(); i++)
-		a[i] = maxEvents[i];
-
+	std::vector<int> a(maxEvents);
 	for (auto &e : es)
 		calcPorfAfter(Event(e.thread, e.index + 1), a);
 	return a;
@@ -334,22 +326,14 @@ void ExecutionGraph::calcHbAfter(const Event &e, std::vector<int> &a)
 
 std::vector<int> ExecutionGraph::getHbAfter(Event e)
 {
-	std::vector<int> a(threads.size());
-
-	for (auto i = 0u; i < a.size(); i++)
-		a[i] = maxEvents[i];
-
+	std::vector<int> a(maxEvents);
 	calcHbAfter(Event(e.thread, e.index + 1), a);
 	return a;
 }
 
 std::vector<int> ExecutionGraph::getHbAfter(const std::vector<Event> &es)
 {
-	std::vector<int> a(threads.size());
-
-	for (auto i = 0u; i < a.size(); i++)
-		a[i] = maxEvents[i];
-
+	std::vector<int> a(maxEvents);
 	for (auto &e : es)
 		calcHbAfter(Event(e.thread, e.index + 1), a);
 	return a;
@@ -424,12 +408,12 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 }
 
 std::vector<std::vector<Event> > ExecutionGraph::splitLocMOBefore(std::vector<int> &before,
-								  std::vector<Event> &stores)
+								  std::vector<Event> &locMO)
 {
 	std::vector<std::vector<Event> > result;
 	std::vector<Event> revConcStores;
 	std::vector<Event> prevStores;
-	for (auto rit = stores.rbegin(); rit != stores.rend(); ++rit) {
+	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (!isWriteRfBefore(before, *rit)) {
 			revConcStores.push_back(*rit);
 		} else {
