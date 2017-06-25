@@ -30,20 +30,29 @@
 
 #include <unordered_set>
 
+enum StackItemType { RevR, RevW };
 /*
  * StackItem class - This class represents alternative choices for reads which
  * are pushed to a stack to be visited later.
  */
 struct StackItem {
+	StackItemType type;
 	Event e;
 	Event rf;
 	Event shouldRf;
 	std::vector<int> preds;
 	RevisitSet revisit;
+	llvm::GenericValue *addr;
+	std::vector<Event> locMO;
+	Event prevMO;
 
 	StackItem(Event e, Event rf, Event shouldRf, std::vector<int> preds,
 		  RevisitSet revisit)
-		: e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
+		: type(RevR), e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
+	StackItem(Event e, Event prevMO, std::vector<int> preds, RevisitSet revisit,
+		  llvm::GenericValue *addr, std::vector<Event> locMO)
+		: e(e), prevMO(prevMO), type(RevW), preds(preds),
+		  revisit(revisit), addr(addr), locMO(locMO) {}
 };
 
 /*
@@ -104,6 +113,8 @@ public:
 
 	/* Calculation of writes a read can read from */
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr, ModelType model);
+	std::vector<std::vector<Event> > splitLocMOBefore(std::vector<int> &before,
+							  std::vector<Event> &stores);
 
 	/* Graph modification methods */
 	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
@@ -139,8 +150,6 @@ protected:
 	void calcOptionalRfs(Event store, std::vector<Event> &locMO, std::vector<Event> &ls);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
-	std::vector<std::vector<Event> > splitLocMOBefore(std::vector<int> &before,
-							  std::vector<Event> &stores);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 };

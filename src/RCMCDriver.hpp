@@ -46,6 +46,9 @@ public:
 
 protected:
 	void visitGraph(ExecutionGraph &g);
+	void visitStore(ExecutionGraph &g);
+	void visitStoreWeakRA(ExecutionGraph &g);
+	void visitStoreMO(ExecutionGraph &g);
 	void visitRMWStore(ExecutionGraph &g, llvm::Type *typ);
 	void visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ);
 	void visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ);
