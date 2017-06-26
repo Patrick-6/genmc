@@ -22,10 +22,8 @@ source terminal.sh
 RCMC=../src/rcmc
 
 # Check to see whether we are called from a parent sript..
-if test "${total_time}" = ""
-then
-    total_time=0
-fi
+total_time="${total_time:-0}"
+model="${model:-weakra}"
 
 runvariants() {
     printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
@@ -37,7 +35,7 @@ runvariants() {
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC}" "-model=${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1
@@ -73,17 +71,17 @@ runvariants() {
 
 runtest() {
     dir=$1
-    if test -f "${dir}/args.in"
+    if test -f "${dir}/args.${model}.in"
     then
 	while read test_args <&3 && read expected <&4; do
 	    n="/`echo ${test_args} |
                  awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
 	    runvariants
-	done 3<"${dir}/args.in" 4<"${dir}/expected.in"
+	done 3<"${dir}/args.${model}.in" 4<"${dir}/expected.${model}.in"
     else
 	test_args=""
 	n=""
-	expected=`head -n 1 "${dir}/expected.in"`
+	expected=`head -n 1 "${dir}/expected.${model}.in"`
 	runvariants
     fi
 }
