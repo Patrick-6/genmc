@@ -37,9 +37,9 @@ static llvm::cl::OptionCategory clDebugging("Debugging Options");
 /* Command-line argument types, default values and descriptions */
 llvm::cl::opt<ModelType>
 clModelType("model", llvm::cl::values(
-		    clEnumVal(WeakRA, "WeakRA model"),
-		    clEnumVal(MO, "MO model"),
-		    clEnumVal(WB, "WB model"), NULL),
+		    clEnumVal(weakra, "WeakRA model"),
+		    clEnumVal(mo, "MO model"),
+		    clEnumVal(wb, "WB model"), NULL),
 	    llvm::cl::desc("Choose model type:"));
 llvm::cl::list<std::string>
 clCFLAGS(llvm::cl::Positional, llvm::cl::desc("-- [CFLAGS]"), llvm::cl::ZeroOrMore);

@@ -447,9 +447,9 @@ std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
 std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, ModelType model)
 {
 	switch (model) {
-	case WeakRA:
+	case weakra:
 		return getStoresWeakRA(addr);
-	case MO:
+	case mo:
 		return getStoresMO(addr);
 	default:
 		WARN("Unimplemented model.\n");

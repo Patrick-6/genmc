@@ -228,13 +228,13 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 void RCMCDriver::visitStore(ExecutionGraph &g)
 {
 	switch (userConf->model) {
-	case WeakRA:
+	case weakra:
 		visitStoreWeakRA(g);
 		return;
-	case MO:
+	case mo:
 		visitStoreMO(g);
 		return;
-	case WB:
+	case wb:
 		WARN("Unimplemented\n");
 		abort();
 	}
@@ -309,13 +309,13 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 void RCMCDriver::visitRMWStore(ExecutionGraph &g, llvm::Type *typ)
 {
 	switch (userConf->model) {
-	case WeakRA:
+	case weakra:
 		visitRMWStoreWeakRA(g, typ);
 		return;
-	case MO:
+	case mo:
 		visitRMWStoreMO(g, typ);
 		return;
-	case WB:
+	case wb:
 		WARN("Unimplemented\n");
 		abort();
 	}

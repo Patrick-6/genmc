@@ -24,7 +24,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <set>
 
-enum ModelType { WeakRA, MO, WB };
+enum ModelType { weakra, mo, wb };
 
 class Config {
 
