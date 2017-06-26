@@ -417,7 +417,8 @@ std::vector<std::vector<Event> > ExecutionGraph::splitLocMOBefore(std::vector<in
 		if (!isWriteRfBefore(before, *rit)) {
 			revConcStores.push_back(*rit);
 		} else {
-			prevStores.push_back(*rit);
+			for (auto rit2 = rit; rit2 != locMO.rend(); ++rit2)
+				prevStores.push_back(*rit2);
 			result.push_back(revConcStores);
 			result.push_back(prevStores);
 			return result;
@@ -439,7 +440,7 @@ std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
 	if (partStores[1].empty())
 		stores.push_back(Event(0, 0));
 	else
-		stores.push_back(partStores[1].back());
+		stores.push_back(partStores[1][0]);
 	stores.insert(stores.end(), partStores[0].begin(), partStores[0].end());
 	return stores;
 }

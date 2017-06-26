@@ -278,6 +278,7 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 			EE->calcRevisitSets(ls, {}, sLab);
 		revisitReads(g, rSets, {}, sLab);
 
+		std::reverse(partStores[1].begin(), partStores[1].end());
 		std::reverse(partStores[0].begin(), partStores[0].end());
 		for (auto it = partStores[0].begin(); it != partStores[0].end(); ++it) {
 			EventLabel &lab = g.getEventLabel(*it);
