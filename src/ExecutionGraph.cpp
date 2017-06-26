@@ -115,7 +115,7 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
 	std::vector<Event> optRfs = calcOptionalRfs(store, locMO);
 	std::vector<int> after = getHbAfter(optRfs);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&after](Event e)
-				{ return after[e.thread] < e.index; }), ls.end());
+				{ return after[e.thread] <= e.index; }), ls.end());
 	return ls;
 }
 
