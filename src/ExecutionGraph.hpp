@@ -147,7 +147,7 @@ protected:
 	void calcHbAfter(const Event &e, std::vector<int> &a);
 	void calcHbBefore(const Event &e, std::vector<int> &a);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
-	void calcOptionalRfs(Event store, std::vector<Event> &locMO, std::vector<Event> &ls);
+	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);

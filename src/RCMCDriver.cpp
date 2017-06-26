@@ -174,7 +174,7 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		}
 
 		StackItem &p = g.workqueue.back();
-		llvm::dbgs() << "Popping from stack " << ((p.type == RevR) ? "Read\n" : "Write\n");
+//		llvm::dbgs() << "Popping from stack " << ((p.type == RevR) ? "Read\n" : "Write\n");
 
 		if (p.type == RevR) {
 			g.cutBefore(p.preds, p.revisit);
@@ -201,7 +201,6 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 			std::vector<Event> es({p.prevMO, p.e});
 			std::vector<int> before2 = g.getPorfBefore(es);
 			g.revisit.removePorfBefore(before2);
-			llvm::dbgs() << "TRYINGATDIFFERENTPOS: Adding event " << p.e << "\nGraph: " << g << g.modOrder << "\n";
 			EventLabel &wLab = g.getEventLabel(p.e); /* Refetching */
 			std::vector<Event> ls = g.getRevisitLoadsNonMaximal(p.e);
 			std::vector<std::vector<Event > > rSets =
@@ -263,7 +262,7 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 	std::vector<std::vector<Event> > partStores = g.splitLocMOBefore(before, locMO);
 	if (partStores[0].empty()) {
 		g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-			llvm::dbgs() << "NOPREV: Adding event " << s << "\nGraph: " << g << g.modOrder << "\n";
+
 		std::vector<Event> ls = g.getRevisitLoads(s);
 		std::vector<std::vector<Event > > rSets =
 			EE->calcRevisitSets(ls, {}, sLab);
@@ -273,7 +272,7 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 		RevisitSet prevRev = g.revisit;
 
 		g.modOrder.addAtLocEnd(sLab.addr, s);
-		llvm::dbgs() << "HASPREV: Adding event " << s << "\nGraph: " << g << g.modOrder << "\n";
+
 		std::vector<Event> ls = g.getRevisitLoads(s);
 		std::vector<std::vector<Event > > rSets =
 			EE->calcRevisitSets(ls, {}, sLab);

@@ -81,12 +81,12 @@ std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
 	return ls;
 }
 
-void ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO,
-				     std::vector<Event> &ls)
+std::vector<Event> ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO)
 {
+	std::vector<Event> ls;
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (*rit == store)
-			return;
+			return ls;
 		EventLabel &lab = getEventLabel(*rit);
 		if (lab.isWrite()) {
 			ls.push_back(lab.pos);
@@ -112,10 +112,10 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
 	}
 
 	std::vector<Event> locMO = modOrder.getAtLoc(sLab.addr);
-	calcOptionalRfs(store, locMO, ls);
-	std::vector<int> after = getHbAfter(ls);
+	std::vector<Event> optRfs = calcOptionalRfs(store, locMO);
+	std::vector<int> after = getHbAfter(optRfs);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&after](Event e)
-				{ return after[e.thread] > e.index; }), ls.end());
+				{ return after[e.thread] < e.index; }), ls.end());
 	return ls;
 }
 
