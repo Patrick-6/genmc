@@ -19,6 +19,7 @@
  */
 
 #include "Config.hpp"
+#include "Error.hpp"
 #include "LLVMModule.hpp"
 #include "RCMCDriver.hpp"
 #include "Interpreter.h"

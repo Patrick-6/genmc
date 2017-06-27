@@ -21,15 +21,34 @@
 #ifndef __ERROR_HPP__
 #define __ERROR_HPP__
 
-#include <assert.h>
-
 #include <llvm/Support/Debug.h>
+#include <llvm/Support/Format.h>
+#include <set>
+#include <string>
 
-#define BUG_ON(condition) assert(!(condition))
-#define WARN(msg) llvm::dbgs() << (msg) 
-#define WARN_ON(condition, msg) if (condition) WARN(msg)
+#define WARN(msg) Error::warn() << (msg)
+#define WARN_ONCE(id, msg) Error::warnOnce(id) << (msg)
+#define WARN_ON(condition, msg) Error::warnOn(condition) << (msg)
+#define WARN_ON_ONCE(condition, id, msg) Error::warnOnOnce(condition, id) << (msg)
+
+#define BUG() do { \
+	llvm::errs() << "BUG: Failure at " << __FILE__ ":" << __LINE__ \
+		     << "/" << __func__ << "()!\n";		       \
+	abort();						       \
+	} while (0)
+#define BUG_ON(condition) do { if (condition) BUG(); } while (0)
 
 /* TODO: Replace these codes with enum? */
 #define ECOMPILE 1
+#define EVERFAIL 42
+
+namespace Error {
+
+	llvm::raw_ostream &warn();
+	llvm::raw_ostream &warnOnce(const std::string &warningID);
+	llvm::raw_ostream &warnOn(bool condition);
+	llvm::raw_ostream &warnOnOnce(bool condition, const std::string &warningID);
+
+}
 
 #endif /* __ERROR_HPP__ */

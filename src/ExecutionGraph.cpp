@@ -72,7 +72,7 @@ std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
 	std::vector<int> before = getPorfBefore(store);
 	EventLabel &sLab = getEventLabel(store);
 
-	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
+	BUG_ON(!sLab.isWrite());
 	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
 		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
 		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
@@ -94,8 +94,7 @@ std::vector<Event> ExecutionGraph::calcOptionalRfs(Event store, std::vector<Even
 				ls.push_back(l);
 		}
 	}
-	WARN("Store has to be present in this location's modification order\n");
-	abort();
+	BUG();
 }
 
 std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
@@ -104,7 +103,7 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
 	std::vector<int> before = getPorfBefore(store);
 	EventLabel &sLab = getEventLabel(store);
 
-	WARN_ON(sLab.type != W, "getRevisitLoads called with non-store event?");
+	BUG_ON(!sLab.isWrite());
 	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
 		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
 		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
@@ -366,7 +365,7 @@ bool ExecutionGraph::isWriteRfBefore(std::vector<int> &before, Event e)
 		return true;
 
 	EventLabel &lab = getEventLabel(e);
-	WARN_ON(!lab.isWrite(), "Modification order should contain writes only!\n");
+	BUG_ON(!lab.isWrite());
 	for (auto &e : lab.rfm1) {
 		if (e.index <= before[e.thread] && !revisit.contains(e))
 			return true;
@@ -595,8 +594,9 @@ void ExecutionGraph::validateGraph(void)
 {
 	for (auto i = 0u; i < threads.size(); i++) {
 		Thread &thr = threads[i];
-		WARN_ON(thr.eventList.size() != (unsigned int) maxEvents[i],
-			"Max event does not correspond to thread size!\n");
+		WARN_ON_ONCE(thr.eventList.size() != (unsigned int) maxEvents[i],
+			     "maxevents-vector-size",
+			     "WARNING: Max event does not correspond to thread size!\n");
 		for (int j = 0; j < maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
 			if (lab.type == R) {

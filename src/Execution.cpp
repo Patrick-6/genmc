@@ -137,7 +137,7 @@ std::vector<Event> Interpreter::getPendingRMWs(Event &RMW, Event &RMWrf,
 				pending.push_back(lab.pos);
 		}
 	}
-	WARN_ON(pending.size() > 1, "There can't be more than one pending RMWs!");
+	BUG_ON(pending.size() > 1);
 	return pending;
 }
 
@@ -178,7 +178,7 @@ Event Interpreter::getPendingRMWSucc(Event &write, GenericValue &wVal,
 				return lab.pos.next();
 			}
 	}
-	WARN("Couldn't find the successor of a pending RMW!");
+	BUG();
 	return Event();
 }
 
@@ -212,7 +212,7 @@ static AtomicOrdering getReadOrdering(AtomicOrdering ord)
 	case SequentiallyConsistent:
 		return SequentiallyConsistent;
 	default:
-		WARN("Unreachable\n");
+		BUG();
 		return Monotonic;
 	}
 }
@@ -231,7 +231,7 @@ static AtomicOrdering getWriteOrdering(AtomicOrdering ord)
 	case SequentiallyConsistent:
 		return SequentiallyConsistent;
 	default:
-		WARN("Unreachable\n");
+		BUG();
 		return Monotonic;
 	}
 }
@@ -1370,8 +1370,7 @@ Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 	for (auto &e : es)
 		if (e.index <= before[e.thread])
 			return e;
-	WARN("ERROR! No (po U rf)-before event found in store list!\n");
-	abort();
+	BUG();
 }
 
 Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
@@ -1413,8 +1412,7 @@ Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
 	case RMW:
 		return getFirstNonConflictingRMW(tentative, typ, ptr);
 	default:
-		WARN("Unreachable\n");
-		abort();
+		BUG();
 	}
 }
 
@@ -1445,8 +1443,7 @@ std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
 			if (RMWCanReadFromWrite(s, oldVal, typ, ptr))
 				validStores.push_back(s);
 		} else {
-			WARN("Unreachable\n");
-			abort();
+			BUG();
 		}
 	}
 	return validStores;
@@ -1567,9 +1564,9 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &
 		result.IntVal = oldVal.IntVal & val.IntVal;
 		break;
 	default:
-		/* TODO: Do not abort in default case */
-		WARN("Usupported operation in RMW instruction!");
-		abort();
+		WARN_ONCE("invalid-rmw-op",
+			  "WARNING: Unsupported operation in RMW instruction!\n");
+		result.IntVal = oldVal.IntVal;
 	}
 }
 
@@ -1583,7 +1580,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	Type *typ = I.getType();
 	GenericValue oldVal, newVal;
 
-	WARN_ON(!typ->isIntegerTy(), "AtomicRMWs should be called with int argument!\n");
+	BUG_ON(!typ->isIntegerTy());
 
 	/* TODO: Fix check for global access for both RMW types */
 	// if (!isa<GlobalVariable>(I.getPointerOperand())) {
@@ -1651,7 +1648,9 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
 		/* Plain compiler fence */
 		;
 	} else {
-		WARN("Arbitrary inline assembly not supported: " + asmString);
+		WARN_ONCE("invalid-inline-asm",
+			  "WARNING: Arbitrary inline assembly not supported: " +
+			  asmString + "! Skipping...\n");
 	}
 	return;
 }
@@ -1689,7 +1688,8 @@ void Interpreter::visitCallSite(CallSite CS) {
 		    /* Ignore this intrinsic function */
 		    return;
 	    }
-	    WARN("Unknown intrinstic function encountered!\n");
+	    WARN_ONCE("unknown-intrinsic",
+		      "WARNING: Unknown intrinstic function encountered!\n");
       // If it is an unknown intrinsic function, use the intrinsic lowering
       // class to transform it into hopefully tasty LLVM code.
       //
@@ -2687,10 +2687,7 @@ std::string getFilenameFromMData(MDNode *node)
 	std::string file = loc.getFilename();
 	std::string dir = loc.getDirectory();
 
-	if (!file.size() || !dir.size()) {
-		WARN("Could not get filename and/or directory from LLVM metadata!\n");
-		abort();
-	}
+	BUG_ON(!file.size() || !dir.size());
 
 	std::string absPath;
 	if (file.front() == '/') {
@@ -2795,8 +2792,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	GenericValue res;
 
 	/* Allocate the appropriate amount of memory */
-	WARN_ON(ArgVals[0].IntVal.getBitWidth() > 64,
-		"Larger than 64-bit alignment in malloc()'s argument!\n");
+	WARN_ON_ONCE(ArgVals[0].IntVal.getBitWidth() > 64, "malloc-alignment",
+		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
 	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
 	res.PointerVal = malloc(size);
 
@@ -2818,7 +2815,7 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	/* Attempt to free stack memory */
 	if (std::find(g.stackAllocas.begin(), g.stackAllocas.end(), ptr)
 	    != g.stackAllocas.end()) {
-		WARN("Attempt to free stack memory!\n");
+		WARN("ERROR: Attempted to free stack memory!\n");
 		abort();
 		return;
 	}
@@ -2826,7 +2823,7 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	/* Check to see whether this memory block has already been freed */
 	if (std::find(g.freedMem.begin(), g.freedMem.end(), ptr)
 	    != g.freedMem.end()) {
-		WARN("Double-free error!\n");
+		WARN("ERROR: Double-free error!\n");
 		abort();
 		return;
 	}
@@ -2839,7 +2836,8 @@ void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
 {
 	if (!dryRun) {
-		WARN("Dynamic thread creation is not supported yet.\n");
+		WARN_ONCE("dynamic-thread-creation",
+			  "WARNING: Dynamic thread creation is not supported yet! Skipping...\n");
 		return;
 	}
 
@@ -2889,7 +2887,8 @@ void Interpreter::callPthreadMutexInit(Function *F,
 	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
 
 	if (attr)
-		WARN("WARNING: Ignoring non-null argument given to pthread_mutex_init.\n");
+		WARN_ONCE("pthread-mutex-init-arg",
+			  "WARNING: Ignoring non-null argument given to pthread_mutex_init.\n");
 
 	/* Just return 0 */
 	GenericValue result;
@@ -2906,15 +2905,15 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	GenericValue cmpVal, newVal, result;
 
 	if (ptr == nullptr) {
-		WARN("pthread_mutex_lock called with NULL pointer!");
+		WARN("ERROR: pthread_mutex_lock called with NULL pointer!");
 		abort();
 	}
 
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 	if (globalVars.find(ptr) == globalVars.end()) {
-		WARN("All mutexes should be declared as globals!");
-		return;
+		WARN("ERROR: All mutexes should be declared as globals!");
+		abort();
 	}
 
 	int c = ++g.threads[g.currentT].globalInstructions;
@@ -2993,14 +2992,14 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	GenericValue val;
 
 	if (ptr == nullptr) {
-		WARN("pthread_mutex_lock called with NULL pointer!");
+		WARN("ERROR: pthread_mutex_lock called with NULL pointer!");
 		abort();
 	}
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	if (globalVars.find(ptr) == globalVars.end()) {
-		WARN("All mutexes should be declared as globals!");
-		return;
+		WARN("ERROR: All mutexes should be declared as globals!");
+		abort();
 	}
 
 

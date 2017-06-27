@@ -19,3 +19,41 @@
  */
 
 #include "Error.hpp"
+
+llvm::raw_ostream &Error::warn()
+{
+	return llvm::errs();
+}
+
+llvm::raw_ostream &Error::warnOnce(const std::string &warningID)
+{
+	return warnOnOnce(true, warningID);
+}
+
+llvm::raw_ostream &Error::warnOn(bool condition)
+{
+	static std::string buf;
+	static llvm::raw_string_ostream s(buf);
+
+	if (!condition) {
+		buf.clear();
+		return s;
+	}
+
+	return llvm::errs();
+}
+
+llvm::raw_ostream &Error::warnOnOnce(bool condition, const std::string &warningID)
+{
+	static std::set<std::string> ids;
+	static std::string buf;
+	static llvm::raw_string_ostream s(buf);
+
+	if (!condition || ids.count(warningID)) {
+		buf.clear();
+		return s;
+	}
+
+	ids.insert(warningID);
+	return llvm::errs();
+}
