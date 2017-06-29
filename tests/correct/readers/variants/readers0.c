@@ -8,8 +8,9 @@ int main()
 {
 	pthread_t t[N+1];
 
+	for (int i = 0; i <= N; i++)
+                atomic_init(&idx[i], i);
 	for (int i = 0; i <= N; i++) {
-		idx[i] = i;
 		if (i == 0) {
 			if (pthread_create(&t[i], NULL, thread_writer, NULL))
 				abort();
