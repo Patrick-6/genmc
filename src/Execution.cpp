@@ -1060,7 +1060,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
 
 void Interpreter::returnValueToCaller(Type *RetTy, GenericValue Result)
 {
-	std::vector<ExecutionContext> ECStack =
+	std::vector<ExecutionContext> &ECStack =
 		(dryRun) ? this->ECStack : currentEG->getThreadECStack(currentEG->currentT);
 
 	assert(!ECStack.empty());
@@ -2331,7 +2331,7 @@ void Interpreter::visitFPToSIInst(FPToSIInst &I) {
 }
 
 void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   SetValue(&I, executePtrToIntInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
