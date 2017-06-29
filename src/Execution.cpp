@@ -23,6 +23,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -1642,15 +1643,33 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	return;
 }
 
-void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
+bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmStr)
 {
-	if (asmString == "") {
+	if (!CS.isCall())
+		return false;
+
+	llvm::CallInst *CI = cast<llvm::CallInst>(CS.getInstruction());
+	if (!CI || !CI->isInlineAsm())
+		return false;
+
+	llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CI->getCalledValue());
+	*asmStr = IA->getAsmString();
+	asmStr->erase(asmStr->begin(), std::find_if(asmStr->begin(), asmStr->end(),
+	        std::not1(std::ptr_fun<int, int>(std::isspace))));
+	asmStr->erase(std::find_if(asmStr->rbegin(), asmStr->rend(),
+		std::not1(std::ptr_fun<int, int>(std::isspace))).base(), asmStr->end());
+	return true;
+}
+
+void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmStr)
+{
+	if (asmStr == "") {
 		/* Plain compiler fence */
 		;
 	} else {
 		WARN_ONCE("invalid-inline-asm",
 			  "WARNING: Arbitrary inline assembly not supported: " +
-			  asmString + "! Skipping...\n");
+			  asmStr + "! Skipping...\n");
 	}
 	return;
 }
@@ -1660,6 +1679,13 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmString)
 //===----------------------------------------------------------------------===//
 
 void Interpreter::visitCallSite(CallSite CS) {
+
+  std::string asmStr;
+  if (isInlineAsm(CS, &asmStr)) {
+	  visitInlineAsm(CS, asmStr);
+	  return;
+  }
+
   std::vector<ExecutionContext> &ECStack = (dryRun) ? this->ECStack : currentEG->getThreadECStack(currentEG->currentT);
   ExecutionContext &SF = ECStack.back(); /* Temporary hack to get the correct ECStack ... */
 
