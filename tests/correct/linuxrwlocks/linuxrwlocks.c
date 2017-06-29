@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <pthread.h>
-#include "stdatomic.h"
-
 #define RW_LOCK_BIAS            0x00100000
 #define WRITE_LOCK_CMP          RW_LOCK_BIAS
 
@@ -91,17 +87,4 @@ void *thread_fn(void *arg)
 		}
 	}
 	return NULL;
-}
-
-int main()
-{
-	pthread_t t1, t2;
-	atomic_init(&mylock.lock, RW_LOCK_BIAS);
-
-	if (pthread_create(&t1, NULL, thread_fn, NULL))
-		abort();
-	if (pthread_create(&t2, NULL, thread_fn, NULL))
-		abort();
-
-	return 0;
 }
