@@ -218,10 +218,19 @@ runlitmus() {
 		*)                                                     ;;
 	    esac
 	fi
-	[[ -n "${herd_col}" ]] && runherd "${dir}"
-	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
-	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+
+	if test "${plotmode}" == "y"
+	then
+	    [[ -n "${herd_col}" ]] && runherd "${dir}" &
+	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
+	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
+	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+	else
+	    [[ -n "${herd_col}" ]] && runherd "${dir}"
+	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
+	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
+	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	fi
 
 	if test "${tablemode}" == "y"
 	then
@@ -359,7 +368,7 @@ impl="${impl:-c++}"
 
 # at least one model has to be specified
 [[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="weakra"
-[[ -z "${tso}" ]] && [[ -z "${pso}" ]] && sc="sc"
+[[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && sc="sc"
 
 printtable() {
     # print a dummy header (LaTeX comment)
@@ -386,6 +395,35 @@ printtable() {
 }
 
 printplot() {
+    # clean up old files
+    for t in "${tool[@]}"
+    do
+	if test "${t}" == "herd" -o "${t}" == "cdschecker"
+	then
+	    > "${t}.out"
+	elif test "${t}" == "nidhugg"
+	then
+	    for m in "${run_sc}" "${run_tso}" "${run_pso}"
+	    do
+		if test -z "$m"
+		then
+		    continue
+		fi
+		> "${t}.${m}.out"
+	    done
+	else
+	    for m in "${run_weakra}" "${run_mo}" "${run_wb}"
+	    do
+		if test -z "$m"
+		then
+		    continue
+		fi
+		> "${t}.${m}.out"
+	    done
+	fi
+    done
+
+    # run benchmarks (in parallel) or litmus tests (sequentially)
     if test -n "${benchrun}"
     then
     	runbenchmarks
@@ -393,6 +431,10 @@ printplot() {
     	runlitmus
     fi
 
+    # wait for all child processes to finish...
+    wait
+
+    # sort results based on time for each tool and store the output
     for i in $(seq 1 "${toolnum}")
     do
 	if test "${tool[$i]}" == "herd" -o "${tool[$i]}" == "cdschecker"
@@ -400,7 +442,7 @@ printplot() {
 	    cat "${tool[$i]}".out | awk '{ for (i = 1; i <= NF; i++) if ( $i != "&" && $i != "\\\\") printf "%-10s ", $i; print ""; }' | sort -nb -k2,2 > "${tool[$i]}".sorted
 	elif test "${tool[$i]}" == "nidhugg"
 	then
-	    for m in "${sc}" "${tso}" "${pso}"
+	    for m in "${run_sc}" "${run_tso}" "${run_pso}"
 	    do
 		if test -z "$m"
 		then
@@ -420,6 +462,7 @@ printplot() {
 	fi
     done
 
+    # plot the sorted outputs
     filenames=`ls *.sorted`
     tools="${tool[@]}"
     for file in *.sorted
