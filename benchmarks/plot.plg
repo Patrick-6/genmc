@@ -1,0 +1,19 @@
+set autoscale
+#set term pngcairo font 'Inconsolata,11'
+set terminal pdf font 'Inconsolata,11'
+
+set key autotitle columnheader
+set xlabel 'Benchmark'
+set ylabel 'Execution Time (sec)'
+set title 'Scaling of different tools'
+set output './images/scaling.pdf'
+
+
+#set style data histogram
+#set style histogram cluster gap 1
+set style fill transparent solid 0.5 noborder
+set boxwidth 0.9
+#set xtic scale 1
+set key left top
+#plot filename using 2:xtic(1) fc rgb "green", '' u 3 fc rgb "purple"
+plot for [file in filenames] file using 2 title file

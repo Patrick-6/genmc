@@ -31,7 +31,9 @@ CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
 declare -a tool_res
 declare -a benchmarks
 
-benchmarks=( "big0" "fib_bench" "indexer15" "lastzero15" "readers13" )
+benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6" "ainc7" "big0" "binc3" "binc4" "casrot3"
+	     "casrot4" "casrot5" "casrot6" "casrot8" "casw3" "casw4" "casw5" "readers3"
+	     "readers13" "fib_bench" "lastzero15" )
 
 runherd() {
     dir="$1"
@@ -39,7 +41,13 @@ runherd() {
     herd_out=`/usr/bin/time -p "${HERD}" -model rc11.cat "${dir}" 2>&1`
     explored=`echo "${herd_out}" | awk '/Positive/ { print $2 }'`
     time=`echo "${herd_out}" | awk '/real/ { print $2 }'`
-    tool_res["${herd_col}"]="${explored} & ${time}"
+    result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    if test "${plotmode}" == "y"
+    then
+	echo "${result}" >> "herd.out"
+    else
+	tool_res["${herd_col}"]="${result}"
+    fi
 }
 
 runnidhuggtest() {
@@ -64,7 +72,7 @@ runnidhuggtest() {
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    nidhugg_result="${average_explored} & ${average_time}"
+    nidhugg_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
 }
 
 runnidhugg() {
@@ -77,11 +85,16 @@ runnidhugg() {
 	    continue
 	fi
 	runnidhuggtest "../tests/correct/${name}" "$m"
-	if test -n "${tool_res[$nid_col]}"
+	if test "${plotmode}" == "y"
 	then
-	    tool_res["${nid_col}"]="${tool_res[$nid_col]} & ${nidhugg_result}"
+	    echo "${nidhugg_result}" >> "nidhugg.$m.out"
 	else
-    	    tool_res["${nid_col}"]="${nidhugg_result}"
+	    if test -n "${tool_res[$nid_col]}"
+	    then
+		tool_res["${nid_col}"]="${tool_res[$nid_col]} & ${nidhugg_result}"
+	    else
+    		tool_res["${nid_col}"]="${nidhugg_result}"
+	    fi
 	fi
     done
 }
@@ -94,7 +107,13 @@ runcdstest() {
             "${test_args}" 2>&1`
     explored=`echo "${output}" | awk '/bug-free/ { print $6 }'`
     time=`echo "${output}" | awk '/real/ { print $2 }'`
-    tool_res["${cds_col}"]="${explored} & ${time}"
+    result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    if test "${plotmode}" == "y"
+    then
+	echo "${result}" >> "cdschecker.out"
+    else
+	tool_res["${cds_col}"]="${result}"
+    fi
 }
 
 runcdschecker() {
@@ -110,7 +129,7 @@ runocaml() {
     rcmc_out=`/usr/bin/time -p "${RCMC_OCAML}" "-${model}" "${name}" 2>&1`
     explored=`echo "${rcmc_out}" | awk '/SAFE/ { print $3 }'`
     time=`echo "${rcmc_out}" | awk '/real/ { print $2 }'`
-    rcmc_result="${explored} & ${time}"
+    rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
 }
 
 runcpp() {
@@ -133,7 +152,7 @@ runcpp() {
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    rcmc_result="${average_explored} & ${average_time}"
+    rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
 }
 
 runrcmc() {
@@ -151,11 +170,16 @@ runrcmc() {
 	else
 	    runocaml "${name}" "$m"
 	fi
-	if test -n "${tool_res[$rcmc_col]}"
+	if test "${plotmode}" == "y"
 	then
-	    tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	    echo "${rcmc_result}" >> "rcmc.$m.out"
 	else
-    	    tool_res["${rcmc_col}"]="${rcmc_result}"
+	    if test -n "${tool_res[$rcmc_col]}"
+	    then
+		tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	    else
+    		tool_res["${rcmc_col}"]="${rcmc_result}"
+	    fi
 	fi
     done
 }
@@ -168,11 +192,15 @@ runbenchmarks() {
 	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
 	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
 
-	printf "%-15s" "${name%.*}"
-	for i in $(seq 1 "${toolnum}")
-	do
-	    printf "%-35s" " & ${tool_res[$i]}"
-	done; echo '\\'
+	if test "${tablemode}" == "y"
+	then
+	    printf "%-10s" "${name%.*}"
+	    for i in $(seq 1 "${toolnum}")
+	    do
+		[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "& ${tool_res[$i]}"
+		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
+	    done; echo '\\'
+	fi
     done
 }
 
@@ -183,7 +211,10 @@ runlitmus() {
 	if test -n "${fastrun}"
 	then
 	    case "${name}" in
-		"big0.litmus"|"small0.litmus"|"small1.litmus") continue;;
+		"big0.litmus"|"small0.litmus"|"small1.litmus"| \
+		"ainc5.litmus"|"ainc6.litmus"|"ainc7.litmus"| \
+		"binc4.litmus"|"casrot6.litmus"|"casrot8.litmus"| \
+		"casw4.litmus"|"casw5.litmus") continue;;
 		*)                                                     ;;
 	    esac
 	fi
@@ -192,11 +223,15 @@ runlitmus() {
 	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
 	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
 
-	printf "%-15s" "${name%.*}"
-	for i in $(seq 1 "${toolnum}")
-	do
-	    printf "%-35s" " & ${tool_res[$i]}"
-	done; echo '\\'
+	if test "${tablemode}" == "y"
+	then
+	    printf "%-10s" "${name%.*}"
+	    for i in $(seq 1 "${toolnum}")
+	    do
+		[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "& ${tool_res[$i]}"
+		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
+	    done; echo '\\'
+	fi
     done
 }
 
@@ -217,8 +252,8 @@ if [[ $? -ne 4 ]]; then
 fi
 
 # command-line arguments
-SHORT=l,b,f,o:,i:
-LONG=litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,rcmc:,weakra,mo,wb,impl:,output:
+SHORT=t,p,l,b,f,o:,i:
+LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,rcmc:,weakra,mo,wb,impl:,output:
 
 # temporarily store output to be able to check for errors
 PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
@@ -233,6 +268,14 @@ toolnum=0
 # actually parse the options until we see --
 while true; do
     case "$1" in
+	-t|--table)
+	    tablemode=y
+	    shift
+	    ;;
+	-p|--plot)
+	    plotmode=y
+	    shift
+	    ;;
 	-l|--litmus)
 	    litmusrun=y
 	    shift
@@ -308,29 +351,86 @@ while true; do
     esac
 done
 
-# at least one model has to be specified
-[[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra=weakra
+#default mode: tablemode
+[[ "${plotmode}" == "y" ]] || tablemode="y"
 
 #default implementation: C++
 impl="${impl:-c++}"
 
-# print a dummy header (LaTeX comment)
-printf "\n%% "; printline
-printf "%% order between weakra, mo, wb: weakra < mo < wb\n"
-printf "%% "; printline
+# at least one model has to be specified
+[[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="weakra"
+[[ -z "${tso}" ]] && [[ -z "${pso}" ]] && sc="sc"
 
-printf "\n%% ";printline
-printf "%% %-15s" "benchmark"
-for i in $(seq 1 "${toolnum}")
-do
-    printf " %-35s" "${tool[$i]}"
-done;
-printf "\n%% ";printline
+printtable() {
+    # print a dummy header (LaTeX comment)
+    printf "\n%% "; printline
+    printf "%% order between weakra, mo, wb: weakra < mo < wb\n"
+    printf "%% "; printline
 
-# print actual table data according to command-line options
-if test -n "${benchrun}"
+    printf "\n%% ";printline
+    printf "%% %-15s" "benchmark"
+    for i in $(seq 1 "${toolnum}")
+    do
+	[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "${tool[$i]}"
+	[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-40s" "${tool[$i]}"
+    done;
+    printf "\n%% ";printline
+
+    # print actual table data according to command-line options
+    if test -n "${benchrun}"
+    then
+	runbenchmarks
+    else
+	runlitmus
+    fi
+}
+
+printplot() {
+    if test -n "${benchrun}"
+    then
+    	runbenchmarks
+    else
+    	runlitmus
+    fi
+
+    for i in $(seq 1 "${toolnum}")
+    do
+	if test "${tool[$i]}" == "herd" -o "${tool[$i]}" == "cdschecker"
+	then
+	    cat "${tool[$i]}".out | awk '{ for (i = 1; i <= NF; i++) if ( $i != "&" && $i != "\\\\") printf "%-10s ", $i; print ""; }' | sort -nb -k2,2 > "${tool[$i]}".sorted
+	elif test "${tool[$i]}" == "nidhugg"
+	then
+	    for m in "${sc}" "${tso}" "${pso}"
+	    do
+		if test -z "$m"
+		then
+		    continue
+		fi
+		cat "${tool[$i]}"."$m".out | awk '{ for (i = 1; i <= NF; i++) if ( $i != "&" && $i != "\\\\") printf "%-10s ", $i; print ""; }' | sort -nb -k2,2 > "${tool[$i]}"."$m".sorted
+	    done
+	else
+	    for m in "${run_weakra}" "${run_mo}" "${run_wb}"
+	    do
+		if test -z "$m"
+		then
+		    continue
+		fi
+		cat "${tool[$i]}"."$m".out | awk '{ for (i = 1; i <= NF; i++) if ( $i != "&" && $i != "\\\\") printf "%-10s ", $i; print ""; }' | sort -nb -k2,2 > "${tool[$i]}"."$m".sorted
+	    done
+	fi
+    done
+
+    filenames=`ls *.sorted`
+    tools="${tool[@]}"
+    for file in *.sorted
+    do
+	gnuplot -e "filenames='${filenames}'" -e "tools='${tools}'" plot.plg
+    done
+}
+
+if test "${plotmode}" == "y"
 then
-    runbenchmarks
+    printplot
 else
-    runlitmus
+    printtable
 fi
