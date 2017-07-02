@@ -413,7 +413,7 @@ impl="${impl:-c++}"
 
 # at least one model has to be specified
 [[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="weakra"
-[[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && sc="sc"
+[[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && run_sc="sc"
 
 printtable() {
     # print a dummy header (LaTeX comment)
