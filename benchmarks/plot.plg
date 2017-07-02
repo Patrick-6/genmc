@@ -8,12 +8,47 @@ set ylabel 'Execution Time (sec)'
 set title 'Scaling of different tools'
 set output './images/scaling.pdf'
 
+# do a little parsing on the input names
+toolnum = words(filenames)
+array titles[toolnum]
+array files[toolnum]
 
-#set style data histogram
-#set style histogram cluster gap 1
+i = 0
+do for [file in filenames] {
+   i = i + 1
+   dot1 = strstrt(file, '.')
+   tool = file[0:dot1-1]
+   if (tool eq 'cdschecker') {
+      titles[i] = 'cds-checker'
+   }
+   if (tool eq 'nidhugg') {
+      modelext = file[dot1+1:]
+      dot2 = strstrt(modelext, '.')
+      model = modelext[0:dot2-1]
+      titles[i] = 'Nidhugg'.'-'.model
+   }
+   if (tool eq 'rcmc') {
+      modelext = file[dot1+1:]
+      dot2 = strstrt(modelext, '.')
+      model = modelext[0:dot2-1]
+      titles[i] = 'RCMC'.'-'.model
+   }
+   files[i] = file
+}
+
+# set graph's style
 set style fill transparent solid 0.5 noborder
 set boxwidth 0.9
-#set xtic scale 1
 set key left top
+unset xtics
+set logscale y
+
+# set lines' style
+set style line 1 fc rgb "green"   ps 1
+set style line 2 fc rgb "purple"  ps 1
+set style line 3 fc rgb "#DC143C" ps 1 pt 9
+set style line 4 fc rgb "#6A5ACD" ps 1
+
+# plot the graph
 #plot filename using 2:xtic(1) fc rgb "green", '' u 3 fc rgb "purple"
-plot for [file in filenames] file using 2 title file
+plot for [i=1:toolnum] files[i] using 2 title titles[i] ls i

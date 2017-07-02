@@ -31,9 +31,9 @@ CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
 declare -a tool_res
 declare -a benchmarks
 
-benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6" "ainc7" "big0" "binc3" "binc4" "casrot3"
-	     "casrot4" "casrot5" "casrot6" "casrot8" "casw3" "casw4" "casw5" "readers3"
-	     "readers13" "fib_bench" "lastzero15" )
+benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6" "big0" "binc3" "binc4" "casrot3"
+	     "casrot4" "casrot5" "casrot6" "casrot8" "casw3" "casw4" "casw5"
+	     "readers3" "readers13" "fib_bench" "lastzero15" )
 
 runherd() {
     dir="$1"
@@ -51,7 +51,8 @@ runherd() {
 }
 
 runnidhuggtest() {
-    dir="${1%%[[:digit:]]}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ]] && dir="$1"
+    dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
+				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ]] && dir="$1"
     suffix="${1##*[[:alpha:]]}"
     test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
     model="$2"
@@ -133,7 +134,8 @@ runocaml() {
 }
 
 runcpp() {
-    dir="${1%%[[:digit:]]}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ]] && dir="$1"
+    dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
+				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ]] && dir="$1"
     suffix="${1##*[[:alpha:]]}"
     test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
     model="$2"
@@ -188,9 +190,16 @@ runbenchmarks() {
     for dir in "${benchmarks[@]}"
     do
 	name="${dir##*/}"
-	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
-	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	if test "${plotmode}" == "y"
+	then
+	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
+	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
+	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+	else
+	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
+	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
+	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	fi
 
 	if test "${tablemode}" == "y"
 	then
