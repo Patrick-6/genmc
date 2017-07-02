@@ -2,8 +2,8 @@ set autoscale
 #set term pngcairo font 'Inconsolata,11'
 set terminal pdf font 'Libertine,9'
 
-set key autotitle columnheader
-set xlabel 'Benchmarks sorted according to execution time for each tool'
+#set key autotitle columnheader
+set xlabel 'Benchmarks sorted according to runtime for each tool'
 set ylabel 'Execution Time in seconds (logscale)'
 #set title 'Scaling of different tools'
 set output './images/scaling.pdf'
@@ -40,7 +40,7 @@ do for [file in filenames] {
 set style fill transparent solid 0.5 noborder
 set boxwidth 0.9
 set key left top
-unset xtics
+set xtics 1
 set logscale y
 set decimal locale
 set format y "%'g"
