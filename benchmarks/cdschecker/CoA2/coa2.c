@@ -39,7 +39,7 @@ int user_main(int argc, char **argv)
 	atomic_init(&z, 0);
 	thrd_create(&t1, (thrd_start_t)&thread_one, NULL);
 	thrd_create(&t2, (thrd_start_t)&thread_two, NULL);
-	for (int i = 0; i < N; i++) {
+	for (int i = 0; i < N - 1; i++) {
 		idx[i] = i;
 		thrd_create(&t[i], (thrd_start_t)&thread_n, &idx[i]);
 	}

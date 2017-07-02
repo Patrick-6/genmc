@@ -8,7 +8,7 @@ int main()
 {
 	pthread_t t1, t2, t[N];
 
-	for (int i = 0; i < N; i++) {
+	for (int i = 0; i < N - 1; i++) {
 		idx[i] = i;
 		if (pthread_create(&t[i], NULL, thread_n, &idx[i]))
 			abort();

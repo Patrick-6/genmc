@@ -12,7 +12,7 @@ int main()
 		abort();
 	if (pthread_create(&t2, NULL, thread_two, NULL))
 		abort();
-	for (int i = 0; i < N; i++) {
+	for (int i = 0; i < N - 1; i++) {
 		idx[i] = i;
 		if (pthread_create(&t[i], NULL, thread_n, &idx[i]))
 			abort();
