@@ -1,11 +1,11 @@
 set autoscale
 #set term pngcairo font 'Inconsolata,11'
-set terminal pdf font 'Inconsolata,11'
+set terminal pdf font 'Libertine,9'
 
 set key autotitle columnheader
-set xlabel 'Benchmark'
-set ylabel 'Execution Time (sec)'
-set title 'Scaling of different tools'
+set xlabel 'Benchmarks sorted according to execution time for each tool'
+set ylabel 'Execution Time in seconds (logscale)'
+#set title 'Scaling of different tools'
 set output './images/scaling.pdf'
 
 # do a little parsing on the input names
@@ -42,6 +42,8 @@ set boxwidth 0.9
 set key left top
 unset xtics
 set logscale y
+set decimal locale
+set format y "%'g"
 
 # set lines' style
 set style line 1 fc rgb "green"   ps 1
@@ -50,5 +52,4 @@ set style line 3 fc rgb "#DC143C" ps 1 pt 9
 set style line 4 fc rgb "#6A5ACD" ps 1
 
 # plot the graph
-#plot filename using 2:xtic(1) fc rgb "green", '' u 3 fc rgb "purple"
-plot for [i=1:toolnum] files[i] using 2 title titles[i] ls i
+plot for [i=1:toolnum] files[i] using 2 title titles[i] with lines ls i
