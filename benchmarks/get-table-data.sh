@@ -52,7 +52,8 @@ runherd() {
 
 runnidhuggtest() {
     dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
-				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ]] && dir="$1"
+				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ||
+				   "${1##*/}" == "2CoWR" ]] && dir="$1"
     suffix="${1##*[[:alpha:]]}"
     test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
     model="$2"
@@ -74,6 +75,17 @@ runnidhuggtest() {
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
     nidhugg_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    if test "${plotmode}" == "y"
+    then
+	echo "${nidhugg_result}" >> "nidhugg.${model}.out"
+    else
+	if test -n "${tool_res[$nid_col]}"
+	then
+	    tool_res["${nid_col}"]="${tool_res[$nid_col]} & ${nidhugg_result}"
+	else
+    	    tool_res["${nid_col}"]="${nidhugg_result}"
+	fi
+    fi
 }
 
 runnidhugg() {
@@ -85,17 +97,11 @@ runnidhugg() {
 	then
 	    continue
 	fi
-	runnidhuggtest "../tests/correct/${name}" "$m"
 	if test "${plotmode}" == "y"
 	then
-	    echo "${nidhugg_result}" >> "nidhugg.$m.out"
+	    runnidhuggtest "../tests/correct/${name}" "$m" &
 	else
-	    if test -n "${tool_res[$nid_col]}"
-	    then
-		tool_res["${nid_col}"]="${tool_res[$nid_col]} & ${nidhugg_result}"
-	    else
-    		tool_res["${nid_col}"]="${nidhugg_result}"
-	    fi
+	    runnidhuggtest "../tests/correct/${name}" "$m"
 	fi
     done
 }
@@ -121,7 +127,6 @@ runcdschecker() {
     name="$1"
     tool_res["${cds_col}"]=""
     runcdstest "${name}"
-
 }
 
 runocaml() {
@@ -131,11 +136,23 @@ runocaml() {
     explored=`echo "${rcmc_out}" | awk '/SAFE/ { print $3 }'`
     time=`echo "${rcmc_out}" | awk '/real/ { print $2 }'`
     rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    if test "${plotmode}" == "y"
+    then
+	echo "${rcmc_result}" >> "rcmc.${model}.out"
+    else
+	if test -n "${tool_res[$rcmc_col]}"
+	then
+	    tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	else
+    	    tool_res["${rcmc_col}"]="${rcmc_result}"
+	fi
+    fi
 }
 
 runcpp() {
     dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
-				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ]] && dir="$1"
+				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ||
+				   "${1##*/}" == "2CoWR" ]] && dir="$1"
     suffix="${1##*[[:alpha:]]}"
     test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
     model="$2"
@@ -155,6 +172,17 @@ runcpp() {
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
     rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    if test "${plotmode}" == "y"
+    then
+	echo "${rcmc_result}" >> "rcmc.${model}.out"
+    else
+	if test -n "${tool_res[$rcmc_col]}"
+	then
+	    tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	else
+    	    tool_res["${rcmc_col}"]="${rcmc_result}"
+	fi
+    fi
 }
 
 runrcmc() {
@@ -168,22 +196,39 @@ runrcmc() {
 	fi
 	if test "${impl}" == "c++"
 	then
-	    runcpp "../tests/correct/${name}" "$m"
-	else
-	    runocaml "${name}" "$m"
-	fi
-	if test "${plotmode}" == "y"
-	then
-	    echo "${rcmc_result}" >> "rcmc.$m.out"
-	else
-	    if test -n "${tool_res[$rcmc_col]}"
+	    if test "${plotmode}" == "y"
 	    then
-		tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+		runcpp "../tests/correct/${name}" "$m" &
 	    else
-    		tool_res["${rcmc_col}"]="${rcmc_result}"
+		runcpp "../tests/correct/${name}" "$m"
+	    fi
+	else
+	    if test "${plotmode}" == "y"
+	    then
+		runocaml "${name}" "$m" &
+	    else
+		runocaml "${name}" "$m"
 	    fi
 	fi
     done
+}
+
+runalltools() {
+    dir=$1
+    name=$2
+    [[ -n "${herd_col}" ]] && runherd "${dir}"
+    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
+    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
+    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+}
+
+runalltoolsfullypar() {
+    dir=$1
+    name=$2
+    [[ -n "${herd_col}" ]] && runherd "${dir}" &
+    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
+    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
+    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
 }
 
 runbenchmarks() {
@@ -192,13 +237,9 @@ runbenchmarks() {
 	name="${dir##*/}"
 	if test "${plotmode}" == "y"
 	then
-	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
-	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
-	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+	    runalltoolsfullypar "${dir}" "${name}"
 	else
-	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
-	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	    runalltools "${dir}" "${name}"
 	fi
 
 	if test "${tablemode}" == "y"
@@ -230,15 +271,9 @@ runlitmus() {
 
 	if test "${plotmode}" == "y"
 	then
-	    [[ -n "${herd_col}" ]] && runherd "${dir}" &
-	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
-	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
-	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+	    runalltoolsfullypar "${dir}" "${name}"
 	else
-	    [[ -n "${herd_col}" ]] && runherd "${dir}"
-	    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
-	    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-	    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	    runalltools "${dir}" "${name}"
 	fi
 
 	if test "${tablemode}" == "y"

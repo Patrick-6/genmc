@@ -21,6 +21,9 @@ do for [file in filenames] {
    if (tool eq 'cdschecker') {
       titles[i] = 'cds-checker'
    }
+   if (tool eq 'herd') {
+      titles[i] = 'herd'
+   }
    if (tool eq 'nidhugg') {
       modelext = file[dot1+1:]
       dot2 = strstrt(modelext, '.')
