@@ -33,7 +33,8 @@ declare -a benchmarks
 
 benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6" "big0" "binc3" "binc4" "casrot3"
 	     "casrot4" "casrot5" "casrot6" "casrot8" "casw3" "casw4" "casw5"
-	     "readers3" "readers13" "fib_bench" "lastzero15" )
+	     "readers3" "readers13" "fib_bench" "indexer12" "lastzero5"
+	     "lastzero10" "lastzero15" )
 
 runherd() {
     dir="$1"
