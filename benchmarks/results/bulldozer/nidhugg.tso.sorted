@@ -7,6 +7,7 @@ casrot6     144    0.21
 binc4       576    0.31
 ainc6       720    0.38
 casw4       1200   0.78
+linuxrwlocks 1152   0.95
 casrot8     2048   2.09
 lastzero10  3328   4.74
 readers13   8192   15.25

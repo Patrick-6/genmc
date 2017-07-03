@@ -8,6 +8,7 @@ lastzero10  3328   1.29
 indexer12   8      1.53
 readers13   8192   4.13
 casw5       2160   5.64
+linuxrwlocks 1245  36.05
 ainc5       120    41.76
 lastzero15  147456  96.82
 binc4       630    207.68
