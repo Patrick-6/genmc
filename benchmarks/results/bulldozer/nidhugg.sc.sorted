@@ -1,12 +1,7 @@
-ainc4       24     0.11
-binc3       36     0.11
-casw3       66     0.13
 ainc5       120    0.14
 indexer12   8      0.14
-casrot6     144    0.20
 binc4       576    0.29
 ainc6       720    0.35
-casw4       1200   0.68
 linuxrwlocks 1152  0.84
 casrot8     2048   1.89
 lastzero10  3328   4.38
