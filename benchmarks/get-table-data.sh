@@ -71,11 +71,11 @@ runnidhuggtest() {
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`
 	explored_total=`echo "${explored_total}+${explored}" | bc -l`
-	explored_total=`echo "${explored_total}+${blocked}" | bc -l`
+#	explored_total=`echo "${explored_total}+${blocked}" | bc -l`
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    nidhugg_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
+    nidhugg_result=`printf "%-5s & %-5s & %-5s" "${average_explored}" "${blocked}" "${average_time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${nidhugg_result}" >> "nidhugg.${model}.out"
@@ -114,8 +114,10 @@ runcdstest() {
     output=`/usr/bin/time -p "${CDSCHECKER}" "${PATHTOCDS}/benchmarks/${dir}/${testname}" \
             "${test_args}" 2>&1`
     explored=`echo "${output}" | awk '/bug-free/ { print $6 }'`
+    redundant=`echo "${output}" | awk '/redundant/ { print $5 }'`
+    infeasible=`echo "${output}" | awk '/infeasible/ { print $5 }'`
     time=`echo "${output}" | awk '/real/ { print $2 }'`
-    result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    result=`printf "%-5s+%-5s+%-5s & %-5s" "${explored}" "${redundant}" "${infeasible}" "${time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${result}" >> "cdschecker.out"
