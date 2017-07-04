@@ -75,7 +75,7 @@ runnidhuggtest() {
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    nidhugg_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    nidhugg_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${nidhugg_result}" >> "nidhugg.${model}.out"
@@ -172,7 +172,7 @@ runcpp() {
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    rcmc_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${rcmc_result}" >> "rcmc.${model}.out"
