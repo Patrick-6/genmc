@@ -123,7 +123,7 @@ runcdstest() {
     redundant=`echo "${output}" | awk '/redundant/ { print $5 }'`
     infeasible=`echo "${output}" | awk '/infeasible/ { print $5 }'`
     time=`echo "${output}" | awk '/real/ { print $2 }'`
-    result=`printf "%-5s + %-5s + %-5s & %-5s" "${explored}" "${redundant}" "${infeasible}" "${time}"`
+    result=`printf "%-8s + %-6s + %-7s & %-6s" "${explored}" "${redundant}" "${infeasible}" "${time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${result}" >> "cdschecker.out"
