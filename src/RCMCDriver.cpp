@@ -65,7 +65,7 @@ bool interpStore = false;
 bool interpRMW = false;
 
 /* TODO: Move this to Interpreter.h, and also remove the relevant header */
- std::unordered_set<llvm::GenericValue *> globalVars;
+ std::unordered_set<void *> globalVars;
  std::unordered_set<std::string> uniqueExecs;
 
 void RCMCDriver::printResults()

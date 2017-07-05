@@ -1287,7 +1287,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		 * to some offset of a global variable (obtained by getelementptr).
 		 * If this is not a global access just perform the load.
 		 */
-		if (!I.isAtomic()) {
+		if (!globalVars.count(ptr)) {
 			GenericValue Result;
 			LoadValueFromMemory(Result, ptr, typ);
 			SetValue(&I, Result, SF);
@@ -1337,23 +1337,24 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 
 void Interpreter::visitStoreInst(StoreInst &I) {
 	if (!dryRun) {
-		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
+		ExecutionGraph &g = *currentEG;
+		ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
 		GenericValue val = getOperandValue(I.getOperand(0), SF);
 		GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getOperand(0)->getType();
 
 		/* TODO: Detect globalVars.find(ptr) == globalVars.end() */
-		if (!I.isAtomic()) {
+		if (!globalVars.count(ptr)) {
 			StoreValueToMemory(val, ptr, typ);
 			return;
 		}
 
-		int c = ++currentEG->threads[currentEG->currentT].globalInstructions;
-		if (currentEG->maxEvents[currentEG->currentT] > c)
+		int c = ++g.threads[g.currentT].globalInstructions;
+		if (currentEG->maxEvents[g.currentT] > c)
 			return;
 
-		currentEG->addStoreToGraph(I.getOrdering(), ptr, val, typ);
+		g.addStoreToGraph(I.getOrdering(), ptr, val, typ);
 		interpStore = true;
 		return;
 	}
@@ -1462,6 +1463,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	Type *typ = I.getCompareOperand()->getType();
 	GenericValue result;
+
+
 
 	/* TODO: Check if the operations below are correct */
 	// if (globalVars.find(ptr) == globalVars.end()) {
@@ -3160,9 +3163,16 @@ DEBUG(
       }
     });
 #endif
-if (globalVars.empty())
-	for (auto &v : I.getParent()->getParent()->getParent()->getGlobalList())
-		globalVars.insert((GenericValue *) GVTOP(getOperandValue(&cast<Value>(v), SF)));
+if (globalVars.empty()) {
+	Module *M = I.getParent()->getParent()->getParent();
+	for (auto &v : M->getGlobalList())  {
+		unsigned typeSize =
+			M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
+		char *ptr = static_cast<char *>(GVTOP(getOperandValue(&cast<Value>(v), SF)));
+		for (int i = 0; i < typeSize; i++)
+			globalVars.insert(ptr + i);
+	}
+}
 
   }
 }
