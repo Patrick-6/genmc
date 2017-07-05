@@ -28,13 +28,18 @@ HERD=herd7
 NIDHUGG=nidhuggc
 CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
 
-declare -a tool_res
+declare -a tool_resi
 declare -a benchmarks
 
-benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6" "big0" "binc3" "binc4" "casrot3"
-	     "casrot4" "casrot5" "casrot6" "casrot8" "casw3" "casw4" "casw5"
-	     "readers3" "readers13" "fib_bench" "indexer12" "lastzero5"
-	     "lastzero10" "lastzero15" )
+benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6"
+	     "big0"
+	     "binc3" "binc4"
+	     "casrot3" "casrot4" "casrot5" "casrot6" "casrot8"
+	     "casw3" "casw4" "casw5" "casw6"
+	     "readers3" "readers8" "readers13"
+	     "indexer12" "indexer13" "indexer14" "indexer15"
+             "lastzero5" "lastzero10" "lastzero15"
+	     "fib_bench3" "fib_bench4" "fib_bench5" )
 
 runherd() {
     dir="$1"
@@ -71,11 +76,12 @@ runnidhuggtest() {
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`
 	explored_total=`echo "${explored_total}+${explored}" | bc -l`
-#	explored_total=`echo "${explored_total}+${blocked}" | bc -l`
+	## explored_total=`echo "${explored_total}+${blocked}" | bc -l`
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    nidhugg_result=`printf "%-5s & %-5s & %-5s" "${average_explored}" "${blocked}" "${average_time}"`
+    nidhugg_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
+    nidhugg_result=`printf "%-5s + %-5s & %-5s" "${average_explored}" "${blocked}" "${average_time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${nidhugg_result}" >> "nidhugg.${model}.out"
@@ -117,7 +123,7 @@ runcdstest() {
     redundant=`echo "${output}" | awk '/redundant/ { print $5 }'`
     infeasible=`echo "${output}" | awk '/infeasible/ { print $5 }'`
     time=`echo "${output}" | awk '/real/ { print $2 }'`
-    result=`printf "%-5s+%-5s+%-5s & %-5s" "${explored}" "${redundant}" "${infeasible}" "${time}"`
+    result=`printf "%-5s + %-5s + %-5s & %-5s" "${explored}" "${redundant}" "${infeasible}" "${time}"`
     if test "${plotmode}" == "y"
     then
 	echo "${result}" >> "cdschecker.out"
