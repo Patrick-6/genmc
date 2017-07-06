@@ -28,7 +28,7 @@ void *thread_two(void *arg)
 void *thread_three(void *arg)
 {
 	if (!atomic_load_explicit(&z1, memory_order_relaxed) && !atomic_load_explicit(&z2, memory_order_relaxed)) {
-		for (int i = 0; i != 100; i++) {
+		for (int i = 0; i < N; i++) {
 			atomic_store_explicit(&x, i, memory_order_relaxed);
 		}
 	}
@@ -38,7 +38,7 @@ void *thread_three(void *arg)
 void *thread_four(void *arg)
 {
 	if (!atomic_load_explicit(&z1, memory_order_relaxed) && !atomic_load_explicit(&z2, memory_order_relaxed)) {
-		for (int i = 0; i != 100; i++) {
+		for (int i = 0; i < N; i++) {
 			atomic_load_explicit(&x, memory_order_relaxed);
 		}
 	}
