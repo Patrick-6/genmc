@@ -2860,6 +2860,15 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	return;
 }
 
+void Interpreter::callPthreadSelf(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
+{
+	GenericValue result;
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
+			      currentEG->currentT);
+	returnValueToCaller(F->getReturnType(), result);
+}
+
 /* callPthreadCreate - Call to pthread_create() function */
 void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
@@ -3063,6 +3072,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "free") {
 	  callFree(F, ArgVals);
+	  return;
+  } else if (functionName == "pthread_self") {
+	  callPthreadSelf(F, ArgVals);
 	  return;
   } else if (functionName == "pthread_create") {
 	  callPthreadCreate(F, ArgVals);

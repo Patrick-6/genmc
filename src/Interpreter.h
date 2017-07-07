@@ -196,6 +196,7 @@ public:
   void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
   void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
