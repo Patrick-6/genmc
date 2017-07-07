@@ -2788,14 +2788,10 @@ void Interpreter::callAssertFail(Function *F,
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	/* TODO: Fix check below */
-	if (dryRun) {
-		returnValueToCaller(Type::getVoidTy(F->getContext()), GenericValue());
-		return;
-	}
-
-	ExecutionGraph &g = *currentEG;
-	g.getThreadECStack(g.currentT).clear();
+	if (dryRun)
+		ECStack.clear();
+	else
+		currentEG->getThreadECStack(currentEG->currentT).clear();
 }
 
 void Interpreter::callVerifierAssume(Function *F,
