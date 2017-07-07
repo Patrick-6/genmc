@@ -1798,7 +1798,7 @@ void Interpreter::visitShl(BinaryOperator &I) {
 }
 
 void Interpreter::visitLShr(BinaryOperator &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue Dest;
