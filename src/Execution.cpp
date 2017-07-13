@@ -3174,10 +3174,14 @@ DEBUG(
 if (globalVars.empty()) {
 	Module *M = I.getParent()->getParent()->getParent();
 	for (auto &v : M->getGlobalList())  {
-		unsigned typeSize =
+		unsigned int typeSize =
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 			M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
+#else
+			M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
+#endif
 		char *ptr = static_cast<char *>(GVTOP(getOperandValue(&cast<Value>(v), SF)));
-		for (int i = 0; i < typeSize; i++)
+		for (auto i = 0u; i < typeSize; i++)
 			globalVars.insert(ptr + i);
 	}
 }
