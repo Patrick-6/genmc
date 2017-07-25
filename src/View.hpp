@@ -61,6 +61,7 @@ public:
 				return false;
 		return true;
 	}
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v);
 };
 
 #endif /* __VIEW_HPP__ */

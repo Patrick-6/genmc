@@ -97,6 +97,19 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
 	}
 }
 
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)
+{
+	switch (o) {
+	case llvm::NotAtomic : return s << "NA";
+	case llvm::Unordered : return s << "Un";
+	case llvm::Monotonic : return s << "Rlx";
+	case llvm::Acquire   : return s << "Acq";
+	case llvm::Release   : return s << "Rel";
+	case llvm::AcquireRelease : return s << "AcqRel";
+	case llvm::SequentiallyConsistent : return s << "SeqCst";
+	}
+}
+
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
 {
 	return s << "Event (" << e.thread << ", " << e.index << ")";
@@ -104,7 +117,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab)
 {
-	return s << "EventLabel (Type: " << lab.type << ", "
-		 << lab.pos << (lab.isRMW() ? ", " : "")
-		 << lab.attr << ")";
+	return s << "EventLabel (Type: " << lab.type << "/" << lab.ord
+		 << ", " << lab.pos << (lab.isRMW() ? ", " : "")
+		 << lab.attr << ", " << lab.hbView << ")";
 }

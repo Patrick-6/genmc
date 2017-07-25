@@ -66,3 +66,12 @@ View View::getMax(View &v)
 			result[i] = v[i];
 	return result;
 }
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v)
+{
+	s << "[ ";
+	for (auto i : v.view_)
+		s << i << " ";
+	s << "]";
+	return s;
+}
