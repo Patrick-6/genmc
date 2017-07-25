@@ -80,6 +80,9 @@ public:
 	EventLabel& getEventLabel(Event &e);
 	EventLabel& getPreviousLabel(Event &e);
 	Event getLastThreadEvent(int thread);
+	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
+	View getEventHbView(Event e);
+	View getEventMsgView(Event e);
 	std::vector<Event> getLocModOrder(llvm::GenericValue *addr);
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);

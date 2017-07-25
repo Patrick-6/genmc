@@ -191,6 +191,22 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				lab3.rfm1.remove(p.e);
 			}
 
+			lab1.hbView = g.getEventHbView(lab1.pos.prev()).getCopy(g.threads.size());
+			lab1.hbView[lab1.pos.thread] = lab1.pos.index;
+			switch (lab1.ord) {
+			case llvm::NotAtomic:
+			case llvm::Monotonic:
+			case llvm::Release:
+				break;
+			case llvm::Acquire:
+			case llvm::AcquireRelease:
+			case llvm::SequentiallyConsistent:
+				View mV = g.getEventMsgView(lab1.rf);
+				lab1.hbView.updateMax(mV);
+				break;
+			}
+
+
 			std::vector<int> before = g.getPorfBefore(p.e);
 			g.revisit.removePorfBefore(before);
 //		std::cerr << "After restriction: \n" << g << std::endl;
@@ -393,10 +409,10 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 		ls1.erase(std::remove_if(ls1.begin(), ls1.end(), [&after](Event &e)
 			 { return e.index >= after[e.thread]; }), ls1.end());
 		ls1.insert(ls1.end(), si.begin(), si.end());
-		after = g.getPorfAfter(ls1);
 
 		ExecutionGraph eg;
 
+		after = g.getPorfAfter(ls1);
 		eg.cutToCopyAfter(g, after);
 		eg.modifyRfs(ls1, wLab.pos);
 		std::vector<int> before = eg.getPorfBefore(si);

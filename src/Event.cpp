@@ -19,6 +19,7 @@
  */
 
 #include "Event.hpp"
+#include "Error.hpp"
 #include <llvm/IR/Instructions.h>
 
 #include <cassert>

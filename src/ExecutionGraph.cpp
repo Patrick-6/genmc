@@ -52,6 +52,35 @@ Event ExecutionGraph::getLastThreadEvent(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].pos;
 }
 
+Event ExecutionGraph::getLastThreadRelease(int thread, llvm::GenericValue *addr)
+{
+	for (int i = maxEvents[thread] - 1; i > 0; i--) {
+		EventLabel &lab = threads[thread].eventList[i];
+		if (lab.isWrite() && lab.isAtLeastRelease() && lab.addr == addr)
+			return lab.pos;
+	}
+	return threads[thread].eventList[0].pos;
+}
+
+View ExecutionGraph::getEventHbView(Event e)
+{
+	if (e.isInitializer() || e.isThreadStart())
+		return View();
+
+	EventLabel &lab = getEventLabel(e);
+	return lab.hbView;
+}
+
+View ExecutionGraph::getEventMsgView(Event e)
+{
+	if (e.isInitializer() || e.isThreadStart())
+		return View();
+
+	EventLabel &lab = getEventLabel(e);
+	BUG_ON(!lab.isWrite());
+	return lab.msgView;
+}
+
 std::vector<int> ExecutionGraph::getGraphState(void)
 {
 	std::vector<int> state;
@@ -132,6 +161,20 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
+	lab.hbView = getEventHbView(getLastThreadEvent(currentT)).getCopy(threads.size());
+	lab.hbView[currentT] = maxEvents[currentT];
+	switch (lab.ord) {
+	case llvm::NotAtomic:
+	case llvm::Monotonic:
+	case llvm::Release:
+		break;
+	case llvm::Acquire:
+	case llvm::AcquireRelease:
+	case llvm::SequentiallyConsistent:
+		View mV = getEventMsgView(lab.rf);
+		lab.hbView.updateMax(mV);
+		break;
+	}
 	addEventToGraph(lab);
 	if (rf.isInitializer())
 		return;
@@ -168,6 +211,44 @@ void ExecutionGraph::addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericVa
 
 void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 {
+	lab.hbView = getEventHbView(getLastThreadEvent(currentT)).getCopy(threads.size());
+	lab.hbView[currentT] = maxEvents[currentT];
+	if (lab.isRMW()) {
+		Event last = getLastThreadEvent(currentT);
+		EventLabel &pLab = getEventLabel(last);
+		View mV = getEventMsgView(pLab.rf);
+		switch (lab.ord) {
+		case llvm::NotAtomic:
+			BUG();
+		case llvm::Monotonic:
+		case llvm::Acquire:
+			/* TODO: Check mV.getMax(rLab.hbView); */
+			lab.msgView = getEventHbView(getLastThreadRelease(currentT, lab.addr));
+			lab.msgView = lab.msgView.getMax(mV);
+			break;
+		case llvm::Release:
+		case llvm::AcquireRelease:
+		case llvm::SequentiallyConsistent:
+			/* TODO: Check mV.getMax(lab.hbView); */
+			lab.msgView = lab.msgView.getMax(mV);
+			lab.msgView = lab.msgView.getMax(lab.hbView);
+			break;
+		}
+	} else {
+		switch (lab.ord) {
+		case llvm::NotAtomic:
+			break;
+		case llvm::Monotonic:
+		case llvm::Acquire:
+			lab.msgView = getEventHbView(getLastThreadRelease(currentT, lab.addr));
+			break;
+		case llvm::Release:
+		case llvm::AcquireRelease:
+		case llvm::SequentiallyConsistent:
+			lab.msgView = lab.hbView;
+			break;
+		}
+	}
 	addEventToGraph(lab);
 	return;
 }
@@ -532,6 +613,20 @@ void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
 			EventLabel &oldL = getEventLabel(oldRf);
 			oldL.rfm1.remove(*it);
 		}
+		lab.hbView = getEventHbView(lab.pos.prev()).getCopy(threads.size());
+		lab.hbView[lab.pos.thread] = lab.pos.index;
+		switch (lab.ord) {
+		case llvm::NotAtomic:
+		case llvm::Monotonic:
+		case llvm::Release:
+			break;
+		case llvm::Acquire:
+		case llvm::AcquireRelease:
+		case llvm::SequentiallyConsistent:
+			View mV = getEventMsgView(lab.rf);
+			lab.hbView.updateMax(mV);
+			break;
+		}
 	}
 	/* TODO: Do some check here for initializer or if it is already present? */
 	EventLabel &sLab = getEventLabel(store);
@@ -683,7 +778,7 @@ void ExecutionGraph::calcTraceBefore(const Event &e, std::vector<int> &a,
 		if (lab.type == R && !lab.rf.isInitializer()) {
 			calcTraceBefore(lab.rf, a, buf);
 			getInstFromMData(buf, thr, i);
-		} else if (lab.type != NA) {
+		} else if (!lab.pos.isThreadStart()) {
 			getInstFromMData(buf, thr, i);
 		}
 	}

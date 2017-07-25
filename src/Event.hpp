@@ -21,6 +21,7 @@
 #ifndef __EVENT_HPP__
 #define __EVENT_HPP__
 
+#include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/raw_ostream.h>
@@ -40,6 +41,7 @@ struct Event {
 	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 
 	bool isInitializer() { return thread == 0 && index == 0; };
+	bool isThreadStart() { return thread == -1 && index == -1; };
 	Event prev() { return Event(thread, index-1); };
 	Event next() { return Event(thread, index+1); };
 
@@ -65,6 +67,8 @@ public:
 	llvm::Type *valTyp;
 	Event rf; /* For Reads */
 	std::list<Event> rfm1; /* For Writes */
+	View msgView;
+	View hbView;
 
 	EventLabel(EventType typ, Event e); /* Start */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,

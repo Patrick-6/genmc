@@ -6,21 +6,22 @@ librcmc_a_SOURCES = \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
-  RCMCDriver.cpp RCMCDriver.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
   Execution.cpp \
-  ModOrder.cpp ModOrder.hpp \
-  RevisitSet.cpp RevisitSet.hpp \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
   Interpreter.cpp Interpreter.h \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
+  ModOrder.cpp ModOrder.hpp \
   Parser.cpp Parser.hpp \
+  RCMCDriver.cpp RCMCDriver.hpp \
+  RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   Thread.cpp Thread.hpp \
-  vecset.h vecset.tcc
+  vecset.h vecset.tcc \
+  View.hpp View.cpp
 
 CXX = clang++
 AM_CXXFLAGS=-std=c++14 -Wno-unknown-warning-option
