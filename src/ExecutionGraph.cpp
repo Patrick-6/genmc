@@ -141,9 +141,12 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
 
 	std::vector<Event> locMO = modOrder.getAtLoc(sLab.addr);
 	std::vector<Event> optRfs = calcOptionalRfs(store, locMO);
-	std::vector<int> after = getHbAfter(optRfs);
-	ls.erase(std::remove_if(ls.begin(), ls.end(), [&after](Event e)
-				{ return after[e.thread] <= e.index; }), ls.end());
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [this, &optRfs](Event e)
+				{ std::vector<int> before = this->getHbPoBefore(e);
+				  return std::any_of(optRfs.begin(), optRfs.end(),
+					 [&before](Event ev)
+					 { return ev.index <= before[ev.thread]; });
+				}), ls.end());
 	return ls;
 }
 
@@ -350,75 +353,6 @@ std::vector<int> ExecutionGraph::getPorfBefore(const std::vector<Event> &es)
 	return a;
 }
 
-std::vector<int> ExecutionGraph::getPorfBeforeNoRfs(const std::vector<Event> &es)
-{
-	std::vector<int> a(threads.size(), 0);
-
-	for (auto &e : es)
-		calcPorfBefore(Event(e).prev(), a);
-	for (auto &e : es)
-		if (a[e.thread] < e.index)
-			a[e.thread] = e.index;
-	return a;
-}
-
-void ExecutionGraph::calcHbBefore(const Event &e, std::vector<int> &a)
-{
-	int ai = a[e.thread];
-	if (e.index <= ai)
-		return;
-
-	a[e.thread] = e.index;
-	Thread &thr = threads[e.thread];
-	for (int i = ai; i <= e.index; i++) {
-		EventLabel &lab = thr.eventList[i];
-		if (lab.isRead() && lab.isAtLeastAcquire() && !lab.rf.isInitializer()) {
-			EventLabel &rfLab = getEventLabel(lab.rf);
-			if (rfLab.isAtLeastRelease())
-				calcHbBefore(rfLab.pos, a);
-		}
-	}
-	return;
-}
-
-void ExecutionGraph::calcHbAfter(const Event &e, std::vector<int> &a)
-{
-	int ai = a[e.thread];
-	if (e.index >= ai)
-		return;
-
-	a[e.thread] = e.index;
-	Thread &thr = threads[e.thread];
-	for (int i = e.index; i <= ai; i++) {
-		if (i >= maxEvents[e.thread])
-			break;
-		EventLabel &lab = thr.eventList[i];
-		if (lab.isWrite() && lab.isAtLeastRelease()) {
-			for (auto &r : lab.rfm1) {
-				EventLabel &rLab = getEventLabel(r);
-				if (rLab.isAtLeastAcquire())
-					calcHbAfter(r, a);
-			}
-		}
-	}
-	return;
-}
-
-std::vector<int> ExecutionGraph::getHbAfter(Event e)
-{
-	std::vector<int> a(maxEvents);
-	calcHbAfter(Event(e.thread, e.index + 1), a);
-	return a;
-}
-
-std::vector<int> ExecutionGraph::getHbAfter(const std::vector<Event> &es)
-{
-	std::vector<int> a(maxEvents);
-	for (auto &e : es)
-		calcHbAfter(Event(e.thread, e.index + 1), a);
-	return a;
-}
-
 std::vector<int> ExecutionGraph::getHbBefore(Event e)
 {
 	return getEventHbView(e).toVector();
@@ -434,6 +368,13 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 		if (v[e.thread] < e.index)
 			v[e.thread] = e.index;
 	}
+	return v.toVector();
+}
+
+std::vector<int> ExecutionGraph::getHbPoBefore(Event e)
+{
+	View v = getEventHbView(e.prev()).getCopy(threads.size());
+	v[e.thread] = e.index;
 	return v.toVector();
 }
 
