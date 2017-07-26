@@ -48,6 +48,8 @@ public:
 	void updateMax(View &v);
 	View getMax(View &v);
 
+	std::vector<int> toVector();
+
 	/* Overloaded operators */
 	inline int operator[](int idx) const {
 		return view_[idx];

@@ -421,18 +421,20 @@ std::vector<int> ExecutionGraph::getHbAfter(const std::vector<Event> &es)
 
 std::vector<int> ExecutionGraph::getHbBefore(Event e)
 {
-	std::vector<int> a(threads.size(), 0);
-	calcHbBefore(e, a);
-	return a;
+	return getEventHbView(e).toVector();
 }
 
 std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 {
-	std::vector<int> a(threads.size(), 0);
+	View v(threads.size());
 
-	for (auto &e : es)
-		calcHbBefore(e, a);
-	return a;
+	for (auto &e : es) {
+		View o = getEventHbView(e);
+		v.updateMax(o);
+		if (v[e.thread] < e.index)
+			v[e.thread] = e.index;
+	}
+	return v.toVector();
 }
 
 
@@ -458,6 +460,10 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 {
 	std::vector<Event> boundary;
 	std::vector<int> before = getHbBefore(getLastThreadEvent(thread));
+
+	if (before.empty())
+		return boundary;
+
 	for (auto &e : modOrder.getAtLoc(addr))
 		if (isWriteRfBefore(before, e))
 			boundary.push_back(e.prev());
@@ -493,8 +499,9 @@ std::vector<std::vector<Event> > ExecutionGraph::splitLocMOBefore(std::vector<in
 	std::vector<std::vector<Event> > result;
 	std::vector<Event> revConcStores;
 	std::vector<Event> prevStores;
+
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (!isWriteRfBefore(before, *rit)) {
+		if (before.empty() || !isWriteRfBefore(before, *rit)) {
 			revConcStores.push_back(*rit);
 		} else {
 			for (auto rit2 = rit; rit2 != locMO.rend(); ++rit2)

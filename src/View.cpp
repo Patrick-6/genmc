@@ -67,6 +67,11 @@ View View::getMax(View &v)
 	return result;
 }
 
+std::vector<int> View::toVector()
+{
+	return view_;
+}
+
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v)
 {
 	s << "[ ";
