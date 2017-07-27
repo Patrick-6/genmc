@@ -58,6 +58,11 @@ bool EventLabel::isWrite() const
 	return type == W;
 }
 
+bool EventLabel::isNotAtomic() const
+{
+	return ord == llvm::NotAtomic;
+}
+
 bool EventLabel::isAtLeastAcquire() const
 {
 	return (ord == llvm::Acquire ||

@@ -1303,6 +1303,12 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 			return;
 		}
 
+		/* Check for races */
+		if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer()) {
+			dbgs() << "Race detected!\n";
+			abort();
+		}
+
 		/* Get all stores to this location from which we can read from */
 		std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 		std::vector<Event> validStores =
@@ -1354,6 +1360,13 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		if (currentEG->maxEvents[g.currentT] > c)
 			return;
 
+		/* Check for races */
+		if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer()) {
+			dbgs() << "Race detected!\n";
+			abort();
+		}
+
+		/* Add store to graph and (possibly) revisit some reads */
 		g.addStoreToGraph(I.getOrdering(), ptr, val, typ);
 		interpStore = true;
 		return;
@@ -1485,6 +1498,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
+			/* Check for races */
+			if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+				dbgs() << "Race detected!\n";
+				abort();
+			}
+
 			g.addCASStoreToGraph(getWriteOrdering(I.getSuccessOrdering()), ptr, newVal, typ);
 			++g.threads[g.currentT].globalInstructions;
 			interpRMW = true;
@@ -1507,7 +1526,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		return;
 	}
 
-	std::vector<int> readPreds;
+	/* Check for races */
+	if (!g.findRaceForNewLoad(getReadOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+		dbgs() << "Race detected!\n";
+		abort();
+	}
 
 	/* Calculate the stores that we can actually read from */
 	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
@@ -1517,7 +1540,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	/* ... and add a label with the appropriate store. */
 	g.addCASReadToGraph(getReadOrdering(I.getSuccessOrdering()), ptr, cmpVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	readPreds = g.getGraphState();
+	std::vector<int> readPreds = g.getGraphState();
 	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
@@ -1530,9 +1553,13 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
+		/* Check for races */
+		if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+			dbgs() << "Race detected!\n";
+			abort();
+		}
 		g.addCASStoreToGraph(getWriteOrdering(I.getSuccessOrdering()), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
-
 		interpRMW = true;
 	} else {
 		lab.ord = getReadOrdering(I.getFailureOrdering());
@@ -1601,6 +1628,11 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
+		/* Check for races */
+		if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
+			dbgs() << "Race detected!\n";
+			abort();
+		}
 		g.addRMWStoreToGraph(getWriteOrdering(I.getOrdering()), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
 
@@ -1616,7 +1648,11 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	std::vector<int> readPreds;
+	/* Check for races */
+	if (!g.findRaceForNewLoad(getReadOrdering(I.getOrdering()), ptr).isInitializer()) {
+		dbgs() << "Race detected!\n";
+		abort();
+	}
 
 	/* Calculate the stores that we can actually read from */
 	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
@@ -1626,13 +1662,19 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	/* ... and add a label with the appropriate store. */
 	g.addRMWReadToGraph(getReadOrdering(I.getOrdering()), ptr, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	readPreds = g.getGraphState();
+	std::vector<int> readPreds = g.getGraphState();
 	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
 		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
+	}
+
+	/* Check for races */
+	if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
+		dbgs() << "Race detected!\n";
+		abort();
 	}
 
 	oldVal = loadValueFromWrite(validStores[0], typ, ptr);

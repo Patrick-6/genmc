@@ -630,6 +630,46 @@ void ExecutionGraph::tryToBacktrack(void)
 
 
 /************************************************************
+ ** Race detection methods
+ ***********************************************************/
+
+Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
+{
+	std::vector<int> before = getHbBefore(getLastThreadEvent(currentT));
+	std::vector<Event> stores = modOrder.getAtLoc(ptr);
+
+	/* If there are not any events hb-before the read, there is nothing to do */
+	if (before.empty())
+		return Event(0, 0);
+
+	/* Check for events that race with the current load */
+	for (auto &s : stores) {
+		if (s.index > before[s.thread]) {
+			EventLabel &sLab = getEventLabel(s);
+			if (ord == llvm::NotAtomic || sLab.isNotAtomic())
+				return s; /* Race detected! */
+		}
+	}
+	return Event(0, 0); /* Race not found */
+}
+
+Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
+{
+	std::vector<int> before = getHbBefore(getLastThreadEvent(currentT));
+
+	for (auto i = (int) before.size() - 1; i >= 0; i--) {
+		for (auto j = maxEvents[i] - 1; j >= before[i] + 1; j--) {
+			EventLabel &lab = threads[i].eventList[j];
+			if ((lab.isRead() || lab.isWrite()) && lab.addr == ptr)
+				if (ord == llvm::NotAtomic || lab.isNotAtomic())
+					return lab.pos; /* Race detected! */
+		}
+	}
+	return Event(0, 0); /* Race not found */
+}
+
+
+/************************************************************
  ** Debugging methods
  ***********************************************************/
 

@@ -85,6 +85,7 @@ public:
 
 	bool isRead() const;
 	bool isWrite() const;
+	bool isNotAtomic() const;
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;
 	bool isRMW() const;

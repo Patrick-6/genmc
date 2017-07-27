@@ -131,6 +131,10 @@ public:
 	bool scheduleNext(void);
 	void tryToBacktrack(void);
 
+	/* Race detection methods */
+	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
+	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
+
 	/* Debugging methods */
 	void validateGraph(void);
 
