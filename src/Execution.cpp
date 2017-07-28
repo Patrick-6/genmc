@@ -1306,6 +1306,7 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		/* Check for races */
 		if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer()) {
 			dbgs() << "Race detected!\n";
+			driver->printResults();
 			abort();
 		}
 
@@ -1363,6 +1364,7 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		/* Check for races */
 		if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer()) {
 			dbgs() << "Race detected!\n";
+			driver->printResults();
 			abort();
 		}
 
@@ -1501,6 +1503,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 			/* Check for races */
 			if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
 				dbgs() << "Race detected!\n";
+				driver->printResults();
 				abort();
 			}
 
@@ -1529,6 +1532,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	/* Check for races */
 	if (!g.findRaceForNewLoad(getReadOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
 		dbgs() << "Race detected!\n";
+		driver->printResults();
 		abort();
 	}
 
@@ -1556,6 +1560,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		/* Check for races */
 		if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
 			dbgs() << "Race detected!\n";
+			driver->printResults();
 			abort();
 		}
 		g.addCASStoreToGraph(getWriteOrdering(I.getSuccessOrdering()), ptr, newVal, typ);
@@ -1631,6 +1636,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		/* Check for races */
 		if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
 			dbgs() << "Race detected!\n";
+			driver->printResults();
 			abort();
 		}
 		g.addRMWStoreToGraph(getWriteOrdering(I.getOrdering()), ptr, newVal, typ);
@@ -1651,6 +1657,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	/* Check for races */
 	if (!g.findRaceForNewLoad(getReadOrdering(I.getOrdering()), ptr).isInitializer()) {
 		dbgs() << "Race detected!\n";
+		driver->printResults();
 		abort();
 	}
 
@@ -1674,6 +1681,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	/* Check for races */
 	if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
 		dbgs() << "Race detected!\n";
+		driver->printResults();
 		abort();
 	}
 
