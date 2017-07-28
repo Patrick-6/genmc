@@ -23,6 +23,8 @@
 
 #include <llvm/Support/raw_ostream.h>
 
+#include <vector>
+
 class View {
 protected:
 	typedef std::vector<int> EventView;
