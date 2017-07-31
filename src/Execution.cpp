@@ -1382,6 +1382,21 @@ void Interpreter::visitStoreInst(StoreInst &I) {
     dbgs() << "Volatile store: " << I;
 }
 
+void Interpreter::visitFenceInst(FenceInst &I)
+{
+	if (dryRun)
+		return;
+
+	ExecutionGraph &g = *currentEG;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (currentEG->maxEvents[g.currentT] > c)
+		return;
+
+	g.addFenceToGraph(I.getOrdering());
+	return;
+}
+
 Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
 {
 	for (auto &e : es)

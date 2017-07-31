@@ -56,6 +56,8 @@ Event ExecutionGraph::getLastThreadRelease(int thread, llvm::GenericValue *addr)
 {
 	for (int i = maxEvents[thread] - 1; i > 0; i--) {
 		EventLabel &lab = threads[thread].eventList[i];
+		if (lab.isFence() && lab.isAtLeastRelease())
+			return lab.pos;
 		if (lab.isWrite() && lab.isAtLeastRelease() && lab.addr == addr)
 			return lab.pos;
 	}
@@ -280,6 +282,28 @@ void ExecutionGraph::addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericV
 	addStoreToGraphCommon(lab);
 }
 
+void ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
+
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(F, ord, Event(currentT, max));
+
+	lab.hbView = getEventHbView(getLastThreadEvent(currentT)).getCopy(threads.size());
+	lab.hbView[currentT] = maxEvents[currentT];
+	switch (lab.ord) {
+	case llvm::NotAtomic:
+	case llvm::Monotonic:
+	case llvm::Release:
+		break;
+	case llvm::Acquire:
+	case llvm::AcquireRelease:
+	case llvm::SequentiallyConsistent:
+		calcRelRfPoBefore(currentT, getLastThreadEvent(currentT).index, lab.hbView);
+		break;
+	}
+	addEventToGraph(lab);
+}
+
 
 /************************************************************
  ** Calculation of [(po U rf)*] predecessors and successors
@@ -376,6 +400,18 @@ std::vector<int> ExecutionGraph::getHbPoBefore(Event e)
 	View v = getEventHbView(e.prev()).getCopy(threads.size());
 	v[e.thread] = e.index;
 	return v.toVector();
+}
+
+void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
+{
+	for (auto i = index; i > 0; i--) {
+		EventLabel &lab = threads[thread].eventList[i];
+		if (lab.isRead() && (lab.ord == llvm::Acquire ||
+				     lab.ord == llvm::Monotonic)) {
+			View o = getEventMsgView(lab.rf);
+			v.updateMax(o);
+		}
+	}
 }
 
 

@@ -28,7 +28,7 @@
 
 #include <list>
 
-enum EventType { R, W, NA };
+enum EventType { R, W, F, NA };
 enum EventAttr { Plain, CAS, RMW};
 
 struct Event {
@@ -71,6 +71,7 @@ public:
 	View hbView;
 
 	EventLabel(EventType typ, Event e); /* Start */
+	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fences */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
@@ -85,6 +86,7 @@ public:
 
 	bool isRead() const;
 	bool isWrite() const;
+	bool isFence() const;
 	bool isNotAtomic() const;
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;

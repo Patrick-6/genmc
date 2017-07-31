@@ -260,6 +260,7 @@ public:
 
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
   void visitAtomicRMWInst(AtomicRMWInst &I);
+  void visitFenceInst(FenceInst &I);
 
   bool isInlineAsm(CallSite &CS, std::string *asmStr);
   void visitInlineAsm(CallSite &CS, const std::string &asmString);

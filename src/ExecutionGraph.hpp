@@ -102,6 +102,7 @@ public:
 				llvm::GenericValue &val, llvm::Type *typ);
 	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, llvm::Type *typ);
+	void addFenceToGraph(llvm::AtomicOrdering ord);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	std::vector<int> getPorfAfter(Event e);
@@ -150,6 +151,7 @@ protected:
 	void addStoreToGraphCommon(EventLabel &lab);
 	void calcPorfAfter(const Event &e, std::vector<int> &a);
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
+	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);

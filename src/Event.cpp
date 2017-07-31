@@ -27,6 +27,9 @@
 EventLabel::EventLabel(EventType typ, Event e)
 	: type(typ), pos(e) {}
 
+EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
+	: type(typ), ord(ord), pos(e) {}
+
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
@@ -56,6 +59,11 @@ bool EventLabel::isRead() const
 bool EventLabel::isWrite() const
 {
 	return type == W;
+}
+
+bool EventLabel::isFence() const
+{
+	return type == F;
 }
 
 bool EventLabel::isNotAtomic() const
@@ -89,6 +97,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 	switch (t) {
 	case R : return s << "R";
 	case W : return s << "W";
+	case F : return s << "F";
 	case NA : return s << "NA";
 	}
 }
