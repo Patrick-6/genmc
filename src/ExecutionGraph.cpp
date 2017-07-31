@@ -406,8 +406,9 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 {
 	for (auto i = index; i > 0; i--) {
 		EventLabel &lab = threads[thread].eventList[i];
-		if (lab.isRead() && (lab.ord == llvm::Acquire ||
-				     lab.ord == llvm::Monotonic)) {
+		if (lab.isFence() && lab.isAtLeastAcquire())
+			return;
+		if (lab.isRead() && lab.ord == llvm::Monotonic) {
 			View o = getEventMsgView(lab.rf);
 			v.updateMax(o);
 		}
