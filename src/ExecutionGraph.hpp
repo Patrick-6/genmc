@@ -83,7 +83,7 @@ public:
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
 	View getEventHbView(Event e);
 	View getEventMsgView(Event e);
-	std::vector<Event> getLocModOrder(llvm::GenericValue *addr);
+	std::vector<llvm::GenericValue *> getDoubleLocs(std::vector<Event> &es);
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
 	std::vector<Event> getRevisitLoads(Event store);
@@ -136,6 +136,9 @@ public:
 	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 
+	/* PSC calculation */
+	bool isPscAcyclic();
+
 	/* Debugging methods */
 	void validateGraph(void);
 
@@ -158,6 +161,10 @@ protected:
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
+	std::vector<int> addReadsToSCList(std::vector<Event> &scs, std::vector<int> &prevs,
+					  std::vector<bool> &matrix, std::list<Event> &es);
+	void addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr,
+		       std::vector<bool> &matrix);
 };
 
 extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;

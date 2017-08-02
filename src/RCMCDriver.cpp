@@ -145,18 +145,20 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				       [](Thread &thr){ return thr.isBlocked; })) {
 			executionCompleted = true;
 		} else {
-			if (userConf->printExecGraphs)
-				llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
-			if (userConf->countDuplicateExecs) {
-				std::string exec;
-				llvm::raw_string_ostream buf(exec);
-				buf << g;
-				if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-					++duplicates;
-				else
-					uniqueExecs.insert(buf.str());
+			if (g.isPscAcyclic()) {
+				if (userConf->printExecGraphs)
+					llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
+				if (userConf->countDuplicateExecs) {
+					std::string exec;
+					llvm::raw_string_ostream buf(exec);
+					buf << g;
+					if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+						++duplicates;
+					else
+						uniqueExecs.insert(buf.str());
+				}
+				++explored;
 			}
-			++explored;
 			executionCompleted = true;
 		}
 

@@ -707,6 +707,168 @@ Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::Generi
 
 
 /************************************************************
+ ** PSC calculation
+ ***********************************************************/
+
+template <class T>
+int binSearch(std::vector<T> &arr, int len, T what)
+{
+	int low = 0;
+	int high = len - 1;
+	while (low <= high) {
+		int mid = (low + high) / 2;
+		if (arr[mid] > what)
+			high = mid - 1;
+		else if (arr[mid] < what)
+			low = mid + 1;
+		else
+			return mid;
+	}
+	return -1; /* not found */
+}
+
+bool checkPair(std::vector<bool> &matrix, int size, int i, int j, int k)
+{
+	if (k <= 0)
+		return false;
+	if (matrix[i * size + k] && matrix[k * size + j])
+		return true;
+	return checkPair(matrix, size, i, j, k - 1);
+}
+
+void calcTransClosure(std::vector<bool> &matrix, int len)
+{
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (auto i = 0; i < len; i++) {
+			for (auto j = 0; j < len; j++) {
+				if (!matrix[i * len + j] &&
+				    checkPair(matrix, len, i, j, len - 1)) {
+					matrix[i * len + j] = true;
+					changed = true;
+				}
+			}
+		}
+	}
+}
+
+std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs(std::vector<Event> &es)
+{
+	std::vector<llvm::GenericValue *> singles, doubles;
+
+	for (auto &e : es) {
+		EventLabel &lab = getEventLabel(e);
+		if (std::find(doubles.begin(), doubles.end(), lab.addr) != doubles.end())
+			continue;
+		if (std::find(singles.begin(), singles.end(), lab.addr) != singles.end()) {
+			singles.erase(std::remove(singles.begin(), singles.end(), lab.addr),
+				      singles.end());
+			doubles.push_back(lab.addr);
+		} else {
+			singles.push_back(lab.addr);
+		}
+	}
+	return doubles;
+}
+
+int calcSCIndex(std::vector<Event> &es, Event e)
+{
+	return binSearch(es, es.size(), e);
+}
+
+std::vector<int> ExecutionGraph::addReadsToSCList(std::vector<Event> &scs,
+						  std::vector<int> &prevs,
+						  std::vector<bool> &matrix,
+						  std::list<Event> &es)
+{
+	std::vector<int> result;
+	for (auto &e : es) {
+		EventLabel &lab = getEventLabel(e);
+		if (!lab.isSCExceptRMWLoad())
+			continue;
+		int idx = calcSCIndex(scs, lab.pos);
+		for (auto i : prevs)
+			matrix[idx * scs.size() + i] = true;
+		result.push_back(idx);
+	}
+	return result;
+}
+
+void ExecutionGraph::addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr,
+			       std::vector<bool> &matrix)
+{
+	std::vector<int> prevs;
+	for (auto &w : modOrder.getAtLoc(addr)) {
+		EventLabel &lab = getEventLabel(w);
+		std::vector<int> rl = addReadsToSCList(scs, prevs, matrix, lab.rfm1);
+		if (lab.ord == llvm::SequentiallyConsistent) {
+			int idx = calcSCIndex(scs, lab.pos);
+			for (auto i : prevs)
+				matrix[idx * scs.size() + i] = true;
+			for (auto i : rl)
+				matrix[idx * scs.size() + i] = true;
+			prevs.push_back(idx);
+		}
+	}
+}
+
+bool ExecutionGraph::isPscAcyclic()
+{
+	/* Collect all SC events (except for RMW loads) */
+	std::vector<Event> scs;
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			if (lab.isSCExceptRMWLoad())
+				scs.push_back(lab.pos);
+		}
+	}
+
+	/* Collect duplicate SC memory accesses */
+	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs(scs);
+
+	/* Add SC ecos */
+	std::vector<bool> matrix(scs.size() * scs.size(), false);
+	for (auto loc : scLocs)
+		addSCEcos(scs, loc, matrix);
+
+	for (auto i = 0u; i < scs.size(); i++) {
+		EventLabel &lab = getEventLabel(scs[i]);
+		/* Consider only reads that read from the initializer write */
+		if (!lab.isRead() || !lab.rf.isInitializer())
+			continue;
+		for (auto &w : modOrder.getAtLoc(lab.addr)) {
+			EventLabel &wLab = getEventLabel(w);
+			if (wLab.isSCExceptRMWLoad())
+				matrix[i * scs.size() + calcSCIndex(scs, wLab.pos)] = true;
+		}
+	}
+
+	for (auto i = 0u; i < scs.size(); i++) {
+		for (auto j = 0u; j < scs.size(); j++) {
+			if (i == j)
+				continue;
+			if (scs[i].thread == scs[j].thread && scs[i].index < scs[j].index) {
+				matrix[i * scs.size() + j] = true;
+			} else {
+				View hb = getEventHbView(scs[j].prev());
+				if (!hb.empty() && scs[i].index < hb[scs[i].thread])
+					matrix[i * scs.size() + j] = true;
+			}
+		}
+	}
+
+	/* Calculate the transitive closure of the bool matrix */
+	calcTransClosure(matrix, scs.size());
+	for (auto i = 0u; i < scs.size(); i++)
+		if (matrix[i * scs.size() + i])
+			return false;
+	return true;
+}
+
+
+/************************************************************
  ** Debugging methods
  ***********************************************************/
 

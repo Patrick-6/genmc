@@ -53,6 +53,12 @@ struct Event {
 	inline bool operator!=(const Event &e) const {
 		return !(*this == e);
 	}
+	inline bool operator<(const Event &e) const {
+		return (thread < e.thread) || (thread == e.thread && index < e.index);
+	}
+	inline bool operator>(const Event &e) const {
+		return (thread > e.thread) || (thread == e.thread && index > e.index);
+	}
 };
 
 class EventLabel {
@@ -91,6 +97,7 @@ public:
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;
 	bool isRMW() const;
+	bool isSCExceptRMWLoad() const;
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };

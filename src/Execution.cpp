@@ -2830,9 +2830,12 @@ void Interpreter::replayExecutionBefore(std::vector<int> &before)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
-	std::string err;
+	ExecutionGraph &g = *currentEG;
 
-	err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
+	if (!g.isPscAcyclic())
+		return;
+
+	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 /* TODO: Construct an Error class that will take care of the error handling */
 	if (!userConf->printErrorTrace) {
 		dbgs() << "Assertion violation: " << err << "\n";
@@ -2840,7 +2843,6 @@ void Interpreter::callAssertFail(Function *F,
 		abort();
 	}
 
-	ExecutionGraph &g = *currentEG;
 	int assertThr = g.currentT;
 	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(assertThr));
 
