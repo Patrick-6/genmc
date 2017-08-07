@@ -1262,9 +1262,6 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 	if (!dryRun) {
 		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
-		/* TODO: Check whether condition below is necessary */
-		// if (globalVars.find((GenericValue *) GVTOP(getOperandValue(I.getPointerOperand(), SF))) != globalVars.end())
-		// 	globalAccess = true;
 		SetValue(&I, executeGEPOperation(I.getPointerOperand(),
 						 gep_type_begin(I), gep_type_end(I), SF), SF);
 		return;
@@ -1351,7 +1348,6 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getOperand(0)->getType();
 
-		/* TODO: Detect globalVars.find(ptr) == globalVars.end() */
 		if (!globalVars.count(ptr)) {
 			StoreValueToMemory(val, ptr, typ);
 			return;
@@ -1731,14 +1727,12 @@ bool Interpreter::isInlineAsm(CallSite &CS, std::string *asmStr)
 
 void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmStr)
 {
-	if (asmStr == "") {
-		/* Plain compiler fence */
-		;
-	} else {
+	if (asmStr == "")
+		; /* Plain compiler fence */
+	else
 		WARN_ONCE("invalid-inline-asm",
 			  "WARNING: Arbitrary inline assembly not supported: " +
 			  asmStr + "! Skipping...\n");
-	}
 	return;
 }
 

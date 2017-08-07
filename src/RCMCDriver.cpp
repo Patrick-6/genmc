@@ -300,18 +300,6 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 			locMO.insert(locMO.end(), it, partStores[0].end());
 
 			g.workqueue.push_back(StackItem(s, *it, preds, prevRev, lab.addr, locMO));
-			// g.modOrder.setLoc(sLab.addr, locMO);
-
-			// std::vector<Event> es({*it, s});
-			// std::vector<int> before2 = g.getPorfBefore(es);
-			// g.cutBefore(preds, prevRev);
-			// g.revisit.removePorfBefore(before2);
-			// llvm::dbgs() << "TRYINGATDIFFERENTPOS: Adding event " << s << "\nGraph: " << g << g.modOrder << "\n";
-			// EventLabel &sLab = g.getEventLabel(s);
-			// std::vector<Event> ls = g.getRevisitLoadsNonMaximal(s);
-			// std::vector<std::vector<Event > > rSets =
-			// 	EE->calcRevisitSets(ls, {}, sLab);
-			// revisitReads(g, rSets, {}, sLab);
 		}
 	}
 	return;
