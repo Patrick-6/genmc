@@ -216,15 +216,11 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 		EventLabel &pLab = getEventLabel(last);
 		View mV = getEventMsgView(pLab.rf);
 		BUG_ON(lab.ord == llvm::NotAtomic);
-		if (lab.isAtLeastRelease()) {
-			/* TODO: Check mV.getMax(lab.hbView); */
-			lab.msgView = lab.msgView.getMax(mV);
-			lab.msgView = lab.msgView.getMax(lab.hbView);
-		} else {
-			/* TODO: Check mV.getMax(rLab.hbView); */
-			lab.msgView = getEventHbView(getLastThreadRelease(currentT, lab.addr));
-			lab.msgView = lab.msgView.getMax(mV);
-		}
+		if (lab.isAtLeastRelease())
+			lab.msgView = mV.getMax(lab.hbView);
+		else
+			lab.msgView = getEventHbView(
+				getLastThreadRelease(currentT, lab.addr)).getMax(mV);
 	} else {
 		if (lab.isAtLeastRelease())
 			lab.msgView = lab.hbView;
