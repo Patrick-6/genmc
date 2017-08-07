@@ -195,19 +195,10 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 
 			lab1.hbView = g.getEventHbView(lab1.pos.prev()).getCopy(g.threads.size());
 			lab1.hbView[lab1.pos.thread] = lab1.pos.index;
-			switch (lab1.ord) {
-			case llvm::NotAtomic:
-			case llvm::Monotonic:
-			case llvm::Release:
-				break;
-			case llvm::Acquire:
-			case llvm::AcquireRelease:
-			case llvm::SequentiallyConsistent:
+			if (lab1.isAtLeastAcquire()) {
 				View mV = g.getEventMsgView(lab1.rf);
 				lab1.hbView.updateMax(mV);
-				break;
 			}
-
 
 			std::vector<int> before = g.getPorfBefore(p.e);
 			g.revisit.removePorfBefore(before);
