@@ -51,8 +51,8 @@ struct StackItem {
 		: type(RevR), e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
 	StackItem(Event e, Event prevMO, std::vector<int> preds, RevisitSet revisit,
 		  llvm::GenericValue *addr, std::vector<Event> locMO)
-		: e(e), prevMO(prevMO), type(RevW), preds(preds),
-		  revisit(revisit), addr(addr), locMO(locMO) {}
+		: type(RevW), e(e), preds(preds), revisit(revisit),
+		  addr(addr), locMO(locMO), prevMO(prevMO) {}
 };
 
 /*
