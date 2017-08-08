@@ -23,9 +23,10 @@
 #include "LLVMModule.hpp"
 #include "DeclareAssumePass.hpp"
 #include "DeclareEndLoopPass.hpp"
-#include "SpinAssumePass.hpp"
-#include "LoopUnrollPass.hpp"
+#include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
+#include "LoopUnrollPass.hpp"
+#include "SpinAssumePass.hpp"
 #if defined(HAVE_LLVM_PASSMANAGER_H)
 #include <llvm/PassManager.h>
 #elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
@@ -115,7 +116,7 @@ namespace LLVMModule {
 		if (conf->unroll >= 0){
 			PM.add(new LoopUnrollPass(conf->unroll));
 		}
-		// PM.add(new AddLibPass());
+		PM.add(new DefineLibcFunsPass());
 		modified = PM.run(mod);
 		assert(!llvm::verifyModule(mod));
 		return modified;

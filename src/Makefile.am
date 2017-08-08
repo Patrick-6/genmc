@@ -6,6 +6,7 @@ librcmc_a_SOURCES = \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
+  DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
   Execution.cpp \
