@@ -1770,14 +1770,8 @@ void Interpreter::visitCallSite(CallSite CS) {
       SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
       return;
     default:
-
-	    if(F->getName().str() == "llvm.dbg.value" ||
-	       F->getName().str() == "llvm.dbg.declare") {
-		    /* Ignore this intrinsic function */
-		    return;
-	    }
-	    WARN_ONCE("unknown-intrinsic",
-		      "WARNING: Unknown intrinstic function encountered!\n");
+	    WARN_ONCE("unknown-intrinsic", "WARNING: Unknown intrinstic function" \
+		      "encountered. Attempting to lower it...\n");
       // If it is an unknown intrinsic function, use the intrinsic lowering
       // class to transform it into hopefully tasty LLVM code.
       //

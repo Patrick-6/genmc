@@ -25,6 +25,7 @@
 #include "DeclareEndLoopPass.hpp"
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
+#include "IntrinsicLoweringPass.hpp"
 #include "LoopUnrollPass.hpp"
 #include "SpinAssumePass.hpp"
 #if defined(HAVE_LLVM_PASSMANAGER_H)
@@ -117,6 +118,7 @@ namespace LLVMModule {
 			PM.add(new LoopUnrollPass(conf->unroll));
 		}
 		PM.add(new DefineLibcFunsPass());
+		PM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
 		modified = PM.run(mod);
 		assert(!llvm::verifyModule(mod));
 		return modified;

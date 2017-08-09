@@ -13,6 +13,7 @@ librcmc_a_SOURCES = \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
   Interpreter.cpp Interpreter.h \
+  IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   ModOrder.cpp ModOrder.hpp \
