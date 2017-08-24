@@ -35,20 +35,20 @@ fi
 
 # First run the testcases in the correct/ directory
 echo ''; printline
-echo '--- Preparing to run CORRECT testcases under WeakRA'
+echo '--- Preparing to run CORRECT testcases under RC11'
 printline; echo ''
 
-model=weakra && source runcorrect.sh
+model=rc11 && source runcorrect.sh
 
 echo ''; printline
-echo '--- Preparing to run CORRECT testcases under MO'
+echo '--- Preparing to run CORRECT testcases under Weak RC11'
 printline; echo ''
 
-model=mo && source runcorrect.sh
+model=wrc11 && source runcorrect.sh
 
 # Then, run the testcases in the wrong/ directory
 echo ''; printline
-echo '--- Preparing to run WRONG testcases under WeakRA'
+echo '--- Preparing to run WRONG testcases under Weak RC11'
 printline; echo ''
 
 source runwrong.sh

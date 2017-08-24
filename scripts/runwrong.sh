@@ -37,7 +37,7 @@ runvariants() {
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" -print-error-trace -- "${t}" 2>&1`
+	output=`"${RCMC}" -wrc11 -print-error-trace -- "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1

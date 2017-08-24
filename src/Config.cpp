@@ -21,35 +21,33 @@
 #include "config.h"
 #include "Config.hpp"
 
-Config::Config(int argc, char **argv) : argc(argc), argv(argv)
-{
-	visibleOptions =
-		{"model-type", "transform-output", "unroll",
-		 "disable-spin-assume", "input-from-bitcode-file",
-		 "validate-exec-graphs", "print-exec-graphs",
-		 "count-duplicate-execs", "print-error-trace", "version"};
-}
+Config::Config(int argc, char **argv) : argc(argc), argv(argv) {}
 
 /* Command-line argument categories */
+static llvm::cl::OptionCategory clGeneral("General Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /* Command-line argument types, default values and descriptions */
-llvm::cl::opt<ModelType>
-clModelType("model", llvm::cl::values(
-		    clEnumVal(weakra, "WeakRA model"),
-		    clEnumVal(mo, "MO model"),
-		    clEnumVal(wb, "WB model"), NULL),
-	    llvm::cl::desc("Choose model type:"));
 llvm::cl::list<std::string>
-clCFLAGS(llvm::cl::Positional, llvm::cl::desc("-- [CFLAGS]"), llvm::cl::ZeroOrMore);
+clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore, llvm::cl::desc("-- [CFLAGS]"));
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
+
+llvm::cl::opt<ModelType>
+clModelType(llvm::cl::values(
+		    clEnumVal(rc11 , "RC11 model"),
+		    clEnumVal(wrc11, "Weak RC11 model"),
+		    clEnumVal(wb   , "WB model"), NULL),
+	    llvm::cl::cat(clGeneral),
+	    llvm::cl::desc("Choose model type:"));
 static llvm::cl::opt<std::string>
 clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
+		llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Output the transformed LLVM code to file"));
 static llvm::cl::opt<bool>
-clPrintErrorTrace("print-error-trace", llvm::cl::desc("Print error trace"));
+clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
+		  llvm::cl::desc("Print error trace"));
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -75,16 +73,11 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 
 void Config::getConfigOptions(void)
 {
-#ifdef LLVM_CL_GETREGISTEREDOPTIONS_TAKES_ARGUMENT
-	 llvm::StringMap<llvm::cl::Option*> opts;
-	 llvm::cl::getRegisteredOptions(opts);
-#else
-	 llvm::StringMap<llvm::cl::Option*> &opts = llvm::cl::getRegisteredOptions();
-#endif
-	 for (auto it = opts.begin(); it != opts.end(); ++it)
-		 if (visibleOptions.count(it->getKey()) == 0)
-			 it->getValue()->setHiddenFlag(llvm::cl::Hidden);
+	llvm::ArrayRef<const llvm::cl::OptionCategory *> opts =
+		{&clGeneral, &clTransformation, &clDebugging};
 
+	/* Hide unrelated LLVM options and parse user configuration */
+	llvm::cl::HideUnrelatedOptions(opts);
 	llvm::cl::ParseCommandLineOptions(argc, argv);
 
 	/* Save general options */

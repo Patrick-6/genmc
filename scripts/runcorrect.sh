@@ -23,7 +23,7 @@ RCMC=../src/rcmc
 
 # Check to see whether we are called from a parent sript..
 total_time="${total_time:-0}"
-model="${model:-weakra}"
+model="${model:-rc11}"
 
 runvariants() {
     printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
@@ -35,7 +35,7 @@ runvariants() {
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" "-model=${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC}" "-${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1

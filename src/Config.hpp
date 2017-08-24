@@ -24,7 +24,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <set>
 
-enum ModelType { weakra, mo, wb };
+enum ModelType { rc11, wrc11, wb };
 
 class Config {
 
@@ -44,7 +44,6 @@ public:
 	bool printExecGraphs;
 	bool countDuplicateExecs;
 	bool printErrorTrace;
-	std::set<std::string> visibleOptions;
 
 	Config(int argc, char **argv);
 	void getConfigOptions(void);

@@ -238,10 +238,10 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 void RCMCDriver::visitStore(ExecutionGraph &g)
 {
 	switch (userConf->model) {
-	case weakra:
+	case wrc11:
 		visitStoreWeakRA(g);
 		return;
-	case mo:
+	case rc11:
 		visitStoreMO(g);
 		return;
 	case wb:
@@ -308,10 +308,10 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 void RCMCDriver::visitRMWStore(ExecutionGraph &g, llvm::Type *typ)
 {
 	switch (userConf->model) {
-	case weakra:
+	case wrc11:
 		visitRMWStoreWeakRA(g, typ);
 		return;
-	case mo:
+	case rc11:
 		visitRMWStoreMO(g, typ);
 		return;
 	case wb:
