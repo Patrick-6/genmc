@@ -135,10 +135,10 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
 	EventLabel &sLab = getEventLabel(store);
 
 	BUG_ON(!sLab.isWrite());
-	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
-		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
-			ls.push_back(rLab.pos);
+	for (auto &e : revisit) {
+		EventLabel &lab = getEventLabel(e);
+		if (before[e.thread] < e.index && lab.addr == sLab.addr)
+			ls.push_back(e);
 	}
 
 	std::vector<Event> locMO = modOrder.getAtLoc(sLab.addr);
