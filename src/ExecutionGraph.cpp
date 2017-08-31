@@ -683,27 +683,13 @@ int binSearch(std::vector<T> &arr, int len, T what)
 	return -1; /* not found */
 }
 
-bool checkPair(std::vector<bool> &matrix, int size, int i, int j, int k)
-{
-	if (k <= 0)
-		return false;
-	if (matrix[i * size + k] && matrix[k * size + j])
-		return true;
-	return checkPair(matrix, size, i, j, k - 1);
-}
-
 void calcTransClosure(std::vector<bool> &matrix, int len)
 {
-	bool changed = true;
-	while (changed) {
-		changed = false;
+	for (auto k = 0; k < len; k++) {
 		for (auto i = 0; i < len; i++) {
 			for (auto j = 0; j < len; j++) {
-				if (!matrix[i * len + j] &&
-				    checkPair(matrix, len, i, j, len - 1)) {
-					matrix[i * len + j] = true;
-					changed = true;
-				}
+				matrix[i * len + j] = matrix[i * len + j] ||
+					(matrix[i * len + k] && matrix[k * len + j]);
 			}
 		}
 	}
