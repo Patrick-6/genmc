@@ -716,7 +716,9 @@ std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs(std::vector<Even
 
 int calcSCIndex(std::vector<Event> &es, Event e)
 {
-	return binSearch(es, es.size(), e);
+	auto it = std::find(es.begin(), es.end(), e);
+	BUG_ON(it == es.end());
+	return it - es.begin();
 }
 
 std::vector<int> ExecutionGraph::addReadsToSCList(std::vector<Event> &scs,
@@ -741,8 +743,9 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr
 			       std::vector<bool> &matrix)
 {
 	std::vector<int> prevs;
-	for (auto &w : modOrder.getAtLoc(addr)) {
-		EventLabel &lab = getEventLabel(w);
+	std::vector<Event> mo = modOrder.getAtLoc(addr);
+	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
+		EventLabel &lab = getEventLabel(*rit);
 		std::vector<int> rl = addReadsToSCList(scs, prevs, matrix, lab.rfm1);
 		if (lab.ord == llvm::SequentiallyConsistent) {
 			int idx = calcSCIndex(scs, lab.pos);
@@ -769,6 +772,8 @@ bool ExecutionGraph::isPscAcyclic()
 
 	/* Collect duplicate SC memory accesses */
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs(scs);
+	std::sort(scs.begin(), scs.end(), [](Event a, Event b)
+		  { return a.index < b.index || (a.thread < b.thread && a.index == b.index); });
 
 	/* Add SC ecos */
 	std::vector<bool> matrix(scs.size() * scs.size(), false);
@@ -791,8 +796,9 @@ bool ExecutionGraph::isPscAcyclic()
 		for (auto j = 0u; j < scs.size(); j++) {
 			if (i == j)
 				continue;
-			if (scs[i].thread == scs[j].thread && scs[i].index < scs[j].index) {
-				matrix[i * scs.size() + j] = true;
+			if (scs[i].thread == scs[j].thread) {
+				if (scs[i].index < scs[j].index)
+					matrix[i * scs.size() + j] = true;
 			} else {
 				View hb = getEventHbView(scs[j].prev());
 				if (!hb.empty() && scs[i].index < hb[scs[i].thread])
