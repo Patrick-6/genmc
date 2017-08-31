@@ -2820,8 +2820,11 @@ void Interpreter::callAssertFail(Function *F,
 {
 	ExecutionGraph &g = *currentEG;
 
-	if (!g.isPscAcyclic())
+	if (!g.isPscAcyclic()) {
+		g.clearAllStacks();
+		g.threads[g.currentT].isBlocked = true;
 		return;
+	}
 
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 /* TODO: Construct an Error class that will take care of the error handling */
