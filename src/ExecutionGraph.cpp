@@ -723,33 +723,55 @@ int calcSCIndex(std::vector<Event> &es, Event e)
 	return it - es.begin();
 }
 
+std::vector<int> ExecutionGraph::calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e)
+{
+	std::vector<int> succs;
+	EventLabel &lab = getEventLabel(e);
+
+	if (lab.isSCExceptRMWLoad()) {
+		succs.push_back(calcSCIndex(scs, e));
+	} else if (!(lab.isRead() && lab.isRMW())) {
+		for (auto &f : fcs) {
+			std::vector<int> before = getHbBefore(f);
+			if (e.index <= before[e.thread])
+				succs.push_back(calcSCIndex(scs, f));
+		}
+	}
+	return succs;
+}
+
+std::vector<int> ExecutionGraph::calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e)
+{
+	std::vector<int> preds;
+	EventLabel &lab = getEventLabel(e);
+
+	if (lab.isSCExceptRMWLoad()) {
+		preds.push_back(calcSCIndex(scs, e));
+	} else if (!(lab.isRead() && lab.isRMW())) {
+		std::vector<int> before = getHbBefore(e);
+		for (auto &f : fcs) {
+			if (f.index <= before[f.thread])
+				preds.push_back(calcSCIndex(scs, f));
+		}
+	}
+	return preds;
+}
+
 std::vector<int> ExecutionGraph::addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
 						  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
 						  std::vector<bool> &matrix, std::list<Event> &es)
 {
 	std::vector<int> rfs;
 	for (auto &e : es) {
-		EventLabel &lab = getEventLabel(e);
-		if (lab.isSCExceptRMWLoad()) {
-			int idx = calcSCIndex(scs, e);
-			for (auto i : moAfter)
-				matrix[idx * scs.size() + i] = true; /* Adds rb-edges */
-			for (auto i : moRfAfter)
-				matrix[idx * scs.size() + i] = true; /* Adds (rb;rf)-edges */
-			rfs.push_back(idx);
-		} else if (!lab.isRMW()) { /* RMWs do not read-before themselves */
-			std::vector<int> before = getHbBefore(lab.pos);
-			for (auto &f : fcs) {
-				if (f.index > before[f.thread])
-					continue; /* not before */
-				int idx = calcSCIndex(scs, f);
-				for (auto i : moAfter)
-					matrix[idx * scs.size() + i] = true; /* Adds rb-edges */
-				for (auto i : moRfAfter)
-					matrix[idx * scs.size() + i] = true; /* Adds (rb;rf)-edges */
-				rfs.push_back(idx);
-			}
+		std::vector<int> preds = calcSCPreds(scs, fcs, e);
+		for (auto i : preds) {
+			for (auto j : moAfter)
+				matrix[i * scs.size() + j] = true; /* Adds rb-edges */
+			for (auto j : moRfAfter)
+				matrix[i * scs.size() + j] = true; /* Adds (rb;rf)-edges */
 		}
+		std::vector<int> succs = calcSCSuccs(scs, fcs, e);
+		rfs.insert(rfs.end(), succs.begin(), succs.end());
 	}
 	return rfs;
 }
@@ -762,36 +784,18 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
 		EventLabel &lab = getEventLabel(*rit);
 		std::vector<int> rfs = addReadsToSCList(scs, fcs, moAfter, moRfAfter, matrix, lab.rfm1);
-		if (lab.ord == llvm::SequentiallyConsistent) {
-			int idx = calcSCIndex(scs, lab.pos);
-			for (auto i : moAfter)
-				matrix[idx * scs.size() + i] = true; /* Adds mo-edges */
-			for (auto i : rfs)
-				matrix[idx * scs.size() + i] = true; /* Adds rf-edges */
-			for (auto i : moRfAfter)
-				matrix[idx * scs.size() + i] = true; /* Adds (mo;rf)-edges */
-			moAfter.push_back(idx);
-			moRfAfter.insert(moRfAfter.end(), rfs.begin(), rfs.end());
-		} else {
-			std::vector<int> before = getHbBefore(lab.pos);
-			for (auto &f : fcs) {
-				if (f.index > before[f.thread])
-					continue;
-				int idx = calcSCIndex(scs, f);
-				for (auto i : moAfter)
-					matrix[idx * scs.size() + i] = true; /* Adds mo-edges */
-				for (auto i : rfs)
-					matrix[idx * scs.size() + i] = true; /* Adds rf-edges */
-				for (auto i : moRfAfter)
-					matrix[idx * scs.size() + i] = true; /* Adds (mo;rf)-edges */
-			}
-			for (auto &f : fcs) {
-				before = getHbBefore(f);
-				if (lab.pos.index <= before[lab.pos.thread])
-					moAfter.push_back(calcSCIndex(scs, f));
-			}
-			moRfAfter.insert(moRfAfter.end(), rfs.begin(), rfs.end());
+		std::vector<int> preds = calcSCPreds(scs, fcs, lab.pos);
+		for (auto i : preds) {
+			for (auto j : moAfter)
+				matrix[i * scs.size() + j] = true; /* Adds mo-edges */
+			for (auto j : rfs)
+				matrix[i * scs.size() + j] = true; /* Adds rf-edges */
+			for (auto j : moRfAfter)
+				matrix[i * scs.size() + j] = true; /* Adds (mo;rf)-edges */
 		}
+		std::vector<int> succs = calcSCSuccs(scs, fcs, lab.pos);
+		moAfter.insert(moAfter.end(), succs.begin(), succs.end());
+		moRfAfter.insert(moRfAfter.end(), rfs.begin(), rfs.end());
 	}
 }
 
@@ -826,98 +830,19 @@ bool ExecutionGraph::isPscAcyclic()
 		for (auto j = 0; j < maxEvents[i]; j++) {
 			EventLabel &lab = threads[i].eventList[j];
 			/* Consider only reads that read from the initializer write */
-			if (!lab.isRead() || !lab.rf.isInitializer())
+			if (!lab.isRead() || !lab.rf.isInitializer() || lab.isRMW())
 				continue;
-			if (lab.isSCExceptRMWLoad()) {
-				int idx = calcSCIndex(scs, lab.pos);
-				for (auto &w : modOrder.getAtLoc(lab.addr)) {
-					EventLabel &wLab = getEventLabel(w);
-					if (wLab.isSCExceptRMWLoad()) {
-						matrix[idx * scs.size() + calcSCIndex(scs, wLab.pos)] = true; /* Adds rb-edges */
-						/* RM */
-						for (auto &r : wLab.rfm1) {
-							EventLabel &rLab = getEventLabel(r);
-							if (rLab.isSCExceptRMWLoad()) {
-								matrix[idx * scs.size() + calcSCIndex(scs, r)] = true; /* Adds (rb;rf)-edges */
-							} else {
-								for (auto &f : fcs) {
-									std::vector<int> before = getHbBefore(f);
-									if (r.index > before[r.thread])
-										continue;
-									matrix[idx * scs.size() + calcSCIndex(scs, f)] = true; /* Adds (rb;rf)-edges */
-								}
-							}
-						}
-					} else {
-						for (auto &f : fcs) {
-							std::vector<int> before = getHbBefore(f);
-							if (w.index > before[w.thread])
-								continue;
-							matrix[idx * scs.size() + calcSCIndex(scs, f)] = true; /* Adds rb-edges */
-						}
-						/* RM */
-						for (auto &r : wLab.rfm1) {
-							EventLabel &rLab = getEventLabel(r);
-							if (rLab.isSCExceptRMWLoad()) {
-								matrix[idx * scs.size() + calcSCIndex(scs, r)] = true; /* Adds (rb;rf)-edges */
-							} else {
-								for (auto &f : fcs) {
-									std::vector<int> before = getHbBefore(f);
-									if (r.index > before[r.thread])
-										continue;
-									matrix[idx * scs.size() + calcSCIndex(scs, f)] = true; /* Adds (rb;rf)-edges */
-								}
-							}
-						}
-					}
-				}
-			} else if (!lab.isRMW()) {
-				std::vector<int> before = getHbBefore(lab.pos);
-				for (auto &f : fcs) {
-					if (f.index > before[f.thread])
-						continue;
-					int idx = calcSCIndex(scs, f);
-					for (auto &w : modOrder.getAtLoc(lab.addr)) {
-						EventLabel &wLab = getEventLabel(w);
-						if (wLab.isSCExceptRMWLoad()) {
-							matrix[idx * scs.size() + calcSCIndex(scs, wLab.pos)] = true;
-							/* RM */
-							for (auto &r : wLab.rfm1) {
-								EventLabel &rLab = getEventLabel(r);
-								if (rLab.isSCExceptRMWLoad()) {
-									matrix[idx * scs.size() + calcSCIndex(scs, r)] = true; /* Adds (rb;rf)-edges */
-								} else {
-									for (auto &f : fcs) {
-										std::vector<int> before = getHbBefore(f);
-										if (r.index > before[r.thread])
-											continue;
-										matrix[idx * scs.size() + calcSCIndex(scs, f)] = true; /* Adds (rb;rf)-edges */
-									}
-								}
-							}
-						} else {
-							for (auto &f : fcs) {
-								std::vector<int> before = getHbBefore(f);
-								if (w.index > before[w.thread])
-									continue;
-								matrix[idx * scs.size() + calcSCIndex(scs, f)] = true;
-							}
-							/* RM */
-							for (auto &r : wLab.rfm1) {
-								EventLabel &rLab = getEventLabel(r);
-								if (rLab.isSCExceptRMWLoad()) {
-									matrix[idx * scs.size() + calcSCIndex(scs, r)] = true; /* Adds (rb;rf)-edges */
-								} else {
-									for (auto &f : fcs) {
-										std::vector<int> before = getHbBefore(f);
-										if (r.index > before[r.thread])
-											continue;
-										matrix[idx * scs.size() + calcSCIndex(scs, f)] = true; /* Adds (rb;rf)-edges */
-									}
-								}
-							}
-						}
-					}
+			std::vector<int> preds = calcSCPreds(scs, fcs, lab.pos);
+			for (auto &w : modOrder.getAtLoc(lab.addr)) {
+				std::vector<int> wSuccs = calcSCSuccs(scs, fcs, w);
+				for (auto i : preds)
+					for (auto j : wSuccs)
+						matrix[i * scs.size() + j] = true; /* Adds rb-edges */
+				for (auto &r : getEventLabel(w).rfm1) {
+					std::vector<int> rSuccs = calcSCSuccs(scs, fcs, r);
+					for (auto i : preds)
+						for (auto j : rSuccs)
+							matrix[i * scs.size() + j] = true; /* Adds (rb;rf)-edges */
 				}
 			}
 		}
