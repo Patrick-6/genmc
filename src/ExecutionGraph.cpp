@@ -695,20 +695,22 @@ void calcTransClosure(std::vector<bool> &matrix, int len)
 	}
 }
 
-std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs(std::vector<Event> &es)
+std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
 {
 	std::vector<llvm::GenericValue *> singles, doubles;
 
-	for (auto &e : es) {
-		EventLabel &lab = getEventLabel(e);
-		if (std::find(doubles.begin(), doubles.end(), lab.addr) != doubles.end())
-			continue;
-		if (std::find(singles.begin(), singles.end(), lab.addr) != singles.end()) {
-			singles.erase(std::remove(singles.begin(), singles.end(), lab.addr),
-				      singles.end());
-			doubles.push_back(lab.addr);
-		} else {
-			singles.push_back(lab.addr);
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 1; j < maxEvents[i]; j++) { /* Do not consider thread inits */
+			EventLabel &lab = threads[i].eventList[j];
+			if (std::find(doubles.begin(), doubles.end(), lab.addr) != doubles.end())
+				continue;
+			if (std::find(singles.begin(), singles.end(), lab.addr) != singles.end()) {
+				singles.erase(std::remove(singles.begin(), singles.end(), lab.addr),
+					      singles.end());
+				doubles.push_back(lab.addr);
+			} else {
+				singles.push_back(lab.addr);
+			}
 		}
 	}
 	return doubles;
@@ -722,6 +724,7 @@ int calcSCIndex(std::vector<Event> &es, Event e)
 }
 
 std::vector<int> ExecutionGraph::addReadsToSCList(std::vector<Event> &scs,
+						  std::vector<Event> &fcs,
 						  std::vector<int> &prevs,
 						  std::vector<bool> &matrix,
 						  std::list<Event> &es)
@@ -729,24 +732,34 @@ std::vector<int> ExecutionGraph::addReadsToSCList(std::vector<Event> &scs,
 	std::vector<int> result;
 	for (auto &e : es) {
 		EventLabel &lab = getEventLabel(e);
-		if (!lab.isSCExceptRMWLoad())
-			continue;
-		int idx = calcSCIndex(scs, lab.pos);
-		for (auto i : prevs)
-			matrix[idx * scs.size() + i] = true;
-		result.push_back(idx);
+		if (lab.isSCExceptRMWLoad()) {
+			int idx = calcSCIndex(scs, e);
+			for (auto i : prevs)
+				matrix[idx * scs.size() + i] = true;
+			result.push_back(idx);
+		} else if (!lab.isRMW()) { /* RMWs do not read-before themselves */
+			std::vector<int> before = getHbBefore(lab.pos);
+			for (auto &f : fcs) {
+				if (f.index > before[f.thread])
+					continue; /* not before */
+				int idx = calcSCIndex(scs, f);
+				for (auto i : prevs)
+					matrix[idx * scs.size() + i] = true;
+				result.push_back(idx);
+			}
+		}
 	}
 	return result;
 }
 
-void ExecutionGraph::addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr,
-			       std::vector<bool> &matrix)
+void ExecutionGraph::addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
+			       llvm::GenericValue *addr, std::vector<bool> &matrix)
 {
 	std::vector<int> prevs;
 	std::vector<Event> mo = modOrder.getAtLoc(addr);
 	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
 		EventLabel &lab = getEventLabel(*rit);
-		std::vector<int> rl = addReadsToSCList(scs, prevs, matrix, lab.rfm1);
+		std::vector<int> rl = addReadsToSCList(scs, fcs, prevs, matrix, lab.rfm1);
 		if (lab.ord == llvm::SequentiallyConsistent) {
 			int idx = calcSCIndex(scs, lab.pos);
 			for (auto i : prevs)
@@ -754,6 +767,22 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr
 			for (auto i : rl)
 				matrix[idx * scs.size() + i] = true;
 			prevs.push_back(idx);
+		} else {
+			std::vector<int> before = getHbBefore(lab.pos);
+			for (auto &f : fcs) {
+				if (f.index > before[f.thread])
+					continue;
+				int idx = calcSCIndex(scs, f);
+				for (auto i : prevs)
+					matrix[idx * scs.size() + i] = true;
+				for (auto i : rl)
+					matrix[idx * scs.size() + i] = true;
+			}
+			for (auto &f : fcs) {
+				before = getHbBefore(f);
+				if (lab.pos.index <= before[lab.pos.thread])
+					prevs.push_back(calcSCIndex(scs, f));
+			}
 		}
 	}
 }
@@ -761,34 +790,72 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &scs, llvm::GenericValue *addr
 bool ExecutionGraph::isPscAcyclic()
 {
 	/* Collect all SC events (except for RMW loads) */
-	std::vector<Event> scs;
+	std::vector<Event> scs, fcs;
 	for (auto i = 0u; i < threads.size(); i++) {
 		for (auto j = 0; j < maxEvents[i]; j++) {
 			EventLabel &lab = threads[i].eventList[j];
 			if (lab.isSCExceptRMWLoad())
 				scs.push_back(lab.pos);
+			if (lab.isFence() && lab.ord == llvm::SequentiallyConsistent)
+				fcs.push_back(lab.pos);
 		}
 	}
 
+	if (scs.empty())
+		return true;
+
 	/* Collect duplicate SC memory accesses */
-	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs(scs);
+	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
 	std::sort(scs.begin(), scs.end(), [](Event a, Event b)
 		  { return a.index < b.index || (a.thread < b.thread && a.index == b.index); });
 
 	/* Add SC ecos */
 	std::vector<bool> matrix(scs.size() * scs.size(), false);
 	for (auto loc : scLocs)
-		addSCEcos(scs, loc, matrix);
+		addSCEcos(scs, fcs, loc, matrix);
 
-	for (auto i = 0u; i < scs.size(); i++) {
-		EventLabel &lab = getEventLabel(scs[i]);
-		/* Consider only reads that read from the initializer write */
-		if (!lab.isRead() || !lab.rf.isInitializer())
-			continue;
-		for (auto &w : modOrder.getAtLoc(lab.addr)) {
-			EventLabel &wLab = getEventLabel(w);
-			if (wLab.isSCExceptRMWLoad())
-				matrix[i * scs.size() + calcSCIndex(scs, wLab.pos)] = true;
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			/* Consider only reads that read from the initializer write */
+			if (!lab.isRead() || !lab.rf.isInitializer())
+				continue;
+			if (lab.isSCExceptRMWLoad()) {
+				int idx = calcSCIndex(scs, lab.pos);
+				for (auto &w : modOrder.getAtLoc(lab.addr)) {
+					EventLabel &wLab = getEventLabel(w);
+					if (wLab.isSCExceptRMWLoad()) {
+						matrix[idx * scs.size() + calcSCIndex(scs, wLab.pos)] = true;
+					} else {
+						for (auto &f : fcs) {
+							std::vector<int> before = getHbBefore(f);
+							if (w.index > before[w.thread])
+								continue;
+							matrix[idx * scs.size() + calcSCIndex(scs, f)] = true;
+						}
+					}
+				}
+			} else if (!lab.isRMW()) {
+				std::vector<int> before = getHbBefore(lab.pos);
+				for (auto &f : fcs) {
+					if (f.index > before[f.thread])
+						continue;
+					int idx = calcSCIndex(scs, f);
+					for (auto &w : modOrder.getAtLoc(lab.addr)) {
+						EventLabel &wLab = getEventLabel(w);
+						if (wLab.isSCExceptRMWLoad()) {
+							matrix[idx * scs.size() + calcSCIndex(scs, wLab.pos)] = true;
+						} else {
+							for (auto &f : fcs) {
+								std::vector<int> before = getHbBefore(f);
+								if (w.index > before[w.thread])
+									continue;
+								matrix[idx * scs.size() + calcSCIndex(scs, f)] = true;
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
