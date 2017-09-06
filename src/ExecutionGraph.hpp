@@ -163,8 +163,8 @@ protected:
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 	bool isHbBeforeFence(Event &e, std::vector<Event> &fcs);
 	std::vector<int> addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
-					  std::vector<int> &prevs, std::vector<bool> &matrix,
-					  std::list<Event> &es);
+					  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
+					  std::vector<bool> &matrix, std::list<Event> &es);
 	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
 };
