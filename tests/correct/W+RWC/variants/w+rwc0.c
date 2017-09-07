@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include "../../../stdatomic.h"
 
-#include "../W+WRC.c"
+#include "../W+RWC.c"
 
 int main()
 {
