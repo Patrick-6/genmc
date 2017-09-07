@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "../../../stdatomic.h"
 
-#include "../dekker.c"
+#include "../dekker_rlx.c"
 
 int main()
 {
