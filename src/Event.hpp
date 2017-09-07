@@ -54,10 +54,10 @@ struct Event {
 		return !(*this == e);
 	}
 	inline bool operator<(const Event &e) const {
-		return (thread < e.thread) || (thread == e.thread && index < e.index);
+		return (index < e.index) || (index == e.index && thread < e.thread);
 	}
 	inline bool operator>(const Event &e) const {
-		return (thread > e.thread) || (thread == e.thread && index > e.index);
+		return (index > e.index) || (index == e.index && thread > e.thread);
 	}
 };
 

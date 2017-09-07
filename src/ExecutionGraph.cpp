@@ -716,11 +716,11 @@ std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
 	return doubles;
 }
 
-int calcSCIndex(std::vector<Event> &es, Event e)
+int calcSCIndex(std::vector<Event> &scs, Event e)
 {
-	auto it = std::find(es.begin(), es.end(), e);
-	BUG_ON(it == es.end());
-	return it - es.begin();
+	int idx = binSearch(scs, scs.size(), e);
+	BUG_ON(idx == -1);
+	return idx;
 }
 
 std::vector<int> ExecutionGraph::calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e)
@@ -818,8 +818,7 @@ bool ExecutionGraph::isPscAcyclic()
 
 	/* Collect duplicate SC memory accesses */
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
-	std::sort(scs.begin(), scs.end(), [](Event a, Event b)
-		  { return a.index < b.index || (a.thread < b.thread && a.index == b.index); });
+	std::sort(scs.begin(), scs.end());
 
 	/* Add SC ecos */
 	std::vector<bool> matrix(scs.size() * scs.size(), false);
