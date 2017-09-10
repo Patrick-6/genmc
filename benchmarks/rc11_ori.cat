@@ -17,7 +17,8 @@ let eco = rf | mo | fr | mo ; rf | fr ; rf
 irreflexive (hb ; eco) as coh
 
 (* atomicity *)
-irreflexive fr;mo as atomic
+irreflexive eco as atomic1
+irreflexive (fr ; mo) as atomic2
 
 (* sc *)
 let fhb = [F & SC] ; hb?
