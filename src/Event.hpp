@@ -96,8 +96,8 @@ public:
 	bool isNotAtomic() const;
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;
+	bool isSC() const;
 	bool isRMW() const;
-	bool isSCExceptRMWLoad() const;
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };

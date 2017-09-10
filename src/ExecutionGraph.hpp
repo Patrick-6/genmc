@@ -157,16 +157,19 @@ protected:
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
+	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
+	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	bool isWriteRfBefore(std::vector<int> &before, Event e);
+	bool isRMWLoad(Event &e);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
-	bool isHbBeforeFence(Event &e, std::vector<Event> &fcs);
-	std::vector<int> addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
-					  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-					  std::vector<bool> &matrix, std::list<Event> &es);
+	std::pair<std::vector<int>, std::vector<int> >
+	addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
+			 std::vector<int> &moAfter, std::vector<int> &moRfAfter,
+			 std::vector<bool> &matrix, std::list<Event> &es);
 	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
 };

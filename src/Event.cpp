@@ -87,16 +87,14 @@ bool EventLabel::isAtLeastRelease() const
 	// return llvm::isAtLeastRelease(ord);
 }
 
+bool EventLabel::isSC() const
+{
+	return (ord == llvm::SequentiallyConsistent);
+}
+
 bool EventLabel::isRMW() const
 {
 	return attr != Plain;
-}
-
-bool EventLabel::isSCExceptRMWLoad() const
-{
-	if (ord != llvm::SequentiallyConsistent || (isRead() && isRMW()))
-		return false;
-	return true;
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
