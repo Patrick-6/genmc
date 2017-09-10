@@ -28,7 +28,7 @@ HERD=herd7
 NIDHUGG=nidhuggc
 CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
 
-declare -a tool_resi
+declare -a tool_res
 declare -a benchmarks
 
 benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6"
@@ -172,7 +172,7 @@ runcpp() {
     for t in "${dir}"/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC_CPP}" "-model=${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC_CPP}" "-${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`
@@ -315,7 +315,7 @@ fi
 
 # command-line arguments
 SHORT=t,p,l,b,f,o:,i:
-LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,rcmc:,weakra,mo,wb,impl:,output:
+LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,rcmc:,wrc11,rc11,wb,impl:,output:
 
 # temporarily store output to be able to check for errors
 PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
@@ -374,12 +374,12 @@ while true; do
 	    impl="$2"
 	    shift 2
 	    ;;
-	--weakra)
-	    run_weakra=weakra
+	--wrc11)
+	    run_weakra=wrc11
 	    shift
 	    ;;
-	--mo)
-	    run_mo=mo
+	--rc11)
+	    run_mo=rc11
 	    shift
 	    ;;
 	--wb)
@@ -420,7 +420,7 @@ done
 impl="${impl:-c++}"
 
 # at least one model has to be specified
-[[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="weakra"
+[[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="wrc11"
 [[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && run_sc="sc"
 
 printtable() {
