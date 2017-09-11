@@ -1095,20 +1095,7 @@ void Interpreter::visitUnreachableInst(UnreachableInst &I) {
 }
 
 void Interpreter::visitBranchInst(BranchInst &I) {
-	if (!dryRun) {
-		ExecutionContext &SF = currentEG->getThreadECStack(currentEG->currentT).back();
-		BasicBlock *Dest;
-
-		Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
-		if (!I.isUnconditional()) {
-			Value *Cond = I.getCondition();
-			if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
-				Dest = I.getSuccessor(1);
-		}
-		SwitchToNewBasicBlock(Dest, SF);
-		return;
-	}
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   BasicBlock *Dest;
 
   Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -1121,7 +1108,7 @@ void Interpreter::visitBranchInst(BranchInst &I) {
 }
 
 void Interpreter::visitSwitchInst(SwitchInst &I) {
-  ExecutionContext &SF = ECStack.back();
+  ExecutionContext &SF = (dryRun) ? ECStack.back() : currentEG->getThreadECStack(currentEG->currentT).back();
   Value* Cond = I.getCondition();
   Type *ElTy = Cond->getType();
   GenericValue CondVal = getOperandValue(Cond, SF);
