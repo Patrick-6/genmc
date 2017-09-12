@@ -48,6 +48,9 @@ clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("fi
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
+static llvm::cl::opt<bool>
+clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::cat(clGeneral),
+		     llvm::cl::desc("Perform consistency checks at the end of each execution"));
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -86,6 +89,7 @@ void Config::getConfigOptions(void)
 	model = clModelType;
 	transformFile = clTransformFile;
 	printErrorTrace = clPrintErrorTrace;
+	checkPscAcyclicity = clCheckPscAcyclicity;
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;

@@ -169,10 +169,11 @@ runcpp() {
     time_total=0
     explored_total=0
     unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
+    checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
     for t in "${dir}"/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC_CPP}" "-${model}" "${unroll}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC_CPP}" "-${model}" "${unroll}" "${checker_args}" -- "${test_args}" "${t}" 2>&1`
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`

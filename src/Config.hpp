@@ -44,6 +44,7 @@ public:
 	bool printExecGraphs;
 	bool countDuplicateExecs;
 	bool printErrorTrace;
+	bool checkPscAcyclicity;
 
 	Config(int argc, char **argv);
 	void getConfigOptions(void);

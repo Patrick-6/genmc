@@ -145,7 +145,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 				       [](Thread &thr){ return thr.isBlocked; })) {
 			executionCompleted = true;
 		} else {
-			if (g.isPscAcyclic()) {
+			if ((userConf->checkPscAcyclicity && g.isPscAcyclic()) ||
+			    !userConf->checkPscAcyclicity) {
 				if (userConf->printExecGraphs)
 					llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
 				if (userConf->countDuplicateExecs) {

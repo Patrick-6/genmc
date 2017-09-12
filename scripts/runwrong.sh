@@ -34,10 +34,11 @@ runvariants() {
     diff=""
     failure=""
     outcome_failure=""
+    checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" -wrc11 -print-error-trace -- "${t}" 2>&1`
+	output=`"${RCMC}" -wrc11 -print-error-trace "${checker_args}" -- "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1
