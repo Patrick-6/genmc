@@ -1465,11 +1465,8 @@ std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
-	if (dryRun)
-		dbgs() << "Please do not use CAS operations outside of thread code!\n";
-
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
+	ExecutionContext &SF = (dryRun) ? ECStack.back() : g.getThreadECStack(g.currentT).back();
 	GenericValue cmpVal = getOperandValue(I.getCompareOperand(), SF);
 	GenericValue newVal = getOperandValue(I.getNewValOperand(), SF);
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
@@ -1479,18 +1476,18 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 
 
 
-	/* TODO: Check if the operations below are correct */
-	// if (globalVars.find(ptr) == globalVars.end()) {
-	// 	GenericValue oldVal;
-	// 	LoadValueFromMemory(oldVal, ptr, typ);
-	// 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-	// 	if (cmpRes.IntVal.getBoolValue())
-	// 		StoreValueToMemory(newVal, ptr, typ);
-	// 	result.AggregateVal.push_back(oldVal);
-	// 	result.AggregateVal.push_back(cmpRes);
-	// 	SetValue(&I, result, SF);
-	// 	return;
-	// }
+	/* If we are in a dry run or it's a local variable just do the CAS */
+	if (dryRun || !globalVars.count(ptr)) {
+		GenericValue oldVal;
+		LoadValueFromMemory(oldVal, ptr, typ);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue())
+			StoreValueToMemory(newVal, ptr, typ);
+		result.AggregateVal.push_back(oldVal);
+		result.AggregateVal.push_back(cmpRes);
+		SetValue(&I, result, SF);
+		return;
+	}
 
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
@@ -1607,7 +1604,7 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &
 void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 {
 	ExecutionGraph &g = *currentEG;
-	ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
+	ExecutionContext &SF = (dryRun) ? ECStack.back() : g.getThreadECStack(g.currentT).back();
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	GenericValue val = getOperandValue(I.getValOperand(), SF);
@@ -1616,14 +1613,14 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 
 	BUG_ON(!typ->isIntegerTy());
 
-	/* TODO: Fix check for global access for both RMW types */
-	// if (!isa<GlobalVariable>(I.getPointerOperand())) {
-	// 	LoadValueFromMemory(oldVal, ptr, typ);
-	// 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-	// 	StoreValueToMemory(newVal, ptr, typ);
-	// 	SetValue(&I, oldVal, SF);
-	// 	return;
-	// }
+	/* If we are in a dry run or it's a local variable perform the RMW */
+	if (dryRun || !globalVars.count(ptr)) {
+		LoadValueFromMemory(oldVal, ptr, typ);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+		StoreValueToMemory(newVal, ptr, typ);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
 
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
