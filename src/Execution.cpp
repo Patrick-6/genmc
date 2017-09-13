@@ -2809,7 +2809,7 @@ void Interpreter::callAssertFail(Function *F,
 	ExecutionGraph &g = *currentEG;
 
 	if (!g.isPscAcyclic()) {
-		g.clearAllStacks();
+		g.getThreadECStack(g.currentT).clear();
 		g.threads[g.currentT].isBlocked = true;
 		return;
 	}
