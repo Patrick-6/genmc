@@ -1288,7 +1288,8 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		}
 
 		/* Check for races */
-		if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer()) {
+		if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer() &&
+		    g.isPscAcyclic()) {
 			dbgs() << "Race detected!\n";
 			driver->printResults();
 			abort();
@@ -1345,7 +1346,8 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 			return;
 
 		/* Check for races */
-		if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer()) {
+		if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer() &&
+		    g.isPscAcyclic()) {
 			dbgs() << "Race detected!\n";
 			driver->printResults();
 			abort();
@@ -1496,7 +1498,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
 			/* Check for races */
-			if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+			if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer() && g.isPscAcyclic()) {
 				dbgs() << "Race detected!\n";
 				driver->printResults();
 				abort();
@@ -1525,7 +1527,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	}
 
 	/* Check for races */
-	if (!g.findRaceForNewLoad(getReadOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+	if (!g.findRaceForNewLoad(getReadOrdering(I.getSuccessOrdering()), ptr).isInitializer() && g.isPscAcyclic()) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 		abort();
@@ -1553,7 +1555,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		/* Check for races */
-		if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer()) {
+		if (!g.findRaceForNewStore(getWriteOrdering(I.getSuccessOrdering()), ptr).isInitializer() && g.isPscAcyclic()) {
 			dbgs() << "Race detected!\n";
 			driver->printResults();
 			abort();
@@ -1629,7 +1631,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
 		/* Check for races */
-		if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
+		if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer() && g.isPscAcyclic()) {
 			dbgs() << "Race detected!\n";
 			driver->printResults();
 			abort();
@@ -1650,7 +1652,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	/* Check for races */
-	if (!g.findRaceForNewLoad(getReadOrdering(I.getOrdering()), ptr).isInitializer()) {
+	if (!g.findRaceForNewLoad(getReadOrdering(I.getOrdering()), ptr).isInitializer() &&
+	    g.isPscAcyclic()) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 		abort();
@@ -1674,7 +1677,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	/* Check for races */
-	if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer()) {
+	if (!g.findRaceForNewStore(getWriteOrdering(I.getOrdering()), ptr).isInitializer() &&
+	    g.isPscAcyclic()) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 		abort();
