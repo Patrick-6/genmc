@@ -24,6 +24,7 @@
 #include "Event.hpp"
 #include "Interpreter.h"
 #include <llvm/IR/Function.h>
+#include <unordered_map>
 
 /*
  * Thread class - This class represents each program thread
@@ -35,6 +36,7 @@ public:
 	llvm::Function *threadFun;
 	std::vector<EventLabel> eventList;
 	std::vector<llvm::ExecutionContext> ECStack;
+	std::unordered_map<void *, llvm::GenericValue> tls;
 	int globalInstructions;
 	bool isBlocked;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;

@@ -1273,7 +1273,10 @@ void Interpreter::visitLoadInst(LoadInst &I) {
 		 */
 		if (!globalVars.count(ptr)) {
 			GenericValue Result;
-			LoadValueFromMemory(Result, ptr, typ);
+			if (g.threads[g.currentT].tls.count(ptr))
+				Result = g.threads[g.currentT].tls[ptr];
+			else
+				LoadValueFromMemory(Result, ptr, typ);
 			SetValue(&I, Result, SF);
 			return;
 		}
@@ -1336,8 +1339,12 @@ void Interpreter::visitStoreInst(StoreInst &I) {
 		GenericValue *ptr = (GenericValue *) GVTOP(src);
 		Type *typ = I.getOperand(0)->getType();
 
+
 		if (!globalVars.count(ptr)) {
-			StoreValueToMemory(val, ptr, typ);
+			if (g.threads[g.currentT].tls.count(ptr))
+				g.threads[g.currentT].tls[ptr] = val;
+			else
+				StoreValueToMemory(val, ptr, typ);
 			return;
 		}
 
@@ -1477,14 +1484,32 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
 	GenericValue result;
 
 
-
 	/* If we are in a dry run or it's a local variable just do the CAS */
-	if (dryRun || !globalVars.count(ptr)) {
+	if (dryRun) {
 		GenericValue oldVal;
 		LoadValueFromMemory(oldVal, ptr, typ);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue())
 			StoreValueToMemory(newVal, ptr, typ);
+		result.AggregateVal.push_back(oldVal);
+		result.AggregateVal.push_back(cmpRes);
+		SetValue(&I, result, SF);
+		return;
+	}
+
+	if (!globalVars.count(ptr)) {
+		GenericValue oldVal;
+		if (g.threads[g.currentT].tls.count(ptr))
+			oldVal = g.threads[g.currentT].tls[ptr];
+		else
+			LoadValueFromMemory(oldVal, ptr, typ);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue()) {
+			if (g.threads[g.currentT].tls.count(ptr))
+				g.threads[g.currentT].tls[ptr] = newVal;
+			else
+				StoreValueToMemory(newVal, ptr, typ);
+		}
 		result.AggregateVal.push_back(oldVal);
 		result.AggregateVal.push_back(cmpRes);
 		SetValue(&I, result, SF);
@@ -1616,10 +1641,24 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	BUG_ON(!typ->isIntegerTy());
 
 	/* If we are in a dry run or it's a local variable perform the RMW */
-	if (dryRun || !globalVars.count(ptr)) {
+	if (dryRun) {
 		LoadValueFromMemory(oldVal, ptr, typ);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 		StoreValueToMemory(newVal, ptr, typ);
+		SetValue(&I, oldVal, SF);
+		return;
+	}
+
+	if (!globalVars.count(ptr)) {
+		if (g.threads[g.currentT].tls.count(ptr))
+			oldVal = g.threads[g.currentT].tls[ptr];
+		else
+			LoadValueFromMemory(oldVal, ptr, typ);
+		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+		if (g.threads[g.currentT].tls.count(ptr))
+			g.threads[g.currentT].tls[ptr] = newVal;
+		else
+			StoreValueToMemory(newVal, ptr, typ);
 		SetValue(&I, oldVal, SF);
 		return;
 	}
@@ -3231,9 +3270,13 @@ if (globalVars.empty()) {
 #else
 			M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
 #endif
-		char *ptr = static_cast<char *>(GVTOP(getOperandValue(&cast<Value>(v), SF)));
-		for (auto i = 0u; i < typeSize; i++)
-			globalVars.insert(ptr + i);
+		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
+		for (auto i = 0u; i < typeSize; i++) {
+			if (v.isThreadLocal())
+				tlsVars[ptr + i] = getConstantValue(v.getInitializer());
+			else
+				globalVars.insert(ptr + i);
+		}
 	}
 }
 

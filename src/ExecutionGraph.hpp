@@ -184,6 +184,7 @@ extern bool interpRMW;
 
 /* TODO: Move this to Interpreter.h, and also remove the relevant header */
 extern std::unordered_set<void *> globalVars;
+extern std::unordered_map<void *, llvm::GenericValue> tlsVars;
 extern std::unordered_set<std::string> uniqueExecs;
 
 extern ExecutionGraph initGraph;
