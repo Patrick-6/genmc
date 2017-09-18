@@ -2846,6 +2846,13 @@ void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
 	ExecutionGraph &g = *currentEG;
+	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
+
+	if (dryRun) {
+		dbgs() << "Assertion violation while collecting information: "
+		       << err << "\nAborting...\n";
+		abort();
+	}
 
 	if (!g.isPscAcyclic()) {
 		g.getThreadECStack(g.currentT).clear();
@@ -2853,8 +2860,6 @@ void Interpreter::callAssertFail(Function *F,
 		return;
 	}
 
-	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
-/* TODO: Construct an Error class that will take care of the error handling */
 	if (!userConf->printErrorTrace) {
 		dbgs() << "Assertion violation: " << err << "\n";
 		driver->printResults();
