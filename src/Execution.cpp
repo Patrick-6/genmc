@@ -3033,12 +3033,18 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		abort();
 	}
 
+	if (dryRun) {
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+
+	if (!globalVars.count(ptr))
+		WARN_ONCE("pthread-mutex-not-global",
+			  "WARNING: Use of non-global pthread_mutex.\n");
+
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
-	if (globalVars.find(ptr) == globalVars.end()) {
-		WARN("ERROR: All mutexes should be declared as globals!");
-		abort();
-	}
 
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c == g.maxEvents[g.currentT] - 1) {
@@ -3113,26 +3119,36 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
-	GenericValue val;
+	GenericValue val, result;
 
 	if (ptr == nullptr) {
 		WARN("ERROR: pthread_mutex_lock called with NULL pointer!");
 		abort();
 	}
 
-	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
-	if (globalVars.find(ptr) == globalVars.end()) {
-		WARN("ERROR: All mutexes should be declared as globals!");
-		abort();
+	if (dryRun) {
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
 	}
 
+	if (!globalVars.count(ptr))
+		WARN_ONCE("pthread-mutex-not-global",
+			  "WARNING: Use of non-global pthread_mutex.\n");
+
+	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
 	int c = ++currentEG->threads[currentEG->currentT].globalInstructions;
-	if (currentEG->maxEvents[currentEG->currentT] > c)
+	if (currentEG->maxEvents[currentEG->currentT] > c) {
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
 		return;
+	}
 
 	currentEG->addStoreToGraph(Release, ptr, val, typ);
 	interpStore = true;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+	returnValueToCaller(F->getReturnType(), result);
 	return;
 }
 
