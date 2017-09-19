@@ -41,6 +41,8 @@ private:
 public:
 	RCMCDriver(Config *conf, clock_t start);
 	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod, clock_t start); /* TODO: Check pass by ref */
+
+	llvm::Module *getModule() { return mod.get(); };
 	void run();
 	void parseRun();
 	void printResults();

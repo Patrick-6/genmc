@@ -172,6 +172,7 @@ public:
   /* List of global and thread-local variables */
   std::unordered_set<void *> globalVars;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
+  std::unordered_map<void *, llvm::GenericValue> mainTLS;
 
   /*  Initial runtime stack for each thread */
   std::vector<std::vector<llvm::ExecutionContext> > initStacks;

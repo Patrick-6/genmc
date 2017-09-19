@@ -1324,7 +1324,10 @@ void Interpreter::visitLoadInst(LoadInst &I) {
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
   GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
   GenericValue Result;
-  LoadValueFromMemory(Result, Ptr, I.getType());
+  if (mainTLS.count(Ptr))
+	  Result = mainTLS[Ptr];
+  else
+	  LoadValueFromMemory(Result, Ptr, I.getType());
   SetValue(&I, Result, SF);
   if (I.isVolatile() && PrintVolatile)
     dbgs() << "Volatile load " << I;
@@ -1368,8 +1371,11 @@ void Interpreter::visitStoreInst(StoreInst &I) {
   ExecutionContext &SF = ECStack.back();
   GenericValue Val = getOperandValue(I.getOperand(0), SF);
   GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
-  StoreValueToMemory(Val, (GenericValue *)GVTOP(SRC),
-                     I.getOperand(0)->getType());
+  GenericValue *Ptr = (GenericValue *) GVTOP(SRC);
+  if (mainTLS.count(Ptr))
+	  mainTLS[Ptr] = Val;
+  else
+	  StoreValueToMemory(Val, Ptr, I.getOperand(0)->getType());
   if (I.isVolatile() && PrintVolatile)
     dbgs() << "Volatile store: " << I;
 }
@@ -3250,6 +3256,26 @@ void Interpreter::callFunction(Function *F,
 }
 
 void Interpreter::run() {
+  /* Collect all global and thread-local variables */
+  Module *M = driver->getModule();
+  for (auto &v : M->getGlobalList())  {
+	  unsigned int typeSize =
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+		  M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
+#else
+	          M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
+#endif
+	  char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
+	  for (auto i = 0u; i < typeSize; i++) {
+		  if (v.isThreadLocal())
+			  threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
+		  else
+			  globalVars.insert(ptr + i);
+	  }
+  }
+  mainTLS = threadLocalVars;
+
+  /* Perform a dryRun */
   while (!ECStack.empty()) {
     // Interpret a single instruction & increment the "PC".
     ExecutionContext &SF = ECStack.back();  // Current stack frame
@@ -3282,24 +3308,5 @@ DEBUG(
       }
     });
 #endif
-if (globalVars.empty()) {
-	Module *M = I.getParent()->getParent()->getParent();
-	for (auto &v : M->getGlobalList())  {
-		unsigned int typeSize =
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-			M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
-#else
-			M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
-#endif
-		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
-		for (auto i = 0u; i < typeSize; i++) {
-			if (v.isThreadLocal())
-				threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
-			else
-				globalVars.insert(ptr + i);
-		}
-	}
-}
-
   }
 }
