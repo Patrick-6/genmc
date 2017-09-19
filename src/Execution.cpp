@@ -3294,7 +3294,7 @@ if (globalVars.empty()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		for (auto i = 0u; i < typeSize; i++) {
 			if (v.isThreadLocal())
-				tlsVars[ptr + i] = getConstantValue(v.getInitializer());
+				threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
 			else
 				globalVars.insert(ptr + i);
 		}

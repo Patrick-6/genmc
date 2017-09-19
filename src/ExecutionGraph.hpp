@@ -174,18 +174,11 @@ protected:
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
 };
 
-extern std::vector<std::vector<llvm::ExecutionContext> > initStacks;
-
 extern bool shouldContinue;
 extern bool executionCompleted;
 extern bool globalAccess;
 extern bool interpStore;
 extern bool interpRMW;
-
-/* TODO: Move this to Interpreter.h, and also remove the relevant header */
-extern std::unordered_set<void *> globalVars;
-extern std::unordered_map<void *, llvm::GenericValue> tlsVars;
-extern std::unordered_set<std::string> uniqueExecs;
 
 extern ExecutionGraph initGraph;
 extern ExecutionGraph *currentEG;

@@ -29,7 +29,6 @@
 #include <algorithm>
 #include <csignal>
 #include <sstream>
-#include <unordered_set>
 
 void abortHandler(int signum)
 {
@@ -56,18 +55,11 @@ void RCMCDriver::parseRun()
 	run();
 }
 
- std::vector<std::vector<llvm::ExecutionContext> > initStacks;
-
- bool shouldContinue;
- bool executionCompleted = false;
- bool globalAccess = false;
+bool shouldContinue;
+bool executionCompleted = false;
+bool globalAccess = false;
 bool interpStore = false;
 bool interpRMW = false;
-
-/* TODO: Move this to Interpreter.h, and also remove the relevant header */
-std::unordered_set<void *> globalVars;
-std::unordered_map<void *, llvm::GenericValue> tlsVars;
-std::unordered_set<std::string> uniqueExecs;
 
 void RCMCDriver::printResults()
 {
@@ -118,8 +110,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 	bool oldCompleted = executionCompleted;
 	currentEG = &g;
 	for (int i = 0; i < initNumThreads; i++) {
-		g.threads[i].ECStack = initStacks[i];
-		g.threads[i].tls = tlsVars;
+		g.threads[i].ECStack = EE->initStacks[i];
+		g.threads[i].tls = EE->threadLocalVars;
 	}
 
 	while (true) {
@@ -222,8 +214,8 @@ void RCMCDriver::visitGraph(ExecutionGraph &g)
 		}
 
 		for (int i = 0; i < initNumThreads; i++) {
-			g.threads[i].ECStack = initStacks[i];
-			g.threads[i].tls = tlsVars;
+			g.threads[i].ECStack = EE->initStacks[i];
+			g.threads[i].tls = EE->threadLocalVars;
 			g.threads[i].isBlocked = false;
 			g.threads[i].globalInstructions = 0;
 		}

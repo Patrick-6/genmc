@@ -33,6 +33,7 @@ private:
 	llvm::Interpreter *EE;
 	int explored;
 	int duplicates;
+	std::unordered_set<std::string> uniqueExecs;
 	clock_t start;
 
 	void parseLLVMFile(const std::string &fileName);

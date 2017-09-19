@@ -43,6 +43,9 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <unordered_map>
+#include <unordered_set>
+
 class RCMCDriver;
 
 namespace llvm {
@@ -107,6 +110,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   DataLayout TD;
   IntrinsicLowering *IL;
 
+  /* Composition pointers */
   Config *userConf;
   RCMCDriver *driver;
 
@@ -164,6 +168,13 @@ public:
   /// freeMachineCodeForFunction - The interpreter does not generate any code.
   ///
   void freeMachineCodeForFunction(Function *F) { }
+
+  /* List of global and thread-local variables */
+  std::unordered_set<void *> globalVars;
+  std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
+
+  /*  Initial runtime stack for each thread */
+  std::vector<std::vector<llvm::ExecutionContext> > initStacks;
 
   /* Helper functions */
   void replayExecutionBefore(std::vector<int> &before);
