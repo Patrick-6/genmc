@@ -3163,6 +3163,98 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	return;
 }
 
+void Interpreter::callPthreadMutexTrylock(Function *F,
+					 const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *currentEG;
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	Type *typ = F->getReturnType();
+	GenericValue cmpVal, newVal, result;
+
+	if (ptr == nullptr) {
+		WARN("ERROR: pthread_mutex_lock called with NULL pointer!");
+		abort();
+	}
+
+	if (dryRun) {
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+
+	if (!globalVars.count(ptr))
+		WARN_ONCE("pthread-mutex-not-global",
+			  "WARNING: Use of non-global pthread_mutex.\n");
+
+	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c == g.maxEvents[g.currentT] - 1) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue()) {
+			g.addCASStoreToGraph(Release, ptr, newVal, typ);
+			++g.threads[g.currentT].globalInstructions;
+
+			result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+			interpRMW = true;
+		} else {
+			result.IntVal = APInt(typ->getIntegerBitWidth(), 1); /* Failure */
+			return;
+		}
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		int outcome = cmpRes.IntVal.getBoolValue();
+		g.threads[g.currentT].globalInstructions += outcome;
+		result.IntVal = APInt(typ->getIntegerBitWidth(), outcome); /* Result */
+		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+
+	std::vector<int> readPreds;
+
+	/* Calculate the stores that we can actually read from */
+	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> validStores =
+		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
+
+	/* ... and add a label with the appropriate store. */
+	g.addCASReadToGraph(Acquire, ptr, cmpVal, typ, validStores[0]);
+	Event e = g.getLastThreadEvent(g.currentT);
+	readPreds = g.getGraphState();
+	g.revisit.add(e);
+
+	EventLabel &lab = g.getEventLabel(e);
+	/* Push all the other alternatives choices to the Stack */
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
+		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
+	}
+
+	/* Did the CAS operation succeed? */
+	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
+	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue()) {
+		g.addCASStoreToGraph(Release, ptr, newVal, typ);
+		++g.threads[g.currentT].globalInstructions;
+
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+		interpRMW = true;
+	} else {
+		result.IntVal = APInt(typ->getIntegerBitWidth(), 1); /* Failure */
+	}
+
+	/* Return the appropriate result */
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -3206,6 +3298,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "pthread_mutex_unlock") {
 	  callPthreadMutexUnlock(F, ArgVals);
+	  return;
+  } else if (functionName == "pthread_mutex_trylock") {
+	  callPthreadMutexTrylock(F, ArgVals);
 	  return;
   }
 

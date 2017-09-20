@@ -215,6 +215,7 @@ public:
   void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
 
 
   // Methods used to execute code:
