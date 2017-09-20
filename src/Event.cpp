@@ -104,15 +104,17 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 	case W : return s << "W";
 	case F : return s << "F";
 	case NA : return s << "NA";
+	default : return s;
 	}
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
 {
 	switch (a) {
-	case Plain : return s << "";
+	case Plain : return s;
 	case CAS : return s << "CAS";
 	case RMW : return s << "RMW";
+	default : return s;
 	}
 }
 
@@ -126,6 +128,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &
 	case llvm::Release   : return s << "Rel";
 	case llvm::AcquireRelease : return s << "AcqRel";
 	case llvm::SequentiallyConsistent : return s << "SeqCst";
+	case default : return s;
 	}
 }
 
