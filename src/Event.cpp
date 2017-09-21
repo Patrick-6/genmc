@@ -128,7 +128,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &
 	case llvm::Release   : return s << "Rel";
 	case llvm::AcquireRelease : return s << "AcqRel";
 	case llvm::SequentiallyConsistent : return s << "SeqCst";
-	case default : return s;
+	default : return s;
 	}
 }
 
