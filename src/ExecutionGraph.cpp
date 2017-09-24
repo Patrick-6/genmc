@@ -192,18 +192,21 @@ void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue
 }
 
 void ExecutionGraph::addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				       llvm::GenericValue &val, llvm::Type *typ, Event rf)
+				       llvm::GenericValue &val, llvm::GenericValue &nextVal,
+				       llvm::Type *typ, Event rf)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(R, CAS, ord, Event(currentT, max), ptr, val, typ, rf);
+	EventLabel lab(R, CAS, ord, Event(currentT, max), ptr, val, nextVal, typ, rf);
 	addReadToGraphCommon(lab, rf);
 }
 
 void ExecutionGraph::addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				       llvm::GenericValue &nextVal,
+				       llvm::AtomicRMWInst::BinOp op,
 				       llvm::Type *typ, Event rf)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(R, RMW, ord, Event(currentT, max), ptr, typ, rf);
+	EventLabel lab(R, RMW, ord, Event(currentT, max), ptr, nextVal, op, typ, rf);
 	addReadToGraphCommon(lab, rf);
 }
 
@@ -215,8 +218,8 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 		Event last = getLastThreadEvent(currentT);
 		EventLabel &pLab = getEventLabel(last);
 		View mV = getEventMsgView(pLab.rf);
-		BUG_ON(lab.ord == llvm::NotAtomic);
-		if (lab.isAtLeastRelease())
+		BUG_ON(pLab.ord == llvm::NotAtomic);
+		if (pLab.isAtLeastRelease())
 			lab.msgView = mV.getMax(lab.hbView);
 		else
 			lab.msgView = getEventHbView(
@@ -372,7 +375,7 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 		EventLabel &lab = threads[thread].eventList[i];
 		if (lab.isFence() && lab.isAtLeastAcquire())
 			return;
-		if (lab.isRead() && lab.ord == llvm::Monotonic) {
+		if (lab.isRead() && (lab.ord == llvm::Monotonic || lab.ord == llvm::Release)) {
 			View o = getEventMsgView(lab.rf);
 			v.updateMax(o);
 		}
@@ -613,7 +616,7 @@ void ExecutionGraph::tryToBacktrack(void)
 	std::vector<int> before = getPorfBefore(e);
 	if (!revisit.containsPorfBefore(before)) {
 		clearAllStacks();
-		shouldContinue = false;
+		threads[currentT].isBlocked = true;
 		return;
 	}
 

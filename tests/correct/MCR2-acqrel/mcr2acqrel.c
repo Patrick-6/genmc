@@ -10,7 +10,7 @@ void *thread_1(void *ptr)
 		atomic_store_explicit(&x, 0, memory_order_release);
 		pthread_mutex_unlock(&l);
 		if (atomic_load_explicit(&x, memory_order_acquire) > 0) {
-			atomic_fetch_add_explicit(&y, 1, memory_order_release);
+			atomic_fetch_add_explicit(&y, 1, memory_order_acq_rel);
 			atomic_store_explicit(&x, 2, memory_order_release);
 		}
 	}

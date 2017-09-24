@@ -37,8 +37,7 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumVal(rc11 , "RC11 model"),
-		    clEnumVal(wrc11, "Weak RC11 model"),
-		    clEnumVal(wb   , "WB model"), NULL),
+		    clEnumVal(wrc11, "Weak RC11 model"), NULL),
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::desc("Choose model type:"));
 static llvm::cl::opt<std::string>

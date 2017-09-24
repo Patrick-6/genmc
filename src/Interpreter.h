@@ -201,6 +201,8 @@ public:
   Event getFirstNonConflictingCAS(Event tentative, Type *typ,
 				  GenericValue *ptr, GenericValue &cmpVal);
   Event getFirstNonConflictingRMW(Event tentative, Type *typ, GenericValue *ptr);
+  void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
+				 GenericValue &val, AtomicRMWInst::BinOp op);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
@@ -298,8 +300,6 @@ public:
 private:  // Helper functions
   GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
                                    gep_type_iterator E, ExecutionContext &SF);
-  void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
-				 GenericValue &val, AtomicRMWInst::BinOp op);
 
   // SwitchToNewBasicBlock - Start execution in a new basic block and run any
   // PHI nodes in the top of the block.  This is used for intraprocedural

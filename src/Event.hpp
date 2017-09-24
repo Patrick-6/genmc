@@ -69,7 +69,9 @@ public:
 	llvm::AtomicOrdering ord;
 	Event pos;
 	llvm::GenericValue *addr;
-	llvm::GenericValue val; /* For Writes */
+	llvm::GenericValue val; /* For Writes and CASs */
+	llvm::GenericValue nextVal; /* For CASs and FAIs */
+	llvm::AtomicRMWInst::BinOp op;
 	llvm::Type *valTyp;
 	Event rf; /* For Reads */
 	std::list<Event> rfm1; /* For Writes */
@@ -81,8 +83,11 @@ public:
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
+		   llvm::GenericValue *addr, llvm::GenericValue nextVal,
+		   llvm::AtomicRMWInst::BinOp op, llvm::Type *valTyp, Event w); /* FAI Reads */
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue expected,
-		   llvm::Type *valTyp, Event w);
+		   llvm::GenericValue nextVal, llvm::Type *valTyp, Event w); /* CAS Reads */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */

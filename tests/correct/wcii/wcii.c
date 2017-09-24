@@ -10,8 +10,8 @@ void *thread_2(void *unused)
 {
 	int expected = 1;
 	atomic_compare_exchange_strong_explicit(&x, &expected, 2,
-						memory_order_acquire,
-						memory_order_acquire);
+						memory_order_relaxed,
+						memory_order_relaxed);
 	return NULL;
 }
 

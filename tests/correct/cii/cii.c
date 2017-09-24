@@ -4,8 +4,8 @@ void *thread_1(void *unused)
 {
 	int r = 1;
 
-	atomic_compare_exchange_strong_explicit(&x, &r, 2, memory_order_acquire,
-						memory_order_acquire);
+	atomic_compare_exchange_strong_explicit(&x, &r, 2, memory_order_relaxed,
+						memory_order_relaxed);
 	return NULL;
 }
 

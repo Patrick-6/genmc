@@ -24,7 +24,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <set>
 
-enum ModelType { rc11, wrc11, wb };
+enum ModelType { rc11, wrc11 };
 
 class Config {
 

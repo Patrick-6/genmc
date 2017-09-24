@@ -93,8 +93,10 @@ public:
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			    llvm::Type *typ, Event rf);
 	void addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			       llvm::GenericValue &val, llvm::Type *typ, Event rf);
+			       llvm::GenericValue &val, llvm::GenericValue &nextVal,
+			       llvm::Type *typ, Event rf);
 	void addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			       llvm::GenericValue &nextVal, llvm::AtomicRMWInst::BinOp op,
 			       llvm::Type *typ, Event rf);
 	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			     llvm::GenericValue &val, llvm::Type *typ);
@@ -174,9 +176,7 @@ protected:
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
 };
 
-extern bool shouldContinue;
 extern bool executionCompleted;
-extern bool globalAccess;
 extern bool interpStore;
 extern bool interpRMW;
 

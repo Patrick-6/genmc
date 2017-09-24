@@ -52,9 +52,10 @@ protected:
 	void visitStore(ExecutionGraph &g);
 	void visitStoreWeakRA(ExecutionGraph &g);
 	void visitStoreMO(ExecutionGraph &g);
-	void visitRMWStore(ExecutionGraph &g, llvm::Type *typ);
-	void visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ);
-	void visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ);
+	bool visitRMWStore(ExecutionGraph &g, llvm::Type *typ);
+	bool visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ);
+	bool visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ);
+	Event tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls);
 	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			  std::vector<Event> K0, EventLabel &wLab);
 };

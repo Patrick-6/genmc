@@ -24,26 +24,39 @@
 
 #include <cassert>
 
+/* ThreadStart */
 EventLabel::EventLabel(EventType typ, Event e)
 	: type(typ), pos(e) {}
 
+/* Fence */
 EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
 	: type(typ), ord(ord), pos(e) {}
 
+/* Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
 
+/* CAS Read */
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
+		       llvm::GenericValue *addr, llvm::GenericValue val,
+		       llvm::GenericValue nextVal, llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
+	  nextVal(nextVal), valTyp(valTyp), rf(w) {}
+
+/* FAI Read */
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
+		       llvm::GenericValue *addr, llvm::GenericValue nextVal,
+		       llvm::AtomicRMWInst::BinOp op, llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), nextVal(nextVal),
+	  op(op), valTyp(valTyp), rf(w) {}
+
+/* Store / FAI Store */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue val,
-		       llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
-	  valTyp(valTyp), rf(w) {}
-
+/* Store / FAI Store (Alternative) */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val,
 		       llvm::Type *valTyp, std::list<Event> rfm1)
