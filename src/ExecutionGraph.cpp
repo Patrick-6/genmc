@@ -394,10 +394,9 @@ bool ExecutionGraph::isWriteRfBefore(std::vector<int> &before, Event e)
 
 	EventLabel &lab = getEventLabel(e);
 	BUG_ON(!lab.isWrite());
-	for (auto &e : lab.rfm1) {
-		if (e.index <= before[e.thread] && !revisit.contains(e))
+	for (auto &e : lab.rfm1)
+		if (e.index <= before[e.thread])
 			return true;
-	}
 	return false;
 }
 
