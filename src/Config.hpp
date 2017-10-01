@@ -21,6 +21,7 @@
 #ifndef __CONFIG_HPP__
 #define __CONFIG_HPP__
 
+#include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
 #include <set>
 

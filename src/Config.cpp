@@ -59,7 +59,6 @@ static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
 
-
 static llvm::cl::opt<bool>
 clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
 		       llvm::cl::desc("Read LLVM bitcode directly from file"));
