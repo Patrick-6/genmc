@@ -3,9 +3,15 @@
 
 #include "my_queue.h"
 
-#define relaxed memory_order_relaxed
-#define release memory_order_release
-#define acquire memory_order_acquire
+#ifdef MAKE_ACCESSES_SC
+# define relaxed memory_order_seq_cst
+# define release memory_order_seq_cst
+# define acquire memory_order_seq_cst
+#else
+# define relaxed memory_order_relaxed
+# define release memory_order_release
+# define acquire memory_order_acquire
+#endif
 
 #define MAX_FREELIST 4 /* Each thread can own up to MAX_FREELIST free nodes */
 #define INITIAL_FREE 2 /* Each thread starts with INITIAL_FREE free nodes */
