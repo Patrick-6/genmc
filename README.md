@@ -6,7 +6,7 @@ Rectified C/C++11 Model Checking
 ---
 
 RCMC is a stateless model checker for C/C++11 programs which works on the
-level of LLVM Intermediate Representation. 
+level of LLVM Intermediate Representation.
 
 Author: Michalis Kokologiannakis.
 
@@ -20,7 +20,7 @@ Author: Michalis Kokologiannakis.
 <a name="license">License</a>
 -----------------------------
 
-This program is distributed under the GPL, version 2 or (at your option) 
+This program is distributed under the GPL, version 2 or (at your option)
 later. Please see the LICENSE file for details.
 
 <a name="dependencies">Dependencies</a>
@@ -30,6 +30,7 @@ In order to use the tool on a Debian-based installation, you will need the
 following packages:
 
 		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
+		zlib1g-dev
 
 We have tested the tool with LLVM versions 3.5.0 and 3.8.1.
 Most likely, it also works for all those in between.
@@ -60,7 +61,7 @@ correctly or not:
 * To see a list of available options run:
 
 		./src/rcmc --help
-		
+
 * To run a particular testcase run:
 
 		./src/rcmc [options] <file>
@@ -72,5 +73,3 @@ TODO
 
 <a name="notes">Notes</a>
 ------------------------
-
-
