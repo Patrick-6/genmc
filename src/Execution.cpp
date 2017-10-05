@@ -2848,8 +2848,11 @@ void Interpreter::callPthreadSelf(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue result;
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
-			      currentEG->currentT);
+	if (dryRun)
+		result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
+	else
+		result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
+				      currentEG->threads[currentEG->currentT].id);
 	returnValueToCaller(F->getReturnType(), result);
 }
 
@@ -2880,6 +2883,15 @@ void Interpreter::callPthreadCreate(Function *F,
 	Thread thr(calledFun, initNumThreads);
 	initGraph.threads.push_back(thr);
 
+	/* Save the TID in the location pointed by the 1st arg */
+	GenericValue val;
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	WARN_ON(ptr == nullptr, "NULL argument to pthread_create()!\n");
+	Type *typ = static_cast<PointerType *>(F->arg_begin()->getType())->getElementType();
+	val.IntVal = APInt(typ->getIntegerBitWidth(), thr.id);
+	StoreValueToMemory(val, ptr, typ);
+
+	/* Return a value indicating that pthread_create() succeeded */
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
 	returnValueToCaller(F->getReturnType(), result);
 }
