@@ -9,7 +9,6 @@
 
 int main()
 {
-	pthread_t threads[N];
 	int i;
 	unsigned int in_sum = 0, out_sum = 0;
 

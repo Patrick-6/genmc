@@ -7,27 +7,27 @@ queue_t myqueue;
 int param[N];
 unsigned int input[N];
 unsigned int output[N];
+pthread_t threads[N];
 
 int get_thread_num()
 {
-	return pthread_self();
+	pthread_t curr = pthread_self();
+	for (int i = 0; i < num_threads; i++)
+		if (curr == threads[i])
+			return i;
+	assert(0);
 }
 
-bool succ1, succ2;
+bool succ[N];
 
 void *main_task(void *param)
 {
 	unsigned int val;
 	int pid = *((int *)param);
-	if (!pid) {
-		input[0] = 17;
-		enqueue(queue, input[0]);
-		succ1 = dequeue(queue, &output[0]);
-		//printf("Dequeue: %d\n", output[0]);
-	} else {
-		input[1] = 37;
-		enqueue(queue, input[1]);
-		succ2 = dequeue(queue, &output[1]);
-	}
+
+	input[pid] = pid * 10;
+	enqueue(queue, input[pid]);
+	succ[pid] = dequeue(queue, &output[pid]);
+	//printf("Dequeue: %d\n", output[0]);
 	return NULL;
 }
