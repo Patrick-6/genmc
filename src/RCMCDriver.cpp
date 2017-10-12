@@ -24,6 +24,7 @@
 #include "RCMCDriver.hpp"
 #include "Interpreter.h"
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
 
 #include <algorithm>
@@ -36,9 +37,25 @@ void abortHandler(int signum)
 }
 
 RCMCDriver::RCMCDriver(Config *conf, clock_t start)
-	: userConf(conf), explored(0), duplicates(0), start(start) {}
+	: userConf(conf), explored(0), duplicates(0), start(start)
+{
+	/*
+	 * Make sure we can resolve symbols in the program as well. We use 0
+	 * as an argument in order to load the program, not a library. This
+	 * is useful as it allows the executions of external functions in the
+	 * user code.
+	 */
+	std::string ErrorStr;
+	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(0, &ErrorStr))
+		WARN("Could not resolve symbols in the program: " + ErrorStr);
+}
 RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: userConf(conf), mod(std::move(mod)), explored(0), duplicates(0), start(start) {}
+	: userConf(conf), mod(std::move(mod)), explored(0), duplicates(0), start(start)
+{
+	std::string ErrorStr;
+	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(0, &ErrorStr))
+		WARN("Could not resolve symbols in the program: " + ErrorStr);
+}
 
 /* TODO: Need to pass by reference? Maybe const? */
 void RCMCDriver::parseLLVMFile(const std::string &fileName)
