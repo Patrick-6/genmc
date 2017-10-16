@@ -2801,7 +2801,12 @@ void Interpreter::callVerifierAssume(Function *F,
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *currentEG;
+	if (!dryRun) {
+		WARN("Usage of malloc() in thread code is currently unsupported!" \
+		     "Exiting... \n");
+		abort();
+	}
+
 	GenericValue res;
 
 	/* Allocate the appropriate amount of memory */
@@ -2811,7 +2816,9 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	res.PointerVal = malloc(size);
 
 	/* Keep track of the memory allocated and return value to caller */
-	g.heapAllocas.push_back(res.PointerVal);
+	char *ptr = static_cast<char *>(res.PointerVal);
+	for (auto i = 0u; i < size; i++)
+		globalVars.insert(ptr + i);
 	returnValueToCaller(F->getReturnType(), res);
 	return;
 }
@@ -3032,6 +3039,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 void Interpreter::callPthreadMutexUnlock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
+	ExecutionGraph &g = *currentEG;
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue val, result;
@@ -3053,14 +3061,14 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	int c = ++currentEG->threads[currentEG->currentT].globalInstructions;
-	if (currentEG->maxEvents[currentEG->currentT] > c) {
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] > c) {
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 		returnValueToCaller(F->getReturnType(), result);
 		return;
 	}
 
-	currentEG->addStoreToGraph(Release, ptr, val, typ);
+	g.addStoreToGraph(Release, ptr, val, typ);
 	interpStore = true;
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
