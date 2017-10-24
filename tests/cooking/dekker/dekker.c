@@ -6,13 +6,19 @@
 
 #ifdef MAKE_ACCESSES_SC
 # define mo_relaxed memory_order_seq_cst
-# define mo_acquire memory_order_acquire
-# define mo_release memory_order_release
-# define mo_acq_rel memory_order_acq_rel
+# define mo_acquire memory_order_seq_sct
+# define mo_release memory_order_seq_cst
+# define mo_acq_rel memory_order_seq_cst
 # define mo_seq_cst memory_order_seq_cst
-# define smp_rmb()  do {} while (0)
-# define smp_wmb()  do {} while (0)
-# define smp_mb()   do {} while (0)
+# ifdef NIDHUGG
+#  define smp_rmb() __asm__ __volatile__("mfence" ::: "memory")
+#  define smp_wmb() __asm__ __volatile__("mfence" ::: "memory")
+#  define smp_mb()  __asm__ __volatile__("mfence" ::: "memory")
+# else
+#  define smp_rmb()  atomic_thread_fence(memory_order_seq_cst)
+#  define smp_wmb()  atomic_thread_fence(memory_order_seq_cst)
+#  define smp_mb()   atomic_thread_fence(memory_order_seq_cst)
+# endif
 #else
 # define mo_relaxed memory_order_relaxed
 # define mo_acquire memory_order_acquire
