@@ -115,6 +115,7 @@ public:
 	std::vector<int> getHbBefore(Event e);
 	std::vector<int> getHbBefore(const std::vector<Event> &es);
 	std::vector<int> getHbPoBefore(Event e);
+	std::vector<int> getHbRfBefore(std::vector<Event> &es);
 
 	/* Calculation of writes a read can read from */
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr, ModelType model);
@@ -156,6 +157,7 @@ protected:
 	void addStoreToGraphCommon(EventLabel &lab);
 	void calcPorfAfter(const Event &e, std::vector<int> &a);
 	void calcPorfBefore(const Event &e, std::vector<int> &a);
+	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, std::vector<int> &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
 	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);

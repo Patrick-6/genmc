@@ -369,6 +369,33 @@ std::vector<int> ExecutionGraph::getHbPoBefore(Event e)
 	return v.toVector();
 }
 
+void ExecutionGraph::calcHbRfBefore(Event &e, llvm::GenericValue *addr,
+				    std::vector<int> &a)
+{
+	int ai = a[e.thread];
+	if (e.index <= ai)
+		return;
+
+	a[e.thread] = e.index;
+	Thread &thr = threads[e.thread];
+	for (int i = ai; i <= e.index; i++) {
+		EventLabel &lab = thr.eventList[i];
+		if (lab.isRead() && !lab.rf.isInitializer() &&
+		    (lab.addr == addr || lab.rf.index <= lab.hbView[lab.rf.thread]))
+			calcHbRfBefore(lab.rf, addr, a);
+	}
+	return;
+}
+
+std::vector<int> ExecutionGraph::getHbRfBefore(std::vector<Event> &es)
+{
+	std::vector<int> a(threads.size(), 0);
+
+	for (auto &e : es)
+		calcHbRfBefore(e, getEventLabel(e).addr, a);
+	return a;
+}
+
 void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 {
 	for (auto i = index; i > 0; i--) {
@@ -425,7 +452,7 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 		return stores;
 	}
 
-	std::vector<int> before = getHbBefore(overwritten);
+	std::vector<int> before = getHbRfBefore(overwritten);
 	for (auto i = 0u; i < threads.size(); i++) {
 		Thread &thr = threads[i];
 		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
