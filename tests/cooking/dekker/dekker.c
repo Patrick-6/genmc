@@ -10,15 +10,9 @@
 # define mo_release memory_order_seq_cst
 # define mo_acq_rel memory_order_seq_cst
 # define mo_seq_cst memory_order_seq_cst
-# ifdef NIDHUGG
-#  define smp_rmb() __asm__ __volatile__("mfence" ::: "memory")
-#  define smp_wmb() __asm__ __volatile__("mfence" ::: "memory")
-#  define smp_mb()  __asm__ __volatile__("mfence" ::: "memory")
-# else
-#  define smp_rmb()  atomic_thread_fence(memory_order_seq_cst)
-#  define smp_wmb()  atomic_thread_fence(memory_order_seq_cst)
-#  define smp_mb()   atomic_thread_fence(memory_order_seq_cst)
-# endif
+# define smp_rmb()
+# define smp_wmb()
+# define smp_mb()
 #else
 # define mo_relaxed memory_order_relaxed
 # define mo_acquire memory_order_acquire
