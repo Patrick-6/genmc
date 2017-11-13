@@ -1,7 +1,9 @@
 atomic_int x = ATOMIC_VAR_INIT(1);
 atomic_int y = ATOMIC_VAR_INIT(1);
 
+#ifndef NUM
 #define NUM 5
+#endif
 
 void *thread_1(void* arg)
 {
