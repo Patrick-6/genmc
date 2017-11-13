@@ -36,7 +36,7 @@ runvariants() {
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" "-${model}" "${unroll}" "${checker_args}" -- "${test_args}" "${t}" 2>&1`
+	output=`"${RCMC}" "-${model}" "${unroll}" ${checker_args} -- ${test_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1
