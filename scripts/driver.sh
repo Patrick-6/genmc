@@ -21,8 +21,8 @@
 source terminal.sh
 RCMC=./src/rcmc
 
-tmp=`clang --version | grep "clang version" | sed 's/[^0-9\.\-]*//g'`
-LLVM_VERSION=${tmp%-*}  # remove suffix ending with "-"
+# We need to get the LLVM version for this particular configuration
+LLVM_VERSION=`cat ../config.h | awk '/LLVM_VERSION/ {gsub(/\"/, "", $3); print $3}'`
 
 total_time=0
 result=""
