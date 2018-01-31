@@ -365,7 +365,6 @@ std::vector<int> ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 std::vector<int> ExecutionGraph::getHbPoBefore(Event e)
 {
 	View v = getEventHbView(e.prev()).getCopy(threads.size());
-	v[e.thread] = e.index;
 	return v.toVector();
 }
 
