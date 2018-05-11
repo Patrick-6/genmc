@@ -72,10 +72,6 @@ void RCMCDriver::parseRun()
 	run();
 }
 
-bool executionCompleted = false;
-bool interpStore = false;
-bool interpRMW = false;
-
 void RCMCDriver::printResults()
 {
 	std::stringstream dups;
@@ -85,6 +81,25 @@ void RCMCDriver::printResults()
 	llvm::dbgs() << "Total wall-clock time: "
 		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
 		     << "s\n";
+}
+
+void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
+{
+	if ((userConf->checkPscAcyclicity && g.isPscAcyclic()) ||
+	    !userConf->checkPscAcyclicity) {
+		if (userConf->printExecGraphs)
+			llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
+		if (userConf->countDuplicateExecs) {
+			std::string exec;
+			llvm::raw_string_ostream buf(exec);
+			buf << g;
+			if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+				++duplicates;
+			else
+				uniqueExecs.insert(buf.str());
+		}
+		++explored;
+	}
 }
 
 void RCMCDriver::run()
@@ -99,20 +114,16 @@ void RCMCDriver::run()
 	/* Create an interpreter for the program's instructions. */
 	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, userConf, this, &buf);
 
-	/* Get main program function and run the program */
-	EE->runStaticConstructorsDestructors(false);
-	EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
-	EE->runStaticConstructorsDestructors(true);
+	/* Create an initial graph */
+	ExecutionGraph initGraph;
 
-	dryRun = false;
-	/* There is not an event for any thread -- yet */
-	/* maxEvents points to the array index of the next event */
-	for (int i = 0; i < initNumThreads; i++) {
-		Thread &t = initGraph.threads[i];
-		t.eventList.push_back(EventLabel(NA, Event(-1, -1)));
-		initGraph.maxEvents.push_back(1);
-	}
+	/* Create main thread and start event */
+	Thread main = Thread(mod->getFunction("main"), 0);
+	main.eventList.push_back(EventLabel(EStart, llvm::Acquire, Event(0, 0), Event::getInitializer()));
+	initGraph.threads.push_back(main);
+	initGraph.maxEvents[0] = 1;
 
+	/* Explore all graphs and print the results */
 	visitGraph(initGraph);
 	printResults();
 	return;
@@ -121,141 +132,112 @@ void RCMCDriver::run()
 void RCMCDriver::visitGraph(ExecutionGraph &g)
 {
 	ExecutionGraph *oldEG = currentEG;
-	bool oldCompleted = executionCompleted;
 	currentEG = &g;
-	for (int i = 0; i < initNumThreads; i++) {
-		g.threads[i].ECStack = EE->initStacks[i];
+
+	/* Reset scheduler */
+	g.currentT = 0;
+	/* Reset all thread local variables */
+	for (auto i = 0u; i < g.threads.size(); i++) {
 		g.threads[i].tls = EE->threadLocalVars;
+		g.threads[i].globalInstructions = 0;
+		g.threads[i].isBlocked = false;
 	}
 
-	while (true) {
-		interpStore = false;
-		interpRMW = false;
-		if (userConf->validateExecGraphs)
-			g.validateGraph();
-		if (g.scheduleNext()) {
-			executionCompleted = false;
-			llvm::ExecutionContext &SF = g.getThreadECStack(g.currentT).back();
-			llvm::Instruction &I = *SF.CurInst++;
-			EE->visit(I);
-			if (interpStore) {
-				visitStore(g);
-			} else if (interpRMW) {
-				llvm::Type *typ;
-				if (llvm::isa<llvm::AtomicCmpXchgInst>(I))
-					typ = llvm::cast<llvm::AtomicCmpXchgInst>(I).getCompareOperand()->getType();
-				else
-					typ = I.getType();
-				visitRMWStore(g, typ);
+start:
+	/* Get main program function and run the program */
+	EE->runStaticConstructorsDestructors(false);
+	EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
+	EE->runStaticConstructorsDestructors(true);
+
+	bool validExecution;
+	do {
+		if (g.workqueue.empty()) {
+			for (auto mem : g.stackAllocas)
+				free(mem); /* No need to clear vector */
+			for (auto mem : g.heapAllocas)
+				free(mem);
+			currentEG = oldEG;
+			return;
+		}
+
+		validExecution = true;
+		StackItem &p = g.workqueue.back();
+		// llvm::dbgs() << "Popping from stack " << ((p.type == RevR) ? "Read\n" : "Write\n"); llvm::dbgs() << "Graph is " << g << "\n, " << explored << " executions so far\n";
+
+		if (p.type == RevR) {
+			g.cutBefore(p.preds, p.revisit);
+			EventLabel &lab1 = g.getEventLabel(p.e);
+			Event oldRf = lab1.rf;
+			lab1.rf = p.shouldRf;
+			if (!p.shouldRf.isInitializer()) {
+				EventLabel &lab2 = g.getEventLabel(p.shouldRf);
+				lab2.rfm1.push_front(p.e);
 			}
-		} else if (std::any_of(g.threads.begin(), g.threads.end(),
-				       [](Thread &thr){ return thr.isBlocked; })) {
-			executionCompleted = true;
+			if (!oldRf.isInitializer()) {
+				EventLabel &lab3 = g.getEventLabel(oldRf);
+				lab3.rfm1.remove(p.e);
+			}
+
+			lab1.hbView = g.getEventHbView(lab1.pos.prev());
+			lab1.hbView[lab1.pos.thread] = lab1.pos.index;
+			if (lab1.isAtLeastAcquire()) {
+				View mV = g.getEventMsgView(lab1.rf);
+				lab1.hbView.updateMax(mV);
+			}
+
+			std::vector<int> before = g.getPorfBefore(p.e);
+			g.revisit.removePorfBefore(before);
+
+			std::vector<Event> ls0({p.e});
+			Event added = tryAddRMWStores(g, ls0);
+			if (!added.isInitializer()) {
+				bool visitable = visitRMWStore(g);
+				if (!visitable) {
+					g.workqueue.pop_back();
+					validExecution = false;
+				}
+			}
+			// llvm::dbgs() << "After restriction: \n" << g << "\n";
 		} else {
-			if ((userConf->checkPscAcyclicity && g.isPscAcyclic()) ||
-			    !userConf->checkPscAcyclicity) {
-				if (userConf->printExecGraphs)
-					llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
-				if (userConf->countDuplicateExecs) {
-					std::string exec;
-					llvm::raw_string_ostream buf(exec);
-					buf << g;
-					if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-						++duplicates;
-					else
-						uniqueExecs.insert(buf.str());
-				}
-				++explored;
-			}
-			executionCompleted = true;
-		}
+			EventLabel &sLab = g.getEventLabel(p.e);
+			g.cutBefore(p.preds, p.revisit);
+			g.modOrder.setLoc(sLab.addr, p.locMO);
 
-		if (!executionCompleted)
-			continue;
+			std::vector<Event> es({p.prevMO, p.e});
+			std::vector<int> before2 = g.getPorfBefore(es);
+			g.revisit.removePorfBefore(before2);
 
-		bool validExecution;
-		do {
-			if (g.workqueue.empty()) {
-				for (auto mem : g.stackAllocas)
-					free(mem); /* No need to clear vector */
-				for (auto mem : g.heapAllocas)
-					free(mem);
-				executionCompleted = oldCompleted;
-				currentEG = oldEG;
-				return;
-			}
+			// llvm::dbgs() << "After restriction: \n" << g << "\n";
 
-			validExecution = true;
-			StackItem &p = g.workqueue.back();
-//		llvm::dbgs() << "Popping from stack " << ((p.type == RevR) ? "Read\n" : "Write\n"); llvm::dbgs() << "Graph is " << g << "\n, " << explored << " executions so far\n";
-
-			if (p.type == RevR) {
-				g.cutBefore(p.preds, p.revisit);
-				EventLabel &lab1 = g.getEventLabel(p.e);
-				Event oldRf = lab1.rf;
-				lab1.rf = p.shouldRf;
-				if (!p.shouldRf.isInitializer()) {
-					EventLabel &lab2 = g.getEventLabel(p.shouldRf);
-					lab2.rfm1.push_front(p.e);
-				}
-				if (!oldRf.isInitializer()) {
-					EventLabel &lab3 = g.getEventLabel(oldRf);
-					lab3.rfm1.remove(p.e);
-				}
-
-				lab1.hbView = g.getEventHbView(lab1.pos.prev()).getCopy(g.threads.size());
-				lab1.hbView[lab1.pos.thread] = lab1.pos.index;
-				if (lab1.isAtLeastAcquire()) {
-					View mV = g.getEventMsgView(lab1.rf);
-					lab1.hbView.updateMax(mV);
-				}
-
-				std::vector<int> before = g.getPorfBefore(p.e);
-				g.revisit.removePorfBefore(before);
-
-				std::vector<Event> ls0({p.e});
-				Event added = tryAddRMWStores(g, ls0);
-				if (!added.isInitializer()) {
-					EventLabel &newLab = g.getEventLabel(added);
-					bool visitable = visitRMWStore(g, newLab.valTyp);
-					if (!visitable) {
-						g.workqueue.pop_back();
-						validExecution = false;
-					}
-				}
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-			} else {
-				EventLabel &sLab = g.getEventLabel(p.e);
-				g.cutBefore(p.preds, p.revisit);
-				g.modOrder.setLoc(sLab.addr, p.locMO);
-
-				std::vector<Event> es({p.prevMO, p.e});
-				std::vector<int> before2 = g.getPorfBefore(es);
-				g.revisit.removePorfBefore(before2);
-				EventLabel &wLab = g.getEventLabel(p.e); /* Refetching */
-				std::vector<Event> ls = g.getRevisitLoadsNonMaximal(p.e);
-				std::vector<std::vector<Event > > rSets =
+			EventLabel &wLab = g.getEventLabel(p.e); /* Refetching */
+			std::vector<Event> ls = g.getRevisitLoadsNonMaximal(p.e);
+			std::vector<std::vector<Event > > rSets =
 				EE->calcRevisitSets(ls, {}, wLab);
-				revisitReads(g, rSets, {}, wLab);
-			}
-		} while (!validExecution);
-
-		for (int i = 0; i < initNumThreads; i++) {
-			g.threads[i].ECStack = EE->initStacks[i];
-			g.threads[i].tls = EE->threadLocalVars;
-			g.threads[i].isBlocked = false;
-			g.threads[i].globalInstructions = 0;
+			revisitReads(g, rSets, {}, wLab);
 		}
-		for (auto mem : g.stackAllocas)
-			free(mem);
-		for (auto mem : g.heapAllocas)
-			free(mem);
-		g.stackAllocas.clear();
-		g.heapAllocas.clear();
-		g.freedMem.clear();
+	} while (!validExecution);
 
-		g.workqueue.pop_back();
+	g.currentT = 0;
+	for (unsigned int i = 0; i < g.threads.size(); i++) {
+                /* Make sure that all stacks are empty since there may
+		 * have been a failed assume on some thread
+		 * and a join waiting on that thread.
+		 * Joins do not empty ECStacks */
+		g.threads[i].ECStack = {};
+		g.threads[i].tls = EE->threadLocalVars;
+		g.threads[i].isBlocked = false;
+		g.threads[i].globalInstructions = 0;
 	}
+	for (auto mem : g.stackAllocas)
+		free(mem);
+	for (auto mem : g.heapAllocas)
+		free(mem);
+	g.stackAllocas.clear();
+	g.heapAllocas.clear();
+	g.freedMem.clear();
+
+	g.workqueue.pop_back();
+	goto start;
 }
 
 void RCMCDriver::visitStore(ExecutionGraph &g)
@@ -287,7 +269,7 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 	Event s = g.getLastThreadEvent(g.currentT);
 	EventLabel &sLab = g.getEventLabel(s);
 
-	std::vector<int> before = g.getHbBefore(s);
+	View before = g.getHbBefore(s);
 	std::vector<Event> locMO = g.modOrder.getAtLoc(sLab.addr);
 	std::vector<std::vector<Event> > partStores = g.splitLocMOBefore(before, locMO);
 	if (partStores[0].empty()) {
@@ -325,17 +307,17 @@ void RCMCDriver::visitStoreMO(ExecutionGraph &g)
 	return;
 }
 
-bool RCMCDriver::visitRMWStore(ExecutionGraph &g, llvm::Type *typ)
+bool RCMCDriver::visitRMWStore(ExecutionGraph &g)
 {
 	switch (userConf->model) {
 	case wrc11:
-		return visitRMWStoreWeakRA(g, typ);
+		return visitRMWStoreWeakRA(g);
 	default:
-		return visitRMWStoreMO(g, typ);
+		return visitRMWStoreMO(g);
 	}
 }
 
-bool RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
+bool RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g)
 {
 	Event s = g.getLastThreadEvent(g.currentT);
 	EventLabel &sLab = g.getEventLabel(s);
@@ -345,7 +327,7 @@ bool RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
 	std::vector<Event> ls = g.getRevisitLoads(s);
 
 	llvm::GenericValue val =
-		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
+		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
 	std::vector<Event> pendingRMWs =
 		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
 	std::vector<std::vector<Event> > rSets =
@@ -356,7 +338,7 @@ bool RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ)
 	return pendingRMWs.empty();
 }
 
-bool RCMCDriver::visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ)
+bool RCMCDriver::visitRMWStoreMO(ExecutionGraph &g)
 {
 	Event s = g.getLastThreadEvent(g.currentT);
 	EventLabel &sLab = g.getEventLabel(s);
@@ -373,7 +355,7 @@ bool RCMCDriver::visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ)
 	}
 
 	llvm::GenericValue val =
-		EE->loadValueFromWrite(lab.rf, typ, lab.addr);
+		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
 	std::vector<Event> pendingRMWs =
 		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
 	std::vector<std::vector<Event> > rSets =
@@ -405,7 +387,7 @@ Event RCMCDriver::tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls)
 		}
 	}
 	currentEG = oldEG;
-	return Event(0, 0); /* No to-be-exclusive event found */
+	return Event::getInitializer(); /* No to-be-exclusive event found */
 }
 
 void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
@@ -450,10 +432,9 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 
 		Event added = tryAddRMWStores(eg, ls0);
 		if (!added.isInitializer()) {
-			EventLabel &newLab = eg.getEventLabel(added);
 			ExecutionGraph *oldEG = currentEG;
 			currentEG = &eg;
-			bool visitable = visitRMWStore(eg, newLab.valTyp);
+			bool visitable = visitRMWStore(eg);
 			currentEG = oldEG;
 			if (visitable)
 				visitGraph(eg);
@@ -463,5 +444,4 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 	}
 	return;
 }
-
 /* TODO: Fix destructors for Driver and config (basically for every class) */

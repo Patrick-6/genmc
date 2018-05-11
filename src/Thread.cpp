@@ -20,9 +20,6 @@
 
 #include "Thread.hpp"
 
-bool dryRun = true;
-int initNumThreads = 0;
-
 Thread::Thread() {}
 
 Thread::Thread(llvm::Function *F)
@@ -35,6 +32,10 @@ Thread::Thread(llvm::Function *F)
 
 Thread::Thread(llvm::Function *F, int id)
 	: id(id), parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false) {}
+
+Thread::Thread(llvm::Function *F, int id, int pid, llvm::ExecutionContext &SF)
+	: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
+	  isBlocked(false) {}
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t)
 {

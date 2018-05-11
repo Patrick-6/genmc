@@ -14,5 +14,10 @@ int main()
 	if (pthread_create(&t1, NULL, thread_one, NULL))
 		abort();
 
+	if (pthread_join(t1, NULL))
+		abort();
+	if (pthread_join(t2, NULL))
+		abort();
+
 	return 0;
 }

@@ -21,42 +21,33 @@
 #ifndef __VIEW_HPP__
 #define __VIEW_HPP__
 
+#include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <vector>
 
 class View {
 protected:
-	typedef std::vector<int> EventView;
+	typedef llvm::IndexedMap<int> EventView;
 	EventView view_;
 
 public:
 	/* Constructors */
 	View();
-	View(int size);
-
-	/* Iterators */
-	typedef EventView::iterator iterator;
-	typedef EventView::const_iterator const_iterator;
-	iterator begin();
-	iterator end();
-	const_iterator cbegin();
-	const_iterator cend();
 
 	/* Basic operation on Views */
-	bool empty() const;
 	unsigned int size() const;
-	View getCopy(int numThreads);
+	bool empty() const;
 	void updateMax(View &v);
 	View getMax(View &v);
 
-	std::vector<int> toVector();
-
 	/* Overloaded operators */
 	inline int operator[](int idx) const {
+//		view_.grow(idx);
 		return view_[idx];
 	}
 	inline int &operator[](int idx) {
+		view_.grow(idx);
 		return view_[idx];
 	}
 	inline bool operator<=(const View &v) const {

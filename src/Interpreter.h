@@ -103,6 +103,10 @@ struct ExecutionContext {
 // AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
 };
 
+// InterpAction - When some particular actions are encountered,
+// there are some extra steps to take
+enum InterpAction { INone, IStore, IRMW };
+
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
@@ -116,15 +120,32 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
-  std::vector<ExecutionContext> ECStack;
+  std::vector<ExecutionContext> mainECStack;
 
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
 
+  // action - Inform the driver that some specifics instructions were
+  // encountered
+  InterpAction action;
+
 public:
   explicit Interpreter(Module *M, Config *conf, RCMCDriver *driver);
   virtual ~Interpreter();
+
+  /* Stores the addresses of global values into globalVars and threadLocalVars */
+  void storeGlobals(Module *M);
+
+  std::vector<ExecutionContext> &ECStack();
+
+  /* Checks whether an address is the address of a global variable */
+  bool isGlobal(void *);
+
+  void interpStore() { action = IStore; };
+  void interpRMW() { action = IRMW; };
+  InterpAction getAction() { return action; };
+  void resetAction() { action = INone; };
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -172,10 +193,6 @@ public:
   /* List of global and thread-local variables */
   std::unordered_set<void *> globalVars;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
-  std::unordered_map<void *, llvm::GenericValue> mainTLS;
-
-  /*  Initial runtime stack for each thread */
-  std::vector<std::vector<llvm::ExecutionContext> > initStacks;
 
   /* Helper functions */
   void replayExecutionBefore(std::vector<int> &before);
@@ -294,7 +311,7 @@ public:
   }
 
   GenericValue *getFirstVarArg () {
-    return &(ECStack.back ().VarArgs[0]);
+    return &(ECStack().back ().VarArgs[0]);
   }
 
 private:  // Helper functions

@@ -28,20 +28,22 @@
 
 #include <list>
 
-enum EventType { R, W, F, NA };
+enum EventType { EStart, EFinish, ETCreate, ETJoin, ERead, EWrite, EFence };
 enum EventAttr { Plain, CAS, RMW};
 
 struct Event {
 	int thread;
 	int index;
 
-//	Event() : thread(0), index(0) {}; /* Initializer event */
-	Event() : thread(-42), index(-42) {};
+//	Event() : thread(-42), index(-42) {}; /* Initializer event */
+	Event() : thread(-17), index(-17) {};
 	Event(int t, int e) : thread(t), index(e) {};
 	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 
-	bool isInitializer() { return thread == 0 && index == 0; };
-	bool isThreadStart() { return thread == -1 && index == -1; };
+	static Event getInitializer() { return Event(0, 0); };
+
+	bool isInitializer() const { return *this == getInitializer(); };
+	bool isInitializer()       { return *this == getInitializer(); };
 	Event prev() { return Event(thread, index-1); };
 	Event next() { return Event(thread, index+1); };
 
@@ -77,8 +79,10 @@ public:
 	std::list<Event> rfm1; /* For Writes */
 	View msgView;
 	View hbView;
+	int cid; /* For TCreates */
 
-	EventLabel(EventType typ, Event e); /* Start */
+	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
+	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid); /* Thread Create */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fences */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
@@ -95,6 +99,10 @@ public:
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp); /* Writes */
 
+	bool isStart() const;
+	bool isFinish() const;
+	bool isCreate() const;
+	bool isJoin() const;
 	bool isRead() const;
 	bool isWrite() const;
 	bool isFence() const;
