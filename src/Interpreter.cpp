@@ -17,6 +17,7 @@
 
 #include "Config.hpp"
 #include "Interpreter.h"
+#include "RCMCDriver.hpp"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
@@ -61,6 +62,40 @@ ExecutionEngine *Interpreter::create(Module *M, Config *conf, RCMCDriver *driver
 #endif
 
   return new Interpreter(M, conf, driver);
+}
+
+std::vector<ExecutionContext> &Interpreter::ECStack()
+{
+	auto g = driver->getGraph();
+	return g->getECStack(g->currentT);
+}
+
+void Interpreter::storeGlobals(Module *M)
+{
+	/* Collect all global and thread-local variables */
+	for (auto &v : M->getGlobalList()) {
+		unsigned int typeSize =
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+		M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
+#else
+		M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
+#endif
+		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
+		for (auto i = 0u; i < typeSize; i++) {
+			if (v.isThreadLocal())
+				threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
+			else
+				globalVars.push_back(ptr + i);
+		}
+	}
+	std::sort(globalVars.begin(), globalVars.end());
+	std::unique(globalVars.begin(), globalVars.end());
+}
+
+bool Interpreter::isGlobal(void *addr)
+{
+	auto res = std::equal_range(globalVars.begin(), globalVars.end(), addr);
+	return res.first != res.second;
 }
 
 //===----------------------------------------------------------------------===//

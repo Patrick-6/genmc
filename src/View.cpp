@@ -19,27 +19,18 @@
  */
 
 #include "View.hpp"
+#include <algorithm>
 
-View::View() {}
-
-View::View(int size) : view_(size, 0) {}
-
-
-bool View::empty() const
-{
-	return view_.empty();
-}
+View::View() : view_(EventView(0)) { }
 
 unsigned int View::size() const
 {
 	return view_.size();
 }
 
-View View::getCopy(int numThreads)
+bool View::empty() const
 {
-	if (this->empty())
-		return View(numThreads);
-	return *this;
+	return this->size() == 0;
 }
 
 void View::updateMax(View &v)
@@ -47,7 +38,8 @@ void View::updateMax(View &v)
 	if (v.empty())
 		return;
 
-	for (auto i = 0u; i < this->size(); i++)
+	auto size = std::max(this->size(), v.size());
+	for (auto i = 0u; i < size; i++)
 		if ((*this)[i] < v[i])
 			(*this)[i] = v[i];
 	return;
@@ -61,22 +53,19 @@ View View::getMax(View &v)
 		return *this;
 
 	View result(*this);
-	for (auto i = 0u; i < this->size(); i++)
+
+	auto size = std::max(this->size(), v.size());
+	for (auto i = 0u; i < size; i++)
 		if (result[i] < v[i])
 			result[i] = v[i];
 	return result;
 }
 
-std::vector<int> View::toVector()
-{
-	return view_;
-}
-
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v)
 {
 	s << "[ ";
-	for (auto i : v.view_)
-		s << i << " ";
+	for (auto i = 0u; i < v.size(); i++)
+		s << i << ":" << v[i] << " ";
 	s << "]";
 	return s;
 }

@@ -61,7 +61,7 @@ struct StackItem {
 class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
-	std::vector<int> maxEvents;
+	View maxEvents;
 	RevisitSet revisit;
 	ModOrder modOrder;
 	std::vector<StackItem> workqueue;
@@ -85,7 +85,8 @@ public:
 	View getEventMsgView(Event e);
 	std::vector<llvm::GenericValue *> getDoubleLocs();
 	std::vector<int> getGraphState(void);
-	std::vector<llvm::ExecutionContext> &getThreadECStack(int thread);
+	std::vector<llvm::ExecutionContext> &getECStack(int thread);
+	bool isThreadComplete(int thread);
 	std::vector<Event> getRevisitLoads(Event store);
 	std::vector<Event> getRevisitLoadsNonMaximal(Event store);
 
@@ -105,6 +106,10 @@ public:
 	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, llvm::Type *typ);
 	void addFenceToGraph(llvm::AtomicOrdering ord);
+	void addTCreateToGraph(int cid);
+	void addTJoinToGraph(int cid);
+	void addStartToGraph(int tid, Event tc);
+	void addFinishToGraph();
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	std::vector<int> getPorfAfter(Event e);
@@ -112,15 +117,14 @@ public:
 	std::vector<int> getPorfBefore(Event e);
 	std::vector<int> getPorfBefore(const std::vector<Event> &es);
 	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
-	std::vector<int> getHbBefore(Event e);
-	std::vector<int> getHbBefore(const std::vector<Event> &es);
-	std::vector<int> getHbPoBefore(Event e);
+	View getHbBefore(Event e);
+	View getHbBefore(const std::vector<Event> &es);
+	View getHbPoBefore(Event e);
 	std::vector<int> getHbRfBefore(std::vector<Event> &es);
 
 	/* Calculation of writes a read can read from */
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr, ModelType model);
-	std::vector<std::vector<Event> > splitLocMOBefore(std::vector<int> &before,
-							  std::vector<Event> &stores);
+	std::vector<std::vector<Event> > splitLocMOBefore(View &before, std::vector<Event> &stores);
 
 	/* Graph modification methods */
 	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
@@ -131,7 +135,7 @@ public:
 	/* Consistency checks */
 	bool isConsistent();
 
-	/* Graph exploration methods */
+	/* Scheduling methods */
 	bool scheduleNext(void);
 	void tryToBacktrack(void);
 
@@ -165,8 +169,9 @@ protected:
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	bool isWriteRfBefore(std::vector<int> &before, Event e);
+	bool isWriteRfBefore(View &before, Event e);
 	bool isRMWLoad(Event &e);
+	void spawnAllChildren(int thread);
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
@@ -178,11 +183,7 @@ protected:
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
 };
 
-extern bool executionCompleted;
 extern bool interpStore;
 extern bool interpRMW;
-
-extern ExecutionGraph initGraph;
-extern ExecutionGraph *currentEG;
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

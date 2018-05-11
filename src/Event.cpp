@@ -24,9 +24,13 @@
 
 #include <cassert>
 
-/* ThreadStart */
-EventLabel::EventLabel(EventType typ, Event e)
-	: type(typ), pos(e) {}
+/* Start */
+EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc)
+	: type(typ), ord(ord), pos(e), rf(tc) {}
+
+/* Thread Create/Join */
+EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid)
+	: type(typ), ord(ord), pos(e), cid(cid) {}
 
 /* Fence */
 EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
@@ -64,19 +68,39 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 	  valTyp(valTyp), rfm1(rfm1) {}
 
 
+bool EventLabel::isStart() const
+{
+	return type == EStart;
+}
+
+bool EventLabel::isFinish() const
+{
+	return type == EFinish;
+}
+
+bool EventLabel::isCreate() const
+{
+	return type == ETCreate;
+}
+
+bool EventLabel::isJoin() const
+{
+	return type == ETJoin;
+}
+
 bool EventLabel::isRead() const
 {
-	return type == R;
+	return type == ERead;
 }
 
 bool EventLabel::isWrite() const
 {
-	return type == W;
+	return type == EWrite;
 }
 
 bool EventLabel::isFence() const
 {
-	return type == F;
+	return type == EFence;
 }
 
 bool EventLabel::isNotAtomic() const
@@ -113,10 +137,13 @@ bool EventLabel::isRMW() const
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 {
 	switch (t) {
-	case R : return s << "R";
-	case W : return s << "W";
-	case F : return s << "F";
-	case NA : return s << "NA";
+	case ERead    : return s << "R";
+	case EWrite   : return s << "W";
+	case EFence   : return s << "F";
+	case EStart   : return s << "B";
+	case EFinish  : return s << "E";
+	case ETCreate : return s << "C";
+	case ETJoin   : return s << "J";
 	default : return s;
 	}
 }
@@ -147,6 +174,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
 {
+	if (e.isInitializer())
+		return s << "INIT";
 	return s << "Event (" << e.thread << ", " << e.index << ")";
 }
 

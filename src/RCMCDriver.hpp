@@ -31,6 +31,7 @@ private:
 	Config *userConf;
 	std::unique_ptr<llvm::Module> mod;
 	llvm::Interpreter *EE;
+	ExecutionGraph *currentEG;
 	int explored;
 	int duplicates;
 	std::unordered_set<std::string> uniqueExecs;
@@ -42,19 +43,20 @@ public:
 	RCMCDriver(Config *conf, clock_t start);
 	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod, clock_t start); /* TODO: Check pass by ref */
 
-	llvm::Module *getModule() { return mod.get(); };
+	llvm::Module *getModule()  { return mod.get(); };
+	ExecutionGraph *getGraph() { return currentEG; };
 	void run();
 	void parseRun();
 	void printResults();
+	void handleFinishedExecution(ExecutionGraph &g);
 
-protected:
 	void visitGraph(ExecutionGraph &g);
 	void visitStore(ExecutionGraph &g);
 	void visitStoreWeakRA(ExecutionGraph &g);
 	void visitStoreMO(ExecutionGraph &g);
-	bool visitRMWStore(ExecutionGraph &g, llvm::Type *typ);
-	bool visitRMWStoreWeakRA(ExecutionGraph &g, llvm::Type *typ);
-	bool visitRMWStoreMO(ExecutionGraph &g, llvm::Type *typ);
+	bool visitRMWStore(ExecutionGraph &g);
+	bool visitRMWStoreWeakRA(ExecutionGraph &g);
+	bool visitRMWStoreMO(ExecutionGraph &g);
 	Event tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls);
 	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			  std::vector<Event> K0, EventLabel &wLab);

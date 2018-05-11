@@ -6,7 +6,8 @@
 
 #include "../mcr2acqrel.c"
 
-int main(){
+int main()
+{
 	pthread_t t1, t2, t3;
 
 	if (pthread_create(&t1, NULL, thread_1, NULL))

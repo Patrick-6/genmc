@@ -23,7 +23,9 @@
 
 #include "Event.hpp"
 #include "Interpreter.h"
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Function.h>
+
 #include <unordered_map>
 
 /*
@@ -36,6 +38,7 @@ public:
 	llvm::Function *threadFun;
 	std::vector<EventLabel> eventList;
 	std::vector<llvm::ExecutionContext> ECStack;
+	llvm::ExecutionContext initSF;
 	std::unordered_map<void *, llvm::GenericValue> tls;
 	int globalInstructions;
 	bool isBlocked;
@@ -44,10 +47,8 @@ public:
 	Thread();
 	Thread(llvm::Function *F);
 	Thread(llvm::Function *F, int id);
+	Thread(llvm::Function *F, int id, int pid, llvm::ExecutionContext &SF);
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t);
 };
-
-extern bool dryRun;
-extern int initNumThreads;
 
 #endif /* __THREAD_HPP__ */
