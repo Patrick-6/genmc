@@ -1,9 +1,0 @@
-before_script:
-  - apt-get update && apt-get install -y -qq autoconf automake clang-3.8 libclang-3.8-dev llvm-3.8 llvm-3.8-dev libffi-dev zlib1g-dev
-  - autoreconf --install
-  - ./configure --with-llvm=/usr/lib/llvm-3.8
-  - make
-
-ftest:
-  script:
-    - make ftest
