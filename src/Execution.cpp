@@ -3201,7 +3201,6 @@ void Interpreter::callFunction(Function *F,
 void Interpreter::run()
 {
 	mainECStack = ECStack();
-
 	ExecutionGraph &g = *driver->getGraph();
 
 	while (true) {

@@ -118,6 +118,9 @@ Interpreter::Interpreter(Module *M, Config *conf, RCMCDriver *driver)
   initializeExternalFunctions();
   emitGlobals();
 
+  /* Store the addresses of all global variables */
+  storeGlobals(M);
+
   IL = new IntrinsicLowering(TD);
 }
 
