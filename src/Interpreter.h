@@ -18,6 +18,7 @@
 
 #include "Config.hpp"
 #include "Event.hpp"
+#include <llvm/ADT/SmallVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
@@ -44,7 +45,6 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <unordered_map>
-#include <unordered_set>
 
 class RCMCDriver;
 
@@ -191,7 +191,7 @@ public:
   void freeMachineCodeForFunction(Function *F) { }
 
   /* List of global and thread-local variables */
-  std::unordered_set<void *> globalVars;
+  llvm::SmallVector<void *, 1021> globalVars;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
 
   /* Helper functions */
