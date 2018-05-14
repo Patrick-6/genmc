@@ -2762,9 +2762,9 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	res.PointerVal = malloc(size);
 
 	/* Keep track of the memory allocated and return value to caller */
-	char *ptr = static_cast<char *>(res.PointerVal);
-	for (auto i = 0u; i < size; i++)
-		globalVars.insert(ptr + i);
+	// char *ptr = static_cast<char *>(res.PointerVal);
+	// for (auto i = 0u; i < size; i++)
+	// 	globalVars.insert(ptr + i);
 	returnValueToCaller(F->getReturnType(), res);
 	return;
 }
