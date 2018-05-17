@@ -24,7 +24,7 @@
 Config::Config(int argc, char **argv) : argc(argc), argv(argv) {}
 
 /* Command-line argument categories */
-static llvm::cl::OptionCategory clGeneral("General Options");
+static llvm::cl::OptionCategory clGeneral("Exploration Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
@@ -40,10 +40,6 @@ clModelType(llvm::cl::values(
 		    clEnumVal(wrc11, "Weak RC11 model"), NULL),
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::desc("Choose model type:"));
-static llvm::cl::opt<std::string>
-clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
-		llvm::cl::cat(clGeneral),
-		llvm::cl::desc("Output the transformed LLVM code to file"));
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
@@ -62,6 +58,10 @@ clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 static llvm::cl::opt<bool>
 clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
 		       llvm::cl::desc("Read LLVM bitcode directly from file"));
+static llvm::cl::opt<std::string>
+clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
+		llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Output the transformed LLVM code to file"));
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step"));
@@ -85,7 +85,6 @@ void Config::getConfigOptions(void)
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
 	model = clModelType;
-	transformFile = clTransformFile;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
 
@@ -98,4 +97,5 @@ void Config::getConfigOptions(void)
 	printExecGraphs = clPrintExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
+	transformFile = clTransformFile;
 }

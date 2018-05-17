@@ -36,8 +36,8 @@ protected:
 public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
-	ModelType model;
 	std::string transformFile;
+	ModelType model;
 	int unroll;
 	bool spinAssume;
 	bool inputFromBitcodeFile;
