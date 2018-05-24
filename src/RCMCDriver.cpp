@@ -85,21 +85,22 @@ void RCMCDriver::printResults()
 
 void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
 {
-	if ((userConf->checkPscAcyclicity && g.isPscAcyclic()) ||
-	    !userConf->checkPscAcyclicity) {
-		if (userConf->printExecGraphs)
-			llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
-		if (userConf->countDuplicateExecs) {
-			std::string exec;
-			llvm::raw_string_ostream buf(exec);
-			buf << g;
-			if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-				++duplicates;
-			else
-				uniqueExecs.insert(buf.str());
-		}
-		++explored;
+	if (userConf->checkPscAcyclicity && !g.isPscAcyclic())
+		return;
+	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
+		return;
+	if (userConf->printExecGraphs)
+		llvm::dbgs() << g << g.revisit << g.modOrder << "\n";
+	if (userConf->countDuplicateExecs) {
+		std::string exec;
+		llvm::raw_string_ostream buf(exec);
+		buf << g;
+		if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+			++duplicates;
+		else
+			uniqueExecs.insert(buf.str());
 	}
+	++explored;
 }
 
 void RCMCDriver::run()

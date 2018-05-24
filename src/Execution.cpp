@@ -1269,7 +1269,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 
 	/* Check for races */
 	if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer() &&
-	    g.isPscAcyclic()) {
+	    g.isPscAcyclic() && (userConf->model == rc11 || g.isWbAcyclic())) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 		abort();
@@ -1320,7 +1320,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 	/* Check for races */
 	if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer() &&
-	    g.isPscAcyclic()) {
+	    g.isPscAcyclic() && (userConf->model == rc11 || g.isWbAcyclic())) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 			abort();
@@ -2710,7 +2710,7 @@ void Interpreter::callAssertFail(Function *F,
 	ExecutionGraph &g = *driver->getGraph();
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 
-	if (!g.isPscAcyclic()) {
+	if (!g.isPscAcyclic() || (userConf->model == wrc11 && !g.isWbAcyclic())) {
 		ECStack().clear();
 		g.threads[g.currentT].isBlocked = true;
 		return;

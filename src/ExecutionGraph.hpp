@@ -134,6 +134,8 @@ public:
 
 	/* Consistency checks */
 	bool isConsistent();
+	bool isPscAcyclic();
+	bool isWbAcyclic();
 
 	/* Scheduling methods */
 	bool scheduleNext(void);
@@ -142,9 +144,6 @@ public:
 	/* Race detection methods */
 	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
-
-	/* PSC calculation */
-	bool isPscAcyclic();
 
 	/* Debugging methods */
 	void validateGraph(void);
@@ -181,6 +180,7 @@ protected:
 			 std::vector<bool> &matrix, std::list<Event> &es);
 	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
+	std::vector<bool> calcWb(llvm::GenericValue *addr);
 };
 
 extern bool interpStore;
