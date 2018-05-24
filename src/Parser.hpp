@@ -18,14 +18,24 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "Library.hpp"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
+
 using namespace std;
 
 class Parser {
 public:
 	Parser();
 	string readFile(const string &fileName);
+	static void parseInstFromMData(std::stringstream &ss,
+				std::vector<std::pair<int, std::string> > &prefix,
+				std::string functionName);
+	std::vector<Library> parseSpecs(const string &fileName);
+
+private:
+	static void stripWhitespace(std::string &s);
 };

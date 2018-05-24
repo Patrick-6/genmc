@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "Error.hpp"
 #include "ModOrder.hpp"
 #include <algorithm>
 
@@ -52,6 +53,19 @@ llvm::GenericValue *ModOrder::getAddrAtPos(ModOrder::iterator it)
 std::vector<Event> ModOrder::getAtLoc(llvm::GenericValue *addr)
 {
 	return mo_[addr];
+}
+
+std::vector<Event> ModOrder::getMoAfter(llvm::GenericValue *addr, Event e)
+{
+	std::vector<Event> res;
+	for (auto rit = mo_[addr].rbegin(); rit != mo_[addr].rend(); ++rit) {
+		if (*rit == e) {
+			std::reverse(res.begin(), res.end());
+			return res;
+		}
+		res.push_back(*rit);
+	}
+	BUG();
 }
 
 void ModOrder::addAtLocEnd(llvm::GenericValue *addr, Event e)

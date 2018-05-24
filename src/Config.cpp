@@ -49,6 +49,10 @@ clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::cat(clGeneral),
 static llvm::cl::opt<bool>
 clCheckWbAcyclicity("check-wb-acyclicity", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Check whether WB is acycli at the end of each execution"));
+static llvm::cl::opt<std::string>
+clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("file"),
+		   llvm::cl::cat(clGeneral),
+		   llvm::cl::desc("Check for library correctness"));
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -72,6 +76,9 @@ static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
 static llvm::cl::opt<bool>
+clPrettyPrintExecGraphs("pretty-print-exec-graphs", llvm::cl::cat(clDebugging),
+			llvm::cl::desc("Pretty-print explored execution graphs"));
+static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
 
@@ -87,6 +94,7 @@ void Config::getConfigOptions(void)
 	/* Save general options */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
+	specsFile = clLibrarySpecsFile;
 	model = clModelType;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
@@ -99,6 +107,7 @@ void Config::getConfigOptions(void)
 	/* Save debugging options */
 	validateExecGraphs = clValidateExecGraphs;
 	printExecGraphs = clPrintExecGraphs;
+	prettyPrintExecGraphs = clPrettyPrintExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;

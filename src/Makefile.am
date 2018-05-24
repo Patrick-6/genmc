@@ -9,11 +9,13 @@ librcmc_a_SOURCES = \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
+  EventLabel.cpp EventLabel.hpp \
   Execution.cpp \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   ModOrder.cpp ModOrder.hpp \

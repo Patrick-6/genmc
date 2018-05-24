@@ -87,15 +87,42 @@ void Interpreter::storeGlobals(Module *M)
 			else
 				globalVars.push_back(ptr + i);
 		}
+
+		if (ArrayType *AT = dyn_cast<ArrayType>(v.getType()->getElementType())) {
+			unsigned int elemTypeSize = typeSize / AT->getArrayNumElements();
+			for (auto i = 0u, s = 0u; s < typeSize; i++, s += elemTypeSize) {
+				std::string name = v.getName().str() + "[" + std::to_string(i) + "]";
+				globalVarNames.push_back(std::make_pair(ptr + s, name));
+			}
+		} else {
+			globalVarNames.push_back(std::make_pair(ptr, v.getName()));
+		}
 	}
+	/* We will use a sorted vector to detect global accesses */
 	std::sort(globalVars.begin(), globalVars.end());
 	std::unique(globalVars.begin(), globalVars.end());
+
+	/* Also store global variable names for printing and debugging purposes */
+	std::sort(globalVarNames.begin(), globalVarNames.end());
+	std::unique(globalVarNames.begin(), globalVarNames.end());
 }
 
 bool Interpreter::isGlobal(void *addr)
 {
 	auto res = std::equal_range(globalVars.begin(), globalVars.end(), addr);
 	return res.first != res.second;
+}
+
+std::string Interpreter::getGlobalName(void *addr)
+{
+	typedef std::pair<void *, std::string> namePair;
+	namePair loc = std::make_pair(addr, "");
+	auto res = std::equal_range(globalVarNames.begin(), globalVarNames.end(), loc,
+				    [](namePair kv1, namePair kv2)
+				    { return kv1.first < kv2.first; });
+	if (res.first != res.second)
+		return res.first->second;
+	return "";
 }
 
 //===----------------------------------------------------------------------===//

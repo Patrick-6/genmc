@@ -24,36 +24,11 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
+#include "Library.hpp"
+#include "Interpreter.h"
 #include "ModOrder.hpp"
-#include "RevisitSet.hpp"
+//#include "RevisitSet.hpp"
 #include "Thread.hpp"
-
-#include <unordered_set>
-
-enum StackItemType { RevR, RevW };
-/*
- * StackItem class - This class represents alternative choices for reads which
- * are pushed to a stack to be visited later.
- */
-struct StackItem {
-	StackItemType type;
-	Event e;
-	Event rf;
-	Event shouldRf;
-	std::vector<int> preds;
-	RevisitSet revisit;
-	llvm::GenericValue *addr;
-	std::vector<Event> locMO;
-	Event prevMO;
-
-	StackItem(Event e, Event rf, Event shouldRf, std::vector<int> preds,
-		  RevisitSet revisit)
-		: type(RevR), e(e), rf(rf), shouldRf(shouldRf), preds(preds), revisit(revisit) {};
-	StackItem(Event e, Event prevMO, std::vector<int> preds, RevisitSet revisit,
-		  llvm::GenericValue *addr, std::vector<Event> locMO)
-		: type(RevW), e(e), preds(preds), revisit(revisit),
-		  addr(addr), locMO(locMO), prevMO(prevMO) {}
-};
 
 /*
  * ExecutionGraph class - This class represents an execution graph
@@ -62,16 +37,16 @@ class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	View maxEvents;
-	RevisitSet revisit;
+//	RevisitSet revisit;
 	ModOrder modOrder;
-	std::vector<StackItem> workqueue;
+	llvm::Interpreter *EE;
 	std::vector<void *> stackAllocas;
 	std::vector<void *> heapAllocas;
 	std::vector<void *> freedMem;
 	int currentT;
 
 	/* Constructors */
-	ExecutionGraph();
+	ExecutionGraph(llvm::Interpreter *EE);
 	// ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
 	// 	       std::vector<Event> re, int t)
 	// 	: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
@@ -79,6 +54,7 @@ public:
 	/* Basic getter methods */
 	EventLabel& getEventLabel(Event &e);
 	EventLabel& getPreviousLabel(Event &e);
+	EventLabel& getLastThreadLabel(int thread);
 	Event getLastThreadEvent(int thread);
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
 	View getEventHbView(Event e);
@@ -87,12 +63,15 @@ public:
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
-	std::vector<Event> getRevisitLoads(Event store);
-	std::vector<Event> getRevisitLoadsNonMaximal(Event store);
+	std::vector<EventLabel> getPrefixLabelsNotBefore(Event &e, std::vector<int> &before);
+	std::vector<Event> getRevisitLoads(Event &store);
+	std::vector<Event> getRevisitLoadsRMW(Event &store);
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			    llvm::Type *typ, Event rf);
+	void addGReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			     llvm::Type *typ, Event rf, std::string functionName);
 	void addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			       llvm::GenericValue &val, llvm::GenericValue &nextVal,
 			       llvm::Type *typ, Event rf);
@@ -101,6 +80,9 @@ public:
 			       llvm::Type *typ, Event rf);
 	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			     llvm::GenericValue &val, llvm::Type *typ);
+	void addGStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			      llvm::GenericValue &val, llvm::Type *typ,
+			      std::string functionName);
 	void addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, llvm::Type *typ);
 	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -127,9 +109,10 @@ public:
 	std::vector<std::vector<Event> > splitLocMOBefore(View &before, std::vector<Event> &stores);
 
 	/* Graph modification methods */
-	void cutBefore(std::vector<int> &preds, RevisitSet &rev);
-	void cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after);
-	void modifyRfs(std::vector<Event> &es, Event store);
+	void changeRf(EventLabel &lab, Event store);
+	void cutToLoad(Event &load);
+	void restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
+				std::vector<EventLabel> &storePrefix);
 	void clearAllStacks(void);
 
 	/* Consistency checks */
@@ -145,16 +128,23 @@ public:
 	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 
+	/* Library consistency checks */
+	std::vector<Event> getLibraryEvents(Library &lib);
+	std::vector<Event> filterLibConstraints(Library &lib, Event &load,
+						const std::vector<Event> &stores);
+
 	/* Debugging methods */
 	void validateGraph(void);
 
 	/* Printing facilities */
 	void printTraceBefore(Event e);
+	void prettyPrintGraph();
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	void calcLoadHbView(EventLabel &lab, Event prev, Event &rf);
 	void addEventToGraph(EventLabel &lab);
 	void addReadToGraphCommon(EventLabel &lab, Event &rf);
 	void addStoreToGraphCommon(EventLabel &lab);
@@ -163,7 +153,7 @@ protected:
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, std::vector<int> &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
-	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
+//	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
 	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
@@ -174,13 +164,38 @@ protected:
 	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
+	std::vector<Event> getStoresWB(llvm::GenericValue *addr);
+	std::vector<Event> getRMWChain(Event &store);
+	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, std::vector<Event> &chain);
 	std::pair<std::vector<int>, std::vector<int> >
 	addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
 			 std::vector<int> &moAfter, std::vector<int> &moRfAfter,
 			 std::vector<bool> &matrix, std::list<Event> &es);
 	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 		       llvm::GenericValue *addr, std::vector<bool> &matrix);
-	std::vector<bool> calcWb(llvm::GenericValue *addr);
+	std::vector<bool> calcWb(std::vector<Event> &stores);
+
+	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			    std::vector<Event> &tos);
+	void getRfEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			    std::vector<Event> &tos);
+	void getHbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			    std::vector<Event> &tos);
+	void getRfm1EdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			      std::vector<Event> &tos);
+	void getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			    std::vector<Event> &tos);
+	void calcSingleStepPairs(Library &lib,
+				 std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				 std::vector<Event> &tos,
+				 llvm::StringMap<std::vector<bool> > &relMap,
+				 std::vector<bool> &relMatrix, std::string &step);
+	void addStepEdgeToMatrix(Library &lib, std::vector<Event> &es,
+				 llvm::StringMap<std::vector<bool> > &relMap,
+				 std::vector<bool> &relMatrix,
+				 std::vector<std::string> &steps);
+	llvm::StringMap<std::vector<bool> >
+	calculateAllRelations(Library &lib, std::vector<Event> &es);
 };
 
 extern bool interpStore;

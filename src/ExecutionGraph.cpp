@@ -18,19 +18,18 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include "Library.hpp"
+#include "Parser.hpp"
 #include "Thread.hpp"
 #include "ExecutionGraph.hpp"
+#include <llvm/ADT/StringMap.h>
 #include <llvm/IR/DebugInfo.h>
-
-#include <fstream>
-#include <sstream>
-
 
 /************************************************************
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : currentT(0) {}
+ExecutionGraph::ExecutionGraph(llvm::Interpreter *EE) : EE(EE), currentT(0) {}
 
 
 /************************************************************
@@ -45,6 +44,11 @@ EventLabel& ExecutionGraph::getEventLabel(Event &e)
 EventLabel& ExecutionGraph::getPreviousLabel(Event &e)
 {
 	return threads[e.thread].eventList[e.index-1];
+}
+
+EventLabel& ExecutionGraph::getLastThreadLabel(int thread)
+{
+	return threads[thread].eventList[maxEvents[thread] - 1];
 }
 
 Event ExecutionGraph::getLastThreadEvent(int thread)
@@ -102,65 +106,134 @@ bool ExecutionGraph::isThreadComplete(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].isFinish();
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoads(Event store)
+std::vector<EventLabel>
+ExecutionGraph::getPrefixLabelsNotBefore(Event &e, std::vector<int> &before)
 {
-	std::vector<Event> ls;
-	std::vector<int> before = getPorfBefore(store);
-	EventLabel &sLab = getEventLabel(store);
+	std::vector<EventLabel> result;
+	std::vector<int> prefix = getPorfBefore(e);
 
-	BUG_ON(!sLab.isWrite());
-	for (auto it = revisit.begin(); it != revisit.end(); ++it) {
-		EventLabel &rLab = getEventLabel(revisit.getAtPos(it));
-		if (before[rLab.pos.thread] < rLab.pos.index && rLab.addr == sLab.addr)
-			ls.push_back(rLab.pos);
-	}
-	return ls;
-}
-
-std::vector<Event> ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO)
-{
-	std::vector<Event> ls;
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (*rit == store)
-			return ls;
-		EventLabel &lab = getEventLabel(*rit);
-		if (lab.isWrite()) {
-			ls.push_back(lab.pos);
-			for (auto &l : lab.rfm1)
-				ls.push_back(l);
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			result.push_back(lab);
 		}
 	}
-	BUG();
+	return result;
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsNonMaximal(Event store)
+std::vector<Event> ExecutionGraph::getRevisitLoads(Event &store)
 {
 	std::vector<Event> ls;
 	std::vector<int> before = getPorfBefore(store);
 	EventLabel &sLab = getEventLabel(store);
 
 	BUG_ON(!sLab.isWrite());
-	for (auto &e : revisit) {
-		EventLabel &lab = getEventLabel(e);
-		if (before[e.thread] < e.index && lab.addr == sLab.addr)
-			ls.push_back(e);
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
+				ls.push_back(lab.pos);
+		}
 	}
-
-	std::vector<Event> locMO = modOrder.getAtLoc(sLab.addr);
-	std::vector<Event> optRfs = calcOptionalRfs(store, locMO);
-	ls.erase(std::remove_if(ls.begin(), ls.end(), [this, &optRfs](Event e)
-				{ View before = this->getHbPoBefore(e);
-				  return std::any_of(optRfs.begin(), optRfs.end(),
-					 [&before](Event ev)
-					 { return ev.index <= before[ev.thread]; });
-				}), ls.end());
 	return ls;
 }
 
+std::vector<Event> ExecutionGraph::getRMWChain(Event &store)
+{
+	std::vector<Event> chain;
+	auto sLab = getEventLabel(store);
+
+	BUG_ON(!(sLab.isWrite() && sLab.isRMW()));
+	while (sLab.isWrite() && sLab.isRMW()) {
+		chain.push_back(sLab.pos);
+		auto prev = sLab.pos.prev();
+		auto rLab = getEventLabel(prev);
+		/* If the predecessor reads the initializer
+		 * event, then the chain is over */
+		if (rLab.rf.isInitializer()) {
+			chain.push_back(Event::getInitializer());
+			return chain;
+		}
+		sLab = getEventLabel(rLab.rf);
+	}
+	/* We arrived at a non-RMW event (which is not the initializer),
+	 * so the chain is over */
+	chain.push_back(sLab.pos);
+	return chain;
+}
+
+std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *loc,
+							  std::vector<Event> &chain)
+{
+	auto stores = modOrder.getAtLoc(loc);
+	std::vector<Event> result;
+
+	for (auto &s : stores) {
+		if (std::find(chain.begin(), chain.end(), s) != chain.end())
+			continue;
+		auto before = getHbBefore(s);
+		if (std::any_of(chain.begin(), chain.end(), [&before](Event e)
+				{ return e.index < before[e.thread]; }))
+			result.push_back(s);
+	}
+	return result;
+}
+
+std::vector<Event> ExecutionGraph::getRevisitLoadsRMW(Event &store)
+{
+	std::vector<Event> ls;
+	auto before = getPorfBefore(store);
+	auto &sLab = getEventLabel(store);
+	auto chain = getRMWChain(store);
+	auto hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
+
+	BUG_ON(!sLab.isWrite());
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable()) {
+				auto prev = lab.pos.prev();
+				auto &pLab = getEventLabel(prev);
+				if (std::all_of(hbAfterStores.begin(), hbAfterStores.end(),
+						[&pLab, this](Event w)
+						{ return !this->isWriteRfBefore(pLab.hbView, w); }))
+					ls.push_back(lab.pos);
+			}
+
+		}
+	}
+	return ls;
+}
+
+// std::vector<Event> ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO)
+// {
+// 	std::vector<Event> ls;
+// 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
+// 		if (*rit == store)
+// 			return ls;
+// 		EventLabel &lab = getEventLabel(*rit);
+// 		if (lab.isWrite()) {
+// 			ls.push_back(lab.pos);
+// 			for (auto &l : lab.rfm1)
+// 				ls.push_back(l);
+// 		}
+// 	}
+// 	BUG();
+// }
 
 /************************************************************
  ** Basic setter methods
  ***********************************************************/
+
+void ExecutionGraph::calcLoadHbView(EventLabel &lab, Event prev, Event &rf)
+{
+	lab.hbView = View(getEventHbView(prev));
+	lab.hbView[prev.thread] = prev.index + 1;
+	if (lab.isAtLeastAcquire()) {
+		View mV = getEventMsgView(lab.rf);
+		lab.hbView.updateMax(mV);
+	}
+}
 
 void ExecutionGraph::addEventToGraph(EventLabel &lab)
 {
@@ -171,17 +244,15 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
-	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
-	lab.hbView[currentT] = maxEvents[currentT];
-	if (lab.isAtLeastAcquire()) {
-		View mV = getEventMsgView(lab.rf);
-		lab.hbView.updateMax(mV);
-	}
+	lab.revType = Normal;
+	lab.loadPreds = getGraphState();
+	++lab.loadPreds[currentT];
+	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);
 
 	addEventToGraph(lab);
+
 	if (rf.isInitializer())
 		return;
-
 	Thread &rfThr = threads[rf.thread];
 	EventLabel &rfLab = rfThr.eventList[rf.index];
 	rfLab.rfm1.push_front(lab.pos);
@@ -193,6 +264,14 @@ void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(ERead, Plain, ord, Event(currentT, max), ptr, typ, rf);
+	addReadToGraphCommon(lab, rf);
+}
+
+void ExecutionGraph::addGReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				     llvm::Type *typ, Event rf, std::string functionName)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(ERead, Plain, ord, Event(currentT, max), ptr, typ, rf, functionName);
 	addReadToGraphCommon(lab, rf);
 }
 
@@ -244,6 +323,15 @@ void ExecutionGraph::addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValu
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ);
+	addStoreToGraphCommon(lab);
+}
+
+void ExecutionGraph::addGStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				      llvm::GenericValue &val, llvm::Type *typ,
+				      std::string functionName)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ, functionName);
 	addStoreToGraphCommon(lab);
 }
 
@@ -565,13 +653,44 @@ std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
 	return stores;
 }
 
+std::vector<Event> ExecutionGraph::getStoresWB(llvm::GenericValue *addr)
+{
+	auto stores = modOrder.getAtLoc(addr);
+	auto wb = calcWb(stores);
+	auto hbBefore = getHbBefore(getLastThreadEvent(currentT));
+	auto porfBefore = getPorfBefore(getLastThreadEvent(currentT));
+
+	// Find the stores from which we can read-from
+	std::vector<Event> result;
+	for (auto i = 0u; i < stores.size(); i++) {
+		bool allowed = true;
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (wb[i * stores.size() + j] &&
+			    isWriteRfBefore(hbBefore, stores[j]))
+				allowed = false;
+		}
+		if (allowed)
+			result.push_back(stores[i]);
+	}
+
+	// Also check the initializer event
+	bool allowed = true;
+	for (auto j = 0u; j < stores.size(); j++)
+		if (isWriteRfBefore(hbBefore, stores[j]))
+			allowed = false;
+	if (allowed)
+		result.insert(result.begin(), Event::getInitializer());
+	return result;
+}
+
 std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, ModelType model)
 {
 	switch (model) {
 	case wrc11:
 		return getStoresWeakRA(addr);
 	case rc11:
-		return getStoresMO(addr);
+//		return getStoresMO(addr);
+		return getStoresWB(addr);
 	default:
 		WARN("Unimplemented model.\n");
 		abort();
@@ -583,8 +702,29 @@ std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, Mode
  ** Graph modification methods
  ***********************************************************/
 
-void ExecutionGraph::cutBefore(std::vector<int> &preds, RevisitSet &rev)
+void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 {
+	Event oldRf = lab.rf;
+	lab.rf = store;
+
+	/* Make sure that the old write it was reading from still exists */
+	if (oldRf.index < maxEvents[oldRf.thread] && !oldRf.isInitializer()) {
+		EventLabel &oldLab = getEventLabel(oldRf);
+		oldLab.rfm1.remove(lab.pos);
+	}
+	if (!store.isInitializer()) {
+		EventLabel &sLab = getEventLabel(store);
+		sLab.rfm1.push_back(lab.pos);
+	}
+	/* Update the hb-view of the load */
+	calcLoadHbView(lab, lab.pos.prev(), store);
+}
+
+
+void ExecutionGraph::cutToLoad(Event &load)
+{
+	EventLabel &lab = getEventLabel(load);
+	auto preds = lab.loadPreds;
 	for (auto i = 0u; i < threads.size(); i++) {
 		maxEvents[i] = preds[i] + 1;
 		Thread &thr = threads[i];
@@ -597,7 +737,6 @@ void ExecutionGraph::cutBefore(std::vector<int> &preds, RevisitSet &rev)
 					   { return e.index > preds[e.thread]; });
 		}
 	}
-	revisit = rev;
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
 						[&preds](Event &e)
@@ -606,65 +745,120 @@ void ExecutionGraph::cutBefore(std::vector<int> &preds, RevisitSet &rev)
 	return;
 }
 
-void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
+// void ExecutionGraph::makeLoadPrevsNotRevisitable(EventLabel &rLab)
+// {
+// //	std::vector<int> before = getPorfBefore(rLab.pos);
+// 	for (auto i = 0u; i < threads.size(); i++) {
+// 		for (auto j = 0; j <= rLab.loadPreds[i]; j++) {
+// 			EventLabel &lab = threads[i].eventList[j];
+// 			if (lab.isRead())// && lab.pos.index <= before[lab.pos.thread])
+// 				lab.makeNotRevisitable();
+// 		}
+// 	}
+// }
+
+// void ExecutionGraph::makeLoadPrefixNotRevisitable(EventLabel &rLab)
+// {
+// 	std::vector<int> before = getPorfBefore(rLab.pos);
+// 	for (auto i = 0u; i < before.size(); i++) {
+// 		for (auto j = 0; j <= before[i]; j++) {
+// 			EventLabel &lab = threads[i].eventList[j];
+// 			if (lab.isRead() && lab.pos.index <= before[lab.pos.thread])
+// 				lab.makeNotRevisitable();
+// 		}
+// 	}
+// }
+
+void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
+					std::vector<EventLabel> &storePrefix)
 {
-	for (auto i = 0u; i < other.threads.size(); i++) {
-		maxEvents[i] = after[i];
-		Thread &oThr = other.threads[i];
-		threads.push_back(Thread(oThr.threadFun, oThr.id, oThr.parentId, oThr.initSF));
-		Thread &thr = threads[i];
-		for (auto j = 0; j < maxEvents[i]; j++) {
-			EventLabel &oLab = oThr.eventList[j];
-			if (!(oLab.isWrite() || oLab.isCreate() || oLab.isFinish())) {
-				thr.eventList.push_back(oLab);
-			} else {
-				thr.eventList.push_back(oLab);
-				EventLabel &lab = getEventLabel(oLab.pos);
-				lab.rfm1.remove_if([&after](Event &e)
-						   { return e.index >= after[e.thread]; });
-			}
+	for (auto &lab : storePrefix) {
+		BUG_ON(lab.pos.index > maxEvents[lab.pos.thread] && "Events should be added in order!");
+		if (lab.pos.index == maxEvents[lab.pos.thread]) {
+			maxEvents[lab.pos.thread] = lab.pos.index + 1;
+			threads[lab.pos.thread].eventList.push_back(lab);
+			if (lab.isWrite())
+				modOrder.addAtLocEnd(lab.addr, lab.pos);
 		}
 	}
-	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
-		Event &e = other.revisit.getAtPos(it);
-		if (e.index >= after[e.thread])
-			continue;
-		revisit.add(e);
-	}
-	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it) {
-		llvm::GenericValue *addr = other.modOrder.getAddrAtPos(it);
-		std::vector<Event> locMO = other.modOrder.getAtLoc(addr);
-		for (auto &s : locMO)
-			if (s.index < after[s.thread])
-				modOrder.addAtLocEnd(addr, s);
+	for (auto &lab : storePrefix) {
+		EventLabel &curLab = threads[lab.pos.thread].eventList[lab.pos.index];
+		if (curLab.pos.index <= storePorfBefore[curLab.pos.thread] &&
+		    curLab.pos.index > rLab.loadPreds[curLab.pos.thread])
+			curLab.makeNotRevisitable();
+		if (curLab.isWrite() || curLab.isFinish() || curLab.isCreate())
+			curLab.rfm1.remove_if([&rLab, &storePorfBefore](Event &e)
+					      { return e.index > storePorfBefore[e.thread] &&
+						       e.index > rLab.loadPreds[e.thread]; });
+		if (curLab.isRead() && !curLab.rf.isInitializer()) {
+			EventLabel &rfLab = getEventLabel(curLab.rf);
+			if (std::find(rfLab.rfm1.begin(), rfLab.rfm1.end(), curLab.pos)
+			    == rfLab.rfm1.end())
+				rfLab.rfm1.push_back(curLab.pos);
+		}
+		curLab.rfm1.remove(rLab.pos);
 	}
 }
 
-void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
-{
-	if (es.empty())
-		return;
+// void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
+// {
+// 	for (auto i = 0u; i < other.threads.size(); i++) {
+// 		maxEvents[i] = after[i];
+// 		Thread &oThr = other.threads[i];
+// 		threads.push_back(Thread(oThr.threadFun, oThr.id, oThr.parentId, oThr.initSF));
+// 		Thread &thr = threads[i];
+// 		for (auto j = 0; j < maxEvents[i]; j++) {
+// 			EventLabel &oLab = oThr.eventList[j];
+// 			if (!(oLab.isWrite() || oLab.isCreate() || oLab.isFinish())) {
+// 				thr.eventList.push_back(oLab);
+// 			} else {
+// 				thr.eventList.push_back(oLab);
+// 				EventLabel &lab = getEventLabel(oLab.pos);
+// 				lab.rfm1.remove_if([&after](Event &e)
+// 						   { return e.index >= after[e.thread]; });
+// 			}
+// 		}
+// 	}
+// 	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
+// 		Event &e = other.revisit.getAtPos(it);
+// 		if (e.index >= after[e.thread])
+// 			continue;
+// 		revisit.add(e);
+// 	}
+// 	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it) {
+// 		llvm::GenericValue *addr = other.modOrder.getAddrAtPos(it);
+// 		std::vector<Event> locMO = other.modOrder.getAtLoc(addr);
+// 		for (auto &s : locMO)
+// 			if (s.index < after[s.thread])
+// 				modOrder.addAtLocEnd(addr, s);
+// 	}
+// }
 
-	for (auto it = es.begin(); it != es.end(); ++it) {
-		EventLabel &lab = getEventLabel(*it);
-		Event oldRf = lab.rf;
-		lab.rf = store;
-		if (!oldRf.isInitializer()) {
-			EventLabel &oldL = getEventLabel(oldRf);
-			oldL.rfm1.remove(*it);
-		}
-		lab.hbView = getEventHbView(lab.pos.prev());
-		lab.hbView[lab.pos.thread] = lab.pos.index;
-		if (lab.isAtLeastAcquire()) {
-			View mV = getEventMsgView(lab.rf);
-			lab.hbView.updateMax(mV);
-		}
-	}
-	/* TODO: Do some check here for initializer or if it is already present? */
-	EventLabel &sLab = getEventLabel(store);
-	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
-	return;
-}
+// void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
+// {
+// 	if (es.empty())
+// 		return;
+
+// 	for (auto it = es.begin(); it != es.end(); ++it) {
+// 		EventLabel &lab = getEventLabel(*it);
+// 		Event oldRf = lab.rf;
+// 		lab.rf = store;
+// 		if (!oldRf.isInitializer()) {
+// 			EventLabel &oldL = getEventLabel(oldRf);
+// 			oldL.rfm1.remove(*it);
+// 		}
+// 		lab.hbView = getEventHbView(lab.pos.prev());
+// 		lab.hbView[lab.pos.thread] = lab.pos.index;
+// 		if (lab.isAtLeastAcquire()) {
+// 			View mV = getEventMsgView(lab.rf);
+// 			lab.hbView.updateMax(mV);
+// 		}
+// 	}
+// 	/* TODO: Do some check here for initializer or if it is already present? */
+// 	EventLabel &sLab = getEventLabel(store);
+// 	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
+// 	return;
+// }
 
 void ExecutionGraph::clearAllStacks(void)
 {
@@ -720,11 +914,11 @@ void ExecutionGraph::tryToBacktrack(void)
 {
 	Event e = getLastThreadEvent(currentT);
 	std::vector<int> before = getPorfBefore(e);
-	if (!revisit.containsPorfBefore(before)) {
-		threads[currentT].isBlocked = true;
-		clearAllStacks();
-		return;
-	}
+	// if (!revisit.containsPorfBefore(before)) {
+	// 	threads[currentT].isBlocked = true;
+	// 	clearAllStacks();
+	// 	return;
+	// }
 
 	threads[currentT].isBlocked = true;
 	getECStack(currentT).clear();
@@ -772,7 +966,7 @@ Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::Generi
 
 
 /************************************************************
- ** Consistency checks -- PSC & WB calculation
+ ** Calculation utilities
  ***********************************************************/
 
 template <class T>
@@ -803,6 +997,19 @@ void calcTransClosure(std::vector<bool> &matrix, int len)
 		}
 	}
 }
+
+bool isIrreflexive(std::vector<bool> &matrix, int len)
+{
+	for (auto i = 0; i < len; i++)
+		if (matrix[i * len + i])
+			return false;
+	return true;
+}
+
+
+/************************************************************
+ ** PSC calculation
+ ***********************************************************/
 
 bool ExecutionGraph::isRMWLoad(Event &e)
 {
@@ -898,7 +1105,7 @@ std::vector<int> ExecutionGraph::calcSCPreds(std::vector<Event> &scs,
 		return {};
 	if (lab.isSC())
 		return {calcEventIndex(scs, e)};
-        else
+	else
 		return calcSCFencesPreds(scs, fcs, e);
 }
 
@@ -1025,15 +1232,11 @@ bool ExecutionGraph::isPscAcyclic()
 
 	/* Calculate the transitive closure of the bool matrix */
 	calcTransClosure(matrix, scs.size());
-	for (auto i = 0u; i < scs.size(); i++)
-		if (matrix[i * scs.size() + i])
-			return false;
-	return true;
+	return isIrreflexive(matrix, scs.size());
 }
 
-std::vector<bool> ExecutionGraph::calcWb(llvm::GenericValue *addr)
+std::vector<bool> ExecutionGraph::calcWb(std::vector<Event> &stores)
 {
-	auto stores = modOrder.getAtLoc(addr);
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
 
 	/* Sort so we can use calcEventIndex() */
@@ -1048,6 +1251,8 @@ std::vector<bool> ExecutionGraph::calcWb(llvm::GenericValue *addr)
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
 			matrix[j * stores.size() + i] = true;
+
+			/* Go up the RMW chain */
 			EventLabel wLab = getEventLabel(stores[i]); /* Not a ref! */
 			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[j]) {
 				int k = calcEventIndex(stores, wLab.pos);
@@ -1055,6 +1260,47 @@ std::vector<bool> ExecutionGraph::calcWb(llvm::GenericValue *addr)
 				Event p = wLab.pos.prev();
 				EventLabel &pLab = getEventLabel(p);
 				wLab = getEventLabel(pLab.rf);
+			}
+			/* Go down the RMW chain */
+			wLab = getEventLabel(stores[j]); /* Not a ref! */
+			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[i]) {
+				int k = calcEventIndex(stores, wLab.pos);
+				matrix[k * stores.size() + i] = true;
+				std::vector<Event> rmwRfs;
+				std::copy_if(wLab.rfm1.begin(), wLab.rfm1.end(),
+					     std::back_inserter(rmwRfs),
+					     [this, &wLab](Event &r)
+					     { EventLabel &rLab = this->getEventLabel(r);
+					       return this->EE->isSuccessfulRMW(rLab, wLab.val); });
+				BUG_ON(rmwRfs.size() > 1);
+				if (rmwRfs.size() == 0)
+					break;
+				auto nextW = rmwRfs.back().next();
+				wLab = getEventLabel(nextW);
+			}
+		}
+		/* Add wb-edges for chains of RMWs that read from the initializer */
+		for (auto j = 0u; j < stores.size(); j++) {
+			EventLabel wLab = getEventLabel(stores[j]);
+			Event prev = wLab.pos.prev();
+			EventLabel &pLab = getEventLabel(prev);
+			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
+				continue;
+
+			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[i]) {
+				int k = calcEventIndex(stores, wLab.pos);
+				matrix[k * stores.size() + i] = true;
+				std::vector<Event> rmwRfs;
+				std::copy_if(wLab.rfm1.begin(), wLab.rfm1.end(),
+					     std::back_inserter(rmwRfs),
+					     [this, &wLab](Event &r)
+					     { EventLabel &rLab = this->getEventLabel(r);
+					       return this->EE->isSuccessfulRMW(rLab, wLab.val); });
+				BUG_ON(rmwRfs.size() > 1);
+				if (rmwRfs.size() == 0)
+					break;
+				auto nextW = rmwRfs.back().next();
+				wLab = getEventLabel(nextW);
 			}
 		}
 	}
@@ -1066,12 +1312,229 @@ bool ExecutionGraph::isWbAcyclic(void)
 {
 	bool acyclic = true;
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it) {
-		auto matrix = calcWb(it->first);
+		auto stores(it->second);
+		auto matrix = calcWb(stores);
 		for (auto i = 0u; i < it->second.size(); i++)
 			if (matrix[i * it->second.size() + i])
 				acyclic = false;
 	}
 	return acyclic;
+}
+
+
+/************************************************************
+ ** Library consistency checking methods
+ ***********************************************************/
+
+std::vector<Event> ExecutionGraph::getLibraryEvents(Library &lib)
+{
+	std::vector<Event> result;
+
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 1; j < maxEvents[i]; j++) { /* Do not consider thread inits */
+			EventLabel &lab = threads[i].eventList[j];
+			if (lib.hasMember(lab.functionName))
+				result.push_back(lab.pos);
+		}
+	}
+	return result;
+}
+
+void ExecutionGraph::getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				    std::vector<Event> &tos)
+{
+	std::vector<Event> buf;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			for (auto &e : tos)
+				if (froms[i].second[j].thread == e.thread &&
+				    froms[i].second[j].index < e.index)
+					buf.push_back(e);
+		}
+		froms[i].second = buf;
+	}
+}
+
+void ExecutionGraph::getRfm1EdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				      std::vector<Event> &tos)
+{
+	std::vector<Event> buf;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			EventLabel &lab = getEventLabel(froms[i].second[j]);
+			if (lab.isRead())
+				buf.push_back(lab.rf);
+		}
+		froms[i].second = buf;
+	}
+}
+
+void ExecutionGraph::getRfEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				    std::vector<Event> &tos)
+{
+	std::vector<Event> buf;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			EventLabel &lab = getEventLabel(froms[i].second[j]);
+			if (!lab.isWrite())
+				continue;
+			buf.insert(buf.end(), lab.rfm1.begin(), lab.rfm1.end());
+		}
+		froms[i].second = buf;
+	}
+}
+
+void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				    std::vector<Event> &tos)
+{
+	std::vector<Event> buf;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			for (auto &e : tos) {
+				auto before = getHbBefore(e);
+				if (froms[i].second[j].index <
+				    before[froms[i].second[j].thread])
+					buf.push_back(e);
+			}
+		}
+		froms[i].second = buf;
+	}
+}
+
+void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				    std::vector<Event> &tos)
+{
+	std::vector<Event> stores, buf;
+	std::vector<bool> wb;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			EventLabel &lab = getEventLabel(froms[i].second[j]);
+			if (!lab.isWrite())
+				continue;
+
+			// if wb hasn't been calculated yet, calculate it
+			if (stores.size() == 0) {
+				stores = modOrder.getAtLoc(lab.addr);
+				wb = calcWb(stores);
+			}
+			int k = calcEventIndex(stores, lab.pos);
+			for (auto l = 0u; l < stores.size(); l++)
+				if (wb[k * stores.size() + l])
+					buf.push_back(stores[l]);
+		}
+		froms[i].second = buf;
+	}
+}
+
+void ExecutionGraph::calcSingleStepPairs(Library &lib,
+					 std::vector<std::pair<Event, std::vector<Event> > > &froms,
+					 std::vector<Event> &tos,
+					 llvm::StringMap<std::vector<bool> > &relMap,
+					 std::vector<bool> &relMatrix, std::string &step)
+{
+	if (step == "po")
+		return getPoEdgePairs(froms, tos);
+	else if (step == "rf")
+		return getRfEdgePairs(froms, tos);
+	else if (step == "hb")
+		return getHbEdgePairs(froms, tos);
+	else if (step == "rf-1")
+		return getRfm1EdgePairs(froms, tos);
+	else if (step == "mo")
+		return getMoEdgePairs(froms, tos);
+	else
+		BUG();
+}
+
+void addEdgePairsToMatrix(std::vector<std::pair<Event, std::vector<Event> > > &pairs,
+			  std::vector<Event> &es, std::vector<bool> &matrix)
+{
+	for (auto &p : pairs) {
+		for (auto k = 0u; k < p.second.size(); k++) {
+			auto i = calcEventIndex(es, p.first);
+			auto j = calcEventIndex(es, p.second[k]);
+			matrix[i * es.size() + j] = true;
+		}
+	}
+}
+
+void ExecutionGraph::addStepEdgeToMatrix(Library &lib, std::vector<Event> &es,
+					 llvm::StringMap<std::vector<bool> > &relMap,
+					 std::vector<bool> &relMatrix,
+					 std::vector<std::string> &substeps)
+{
+	std::vector<std::pair<Event, std::vector<Event> > > edges;
+
+	/* Initialize edges */
+	for (auto &e : es)
+		edges.push_back(std::make_pair(e, std::vector<Event>({e})));
+
+	for (auto i = 0u; i < substeps.size(); i++)
+		calcSingleStepPairs(lib, edges, es, relMap, relMatrix, substeps[i]);
+	addEdgePairsToMatrix(edges, es, relMatrix);
+}
+
+llvm::StringMap<std::vector<bool> >
+ExecutionGraph::calculateAllRelations(Library &lib, std::vector<Event> &es)
+{
+	llvm::StringMap<std::vector<bool> > relMap;
+
+	for (auto &r : lib.getRelations()) {
+		std::vector<bool> relMatrix(es.size() * es.size(), false);
+		auto &steps = r.getSteps();
+		for (auto &s : steps)
+			addStepEdgeToMatrix(lib, es, relMap, relMatrix, s);
+
+		if (r.isTransitive())
+			calcTransClosure(relMatrix, es.size());
+		relMap[r.getName()] = relMatrix;
+
+		llvm::dbgs() << "Gonna print map for relation " << r.getName() << "\n"
+			     << "This relation is " << (r.isTransitive() ? "" : "not") << "transitive\n";
+		llvm::dbgs() << "Library events are: \n";
+		for (auto &e : es)
+			llvm::dbgs() << e << " ";
+		llvm::dbgs() << "\n";
+
+		for (auto i = 0u; i < es.size(); i++) {
+			for (auto j = 0u; j < es.size(); j++)
+				llvm::dbgs() << (relMatrix[i * es.size() + j] ? 1 : 0) << " ";
+			llvm::dbgs() << "\n";
+		}
+		llvm::dbgs() << "\n";
+	}
+	return relMap;
+}
+
+std::vector<Event>
+ExecutionGraph::filterLibConstraints(Library &lib, Event &load, const std::vector<Event> &stores)
+{
+	std::vector<Event> filtered;
+	EventLabel &lab = getEventLabel(load);
+	std::vector<Event> es = getLibraryEvents(lib);
+
+	std::sort(es.begin(), es.end());
+	for (auto &s : stores) {
+		changeRf(lab, s);
+		auto relations = calculateAllRelations(lib, es);
+		auto &constraints = lib.getConstraints();
+		if (std::all_of(constraints.begin(), constraints.end(),
+				[&relations, &es](Constraint &c)
+				{ return isIrreflexive(relations[c.getName()], es.size()); }))
+			filtered.push_back(s);
+	}
+
+	return filtered;
 }
 
 
@@ -1103,6 +1566,15 @@ void ExecutionGraph::validateGraph(void)
 					abort();
 				}
 			} else if (lab.isWrite()) {
+				if (lab.isRMW() && lab.rfm1.size() > 1) {
+					WARN("RMW store is read from more than 1 load!\n");
+					llvm::dbgs() << "RMW store: " << lab.pos << "\nReads:";
+					for (auto &r : lab.rfm1)
+						llvm::dbgs() << r << " ";
+					llvm::dbgs() << "\n";
+					llvm::dbgs() << *this << "\n";
+					abort();
+				}
 				if (lab.rfm1.empty())
 					continue;
 				bool writeExists = false;
@@ -1115,6 +1587,16 @@ void ExecutionGraph::validateGraph(void)
 					llvm::dbgs() << *this << "\n";
 					abort();
 				}
+				for (auto &r : lab.rfm1) {
+					if (r.thread > threads.size() ||
+					    r.index >= maxEvents[r.thread]) {
+						WARN("Event in write's rf-list does not exist!\n");
+						llvm::dbgs() << r << "\n";
+						llvm::dbgs() << *this << "\n";
+						abort();
+					}
+				}
+
 			}
 		}
 	}
@@ -1125,38 +1607,6 @@ void ExecutionGraph::validateGraph(void)
 /************************************************************
  ** Printing facilities
  ***********************************************************/
-
-static void getInstFromMData(std::stringstream &ss, Thread &thr, int i)
-{
-	auto &prefix = thr.prefixLOC[i];
-	for (auto &pair : prefix) {
-		int line = pair.first;
-		std::string absPath = pair.second;
-
-		std::ifstream ifs(absPath);
-		std::string s;
-		int curLine = 0;
-		while (ifs.good() && curLine < line) {
-			std::getline(ifs, s);
-			++curLine;
-		}
-
-		s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-			std::not1(std::ptr_fun<int, int>(std::isspace))));
-		s.erase(std::find_if(s.rbegin(), s.rend(),
-                        std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
-
-		ss << "[" << thr.threadFun->getName().str() << "] ";
-		auto i = absPath.find_last_of('/');
-		if (i == std::string::npos)
-			ss << absPath;
-		else
-			ss << absPath.substr(i + 1);
-
-		ss << ": " << line << ": ";
-		ss << s << std::endl;
-	}
-}
 
 void ExecutionGraph::calcTraceBefore(const Event &e, std::vector<int> &a,
 				     std::stringstream &buf)
@@ -1172,9 +1622,9 @@ void ExecutionGraph::calcTraceBefore(const Event &e, std::vector<int> &a,
 		if ((lab.isRead() || lab.isStart() || lab.isJoin()) &&
 		    !lab.rf.isInitializer()) {
 			calcTraceBefore(lab.rf, a, buf);
-			getInstFromMData(buf, thr, i);
+			Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
 		} else {
-			getInstFromMData(buf, thr, i);
+			Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
 		}
 	}
 	return;
@@ -1188,6 +1638,30 @@ void ExecutionGraph::printTraceBefore(Event e)
 	llvm::dbgs() << buf.str();
 }
 
+void ExecutionGraph::prettyPrintGraph()
+{
+	for (auto i = 0u; i < threads.size(); i++) {
+		auto &thr = threads[i];
+		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
+			     << "> " << thr.threadFun->getName() << ": ";
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			auto &lab = thr.eventList[j];
+			if (lab.isRead()) {
+				if (lab.isRevisitable())
+					llvm::dbgs().changeColor(llvm::buffer_ostream::Colors::GREEN);
+				auto val = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
+				llvm::dbgs() << lab.type << EE->getGlobalName(lab.addr) << ","
+					     << val.IntVal << " ";
+				llvm::dbgs().resetColor();
+			} else if (lab.isWrite()) {
+				llvm::dbgs() << lab.type << EE->getGlobalName(lab.addr) << ","
+					     << lab.val.IntVal << " ";
+			}
+		}
+		llvm::dbgs() << "\n";
+	}
+	llvm::dbgs() << "\n";
+}
 
 /************************************************************
  ** Overloaded operators

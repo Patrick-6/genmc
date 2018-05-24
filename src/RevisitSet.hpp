@@ -23,13 +23,17 @@
 
 #include "Event.hpp"
 #include <llvm/Support/raw_ostream.h>
+#include <vector>
+
+enum RevisitType { NotRevisitable, Normal, RMWConflict };
 
 /*
  * RevisitSet class - This class represents the revisit set of an ExecutionGraph
  */
 class RevisitSet {
+
 protected:
-	typedef std::vector<Event> RevSet;
+	typedef std::vector<std::vector<Event> > RevSet;
 	RevSet rev_;
 
 public:
@@ -45,14 +49,8 @@ public:
 	const_iterator cend();
 
 	/* Basic getter/setters and existential checks */
-	void add(Event &e);
-	Event& getAtPos(RevisitSet::iterator &it);
-	bool contains(Event &e);
-	bool containsPorfBefore(std::vector<int> &before);
-
-	/* Set modification methods */
-	void removePorfBefore(std::vector<int> &before);
-	void removePorfAfter(std::vector<int> &before);
+	void add(std::vector<Event> &es);
+	bool contains(std::vector<Event> &es);
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev);

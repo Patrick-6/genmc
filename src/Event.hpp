@@ -21,15 +21,14 @@
 #ifndef __EVENT_HPP__
 #define __EVENT_HPP__
 
-#include "View.hpp"
-#include <llvm/IR/Instructions.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/raw_ostream.h>
-
 #include <list>
 
 enum EventType { EStart, EFinish, ETCreate, ETJoin, ERead, EWrite, EFence };
 enum EventAttr { Plain, CAS, RMW};
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t);
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a);
 
 struct Event {
 	int thread;
@@ -47,8 +46,6 @@ struct Event {
 	Event prev() { return Event(thread, index-1); };
 	Event next() { return Event(thread, index+1); };
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e);
-
 	inline bool operator==(const Event &e) const {
 		return e.index == index && e.thread == thread;
 	}
@@ -61,58 +58,22 @@ struct Event {
 	inline bool operator>(const Event &e) const {
 		return (index > e.index) || (index == e.index && thread > e.thread);
 	}
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e);
 };
 
-class EventLabel {
+struct EventHasher {
 
-public:
-	EventType type;
-	EventAttr attr;
-	llvm::AtomicOrdering ord;
-	Event pos;
-	llvm::GenericValue *addr;
-	llvm::GenericValue val; /* For Writes and CASs */
-	llvm::GenericValue nextVal; /* For CASs and FAIs */
-	llvm::AtomicRMWInst::BinOp op;
-	llvm::Type *valTyp;
-	Event rf; /* For Reads */
-	std::list<Event> rfm1; /* For Writes */
-	View msgView;
-	View hbView;
-	int cid; /* For TCreates */
+	template <class T>
+	inline void hash_combine(std::size_t& seed, const T& v)	const {
+		seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+	}
 
-	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
-	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid); /* Thread Create */
-	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fences */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue nextVal,
-		   llvm::AtomicRMWInst::BinOp op, llvm::Type *valTyp, Event w); /* FAI Reads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue expected,
-		   llvm::GenericValue nextVal, llvm::Type *valTyp, Event w); /* CAS Reads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp); /* Writes */
-
-	bool isStart() const;
-	bool isFinish() const;
-	bool isCreate() const;
-	bool isJoin() const;
-	bool isRead() const;
-	bool isWrite() const;
-	bool isFence() const;
-	bool isNotAtomic() const;
-	bool isAtLeastAcquire() const;
-	bool isAtLeastRelease() const;
-	bool isSC() const;
-	bool isRMW() const;
-
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
+	std::size_t operator()(const Event& e) const {
+		std::size_t hash = 0;
+		hash_combine(hash, e.thread);
+		hash_combine(hash, e.index);
+		return hash;
+	}
 };
 
 #endif /* __EVENT_HPP__ */

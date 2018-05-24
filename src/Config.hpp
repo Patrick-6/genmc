@@ -37,12 +37,14 @@ public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
 	std::string transformFile;
+	std::string specsFile;
 	ModelType model;
 	int unroll;
 	bool spinAssume;
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool printExecGraphs;
+	bool prettyPrintExecGraphs;
 	bool countDuplicateExecs;
 	bool printErrorTrace;
 	bool checkPscAcyclicity;

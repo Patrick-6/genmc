@@ -22,6 +22,7 @@
 #define __MOD_ORDER_HPP__
 
 #include "Event.hpp"
+#include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/raw_ostream.h>
 #include <unordered_map>
 
@@ -48,6 +49,7 @@ public:
 	/* Basic getter/setter methods  */
 	llvm::GenericValue *getAddrAtPos(ModOrder::iterator it);
 	std::vector<Event> getAtLoc(llvm::GenericValue *addr);
+	std::vector<Event> getMoAfter(llvm::GenericValue *addr, Event e);
 	void addAtLocEnd(llvm::GenericValue *addr, Event e);
 	void addAtLocPos(llvm::GenericValue *addr, std::vector<Event>::iterator it, Event e);
 	void setLoc(llvm::GenericValue *addr, std::vector<Event> &locMO);

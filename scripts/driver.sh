@@ -40,18 +40,18 @@ printline; echo ''
 
 model=rc11 && source runcorrect.sh
 
-echo ''; printline
-echo '--- Preparing to run CORRECT testcases under Weak RC11'
-printline; echo ''
+# echo ''; printline
+# echo '--- Preparing to run CORRECT testcases under Weak RC11'
+# printline; echo ''
 
-model=wrc11 && source runcorrect.sh
+# model=wrc11 && source runcorrect.sh
 
-# Then, run the testcases in the wrong/ directory
-echo ''; printline
-echo '--- Preparing to run WRONG testcases under Weak RC11'
-printline; echo ''
+# # Then, run the testcases in the wrong/ directory
+# echo ''; printline
+# echo '--- Preparing to run WRONG testcases under Weak RC11'
+# printline; echo ''
 
-source runwrong.sh
+# source runwrong.sh
 
 if test -n "$result"
 then

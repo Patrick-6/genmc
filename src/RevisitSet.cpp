@@ -44,45 +44,18 @@ RevisitSet::const_iterator RevisitSet::cend()   { return rev_.cend(); }
  ** Basic getter/setter methods and existential checks
  ***********************************************************/
 
-void RevisitSet::add(Event &e)
+void RevisitSet::add(std::vector<Event> &es)
 {
-	rev_.push_back(e);
+	rev_.push_back(es);
 }
 
-Event& RevisitSet::getAtPos(iterator &it)
+bool RevisitSet::contains(std::vector<Event> &es)
 {
-	return *it;
+	for (auto &v : rev_)
+		if (v == es)
+			return true;
+	return false;
 }
-
-bool RevisitSet::contains(Event &e)
-{
-	return std::find(rev_.begin(), rev_.end(), e) != rev_.end();
-}
-
-bool RevisitSet::containsPorfBefore(std::vector<int> &before)
-{
-	return std::find_if(rev_.begin(), rev_.end(), [&before](Event &e)
-			    { return e.index <= before[e.thread]; })
-		!= rev_.end();
-}
-
-
-/************************************************************
- ** Set modification methods
- ***********************************************************/
-
-void RevisitSet::removePorfBefore(std::vector<int> &before)
-{
-	rev_.erase(std::remove_if(rev_.begin(), rev_.end(), [&before](Event &e)
-				  { return e.index <= before[e.thread]; }), rev_.end());
-}
-
-void RevisitSet::removePorfAfter(std::vector<int> &after)
-{
-	rev_.erase(std::remove_if(rev_.begin(), rev_.end(), [&after](Event &e)
-				  { return e.index >= after[e.thread]; }), rev_.end());
-}
-
 
 /************************************************************
  ** Overloaded Operators
@@ -91,7 +64,10 @@ void RevisitSet::removePorfAfter(std::vector<int> &after)
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev)
 {
 	s << "Revisit Set:\n";
-	for (auto &r : rev.rev_)
-		s << "\t" << r << "\n";
+	for (auto &r : rev.rev_) {
+		for (auto &e : r)
+			s << e << " ";
+		s << "\n";
+	}
 	return s;
 }

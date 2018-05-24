@@ -65,10 +65,20 @@ int main(int argc, char **argv)
 {
 	clock_t start = clock();
 	Config *conf = new Config(argc, argv);
+	Parser parser;
+	std::vector<Library> granted, toVerify;
+
 	conf->getConfigOptions();
+	if (conf->specsFile != "") {
+		auto res = parser.parseSpecs(conf->specsFile);
+		std::copy_if(res.begin(), res.end(), std::back_inserter(granted),
+			     [](Library &l){ return l.getType() == Granted; });
+		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerify),
+			     [](Library &l){ return l.getType() == ToVerify; });
+	}
 	if (conf->inputFromBitcodeFile) {
-		RCMCDriver *driver = new RCMCDriver(conf, start);
-		driver->parseRun();
+		RCMCDriver *driver = new RCMCDriver(conf, granted, toVerify, start);
+		driver->parseRun(parser);
 		delete conf;
 		delete driver;
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */
@@ -145,10 +155,11 @@ int main(int argc, char **argv)
 		return 1;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule(), start);
+	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule(), granted, toVerify, start);
 #else
 	RCMCDriver *driver =
-		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()), start);
+		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
+			       granted, toVerify, start);
 #endif
 
 	driver->run();

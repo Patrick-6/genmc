@@ -141,10 +141,11 @@ std::vector<Event> Interpreter::getPendingRMWs(Event &RMW, Event &RMWrf,
 	return pending;
 }
 
-bool Interpreter::RMWCanReadFromWrite(Event &write, GenericValue &wVal,
-				      Type *typ, GenericValue *ptr)
+bool Interpreter::isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
+					     GenericValue *ptr, std::vector<int> &before)
 {
 	ExecutionGraph &g = *driver->getGraph();
+
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		Thread &thr = g.threads[i];
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
@@ -153,11 +154,10 @@ bool Interpreter::RMWCanReadFromWrite(Event &write, GenericValue &wVal,
 			    lab.addr == ptr && lab.isRMW()) {
 				if (!isSuccessfulRMW(lab, wVal))
 					continue;
-				if (!g.revisit.contains(lab.pos))
+
+				if (!lab.isRevisitable())
 					return false;
-				std::vector<int> after = g.getPorfAfter(lab.pos);
-				Event last = g.getLastThreadEvent(g.currentT);
-				if (last.index >= after[last.thread])
+				if (lab.pos.index <= before[lab.pos.thread])
 					return false;
 			}
 		}
@@ -1276,21 +1276,22 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	/* Get all stores to this location from which we can read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
-	std::vector<Event> validStores =
-		properlyOrderStores(Plain, typ, ptr, {}, stores);
+	std::vector<Event> validStores = g.getStoresToLoc(ptr, userConf->model);
+	// std::vector<Event> validStores =
+	// 	properlyOrderStores(Plain, typ, ptr, {}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	g.addReadToGraph(I.getOrdering(), ptr, typ, validStores[0]);
-	Event e = g.getLastThreadEvent(g.currentT);
-	g.revisit.add(e);
+	// Event e = g.getLastThreadEvent(g.currentT);
+	// g.revisit.add(e);
 
 	/* Push all the other alternatives choices to the Stack */
-	std::vector<int> preds = g.getGraphState();
+//	std::vector<int> preds = g.getGraphState();
+	Event e = g.getLastThreadEvent(g.currentT);
 	EventLabel &lab = g.getEventLabel(e);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(StackItem(e, lab.rf, *it, preds, g.revisit));
-	}
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Last, set the return value for this instruction */
 	SetValue(&I, loadValueFromWrite(validStores[0], typ, ptr), SF);
@@ -1344,88 +1345,125 @@ void Interpreter::visitFenceInst(FenceInst &I)
 	return;
 }
 
-Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
+// Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
+// {
+// 	for (auto &e : es)
+// 		if (e.index <= before[e.thread])
+// 			return e;
+// 	BUG();
+// }
+
+// Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
+// 					     GenericValue *ptr, GenericValue &cmpVal)
+// {
+// 	Event final = tentative;
+// 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
+// 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+// 	while (cmpRes.IntVal.getBoolValue() &&
+// 	       isReadByAtomicRead(final, oldVal, typ, ptr)) {
+// 		final = getPendingRMWSucc(final, oldVal, typ, ptr);
+// 		oldVal = loadValueFromWrite(final, typ, ptr);
+// 		cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+// 	}
+// 	return final;
+// }
+
+// Event Interpreter::getFirstNonConflictingRMW(Event tentative, Type *typ,
+// 					     GenericValue *ptr)
+// {
+// 	Event final = tentative;
+// 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
+// 	while (isReadByAtomicRead(final, oldVal, typ, ptr)) {
+// 		final = getPendingRMWSucc(final, oldVal, typ, ptr);
+// 		oldVal = loadValueFromWrite(final, typ, ptr);
+// 	}
+// 	return final;
+// }
+
+// Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
+// 					  Type *typ, GenericValue *ptr,
+// 					  std::vector<GenericValue> &expVal)
+// {
+// 	switch (attr) {
+// 	case Plain:
+// 		return tentative;
+// 	case CAS:
+// 		return getFirstNonConflictingCAS(tentative, typ, ptr, expVal.back());
+// 	case RMW:
+// 		return getFirstNonConflictingRMW(tentative, typ, ptr);
+// 	default:
+// 		BUG();
+// 	}
+// }
+
+std::vector<Event> Interpreter::properlyOrderStoresPlain(Type *typ, GenericValue *ptr,
+							 std::vector<GenericValue> &expVal,
+							 std::vector<Event> &stores)
 {
-	for (auto &e : es)
-		if (e.index <= before[e.thread])
-			return e;
-	BUG();
+//	ExecutionGraph &g = *driver->getGraph();
+	return stores;
 }
 
-Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
-					     GenericValue *ptr, GenericValue &cmpVal)
+std::vector<Event> Interpreter::properlyOrderStoresCAS(Type *typ, GenericValue *ptr,
+							 std::vector<GenericValue> &expVal,
+							 std::vector<Event> &stores)
 {
-	Event final = tentative;
-	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
-	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-	while (cmpRes.IntVal.getBoolValue() &&
-	       isReadByAtomicRead(final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(final, oldVal, typ, ptr);
-		oldVal = loadValueFromWrite(final, typ, ptr);
-		cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	ExecutionGraph &g = *driver->getGraph();
+	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	std::vector<Event> valid, conflicting;
+
+	for (auto &s : stores) {
+		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
+		GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
+		if (cmpRes.IntVal.getBoolValue() == 0 ||
+		    isStoreNotReadBySettledRMW(s, oldVal, typ, ptr, before)) {
+			if (isReadByAtomicRead(s, oldVal, typ, ptr))
+				conflicting.push_back(s);
+			else
+				valid.push_back(s);
+		}
 	}
-	return final;
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+	return valid;
 }
 
-Event Interpreter::getFirstNonConflictingRMW(Event tentative, Type *typ,
-					     GenericValue *ptr)
+std::vector<Event> Interpreter::properlyOrderStoresRMW(Type *typ, GenericValue *ptr,
+						       std::vector<GenericValue> &expVal,
+						       std::vector<Event> &stores)
 {
-	Event final = tentative;
-	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
-	while (isReadByAtomicRead(final, oldVal, typ, ptr)) {
-		final = getPendingRMWSucc(final, oldVal, typ, ptr);
-		oldVal = loadValueFromWrite(final, typ, ptr);
+	ExecutionGraph &g = *driver->getGraph();
+	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	std::vector<Event> valid, conflicting;
+
+	for (auto &s : stores) {
+		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
+		if (isStoreNotReadBySettledRMW(s, oldVal, typ, ptr, before)) {
+			if (isReadByAtomicRead(s, oldVal, typ, ptr))
+				conflicting.push_back(s);
+			else
+				valid.push_back(s);
+		}
 	}
-	return final;
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+	return valid;
 }
 
-Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
-					  Type *typ, GenericValue *ptr,
-					  std::vector<GenericValue> &expVal)
-{
-	switch (attr) {
-	case Plain:
-		return tentative;
-	case CAS:
-		return getFirstNonConflictingCAS(tentative, typ, ptr, expVal.back());
-	case RMW:
-		return getFirstNonConflictingRMW(tentative, typ, ptr);
-	default:
-		BUG();
-	}
-}
 
 std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
 						    GenericValue *ptr,
 						    std::vector<GenericValue> expVal,
 						    std::vector<Event> &stores)
 {
-	ExecutionGraph &g = *driver->getGraph();
-	std::vector<Event> validStores;
-	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
-	Event tentative = choosePriorEvent(stores, before);
-	Event final = getFirstNonConflicting(attr, tentative, typ, ptr, expVal);
-
-	validStores.push_back(final);
-	for (auto &s : stores) {
-		if (s == final)
-			continue;
-		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
-		if (attr == Plain) {
-			validStores.push_back(s);
-		} else if (attr == CAS) {
-			GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
-			if (cmpRes.IntVal.getBoolValue() == 0 ||
-			    RMWCanReadFromWrite(s, oldVal, typ, ptr))
-				validStores.push_back(s);
-		} else if (attr == RMW) {
-			if (RMWCanReadFromWrite(s, oldVal, typ, ptr))
-				validStores.push_back(s);
-		} else {
-			BUG();
-		}
+	switch (attr) {
+	case Plain:
+		return properlyOrderStoresPlain(typ, ptr,expVal, stores);
+	case CAS:
+		return properlyOrderStoresCAS(typ, ptr, expVal, stores);
+	case RMW:
+		return properlyOrderStoresRMW(typ, ptr,expVal, stores);
+	default:
+		BUG();
 	}
-	return validStores;
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
@@ -1478,14 +1516,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	/* ... and add a label with the appropriate store. */
 	g.addCASReadToGraph(I.getSuccessOrdering(), ptr, cmpVal, newVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	std::vector<int> readPreds = g.getGraphState();
-	g.revisit.add(e);
+//	std::vector<int> readPreds = g.getGraphState();
+//	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
-	}
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Did the CAS operation succeed? */
 	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
@@ -1576,13 +1614,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	g.addRMWReadToGraph(I.getOrdering(), ptr, val, I.getOperation(), typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
 	std::vector<int> readPreds = g.getGraphState();
-	g.revisit.add(e);
+//	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
-	}
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Calculate the value to be written */
 	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
@@ -2973,8 +3011,6 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		return;
 	}
 
-	std::vector<int> readPreds;
-
 	/* Calculate the stores that we can actually read from */
 	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 	std::vector<Event> validStores =
@@ -2983,14 +3019,14 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	/* ... and add a label with the appropriate store. */
 	g.addCASReadToGraph(Acquire, ptr, cmpVal, newVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	readPreds = g.getGraphState();
-	g.revisit.add(e);
+//	std::vector<int> readPreds = g.getGraphState();
+//	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
-	}
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Did the CAS operation succeed? */
 	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
@@ -3075,8 +3111,6 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 		return;
 	}
 
-	std::vector<int> readPreds;
-
 	/* Calculate the stores that we can actually read from */
 	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
 	std::vector<Event> validStores =
@@ -3085,14 +3119,14 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	/* ... and add a label with the appropriate store. */
 	g.addCASReadToGraph(Acquire, ptr, cmpVal, newVal, typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	readPreds = g.getGraphState();
-	g.revisit.add(e);
+//	std::vector<int> readPreds = g.getGraphState();
+//	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		g.workqueue.push_back(StackItem(e, lab.rf, *it, readPreds, g.revisit));
-	}
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Did the CAS operation succeed? */
 	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
@@ -3112,6 +3146,147 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	return;
 }
 
+void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
+				   const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *driver->getGraph();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	Type *typ = F->getReturnType();
+
+	if (!isGlobal(ptr))
+		WARN_ONCE("library-mem-not-global",
+			  "WARNING: Use of non-global library.\n");
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
+		returnValueToCaller(F->getReturnType(), val);
+		return;
+	}
+
+	/* Add the event to the graph so we'll be able to calculate consistent RFs */
+	g.addGReadToGraph(mem.getOrdering(), ptr, typ, Event::getInitializer(), F->getName().str());
+
+	/* Calculate available RFs, not taking into account BOTTOM,
+	 * if Library has functional Rfs */
+	auto bottom = Event::getInitializer();
+	auto stores = g.modOrder.getAtLoc(ptr);
+	if (lib.hasFunctionalRfs()) {
+		auto it = std::find_if(stores.begin(), stores.end(),
+				       [&g](Event &e){ return g.getEventLabel(e).isBottom(); });
+		BUG_ON(it == stores.end());
+		bottom = *it;
+		stores.erase(it);
+	}
+	Event e = g.getLastThreadEvent(g.currentT);
+	EventLabel &lab = g.getEventLabel(e);
+
+	auto validStores = g.filterLibConstraints(lib, e, stores);
+
+	/* BOTTOM should also be an option (don't know anything about consistency) */
+	if (lib.hasFunctionalRfs()) {
+		validStores.insert(validStores.begin(), bottom);
+		lab.invalidRfs.push_back(bottom);
+		/* Record all invalid RFs for future use */
+		std::for_each(stores.begin(), stores.end(), [&validStores, &lab](Event &e)
+			      { if (std::find(validStores.begin(), validStores.end(), e) ==
+				    validStores.end())
+				  lab.invalidRfs.push_back(e); });
+	}
+
+	if (validStores.size() == 0) {
+		llvm::dbgs() << "No valid choices in this graph:\n";
+		llvm::dbgs() << g << "\n";
+		g.tryToBacktrack();
+		return;
+	}
+
+	llvm::dbgs() << "Filtered stores are ";
+	for (auto &s : validStores)
+		llvm::dbgs() << s << " ";
+	llvm::dbgs() << "\n";
+
+
+
+	/* Correct the RF edge */
+	g.changeRf(lab, validStores[0]); /* Move this into filtered..?? */
+
+	/* Push all the other alternatives choices to the Stack */
+	driver->trackRead(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
+		if (!lib.hasFunctionalRfs() || g.getEventLabel(*it).rfm1.size() == 0) {
+			driver->addToWorklist(e, StackItem(SRead, *it));
+			continue;
+		}
+
+		/* If the Library has functional RFs, revisit reads that were reading
+		 * from our candidate RF */
+		auto &rfLab = g.getEventLabel(*it);
+		// if (sLab.rfm1.size() > 0)
+		// 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&g, &sLab](Event &e)
+		// 				{ EventLabel &confLab = g.getEventLabel(sLab.rfm1.back());
+		// 					return e.index > confLab.loadPreds[e.thread]; }),
+		// 		 ls.end());
+		BUG_ON(rfLab.rfm1.size() > 1);
+		auto &confLab = g.getEventLabel(rfLab.rfm1.back());
+		auto prefix = g.getPrefixLabelsNotBefore(lab.pos, confLab.loadPreds);
+		std::vector<Event> prefixPos = {lab.pos};
+		std::for_each(prefix.begin(), prefix.end(),
+			      [&prefixPos, &confLab](const EventLabel &eLab)
+			      { if (eLab.isRead() && eLab.pos.index > confLab.loadPreds[eLab.pos.thread])
+					      prefixPos.push_back(eLab.rf); });
+
+		if (confLab.revs.contains(prefixPos))
+			continue;
+
+		bool willBeRevisited = true;
+
+		confLab.revs.add(prefixPos);
+		driver->addToWorklist(confLab.pos, StackItem(GRead, rfLab.pos, g.getPorfBefore(lab.pos),
+							     prefix, willBeRevisited, lab.pos));
+	}
+
+	/* Last, set the return value for this instruction */
+	returnValueToCaller(typ, loadValueFromWrite(validStores[0], typ, ptr));
+	return;
+}
+
+void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
+				   const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionGraph &g = *driver->getGraph();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	GenericValue val = ArgVals[1];
+	Type *typ = F->getFunctionType()->getParamType(1);
+	GenericValue result;
+
+	if (ptr == nullptr) {
+		WARN("ERROR: " + F->getName().str() + " called with NULL pointer!");
+		abort();
+	}
+
+	if (!isGlobal(ptr))
+		WARN_ONCE("library-mem-not-global",
+			  "WARNING: Use of non-global library.\n");
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] > c) {
+//		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+//		returnValueToCaller(F->getReturnType(), result);
+		return;
+	}
+
+	g.addGStoreToGraph(mem.getOrdering(), ptr, val, typ, F->getName().str());
+	if (mem.isBottom())
+		g.getLastThreadLabel(g.currentT).bottom = true;
+	interpStore();
+//	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
+//	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -3120,6 +3295,21 @@ void Interpreter::callFunction(Function *F,
 {
   /* Custom function support */
   std::string functionName = F->getName().str();
+
+  auto granted = driver->getGrantedLibs();
+  auto lib = Library::getLibByMemberName(granted, functionName);
+  if (lib) {
+	  auto m = lib->getMember(functionName);
+	  BUG_ON(!m);
+	  if (m->hasReadSemantics()) {
+		  callReadFunction(*lib, *m, F, ArgVals);
+		  return;
+	  } else {
+		  callWriteFunction(*lib, *m, F, ArgVals);
+		  return;
+	  }
+  }
+
   if (functionName == "__assert_fail") {
 	  callAssertFail(F, ArgVals);
 	  return;
@@ -3216,7 +3406,7 @@ void Interpreter::run()
 			else if (getAction() == IRMW)
 				driver->visitRMWStore(g);
 		} else if (std::any_of(g.threads.begin(), g.threads.end(),
-		  		       [](Thread &thr){ return thr.isBlocked; })) {
+				       [](Thread &thr){ return thr.isBlocked; })) {
 			break;
 		} else {
 			driver->handleFinishedExecution(g);

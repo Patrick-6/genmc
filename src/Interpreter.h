@@ -18,6 +18,9 @@
 
 #include "Config.hpp"
 #include "Event.hpp"
+#include "EventLabel.hpp"
+#include "Library.hpp"
+
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -141,6 +144,7 @@ public:
 
   /* Checks whether an address is the address of a global variable */
   bool isGlobal(void *);
+  std::string getGlobalName(void *addr);
 
   void interpStore() { action = IStore; };
   void interpRMW() { action = IRMW; };
@@ -192,6 +196,7 @@ public:
 
   /* List of global and thread-local variables */
   llvm::SmallVector<void *, 1021> globalVars;
+  std::vector<std::pair<void *, std::string > > globalVarNames;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
 
   /* Helper functions */
@@ -200,7 +205,8 @@ public:
   Event getPendingRMWSucc(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
   std::vector<Event> getPendingRMWs(Event &RMW, Event &RMWrf, GenericValue *ptr,
 				    GenericValue &wVal);
-  bool RMWCanReadFromWrite(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
+  bool isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
+				  GenericValue *ptr, std::vector<int> &before);
   void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 		      EventLabel &wLab, std::vector<Event> acc, std::vector<Event> set);
   void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
@@ -213,11 +219,20 @@ public:
   std::vector<Event> properlyOrderStores(EventAttr attr, Type *typ,
 					 GenericValue *ptr, std::vector<GenericValue> expVal,
 					 std::vector<Event> &stores);
-  Event getFirstNonConflicting(EventAttr attr, Event tentative,
-			       Type *typ, GenericValue *ptr, std::vector<GenericValue>& expVal);
-  Event getFirstNonConflictingCAS(Event tentative, Type *typ,
-				  GenericValue *ptr, GenericValue &cmpVal);
-  Event getFirstNonConflictingRMW(Event tentative, Type *typ, GenericValue *ptr);
+  std::vector<Event> properlyOrderStoresPlain(Type *typ, GenericValue *ptr,
+					      std::vector<GenericValue> &expVal,
+					      std::vector<Event> &stores);
+  std::vector<Event> properlyOrderStoresCAS(Type *typ, GenericValue *ptr,
+					    std::vector<GenericValue> &expVal,
+					    std::vector<Event> &stores);
+  std::vector<Event> properlyOrderStoresRMW(Type *typ, GenericValue *ptr,
+					    std::vector<GenericValue> &expVal,
+					    std::vector<Event> &stores);
+  // Event getFirstNonConflicting(EventAttr attr, Event tentative,
+  // 			       Type *typ, GenericValue *ptr, std::vector<GenericValue>& expVal);
+  // Event getFirstNonConflictingCAS(Event tentative, Type *typ,
+  // 				  GenericValue *ptr, GenericValue &cmpVal);
+  // Event getFirstNonConflictingRMW(Event tentative, Type *typ, GenericValue *ptr);
   void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
 				 GenericValue &val, AtomicRMWInst::BinOp op);
 
@@ -235,6 +250,8 @@ public:
   void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callReadFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
+  void callWriteFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
 
 
   // Methods used to execute code:

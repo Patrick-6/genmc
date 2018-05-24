@@ -15,9 +15,9 @@ int main()
 	if (pthread_create(&t1, NULL, thread_1, NULL))
 		abort();
 
-	if (pthread_join(t1, NULL))
-		abort();
 	if (pthread_join(t2, NULL))
+		abort();
+	if (pthread_join(t1, NULL))
 		abort();
 
 	assert(!(a == 1 && b == 2));
