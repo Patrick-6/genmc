@@ -772,7 +772,7 @@ Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::Generi
 
 
 /************************************************************
- ** PSC calculation
+ ** Consistency checks -- PSC & WB calculation
  ***********************************************************/
 
 template <class T>
@@ -839,7 +839,7 @@ std::vector<llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
 	return doubles;
 }
 
-int calcSCIndex(std::vector<Event> &scs, Event e)
+int calcEventIndex(std::vector<Event> &scs, Event e)
 {
 	int idx = binSearch(scs, scs.size(), e);
 	BUG_ON(idx == -1);
@@ -856,7 +856,7 @@ std::vector<int> ExecutionGraph::calcSCFencesSuccs(std::vector<Event> &scs,
 	for (auto &f : fcs) {
 		View before = getHbBefore(f);
 		if (e.index <= before[e.thread])
-			succs.push_back(calcSCIndex(scs, f));
+			succs.push_back(calcEventIndex(scs, f));
 	}
 	return succs;
 }
@@ -871,7 +871,7 @@ std::vector<int> ExecutionGraph::calcSCFencesPreds(std::vector<Event> &scs,
 		return preds;
 	for (auto &f : fcs) {
 		if (f.index <= before[f.thread])
-			preds.push_back(calcSCIndex(scs, f));
+			preds.push_back(calcEventIndex(scs, f));
 	}
 	return preds;
 }
@@ -884,7 +884,7 @@ std::vector<int> ExecutionGraph::calcSCSuccs(std::vector<Event> &scs,
 	if (isRMWLoad(e))
 		return {};
 	if (lab.isSC())
-		return {calcSCIndex(scs, e)};
+		return {calcEventIndex(scs, e)};
 	else
 		return calcSCFencesSuccs(scs, fcs, e);
 }
@@ -897,7 +897,7 @@ std::vector<int> ExecutionGraph::calcSCPreds(std::vector<Event> &scs,
 	if (isRMWLoad(e))
 		return {};
 	if (lab.isSC())
-		return {calcSCIndex(scs, e)};
+		return {calcEventIndex(scs, e)};
         else
 		return calcSCFencesPreds(scs, fcs, e);
 }
@@ -1029,6 +1029,49 @@ bool ExecutionGraph::isPscAcyclic()
 		if (matrix[i * scs.size() + i])
 			return false;
 	return true;
+}
+
+std::vector<bool> ExecutionGraph::calcWb(llvm::GenericValue *addr)
+{
+	auto stores = modOrder.getAtLoc(addr);
+	std::vector<bool> matrix(stores.size() * stores.size(), false);
+
+	/* Sort so we can use calcEventIndex() */
+	std::sort(stores.begin(), stores.end());
+	for (auto i = 0u; i < stores.size(); i++) {
+		auto &lab = getEventLabel(stores[i]);
+		std::vector<Event> es(lab.rfm1.begin(), lab.rfm1.end());
+
+		es.push_back(stores[i].prev());
+		auto before = getHbBefore(es);
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (i == j || !isWriteRfBefore(before, stores[j]))
+				continue;
+			matrix[j * stores.size() + i] = true;
+			EventLabel wLab = getEventLabel(stores[i]); /* Not a ref! */
+			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[j]) {
+				int k = calcEventIndex(stores, wLab.pos);
+				matrix[j * stores.size() + k] = true;
+				Event p = wLab.pos.prev();
+				EventLabel &pLab = getEventLabel(p);
+				wLab = getEventLabel(pLab.rf);
+			}
+		}
+	}
+	calcTransClosure(matrix, stores.size());
+	return matrix;
+}
+
+bool ExecutionGraph::isWbAcyclic(void)
+{
+	bool acyclic = true;
+	for (auto it = modOrder.begin(); it != modOrder.end(); ++it) {
+		auto matrix = calcWb(it->first);
+		for (auto i = 0u; i < it->second.size(); i++)
+			if (matrix[i * it->second.size() + i])
+				acyclic = false;
+	}
+	return acyclic;
 }
 
 

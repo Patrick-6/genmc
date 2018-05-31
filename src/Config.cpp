@@ -45,7 +45,10 @@ clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
 static llvm::cl::opt<bool>
 clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::cat(clGeneral),
-		     llvm::cl::desc("Perform consistency checks at the end of each execution"));
+		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"));
+static llvm::cl::opt<bool>
+clCheckWbAcyclicity("check-wb-acyclicity", llvm::cl::cat(clGeneral),
+		     llvm::cl::desc("Check whether WB is acycli at the end of each execution"));
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -87,6 +90,7 @@ void Config::getConfigOptions(void)
 	model = clModelType;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
+	checkWbAcyclicity = clCheckWbAcyclicity;
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;
