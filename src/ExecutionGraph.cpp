@@ -344,7 +344,7 @@ void ExecutionGraph::calcPorfAfter(const Event &e, std::vector<int> &a)
 		if (i >= maxEvents[e.thread])
 			break;
 		EventLabel &lab = thr.eventList[i];
-		if (lab.isWrite() || lab.isCreate()) /* TODO: Maybe reference before r? */
+		if (lab.isWrite() || lab.isCreate() || lab.isFinish()) /* TODO: Maybe reference before r? */
 			for (auto r : lab.rfm1) {
 				calcPorfAfter(r, a);
 			}
