@@ -59,6 +59,7 @@ struct Event {
 		return (index > e.index) || (index == e.index && thread > e.thread);
 	}
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e);
+	friend std::ostream& operator<<(std::ostream &s, const Event &e);
 };
 
 struct EventHasher {

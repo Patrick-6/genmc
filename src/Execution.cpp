@@ -2748,23 +2748,30 @@ void Interpreter::callAssertFail(Function *F,
 	ExecutionGraph &g = *driver->getGraph();
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 
+	/* Is the execution that led to the error consistent? */
 	if (!g.isPscAcyclic() || (userConf->model == wrc11 && !g.isWbAcyclic())) {
 		ECStack().clear();
 		g.threads[g.currentT].isBlocked = true;
 		return;
 	}
 
-	if (!userConf->printErrorTrace) {
-		dbgs() << "Assertion violation: " << err << "\n";
-		driver->printResults();
-		abort();
+	auto assertThr = g.currentT;
+	auto errorEvent = g.getLastThreadEvent(assertThr);
+	auto before = g.getPorfBefore(errorEvent);
+
+	/* Print error trace */
+	if (userConf->printErrorTrace) {
+		replayExecutionBefore(before);
+		g.printTraceBefore(g.getLastThreadEvent(assertThr));
 	}
 
-	int assertThr = g.currentT;
-	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(assertThr));
+	/* Dump the graph into a file (DOT format) */
+	if (userConf->dotFile != "") {
+		replayExecutionBefore(before);
+		g.dotPrintToFile(userConf->dotFile, before, errorEvent);
+	}
 
-	replayExecutionBefore(before);
-	g.printTraceBefore(g.getLastThreadEvent(assertThr));
+	/* Print results and abort */
 	dbgs() << "Assertion violation: " << err << "\n";
 	driver->printResults();
 	abort();

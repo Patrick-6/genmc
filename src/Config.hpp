@@ -37,6 +37,7 @@ public:
 	std::vector<std::string> cflags;
 	std::string inputFile;
 	std::string transformFile;
+	std::string dotFile;
 	std::string specsFile;
 	ModelType model;
 	int unroll;

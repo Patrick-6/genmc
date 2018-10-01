@@ -29,13 +29,12 @@ using namespace std;
 
 class Parser {
 public:
-	Parser();
 	string readFile(const string &fileName);
-	static void parseInstFromMData(std::stringstream &ss,
-				std::vector<std::pair<int, std::string> > &prefix,
-				std::string functionName);
-	std::vector<Library> parseSpecs(const string &fileName);
-
-private:
+	static std::string getFileLineByNumber(const std::string &absPath, int line);
 	static void stripWhitespace(std::string &s);
+	static void stripSlashes(std::string &absPath);
+	static void parseInstFromMData(std::stringstream &ss,
+				       std::vector<std::pair<int, std::string> > &prefix,
+				       std::string functionName);
+	std::vector<Library> parseSpecs(const string &fileName);
 };

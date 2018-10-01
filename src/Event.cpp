@@ -48,5 +48,5 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
 {
 	if (e.isInitializer())
 		return s << "INIT";
-	return s << "Event (" << e.thread << ", " << e.index << ")";
+	return s << "\"Event (" << e.thread << ", " << e.index << ")\"";
 }

@@ -43,6 +43,10 @@ clModelType(llvm::cl::values(
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
+static llvm::cl::opt<std::string>
+clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("file"),
+	       llvm::cl::cat(clGeneral),
+	       llvm::cl::desc("Dumps an error graph to a file (DOT format)"));
 static llvm::cl::opt<bool>
 clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"));
@@ -95,6 +99,7 @@ void Config::getConfigOptions(void)
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
 	specsFile = clLibrarySpecsFile;
+	dotFile = clDotGraphFile;
 	model = clModelType;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;

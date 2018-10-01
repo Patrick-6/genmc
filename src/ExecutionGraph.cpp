@@ -1620,12 +1620,9 @@ void ExecutionGraph::calcTraceBefore(const Event &e, std::vector<int> &a,
 	for (int i = ai; i <= e.index; i++) {
 		EventLabel &lab = thr.eventList[i];
 		if ((lab.isRead() || lab.isStart() || lab.isJoin()) &&
-		    !lab.rf.isInitializer()) {
+		    !lab.rf.isInitializer())
 			calcTraceBefore(lab.rf, a, buf);
-			Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
-		} else {
-			Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
-		}
+		Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
 	}
 	return;
 }
@@ -1634,6 +1631,7 @@ void ExecutionGraph::printTraceBefore(Event e)
 {
 	std::stringstream buf;
 	std::vector<int> a(threads.size(), 0);
+
 	calcTraceBefore(e, a, buf);
 	llvm::dbgs() << buf.str();
 }
@@ -1662,6 +1660,64 @@ void ExecutionGraph::prettyPrintGraph()
 	}
 	llvm::dbgs() << "\n";
 }
+
+void ExecutionGraph::dotPrintToFile(std::string &filename, std::vector<int> &before, Event e)
+{
+	std::ofstream fout(filename);
+	std::string dump;
+	llvm::raw_string_ostream ss(dump);
+
+	/* Create a directed graph graph */
+	ss << "strict digraph {\n";
+	/* Specify node shape */
+	ss << "\tnode [shape=box]\n";
+	/* Left-justify labels for clusters */
+	ss << "\tlabeljust=l\n";
+	/* Create a node for the initializer event */
+	ss << "\t\"" << Event::getInitializer() << "\"[label=INIT,root=true]\n";
+
+	/* Print all nodes with each thread represented by a cluster */
+	for (auto i = 0u; i < before.size(); i++) {
+		auto &thr = threads[i];
+		ss << "subgraph cluster_" << thr.id << "{\n";
+		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
+		for (auto j = 1; j <= before[i]; j++) {
+			std::stringstream buf;
+			auto lab = thr.eventList[j];
+
+			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
+			ss << "\t" << lab.pos << " [label=\"" << buf.str() << "\""
+			   << (lab.pos == e ? ",style=filled,fillcolor=yellow" : "") << "]\n";
+		}
+		ss << "}\n";
+	}
+
+	/* Print relations between events (po U rf) */
+	for (auto i = 0u; i < before.size(); i++) {
+		auto &thr = threads[i];
+		for (auto j = 0; j <= before[i]; j++) {
+			std::stringstream buf;
+			auto lab = thr.eventList[j];
+
+			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
+			/* Print a po-edge, but skip dummy start events for
+			 * all threads except for the first one */
+			if (j < before[i] && !(lab.isStart() && i > 0))
+				ss << lab.pos << " -> " << lab.pos.next() << "\n";
+			if (lab.isRead())
+				ss << "\t" << lab.rf << " -> " << lab.pos << "[color=green]\n";
+			if (thr.id > 0 && lab.isStart())
+				ss << "\t" << lab.rf << " -> " << lab.pos.next() << "[color=blue]\n";
+			if (lab.isJoin())
+				ss << "\t" << lab.rf << " -> " << lab.pos << "[color=blue]\n";
+		}
+	}
+
+	ss << "}\n";
+	fout << ss.str();
+	fout.close();
+}
+
 
 /************************************************************
  ** Overloaded operators

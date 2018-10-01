@@ -22,10 +22,6 @@
 #include "Parser.hpp"
 #include <cstdio>
 
-Parser::Parser()
-{
-}
-
 string Parser::readFile(const string &fileName)
 {
 	ifstream ifs(fileName.c_str(), ios::in | ios::binary | ios::ate);
@@ -39,12 +35,32 @@ string Parser::readFile(const string &fileName)
 	return string(&bytes[0], fileSize);
 }
 
+std::string Parser::getFileLineByNumber(const std::string &absPath, int line)
+{
+	std::ifstream ifs(absPath);
+	std::string s;
+	int curLine = 0;
+
+	while (ifs.good() && curLine < line) {
+		std::getline(ifs, s);
+		++curLine;
+	}
+	return s;
+}
+
 void Parser::stripWhitespace(std::string &s)
 {
 	s.erase(s.begin(), std::find_if(s.begin(), s.end(),
 		std::not1(std::ptr_fun<int, int>(std::isspace))));
 	s.erase(std::find_if(s.rbegin(), s.rend(),
 		std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
+void Parser::stripSlashes(std::string &absPath)
+{
+	auto i = absPath.find_last_of('/');
+	if (i != std::string::npos)
+		absPath = absPath.substr(i + 1);
 }
 
 void Parser::parseInstFromMData(std::stringstream &ss, std::vector<std::pair<int, std::string> > &prefix,
@@ -54,23 +70,13 @@ void Parser::parseInstFromMData(std::stringstream &ss, std::vector<std::pair<int
 		int line = pair.first;
 		std::string absPath = pair.second;
 
-		std::ifstream ifs(absPath);
-		std::string s;
-		int curLine = 0;
-		while (ifs.good() && curLine < line) {
-			std::getline(ifs, s);
-			++curLine;
-		}
-
+		auto s = getFileLineByNumber(absPath, line);
 		stripWhitespace(s);
-		ss << "[" << functionName << "] ";
-		auto i = absPath.find_last_of('/');
-		if (i == std::string::npos)
-			ss << absPath;
-		else
-			ss << absPath.substr(i + 1);
+		stripSlashes(absPath);
 
-		ss << ": " << line << ": ";
+		if (functionName != "")
+			ss << "[" << functionName << "] ";
+		ss << absPath << ": " << line << ": ";
 		ss << s << std::endl;
 	}
 }

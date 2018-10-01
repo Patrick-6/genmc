@@ -136,9 +136,10 @@ public:
 	/* Debugging methods */
 	void validateGraph(void);
 
-	/* Printing facilities */
+	/* Outputting facilities */
 	void printTraceBefore(Event e);
 	void prettyPrintGraph();
+	void dotPrintToFile(std::string &filename, std::vector<int> &before, Event e);
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
