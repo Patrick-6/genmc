@@ -26,6 +26,7 @@
 #include <set>
 
 enum ModelType { rc11, wrc11 };
+enum CheckPSCType { nocheck, weak, wb, full };
 
 class Config {
 
@@ -40,6 +41,7 @@ public:
 	std::string dotFile;
 	std::string specsFile;
 	ModelType model;
+	CheckPSCType checkPscAcyclicity;
 	int unroll;
 	bool spinAssume;
 	bool inputFromBitcodeFile;
@@ -48,7 +50,6 @@ public:
 	bool prettyPrintExecGraphs;
 	bool countDuplicateExecs;
 	bool printErrorTrace;
-	bool checkPscAcyclicity;
 	bool checkWbAcyclicity;
 
 	Config(int argc, char **argv);

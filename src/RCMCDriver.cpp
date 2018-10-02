@@ -83,7 +83,11 @@ void RCMCDriver::printResults()
 
 void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
 {
-	if (userConf->checkPscAcyclicity && !g.isPscAcyclic())
+	if (userConf->checkPscAcyclicity == full && !g.isPscAcyclic())
+		return;
+	if (userConf->checkPscAcyclicity == weak && !g.isPscWeakAcyclic())
+		return;
+	if (userConf->checkPscAcyclicity == wb   && !g.isPscWbAcyclic())
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
 		return;

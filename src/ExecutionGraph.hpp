@@ -59,6 +59,7 @@ public:
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
 	View getEventHbView(Event e);
 	View getEventMsgView(Event e);
+	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<llvm::GenericValue *> getDoubleLocs();
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
@@ -117,6 +118,8 @@ public:
 
 	/* Consistency checks */
 	bool isConsistent();
+	bool isPscWeakAcyclic();
+	bool isPscWbAcyclic();
 	bool isPscAcyclic();
 	bool isWbAcyclic();
 
@@ -168,13 +171,23 @@ protected:
 	std::vector<Event> getStoresWB(llvm::GenericValue *addr);
 	std::vector<Event> getRMWChain(Event &store);
 	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, std::vector<Event> &chain);
-	std::pair<std::vector<int>, std::vector<int> >
-	addReadsToSCList(std::vector<Event> &scs, std::vector<Event> &fcs,
-			 std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-			 std::vector<bool> &matrix, std::list<Event> &es);
+	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
+			std::vector<int> &moAfter, std::vector<int> &moRfAfter,
+			std::vector<bool> &matrix, EventLabel &lab);
+	void addMoRfEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
+			  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
+			  std::vector<bool> &matrix, EventLabel &lab);
+	std::vector<int> getSCRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, EventLabel &lab);
+	std::vector<int> getSCFenceRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, EventLabel &lab);
+	void addInitEdges(std::vector<Event> &scs, std::vector<Event> &fcs, std::vector<bool> &matrix);
+	void addSbHbEdges(std::vector<Event> &scs, std::vector<bool> &matrix);
 	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
-		       llvm::GenericValue *addr, std::vector<bool> &matrix);
-	std::vector<bool> calcWb(std::vector<Event> &stores);
+		       std::vector<Event> &mo, std::vector<bool> &matrix);
+	void addSCWbEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
+			 std::vector<Event> &stores, std::vector<bool> &wbMatrix,
+			 std::vector<bool> &pscMatrix);
+	std::pair<std::vector<Event>, std::vector<bool> >
+	calcWb(llvm::GenericValue *addr);
 
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);

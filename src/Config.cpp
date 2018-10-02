@@ -47,12 +47,17 @@ static llvm::cl::opt<std::string>
 clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("file"),
 	       llvm::cl::cat(clGeneral),
 	       llvm::cl::desc("Dumps an error graph to a file (DOT format)"));
-static llvm::cl::opt<bool>
-clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::cat(clGeneral),
-		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"));
+static llvm::cl::opt<CheckPSCType>
+clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::init(nocheck), llvm::cl::cat(clGeneral),
+		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"),
+		     llvm::cl::values(
+		      clEnumValN(nocheck, "none", "Disable PSC checks"),
+		       clEnumVal(weak,            "Check PSC-weak"),
+		       clEnumVal(wb,              "Check PSC-wb"),
+		       clEnumVal(full,            "Check complete PSC"), NULL));
 static llvm::cl::opt<bool>
 clCheckWbAcyclicity("check-wb-acyclicity", llvm::cl::cat(clGeneral),
-		     llvm::cl::desc("Check whether WB is acycli at the end of each execution"));
+		     llvm::cl::desc("Check whether WB is acyclic at the end of each execution"));
 static llvm::cl::opt<std::string>
 clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("file"),
 		   llvm::cl::cat(clGeneral),
