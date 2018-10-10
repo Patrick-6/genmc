@@ -23,7 +23,7 @@ RCMC=../src/rcmc
 
 # Check to see whether we are called from a parent sript..
 total_time="${total_time:-0}"
-model="${model:-rc11}"
+model="${model:-wb}"
 
 runvariants() {
     printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"

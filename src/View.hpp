@@ -43,8 +43,10 @@ public:
 
 	/* Overloaded operators */
 	inline int operator[](int idx) const {
-//		view_.grow(idx);
-		return view_[idx];
+		if (idx < (int) view_.size())
+			return view_[idx];
+		else
+			return 0;
 	}
 	inline int &operator[](int idx) {
 		view_.grow(idx);

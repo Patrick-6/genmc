@@ -21,7 +21,6 @@
 #ifndef __EXECUTION_GRAPH_HPP__
 #define __EXECUTION_GRAPH_HPP__
 
-#include "Config.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
 #include "Library.hpp"
@@ -106,8 +105,11 @@ public:
 	std::vector<int> getHbRfBefore(std::vector<Event> &es);
 
 	/* Calculation of writes a read can read from */
-	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr, ModelType model);
-	std::vector<std::vector<Event> > splitLocMOBefore(View &before, std::vector<Event> &stores);
+	std::vector<Event> getStoresToLocWeakRA(llvm::GenericValue *addr);
+	std::vector<Event> getStoresToLocMO(llvm::GenericValue *addr);
+	std::vector<Event> getStoresToLocWB(llvm::GenericValue *addr);
+	std::pair<std::vector<Event>, std::vector<Event> >
+	splitLocMOBefore(const std::vector<Event> &locMO, View &before);
 
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
@@ -118,9 +120,10 @@ public:
 
 	/* Consistency checks */
 	bool isConsistent();
-	bool isPscWeakAcyclic();
-	bool isPscWbAcyclic();
-	bool isPscAcyclic();
+	bool isPscWeakAcyclicWB();
+	bool isPscWbAcyclicWB();
+	bool isPscAcyclicWB();
+	bool isPscAcyclicMO();
 	bool isWbAcyclic();
 
 	/* Scheduling methods */

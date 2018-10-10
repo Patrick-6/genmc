@@ -54,7 +54,7 @@ struct StackItem {
 
 class RCMCDriver {
 
-private:
+protected:
 	std::string sourceCode;
 	Config *userConf;
 	std::unique_ptr<llvm::Module> mod;
@@ -71,12 +71,16 @@ private:
 
 	void parseLLVMFile(const std::string &fileName);
 
-public:
-	RCMCDriver(Config *conf, std::vector<Library> &granted,
-		   std::vector<Library> &toVerify, clock_t start);
 	RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod,
 		   std::vector<Library> &granted, std::vector<Library> &toVerify,
 		   clock_t start); /* TODO: Check pass by ref */
+public:
+
+	static RCMCDriver *create(Config *conf, std::unique_ptr<llvm::Module> mod,
+				  std::vector<Library> &granted,
+				  std::vector<Library> &toVerify, clock_t start);
+
+	virtual ~RCMCDriver() {};
 
 	void trackRead(Event e) { workstack.push_back(e); };
 	void addToWorklist(Event e, StackItem s);
@@ -92,13 +96,64 @@ public:
 	void handleFinishedExecution(ExecutionGraph &g);
 
 	void visitGraph(ExecutionGraph &g);
-	void visitStore(ExecutionGraph &g);
-	void visitStoreWeakRA(ExecutionGraph &g);
-	void visitStoreMO(ExecutionGraph &g);
-	bool visitRMWStore(ExecutionGraph &g);
-	bool visitRMWStoreWeakRA(ExecutionGraph &g);
-	bool visitRMWStoreMO(ExecutionGraph &g);
+	bool checkForRaces(ExecutionGraph &g, EventType typ, llvm::AtomicOrdering ord, llvm::GenericValue *addr);
 	Event tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls);
 	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
 			  std::vector<Event> K0, EventLabel &wLab);
+
+	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
+	virtual void visitStore(ExecutionGraph &g) = 0;
+	virtual bool visitRMWStore(ExecutionGraph &g) = 0;
+	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
+	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
+};
+
+/* TODO: Fix destructors for Driver and config (basically for every class) */
+
+class RCMCDriverWeakRA : public RCMCDriver {
+
+public:
+
+	RCMCDriverWeakRA(Config *conf, std::unique_ptr<llvm::Module> mod,
+			 std::vector<Library> &granted, std::vector<Library> &toVerify,
+			 clock_t start)
+		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
+
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
+	void visitStore(ExecutionGraph &g);
+	bool visitRMWStore(ExecutionGraph &g);
+	bool checkPscAcyclicity(ExecutionGraph &g);
+	bool isExecutionValid(ExecutionGraph &g);
+};
+
+class RCMCDriverMO : public RCMCDriver {
+
+public:
+
+	RCMCDriverMO(Config *conf, std::unique_ptr<llvm::Module> mod,
+		     std::vector<Library> &granted, std::vector<Library> &toVerify,
+		     clock_t start)
+		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
+
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
+	void visitStore(ExecutionGraph &g);
+	bool visitRMWStore(ExecutionGraph &g);
+	bool checkPscAcyclicity(ExecutionGraph &g);
+	bool isExecutionValid(ExecutionGraph &g);
+};
+
+class RCMCDriverWB : public RCMCDriver {
+
+public:
+
+	RCMCDriverWB(Config *conf, std::unique_ptr<llvm::Module> mod,
+		     std::vector<Library> &granted, std::vector<Library> &toVerify,
+		     clock_t start)
+		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
+
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
+	void visitStore(ExecutionGraph &g);
+	bool visitRMWStore(ExecutionGraph &g);
+	bool checkPscAcyclicity(ExecutionGraph &g);
+	bool isExecutionValid(ExecutionGraph &g);
 };

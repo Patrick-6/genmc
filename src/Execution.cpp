@@ -1268,15 +1268,14 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	/* Check for races */
-	if (!g.findRaceForNewLoad(I.getOrdering(), ptr).isInitializer() &&
-	    g.isPscAcyclic() && (userConf->model == rc11 || g.isWbAcyclic())) {
+	if (driver->checkForRaces(g, ERead, I.getOrdering(), ptr)) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
 		abort();
 	}
 
 	/* Get all stores to this location from which we can read from */
-	std::vector<Event> validStores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> validStores = driver->getStoresToLoc(ptr);
 	// std::vector<Event> validStores =
 	// 	properlyOrderStores(Plain, typ, ptr, {}, stores);
 
@@ -1320,11 +1319,10 @@ void Interpreter::visitStoreInst(StoreInst &I)
 		return;
 
 	/* Check for races */
-	if (!g.findRaceForNewStore(I.getOrdering(), ptr).isInitializer() &&
-	    g.isPscAcyclic() && (userConf->model == rc11 || g.isWbAcyclic())) {
+	if (driver->checkForRaces(g, EWrite, I.getOrdering(), ptr)) {
 		dbgs() << "Race detected!\n";
 		driver->printResults();
-			abort();
+		abort();
 	}
 
 	/* Add store to graph and (possibly) revisit some reads */
@@ -1509,7 +1507,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> stores = driver->getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
@@ -1606,7 +1604,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> stores = driver->getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(RMW, typ, ptr, {}, stores);
 
@@ -2749,7 +2747,7 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 
 	/* Is the execution that led to the error consistent? */
-	if (!g.isPscAcyclic() || (userConf->model == wrc11 && !g.isWbAcyclic())) {
+	if (!driver->isExecutionValid(g)) {
 		ECStack().clear();
 		g.threads[g.currentT].isBlocked = true;
 		return;
@@ -3019,7 +3017,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	}
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> stores = driver->getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 
@@ -3119,7 +3117,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	}
 
 	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = g.getStoresToLoc(ptr, userConf->model);
+	std::vector<Event> stores = driver->getStoresToLoc(ptr);
 	std::vector<Event> validStores =
 		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
 

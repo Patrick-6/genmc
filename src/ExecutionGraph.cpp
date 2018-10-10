@@ -591,7 +591,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 	return boundary;
 }
 
-std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
+std::vector<Event> ExecutionGraph::getStoresToLocWeakRA(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
@@ -614,46 +614,46 @@ std::vector<Event> ExecutionGraph::getStoresWeakRA(llvm::GenericValue *addr)
 	return stores;
 }
 
-std::vector<std::vector<Event> > ExecutionGraph::splitLocMOBefore(View &before,
-								  std::vector<Event> &locMO)
+std::pair<std::vector<Event>, std::vector<Event> >
+ExecutionGraph::splitLocMOBefore(const std::vector<Event> &locMO, View &before)
 {
-	std::vector<std::vector<Event> > result;
-	std::vector<Event> revConcStores;
-	std::vector<Event> prevStores;
+	std::vector<Event> concurrent, previous;
 
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (before.empty() || !isWriteRfBefore(before, *rit)) {
-			revConcStores.push_back(*rit);
+			concurrent.push_back(*rit);
 		} else {
-			for (auto rit2 = rit; rit2 != locMO.rend(); ++rit2)
-				prevStores.push_back(*rit2);
-			result.push_back(revConcStores);
-			result.push_back(prevStores);
-			return result;
+			std::reverse_copy(rit, locMO.rend(), previous.begin());
+			break;
 		}
 	}
-	result.push_back(revConcStores);
-	result.push_back({});
-	return result;
-
+	std::reverse(concurrent.begin(), concurrent.end());
+	return std::make_pair(concurrent, previous);
 }
 
-std::vector<Event> ExecutionGraph::getStoresMO(llvm::GenericValue *addr)
+std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
-	View before = getHbBefore(getLastThreadEvent(currentT));
 	std::vector<Event> locMO = modOrder.getAtLoc(addr);
+	View before = getHbBefore(getLastThreadEvent(currentT));
 
-	std::vector<std::vector<Event> > partStores = splitLocMOBefore(before, locMO);
-	if (partStores[1].empty())
+	auto [concurrent, previous] = splitLocMOBefore(locMO, before);
+
+	/*
+	 * If there are not stores (hb;rf?)-before the current event
+	 * then we can read read from all concurrent stores and the
+	 * initializer store. Otherwise, we can read from all concurrent
+	 * stores and the mo-latest of the (hb;rf?)-before stores.
+	 */
+	if (previous.empty())
 		stores.push_back(Event::getInitializer());
 	else
-		stores.push_back(partStores[1][0]);
-	stores.insert(stores.end(), partStores[0].begin(), partStores[0].end());
+		stores.push_back(previous.back());
+	stores.insert(stores.end(), concurrent.begin(), concurrent.end());
 	return stores;
 }
 
-std::vector<Event> ExecutionGraph::getStoresWB(llvm::GenericValue *addr)
+std::vector<Event> ExecutionGraph::getStoresToLocWB(llvm::GenericValue *addr)
 {
 	auto[stores, wb] = calcWb(addr);
 	auto hbBefore = getHbBefore(getLastThreadEvent(currentT));
@@ -680,20 +680,6 @@ std::vector<Event> ExecutionGraph::getStoresWB(llvm::GenericValue *addr)
 	if (allowed)
 		result.insert(result.begin(), Event::getInitializer());
 	return result;
-}
-
-std::vector<Event> ExecutionGraph::getStoresToLoc(llvm::GenericValue *addr, ModelType model)
-{
-	switch (model) {
-	case wrc11:
-		return getStoresWeakRA(addr);
-	case rc11:
-//		return getStoresMO(addr);
-		return getStoresWB(addr);
-	default:
-		WARN("Unimplemented model.\n");
-		abort();
-	}
 }
 
 
@@ -1419,7 +1405,7 @@ void ExecutionGraph::addInitEdges(std::vector<Event> &scs, std::vector<Event> &f
 	return;
 }
 
-bool ExecutionGraph::isPscWeakAcyclic()
+bool ExecutionGraph::isPscWeakAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto[scs, fcs] = getSCs();
@@ -1454,7 +1440,7 @@ bool ExecutionGraph::isPscWeakAcyclic()
 	return isIrreflexive(matrix, scs.size());
 }
 
-bool ExecutionGraph::isPscWbAcyclic()
+bool ExecutionGraph::isPscWbAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto[scs, fcs] = getSCs();
@@ -1488,7 +1474,7 @@ bool ExecutionGraph::isPscWbAcyclic()
 	return isIrreflexive(matrix, scs.size());
 }
 
-bool ExecutionGraph::isPscAcyclic()
+bool ExecutionGraph::isPscAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto[scs, fcs] = getSCs();
@@ -1547,6 +1533,40 @@ bool ExecutionGraph::isPscAcyclic()
 
 	/* No valid MO combination found */
 	return false;
+}
+
+bool ExecutionGraph::isPscAcyclicMO()
+{
+	/* Collect all SC events (except for RMW loads) */
+	auto[scs, fcs] = getSCs();
+
+	/* If there are no SC events, it is a valid execution */
+	if (scs.empty())
+		return true;
+
+	/* Sort SC accesses for easier look-up, and create PSC matrix */
+	std::vector<bool> matrix(scs.size() * scs.size(), false);
+	std::sort(scs.begin(), scs.end());
+
+	/* Add edges from the initializer write (special case) */
+	addInitEdges(scs, fcs, matrix);
+	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
+	addSbHbEdges(scs, matrix);
+
+	/*
+	 * Collect memory locations with more than one SC accesses
+	 * and add the rest of PSC_base and PSC_fence for only
+	 * _one_ possible extension of WB for each location
+	 */
+	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
+	for (auto loc : scLocs) {
+		auto stores = modOrder.getAtLoc(loc);
+		addSCEcos(scs, fcs, stores, matrix);
+	}
+
+	/* Calculate the transitive closure of the bool matrix */
+	calcTransClosure(matrix, scs.size());
+	return isIrreflexive(matrix, scs.size());
 }
 
 std::pair<std::vector<Event>, std::vector<bool> >

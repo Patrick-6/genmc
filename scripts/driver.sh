@@ -35,10 +35,10 @@ fi
 
 # First run the testcases in the correct/ directory
 echo ''; printline
-echo '--- Preparing to run CORRECT testcases under RC11'
+echo '--- Preparing to run CORRECT testcases under WB'
 printline; echo ''
 
-model=rc11 && source runcorrect.sh
+model=wb && source runcorrect.sh
 
 # echo ''; printline
 # echo '--- Preparing to run CORRECT testcases under Weak RC11'

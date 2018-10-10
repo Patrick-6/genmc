@@ -25,8 +25,8 @@
 #include <llvm/Support/CommandLine.h>
 #include <set>
 
-enum ModelType { rc11, wrc11 };
-enum CheckPSCType { nocheck, weak, wb, full };
+enum class ModelType { weakra, mo, wb };
+enum class CheckPSCType { nocheck, weak, wb, full };
 
 class Config {
 

@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 			     [](Library &l){ return l.getType() == ToVerify; });
 	}
 	if (conf->inputFromBitcodeFile) {
-		RCMCDriver *driver = new RCMCDriver(conf, granted, toVerify, start);
+		RCMCDriver *driver = RCMCDriver::create(conf, nullptr, granted, toVerify, start);
 		driver->parseRun(parser);
 		delete conf;
 		delete driver;
@@ -155,11 +155,11 @@ int main(int argc, char **argv)
 		return 1;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	RCMCDriver *driver = new RCMCDriver(conf, Act->takeModule(), granted, toVerify, start);
+	RCMCDriver *driver = RCMCDriver::create(conf, Act->takeModule(), granted, toVerify, start);
 #else
 	RCMCDriver *driver =
-		new RCMCDriver(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
-			       granted, toVerify, start);
+		RCMCDriver::create(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
+				   granted, toVerify, start);
 #endif
 
 	driver->run();

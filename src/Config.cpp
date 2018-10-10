@@ -36,9 +36,11 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
-		    clEnumVal(rc11 , "RC11 model"),
-		    clEnumVal(wrc11, "Weak RC11 model"), NULL),
+		    clEnumValN(ModelType::weakra, "weakra", "Weak RA model"),
+		    clEnumValN(ModelType::mo, "mo",         "MO model"),
+		    clEnumValN(ModelType::wb, "wb",         "WB model"), NULL),
 	    llvm::cl::cat(clGeneral),
+	    llvm::cl::init(ModelType::wb),
 	    llvm::cl::desc("Choose model type:"));
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
@@ -48,13 +50,13 @@ clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("fil
 	       llvm::cl::cat(clGeneral),
 	       llvm::cl::desc("Dumps an error graph to a file (DOT format)"));
 static llvm::cl::opt<CheckPSCType>
-clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::init(nocheck), llvm::cl::cat(clGeneral),
+clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::init(CheckPSCType::nocheck), llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"),
 		     llvm::cl::values(
-		      clEnumValN(nocheck, "none", "Disable PSC checks"),
-		       clEnumVal(weak,            "Check PSC-weak"),
-		       clEnumVal(wb,              "Check PSC-wb"),
-		       clEnumVal(full,            "Check complete PSC"), NULL));
+			     clEnumValN(CheckPSCType::nocheck, "none", "Disable PSC checks"),
+			     clEnumValN(CheckPSCType::weak,    "weak", "Check PSC-weak"),
+			     clEnumValN(CheckPSCType::wb,      "wb",   "Check PSC-wb"),
+			     clEnumValN(CheckPSCType::full,    "full", "Check complete PSC"), NULL));
 static llvm::cl::opt<bool>
 clCheckWbAcyclicity("check-wb-acyclicity", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Check whether WB is acyclic at the end of each execution"));

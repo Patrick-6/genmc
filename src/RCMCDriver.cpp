@@ -36,9 +36,10 @@ void abortHandler(int signum)
 	exit(42);
 }
 
-RCMCDriver::RCMCDriver(Config *conf, std::vector<Library> &granted,
-		       std::vector<Library> &toVerify, clock_t start)
-	: userConf(conf), grantedLibs(granted), toVerifyLibs(toVerify),
+RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod,
+		       std::vector<Library> &granted, std::vector<Library> &toVerify,
+		       clock_t start)
+	: userConf(conf), mod(std::move(mod)), grantedLibs(granted), toVerifyLibs(toVerify),
 	  explored(0), duplicates(0), start(start)
 {
 	/*
@@ -51,15 +52,22 @@ RCMCDriver::RCMCDriver(Config *conf, std::vector<Library> &granted,
 	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(0, &ErrorStr))
 		WARN("Could not resolve symbols in the program: " + ErrorStr);
 }
-RCMCDriver::RCMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod,
-		       std::vector<Library> &granted, std::vector<Library> &toVerify,
-		       clock_t start)
-	: userConf(conf), mod(std::move(mod)), grantedLibs(granted), toVerifyLibs(toVerify),
-	  explored(0), duplicates(0), start(start)
+
+RCMCDriver *RCMCDriver::create(Config *conf, std::unique_ptr<llvm::Module> mod,
+			       std::vector<Library> &granted, std::vector<Library> &toVerify,
+			       clock_t start)
 {
-	std::string ErrorStr;
-	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(0, &ErrorStr))
-		WARN("Could not resolve symbols in the program: " + ErrorStr);
+	switch (conf->model) {
+	case ModelType::weakra:
+		return new RCMCDriverWeakRA(conf, std::move(mod), granted, toVerify, start);
+	case ModelType::mo:
+		return new RCMCDriverMO(conf, std::move(mod), granted, toVerify, start);
+	case ModelType::wb:
+		return new RCMCDriverWB(conf, std::move(mod), granted, toVerify, start);
+	default:
+		WARN("Unsupported model type! Exiting...\n");
+		abort();
+	}
 }
 
 void RCMCDriver::parseRun(Parser &parser)
@@ -83,11 +91,7 @@ void RCMCDriver::printResults()
 
 void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
 {
-	if (userConf->checkPscAcyclicity == full && !g.isPscAcyclic())
-		return;
-	if (userConf->checkPscAcyclicity == weak && !g.isPscWeakAcyclic())
-		return;
-	if (userConf->checkPscAcyclicity == wb   && !g.isPscWbAcyclic())
+	if (!checkPscAcyclicity(g))
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
 		return;
@@ -333,129 +337,24 @@ start:
 	goto start;
 }
 
-void RCMCDriver::visitStore(ExecutionGraph &g)
+/*
+ * This function is called to check for races when a new event is added.
+ * When a race is detected, we have to actually ensure that the execution is valid,
+ * in the sense that it is consistent. Thus, this method relies on overrided
+ * virtual methods to check for consistency, depending on the operating mode
+ * of the driver.
+ */
+bool RCMCDriver::checkForRaces(ExecutionGraph &g, EventType typ,
+			       llvm::AtomicOrdering ord, llvm::GenericValue *addr)
 {
-	switch (userConf->model) {
-	case wrc11:
-		visitStoreWeakRA(g);
-		return;
+	switch (typ) {
+	case ERead:
+		return !g.findRaceForNewLoad(ord, addr).isInitializer() && isExecutionValid(g);
+	case EWrite:
+		return !g.findRaceForNewStore(ord,addr).isInitializer() && isExecutionValid(g);
 	default:
-		visitStoreMO(g);
-		return;
+		BUG();
 	}
-}
-
-void RCMCDriver::visitStoreWeakRA(ExecutionGraph &g)
-{
-	Event s = g.getLastThreadEvent(g.currentT);
-	EventLabel &sLab = g.getEventLabel(s);
-
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	std::vector<Event> ls = g.getRevisitLoads(s);
-	std::vector<std::vector<Event > > rSets =
-		EE->calcRevisitSets(ls, {}, sLab);
-	revisitReads(g, rSets, {}, sLab);
-}
-
-void RCMCDriver::visitStoreMO(ExecutionGraph &g)
-{
-	Event store = g.getLastThreadEvent(g.currentT);
-	EventLabel &sLab = g.getEventLabel(store);
-	std::vector<Event> loads = g.getRevisitLoads(store);
-
-	g.modOrder.addAtLocEnd(sLab.addr, store);
-	for (auto &l : loads) {
-		EventLabel &rLab = g.getEventLabel(l);
-
-		auto writePrefix = g.getPrefixLabelsNotBefore(store, rLab.loadPreds);
-		std::vector<Event> writePrefixPos = {store};
-
-		std::for_each(writePrefix.begin(), writePrefix.end(),
-			      [&writePrefixPos, &rLab](const EventLabel &eLab)
-			      { if (eLab.isRead() && eLab.pos.index > rLab.loadPreds[eLab.pos.thread])
-					      writePrefixPos.push_back(eLab.rf); });
-
-		if (rLab.revs.contains(writePrefixPos))
-			continue;
-
-		rLab.revs.add(writePrefixPos);
-		addToWorklist(l, StackItem(SWrite, store, g.getPorfBefore(store), writePrefix, false));
-	}
-}
-
-bool RCMCDriver::visitRMWStore(ExecutionGraph &g)
-{
-	switch (userConf->model) {
-	case wrc11:
-		return visitRMWStoreWeakRA(g);
-	default:
-		return visitRMWStoreMO(g);
-	}
-}
-
-bool RCMCDriver::visitRMWStoreWeakRA(ExecutionGraph &g)
-{
-	Event s = g.getLastThreadEvent(g.currentT);
-	EventLabel &sLab = g.getEventLabel(s);
-	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
-
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	std::vector<Event> ls = g.getRevisitLoads(s);
-
-	llvm::GenericValue val =
-		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-	std::vector<Event> pendingRMWs =
-		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
-	std::vector<std::vector<Event> > rSets =
-		EE->calcRevisitSets(ls, pendingRMWs, sLab);
-
-	revisitReads(g, rSets, pendingRMWs, sLab);
-
-	return pendingRMWs.empty();
-}
-
-bool RCMCDriver::visitRMWStoreMO(ExecutionGraph &g)
-{
-	Event s = g.getLastThreadEvent(g.currentT);
-	EventLabel &sLab = g.getEventLabel(s);
-	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
-
-	g.modOrder.addAtLocEnd(lab.addr, s);
-	llvm::GenericValue val =
-		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-	std::vector<Event> pendingRMWs =
-		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
-
-	std::vector<Event> ls = g.getRevisitLoadsRMW(s);
-	if (pendingRMWs.size() > 0)
-		ls.erase(std::remove_if(ls.begin(), ls.end(), [&g, &pendingRMWs](Event &e)
-					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.loadPreds[e.thread]; }),
-			 ls.end());
-
-	for (auto &l : ls) {
-		EventLabel &rLab = g.getEventLabel(l);
-
-		auto writePrefix = g.getPrefixLabelsNotBefore(s, rLab.loadPreds);
-		std::vector<Event> writePrefixPos = {s};
-		std::for_each(writePrefix.begin(), writePrefix.end(),
-			      [&writePrefixPos, &rLab](const EventLabel &eLab)
-			      { if (eLab.isRead() && eLab.pos.index > rLab.loadPreds[eLab.pos.thread])
-					      writePrefixPos.push_back(eLab.rf); });
-
-		if (rLab.revs.contains(writePrefixPos))
-			continue;
-
-		bool willBeRevisited = false;
-		if (pendingRMWs.size() > 0 && l == pendingRMWs.back())
-			willBeRevisited = true;
-
-		rLab.revs.add(writePrefixPos);
-		addToWorklist(l, StackItem(SWrite, s, g.getPorfBefore(s), writePrefix, willBeRevisited));
-	}
-
-
-	return pendingRMWs.empty();
 }
 
 Event RCMCDriver::tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls)
@@ -536,4 +435,177 @@ void RCMCDriver::revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> 
 	}
 	return;
 }
-/* TODO: Fix destructors for Driver and config (basically for every class) */
+
+std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
+{
+	return currentEG->getStoresToLocWeakRA(addr);
+}
+
+void RCMCDriverWeakRA::visitStore(ExecutionGraph &g)
+{
+	Event s = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(s);
+
+	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
+	std::vector<Event> ls = g.getRevisitLoads(s);
+	std::vector<std::vector<Event > > rSets =
+		EE->calcRevisitSets(ls, {}, sLab);
+	revisitReads(g, rSets, {}, sLab);
+}
+
+bool RCMCDriverWeakRA::visitRMWStore(ExecutionGraph &g)
+{
+	Event s = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(s);
+	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
+
+	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
+	std::vector<Event> ls = g.getRevisitLoads(s);
+
+	llvm::GenericValue val =
+		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
+	std::vector<Event> pendingRMWs =
+		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
+	std::vector<std::vector<Event> > rSets =
+		EE->calcRevisitSets(ls, pendingRMWs, sLab);
+
+	revisitReads(g, rSets, pendingRMWs, sLab);
+
+	return pendingRMWs.empty();
+}
+
+bool RCMCDriverWeakRA::checkPscAcyclicity(ExecutionGraph &g)
+{
+	WARN("Unimplemented!\n");
+	abort();
+}
+
+bool RCMCDriverWeakRA::isExecutionValid(ExecutionGraph &g)
+{
+	WARN("Unimplemented!\n");
+	abort();
+}
+
+std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
+{
+	return currentEG->getStoresToLocMO(addr);
+}
+
+void RCMCDriverMO::visitStore(ExecutionGraph &g)
+{
+	WARN("Unimplemented!\n");
+	abort();
+}
+
+bool RCMCDriverMO::visitRMWStore(ExecutionGraph &g)
+{
+	WARN("Unimplemented!\n");
+	abort();
+}
+
+bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
+{
+	BUG();
+}
+
+bool RCMCDriverMO::isExecutionValid(ExecutionGraph &g)
+{
+	BUG();
+}
+
+std::vector<Event> RCMCDriverWB::getStoresToLoc(llvm::GenericValue *addr)
+{
+	return currentEG->getStoresToLocWB(addr);
+}
+
+void RCMCDriverWB::visitStore(ExecutionGraph &g)
+{
+	Event store = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(store);
+	std::vector<Event> loads = g.getRevisitLoads(store);
+
+	g.modOrder.addAtLocEnd(sLab.addr, store);
+	for (auto &l : loads) {
+		EventLabel &rLab = g.getEventLabel(l);
+
+		auto writePrefix = g.getPrefixLabelsNotBefore(store, rLab.loadPreds);
+		std::vector<Event> writePrefixPos = {store};
+
+		std::for_each(writePrefix.begin(), writePrefix.end(),
+			      [&writePrefixPos, &rLab](const EventLabel &eLab)
+			      { if (eLab.isRead() && eLab.pos.index > rLab.loadPreds[eLab.pos.thread])
+					      writePrefixPos.push_back(eLab.rf); });
+
+		if (rLab.revs.contains(writePrefixPos))
+			continue;
+
+		rLab.revs.add(writePrefixPos);
+		addToWorklist(l, StackItem(SWrite, store, g.getPorfBefore(store), writePrefix, false));
+	}
+}
+
+bool RCMCDriverWB::visitRMWStore(ExecutionGraph &g)
+{
+	Event s = g.getLastThreadEvent(g.currentT);
+	EventLabel &sLab = g.getEventLabel(s);
+	EventLabel &lab = g.getPreviousLabel(s); /* Need to refetch! */
+
+	g.modOrder.addAtLocEnd(lab.addr, s);
+	llvm::GenericValue val =
+		EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
+	std::vector<Event> pendingRMWs =
+		EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
+
+	std::vector<Event> ls = g.getRevisitLoadsRMW(s);
+	if (pendingRMWs.size() > 0)
+		ls.erase(std::remove_if(ls.begin(), ls.end(), [&g, &pendingRMWs](Event &e)
+					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
+					  return e.index > confLab.loadPreds[e.thread]; }),
+			 ls.end());
+
+	for (auto &l : ls) {
+		EventLabel &rLab = g.getEventLabel(l);
+
+		auto writePrefix = g.getPrefixLabelsNotBefore(s, rLab.loadPreds);
+		std::vector<Event> writePrefixPos = {s};
+		std::for_each(writePrefix.begin(), writePrefix.end(),
+			      [&writePrefixPos, &rLab](const EventLabel &eLab)
+			      { if (eLab.isRead() && eLab.pos.index > rLab.loadPreds[eLab.pos.thread])
+					      writePrefixPos.push_back(eLab.rf); });
+
+		if (rLab.revs.contains(writePrefixPos))
+			continue;
+
+		bool willBeRevisited = false;
+		if (pendingRMWs.size() > 0 && l == pendingRMWs.back())
+			willBeRevisited = true;
+
+		rLab.revs.add(writePrefixPos);
+		addToWorklist(l, StackItem(SWrite, s, g.getPorfBefore(s), writePrefix, willBeRevisited));
+	}
+
+
+	return pendingRMWs.empty();
+}
+
+bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)
+{
+	switch (userConf->checkPscAcyclicity) {
+	case CheckPSCType::nocheck:
+		return true;
+	case CheckPSCType::weak:
+		return g.isPscWeakAcyclicWB();
+	case CheckPSCType::wb:
+		return g.isPscWbAcyclicWB();
+	case CheckPSCType::full:
+		return g.isPscAcyclicWB();
+	default:
+		WARN("Unimplemented model!\n");
+		BUG();
+	}
+}
+
+bool RCMCDriverWB::isExecutionValid(ExecutionGraph &g)
+{
+	return g.isPscAcyclicWB();
+}
