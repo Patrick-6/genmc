@@ -46,13 +46,27 @@ RevisitSet::const_iterator RevisitSet::cend()   { return rev_.cend(); }
 
 void RevisitSet::add(std::vector<Event> &es)
 {
-	rev_.push_back(es);
+	rev_.push_back(std::make_pair(es, std::vector<std::pair<Event, Event> >()));
+}
+
+void RevisitSet::add(std::vector<Event> &es, std::vector<std::pair<Event, Event> > &mos)
+{
+	rev_.push_back(std::make_pair(es, mos));
 }
 
 bool RevisitSet::contains(std::vector<Event> &es)
 {
-	for (auto &v : rev_)
-		if (v == es)
+	for (auto &p : rev_)
+		if (p.first == es)
+			return true;
+	return false;
+}
+
+bool RevisitSet::contains(const std::vector<Event> &es,
+			  const std::vector<std::pair<Event, Event> > &mos)
+{
+	for (auto &p : rev_)
+		if (p.first == es && p.second == mos)
 			return true;
 	return false;
 }
@@ -65,7 +79,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev)
 {
 	s << "Revisit Set:\n";
 	for (auto &r : rev.rev_) {
-		for (auto &e : r)
+		for (auto &e : r.first)
 			s << e << " ";
 		s << "\n";
 	}

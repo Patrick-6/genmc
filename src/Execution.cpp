@@ -1287,8 +1287,8 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	/* Push all the other alternatives choices to the Stack */
 //	std::vector<int> preds = g.getGraphState();
 	Event e = g.getLastThreadEvent(g.currentT);
-	EventLabel &lab = g.getEventLabel(e);
-	driver->trackRead(e);
+//	EventLabel &lab = g.getEventLabel(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
@@ -1519,7 +1519,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackRead(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
@@ -1616,7 +1616,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackRead(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
@@ -3029,7 +3029,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackRead(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
@@ -3129,7 +3129,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 
 	EventLabel &lab = g.getEventLabel(e);
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackRead(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
@@ -3177,7 +3177,7 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	/* Calculate available RFs, not taking into account BOTTOM,
 	 * if Library has functional Rfs */
 	auto bottom = Event::getInitializer();
-	auto stores = g.modOrder.getAtLoc(ptr);
+	auto stores(g.modOrder[ptr]);
 	if (lib.hasFunctionalRfs()) {
 		auto it = std::find_if(stores.begin(), stores.end(),
 				       [&g](Event &e){ return g.getEventLabel(e).isBottom(); });
@@ -3219,7 +3219,7 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	g.changeRf(lab, validStores[0]); /* Move this into filtered..?? */
 
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackRead(e);
+	driver->trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
 		if (!lib.hasFunctionalRfs() || g.getEventLabel(*it).rfm1.size() == 0) {
 			driver->addToWorklist(e, StackItem(SRead, *it));
@@ -3236,7 +3236,8 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		// 		 ls.end());
 		BUG_ON(rfLab.rfm1.size() > 1);
 		auto &confLab = g.getEventLabel(rfLab.rfm1.back());
-		auto prefix = g.getPrefixLabelsNotBefore(lab.pos, confLab.loadPreds);
+		auto before = g.getPorfBefore(lab.pos);
+		auto prefix = g.getPrefixLabelsNotBefore(before, confLab.loadPreds);
 		std::vector<Event> prefixPos = {lab.pos};
 		std::for_each(prefix.begin(), prefix.end(),
 			      [&prefixPos, &confLab](const EventLabel &eLab)
@@ -3249,7 +3250,7 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		bool willBeRevisited = true;
 
 		confLab.revs.add(prefixPos);
-		driver->addToWorklist(confLab.pos, StackItem(GRead, rfLab.pos, g.getPorfBefore(lab.pos),
+		driver->addToWorklist(confLab.pos, StackItem(GRead, rfLab.pos, before,
 							     prefix, willBeRevisited, lab.pos));
 	}
 

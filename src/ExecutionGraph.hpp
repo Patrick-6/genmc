@@ -51,8 +51,8 @@ public:
 	// 	: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
 
 	/* Basic getter methods */
-	EventLabel& getEventLabel(Event &e);
-	EventLabel& getPreviousLabel(Event &e);
+	EventLabel& getEventLabel(const Event &e);
+	EventLabel& getPreviousLabel(const Event &e);
 	EventLabel& getLastThreadLabel(int thread);
 	Event getLastThreadEvent(int thread);
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
@@ -63,9 +63,6 @@ public:
 	std::vector<int> getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
-	std::vector<EventLabel> getPrefixLabelsNotBefore(Event &e, std::vector<int> &before);
-	std::vector<Event> getRevisitLoads(Event &store);
-	std::vector<Event> getRevisitLoadsRMW(Event &store);
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -104,6 +101,15 @@ public:
 	View getHbPoBefore(Event e);
 	std::vector<int> getHbRfBefore(std::vector<Event> &es);
 
+	/* Calculation of particular sets of events/event labels */
+	std::vector<EventLabel>	getPrefixLabelsNotBefore(const std::vector<int> &prefix,
+							 const std::vector<int> &before);
+	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
+					   const std::vector<int> &before);
+	std::vector<std::pair<Event, Event> >
+	getMOPredsInBefore(const std::vector<EventLabel> &labs,
+			   const std::vector<int> &before);
+
 	/* Calculation of writes a read can read from */
 	std::vector<Event> getStoresToLocWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresToLocMO(llvm::GenericValue *addr);
@@ -111,11 +117,17 @@ public:
 	std::pair<std::vector<Event>, std::vector<Event> >
 	splitLocMOBefore(const std::vector<Event> &locMO, View &before);
 
+	/* Calculation of loads that can be revisited */
+	std::vector<Event> getRevisitLoadsMO(EventLabel &sLab);
+	std::vector<Event> getRevisitLoadsWB(EventLabel &sLab);
+	std::vector<Event> getRevisitLoadsRMWWB(EventLabel &sLab);
+
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
-	void cutToLoad(Event &load);
+	void cutToEventView(Event &e, const std::vector<int> &view);
 	void restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
-				std::vector<EventLabel> &storePrefix);
+				std::vector<EventLabel> &storePrefix,
+				std::vector<std::pair<Event, Event> > &moPlacings);
 	void clearAllStacks(void);
 
 	/* Consistency checks */
@@ -160,7 +172,7 @@ protected:
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, std::vector<int> &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
-//	std::vector<Event> calcOptionalRfs(Event store, std::vector<Event> &locMO);
+	std::vector<Event> calcOptionalRfs(const std::vector<Event> &locMO, Event store);
 	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);

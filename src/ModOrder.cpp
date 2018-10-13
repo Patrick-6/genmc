@@ -50,12 +50,7 @@ llvm::GenericValue *ModOrder::getAddrAtPos(ModOrder::iterator it)
 	return it->first;
 }
 
-std::vector<Event> ModOrder::getAtLoc(llvm::GenericValue *addr)
-{
-	return mo_[addr];
-}
-
-std::vector<Event> ModOrder::getMoAfter(llvm::GenericValue *addr, Event e)
+std::vector<Event> ModOrder::getMoAfter(llvm::GenericValue *addr, const Event &e)
 {
 	std::vector<Event> res;
 	for (auto rit = mo_[addr].rbegin(); rit != mo_[addr].rend(); ++rit) {
@@ -68,31 +63,36 @@ std::vector<Event> ModOrder::getMoAfter(llvm::GenericValue *addr, Event e)
 	BUG();
 }
 
-void ModOrder::addAtLocEnd(llvm::GenericValue *addr, Event e)
+void ModOrder::addAtLocEnd(llvm::GenericValue *addr, const Event &e)
 {
-	mo_[addr].push_back(e);
+       mo_[addr].push_back(e);
 }
 
-void ModOrder::addAtLocPos(llvm::GenericValue *addr, std::vector<Event>::iterator it, Event e)
+void ModOrder::addAtLocAfter(llvm::GenericValue *addr, const Event &pred, const Event &e)
 {
-	mo_[addr].insert(it, e);
+	/* If there is no predecessor, put the store in the beginning */
+	if (pred == Event::getInitializer()) {
+		mo_[addr].insert(mo_[addr].begin(), e);
+		return;
+	}
+
+	/* Otherwise, place it in the appropriate place */
+	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+		if (*it == pred) {
+			mo_[addr].insert(it + 1, e);
+			return;
+		}
+	}
+	/* Pred has to be either INIT or in this location's MO */
+	BUG();
 }
 
-void ModOrder::setLoc(llvm::GenericValue *addr, std::vector<Event> &locMO)
+bool ModOrder::locContains(llvm::GenericValue *addr, const Event &e)
 {
-	mo_[addr] = locMO;
+	return e == Event::getInitializer() ||
+	      std::any_of(mo_[addr].begin(), mo_[addr].end(), [&e](Event s){ return s == e; });
 }
 
-std::vector<Event>::iterator ModOrder::getRMWPos(llvm::GenericValue *addr, Event rf)
-{
-	if (rf.isInitializer())
-		return mo_[addr].begin();
-
-	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it)
-		if (*it == rf)
-			return ++it;
-	return mo_[addr].end();
-}
 
 /************************************************************
  ** Overloaded operators

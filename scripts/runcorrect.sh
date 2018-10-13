@@ -21,8 +21,7 @@
 source terminal.sh
 RCMC=../src/rcmc
 
-# Check to see whether we are called from a parent sript..
-total_time="${total_time:-0}"
+runtime=0
 model="${model:-wb}"
 
 runvariants() {
@@ -45,7 +44,7 @@ runvariants() {
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
-	total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
+	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`
 	expected="${expected:-${explored}}"
 	if test "${expected}" != "${explored}"
 	then
@@ -73,6 +72,10 @@ runvariants() {
 
 runtest() {
     dir=$1
+    if [ -z "$(ls ${dir})" -o ! -d "${dir}/variants" ] # Skip empty directories
+    then
+	return
+    fi
     if test -f "${dir}/args.${model}.in"
     then
 	while read test_args <&3 && read expected <&4; do
@@ -88,6 +91,12 @@ runtest() {
     fi
 }
 
+# Update status
+echo ''; printline
+echo -n '--- Preparing to run CORRECT testcases under '
+echo "${model}" | awk '{ print toupper($0) }'
+printline; echo ''
+
 # Print table's header
 printline
 printf "| %-25s | %-10s | %-20s | %-10s | %-20s |\n" \
@@ -95,7 +104,7 @@ printf "| %-25s | %-10s | %-20s | %-10s | %-20s |\n" \
        "${CYAN}Files${NC}" "${CYAN}Avg. time${NC}"
 printline
 
-# Run correct testcases
+# Run correct testcases and update status
 for dir in ../tests/correct/*
 do
     if test -n "${fastrun}"
@@ -108,3 +117,5 @@ do
     runtest "${dir}"
 done
 printline
+echo '--- Test time: ' "${runtime}"
+printline; echo ''

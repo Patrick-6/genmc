@@ -33,7 +33,9 @@ enum RevisitType { NotRevisitable, Normal, RMWConflict };
 class RevisitSet {
 
 protected:
-	typedef std::vector<std::vector<Event> > RevSet;
+	typedef std::vector<std::pair<std::vector<Event>,
+				      std::vector<std::pair<Event, Event> > >
+			    > RevSet;
 	RevSet rev_;
 
 public:
@@ -50,7 +52,10 @@ public:
 
 	/* Basic getter/setters and existential checks */
 	void add(std::vector<Event> &es);
+	void add(std::vector<Event> &es, std::vector<std::pair<Event, Event> > &mos);
 	bool contains(std::vector<Event> &es);
+	bool contains(const std::vector<Event> &es,
+		      const std::vector<std::pair<Event, Event> > &mos);
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const RevisitSet &rev);

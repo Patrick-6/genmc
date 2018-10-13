@@ -34,17 +34,12 @@ then
 fi
 
 # First run the testcases in the correct/ directory
-echo ''; printline
-echo '--- Preparing to run CORRECT testcases under WB'
-printline; echo ''
-
+# ... under WB
 model=wb && source runcorrect.sh
-
-# echo ''; printline
-# echo '--- Preparing to run CORRECT testcases under Weak RC11'
-# printline; echo ''
-
-# model=wrc11 && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# ... and under MO
+model=mo && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 # # Then, run the testcases in the wrong/ directory
 # echo ''; printline

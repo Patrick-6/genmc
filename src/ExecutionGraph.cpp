@@ -36,12 +36,12 @@ ExecutionGraph::ExecutionGraph(llvm::Interpreter *EE) : EE(EE), currentT(0) {}
  ** Basic getter methods
  ***********************************************************/
 
-EventLabel& ExecutionGraph::getEventLabel(Event &e)
+EventLabel& ExecutionGraph::getEventLabel(const Event &e)
 {
 	return threads[e.thread].eventList[e.index];
 }
 
-EventLabel& ExecutionGraph::getPreviousLabel(Event &e)
+EventLabel& ExecutionGraph::getPreviousLabel(const Event &e)
 {
 	return threads[e.thread].eventList[e.index-1];
 }
@@ -106,26 +106,10 @@ bool ExecutionGraph::isThreadComplete(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].isFinish();
 }
 
-std::vector<EventLabel>
-ExecutionGraph::getPrefixLabelsNotBefore(Event &e, std::vector<int> &before)
+std::vector<Event> ExecutionGraph::getRevisitLoadsWB(EventLabel &sLab)
 {
-	std::vector<EventLabel> result;
-	std::vector<int> prefix = getPorfBefore(e);
-
-	for (auto i = 0u; i < threads.size(); i++) {
-		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
-			EventLabel &lab = threads[i].eventList[j];
-			result.push_back(lab);
-		}
-	}
-	return result;
-}
-
-std::vector<Event> ExecutionGraph::getRevisitLoads(Event &store)
-{
+	std::vector<int> before = getPorfBefore(sLab.pos);
 	std::vector<Event> ls;
-	std::vector<int> before = getPorfBefore(store);
-	EventLabel &sLab = getEventLabel(store);
 
 	BUG_ON(!sLab.isWrite());
 	for (auto i = 0u; i < threads.size(); i++) {
@@ -165,7 +149,7 @@ std::vector<Event> ExecutionGraph::getRMWChain(Event &store)
 std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *loc,
 							  std::vector<Event> &chain)
 {
-	auto stores = modOrder.getAtLoc(loc);
+	auto &stores = modOrder[loc];
 	std::vector<Event> result;
 
 	for (auto &s : stores) {
@@ -179,12 +163,11 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *lo
 	return result;
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsRMW(Event &store)
+std::vector<Event> ExecutionGraph::getRevisitLoadsRMWWB(EventLabel &sLab)
 {
 	std::vector<Event> ls;
-	auto before = getPorfBefore(store);
-	auto &sLab = getEventLabel(store);
-	auto chain = getRMWChain(store);
+	auto before = getPorfBefore(sLab.pos);
+	auto chain = getRMWChain(sLab.pos);
 	auto hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
 
 	BUG_ON(!sLab.isWrite());
@@ -205,21 +188,53 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsRMW(Event &store)
 	return ls;
 }
 
-// std::vector<Event> ExecutionGraph::calcOptionalRfs(Event store, std::vector<Event> &locMO)
-// {
-// 	std::vector<Event> ls;
-// 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-// 		if (*rit == store)
-// 			return ls;
-// 		EventLabel &lab = getEventLabel(*rit);
-// 		if (lab.isWrite()) {
-// 			ls.push_back(lab.pos);
-// 			for (auto &l : lab.rfm1)
-// 				ls.push_back(l);
-// 		}
-// 	}
-// 	BUG();
-// }
+std::vector<Event> ExecutionGraph::calcOptionalRfs(const std::vector<Event> &locMO, Event store)
+{
+	std::vector<Event> ls;
+	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
+		if (*rit == store)
+			return ls;
+		auto &lab = getEventLabel(*rit);
+		if (lab.isWrite()) {
+			ls.push_back(lab.pos);
+			for (auto &l : lab.rfm1)
+				ls.push_back(l);
+		}
+	}
+	BUG();
+}
+
+std::vector<Event> ExecutionGraph::getRevisitLoadsMO(EventLabel &sLab)
+{
+	std::vector<int> before = getPorfBefore(sLab.pos);
+	std::vector<Event> ls;
+
+	BUG_ON(!sLab.isWrite());
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
+				ls.push_back(lab.pos);
+		}
+	}
+
+	auto &locMO = modOrder[sLab.addr];
+
+	/* If this store is mo-maximal then we are done */
+	if (locMO.back() == sLab.pos)
+		return ls;
+
+	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
+	std::vector<Event> optRfs = calcOptionalRfs(locMO, sLab.pos);
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [this, &optRfs](Event e)
+				{ View before = this->getHbPoBefore(e);
+				  return std::any_of(optRfs.begin(), optRfs.end(),
+					 [&before](Event ev)
+					 { return ev.index <= before[ev.thread]; });
+				}), ls.end());
+	return ls;
+}
+
 
 /************************************************************
  ** Basic setter methods
@@ -561,6 +576,78 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 
 
 /************************************************************
+ ** Calculation of particular sets of events/event labels
+ ***********************************************************/
+
+std::vector<EventLabel>
+ExecutionGraph::getPrefixLabelsNotBefore(const std::vector<int> &prefix,
+					 const std::vector<int> &before)
+{
+	std::vector<EventLabel> result;
+
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
+			EventLabel &lab = threads[i].eventList[j];
+			result.push_back(lab);
+		}
+	}
+	return result;
+}
+
+std::vector<Event>
+ExecutionGraph::getRfsNotBefore(const std::vector<EventLabel> &labs,
+				const std::vector<int> &before)
+{
+	std::vector<Event> rfs;
+
+	std::for_each(labs.begin(), labs.end(), [&rfs, &before](const EventLabel &lab)
+		      { if (lab.isRead() && lab.pos.index > before[lab.pos.thread])
+				      rfs.push_back(lab.rf); });
+	return rfs;
+}
+
+std::vector<std::pair<Event, Event> >
+ExecutionGraph::getMOPredsInBefore(const std::vector<EventLabel> &labs,
+				   const std::vector<int> &before)
+{
+	std::vector<std::pair<Event, Event> > pairs;
+
+	for (auto &lab : labs) {
+		/* Only store MO pairs for labels that are not in before */
+		if (!lab.isWrite() || lab.pos.index <= before[lab.pos.thread])
+			continue;
+
+		auto &locMO = modOrder[lab.addr];
+		auto moPos = std::find(locMO.begin(), locMO.end(), lab.pos);
+
+		/* This store must definitely be in this location's MO */
+		BUG_ON(moPos == locMO.end());
+
+		/* We need to find the previous MO store that is in before or
+		 * in the vector for which we are getting the predecessors */
+		std::reverse_iterator<std::vector<Event>::iterator> predPos(moPos);
+		auto predFound = false;
+		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
+			if (rit->index <= before[rit->thread] ||
+			    std::find_if(labs.begin(), labs.end(),
+					 [rit](const EventLabel &lab)
+					 { return lab.pos == *rit; })
+			    != labs.end()) {
+				pairs.push_back(std::make_pair(*moPos, *rit));
+				predFound = true;
+				break;
+			}
+		}
+		/* If there is not predecessor in the vector or in before,
+		 * then INIT is the only valid predecessor */
+		if (!predFound)
+			pairs.push_back(std::make_pair(*moPos, Event::getInitializer()));
+	}
+	return pairs;
+}
+
+
+/************************************************************
  ** Calculation of writes a read can read from
  ***********************************************************/
 
@@ -585,7 +672,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 	if (before.empty())
 		return boundary;
 
-	for (auto &e : modOrder.getAtLoc(addr))
+	for (auto &e : modOrder[addr])
 		if (isWriteRfBefore(before, e))
 			boundary.push_back(e.prev());
 	return boundary;
@@ -596,7 +683,7 @@ std::vector<Event> ExecutionGraph::getStoresToLocWeakRA(llvm::GenericValue *addr
 	std::vector<Event> stores;
 	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
 	if (overwritten.empty()) {
-		std::vector<Event> locMO = modOrder.getAtLoc(addr);
+		auto &locMO = modOrder[addr];
 		stores.push_back(Event::getInitializer());
 		stores.insert(stores.end(), locMO.begin(), locMO.end());
 		return stores;
@@ -614,6 +701,7 @@ std::vector<Event> ExecutionGraph::getStoresToLocWeakRA(llvm::GenericValue *addr
 	return stores;
 }
 
+/* View before _can_ be implicitly modified */
 std::pair<std::vector<Event>, std::vector<Event> >
 ExecutionGraph::splitLocMOBefore(const std::vector<Event> &locMO, View &before)
 {
@@ -623,7 +711,7 @@ ExecutionGraph::splitLocMOBefore(const std::vector<Event> &locMO, View &before)
 		if (before.empty() || !isWriteRfBefore(before, *rit)) {
 			concurrent.push_back(*rit);
 		} else {
-			std::reverse_copy(rit, locMO.rend(), previous.begin());
+			std::reverse_copy(rit, locMO.rend(), std::back_inserter(previous));
 			break;
 		}
 	}
@@ -634,7 +722,7 @@ ExecutionGraph::splitLocMOBefore(const std::vector<Event> &locMO, View &before)
 std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
-	std::vector<Event> locMO = modOrder.getAtLoc(addr);
+	std::vector<Event> &locMO = modOrder[addr];
 	View before = getHbBefore(getLastThreadEvent(currentT));
 
 	auto [concurrent, previous] = splitLocMOBefore(locMO, before);
@@ -706,10 +794,9 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 }
 
 
-void ExecutionGraph::cutToLoad(Event &load)
+void ExecutionGraph::cutToEventView(Event &e, const std::vector<int> &preds)
 {
-	EventLabel &lab = getEventLabel(load);
-	auto preds = lab.loadPreds;
+	EventLabel &lab = getEventLabel(e);
 	for (auto i = 0u; i < threads.size(); i++) {
 		maxEvents[i] = preds[i] + 1;
 		Thread &thr = threads[i];
@@ -730,42 +817,19 @@ void ExecutionGraph::cutToLoad(Event &load)
 	return;
 }
 
-// void ExecutionGraph::makeLoadPrevsNotRevisitable(EventLabel &rLab)
-// {
-// //	std::vector<int> before = getPorfBefore(rLab.pos);
-// 	for (auto i = 0u; i < threads.size(); i++) {
-// 		for (auto j = 0; j <= rLab.loadPreds[i]; j++) {
-// 			EventLabel &lab = threads[i].eventList[j];
-// 			if (lab.isRead())// && lab.pos.index <= before[lab.pos.thread])
-// 				lab.makeNotRevisitable();
-// 		}
-// 	}
-// }
-
-// void ExecutionGraph::makeLoadPrefixNotRevisitable(EventLabel &rLab)
-// {
-// 	std::vector<int> before = getPorfBefore(rLab.pos);
-// 	for (auto i = 0u; i < before.size(); i++) {
-// 		for (auto j = 0; j <= before[i]; j++) {
-// 			EventLabel &lab = threads[i].eventList[j];
-// 			if (lab.isRead() && lab.pos.index <= before[lab.pos.thread])
-// 				lab.makeNotRevisitable();
-// 		}
-// 	}
-// }
-
 void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
-					std::vector<EventLabel> &storePrefix)
+					std::vector<EventLabel> &storePrefix,
+					std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	for (auto &lab : storePrefix) {
-		BUG_ON(lab.pos.index > maxEvents[lab.pos.thread] && "Events should be added in order!");
+		BUG_ON(lab.pos.index > maxEvents[lab.pos.thread] &&
+		       "Events should be added in order!");
 		if (lab.pos.index == maxEvents[lab.pos.thread]) {
 			maxEvents[lab.pos.thread] = lab.pos.index + 1;
 			threads[lab.pos.thread].eventList.push_back(lab);
-			if (lab.isWrite())
-				modOrder.addAtLocEnd(lab.addr, lab.pos);
 		}
 	}
+
 	for (auto &lab : storePrefix) {
 		EventLabel &curLab = threads[lab.pos.thread].eventList[lab.pos.index];
 		if (curLab.pos.index <= storePorfBefore[curLab.pos.thread] &&
@@ -783,67 +847,27 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<int> &stor
 		}
 		curLab.rfm1.remove(rLab.pos);
 	}
+
+	/* If there are no specific mo placings, just insert all stores */
+	if (moPlacings.empty()) {
+		std::for_each(storePrefix.begin(), storePrefix.end(), [this](EventLabel &lab)
+			      { if (lab.isWrite()) this->modOrder.addAtLocEnd(lab.addr, lab.pos); });
+		return;
+	}
+
+	/* Otherwise, insert the writes of storePrefix into the appropriate places */
+	int inserted = 0;
+	while (inserted < moPlacings.size()) {
+		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
+			auto &lab = getEventLabel(it->first);
+			if (modOrder.locContains(lab.addr, it->second) &&
+			    !modOrder.locContains(lab.addr, it->first)) {
+				modOrder.addAtLocAfter(lab.addr, it->second, it->first);
+				++inserted;
+			}
+		}
+	}
 }
-
-// void ExecutionGraph::cutToCopyAfter(ExecutionGraph &other, std::vector<int> &after)
-// {
-// 	for (auto i = 0u; i < other.threads.size(); i++) {
-// 		maxEvents[i] = after[i];
-// 		Thread &oThr = other.threads[i];
-// 		threads.push_back(Thread(oThr.threadFun, oThr.id, oThr.parentId, oThr.initSF));
-// 		Thread &thr = threads[i];
-// 		for (auto j = 0; j < maxEvents[i]; j++) {
-// 			EventLabel &oLab = oThr.eventList[j];
-// 			if (!(oLab.isWrite() || oLab.isCreate() || oLab.isFinish())) {
-// 				thr.eventList.push_back(oLab);
-// 			} else {
-// 				thr.eventList.push_back(oLab);
-// 				EventLabel &lab = getEventLabel(oLab.pos);
-// 				lab.rfm1.remove_if([&after](Event &e)
-// 						   { return e.index >= after[e.thread]; });
-// 			}
-// 		}
-// 	}
-// 	for (auto it = other.revisit.begin(); it != other.revisit.end(); ++it) {
-// 		Event &e = other.revisit.getAtPos(it);
-// 		if (e.index >= after[e.thread])
-// 			continue;
-// 		revisit.add(e);
-// 	}
-// 	for (auto it = other.modOrder.begin(); it != other.modOrder.end(); ++it) {
-// 		llvm::GenericValue *addr = other.modOrder.getAddrAtPos(it);
-// 		std::vector<Event> locMO = other.modOrder.getAtLoc(addr);
-// 		for (auto &s : locMO)
-// 			if (s.index < after[s.thread])
-// 				modOrder.addAtLocEnd(addr, s);
-// 	}
-// }
-
-// void ExecutionGraph::modifyRfs(std::vector<Event> &es, Event store)
-// {
-// 	if (es.empty())
-// 		return;
-
-// 	for (auto it = es.begin(); it != es.end(); ++it) {
-// 		EventLabel &lab = getEventLabel(*it);
-// 		Event oldRf = lab.rf;
-// 		lab.rf = store;
-// 		if (!oldRf.isInitializer()) {
-// 			EventLabel &oldL = getEventLabel(oldRf);
-// 			oldL.rfm1.remove(*it);
-// 		}
-// 		lab.hbView = getEventHbView(lab.pos.prev());
-// 		lab.hbView[lab.pos.thread] = lab.pos.index;
-// 		if (lab.isAtLeastAcquire()) {
-// 			View mV = getEventMsgView(lab.rf);
-// 			lab.hbView.updateMax(mV);
-// 		}
-// 	}
-// 	/* TODO: Do some check here for initializer or if it is already present? */
-// 	EventLabel &sLab = getEventLabel(store);
-// 	sLab.rfm1.insert(sLab.rfm1.end(), es.begin(), es.end());
-// 	return;
-// }
 
 void ExecutionGraph::clearAllStacks(void)
 {
@@ -917,7 +941,7 @@ void ExecutionGraph::tryToBacktrack(void)
 Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
 {
 	View before = getHbBefore(getLastThreadEvent(currentT));
-	std::vector<Event> stores = modOrder.getAtLoc(ptr);
+	std::vector<Event> &stores = modOrder[ptr];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -1392,7 +1416,7 @@ void ExecutionGraph::addInitEdges(std::vector<Event> &scs, std::vector<Event> &f
 				continue;
 			std::vector<int> preds = calcSCPreds(scs, fcs, lab.pos);
 			std::vector<int> fencePreds = calcSCFencesPreds(scs, fcs, lab.pos);
-			for (auto &w : modOrder.getAtLoc(lab.addr)) {
+			for (auto &w : modOrder[lab.addr]) {
 				std::vector<int> wSuccs = calcSCSuccs(scs, fcs, w);
 				addEdgesFromTo(preds, wSuccs, scs.size(), matrix); /* Adds rb-edges */
 				for (auto &r : getEventLabel(w).rfm1) {
@@ -1560,7 +1584,7 @@ bool ExecutionGraph::isPscAcyclicMO()
 	 */
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto stores = modOrder.getAtLoc(loc);
+		auto &stores = modOrder[loc];
 		addSCEcos(scs, fcs, stores, matrix);
 	}
 
@@ -1572,7 +1596,7 @@ bool ExecutionGraph::isPscAcyclicMO()
 std::pair<std::vector<Event>, std::vector<bool> >
 ExecutionGraph::calcWb(llvm::GenericValue *addr)
 {
-	std::vector<Event> stores = modOrder.getAtLoc(addr);
+	std::vector<Event> stores(modOrder[addr]);
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
 
 	/* Sort so we can use calcEventIndex() */

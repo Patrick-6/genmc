@@ -48,12 +48,12 @@ public:
 
 	/* Basic getter/setter methods  */
 	llvm::GenericValue *getAddrAtPos(ModOrder::iterator it);
-	std::vector<Event> getAtLoc(llvm::GenericValue *addr);
-	std::vector<Event> getMoAfter(llvm::GenericValue *addr, Event e);
-	void addAtLocEnd(llvm::GenericValue *addr, Event e);
-	void addAtLocPos(llvm::GenericValue *addr, std::vector<Event>::iterator it, Event e);
-	void setLoc(llvm::GenericValue *addr, std::vector<Event> &locMO);
-	std::vector<Event>::iterator getRMWPos(llvm::GenericValue *addr, Event rf);
+	std::vector<Event> getMoAfter(llvm::GenericValue *addr, const Event &e);
+	void addAtLocEnd(llvm::GenericValue *addr, const Event &e);
+	void addAtLocAfter(llvm::GenericValue *addr, const Event &pred, const Event &e);
+	bool locContains(llvm::GenericValue *addr, const Event &e);
+
+	inline std::vector<Event> &operator[](llvm::GenericValue *addr) { return mo_[addr]; };
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ModOrder &rev);

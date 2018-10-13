@@ -29,23 +29,35 @@
 #include <unordered_map>
 #include <unordered_set>
 
-enum StackItemType { SRead, SWrite, GRead, GRead2, None };
+enum StackItemType { SRead, SWrite, MOWrite, GRead, GRead2, None };
 
 struct StackItem {
 	StackItemType type;
 	Event shouldRf;
 	std::vector<int> storePorfBefore;
 	std::vector<EventLabel> writePrefix;
+	std::vector<Event> newMO;
+	std::vector<std::pair<Event, Event> > moPlacings;
+	std::vector<int> preds;
 	bool revisitable;
 	Event oldRf;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, Event shouldRf)
 		: type(t), shouldRf(shouldRf) {};
+	StackItem(StackItemType t, std::vector<Event> newMO, std::vector<int> preds)
+		: type(t), newMO(newMO), preds(preds) {};
 	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
 		  writePrefix(writePrefix), revisitable(revisitable) {};
+	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
+		  std::vector<EventLabel> &writePrefix,
+		  std::vector<std::pair<Event, Event> > moPlacings,
+		  bool revisitable)
+		: type(t), shouldRf(shouldRf), storePorfBefore(before),
+		  writePrefix(writePrefix), moPlacings(moPlacings),
+		  revisitable(revisitable) {};
 	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable, Event oldRf)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
@@ -82,9 +94,9 @@ public:
 
 	virtual ~RCMCDriver() {};
 
-	void trackRead(Event e) { workstack.push_back(e); };
+	void trackEvent(Event e) { workstack.push_back(e); };
 	void addToWorklist(Event e, StackItem s);
-	void filterWorklist(EventLabel lab, std::vector<int> &storeBefore);
+	void filterWorklist(const std::vector<int> &preds, const std::vector<int> &storeBefore);
 	std::pair<Event, StackItem> getNextItem();
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
@@ -98,12 +110,12 @@ public:
 	void visitGraph(ExecutionGraph &g);
 	bool checkForRaces(ExecutionGraph &g, EventType typ, llvm::AtomicOrdering ord, llvm::GenericValue *addr);
 	Event tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls);
-	void revisitReads(ExecutionGraph &g, std::vector<std::vector<Event> > &subsets,
-			  std::vector<Event> K0, EventLabel &wLab);
+
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual void visitStore(ExecutionGraph &g) = 0;
 	virtual bool visitRMWStore(ExecutionGraph &g) = 0;
+	virtual bool revisitReads(ExecutionGraph &g, EventLabel &sLab) = 0;
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
 };
@@ -122,6 +134,7 @@ public:
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	void visitStore(ExecutionGraph &g);
 	bool visitRMWStore(ExecutionGraph &g);
+	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -138,6 +151,7 @@ public:
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	void visitStore(ExecutionGraph &g);
 	bool visitRMWStore(ExecutionGraph &g);
+	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -154,6 +168,7 @@ public:
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	void visitStore(ExecutionGraph &g);
 	bool visitRMWStore(ExecutionGraph &g);
+	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
