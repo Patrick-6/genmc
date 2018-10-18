@@ -106,48 +106,45 @@ bool ExecutionGraph::isThreadComplete(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].isFinish();
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsWB(EventLabel &sLab)
-{
-	std::vector<int> before = getPorfBefore(sLab.pos);
-	std::vector<Event> ls;
-
-	BUG_ON(!sLab.isWrite());
-	for (auto i = 0u; i < threads.size(); i++) {
-		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
-			EventLabel &lab = threads[i].eventList[j];
-			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
-				ls.push_back(lab.pos);
-		}
-	}
-	return ls;
-}
-
-std::vector<Event> ExecutionGraph::getRMWChain(Event &store)
+std::vector<Event> ExecutionGraph::getRMWChain(EventLabel sLab)
 {
 	std::vector<Event> chain;
-	auto sLab = getEventLabel(store);
 
-	BUG_ON(!(sLab.isWrite() && sLab.isRMW()));
+	/*
+	 * This function should not be called with an event that is not
+	 * the store part of an RMW
+	 */
+	if (!sLab.isWrite() || !sLab.isRMW()) {
+		WARN("WARNING: getRMWChain() called with unexpected argument!\n");
+		return chain;
+	}
+
+	/* As long as you find successful RMWs, keep going down the chain */
 	while (sLab.isWrite() && sLab.isRMW()) {
 		chain.push_back(sLab.pos);
-		auto prev = sLab.pos.prev();
-		auto rLab = getEventLabel(prev);
+		auto rLab = getPreviousLabel(sLab.pos);
+
 		/* If the predecessor reads the initializer
 		 * event, then the chain is over */
 		if (rLab.rf.isInitializer()) {
 			chain.push_back(Event::getInitializer());
 			return chain;
 		}
+
+		/* Otherwise, go down one (rmw-1;rf-1)-step */
 		sLab = getEventLabel(rLab.rf);
 	}
-	/* We arrived at a non-RMW event (which is not the initializer),
-	 * so the chain is over */
+
+	/*
+	 * We arrived at a non-RMW event (which is not the initializer),
+	 * so the chain is over
+	 */
 	chain.push_back(sLab.pos);
 	return chain;
 }
 
 std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *loc,
-							  std::vector<Event> &chain)
+							  const std::vector<Event> &chain)
 {
 	auto &stores = modOrder[loc];
 	std::vector<Event> result;
@@ -163,20 +160,31 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *lo
 	return result;
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsRMWWB(EventLabel &sLab)
+std::vector<Event> ExecutionGraph::getRevisitLoadsWB(const EventLabel &sLab)
 {
-	std::vector<Event> ls;
 	auto before = getPorfBefore(sLab.pos);
-	auto chain = getRMWChain(sLab.pos);
-	auto hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
+	std::vector<Event> hbAfterStores, ls;
+
+	/*
+	 * If sLab is an RMW, we cannot revisit a read r for which
+	 * \exists c_a in C_a .
+	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
+	 *
+	 * since this will create a cycle in WB
+	 */
+	if (sLab.isRMW()) {
+		auto chain = getRMWChain(sLab);
+		hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
+	}
 
 	BUG_ON(!sLab.isWrite());
 	for (auto i = 0u; i < threads.size(); i++) {
 		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
 			EventLabel &lab = threads[i].eventList[j];
 			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable()) {
-				auto prev = lab.pos.prev();
-				auto &pLab = getEventLabel(prev);
+				auto &pLab = getPreviousLabel(lab.pos);
+
+				/* If this read can be revisited, add it to the result */
 				if (std::all_of(hbAfterStores.begin(), hbAfterStores.end(),
 						[&pLab, this](Event w)
 						{ return !this->isWriteRfBefore(pLab.hbView, w); }))
@@ -204,7 +212,7 @@ std::vector<Event> ExecutionGraph::calcOptionalRfs(const std::vector<Event> &loc
 	BUG();
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsMO(EventLabel &sLab)
+std::vector<Event> ExecutionGraph::getRevisitLoadsMO(const EventLabel &sLab)
 {
 	std::vector<int> before = getPorfBefore(sLab.pos);
 	std::vector<Event> ls;

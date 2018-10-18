@@ -1529,7 +1529,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	if (cmpRes.IntVal.getBoolValue()) {
 		g.addCASStoreToGraph(I.getSuccessOrdering(), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
-		interpRMW();
+		interpStore();
 	}
 
 	/* Return the appropriate result */
@@ -1628,7 +1628,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	++g.threads[g.currentT].globalInstructions;
 
 	/* Return the appropriate result */
-	interpRMW();
+	interpStore();
 	SetValue(&I, oldVal, SF);
 	return;
 }
@@ -2995,7 +2995,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		if (cmpRes.IntVal.getBoolValue()) {
 			g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
 			++g.threads[g.currentT].globalInstructions;
-			interpRMW();
+			interpStore();
 		} else {
 			g.tryToBacktrack();
 			return;
@@ -3039,7 +3039,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	if (cmpRes.IntVal.getBoolValue()) {
 		g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
-		interpRMW();
+		interpStore();
 	} else {
 		g.tryToBacktrack();
 		return;
@@ -3141,7 +3141,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 		++g.threads[g.currentT].globalInstructions;
 
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		interpRMW();
+		interpStore();
 	} else {
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 1); /* Failure */
 	}
@@ -3409,8 +3409,6 @@ void Interpreter::run()
 			visit(I);
 			if (getAction() == IStore)
 				driver->visitStore(g);
-			else if (getAction() == IRMW)
-				driver->visitRMWStore(g);
 		} else if (std::any_of(g.threads.begin(), g.threads.end(),
 				       [](Thread &thr){ return thr.isBlocked; })) {
 			break;

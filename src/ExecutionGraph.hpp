@@ -118,8 +118,8 @@ public:
 	splitLocMOBefore(const std::vector<Event> &locMO, View &before);
 
 	/* Calculation of loads that can be revisited */
-	std::vector<Event> getRevisitLoadsMO(EventLabel &sLab);
-	std::vector<Event> getRevisitLoadsWB(EventLabel &sLab);
+	std::vector<Event> getRevisitLoadsMO(const EventLabel &sLab);
+	std::vector<Event> getRevisitLoadsWB(const EventLabel &sLab);
 	std::vector<Event> getRevisitLoadsRMWWB(EventLabel &sLab);
 
 	/* Graph modification methods */
@@ -184,8 +184,8 @@ protected:
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 	std::vector<Event> getStoresWB(llvm::GenericValue *addr);
-	std::vector<Event> getRMWChain(Event &store);
-	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, std::vector<Event> &chain);
+	std::vector<Event> getRMWChain(EventLabel sLab);
+	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, const std::vector<Event> &chain);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
 			std::vector<int> &moAfter, std::vector<int> &moRfAfter,
 			std::vector<bool> &matrix, EventLabel &lab);
@@ -226,8 +226,5 @@ protected:
 	llvm::StringMap<std::vector<bool> >
 	calculateAllRelations(Library &lib, std::vector<Event> &es);
 };
-
-extern bool interpStore;
-extern bool interpRMW;
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

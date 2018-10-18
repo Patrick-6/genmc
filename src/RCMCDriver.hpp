@@ -113,8 +113,7 @@ public:
 
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
-	virtual void visitStore(ExecutionGraph &g) = 0;
-	virtual bool visitRMWStore(ExecutionGraph &g) = 0;
+	virtual bool visitStore(ExecutionGraph &g) = 0;
 	virtual bool revisitReads(ExecutionGraph &g, EventLabel &sLab) = 0;
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
@@ -132,8 +131,7 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	void visitStore(ExecutionGraph &g);
-	bool visitRMWStore(ExecutionGraph &g);
+	bool visitStore(ExecutionGraph &g);
 	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
@@ -149,8 +147,7 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	void visitStore(ExecutionGraph &g);
-	bool visitRMWStore(ExecutionGraph &g);
+	bool visitStore(ExecutionGraph &g);
 	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
@@ -166,8 +163,7 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	void visitStore(ExecutionGraph &g);
-	bool visitRMWStore(ExecutionGraph &g);
+	bool visitStore(ExecutionGraph &g);
 	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
