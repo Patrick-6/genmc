@@ -87,12 +87,12 @@ View ExecutionGraph::getEventMsgView(Event e)
 	return lab.msgView;
 }
 
-std::vector<int> ExecutionGraph::getGraphState(void)
+View ExecutionGraph::getGraphState(void)
 {
-	std::vector<int> state;
+	View state;
 
 	for (auto i = 0u; i < threads.size(); i++)
-		state.push_back(maxEvents[i] - 1);
+		state[i] = maxEvents[i] - 1;
 	return state;
 }
 
@@ -589,7 +589,7 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 
 std::vector<EventLabel>
 ExecutionGraph::getPrefixLabelsNotBefore(const std::vector<int> &prefix,
-					 const std::vector<int> &before)
+					 View &before)
 {
 	std::vector<EventLabel> result;
 
@@ -604,7 +604,7 @@ ExecutionGraph::getPrefixLabelsNotBefore(const std::vector<int> &prefix,
 
 std::vector<Event>
 ExecutionGraph::getRfsNotBefore(const std::vector<EventLabel> &labs,
-				const std::vector<int> &before)
+				View &before)
 {
 	std::vector<Event> rfs;
 
@@ -616,7 +616,7 @@ ExecutionGraph::getRfsNotBefore(const std::vector<EventLabel> &labs,
 
 std::vector<std::pair<Event, Event> >
 ExecutionGraph::getMOPredsInBefore(const std::vector<EventLabel> &labs,
-				   const std::vector<int> &before)
+				   View &before)
 {
 	std::vector<std::pair<Event, Event> > pairs;
 
@@ -802,7 +802,7 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 }
 
 
-void ExecutionGraph::cutToEventView(Event &e, const std::vector<int> &preds)
+void ExecutionGraph::cutToEventView(Event &e, View &preds)
 {
 	EventLabel &lab = getEventLabel(e);
 	for (auto i = 0u; i < threads.size(); i++) {

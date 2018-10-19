@@ -160,7 +160,7 @@ std::pair<Event, StackItem> RCMCDriver::getNextItem()
 	return std::make_pair(Event::getInitializer(), StackItem());
 }
 
-void RCMCDriver::filterWorklist(const std::vector<int> &preds, const std::vector<int> &storeBefore)
+void RCMCDriver::filterWorklist(View &preds, const std::vector<int> &storeBefore)
 {
 	workstack.erase(std::remove_if(workstack.begin(), workstack.end(),
 				       [&preds, &storeBefore](Event &e)

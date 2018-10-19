@@ -38,14 +38,14 @@ struct StackItem {
 	std::vector<EventLabel> writePrefix;
 	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
-	std::vector<int> preds;
+	View preds;
 	bool revisitable;
 	Event oldRf;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, Event shouldRf)
 		: type(t), shouldRf(shouldRf) {};
-	StackItem(StackItemType t, std::vector<Event> newMO, std::vector<int> preds)
+	StackItem(StackItemType t, std::vector<Event> newMO, View preds)
 		: type(t), newMO(newMO), preds(preds) {};
 	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable)
@@ -96,7 +96,7 @@ public:
 
 	void trackEvent(Event e) { workstack.push_back(e); };
 	void addToWorklist(Event e, StackItem s);
-	void filterWorklist(const std::vector<int> &preds, const std::vector<int> &storeBefore);
+	void filterWorklist(View &preds, const std::vector<int> &storeBefore);
 	std::pair<Event, StackItem> getNextItem();
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };

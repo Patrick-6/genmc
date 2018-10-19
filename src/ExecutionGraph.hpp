@@ -60,7 +60,7 @@ public:
 	View getEventMsgView(Event e);
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<llvm::GenericValue *> getDoubleLocs();
-	std::vector<int> getGraphState(void);
+	View getGraphState(void);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
 
@@ -103,12 +103,12 @@ public:
 
 	/* Calculation of particular sets of events/event labels */
 	std::vector<EventLabel>	getPrefixLabelsNotBefore(const std::vector<int> &prefix,
-							 const std::vector<int> &before);
+							 View &before);
 	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
-					   const std::vector<int> &before);
+					   View &before);
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<EventLabel> &labs,
-			   const std::vector<int> &before);
+			   View &before);
 
 	/* Calculation of writes a read can read from */
 	std::vector<Event> getStoresToLocWeakRA(llvm::GenericValue *addr);
@@ -124,7 +124,7 @@ public:
 
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
-	void cutToEventView(Event &e, const std::vector<int> &view);
+	void cutToEventView(Event &e, View &view);
 	void restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);

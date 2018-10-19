@@ -51,7 +51,7 @@ public:
 	bool bottom; /* For GWrites */
 	RevisitType revType;
 	RevisitSet revs;
-	std::vector<int> loadPreds;
+	View loadPreds;
 	std::vector<Event> invalidRfs;
 
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
