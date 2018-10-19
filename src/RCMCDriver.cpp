@@ -527,9 +527,10 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 {
 	EventLabel &lab = g.getEventLabel(toRevisit);
 
+	g.cutToEventView(lab.pos, lab.preds);
+
 	switch (p.type) {
 	case SRead: {
-		g.cutToEventView(toRevisit, lab.preds);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
 		filterWorklist(lab1.preds, p.storePorfBefore);
 
@@ -543,7 +544,6 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		return true;
 	}
 	case MOWrite: {
-		g.cutToEventView(lab.pos, lab.preds);
 		auto &sLab1 = g.getEventLabel(toRevisit);
 		filterWorklist(lab.preds, p.storePorfBefore);
 		g.modOrder[sLab1.addr] = p.newMO;
@@ -551,7 +551,6 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		return true;
 	}
 	case SWrite: {
-		g.cutToEventView(lab.pos, lab.preds);
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 		lab.changeRevisitStatus(p.revisitable);
@@ -656,9 +655,10 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 {
 	EventLabel &lab = g.getEventLabel(toRevisit);
 
+	g.cutToEventView(lab.pos, lab.preds);
+
 	switch (p.type) {
 	case SRead: {
-		g.cutToEventView(toRevisit, lab.preds);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
 		filterWorklist(lab1.preds, p.storePorfBefore);
 
@@ -672,12 +672,12 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		return true;
 	}
 	case SWrite: {
-		g.cutToEventView(lab.pos, lab.preds);
+
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 		lab.changeRevisitStatus(p.revisitable);
 
-		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
+		filterWorklist(lab.preds, p.storePorfBefore);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
 
 		g.changeRf(lab1, p.shouldRf);
