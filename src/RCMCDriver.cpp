@@ -31,6 +31,10 @@
 #include <csignal>
 #include <sstream>
 
+/************************************************************
+ ** GENERIC RCMC DRIVER
+ ***********************************************************/
+
 void abortHandler(int signum)
 {
 	exit(42);
@@ -207,116 +211,117 @@ start:
 			return;
 		}
 
-		validExecution = true;
+		validExecution = revisitReads(g, toRevisit, p);
+		// validExecution = true;
 //		llvm::dbgs() << "Popping from stack " << ((p.type == SRead) ? "Read\n" : "Write\n"); llvm::dbgs() << "Graph is " << g << "\n, " << explored << " executions so far\n";
 
-		if (p.type == SRead) {
-			EventLabel &lab = g.getEventLabel(toRevisit);
-			g.cutToEventView(toRevisit, lab.loadPreds);
-			EventLabel &lab1 = g.getEventLabel(toRevisit);
-			filterWorklist(lab1.loadPreds, p.storePorfBefore);
+// 		if (p.type == SRead) {
+// 			EventLabel &lab = g.getEventLabel(toRevisit);
+// 			g.cutToEventView(toRevisit, lab.loadPreds);
+// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
+// 			filterWorklist(lab1.loadPreds, p.storePorfBefore);
 
-			g.changeRf(lab1, p.shouldRf);
+// 			g.changeRf(lab1, p.shouldRf);
 
-			std::vector<Event> ls0({toRevisit});
-			Event added = tryAddRMWStores(g, ls0);
-			if (!added.isInitializer()) {
-				bool visitable = visitStore(g);
-				if (!visitable) {
-//					worklist[toRevisit].pop_back();
-					validExecution = false;
-				}
-			}
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-		} else if (p.type == MOWrite) {
-			auto &sLab = g.getEventLabel(toRevisit);
-			g.cutToEventView(sLab.pos, p.preds);
-			auto &sLab1 = g.getEventLabel(toRevisit);
-			filterWorklist(p.preds, p.storePorfBefore);
-			g.modOrder[sLab1.addr] = p.newMO;
-			revisitReads(g, sLab1);
-		} else if (p.type == GRead) {
-			auto &lab = g.getEventLabel(toRevisit);
-			g.cutToEventView(lab.pos, lab.loadPreds);
-			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+// 			std::vector<Event> ls0({toRevisit});
+// 			Event added = tryAddRMWStores(g, ls0);
+// 			if (!added.isInitializer()) {
+// 				bool visitable = visitStore(g);
+// 				if (!visitable) {
+// //					worklist[toRevisit].pop_back();
+// 					validExecution = false;
+// 				}
+// 			}
+// //			llvm::dbgs() << "After restriction: \n" << g << "\n";
+// 		} else if (p.type == MOWrite) {
+// 			auto &sLab = g.getEventLabel(toRevisit);
+// 			g.cutToEventView(sLab.pos, p.preds);
+// 			auto &sLab1 = g.getEventLabel(toRevisit);
+// 			filterWorklist(p.preds, p.storePorfBefore);
+// 			g.modOrder[sLab1.addr] = p.newMO;
+// 			pushReadsToRevisit(g, sLab1);
+// 		} else if (p.type == GRead) {
+// 			auto &lab = g.getEventLabel(toRevisit);
+// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
-			if (p.revisitable)
-				lab.makeRevisitable();
-			else
-				lab.makeNotRevisitable();
+// 			if (p.revisitable)
+// 				lab.makeRevisitable();
+// 			else
+// 				lab.makeNotRevisitable();
 
-			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
 
-			lab = g.getEventLabel(toRevisit);
-			auto &confLab = g.getEventLabel(p.oldRf);
+// 			lab = g.getEventLabel(toRevisit);
+// 			auto &confLab = g.getEventLabel(p.oldRf);
 
-			g.changeRf(lab, p.shouldRf);
+// 			g.changeRf(lab, p.shouldRf);
 
-			auto lib = Library::getLibByMemberName(getGrantedLibs(), confLab.functionName);
-			auto candidateRfs = std::vector<Event>(confLab.invalidRfs.begin() + 1,
-							       confLab.invalidRfs.end());
-			auto possibleRfs = g.filterLibConstraints(*lib, confLab.pos, candidateRfs);
+// 			auto lib = Library::getLibByMemberName(getGrantedLibs(), confLab.functionName);
+// 			auto candidateRfs = std::vector<Event>(confLab.invalidRfs.begin() + 1,
+// 							       confLab.invalidRfs.end());
+// 			auto possibleRfs = g.filterLibConstraints(*lib, confLab.pos, candidateRfs);
 
-			for (auto &s : possibleRfs) {
-				auto before = g.getPorfBefore(lab.pos);
-				auto prefix = g.getPrefixLabelsNotBefore(before, confLab.loadPreds);
-				auto prefixPos = g.getRfsNotBefore(prefix, confLab.loadPreds);
-				prefixPos.insert(prefixPos.begin(), lab.pos);
+// 			for (auto &s : possibleRfs) {
+// 				auto before = g.getPorfBefore(lab.pos);
+// 				auto prefix = g.getPrefixLabelsNotBefore(before, confLab.loadPreds);
+// 				auto prefixPos = g.getRfsNotBefore(prefix, confLab.loadPreds);
+// 				prefixPos.insert(prefixPos.begin(), lab.pos);
 
-				if (confLab.revs.contains(prefixPos))
-					continue;
+// 				if (confLab.revs.contains(prefixPos))
+// 					continue;
 
-				auto &rfLab = g.getEventLabel(s);
-				bool willBeRevisited = true;
+// 				auto &rfLab = g.getEventLabel(s);
+// 				bool willBeRevisited = true;
 
-				confLab.revs.add(prefixPos);
-				addToWorklist(confLab.pos, StackItem(GRead2, rfLab.pos, before,
-								     prefix, willBeRevisited));
-			}
+// 				confLab.revs.add(prefixPos);
+// 				addToWorklist(confLab.pos, StackItem(GRead2, rfLab.pos, before,
+// 								     prefix, willBeRevisited));
+// 			}
 
-			auto &lab2 = g.getEventLabel(p.oldRf);
-			g.changeRf(lab2, lab2.invalidRfs[0]); // hardcoding bottom seems excellent, right?
-		} else if (p.type == GRead2) {
-			auto &lab = g.getEventLabel(toRevisit);
-			g.cutToEventView(lab.pos, lab.loadPreds);
-			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+// 			auto &lab2 = g.getEventLabel(p.oldRf);
+// 			g.changeRf(lab2, lab2.invalidRfs[0]); // hardcoding bottom seems excellent, right?
+// 		} else if (p.type == GRead2) {
+// 			auto &lab = g.getEventLabel(toRevisit);
+// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
-			if (p.revisitable)
-				lab.makeRevisitable();
-			else
-				lab.makeNotRevisitable();
+// 			if (p.revisitable)
+// 				lab.makeRevisitable();
+// 			else
+// 				lab.makeNotRevisitable();
 
-			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
 
-			EventLabel &lab1 = g.getEventLabel(toRevisit);
-			g.changeRf(lab1, p.shouldRf);
-		} else {
-			EventLabel &lab = g.getEventLabel(toRevisit);
-			g.cutToEventView(lab.pos, lab.loadPreds);
-			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
+// 			g.changeRf(lab1, p.shouldRf);
+// 		} else {
+// 			EventLabel &lab = g.getEventLabel(toRevisit);
+// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
-			if (p.revisitable)
-				lab.makeRevisitable();
-			else
-				lab.makeNotRevisitable();
+// 			if (p.revisitable)
+// 				lab.makeRevisitable();
+// 			else
+// 				lab.makeNotRevisitable();
 
-			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
-			EventLabel &lab1 = g.getEventLabel(toRevisit);
+// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
 
-			g.changeRf(lab1, p.shouldRf);
+// 			g.changeRf(lab1, p.shouldRf);
 
-			std::vector<Event> ls0({toRevisit});
-			Event added = tryAddRMWStores(g, ls0);
-			if (!added.isInitializer()) {
-				bool visitable = visitStore(g);
-				if (!visitable) {
-//					worklist[toRevisit].pop_back();
-					validExecution = false;
-				}
-			}
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
+// 			std::vector<Event> ls0({toRevisit});
+// 			Event added = tryAddRMWStores(g, ls0);
+// 			if (!added.isInitializer()) {
+// 				bool visitable = visitStore(g);
+// 				if (!visitable) {
+// //					worklist[toRevisit].pop_back();
+// 					validExecution = false;
+// 				}
+// 			}
+// //			llvm::dbgs() << "After restriction: \n" << g << "\n";
 
-		}
+// 		}
 	} while (!validExecution);
 
 	g.currentT = 0;
@@ -386,6 +391,11 @@ Event RCMCDriver::tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls)
 	return Event::getInitializer(); /* No to-be-exclusive event found */
 }
 
+
+/************************************************************
+ ** WEAK RA DRIVER
+ ***********************************************************/
+
 std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 {
 	return currentEG->getStoresToLocWeakRA(addr);
@@ -396,7 +406,12 @@ bool RCMCDriverWeakRA::visitStore(ExecutionGraph &g)
 	BUG();
 }
 
-bool RCMCDriverWeakRA::revisitReads(ExecutionGraph &g, EventLabel &sLab)
+bool RCMCDriverWeakRA::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+{
+	BUG();
+}
+
+bool RCMCDriverWeakRA::revisitReads(ExecutionGraph &g, Event &e, StackItem &s)
 {
 	BUG();
 }
@@ -412,6 +427,11 @@ bool RCMCDriverWeakRA::isExecutionValid(ExecutionGraph &g)
 	WARN("Unimplemented!\n");
 	abort();
 }
+
+
+/************************************************************
+ ** MO DRIVER
+ ***********************************************************/
 
 std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
 {
@@ -431,12 +451,12 @@ bool RCMCDriverMO::visitStore(ExecutionGraph &g)
 	if (sLab.isRMW()) {
 		auto &pLab = g.getPreviousLabel(sLab.pos);
 		g.modOrder.addAtLocAfter(sLab.addr, pLab.rf, sLab.pos);
-		return revisitReads(g, sLab);
+		return pushReadsToRevisit(g, sLab);
 	}
 
 	/* Otherwise, we need to try all possible MO placings, and revisit for all of them */
 	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	revisitReads(g, sLab);
+	pushReadsToRevisit(g, sLab);
 
 	/* Check for alternative MOs */
 	if (concurrent.empty())
@@ -462,7 +482,7 @@ bool RCMCDriverMO::visitStore(ExecutionGraph &g)
 	return true;
 }
 
-bool RCMCDriverMO::revisitReads(ExecutionGraph &g, EventLabel &sLab)
+bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	std::vector<Event> loads = g.getRevisitLoadsMO(sLab);
 
@@ -503,6 +523,59 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, EventLabel &sLab)
 	return (!sLab.isRMW() || pendingRMWs.empty());
 }
 
+bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
+{
+	EventLabel &lab = g.getEventLabel(toRevisit);
+
+	switch (p.type) {
+	case SRead: {
+		g.cutToEventView(toRevisit, lab.loadPreds);
+		EventLabel &lab1 = g.getEventLabel(toRevisit);
+		filterWorklist(lab1.loadPreds, p.storePorfBefore);
+
+		g.changeRf(lab1, p.shouldRf);
+
+		std::vector<Event> ls0({toRevisit});
+		Event added = tryAddRMWStores(g, ls0);
+		if (!added.isInitializer())
+			return visitStore(g);
+//			llvm::dbgs() << "After restriction: \n" << g << "\n";
+		return true;
+	}
+	case MOWrite: {
+		g.cutToEventView(lab.pos, p.preds);
+		auto &sLab1 = g.getEventLabel(toRevisit);
+		filterWorklist(p.preds, p.storePorfBefore);
+		g.modOrder[sLab1.addr] = p.newMO;
+		pushReadsToRevisit(g, sLab1);
+		return true;
+	}
+	case SWrite: {
+		g.cutToEventView(lab.pos, lab.loadPreds);
+		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+
+		if (p.revisitable)
+			lab.makeRevisitable();
+		else
+			lab.makeNotRevisitable();
+
+		filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+		EventLabel &lab1 = g.getEventLabel(toRevisit);
+
+		g.changeRf(lab1, p.shouldRf);
+
+		std::vector<Event> ls0({toRevisit});
+		Event added = tryAddRMWStores(g, ls0);
+		if (!added.isInitializer())
+			return visitStore(g);
+//			llvm::dbgs() << "After restriction: \n" << g << "\n";
+		return true;
+	}
+	default:
+		BUG();
+	}
+}
+
 bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
 {
 	switch (userConf->checkPscAcyclicity) {
@@ -525,6 +598,11 @@ bool RCMCDriverMO::isExecutionValid(ExecutionGraph &g)
 	return g.isPscAcyclicMO();
 }
 
+
+/************************************************************
+ ** WB DRIVER
+ ***********************************************************/
+
 std::vector<Event> RCMCDriverWB::getStoresToLoc(llvm::GenericValue *addr)
 {
 	return currentEG->getStoresToLocWB(addr);
@@ -535,10 +613,10 @@ bool RCMCDriverWB::visitStore(ExecutionGraph &g)
 	auto &sLab = g.getLastThreadLabel(g.currentT);
 
 	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	return revisitReads(g, sLab);
+	return pushReadsToRevisit(g, sLab);
 }
 
-bool RCMCDriverWB::revisitReads(ExecutionGraph &g, EventLabel &sLab)
+bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	auto loads = g.getRevisitLoadsWB(sLab);
 
@@ -575,6 +653,51 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, EventLabel &sLab)
 		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix, willBeRevisited));
 	}
 	return (!sLab.isRMW() || pendingRMWs.empty());
+}
+
+bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
+{
+	EventLabel &lab = g.getEventLabel(toRevisit);
+
+	switch (p.type) {
+	case SRead: {
+		g.cutToEventView(toRevisit, lab.loadPreds);
+		EventLabel &lab1 = g.getEventLabel(toRevisit);
+		filterWorklist(lab1.loadPreds, p.storePorfBefore);
+
+		g.changeRf(lab1, p.shouldRf);
+
+		std::vector<Event> ls0({toRevisit});
+		Event added = tryAddRMWStores(g, ls0);
+		if (!added.isInitializer())
+			return visitStore(g);
+//			llvm::dbgs() << "After restriction: \n" << g << "\n";
+		return true;
+	}
+	case SWrite: {
+		g.cutToEventView(lab.pos, lab.loadPreds);
+		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+
+		if (p.revisitable)
+			lab.makeRevisitable();
+		else
+			lab.makeNotRevisitable();
+
+		filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+		EventLabel &lab1 = g.getEventLabel(toRevisit);
+
+		g.changeRf(lab1, p.shouldRf);
+
+		std::vector<Event> ls0({toRevisit});
+		Event added = tryAddRMWStores(g, ls0);
+		if (!added.isInitializer())
+			return visitStore(g);
+//			llvm::dbgs() << "After restriction: \n" << g << "\n";
+		return true;
+	}
+	default:
+		BUG();
+	}
 }
 
 bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)

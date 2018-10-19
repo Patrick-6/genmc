@@ -114,7 +114,8 @@ public:
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual bool visitStore(ExecutionGraph &g) = 0;
-	virtual bool revisitReads(ExecutionGraph &g, EventLabel &sLab) = 0;
+	virtual bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
+	virtual bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s) = 0;
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
 };
@@ -132,7 +133,8 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
-	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
+	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -148,7 +150,8 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
-	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
+	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -164,7 +167,20 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
-	bool revisitReads(ExecutionGraph &g, EventLabel &sLab);
+	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
+};
+
+class LibDriverMO : public RCMCDriverMO {
+
+public:
+	void something();
+};
+
+class LibDriverWB : public RCMCDriverWB {
+
+public:
+	void something();
 };

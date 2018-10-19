@@ -1611,7 +1611,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	/* ... and add a label with the appropriate store. */
 	g.addRMWReadToGraph(I.getOrdering(), ptr, val, I.getOperation(), typ, validStores[0]);
 	Event e = g.getLastThreadEvent(g.currentT);
-	std::vector<int> readPreds = g.getGraphState();
+//	std::vector<int> readPreds = g.getGraphState();
 //	g.revisit.add(e);
 
 	EventLabel &lab = g.getEventLabel(e);
