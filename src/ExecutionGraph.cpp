@@ -267,7 +267,7 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
-	lab.revType = Normal;
+	lab.makeRevisitable();
 	lab.preds = getGraphState();
 	++lab.preds[currentT];
 	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);

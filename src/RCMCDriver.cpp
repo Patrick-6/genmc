@@ -554,10 +554,7 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		g.cutToEventView(lab.pos, lab.preds);
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
-		if (p.revisitable)
-			lab.makeRevisitable();
-		else
-			lab.makeNotRevisitable();
+		lab.changeRevisitStatus(p.revisitable);
 
 		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
@@ -678,10 +675,7 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		g.cutToEventView(lab.pos, lab.preds);
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
-		if (p.revisitable)
-			lab.makeRevisitable();
-		else
-			lab.makeNotRevisitable();
+		lab.changeRevisitStatus(p.revisitable);
 
 		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);

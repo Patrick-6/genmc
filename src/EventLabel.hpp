@@ -49,7 +49,7 @@ public:
 	int cid; /* For TCreates */
 	std::string functionName; /* For GReads/GWrites */
 	bool bottom; /* For GWrites */
-	RevisitType revType;
+	bool revisitable;
 	RevisitSet revs;
 	View preds;
 	std::vector<Event> invalidRfs;
@@ -96,9 +96,10 @@ public:
 	bool isRMW() const;
 	bool isBottom() const;
 
-	bool isRevisitable()      { return revType == Normal || revType == RMWConflict; };
-	void makeNotRevisitable() { revType = NotRevisitable; };
-	void makeRevisitable()    { revType = Normal; };
+	bool isRevisitable()      { return revisitable; };
+	void makeNotRevisitable() { revisitable = false; };
+	void makeRevisitable()    { revisitable = true; };
+	void changeRevisitStatus(bool status) { revisitable = status; };
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };

@@ -25,8 +25,6 @@
 #include <llvm/Support/raw_ostream.h>
 #include <vector>
 
-enum RevisitType { NotRevisitable, Normal, RMWConflict };
-
 /*
  * RevisitSet class - This class represents the revisit set of an ExecutionGraph
  */
