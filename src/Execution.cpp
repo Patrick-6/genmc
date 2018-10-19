@@ -1327,7 +1327,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 	/* Add store to graph and (possibly) revisit some reads */
 	g.addStoreToGraph(I.getOrdering(), ptr, val, typ);
-	interpStore();
+	driver->visitStore(g);
 	return;
 }
 
@@ -1529,7 +1529,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	if (cmpRes.IntVal.getBoolValue()) {
 		g.addCASStoreToGraph(I.getSuccessOrdering(), ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
-		interpStore();
+		driver->visitStore(g);
 	}
 
 	/* Return the appropriate result */
@@ -1628,7 +1628,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	++g.threads[g.currentT].globalInstructions;
 
 	/* Return the appropriate result */
-	interpStore();
+	driver->visitStore(g);
 	SetValue(&I, oldVal, SF);
 	return;
 }
@@ -2995,7 +2995,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		if (cmpRes.IntVal.getBoolValue()) {
 			g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
 			++g.threads[g.currentT].globalInstructions;
-			interpStore();
+			driver->visitStore(g);
 		} else {
 			g.tryToBacktrack();
 			return;
@@ -3039,7 +3039,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	if (cmpRes.IntVal.getBoolValue()) {
 		g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
-		interpStore();
+		driver->visitStore(g);
 	} else {
 		g.tryToBacktrack();
 		return;
@@ -3078,7 +3078,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	}
 
 	g.addStoreToGraph(Release, ptr, val, typ);
-	interpStore();
+	driver->visitStore(g);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -3141,7 +3141,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 		++g.threads[g.currentT].globalInstructions;
 
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		interpStore();
+		driver->visitStore(g);
 	} else {
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 1); /* Failure */
 	}
@@ -3287,7 +3287,7 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 	g.addGStoreToGraph(mem.getOrdering(), ptr, val, typ, F->getName().str());
 	if (mem.isBottom())
 		g.getLastThreadLabel(g.currentT).bottom = true;
-	interpStore();
+	driver->visitStore(g);
 //	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 //	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -3400,15 +3400,12 @@ void Interpreter::run()
 	ExecutionGraph &g = *driver->getGraph();
 
 	while (true) {
-		resetAction();
 		if (userConf->validateExecGraphs)
 			g.validateGraph();
 		if (g.scheduleNext()) {
 			llvm::ExecutionContext &SF = ECStack().back();
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
-			if (getAction() == IStore)
-				driver->visitStore(g);
 		} else if (std::any_of(g.threads.begin(), g.threads.end(),
 				       [](Thread &thr){ return thr.isBlocked; })) {
 			break;

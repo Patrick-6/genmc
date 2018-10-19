@@ -106,10 +106,6 @@ struct ExecutionContext {
 // AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
 };
 
-// InterpAction - When some particular actions are encountered,
-// there are some extra steps to take
-enum InterpAction { INone, IStore, IRMW };
-
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
@@ -129,10 +125,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   // registered with the atexit() library function.
   std::vector<Function*> AtExitHandlers;
 
-  // action - Inform the driver that some specifics instructions were
-  // encountered
-  InterpAction action;
-
 public:
   explicit Interpreter(Module *M, Config *conf, RCMCDriver *driver);
   virtual ~Interpreter();
@@ -145,11 +137,6 @@ public:
   /* Checks whether an address is the address of a global variable */
   bool isGlobal(void *);
   std::string getGlobalName(void *addr);
-
-  void interpStore() { action = IStore; };
-  void interpRMW() { action = IRMW; };
-  InterpAction getAction() { return action; };
-  void resetAction() { action = INone; };
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
