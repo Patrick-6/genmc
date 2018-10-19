@@ -169,7 +169,7 @@ void RCMCDriver::filterWorklist(View &preds, const std::vector<int> &storeBefore
 			workstack.end());
 	// worklist.erase(std::remove_if(worklist.begin(), worklist.end(),
 	// 			      [&lab, &storeBefore](decltype(*begin(worklist)) kv)
-	// 			      { return kv.first.index > lab.loadPreds[kv.first.thread] &&
+	// 			      { return kv.first.index > lab.preds[kv.first.thread] &&
 	// 				       kv.first.index > storeBefore[kv.first.thread]; }),
 	// 	       worklist.end());
 }
@@ -217,9 +217,9 @@ start:
 
 // 		if (p.type == SRead) {
 // 			EventLabel &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(toRevisit, lab.loadPreds);
+// 			g.cutToEventView(toRevisit, lab.preds);
 // 			EventLabel &lab1 = g.getEventLabel(toRevisit);
-// 			filterWorklist(lab1.loadPreds, p.storePorfBefore);
+// 			filterWorklist(lab1.preds, p.storePorfBefore);
 
 // 			g.changeRf(lab1, p.shouldRf);
 
@@ -242,7 +242,7 @@ start:
 // 			pushReadsToRevisit(g, sLab1);
 // 		} else if (p.type == GRead) {
 // 			auto &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.cutToEventView(lab.pos, lab.preds);
 // 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 // 			if (p.revisitable)
@@ -250,7 +250,7 @@ start:
 // 			else
 // 				lab.makeNotRevisitable();
 
-// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 
 // 			lab = g.getEventLabel(toRevisit);
 // 			auto &confLab = g.getEventLabel(p.oldRf);
@@ -264,8 +264,8 @@ start:
 
 // 			for (auto &s : possibleRfs) {
 // 				auto before = g.getPorfBefore(lab.pos);
-// 				auto prefix = g.getPrefixLabelsNotBefore(before, confLab.loadPreds);
-// 				auto prefixPos = g.getRfsNotBefore(prefix, confLab.loadPreds);
+// 				auto prefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
+// 				auto prefixPos = g.getRfsNotBefore(prefix, confLab.preds);
 // 				prefixPos.insert(prefixPos.begin(), lab.pos);
 
 // 				if (confLab.revs.contains(prefixPos))
@@ -283,7 +283,7 @@ start:
 // 			g.changeRf(lab2, lab2.invalidRfs[0]); // hardcoding bottom seems excellent, right?
 // 		} else if (p.type == GRead2) {
 // 			auto &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.cutToEventView(lab.pos, lab.preds);
 // 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 // 			if (p.revisitable)
@@ -291,13 +291,13 @@ start:
 // 			else
 // 				lab.makeNotRevisitable();
 
-// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 
 // 			EventLabel &lab1 = g.getEventLabel(toRevisit);
 // 			g.changeRf(lab1, p.shouldRf);
 // 		} else {
 // 			EventLabel &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.loadPreds);
+// 			g.cutToEventView(lab.pos, lab.preds);
 // 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 // 			if (p.revisitable)
@@ -305,7 +305,7 @@ start:
 // 			else
 // 				lab.makeNotRevisitable();
 
-// 			filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 // 			EventLabel &lab1 = g.getEventLabel(toRevisit);
 
 // 			g.changeRf(lab1, p.shouldRf);
@@ -477,7 +477,7 @@ bool RCMCDriverMO::visitStore(ExecutionGraph &g)
 		newMO.insert(newMO.end(), it, concurrent.end());
 
 		/* Push the stack item */
-		addToWorklist(sLab.pos, StackItem(MOWrite, newMO, g.getGraphState()));
+		addToWorklist(sLab.pos, StackItem(MOWrite, newMO));
 	}
 	return true;
 }
@@ -496,17 +496,17 @@ bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 	if (pendingRMWs.size() > 0)
 		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
 					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.loadPreds[e.thread]; }),
+					  return e.index > confLab.preds[e.thread]; }),
 			    loads.end());
 
 	for (auto &l : loads) {
 		EventLabel &rLab = g.getEventLabel(l);
 
 		auto before = g.getPorfBefore(sLab.pos);
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.loadPreds);
+		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
 
-		auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.loadPreds);
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.loadPreds);
+		auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
 
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
@@ -529,9 +529,9 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 
 	switch (p.type) {
 	case SRead: {
-		g.cutToEventView(toRevisit, lab.loadPreds);
+		g.cutToEventView(toRevisit, lab.preds);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
-		filterWorklist(lab1.loadPreds, p.storePorfBefore);
+		filterWorklist(lab1.preds, p.storePorfBefore);
 
 		g.changeRf(lab1, p.shouldRf);
 
@@ -543,15 +543,15 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		return true;
 	}
 	case MOWrite: {
-		g.cutToEventView(lab.pos, p.preds);
+		g.cutToEventView(lab.pos, lab.preds);
 		auto &sLab1 = g.getEventLabel(toRevisit);
-		filterWorklist(p.preds, p.storePorfBefore);
+		filterWorklist(lab.preds, p.storePorfBefore);
 		g.modOrder[sLab1.addr] = p.newMO;
 		pushReadsToRevisit(g, sLab1);
 		return true;
 	}
 	case SWrite: {
-		g.cutToEventView(lab.pos, lab.loadPreds);
+		g.cutToEventView(lab.pos, lab.preds);
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 		if (p.revisitable)
@@ -559,7 +559,7 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		else
 			lab.makeNotRevisitable();
 
-		filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
 
 		g.changeRf(lab1, p.shouldRf);
@@ -630,16 +630,16 @@ bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 	if (pendingRMWs.size() > 0)
 		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
 					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.loadPreds[e.thread]; }),
+					  return e.index > confLab.preds[e.thread]; }),
 			    loads.end());
 
 	for (auto &l : loads) {
 		EventLabel &rLab = g.getEventLabel(l);
 
 		auto before = g.getPorfBefore(sLab.pos);
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.loadPreds);
+		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
 
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.loadPreds);
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
 
 		if (rLab.revs.contains(writePrefixPos))
@@ -661,9 +661,9 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 
 	switch (p.type) {
 	case SRead: {
-		g.cutToEventView(toRevisit, lab.loadPreds);
+		g.cutToEventView(toRevisit, lab.preds);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
-		filterWorklist(lab1.loadPreds, p.storePorfBefore);
+		filterWorklist(lab1.preds, p.storePorfBefore);
 
 		g.changeRf(lab1, p.shouldRf);
 
@@ -675,7 +675,7 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		return true;
 	}
 	case SWrite: {
-		g.cutToEventView(lab.pos, lab.loadPreds);
+		g.cutToEventView(lab.pos, lab.preds);
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 
 		if (p.revisitable)
@@ -683,7 +683,7 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		else
 			lab.makeNotRevisitable();
 
-		filterWorklist(g.getEventLabel(toRevisit).loadPreds, p.storePorfBefore);
+		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
 		EventLabel &lab1 = g.getEventLabel(toRevisit);
 
 		g.changeRf(lab1, p.shouldRf);

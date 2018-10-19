@@ -3232,16 +3232,16 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		// if (sLab.rfm1.size() > 0)
 		// 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&g, &sLab](Event &e)
 		// 				{ EventLabel &confLab = g.getEventLabel(sLab.rfm1.back());
-		// 					return e.index > confLab.loadPreds[e.thread]; }),
+		// 					return e.index > confLab.preds[e.thread]; }),
 		// 		 ls.end());
 		BUG_ON(rfLab.rfm1.size() > 1);
 		auto &confLab = g.getEventLabel(rfLab.rfm1.back());
 		auto before = g.getPorfBefore(lab.pos);
-		auto prefix = g.getPrefixLabelsNotBefore(before, confLab.loadPreds);
+		auto prefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
 		std::vector<Event> prefixPos = {lab.pos};
 		std::for_each(prefix.begin(), prefix.end(),
 			      [&prefixPos, &confLab](const EventLabel &eLab)
-			      { if (eLab.isRead() && eLab.pos.index > confLab.loadPreds[eLab.pos.thread])
+			      { if (eLab.isRead() && eLab.pos.index > confLab.preds[eLab.pos.thread])
 					      prefixPos.push_back(eLab.rf); });
 
 		if (confLab.revs.contains(prefixPos))

@@ -268,8 +268,8 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
 	lab.revType = Normal;
-	lab.loadPreds = getGraphState();
-	++lab.loadPreds[currentT];
+	lab.preds = getGraphState();
+	++lab.preds[currentT];
 	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);
 
 	addEventToGraph(lab);
@@ -321,6 +321,8 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 {
 	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
 	lab.hbView[currentT] = maxEvents[currentT];
+	lab.preds = getGraphState();
+	++lab.preds[currentT];
 	if (lab.isRMW()) {
 		Event last = getLastThreadEvent(currentT);
 		EventLabel &pLab = getEventLabel(last);
@@ -841,12 +843,12 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<int> &stor
 	for (auto &lab : storePrefix) {
 		EventLabel &curLab = threads[lab.pos.thread].eventList[lab.pos.index];
 		if (curLab.pos.index <= storePorfBefore[curLab.pos.thread] &&
-		    curLab.pos.index > rLab.loadPreds[curLab.pos.thread])
+		    curLab.pos.index > rLab.preds[curLab.pos.thread])
 			curLab.makeNotRevisitable();
 		if (curLab.isWrite() || curLab.isFinish() || curLab.isCreate())
 			curLab.rfm1.remove_if([&rLab, &storePorfBefore](Event &e)
 					      { return e.index > storePorfBefore[e.thread] &&
-						       e.index > rLab.loadPreds[e.thread]; });
+						       e.index > rLab.preds[e.thread]; });
 		if (curLab.isRead() && !curLab.rf.isInitializer()) {
 			EventLabel &rfLab = getEventLabel(curLab.rf);
 			if (std::find(rfLab.rfm1.begin(), rfLab.rfm1.end(), curLab.pos)

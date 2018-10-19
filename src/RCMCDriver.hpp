@@ -38,15 +38,14 @@ struct StackItem {
 	std::vector<EventLabel> writePrefix;
 	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
-	View preds;
 	bool revisitable;
 	Event oldRf;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, Event shouldRf)
 		: type(t), shouldRf(shouldRf) {};
-	StackItem(StackItemType t, std::vector<Event> newMO, View preds)
-		: type(t), newMO(newMO), preds(preds) {};
+	StackItem(StackItemType t, std::vector<Event> newMO)
+		: type(t), newMO(newMO) {};
 	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
