@@ -172,5 +172,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab)
 {
 	return s << "EventLabel (Type: " << lab.type << "/" << lab.ord
 		 << ", " << lab.pos << (lab.isRMW() ? ", " : "")
-		 << lab.attr << ", " << lab.hbView << ")";
+		 << lab.attr << ", HB: " << lab.hbView
+		 << ", SBRF: " << lab.porfView << ")";
 }

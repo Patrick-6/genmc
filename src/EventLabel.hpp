@@ -46,6 +46,7 @@ public:
 	std::list<Event> rfm1; /* For Writes */
 	View msgView;
 	View hbView;
+	View porfView;
 	int cid; /* For TCreates */
 	std::string functionName; /* For GReads/GWrites */
 	bool bottom; /* For GWrites */

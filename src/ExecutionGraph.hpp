@@ -56,6 +56,7 @@ public:
 	EventLabel& getLastThreadLabel(int thread);
 	Event getLastThreadEvent(int thread);
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
+	View getEventPoRfView(Event e);
 	View getEventHbView(Event e);
 	View getEventMsgView(Event e);
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
@@ -91,19 +92,18 @@ public:
 	void addFinishToGraph();
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
-	std::vector<int> getPorfAfter(Event e);
-	std::vector<int> getPorfAfter(const std::vector<Event > &es);
-	std::vector<int> getPorfBefore(Event e);
-	std::vector<int> getPorfBefore(const std::vector<Event> &es);
-	std::vector<int> getPorfBeforeNoRfs(const std::vector<Event> &es);
+	View getPorfAfter(Event e);
+	View getPorfAfter(const std::vector<Event > &es);
+	View getPorfBefore(Event e);
+	View getPorfBefore(const std::vector<Event> &es);
+	View getPorfBeforeNoRfs(const std::vector<Event> &es);
 	View getHbBefore(Event e);
 	View getHbBefore(const std::vector<Event> &es);
 	View getHbPoBefore(Event e);
-	std::vector<int> getHbRfBefore(std::vector<Event> &es);
+	View getHbRfBefore(std::vector<Event> &es);
 
 	/* Calculation of particular sets of events/event labels */
-	std::vector<EventLabel>	getPrefixLabelsNotBefore(const std::vector<int> &prefix,
-							 View &before);
+	std::vector<EventLabel>	getPrefixLabelsNotBefore(View &prefix, View &before);
 	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
 					   View &before);
 	std::vector<std::pair<Event, Event> >
@@ -125,7 +125,7 @@ public:
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
 	void cutToEventView(Event &e, View &view);
-	void restoreStorePrefix(EventLabel &rLab, std::vector<int> &storePorfBefore,
+	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
 	void clearAllStacks(void);
@@ -157,21 +157,21 @@ public:
 	/* Outputting facilities */
 	void printTraceBefore(Event e);
 	void prettyPrintGraph();
-	void dotPrintToFile(std::string &filename, std::vector<int> &before, Event e);
+	void dotPrintToFile(std::string &filename, View &before, Event e);
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	void calcLoadPoRfView(EventLabel &lab, Event prev, Event &rf);
 	void calcLoadHbView(EventLabel &lab, Event prev, Event &rf);
 	void addEventToGraph(EventLabel &lab);
 	void addReadToGraphCommon(EventLabel &lab, Event &rf);
 	void addStoreToGraphCommon(EventLabel &lab);
-	void calcPorfAfter(const Event &e, std::vector<int> &a);
-	void calcPorfBefore(const Event &e, std::vector<int> &a);
-	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, std::vector<int> &a);
+	void calcPorfAfter(const Event &e, View &a);
+	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
-	void calcTraceBefore(const Event &e, std::vector<int> &a, std::stringstream &buf);
+	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 	std::vector<Event> calcOptionalRfs(const std::vector<Event> &locMO, Event store);
 	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);

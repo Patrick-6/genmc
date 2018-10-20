@@ -187,13 +187,13 @@ public:
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
 
   /* Helper functions */
-  void replayExecutionBefore(std::vector<int> &before);
+  void replayExecutionBefore(View &before);
   bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
   Event getPendingRMWSucc(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
   std::vector<Event> getPendingRMWs(Event &RMW, Event &RMWrf, GenericValue *ptr,
 				    GenericValue &wVal);
   bool isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
-				  GenericValue *ptr, std::vector<int> &before);
+				  GenericValue *ptr, View &before);
   void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
 		      EventLabel &wLab, std::vector<Event> acc, std::vector<Event> set);
   void calcPowerSet(std::vector<std::vector<Event> > &powerSet,

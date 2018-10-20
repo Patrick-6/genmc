@@ -142,7 +142,7 @@ std::vector<Event> Interpreter::getPendingRMWs(Event &RMW, Event &RMWrf,
 }
 
 bool Interpreter::isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
-					     GenericValue *ptr, std::vector<int> &before)
+					     GenericValue *ptr, View &before)
 {
 	ExecutionGraph &g = *driver->getGraph();
 
@@ -1025,6 +1025,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
 				  pLab.rf = e;
 				  lab.rfm1.push_back(pLab.pos);
 				  pLab.hbView.updateMax(lab.msgView);
+				  pLab.porfView.updateMax(lab.porfView);
 			  }
 		  }
 	  } /* TODO: Maybe move view update into thread finish creation? */
@@ -1407,7 +1408,7 @@ std::vector<Event> Interpreter::properlyOrderStoresCAS(Type *typ, GenericValue *
 							 std::vector<Event> &stores)
 {
 	ExecutionGraph &g = *driver->getGraph();
-	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	View before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 	std::vector<Event> valid, conflicting;
 
 	for (auto &s : stores) {
@@ -1430,7 +1431,7 @@ std::vector<Event> Interpreter::properlyOrderStoresRMW(Type *typ, GenericValue *
 						       std::vector<Event> &stores)
 {
 	ExecutionGraph &g = *driver->getGraph();
-	std::vector<int> before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	View before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 	std::vector<Event> valid, conflicting;
 
 	for (auto &s : stores) {
@@ -2708,7 +2709,7 @@ std::string getFilenameFromMData(MDNode *node)
 	return absPath;
 }
 
-void Interpreter::replayExecutionBefore(std::vector<int> &before)
+void Interpreter::replayExecutionBefore(View &before)
 {
 	ExecutionGraph &g = *driver->getGraph();
 	g.threads[0].ECStack = mainECStack;
@@ -2928,6 +2929,7 @@ void Interpreter::callPthreadJoin(Function *F,
 		lab.rf = child;
 		cLab.rfm1.push_back(lab.pos);
 		lab.hbView.updateMax(cLab.msgView);
+		lab.porfView.updateMax(cLab.porfView);
 	}
 
 

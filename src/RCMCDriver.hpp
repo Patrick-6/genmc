@@ -34,7 +34,7 @@ enum StackItemType { SRead, SWrite, MOWrite, GRead, GRead2, None };
 struct StackItem {
 	StackItemType type;
 	Event shouldRf;
-	std::vector<int> storePorfBefore;
+	View storePorfBefore;
 	std::vector<EventLabel> writePrefix;
 	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
@@ -46,18 +46,18 @@ struct StackItem {
 		: type(t), shouldRf(shouldRf) {};
 	StackItem(StackItemType t, std::vector<Event> newMO)
 		: type(t), newMO(newMO) {};
-	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
+	StackItem(StackItemType t, Event shouldRf, View before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
 		  writePrefix(writePrefix), revisitable(revisitable) {};
-	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
+	StackItem(StackItemType t, Event shouldRf, View before,
 		  std::vector<EventLabel> &writePrefix,
 		  std::vector<std::pair<Event, Event> > moPlacings,
 		  bool revisitable)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
 		  writePrefix(writePrefix), moPlacings(moPlacings),
 		  revisitable(revisitable) {};
-	StackItem(StackItemType t, Event shouldRf, std::vector<int> before,
+	StackItem(StackItemType t, Event shouldRf, View before,
 		  std::vector<EventLabel> &writePrefix, bool revisitable, Event oldRf)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
 		  writePrefix(writePrefix), revisitable(revisitable), oldRf(oldRf) {};
@@ -95,7 +95,7 @@ public:
 
 	void trackEvent(Event e) { workstack.push_back(e); };
 	void addToWorklist(Event e, StackItem s);
-	void filterWorklist(View &preds, const std::vector<int> &storeBefore);
+	void filterWorklist(View &preds, View &storeBefore);
 	std::pair<Event, StackItem> getNextItem();
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
