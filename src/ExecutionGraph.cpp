@@ -893,10 +893,26 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 	}
 }
 
-void ExecutionGraph::clearAllStacks(void)
+bool ExecutionGraph::tryAddRMWStore(ExecutionGraph &g, EventLabel &lab)
 {
-	for (auto i = 0u; i < threads.size(); i++)
-		getECStack(i).clear();
+	/* If this is not an RMW load, nothing to do here */
+	if (!lab.isRead() || !lab.isRMW())
+		return false;
+
+	/* Otherwise, if it is a successful RMW load, add the corresponding store */
+	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
+	if (EE->isSuccessfulRMW(lab, rfVal)) {
+		g.currentT = lab.pos.thread;
+		if (lab.attr == CAS) {
+			g.addCASStoreToGraph(lab.ord, lab.addr, lab.nextVal, lab.valTyp);
+		} else {
+			llvm::GenericValue newVal;
+			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
+			g.addRMWStoreToGraph(lab.ord, lab.addr, newVal, lab.valTyp);
+		}
+		return true;
+	}
+	return false; /* It is not a successful RMW */
 }
 
 
@@ -911,7 +927,7 @@ bool ExecutionGraph::isConsistent(void)
 
 
 /************************************************************
- ** Graph exploration methods
+ ** Scheduling methods
  ***********************************************************/
 
 void ExecutionGraph::spawnAllChildren(int thread)
@@ -955,6 +971,12 @@ void ExecutionGraph::tryToBacktrack(void)
 
 	threads[currentT].isBlocked = true;
 	getECStack(currentT).clear();
+}
+
+void ExecutionGraph::clearAllStacks(void)
+{
+	for (auto i = 0u; i < threads.size(); i++)
+		getECStack(i).clear();
 }
 
 

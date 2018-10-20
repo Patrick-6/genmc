@@ -160,12 +160,10 @@ std::pair<Event, StackItem> RCMCDriver::getNextItem()
 	return std::make_pair(Event::getInitializer(), StackItem());
 }
 
-void RCMCDriver::filterWorklist(View &preds, View &storeBefore)
+void RCMCDriver::filterWorklist(View &preds)
 {
 	workstack.erase(std::remove_if(workstack.begin(), workstack.end(),
-				       [&preds, &storeBefore](Event &e)
-				       { return e.index > preds[e.thread] &&
-				       (storeBefore.empty() || e.index > storeBefore[e.thread]); }),
+				       [&preds](Event &e){ return e.index > preds[e.thread]; }),
 			workstack.end());
 	// worklist.erase(std::remove_if(worklist.begin(), worklist.end(),
 	// 			      [&lab, &storeBefore](decltype(*begin(worklist)) kv)
@@ -367,30 +365,6 @@ bool RCMCDriver::checkForRaces(ExecutionGraph &g, EventType typ,
 	}
 }
 
-Event RCMCDriver::tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls)
-{
-	ExecutionGraph *oldEG = currentEG;
-	currentEG = &g;
-	for (auto &l : ls) {
-		EventLabel &lab = g.getEventLabel(l);
-		llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-		if (EE->isSuccessfulRMW(lab, rfVal)) {
-			g.currentT = lab.pos.thread;
-			if (lab.attr == CAS) {
-				g.addCASStoreToGraph(lab.ord, lab.addr, lab.nextVal, lab.valTyp);
-			} else {
-				llvm::GenericValue newVal;
-				EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
-				g.addRMWStoreToGraph(lab.ord, lab.addr, newVal, lab.valTyp);
-			}
-			currentEG = oldEG;
-			return g.getLastThreadEvent(g.currentT);
-		}
-	}
-	currentEG = oldEG;
-	return Event::getInitializer(); /* No to-be-exclusive event found */
-}
-
 
 /************************************************************
  ** WEAK RA DRIVER
@@ -526,50 +500,45 @@ bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
 {
 	EventLabel &lab = g.getEventLabel(toRevisit);
+	View cutView(lab.preds);
 
+	/* Restrict to the predecessors of the event we are revisiting */
 	g.cutToEventView(lab.pos, lab.preds);
+	cutView.updateMax(p.storePorfBefore);
+	filterWorklist(cutView);
 
+	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
-	case SRead: {
-		EventLabel &lab1 = g.getEventLabel(toRevisit);
-		filterWorklist(lab1.preds, p.storePorfBefore);
-
-		g.changeRf(lab1, p.shouldRf);
-
-		std::vector<Event> ls0({toRevisit});
-		Event added = tryAddRMWStores(g, ls0);
-		if (!added.isInitializer())
-			return visitStore(g);
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-		return true;
-	}
-	case MOWrite: {
-		auto &sLab1 = g.getEventLabel(toRevisit);
-		filterWorklist(lab.preds, p.storePorfBefore);
-		g.modOrder[sLab1.addr] = p.newMO;
-		pushReadsToRevisit(g, sLab1);
-		return true;
-	}
-	case SWrite: {
+	case SRead:
+		/* Nothing to restore in this case */
+		break;
+	case SWrite:
+		/*
+		 * Restore the part of the SBRF-prefix of the store that revisits a load,
+		 * that is not already present in the graph, the MO edges between that
+		 * part and the previous MO, and make that part non-revisitable
+		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-
 		lab.changeRevisitStatus(p.revisitable);
-
-		filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
-		EventLabel &lab1 = g.getEventLabel(toRevisit);
-
-		g.changeRf(lab1, p.shouldRf);
-
-		std::vector<Event> ls0({toRevisit});
-		Event added = tryAddRMWStores(g, ls0);
-		if (!added.isInitializer())
-			return visitStore(g);
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-		return true;
-	}
+		break;
+	case MOWrite:
+		/* Try a different MO ordering, and also consider reads to revisit */
+		g.modOrder[lab.addr] = p.newMO;
+		pushReadsToRevisit(g, lab);
+		return true; /* Nothing else to do */
 	default:
 		BUG();
 	}
+
+	/*
+	 * For the case where an reads-from is changed, change the respective reads-from label
+	 * and check whether a part of an RMW should be added
+	 */
+	g.changeRf(lab, p.shouldRf);
+	if (g.tryAddRMWStore(g, lab))
+		return visitStore(g);
+
+	return true;
 }
 
 bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
@@ -654,44 +623,37 @@ bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
 {
 	EventLabel &lab = g.getEventLabel(toRevisit);
+	View cutView(lab.preds);
 
+	/* Restrict to the predecessors of the event we are revisiting */
 	g.cutToEventView(lab.pos, lab.preds);
+	cutView.updateMax(p.storePorfBefore);
+	filterWorklist(cutView);
 
+	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
-	case SRead: {
-		EventLabel &lab1 = g.getEventLabel(toRevisit);
-		filterWorklist(lab1.preds, p.storePorfBefore);
-
-		g.changeRf(lab1, p.shouldRf);
-
-		std::vector<Event> ls0({toRevisit});
-		Event added = tryAddRMWStores(g, ls0);
-		if (!added.isInitializer())
-			return visitStore(g);
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-		return true;
-	}
-	case SWrite: {
-
+	case SRead:
+		/* Nothing to restore in this case */
+		break;
+	case SWrite:
+		/*
+		 * Restore the part of the SBRF-prefix of the store that revisits a load,
+		 * that is not already present in the graph, and make that part
+		 * non-revisitable
+		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-
 		lab.changeRevisitStatus(p.revisitable);
-
-		filterWorklist(lab.preds, p.storePorfBefore);
-		EventLabel &lab1 = g.getEventLabel(toRevisit);
-
-		g.changeRf(lab1, p.shouldRf);
-
-		std::vector<Event> ls0({toRevisit});
-		Event added = tryAddRMWStores(g, ls0);
-		if (!added.isInitializer())
-			return visitStore(g);
-//			llvm::dbgs() << "After restriction: \n" << g << "\n";
-		return true;
-	}
+		break;
 	default:
 		BUG();
 	}
+
+	/* Change the reads-from label, and check whether a part of an RMW should be added */
+	g.changeRf(lab, p.shouldRf);
+	if (g.tryAddRMWStore(g, lab))
+		return visitStore(g);
+
+	return true;
 }
 
 bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)

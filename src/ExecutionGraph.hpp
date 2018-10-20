@@ -128,7 +128,7 @@ public:
 	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
-	void clearAllStacks(void);
+	bool tryAddRMWStore(ExecutionGraph &g, EventLabel &rLab);
 
 	/* Consistency checks */
 	bool isConsistent();
@@ -141,6 +141,7 @@ public:
 	/* Scheduling methods */
 	bool scheduleNext(void);
 	void tryToBacktrack(void);
+	void clearAllStacks(void);
 
 	/* Race detection methods */
 	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);

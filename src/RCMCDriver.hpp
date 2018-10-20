@@ -95,7 +95,7 @@ public:
 
 	void trackEvent(Event e) { workstack.push_back(e); };
 	void addToWorklist(Event e, StackItem s);
-	void filterWorklist(View &preds, View &storeBefore);
+	void filterWorklist(View &preds);
 	std::pair<Event, StackItem> getNextItem();
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
@@ -108,7 +108,6 @@ public:
 
 	void visitGraph(ExecutionGraph &g);
 	bool checkForRaces(ExecutionGraph &g, EventType typ, llvm::AtomicOrdering ord, llvm::GenericValue *addr);
-	Event tryAddRMWStores(ExecutionGraph &g, std::vector<Event> &ls);
 
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
