@@ -27,7 +27,8 @@
  ** Library constructors
  ***********************************************************/
 
-Library::Library(std::string name, LibType typ) : name(name), typ(typ) {}
+Library::Library(std::string name, LibType typ)
+  : name(name), typ(typ), functionalRfs(false) {}
 
 
 /************************************************************

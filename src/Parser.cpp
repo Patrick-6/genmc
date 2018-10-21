@@ -158,7 +158,7 @@ std::vector<Library> Parser::parseSpecs(const string &fileName)
 				goto cleanup;
 			lib.addConstraint(name);
 		}
-		if (fscanf(file, "FUNCTIONAL: %s\n", &tmp) != 1)
+		if (fscanf(file, "FUNCTIONAL: %s\n", tmp) != 1)
 			goto cleanup;
 		if (std::string(tmp) == "YES")
 			lib.markFunctionalRfs();
