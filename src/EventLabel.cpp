@@ -47,7 +47,7 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
 		       std::string &functionName)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w),
-	  functionName(functionName){}
+	  functionName(functionName), initial(false) {}
 
 /* CAS Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
@@ -73,7 +73,7 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp,
 		       std::string &functionName)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp),
-	  functionName(functionName) {}
+	  functionName(functionName), initial(false) {}
 
 /* GStore */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
@@ -149,9 +149,9 @@ bool EventLabel::isRMW() const
 	return attr != Plain;
 }
 
-bool EventLabel::isBottom() const
+bool EventLabel::isLibInit() const
 {
-	return bottom;
+	return initial;
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)

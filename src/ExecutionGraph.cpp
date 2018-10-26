@@ -115,7 +115,40 @@ bool ExecutionGraph::isThreadComplete(int thread)
 	return threads[thread].eventList[maxEvents[thread] - 1].isFinish();
 }
 
-std::vector<Event> ExecutionGraph::getRMWChain(EventLabel sLab)
+/*
+ * Given an write label sLab that is part of an RMW, return all
+ * other RMWs that read from the same write. Of course, there must
+ * be _at most_ one other RMW reading from the same write (see [Rex] set)
+ */
+std::vector<Event> ExecutionGraph::getPendingRMWs(EventLabel &sLab)
+{
+	std::vector<Event> pending;
+
+	/* This function should be called with a write event */
+	BUG_ON(!sLab.isWrite());
+
+	/* If this is _not_ an RMW event, return an empty vector */
+	if (!sLab.isRMW())
+		return pending;
+
+	/* Otherwise, scan for other RMWs that successfully read the same val */
+	auto &pLab = getPreviousLabel(sLab.pos);
+	auto wVal = EE->loadValueFromWrite(pLab.rf, pLab.valTyp, pLab.addr);
+	for (auto i = 0u; i < threads.size(); i++) {
+		Thread &thr = threads[i];
+		for (auto j = 1; j < maxEvents[i]; j++) { /* Skip thread start */
+			EventLabel &lab = thr.eventList[j];
+			if (lab.isRead() && lab.isRMW() && lab.addr == pLab.addr &&
+			    lab.pos != pLab.pos && lab.rf == pLab.rf &&
+			    EE->isSuccessfulRMW(lab, wVal))
+				pending.push_back(lab.pos);
+		}
+	}
+	BUG_ON(pending.size() > 1);
+	return pending;
+}
+
+std::vector<Event> ExecutionGraph::getRMWChainDownTo(const EventLabel &sLab, const Event lower)
 {
 	std::vector<Event> chain;
 
@@ -123,32 +156,71 @@ std::vector<Event> ExecutionGraph::getRMWChain(EventLabel sLab)
 	 * This function should not be called with an event that is not
 	 * the store part of an RMW
 	 */
-	if (!sLab.isWrite() || !sLab.isRMW()) {
-		WARN("WARNING: getRMWChain() called with unexpected argument!\n");
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchaindownto-arg",
+		     "WARNING: getRMWChainDownTo() called with non-write argument!\n");
+	if (!sLab.isWrite() || !sLab.isRMW())
 		return chain;
-	}
 
 	/* As long as you find successful RMWs, keep going down the chain */
-	while (sLab.isWrite() && sLab.isRMW()) {
-		chain.push_back(sLab.pos);
-		auto rLab = getPreviousLabel(sLab.pos);
+	auto curr = &sLab;
+	while (curr->isWrite() && curr->isRMW() && curr->pos != lower) {
+		chain.push_back(curr->pos);
+		auto &rLab = getPreviousLabel(curr->pos);
 
-		/* If the predecessor reads the initializer
-		 * event, then the chain is over */
-		if (rLab.rf.isInitializer()) {
-			chain.push_back(Event::getInitializer());
+		/*
+		 * If the predecessor reads the initializer event, then the
+		 * chain is over. This may be equal to lower in some cases,
+		 * but we avoid getting the label of the initializer event.
+		 */
+		if (rLab.rf.isInitializer())
 			return chain;
-		}
 
 		/* Otherwise, go down one (rmw-1;rf-1)-step */
-		sLab = getEventLabel(rLab.rf);
+		curr = &getEventLabel(rLab.rf);
 	}
 
 	/*
 	 * We arrived at a non-RMW event (which is not the initializer),
 	 * so the chain is over
 	 */
-	chain.push_back(sLab.pos);
+	return chain;
+}
+
+std::vector<Event> ExecutionGraph::getRMWChainUpTo(const EventLabel &sLab, const Event upper)
+{
+	std::vector<Event> chain;
+
+	/*
+	 * This function should not be called with an event that is not
+	 * the store part of an RMW
+	 */
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainupto-arg",
+		     "WARNING: getRMWChainUpTo() called with non-write argument!\n");
+	if (!sLab.isWrite() || !sLab.isRMW())
+		return chain;
+
+	/* As long as you find successful RMWs, keep going down the chain */
+	auto curr = &sLab;
+	while (curr->isWrite() && curr->isRMW() && curr->pos != upper) {
+		/* Push this event into the chain */
+		chain.push_back(curr->pos);
+
+		/* Check if other successful RMWs are reading from this write (at most one) */
+		std::vector<Event> rmwRfs;
+		std::copy_if(curr->rfm1.begin(), curr->rfm1.end(), std::back_inserter(rmwRfs),
+			     [this, curr](const Event &r){ auto &rLab = getEventLabel(r);
+					             return EE->isSuccessfulRMW(rLab, curr->val); });
+		BUG_ON(rmwRfs.size() > 1);
+
+		/* If there is none, we reached the upper limit of the chain */
+		if (rmwRfs.size() == 0)
+			return chain;
+
+		/* Otherwise, go up one (rf;rmw)-step */
+		curr = &getEventLabel(rmwRfs.back().next());
+	}
+
+	/* This is a non-RMW event (which is not equal to upper), so the chain is over */
 	return chain;
 }
 
@@ -182,7 +254,7 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsWB(const EventLabel &sLab)
 	 * since this will create a cycle in WB
 	 */
 	if (sLab.isRMW()) {
-		auto chain = getRMWChain(sLab);
+		auto chain = getRMWChainDownTo(sLab, Event::getInitializer());
 		hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
 	}
 
@@ -286,7 +358,7 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
 	lab.makeRevisitable();
-	lab.preds = getGraphState();
+	lab.preds = getGraphState(); /* preds is only defined for reads and writes */
 	++lab.preds[currentT];
 	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);
 	calcLoadPoRfView(lab, getLastThreadEvent(currentT), rf);
@@ -342,7 +414,7 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	lab.hbView[currentT] = maxEvents[currentT];
 	lab.porfView = View(getEventPoRfView(getLastThreadEvent(currentT)));
 	lab.porfView[currentT] = maxEvents[currentT];
-	lab.preds = getGraphState();
+	lab.preds = getGraphState(); /* preds is only defined for reads and writes */
 	++lab.preds[currentT];
 	if (lab.isRMW()) {
 		Event last = getLastThreadEvent(currentT);
@@ -1640,6 +1712,63 @@ bool ExecutionGraph::isPscAcyclicMO()
 }
 
 std::pair<std::vector<Event>, std::vector<bool> >
+ExecutionGraph::calcWbRestricted(llvm::GenericValue *addr, View &v)
+{
+	std::vector<Event> stores;
+
+	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(), std::back_inserter(stores),
+		     [&v](Event &s){ return s.index <= v[s.thread]; });
+	/* Sort so we can use calcEventIndex() */
+	std::sort(stores.begin(), stores.end());
+
+	std::vector<bool> matrix(stores.size() * stores.size(), false);
+	for (auto i = 0u; i < stores.size(); i++) {
+		auto &lab = getEventLabel(stores[i]);
+
+		std::vector<Event> es;
+		std::copy_if(lab.rfm1.begin(), lab.rfm1.end(), std::back_inserter(es),
+			     [&v](Event &r){ return r.index <= v[r.thread]; });
+
+		es.push_back(stores[i].prev());
+		auto before = getHbBefore(es);
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (i == j || !isWriteRfBefore(before, stores[j]))
+				continue;
+			matrix[j * stores.size() + i] = true;
+
+			EventLabel &wLabI = getEventLabel(stores[i]);
+			auto rmwsDown = getRMWChainDownTo(wLabI, stores[j]);
+			for (auto &u : rmwsDown) {
+				int k = calcEventIndex(stores, u);
+				matrix[j * stores.size() + k] = true;
+			}
+
+			EventLabel &wLabJ = getEventLabel(stores[j]);
+			auto rmwsUp = getRMWChainUpTo(wLabJ, stores[i]);
+			for (auto &u : rmwsUp) {
+				int k = calcEventIndex(stores, u);
+				matrix[k * stores.size() + i] = true;
+			}
+		}
+		/* Add wb-edges for chains of RMWs that read from the initializer */
+		for (auto j = 0u; j < stores.size(); j++) {
+			EventLabel &wLab = getEventLabel(stores[j]);
+			EventLabel &pLab = getPreviousLabel(wLab.pos);
+			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
+				continue;
+
+			auto rmwsUp = getRMWChainUpTo(wLab, stores[i]);
+			for (auto &u : rmwsUp) {
+				int k = calcEventIndex(stores, u);
+				matrix[k * stores.size() + i] = true;
+			}
+		}
+	}
+	calcTransClosure(matrix, stores.size());
+	return std::make_pair(stores, matrix);
+}
+
+std::pair<std::vector<Event>, std::vector<bool> >
 ExecutionGraph::calcWb(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores(modOrder[addr]);
@@ -1658,55 +1787,31 @@ ExecutionGraph::calcWb(llvm::GenericValue *addr)
 				continue;
 			matrix[j * stores.size() + i] = true;
 
-			/* Go up the RMW chain */
-			EventLabel wLab = getEventLabel(stores[i]); /* Not a ref! */
-			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[j]) {
-				int k = calcEventIndex(stores, wLab.pos);
+			EventLabel &wLabI = getEventLabel(stores[i]);
+			auto rmwsDown = getRMWChainDownTo(wLabI, stores[j]);
+			for (auto &u : rmwsDown) {
+				int k = calcEventIndex(stores, u);
 				matrix[j * stores.size() + k] = true;
-				Event p = wLab.pos.prev();
-				EventLabel &pLab = getEventLabel(p);
-				wLab = getEventLabel(pLab.rf);
 			}
-			/* Go down the RMW chain */
-			wLab = getEventLabel(stores[j]); /* Not a ref! */
-			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[i]) {
-				int k = calcEventIndex(stores, wLab.pos);
+
+			EventLabel &wLabJ = getEventLabel(stores[j]);
+			auto rmwsUp = getRMWChainUpTo(wLabJ, stores[i]);
+			for (auto &u : rmwsUp) {
+				int k = calcEventIndex(stores, u);
 				matrix[k * stores.size() + i] = true;
-				std::vector<Event> rmwRfs;
-				std::copy_if(wLab.rfm1.begin(), wLab.rfm1.end(),
-					     std::back_inserter(rmwRfs),
-					     [this, &wLab](Event &r)
-					     { EventLabel &rLab = this->getEventLabel(r);
-					       return this->EE->isSuccessfulRMW(rLab, wLab.val); });
-				BUG_ON(rmwRfs.size() > 1);
-				if (rmwRfs.size() == 0)
-					break;
-				auto nextW = rmwRfs.back().next();
-				wLab = getEventLabel(nextW);
 			}
 		}
 		/* Add wb-edges for chains of RMWs that read from the initializer */
 		for (auto j = 0u; j < stores.size(); j++) {
-			EventLabel wLab = getEventLabel(stores[j]);
-			Event prev = wLab.pos.prev();
-			EventLabel &pLab = getEventLabel(prev);
+			EventLabel &wLab = getEventLabel(stores[j]);
+			EventLabel &pLab = getPreviousLabel(wLab.pos);
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			while (wLab.isWrite() && wLab.isRMW() && wLab.pos != stores[i]) {
-				int k = calcEventIndex(stores, wLab.pos);
+			auto rmwsUp = getRMWChainUpTo(wLab, stores[i]);
+			for (auto &u : rmwsUp) {
+				int k = calcEventIndex(stores, u);
 				matrix[k * stores.size() + i] = true;
-				std::vector<Event> rmwRfs;
-				std::copy_if(wLab.rfm1.begin(), wLab.rfm1.end(),
-					     std::back_inserter(rmwRfs),
-					     [this, &wLab](Event &r)
-					     { EventLabel &rLab = this->getEventLabel(r);
-					       return this->EE->isSuccessfulRMW(rLab, wLab.val); });
-				BUG_ON(rmwRfs.size() > 1);
-				if (rmwRfs.size() == 0)
-					break;
-				auto nextW = rmwRfs.back().next();
-				wLab = getEventLabel(nextW);
 			}
 		}
 	}
@@ -1731,12 +1836,12 @@ bool ExecutionGraph::isWbAcyclic(void)
  ** Library consistency checking methods
  ***********************************************************/
 
-std::vector<Event> ExecutionGraph::getLibraryEvents(Library &lib)
+std::vector<Event> ExecutionGraph::getLibEventsInView(Library &lib, View &v)
 {
 	std::vector<Event> result;
 
 	for (auto i = 0u; i < threads.size(); i++) {
-		for (auto j = 1; j < maxEvents[i]; j++) { /* Do not consider thread inits */
+		for (auto j = 1; j <= v[i]; j++) { /* Do not consider thread inits */
 			EventLabel &lab = threads[i].eventList[j];
 			if (lib.hasMember(lab.functionName))
 				result.push_back(lab.pos);
@@ -1771,7 +1876,7 @@ void ExecutionGraph::getRfm1EdgePairs(std::vector<std::pair<Event, std::vector<E
 		buf = {};
 		for (auto j = 0u; j < froms[i].second.size(); j++) {
 			EventLabel &lab = getEventLabel(froms[i].second[j]);
-			if (lab.isRead())
+			if (lab.isRead() && std::find(tos.begin(), tos.end(), lab.rf) != tos.end())
 				buf.push_back(lab.rf);
 		}
 		froms[i].second = buf;
@@ -1789,7 +1894,10 @@ void ExecutionGraph::getRfEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 			EventLabel &lab = getEventLabel(froms[i].second[j]);
 			if (!lab.isWrite())
 				continue;
-			buf.insert(buf.end(), lab.rfm1.begin(), lab.rfm1.end());
+			std::copy_if(lab.rfm1.begin(), lab.rfm1.end(), std::back_inserter(buf),
+				     [&tos](Event &e){ return std::find(tos.begin(), tos.end(), e) !=
+						     tos.end(); });
+
 		}
 		froms[i].second = buf;
 	}
@@ -1814,6 +1922,40 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 	}
 }
 
+void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+				    std::vector<Event> &tos)
+{
+	std::vector<Event> buf;
+
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			EventLabel &lab = getEventLabel(froms[i].second[j]);
+			if (!lab.isWrite())
+				continue;
+
+			View v(getHbBefore(tos[0]));
+			for (auto &t : tos) {
+				auto o = getHbBefore(t);
+				v.updateMax(o);
+			}
+
+			auto [ss, wb] = calcWbRestricted(lab.addr, v);
+			// TODO: Make a map with already calculated WBs??
+
+			if (std::find(ss.begin(), ss.end(), lab.pos) == ss.end())
+				continue;
+
+			/* Collect all wb-after stores that are in "tos" range */
+			int k = calcEventIndex(ss, lab.pos);
+			for (auto l = 0u; l < ss.size(); l++)
+				if (wb[k * ss.size() + l])
+					buf.push_back(ss[l]);
+		}
+		froms[i].second = buf;
+	}
+}
+
 void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				    std::vector<Event> &tos)
 {
@@ -1826,20 +1968,17 @@ void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 			if (!lab.isWrite())
 				continue;
 
-			// TODO: Make a map with already calculated WBs??
-			auto [stores, wb] = calcWb(lab.addr);
-
-			int k = calcEventIndex(stores, lab.pos);
-			for (auto l = 0u; l < stores.size(); l++)
-				if (wb[k * stores.size() + l])
-					buf.push_back(stores[l]);
+			/* Collect all mo-after events that are in the "tos" range */
+			auto moAfter = modOrder.getMoAfter(lab.addr, lab.pos);
+			for (auto &s : moAfter)
+				if (std::find(tos.begin(), tos.end(), s) != tos.end())
+					buf.push_back(s);
 		}
 		froms[i].second = buf;
 	}
 }
 
-void ExecutionGraph::calcSingleStepPairs(Library &lib,
-					 std::vector<std::pair<Event, std::vector<Event> > > &froms,
+void ExecutionGraph::calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 					 std::vector<Event> &tos,
 					 llvm::StringMap<std::vector<bool> > &relMap,
 					 std::vector<bool> &relMatrix, std::string &step)
@@ -1852,6 +1991,8 @@ void ExecutionGraph::calcSingleStepPairs(Library &lib,
 		return getHbEdgePairs(froms, tos);
 	else if (step == "rf-1")
 		return getRfm1EdgePairs(froms, tos);
+	else if (step == "wb")
+		return getWbEdgePairs(froms, tos);
 	else if (step == "mo")
 		return getMoEdgePairs(froms, tos);
 	else
@@ -1870,7 +2011,7 @@ void addEdgePairsToMatrix(std::vector<std::pair<Event, std::vector<Event> > > &p
 	}
 }
 
-void ExecutionGraph::addStepEdgeToMatrix(Library &lib, std::vector<Event> &es,
+void ExecutionGraph::addStepEdgeToMatrix(std::vector<Event> &es,
 					 llvm::StringMap<std::vector<bool> > &relMap,
 					 std::vector<bool> &relMatrix,
 					 std::vector<std::string> &substeps)
@@ -1882,7 +2023,7 @@ void ExecutionGraph::addStepEdgeToMatrix(Library &lib, std::vector<Event> &es,
 		edges.push_back(std::make_pair(e, std::vector<Event>({e})));
 
 	for (auto i = 0u; i < substeps.size(); i++)
-		calcSingleStepPairs(lib, edges, es, relMap, relMatrix, substeps[i]);
+		calcSingleStepPairs(edges, es, relMap, relMatrix, substeps[i]);
 	addEdgePairsToMatrix(edges, es, relMatrix);
 }
 
@@ -1891,51 +2032,46 @@ ExecutionGraph::calculateAllRelations(Library &lib, std::vector<Event> &es)
 {
 	llvm::StringMap<std::vector<bool> > relMap;
 
+	std::sort(es.begin(), es.end());
 	for (auto &r : lib.getRelations()) {
 		std::vector<bool> relMatrix(es.size() * es.size(), false);
 		auto &steps = r.getSteps();
 		for (auto &s : steps)
-			addStepEdgeToMatrix(lib, es, relMap, relMatrix, s);
+			addStepEdgeToMatrix(es, relMap, relMatrix, s);
 
 		if (r.isTransitive())
 			calcTransClosure(relMatrix, es.size());
 		relMap[r.getName()] = relMatrix;
-
-		llvm::dbgs() << "Gonna print map for relation " << r.getName() << "\n"
-			     << "This relation is " << (r.isTransitive() ? "" : "not") << "transitive\n";
-		llvm::dbgs() << "Library events are: \n";
-		for (auto &e : es)
-			llvm::dbgs() << e << " ";
-		llvm::dbgs() << "\n";
-
-		for (auto i = 0u; i < es.size(); i++) {
-			for (auto j = 0u; j < es.size(); j++)
-				llvm::dbgs() << (relMatrix[i * es.size() + j] ? 1 : 0) << " ";
-			llvm::dbgs() << "\n";
-		}
-		llvm::dbgs() << "\n";
 	}
 	return relMap;
 }
 
-std::vector<Event>
-ExecutionGraph::filterLibConstraints(Library &lib, Event &load, const std::vector<Event> &stores)
+bool ExecutionGraph::isLibConsistentInView(Library &lib, View &v)
 {
-	std::vector<Event> filtered;
-	EventLabel &lab = getEventLabel(load);
-	std::vector<Event> es = getLibraryEvents(lib);
+	auto es = getLibEventsInView(lib, v);
+	auto relations = calculateAllRelations(lib, es);
+	auto &constraints = lib.getConstraints();
+	if (std::all_of(constraints.begin(), constraints.end(),
+			[&relations, &es](Constraint &c)
+			{ return isIrreflexive(relations[c.getName()], es.size()); }))
+		return true;
+	return false;
+}
 
-	std::sort(es.begin(), es.end());
+std::vector<Event>
+ExecutionGraph::getLibConsRfsInView(Library &lib, EventLabel &rLab,
+				    const std::vector<Event> &stores, View &v)
+{
+	auto oldRf = rLab.rf;
+	std::vector<Event> filtered;
+
 	for (auto &s : stores) {
-		changeRf(lab, s);
-		auto relations = calculateAllRelations(lib, es);
-		auto &constraints = lib.getConstraints();
-		if (std::all_of(constraints.begin(), constraints.end(),
-				[&relations, &es](Constraint &c)
-				{ return isIrreflexive(relations[c.getName()], es.size()); }))
+		changeRf(rLab, s);
+		if (isLibConsistentInView(lib, v))
 			filtered.push_back(s);
 	}
-
+	/* Restore the old reads-from, and eturn all the valid reads-from options */
+	changeRf(rLab, oldRf);
 	return filtered;
 }
 

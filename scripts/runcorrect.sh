@@ -31,7 +31,7 @@ runvariants() {
     failure=""
     outcome_failure=""
     unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
-    checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
+    checker_args="" && [[ -f "${dir}/rcmc.${model}.in" ]] && checker_args=`head -1 "${dir}/rcmc.${model}.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
@@ -93,8 +93,8 @@ runtest() {
 
 # Update status
 echo ''; printline
-echo -n '--- Preparing to run CORRECT testcases under '
-echo "${model}" | awk '{ print toupper($0) }'
+echo -n '--- Preparing to run testcases in '
+echo "${testdir##*/}" 'under' "${model}" | awk '{ print toupper($1), $2, toupper($3) }'
 printline; echo ''
 
 # Print table's header
@@ -105,7 +105,7 @@ printf "| %-25s | %-10s | %-20s | %-10s | %-20s |\n" \
 printline
 
 # Run correct testcases and update status
-for dir in ../tests/correct/*
+for dir in "${testdir}"/*
 do
     if test -n "${fastrun}"
     then

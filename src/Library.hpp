@@ -34,17 +34,15 @@ struct LibMem {
 	std::string name;
 	EventType typ;
 	llvm::AtomicOrdering ord;
-	bool bottom;
+	bool initial;
 
-	LibMem(std::string name, EventType typ, llvm::AtomicOrdering ord) :
-		name(name), typ(typ), ord(ord) {};
-	LibMem(std::string name, EventType typ, llvm::AtomicOrdering ord, bool isBottom) :
-		name(name), typ(typ), ord(ord), bottom(isBottom) {};
+	LibMem(std::string name, EventType typ, llvm::AtomicOrdering ord, bool isLibInit) :
+		name(name), typ(typ), ord(ord), initial(isLibInit) {};
 
 	std::string getName() { return name; };
 	EventType getType()   { return typ; };
 	llvm::AtomicOrdering getOrdering() { return ord; };
-	bool isBottom()          { return bottom; };
+	bool isLibInit()         { return initial; };
 	bool hasReadSemantics()  { return typ == ERead; };
 	bool hasWriteSemantics() { return typ == EWrite; };
 };

@@ -380,6 +380,16 @@ bool RCMCDriverWeakRA::visitStore(ExecutionGraph &g)
 	BUG();
 }
 
+bool RCMCDriverWeakRA::visitLibStore(ExecutionGraph &g)
+{
+	BUG();
+}
+
+bool RCMCDriverWeakRA::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+{
+	BUG();
+}
+
 bool RCMCDriverWeakRA::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	BUG();
@@ -456,16 +466,91 @@ bool RCMCDriverMO::visitStore(ExecutionGraph &g)
 	return true;
 }
 
+bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
+{
+	auto &sLab = g.getLastThreadLabel(g.currentT);
+	auto stores(g.modOrder[sLab.addr]);
+
+	/* Make the driver track this store */
+	trackEvent(sLab.pos);
+
+	/* It is always consistent to add a new event at the end of MO */
+	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
+	pushLibReadsToRevisit(g, sLab);
+
+	/* If there was not any store previously, return */
+	if (stores.empty()) {
+		if (!sLab.isLibInit()) {
+			WARN("Uninitialized memory location used by library found!\n");
+			abort();
+		}
+		return true;
+	}
+
+	/*
+	 * Check for alternative MO placings. Note that MO_loc has at
+	 * least one event (hence the initial loop condition), and
+	 * that "stores" does not contain sLab.pos
+	 */
+	for (auto it = stores.begin() + 1; it != stores.end(); ++it) {
+		std::vector<Event> newMO(stores.begin(), it);
+		newMO.push_back(sLab.pos);
+		newMO.insert(newMO.end(), it, stores.end());
+
+		/* Check consistency for the graph with this MO */
+		std::swap(g.modOrder[sLab.addr], newMO);
+		auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
+		if (g.isLibConsistentInView(*lib, sLab.preds))
+			addToWorklist(sLab.pos, StackItem(MOWriteLib, g.modOrder[sLab.addr]));
+		std::swap(g.modOrder[sLab.addr], newMO);
+	}
+	return true;
+}
+
+bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+{
+	/* Get all reads in graph */
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
+	auto loads = g.getLibEventsInView(*lib, sLab.preds);
+	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &sLab](Event &e)
+				   { EventLabel &eLab = g.getEventLabel(e);
+				     return !eLab.isRead() || eLab.addr != sLab.addr || !eLab.isRevisitable(); }),
+		    loads.end());
+
+	/* Find which of them are consistent to revisit */
+	std::vector<Event> store = {sLab.pos};
+	auto before = g.getPorfBefore(sLab.pos);
+	for (auto &l : loads) {
+		/* Calculate the view of the resulting graph */
+		auto &rLab = g.getEventLabel(l);
+		auto v(rLab.preds);
+		v.updateMax(before);
+
+		/* Check if this the resulting graph is consistent */
+		auto valid = g.getLibConsRfsInView(*lib, rLab, store, v);
+		if (valid.empty())
+			continue;
+
+		/* Push consistent options to stack */
+		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+		auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
+
+		if (rLab.revs.contains(writePrefixPos, moPlacings))
+			continue;
+
+		rLab.revs.add(writePrefixPos, moPlacings);
+		addToWorklist(rLab.pos, StackItem(SWrite, sLab.pos, before,
+						  writePrefix, moPlacings));
+	}
+	return true;
+}
+
 bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
-	std::vector<Event> loads = g.getRevisitLoadsMO(sLab);
-
-	std::vector<Event> pendingRMWs;
-	if (sLab.isRMW()) {
-		auto &lab = g.getPreviousLabel(sLab.pos);
-		auto val = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-		pendingRMWs = EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
-	}
+	auto loads = g.getRevisitLoadsMO(sLab);
+	auto pendingRMWs = g.getPendingRMWs(sLab);
 
 	if (pendingRMWs.size() > 0)
 		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
@@ -486,13 +571,8 @@ bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
 
-		bool willBeRevisited = false;
-		if (sLab.isRMW() && pendingRMWs.size() > 0 && l == pendingRMWs.back())
-			willBeRevisited = true;
-
 		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(l, StackItem(SWrite, sLab.pos, before,
-					   writePrefix, moPlacings, willBeRevisited));
+		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix, moPlacings));
 	}
 	return (!sLab.isRMW() || pendingRMWs.empty());
 }
@@ -519,12 +599,15 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		 * part and the previous MO, and make that part non-revisitable
 		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		lab.changeRevisitStatus(p.revisitable);
 		break;
 	case MOWrite:
 		/* Try a different MO ordering, and also consider reads to revisit */
 		g.modOrder[lab.addr] = p.newMO;
 		pushReadsToRevisit(g, lab);
+		return true; /* Nothing else to do */
+	case MOWriteLib:
+		g.modOrder[lab.addr] = p.newMO;
+		pushLibReadsToRevisit(g, lab);
 		return true; /* Nothing else to do */
 	default:
 		BUG();
@@ -581,16 +664,62 @@ bool RCMCDriverWB::visitStore(ExecutionGraph &g)
 	return pushReadsToRevisit(g, sLab);
 }
 
+bool RCMCDriverWB::visitLibStore(ExecutionGraph &g)
+{
+	auto &sLab = g.getLastThreadLabel(g.currentT);
+
+	if (g.modOrder[sLab.addr].empty() && !sLab.isLibInit()) {
+		WARN("Uninitialized memory location used by library found!\n");
+		abort();
+	}
+
+	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
+	return pushLibReadsToRevisit(g, sLab);
+}
+
+bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+{
+	/* Get all reads in graph */
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
+	auto loads = g.getLibEventsInView(*lib, sLab.preds);
+	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &sLab](Event &e)
+				   { EventLabel &eLab = g.getEventLabel(e);
+				     return !eLab.isRead() || eLab.addr != sLab.addr || !eLab.isRevisitable(); }),
+		    loads.end());
+
+	/* Find which of them are consistent to revisit */
+	std::vector<Event> store = {sLab.pos};
+	auto before = g.getPorfBefore(sLab.pos);
+	for (auto &l : loads) {
+
+		/* Calculate the view of the resulting graph */
+		auto &rLab = g.getEventLabel(l);
+		auto v(rLab.preds);
+		v.updateMax(before);
+
+		/* Check if this the resulting graph is consistent */
+		auto valid = g.getLibConsRfsInView(*lib, rLab, store, v);
+		if (valid.empty())
+			continue;
+
+		/* Push consistent options to stack */
+		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
+
+		if (rLab.revs.contains(writePrefixPos))
+			continue;
+
+		rLab.revs.add(writePrefixPos);
+		addToWorklist(rLab.pos, StackItem(SWrite, sLab.pos, before, writePrefix));
+	}
+	return true;
+}
+
 bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	auto loads = g.getRevisitLoadsWB(sLab);
-
-	std::vector<Event> pendingRMWs;
-	if (sLab.isRMW()) {
-		auto &lab = g.getPreviousLabel(sLab.pos);
-		auto val = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-		pendingRMWs = EE->getPendingRMWs(lab.pos, lab.rf, lab.addr, val);
-	}
+	auto pendingRMWs = g.getPendingRMWs(sLab);
 
 	if (pendingRMWs.size() > 0)
 		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
@@ -610,12 +739,8 @@ bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 		if (rLab.revs.contains(writePrefixPos))
 			continue;
 
-		bool willBeRevisited = false;
-		if (sLab.isRMW() && pendingRMWs.size() > 0 && l == pendingRMWs.back())
-			willBeRevisited = true;
-
 		rLab.revs.add(writePrefixPos);
-		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix, willBeRevisited));
+		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix));
 	}
 	return (!sLab.isRMW() || pendingRMWs.empty());
 }
@@ -642,7 +767,6 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		 * non-revisitable
 		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		lab.changeRevisitStatus(p.revisitable);
 		break;
 	default:
 		BUG();

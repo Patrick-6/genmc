@@ -29,7 +29,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-enum StackItemType { SRead, SWrite, MOWrite, GRead, GRead2, None };
+enum StackItemType { SRead, SWrite, MOWrite, MOWriteLib, GRead, GRead2, None };
 
 struct StackItem {
 	StackItemType type;
@@ -38,7 +38,6 @@ struct StackItem {
 	std::vector<EventLabel> writePrefix;
 	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
-	bool revisitable;
 	Event oldRf;
 
 	StackItem() : type(None) {};
@@ -47,20 +46,18 @@ struct StackItem {
 	StackItem(StackItemType t, std::vector<Event> newMO)
 		: type(t), newMO(newMO) {};
 	StackItem(StackItemType t, Event shouldRf, View before,
-		  std::vector<EventLabel> &writePrefix, bool revisitable)
+		  std::vector<EventLabel> &writePrefix)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix), revisitable(revisitable) {};
+		  writePrefix(writePrefix) {};
 	StackItem(StackItemType t, Event shouldRf, View before,
 		  std::vector<EventLabel> &writePrefix,
-		  std::vector<std::pair<Event, Event> > moPlacings,
-		  bool revisitable)
+		  std::vector<std::pair<Event, Event> > moPlacings)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix), moPlacings(moPlacings),
-		  revisitable(revisitable) {};
+		  writePrefix(writePrefix), moPlacings(moPlacings) {};
 	StackItem(StackItemType t, Event shouldRf, View before,
-		  std::vector<EventLabel> &writePrefix, bool revisitable, Event oldRf)
+		  std::vector<EventLabel> &writePrefix, Event oldRf)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix), revisitable(revisitable), oldRf(oldRf) {};
+		  writePrefix(writePrefix), oldRf(oldRf) {};
 };
 
 class RCMCDriver {
@@ -112,7 +109,9 @@ public:
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual bool visitStore(ExecutionGraph &g) = 0;
+	virtual bool visitLibStore(ExecutionGraph &g) = 0;
 	virtual bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
+	virtual bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
 	virtual bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s) = 0;
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
@@ -131,7 +130,9 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
+	bool visitLibStore(ExecutionGraph &g);
 	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
@@ -148,7 +149,9 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
+	bool visitLibStore(ExecutionGraph &g);
 	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
@@ -165,7 +168,9 @@ public:
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	bool visitStore(ExecutionGraph &g);
+	bool visitLibStore(ExecutionGraph &g);
 	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);

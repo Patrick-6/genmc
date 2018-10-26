@@ -189,18 +189,9 @@ public:
   /* Helper functions */
   void replayExecutionBefore(View &before);
   bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
-  Event getPendingRMWSucc(Event &write, GenericValue &wVal, Type *typ, GenericValue *ptr);
-  std::vector<Event> getPendingRMWs(Event &RMW, Event &RMWrf, GenericValue *ptr,
-				    GenericValue &wVal);
   bool isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
 				  GenericValue *ptr, View &before);
-  void __calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-		      EventLabel &wLab, std::vector<Event> acc, std::vector<Event> set);
-  void calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-		    EventLabel &wLab, std::vector<Event> &set);
-  std::vector<std::vector<Event> > calcRevisitSets(std::vector<Event> &ls,
-						   std::vector<Event> K0, EventLabel &wLab);
-  bool isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal);
+  bool isSuccessfulRMW(EventLabel &lab, const GenericValue &rfVal);
   GenericValue loadValueFromWrite(Event &w, Type *typ, GenericValue *ptr);
   std::vector<Event> getStoresToLoc(GenericValue *ptr);
   std::vector<Event> properlyOrderStores(EventAttr attr, Type *typ,
@@ -215,11 +206,6 @@ public:
   std::vector<Event> properlyOrderStoresRMW(Type *typ, GenericValue *ptr,
 					    std::vector<GenericValue> &expVal,
 					    std::vector<Event> &stores);
-  // Event getFirstNonConflicting(EventAttr attr, Event tentative,
-  // 			       Type *typ, GenericValue *ptr, std::vector<GenericValue>& expVal);
-  // Event getFirstNonConflictingCAS(Event tentative, Type *typ,
-  // 				  GenericValue *ptr, GenericValue &cmpVal);
-  // Event getFirstNonConflictingRMW(Event tentative, Type *typ, GenericValue *ptr);
   void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
 				 GenericValue &val, AtomicRMWInst::BinOp op);
 

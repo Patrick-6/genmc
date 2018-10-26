@@ -59,10 +59,12 @@ int main() {
   for (intptr_t i = 1; i <= N; i++)
     pthread_create(t+i, 0, thread, (void*)i);
 
-  /* for (intptr_t i = 1; i <= N; i++) */
-  /* 	  pthread_join(t[i], NULL); */
+  for (intptr_t i = 1; i <= N; i++)
+	  pthread_join(t[i], NULL);
 
-  /* printf("gothere\n"); */
+#ifdef NIDHUGG
+  printf("full exec\n");
+#endif
 
   return 0;
 }

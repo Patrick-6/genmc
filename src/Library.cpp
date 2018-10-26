@@ -62,9 +62,9 @@ llvm::AtomicOrdering strToOrd(std::string &ord)
 void Library::addMember(std::string name, std::string typ, std::string ord)
 {
 	if (typ == "read")
-		mems.push_back(LibMem(name, ERead, strToOrd(ord)));
+		mems.push_back(LibMem(name, ERead, strToOrd(ord), false));
 	else if (typ == "write")
-		mems.push_back(LibMem(name, EWrite, strToOrd(ord)));
+		mems.push_back(LibMem(name, EWrite, strToOrd(ord), false));
 	else if (typ == "bottom")
 		mems.push_back(LibMem(name, EWrite, strToOrd(ord), true));
 	else

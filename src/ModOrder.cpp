@@ -53,6 +53,11 @@ llvm::GenericValue *ModOrder::getAddrAtPos(ModOrder::iterator it)
 std::vector<Event> ModOrder::getMoAfter(llvm::GenericValue *addr, const Event &e)
 {
 	std::vector<Event> res;
+
+	/* All stores are mo-after INIT */
+	if (e.isInitializer())
+		return mo_[addr];
+
 	for (auto rit = mo_[addr].rbegin(); rit != mo_[addr].rend(); ++rit) {
 		if (*rit == e) {
 			std::reverse(res.begin(), res.end());

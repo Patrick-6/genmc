@@ -49,63 +49,13 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
 
 static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
 
-bool Interpreter::isSuccessfulRMW(EventLabel &lab, GenericValue &rfVal)
+bool Interpreter::isSuccessfulRMW(EventLabel &lab, const GenericValue &rfVal)
 {
 	if (lab.attr == Plain)
 		return false;
 	if (lab.attr == RMW)
 		return true;
 	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
-}
-
-void Interpreter::__calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-				   EventLabel &wLab, std::vector<Event> acc,
-				 std::vector<Event> set)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	/* Base case */
-	if (set.empty()) {
-		powerSet.push_back(acc);
-		return;
-	}
-
-	Event &ev = set.back();
-	set.pop_back();
-
-	/* Calculate all subsets that do not contain ev. */
-	__calcPowerSet(powerSet, wLab, acc, set);
-
-	/* Calculate subsets with ev but filter out events from the same thread */
-	EventLabel &lab = g.getEventLabel(ev);
-	Interpreter *interp = this;
-	if (isSuccessfulRMW(lab, wLab.val))
-		set.erase(std::remove_if(set.begin(), set.end(), [&interp, &g, &wLab, &ev](Event &e)
-					 { EventLabel &eLab = g.getEventLabel(e);
-					   return e.thread == ev.thread ||
-						  interp->isSuccessfulRMW(eLab, wLab.val); }),
-			  set.end());
-	else
-		set.erase(std::remove_if(set.begin(), set.end(), [&ev](Event &e)
-					 { return e.thread == ev.thread; }),
-			  set.end());
-
-	acc.push_back(ev);
-	__calcPowerSet(powerSet, wLab, acc, set);
-	return;
-}
-
-void Interpreter::calcPowerSet(std::vector<std::vector<Event> > &powerSet,
-			       EventLabel &wLab, std::vector<Event> &set)
-{
-	__calcPowerSet(powerSet, wLab, {}, set);
-}
-
-std::vector<std::vector<Event> > Interpreter::calcRevisitSets(std::vector<Event> &ls,
-						 std::vector<Event> K0, EventLabel &wLab)
-{
-	std::vector<std::vector<Event> > subsets;
-	calcPowerSet(subsets, wLab, ls);
-	return subsets;
 }
 
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
@@ -121,24 +71,6 @@ GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericVal
 
 	EventLabel &lab = g.getEventLabel(write);
 	return lab.val;
-}
-
-std::vector<Event> Interpreter::getPendingRMWs(Event &RMW, Event &RMWrf,
-					       GenericValue *ptr, GenericValue &wVal)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	std::vector<Event> pending;
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isRead() && lab.isRMW() && lab.addr == ptr &&
-			    lab.pos != RMW && lab.rf == RMWrf && isSuccessfulRMW(lab, wVal))
-				pending.push_back(lab.pos);
-		}
-	}
-	BUG_ON(pending.size() > 1);
-	return pending;
 }
 
 bool Interpreter::isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
@@ -163,23 +95,6 @@ bool Interpreter::isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, T
 		}
 	}
 	return true;
-}
-
-Event Interpreter::getPendingRMWSucc(Event &write, GenericValue &wVal,
-				     Type *typ, GenericValue *ptr)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isRead() && lab.rf == write && lab.addr == ptr &&
-			    lab.isRMW() && isSuccessfulRMW(lab, wVal))
-				return lab.pos.next();
-			}
-	}
-	BUG();
-	return Event();
 }
 
 bool Interpreter::isReadByAtomicRead(Event w, GenericValue &wVal,
@@ -1343,57 +1258,6 @@ void Interpreter::visitFenceInst(FenceInst &I)
 	g.addFenceToGraph(I.getOrdering());
 	return;
 }
-
-// Event choosePriorEvent(std::vector<Event> &es, std::vector<int> &before)
-// {
-// 	for (auto &e : es)
-// 		if (e.index <= before[e.thread])
-// 			return e;
-// 	BUG();
-// }
-
-// Event Interpreter::getFirstNonConflictingCAS(Event tentative, Type *typ,
-// 					     GenericValue *ptr, GenericValue &cmpVal)
-// {
-// 	Event final = tentative;
-// 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
-// 	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-// 	while (cmpRes.IntVal.getBoolValue() &&
-// 	       isReadByAtomicRead(final, oldVal, typ, ptr)) {
-// 		final = getPendingRMWSucc(final, oldVal, typ, ptr);
-// 		oldVal = loadValueFromWrite(final, typ, ptr);
-// 		cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-// 	}
-// 	return final;
-// }
-
-// Event Interpreter::getFirstNonConflictingRMW(Event tentative, Type *typ,
-// 					     GenericValue *ptr)
-// {
-// 	Event final = tentative;
-// 	GenericValue oldVal = loadValueFromWrite(final, typ, ptr);
-// 	while (isReadByAtomicRead(final, oldVal, typ, ptr)) {
-// 		final = getPendingRMWSucc(final, oldVal, typ, ptr);
-// 		oldVal = loadValueFromWrite(final, typ, ptr);
-// 	}
-// 	return final;
-// }
-
-// Event Interpreter::getFirstNonConflicting(EventAttr attr, Event tentative,
-// 					  Type *typ, GenericValue *ptr,
-// 					  std::vector<GenericValue> &expVal)
-// {
-// 	switch (attr) {
-// 	case Plain:
-// 		return tentative;
-// 	case CAS:
-// 		return getFirstNonConflictingCAS(tentative, typ, ptr, expVal.back());
-// 	case RMW:
-// 		return getFirstNonConflictingRMW(tentative, typ, ptr);
-// 	default:
-// 		BUG();
-// 	}
-// }
 
 std::vector<Event> Interpreter::properlyOrderStoresPlain(Type *typ, GenericValue *ptr,
 							 std::vector<GenericValue> &expVal,
@@ -3176,55 +3040,67 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
 	g.addGReadToGraph(mem.getOrdering(), ptr, typ, Event::getInitializer(), F->getName().str());
 
+	/* Make sure there exists an initializer event for this memory location */
+	auto stores(g.modOrder[ptr]);
+	auto it = std::find_if(stores.begin(), stores.end(),
+			       [&g](Event e){ return g.getEventLabel(e).isLibInit(); });
+
+	if (it == stores.end()) {
+		WARN("Uninitialized memory location used by library found!\n");
+		abort();
+	}
+
+	auto &lab = g.getLastThreadLabel(g.currentT);
+	auto validStores = g.getLibConsRfsInView(lib, lab, stores, lab.preds);
+
+	/* Choose one of the available reads-from options */
+	g.changeRf(lab, validStores[0]);
+
 	/* Calculate available RFs, not taking into account BOTTOM,
 	 * if Library has functional Rfs */
-	auto bottom = Event::getInitializer();
-	auto stores(g.modOrder[ptr]);
-	if (lib.hasFunctionalRfs()) {
-		auto it = std::find_if(stores.begin(), stores.end(),
-				       [&g](Event &e){ return g.getEventLabel(e).isBottom(); });
-		BUG_ON(it == stores.end());
-		bottom = *it;
-		stores.erase(it);
-	}
-	Event e = g.getLastThreadEvent(g.currentT);
-	EventLabel &lab = g.getEventLabel(e);
+	// auto bottom = Event::getInitializer();
+	// auto stores(g.modOrder[ptr]);
+	// if (lib.hasFunctionalRfs()) {
+	// 	auto it = std::find_if(stores.begin(), stores.end(),
+	// 			       [&g](Event &e){ return g.getEventLabel(e).isBottom(); });
+	// 	BUG_ON(it == stores.end());
+	// 	bottom = *it;
+	// 	stores.erase(it);
+	// }
+	// Event e = g.getLastThreadEvent(g.currentT);
+	// EventLabel &lab = g.getEventLabel(e);
 
-	auto validStores = g.filterLibConstraints(lib, e, stores);
+	// auto validStores = g.filterLibConstraints(lib, e, stores);
 
 	/* BOTTOM should also be an option (don't know anything about consistency) */
-	if (lib.hasFunctionalRfs()) {
-		validStores.insert(validStores.begin(), bottom);
-		lab.invalidRfs.push_back(bottom);
-		/* Record all invalid RFs for future use */
-		std::for_each(stores.begin(), stores.end(), [&validStores, &lab](Event &e)
-			      { if (std::find(validStores.begin(), validStores.end(), e) ==
-				    validStores.end())
-				  lab.invalidRfs.push_back(e); });
-	}
+	// if (lib.hasFunctionalRfs()) {
+	// 	validStores.insert(validStores.begin(), bottom);
+	// 	lab.invalidRfs.push_back(bottom);
+	// 	/* Record all invalid RFs for future use */
+	// 	std::for_each(stores.begin(), stores.end(), [&validStores, &lab](Event &e)
+	// 		      { if (std::find(validStores.begin(), validStores.end(), e) ==
+	// 			    validStores.end())
+	// 			  lab.invalidRfs.push_back(e); });
+	// }
 
-	if (validStores.size() == 0) {
-		llvm::dbgs() << "No valid choices in this graph:\n";
-		llvm::dbgs() << g << "\n";
-		g.tryToBacktrack();
-		return;
-	}
+	// if (validStores.size() == 0) {
+	// 	llvm::dbgs() << "No valid choices in this graph:\n";
+	// 	llvm::dbgs() << g << "\n";
+	// 	g.tryToBacktrack();
+	// 	return;
+	// }
 
-	llvm::dbgs() << "Filtered stores are ";
-	for (auto &s : validStores)
-		llvm::dbgs() << s << " ";
-	llvm::dbgs() << "\n";
+	// llvm::dbgs() << "Filtered stores are ";
+	// for (auto &s : validStores)
+	// 	llvm::dbgs() << s << " ";
+	// llvm::dbgs() << "\n";
 
-
-
-	/* Correct the RF edge */
-	g.changeRf(lab, validStores[0]); /* Move this into filtered..?? */
 
 	/* Push all the other alternatives choices to the Stack */
-	driver->trackEvent(e);
+	driver->trackEvent(lab.pos);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
 		if (!lib.hasFunctionalRfs() || g.getEventLabel(*it).rfm1.size() == 0) {
-			driver->addToWorklist(e, StackItem(SRead, *it));
+			driver->addToWorklist(lab.pos, StackItem(SRead, *it));
 			continue;
 		}
 
@@ -3249,11 +3125,9 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		if (confLab.revs.contains(prefixPos))
 			continue;
 
-		bool willBeRevisited = true;
-
 		confLab.revs.add(prefixPos);
 		driver->addToWorklist(confLab.pos, StackItem(GRead, rfLab.pos, before,
-							     prefix, willBeRevisited, lab.pos));
+							     prefix, lab.pos));
 	}
 
 	/* Last, set the return value for this instruction */
@@ -3287,9 +3161,9 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 	}
 
 	g.addGStoreToGraph(mem.getOrdering(), ptr, val, typ, F->getName().str());
-	if (mem.isBottom())
-		g.getLastThreadLabel(g.currentT).bottom = true;
-	driver->visitStore(g);
+	if (mem.isLibInit())
+		g.getLastThreadLabel(g.currentT).initial = true;
+	driver->visitLibStore(g);
 //	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 //	returnValueToCaller(F->getReturnType(), result);
 	return;

@@ -49,7 +49,7 @@ public:
 	View porfView;
 	int cid; /* For TCreates */
 	std::string functionName; /* For GReads/GWrites */
-	bool bottom; /* For GWrites */
+	bool initial; /* For GWrites */
 	bool revisitable;
 	RevisitSet revs;
 	View preds;
@@ -95,12 +95,11 @@ public:
 	bool isAtLeastRelease() const;
 	bool isSC() const;
 	bool isRMW() const;
-	bool isBottom() const;
+	bool isLibInit() const;
 
 	bool isRevisitable()      { return revisitable; };
 	void makeNotRevisitable() { revisitable = false; };
 	void makeRevisitable()    { revisitable = true; };
-	void changeRevisitStatus(bool status) { revisitable = status; };
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };

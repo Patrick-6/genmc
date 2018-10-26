@@ -62,6 +62,7 @@ public:
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<llvm::GenericValue *> getDoubleLocs();
 	View getGraphState(void);
+	std::vector<Event> getPendingRMWs(EventLabel &sLab);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
 
@@ -148,9 +149,10 @@ public:
 	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
 
 	/* Library consistency checks */
-	std::vector<Event> getLibraryEvents(Library &lib);
-	std::vector<Event> filterLibConstraints(Library &lib, Event &load,
-						const std::vector<Event> &stores);
+	std::vector<Event> getLibEventsInView(Library &lib, View &v);
+	std::vector<Event> getLibConsRfsInView(Library &lib, EventLabel &rLab,
+					       const std::vector<Event> &stores, View &v);
+	bool isLibConsistentInView(Library &lib, View &v);
 
 	/* Debugging methods */
 	void validateGraph(void);
@@ -185,7 +187,8 @@ protected:
 	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
 	std::vector<Event> getStoresWB(llvm::GenericValue *addr);
-	std::vector<Event> getRMWChain(EventLabel sLab);
+	std::vector<Event> getRMWChainDownTo(const EventLabel &sLab, const Event lower);
+	std::vector<Event> getRMWChainUpTo(const EventLabel &sLab, const Event upper);
 	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, const std::vector<Event> &chain);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
 			std::vector<int> &moAfter, std::vector<int> &moRfAfter,
@@ -204,6 +207,8 @@ protected:
 			 std::vector<bool> &pscMatrix);
 	std::pair<std::vector<Event>, std::vector<bool> >
 	calcWb(llvm::GenericValue *addr);
+	std::pair<std::vector<Event>, std::vector<bool> >
+	calcWbRestricted(llvm::GenericValue *addr, View &v);
 
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
@@ -213,14 +218,15 @@ protected:
 			    std::vector<Event> &tos);
 	void getRfm1EdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			      std::vector<Event> &tos);
+	void getWbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
+			    std::vector<Event> &tos);
 	void getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
-	void calcSingleStepPairs(Library &lib,
-				 std::vector<std::pair<Event, std::vector<Event> > > &froms,
+	void calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				 std::vector<Event> &tos,
 				 llvm::StringMap<std::vector<bool> > &relMap,
 				 std::vector<bool> &relMatrix, std::string &step);
-	void addStepEdgeToMatrix(Library &lib, std::vector<Event> &es,
+	void addStepEdgeToMatrix(std::vector<Event> &es,
 				 llvm::StringMap<std::vector<bool> > &relMap,
 				 std::vector<bool> &relMatrix,
 				 std::vector<std::string> &steps);
