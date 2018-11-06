@@ -208,118 +208,7 @@ start:
 			currentEG = oldEG;
 			return;
 		}
-
 		validExecution = revisitReads(g, toRevisit, p);
-		// validExecution = true;
-//		llvm::dbgs() << "Popping from stack " << ((p.type == SRead) ? "Read\n" : "Write\n"); llvm::dbgs() << "Graph is " << g << "\n, " << explored << " executions so far\n";
-
-// 		if (p.type == SRead) {
-// 			EventLabel &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(toRevisit, lab.preds);
-// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
-// 			filterWorklist(lab1.preds, p.storePorfBefore);
-
-// 			g.changeRf(lab1, p.shouldRf);
-
-// 			std::vector<Event> ls0({toRevisit});
-// 			Event added = tryAddRMWStores(g, ls0);
-// 			if (!added.isInitializer()) {
-// 				bool visitable = visitStore(g);
-// 				if (!visitable) {
-// //					worklist[toRevisit].pop_back();
-// 					validExecution = false;
-// 				}
-// 			}
-// //			llvm::dbgs() << "After restriction: \n" << g << "\n";
-// 		} else if (p.type == MOWrite) {
-// 			auto &sLab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(sLab.pos, p.preds);
-// 			auto &sLab1 = g.getEventLabel(toRevisit);
-// 			filterWorklist(p.preds, p.storePorfBefore);
-// 			g.modOrder[sLab1.addr] = p.newMO;
-// 			pushReadsToRevisit(g, sLab1);
-// 		} else if (p.type == GRead) {
-// 			auto &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.preds);
-// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-
-// 			if (p.revisitable)
-// 				lab.makeRevisitable();
-// 			else
-// 				lab.makeNotRevisitable();
-
-// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
-
-// 			lab = g.getEventLabel(toRevisit);
-// 			auto &confLab = g.getEventLabel(p.oldRf);
-
-// 			g.changeRf(lab, p.shouldRf);
-
-// 			auto lib = Library::getLibByMemberName(getGrantedLibs(), confLab.functionName);
-// 			auto candidateRfs = std::vector<Event>(confLab.invalidRfs.begin() + 1,
-// 							       confLab.invalidRfs.end());
-// 			auto possibleRfs = g.filterLibConstraints(*lib, confLab.pos, candidateRfs);
-
-// 			for (auto &s : possibleRfs) {
-// 				auto before = g.getPorfBefore(lab.pos);
-// 				auto prefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
-// 				auto prefixPos = g.getRfsNotBefore(prefix, confLab.preds);
-// 				prefixPos.insert(prefixPos.begin(), lab.pos);
-
-// 				if (confLab.revs.contains(prefixPos))
-// 					continue;
-
-// 				auto &rfLab = g.getEventLabel(s);
-// 				bool willBeRevisited = true;
-
-// 				confLab.revs.add(prefixPos);
-// 				addToWorklist(confLab.pos, StackItem(GRead2, rfLab.pos, before,
-// 								     prefix, willBeRevisited));
-// 			}
-
-// 			auto &lab2 = g.getEventLabel(p.oldRf);
-// 			g.changeRf(lab2, lab2.invalidRfs[0]); // hardcoding bottom seems excellent, right?
-// 		} else if (p.type == GRead2) {
-// 			auto &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.preds);
-// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-
-// 			if (p.revisitable)
-// 				lab.makeRevisitable();
-// 			else
-// 				lab.makeNotRevisitable();
-
-// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
-
-// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
-// 			g.changeRf(lab1, p.shouldRf);
-// 		} else {
-// 			EventLabel &lab = g.getEventLabel(toRevisit);
-// 			g.cutToEventView(lab.pos, lab.preds);
-// 			g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-
-// 			if (p.revisitable)
-// 				lab.makeRevisitable();
-// 			else
-// 				lab.makeNotRevisitable();
-
-// 			filterWorklist(g.getEventLabel(toRevisit).preds, p.storePorfBefore);
-// 			EventLabel &lab1 = g.getEventLabel(toRevisit);
-
-// 			g.changeRf(lab1, p.shouldRf);
-
-// 			std::vector<Event> ls0({toRevisit});
-// 			Event added = tryAddRMWStores(g, ls0);
-// 			if (!added.isInitializer()) {
-// 				bool visitable = visitStore(g);
-// 				if (!visitable) {
-// //					worklist[toRevisit].pop_back();
-// 					validExecution = false;
-// 				}
-// 			}
-// //			llvm::dbgs() << "After restriction: \n" << g << "\n";
-
-// 		}
 	} while (!validExecution);
 
 	g.currentT = 0;
@@ -487,6 +376,10 @@ bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
 		return true;
 	}
 
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
+	if (!lib->tracksCoherence())
+		return true;
+
 	/*
 	 * Check for alternative MO placings. Note that MO_loc has at
 	 * least one event (hence the initial loop condition), and
@@ -499,7 +392,6 @@ bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
 
 		/* Check consistency for the graph with this MO */
 		std::swap(g.modOrder[sLab.addr], newMO);
-		auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
 		if (g.isLibConsistentInView(*lib, sLab.preds))
 			addToWorklist(sLab.pos, StackItem(MOWriteLib, g.modOrder[sLab.addr]));
 		std::swap(g.modOrder[sLab.addr], newMO);
@@ -511,11 +403,7 @@ bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	/* Get all reads in graph */
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
-	auto loads = g.getLibEventsInView(*lib, sLab.preds);
-	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &sLab](Event &e)
-				   { EventLabel &eLab = g.getEventLabel(e);
-				     return !eLab.isRead() || eLab.addr != sLab.addr || !eLab.isRevisitable(); }),
-		    loads.end());
+	auto loads = g.getRevisitable(sLab);
 
 	/* Find which of them are consistent to revisit */
 	std::vector<Event> store = {sLab.pos};
@@ -609,6 +497,37 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		g.modOrder[lab.addr] = p.newMO;
 		pushLibReadsToRevisit(g, lab);
 		return true; /* Nothing else to do */
+	case SReadLibFunc: {
+		g.changeRf(lab, p.shouldRf);
+		auto &confLab = g.getEventLabel(g.getPendingLibRead(lab)); /* should be after rf-change! */
+
+		View v(confLab.preds);
+		View before = g.getPorfBefore(lab.pos);
+
+		v.updateMax(before);
+
+		auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
+		auto rfs = g.getLibConsRfsInView(*lib, confLab, confLab.invalidRfs, v); /* Bottom shouldn't affect consistency */
+//		BUG_ON(rfs.empty());
+
+		for (auto &rf : rfs) {
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
+			auto moPlacings = g.getMOPredsInBefore(writePrefix, confLab.preds);
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, confLab.preds);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+
+			if (confLab.revs.contains(writePrefixPos, moPlacings))
+				continue;
+
+			confLab.revs.add(writePrefixPos, moPlacings);
+			addToWorklist(confLab.pos, StackItem(SReadLibFuncRev, rf, before,
+							     writePrefix, moPlacings));
+		}
+		return false;}
+	case SReadLibFuncRev:
+		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+		g.changeRf(lab, p.shouldRf);
+		return true;
 	default:
 		BUG();
 	}
@@ -681,11 +600,7 @@ bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	/* Get all reads in graph */
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
-	auto loads = g.getLibEventsInView(*lib, sLab.preds);
-	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &sLab](Event &e)
-				   { EventLabel &eLab = g.getEventLabel(e);
-				     return !eLab.isRead() || eLab.addr != sLab.addr || !eLab.isRevisitable(); }),
-		    loads.end());
+	auto loads = g.getRevisitable(sLab);
 
 	/* Find which of them are consistent to revisit */
 	std::vector<Event> store = {sLab.pos};
@@ -768,6 +683,35 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 		break;
+	case SReadLibFunc: {
+		g.changeRf(lab, p.shouldRf);
+		auto &confLab = g.getEventLabel(g.getPendingLibRead(lab)); /* should be after rf-change! */
+
+		View v(confLab.preds);
+		View before = g.getPorfBefore(lab.pos);
+
+		v.updateMax(before);
+
+		auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
+		auto rfs = g.getLibConsRfsInView(*lib, confLab, confLab.invalidRfs, v); /* Bottom shouldn't affect consistency */
+//		BUG_ON(rfs.empty());
+
+		for (auto &rf : rfs) {
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, confLab.preds);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+
+			if (confLab.revs.contains(writePrefixPos))
+				continue;
+
+			confLab.revs.add(writePrefixPos);
+			addToWorklist(confLab.pos, StackItem(SReadLibFuncRev, rf, before, writePrefix));
+		}
+		return false;}
+	case SReadLibFuncRev:
+		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+		g.changeRf(lab, p.shouldRf);
+		return true;
 	default:
 		BUG();
 	}

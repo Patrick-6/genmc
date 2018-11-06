@@ -29,7 +29,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-enum StackItemType { SRead, SWrite, MOWrite, MOWriteLib, GRead, GRead2, None };
+enum StackItemType { SRead, SWrite, MOWrite, MOWriteLib, SReadLibFunc, SReadLibFuncRev, None };
 
 struct StackItem {
 	StackItemType type;

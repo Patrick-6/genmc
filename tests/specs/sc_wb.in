@@ -3,7 +3,7 @@ NAME: seq_cst
 MEMBERS: 3
 read_acq = myread
 write_rel = mywrite
-bottom_rel = myinit
+init_rel = myinit
 RELATIONS: 1
 NAME: X
 STEPS: 5

@@ -63,6 +63,7 @@ public:
 	std::vector<llvm::GenericValue *> getDoubleLocs();
 	View getGraphState(void);
 	std::vector<Event> getPendingRMWs(EventLabel &sLab);
+	Event getPendingLibRead(EventLabel &lab);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
 
@@ -119,6 +120,7 @@ public:
 	splitLocMOBefore(const std::vector<Event> &locMO, View &before);
 
 	/* Calculation of loads that can be revisited */
+	std::vector<Event> getRevisitable(const EventLabel &sLab);
 	std::vector<Event> getRevisitLoadsMO(const EventLabel &sLab);
 	std::vector<Event> getRevisitLoadsWB(const EventLabel &sLab);
 	std::vector<Event> getRevisitLoadsRMWWB(EventLabel &sLab);

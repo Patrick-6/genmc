@@ -3,7 +3,7 @@ NAME: seq_cst
 MEMBERS: 3
 read_rlx = myread
 write_rlx = mywrite
-bottom_rlx = myinit
+init_rlx = myinit
 RELATIONS: 1
 NAME: X
 STEPS: 5

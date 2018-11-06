@@ -148,6 +148,34 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(EventLabel &sLab)
 	return pending;
 }
 
+Event ExecutionGraph::getPendingLibRead(EventLabel &lab)
+{
+	WARN_ONCE("pendinglib",
+		  "FIXME: Cleanup, change name and make similar with getPendingRMWs when "
+		  "sreadlibfunc is unified\n");
+	BUG_ON(lab.rf == Event::getInitializer());
+	auto &sLab = getEventLabel(lab.rf);
+	auto it = std::find_if(sLab.rfm1.begin(), sLab.rfm1.end(), [&lab](Event &e){ return e != lab.pos; });
+	BUG_ON(it == sLab.rfm1.end());
+	return *it;
+}
+
+std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
+{
+	std::vector<Event> loads;
+
+	BUG_ON(!sLab.isWrite());
+	auto before = getPorfBefore(sLab.pos);
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			auto &lab = threads[i].eventList[j];
+			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
+				loads.push_back(lab.pos);
+		}
+	}
+	return loads;
+}
+
 std::vector<Event> ExecutionGraph::getRMWChainDownTo(const EventLabel &sLab, const Event lower)
 {
 	std::vector<Event> chain;
@@ -243,8 +271,10 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *lo
 
 std::vector<Event> ExecutionGraph::getRevisitLoadsWB(const EventLabel &sLab)
 {
-	auto before = getPorfBefore(sLab.pos);
-	std::vector<Event> hbAfterStores, ls;
+	auto ls = getRevisitable(sLab);
+
+	if (!sLab.isRMW())
+		return ls;
 
 	/*
 	 * If sLab is an RMW, we cannot revisit a read r for which
@@ -253,27 +283,15 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsWB(const EventLabel &sLab)
 	 *
 	 * since this will create a cycle in WB
 	 */
-	if (sLab.isRMW()) {
-		auto chain = getRMWChainDownTo(sLab, Event::getInitializer());
-		hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
-	}
+	auto chain = getRMWChainDownTo(sLab, Event::getInitializer());
+	auto hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
 
-	BUG_ON(!sLab.isWrite());
-	for (auto i = 0u; i < threads.size(); i++) {
-		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
-			EventLabel &lab = threads[i].eventList[j];
-			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable()) {
-				auto &pLab = getPreviousLabel(lab.pos);
-
-				/* If this read can be revisited, add it to the result */
-				if (std::all_of(hbAfterStores.begin(), hbAfterStores.end(),
-						[&pLab, this](Event w)
-						{ return !this->isWriteRfBefore(pLab.hbView, w); }))
-					ls.push_back(lab.pos);
-			}
-
-		}
-	}
+	auto it = std::remove_if(ls.begin(), ls.end(), [&hbAfterStores, this]
+				 (Event &l){ EventLabel &pLab = getPreviousLabel(l);
+					     return std::any_of(hbAfterStores.begin(), hbAfterStores.end(),
+								[&pLab, this](Event &w)
+	                                                        { return isWriteRfBefore(pLab.hbView, w); }); });
+	ls.erase(it, ls.end());
 	return ls;
 }
 
@@ -295,18 +313,7 @@ std::vector<Event> ExecutionGraph::calcOptionalRfs(const std::vector<Event> &loc
 
 std::vector<Event> ExecutionGraph::getRevisitLoadsMO(const EventLabel &sLab)
 {
-	auto before = getPorfBefore(sLab.pos);
-	std::vector<Event> ls;
-
-	BUG_ON(!sLab.isWrite());
-	for (auto i = 0u; i < threads.size(); i++) {
-		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
-			EventLabel &lab = threads[i].eventList[j];
-			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
-				ls.push_back(lab.pos);
-		}
-	}
-
+	auto ls = getRevisitable(sLab);
 	auto &locMO = modOrder[sLab.addr];
 
 	/* If this store is mo-maximal then we are done */

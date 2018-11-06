@@ -80,6 +80,7 @@ private:
 	std::vector<Relation> relations;
 	std::vector<Constraint> constraints;
 	bool functionalRfs;
+	bool coherence;
 
 public:
 	Library(std::string name, LibType typ);
@@ -90,6 +91,7 @@ public:
 	std::vector<Relation> &getRelations();
 	std::vector<Constraint> &getConstraints();
 	bool hasFunctionalRfs() { return functionalRfs; };
+	bool tracksCoherence()  { return coherence; };
 	void addMember(std::string name, std::string typ, std::string ord);
 	bool hasMember(std::string &name);
 	LibMem *getMember(std::string &name);
@@ -97,7 +99,8 @@ public:
 	void makeRelationTransitive(std::string name);
 	void addStepToRelation(std::string relation, std::vector<std::string> substeps);
 	void addConstraint(std::string name);
-	void markFunctionalRfs() { functionalRfs = true; };
+	void markFunctionalRfs()  { functionalRfs = true; };
+	void markCoherenceTrack() { coherence = true; };
 
 	static Library *getLibByMemberName(std::vector<Library> &libs, std::string &functionName);
 

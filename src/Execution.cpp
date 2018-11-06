@@ -2796,7 +2796,6 @@ void Interpreter::callPthreadJoin(Function *F,
 		lab.porfView.updateMax(cLab.porfView);
 	}
 
-
 	/* Return a value indicating that pthread_join() succeeded */
 	GenericValue result;
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
@@ -3032,6 +3031,11 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c < g.maxEvents[g.currentT]) {
 		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		if (c == g.maxEvents[g.currentT] - 1 &&
+		    lab.rf == Event::getInitializer()) {
+			g.tryToBacktrack();
+			return;
+		}
 		GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
 		returnValueToCaller(F->getReturnType(), val);
 		return;
@@ -3053,85 +3057,60 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	auto &lab = g.getLastThreadLabel(g.currentT);
 	auto validStores = g.getLibConsRfsInView(lib, lab, stores, lab.preds);
 
-	/* Choose one of the available reads-from options */
-	g.changeRf(lab, validStores[0]);
-
-	/* Calculate available RFs, not taking into account BOTTOM,
-	 * if Library has functional Rfs */
-	// auto bottom = Event::getInitializer();
-	// auto stores(g.modOrder[ptr]);
-	// if (lib.hasFunctionalRfs()) {
-	// 	auto it = std::find_if(stores.begin(), stores.end(),
-	// 			       [&g](Event &e){ return g.getEventLabel(e).isBottom(); });
-	// 	BUG_ON(it == stores.end());
-	// 	bottom = *it;
-	// 	stores.erase(it);
-	// }
-	// Event e = g.getLastThreadEvent(g.currentT);
-	// EventLabel &lab = g.getEventLabel(e);
-
-	// auto validStores = g.filterLibConstraints(lib, e, stores);
-
-	/* BOTTOM should also be an option (don't know anything about consistency) */
-	// if (lib.hasFunctionalRfs()) {
-	// 	validStores.insert(validStores.begin(), bottom);
-	// 	lab.invalidRfs.push_back(bottom);
-	// 	/* Record all invalid RFs for future use */
-	// 	std::for_each(stores.begin(), stores.end(), [&validStores, &lab](Event &e)
-	// 		      { if (std::find(validStores.begin(), validStores.end(), e) ==
-	// 			    validStores.end())
-	// 			  lab.invalidRfs.push_back(e); });
-	// }
-
-	// if (validStores.size() == 0) {
-	// 	llvm::dbgs() << "No valid choices in this graph:\n";
-	// 	llvm::dbgs() << g << "\n";
-	// 	g.tryToBacktrack();
-	// 	return;
-	// }
-
-	// llvm::dbgs() << "Filtered stores are ";
-	// for (auto &s : validStores)
-	// 	llvm::dbgs() << s << " ";
-	// llvm::dbgs() << "\n";
-
-
-	/* Push all the other alternatives choices to the Stack */
+	/* Track this event */
 	driver->trackEvent(lab.pos);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it) {
-		if (!lib.hasFunctionalRfs() || g.getEventLabel(*it).rfm1.size() == 0) {
+
+	/*
+	 * If this is a non-functional library, choose one of the available reads-from
+	 * options, push the rest to the stack, and return an appropriate value to
+	 * the interpreter
+	 */
+	if (!lib.hasFunctionalRfs()) {
+		BUG_ON(validStores.empty());
+		g.changeRf(lab, validStores[0]);
+		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 			driver->addToWorklist(lab.pos, StackItem(SRead, *it));
-			continue;
-		}
-
-		/* If the Library has functional RFs, revisit reads that were reading
-		 * from our candidate RF */
-		auto &rfLab = g.getEventLabel(*it);
-		// if (sLab.rfm1.size() > 0)
-		// 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&g, &sLab](Event &e)
-		// 				{ EventLabel &confLab = g.getEventLabel(sLab.rfm1.back());
-		// 					return e.index > confLab.preds[e.thread]; }),
-		// 		 ls.end());
-		BUG_ON(rfLab.rfm1.size() > 1);
-		auto &confLab = g.getEventLabel(rfLab.rfm1.back());
-		auto before = g.getPorfBefore(lab.pos);
-		auto prefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
-		std::vector<Event> prefixPos = {lab.pos};
-		std::for_each(prefix.begin(), prefix.end(),
-			      [&prefixPos, &confLab](const EventLabel &eLab)
-			      { if (eLab.isRead() && eLab.pos.index > confLab.preds[eLab.pos.thread])
-					      prefixPos.push_back(eLab.rf); });
-
-		if (confLab.revs.contains(prefixPos))
-			continue;
-
-		confLab.revs.add(prefixPos);
-		driver->addToWorklist(confLab.pos, StackItem(GRead, rfLab.pos, before,
-							     prefix, lab.pos));
+		returnValueToCaller(typ, loadValueFromWrite(lab.rf, typ, ptr));
+		return;
 	}
 
-	/* Last, set the return value for this instruction */
-	returnValueToCaller(typ, loadValueFromWrite(validStores[0], typ, ptr));
+	/* Otherwise, first record all the inconsistent options */
+	std::copy_if(stores.begin(), stores.end(), std::back_inserter(lab.invalidRfs),
+		     [&validStores](Event &e){ return std::find(validStores.begin(),
+								validStores.end(), e) == validStores.end(); });
+
+	/* Then, partition the stores based on whether they are read */
+	auto invIt = std::partition(validStores.begin(), validStores.end(),
+				    [&g](Event &e){ return g.getEventLabel(e).rfm1.empty(); });
+
+	/* Push all options that break RF functionality to the stack */
+	for (auto it = invIt; it != validStores.end(); ++it) {
+		auto &sLab = g.getEventLabel(*it);
+		BUG_ON(sLab.rfm1.size() > 1);
+		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
+			driver->addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
+	}
+
+	/* If there is no valid RF, we have to read BOTTOM */
+	if (invIt == validStores.begin()) {
+		WARN_ONCE("lib-not-always-block", "FIXME: SHOULD NOT ALWAYS BLOCK\n");
+		g.tryToBacktrack(); /* No need to return a value -- execution is dropped */
+		return;
+	}
+
+	/*
+	 * If BOTTOM is not the only option, push it to inconsistent RFs as well,
+	 * choose a valid store to read-from, and push the other alternatives to
+	 * the stack
+	 */
+	WARN_ONCE("lib-check-before-push", "FIXME: CHECK IF IT'S A NON BLOCKING LIB BEFORE PUSHING?\n");
+	lab.invalidRfs.push_back(Event::getInitializer());
+	g.changeRf(lab, validStores[0]);
+
+	for (auto it = validStores.begin() + 1; it != invIt; ++it)
+		driver->addToWorklist(lab.pos, StackItem(SRead, *it));
+
+	returnValueToCaller(typ, loadValueFromWrite(lab.rf, typ, ptr));
 	return;
 }
 

@@ -28,7 +28,8 @@
  ***********************************************************/
 
 Library::Library(std::string name, LibType typ)
-  : name(name), typ(typ), functionalRfs(false) {}
+	: name(name), typ(typ), functionalRfs(false),
+	  coherence(false) {}
 
 
 /************************************************************
@@ -65,7 +66,7 @@ void Library::addMember(std::string name, std::string typ, std::string ord)
 		mems.push_back(LibMem(name, ERead, strToOrd(ord), false));
 	else if (typ == "write")
 		mems.push_back(LibMem(name, EWrite, strToOrd(ord), false));
-	else if (typ == "bottom")
+	else if (typ == "init")
 		mems.push_back(LibMem(name, EWrite, strToOrd(ord), true));
 	else
 		WARN("Erroneous library member type in specs!\n");
@@ -112,6 +113,11 @@ void Library::addStepToRelation(std::string relation, std::vector<std::string> p
 	for (auto &r : getRelations())
 		if (r.getName() == relation)
 			r.addStep(preds);
+
+	/* Record whether this library tracks coherence */
+	if (std::any_of(preds.begin(), preds.end(), [](std::string &s)
+			{ return s == "mo"; }))
+		markCoherenceTrack();
 }
 
 void Library::addConstraint(std::string name)
