@@ -22,24 +22,14 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source ../scripts/terminal.sh
-RCMC_CPP=../src/rcmc
+RCMC_CPP=rcmc
 RCMC_OCAML=../../Ocaml/rcmc
 HERD=herd7
 NIDHUGG=nidhuggc
 CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
 
+source benchmarks.sh
 declare -a tool_res
-declare -a benchmarks
-
-benchmarks=( "ainc3" "ainc4" "ainc5" "ainc6"
-	     "big0"
-	     "binc3" "binc4"
-	     "casrot3" "casrot4" "casrot5" "casrot6" "casrot8"
-	     "casw3" "casw4" "casw5" "casw6"
-	     "readers3" "readers8" "readers13"
-	     "indexer12" "indexer13" "indexer14" "indexer15"
-             "lastzero5" "lastzero10" "lastzero15"
-	     "fib_bench3" "fib_bench4" "fib_bench5" )
 
 runherd() {
     dir="$1"
@@ -57,26 +47,21 @@ runherd() {
 }
 
 runnidhuggtest() {
-    dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
-				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ||
-				   "${1##*/}" == "2CoWR" ]] && dir="$1"
-    suffix="${1##*[[:alpha:]]}"
-    test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
+    dir=$1
     model="$2"
     vars=0
     time_total=0
     explored_total=0
-    unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="--unroll="`head -1 "${dir}/unroll.in"`
     for t in "${dir}"/variants/*.c
     do
 	vars=$((vars+1))
-	output=`nidhuggc "${test_args}" -- --"${model}" "$t" 2>&1`
+	command="nidhuggc ${test_args} -- --${model} ${unroll} ${nidhugg_args} ${t} 2>&1"
+	output=`eval $command`
 	explored=`echo "${output}" | awk '/Trace count/ { print $3 }'`
 	blocked=`echo "${output}" | awk '/Trace count/ { print $5 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`
 	explored_total=`echo "${explored_total}+${explored}" | bc -l`
-	## explored_total=`echo "${explored_total}+${blocked}" | bc -l`
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
@@ -159,21 +144,17 @@ runocaml() {
 }
 
 runcpp() {
-    dir="${1%%[[:digit:]]*}" && [[ "${1##*/}" == "CoRR1" || "${1##*/}" == "CoRR2" ||
-				   "${1##*/}" == "big0" || "${1##*/}" == "big1" ||
-				   "${1##*/}" == "2CoWR" ]] && dir="$1"
-    suffix="${1##*[[:alpha:]]}"
-    test_args="" && [[ -n "${suffix}" ]] && test_args="-DN=${suffix}"
+    dir=$1
     model="$2"
     vars=0
     time_total=0
     explored_total=0
-    unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
     checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
     for t in "${dir}"/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC_CPP}" "-${model}" "${unroll}" "${checker_args}" -- "${test_args}" "${t}" 2>&1`
+	command="${RCMC_CPP} -${model} ${unroll} ${checker_args} -- ${test_args} ${t} 2>&1"
+	output=`eval $command`
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time_total=`echo "${time_total}+${time}" | bc -l`
@@ -226,32 +207,18 @@ runrcmc() {
 runalltools() {
     dir=$1
     name=$2
-    [[ -n "${herd_col}" ]] && runherd "${dir}"
-    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
-    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
-}
-
-runalltoolsfullypar() {
-    dir=$1
-    name=$2
-    [[ -n "${herd_col}" ]] && runherd "${dir}" &
-    [[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
-    [[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
-    [[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
-}
-
-runbenchmarks() {
-    for dir in "${benchmarks[@]}"
-    do
-	name="${dir##*/}"
-	if test "${plotmode}" == "y"
+    IFS=',' read -ra ADDR <<< "${benchmarks[$dir]}"
+    for args in "${ADDR[@]}"; do
+	unroll=`echo $args | cut -d ';' -f1`
+	if test "${unroll}" == "NO_UNROLL"
 	then
-	    runalltoolsfullypar "${dir}" "${name}"
-	else
-	    runalltools "${dir}" "${name}"
+	    unroll=""
 	fi
-
+	test_args=`echo $args | cut -d ';' -f2`
+	[[ -n "${herd_col}" ]] && runherd "${dir}"
+	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
+	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
+	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
 	if test "${tablemode}" == "y"
 	then
 	    printf "%-10s" "${name%.*}"
@@ -260,6 +227,37 @@ runbenchmarks() {
 		[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "& ${tool_res[$i]}"
 		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
 	    done; echo '\\'
+	fi
+    done
+}
+
+runalltoolsfullypar() {
+    dir=$1
+    name=$2
+    IFS=',' read -ra ADDR <<< "${benchmarks[$dir]}"
+    for args in "${ADDR[@]}"; do
+	unroll=`echo $args | cut -d ';' -f1`
+	if test "${unroll}" == "NO_UNROLL"
+	then
+	    unroll=""
+	fi
+	test_args=`echo $args | cut -d ';' -f2`
+	[[ -n "${herd_col}" ]] && runherd "${dir}" &
+	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
+	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
+	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+    done
+}
+
+runbenchmarks() {
+    for dir in "${!benchmarks[@]}"
+    do
+	name="${dir##*/}"
+	if test "${plotmode}" == "y"
+	then
+	    runalltoolsfullypar "${dir}" "${name}"
+	else
+	    runalltools "${dir}" "${name}"
 	fi
     done
 }
@@ -414,15 +412,20 @@ while true; do
     esac
 done
 
-#default mode: tablemode
-[[ "${plotmode}" == "y" ]] || tablemode="y"
-
-#default implementation: C++
-impl="${impl:-c++}"
-
-# at least one model has to be specified
-[[ -z "${run_mo}" ]] && [[ -z "${run_wb}" ]] && run_weakra="weakra"
+#NIDHUGG_DEFAULTS
+#################
+nidhugg_args="--disable-mutex-init-requirement"
 [[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && run_sc="sc"
+
+#RCMC DEFAULTS
+##############
+impl="${impl:-c++}" #default implementation: C++
+[[ -z "${run_mo}" ]] && run_wb="wb"
+
+#BENCHMARKING DEFAULTS
+######################
+[[ "${plotmode}" == "y" ]] || tablemode="y" #default mode: tablemode
+
 
 printtable() {
     # print a dummy header (LaTeX comment)
