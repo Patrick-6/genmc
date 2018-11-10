@@ -13,12 +13,16 @@
 # define acquire memory_order_acquire
 #endif
 
+#ifndef MAX_THREADS
+# define MAX_THREADS 32
+#endif
+
 #define MAX_FREELIST 4 /* Each thread can own up to MAX_FREELIST free nodes */
 #define INITIAL_FREE 2 /* Each thread starts with INITIAL_FREE free nodes */
 
 #define POISON_IDX 0x666
 
-static unsigned int free_lists[N][MAX_FREELIST];
+static unsigned int free_lists[MAX_THREADS][MAX_FREELIST];
 
 void __VERIFIER_assume(int);
 

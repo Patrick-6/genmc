@@ -32,6 +32,10 @@
 
 int readers = DEFAULT_READERS, writers = DEFAULT_WRITERS, rdwr = DEFAULT_RDWR;
 
+#ifdef SPINLOOP_ASSUME
+void __VERIFIER_assume(int);
+#endif
+
 #define RW_LOCK_BIAS            0x00100000
 #define WRITE_LOCK_CMP          RW_LOCK_BIAS
 
@@ -57,8 +61,12 @@ static inline void read_lock(rwlock_t *rw)
 	int priorvalue = atomic_fetch_sub_explicit(&rw->lock, 1, mo_acquire);
 	while (priorvalue <= 0) {
 		atomic_fetch_add_explicit(&rw->lock, 1, mo_relaxed);
+#ifdef SPINLOOP_ASSUME
+		__VERIFIER_assume(atomic_load_explicit(&rw->lock, mo_relaxed) > 0);
+#else
 		while (atomic_load_explicit(&rw->lock, mo_relaxed) <= 0)
 			; //thrd_yield();
+#endif
 		priorvalue = atomic_fetch_sub_explicit(&rw->lock, 1, mo_acquire);
 	}
 }
@@ -68,8 +76,12 @@ static inline void write_lock(rwlock_t *rw)
 	int priorvalue = atomic_fetch_sub_explicit(&rw->lock, RW_LOCK_BIAS, mo_acquire);
 	while (priorvalue != RW_LOCK_BIAS) {
 		atomic_fetch_add_explicit(&rw->lock, RW_LOCK_BIAS, mo_relaxed);
+#ifdef SPINLOOP_ASSUME
+		__VERIFIER_assume(atomic_load_explicit(&rw->lock, mo_relaxed) == RW_LOCK_BIAS);
+#else
 		while (atomic_load_explicit(&rw->lock, mo_relaxed) != RW_LOCK_BIAS)
 			; //thrd_yield();
+#endif
 		priorvalue = atomic_fetch_sub_explicit(&rw->lock, RW_LOCK_BIAS, mo_acquire);
 	}
 }
