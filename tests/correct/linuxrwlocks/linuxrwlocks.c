@@ -8,6 +8,30 @@
 # define mo_release memory_order_release
 #endif
 
+#define MAXREADERS 3
+#define MAXWRITERS 3
+#define MAXRDWR 3
+
+#ifdef CONFIG_RWLOCK_READERS
+#define DEFAULT_READERS (CONFIG_RWLOCK_READERS)
+#else
+#define DEFAULT_READERS 1
+#endif
+
+#ifdef CONFIG_RWLOCK_WRITERS
+#define DEFAULT_WRITERS (CONFIG_RWLOCK_WRITERS)
+#else
+#define DEFAULT_WRITERS 1
+#endif
+
+#ifdef CONFIG_RWLOCK_RDWR
+#define DEFAULT_RDWR (CONFIG_RWLOCK_RDWR)
+#else
+#define DEFAULT_RDWR 0
+#endif
+
+int readers = DEFAULT_READERS, writers = DEFAULT_WRITERS, rdwr = DEFAULT_RDWR;
+
 #define RW_LOCK_BIAS            0x00100000
 #define WRITE_LOCK_CMP          RW_LOCK_BIAS
 
@@ -83,7 +107,23 @@ static inline void write_unlock(rwlock_t *rw)
 rwlock_t mylock;
 int shareddata;
 
-void *thread_fn(void *arg)
+void *threadR(void *arg)
+{
+	read_lock(&mylock);
+	int r = shareddata;
+	read_unlock(&mylock);
+	return NULL;
+}
+
+void *threadW(void *arg)
+{
+	write_lock(&mylock);
+	shareddata = 42;
+	write_unlock(&mylock);
+	return NULL;
+}
+
+void *threadRW(void *arg)
 {
 	for (int i = 0; i < 2; i++) {
 		if ((i % 2) == 0) {

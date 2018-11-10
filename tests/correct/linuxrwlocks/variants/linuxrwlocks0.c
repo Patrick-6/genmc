@@ -6,13 +6,22 @@
 
 int main()
 {
-	pthread_t t1, t2;
-	atomic_init(&mylock.lock, RW_LOCK_BIAS);
+	pthread_t W[MAXWRITERS], R[MAXREADERS], RW[MAXRDWR];
 
-	if (pthread_create(&t1, NULL, thread_fn, NULL))
-		abort();
-	if (pthread_create(&t2, NULL, thread_fn, NULL))
-		abort();
+	atomic_init(&mylock.lock, RW_LOCK_BIAS);
+	for (int i = 0; i < writers; i++)
+		pthread_create(&W[i], NULL, threadW, NULL);
+	for (int i = 0; i < readers; i++)
+		pthread_create(&R[i], NULL, threadR, NULL);
+	for (int i = 0; i < rdwr; i++)
+		pthread_create(&RW[i], NULL, threadRW, NULL);
+
+	/* for (int i = 0; i < writers; i++) */
+	/* 	pthread_join(W[i], NULL); */
+	/* for (int i = 0; i < readers; i++) */
+	/* 	pthread_join(R[i], NULL); */
+	/* for (int i = 0; i < rdwr; i++) */
+	/* 	pthread_join(RW[i], NULL); */
 
 	return 0;
 }
