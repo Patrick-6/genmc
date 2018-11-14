@@ -27,7 +27,7 @@ benchmarks["linuxrwlocks"]="-unroll=3;-DSPINLOOP_ASSUME -DCONFIG_RWLOCK_READERS=
                          -unroll=3;-DSPINLOOP_ASSUME -DCONFIG_RWLOCK_READERS=1 -DCONFIG_RWLOCK_WRITERS=1 -DCONFIG_RWLOCK_RDWR=1"
 benchmarks["barrier"]="-unroll=3;-DNUMREADERS=2, -unroll=4;-DNUMREADERS=3"
 benchmarks["ms-queue"]="-unroll=3;-DCONFIG_QUEUE_READERS=0 -DCONFIG_QUEUE_WRITERS=0 -DCONFIG_QUEUE_RDWR=2,\
-                     -unroll=4;-DCONFIG_QUEUE_READRES=1 -DCONFIG_QUEUE_WRITERS=1 -DCONFIG_QUEUE_RDWR=1"
+                     -unroll=4;-DCONFIG_QUEUE_READRES=0 -DCONFIG_QUEUE_WRITERS=2 -DCONFIG_QUEUE_RDWR=1"
 benchmarks["chase-lev"]="NO_UNROLL;"
 benchmarks["qspinlock"]="-unroll=3;-I../tests/correct/qspinlock/ -I../tests/correct/mcs_spinlock/ -DN=2,\
                       -unroll=4;-I../tests/correct/qspinlock/ -I../tests/correct/mcs_spinlock/ -DN=3"
