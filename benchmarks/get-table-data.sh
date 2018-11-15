@@ -314,7 +314,7 @@ fi
 
 # command-line arguments
 SHORT=t,p,l,b,f,o:,i:
-LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,rcmc:,weakra,mo,wb,impl:,output:
+LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,optimal,observers,rcmc:,weakra,mo,wb,impl:,output:
 
 # temporarily store output to be able to check for errors
 PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
@@ -397,6 +397,14 @@ while true; do
 	    run_pso=pso
 	    shift
 	    ;;
+	--optimal)
+	    run_optimal=optimal
+	    shift
+	    ;;
+	--observers)
+	    run_observers=observers
+	    shift
+	    ;;
         -o|--output)
             out_file="$2"
             shift 2
@@ -414,7 +422,7 @@ done
 
 #NIDHUGG_DEFAULTS
 #################
-nidhugg_args="--disable-mutex-init-requirement"
+nidhugg_args="--disable-mutex-init-requirement --${run_optimal} --${run_observers}"
 [[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && run_sc="sc"
 
 #RCMC DEFAULTS
