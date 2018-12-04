@@ -399,15 +399,31 @@ bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
 	return true;
 }
 
-bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
 {
-	/* Get all reads in graph */
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
-	auto loads = g.getRevisitable(sLab);
+	/* Get the library of the event causing the revisiting */
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
+	auto valid = true;
+	std::vector<Event> loads, stores;
 
-	/* Find which of them are consistent to revisit */
-	std::vector<Event> store = {sLab.pos};
-	auto before = g.getPorfBefore(sLab.pos);
+	/*
+	 * If this is a read of a functional library causing the revisit,
+	 * then this is a functionality violation: we need to find the conflicting
+	 * event, and find an alternative reads-from edge for it
+	 */
+	if (lib->hasFunctionalRfs() && lab.isRead()) {
+		auto conf = g.getPendingLibRead(lab);
+		loads = {conf};
+		stores = g.getEventLabel(conf).invalidRfs;
+		valid = false;
+	} else {
+		/* It is a normal store -- we need to find revisitable loads */
+		loads = g.getRevisitable(lab);
+		stores = {lab.pos};
+	}
+
+	/* Next, find which of the 'stores' can be read by 'loads' */
+	auto before = g.getPorfBefore(lab.pos);
 	for (auto &l : loads) {
 		/* Calculate the view of the resulting graph */
 		auto &rLab = g.getEventLabel(l);
@@ -415,24 +431,24 @@ bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 		v.updateMax(before);
 
 		/* Check if this the resulting graph is consistent */
-		auto valid = g.getLibConsRfsInView(*lib, rLab, store, v);
-		if (valid.empty())
-			continue;
+		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);
 
-		/* Push consistent options to stack */
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-		auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
+		for (auto &rf : rfs) {
+			/* Push consistent options to stack */
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+			auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-		if (rLab.revs.contains(writePrefixPos, moPlacings))
-			continue;
+			if (rLab.revs.contains(writePrefixPos, moPlacings))
+				continue;
 
-		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(rLab.pos, StackItem(SWrite, sLab.pos, before,
-						  writePrefix, moPlacings));
+			rLab.revs.add(writePrefixPos, moPlacings);
+			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before,
+							  writePrefix, moPlacings));
+		}
 	}
-	return true;
+	return valid;
 }
 
 bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
@@ -460,7 +476,7 @@ bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 			continue;
 
 		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix, moPlacings));
+		addToWorklist(l, StackItem(SRevisit, sLab.pos, before, writePrefix, moPlacings));
 	}
 	return (!sLab.isRMW() || pendingRMWs.empty());
 }
@@ -478,9 +494,10 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
 	case SRead:
+	case SReadLibFunc:
 		/* Nothing to restore in this case */
 		break;
-	case SWrite:
+	case SRevisit:
 		/*
 		 * Restore the part of the SBRF-prefix of the store that revisits a load,
 		 * that is not already present in the graph, the MO edges between that
@@ -497,37 +514,6 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		g.modOrder[lab.addr] = p.newMO;
 		pushLibReadsToRevisit(g, lab);
 		return true; /* Nothing else to do */
-	case SReadLibFunc: {
-		g.changeRf(lab, p.shouldRf);
-		auto &confLab = g.getEventLabel(g.getPendingLibRead(lab)); /* should be after rf-change! */
-
-		View v(confLab.preds);
-		View before = g.getPorfBefore(lab.pos);
-
-		v.updateMax(before);
-
-		auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
-		auto rfs = g.getLibConsRfsInView(*lib, confLab, confLab.invalidRfs, v); /* Bottom shouldn't affect consistency */
-//		BUG_ON(rfs.empty());
-
-		for (auto &rf : rfs) {
-			auto writePrefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
-			auto moPlacings = g.getMOPredsInBefore(writePrefix, confLab.preds);
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, confLab.preds);
-			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
-
-			if (confLab.revs.contains(writePrefixPos, moPlacings))
-				continue;
-
-			confLab.revs.add(writePrefixPos, moPlacings);
-			addToWorklist(confLab.pos, StackItem(SReadLibFuncRev, rf, before,
-							     writePrefix, moPlacings));
-		}
-		return false;}
-	case SReadLibFuncRev:
-		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		g.changeRf(lab, p.shouldRf);
-		return true;
 	default:
 		BUG();
 	}
@@ -539,6 +525,8 @@ bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 	g.changeRf(lab, p.shouldRf);
 	if (g.tryAddRMWStore(g, lab))
 		return visitStore(g);
+	if (p.type == SReadLibFunc)
+		return pushLibReadsToRevisit(g, lab);
 
 	return true;
 }
@@ -596,39 +584,54 @@ bool RCMCDriverWB::visitLibStore(ExecutionGraph &g)
 	return pushLibReadsToRevisit(g, sLab);
 }
 
-bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
+bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
 {
-	/* Get all reads in graph */
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
-	auto loads = g.getRevisitable(sLab);
+	/* Get the library of the event causing the revisiting */
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
+	auto valid = true;
+	std::vector<Event> loads, stores;
 
-	/* Find which of them are consistent to revisit */
-	std::vector<Event> store = {sLab.pos};
-	auto before = g.getPorfBefore(sLab.pos);
+	/*
+	 * If this is a read of a functional library causing the revisit,
+	 * then this is a functionality violation: we need to find the conflicting
+	 * event, and find an alternative reads-from edge for it
+	 */
+	if (lib->hasFunctionalRfs() && lab.isRead()) {
+		auto conf = g.getPendingLibRead(lab);
+		loads = {conf};
+		stores = g.getEventLabel(conf).invalidRfs;
+		valid = false;
+	} else {
+		/* It is a normal store -- we need to find revisitable loads */
+		loads = g.getRevisitable(lab);
+		stores = {lab.pos};
+	}
+
+	/* Next, find which of the 'stores' can be read by 'loads' */
+	auto before = g.getPorfBefore(lab.pos);
 	for (auto &l : loads) {
-
 		/* Calculate the view of the resulting graph */
 		auto &rLab = g.getEventLabel(l);
 		auto v(rLab.preds);
 		v.updateMax(before);
 
 		/* Check if this the resulting graph is consistent */
-		auto valid = g.getLibConsRfsInView(*lib, rLab, store, v);
-		if (valid.empty())
-			continue;
+		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);
 
-		/* Push consistent options to stack */
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
+		for (auto &rf : rfs) {
+			/* Push consistent options to stack */
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-		if (rLab.revs.contains(writePrefixPos))
-			continue;
+			if (rLab.revs.contains(writePrefixPos))
+				continue;
 
-		rLab.revs.add(writePrefixPos);
-		addToWorklist(rLab.pos, StackItem(SWrite, sLab.pos, before, writePrefix));
+			rLab.revs.add(writePrefixPos);
+			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix));
+		}
 	}
-	return true;
+	return valid;
 }
 
 bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
@@ -655,7 +658,7 @@ bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 			continue;
 
 		rLab.revs.add(writePrefixPos);
-		addToWorklist(l, StackItem(SWrite, sLab.pos, before, writePrefix));
+		addToWorklist(l, StackItem(SRevisit, sLab.pos, before, writePrefix));
 	}
 	return (!sLab.isRMW() || pendingRMWs.empty());
 }
@@ -673,9 +676,10 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
 	case SRead:
+	case SReadLibFunc:
 		/* Nothing to restore in this case */
 		break;
-	case SWrite:
+	case SRevisit:
 		/*
 		 * Restore the part of the SBRF-prefix of the store that revisits a load,
 		 * that is not already present in the graph, and make that part
@@ -683,35 +687,6 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 		 */
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 		break;
-	case SReadLibFunc: {
-		g.changeRf(lab, p.shouldRf);
-		auto &confLab = g.getEventLabel(g.getPendingLibRead(lab)); /* should be after rf-change! */
-
-		View v(confLab.preds);
-		View before = g.getPorfBefore(lab.pos);
-
-		v.updateMax(before);
-
-		auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
-		auto rfs = g.getLibConsRfsInView(*lib, confLab, confLab.invalidRfs, v); /* Bottom shouldn't affect consistency */
-//		BUG_ON(rfs.empty());
-
-		for (auto &rf : rfs) {
-			auto writePrefix = g.getPrefixLabelsNotBefore(before, confLab.preds);
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, confLab.preds);
-			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
-
-			if (confLab.revs.contains(writePrefixPos))
-				continue;
-
-			confLab.revs.add(writePrefixPos);
-			addToWorklist(confLab.pos, StackItem(SReadLibFuncRev, rf, before, writePrefix));
-		}
-		return false;}
-	case SReadLibFuncRev:
-		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		g.changeRf(lab, p.shouldRf);
-		return true;
 	default:
 		BUG();
 	}
@@ -720,6 +695,8 @@ bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &
 	g.changeRf(lab, p.shouldRf);
 	if (g.tryAddRMWStore(g, lab))
 		return visitStore(g);
+	if (p.type == SReadLibFunc)
+		return pushLibReadsToRevisit(g, lab);
 
 	return true;
 }

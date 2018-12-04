@@ -150,10 +150,10 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(EventLabel &sLab)
 
 Event ExecutionGraph::getPendingLibRead(EventLabel &lab)
 {
-	WARN_ONCE("pendinglib",
-		  "FIXME: Cleanup, change name and make similar with getPendingRMWs when "
-		  "sreadlibfunc is unified\n");
-	BUG_ON(lab.rf == Event::getInitializer());
+	/* Should only be called with a read of a functional library that doesn't read BOT */
+	BUG_ON(!lab.isRead() || lab.rf == Event::getInitializer());
+
+	/* Get the conflicting label */
 	auto &sLab = getEventLabel(lab.rf);
 	auto it = std::find_if(sLab.rfm1.begin(), sLab.rfm1.end(), [&lab](Event &e){ return e != lab.pos; });
 	BUG_ON(it == sLab.rfm1.end());
