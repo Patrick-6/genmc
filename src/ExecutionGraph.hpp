@@ -72,28 +72,14 @@ public:
 			    llvm::Type *typ, Event rf, EventAttr attr,
 			    llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
 			    llvm::AtomicRMWInst::BinOp op);
-	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			    llvm::Type *typ, Event rf);
-	void addGReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			     llvm::Type *typ, Event rf, std::string functionName);
-	void addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			       llvm::GenericValue &val, llvm::GenericValue &nextVal,
-			       llvm::Type *typ, Event rf);
-	void addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			       llvm::GenericValue &nextVal, llvm::AtomicRMWInst::BinOp op,
-			       llvm::Type *typ, Event rf);
+	void addLibReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			       llvm::Type *typ, Event rf, std::string functionName);
 	void addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr, llvm::GenericValue &val,
 			     int offsetMO, EventAttr attr, llvm::AtomicOrdering ord);
-	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			     llvm::GenericValue &val, llvm::Type *typ);
 	void addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, int offsetMO,
 				EventAttr attr, llvm::AtomicOrdering ord,
 				std::string functionName, bool isInit);
-	void addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				llvm::GenericValue &val, llvm::Type *typ);
-	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				llvm::GenericValue &val, llvm::Type *typ);
 	void addFenceToGraph(llvm::AtomicOrdering ord);
 	void addTCreateToGraph(int cid);
 	void addTJoinToGraph(int cid);
@@ -137,7 +123,6 @@ public:
 	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
-	bool tryAddRMWStore(ExecutionGraph &g, EventLabel &rLab);
 
 	/* Consistency checks */
 	bool isConsistent();

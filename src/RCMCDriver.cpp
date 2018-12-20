@@ -452,7 +452,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	g.addGReadToGraph(ord, addr, typ, Event::getInitializer(), functionName);
+	g.addLibReadToGraph(ord, addr, typ, Event::getInitializer(), functionName);
 
 	/* Make sure there exists an initializer event for this memory location */
 	auto stores(g.modOrder[addr]);

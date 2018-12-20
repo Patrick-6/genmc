@@ -391,38 +391,11 @@ void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue
 	addReadToGraphCommon(lab, rf);
 }
 
-void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				    llvm::Type *typ, Event rf)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(ERead, Plain, ord, Event(currentT, max), ptr, typ, rf);
-	addReadToGraphCommon(lab, rf);
-}
-
-void ExecutionGraph::addGReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				     llvm::Type *typ, Event rf, std::string functionName)
+void ExecutionGraph::addLibReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				       llvm::Type *typ, Event rf, std::string functionName)
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(ERead, Plain, ord, Event(currentT, max), ptr, typ, rf, functionName);
-	addReadToGraphCommon(lab, rf);
-}
-
-void ExecutionGraph::addCASReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				       llvm::GenericValue &val, llvm::GenericValue &nextVal,
-				       llvm::Type *typ, Event rf)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(ERead, CAS, ord, Event(currentT, max), ptr, val, nextVal, typ, rf);
-	addReadToGraphCommon(lab, rf);
-}
-
-void ExecutionGraph::addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				       llvm::GenericValue &nextVal,
-				       llvm::AtomicRMWInst::BinOp op,
-				       llvm::Type *typ, Event rf)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(ERead, RMW, ord, Event(currentT, max), ptr, nextVal, op, typ, rf);
 	addReadToGraphCommon(lab, rf);
 }
 
@@ -464,14 +437,6 @@ void ExecutionGraph::addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
 	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
 }
 
-void ExecutionGraph::addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				     llvm::GenericValue &val, llvm::Type *typ)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ);
-	addStoreToGraphCommon(lab);
-}
-
 void ExecutionGraph::addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
 					llvm::GenericValue &val, int offsetMO,
 					EventAttr attr, llvm::AtomicOrdering ord,
@@ -481,22 +446,6 @@ void ExecutionGraph::addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr
 	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ, functionName, isInit);
 	addStoreToGraphCommon(lab);
 	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
-}
-
-void ExecutionGraph::addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-					llvm::GenericValue &val, llvm::Type *typ)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, CAS, ord, Event(currentT, max), ptr, val, typ);
-	addStoreToGraphCommon(lab);
-}
-
-void ExecutionGraph::addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-					llvm::GenericValue &val, llvm::Type *typ)
-{
-	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, RMW, ord, Event(currentT, max), ptr, val, typ);
-	addStoreToGraphCommon(lab);
 }
 
 void ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
@@ -988,28 +937,6 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 			}
 		}
 	}
-}
-
-bool ExecutionGraph::tryAddRMWStore(ExecutionGraph &g, EventLabel &lab)
-{
-	/* If this is not an RMW load, nothing to do here */
-	if (!lab.isRead() || !lab.isRMW())
-		return false;
-
-	/* Otherwise, if it is a successful RMW load, add the corresponding store */
-	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-	if (EE->isSuccessfulRMW(lab, rfVal)) {
-		g.currentT = lab.pos.thread;
-		if (lab.attr == CAS) {
-			g.addCASStoreToGraph(lab.ord, lab.addr, lab.nextVal, lab.valTyp);
-		} else {
-			llvm::GenericValue newVal;
-			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
-			g.addRMWStoreToGraph(lab.ord, lab.addr, newVal, lab.valTyp);
-		}
-		return true;
-	}
-	return false; /* It is not a successful RMW */
 }
 
 
