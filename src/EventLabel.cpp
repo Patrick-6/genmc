@@ -79,9 +79,9 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 /* GStore */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp,
-		       std::string &functionName)
+		       std::string &functionName, bool isInit)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp),
-	  functionName(functionName), initial(false) {}
+	  functionName(functionName), initial(isInit) {}
 
 /* GStore */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,

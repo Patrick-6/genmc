@@ -2872,90 +2872,14 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		if (c == g.maxEvents[g.currentT] - 1 &&
-		    lab.rf == Event::getInitializer()) {
-			g.tryToBacktrack();
-			return;
-		}
-		GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
-		returnValueToCaller(F->getReturnType(), val);
+	auto val = driver->visitLibLoad(typ, ptr, Plain, mem.getOrdering(), F->getName().str());
+
+	/* Check if the read should read from BOTTOM */
+	if (g.getLastThreadLabel(g.currentT).rf == Event::getInitializer()) {
+		g.tryToBacktrack();
 		return;
 	}
-
-	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	g.addGReadToGraph(mem.getOrdering(), ptr, typ, Event::getInitializer(), F->getName().str());
-
-	/* Make sure there exists an initializer event for this memory location */
-	auto stores(g.modOrder[ptr]);
-	auto it = std::find_if(stores.begin(), stores.end(),
-			       [&g](Event e){ return g.getEventLabel(e).isLibInit(); });
-
-	if (it == stores.end()) {
-		WARN("Uninitialized memory location used by library found!\n");
-		abort();
-	}
-
-	auto &lab = g.getLastThreadLabel(g.currentT);
-	auto validStores = g.getLibConsRfsInView(lib, lab, stores, lab.preds);
-
-	/* Track this event */
-	driver->trackEvent(lab.pos);
-
-	/*
-	 * If this is a non-functional library, choose one of the available reads-from
-	 * options, push the rest to the stack, and return an appropriate value to
-	 * the interpreter
-	 */
-	if (!lib.hasFunctionalRfs()) {
-		BUG_ON(validStores.empty());
-		g.changeRf(lab, validStores[0]);
-		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-			driver->addToWorklist(lab.pos, StackItem(SRead, *it));
-		returnValueToCaller(typ, loadValueFromWrite(lab.rf, typ, ptr));
-		return;
-	}
-
-	/* Otherwise, first record all the inconsistent options */
-	std::copy_if(stores.begin(), stores.end(), std::back_inserter(lab.invalidRfs),
-		     [&validStores](Event &e){ return std::find(validStores.begin(),
-								validStores.end(), e) == validStores.end(); });
-
-	/* Then, partition the stores based on whether they are read */
-	auto invIt = std::partition(validStores.begin(), validStores.end(),
-				    [&g](Event &e){ return g.getEventLabel(e).rfm1.empty(); });
-
-	/* Push all options that break RF functionality to the stack */
-	for (auto it = invIt; it != validStores.end(); ++it) {
-		auto &sLab = g.getEventLabel(*it);
-		BUG_ON(sLab.rfm1.size() > 1);
-		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
-			driver->addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
-	}
-
-	/* If there is no valid RF, we have to read BOTTOM */
-	if (invIt == validStores.begin()) {
-		WARN_ONCE("lib-not-always-block", "FIXME: SHOULD NOT ALWAYS BLOCK\n");
-		g.tryToBacktrack(); /* No need to return a value -- execution is dropped */
-		return;
-	}
-
-	/*
-	 * If BOTTOM is not the only option, push it to inconsistent RFs as well,
-	 * choose a valid store to read-from, and push the other alternatives to
-	 * the stack
-	 */
-	WARN_ONCE("lib-check-before-push", "FIXME: CHECK IF IT'S A NON BLOCKING LIB BEFORE PUSHING?\n");
-	lab.invalidRfs.push_back(Event::getInitializer());
-	g.changeRf(lab, validStores[0]);
-
-	for (auto it = validStores.begin() + 1; it != invIt; ++it)
-		driver->addToWorklist(lab.pos, StackItem(SRead, *it));
-
-	returnValueToCaller(typ, loadValueFromWrite(lab.rf, typ, ptr));
+	returnValueToCaller(F->getReturnType(), val);
 	return;
 }
 
@@ -2977,19 +2901,7 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c) {
-//		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-//		returnValueToCaller(F->getReturnType(), result);
-		return;
-	}
-
-	g.addGStoreToGraph(mem.getOrdering(), ptr, val, typ, F->getName().str());
-	if (mem.isLibInit())
-		g.getLastThreadLabel(g.currentT).initial = true;
-	driver->visitLibStore(g);
-//	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-//	returnValueToCaller(F->getReturnType(), result);
+	driver->visitLibStore(typ, ptr, val, Plain, mem.getOrdering(), F->getName().str(), mem.isLibInit());
 	return;
 }
 

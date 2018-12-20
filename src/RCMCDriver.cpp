@@ -264,7 +264,7 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 	/* Is the execution driven by an existing graph? */
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		auto &lab = g.threads[g.currentT].eventList[c];
 		auto val = EE->loadValueFromWrite(lab.rf, typ, addr);
 		return val;
 	}
@@ -296,8 +296,8 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 }
 
 void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
-			      llvm::GenericValue &val, EventAttr attr,
-			      llvm::AtomicOrdering ord)
+			    llvm::GenericValue &val, EventAttr attr,
+			    llvm::AtomicOrdering ord)
 {
 	auto &g = *currentEG;
 
@@ -315,7 +315,7 @@ void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
 	auto &locMO = g.modOrder[addr];
 	auto[begO, endO] = getPossibleMOPlaces(addr, attr == RMW || attr == CAS);
 
-
+	/* It is always consistent to add the store at the end of MO */
 	g.addStoreToGraph(typ, addr, val, endO, attr, ord); // return label ref?
 
 	auto &sLab = g.getLastThreadLabel(g.currentT);
@@ -403,10 +403,11 @@ bool RCMCDriver::revisitReads(Event &toRevisit, StackItem &p)
 		return calcRevisits(lab); }
 //		pushReadsToRevisit(g, lab);
 //		return true; /* Nothing else to do */
-	case MOWriteLib:
-		g.modOrder[lab.addr] = p.newMO;
-		pushLibReadsToRevisit(g, lab);
-		return true; /* Nothing else to do */
+	case MOWriteLib: {
+		auto &locMO = g.modOrder[lab.addr];
+		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));
+		locMO.insert(locMO.begin() + p.moPos, lab.pos);
+		return calcLibRevisits(lab); /* Nothing else to do */ }
 	default:
 		BUG();
 	}
@@ -430,9 +431,206 @@ bool RCMCDriver::revisitReads(Event &toRevisit, StackItem &p)
 	}
 
 	if (p.type == SReadLibFunc)
-		return pushLibReadsToRevisit(g, lab);
+		return calcLibRevisits(lab);
 
 	return true;
+}
+
+llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue *addr,
+					    EventAttr attr, llvm::AtomicOrdering ord,
+					    std::string functionName)
+{
+	auto &g = *currentEG;
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT]) {
+		auto &lab = g.threads[g.currentT].eventList[c];
+		auto val = EE->loadValueFromWrite(lab.rf, typ, addr);
+		return val;
+	}
+
+	/* Add the event to the graph so we'll be able to calculate consistent RFs */
+	g.addGReadToGraph(ord, addr, typ, Event::getInitializer(), functionName);
+
+	/* Make sure there exists an initializer event for this memory location */
+	auto stores(g.modOrder[addr]);
+	auto it = std::find_if(stores.begin(), stores.end(),
+			       [&g](Event e){ return g.getEventLabel(e).isLibInit(); });
+
+	if (it == stores.end()) {
+		WARN("Uninitialized memory location used by library found!\n");
+		abort();
+	}
+
+	auto &lab = g.getLastThreadLabel(g.currentT);
+	auto validStores = g.getLibConsRfsInView(*lib, lab, stores, lab.preds);
+
+	/* Track this event */
+	trackEvent(lab.pos);
+
+	/*
+	 * If this is a non-functional library, choose one of the available reads-from
+	 * options, push the rest to the stack, and return an appropriate value to
+	 * the interpreter
+	 */
+	if (!lib->hasFunctionalRfs()) {
+		BUG_ON(validStores.empty());
+		g.changeRf(lab, validStores[0]);
+		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+			addToWorklist(lab.pos, StackItem(SRead, *it));
+		return EE->loadValueFromWrite(lab.rf, typ, addr);
+	}
+
+	/* Otherwise, first record all the inconsistent options */
+	std::copy_if(stores.begin(), stores.end(), std::back_inserter(lab.invalidRfs),
+		     [&validStores](Event &e){ return std::find(validStores.begin(),
+								validStores.end(), e) == validStores.end(); });
+
+	/* Then, partition the stores based on whether they are read */
+	auto invIt = std::partition(validStores.begin(), validStores.end(),
+				    [&g](Event &e){ return g.getEventLabel(e).rfm1.empty(); });
+
+	/* Push all options that break RF functionality to the stack */
+	for (auto it = invIt; it != validStores.end(); ++it) {
+		auto &sLab = g.getEventLabel(*it);
+		BUG_ON(sLab.rfm1.size() > 1);
+		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
+			addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
+	}
+
+	/* If there is no valid RF, we have to read BOTTOM */
+	if (invIt == validStores.begin()) {
+		WARN_ONCE("lib-not-always-block", "FIXME: SHOULD NOT ALWAYS BLOCK -- ALSO IN EE\n");
+		auto tempRf = Event::getInitializer();
+		return EE->loadValueFromWrite(tempRf, typ, addr);
+	}
+
+	/*
+	 * If BOTTOM is not the only option, push it to inconsistent RFs as well,
+	 * choose a valid store to read-from, and push the other alternatives to
+	 * the stack
+	 */
+	WARN_ONCE("lib-check-before-push", "FIXME: CHECK IF IT'S A NON BLOCKING LIB BEFORE PUSHING?\n");
+	lab.invalidRfs.push_back(Event::getInitializer());
+	g.changeRf(lab, validStores[0]);
+
+	for (auto it = validStores.begin() + 1; it != invIt; ++it)
+		addToWorklist(lab.pos, StackItem(SRead, *it));
+
+	return EE->loadValueFromWrite(lab.rf, typ, addr);
+}
+
+void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
+			       llvm::GenericValue &val, EventAttr attr,
+			       llvm::AtomicOrdering ord,
+			       std::string functionName, bool isInit)
+{
+	auto &g = *currentEG;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] > c)
+		return;
+
+	/* TODO: Make virtual the race-tracking function ?? */
+
+	/*
+	 * We need to try all possible MO placements, but after the initialization write,
+	 * which is explicitly included in MO, in the case of libraries.
+	 */
+	auto &locMO = g.modOrder[addr];
+	auto begO = 1;
+	auto endO = (int) locMO.size();
+
+	/* If there was not any store previously, check if this location was initialized  */
+	if (endO == 0 && !isInit) {
+		WARN("Uninitialized memory location used by library found!\n");
+		abort();
+	}
+
+	/* It is always consistent to add a new event at the end of MO */
+	g.addLibStoreToGraph(typ, addr, val, endO, attr, ord, functionName, isInit);
+
+	auto &sLab = g.getLastThreadLabel(g.currentT);
+
+	/* Make the driver track this store */
+	trackEvent(sLab.pos);
+
+	calcLibRevisits(sLab);
+
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
+	if (lib && !lib->tracksCoherence())
+		return;
+
+	/*
+	 * Check for alternative MO placings. Temporarily remove sLab from
+	 * MO, find all possible alternatives, and push them to the workqueue
+	 */
+	locMO.pop_back();
+	for (auto i = begO; i < endO; ++i) {
+		locMO.insert(locMO.begin() + i, sLab.pos);
+
+		/* Check consistency for the graph with this MO */
+		if (g.isLibConsistentInView(*lib, sLab.preds))
+			addToWorklist(sLab.pos, StackItem(MOWriteLib, i));
+		locMO.erase(locMO.begin() + i);
+	}
+	locMO.push_back(sLab.pos);
+	return;
+}
+
+bool RCMCDriver::calcLibRevisits(EventLabel &lab)
+{
+	/* Get the library of the event causing the revisiting */
+	auto &g = *currentEG;
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
+	auto valid = true;
+	std::vector<Event> loads, stores;
+
+	/*
+	 * If this is a read of a functional library causing the revisit,
+	 * then this is a functionality violation: we need to find the conflicting
+	 * event, and find an alternative reads-from edge for it
+	 */
+	if (lib->hasFunctionalRfs() && lab.isRead()) {
+		auto conf = g.getPendingLibRead(lab);
+		loads = {conf};
+		stores = g.getEventLabel(conf).invalidRfs;
+		valid = false;
+	} else {
+		/* It is a normal store -- we need to find revisitable loads */
+		loads = g.getRevisitable(lab);
+		stores = {lab.pos};
+	}
+
+	/* Next, find which of the 'stores' can be read by 'loads' */
+	auto before = g.getPorfBefore(lab.pos);
+	for (auto &l : loads) {
+		/* Calculate the view of the resulting graph */
+		auto &rLab = g.getEventLabel(l);
+		auto v(rLab.preds);
+		v.updateMax(before);
+
+		/* Check if this the resulting graph is consistent */
+		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);
+
+		for (auto &rf : rfs) {
+			/* Push consistent options to stack */
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, rLab.preds)
+				                                   : std::vector<std::pair<Event, Event> >();
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+
+			if (rLab.revs.contains(writePrefixPos, moPlacings))
+				continue;
+
+			rLab.revs.add(writePrefixPos, moPlacings);
+			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix, moPlacings));
+		}
+	}
+	return valid;
 }
 
 
@@ -457,16 +655,6 @@ std::vector<Event> RCMCDriverWeakRA::getRevisitLoads(EventLabel &lab)
 
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	  RCMCDriverWeakRA::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
-{
-	BUG();
-}
-
-bool RCMCDriverWeakRA::visitLibStore(ExecutionGraph &g)
-{
-	BUG();
-}
-
-bool RCMCDriverWeakRA::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
 {
 	BUG();
 }
@@ -520,103 +708,6 @@ std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
-
-bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
-{
-	auto &sLab = g.getLastThreadLabel(g.currentT);
-	auto stores(g.modOrder[sLab.addr]);
-
-	/* Make the driver track this store */
-	trackEvent(sLab.pos);
-
-	/* It is always consistent to add a new event at the end of MO */
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	pushLibReadsToRevisit(g, sLab);
-
-	/* If there was not any store previously, return */
-	if (stores.empty()) {
-		if (!sLab.isLibInit()) {
-			WARN("Uninitialized memory location used by library found!\n");
-			abort();
-		}
-		return true;
-	}
-
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), sLab.functionName);
-	if (!lib->tracksCoherence())
-		return true;
-
-	/*
-	 * Check for alternative MO placings. Note that MO_loc has at
-	 * least one event (hence the initial loop condition), and
-	 * that "stores" does not contain sLab.pos
-	 */
-	for (auto it = stores.begin() + 1; it != stores.end(); ++it) {
-		std::vector<Event> newMO(stores.begin(), it);
-		newMO.push_back(sLab.pos);
-		newMO.insert(newMO.end(), it, stores.end());
-
-		/* Check consistency for the graph with this MO */
-		std::swap(g.modOrder[sLab.addr], newMO);
-		if (g.isLibConsistentInView(*lib, sLab.preds))
-			addToWorklist(sLab.pos, StackItem(MOWriteLib, g.modOrder[sLab.addr]));
-		std::swap(g.modOrder[sLab.addr], newMO);
-	}
-	return true;
-}
-
-bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
-{
-	/* Get the library of the event causing the revisiting */
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
-	auto valid = true;
-	std::vector<Event> loads, stores;
-
-	/*
-	 * If this is a read of a functional library causing the revisit,
-	 * then this is a functionality violation: we need to find the conflicting
-	 * event, and find an alternative reads-from edge for it
-	 */
-	if (lib->hasFunctionalRfs() && lab.isRead()) {
-		auto conf = g.getPendingLibRead(lab);
-		loads = {conf};
-		stores = g.getEventLabel(conf).invalidRfs;
-		valid = false;
-	} else {
-		/* It is a normal store -- we need to find revisitable loads */
-		loads = g.getRevisitable(lab);
-		stores = {lab.pos};
-	}
-
-	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto before = g.getPorfBefore(lab.pos);
-	for (auto &l : loads) {
-		/* Calculate the view of the resulting graph */
-		auto &rLab = g.getEventLabel(l);
-		auto v(rLab.preds);
-		v.updateMax(before);
-
-		/* Check if this the resulting graph is consistent */
-		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);
-
-		for (auto &rf : rfs) {
-			/* Push consistent options to stack */
-			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-			auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
-
-			if (rLab.revs.contains(writePrefixPos, moPlacings))
-				continue;
-
-			rLab.revs.add(writePrefixPos, moPlacings);
-			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before,
-							  writePrefix, moPlacings));
-		}
-	}
-	return valid;
-}
-
 bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
 {
 	switch (userConf->checkPscAcyclicity) {
@@ -665,69 +756,6 @@ std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 {
 	auto writePrefix = currentEG->getPrefixLabelsNotBefore(lab.porfView, before);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
-}
-
-bool RCMCDriverWB::visitLibStore(ExecutionGraph &g)
-{
-	auto &sLab = g.getLastThreadLabel(g.currentT);
-
-	if (g.modOrder[sLab.addr].empty() && !sLab.isLibInit()) {
-		WARN("Uninitialized memory location used by library found!\n");
-		abort();
-	}
-
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	return pushLibReadsToRevisit(g, sLab);
-}
-
-bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
-{
-	/* Get the library of the event causing the revisiting */
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
-	auto valid = true;
-	std::vector<Event> loads, stores;
-
-	/*
-	 * If this is a read of a functional library causing the revisit,
-	 * then this is a functionality violation: we need to find the conflicting
-	 * event, and find an alternative reads-from edge for it
-	 */
-	if (lib->hasFunctionalRfs() && lab.isRead()) {
-		auto conf = g.getPendingLibRead(lab);
-		loads = {conf};
-		stores = g.getEventLabel(conf).invalidRfs;
-		valid = false;
-	} else {
-		/* It is a normal store -- we need to find revisitable loads */
-		loads = g.getRevisitable(lab);
-		stores = {lab.pos};
-	}
-
-	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto before = g.getPorfBefore(lab.pos);
-	for (auto &l : loads) {
-		/* Calculate the view of the resulting graph */
-		auto &rLab = g.getEventLabel(l);
-		auto v(rLab.preds);
-		v.updateMax(before);
-
-		/* Check if this the resulting graph is consistent */
-		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);
-
-		for (auto &rf : rfs) {
-			/* Push consistent options to stack */
-			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
-
-			if (rLab.revs.contains(writePrefixPos))
-				continue;
-
-			rLab.revs.add(writePrefixPos);
-			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix));
-		}
-	}
-	return valid;
 }
 
 bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)

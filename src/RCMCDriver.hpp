@@ -117,6 +117,12 @@ public:
 	void visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
 			EventAttr attr, llvm::AtomicOrdering ord);
 	bool calcRevisits(EventLabel &lab);
+	llvm::GenericValue visitLibLoad(llvm::Type *typ, llvm::GenericValue *addr,
+					EventAttr attr, llvm::AtomicOrdering ord,
+					std::string functionName);
+	void visitLibStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+			   EventAttr attr, llvm::AtomicOrdering ord, std::string functionName, bool isInit = false);
+	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(Event &e, StackItem &s);
 
 
@@ -126,13 +132,6 @@ public:
 	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;
 	virtual std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 			  getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
-
-
-	// virtual bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-	// 			EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit = false) = 0;
-	virtual bool visitLibStore(ExecutionGraph &g) = 0;
-//	virtual bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
-	virtual bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
 
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
@@ -161,9 +160,9 @@ public:
 	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
 	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
 	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
-	bool visitLibStore(ExecutionGraph &g);
+//	bool visitLibStore(ExecutionGraph &g);
 //	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+//	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -182,16 +181,6 @@ public:
 	std::vector<Event> getRevisitLoads(EventLabel &lab);
 	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
-	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
-	// 			     EventAttr attr, llvm::AtomicOrdering ord,
-	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
-	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
-	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
-	bool visitLibStore(ExecutionGraph &g);
-//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -210,28 +199,6 @@ public:
 	std::vector<Event> getRevisitLoads(EventLabel &lab);
 	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
-	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
-	// 			     EventAttr attr, llvm::AtomicOrdering ord,
-	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
-	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
-	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
-	bool visitLibStore(ExecutionGraph &g);
-//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
-};
-
-class LibDriverMO : public RCMCDriverMO {
-
-public:
-	void something();
-};
-
-class LibDriverWB : public RCMCDriverWB {
-
-public:
-	void something();
 };

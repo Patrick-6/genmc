@@ -81,7 +81,7 @@ public:
 		   llvm::Type *valTyp); /* Writes */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::string &functionName); /* GWrites */
+		   llvm::Type *valTyp, std::string &functionName, bool isInit); /* GWrites */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp, std::list<Event> rfm1,

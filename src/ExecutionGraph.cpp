@@ -472,13 +472,15 @@ void ExecutionGraph::addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValu
 	addStoreToGraphCommon(lab);
 }
 
-void ExecutionGraph::addGStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				      llvm::GenericValue &val, llvm::Type *typ,
-				      std::string functionName)
+void ExecutionGraph::addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
+					llvm::GenericValue &val, int offsetMO,
+					EventAttr attr, llvm::AtomicOrdering ord,
+					std::string functionName, bool isInit)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ, functionName);
+	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ, functionName, isInit);
 	addStoreToGraphCommon(lab);
+	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
 }
 
 void ExecutionGraph::addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,

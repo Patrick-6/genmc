@@ -86,9 +86,10 @@ public:
 			     int offsetMO, EventAttr attr, llvm::AtomicOrdering ord);
 	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			     llvm::GenericValue &val, llvm::Type *typ);
-	void addGStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			      llvm::GenericValue &val, llvm::Type *typ,
-			      std::string functionName);
+	void addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
+				llvm::GenericValue &val, int offsetMO,
+				EventAttr attr, llvm::AtomicOrdering ord,
+				std::string functionName, bool isInit);
 	void addCASStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				llvm::GenericValue &val, llvm::Type *typ);
 	void addRMWStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
