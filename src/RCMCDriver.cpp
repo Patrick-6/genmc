@@ -144,7 +144,7 @@ void RCMCDriver::run()
 
 void RCMCDriver::addToWorklist(Event e, StackItem s)
 {
-	worklist[e].push_back(s);
+	worklist[e].push_back(std::move(s));
 }
 
 std::pair<Event, StackItem> RCMCDriver::getNextItem()
@@ -155,7 +155,7 @@ std::pair<Event, StackItem> RCMCDriver::getNextItem()
 
 		auto si = worklist[*rit].back();
 		worklist[*rit].pop_back();
-		return std::make_pair(*rit, si);
+		return std::make_pair(*rit, std::move(si));
 	}
 	return std::make_pair(Event::getInitializer(), StackItem());
 }
@@ -208,7 +208,7 @@ start:
 			currentEG = oldEG;
 			return;
 		}
-		validExecution = revisitReads(g, toRevisit, p);
+		validExecution = revisitReads(toRevisit, p);
 	} while (!validExecution);
 
 	g.currentT = 0;
@@ -254,6 +254,187 @@ bool RCMCDriver::checkForRaces(ExecutionGraph &g, EventType typ,
 	}
 }
 
+llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
+					 EventAttr attr, llvm::AtomicOrdering ord,
+					 llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
+					 llvm::AtomicRMWInst::BinOp op)
+{
+	auto &g = *currentEG;
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT]) {
+		EventLabel &lab = g.threads[g.currentT].eventList[c];
+		auto val = EE->loadValueFromWrite(lab.rf, typ, addr);
+		return val;
+	}
+
+	/* Check for races */
+	if (checkForRaces(g, ERead, ord, addr)) {
+		llvm::dbgs() << "Race detected!\n";
+		printResults();
+		abort();
+	}
+
+	/* Get all stores to this location from which we can read from */
+	auto stores = getStoresToLoc(addr);
+	auto validStores = EE->properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
+
+	/* ... and add a label with the appropriate store. */
+	g.addReadToGraph(ord, addr, typ, validStores[0], attr, std::move(cmpVal), std::move(rmwVal), op);
+	// Event e = g.getLastThreadEvent(g.currentT);
+	// g.revisit.add(e);
+
+	/* Push all the other alternatives choices to the Stack */
+//	std::vector<int> preds = g.getGraphState();
+	Event e = g.getLastThreadEvent(g.currentT);
+//	EventLabel &lab = g.getEventLabel(e);
+	trackEvent(e);
+	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		addToWorklist(e, StackItem(SRead, *it));
+	return EE->loadValueFromWrite(validStores[0], typ, addr);
+}
+
+void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
+			      llvm::GenericValue &val, EventAttr attr,
+			      llvm::AtomicOrdering ord)
+{
+	auto &g = *currentEG;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] > c)
+		return;
+
+	/* Check for races */
+	if (checkForRaces(g, EWrite, ord, addr)) {
+		llvm::dbgs() << "Race detected!\n";
+		printResults();
+		abort();
+	}
+
+	auto &locMO = g.modOrder[addr];
+	auto[begO, endO] = getPossibleMOPlaces(addr, attr == RMW || attr == CAS);
+
+
+	g.addStoreToGraph(typ, addr, val, endO, attr, ord); // return label ref?
+
+	auto &sLab = g.getLastThreadLabel(g.currentT);
+
+	trackEvent(sLab.pos);
+
+	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
+
+		/* We cannot place the write just before the write of an RMW */
+		if (g.getEventLabel(*it).isRMW())
+			continue;
+
+		/* Push the stack item */
+		addToWorklist(sLab.pos, StackItem(MOWrite, std::distance(locMO.begin(), it)));
+	}
+
+	calcRevisits(sLab);
+	return;
+}
+
+bool RCMCDriver::calcRevisits(EventLabel &lab)
+{
+	auto &g = *currentEG;
+	auto loads = getRevisitLoads(lab);
+	auto pendingRMWs = g.getPendingRMWs(lab);
+
+	if (pendingRMWs.size() > 0)
+		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
+					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
+					  return e.index > confLab.preds[e.thread]; }),
+			    loads.end());
+
+	for (auto &l : loads) {
+		EventLabel &rLab = g.getEventLabel(l);
+
+		auto before = g.getPorfBefore(lab.pos);
+		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, rLab.preds);
+		// auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
+
+		// auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
+//		auto moPlacings = std::vector<std::pair<Event, Event>>();
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+		writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+
+		if (rLab.revs.contains(writePrefixPos, moPlacings))
+			continue;
+
+		rLab.revs.add(writePrefixPos, moPlacings);
+		addToWorklist(l, StackItem(SRevisit, lab.pos, before, writePrefix, moPlacings));
+	}
+	return (!lab.isRMW() || pendingRMWs.empty());
+}
+
+bool RCMCDriver::revisitReads(Event &toRevisit, StackItem &p)
+{
+	auto &g = *currentEG;
+	auto &lab = g.getEventLabel(toRevisit);
+	View cutView(lab.preds);
+
+	/* Restrict to the predecessors of the event we are revisiting */
+	g.cutToEventView(lab.pos, lab.preds);
+	cutView.updateMax(p.storePorfBefore);
+	filterWorklist(cutView);
+
+	/* Restore events that might have been deleted from the graph */
+	switch (p.type) {
+	case SRead:
+	case SReadLibFunc:
+		/* Nothing to restore in this case */
+		break;
+	case SRevisit:
+		/*
+		 * Restore the part of the SBRF-prefix of the store that revisits a load,
+		 * that is not already present in the graph, the MO edges between that
+		 * part and the previous MO, and make that part non-revisitable
+		 */
+		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+		break;
+	case MOWrite: {
+		/* Try a different MO ordering, and also consider reads to revisit */
+		// g.modOrder[lab.addr] = p.newMO;
+		auto &locMO = g.modOrder[lab.addr];
+		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));
+		locMO.insert(locMO.begin() + p.moPos, lab.pos);
+		return calcRevisits(lab); }
+//		pushReadsToRevisit(g, lab);
+//		return true; /* Nothing else to do */
+	case MOWriteLib:
+		g.modOrder[lab.addr] = p.newMO;
+		pushLibReadsToRevisit(g, lab);
+		return true; /* Nothing else to do */
+	default:
+		BUG();
+	}
+
+	/*
+	 * For the case where an reads-from is changed, change the respective reads-from label
+	 * and check whether a part of an RMW should be added
+	 */
+	g.changeRf(lab, p.shouldRf);
+
+	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
+	if (lab.isRead() && lab.isRMW() && EE->isSuccessfulRMW(lab, rfVal)) {
+		g.currentT = lab.pos.thread;
+		auto newVal = lab.nextVal;
+		if (lab.attr == RMW)
+			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
+		auto offsetMO = g.modOrder.getStoreOffset(lab.addr, lab.rf) + 1;
+		g.addStoreToGraph(lab.valTyp, lab.addr, newVal, offsetMO, lab.attr, lab.ord);
+		auto &sLab = g.getLastThreadLabel(g.currentT);
+		return calcRevisits(sLab);
+	}
+
+	if (p.type == SReadLibFunc)
+		return pushLibReadsToRevisit(g, lab);
+
+	return true;
+}
+
 
 /************************************************************
  ** WEAK RA DRIVER
@@ -264,7 +445,18 @@ std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 	return currentEG->getStoresToLocWeakRA(addr);
 }
 
-bool RCMCDriverWeakRA::visitStore(ExecutionGraph &g)
+std::pair<int, int> RCMCDriverWeakRA::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
+{
+	BUG();
+}
+
+std::vector<Event> RCMCDriverWeakRA::getRevisitLoads(EventLabel &lab)
+{
+	BUG();
+}
+
+std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+	  RCMCDriverWeakRA::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
 	BUG();
 }
@@ -275,16 +467,6 @@ bool RCMCDriverWeakRA::visitLibStore(ExecutionGraph &g)
 }
 
 bool RCMCDriverWeakRA::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
-{
-	BUG();
-}
-
-bool RCMCDriverWeakRA::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
-{
-	BUG();
-}
-
-bool RCMCDriverWeakRA::revisitReads(ExecutionGraph &g, Event &e, StackItem &s)
 {
 	BUG();
 }
@@ -311,49 +493,33 @@ std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
 	return currentEG->getStoresToLocMO(addr);
 }
 
-bool RCMCDriverMO::visitStore(ExecutionGraph &g)
+std::pair<int, int> RCMCDriverMO::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
 {
-	auto &sLab = g.getLastThreadLabel(g.currentT);
-	auto before = g.getHbBefore(sLab.pos);
-	auto[concurrent, previous] = g.splitLocMOBefore(g.modOrder[sLab.addr], before);
+	auto &g = *currentEG;
+	auto &pLab = g.getLastThreadLabel(g.currentT);
 
-	/* Make the driver track this store */
-	trackEvent(sLab.pos);
-
-	/* If it is an RMW, appropriately update MO in this location and revisit */
-	if (sLab.isRMW()) {
-		auto &pLab = g.getPreviousLabel(sLab.pos);
-		g.modOrder.addAtLocAfter(sLab.addr, pLab.rf, sLab.pos);
-		return pushReadsToRevisit(g, sLab);
+	if (isRMW) {
+		auto offset = g.modOrder.getStoreOffset(addr, pLab.rf) + 1;
+		return std::make_pair(offset, offset);
 	}
 
-	/* Otherwise, we need to try all possible MO placings, and revisit for all of them */
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	pushReadsToRevisit(g, sLab);
-
-	/* Check for alternative MOs */
-	if (concurrent.empty())
-		return true;
-
-	/* Push stack items to explore all the alternative MOs */
-	for (auto it = concurrent.begin(); it != concurrent.end(); ++it) {
-		auto &lab = g.getEventLabel(*it);
-
-		/* We cannot place the write just before the write of an RMW */
-		if (lab.isRMW())
-			continue;
-
-		/* Construct an alternative MO */
-		auto newMO(previous);
-		newMO.insert(newMO.end(), concurrent.begin(), it);
-		newMO.push_back(sLab.pos);
-		newMO.insert(newMO.end(), it, concurrent.end());
-
-		/* Push the stack item */
-		addToWorklist(sLab.pos, StackItem(MOWrite, newMO));
-	}
-	return true;
+	auto before = g.getHbBefore(pLab.pos);
+	return g.splitLocMOBefore(addr, before);
 }
+
+std::vector<Event> RCMCDriverMO::getRevisitLoads(EventLabel &lab)
+{
+	return currentEG->getRevisitLoadsMO(lab);
+}
+
+std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+	  RCMCDriverMO::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+{
+	auto writePrefix = currentEG->getPrefixLabelsNotBefore(lab.porfView, before);
+	auto moPlacings = currentEG->getMOPredsInBefore(writePrefix, before);
+	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
+}
+
 
 bool RCMCDriverMO::visitLibStore(ExecutionGraph &g)
 {
@@ -451,86 +617,6 @@ bool RCMCDriverMO::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
 	return valid;
 }
 
-bool RCMCDriverMO::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
-{
-	auto loads = g.getRevisitLoadsMO(sLab);
-	auto pendingRMWs = g.getPendingRMWs(sLab);
-
-	if (pendingRMWs.size() > 0)
-		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
-					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.preds[e.thread]; }),
-			    loads.end());
-
-	for (auto &l : loads) {
-		EventLabel &rLab = g.getEventLabel(l);
-
-		auto before = g.getPorfBefore(sLab.pos);
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-
-		auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
-
-		if (rLab.revs.contains(writePrefixPos, moPlacings))
-			continue;
-
-		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(l, StackItem(SRevisit, sLab.pos, before, writePrefix, moPlacings));
-	}
-	return (!sLab.isRMW() || pendingRMWs.empty());
-}
-
-bool RCMCDriverMO::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
-{
-	EventLabel &lab = g.getEventLabel(toRevisit);
-	View cutView(lab.preds);
-
-	/* Restrict to the predecessors of the event we are revisiting */
-	g.cutToEventView(lab.pos, lab.preds);
-	cutView.updateMax(p.storePorfBefore);
-	filterWorklist(cutView);
-
-	/* Restore events that might have been deleted from the graph */
-	switch (p.type) {
-	case SRead:
-	case SReadLibFunc:
-		/* Nothing to restore in this case */
-		break;
-	case SRevisit:
-		/*
-		 * Restore the part of the SBRF-prefix of the store that revisits a load,
-		 * that is not already present in the graph, the MO edges between that
-		 * part and the previous MO, and make that part non-revisitable
-		 */
-		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		break;
-	case MOWrite:
-		/* Try a different MO ordering, and also consider reads to revisit */
-		g.modOrder[lab.addr] = p.newMO;
-		pushReadsToRevisit(g, lab);
-		return true; /* Nothing else to do */
-	case MOWriteLib:
-		g.modOrder[lab.addr] = p.newMO;
-		pushLibReadsToRevisit(g, lab);
-		return true; /* Nothing else to do */
-	default:
-		BUG();
-	}
-
-	/*
-	 * For the case where an reads-from is changed, change the respective reads-from label
-	 * and check whether a part of an RMW should be added
-	 */
-	g.changeRf(lab, p.shouldRf);
-	if (g.tryAddRMWStore(g, lab))
-		return visitStore(g);
-	if (p.type == SReadLibFunc)
-		return pushLibReadsToRevisit(g, lab);
-
-	return true;
-}
-
 bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
 {
 	switch (userConf->checkPscAcyclicity) {
@@ -563,12 +649,22 @@ std::vector<Event> RCMCDriverWB::getStoresToLoc(llvm::GenericValue *addr)
 	return currentEG->getStoresToLocWB(addr);
 }
 
-bool RCMCDriverWB::visitStore(ExecutionGraph &g)
+std::pair<int, int> RCMCDriverWB::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
 {
-	auto &sLab = g.getLastThreadLabel(g.currentT);
+	auto locMOSize = (int) currentEG->modOrder[addr].size();
+	return std::make_pair(locMOSize, locMOSize);
+}
 
-	g.modOrder.addAtLocEnd(sLab.addr, sLab.pos);
-	return pushReadsToRevisit(g, sLab);
+std::vector<Event> RCMCDriverWB::getRevisitLoads(EventLabel &lab)
+{
+	return currentEG->getRevisitLoadsWB(lab);
+}
+
+std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+	  RCMCDriverWB::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+{
+	auto writePrefix = currentEG->getPrefixLabelsNotBefore(lab.porfView, before);
+	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 
 bool RCMCDriverWB::visitLibStore(ExecutionGraph &g)
@@ -632,73 +728,6 @@ bool RCMCDriverWB::pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &lab)
 		}
 	}
 	return valid;
-}
-
-bool RCMCDriverWB::pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab)
-{
-	auto loads = g.getRevisitLoadsWB(sLab);
-	auto pendingRMWs = g.getPendingRMWs(sLab);
-
-	if (pendingRMWs.size() > 0)
-		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
-					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.preds[e.thread]; }),
-			    loads.end());
-
-	for (auto &l : loads) {
-		EventLabel &rLab = g.getEventLabel(l);
-
-		auto before = g.getPorfBefore(sLab.pos);
-		auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
-		writePrefixPos.insert(writePrefixPos.begin(), sLab.pos);
-
-		if (rLab.revs.contains(writePrefixPos))
-			continue;
-
-		rLab.revs.add(writePrefixPos);
-		addToWorklist(l, StackItem(SRevisit, sLab.pos, before, writePrefix));
-	}
-	return (!sLab.isRMW() || pendingRMWs.empty());
-}
-
-bool RCMCDriverWB::revisitReads(ExecutionGraph &g, Event &toRevisit, StackItem &p)
-{
-	EventLabel &lab = g.getEventLabel(toRevisit);
-	View cutView(lab.preds);
-
-	/* Restrict to the predecessors of the event we are revisiting */
-	g.cutToEventView(lab.pos, lab.preds);
-	cutView.updateMax(p.storePorfBefore);
-	filterWorklist(cutView);
-
-	/* Restore events that might have been deleted from the graph */
-	switch (p.type) {
-	case SRead:
-	case SReadLibFunc:
-		/* Nothing to restore in this case */
-		break;
-	case SRevisit:
-		/*
-		 * Restore the part of the SBRF-prefix of the store that revisits a load,
-		 * that is not already present in the graph, and make that part
-		 * non-revisitable
-		 */
-		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
-		break;
-	default:
-		BUG();
-	}
-
-	/* Change the reads-from label, and check whether a part of an RMW should be added */
-	g.changeRf(lab, p.shouldRf);
-	if (g.tryAddRMWStore(g, lab))
-		return visitStore(g);
-	if (p.type == SReadLibFunc)
-		return pushLibReadsToRevisit(g, lab);
-
-	return true;
 }
 
 bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)

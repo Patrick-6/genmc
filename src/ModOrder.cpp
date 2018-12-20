@@ -98,6 +98,18 @@ bool ModOrder::locContains(llvm::GenericValue *addr, const Event &e)
 	      std::any_of(mo_[addr].begin(), mo_[addr].end(), [&e](Event s){ return s == e; });
 }
 
+int ModOrder::getStoreOffset(llvm::GenericValue *addr, const Event &e)
+{
+	if (e == Event::getInitializer())
+		return -1;
+
+	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+		if (*it == e)
+			return std::distance(mo_[addr].begin(), it);
+	}
+	BUG();
+}
+
 
 /************************************************************
  ** Overloaded operators

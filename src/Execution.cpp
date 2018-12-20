@@ -1174,42 +1174,9 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue val = loadValueFromWrite(lab.rf, typ, ptr);
-		SetValue(&I, val, SF);
-		return;
-	}
-
-	/* Check for races */
-	if (driver->checkForRaces(g, ERead, I.getOrdering(), ptr)) {
-		dbgs() << "Race detected!\n";
-		driver->printResults();
-		abort();
-	}
-
-	/* Get all stores to this location from which we can read from */
-	std::vector<Event> validStores = driver->getStoresToLoc(ptr);
-	// std::vector<Event> validStores =
-	// 	properlyOrderStores(Plain, typ, ptr, {}, stores);
-
-	/* ... and add a label with the appropriate store. */
-	g.addReadToGraph(I.getOrdering(), ptr, typ, validStores[0]);
-	// Event e = g.getLastThreadEvent(g.currentT);
-	// g.revisit.add(e);
-
-	/* Push all the other alternatives choices to the Stack */
-//	std::vector<int> preds = g.getGraphState();
-	Event e = g.getLastThreadEvent(g.currentT);
-//	EventLabel &lab = g.getEventLabel(e);
-	driver->trackEvent(e);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		driver->addToWorklist(e, StackItem(SRead, *it));
-
+	auto val = driver->visitLoad(typ, ptr, Plain, I.getOrdering());
 	/* Last, set the return value for this instruction */
-	SetValue(&I, loadValueFromWrite(validStores[0], typ, ptr), SF);
+	SetValue(&I, val, SF);
 	return;
 }
 
@@ -1227,23 +1194,11 @@ void Interpreter::visitStoreInst(StoreInst &I)
 			g.threads[g.currentT].tls[ptr] = val;
 		else
 			StoreValueToMemory(val, ptr, typ);
-			return;
-	}
-
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c)
 		return;
-
-	/* Check for races */
-	if (driver->checkForRaces(g, EWrite, I.getOrdering(), ptr)) {
-		dbgs() << "Race detected!\n";
-		driver->printResults();
-		abort();
 	}
 
 	/* Add store to graph and (possibly) revisit some reads */
-	g.addStoreToGraph(I.getOrdering(), ptr, val, typ);
-	driver->visitStore(g);
+	driver->visitStore(typ, ptr, val, Plain, I.getOrdering());
 	return;
 }
 
@@ -1338,10 +1293,9 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	Type *typ = I.getCompareOperand()->getType();
-	GenericValue result;
+	GenericValue oldVal, result;
 
 	if (!isGlobal(ptr)) {
-		GenericValue oldVal;
 		if (g.threads[g.currentT].tls.count(ptr))
 			oldVal = g.threads[g.currentT].tls[ptr];
 		else
@@ -1359,45 +1313,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		g.threads[g.currentT].globalInstructions += cmpRes.IntVal.getBoolValue();
-		result.AggregateVal.push_back(oldVal);
-		result.AggregateVal.push_back(cmpRes);
-		SetValue(&I, result, SF);
-		return;
-	}
+	oldVal = driver->visitLoad(typ, ptr, CAS, I.getSuccessOrdering(), GenericValue(cmpVal), GenericValue(newVal));
+	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue())
+		driver->visitStore(typ, ptr, newVal, CAS, I.getSuccessOrdering());
 
-	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = driver->getStoresToLoc(ptr);
-	std::vector<Event> validStores =
-		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
-
-	/* ... and add a label with the appropriate store. */
-	g.addCASReadToGraph(I.getSuccessOrdering(), ptr, cmpVal, newVal, typ, validStores[0]);
-	Event e = g.getLastThreadEvent(g.currentT);
-//	std::vector<int> readPreds = g.getGraphState();
-//	g.revisit.add(e);
-
-	EventLabel &lab = g.getEventLabel(e);
-	/* Push all the other alternatives choices to the Stack */
-	driver->trackEvent(e);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		driver->addToWorklist(e, StackItem(SRead, *it));
-
-	/* Did the CAS operation succeed? */
-	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue()) {
-		g.addCASStoreToGraph(I.getSuccessOrdering(), ptr, newVal, typ);
-		++g.threads[g.currentT].globalInstructions;
-		driver->visitStore(g);
-	}
-
-	/* Return the appropriate result */
 	result.AggregateVal.push_back(oldVal);
 	result.AggregateVal.push_back(cmpRes);
 	SetValue(&I, result, SF);
@@ -1459,41 +1379,10 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		++g.threads[g.currentT].globalInstructions;
-		oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-		SetValue(&I, oldVal, SF);
-		return;
-	}
-
-	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = driver->getStoresToLoc(ptr);
-	std::vector<Event> validStores =
-		properlyOrderStores(RMW, typ, ptr, {}, stores);
-
-	/* ... and add a label with the appropriate store. */
-	g.addRMWReadToGraph(I.getOrdering(), ptr, val, I.getOperation(), typ, validStores[0]);
-	Event e = g.getLastThreadEvent(g.currentT);
-//	std::vector<int> readPreds = g.getGraphState();
-//	g.revisit.add(e);
-
-	EventLabel &lab = g.getEventLabel(e);
-	/* Push all the other alternatives choices to the Stack */
-	driver->trackEvent(e);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		driver->addToWorklist(e, StackItem(SRead, *it));
-
-	/* Calculate the value to be written */
-	oldVal = loadValueFromWrite(validStores[0], typ, ptr);
+	oldVal = driver->visitLoad(typ, ptr, RMW, I.getOrdering(), GenericValue(), GenericValue(val), I.getOperation());
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
-	g.addRMWStoreToGraph(I.getOrdering(), ptr, newVal, typ);
-	++g.threads[g.currentT].globalInstructions;
-
-	/* Return the appropriate result */
-	driver->visitStore(g);
+	driver->visitStore(typ, ptr, newVal, RMW, I.getOrdering());
 	SetValue(&I, oldVal, SF);
 	return;
 }
@@ -2852,65 +2741,18 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c == g.maxEvents[g.currentT] - 1) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		if (cmpRes.IntVal.getBoolValue()) {
-			g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
-			++g.threads[g.currentT].globalInstructions;
-			driver->visitStore(g);
-		} else {
-			g.tryToBacktrack();
-			return;
-		}
+	auto oldVal = driver->visitLoad(typ, ptr, CAS, Acquire, GenericValue(cmpVal),
+					GenericValue(newVal));
 
-		/* TODO: Check move semantics .. */
-		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		returnValueToCaller(F->getReturnType(), result);
-		return;
-	}
-	if (c < g.maxEvents[g.currentT]) {
-		EventLabel &lab = g.threads[g.currentT].eventList[c];
-		GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		g.threads[g.currentT].globalInstructions += cmpRes.IntVal.getBoolValue();
-		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		returnValueToCaller(F->getReturnType(), result);
-		return;
-	}
+	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 
-	/* Calculate the stores that we can actually read from */
-	std::vector<Event> stores = driver->getStoresToLoc(ptr);
-	std::vector<Event> validStores =
-		properlyOrderStores(CAS, typ, ptr, {cmpVal}, stores);
-
-	/* ... and add a label with the appropriate store. */
-	g.addCASReadToGraph(Acquire, ptr, cmpVal, newVal, typ, validStores[0]);
-	Event e = g.getLastThreadEvent(g.currentT);
-//	std::vector<int> readPreds = g.getGraphState();
-//	g.revisit.add(e);
-
-	EventLabel &lab = g.getEventLabel(e);
-	/* Push all the other alternatives choices to the Stack */
-	driver->trackEvent(e);
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		driver->addToWorklist(e, StackItem(SRead, *it));
-
-	/* Did the CAS operation succeed? */
-	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue()) {
-		g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
-		++g.threads[g.currentT].globalInstructions;
-		driver->visitStore(g);
-	} else {
+	if (cmpRes.IntVal.getBoolValue() == 0) {
 		g.tryToBacktrack();
 		return;
 	}
 
-	/* Return the appropriate result */
+	driver->visitStore(typ, ptr, newVal, CAS, Acquire);
+
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2919,7 +2761,6 @@ void Interpreter::callPthreadMutexLock(Function *F,
 void Interpreter::callPthreadMutexUnlock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue val, result;
@@ -2935,15 +2776,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c) {
-		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		returnValueToCaller(F->getReturnType(), result);
-		return;
-	}
-
-	g.addStoreToGraph(Release, ptr, val, typ);
-	driver->visitStore(g);
+	driver->visitStore(typ, ptr, val, Plain, Release);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2968,6 +2801,18 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
+
+	auto oldVal = driver->visitLoad(typ, ptr, CAS, Acquire, GenericValue(cmpVal),
+					GenericValue(newVal));
+
+	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue())
+		driver->visitStore(typ, ptr, newVal, CAS, Acquire);
+
+	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+
 
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c < g.maxEvents[g.currentT]) {
@@ -2999,14 +2844,14 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 		driver->addToWorklist(e, StackItem(SRead, *it));
 
 	/* Did the CAS operation succeed? */
-	GenericValue oldVal = loadValueFromWrite(lab.rf, typ, ptr);
-	GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	oldVal = loadValueFromWrite(lab.rf, typ, ptr);
+	cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
 		g.addCASStoreToGraph(Acquire, ptr, newVal, typ);
 		++g.threads[g.currentT].globalInstructions;
 
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
-		driver->visitStore(g);
+		driver->visitStore(typ, ptr, newVal, CAS, Acquire);
 	} else {
 		result.IntVal = APInt(typ->getIntegerBitWidth(), 1); /* Failure */
 	}

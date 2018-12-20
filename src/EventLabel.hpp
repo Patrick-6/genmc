@@ -70,6 +70,10 @@ public:
 		   llvm::GenericValue *addr, llvm::GenericValue expected,
 		   llvm::GenericValue nextVal, llvm::Type *valTyp, Event w); /* CAS Reads */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
+		   llvm::GenericValue *addr, llvm::GenericValue expected,
+		   llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
+		   llvm::Type *valTyp, Event w); /* CAS+FAI Reads */
+	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,

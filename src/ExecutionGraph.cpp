@@ -381,6 +381,17 @@ void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 }
 
 void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				    llvm::Type *typ, Event rf, EventAttr attr,
+				    llvm::GenericValue &&cmpVal = llvm::GenericValue(),
+				    llvm::GenericValue &&rmwVal = llvm::GenericValue(),
+				    llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(ERead, attr, ord, Event(currentT, max), ptr, cmpVal, rmwVal, op, typ, rf);
+	addReadToGraphCommon(lab, rf);
+}
+
+void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				    llvm::Type *typ, Event rf)
 {
 	int max = maxEvents[currentT];
@@ -441,6 +452,16 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	}
 	addEventToGraph(lab);
 	return;
+}
+
+void ExecutionGraph::addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
+				     llvm::GenericValue &val, int offsetMO,
+				     EventAttr attr, llvm::AtomicOrdering ord)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(EWrite, attr, ord, Event(currentT, max), ptr, val, typ);
+	addStoreToGraphCommon(lab);
+	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
 }
 
 void ExecutionGraph::addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -804,21 +825,16 @@ std::vector<Event> ExecutionGraph::getStoresToLocWeakRA(llvm::GenericValue *addr
 }
 
 /* View before _can_ be implicitly modified */
-std::pair<std::vector<Event>, std::vector<Event> >
-ExecutionGraph::splitLocMOBefore(const std::vector<Event> &locMO, View &before)
+std::pair<int, int>
+ExecutionGraph::splitLocMOBefore(llvm::GenericValue *addr, View &before)
 {
-	std::vector<Event> concurrent, previous;
-
+	auto &locMO = modOrder[addr];
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !isWriteRfBefore(before, *rit)) {
-			concurrent.push_back(*rit);
-		} else {
-			std::reverse_copy(rit, locMO.rend(), std::back_inserter(previous));
-			break;
-		}
+		if (before.empty() || !isWriteRfBefore(before, *rit))
+			continue;
+		return std::make_pair(std::distance(rit, locMO.rend()), locMO.size());
 	}
-	std::reverse(concurrent.begin(), concurrent.end());
-	return std::make_pair(concurrent, previous);
+	return std::make_pair(0, locMO.size());
 }
 
 std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
@@ -827,7 +843,7 @@ std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
 	std::vector<Event> &locMO = modOrder[addr];
 	View before = getHbBefore(getLastThreadEvent(currentT));
 
-	auto [concurrent, previous] = splitLocMOBefore(locMO, before);
+	auto [begO, endO] = splitLocMOBefore(addr, before);
 
 	/*
 	 * If there are not stores (hb;rf?)-before the current event
@@ -835,11 +851,11 @@ std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
 	 * initializer store. Otherwise, we can read from all concurrent
 	 * stores and the mo-latest of the (hb;rf?)-before stores.
 	 */
-	if (previous.empty())
+	if (begO == 0)
 		stores.push_back(Event::getInitializer());
 	else
-		stores.push_back(previous.back());
-	stores.insert(stores.end(), concurrent.begin(), concurrent.end());
+		stores.push_back(*(locMO.begin() + begO - 1));
+	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
 	return stores;
 }
 

@@ -49,6 +49,14 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w),
 	  functionName(functionName), initial(false) {}
 
+/* CAS+FAI Reads */
+EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
+		       llvm::GenericValue *addr, llvm::GenericValue expected,
+		       llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
+		       llvm::Type *valTyp, Event w)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(expected),
+	  nextVal(nextVal), op(op), valTyp(valTyp), rf(w) {}
+
 /* CAS Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val,

@@ -39,12 +39,15 @@ struct StackItem {
 	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
 	Event oldRf;
+	int moPos;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, Event shouldRf)
 		: type(t), shouldRf(shouldRf) {};
 	StackItem(StackItemType t, std::vector<Event> newMO)
 		: type(t), newMO(newMO) {};
+	StackItem(StackItemType t, int newMOPos)
+		: type(t), moPos(newMOPos) {};
 	StackItem(StackItemType t, Event shouldRf, View before,
 		  std::vector<EventLabel> &writePrefix)
 		: type(t), shouldRf(shouldRf), storePorfBefore(before),
@@ -106,13 +109,31 @@ public:
 	void visitGraph(ExecutionGraph &g);
 	bool checkForRaces(ExecutionGraph &g, EventType typ, llvm::AtomicOrdering ord, llvm::GenericValue *addr);
 
+	llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
+				     EventAttr attr, llvm::AtomicOrdering ord,
+				     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
+				     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
+				     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	void visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+			EventAttr attr, llvm::AtomicOrdering ord);
+	bool calcRevisits(EventLabel &lab);
+	bool revisitReads(Event &e, StackItem &s);
+
+
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
-	virtual bool visitStore(ExecutionGraph &g) = 0;
+	virtual std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW = false) = 0;
+	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;
+	virtual std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+			  getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
+
+
+	// virtual bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+	// 			EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit = false) = 0;
 	virtual bool visitLibStore(ExecutionGraph &g) = 0;
-	virtual bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
+//	virtual bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
 	virtual bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab) = 0;
-	virtual bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s) = 0;
+
 	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
 	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
 };
@@ -129,11 +150,20 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	bool visitStore(ExecutionGraph &g);
+	std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW);
+	std::vector<Event> getRevisitLoads(EventLabel &lab);
+	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
+	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
+	// 			     EventAttr attr, llvm::AtomicOrdering ord,
+	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
+	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
+	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
 	bool visitLibStore(ExecutionGraph &g);
-	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -148,11 +178,20 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	bool visitStore(ExecutionGraph &g);
+	std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW);
+	std::vector<Event> getRevisitLoads(EventLabel &lab);
+	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
+	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
+	// 			     EventAttr attr, llvm::AtomicOrdering ord,
+	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
+	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
+	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
 	bool visitLibStore(ExecutionGraph &g);
-	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };
@@ -167,11 +206,20 @@ public:
 		: RCMCDriver(conf, std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
-	bool visitStore(ExecutionGraph &g);
+	std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW);
+	std::vector<Event> getRevisitLoads(EventLabel &lab);
+	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
+	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
+	// 			     EventAttr attr, llvm::AtomicOrdering ord,
+	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
+	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
+	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
+	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
 	bool visitLibStore(ExecutionGraph &g);
-	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool revisitReads(ExecutionGraph &g, Event &e, StackItem &s);
 	bool checkPscAcyclicity(ExecutionGraph &g);
 	bool isExecutionValid(ExecutionGraph &g);
 };

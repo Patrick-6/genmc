@@ -69,6 +69,10 @@ public:
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+			    llvm::Type *typ, Event rf, EventAttr attr,
+			    llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
+			    llvm::AtomicRMWInst::BinOp op);
+	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			    llvm::Type *typ, Event rf);
 	void addGReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			     llvm::Type *typ, Event rf, std::string functionName);
@@ -78,6 +82,8 @@ public:
 	void addRMWReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			       llvm::GenericValue &nextVal, llvm::AtomicRMWInst::BinOp op,
 			       llvm::Type *typ, Event rf);
+	void addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr, llvm::GenericValue &val,
+			     int offsetMO, EventAttr attr, llvm::AtomicOrdering ord);
 	void addStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 			     llvm::GenericValue &val, llvm::Type *typ);
 	void addGStoreToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -116,8 +122,7 @@ public:
 	std::vector<Event> getStoresToLocWeakRA(llvm::GenericValue *addr);
 	std::vector<Event> getStoresToLocMO(llvm::GenericValue *addr);
 	std::vector<Event> getStoresToLocWB(llvm::GenericValue *addr);
-	std::pair<std::vector<Event>, std::vector<Event> >
-	splitLocMOBefore(const std::vector<Event> &locMO, View &before);
+	std::pair<int, int> splitLocMOBefore(llvm::GenericValue *addr, View &before);
 
 	/* Calculation of loads that can be revisited */
 	std::vector<Event> getRevisitable(const EventLabel &sLab);
