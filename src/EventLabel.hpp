@@ -104,31 +104,16 @@ public:
 	bool isLibInit() const;
 	bool isRevisitable() const;
 	bool hasBeenRevisited() const;
+	bool hasReadSem() const;
 
 	unsigned int getStamp() const;
 
 	void makeNotRevisitable() { revisitable = false; };
 	void makeRevisitable()    { revisitable = true; };
 
-	inline bool operator==(const EventLabel &lab) const
-		{
-			if (type != lab.type || pos != lab.pos)
-				return false;
-
-			switch (type) {
-			case ERead:
-			case EStart:
-			case ETJoin:
-				return rf == lab.rf;
-			case EFence:
-			case EWrite:
-			case EFinish:
-			case ETCreate:
-				return true;
-			default:
-				abort();
-			}
-		}
+	inline bool operator==(const EventLabel &lab) const {
+		return type == lab.type && pos == lab.pos && (!hasReadSem() || rf == lab.rf);
+	}
 	inline bool operator!=(const EventLabel &lab) const { return !(*this == lab); };
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);

@@ -147,6 +147,11 @@ bool EventLabel::isAtLeastRelease() const
 	// return llvm::isAtLeastRelease(ord);
 }
 
+bool EventLabel::hasReadSem() const
+{
+	return type == ERead || type == EStart || type == ETJoin;
+}
+
 bool EventLabel::isSC() const
 {
 	return (ord == llvm::SequentiallyConsistent);
