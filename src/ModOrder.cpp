@@ -98,6 +98,24 @@ bool ModOrder::locContains(llvm::GenericValue *addr, const Event &e)
 	      std::any_of(mo_[addr].begin(), mo_[addr].end(), [&e](Event s){ return s == e; });
 }
 
+bool ModOrder::areOrdered(llvm::GenericValue *addr, const Event &a, const Event &b)
+{
+	if (b == Event::getInitializer())
+		return true;
+
+	auto foundB = false;
+	auto foundA = false;
+	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+		foundA |= (*it == a);
+		foundB |= (*it == b);
+		if (foundA && !foundB)
+			return false;
+		if (foundA && foundB)
+			return true;
+	}
+	return false;
+}
+
 int ModOrder::getStoreOffset(llvm::GenericValue *addr, const Event &e)
 {
 	if (e == Event::getInitializer())

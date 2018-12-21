@@ -142,34 +142,75 @@ void RCMCDriver::run()
 	return;
 }
 
-void RCMCDriver::addToWorklist(Event e, StackItem s)
+void RCMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
+			       View before,
+			       std::vector<EventLabel> &&prefix,
+			       std::vector<std::pair<Event, Event> > &&moPlacings,
+			       int newMoPos = 0)
+
 {
-	worklist[e].push_back(std::move(s));
+	auto &lab = currentEG->getEventLabel(e);
+	StackItem s(t, lab.getStamp(), e, lab.rf, shouldRf,
+		    before, std::move(prefix), std::move(moPlacings), newMoPos);
+
+	workqueue[lab.getStamp()].push_back(std::move(s));
 }
 
-std::pair<Event, StackItem> RCMCDriver::getNextItem()
+StackItem RCMCDriver::getNextItem()
 {
-	for (auto rit = workstack.rbegin(); rit != workstack.rend(); ++rit) {
-		if (worklist[*rit].size() == 0)
+	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
+		if (rit->second.empty())
 			continue;
 
-		auto si = worklist[*rit].back();
-		worklist[*rit].pop_back();
-		return std::make_pair(*rit, std::move(si));
+		auto si = rit->second[0];
+		rit->second.erase(rit->second.begin());
+		return si;
 	}
-	return std::make_pair(Event::getInitializer(), StackItem());
+	return StackItem();
 }
 
-void RCMCDriver::filterWorklist(View &preds)
+void RCMCDriver::restrictWorklist(unsigned int stamp)
 {
-	workstack.erase(std::remove_if(workstack.begin(), workstack.end(),
-				       [&preds](Event &e){ return e.index > preds[e.thread]; }),
-			workstack.end());
-	// worklist.erase(std::remove_if(worklist.begin(), worklist.end(),
-	// 			      [&lab, &storeBefore](decltype(*begin(worklist)) kv)
-	// 			      { return kv.first.index > lab.preds[kv.first.thread] &&
-	// 				       kv.first.index > storeBefore[kv.first.thread]; }),
-	// 	       worklist.end());
+	std::vector<int> idxsToRemove;
+	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
+		if (rit->first > stamp && rit->second.empty())
+			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
+
+	for (auto &i : idxsToRemove)
+		workqueue.erase(i);
+}
+
+bool RCMCDriver::worklistContains(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
+				  const std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
+		if (it->second.empty() || it->second[0].toRevisit != rLab.pos)
+			continue;
+
+		auto &sv = it->second;
+		if (std::any_of(sv.rbegin(), sv.rend(), [&](StackItem &si)
+				{ return si.writePrefix == prefix &&
+					 si.moPlacings == moPlacings; }))
+			return true;
+	}
+	return false;
+}
+
+void RCMCDriver::filterWorklist(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
+				const std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	auto &g = *currentEG;
+	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
+		if (it->second.empty() || it->second[0].toRevisit != rLab.pos)
+			continue;
+
+		auto &sv = it->second;
+		sv.erase(std::remove_if(sv.begin(), sv.end(), [&](StackItem &s)
+					{ return s.type == SRevisit && //s.shouldRf == rf &&
+						 g.equivPrefixes(rLab.getStamp(), s.writePrefix, prefix) &&
+						 g.equivPlacings(rLab.getStamp(), s.moPlacings, moPlacings); }),
+			 sv.end());
+	}
 }
 
 void RCMCDriver::visitGraph(ExecutionGraph &g)
@@ -192,15 +233,11 @@ start:
 	EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
 	EE->runStaticConstructorsDestructors(true);
 
-	bool validExecution;
-	Event toRevisit = Event::getInitializer();
-	StackItem p;
+	bool validExecution = true;
 	do {
-		auto workItem = getNextItem();
-		toRevisit = workItem.first;
-		p = workItem.second;
+		auto p = getNextItem();
 
-		if (toRevisit.isInitializer()) {
+		if (p.type == None) {
 			for (auto mem : g.stackAllocas)
 				free(mem); /* No need to clear vector */
 			for (auto mem : g.heapAllocas)
@@ -208,7 +245,7 @@ start:
 			currentEG = oldEG;
 			return;
 		}
-		validExecution = revisitReads(toRevisit, p);
+		validExecution = revisitReads(p);
 	} while (!validExecution);
 
 	g.currentT = 0;
@@ -288,10 +325,11 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 	/* Push all the other alternatives choices to the Stack */
 //	std::vector<int> preds = g.getGraphState();
 	Event e = g.getLastThreadEvent(g.currentT);
-//	EventLabel &lab = g.getEventLabel(e);
-	trackEvent(e);
+	EventLabel &lab = g.getEventLabel(e);
+//	trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(e, StackItem(SRead, *it));
+		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+//		addToWorklist(e, StackItem(SRead, *it));
 	return EE->loadValueFromWrite(validStores[0], typ, addr);
 }
 
@@ -320,7 +358,7 @@ void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
 
 	auto &sLab = g.getLastThreadLabel(g.currentT);
 
-	trackEvent(sLab.pos);
+//	trackEvent(sLab.pos);
 
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
 
@@ -329,7 +367,8 @@ void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
 			continue;
 
 		/* Push the stack item */
-		addToWorklist(sLab.pos, StackItem(MOWrite, std::distance(locMO.begin(), it)));
+		addToWorklist(MOWrite, sLab.pos, sLab.rf, {}, {}, {}, std::distance(locMO.begin(), it));
+//		addToWorklist(sLab.pos, StackItem(MOWrite, std::distance(locMO.begin(), it)));
 	}
 
 	calcRevisits(sLab);
@@ -349,42 +388,50 @@ bool RCMCDriver::calcRevisits(EventLabel &lab)
 			    loads.end());
 
 	for (auto &l : loads) {
-		EventLabel &rLab = g.getEventLabel(l);
+		auto &rLab = g.getEventLabel(l);
+		auto preds = g.getViewFromStamp(rLab.getStamp());
 
 		auto before = g.getPorfBefore(lab.pos);
-		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, rLab.preds);
+		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, preds);
 		// auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
 
 		// auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
 //		auto moPlacings = std::vector<std::pair<Event, Event>>();
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-		if (rLab.revs.contains(writePrefixPos, moPlacings))
+		// if (rLab.revs.contains(writePrefixPos, moPlacings))
+		// 	continue;
+		if (worklistContains(rLab, writePrefix, moPlacings))
 			continue;
 
-		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(l, StackItem(SRevisit, lab.pos, before, writePrefix, moPlacings));
+		filterWorklist(rLab, writePrefix, moPlacings);
+
+//		rLab.revs.add(writePrefixPos, moPlacings);
+		addToWorklist(SRevisit, rLab.pos, lab.pos, before, std::move(writePrefix), std::move(moPlacings));
+//		addToWorklist(l, StackItem(SRevisit, lab.pos, before, writePrefix, moPlacings));
 	}
 	return (!lab.isRMW() || pendingRMWs.empty());
 }
 
-bool RCMCDriver::revisitReads(Event &toRevisit, StackItem &p)
+bool RCMCDriver::revisitReads(StackItem &p)
 {
 	auto &g = *currentEG;
-	auto &lab = g.getEventLabel(toRevisit);
-	View cutView(lab.preds);
+	auto &lab = g.getEventLabel(p.toRevisit);
+//	View cutView(lab.preds);
 
 	/* Restrict to the predecessors of the event we are revisiting */
-	g.cutToEventView(lab.pos, lab.preds);
-	cutView.updateMax(p.storePorfBefore);
-	filterWorklist(cutView);
+	lab.stamp = p.stamp;
+	g.cutToEventStamp(lab.pos, lab.getStamp());
+//	cutView.updateMax(p.storePorfBefore);
+	restrictWorklist(lab.getStamp());
 
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
 	case SRead:
 	case SReadLibFunc:
 		/* Nothing to restore in this case */
+		lab.revisitable = (lab.isRMW() || p.type == SReadLibFunc);
 		break;
 	case SRevisit:
 		/*
@@ -392,6 +439,8 @@ bool RCMCDriver::revisitReads(Event &toRevisit, StackItem &p)
 		 * that is not already present in the graph, the MO edges between that
 		 * part and the previous MO, and make that part non-revisitable
 		 */
+		lab.revisited = true;
+		lab.stamp = g.nextStamp(); // TODO: perhaps change this?
 		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
 		break;
 	case MOWrite: {
@@ -468,7 +517,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 	auto validStores = g.getLibConsRfsInView(*lib, lab, stores, lab.preds);
 
 	/* Track this event */
-	trackEvent(lab.pos);
+//	trackEvent(lab.pos);
 
 	/*
 	 * If this is a non-functional library, choose one of the available reads-from
@@ -479,7 +528,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 		BUG_ON(validStores.empty());
 		g.changeRf(lab, validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-			addToWorklist(lab.pos, StackItem(SRead, *it));
+			addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+//			addToWorklist(lab.pos, StackItem(SRead, *it));
 		return EE->loadValueFromWrite(lab.rf, typ, addr);
 	}
 
@@ -497,7 +547,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 		auto &sLab = g.getEventLabel(*it);
 		BUG_ON(sLab.rfm1.size() > 1);
 		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
-			addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
+			addToWorklist(SReadLibFunc, lab.pos, *it, {}, {}, {});
+//			addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
 	}
 
 	/* If there is no valid RF, we have to read BOTTOM */
@@ -517,7 +568,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 	g.changeRf(lab, validStores[0]);
 
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
-		addToWorklist(lab.pos, StackItem(SRead, *it));
+		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+//		addToWorklist(lab.pos, StackItem(SRead, *it));
 
 	return EE->loadValueFromWrite(lab.rf, typ, addr);
 }
@@ -555,7 +607,7 @@ void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
 	auto &sLab = g.getLastThreadLabel(g.currentT);
 
 	/* Make the driver track this store */
-	trackEvent(sLab.pos);
+//	trackEvent(sLab.pos);
 
 	calcLibRevisits(sLab);
 
@@ -573,7 +625,8 @@ void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
 
 		/* Check consistency for the graph with this MO */
 		if (g.isLibConsistentInView(*lib, sLab.preds))
-			addToWorklist(sLab.pos, StackItem(MOWriteLib, i));
+			addToWorklist(MOWriteLib, sLab.pos, sLab.rf, {}, {}, {}, i);
+//			addToWorklist(sLab.pos, StackItem(MOWriteLib, i));
 		locMO.erase(locMO.begin() + i);
 	}
 	locMO.push_back(sLab.pos);
@@ -609,7 +662,8 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 	for (auto &l : loads) {
 		/* Calculate the view of the resulting graph */
 		auto &rLab = g.getEventLabel(l);
-		auto v(rLab.preds);
+		auto preds = g.getViewFromStamp(rLab.getStamp());
+		auto v = preds;
 		v.updateMax(before);
 
 		/* Check if this the resulting graph is consistent */
@@ -617,17 +671,23 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 
 		for (auto &rf : rfs) {
 			/* Push consistent options to stack */
-			auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
-			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, rLab.preds)
+			auto writePrefix = g.getPrefixLabelsNotBefore(before, preds);
+			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, preds)
 				                                   : std::vector<std::pair<Event, Event> >();
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, rLab.preds);
+			auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-			if (rLab.revs.contains(writePrefixPos, moPlacings))
+			// if (rLab.revs.contains(writePrefixPos, moPlacings))
+			// 	continue;
+
+			if (worklistContains(rLab, writePrefix, moPlacings))
 				continue;
 
-			rLab.revs.add(writePrefixPos, moPlacings);
-			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix, moPlacings));
+			filterWorklist(rLab, writePrefix, moPlacings);
+
+			// rLab.revs.add(writePrefixPos, moPlacings);
+			addToWorklist(SRevisit, rLab.pos, rf, before, std::move(writePrefix), std::move(moPlacings));
+//			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix, moPlacings));
 		}
 	}
 	return valid;

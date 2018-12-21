@@ -29,12 +29,18 @@
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph(llvm::Interpreter *EE) : EE(EE), currentT(0) {}
+ExecutionGraph::ExecutionGraph(llvm::Interpreter *EE)
+	: EE(EE), currentT(0), timestamp(0) {}
 
 
 /************************************************************
  ** Basic getter methods
  ***********************************************************/
+
+unsigned int ExecutionGraph::nextStamp()
+{
+	return timestamp++;
+}
 
 EventLabel& ExecutionGraph::getEventLabel(const Event &e)
 {
@@ -169,7 +175,8 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	for (auto i = 0u; i < threads.size(); i++) {
 		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
 			auto &lab = threads[i].eventList[j];
-			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable())
+			if (lab.isRead() && lab.addr == sLab.addr && lab.isRevisitable() &&
+			    (!lab.hasBeenRevisited() || lab.rf.index <= sLab.porfView[lab.rf.thread]))
 				loads.push_back(lab.pos);
 		}
 	}
@@ -357,6 +364,7 @@ void ExecutionGraph::calcLoadHbView(EventLabel &lab, Event prev, Event &rf)
 
 void ExecutionGraph::addEventToGraph(EventLabel &lab)
 {
+	lab.stamp = nextStamp();
 	Thread &thr = threads[currentT];
 	thr.eventList.push_back(lab);
 	++maxEvents[currentT];
@@ -887,6 +895,29 @@ void ExecutionGraph::cutToEventView(Event &e, View &preds)
 	return;
 }
 
+View ExecutionGraph::getViewFromStamp(unsigned int stamp)
+{
+	View preds;
+
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = maxEvents[i] - 1; j >= 0; j--) {
+			auto &lab = threads[i].eventList[j];
+			if (lab.getStamp() <= stamp) {
+				preds[i] = j;
+				break;
+			}
+		}
+	}
+	return preds;
+}
+
+void ExecutionGraph::cutToEventStamp(Event &e, unsigned int stamp)
+{
+	auto preds = getViewFromStamp(stamp);
+	cutToEventView(e, preds);
+	return;
+}
+
 void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 					std::vector<EventLabel> &storePrefix,
 					std::vector<std::pair<Event, Event> > &moPlacings)
@@ -939,6 +970,57 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 	}
 }
 
+
+/************************************************************
+ ** Equivalence checks
+ ***********************************************************/
+
+bool ExecutionGraph::equivPrefixes(unsigned int stamp,
+				   const std::vector<EventLabel> &oldPrefix,
+				   const std::vector<EventLabel> &newPrefix)
+{
+	for (auto ritN = newPrefix.rbegin(); ritN != newPrefix.rend(); ++ritN) {
+		if (std::all_of(oldPrefix.rbegin(), oldPrefix.rend(), [&](const EventLabel &sLab)
+				{ return sLab != *ritN; }))
+			return false;
+	}
+
+	for (auto ritO = oldPrefix.rbegin(); ritO != oldPrefix.rend(); ++ritO) {
+		if (std::find(newPrefix.rbegin(), newPrefix.rend(), *ritO) != newPrefix.rend())
+			continue;
+
+		if (ritO->getStamp() <= stamp &&
+		    ritO->pos.index < maxEvents[ritO->pos.thread] &&
+		    *ritO == threads[ritO->pos.thread].eventList[ritO->pos.index])
+			continue;
+		return false;
+	}
+	return true;
+}
+
+bool ExecutionGraph::equivPlacings(unsigned int stamp,
+				   const std::vector<std::pair<Event, Event> > &oldPlacings,
+				   const std::vector<std::pair<Event, Event> > &newPlacings)
+{
+	for (auto ritN = newPlacings.rbegin(); ritN != newPlacings.rend(); ++ritN) {
+		if (std::all_of(oldPlacings.rbegin(), oldPlacings.rend(),
+				[&](const std::pair<Event, Event> &s)
+				{ return s != *ritN; }))
+			return false;
+	}
+
+	for (auto ritO = oldPlacings.rbegin(); ritO != oldPlacings.rend(); ++ritO) {
+		if (std::find(newPlacings.rbegin(), newPlacings.rend(), *ritO) != newPlacings.rend())
+			continue;
+
+		auto &sLab1 = getEventLabel(ritO->first);
+		auto &sLab2 = getEventLabel(ritO->second);
+		if (sLab2.getStamp() <= stamp && modOrder.areOrdered(sLab1.addr, sLab1.pos, sLab2.pos))
+			continue;
+		return false;
+	}
+	return true;
+}
 
 /************************************************************
  ** Consistency checks

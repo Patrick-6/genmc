@@ -51,8 +51,10 @@ public:
 	std::string functionName; /* For GReads/GWrites */
 	bool initial; /* For GWrites */
 	bool revisitable;
+	bool revisited = false;
 	RevisitSet revs;
 	View preds;
+	unsigned int stamp = 0;
 	std::vector<Event> invalidRfs;
 
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
@@ -100,10 +102,34 @@ public:
 	bool isSC() const;
 	bool isRMW() const;
 	bool isLibInit() const;
+	bool isRevisitable() const;
+	bool hasBeenRevisited() const;
 
-	bool isRevisitable()      { return revisitable; };
+	unsigned int getStamp() const;
+
 	void makeNotRevisitable() { revisitable = false; };
 	void makeRevisitable()    { revisitable = true; };
+
+	inline bool operator==(const EventLabel &lab) const
+		{
+			if (type != lab.type || pos != lab.pos)
+				return false;
+
+			switch (type) {
+			case ERead:
+			case EStart:
+			case ETJoin:
+				return rf == lab.rf;
+			case EFence:
+			case EWrite:
+			case EFinish:
+			case ETCreate:
+				return true;
+			default:
+				abort();
+			}
+		}
+	inline bool operator!=(const EventLabel &lab) const { return !(*this == lab); };
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab);
 };

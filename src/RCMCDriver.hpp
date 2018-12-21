@@ -33,34 +33,43 @@ enum StackItemType { SRead, SRevisit, MOWrite, MOWriteLib, SReadLibFunc, None };
 
 struct StackItem {
 	StackItemType type;
+	unsigned int stamp;
+	Event toRevisit;
+	Event oldRf;
 	Event shouldRf;
 	View storePorfBefore;
 	std::vector<EventLabel> writePrefix;
-	std::vector<Event> newMO;
 	std::vector<std::pair<Event, Event> > moPlacings;
-	Event oldRf;
 	int moPos;
 
 	StackItem() : type(None) {};
-	StackItem(StackItemType t, Event shouldRf)
-		: type(t), shouldRf(shouldRf) {};
-	StackItem(StackItemType t, std::vector<Event> newMO)
-		: type(t), newMO(newMO) {};
-	StackItem(StackItemType t, int newMOPos)
-		: type(t), moPos(newMOPos) {};
-	StackItem(StackItemType t, Event shouldRf, View before,
-		  std::vector<EventLabel> &writePrefix)
-		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix) {};
-	StackItem(StackItemType t, Event shouldRf, View before,
-		  std::vector<EventLabel> &writePrefix,
-		  std::vector<std::pair<Event, Event> > moPlacings)
-		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix), moPlacings(moPlacings) {};
-	StackItem(StackItemType t, Event shouldRf, View before,
-		  std::vector<EventLabel> &writePrefix, Event oldRf)
-		: type(t), shouldRf(shouldRf), storePorfBefore(before),
-		  writePrefix(writePrefix), oldRf(oldRf) {};
+	StackItem(StackItemType t, unsigned int stamp, Event e,
+		  Event oldRf, Event shouldRf, View before,
+		  std::vector<EventLabel> &&writePrefix,
+		  std::vector<std::pair<Event, Event> > &&moPlacings,
+		  int newMoPos)
+		: type(t), stamp(stamp), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
+		  storePorfBefore(before), writePrefix(writePrefix), moPlacings(moPlacings),
+		  moPos(newMoPos) {};
+	// StackItem(StackItemType t, Event shouldRf)
+	// 	: type(t), shouldRf(shouldRf) {};
+	// StackItem(StackItemType t, std::vector<Event> newMO)
+	// 	: type(t), newMO(newMO) {};
+	// StackItem(StackItemType t, int newMOPos)
+	// 	: type(t), moPos(newMOPos) {};
+	// StackItem(StackItemType t, Event shouldRf, View before,
+	// 	  std::vector<EventLabel> &writePrefix)
+	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
+	// 	  writePrefix(writePrefix) {};
+	// StackItem(StackItemType t, Event shouldRf, View before,
+	// 	  std::vector<EventLabel> &writePrefix,
+	// 	  std::vector<std::pair<Event, Event> > moPlacings)
+	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
+	// 	  writePrefix(writePrefix), moPlacings(moPlacings) {};
+	// StackItem(StackItemType t, Event shouldRf, View before,
+	// 	  std::vector<EventLabel> &writePrefix, Event oldRf)
+	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
+	// 	  writePrefix(writePrefix), oldRf(oldRf) {};
 };
 
 class RCMCDriver {
@@ -75,6 +84,7 @@ protected:
 	ExecutionGraph *currentEG;
 	std::unordered_map<Event, std::vector<StackItem>, EventHasher > worklist;
 	std::vector<Event> workstack;
+	std::map<unsigned int, std::vector<StackItem> > workqueue;
 	int explored;
 	int duplicates;
 	std::unordered_set<std::string> uniqueExecs;
@@ -93,10 +103,18 @@ public:
 
 	virtual ~RCMCDriver() {};
 
-	void trackEvent(Event e) { workstack.push_back(e); };
-	void addToWorklist(Event e, StackItem s);
-	void filterWorklist(View &preds);
-	std::pair<Event, StackItem> getNextItem();
+//	void trackEvent(Event e) { workstack.push_back(e); };
+	void addToWorklist(StackItemType t, Event e, Event shouldRf,
+			   View before, std::vector<EventLabel> &&prefix,
+			   std::vector<std::pair<Event, Event> > &&moPlacings,
+			   int newMoPos);
+	StackItem getNextItem();
+	void restrictWorklist(unsigned int stamp);
+	bool worklistContains(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
+			      const std::vector<std::pair<Event, Event> > &moPlacings);
+	void filterWorklist(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
+			    const std::vector<std::pair<Event, Event> > &moPlacings);
+
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
 	std::vector<Library> &getToVerifyLibs() { return toVerifyLibs; };
@@ -123,7 +141,7 @@ public:
 	void visitLibStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
 			   EventAttr attr, llvm::AtomicOrdering ord, std::string functionName, bool isInit = false);
 	bool calcLibRevisits(EventLabel &lab);
-	bool revisitReads(Event &e, StackItem &s);
+	bool revisitReads(StackItem &s);
 
 
 

@@ -162,6 +162,21 @@ bool EventLabel::isLibInit() const
 	return initial;
 }
 
+bool EventLabel::isRevisitable() const
+{
+	return revisitable;
+}
+
+bool EventLabel::hasBeenRevisited() const
+{
+	return revisited;
+}
+
+unsigned int EventLabel::getStamp() const
+{
+	return stamp;
+}
+
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)
 {
 	switch (o) {

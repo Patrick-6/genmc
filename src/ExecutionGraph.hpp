@@ -43,6 +43,7 @@ public:
 	std::vector<void *> heapAllocas;
 	std::vector<void *> freedMem;
 	int currentT;
+	unsigned int timestamp;
 
 	/* Constructors */
 	ExecutionGraph(llvm::Interpreter *EE);
@@ -51,6 +52,7 @@ public:
 	// 	: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
 
 	/* Basic getter methods */
+	unsigned int nextStamp();
 	EventLabel& getEventLabel(const Event &e);
 	EventLabel& getPreviousLabel(const Event &e);
 	EventLabel& getLastThreadLabel(int thread);
@@ -119,10 +121,20 @@ public:
 
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
+	View getViewFromStamp(unsigned int stamp);
+	void cutToEventStamp(Event &e, unsigned int stamp);
 	void cutToEventView(Event &e, View &view);
 	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
+
+	/* Equivalence checks */
+	bool equivPrefixes(unsigned int stamp, const std::vector<EventLabel> &prefixA,
+			   const std::vector<EventLabel> &prefixB);
+	bool equivPlacings(unsigned int stamp,
+			   const std::vector<std::pair<Event, Event> > &moPlacingsA,
+			   const std::vector<std::pair<Event, Event> > &moPlacingsB);
+
 
 	/* Consistency checks */
 	bool isConsistent();
