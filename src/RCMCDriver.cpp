@@ -180,8 +180,9 @@ void RCMCDriver::restrictWorklist(unsigned int stamp)
 		workqueue.erase(i);
 }
 
-bool RCMCDriver::worklistContains(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
-				  const std::vector<std::pair<Event, Event> > &moPlacings)
+bool RCMCDriver::worklistContainsPrf(const EventLabel &rLab, const Event &shouldRf,
+				     const std::vector<EventLabel> &prefix,
+				     const std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
 		if (it->second.empty() || it->second[0].toRevisit != rLab.pos)
@@ -189,15 +190,16 @@ bool RCMCDriver::worklistContains(const EventLabel &rLab, const std::vector<Even
 
 		auto &sv = it->second;
 		if (std::any_of(sv.rbegin(), sv.rend(), [&](StackItem &si)
-				{ return si.writePrefix == prefix &&
-					 si.moPlacings == moPlacings; }))
+				{ return si.type == SRevisit && si.shouldRf == shouldRf &&
+					 si.writePrefix == prefix && si.moPlacings == moPlacings; }))
 			return true;
 	}
 	return false;
 }
 
-void RCMCDriver::filterWorklist(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
-				const std::vector<std::pair<Event, Event> > &moPlacings)
+void RCMCDriver::filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf,
+				   const std::vector<EventLabel> &prefix,
+				   const std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	auto &g = *currentEG;
 	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
@@ -206,7 +208,7 @@ void RCMCDriver::filterWorklist(const EventLabel &rLab, const std::vector<EventL
 
 		auto &sv = it->second;
 		sv.erase(std::remove_if(sv.begin(), sv.end(), [&](StackItem &s)
-					{ return s.type == SRevisit && //s.shouldRf == rf &&
+					{ return s.type == SRevisit && s.shouldRf == shouldRf &&
 						 g.equivPrefixes(rLab.getStamp(), s.writePrefix, prefix) &&
 						 g.equivPlacings(rLab.getStamp(), s.moPlacings, moPlacings); }),
 			 sv.end());
@@ -402,10 +404,10 @@ bool RCMCDriver::calcRevisits(EventLabel &lab)
 
 		// if (rLab.revs.contains(writePrefixPos, moPlacings))
 		// 	continue;
-		if (worklistContains(rLab, writePrefix, moPlacings))
+		if (worklistContainsPrf(rLab, lab.pos, writePrefix, moPlacings))
 			continue;
 
-		filterWorklist(rLab, writePrefix, moPlacings);
+		filterWorklistPrf(rLab, lab.pos, writePrefix, moPlacings);
 
 //		rLab.revs.add(writePrefixPos, moPlacings);
 		addToWorklist(SRevisit, rLab.pos, lab.pos, before, std::move(writePrefix), std::move(moPlacings));
@@ -680,10 +682,10 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 			// if (rLab.revs.contains(writePrefixPos, moPlacings))
 			// 	continue;
 
-			if (worklistContains(rLab, writePrefix, moPlacings))
+			if (worklistContainsPrf(rLab, rf, writePrefix, moPlacings))
 				continue;
 
-			filterWorklist(rLab, writePrefix, moPlacings);
+			filterWorklistPrf(rLab, rf, writePrefix, moPlacings);
 
 			// rLab.revs.add(writePrefixPos, moPlacings);
 			addToWorklist(SRevisit, rLab.pos, rf, before, std::move(writePrefix), std::move(moPlacings));

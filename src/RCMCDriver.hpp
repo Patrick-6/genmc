@@ -110,10 +110,12 @@ public:
 			   int newMoPos);
 	StackItem getNextItem();
 	void restrictWorklist(unsigned int stamp);
-	bool worklistContains(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
-			      const std::vector<std::pair<Event, Event> > &moPlacings);
-	void filterWorklist(const EventLabel &rLab, const std::vector<EventLabel> &prefix,
-			    const std::vector<std::pair<Event, Event> > &moPlacings);
+	bool worklistContainsPrf(const EventLabel &rLab, const Event &shouldRf,
+				 const std::vector<EventLabel> &prefix,
+				 const std::vector<std::pair<Event, Event> > &moPlacings);
+	void filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf,
+			       const std::vector<EventLabel> &prefix,
+			       const std::vector<std::pair<Event, Event> > &moPlacings);
 
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
