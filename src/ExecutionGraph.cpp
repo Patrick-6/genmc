@@ -74,34 +74,6 @@ Event ExecutionGraph::getLastThreadRelease(int thread, llvm::GenericValue *addr)
 	return threads[thread].eventList[0].pos;
 }
 
-View ExecutionGraph::getEventPoRfView(Event e)
-{
-	if (e.isInitializer())
-		return View();
-
-	EventLabel &lab = getEventLabel(e);
-	return lab.porfView;
-}
-
-View ExecutionGraph::getEventHbView(Event e)
-{
-	if (e.isInitializer())
-		return View();
-
-	EventLabel &lab = getEventLabel(e);
-	return lab.hbView;
-}
-
-View ExecutionGraph::getEventMsgView(Event e)
-{
-	if (e.isInitializer())
-		return View();
-
-	EventLabel &lab = getEventLabel(e);
-	BUG_ON(!lab.isWrite());
-	return lab.msgView;
-}
-
 View ExecutionGraph::getGraphState(void)
 {
 	View state;
@@ -345,19 +317,19 @@ std::vector<Event> ExecutionGraph::getRevisitLoadsMO(const EventLabel &sLab)
 
 void ExecutionGraph::calcLoadPoRfView(EventLabel &lab, Event prev, Event &rf)
 {
-	lab.porfView = View(getEventPoRfView(prev));
+	lab.porfView = getPorfBefore(prev);
 	++lab.porfView[lab.pos.thread];
 
-	View mV = getEventPoRfView(lab.rf);
+	View mV = getPorfBefore(lab.rf);
 	lab.porfView.updateMax(mV);
 }
 
 void ExecutionGraph::calcLoadHbView(EventLabel &lab, Event prev, Event &rf)
 {
-	lab.hbView = View(getEventHbView(prev));
+	lab.hbView = getHbBefore(prev);
 	lab.hbView[prev.thread] = prev.index + 1;
 	if (lab.isAtLeastAcquire()) {
-		View mV = getEventMsgView(lab.rf);
+		auto mV = getMsgView(lab.rf);
 		lab.hbView.updateMax(mV);
 	}
 }
@@ -409,27 +381,28 @@ void ExecutionGraph::addLibReadToGraph(llvm::AtomicOrdering ord, llvm::GenericVa
 
 void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 {
-	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = maxEvents[currentT];
-	lab.porfView = View(getEventPoRfView(getLastThreadEvent(currentT)));
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = maxEvents[currentT];
 	lab.preds = getGraphState(); /* preds is only defined for reads and writes */
 	++lab.preds[currentT];
 	if (lab.isRMW()) {
 		Event last = getLastThreadEvent(currentT);
 		EventLabel &pLab = getEventLabel(last);
-		View mV = getEventMsgView(pLab.rf);
+		View mV = getMsgView(pLab.rf);
 		BUG_ON(pLab.ord == llvm::NotAtomic);
 		if (pLab.isAtLeastRelease())
+			/* no need for ctor -- getMax copies the View */
 			lab.msgView = mV.getMax(lab.hbView);
 		else
-			lab.msgView = getEventHbView( /* no need for ctor -- getMax will copy the View */
+			lab.msgView = getHbBefore(
 				getLastThreadRelease(currentT, lab.addr)).getMax(mV);
 	} else {
 		if (lab.isAtLeastRelease())
 			lab.msgView = lab.hbView;
 		else if (lab.ord == llvm::Monotonic || lab.ord == llvm::Acquire)
-			lab.msgView = getEventHbView(getLastThreadRelease(currentT, lab.addr));
+			lab.msgView = getHbBefore(getLastThreadRelease(currentT, lab.addr));
 	}
 	addEventToGraph(lab);
 	return;
@@ -462,9 +435,9 @@ void ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
 	int max = maxEvents[currentT];
 	EventLabel lab(EFence, ord, Event(currentT, max));
 
-	lab.hbView = getEventHbView(getLastThreadEvent(currentT));
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = maxEvents[currentT];
-	lab.porfView = getEventPoRfView(getLastThreadEvent(currentT));
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = maxEvents[currentT];
 	if (lab.isAtLeastAcquire())
 		calcRelRfPoBefore(currentT, getLastThreadEvent(currentT).index, lab.hbView);
@@ -476,11 +449,11 @@ void ExecutionGraph::addTCreateToGraph(int cid)
 	int max = maxEvents[currentT];
 	EventLabel lab(ETCreate, llvm::Release, Event(currentT, max), cid);
 
-	lab.porfView = View(getEventPoRfView(getLastThreadEvent(currentT)));
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = maxEvents[currentT];
 
 	/* Thread creation has Release semantics */
-	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = maxEvents[currentT];
 	lab.msgView = lab.hbView;
 	addEventToGraph(lab);
@@ -491,13 +464,13 @@ void ExecutionGraph::addTJoinToGraph(int cid)
 	int max = maxEvents[currentT];
 	EventLabel lab(ETJoin, llvm::Acquire, Event(currentT, max), cid);
 
-	lab.porfView = View(getEventPoRfView(getLastThreadEvent(currentT)));
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = max;
 
 	/* Thread joins have acquire semantics -- but we have to wait
 	 * for the other thread to finish first, so we do not fully
 	 * update the view yet */
-	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = max;
 	addEventToGraph(lab);
 }
@@ -507,11 +480,11 @@ void ExecutionGraph::addStartToGraph(int tid, Event tc)
 	int max = maxEvents[tid];
 	EventLabel lab = EventLabel(EStart, llvm::Acquire, Event(tid, max), tc);
 
-	lab.porfView = getEventPoRfView(tc);
+	lab.porfView = getPorfBefore(tc);
 	lab.porfView[tid] = max;
 
 	/* Thread start has Acquire semantics */
-	lab.hbView = getEventHbView(tc);
+	lab.hbView = getHbBefore(tc);
 	lab.hbView[tid] = max;
 	threads[tid].eventList.push_back(lab);
 	++maxEvents[tid];
@@ -525,11 +498,11 @@ void ExecutionGraph::addFinishToGraph()
 	int max = maxEvents[currentT];
 	EventLabel lab(EFinish, llvm::Release, Event(currentT, max));
 
-	lab.porfView = View(getEventPoRfView(getLastThreadEvent(currentT)));
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = max;
 
 	/* Thread termination has Release semantics */
-	lab.hbView = View(getEventHbView(getLastThreadEvent(currentT)));
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = max;
 	lab.msgView = lab.hbView;
 	addEventToGraph(lab);
@@ -539,66 +512,18 @@ void ExecutionGraph::addFinishToGraph()
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
 
-void ExecutionGraph::calcPorfAfter(const Event &e, View &a)
+View ExecutionGraph::getMsgView(Event e)
 {
-	int ai = a[e.thread];
-	if (e.index >= ai)
-		return;
-
-	a[e.thread] = e.index;
-	Thread &thr = threads[e.thread];
-	for (int i = e.index; i <= ai; i++) {
-		if (i >= maxEvents[e.thread])
-			break;
-		EventLabel &lab = thr.eventList[i];
-		if (lab.isWrite() || lab.isCreate() || lab.isFinish()) /* TODO: Maybe reference before r? */
-			for (auto r : lab.rfm1) {
-				calcPorfAfter(r, a);
-			}
-	}
-	return;
-}
-
-View ExecutionGraph::getPorfAfter(Event e)
-{
-	View a;
-	for (auto i = 0u; i < maxEvents.size(); i++)
-		a[i] = maxEvents[i];
-
-	calcPorfAfter(Event(e.thread, e.index + 1), a);
-	return a;
-}
-
-View ExecutionGraph::getPorfAfter(const std::vector<Event> &es)
-{
-	View a;
-	for (auto i = 0u; i < maxEvents.size(); i++)
-		a[i] = maxEvents[i];
-
-	for (auto &e : es)
-		calcPorfAfter(Event(e.thread, e.index + 1), a);
-	return a;
+	return getEventLabel(e).getMsgView();
 }
 
 View ExecutionGraph::getPorfBefore(Event e)
 {
-	return getEventPoRfView(e);
+	return getEventLabel(e).getPorfView();
 }
-
-View ExecutionGraph::getPorfBefore(const std::vector<Event> &es)
-{
-	View v;
-
-	for (auto &e : es) {
-		View o = getEventPoRfView(e);
-		v.updateMax(o);
-	}
-	return v;
-}
-
 View ExecutionGraph::getHbBefore(Event e)
 {
-	return getEventHbView(e);
+	return getEventLabel(e).getHbView();
 }
 
 View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
@@ -606,7 +531,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	View v;
 
 	for (auto &e : es) {
-		View o = getEventHbView(e);
+		auto o = getHbBefore(e);
 		v.updateMax(o);
 	}
 	return v;
@@ -614,7 +539,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 
 View ExecutionGraph::getHbPoBefore(Event e)
 {
-	return getEventHbView(e.prev());
+	return getHbBefore(e.prev());
 }
 
 void ExecutionGraph::calcHbRfBefore(Event &e, llvm::GenericValue *addr,
@@ -651,7 +576,7 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 		if (lab.isFence() && lab.isAtLeastAcquire())
 			return;
 		if (lab.isRead() && (lab.ord == llvm::Monotonic || lab.ord == llvm::Release)) {
-			View o = getEventMsgView(lab.rf);
+			View o = getMsgView(lab.rf);
 			v.updateMax(o);
 		}
 	}
@@ -738,7 +663,7 @@ bool ExecutionGraph::isWriteRfBefore(View &before, Event e)
 	if (e.index <= before[e.thread])
 		return true;
 
-	EventLabel &lab = getEventLabel(e);
+	auto &lab = getEventLabel(e);
 	BUG_ON(!lab.isWrite());
 	for (auto &e : lab.rfm1)
 		if (e.index <= before[e.thread])
@@ -749,7 +674,7 @@ bool ExecutionGraph::isWriteRfBefore(View &before, Event e)
 std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *addr, int thread)
 {
 	std::vector<Event> boundary;
-	View before = getHbBefore(getLastThreadEvent(thread));
+	auto before = getHbBefore(getLastThreadEvent(thread));
 
 	if (before.empty())
 		return boundary;
@@ -799,8 +724,8 @@ ExecutionGraph::splitLocMOBefore(llvm::GenericValue *addr, View &before)
 std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
-	std::vector<Event> &locMO = modOrder[addr];
-	View before = getHbBefore(getLastThreadEvent(currentT));
+	auto &locMO = modOrder[addr];
+	auto before = getHbBefore(getLastThreadEvent(currentT));
 
 	auto [begO, endO] = splitLocMOBefore(addr, before);
 
@@ -1067,13 +992,7 @@ bool ExecutionGraph::scheduleNext(void)
 
 void ExecutionGraph::tryToBacktrack(void)
 {
-	auto e = getLastThreadEvent(currentT);
-	auto before = getPorfBefore(e);
-	// if (!revisit.containsPorfBefore(before)) {
-	// 	threads[currentT].isBlocked = true;
-	// 	clearAllStacks();
-	// 	return;
-	// }
+	auto before = getPorfBefore(getLastThreadEvent(currentT));
 
 	threads[currentT].isBlocked = true;
 	getECStack(currentT).clear();
@@ -1092,8 +1011,8 @@ void ExecutionGraph::clearAllStacks(void)
 
 Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
 {
-	View before = getHbBefore(getLastThreadEvent(currentT));
-	std::vector<Event> &stores = modOrder[ptr];
+	auto before = getHbBefore(getLastThreadEvent(currentT));
+	auto &stores = modOrder[ptr];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -1112,7 +1031,7 @@ Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::Generic
 
 Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
 {
-	View before = getHbBefore(getLastThreadEvent(currentT));
+	auto before = getHbBefore(getLastThreadEvent(currentT));
 
 	for (auto i = (int) before.size() - 1; i >= 0; i--) {
 		for (auto j = maxEvents[i] - 1; j >= before[i] + 1; j--) {
@@ -1351,7 +1270,7 @@ std::vector<int> ExecutionGraph::calcSCFencesSuccs(std::vector<Event> &scs,
 	if (isRMWLoad(e))
 		return succs;
 	for (auto &f : fcs) {
-		View before = getHbBefore(f);
+		auto before = getHbBefore(f);
 		if (e.index <= before[e.thread])
 			succs.push_back(calcEventIndex(scs, f));
 	}
@@ -1362,7 +1281,7 @@ std::vector<int> ExecutionGraph::calcSCFencesPreds(std::vector<Event> &scs,
 						   std::vector<Event> &fcs, Event &e)
 {
 	std::vector<int> preds;
-	View before = getHbBefore(e);
+	auto before = getHbBefore(e);
 
 	if (isRMWLoad(e))
 		return preds;

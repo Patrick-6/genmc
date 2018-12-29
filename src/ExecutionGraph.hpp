@@ -58,9 +58,6 @@ public:
 	EventLabel& getLastThreadLabel(int thread);
 	Event getLastThreadEvent(int thread);
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
-	View getEventPoRfView(Event e);
-	View getEventHbView(Event e);
-	View getEventMsgView(Event e);
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<llvm::GenericValue *> getDoubleLocs();
 	View getGraphState(void);
@@ -89,15 +86,14 @@ public:
 	void addFinishToGraph();
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
-	View getPorfAfter(Event e);
-	View getPorfAfter(const std::vector<Event > &es);
+	View getMsgView(Event e);
 	View getPorfBefore(Event e);
-	View getPorfBefore(const std::vector<Event> &es);
-	View getPorfBeforeNoRfs(const std::vector<Event> &es);
 	View getHbBefore(Event e);
-	View getHbBefore(const std::vector<Event> &es);
 	View getHbPoBefore(Event e);
+	View getHbBefore(const std::vector<Event> &es);
 	View getHbRfBefore(std::vector<Event> &es);
+	View getPorfBeforeNoRfs(const std::vector<Event> &es);
+
 
 	/* Calculation of particular sets of events/event labels */
 	std::vector<EventLabel>	getPrefixLabelsNotBefore(View &prefix, View &before);

@@ -89,6 +89,11 @@ public:
 		   llvm::Type *valTyp, std::list<Event> rfm1,
 		   std::string &functionName); /* GWrites */
 
+	unsigned int getStamp() const;
+	View& getHbView();
+	View& getPorfView();
+	View& getMsgView();
+
 	bool isStart() const;
 	bool isFinish() const;
 	bool isCreate() const;
@@ -105,8 +110,6 @@ public:
 	bool isRevisitable() const;
 	bool hasBeenRevisited() const;
 	bool hasReadSem() const;
-
-	unsigned int getStamp() const;
 
 	void makeNotRevisitable() { revisitable = false; };
 	void makeRevisitable()    { revisitable = true; };

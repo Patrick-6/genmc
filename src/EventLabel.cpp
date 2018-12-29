@@ -91,6 +91,26 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 	  valTyp(valTyp), rfm1(rfm1), functionName(functionName) {}
 
 
+unsigned int EventLabel::getStamp() const
+{
+	return stamp;
+}
+
+View& EventLabel::getHbView()
+{
+	return hbView;
+}
+
+View& EventLabel::getPorfView()
+{
+	return porfView;
+}
+
+View& EventLabel::getMsgView()
+{
+	return msgView;
+}
+
 bool EventLabel::isStart() const
 {
 	return type == EStart;
@@ -175,11 +195,6 @@ bool EventLabel::isRevisitable() const
 bool EventLabel::hasBeenRevisited() const
 {
 	return revisited;
-}
-
-unsigned int EventLabel::getStamp() const
-{
-	return stamp;
 }
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)
