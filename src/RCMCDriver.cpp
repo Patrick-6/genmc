@@ -325,7 +325,6 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 	// g.revisit.add(e);
 
 	/* Push all the other alternatives choices to the Stack */
-//	std::vector<int> preds = g.getGraphState();
 	Event e = g.getLastThreadEvent(g.currentT);
 	EventLabel &lab = g.getEventLabel(e);
 //	trackEvent(e);
@@ -384,9 +383,9 @@ bool RCMCDriver::calcRevisits(EventLabel &lab)
 	auto pendingRMWs = g.getPendingRMWs(lab);
 
 	if (pendingRMWs.size() > 0)
-		loads.erase(std::remove_if(loads.begin(), loads.end(), [&g, &pendingRMWs](Event &e)
-					{ EventLabel &confLab = g.getEventLabel(pendingRMWs.back());
-					  return e.index > confLab.preds[e.thread]; }),
+		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](Event &e)
+					{ auto &confLab = g.getEventLabel(pendingRMWs.back());
+					  return g.getEventLabel(e).getStamp() > confLab.getStamp(); }),
 			    loads.end());
 
 	for (auto &l : loads) {
@@ -395,23 +394,17 @@ bool RCMCDriver::calcRevisits(EventLabel &lab)
 
 		auto before = g.getPorfBefore(lab.pos);
 		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, preds);
-		// auto writePrefix = g.getPrefixLabelsNotBefore(before, rLab.preds);
 
-		// auto moPlacings = g.getMOPredsInBefore(writePrefix, rLab.preds);
-//		auto moPlacings = std::vector<std::pair<Event, Event>>();
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-		// if (rLab.revs.contains(writePrefixPos, moPlacings))
-		// 	continue;
 		if (worklistContainsPrf(rLab, lab.pos, writePrefix, moPlacings))
 			continue;
 
 		filterWorklistPrf(rLab, lab.pos, writePrefix, moPlacings);
 
-//		rLab.revs.add(writePrefixPos, moPlacings);
-		addToWorklist(SRevisit, rLab.pos, lab.pos, before, std::move(writePrefix), std::move(moPlacings));
-//		addToWorklist(l, StackItem(SRevisit, lab.pos, before, writePrefix, moPlacings));
+		addToWorklist(SRevisit, rLab.pos, lab.pos, before,
+			      std::move(writePrefix), std::move(moPlacings));
 	}
 	return (!lab.isRMW() || pendingRMWs.empty());
 }
@@ -420,7 +413,6 @@ bool RCMCDriver::revisitReads(StackItem &p)
 {
 	auto &g = *currentEG;
 	auto &lab = g.getEventLabel(p.toRevisit);
-//	View cutView(lab.preds);
 
 	/* Restrict to the predecessors of the event we are revisiting */
 	lab.stamp = p.stamp;
@@ -516,7 +508,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 	}
 
 	auto &lab = g.getLastThreadLabel(g.currentT);
-	auto validStores = g.getLibConsRfsInView(*lib, lab, stores, lab.preds);
+	auto preds = g.getViewFromStamp(lab.getStamp());
+	auto validStores = g.getLibConsRfsInView(*lib, lab, stores, preds);
 
 	/* Track this event */
 //	trackEvent(lab.pos);
@@ -626,7 +619,8 @@ void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
 		locMO.insert(locMO.begin() + i, sLab.pos);
 
 		/* Check consistency for the graph with this MO */
-		if (g.isLibConsistentInView(*lib, sLab.preds))
+		auto preds = g.getViewFromStamp(sLab.getStamp());
+		if (g.isLibConsistentInView(*lib, preds))
 			addToWorklist(MOWriteLib, sLab.pos, sLab.rf, {}, {}, {}, i);
 //			addToWorklist(sLab.pos, StackItem(MOWriteLib, i));
 		locMO.erase(locMO.begin() + i);

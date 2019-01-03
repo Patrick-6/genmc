@@ -345,8 +345,6 @@ void ExecutionGraph::addEventToGraph(EventLabel &lab)
 void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
 	lab.makeRevisitable();
-	lab.preds = getGraphState(); /* preds is only defined for reads and writes */
-	++lab.preds[currentT];
 	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);
 	calcLoadPoRfView(lab, getLastThreadEvent(currentT), rf);
 
@@ -385,8 +383,6 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	lab.hbView[currentT] = maxEvents[currentT];
 	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
 	lab.porfView[currentT] = maxEvents[currentT];
-	lab.preds = getGraphState(); /* preds is only defined for reads and writes */
-	++lab.preds[currentT];
 	if (lab.isRMW()) {
 		Event last = getLastThreadEvent(currentT);
 		EventLabel &pLab = getEventLabel(last);
@@ -596,6 +592,12 @@ ExecutionGraph::getPrefixLabelsNotBefore(View &prefix, View &before)
 		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
 			EventLabel &lab = threads[i].eventList[j];
 			result.push_back(lab);
+			EventLabel &curLab = result.back();
+			if (!curLab.hasWriteSem())
+				continue;
+			curLab.rfm1.remove_if([&](Event &e)
+					      { return e.index > prefix[e.thread] &&
+						       e.index > before[e.thread]; });
 		}
 	}
 	return result;
@@ -806,7 +808,7 @@ void ExecutionGraph::cutToEventView(Event &e, View &preds)
 		thr.eventList.erase(thr.eventList.begin() + preds[i] + 1, thr.eventList.end());
 		for (int j = 0; j < maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (!(lab.isWrite() || lab.isCreate() || lab.isFinish()))
+			if (!lab.hasWriteSem())
 				continue;
 			lab.rfm1.remove_if([&preds](Event &e)
 					   { return e.index > preds[e.thread]; });
@@ -858,13 +860,7 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 
 	for (auto &lab : storePrefix) {
 		EventLabel &curLab = threads[lab.pos.thread].eventList[lab.pos.index];
-		if (curLab.pos.index <= storePorfBefore[curLab.pos.thread] &&
-		    curLab.pos.index > rLab.preds[curLab.pos.thread])
-			curLab.makeNotRevisitable();
-		if (curLab.isWrite() || curLab.isFinish() || curLab.isCreate())
-			curLab.rfm1.remove_if([&rLab, &storePorfBefore](Event &e)
-					      { return e.index > storePorfBefore[e.thread] &&
-						       e.index > rLab.preds[e.thread]; });
+		curLab.makeNotRevisitable();
 		if (curLab.isRead() && !curLab.rf.isInitializer()) {
 			EventLabel &rfLab = getEventLabel(curLab.rf);
 			if (std::find(rfLab.rfm1.begin(), rfLab.rfm1.end(), curLab.pos)

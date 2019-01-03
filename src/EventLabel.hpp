@@ -53,41 +53,26 @@ public:
 	bool revisitable;
 	bool revisited = false;
 	RevisitSet revs;
-	View preds;
 	unsigned int stamp = 0;
 	std::vector<Event> invalidRfs;
 
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid); /* Thread Create */
-	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fences */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w); /* Reads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
-		   std::string &functionName); /* GReads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue nextVal,
-		   llvm::AtomicRMWInst::BinOp op, llvm::Type *valTyp, Event w); /* FAI Reads */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue expected,
-		   llvm::GenericValue nextVal, llvm::Type *valTyp, Event w); /* CAS Reads */
+	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fence */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue expected,
 		   llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
-		   llvm::Type *valTyp, Event w); /* CAS+FAI Reads */
+		   llvm::Type *valTyp, Event w); /* Plain Read */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::list<Event> rfm1); /* Writes */
+		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
+		   std::string &functionName); /* Lib Read */
+
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
 		   llvm::Type *valTyp); /* Writes */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::string &functionName, bool isInit); /* GWrites */
-	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::list<Event> rfm1,
-		   std::string &functionName); /* GWrites */
+		   llvm::Type *valTyp, std::string &functionName, bool isInit); /* Lib Writes */
 
 	unsigned int getStamp() const;
 	View& getHbView();
@@ -110,6 +95,7 @@ public:
 	bool isRevisitable() const;
 	bool hasBeenRevisited() const;
 	bool hasReadSem() const;
+	bool hasWriteSem() const;
 
 	void makeNotRevisitable() { revisitable = false; };
 	void makeRevisitable()    { revisitable = true; };

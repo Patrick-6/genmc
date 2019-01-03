@@ -37,19 +37,7 @@ EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid
 EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
 	: type(typ), ord(ord), pos(e) {}
 
-/* Read */
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w) {}
-
-/* GRead */
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
-		       std::string &functionName)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w),
-	  functionName(functionName), initial(false) {}
-
-/* CAS+FAI Reads */
+/* Plain Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue expected,
 		       llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
@@ -57,21 +45,16 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(expected),
 	  nextVal(nextVal), op(op), valTyp(valTyp), rf(w) {}
 
-/* CAS Read */
+/* Lib Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue val,
-		       llvm::GenericValue nextVal, llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
-	  nextVal(nextVal), valTyp(valTyp), rf(w) {}
+		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
+		       std::string &functionName)
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w),
+	  functionName(functionName), initial(false) {}
 
-/* FAI Read */
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue nextVal,
-		       llvm::AtomicRMWInst::BinOp op, llvm::Type *valTyp, Event w)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), nextVal(nextVal),
-	  op(op), valTyp(valTyp), rf(w) {}
 
-/* Store / FAI Store */
+
+/* Store */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
 		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
@@ -82,13 +65,6 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 		       std::string &functionName, bool isInit)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp),
 	  functionName(functionName), initial(isInit) {}
-
-/* GStore */
-EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue val,
-		       llvm::Type *valTyp, std::list<Event> rfm1, std::string &functionName)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val),
-	  valTyp(valTyp), rfm1(rfm1), functionName(functionName) {}
 
 
 unsigned int EventLabel::getStamp() const
@@ -170,6 +146,11 @@ bool EventLabel::isAtLeastRelease() const
 bool EventLabel::hasReadSem() const
 {
 	return type == ERead || type == EStart || type == ETJoin;
+}
+
+bool EventLabel::hasWriteSem() const
+{
+	return type == EWrite || type == ETCreate || type == EFinish;
 }
 
 bool EventLabel::isSC() const
