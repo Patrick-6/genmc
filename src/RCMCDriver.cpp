@@ -696,7 +696,27 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 
 std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 {
-	return currentEG->getStoresToLocWeakRA(addr);
+	auto &g = *currentEG;
+	auto overwritten = g.findOverwrittenBoundary(addr, g.currentT);
+	std::vector<Event> stores;
+
+	if (overwritten.empty()) {
+		auto &locMO = g.modOrder[addr];
+		stores.push_back(Event::getInitializer());
+		stores.insert(stores.end(), locMO.begin(), locMO.end());
+		return stores;
+	}
+
+	auto before = g.getHbRfBefore(overwritten);
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		Thread &thr = g.threads[i];
+		for (auto j = before[i] + 1; j < g.maxEvents[i]; j++) {
+			EventLabel &lab = thr.eventList[j];
+			if (lab.isWrite() && lab.addr == addr)
+				stores.push_back(lab.pos);
+		}
+	}
+	return stores;
 }
 
 std::pair<int, int> RCMCDriverWeakRA::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
@@ -734,7 +754,26 @@ bool RCMCDriverWeakRA::isExecutionValid(ExecutionGraph &g)
 
 std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
 {
-	return currentEG->getStoresToLocMO(addr);
+	std::vector<Event> stores;
+
+	auto &g = *currentEG;
+	auto &locMO = g.modOrder[addr];
+	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
+
+	auto [begO, endO] = g.splitLocMOBefore(addr, before);
+
+	/*
+	 * If there are not stores (hb;rf?)-before the current event
+	 * then we can read read from all concurrent stores and the
+	 * initializer store. Otherwise, we can read from all concurrent
+	 * stores and the mo-latest of the (hb;rf?)-before stores.
+	 */
+	if (begO == 0)
+		stores.push_back(Event::getInitializer());
+	else
+		stores.push_back(*(locMO.begin() + begO - 1));
+	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
+	return stores;
 }
 
 std::pair<int, int> RCMCDriverMO::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
@@ -751,9 +790,25 @@ std::pair<int, int> RCMCDriverMO::getPossibleMOPlaces(llvm::GenericValue *addr, 
 	return g.splitLocMOBefore(addr, before);
 }
 
-std::vector<Event> RCMCDriverMO::getRevisitLoads(EventLabel &lab)
+std::vector<Event> RCMCDriverMO::getRevisitLoads(EventLabel &sLab)
 {
-	return currentEG->getRevisitLoadsMO(lab);
+	auto &g = *currentEG;
+	auto ls = g.getRevisitable(sLab);
+	auto &locMO = g.modOrder[sLab.addr];
+
+	/* If this store is mo-maximal then we are done */
+	if (locMO.back() == sLab.pos)
+		return ls;
+
+	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
+	auto optRfs = g.getMoOptRfAfter(sLab.pos);
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ View before = g.getHbPoBefore(e);
+				  return std::any_of(optRfs.begin(), optRfs.end(),
+					 [&](Event ev)
+					 { return ev.index <= before[ev.thread]; });
+				}), ls.end());
+	return ls;
 }
 
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
@@ -793,7 +848,32 @@ bool RCMCDriverMO::isExecutionValid(ExecutionGraph &g)
 
 std::vector<Event> RCMCDriverWB::getStoresToLoc(llvm::GenericValue *addr)
 {
-	return currentEG->getStoresToLocWB(addr);
+	auto &g = *currentEG;
+	auto[stores, wb] = g.calcWb(addr);
+	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(g.currentT));
+	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+
+	// Find the stores from which we can read-from
+	std::vector<Event> result;
+	for (auto i = 0u; i < stores.size(); i++) {
+		bool allowed = true;
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (wb[i * stores.size() + j] &&
+			    g.isWriteRfBefore(hbBefore, stores[j]))
+				allowed = false;
+		}
+		if (allowed)
+			result.push_back(stores[i]);
+	}
+
+	// Also check the initializer event
+	bool allowed = true;
+	for (auto j = 0u; j < stores.size(); j++)
+		if (g.isWriteRfBefore(hbBefore, stores[j]))
+			allowed = false;
+	if (allowed)
+		result.insert(result.begin(), Event::getInitializer());
+	return result;
 }
 
 std::pair<int, int> RCMCDriverWB::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
@@ -802,9 +882,31 @@ std::pair<int, int> RCMCDriverWB::getPossibleMOPlaces(llvm::GenericValue *addr, 
 	return std::make_pair(locMOSize, locMOSize);
 }
 
-std::vector<Event> RCMCDriverWB::getRevisitLoads(EventLabel &lab)
+std::vector<Event> RCMCDriverWB::getRevisitLoads(EventLabel &sLab)
 {
-	return currentEG->getRevisitLoadsWB(lab);
+	auto &g = *currentEG;
+	auto ls = g.getRevisitable(sLab);
+
+	if (!sLab.isRMW())
+		return ls;
+
+	/*
+	 * If sLab is an RMW, we cannot revisit a read r for which
+	 * \exists c_a in C_a .
+	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
+	 *
+	 * since this will create a cycle in WB
+	 */
+	auto chain = g.getRMWChainDownTo(sLab, Event::getInitializer());
+	auto hbAfterStores = g.getStoresHbAfterStores(sLab.addr, chain);
+
+	auto it = std::remove_if(ls.begin(), ls.end(), [&](Event &l)
+				 { auto &pLab = g.getPreviousLabel(l);
+				   return std::any_of(hbAfterStores.begin(),
+						      hbAfterStores.end(),
+						      [&](Event &w){ return g.isWriteRfBefore(pLab.hbView, w); }); });
+	ls.erase(it, ls.end());
+	return ls;
 }
 
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >

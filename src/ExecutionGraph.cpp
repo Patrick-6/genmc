@@ -248,65 +248,23 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *lo
 	return result;
 }
 
-std::vector<Event> ExecutionGraph::getRevisitLoadsWB(const EventLabel &sLab)
+std::vector<Event> ExecutionGraph::getMoOptRfAfter(Event store)
 {
-	auto ls = getRevisitable(sLab);
-
-	if (!sLab.isRMW())
-		return ls;
+	auto ls = modOrder.getMoAfter(getEventLabel(store).addr, store);
+	std::vector<Event> rfs;
 
 	/*
-	 * If sLab is an RMW, we cannot revisit a read r for which
-	 * \exists c_a in C_a .
-	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
-	 *
-	 * since this will create a cycle in WB
+	 * We push the RFs to a different vector in order
+	 * not to invalidate the iterator
 	 */
-	auto chain = getRMWChainDownTo(sLab, Event::getInitializer());
-	auto hbAfterStores = getStoresHbAfterStores(sLab.addr, chain);
-
-	auto it = std::remove_if(ls.begin(), ls.end(), [&hbAfterStores, this]
-				 (Event &l){ EventLabel &pLab = getPreviousLabel(l);
-					     return std::any_of(hbAfterStores.begin(), hbAfterStores.end(),
-								[&pLab, this](Event &w)
-	                                                        { return isWriteRfBefore(pLab.hbView, w); }); });
-	ls.erase(it, ls.end());
-	return ls;
-}
-
-std::vector<Event> ExecutionGraph::calcOptionalRfs(const std::vector<Event> &locMO, Event store)
-{
-	std::vector<Event> ls;
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (*rit == store)
-			return ls;
-		auto &lab = getEventLabel(*rit);
+	for (auto it = ls.begin(); it != ls.end(); ++it) {
+		auto &lab = getEventLabel(*it);
 		if (lab.isWrite()) {
-			ls.push_back(lab.pos);
 			for (auto &l : lab.rfm1)
-				ls.push_back(l);
+				rfs.push_back(l);
 		}
 	}
-	BUG();
-}
-
-std::vector<Event> ExecutionGraph::getRevisitLoadsMO(const EventLabel &sLab)
-{
-	auto ls = getRevisitable(sLab);
-	auto &locMO = modOrder[sLab.addr];
-
-	/* If this store is mo-maximal then we are done */
-	if (locMO.back() == sLab.pos)
-		return ls;
-
-	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
-	std::vector<Event> optRfs = calcOptionalRfs(locMO, sLab.pos);
-	ls.erase(std::remove_if(ls.begin(), ls.end(), [this, &optRfs](Event e)
-				{ View before = this->getHbPoBefore(e);
-				  return std::any_of(optRfs.begin(), optRfs.end(),
-					 [&before](Event ev)
-					 { return ev.index <= before[ev.thread]; });
-				}), ls.end());
+	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
 	return ls;
 }
 
@@ -687,29 +645,6 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(llvm::GenericValue *a
 	return boundary;
 }
 
-std::vector<Event> ExecutionGraph::getStoresToLocWeakRA(llvm::GenericValue *addr)
-{
-	std::vector<Event> stores;
-	std::vector<Event> overwritten = findOverwrittenBoundary(addr, currentT);
-	if (overwritten.empty()) {
-		auto &locMO = modOrder[addr];
-		stores.push_back(Event::getInitializer());
-		stores.insert(stores.end(), locMO.begin(), locMO.end());
-		return stores;
-	}
-
-	auto before = getHbRfBefore(overwritten);
-	for (auto i = 0u; i < threads.size(); i++) {
-		Thread &thr = threads[i];
-		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isWrite() && lab.addr == addr)
-				stores.push_back(lab.pos);
-		}
-	}
-	return stores;
-}
-
 /* View before _can_ be implicitly modified */
 std::pair<int, int>
 ExecutionGraph::splitLocMOBefore(llvm::GenericValue *addr, View &before)
@@ -721,57 +656,6 @@ ExecutionGraph::splitLocMOBefore(llvm::GenericValue *addr, View &before)
 		return std::make_pair(std::distance(rit, locMO.rend()), locMO.size());
 	}
 	return std::make_pair(0, locMO.size());
-}
-
-std::vector<Event> ExecutionGraph::getStoresToLocMO(llvm::GenericValue *addr)
-{
-	std::vector<Event> stores;
-	auto &locMO = modOrder[addr];
-	auto before = getHbBefore(getLastThreadEvent(currentT));
-
-	auto [begO, endO] = splitLocMOBefore(addr, before);
-
-	/*
-	 * If there are not stores (hb;rf?)-before the current event
-	 * then we can read read from all concurrent stores and the
-	 * initializer store. Otherwise, we can read from all concurrent
-	 * stores and the mo-latest of the (hb;rf?)-before stores.
-	 */
-	if (begO == 0)
-		stores.push_back(Event::getInitializer());
-	else
-		stores.push_back(*(locMO.begin() + begO - 1));
-	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
-	return stores;
-}
-
-std::vector<Event> ExecutionGraph::getStoresToLocWB(llvm::GenericValue *addr)
-{
-	auto[stores, wb] = calcWb(addr);
-	auto hbBefore = getHbBefore(getLastThreadEvent(currentT));
-	auto porfBefore = getPorfBefore(getLastThreadEvent(currentT));
-
-	// Find the stores from which we can read-from
-	std::vector<Event> result;
-	for (auto i = 0u; i < stores.size(); i++) {
-		bool allowed = true;
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (wb[i * stores.size() + j] &&
-			    isWriteRfBefore(hbBefore, stores[j]))
-				allowed = false;
-		}
-		if (allowed)
-			result.push_back(stores[i]);
-	}
-
-	// Also check the initializer event
-	bool allowed = true;
-	for (auto j = 0u; j < stores.size(); j++)
-		if (isWriteRfBefore(hbBefore, stores[j]))
-			allowed = false;
-	if (allowed)
-		result.insert(result.begin(), Event::getInitializer());
-	return result;
 }
 
 

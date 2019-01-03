@@ -26,7 +26,6 @@
 #include "Library.hpp"
 #include "Interpreter.h"
 #include "ModOrder.hpp"
-//#include "RevisitSet.hpp"
 #include "Thread.hpp"
 
 /*
@@ -65,6 +64,7 @@ public:
 	Event getPendingLibRead(EventLabel &lab);
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
+	bool isWriteRfBefore(View &before, Event e);
 
 	/* Basic setter methods */
 	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -93,7 +93,12 @@ public:
 	View getHbBefore(const std::vector<Event> &es);
 	View getHbRfBefore(std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);
+	std::vector<Event> getMoOptRfAfter(Event store);
 
+	std::pair<std::vector<Event>, std::vector<bool> >
+	calcWb(llvm::GenericValue *addr);
+	std::pair<std::vector<Event>, std::vector<bool> >
+	calcWbRestricted(llvm::GenericValue *addr, View &v);
 
 	/* Calculation of particular sets of events/event labels */
 	std::vector<EventLabel>	getPrefixLabelsNotBefore(View &prefix, View &before);
@@ -102,18 +107,17 @@ public:
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<EventLabel> &labs,
 			   View &before);
+	std::vector<Event> getRMWChainDownTo(const EventLabel &sLab, const Event lower);
+	std::vector<Event> getRMWChainUpTo(const EventLabel &sLab, const Event upper);
+	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc,
+						  const std::vector<Event> &chain);
 
 	/* Calculation of writes a read can read from */
-	std::vector<Event> getStoresToLocWeakRA(llvm::GenericValue *addr);
-	std::vector<Event> getStoresToLocMO(llvm::GenericValue *addr);
-	std::vector<Event> getStoresToLocWB(llvm::GenericValue *addr);
 	std::pair<int, int> splitLocMOBefore(llvm::GenericValue *addr, View &before);
 
 	/* Calculation of loads that can be revisited */
+	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
 	std::vector<Event> getRevisitable(const EventLabel &sLab);
-	std::vector<Event> getRevisitLoadsMO(const EventLabel &sLab);
-	std::vector<Event> getRevisitLoadsWB(const EventLabel &sLab);
-	std::vector<Event> getRevisitLoadsRMWWB(EventLabel &sLab);
 
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
@@ -176,21 +180,12 @@ protected:
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
-	std::vector<Event> calcOptionalRfs(const std::vector<Event> &locMO, Event store);
 	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	bool isWriteRfBefore(View &before, Event e);
 	bool isRMWLoad(Event &e);
 	void spawnAllChildren(int thread);
-	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
-	std::vector<Event> getStoresWeakRA(llvm::GenericValue *addr);
-	std::vector<Event> getStoresMO(llvm::GenericValue *addr);
-	std::vector<Event> getStoresWB(llvm::GenericValue *addr);
-	std::vector<Event> getRMWChainDownTo(const EventLabel &sLab, const Event lower);
-	std::vector<Event> getRMWChainUpTo(const EventLabel &sLab, const Event upper);
-	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc, const std::vector<Event> &chain);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
 			std::vector<int> &moAfter, std::vector<int> &moRfAfter,
 			std::vector<bool> &matrix, EventLabel &lab);
@@ -206,10 +201,6 @@ protected:
 	void addSCWbEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
 			 std::vector<Event> &stores, std::vector<bool> &wbMatrix,
 			 std::vector<bool> &pscMatrix);
-	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWb(llvm::GenericValue *addr);
-	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWbRestricted(llvm::GenericValue *addr, View &v);
 
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
