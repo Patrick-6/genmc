@@ -683,9 +683,8 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 }
 
 
-void ExecutionGraph::cutToEventView(Event &e, View &preds)
+void ExecutionGraph::cutToView(View &preds)
 {
-	EventLabel &lab = getEventLabel(e);
 	for (auto i = 0u; i < threads.size(); i++) {
 		maxEvents[i] = preds[i] + 1;
 		Thread &thr = threads[i];
@@ -722,10 +721,10 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	return preds;
 }
 
-void ExecutionGraph::cutToEventStamp(Event &e, unsigned int stamp)
+void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	auto preds = getViewFromStamp(stamp);
-	cutToEventView(e, preds);
+	cutToView(preds);
 	return;
 }
 

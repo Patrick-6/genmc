@@ -122,8 +122,8 @@ public:
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
 	View getViewFromStamp(unsigned int stamp);
-	void cutToEventStamp(Event &e, unsigned int stamp);
-	void cutToEventView(Event &e, View &view);
+	void cutToStamp(unsigned int stamp);
+	void cutToView(View &view);
 	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 				std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);

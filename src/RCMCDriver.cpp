@@ -416,7 +416,7 @@ bool RCMCDriver::revisitReads(StackItem &p)
 
 	/* Restrict to the predecessors of the event we are revisiting */
 	lab.stamp = p.stamp;
-	g.cutToEventStamp(lab.pos, lab.getStamp());
+	g.cutToStamp(lab.getStamp());
 //	cutView.updateMax(p.storePorfBefore);
 	restrictWorklist(lab.getStamp());
 
