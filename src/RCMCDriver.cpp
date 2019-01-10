@@ -215,6 +215,25 @@ void RCMCDriver::filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf
 	}
 }
 
+void RCMCDriver::restrictGraph(unsigned int stamp)
+{
+	auto &g = *currentEG;
+	auto v = g.getViewFromStamp(stamp);
+
+	/* First, free memory allocated by events that will no longer be in the graph */
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		for (auto j = v[i] + 1; j < g.maxEvents[i]; j++) {
+			auto &lab = g.threads[i].eventList[j];
+			if (lab.isMalloc())
+				EE->freeRegion(lab.addr, lab.val.IntVal.getLimitedValue());
+		}
+	}
+
+	/* Then, restrict the graph */
+	g.cutToView(v);
+	return;
+}
+
 void RCMCDriver::visitGraph(ExecutionGraph &g)
 {
 	ExecutionGraph *oldEG = currentEG;
@@ -240,10 +259,10 @@ start:
 		auto p = getNextItem();
 
 		if (p.type == None) {
-			for (auto mem : g.stackAllocas)
+			for (auto mem : EE->stackAllocas)
 				free(mem); /* No need to clear vector */
-			for (auto mem : g.heapAllocas)
-				free(mem);
+			// for (auto mem : EE->heapAllocas)
+			// 	free(mem);
 			currentEG = oldEG;
 			return;
 		}
@@ -261,13 +280,13 @@ start:
 		g.threads[i].isBlocked = false;
 		g.threads[i].globalInstructions = 0;
 	}
-	for (auto mem : g.stackAllocas)
+	for (auto mem : EE->stackAllocas)
 		free(mem);
-	for (auto mem : g.heapAllocas)
-		free(mem);
-	g.stackAllocas.clear();
-	g.heapAllocas.clear();
-	g.freedMem.clear();
+	// for (auto mem : EE->heapAllocas)
+	// 	free(mem);
+	EE->stackAllocas.clear();
+	// EE->heapAllocas.clear();
+	// EE->freedMem.clear();
 
 //	worklist[toRevisit].pop_back();
 	goto start;
@@ -318,6 +337,12 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
 	auto validStores = EE->properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
+
+	if (std::any_of(validStores.begin(), validStores.end(), [&](Event &s)
+			{ return g.getEventLabel(s).isFree(); })) {
+		llvm::dbgs() << "Tried to read from freed memory!\n";
+		abort();
+	}
 
 	/* ... and add a label with the appropriate store. */
 	g.addReadToGraph(ord, addr, typ, validStores[0], attr, std::move(cmpVal), std::move(rmwVal), op);
@@ -416,8 +441,7 @@ bool RCMCDriver::revisitReads(StackItem &p)
 
 	/* Restrict to the predecessors of the event we are revisiting */
 	lab.stamp = p.stamp;
-	g.cutToStamp(lab.getStamp());
-//	cutView.updateMax(p.storePorfBefore);
+	restrictGraph(lab.getStamp());
 	restrictWorklist(lab.getStamp());
 
 	/* Restore events that might have been deleted from the graph */
@@ -439,13 +463,10 @@ bool RCMCDriver::revisitReads(StackItem &p)
 		break;
 	case MOWrite: {
 		/* Try a different MO ordering, and also consider reads to revisit */
-		// g.modOrder[lab.addr] = p.newMO;
 		auto &locMO = g.modOrder[lab.addr];
 		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));
 		locMO.insert(locMO.begin() + p.moPos, lab.pos);
 		return calcRevisits(lab); }
-//		pushReadsToRevisit(g, lab);
-//		return true; /* Nothing else to do */
 	case MOWriteLib: {
 		auto &locMO = g.modOrder[lab.addr];
 		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));

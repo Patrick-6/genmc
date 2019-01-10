@@ -168,6 +168,16 @@ bool EventLabel::isLibInit() const
 	return initial;
 }
 
+bool EventLabel::isMalloc() const
+{
+	return malloc;
+}
+
+bool EventLabel::isFree() const
+{
+	return free;
+}
+
 bool EventLabel::isRevisitable() const
 {
 	return revisitable;

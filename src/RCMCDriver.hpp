@@ -103,7 +103,6 @@ public:
 
 	virtual ~RCMCDriver() {};
 
-//	void trackEvent(Event e) { workstack.push_back(e); };
 	void addToWorklist(StackItemType t, Event e, Event shouldRf,
 			   View before, std::vector<EventLabel> &&prefix,
 			   std::vector<std::pair<Event, Event> > &&moPlacings,
@@ -116,6 +115,7 @@ public:
 	void filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf,
 			       const std::vector<EventLabel> &prefix,
 			       const std::vector<std::pair<Event, Event> > &moPlacings);
+	void restrictGraph(unsigned int stamp);
 
 	llvm::Module *getModule()  { return mod.get(); };
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };

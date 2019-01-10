@@ -136,7 +136,9 @@ public:
 
   /* Checks whether an address is the address of a global variable */
   bool isGlobal(void *);
+  bool isGlobalPtr(void *);
   std::string getGlobalName(void *addr);
+  void freeRegion(void *addr, int size);
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -183,10 +185,16 @@ public:
 
   /* List of global and thread-local variables */
   llvm::SmallVector<void *, 1021> globalVars;
+  llvm::SmallVector<void *, 1021> globalPtrs;
   std::vector<std::pair<void *, std::string > > globalVarNames;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
 
+  std::vector<void *> stackAllocas;
+  std::vector<void *> heapAllocas;
+  std::vector<void *> freedMem;
+
   /* Helper functions */
+  void collectGPs(Module *M, void *ptr, Type *typ);
   void replayExecutionBefore(View &before);
   bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
   bool isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,

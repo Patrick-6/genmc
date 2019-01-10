@@ -70,17 +70,53 @@ std::vector<ExecutionContext> &Interpreter::ECStack()
 	return g->getECStack(g->currentT);
 }
 
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+# define GET_TYPE_ALLOC_SIZE(M, x)		\
+	(M)->getDataLayout()->getTypeAllocSize((x))
+#else
+# define GET_TYPE_ALLOC_SIZE(M, x)		\
+	(M)->getDataLayout().getTypeAllocSize((x))
+#endif
+
+void Interpreter::collectGPs(Module *M, void *ptr, llvm::Type *typ)
+{
+	if (!(typ->isPointerTy() || typ->isAggregateType() || typ->isVectorTy()))
+		return;
+
+	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, typ);
+	if (typ->isPointerTy() || typ->isVectorTy()) {
+		for (auto i = 0u; i < typeSize; i++) {
+			globalPtrs.push_back((char *) ptr + i);
+		}
+		return;
+	}
+
+	unsigned int offset = 0;
+	if (ArrayType *AT = dyn_cast<ArrayType>(typ)) {
+		unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, AT->getElementType());
+
+		for (auto i = 0u; i < AT->getNumElements(); i++) {
+			collectGPs(M, (char *) ptr + i, AT->getElementType());
+			offset += elemSize;
+		}
+	} else if (StructType *ST = dyn_cast<StructType>(typ)) {
+		for (auto it = ST->element_begin(); it != ST->element_end(); ++it) {
+			unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, *it);
+			collectGPs(M, (char *) ptr + offset, *it);
+			offset += elemSize;
+		}
+	}
+	return;
+}
+
 void Interpreter::storeGlobals(Module *M)
 {
 	/* Collect all global and thread-local variables */
 	for (auto &v : M->getGlobalList()) {
-		unsigned int typeSize =
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-		M->getDataLayout()->getTypeAllocSize(v.getType()->getElementType());
-#else
-		M->getDataLayout().getTypeAllocSize(v.getType()->getElementType());
-#endif
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
+		unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
+
+		/* Record whether this is a thread local variable or not */
 		for (auto i = 0u; i < typeSize; i++) {
 			if (v.isThreadLocal())
 				threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
@@ -88,6 +124,10 @@ void Interpreter::storeGlobals(Module *M)
 				globalVars.push_back(ptr + i);
 		}
 
+		/* Check whether it is a global pointer */
+		collectGPs(M, ptr, v.getType()->getElementType());
+
+		/* Store the variable's name for printing and debugging */
 		if (ArrayType *AT = dyn_cast<ArrayType>(v.getType()->getElementType())) {
 			unsigned int elemTypeSize = typeSize / AT->getArrayNumElements();
 			for (auto i = 0u, s = 0u; s < typeSize; i++, s += elemTypeSize) {
@@ -98,19 +138,28 @@ void Interpreter::storeGlobals(Module *M)
 			globalVarNames.push_back(std::make_pair(ptr, v.getName()));
 		}
 	}
-	/* We will use a sorted vector to detect global accesses */
+	/* We sort all vectors to facilitate searching */
 	std::sort(globalVars.begin(), globalVars.end());
 	std::unique(globalVars.begin(), globalVars.end());
 
-	/* Also store global variable names for printing and debugging purposes */
+	std::sort(globalPtrs.begin(), globalPtrs.end());
+	std::unique(globalPtrs.begin(), globalPtrs.end());
+
 	std::sort(globalVarNames.begin(), globalVarNames.end());
 	std::unique(globalVarNames.begin(), globalVarNames.end());
 }
 
 bool Interpreter::isGlobal(void *addr)
 {
-	auto res = std::equal_range(globalVars.begin(), globalVars.end(), addr);
-	return res.first != res.second;
+	auto gv = std::equal_range(globalVars.begin(), globalVars.end(), addr);
+	auto ha = std::equal_range(heapAllocas.begin(), heapAllocas.end(), addr);
+	return (gv.first != gv.second) || (ha.first != ha.second);
+}
+
+bool Interpreter::isGlobalPtr(void *addr)
+{
+	auto gp = std::equal_range(globalPtrs.begin(), globalPtrs.end(), addr);
+	return gp.first != gp.second;
 }
 
 std::string Interpreter::getGlobalName(void *addr)
@@ -123,6 +172,16 @@ std::string Interpreter::getGlobalName(void *addr)
 	if (res.first != res.second)
 		return res.first->second;
 	return "";
+}
+
+void Interpreter::freeRegion(void *addr, int size)
+{
+	heapAllocas.erase(std::remove_if(heapAllocas.begin(), heapAllocas.end(),
+					 [&](void *loc)
+					 { return loc >= addr &&
+						  (char *) loc < (char *) addr + size; }),
+			  heapAllocas.end());
+	return;
 }
 
 //===----------------------------------------------------------------------===//

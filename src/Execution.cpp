@@ -64,6 +64,10 @@ GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericVal
 {
 	ExecutionGraph &g = *driver->getGraph();
 	if (write.isInitializer()) {
+		if (isGlobalPtr(ptr)) {
+			llvm::dbgs() << "Tried to read from uninitialized memory!\n";
+			abort();
+		}
 		GenericValue result;
 		LoadValueFromMemory(result, ptr, typ);
 		return result;
@@ -1100,7 +1104,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   SetValue(&I, Result, SF);
 
   if (I.getOpcode() == Instruction::Alloca)
-	  driver->getGraph()->stackAllocas.push_back(Memory);
+	  stackAllocas.push_back(Memory);
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -2547,50 +2551,92 @@ void Interpreter::callVerifierAssume(Function *F,
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	WARN("Usage of malloc() is currently unsupported! Exiting... \n");
-		abort();
+	auto &g = *driver->getGraph();
+	llvm::Type *typ = F->getReturnType();
+	GenericValue allocAddr, allocSize;
 
-	GenericValue res;
+	/* HACK: We can call call loadValueFrom{Write,Memory}() despite the fact that
+	 * it will try to return the value of the load's RF. This is because thef
+	 * type of this read is a PointerTy, so the returned value will be the
+	 * address of the read.
+	 *
+	 * If the type was an IntegerTy, LoadValueFromMemory() would go on and
+	 * memcpy bytes from the respective address.
+	 */
 
-	/* Allocate the appropriate amount of memory */
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT]) {
+		auto &lab = g.threads[g.currentT].eventList[c];
+		allocAddr.PointerVal = lab.addr;
+		returnValueToCaller(typ, allocAddr);
+		return;
+	}
+
 	WARN_ON_ONCE(ArgVals[0].IntVal.getBitWidth() > 64, "malloc-alignment",
 		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
-	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
-	res.PointerVal = malloc(size);
 
-	/* Keep track of the memory allocated and return value to caller */
-	// char *ptr = static_cast<char *>(res.PointerVal);
-	// for (auto i = 0u; i < size; i++)
-	// 	globalVars.insert(ptr + i);
-	returnValueToCaller(F->getReturnType(), res);
+	/* Get a fresh address and also store the size of this allocation */
+	allocAddr.PointerVal = heapAllocas.empty() ? (char *) globalVars.back() + 1
+		                                   : (char *) heapAllocas.back() + 1;
+	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
+	allocSize.IntVal = APInt(typ->getIntegerBitWidth(), size);
+
+	/* Track the address allocated*/
+	char *ptr = static_cast<char *>(allocAddr.PointerVal);
+	for (auto i = 0u; i < size; i++)
+		heapAllocas.push_back(ptr + i);
+
+	/* Memory allocations are modeled as read events reading from INIT */
+	g.addReadToGraph(llvm::AtomicOrdering::Acquire,
+			 static_cast<llvm::GenericValue *>(allocAddr.PointerVal),
+			 typ, Event::getInitializer(), Plain, std::move(allocSize), GenericValue(),
+			 llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	g.getLastThreadLabel(g.currentT).malloc = true;
+
+	returnValueToCaller(typ, allocAddr);
 	return;
 }
 
 void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
-	void *ptr = (void *) GVTOP(ArgVals[0]);
+	auto &g = *driver->getGraph();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	llvm::Type *typ = F->getReturnType();
+	GenericValue res;
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT])
+		return;
 
 	/* Attempt to free a NULL pointer */
 	if (ptr == NULL)
 		return;
 
 	/* Attempt to free stack memory */
-	if (std::find(g.stackAllocas.begin(), g.stackAllocas.end(), ptr)
-	    != g.stackAllocas.end()) {
+	if (std::find(stackAllocas.begin(), stackAllocas.end(), ptr)
+	    != stackAllocas.end()) {
 		WARN("ERROR: Attempted to free stack memory!\n");
 		abort();
 		return;
 	}
 
 	/* Check to see whether this memory block has already been freed */
-	if (std::find(g.freedMem.begin(), g.freedMem.end(), ptr)
-	    != g.freedMem.end()) {
+	if (std::find(freedMem.begin(), freedMem.end(), ptr)
+	    != freedMem.end()) {
 		WARN("ERROR: Double-free error!\n");
 		abort();
 		return;
 	}
-	g.freedMem.push_back(ptr);
+	freedMem.push_back(ptr);
+
+	res.IntVal = APInt(typ->getIntegerBitWidth(), 0xdeadbeef);
+
+	/* Add a label with the appropriate store */
+	g.addStoreToGraph(typ, ptr, res, g.modOrder[ptr].size(),
+			  Plain, llvm::AtomicOrdering::Release);
+	g.getLastThreadLabel(g.currentT).free = true;
 	return;
 }
 

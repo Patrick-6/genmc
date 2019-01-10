@@ -22,7 +22,6 @@
 #define __EVENTLABEL_HPP__
 
 #include "Event.hpp"
-#include "RevisitSet.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -52,7 +51,8 @@ public:
 	bool initial; /* For GWrites */
 	bool revisitable;
 	bool revisited = false;
-	RevisitSet revs;
+	bool malloc = false;
+	bool free = false;
 	unsigned int stamp = 0;
 	std::vector<Event> invalidRfs;
 
@@ -93,6 +93,8 @@ public:
 	bool isRMW() const;
 	bool isLibInit() const;
 	bool isRevisitable() const;
+	bool isMalloc() const;
+	bool isFree() const;
 	bool hasBeenRevisited() const;
 	bool hasReadSem() const;
 	bool hasWriteSem() const;

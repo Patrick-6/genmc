@@ -38,9 +38,6 @@ public:
 //	RevisitSet revisit;
 	ModOrder modOrder;
 	llvm::Interpreter *EE;
-	std::vector<void *> stackAllocas;
-	std::vector<void *> heapAllocas;
-	std::vector<void *> freedMem;
 	int currentT;
 	unsigned int timestamp;
 

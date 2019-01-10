@@ -318,9 +318,8 @@ void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 
 void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				    llvm::Type *typ, Event rf, EventAttr attr,
-				    llvm::GenericValue &&cmpVal = llvm::GenericValue(),
-				    llvm::GenericValue &&rmwVal = llvm::GenericValue(),
-				    llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP)
+				    llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
+				    llvm::AtomicRMWInst::BinOp op)
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(ERead, attr, ord, Event(currentT, max), ptr, cmpVal, rmwVal, op, typ, rf);
