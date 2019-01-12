@@ -26,6 +26,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 	case ERead    : return s << "R";
 	case EWrite   : return s << "W";
 	case EFence   : return s << "F";
+	case EMalloc  : return s << "A";
+	case EFree    : return s << "D";
 	case EStart   : return s << "B";
 	case EFinish  : return s << "E";
 	case ETCreate : return s << "C";

@@ -64,10 +64,6 @@ GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericVal
 {
 	ExecutionGraph &g = *driver->getGraph();
 	if (write.isInitializer()) {
-		if (isGlobalPtr(ptr)) {
-			llvm::dbgs() << "Tried to read from uninitialized memory!\n";
-			abort();
-		}
 		GenericValue result;
 		LoadValueFromMemory(result, ptr, typ);
 		return result;
@@ -1103,8 +1099,11 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   assert(Result.PointerVal && "Null pointer returned by malloc!");
   SetValue(&I, Result, SF);
 
-  if (I.getOpcode() == Instruction::Alloca)
-	  stackAllocas.push_back(Memory);
+  if (I.getOpcode() == Instruction::Alloca) {
+    stackMem.push_back(Memory);
+    for (auto i = 0u; i < MemToAlloc; i++)
+      stackAllocas.push_back((char *) Memory + i);
+  }
 }
 
 // getElementOffset - The workhorse for getelementptr.
@@ -1170,15 +1169,20 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	 */
 	if (!isGlobal(ptr)) {
 		GenericValue Result;
-		if (g.threads[g.currentT].tls.count(ptr))
+		if (g.threads[g.currentT].tls.count(ptr)) {
 			Result = g.threads[g.currentT].tls[ptr];
-		else
+		} else {
+			if (!isStackAlloca(ptr)) {
+				llvm::dbgs() << "Tried to read from unallocated memory!\n";
+				abort();
+			}
 			LoadValueFromMemory(Result, ptr, typ);
+		}
 		SetValue(&I, Result, SF);
 		return;
 	}
 
-	auto val = driver->visitLoad(typ, ptr, Plain, I.getOrdering());
+	auto val = driver->visitLoad(Plain, I.getOrdering(), ptr, typ);
 	/* Last, set the return value for this instruction */
 	SetValue(&I, val, SF);
 	return;
@@ -1194,15 +1198,20 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	Type *typ = I.getOperand(0)->getType();
 
 	if (!isGlobal(ptr)) {
-		if (g.threads[g.currentT].tls.count(ptr))
+		if (g.threads[g.currentT].tls.count(ptr)) {
 			g.threads[g.currentT].tls[ptr] = val;
-		else
+		} else {
+			if (!isStackAlloca(ptr)) {
+				llvm::dbgs() << "Tried to store to unallocated memory!\n";
+				abort();
+			}
 			StoreValueToMemory(val, ptr, typ);
+		}
 		return;
 	}
 
 	/* Add store to graph and (possibly) revisit some reads */
-	driver->visitStore(typ, ptr, val, Plain, I.getOrdering());
+	driver->visitStore(Plain, I.getOrdering(), ptr, typ, val);
 	return;
 }
 
@@ -1317,10 +1326,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(typ, ptr, CAS, I.getSuccessOrdering(), GenericValue(cmpVal), GenericValue(newVal));
+	oldVal = driver->visitLoad(CAS, I.getSuccessOrdering(), ptr, typ,
+				   GenericValue(cmpVal), GenericValue(newVal));
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(typ, ptr, newVal, CAS, I.getSuccessOrdering());
+		driver->visitStore(CAS, I.getSuccessOrdering(), ptr, typ, newVal);
 
 	result.AggregateVal.push_back(oldVal);
 	result.AggregateVal.push_back(cmpRes);
@@ -1383,10 +1393,11 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(typ, ptr, RMW, I.getOrdering(), GenericValue(), GenericValue(val), I.getOperation());
+	oldVal = driver->visitLoad(RMW, I.getOrdering(), ptr, typ,
+				   GenericValue(), GenericValue(val), I.getOperation());
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
-	driver->visitStore(typ, ptr, newVal, RMW, I.getOrdering());
+	driver->visitStore(RMW, I.getOrdering(), ptr, typ, newVal);
 	SetValue(&I, oldVal, SF);
 	return;
 }
@@ -2505,7 +2516,7 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 
 	/* Is the execution that led to the error consistent? */
-	if (!driver->isExecutionValid(g)) {
+	if (!driver->isExecutionValid()) {
 		ECStack().clear();
 		g.threads[g.currentT].isBlocked = true;
 		return;
@@ -2553,7 +2564,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	auto &g = *driver->getGraph();
 	llvm::Type *typ = F->getReturnType();
-	GenericValue allocAddr, allocSize;
+	GenericValue allocBegin, allocEnd;
 
 	/* HACK: We can call call loadValueFrom{Write,Memory}() despite the fact that
 	 * it will try to return the value of the load's RF. This is because thef
@@ -2568,8 +2579,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c < g.maxEvents[g.currentT]) {
 		auto &lab = g.threads[g.currentT].eventList[c];
-		allocAddr.PointerVal = lab.addr;
-		returnValueToCaller(typ, allocAddr);
+		allocBegin.PointerVal = lab.addr;
+		returnValueToCaller(typ, allocBegin);
 		return;
 	}
 
@@ -2577,24 +2588,21 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
 
 	/* Get a fresh address and also store the size of this allocation */
-	allocAddr.PointerVal = heapAllocas.empty() ? (char *) globalVars.back() + 1
-		                                   : (char *) heapAllocas.back() + 1;
+	allocBegin.PointerVal = heapAllocas.empty() ? (char *) globalVars.back() + 1
+		                                    : (char *) heapAllocas.back() + 1;
 	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
-	allocSize.IntVal = APInt(typ->getIntegerBitWidth(), size);
+	allocEnd.PointerVal = (char *) allocBegin.PointerVal + size;
 
 	/* Track the address allocated*/
-	char *ptr = static_cast<char *>(allocAddr.PointerVal);
+	char *ptr = static_cast<char *>(allocBegin.PointerVal);
 	for (auto i = 0u; i < size; i++)
 		heapAllocas.push_back(ptr + i);
 
 	/* Memory allocations are modeled as read events reading from INIT */
-	g.addReadToGraph(llvm::AtomicOrdering::Acquire,
-			 static_cast<llvm::GenericValue *>(allocAddr.PointerVal),
-			 typ, Event::getInitializer(), Plain, std::move(allocSize), GenericValue(),
-			 llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	g.getLastThreadLabel(g.currentT).malloc = true;
+	g.addMallocToGraph(static_cast<llvm::GenericValue *>(allocBegin.PointerVal),
+			   allocEnd);
 
-	returnValueToCaller(typ, allocAddr);
+	returnValueToCaller(typ, allocBegin);
 	return;
 }
 
@@ -2603,7 +2611,7 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	auto &g = *driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	llvm::Type *typ = F->getReturnType();
-	GenericValue res;
+	GenericValue val;
 
 	/* Is the execution driven by an existing graph? */
 	int c = ++g.threads[g.currentT].globalInstructions;
@@ -2614,29 +2622,36 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	if (ptr == NULL)
 		return;
 
-	/* Attempt to free stack memory */
-	if (std::find(stackAllocas.begin(), stackAllocas.end(), ptr)
-	    != stackAllocas.end()) {
-		WARN("ERROR: Attempted to free stack memory!\n");
-		abort();
-		return;
+	Event m = Event::getInitializer();
+	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		for (auto j = 1; j <= before[i]; j++) {
+			auto &lab = g.threads[i].eventList[j];
+			if (lab.isMalloc() && lab.addr == ptr) {
+				m = lab.pos;
+				break;
+			}
+		}
 	}
 
+	if (m == Event::getInitializer()) {
+		WARN("ERROR: Attempted to free non-malloc'ed memory!\n");
+		abort();
+	}
+
+	/* FIXME: Check the whole graph */
 	/* Check to see whether this memory block has already been freed */
 	if (std::find(freedMem.begin(), freedMem.end(), ptr)
 	    != freedMem.end()) {
 		WARN("ERROR: Double-free error!\n");
 		abort();
-		return;
 	}
 	freedMem.push_back(ptr);
 
-	res.IntVal = APInt(typ->getIntegerBitWidth(), 0xdeadbeef);
+	val.PointerVal = g.getEventLabel(m).val.PointerVal;
 
 	/* Add a label with the appropriate store */
-	g.addStoreToGraph(typ, ptr, res, g.modOrder[ptr].size(),
-			  Plain, llvm::AtomicOrdering::Release);
-	g.getLastThreadLabel(g.currentT).free = true;
+	g.addFreeToGraph(ptr, val);
 	return;
 }
 
@@ -2674,6 +2689,7 @@ void Interpreter::callPthreadCreate(Function *F,
 
 		Thread thr(calledFun, tid, g.currentT, SF);
 		thr.ECStack.push_back(SF);
+		thr.tls = threadLocalVars;
 		g.threads.push_back(thr);
 
 		g.addStartToGraph(tid, g.getLastThreadEvent(g.currentT));
@@ -2787,17 +2803,15 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(typ, ptr, CAS, Acquire, GenericValue(cmpVal),
-					GenericValue(newVal));
+	auto oldVal = driver->visitLoad(CAS, Acquire, ptr, typ,	GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-
 	if (cmpRes.IntVal.getBoolValue() == 0) {
 		g.tryToBacktrack();
 		return;
 	}
 
-	driver->visitStore(typ, ptr, newVal, CAS, Acquire);
+	driver->visitStore(CAS, Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
@@ -2822,7 +2836,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(typ, ptr, val, Plain, Release);
+	driver->visitStore(Plain, Release, ptr, typ, val);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2847,12 +2861,11 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(typ, ptr, CAS, Acquire, GenericValue(cmpVal),
-					GenericValue(newVal));
+	auto oldVal = driver->visitLoad(CAS, Acquire, ptr, typ, GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(typ, ptr, newVal, CAS, Acquire);
+		driver->visitStore(CAS, Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);
@@ -2870,7 +2883,7 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	auto val = driver->visitLibLoad(typ, ptr, Plain, mem.getOrdering(), F->getName().str());
+	auto val = driver->visitLibLoad(Plain, mem.getOrdering(), ptr, typ, F->getName().str());
 
 	/* Check if the read should read from BOTTOM */
 	if (g.getLastThreadLabel(g.currentT).rf == Event::getInitializer()) {
@@ -2898,7 +2911,7 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	driver->visitLibStore(typ, ptr, val, Plain, mem.getOrdering(), F->getName().str(), mem.isLibInit());
+	driver->visitLibStore(Plain, mem.getOrdering(), ptr, typ, val, F->getName().str(), mem.isLibInit());
 	return;
 }
 

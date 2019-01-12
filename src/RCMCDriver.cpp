@@ -95,7 +95,7 @@ void RCMCDriver::printResults()
 
 void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
 {
-	if (!checkPscAcyclicity(g))
+	if (!checkPscAcyclicity())
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
 		return;
@@ -259,7 +259,7 @@ start:
 		auto p = getNextItem();
 
 		if (p.type == None) {
-			for (auto mem : EE->stackAllocas)
+			for (auto mem : EE->stackMem)
 				free(mem); /* No need to clear vector */
 			// for (auto mem : EE->heapAllocas)
 			// 	free(mem);
@@ -280,10 +280,11 @@ start:
 		g.threads[i].isBlocked = false;
 		g.threads[i].globalInstructions = 0;
 	}
-	for (auto mem : EE->stackAllocas)
+	for (auto mem : EE->stackMem)
 		free(mem);
 	// for (auto mem : EE->heapAllocas)
 	// 	free(mem);
+	EE->stackMem.clear();
 	EE->stackAllocas.clear();
 	// EE->heapAllocas.clear();
 	// EE->freedMem.clear();
@@ -299,22 +300,46 @@ start:
  * virtual methods to check for consistency, depending on the operating mode
  * of the driver.
  */
-bool RCMCDriver::checkForRaces(ExecutionGraph &g, EventType typ,
-			       llvm::AtomicOrdering ord, llvm::GenericValue *addr)
+Event RCMCDriver::checkForRaces()
 {
-	switch (typ) {
-	case ERead:
-		return !g.findRaceForNewLoad(ord, addr).isInitializer() && isExecutionValid(g);
-	case EWrite:
-		return !g.findRaceForNewStore(ord,addr).isInitializer() && isExecutionValid(g);
-	default:
-		BUG();
+	auto &g = *currentEG;
+	auto &lab = g.getLastThreadLabel(g.currentT);
+
+	/* We only check for races when reads and writes are added */
+	BUG_ON(!(lab.isRead() || lab.isWrite()));
+
+	auto racy = Event::getInitializer();
+	if (lab.isRead())
+		racy = g.findRaceForNewLoad(lab.pos);
+	else
+		racy = g.findRaceForNewStore(lab.pos);
+
+	/* If a race is found and the execution is consistent, return it */
+	if (!racy.isInitializer() && isExecutionValid())
+		return racy;
+
+	/* Else, if this is a heap allocation, also look for memory errors */
+	if (!EE->isHeapAlloca(lab.addr))
+		return Event::getInitializer();
+
+	auto before = g.getHbBefore(lab.pos.prev());
+	for (auto i = 0u; i < g.threads.size(); i++)
+		for (auto j = 0; j < g.maxEvents[i]; j++) {
+			auto &oLab = g.threads[i].eventList[j];
+			if (oLab.isFree() && oLab.addr == lab.addr)
+				return oLab.pos;
+			if (oLab.isMalloc() && oLab.addr <= lab.addr &&
+			    lab.addr < oLab.val.PointerVal &&
+			    oLab.pos.index > before[oLab.pos.thread])
+				return oLab.pos;
 	}
+	return Event::getInitializer();
 }
 
-llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
-					 EventAttr attr, llvm::AtomicOrdering ord,
-					 llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
+llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
+					 llvm::GenericValue *addr, llvm::Type *typ,
+					 llvm::GenericValue &&cmpVal,
+					 llvm::GenericValue &&rmwVal,
 					 llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = *currentEG;
@@ -327,41 +352,30 @@ llvm::GenericValue RCMCDriver::visitLoad(llvm::Type *typ, llvm::GenericValue *ad
 		return val;
 	}
 
+	/* Get all stores to this location from which we can read from */
+	auto stores = getStoresToLoc(addr);
+	auto validStores = EE->properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
+
+	/* ... and add a label with the appropriate store. */
+	auto &lab = g.addReadToGraph(attr, ord, addr, typ, validStores[0],
+				     std::move(cmpVal), std::move(rmwVal), op);
+
 	/* Check for races */
-	if (checkForRaces(g, ERead, ord, addr)) {
+	if (!checkForRaces().isInitializer()) {
 		llvm::dbgs() << "Race detected!\n";
 		printResults();
 		abort();
 	}
 
-	/* Get all stores to this location from which we can read from */
-	auto stores = getStoresToLoc(addr);
-	auto validStores = EE->properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
-
-	if (std::any_of(validStores.begin(), validStores.end(), [&](Event &s)
-			{ return g.getEventLabel(s).isFree(); })) {
-		llvm::dbgs() << "Tried to read from freed memory!\n";
-		abort();
-	}
-
-	/* ... and add a label with the appropriate store. */
-	g.addReadToGraph(ord, addr, typ, validStores[0], attr, std::move(cmpVal), std::move(rmwVal), op);
-	// Event e = g.getLastThreadEvent(g.currentT);
-	// g.revisit.add(e);
-
 	/* Push all the other alternatives choices to the Stack */
-	Event e = g.getLastThreadEvent(g.currentT);
-	EventLabel &lab = g.getEventLabel(e);
-//	trackEvent(e);
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
-//		addToWorklist(e, StackItem(SRead, *it));
 	return EE->loadValueFromWrite(validStores[0], typ, addr);
 }
 
-void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
-			    llvm::GenericValue &val, EventAttr attr,
-			    llvm::AtomicOrdering ord)
+void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
+			    llvm::GenericValue *addr, llvm::Type *typ,
+			    llvm::GenericValue &val)
 {
 	auto &g = *currentEG;
 
@@ -369,22 +383,18 @@ void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
 	if (g.maxEvents[g.currentT] > c)
 		return;
 
-	/* Check for races */
-	if (checkForRaces(g, EWrite, ord, addr)) {
-		llvm::dbgs() << "Race detected!\n";
-		printResults();
-		abort();
-	}
-
 	auto &locMO = g.modOrder[addr];
 	auto[begO, endO] = getPossibleMOPlaces(addr, attr == RMW || attr == CAS);
 
 	/* It is always consistent to add the store at the end of MO */
-	g.addStoreToGraph(typ, addr, val, endO, attr, ord); // return label ref?
+	auto &sLab = g.addStoreToGraph(attr, ord, addr, typ, val, endO);
 
-	auto &sLab = g.getLastThreadLabel(g.currentT);
-
-//	trackEvent(sLab.pos);
+	/* Check for races */
+	if (!checkForRaces().isInitializer()) {
+		llvm::dbgs() << "Race detected!\n";
+		printResults();
+		abort();
+	}
 
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
 
@@ -393,8 +403,8 @@ void RCMCDriver::visitStore(llvm::Type *typ, llvm::GenericValue *addr,
 			continue;
 
 		/* Push the stack item */
-		addToWorklist(MOWrite, sLab.pos, sLab.rf, {}, {}, {}, std::distance(locMO.begin(), it));
-//		addToWorklist(sLab.pos, StackItem(MOWrite, std::distance(locMO.begin(), it)));
+		addToWorklist(MOWrite, sLab.pos, sLab.rf, {}, {}, {},
+			      std::distance(locMO.begin(), it));
 	}
 
 	calcRevisits(sLab);
@@ -489,7 +499,7 @@ bool RCMCDriver::revisitReads(StackItem &p)
 		if (lab.attr == RMW)
 			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
 		auto offsetMO = g.modOrder.getStoreOffset(lab.addr, lab.rf) + 1;
-		g.addStoreToGraph(lab.valTyp, lab.addr, newVal, offsetMO, lab.attr, lab.ord);
+		g.addStoreToGraph(lab.attr, lab.ord, lab.addr, lab.valTyp, newVal, offsetMO);
 		auto &sLab = g.getLastThreadLabel(g.currentT);
 		return calcRevisits(sLab);
 	}
@@ -500,8 +510,8 @@ bool RCMCDriver::revisitReads(StackItem &p)
 	return true;
 }
 
-llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue *addr,
-					    EventAttr attr, llvm::AtomicOrdering ord,
+llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
+					    llvm::GenericValue *addr, llvm::Type *typ,
 					    std::string functionName)
 {
 	auto &g = *currentEG;
@@ -516,7 +526,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	g.addLibReadToGraph(ord, addr, typ, Event::getInitializer(), functionName);
+	auto &lab = g.addLibReadToGraph(Plain, ord, addr, typ, Event::getInitializer(), functionName);
 
 	/* Make sure there exists an initializer event for this memory location */
 	auto stores(g.modOrder[addr]);
@@ -528,12 +538,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 		abort();
 	}
 
-	auto &lab = g.getLastThreadLabel(g.currentT);
 	auto preds = g.getViewFromStamp(lab.getStamp());
 	auto validStores = g.getLibConsRfsInView(*lib, lab, stores, preds);
-
-	/* Track this event */
-//	trackEvent(lab.pos);
 
 	/*
 	 * If this is a non-functional library, choose one of the available reads-from
@@ -545,7 +551,6 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 		g.changeRf(lab, validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 			addToWorklist(SRead, lab.pos, *it, {}, {}, {});
-//			addToWorklist(lab.pos, StackItem(SRead, *it));
 		return EE->loadValueFromWrite(lab.rf, typ, addr);
 	}
 
@@ -564,7 +569,6 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 		BUG_ON(sLab.rfm1.size() > 1);
 		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
 			addToWorklist(SReadLibFunc, lab.pos, *it, {}, {}, {});
-//			addToWorklist(lab.pos, StackItem(SReadLibFunc, *it));
 	}
 
 	/* If there is no valid RF, we have to read BOTTOM */
@@ -585,15 +589,13 @@ llvm::GenericValue RCMCDriver::visitLibLoad(llvm::Type *typ, llvm::GenericValue 
 
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
 		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
-//		addToWorklist(lab.pos, StackItem(SRead, *it));
 
 	return EE->loadValueFromWrite(lab.rf, typ, addr);
 }
 
-void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
-			       llvm::GenericValue &val, EventAttr attr,
-			       llvm::AtomicOrdering ord,
-			       std::string functionName, bool isInit)
+void RCMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *addr,
+			       llvm::Type *typ, llvm::GenericValue &val, std::string functionName,
+			       bool isInit)
 {
 	auto &g = *currentEG;
 
@@ -618,12 +620,7 @@ void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
 	}
 
 	/* It is always consistent to add a new event at the end of MO */
-	g.addLibStoreToGraph(typ, addr, val, endO, attr, ord, functionName, isInit);
-
-	auto &sLab = g.getLastThreadLabel(g.currentT);
-
-	/* Make the driver track this store */
-//	trackEvent(sLab.pos);
+	auto &sLab = g.addLibStoreToGraph(attr, ord, addr, typ, val, endO, functionName, isInit);
 
 	calcLibRevisits(sLab);
 
@@ -643,7 +640,6 @@ void RCMCDriver::visitLibStore(llvm::Type *typ, llvm::GenericValue *addr,
 		auto preds = g.getViewFromStamp(sLab.getStamp());
 		if (g.isLibConsistentInView(*lib, preds))
 			addToWorklist(MOWriteLib, sLab.pos, sLab.rf, {}, {}, {}, i);
-//			addToWorklist(sLab.pos, StackItem(MOWriteLib, i));
 		locMO.erase(locMO.begin() + i);
 	}
 	locMO.push_back(sLab.pos);
@@ -694,17 +690,14 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 			auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
 
-			// if (rLab.revs.contains(writePrefixPos, moPlacings))
-			// 	continue;
-
 			if (worklistContainsPrf(rLab, rf, writePrefix, moPlacings))
 				continue;
 
 			filterWorklistPrf(rLab, rf, writePrefix, moPlacings);
 
-			// rLab.revs.add(writePrefixPos, moPlacings);
-			addToWorklist(SRevisit, rLab.pos, rf, before, std::move(writePrefix), std::move(moPlacings));
-//			addToWorklist(rLab.pos, StackItem(SRevisit, rf, before, writePrefix, moPlacings));
+			addToWorklist(SRevisit, rLab.pos, rf, before,
+				      std::move(writePrefix), std::move(moPlacings));
+
 		}
 	}
 	return valid;
@@ -756,13 +749,13 @@ std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	BUG();
 }
 
-bool RCMCDriverWeakRA::checkPscAcyclicity(ExecutionGraph &g)
+bool RCMCDriverWeakRA::checkPscAcyclicity()
 {
 	WARN("Unimplemented!\n");
 	abort();
 }
 
-bool RCMCDriverWeakRA::isExecutionValid(ExecutionGraph &g)
+bool RCMCDriverWeakRA::isExecutionValid()
 {
 	WARN("Unimplemented!\n");
 	abort();
@@ -840,7 +833,7 @@ std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
-bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
+bool RCMCDriverMO::checkPscAcyclicity()
 {
 	switch (userConf->checkPscAcyclicity) {
 	case CheckPSCType::nocheck:
@@ -850,16 +843,16 @@ bool RCMCDriverMO::checkPscAcyclicity(ExecutionGraph &g)
 		WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 			  "to be checked for the MO-tracking exploration...\n");
 	case CheckPSCType::full:
-		return g.isPscAcyclicMO();
+		return currentEG->isPscAcyclicMO();
 	default:
 		WARN("Unimplemented model!\n");
 		BUG();
 	}
 }
 
-bool RCMCDriverMO::isExecutionValid(ExecutionGraph &g)
+bool RCMCDriverMO::isExecutionValid()
 {
-	return g.isPscAcyclicMO();
+	return currentEG->isPscAcyclicMO();
 }
 
 
@@ -937,24 +930,24 @@ std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 
-bool RCMCDriverWB::checkPscAcyclicity(ExecutionGraph &g)
+bool RCMCDriverWB::checkPscAcyclicity()
 {
 	switch (userConf->checkPscAcyclicity) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
-		return g.isPscWeakAcyclicWB();
+		return currentEG->isPscWeakAcyclicWB();
 	case CheckPSCType::wb:
-		return g.isPscWbAcyclicWB();
+		return currentEG->isPscWbAcyclicWB();
 	case CheckPSCType::full:
-		return g.isPscAcyclicWB();
+		return currentEG->isPscAcyclicWB();
 	default:
 		WARN("Unimplemented model!\n");
 		BUG();
 	}
 }
 
-bool RCMCDriverWB::isExecutionValid(ExecutionGraph &g)
+bool RCMCDriverWB::isExecutionValid()
 {
-	return g.isPscAcyclicWB();
+	return currentEG->isPscAcyclicWB();
 }

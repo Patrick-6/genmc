@@ -33,8 +33,8 @@ class EventLabel {
 
 public:
 	EventType type;
-	EventAttr attr;
-	llvm::AtomicOrdering ord;
+	EventAttr attr = Plain;
+	llvm::AtomicOrdering ord = llvm::AtomicOrdering::NotAtomic;
 	Event pos;
 	llvm::GenericValue *addr;
 	llvm::GenericValue val; /* For Writes and CASs */
@@ -51,28 +51,27 @@ public:
 	bool initial; /* For GWrites */
 	bool revisitable;
 	bool revisited = false;
-	bool malloc = false;
-	bool free = false;
 	unsigned int stamp = 0;
 	std::vector<Event> invalidRfs;
 
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid); /* Thread Create */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fence */
+	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+		   llvm::GenericValue val); /* Malloc/Free */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue expected,
-		   llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
-		   llvm::Type *valTyp, Event w); /* Plain Read */
+		   llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		   llvm::GenericValue expected, llvm::GenericValue nextVal,
+		   llvm::AtomicRMWInst::BinOp op); /* Plain Read */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
+		   llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		   std::string &functionName); /* Lib Read */
 
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp); /* Writes */
+		   llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val); /* Writes */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::GenericValue val,
-		   llvm::Type *valTyp, std::string &functionName, bool isInit); /* Lib Writes */
+		   llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
+		    std::string &functionName, bool isInit); /* Lib Writes */
 
 	unsigned int getStamp() const;
 	View& getHbView();
@@ -86,6 +85,8 @@ public:
 	bool isRead() const;
 	bool isWrite() const;
 	bool isFence() const;
+	bool isMalloc() const;
+	bool isFree() const;
 	bool isNotAtomic() const;
 	bool isAtLeastAcquire() const;
 	bool isAtLeastRelease() const;
@@ -93,8 +94,6 @@ public:
 	bool isRMW() const;
 	bool isLibInit() const;
 	bool isRevisitable() const;
-	bool isMalloc() const;
-	bool isFree() const;
 	bool hasBeenRevisited() const;
 	bool hasReadSem() const;
 	bool hasWriteSem() const;

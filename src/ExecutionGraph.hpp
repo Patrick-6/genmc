@@ -64,23 +64,23 @@ public:
 	bool isWriteRfBefore(View &before, Event e);
 
 	/* Basic setter methods */
-	void addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			    llvm::Type *typ, Event rf, EventAttr attr,
-			    llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
-			    llvm::AtomicRMWInst::BinOp op);
-	void addLibReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-			       llvm::Type *typ, Event rf, std::string functionName);
-	void addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr, llvm::GenericValue &val,
-			     int offsetMO, EventAttr attr, llvm::AtomicOrdering ord);
-	void addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
-				llvm::GenericValue &val, int offsetMO,
-				EventAttr attr, llvm::AtomicOrdering ord,
-				std::string functionName, bool isInit);
-	void addFenceToGraph(llvm::AtomicOrdering ord);
-	void addTCreateToGraph(int cid);
-	void addTJoinToGraph(int cid);
-	void addStartToGraph(int tid, Event tc);
-	void addFinishToGraph();
+	EventLabel& addReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				   llvm::Type *typ, Event rf, llvm::GenericValue &&cmpVal,
+				   llvm::GenericValue &&rmwVal, llvm::AtomicRMWInst::BinOp op);
+	EventLabel& addLibReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				      llvm::Type *typ, Event rf, std::string functionName);
+	EventLabel& addStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				    llvm::Type *typ, llvm::GenericValue &val, int offsetMO);
+	EventLabel& addLibStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				       llvm::Type *typ, llvm::GenericValue &val, int offsetMO,
+				       std::string functionName, bool isInit);
+	EventLabel& addFenceToGraph(llvm::AtomicOrdering ord);
+	EventLabel& addMallocToGraph(llvm::GenericValue *addr, llvm::GenericValue &val);
+	EventLabel& addFreeToGraph(llvm::GenericValue *addr, llvm::GenericValue &val);
+	EventLabel& addTCreateToGraph(int cid);
+	EventLabel& addTJoinToGraph(int cid);
+	EventLabel& addStartToGraph(int tid, Event tc);
+	EventLabel& addFinishToGraph();
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	View getMsgView(Event e);
@@ -147,8 +147,8 @@ public:
 	void clearAllStacks(void);
 
 	/* Race detection methods */
-	Event findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
-	Event findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr);
+	Event findRaceForNewLoad(Event e);
+	Event findRaceForNewStore(Event e);
 
 	/* Library consistency checks */
 	std::vector<Event> getLibEventsInView(Library &lib, View &v);
@@ -170,9 +170,9 @@ public:
 protected:
 	void calcLoadPoRfView(EventLabel &lab, Event prev, Event &rf);
 	void calcLoadHbView(EventLabel &lab, Event prev, Event &rf);
-	void addEventToGraph(EventLabel &lab);
-	void addReadToGraphCommon(EventLabel &lab, Event &rf);
-	void addStoreToGraphCommon(EventLabel &lab);
+	EventLabel& addEventToGraph(EventLabel &lab);
+	EventLabel& addReadToGraphCommon(EventLabel &lab, Event &rf);
+	EventLabel& addStoreToGraphCommon(EventLabel &lab);
 	void calcPorfAfter(const Event &e, View &a);
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);

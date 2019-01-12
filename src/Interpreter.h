@@ -137,6 +137,8 @@ public:
   /* Checks whether an address is the address of a global variable */
   bool isGlobal(void *);
   bool isGlobalPtr(void *);
+  bool isHeapAlloca(void *);
+  bool isStackAlloca(void *);
   std::string getGlobalName(void *addr);
   void freeRegion(void *addr, int size);
 
@@ -191,6 +193,7 @@ public:
 
   std::vector<void *> stackAllocas;
   std::vector<void *> heapAllocas;
+  std::vector<void *> stackMem;
   std::vector<void *> freedMem;
 
   /* Helper functions */

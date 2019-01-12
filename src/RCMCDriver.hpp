@@ -127,21 +127,22 @@ public:
 	void handleFinishedExecution(ExecutionGraph &g);
 
 	void visitGraph(ExecutionGraph &g);
-	bool checkForRaces(ExecutionGraph &g, EventType typ, llvm::AtomicOrdering ord, llvm::GenericValue *addr);
+	Event checkForRaces();
 
-	llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
-				     EventAttr attr, llvm::AtomicOrdering ord,
+	llvm::GenericValue visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
+				     llvm::GenericValue *addr, llvm::Type *typ,
 				     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
 				     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
 				     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	void visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-			EventAttr attr, llvm::AtomicOrdering ord);
+	void visitStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *addr,
+			llvm::Type *typ, llvm::GenericValue &val);
 	bool calcRevisits(EventLabel &lab);
-	llvm::GenericValue visitLibLoad(llvm::Type *typ, llvm::GenericValue *addr,
-					EventAttr attr, llvm::AtomicOrdering ord,
+	llvm::GenericValue visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
+					llvm::GenericValue *addr, llvm::Type *typ,
 					std::string functionName);
-	void visitLibStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-			   EventAttr attr, llvm::AtomicOrdering ord, std::string functionName, bool isInit = false);
+	void visitLibStore(EventAttr attr, llvm::AtomicOrdering ord,
+			   llvm::GenericValue *addr, llvm::Type *typ, llvm::GenericValue &val,
+			   std::string functionName, bool isInit = false);
 	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(StackItem &s);
 
@@ -153,8 +154,8 @@ public:
 	virtual std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 			  getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
 
-	virtual bool checkPscAcyclicity(ExecutionGraph &g) = 0;
-	virtual bool isExecutionValid(ExecutionGraph &g) = 0;
+	virtual bool checkPscAcyclicity() = 0;
+	virtual bool isExecutionValid() = 0;
 };
 
 /* TODO: Fix destructors for Driver and config (basically for every class) */
@@ -183,8 +184,8 @@ public:
 //	bool visitLibStore(ExecutionGraph &g);
 //	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
 //	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-	bool checkPscAcyclicity(ExecutionGraph &g);
-	bool isExecutionValid(ExecutionGraph &g);
+	bool checkPscAcyclicity();
+	bool isExecutionValid();
 };
 
 class RCMCDriverMO : public RCMCDriver {
@@ -201,8 +202,8 @@ public:
 	std::vector<Event> getRevisitLoads(EventLabel &lab);
 	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
-	bool checkPscAcyclicity(ExecutionGraph &g);
-	bool isExecutionValid(ExecutionGraph &g);
+	bool checkPscAcyclicity();
+	bool isExecutionValid();
 };
 
 class RCMCDriverWB : public RCMCDriver {
@@ -219,6 +220,6 @@ public:
 	std::vector<Event> getRevisitLoads(EventLabel &lab);
 	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
-	bool checkPscAcyclicity(ExecutionGraph &g);
-	bool isExecutionValid(ExecutionGraph &g);
+	bool checkPscAcyclicity();
+	bool isExecutionValid();
 };

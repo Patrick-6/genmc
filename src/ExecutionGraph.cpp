@@ -292,49 +292,49 @@ void ExecutionGraph::calcLoadHbView(EventLabel &lab, Event prev, Event &rf)
 	}
 }
 
-void ExecutionGraph::addEventToGraph(EventLabel &lab)
+EventLabel& ExecutionGraph::addEventToGraph(EventLabel &lab)
 {
 	lab.stamp = nextStamp();
-	Thread &thr = threads[currentT];
+	Thread &thr = threads[lab.pos.thread];
 	thr.eventList.push_back(lab);
-	++maxEvents[currentT];
+	++maxEvents[lab.pos.thread];
+	return getLastThreadLabel(lab.pos.thread);
 }
 
-void ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
+EventLabel& ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
 	lab.makeRevisitable();
 	calcLoadHbView(lab, getLastThreadEvent(currentT), rf);
 	calcLoadPoRfView(lab, getLastThreadEvent(currentT), rf);
 
-	addEventToGraph(lab);
+	auto &nLab = addEventToGraph(lab);
 
 	if (rf.isInitializer())
-		return;
+		return nLab;
 	Thread &rfThr = threads[rf.thread];
 	EventLabel &rfLab = rfThr.eventList[rf.index];
 	rfLab.rfm1.push_front(lab.pos);
-	return;
+	return nLab;
 }
 
-void ExecutionGraph::addReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
-				    llvm::Type *typ, Event rf, EventAttr attr,
-				    llvm::GenericValue &&cmpVal, llvm::GenericValue &&rmwVal,
-				    llvm::AtomicRMWInst::BinOp op)
+EventLabel& ExecutionGraph::addReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+				    llvm::Type *typ, Event rf, llvm::GenericValue &&cmpVal,
+				    llvm::GenericValue &&rmwVal, llvm::AtomicRMWInst::BinOp op)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(ERead, attr, ord, Event(currentT, max), ptr, cmpVal, rmwVal, op, typ, rf);
-	addReadToGraphCommon(lab, rf);
+	EventLabel lab(ERead, attr, ord, Event(currentT, max), ptr, typ, rf, cmpVal, rmwVal, op);
+	return addReadToGraphCommon(lab, rf);
 }
 
-void ExecutionGraph::addLibReadToGraph(llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+EventLabel& ExecutionGraph::addLibReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				       llvm::Type *typ, Event rf, std::string functionName)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(ERead, Plain, ord, Event(currentT, max), ptr, typ, rf, functionName);
-	addReadToGraphCommon(lab, rf);
+	EventLabel lab(ERead, attr, ord, Event(currentT, max), ptr, typ, rf, functionName);
+	return addReadToGraphCommon(lab, rf);
 }
 
-void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
+EventLabel& ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 {
 	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = maxEvents[currentT];
@@ -357,32 +357,31 @@ void ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 		else if (lab.ord == llvm::Monotonic || lab.ord == llvm::Acquire)
 			lab.msgView = getHbBefore(getLastThreadRelease(currentT, lab.addr));
 	}
-	addEventToGraph(lab);
-	return;
+	return addEventToGraph(lab);
 }
 
-void ExecutionGraph::addStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
-				     llvm::GenericValue &val, int offsetMO,
-				     EventAttr attr, llvm::AtomicOrdering ord)
+EventLabel& ExecutionGraph::addStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord,
+					    llvm::GenericValue *ptr, llvm::Type *typ,
+					    llvm::GenericValue &val, int offsetMO)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, attr, ord, Event(currentT, max), ptr, val, typ);
-	addStoreToGraphCommon(lab);
+	EventLabel lab(EWrite, attr, ord, Event(currentT, max), ptr, typ, val);
 	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
+	return addStoreToGraphCommon(lab);
 }
 
-void ExecutionGraph::addLibStoreToGraph(llvm::Type *typ, llvm::GenericValue *ptr,
-					llvm::GenericValue &val, int offsetMO,
-					EventAttr attr, llvm::AtomicOrdering ord,
-					std::string functionName, bool isInit)
+EventLabel& ExecutionGraph::addLibStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord,
+					       llvm::GenericValue *ptr, llvm::Type *typ,
+					       llvm::GenericValue &val, int offsetMO,
+					       std::string functionName, bool isInit)
 {
 	int max = maxEvents[currentT];
-	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, val, typ, functionName, isInit);
-	addStoreToGraphCommon(lab);
+	EventLabel lab(EWrite, Plain, ord, Event(currentT, max), ptr, typ, val, functionName, isInit);
 	modOrder[lab.addr].insert(modOrder[lab.addr].begin() + offsetMO, lab.pos);
+	return addStoreToGraphCommon(lab);
 }
 
-void ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
+EventLabel& ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
 
 {
 	int max = maxEvents[currentT];
@@ -394,10 +393,34 @@ void ExecutionGraph::addFenceToGraph(llvm::AtomicOrdering ord)
 	lab.porfView[currentT] = maxEvents[currentT];
 	if (lab.isAtLeastAcquire())
 		calcRelRfPoBefore(currentT, getLastThreadEvent(currentT).index, lab.hbView);
-	addEventToGraph(lab);
+	return addEventToGraph(lab);
 }
 
-void ExecutionGraph::addTCreateToGraph(int cid)
+EventLabel& ExecutionGraph::addMallocToGraph(llvm::GenericValue *addr, llvm::GenericValue &val)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(EMalloc, Event(currentT, max), addr, val);
+
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
+	lab.hbView[currentT] = maxEvents[currentT];
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
+	lab.porfView[currentT] = maxEvents[currentT];
+	return addEventToGraph(lab);
+}
+
+EventLabel& ExecutionGraph::addFreeToGraph(llvm::GenericValue *addr, llvm::GenericValue &val)
+{
+	int max = maxEvents[currentT];
+	EventLabel lab(EFree, Event(currentT, max), addr, val);
+
+	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
+	lab.hbView[currentT] = maxEvents[currentT];
+	lab.porfView = getPorfBefore(getLastThreadEvent(currentT));
+	lab.porfView[currentT] = maxEvents[currentT];
+	return addEventToGraph(lab);
+}
+
+EventLabel& ExecutionGraph::addTCreateToGraph(int cid)
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(ETCreate, llvm::Release, Event(currentT, max), cid);
@@ -409,10 +432,10 @@ void ExecutionGraph::addTCreateToGraph(int cid)
 	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = maxEvents[currentT];
 	lab.msgView = lab.hbView;
-	addEventToGraph(lab);
+	return addEventToGraph(lab);
 }
 
-void ExecutionGraph::addTJoinToGraph(int cid)
+EventLabel& ExecutionGraph::addTJoinToGraph(int cid)
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(ETJoin, llvm::Acquire, Event(currentT, max), cid);
@@ -425,10 +448,10 @@ void ExecutionGraph::addTJoinToGraph(int cid)
 	 * update the view yet */
 	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = max;
-	addEventToGraph(lab);
+	return addEventToGraph(lab);
 }
 
-void ExecutionGraph::addStartToGraph(int tid, Event tc)
+EventLabel& ExecutionGraph::addStartToGraph(int tid, Event tc)
 {
 	int max = maxEvents[tid];
 	EventLabel lab = EventLabel(EStart, llvm::Acquire, Event(tid, max), tc);
@@ -439,14 +462,16 @@ void ExecutionGraph::addStartToGraph(int tid, Event tc)
 	/* Thread start has Acquire semantics */
 	lab.hbView = getHbBefore(tc);
 	lab.hbView[tid] = max;
-	threads[tid].eventList.push_back(lab);
-	++maxEvents[tid];
+
+	auto &nLab = addEventToGraph(lab);
 
 	EventLabel &tcLab = getEventLabel(tc);
 	tcLab.rfm1.push_back(lab.pos);
+
+	return nLab;
 }
 
-void ExecutionGraph::addFinishToGraph()
+EventLabel& ExecutionGraph::addFinishToGraph()
 {
 	int max = maxEvents[currentT];
 	EventLabel lab(EFinish, llvm::Release, Event(currentT, max));
@@ -458,7 +483,7 @@ void ExecutionGraph::addFinishToGraph()
 	lab.hbView = getHbBefore(getLastThreadEvent(currentT));
 	lab.hbView[currentT] = max;
 	lab.msgView = lab.hbView;
-	addEventToGraph(lab);
+	return addEventToGraph(lab);
 }
 
 /************************************************************
@@ -887,10 +912,11 @@ void ExecutionGraph::clearAllStacks(void)
  ** Race detection methods
  ***********************************************************/
 
-Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
+Event ExecutionGraph::findRaceForNewLoad(Event e)
 {
-	auto before = getHbBefore(getLastThreadEvent(currentT));
-	auto &stores = modOrder[ptr];
+	auto &lab = getEventLabel(e);
+	auto before = getHbBefore(lab.pos.prev());
+	auto &stores = modOrder[lab.addr];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -900,23 +926,26 @@ Event ExecutionGraph::findRaceForNewLoad(llvm::AtomicOrdering ord, llvm::Generic
 	for (auto &s : stores) {
 		if (s.index > before[s.thread]) {
 			EventLabel &sLab = getEventLabel(s);
-			if (ord == llvm::NotAtomic || sLab.isNotAtomic())
+			if ((lab.isNotAtomic() || sLab.isNotAtomic()) &&
+			    lab.pos != sLab.pos)
 				return s; /* Race detected! */
 		}
 	}
 	return Event::getInitializer(); /* Race not found */
 }
 
-Event ExecutionGraph::findRaceForNewStore(llvm::AtomicOrdering ord, llvm::GenericValue *ptr)
+Event ExecutionGraph::findRaceForNewStore(Event e)
 {
-	auto before = getHbBefore(getLastThreadEvent(currentT));
+	auto &lab = getEventLabel(e);
+	auto before = getHbBefore(lab.pos.prev());
 
-	for (auto i = (int) before.size() - 1; i >= 0; i--) {
-		for (auto j = maxEvents[i] - 1; j >= before[i] + 1; j--) {
-			EventLabel &lab = threads[i].eventList[j];
-			if ((lab.isRead() || lab.isWrite()) && lab.addr == ptr)
-				if (ord == llvm::NotAtomic || lab.isNotAtomic())
-					return lab.pos; /* Race detected! */
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = before[i] + 1; j < maxEvents[i]; j++) {
+			EventLabel &oLab = threads[i].eventList[j];
+			if ((oLab.isRead() || oLab.isWrite()) &&
+			    oLab.addr == lab.addr && oLab.pos != lab.pos)
+				if (lab.isNotAtomic() || oLab.isNotAtomic())
+					return oLab.pos; /* Race detected! */
 		}
 	}
 	return Event::getInitializer(); /* Race not found */

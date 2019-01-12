@@ -24,7 +24,8 @@
 #include <llvm/Support/raw_ostream.h>
 #include <list>
 
-enum EventType { EStart, EFinish, ETCreate, ETJoin, ERead, EWrite, EFence };
+enum EventType { EStart, EFinish, ETCreate, ETJoin,
+		 ERead, EWrite, EFence, EMalloc, EFree };
 enum EventAttr { Plain, CAS, RMW};
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t);

@@ -85,18 +85,16 @@ void Interpreter::collectGPs(Module *M, void *ptr, llvm::Type *typ)
 
 	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, typ);
 	if (typ->isPointerTy() || typ->isVectorTy()) {
-		for (auto i = 0u; i < typeSize; i++) {
+		for (auto i = 0u; i < typeSize; i++)
 			globalPtrs.push_back((char *) ptr + i);
-		}
 		return;
 	}
 
 	unsigned int offset = 0;
 	if (ArrayType *AT = dyn_cast<ArrayType>(typ)) {
 		unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, AT->getElementType());
-
 		for (auto i = 0u; i < AT->getNumElements(); i++) {
-			collectGPs(M, (char *) ptr + i, AT->getElementType());
+			collectGPs(M, (char *) ptr + offset, AT->getElementType());
 			offset += elemSize;
 		}
 	} else if (StructType *ST = dyn_cast<StructType>(typ)) {
@@ -160,6 +158,18 @@ bool Interpreter::isGlobalPtr(void *addr)
 {
 	auto gp = std::equal_range(globalPtrs.begin(), globalPtrs.end(), addr);
 	return gp.first != gp.second;
+}
+
+bool Interpreter::isStackAlloca(void *addr)
+{
+	auto sa = std::find(stackAllocas.begin(), stackAllocas.end(), addr);
+	return sa != stackAllocas.end();
+}
+
+bool Interpreter::isHeapAlloca(void *addr)
+{
+	auto sa = std::find(heapAllocas.begin(), heapAllocas.end(), addr);
+	return sa != stackAllocas.end();
 }
 
 std::string Interpreter::getGlobalName(void *addr)

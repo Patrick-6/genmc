@@ -37,31 +37,34 @@ EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid
 EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
 	: type(typ), ord(ord), pos(e) {}
 
+/* Malloc/Free */
+EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+		       llvm::GenericValue val)
+	: type(typ), pos(e), addr(addr), val(val) {}
+
 /* Plain Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue expected,
-		       llvm::GenericValue nextVal, llvm::AtomicRMWInst::BinOp op,
-		       llvm::Type *valTyp, Event w)
+		       llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		       llvm::GenericValue expected, llvm::GenericValue nextVal,
+		       llvm::AtomicRMWInst::BinOp op)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(expected),
-	  nextVal(nextVal), op(op), valTyp(valTyp), rf(w) {}
+	  nextVal(nextVal), op(op), valTyp(valTyp), rf(rf) {}
 
 /* Lib Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, Event w,
+		       llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		       std::string &functionName)
-	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(w),
+	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(rf),
 	  functionName(functionName), initial(false) {}
-
-
 
 /* Store */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp)
+		       llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
 /* GStore */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::GenericValue val, llvm::Type *valTyp,
+		       llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
 		       std::string &functionName, bool isInit)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp),
 	  functionName(functionName), initial(isInit) {}
@@ -122,6 +125,16 @@ bool EventLabel::isFence() const
 	return type == EFence;
 }
 
+bool EventLabel::isMalloc() const
+{
+	return type == EMalloc;
+}
+
+bool EventLabel::isFree() const
+{
+	return type == EFree;
+}
+
 bool EventLabel::isNotAtomic() const
 {
 	return ord == llvm::NotAtomic;
@@ -166,16 +179,6 @@ bool EventLabel::isRMW() const
 bool EventLabel::isLibInit() const
 {
 	return initial;
-}
-
-bool EventLabel::isMalloc() const
-{
-	return malloc;
-}
-
-bool EventLabel::isFree() const
-{
-	return free;
 }
 
 bool EventLabel::isRevisitable() const
