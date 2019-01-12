@@ -21,24 +21,21 @@
 source terminal.sh
 RCMC=../src/rcmc
 
-# Check to see whether we are called from a parent sript..
-if test "${total_time}" = ""
-then
-    total_time=0
-fi
+runtime=0
+model="${model:-wb}"
 
 runvariants() {
     printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
     vars=0
     test_time=0
-    diff=""
     failure=""
+    diff=""
     outcome_failure=""
     checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" -wrc11 -print-error-trace "${checker_args}" -- "${t}" 2>&1`
+	output=`"${RCMC}" "-${model}" -print-error-trace "${checker_args}" -- "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1
@@ -51,8 +48,9 @@ runvariants() {
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
+	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
-	total_time=`echo "scale=2; ${total_time}+${time}" | bc -l`
+	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`
 	rm tmp.trace
     done
     average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
@@ -89,6 +87,12 @@ runtest() {
     fi
 }
 
+# Update status
+echo ''; printline
+echo -n '--- Preparing to run testcases in '
+echo "${testdir##*/}" 'under' "${model}" | awk '{ print toupper($1), $2, toupper($3) }'
+printline; echo ''
+
 # Print table's header
 printline
 printf "| %-25s | %-22s | %-19s | %-22s |\n" \
@@ -97,8 +101,10 @@ printf "| %-25s | %-22s | %-19s | %-22s |\n" \
 printline
 
 # Run wrong testcases
-for dir in ../tests/wrong/*
+for dir in "${testdir}"/*
 do
     runtest "${dir}"
 done
 printline
+echo '--- Test time: ' "${runtime}"
+printline; echo ''
