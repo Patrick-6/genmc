@@ -2421,7 +2421,7 @@ void Interpreter::callAssertFail(Function *F,
 	/* Dump the graph into a file (DOT format) */
 	if (userConf->dotFile != "") {
 		replayExecutionBefore(before);
-		g.dotPrintToFile(userConf->dotFile, before, errorEvent);
+		driver->dotPrintToFile(userConf->dotFile, before, errorEvent);
 	}
 
 	/* Print results and abort */

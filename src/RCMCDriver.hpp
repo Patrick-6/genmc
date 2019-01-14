@@ -150,6 +150,9 @@ public:
 					       std::vector<llvm::GenericValue> expVal,
 					       std::vector<Event> &stores);
 
+	void prettyPrintGraph();
+	void dotPrintToFile(std::string &filename, View &before, Event e);
+
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW = false) = 0;
 	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;

@@ -24,7 +24,6 @@
 #include "Error.hpp"
 #include "Event.hpp"
 #include "Library.hpp"
-#include "Interpreter.h"
 #include "ModOrder.hpp"
 #include "Thread.hpp"
 
@@ -35,17 +34,12 @@ class ExecutionGraph {
 public:
 	std::vector<Thread> threads;
 	View maxEvents;
-//	RevisitSet revisit;
 	ModOrder modOrder;
-	llvm::Interpreter *EE;
 	int currentT;
 	unsigned int timestamp;
 
 	/* Constructors */
-	ExecutionGraph(llvm::Interpreter *EE);
-	// ExecutionGraph(std::vector<Thread> ts, std::vector<int> es,
-	// 	       std::vector<Event> re, int t)
-	// 	: threads(ts), maxEvents(es), revisit(re), currentT(t) {};
+	ExecutionGraph();
 
 	/* Basic getter methods */
 	unsigned int nextStamp();

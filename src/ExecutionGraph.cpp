@@ -29,8 +29,7 @@
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph(llvm::Interpreter *EE)
-	: EE(EE), currentT(0), timestamp(0) {}
+ExecutionGraph::ExecutionGraph() : currentT(0), timestamp(0) {}
 
 
 /************************************************************
@@ -2058,88 +2057,6 @@ void ExecutionGraph::printTraceBefore(Event e)
 
 	calcTraceBefore(e, a, buf);
 	llvm::dbgs() << buf.str();
-}
-
-void ExecutionGraph::prettyPrintGraph()
-{
-	for (auto i = 0u; i < threads.size(); i++) {
-		auto &thr = threads[i];
-		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
-			     << "> " << thr.threadFun->getName() << ": ";
-		for (auto j = 0; j < maxEvents[i]; j++) {
-			auto &lab = thr.eventList[j];
-			if (lab.isRead()) {
-				if (lab.isRevisitable())
-					llvm::dbgs().changeColor(llvm::buffer_ostream::Colors::GREEN);
-				auto val = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.getAddr());
-				llvm::dbgs() << lab.type << EE->getGlobalName(lab.getAddr()) << ","
-					     << val.IntVal << " ";
-				llvm::dbgs().resetColor();
-			} else if (lab.isWrite()) {
-				llvm::dbgs() << lab.type << EE->getGlobalName(lab.getAddr()) << ","
-					     << lab.val.IntVal << " ";
-			}
-		}
-		llvm::dbgs() << "\n";
-	}
-	llvm::dbgs() << "\n";
-}
-
-void ExecutionGraph::dotPrintToFile(std::string &filename, View &before, Event e)
-{
-	std::ofstream fout(filename);
-	std::string dump;
-	llvm::raw_string_ostream ss(dump);
-
-	/* Create a directed graph graph */
-	ss << "strict digraph {\n";
-	/* Specify node shape */
-	ss << "\tnode [shape=box]\n";
-	/* Left-justify labels for clusters */
-	ss << "\tlabeljust=l\n";
-	/* Create a node for the initializer event */
-	ss << "\t\"" << Event::getInitializer() << "\"[label=INIT,root=true]\n";
-
-	/* Print all nodes with each thread represented by a cluster */
-	for (auto i = 0u; i < before.size(); i++) {
-		auto &thr = threads[i];
-		ss << "subgraph cluster_" << thr.id << "{\n";
-		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
-		for (auto j = 1; j <= before[i]; j++) {
-			std::stringstream buf;
-			auto lab = thr.eventList[j];
-
-			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
-			ss << "\t" << lab.getPos() << " [label=\"" << buf.str() << "\""
-			   << (lab.getPos() == e ? ",style=filled,fillcolor=yellow" : "") << "]\n";
-		}
-		ss << "}\n";
-	}
-
-	/* Print relations between events (po U rf) */
-	for (auto i = 0u; i < before.size(); i++) {
-		auto &thr = threads[i];
-		for (auto j = 0; j <= before[i]; j++) {
-			std::stringstream buf;
-			auto lab = thr.eventList[j];
-
-			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
-			/* Print a po-edge, but skip dummy start events for
-			 * all threads except for the first one */
-			if (j < before[i] && !(lab.isStart() && i > 0))
-				ss << lab.getPos() << " -> " << lab.getPos().next() << "\n";
-			if (lab.isRead())
-				ss << "\t" << lab.rf << " -> " << lab.getPos() << "[color=green]\n";
-			if (thr.id > 0 && lab.isStart())
-				ss << "\t" << lab.rf << " -> " << lab.getPos().next() << "[color=blue]\n";
-			if (lab.isJoin())
-				ss << "\t" << lab.rf << " -> " << lab.getPos() << "[color=blue]\n";
-		}
-	}
-
-	ss << "}\n";
-	fout << ss.str();
-	fout.close();
 }
 
 
