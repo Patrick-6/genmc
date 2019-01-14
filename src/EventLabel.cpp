@@ -75,6 +75,31 @@ unsigned int EventLabel::getStamp() const
 	return stamp;
 }
 
+const Event& EventLabel::getPos() const
+{
+	return pos;
+}
+
+int EventLabel::getIndex() const
+{
+	return pos.index;
+}
+
+int EventLabel::getThread() const
+{
+	return pos.thread;
+}
+
+EventAttr EventLabel::getAttr() const
+{
+	return attr;
+}
+
+llvm::GenericValue *EventLabel::getAddr() const
+{
+	return addr;
+}
+
 View& EventLabel::getHbView()
 {
 	return hbView;
@@ -173,7 +198,17 @@ bool EventLabel::isSC() const
 
 bool EventLabel::isRMW() const
 {
-	return attr != Plain;
+	return attr != ATTR_PLAIN;
+}
+
+bool EventLabel::isFAI() const
+{
+	return attr == ATTR_FAI;
+}
+
+bool EventLabel::isCAS() const
+{
+	return attr == ATTR_CAS;
 }
 
 bool EventLabel::isLibInit() const

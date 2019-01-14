@@ -1138,7 +1138,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
-	auto val = driver->visitLoad(Plain, I.getOrdering(), ptr, typ);
+	auto val = driver->visitLoad(ATTR_PLAIN, I.getOrdering(), ptr, typ);
 	/* Last, set the return value for this instruction */
 	SetValue(&I, val, SF);
 	return;
@@ -1167,7 +1167,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	}
 
 	/* Add store to graph and (possibly) revisit some reads */
-	driver->visitStore(Plain, I.getOrdering(), ptr, typ, val);
+	driver->visitStore(ATTR_PLAIN, I.getOrdering(), ptr, typ, val);
 	return;
 }
 
@@ -1212,11 +1212,11 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(CAS, I.getSuccessOrdering(), ptr, typ,
+	oldVal = driver->visitLoad(ATTR_CAS, I.getSuccessOrdering(), ptr, typ,
 				   GenericValue(cmpVal), GenericValue(newVal));
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(CAS, I.getSuccessOrdering(), ptr, typ, newVal);
+		driver->visitStore(ATTR_CAS, I.getSuccessOrdering(), ptr, typ, newVal);
 
 	result.AggregateVal.push_back(oldVal);
 	result.AggregateVal.push_back(cmpRes);
@@ -1279,11 +1279,11 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(RMW, I.getOrdering(), ptr, typ,
+	oldVal = driver->visitLoad(ATTR_FAI, I.getOrdering(), ptr, typ,
 				   GenericValue(), GenericValue(val), I.getOperation());
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
-	driver->visitStore(RMW, I.getOrdering(), ptr, typ, newVal);
+	driver->visitStore(ATTR_FAI, I.getOrdering(), ptr, typ, newVal);
 	SetValue(&I, oldVal, SF);
 	return;
 }
@@ -2465,7 +2465,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	int c = ++g.threads[g.currentT].globalInstructions;
 	if (c < g.maxEvents[g.currentT]) {
 		auto &lab = g.threads[g.currentT].eventList[c];
-		allocBegin.PointerVal = lab.addr;
+		allocBegin.PointerVal = lab.getAddr();
 		returnValueToCaller(typ, allocBegin);
 		return;
 	}
@@ -2513,7 +2513,7 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	for (auto i = 0u; i < g.threads.size(); i++) {
 		for (auto j = 1; j <= before[i]; j++) {
 			auto &lab = g.threads[i].eventList[j];
-			if (lab.isMalloc() && lab.addr == ptr) {
+			if (lab.isMalloc() && lab.getAddr() == ptr) {
 				m = lab.pos;
 				break;
 			}
@@ -2689,7 +2689,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(CAS, Acquire, ptr, typ,	GenericValue(cmpVal), GenericValue(newVal));
+	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,	GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
@@ -2697,7 +2697,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		return;
 	}
 
-	driver->visitStore(CAS, Acquire, ptr, typ, newVal);
+	driver->visitStore(ATTR_CAS, Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
@@ -2722,7 +2722,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(Plain, Release, ptr, typ, val);
+	driver->visitStore(ATTR_PLAIN, Release, ptr, typ, val);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2747,11 +2747,11 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(CAS, Acquire, ptr, typ, GenericValue(cmpVal), GenericValue(newVal));
+	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ, GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(CAS, Acquire, ptr, typ, newVal);
+		driver->visitStore(ATTR_CAS, Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);
@@ -2769,7 +2769,7 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	auto val = driver->visitLibLoad(Plain, mem.getOrdering(), ptr, typ, F->getName().str());
+	auto val = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr, typ, F->getName().str());
 
 	/* Check if the read should read from BOTTOM */
 	if (g.getLastThreadLabel(g.currentT).rf == Event::getInitializer()) {
@@ -2797,7 +2797,7 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	driver->visitLibStore(Plain, mem.getOrdering(), ptr, typ, val, F->getName().str(), mem.isLibInit());
+	driver->visitLibStore(ATTR_PLAIN, mem.getOrdering(), ptr, typ, val, F->getName().str(), mem.isLibInit());
 	return;
 }
 

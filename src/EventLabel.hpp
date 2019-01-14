@@ -33,7 +33,7 @@ class EventLabel {
 
 public:
 	EventType type;
-	EventAttr attr = Plain;
+	EventAttr attr = ATTR_PLAIN;
 	llvm::AtomicOrdering ord = llvm::AtomicOrdering::NotAtomic;
 	Event pos;
 	llvm::GenericValue *addr;
@@ -74,6 +74,11 @@ public:
 		    std::string &functionName, bool isInit); /* Lib Writes */
 
 	unsigned int getStamp() const;
+	const Event &getPos() const;
+	int getIndex() const;
+	int getThread() const;
+	EventAttr getAttr() const;
+	llvm::GenericValue *getAddr() const;
 	View& getHbView();
 	View& getPorfView();
 	View& getMsgView();
@@ -92,6 +97,8 @@ public:
 	bool isAtLeastRelease() const;
 	bool isSC() const;
 	bool isRMW() const;
+	bool isFAI() const;
+	bool isCAS() const;
 	bool isLibInit() const;
 	bool isRevisitable() const;
 	bool hasBeenRevisited() const;

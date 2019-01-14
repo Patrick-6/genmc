@@ -179,10 +179,10 @@ protected:
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
 	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
-	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
+	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
+	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
+	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
+	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
 	bool isRMWLoad(const Event &e);
 	void spawnAllChildren(int thread);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,

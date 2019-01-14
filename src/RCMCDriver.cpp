@@ -203,7 +203,7 @@ void RCMCDriver::filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf
 {
 	auto &g = *currentEG;
 	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
-		if (it->second.empty() || it->second[0].toRevisit != rLab.pos)
+		if (it->second.empty() || it->second[0].toRevisit != rLab.getPos())
 			continue;
 
 		auto &sv = it->second;
@@ -225,7 +225,7 @@ void RCMCDriver::restrictGraph(unsigned int stamp)
 		for (auto j = v[i] + 1; j < g.maxEvents[i]; j++) {
 			auto &lab = g.threads[i].eventList[j];
 			if (lab.isMalloc())
-				EE->freeRegion(lab.addr, lab.val.IntVal.getLimitedValue());
+				EE->freeRegion(lab.getAddr(), lab.val.IntVal.getLimitedValue());
 		}
 	}
 
@@ -310,28 +310,28 @@ Event RCMCDriver::checkForRaces()
 
 	auto racy = Event::getInitializer();
 	if (lab.isRead())
-		racy = g.findRaceForNewLoad(lab.pos);
+		racy = g.findRaceForNewLoad(lab.getPos());
 	else
-		racy = g.findRaceForNewStore(lab.pos);
+		racy = g.findRaceForNewStore(lab.getPos());
 
 	/* If a race is found and the execution is consistent, return it */
 	if (!racy.isInitializer() && isExecutionValid())
 		return racy;
 
 	/* Else, if this is a heap allocation, also look for memory errors */
-	if (!EE->isHeapAlloca(lab.addr))
+	if (!EE->isHeapAlloca(lab.getAddr()))
 		return Event::getInitializer();
 
-	auto before = g.getHbBefore(lab.pos.prev());
+	auto before = g.getHbBefore(lab.getPos().prev());
 	for (auto i = 0u; i < g.threads.size(); i++)
 		for (auto j = 0; j < g.maxEvents[i]; j++) {
 			auto &oLab = g.threads[i].eventList[j];
-			if (oLab.isFree() && oLab.addr == lab.addr)
-				return oLab.pos;
-			if (oLab.isMalloc() && oLab.addr <= lab.addr &&
-			    lab.addr < oLab.val.PointerVal &&
-			    oLab.pos.index > before[oLab.pos.thread])
-				return oLab.pos;
+			if (oLab.isFree() && oLab.getAddr() == lab.getAddr())
+				return oLab.getPos();
+			if (oLab.isMalloc() && oLab.getAddr() <= lab.getAddr() &&
+			    lab.getAddr() < oLab.val.PointerVal &&
+			    oLab.getIndex() > before[oLab.getThread()])
+				return oLab.getPos();
 	}
 	return Event::getInitializer();
 }
@@ -344,12 +344,12 @@ std::vector<Event> RCMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *t
 	auto before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
 	std::vector<Event> valid, conflicting;
 
-	if (attr == Plain)
+	if (attr == ATTR_PLAIN)
 		return stores;
 
 	for (auto &s : stores) {
 		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
-		if ((attr == CAS && !EE->compareValues(typ, oldVal, expVal.back())) ||
+		if ((attr == ATTR_CAS && !EE->compareValues(typ, oldVal, expVal.back())) ||
 		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
 			if (g.isStoreReadByExclusiveRead(s, ptr))
 				conflicting.push_back(s);
@@ -394,7 +394,7 @@ llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering or
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+		addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
 	return EE->loadValueFromWrite(validStores[0], typ, addr);
 }
 
@@ -409,7 +409,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 		return;
 
 	auto &locMO = g.modOrder[addr];
-	auto[begO, endO] = getPossibleMOPlaces(addr, attr == RMW || attr == CAS);
+	auto[begO, endO] = getPossibleMOPlaces(addr, attr == ATTR_FAI || attr == ATTR_CAS);
 
 	/* It is always consistent to add the store at the end of MO */
 	auto &sLab = g.addStoreToGraph(attr, ord, addr, typ, val, endO);
@@ -428,7 +428,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 			continue;
 
 		/* Push the stack item */
-		addToWorklist(MOWrite, sLab.pos, sLab.rf, {}, {}, {},
+		addToWorklist(MOWrite, sLab.getPos(), sLab.rf, {}, {}, {},
 			      std::distance(locMO.begin(), it));
 	}
 
@@ -452,18 +452,18 @@ bool RCMCDriver::calcRevisits(EventLabel &lab)
 		auto &rLab = g.getEventLabel(l);
 		auto preds = g.getViewFromStamp(rLab.getStamp());
 
-		auto before = g.getPorfBefore(lab.pos);
+		auto before = g.getPorfBefore(lab.getPos());
 		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, preds);
 
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
-		writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
-		if (worklistContainsPrf(rLab, lab.pos, writePrefix, moPlacings))
+		if (worklistContainsPrf(rLab, lab.getPos(), writePrefix, moPlacings))
 			continue;
 
-		filterWorklistPrf(rLab, lab.pos, writePrefix, moPlacings);
+		filterWorklistPrf(rLab, lab.getPos(), writePrefix, moPlacings);
 
-		addToWorklist(SRevisit, rLab.pos, lab.pos, before,
+		addToWorklist(SRevisit, rLab.getPos(), lab.getPos(), before,
 			      std::move(writePrefix), std::move(moPlacings));
 	}
 	return (!lab.isRMW() || pendingRMWs.empty());
@@ -498,14 +498,14 @@ bool RCMCDriver::revisitReads(StackItem &p)
 		break;
 	case MOWrite: {
 		/* Try a different MO ordering, and also consider reads to revisit */
-		auto &locMO = g.modOrder[lab.addr];
-		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));
-		locMO.insert(locMO.begin() + p.moPos, lab.pos);
+		auto &locMO = g.modOrder[lab.getAddr()];
+		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.getPos()));
+		locMO.insert(locMO.begin() + p.moPos, lab.getPos());
 		return calcRevisits(lab); }
 	case MOWriteLib: {
-		auto &locMO = g.modOrder[lab.addr];
-		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.pos));
-		locMO.insert(locMO.begin() + p.moPos, lab.pos);
+		auto &locMO = g.modOrder[lab.getAddr()];
+		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.getPos()));
+		locMO.insert(locMO.begin() + p.moPos, lab.getPos());
 		return calcLibRevisits(lab); /* Nothing else to do */ }
 	default:
 		BUG();
@@ -517,14 +517,14 @@ bool RCMCDriver::revisitReads(StackItem &p)
 	 */
 	g.changeRf(lab, p.shouldRf);
 
-	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-	if (lab.isRead() && lab.isRMW() && (lab.attr == RMW || EE->compareValues(lab.valTyp, lab.val, rfVal))) {
-		g.currentT = lab.pos.thread;
+	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.getAddr());
+	if (lab.isRead() && lab.isRMW() && (lab.isFAI() || EE->compareValues(lab.valTyp, lab.val, rfVal))) {
+		g.currentT = lab.getThread();
 		auto newVal = lab.nextVal;
-		if (lab.attr == RMW)
+		if (lab.isFAI())
 			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
-		auto offsetMO = g.modOrder.getStoreOffset(lab.addr, lab.rf) + 1;
-		auto &sLab = g.addStoreToGraph(lab.attr, lab.ord, lab.addr, lab.valTyp, newVal, offsetMO);
+		auto offsetMO = g.modOrder.getStoreOffset(lab.getAddr(), lab.rf) + 1;
+		auto &sLab = g.addStoreToGraph(lab.getAttr(), lab.ord, lab.getAddr(), lab.valTyp, newVal, offsetMO);
 		return calcRevisits(sLab);
 	}
 
@@ -550,7 +550,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	auto &lab = g.addLibReadToGraph(Plain, ord, addr, typ, Event::getInitializer(), functionName);
+	auto &lab = g.addLibReadToGraph(ATTR_PLAIN, ord, addr, typ, Event::getInitializer(), functionName);
 
 	/* Make sure there exists an initializer event for this memory location */
 	auto stores(g.modOrder[addr]);
@@ -574,7 +574,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 		BUG_ON(validStores.empty());
 		g.changeRf(lab, validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-			addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+			addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
 		return EE->loadValueFromWrite(lab.rf, typ, addr);
 	}
 
@@ -592,7 +592,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 		auto &sLab = g.getEventLabel(*it);
 		BUG_ON(sLab.rfm1.size() > 1);
 		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
-			addToWorklist(SReadLibFunc, lab.pos, *it, {}, {}, {});
+			addToWorklist(SReadLibFunc, lab.getPos(), *it, {}, {}, {});
 	}
 
 	/* If there is no valid RF, we have to read BOTTOM */
@@ -612,7 +612,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 	g.changeRf(lab, validStores[0]);
 
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
-		addToWorklist(SRead, lab.pos, *it, {}, {}, {});
+		addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
 
 	return EE->loadValueFromWrite(lab.rf, typ, addr);
 }
@@ -658,15 +658,15 @@ void RCMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::G
 	 */
 	locMO.pop_back();
 	for (auto i = begO; i < endO; ++i) {
-		locMO.insert(locMO.begin() + i, sLab.pos);
+		locMO.insert(locMO.begin() + i, sLab.getPos());
 
 		/* Check consistency for the graph with this MO */
 		auto preds = g.getViewFromStamp(sLab.getStamp());
 		if (g.isLibConsistentInView(*lib, preds))
-			addToWorklist(MOWriteLib, sLab.pos, sLab.rf, {}, {}, {}, i);
+			addToWorklist(MOWriteLib, sLab.getPos(), sLab.rf, {}, {}, {}, i);
 		locMO.erase(locMO.begin() + i);
 	}
-	locMO.push_back(sLab.pos);
+	locMO.push_back(sLab.getPos());
 	return;
 }
 
@@ -691,11 +691,11 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 	} else {
 		/* It is a normal store -- we need to find revisitable loads */
 		loads = g.getRevisitable(lab);
-		stores = {lab.pos};
+		stores = {lab.getPos()};
 	}
 
 	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto before = g.getPorfBefore(lab.pos);
+	auto before = g.getPorfBefore(lab.getPos());
 	for (auto &l : loads) {
 		/* Calculate the view of the resulting graph */
 		auto &rLab = g.getEventLabel(l);
@@ -712,14 +712,14 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, preds)
 				                                   : std::vector<std::pair<Event, Event> >();
 			auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
-			writePrefixPos.insert(writePrefixPos.begin(), lab.pos);
+			writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
 			if (worklistContainsPrf(rLab, rf, writePrefix, moPlacings))
 				continue;
 
 			filterWorklistPrf(rLab, rf, writePrefix, moPlacings);
 
-			addToWorklist(SRevisit, rLab.pos, rf, before,
+			addToWorklist(SRevisit, rLab.getPos(), rf, before,
 				      std::move(writePrefix), std::move(moPlacings));
 
 		}
@@ -750,8 +750,8 @@ std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 		Thread &thr = g.threads[i];
 		for (auto j = before[i] + 1; j < g.maxEvents[i]; j++) {
 			EventLabel &lab = thr.eventList[j];
-			if (lab.isWrite() && lab.addr == addr)
-				stores.push_back(lab.pos);
+			if (lab.isWrite() && lab.getAddr() == addr)
+				stores.push_back(lab.getPos());
 		}
 	}
 	return stores;
@@ -824,7 +824,7 @@ std::pair<int, int> RCMCDriverMO::getPossibleMOPlaces(llvm::GenericValue *addr, 
 		return std::make_pair(offset, offset);
 	}
 
-	auto before = g.getHbBefore(pLab.pos);
+	auto before = g.getHbBefore(pLab.getPos());
 	return g.splitLocMOBefore(addr, before);
 }
 
@@ -832,14 +832,14 @@ std::vector<Event> RCMCDriverMO::getRevisitLoads(EventLabel &sLab)
 {
 	auto &g = *currentEG;
 	auto ls = g.getRevisitable(sLab);
-	auto &locMO = g.modOrder[sLab.addr];
+	auto &locMO = g.modOrder[sLab.getAddr()];
 
 	/* If this store is mo-maximal then we are done */
-	if (locMO.back() == sLab.pos)
+	if (locMO.back() == sLab.getPos())
 		return ls;
 
 	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
-	auto optRfs = g.getMoOptRfAfter(sLab.pos);
+	auto optRfs = g.getMoOptRfAfter(sLab.getPos());
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ View before = g.getHbPoBefore(e);
 				  return std::any_of(optRfs.begin(), optRfs.end(),
@@ -936,7 +936,7 @@ std::vector<Event> RCMCDriverWB::getRevisitLoads(EventLabel &sLab)
 	 * since this will create a cycle in WB
 	 */
 	auto chain = g.getRMWChainDownTo(sLab, Event::getInitializer());
-	auto hbAfterStores = g.getStoresHbAfterStores(sLab.addr, chain);
+	auto hbAfterStores = g.getStoresHbAfterStores(sLab.getAddr(), chain);
 
 	auto it = std::remove_if(ls.begin(), ls.end(), [&](Event &l)
 				 { auto &pLab = g.getPreviousLabel(l);

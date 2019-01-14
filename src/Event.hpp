@@ -26,7 +26,8 @@
 
 enum EventType { EStart, EFinish, ETCreate, ETJoin,
 		 ERead, EWrite, EFence, EMalloc, EFree };
-enum EventAttr { Plain, CAS, RMW};
+
+enum EventAttr { ATTR_PLAIN, ATTR_CAS, ATTR_FAI};
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t);
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a);
@@ -44,8 +45,8 @@ struct Event {
 
 	bool isInitializer() const { return *this == getInitializer(); };
 	bool isInitializer()       { return *this == getInitializer(); };
-	Event prev() { return Event(thread, index-1); };
-	Event next() { return Event(thread, index+1); };
+	Event prev() const { return Event(thread, index-1); };
+	Event next() const { return Event(thread, index+1); };
 
 	inline bool operator==(const Event &e) const {
 		return e.index == index && e.thread == thread;
