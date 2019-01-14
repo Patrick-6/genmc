@@ -111,14 +111,12 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(EventLabel &sLab)
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
 	auto &pLab = getPreviousLabel(sLab.pos);
-	auto wVal = EE->loadValueFromWrite(pLab.rf, pLab.valTyp, pLab.addr);
 	for (auto i = 0u; i < threads.size(); i++) {
 		Thread &thr = threads[i];
 		for (auto j = 1; j < maxEvents[i]; j++) { /* Skip thread start */
 			EventLabel &lab = thr.eventList[j];
-			if (lab.isRead() && lab.isRMW() && lab.addr == pLab.addr &&
-			    lab.pos != pLab.pos && lab.rf == pLab.rf &&
-			    EE->isSuccessfulRMW(lab, wVal))
+			if (isRMWLoad(lab.pos) && lab.rf == pLab.rf &&
+			    lab.addr == pLab.addr && lab.pos != pLab.pos)
 				pending.push_back(lab.pos);
 		}
 	}
@@ -215,8 +213,7 @@ std::vector<Event> ExecutionGraph::getRMWChainUpTo(const EventLabel &sLab, const
 		/* Check if other successful RMWs are reading from this write (at most one) */
 		std::vector<Event> rmwRfs;
 		std::copy_if(curr->rfm1.begin(), curr->rfm1.end(), std::back_inserter(rmwRfs),
-			     [this, curr](const Event &r){ auto &rLab = getEventLabel(r);
-					             return EE->isSuccessfulRMW(rLab, curr->val); });
+			     [&](const Event &r){ return isRMWLoad(r); });
 		BUG_ON(rmwRfs.size() > 1);
 
 		/* If there is none, we reached the upper limit of the chain */
@@ -652,6 +649,34 @@ bool ExecutionGraph::isWriteRfBefore(View &before, Event e)
 	for (auto &e : lab.rfm1)
 		if (e.index <= before[e.thread])
 			return true;
+	return false;
+}
+
+bool ExecutionGraph::isStoreReadByExclusiveRead(Event &store, llvm::GenericValue *ptr)
+{
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			auto &lab = threads[i].eventList[j];
+			if (isRMWLoad(lab.pos) && lab.rf == store && lab.addr == ptr)
+				return true;
+		}
+	}
+	return false;
+}
+
+bool ExecutionGraph::isStoreReadBySettledRMW(Event &store, llvm::GenericValue *ptr, View &porfBefore)
+{
+	for (auto i = 0u; i < threads.size(); i++) {
+		for (auto j = 0; j < maxEvents[i]; j++) {
+			auto &lab = threads[i].eventList[j];
+			if (isRMWLoad(lab.pos) && lab.rf == store && lab.addr == ptr) {
+				if (!lab.isRevisitable())
+					return true;
+				if (lab.pos.index <= porfBefore[lab.pos.thread])
+					return true;
+			}
+		}
+	}
 	return false;
 }
 
@@ -1108,7 +1133,7 @@ void addEdgesFromTo(const std::vector<int> &from, const std::vector<int> &to,
  ** PSC calculation
  ***********************************************************/
 
-bool ExecutionGraph::isRMWLoad(Event &e)
+bool ExecutionGraph::isRMWLoad(const Event &e)
 {
 	EventLabel &lab = getEventLabel(e);
 	if (lab.isWrite() || !lab.isRMW())

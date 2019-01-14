@@ -146,7 +146,9 @@ public:
 	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(StackItem &s);
 
-
+	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
+					       std::vector<llvm::GenericValue> expVal,
+					       std::vector<Event> &stores);
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW = false) = 0;

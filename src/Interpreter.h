@@ -199,24 +199,8 @@ public:
   /* Helper functions */
   void collectGPs(Module *M, void *ptr, Type *typ);
   void replayExecutionBefore(View &before);
-  bool isReadByAtomicRead(Event w, GenericValue &wVal, Type *typ, GenericValue *ptr);
-  bool isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
-				  GenericValue *ptr, View &before);
-  bool isSuccessfulRMW(EventLabel &lab, const GenericValue &rfVal);
+  bool compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
   GenericValue loadValueFromWrite(Event &w, Type *typ, GenericValue *ptr);
-  std::vector<Event> getStoresToLoc(GenericValue *ptr);
-  std::vector<Event> properlyOrderStores(EventAttr attr, Type *typ,
-					 GenericValue *ptr, std::vector<GenericValue> expVal,
-					 std::vector<Event> &stores);
-  std::vector<Event> properlyOrderStoresPlain(Type *typ, GenericValue *ptr,
-					      std::vector<GenericValue> &expVal,
-					      std::vector<Event> &stores);
-  std::vector<Event> properlyOrderStoresCAS(Type *typ, GenericValue *ptr,
-					    std::vector<GenericValue> &expVal,
-					    std::vector<Event> &stores);
-  std::vector<Event> properlyOrderStoresRMW(Type *typ, GenericValue *ptr,
-					    std::vector<GenericValue> &expVal,
-					    std::vector<Event> &stores);
   void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
 				 GenericValue &val, AtomicRMWInst::BinOp op);
 

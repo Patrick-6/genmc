@@ -336,6 +336,31 @@ Event RCMCDriver::checkForRaces()
 	return Event::getInitializer();
 }
 
+std::vector<Event> RCMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
+						   std::vector<llvm::GenericValue> expVal,
+						   std::vector<Event> &stores)
+{
+	auto &g = *currentEG;
+	auto before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	std::vector<Event> valid, conflicting;
+
+	if (attr == Plain)
+		return stores;
+
+	for (auto &s : stores) {
+		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
+		if ((attr == CAS && !EE->compareValues(typ, oldVal, expVal.back())) ||
+		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
+			if (g.isStoreReadByExclusiveRead(s, ptr))
+				conflicting.push_back(s);
+			else
+				valid.push_back(s);
+		}
+	}
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+	return valid;
+}
+
 llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
 					 llvm::GenericValue *addr, llvm::Type *typ,
 					 llvm::GenericValue &&cmpVal,
@@ -354,7 +379,7 @@ llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering or
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
-	auto validStores = EE->properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
+	auto validStores = properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
 	auto &lab = g.addReadToGraph(attr, ord, addr, typ, validStores[0],
@@ -493,14 +518,13 @@ bool RCMCDriver::revisitReads(StackItem &p)
 	g.changeRf(lab, p.shouldRf);
 
 	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.addr);
-	if (lab.isRead() && lab.isRMW() && EE->isSuccessfulRMW(lab, rfVal)) {
+	if (lab.isRead() && lab.isRMW() && (lab.attr == RMW || EE->compareValues(lab.valTyp, lab.val, rfVal))) {
 		g.currentT = lab.pos.thread;
 		auto newVal = lab.nextVal;
 		if (lab.attr == RMW)
 			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
 		auto offsetMO = g.modOrder.getStoreOffset(lab.addr, lab.rf) + 1;
-		g.addStoreToGraph(lab.attr, lab.ord, lab.addr, lab.valTyp, newVal, offsetMO);
-		auto &sLab = g.getLastThreadLabel(g.currentT);
+		auto &sLab = g.addStoreToGraph(lab.attr, lab.ord, lab.addr, lab.valTyp, newVal, offsetMO);
 		return calcRevisits(sLab);
 	}
 

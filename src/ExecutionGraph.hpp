@@ -62,6 +62,8 @@ public:
 	std::vector<llvm::ExecutionContext> &getECStack(int thread);
 	bool isThreadComplete(int thread);
 	bool isWriteRfBefore(View &before, Event e);
+	bool isStoreReadByExclusiveRead(Event &store, llvm::GenericValue *ptr);
+	bool isStoreReadBySettledRMW(Event &store, llvm::GenericValue *ptr, View &porfBefore);
 
 	/* Basic setter methods */
 	EventLabel& addReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
@@ -181,7 +183,7 @@ protected:
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
 	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event &e);
-	bool isRMWLoad(Event &e);
+	bool isRMWLoad(const Event &e);
 	void spawnAllChildren(int thread);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
 			std::vector<int> &moAfter, std::vector<int> &moRfAfter,

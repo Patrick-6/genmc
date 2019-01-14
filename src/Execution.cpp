@@ -43,19 +43,15 @@ static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
 
+static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
+
 static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
-
-bool Interpreter::isSuccessfulRMW(EventLabel &lab, const GenericValue &rfVal)
+bool Interpreter::compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2)
 {
-	if (lab.attr == Plain)
-		return false;
-	if (lab.attr == RMW)
-		return true;
-	return executeICMP_EQ(lab.val, rfVal, lab.valTyp).IntVal.getBoolValue();
+	return executeICMP_EQ(val1, val2, typ).IntVal.getBoolValue();
 }
 
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
@@ -71,46 +67,6 @@ GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericVal
 
 	EventLabel &lab = g.getEventLabel(write);
 	return lab.val;
-}
-
-bool Interpreter::isStoreNotReadBySettledRMW(Event &write, GenericValue &wVal, Type *typ,
-					     GenericValue *ptr, View &before)
-{
-	ExecutionGraph &g = *driver->getGraph();
-
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isRead() && lab.rf == write &&
-			    lab.addr == ptr && lab.isRMW()) {
-				if (!isSuccessfulRMW(lab, wVal))
-					continue;
-
-				if (!lab.isRevisitable())
-					return false;
-				if (lab.pos.index <= before[lab.pos.thread])
-					return false;
-			}
-		}
-	}
-	return true;
-}
-
-bool Interpreter::isReadByAtomicRead(Event w, GenericValue &wVal,
-				     Type *typ, GenericValue *ptr)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
-			if (lab.isRead() && lab.isRMW() && lab.addr == ptr &&
-			    lab.rf == w && isSuccessfulRMW(lab, wVal))
-				return true;
-		}
-	}
-	return false;
 }
 
 
@@ -1225,76 +1181,6 @@ void Interpreter::visitFenceInst(FenceInst &I)
 
 	g.addFenceToGraph(I.getOrdering());
 	return;
-}
-
-std::vector<Event> Interpreter::properlyOrderStoresPlain(Type *typ, GenericValue *ptr,
-							 std::vector<GenericValue> &expVal,
-							 std::vector<Event> &stores)
-{
-//	ExecutionGraph &g = *driver->getGraph();
-	return stores;
-}
-
-std::vector<Event> Interpreter::properlyOrderStoresCAS(Type *typ, GenericValue *ptr,
-							 std::vector<GenericValue> &expVal,
-							 std::vector<Event> &stores)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	View before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
-	std::vector<Event> valid, conflicting;
-
-	for (auto &s : stores) {
-		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
-		GenericValue cmpRes = executeICMP_EQ(oldVal, expVal.back(), typ);
-		if (cmpRes.IntVal.getBoolValue() == 0 ||
-		    isStoreNotReadBySettledRMW(s, oldVal, typ, ptr, before)) {
-			if (isReadByAtomicRead(s, oldVal, typ, ptr))
-				conflicting.push_back(s);
-			else
-				valid.push_back(s);
-		}
-	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
-	return valid;
-}
-
-std::vector<Event> Interpreter::properlyOrderStoresRMW(Type *typ, GenericValue *ptr,
-						       std::vector<GenericValue> &expVal,
-						       std::vector<Event> &stores)
-{
-	ExecutionGraph &g = *driver->getGraph();
-	View before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
-	std::vector<Event> valid, conflicting;
-
-	for (auto &s : stores) {
-		GenericValue oldVal = loadValueFromWrite(s, typ, ptr);
-		if (isStoreNotReadBySettledRMW(s, oldVal, typ, ptr, before)) {
-			if (isReadByAtomicRead(s, oldVal, typ, ptr))
-				conflicting.push_back(s);
-			else
-				valid.push_back(s);
-		}
-	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
-	return valid;
-}
-
-
-std::vector<Event> Interpreter::properlyOrderStores(EventAttr attr, Type *typ,
-						    GenericValue *ptr,
-						    std::vector<GenericValue> expVal,
-						    std::vector<Event> &stores)
-{
-	switch (attr) {
-	case Plain:
-		return properlyOrderStoresPlain(typ, ptr,expVal, stores);
-	case CAS:
-		return properlyOrderStoresCAS(typ, ptr, expVal, stores);
-	case RMW:
-		return properlyOrderStoresRMW(typ, ptr,expVal, stores);
-	default:
-		BUG();
-	}
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
