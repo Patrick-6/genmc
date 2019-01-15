@@ -109,7 +109,8 @@ public:
 
 	void visitGraph(ExecutionGraph &g);
 	Event checkForRaces();
-
+	bool isExecutionDrivenByGraph();
+	EventLabel& getCurrentLabel();
 
 	llvm::GenericValue visitThreadSelf(llvm::Type *typ);
 	int visitThreadCreate(llvm::Function *F, const llvm::ExecutionContext &SF);

@@ -293,6 +293,20 @@ start:
 	goto start;
 }
 
+bool RCMCDriver::isExecutionDrivenByGraph()
+{
+	ExecutionGraph &g = *currentEG;
+	return ++g.threads[g.currentT].globalInstructions < g.maxEvents[g.currentT];
+}
+
+EventLabel& RCMCDriver::getCurrentLabel()
+{
+	ExecutionGraph &g = *currentEG;
+
+	BUG_ON(g.threads[g.currentT].globalInstructions >= g.maxEvents[g.currentT]);
+	return g.threads[g.currentT].eventList[g.threads[g.currentT].globalInstructions];
+}
+
 /*
  * This function is called to check for races when a new event is added.
  * When a race is detected, we have to actually ensure that the execution is valid,
@@ -375,8 +389,7 @@ int RCMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Executi
 	ExecutionGraph &g = *currentEG;
 	int tid;
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] <= c) {
+	if (!isExecutionDrivenByGraph()) {
 		tid = g.threads.size();
 		g.addTCreateToGraph(tid);
 
@@ -387,7 +400,7 @@ int RCMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Executi
 
 		g.addStartToGraph(tid, g.getLastThreadEvent(g.currentT));
 	} else {
-		tid = g.threads[g.currentT].eventList[c].cid;
+		tid = getCurrentLabel().cid;
 		g.getECStack(tid).push_back(SF);
 	}
 	return tid;
@@ -407,15 +420,14 @@ llvm::GenericValue RCMCDriver::visitThreadJoin(llvm::Function *F, const llvm::Ge
 		abort();
 	}
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] <= c) {
+	if (!isExecutionDrivenByGraph()) {
 		/* Add a relevant event to the graph */
 		g.addTJoinToGraph(tid);
 	}
 
 	Event child = g.getLastThreadEvent(tid);
 	EventLabel &cLab = g.getEventLabel(child);
-	EventLabel &lab = g.threads[g.currentT].eventList[c];
+	EventLabel &lab = getCurrentLabel();
 	if (!cLab.isFinish()) {
 		/* This thread will remain blocked until the respective child terminates */
 		g.threads[g.currentT].isBlocked = true;
@@ -436,8 +448,7 @@ void RCMCDriver::visitThreadFinish()
 {
 	ExecutionGraph &g = *currentEG;
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] <= c && /* Make sure that there is not a failed assume... */
+	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
 	    !g.threads[g.currentT].isBlocked) {
 		g.addFinishToGraph();
 
@@ -468,8 +479,7 @@ void RCMCDriver::visitFence(llvm::AtomicOrdering ord)
 {
 	ExecutionGraph &g = *currentEG;
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c)
+	if (isExecutionDrivenByGraph())
 		return;
 
 	g.addFenceToGraph(ord);
@@ -484,10 +494,8 @@ llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering or
 {
 	auto &g = *currentEG;
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		auto &lab = g.threads[g.currentT].eventList[c];
+	if (isExecutionDrivenByGraph()) {
+		auto &lab = getCurrentLabel();
 		auto val = EE->loadValueFromWrite(lab.rf, typ, addr);
 		return val;
 	}
@@ -519,8 +527,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 {
 	auto &g = *currentEG;
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c)
+	if (isExecutionDrivenByGraph())
 		return;
 
 	auto &locMO = g.modOrder[addr];
@@ -556,10 +563,8 @@ llvm::GenericValue RCMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 	auto &g = *currentEG;
 	llvm::GenericValue allocBegin, allocEnd;
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		auto &lab = g.threads[g.currentT].eventList[c];
+	if (isExecutionDrivenByGraph()) {
+		auto &lab = getCurrentLabel();
 		allocBegin.PointerVal = lab.getAddr();
 		return allocBegin;
 	}
@@ -590,9 +595,7 @@ void RCMCDriver::visitFree(llvm::GenericValue *ptr)
 	auto &g = *currentEG;
 	llvm::GenericValue val;
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT])
+	if (isExecutionDrivenByGraph())
 		return;
 
 	/* Attempt to free a NULL pointer */
@@ -770,10 +773,8 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 	auto &g = *currentEG;
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		auto &lab = g.threads[g.currentT].eventList[c];
+	if (isExecutionDrivenByGraph()) {
+		auto &lab = getCurrentLabel();
 		auto val = EE->loadValueFromWrite(lab.rf, typ, addr);
 		return val;
 	}
@@ -852,8 +853,7 @@ void RCMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::G
 {
 	auto &g = *currentEG;
 
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c)
+	if (isExecutionDrivenByGraph())
 		return;
 
 	/* TODO: Make virtual the race-tracking function ?? */
