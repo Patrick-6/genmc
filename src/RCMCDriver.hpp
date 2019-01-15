@@ -51,25 +51,6 @@ struct StackItem {
 		: type(t), stamp(stamp), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
 		  storePorfBefore(before), writePrefix(writePrefix), moPlacings(moPlacings),
 		  moPos(newMoPos) {};
-	// StackItem(StackItemType t, Event shouldRf)
-	// 	: type(t), shouldRf(shouldRf) {};
-	// StackItem(StackItemType t, std::vector<Event> newMO)
-	// 	: type(t), newMO(newMO) {};
-	// StackItem(StackItemType t, int newMOPos)
-	// 	: type(t), moPos(newMOPos) {};
-	// StackItem(StackItemType t, Event shouldRf, View before,
-	// 	  std::vector<EventLabel> &writePrefix)
-	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
-	// 	  writePrefix(writePrefix) {};
-	// StackItem(StackItemType t, Event shouldRf, View before,
-	// 	  std::vector<EventLabel> &writePrefix,
-	// 	  std::vector<std::pair<Event, Event> > moPlacings)
-	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
-	// 	  writePrefix(writePrefix), moPlacings(moPlacings) {};
-	// StackItem(StackItemType t, Event shouldRf, View before,
-	// 	  std::vector<EventLabel> &writePrefix, Event oldRf)
-	// 	: type(t), shouldRf(shouldRf), storePorfBefore(before),
-	// 	  writePrefix(writePrefix), oldRf(oldRf) {};
 };
 
 class RCMCDriver {
@@ -129,6 +110,12 @@ public:
 	void visitGraph(ExecutionGraph &g);
 	Event checkForRaces();
 
+
+	llvm::GenericValue visitThreadSelf(llvm::Type *typ);
+	int visitThreadCreate(llvm::Function *F, const llvm::ExecutionContext &SF);
+	llvm::GenericValue visitThreadJoin(llvm::Function *F, const llvm::GenericValue &arg);
+	void visitThreadFinish();
+	void visitFence(llvm::AtomicOrdering ord);
 	llvm::GenericValue visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
 				     llvm::GenericValue *addr, llvm::Type *typ,
 				     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
@@ -136,6 +123,10 @@ public:
 				     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
 	void visitStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *addr,
 			llvm::Type *typ, llvm::GenericValue &val);
+	llvm::GenericValue visitMalloc(const llvm::GenericValue &size);
+	void visitFree(llvm::GenericValue *ptr);
+	void visitError(std::string &err);
+
 	bool calcRevisits(EventLabel &lab);
 	llvm::GenericValue visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
 					llvm::GenericValue *addr, llvm::Type *typ,

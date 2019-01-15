@@ -47,7 +47,7 @@ public:
 	Thread();
 	Thread(llvm::Function *F);
 	Thread(llvm::Function *F, int id);
-	Thread(llvm::Function *F, int id, int pid, llvm::ExecutionContext &SF);
+	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF);
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t);
 };
 

@@ -33,7 +33,7 @@ Thread::Thread(llvm::Function *F)
 Thread::Thread(llvm::Function *F, int id)
 	: id(id), parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false) {}
 
-Thread::Thread(llvm::Function *F, int id, int pid, llvm::ExecutionContext &SF)
+Thread::Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
 	: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
 	  isBlocked(false) {}
 

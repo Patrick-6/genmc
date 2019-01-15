@@ -863,8 +863,6 @@ void Interpreter::exitCalled(GenericValue GV) {
 ///
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
-
-  ExecutionGraph &g = *driver->getGraph();
   // Pop the current stack frame.
   ECStack().pop_back();
 
@@ -875,32 +873,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   //     memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   //   }
   if (ECStack().empty()) {
-	  int c = ++g.threads[g.currentT].globalInstructions;
-	  if (g.maxEvents[g.currentT] <= c && /* Make sure that there is not a failed assume... */
-	      !g.threads[g.currentT].isBlocked) {
-		  g.addFinishToGraph();
-
-		  if (g.currentT == 0)
-			  return;
-
-		  Event e = g.getLastThreadEvent(g.currentT);
-		  EventLabel &lab = g.getEventLabel(e);
-
-		  for (auto i = 0u; i < g.threads.size(); i++) {
-			  Event p = g.getLastThreadEvent(i);
-			  EventLabel &pLab = g.getEventLabel(p);
-			  if (pLab.isJoin() && pLab.cid == g.currentT) {
-				  /* If parent thread is waiting for me, relieve it */
-				  g.threads[i].isBlocked = false;
-				  /* Update relevant join event */
-				  pLab.rf = e;
-				  lab.rfm1.push_back(pLab.pos);
-				  pLab.hbView.updateMax(lab.msgView);
-				  pLab.porfView.updateMax(lab.porfView);
-			  }
-		  }
-	  } /* TODO: Maybe move view update into thread finish creation? */
-	  /* TODO: Also fix return value here */
+    driver->visitThreadFinish();
   } else {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
@@ -1173,13 +1146,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 void Interpreter::visitFenceInst(FenceInst &I)
 {
-	ExecutionGraph &g = *driver->getGraph();
-
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] > c)
-		return;
-
-	g.addFenceToGraph(I.getOrdering());
+	driver->visitFence(I.getOrdering());
 	return;
 }
 
@@ -2398,36 +2365,9 @@ void Interpreter::replayExecutionBefore(View &before)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
 	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
 
-	/* Is the execution that led to the error consistent? */
-	if (!driver->isExecutionValid()) {
-		ECStack().clear();
-		g.threads[g.currentT].isBlocked = true;
-		return;
-	}
-
-	auto assertThr = g.currentT;
-	auto errorEvent = g.getLastThreadEvent(assertThr);
-	auto before = g.getPorfBefore(errorEvent);
-
-	/* Print error trace */
-	if (userConf->printErrorTrace) {
-		replayExecutionBefore(before);
-		g.printTraceBefore(g.getLastThreadEvent(assertThr));
-	}
-
-	/* Dump the graph into a file (DOT format) */
-	if (userConf->dotFile != "") {
-		replayExecutionBefore(before);
-		driver->dotPrintToFile(userConf->dotFile, before, errorEvent);
-	}
-
-	/* Print results and abort */
-	dbgs() << "Assertion violation: " << err << "\n";
-	driver->printResults();
-	abort();
+	driver->visitError(err);
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2448,114 +2388,33 @@ void Interpreter::callVerifierAssume(Function *F,
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	auto &g = *driver->getGraph();
-	llvm::Type *typ = F->getReturnType();
-	GenericValue allocBegin, allocEnd;
-
-	/* HACK: We can call call loadValueFrom{Write,Memory}() despite the fact that
-	 * it will try to return the value of the load's RF. This is because thef
-	 * type of this read is a PointerTy, so the returned value will be the
-	 * address of the read.
-	 *
-	 * If the type was an IntegerTy, LoadValueFromMemory() would go on and
-	 * memcpy bytes from the respective address.
-	 */
-
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT]) {
-		auto &lab = g.threads[g.currentT].eventList[c];
-		allocBegin.PointerVal = lab.getAddr();
-		returnValueToCaller(typ, allocBegin);
-		return;
-	}
-
-	WARN_ON_ONCE(ArgVals[0].IntVal.getBitWidth() > 64, "malloc-alignment",
-		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
-
-	/* Get a fresh address and also store the size of this allocation */
-	allocBegin.PointerVal = heapAllocas.empty() ? (char *) globalVars.back() + 1
-		                                    : (char *) heapAllocas.back() + 1;
-	uint64_t size = ArgVals[0].IntVal.getLimitedValue();
-	allocEnd.PointerVal = (char *) allocBegin.PointerVal + size;
-
-	/* Track the address allocated*/
-	char *ptr = static_cast<char *>(allocBegin.PointerVal);
-	for (auto i = 0u; i < size; i++)
-		heapAllocas.push_back(ptr + i);
-
-	/* Memory allocations are modeled as read events reading from INIT */
-	g.addMallocToGraph(static_cast<llvm::GenericValue *>(allocBegin.PointerVal),
-			   allocEnd);
-
-	returnValueToCaller(typ, allocBegin);
+	GenericValue address = driver->visitMalloc(ArgVals[0]);
+	returnValueToCaller(F->getReturnType(), address);
 	return;
 }
 
 void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	auto &g = *driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
-	llvm::Type *typ = F->getReturnType();
-	GenericValue val;
 
-	/* Is the execution driven by an existing graph? */
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (c < g.maxEvents[g.currentT])
-		return;
-
-	/* Attempt to free a NULL pointer */
-	if (ptr == NULL)
-		return;
-
-	Event m = Event::getInitializer();
-	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		for (auto j = 1; j <= before[i]; j++) {
-			auto &lab = g.threads[i].eventList[j];
-			if (lab.isMalloc() && lab.getAddr() == ptr) {
-				m = lab.pos;
-				break;
-			}
-		}
-	}
-
-	if (m == Event::getInitializer()) {
-		WARN("ERROR: Attempted to free non-malloc'ed memory!\n");
-		abort();
-	}
-
-	/* FIXME: Check the whole graph */
-	/* Check to see whether this memory block has already been freed */
-	if (std::find(freedMem.begin(), freedMem.end(), ptr)
-	    != freedMem.end()) {
-		WARN("ERROR: Double-free error!\n");
-		abort();
-	}
-	freedMem.push_back(ptr);
-
-	val.PointerVal = g.getEventLabel(m).val.PointerVal;
-
-	/* Add a label with the appropriate store */
-	g.addFreeToGraph(ptr, val);
+	driver->visitFree(ptr);
 	return;
 }
 
 void Interpreter::callPthreadSelf(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
-	GenericValue result;
+	llvm::Type *typ = F->getReturnType();
 
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), g.threads[g.currentT].id);
-	returnValueToCaller(F->getReturnType(), result);
+	GenericValue result = driver->visitThreadSelf(typ);
+	returnValueToCaller(typ, result);
+	return;
 }
 
 /* callPthreadCreate - Call to pthread_create() function */
 void Interpreter::callPthreadCreate(Function *F,
 				    const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
 	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
 	ExecutionContext SF;
 	GenericValue result;
@@ -2567,22 +2426,7 @@ void Interpreter::callPthreadCreate(Function *F,
 	/* Calling function needs to take only one argument ... */
 	SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
 
-	int tid;
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] <= c) {
-		tid = g.threads.size();
-		g.addTCreateToGraph(tid);
-
-		Thread thr(calledFun, tid, g.currentT, SF);
-		thr.ECStack.push_back(SF);
-		thr.tls = threadLocalVars;
-		g.threads.push_back(thr);
-
-		g.addStartToGraph(tid, g.getLastThreadEvent(g.currentT));
-	} else {
-		tid = g.threads[g.currentT].eventList[c].cid;
-		g.getECStack(tid).push_back(SF);
-	}
+	auto tid = driver->visitThreadCreate(calledFun, SF);
 
 	/* Save the TID in the location pointed by the 1st arg */
 	GenericValue val;
@@ -2601,41 +2445,7 @@ void Interpreter::callPthreadCreate(Function *F,
 void Interpreter::callPthreadJoin(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
-	int tid = ArgVals[0].IntVal.getLimitedValue(std::numeric_limits<int>::max());
-
-	if (tid < 0 || int (g.threads.size()) <= tid || tid == g.currentT) {
-		std::stringstream ss;
-		ss << "ERROR: Invalid TID in pthread_join(): " << tid;
-		if (tid == g.currentT)
-			ss << " (TID cannot be the same as the calling thread)\n";
-		WARN(ss.str());
-		abort();
-		return;
-	}
-
-	int c = ++g.threads[g.currentT].globalInstructions;
-	if (g.maxEvents[g.currentT] <= c) {
-		/* Add a relevant event to the graph */
-		g.addTJoinToGraph(tid);
-	}
-
-	Event child = g.getLastThreadEvent(tid);
-	EventLabel &cLab = g.getEventLabel(child);
-	EventLabel &lab = g.threads[g.currentT].eventList[c];
-	if (!cLab.isFinish()) {
-		/* This thread will remain blocked until the respective child terminates */
-		g.threads[g.currentT].isBlocked = true;
-	} else {
-		lab.rf = child;
-		cLab.rfm1.push_back(lab.pos);
-		lab.hbView.updateMax(cLab.msgView);
-		lab.porfView.updateMax(cLab.porfView);
-	}
-
-	/* Return a value indicating that pthread_join() succeeded */
-	GenericValue result;
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
+	auto result = driver->visitThreadJoin(F, ArgVals[0]);
 	returnValueToCaller(F->getReturnType(), result);
 }
 
@@ -2689,7 +2499,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,	GenericValue(cmpVal), GenericValue(newVal));
+	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,
+					GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
@@ -2747,7 +2558,8 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ, GenericValue(cmpVal), GenericValue(newVal));
+	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,
+					GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
@@ -2797,7 +2609,8 @@ void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	driver->visitLibStore(ATTR_PLAIN, mem.getOrdering(), ptr, typ, val, F->getName().str(), mem.isLibInit());
+	driver->visitLibStore(ATTR_PLAIN, mem.getOrdering(), ptr, typ, val,
+			      F->getName().str(), mem.isLibInit());
 	return;
 }
 

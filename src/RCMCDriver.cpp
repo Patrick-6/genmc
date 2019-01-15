@@ -361,6 +361,121 @@ std::vector<Event> RCMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *t
 	return valid;
 }
 
+llvm::GenericValue RCMCDriver::visitThreadSelf(llvm::Type *typ)
+{
+	auto &g = *currentEG;
+	llvm::GenericValue result;
+
+	result.IntVal = llvm::APInt(typ->getIntegerBitWidth(), g.threads[g.currentT].id);
+	return result;
+}
+
+int RCMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
+{
+	ExecutionGraph &g = *currentEG;
+	int tid;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] <= c) {
+		tid = g.threads.size();
+		g.addTCreateToGraph(tid);
+
+		Thread thr(calledFun, tid, g.currentT, SF);
+		thr.ECStack.push_back(SF);
+		thr.tls = EE->threadLocalVars;
+		g.threads.push_back(thr);
+
+		g.addStartToGraph(tid, g.getLastThreadEvent(g.currentT));
+	} else {
+		tid = g.threads[g.currentT].eventList[c].cid;
+		g.getECStack(tid).push_back(SF);
+	}
+	return tid;
+}
+
+llvm::GenericValue RCMCDriver::visitThreadJoin(llvm::Function *F, const llvm::GenericValue &arg)
+{
+	ExecutionGraph &g = *currentEG;
+
+	int tid = arg.IntVal.getLimitedValue(std::numeric_limits<int>::max());
+	if (tid < 0 || int (g.threads.size()) <= tid || tid == g.currentT) {
+		std::stringstream ss;
+		ss << "ERROR: Invalid TID in pthread_join(): " << tid;
+		if (tid == g.currentT)
+			ss << " (TID cannot be the same as the calling thread)\n";
+		WARN(ss.str());
+		abort();
+	}
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] <= c) {
+		/* Add a relevant event to the graph */
+		g.addTJoinToGraph(tid);
+	}
+
+	Event child = g.getLastThreadEvent(tid);
+	EventLabel &cLab = g.getEventLabel(child);
+	EventLabel &lab = g.threads[g.currentT].eventList[c];
+	if (!cLab.isFinish()) {
+		/* This thread will remain blocked until the respective child terminates */
+		g.threads[g.currentT].isBlocked = true;
+	} else {
+		lab.rf = child;
+		cLab.rfm1.push_back(lab.pos);
+		lab.hbView.updateMax(cLab.msgView);
+		lab.porfView.updateMax(cLab.porfView);
+	}
+
+	/* Return a value indicating that pthread_join() succeeded */
+	llvm::GenericValue result;
+	result.IntVal = llvm::APInt(F->getReturnType()->getIntegerBitWidth(), 0);
+	return result;
+}
+
+void RCMCDriver::visitThreadFinish()
+{
+	ExecutionGraph &g = *currentEG;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] <= c && /* Make sure that there is not a failed assume... */
+	    !g.threads[g.currentT].isBlocked) {
+		g.addFinishToGraph();
+
+		if (g.currentT == 0)
+			return;
+
+		Event e = g.getLastThreadEvent(g.currentT);
+		EventLabel &lab = g.getEventLabel(e);
+
+		for (auto i = 0u; i < g.threads.size(); i++) {
+			Event p = g.getLastThreadEvent(i);
+			EventLabel &pLab = g.getEventLabel(p);
+			if (pLab.isJoin() && pLab.cid == g.currentT) {
+				/* If parent thread is waiting for me, relieve it */
+				g.threads[i].isBlocked = false;
+				/* Update relevant join event */
+				pLab.rf = e;
+				lab.rfm1.push_back(pLab.pos);
+				pLab.hbView.updateMax(lab.msgView);
+				pLab.porfView.updateMax(lab.porfView);
+			}
+		}
+	} /* FIXME: Maybe move view update into thread finish creation? */
+	  /* FIXME: Thread return values? */
+}
+
+void RCMCDriver::visitFence(llvm::AtomicOrdering ord)
+{
+	ExecutionGraph &g = *currentEG;
+
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (g.maxEvents[g.currentT] > c)
+		return;
+
+	g.addFenceToGraph(ord);
+	return;
+}
+
 llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
 					 llvm::GenericValue *addr, llvm::Type *typ,
 					 llvm::GenericValue &&cmpVal,
@@ -434,6 +549,120 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 
 	calcRevisits(sLab);
 	return;
+}
+
+llvm::GenericValue RCMCDriver::visitMalloc(const llvm::GenericValue &argSize)
+{
+	auto &g = *currentEG;
+	llvm::GenericValue allocBegin, allocEnd;
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT]) {
+		auto &lab = g.threads[g.currentT].eventList[c];
+		allocBegin.PointerVal = lab.getAddr();
+		return allocBegin;
+	}
+
+	WARN_ON_ONCE(argSize.IntVal.getBitWidth() > 64, "malloc-alignment",
+		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
+
+	/* Get a fresh address and also store the size of this allocation */
+	allocBegin.PointerVal = EE->heapAllocas.empty() ? (char *) EE->globalVars.back() + 1
+		                                        : (char *) EE->heapAllocas.back() + 1;
+	uint64_t size = argSize.IntVal.getLimitedValue();
+	allocEnd.PointerVal = (char *) allocBegin.PointerVal + size;
+
+	/* Track the address allocated*/
+	char *ptr = static_cast<char *>(allocBegin.PointerVal);
+	for (auto i = 0u; i < size; i++)
+		EE->heapAllocas.push_back(ptr + i);
+
+	/* Memory allocations are modeled as read events reading from INIT */
+	g.addMallocToGraph(static_cast<llvm::GenericValue *>(allocBegin.PointerVal),
+			   allocEnd);
+
+	return allocBegin;
+}
+
+void RCMCDriver::visitFree(llvm::GenericValue *ptr)
+{
+	auto &g = *currentEG;
+	llvm::GenericValue val;
+
+	/* Is the execution driven by an existing graph? */
+	int c = ++g.threads[g.currentT].globalInstructions;
+	if (c < g.maxEvents[g.currentT])
+		return;
+
+	/* Attempt to free a NULL pointer */
+	if (ptr == NULL)
+		return;
+
+	Event m = Event::getInitializer();
+	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
+	for (auto i = 0u; i < g.threads.size(); i++) {
+		for (auto j = 1; j <= before[i]; j++) {
+			auto &lab = g.threads[i].eventList[j];
+			if (lab.isMalloc() && lab.getAddr() == ptr) {
+				m = lab.pos;
+				break;
+			}
+		}
+	}
+
+	if (m == Event::getInitializer()) {
+		WARN("ERROR: Attempted to free non-malloc'ed memory!\n");
+		abort();
+	}
+
+	/* FIXME: Check the whole graph */
+	/* Check to see whether this memory block has already been freed */
+	if (std::find(EE->freedMem.begin(), EE->freedMem.end(), ptr)
+	    != EE->freedMem.end()) {
+		WARN("ERROR: Double-free error!\n");
+		abort();
+	}
+	EE->freedMem.push_back(ptr);
+
+	val.PointerVal = g.getEventLabel(m).val.PointerVal;
+
+	/* Add a label with the appropriate store */
+	g.addFreeToGraph(ptr, val);
+	return;
+}
+
+void RCMCDriver::visitError(std::string &err)
+{
+	ExecutionGraph &g = *currentEG;
+
+	/* Is the execution that led to the error consistent? */
+	if (!isExecutionValid()) {
+		EE->ECStack().clear();
+		g.threads[g.currentT].isBlocked = true;
+		return;
+	}
+
+	auto assertThr = g.currentT;
+	auto errorEvent = g.getLastThreadEvent(assertThr);
+	auto before = g.getPorfBefore(errorEvent);
+
+	/* Print error trace */
+	if (userConf->printErrorTrace) {
+		EE->replayExecutionBefore(before);
+		g.printTraceBefore(g.getLastThreadEvent(assertThr));
+	}
+
+	/* Dump the graph into a file (DOT format) */
+	if (userConf->dotFile != "") {
+		EE->replayExecutionBefore(before);
+		dotPrintToFile(userConf->dotFile, before, errorEvent);
+	}
+
+	/* Print results and abort */
+	llvm::dbgs() << "Assertion violation: " << err << "\n";
+	printResults();
+	abort();
 }
 
 bool RCMCDriver::calcRevisits(EventLabel &lab)
