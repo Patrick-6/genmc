@@ -164,6 +164,8 @@ public:
   explicit Interpreter(Module *M, Config *conf, RCMCDriver *driver);
   virtual ~Interpreter();
 
+  void reset();
+
   /* Stores the addresses of global values into globalVars and threadLocalVars */
   void storeGlobals(Module *M);
 

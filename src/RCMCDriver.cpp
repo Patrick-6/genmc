@@ -271,61 +271,27 @@ bool RCMCDriver::scheduleNext(void)
 
 void RCMCDriver::visitGraph(ExecutionGraph &g)
 {
-	ExecutionGraph *oldEG = currentEG;
 	currentEG = &g;
 
-	/* Reset scheduler */
-	EE->currentThread = 0;
-	/* Reset all thread local variables */
-	for (auto i = 0u; i < EE->threads.size(); i++) {
-		EE->threads[i].tls = EE->threadLocalVars;
-		EE->threads[i].globalInstructions = 0;
-		EE->threads[i].isBlocked = false;
+	while (true) {
+		EE->reset();
+
+		/* Get main program function and run the program */
+		EE->runStaticConstructorsDestructors(false);
+		EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
+		EE->runStaticConstructorsDestructors(true);
+
+		auto validExecution = true;
+		do {
+			auto p = getNextItem();
+			if (p.type == None) {
+				/* Reset the interpreter to also free memory */
+				EE->reset();
+				return;
+			}
+			validExecution = revisitReads(p);
+		} while (!validExecution);
 	}
-
-start:
-	/* Get main program function and run the program */
-	EE->runStaticConstructorsDestructors(false);
-	EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
-	EE->runStaticConstructorsDestructors(true);
-
-	bool validExecution = true;
-	do {
-		auto p = getNextItem();
-
-		if (p.type == None) {
-			for (auto mem : EE->stackMem)
-				free(mem); /* No need to clear vector */
-			// for (auto mem : EE->heapAllocas)
-			// 	free(mem);
-			currentEG = oldEG;
-			return;
-		}
-		validExecution = revisitReads(p);
-	} while (!validExecution);
-
-	EE->currentThread = 0;
-	for (unsigned int i = 0; i < EE->threads.size(); i++) {
-                /* Make sure that all stacks are empty since there may
-		 * have been a failed assume on some thread
-		 * and a join waiting on that thread.
-		 * Joins do not empty ECStacks */
-		EE->threads[i].ECStack = {};
-		EE->threads[i].tls = EE->threadLocalVars;
-		EE->threads[i].isBlocked = false;
-		EE->threads[i].globalInstructions = 0;
-	}
-	for (auto mem : EE->stackMem)
-		free(mem);
-	// for (auto mem : EE->heapAllocas)
-	// 	free(mem);
-	EE->stackMem.clear();
-	EE->stackAllocas.clear();
-	// EE->heapAllocas.clear();
-	// EE->freedMem.clear();
-
-//	worklist[toRevisit].pop_back();
-	goto start;
 }
 
 bool RCMCDriver::isExecutionDrivenByGraph()

@@ -64,6 +64,32 @@ ExecutionEngine *Interpreter::create(Module *M, Config *conf, RCMCDriver *driver
   return new Interpreter(M, conf, driver);
 }
 
+/* Resets the interpreter for a new exploration */
+void Interpreter::reset()
+{
+	/*
+	 * Make sure that all execution stacks are empty since there may
+	 * have been a failed assume on some thread and a join waiting on
+	 * that thread (joins do not empty ECStacks)
+	 */
+	currentThread = 0;
+	for (auto i = 0u; i < threads.size(); i++) {
+		threads[i].ECStack = {};
+		threads[i].tls = threadLocalVars;
+		threads[i].isBlocked = false;
+		threads[i].globalInstructions = 0;
+	}
+
+	/*
+	 * Free all allocated memory, and no longer track the stack addresses
+	 * for this execution
+	 */
+	for (auto mem : stackMem)
+		free(mem);
+	stackMem.clear();
+	stackAllocas.clear();
+}
+
 std::vector<ExecutionContext> &Interpreter::ECStack()
 {
 	return getCurThr().ECStack;
