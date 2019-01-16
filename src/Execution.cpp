@@ -2720,19 +2720,14 @@ void Interpreter::run()
 	mainECStack = ECStack();
 	ExecutionGraph &g = *driver->getGraph();
 
-	while (true) {
+	while (driver->scheduleNext()) {
 		if (userConf->validateExecGraphs)
 			g.validateGraph();
-		if (driver->scheduleNext()) {
+
 			llvm::ExecutionContext &SF = ECStack().back();
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
-		} else if (std::any_of(threads.begin(), threads.end(),
-				       [](Thread &thr){ return thr.isBlocked; })) {
-			break;
-		} else {
-			driver->handleFinishedExecution(g);
-			break;
-		}
 	}
+	driver->handleFinishedExecution(g);
+	return;
 }

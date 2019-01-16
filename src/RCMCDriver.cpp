@@ -95,6 +95,11 @@ void RCMCDriver::printResults()
 
 void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
 {
+	/* Ignore the execution if some assume has failed */
+	if (std::any_of(EE->threads.begin(), EE->threads.end(),
+			[](llvm::Thread &thr){ return thr.isBlocked; }))
+		return;
+
 	if (!checkPscAcyclicity())
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
