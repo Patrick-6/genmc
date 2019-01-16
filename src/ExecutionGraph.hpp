@@ -25,17 +25,14 @@
 #include "Event.hpp"
 #include "Library.hpp"
 #include "ModOrder.hpp"
-#include "Thread.hpp"
 
 /*
  * ExecutionGraph class - This class represents an execution graph
  */
 class ExecutionGraph {
 public:
-	std::vector<Thread> threads;
-	View maxEvents;
+	std::vector<std::vector<EventLabel> > events;
 	ModOrder modOrder;
-	int currentT;
 	unsigned int timestamp;
 
 	/* Constructors */
@@ -50,33 +47,30 @@ public:
 	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<llvm::GenericValue *> getDoubleLocs();
-	View getGraphState(void);
 	std::vector<Event> getPendingRMWs(EventLabel &sLab);
 	Event getPendingLibRead(EventLabel &lab);
-	std::vector<llvm::ExecutionContext> &getECStack(int thread);
-	bool isThreadComplete(int thread);
 	bool isWriteRfBefore(View &before, Event e);
 	bool isStoreReadByExclusiveRead(Event &store, llvm::GenericValue *ptr);
 	bool isStoreReadBySettledRMW(Event &store, llvm::GenericValue *ptr, View &porfBefore);
 
 	/* Basic setter methods */
-	EventLabel& addReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				   llvm::Type *typ, Event rf, llvm::GenericValue &&cmpVal,
 				   llvm::GenericValue &&rmwVal, llvm::AtomicRMWInst::BinOp op);
-	EventLabel& addLibReadToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addLibReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				      llvm::Type *typ, Event rf, std::string functionName);
-	EventLabel& addStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				    llvm::Type *typ, llvm::GenericValue &val, int offsetMO);
-	EventLabel& addLibStoreToGraph(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addLibStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
 				       llvm::Type *typ, llvm::GenericValue &val, int offsetMO,
 				       std::string functionName, bool isInit);
-	EventLabel& addFenceToGraph(llvm::AtomicOrdering ord);
-	EventLabel& addMallocToGraph(llvm::GenericValue *addr, llvm::GenericValue &val);
-	EventLabel& addFreeToGraph(llvm::GenericValue *addr, llvm::GenericValue &val);
-	EventLabel& addTCreateToGraph(int cid);
-	EventLabel& addTJoinToGraph(int cid);
+	EventLabel& addFenceToGraph(int tid, llvm::AtomicOrdering ord);
+	EventLabel& addMallocToGraph(int tid, llvm::GenericValue *addr, llvm::GenericValue &val);
+	EventLabel& addFreeToGraph(int tid, llvm::GenericValue *addr, llvm::GenericValue &val);
+	EventLabel& addTCreateToGraph(int tid, int cid);
+	EventLabel& addTJoinToGraph(int tid, int cid);
 	EventLabel& addStartToGraph(int tid, Event tc);
-	EventLabel& addFinishToGraph();
+	EventLabel& addFinishToGraph(int tid);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	View getMsgView(Event e);
@@ -137,11 +131,6 @@ public:
 	bool isPscAcyclicMO();
 	bool isWbAcyclic();
 
-	/* Scheduling methods */
-	bool scheduleNext(void);
-	void tryToBacktrack(void);
-	void clearAllStacks(void);
-
 	/* Race detection methods */
 	Event findRaceForNewLoad(Event e);
 	Event findRaceForNewStore(Event e);
@@ -155,11 +144,6 @@ public:
 	/* Debugging methods */
 	void validateGraph(void);
 
-	/* Outputting facilities */
-	void printTraceBefore(Event e);
-	void prettyPrintGraph();
-	void dotPrintToFile(std::string &filename, View &before, Event e);
-
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
@@ -172,7 +156,6 @@ protected:
 	void calcPorfAfter(const Event &e, View &a);
 	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
-	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
 	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
 	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);

@@ -131,10 +131,9 @@ void RCMCDriver::run()
 	ExecutionGraph initGraph;
 
 	/* Create main thread and start event */
-	Thread main = Thread(mod->getFunction("main"), 0);
-	main.eventList.push_back(EventLabel(EStart, llvm::Acquire, Event(0, 0), Event::getInitializer()));
-	initGraph.threads.push_back(main);
-	initGraph.maxEvents[0] = 1;
+	auto main = llvm::Thread(mod->getFunction("main"), 0);
+	EE->threads.push_back(main);
+	initGraph.events.push_back({EventLabel(EStart, llvm::Acquire, Event(0, 0), Event::getInitializer())});
 
 	/* Explore all graphs and print the results */
 	visitGraph(initGraph);
@@ -221,9 +220,9 @@ void RCMCDriver::restrictGraph(unsigned int stamp)
 	auto v = g.getViewFromStamp(stamp);
 
 	/* First, free memory allocated by events that will no longer be in the graph */
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		for (auto j = v[i] + 1; j < g.maxEvents[i]; j++) {
-			auto &lab = g.threads[i].eventList[j];
+	for (auto i = 0u; i < g.events.size(); i++) {
+		for (auto j = v[i] + 1; j < g.events[i].size(); j++) {
+			auto &lab = g.events[i][j];
 			if (lab.isMalloc())
 				EE->freeRegion(lab.getAddr(), lab.val.IntVal.getLimitedValue());
 		}
@@ -234,18 +233,54 @@ void RCMCDriver::restrictGraph(unsigned int stamp)
 	return;
 }
 
+/************************************************************
+ ** Scheduling methods
+ ***********************************************************/
+
+void RCMCDriver::spawnAllChildren(int thread)
+{
+	auto &g = *currentEG;
+	for (auto i = 0; i < g.events[thread].size(); i++) {
+		auto &lab = g.events[thread][i];
+		if (lab.isCreate()) {
+			auto &child = g.getEventLabel(lab.rfm1.back());
+			auto &childThr = EE->getThrById(child.getThread());
+			childThr.ECStack.push_back(childThr.initSF);
+		}
+	}
+	return;
+}
+
+bool RCMCDriver::scheduleNext(void)
+{
+	auto &g = *currentEG;
+	for (auto i = 0u; i < g.events.size(); i++) {
+		auto &thr = EE->getThrById(i);
+		if (!thr.ECStack.empty() && !thr.isBlocked) {
+			if (g.getLastThreadLabel(i).isFinish()) {
+				spawnAllChildren(i);
+				thr.ECStack.clear();
+				continue;
+			}
+			EE->currentThread = i;
+			return true;
+		}
+	}
+	return false;
+}
+
 void RCMCDriver::visitGraph(ExecutionGraph &g)
 {
 	ExecutionGraph *oldEG = currentEG;
 	currentEG = &g;
 
 	/* Reset scheduler */
-	g.currentT = 0;
+	EE->currentThread = 0;
 	/* Reset all thread local variables */
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		g.threads[i].tls = EE->threadLocalVars;
-		g.threads[i].globalInstructions = 0;
-		g.threads[i].isBlocked = false;
+	for (auto i = 0u; i < EE->threads.size(); i++) {
+		EE->threads[i].tls = EE->threadLocalVars;
+		EE->threads[i].globalInstructions = 0;
+		EE->threads[i].isBlocked = false;
 	}
 
 start:
@@ -269,16 +304,16 @@ start:
 		validExecution = revisitReads(p);
 	} while (!validExecution);
 
-	g.currentT = 0;
-	for (unsigned int i = 0; i < g.threads.size(); i++) {
+	EE->currentThread = 0;
+	for (unsigned int i = 0; i < EE->threads.size(); i++) {
                 /* Make sure that all stacks are empty since there may
 		 * have been a failed assume on some thread
 		 * and a join waiting on that thread.
 		 * Joins do not empty ECStacks */
-		g.threads[i].ECStack = {};
-		g.threads[i].tls = EE->threadLocalVars;
-		g.threads[i].isBlocked = false;
-		g.threads[i].globalInstructions = 0;
+		EE->threads[i].ECStack = {};
+		EE->threads[i].tls = EE->threadLocalVars;
+		EE->threads[i].isBlocked = false;
+		EE->threads[i].globalInstructions = 0;
 	}
 	for (auto mem : EE->stackMem)
 		free(mem);
@@ -295,16 +330,19 @@ start:
 
 bool RCMCDriver::isExecutionDrivenByGraph()
 {
-	ExecutionGraph &g = *currentEG;
-	return ++g.threads[g.currentT].globalInstructions < g.maxEvents[g.currentT];
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
+
+	return ++thr.globalInstructions < g.events[thr.id].size();
 }
 
 EventLabel& RCMCDriver::getCurrentLabel()
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
-	BUG_ON(g.threads[g.currentT].globalInstructions >= g.maxEvents[g.currentT]);
-	return g.threads[g.currentT].eventList[g.threads[g.currentT].globalInstructions];
+	BUG_ON(thr.globalInstructions >= g.events[thr.id].size());
+	return g.events[thr.id][thr.globalInstructions];
 }
 
 /*
@@ -317,7 +355,7 @@ EventLabel& RCMCDriver::getCurrentLabel()
 Event RCMCDriver::checkForRaces()
 {
 	auto &g = *currentEG;
-	auto &lab = g.getLastThreadLabel(g.currentT);
+	auto &lab = g.getLastThreadLabel(EE->getCurThr().id);
 
 	/* We only check for races when reads and writes are added */
 	BUG_ON(!(lab.isRead() || lab.isWrite()));
@@ -337,9 +375,9 @@ Event RCMCDriver::checkForRaces()
 		return Event::getInitializer();
 
 	auto before = g.getHbBefore(lab.getPos().prev());
-	for (auto i = 0u; i < g.threads.size(); i++)
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			auto &oLab = g.threads[i].eventList[j];
+	for (auto i = 0u; i < g.events.size(); i++)
+		for (auto j = 0u; j < g.events[i].size(); j++) {
+			auto &oLab = g.events[i][j];
 			if (oLab.isFree() && oLab.getAddr() == lab.getAddr())
 				return oLab.getPos();
 			if (oLab.isMalloc() && oLab.getAddr() <= lab.getAddr() &&
@@ -355,7 +393,7 @@ std::vector<Event> RCMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *t
 						   std::vector<Event> &stores)
 {
 	auto &g = *currentEG;
-	auto before = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 	std::vector<Event> valid, conflicting;
 
 	if (attr == ATTR_PLAIN)
@@ -380,41 +418,44 @@ llvm::GenericValue RCMCDriver::visitThreadSelf(llvm::Type *typ)
 	auto &g = *currentEG;
 	llvm::GenericValue result;
 
-	result.IntVal = llvm::APInt(typ->getIntegerBitWidth(), g.threads[g.currentT].id);
+	result.IntVal = llvm::APInt(typ->getIntegerBitWidth(), EE->getCurThr().id);
 	return result;
 }
 
 int RCMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &curThr = EE->getCurThr();
 	int tid;
 
 	if (!isExecutionDrivenByGraph()) {
-		tid = g.threads.size();
-		g.addTCreateToGraph(tid);
+		tid = g.events.size();
+		g.addTCreateToGraph(curThr.id, tid);
 
-		Thread thr(calledFun, tid, g.currentT, SF);
+		llvm::Thread thr(calledFun, tid, curThr.id, SF);
 		thr.ECStack.push_back(SF);
 		thr.tls = EE->threadLocalVars;
-		g.threads.push_back(thr);
+		EE->threads.push_back(thr);
 
-		g.addStartToGraph(tid, g.getLastThreadEvent(g.currentT));
+		g.events.push_back({});
+		g.addStartToGraph(tid, g.getLastThreadEvent(EE->getCurThr().id)); // need to refetch ref
 	} else {
 		tid = getCurrentLabel().cid;
-		g.getECStack(tid).push_back(SF);
+		EE->getThrById(tid).ECStack.push_back(SF);
 	}
 	return tid;
 }
 
 llvm::GenericValue RCMCDriver::visitThreadJoin(llvm::Function *F, const llvm::GenericValue &arg)
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	int tid = arg.IntVal.getLimitedValue(std::numeric_limits<int>::max());
-	if (tid < 0 || int (g.threads.size()) <= tid || tid == g.currentT) {
+	if (tid < 0 || int (EE->threads.size()) <= tid || tid == thr.id) {
 		std::stringstream ss;
 		ss << "ERROR: Invalid TID in pthread_join(): " << tid;
-		if (tid == g.currentT)
+		if (tid == thr.id)
 			ss << " (TID cannot be the same as the calling thread)\n";
 		WARN(ss.str());
 		abort();
@@ -422,17 +463,16 @@ llvm::GenericValue RCMCDriver::visitThreadJoin(llvm::Function *F, const llvm::Ge
 
 	if (!isExecutionDrivenByGraph()) {
 		/* Add a relevant event to the graph */
-		g.addTJoinToGraph(tid);
+		g.addTJoinToGraph(thr.id, tid);
 	}
 
-	Event child = g.getLastThreadEvent(tid);
-	EventLabel &cLab = g.getEventLabel(child);
-	EventLabel &lab = getCurrentLabel();
+	auto &cLab = g.getLastThreadLabel(tid);
 	if (!cLab.isFinish()) {
 		/* This thread will remain blocked until the respective child terminates */
-		g.threads[g.currentT].isBlocked = true;
+		thr.isBlocked = true;
 	} else {
-		lab.rf = child;
+		auto &lab = getCurrentLabel();
+		lab.rf = cLab.pos;
 		cLab.rfm1.push_back(lab.pos);
 		lab.hbView.updateMax(cLab.msgView);
 		lab.porfView.updateMax(cLab.porfView);
@@ -446,26 +486,24 @@ llvm::GenericValue RCMCDriver::visitThreadJoin(llvm::Function *F, const llvm::Ge
 
 void RCMCDriver::visitThreadFinish()
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
-	    !g.threads[g.currentT].isBlocked) {
-		g.addFinishToGraph();
+	    !thr.isBlocked) {
+		g.addFinishToGraph(thr.id);
 
-		if (g.currentT == 0)
+		if (thr.id == 0)
 			return;
 
-		Event e = g.getLastThreadEvent(g.currentT);
-		EventLabel &lab = g.getEventLabel(e);
-
-		for (auto i = 0u; i < g.threads.size(); i++) {
-			Event p = g.getLastThreadEvent(i);
-			EventLabel &pLab = g.getEventLabel(p);
-			if (pLab.isJoin() && pLab.cid == g.currentT) {
+		auto &lab = g.getLastThreadLabel(thr.id);
+		for (auto i = 0u; i < g.events.size(); i++) {
+			EventLabel &pLab = g.getLastThreadLabel(i);
+			if (pLab.isJoin() && pLab.cid == thr.id) {
 				/* If parent thread is waiting for me, relieve it */
-				g.threads[i].isBlocked = false;
+				EE->getThrById(i).isBlocked = false;
 				/* Update relevant join event */
-				pLab.rf = e;
+				pLab.rf = lab.pos;
 				lab.rfm1.push_back(pLab.pos);
 				pLab.hbView.updateMax(lab.msgView);
 				pLab.porfView.updateMax(lab.porfView);
@@ -477,12 +515,13 @@ void RCMCDriver::visitThreadFinish()
 
 void RCMCDriver::visitFence(llvm::AtomicOrdering ord)
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
 		return;
 
-	g.addFenceToGraph(ord);
+	g.addFenceToGraph(thr.id, ord);
 	return;
 }
 
@@ -493,6 +532,7 @@ llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering or
 					 llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph()) {
 		auto &lab = getCurrentLabel();
@@ -505,7 +545,7 @@ llvm::GenericValue RCMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering or
 	auto validStores = properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
 
 	/* ... and add a label with the appropriate store. */
-	auto &lab = g.addReadToGraph(attr, ord, addr, typ, validStores[0],
+	auto &lab = g.addReadToGraph(thr.id, attr, ord, addr, typ, validStores[0],
 				     std::move(cmpVal), std::move(rmwVal), op);
 
 	/* Check for races */
@@ -526,6 +566,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 			    llvm::GenericValue &val)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
 		return;
@@ -534,7 +575,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	auto[begO, endO] = getPossibleMOPlaces(addr, attr == ATTR_FAI || attr == ATTR_CAS);
 
 	/* It is always consistent to add the store at the end of MO */
-	auto &sLab = g.addStoreToGraph(attr, ord, addr, typ, val, endO);
+	auto &sLab = g.addStoreToGraph(thr.id, attr, ord, addr, typ, val, endO);
 
 	/* Check for races */
 	if (!checkForRaces().isInitializer()) {
@@ -561,6 +602,7 @@ void RCMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 llvm::GenericValue RCMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 	llvm::GenericValue allocBegin, allocEnd;
 
 	if (isExecutionDrivenByGraph()) {
@@ -584,7 +626,7 @@ llvm::GenericValue RCMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 		EE->heapAllocas.push_back(ptr + i);
 
 	/* Memory allocations are modeled as read events reading from INIT */
-	g.addMallocToGraph(static_cast<llvm::GenericValue *>(allocBegin.PointerVal),
+	g.addMallocToGraph(thr.id, static_cast<llvm::GenericValue *>(allocBegin.PointerVal),
 			   allocEnd);
 
 	return allocBegin;
@@ -593,6 +635,7 @@ llvm::GenericValue RCMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 void RCMCDriver::visitFree(llvm::GenericValue *ptr)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 	llvm::GenericValue val;
 
 	if (isExecutionDrivenByGraph())
@@ -603,10 +646,10 @@ void RCMCDriver::visitFree(llvm::GenericValue *ptr)
 		return;
 
 	Event m = Event::getInitializer();
-	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
-	for (auto i = 0u; i < g.threads.size(); i++) {
+	auto before = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	for (auto i = 0u; i < g.events.size(); i++) {
 		for (auto j = 1; j <= before[i]; j++) {
-			auto &lab = g.threads[i].eventList[j];
+			auto &lab = g.events[i][j];
 			if (lab.isMalloc() && lab.getAddr() == ptr) {
 				m = lab.pos;
 				break;
@@ -631,29 +674,30 @@ void RCMCDriver::visitFree(llvm::GenericValue *ptr)
 	val.PointerVal = g.getEventLabel(m).val.PointerVal;
 
 	/* Add a label with the appropriate store */
-	g.addFreeToGraph(ptr, val);
+	g.addFreeToGraph(thr.id, ptr, val);
 	return;
 }
 
 void RCMCDriver::visitError(std::string &err)
 {
-	ExecutionGraph &g = *currentEG;
+	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	/* Is the execution that led to the error consistent? */
 	if (!isExecutionValid()) {
 		EE->ECStack().clear();
-		g.threads[g.currentT].isBlocked = true;
+		thr.isBlocked = true;
 		return;
 	}
 
-	auto assertThr = g.currentT;
-	auto errorEvent = g.getLastThreadEvent(assertThr);
+	auto assertThrId = thr.id;
+	auto errorEvent = g.getLastThreadEvent(assertThrId);
 	auto before = g.getPorfBefore(errorEvent);
 
 	/* Print error trace */
 	if (userConf->printErrorTrace) {
 		EE->replayExecutionBefore(before);
-		g.printTraceBefore(g.getLastThreadEvent(assertThr));
+		printTraceBefore(g.getLastThreadEvent(assertThrId));
 	}
 
 	/* Dump the graph into a file (DOT format) */
@@ -751,12 +795,12 @@ bool RCMCDriver::revisitReads(StackItem &p)
 
 	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.getAddr());
 	if (lab.isRead() && lab.isRMW() && (lab.isFAI() || EE->compareValues(lab.valTyp, lab.val, rfVal))) {
-		g.currentT = lab.getThread();
 		auto newVal = lab.nextVal;
 		if (lab.isFAI())
 			EE->executeAtomicRMWOperation(newVal, rfVal, lab.nextVal, lab.op);
 		auto offsetMO = g.modOrder.getStoreOffset(lab.getAddr(), lab.rf) + 1;
-		auto &sLab = g.addStoreToGraph(lab.getAttr(), lab.ord, lab.getAddr(), lab.valTyp, newVal, offsetMO);
+		auto &sLab = g.addStoreToGraph(lab.getThread(), lab.getAttr(), lab.ord,
+					       lab.getAddr(), lab.valTyp, newVal, offsetMO);
 		return calcRevisits(sLab);
 	}
 
@@ -771,6 +815,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 					    std::string functionName)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
 
 	if (isExecutionDrivenByGraph()) {
@@ -780,7 +825,7 @@ llvm::GenericValue RCMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	auto &lab = g.addLibReadToGraph(ATTR_PLAIN, ord, addr, typ, Event::getInitializer(), functionName);
+	auto &lab = g.addLibReadToGraph(thr.id, ATTR_PLAIN, ord, addr, typ, Event::getInitializer(), functionName);
 
 	/* Make sure there exists an initializer event for this memory location */
 	auto stores(g.modOrder[addr]);
@@ -852,6 +897,7 @@ void RCMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::G
 			       bool isInit)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
 		return;
@@ -873,7 +919,7 @@ void RCMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::G
 	}
 
 	/* It is always consistent to add a new event at the end of MO */
-	auto &sLab = g.addLibStoreToGraph(attr, ord, addr, typ, val, endO, functionName, isInit);
+	auto &sLab = g.addLibStoreToGraph(thr.id, attr, ord, addr, typ, val, endO, functionName, isInit);
 
 	calcLibRevisits(sLab);
 
@@ -956,15 +1002,20 @@ bool RCMCDriver::calcLibRevisits(EventLabel &lab)
 	return valid;
 }
 
+
+/************************************************************
+ ** Printing facilities
+ ***********************************************************/
+
 void RCMCDriver::prettyPrintGraph()
 {
 	auto &g = *currentEG;
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		auto &thr = g.threads[i];
+	for (auto i = 0u; i < g.events.size(); i++) {
+		auto &thr = EE->getThrById(i);
 		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
 			     << "> " << thr.threadFun->getName() << ": ";
-		for (auto j = 0; j < g.maxEvents[i]; j++) {
-			auto &lab = thr.eventList[j];
+		for (auto j = 0; j < g.events[i].size(); j++) {
+			auto &lab = g.events[i][j];
 			if (lab.isRead()) {
 				if (lab.isRevisitable())
 					llvm::dbgs().changeColor(llvm::buffer_ostream::Colors::GREEN);
@@ -1000,12 +1051,12 @@ void RCMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 
 	/* Print all nodes with each thread represented by a cluster */
 	for (auto i = 0u; i < before.size(); i++) {
-		auto &thr = g.threads[i];
+		auto &thr = EE->getThrById(i);
 		ss << "subgraph cluster_" << thr.id << "{\n";
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
 		for (auto j = 1; j <= before[i]; j++) {
 			std::stringstream buf;
-			auto lab = thr.eventList[j];
+			auto lab = g.events[i][j];
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
 			ss << "\t" << lab.getPos() << " [label=\"" << buf.str() << "\""
@@ -1016,10 +1067,10 @@ void RCMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 
 	/* Print relations between events (po U rf) */
 	for (auto i = 0u; i < before.size(); i++) {
-		auto &thr = g.threads[i];
+		auto &thr = EE->getThrById(i);
 		for (auto j = 0; j <= before[i]; j++) {
 			std::stringstream buf;
-			auto lab = thr.eventList[j];
+			auto lab = g.events[i][j];
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
 			/* Print a po-edge, but skip dummy start events for
@@ -1040,6 +1091,36 @@ void RCMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 	fout.close();
 }
 
+void RCMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &buf)
+{
+	auto &g = *currentEG;
+	auto ai = a[e.thread];
+
+	if (e.index <= ai)
+		return;
+
+	a[e.thread] = e.index;
+	auto &thr = EE->getThrById(e.thread);
+	for (int i = ai; i <= e.index; i++) {
+		auto &lab = g.events[e.thread][i];
+		if (lab.hasReadSem() && !lab.rf.isInitializer())
+			calcTraceBefore(lab.rf, a, buf);
+		Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
+	}
+	return;
+}
+
+void RCMCDriver::printTraceBefore(Event e)
+{
+	std::stringstream buf;
+	View a;
+
+	calcTraceBefore(e, a, buf);
+	llvm::dbgs() << buf.str();
+}
+
+
+
 
 /************************************************************
  ** WEAK RA DRIVER
@@ -1048,7 +1129,7 @@ void RCMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 {
 	auto &g = *currentEG;
-	auto overwritten = g.findOverwrittenBoundary(addr, g.currentT);
+	auto overwritten = g.findOverwrittenBoundary(addr, EE->getCurThr().id);
 	std::vector<Event> stores;
 
 	if (overwritten.empty()) {
@@ -1059,10 +1140,9 @@ std::vector<Event> RCMCDriverWeakRA::getStoresToLoc(llvm::GenericValue *addr)
 	}
 
 	auto before = g.getHbRfBefore(overwritten);
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		Thread &thr = g.threads[i];
-		for (auto j = before[i] + 1; j < g.maxEvents[i]; j++) {
-			EventLabel &lab = thr.eventList[j];
+	for (auto i = 0u; i < g.events.size(); i++) {
+		for (auto j = before[i] + 1; j < g.events[i].size(); j++) {
+			EventLabel &lab = g.events[i][j];
 			if (lab.isWrite() && lab.getAddr() == addr)
 				stores.push_back(lab.getPos());
 		}
@@ -1109,7 +1189,7 @@ std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
 
 	auto &g = *currentEG;
 	auto &locMO = g.modOrder[addr];
-	auto before = g.getHbBefore(g.getLastThreadEvent(g.currentT));
+	auto before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
 	auto [begO, endO] = g.splitLocMOBefore(addr, before);
 
@@ -1130,7 +1210,7 @@ std::vector<Event> RCMCDriverMO::getStoresToLoc(llvm::GenericValue *addr)
 std::pair<int, int> RCMCDriverMO::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
 {
 	auto &g = *currentEG;
-	auto &pLab = g.getLastThreadLabel(g.currentT);
+	auto &pLab = g.getLastThreadLabel(EE->getCurThr().id);
 
 	if (isRMW) {
 		auto offset = g.modOrder.getStoreOffset(addr, pLab.rf) + 1;
@@ -1200,9 +1280,10 @@ bool RCMCDriverMO::isExecutionValid()
 std::vector<Event> RCMCDriverWB::getStoresToLoc(llvm::GenericValue *addr)
 {
 	auto &g = *currentEG;
+	auto &thr = EE->getCurThr();
 	auto[stores, wb] = g.calcWb(addr);
-	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(g.currentT));
-	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(g.currentT));
+	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(thr.id));
 
 	// Find the stores from which we can read-from
 	std::vector<Event> result;

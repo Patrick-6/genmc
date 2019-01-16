@@ -23,7 +23,6 @@ librcmc_a_SOURCES = \
   RCMCDriver.cpp RCMCDriver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
-  Thread.cpp Thread.hpp \
   vecset.h vecset.tcc \
   View.hpp View.cpp
 

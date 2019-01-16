@@ -1085,7 +1085,7 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 
 void Interpreter::visitLoadInst(LoadInst &I)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
@@ -1098,8 +1098,8 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	 */
 	if (!isGlobal(ptr)) {
 		GenericValue Result;
-		if (g.threads[g.currentT].tls.count(ptr)) {
-			Result = g.threads[g.currentT].tls[ptr];
+		if (thr.tls.count(ptr)) {
+			Result = thr.tls[ptr];
 		} else {
 			if (!isStackAlloca(ptr)) {
 				llvm::dbgs() << "Tried to read from unallocated memory!\n";
@@ -1119,7 +1119,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 
 void Interpreter::visitStoreInst(StoreInst &I)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue val = getOperandValue(I.getOperand(0), SF);
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
@@ -1127,8 +1127,8 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	Type *typ = I.getOperand(0)->getType();
 
 	if (!isGlobal(ptr)) {
-		if (g.threads[g.currentT].tls.count(ptr)) {
-			g.threads[g.currentT].tls[ptr] = val;
+		if (thr.tls.count(ptr)) {
+			thr.tls[ptr] = val;
 		} else {
 			if (!isStackAlloca(ptr)) {
 				llvm::dbgs() << "Tried to store to unallocated memory!\n";
@@ -1152,7 +1152,7 @@ void Interpreter::visitFenceInst(FenceInst &I)
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue cmpVal = getOperandValue(I.getCompareOperand(), SF);
 	GenericValue newVal = getOperandValue(I.getNewValOperand(), SF);
@@ -1162,14 +1162,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	GenericValue oldVal, result;
 
 	if (!isGlobal(ptr)) {
-		if (g.threads[g.currentT].tls.count(ptr))
-			oldVal = g.threads[g.currentT].tls[ptr];
+		if (thr.tls.count(ptr))
+			oldVal = thr.tls[ptr];
 		else
 			LoadValueFromMemory(oldVal, ptr, typ);
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 		if (cmpRes.IntVal.getBoolValue()) {
-			if (g.threads[g.currentT].tls.count(ptr))
-				g.threads[g.currentT].tls[ptr] = newVal;
+			if (thr.tls.count(ptr))
+				thr.tls[ptr] = newVal;
 			else
 				StoreValueToMemory(newVal, ptr, typ);
 		}
@@ -1222,7 +1222,7 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &
 
 void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
@@ -1233,13 +1233,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	BUG_ON(!typ->isIntegerTy());
 
 	if (!isGlobal(ptr)) {
-		if (g.threads[g.currentT].tls.count(ptr))
-			oldVal = g.threads[g.currentT].tls[ptr];
+		if (thr.tls.count(ptr))
+			oldVal = thr.tls[ptr];
 		else
 			LoadValueFromMemory(oldVal, ptr, typ);
 		executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
-		if (g.threads[g.currentT].tls.count(ptr))
-			g.threads[g.currentT].tls[ptr] = newVal;
+		if (thr.tls.count(ptr))
+			thr.tls[ptr] = newVal;
 		else
 			StoreValueToMemory(newVal, ptr, typ);
 		SetValue(&I, oldVal, SF);
@@ -2332,24 +2332,26 @@ std::string getFilenameFromMData(MDNode *node)
 
 void Interpreter::replayExecutionBefore(View &before)
 {
-	ExecutionGraph &g = *driver->getGraph();
-	g.threads[0].ECStack = mainECStack;
-	for (auto i = 0u; i < g.threads.size(); i++) {
-		g.threads[i].globalInstructions = 0;
-		g.threads[i].prefixLOC.resize(g.threads[i].eventList.size());
-		g.currentT = i;
-		while (g.threads[i].globalInstructions < before[i]) {
-			int snap = g.threads[i].globalInstructions;
-			ExecutionContext &SF = g.getECStack(i).back();
+	auto &g = *driver->getGraph();
+
+	threads[0].ECStack = mainECStack;
+	for (auto i = 0u; i < threads.size(); i++) {
+		auto &thr = getThrById(i);
+		thr.globalInstructions = 0;
+		thr.prefixLOC.resize(g.events[i].size());
+		currentThread = i;
+		while (thr.globalInstructions < before[i]) {
+			int snap = thr.globalInstructions;
+			ExecutionContext &SF = thr.ECStack.back();
 			Instruction &I = *SF.CurInst++;
 			if (I.getMetadata("dbg")) {
 				int line = I.getDebugLoc().getLine();
 				std::string file = getFilenameFromMData(I.getMetadata("dbg"));
 				std::vector<std::pair<int, std::string> > &prefix =
-					g.threads[i].prefixLOC[snap + 1];
+					thr.prefixLOC[snap + 1];
 				if (prefix.empty()) {
 					std::vector<std::pair<int, std::string> > &prev =
-						g.threads[i].prefixLOC[snap];
+						thr.prefixLOC[snap];
 					if (prev.empty() || prev.back().first != line )
 						prefix.push_back(std::pair<int, std::string>(line, file));
 				} else if (prefix.back().first != line) {
@@ -2372,18 +2374,17 @@ void Interpreter::callAssertFail(Function *F,
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-		ECStack().clear();
+	ECStack().clear();
 }
 
 void Interpreter::callVerifierAssume(Function *F,
 				     const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
 	bool cond = ArgVals[0].IntVal.getBoolValue();
 
 	/* TODO: When support for nested functions is added, rewrite this */
 	if (!cond)
-		g.tryToBacktrack();
+		getCurThr().block();
 }
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2482,7 +2483,6 @@ void Interpreter::callPthreadMutexInit(Function *F,
 void Interpreter::callPthreadMutexLock(Function *F,
 				       const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue cmpVal, newVal, result;
@@ -2504,7 +2504,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
-		g.tryToBacktrack();
+		getCurThr().block();
 		return;
 	}
 
@@ -2584,8 +2584,8 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	auto val = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr, typ, F->getName().str());
 
 	/* Check if the read should read from BOTTOM */
-	if (g.getLastThreadLabel(g.currentT).rf == Event::getInitializer()) {
-		g.tryToBacktrack();
+	if (g.getLastThreadLabel(getCurThr().id).rf == Event::getInitializer()) {
+		getCurThr().block();
 		return;
 	}
 	returnValueToCaller(F->getReturnType(), val);
@@ -2723,11 +2723,11 @@ void Interpreter::run()
 	while (true) {
 		if (userConf->validateExecGraphs)
 			g.validateGraph();
-		if (g.scheduleNext()) {
+		if (driver->scheduleNext()) {
 			llvm::ExecutionContext &SF = ECStack().back();
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
-		} else if (std::any_of(g.threads.begin(), g.threads.end(),
+		} else if (std::any_of(threads.begin(), threads.end(),
 				       [](Thread &thr){ return thr.isBlocked; })) {
 			break;
 		} else {

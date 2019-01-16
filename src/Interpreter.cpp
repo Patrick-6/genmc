@@ -66,8 +66,7 @@ ExecutionEngine *Interpreter::create(Module *M, Config *conf, RCMCDriver *driver
 
 std::vector<ExecutionContext> &Interpreter::ECStack()
 {
-	auto g = driver->getGraph();
-	return g->getECStack(g->currentT);
+	return getCurThr().ECStack;
 }
 
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR

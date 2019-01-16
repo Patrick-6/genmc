@@ -20,6 +20,7 @@
 
 #include "Event.hpp"
 #include "EventLabel.hpp"
+#include "Interpreter.h"
 #include "ExecutionGraph.hpp"
 #include "Library.hpp"
 #include "Parser.hpp"
@@ -107,6 +108,10 @@ public:
 	void printResults();
 	void handleFinishedExecution(ExecutionGraph &g);
 
+	/* Scheduling methods */
+	void spawnAllChildren(int thread);
+	bool scheduleNext(void);
+
 	void visitGraph(ExecutionGraph &g);
 	Event checkForRaces();
 	bool isExecutionDrivenByGraph();
@@ -142,8 +147,11 @@ public:
 					       std::vector<llvm::GenericValue> expVal,
 					       std::vector<Event> &stores);
 
+	/* Outputting facilities */
+	void printTraceBefore(Event e);
 	void prettyPrintGraph();
 	void dotPrintToFile(std::string &filename, View &before, Event e);
+	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 
 	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
 	virtual std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW = false) = 0;

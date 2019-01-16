@@ -19,26 +19,3 @@
  */
 
 #include "Thread.hpp"
-
-Thread::Thread() {}
-
-Thread::Thread(llvm::Function *F)
-	: parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false)
-{
-	static int _id = 1;
-
-	id = _id++;
-}
-
-Thread::Thread(llvm::Function *F, int id)
-	: id(id), parentId(-1), threadFun(F), globalInstructions(0), isBlocked(false) {}
-
-Thread::Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
-	: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
-	  isBlocked(false) {}
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t)
-{
-	return s << "Thread (id: " << t.id << ", parent: " << t.parentId << ", function: "
-		 << t.threadFun->getName().str() << ")";
-}

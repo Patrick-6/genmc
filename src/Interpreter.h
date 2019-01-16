@@ -106,6 +106,41 @@ struct ExecutionContext {
 // AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
 };
 
+class Thread {
+public:
+	int id;
+	int parentId;
+	llvm::Function *threadFun;
+	std::vector<llvm::ExecutionContext> ECStack;
+	llvm::ExecutionContext initSF;
+	std::unordered_map<void *, llvm::GenericValue> tls;
+	int globalInstructions;
+	bool isBlocked;
+	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
+
+	void block() { 	isBlocked = true; ECStack.clear(); };
+
+	Thread() {}
+
+	Thread(llvm::Function *F) : parentId(-1), threadFun(F),
+				    globalInstructions(0), isBlocked(false) {
+		static int _id = 1;
+		id = _id++;
+	}
+
+	Thread(llvm::Function *F, int id) : id(id), parentId(-1), threadFun(F),
+					    globalInstructions(0), isBlocked(false) {}
+
+	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
+		: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
+		  isBlocked(false) {}
+
+	llvm::raw_ostream& operator<<(llvm::raw_ostream &s) {
+		return s << "Thread (id: " << id << ", parent: " << parentId << ", function: "
+			 << threadFun->getName().str() << ")";
+	}
+};
+
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
@@ -184,6 +219,12 @@ public:
   /// freeMachineCodeForFunction - The interpreter does not generate any code.
   ///
   void freeMachineCodeForFunction(Function *F) { }
+
+  std::vector<Thread> threads;
+  int currentThread = 0;
+
+  Thread& getCurThr() { return threads[currentThread]; };
+  Thread& getThrById(int id) { return threads[id]; };
 
   /* List of global and thread-local variables */
   llvm::SmallVector<void *, 1021> globalVars;

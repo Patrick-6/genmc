@@ -36,7 +36,6 @@ public:
 	int id;
 	int parentId;
 	llvm::Function *threadFun;
-	std::vector<EventLabel> eventList;
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
 	std::unordered_map<void *, llvm::GenericValue> tls;
@@ -48,6 +47,7 @@ public:
 	Thread(llvm::Function *F);
 	Thread(llvm::Function *F, int id);
 	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF);
+
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &t);
 };
 
