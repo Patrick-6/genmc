@@ -106,7 +106,7 @@ public:
 	void run();
 	void parseRun(Parser &parser);
 	void printResults();
-	void handleFinishedExecution(ExecutionGraph &g);
+	void handleFinishedExecution();
 
 	/* Scheduling methods */
 	void spawnAllChildren(int thread);
@@ -179,16 +179,7 @@ public:
 	std::vector<Event> getRevisitLoads(EventLabel &lab);
 	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
-	// llvm::GenericValue visitLoad(llvm::Type *typ, llvm::GenericValue *addr,
-	// 			     EventAttr attr, llvm::AtomicOrdering ord,
-	// 			     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
-	// 			     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
-	// 			     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	// bool visitStore(llvm::Type *typ, llvm::GenericValue *addr, llvm::GenericValue &val,
-	// 		EventAttr attr, llvm::AtomicOrdering ord, bool rmwRevisit);
-//	bool visitLibStore(ExecutionGraph &g);
-//	bool pushReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
-//	bool pushLibReadsToRevisit(ExecutionGraph &g, EventLabel &sLab);
+
 	bool checkPscAcyclicity();
 	bool isExecutionValid();
 };

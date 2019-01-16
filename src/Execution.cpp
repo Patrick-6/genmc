@@ -2728,6 +2728,6 @@ void Interpreter::run()
 			llvm::Instruction &I = *SF.CurInst++;
 			visit(I);
 	}
-	driver->handleFinishedExecution(g);
+	driver->handleFinishedExecution();
 	return;
 }

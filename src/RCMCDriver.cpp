@@ -93,13 +93,14 @@ void RCMCDriver::printResults()
 		     << "s\n";
 }
 
-void RCMCDriver::handleFinishedExecution(ExecutionGraph &g)
+void RCMCDriver::handleFinishedExecution()
 {
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(EE->threads.begin(), EE->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked; }))
 		return;
 
+	auto &g = *currentEG;
 	if (!checkPscAcyclicity())
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
@@ -138,7 +139,6 @@ void RCMCDriver::run()
 	/* Create main thread and start event */
 	auto main = llvm::Thread(mod->getFunction("main"), 0);
 	EE->threads.push_back(main);
-	initGraph.events.push_back({EventLabel(EStart, llvm::Acquire, Event(0, 0), Event::getInitializer())});
 
 	/* Explore all graphs and print the results */
 	visitGraph(initGraph);
