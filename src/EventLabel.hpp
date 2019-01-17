@@ -1,5 +1,5 @@
 /*
- * RCMC -- Model Checking for C11 programs.
+ * GenMC -- Generic Model Checking.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

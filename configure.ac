@@ -1,4 +1,4 @@
-AC_INIT([rcmc], [0.1], [kostis@it.uu.se])
+AC_INIT([genmc], [0.1], [michalis@mpi-sws.org])
 
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_clang.m4])
@@ -12,7 +12,7 @@ AC_LANG([C++])
 
 AX_LLVM(,[AC_MSG_FAILURE(LLVM is required.)])
 AX_CLANG(,[
-  AC_MSG_WARN([rcmc cannot be used without clang/clang++.])
+  AC_MSG_WARN([genmc cannot be used without clang/clang++.])
   AC_MSG_WARN([Consider indicating the binaries clang/clang++ with switches --with-clang/--with-clangxx,])
   AC_MSG_FAILURE([Failed to detect clang/clang++.])
 ])

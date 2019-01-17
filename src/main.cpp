@@ -1,5 +1,5 @@
 /*
- * RCMC -- Model Checking for C11 programs.
+ * GenMC -- Generic Model Checking.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,8 @@
 
 #include "config.h"
 #include "Config.hpp"
-#include "RCMCDriver.hpp"
+#include "DriverFactory.hpp"
+#include "GenMCDriver.hpp"
 #include "Error.hpp"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Basic/DiagnosticOptions.h"
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
 			     [](Library &l){ return l.getType() == ToVerify; });
 	}
 	if (conf->inputFromBitcodeFile) {
-		RCMCDriver *driver = RCMCDriver::create(conf, nullptr, granted, toVerify, start);
+		GenMCDriver *driver = DriverFactory::create(conf, nullptr, granted, toVerify, start);
 		driver->parseRun(parser);
 		delete conf;
 		delete driver;
@@ -155,11 +156,11 @@ int main(int argc, char **argv)
 		return 1;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	RCMCDriver *driver = RCMCDriver::create(conf, Act->takeModule(), granted, toVerify, start);
+	GenMCDriver *driver = DriverFactory::create(conf, Act->takeModule(), granted, toVerify, start);
 #else
-	RCMCDriver *driver =
-		RCMCDriver::create(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
-				   granted, toVerify, start);
+	GenMCDriver *driver =
+		DriverFactory::create(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
+				      granted, toVerify, start);
 #endif
 
 	driver->run();

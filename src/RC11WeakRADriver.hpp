@@ -18,17 +18,28 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#ifndef __DECLARE_ASSUME_PASS_HPP__
-#define __DECLARE_ASSUME_PASS_HPP__
+#ifndef __RC11_WEAKRA_DRIVER_HPP__
+#define __RC11_WEAKRA_DRIVER_HPP__
 
-#include <llvm/Pass.h>
+#include "GenMCDriver.hpp"
 
-class DeclareAssumePass : public llvm::ModulePass {
+class RC11WeakRADriver : public GenMCDriver {
+
 public:
-	static char ID;
-	
-	DeclareAssumePass() : ModulePass(ID) {};
-	virtual bool runOnModule(llvm::Module &M);
+
+	RC11WeakRADriver(Config *conf, std::unique_ptr<llvm::Module> mod,
+			 std::vector<Library> &granted, std::vector<Library> &toVerify,
+			 clock_t start)
+		: GenMCDriver(conf, std::move(mod), granted, toVerify, start) {};
+
+	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
+	std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW);
+	std::vector<Event> getRevisitLoads(EventLabel &lab);
+	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
+		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
+
+	bool checkPscAcyclicity();
+	bool isExecutionValid();
 };
 
-#endif /* __DECLARE_ASSUME_PASS_HPP__ */
+#endif /* __RC11_WEAKRA_DRIVER_HPP__ */

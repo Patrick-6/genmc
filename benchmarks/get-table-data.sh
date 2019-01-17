@@ -22,8 +22,8 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source ../scripts/terminal.sh
-RCMC_CPP=rcmc
-RCMC_OCAML=../../Ocaml/rcmc
+GenMC_CPP=genmc
+GENMC_OCAML=../../Ocaml/genmc
 HERD=herd7
 NIDHUGG=nidhuggc
 CDSCHECKER=$PATHTOCDS/benchmarks/run.sh
@@ -126,19 +126,19 @@ runcdschecker() {
 runocaml() {
     name="$1"
     model="$2"
-    rcmc_out=`/usr/bin/time -p "${RCMC_OCAML}" "-${model}" "${name}" 2>&1`
-    explored=`echo "${rcmc_out}" | awk '/SAFE/ { print $3 }'`
-    time=`echo "${rcmc_out}" | awk '/real/ { print $2 }'`
-    rcmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
+    genmc_out=`/usr/bin/time -p "${GENMC_OCAML}" "-${model}" "${name}" 2>&1`
+    explored=`echo "${genmc_out}" | awk '/SAFE/ { print $3 }'`
+    time=`echo "${genmc_out}" | awk '/real/ { print $2 }'`
+    genmc_result=`printf "%-5s & %-5s" "${explored}" "${time}"`
     if test "${plotmode}" == "y"
     then
-	echo "${rcmc_result}" >> "rcmc.${model}.out"
+	echo "${genmc_result}" >> "genmc.${model}.out"
     else
-	if test -n "${tool_res[$rcmc_col]}"
+	if test -n "${tool_res[$genmc_col]}"
 	then
-	    tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	    tool_res["${genmc_col}"]="${tool_res[$genmc_col]} & ${genmc_result}"
 	else
-    	    tool_res["${rcmc_col}"]="${rcmc_result}"
+    	    tool_res["${genmc_col}"]="${genmc_result}"
 	fi
     fi
 }
@@ -149,11 +149,11 @@ runcpp() {
     vars=0
     time_total=0
     explored_total=0
-    checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
+    checker_args="" && [[ -f "${dir}/genmc.in" ]] && checker_args=`head -1 "${dir}/genmc.in"`
     for t in "${dir}"/variants/*.c
     do
 	vars=$((vars+1))
-	command="${RCMC_CPP} -${model} ${unroll} ${checker_args} -- ${test_args} ${t} 2>&1"
+	command="${GenMC_CPP} -${model} ${unroll} ${checker_args} -- ${test_args} ${t} 2>&1"
 	output=`eval $command`
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
@@ -162,23 +162,23 @@ runcpp() {
     done
     average_explored=`echo "scale=0; ${explored_total}/${vars}" | bc -l`
     average_time=`echo "scale=2; ${time_total}/${vars}" | bc -l`
-    rcmc_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
+    genmc_result=`printf "%-5s & %-5s" "${average_explored}" "${average_time}"`
     if test "${plotmode}" == "y"
     then
-	echo "${rcmc_result}" >> "rcmc.${model}.out"
+	echo "${genmc_result}" >> "genmc.${model}.out"
     else
-	if test -n "${tool_res[$rcmc_col]}"
+	if test -n "${tool_res[$genmc_col]}"
 	then
-	    tool_res["${rcmc_col}"]="${tool_res[$rcmc_col]} & ${rcmc_result}"
+	    tool_res["${genmc_col}"]="${tool_res[$genmc_col]} & ${genmc_result}"
 	else
-    	    tool_res["${rcmc_col}"]="${rcmc_result}"
+    	    tool_res["${genmc_col}"]="${genmc_result}"
 	fi
     fi
 }
 
-runrcmc() {
+rungenmc() {
     name="$1"
-    tool_res["${rcmc_col}"]=""
+    tool_res["${genmc_col}"]=""
     for m in "${run_weakra}" "${run_mo}" "${run_wb}"
     do
 	if test -z "$m"
@@ -218,14 +218,14 @@ runalltools() {
 	[[ -n "${herd_col}" ]] && runherd "${dir}"
 	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}"
 	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}"
-	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}"
+	[[ -n "${genmc_col}" ]] && rungenmc "${name%.*}"
 	if test "${tablemode}" == "y"
 	then
 	    printf "%-10s" "${name%.*}"
 	    for i in $(seq 1 "${toolnum}")
 	    do
 		[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "& ${tool_res[$i]}"
-		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
+		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "genmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
 	    done; echo '\\'
 	fi
     done
@@ -245,7 +245,7 @@ runalltoolsfullypar() {
 	[[ -n "${herd_col}" ]] && runherd "${dir}" &
 	[[ -n "${nid_col}" ]] && runnidhugg "${name%.*}" &
 	[[ -n "${cds_col}" ]] && runcdschecker "${name%.*}" &
-	[[ -n "${rcmc_col}" ]] && runrcmc "${name%.*}" &
+	[[ -n "${genmc_col}" ]] && rungenmc "${name%.*}" &
     done
 }
 
@@ -290,7 +290,7 @@ runlitmus() {
 	    for i in $(seq 1 "${toolnum}")
 	    do
 		[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "& ${tool_res[$i]}"
-		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
+		[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "genmc" ]] && printf " %-50s" "& ${tool_res[$i]}"
 	    done; echo '\\'
 	fi
     done
@@ -314,7 +314,7 @@ fi
 
 # command-line arguments
 SHORT=t,p,l,b,f,o:,i:
-LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,optimal,observers,rcmc:,weakra,mo,wb,impl:,output:
+LONG=table,plot,litmus,bench,fast,herd:,cdschecker:,nidhugg:,sc,tso,pso,optimal,observers,genmc:,weakra,mo,wb,impl:,output:
 
 # temporarily store output to be able to check for errors
 PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
@@ -364,8 +364,8 @@ while true; do
 	    ((++toolnum))
             shift 2
             ;;
-	--rcmc)
-	    [[ "$2" -gt 0 ]] && rcmc_col="$2" && tool["${rcmc_col}"]=rcmc
+	--genmc)
+	    [[ "$2" -gt 0 ]] && genmc_col="$2" && tool["${genmc_col}"]=genmc
 	    ((++toolnum))
 	    shift 2
 	    ;;
@@ -425,7 +425,7 @@ done
 nidhugg_args="--disable-mutex-init-requirement --${run_optimal} --${run_observers}"
 [[ -z "${run_tso}" ]] && [[ -z "${run_pso}" ]] && run_sc="sc"
 
-#RCMC DEFAULTS
+#GenMC DEFAULTS
 ##############
 impl="${impl:-c++}" #default implementation: C++
 [[ -z "${run_mo}" ]] && run_wb="wb"
@@ -446,7 +446,7 @@ printtable() {
     for i in $(seq 1 "${toolnum}")
     do
 	[[ "${tool[$i]}" == "herd" || "${tool[$i]}" == "cdschecker" ]] && printf " %-20s" "${tool[$i]}"
-	[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "rcmc" ]] && printf " %-40s" "${tool[$i]}"
+	[[ "${tool[$i]}" == "nidhugg" || "${tool[$i]}" == "genmc" ]] && printf " %-40s" "${tool[$i]}"
     done;
     printf "\n%% ";printline
 

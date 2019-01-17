@@ -49,7 +49,7 @@
 
 #include <unordered_map>
 
-class RCMCDriver;
+class GenMCDriver;
 
 namespace llvm {
 
@@ -150,7 +150,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
   /* Composition pointers */
   Config *userConf;
-  RCMCDriver *driver;
+  GenMCDriver *driver;
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
@@ -161,7 +161,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, Config *conf, RCMCDriver *driver);
+  explicit Interpreter(Module *M, Config *conf, GenMCDriver *driver);
   virtual ~Interpreter();
 
   void reset();
@@ -186,7 +186,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, Config *conf, RCMCDriver *driver,
+  static ExecutionEngine *create(Module *M, Config *conf, GenMCDriver *driver,
 				 std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.

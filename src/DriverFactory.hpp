@@ -18,17 +18,21 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#ifndef __DECLARE_ASSUME_PASS_HPP__
-#define __DECLARE_ASSUME_PASS_HPP__
+#ifndef __DRIVER_FACTORY_HPP__
+#define __DRIVER_FACTORY_HPP__
 
-#include <llvm/Pass.h>
+#include "Config.hpp"
+#include "Library.hpp"
+#include "GenMCDriver.hpp"
+#include <llvm/IR/Module.h>
 
-class DeclareAssumePass : public llvm::ModulePass {
-public:
-	static char ID;
-	
-	DeclareAssumePass() : ModulePass(ID) {};
-	virtual bool runOnModule(llvm::Module &M);
+#include <ctime>
+
+class DriverFactory {
+ public:
+	static GenMCDriver *create(Config *conf, std::unique_ptr<llvm::Module> mod,
+				   std::vector<Library> &granted, std::vector<Library> &toVerify,
+				   clock_t start);
 };
 
-#endif /* __DECLARE_ASSUME_PASS_HPP__ */
+#endif /* __DRIVER_FACTORY_HPP__ */

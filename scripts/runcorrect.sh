@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Driver script for running tests with RCMC.
+# Driver script for running tests with GenMC.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-RCMC=../src/rcmc
+GenMC=../src/genmc
 
 runtime=0
 model="${model:-wb}"
@@ -31,11 +31,11 @@ runvariants() {
     failure=""
     outcome_failure=""
     unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
-    checker_args="" && [[ -f "${dir}/rcmc.${model}.in" ]] && checker_args=`head -1 "${dir}/rcmc.${model}.in"`
+    checker_args="" && [[ -f "${dir}/genmc.${model}.in" ]] && checker_args=`head -1 "${dir}/genmc.${model}.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" "-${model}" "${unroll}" ${checker_args} -- ${test_args} "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" "${unroll}" ${checker_args} -- ${test_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1

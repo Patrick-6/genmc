@@ -1,5 +1,5 @@
 /*
- * RCMC -- Model Checking for C11 programs.
+ * GenMC -- Generic Model Checking.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include <llvm/ADT/ArrayRef.h>	// needed for 3.5
+#include <llvm/Support/CommandLine.h>
 
 Config::Config(int argc, char **argv) : argc(argc), argv(argv) {}
 

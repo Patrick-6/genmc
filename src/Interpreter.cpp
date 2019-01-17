@@ -17,7 +17,6 @@
 
 #include "Config.hpp"
 #include "Interpreter.h"
-#include "RCMCDriver.hpp"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
@@ -37,7 +36,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, Config *conf, RCMCDriver *driver,
+ExecutionEngine *Interpreter::create(Module *M, Config *conf, GenMCDriver *driver,
 				     std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
@@ -222,7 +221,7 @@ void Interpreter::freeRegion(void *addr, int size)
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, Config *conf, RCMCDriver *driver)
+Interpreter::Interpreter(Module *M, Config *conf, GenMCDriver *driver)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
 #else

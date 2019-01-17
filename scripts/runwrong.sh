@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Driver script for running tests with RCMC.
+# Driver script for running tests with GenMC.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-RCMC=../src/rcmc
+GenMC=../src/genmc
 
 runtime=0
 model="${model:-wb}"
@@ -31,11 +31,11 @@ runvariants() {
     failure=""
     diff=""
     outcome_failure=""
-    checker_args="" && [[ -f "${dir}/rcmc.in" ]] && checker_args=`head -1 "${dir}/rcmc.in"`
+    checker_args="" && [[ -f "${dir}/genmc.in" ]] && checker_args=`head -1 "${dir}/genmc.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${RCMC}" "-${model}" -print-error-trace "${checker_args}" -- "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" -print-error-trace "${checker_args}" -- "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1

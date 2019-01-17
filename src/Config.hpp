@@ -1,5 +1,5 @@
 /*
- * RCMC -- Model Checking for C11 programs.
+ * GenMC -- Generic Model Checking.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,9 +21,8 @@
 #ifndef __CONFIG_HPP__
 #define __CONFIG_HPP__
 
-#include <llvm/ADT/ArrayRef.h>	// needed for 3.5
-#include <llvm/Support/CommandLine.h>
-#include <set>
+#include <string>
+#include <vector>
 
 enum class ModelType { weakra, mo, wb };
 enum class CheckPSCType { nocheck, weak, wb, full };

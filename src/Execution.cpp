@@ -15,7 +15,7 @@
 #include "Event.hpp"
 #include "Thread.hpp"
 #include "ExecutionGraph.hpp"
-#include "RCMCDriver.hpp"
+#include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"

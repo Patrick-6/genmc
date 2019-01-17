@@ -18,17 +18,24 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#ifndef __DECLARE_ASSUME_PASS_HPP__
-#define __DECLARE_ASSUME_PASS_HPP__
+#include "DriverFactory.hpp"
+#include "RC11WeakRADriver.hpp"
+#include "RC11WBDriver.hpp"
+#include "RC11MODriver.hpp"
 
-#include <llvm/Pass.h>
-
-class DeclareAssumePass : public llvm::ModulePass {
-public:
-	static char ID;
-	
-	DeclareAssumePass() : ModulePass(ID) {};
-	virtual bool runOnModule(llvm::Module &M);
-};
-
-#endif /* __DECLARE_ASSUME_PASS_HPP__ */
+GenMCDriver *DriverFactory::create(Config *conf, std::unique_ptr<llvm::Module> mod,
+				  std::vector<Library> &granted, std::vector<Library> &toVerify,
+				  clock_t start)
+{
+	switch (conf->model) {
+	case ModelType::weakra:
+		return new RC11WeakRADriver(conf, std::move(mod), granted, toVerify, start);
+	case ModelType::mo:
+		return new RC11MODriver(conf, std::move(mod), granted, toVerify, start);
+	case ModelType::wb:
+		return new RC11WBDriver(conf, std::move(mod), granted, toVerify, start);
+	default:
+		WARN("Unsupported model type! Exiting...\n");
+		abort();
+	}
+}

@@ -1,12 +1,13 @@
 ## Make autotools quit complaining about explicit rules
 AUTOMAKE_OPTIONS = -Wno-override
 
-noinst_LIBRARIES = librcmc.a
-librcmc_a_SOURCES = \
+noinst_LIBRARIES = libgenmc.a
+libgenmc_a_SOURCES = \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
+  DriverFactory.cpp DriverFactory.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
   EventLabel.cpp EventLabel.hpp \
@@ -20,7 +21,10 @@ librcmc_a_SOURCES = \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   ModOrder.cpp ModOrder.hpp \
   Parser.cpp Parser.hpp \
-  RCMCDriver.cpp RCMCDriver.hpp \
+  GenMCDriver.cpp GenMCDriver.hpp \
+  RC11WeakRADriver.cpp RC11WeakRADriver.hpp \
+  RC11WBDriver.cpp RC11WBDriver.hpp \
+  RC11MODriver.cpp RC11MODriver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   vecset.h vecset.tcc \
@@ -28,6 +32,6 @@ librcmc_a_SOURCES = \
 
 CXX = clang++
 AM_CXXFLAGS=-std=c++1z -Wno-unknown-warning-option
-bin_PROGRAMS = rcmc
-rcmc_SOURCES = main.cpp
-rcmc_LDADD   = librcmc.a -lclangFrontendTool -lclangFrontend -lclangDriver -lclangSerialization -lclangCodeGen -lclangParse -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend -lclangEdit -lclangAST -lclangLex -lclangBasic
+bin_PROGRAMS = genmc
+genmc_SOURCES = main.cpp
+genmc_LDADD   = libgenmc.a -lclangFrontendTool -lclangFrontend -lclangDriver -lclangSerialization -lclangCodeGen -lclangParse -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend -lclangEdit -lclangAST -lclangLex -lclangBasic

@@ -1,5 +1,5 @@
 /*
- * RCMC -- Model Checking for C11 programs.
+ * GenMC -- Generic Model Checking.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
  *
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
+
+#ifndef __PARSER_HPP__
+#define __PARSER_HPP__
 
 #include "Library.hpp"
 #include <iostream>
@@ -38,3 +41,5 @@ public:
 				       std::string functionName);
 	std::vector<Library> parseSpecs(const string &fileName);
 };
+
+#endif /* __PARSER_HPP__ */

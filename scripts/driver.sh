@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Driver script for running tests with RCMC.
+# Driver script for running tests with GenMC.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-RCMC=./src/rcmc
+GenMC=./src/genmc
 
 # We need to get the LLVM version for this particular configuration
 LLVM_VERSION=`cat ../config.h | awk '/LLVM_VERSION/ {gsub(/\"/, "", $3); print $3}'`
