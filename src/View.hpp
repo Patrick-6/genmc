@@ -24,8 +24,6 @@
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <vector>
-
 class View {
 protected:
 	typedef llvm::IndexedMap<int> EventView;

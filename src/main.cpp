@@ -23,6 +23,8 @@
 #include "DriverFactory.hpp"
 #include "GenMCDriver.hpp"
 #include "Error.hpp"
+#include "LLVMModule.hpp"
+#include "Parser.hpp"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/Compilation.h"
@@ -78,8 +80,10 @@ int main(int argc, char **argv)
 			     [](Library &l){ return l.getType() == ToVerify; });
 	}
 	if (conf->inputFromBitcodeFile) {
-		GenMCDriver *driver = DriverFactory::create(conf, nullptr, granted, toVerify, start);
-		driver->parseRun(parser);
+		auto sourceCode = parser.readFile(conf->inputFile);
+		auto mod = LLVMModule::getLLVMModule(conf->inputFile, sourceCode);
+		GenMCDriver *driver = DriverFactory::create(conf, std::move(mod), granted, toVerify, start);
+		driver->run();
 		delete conf;
 		delete driver;
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */

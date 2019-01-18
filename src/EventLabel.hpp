@@ -42,7 +42,7 @@ public:
 	llvm::AtomicRMWInst::BinOp op;
 	llvm::Type *valTyp;
 	Event rf; /* For Reads */
-	std::list<Event> rfm1; /* For Writes */
+	std::vector<Event> rfm1; /* For Writes */
 	View msgView;
 	View hbView;
 	View porfView;

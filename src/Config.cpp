@@ -97,12 +97,13 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 
 void Config::getConfigOptions(void)
 {
-	llvm::ArrayRef<const llvm::cl::OptionCategory *> opts =
-		{&clGeneral, &clTransformation, &clDebugging};
+	const llvm::cl::OptionCategory *cats[] =
+		{&clGeneral, &clDebugging, &clTransformation};
 
 	/* Hide unrelated LLVM options and parse user configuration */
-	llvm::cl::HideUnrelatedOptions(opts);
-	llvm::cl::ParseCommandLineOptions(argc, argv);
+	llvm::cl::HideUnrelatedOptions(cats);
+	llvm::cl::ParseCommandLineOptions(argc, argv,
+					  "GenMC -- Model Checking for C programs");
 
 	/* Save general options */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());

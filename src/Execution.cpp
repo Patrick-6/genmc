@@ -13,7 +13,6 @@
 
 #include "Error.hpp"
 #include "Event.hpp"
-#include "Thread.hpp"
 #include "ExecutionGraph.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
@@ -2718,15 +2717,11 @@ void Interpreter::callFunction(Function *F,
 void Interpreter::run()
 {
 	mainECStack = ECStack();
-	ExecutionGraph &g = *driver->getGraph();
-
 	while (driver->scheduleNext()) {
-		if (userConf->validateExecGraphs)
-			g.validateGraph();
-
-			llvm::ExecutionContext &SF = ECStack().back();
-			llvm::Instruction &I = *SF.CurInst++;
-			visit(I);
+		driver->handleExecutionInProgress();
+		llvm::ExecutionContext &SF = ECStack().back();
+		llvm::Instruction &I = *SF.CurInst++;
+		visit(I);
 	}
 	driver->handleFinishedExecution();
 	return;

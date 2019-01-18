@@ -68,7 +68,7 @@ namespace LLVMModule {
 	}
 
 /* Returns the LLVM module corresponding to the source code stored in src. */
-	llvm::Module *getLLVMModule(std::string &src)
+	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &src)
 	{
 		llvm::MemoryBuffer *buf;
 		llvm::SMDiagnostic err;
@@ -79,13 +79,19 @@ namespace LLVMModule {
 		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false).release();
 #endif
 #ifdef LLVM_PARSE_IR_MEMBUF_PTR
-		return llvm::ParseIR(buf, err, getLLVMContext());
+		auto mod = llvm::ParseIR(buf, err, getLLVMContext());
 #else
-		return llvm::parseIR(buf->getMemBufferRef(), err, getLLVMContext()).release();
+		auto mod = llvm::parseIR(buf->getMemBufferRef(), err, getLLVMContext()).release();
 #endif
+		if (!mod) {
+			llvm::dbgs() << "Error: Could not parse LLVM IR!\n";
+			err.print(filename.c_str(), llvm::dbgs());
+			abort();
+		}
+		return std::unique_ptr<llvm::Module>(mod);
 	}
 
-	bool transformLLVMModule(llvm::Module &mod, Config *conf)
+	bool transformLLVMModule(llvm::Module &mod, bool spinAssume, int unroll)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 #ifdef LLVM_PASSMANAGER_TEMPLATE
@@ -111,12 +117,10 @@ namespace LLVMModule {
 
 		PM.add(new DeclareAssumePass());
 		PM.add(new DeclareEndLoopPass());
-		if (conf->spinAssume){
+		if (spinAssume)
 			PM.add(new SpinAssumePass());
-		}
-		if (conf->unroll >= 0){
-			PM.add(new LoopUnrollPass(conf->unroll));
-		}
+		if (unroll >= 0)
+			PM.add(new LoopUnrollPass(unroll));
 		PM.add(new DefineLibcFunsPass());
 		PM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
 		modified = PM.run(mod);

@@ -20,7 +20,6 @@
 
 #include "Library.hpp"
 #include "Parser.hpp"
-#include "Thread.hpp"
 #include "ExecutionGraph.hpp"
 #include <llvm/ADT/StringMap.h>
 #include <llvm/IR/DebugInfo.h>
@@ -293,7 +292,7 @@ EventLabel& ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 		return nLab;
 
 	EventLabel &rfLab = events[rf.thread][rf.index];
-	rfLab.rfm1.push_front(lab.getPos());
+	rfLab.rfm1.push_back(lab.getPos());
 	return nLab;
 }
 
@@ -566,9 +565,11 @@ ExecutionGraph::getPrefixLabelsNotBefore(View &prefix, View &before)
 			EventLabel &curLab = result.back();
 			if (!curLab.hasWriteSem())
 				continue;
-			curLab.rfm1.remove_if([&](Event &e)
-					      { return e.index > prefix[e.thread] &&
-						       e.index > before[e.thread]; });
+			curLab.rfm1.erase(std::remove_if(curLab.rfm1.begin(), curLab.rfm1.end(),
+							 [&](Event &e)
+							 { return e.index > prefix[e.thread] &&
+								  e.index > before[e.thread]; }),
+					  curLab.rfm1.end());
 		}
 	}
 	return result;
@@ -712,7 +713,8 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 	/* Make sure that the old write it was reading from still exists */
 	if (oldRf.index < events[oldRf.thread].size() && !oldRf.isInitializer()) {
 		EventLabel &oldLab = getEventLabel(oldRf);
-		oldLab.rfm1.remove(lab.getPos());
+		oldLab.rfm1.erase(std::remove(oldLab.rfm1.begin(), oldLab.rfm1.end(), lab.getPos()),
+				  oldLab.rfm1.end());
 	}
 	if (!store.isInitializer()) {
 		EventLabel &sLab = getEventLabel(store);
@@ -733,8 +735,10 @@ void ExecutionGraph::cutToView(View &preds)
 			EventLabel &lab = thr[j];
 			if (!lab.hasWriteSem())
 				continue;
-			lab.rfm1.remove_if([&preds](Event &e)
-					   { return e.index > preds[e.thread]; });
+			lab.rfm1.erase(std::remove_if(lab.rfm1.begin(), lab.rfm1.end(),
+						      [&](Event &e)
+						      { return e.index > preds[e.thread]; }),
+				       lab.rfm1.end());
 		}
 	}
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
@@ -788,7 +792,8 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 			    == rfLab.rfm1.end())
 				rfLab.rfm1.push_back(curLab.getPos());
 		}
-		curLab.rfm1.remove(rLab.getPos());
+		curLab.rfm1.erase(std::remove(curLab.rfm1.begin(), curLab.rfm1.end(), rLab.getPos()),
+				  curLab.rfm1.end());
 	}
 
 	/* If there are no specific mo placings, just insert all stores */

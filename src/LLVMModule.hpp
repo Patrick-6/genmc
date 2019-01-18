@@ -20,17 +20,17 @@
 
 #include "config.h"
 
-#include "Config.hpp"
 #if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
 #elif defined(HAVE_LLVM_MODULE_H)
 #include <llvm/Module.h>
 #endif
+#include <memory>
 
 namespace LLVMModule {
 	llvm::LLVMContext &getLLVMContext(void);
 	void destroyLLVMContext(void);
-	llvm::Module *getLLVMModule(std::string &src);
-	bool transformLLVMModule(llvm::Module &mod, Config *conf);
+	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &source);
+	bool transformLLVMModule(llvm::Module &mod, bool spinAssume, int unroll);
 	void printLLVMModule(llvm::Module &mod, std::string &out);
 }

@@ -23,6 +23,7 @@
 
 #include "Error.hpp"
 #include "Event.hpp"
+#include "EventLabel.hpp"
 #include "Library.hpp"
 #include "ModOrder.hpp"
 

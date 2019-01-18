@@ -16,7 +16,6 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
-#include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Library.hpp"
@@ -149,7 +148,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   IntrinsicLowering *IL;
 
   /* Composition pointers */
-  Config *userConf;
   GenMCDriver *driver;
 
   // The runtime stack of executing code.  The top of the stack is the current
@@ -161,7 +159,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, Config *conf, GenMCDriver *driver);
+  explicit Interpreter(Module *M, GenMCDriver *driver);
   virtual ~Interpreter();
 
   void reset();
@@ -186,7 +184,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, Config *conf, GenMCDriver *driver,
+  static ExecutionEngine *create(Module *M, GenMCDriver *driver,
 				 std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.

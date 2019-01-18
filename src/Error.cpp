@@ -19,6 +19,7 @@
  */
 
 #include "Error.hpp"
+#include <set>
 
 llvm::raw_ostream &Error::warn()
 {

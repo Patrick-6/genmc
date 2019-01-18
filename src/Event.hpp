@@ -22,7 +22,6 @@
 #define __EVENT_HPP__
 
 #include <llvm/Support/raw_ostream.h>
-#include <list>
 
 enum EventType { EStart, EFinish, ETCreate, ETJoin,
 		 ERead, EWrite, EFence, EMalloc, EFree };
@@ -36,7 +35,6 @@ struct Event {
 	int thread;
 	int index;
 
-//	Event() : thread(-42), index(-42) {}; /* Initializer event */
 	Event() : thread(-17), index(-17) {};
 	Event(int t, int e) : thread(t), index(e) {};
 	Event(int t, int e, bool rmw) : thread(t), index(e) {};
