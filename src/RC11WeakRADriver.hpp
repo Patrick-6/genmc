@@ -27,10 +27,10 @@ class RC11WeakRADriver : public GenMCDriver {
 
 public:
 
-	RC11WeakRADriver(Config *conf, std::unique_ptr<llvm::Module> mod,
+	RC11WeakRADriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::vector<Library> &granted, std::vector<Library> &toVerify,
 			 clock_t start)
-		: GenMCDriver(conf, std::move(mod), granted, toVerify, start) {};
+		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
 	std::vector<Event> getStoresToLoc(llvm::GenericValue *addr);
 	std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW);

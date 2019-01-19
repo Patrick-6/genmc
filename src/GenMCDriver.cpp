@@ -41,10 +41,11 @@ void abortHandler(int signum)
 	exit(42);
 }
 
-GenMCDriver::GenMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod,
+GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::vector<Library> &granted, std::vector<Library> &toVerify,
 			 clock_t start)
-	: userConf(conf), mod(std::move(mod)), grantedLibs(granted), toVerifyLibs(toVerify),
+	: userConf(std::move(conf)), mod(std::move(mod)),
+	  grantedLibs(granted), toVerifyLibs(toVerify),
 	  explored(0), duplicates(0), start(start)
 {
 	/* Register a signal handler for abort() */

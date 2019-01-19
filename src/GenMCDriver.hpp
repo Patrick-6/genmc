@@ -61,7 +61,7 @@ class GenMCDriver {
 
 protected:
 	std::string sourceCode;
-	Config *userConf;
+	std::unique_ptr<Config> userConf;
 	std::unique_ptr<llvm::Module> mod;
 	std::vector<Library> grantedLibs;
 	std::vector<Library> toVerifyLibs;
@@ -75,9 +75,14 @@ protected:
 	std::unordered_set<std::string> uniqueExecs;
 	clock_t start;
 
-	GenMCDriver(Config *conf, std::unique_ptr<llvm::Module> mod,
+	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		    std::vector<Library> &granted, std::vector<Library> &toVerify,
 		    clock_t start);
+
+	/* No copying or copy-assignment of this class is allowed */
+	GenMCDriver(GenMCDriver const&) = delete;
+	GenMCDriver &operator=(GenMCDriver const &) = delete;
+
 public:
 
 	virtual ~GenMCDriver() {};

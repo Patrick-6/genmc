@@ -67,7 +67,7 @@ std::string GetExecutablePath(const char *Argv0)
 int main(int argc, char **argv)
 {
 	clock_t start = clock();
-	Config *conf = new Config(argc, argv);
+	std::unique_ptr<Config> conf = std::unique_ptr<Config>(new Config(argc, argv));
 	Parser parser;
 	std::vector<Library> granted, toVerify;
 
@@ -82,10 +82,9 @@ int main(int argc, char **argv)
 	if (conf->inputFromBitcodeFile) {
 		auto sourceCode = parser.readFile(conf->inputFile);
 		auto mod = LLVMModule::getLLVMModule(conf->inputFile, sourceCode);
-		GenMCDriver *driver = DriverFactory::create(conf, std::move(mod), granted, toVerify, start);
+		std::unique_ptr<GenMCDriver> driver =
+			DriverFactory::create(std::move(conf), std::move(mod), granted, toVerify, start);
 		driver->run();
-		delete conf;
-		delete driver;
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 		return 0;
 	}
@@ -160,17 +159,15 @@ int main(int argc, char **argv)
 		return 1;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	GenMCDriver *driver = DriverFactory::create(conf, Act->takeModule(), granted, toVerify, start);
+	std::unique_ptr<GenMCDriver> driver =
+		DriverFactory::create(std::move(conf), Act->takeModule(), granted, toVerify, start);
 #else
-	GenMCDriver *driver =
-		DriverFactory::create(conf, std::unique_ptr<llvm::Module>(Act->takeModule()),
+	std::unique_ptr<GenMCDriver> driver =
+		DriverFactory::create(std::move(conf), std::unique_ptr<llvm::Module>(Act->takeModule()),
 				      granted, toVerify, start);
 #endif
 
 	driver->run();
-
-	delete conf;
-	delete driver;
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 
 	return 0;

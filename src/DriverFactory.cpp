@@ -23,17 +23,24 @@
 #include "RC11WBDriver.hpp"
 #include "RC11MODriver.hpp"
 
-GenMCDriver *DriverFactory::create(Config *conf, std::unique_ptr<llvm::Module> mod,
-				  std::vector<Library> &granted, std::vector<Library> &toVerify,
-				  clock_t start)
+std::unique_ptr<GenMCDriver>
+DriverFactory::create(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
+		      std::vector<Library> &granted, std::vector<Library> &toVerify,
+		      clock_t start)
 {
 	switch (conf->model) {
 	case ModelType::weakra:
-		return new RC11WeakRADriver(conf, std::move(mod), granted, toVerify, start);
+		return std::unique_ptr<RC11WeakRADriver>(
+			new RC11WeakRADriver(std::move(conf), std::move(mod),
+					     granted, toVerify, start));
 	case ModelType::mo:
-		return new RC11MODriver(conf, std::move(mod), granted, toVerify, start);
+		return std::unique_ptr<RC11MODriver>(
+			new RC11MODriver(std::move(conf), std::move(mod),
+					 granted, toVerify, start));
 	case ModelType::wb:
-		return new RC11WBDriver(conf, std::move(mod), granted, toVerify, start);
+		return std::unique_ptr<RC11WBDriver>(
+			new RC11WBDriver(std::move(conf), std::move(mod),
+					 granted, toVerify, start));
 	default:
 		WARN("Unsupported model type! Exiting...\n");
 		abort();
