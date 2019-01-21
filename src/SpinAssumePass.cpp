@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "vecset.h"
+#include "VSet.hpp"
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareAssumePass.hpp"
@@ -103,7 +103,6 @@ void SpinAssumePass::addAssumeCallToBlock(llvm::BasicBlock *eb, llvm::BasicBlock
 	return;
 }
 
-/* TODO: Fix the egregious coding style in vecset */
 void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 {
 	bool done;
@@ -112,33 +111,39 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 		done = false;
 		while (!done) {
 			done = true;
-			VSet<llvm::BasicBlock*> has_predecessor;
-      // Search for basic blocks without in-loop successors
-      // Simultaneously collect blocks with in-loop predecessors
-      for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
-        llvm::TerminatorInst *T = (*it)->getTerminator();
-        bool has_loop_successor = false;
-        for(unsigned i = 0; i < T->getNumSuccessors(); ++i){
-          if(l->contains(T->getSuccessor(i))){
-            has_loop_successor = true;
-            has_predecessor.insert(T->getSuccessor(i));
-          }
-        }
-        if(!has_loop_successor){
-          done = false;
-          l->removeBlockFromLoop(*it);
-        }
-      }
-      // Search for basic blocks without in-loop predecessors
-      for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
-        if(has_predecessor.count(*it) == 0){
-          done = false;
-          l->removeBlockFromLoop(*it);
-        }
-      }
-    }
-    l = l->getParentLoop();
-  }
+			VSet<llvm::BasicBlock*> hasPredecessor;
+
+			/*
+			 * We collect blocks with predecessors in l, and we also
+			 * search for BBs without successors in l
+			 */
+			for (auto it = l->block_begin(); done && it != l->block_end(); ++it) {
+				llvm::TerminatorInst *T = (*it)->getTerminator();
+				bool hasLoopSuccessor = false;
+
+				for(auto i = 0u; i < T->getNumSuccessors(); ++i) {
+					if(l->contains(T->getSuccessor(i))){
+						hasLoopSuccessor = true;
+						hasPredecessor.insert(T->getSuccessor(i));
+					}
+				}
+
+				if (!hasLoopSuccessor) {
+					done = false;
+					l->removeBlockFromLoop(*it);
+				}
+			}
+
+			/* Find BBs without predecessors in l */
+			for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
+				if(hasPredecessor.count(*it) == 0) {
+					done = false;
+					l->removeBlockFromLoop(*it);
+				}
+			}
+		}
+		l = l->getParentLoop();
+	}
 }
 
 bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)

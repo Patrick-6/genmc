@@ -26,7 +26,7 @@ libgenmc_a_SOURCES = \
   RC11WBDriver.cpp RC11WBDriver.hpp \
   RC11MODriver.cpp RC11MODriver.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
-  vecset.h vecset.tcc \
+  VSet.hpp VSet.tcc \
   View.hpp View.cpp
 
 CXX = clang++

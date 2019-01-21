@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "vecset.h"
+#include "VSet.hpp"
 #include "LoopUnrollPass.hpp"
 #include "DeclareAssumePass.hpp"
 #include "DeclareEndLoopPass.hpp"
@@ -44,7 +44,7 @@ void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.addRequired<DeclareEndLoopPass>();
 	au.addPreserved<DeclareEndLoopPass>();
 }
-/* TODO: Refactor this brainfucked code */
+
 llvm::BasicBlock *LoopUnrollPass::makeDivergeBlock(llvm::Loop *l)
 {
 	llvm::Function *parentFun, *endLoopFun;
@@ -109,14 +109,18 @@ void LoopUnrollPass::redirectPHIOrValue(int bodyIdx, int blockIdx,
 	int nvals;
 	int nops;
 
-	for (auto it = loopBodies[bodyIdx][blockIdx]->begin(); it != loopBodies[bodyIdx][blockIdx]->end(); it++) {
+	for (auto it = loopBodies[bodyIdx][blockIdx]->begin();
+	     it != loopBodies[bodyIdx][blockIdx]->end(); it++) {
 		if (llvm::isa<llvm::PHINode>(*it)) {
 			p = static_cast<llvm::PHINode *>(&*it);
 			nvals = p->getNumIncomingValues();
 			for (int k = 0; k < nvals; k++) {
 				if (loopBlockIdx.count(p->getIncomingBlock(k))) {
 					targetIdx = loopBlockIdx[p->getIncomingBlock(k)];
-					/* Check whether this is an edge coming from outside the loop or from a previous body */
+					/*
+					 * Check whether this is an edge coming from outside the
+					 * loop or from a previous body
+					 */
 					if (blockIdx == 0) {
 						if (bodyIdx == 0) {
 							p->removeIncomingValue(k);
@@ -124,13 +128,19 @@ void LoopUnrollPass::redirectPHIOrValue(int bodyIdx, int blockIdx,
 							nvals--;
 						} else {
 							p->setIncomingBlock(k, loopBodies[bodyIdx-1][targetIdx]);
-							if (bodyIdx - 1 != 0 && VMaps[bodyIdx].count(p->getIncomingValue(k)))
-								p->setIncomingValue(k, VMaps[bodyIdx-1][p->getIncomingValue(k)]);
+							if (bodyIdx - 1 != 0 &&
+							    VMaps[bodyIdx].count(p->getIncomingValue(k)))
+								p->setIncomingValue(
+									k,
+									VMaps[bodyIdx-1][p->getIncomingValue(k)]);
 						}
 					} else {
 						p->setIncomingBlock(k, loopBodies[bodyIdx][targetIdx]);
-						if (bodyIdx != 0 && VMaps[bodyIdx].count(p->getIncomingValue(k)))
-							p->setIncomingValue(k, VMaps[bodyIdx][p->getIncomingValue(k)]);
+						if (bodyIdx != 0 &&
+						    VMaps[bodyIdx].count(p->getIncomingValue(k)))
+							p->setIncomingValue(
+								k,
+								VMaps[bodyIdx][p->getIncomingValue(k)]);
 					}
 				} else {
 					if (bodyIdx == 0)
