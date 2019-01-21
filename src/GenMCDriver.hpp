@@ -67,8 +67,6 @@ protected:
 	std::vector<Library> toVerifyLibs;
 	llvm::Interpreter *EE;
 	ExecutionGraph *currentEG;
-	std::unordered_map<Event, std::vector<StackItem>, EventHasher > worklist;
-	std::vector<Event> workstack;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
 	int explored;
 	int duplicates;
