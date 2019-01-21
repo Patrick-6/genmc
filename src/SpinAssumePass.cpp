@@ -46,7 +46,7 @@ bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
 	llvm::CallInst *ci = llvm::dyn_cast<llvm::CallInst>(&i);
 	if (!ci)
 		return false;
-	
+
 	llvm::CallSite cs(ci);
 	llvm::Function *fun = cs.getCalledFunction();
 	return fun && fun->getName().str() == "__VERIFIER_assume";
@@ -107,12 +107,12 @@ void SpinAssumePass::addAssumeCallToBlock(llvm::BasicBlock *eb, llvm::BasicBlock
 void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 {
 	bool done;
-	
+
 	while (l) {
 		done = false;
 		while (!done) {
 			done = true;
-			VecSet<llvm::BasicBlock*> has_predecessor;
+			VSet<llvm::BasicBlock*> has_predecessor;
       // Search for basic blocks without in-loop successors
       // Simultaneously collect blocks with in-loop predecessors
       for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
@@ -182,7 +182,7 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 #endif
 			modified = true;
 		}
-			
+
 	return modified;
 }
 

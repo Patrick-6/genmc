@@ -191,7 +191,7 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 		}
 	}
 
-	VecSet<llvm::BasicBlock *> uniqueSuccBlocks(succBlocks.begin(), succBlocks.end());
+	VSet<llvm::BasicBlock *> uniqueSuccBlocks(succBlocks.begin(), succBlocks.end());
 	for (llvm::BasicBlock *sb : uniqueSuccBlocks) {
 		for (auto it = sb->begin(); llvm::isa<llvm::PHINode>(*it) && it != sb->end(); it++) {
 
