@@ -1,11 +1,11 @@
-RCMC
+GenMC
 =====
-Rectified C/C++11 Model Checking
---------------------------------
+Generic Model Checking for C Programs
+-------------------------------------
 
 ---
 
-RCMC is a stateless model checker for C/C++11 programs which works on the
+GenMC is a stateless model checker for C programs that works on the
 level of LLVM Intermediate Representation.
 
 Author: Michalis Kokologiannakis.
@@ -14,7 +14,6 @@ Author: Michalis Kokologiannakis.
 * [Dependencies](#dependencies)
 * [Installing](#installing)
 * [Usage](#usage)
-* [Features](#features)
 * [Notes](#notes)
 
 <a name="license">License</a>
@@ -44,14 +43,14 @@ For a default build issue:
 		./configure
 		make
 
-This will leave the `rcmc` executable in the `src` directory.
-You can either run it from there (as in the examples below), move it to
-some other place (e.g., in the top-level directory) or create a link to it.
+This will leave the `genmc` executable in the `src` directory.
+You can either run it from there (as in the examples below), or issue
+`make install`.
 
-Alternatively, you can substitute the last step with the following command
-which will build the `rcmc` executable in parallel and will also run a subset
-of all the tests that come with the system to see if the system was built
-correctly or not:
+Alternatively, the following following command will build the `genmc`
+executable in parallel and will also run a subset of all the tests
+that come with the system to see if the system was built correctly or
+not:
 
 		make -j ftest
 
@@ -60,16 +59,14 @@ correctly or not:
 
 * To see a list of available options run:
 
-		./src/rcmc --help
+		./src/genmc --help
 
 * To run a particular testcase run:
 
-		./src/rcmc [options] <file>
-
-<a name="features">Features</a>
--------------------------------
-
-TODO
+		./src/genmc [options] <file>
 
 <a name="notes">Notes</a>
 ------------------------
+
+For feedback, questions, and bug reports please send an e-mail to
+`michalis AT mpi-sws DOT org`.
