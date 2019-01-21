@@ -28,7 +28,9 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
 {
 	auto &g = *currentEG;
 	auto &thr = EE->getCurThr();
-	auto[stores, wb] = g.calcWb(addr);
+	auto wb = g.calcWb(addr);
+	auto &stores = wb.first;
+	auto &wbMatrix = wb.second;
 	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(thr.id));
 
@@ -37,7 +39,7 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
 	for (auto i = 0u; i < stores.size(); i++) {
 		bool allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (wb[i * stores.size() + j] &&
+			if (wbMatrix[i * stores.size() + j] &&
 			    g.isWriteRfBefore(hbBefore, stores[j]))
 				allowed = false;
 		}

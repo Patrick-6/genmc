@@ -113,7 +113,7 @@ public:
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
 	std::unordered_map<void *, llvm::GenericValue> tls;
-	int globalInstructions;
+	unsigned int globalInstructions;
 	bool isBlocked;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
 

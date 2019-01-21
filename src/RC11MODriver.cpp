@@ -32,7 +32,9 @@ std::vector<Event> RC11MODriver::getStoresToLoc(llvm::GenericValue *addr)
 	auto &locMO = g.modOrder[addr];
 	auto before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
-	auto [begO, endO] = g.splitLocMOBefore(addr, before);
+	auto splitRange = g.splitLocMOBefore(addr, before);
+	auto &begO = splitRange.first;
+	auto &endO = splitRange.second;
 
 	/*
 	 * If there are not stores (hb;rf?)-before the current event

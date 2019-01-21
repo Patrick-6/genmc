@@ -39,7 +39,7 @@ std::vector<Event> RC11WeakRADriver::getStoresToLoc(llvm::GenericValue *addr)
 
 	auto before = g.getHbRfBefore(overwritten);
 	for (auto i = 0u; i < g.events.size(); i++) {
-		for (auto j = before[i] + 1; j < g.events[i].size(); j++) {
+		for (auto j = before[i] + 1u; j < g.events[i].size(); j++) {
 			EventLabel &lab = g.events[i][j];
 			if (lab.isWrite() && lab.getAddr() == addr)
 				stores.push_back(lab.getPos());

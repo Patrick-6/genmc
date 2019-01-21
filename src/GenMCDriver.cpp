@@ -212,7 +212,7 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 
 	/* First, free memory allocated by events that will no longer be in the graph */
 	for (auto i = 0u; i < g.events.size(); i++) {
-		for (auto j = v[i] + 1; j < g.events[i].size(); j++) {
+		for (auto j = v[i] + 1u; j < g.events[i].size(); j++) {
 			auto &lab = g.events[i][j];
 			if (lab.isMalloc())
 				EE->freeRegion(lab.getAddr(), lab.val.IntVal.getLimitedValue());
@@ -231,7 +231,7 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 void GenMCDriver::spawnAllChildren(int thread)
 {
 	auto &g = *currentEG;
-	for (auto i = 0; i < g.events[thread].size(); i++) {
+	for (auto i = 0u; i < g.events[thread].size(); i++) {
 		auto &lab = g.events[thread][i];
 		if (lab.isCreate()) {
 			auto &child = g.getEventLabel(lab.rfm1.back());
@@ -372,7 +372,6 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 
 llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 {
-	auto &g = *currentEG;
 	llvm::GenericValue result;
 
 	result.IntVal = llvm::APInt(typ->getIntegerBitWidth(), EE->getCurThr().id);
@@ -528,8 +527,9 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto &locMO = g.modOrder[addr];
-	auto[begO, endO] = getPossibleMOPlaces(addr, attr == ATTR_FAI || attr == ATTR_CAS);
+	auto placesRange = getPossibleMOPlaces(addr, attr == ATTR_FAI || attr == ATTR_CAS);
+	auto &begO = placesRange.first;
+	auto &endO = placesRange.second;
 
 	/* It is always consistent to add the store at the end of MO */
 	auto &sLab = g.addStoreToGraph(thr.id, attr, ord, addr, typ, val, endO);
@@ -541,6 +541,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 		abort();
 	}
 
+	auto &locMO = g.modOrder[addr];
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
 
 		/* We cannot place the write just before the write of an RMW */
@@ -686,7 +687,9 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto preds = g.getViewFromStamp(rLab.getStamp());
 
 		auto before = g.getPorfBefore(lab.getPos());
-		auto[writePrefix, moPlacings] = getPrefixToSaveNotBefore(lab, preds);
+		auto prefixP = getPrefixToSaveNotBefore(lab, preds);
+		auto &writePrefix = prefixP.first;
+		auto &moPlacings = prefixP.second;
 
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
@@ -971,7 +974,7 @@ void GenMCDriver::prettyPrintGraph()
 		auto &thr = EE->getThrById(i);
 		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
 			     << "> " << thr.threadFun->getName() << ": ";
-		for (auto j = 0; j < g.events[i].size(); j++) {
+		for (auto j = 0u; j < g.events[i].size(); j++) {
 			auto &lab = g.events[i][j];
 			if (lab.isRead()) {
 				if (lab.isRevisitable())

@@ -2339,7 +2339,7 @@ void Interpreter::replayExecutionBefore(View &before)
 		thr.globalInstructions = 0;
 		thr.prefixLOC.resize(g.events[i].size());
 		currentThread = i;
-		while (thr.globalInstructions < before[i]) {
+		while ((int) thr.globalInstructions < before[i]) {
 			int snap = thr.globalInstructions;
 			ExecutionContext &SF = thr.ECStack.back();
 			Instruction &I = *SF.CurInst++;

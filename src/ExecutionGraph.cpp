@@ -125,7 +125,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	BUG_ON(!sLab.isWrite());
 	auto before = getPorfBefore(sLab.getPos());
 	for (auto i = 0u; i < events.size(); i++) {
-		for (auto j = before[i] + 1; j < events[i].size(); j++) {
+		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
 			auto &lab = events[i][j];
 			if (lab.isRead() && lab.getAddr() == sLab.getAddr() && lab.isRevisitable() &&
 			    (!lab.hasBeenRevisited() || lab.rf.index <= sLab.porfView[lab.rf.thread]))
@@ -711,7 +711,7 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 	lab.rf = store;
 
 	/* Make sure that the old write it was reading from still exists */
-	if (oldRf.index < events[oldRf.thread].size() && !oldRf.isInitializer()) {
+	if (oldRf.index < (int) events[oldRf.thread].size() && !oldRf.isInitializer()) {
 		EventLabel &oldLab = getEventLabel(oldRf);
 		oldLab.rfm1.erase(std::remove(oldLab.rfm1.begin(), oldLab.rfm1.end(), lab.getPos()),
 				  oldLab.rfm1.end());
@@ -777,9 +777,9 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 					std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	for (auto &lab : storePrefix) {
-		BUG_ON(lab.getIndex() > events[lab.getThread()].size() &&
+		BUG_ON(lab.getIndex() > (int) events[lab.getThread()].size() &&
 		       "Events should be added in order!");
-		if (lab.getIndex() == events[lab.getThread()].size())
+		if (lab.getIndex() == (int) events[lab.getThread()].size())
 			events[lab.getThread()].push_back(lab);
 	}
 
@@ -804,7 +804,7 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
 	}
 
 	/* Otherwise, insert the writes of storePrefix into the appropriate places */
-	int inserted = 0;
+	auto inserted = 0u;
 	while (inserted < moPlacings.size()) {
 		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
 			auto &lab = getEventLabel(it->first);
@@ -837,7 +837,7 @@ bool ExecutionGraph::equivPrefixes(unsigned int stamp,
 			continue;
 
 		if (ritO->getStamp() <= stamp &&
-		    ritO->getIndex() < events[ritO->getThread()].size() &&
+		    ritO->getIndex() < (int) events[ritO->getThread()].size() &&
 		    *ritO == events[ritO->getThread()][ritO->getIndex()])
 			continue;
 		return false;
@@ -912,7 +912,7 @@ Event ExecutionGraph::findRaceForNewStore(Event e)
 	auto before = getHbBefore(lab.getPos().prev());
 
 	for (auto i = 0u; i < events.size(); i++) {
-		for (auto j = before[i] + 1; j < events[i].size(); j++) {
+		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
 			EventLabel &oLab = events[i][j];
 			if ((oLab.isRead() || oLab.isWrite()) &&
 			    oLab.getAddr() == lab.getAddr() &&
@@ -1086,7 +1086,7 @@ bool ExecutionGraph::isRMWLoad(const Event &e)
 	EventLabel &lab = getEventLabel(e);
 	if (lab.isWrite() || !lab.isRMW())
 		return false;
-	if (e.index == events[e.thread].size() - 1)
+	if (e.index == (int) events[e.thread].size() - 1)
 		return false;
 
 	EventLabel &labNext = events[e.thread][e.index + 1];
@@ -1383,7 +1383,9 @@ void ExecutionGraph::addInitEdges(std::vector<Event> &scs, std::vector<Event> &f
 bool ExecutionGraph::isPscWeakAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
-	auto[scs, fcs] = getSCs();
+	auto accesses = getSCs();
+	auto &scs = accesses.first;
+	auto &fcs = accesses.second;
 
 	/* If there are no SC events, it is a valid execution */
 	if (scs.empty())
@@ -1405,7 +1407,9 @@ bool ExecutionGraph::isPscWeakAcyclicWB()
 	 */
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto [stores, wbMatrix] = calcWb(loc);
+		auto wb = calcWb(loc);
+		auto &stores = wb.first;
+		auto &wbMatrix = wb.second;
 		auto sortedStores = topoSort(wbMatrix, stores);
 		addSCEcos(scs, fcs, sortedStores, matrix);
 	}
@@ -1418,7 +1422,9 @@ bool ExecutionGraph::isPscWeakAcyclicWB()
 bool ExecutionGraph::isPscWbAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
-	auto[scs, fcs] = getSCs();
+	auto accesses = getSCs();
+	auto &scs = accesses.first;
+	auto &fcs = accesses.second;
 
 	/* If there are no SC events, it is a valid execution */
 	if (scs.empty())
@@ -1440,7 +1446,9 @@ bool ExecutionGraph::isPscWbAcyclicWB()
 	 */
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto [stores, wbMatrix] = calcWb(loc);
+		auto wb = calcWb(loc);
+		auto &stores = wb.first;
+		auto &wbMatrix = wb.second;
 		addSCWbEcos(scs, fcs, stores, wbMatrix, matrix);
 	}
 
@@ -1452,7 +1460,9 @@ bool ExecutionGraph::isPscWbAcyclicWB()
 bool ExecutionGraph::isPscAcyclicWB()
 {
 	/* Collect all SC events (except for RMW loads) */
-	auto[scs, fcs] = getSCs();
+	auto accesses = getSCs();
+	auto &scs = accesses.first;
+	auto &fcs = accesses.second;
 
 	/* If there are no SC events, it is a valid execution */
 	if (scs.empty())
@@ -1475,7 +1485,9 @@ bool ExecutionGraph::isPscAcyclicWB()
 	std::vector<llvm::GenericValue *> scLocs = getDoubleLocs();
 	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
 	for (auto i = 0u; i < scLocs.size(); i++) {
-		auto [stores, wbMatrix] = calcWb(scLocs[i]);
+		auto wb = calcWb(scLocs[i]);
+		auto &stores = wb.first;
+		auto &wbMatrix = wb.second;
 		topoSorts[i] = allTopoSort(wbMatrix, stores);
 	}
 
@@ -1513,7 +1525,9 @@ bool ExecutionGraph::isPscAcyclicWB()
 bool ExecutionGraph::isPscAcyclicMO()
 {
 	/* Collect all SC events (except for RMW loads) */
-	auto[scs, fcs] = getSCs();
+	auto accesses = getSCs();
+	auto &scs = accesses.first;
+	auto &fcs = accesses.second;
 
 	/* If there are no SC events, it is a valid execution */
 	if (scs.empty())
@@ -1656,7 +1670,9 @@ bool ExecutionGraph::isWbAcyclic(void)
 {
 	bool acyclic = true;
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it) {
-		auto[stores, matrix] = calcWb(it->first);
+		auto wb = calcWb(it->first);
+		auto &stores = wb.first;
+		auto &matrix = wb.second;
 		for (auto i = 0u; i < stores.size(); i++)
 			if (matrix[i * stores.size() + i])
 				acyclic = false;
@@ -1773,7 +1789,9 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				v.updateMax(o);
 			}
 
-			auto [ss, wb] = calcWbRestricted(lab.getAddr(), v);
+			auto wb = calcWbRestricted(lab.getAddr(), v);
+			auto &ss = wb.first;
+			auto &matrix = wb.second;
 			// TODO: Make a map with already calculated WBs??
 
 			if (std::find(ss.begin(), ss.end(), lab.getPos()) == ss.end())
@@ -1782,7 +1800,7 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 			/* Collect all wb-after stores that are in "tos" range */
 			int k = calcEventIndex(ss, lab.getPos());
 			for (auto l = 0u; l < ss.size(); l++)
-				if (wb[k * ss.size() + l])
+				if (matrix[k * ss.size() + l])
 					buf.push_back(ss[l]);
 		}
 		froms[i].second = buf;
@@ -1955,8 +1973,8 @@ void ExecutionGraph::validateGraph(void)
 					abort();
 				}
 				for (auto &r : lab.rfm1) {
-					if (r.thread > events.size() ||
-					    r.index >= events[r.thread].size()) {
+					if (r.thread > (int) events.size() ||
+					    r.index >= (int) events[r.thread].size()) {
 						WARN("Event in write's rf-list does not exist!\n");
 						llvm::dbgs() << r << "\n";
 						llvm::dbgs() << *this << "\n";
