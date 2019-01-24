@@ -35,7 +35,7 @@ runvariants() {
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" -print-error-trace "${checker_args}" -- "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1

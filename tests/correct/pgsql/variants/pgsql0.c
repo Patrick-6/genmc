@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <assert.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../pgsql.c"
 

@@ -50,6 +50,17 @@ ExecutionEngine *Interpreter::create(Module *M, GenMCDriver *driver,
     // We got an error, just return 0
     return nullptr;
   }
+#elif defined LLVM_MODULE_MATERIALIZE_ALL_LLVM_ERROR
+  if (Error Err = M->materializeAll()) {
+    std::string Msg;
+    handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
+      Msg = EIB.message();
+    });
+    if (ErrStr)
+      *ErrStr = Msg;
+    // We got an error, just return 0
+    return nullptr;
+  }
 #else
   if(std::error_code EC = M->materializeAll()){
     if(ErrStr)

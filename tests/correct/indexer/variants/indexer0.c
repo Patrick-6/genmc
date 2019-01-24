@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../indexer.c"
 

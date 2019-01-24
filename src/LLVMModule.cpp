@@ -38,6 +38,7 @@
 #endif
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRPrintingPasses.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
@@ -122,7 +123,11 @@ namespace LLVMModule {
 		if (unroll >= 0)
 			PM.add(new LoopUnrollPass(unroll));
 		PM.add(new DefineLibcFunsPass());
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+		PM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
+#else
 		PM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
+#endif
 		modified = PM.run(mod);
 		assert(!llvm::verifyModule(mod));
 		return modified;

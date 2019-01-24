@@ -180,7 +180,10 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 
 	if (isSpinLoop(l))
 		if (transformLoop(l, lpm)) {
-#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+#ifdef LLVM_HAVE_LOOPINFO_ERASE
+			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
+			lpm.markLoopAsDeleted(*l);
+#elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
 			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
 #else
 			lpm.deleteLoopFromQueue(l);

@@ -26,6 +26,7 @@
 #include "EventLabel.hpp"
 #include "Library.hpp"
 #include "ModOrder.hpp"
+#include <llvm/ADT/StringMap.h>
 
 /*
  * ExecutionGraph class - This class represents an execution graph

@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include <config.h>
 #include "DeclareAssumePass.hpp"
 #include "Error.hpp"
 #include <llvm/Pass.h>
@@ -30,14 +31,20 @@
 
 using namespace llvm;
 
+#ifdef LLVM_HAS_ATTRIBUTELIST
+# define AttributeList AttributeList
+#else
+# define AttributeList AttributeSet
+#endif
+
 bool DeclareAssumePass::runOnModule(Module &M)
 {
 	Function *assumeFun;
 	FunctionType *assumeTyp;
-	AttributeSet assumeAtt;
+	AttributeList assumeAtt;
 	bool modified = false;
-	
-	/* 
+
+	/*
 	 * TODO: Check whether __VERIFIER_assume() is already declared
 	 * but malformed.
 	 */
@@ -47,8 +54,8 @@ bool DeclareAssumePass::runOnModule(Module &M)
 		Type *argTyp = Type::getInt1Ty(M.getContext());
 		assumeTyp = FunctionType::get(retTyp, {argTyp}, false);
 
-		AttributeSet::get(M.getContext(),
-				  AttributeSet::FunctionIndex,
+		AttributeList::get(M.getContext(),
+				  AttributeList::FunctionIndex,
 				  std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
 		assumeFun = dyn_cast<Function>(M.getOrInsertFunction("__VERIFIER_assume",
 								     assumeTyp, assumeAtt));

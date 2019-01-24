@@ -49,11 +49,11 @@ std::vector<Constraint> &Library::getConstraints() { return constraints; }
 llvm::AtomicOrdering strToOrd(std::string &ord)
 {
 	if (ord == "rlx") {
-		return llvm::Monotonic;
+		return llvm::AtomicOrdering::Monotonic;
 	} else if (ord == "acq") {
-		return llvm::Acquire;
+		return llvm::AtomicOrdering::Acquire;
 	} else if (ord == "rel") {
-		return llvm::Release;
+		return llvm::AtomicOrdering::Release;
 	} else {
 		WARN("Wrong ordering to parse!\n");
 		BUG();

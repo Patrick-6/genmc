@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
+#include <config.h>
 #include "DeclareEndLoopPass.hpp"
 #include "Error.hpp"
 #include <llvm/Pass.h>
@@ -30,11 +31,17 @@
 
 using namespace llvm;
 
+#ifdef LLVM_HAS_ATTRIBUTELIST
+# define AttributeList AttributeList
+#else
+# define AttributeList AttributeSet
+#endif
+
 bool DeclareEndLoopPass::runOnModule(Module &M)
 {
 	Function *endLoopFun;
 	FunctionType *endLoopTyp;
-	AttributeSet endLoopAtt;
+	AttributeList endLoopAtt;
 	bool modified = false;
 
 	endLoopFun = M.getFunction("__end_loop");
@@ -42,7 +49,7 @@ bool DeclareEndLoopPass::runOnModule(Module &M)
 		Type *retTyp = Type::getVoidTy(M.getContext());
 		endLoopTyp = FunctionType::get(retTyp, {}, false);
 
-		AttributeSet::get(M.getContext(), AttributeSet::FunctionIndex,
+		AttributeList::get(M.getContext(), AttributeList::FunctionIndex,
 				  std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
 		endLoopFun = dyn_cast<Function>(M.getOrInsertFunction("__end_loop",
 								     endLoopTyp, endLoopAtt));

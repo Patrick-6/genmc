@@ -21,17 +21,17 @@
 #include "Error.hpp"
 #include <set>
 
-llvm::raw_ostream &Error::warn()
+llvm::raw_ostream &GenMCError::warn()
 {
 	return llvm::errs();
 }
 
-llvm::raw_ostream &Error::warnOnce(const std::string &warningID)
+llvm::raw_ostream &GenMCError::warnOnce(const std::string &warningID)
 {
 	return warnOnOnce(true, warningID);
 }
 
-llvm::raw_ostream &Error::warnOn(bool condition)
+llvm::raw_ostream &GenMCError::warnOn(bool condition)
 {
 	static std::string buf;
 	static llvm::raw_string_ostream s(buf);
@@ -44,7 +44,7 @@ llvm::raw_ostream &Error::warnOn(bool condition)
 	return llvm::errs();
 }
 
-llvm::raw_ostream &Error::warnOnOnce(bool condition, const std::string &warningID)
+llvm::raw_ostream &GenMCError::warnOnOnce(bool condition, const std::string &warningID)
 {
 	static std::set<std::string> ids;
 	static std::string buf;

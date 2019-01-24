@@ -67,11 +67,11 @@ std::string GetExecutablePath(const char *Argv0)
 int main(int argc, char **argv)
 {
 	clock_t start = clock();
-	std::unique_ptr<Config> conf = std::unique_ptr<Config>(new Config(argc, argv));
+	std::unique_ptr<Config> conf(new Config());
 	Parser parser;
 	std::vector<Library> granted, toVerify;
 
-	conf->getConfigOptions();
+	conf->getConfigOptions(argc, argv);
 	if (conf->specsFile != "") {
 		auto res = parser.parseSpecs(conf->specsFile);
 		std::copy_if(res.begin(), res.end(), std::back_inserter(granted),
@@ -114,6 +114,7 @@ int main(int argc, char **argv)
 	for (auto &f : conf->cflags)
 		Args.push_back(f.c_str());
 	Args.push_back(conf->inputFile.c_str());
+
 	std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
 	if (!C)
 		return 0;
@@ -122,10 +123,15 @@ int main(int argc, char **argv)
 #ifdef CLANG_LIST_TYPE_JOB_PTR
 	const driver::Command &Cmd = *cast<driver::Command>(*Jobs.begin());
 #else
-	const driver::Command &Cmd = cast<driver::Command>(*Jobs.begin());
+	const driver::Command &Cmd = (*Jobs.begin());
 #endif
 	const driver::ArgStringList &CCArgs = Cmd.getArguments();
-	CompilerInvocation *CI = new CompilerInvocation;
+#ifdef CLANG_COMPILER_INVOCATION_PTR
+	CompilerInvocation *CI
+#else
+	std::shared_ptr<CompilerInvocation> CI
+#endif
+		(new CompilerInvocation);
 	CompilerInvocation::CreateFromArgs(*CI,
 					   const_cast<const char **>(CCArgs.data()),
 					   const_cast<const char **>(CCArgs.data()) +
@@ -140,7 +146,7 @@ int main(int argc, char **argv)
 	}
 
 	CompilerInstance Clang;
-	Clang.setInvocation(std::move(CI));//std::move(CI.get()));
+	Clang.setInvocation(CI);
 
 	// Create the compilers actual diagnostics engine.
 	Clang.createDiagnostics();

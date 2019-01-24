@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <pthread.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../publish.c"
 

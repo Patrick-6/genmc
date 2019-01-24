@@ -33,11 +33,6 @@
 
 #include <sstream>
 
-const char *LoopUnrollPass::getPassName() const
-{
-	return "LoopUnrollPass";
-}
-
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	llvm::LoopPass::getAnalysisUsage(au);
@@ -230,7 +225,10 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 			}
 		}
 	}
-#ifdef HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED
+#ifdef LLVM_HAVE_LOOPINFO_ERASE
+	lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
+	lpm.markLoopAsDeleted(*l);
+#elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
 	lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
 #else
 	lpm.deleteLoopFromQueue(l);

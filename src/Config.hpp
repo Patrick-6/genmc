@@ -27,11 +27,7 @@
 enum class ModelType { weakra, mo, wb };
 enum class CheckPSCType { nocheck, weak, wb, full };
 
-class Config {
-
-protected:
-	int argc;
-	char **argv;
+struct Config {
 
 public:
 	std::vector<std::string> cflags;
@@ -51,8 +47,7 @@ public:
 	bool printErrorTrace;
 	bool checkWbAcyclicity;
 
-	Config(int argc, char **argv);
-	void getConfigOptions(void);
+	void getConfigOptions(int argc, char **argv);
 };
 
 #endif /* __CONFIG_HPP__ */

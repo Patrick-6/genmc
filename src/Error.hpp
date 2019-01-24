@@ -26,10 +26,10 @@
 #include <llvm/Support/raw_ostream.h>
 #include <string>
 
-#define WARN(msg) Error::warn() << (msg)
-#define WARN_ONCE(id, msg) Error::warnOnce(id) << (msg)
-#define WARN_ON(condition, msg) Error::warnOn(condition) << (msg)
-#define WARN_ON_ONCE(condition, id, msg) Error::warnOnOnce(condition, id) << (msg)
+#define WARN(msg) GenMCError::warn() << (msg)
+#define WARN_ONCE(id, msg) GenMCError::warnOnce(id) << (msg)
+#define WARN_ON(condition, msg) GenMCError::warnOn(condition) << (msg)
+#define WARN_ON_ONCE(condition, id, msg) GenMCError::warnOnOnce(condition, id) << (msg)
 
 #define BUG() do { \
 	llvm::errs() << "BUG: Failure at " << __FILE__ ":" << __LINE__ \
@@ -42,7 +42,7 @@
 #define ECOMPILE 1
 #define EVERFAIL 42
 
-namespace Error {
+namespace GenMCError {
 
 	llvm::raw_ostream &warn();
 	llvm::raw_ostream &warnOnce(const std::string &warningID);

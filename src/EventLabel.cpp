@@ -162,22 +162,22 @@ bool EventLabel::isFree() const
 
 bool EventLabel::isNotAtomic() const
 {
-	return ord == llvm::NotAtomic;
+	return ord == llvm::AtomicOrdering::NotAtomic;
 }
 
 bool EventLabel::isAtLeastAcquire() const
 {
-	return (ord == llvm::Acquire ||
-		ord == llvm::AcquireRelease ||
-		ord == llvm::SequentiallyConsistent);
+	return (ord == llvm::AtomicOrdering::Acquire ||
+		ord == llvm::AtomicOrdering::AcquireRelease ||
+		ord == llvm::AtomicOrdering::SequentiallyConsistent);
 	// return llvm::isAtLeastAcquire(ord);
 }
 
 bool EventLabel::isAtLeastRelease() const
 {
-	return (ord == llvm::Release ||
-		ord == llvm::AcquireRelease ||
-		ord == llvm::SequentiallyConsistent);
+	return (ord == llvm::AtomicOrdering::Release ||
+		ord == llvm::AtomicOrdering::AcquireRelease ||
+		ord == llvm::AtomicOrdering::SequentiallyConsistent);
 	// return llvm::isAtLeastRelease(ord);
 }
 
@@ -193,7 +193,7 @@ bool EventLabel::hasWriteSem() const
 
 bool EventLabel::isSC() const
 {
-	return (ord == llvm::SequentiallyConsistent);
+	return (ord == llvm::AtomicOrdering::SequentiallyConsistent);
 }
 
 bool EventLabel::isRMW() const
@@ -229,13 +229,13 @@ bool EventLabel::hasBeenRevisited() const
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)
 {
 	switch (o) {
-	case llvm::NotAtomic : return s << "NA";
-	case llvm::Unordered : return s << "Un";
-	case llvm::Monotonic : return s << "Rlx";
-	case llvm::Acquire   : return s << "Acq";
-	case llvm::Release   : return s << "Rel";
-	case llvm::AcquireRelease : return s << "AcqRel";
-	case llvm::SequentiallyConsistent : return s << "SeqCst";
+	case llvm::AtomicOrdering::NotAtomic : return s << "NA";
+	case llvm::AtomicOrdering::Unordered : return s << "Un";
+	case llvm::AtomicOrdering::Monotonic : return s << "Rlx";
+	case llvm::AtomicOrdering::Acquire   : return s << "Acq";
+	case llvm::AtomicOrdering::Release   : return s << "Rel";
+	case llvm::AtomicOrdering::AcquireRelease : return s << "AcqRel";
+	case llvm::AtomicOrdering::SequentiallyConsistent : return s << "SeqCst";
 	default : return s;
 	}
 }

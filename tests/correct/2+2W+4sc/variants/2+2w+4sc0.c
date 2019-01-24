@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <pthread.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../2+2w+4sc.c"
 

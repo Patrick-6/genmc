@@ -61,6 +61,81 @@ AC_CHECK_HEADERS([ffi/ffi.h],[],[
 
 # Check various functions in LLVM
 
+## Check whether llvm::cl has HideUnrelatedOptions
+AC_MSG_CHECKING([whether llvm::cl has HideUnrelatedOptions()])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+	llvm::cl::OptionCategory clGeneral("A category");
+	const llvm::cl::OptionCategory *cats[] = { &clGeneral };
+	llvm::cl::HideUnrelatedOptions(cats);
+]])],
+        [AC_DEFINE([LLVM_HAS_HIDE_UNRELATED_OPTS],[1],
+         [Define if llvm::cl has HideUnrelatedOptions().])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::cl has ResetCommandLineParser()
+AC_MSG_CHECKING([whether llvm::cl has ResetCommandLineParser()])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+	llvm::cl::ResetCommandLineParser();
+]])],
+        [AC_DEFINE([LLVM_HAS_RESET_COMMANDLINE_PARSER],[1],
+         [Define if llvm::cl has ResetCommandLineParser().])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+
+## Check whether llvm::cl::values needs to be null terminated
+AC_MSG_CHECKING([whether llvm::cl::values need a sentinel])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+  enum Unit{
+    UNIT
+  };
+  auto v = llvm::cl::values(clEnumVal(UNIT, "An option"), clEnumValEnd);
+]])],
+        [AC_DEFINE([LLVM_CL_VALUES_NEED_SENTINEL],[1],
+         [Define if llvm::cl::values need a sentinel.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check if AttributeSet is renamed to AttributeList
+AC_MSG_CHECKING([whether llvm::AttributeSet is renamed to llvm::AttributeList])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_LLVM_IR_MODULE_H)
+#include <llvm/IR/Module.h>
+#elif defined(HAVE_LLVM_MODULE_H)
+#include <llvm/Module.h>
+#endif
+]],[[
+  llvm::Module *M = nullptr;
+  llvm::AttributeList assumeAttrs =
+    llvm::AttributeList::get(M->getContext(),llvm::AttributeList::FunctionIndex,
+                             std::vector<llvm::Attribute::AttrKind>({llvm::Attribute::NoUnwind}));
+]])],
+        [AC_DEFINE([LLVM_HAS_ATTRIBUTELIST],[1],
+         [Define if llvm::AttributeList exists (and not AttributeSet).])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::SwitchInst::CaseIt needs dereference (>= 4.0)
+AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instructions.h>
+]],[[
+  llvm::SwitchInst::CaseIt *i = nullptr;
+  (*i)->getCaseValue();
+]])],
+        [AC_DEFINE([LLVM_SWITCHINST_CASEIT_NEEDS_DEREF],[1],
+         [Define if llvm::SwitchInst::CaseIt should be dereferenced.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+
 ## Check which method in llvm::Module returns the data layout string
 AC_MSG_CHECKING([for llvm::Module::getDataLayoutStr])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -137,7 +212,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   llvm::Module *M = 0;
   llvm::Error Err = M->materializeAll();
 ]])],
-           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_LLVM_ALL_ERROR],[1],
+           [AC_DEFINE([LLVM_MODULE_MATERIALIZE_ALL_LLVM_ERROR],[1],
             [Define if Module::materializeAll has signature () -> llvm::Error])
             AC_MSG_RESULT([() -> llvm::Error])],
            [AC_MSG_RESULT([() -> llvm::error_code])])
@@ -244,21 +319,76 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([llvm::MemoryBuffer*])],
         [AC_MSG_RESULT([std::unique_ptr<llvm::MemoryBuffer>])])
 
-## Check the type of list_type
-AC_MSG_CHECKING([for the type of list_type])
+## Check which API is used by llvm:gep_type_iterator
+AC_MSG_CHECKING([whether llvm:gep_type_iterator uses the new API])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <clang/Driver/Compilation.h>
+#include <llvm/IR/GetElementPtrTypeIterator.h>
+]],[[
+  llvm::gep_type_iterator *it = nullptr;
+  llvm::StructType *STy = it->getStructTypeOrNull();
+]])],
+        [AC_DEFINE([LLVM_NEW_GEP_TYPE_ITERATOR_API],[1],
+         [Define if llvm:gep_type_iterator uses the new API.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check the type of list_type items
+AC_MSG_CHECKING([for the type of list_type items])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <clang/Driver/Job.h>
 ]],[[
-   std::unique_ptr<clang::driver::Compilation> C;
-   const clang::driver::JobList &Jobs = C->getJobs();
-   const clang::driver::Command &Cmd =
-     *llvm::cast<clang::driver::Command>(*Jobs.begin());
+	class Cmd : public clang::driver::Job {
+	      void Print(llvm::raw_ostream &OS, const char *Terminator,
+                         bool Quote, bool CrashReport = false) { };
+	};
  ]])],
         [AC_DEFINE([CLANG_LIST_TYPE_JOB_PTR],[1],
          [Define if list_type is a SmallVector of Job*.])
          AC_MSG_RESULT([Job*])],
         [AC_MSG_RESULT([std::unique_ptr<Command>])])
+
+## Check how to set a compiler invocation
+AC_MSG_CHECKING([how to set a CompilerInvocation])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <clang/Frontend/CompilerInvocation.h>
+#include <clang/Frontend/CompilerInstance.h>
+]],[[
+	clang::CompilerInvocation *inv = nullptr;
+	clang::CompilerInstance Clang;
+	Clang.setInvocation(inv);
+ ]])],
+        [AC_DEFINE([CLANG_COMPILER_INVOCATION_PTR],[1],
+         [Define if setInvocation takes a simple CompilerInvocation*.])
+         AC_MSG_RESULT([CompilerInvocation*])],
+        [AC_MSG_RESULT([std::shared_ptr<CompilerInvocation>])])
+
+## Check whether getPassName() should return a StringRef
+AC_MSG_CHECKING([whether Pass::getPassName() returns a StringRef])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Pass.h>
+]],[[
+	class LPass : public llvm::Pass {
+	      virtual llvm::StringRef getPassName() const { return ""; };
+	};
+]])],
+        [AC_DEFINE([LLVM_PASS_GETPASSNAME_IS_STRINGREF],[1],
+         [Define if Pass::getPassName() returns a StringRef.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::LoopInfo::erase exists (> llvm 4)
+AC_MSG_CHECKING([whether llvm::LoopInfo::erase exists])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopPass.h>
+]],[[
+  llvm::Loop * L = 0;
+  llvm::LoopInfo *LI = 0;
+  LI->erase(L);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_LOOPINFO_ERASE],[1],
+   [Define if llvm::LoopInfo::erase exists])],
+  [AC_MSG_RESULT([no])])
 
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
@@ -363,7 +493,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   LI->markAsRemoved(L);
 ]])],
   [AC_MSG_RESULT([yes])
-   AC_DEFINE([HAVE_LLVM_LOOPINFO_MARK_AS_REMOVED],[1],
+   AC_DEFINE([LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED],[1],
    [Define if llvm::LoopInfo::markAsRemoved exists])],
   [AC_MSG_RESULT([no])])
 

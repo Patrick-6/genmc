@@ -21,7 +21,6 @@
 #include "Library.hpp"
 #include "Parser.hpp"
 #include "ExecutionGraph.hpp"
-#include <llvm/ADT/StringMap.h>
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
@@ -31,7 +30,8 @@
 ExecutionGraph::ExecutionGraph() : timestamp(0)
 {
 	/* Create an entry for main() and push the "initializer" label */
-	events.push_back({ EventLabel(EStart, llvm::Acquire, Event(0, 0), Event::getInitializer()) });
+	events.push_back({ EventLabel(EStart, llvm::AtomicOrdering::Acquire,
+				      Event(0, 0), Event::getInitializer()) });
 }
 
 
@@ -327,7 +327,7 @@ EventLabel& ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	if (lab.isRMW()) {
 		EventLabel &pLab = getEventLabel(last);
 		View mV = getMsgView(pLab.rf);
-		BUG_ON(pLab.ord == llvm::NotAtomic);
+		BUG_ON(pLab.ord == llvm::AtomicOrdering::NotAtomic);
 		if (pLab.isAtLeastRelease())
 			/* no need for ctor -- getMax copies the View */
 			lab.msgView = mV.getMax(lab.hbView);
@@ -337,7 +337,8 @@ EventLabel& ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	} else {
 		if (lab.isAtLeastRelease())
 			lab.msgView = lab.hbView;
-		else if (lab.ord == llvm::Monotonic || lab.ord == llvm::Acquire)
+		else if (lab.ord == llvm::AtomicOrdering::Monotonic ||
+			 lab.ord == llvm::AtomicOrdering::Acquire)
 			lab.msgView = getHbBefore(getLastThreadRelease(thread, lab.getAddr()));
 	}
 	return addEventToGraph(lab);
@@ -409,7 +410,7 @@ EventLabel& ExecutionGraph::addFreeToGraph(int tid, llvm::GenericValue *addr, ll
 EventLabel& ExecutionGraph::addTCreateToGraph(int tid, int cid)
 {
 	int max = events[tid].size();
-	EventLabel lab(ETCreate, llvm::Release, Event(tid, max), cid);
+	EventLabel lab(ETCreate, llvm::AtomicOrdering::Release, Event(tid, max), cid);
 	Event last = getLastThreadEvent(tid);
 
 	lab.porfView = getPorfBefore(last);
@@ -425,7 +426,7 @@ EventLabel& ExecutionGraph::addTCreateToGraph(int tid, int cid)
 EventLabel& ExecutionGraph::addTJoinToGraph(int tid, int cid)
 {
 	int max = events[tid].size();
-	EventLabel lab(ETJoin, llvm::Acquire, Event(tid, max), cid);
+	EventLabel lab(ETJoin, llvm::AtomicOrdering::Acquire, Event(tid, max), cid);
 	Event last = getLastThreadEvent(tid);
 
 	lab.porfView = getPorfBefore(last);
@@ -442,7 +443,7 @@ EventLabel& ExecutionGraph::addTJoinToGraph(int tid, int cid)
 EventLabel& ExecutionGraph::addStartToGraph(int tid, Event tc)
 {
 	int max = events[tid].size();
-	EventLabel lab = EventLabel(EStart, llvm::Acquire, Event(tid, max), tc);
+	EventLabel lab = EventLabel(EStart, llvm::AtomicOrdering::Acquire, Event(tid, max), tc);
 
 	lab.porfView = getPorfBefore(tc);
 	lab.porfView[tid] = max;
@@ -462,7 +463,7 @@ EventLabel& ExecutionGraph::addStartToGraph(int tid, Event tc)
 EventLabel& ExecutionGraph::addFinishToGraph(int tid)
 {
 	int max = events[tid].size();
-	EventLabel lab(EFinish, llvm::Release, Event(tid, max));
+	EventLabel lab(EFinish, llvm::AtomicOrdering::Release, Event(tid, max));
 	Event last = getLastThreadEvent(tid);
 
 	lab.porfView = getPorfBefore(last);
@@ -541,7 +542,8 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 		EventLabel &lab = events[thread][i];
 		if (lab.isFence() && lab.isAtLeastAcquire())
 			return;
-		if (lab.isRead() && (lab.ord == llvm::Monotonic || lab.ord == llvm::Release)) {
+		if (lab.isRead() && (lab.ord == llvm::AtomicOrdering::Monotonic ||
+				     lab.ord == llvm::AtomicOrdering::Release)) {
 			View o = getMsgView(lab.rf);
 			v.updateMax(o);
 		}

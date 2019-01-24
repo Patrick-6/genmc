@@ -35,8 +35,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
 
-static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
-          cl::desc("make the interpreter print every volatile load and store"));
+// static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
+//           cl::desc("make the interpreter print every volatile load and store"));
 
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
@@ -943,9 +943,14 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   // Check to see if any of the cases match...
   BasicBlock *Dest = nullptr;
   for (SwitchInst::CaseIt i = I.case_begin(), e = I.case_end(); i != e; ++i) {
-    GenericValue CaseVal = getOperandValue(i.getCaseValue(), SF);
+#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREF
+    auto &it = *i;
+#else
+    auto &it = i;
+#endif
+    GenericValue CaseVal = getOperandValue(it.getCaseValue(), SF);
     if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
-      Dest = cast<BasicBlock>(i.getCaseSuccessor());
+      Dest = cast<BasicBlock>(it.getCaseSuccessor());
       break;
     }
   }
@@ -1019,9 +1024,9 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   // Allocate enough memory to hold the type...
   void *Memory = malloc(MemToAlloc);
 
-  DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
-               << NumElements << " (Total: " << MemToAlloc << ") at "
-               << uintptr_t(Memory) << '\n');
+  // DEBUG(dbgs() << "Allocated Type: " << *Ty << " (" << TypeSize << " bytes) x "
+  //              << NumElements << " (Total: " << MemToAlloc << ") at "
+  //              << uintptr_t(Memory) << '\n');
 
   GenericValue Result = PTOGV(Memory);
   assert(Result.PointerVal && "Null pointer returned by malloc!");
@@ -1045,7 +1050,11 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   uint64_t Total = 0;
 
   for (; I != E; ++I) {
+#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
+    if (StructType *STy = I.getStructTypeOrNull()) {
+#else
     if (StructType *STy = dyn_cast<StructType>(*I)) {
+#endif
       const StructLayout *SLO = TD.getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
@@ -1053,7 +1062,6 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 
       Total += SLO->getElementOffset(Index);
     } else {
-      SequentialType *ST = cast<SequentialType>(*I);
       // Get the index number for the array... which must be long type...
       GenericValue IdxGV = getOperandValue(I.getOperand(), SF);
 
@@ -1066,13 +1074,17 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-      Total += TD.getTypeAllocSize(ST->getElementType())*Idx;
+#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
+      Total += TD.getTypeAllocSize(I.getIndexedType()) * Idx;
+#else
+      Total += TD.getTypeAllocSize(cast<SequentialType>(*I)->getElementType()) * Idx;
+#endif
     }
   }
 
   GenericValue Result;
   Result.PointerVal = ((char*)getOperandValue(Ptr, SF).PointerVal) + Total;
-  DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
+  // DEBUG(dbgs() << "GEP Index " << Total << " bytes.\n");
   return Result;
 }
 
@@ -2308,7 +2320,7 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 std::string getFilenameFromMData(MDNode *node)
 {
 #ifdef LLVM_DILOCATION_IS_MDNODE
-	const llvm::DILocation &loc = llvm::cast<const llvm::DILocation&>(*node);
+	const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*node);
 #else
 	llvm::DILocation loc(node);
 #endif
@@ -2498,7 +2510,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,
+	auto oldVal = driver->visitLoad(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ,
 					GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
@@ -2507,7 +2519,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		return;
 	}
 
-	driver->visitStore(ATTR_CAS, Acquire, ptr, typ, newVal);
+	driver->visitStore(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
@@ -2532,7 +2544,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(ATTR_PLAIN, Release, ptr, typ, val);
+	driver->visitStore(ATTR_PLAIN, AtomicOrdering::Release, ptr, typ, val);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2557,12 +2569,12 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, Acquire, ptr, typ,
+	auto oldVal = driver->visitLoad(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ,
 					GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(ATTR_CAS, Acquire, ptr, typ, newVal);
+		driver->visitStore(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);

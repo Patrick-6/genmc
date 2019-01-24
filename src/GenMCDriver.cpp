@@ -978,7 +978,7 @@ void GenMCDriver::prettyPrintGraph()
 			auto &lab = g.events[i][j];
 			if (lab.isRead()) {
 				if (lab.isRevisitable())
-					llvm::dbgs().changeColor(llvm::buffer_ostream::Colors::GREEN);
+					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
 				auto val = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.getAddr());
 				llvm::dbgs() << lab.type << EE->getGlobalName(lab.getAddr()) << ","
 					     << val.IntVal << " ";

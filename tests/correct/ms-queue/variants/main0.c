@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../main.c"
 

@@ -22,6 +22,9 @@
 #define __LOOP_UNROLL_PASS_HPP__
 
 #include <llvm/Pass.h>
+#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
+#include <llvm/ADT/StringRef.h>
+#endif
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -29,25 +32,30 @@ class LoopUnrollPass : public llvm::LoopPass {
 
 protected:
 	int unrollDepth;
-	
+
 	llvm::BasicBlock *makeDivergeBlock(llvm::Loop *l);
 	void redirectBranch(int bodyIdx, int blockIdx, int unrollDepth,
 			    llvm::BasicBlock *divergeBlock,
 			    std::map<llvm::BasicBlock const *, int> &loopBlockIdx,
 			    std::vector<std::vector<llvm::BasicBlock *> > &loopBodies);
-	void redirectPHIOrValue(int bodyIdx, int blockIdx, 
+	void redirectPHIOrValue(int bodyIdx, int blockIdx,
 				std::vector<llvm::ValueToValueMapTy> &VMaps,
 				std::map<llvm::BasicBlock const *, int> &loopBlockIdx,
 				std::vector<std::vector<llvm::BasicBlock *> > &loopBodies);
-	
+
 public:
 	static char ID;
-	
+
 	LoopUnrollPass(int depth) : llvm::LoopPass(ID), unrollDepth(depth) {
 		if (unrollDepth < 0)
 			unrollDepth = 0;
 	};
-	virtual const char *getPassName() const;
+
+#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
+	virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; } ;
+#else
+	virtual const char *getPassName() const { return "LoopUnrollPass"; } ;
+#endif
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
 	virtual bool runOnLoop(llvm::Loop *l, llvm::LPPassManager &LPM);
 };

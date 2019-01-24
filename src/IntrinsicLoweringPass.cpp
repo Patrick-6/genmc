@@ -54,7 +54,7 @@ bool IntrinsicLoweringPass::runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &
 		case llvm::Intrinsic::trap: {
 			/* Lower calls to @llvm.trap to abort() calls */
 			llvm::Function *F = llvm::cast<llvm::Function>(
-				M.getOrInsertFunction("abort", llvm::Type::getVoidTy(M.getContext()), NULL));
+				M.getOrInsertFunction("abort", llvm::Type::getVoidTy(M.getContext())));
 			F->setDoesNotReturn();
 			F->setDoesNotThrow();
 			llvm::CallInst::Create(F, llvm::Twine(), I);
