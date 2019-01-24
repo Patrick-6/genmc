@@ -13,6 +13,7 @@ Author: Michalis Kokologiannakis.
 * [License](#license)
 * [Dependencies](#dependencies)
 * [Installing](#installing)
+* [Troubleshooting](#troubleshooting)
 * [Usage](#usage)
 * [Notes](#notes)
 
@@ -31,8 +32,7 @@ following packages:
 		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
 		zlib1g-dev
 
-We have tested the tool with LLVM versions 3.5.0 and 3.8.1.
-Most likely, it also works for all those in between.
+The LLVM versions currently supported are: 3.5.0, 3.8.1, 4.0.1, 7.0.1.
 
 <a name="installing">Installing</a>
 ----------------------------------
@@ -64,6 +64,16 @@ not:
 * To run a particular testcase run:
 
 		./src/genmc [options] <file>
+
+<a name="troubleshooting">Troubleshooting</a>
+---------------------------------------------
+
+* Undefined references to symbols that involve types `std::__cxx11` during linking:
+
+	This probably indicates that you are using an old version of LLVM with a new
+	version of libstdc++. Configuring with the following flags should fix the problem:
+
+			CXXFLAGS="-DGLIBCXX_USE_CXX11_ABI=0" ./configure --with-llvm=LLVM_PATH
 
 <a name="notes">Notes</a>
 ------------------------
