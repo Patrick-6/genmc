@@ -756,7 +756,7 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	View preds;
 
 	for (auto i = 0u; i < events.size(); i++) {
-		for (auto j = events[i].size() - 1; j >= 0; j--) {
+		for (auto j = (int) events[i].size() - 1; j >= 0; j--) {
 			auto &lab = events[i][j];
 			if (lab.getStamp() <= stamp) {
 				preds[i] = j;
