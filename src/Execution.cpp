@@ -2669,7 +2669,8 @@ void Interpreter::callFunction(Function *F,
   } else if (functionName == "pthread_create") {
 	  callPthreadCreate(F, ArgVals);
 	  return;
-  } else if (functionName == "pthread_join") {
+  } else if (functionName == "pthread_join" ||
+	     functionName == "_pthread_join") { /* Mac OS X name mangling */
 	  callPthreadJoin(F, ArgVals);
 	  return;
   } else if (functionName == "pthread_exit") {
