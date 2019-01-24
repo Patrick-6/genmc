@@ -26,16 +26,26 @@ later. Please see the LICENSE file for details.
 <a name="dependencies">Dependencies</a>
 ---------------------------------------
 
+The LLVM versions currently supported are: 3.5.0, 3.8.1, 4.0.1, 7.0.1.
+
+### GNU/Linux
+
 In order to use the tool on a Debian-based installation, you will need the
 following packages:
 
 		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
 		zlib1g-dev
 
-The LLVM versions currently supported are: 3.5.0, 3.8.1, 4.0.1, 7.0.1.
+### Max OS X
+
+Using `brew`, the following packages are necessary:
+
+		autoconf automake llvm libffi
 
 <a name="installing">Installing</a>
 ----------------------------------
+
+### GNU/Linux
 
 For a default build issue:
 
@@ -53,6 +63,14 @@ that come with the system to see if the system was built correctly or
 not:
 
 		make -j ftest
+
+### Mac OS X
+
+For a default build issue:
+
+		autoreconf --install
+		./configure AR=llvm-ar
+		make
 
 <a name="usage">Usage</a>
 -------------------------

@@ -50,18 +50,32 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <set>
 
 using namespace clang;
 using namespace clang::driver;
 
-std::string GetExecutablePath(const char *Argv0)
+std::string getExecutablePath(const char *Argv0)
 {
 	/*
 	 * This just needs to be some symbol in the binary; C++ doesn't
 	 * allow taking the address of ::main however.
 	 */
-	void *MainAddr = (void*) (intptr_t) GetExecutablePath;
+	void *MainAddr = (void*) (intptr_t) getExecutablePath;
 	return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
+}
+
+ArgStringList filterCC1Args(const ArgStringList &ccArgs)
+{
+	std::set<std::string> ignoredArgs = {"-discard-value-names"};
+	ArgStringList newCcArgs;
+
+	for (auto &arg : ccArgs) {
+		if (ignoredArgs.count(arg) == 0) {
+			newCcArgs.push_back(arg);
+		}
+	}
+	return newCcArgs;
 }
 
 int main(int argc, char **argv)
@@ -89,7 +103,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	void *MainAddr = (void*) (intptr_t) GetExecutablePath;
+	void *MainAddr = (void*) (intptr_t) getExecutablePath;
 	std::string Path = CLANGPATH;
 	IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
 	TextDiagnosticPrinter *DiagClient =
@@ -126,6 +140,7 @@ int main(int argc, char **argv)
 	const driver::Command &Cmd = (*Jobs.begin());
 #endif
 	const driver::ArgStringList &CCArgs = Cmd.getArguments();
+	const driver::ArgStringList FCCArgs = filterCC1Args(CCArgs);
 #ifdef CLANG_COMPILER_INVOCATION_PTR
 	CompilerInvocation *CI
 #else
@@ -133,9 +148,9 @@ int main(int argc, char **argv)
 #endif
 		(new CompilerInvocation);
 	CompilerInvocation::CreateFromArgs(*CI,
-					   const_cast<const char **>(CCArgs.data()),
-					   const_cast<const char **>(CCArgs.data()) +
-					   CCArgs.size(),
+					   const_cast<const char **>(FCCArgs.data()),
+					   const_cast<const char **>(FCCArgs.data()) +
+					   FCCArgs.size(),
 					   Diags);
 
 	// Show the invocation, with -v.
