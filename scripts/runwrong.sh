@@ -25,7 +25,7 @@ runtime=0
 model="${model:-wb}"
 
 runvariants() {
-    printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
+    printf "| ${POWDER_BLUE}%-18s${NC} | " "${dir##*/}${n}"
     vars=0
     test_time=0
     failure=""
@@ -56,17 +56,17 @@ runvariants() {
     average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
     if test -n "${outcome_failure}"
     then
-	printf "%-22s | %-10s | %-13s |\n" \
-	       "${RED}BUG NOT FOUND${NC}" "${vars}" "${average_time}"
+	printf "${RED}%-15s${NC} | %-6s | % 13s |\n" \
+	       "BUG NOT FOUND" "${vars}" "${average_time}"
 	result=1
     elif test -n "${failure}"
     then
-	printf "%-28s | %-10s | %-13s |\n" \
-	       "${LIME_YELLOW}TRACE DIFF${NC}" "${vars}" "${average_time}"
+	printf "${LIME_YELLOW}%-15s${NC} | %-6s | % 13s |\n" \
+	       "TRACE DIFF" "${vars}" "${average_time}"
 	result=1
     else
-	printf "%-22s | %-10s | %-13s |\n" \
-	       "${GREEN}BUG FOUND${NC}" "${vars}" "${average_time}"
+	printf "${GREEN}%-15s${NC} | %-6s | % 13s |\n" \
+	       "BUG FOUND" "${vars}" "${average_time}"
     fi
 }
 
@@ -95,9 +95,8 @@ printline; echo ''
 
 # Print table's header
 printline
-printf "| %-25s | %-22s | %-19s | %-22s |\n" \
-       "${CYAN}Testcase${NC}" "${CYAN}Result${NC}" \
-       "${CYAN}Files${NC}" "${CYAN}Avg. time${NC}"
+printf "| ${CYAN}%-18s${NC} | ${CYAN}%-15s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-13s${NC} |\n" \
+       "Testcase" "Result" "Files" "Avg. time"
 printline
 
 # Run wrong testcases

@@ -25,7 +25,7 @@ runtime=0
 model="${model:-wb}"
 
 runvariants() {
-    printf "| %-31s | " "${POWDER_BLUE}${dir##*/}${n}${NC}"
+    printf "| ${POWDER_BLUE}%-18s${NC} | " "${dir##*/}${n}"
     vars=0
     test_time=0
     failure=""
@@ -55,18 +55,18 @@ runvariants() {
     average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
     if test -n "${outcome_failure}"
     then
-	printf "%-15s | %-11s | %-5s | %-11s |\n" \
-	       "${RED}ERROR${NC}" "${explored}" "${vars}" "${average_time}"
+	printf "${RED}ERROR ${NC} | % 10s | %-5s | % 10s |\n" \
+	       "${explored}" "${vars}" "${average_time}"
 	result=1
     elif test -n "${failure}"
     then
-	printf "%-15s | %-11s | %-5s | %-11s |\n" \
-	       "${LIME_YELLOW}FAILED${NC}" "${explored_failed:-0}/${expected}" \
+	printf "${LIME_YELLOW}FAILED${NC} | % 10s | %-5s | % 10s |\n" \
+	       "${explored_failed:-0}/${expected}" \
 	       "${vars}" "${average_time}"
 	result=1
     else
-	printf "%-15s | %-11s | %-5s | %-11s |\n" \
-	       "${GREEN}SAFE${NC}" "${expected}" "${vars}" "${average_time}"
+	printf "${GREEN}SAFE  ${NC} | % 10s | %-5s | % 10s |\n" \
+	       "${expected}" "${vars}" "${average_time}"
     fi
 }
 
@@ -99,9 +99,8 @@ printline; echo ''
 
 # Print table's header
 printline
-printf "| %-25s | %-10s | %-20s | %-10s | %-20s |\n" \
-       "${CYAN}Testcase${NC}" "${CYAN}Result${NC}" "${CYAN}Executions${NC}" \
-       "${CYAN}Files${NC}" "${CYAN}Avg. time${NC}"
+printf "| ${CYAN}%-18s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-10s${NC} | ${CYAN}%-5s${NC} | ${CYAN}%-10s${NC} |\n" \
+       "Testcase" "Result" "Executions" "Files" "Avg. time"
 printline
 
 # Run correct testcases and update status
