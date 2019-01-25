@@ -68,7 +68,7 @@ std::string getExecutablePath(const char *Argv0)
 driver::ArgStringList filterCC1Args(const driver::ArgStringList &ccArgs)
 {
 	std::set<std::string> ignoredArgs = {"-discard-value-names"};
-	ArgStringList newCcArgs;
+	driver::ArgStringList newCcArgs;
 
 	for (auto &arg : ccArgs) {
 		if (ignoredArgs.count(arg) == 0) {
