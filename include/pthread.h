@@ -24,20 +24,21 @@
 #include <time.h>
 
 
-typedef void pthread_attr_t;
-typedef void pthread_barrier_t;
+typedef struct { int __private; } pthread_attr_t;
+typedef struct { int __private; } pthread_barrier_t;
 typedef int pthread_barrierattr_t;
-typedef void pthread_cond_t;
+typedef struct { int __private; } pthread_cond_t;
 typedef long pthread_condattr_t;
 typedef int pthread_key_t;
-typedef void pthread_mutex_t;
+typedef struct { int __private; } pthread_mutex_t;
 typedef long pthread_mutexattr_t;
 typedef int pthread_once_t;
-typedef void pthread_rwlock_t;
-typedef long pthread_rwlockattr_t;
-typedef void pthread_spinlock_t;
+typedef struct { int __private; } pthread_rwlock_t;
+typedef struct { int __private; } pthread_rwlockattr_t;
+typedef struct { int __private; } pthread_spinlock_t;
 typedef long pthread_t;
 
+#define PTHREAD_MUTEX_INITIALIZER { 0 }
 
 
 /* Detach state.  */
@@ -118,7 +119,6 @@ enum
 
 /* Single execution handling.  */
 #define PTHREAD_ONCE_INIT 0
-
 
 /* Create a new thread, starting with execution of START-ROUTINE
    getting passed ARG.  Creation attributed come from ATTR.  The new

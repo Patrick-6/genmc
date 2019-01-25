@@ -5,7 +5,7 @@ AUTOMAKE_OPTIONS = -Wno-override
 libgenmc_adir = $(pkgincludedir)
 
 # the list of header files that belong to the library
-libgenmc_a_HEADERS = $(top_builddir)/include/pthread.h
+libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \

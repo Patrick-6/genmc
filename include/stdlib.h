@@ -5,6 +5,8 @@
 
 typedef __SIZE_TYPE__ size_t;
 
+void exit(int);
+
 void abort(void) ;
 int atoi(const char *);
 void free(void *);
