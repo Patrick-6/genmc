@@ -17,7 +17,6 @@ AX_CLANG(,[
   AC_MSG_FAILURE([Failed to detect clang/clang++.])
 ])
 
-
 ## Checks for libraries
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])

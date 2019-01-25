@@ -127,6 +127,8 @@ int main(int argc, char **argv)
 	Args.push_back("-g"); /* Compile with -g to get debugging mdata */
 	for (auto &f : conf->cflags)
 		Args.push_back(f.c_str());
+	Args.push_back(SRC_INCLUDE_DIR);
+	Args.push_back(INCLUDE_DIR);
 	Args.push_back(conf->inputFile.c_str());
 
 	std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));

@@ -1,8 +1,15 @@
 ## Make autotools quit complaining about explicit rules
 AUTOMAKE_OPTIONS = -Wno-override
 
+# where to install the headers on the system
+libgenmc_adir = $(pkgincludedir)
+
+# the list of header files that belong to the library
+libgenmc_a_HEADERS = $(top_builddir)/include/pthread.h
+
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
+  $(libgenmc_a_HEADERS) \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
@@ -30,7 +37,7 @@ libgenmc_a_SOURCES = \
   View.hpp View.cpp
 
 CXX = clang++
-AM_CXXFLAGS=-std=c++1z -Wno-unknown-warning-option
+AM_CXXFLAGS = -std=c++1z -Wno-unknown-warning-option -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(top_builddir)/include\"
 bin_PROGRAMS = genmc
 genmc_SOURCES = main.cpp
 genmc_LDADD   = libgenmc.a -lclangCodeGen -lclangFrontend -lclangFrontendTool -lclangDriver -lclangSerialization -lclangParse -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend -lclangEdit -lclangAST -lclangLex -lclangBasic
