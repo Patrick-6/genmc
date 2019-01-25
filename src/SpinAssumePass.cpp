@@ -34,6 +34,12 @@
 #include <llvm/IR/Instruction.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
+#ifdef LLVM_HAS_TERMINATORINST
+ typedef llvm::TerminatorInst TerminatorInst;
+#else
+ typedef llvm::Instruction TerminatorInst;
+#endif
+
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<llvm::DominatorTreeWrapperPass>();

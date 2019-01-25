@@ -33,6 +33,12 @@
 
 #include <sstream>
 
+#ifdef LLVM_HAS_TERMINATORINST
+ typedef llvm::TerminatorInst TerminatorInst;
+#else
+ typedef llvm::Instruction TerminatorInst;
+#endif
+
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	llvm::LoopPass::getAnalysisUsage(au);
