@@ -124,7 +124,7 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 			 * search for BBs without successors in l
 			 */
 			for (auto it = l->block_begin(); done && it != l->block_end(); ++it) {
-				llvm::TerminatorInst *T = (*it)->getTerminator();
+				TerminatorInst *T = (*it)->getTerminator();
 				bool hasLoopSuccessor = false;
 
 				for(auto i = 0u; i < T->getNumSuccessors(); ++i) {
@@ -155,7 +155,7 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 {
 	llvm::BasicBlock *eb, *nb;
-	llvm::TerminatorInst *ei;
+	TerminatorInst *ei;
 	llvm::BranchInst *bi;
 	bool exitOn = false;
 

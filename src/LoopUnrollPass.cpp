@@ -67,7 +67,7 @@ void LoopUnrollPass::redirectBranch(int bodyIdx, int blockIdx, int unrollDepth,
 				    std::map<llvm::BasicBlock const *, int> &loopBlockIdx,
 				    std::vector<std::vector<llvm::BasicBlock *> > &loopBodies)
 {
-	llvm::TerminatorInst *ti;
+	TerminatorInst *ti;
 	llvm::BasicBlock *succ;
 	int nsucc;
 	int targetBlock;
