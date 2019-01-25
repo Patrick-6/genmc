@@ -65,7 +65,7 @@ std::string getExecutablePath(const char *Argv0)
 	return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
-ArgStringList filterCC1Args(const ArgStringList &ccArgs)
+driver::ArgStringList filterCC1Args(const driver::ArgStringList &ccArgs)
 {
 	std::set<std::string> ignoredArgs = {"-discard-value-names"};
 	ArgStringList newCcArgs;
