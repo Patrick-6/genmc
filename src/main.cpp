@@ -65,10 +65,10 @@ std::string getExecutablePath(const char *Argv0)
 	return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
 }
 
-driver::ArgStringList filterCC1Args(const driver::ArgStringList &ccArgs)
+llvm::opt::ArgStringList filterCC1Args(const llvm::opt::ArgStringList &ccArgs)
 {
 	std::set<std::string> ignoredArgs = {"-discard-value-names"};
-	driver::ArgStringList newCcArgs;
+	llvm::opt::ArgStringList newCcArgs;
 
 	for (auto &arg : ccArgs) {
 		if (ignoredArgs.count(arg) == 0) {
@@ -141,8 +141,8 @@ int main(int argc, char **argv)
 #else
 	const driver::Command &Cmd = (*Jobs.begin());
 #endif
-	const driver::ArgStringList &CCArgs = Cmd.getArguments();
-	const driver::ArgStringList FCCArgs = filterCC1Args(CCArgs);
+	const llvm::opt::ArgStringList &CCArgs = Cmd.getArguments();
+	const llvm::opt::ArgStringList FCCArgs = filterCC1Args(CCArgs);
 #ifdef CLANG_COMPILER_INVOCATION_PTR
 	CompilerInvocation *CI
 #else
