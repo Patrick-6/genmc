@@ -135,6 +135,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         [AC_MSG_RESULT([no])])
 
 
+## Check whether the class llvm::TerminatorInst exists (LLVM < 8)
+AC_MSG_CHECKING([for llvm::TerminatorInst])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instructions.h>
+]],[[
+  llvm::TerminatorInst *I = nullptr;
+]])],
+        [AC_DEFINE([LLVM_HAS_TERMINATORINST],[1],
+         [Define if the class llvm::TerminatorInst exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check which method in llvm::Module returns the data layout string
 AC_MSG_CHECKING([for llvm::Module::getDataLayoutStr])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
