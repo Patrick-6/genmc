@@ -61,7 +61,7 @@ EventLabel& ExecutionGraph::getLastThreadLabel(int thread)
 
 Event ExecutionGraph::getLastThreadEvent(int thread)
 {
-	return events[thread][events[thread].size() - 1].getPos();
+	return Event(thread, events[thread].size() - 1);
 }
 
 Event ExecutionGraph::getLastThreadRelease(int thread, llvm::GenericValue *addr)
@@ -774,8 +774,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	return;
 }
 
-void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
-					std::vector<EventLabel> &storePrefix,
+void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel> &storePrefix,
 					std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	for (auto &lab : storePrefix) {

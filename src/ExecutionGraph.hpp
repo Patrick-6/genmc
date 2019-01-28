@@ -113,8 +113,7 @@ public:
 	View getViewFromStamp(unsigned int stamp);
 	void cutToStamp(unsigned int stamp);
 	void cutToView(View &view);
-	void restoreStorePrefix(EventLabel &rLab, View &storePorfBefore,
-				std::vector<EventLabel> &storePrefix,
+	void restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
 
 	/* Equivalence checks */

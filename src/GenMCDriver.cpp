@@ -136,7 +136,6 @@ void GenMCDriver::run()
 }
 
 void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
-			       View before,
 			       std::vector<EventLabel> &&prefix,
 			       std::vector<std::pair<Event, Event> > &&moPlacings,
 			       int newMoPos = 0)
@@ -144,7 +143,7 @@ void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
 {
 	auto &lab = currentEG->getEventLabel(e);
 	StackItem s(t, lab.getStamp(), e, lab.rf, shouldRf,
-		    before, std::move(prefix), std::move(moPlacings), newMoPos);
+		    std::move(prefix), std::move(moPlacings), newMoPos);
 
 	workqueue[lab.getStamp()].push_back(std::move(s));
 }
@@ -516,7 +515,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
+		addToWorklist(SRead, lab.getPos(), *it, {}, {});
 	return EE->loadValueFromWrite(validStores[0], typ, addr);
 }
 
@@ -552,7 +551,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 			continue;
 
 		/* Push the stack item */
-		addToWorklist(MOWrite, sLab.getPos(), sLab.rf, {}, {}, {},
+		addToWorklist(MOWrite, sLab.getPos(), sLab.rf, {}, {},
 			      std::distance(locMO.begin(), it));
 	}
 
@@ -702,7 +701,7 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 
 		filterWorklistPrf(rLab, lab.getPos(), writePrefix, moPlacings);
 
-		addToWorklist(SRevisit, rLab.getPos(), lab.getPos(), before,
+		addToWorklist(SRevisit, rLab.getPos(), lab.getPos(),
 			      std::move(writePrefix), std::move(moPlacings));
 	}
 	return (!lab.isRMW() || pendingRMWs.empty());
@@ -733,7 +732,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		 */
 		lab.revisited = true;
 		lab.stamp = g.nextStamp(); // TODO: perhaps change this?
-		g.restoreStorePrefix(lab, p.storePorfBefore, p.writePrefix, p.moPlacings);
+		g.restoreStorePrefix(lab, p.writePrefix, p.moPlacings);
 		break;
 	case MOWrite: {
 		/* Try a different MO ordering, and also consider reads to revisit */
@@ -812,7 +811,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 		BUG_ON(validStores.empty());
 		g.changeRf(lab, validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-			addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
+			addToWorklist(SRead, lab.getPos(), *it, {}, {});
 		return EE->loadValueFromWrite(lab.rf, typ, addr);
 	}
 
@@ -830,7 +829,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 		auto &sLab = g.getEventLabel(*it);
 		BUG_ON(sLab.rfm1.size() > 1);
 		if (g.getEventLabel(sLab.rfm1.back()).isRevisitable())
-			addToWorklist(SReadLibFunc, lab.getPos(), *it, {}, {}, {});
+			addToWorklist(SReadLibFunc, lab.getPos(), *it, {}, {});
 	}
 
 	/* If there is no valid RF, we have to read BOTTOM */
@@ -850,7 +849,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 	g.changeRf(lab, validStores[0]);
 
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
-		addToWorklist(SRead, lab.getPos(), *it, {}, {}, {});
+		addToWorklist(SRead, lab.getPos(), *it, {}, {});
 
 	return EE->loadValueFromWrite(lab.rf, typ, addr);
 }
@@ -901,7 +900,7 @@ void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::
 		/* Check consistency for the graph with this MO */
 		auto preds = g.getViewFromStamp(sLab.getStamp());
 		if (g.isLibConsistentInView(*lib, preds))
-			addToWorklist(MOWriteLib, sLab.getPos(), sLab.rf, {}, {}, {}, i);
+			addToWorklist(MOWriteLib, sLab.getPos(), sLab.rf, {}, {}, i);
 		locMO.erase(locMO.begin() + i);
 	}
 	locMO.push_back(sLab.getPos());
@@ -957,7 +956,7 @@ bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 
 			filterWorklistPrf(rLab, rf, writePrefix, moPlacings);
 
-			addToWorklist(SRevisit, rLab.getPos(), rf, before,
+			addToWorklist(SRevisit, rLab.getPos(), rf,
 				      std::move(writePrefix), std::move(moPlacings));
 
 		}

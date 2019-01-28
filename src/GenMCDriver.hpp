@@ -41,20 +41,18 @@ struct StackItem {
 	Event toRevisit;
 	Event oldRf;
 	Event shouldRf;
-	View storePorfBefore;
 	std::vector<EventLabel> writePrefix;
 	std::vector<std::pair<Event, Event> > moPlacings;
 	int moPos;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, unsigned int stamp, Event e,
-		  Event oldRf, Event shouldRf, View before,
+		  Event oldRf, Event shouldRf,
 		  std::vector<EventLabel> &&writePrefix,
 		  std::vector<std::pair<Event, Event> > &&moPlacings,
 		  int newMoPos)
 		: type(t), stamp(stamp), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
-		  storePorfBefore(before), writePrefix(writePrefix), moPlacings(moPlacings),
-		  moPos(newMoPos) {};
+		  writePrefix(writePrefix), moPlacings(moPlacings), moPos(newMoPos) {};
 };
 
 class GenMCDriver {
@@ -87,7 +85,7 @@ public:
 	virtual ~GenMCDriver() {};
 
 	void addToWorklist(StackItemType t, Event e, Event shouldRf,
-			   View before, std::vector<EventLabel> &&prefix,
+			   std::vector<EventLabel> &&prefix,
 			   std::vector<std::pair<Event, Event> > &&moPlacings,
 			   int newMoPos);
 	StackItem getNextItem();
