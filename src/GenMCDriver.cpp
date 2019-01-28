@@ -46,7 +46,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 			 clock_t start)
 	: userConf(std::move(conf)), mod(std::move(mod)),
 	  grantedLibs(granted), toVerifyLibs(toVerify),
-	  explored(0), duplicates(0), start(start)
+	  explored(0), explored_blocked(0), duplicates(0), start(start)
 {
 	/* Register a signal handler for abort() */
 	std::signal(SIGABRT, abortHandler);
@@ -67,6 +67,9 @@ void GenMCDriver::printResults()
 	dups << " (" << duplicates << " duplicates)";
 	llvm::dbgs() << "Number of complete executions explored: " << explored
 		     << ((userConf->countDuplicateExecs) ? dups.str() : "") << "\n";
+	if (explored_blocked)
+		llvm::dbgs() << "Number of blocked executions seen: " << explored_blocked
+			     << "\n";
 	llvm::dbgs() << "Total wall-clock time: "
 		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
 		     << "s\n";
@@ -85,7 +88,7 @@ void GenMCDriver::handleFinishedExecution()
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(EE->threads.begin(), EE->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked; }))
-		return;
+		{ ++explored_blocked; return; }
 
 	auto &g = *currentEG;
 	if (!checkPscAcyclicity())

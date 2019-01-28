@@ -25,7 +25,7 @@ runtime=0
 model="${model:-wb}"
 
 runvariants() {
-    printf "| ${POWDER_BLUE}%-18s${NC} | " "${dir##*/}${n}"
+    printf "| ${POWDER_BLUE}%-17s${NC} | " "${dir##*/}${n}"
     vars=0
     test_time=0
     failure=""
@@ -41,6 +41,7 @@ runvariants() {
 	    outcome_failure=1
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
+	blocked=`echo "${output}" | awk '/blocked/ { print $6 }'`
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
@@ -55,19 +56,18 @@ runvariants() {
     average_time=`echo "scale=2; ${test_time}/${vars}" | bc -l`
     if test -n "${outcome_failure}"
     then
-	printf "${RED}ERROR ${NC} | % 10s | %-5s | % 10s |\n" \
-	       "${explored}" "${vars}" "${average_time}"
+	outcome="${RED}ERROR ${NC}"
 	result=1
     elif test -n "${failure}"
     then
-	printf "${LIME_YELLOW}FAILED${NC} | % 10s | %-5s | % 10s |\n" \
-	       "${explored_failed:-0}/${expected}" \
-	       "${vars}" "${average_time}"
+	outcome="${LIME_YELLOW}FAILED${NC}"
+	explored="${explored_failed:-0}/${expected}"
 	result=1
     else
-	printf "${GREEN}SAFE  ${NC} | % 10s | %-5s | % 10s |\n" \
-	       "${expected}" "${vars}" "${average_time}"
+	outcome="${GREEN}SAFE  ${NC}"
     fi
+    printf "${outcome} | % 10s | % 8s | % 8s |\n" \
+       "${explored}" "${blocked}" "${average_time}"
 }
 
 runtest() {
@@ -99,8 +99,8 @@ printline; echo ''
 
 # Print table's header
 printline
-printf "| ${CYAN}%-18s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-10s${NC} | ${CYAN}%-5s${NC} | ${CYAN}%-10s${NC} |\n" \
-       "Testcase" "Result" "Executions" "Files" "Avg. time"
+printf "| ${CYAN}%-17s${NC} | ${CYAN}%-6s${NC} | ${CYAN}%-10s${NC} | ${CYAN}%-8s${NC} | ${CYAN}%-8s${NC} |\n" \
+       "Testcase" "Result" "Executions" "Blocked" "Avg.time"
 printline
 
 # Run correct testcases and update status

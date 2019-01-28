@@ -37,12 +37,10 @@ struct Event {
 
 	Event() : thread(-17), index(-17) {};
 	Event(int t, int e) : thread(t), index(e) {};
-	Event(int t, int e, bool rmw) : thread(t), index(e) {};
 
 	static Event getInitializer() { return Event(0, 0); };
 
 	bool isInitializer() const { return *this == getInitializer(); };
-	bool isInitializer()       { return *this == getInitializer(); };
 	Event prev() const { return Event(thread, index-1); };
 	Event next() const { return Event(thread, index+1); };
 

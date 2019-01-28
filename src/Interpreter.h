@@ -59,36 +59,6 @@ class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
 
-// AllocaHolder - Object to track all of the blocks of memory allocated by
-// alloca.  When the function returns, this object is popped off the execution
-// stack, which causes the dtor to be run, which frees all the alloca'd memory.
-//
-class AllocaHolder {
-  friend class AllocaHolderHandle;
-  std::vector<void*> Allocations;
-  unsigned RefCnt;
-public:
-  AllocaHolder() : RefCnt(0) {}
-  void add(void *mem) { Allocations.push_back(mem); }
-  ~AllocaHolder() {
-    for (unsigned i = 0; i < Allocations.size(); ++i)
-      free(Allocations[i]);
-  }
-};
-
-// AllocaHolderHandle gives AllocaHolder value semantics so we can stick it into
-// a vector...
-//
-class AllocaHolderHandle {
-  AllocaHolder *H;
-public:
-  AllocaHolderHandle() : H(new AllocaHolder()) { H->RefCnt++; }
-  AllocaHolderHandle(const AllocaHolderHandle &AH) : H(AH.H) { H->RefCnt++; }
-  ~AllocaHolderHandle() { if (--H->RefCnt == 0) delete H; }
-
-  void add(void *mem) { H->add(mem); }
-};
-
 typedef std::vector<GenericValue> ValuePlaneTy;
 
 // ExecutionContext struct - This struct represents one stack frame currently
@@ -98,11 +68,10 @@ struct ExecutionContext {
   Function             *CurFunction;// The currently executing function
   BasicBlock           *CurBB;      // The currently executing BB
   BasicBlock::iterator  CurInst;    // The next instruction to execute
-  std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
-  std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
   CallSite             Caller;     // Holds the call that called subframes.
                                    // NULL if main func or debugger invoked fn
-// AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
+  std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
+  std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
 };
 
 class Thread {
