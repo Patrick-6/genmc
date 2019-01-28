@@ -67,8 +67,10 @@ void GenMCDriver::printResults()
 	dups << " (" << duplicates << " duplicates)";
 	llvm::dbgs() << "Number of complete executions explored: " << explored
 		     << ((userConf->countDuplicateExecs) ? dups.str() : "") << "\n";
-	llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
-		     << "\n";
+	if (exploredBlocked) {
+		llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
+			     << "\n";
+	}
 	llvm::dbgs() << "Total wall-clock time: "
 		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
 		     << "s\n";
