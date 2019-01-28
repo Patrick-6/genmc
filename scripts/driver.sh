@@ -27,13 +27,6 @@ LLVM_VERSION=`cat ../config.h | awk '/LLVM_VERSION/ {gsub(/\"/, "", $3); print $
 total_time=0
 result=""
 
-# Include our stdatomic.h, if llvm does not provide it
-echo $LLVM_VERSION
-if test $LLVM_VERSION = "3.5.0"
-then
-    CFLAGS="-I../tests/"
-fi
-
 # Check for command line options
 if test "$1" = "--fast"
 then
