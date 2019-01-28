@@ -24,6 +24,7 @@ AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi
 ## XXX: List below is currently INCOMPLETE
 AC_CHECK_HEADERS([\
   stdlib.h \
+  clang/Driver/Job.h \
   llvm/ExecutionEngine/ExecutionEngine.h \
   llvm/ExecutionEngine/GenericValue.h \
   llvm/Pass.h \
