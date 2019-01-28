@@ -67,7 +67,7 @@ protected:
 	ExecutionGraph *currentEG;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
 	int explored;
-	int explored_blocked;
+	int exploredBlocked;
 	int duplicates;
 	std::unordered_set<std::string> uniqueExecs;
 	clock_t start;
