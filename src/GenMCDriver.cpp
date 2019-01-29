@@ -351,8 +351,7 @@ Event GenMCDriver::checkForRaces()
 }
 
 std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
-						   std::vector<llvm::GenericValue> expVal,
-						   std::vector<Event> &stores)
+						    llvm::GenericValue &expVal, std::vector<Event> &stores)
 {
 	auto &g = *currentEG;
 	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
@@ -363,7 +362,8 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 
 	for (auto &s : stores) {
 		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
-		if (((attr == ATTR_CAS || attr == ATTR_LOCK) && !EE->compareValues(typ, oldVal, expVal.back())) ||
+		if (((attr == ATTR_CAS || attr == ATTR_LOCK) &&
+		     !EE->compareValues(typ, oldVal, expVal)) ||
 		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
 			if (g.isStoreReadByExclusiveRead(s, ptr))
 				conflicting.push_back(s);
@@ -373,6 +373,26 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 	}
 	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
 	return valid;
+}
+
+void GenMCDriver::filterAcquiredLocks(llvm::GenericValue *addr, llvm::Type *typ,
+				      llvm::GenericValue &cmpVal, std::vector<Event> &stores)
+{
+	auto &g = *currentEG;
+
+	if (std::all_of(stores.begin(), stores.end(), [&](Event &s)
+			{ if (g.isStoreReadByExclusiveRead(s, addr))
+			          return true;
+			  auto val = EE->loadValueFromWrite(s, typ, addr);
+			  return !EE->compareValues(typ, cmpVal, val); })) {
+		stores.erase(stores.begin() + 1, stores.end());
+		return;
+	}
+
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event &s)
+				    { auto val = EE->loadValueFromWrite(s, typ, addr);
+				      return !EE->compareValues(typ, cmpVal, val); }),
+		     stores.end());
 }
 
 llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
@@ -503,21 +523,10 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
-	auto validStores = properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
+	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
-        if (attr == ATTR_LOCK) {
-		if (std::all_of(validStores.begin(), validStores.end(), [&](Event &l) {
-					if (g.isStoreReadByExclusiveRead(l, addr)) return true;
-					auto val = EE->loadValueFromWrite(l, typ, addr);
-					return !EE->compareValues(typ, cmpVal, val); })) {
-			validStores.erase(validStores.begin() + 1, validStores.end());
-		} else {
-			validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event &l) {
-					auto val = EE->loadValueFromWrite(l, typ, addr);
-					return !EE->compareValues(typ, cmpVal, val); }),
-				  validStores.end());
-		}
-	}
+        if (attr == ATTR_LOCK)
+		filterAcquiredLocks(addr, typ, cmpVal, validStores);
 
 	/* ... and add a label with the appropriate store. */
 	auto &lab = g.addReadToGraph(thr.id, attr, ord, addr, typ, validStores[0],

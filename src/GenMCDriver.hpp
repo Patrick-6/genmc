@@ -142,8 +142,9 @@ public:
 	bool revisitReads(StackItem &s);
 
 	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
-					       std::vector<llvm::GenericValue> expVal,
-					       std::vector<Event> &stores);
+					       llvm::GenericValue &expVal, std::vector<Event> &stores);
+	void filterAcquiredLocks(llvm::GenericValue *addr, llvm::Type *typ,
+				 llvm::GenericValue &cmpVal, std::vector<Event> &stores);
 
 	/* Outputting facilities */
 	void printTraceBefore(Event e);
@@ -160,7 +161,5 @@ public:
 	virtual bool checkPscAcyclicity() = 0;
 	virtual bool isExecutionValid() = 0;
 };
-
-/* TODO: Fix destructors for Driver and config (basically for every class) */
 
 #endif /* __GENMC_DRIVER_HPP__ */
