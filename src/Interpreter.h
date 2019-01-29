@@ -140,7 +140,6 @@ public:
 
   /* Checks whether an address is the address of a global variable */
   bool isGlobal(void *);
-  bool isGlobalPtr(void *);
   bool isHeapAlloca(void *);
   bool isStackAlloca(void *);
   std::string getGlobalName(void *addr);
@@ -197,7 +196,6 @@ public:
 
   /* List of global and thread-local variables */
   llvm::SmallVector<void *, 1021> globalVars;
-  llvm::SmallVector<void *, 1021> globalPtrs;
   std::vector<std::pair<void *, std::string > > globalVarNames;
   std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
 

@@ -117,13 +117,6 @@ void Interpreter::collectGPs(Module *M, void *ptr, llvm::Type *typ)
 	if (!(typ->isPointerTy() || typ->isAggregateType() || typ->isVectorTy()))
 		return;
 
-	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, typ);
-	if (typ->isPointerTy() || typ->isVectorTy()) {
-		for (auto i = 0u; i < typeSize; i++)
-			globalPtrs.push_back((char *) ptr + i);
-		return;
-	}
-
 	unsigned int offset = 0;
 	if (ArrayType *AT = dyn_cast<ArrayType>(typ)) {
 		unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, AT->getElementType());
@@ -174,9 +167,6 @@ void Interpreter::storeGlobals(Module *M)
 	std::sort(globalVars.begin(), globalVars.end());
 	std::unique(globalVars.begin(), globalVars.end());
 
-	std::sort(globalPtrs.begin(), globalPtrs.end());
-	std::unique(globalPtrs.begin(), globalPtrs.end());
-
 	std::sort(globalVarNames.begin(), globalVarNames.end());
 	std::unique(globalVarNames.begin(), globalVarNames.end());
 }
@@ -186,12 +176,6 @@ bool Interpreter::isGlobal(void *addr)
 	auto gv = std::equal_range(globalVars.begin(), globalVars.end(), addr);
 	auto ha = std::equal_range(heapAllocas.begin(), heapAllocas.end(), addr);
 	return (gv.first != gv.second) || (ha.first != ha.second);
-}
-
-bool Interpreter::isGlobalPtr(void *addr)
-{
-	auto gp = std::equal_range(globalPtrs.begin(), globalPtrs.end(), addr);
-	return gp.first != gp.second;
 }
 
 bool Interpreter::isStackAlloca(void *addr)
