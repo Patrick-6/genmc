@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <pthread.h>
-#include "../../../stdatomic.h"
+#include <stdatomic.h>
 
 #include "../fib_bench.c"
 
