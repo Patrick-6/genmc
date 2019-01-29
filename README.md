@@ -20,8 +20,8 @@ Author: Michalis Kokologiannakis.
 <a name="license">License</a>
 -----------------------------
 
-This program is distributed under the GPL, version 2 or (at your option)
-later. Please see the LICENSE file for details.
+This program is distributed under the GPL, version 3 or (at your option)
+later. Please see the COPYING file for details.
 
 <a name="dependencies">Dependencies</a>
 ---------------------------------------
