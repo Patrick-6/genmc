@@ -35,7 +35,7 @@ In order to use the tool on a Debian-based installation, you will need the
 following packages:
 
 		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
-		zlib1g-dev
+		zlib1g-dev libedit-dev
 
 ### Max OS X
 
@@ -92,7 +92,7 @@ For a default build issue:
 	This probably indicates that you are using an old version of LLVM with a new
 	version of libstdc++. Configuring with the following flags should fix the problem:
 
-			CXXFLAGS="-DGLIBCXX_USE_CXX11_ABI=0" ./configure --with-llvm=LLVM_PATH
+			CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0" ./configure --with-llvm=LLVM_PATH
 
 <a name="notes">Notes</a>
 ------------------------
