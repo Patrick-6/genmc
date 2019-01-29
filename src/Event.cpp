@@ -41,6 +41,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
 	switch (a) {
 	case ATTR_PLAIN : return s;
 	case ATTR_CAS   : return s << "CAS";
+	case ATTR_LOCK  : return s << "LOCK";
 	case ATTR_FAI   : return s << "FAI";
 	default : return s;
 	}

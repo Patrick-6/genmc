@@ -363,7 +363,7 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 
 	for (auto &s : stores) {
 		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
-		if ((attr == ATTR_CAS && !EE->compareValues(typ, oldVal, expVal.back())) ||
+		if (((attr == ATTR_CAS || attr == ATTR_LOCK) && !EE->compareValues(typ, oldVal, expVal.back())) ||
 		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
 			if (g.isStoreReadByExclusiveRead(s, ptr))
 				conflicting.push_back(s);
@@ -505,6 +505,20 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	auto stores = getStoresToLoc(addr);
 	auto validStores = properlyOrderStores(attr, typ, addr, {cmpVal}, stores);
 
+        if (attr == ATTR_LOCK) {
+		if (std::all_of(validStores.begin(), validStores.end(), [&](Event &l) {
+					if (g.isStoreReadByExclusiveRead(l, addr)) return true;
+					auto val = EE->loadValueFromWrite(l, typ, addr);
+					return !EE->compareValues(typ, cmpVal, val); })) {
+			validStores.erase(validStores.begin() + 1, validStores.end());
+		} else {
+			validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event &l) {
+					auto val = EE->loadValueFromWrite(l, typ, addr);
+					return !EE->compareValues(typ, cmpVal, val); }),
+				  validStores.end());
+		}
+	}
+
 	/* ... and add a label with the appropriate store. */
 	auto &lab = g.addReadToGraph(thr.id, attr, ord, addr, typ, validStores[0],
 				     std::move(cmpVal), std::move(rmwVal), op);
@@ -532,7 +546,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto placesRange = getPossibleMOPlaces(addr, attr == ATTR_FAI || attr == ATTR_CAS);
+	auto placesRange = getPossibleMOPlaces(addr, attr != ATTR_PLAIN);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 

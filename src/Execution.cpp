@@ -2533,7 +2533,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ,
+	auto oldVal = driver->visitLoad(ATTR_LOCK, AtomicOrdering::Acquire, ptr, typ,
 					GenericValue(cmpVal), GenericValue(newVal));
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
@@ -2542,7 +2542,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 		return;
 	}
 
-	driver->visitStore(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ, newVal);
+	driver->visitStore(ATTR_LOCK, AtomicOrdering::Acquire, ptr, typ, newVal);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);

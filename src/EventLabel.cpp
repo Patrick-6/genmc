@@ -208,7 +208,7 @@ bool EventLabel::isFAI() const
 
 bool EventLabel::isCAS() const
 {
-	return attr == ATTR_CAS;
+	return attr == ATTR_CAS || attr == ATTR_LOCK ;
 }
 
 bool EventLabel::isLibInit() const
