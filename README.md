@@ -3,8 +3,6 @@ GenMC
 Generic Model Checking for C Programs
 -------------------------------------
 
----
-
 GenMC is a stateless model checker for C programs that works on the
 level of LLVM Intermediate Representation.
 
@@ -20,8 +18,26 @@ Author: Michalis Kokologiannakis.
 <a name="license">License</a>
 -----------------------------
 
-This program is distributed under the GPL, version 3 or (at your option)
-later. Please see the COPYING file for details.
+GenMC (with the exception of some files, see [Exceptions](#exceptions))
+is distributed under the GPL, version 3 or (at your option) later.
+Please see the COPYING file for details on GPLv3.
+
+### <a name="exceptions">Exceptions</a>
+
+Part of the code in the files listed below are originating from
+the [LLVM Compiler Framework](https://llvm.org), version 3.5.
+These parts are licensed under the University of Illinois/NCSA
+Open Source License as well as under GPLv3. Please see the LLVMLICENSE
+file for details on the University of Illinois/NCSA Open Source License.
+
+        src/Interpreter.h
+		src/Interpreter.cpp
+		src/Execution.cpp
+		src/ExternalFunctions.cpp
+
+In addition, the files within the `include` directory are licensed
+under their own licenses; please see the respective headers for more
+information.
 
 <a name="dependencies">Dependencies</a>
 ---------------------------------------
