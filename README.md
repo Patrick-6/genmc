@@ -26,7 +26,8 @@ later. Please see the COPYING file for details.
 <a name="dependencies">Dependencies</a>
 ---------------------------------------
 
-The LLVM versions currently supported are: 3.5.0, 3.8.1, 4.0.1, 7.0.1, 8.0.1.
+The LLVM versions currently supported are: 3.5.0, 3.8.1, 4.0.1,
+6.0.1, 7.0.1, 8.0.1.
 
 ### GNU/Linux
 
