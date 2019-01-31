@@ -1949,7 +1949,8 @@ void ExecutionGraph::validateGraph(void)
 					abort();
 				}
 			} else if (lab.isWrite()) {
-				if (lab.isRMW() && lab.rfm1.size() > 1) {
+				if (lab.isRMW() && std::count_if(lab.rfm1.begin(), lab.rfm1.end(),
+						  [&](Event &load){ return isRMWLoad(load); }) > 1) {
 					WARN("RMW store is read from more than 1 load!\n");
 					llvm::dbgs() << "RMW store: " << lab.getPos() << "\nReads:";
 					for (auto &r : lab.rfm1)
