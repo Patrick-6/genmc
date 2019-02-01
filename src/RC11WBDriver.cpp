@@ -80,7 +80,6 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	 */
 	auto chain = g.getRMWChainDownTo(sLab, Event::getInitializer());
 	auto hbAfterStores = g.getStoresHbAfterStores(sLab.getAddr(), chain);
-
 	auto it = std::remove_if(ls.begin(), ls.end(), [&](Event &l)
 				 { auto &pLab = g.getPreviousLabel(l);
 				   return std::any_of(hbAfterStores.begin(),

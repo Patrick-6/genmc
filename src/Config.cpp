@@ -92,6 +92,16 @@ static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step"));
 static llvm::cl::opt<bool>
+clRandomizeSchedule("randomize-schedule", llvm::cl::cat(clDebugging),
+		    llvm::cl::desc("Execute threads in random order"));
+static llvm::cl::opt<bool>
+clPrintRandomizeScheduleSeed("print-randomize-schedule-seed", llvm::cl::cat(clDebugging),
+			     llvm::cl::desc("Print the seed used for randomized scheduling"));
+static llvm::cl::opt<std::string>
+clRandomizeScheduleSeed("randomize-schedule-seed", llvm::cl::init(""),
+			llvm::cl::value_desc("seed"), llvm::cl::cat(clDebugging),
+			llvm::cl::desc("Seed to be used for randomized scheduling"));
+static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
 static llvm::cl::opt<bool>
@@ -132,6 +142,9 @@ void Config::getConfigOptions(int argc, char **argv)
 
 	/* Save debugging options */
 	validateExecGraphs = clValidateExecGraphs;
+	randomizeSchedule = clRandomizeSchedule;
+	printRandomizeScheduleSeed = clPrintRandomizeScheduleSeed;
+	randomizeScheduleSeed = clRandomizeScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
 	prettyPrintExecGraphs = clPrettyPrintExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;

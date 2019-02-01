@@ -41,6 +41,9 @@ public:
 	bool spinAssume;
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
+	bool randomizeSchedule;
+	bool printRandomizeScheduleSeed;
+	std::string randomizeScheduleSeed;
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
 	bool countDuplicateExecs;

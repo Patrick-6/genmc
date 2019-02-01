@@ -50,6 +50,15 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 {
 	/* Register a signal handler for abort() */
 	std::signal(SIGABRT, abortHandler);
+
+	/* Set up a random-number generator (for the scheduler) */
+	std::random_device rd;
+	auto seedVal = (userConf->randomizeScheduleSeed != "") ?
+		(MyRNG::result_type) stoull(userConf->randomizeScheduleSeed) : rd();
+	if (userConf->printRandomizeScheduleSeed)
+		llvm::dbgs() << "Seed: " << seedVal << "\n";
+	rng.seed(seedVal);
+
 	/*
 	 * Make sure we can resolve symbols in the program as well. We use 0
 	 * as an argument in order to load the program, not a library. This
@@ -251,18 +260,41 @@ void GenMCDriver::spawnAllChildren(int thread)
 bool GenMCDriver::scheduleNext()
 {
 	auto &g = *currentEG;
-	for (auto i = 0u; i < g.events.size(); i++) {
-		auto &thr = EE->getThrById(i);
-		if (!thr.ECStack.empty() && !thr.isBlocked) {
-			if (g.getLastThreadLabel(i).isFinish()) {
-				spawnAllChildren(i);
-				thr.ECStack.clear();
+	MyDist dist(0, g.events.size());
+
+	/* Check whether we should start scheduling from a random thread */
+	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
+	auto resetSchedule = false;
+	do {
+		resetSchedule = false;
+		for (auto j = 0u; j < g.events.size(); j++) {
+			auto i = (j + random) % g.events.size();
+			auto &thr = EE->getThrById(i);
+
+			if (thr.ECStack.empty() || thr.isBlocked)
 				continue;
+
+			/* Found a not-yet-complete thread; schedule it */
+			if (!g.getLastThreadLabel(i).isFinish()) {
+				EE->currentThread = i;
+				return true;
 			}
-			EE->currentThread = i;
-			return true;
+
+			/*
+			 * Found a complete thread; spawn its children.
+			 * We also need to reset the scheduler as the
+			 * children may have been in some previously
+			 * explored index j (in the case of randomized
+			 * scheduling)
+			 */
+			spawnAllChildren(i);
+			thr.ECStack.clear();
+			resetSchedule = true;
+			break;
 		}
-	}
+	} while (resetSchedule);
+
+	/* No schedulable thread found */
 	return false;
 }
 
@@ -765,7 +797,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	case SRead:
 	case SReadLibFunc:
 		/* Nothing to restore in this case */
-		lab.revisitable = (lab.isRMW() || p.type == SReadLibFunc);
+		lab.revisitable = true;
 		break;
 	case SRevisit:
 		/*

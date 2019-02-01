@@ -30,7 +30,7 @@
 #include <llvm/IR/Module.h>
 
 #include <ctime>
-#include <unordered_map>
+#include <random>
 #include <unordered_set>
 
 enum StackItemType { SRead, SRevisit, MOWrite, MOWriteLib, SReadLibFunc, None };
@@ -58,6 +58,9 @@ struct StackItem {
 class GenMCDriver {
 
 protected:
+	using MyRNG  = std::mt19937;
+	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
+
 	std::string sourceCode;
 	std::unique_ptr<Config> userConf;
 	std::unique_ptr<llvm::Module> mod;
@@ -70,6 +73,7 @@ protected:
 	int exploredBlocked;
 	int duplicates;
 	std::unordered_set<std::string> uniqueExecs;
+	MyRNG rng;
 	clock_t start;
 
 	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
