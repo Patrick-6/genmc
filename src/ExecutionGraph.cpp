@@ -135,98 +135,6 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	return loads;
 }
 
-std::vector<Event> ExecutionGraph::getRMWChainDownTo(const EventLabel &sLab, const Event lower)
-{
-	std::vector<Event> chain;
-
-	/*
-	 * This function should not be called with an event that is not
-	 * the store part of an RMW
-	 */
-	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchaindownto-arg",
-		     "WARNING: getRMWChainDownTo() called with non-write argument!\n");
-	if (!sLab.isWrite() || !sLab.isRMW())
-		return chain;
-
-	/* As long as you find successful RMWs, keep going down the chain */
-	auto curr = &sLab;
-	while (curr->isWrite() && curr->isRMW() && curr->pos != lower) {
-		chain.push_back(curr->pos);
-		auto &rLab = getPreviousLabel(curr->pos);
-
-		/*
-		 * If the predecessor reads the initializer event, then the
-		 * chain is over. This may be equal to lower in some cases,
-		 * but we avoid getting the label of the initializer event.
-		 */
-		if (rLab.rf.isInitializer())
-			return chain;
-
-		/* Otherwise, go down one (rmw-1;rf-1)-step */
-		curr = &getEventLabel(rLab.rf);
-	}
-
-	/*
-	 * We arrived at a non-RMW event (which is not the initializer),
-	 * so the chain is over
-	 */
-	return chain;
-}
-
-std::vector<Event> ExecutionGraph::getRMWChainUpTo(const EventLabel &sLab, const Event upper)
-{
-	std::vector<Event> chain;
-
-	/*
-	 * This function should not be called with an event that is not
-	 * the store part of an RMW
-	 */
-	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainupto-arg",
-		     "WARNING: getRMWChainUpTo() called with non-write argument!\n");
-	if (!sLab.isWrite() || !sLab.isRMW())
-		return chain;
-
-	/* As long as you find successful RMWs, keep going down the chain */
-	auto curr = &sLab;
-	while (curr->isWrite() && curr->isRMW() && curr->pos != upper) {
-		/* Push this event into the chain */
-		chain.push_back(curr->pos);
-
-		/* Check if other successful RMWs are reading from this write (at most one) */
-		std::vector<Event> rmwRfs;
-		std::copy_if(curr->rfm1.begin(), curr->rfm1.end(), std::back_inserter(rmwRfs),
-			     [&](const Event &r){ return isRMWLoad(r); });
-		BUG_ON(rmwRfs.size() > 1);
-
-		/* If there is none, we reached the upper limit of the chain */
-		if (rmwRfs.size() == 0)
-			return chain;
-
-		/* Otherwise, go up one (rf;rmw)-step */
-		curr = &getEventLabel(rmwRfs.back().next());
-	}
-
-	/* This is a non-RMW event (which is not equal to upper), so the chain is over */
-	return chain;
-}
-
-std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *loc,
-							  const std::vector<Event> &chain)
-{
-	auto &stores = modOrder[loc];
-	std::vector<Event> result;
-
-	for (auto &s : stores) {
-		if (std::find(chain.begin(), chain.end(), s) != chain.end())
-			continue;
-		auto before = getHbBefore(s);
-		if (std::any_of(chain.begin(), chain.end(), [&before](Event e)
-				{ return e.index < before[e.thread]; }))
-			result.push_back(s);
-	}
-	return result;
-}
-
 std::vector<Event> ExecutionGraph::getMoOptRfAfter(Event store)
 {
 	auto ls = modOrder.getMoAfter(getEventLabel(store).getAddr(), store);
@@ -477,6 +385,110 @@ EventLabel& ExecutionGraph::addFinishToGraph(int tid)
 /************************************************************
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
+
+Event ExecutionGraph::getRMWChainUpperLimit(const EventLabel &sLab, const Event upper)
+{
+	/*
+	 * This function should not be called with an event that is not
+	 * the store part of an RMW
+	 */
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainupperlimit-arg",
+		     "WARNING: getRMWChainUpperLimit() called with non-write argument!\n");
+
+	/* As long as you find successful RMWs, keep going up the chain */
+	auto curr = &sLab;
+	auto limit = curr;
+	while (curr->isWrite() && curr->pos != upper) {
+		limit = curr;
+		if (!curr->isRMW())
+			break;
+
+		auto &rLab = getPreviousLabel(curr->pos);
+
+		/* Go down one (rmw-1;rf-1)-step */
+		curr = &getEventLabel(rLab.rf);
+	}
+
+	/* We return the limit (curr may be equal to the upper search bound) */
+	return limit->pos;
+}
+
+Event ExecutionGraph::getRMWChainLowerLimit(const EventLabel &sLab, const Event lower)
+{
+	/*
+	 * This function should not be called with an event that is not
+	 * the store part of an RMW
+	 */
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainlowerlimit-arg",
+		     "WARNING: getRMWChainLowerLimit() called with non-write argument!\n");
+
+	/* As long as you find successful RMWs, keep going down the chain */
+	auto curr = &sLab;
+	auto limit = curr;
+	while (curr->pos != lower) {
+		limit = curr;
+
+		/* Check if other successful RMWs are reading from this write (at most one) */
+		std::vector<Event> rmwRfs;
+		std::copy_if(curr->rfm1.begin(), curr->rfm1.end(), std::back_inserter(rmwRfs),
+			     [&](const Event &r){ return isRMWLoad(r); });
+		BUG_ON(rmwRfs.size() > 1);
+
+		/* If there is none, we reached the upper limit of the chain */
+		if (rmwRfs.size() == 0)
+			break;
+
+		/* Otherwise, go up one (rf;rmw)-step */
+		curr = &getEventLabel(rmwRfs.back().next());
+	}
+
+	/* We return the limit (curr may be equal to the lower search bound) */
+	return limit->pos;
+}
+
+std::vector<Event> ExecutionGraph::getRMWChain(const EventLabel &sLab)
+{
+
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainupto-arg",
+		     "WARNING: getRMWChain() called with non-write argument!\n");
+
+	std::vector<Event> chain;
+
+	if (!(sLab.isWrite() && sLab.isRMW()))
+		return chain;
+
+	/* As long as you find successful RMWs, keep going up the chain */
+	auto curr = &sLab;
+	while (curr->isWrite() && curr->isRMW()) {
+		chain.push_back(curr->pos);
+
+		/* Go down one (rmw-1;rf-1)-step */
+		auto &rLab = getPreviousLabel(curr->pos);
+		curr = &getEventLabel(rLab.rf);
+	}
+
+	/* We arrived at a non-RMW event so the chain is over */
+	chain.push_back(curr->pos);
+	return chain;
+
+}
+
+std::vector<Event> ExecutionGraph::getStoresHbAfterStores(llvm::GenericValue *loc,
+							  const std::vector<Event> &chain)
+{
+	auto &stores = modOrder[loc];
+	std::vector<Event> result;
+
+	for (auto &s : stores) {
+		if (std::find(chain.begin(), chain.end(), s) != chain.end())
+			continue;
+		auto before = getHbBefore(s);
+		if (std::any_of(chain.begin(), chain.end(), [&before](Event e)
+				{ return e.index < before[e.thread]; }))
+			result.push_back(s);
+	}
+	return result;
+}
 
 View ExecutionGraph::getMsgView(Event e)
 {
@@ -1606,18 +1618,13 @@ ExecutionGraph::calcWbRestricted(llvm::GenericValue *addr, View &v)
 			matrix[j * stores.size() + i] = true;
 
 			EventLabel &wLabI = getEventLabel(stores[i]);
-			auto rmwsDown = getRMWChainDownTo(wLabI, stores[j]);
-			for (auto &u : rmwsDown) {
-				int k = calcEventIndex(stores, u);
-				matrix[j * stores.size() + k] = true;
-			}
+			auto upperL = getRMWChainUpperLimit(wLabI, stores[j]);
+			int k = calcEventIndex(stores, upperL);
 
 			EventLabel &wLabJ = getEventLabel(stores[j]);
-			auto rmwsUp = getRMWChainUpTo(wLabJ, stores[i]);
-			for (auto &u : rmwsUp) {
-				int k = calcEventIndex(stores, u);
-				matrix[k * stores.size() + i] = true;
-			}
+			auto lowerL = getRMWChainLowerLimit(wLabJ, upperL);
+			int l = calcEventIndex(stores, lowerL);
+			matrix[l * stores.size() + k] = true;
 		}
 		/* Add wb-edges for chains of RMWs that read from the initializer */
 		for (auto j = 0u; j < stores.size(); j++) {
@@ -1626,11 +1633,9 @@ ExecutionGraph::calcWbRestricted(llvm::GenericValue *addr, View &v)
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			auto rmwsUp = getRMWChainUpTo(wLab, stores[i]);
-			for (auto &u : rmwsUp) {
-				int k = calcEventIndex(stores, u);
-				matrix[k * stores.size() + i] = true;
-			}
+			auto lowerL = getRMWChainLowerLimit(wLab, stores[i]);
+			int k = calcEventIndex(stores, lowerL);
+			matrix[k * stores.size() + i] = true;
 		}
 	}
 	calcTransClosure(matrix, stores.size());
@@ -1657,18 +1662,13 @@ ExecutionGraph::calcWb(llvm::GenericValue *addr)
 			matrix[j * stores.size() + i] = true;
 
 			EventLabel &wLabI = getEventLabel(stores[i]);
-			auto rmwsDown = getRMWChainDownTo(wLabI, stores[j]);
-			for (auto &u : rmwsDown) {
-				int k = calcEventIndex(stores, u);
-				matrix[j * stores.size() + k] = true;
-			}
+			auto upperL = getRMWChainUpperLimit(wLabI, stores[j]);
+			int k = calcEventIndex(stores, upperL);
 
 			EventLabel &wLabJ = getEventLabel(stores[j]);
-			auto rmwsUp = getRMWChainUpTo(wLabJ, stores[i]);
-			for (auto &u : rmwsUp) {
-				int k = calcEventIndex(stores, u);
-				matrix[k * stores.size() + i] = true;
-			}
+			auto lowerL = getRMWChainLowerLimit(wLabJ, upperL);
+			int l = calcEventIndex(stores, lowerL);
+			matrix[l * stores.size() + k] = true;
 		}
 		/* Add wb-edges for chains of RMWs that read from the initializer */
 		for (auto j = 0u; j < stores.size(); j++) {
@@ -1677,11 +1677,9 @@ ExecutionGraph::calcWb(llvm::GenericValue *addr)
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			auto rmwsUp = getRMWChainUpTo(wLab, stores[i]);
-			for (auto &u : rmwsUp) {
-				int k = calcEventIndex(stores, u);
-				matrix[k * stores.size() + i] = true;
-			}
+			auto lowerL = getRMWChainLowerLimit(wLab, stores[i]);
+			int k = calcEventIndex(stores, lowerL);
+			matrix[k * stores.size() + i] = true;
 		}
 	}
 	calcTransClosure(matrix, stores.size());

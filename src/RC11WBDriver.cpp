@@ -78,7 +78,7 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	 *
 	 * since this will create a cycle in WB
 	 */
-	auto chain = g.getRMWChainDownTo(sLab, Event::getInitializer());
+	auto chain = g.getRMWChain(sLab);
 	auto hbAfterStores = g.getStoresHbAfterStores(sLab.getAddr(), chain);
 	auto it = std::remove_if(ls.begin(), ls.end(), [&](Event &l)
 				 { auto &pLab = g.getPreviousLabel(l);

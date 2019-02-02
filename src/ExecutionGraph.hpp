@@ -90,16 +90,17 @@ public:
 	calcWbRestricted(llvm::GenericValue *addr, View &v);
 
 	/* Calculation of particular sets of events/event labels */
+	Event getRMWChainUpperLimit(const EventLabel &sLab, const Event upper);
+	Event getRMWChainLowerLimit(const EventLabel &sLab, const Event lower);
+	std::vector<Event> getRMWChain(const EventLabel &sLab);
+	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc,
+						  const std::vector<Event> &chain);
 	std::vector<EventLabel>	getPrefixLabelsNotBefore(View &prefix, View &before);
 	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
 					   View &before);
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<EventLabel> &labs,
 			   View &before);
-	std::vector<Event> getRMWChainDownTo(const EventLabel &sLab, const Event lower);
-	std::vector<Event> getRMWChainUpTo(const EventLabel &sLab, const Event upper);
-	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc,
-						  const std::vector<Event> &chain);
 
 	/* Calculation of writes a read can read from */
 	std::pair<int, int> splitLocMOBefore(llvm::GenericValue *addr, View &before);
