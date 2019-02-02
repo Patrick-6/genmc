@@ -431,6 +431,7 @@ EventLabel& ExecutionGraph::addTJoinToGraph(int tid, int cid)
 	EventLabel lab(ETJoin, llvm::AtomicOrdering::Acquire, Event(tid, max), cid);
 	Event last = getLastThreadEvent(tid);
 
+	lab.rf = Event::getInitializer();
 	lab.porfView = getPorfBefore(last);
 	lab.porfView[tid] = max;
 
@@ -727,19 +728,42 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 
 void ExecutionGraph::cutToView(View &preds)
 {
+	/* Restrict the graph according to the view */
 	for (auto i = 0u; i < events.size(); i++) {
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds[i] + 1, thr.end());
+	}
+
+	/* Remove any 'pointers' to events that have been removed */
+	for (auto i = 0u; i < events.size(); i++) {
+		auto &thr = events[i];
 		for (auto j = 0u; j < thr.size(); j++) {
-			EventLabel &lab = thr[j];
+			auto &lab = thr[j];
+			/*
+			 * If it is a join and the respective Finish has been
+			 * removed, renew the Views of this label and continue
+			 */
+			if (lab.isJoin() &&
+			    lab.rf.index >= (int) events[lab.rf.thread].size()) {
+				auto init = Event::getInitializer();
+				lab.rf = init;
+				calcLoadHbView(lab, lab.getPos().prev(), init);
+				calcLoadPoRfView(lab, lab.getPos().prev(), init);
+				continue;
+			}
+
+			/* If it hasn't write semantics, nothing to do */
 			if (!lab.hasWriteSem())
 				continue;
+
 			lab.rfm1.erase(std::remove_if(lab.rfm1.begin(), lab.rfm1.end(),
 						      [&](Event &e)
 						      { return e.index > preds[e.thread]; }),
 				       lab.rfm1.end());
 		}
 	}
+
+	/* Remove cutted events from the modification order as well */
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
 						[&preds](Event &e)
