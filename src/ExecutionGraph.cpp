@@ -160,23 +160,21 @@ std::vector<Event> ExecutionGraph::getMoOptRfAfter(Event store)
  ** Basic setter methods
  ***********************************************************/
 
-void ExecutionGraph::calcLoadPoRfView(EventLabel &lab, Event prev, Event &rf)
+void ExecutionGraph::calcLoadPoRfView(EventLabel &lab)
 {
-	lab.porfView = getPorfBefore(prev);
+	lab.porfView = getPreviousLabel(lab.getPos()).getPorfView();
 	++lab.porfView[lab.getThread()];
 
-	View mV = getPorfBefore(lab.rf);
-	lab.porfView.updateMax(mV);
+	lab.porfView.updateMax(getEventLabel(lab.rf).getPorfView());
 }
 
-void ExecutionGraph::calcLoadHbView(EventLabel &lab, Event prev, Event &rf)
+void ExecutionGraph::calcLoadHbView(EventLabel &lab)
 {
-	lab.hbView = getHbBefore(prev);
-	lab.hbView[prev.thread] = prev.index + 1;
-	if (lab.isAtLeastAcquire()) {
-		auto mV = getMsgView(lab.rf);
-		lab.hbView.updateMax(mV);
-	}
+	lab.hbView = getPreviousLabel(lab.getPos()).getHbView();
+	++lab.hbView[lab.getThread()];
+
+	if (lab.isAtLeastAcquire())
+		lab.hbView.updateMax(getEventLabel(lab.rf).getMsgView());
 }
 
 EventLabel& ExecutionGraph::addEventToGraph(EventLabel &lab)
@@ -188,11 +186,9 @@ EventLabel& ExecutionGraph::addEventToGraph(EventLabel &lab)
 
 EventLabel& ExecutionGraph::addReadToGraphCommon(EventLabel &lab, Event &rf)
 {
-	auto last = getLastThreadEvent(lab.getThread());
-
 	lab.makeRevisitable();
-	calcLoadHbView(lab, last, rf);
-	calcLoadPoRfView(lab, last, rf);
+	calcLoadHbView(lab);
+	calcLoadPoRfView(lab);
 
 	auto &nLab = addEventToGraph(lab);
 
@@ -733,8 +729,8 @@ void ExecutionGraph::changeRf(EventLabel &lab, Event store)
 		sLab.rfm1.push_back(lab.getPos());
 	}
 	/* Update the views of the load */
-	calcLoadHbView(lab, lab.getPos().prev(), store);
-	calcLoadPoRfView(lab, lab.getPos().prev(), store);
+	calcLoadHbView(lab);
+	calcLoadPoRfView(lab);
 }
 
 
@@ -759,8 +755,8 @@ void ExecutionGraph::cutToView(View &preds)
 			    lab.rf.index >= (int) events[lab.rf.thread].size()) {
 				auto init = Event::getInitializer();
 				lab.rf = init;
-				calcLoadHbView(lab, lab.getPos().prev(), init);
-				calcLoadPoRfView(lab, lab.getPos().prev(), init);
+				calcLoadHbView(lab);
+				calcLoadPoRfView(lab);
 				continue;
 			}
 

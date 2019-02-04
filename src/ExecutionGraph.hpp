@@ -150,8 +150,8 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
-	void calcLoadPoRfView(EventLabel &lab, Event prev, Event &rf);
-	void calcLoadHbView(EventLabel &lab, Event prev, Event &rf);
+	void calcLoadPoRfView(EventLabel &lab);
+	void calcLoadHbView(EventLabel &lab);
 	EventLabel& addEventToGraph(EventLabel &lab);
 	EventLabel& addReadToGraphCommon(EventLabel &lab, Event &rf);
 	EventLabel& addStoreToGraphCommon(EventLabel &lab);
