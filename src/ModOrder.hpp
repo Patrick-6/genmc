@@ -54,6 +54,7 @@ public:
 	bool locContains(llvm::GenericValue *addr, const Event &e);
 	bool areOrdered(llvm::GenericValue *addr, const Event &a, const Event &b);
 	int getStoreOffset(llvm::GenericValue *addr, const Event &e);
+	void changeStoreOffset(llvm::GenericValue *addr, const Event &e, int newOffset);
 
 	inline std::vector<Event> &operator[](llvm::GenericValue *addr) { return mo_[addr]; };
 

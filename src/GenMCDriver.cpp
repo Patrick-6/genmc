@@ -769,17 +769,13 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		 */
 		g.restoreStorePrefix(lab, p.writePrefix, p.moPlacings);
 		break;
-	case MOWrite: {
+	case MOWrite:
 		/* Try a different MO ordering, and also consider reads to revisit */
-		auto &locMO = g.modOrder[lab.getAddr()];
-		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.getPos()));
-		locMO.insert(locMO.begin() + p.moPos, lab.getPos());
-		return calcRevisits(lab); }
-	case MOWriteLib: {
-		auto &locMO = g.modOrder[lab.getAddr()];
-		locMO.erase(std::find(locMO.begin(), locMO.end(), lab.getPos()));
-		locMO.insert(locMO.begin() + p.moPos, lab.getPos());
-		return calcLibRevisits(lab); /* Nothing else to do */ }
+		g.modOrder.changeStoreOffset(lab.getAddr(), lab.getPos(), p.moPos);
+		return calcRevisits(lab); /* Nothing else to do */
+	case MOWriteLib:
+		g.modOrder.changeStoreOffset(lab.getAddr(), lab.getPos(), p.moPos);
+		return calcLibRevisits(lab);
 	default:
 		BUG();
 	}

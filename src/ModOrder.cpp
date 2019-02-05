@@ -128,6 +128,14 @@ int ModOrder::getStoreOffset(llvm::GenericValue *addr, const Event &e)
 	BUG();
 }
 
+void ModOrder::changeStoreOffset(llvm::GenericValue *addr, const Event &e, int newOffset)
+{
+	auto &locMO = mo_[addr];
+
+	locMO.erase(std::find(locMO.begin(), locMO.end(), e));
+	locMO.insert(locMO.begin() + newOffset, e);
+}
+
 
 /************************************************************
  ** Overloaded operators
