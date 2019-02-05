@@ -198,7 +198,7 @@ bool EventLabel::isSC() const
 
 bool EventLabel::isRMW() const
 {
-	return attr != ATTR_PLAIN;
+	return attr != ATTR_PLAIN && attr != ATTR_UNLOCK ;
 }
 
 bool EventLabel::isFAI() const

@@ -95,12 +95,15 @@ void GenMCDriver::handleExecutionInProgress()
 
 void GenMCDriver::handleFinishedExecution()
 {
+
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(EE->threads.begin(), EE->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked; })) {
 		++exploredBlocked;
+		isMootExecution = false;
 		return;
 	}
+	isMootExecution = false;
 
 	auto &g = *currentEG;
 	if (!checkPscAcyclicity())
@@ -224,6 +227,9 @@ void GenMCDriver::spawnAllChildren(int thread)
 
 bool GenMCDriver::scheduleNext()
 {
+	if (isMootExecution)
+		return false;
+
 	auto &g = *currentEG;
 	MyDist dist(0, g.events.size());
 
@@ -277,6 +283,7 @@ void GenMCDriver::visitGraph(ExecutionGraph &g)
 
 		auto validExecution = true;
 		do {
+			isMootExecution = false;
 			auto p = getNextItem();
 			if (p.type == None) {
 				/* Reset the interpreter to also free memory */
@@ -355,7 +362,7 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 	std::vector<Event> valid, conflicting;
 
-	if (attr == ATTR_PLAIN)
+	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
 		return stores;
 
 	for (auto &s : stores) {
@@ -530,6 +537,13 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 		abort();
 	}
 
+	/* Extra filtering for locks */
+	if (attr == ATTR_LOCK) {
+		validStores.erase(std::remove_if(validStores.begin() + 1, validStores.end(), [&](Event &e)
+								{ return g.getEventLabel(e).attr == ATTR_LOCK; }),
+						  validStores.end());
+	}
+
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab.getPos(), *it, {}, {});
@@ -546,7 +560,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto placesRange = getPossibleMOPlaces(addr, attr != ATTR_PLAIN);
+	auto placesRange = getPossibleMOPlaces(addr, attr != ATTR_PLAIN && attr != ATTR_UNLOCK);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 
@@ -713,6 +727,10 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
+		if ((int) g.events[l.thread].size() == l.index + 1 &&
+			EE->getThrById(l.thread).isBlocked)
+			isMootExecution = true;
+
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
 
@@ -720,7 +738,7 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		addToWorklist(SRevisit, rLab.getPos(), lab.getPos(),
 			      std::move(writePrefix), std::move(moPlacings));
 	}
-	return (!lab.isRMW() || pendingRMWs.empty());
+	return !isMootExecution && (!lab.isRMW() || pendingRMWs.empty());
 }
 
 bool GenMCDriver::revisitReads(StackItem &p)

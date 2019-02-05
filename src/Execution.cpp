@@ -2567,7 +2567,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(ATTR_PLAIN, AtomicOrdering::Release, ptr, typ, val);
+	driver->visitStore(ATTR_UNLOCK, AtomicOrdering::Release, ptr, typ, val);
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;

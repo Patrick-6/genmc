@@ -67,6 +67,7 @@ protected:
 	llvm::Interpreter *EE;
 	ExecutionGraph *currentEG;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
+	bool isMootExecution = false;
 	int explored;
 	int exploredBlocked;
 	int duplicates;
