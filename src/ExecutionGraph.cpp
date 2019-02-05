@@ -413,6 +413,8 @@ EventLabel& ExecutionGraph::addTCreateToGraph(int tid, int cid)
 	EventLabel lab(ETCreate, llvm::AtomicOrdering::Release, Event(tid, max), cid);
 	Event last = getLastThreadEvent(tid);
 
+	lab.rfm1.push_back(Event(cid, 0));
+
 	lab.porfView = getPorfBefore(last);
 	++lab.porfView[tid];
 
@@ -452,12 +454,7 @@ EventLabel& ExecutionGraph::addStartToGraph(int tid, Event tc)
 	lab.hbView = getHbBefore(tc);
 	lab.hbView[tid] = max;
 
-	auto &nLab = addEventToGraph(lab);
-
-	EventLabel &tcLab = getEventLabel(tc);
-	tcLab.rfm1.push_back(lab.getPos());
-
-	return nLab;
+	return addEventToGraph(lab);
 }
 
 EventLabel& ExecutionGraph::addFinishToGraph(int tid)

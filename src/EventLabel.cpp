@@ -242,8 +242,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventLabel &lab)
 {
-	return s << "EventLabel (Type: " << lab.type << "/" << lab.ord
-		 << ", " << lab.pos << (lab.isRMW() ? ", " : "")
+	return s << "EventLabel (" << lab.pos << ", " << lab.type
+		 << "/" << lab.ord << (lab.isRMW() ? ", " : "")
 		 << lab.attr << ", HB: " << lab.hbView
 		 << ", SBRF: " << lab.porfView << ")";
 }

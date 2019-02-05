@@ -241,13 +241,14 @@ void GenMCDriver::spawnAllChildren(int thread)
 		if (lab.isCreate()) {
 			auto &child = g.getEventLabel(lab.rfm1.back());
 			auto &childThr = EE->getThrById(child.getThread());
+			BUG_ON(!childThr.ECStack.empty() || childThr.isBlocked);
 			childThr.ECStack.push_back(childThr.initSF);
 		}
 	}
 	return;
 }
 
-bool GenMCDriver::scheduleNext(void)
+bool GenMCDriver::scheduleNext()
 {
 	auto &g = *currentEG;
 	for (auto i = 0u; i < g.events.size(); i++) {
@@ -407,19 +408,35 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 {
 	auto &g = *currentEG;
 	auto &curThr = EE->getCurThr();
-	int tid;
+	int tid = 0;
 
 	if (!isExecutionDrivenByGraph()) {
-		tid = g.events.size();
+		Event cur(curThr.id, g.events[curThr.id].size());
+
+		/* First, check if the thread to be created already exists */
+		while (tid < (int) g.events.size()) {
+			if (!g.events[tid].empty() && g.events[tid][0].rf == cur)
+				break;
+			++tid;
+		}
+
+		/* Add an event for the thread creation */
 		g.addTCreateToGraph(curThr.id, tid);
 
+		/* Prepare the execution context for the new thread */
 		llvm::Thread thr(calledFun, tid, curThr.id, SF);
 		thr.ECStack.push_back(SF);
 		thr.tls = EE->threadLocalVars;
-		EE->threads.push_back(thr);
 
-		g.events.push_back({});
-		g.addStartToGraph(tid, g.getLastThreadEvent(EE->getCurThr().id)); // need to refetch ref
+		if (tid == (int) g.events.size()) {
+			/* If the thread does not exist in the graph, make an entry for it */
+			EE->threads.push_back(thr);
+			g.events.push_back({});
+			g.addStartToGraph(tid, g.getLastThreadEvent(EE->getCurThr().id)); // need to refetch ref
+		} else {
+			/* Otherwise, just push the execution context to the interpreter */
+			EE->threads[tid] = thr;
+		}
 	} else {
 		tid = getCurrentLabel().cid;
 		EE->getThrById(tid).ECStack.push_back(SF);

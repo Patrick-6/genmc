@@ -108,7 +108,7 @@ public:
 
 	/* Scheduling methods */
 	void spawnAllChildren(int thread);
-	bool scheduleNext(void);
+	bool scheduleNext();
 
 	void visitGraph(ExecutionGraph &g);
 	Event checkForRaces();
