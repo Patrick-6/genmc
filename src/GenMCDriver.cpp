@@ -154,7 +154,7 @@ void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
 
 {
 	auto &lab = currentEG->getEventLabel(e);
-	StackItem s(t, lab.getStamp(), e, lab.rf, shouldRf,
+	StackItem s(t, e, lab.rf, shouldRf,
 		    std::move(prefix), std::move(moPlacings), newMoPos);
 
 	workqueue[lab.getStamp()].push_back(std::move(s));
@@ -166,8 +166,8 @@ StackItem GenMCDriver::getNextItem()
 		if (rit->second.empty())
 			continue;
 
-		auto si = rit->second[0];
-		rit->second.erase(rit->second.begin());
+		auto si = rit->second.back();
+		rit->second.pop_back();
 		return si;
 	}
 	return StackItem();
@@ -182,41 +182,6 @@ void GenMCDriver::restrictWorklist(unsigned int stamp)
 
 	for (auto &i : idxsToRemove)
 		workqueue.erase(i);
-}
-
-bool GenMCDriver::worklistContainsPrf(const EventLabel &rLab, const Event &shouldRf,
-				     const std::vector<EventLabel> &prefix,
-				     const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
-		if (it->second.empty() || it->second[0].toRevisit != rLab.pos)
-			continue;
-
-		auto &sv = it->second;
-		if (std::any_of(sv.rbegin(), sv.rend(), [&](StackItem &si)
-				{ return si.type == SRevisit && si.shouldRf == shouldRf &&
-					 si.writePrefix == prefix && si.moPlacings == moPlacings; }))
-			return true;
-	}
-	return false;
-}
-
-void GenMCDriver::filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf,
-				   const std::vector<EventLabel> &prefix,
-				   const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	auto &g = *currentEG;
-	for (auto it = workqueue.begin(); it != workqueue.end(); ++it) {
-		if (it->second.empty() || it->second[0].toRevisit != rLab.getPos())
-			continue;
-
-		auto &sv = it->second;
-		sv.erase(std::remove_if(sv.begin(), sv.end(), [&](StackItem &s)
-					{ return s.type == SRevisit && s.shouldRf == shouldRf &&
-						 g.equivPrefixes(rLab.getStamp(), s.writePrefix, prefix) &&
-						 g.equivPlacings(rLab.getStamp(), s.moPlacings, moPlacings); }),
-			 sv.end());
-	}
 }
 
 void GenMCDriver::restrictGraph(unsigned int stamp)
@@ -771,11 +736,10 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
-		if (worklistContainsPrf(rLab, lab.getPos(), writePrefix, moPlacings))
+		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
 
-		filterWorklistPrf(rLab, lab.getPos(), writePrefix, moPlacings);
-
+		rLab.revs.add(writePrefixPos, moPlacings);
 		addToWorklist(SRevisit, rLab.getPos(), lab.getPos(),
 			      std::move(writePrefix), std::move(moPlacings));
 	}
@@ -788,7 +752,6 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto &lab = g.getEventLabel(p.toRevisit);
 
 	/* Restrict to the predecessors of the event we are revisiting */
-	lab.stamp = p.stamp;
 	restrictGraph(lab.getStamp());
 	restrictWorklist(lab.getStamp());
 
@@ -797,7 +760,6 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	case SRead:
 	case SReadLibFunc:
 		/* Nothing to restore in this case */
-		lab.revisitable = true;
 		break;
 	case SRevisit:
 		/*
@@ -805,8 +767,6 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		 * that is not already present in the graph, the MO edges between that
 		 * part and the previous MO, and make that part non-revisitable
 		 */
-		lab.revisited = true;
-		lab.stamp = g.nextStamp(); // TODO: perhaps change this?
 		g.restoreStorePrefix(lab, p.writePrefix, p.moPlacings);
 		break;
 	case MOWrite: {
@@ -1026,11 +986,10 @@ bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 			auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 			writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
-			if (worklistContainsPrf(rLab, rf, writePrefix, moPlacings))
+			if (rLab.revs.contains(writePrefixPos, moPlacings))
 				continue;
 
-			filterWorklistPrf(rLab, rf, writePrefix, moPlacings);
-
+			rLab.revs.add(writePrefixPos, moPlacings);
 			addToWorklist(SRevisit, rLab.getPos(), rf,
 				      std::move(writePrefix), std::move(moPlacings));
 

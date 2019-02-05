@@ -32,6 +32,7 @@ libgenmc_a_SOURCES = \
   RC11WeakRADriver.cpp RC11WeakRADriver.hpp \
   RC11WBDriver.cpp RC11WBDriver.hpp \
   RC11MODriver.cpp RC11MODriver.hpp \
+  RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   VSet.hpp VSet.tcc \
   View.hpp View.cpp

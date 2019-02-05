@@ -22,6 +22,7 @@
 #define __EVENTLABEL_HPP__
 
 #include "Event.hpp"
+#include "RevisitSet.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -33,6 +34,7 @@ class EventLabel {
 
 public:
 	EventType type;
+	unsigned int stamp = 0;
 	EventAttr attr = ATTR_PLAIN;
 	llvm::AtomicOrdering ord = llvm::AtomicOrdering::NotAtomic;
 	Event pos;
@@ -50,8 +52,7 @@ public:
 	std::string functionName; /* For GReads/GWrites */
 	bool initial; /* For GWrites */
 	bool revisitable;
-	bool revisited = false;
-	unsigned int stamp = 0;
+	RevisitSet revs;
 	std::vector<Event> invalidRfs;
 
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
@@ -101,7 +102,6 @@ public:
 	bool isCAS() const;
 	bool isLibInit() const;
 	bool isRevisitable() const;
-	bool hasBeenRevisited() const;
 	bool hasReadSem() const;
 	bool hasWriteSem() const;
 

@@ -55,4 +55,4 @@
 [t2] fib_bench.c: 20: int prevJ = atomic_load_explicit(&j, memory_order_relaxed);
 [t2] fib_bench.c: 21: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
 Assertion violation: 0
-Number of complete executions explored: 488309
+Number of complete executions explored: 344341

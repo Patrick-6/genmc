@@ -221,11 +221,6 @@ bool EventLabel::isRevisitable() const
 	return revisitable;
 }
 
-bool EventLabel::hasBeenRevisited() const
-{
-	return revisited;
-}
-
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering &o)
 {
 	switch (o) {

@@ -127,8 +127,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
 			auto &lab = events[i][j];
-			if (lab.isRead() && lab.getAddr() == sLab.getAddr() && lab.isRevisitable() &&
-			    (!lab.hasBeenRevisited() || lab.rf.index <= sLab.porfView[lab.rf.thread]))
+			if (lab.isRead() && lab.getAddr() == sLab.getAddr() && lab.isRevisitable())
 				loads.push_back(lab.getPos());
 		}
 	}

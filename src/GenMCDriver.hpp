@@ -37,7 +37,6 @@ enum StackItemType { SRead, SRevisit, MOWrite, MOWriteLib, SReadLibFunc, None };
 
 struct StackItem {
 	StackItemType type;
-	unsigned int stamp;
 	Event toRevisit;
 	Event oldRf;
 	Event shouldRf;
@@ -46,12 +45,11 @@ struct StackItem {
 	int moPos;
 
 	StackItem() : type(None) {};
-	StackItem(StackItemType t, unsigned int stamp, Event e,
-		  Event oldRf, Event shouldRf,
+	StackItem(StackItemType t, Event e, Event oldRf, Event shouldRf,
 		  std::vector<EventLabel> &&writePrefix,
 		  std::vector<std::pair<Event, Event> > &&moPlacings,
 		  int newMoPos)
-		: type(t), stamp(stamp), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
+		: type(t), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
 		  writePrefix(writePrefix), moPlacings(moPlacings), moPos(newMoPos) {};
 };
 
@@ -94,12 +92,6 @@ public:
 			   int newMoPos);
 	StackItem getNextItem();
 	void restrictWorklist(unsigned int stamp);
-	bool worklistContainsPrf(const EventLabel &rLab, const Event &shouldRf,
-				 const std::vector<EventLabel> &prefix,
-				 const std::vector<std::pair<Event, Event> > &moPlacings);
-	void filterWorklistPrf(const EventLabel &rLab, const Event &shouldRf,
-			       const std::vector<EventLabel> &prefix,
-			       const std::vector<std::pair<Event, Event> > &moPlacings);
 	void restrictGraph(unsigned int stamp);
 
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
