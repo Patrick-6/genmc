@@ -114,12 +114,6 @@ public:
 
 	Thread() {}
 
-	Thread(llvm::Function *F) : parentId(-1), threadFun(F),
-				    globalInstructions(0), isBlocked(false) {
-		static int _id = 1;
-		id = _id++;
-	}
-
 	Thread(llvm::Function *F, int id) : id(id), parentId(-1), threadFun(F),
 					    globalInstructions(0), isBlocked(false) {}
 
