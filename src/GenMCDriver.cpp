@@ -373,26 +373,6 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 	return valid;
 }
 
-void GenMCDriver::filterAcquiredLocks(llvm::GenericValue *addr, llvm::Type *typ,
-				      llvm::GenericValue &cmpVal, std::vector<Event> &stores)
-{
-	auto &g = *currentEG;
-
-	if (std::all_of(stores.begin(), stores.end(), [&](Event &s)
-			{ if (g.isStoreReadByExclusiveRead(s, addr))
-			          return true;
-			  auto val = EE->loadValueFromWrite(s, typ, addr);
-			  return !EE->compareValues(typ, cmpVal, val); })) {
-		stores.erase(stores.begin() + 1, stores.end());
-		return;
-	}
-
-	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event &s)
-				    { auto val = EE->loadValueFromWrite(s, typ, addr);
-				      return !EE->compareValues(typ, cmpVal, val); }),
-		     stores.end());
-}
-
 llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 {
 	llvm::GenericValue result;
@@ -538,9 +518,6 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
-
-        if (attr == ATTR_LOCK)
-		filterAcquiredLocks(addr, typ, cmpVal, validStores);
 
 	/* ... and add a label with the appropriate store. */
 	auto &lab = g.addReadToGraph(thr.id, attr, ord, addr, typ, validStores[0],
