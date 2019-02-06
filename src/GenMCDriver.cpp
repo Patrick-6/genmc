@@ -221,18 +221,24 @@ void GenMCDriver::resetInterpreter()
 		/** skip empty threads */
 		if (g.events[i].size() == 0) continue;
 
-		/** skip finished threads */
-		if (g.getLastThreadLabel(i).isFinish()) continue;
-
 		/** skip uncreated threads */
-		auto &lab = g.events[i][0];
-		if (lab.rf.index >= (int) g.events[lab.rf.thread].size())
+		auto &labFst = g.events[i][0];
+		if (labFst.rf.index >= (int) g.events[labFst.rf.thread].size())
 			continue;
+		BUG_ON (!g.getEventLabel(labFst.rf).isCreate());
 
-		BUG_ON (!g.getEventLabel(lab.rf).isCreate());
+		/** skip finished threads */
+		auto &labLast = g.getLastThreadLabel(i);
+		if (labLast.isFinish()) continue;
+
+		/** initialize interpreter */
 		auto &thr = EE->getThrById(i);
 		BUG_ON(!thr.ECStack.empty() || thr.isBlocked);
 		thr.ECStack.push_back(thr.initSF);
+
+		/** mark blocked events */
+		if (labLast.isRead() && labLast.attr == ATTR_LOCK)
+			thr.isBlocked = true;
 	}
 	return;
 }
@@ -247,10 +253,12 @@ bool GenMCDriver::scheduleNext()
 
 	if (0 <= prioritizeThread && prioritizeThread < (int) g.events.size()) {
 		auto &thr = EE->getThrById(prioritizeThread);
-		if (!thr.ECStack.empty() && !thr.isBlocked) {
+		if (!thr.ECStack.empty() && !thr.isBlocked &&
+			!g.getLastThreadLabel(prioritizeThread).isFinish()) {
 			EE->currentThread = prioritizeThread;
 			return true;
 		} else {
+			prioritizeThread = -2;
 		}
 	}
 
