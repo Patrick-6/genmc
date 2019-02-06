@@ -733,16 +733,6 @@ void GenMCDriver::visitError(std::string &err)
 	abort();
 }
 
-bool graphCoveredByViews(ExecutionGraph g, View &v1, View &v2)
-{
-	for (auto i = 0u; i < g.events.size(); i++) {
-		if (v1[i] + 1 == (int) g.events[i].size() ||
-			v2[i] + 1 == (int) g.events[i].size())
-			return true;
-	}
-	return false;
-}
-
 bool GenMCDriver::calcRevisits(EventLabel &lab)
 {
 	auto &g = *currentEG;
@@ -760,25 +750,18 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto preds = g.getViewFromStamp(rLab.getStamp());
 
 		auto before = g.getPorfBefore(lab.getPos());
-
-		if ((int) g.events[l.thread].size() == l.index + 1 &&
-			EE->getThrById(l.thread).isBlocked &&
-			g.getEventLabel(l).attr == ATTR_LOCK) {
-			if (graphCoveredByViews(g, before, preds)) {
-				EE->getThrById(l.thread).isBlocked = false;
-				g.changeRf(g.getEventLabel(l), lab.getPos());
-				prioritizeThread = -1;
-				continue;
-			}
-			isMootExecution = true;
-		}
-
 		auto prefixP = getPrefixToSaveNotBefore(lab, preds);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
 
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
+
+		if ((int) g.events[l.thread].size() == l.index + 1 &&
+			EE->getThrById(l.thread).isBlocked &&
+			g.getEventLabel(l).attr == ATTR_LOCK) {
+			isMootExecution = true;
+		}
 
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
