@@ -67,26 +67,38 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 {
 	auto &g = *currentEG;
 	auto ls = g.getRevisitable(sLab);
-
-	if (!sLab.isRMW())
-		return ls;
+	std::vector<Event> result;
 
 	/*
-	 * If sLab is an RMW, we cannot revisit a read r for which
+	 * We calculate WB again, in order to filter-out inconsistent
+	 * revisit options. For example, if sLab is an RMW, we cannot
+	 * revisit a read r for which:
 	 * \exists c_a in C_a .
 	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
 	 *
 	 * since this will create a cycle in WB
 	 */
-	auto chain = g.getRMWChain(sLab);
-	auto hbAfterStores = g.getStoresHbAfterStores(sLab.getAddr(), chain);
-	auto it = std::remove_if(ls.begin(), ls.end(), [&](Event &l)
-				 { auto &pLab = g.getPreviousLabel(l);
-				   return std::any_of(hbAfterStores.begin(),
-						      hbAfterStores.end(),
-						      [&](Event &w){ return g.isWriteRfBefore(pLab.hbView, w); }); });
-	ls.erase(it, ls.end());
-	return ls;
+
+	for (auto &l : ls) {
+		auto v = g.getViewFromStamp(g.getEventLabel(l).getStamp());
+		v.updateMax(sLab.porfView);
+
+		auto wb = g.calcWbRestricted(sLab.addr, v);
+		auto &stores = wb.first;
+		auto &wbMatrix = wb.second;
+		auto i = std::find(stores.begin(), stores.end(), sLab.pos) - stores.begin();
+
+		auto hbBefore = g.getHbBefore(l.prev());
+		bool allowed = true;
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (wbMatrix[i * stores.size() + j] &&
+			    g.isWriteRfBefore(hbBefore, stores[j]))
+				allowed = false;
+		}
+		if (allowed)
+			result.push_back(l);
+	}
+	return result;
 }
 
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >

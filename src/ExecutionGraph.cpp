@@ -441,6 +441,50 @@ Event ExecutionGraph::getRMWChainLowerLimit(const EventLabel &sLab, const Event 
 	return limit->pos;
 }
 
+Event ExecutionGraph::getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, View &v)
+{
+	/*
+	 * This function should not be called with an event that is not
+	 * the store part of an RMW
+	 */
+	WARN_ON_ONCE(!sLab.isWrite(), "getrmwchainlowerlimit-arg",
+		     "WARNING: getRMWChainLowerLimit() called with non-write argument!\n");
+
+	/* As long as you find successful RMWs, keep going down the chain */
+	auto curr = &sLab;
+	auto limit = curr;
+	while (curr->pos != lower && curr->pos.index <= v[curr->pos.thread]) {
+		limit = curr;
+
+		/* Check if other successful RMWs are reading from this write (at most one) */
+		std::vector<Event> rmwRfs;
+		std::copy_if(curr->rfm1.begin(), curr->rfm1.end(), std::back_inserter(rmwRfs),
+			     [&](const Event &r){ return isRMWLoad(r); });
+		BUG_ON(rmwRfs.size() > 2);
+
+		/* If there is none, we reached the upper limit of the chain */
+		if (rmwRfs.size() == 0)
+			break;
+
+		Event next;
+		if (rmwRfs.size() == 2) {
+			if (rmwRfs[0].index <= v[rmwRfs[0].thread])
+				next = rmwRfs[0].next();
+			else
+				next = rmwRfs[1].next();
+		} else {
+			next = rmwRfs.back().next();
+		}
+
+		/* Otherwise, go up one (rf;rmw)-step */
+		curr = &getEventLabel(next);
+	}
+
+	/* We return the limit (curr may be equal to the lower search bound) */
+	return limit->pos;
+}
+
+
 std::vector<Event> ExecutionGraph::getRMWChain(const EventLabel &sLab)
 {
 
@@ -1617,7 +1661,7 @@ ExecutionGraph::calcWbRestricted(llvm::GenericValue *addr, View &v)
 			int k = calcEventIndex(stores, upperL);
 
 			EventLabel &wLabJ = getEventLabel(stores[j]);
-			auto lowerL = getRMWChainLowerLimit(wLabJ, upperL);
+			auto lowerL = getRMWChainLowerLimitInView(wLabJ, upperL, v);
 			int l = calcEventIndex(stores, lowerL);
 			matrix[l * stores.size() + k] = true;
 		}
@@ -1628,7 +1672,7 @@ ExecutionGraph::calcWbRestricted(llvm::GenericValue *addr, View &v)
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			auto lowerL = getRMWChainLowerLimit(wLab, stores[i]);
+			auto lowerL = getRMWChainLowerLimitInView(wLab, stores[i], v);
 			int k = calcEventIndex(stores, lowerL);
 			matrix[k * stores.size() + i] = true;
 		}

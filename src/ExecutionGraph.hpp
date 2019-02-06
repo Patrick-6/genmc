@@ -92,6 +92,7 @@ public:
 	/* Calculation of particular sets of events/event labels */
 	Event getRMWChainUpperLimit(const EventLabel &sLab, const Event upper);
 	Event getRMWChainLowerLimit(const EventLabel &sLab, const Event lower);
+	Event getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, View &v);
 	std::vector<Event> getRMWChain(const EventLabel &sLab);
 	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc,
 						  const std::vector<Event> &chain);
