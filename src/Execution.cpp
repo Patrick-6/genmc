@@ -2369,8 +2369,10 @@ void Interpreter::replayExecutionBefore(View &before)
 	auto &g = *driver->getGraph();
 
 	threads[0].ECStack = mainECStack;
+	threads[0].initSF = mainECStack.back();
 	for (auto i = 0u; i < threads.size(); i++) {
 		auto &thr = getThrById(i);
+		thr.ECStack.push_back(thr.initSF);
 		thr.globalInstructions = 0;
 		thr.prefixLOC.resize(g.events[i].size());
 		currentThread = i;
