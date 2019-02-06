@@ -212,17 +212,27 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
  ** Scheduling methods
  ***********************************************************/
 
-void GenMCDriver::spawnAllChildren(int thread)
+void GenMCDriver::resetInterpreter()
 {
 	auto &g = *currentEG;
-	for (auto i = 0u; i < g.events[thread].size(); i++) {
-		auto &lab = g.events[thread][i];
-		if (lab.isCreate()) {
-			auto &child = g.getEventLabel(lab.rfm1.back());
-			auto &childThr = EE->getThrById(child.getThread());
-			BUG_ON(!childThr.ECStack.empty() || childThr.isBlocked);
-			childThr.ECStack.push_back(childThr.initSF);
-		}
+	EE->reset();
+
+	for (auto i = 1u; i < g.events.size(); i++) {
+		/** skip empty threads */
+		if (g.events[i].size() == 0) continue;
+
+		/** skip finished threads */
+		if (g.getLastThreadLabel(i).isFinish()) continue;
+
+		/** skip uncreated threads */
+		auto &lab = g.events[i][0];
+		if (lab.rf.index >= (int) g.events[lab.rf.thread].size())
+			continue;
+
+		BUG_ON (!g.getEventLabel(lab.rf).isCreate());
+		auto &thr = EE->getThrById(i);
+		BUG_ON(!thr.ECStack.empty() || thr.isBlocked);
+		thr.ECStack.push_back(thr.initSF);
 	}
 	return;
 }
@@ -247,35 +257,22 @@ bool GenMCDriver::scheduleNext()
 
 	/* Check whether we should start scheduling from a random thread */
 	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
-	auto resetSchedule = false;
-	do {
-		resetSchedule = false;
-		for (auto j = 0u; j < g.events.size(); j++) {
-			auto i = (j + random) % g.events.size();
-			auto &thr = EE->getThrById(i);
+	for (auto j = 0u; j < g.events.size(); j++) {
+		auto i = (j + random) % g.events.size();
+		auto &thr = EE->getThrById(i);
 
-			if (thr.ECStack.empty() || thr.isBlocked)
-				continue;
+		if (thr.ECStack.empty() || thr.isBlocked)
+			continue;
 
-			/* Found a not-yet-complete thread; schedule it */
-			if (!g.getLastThreadLabel(i).isFinish()) {
-				EE->currentThread = i;
-				return true;
-			}
-
-			/*
-			 * Found a complete thread; spawn its children.
-			 * We also need to reset the scheduler as the
-			 * children may have been in some previously
-			 * explored index j (in the case of randomized
-			 * scheduling)
-			 */
-			spawnAllChildren(i);
+		if (g.getLastThreadLabel(i).isFinish()) {
 			thr.ECStack.clear();
-			resetSchedule = true;
-			break;
+			continue;
 		}
-	} while (resetSchedule);
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = i;
+		return true;
+	}
 
 	/* No schedulable thread found */
 	return false;
@@ -286,7 +283,7 @@ void GenMCDriver::visitGraph(ExecutionGraph &g)
 	currentEG = &g;
 
 	while (true) {
-		EE->reset();
+		resetInterpreter();
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
@@ -456,7 +453,6 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 		}
 	} else {
 		tid = getCurrentLabel().cid;
-		EE->getThrById(tid).ECStack.push_back(SF);
 	}
 	return tid;
 }

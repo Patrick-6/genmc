@@ -103,9 +103,9 @@ public:
 	void printResults();
 	void handleExecutionInProgress();
 	void handleFinishedExecution();
+	void resetInterpreter();
 
 	/* Scheduling methods */
-	void spawnAllChildren(int thread);
 	bool scheduleNext();
 
 	void visitGraph(ExecutionGraph &g);
