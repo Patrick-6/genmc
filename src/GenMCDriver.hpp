@@ -68,6 +68,7 @@ protected:
 	ExecutionGraph *currentEG;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
 	bool isMootExecution = false;
+	int prioritizeThread = -1;
 	int explored;
 	int exploredBlocked;
 	int duplicates;

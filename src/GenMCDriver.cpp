@@ -101,9 +101,11 @@ void GenMCDriver::handleFinishedExecution()
 			[](llvm::Thread &thr){ return thr.isBlocked; })) {
 		++exploredBlocked;
 		isMootExecution = false;
+		prioritizeThread = -1;
 		return;
 	}
 	isMootExecution = false;
+	prioritizeThread = -1;
 
 	auto &g = *currentEG;
 	if (!checkPscAcyclicity())
@@ -233,6 +235,16 @@ bool GenMCDriver::scheduleNext()
 	auto &g = *currentEG;
 	MyDist dist(0, g.events.size());
 
+	if (0 <= prioritizeThread && prioritizeThread < (int) g.events.size()) {
+		auto &thr = EE->getThrById(prioritizeThread);
+		if (!thr.ECStack.empty() && !thr.isBlocked) {
+			EE->currentThread = prioritizeThread;
+			return true;
+		} else {
+		}
+	}
+
+
 	/* Check whether we should start scheduling from a random thread */
 	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
 	auto resetSchedule = false;
@@ -284,6 +296,7 @@ void GenMCDriver::visitGraph(ExecutionGraph &g)
 		auto validExecution = true;
 		do {
 			isMootExecution = false;
+			prioritizeThread = -1;
 			auto p = getNextItem();
 			if (p.type == None) {
 				/* Reset the interpreter to also free memory */
@@ -365,10 +378,30 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
 		return stores;
 
+	if (attr == ATTR_LOCK) {
+		for (auto &s : stores) {
+			if (g.getEventLabel(s).attr == ATTR_LOCK) continue;
+			if (!g.isStoreReadBySettledRMW(s, ptr, before)) {
+				if (g.isStoreReadByExclusiveRead(s, ptr))
+					conflicting.push_back(s);
+				else
+					valid.push_back(s);
+			}
+		}
+		if (valid.size() == 0) {
+			for (auto &s : stores) {
+				if (g.getEventLabel(s).attr != ATTR_LOCK) continue;
+				prioritizeThread = s.thread;
+				valid.push_back(s);
+				break;
+			}
+		}
+		valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+		return valid;
+	}
 	for (auto &s : stores) {
 		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
-		if (((attr == ATTR_CAS || attr == ATTR_LOCK) &&
-		     !EE->compareValues(typ, oldVal, expVal)) ||
+		if ((attr == ATTR_CAS && !EE->compareValues(typ, oldVal, expVal)) ||
 		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
 			if (g.isStoreReadByExclusiveRead(s, ptr))
 				conflicting.push_back(s);
@@ -535,13 +568,6 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 		llvm::dbgs() << "Race detected!\n";
 		printResults();
 		abort();
-	}
-
-	/* Extra filtering for locks */
-	if (attr == ATTR_LOCK) {
-		validStores.erase(std::remove_if(validStores.begin() + 1, validStores.end(), [&](Event &e)
-								{ return g.getEventLabel(e).attr == ATTR_LOCK; }),
-						  validStores.end());
 	}
 
 	/* Push all the other alternatives choices to the Stack */
@@ -728,8 +754,10 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
 		if ((int) g.events[l.thread].size() == l.index + 1 &&
-			EE->getThrById(l.thread).isBlocked)
+			EE->getThrById(l.thread).isBlocked &&
+			g.getEventLabel(l).attr == ATTR_LOCK) {
 			isMootExecution = true;
+		}
 
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
@@ -790,6 +818,12 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		auto &sLab = g.addStoreToGraph(lab.getThread(), lab.getAttr(), lab.ord,
 					       lab.getAddr(), lab.valTyp, newVal, offsetMO);
 		return calcRevisits(sLab);
+	}
+
+	/* Blocked lock -> prioritize locking thread */
+	if (lab.isRead() && lab.attr == ATTR_LOCK) {
+		prioritizeThread = lab.rf.thread;
+		EE->getThrById(p.toRevisit.thread).isBlocked = true;
 	}
 
 	if (p.type == SReadLibFunc)
