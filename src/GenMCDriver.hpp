@@ -59,6 +59,7 @@ protected:
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 
+	llvm::Function *mainFun;
 	std::string sourceCode;
 	std::unique_ptr<Config> userConf;
 	std::unique_ptr<llvm::Module> mod;

@@ -143,7 +143,15 @@ void GenMCDriver::run()
 	ExecutionGraph initGraph;
 
 	/* Create main thread and start event */
-	auto main = llvm::Thread(mod->getFunction("main"), 0);
+	mainFun = mod->getFunction("main");
+	if (!mainFun)
+		mainFun = mod->getFunction("user_main");
+	if (!mainFun) {
+		WARN("ERROR: could not find \"main\" or \"user_main\" function.\n");
+		abort();
+	}
+
+	auto main = llvm::Thread(mainFun, 0);
 	EE->threads.push_back(main);
 
 	/* Explore all graphs and print the results */
@@ -295,7 +303,7 @@ void GenMCDriver::visitGraph(ExecutionGraph &g)
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(mod->getFunction("main"), {"prog"}, 0);
+		EE->runFunctionAsMain(mainFun, {"prog"}, 0);
 		EE->runStaticConstructorsDestructors(true);
 
 		auto validExecution = true;
