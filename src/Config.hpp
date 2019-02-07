@@ -39,6 +39,7 @@ public:
 	CheckPSCType checkPscAcyclicity;
 	int unroll;
 	bool spinAssume;
+	std::string programEntryFun;
 	bool inputFromBitcodeFile;
 	bool validateExecGraphs;
 	bool randomizeSchedule;

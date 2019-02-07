@@ -143,11 +143,9 @@ void GenMCDriver::run()
 	ExecutionGraph initGraph;
 
 	/* Create main thread and start event */
-	mainFun = mod->getFunction("main");
-	if (!mainFun)
-		mainFun = mod->getFunction("user_main");
+	auto mainFun = mod->getFunction(userConf->programEntryFun);
 	if (!mainFun) {
-		WARN("ERROR: could not find \"main\" or \"user_main\" function.\n");
+		WARN("ERROR: Could not find program's entry point function!\n");
 		abort();
 	}
 
@@ -302,7 +300,7 @@ void GenMCDriver::visitGraph()
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(mainFun, {"prog"}, 0);
+		EE->runFunctionAsMain(mod->getFunction(userConf->programEntryFun), {"prog"}, 0);
 		EE->runStaticConstructorsDestructors(true);
 
 		auto validExecution = true;

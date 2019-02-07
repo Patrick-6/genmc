@@ -81,6 +81,10 @@ static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
 
+static llvm::cl::opt<std::string>
+clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
+		       llvm::cl::value_desc("fun_name"), llvm::cl::cat(clDebugging),
+		       llvm::cl::desc("Function used as program entrypoint (default: main())"));
 static llvm::cl::opt<bool>
 clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
 		       llvm::cl::desc("Read LLVM bitcode directly from file"));
@@ -141,6 +145,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	spinAssume = !clDisableSpinAssume;
 
 	/* Save debugging options */
+	programEntryFun = clProgramEntryFunction;
 	validateExecGraphs = clValidateExecGraphs;
 	randomizeSchedule = clRandomizeSchedule;
 	printRandomizeScheduleSeed = clPrintRandomizeScheduleSeed;
