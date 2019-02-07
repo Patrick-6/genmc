@@ -109,7 +109,7 @@ public:
 	/* Scheduling methods */
 	bool scheduleNext();
 
-	void visitGraph(ExecutionGraph &g);
+	void visitGraph();
 	Event checkForRaces();
 	bool isExecutionDrivenByGraph();
 	EventLabel& getCurrentLabel();

@@ -155,7 +155,8 @@ void GenMCDriver::run()
 	EE->threads.push_back(main);
 
 	/* Explore all graphs and print the results */
-	visitGraph(initGraph);
+	currentEG = &initGraph;
+	visitGraph();
 	printResults();
 	return;
 }
@@ -294,10 +295,8 @@ bool GenMCDriver::scheduleNext()
 	return false;
 }
 
-void GenMCDriver::visitGraph(ExecutionGraph &g)
+void GenMCDriver::visitGraph()
 {
-	currentEG = &g;
-
 	while (true) {
 		resetInterpreter();
 
