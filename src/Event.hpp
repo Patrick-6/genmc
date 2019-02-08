@@ -26,7 +26,7 @@
 enum EventType { EStart, EFinish, ETCreate, ETJoin,
 		 ERead, EWrite, EFence, EMalloc, EFree };
 
-enum EventAttr { ATTR_PLAIN, ATTR_UNLOCK, ATTR_CAS, ATTR_LOCK, ATTR_FAI};
+enum EventAttr { ATTR_PLAIN, ATTR_CAS, ATTR_FAI, ATTR_LOCK, ATTR_UNLOCK };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t);
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a);

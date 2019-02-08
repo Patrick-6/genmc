@@ -46,6 +46,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 			 clock_t start)
 	: userConf(std::move(conf)), mod(std::move(mod)),
 	  grantedLibs(granted), toVerifyLibs(toVerify),
+	  isMootExecution(false), prioritizeThread(-1),
 	  explored(0), exploredBlocked(0), duplicates(0), start(start)
 {
 	/* Register a signal handler for abort() */
@@ -85,6 +86,44 @@ void GenMCDriver::printResults()
 		     << "s\n";
 }
 
+void GenMCDriver::resetExplorationOptions()
+{
+	isMootExecution = false;
+	prioritizeThread = -1;
+}
+
+void GenMCDriver::handleExecutionBeginning()
+{
+	auto &g = *currentEG;
+
+	/* Set-up (optimize) the interpreter for the new exploration */
+	for (auto i = 1u; i < g.events.size(); i++) {
+
+		/* Skip not-yet-created threads */
+		BUG_ON(g.events[i].empty());
+		auto &labFst = g.events[i][0];
+		if (labFst.rf.index >= (int) g.events[labFst.rf.thread].size())
+			continue;
+
+		/* This could fire for main() (?) */
+		BUG_ON(!g.getEventLabel(labFst.rf).isCreate());
+
+		/* Skip finished threads */
+		auto &labLast = g.getLastThreadLabel(i);
+		if (labLast.isFinish())
+			continue;
+
+		/* Initialize ECStacks in interpreter */
+		auto &thr = EE->getThrById(i);
+		BUG_ON(!thr.ECStack.empty() || thr.isBlocked);
+		thr.ECStack.push_back(thr.initSF);
+
+		/* Mark threads that are blocked appropriately */
+		if (labLast.isRead() && labLast.isLock())
+			thr.isBlocked = true;
+	}
+}
+
 void GenMCDriver::handleExecutionInProgress()
 {
 	/* Check if there are checks to be done while running */
@@ -95,17 +134,15 @@ void GenMCDriver::handleExecutionInProgress()
 
 void GenMCDriver::handleFinishedExecution()
 {
+	/* First, reset all exploration options */
+	resetExplorationOptions();
 
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(EE->threads.begin(), EE->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked; })) {
 		++exploredBlocked;
-		isMootExecution = false;
-		prioritizeThread = -1;
 		return;
 	}
-	isMootExecution = false;
-	prioritizeThread = -1;
 
 	auto &g = currentEG;
 	if (!checkPscAcyclicity())
@@ -216,58 +253,27 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
  ** Scheduling methods
  ***********************************************************/
 
-void GenMCDriver::resetInterpreter()
-{
-	auto &g = currentEG;
-	EE->reset();
-
-	for (auto i = 1u; i < g.events.size(); i++) {
-		/** skip empty threads */
-		if (g.events[i].size() == 0) continue;
-
-		/** skip uncreated threads */
-		auto &labFst = g.events[i][0];
-		if (labFst.rf.index >= (int) g.events[labFst.rf.thread].size())
-			continue;
-		BUG_ON (!g.getEventLabel(labFst.rf).isCreate());
-
-		/** skip finished threads */
-		auto &labLast = g.getLastThreadLabel(i);
-		if (labLast.isFinish()) continue;
-
-		/** initialize interpreter */
-		auto &thr = EE->getThrById(i);
-		BUG_ON(!thr.ECStack.empty() || thr.isBlocked);
-		thr.ECStack.push_back(thr.initSF);
-
-		/** mark blocked events */
-		if (labLast.isRead() && labLast.attr == ATTR_LOCK)
-			thr.isBlocked = true;
-	}
-	return;
-}
-
 bool GenMCDriver::scheduleNext()
 {
 	if (isMootExecution)
 		return false;
 
-	auto &g = currentEG;
-	MyDist dist(0, g.events.size());
+	auto &g = *currentEG;
 
+	/* First, check if we should prioritize some thread */
 	if (0 <= prioritizeThread && prioritizeThread < (int) g.events.size()) {
 		auto &thr = EE->getThrById(prioritizeThread);
 		if (!thr.ECStack.empty() && !thr.isBlocked &&
-			!g.getLastThreadLabel(prioritizeThread).isFinish()) {
+		    !g.getLastThreadLabel(prioritizeThread).isFinish()) {
 			EE->currentThread = prioritizeThread;
 			return true;
-		} else {
-			prioritizeThread = -2;
 		}
 	}
+	prioritizeThread = -2;
 
 
-	/* Check whether we should start scheduling from a random thread */
+	/* Check if randomize scheduling is enabled and schedule some thread */
+	MyDist dist(0, g.events.size());
 	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
 	for (auto j = 0u; j < g.events.size(); j++) {
 		auto i = (j + random) % g.events.size();
@@ -293,7 +299,7 @@ bool GenMCDriver::scheduleNext()
 void GenMCDriver::visitGraph()
 {
 	while (true) {
-		resetInterpreter();
+		EE->reset();
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
@@ -302,12 +308,16 @@ void GenMCDriver::visitGraph()
 
 		auto validExecution = true;
 		do {
-			isMootExecution = false;
-			prioritizeThread = -1;
+			/*
+			 * revisitReads() might deem some execution unfeasible,
+			 * so we have to reset all exploration options before
+			 * calling it again
+			 */
+			resetExplorationOptions();
+
 			auto p = getNextItem();
 			if (p.type == None) {
-				/* Reset the interpreter to also free memory */
-				EE->reset();
+				EE->reset();  /* To free memory */
 				return;
 			}
 			validExecution = revisitReads(p);
@@ -375,46 +385,57 @@ Event GenMCDriver::checkForRaces()
 	return Event::getInitializer();
 }
 
+std::vector<Event> GenMCDriver::filterAcquiredLocks(llvm::GenericValue *ptr,
+						    std::vector<Event> &stores,
+						    View &before)
+{
+	auto &g = *currentEG;
+	std::vector<Event> valid, conflicting;
+
+	for (auto &s : stores) {
+		if (g.getEventLabel(s).isLock() || g.isStoreReadBySettledRMW(s, ptr, before))
+			continue;
+
+		if (g.isStoreReadByExclusiveRead(s, ptr))
+			conflicting.push_back(s);
+		else
+			valid.push_back(s);
+	}
+
+	if (valid.empty()) {
+		auto lit = std::find_if(stores.begin(), stores.end(),
+					[&](Event &s){ return g.getEventLabel(s).isLock(); });
+		BUG_ON(lit == stores.end());
+		prioritizeThread = lit->thread;
+		valid.push_back(*lit);
+	}
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+	return valid;
+}
+
 std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
 						    llvm::GenericValue &expVal, std::vector<Event> &stores)
 {
-	auto &g = currentEG;
-	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
-	std::vector<Event> valid, conflicting;
-
 	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
 		return stores;
 
-	if (attr == ATTR_LOCK) {
-		for (auto &s : stores) {
-			if (g.getEventLabel(s).attr == ATTR_LOCK) continue;
-			if (!g.isStoreReadBySettledRMW(s, ptr, before)) {
-				if (g.isStoreReadByExclusiveRead(s, ptr))
-					conflicting.push_back(s);
-				else
-					valid.push_back(s);
-			}
-		}
-		if (valid.size() == 0) {
-			for (auto &s : stores) {
-				if (g.getEventLabel(s).attr != ATTR_LOCK) continue;
-				prioritizeThread = s.thread;
-				valid.push_back(s);
-				break;
-			}
-		}
-		valid.insert(valid.end(), conflicting.begin(), conflicting.end());
-		return valid;
-	}
+	auto &g = *currentEG;
+	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
+
+	if (attr == ATTR_LOCK)
+		return filterAcquiredLocks(ptr, stores, before);
+
+	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
 		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
-		if ((attr == ATTR_CAS && !EE->compareValues(typ, oldVal, expVal)) ||
-		     !g.isStoreReadBySettledRMW(s, ptr, before)) {
-			if (g.isStoreReadByExclusiveRead(s, ptr))
-				conflicting.push_back(s);
-			else
-				valid.push_back(s);
-		}
+		if ((attr == ATTR_FAI || EE->compareValues(typ, oldVal, expVal)) &&
+		    g.isStoreReadBySettledRMW(s, ptr, before))
+			continue;
+
+		if (g.isStoreReadByExclusiveRead(s, ptr))
+			conflicting.push_back(s);
+		else
+			valid.push_back(s);
 	}
 	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
 	return valid;
@@ -759,11 +780,9 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
-		if ((int) g.events[l.thread].size() == l.index + 1 &&
-			EE->getThrById(l.thread).isBlocked &&
-			g.getEventLabel(l).attr == ATTR_LOCK) {
+		if (rLab.isLock() && (int) g.events[rLab.getThread()].size() == rLab.getIndex() + 1 &&
+		    EE->getThrById(rLab.getThread()).isBlocked)
 			isMootExecution = true;
-		}
 
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
@@ -827,7 +846,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	}
 
 	/* Blocked lock -> prioritize locking thread */
-	if (lab.isRead() && lab.attr == ATTR_LOCK) {
+	if (lab.isRead() && lab.isLock()) {
 		prioritizeThread = lab.rf.thread;
 		EE->getThrById(p.toRevisit.thread).isBlocked = true;
 	}

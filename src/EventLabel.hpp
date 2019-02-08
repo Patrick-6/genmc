@@ -100,6 +100,8 @@ public:
 	bool isRMW() const;
 	bool isFAI() const;
 	bool isCAS() const;
+	bool isLock() const;
+	bool isUnlock() const;
 	bool isLibInit() const;
 	bool isRevisitable() const;
 	bool hasReadSem() const;

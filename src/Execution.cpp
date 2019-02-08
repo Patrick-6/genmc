@@ -2755,6 +2755,8 @@ void Interpreter::callFunction(Function *F,
 void Interpreter::run()
 {
 	mainECStack = ECStack();
+
+	driver->handleExecutionBeginning();
 	while (driver->scheduleNext()) {
 		driver->handleExecutionInProgress();
 		llvm::ExecutionContext &SF = ECStack().back();

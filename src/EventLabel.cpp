@@ -211,6 +211,16 @@ bool EventLabel::isCAS() const
 	return attr == ATTR_CAS || attr == ATTR_LOCK ;
 }
 
+bool EventLabel::isLock() const
+{
+	return attr == ATTR_LOCK;
+}
+
+bool EventLabel::isUnlock() const
+{
+	return attr == ATTR_UNLOCK;
+}
+
 bool EventLabel::isLibInit() const
 {
 	return initial;

@@ -67,8 +67,8 @@ protected:
 	llvm::Interpreter *EE;
 	ExecutionGraph currentEG;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
-	bool isMootExecution = false;
-	int prioritizeThread = -1;
+	bool isMootExecution;
+	int prioritizeThread;
 	int explored;
 	int exploredBlocked;
 	int duplicates;
@@ -101,9 +101,11 @@ public:
 	ExecutionGraph &getGraph() { return currentEG; };
 	void run();
 	void printResults();
+
+	void resetExplorationOptions();
+	void handleExecutionBeginning();
 	void handleExecutionInProgress();
 	void handleFinishedExecution();
-	void resetInterpreter();
 
 	/* Scheduling methods */
 	bool scheduleNext();
@@ -139,6 +141,8 @@ public:
 	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(StackItem &s);
 
+	std::vector<Event> filterAcquiredLocks(llvm::GenericValue *ptr,
+					       std::vector<Event> &stores, View &before);
 	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal, std::vector<Event> &stores);
 
