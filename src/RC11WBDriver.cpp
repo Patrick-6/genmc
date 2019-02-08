@@ -26,7 +26,7 @@
 
 std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
 {
-	auto &g = currentEG;
+	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
 	auto wb = g.calcWb(addr);
 	auto &stores = wb.first;
@@ -59,13 +59,13 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
 
 std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
 {
-	auto locMOSize = (int) currentEG.modOrder[addr].size();
+	auto locMOSize = (int) getGraph().modOrder[addr].size();
 	return std::make_pair(locMOSize, locMOSize);
 }
 
 std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 {
-	auto &g = currentEG;
+	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
 	std::vector<Event> result;
 
@@ -104,7 +104,7 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	  RC11WBDriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
-	auto writePrefix = currentEG.getPrefixLabelsNotBefore(lab.porfView, before);
+	auto writePrefix = getGraph().getPrefixLabelsNotBefore(lab.porfView, before);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 
@@ -114,11 +114,11 @@ bool RC11WBDriver::checkPscAcyclicity()
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
-		return currentEG.isPscWeakAcyclicWB();
+		return getGraph().isPscWeakAcyclicWB();
 	case CheckPSCType::wb:
-		return currentEG.isPscWbAcyclicWB();
+		return getGraph().isPscWbAcyclicWB();
 	case CheckPSCType::full:
-		return currentEG.isPscAcyclicWB();
+		return getGraph().isPscAcyclicWB();
 	default:
 		WARN("Unimplemented model!\n");
 		BUG();
@@ -127,5 +127,5 @@ bool RC11WBDriver::checkPscAcyclicity()
 
 bool RC11WBDriver::isExecutionValid()
 {
-	return currentEG.isPscAcyclicWB();
+	return getGraph().isPscAcyclicWB();
 }

@@ -65,7 +65,7 @@ protected:
 	std::vector<Library> grantedLibs;
 	std::vector<Library> toVerifyLibs;
 	llvm::Interpreter *EE;
-	ExecutionGraph currentEG;
+	ExecutionGraph execGraph;
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
 	bool isMootExecution;
 	int prioritizeThread;
@@ -98,7 +98,8 @@ public:
 
 	std::vector<Library> &getGrantedLibs()  { return grantedLibs; };
 	std::vector<Library> &getToVerifyLibs() { return toVerifyLibs; };
-	ExecutionGraph &getGraph() { return currentEG; };
+	ExecutionGraph &getGraph() { return execGraph; };
+
 	void run();
 	void printResults();
 

@@ -145,7 +145,7 @@ public:
 	bool isLibConsistentInView(Library &lib, View &v);
 
 	/* Debugging methods */
-	void validateGraph(void);
+	void validate(void);
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);

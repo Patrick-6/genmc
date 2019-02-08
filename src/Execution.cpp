@@ -80,7 +80,7 @@ bool Interpreter::compareValues(llvm::Type *typ, const GenericValue &val1, const
 /* TODO: Maybe return reference? */
 GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericValue *ptr)
 {
-	ExecutionGraph &g = driver->getGraph();
+	auto &g = driver->getGraph();
 	if (write.isInitializer()) {
 		GenericValue result;
 		LoadValueFromMemory(result, ptr, typ);

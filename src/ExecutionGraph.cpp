@@ -1990,7 +1990,7 @@ ExecutionGraph::getLibConsRfsInView(Library &lib, EventLabel &rLab,
  ** Debugging methods
  ***********************************************************/
 
-void ExecutionGraph::validateGraph(void)
+void ExecutionGraph::validate(void)
 {
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = 0u; j < events[i].size(); j++) {
