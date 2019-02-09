@@ -28,7 +28,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &locMO = g.modOrder[addr];
 	auto before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
@@ -52,7 +52,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(llvm::GenericValue *addr)
 
 std::pair<int, int> RC11MODriver::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &pLab = g.getLastThreadLabel(EE->getCurThr().id);
 
 	if (isRMW) {
@@ -66,7 +66,7 @@ std::pair<int, int> RC11MODriver::getPossibleMOPlaces(llvm::GenericValue *addr, 
 
 std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto ls = g.getRevisitable(sLab);
 	auto &locMO = g.modOrder[sLab.getAddr()];
 
@@ -88,8 +88,8 @@ std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 	  RC11MODriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
-	auto writePrefix = currentEG->getPrefixLabelsNotBefore(lab.porfView, before);
-	auto moPlacings = currentEG->getMOPredsInBefore(writePrefix, before);
+	auto writePrefix = currentEG.getPrefixLabelsNotBefore(lab.porfView, before);
+	auto moPlacings = currentEG.getMOPredsInBefore(writePrefix, before);
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
@@ -103,7 +103,7 @@ bool RC11MODriver::checkPscAcyclicity()
 		WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 			  "to be checked for the MO-tracking exploration...\n");
 	case CheckPSCType::full:
-		return currentEG->isPscAcyclicMO();
+		return currentEG.isPscAcyclicMO();
 	default:
 		WARN("Unimplemented model!\n");
 		BUG();
@@ -112,5 +112,5 @@ bool RC11MODriver::checkPscAcyclicity()
 
 bool RC11MODriver::isExecutionValid()
 {
-	return currentEG->isPscAcyclicMO();
+	return currentEG.isPscAcyclicMO();
 }

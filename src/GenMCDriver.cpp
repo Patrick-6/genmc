@@ -89,7 +89,7 @@ void GenMCDriver::handleExecutionInProgress()
 {
 	/* Check if there are checks to be done while running */
 	if (userConf->validateExecGraphs)
-		currentEG->validateGraph();
+		currentEG.validateGraph();
 	return;
 }
 
@@ -107,7 +107,7 @@ void GenMCDriver::handleFinishedExecution()
 	isMootExecution = false;
 	prioritizeThread = -1;
 
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	if (!checkPscAcyclicity())
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
@@ -139,9 +139,6 @@ void GenMCDriver::run()
 	/* Create an interpreter for the program's instructions. */
 	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, this, &buf);
 
-	/* Create an initial graph */
-	ExecutionGraph initGraph;
-
 	/* Create main thread and start event */
 	auto mainFun = mod->getFunction(userConf->programEntryFun);
 	if (!mainFun) {
@@ -153,7 +150,7 @@ void GenMCDriver::run()
 	EE->threads.push_back(main);
 
 	/* Explore all graphs and print the results */
-	currentEG = &initGraph;
+	currentEG = ExecutionGraph();
 	visitGraph();
 	printResults();
 	return;
@@ -165,7 +162,7 @@ void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
 			       int newMoPos = 0)
 
 {
-	auto &lab = currentEG->getEventLabel(e);
+	auto &lab = currentEG.getEventLabel(e);
 	StackItem s(t, e, lab.rf, shouldRf,
 		    std::move(prefix), std::move(moPlacings), newMoPos);
 
@@ -198,7 +195,7 @@ void GenMCDriver::restrictWorklist(unsigned int stamp)
 
 void GenMCDriver::restrictGraph(unsigned int stamp)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto v = g.getViewFromStamp(stamp);
 
 	/* First, free memory allocated by events that will no longer be in the graph */
@@ -221,7 +218,7 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 
 void GenMCDriver::resetInterpreter()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	EE->reset();
 
 	for (auto i = 1u; i < g.events.size(); i++) {
@@ -255,7 +252,7 @@ bool GenMCDriver::scheduleNext()
 	if (isMootExecution)
 		return false;
 
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	MyDist dist(0, g.events.size());
 
 	if (0 <= prioritizeThread && prioritizeThread < (int) g.events.size()) {
@@ -320,7 +317,7 @@ void GenMCDriver::visitGraph()
 
 bool GenMCDriver::isExecutionDrivenByGraph()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	return ++thr.globalInstructions < g.events[thr.id].size();
@@ -328,7 +325,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 
 EventLabel& GenMCDriver::getCurrentLabel()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	BUG_ON(thr.globalInstructions >= g.events[thr.id].size());
@@ -344,7 +341,7 @@ EventLabel& GenMCDriver::getCurrentLabel()
  */
 Event GenMCDriver::checkForRaces()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &lab = g.getLastThreadLabel(EE->getCurThr().id);
 
 	/* We only check for races when reads and writes are added */
@@ -381,7 +378,7 @@ Event GenMCDriver::checkForRaces()
 std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
 						    llvm::GenericValue &expVal, std::vector<Event> &stores)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 	std::vector<Event> valid, conflicting;
 
@@ -433,7 +430,7 @@ llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 
 int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &curThr = EE->getCurThr();
 	int tid = 0;
 
@@ -472,7 +469,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 
 llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::GenericValue &arg)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	int tid = arg.IntVal.getLimitedValue(std::numeric_limits<int>::max());
@@ -510,7 +507,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 
 void GenMCDriver::visitThreadFinish()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
@@ -539,7 +536,7 @@ void GenMCDriver::visitThreadFinish()
 
 void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
@@ -555,7 +552,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 					 llvm::GenericValue &&rmwVal,
 					 llvm::AtomicRMWInst::BinOp op)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph()) {
@@ -589,7 +586,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 			    llvm::GenericValue *addr, llvm::Type *typ,
 			    llvm::GenericValue &val)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
@@ -627,7 +624,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 
 llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 	llvm::GenericValue allocBegin, allocEnd;
 
@@ -660,7 +657,7 @@ llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 
 void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 	llvm::GenericValue val;
 
@@ -706,7 +703,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 
 void GenMCDriver::visitError(std::string &err)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	/* Is the execution that led to the error consistent? */
@@ -740,7 +737,7 @@ void GenMCDriver::visitError(std::string &err)
 
 bool GenMCDriver::calcRevisits(EventLabel &lab)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto loads = getRevisitLoads(lab);
 	auto pendingRMWs = g.getPendingRMWs(lab);
 
@@ -780,7 +777,7 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 
 bool GenMCDriver::revisitReads(StackItem &p)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &lab = g.getEventLabel(p.toRevisit);
 
 	/* Restrict to the predecessors of the event we are revisiting */
@@ -845,7 +842,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 					    llvm::GenericValue *addr, llvm::Type *typ,
 					    std::string functionName)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
 
@@ -927,7 +924,7 @@ void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::
 			       llvm::Type *typ, llvm::GenericValue &val, std::string functionName,
 			       bool isInit)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph())
@@ -979,7 +976,7 @@ void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::
 bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 {
 	/* Get the library of the event causing the revisiting */
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto lib = Library::getLibByMemberName(getGrantedLibs(), lab.functionName);
 	auto valid = true;
 	std::vector<Event> loads, stores;
@@ -1039,7 +1036,7 @@ bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 
 void GenMCDriver::prettyPrintGraph()
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	for (auto i = 0u; i < g.events.size(); i++) {
 		auto &thr = EE->getThrById(i);
 		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
@@ -1065,7 +1062,7 @@ void GenMCDriver::prettyPrintGraph()
 
 void GenMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 {
-	ExecutionGraph &g = *currentEG;
+	ExecutionGraph &g = currentEG;
 	std::ofstream fout(filename);
 	std::string dump;
 	llvm::raw_string_ostream ss(dump);
@@ -1123,7 +1120,7 @@ void GenMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 
 void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &buf)
 {
-	auto &g = *currentEG;
+	auto &g = currentEG;
 	auto ai = a[e.thread];
 
 	if (e.index <= ai)

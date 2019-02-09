@@ -80,7 +80,7 @@ bool Interpreter::compareValues(llvm::Type *typ, const GenericValue &val1, const
 /* TODO: Maybe return reference? */
 GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericValue *ptr)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	ExecutionGraph &g = driver->getGraph();
 	if (write.isInitializer()) {
 		GenericValue result;
 		LoadValueFromMemory(result, ptr, typ);
@@ -2366,7 +2366,7 @@ std::string getFilenameFromMData(MDNode *node)
 
 void Interpreter::replayExecutionBefore(View &before)
 {
-	auto &g = *driver->getGraph();
+	auto &g = driver->getGraph();
 
 	threads[0].ECStack = mainECStack;
 	threads[0].initSF = mainECStack.back();
@@ -2609,7 +2609,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = *driver->getGraph();
+	ExecutionGraph &g = driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 
