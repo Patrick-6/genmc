@@ -1021,14 +1021,16 @@ int binSearch(const std::vector<T> &arr, int len, T what)
 
 void calcTransClosure(std::vector<bool> &matrix, int len)
 {
-	for (auto k = 0; k < len; k++) {
-		for (auto i = 0; i < len; i++) {
-			for (auto j = 0; j < len; j++) {
-				matrix[i * len + j] = matrix[i * len + j] ||
-					(matrix[i * len + k] && matrix[k * len + j]);
-			}
-		}
-	}
+	for (auto i = 1; i < len; i++)
+		for (auto k = 0; k < i; k++)
+			if (matrix[i * len + k])
+				for (auto j = 0; j < len; j++)
+					matrix[i * len + j] = matrix[i * len + j] | matrix[k * len + j];
+	for (auto i = 0; i < len - 1; i++)
+		for (auto k = i + 1; k < len; k++)
+			if (matrix[i * len + k])
+				for (auto j = 0; j < len; j++)
+					matrix[i * len + j] = matrix[i * len + j] | matrix[k * len + j];
 }
 
 bool isIrreflexive(std::vector<bool> &matrix, int len)
