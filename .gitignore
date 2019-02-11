@@ -1,5 +1,23 @@
 genmc
 
+*~
+\#*\#
+*.bak
+*.backup
+.*.sw[a-z]
+
+*.ll
+
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+
 Makefile
 Makefile.in
 aclocal.m4

@@ -13,7 +13,6 @@ before_script:
     clang-4.0 libclang-4.0-dev llvm-4.0 llvm-4.0-dev
     clang-6.0 libclang-6.0-dev llvm-6.0 llvm-6.0-dev
     clang-7   libclang-7-dev   llvm-7   llvm-7-dev
-  - cd C++
 variables:
   GIT_STRATEGY: fetch
 
@@ -26,14 +25,14 @@ variables:
     - make
   artifacts:
     paths:
-      - C++/
+      - ./
 
 .test:llvm_job: &llvm_test
   script:
     - make test
   artifacts:
     paths:
-      - C++/
+      - ./
 
 build:llvm-3.8:
   stage: build
