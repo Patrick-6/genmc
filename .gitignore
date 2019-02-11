@@ -28,6 +28,7 @@ config.h
 config.h.in
 config.guess
 config.status
+config.log
 configure
 depcomp
 install-sh
