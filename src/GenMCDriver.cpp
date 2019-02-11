@@ -120,7 +120,7 @@ void GenMCDriver::handleExecutionBeginning()
 
 		/* Mark threads that are blocked appropriately */
 		if (labLast.isRead() && labLast.isLock())
-			thr.isBlocked = true;
+			thr.block();
 	}
 }
 
@@ -509,7 +509,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 	auto &cLab = g.getLastThreadLabel(tid);
 	if (!cLab.isFinish()) {
 		/* This thread will remain blocked until the respective child terminates */
-		thr.isBlocked = true;
+		thr.block();
 	} else {
 		auto &lab = getCurrentLabel();
 		lab.rf = cLab.pos;
@@ -541,7 +541,7 @@ void GenMCDriver::visitThreadFinish()
 			EventLabel &pLab = g.getLastThreadLabel(i);
 			if (pLab.isJoin() && pLab.cid == thr.id) {
 				/* If parent thread is waiting for me, relieve it */
-				EE->getThrById(i).isBlocked = false;
+				EE->getThrById(i).unblock();
 				/* Update relevant join event */
 				pLab.rf = lab.pos;
 				lab.rfm1.push_back(pLab.pos);
@@ -728,7 +728,7 @@ void GenMCDriver::visitError(std::string &err)
 	/* Is the execution that led to the error consistent? */
 	if (!isExecutionValid()) {
 		EE->ECStack().clear();
-		thr.isBlocked = true;
+		thr.block();
 		return;
 	}
 
@@ -752,6 +752,44 @@ void GenMCDriver::visitError(std::string &err)
 	llvm::dbgs() << "Assertion violation: " << err << "\n";
 	printResults();
 	abort();
+}
+
+bool graphCoveredByViews(ExecutionGraph &g, View &v)
+{
+	for (auto i = 0u; i < g.events.size(); i++) {
+		if (v[i] + 1 != (int) g.events[i].size())
+			return false;
+	}
+	return true;
+}
+
+bool GenMCDriver::tryToRevisitLock(EventLabel &rLab, View &preds, EventLabel &sLab, View &before,
+				   std::vector<Event> &writePrefixPos,
+				   std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	auto &g = execGraph;
+	auto v(preds);
+
+	v.updateMax(before);
+	if (graphCoveredByViews(g, v) && !rLab.revs.contains(writePrefixPos, moPlacings)) {
+		EE->getThrById(rLab.getThread()).unblock();
+
+		g.changeRf(rLab, sLab.getPos());
+		auto newVal = rLab.nextVal;
+		auto offsetMO = g.modOrder.getStoreOffset(rLab.getAddr(), rLab.rf) + 1;
+		auto &sLab = g.addStoreToGraph(rLab.getThread(), rLab.getAttr(), rLab.ord,
+					       rLab.getAddr(), rLab.valTyp, newVal, offsetMO);
+
+		/* Adding to graph invalidates references, so we need to refetch */
+		auto &rLab = g.getPreviousLabel(sLab.getPos());
+		prioritizeThread = rLab.getThread(); // need to refetch
+		if (EE->getThrById(rLab.getThread()).globalInstructions != 0)
+			++EE->getThrById(rLab.getThread()).globalInstructions;
+
+		rLab.revs.add(writePrefixPos, moPlacings);
+		return true;
+	}
+	return false;
 }
 
 bool GenMCDriver::calcRevisits(EventLabel &lab)
@@ -778,9 +816,12 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
 		writePrefixPos.insert(writePrefixPos.begin(), lab.getPos());
 
-		if (rLab.isLock() && (int) g.events[rLab.getThread()].size() == rLab.getIndex() + 1 &&
-		    EE->getThrById(rLab.getThread()).isBlocked)
+		if (rLab.isLock() && EE->getThrById(rLab.getThread()).isBlocked &&
+		    (int) g.events[rLab.getThread()].size() == rLab.getIndex() + 1) {
+			if (tryToRevisitLock(rLab, preds, lab, before, writePrefixPos, moPlacings))
+				continue;
 			isMootExecution = true;
+		}
 
 		if (rLab.revs.contains(writePrefixPos, moPlacings))
 			continue;
@@ -832,6 +873,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	 */
 	g.changeRf(lab, p.shouldRf);
 
+	/* If the revisited label became an RMW, add the store part and revisit */
 	llvm::GenericValue rfVal = EE->loadValueFromWrite(lab.rf, lab.valTyp, lab.getAddr());
 	if (lab.isRead() && lab.isRMW() && (lab.isFAI() || EE->compareValues(lab.valTyp, lab.val, rfVal))) {
 		auto newVal = lab.nextVal;
@@ -846,7 +888,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	/* Blocked lock -> prioritize locking thread */
 	if (lab.isRead() && lab.isLock()) {
 		prioritizeThread = lab.rf.thread;
-		EE->getThrById(p.toRevisit.thread).isBlocked = true;
+		EE->getThrById(p.toRevisit.thread).block();
 	}
 
 	if (p.type == SReadLibFunc)

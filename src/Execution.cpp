@@ -2541,11 +2541,15 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
 		getCurThr().block();
-		return;
+	} else {
+		driver->visitStore(ATTR_LOCK, AtomicOrdering::Acquire, ptr, typ, newVal);
 	}
 
-	driver->visitStore(ATTR_LOCK, AtomicOrdering::Acquire, ptr, typ, newVal);
-
+	/*
+	 * We need to return a result anyway, because even if the current thread
+	 * blocked, it might become unblocked at some point in the future by another
+	 * thread
+	 */
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;

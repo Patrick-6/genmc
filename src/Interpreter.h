@@ -110,7 +110,8 @@ public:
 	bool isBlocked;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
 
-	void block() { 	isBlocked = true; ECStack.clear(); };
+	void block() { isBlocked = true; };
+	void unblock() { isBlocked = false; };
 
 	Thread() {}
 

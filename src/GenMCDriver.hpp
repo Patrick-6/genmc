@@ -142,6 +142,9 @@ public:
 	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(StackItem &s);
 
+	bool tryToRevisitLock(EventLabel &rLab, View &preds, EventLabel &sLab, View &before,
+			      std::vector<Event> &writePrefixPos,
+			      std::vector<std::pair<Event, Event> > &moPlacings);
 	std::vector<Event> filterAcquiredLocks(llvm::GenericValue *ptr,
 					       std::vector<Event> &stores, View &before);
 	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
