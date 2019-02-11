@@ -41,7 +41,8 @@ runvariants() {
 	    outcome_failure=1
 	fi
 	trace=`echo "${output}" | awk '!/status|time/ {print $0 }' > tmp.trace`
-	diff=`diff tmp.trace "${t%.*}.trace-${LLVM_VERSION}"`
+	diff_file="${t%.*}.trace" && [[ -f "${t%.*}.trace-${LLVM_VERSION}" ]] && diff_file="${t%.*}.trace-${LLVM_VERSION}"
+	diff=`diff tmp.trace "${diff_file}"`
 	if test -n "${diff}"
 	then
 	    failure=1
