@@ -27,7 +27,7 @@
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : timestamp(0)
+ExecutionGraph::ExecutionGraph() : timestamp(1)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({ EventLabel(EStart, llvm::AtomicOrdering::Acquire,
