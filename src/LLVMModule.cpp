@@ -29,12 +29,12 @@
 #include "LoopUnrollPass.hpp"
 #include "SpinAssumePass.hpp"
 #if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
+# include <llvm/PassManager.h>
 #elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
-#include <llvm/IR/PassManager.h>
+# include <llvm/IR/PassManager.h>
 #endif
 #if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
-#include <llvm/IR/LegacyPassManager.h>
+# include <llvm/IR/LegacyPassManager.h>
 #endif
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/IRPrintingPasses.h>
@@ -45,6 +45,12 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/IPO.h>
+#if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
+# include <llvm/Transforms/Utils.h>
+#else
+# include <llvm/Transforms/Scalar.h>
+#endif
 
 /* TODO: Move explanation comments to *.hpp files. */
 namespace LLVMModule {
@@ -128,6 +134,9 @@ namespace LLVMModule {
 #else
 		PM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
 #endif
+		PM.add(llvm::createPromoteMemoryToRegisterPass());
+		PM.add(llvm::createDeadArgEliminationPass());
+
 		modified = PM.run(mod);
 		assert(!llvm::verifyModule(mod));
 		return modified;
