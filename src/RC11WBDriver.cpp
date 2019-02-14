@@ -66,6 +66,14 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
+
+	/* Optimization:
+	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
+	 * wb-maximal (and so, all revisitable loads can read from it).
+	 */
+	if (!sLab.isRMW())
+		return ls;
+
 	std::vector<Event> result;
 
 	/*
