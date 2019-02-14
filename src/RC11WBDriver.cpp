@@ -32,28 +32,27 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 	auto &stores = wb.first;
 	auto &wbMatrix = wb.second;
 	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
-	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(thr.id));
+
+	std::vector<Event> result;
+
+	// Can we read from the initializer event?
+	for (auto j = 0u; j < stores.size(); j++)
+		if (g.isWriteRfBefore(hbBefore, stores[j]))
+			goto cannot_read_initializer;
+	result.push_back(Event::getInitializer());
+	cannot_read_initializer:
 
 	// Find the stores from which we can read-from
-	std::vector<Event> result;
 	for (auto i = 0u; i < stores.size(); i++) {
-		bool allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wbMatrix[i * stores.size() + j] &&
 			    g.isWriteRfBefore(hbBefore, stores[j]))
-				allowed = false;
+				goto continue_outer_loop;
 		}
-		if (allowed)
-			result.push_back(stores[i]);
+		result.push_back(stores[i]);
+		continue_outer_loop: ;
 	}
 
-	// Also check the initializer event
-	bool allowed = true;
-	for (auto j = 0u; j < stores.size(); j++)
-		if (g.isWriteRfBefore(hbBefore, stores[j]))
-			allowed = false;
-	if (allowed)
-		result.insert(result.begin(), Event::getInitializer());
 	return result;
 }
 
