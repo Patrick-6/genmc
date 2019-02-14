@@ -25,6 +25,9 @@
 
 class RC11MODriver : public GenMCDriver {
 
+protected:
+	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
+
 public:
 
 	RC11MODriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,

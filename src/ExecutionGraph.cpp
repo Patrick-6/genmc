@@ -733,19 +733,6 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericVa
 	return boundary;
 }
 
-/* View before _can_ be implicitly modified */
-std::pair<int, int>
-ExecutionGraph::splitLocMOBefore(const llvm::GenericValue *addr, const View &before)
-{
-	auto &locMO = modOrder[addr];
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !isWriteRfBefore(before, *rit))
-			continue;
-		return std::make_pair(std::distance(rit, locMO.rend()), locMO.size());
-	}
-	return std::make_pair(0, locMO.size());
-}
-
 
 /************************************************************
  ** Graph modification methods

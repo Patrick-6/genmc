@@ -103,9 +103,6 @@ public:
 	getMOPredsInBefore(const std::vector<EventLabel> &labs,
 			   const View &before);
 
-	/* Calculation of writes a read can read from */
-	std::pair<int, int> splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
-
 	/* Calculation of loads that can be revisited */
 	std::vector<Event> findOverwrittenBoundary(const llvm::GenericValue *addr, int thread);
 	std::vector<Event> getRevisitable(const EventLabel &sLab);
