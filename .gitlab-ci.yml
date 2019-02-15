@@ -34,18 +34,6 @@ variables:
     paths:
       - ./
 
-build:llvm-3.8:
-  stage: build
-  variables:
-    llvm_build_version: "3.8"
-  <<: *llvm_build
-
-build:llvm-4.0:
-  stage: build
-  variables:
-    llvm_build_version: "4.0"
-  <<: *llvm_build
-
 ### DIFFERENT BUILDS
 
 build:llvm-3.5:
