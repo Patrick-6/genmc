@@ -88,7 +88,7 @@ ftest:llvm-3.8:
   stage: ftest
   dependencies:
     - build:llvm-3.8
-  <<: *llvm_test
+  <<: *llvm_ftest
 
 ftest:llvm-4.0:
   stage: ftest
@@ -100,13 +100,13 @@ ftest:llvm-6.0:
   stage: ftest
   dependencies:
     - build:llvm-6.0
-  <<: *llvm_test
+  <<: *llvm_ftest
 
 ftest:llvm-7:
   stage: ftest
   dependencies:
     - build:llvm-7
-  <<: *llvm_test
+  <<: *llvm_ftest
 
 ### FULL TESTS
 
