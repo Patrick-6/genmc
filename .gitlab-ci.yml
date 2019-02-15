@@ -26,21 +26,21 @@ variables:
     - make
   artifacts:
     paths:
-      - ./src
+      - ./
 
 .test:llvm_job: &llvm_ftest
   script:
     - make ftest
   artifacts:
     paths:
-      - ./src
+      - ./
 
 .test:llvm_job: &llvm_test
   script:
     - make test
   artifacts:
     paths:
-      - ./src
+      - ./
 
 ### DIFFERENT BUILDS
 
