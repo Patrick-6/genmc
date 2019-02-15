@@ -118,14 +118,6 @@ public:
 	void restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
 
-	/* Equivalence checks */
-	bool equivPrefixes(unsigned int stamp, const std::vector<EventLabel> &prefixA,
-			   const std::vector<EventLabel> &prefixB);
-	bool equivPlacings(unsigned int stamp,
-			   const std::vector<std::pair<Event, Event> > &moPlacingsA,
-			   const std::vector<std::pair<Event, Event> > &moPlacingsB);
-
-
 	/* Consistency checks */
 	bool isConsistent();
 	bool isPscWeakAcyclicWB();

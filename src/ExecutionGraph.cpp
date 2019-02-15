@@ -892,58 +892,6 @@ void ExecutionGraph::restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel
 
 
 /************************************************************
- ** Equivalence checks
- ***********************************************************/
-
-bool ExecutionGraph::equivPrefixes(unsigned int stamp,
-				   const std::vector<EventLabel> &oldPrefix,
-				   const std::vector<EventLabel> &newPrefix)
-{
-	for (auto ritN = newPrefix.rbegin(); ritN != newPrefix.rend(); ++ritN) {
-		if (std::all_of(oldPrefix.rbegin(), oldPrefix.rend(), [&](const EventLabel &sLab)
-				{ return sLab != *ritN; }))
-			return false;
-	}
-
-	for (auto ritO = oldPrefix.rbegin(); ritO != oldPrefix.rend(); ++ritO) {
-		if (std::find(newPrefix.rbegin(), newPrefix.rend(), *ritO) != newPrefix.rend())
-			continue;
-
-		if (ritO->getStamp() <= stamp &&
-		    ritO->getIndex() < (int) events[ritO->getThread()].size() &&
-		    *ritO == events[ritO->getThread()][ritO->getIndex()])
-			continue;
-		return false;
-	}
-	return true;
-}
-
-bool ExecutionGraph::equivPlacings(unsigned int stamp,
-				   const std::vector<std::pair<Event, Event> > &oldPlacings,
-				   const std::vector<std::pair<Event, Event> > &newPlacings)
-{
-	for (auto ritN = newPlacings.rbegin(); ritN != newPlacings.rend(); ++ritN) {
-		if (std::all_of(oldPlacings.rbegin(), oldPlacings.rend(),
-				[&](const std::pair<Event, Event> &s)
-				{ return s != *ritN; }))
-			return false;
-	}
-
-	for (auto ritO = oldPlacings.rbegin(); ritO != oldPlacings.rend(); ++ritO) {
-		if (std::find(newPlacings.rbegin(), newPlacings.rend(), *ritO) != newPlacings.rend())
-			continue;
-
-		auto &sLab1 = getEventLabel(ritO->first);
-		auto &sLab2 = getEventLabel(ritO->second);
-		if (sLab2.getStamp() <= stamp &&
-		    modOrder.areOrdered(sLab1.getAddr(), sLab1.getPos(), sLab2.getPos()))
-			continue;
-		return false;
-	}
-	return true;
-}
-
-/************************************************************
  ** Consistency checks
  ***********************************************************/
 
