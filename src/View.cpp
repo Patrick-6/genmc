@@ -21,7 +21,22 @@
 #include "View.hpp"
 #include <algorithm>
 
+/************************************************************
+ ** Constructors
+ ***********************************************************/
+
 View::View() : view_(EventView(0)) { }
+
+
+/************************************************************
+ ** Iterators
+ ***********************************************************/
+
+View::iterator View::begin() { return &((*this)[0]); }
+View::iterator View::end()   { return &((*this)[0]) + size(); }
+
+View::const_iterator View::cbegin() { return &((*this)[0]); }
+View::const_iterator View::cend()   { return &((*this)[0]) + size(); }
 
 
 /************************************************************

@@ -25,6 +25,13 @@
 
 class RC11WBDriver : public GenMCDriver {
 
+protected:
+
+	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
+				    const View &hbBefore);
+	void expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
+					     View &storeView);
+
 public:
 
 	RC11WBDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,

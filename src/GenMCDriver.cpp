@@ -582,6 +582,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
+	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
 	/* ... and add a label with the appropriate store. */

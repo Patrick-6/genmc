@@ -34,7 +34,15 @@ public:
 	/* Constructors */
 	View();
 
-	/* Basic operation on Views */
+	/* Iterators */
+	typedef int *iterator;
+	typedef const int *const_iterator;
+	iterator begin();
+	iterator end();
+	const_iterator cbegin();
+	const_iterator cend();
+
+	/* Basic operations on Views */
 	unsigned int size() const;
 	bool empty() const;
 	bool contains(const Event e) const;

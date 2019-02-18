@@ -24,33 +24,117 @@
  ** WB DRIVER
  ***********************************************************/
 
+/*
+ * Checks which of the stores are (rf?;hb)-before some event e, given the
+ * hb-before view of e
+ */
+View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
+					  const View &hbBefore)
+{
+	auto &g = getGraph();
+	View result;
+
+	for (const auto &w : stores) {
+		/* Check if w itself is in the hb view */
+		if (hbBefore.contains(w)) {
+			result.updateIdx(w);
+			continue;
+		}
+
+		/* Check whether [w];rf;[r] is in the hb view, for some r */
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread && hbBefore.contains(r)) {
+				result.updateIdx(w);
+				result.updateIdx(r);
+				break;
+			}
+		}
+	}
+	return result;
+}
+
+void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
+						   View &storeView)
+{
+	auto &g = getGraph();
+
+	/* Expand view for maximal stores */
+	for (const auto &w : stores) {
+		/* If the store is not maximal, skip */
+		if (w.index != storeView[w.thread])
+			continue;
+
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread)
+				storeView.updateIdx(r);
+		}
+	}
+
+	/* Check if maximal writes have been overwritten */
+	for (const auto &w : stores) {
+		/* If the store is not maximal, skip*/
+		if (w.index != storeView[w.thread])
+			continue;
+
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread && r.index < storeView[r.thread]) {
+				auto &lab = g.events[r.thread][storeView[r.thread]];
+				if (lab.isRead() && lab.rf != w) {
+					storeView[w.thread]++;
+					break;
+				}
+			}
+		}
+	}
+	return;
+}
+
 std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
+	auto &allStores = g.modOrder[addr];
+	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	std::vector<Event> result;
+
+	auto view = getRfOptHbBeforeStores(allStores, hbBefore);
+
+	/* Can we read from the initializer event? */
+	if (std::none_of(view.begin(), view.end(), [](int i){ return i > 0; }))
+		result.push_back(Event::getInitializer());
+
+
+	expandMaximalAndMarkOverwritten(allStores, view);
+
+	int count = 0;
+	for (const auto &w : allStores) {
+		if (w.index >= view[w.thread]) {
+			if (count++ > 0) {
+				result.pop_back();
+				break;
+			}
+			result.push_back(w);
+		}
+	}
+	if (count <= 1)
+		return result;
+
 	auto wb = g.calcWb(addr);
 	auto &stores = wb.first;
 	auto &wbMatrix = wb.second;
-	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 
-	std::vector<Event> result;
-
-	// Can we read from the initializer event?
-	for (auto j = 0u; j < stores.size(); j++)
-		if (g.isWriteRfBefore(hbBefore, stores[j]))
-			goto cannot_read_initializer;
-	result.push_back(Event::getInitializer());
-	cannot_read_initializer:
-
-	// Find the stores from which we can read-from
+	/* Find the stores from which we can read-from */
 	for (auto i = 0u; i < stores.size(); i++) {
+		auto allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wbMatrix[i * stores.size() + j] &&
-			    g.isWriteRfBefore(hbBefore, stores[j]))
-				goto continue_outer_loop;
+			    g.isWriteRfBefore(hbBefore, stores[j])) {
+				allowed = false;
+				break;
+			}
 		}
-		result.push_back(stores[i]);
-		continue_outer_loop: ;
+		if (allowed)
+			result.push_back(stores[i]);
 	}
 
 	return result;
