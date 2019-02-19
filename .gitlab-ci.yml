@@ -1,5 +1,6 @@
 stages:
   - build
+  - ftest
   - test
   - cleanup
 
@@ -27,24 +28,19 @@ variables:
     paths:
       - ./
 
+.test:llvm_job: &llvm_ftest
+  script:
+    - make ftest
+  artifacts:
+    paths:
+      - ./
+
 .test:llvm_job: &llvm_test
   script:
     - make test
   artifacts:
     paths:
       - ./
-
-build:llvm-3.8:
-  stage: build
-  variables:
-    llvm_build_version: "3.8"
-  <<: *llvm_build
-
-build:llvm-4.0:
-  stage: build
-  variables:
-    llvm_build_version: "4.0"
-  <<: *llvm_build
 
 ### DIFFERENT BUILDS
 
@@ -80,7 +76,39 @@ build:llvm-7:
     llvm_build_version: "7"
   <<: *llvm_build
 
-### TESTS
+### PRELIMINARY TESTS
+
+ftest:llvm-3.5:
+  stage: ftest
+  dependencies:
+    - build:llvm-3.5
+  <<: *llvm_ftest
+
+ftest:llvm-3.8:
+  stage: ftest
+  dependencies:
+    - build:llvm-3.8
+  <<: *llvm_ftest
+
+ftest:llvm-4.0:
+  stage: ftest
+  dependencies:
+    - build:llvm-4.0
+  <<: *llvm_ftest
+
+ftest:llvm-6.0:
+  stage: ftest
+  dependencies:
+    - build:llvm-6.0
+  <<: *llvm_ftest
+
+ftest:llvm-7:
+  stage: ftest
+  dependencies:
+    - build:llvm-7
+  <<: *llvm_ftest
+
+### FULL TESTS
 
 test:llvm-3.5:
   stage: test
