@@ -1,6 +1,7 @@
 stages:
   - build
   - ftest
+  - rtest
   - test
   - cleanup
 
@@ -31,6 +32,13 @@ variables:
 .test:llvm_job: &llvm_ftest
   script:
     - make ftest
+  artifacts:
+    paths:
+      - ./
+
+.test:llvm_job: &llvm_rtest
+  script:
+    - make rtest
   artifacts:
     paths:
       - ./
@@ -107,6 +115,38 @@ ftest:llvm-7:
   dependencies:
     - build:llvm-7
   <<: *llvm_ftest
+
+### RANDOMIZED TESTING
+
+rtest:llvm-3.5:
+  stage: rtest
+  dependencies:
+    - build:llvm-3.5
+  <<: *llvm_rtest
+
+rtest:llvm-3.8:
+  stage: rtest
+  dependencies:
+    - build:llvm-3.8
+  <<: *llvm_rtest
+
+rtest:llvm-4.0:
+  stage: rtest
+  dependencies:
+    - build:llvm-4.0
+  <<: *llvm_rtest
+
+rtest:llvm-6.0:
+  stage: rtest
+  dependencies:
+    - build:llvm-6.0
+  <<: *llvm_rtest
+
+rtest:llvm-7:
+  stage: rtest
+  dependencies:
+    - build:llvm-7
+  <<: *llvm_rtest
 
 ### FULL TESTS
 
