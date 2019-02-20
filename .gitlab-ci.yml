@@ -44,6 +44,8 @@ variables:
       - ./
 
 .test:llvm_job: &llvm_test
+  only:
+    - schedules
   script:
     - make test
   artifacts:
