@@ -38,7 +38,7 @@ public:
 	EventAttr attr = ATTR_PLAIN;
 	llvm::AtomicOrdering ord = llvm::AtomicOrdering::NotAtomic;
 	Event pos;
-	llvm::GenericValue *addr;
+	const llvm::GenericValue *addr;
 	llvm::GenericValue val; /* For Writes and CASs */
 	llvm::GenericValue nextVal; /* For CASs and FAIs */
 	llvm::AtomicRMWInst::BinOp op;
@@ -58,20 +58,20 @@ public:
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, Event tc); /* Start */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e, int cid); /* Thread Create */
 	EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e); /* Fence */
-	EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+	EventLabel(EventType typ, Event e, const llvm::GenericValue *addr,
 		   llvm::GenericValue val); /* Malloc/Free */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		   const llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		   llvm::GenericValue expected, llvm::GenericValue nextVal,
 		   llvm::AtomicRMWInst::BinOp op); /* Plain Read */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		   const llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		   std::string &functionName); /* Lib Read */
 
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val); /* Writes */
+		   const llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val); /* Writes */
 	EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		   llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
+		   const llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
 		    std::string &functionName, bool isInit); /* Lib Writes */
 
 	unsigned int getStamp() const;
@@ -79,10 +79,10 @@ public:
 	int getIndex() const;
 	int getThread() const;
 	EventAttr getAttr() const;
-	llvm::GenericValue *getAddr() const;
-	View& getHbView();
-	View& getPorfView();
-	View& getMsgView();
+	const llvm::GenericValue *getAddr() const;
+	const View& getHbView() const;
+	const View& getPorfView() const;
+	const View& getMsgView() const;
 
 	bool isStart() const;
 	bool isFinish() const;

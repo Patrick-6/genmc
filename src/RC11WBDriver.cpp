@@ -24,7 +24,7 @@
  ** WB DRIVER
  ***********************************************************/
 
-std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
+std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
@@ -57,7 +57,7 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(llvm::GenericValue *addr)
 	return result;
 }
 
-std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
+std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
 	auto locMOSize = (int) getGraph().modOrder[addr].size();
 	return std::make_pair(locMOSize, locMOSize);

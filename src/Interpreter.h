@@ -158,11 +158,11 @@ public:
   std::vector<ExecutionContext> &ECStack();
 
   /* Checks whether an address is the address of a global variable */
-  bool isGlobal(void *);
-  bool isHeapAlloca(void *);
-  bool isStackAlloca(void *);
-  std::string getGlobalName(void *addr);
-  void freeRegion(void *addr, int size);
+  bool isGlobal(const void *);
+  bool isHeapAlloca(const void *);
+  bool isStackAlloca(const void *);
+  std::string getGlobalName(const void *addr);
+  void freeRegion(const void *addr, int size);
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -227,9 +227,9 @@ public:
   void collectGPs(Module *M, void *ptr, Type *typ);
   void replayExecutionBefore(View &before);
   bool compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
-  GenericValue loadValueFromWrite(Event &w, Type *typ, GenericValue *ptr);
-  void executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
-				 GenericValue &val, AtomicRMWInst::BinOp op);
+  GenericValue loadValueFromWrite(Event w, Type *typ, const GenericValue *ptr);
+  void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
+				 const GenericValue &val, AtomicRMWInst::BinOp op);
 
   /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);

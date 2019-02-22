@@ -28,8 +28,8 @@ enum EventType { EStart, EFinish, ETCreate, ETJoin,
 
 enum EventAttr { ATTR_PLAIN, ATTR_CAS, ATTR_FAI, ATTR_LOCK, ATTR_UNLOCK };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t);
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a);
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventType t);
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventAttr a);
 
 struct Event {
 	int thread;
@@ -56,8 +56,8 @@ struct Event {
 	inline bool operator>(const Event &e) const {
 		return (index > e.index) || (index == e.index && thread > e.thread);
 	}
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e);
-	friend std::ostream& operator<<(std::ostream &s, const Event &e);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, Event e);
+	friend std::ostream& operator<<(std::ostream &s, Event e);
 };
 
 struct EventHasher {

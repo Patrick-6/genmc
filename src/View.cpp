@@ -33,7 +33,7 @@ bool View::empty() const
 	return this->size() == 0;
 }
 
-void View::updateMax(View &v)
+void View::updateMax(const View &v)
 {
 	if (v.empty())
 		return;

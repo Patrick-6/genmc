@@ -38,13 +38,13 @@ EventLabel::EventLabel(EventType typ, llvm::AtomicOrdering ord, Event e)
 	: type(typ), ord(ord), pos(e) {}
 
 /* Malloc/Free */
-EventLabel::EventLabel(EventType typ, Event e, llvm::GenericValue *addr,
+EventLabel::EventLabel(EventType typ, Event e, const llvm::GenericValue *addr,
 		       llvm::GenericValue val)
 	: type(typ), pos(e), addr(addr), val(val) {}
 
 /* Plain Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		       const llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		       llvm::GenericValue expected, llvm::GenericValue nextVal,
 		       llvm::AtomicRMWInst::BinOp op)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(expected),
@@ -52,19 +52,19 @@ EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, 
 
 /* Lib Read */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
+		       const llvm::GenericValue *addr, llvm::Type *valTyp, Event rf,
 		       std::string &functionName)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), valTyp(valTyp), rf(rf),
 	  functionName(functionName), initial(false) {}
 
 /* Store */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val)
+		       const llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp) {}
 
 /* GStore */
 EventLabel::EventLabel(EventType typ, EventAttr attr, llvm::AtomicOrdering ord, Event e,
-		       llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
+		       const llvm::GenericValue *addr, llvm::Type *valTyp, llvm::GenericValue val,
 		       std::string &functionName, bool isInit)
 	: type(typ), attr(attr), ord(ord), pos(e), addr(addr), val(val), valTyp(valTyp),
 	  functionName(functionName), initial(isInit) {}
@@ -95,22 +95,22 @@ EventAttr EventLabel::getAttr() const
 	return attr;
 }
 
-llvm::GenericValue *EventLabel::getAddr() const
+const llvm::GenericValue *EventLabel::getAddr() const
 {
 	return addr;
 }
 
-View& EventLabel::getHbView()
+const View& EventLabel::getHbView() const
 {
 	return hbView;
 }
 
-View& EventLabel::getPorfView()
+const View& EventLabel::getPorfView() const
 {
 	return porfView;
 }
 
-View& EventLabel::getMsgView()
+const View& EventLabel::getMsgView() const
 {
 	return msgView;
 }

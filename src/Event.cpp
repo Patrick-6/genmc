@@ -20,7 +20,7 @@
 
 #include "Event.hpp"
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventType t)
 {
 	switch (t) {
 	case ERead    : return s << "R";
@@ -36,7 +36,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventType &t)
 	}
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventAttr a)
 {
 	switch (a) {
 	case ATTR_PLAIN : return s;
@@ -48,7 +48,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const EventAttr &a)
 	}
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Event &e)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, Event e)
 {
 	if (e.isInitializer())
 		return s << "INIT";

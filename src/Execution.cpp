@@ -78,12 +78,12 @@ bool Interpreter::compareValues(llvm::Type *typ, const GenericValue &val1, const
 
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
 /* TODO: Maybe return reference? */
-GenericValue Interpreter::loadValueFromWrite(Event &write, Type *typ, GenericValue *ptr)
+GenericValue Interpreter::loadValueFromWrite(Event write, Type *typ, const GenericValue *ptr)
 {
 	auto &g = driver->getGraph();
 	if (write.isInitializer()) {
 		GenericValue result;
-		LoadValueFromMemory(result, ptr, typ);
+		LoadValueFromMemory(result, (GenericValue *)ptr, typ);
 		return result;
 	}
 
@@ -1225,8 +1225,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	return;
 }
 
-void Interpreter::executeAtomicRMWOperation(GenericValue &result, GenericValue &oldVal,
-					    GenericValue &val, AtomicRMWInst::BinOp op)
+void Interpreter::executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
+					    const GenericValue &val, AtomicRMWInst::BinOp op)
 {
 	switch (op) {
 	case AtomicRMWInst::Xchg:

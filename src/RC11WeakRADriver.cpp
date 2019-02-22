@@ -24,7 +24,7 @@
  ** WEAK RA DRIVER -- UNIMPLEMENTED
  ***********************************************************/
 
-std::vector<Event> RC11WeakRADriver::getStoresToLoc(llvm::GenericValue *addr)
+std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
 	auto overwritten = g.findOverwrittenBoundary(addr, EE->getCurThr().id);
@@ -48,7 +48,7 @@ std::vector<Event> RC11WeakRADriver::getStoresToLoc(llvm::GenericValue *addr)
 	return stores;
 }
 
-std::pair<int, int> RC11WeakRADriver::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
+std::pair<int, int> RC11WeakRADriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
 	BUG();
 }

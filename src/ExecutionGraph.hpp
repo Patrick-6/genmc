@@ -42,33 +42,33 @@ public:
 
 	/* Basic getter methods */
 	unsigned int nextStamp();
-	EventLabel& getEventLabel(const Event &e);
-	EventLabel& getPreviousLabel(const Event &e);
+	EventLabel& getEventLabel(Event e);
+	EventLabel& getPreviousLabel(Event e);
 	EventLabel& getLastThreadLabel(int thread);
-	Event getLastThreadEvent(int thread);
-	Event getLastThreadRelease(int thread, llvm::GenericValue *addr);
+	Event getLastThreadEvent(int thread) const;
+	Event getLastThreadRelease(int thread, const llvm::GenericValue *addr) const;
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
-	std::vector<llvm::GenericValue *> getDoubleLocs();
-	std::vector<Event> getPendingRMWs(EventLabel &sLab);
-	Event getPendingLibRead(EventLabel &lab);
-	bool isWriteRfBefore(View &before, Event e);
-	bool isStoreReadByExclusiveRead(Event &store, llvm::GenericValue *ptr);
-	bool isStoreReadBySettledRMW(Event &store, llvm::GenericValue *ptr, View &porfBefore);
+	std::vector<const llvm::GenericValue *> getDoubleLocs();
+	std::vector<Event> getPendingRMWs(const EventLabel &sLab);
+	Event getPendingLibRead(const EventLabel &lab);
+	bool isWriteRfBefore(const View &before, Event e);
+	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr);
+	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr, const View &porfBefore);
 
 	/* Basic setter methods */
-	EventLabel& addReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *ptr,
 				   llvm::Type *typ, Event rf, llvm::GenericValue &&cmpVal,
 				   llvm::GenericValue &&rmwVal, llvm::AtomicRMWInst::BinOp op);
-	EventLabel& addLibReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addLibReadToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *ptr,
 				      llvm::Type *typ, Event rf, std::string functionName);
-	EventLabel& addStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *ptr,
 				    llvm::Type *typ, llvm::GenericValue &val, int offsetMO);
-	EventLabel& addLibStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *ptr,
+	EventLabel& addLibStoreToGraph(int tid, EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *ptr,
 				       llvm::Type *typ, llvm::GenericValue &val, int offsetMO,
 				       std::string functionName, bool isInit);
 	EventLabel& addFenceToGraph(int tid, llvm::AtomicOrdering ord);
-	EventLabel& addMallocToGraph(int tid, llvm::GenericValue *addr, llvm::GenericValue &val);
-	EventLabel& addFreeToGraph(int tid, llvm::GenericValue *addr, llvm::GenericValue &val);
+	EventLabel& addMallocToGraph(int tid, const llvm::GenericValue *addr, const llvm::GenericValue &val);
+	EventLabel& addFreeToGraph(int tid, const llvm::GenericValue *addr, const llvm::GenericValue &val);
 	EventLabel& addTCreateToGraph(int tid, int cid);
 	EventLabel& addTJoinToGraph(int tid, int cid);
 	EventLabel& addStartToGraph(int tid, Event tc);
@@ -80,41 +80,41 @@ public:
 	View getHbBefore(Event e);
 	View getHbPoBefore(Event e);
 	View getHbBefore(const std::vector<Event> &es);
-	View getHbRfBefore(std::vector<Event> &es);
+	View getHbRfBefore(const std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);
 	std::vector<Event> getMoOptRfAfter(Event store);
 
 	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWb(llvm::GenericValue *addr);
+	calcWb(const llvm::GenericValue *addr);
 	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWbRestricted(llvm::GenericValue *addr, View &v);
+	calcWbRestricted(const llvm::GenericValue *addr, const View &v);
 
 	/* Calculation of particular sets of events/event labels */
 	Event getRMWChainUpperLimit(const EventLabel &sLab, const Event upper);
 	Event getRMWChainLowerLimit(const EventLabel &sLab, const Event lower);
-	Event getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, View &v);
+	Event getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, const View &v);
 	std::vector<Event> getRMWChain(const EventLabel &sLab);
-	std::vector<Event> getStoresHbAfterStores(llvm::GenericValue *loc,
+	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
 						  const std::vector<Event> &chain);
-	std::vector<EventLabel>	getPrefixLabelsNotBefore(View &prefix, View &before);
+	std::vector<EventLabel>	getPrefixLabelsNotBefore(const View &prefix, const View &before);
 	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
-					   View &before);
+					   const View &before);
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<EventLabel> &labs,
-			   View &before);
+			   const View &before);
 
 	/* Calculation of writes a read can read from */
-	std::pair<int, int> splitLocMOBefore(llvm::GenericValue *addr, View &before);
+	std::pair<int, int> splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
 
 	/* Calculation of loads that can be revisited */
-	std::vector<Event> findOverwrittenBoundary(llvm::GenericValue *addr, int thread);
+	std::vector<Event> findOverwrittenBoundary(const llvm::GenericValue *addr, int thread);
 	std::vector<Event> getRevisitable(const EventLabel &sLab);
 
 	/* Graph modification methods */
 	void changeRf(EventLabel &lab, Event store);
 	View getViewFromStamp(unsigned int stamp);
 	void cutToStamp(unsigned int stamp);
-	void cutToView(View &view);
+	void cutToView(const View &view);
 	void restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel> &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
 
@@ -131,10 +131,10 @@ public:
 	Event findRaceForNewStore(Event e);
 
 	/* Library consistency checks */
-	std::vector<Event> getLibEventsInView(Library &lib, View &v);
+	std::vector<Event> getLibEventsInView(Library &lib, const View &v);
 	std::vector<Event> getLibConsRfsInView(Library &lib, EventLabel &rLab,
-					       const std::vector<Event> &stores, View &v);
-	bool isLibConsistentInView(Library &lib, View &v);
+					       const std::vector<Event> &stores, const View &v);
+	bool isLibConsistentInView(Library &lib, const View &v);
 
 	/* Debugging methods */
 	void validate(void);
@@ -146,16 +146,16 @@ protected:
 	void calcLoadPoRfView(EventLabel &lab);
 	void calcLoadHbView(EventLabel &lab);
 	EventLabel& addEventToGraph(EventLabel &lab);
-	EventLabel& addReadToGraphCommon(EventLabel &lab, Event &rf);
+	EventLabel& addReadToGraphCommon(EventLabel &lab, Event rf);
 	EventLabel& addStoreToGraphCommon(EventLabel &lab);
-	void calcPorfAfter(const Event &e, View &a);
-	void calcHbRfBefore(Event &e, llvm::GenericValue *addr, View &a);
+	void calcPorfAfter(const Event e, View &a);
+	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
-	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
-	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
-	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
-	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, const Event &e);
-	bool isRMWLoad(const Event &e);
+	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
+	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
+	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
+	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
+	bool isRMWLoad(Event e);
 	void spawnAllChildren(int thread);
 	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
 			std::vector<int> &moAfter, std::vector<int> &moRfAfter,

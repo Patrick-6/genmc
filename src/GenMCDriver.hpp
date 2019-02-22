@@ -122,11 +122,11 @@ public:
 	void visitThreadFinish();
 	void visitFence(llvm::AtomicOrdering ord);
 	llvm::GenericValue visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
-				     llvm::GenericValue *addr, llvm::Type *typ,
+				     const llvm::GenericValue *addr, llvm::Type *typ,
 				     llvm::GenericValue &&cmpVal = llvm::GenericValue(),
 				     llvm::GenericValue &&rmwVal = llvm::GenericValue(),
 				     llvm::AtomicRMWInst::BinOp op = llvm::AtomicRMWInst::BinOp::BAD_BINOP);
-	void visitStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *addr,
+	void visitStore(EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *addr,
 			llvm::Type *typ, llvm::GenericValue &val);
 	llvm::GenericValue visitMalloc(const llvm::GenericValue &size);
 	void visitFree(llvm::GenericValue *ptr);
@@ -134,30 +134,30 @@ public:
 
 	bool calcRevisits(EventLabel &lab);
 	llvm::GenericValue visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
-					llvm::GenericValue *addr, llvm::Type *typ,
+					const llvm::GenericValue *addr, llvm::Type *typ,
 					std::string functionName);
 	void visitLibStore(EventAttr attr, llvm::AtomicOrdering ord,
-			   llvm::GenericValue *addr, llvm::Type *typ, llvm::GenericValue &val,
+			   const llvm::GenericValue *addr, llvm::Type *typ, llvm::GenericValue &val,
 			   std::string functionName, bool isInit = false);
 	bool calcLibRevisits(EventLabel &lab);
 	bool revisitReads(StackItem &s);
 
-	bool tryToRevisitLock(EventLabel &rLab, View &preds, EventLabel &sLab, View &before,
-			      std::vector<Event> &writePrefixPos,
-			      std::vector<std::pair<Event, Event> > &moPlacings);
-	std::vector<Event> filterAcquiredLocks(llvm::GenericValue *ptr,
-					       std::vector<Event> &stores, View &before);
-	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
+	bool tryToRevisitLock(EventLabel &rLab, const View &preds, EventLabel &sLab, const View &before,
+			      const std::vector<Event> &writePrefixPos,
+			      const std::vector<std::pair<Event, Event> > &moPlacings);
+	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
+					       const std::vector<Event> &stores, const View &before);
+	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ, const llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal, std::vector<Event> &stores);
 
 	/* Outputting facilities */
 	void printTraceBefore(Event e);
 	void prettyPrintGraph();
-	void dotPrintToFile(std::string &filename, View &before, Event e);
+	void dotPrintToFile(const std::string &filename, const View &before, Event e);
 	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 
-	virtual std::vector<Event> getStoresToLoc(llvm::GenericValue *addr) = 0;
-	virtual std::pair<int, int> getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW = false) = 0;
+	virtual std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) = 0;
+	virtual std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW = false) = 0;
 	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;
 	virtual std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
 			  getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
