@@ -24,7 +24,7 @@
  ** MO DRIVER
  ***********************************************************/
 
-std::vector<Event> RC11MODriver::getStoresToLoc(llvm::GenericValue *addr)
+std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 
@@ -50,7 +50,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(llvm::GenericValue *addr)
 	return stores;
 }
 
-std::pair<int, int> RC11MODriver::getPossibleMOPlaces(llvm::GenericValue *addr, bool isRMW)
+std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
 	auto &g = getGraph();
 	auto &pLab = g.getLastThreadLabel(EE->getCurThr().id);
@@ -80,7 +80,7 @@ std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 				{ View before = g.getHbPoBefore(e);
 				  return std::any_of(optRfs.begin(), optRfs.end(),
 					 [&](Event ev)
-					 { return ev.index <= before[ev.thread]; });
+					 { return before.contains(ev); });
 				}), ls.end());
 	return ls;
 }

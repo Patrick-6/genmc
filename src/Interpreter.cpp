@@ -194,28 +194,28 @@ void Interpreter::storeGlobals(Module *M)
 	std::unique(globalVarNames.begin(), globalVarNames.end());
 }
 
-bool Interpreter::isGlobal(void *addr)
+bool Interpreter::isGlobal(const void *addr)
 {
 	auto gv = std::equal_range(globalVars.begin(), globalVars.end(), addr);
 	auto ha = std::equal_range(heapAllocas.begin(), heapAllocas.end(), addr);
 	return (gv.first != gv.second) || (ha.first != ha.second);
 }
 
-bool Interpreter::isStackAlloca(void *addr)
+bool Interpreter::isStackAlloca(const void *addr)
 {
 	auto sa = std::find(stackAllocas.begin(), stackAllocas.end(), addr);
 	return sa != stackAllocas.end();
 }
 
-bool Interpreter::isHeapAlloca(void *addr)
+bool Interpreter::isHeapAlloca(const void *addr)
 {
 	auto sa = std::find(heapAllocas.begin(), heapAllocas.end(), addr);
 	return sa != stackAllocas.end();
 }
 
-std::string Interpreter::getGlobalName(void *addr)
+std::string Interpreter::getGlobalName(const void *addr)
 {
-	typedef std::pair<void *, std::string> namePair;
+	typedef std::pair<const void *, std::string> namePair;
 	namePair loc = std::make_pair(addr, "");
 	auto res = std::equal_range(globalVarNames.begin(), globalVarNames.end(), loc,
 				    [](namePair kv1, namePair kv2)
@@ -225,12 +225,12 @@ std::string Interpreter::getGlobalName(void *addr)
 	return "";
 }
 
-void Interpreter::freeRegion(void *addr, int size)
+void Interpreter::freeRegion(const void *addr, int size)
 {
 	heapAllocas.erase(std::remove_if(heapAllocas.begin(), heapAllocas.end(),
 					 [&](void *loc)
 					 { return loc >= addr &&
-						  (char *) loc < (char *) addr + size; }),
+						  (char *) loc < (const char *) addr + size; }),
 			  heapAllocas.end());
 	return;
 }

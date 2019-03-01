@@ -383,9 +383,9 @@ Event GenMCDriver::checkForRaces()
 	return Event::getInitializer();
 }
 
-std::vector<Event> GenMCDriver::filterAcquiredLocks(llvm::GenericValue *ptr,
-						    std::vector<Event> &stores,
-						    View &before)
+std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *ptr,
+						    const std::vector<Event> &stores,
+						    const View &before)
 {
 	auto &g = getGraph();
 	std::vector<Event> valid, conflicting;
@@ -402,7 +402,7 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(llvm::GenericValue *ptr,
 
 	if (valid.empty()) {
 		auto lit = std::find_if(stores.begin(), stores.end(),
-					[&](Event &s){ return g.getEventLabel(s).isLock(); });
+					[&](const Event &s){ return g.getEventLabel(s).isLock(); });
 		BUG_ON(lit == stores.end());
 		prioritizeThread = lit->thread;
 		valid.push_back(*lit);
@@ -411,7 +411,7 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(llvm::GenericValue *ptr,
 	return valid;
 }
 
-std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, llvm::GenericValue *ptr,
+std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, const llvm::GenericValue *ptr,
 						    llvm::GenericValue &expVal, std::vector<Event> &stores)
 {
 	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
@@ -566,7 +566,7 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 }
 
 llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
-					 llvm::GenericValue *addr, llvm::Type *typ,
+					 const llvm::GenericValue *addr, llvm::Type *typ,
 					 llvm::GenericValue &&cmpVal,
 					 llvm::GenericValue &&rmwVal,
 					 llvm::AtomicRMWInst::BinOp op)
@@ -602,7 +602,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 }
 
 void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
-			    llvm::GenericValue *addr, llvm::Type *typ,
+			    const llvm::GenericValue *addr, llvm::Type *typ,
 			    llvm::GenericValue &val)
 {
 	auto &g = getGraph();
@@ -649,7 +649,7 @@ llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 
 	if (isExecutionDrivenByGraph()) {
 		auto &lab = getCurrentLabel();
-		allocBegin.PointerVal = lab.getAddr();
+		allocBegin.PointerVal = (void *)lab.getAddr();
 		return allocBegin;
 	}
 
@@ -754,7 +754,7 @@ void GenMCDriver::visitError(std::string &err)
 	abort();
 }
 
-bool graphCoveredByViews(ExecutionGraph &g, View &v)
+bool graphCoveredByViews(ExecutionGraph &g, const View &v)
 {
 	for (auto i = 0u; i < g.events.size(); i++) {
 		if (v[i] + 1 != (int) g.events[i].size())
@@ -763,9 +763,9 @@ bool graphCoveredByViews(ExecutionGraph &g, View &v)
 	return true;
 }
 
-bool GenMCDriver::tryToRevisitLock(EventLabel &rLab, View &preds, EventLabel &sLab, View &before,
-				   std::vector<Event> &writePrefixPos,
-				   std::vector<std::pair<Event, Event> > &moPlacings)
+bool GenMCDriver::tryToRevisitLock(EventLabel &rLab, const View &preds, EventLabel &sLab, const View &before,
+				   const std::vector<Event> &writePrefixPos,
+				   const std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	auto &g = execGraph;
 	auto v(preds);
@@ -898,7 +898,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 }
 
 llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
-					    llvm::GenericValue *addr, llvm::Type *typ,
+					    const llvm::GenericValue *addr, llvm::Type *typ,
 					    std::string functionName)
 {
 	auto &g = getGraph();
@@ -979,7 +979,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 	return EE->loadValueFromWrite(lab.rf, typ, addr);
 }
 
-void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, llvm::GenericValue *addr,
+void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *addr,
 			       llvm::Type *typ, llvm::GenericValue &val, std::string functionName,
 			       bool isInit)
 {
@@ -1119,7 +1119,7 @@ void GenMCDriver::prettyPrintGraph()
 	llvm::dbgs() << "\n";
 }
 
-void GenMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
+void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before, Event e)
 {
 	ExecutionGraph &g = getGraph();
 	std::ofstream fout(filename);
@@ -1180,11 +1180,11 @@ void GenMCDriver::dotPrintToFile(std::string &filename, View &before, Event e)
 void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &buf)
 {
 	auto &g = getGraph();
-	auto ai = a[e.thread];
 
-	if (e.index <= ai)
+	if (a.contains(e))
 		return;
 
+	auto ai = a[e.thread];
 	a[e.thread] = e.index;
 	auto &thr = EE->getThrById(e.thread);
 	for (int i = ai; i <= e.index; i++) {
