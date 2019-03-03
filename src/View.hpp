@@ -37,7 +37,9 @@ public:
 	/* Basic operation on Views */
 	unsigned int size() const;
 	bool empty() const;
-	View& updateMax(const View &v);
+	bool contains(const Event e) const;
+	View& update(const View &v);
+	View& updateIdx(const Event e);
 	View getMax(View &v);
 
 	/* Overloaded operators */
@@ -56,13 +58,6 @@ public:
 			if ((*this)[i] > v[i])
 				return false;
 		return true;
-	}
-
-	inline bool contains(Event e) const {
-		if (e.thread < (int) view_.size())
-			return e.index <= view_[e.thread];
-		else
-			return e.index == 0;
 	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v);

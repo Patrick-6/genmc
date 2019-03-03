@@ -514,8 +514,8 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 		auto &lab = getCurrentLabel();
 		lab.rf = cLab.pos;
 		cLab.rfm1.push_back(lab.pos);
-		lab.hbView.updateMax(cLab.msgView);
-		lab.porfView.updateMax(cLab.porfView);
+		lab.hbView.update(cLab.msgView);
+		lab.porfView.update(cLab.porfView);
 	}
 
 	/* Return a value indicating that pthread_join() succeeded */
@@ -545,8 +545,8 @@ void GenMCDriver::visitThreadFinish()
 				/* Update relevant join event */
 				pLab.rf = lab.pos;
 				lab.rfm1.push_back(pLab.pos);
-				pLab.hbView.updateMax(lab.msgView);
-				pLab.porfView.updateMax(lab.porfView);
+				pLab.hbView.update(lab.msgView);
+				pLab.porfView.update(lab.porfView);
 			}
 		}
 	} /* FIXME: Maybe move view update into thread finish creation? */
@@ -770,7 +770,7 @@ bool GenMCDriver::tryToRevisitLock(EventLabel &rLab, const View &preds, EventLab
 	auto &g = execGraph;
 	auto v(preds);
 
-	v.updateMax(before);
+	v.update(before);
 	if (graphCoveredByViews(g, v) && !rLab.revs.contains(writePrefixPos, moPlacings)) {
 		EE->getThrById(rLab.getThread()).unblock();
 
@@ -1063,7 +1063,7 @@ bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 		auto &rLab = g.getEventLabel(l);
 		auto preds = g.getViewFromStamp(rLab.getStamp());
 		auto v = preds;
-		v.updateMax(before);
+		v.update(before);
 
 		/* Check if this the resulting graph is consistent */
 		auto rfs = g.getLibConsRfsInView(*lib, rLab, stores, v);

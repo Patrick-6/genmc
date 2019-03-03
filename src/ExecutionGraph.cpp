@@ -164,7 +164,7 @@ void ExecutionGraph::calcLoadPoRfView(EventLabel &lab)
 	lab.porfView = getPreviousLabel(lab.getPos()).getPorfView();
 	++lab.porfView[lab.getThread()];
 
-	lab.porfView.updateMax(getEventLabel(lab.rf).getPorfView());
+	lab.porfView.update(getEventLabel(lab.rf).getPorfView());
 }
 
 void ExecutionGraph::calcLoadHbView(EventLabel &lab)
@@ -173,7 +173,7 @@ void ExecutionGraph::calcLoadHbView(EventLabel &lab)
 	++lab.hbView[lab.getThread()];
 
 	if (lab.isAtLeastAcquire())
-		lab.hbView.updateMax(getEventLabel(lab.rf).getMsgView());
+		lab.hbView.update(getEventLabel(lab.rf).getMsgView());
 }
 
 EventLabel& ExecutionGraph::addEventToGraph(EventLabel &lab)
@@ -548,7 +548,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	View v;
 
 	for (auto &e : es)
-		v.updateMax(getEventLabel(e).getHbView());
+		v.update(getEventLabel(e).getHbView());
 	return v;
 }
 
@@ -590,7 +590,7 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 			return;
 		if (lab.isRead() && (lab.ord == llvm::AtomicOrdering::Monotonic ||
 				     lab.ord == llvm::AtomicOrdering::Release))
-			v.updateMax(getEventLabel(lab.rf).getMsgView());
+			v.update(getEventLabel(lab.rf).getMsgView());
 	}
 }
 
@@ -1587,7 +1587,7 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 			     [&v](Event &r){ return v.contains(r); });
 
 		auto before = getHbBefore(es).
-			updateMax(getPreviousLabel(stores[i]).getHbView());
+			update(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
@@ -1633,7 +1633,7 @@ ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
 		auto before = getHbBefore(lab.rfm1).
-			updateMax(getPreviousLabel(stores[i]).getHbView());
+			update(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
@@ -1783,7 +1783,7 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 
 			View v(getHbBefore(tos[0]));
 			for (auto &t : tos)
-				v.updateMax(getEventLabel(t).getHbView());
+				v.update(getEventLabel(t).getHbView());
 
 			auto wb = calcWbRestricted(lab.getAddr(), v);
 			auto &ss = wb.first;

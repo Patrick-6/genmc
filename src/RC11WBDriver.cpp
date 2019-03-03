@@ -88,7 +88,7 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 
 	for (auto &l : ls) {
 		auto v = g.getViewFromStamp(g.getEventLabel(l).getStamp());
-		v.updateMax(sLab.porfView);
+		v.update(sLab.porfView);
 
 		auto wb = g.calcWbRestricted(sLab.addr, v);
 		auto &stores = wb.first;

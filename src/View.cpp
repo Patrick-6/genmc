@@ -23,6 +23,11 @@
 
 View::View() : view_(EventView(0)) { }
 
+
+/************************************************************
+ ** Basic operations on Views
+ ***********************************************************/
+
 unsigned int View::size() const
 {
 	return view_.size();
@@ -33,7 +38,19 @@ bool View::empty() const
 	return this->size() == 0;
 }
 
-View& View::updateMax(const View &v)
+bool View::contains(Event e) const
+{
+	return e.index <= (*this)[e.thread];
+}
+
+View& View::updateIdx(const Event e)
+{
+	if ((*this)[e.thread] < e.index)
+		(*this)[e.thread] = e.index;
+	return *this;
+}
+
+View& View::update(const View &v)
 {
 	if (v.empty())
 		return *this;
