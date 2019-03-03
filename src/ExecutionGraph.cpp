@@ -547,10 +547,8 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 {
 	View v;
 
-	for (auto &e : es) {
-		auto o = getHbBefore(e);
-		v.updateMax(o);
-	}
+	for (auto &e : es)
+		v.updateMax(getEventLabel(e).getHbView());
 	return v;
 }
 
@@ -591,10 +589,8 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 		if (lab.isFence() && lab.isAtLeastAcquire())
 			return;
 		if (lab.isRead() && (lab.ord == llvm::AtomicOrdering::Monotonic ||
-				     lab.ord == llvm::AtomicOrdering::Release)) {
-			View o = getMsgView(lab.rf);
-			v.updateMax(o);
-		}
+				     lab.ord == llvm::AtomicOrdering::Release))
+			v.updateMax(getEventLabel(lab.rf).getMsgView());
 	}
 }
 
@@ -1792,10 +1788,8 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				continue;
 
 			View v(getHbBefore(tos[0]));
-			for (auto &t : tos) {
-				auto o = getHbBefore(t);
-				v.updateMax(o);
-			}
+			for (auto &t : tos)
+				v.updateMax(getEventLabel(t).getHbView());
 
 			auto wb = calcWbRestricted(lab.getAddr(), v);
 			auto &ss = wb.first;

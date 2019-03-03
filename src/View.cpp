@@ -33,16 +33,16 @@ bool View::empty() const
 	return this->size() == 0;
 }
 
-void View::updateMax(const View &v)
+View& View::updateMax(const View &v)
 {
 	if (v.empty())
-		return;
+		return *this;
 
 	auto size = std::max(this->size(), v.size());
 	for (auto i = 0u; i < size; i++)
 		if ((*this)[i] < v[i])
 			(*this)[i] = v[i];
-	return;
+	return *this;
 }
 
 View View::getMax(View &v)

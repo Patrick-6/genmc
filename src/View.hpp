@@ -37,7 +37,7 @@ public:
 	/* Basic operation on Views */
 	unsigned int size() const;
 	bool empty() const;
-	void updateMax(const View &v);
+	View& updateMax(const View &v);
 	View getMax(View &v);
 
 	/* Overloaded operators */
