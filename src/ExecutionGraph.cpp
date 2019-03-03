@@ -1583,10 +1583,15 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 
 	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(), std::back_inserter(stores),
 		     [&v](Event &s){ return v.contains(s); });
-	/* Sort so we can use calcEventIndex() */
-	std::sort(stores.begin(), stores.end());
 
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
+
+	/* Optimization */
+	if (stores.size() <= 1)
+		return std::make_pair(stores, matrix);
+
+	/* Sort so we can use calcEventIndex() */
+	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
 
@@ -1594,8 +1599,8 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 		std::copy_if(lab.rfm1.begin(), lab.rfm1.end(), std::back_inserter(es),
 			     [&v](Event &r){ return v.contains(r); });
 
-		es.push_back(stores[i].prev());
-		auto before = getHbBefore(es);
+		auto before = getHbBefore(es).
+			updateMax(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
@@ -1632,14 +1637,16 @@ ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 	std::vector<Event> stores(modOrder[addr]);
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
 
+	/* Optimization */
+	if (stores.size() <= 1)
+		return std::make_pair(stores, matrix);
+
 	/* Sort so we can use calcEventIndex() */
 	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
-		std::vector<Event> es(lab.rfm1.begin(), lab.rfm1.end());
-
-		es.push_back(stores[i].prev());
-		auto before = getHbBefore(es);
+		auto before = getHbBefore(lab.rfm1).
+			updateMax(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
