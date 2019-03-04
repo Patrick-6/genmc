@@ -34,10 +34,20 @@ public:
 	/* Constructors */
 	View();
 
-	/* Basic operation on Views */
+	/* Iterators */
+	typedef int *iterator;
+	typedef const int *const_iterator;
+	iterator begin();
+	iterator end();
+	const_iterator cbegin();
+	const_iterator cend();
+
+	/* Basic operations on Views */
 	unsigned int size() const;
 	bool empty() const;
-	void updateMax(const View &v);
+	bool contains(const Event e) const;
+	View& update(const View &v);
+	View& updateIdx(const Event e);
 	View getMax(View &v);
 
 	/* Overloaded operators */
@@ -56,13 +66,6 @@ public:
 			if ((*this)[i] > v[i])
 				return false;
 		return true;
-	}
-
-	inline bool contains(Event e) const {
-		if (e.thread < (int) view_.size())
-			return e.index <= view_[e.thread];
-		else
-			return e.index == 0;
 	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v);

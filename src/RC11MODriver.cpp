@@ -24,6 +24,19 @@
  ** MO DRIVER
  ***********************************************************/
 
+int RC11MODriver::splitLocMOBefore(const llvm::GenericValue *addr, const View &before)
+{
+	auto &g = getGraph();
+	auto &locMO = g.modOrder[addr];
+
+	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
+		if (before.empty() || !g.isWriteRfBefore(before, *rit))
+			continue;
+		return std::distance(rit, locMO.rend());
+	}
+	return 0;
+}
+
 std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
@@ -32,12 +45,10 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 	auto &locMO = g.modOrder[addr];
 	auto before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
-	auto splitRange = g.splitLocMOBefore(addr, before);
-	auto &begO = splitRange.first;
-	auto &endO = splitRange.second;
+	auto begO = splitLocMOBefore(addr, before);
 
 	/*
-	 * If there are not stores (hb;rf?)-before the current event
+	 * If there are no stores (hb;rf?)-before the current event
 	 * then we can read read from all concurrent stores and the
 	 * initializer store. Otherwise, we can read from all concurrent
 	 * stores and the mo-latest of the (hb;rf?)-before stores.
@@ -46,7 +57,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 		stores.push_back(Event::getInitializer());
 	else
 		stores.push_back(*(locMO.begin() + begO - 1));
-	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
+	stores.insert(stores.end(), locMO.begin() + begO, locMO.end());
 	return stores;
 }
 
@@ -61,7 +72,7 @@ std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *
 	}
 
 	auto before = g.getHbBefore(pLab.getPos());
-	return g.splitLocMOBefore(addr, before);
+	return std::make_pair(splitLocMOBefore(addr, before), g.modOrder[addr].size());
 }
 
 std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)

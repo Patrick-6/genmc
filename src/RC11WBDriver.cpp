@@ -24,36 +24,119 @@
  ** WB DRIVER
  ***********************************************************/
 
+/*
+ * Checks which of the stores are (rf?;hb)-before some event e, given the
+ * hb-before view of e
+ */
+View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
+					  const View &hbBefore)
+{
+	auto &g = getGraph();
+	View result;
+
+	for (const auto &w : stores) {
+		/* Check if w itself is in the hb view */
+		if (hbBefore.contains(w)) {
+			result.updateIdx(w);
+			continue;
+		}
+
+		/* Check whether [w];rf;[r] is in the hb view, for some r */
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread && hbBefore.contains(r)) {
+				result.updateIdx(w);
+				result.updateIdx(r);
+				break;
+			}
+		}
+	}
+	return result;
+}
+
+void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
+						   View &storeView)
+{
+	auto &g = getGraph();
+
+	/* Expand view for maximal stores */
+	for (const auto &w : stores) {
+		/* If the store is not maximal, skip */
+		if (w.index != storeView[w.thread])
+			continue;
+
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread)
+				storeView.updateIdx(r);
+		}
+	}
+
+	/* Check if maximal writes have been overwritten */
+	for (const auto &w : stores) {
+		/* If the store is not maximal, skip*/
+		if (w.index != storeView[w.thread])
+			continue;
+
+		for (const auto &r : g.getEventLabel(w).rfm1) {
+			if (r.thread != w.thread && r.index < storeView[r.thread]) {
+				auto &lab = g.events[r.thread][storeView[r.thread]];
+				if (lab.isRead() && lab.rf != w) {
+					storeView[w.thread]++;
+					break;
+				}
+			}
+		}
+	}
+	return;
+}
+
 std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
+	auto &allStores = g.modOrder[addr];
+	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	std::vector<Event> result;
+
+	auto view = getRfOptHbBeforeStores(allStores, hbBefore);
+
+	/* Can we read from the initializer event? */
+	if (std::none_of(view.begin(), view.end(), [](int i){ return i > 0; }))
+		result.push_back(Event::getInitializer());
+
+
+	expandMaximalAndMarkOverwritten(allStores, view);
+
+	int count = 0;
+	for (const auto &w : allStores) {
+		if (w.index >= view[w.thread]) {
+			if (count++ > 0) {
+				result.pop_back();
+				break;
+			}
+			result.push_back(w);
+		}
+	}
+	if (count <= 1)
+		return result;
+
 	auto wb = g.calcWb(addr);
 	auto &stores = wb.first;
 	auto &wbMatrix = wb.second;
-	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
-	auto porfBefore = g.getPorfBefore(g.getLastThreadEvent(thr.id));
 
-	// Find the stores from which we can read-from
-	std::vector<Event> result;
+	/* Find the stores from which we can read-from */
 	for (auto i = 0u; i < stores.size(); i++) {
-		bool allowed = true;
+		auto allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wbMatrix[i * stores.size() + j] &&
-			    g.isWriteRfBefore(hbBefore, stores[j]))
+			    g.isWriteRfBefore(hbBefore, stores[j])) {
 				allowed = false;
+				break;
+			}
 		}
 		if (allowed)
 			result.push_back(stores[i]);
 	}
 
-	// Also check the initializer event
-	bool allowed = true;
-	for (auto j = 0u; j < stores.size(); j++)
-		if (g.isWriteRfBefore(hbBefore, stores[j]))
-			allowed = false;
-	if (allowed)
-		result.insert(result.begin(), Event::getInitializer());
 	return result;
 }
 
@@ -67,6 +150,14 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
+
+	/* Optimization:
+	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
+	 * wb-maximal (and so, all revisitable loads can read from it).
+	 */
+	if (!sLab.isRMW())
+		return ls;
+
 	std::vector<Event> result;
 
 	/*
@@ -81,7 +172,7 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 
 	for (auto &l : ls) {
 		auto v = g.getViewFromStamp(g.getEventLabel(l).getStamp());
-		v.updateMax(sLab.porfView);
+		v.update(sLab.porfView);
 
 		auto wb = g.calcWbRestricted(sLab.addr, v);
 		auto &stores = wb.first;

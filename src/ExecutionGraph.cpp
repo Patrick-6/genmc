@@ -164,7 +164,7 @@ void ExecutionGraph::calcLoadPoRfView(EventLabel &lab)
 	lab.porfView = getPreviousLabel(lab.getPos()).getPorfView();
 	++lab.porfView[lab.getThread()];
 
-	lab.porfView.updateMax(getEventLabel(lab.rf).getPorfView());
+	lab.porfView.update(getEventLabel(lab.rf).getPorfView());
 }
 
 void ExecutionGraph::calcLoadHbView(EventLabel &lab)
@@ -173,7 +173,7 @@ void ExecutionGraph::calcLoadHbView(EventLabel &lab)
 	++lab.hbView[lab.getThread()];
 
 	if (lab.isAtLeastAcquire())
-		lab.hbView.updateMax(getEventLabel(lab.rf).getMsgView());
+		lab.hbView.update(getEventLabel(lab.rf).getMsgView());
 }
 
 EventLabel& ExecutionGraph::addEventToGraph(EventLabel &lab)
@@ -547,10 +547,8 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 {
 	View v;
 
-	for (auto &e : es) {
-		auto o = getHbBefore(e);
-		v.updateMax(o);
-	}
+	for (auto &e : es)
+		v.update(getEventLabel(e).getHbView());
 	return v;
 }
 
@@ -591,10 +589,8 @@ void ExecutionGraph::calcRelRfPoBefore(int thread, int index, View &v)
 		if (lab.isFence() && lab.isAtLeastAcquire())
 			return;
 		if (lab.isRead() && (lab.ord == llvm::AtomicOrdering::Monotonic ||
-				     lab.ord == llvm::AtomicOrdering::Release)) {
-			View o = getMsgView(lab.rf);
-			v.updateMax(o);
-		}
+				     lab.ord == llvm::AtomicOrdering::Release))
+			v.update(getEventLabel(lab.rf).getMsgView());
 	}
 }
 
@@ -735,19 +731,6 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericVa
 		if (isWriteRfBefore(before, e))
 			boundary.push_back(e.prev());
 	return boundary;
-}
-
-/* View before _can_ be implicitly modified */
-std::pair<int, int>
-ExecutionGraph::splitLocMOBefore(const llvm::GenericValue *addr, const View &before)
-{
-	auto &locMO = modOrder[addr];
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !isWriteRfBefore(before, *rit))
-			continue;
-		return std::make_pair(std::distance(rit, locMO.rend()), locMO.size());
-	}
-	return std::make_pair(0, locMO.size());
 }
 
 
@@ -1587,10 +1570,15 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 
 	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(), std::back_inserter(stores),
 		     [&v](Event &s){ return v.contains(s); });
-	/* Sort so we can use calcEventIndex() */
-	std::sort(stores.begin(), stores.end());
 
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
+
+	/* Optimization */
+	if (stores.size() <= 1)
+		return std::make_pair(stores, matrix);
+
+	/* Sort so we can use calcEventIndex() */
+	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
 
@@ -1598,8 +1586,8 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 		std::copy_if(lab.rfm1.begin(), lab.rfm1.end(), std::back_inserter(es),
 			     [&v](Event &r){ return v.contains(r); });
 
-		es.push_back(stores[i].prev());
-		auto before = getHbBefore(es);
+		auto before = getHbBefore(es).
+			update(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
@@ -1636,14 +1624,16 @@ ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 	std::vector<Event> stores(modOrder[addr]);
 	std::vector<bool> matrix(stores.size() * stores.size(), false);
 
+	/* Optimization */
+	if (stores.size() <= 1)
+		return std::make_pair(stores, matrix);
+
 	/* Sort so we can use calcEventIndex() */
 	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
-		std::vector<Event> es(lab.rfm1.begin(), lab.rfm1.end());
-
-		es.push_back(stores[i].prev());
-		auto before = getHbBefore(es);
+		auto before = getHbBefore(lab.rfm1).
+			update(getPreviousLabel(stores[i]).getHbView());
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
@@ -1792,10 +1782,8 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				continue;
 
 			View v(getHbBefore(tos[0]));
-			for (auto &t : tos) {
-				auto o = getHbBefore(t);
-				v.updateMax(o);
-			}
+			for (auto &t : tos)
+				v.update(getEventLabel(t).getHbView());
 
 			auto wb = calcWbRestricted(lab.getAddr(), v);
 			auto &ss = wb.first;
