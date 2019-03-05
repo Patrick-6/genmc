@@ -76,10 +76,10 @@ public:
 	EventLabel& addFinishToGraph(int tid);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
-	View getMsgView(Event e);
-	View getPorfBefore(Event e);
-	View getHbBefore(Event e);
-	View getHbPoBefore(Event e);
+	const View &getMsgView(Event e);
+	const View &getPorfBefore(Event e);
+	const View &getHbBefore(Event e);
+	const View &getHbPoBefore(Event e);
 	View getHbBefore(const std::vector<Event> &es);
 	View getHbRfBefore(const std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);

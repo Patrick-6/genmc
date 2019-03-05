@@ -123,7 +123,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	std::vector<Event> loads;
 
 	BUG_ON(!sLab.isWrite());
-	auto before = getPorfBefore(sLab.getPos());
+	auto &before = getPorfBefore(sLab.getPos());
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
 			auto &lab = events[i][j];
@@ -229,14 +229,14 @@ EventLabel& ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	++lab.porfView[thread];
 	if (lab.isRMW()) {
 		EventLabel &pLab = getEventLabel(last);
-		View mV = getMsgView(pLab.rf);
+		const View &mV = getMsgView(pLab.rf);
 		BUG_ON(pLab.ord == llvm::AtomicOrdering::NotAtomic);
 		if (pLab.isAtLeastRelease())
 			/* no need for ctor -- getMax copies the View */
 			lab.msgView = mV.getMax(lab.hbView);
-		else
-			lab.msgView = getHbBefore(
-				getLastThreadRelease(thread, lab.getAddr())).getMax(mV);
+		else {
+			lab.msgView = mV.getMax(getHbBefore(getLastThreadRelease(thread, lab.getAddr())));
+		}
 	} else {
 		if (lab.isAtLeastRelease())
 			lab.msgView = lab.hbView;
@@ -526,7 +526,7 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 	for (auto &s : stores) {
 		if (std::find(chain.begin(), chain.end(), s) != chain.end())
 			continue;
-		auto before = getHbBefore(s);
+		auto &before = getHbBefore(s);
 		if (std::any_of(chain.begin(), chain.end(), [&before](Event e)
 				{ return e.index < before[e.thread]; }))
 			result.push_back(s);
@@ -534,16 +534,17 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 	return result;
 }
 
-View ExecutionGraph::getMsgView(Event e)
+const View &ExecutionGraph::getMsgView(Event e)
 {
 	return getEventLabel(e).getMsgView();
 }
 
-View ExecutionGraph::getPorfBefore(Event e)
+const View &ExecutionGraph::getPorfBefore(Event e)
 {
 	return getEventLabel(e).getPorfView();
 }
-View ExecutionGraph::getHbBefore(Event e)
+
+const View &ExecutionGraph::getHbBefore(Event e)
 {
 	return getEventLabel(e).getHbView();
 }
@@ -557,7 +558,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	return v;
 }
 
-View ExecutionGraph::getHbPoBefore(Event e)
+const View &ExecutionGraph::getHbPoBefore(Event e)
 {
 	return getHbBefore(e.prev());
 }
@@ -727,7 +728,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericValue *addr, int thread)
 {
 	std::vector<Event> boundary;
-	auto before = getHbBefore(getLastThreadEvent(thread));
+	auto &before = getHbBefore(getLastThreadEvent(thread));
 
 	if (before.empty())
 		return boundary;
@@ -895,7 +896,7 @@ bool ExecutionGraph::isConsistent(void)
 Event ExecutionGraph::findRaceForNewLoad(Event e)
 {
 	auto &lab = getEventLabel(e);
-	auto before = getHbBefore(lab.getPos().prev());
+	auto &before = getHbBefore(lab.getPos().prev());
 	auto &stores = modOrder[lab.getAddr()];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
@@ -917,7 +918,7 @@ Event ExecutionGraph::findRaceForNewLoad(Event e)
 Event ExecutionGraph::findRaceForNewStore(Event e)
 {
 	auto &lab = getEventLabel(e);
-	auto before = getHbBefore(lab.getPos().prev());
+	auto &before = getHbBefore(lab.getPos().prev());
 
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
@@ -1002,9 +1003,7 @@ std::vector<Event> ExecutionGraph::calcSCFencesSuccs(const std::vector<Event> &f
 	if (isRMWLoad(e))
 		return succs;
 	for (auto &f : fcs) {
-		auto before = getHbBefore(f);
-
-		if (before.contains(e))
+		if (getHbBefore(f).contains(e))
 			succs.push_back(f);
 	}
 	return succs;
@@ -1013,7 +1012,7 @@ std::vector<Event> ExecutionGraph::calcSCFencesSuccs(const std::vector<Event> &f
 std::vector<Event> ExecutionGraph::calcSCFencesPreds(const std::vector<Event> &fcs, const Event e)
 {
 	std::vector<Event> preds;
-	auto before = getHbBefore(e);
+	auto &before = getHbBefore(e);
 
 	if (isRMWLoad(e))
 		return preds;
@@ -1567,7 +1566,7 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 		buf = {};
 		for (auto j = 0u; j < froms[i].second.size(); j++) {
 			for (auto &e : tos) {
-				auto before = getHbBefore(e);
+				auto &before = getHbBefore(e);
 				if (froms[i].second[j].index <
 				    before[froms[i].second[j].thread])
 					buf.push_back(e);

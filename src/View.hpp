@@ -48,7 +48,7 @@ public:
 	bool contains(const Event e) const;
 	View& update(const View &v);
 	View& updateIdx(const Event e);
-	View getMax(View &v);
+	View getMax(const View &v) const;
 
 	/* Overloaded operators */
 	inline int operator[](int idx) const {

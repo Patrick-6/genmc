@@ -43,7 +43,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 	auto &g = getGraph();
 	auto &locMO = g.modOrder[addr];
-	auto before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
 	auto begO = splitLocMOBefore(addr, before);
 
@@ -71,7 +71,7 @@ std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *
 		return std::make_pair(offset, offset);
 	}
 
-	auto before = g.getHbBefore(pLab.getPos());
+	auto &before = g.getHbBefore(pLab.getPos());
 	return std::make_pair(splitLocMOBefore(addr, before), g.modOrder[addr].size());
 }
 
@@ -88,7 +88,7 @@ std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
 	auto optRfs = g.getMoOptRfAfter(sLab.getPos());
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
-				{ View before = g.getHbPoBefore(e);
+				{ const View &before = g.getHbPoBefore(e);
 				  return std::any_of(optRfs.begin(), optRfs.end(),
 					 [&](Event ev)
 					 { return before.contains(ev); });

@@ -2364,7 +2364,7 @@ std::string getFilenameFromMData(MDNode *node)
 	return absPath;
 }
 
-void Interpreter::replayExecutionBefore(View &before)
+void Interpreter::replayExecutionBefore(const View &before)
 {
 	auto &g = driver->getGraph();
 

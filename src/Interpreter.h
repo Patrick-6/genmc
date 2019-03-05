@@ -225,7 +225,7 @@ public:
 
   /* Helper functions */
   void collectGPs(Module *M, void *ptr, Type *typ);
-  void replayExecutionBefore(View &before);
+  void replayExecutionBefore(const View &before);
   bool compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
   GenericValue loadValueFromWrite(Event w, Type *typ, const GenericValue *ptr);
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
