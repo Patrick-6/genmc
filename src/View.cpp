@@ -77,7 +77,7 @@ View& View::update(const View &v)
 	return *this;
 }
 
-View View::getMax(View &v)
+View View::getMax(const View &v) const
 {
 	if (this->empty())
 		return v;

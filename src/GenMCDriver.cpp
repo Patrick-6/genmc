@@ -340,6 +340,7 @@ EventLabel& GenMCDriver::getCurrentLabel()
 	return g.events[thr.id][thr.globalInstructions];
 }
 
+
 /*
  * This function is called to check for races when a new event is added.
  * When a race is detected, we have to actually ensure that the execution is valid,
@@ -369,7 +370,7 @@ Event GenMCDriver::checkForRaces()
 	if (!EE->isHeapAlloca(lab.getAddr()))
 		return Event::getInitializer();
 
-	auto before = g.getHbBefore(lab.getPos().prev());
+	auto &before = g.getHbBefore(lab.getPos().prev());
 	for (auto i = 0u; i < g.events.size(); i++)
 		for (auto j = 0u; j < g.events[i].size(); j++) {
 			auto &oLab = g.events[i][j];
@@ -418,7 +419,7 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 		return stores;
 
 	auto &g = getGraph();
-	auto before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
 	if (attr == ATTR_LOCK)
 		return filterAcquiredLocks(ptr, stores, before);
@@ -689,7 +690,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 		return;
 
 	Event m = Event::getInitializer();
-	auto before = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	auto &before = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	for (auto i = 0u; i < g.events.size(); i++) {
 		for (auto j = 1; j <= before[i]; j++) {
 			auto &lab = g.events[i][j];
@@ -735,7 +736,7 @@ void GenMCDriver::visitError(std::string &err)
 
 	auto assertThrId = thr.id;
 	auto errorEvent = g.getLastThreadEvent(assertThrId);
-	auto before = g.getPorfBefore(errorEvent);
+	auto &before = g.getPorfBefore(errorEvent);
 
 	/* Print error trace */
 	if (userConf->printErrorTrace) {
@@ -809,7 +810,7 @@ bool GenMCDriver::calcRevisits(EventLabel &lab)
 		auto &rLab = g.getEventLabel(l);
 		auto preds = g.getViewFromStamp(rLab.getStamp());
 
-		auto before = g.getPorfBefore(lab.getPos());
+		auto &before = g.getPorfBefore(lab.getPos());
 		auto prefixP = getPrefixToSaveNotBefore(lab, preds);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
@@ -1058,7 +1059,7 @@ bool GenMCDriver::calcLibRevisits(EventLabel &lab)
 	}
 
 	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto before = g.getPorfBefore(lab.getPos());
+	auto &before = g.getPorfBefore(lab.getPos());
 	for (auto &l : loads) {
 		/* Calculate the view of the resulting graph */
 		auto &rLab = g.getEventLabel(l);

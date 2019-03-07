@@ -123,7 +123,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const EventLabel &sLab)
 	std::vector<Event> loads;
 
 	BUG_ON(!sLab.isWrite());
-	auto before = getPorfBefore(sLab.getPos());
+	auto &before = getPorfBefore(sLab.getPos());
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
 			auto &lab = events[i][j];
@@ -229,14 +229,14 @@ EventLabel& ExecutionGraph::addStoreToGraphCommon(EventLabel &lab)
 	++lab.porfView[thread];
 	if (lab.isRMW()) {
 		EventLabel &pLab = getEventLabel(last);
-		View mV = getMsgView(pLab.rf);
+		const View &mV = getMsgView(pLab.rf);
 		BUG_ON(pLab.ord == llvm::AtomicOrdering::NotAtomic);
 		if (pLab.isAtLeastRelease())
 			/* no need for ctor -- getMax copies the View */
 			lab.msgView = mV.getMax(lab.hbView);
-		else
-			lab.msgView = getHbBefore(
-				getLastThreadRelease(thread, lab.getAddr())).getMax(mV);
+		else {
+			lab.msgView = mV.getMax(getHbBefore(getLastThreadRelease(thread, lab.getAddr())));
+		}
 	} else {
 		if (lab.isAtLeastRelease())
 			lab.msgView = lab.hbView;
@@ -381,8 +381,10 @@ EventLabel& ExecutionGraph::addFinishToGraph(int tid)
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
 
-Event ExecutionGraph::getRMWChainUpperLimit(const EventLabel &sLab, const Event upper)
+Event ExecutionGraph::getRMWChainUpperLimit(const Event store, const Event upper)
 {
+	auto &sLab = getEventLabel(store);
+
 	/*
 	 * This function should not be called with an event that is not
 	 * the store part of an RMW
@@ -408,8 +410,10 @@ Event ExecutionGraph::getRMWChainUpperLimit(const EventLabel &sLab, const Event 
 	return limit->pos;
 }
 
-Event ExecutionGraph::getRMWChainLowerLimit(const EventLabel &sLab, const Event lower)
+Event ExecutionGraph::getRMWChainLowerLimit(const Event store, const Event lower)
 {
+	auto &sLab = getEventLabel(store);
+
 	/*
 	 * This function should not be called with an event that is not
 	 * the store part of an RMW
@@ -441,8 +445,9 @@ Event ExecutionGraph::getRMWChainLowerLimit(const EventLabel &sLab, const Event 
 	return limit->pos;
 }
 
-Event ExecutionGraph::getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, const View &v)
+Event ExecutionGraph::getRMWChainLowerLimitInView(const Event store, const Event lower, const View &v)
 {
+	auto &sLab = getEventLabel(store);
 	/*
 	 * This function should not be called with an event that is not
 	 * the store part of an RMW
@@ -521,7 +526,7 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 	for (auto &s : stores) {
 		if (std::find(chain.begin(), chain.end(), s) != chain.end())
 			continue;
-		auto before = getHbBefore(s);
+		auto &before = getHbBefore(s);
 		if (std::any_of(chain.begin(), chain.end(), [&before](Event e)
 				{ return e.index < before[e.thread]; }))
 			result.push_back(s);
@@ -529,16 +534,17 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 	return result;
 }
 
-View ExecutionGraph::getMsgView(Event e)
+const View &ExecutionGraph::getMsgView(Event e)
 {
 	return getEventLabel(e).getMsgView();
 }
 
-View ExecutionGraph::getPorfBefore(Event e)
+const View &ExecutionGraph::getPorfBefore(Event e)
 {
 	return getEventLabel(e).getPorfView();
 }
-View ExecutionGraph::getHbBefore(Event e)
+
+const View &ExecutionGraph::getHbBefore(Event e)
 {
 	return getEventLabel(e).getHbView();
 }
@@ -552,7 +558,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	return v;
 }
 
-View ExecutionGraph::getHbPoBefore(Event e)
+const View &ExecutionGraph::getHbPoBefore(Event e)
 {
 	return getHbBefore(e.prev());
 }
@@ -722,7 +728,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericValue *addr, int thread)
 {
 	std::vector<Event> boundary;
-	auto before = getHbBefore(getLastThreadEvent(thread));
+	auto &before = getHbBefore(getLastThreadEvent(thread));
 
 	if (before.empty())
 		return boundary;
@@ -890,7 +896,7 @@ bool ExecutionGraph::isConsistent(void)
 Event ExecutionGraph::findRaceForNewLoad(Event e)
 {
 	auto &lab = getEventLabel(e);
-	auto before = getHbBefore(lab.getPos().prev());
+	auto &before = getHbBefore(lab.getPos().prev());
 	auto &stores = modOrder[lab.getAddr()];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
@@ -912,7 +918,7 @@ Event ExecutionGraph::findRaceForNewLoad(Event e)
 Event ExecutionGraph::findRaceForNewStore(Event e)
 {
 	auto &lab = getEventLabel(e);
-	auto before = getHbBefore(lab.getPos().prev());
+	auto &before = getHbBefore(lab.getPos().prev());
 
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = before[i] + 1u; j < events[i].size(); j++) {
@@ -931,156 +937,6 @@ Event ExecutionGraph::findRaceForNewStore(Event e)
 /************************************************************
  ** Calculation utilities
  ***********************************************************/
-
-template <class T>
-int binSearch(const std::vector<T> &arr, int len, T what)
-{
-	int low = 0;
-	int high = len - 1;
-	while (low <= high) {
-		int mid = (low + high) / 2;
-		if (arr[mid] > what)
-			high = mid - 1;
-		else if (arr[mid] < what)
-			low = mid + 1;
-		else
-			return mid;
-	}
-	return -1; /* not found */
-}
-
-void calcTransClosure(std::vector<bool> &matrix, int len)
-{
-	for (auto i = 1; i < len; i++)
-		for (auto k = 0; k < i; k++)
-			if (matrix[i * len + k])
-				for (auto j = 0; j < len; j++)
-					matrix[i * len + j] = matrix[i * len + j] | matrix[k * len + j];
-	for (auto i = 0; i < len - 1; i++)
-		for (auto k = i + 1; k < len; k++)
-			if (matrix[i * len + k])
-				for (auto j = 0; j < len; j++)
-					matrix[i * len + j] = matrix[i * len + j] | matrix[k * len + j];
-}
-
-bool isIrreflexive(std::vector<bool> &matrix, int len)
-{
-	for (auto i = 0; i < len; i++)
-		if (matrix[i * len + i])
-			return false;
-	return true;
-}
-
-/*
- * Get in-degrees for event es, according to adjacency matrix
- */
-std::vector<int> getInDegrees(const std::vector<bool> &matrix, const std::vector<Event> &es)
-{
-	std::vector<int> inDegree(es.size(), 0);
-
-	for (auto i = 0u; i < matrix.size(); i++)
-		inDegree[i % es.size()] += (int) matrix[i];
-	return inDegree;
-}
-
-std::vector<Event> topoSort(const std::vector<bool> &matrix, const std::vector<Event> &es)
-{
-	std::vector<Event> sorted;
-	std::vector<int> stack;
-
-	/* Get in-degrees for es, according to matrix */
-	auto inDegree = getInDegrees(matrix, es);
-
-	/* Propagate events with no incoming edges to stack */
-	for (auto i = 0u; i < inDegree.size(); i++)
-		if (inDegree[i] == 0)
-			stack.push_back(i);
-
-	/* Perform topological sorting, filling up sorted */
-	while (stack.size() > 0) {
-		/* Pop next node-ID, and push node into sorted */
-		auto nextI = stack.back();
-		sorted.push_back(es[nextI]);
-		stack.pop_back();
-
-		for (auto i = 0u; i < es.size(); i++) {
-			/* Finds all nodes with incoming edges from nextI */
-			if (!matrix[nextI * es.size() + i])
-				continue;
-			if (--inDegree[i] == 0)
-				stack.push_back(i);
-		}
-	}
-
-	/* Make sure that there is no cycle */
-	BUG_ON(std::any_of(inDegree.begin(), inDegree.end(), [](int degI){ return degI > 0; }));
-	return sorted;
-}
-
-void allTopoSortUtil(std::vector<std::vector<Event> > &sortings, std::vector<Event> &current,
-		     std::vector<bool> visited, std::vector<int> &inDegree,
-		     const std::vector<bool> &matrix, const std::vector<Event> &es)
-{
-	/*
-	 * The boolean variable 'scheduled' indicates whether this recursive call
-	 * has added (scheduled) one event (at least) to the current topological sorting.
-	 * If no event was added, a full topological sort has been produced.
-	 */
-	auto scheduled = false;
-
-	for (auto i = 0u; i < es.size(); i++) {
-		/* If ith-event can be added */
-		if (inDegree[i] == 0 && !visited[i]) {
-			/* Reduce in-degrees of its neighbors */
-			for (auto j = 0u; j < es.size(); j++)
-				if (matrix[i * es.size() + j])
-					--inDegree[j];
-			/* Add event in current sorting, mark as visited, and recurse */
-			current.push_back(es[i]);
-			visited[i] = true;
-
-			allTopoSortUtil(sortings, current, visited, inDegree, matrix, es);
-
-			/* Reset visited, current sorting, and inDegree */
-			visited[i] = false;
-			current.pop_back();
-			for (auto j = 0u; j < es.size(); j++)
-				if (matrix[i * es.size() + j])
-					++inDegree[j];
-			/* Mark that at least one event has been added to the current sorting */
-			scheduled = true;
-		}
-	}
-
-	/*
-	 * We reach this point if no events were added in the current sorting, meaning
-	 * that this is a complete sorting
-	 */
-	if (!scheduled)
-		sortings.push_back(current);
-	return;
-}
-
-std::vector<std::vector<Event> > allTopoSort(const std::vector<bool> &matrix, const std::vector<Event> &es)
-{
-	std::vector<bool> visited(es.size(), false);
-	std::vector<std::vector<Event> > sortings;
-	std::vector<Event> current;
-
-	auto inDegree = getInDegrees(matrix, es);
-	allTopoSortUtil(sortings, current, visited, inDegree, matrix, es);
-	return sortings;
-}
-
-void addEdgesFromTo(const std::vector<int> &from, const std::vector<int> &to,
-		    int len, std::vector<bool> &matrix)
-{
-	for (auto &i : from)
-		for (auto &j: to)
-			matrix[i * len + j] = true;
-	return;
-}
-
 
 /************************************************************
  ** PSC calculation
@@ -1140,122 +996,111 @@ std::vector<const llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
 	return doubles;
 }
 
-int calcEventIndex(const std::vector<Event> &scs, Event e)
+std::vector<Event> ExecutionGraph::calcSCFencesSuccs(const std::vector<Event> &fcs, const Event e)
 {
-	int idx = binSearch(scs, scs.size(), e);
-	BUG_ON(idx == -1);
-	return idx;
-}
-
-std::vector<int> ExecutionGraph::calcSCFencesSuccs(std::vector<Event> &scs,
-						   std::vector<Event> &fcs, Event e)
-{
-	std::vector<int> succs;
+	std::vector<Event> succs;
 
 	if (isRMWLoad(e))
 		return succs;
 	for (auto &f : fcs) {
-		auto before = getHbBefore(f);
-		if (before.contains(e))
-			succs.push_back(calcEventIndex(scs, f));
+		if (getHbBefore(f).contains(e))
+			succs.push_back(f);
 	}
 	return succs;
 }
 
-std::vector<int> ExecutionGraph::calcSCFencesPreds(std::vector<Event> &scs,
-						   std::vector<Event> &fcs, Event e)
+std::vector<Event> ExecutionGraph::calcSCFencesPreds(const std::vector<Event> &fcs, const Event e)
 {
-	std::vector<int> preds;
-	auto before = getHbBefore(e);
+	std::vector<Event> preds;
+	auto &before = getHbBefore(e);
 
 	if (isRMWLoad(e))
 		return preds;
 	for (auto &f : fcs) {
 		if (before.contains(f))
-			preds.push_back(calcEventIndex(scs, f));
+			preds.push_back(f);
 	}
 	return preds;
 }
 
-std::vector<int> ExecutionGraph::calcSCSuccs(std::vector<Event> &scs,
-					     std::vector<Event> &fcs, Event e)
+std::vector<Event> ExecutionGraph::calcSCSuccs(const std::vector<Event> &fcs, const Event e)
 {
 	EventLabel &lab = getEventLabel(e);
 
 	if (isRMWLoad(e))
 		return {};
 	if (lab.isSC())
-		return {calcEventIndex(scs, e)};
+		return {e};
 	else
-		return calcSCFencesSuccs(scs, fcs, e);
+		return calcSCFencesSuccs(fcs, e);
 }
 
-std::vector<int> ExecutionGraph::calcSCPreds(std::vector<Event> &scs,
-					     std::vector<Event> &fcs, Event e)
+std::vector<Event> ExecutionGraph::calcSCPreds(const std::vector<Event> &fcs, const Event e)
 {
 	EventLabel &lab = getEventLabel(e);
 
 	if (isRMWLoad(e))
 		return {};
 	if (lab.isSC())
-		return {calcEventIndex(scs, e)};
+		return {e};
 	else
-		return calcSCFencesPreds(scs, fcs, e);
+		return calcSCFencesPreds(fcs, e);
 }
 
-
-std::vector<int> ExecutionGraph::getSCRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs,
-					      EventLabel &lab)
+std::vector<Event> ExecutionGraph::getSCRfSuccs(const std::vector<Event> &fcs, const Event ev)
 {
-	std::vector<int> rfs;
+	auto &lab = getEventLabel(ev);
+	std::vector<Event> rfs;
 
 	BUG_ON(!lab.isWrite());
 	for (auto &e : lab.rfm1) {
-		auto succs = calcSCSuccs(scs, fcs, e);
+		auto succs = calcSCSuccs(fcs, e);
 		rfs.insert(rfs.end(), succs.begin(), succs.end());
 	}
 	return rfs;
 }
 
-std::vector<int> ExecutionGraph::getSCFenceRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs,
-						   EventLabel &lab)
+std::vector<Event> ExecutionGraph::getSCFenceRfSuccs(const std::vector<Event> &fcs, const Event ev)
 {
-	std::vector<int> fenceRfs;
+	auto &lab = getEventLabel(ev);
+	std::vector<Event> fenceRfs;
 
 	BUG_ON(!lab.isWrite());
 	for (auto &e : lab.rfm1) {
-		auto fenceSuccs = calcSCFencesSuccs(scs, fcs, e);
+		auto fenceSuccs = calcSCFencesSuccs(fcs, e);
 		fenceRfs.insert(fenceRfs.end(), fenceSuccs.begin(), fenceSuccs.end());
 	}
 	return fenceRfs;
 }
 
-void ExecutionGraph::addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
-				std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-				std::vector<bool> &matrix, EventLabel &lab)
+void ExecutionGraph::addRbEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
+				std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix,
+				const Event &ev)
 {
+	auto &lab = getEventLabel(ev);
+
 	BUG_ON(!lab.isWrite());
 	for (auto &e : lab.rfm1) {
-		auto preds = calcSCPreds(scs, fcs, e);
-		auto fencePreds = calcSCFencesPreds(scs, fcs, e);
+		auto preds = calcSCPreds(fcs, e);
+		auto fencePreds = calcSCFencesPreds(fcs, e);
 
-		addEdgesFromTo(preds, moAfter, scs.size(), matrix);        /* PSC_base: Adds rb-edges */
-		addEdgesFromTo(fencePreds, moRfAfter, scs.size(), matrix); /* PSC_fence: Adds (rb;rf)-edges */
+		matrix.addEdgesFromTo(preds, moAfter);        /* PSC_base: Adds rb-edges */
+		matrix.addEdgesFromTo(fencePreds, moRfAfter); /* PSC_fence: Adds (rb;rf)-edges */
 	}
 	return;
 }
 
-void ExecutionGraph::addMoRfEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
-				  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-				  std::vector<bool> &matrix, EventLabel &lab)
+void ExecutionGraph::addMoRfEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
+				  std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix,
+				  const Event &ev)
 {
-	auto preds = calcSCPreds(scs, fcs, lab.getPos());
-	auto fencePreds = calcSCFencesPreds(scs, fcs, lab.getPos());
-	auto rfs = getSCRfSuccs(scs, fcs, lab);
+	auto preds = calcSCPreds(fcs, ev);
+	auto fencePreds = calcSCFencesPreds(fcs, ev);
+	auto rfs = getSCRfSuccs(fcs, ev);
 
-	addEdgesFromTo(preds, moAfter, scs.size(), matrix);        /* PSC_base:  Adds mo-edges */
-	addEdgesFromTo(preds, rfs, scs.size(), matrix);            /* PSC_base:  Adds rf-edges */
-	addEdgesFromTo(fencePreds, moRfAfter, scs.size(), matrix); /* PSC_fence: Adds (mo;rf)-edges */
+	matrix.addEdgesFromTo(preds, moAfter);        /* PSC_base:  Adds mo-edges */
+	matrix.addEdgesFromTo(preds, rfs);            /* PSC_base:  Adds rf-edges */
+	matrix.addEdgesFromTo(fencePreds, moRfAfter); /* PSC_fence: Adds (mo;rf)-edges */
 	return;
 }
 
@@ -1273,20 +1118,18 @@ void ExecutionGraph::addMoRfEdges(std::vector<Event> &scs, std::vector<Event> &f
  * more than one step either do not compose, or lead to an already added
  * single-step relation (e.g, (rf;rb) => mo, (rb;mo) => rb)
  */
-void ExecutionGraph::addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
-			       std::vector<Event> &mo, std::vector<bool> &matrix)
+void ExecutionGraph::addSCEcos(std::vector<Event> &fcs, std::vector<Event> &mo, Matrix2D<Event> &matrix)
 {
-	std::vector<int> moAfter;   /* Ids of mo-after SC writes or writes that reach an SC fence */
-	std::vector<int> moRfAfter; /* Ids of SC fences that can be reached by (mo;rf)-after reads */
+	std::vector<Event> moAfter;   /* mo-after SC writes or writes that reach an SC fence */
+	std::vector<Event> moRfAfter; /* SC fences that can be reached by (mo;rf)-after reads */
 
 	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
-		EventLabel &lab = getEventLabel(*rit);
 
-		addRbEdges(scs, fcs, moAfter, moRfAfter, matrix, lab);
-		addMoRfEdges(scs, fcs, moAfter, moRfAfter, matrix, lab);
+		addRbEdges(fcs, moAfter, moRfAfter, matrix, *rit);
+		addMoRfEdges(fcs, moAfter, moRfAfter, matrix, *rit);
 
-		auto succs = calcSCSuccs(scs, fcs, lab.getPos());
-		auto fenceRfs = getSCFenceRfSuccs(scs, fcs, lab);
+		auto succs = calcSCSuccs(fcs, *rit);
+		auto fenceRfs = getSCFenceRfSuccs(fcs, *rit);
 		moAfter.insert(moAfter.end(), succs.begin(), succs.end());
 		moRfAfter.insert(moRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
 	}
@@ -1297,38 +1140,36 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
  * like addSCEcos. The difference between them lies in the fact that addSCEcos
  * uses MO for adding mo and rb edges, addSCWBEcos uses WB for that.
  */
-void ExecutionGraph::addSCWbEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
-				 std::vector<Event> &stores, std::vector<bool> &wbMatrix,
-				 std::vector<bool> &pscMatrix)
+void ExecutionGraph::addSCWbEcos(std::vector<Event> &fcs,
+				 Matrix2D<Event> &wbMatrix,
+				 Matrix2D<Event> &pscMatrix)
 {
-	for (auto &w : stores) {
-		EventLabel &wLab = getEventLabel(w);
-		auto wIdx = calcEventIndex(stores, wLab.getPos());
+	auto &stores = wbMatrix.getElems();
+	for (auto i = 0u; i < stores.size(); i++) {
 
 		/*
 		 * Calculate which of the stores are wb-after the current
 		 * write, and then collect wb-after and (wb;rf)-after SC successors
 		 */
-		std::vector<int> wbAfter, wbRfAfter;
-		for (auto &s : stores) {
-			EventLabel &sLab = getEventLabel(s);
-			auto sIdx = calcEventIndex(stores, sLab.getPos());
-			if (wbMatrix[wIdx * stores.size() + sIdx]) {
-				auto succs = calcSCSuccs(scs, fcs, sLab.getPos());
-				auto fenceRfs = getSCFenceRfSuccs(scs, fcs, sLab);
+		std::vector<Event> wbAfter, wbRfAfter;
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (wbMatrix(i, j)) {
+				auto succs = calcSCSuccs(fcs, stores[j]);
+				auto fenceRfs = getSCFenceRfSuccs(fcs, stores[j]);
 				wbAfter.insert(wbAfter.end(), succs.begin(), succs.end());
 				wbRfAfter.insert(wbRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
 			}
 		}
 
 		/* Then, add the proper edges to PSC using wb-after and (wb;rf)-after successors */
-		addRbEdges(scs, fcs, wbAfter, wbRfAfter, pscMatrix, wLab);
-		addMoRfEdges(scs, fcs, wbAfter, wbRfAfter, pscMatrix, wLab);
+		addRbEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
+		addMoRfEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
 	}
 }
 
-void ExecutionGraph::addSbHbEdges(std::vector<Event> &scs, std::vector<bool> &matrix)
+void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix)
 {
+	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
 		for (auto j = 0u; j < scs.size(); j++) {
 			if (i == j)
@@ -1339,7 +1180,7 @@ void ExecutionGraph::addSbHbEdges(std::vector<Event> &scs, std::vector<bool> &ma
 			/* PSC_base: Adds sb-edges*/
 			if (ei.getThread() == ej.getThread()) {
 				if (ei.getIndex() < ej.getIndex())
-					matrix[i * scs.size() + j] = true;
+					matrix(i, j) = true;
 				continue;
 			}
 
@@ -1354,15 +1195,14 @@ void ExecutionGraph::addSbHbEdges(std::vector<Event> &scs, std::vector<bool> &ma
 				Event next = ei.getPos().next();
 				EventLabel &eiNext = getEventLabel(next);
 				if (ei.getAddr() != eiNext.getAddr())
-					matrix[i * scs.size() + j] = true;
+					matrix(i, j) = true;
 			}
 		}
 	}
 	return;
 }
 
-void ExecutionGraph::addInitEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
-				  std::vector<bool> &matrix)
+void ExecutionGraph::addInitEdges(std::vector<Event> &fcs, Matrix2D<Event> &matrix)
 {
 	for (auto i = 0u; i < events.size(); i++) {
 		for (auto j = 0u; j < events[i].size(); j++) {
@@ -1370,14 +1210,14 @@ void ExecutionGraph::addInitEdges(std::vector<Event> &scs, std::vector<Event> &f
 			/* Consider only reads that read from the initializer write */
 			if (!lab.isRead() || !lab.rf.isInitializer() || isRMWLoad(lab.getPos()))
 				continue;
-			std::vector<int> preds = calcSCPreds(scs, fcs, lab.pos);
-			std::vector<int> fencePreds = calcSCFencesPreds(scs, fcs, lab.getPos());
+			auto preds = calcSCPreds(fcs, lab.pos);
+			auto fencePreds = calcSCFencesPreds(fcs, lab.getPos());
 			for (auto &w : modOrder[lab.getAddr()]) {
-				std::vector<int> wSuccs = calcSCSuccs(scs, fcs, w);
-				addEdgesFromTo(preds, wSuccs, scs.size(), matrix); /* Adds rb-edges */
+				auto wSuccs = calcSCSuccs(fcs, w);
+				matrix.addEdgesFromTo(preds, wSuccs); /* Adds rb-edges */
 				for (auto &r : getEventLabel(w).rfm1) {
-					std::vector<int> fenceSuccs = calcSCFencesSuccs(scs, fcs, r);
-					addEdgesFromTo(fencePreds, fenceSuccs, scs.size(), matrix); /*Adds (rb;rf)-edges */
+					auto fenceSuccs = calcSCFencesSuccs(fcs, r);
+					matrix.addEdgesFromTo(fencePreds, fenceSuccs); /*Adds (rb;rf)-edges */
 				}
 			}
 		}
@@ -1396,14 +1236,12 @@ bool ExecutionGraph::isPscWeakAcyclicWB()
 	if (scs.empty())
 		return true;
 
-	/* Sort SC accesses for easier look-up, and create PSC matrix */
-	std::vector<bool> matrix(scs.size() * scs.size(), false);
-	std::sort(scs.begin(), scs.end());
+	Matrix2D<Event> matrix(scs);
 
 	/* Add edges from the initializer write (special case) */
-	addInitEdges(scs, fcs, matrix);
+	addInitEdges(fcs, matrix);
 	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(scs, matrix);
+	addSbHbEdges(matrix);
 
 	/*
 	 * Collect memory locations with more than one SC accesses
@@ -1413,15 +1251,12 @@ bool ExecutionGraph::isPscWeakAcyclicWB()
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
 		auto wb = calcWb(loc);
-		auto &stores = wb.first;
-		auto &wbMatrix = wb.second;
-		auto sortedStores = topoSort(wbMatrix, stores);
-		addSCEcos(scs, fcs, sortedStores, matrix);
+		auto sortedStores = wb.topoSort();
+		addSCEcos(fcs, sortedStores, matrix);
 	}
 
-	/* Calculate the transitive closure of the bool matrix */
-	calcTransClosure(matrix, scs.size());
-	return isIrreflexive(matrix, scs.size());
+	matrix.transClosure();
+	return !matrix.isReflexive();
 }
 
 bool ExecutionGraph::isPscWbAcyclicWB()
@@ -1435,14 +1270,12 @@ bool ExecutionGraph::isPscWbAcyclicWB()
 	if (scs.empty())
 		return true;
 
-	/* Sort SC accesses for easier look-up, and create PSC matrix */
-	std::vector<bool> matrix(scs.size() * scs.size(), false);
-	std::sort(scs.begin(), scs.end());
+	Matrix2D<Event> matrix(scs);
 
 	/* Add edges from the initializer write (special case) */
-	addInitEdges(scs, fcs, matrix);
+	addInitEdges(fcs, matrix);
 	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(scs, matrix);
+	addSbHbEdges(matrix);
 
 	/*
 	 * Collect memory locations with more than one SC accesses
@@ -1452,14 +1285,11 @@ bool ExecutionGraph::isPscWbAcyclicWB()
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
 		auto wb = calcWb(loc);
-		auto &stores = wb.first;
-		auto &wbMatrix = wb.second;
-		addSCWbEcos(scs, fcs, stores, wbMatrix, matrix);
+		addSCWbEcos(fcs, wb, matrix);
 	}
 
-	/* Calculate the transitive closure of the bool matrix */
-	calcTransClosure(matrix, scs.size());
-	return isIrreflexive(matrix, scs.size());
+	matrix.transClosure();
+	return !matrix.isReflexive();
 }
 
 bool ExecutionGraph::isPscAcyclicWB()
@@ -1473,14 +1303,12 @@ bool ExecutionGraph::isPscAcyclicWB()
 	if (scs.empty())
 		return true;
 
-	/* Sort SC accesses for easier look-up, and create PSC matrix */
-	std::vector<bool> matrix(scs.size() * scs.size(), false);
-	std::sort(scs.begin(), scs.end());
+	Matrix2D<Event> matrix(scs);
 
 	/* Add edges from the initializer write (special case) */
-	addInitEdges(scs, fcs, matrix);
+	addInitEdges(fcs, matrix);
 	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(scs, matrix);
+	addSbHbEdges(matrix);
 
 	/*
 	 * Collect memory locations that have more than one SC
@@ -1491,9 +1319,7 @@ bool ExecutionGraph::isPscAcyclicWB()
 	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
 	for (auto i = 0u; i < scLocs.size(); i++) {
 		auto wb = calcWb(scLocs[i]);
-		auto &stores = wb.first;
-		auto &wbMatrix = wb.second;
-		topoSorts[i] = allTopoSort(wbMatrix, stores);
+		topoSorts[i] = wb.allTopoSort();
 	}
 
 	unsigned int K = topoSorts.size();
@@ -1510,9 +1336,10 @@ bool ExecutionGraph::isPscAcyclicWB()
 		/* Process current combination */
 		auto tentativePSC(matrix);
 		for (auto i = 0u; i < K; i++)
-			addSCEcos(scs, fcs, topoSorts[i][count[i]], tentativePSC);
-		calcTransClosure(tentativePSC, scs.size());
-		if (isIrreflexive(tentativePSC, scs.size()))
+			addSCEcos(fcs, topoSorts[i][count[i]], tentativePSC);
+
+		tentativePSC.transClosure();
+		if (!tentativePSC.isReflexive())
 			return true;
 
 		/* Find next combination */
@@ -1538,14 +1365,12 @@ bool ExecutionGraph::isPscAcyclicMO()
 	if (scs.empty())
 		return true;
 
-	/* Sort SC accesses for easier look-up, and create PSC matrix */
-	std::vector<bool> matrix(scs.size() * scs.size(), false);
-	std::sort(scs.begin(), scs.end());
+	Matrix2D<Event> matrix(scs);
 
 	/* Add edges from the initializer write (special case) */
-	addInitEdges(scs, fcs, matrix);
+	addInitEdges(fcs, matrix);
 	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(scs, matrix);
+	addSbHbEdges(matrix);
 
 	/*
 	 * Collect memory locations with more than one SC accesses
@@ -1555,30 +1380,27 @@ bool ExecutionGraph::isPscAcyclicMO()
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
 		auto &stores = modOrder[loc];
-		addSCEcos(scs, fcs, stores, matrix);
+		addSCEcos(fcs, stores, matrix);
 	}
 
-	/* Calculate the transitive closure of the bool matrix */
-	calcTransClosure(matrix, scs.size());
-	return isIrreflexive(matrix, scs.size());
+	matrix.transClosure();
+	return !matrix.isReflexive();
 }
 
-std::pair<std::vector<Event>, std::vector<bool> >
-ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
+Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 {
-	std::vector<Event> stores;
+	std::vector<Event> storesInView;
 
-	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(), std::back_inserter(stores),
-		     [&v](Event &s){ return v.contains(s); });
+	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(), std::back_inserter(storesInView),
+		     [&](Event &s){ return v.contains(s); });
 
-	std::vector<bool> matrix(stores.size() * stores.size(), false);
+	Matrix2D<Event> matrix(std::move(storesInView));
+	auto &stores = matrix.getElems();
 
 	/* Optimization */
 	if (stores.size() <= 1)
-		return std::make_pair(stores, matrix);
+		return matrix;
 
-	/* Sort so we can use calcEventIndex() */
-	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
 
@@ -1591,16 +1413,13 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
-			matrix[j * stores.size() + i] = true;
 
-			EventLabel &wLabI = getEventLabel(stores[i]);
-			auto upperL = getRMWChainUpperLimit(wLabI, stores[j]);
-			int k = calcEventIndex(stores, upperL);
+			matrix(j, i) = true;
 
-			EventLabel &wLabJ = getEventLabel(stores[j]);
-			auto lowerL = getRMWChainLowerLimitInView(wLabJ, upperL, v);
-			int l = calcEventIndex(stores, lowerL);
-			matrix[l * stores.size() + k] = true;
+			auto upperL = getRMWChainUpperLimit(stores[i], stores[j]);
+			auto lowerL = getRMWChainLowerLimitInView(stores[j], upperL, v);
+
+			matrix(lowerL, upperL) = true;
 		}
 		/* Add wb-edges for chains of RMWs that read from the initializer */
 		for (auto j = 0u; j < stores.size(); j++) {
@@ -1609,27 +1428,23 @@ ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			auto lowerL = getRMWChainLowerLimitInView(wLab, stores[i], v);
-			int k = calcEventIndex(stores, lowerL);
-			matrix[k * stores.size() + i] = true;
+			auto lowerL = getRMWChainLowerLimitInView(wLab.getPos(), stores[i], v);
+			matrix(lowerL, i) = true;
 		}
 	}
-	calcTransClosure(matrix, stores.size());
-	return std::make_pair(stores, matrix);
+	matrix.transClosure();
+	return matrix;
 }
 
-std::pair<std::vector<Event>, std::vector<bool> >
-ExecutionGraph::calcWb(const llvm::GenericValue *addr)
+Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 {
-	std::vector<Event> stores(modOrder[addr]);
-	std::vector<bool> matrix(stores.size() * stores.size(), false);
+	Matrix2D<Event> matrix(modOrder[addr]);
+	auto &stores = matrix.getElems();
 
 	/* Optimization */
 	if (stores.size() <= 1)
-		return std::make_pair(stores, matrix);
+		return matrix;
 
-	/* Sort so we can use calcEventIndex() */
-	std::sort(stores.begin(), stores.end());
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto &lab = getEventLabel(stores[i]);
 		auto before = getHbBefore(lab.rfm1).
@@ -1637,16 +1452,13 @@ ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || !isWriteRfBefore(before, stores[j]))
 				continue;
-			matrix[j * stores.size() + i] = true;
 
-			EventLabel &wLabI = getEventLabel(stores[i]);
-			auto upperL = getRMWChainUpperLimit(wLabI, stores[j]);
-			int k = calcEventIndex(stores, upperL);
+			matrix(j, i) = true;
 
-			EventLabel &wLabJ = getEventLabel(stores[j]);
-			auto lowerL = getRMWChainLowerLimit(wLabJ, upperL);
-			int l = calcEventIndex(stores, lowerL);
-			matrix[l * stores.size() + k] = true;
+			auto upperL = getRMWChainUpperLimit(stores[i], stores[j]);
+			auto lowerL = getRMWChainLowerLimit(stores[j], upperL);
+
+			matrix(lowerL, upperL) = true;
 		}
 		/* Add wb-edges for chains of RMWs that read from the initializer */
 		for (auto j = 0u; j < stores.size(); j++) {
@@ -1655,27 +1467,22 @@ ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 			if (i == j || !wLab.isRMW() || !pLab.rf.isInitializer())
 				continue;
 
-			auto lowerL = getRMWChainLowerLimit(wLab, stores[i]);
-			int k = calcEventIndex(stores, lowerL);
-			matrix[k * stores.size() + i] = true;
+			auto lowerL = getRMWChainLowerLimit(wLab.getPos(), stores[i]);
+			matrix(lowerL, i) = true;
 		}
 	}
-	calcTransClosure(matrix, stores.size());
-	return std::make_pair(stores, matrix);
+	matrix.transClosure();
+	return matrix;
 }
 
 bool ExecutionGraph::isWbAcyclic(void)
 {
-	bool acyclic = true;
 	for (auto it = modOrder.begin(); it != modOrder.end(); ++it) {
 		auto wb = calcWb(it->first);
-		auto &stores = wb.first;
-		auto &matrix = wb.second;
-		for (auto i = 0u; i < stores.size(); i++)
-			if (matrix[i * stores.size() + i])
-				acyclic = false;
+		if (wb.isReflexive())
+			return false;
 	}
-	return acyclic;
+	return true;
 }
 
 
@@ -1759,7 +1566,7 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 		buf = {};
 		for (auto j = 0u; j < froms[i].second.size(); j++) {
 			for (auto &e : tos) {
-				auto before = getHbBefore(e);
+				auto &before = getHbBefore(e);
 				if (froms[i].second[j].index <
 				    before[froms[i].second[j].thread])
 					buf.push_back(e);
@@ -1786,17 +1593,16 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				v.update(getEventLabel(t).getHbView());
 
 			auto wb = calcWbRestricted(lab.getAddr(), v);
-			auto &ss = wb.first;
-			auto &matrix = wb.second;
+			auto &ss = wb.getElems();
 			// TODO: Make a map with already calculated WBs??
 
 			if (std::find(ss.begin(), ss.end(), lab.getPos()) == ss.end())
 				continue;
 
 			/* Collect all wb-after stores that are in "tos" range */
-			int k = calcEventIndex(ss, lab.getPos());
+			auto k = wb.getIndex(lab.getPos());
 			for (auto l = 0u; l < ss.size(); l++)
-				if (matrix[k * ss.size() + l])
+				if (wb(k, l))
 					buf.push_back(ss[l]);
 		}
 		froms[i].second = buf;
@@ -1826,9 +1632,7 @@ void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 }
 
 void ExecutionGraph::calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-					 std::vector<Event> &tos,
-					 llvm::StringMap<std::vector<bool> > &relMap,
-					 std::vector<bool> &relMatrix, std::string &step)
+					 std::string &step, std::vector<Event> &tos)
 {
 	if (step == "po")
 		return getPoEdgePairs(froms, tos);
@@ -1847,20 +1651,17 @@ void ExecutionGraph::calcSingleStepPairs(std::vector<std::pair<Event, std::vecto
 }
 
 void addEdgePairsToMatrix(std::vector<std::pair<Event, std::vector<Event> > > &pairs,
-			  std::vector<Event> &es, std::vector<bool> &matrix)
+			  Matrix2D<Event> &matrix)
 {
 	for (auto &p : pairs) {
 		for (auto k = 0u; k < p.second.size(); k++) {
-			auto i = calcEventIndex(es, p.first);
-			auto j = calcEventIndex(es, p.second[k]);
-			matrix[i * es.size() + j] = true;
+			matrix(p.first, p.second[k]) = true;
 		}
 	}
 }
 
 void ExecutionGraph::addStepEdgeToMatrix(std::vector<Event> &es,
-					 llvm::StringMap<std::vector<bool> > &relMap,
-					 std::vector<bool> &relMatrix,
+					 Matrix2D<Event> &relMatrix,
 					 std::vector<std::string> &substeps)
 {
 	std::vector<std::pair<Event, std::vector<Event> > > edges;
@@ -1870,24 +1671,23 @@ void ExecutionGraph::addStepEdgeToMatrix(std::vector<Event> &es,
 		edges.push_back(std::make_pair(e, std::vector<Event>({e})));
 
 	for (auto i = 0u; i < substeps.size(); i++)
-		calcSingleStepPairs(edges, es, relMap, relMatrix, substeps[i]);
-	addEdgePairsToMatrix(edges, es, relMatrix);
+		calcSingleStepPairs(edges, substeps[i], es);
+	addEdgePairsToMatrix(edges, relMatrix);
 }
 
-llvm::StringMap<std::vector<bool> >
+llvm::StringMap<Matrix2D<Event> >
 ExecutionGraph::calculateAllRelations(Library &lib, std::vector<Event> &es)
 {
-	llvm::StringMap<std::vector<bool> > relMap;
+	llvm::StringMap<Matrix2D<Event> > relMap;
 
-	std::sort(es.begin(), es.end());
 	for (auto &r : lib.getRelations()) {
-		std::vector<bool> relMatrix(es.size() * es.size(), false);
+		Matrix2D<Event> relMatrix(es);
 		auto &steps = r.getSteps();
 		for (auto &s : steps)
-			addStepEdgeToMatrix(es, relMap, relMatrix, s);
+			addStepEdgeToMatrix(es, relMatrix, s);
 
 		if (r.isTransitive())
-			calcTransClosure(relMatrix, es.size());
+			relMatrix.transClosure();
 		relMap[r.getName()] = relMatrix;
 	}
 	return relMap;
@@ -1900,7 +1700,7 @@ bool ExecutionGraph::isLibConsistentInView(Library &lib, const View &v)
 	auto &constraints = lib.getConstraints();
 	if (std::all_of(constraints.begin(), constraints.end(),
 			[&relations, &es](Constraint &c)
-			{ return isIrreflexive(relations[c.getName()], es.size()); }))
+			{ return !relations[c.getName()].isReflexive(); }))
 		return true;
 	return false;
 }

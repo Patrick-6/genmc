@@ -94,7 +94,7 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
 	auto &allStores = g.modOrder[addr];
-	auto hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	std::vector<Event> result;
 
 	auto view = getRfOptHbBeforeStores(allStores, hbBefore);
@@ -120,15 +120,13 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 		return result;
 
 	auto wb = g.calcWb(addr);
-	auto &stores = wb.first;
-	auto &wbMatrix = wb.second;
+	auto &stores = wb.getElems();
 
 	/* Find the stores from which we can read-from */
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (wbMatrix[i * stores.size() + j] &&
-			    g.isWriteRfBefore(hbBefore, stores[j])) {
+			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
 				allowed = false;
 				break;
 			}
@@ -175,15 +173,13 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 		v.update(sLab.porfView);
 
 		auto wb = g.calcWbRestricted(sLab.addr, v);
-		auto &stores = wb.first;
-		auto &wbMatrix = wb.second;
-		auto i = std::find(stores.begin(), stores.end(), sLab.pos) - stores.begin();
+		auto &stores = wb.getElems();
+		auto i = wb.getIndex(sLab.getPos());
 
-		auto hbBefore = g.getHbBefore(l.prev());
+		auto &hbBefore = g.getHbBefore(l.prev());
 		bool allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (wbMatrix[i * stores.size() + j] &&
-			    g.isWriteRfBefore(hbBefore, stores[j]))
+			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j]))
 				allowed = false;
 		}
 		if (allowed)

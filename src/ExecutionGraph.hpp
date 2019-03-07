@@ -25,6 +25,7 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Library.hpp"
+#include "Matrix2D.hpp"
 #include "ModOrder.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -75,24 +76,23 @@ public:
 	EventLabel& addFinishToGraph(int tid);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
-	View getMsgView(Event e);
-	View getPorfBefore(Event e);
-	View getHbBefore(Event e);
-	View getHbPoBefore(Event e);
+	const View &getMsgView(Event e);
+	const View &getPorfBefore(Event e);
+	const View &getHbBefore(Event e);
+	const View &getHbPoBefore(Event e);
 	View getHbBefore(const std::vector<Event> &es);
 	View getHbRfBefore(const std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);
 	std::vector<Event> getMoOptRfAfter(Event store);
 
-	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWb(const llvm::GenericValue *addr);
-	std::pair<std::vector<Event>, std::vector<bool> >
-	calcWbRestricted(const llvm::GenericValue *addr, const View &v);
+	Matrix2D<Event> calcWb(const llvm::GenericValue *addr);
+	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
 
 	/* Calculation of particular sets of events/event labels */
-	Event getRMWChainUpperLimit(const EventLabel &sLab, const Event upper);
-	Event getRMWChainLowerLimit(const EventLabel &sLab, const Event lower);
-	Event getRMWChainLowerLimitInView(const EventLabel &sLab, const Event lower, const View &v);
+	Event getRMWChainUpperLimit(const Event store, const Event upper);
+	Event getRMWChainLowerLimit(const Event store, const Event lower);
+	Event getRMWChainLowerLimitInView(const Event store, const Event lower, const View &v);
+
 	std::vector<Event> getRMWChain(const EventLabel &sLab);
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
 						  const std::vector<Event> &chain);
@@ -148,27 +148,22 @@ protected:
 	void calcPorfAfter(const Event e, View &a);
 	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);
-	std::vector<int> calcSCFencesSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
-	std::vector<int> calcSCFencesPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
-	std::vector<int> calcSCSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
-	std::vector<int> calcSCPreds(std::vector<Event> &scs, std::vector<Event> &fcs, Event e);
-	bool isRMWLoad(Event e);
+	std::vector<Event> calcSCFencesSuccs(const std::vector<Event> &fcs, const Event e);
+	std::vector<Event> calcSCFencesPreds(const std::vector<Event> &fcs, const Event e);
+	std::vector<Event> calcSCSuccs(const std::vector<Event> &fcs, const Event e);
+	std::vector<Event> calcSCPreds(const std::vector<Event> &fcs, const Event e);
+	std::vector<Event> getSCRfSuccs(const std::vector<Event> &fcs, const Event e);
+	std::vector<Event> getSCFenceRfSuccs(const std::vector<Event> &fcs, const Event e);
+	bool isRMWLoad(const Event e);
 	void spawnAllChildren(int thread);
-	void addRbEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
-			std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-			std::vector<bool> &matrix, EventLabel &lab);
-	void addMoRfEdges(std::vector<Event> &scs, std::vector<Event> &fcs,
-			  std::vector<int> &moAfter, std::vector<int> &moRfAfter,
-			  std::vector<bool> &matrix, EventLabel &lab);
-	std::vector<int> getSCRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, EventLabel &lab);
-	std::vector<int> getSCFenceRfSuccs(std::vector<Event> &scs, std::vector<Event> &fcs, EventLabel &lab);
-	void addInitEdges(std::vector<Event> &scs, std::vector<Event> &fcs, std::vector<bool> &matrix);
-	void addSbHbEdges(std::vector<Event> &scs, std::vector<bool> &matrix);
-	void addSCEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
-		       std::vector<Event> &mo, std::vector<bool> &matrix);
-	void addSCWbEcos(std::vector<Event> &scs, std::vector<Event> &fcs,
-			 std::vector<Event> &stores, std::vector<bool> &wbMatrix,
-			 std::vector<bool> &pscMatrix);
+	void addRbEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
+			std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix, const Event &e);
+	void addMoRfEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
+			  std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix, const Event &e);
+	void addInitEdges(std::vector<Event> &fcs, Matrix2D<Event> &matrix);
+	void addSbHbEdges(Matrix2D<Event> &matrix);
+	void addSCEcos(std::vector<Event> &fcs, std::vector<Event> &mo, Matrix2D<Event> &matrix);
+	void addSCWbEcos(std::vector<Event> &fcs, Matrix2D<Event> &wbMatrix, Matrix2D<Event> &pscMatrix);
 
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
@@ -183,14 +178,11 @@ protected:
 	void getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
 	void calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-				 std::vector<Event> &tos,
-				 llvm::StringMap<std::vector<bool> > &relMap,
-				 std::vector<bool> &relMatrix, std::string &step);
+				 std::string &step, std::vector<Event> &tos);
 	void addStepEdgeToMatrix(std::vector<Event> &es,
-				 llvm::StringMap<std::vector<bool> > &relMap,
-				 std::vector<bool> &relMatrix,
-				 std::vector<std::string> &steps);
-	llvm::StringMap<std::vector<bool> >
+				 Matrix2D<Event> &relMatrix,
+				 std::vector<std::string> &substeps);
+	llvm::StringMap<Matrix2D<Event> >
 	calculateAllRelations(Library &lib, std::vector<Event> &es);
 };
 
