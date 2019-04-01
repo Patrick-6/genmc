@@ -1,22 +1,11 @@
+image: localhost:5000/genmc-tool
+
 stages:
   - build
   - ftest
   - rtest
   - test
   - cleanup
-
-before_script:
-  - export TERM='xterm-256color'
-  - printf "\ndeb http://ftp.debian.org/debian jessie main contrib non-free\ndeb-src http://ftp.debian.org/debian jessie main contrib non-free" >> /etc/apt/sources.list
-  - printf "\ndeb http://ftp.debian.org/debian sid main contrib non-free\ndeb-src http://ftp.debian.org/debian sid main contrib non-free" >> /etc/apt/sources.list
-  - apt-get update && apt-get install -y -qq bc g++ clang autoconf make automake libffi-dev zlib1g-dev libedit-dev
-    clang-3.5 libclang-3.5-dev llvm-3.5 llvm-3.5-dev
-    clang-3.8 libclang-3.8-dev llvm-3.8 llvm-3.8-dev
-    clang-4.0 libclang-4.0-dev llvm-4.0 llvm-4.0-dev
-    clang-6.0 libclang-6.0-dev llvm-6.0 llvm-6.0-dev
-    clang-7   libclang-7-dev   llvm-7   llvm-7-dev
-variables:
-  GIT_STRATEGY: fetch
 
 ### TEMPLATES
 
