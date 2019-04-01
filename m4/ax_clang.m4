@@ -18,6 +18,7 @@ AC_DEFUN([AX_CLANG],
   ax_clang_ok='yes'
   CLANG=''
   CLANGXX=''
+  CLANG_VERSION_NO_MINOR=7 # From clang-7 onwards, no minor version is printed
   AC_ARG_WITH([clang],
               [AS_HELP_STRING([--with-clang=PATH],[Specify path to clang, as it will be called for C program analysis.])],
               [if test "x$withval" != "xyes"; then
@@ -49,6 +50,10 @@ AC_DEFUN([AX_CLANG],
   if test "x$CLANG" = "x"; then
     if test "x$LLVMVERSION" != "x"; then
       ax_clang_llvmversion=`echo "$LLVMVERSION" | sed 's/\([[0-9]]*\.[[0-9]]*\)\.[[0-9]]*/\1/g'`
+      ax_clang_llvmversion_major=`echo $ax_clang_llvmversion | cut -d '.' -f1`
+      if test "$ax_clang_llvmversion_major" -ge "$CLANG_VERSION_NO_MINOR"; then
+        ax_clang_llvmversion="$ax_clang_llvmversion_major"
+      fi
       AC_PATH_PROG([CLANG],[clang-$ax_clang_llvmversion])
     fi
   fi
@@ -82,6 +87,10 @@ AC_DEFUN([AX_CLANG],
   if test "x$CLANGXX" = "x"; then
     if test "x$LLVMVERSION" != "x"; then
       ax_clang_llvmversion=`echo "$LLVMVERSION" | sed 's/\([[0-9]]*\.[[0-9]]*\)\.[[0-9]]*/\1/g'`
+      ax_clang_llvmversion_major=`echo $ax_clang_llvmversion | cut -d '.' -f1`
+      if test "$ax_clang_llvmversion_major" -ge "$CLANG_VERSION_NO_MINOR"; then
+        ax_clang_llvmversion="$ax_clang_llvmversion_major"
+      fi
       AC_PATH_PROG([CLANGXX],[clang++-$ax_clang_llvmversion])
     fi
   fi
