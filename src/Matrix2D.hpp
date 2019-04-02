@@ -37,6 +37,16 @@ protected:
 			     std::vector<bool> visited,
 			     std::vector<int> &inDegree) const;
 
+#ifdef __MATRIX_2D_INCREMENTAL__
+	static inline unsigned int computeIndex (unsigned int i, unsigned int j) {
+		return (i < j) ? (j * j + i) : (i * i + i + j);
+	}
+#else
+	inline unsigned int computeIndex (unsigned int i, unsigned int j) const {
+		return i * elems_.size() + j;
+	}
+#endif
+
 public:
 
 	Matrix2D() {};
@@ -64,23 +74,23 @@ public:
 
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 
+	void clear() { matrix_.clear(); elems_.clear(); }
+
 	unsigned int size() const;
 	bool empty() const;
 
 	bool isReflexive() const;
 	void transClosure();
 
-	inline bool operator()(const T &a, const T &b) const { return !!matrix_[getIndex(a) * size() + getIndex(b)]; };
-	inline bool operator()(T &a, T &b) const { return !!matrix_[getIndex(a) * size() + getIndex(b)]; };
-	inline bool operator()(T &a, unsigned int j) const { return !!matrix_[getIndex(a) * size() + j]; };
-	inline bool operator()(unsigned int i, T &b) const { return !!matrix_[i * size() + getIndex(b)]; };
-	inline bool operator()(unsigned int i, unsigned int j) const { return !!matrix_[i * size() + j]; };
+	inline bool operator()(const T &a, const T &b) const { return !!matrix_[computeIndex(getIndex(a),getIndex(b))]; };
+	inline bool operator()(const T &a, unsigned int j) const { return !!matrix_[computeIndex(getIndex(a),j)]; };
+	inline bool operator()(unsigned int i, const T &b) const { return !!matrix_[computeIndex(i,getIndex(b))]; };
+	inline bool operator()(unsigned int i, unsigned int j) const { return !!matrix_[computeIndex(i,j)]; };
 
-	inline unsigned char& operator()(const T &a, const T &b) { return matrix_[getIndex(a) * size() + getIndex(b)]; };
-	inline unsigned char& operator()(T &a, T &b) { return matrix_[getIndex(a) * size() + getIndex(b)]; };
-	inline unsigned char& operator()(T &a, unsigned int j) { return matrix_[getIndex(a) * size() + j]; };
-	inline unsigned char& operator()(unsigned int i, T &b) { return matrix_[i * size() + getIndex(b)]; };
-	inline unsigned char& operator()(unsigned int i, unsigned int j) { return matrix_[i * size() + j]; };
+	inline unsigned char& operator()(const T &a, const T &b) { return matrix_[computeIndex(getIndex(a),getIndex(b))]; };
+	inline unsigned char& operator()(const T &a, unsigned int j) { return matrix_[computeIndex(getIndex(a),j)]; };
+	inline unsigned char& operator()(unsigned int i, const T &b) { return matrix_[computeIndex(i, getIndex(b))]; };
+	inline unsigned char& operator()(unsigned int i, unsigned int j) { return matrix_[computeIndex(i,j)]; };
 
 	inline bool operator==(const Matrix2D<T> &m) const {
 		return m.getElems() == getElems() && m.matrix_ == matrix_;
