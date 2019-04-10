@@ -56,6 +56,8 @@ public:
 	int getStoreOffset(const llvm::GenericValue *addr, Event e);
 	void changeStoreOffset(const llvm::GenericValue *addr, Event e, int newOffset);
 
+	unsigned int size() const { return mo_.size(); };
+
 	inline std::vector<Event> &operator[](const llvm::GenericValue *addr) { return mo_[addr]; };
 
 	/* Overloaded operators */
