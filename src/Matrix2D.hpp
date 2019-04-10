@@ -40,7 +40,7 @@ protected:
 public:
 
 	Matrix2D() {};
-	Matrix2D(std::vector<T> &es);
+	Matrix2D(const std::vector<T> &es);
 	Matrix2D(std::vector<T> &&es);
 
 	using iterator = typename std::vector<T>::iterator;

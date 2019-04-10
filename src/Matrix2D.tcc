@@ -38,7 +38,7 @@ int binSearch(const std::vector<T> &arr, int len, T what)
 }
 
 template<typename T>
-Matrix2D<T>::Matrix2D(std::vector<T> &es) : matrix_(es.size() * es.size(), false), elems_(es) { }
+Matrix2D<T>::Matrix2D(const std::vector<T> &es) : matrix_(es.size() * es.size(), false), elems_(es) { }
 
 template<typename T>
 Matrix2D<T>::Matrix2D(std::vector<T> &&es) : matrix_(es.size() * es.size(), false), elems_(std::move(es))  { }
