@@ -1265,7 +1265,9 @@ bool ExecutionGraph::isPscAcyclicMO()
  * which is not part of the WB matrix.
  *
  * If there is an atomicity violation in the graph, the returned
- * vector is empty.
+ * vector is empty. (This may happen as part of some optimization,
+ * e.g., in getRevisitLoads(), where the view of the resulting graph
+ * is not calculated.)
  */
 std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &wb)
 {
