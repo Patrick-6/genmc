@@ -52,6 +52,12 @@
 # include <llvm/Transforms/Scalar.h>
 #endif
 
+#ifdef LLVM_PASSMANAGER_TEMPLATE
+# define PassManager llvm::legacy::PassManager
+#else
+# define PassManager llvm::PassManager
+#endif
+
 /* TODO: Move explanation comments to *.hpp files. */
 namespace LLVMModule {
 /* Global variable to handle the LLVM context */
@@ -101,11 +107,7 @@ namespace LLVMModule {
 	bool transformLLVMModule(llvm::Module &mod, bool spinAssume, int unroll)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
-#ifdef LLVM_PASSMANAGER_TEMPLATE
-		llvm::legacy::PassManager PM;
-#else
-		llvm::PassManager PM;
-#endif
+		PassManager OptPM, BndPM;
 		bool modified;
 
 		llvm::initializeCore(Registry);
@@ -122,33 +124,35 @@ namespace LLVMModule {
 		llvm::initializeInstrumentation(Registry);
 		llvm::initializeTarget(Registry);
 
-		PM.add(new DeclareAssumePass());
-		PM.add(new DeclareEndLoopPass());
-		if (spinAssume)
-			PM.add(new SpinAssumePass());
-		if (unroll >= 0)
-			PM.add(new LoopUnrollPass(unroll));
-		PM.add(new DefineLibcFunsPass());
+		OptPM.add(new DeclareAssumePass());
+		OptPM.add(new DefineLibcFunsPass());
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-		PM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
+		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
 #else
-		PM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
+		OptPM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
 #endif
-		PM.add(llvm::createPromoteMemoryToRegisterPass());
-		PM.add(llvm::createDeadArgEliminationPass());
 
-		modified = PM.run(mod);
-		assert(!llvm::verifyModule(mod));
+		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
+		OptPM.add(llvm::createDeadArgEliminationPass());
+
+		modified = OptPM.run(mod);
+
+		if (spinAssume)
+			BndPM.add(new SpinAssumePass());
+		BndPM.add(new DeclareEndLoopPass());
+		if (unroll >= 0)
+			BndPM.add(new LoopUnrollPass(unroll));
+
+		modified |= BndPM.run(mod);
+		modified |= OptPM.run(mod);
+
+		assert(!llvm::verifyModule(mod, &llvm::dbgs()));
 		return modified;
 	}
 
 	void printLLVMModule(llvm::Module &mod, std::string &out)
 	{
-#ifdef LLVM_PASSMANAGER_TEMPLATE
-		llvm::legacy::PassManager PM;
-#else
-		llvm::PassManager PM;
-#endif
+		PassManager PM;
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
 		std::string errs;
 #else
