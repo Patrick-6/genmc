@@ -70,6 +70,7 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <random>
 #include <unordered_map>
 
 class GenMCDriver;
@@ -99,7 +100,12 @@ struct ExecutionContext {
 };
 
 class Thread {
+
 public:
+	using MyRNG  = std::minstd_rand;
+	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
+	static constexpr int seed = 1821;
+
 	int id;
 	int parentId;
 	llvm::Function *threadFun;
@@ -108,19 +114,19 @@ public:
 	std::unordered_map<void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	bool isBlocked;
+	MyRNG rng;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
 
 	void block() { isBlocked = true; };
 	void unblock() { isBlocked = false; };
 
-	Thread() {}
-
-	Thread(llvm::Function *F, int id) : id(id), parentId(-1), threadFun(F),
-					    globalInstructions(0), isBlocked(false) {}
+	Thread(llvm::Function *F, int id)
+		: id(id), parentId(-1), threadFun(F), globalInstructions(0),
+		  isBlocked(false), rng(seed) {}
 
 	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
-		  isBlocked(false) {}
+		  isBlocked(false), rng(seed) {}
 
 	llvm::raw_ostream& operator<<(llvm::raw_ostream &s) {
 		return s << "Thread (id: " << id << ", parent: " << parentId << ", function: "
@@ -235,6 +241,7 @@ public:
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callVerifierNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
   void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);

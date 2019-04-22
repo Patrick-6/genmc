@@ -110,6 +110,7 @@ void Interpreter::reset()
 		threads[i].tls = threadLocalVars;
 		threads[i].isBlocked = false;
 		threads[i].globalInstructions = 0;
+		threads[i].rng.seed(Thread::seed);
 	}
 
 	/*

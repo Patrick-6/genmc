@@ -2423,6 +2423,19 @@ void Interpreter::callVerifierAssume(Function *F,
 		getCurThr().block();
 }
 
+void Interpreter::callVerifierNondetInt(Function *F,
+					const std::vector<GenericValue> &ArgVals)
+{
+	Thread::MyDist dist(std::numeric_limits<int>::min(),
+			    std::numeric_limits<int>::max());
+
+	GenericValue result;
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
+			      dist(getCurThr().rng));
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue address = driver->visitMalloc(ArgVals[0]);
@@ -2685,6 +2698,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "__VERIFIER_assume") {
 	  callVerifierAssume(F, ArgVals);
+	  return;
+  } else if (functionName == "__VERIFIER_nondet_int") {
+	  callVerifierNondetInt(F, ArgVals);
 	  return;
   } else if (functionName == "malloc") {
 	  callMalloc(F, ArgVals);
