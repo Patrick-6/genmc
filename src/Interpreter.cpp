@@ -96,6 +96,9 @@ ExecutionEngine *Interpreter::create(Module *M, GenMCDriver *driver,
   return new Interpreter(M, driver);
 }
 
+/* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
+constexpr int Thread::seed;
+
 /* Resets the interpreter for a new exploration */
 void Interpreter::reset()
 {
