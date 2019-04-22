@@ -96,8 +96,9 @@ std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 	return ls;
 }
 
-std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-	  RC11MODriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+std::pair<std::vector<std::unique_ptr<EventLabel> >,
+	  std::vector<std::pair<Event, Event> > >
+RC11MODriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
 	auto writePrefix = getGraph().getPrefixLabelsNotBefore(lab.porfView, before);
 	auto moPlacings = getGraph().getMOPredsInBefore(writePrefix, before);

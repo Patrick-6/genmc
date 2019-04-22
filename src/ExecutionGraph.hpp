@@ -29,12 +29,14 @@
 #include "ModOrder.hpp"
 #include <llvm/ADT/StringMap.h>
 
+#include <memory>
+
 /*
  * ExecutionGraph class - This class represents an execution graph
  */
 class ExecutionGraph {
 public:
-	std::vector<std::vector<EventLabel> > events;
+	std::vector<std::vector<std::unique_ptr<EventLabel> > > events;
 	ModOrder modOrder;
 	unsigned int timestamp;
 
@@ -92,11 +94,12 @@ public:
 
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
 						  const std::vector<Event> &chain);
-	std::vector<EventLabel>	getPrefixLabelsNotBefore(const View &prefix, const View &before);
-	std::vector<Event> getRfsNotBefore(const std::vector<EventLabel> &labs,
+	std::vector<std::unique_ptr<EventLabel> >
+	getPrefixLabelsNotBefore(const View &prefix, const View &before);
+	std::vector<Event> getRfsNotBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 					   const View &before);
 	std::vector<std::pair<Event, Event> >
-	getMOPredsInBefore(const std::vector<EventLabel> &labs,
+	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 			   const View &before);
 
 	/* Calculation of loads that can be revisited */
@@ -108,7 +111,7 @@ public:
 	View getViewFromStamp(unsigned int stamp);
 	void cutToStamp(unsigned int stamp);
 	void cutToView(const View &view);
-	void restoreStorePrefix(EventLabel &rLab, std::vector<EventLabel> &storePrefix,
+	void restoreStorePrefix(EventLabel &rLab, std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 				std::vector<std::pair<Event, Event> > &moPlacings);
 
 	/* Consistency checks */
@@ -140,9 +143,9 @@ protected:
 
 	void calcLoadPoRfView(EventLabel &lab);
 	void calcLoadHbView(EventLabel &lab);
-	EventLabel& addEventToGraph(EventLabel &lab);
-	EventLabel& addReadToGraphCommon(EventLabel &lab, Event rf);
-	EventLabel& addStoreToGraphCommon(EventLabel &lab);
+	EventLabel& addEventToGraph(std::unique_ptr<EventLabel> lab);
+	EventLabel& addReadToGraphCommon(std::unique_ptr<EventLabel> lab, Event rf);
+	EventLabel& addStoreToGraphCommon(std::unique_ptr<EventLabel> lab);
 	void calcPorfAfter(const Event e, View &a);
 	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a);
 	void calcRelRfPoBefore(int thread, int index, View &v);

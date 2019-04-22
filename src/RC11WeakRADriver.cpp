@@ -40,7 +40,7 @@ std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *ad
 	auto before = g.getHbRfBefore(overwritten);
 	for (auto i = 0u; i < g.events.size(); i++) {
 		for (auto j = before[i] + 1u; j < g.events[i].size(); j++) {
-			EventLabel &lab = g.events[i][j];
+			EventLabel &lab = g.getEventLabel(Event(i, j));
 			if (lab.isWrite() && lab.getAddr() == addr)
 				stores.push_back(lab.getPos());
 		}
@@ -58,8 +58,9 @@ std::vector<Event> RC11WeakRADriver::getRevisitLoads(EventLabel &lab)
 	BUG();
 }
 
-std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-	  RC11WeakRADriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+std::pair<std::vector<std::unique_ptr<EventLabel> >,
+	  std::vector<std::pair<Event, Event> > >
+RC11WeakRADriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
 	BUG();
 }

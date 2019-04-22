@@ -78,7 +78,7 @@ void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 
 		for (const auto &r : g.getEventLabel(w).rfm1) {
 			if (r.thread != w.thread && r.index < storeView[r.thread]) {
-				auto &lab = g.events[r.thread][storeView[r.thread]];
+				auto &lab = g.getEventLabel(Event(r.thread, storeView[r.thread]));
 				if (lab.isRead() && lab.rf != w) {
 					storeView[w.thread]++;
 					break;
@@ -207,8 +207,9 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	return result;
 }
 
-std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-	  RC11WBDriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+std::pair<std::vector<std::unique_ptr<EventLabel> >,
+	  std::vector<std::pair<Event, Event> > >
+RC11WBDriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
 {
 	auto writePrefix = getGraph().getPrefixLabelsNotBefore(lab.porfView, before);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());

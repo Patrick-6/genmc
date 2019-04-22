@@ -30,6 +30,7 @@
 #include <llvm/IR/Module.h>
 
 #include <ctime>
+#include <memory>
 #include <random>
 #include <unordered_set>
 
@@ -40,17 +41,19 @@ struct StackItem {
 	Event toRevisit;
 	Event oldRf;
 	Event shouldRf;
-	std::vector<EventLabel> writePrefix;
+	std::vector<std::unique_ptr<EventLabel> > writePrefix;
 	std::vector<std::pair<Event, Event> > moPlacings;
 	int moPos;
 
 	StackItem() : type(None) {};
 	StackItem(StackItemType t, Event e, Event oldRf, Event shouldRf,
-		  std::vector<EventLabel> &&writePrefix,
+		  std::vector<std::unique_ptr<EventLabel> > &&writePrefix,
 		  std::vector<std::pair<Event, Event> > &&moPlacings,
 		  int newMoPos)
 		: type(t), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
-		  writePrefix(writePrefix), moPlacings(moPlacings), moPos(newMoPos) {};
+		  writePrefix(std::move(writePrefix)),
+		  moPlacings(std::move(moPlacings)),
+		  moPos(newMoPos) {};
 };
 
 class GenMCDriver {
@@ -89,7 +92,7 @@ public:
 	virtual ~GenMCDriver() {};
 
 	void addToWorklist(StackItemType t, Event e, Event shouldRf,
-			   std::vector<EventLabel> &&prefix,
+			   std::vector<std::unique_ptr<EventLabel> > &&prefix,
 			   std::vector<std::pair<Event, Event> > &&moPlacings,
 			   int newMoPos);
 	StackItem getNextItem();
@@ -159,8 +162,9 @@ public:
 	virtual std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) = 0;
 	virtual std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW = false) = 0;
 	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;
-	virtual std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-			  getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
+	virtual std::pair<std::vector<std::unique_ptr<EventLabel> >,
+			  std::vector<std::pair<Event, Event> > >
+	getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
 
 	virtual bool checkPscAcyclicity() = 0;
 	virtual bool isExecutionValid() = 0;

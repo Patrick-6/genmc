@@ -101,7 +101,7 @@ void GenMCDriver::handleExecutionBeginning()
 
 		/* Skip not-yet-created threads */
 		BUG_ON(g.events[i].empty());
-		auto &labFst = g.events[i][0];
+		auto &labFst = g.getEventLabel(Event(i, 0));
 		if (labFst.rf.index >= (int) g.events[labFst.rf.thread].size())
 			continue;
 
@@ -192,9 +192,9 @@ void GenMCDriver::run()
 }
 
 void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
-			       std::vector<EventLabel> &&prefix,
-			       std::vector<std::pair<Event, Event> > &&moPlacings,
-			       int newMoPos = 0)
+				std::vector<std::unique_ptr<EventLabel> > &&prefix,
+				std::vector<std::pair<Event, Event> > &&moPlacings,
+				int newMoPos = 0)
 
 {
 	auto &lab = getGraph().getEventLabel(e);
@@ -210,7 +210,7 @@ StackItem GenMCDriver::getNextItem()
 		if (rit->second.empty())
 			continue;
 
-		auto si = rit->second.back();
+		auto si = std::move(rit->second.back());
 		rit->second.pop_back();
 		return si;
 	}
@@ -236,7 +236,7 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 	/* First, free memory allocated by events that will no longer be in the graph */
 	for (auto i = 0u; i < g.events.size(); i++) {
 		for (auto j = v[i] + 1u; j < g.events[i].size(); j++) {
-			auto &lab = g.events[i][j];
+			auto &lab = g.getEventLabel(Event(i, j));
 			if (lab.isMalloc())
 				EE->freeRegion(lab.getAddr(), lab.val.IntVal.getLimitedValue());
 		}
@@ -337,7 +337,7 @@ EventLabel& GenMCDriver::getCurrentLabel()
 	auto &thr = EE->getCurThr();
 
 	BUG_ON(thr.globalInstructions >= g.events[thr.id].size());
-	return g.events[thr.id][thr.globalInstructions];
+	return g.getEventLabel(Event(thr.id, thr.globalInstructions));
 }
 
 
@@ -376,7 +376,7 @@ Event GenMCDriver::checkForRaces()
 	auto &before = g.getHbBefore(lab.getPos().prev());
 	for (auto i = 0u; i < g.events.size(); i++)
 		for (auto j = 0u; j < g.events[i].size(); j++) {
-			auto &oLab = g.events[i][j];
+			auto &oLab = g.getEventLabel(Event(i, j));
 			if (oLab.isFree() && oLab.getAddr() == lab.getAddr())
 				return oLab.getPos();
 			if (oLab.isMalloc() && oLab.getAddr() <= lab.getAddr() &&
@@ -462,7 +462,8 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 
 		/* First, check if the thread to be created already exists */
 		while (tid < (int) g.events.size()) {
-			if (!g.events[tid].empty() && g.events[tid][0].rf == cur)
+			if (!g.events[tid].empty() &&
+			    g.getEventLabel(Event(tid, 0)).rf == cur)
 				break;
 			++tid;
 		}
@@ -696,7 +697,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	auto &before = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	for (auto i = 0u; i < g.events.size(); i++) {
 		for (auto j = 1; j <= before[i]; j++) {
-			auto &lab = g.events[i][j];
+			auto &lab = g.getEventLabel(Event(i, j));
 			if (lab.isMalloc() && lab.getAddr() == ptr) {
 				m = lab.pos;
 				break;
@@ -1106,7 +1107,7 @@ void GenMCDriver::prettyPrintGraph()
 		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
 			     << "> " << thr.threadFun->getName() << ": ";
 		for (auto j = 0u; j < g.events[i].size(); j++) {
-			auto &lab = g.events[i][j];
+			auto &lab = g.getEventLabel(Event(i, j));
 			if (lab.isRead()) {
 				if (lab.isRevisitable())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
@@ -1147,7 +1148,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
 		for (auto j = 1; j <= before[i]; j++) {
 			std::stringstream buf;
-			auto lab = g.events[i][j];
+			auto lab = g.getEventLabel(Event(i, j));
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
 			ss << "\t" << lab.getPos() << " [label=\"" << buf.str() << "\""
@@ -1161,7 +1162,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before
 		auto &thr = EE->getThrById(i);
 		for (auto j = 0; j <= before[i]; j++) {
 			std::stringstream buf;
-			auto lab = g.events[i][j];
+			auto lab = g.getEventLabel(Event(i, j));
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
 			/* Print a po-edge, but skip dummy start events for
@@ -1193,7 +1194,7 @@ void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &bu
 	a[e.thread] = e.index;
 	auto &thr = EE->getThrById(e.thread);
 	for (int i = ai; i <= e.index; i++) {
-		auto &lab = g.events[e.thread][i];
+		auto &lab = g.getEventLabel(Event(e.thread, i));
 		if (lab.hasReadSem() && !lab.rf.isInitializer())
 			calcTraceBefore(lab.rf, a, buf);
 		Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
