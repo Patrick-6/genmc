@@ -350,6 +350,9 @@ EventLabel& GenMCDriver::getCurrentLabel()
  */
 Event GenMCDriver::checkForRaces()
 {
+	if (userConf->disableRaceDetection)
+		return Event::getInitializer();
+
 	auto &g = getGraph();
 	auto &lab = g.getLastThreadLabel(EE->getCurThr().id);
 
