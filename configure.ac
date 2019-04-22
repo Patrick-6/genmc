@@ -388,6 +388,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether llvm::Loop::getName exists (>= llvm 4)
+AC_MSG_CHECKING([whether llvm::Loop::getName exists])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopInfo.h>
+]],[[
+  llvm::Loop * L = 0;
+  L->getName();
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_LOOP_GET_NAME],[1],
+   [Define if llvm::LoopInfo::getName exists])],
+  [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::LoopInfo::erase exists (> llvm 4)
 AC_MSG_CHECKING([whether llvm::LoopInfo::erase exists])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
