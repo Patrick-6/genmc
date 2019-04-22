@@ -156,6 +156,23 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	if (!sLab.isRMW())
 		return ls;
 
+	/* Optimization:
+	 * If sLab is maximal in WB, then all revisitable loads can read
+	 * from it.
+	 */
+	if (ls.size() > 1) {
+		auto wb = g.calcWb(sLab.addr);
+		auto i = wb.getIndex(sLab.getPos());
+		bool allowed = true;
+		for (auto j = 0u; j < wb.size(); j++)
+			if (wb(i,j)) {
+				allowed = false;
+				break;
+			}
+		if (allowed)
+			return ls;
+	}
+
 	std::vector<Event> result;
 
 	/*
@@ -179,8 +196,10 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 		auto &hbBefore = g.getHbBefore(l.prev());
 		bool allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j]))
+			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
 				allowed = false;
+				break;
+			}
 		}
 		if (allowed)
 			result.push_back(l);

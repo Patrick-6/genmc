@@ -38,7 +38,7 @@ int binSearch(const std::vector<T> &arr, int len, T what)
 }
 
 template<typename T>
-Matrix2D<T>::Matrix2D(std::vector<T> &es) : matrix_(es.size() * es.size(), false), elems_(es) { }
+Matrix2D<T>::Matrix2D(const std::vector<T> &es) : matrix_(es.size() * es.size(), false), elems_(es) { }
 
 template<typename T>
 Matrix2D<T>::Matrix2D(std::vector<T> &&es) : matrix_(es.size() * es.size(), false), elems_(std::move(es))  { }
@@ -91,8 +91,9 @@ std::vector<int> Matrix2D<T>::getInDegrees() const
 {
 	std::vector<int> inDegree(size(), 0);
 
-	for (auto i = 0u; i < matrix_.size(); i++)
-		inDegree[i % elems_.size()] += (int) matrix_[i];
+	for (auto i = 0u; i < elems_.size(); i++)
+		for (auto j = 0u; j < elems_.size(); j++)
+			inDegree[i] += (int) (*this)(j,i);
 	return inDegree;
 }
 
@@ -223,16 +224,49 @@ template<typename T>
 void Matrix2D<T>::transClosure()
 {
 	auto len = (int) size();
+#ifdef __MATRIX_2D_INCREMENTAL__
 	for (auto i = 1; i < len; i++)
 		for (auto k = 0; k < i; k++)
-			if ((*this)(i, k))
-				for (auto j = 0; j < len; j++)
-					(*this)(i, j) = (*this)(i, j) | (*this)(k, j);
+			if (matrix_[i * i + i + k]) {
+				auto j = 0;
+				auto ij_index = i * (i + 1);
+				auto kj_index = k * (k + 1);
+				for (; j <= k; j++, ij_index++, kj_index++)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+				kj_index += k;
+				for (; j <= i; j++, ij_index++, kj_index += j + j - 1)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+				ij_index += i;
+				for (; j < len; j++, ij_index += j + j - 1, kj_index += j + j - 1)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+			}
 	for (auto i = 0; i < len - 1; i++)
 		for (auto k = i + 1; k < len; k++)
-			if ((*this)(i, k))
+			if (matrix_[k * k + i]) {
+				auto j = 0;
+				auto ij_index = i * (i + 1);
+				auto kj_index = k * (k + 1);
+				for (; j <= i; j++, ij_index++, kj_index++)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+				ij_index += i;
+				for (; j <= k; j++, ij_index += j + j - 1, kj_index++)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+				kj_index += k;
+				for (; j < len; j++, ij_index += j + j - 1, kj_index += j + j - 1)
+					matrix_[ij_index] = matrix_[ij_index] | matrix_[kj_index];
+			}
+#else
+	for (auto i = 1; i < len; i++)
+		for (auto k = 0; k < i; k++)
+			if (matrix_[i * len + k])
 				for (auto j = 0; j < len; j++)
-					(*this)(i, j) = (*this)(i, j) | (*this)(k, j);
+					matrix_[i * len + j] = matrix_[i * len + j] | matrix_[k * len + j];
+	for (auto i = 0; i < len - 1; i++)
+		for (auto k = i + 1; k < len; k++)
+			if (matrix_[i * len + k])
+				for (auto j = 0; j < len; j++)
+					matrix_[i * len + j] = matrix_[i * len + j] | matrix_[k * len + j];
+#endif
 }
 
 template<typename T>

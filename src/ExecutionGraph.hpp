@@ -89,11 +89,7 @@ public:
 	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
 
 	/* Calculation of particular sets of events/event labels */
-	Event getRMWChainUpperLimit(const Event store, const Event upper);
-	Event getRMWChainLowerLimit(const Event store, const Event lower);
-	Event getRMWChainLowerLimitInView(const Event store, const Event lower, const View &v);
 
-	std::vector<Event> getRMWChain(const EventLabel &sLab);
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
 						  const std::vector<Event> &chain);
 	std::vector<EventLabel>	getPrefixLabelsNotBefore(const View &prefix, const View &before);
@@ -140,6 +136,8 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb);
+
 	void calcLoadPoRfView(EventLabel &lab);
 	void calcLoadHbView(EventLabel &lab);
 	EventLabel& addEventToGraph(EventLabel &lab);
