@@ -39,12 +39,12 @@ struct LibMem {
 	LibMem(std::string name, EventType typ, llvm::AtomicOrdering ord, bool isLibInit) :
 		name(name), typ(typ), ord(ord), initial(isLibInit) {};
 
-	std::string getName() { return name; };
-	EventType getType()   { return typ; };
-	llvm::AtomicOrdering getOrdering() { return ord; };
-	bool isLibInit()         { return initial; };
-	bool hasReadSemantics()  { return typ == ERead; };
-	bool hasWriteSemantics() { return typ == EWrite; };
+	const std::string& getName() const { return name; };
+	EventType getType()   const { return typ; };
+	llvm::AtomicOrdering getOrdering() const { return ord; };
+	bool isLibInit()         const { return initial; };
+	bool hasReadSemantics()  const { return typ == ERead; };
+	bool hasWriteSemantics() const { return typ == EWrite; };
 };
 
 struct Relation {
@@ -54,9 +54,9 @@ struct Relation {
 
 	Relation(std::string name) : transitive(false), name(name) {};
 
-	bool isTransitive()     { return transitive; };
-	std::string getName() { return name; };
-	std::vector<std::vector<std::string> > &getSteps() { return steps; };
+	bool isTransitive() const    { return transitive; };
+	const std::string &getName() const { return name; };
+	const std::vector<std::vector<std::string> > &getSteps() const { return steps; };
 
 	void addStep(std::vector<std::string> step) { steps.push_back(step); };
 	void makeTransitive()    { transitive = true; };
@@ -67,7 +67,7 @@ struct Constraint {
 
 	Constraint(std::string name) : name(name) {};
 
-	std::string getName() { return name; };
+	const std::string &getName() const { return name; };
 };
 
 /* Main class for libraries */
@@ -87,14 +87,14 @@ public:
 
 	std::string getName();
 	LibType getType();
-	std::vector<LibMem> &getMembers();
-	std::vector<Relation> &getRelations();
-	std::vector<Constraint> &getConstraints();
-	bool hasFunctionalRfs() { return functionalRfs; };
-	bool tracksCoherence()  { return coherence; };
+	const std::vector<LibMem> &getMembers() const;
+	const std::vector<Relation> &getRelations() const;
+	const std::vector<Constraint> &getConstraints() const;
+	bool hasFunctionalRfs() const { return functionalRfs; };
+	bool tracksCoherence()  const { return coherence; };
 	void addMember(std::string name, std::string typ, std::string ord);
-	bool hasMember(std::string &name);
-	LibMem *getMember(std::string &name);
+	bool hasMember(const std::string &name) const;
+	const LibMem *getMember(const std::string &name) const;
 	void addRelation(std::string name);
 	void makeRelationTransitive(std::string name);
 	void addStepToRelation(std::string relation, std::vector<std::string> substeps);
@@ -102,7 +102,8 @@ public:
 	void markFunctionalRfs()  { functionalRfs = true; };
 	void markCoherenceTrack() { coherence = true; };
 
-	static Library *getLibByMemberName(std::vector<Library> &libs, std::string &functionName);
+	static Library *getLibByMemberName(std::vector<Library> &libs,
+					   const std::string &functionName);
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Library &l);
 };

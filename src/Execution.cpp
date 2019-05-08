@@ -71,24 +71,25 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-bool Interpreter::compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2)
+bool Interpreter::compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2)
 {
-	return executeICMP_EQ(val1, val2, typ).IntVal.getBoolValue();
+	return executeICMP_EQ(val1, val2, (Type *)typ).IntVal.getBoolValue();
 }
 
 /* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
 /* TODO: Maybe return reference? */
-GenericValue Interpreter::loadValueFromWrite(Event write, Type *typ, const GenericValue *ptr)
+GenericValue Interpreter::loadValueFromWrite(Event write, const Type *typ, const GenericValue *ptr)
 {
 	auto &g = driver->getGraph();
 	if (write.isInitializer()) {
 		GenericValue result;
-		LoadValueFromMemory(result, (GenericValue *)ptr, typ);
+		LoadValueFromMemory(result, (GenericValue *)ptr, (Type *)typ);
 		return result;
 	}
 
-	EventLabel &lab = g.getEventLabel(write);
-	return lab.val;
+	const EventLabel *lab = g.getEventLabel(write);
+	BUG_ON(!isa<WriteLabel>(lab));
+	return static_cast<const WriteLabel *>(lab)->getVal();
 }
 
 
@@ -2623,7 +2624,7 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	return;
 }
 
-void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
+void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
 	ExecutionGraph &g = driver->getGraph();
@@ -2634,10 +2635,14 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	auto val = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr, typ, F->getName().str());
+	auto val = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr,
+					typ, F->getName().str());
 
 	/* Check if the read should read from BOTTOM */
-	if (g.getLastThreadLabel(getCurThr().id).rf == Event::getInitializer()) {
+	const EventLabel *lab = driver->getCurrentLabel();
+	BUG_ON(!isa<LibReadLabel>(lab));
+	if (static_cast<const LibReadLabel *>(lab)->getRf() ==
+	    Event::getInitializer()) {
 		getCurThr().block();
 		return;
 	}
@@ -2645,8 +2650,8 @@ void Interpreter::callReadFunction(Library &lib, LibMem &mem, Function *F,
 	return;
 }
 
-void Interpreter::callWriteFunction(Library &lib, LibMem &mem, Function *F,
-				   const std::vector<GenericValue> &ArgVals)
+void Interpreter::callWriteFunction(const Library &lib, const LibMem &mem, Function *F,
+				    const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	GenericValue val = ArgVals[1];

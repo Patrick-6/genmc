@@ -232,8 +232,8 @@ public:
   /* Helper functions */
   void collectGPs(Module *M, void *ptr, Type *typ);
   void replayExecutionBefore(const View &before);
-  bool compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
-  GenericValue loadValueFromWrite(Event w, Type *typ, const GenericValue *ptr);
+  bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
+  GenericValue loadValueFromWrite(Event w, const Type *typ, const GenericValue *ptr);
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
 
@@ -252,8 +252,10 @@ public:
   void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callReadFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
-  void callWriteFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
+  void callReadFunction(const Library &lib, const LibMem &m, Function *F,
+			const std::vector<GenericValue> &ArgVals);
+  void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
+			 const std::vector<GenericValue> &ArgVals);
 
 
   // Methods used to execute code:

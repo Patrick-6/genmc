@@ -39,18 +39,17 @@ enum StackItemType { SRead, SRevisit, MOWrite, MOWriteLib, SReadLibFunc, None };
 struct StackItem {
 	StackItemType type;
 	Event toRevisit;
-	Event oldRf;
 	Event shouldRf;
 	std::vector<std::unique_ptr<EventLabel> > writePrefix;
 	std::vector<std::pair<Event, Event> > moPlacings;
 	int moPos;
 
 	StackItem() : type(None) {};
-	StackItem(StackItemType t, Event e, Event oldRf, Event shouldRf,
+	StackItem(StackItemType t, Event e, Event shouldRf,
 		  std::vector<std::unique_ptr<EventLabel> > &&writePrefix,
 		  std::vector<std::pair<Event, Event> > &&moPlacings,
 		  int newMoPos)
-		: type(t), toRevisit(e), oldRf(oldRf), shouldRf(shouldRf),
+		: type(t), toRevisit(e), shouldRf(shouldRf),
 		  writePrefix(std::move(writePrefix)),
 		  moPlacings(std::move(moPlacings)),
 		  moPos(newMoPos) {};
@@ -117,7 +116,7 @@ public:
 	void visitGraph();
 	Event checkForRaces();
 	bool isExecutionDrivenByGraph();
-	EventLabel& getCurrentLabel();
+	const EventLabel *getCurrentLabel();
 
 	llvm::GenericValue visitThreadSelf(llvm::Type *typ);
 	int visitThreadCreate(llvm::Function *F, const llvm::ExecutionContext &SF);
@@ -135,17 +134,18 @@ public:
 	void visitFree(llvm::GenericValue *ptr);
 	void visitError(std::string &err);
 
-	bool calcRevisits(EventLabel &lab);
+	bool calcRevisits(const WriteLabel *lab);
 	llvm::GenericValue visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
 					const llvm::GenericValue *addr, llvm::Type *typ,
 					std::string functionName);
 	void visitLibStore(EventAttr attr, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *addr, llvm::Type *typ, llvm::GenericValue &val,
 			   std::string functionName, bool isInit = false);
-	bool calcLibRevisits(EventLabel &lab);
+	bool calcLibRevisits(const EventLabel *lab);
 	bool revisitReads(StackItem &s);
 
-	bool tryToRevisitLock(EventLabel &rLab, const View &preds, EventLabel &sLab, const View &before,
+	bool tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
+			      const WriteLabel *sLab, const View &before,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
@@ -161,10 +161,10 @@ public:
 
 	virtual std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) = 0;
 	virtual std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW = false) = 0;
-	virtual std::vector<Event> getRevisitLoads(EventLabel &lab) = 0;
+	virtual std::vector<Event> getRevisitLoads(const WriteLabel *lab) = 0;
 	virtual std::pair<std::vector<std::unique_ptr<EventLabel> >,
 			  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(EventLabel &lab, View &before) = 0;
+	getPrefixToSaveNotBefore(const WriteLabel *lab, View &before) = 0;
 
 	virtual bool checkPscAcyclicity() = 0;
 	virtual bool isExecutionValid() = 0;

@@ -41,8 +41,12 @@ View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
 			continue;
 		}
 
+		const EventLabel *lab = g.getEventLabel(w);
+		BUG_ON(!llvm::isa<WriteLabel>(lab));
+		auto *wLab = static_cast<const WriteLabel *>(lab);
+
 		/* Check whether [w];rf;[r] is in the hb view, for some r */
-		for (const auto &r : g.getEventLabel(w).rfm1) {
+		for (const auto &r : wLab->getReadersList()) {
 			if (r.thread != w.thread && hbBefore.contains(r)) {
 				result.updateIdx(w);
 				result.updateIdx(r);
@@ -64,7 +68,11 @@ void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 		if (w.index != storeView[w.thread])
 			continue;
 
-		for (const auto &r : g.getEventLabel(w).rfm1) {
+		const EventLabel *lab = g.getEventLabel(w);
+		BUG_ON(!llvm::isa<WriteLabel>(lab));
+		auto *wLab = static_cast<const WriteLabel *>(lab);
+
+		for (const auto &r : wLab->getReadersList()) {
 			if (r.thread != w.thread)
 				storeView.updateIdx(r);
 		}
@@ -76,12 +84,18 @@ void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 		if (w.index != storeView[w.thread])
 			continue;
 
-		for (const auto &r : g.getEventLabel(w).rfm1) {
+		const EventLabel *lab = g.getEventLabel(w);
+		BUG_ON(!llvm::isa<WriteLabel>(lab));
+		auto *wLab = static_cast<const WriteLabel *>(lab);
+
+		for (const auto &r : wLab->getReadersList()) {
 			if (r.thread != w.thread && r.index < storeView[r.thread]) {
-				auto &lab = g.getEventLabel(Event(r.thread, storeView[r.thread]));
-				if (lab.isRead() && lab.rf != w) {
-					storeView[w.thread]++;
-					break;
+				const EventLabel *lab = g.getEventLabel(Event(r.thread, storeView[r.thread]));
+				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+					if (rLab->getRf() != w) {
+						storeView[w.thread]++;
+						break;
+					}
 				}
 			}
 		}
@@ -144,7 +158,7 @@ std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(const llvm::GenericValue *
 	return std::make_pair(locMOSize, locMOSize);
 }
 
-std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
+std::vector<Event> RC11WBDriver::getRevisitLoads(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
@@ -153,7 +167,7 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
 	 * wb-maximal (and so, all revisitable loads can read from it).
 	 */
-	if (!sLab.isRMW())
+	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
 		return ls;
 
 	/* Optimization:
@@ -161,8 +175,8 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	 * from it.
 	 */
 	if (ls.size() > 1) {
-		auto wb = g.calcWb(sLab.addr);
-		auto i = wb.getIndex(sLab.getPos());
+		auto wb = g.calcWb(sLab->getAddr());
+		auto i = wb.getIndex(sLab->getPos());
 		bool allowed = true;
 		for (auto j = 0u; j < wb.size(); j++)
 			if (wb(i,j)) {
@@ -186,12 +200,12 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 	 */
 
 	for (auto &l : ls) {
-		auto v = g.getViewFromStamp(g.getEventLabel(l).getStamp());
-		v.update(sLab.porfView);
+		auto v = g.getViewFromStamp(g.getEventLabel(l)->getStamp());
+		v.update(g.getPorfBefore(sLab->getPos()));
 
-		auto wb = g.calcWbRestricted(sLab.addr, v);
+		auto wb = g.calcWbRestricted(sLab->getAddr(), v);
 		auto &stores = wb.getElems();
-		auto i = wb.getIndex(sLab.getPos());
+		auto i = wb.getIndex(sLab->getPos());
 
 		auto &hbBefore = g.getHbBefore(l.prev());
 		bool allowed = true;
@@ -209,9 +223,10 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(EventLabel &sLab)
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
-RC11WBDriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
 {
-	auto writePrefix = getGraph().getPrefixLabelsNotBefore(lab.porfView, before);
+	auto &g = getGraph();
+	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(lab->getPos()), before);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 
