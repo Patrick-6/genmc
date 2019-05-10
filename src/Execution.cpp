@@ -2375,6 +2375,7 @@ void Interpreter::replayExecutionBefore(const View &before)
 		auto &thr = getThrById(i);
 		thr.ECStack.push_back(thr.initSF);
 		thr.globalInstructions = 0;
+		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(g.events[i].size());
 		currentThread = i;
 		while ((int) thr.globalInstructions < before[i]) {
@@ -2404,9 +2405,10 @@ void Interpreter::replayExecutionBefore(const View &before)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
-	std::string err = (ArgVals.size()) ? (char *) GVTOP(ArgVals[0]) : "Unknown";
+	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
+		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
-	driver->visitError(err);
+	driver->visitError(err, Event::getInitializer());
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)

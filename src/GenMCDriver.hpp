@@ -57,6 +57,21 @@ struct StackItem {
 
 class GenMCDriver {
 
+public:
+	/* Different error types that may occur.
+	 * Public to enable the interpreter utilize it */
+	enum DriverErrorKind {
+		DE_Safety,
+		DE_UninitializedMem,
+		DE_RaceNotAtomic,
+		DE_RaceFreeMalloc,
+		DE_FreeNonMalloc,
+		DE_AccessNonMalloc,
+		DE_AccessFreed,
+		DE_DoubleFree,
+		DE_InvalidJoin,
+	};
+
 protected:
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
@@ -114,7 +129,7 @@ public:
 	bool scheduleNext();
 
 	void visitGraph();
-	Event checkForRaces();
+	void checkForRaces();
 	bool isExecutionDrivenByGraph();
 	const EventLabel *getCurrentLabel();
 
@@ -132,7 +147,7 @@ public:
 			llvm::Type *typ, llvm::GenericValue &val);
 	llvm::GenericValue visitMalloc(const llvm::GenericValue &size);
 	void visitFree(llvm::GenericValue *ptr);
-	void visitError(std::string &err);
+	void visitError(std::string err, Event confEvent, DriverErrorKind t = DE_Safety);
 
 	bool calcRevisits(const WriteLabel *lab);
 	llvm::GenericValue visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
@@ -156,7 +171,7 @@ public:
 	/* Outputting facilities */
 	void printTraceBefore(Event e);
 	void prettyPrintGraph();
-	void dotPrintToFile(const std::string &filename, const View &before, Event e);
+	void dotPrintToFile(const std::string &filename, Event e, Event confEvent);
 	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 
 	virtual std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) = 0;
@@ -168,6 +183,10 @@ public:
 
 	virtual bool checkPscAcyclicity() = 0;
 	virtual bool isExecutionValid() = 0;
+
+private:
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
+					     const DriverErrorKind &o);
 };
 
 #endif /* __GENMC_DRIVER_HPP__ */

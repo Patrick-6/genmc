@@ -358,10 +358,10 @@ const EventLabel *GenMCDriver::getCurrentLabel()
  * virtual methods to check for consistency, depending on the operating mode
  * of the driver.
  */
-Event GenMCDriver::checkForRaces()
+void GenMCDriver::checkForRaces()
 {
 	if (userConf->disableRaceDetection)
-		return Event::getInitializer();
+		return;
 
 	auto &g = getGraph();
 	const EventLabel *lab = g.getLastThreadLabel(EE->getCurThr().id);
@@ -376,31 +376,38 @@ Event GenMCDriver::checkForRaces()
 		racy = g.findRaceForNewStore(wLab);
 
 	/* If a race is found and the execution is consistent, return it */
-	if (!racy.isInitializer() && isExecutionValid())
-		return racy;
+	if (!racy.isInitializer() && isExecutionValid()) {
+		visitError("", racy, DE_RaceNotAtomic);
+		BUG(); /* visitError() should abort since it is consistent */
+	}
 
 	/* Else, if this is a heap allocation, also look for memory errors */
 	auto *mLab = static_cast<const MemAccessLabel *>(lab);
 	if (!EE->isHeapAlloca(mLab->getAddr()))
-		return Event::getInitializer();
+		return;
 
 	const View &before = g.getHbBefore(lab->getPos().prev());
 	for (auto i = 0u; i < g.events.size(); i++)
 		for (auto j = 0u; j < g.events[i].size(); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
 			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
-				if (fLab->getFreedAddr() == mLab->getAddr())
-					return oLab->getPos();
+				if (fLab->getFreedAddr() == mLab->getAddr()) {
+					visitError("The accessed address has already been freed!",
+						   oLab->getPos(), DE_AccessFreed);
+				}
 			}
 			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
 				if (aLab->getAllocAddr() <= mLab->getAddr() &&
 				    ((char *) aLab->getAllocAddr() +
 				     aLab->getAllocSize() > (char *) mLab->getAddr()) &&
-				    !before.contains(oLab->getPos()))
-					return oLab->getPos();
+				    !before.contains(oLab->getPos())) {
+					visitError("The allocating operation (malloc()) "
+						   "does not happen-before the memory access!",
+						   oLab->getPos(), DE_AccessNonMalloc);
+				}
 			}
 	}
-	return Event::getInitializer();
+	return;
 }
 
 std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *ptr,
@@ -531,9 +538,8 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 		std::stringstream ss;
 		ss << "ERROR: Invalid TID in pthread_join(): " << cid;
 		if (cid == thr.id)
-			ss << " (TID cannot be the same as the calling thread)\n";
-		WARN(ss.str());
-		abort();
+			ss << " (TID cannot be the same as the calling thread)";
+		visitError(ss.str(), Event::getInitializer(), DE_InvalidJoin);
 	}
 
 	/* If necessary, add a relevant event to the graph */
@@ -634,11 +640,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	}
 
 	/* Check for races */
-	if (!checkForRaces().isInitializer()) {
-		llvm::dbgs() << "Race detected!\n";
-		printResults();
-		abort();
-	}
+	checkForRaces();
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
@@ -679,11 +681,7 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	}
 
 	/* Check for races */
-	if (!checkForRaces().isInitializer()) {
-		llvm::dbgs() << "Race detected!\n";
-		printResults();
-		abort();
-	}
+	checkForRaces();
 
 	auto &locMO = g.modOrder[addr];
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
@@ -763,8 +761,8 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	}
 
 	if (!m) {
-		WARN("ERROR: Attempted to free non-malloc'ed memory!\n");
-		abort();
+		visitError("", Event::getInitializer(), DE_FreeNonMalloc);
+		BUG(); /* visitError() should abort */
 	}
 
 	/* FIXME: Check the whole graph */
@@ -781,36 +779,45 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	return;
 }
 
-void GenMCDriver::visitError(std::string &err)
+void GenMCDriver::visitError(std::string err, Event confEvent,
+			     DriverErrorKind t /* = DE_Safety */ )
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
 
-	/* Is the execution that led to the error consistent? */
+	/* If the execution that led to the error is not consistent, block */
 	if (!isExecutionValid()) {
 		EE->ECStack().clear();
 		thr.block();
 		return;
 	}
 
-	auto assertThrId = thr.id;
-	auto errorEvent = g.getLastThreadEvent(assertThrId);
-	auto &before = g.getPorfBefore(errorEvent);
+	Event errorEvent = g.getLastThreadEvent(thr.id);
 
-	/* Print error trace */
+	/* Print a basic error message and the graph */
+	llvm::dbgs() << "Error detected: " << t << "!\n";
+	llvm::dbgs() << "Event " << errorEvent << " ";
+	if (!confEvent.isInitializer())
+		llvm::dbgs() << "conflicts with event " << confEvent << " ";
+	llvm::dbgs() << "in graph:\n";
+	llvm::dbgs() << g << "\n";
+
+	/* Print error trace leading up to the violating event(s) */
 	if (userConf->printErrorTrace) {
-		EE->replayExecutionBefore(before);
-		printTraceBefore(g.getLastThreadEvent(assertThrId));
+		printTraceBefore(errorEvent);
+		if (!confEvent.isInitializer())
+			printTraceBefore(confEvent);
 	}
+
+	/* Print the specific error message */
+	if (!err.empty())
+		llvm::dbgs() << err << "\n";
 
 	/* Dump the graph into a file (DOT format) */
-	if (userConf->dotFile != "") {
-		EE->replayExecutionBefore(before);
-		dotPrintToFile(userConf->dotFile, before, errorEvent);
-	}
+	if (userConf->dotFile != "")
+		dotPrintToFile(userConf->dotFile, errorEvent, confEvent);
 
 	/* Print results and abort */
-	llvm::dbgs() << "Assertion violation: " << err << "\n";
 	printResults();
 	abort();
 }
@@ -1026,8 +1033,11 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 		});
 
 	if (it == stores.end()) {
-		WARN("Uninitialized memory location used by library found!\n");
-		abort();
+		visitError(std::string("Uninitialized memory used by library ") +
+			   lib->getName() + ", member " + functionName +
+			   std::string(" found"), Event::getInitializer(),
+			   DE_UninitializedMem);
+		BUG();
 	}
 
 	auto preds = g.getViewFromStamp(lab->getStamp());
@@ -1104,6 +1114,7 @@ void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, const 
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
+	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
 
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1118,20 +1129,28 @@ void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, const 
 	auto begO = 1;
 	auto endO = (int) locMO.size();
 
-	/* If there was not any store previously, check if this location was initialized  */
-	if (endO == 0 && !isInit) {
-		WARN("Uninitialized memory location used by library found!\n");
-		abort();
-	}
+	/* If there was not any store previously, check if this location was initialized.
+	 * We only set a flag here and report an error after the relevant event is added   */
+	bool isUninitialized = false;
+	if (endO == 0 && !isInit)
+		isUninitialized = true;
 
 	/* It is always consistent to add a new event at the end of MO */
 	const LibWriteLabel *sLab =
 		g.addLibStoreToGraph(thr.id, ord, addr, typ, val, endO,
 				     functionName, isInit);
 
+	if (isUninitialized) {
+		visitError(std::string("Uninitialized memory used by library \"") +
+			   lib->getName() + "\", member \"" + functionName +
+			   std::string("\" found"), Event::getInitializer(),
+			   DE_UninitializedMem);
+		BUG();
+	}
+
+
 	calcLibRevisits(sLab);
 
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
 	if (lib && !lib->tracksCoherence())
 		return;
 
@@ -1235,6 +1254,33 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
  ** Printing facilities
  ***********************************************************/
 
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
+			      const GenMCDriver::DriverErrorKind &e)
+{
+	switch (e) {
+	case GenMCDriver::DE_Safety:
+		return s << "Safety violation";
+	case GenMCDriver::DE_UninitializedMem:
+		return s << "Uninitialized memory location";
+	case GenMCDriver::DE_RaceNotAtomic:
+		return s << "Non-Atomic race";
+	case GenMCDriver::DE_RaceFreeMalloc:
+		return s << "Malloc-Free race";
+	case GenMCDriver::DE_FreeNonMalloc:
+		return s << "Attempt to free non-allocated memory";
+	case GenMCDriver::DE_AccessNonMalloc:
+		return s << "Attempt to access non-allocated memory";
+	case GenMCDriver::DE_AccessFreed:
+		return s << "Attempt to access freed memory";
+	case GenMCDriver::DE_DoubleFree:
+		return s << "Double-free error";
+	case GenMCDriver::DE_InvalidJoin:
+		return s << "Invalid join() operation";
+	default:
+		return s << "Uknown error";
+	}
+}
+
 void GenMCDriver::prettyPrintGraph()
 {
 	auto &g = getGraph();
@@ -1262,12 +1308,19 @@ void GenMCDriver::prettyPrintGraph()
 	llvm::dbgs() << "\n";
 }
 
-void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before, Event e)
+void GenMCDriver::dotPrintToFile(const std::string &filename,
+				 Event errorEvent, Event confEvent)
 {
 	ExecutionGraph &g = getGraph();
 	std::ofstream fout(filename);
 	std::string dump;
 	llvm::raw_string_ostream ss(dump);
+
+	View before(g.getPorfBefore(errorEvent));
+	if (!confEvent.isInitializer())
+		before.update(g.getPorfBefore(confEvent));
+
+	EE->replayExecutionBefore(before);
 
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";
@@ -1288,8 +1341,10 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
-			ss << "\t" << lab->getPos() << " [label=\"" << buf.str() << "\""
-			   << (lab->getPos() == e ? ",style=filled,fillcolor=yellow" : "") << "]\n";
+			ss << "\t\"" << lab->getPos() << "\" [label=\"" << buf.str() << "\""
+			   << (lab->getPos() == errorEvent  || lab->getPos() == confEvent ?
+			       ",style=filled,fillcolor=yellow" : "")
+			   << "]\n";
 		}
 		ss << "}\n";
 	}
@@ -1305,18 +1360,20 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const View &before
 			/* Print a po-edge, but skip dummy start events for
 			 * all threads except for the first one */
 			if (j < before[i] && !(llvm::isa<ThreadStartLabel>(lab) && i > 0))
-				ss << lab->getPos() << " -> " << lab->getPos().next() << "\n";
+				ss << "\"" << lab->getPos() << "\" -> \""
+				   << lab->getPos().next() << "\"\n";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-				ss << "\t" << rLab->getRf() << " -> " << rLab->getPos() << "[color=green]\n";
+				ss << "\t\"" << rLab->getRf() << "\" -> \""
+				   << rLab->getPos() << "\"[color=green]\n";
 			if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
 				if (thr.id == 0)
 					continue;
-				ss << "\t" << bLab->getParentCreate() << " -> "
-				   << bLab->getPos().next() << "[color=blue]\n";
+				ss << "\t\"" << bLab->getParentCreate() << "\" -> \""
+				   << bLab->getPos().next() << "\"[color=blue]\n";
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-				ss << "\t" << jLab->getChildLast() << " -> "
-				   << jLab->getPos() << "[color=blue]\n";
+				ss << "\t\"" << jLab->getChildLast() << "\" -> \""
+				   << jLab->getPos() << "\"[color=blue]\n";
 		}
 	}
 
@@ -1351,9 +1408,18 @@ void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &bu
 
 void GenMCDriver::printTraceBefore(Event e)
 {
+	View before(getGraph().getPorfBefore(e));
 	std::stringstream buf;
-	View a;
 
+	llvm::dbgs() << "Trace to " << e << ":\n";
+
+	/* Replay the execution up to the error event (collects mdata) */
+	EE->replayExecutionBefore(before);
+
+	/* Linearizate (po U rf) and put relevant source code lines to buf */
+	View a;
 	calcTraceBefore(e, a, buf);
+
+	/* Print the full error */
 	llvm::dbgs() << buf.str();
 }
