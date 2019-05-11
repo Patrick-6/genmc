@@ -36,7 +36,6 @@
 
 #include "Error.hpp"
 #include "Event.hpp"
-#include "ExecutionGraph.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "llvm/ADT/APInt.h"
@@ -76,20 +75,11 @@ bool Interpreter::compareValues(const llvm::Type *typ, const GenericValue &val1,
 	return executeICMP_EQ(val1, val2, (Type *)typ).IntVal.getBoolValue();
 }
 
-/* TODO: Fix coding style -- sed '/load/read/', '/store/write/' */
-/* TODO: Maybe return reference? */
-GenericValue Interpreter::loadValueFromWrite(Event write, const Type *typ, const GenericValue *ptr)
+GenericValue Interpreter::getLocInitVal(GenericValue *ptr, Type *typ)
 {
-	auto &g = driver->getGraph();
-	if (write.isInitializer()) {
-		GenericValue result;
-		LoadValueFromMemory(result, (GenericValue *)ptr, (Type *)typ);
-		return result;
-	}
-
-	const EventLabel *lab = g.getEventLabel(write);
-	BUG_ON(!isa<WriteLabel>(lab));
-	return static_cast<const WriteLabel *>(lab)->getVal();
+	GenericValue result;
+	LoadValueFromMemory(result, ptr, typ);
+	return result;
 }
 
 
@@ -1215,7 +1205,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	oldVal = driver->visitLoad(ATTR_CAS, I.getSuccessOrdering(), ptr, typ,
-				   GenericValue(cmpVal), GenericValue(newVal));
+				   cmpVal, newVal);
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
 		driver->visitStore(ATTR_CAS, I.getSuccessOrdering(), ptr, typ, newVal);
@@ -1282,7 +1272,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	oldVal = driver->visitLoad(ATTR_FAI, I.getOrdering(), ptr, typ,
-				   GenericValue(), GenericValue(val), I.getOperation());
+				   GenericValue(), val, I.getOperation());
 	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
 
 	driver->visitStore(ATTR_FAI, I.getOrdering(), ptr, typ, newVal);
@@ -2367,16 +2357,14 @@ std::string getFilenameFromMData(MDNode *node)
 
 void Interpreter::replayExecutionBefore(const View &before)
 {
-	auto &g = driver->getGraph();
-
 	threads[0].ECStack = mainECStack;
 	threads[0].initSF = mainECStack.back();
-	for (auto i = 0u; i < threads.size(); i++) {
+	for (auto i = 0u; i < before.size(); i++) {
 		auto &thr = getThrById(i);
 		thr.ECStack.push_back(thr.initSF);
 		thr.globalInstructions = 0;
 		thr.prefixLOC.clear();
-		thr.prefixLOC.resize(g.events[i].size());
+		thr.prefixLOC.resize(before[i] + 1);
 		currentThread = i;
 		while ((int) thr.globalInstructions < before[i]) {
 			int snap = thr.globalInstructions;
@@ -2552,7 +2540,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto oldVal = driver->visitLoad(ATTR_LOCK, AtomicOrdering::Acquire, ptr, typ,
-					GenericValue(cmpVal), GenericValue(newVal));
+					cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
@@ -2614,8 +2602,8 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(ATTR_CAS, AtomicOrdering::Acquire, ptr, typ,
-					GenericValue(cmpVal), GenericValue(newVal));
+	auto oldVal = driver->visitLoad(ATTR_CAS, AtomicOrdering::Acquire,
+					ptr, typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
@@ -2629,7 +2617,6 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
-	ExecutionGraph &g = driver->getGraph();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 
@@ -2637,14 +2624,12 @@ void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Functi
 		WARN_ONCE("library-mem-not-global",
 			  "WARNING: Use of non-global library.\n");
 
-	auto val = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr,
+	auto res = driver->visitLibLoad(ATTR_PLAIN, mem.getOrdering(), ptr,
 					typ, F->getName().str());
+	auto &val = res.first;
+	auto shouldBlock = res.second;
 
-	/* Check if the read should read from BOTTOM */
-	const EventLabel *lab = driver->getCurrentLabel();
-	BUG_ON(!isa<LibReadLabel>(lab));
-	if (static_cast<const LibReadLabel *>(lab)->getRf() ==
-	    Event::getInitializer()) {
+	if (shouldBlock) {
 		getCurThr().block();
 		return;
 	}

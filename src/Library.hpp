@@ -85,8 +85,8 @@ private:
 public:
 	Library(std::string name, LibType typ);
 
-	std::string getName();
-	LibType getType();
+	std::string getName() const;
+	LibType getType() const;
 	const std::vector<LibMem> &getMembers() const;
 	const std::vector<Relation> &getRelations() const;
 	const std::vector<Constraint> &getConstraints() const;
@@ -102,8 +102,8 @@ public:
 	void markFunctionalRfs()  { functionalRfs = true; };
 	void markCoherenceTrack() { coherence = true; };
 
-	static Library *getLibByMemberName(std::vector<Library> &libs,
-					   const std::string &functionName);
+	static const Library *getLibByMemberName(const std::vector<Library> &libs,
+						 const std::string &functionName);
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Library &l);
 };

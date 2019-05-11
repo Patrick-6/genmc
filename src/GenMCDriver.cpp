@@ -213,7 +213,7 @@ void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
 	workqueue[lab->getStamp()].push_back(std::move(s));
 }
 
-StackItem GenMCDriver::getNextItem()
+GenMCDriver::StackItem GenMCDriver::getNextItem()
 {
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
 		if (rit->second.empty())
@@ -350,6 +350,20 @@ const EventLabel *GenMCDriver::getCurrentLabel()
 	return g.getEventLabel(Event(thr.id, thr.globalInstructions));
 }
 
+llvm::GenericValue GenMCDriver::getWriteValue(Event write,
+					      const llvm::GenericValue *ptr,
+					      const llvm::Type *typ)
+{
+	if (write.isInitializer())
+		return getEE()->getLocInitVal((llvm::GenericValue *)ptr,
+					      (llvm::Type *) typ);
+
+	const EventLabel *lab = getGraph().getEventLabel(write);
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	return static_cast<const WriteLabel *>(lab)->getVal();
+}
+
+
 
 /*
  * This function is called to check for races when a new event is added.
@@ -447,8 +461,11 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *pt
 	return valid;
 }
 
-std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ, const llvm::GenericValue *ptr,
-						    llvm::GenericValue &expVal, std::vector<Event> &stores)
+std::vector<Event>
+GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ,
+				 const llvm::GenericValue *ptr,
+				 llvm::GenericValue &expVal,
+				 std::vector<Event> &stores)
 {
 	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
 		return stores;
@@ -461,7 +478,7 @@ std::vector<Event> GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *
 
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
-		auto oldVal = EE->loadValueFromWrite(s, typ, ptr);
+		auto oldVal = getWriteValue(s, ptr, typ);
 		if ((attr == ATTR_FAI || EE->compareValues(typ, oldVal, expVal)) &&
 		    g.isStoreReadBySettledRMW(s, ptr, before))
 			continue;
@@ -601,8 +618,8 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 
 llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
 					 const llvm::GenericValue *addr, llvm::Type *typ,
-					 llvm::GenericValue &&cmpVal,
-					 llvm::GenericValue &&rmwVal,
+					 llvm::GenericValue cmpVal,
+					 llvm::GenericValue rmwVal,
 					 llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = getGraph();
@@ -611,7 +628,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			return EE->loadValueFromWrite(rLab->getRf(), typ, addr);
+			return getWriteValue(rLab->getRf(), addr, typ);
 		BUG();
 	}
 
@@ -645,7 +662,7 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
-	return EE->loadValueFromWrite(validStores[0], typ, addr);
+	return getWriteValue(validStores[0], addr, typ);
 }
 
 void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
@@ -969,7 +986,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	g.changeRf(rLab->getPos(), p.shouldRf);
 
 	/* If the revisited label became an RMW, add the store part and revisit */
-	auto rfVal = EE->loadValueFromWrite(rLab->getRf(), rLab->getType(), rLab->getAddr());
+	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 	auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
 
 	const WriteLabel *sLab = nullptr;
@@ -1004,9 +1021,10 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	return true;
 }
 
-llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
-					    const llvm::GenericValue *addr, llvm::Type *typ,
-					    std::string functionName)
+std::pair<llvm::GenericValue, bool>
+GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
+			  const llvm::GenericValue *addr, llvm::Type *typ,
+			  std::string functionName)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
@@ -1015,7 +1033,8 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
 		if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab))
-			return EE->loadValueFromWrite(rLab->getRf(), typ, addr);
+			return std::make_pair(getWriteValue(rLab->getRf(), addr, typ),
+					      rLab->getRf().isInitializer());
 		BUG();
 	}
 
@@ -1053,7 +1072,8 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 		g.changeRf(lab->getPos(), validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 			addToWorklist(SRead, lab->getPos(), *it, {}, {});
-		return EE->loadValueFromWrite(lab->getRf(), typ, addr);
+		return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
+				      lab->getRf().isInitializer());
 	}
 
 	/* Otherwise, first record all the inconsistent options */
@@ -1090,7 +1110,7 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 	if (invIt == validStores.begin()) {
 		WARN_ONCE("lib-not-always-block", "FIXME: SHOULD NOT ALWAYS BLOCK -- ALSO IN EE\n");
 		auto tempRf = Event::getInitializer();
-		return EE->loadValueFromWrite(tempRf, typ, addr);
+		return std::make_pair(getWriteValue(tempRf, addr, typ), true);
 	}
 
 	/*
@@ -1105,7 +1125,8 @@ llvm::GenericValue GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrderin
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
 
-	return EE->loadValueFromWrite(lab->getRf(), typ, addr);
+	return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
+			      lab->getRf().isInitializer());
 }
 
 void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *addr,
@@ -1293,8 +1314,8 @@ void GenMCDriver::prettyPrintGraph()
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->isRevisitable())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
-				auto val = EE->loadValueFromWrite(rLab->getRf(), rLab->getType(),
-								  rLab->getAddr());
+				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
+							 rLab->getType());
 				llvm::dbgs() << "R" << EE->getGlobalName(rLab->getAddr()) << ","
 					     << val.IntVal << " ";
 				llvm::dbgs().resetColor();

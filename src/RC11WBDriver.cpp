@@ -106,7 +106,7 @@ void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
-	auto &thr = EE->getCurThr();
+	auto &thr = getEE()->getCurThr();
 	auto &allStores = g.modOrder[addr];
 	auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	std::vector<Event> result;
@@ -232,7 +232,7 @@ RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
 
 bool RC11WBDriver::checkPscAcyclicity()
 {
-	switch (userConf->checkPscAcyclicity) {
+	switch (getConf()->checkPscAcyclicity) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:

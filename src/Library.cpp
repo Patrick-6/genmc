@@ -36,9 +36,9 @@ Library::Library(std::string name, LibType typ)
  ** Basic getters/setters
  ***********************************************************/
 
-std::string Library::getName() { return name; }
+std::string Library::getName() const { return name; }
 
-LibType Library::getType() { return typ; }
+LibType Library::getType() const { return typ; }
 
 const std::vector<LibMem> &Library::getMembers() const { return mems; }
 
@@ -88,7 +88,7 @@ const LibMem *Library::getMember(const std::string &name) const
 
 /* Given a collection of libraries, returns a pointer to the library that contains
  * the given name as a member, if there is any */
-Library *Library::getLibByMemberName(std::vector<Library> &libs,
+const Library *Library::getLibByMemberName(const std::vector<Library> &libs,
 				     const std::string &functionName)
 {
 	for (auto &l : libs)

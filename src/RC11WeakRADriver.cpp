@@ -27,7 +27,7 @@
 std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
-	auto overwritten = g.findOverwrittenBoundary(addr, EE->getCurThr().id);
+	auto overwritten = g.findOverwrittenBoundary(addr, getEE()->getCurThr().id);
 	std::vector<Event> stores;
 
 	if (overwritten.empty()) {

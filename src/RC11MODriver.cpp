@@ -43,7 +43,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 	auto &g = getGraph();
 	auto &locMO = g.modOrder[addr];
-	auto &before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = g.getHbBefore(g.getLastThreadEvent(getEE()->getCurThr().id));
 
 	auto begO = splitLocMOBefore(addr, before);
 
@@ -64,7 +64,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
 	auto &g = getGraph();
-	const EventLabel *pLab = g.getLastThreadLabel(EE->getCurThr().id);
+	const EventLabel *pLab = g.getLastThreadLabel(getEE()->getCurThr().id);
 
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab)) {
@@ -111,7 +111,7 @@ RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
 
 bool RC11MODriver::checkPscAcyclicity()
 {
-	switch (userConf->checkPscAcyclicity) {
+	switch (getConf()->checkPscAcyclicity) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
