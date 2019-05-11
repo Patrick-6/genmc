@@ -21,7 +21,6 @@
 #ifndef __LIBRARY_HPP__
 #define __LIBRARY_HPP__
 
-#include "Event.hpp"
 #include <llvm/IR/Instructions.h>
 #include <vector>
 #include <string>
@@ -30,21 +29,26 @@
 enum LibType { Granted, ToVerify };
 
 /* Each library has some function that make the library up */
-struct LibMem {
-	std::string name;
-	EventType typ;
-	llvm::AtomicOrdering ord;
-	bool initial;
+class LibMem {
 
-	LibMem(std::string name, EventType typ, llvm::AtomicOrdering ord, bool isLibInit) :
+public:
+	enum LibMemType { LM_Read, LM_Write };
+
+	LibMem(std::string name, LibMemType typ, llvm::AtomicOrdering ord, bool isLibInit) :
 		name(name), typ(typ), ord(ord), initial(isLibInit) {};
 
 	const std::string& getName() const { return name; };
-	EventType getType()   const { return typ; };
+	LibMemType getType()   const { return typ; };
 	llvm::AtomicOrdering getOrdering() const { return ord; };
 	bool isLibInit()         const { return initial; };
-	bool hasReadSemantics()  const { return typ == ERead; };
-	bool hasWriteSemantics() const { return typ == EWrite; };
+	bool hasReadSemantics()  const { return typ == LM_Read; };
+	bool hasWriteSemantics() const { return typ == LM_Write; };
+
+private:
+	std::string name;
+	LibMemType typ;
+	llvm::AtomicOrdering ord;
+	bool initial;
 };
 
 struct Relation {

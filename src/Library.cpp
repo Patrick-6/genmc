@@ -63,11 +63,14 @@ llvm::AtomicOrdering strToOrd(std::string &ord)
 void Library::addMember(std::string name, std::string typ, std::string ord)
 {
 	if (typ == "read")
-		mems.push_back(LibMem(name, ERead, strToOrd(ord), false));
+		mems.push_back(LibMem(name, LibMem::LM_Read,
+				      strToOrd(ord), false));
 	else if (typ == "write")
-		mems.push_back(LibMem(name, EWrite, strToOrd(ord), false));
+		mems.push_back(LibMem(name, LibMem::LM_Write,
+				      strToOrd(ord), false));
 	else if (typ == "init")
-		mems.push_back(LibMem(name, EWrite, strToOrd(ord), true));
+		mems.push_back(LibMem(name, LibMem::LM_Write,
+				      strToOrd(ord), true));
 	else
 		WARN("Erroneous library member type in specs!\n");
 }
@@ -134,6 +137,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Library &l)
 {
 	s << "Library: " << l.name << "\t\nMembers:\n";
 	for (auto &m : l.mems)
-		s << "\t\t" << m.name << "\n";
+		s << "\t\t" << m.getName() << "\n";
 	return s;
 }
