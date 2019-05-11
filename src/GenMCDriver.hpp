@@ -123,7 +123,7 @@ public:
 
 	/* Returns the value this load reads */
 	llvm::GenericValue
-	visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
+	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
@@ -133,19 +133,20 @@ public:
 	/* Returns the value this load reads, as well as whether
 	 * the interpreter should block due to a blocking library read */
 	std::pair<llvm::GenericValue, bool>
-	visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
+	visitLibLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		     const llvm::GenericValue *addr, llvm::Type *typ,
 		     std::string functionName);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
-	visitStore(EventAttr attr, llvm::AtomicOrdering ord,
+	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		   const llvm::GenericValue *addr,
 		   llvm::Type *typ, llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
-	visitLibStore(EventAttr attr, llvm::AtomicOrdering ord,
+	visitLibStore(llvm::Interpreter::InstAttr attr,
+		      llvm::AtomicOrdering ord,
 		      const llvm::GenericValue *addr, llvm::Type *typ,
 		      llvm::GenericValue &val, std::string functionName,
 		      bool isInit = false);
@@ -261,7 +262,8 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
-	std::vector<Event> properlyOrderStores(EventAttr attr, llvm::Type *typ,
+	std::vector<Event> properlyOrderStores(llvm::Interpreter::InstAttr attr,
+					       llvm::Type *typ,
 					       const llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);

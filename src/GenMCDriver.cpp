@@ -462,24 +462,27 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *pt
 }
 
 std::vector<Event>
-GenMCDriver::properlyOrderStores(EventAttr attr, llvm::Type *typ,
+GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
+				 llvm::Type *typ,
 				 const llvm::GenericValue *ptr,
 				 llvm::GenericValue &expVal,
 				 std::vector<Event> &stores)
 {
-	if (attr == ATTR_PLAIN || attr == ATTR_UNLOCK)
+	if (attr == llvm::Interpreter::IA_None ||
+	    attr == llvm::Interpreter::IA_Unlock)
 		return stores;
 
 	auto &g = getGraph();
 	auto &before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 
-	if (attr == ATTR_LOCK)
+	if (attr == llvm::Interpreter::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
 
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
 		auto oldVal = getWriteValue(s, ptr, typ);
-		if ((attr == ATTR_FAI || EE->compareValues(typ, oldVal, expVal)) &&
+		if ((attr == llvm::Interpreter::IA_Fai ||
+		     EE->compareValues(typ, oldVal, expVal)) &&
 		    g.isStoreReadBySettledRMW(s, ptr, before))
 			continue;
 
@@ -616,11 +619,13 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 	return;
 }
 
-llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering ord,
-					 const llvm::GenericValue *addr, llvm::Type *typ,
-					 llvm::GenericValue cmpVal,
-					 llvm::GenericValue rmwVal,
-					 llvm::AtomicRMWInst::BinOp op)
+llvm::GenericValue GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
+					  llvm::AtomicOrdering ord,
+					  const llvm::GenericValue *addr,
+					  llvm::Type *typ,
+					  llvm::GenericValue cmpVal,
+					  llvm::GenericValue rmwVal,
+					  llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
@@ -640,17 +645,18 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	/* ... and add an appropriate label with a particular rf */
 	const ReadLabel *lab = nullptr;
 	switch (attr) {
-	case ATTR_PLAIN:
+	case llvm::Interpreter::IA_None:
 		lab = g.addReadToGraph(thr.id, ord, addr, typ, validStores[0]);
 		break;
-	case ATTR_FAI:
+	case llvm::Interpreter::IA_Fai:
 		lab = g.addFaiReadToGraph(thr.id, ord, addr, typ, validStores[0],
 					  op, std::move(rmwVal));
 		break;
-	case ATTR_CAS:
-	case ATTR_LOCK:
-		lab = g.addCasReadToGraph(thr.id, ord, addr, typ, validStores[0],
-					  cmpVal, rmwVal, attr == ATTR_LOCK);
+	case llvm::Interpreter::IA_Cas:
+	case llvm::Interpreter::IA_Lock:
+		lab = g.addCasReadToGraph(thr.id, ord, addr, typ,
+					  validStores[0], cmpVal, rmwVal,
+					  attr == llvm::Interpreter::IA_Lock);
 		break;
 	default:
 		BUG();
@@ -665,9 +671,11 @@ llvm::GenericValue GenMCDriver::visitLoad(EventAttr attr, llvm::AtomicOrdering o
 	return getWriteValue(validStores[0], addr, typ);
 }
 
-void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *addr, llvm::Type *typ,
-			    llvm::GenericValue &val)
+void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
+			     llvm::AtomicOrdering ord,
+			     const llvm::GenericValue *addr,
+			     llvm::Type *typ,
+			     llvm::GenericValue &val)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();
@@ -675,25 +683,27 @@ void GenMCDriver::visitStore(EventAttr attr, llvm::AtomicOrdering ord,
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto placesRange = getPossibleMOPlaces(addr, attr != ATTR_PLAIN && attr != ATTR_UNLOCK);
+	auto placesRange =
+		getPossibleMOPlaces(addr, attr != llvm::Interpreter::IA_None &&
+				    attr != llvm::Interpreter::IA_Unlock);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 
 	/* It is always consistent to add the store at the end of MO */
 	const WriteLabel *lab = nullptr;
 	switch (attr) {
-	case ATTR_PLAIN:
-	case ATTR_UNLOCK:
+	case llvm::Interpreter::IA_None:
+	case llvm::Interpreter::IA_Unlock:
 		lab = g.addStoreToGraph(thr.id, ord, addr, typ, val, endO,
-					attr == ATTR_UNLOCK);
+					attr == llvm::Interpreter::IA_Unlock);
 		break;
-	case ATTR_FAI:
+	case llvm::Interpreter::IA_Fai:
 		lab = g.addFaiStoreToGraph(thr.id, ord, addr, typ, val, endO);
 		break;
-	case ATTR_CAS:
-	case ATTR_LOCK:
+	case llvm::Interpreter::IA_Cas:
+	case llvm::Interpreter::IA_Lock:
 		lab = g.addCasStoreToGraph(thr.id, ord, addr, typ, val, endO,
-					   attr == ATTR_LOCK);
+					   attr == llvm::Interpreter::IA_Lock);
 		break;
 	}
 
@@ -1022,8 +1032,10 @@ bool GenMCDriver::revisitReads(StackItem &p)
 }
 
 std::pair<llvm::GenericValue, bool>
-GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
-			  const llvm::GenericValue *addr, llvm::Type *typ,
+GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
+			  llvm::AtomicOrdering ord,
+			  const llvm::GenericValue *addr,
+			  llvm::Type *typ,
 			  std::string functionName)
 {
 	auto &g = getGraph();
@@ -1129,9 +1141,13 @@ GenMCDriver::visitLibLoad(EventAttr attr, llvm::AtomicOrdering ord,
 			      lab->getRf().isInitializer());
 }
 
-void GenMCDriver::visitLibStore(EventAttr attr, llvm::AtomicOrdering ord, const llvm::GenericValue *addr,
-			       llvm::Type *typ, llvm::GenericValue &val, std::string functionName,
-			       bool isInit)
+void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
+				llvm::AtomicOrdering ord,
+				const llvm::GenericValue *addr,
+				llvm::Type *typ,
+				llvm::GenericValue &val,
+				std::string functionName,
+				bool isInit)
 {
 	auto &g = getGraph();
 	auto &thr = EE->getCurThr();

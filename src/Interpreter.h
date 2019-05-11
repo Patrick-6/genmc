@@ -40,9 +40,8 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
-#include "Event.hpp"
-#include "EventLabel.hpp"
 #include "Library.hpp"
+#include "View.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -156,6 +155,17 @@ public:
   explicit Interpreter(Module *M, GenMCDriver *driver);
   virtual ~Interpreter();
 
+  /* Enum to inform the driver about possible special attributes
+   * of the instruction being interpreted */
+  enum InstAttr {
+	  IA_None,
+	  IA_Fai,
+	  IA_Cas,
+	  IA_Lock,
+	  IA_Unlock,
+  };
+
+  /* Resets the interpreter at the beginning of a new execution */
   void reset();
 
   /* Stores the addresses of global values into globalVars and threadLocalVars */

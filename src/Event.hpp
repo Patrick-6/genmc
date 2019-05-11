@@ -24,7 +24,6 @@
 #include <llvm/Support/raw_ostream.h>
 
 enum EventType { ERead, EWrite };
-enum EventAttr { ATTR_PLAIN, ATTR_CAS, ATTR_FAI, ATTR_LOCK, ATTR_UNLOCK };
 
 struct Event {
 	int thread;
