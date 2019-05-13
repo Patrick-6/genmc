@@ -77,22 +77,6 @@ View& View::update(const View &v)
 	return *this;
 }
 
-View View::getMax(const View &v) const
-{
-	if (this->empty())
-		return v;
-	if (v.empty())
-		return *this;
-
-	View result(*this);
-
-	auto size = std::max(this->size(), v.size());
-	for (auto i = 0u; i < size; i++)
-		if (result[i] < v[i])
-			result[i] = v[i];
-	return result;
-}
-
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v)
 {
 	s << "[ ";

@@ -34,9 +34,10 @@ public:
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr);
 	std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW);
-	std::vector<Event> getRevisitLoads(EventLabel &lab);
-	std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-		  getPrefixToSaveNotBefore(EventLabel &lab, View &before);
+	std::vector<Event> getRevisitLoads(const WriteLabel *lab);
+	std::pair<std::vector<std::unique_ptr<EventLabel> >,
+		  std::vector<std::pair<Event, Event> > >
+	getPrefixToSaveNotBefore(const WriteLabel *sLab, View &before);
 
 	bool checkPscAcyclicity();
 	bool isExecutionValid();

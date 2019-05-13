@@ -23,14 +23,6 @@
 
 #include <llvm/Support/raw_ostream.h>
 
-enum EventType { EStart, EFinish, ETCreate, ETJoin,
-		 ERead, EWrite, EFence, EMalloc, EFree };
-
-enum EventAttr { ATTR_PLAIN, ATTR_CAS, ATTR_FAI, ATTR_LOCK, ATTR_UNLOCK };
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventType t);
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, EventAttr a);
-
 struct Event {
 	int thread;
 	int index;

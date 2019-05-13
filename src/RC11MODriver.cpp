@@ -43,7 +43,7 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 	auto &g = getGraph();
 	auto &locMO = g.modOrder[addr];
-	auto &before = g.getHbBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = g.getHbBefore(g.getLastThreadEvent(getEE()->getCurThr().id));
 
 	auto begO = splitLocMOBefore(addr, before);
 
@@ -64,29 +64,32 @@ std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
 	auto &g = getGraph();
-	auto &pLab = g.getLastThreadLabel(EE->getCurThr().id);
+	const EventLabel *pLab = g.getLastThreadLabel(getEE()->getCurThr().id);
 
 	if (isRMW) {
-		auto offset = g.modOrder.getStoreOffset(addr, pLab.rf) + 1;
-		return std::make_pair(offset, offset);
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab)) {
+			auto offset = g.modOrder.getStoreOffset(addr, rLab->getRf()) + 1;
+			return std::make_pair(offset, offset);
+		}
+		BUG();
 	}
 
-	auto &before = g.getHbBefore(pLab.getPos());
+	auto &before = g.getHbBefore(pLab->getPos());
 	return std::make_pair(splitLocMOBefore(addr, before), g.modOrder[addr].size());
 }
 
-std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
+std::vector<Event> RC11MODriver::getRevisitLoads(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
-	auto &locMO = g.modOrder[sLab.getAddr()];
+	auto &locMO = g.modOrder[sLab->getAddr()];
 
 	/* If this store is mo-maximal then we are done */
-	if (locMO.back() == sLab.getPos())
+	if (locMO.back() == sLab->getPos())
 		return ls;
 
 	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
-	auto optRfs = g.getMoOptRfAfter(sLab.getPos());
+	auto optRfs = g.getMoOptRfAfter(sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ const View &before = g.getHbPoBefore(e);
 				  return std::any_of(optRfs.begin(), optRfs.end(),
@@ -96,17 +99,19 @@ std::vector<Event> RC11MODriver::getRevisitLoads(EventLabel &sLab)
 	return ls;
 }
 
-std::pair<std::vector<EventLabel>, std::vector<std::pair<Event, Event> > >
-	  RC11MODriver::getPrefixToSaveNotBefore(EventLabel &lab, View &before)
+std::pair<std::vector<std::unique_ptr<EventLabel> >,
+	  std::vector<std::pair<Event, Event> > >
+RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
 {
-	auto writePrefix = getGraph().getPrefixLabelsNotBefore(lab.porfView, before);
-	auto moPlacings = getGraph().getMOPredsInBefore(writePrefix, before);
+	auto &g = getGraph();
+	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(lab->getPos()), before);
+	auto moPlacings = g.getMOPredsInBefore(writePrefix, before);
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
 bool RC11MODriver::checkPscAcyclicity()
 {
-	switch (userConf->checkPscAcyclicity) {
+	switch (getConf()->checkPscAcyclicity) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:

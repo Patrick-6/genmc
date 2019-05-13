@@ -49,9 +49,7 @@ public:
 	const_iterator cend();
 
 	/* Basic getter/setters and existential checks */
-	void add(const std::vector<Event> &es);
 	void add(const std::vector<Event> &es, const std::vector<std::pair<Event, Event> > &mos);
-	bool contains(std::vector<Event> &es);
 	bool contains(const std::vector<Event> &es,
 		      const std::vector<std::pair<Event, Event> > &mos);
 

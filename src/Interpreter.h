@@ -40,9 +40,8 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
-#include "Event.hpp"
-#include "EventLabel.hpp"
 #include "Library.hpp"
+#include "View.hpp"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -156,6 +155,17 @@ public:
   explicit Interpreter(Module *M, GenMCDriver *driver);
   virtual ~Interpreter();
 
+  /* Enum to inform the driver about possible special attributes
+   * of the instruction being interpreted */
+  enum InstAttr {
+	  IA_None,
+	  IA_Fai,
+	  IA_Cas,
+	  IA_Lock,
+	  IA_Unlock,
+  };
+
+  /* Resets the interpreter at the beginning of a new execution */
   void reset();
 
   /* Stores the addresses of global values into globalVars and threadLocalVars */
@@ -232,8 +242,8 @@ public:
   /* Helper functions */
   void collectGPs(Module *M, void *ptr, Type *typ);
   void replayExecutionBefore(const View &before);
-  bool compareValues(llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
-  GenericValue loadValueFromWrite(Event w, Type *typ, const GenericValue *ptr);
+  bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
+  GenericValue getLocInitVal(GenericValue *ptr, Type *typ);
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
 
@@ -252,8 +262,10 @@ public:
   void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callReadFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
-  void callWriteFunction(Library &lib, LibMem &m, Function *F, const std::vector<GenericValue> &ArgVals);
+  void callReadFunction(const Library &lib, const LibMem &m, Function *F,
+			const std::vector<GenericValue> &ArgVals);
+  void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
+			 const std::vector<GenericValue> &ArgVals);
 
 
   // Methods used to execute code:
