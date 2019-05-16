@@ -61,7 +61,7 @@ public:
 	using iterator = typename Set::iterator;
 	using const_iterator = typename Set::const_iterator;
 	using reverse_iterator = typename Set::reverse_iterator;
-	using const_revserse_iteratr = typename Set::const_reverse_iterator;
+	using const_reverse_iterator = typename Set::const_reverse_iterator;
 
 	iterator begin() { return vset_.begin(); };
 	iterator end() { return vset_.end(); };
@@ -93,7 +93,9 @@ public:
 	const T& max() const { return vset_.back(); };
 
 	inline const T& operator[](int i) const { return vset_[i]; };
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const VSet& set);
+
+	template<typename U>
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const VSet<U>& set);
 };
 
 #include "VSet.tcc"
