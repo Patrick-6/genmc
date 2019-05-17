@@ -40,6 +40,7 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
+#include "DepInfo.hpp"
 #include "Library.hpp"
 #include "View.hpp"
 
@@ -112,6 +113,8 @@ public:
 	llvm::ExecutionContext initSF;
 	std::unordered_map<void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
+	DepInfo ctrlDeps;
+	std::unordered_map<Value *, DepInfo> dataDeps;
 	bool isBlocked;
 	MyRNG rng;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;

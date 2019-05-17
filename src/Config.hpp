@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-enum class ModelType { weakra, mo, wb };
+enum class ModelType { weakra, mo, wb, imm };
 enum class CheckPSCType { nocheck, weak, wb, full };
 
 struct Config {

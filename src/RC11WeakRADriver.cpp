@@ -38,8 +38,8 @@ std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *ad
 	}
 
 	auto before = g.getHbRfBefore(overwritten);
-	for (auto i = 0u; i < g.events.size(); i++) {
-		for (auto j = before[i] + 1u; j < g.events[i].size(); j++) {
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
 				if (wLab->getAddr() == addr)

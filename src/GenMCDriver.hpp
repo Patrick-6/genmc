@@ -24,6 +24,7 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
+#include "DepInfo.hpp"
 #include "Interpreter.h"
 #include "ExecutionGraph.hpp"
 #include "Library.hpp"
@@ -121,10 +122,11 @@ public:
 
 	/*** Instruction-related actions ***/
 
-	/* Returns the value this load reads */
-	llvm::GenericValue
+	/* Returns the value this load reads, and possibly dependence info */
+	std::pair<llvm::GenericValue, DepInfo>
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
+		  DepInfo addrDeps, DepInfo dataDeps, DepInfo ctrlDeps,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -140,8 +142,9 @@ public:
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		   const llvm::GenericValue *addr,
-		   llvm::Type *typ, llvm::GenericValue &val);
+		   const llvm::GenericValue *addr, llvm::Type *typ,
+		   llvm::GenericValue &val, DepInfo addrDeps,
+		   DepInfo dataDeps, DepInfo ctrlDeps);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
@@ -233,6 +236,15 @@ private:
 	 * Exhaustively explores all  consistent executions of a program */
 	void visitGraph();
 
+	/* Updates dependency information in the execution graph.
+	 * Since this is not useful for all memory models, this
+	 * function does nothing by default. The driver gives up
+	 * the ownership of the dependency information */
+	virtual void updateGraphDependencies(Event e,
+					     DepInfo &&addr,
+					     DepInfo &&data,
+					     DepInfo &&ctrl) {};
+
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
@@ -257,7 +269,7 @@ private:
 	bool revisitReads(StackItem &s);
 
 	/* Removes all labels with stamp >= st from the graph */
-	void restrictGraph(unsigned int st);
+	virtual void restrictGraph(unsigned int st);
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
@@ -289,6 +301,9 @@ private:
 
 	/* Prints the source-code instructions leading to Event e */
 	void printTraceBefore(Event e);
+
+	/* Outputs the graph at the end of each execution */
+	void printGraph();
 
 	/* Nicely outputs the graph at the end of each execution */
 	void prettyPrintGraph();

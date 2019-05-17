@@ -19,6 +19,7 @@
  */
 
 #include "DriverFactory.hpp"
+#include "IMMWBDriver.hpp"
 #include "RC11WeakRADriver.hpp"
 #include "RC11WBDriver.hpp"
 #include "RC11MODriver.hpp"
@@ -41,6 +42,10 @@ DriverFactory::create(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module
 		return std::unique_ptr<RC11WBDriver>(
 			new RC11WBDriver(std::move(conf), std::move(mod),
 					 granted, toVerify, start));
+	case ModelType::imm:
+		return std::unique_ptr<IMMWBDriver>(
+			new IMMWBDriver(std::move(conf), std::move(mod),
+					granted, toVerify, start));
 	default:
 		WARN("Unsupported model type! Exiting...\n");
 		abort();

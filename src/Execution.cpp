@@ -317,10 +317,14 @@ static GenericValue executeICMP_SGE(GenericValue Src1, GenericValue Src2,
 
 void Interpreter::visitICmpInst(ICmpInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
+
+  thr.dataDeps[&I] = thr.dataDeps[I.getOperand(0)].
+	  depUnion(thr.dataDeps[I.getOperand(1)]);
 
   switch (I.getPredicate()) {
   case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
@@ -720,10 +724,15 @@ static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
 
 void Interpreter::visitBinaryOperator(BinaryOperator &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
+
+  /* Update dependencies */
+  thr.dataDeps[&I] = thr.dataDeps[I.getOperand(0)].
+	  depUnion(thr.dataDeps[I.getOperand(1)]);
 
   // First process vector operation
   if (Ty->isVectorTy()) {
@@ -937,6 +946,7 @@ void Interpreter::visitUnreachableInst(UnreachableInst &I) {
 
 void Interpreter::visitBranchInst(BranchInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
   BasicBlock *Dest;
 
   Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -944,6 +954,7 @@ void Interpreter::visitBranchInst(BranchInst &I) {
     Value *Cond = I.getCondition();
     if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
       Dest = I.getSuccessor(1);
+    thr.ctrlDeps.update(thr.dataDeps[Cond]);
   }
   SwitchToNewBasicBlock(Dest, SF);
 }
@@ -1136,9 +1147,16 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
-	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ);
+	/* Visit the load and set dependencies */
+	auto res = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ,
+				     DepInfo(), thr.dataDeps[I.getPointerOperand()], DepInfo());
+	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(res.second);
+
+	// llvm::dbgs() << "Load " << &I << " data " << thr.dataDeps[&I] << "\n";
+	// llvm::dbgs() << "Load " << &I << " ctrl " << thr.ctrlDeps << "\n";
+
 	/* Last, set the return value for this instruction */
-	SetValue(&I, val, SF);
+	SetValue(&I, res.first, SF);
 	return;
 }
 
@@ -1164,8 +1182,13 @@ void Interpreter::visitStoreInst(StoreInst &I)
 		return;
 	}
 
-	/* Add store to graph and (possibly) revisit some reads */
-	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val);
+	/* Inform the Driver about the newly interpreter store */
+	// dataDeps[&I] = dataDeps[I.getOperand(0)];
+	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val,
+			   thr.dataDeps[I.getPointerOperand()],
+			   thr.dataDeps[I.getOperand(0)], thr.ctrlDeps);
+	// llvm::dbgs() << "Store " << &I << " addr " << thr.dataDeps[I.getPointerOperand()] << "\n";;
+	// llvm::dbgs() << "Store " << &I << " data " << thr.dataDeps[I.getOperand(0)] << "\n";
 	return;
 }
 
@@ -1184,9 +1207,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	Type *typ = I.getCompareOperand()->getType();
-	GenericValue oldVal, result;
+	GenericValue result;
 
 	if (!isGlobal(ptr)) {
+		GenericValue oldVal;
 		if (thr.tls.count(ptr))
 			oldVal = thr.tls[ptr];
 		else
@@ -1204,14 +1228,14 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(IA_Cas, I.getSuccessOrdering(),
-				   ptr, typ, cmpVal, newVal);
-	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
+				     DepInfo(), DepInfo(), DepInfo(), cmpVal, newVal);
+	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(IA_Cas, I.getSuccessOrdering(),
-				   ptr, typ, newVal);
+		driver->visitStore(IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal,
+				   DepInfo(), DepInfo(), DepInfo());
 
-	result.AggregateVal.push_back(oldVal);
+	result.AggregateVal.push_back(ret.first);
 	result.AggregateVal.push_back(cmpRes);
 	SetValue(&I, result, SF);
 	return;
@@ -1254,11 +1278,12 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	GenericValue val = getOperandValue(I.getValOperand(), SF);
 	Type *typ = I.getType();
-	GenericValue oldVal, newVal;
+	GenericValue newVal;
 
 	BUG_ON(!typ->isIntegerTy());
 
 	if (!isGlobal(ptr)) {
+		GenericValue oldVal;
 		if (thr.tls.count(ptr))
 			oldVal = thr.tls[ptr];
 		else
@@ -1272,12 +1297,14 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	oldVal = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
-				   GenericValue(), val, I.getOperation());
-	executeAtomicRMWOperation(newVal, oldVal, val, I.getOperation());
+	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
+				     DepInfo(), DepInfo(), DepInfo(),
+				     GenericValue(), val, I.getOperation());
+	executeAtomicRMWOperation(newVal, ret.first, val, I.getOperation());
 
-	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
-	SetValue(&I, oldVal, SF);
+	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal,
+			   DepInfo(), DepInfo(), DepInfo());
+	SetValue(&I, ret.first, SF);
 	return;
 }
 
@@ -2524,6 +2551,7 @@ void Interpreter::callPthreadMutexInit(Function *F,
 void Interpreter::callPthreadMutexLock(Function *F,
 				       const std::vector<GenericValue> &ArgVals)
 {
+	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue cmpVal, newVal, result;
@@ -2540,15 +2568,16 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire,
-					ptr, typ, cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
+				     DepInfo(), DepInfo(), DepInfo(),
+				     cmpVal, newVal);
 
-	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
-		getCurThr().block();
+		thr.block();
 	} else {
-		driver->visitStore(IA_Lock, AtomicOrdering::Acquire,
-				   ptr, typ, newVal);
+		driver->visitStore(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
+				   newVal, DepInfo(), DepInfo(), DepInfo());
 	}
 
 	/*
@@ -2564,6 +2593,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 void Interpreter::callPthreadMutexUnlock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
+	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue val, result;
@@ -2579,7 +2609,8 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val);
+	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val,
+			   DepInfo(), DepInfo(), DepInfo());
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2588,6 +2619,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 void Interpreter::callPthreadMutexTrylock(Function *F,
 					 const std::vector<GenericValue> &ArgVals)
 {
+	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue cmpVal, newVal, result;
@@ -2604,12 +2636,14 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto oldVal = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire,
-					ptr, typ, cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
+				     DepInfo(), DepInfo(), DepInfo(),
+				     cmpVal, newVal);
 
-	auto cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(IA_Cas, AtomicOrdering::Acquire, ptr, typ, newVal);
+		driver->visitStore(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
+				   newVal, DepInfo(), DepInfo(), DepInfo());
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);

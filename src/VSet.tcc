@@ -160,6 +160,20 @@ int VSet<T>::insert(const VSet<T> &s)
 }
 
 template<typename T>
+template<typename ITER>
+void VSet<T>::insert(ITER begin, ITER end)
+{
+	for (; begin != end; ++begin) {
+		if (size() && max() < *begin) {
+			vset_.push_back(*begin);
+		} else {
+			insert(*begin);
+		}
+	}
+}
+
+
+template<typename T>
 int VSet<T>::erase(const T &el)
 {
 	auto it = std::lower_bound(begin(), end(), el);
@@ -251,7 +265,7 @@ template<typename T>
 bool VSet<T>::intersects(const VSet<T> &s) const
 {
 	auto a = begin();
-	auto b = begin();
+	auto b = s.begin();
 	while(a != end() && b != s.end()) {
 		if (*a == *b)
 			return true;
@@ -262,6 +276,27 @@ bool VSet<T>::intersects(const VSet<T> &s) const
 			++b;
 	}
 	return false;
+}
+
+template<typename T>
+VSet<T> VSet<T>::intersectWith(const VSet<T> &s) const
+{
+	VSet<T> result;
+
+	auto a = begin();
+	auto b = s.begin();
+	while(a != end() && b != s.end()) {
+		if (*a == *b) {
+			result.insert(*a);
+			++a;
+			++b;
+		} else if (*a < *b) {
+			++a;
+		} else {
+			++b;
+		}
+	}
+	return result;
 }
 
 template <typename T>

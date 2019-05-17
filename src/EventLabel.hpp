@@ -21,6 +21,7 @@
 #ifndef __EVENTLABEL_HPP__
 #define __EVENTLABEL_HPP__
 
+#include "DepView.hpp"
 #include "Event.hpp"
 #include "RevisitSet.hpp"
 #include "View.hpp"
@@ -132,9 +133,11 @@ private:
 	 * These are to be used only from the execution graph */
 	const View& getHbView() const { return hbView; }
 	const View& getPorfView() const { return porfView; }
+	const DepView& getPPoRfView() const { return pporfView; }
 
 	void setHbView(View &&v) { hbView = std::move(v); }
 	void setPorfView(View &&v) { porfView = std::move(v); }
+	void setPPoRfView(DepView &&v) { pporfView = std::move(v); }
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const EventLabelKind kind;
@@ -153,6 +156,9 @@ private:
 
 	/* Events that are (po U rf)-before this label */
 	View porfView;
+
+	/* Events that are (ppo U rf)-before this label */
+	DepView pporfView;
 };
 
 

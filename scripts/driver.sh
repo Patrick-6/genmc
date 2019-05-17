@@ -33,23 +33,26 @@ then
     fastrun=1
 fi
 
+model=imm && testdir=../tests/deps && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+
 # First run the testcases in the correct/ directory
 # ... under WB
-model=wb && testdir=../tests/correct && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
-# ... and under MO
-model=mo && testdir=../tests/correct && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# model=wb && testdir=../tests/correct && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# # ... and under MO
+# model=mo && testdir=../tests/correct && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# Then, do all the library tests
-model=wb && testdir=../tests/libs && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
-model=mo && testdir=../tests/libs && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# # Then, do all the library tests
+# model=wb && testdir=../tests/libs && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# model=mo && testdir=../tests/libs && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# Then, run the testcases in the wrong/ directory
-model=wb && testdir=../tests/wrong && source runwrong.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# # Then, run the testcases in the wrong/ directory
+# model=wb && testdir=../tests/wrong && source runwrong.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 if test -n "$result"
 then
