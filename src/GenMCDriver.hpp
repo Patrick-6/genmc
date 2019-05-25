@@ -127,6 +127,7 @@ public:
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
 		  DepInfo addrDeps, DepInfo dataDeps, DepInfo ctrlDeps,
+		  DepInfo addrPoDeps, DepInfo casDeps,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -143,8 +144,8 @@ public:
 	void
 	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		   const llvm::GenericValue *addr, llvm::Type *typ,
-		   llvm::GenericValue &val, DepInfo addrDeps,
-		   DepInfo dataDeps, DepInfo ctrlDeps);
+		   llvm::GenericValue &val, DepInfo addrDeps, DepInfo dataDeps,
+		   DepInfo ctrlDeps, DepInfo addrPoDeps, DepInfo casDeps);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
@@ -241,9 +242,11 @@ private:
 	 * function does nothing by default. The driver gives up
 	 * the ownership of the dependency information */
 	virtual void updateGraphDependencies(Event e,
-					     DepInfo &&addr,
-					     DepInfo &&data,
-					     DepInfo &&ctrl) {};
+					     const DepInfo &addr,
+					     const DepInfo &data,
+					     const DepInfo &ctrl,
+					     const DepInfo &addrPo,
+					     const DepInfo &cas) {};
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -267,6 +270,12 @@ private:
 	/* Adjusts the graph and the worklist for the next backtracking option.
 	 * Returns true if the resulting graph should be explored */
 	bool revisitReads(StackItem &s);
+
+	/* If rLab is the read part of an RMW operation that now became
+	 * successful, this function adds the corresponding write part.
+	 * Returns a pointer to the newly added event, or nullptr
+	 * if the event was not an RMW, or was an unsuccessful one */
+	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
 	/* Removes all labels with stamp >= st from the graph */
 	virtual void restrictGraph(unsigned int st);

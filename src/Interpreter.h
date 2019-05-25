@@ -114,6 +114,7 @@ public:
 	std::unordered_map<void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	DepInfo ctrlDeps;
+	DepInfo addrPoDeps;
 	std::unordered_map<Value *, DepInfo> dataDeps;
 	bool isBlocked;
 	MyRNG rng;

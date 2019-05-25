@@ -75,20 +75,56 @@ Event ExecutionGraph::getLastThreadEvent(int thread) const
 	return Event(thread, maxIndices[thread] - 1);
 }
 
-Event ExecutionGraph::getLastThreadRelease(int thread, const llvm::GenericValue *addr) const
+Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
+						const llvm::GenericValue *addr) const
 {
-	for (int i = getThreadSize(thread) - 1; i > 0; i--) {
-		const EventLabel *lab = getEventLabel(Event(thread, i));
+	for (int i = upperLimit.index - 1; i > 0; i--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {
 			if (fLab->isAtLeastRelease())
-				return Event(thread, i);
+				return Event(upperLimit.thread, i);
 		}
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 			if (wLab->isAtLeastRelease() && wLab->getAddr() == addr)
-				return Event(thread, i);
+				return Event(upperLimit.thread, i);
 		}
 	}
-	return Event(thread, 0);
+	return Event(upperLimit.thread, 0);
+}
+
+Event ExecutionGraph::getLastThreadRelease(Event upperLimit) const
+{
+	for (int i = upperLimit.index - 1; i > 0; i--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
+		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {
+			if (fLab->isAtLeastRelease())
+				return Event(upperLimit.thread, i);
+		}
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (wLab->isAtLeastRelease())
+				return Event(upperLimit.thread, i);
+		}
+	}
+	return Event(upperLimit.thread, 0);
+}
+
+/* Assumes that all events prior to upperLimit have already been added */
+std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) const
+{
+	std::vector<Event> result;
+
+	result.push_back(Event(upperLimit.thread, 0));
+	for (int i = 1u; i < upperLimit.index; i++) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
+		BUG_ON(!lab);
+		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab))
+			result.push_back(lab->getPos());
+		if (auto *wLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (wLab->isAtLeastAcquire())
+				result.push_back(lab->getPos());
+		}
+	}
+	return result;
 }
 
 /*
@@ -152,14 +188,6 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab)
 		}
 	}
 	return loads;
-}
-
-bool ExecutionGraph::dependsOn(const WriteLabel *sLab, const EventLabel *lab)
-{
-	if (dataDeps[sLab->getPos()].contains(lab->getPos()) ||
-	    sLab->getPos() == lab->getPos())
-		return true;
-	return false;
 }
 
 std::vector<Event> ExecutionGraph::getRevisitablePPoRf(const WriteLabel *sLab)
@@ -238,19 +266,26 @@ DepView ExecutionGraph::calcBasicPPoRfView(const EventLabel *lab) /* not const *
 {
 	DepView v;
 
-	/* Update ppo based on dependencies */
+	/* Update ppo based on dependencies (data, addr, ctrl, addr;po) */
 	for (auto &adep : addrDeps[lab->getPos()])
 		v.update(getPPoRfBefore(adep));
 	for (auto &ddep : dataDeps[lab->getPos()])
 		v.update(getPPoRfBefore(ddep));
 	for (auto &cdep : ctrlDeps[lab->getPos()])
 		v.update(getPPoRfBefore(cdep));
+	for (auto &apdep : addrPoDeps[lab->getPos()])
+		v.update(getPPoRfBefore(apdep));
 
 	/* This event does not depend on anything else */
 	int oldIdx = v[lab->getThread()];
 	v[lab->getThread()] = lab->getIndex();
 	for (auto i = oldIdx + 1; i < lab->getIndex(); i++)
 		v.addHole(Event(lab->getThread(), i));
+
+	/* Update based on the view of the last acquire of the thread */
+	std::vector<Event> acqs = getThreadAcquiresAndFences(lab->getPos());
+	for (auto &e : acqs)
+		v.update(getPPoRfBefore(e));
 	return v;
 }
 
@@ -278,8 +313,7 @@ ExecutionGraph::addReadToGraphCommon(std::unique_ptr<ReadLabel> lab)
 	DepView pporf = calcBasicPPoRfView(lab.get());
 
 	porf.update(rfLab->getPorfView());
-	if (rfLab->getThread() != lab->getThread())
-		pporf.update(rfLab->getPPoRfView());
+	pporf.update(rfLab->getPPoRfView());
 	if (lab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
@@ -311,14 +345,15 @@ ExecutionGraph::addReadToGraph(int tid, int index,
 }
 
 const FaiReadLabel *
-ExecutionGraph::addFaiReadToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addFaiReadToGraph(int tid, int index,
+				  llvm::AtomicOrdering ord,
 				  const llvm::GenericValue *ptr,
 				  const llvm::Type *typ, Event rf,
 				  llvm::AtomicRMWInst::BinOp op,
 				  llvm::GenericValue &&val)
 
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<FaiReadLabel> lab(
 		new FaiReadLabel(nextStamp(), ord, pos, ptr, typ, rf, op, val));
 
@@ -327,14 +362,15 @@ ExecutionGraph::addFaiReadToGraph(int tid, llvm::AtomicOrdering ord,
 }
 
 const CasReadLabel *
-ExecutionGraph::addCasReadToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addCasReadToGraph(int tid, int index,
+				  llvm::AtomicOrdering ord,
 				  const llvm::GenericValue *ptr,
 				  const llvm::Type *typ, Event rf,
 				  const llvm::GenericValue &expected,
 				  const llvm::GenericValue &swap,
 				  bool isLock /* = false */)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<CasReadLabel> lab(
 		new CasReadLabel(nextStamp(), ord, pos, ptr, typ,
 				 rf, expected, swap, isLock));
@@ -344,12 +380,13 @@ ExecutionGraph::addCasReadToGraph(int tid, llvm::AtomicOrdering ord,
 }
 
 const LibReadLabel *
-ExecutionGraph::addLibReadToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addLibReadToGraph(int tid, int index,
+				  llvm::AtomicOrdering ord,
 				  const llvm::GenericValue *ptr,
 				  const llvm::Type *typ, Event rf,
 				  std::string fName)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<LibReadLabel> lab(
 		new LibReadLabel(nextStamp(), ord, pos, ptr, typ, rf, fName));
 
@@ -363,13 +400,26 @@ ExecutionGraph::addStoreToGraphCommon(std::unique_ptr<WriteLabel> lab)
 	/* First, we calculate the hb and (po U rf) views */
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
-	DepView pporf = calcBasicPPoRfView(lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+
+	/* Then, we calculate the (ppo U rf) view */
+	DepView pporf = calcBasicPPoRfView(lab.get());
+
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = getLastThreadRelease(lab->getPos());
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
 	lab->setPPoRfView(std::move(pporf));
 
-	/* Then, we calculate the message view for the store */
+	/* Finallyl, we calculate the message view for the store */
 	View msg;
 	if (llvm::isa<FaiWriteLabel>(&*lab) || llvm::isa<CasWriteLabel>(&*lab)) {
 		const EventLabel *pLab = getPreviousLabel(lab.get());
@@ -384,15 +434,15 @@ ExecutionGraph::addStoreToGraphCommon(std::unique_ptr<WriteLabel> lab)
 		if (rLab->isAtLeastRelease())
 			msg.update(lab->getHbView());
 		else
-			msg.update(getHbBefore(getLastThreadRelease(lab->getThread(),
-								    lab->getAddr())));
+			msg.update(getHbBefore(getLastThreadReleaseAtLoc(lab->getPos(),
+									 lab->getAddr())));
 	} else {
 		if (lab->isAtLeastRelease())
 			msg = lab->getHbView();
 		else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
 			 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
-			msg = getHbBefore(getLastThreadRelease(lab->getThread(),
-							       lab->getAddr()));
+			msg = getHbBefore(getLastThreadReleaseAtLoc(lab->getPos(),
+								    lab->getAddr()));
 	}
 
 	lab->setMsgView(std::move(msg));
@@ -416,13 +466,14 @@ ExecutionGraph::addStoreToGraph(int tid, int index,
 }
 
 const FaiWriteLabel *
-ExecutionGraph::addFaiStoreToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addFaiStoreToGraph(int tid, int index,
+				   llvm::AtomicOrdering ord,
 				   const llvm::GenericValue *ptr,
 				   const llvm::Type *typ,
 				   const llvm::GenericValue &val,
 				   int offsetMO)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<FaiWriteLabel> lab(
 		new FaiWriteLabel(nextStamp(), ord, pos, ptr, typ, val));
 	modOrder[lab->getAddr()].insert(modOrder[lab->getAddr()].begin() + offsetMO,
@@ -432,13 +483,14 @@ ExecutionGraph::addFaiStoreToGraph(int tid, llvm::AtomicOrdering ord,
 }
 
 const CasWriteLabel *
-ExecutionGraph::addCasStoreToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addCasStoreToGraph(int tid, int index,
+				   llvm::AtomicOrdering ord,
 				   const llvm::GenericValue *ptr,
 				   const llvm::Type *typ,
 				   const llvm::GenericValue &val,
 				   int offsetMO, bool isLock)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<CasWriteLabel> lab(
 		new CasWriteLabel(nextStamp(), ord, pos, ptr, typ, val, isLock));
 	modOrder[lab->getAddr()].insert(modOrder[lab->getAddr()].begin() + offsetMO,
@@ -448,13 +500,14 @@ ExecutionGraph::addCasStoreToGraph(int tid, llvm::AtomicOrdering ord,
 }
 
 const LibWriteLabel *
-ExecutionGraph::addLibStoreToGraph(int tid, llvm::AtomicOrdering ord,
+ExecutionGraph::addLibStoreToGraph(int tid, int index,
+				   llvm::AtomicOrdering ord,
 				   const llvm::GenericValue *ptr,
 				   const llvm::Type *typ,
 				   llvm::GenericValue &val, int offsetMO,
 				   std::string functionName, bool isInit)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<LibWriteLabel> lab(
 		new LibWriteLabel(nextStamp(), ord, pos, ptr, typ, val,
 				  functionName, isInit));
@@ -465,25 +518,38 @@ ExecutionGraph::addLibStoreToGraph(int tid, llvm::AtomicOrdering ord,
 }
 
 const FenceLabel *
-ExecutionGraph::addFenceToGraph(int tid, llvm::AtomicOrdering ord)
+ExecutionGraph::addFenceToGraph(int tid, int index, llvm::AtomicOrdering ord)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<FenceLabel> lab(new FenceLabel(nextStamp(), ord, pos));
 
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
+	DepView pporf = calcBasicPPoRfView(lab.get());
+
 	if (lab->isAtLeastAcquire())
 		calcRelRfPoBefore(lab->getPos().prev(), hb);
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = getLastThreadRelease(lab->getPos());
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const FenceLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const MallocLabel *
-ExecutionGraph::addMallocToGraph(int tid, const void *addr, unsigned int size)
+ExecutionGraph::addMallocToGraph(int tid, int index, const void *addr, unsigned int size)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<MallocLabel> lab(
 		new MallocLabel(nextStamp(), llvm::AtomicOrdering::NotAtomic,
 				pos, addr, size));
@@ -491,15 +557,18 @@ ExecutionGraph::addMallocToGraph(int tid, const void *addr, unsigned int size)
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
 
+	WARN("Calculate pporf views!\n");
+	BUG();
+
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 	return static_cast<const MallocLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const FreeLabel *
-ExecutionGraph::addFreeToGraph(int tid, const void *addr, unsigned int size)
+ExecutionGraph::addFreeToGraph(int tid, int index, const void *addr, unsigned int size)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<FreeLabel> lab(
 		new FreeLabel(nextStamp(), llvm::AtomicOrdering::NotAtomic,
 			      pos, addr, size));
@@ -507,31 +576,45 @@ ExecutionGraph::addFreeToGraph(int tid, const void *addr, unsigned int size)
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
 
+	WARN("Calculate pporf views!\n");
+	BUG();
+
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 	return static_cast<const FreeLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const ThreadCreateLabel *
-ExecutionGraph::addTCreateToGraph(int tid, int cid)
+ExecutionGraph::addTCreateToGraph(int tid, int index, int cid)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<ThreadCreateLabel> lab(
 		new ThreadCreateLabel(nextStamp(),
 				      llvm::AtomicOrdering::Release, pos, cid));
 
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
+	DepView pporf = calcBasicPPoRfView(lab.get());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const ThreadCreateLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const ThreadJoinLabel *
-ExecutionGraph::addTJoinToGraph(int tid, int cid)
+ExecutionGraph::addTJoinToGraph(int tid, int index, int cid)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<ThreadJoinLabel> lab(
 		new ThreadJoinLabel(nextStamp(),
 				    llvm::AtomicOrdering::Acquire, pos, cid));
@@ -541,45 +624,61 @@ ExecutionGraph::addTJoinToGraph(int tid, int cid)
 	 * update the view yet */
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
+	DepView pporf = calcBasicPPoRfView(lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const ThreadJoinLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const ThreadStartLabel *
-ExecutionGraph::addStartToGraph(int tid, Event tc)
+ExecutionGraph::addStartToGraph(int tid, int index, Event tc)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<ThreadStartLabel> lab(
 		new ThreadStartLabel(nextStamp(),
 				     llvm::AtomicOrdering::Acquire, pos, tc));
 
 	/* Thread start has Acquire semantics */
 	View hb(getHbBefore(tc));
-	hb[tid] = pos.index;
-
 	View porf(getPorfBefore(tc));
+	DepView pporf(getPPoRfBefore(tc));
+
+	hb[tid] = pos.index;
 	porf[tid] = pos.index;
+	pporf[tid] = pos.index;
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const ThreadStartLabel *>(addEventToGraph(std::move(lab)));
 }
 
 const ThreadFinishLabel *
-ExecutionGraph::addFinishToGraph(int tid)
+ExecutionGraph::addFinishToGraph(int tid, int index)
 {
-	Event pos(tid, getThreadSize(tid));
+	Event pos(tid, index);
 	std::unique_ptr<ThreadFinishLabel> lab(
 		new ThreadFinishLabel(nextStamp(),
 				      llvm::AtomicOrdering::Release, pos));
 
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
+	DepView pporf = calcBasicPPoRfView(lab.get());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const ThreadFinishLabel *>(addEventToGraph(std::move(lab)));
 }
 
@@ -728,10 +827,11 @@ ExecutionGraph::getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const View
 {
 	std::vector<std::unique_ptr<EventLabel> > result;
 
+	auto &pporf = sLab->getPPoRfView();
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!dependsOn(sLab, lab))
+			if (!lab || !pporf.contains(lab->getPos()))
 				continue;
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
@@ -739,12 +839,12 @@ ExecutionGraph::getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const View
 			auto &curLab = result.back();
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
 				wLab->removeReader([&](Event r) {
-						const EventLabel *rLab = getEventLabel(r);
 						return !before.contains(r) &&
-						       !dependsOn(sLab, rLab);
+						       !pporf.contains(r);
 					});
 			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
-				if (!before.contains(eLab->getParentJoin()) && !dependsOn(sLab, eLab))
+				if (!before.contains(eLab->getParentJoin()) &&
+				    !pporf.contains(eLab->getPos()))
 					eLab->setParentJoin(Event::getInitializer());
 			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
 				/* We can keep the begin event of the child
@@ -889,7 +989,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericVa
  ***********************************************************/
 
 void ExecutionGraph::changeRf(Event read, Event store)
-{
+{llvm::dbgs() << "_______CHANGING RF " << read << "___________\n";
 	EventLabel *lab = events[read.thread][read.index].get();
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 
@@ -929,7 +1029,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 			hb.update(wLab->getMsgView());
 	}
 	rLab->setHbView(std::move(hb));
-	rLab->setPorfView(std::move(porf));
+	rLab->setPorfView(std::move(porf));llvm::dbgs() << "New view " << pporf << "____________\n";
 	rLab->setPPoRfView(std::move(pporf));
 }
 
@@ -951,6 +1051,7 @@ bool ExecutionGraph::updateJoin(Event join, Event childLast)
 	fLab->setParentJoin(jLab->getPos());
 	jLab->hbView.update(fLab->hbView);
 	jLab->porfView.update(fLab->porfView);
+	jLab->pporfView.update(fLab->pporfView);
 	return true;
 }
 
@@ -967,8 +1068,10 @@ void ExecutionGraph::resetJoin(Event join)
 	jLab->setChildLast(Event::getInitializer());
 	View hb = calcBasicHbView(jLab);
 	View porf = calcBasicPorfView(jLab);
+	DepView pporf = calcBasicPPoRfView(jLab);
 	jLab->setHbView(std::move(hb));
 	jLab->setPorfView(std::move(porf));
+	jLab->setPPoRfView(std::move(pporf));
 	return;
 }
 
@@ -985,6 +1088,8 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = (int) getThreadSize(i) - 1; j >= 0; j--) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
+			if (!lab)
+				continue;
 			if (lab->getStamp() <= stamp) {
 				preds[i] = j;
 				break;
@@ -2333,6 +2438,16 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	for (auto &c : g.ctrlDeps) {
 		if (!c.second.empty())
 			s << c.first << ": " << c.second << "\n";
+	}
+	s << "Address;po dependencies:\n";
+	for (auto &ap : g.addrPoDeps) {
+		if (!ap.second.empty())
+			s << ap.first << ": " << ap.second << "\n";
+	}
+	s << "CAS dependencies:\n";
+	for (auto &cd : g.casDeps) {
+		if (!cd.second.empty())
+			s << cd.first << ": " << cd.second << "\n";
 	}
 
 	return s;

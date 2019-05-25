@@ -21,15 +21,19 @@
 #include "IMMWBDriver.hpp"
 
 void IMMWBDriver::updateGraphDependencies(Event e,
-					  DepInfo &&addr,
-					  DepInfo &&data,
-					  DepInfo &&ctrl)
+					  const DepInfo &addr,
+					  const DepInfo &data,
+					  const DepInfo &ctrl,
+					  const DepInfo &addrPo,
+					  const DepInfo &casDep)
 {
 	auto &g = getGraph();
 
-	g.addrDeps[e] = std::move(addr);
-	g.dataDeps[e] = std::move(data);
-	g.ctrlDeps[e] = std::move(ctrl);
+	g.addrDeps[e] = addr;
+	g.dataDeps[e] = data;
+	g.ctrlDeps[e] = ctrl;
+	g.addrPoDeps[e] = addrPo;
+	g.casDeps[e] = casDep;
 }
 
 void IMMWBDriver::restrictGraph(unsigned int stamp)
@@ -99,10 +103,63 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitablePPoRf(sLab);
-	llvm::dbgs() << "REVISITABLE FROM " << sLab->getPos() << ": ";
-	for (auto &l :ls)
-		llvm::dbgs() << l << " "; llvm::dbgs() << "\n";
-	return ls;
+
+	/* Optimization:
+	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
+	 * wb-maximal (and so, all revisitable loads can read from it).
+	 */
+	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
+		return ls;
+
+	/* Optimization:
+	 * If sLab is maximal in WB, then all revisitable loads can read
+	 * from it.
+	 */
+	if (ls.size() > 1) {
+		auto wb = g.calcWb(sLab->getAddr());
+		auto i = wb.getIndex(sLab->getPos());
+		bool allowed = true;
+		for (auto j = 0u; j < wb.size(); j++)
+			if (wb(i,j)) {
+				allowed = false;
+				break;
+			}
+		if (allowed)
+			return ls;
+	}
+
+	std::vector<Event> result;
+
+	/*
+	 * We calculate WB again, in order to filter-out inconsistent
+	 * revisit options. For example, if sLab is an RMW, we cannot
+	 * revisit a read r for which:
+	 * \exists c_a in C_a .
+	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
+	 *
+	 * since this will create a cycle in WB
+	 */
+
+	for (auto &l : ls) {
+		auto v = g.getViewFromStamp(g.getEventLabel(l)->getStamp());
+		v.update(g.getPorfBefore(sLab->getPos()));
+
+		auto wb = g.calcWbRestricted(sLab->getAddr(), v);
+		auto &stores = wb.getElems();
+		auto i = wb.getIndex(sLab->getPos());
+
+		auto &hbBefore = g.getHbBefore(l.prev());
+		bool allowed = true;
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
+				allowed = false;
+				break;
+			}
+		}
+		if (allowed)
+			result.push_back(l);
+	}
+	return result;
 }
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,

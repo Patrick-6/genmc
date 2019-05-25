@@ -32,8 +32,12 @@ public:
 		    clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
-	void updateGraphDependencies(Event pos, DepInfo &&addr,
-				     DepInfo &&data, DepInfo &&ctrl) override;
+	void updateGraphDependencies(Event pos,
+				     const DepInfo &addr,
+				     const DepInfo &data,
+				     const DepInfo &ctrl,
+				     const DepInfo &addrPo,
+				     const DepInfo &casDep) override;
 	void restrictGraph(unsigned int stamp) override;
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;

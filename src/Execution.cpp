@@ -1072,9 +1072,11 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   assert(Ptr->getType()->isPointerTy() &&
          "Cannot getElementOffset of a nonpointer type!");
 
+  Thread &thr = getCurThr();
   uint64_t Total = 0;
 
   for (; I != E; ++I) {
+      thr.dataDeps[SF.CurInst->getPrevNode()].update(thr.dataDeps[I.getOperand()]);
 #ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (StructType *STy = I.getStructTypeOrNull()) {
 #else
@@ -1116,7 +1118,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
   ExecutionContext &SF = ECStack().back();
   SetValue(&I, executeGEPOperation(I.getPointerOperand(),
-                                   gep_type_begin(I), gep_type_end(I), SF), SF);
+				    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
 
 void Interpreter::visitLoadInst(LoadInst &I)
@@ -1148,11 +1150,14 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	/* Visit the load and set dependencies */
+	llvm::dbgs() << "Load " << &I << " GOT data " << thr.dataDeps[I.getPointerOperand()] << "\n";
 	auto res = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ,
-				     DepInfo(), thr.dataDeps[I.getPointerOperand()], DepInfo());
+				     thr.dataDeps[I.getPointerOperand()], DepInfo(), thr.ctrlDeps,
+				     thr.addrPoDeps, DepInfo());
 	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(res.second);
+	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 
-	// llvm::dbgs() << "Load " << &I << " data " << thr.dataDeps[&I] << "\n";
+	llvm::dbgs() << "Load " << &I << " SET data " << thr.dataDeps[&I] << "\n";
 	// llvm::dbgs() << "Load " << &I << " ctrl " << thr.ctrlDeps << "\n";
 
 	/* Last, set the return value for this instruction */
@@ -1186,9 +1191,12 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	// dataDeps[&I] = dataDeps[I.getOperand(0)];
 	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val,
 			   thr.dataDeps[I.getPointerOperand()],
-			   thr.dataDeps[I.getOperand(0)], thr.ctrlDeps);
-	// llvm::dbgs() << "Store " << &I << " addr " << thr.dataDeps[I.getPointerOperand()] << "\n";;
-	// llvm::dbgs() << "Store " << &I << " data " << thr.dataDeps[I.getOperand(0)] << "\n";
+			   thr.dataDeps[I.getOperand(0)], thr.ctrlDeps,
+			   thr.addrPoDeps, DepInfo());
+	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
+	// llvm::dbgs() << "Store " << I.getPointerOperand() << " addr "
+	// 	     << thr.dataDeps[I.getPointerOperand()] << "\n";;
+	// llvm::dbgs() << "Store " << I.getOperand(0) << " data " << thr.dataDeps[I.getOperand(0)] << "\n";
 	return;
 }
 
@@ -1229,11 +1237,20 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(), cmpVal, newVal);
+				     thr.dataDeps[I.getPointerOperand()],
+				     thr.dataDeps[I.getNewValOperand()],
+				     thr.ctrlDeps, thr.addrPoDeps,
+				     thr.dataDeps[I.getCompareOperand()],
+				     cmpVal, newVal);
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
 		driver->visitStore(IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal,
-				   DepInfo(), DepInfo(), DepInfo());
+				   thr.dataDeps[I.getPointerOperand()],
+				   thr.dataDeps[I.getNewValOperand()].depUnion(ret.second),
+				   thr.ctrlDeps, thr.addrPoDeps, DepInfo());
+
+	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(ret.second);
+	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 
 	result.AggregateVal.push_back(ret.first);
 	result.AggregateVal.push_back(cmpRes);
@@ -1298,12 +1315,19 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(),
+				     thr.dataDeps[I.getPointerOperand()],
+				     thr.dataDeps[I.getValOperand()],
+				     thr.ctrlDeps, thr.addrPoDeps, DepInfo(),
 				     GenericValue(), val, I.getOperation());
 	executeAtomicRMWOperation(newVal, ret.first, val, I.getOperation());
 
 	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal,
-			   DepInfo(), DepInfo(), DepInfo());
+			   thr.dataDeps[I.getPointerOperand()],
+			   thr.dataDeps[I.getValOperand()].depUnion(DepInfo(ret.second)),
+			   thr.ctrlDeps, thr.addrPoDeps, DepInfo());
+
+	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(ret.second);
+	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 	SetValue(&I, ret.first, SF);
 	return;
 }
@@ -1943,16 +1967,22 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 
 void Interpreter::visitTruncInst(TruncInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
+  thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitSExtInst(SExtInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
+  thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitZExtInst(ZExtInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
+  thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2569,15 +2599,16 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(),
-				     cmpVal, newVal);
+				     DepInfo(), DepInfo(), DepInfo(), DepInfo(),
+				     DepInfo(), cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
 		thr.block();
 	} else {
 		driver->visitStore(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
-				   newVal, DepInfo(), DepInfo(), DepInfo());
+				   newVal, DepInfo(), DepInfo(), DepInfo(),
+				   DepInfo(), DepInfo());
 	}
 
 	/*
@@ -2610,7 +2641,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
 	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val,
-			   DepInfo(), DepInfo(), DepInfo());
+			   DepInfo(), DepInfo(), DepInfo(), DepInfo(), DepInfo());
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2637,13 +2668,14 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(),
-				     cmpVal, newVal);
+				     DepInfo(), DepInfo(), DepInfo(), DepInfo(),
+				     DepInfo(), cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())
 		driver->visitStore(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
-				   newVal, DepInfo(), DepInfo(), DepInfo());
+				   newVal, DepInfo(), DepInfo(), DepInfo(),
+				   DepInfo(), DepInfo());
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);

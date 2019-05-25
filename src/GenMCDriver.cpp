@@ -521,7 +521,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 		return cLab->getChildId();
 	}
 
-	Event cur(curThr.id, g.getThreadSize(curThr.id));
+	Event cur(curThr.id, curThr.globalInstructions);
 	int cid = 0;
 
 	/* First, check if the thread to be created already exists */
@@ -537,7 +537,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 	}
 
 	/* Add an event for the thread creation */
-	g.addTCreateToGraph(cur.thread, cid);
+	g.addTCreateToGraph(cur.thread, cur.index, cid);
 
 	/* Prepare the execution context for the new thread */
 	llvm::Thread thr(calledFun, cid, cur.thread, SF);
@@ -548,7 +548,8 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 		/* If the thread does not exist in the graph, make an entry for it */
 		EE->threads.push_back(thr);
 		g.addNewThread();
-		g.addStartToGraph(cid, g.getLastThreadEvent(EE->getCurThr().id)); // need to refetch ref
+		auto ss = g.addStartToGraph(cid, 0, cur);
+		llvm::dbgs() << "DEP VIEW OF CREATE " << g.getPPoRfBefore(ss->getPos()) << "\n";
 	} else {
 		/* Otherwise, just push the execution context to the interpreter */
 		EE->threads[cid] = thr;
@@ -572,7 +573,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 
 	/* If necessary, add a relevant event to the graph */
 	if (!isExecutionDrivenByGraph())
-		g.addTJoinToGraph(thr.id, cid);
+		g.addTJoinToGraph(thr.id, thr.globalInstructions, cid);
 
 	/* If the update failed (child has not terminated yet) block this thread */
 	if (!g.updateJoin(getCurrentLabel()->getPos(), g.getLastThreadEvent(cid)))
@@ -595,7 +596,7 @@ void GenMCDriver::visitThreadFinish()
 
 	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
 	    !thr.isBlocked) {
-		g.addFinishToGraph(thr.id);
+		g.addFinishToGraph(thr.id, thr.globalInstructions);
 
 		if (thr.id == 0)
 			return;
@@ -624,7 +625,8 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 	if (isExecutionDrivenByGraph())
 		return;
 
-	g.addFenceToGraph(thr.id, ord);
+	auto lab = g.addFenceToGraph(thr.id, thr.globalInstructions, ord);
+	llvm::dbgs() << "DEP VIEW OF FENCE " << g.getPPoRfBefore(lab->getPos()) << "\n";
 	return;
 }
 
@@ -636,6 +638,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		       DepInfo addrDeps,
 		       DepInfo dataDeps,
 		       DepInfo ctrlDeps,
+		       DepInfo addrPoDeps,
+		       DepInfo casDeps,
 		       llvm::GenericValue cmpVal,
 		       llvm::GenericValue rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
@@ -651,11 +655,12 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		}
 		BUG();
 	}
-
+	llvm::dbgs() << "WILL ADD LOAD\n";
 	/* Record dependencies in the graph */
 	int idx = thr.globalInstructions;
 	updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
-				std::move(dataDeps), std::move(ctrlDeps));
+				std::move(dataDeps), std::move(ctrlDeps),
+				std::move(addrPoDeps), std::move(casDeps));
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr); printGraph();
@@ -669,12 +674,12 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		lab = g.addReadToGraph(thr.id, idx, ord, addr, typ, validStores[0]);
 		break;
 	case llvm::Interpreter::IA_Fai:
-		lab = g.addFaiReadToGraph(thr.id, ord, addr, typ, validStores[0],
+		lab = g.addFaiReadToGraph(thr.id, idx, ord, addr, typ, validStores[0],
 					  op, std::move(rmwVal));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		lab = g.addCasReadToGraph(thr.id, ord, addr, typ,
+		lab = g.addCasReadToGraph(thr.id, idx, ord, addr, typ,
 					  validStores[0], cmpVal, rmwVal,
 					  attr == llvm::Interpreter::IA_Lock);
 		break;
@@ -701,18 +706,21 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 			     llvm::GenericValue &val,
 			     DepInfo addrDeps,
 			     DepInfo dataDeps,
-			     DepInfo ctrlDeps)
+			     DepInfo ctrlDeps,
+			     DepInfo addrPoDeps,
+			     DepInfo casDeps)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 
 	if (isExecutionDrivenByGraph())
 		return;
-
+	llvm::dbgs() << "WILL ADD STORE\n";
 	/* Record dependencies in the graph */
 	int idx = thr.globalInstructions;
 	updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
-				std::move(dataDeps), std::move(ctrlDeps));
+				std::move(dataDeps), std::move(ctrlDeps),
+				std::move(addrPoDeps), std::move(casDeps));
 
 	auto placesRange =
 		getPossibleMOPlaces(addr, attr != llvm::Interpreter::IA_None &&
@@ -729,11 +737,11 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 					attr == llvm::Interpreter::IA_Unlock);
 		break;
 	case llvm::Interpreter::IA_Fai:
-		lab = g.addFaiStoreToGraph(thr.id, ord, addr, typ, val, endO);
+		lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		lab = g.addCasStoreToGraph(thr.id, ord, addr, typ, val, endO,
+		lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
 					   attr == llvm::Interpreter::IA_Lock);
 		break;
 	}
@@ -790,7 +798,7 @@ llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 		EE->heapAllocas.push_back(ptr + i);
 
 	/* Add a relevant label to the graph */
-	g.addMallocToGraph(thr.id, allocBegin.PointerVal, size);
+	g.addMallocToGraph(thr.id, thr.globalInstructions, allocBegin.PointerVal, size);
 
 	return allocBegin;
 }
@@ -837,7 +845,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	EE->freedMem.push_back(ptr);
 
 	/* Add a label with the appropriate store */
-	g.addFreeToGraph(thr.id, ptr, m->getAllocSize());
+	g.addFreeToGraph(thr.id, thr.globalInstructions, ptr, m->getAllocSize());
 	return;
 }
 
@@ -910,7 +918,8 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
 		auto newVal = rLab->getSwapVal();
 		auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
 
-		g.addCasStoreToGraph(rLab->getThread(), rLab->getOrdering(), rLab->getAddr(),
+		g.addCasStoreToGraph(rLab->getThread(), rLab->getIndex() + 1,
+				     rLab->getOrdering(), rLab->getAddr(),
 				     rLab->getType(), newVal, offsetMO, true /* isLock */);
 
 		prioritizeThread = rLab->getThread();
@@ -945,7 +954,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		View preds = g.getViewFromStamp(rLab->getStamp());
 
 		/* Get the prefix of the write to save */
-		auto &before = g.getPorfBefore(sLab->getPos());
+		auto &before = g.getPorfBefore(sLab->getPos());llvm::dbgs() << "HELLO\n";
 		auto prefixP = getPrefixToSaveNotBefore(sLab, preds);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
@@ -976,6 +985,43 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
 		pendingRMWs.empty();
 	return !isMootExecution && consG;
+}
+
+const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
+{
+	auto &g = getGraph();
+	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
+	auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
+
+	const WriteLabel *sLab = nullptr;
+	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
+		llvm::GenericValue result;
+		EE->executeAtomicRMWOperation(result, rfVal, faiLab->getOpVal(),
+					      faiLab->getOp());
+		updateGraphDependencies(rLab->getPos().next(), /* sLab has not pos yet! */
+					g.addrDeps[rLab->getPos()],
+					g.dataDeps[rLab->getPos()].depUnion(rLab->getPos()),
+					g.ctrlDeps[rLab->getPos()],
+					g.addrPoDeps[rLab->getPos()],
+					DepInfo());
+		sLab = g.addFaiStoreToGraph(faiLab->getThread(), faiLab->getIndex() + 1,
+					    faiLab->getOrdering(), faiLab->getAddr(),
+					    faiLab->getType(), result, offsetMO);
+	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
+		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
+			updateGraphDependencies(rLab->getPos().next(),
+						g.addrDeps[rLab->getPos()],
+						g.dataDeps[rLab->getPos()].depUnion(rLab->getPos()),
+						g.ctrlDeps[rLab->getPos()],
+						g.addrPoDeps[rLab->getPos()],
+						DepInfo());
+			sLab = g.addCasStoreToGraph(casLab->getThread(), casLab->getIndex() + 1,
+						    casLab->getOrdering(), casLab->getAddr(),
+						    casLab->getType(), casLab->getSwapVal(),
+						    offsetMO, casLab->isLock());
+		}
+	}
+	return sLab;
 }
 
 bool GenMCDriver::revisitReads(StackItem &p)
@@ -1034,25 +1080,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	g.changeRf(rLab->getPos(), p.shouldRf);
 
 	/* If the revisited label became an RMW, add the store part and revisit */
-	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-	auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
-
-	const WriteLabel *sLab = nullptr;
-	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
-		llvm::GenericValue result;
-		EE->executeAtomicRMWOperation(result, rfVal, faiLab->getOpVal(),
-					      faiLab->getOp());
-		sLab = g.addFaiStoreToGraph(faiLab->getThread(), faiLab->getOrdering(),
-					    faiLab->getAddr(), faiLab->getType(), result,
-					    offsetMO);
-	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
-		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
-			sLab = g.addCasStoreToGraph(casLab->getThread(), casLab->getOrdering(),
-						    casLab->getAddr(), casLab->getType(),
-						    casLab->getSwapVal(), offsetMO, casLab->isLock());
-		}
-	}
-	if (sLab)
+	if (auto *sLab = completeRevisitedRMW(rLab))
 		return calcRevisits(sLab);
 
 	/* Blocked lock -> prioritize locking thread */
@@ -1089,7 +1117,8 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	const LibReadLabel *lab = g.addLibReadToGraph(thr.id, ord, addr, typ,
+	const LibReadLabel *lab = g.addLibReadToGraph(thr.id, thr.globalInstructions,
+						      ord, addr, typ,
 						      Event::getInitializer(), functionName);
 
 	/* Make sure there exists an initializer event for this memory location */
@@ -1212,8 +1241,8 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 
 	/* It is always consistent to add a new event at the end of MO */
 	const LibWriteLabel *sLab =
-		g.addLibStoreToGraph(thr.id, ord, addr, typ, val, endO,
-				     functionName, isInit);
+		g.addLibStoreToGraph(thr.id, thr.globalInstructions, ord, addr,
+				     typ, val, endO, functionName, isInit);
 
 	if (isUninitialized) {
 		visitError(std::string("Uninitialized memory used by library \"") +

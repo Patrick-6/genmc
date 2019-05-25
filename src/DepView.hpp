@@ -60,6 +60,9 @@ public:
 	bool empty() const { return size() == 0; }
 	bool contains(const Event e) const;
 	void addHole(const Event e);
+	void removeHole(const Event e);
+	void removeAllHoles(int thread);
+	void removeHolesInRange(Event start, int endIdx);
 	DepView& update(const DepView &v);
 
 	/* Overloaded operators */

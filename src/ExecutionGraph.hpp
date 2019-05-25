@@ -48,6 +48,8 @@ public:
 	std::unordered_map<Event, DepInfo, EventHasher> addrDeps;
 	std::unordered_map<Event, DepInfo, EventHasher> dataDeps;
 	std::unordered_map<Event, DepInfo, EventHasher> ctrlDeps;
+	std::unordered_map<Event, DepInfo, EventHasher> addrPoDeps;
+	std::unordered_map<Event, DepInfo, EventHasher> casDeps;
 
 	/* Constructors */
 	ExecutionGraph();
@@ -80,7 +82,10 @@ public:
 	const EventLabel *getPreviousLabel(const EventLabel *lab) const;
 	const EventLabel *getLastThreadLabel(int thread) const;
 	Event getLastThreadEvent(int thread) const;
-	Event getLastThreadRelease(int thread, const llvm::GenericValue *addr) const;
+	Event getLastThreadReleaseAtLoc(Event upperLimit,
+					const llvm::GenericValue *addr) const;
+	Event getLastThreadRelease(Event upperLimit) const;
+	std::vector<Event> getThreadAcquiresAndFences(const Event upperLimit) const;
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs();
 	std::vector<const llvm::GenericValue *> getDoubleLocs();
 	std::vector<Event> getPendingRMWs(const WriteLabel *sLab);
@@ -95,20 +100,23 @@ public:
 					const llvm::GenericValue *ptr,
 					const llvm::Type *typ, Event rf);
 
-	const FaiReadLabel *addFaiReadToGraph(int tid, llvm::AtomicOrdering ord,
+	const FaiReadLabel *addFaiReadToGraph(int tid, int index,
+					      llvm::AtomicOrdering ord,
 					      const llvm::GenericValue *ptr,
 					      const llvm::Type *typ, Event rf,
 					      llvm::AtomicRMWInst::BinOp op,
 					      llvm::GenericValue &&opValue);
 
-	const CasReadLabel *addCasReadToGraph(int tid, llvm::AtomicOrdering ord,
+	const CasReadLabel *addCasReadToGraph(int tid, int index,
+					      llvm::AtomicOrdering ord,
 					      const llvm::GenericValue *ptr,
 					      const llvm::Type *typ, Event rf,
 					      const llvm::GenericValue &expected,
 					      const llvm::GenericValue &swap,
 					      bool isLock = false);
 
-	const LibReadLabel *addLibReadToGraph(int tid, llvm::AtomicOrdering ord,
+	const LibReadLabel *addLibReadToGraph(int tid, int index,
+					      llvm::AtomicOrdering ord,
 					      const llvm::GenericValue *ptr,
 					      const llvm::Type *typ, Event rf,
 					      std::string functionName);
@@ -120,19 +128,22 @@ public:
 					  const llvm::GenericValue &val,
 					  int offsetMO, bool isUnlock = false);
 
-	const FaiWriteLabel *addFaiStoreToGraph(int tid, llvm::AtomicOrdering ord,
+	const FaiWriteLabel *addFaiStoreToGraph(int tid, int index,
+						llvm::AtomicOrdering ord,
 						const llvm::GenericValue *ptr,
 						const llvm::Type *typ,
 						const llvm::GenericValue &val,
 						int offsetMO);
 
-	const CasWriteLabel *addCasStoreToGraph(int tid, llvm::AtomicOrdering ord,
+	const CasWriteLabel *addCasStoreToGraph(int tid, int index,
+						llvm::AtomicOrdering ord,
 						const llvm::GenericValue *ptr,
 						const llvm::Type *typ,
 						const llvm::GenericValue &val,
 						int offsetMO, bool isLock = false);
 
-	const LibWriteLabel *addLibStoreToGraph(int tid, llvm::AtomicOrdering ord,
+	const LibWriteLabel *addLibStoreToGraph(int tid, int index,
+						llvm::AtomicOrdering ord,
 						const llvm::GenericValue *ptr,
 						const llvm::Type *typ,
 						llvm::GenericValue &val,
@@ -140,21 +151,21 @@ public:
 						std::string functionName,
 						bool isInit);
 
-	const FenceLabel *addFenceToGraph(int tid, llvm::AtomicOrdering ord);
+	const FenceLabel *addFenceToGraph(int tid, int index, llvm::AtomicOrdering ord);
 
-	const MallocLabel *addMallocToGraph(int tid, const void *addr,
+	const MallocLabel *addMallocToGraph(int tid, int index, const void *addr,
 					    unsigned int size);
 
-	const FreeLabel *addFreeToGraph(int tid, const void *addr,
+	const FreeLabel *addFreeToGraph(int tid, int index, const void *addr,
 					unsigned int size);
 
-	const ThreadCreateLabel *addTCreateToGraph(int tid, int cid);
+	const ThreadCreateLabel *addTCreateToGraph(int tid, int index, int cid);
 
-	const ThreadJoinLabel *addTJoinToGraph(int tid, int cid);
+	const ThreadJoinLabel *addTJoinToGraph(int tid, int index, int cid);
 
-	const ThreadStartLabel *addStartToGraph(int tid, Event tc);
+	const ThreadStartLabel *addStartToGraph(int tid, int index, Event tc);
 
-	const ThreadFinishLabel *addFinishToGraph(int tid);
+	const ThreadFinishLabel *addFinishToGraph(int tid, int index);
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	const DepView &getPPoRfBefore(Event e);
@@ -165,8 +176,6 @@ public:
 	View getHbRfBefore(const std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);
 	std::vector<Event> getMoOptRfAfter(const WriteLabel *sLab);
-
-	bool dependsOn(const WriteLabel *sLab, const EventLabel *lab);
 
 	Matrix2D<Event> calcWb(const llvm::GenericValue *addr);
 	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
