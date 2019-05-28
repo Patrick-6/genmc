@@ -275,6 +275,8 @@ DepView ExecutionGraph::calcBasicPPoRfView(const EventLabel *lab) /* not const *
 		v.update(getPPoRfBefore(cdep));
 	for (auto &apdep : addrPoDeps[lab->getPos()])
 		v.update(getPPoRfBefore(apdep));
+	for (auto &csdep : casDeps[lab->getPos()])
+		v.update(getPPoRfBefore(csdep));
 
 	/* This event does not depend on anything else */
 	int oldIdx = v[lab->getThread()];
@@ -1022,8 +1024,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	DepView pporf = calcBasicPPoRfView(rLab);
 
 	porf.update(rfLab->getPorfView());
-	if (rfLab->getThread() != lab->getThread())
-		pporf.update(rfLab->getPPoRfView());
+	pporf.update(rfLab->getPPoRfView());
 	if (rLab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
