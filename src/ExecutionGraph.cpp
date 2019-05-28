@@ -1178,7 +1178,6 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			if (lab->getStamp() <= stamp) {
 				if (lab->getIndex() >= newMax)
 					newMax = lab->getIndex() + 1;
-				llvm::dbgs() << "gonna keep " << *lab << "\n";
 				continue;
 			}
 
@@ -1203,7 +1202,16 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			events[i][j] = nullptr;
 		}
 		maxIndices[i] = newMax;
-		llvm::dbgs() << "max of thread " << i << " is now " << newMax << "\n";
+	}
+
+	/* Do not keep any nullptrs in the graph */
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			if (events[i][j])
+				continue;
+			events[i][j] = std::unique_ptr<EmptyLabel>(
+				new EmptyLabel(nextStamp(), Event(i, j)));
+		}
 	}
 }
 

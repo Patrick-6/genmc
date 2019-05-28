@@ -953,7 +953,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		View preds = g.getViewFromStamp(rLab->getStamp());
 
 		/* Get the prefix of the write to save */
-		auto &before = g.getPorfBefore(sLab->getPos());llvm::dbgs() << "HELLO\n";
+		auto &before = g.getPorfBefore(sLab->getPos());
 		auto prefixP = getPrefixToSaveNotBefore(sLab, preds);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
