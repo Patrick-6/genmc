@@ -49,6 +49,7 @@ public:
 	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
 	 * It is public to allow clients perform a switch() on it */
 	enum EventLabelKind {
+		EL_Empty,
 		EL_ThreadStart,
 		EL_ThreadFinish,
 		EL_ThreadCreate,
@@ -159,6 +160,33 @@ private:
 
 	/* Events that are (ppo U rf)-before this label */
 	DepView pporfView;
+};
+
+
+/*******************************************************************************
+ **                            EmptyLabel Class
+ ******************************************************************************/
+
+/* A plain empty label. This label type provides a good alternative to nullptr
+ * in graphs that track dependencies where the po-predecessors of a label might
+ * not exist (or might have been removed). It also does not break LLVM-style
+ * RTTI, in contrast to nullptr */
+class EmptyLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+
+	EmptyLabel(unsigned int st, Event pos)
+		: EventLabel(EL_Empty, st, llvm::AtomicOrdering::NotAtomic,
+			     pos) {}
+
+public:
+
+	EmptyLabel *clone() const override { return new EmptyLabel(*this); }
+
+	static bool classof(const EventLabel *lab) {
+		return lab->getKind() == EL_Empty;
+	}
 };
 
 

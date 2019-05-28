@@ -340,9 +340,10 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
+	auto curr = Event(thr.id, ++thr.globalInstructions);
 
-	return (++thr.globalInstructions < g.getThreadSize(thr.id)) &&
-		g.getEventLabel(Event(thr.id, thr.globalInstructions));
+	return (curr.index < g.getThreadSize(curr.thread)) &&
+		!llvm::isa<EmptyLabel>(g.getEventLabel(curr));
 }
 
 const EventLabel *GenMCDriver::getCurrentLabel()
@@ -408,8 +409,6 @@ void GenMCDriver::checkForRaces()
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
-			if (!oLab)
-				continue;
 			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 				if (fLab->getFreedAddr() == mLab->getAddr()) {
 					visitError("The accessed address has already been freed!",
@@ -1029,11 +1028,11 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto &g = getGraph();
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
-
+	llvm::dbgs() << "RESTRICTING TYPE " << (p.type == SRevisit ? "revisit" : "other") << g << " TO " << lab->getPos() << "\n";
 	/* Restrict to the predecessors of the event we are revisiting */
 	restrictGraph(lab->getStamp());
 	restrictWorklist(lab->getStamp());
-	llvm::dbgs() << "RESTRICTED GRAPH\n" << g << "\n";
+	llvm::dbgs() << "GOT THIS " << g << "\n";
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
 	case SRead:
@@ -1048,6 +1047,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		 */
 		BUG_ON(!llvm::isa<ReadLabel>(lab));
 		auto *rLab = static_cast<const ReadLabel *>(lab);
+		llvm::dbgs() << "PREFIX SIZE " << p.writePrefix.size() << "\n";
 		g.restoreStorePrefix(rLab, p.writePrefix, p.moPlacings);
 		llvm::dbgs() << "WITH PREFIX RESTORED\n" << g << "\n";
 		break;

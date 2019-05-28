@@ -56,6 +56,7 @@ public:
 	DepView() : view_(), holes_() {}
 
 	/* Basic operations on Views */
+	const View& getView() const { return view_; }
 	unsigned int size() const { return view_.size(); }
 	bool empty() const { return size() == 0; }
 	bool contains(const Event e) const;

@@ -172,6 +172,7 @@ IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, View &before)
 	llvm::dbgs() << "COLLECTED PREFIX: ";
 	for (auto &p : prefix)
 		llvm::dbgs() << *p << "\n";
+	BUG_ON(prefix.empty());
 	return std::make_pair(std::move(prefix), std::vector<std::pair<Event, Event>>());
 }
 

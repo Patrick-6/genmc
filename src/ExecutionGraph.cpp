@@ -116,7 +116,6 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	result.push_back(Event(upperLimit.thread, 0));
 	for (int i = 1u; i < upperLimit.index; i++) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
-		BUG_ON(!lab);
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab))
 			result.push_back(lab->getPos());
 		if (auto *wLab = llvm::dyn_cast<ReadLabel>(lab)) {
@@ -199,8 +198,6 @@ std::vector<Event> ExecutionGraph::getRevisitablePPoRf(const WriteLabel *sLab)
 			continue;
 		for (auto j = 1u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!lab)
-				continue;
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
 				    !sLab->getPPoRfView().contains(rLab->getPos()) &&
@@ -833,7 +830,7 @@ ExecutionGraph::getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const View
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!lab || !pporf.contains(lab->getPos()))
+			if (!pporf.contains(lab->getPos()))
 				continue;
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
@@ -991,7 +988,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericVa
  ***********************************************************/
 
 void ExecutionGraph::changeRf(Event read, Event store)
-{llvm::dbgs() << "_______CHANGING RF " << read << "___________\n";
+{llvm::dbgs() << "_______CHANGING RF " << read << " TO " << store << "___________\n";
 	EventLabel *lab = events[read.thread][read.index].get();
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 
@@ -1089,8 +1086,6 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = (int) getThreadSize(i) - 1; j >= 0; j--) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!lab)
-				continue;
 			if (lab->getStamp() <= stamp) {
 				preds[i] = j;
 				break;
@@ -1183,6 +1178,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			if (lab->getStamp() <= stamp) {
 				if (lab->getIndex() >= newMax)
 					newMax = lab->getIndex() + 1;
+				llvm::dbgs() << "gonna keep " << *lab << "\n";
 				continue;
 			}
 
@@ -1207,6 +1203,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			events[i][j] = nullptr;
 		}
 		maxIndices[i] = newMax;
+		llvm::dbgs() << "max of thread " << i << " is now " << newMax << "\n";
 	}
 }
 
@@ -1236,6 +1233,16 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 			}
 		} else if (auto *curWLab = llvm::dyn_cast<WriteLabel>(curLab)) {
 			curWLab->removeReader([&](Event r){ return r == rLab->getPos(); });
+		}
+	}
+
+	/* Do not keep any nullptrs in the graph */
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			if (events[i][j])
+				continue;
+			events[i][j] = std::unique_ptr<EmptyLabel>(
+				new EmptyLabel(nextStamp(), Event(i, j)));
 		}
 	}
 
@@ -1328,8 +1335,7 @@ Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1u; j < getThreadSize(i); j++) {
 			const EventLabel *oLab = getEventLabel(Event(i, j));
-			if (!oLab)
-				continue;
+
 			/* If they are both atomics, nothing to check */
 			if (!wLab->isNotAtomic() && !oLab->isNotAtomic())
 				continue;
@@ -2414,11 +2420,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 		s << "Thread " << i << ":\n";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (!lab) {
-				s << "\t" << Event(i, j) << ": EMPTY\n";
-			} else {
-				s << "\t" << *lab << "\n";
-			}
+			s << "\t" << *lab << "\n";
 		}
 	}
 	s << "Thread sizes:\n\t";
