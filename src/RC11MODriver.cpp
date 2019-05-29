@@ -101,11 +101,13 @@ std::vector<Event> RC11MODriver::getRevisitLoads(const WriteLabel *sLab)
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
-RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
+RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
 {
 	auto &g = getGraph();
-	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(lab->getPos()), before);
-	auto moPlacings = g.getMOPredsInBefore(writePrefix, before);
+	auto preds = g.getViewFromStamp(rLab->getStamp());
+	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(wLab->getPos()),
+						      preds);
+	auto moPlacings = g.getMOPredsInBefore(writePrefix, preds);
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 

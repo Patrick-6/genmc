@@ -277,6 +277,9 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
+	/* TODO: Move this and restrictGraph to EG (make an abstract EG) */
+	virtual const View& getPrefix(const Event e) { return getGraph().getPorfBefore(e); }
+
 	/* Removes all labels with stamp >= st from the graph */
 	virtual void restrictGraph(unsigned int st);
 
@@ -339,11 +342,11 @@ private:
 	virtual std::vector<Event>
 	getRevisitLoads(const WriteLabel *lab) = 0;
 
-	/* Should return the prefix of lab that is not in before,
+	/* Should return the prefix of wLab that was not added before rLab,
 	 * as well as the placings in MO for all stores in that prefix */
 	virtual std::pair<std::vector<std::unique_ptr<EventLabel> >,
 			  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *lab, View &before) = 0;
+	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) = 0;
 
 	/* Should return true if the current graph is PSC-consistent */
 	virtual bool checkPscAcyclicity() = 0;

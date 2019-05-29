@@ -186,10 +186,9 @@ public:
 	std::vector<std::unique_ptr<EventLabel> >
 	getPrefixLabelsNotBefore(const View &prefix, const View &before);
 	std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const View &before);
+	getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const ReadLabel *rLab);
 
-	std::vector<Event> getRfsNotBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-					   const View &before);
+	std::vector<Event> extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs);
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 			   const View &before);

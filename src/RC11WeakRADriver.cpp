@@ -61,7 +61,7 @@ std::vector<Event> RC11WeakRADriver::getRevisitLoads(const WriteLabel *lab)
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
-RC11WeakRADriver::getPrefixToSaveNotBefore(const WriteLabel *lab, View &before)
+RC11WeakRADriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
 	BUG();
 }

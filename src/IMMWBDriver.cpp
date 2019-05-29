@@ -164,10 +164,10 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
-IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, View &before)
+IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
 	auto &g = getGraph();
-	auto prefix = g.getPrefixLabelsNotBeforePPoRf(sLab, before);
+	auto prefix = g.getPrefixLabelsNotBeforePPoRf(sLab, rLab);
 
 	llvm::dbgs() << "COLLECTED PREFIX: ";
 	for (auto &p : prefix)

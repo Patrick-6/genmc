@@ -40,7 +40,7 @@ public:
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab);
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *lab, View &before);
+	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab);
 	bool checkPscAcyclicity();
 	bool isExecutionValid();
 };

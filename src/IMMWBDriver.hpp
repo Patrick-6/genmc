@@ -38,6 +38,7 @@ public:
 				     const DepInfo &ctrl,
 				     const DepInfo &addrPo,
 				     const DepInfo &casDep) override;
+	const View &getPrefix(const Event e) { return getGraph().getPPoRfBefore(e).getView(); }
 	void restrictGraph(unsigned int stamp) override;
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
@@ -45,7 +46,7 @@ public:
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *lab, View &before) override;
+	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
 	bool checkPscAcyclicity() override;
 	bool isExecutionValid() override;
 };

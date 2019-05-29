@@ -341,7 +341,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 	auto curr = Event(thr.id, ++thr.globalInstructions);
-
+	llvm::dbgs() << "Current graph\n" << g << "current event " << curr << "\n";
 	return (curr.index < g.getThreadSize(curr.thread)) &&
 		!llvm::isa<EmptyLabel>(g.getEventLabel(curr));
 }
@@ -476,16 +476,17 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	if (attr == llvm::Interpreter::IA_None ||
 	    attr == llvm::Interpreter::IA_Unlock)
 		return stores;
-
+	llvm::dbgs() << "hallo\n";
 	auto &g = getGraph();
 	auto *EE = getEE();
-	auto &before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	// auto &before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = getPrefix(g.getLastThreadEvent(EE->getCurThr().id));
 
 	if (attr == llvm::Interpreter::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
 
 	std::vector<Event> valid, conflicting;
-	for (auto &s : stores) {
+	for (auto &s : stores) {	llvm::dbgs() << "loop\n";
 		auto oldVal = getWriteValue(s, ptr, typ);
 		if ((attr == llvm::Interpreter::IA_Fai ||
 		     EE->compareValues(typ, oldVal, expVal)) &&
@@ -497,7 +498,7 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 		else
 			valid.push_back(s);
 	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());llvm::dbgs() << "done\n";
 	return valid;
 }
 
@@ -905,6 +906,9 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
 				   const std::vector<Event> &writePrefixPos,
 				   const std::vector<std::pair<Event, Event> > &moPlacings)
 {
+	BUG(); /* "Should get rid of this preds view argument\n" */
+	/* Also fix before view, which should be either porf or pporf */
+
 	auto &g = execGraph;
 	auto *EE = getEE();
 	auto v(preds);
@@ -949,23 +953,20 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
-		/* Get all events added before the read */
-		View preds = g.getViewFromStamp(rLab->getStamp());
-
 		/* Get the prefix of the write to save */
-		auto &before = g.getPorfBefore(sLab->getPos());
-		auto prefixP = getPrefixToSaveNotBefore(sLab, preds);
+		auto &before = getPrefix(sLab->getPos());
+		auto prefixP = getPrefixToSaveNotBefore(sLab, rLab);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
 
-		auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
+		auto writePrefixPos = g.extractRfs(writePrefix);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
 
 		/* Optimize handling of lock operations */
 		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 			if (lLab->isLock() && getEE()->getThrById(lLab->getThread()).isBlocked &&
 			    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
-				if (tryToRevisitLock(lLab, preds, sLab, before, writePrefixPos, moPlacings))
+				if (tryToRevisitLock(lLab, View(), sLab, before, writePrefixPos, moPlacings))
 					continue;
 				isMootExecution = true;
 			}
@@ -1317,7 +1318,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 	}
 
 	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto &before = g.getPorfBefore(lab->getPos());
+	auto &before = getPrefix(lab->getPos());
 	for (auto &l : loads) {
 		const EventLabel *revLab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<ReadLabel>(revLab));
@@ -1338,7 +1339,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 			auto writePrefix = g.getPrefixLabelsNotBefore(before, preds);
 			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, preds)
 				                                   : std::vector<std::pair<Event, Event> >();
-			auto writePrefixPos = g.getRfsNotBefore(writePrefix, preds);
+			auto writePrefixPos = g.extractRfs(writePrefix);
 			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());
 
 			if (g.revisitSetContains(rLab, writePrefixPos, moPlacings))
@@ -1427,9 +1428,9 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	std::string dump;
 	llvm::raw_string_ostream ss(dump);
 
-	View before(g.getPorfBefore(errorEvent));
+	View before(getPrefix(errorEvent));
 	if (!confEvent.isInitializer())
-		before.update(g.getPorfBefore(confEvent));
+		before.update(getPrefix(confEvent));
 
 	EE->replayExecutionBefore(before);
 
@@ -1519,7 +1520,7 @@ void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &bu
 
 void GenMCDriver::printTraceBefore(Event e)
 {
-	View before(getGraph().getPorfBefore(e));
+	View before(getPrefix(e));
 	std::stringstream buf;
 
 	llvm::dbgs() << "Trace to " << e << ":\n";
