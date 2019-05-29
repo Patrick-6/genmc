@@ -1018,6 +1018,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 
     // Save the incoming value for this PHI node...
     ResultValues.push_back(getOperandValue(IncomingValue, SF));
+    getCurThr().dataDeps[PN] = getCurThr().dataDeps[IncomingValue];
   }
 
   // Now loop over all of the PHI nodes setting their values...

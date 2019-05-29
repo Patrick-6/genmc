@@ -116,6 +116,7 @@ void Interpreter::reset()
 		threads[i].rng.seed(Thread::seed);
 		threads[i].ctrlDeps.clear();
 		threads[i].addrPoDeps.clear();
+		threads[i].dataDeps.clear();
 	}
 
 	/*
