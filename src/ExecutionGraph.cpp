@@ -986,7 +986,7 @@ std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericVa
  ***********************************************************/
 
 void ExecutionGraph::changeRf(Event read, Event store)
-{llvm::dbgs() << "_______CHANGING RF " << read << " TO " << store << "___________\n";
+{
 	EventLabel *lab = events[read.thread][read.index].get();
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 

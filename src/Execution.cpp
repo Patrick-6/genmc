@@ -1151,15 +1151,11 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	/* Visit the load and set dependencies */
-	llvm::dbgs() << "Load " << &I << " GOT data " << thr.dataDeps[I.getPointerOperand()] << "\n";
 	auto res = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ,
 				     thr.dataDeps[I.getPointerOperand()], DepInfo(), thr.ctrlDeps,
 				     thr.addrPoDeps, DepInfo());
 	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(res.second);
 	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
-
-	llvm::dbgs() << "Load " << &I << " SET data " << thr.dataDeps[&I] << "\n";
-	// llvm::dbgs() << "Load " << &I << " ctrl " << thr.ctrlDeps << "\n";
 
 	/* Last, set the return value for this instruction */
 	SetValue(&I, res.first, SF);
@@ -1189,15 +1185,11 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	}
 
 	/* Inform the Driver about the newly interpreter store */
-	// dataDeps[&I] = dataDeps[I.getOperand(0)];
 	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val,
 			   thr.dataDeps[I.getPointerOperand()],
 			   thr.dataDeps[I.getOperand(0)], thr.ctrlDeps,
 			   thr.addrPoDeps, DepInfo());
 	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
-	// llvm::dbgs() << "Store " << I.getPointerOperand() << " addr "
-	// 	     << thr.dataDeps[I.getPointerOperand()] << "\n";;
-	// llvm::dbgs() << "Store " << I.getOperand(0) << " data " << thr.dataDeps[I.getOperand(0)] << "\n";
 	return;
 }
 

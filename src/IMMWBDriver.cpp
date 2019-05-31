@@ -169,9 +169,6 @@ IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *r
 	auto &g = getGraph();
 	auto prefix = g.getPrefixLabelsNotBeforePPoRf(sLab, rLab);
 
-	llvm::dbgs() << "COLLECTED PREFIX: ";
-	for (auto &p : prefix)
-		llvm::dbgs() << *p << "\n";
 	BUG_ON(prefix.empty());
 	return std::make_pair(std::move(prefix), std::vector<std::pair<Event, Event>>());
 }

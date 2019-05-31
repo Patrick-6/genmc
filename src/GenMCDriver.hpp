@@ -314,9 +314,6 @@ private:
 	/* Prints the source-code instructions leading to Event e */
 	void printTraceBefore(Event e);
 
-	/* Outputs the graph at the end of each execution */
-	void printGraph();
-
 	/* Nicely outputs the graph at the end of each execution */
 	void prettyPrintGraph();
 

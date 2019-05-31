@@ -341,7 +341,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 	auto curr = Event(thr.id, ++thr.globalInstructions);
-	llvm::dbgs() << "Current graph\n" << g << "current event " << curr << "\n";
+
 	return (curr.index < g.getThreadSize(curr.thread)) &&
 		!llvm::isa<EmptyLabel>(g.getEventLabel(curr));
 }
@@ -476,17 +476,16 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	if (attr == llvm::Interpreter::IA_None ||
 	    attr == llvm::Interpreter::IA_Unlock)
 		return stores;
-	llvm::dbgs() << "hallo\n";
+
 	auto &g = getGraph();
 	auto *EE = getEE();
-	// auto &before = g.getPorfBefore(g.getLastThreadEvent(EE->getCurThr().id));
 	auto &before = getPrefix(g.getLastThreadEvent(EE->getCurThr().id));
 
 	if (attr == llvm::Interpreter::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
 
 	std::vector<Event> valid, conflicting;
-	for (auto &s : stores) {	llvm::dbgs() << "loop\n";
+	for (auto &s : stores) {
 		auto oldVal = getWriteValue(s, ptr, typ);
 		if ((attr == llvm::Interpreter::IA_Fai ||
 		     EE->compareValues(typ, oldVal, expVal)) &&
@@ -498,7 +497,7 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 		else
 			valid.push_back(s);
 	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());llvm::dbgs() << "done\n";
+	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
 	return valid;
 }
 
@@ -549,7 +548,6 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 		EE->threads.push_back(thr);
 		g.addNewThread();
 		auto ss = g.addStartToGraph(cid, 0, cur);
-		llvm::dbgs() << "DEP VIEW OF CREATE " << g.getPPoRfBefore(ss->getPos()) << "\n";
 	} else {
 		/* Otherwise, just push the execution context to the interpreter */
 		EE->threads[cid] = thr;
@@ -625,8 +623,7 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto lab = g.addFenceToGraph(thr.id, thr.globalInstructions, ord);
-	llvm::dbgs() << "DEP VIEW OF FENCE " << g.getPPoRfBefore(lab->getPos()) << "\n";
+	g.addFenceToGraph(thr.id, thr.globalInstructions, ord);
 	return;
 }
 
@@ -655,7 +652,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		}
 		BUG();
 	}
-	llvm::dbgs() << "WILL ADD LOAD\n";
+
 	/* Record dependencies in the graph */
 	int idx = thr.globalInstructions;
 	updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
@@ -663,7 +660,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 				std::move(addrPoDeps), std::move(casDeps));
 
 	/* Get all stores to this location from which we can read from */
-	auto stores = getStoresToLoc(addr); printGraph();
+	auto stores = getStoresToLoc(addr);
 	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
@@ -686,8 +683,6 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	default:
 		BUG();
 	}
-	llvm::dbgs() << "ADDED LOAD AT POS " << lab->getPos() << " GRAPH " << g << "\n";
-	llvm::dbgs() << "DEP VIEW OF LOAD " << g.getPPoRfBefore(lab->getPos()) << "\n";
 
 	/* Check for races */
 	checkForRaces();
@@ -715,7 +710,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 
 	if (isExecutionDrivenByGraph())
 		return;
-	llvm::dbgs() << "WILL ADD STORE\n";
+
 	/* Record dependencies in the graph */
 	int idx = thr.globalInstructions;
 	updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
@@ -745,8 +740,6 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 					   attr == llvm::Interpreter::IA_Lock);
 		break;
 	}
-	llvm::dbgs() << "ADDED STORE AT POS " << lab->getPos() << " GRAPH " << g << "\n";
-	llvm::dbgs() << "DEP VIEW OF STORE " << g.getPPoRfBefore(lab->getPos()) << "\n";
 
 	/* Check for races */
 	checkForRaces();
@@ -1029,11 +1022,11 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto &g = getGraph();
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
-	llvm::dbgs() << "RESTRICTING TYPE " << (p.type == SRevisit ? "revisit" : "other") << g << " TO " << lab->getPos() << "\n";
+
 	/* Restrict to the predecessors of the event we are revisiting */
 	restrictGraph(lab->getStamp());
 	restrictWorklist(lab->getStamp());
-	llvm::dbgs() << "GOT THIS " << g << "\n";
+
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {
 	case SRead:
@@ -1048,9 +1041,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		 */
 		BUG_ON(!llvm::isa<ReadLabel>(lab));
 		auto *rLab = static_cast<const ReadLabel *>(lab);
-		llvm::dbgs() << "PREFIX SIZE " << p.writePrefix.size() << "\n";
 		g.restoreStorePrefix(rLab, p.writePrefix, p.moPlacings);
-		llvm::dbgs() << "WITH PREFIX RESTORED\n" << g << "\n";
 		break;
 	}
 	case MOWrite: {
@@ -1384,11 +1375,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	default:
 		return s << "Uknown error";
 	}
-}
-
-void GenMCDriver::printGraph()
-{
-	llvm::dbgs() << getGraph() << "\n";
 }
 
 void GenMCDriver::prettyPrintGraph()
