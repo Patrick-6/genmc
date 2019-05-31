@@ -313,6 +313,14 @@ ExecutionGraph::addReadToGraphCommon(std::unique_ptr<ReadLabel> lab)
 
 	porf.update(rfLab->getPorfView());
 	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != lab->getThread()) {
+		for (auto i = 0u; i < lab->getIndex(); i++) {
+			const EventLabel *eLab = getEventLabel(Event(lab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
 	if (lab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
