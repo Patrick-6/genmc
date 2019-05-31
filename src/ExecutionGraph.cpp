@@ -439,6 +439,8 @@ ExecutionGraph::addStoreToGraphCommon(std::unique_ptr<WriteLabel> lab)
 			}
 		}
 	}
+	pporf.update(getPPoRfBefore(getLastThreadReleaseAtLoc(lab->getPos(),
+							      lab->getAddr())));
 	lab->setPPoRfView(std::move(pporf));
 
 	/* Finallyl, we calculate the message view for the store */
