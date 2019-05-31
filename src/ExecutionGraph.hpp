@@ -80,6 +80,8 @@ public:
 	const EventLabel *getEventLabel(Event e) const;
 	const EventLabel *getPreviousLabel(Event e) const;
 	const EventLabel *getPreviousLabel(const EventLabel *lab) const;
+	const EventLabel *getPreviousNonEmptyLabel(Event e) const;
+	const EventLabel *getPreviousNonEmptyLabel(const EventLabel *lab) const;
 	const EventLabel *getLastThreadLabel(int thread) const;
 	Event getLastThreadEvent(int thread) const;
 	Event getLastThreadReleaseAtLoc(Event upperLimit,
@@ -179,6 +181,7 @@ public:
 
 	Matrix2D<Event> calcWb(const llvm::GenericValue *addr);
 	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
+	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const DepView &v);
 
 	/* Calculation of particular sets of events/event labels */
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
@@ -204,6 +207,7 @@ public:
 	bool updateJoin(Event join, Event childLast);
 
 	View getViewFromStamp(unsigned int stamp);
+	DepView getDepViewFromStamp(unsigned int stamp);
 	void cutToStamp(unsigned int stamp);
 	void cutToView(const View &view);
 	void restoreStorePrefix(const ReadLabel *rLab,

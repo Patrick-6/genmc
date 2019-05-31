@@ -65,6 +65,21 @@ const EventLabel *ExecutionGraph::getPreviousLabel(const EventLabel *lab) const
 	return events[lab->getThread()][lab->getIndex() - 1].get();
 }
 
+const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(Event e) const
+{
+	for (int i = e.index - 1; i > 0; i--) {
+		const EventLabel *eLab = getEventLabel(Event(e.thread, i));
+		if (!llvm::isa<EmptyLabel>(eLab))
+			return eLab;
+	}
+	return getEventLabel(Event(e.thread, 0));
+}
+
+const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(const EventLabel *lab) const
+{
+	return getPreviousNonEmptyLabel(lab->getPos());
+}
+
 const EventLabel *ExecutionGraph::getLastThreadLabel(int thread) const
 {
 	return events[thread][maxIndices[thread] - 1].get();
@@ -736,7 +751,7 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 
 const View &ExecutionGraph::getHbPoBefore(Event e)
 {
-	return getHbBefore(e.prev());
+	return getPreviousNonEmptyLabel(e)->getHbView();
 }
 
 void ExecutionGraph::calcHbRfBefore(Event e, const llvm::GenericValue *addr,
@@ -1028,6 +1043,14 @@ void ExecutionGraph::changeRf(Event read, Event store)
 
 	porf.update(rfLab->getPorfView());
 	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != rLab->getThread()) {
+		for (auto i = 0u; i < rLab->getIndex(); i++) {
+			const EventLabel *eLab = getEventLabel(Event(rLab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
 	if (rLab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
@@ -1095,6 +1118,28 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 			if (lab->getStamp() <= stamp) {
 				preds[i] = j;
 				break;
+			}
+		}
+	}
+	return preds;
+}
+
+/*
+ * Similar to getViewFromStamp(), but for graphs where events might have
+ * been added out-of-order. It thus returns a DepView object.
+ */
+DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp)
+{
+	DepView preds;
+
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		int prevPos = 0; /* Position of last concrent event in view */
+		for (auto j = 1u; j < getThreadSize(i); j++) {
+			const EventLabel *lab = getEventLabel(Event(i, j));
+			if (lab->getStamp() <= stamp) {
+				preds[i] = j;
+				preds.addHolesInRange(Event(i, prevPos + 1), j);
+				prevPos = j;
 			}
 		}
 	}
@@ -1327,7 +1372,7 @@ bool ExecutionGraph::isConsistent(void)
 
 Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
 {
-	const View &before = getPreviousLabel(rLab)->getHbView();
+	const View &before = getPreviousNonEmptyLabel(rLab)->getHbView();
 	std::vector<Event> &stores = modOrder[rLab->getAddr()];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
@@ -1349,7 +1394,7 @@ Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
 
 Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab)
 {
-	auto &before = getPreviousLabel(wLab)->getHbView();
+	auto &before = getPreviousNonEmptyLabel(wLab)->getHbView();
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1u; j < getThreadSize(i); j++) {
@@ -1644,7 +1689,7 @@ void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix)
 			}
 
 			/* PSC_base: Adds sb_(<>loc);hb;sb_(<>loc) edges */
-			const EventLabel *ejPrevLab = getPreviousLabel(ejLab);
+			const EventLabel *ejPrevLab = getPreviousNonEmptyLabel(ejLab);
 			if (!llvm::isa<MemAccessLabel>(ejPrevLab) ||
 			    !llvm::isa<MemAccessLabel>(ejLab) ||
 			    !llvm::isa<MemAccessLabel>(eiLab))
@@ -2022,6 +2067,59 @@ Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr,
 	return matrix;
 }
 
+Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const DepView &v)
+{
+	std::vector<Event> storesInView;
+
+	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(),
+		     std::back_inserter(storesInView),
+		     [&](Event &s){ return v.contains(s); });
+
+	Matrix2D<Event> matrix(std::move(storesInView));
+	auto &stores = matrix.getElems();
+
+	/* Optimization */
+	if (stores.size() <= 1)
+		return matrix;
+
+	auto upperLimit = calcRMWLimits(matrix);
+	if (upperLimit.empty()) {
+		for (auto i = 0u; i < stores.size(); i++)
+			matrix(i,i) = true;
+		return matrix;
+	}
+
+	auto lowerLimit = upperLimit.begin() + stores.size();
+
+	for (auto i = 0u; i < stores.size(); i++) {
+		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(stores[i]));
+
+		std::vector<Event> es;
+		const std::vector<Event> readers = wLab->getReadersList();
+		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
+			     [&](const Event &r){ return v.contains(r); });
+
+		auto before = getHbBefore(es).
+			update(getPreviousNonEmptyLabel(wLab)->getHbView());
+		auto upi = upperLimit[i];
+		for (auto j = 0u; j < stores.size(); j++) {
+			if (i == j || !isWriteRfBefore(before, stores[j]))
+				continue;
+			matrix(j, i) = true;
+
+			if (upi == stores.size() || upi == upperLimit[j])
+				continue;
+			matrix(lowerLimit[j], upi) = true;
+		}
+
+		if (lowerLimit[stores.size()] == stores.size() || upi == stores.size())
+			continue;
+		matrix(lowerLimit[stores.size()], i) = true;
+	}
+	matrix.transClosure();
+	return matrix;
+}
+
 Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 {
 	Matrix2D<Event> matrix(modOrder[addr]);
@@ -2043,7 +2141,7 @@ Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(stores[i]));
 		auto before = getHbBefore(wLab->getReadersList()).
-			update(getPreviousLabel(wLab)->getHbView());
+			update(getPreviousNonEmptyLabel(wLab)->getHbView());
 
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {

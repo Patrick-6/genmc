@@ -33,6 +33,12 @@ void DepView::addHole(const Event e)
 	holes_[e.thread].insert(e.index);
 }
 
+void DepView::addHolesInRange(Event start, int endIdx)
+{
+	for (auto i = start.index; i < endIdx; i++)
+		addHole(Event(start.thread, i));
+}
+
 void DepView::removeHole(const Event e)
 {
 	holes_[e.thread].erase(e.index);

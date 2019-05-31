@@ -61,6 +61,7 @@ public:
 	bool empty() const { return size() == 0; }
 	bool contains(const Event e) const;
 	void addHole(const Event e);
+	void addHolesInRange(Event start, int endIdx);
 	void removeHole(const Event e);
 	void removeAllHoles(int thread);
 	void removeHolesInRange(Event start, int endIdx);

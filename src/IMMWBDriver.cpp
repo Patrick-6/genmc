@@ -141,14 +141,14 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 	 */
 
 	for (auto &l : ls) {
-		auto v = g.getViewFromStamp(g.getEventLabel(l)->getStamp());
-		v.update(g.getPorfBefore(sLab->getPos()));
+		auto v = g.getDepViewFromStamp(g.getEventLabel(l)->getStamp());
+		v.update(g.getPPoRfBefore(sLab->getPos()));
 
 		auto wb = g.calcWbRestricted(sLab->getAddr(), v);
 		auto &stores = wb.getElems();
 		auto i = wb.getIndex(sLab->getPos());
 
-		auto &hbBefore = g.getHbBefore(l.prev());
+		auto &hbBefore = g.getHbBefore(g.getPreviousNonEmptyLabel(l)->getPos());
 		bool allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
@@ -192,5 +192,5 @@ bool IMMWBDriver::checkPscAcyclicity()
 
 bool IMMWBDriver::isExecutionValid()
 {
-	BUG();
+	return getGraph().isPscAcyclicWB();
 }
