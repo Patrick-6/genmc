@@ -479,7 +479,8 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 
 	auto &g = getGraph();
 	auto *EE = getEE();
-	auto &before = getPrefix(g.getLastThreadEvent(EE->getCurThr().id));
+	// auto &before = getPrefix(g.getLastThreadEvent(EE->getCurThr().id));
+	auto &before = getPrefix(Event(EE->getCurThr().id, EE->getCurThr().globalInstructions - 1));
 
 	if (attr == llvm::Interpreter::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
@@ -1070,6 +1071,10 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	 * and check whether a part of an RMW should be added
 	 */
 	g.changeRf(rLab->getPos(), p.shouldRf);
+	if (rLab->getPos() == Event(1,3) && p.shouldRf == Event(2,16)) {
+		llvm::dbgs() << "HAPPENED IN\n" << g << "\n";
+		llvm::dbgs() << "Type is " << (p.type == SRevisit ? "revisit" : "other") << "\n";
+	}
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))

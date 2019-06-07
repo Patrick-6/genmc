@@ -1236,11 +1236,12 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 				     thr.dataDeps[I.getCompareOperand()],
 				     cmpVal, newVal);
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue())
+	if (cmpRes.IntVal.getBoolValue()) {
 		driver->visitStore(IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal,
 				   thr.dataDeps[I.getPointerOperand()],
 				   thr.dataDeps[I.getNewValOperand()].depUnion(ret.second),
 				   thr.ctrlDeps, thr.addrPoDeps, DepInfo());
+	}
 
 	thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(ret.second);
 	thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
@@ -2208,6 +2209,9 @@ void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
     pSrc = &pSrc->AggregateVal[*IdxBegin];
     ++IdxBegin;
   }
+
+  Thread &thr = getCurThr();
+  thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[Agg]);
 
   Type *IndexedType = ExtractValueInst::getIndexedType(Agg->getType(), I.getIndices());
   switch (IndexedType->getTypeID()) {

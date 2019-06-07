@@ -168,6 +168,7 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab)
 				pending.push_back(lab->getPos());
 		}
 	}
+	if (pending.size() > 1) llvm::dbgs() << *this << "\n with slab " << *sLab << "\n";
 	BUG_ON(pending.size() > 1);
 	return pending;
 }
@@ -938,6 +939,49 @@ ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel>
 /************************************************************
  ** Calculation of writes a read can read from
  ***********************************************************/
+
+/* Returns true if it is [e]; hb; [w]; rf? */
+bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write)
+{
+	const EventLabel *lab = getEventLabel(write);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *sLab = static_cast<const WriteLabel *>(lab);
+	// llvm::dbgs() << "In hbbefore sLab is " << *sLab << " and e is " << e << "\n";
+	if (sLab->getHbView().contains(e)) { // llvm::dbgs() << "disallowed as hbbefore sLab\n";
+		// llvm::dbgs() << sLab->getHbView() << "\n";
+		return true;
+	}
+
+	for (auto &r : sLab->getReadersList()) {
+		if (getHbBefore(r).contains(e)) {
+			// llvm::dbgs() << "disallowed because is hb-before " << r << "\n";
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write, const DepView &v)
+{
+	const EventLabel *lab = getEventLabel(write);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *sLab = static_cast<const WriteLabel *>(lab);
+	// llvm::dbgs() << "In hbbefore sLab is " << *sLab << " and e is " << e << "\n";
+	if (sLab->getHbView().contains(e)) { // llvm::dbgs() << "disallowed as hbbefore sLab\n";
+		// llvm::dbgs() << sLab->getHbView() << "\n";
+		return true;
+	}
+
+	for (auto &r : sLab->getReadersList()) {
+		if (v.contains(r) && r != e && getHbBefore(r).contains(e)) {
+			// llvm::dbgs() << "disallowed because is hb-before " << r << "\n";
+			return true;
+		}
+	}
+	return false;
+}
 
 bool ExecutionGraph::isWriteRfBefore(const View &before, Event e)
 {

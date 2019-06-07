@@ -92,6 +92,8 @@ public:
 	std::vector<const llvm::GenericValue *> getDoubleLocs();
 	std::vector<Event> getPendingRMWs(const WriteLabel *sLab);
 	Event getPendingLibRead(const LibReadLabel *lab);
+	bool isHbOptRfBefore(const Event e, const Event write);
+	bool isHbOptRfBeforeInView(const Event e, const Event write, const DepView &v);
 	bool isWriteRfBefore(const View &before, Event e);
 	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr);
 	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr, const View &porfBefore);

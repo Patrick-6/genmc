@@ -78,6 +78,7 @@ runvariants() {
 	expected="${expected:-${explored}}"
 	if test "${expected}" != "${explored}"
 	then
+	    echo "${output}"
 	    explored_failed="${explored}"
 	    failure=1
 	fi

@@ -62,11 +62,13 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
-	auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	// auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	auto last = Event(thr.id, thr.globalInstructions - 1);
+	auto &hbBefore = g.getHbBefore(last);
 	auto wb = g.calcWb(addr);
 	auto &stores = wb.getElems();
 	std::vector<Event> result;
-
+	// llvm::dbgs() << "Last is " << last << "\n";
 	/* Find the stores from which we can read-from */
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto allowed = true;
@@ -75,9 +77,24 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 				allowed = false;
 				break;
 			}
+			if (wb(j, i) && g.isHbOptRfBefore(last.next(), stores[j])) {
+				allowed = false;
+				// llvm::dbgs() << "disallowed " << stores[i] << "\n";
+				break;
+			}
+			// if (last == Event(2,14) && stores[i] == Event(1,7)) {
+			// 	llvm::dbgs() << "hb view of " <<  stores[j]
+			// 		     << " is " << g.getHbBefore(stores[j]) << "\n";
+			// }
 		}
-		if (allowed)
+		if (allowed) {
+			// if (last == Event(2,14) && stores[i] == Event(1,7)) {
+			//     llvm::dbgs() << "allowed " << stores[i] << "\n";
+			//     llvm::dbgs() << "hb view of store " << g.getHbBefore(stores[i]) << "\n";
+			//     llvm::dbgs() << "graph is " << g << "\n";
+			// }
 			result.push_back(stores[i]);
+		}
 	}
 
 	/* Also check the initializer event */
@@ -87,9 +104,6 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 			allowed = false;
 	if (allowed)
 		result.insert(result.begin(), Event::getInitializer());
-	return result;
-
-
 	return result;
 }
 
@@ -108,25 +122,25 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
 	 * wb-maximal (and so, all revisitable loads can read from it).
 	 */
-	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
-		return ls;
+	// if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
+	// 	return ls;
 
 	/* Optimization:
 	 * If sLab is maximal in WB, then all revisitable loads can read
 	 * from it.
 	 */
-	if (ls.size() > 1) {
-		auto wb = g.calcWb(sLab->getAddr());
-		auto i = wb.getIndex(sLab->getPos());
-		bool allowed = true;
-		for (auto j = 0u; j < wb.size(); j++)
-			if (wb(i,j)) {
-				allowed = false;
-				break;
-			}
-		if (allowed)
-			return ls;
-	}
+	// if (ls.size() > 1) {
+	// 	auto wb = g.calcWb(sLab->getAddr());
+	// 	auto i = wb.getIndex(sLab->getPos());
+	// 	bool allowed = true;
+	// 	for (auto j = 0u; j < wb.size(); j++)
+	// 		if (wb(i,j)) {
+	// 			allowed = false;
+	// 			break;
+	// 		}
+	// 	if (allowed)
+	// 		return ls;
+	// }
 
 	std::vector<Event> result;
 
@@ -139,8 +153,9 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 	 *
 	 * since this will create a cycle in WB
 	 */
-
+	// llvm::dbgs() << "In graph " << g << "\n" << *sLab << " tries to revisit\n";
 	for (auto &l : ls) {
+		// llvm::dbgs() << l << "\n";
 		auto v = g.getDepViewFromStamp(g.getEventLabel(l)->getStamp());
 		v.update(g.getPPoRfBefore(sLab->getPos()));
 
@@ -155,10 +170,15 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 				allowed = false;
 				break;
 			}
+			if (wb(j, i) && g.isHbOptRfBeforeInView(l, stores[j], v)) {
+				// llvm::dbgs() << "no can do because of " << stores[j] << "\n";
+				allowed = false;
+				break;
+			}
 		}
 		if (allowed)
 			result.push_back(l);
-	}
+	} // llvm::dbgs() << "\n";
 	return result;
 }
 
