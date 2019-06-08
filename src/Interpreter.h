@@ -126,12 +126,9 @@ public:
 	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
 		  isBlocked(false), rng(seed) {}
-
-	llvm::raw_ostream& operator<<(llvm::raw_ostream &s) {
-		return s << "Thread (id: " << id << ", parent: " << parentId << ", function: "
-			 << threadFun->getName().str() << ")";
-	}
 };
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
 
 // Interpreter - This class represents the entirety of the interpreter.
 //

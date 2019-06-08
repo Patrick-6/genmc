@@ -290,7 +290,11 @@ private:
 	/* Prints the source-code instructions leading to Event e */
 	void printTraceBefore(Event e);
 
-	/* Nicely outputs the graph at the end of each execution */
+	/* Outputs the full graph. If getMetadata is set, it outputs
+	 * more debugging information */
+	void printGraph(bool getMetadata = false);
+
+	/* Outputs the graph in a condensed form */
 	void prettyPrintGraph();
 
 	/* Outputs the current graph into a file (DOT format), and marks

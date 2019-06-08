@@ -2377,10 +2377,7 @@ void Interpreter::replayExecutionBefore(const View &before)
 				std::vector<std::pair<int, std::string> > &prefix =
 					thr.prefixLOC[snap + 1];
 				if (prefix.empty()) {
-					std::vector<std::pair<int, std::string> > &prev =
-						thr.prefixLOC[snap];
-					if (prev.empty() || prev.back().first != line )
-						prefix.push_back(std::pair<int, std::string>(line, file));
+					prefix.push_back(std::pair<int, std::string>(line, file));
 				} else if (prefix.back().first != line) {
 					prefix.push_back(std::pair<int, std::string>(line, file));
 				}

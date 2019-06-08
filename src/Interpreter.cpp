@@ -99,6 +99,12 @@ ExecutionEngine *Interpreter::create(Module *M, GenMCDriver *driver,
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
 constexpr int Thread::seed;
 
+llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
+{
+	return s << "<" << thr.parentId << ", " << thr.id << ">"
+		 << " " << thr.threadFun->getName().str();
+}
+
 /* Resets the interpreter for a new exploration */
 void Interpreter::reset()
 {

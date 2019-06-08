@@ -159,7 +159,7 @@ void GenMCDriver::handleFinishedExecution()
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
 		return;
 	if (userConf->printExecGraphs)
-		llvm::dbgs() << g << g.modOrder << "\n";
+		printGraph();
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
 	if (userConf->countDuplicateExecs) {
@@ -827,7 +827,7 @@ void GenMCDriver::visitError(std::string err, Event confEvent,
 	if (!confEvent.isInitializer())
 		llvm::dbgs() << "conflicts with event " << confEvent << " ";
 	llvm::dbgs() << "in graph:\n";
-	llvm::dbgs() << g << "\n";
+	printGraph(true);
 
 	/* Print error trace leading up to the violating event(s) */
 	if (userConf->printErrorTrace) {
@@ -1318,13 +1318,119 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	}
 }
 
+#define IMPLEMENT_INTEGER_PRINT(TY)				\
+	case llvm::Type::IntegerTyID:				\
+	        llvm::dbgs() << val.IntVal;			\
+		break;
+
+#define IMPLEMENT_FLOAT_PRINT(TY)				\
+	case llvm::Type::FloatTyID:				\
+	        llvm::dbgs() << val.FloatVal;			\
+		break;
+
+#define IMPLEMENT_DOUBLE_PRINT(TY)				\
+	case llvm::Type::DoubleTyID:				\
+	        llvm::dbgs() << val.DoubleVal;			\
+		break;
+
+#define IMPLEMENT_VECTOR_INTEGER_PRINT(TY)				\
+	case llvm::Type::VectorTyID: {					\
+		llvm::dbgs() << "[";					\
+		for (uint32_t _i=0;_i<val.AggregateVal.size();_i++) {	\
+			llvm::dbgs() << val.AggregateVal[_i].IntVal << " "; \
+		}							\
+		llvm::dbgs() << "]";					\
+	} break;
+
+#define IMPLEMENT_POINTER_PRINT(TY)					\
+	case llvm::Type::PointerTyID:					\
+	        llvm::dbgs() << (void*)(intptr_t)val.PointerVal;	\
+		break;
+
+static void executeGVPrint(const llvm::GenericValue &val, const llvm::Type *Ty)
+{
+	switch (Ty->getTypeID()) {
+		IMPLEMENT_INTEGER_PRINT(Ty);
+		IMPLEMENT_FLOAT_PRINT(Ty);
+		IMPLEMENT_DOUBLE_PRINT(Ty);
+		IMPLEMENT_VECTOR_INTEGER_PRINT(Ty);
+		IMPLEMENT_POINTER_PRINT(Ty);
+	default:
+		llvm::dbgs() << "Unhandled type for GVPrint predicate: " << *Ty << "\n";
+		BUG();
+	}
+	return;
+}
+
+#define PRINT_AS_RF(s, e)			\
+do {					        \
+	if (e.isInitializer())			\
+		s << "INIT";			\
+	else					\
+		s << e;				\
+} while (0)
+
+void GenMCDriver::printGraph(bool getMetadata /* false */)
+{
+	auto &g = getGraph();
+
+	if (getMetadata)
+		EE->replayExecutionBefore(g.getViewFromStamp(g.nextStamp()));
+	for (auto i = 0u; i < g.events.size(); i++) {
+		auto &thr = EE->getThrById(i);
+		llvm::dbgs() << thr << ":\n";
+		for (auto j = 0u; j < g.events[i].size(); j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			llvm::dbgs() << "\t";
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				llvm::dbgs() << rLab->getPos() << ": ";
+				if (rLab->isRevisitable())
+					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
+				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
+							 rLab->getType());
+				llvm::dbgs() << rLab->getKind() << rLab->getOrdering()
+					     << " ("
+					     << EE->getGlobalName(rLab->getAddr()) << ", ";
+				executeGVPrint(val, rLab->getType());
+				llvm::dbgs() << ")";
+				llvm::dbgs().resetColor();
+				llvm::dbgs() << " [";
+				PRINT_AS_RF(llvm::dbgs(), rLab->getRf());
+				llvm::dbgs() << "]";
+			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+				llvm::dbgs() << wLab->getPos() << ": ";
+				llvm::dbgs() << wLab->getKind() << wLab->getOrdering()
+					     << " ("
+					     << EE->getGlobalName(wLab->getAddr()) << ", ";
+				executeGVPrint(wLab->getVal(), wLab->getType());
+				llvm::dbgs() << ")";
+			} else {
+				llvm::dbgs() << *lab;
+			}
+			if (getMetadata &&
+			    !llvm::isa<ThreadStartLabel>(lab) &&
+			    !llvm::isa<ThreadFinishLabel>(lab) &&
+			    !thr.prefixLOC[j].empty()) {
+				llvm::dbgs() << " L." << thr.prefixLOC[j].back().first;
+				std::string errPath = thr.prefixLOC[j].back().second;
+				std::string inputFile = getConf()->inputFile;
+				Parser::stripSlashes(errPath);
+				Parser::stripSlashes(inputFile);
+				if (errPath != inputFile)
+					llvm::dbgs() << ": " << errPath;
+			}
+			llvm::dbgs() << "\n";
+		}
+	}
+	llvm::dbgs() << "\n";
+}
+
 void GenMCDriver::prettyPrintGraph()
 {
 	auto &g = getGraph();
 	for (auto i = 0u; i < g.events.size(); i++) {
 		auto &thr = EE->getThrById(i);
-		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
-			     << "> " << thr.threadFun->getName() << ": ";
+		llvm::dbgs() << thr << ": ";
 		for (auto j = 0u; j < g.events[i].size(); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
