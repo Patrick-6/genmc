@@ -237,7 +237,12 @@ public:
   std::vector<void *> freedMem;
 
   /* Helper functions */
-  void collectGPs(Module *M, void *ptr, Type *typ);
+#ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
+  void collectGVNames(Module *M, char *ptr, Type *typ,
+		      DIType *md, std::string nameBuilder);
+#else
+  void collectGVNames(const GlobalVariable &v, char *ptr, unsigned int typeSize);
+#endif
   void replayExecutionBefore(const View &before);
   bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
   GenericValue getLocInitVal(GenericValue *ptr, Type *typ);

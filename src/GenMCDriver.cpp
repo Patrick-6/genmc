@@ -1356,7 +1356,7 @@ static void executeGVPrint(const llvm::GenericValue &val, const llvm::Type *Ty)
 		IMPLEMENT_VECTOR_INTEGER_PRINT(Ty);
 		IMPLEMENT_POINTER_PRINT(Ty);
 	default:
-		llvm::dbgs() << "Unhandled type for GVPrint predicate: " << *Ty << "\n";
+		WARN("Unhandled type for GVPrint predicate!\n");
 		BUG();
 	}
 	return;
