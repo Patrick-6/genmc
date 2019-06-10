@@ -37,7 +37,7 @@ public:
 	static void stripWhitespace(std::string &s);
 	static void stripSlashes(std::string &absPath);
 	static void parseInstFromMData(std::stringstream &ss,
-				       std::vector<std::pair<int, std::string> > &prefix,
+				       std::pair<int, std::string> &locAndFile,
 				       std::string functionName);
 	std::vector<Library> parseSpecs(const string &fileName);
 };

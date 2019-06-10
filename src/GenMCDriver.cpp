@@ -1409,10 +1409,9 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 			}
 			if (getMetadata &&
 			    !llvm::isa<ThreadStartLabel>(lab) &&
-			    !llvm::isa<ThreadFinishLabel>(lab) &&
-			    !thr.prefixLOC[j].empty()) {
-				llvm::dbgs() << " L." << thr.prefixLOC[j].back().first;
-				std::string errPath = thr.prefixLOC[j].back().second;
+			    !llvm::isa<ThreadFinishLabel>(lab)) {
+				llvm::dbgs() << " L." << thr.prefixLOC[j].first;
+				std::string errPath = thr.prefixLOC[j].second;
 				std::string inputFile = getConf()->inputFile;
 				Parser::stripSlashes(errPath);
 				Parser::stripSlashes(inputFile);

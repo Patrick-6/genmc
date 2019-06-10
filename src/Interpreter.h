@@ -114,7 +114,7 @@ public:
 	unsigned int globalInstructions;
 	bool isBlocked;
 	MyRNG rng;
-	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
+	std::vector<std::pair<int, std::string> > prefixLOC;
 
 	void block() { isBlocked = true; };
 	void unblock() { isBlocked = false; };
