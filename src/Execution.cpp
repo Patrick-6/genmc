@@ -2380,9 +2380,14 @@ void Interpreter::replayExecutionBefore(const View &before)
 			if (!I.getMetadata("dbg"))
 				continue;
 
+			/* Store relevant trace information in the appropriate spot */
 			int line = I.getDebugLoc().getLine();
 			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
 			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
+
+			/* If I was an RMW, we have to fill two spots */
+			if (thr.globalInstructions == snap + 2)
+				thr.prefixLOC[snap + 2] = std::make_pair(line, file);
 		}
 	}
 }

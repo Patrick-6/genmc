@@ -14,25 +14,23 @@ Event (3, 2) conflicts with event (1, 1) in graph:
 	(1, 4): E
 <0, 2> thread_2:
 	(2, 0): B
-	(2, 1): [0;32mUrlx (y, 1)[0m [(1, 3)] L.14: mpu+rels+rlx.c
-	(2, 2): Urlx (y, 2)
+	(2, 1): Urlx (y, 1) [(1, 3)] L.14: mpu+rels+rlx.c
+	(2, 2): Urlx (y, 2) L.14: mpu+rels+rlx.c
 	(2, 3): E
 <0, 3> thread_3:
 	(3, 0): B
-	(3, 1): [0;32mRrlx (y, 2)[0m [(2, 2)] L.20: mpu+rels+rlx.c
+	(3, 1): Rrlx (y, 2) [(2, 2)] L.20: mpu+rels+rlx.c
 	(3, 2): Wna (x, 2) L.21: mpu+rels+rlx.c
 
 Trace to (3, 2):
 [main] mpu+rels+rlx0.c: 11: if (pthread_create(&t1, NULL, thread_1, NULL))
-[main] mpu+rels+rlx0.c: 11: if (pthread_create(&t1, NULL, thread_1, NULL))
-[main] mpu+rels+rlx0.c: 13: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mpu+rels+rlx0.c: 13: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mpu+rels+rlx0.c: 15: if (pthread_create(&t3, NULL, thread_3, NULL))
 [thread_1] mpu+rels+rlx.c: 6: x = 1;
 [thread_1] mpu+rels+rlx.c: 7: atomic_store_explicit(&y, 0, memory_order_release);
 [thread_1] mpu+rels+rlx.c: 8: atomic_store_explicit(&y, 1, memory_order_relaxed);
 [thread_2] mpu+rels+rlx.c: 14: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
-[thread_3] mpu+rels+rlx.c: 20: if (atomic_load_explicit(&y, memory_order_relaxed) > 1)
+[thread_2] mpu+rels+rlx.c: 14: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
 [thread_3] mpu+rels+rlx.c: 20: if (atomic_load_explicit(&y, memory_order_relaxed) > 1)
 [thread_3] mpu+rels+rlx.c: 21: x = 2;
 Trace to (1, 1):

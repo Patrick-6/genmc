@@ -7,8 +7,8 @@ Event (1, 2) conflicts with event (2, 1) in graph:
 	(0, 3): E
 <0, 1> thread_2:
 	(1, 0): B
-	(1, 1): [0;32mRrlx (y, 1)[0m [(2, 2)] L.15: mp+rlx+rlx.c
-	(1, 2): [0;32mRna (x, 0)[0m [INIT] L.16: mp+rlx+rlx.c
+	(1, 1): Rrlx (y, 1) [(2, 2)] L.15: mp+rlx+rlx.c
+	(1, 2): Rna (x, 0) [INIT] L.16: mp+rlx+rlx.c
 <0, 2> thread_1:
 	(2, 0): B
 	(2, 1): Wna (x, 1) L.6: mp+rlx+rlx.c
@@ -17,15 +17,12 @@ Event (1, 2) conflicts with event (2, 1) in graph:
 Trace to (1, 2):
 [main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))
-[main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mp+rlx+rlx1.c: 13: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_1] mp+rlx+rlx.c: 6: x = 1;
 [thread_1] mp+rlx+rlx.c: 7: atomic_store_explicit(&y, 1, memory_order_relaxed);
 [thread_2] mp+rlx+rlx.c: 15: if (atomic_load_explicit(&y, memory_order_relaxed))
-[thread_2] mp+rlx+rlx.c: 15: if (atomic_load_explicit(&y, memory_order_relaxed))
 [thread_2] mp+rlx+rlx.c: 16: r_x = x;
 Trace to (2, 1):
-[main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))
 [main] mp+rlx+rlx1.c: 13: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_1] mp+rlx+rlx.c: 6: x = 1;
