@@ -37,8 +37,6 @@ Trace to (4, 2):
 [thread_1] mpu2+rels+rlx.c: 7: atomic_store_explicit(&y, 0, memory_order_release);
 [thread_1] mpu2+rels+rlx.c: 8: atomic_store_explicit(&y, 1, memory_order_relaxed);
 [thread_3] mpu2+rels+rlx.c: 24: atomic_compare_exchange_strong_explicit(&y, &expected, 2,
-[thread_3] mpu2+rels+rlx.c: 24: atomic_compare_exchange_strong_explicit(&y, &expected, 2,
-[thread_2] mpu2+rels+rlx.c: 15: atomic_compare_exchange_strong_explicit(&y, &expected, 3,
 [thread_2] mpu2+rels+rlx.c: 15: atomic_compare_exchange_strong_explicit(&y, &expected, 3,
 [thread_4] mpu2+rels+rlx.c: 32: if (atomic_load_explicit(&y, memory_order_relaxed) > 2)
 [thread_4] mpu2+rels+rlx.c: 33: x = 2;

@@ -1576,6 +1576,11 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 		if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab))
 			if (!bLab->getParentCreate().isInitializer())
 				recPrintTraceBefore(bLab->getParentCreate(), a, ss);
+
+		/* Do not print the line if it is an RMW write, since it will
+		 * be the same as the previous one */
+		if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
+			continue;
 		Parser::parseInstFromMData(thr.prefixLOC[i], thr.threadFun->getName().str(), ss);
 	}
 	return;

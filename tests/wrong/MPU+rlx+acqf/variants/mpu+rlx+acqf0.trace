@@ -29,7 +29,6 @@ Trace to (3, 3):
 [thread_1] mpu+rlx+acqf.c: 6: x = 1;
 [thread_1] mpu+rlx+acqf.c: 7: atomic_store_explicit(&y, 1, memory_order_relaxed);
 [thread_2] mpu+rlx+acqf.c: 13: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
-[thread_2] mpu+rlx+acqf.c: 13: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
 [thread_3] mpu+rlx+acqf.c: 19: if (atomic_load_explicit(&y, memory_order_relaxed) > 1) {
 [thread_3] mpu+rlx+acqf.c: 20: atomic_thread_fence(memory_order_acquire);
 [thread_3] mpu+rlx+acqf.c: 21: x = 2;

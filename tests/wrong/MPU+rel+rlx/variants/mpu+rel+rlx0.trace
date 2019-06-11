@@ -28,7 +28,6 @@ Trace to (3, 2):
 [thread_1] mpu+rel+rlx.c: 6: x = 1;
 [thread_1] mpu+rel+rlx.c: 7: atomic_store_explicit(&y, 1, memory_order_release);
 [thread_2] mpu+rel+rlx.c: 13: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
-[thread_2] mpu+rel+rlx.c: 13: atomic_fetch_add_explicit(&y, 1, memory_order_relaxed);
 [thread_3] mpu+rel+rlx.c: 19: if (atomic_load_explicit(&y, memory_order_relaxed) > 1)
 [thread_3] mpu+rel+rlx.c: 20: x = 2;
 Trace to (1, 1):
