@@ -78,7 +78,6 @@ runvariants() {
 	expected="${expected:-${explored}}"
 	if test "${expected}" != "${explored}"
 	then
-	    echo "${output}"
 	    explored_failed="${explored}"
 	    failure=1
 	fi
@@ -97,7 +96,12 @@ runvariants() {
 	outcome="${GREEN}SAFE  ${NC}"
     fi
     printf "${outcome} | % 10s | % 8s | % 8s |\n" \
-       "${explored}" "${blocked}" "${average_time}"
+	   "${explored}" "${blocked}" "${average_time}"
+
+    if test -n "${failure}" -o -n "${outcome_failure}"
+    then
+	echo "${output}"
+    fi
 }
 
 runtest() {

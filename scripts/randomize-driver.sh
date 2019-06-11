@@ -24,7 +24,7 @@ iterations="${iterations:-10}"
 for i in `seq 1 "${iterations}"`
 do
     echo -ne "Iteration: $i"
-    res=$(GENMCFLAGS="-randomize-schedule" ./driver.sh --fast)
+    res=$(GENMCFLAGS="-randomize-schedule -print-randomize-schedule-seed" ./driver.sh --fast)
     if [[ $? -ne 0 ]]
     then
 	echo "${RED} Error detected! ${NC}"
