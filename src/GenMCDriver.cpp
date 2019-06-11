@@ -431,7 +431,7 @@ void GenMCDriver::checkForRaces()
 
 std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *ptr,
 						    const std::vector<Event> &stores,
-						    const View &before)
+						    const DepView &before)
 {
 	auto &g = getGraph();
 	std::vector<Event> valid, conflicting;
@@ -479,8 +479,8 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 
 	auto &g = getGraph();
 	auto *EE = getEE();
-	// auto &before = getPrefix(g.getLastThreadEvent(EE->getCurThr().id));
-	auto &before = getPrefix(Event(EE->getCurThr().id, EE->getCurThr().globalInstructions - 1));
+	auto curr = Event(EE->getCurThr().id, EE->getCurThr().globalInstructions - 1);
+	auto &before = g.getPPoRfBefore(curr);
 
 	if (attr == llvm::Interpreter::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
@@ -886,7 +886,7 @@ void GenMCDriver::visitError(std::string err, Event confEvent,
 	abort();
 }
 
-bool graphCoveredByViews(ExecutionGraph &g, const View &v)
+bool graphCoveredByViews(ExecutionGraph &g, const DepView &v)
 {
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		if (v[i] + 1 != (int) g.getThreadSize(i))
@@ -895,14 +895,11 @@ bool graphCoveredByViews(ExecutionGraph &g, const View &v)
 	return true;
 }
 
-bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
-				   const WriteLabel *sLab, const View &before,
+bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const DepView &preds,
+				   const WriteLabel *sLab, const DepView &before,
 				   const std::vector<Event> &writePrefixPos,
 				   const std::vector<std::pair<Event, Event> > &moPlacings)
 {
-	BUG(); /* "Should get rid of this preds view argument\n" */
-	/* Also fix before view, which should be either porf or pporf */
-
 	auto &g = execGraph;
 	auto *EE = getEE();
 	auto v(preds);
@@ -912,12 +909,14 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
 		EE->getThrById(rLab->getThread()).unblock();
 
 		g.changeRf(rLab->getPos(), sLab->getPos());
-		auto newVal = rLab->getSwapVal();
-		auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
 
-		g.addCasStoreToGraph(rLab->getThread(), rLab->getIndex() + 1,
-				     rLab->getOrdering(), rLab->getAddr(),
-				     rLab->getType(), newVal, offsetMO, true /* isLock */);
+		completeRevisitedRMW(rLab);
+		// auto newVal = rLab->getSwapVal();
+		// auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
+
+		// g.addCasStoreToGraph(rLab->getThread(), rLab->getIndex() + 1,
+		// 		     rLab->getOrdering(), rLab->getAddr(),
+		// 		     rLab->getType(), newVal, offsetMO, true /* isLock */);
 
 		prioritizeThread = rLab->getThread();
 		if (EE->getThrById(rLab->getThread()).globalInstructions != 0)
@@ -948,7 +947,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
 		/* Get the prefix of the write to save */
-		auto &before = getPrefix(sLab->getPos());
 		auto prefixP = getPrefixToSaveNotBefore(sLab, rLab);
 		auto &writePrefix = prefixP.first;
 		auto &moPlacings = prefixP.second;
@@ -960,7 +958,9 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 			if (lLab->isLock() && getEE()->getThrById(lLab->getThread()).isBlocked &&
 			    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
-				if (tryToRevisitLock(lLab, View(), sLab, before, writePrefixPos, moPlacings))
+				auto preds = g.getDepViewFromStamp(rLab->getStamp());
+				auto &before = g.getPPoRfBefore(sLab->getPos());
+				if (tryToRevisitLock(lLab, preds, sLab, before, writePrefixPos, moPlacings))
 					continue;
 				isMootExecution = true;
 			}
@@ -1071,10 +1071,6 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	 * and check whether a part of an RMW should be added
 	 */
 	g.changeRf(rLab->getPos(), p.shouldRf);
-	if (rLab->getPos() == Event(1,3) && p.shouldRf == Event(2,16)) {
-		llvm::dbgs() << "HAPPENED IN\n" << g << "\n";
-		llvm::dbgs() << "Type is " << (p.type == SRevisit ? "revisit" : "other") << "\n";
-	}
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))

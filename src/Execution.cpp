@@ -2596,8 +2596,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(), DepInfo(),
-				     DepInfo(), cmpVal, newVal);
+				     DepInfo(), DepInfo(), thr.ctrlDeps,
+				     thr.addrPoDeps, DepInfo(), cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
@@ -2638,7 +2638,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
 	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val,
-			   DepInfo(), DepInfo(), DepInfo(), DepInfo(), DepInfo());
+			   DepInfo(), DepInfo(), thr.ctrlDeps, thr.addrPoDeps, DepInfo());
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2665,8 +2665,8 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(), DepInfo(), DepInfo(),
-				     DepInfo(), cmpVal, newVal);
+				     DepInfo(), DepInfo(), thr.ctrlDeps,
+				     thr.addrPoDeps, DepInfo(), cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue())

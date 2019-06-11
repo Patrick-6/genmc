@@ -96,7 +96,8 @@ public:
 	bool isHbOptRfBeforeInView(const Event e, const Event write, const DepView &v);
 	bool isWriteRfBefore(const View &before, Event e);
 	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr);
-	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr, const View &porfBefore);
+	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
+				     const DepView &porfBefore);
 
 	/* Basic setter methods */
 	const ReadLabel *addReadToGraph(int tid, int index,

@@ -296,12 +296,12 @@ private:
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
 	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
 					       const std::vector<Event> &stores,
-					       const View &before);
+					       const DepView &before);
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
-	bool tryToRevisitLock(const CasReadLabel *rLab, const View &preds,
-			      const WriteLabel *sLab, const View &before,
+	bool tryToRevisitLock(const CasReadLabel *rLab, const DepView &preds,
+			      const WriteLabel *sLab, const DepView &before,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 

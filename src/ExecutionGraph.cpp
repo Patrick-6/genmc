@@ -1014,7 +1014,8 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, const llvm::Generic
 	return false;
 }
 
-bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr, const View &porfBefore)
+bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
+					     const DepView &porfBefore)
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
