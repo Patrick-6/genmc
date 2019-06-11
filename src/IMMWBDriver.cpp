@@ -87,6 +87,17 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 			// 		     << " is " << g.getHbBefore(stores[j]) << "\n";
 			// }
 		}
+		/* Also check for violations against the initializer */
+		for (auto i = 0u; i < g.getNumThreads(); i++) {
+			for (auto j = 1u; j < g.getThreadSize(i); j++) {
+				auto *lab = g.getEventLabel(Event(i, j));
+				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+					if (rLab->getRf().isInitializer() &&
+					    rLab->getAddr() == addr &&
+					    g.getHbBefore(rLab->getPos()).contains(last.next()))
+						allowed = false;
+			}
+		}
 		if (allowed) {
 			// if (last == Event(2,14) && stores[i] == Event(1,7)) {
 			//     llvm::dbgs() << "allowed " << stores[i] << "\n";
@@ -102,6 +113,7 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 	for (auto j = 0u; j < stores.size(); j++)
 		if (g.isWriteRfBefore(hbBefore, stores[j]))
 			allowed = false;
+
 	if (allowed)
 		result.insert(result.begin(), Event::getInitializer());
 	return result;
@@ -174,6 +186,21 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 				// llvm::dbgs() << "no can do because of " << stores[j] << "\n";
 				allowed = false;
 				break;
+			}
+		}
+		/* Also check for violations against the initializer */
+		for (auto i = 0u; i < g.getNumThreads(); i++) {
+			for (auto j = 1u; j < g.getThreadSize(i); j++) {
+				auto *lab = g.getEventLabel(Event(i, j));
+				if (lab->getPos() == l)
+					continue;
+				if (!v.contains(lab->getPos()))
+					continue;
+				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+					if (rLab->getRf().isInitializer() &&
+					    rLab->getAddr() == sLab->getAddr() &&
+					    g.getHbBefore(rLab->getPos()).contains(l))
+						allowed = false;
 			}
 		}
 		if (allowed)
