@@ -220,9 +220,9 @@ IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *r
 	return std::make_pair(std::move(prefix), std::vector<std::pair<Event, Event>>());
 }
 
-bool IMMWBDriver::checkPscAcyclicity()
+bool IMMWBDriver::checkPscAcyclicity(CheckPSCType t)
 {
-	switch (getConf()->checkPscAcyclicity) {
+	switch (t) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
@@ -239,5 +239,5 @@ bool IMMWBDriver::checkPscAcyclicity()
 
 bool IMMWBDriver::isExecutionValid()
 {
-	return getGraph().isPscAcyclicWB();
+	return checkPscAcyclicity(CheckPSCType::full);
 }

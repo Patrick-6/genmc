@@ -154,7 +154,7 @@ void GenMCDriver::handleFinishedExecution()
 	}
 
 	auto &g = getGraph();
-	if (!checkPscAcyclicity())
+	if (!checkPscAcyclicity(userConf->checkPscAcyclicity))
 		return;
 	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
 		return;

@@ -232,7 +232,10 @@ public:
 	bool isPscWeakAcyclicWB();
 	bool isPscWbAcyclicWB();
 	bool isPscAcyclicWB();
+
+	Matrix2D<Event> calcPscMO();
 	bool isPscAcyclicMO();
+
 	bool isWbAcyclic();
 
 	/* Race detection methods */

@@ -52,7 +52,12 @@ public:
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
-	bool checkPscAcyclicity() override;
+
+	std::vector<Event> collectAllEvents();
+	void fillMatrixFromView(const Event e, const DepView &v,
+				Matrix2D<Event> &matrix);
+	Matrix2D<Event> getARMatrix();
+	bool checkPscAcyclicity(CheckPSCType t) override;
 	bool isExecutionValid() override;
 };
 

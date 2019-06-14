@@ -111,9 +111,9 @@ RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
-bool RC11MODriver::checkPscAcyclicity()
+bool RC11MODriver::checkPscAcyclicity(CheckPSCType t)
 {
-	switch (getConf()->checkPscAcyclicity) {
+	switch (t) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
@@ -130,5 +130,5 @@ bool RC11MODriver::checkPscAcyclicity()
 
 bool RC11MODriver::isExecutionValid()
 {
-	return getGraph().isPscAcyclicMO();
+	return checkPscAcyclicity(CheckPSCType::full);
 }

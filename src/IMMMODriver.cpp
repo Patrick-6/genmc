@@ -208,17 +208,99 @@ IMMMODriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *r
 	return std::make_pair(std::move(prefix), std::move(moPlacings));
 }
 
-bool IMMMODriver::checkPscAcyclicity()
+std::vector<Event> IMMMODriver::collectAllEvents()
 {
-	switch (getConf()->checkPscAcyclicity) {
+	auto &g = getGraph();
+	std::vector<Event> result;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 1u; j < g.getThreadSize(i); j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (llvm::isa<MemAccessLabel>(lab) ||
+			    llvm::isa<FenceLabel>(lab))
+				result.push_back(lab->getPos());
+		}
+	}
+	return result;
+}
+
+/* TODO: Add function in VC interface that transforms VC to Matrix? */
+void IMMMODriver::fillMatrixFromView(const Event e, const DepView &v,
+				     Matrix2D<Event> &matrix)
+{
+	auto &g = getGraph();
+ 	auto eI = matrix.getIndex(e);
+
+	for (auto i = 0u; i < v.size(); i++) {
+                if ((int) i == e.thread)
+			continue;
+		for (auto j = v[i]; j > 0; j--) {
+			auto curr = Event(i, j);
+			if (!v.contains(curr))
+				continue;
+
+			auto *lab = g.getEventLabel(curr);
+                        if (!llvm::isa<MemAccessLabel>(lab) &&
+			    !llvm::isa<FenceLabel>(lab))
+                                continue;
+
+			matrix(lab->getPos(), eI) = true;
+                        break;
+                }
+ 	}
+}
+
+Matrix2D<Event> IMMMODriver::getARMatrix()
+{
+	Matrix2D<Event> ar(collectAllEvents());
+	const std::vector<Event> &es = ar.getElems();
+        auto len = ar.size();
+	auto &g = getGraph();
+
+        /* First, add ppo edges */
+        for (auto i = 0u; i < len; i++) {
+                for (auto j = 0u; j < len; j++) {
+			if (es[i].thread == es[j].thread &&
+			    es[i].index < es[j].index &&
+			    g.getPPoRfBefore(es[j]).contains(es[i]))
+				ar(i, j) = true;
+                }
+        }
+
+        /* Then, add the remaining ar edges */
+        for (const auto &e : es) {
+                auto *lab = g.getEventLabel(e);
+                BUG_ON(!llvm::isa<MemAccessLabel>(lab) && !llvm::isa<FenceLabel>(lab));
+                fillMatrixFromView(e, g.getPPoRfBefore(e), ar);
+        }
+	ar.transClosure();
+	return ar;
+}
+
+bool IMMMODriver::checkPscAcyclicity(CheckPSCType t)
+{
+	switch (t) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
 	case CheckPSCType::wb:
 		WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 			  "to be checked for the MO-tracking exploration...\n");
-	case CheckPSCType::full:
-		return getGraph().isPscAcyclicMO();
+	case CheckPSCType::full: {
+		auto &g = getGraph();
+		Matrix2D<Event> ar = getARMatrix();
+		auto scs = g.getSCs();
+		auto &fcs = scs.second;
+		Matrix2D<Event> psc =  g.calcPscMO();
+
+		for (auto &f1 : fcs) {
+			for (auto &f2 : fcs)
+				if (psc(f1, f2))
+					ar(f1, f2) = true;
+		}
+		ar.transClosure();
+		return !ar.isReflexive();
+	}
 	default:
 		WARN("Unimplemented model!\n");
 		BUG();
@@ -227,5 +309,5 @@ bool IMMMODriver::checkPscAcyclicity()
 
 bool IMMMODriver::isExecutionValid()
 {
-	return getGraph().isPscAcyclicMO();
+	return checkPscAcyclicity(CheckPSCType::full);
 }

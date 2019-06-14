@@ -346,7 +346,7 @@ private:
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) = 0;
 
 	/* Should return true if the current graph is PSC-consistent */
-	virtual bool checkPscAcyclicity() = 0;
+	virtual bool checkPscAcyclicity(CheckPSCType type) = 0;
 
 	/* Should return true if the current graph is consistent */
 	virtual bool isExecutionValid() = 0;

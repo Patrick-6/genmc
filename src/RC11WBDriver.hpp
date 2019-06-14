@@ -45,7 +45,7 @@ public:
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab);
-	bool checkPscAcyclicity();
+	bool checkPscAcyclicity(CheckPSCType t);
 	bool isExecutionValid();
 };
 

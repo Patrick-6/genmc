@@ -66,7 +66,7 @@ RC11WeakRADriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLab
 	BUG();
 }
 
-bool RC11WeakRADriver::checkPscAcyclicity()
+bool RC11WeakRADriver::checkPscAcyclicity(CheckPSCType t)
 {
 	WARN("Unimplemented!\n");
 	abort();

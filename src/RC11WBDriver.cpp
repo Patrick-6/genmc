@@ -231,9 +231,9 @@ RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 
-bool RC11WBDriver::checkPscAcyclicity()
+bool RC11WBDriver::checkPscAcyclicity(CheckPSCType t)
 {
-	switch (getConf()->checkPscAcyclicity) {
+	switch (t) {
 	case CheckPSCType::nocheck:
 		return true;
 	case CheckPSCType::weak:
@@ -250,5 +250,5 @@ bool RC11WBDriver::checkPscAcyclicity()
 
 bool RC11WBDriver::isExecutionValid()
 {
-	return getGraph().isPscAcyclicWB();
+	return checkPscAcyclicity(CheckPSCType::full);
 }
