@@ -225,6 +225,24 @@ std::vector<Event> ExecutionGraph::getRevisitablePPoRf(const WriteLabel *sLab)
 	return loads;
 }
 
+/* Returns a vector with all reads of a particular location reading from INIT */
+std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *addr)
+{
+	std::vector<Event> result;
+
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 1u; j < getThreadSize(i); j++) {
+			auto *lab = getEventLabel(Event(i, j));
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+				if (rLab->getRf().isInitializer() &&
+				    rLab->getAddr() == addr)
+					result.push_back(rLab->getPos());
+		}
+	}
+	return result;
+}
+
+/* Returns a vector with events that are mo;rf? after sLab */
 std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab)
 {
 	auto ls = modOrder.getMoAfter(sLab->getAddr(), sLab->getPos());
@@ -242,6 +260,29 @@ std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab)
 		}
 	}
 	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
+	return ls;
+}
+
+/* Returns a vector with events that are mo^-1;rf? after sLab */
+std::vector<Event> ExecutionGraph::getMoInvOptRfAfter(const WriteLabel *sLab)
+{
+	auto ls = modOrder.getMoBefore(sLab->getAddr(), sLab->getPos());
+	std::vector<Event> rfs;
+
+	/* First, we add the rfs of all the mo-before events */
+	for (auto it = ls.begin(); it != ls.end(); ++it) {
+		const EventLabel *lab = getEventLabel(*it);
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			for (auto &l : wLab->getReadersList())
+				rfs.push_back(l);
+		}
+	}
+	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
+
+	/* Then, we add the reader list for the initializer */
+	auto initRfs = getInitRfsAtLoc(sLab->getAddr());
+	std::move(initRfs.begin(), initRfs.end(), std::back_inserter(ls));
+
 	return ls;
 }
 
@@ -897,6 +938,47 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 std::vector<std::pair<Event, Event> >
 ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 				   const View &before)
+{
+	std::vector<std::pair<Event, Event> > pairs;
+
+	for (const auto &lab : labs) {
+		/* Only store MO pairs for labels that are not in before */
+		if (!llvm::isa<WriteLabel>(lab.get())) // || before.contains(lab->getPos()))
+			continue;
+
+		auto *wLab = static_cast<const WriteLabel *>(lab.get());
+		auto &locMO = modOrder[wLab->getAddr()];
+		auto moPos = std::find(locMO.begin(), locMO.end(), wLab->getPos());
+
+		/* This store must definitely be in this location's MO */
+		BUG_ON(moPos == locMO.end());
+
+		/* We need to find the previous MO store that is in before or
+		 * in the vector for which we are getting the predecessors */
+		std::reverse_iterator<std::vector<Event>::iterator> predPos(moPos);
+		auto predFound = false;
+		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
+			if (before.contains(*rit) ||
+			    std::find_if(labs.begin(), labs.end(),
+					 [&](const std::unique_ptr<EventLabel> &lab)
+					 { return lab->getPos() == *rit; })
+			    != labs.end()) {
+				pairs.push_back(std::make_pair(*moPos, *rit));
+				predFound = true;
+				break;
+			}
+		}
+		/* If there is not predecessor in the vector or in before,
+		 * then INIT is the only valid predecessor */
+		if (!predFound)
+			pairs.push_back(std::make_pair(*moPos, Event::getInitializer()));
+	}
+	return pairs;
+}
+
+std::vector<std::pair<Event, Event> >
+ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
+				   const DepView &before)
 {
 	std::vector<std::pair<Event, Event> > pairs;
 

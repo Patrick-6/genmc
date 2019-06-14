@@ -180,7 +180,9 @@ public:
 	View getHbBefore(const std::vector<Event> &es);
 	View getHbRfBefore(const std::vector<Event> &es);
 	View getPorfBeforeNoRfs(const std::vector<Event> &es);
+	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr);
 	std::vector<Event> getMoOptRfAfter(const WriteLabel *sLab);
+	std::vector<Event> getMoInvOptRfAfter(const WriteLabel *sLab);
 
 	Matrix2D<Event> calcWb(const llvm::GenericValue *addr);
 	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
@@ -198,6 +200,9 @@ public:
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 			   const View &before);
+	std::vector<std::pair<Event, Event> >
+	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
+			   const DepView &before);
 
 	/* Calculation of loads that can be revisited */
 	std::vector<Event> findOverwrittenBoundary(const llvm::GenericValue *addr, int thread);

@@ -39,7 +39,8 @@ clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::weakra, "weakra", "Weak RA model"),
 		    clEnumValN(ModelType::mo, "mo",         "MO model"),
 		    clEnumValN(ModelType::wb, "wb",         "WB model"),
-		    clEnumValN(ModelType::imm, "imm",       "IMM model")
+		    clEnumValN(ModelType::imm, "imm",       "IMM model"),
+		    clEnumValN(ModelType::imm_mo, "imm-mo", "IMM model (MO)")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		    , NULL
 #endif

@@ -50,6 +50,22 @@ const llvm::GenericValue *ModOrder::getAddrAtPos(ModOrder::iterator it)
 	return it->first;
 }
 
+std::vector<Event> ModOrder::getMoBefore(const llvm::GenericValue *addr, Event e)
+{
+	/* No store is mo-before the INIT */
+	if (e.isInitializer())
+		return std::vector<Event>();
+
+	std::vector<Event> res = { Event::getInitializer() };
+
+	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+		if (*it == e)
+			return res;
+		res.push_back(*it);
+	}
+	BUG();
+}
+
 std::vector<Event> ModOrder::getMoAfter(const llvm::GenericValue *addr, Event e)
 {
 	std::vector<Event> res;

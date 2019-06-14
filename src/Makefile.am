@@ -11,6 +11,7 @@ noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
   IMMWBDriver.cpp IMMWBDriver.hpp \
+  IMMMODriver.cpp IMMMODriver.hpp \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \

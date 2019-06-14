@@ -33,7 +33,7 @@ then
     fastrun=1
 fi
 
-model=imm && testdir=../tests/correct && source runcorrect.sh
+model=imm-mo && testdir=../tests/deps && source runcorrect.sh
 total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 # First run the testcases in the correct/ directory

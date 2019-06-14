@@ -49,6 +49,7 @@ public:
 	/* Basic getter/setter methods  */
 	const llvm::GenericValue *getAddrAtPos(ModOrder::iterator it);
 	std::vector<Event> getMoAfter(const llvm::GenericValue *addr, Event e);
+	std::vector<Event> getMoBefore(const llvm::GenericValue *addr, Event e);
 	void addAtLocEnd(const llvm::GenericValue *addr, Event e);
 	void addAtLocAfter(const llvm::GenericValue *addr, Event pred, Event e);
 	bool locContains(const llvm::GenericValue *addr, Event e);
