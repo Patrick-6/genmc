@@ -15,6 +15,7 @@ stages:
     - ./configure --with-llvm=`llvm-config-${llvm_build_version} --prefix`
     - make
   artifacts:
+    expire_in: 1 week
     paths:
       - ./
 
@@ -22,6 +23,7 @@ stages:
   script:
     - make ftest
   artifacts:
+    expire_in: 1 week
     paths:
       - ./
 
@@ -29,6 +31,7 @@ stages:
   script:
     - make rtest
   artifacts:
+    expire_in: 1 week
     paths:
       - ./
 
@@ -38,6 +41,7 @@ stages:
   script:
     - make test
   artifacts:
+    expire_in: 1 week
     paths:
       - ./
 
