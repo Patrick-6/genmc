@@ -168,6 +168,11 @@ std::vector<Event> IMMMODriver::getRevisitLoads(const WriteLabel *sLab)
 	// if (locMO.back() == sLab->getPos())
 	// 	return ls;
 
+	/* Do not revisit hb-before loads */
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ return g.getHbBefore(sLab->getPos()).contains(e); }),
+		 ls.end());
+
 	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
 	auto moOptRfs = g.getMoOptRfAfter(sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
@@ -177,7 +182,7 @@ std::vector<Event> IMMMODriver::getRevisitLoads(const WriteLabel *sLab)
 					 { return before.contains(ev); });
 				}), ls.end());
 
-	/* ...and we also have to exclude (mo^-1; rf?; hb?; sb)-before reads in
+	/* ...and we also have to exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */
 	auto before = g.getPPoRfBefore(sLab->getPos());
 	auto moInvOptRfs = g.getMoInvOptRfAfter(sLab);

@@ -87,6 +87,9 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 			// 		     << " is " << g.getHbBefore(stores[j]) << "\n";
 			// }
 		}
+		/* We cannot read from hb-after stores... */
+		if (g.getHbBefore(stores[i]).contains(last.next()))
+			allowed = false;
 		/* Also check for violations against the initializer */
 		for (auto i = 0u; i < g.getNumThreads(); i++) {
 			for (auto j = 1u; j < g.getThreadSize(i); j++) {
@@ -188,6 +191,9 @@ std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 				break;
 			}
 		}
+		/* Do not revisit hb-before loads... */
+		if (g.getHbBefore(stores[i]).contains(l))
+			allowed = false;
 		/* Also check for violations against the initializer */
 		for (auto i = 0u; i < g.getNumThreads(); i++) {
 			for (auto j = 1u; j < g.getThreadSize(i); j++) {
