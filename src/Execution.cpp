@@ -1423,6 +1423,14 @@ void Interpreter::visitCallSite(CallSite CS) {
     ArgVals.push_back(getOperandValue(V, SF));
   }
 
+  if (CS.getCalledFunction()->getName() == "__VERIFIER_assume") {
+	  Thread &thr = getCurThr();
+	  for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
+		       e = SF.Caller.arg_end(); i != e; ++i, ++pNum) {
+		  thr.ctrlDeps.update(thr.dataDeps[*i]);
+	  }
+  }
+
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
   GenericValue SRC = getOperandValue(SF.Caller.getCalledValue(), SF);
