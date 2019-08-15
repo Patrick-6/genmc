@@ -72,6 +72,7 @@
 
 #include <random>
 #include <unordered_map>
+#include <unordered_set>
 
 class GenMCDriver;
 
@@ -111,7 +112,7 @@ public:
 	llvm::Function *threadFun;
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
-	std::unordered_map<void *, llvm::GenericValue> tls;
+	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	DepInfo ctrlDeps;
 	DepInfo addrPoDeps;
@@ -144,7 +145,16 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   DataLayout TD;
   IntrinsicLowering *IL;
 
-  /* Composition pointers */
+  /* Lists of global variables with their corresponding names. We do not need to
+   * keep a separate structure with the addresses, since they do not change
+   * dynamically. We only keep a list of (dynamic) heap allocations. */
+  std::unordered_map<const void *, std::string> globalVars;
+  std::unordered_set<const void *> heapAllocas;
+
+  /* The address from which the interpreter will start allocating new vars */
+  char *allocRangeBegin = nullptr;
+
+  /* (Composition) pointer to the driver */
   GenMCDriver *driver;
 
   // The runtime stack of executing code.  The top of the stack is the current
@@ -230,17 +240,20 @@ public:
   std::vector<Thread> threads;
   int currentThread = 0;
 
+  /* List of thread-local variables, with their initializing values */
+  std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
+
   Thread& getCurThr() { return threads[currentThread]; };
   Thread& getThrById(int id) { return threads[id]; };
 
-  /* List of global and thread-local variables */
-  llvm::SmallVector<void *, 1021> globalVars;
-  std::vector<std::pair<void *, std::string > > globalVarNames;
-  std::unordered_map<void *, llvm::GenericValue> threadLocalVars;
+  void deallocateAddr(const void *addr, unsigned int size, bool isLocal = false);
+  void *getFreshAddr(unsigned int size, bool isLocal = false);
+  void collectGlobalAddresses(Module *M);
 
-  std::vector<void *> stackAllocas;
-  std::vector<void *> heapAllocas;
-  std::vector<void *> stackMem;
+  /* List of global and thread-local variables */
+  std::vector<std::pair<void *, std::string > > globalVarNames;
+
+  std::unordered_set<const void *> stackAllocas;
   std::vector<void *> freedMem;
 
   /* Helper functions */
@@ -248,6 +261,7 @@ public:
   void replayExecutionBefore(const View &before);
   bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
   GenericValue getLocInitVal(GenericValue *ptr, Type *typ);
+  unsigned int getTypeSize(Type *typ);
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
 

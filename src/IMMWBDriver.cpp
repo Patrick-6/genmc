@@ -48,8 +48,9 @@ void IMMWBDriver::restrictGraph(unsigned int stamp)
 			if (lab->getStamp() <= stamp)
 				continue;
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-				getEE()->freeRegion(mLab->getAllocAddr(),
-					       mLab->getAllocSize());
+				getEE()->deallocateAddr(mLab->getAllocAddr(),
+							mLab->getAllocSize(),
+							mLab->isLocal());
 		}
 	}
 
@@ -74,12 +75,13 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 		auto allowed = true;
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
+				// llvm::dbgs() << "disallowed1 " << stores[i] << "\n";
 				allowed = false;
 				break;
 			}
 			if (wb(j, i) && g.isHbOptRfBefore(last.next(), stores[j])) {
 				allowed = false;
-				// llvm::dbgs() << "disallowed " << stores[i] << "\n";
+				// llvm::dbgs() << "disallowed2 " << stores[i] << "\n";
 				break;
 			}
 			// if (last == Event(2,14) && stores[i] == Event(1,7)) {
@@ -88,8 +90,10 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 			// }
 		}
 		/* We cannot read from hb-after stores... */
-		if (g.getHbBefore(stores[i]).contains(last.next()))
+		if (g.getHbBefore(stores[i]).contains(last.next())) {
+			// llvm::dbgs() << "disallowed 3 " << stores[i] << "\n";
 			allowed = false;
+		}
 		/* Also check for violations against the initializer */
 		for (auto i = 0u; i < g.getNumThreads(); i++) {
 			for (auto j = 1u; j < g.getThreadSize(i); j++) {
@@ -99,6 +103,7 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 					    rLab->getAddr() == addr &&
 					    g.getHbBefore(rLab->getPos()).contains(last.next()))
 						allowed = false;
+				// llvm::dbgs() << "disallowed4 " << stores[i] << "\n";
 			}
 		}
 		if (allowed) {
@@ -117,7 +122,7 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 		if (g.isWriteRfBefore(hbBefore, stores[j]))
 			allowed = false;
 
-	if (allowed)
+	if (allowed && !getEE()->isStackAlloca(addr))
 		result.insert(result.begin(), Event::getInitializer());
 	return result;
 }

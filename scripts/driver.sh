@@ -36,8 +36,8 @@ fi
 model=imm-mo && testdir=../tests/deps && source runcorrect.sh
 total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# First run the testcases in the correct/ directory
-# ... under WB
+# # First run the testcases in the correct/ directory
+# # ... under WB
 # model=wb && testdir=../tests/correct && source runcorrect.sh
 # total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 # # ... and under MO

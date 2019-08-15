@@ -247,8 +247,9 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 		for (auto j = v[i] + 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-				getEE()->freeRegion(mLab->getAllocAddr(),
-					       mLab->getAllocSize());
+				getEE()->deallocateAddr(mLab->getAllocAddr(),
+							mLab->getAllocSize(),
+							mLab->isLocal());
 		}
 	}
 
@@ -355,17 +356,38 @@ const EventLabel *GenMCDriver::getCurrentLabel()
 	return g.getEventLabel(Event(thr.id, thr.globalInstructions));
 }
 
+/* Given an event in the graph, returns the value of it */
 llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 					      const llvm::GenericValue *ptr,
 					      const llvm::Type *typ)
 {
+	/* If the event is the initializer, ask the interpreter about
+	 * the initial value of that memory location */
 	if (write.isInitializer())
 		return getEE()->getLocInitVal((llvm::GenericValue *)ptr,
 					      (llvm::Type *) typ);
 
 	const EventLabel *lab = getGraph().getEventLabel(write);
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	return static_cast<const WriteLabel *>(lab)->getVal();
+	auto *wLab = static_cast<const WriteLabel *>(lab);
+
+	/* If the type of the R and the W are the same, we are done */
+	if (wLab->getType() == typ)
+		return wLab->getVal();
+
+	/* Otherwise, make sure that we return a value of the expected type.
+	 * (Required because of how CAS produces code in LLVM -- see troep.c) */
+	llvm::GenericValue result;
+	if (typ->isIntegerTy() && wLab->getType()->isPointerTy()) {
+		result.IntVal = llvm::APInt(
+			getEE()->getTypeSize((llvm::Type *) wLab->getType()) * 8,
+			(uint64_t) wLab->getVal().PointerVal);
+	} else if (typ->isPointerTy() && wLab->getType()->isIntegerTy()) {
+		result.PointerVal = (void *) wLab->getVal().IntVal.getZExtValue();
+	} else {
+		BUG();
+	}
+	return result;
 }
 
 
@@ -647,6 +669,10 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
+		// if ((char *) addr == (char *) 0x8) {
+		// 	llvm::dbgs() << "REPLAY ALERT " << *lab << " in ";
+		// 	llvm::dbgs() << g << "\n";
+		// }
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			auto val = getWriteValue(rLab->getRf(), addr, typ);
 			return std::make_pair(val, DepInfo(rLab->getPos()));
@@ -662,6 +688,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
+	// if (stores.empty())
+	// 	llvm::dbgs() << g << " trying to add " << Event(thr.id, idx) << " " << addr << "\n";
 	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
@@ -687,6 +715,13 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	/* Check for races */
 	checkForRaces();
+
+	// if (EE->isStackAlloca(addr) && std::any_of(validStores.begin(), validStores.end(),
+	// 					   [&](Event &w){ return w.isInitializer(); })) {
+	// 	llvm::dbgs() << "current is " << *lab << "\n";
+	// 	llvm::dbgs() << "graph is " << g << "\n";
+	// 	BUG();
+	// }
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
@@ -762,7 +797,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	return;
 }
 
-llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
+llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* false */)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -778,22 +813,15 @@ llvm::GenericValue GenMCDriver::visitMalloc(const llvm::GenericValue &argSize)
 		BUG();
 	}
 
-	WARN_ON_ONCE(argSize.IntVal.getBitWidth() > 64, "malloc-alignment",
+	WARN_ON_ONCE(allocSize > 64, "malloc-alignment",
 		     "WARNING: malloc()'s alignment larger than 64-bit! Limiting...\n");
 
-	/* Get a fresh address and also store the size of this allocation */
-	allocBegin.PointerVal = EE->heapAllocas.empty() ? (char *) EE->globalVars.back() + 1
-		                                        : (char *) EE->heapAllocas.back() + 1;
-	uint64_t size = argSize.IntVal.getLimitedValue();
+	/* Get a fresh address and also track this allocation */
+	allocBegin.PointerVal = EE->getFreshAddr(allocSize, isLocal);
 
-	/* Track the address allocated*/
-	char *ptr = static_cast<char *>(allocBegin.PointerVal);
-	for (auto i = 0u; i < size; i++)
-		EE->heapAllocas.push_back(ptr + i);
-
-	/* Add a relevant label to the graph */
-	g.addMallocToGraph(thr.id, thr.globalInstructions, allocBegin.PointerVal, size);
-
+	/* Add a relevant label to the graph and return the new address */
+	g.addMallocToGraph(thr.id, thr.globalInstructions,
+			   allocBegin.PointerVal, allocSize, isLocal);
 	return allocBegin;
 }
 
@@ -1024,6 +1052,9 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
 
+	// llvm::dbgs() << "RESTRICTING TO " << lab->getPos() << " WHICH SHOULD READ FROM " << p.shouldRf << "\n";
+	// llvm::dbgs() << "BEFORE RESTRICTION " << g << "\n";
+
 	/* Restrict to the predecessors of the event we are revisiting */
 	restrictGraph(lab->getStamp());
 	restrictWorklist(lab->getStamp());
@@ -1071,6 +1102,9 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	 * and check whether a part of an RMW should be added
 	 */
 	g.changeRf(rLab->getPos(), p.shouldRf);
+
+	// llvm::dbgs() << "REVISITING: " << rLab->getPos() << " TO READ-FROM " << p.shouldRf;
+	// llvm::dbgs() << "AFTER RESTRICTION " << g << "\n";
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))

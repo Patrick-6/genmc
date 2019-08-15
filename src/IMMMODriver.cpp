@@ -52,8 +52,9 @@ void IMMMODriver::restrictGraph(unsigned int stamp)
 			if (lab->getStamp() <= stamp)
 				continue;
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-				getEE()->freeRegion(mLab->getAllocAddr(),
-					       mLab->getAllocSize());
+				getEE()->deallocateAddr(mLab->getAllocAddr(),
+							mLab->getAllocSize(),
+							mLab->isLocal());
 		}
 	}
 

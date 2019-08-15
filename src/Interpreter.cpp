@@ -118,15 +118,6 @@ void Interpreter::reset()
 		threads[i].addrPoDeps.clear();
 		threads[i].dataDeps.clear();
 	}
-
-	/*
-	 * Free all allocated memory, and no longer track the stack addresses
-	 * for this execution
-	 */
-	for (auto mem : stackMem)
-		free(mem);
-	stackMem.clear();
-	stackAllocas.clear();
 }
 
 std::vector<ExecutionContext> &Interpreter::ECStack()
@@ -164,48 +155,39 @@ void Interpreter::collectGPs(Module *M, void *ptr, llvm::Type *typ)
 	return;
 }
 
-void Interpreter::storeGlobals(Module *M)
+/* Updates the names for all global variables, and calculates the
+ * starting address of the allocation pool */
+void Interpreter::collectGlobalAddresses(Module *M)
 {
 	/* Collect all global and thread-local variables */
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
-		unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
+		unsigned int typeSize =
+		        TD.getTypeAllocSize(v.getType()->getElementType());
+
+		/* The allocation pool will point just after the static address */
+		if (!allocRangeBegin || ptr > allocRangeBegin)
+			allocRangeBegin = ptr + typeSize;
 
 		/* Record whether this is a thread local variable or not */
-		for (auto i = 0u; i < typeSize; i++) {
-			if (v.isThreadLocal())
+		if (v.isThreadLocal()) {
+			for (auto i = 0u; i < typeSize; i++)
 				threadLocalVars[ptr + i] = getConstantValue(v.getInitializer());
-			else
-				globalVars.push_back(ptr + i);
+			continue;
 		}
 
-		/* Check whether it is a global pointer */
-		collectGPs(M, ptr, v.getType()->getElementType());
-
-		/* Store the variable's name for printing and debugging */
-		if (ArrayType *AT = dyn_cast<ArrayType>(v.getType()->getElementType())) {
-			unsigned int elemTypeSize = typeSize / AT->getArrayNumElements();
-			for (auto i = 0u, s = 0u; s < typeSize; i++, s += elemTypeSize) {
-				std::string name = v.getName().str() + "[" + std::to_string(i) + "]";
-				globalVarNames.push_back(std::make_pair(ptr + s, name));
-			}
-		} else {
-			globalVarNames.push_back(std::make_pair(ptr, v.getName()));
-		}
+		/* Update the name for this global */
+		// updateVarNameInfo(&v, ptr, typeSize);
 	}
-	/* We sort all vectors to facilitate searching */
-	std::sort(globalVars.begin(), globalVars.end());
-	std::unique(globalVars.begin(), globalVars.end());
-
-	std::sort(globalVarNames.begin(), globalVarNames.end());
-	std::unique(globalVarNames.begin(), globalVarNames.end());
+	/* If there are no global variables, pick a random address for the pool */
+	if (!allocRangeBegin)
+		allocRangeBegin = (char *) 0x25031821;
 }
 
 bool Interpreter::isGlobal(const void *addr)
 {
-	auto gv = std::equal_range(globalVars.begin(), globalVars.end(), addr);
 	auto ha = std::equal_range(heapAllocas.begin(), heapAllocas.end(), addr);
-	return (gv.first != gv.second) || (ha.first != ha.second);
+	return (globalVars.count(addr)) || (ha.first != ha.second);
 }
 
 bool Interpreter::isStackAlloca(const void *addr)
@@ -216,8 +198,7 @@ bool Interpreter::isStackAlloca(const void *addr)
 
 bool Interpreter::isHeapAlloca(const void *addr)
 {
-	auto sa = std::find(heapAllocas.begin(), heapAllocas.end(), addr);
-	return sa != stackAllocas.end();
+	return heapAllocas.count(addr);
 }
 
 std::string Interpreter::getGlobalName(const void *addr)
@@ -232,15 +213,41 @@ std::string Interpreter::getGlobalName(const void *addr)
 	return "";
 }
 
-void Interpreter::freeRegion(const void *addr, int size)
+/* Returns a fresh address to be used from the interpreter */
+void *Interpreter::getFreshAddr(unsigned int size, bool isLocal /* false */)
 {
-	heapAllocas.erase(std::remove_if(heapAllocas.begin(), heapAllocas.end(),
-					 [&](void *loc)
-					 { return loc >= addr &&
-						  (char *) loc < (const char *) addr + size; }),
-			  heapAllocas.end());
+	char *newAddr = allocRangeBegin; /* Fetch the next from the pool */
+	allocRangeBegin += size;
+
+	/* Track the allocated space */
+	if (isLocal) {
+		for (auto i = 0u; i < size; i++)
+			stackAllocas.insert(newAddr + i);
+		/* The name information will be updated after control
+		 * returns to the interpreter */
+	} else {
+		for (auto i = 0u; i < size; i++)
+			heapAllocas.insert(newAddr + i);
+	}
+	return newAddr;
+}
+
+/* Stops tracking of a memory allocation after deletion from the graph */
+void Interpreter::deallocateAddr(const void *addr, unsigned int size, bool isLocal /* false */)
+{
+	if (isLocal) {
+		for (auto i = 0u; i < size; i++)
+			stackAllocas.erase((char *) addr + i);
+		/* Put this in a wrapper fun so that stackvars is not accessed directly */
+		// for (auto i = 0u; i < size; i++)
+		// 	stackVars.erase((char *) addr + i);
+	} else {
+		for (auto i = 0u; i < size; i++)
+			heapAllocas.erase((char *) addr + i);
+	}
 	return;
 }
+
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
@@ -262,8 +269,7 @@ Interpreter::Interpreter(Module *M, GenMCDriver *driver)
   initializeExternalFunctions();
   emitGlobals();
 
-  /* Store the addresses of all global variables */
-  storeGlobals(M);
+  collectGlobalAddresses(M);
 
   IL = new IntrinsicLowering(TD);
 }

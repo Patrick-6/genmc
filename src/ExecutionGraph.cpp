@@ -474,6 +474,9 @@ ExecutionGraph::addStoreToGraphCommon(std::unique_ptr<WriteLabel> lab)
 	if (lab->isAtLeastRelease()) {
 		pporf.removeAllHoles(lab->getThread());
 		Event rel = getLastThreadRelease(lab->getPos());
+		if (llvm::isa<FaiWriteLabel>(getEventLabel(rel)) ||
+		    llvm::isa<CasWriteLabel>(getEventLabel(rel)))
+			--rel.index;
 		for (auto i = rel.index; i < lab->getIndex(); i++) {
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
 				    getEventLabel(Event(lab->getThread(), i)))) {
@@ -613,21 +616,21 @@ ExecutionGraph::addFenceToGraph(int tid, int index, llvm::AtomicOrdering ord)
 }
 
 const MallocLabel *
-ExecutionGraph::addMallocToGraph(int tid, int index, const void *addr, unsigned int size)
+ExecutionGraph::addMallocToGraph(int tid, int index, const void *addr,
+				 unsigned int size, bool isLocal /* false */)
 {
 	Event pos(tid, index);
 	std::unique_ptr<MallocLabel> lab(
 		new MallocLabel(nextStamp(), llvm::AtomicOrdering::NotAtomic,
-				pos, addr, size));
+				pos, addr, size, isLocal));
 
 	View hb = calcBasicHbView(lab.get());
 	View porf = calcBasicPorfView(lab.get());
-
-	WARN("Calculate pporf views!\n");
-	BUG();
+	DepView pporf = calcBasicPPoRfView(lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return static_cast<const MallocLabel *>(addEventToGraph(std::move(lab)));
 }
 
@@ -900,6 +903,19 @@ ExecutionGraph::getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const Read
 			if (lab->getStamp() <= rLab->getStamp() ||
 			    !pporf.contains(lab->getPos()))
 				continue;
+
+			// if (auto *eLab = llvm::dyn_cast<ReadLabel>(lab))
+			// 	if (!pporf.contains(eLab->getRf())) {
+			// 		llvm::dbgs() << "The write " << *sLab << " is trying to revisit " << *rLab << "\n";
+			// 		llvm::dbgs() << "THIS IS FISHY\n "
+			// 			     << "There exists a read in the prefix of the write, namely " << *eLab << "\n the rf of which is not in the view of the reviitng write, .i.e. " << pporf << "\n";
+			// 		llvm::dbgs() << "READ-RF VIEW " << getEventLabel(eLab->getRf())->getPPoRfView() << "\n";
+			// 		llvm::dbgs() << "READ VIEW " << eLab->getPPoRfView() << "\n";
+			// 		llvm::dbgs() << "READ-NEXT VIEW " << getEventLabel(eLab->getPos().next())->getPPoRfView() << "\n";
+			// 		llvm::dbgs() << "READ-NEXT-NEXT VIEW " << getEventLabel(eLab->getPos().next().next())->getPPoRfView() << "\n";
+			// 		llvm::dbgs() << *this << "\n";
+			// 		BUG();
+			// 	}
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
 
@@ -2705,31 +2721,31 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		s << g.maxIndices[i] << " ";
 	s << "\n";
-	s << "Address dependencies:\n";
-	for (auto &a : g.addrDeps) {
-		if (!a.second.empty())
-			s << a.first << ": " << a.second << "\n";
-	}
-	s << "Data dependencies:\n";
-	for (auto &d : g.dataDeps) {
-		if (!d.second.empty())
-			s << d.first << ": " << d.second << "\n";
-	}
-	s << "Control dependencies:\n";
-	for (auto &c : g.ctrlDeps) {
-		if (!c.second.empty())
-			s << c.first << ": " << c.second << "\n";
-	}
-	s << "Address;po dependencies:\n";
-	for (auto &ap : g.addrPoDeps) {
-		if (!ap.second.empty())
-			s << ap.first << ": " << ap.second << "\n";
-	}
-	s << "CAS dependencies:\n";
-	for (auto &cd : g.casDeps) {
-		if (!cd.second.empty())
-			s << cd.first << ": " << cd.second << "\n";
-	}
+	// s << "Address dependencies:\n";
+	// for (auto &a : g.addrDeps) {
+	// 	if (!a.second.empty())
+	// 		s << a.first << ": " << a.second << "\n";
+	// }
+	// s << "Data dependencies:\n";
+	// for (auto &d : g.dataDeps) {
+	// 	if (!d.second.empty())
+	// 		s << d.first << ": " << d.second << "\n";
+	// }
+	// s << "Control dependencies:\n";
+	// for (auto &c : g.ctrlDeps) {
+	// 	if (!c.second.empty())
+	// 		s << c.first << ": " << c.second << "\n";
+	// }
+	// s << "Address;po dependencies:\n";
+	// for (auto &ap : g.addrPoDeps) {
+	// 	if (!ap.second.empty())
+	// 		s << ap.first << ": " << ap.second << "\n";
+	// }
+	// s << "CAS dependencies:\n";
+	// for (auto &cd : g.casDeps) {
+	// 	if (!cd.second.empty())
+	// 		s << cd.first << ": " << cd.second << "\n";
+	// }
 
 	return s;
 }
