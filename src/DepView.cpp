@@ -55,6 +55,11 @@ void DepView::removeHolesInRange(Event start, int endIdx)
 		removeHole(Event(start.thread, i));
 }
 
+View& DepView::update(const View &v)
+{
+	BUG();
+}
+
 DepView& DepView::update(const DepView &v)
 {
 	if (v.empty())
@@ -79,16 +84,15 @@ DepView& DepView::update(const DepView &v)
 	return *this;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const DepView &v)
+void DepView::printData(llvm::raw_ostream &s) const
 {
 	s << "[\n";
-	for (auto i = 0u; i < v.size(); i++) {
-		s << "\t" << i << ": " << v[i] << " ( ";
-		for (auto &h : v.holes_[i])
+	for (auto i = 0u; i < size(); i++) {
+		s << "\t" << i << ": " << (*this)[i] << " ( ";
+		for (auto &h : this->holes_[i])
 			s << h << " ";
 		s << ")\n";
 	}
 
 	s << "]";
-	return s;
 }

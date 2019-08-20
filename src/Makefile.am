@@ -39,8 +39,10 @@ libgenmc_a_SOURCES = \
   RC11MODriver.cpp RC11MODriver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
-  VSet.hpp VSet.tcc \
-  View.hpp View.cpp
+  VectorClock.hpp VectorClock.cpp \
+  View.hpp View.cpp \
+  VSet.hpp VSet.tcc
+
 
 CXX = clang++
 AM_CXXFLAGS = -std=c++1z -Wno-unknown-warning-option -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"

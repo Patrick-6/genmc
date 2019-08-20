@@ -22,12 +22,13 @@
 #define __DEP_VIEW_HPP__
 
 #include "Error.hpp"
+#include "VectorClock.hpp"
 #include "View.hpp"
 #include "VSet.hpp"
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 
-class DepView {
+class DepView : public VectorClock {
 private:
 	using Holes = VSet<int>;
 
@@ -65,6 +66,7 @@ public:
 	void removeHole(const Event e);
 	void removeAllHoles(int thread);
 	void removeHolesInRange(Event start, int endIdx);
+	View& update(const View &v);
 	DepView& update(const DepView &v);
 
 	/* Overloaded operators */
@@ -76,7 +78,7 @@ public:
 		return view_[idx];
 	}
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const DepView &v);
+	void printData(llvm::raw_ostream &s) const;
 
 private:
 	View view_;

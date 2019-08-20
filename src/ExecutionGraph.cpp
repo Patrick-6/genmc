@@ -953,48 +953,7 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 
 std::vector<std::pair<Event, Event> >
 ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-				   const View &before)
-{
-	std::vector<std::pair<Event, Event> > pairs;
-
-	for (const auto &lab : labs) {
-		/* Only store MO pairs for labels that are not in before */
-		if (!llvm::isa<WriteLabel>(lab.get())) // || before.contains(lab->getPos()))
-			continue;
-
-		auto *wLab = static_cast<const WriteLabel *>(lab.get());
-		auto &locMO = modOrder[wLab->getAddr()];
-		auto moPos = std::find(locMO.begin(), locMO.end(), wLab->getPos());
-
-		/* This store must definitely be in this location's MO */
-		BUG_ON(moPos == locMO.end());
-
-		/* We need to find the previous MO store that is in before or
-		 * in the vector for which we are getting the predecessors */
-		std::reverse_iterator<std::vector<Event>::iterator> predPos(moPos);
-		auto predFound = false;
-		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
-			if (before.contains(*rit) ||
-			    std::find_if(labs.begin(), labs.end(),
-					 [&](const std::unique_ptr<EventLabel> &lab)
-					 { return lab->getPos() == *rit; })
-			    != labs.end()) {
-				pairs.push_back(std::make_pair(*moPos, *rit));
-				predFound = true;
-				break;
-			}
-		}
-		/* If there is not predecessor in the vector or in before,
-		 * then INIT is the only valid predecessor */
-		if (!predFound)
-			pairs.push_back(std::make_pair(*moPos, Event::getInitializer()));
-	}
-	return pairs;
-}
-
-std::vector<std::pair<Event, Event> >
-ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-				   const DepView &before)
+				   const VectorClock &before)
 {
 	std::vector<std::pair<Event, Event> > pairs;
 
@@ -1060,7 +1019,8 @@ bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write)
 	return false;
 }
 
-bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write, const DepView &v)
+bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
+					   const VectorClock &v)
 {
 	const EventLabel *lab = getEventLabel(write);
 
@@ -1113,7 +1073,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, const llvm::Generic
 }
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-					     const DepView &porfBefore)
+					     const VectorClock &porfBefore)
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -2191,60 +2151,8 @@ std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &w
 	return upperL;
 }
 
-Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const View &v)
-{
-	std::vector<Event> storesInView;
-
-	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(),
-		     std::back_inserter(storesInView),
-		     [&](Event &s){ return v.contains(s); });
-
-	Matrix2D<Event> matrix(std::move(storesInView));
-	auto &stores = matrix.getElems();
-
-	/* Optimization */
-	if (stores.size() <= 1)
-		return matrix;
-
-	auto upperLimit = calcRMWLimits(matrix);
-	if (upperLimit.empty()) {
-		for (auto i = 0u; i < stores.size(); i++)
-			matrix(i,i) = true;
-		return matrix;
-	}
-
-	auto lowerLimit = upperLimit.begin() + stores.size();
-
-	for (auto i = 0u; i < stores.size(); i++) {
-		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(stores[i]));
-
-		std::vector<Event> es;
-		const std::vector<Event> readers = wLab->getReadersList();
-		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
-			     [&](const Event &r){ return v.contains(r); });
-
-		auto before = getHbBefore(es).
-			update(getPreviousLabel(wLab)->getHbView());
-		auto upi = upperLimit[i];
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (i == j || !isWriteRfBefore(before, stores[j]))
-				continue;
-			matrix(j, i) = true;
-
-			if (upi == stores.size() || upi == upperLimit[j])
-				continue;
-			matrix(lowerLimit[j], upi) = true;
-		}
-
-		if (lowerLimit[stores.size()] == stores.size() || upi == stores.size())
-			continue;
-		matrix(lowerLimit[stores.size()], i) = true;
-	}
-	matrix.transClosure();
-	return matrix;
-}
-
-Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr, const DepView &v)
+Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr,
+						 const VectorClock &v)
 {
 	std::vector<Event> storesInView;
 

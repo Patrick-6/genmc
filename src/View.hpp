@@ -24,8 +24,9 @@
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 #include "Event.hpp"
+#include "VectorClock.hpp"
 
-class View {
+class View : public VectorClock {
 private:
 	typedef llvm::IndexedMap<int> EventView;
 	EventView view_;
@@ -47,6 +48,7 @@ public:
 	bool empty() const;
 	bool contains(const Event e) const;
 	View& update(const View &v);
+	DepView& update(const DepView &dv);
 	View& updateIdx(const Event e);
 
 	/* Overloaded operators */
@@ -67,7 +69,7 @@ public:
 		return true;
 	}
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const View &v);
+	void printData(llvm::raw_ostream &s) const;
 };
 
 #endif /* __VIEW_HPP__ */

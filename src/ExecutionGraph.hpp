@@ -28,6 +28,7 @@
 #include "Library.hpp"
 #include "Matrix2D.hpp"
 #include "ModOrder.hpp"
+#include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
 #include <memory>
@@ -93,11 +94,12 @@ public:
 	std::vector<Event> getPendingRMWs(const WriteLabel *sLab);
 	Event getPendingLibRead(const LibReadLabel *lab);
 	bool isHbOptRfBefore(const Event e, const Event write);
-	bool isHbOptRfBeforeInView(const Event e, const Event write, const DepView &v);
+	bool isHbOptRfBeforeInView(const Event e, const Event write,
+				   const VectorClock &v);
 	bool isWriteRfBefore(const View &before, Event e);
 	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr);
 	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-				     const DepView &porfBefore);
+				     const VectorClock &porfBefore);
 
 	/* Basic setter methods */
 	const ReadLabel *addReadToGraph(int tid, int index,
@@ -185,8 +187,8 @@ public:
 	std::vector<Event> getMoInvOptRfAfter(const WriteLabel *sLab);
 
 	Matrix2D<Event> calcWb(const llvm::GenericValue *addr);
-	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const View &v);
-	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr, const DepView &v);
+	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr,
+					 const VectorClock &v);
 
 	/* Calculation of particular sets of events/event labels */
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
@@ -197,12 +199,10 @@ public:
 	getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const ReadLabel *rLab);
 
 	std::vector<Event> extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs);
+	/* Needs to be explicitly instantiated */
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-			   const View &before);
-	std::vector<std::pair<Event, Event> >
-	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-			   const DepView &before);
+			   const VectorClock &before);
 
 	/* Calculation of loads that can be revisited */
 	std::vector<Event> findOverwrittenBoundary(const llvm::GenericValue *addr, int thread);
