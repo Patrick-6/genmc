@@ -293,19 +293,20 @@ bool IMMMODriver::checkPscAcyclicity(CheckPSCType t)
 		WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 			  "to be checked for the MO-tracking exploration...\n");
 	case CheckPSCType::full: {
-		auto &g = getGraph();
-		Matrix2D<Event> ar = getARMatrix();
-		auto scs = g.getSCs();
-		auto &fcs = scs.second;
-		Matrix2D<Event> psc =  g.calcPscMO();
+		return getGraph().isPscAcyclicMO();
+		// auto &g = getGraph();
+		// Matrix2D<Event> ar = getARMatrix();
+		// auto scs = g.getSCs();
+		// auto &fcs = scs.second;
+		// Matrix2D<Event> psc =  g.calcPscMO();
 
-		for (auto &f1 : fcs) {
-			for (auto &f2 : fcs)
-				if (psc(f1, f2))
-					ar(f1, f2) = true;
-		}
-		ar.transClosure();
-		return !ar.isReflexive();
+		// for (auto &f1 : fcs) {
+		// 	for (auto &f2 : fcs)
+		// 		if (psc(f1, f2))
+		// 			ar(f1, f2) = true;
+		// }
+		// ar.transClosure();
+		// return !ar.isReflexive();
 	}
 	default:
 		WARN("Unimplemented model!\n");
