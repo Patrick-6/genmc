@@ -43,7 +43,6 @@ protected:
 
 public:
 	Graph events;
-	std::vector<unsigned int> maxIndices;
 	ModOrder modOrder;
 	unsigned int timestamp;
 	std::unordered_map<Event, DepInfo, EventHasher> addrDeps;
@@ -71,9 +70,9 @@ public:
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend()   const { return events.rend(); };
 
-	inline void addNewThread() { events.push_back({}); maxIndices.push_back(0); };
+	inline void addNewThread() { events.push_back({}); };
 	inline unsigned int getNumThreads() const { return events.size(); };
-	inline unsigned int getThreadSize(int tid) const { return maxIndices[tid]; };
+	inline unsigned int getThreadSize(int tid) const { return events[tid].size(); };
 	inline bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
 
 	/* Basic getter methods */

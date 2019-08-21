@@ -37,7 +37,6 @@ ExecutionGraph::ExecutionGraph() : timestamp(1)
 					     Event(0, 0),
 					     Event::getInitializer() )
 				     ) );
-	maxIndices.push_back(1);
 }
 
 
@@ -82,12 +81,12 @@ const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(const EventLabel *lab
 
 const EventLabel *ExecutionGraph::getLastThreadLabel(int thread) const
 {
-	return events[thread][maxIndices[thread] - 1].get();
+	return events[thread][events[thread].size() - 1].get();
 }
 
 Event ExecutionGraph::getLastThreadEvent(int thread) const
 {
-	return Event(thread, maxIndices[thread] - 1);
+	return Event(thread, events[thread].size() - 1);
 }
 
 Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
@@ -354,9 +353,7 @@ const EventLabel *ExecutionGraph::addEventToGraph(std::unique_ptr<EventLabel> la
 	} else {
 		events[pos.thread].push_back(std::move(lab));
 	}
-	BUG_ON(pos.index > maxIndices[pos.thread]);
-	maxIndices[pos.thread] = (pos.index == maxIndices[pos.thread]) ?
-		pos.index + 1 : maxIndices[pos.thread];
+	BUG_ON(pos.index > events[pos.thread].size());
 	return getEventLabel(pos);
 }
 
@@ -1257,7 +1254,6 @@ void ExecutionGraph::cutToView(const View &preds)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds[i] + 1, thr.end());
-		maxIndices[i] = preds[i] + 1;
 	}
 
 	/* Remove any 'pointers' to events that have been removed */
@@ -1357,7 +1353,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			}
 			events[i][j] = nullptr;
 		}
-		maxIndices[i] = newMax;
+		events[i].resize(newMax);
 	}
 
 	/* Do not keep any nullptrs in the graph */
@@ -1381,8 +1377,6 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 		// BUG_ON(lab->getIndex() != (int) getThreadSize(lab->getThread()) &&
 		//        "Events should be added in order!");
 		inserted.push_back(lab->getPos());
-		if (lab->getIndex() + 1 >= maxIndices[lab->getThread()])
-			maxIndices[lab->getThread()] = lab->getIndex() + 1;
 		if (events[lab->getThread()].size() <= lab->getIndex()) {
 			events[lab->getThread()].resize(lab->getIndex());
 			events[lab->getThread()].push_back(std::move(lab));
@@ -2627,7 +2621,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	}
 	s << "Thread sizes:\n\t";
 	for (auto i = 0u; i < g.getNumThreads(); i++)
-		s << g.maxIndices[i] << " ";
+		s << g.events[i].size() << " ";
 	s << "\n";
 	// s << "Address dependencies:\n";
 	// for (auto &a : g.addrDeps) {
