@@ -199,7 +199,6 @@ public:
 	getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const ReadLabel *rLab);
 
 	std::vector<Event> extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs);
-	/* Needs to be explicitly instantiated */
 	std::vector<std::pair<Event, Event> >
 	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
 			   const VectorClock &before);

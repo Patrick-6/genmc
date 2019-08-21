@@ -184,6 +184,7 @@ void GenMCDriver::run()
 
 	/* Create an interpreter for the program's instructions. */
 	EE = (llvm::Interpreter *) llvm::Interpreter::create(&*mod, this, &buf);
+	EE->setDepTracker(); /* FIXME: should be conditional */
 
 	/* Create main thread and start event */
 	auto mainFun = mod->getFunction(userConf->programEntryFun);

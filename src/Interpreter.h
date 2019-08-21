@@ -40,7 +40,8 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
-#include "DepInfo.hpp"
+#include "DepTracker.hpp"
+#include "IMMDepTracker.hpp"
 #include "Library.hpp"
 #include "View.hpp"
 
@@ -157,6 +158,9 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
 
+  /* Pointer to the dependency tracker */
+  std::unique_ptr<DepTracker> depTracker = nullptr;
+
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
   std::vector<ExecutionContext> mainECStack;
@@ -255,6 +259,19 @@ public:
 
   std::unordered_set<const void *> stackAllocas;
   std::vector<void *> freedMem;
+
+  /* Dependency tracking */
+  void setDepTracker();
+  const DepInfo &getDataDeps(unsigned int tid, Value *i);
+  const DepInfo &getAddrDeps(unsigned int tid);
+  const DepInfo &getCtrlDeps(unsigned int tid);
+
+  void updateDataDeps(unsigned int tid, Value *dst, Value *src);
+  void updateDataDeps(unsigned int tid, Value *dst, DepInfo e);
+  void updateAddrDeps(unsigned int tid, Value *src);
+  void updateCtrlDeps(unsigned int tid, Value *src);
+
+  void clearDeps(unsigned int tid);
 
   /* Helper functions */
   void collectGPs(Module *M, void *ptr, Type *typ);

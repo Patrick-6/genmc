@@ -114,9 +114,7 @@ void Interpreter::reset()
 		threads[i].isBlocked = false;
 		threads[i].globalInstructions = 0;
 		threads[i].rng.seed(Thread::seed);
-		threads[i].ctrlDeps.clear();
-		threads[i].addrPoDeps.clear();
-		threads[i].dataDeps.clear();
+		clearDeps(i);
 	}
 }
 
@@ -246,6 +244,51 @@ void Interpreter::deallocateAddr(const void *addr, unsigned int size, bool isLoc
 			heapAllocas.erase((char *) addr + i);
 	}
 	return;
+}
+
+void Interpreter::setDepTracker()
+{
+	depTracker = make_unique<IMMDepTracker>();
+}
+
+const DepInfo &Interpreter::getDataDeps(unsigned int tid, Value *i)
+{
+	return depTracker->getDataDeps(tid, i); /* FIXME: should be conditional */
+}
+
+const DepInfo &Interpreter::getAddrDeps(unsigned int tid)
+{
+	return depTracker->getAddrDeps(tid);
+}
+
+const DepInfo &Interpreter::getCtrlDeps(unsigned int tid)
+{
+	return depTracker->getCtrlDeps(tid);
+}
+
+void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Value *src)
+{
+	depTracker->updateDataDeps(tid, dst, src);
+}
+
+void Interpreter::updateDataDeps(unsigned int tid, Value *dst, DepInfo e)
+{
+	depTracker->updateDataDeps(tid, dst, e);
+}
+
+void Interpreter::updateAddrDeps(unsigned int tid, Value *src)
+{
+	depTracker->updateAddrDeps(tid, src);
+}
+
+void Interpreter::updateCtrlDeps(unsigned int tid, Value *src)
+{
+	depTracker->updateCtrlDeps(tid, src);
+}
+
+void Interpreter::clearDeps(unsigned int tid)
+{
+	depTracker->clearDeps(tid);
 }
 
 

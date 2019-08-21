@@ -10,13 +10,12 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
-  IMMWBDriver.cpp IMMWBDriver.hpp \
-  IMMMODriver.cpp IMMMODriver.hpp \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
   DepInfo.cpp DepInfo.hpp \
+  DepTracker.hpp \
   DepView.cpp DepView.hpp \
   DriverFactory.cpp DriverFactory.hpp \
   Error.cpp Error.hpp \
@@ -26,6 +25,9 @@ libgenmc_a_SOURCES = \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
   GenMCDriver.cpp GenMCDriver.hpp \
+  IMMDepTracker.hpp \
+  IMMWBDriver.cpp IMMWBDriver.hpp \
+  IMMMODriver.cpp IMMMODriver.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   Library.cpp Library.hpp \
