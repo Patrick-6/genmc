@@ -74,6 +74,7 @@ public:
 protected:
 	/* ExecutionGraph needs to be a friend to call the constructors */
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	EventLabel(EventLabelKind k, unsigned int s, llvm::AtomicOrdering o,
 		   Event p) : kind(k), stamp(s), ordering(o), position(p) {}
@@ -175,6 +176,7 @@ class EmptyLabel : public EventLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	EmptyLabel(unsigned int st, Event pos)
 		: EventLabel(EL_Empty, st, llvm::AtomicOrdering::NotAtomic,
@@ -223,6 +225,7 @@ class ReadLabel : public MemAccessLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
@@ -294,6 +297,7 @@ class FaiReadLabel : public ReadLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
@@ -332,6 +336,7 @@ class CasReadLabel : public ReadLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
@@ -378,6 +383,7 @@ class LibReadLabel : public ReadLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	LibReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
@@ -422,6 +428,7 @@ class WriteLabel : public MemAccessLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	WriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		   Event pos, const llvm::GenericValue *addr,
@@ -511,6 +518,7 @@ class FaiWriteLabel : public WriteLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	FaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
@@ -535,6 +543,7 @@ class CasWriteLabel : public WriteLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	CasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
@@ -567,6 +576,7 @@ class LibWriteLabel : public WriteLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	LibWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
@@ -606,6 +616,7 @@ class FenceLabel : public EventLabel {
 
 protected:
 	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	FenceLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
 		: EventLabel(EL_Fence, st, ord, pos) {}
@@ -627,6 +638,7 @@ public:
 class ThreadCreateLabel : public EventLabel {
 
 friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 protected:
 	ThreadCreateLabel(unsigned int st, llvm::AtomicOrdering ord,
@@ -659,6 +671,7 @@ private:
 class ThreadJoinLabel : public EventLabel {
 
 friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 protected:
 	ThreadJoinLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
@@ -703,6 +716,7 @@ class ThreadStartLabel : public EventLabel {
 
 protected:
 	friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 	ThreadStartLabel(unsigned int st, llvm::AtomicOrdering ord,
 			 Event pos, Event pc)
@@ -738,6 +752,7 @@ private:
 class ThreadFinishLabel : public EventLabel {
 
 	friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 protected:
 	ThreadFinishLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
@@ -775,6 +790,7 @@ private:
 class MallocLabel : public EventLabel {
 
 friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 protected:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
@@ -818,6 +834,7 @@ private:
 class FreeLabel : public EventLabel {
 
 friend class ExecutionGraph;
+friend class DepExecutionGraph;
 
 protected:
 	FreeLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,

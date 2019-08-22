@@ -140,11 +140,6 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	return result;
 }
 
-/*
- * Given an write label sLab that is part of an RMW, return all
- * other RMWs that read from the same write. Of course, there must
- * be _at most_ one other RMW reading from the same write (see [Rex] set)
- */
 std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab)
 {
 	std::vector<Event> pending;
@@ -196,26 +191,6 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab)
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
-				    rLab->isRevisitable())
-					loads.push_back(rLab->getPos());
-			}
-		}
-	}
-	return loads;
-}
-
-std::vector<Event> ExecutionGraph::getRevisitablePPoRf(const WriteLabel *sLab)
-{
-	std::vector<Event> loads;
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (sLab->getThread() == i)
-			continue;
-		for (auto j = 1u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->getAddr() == sLab->getAddr() &&
-				    !sLab->getPPoRfView().contains(rLab->getPos()) &&
 				    rLab->isRevisitable())
 					loads.push_back(rLab->getPos());
 			}
@@ -858,11 +833,18 @@ void ExecutionGraph::calcRelRfPoBefore(Event last, View &v)
  ** Calculation of particular sets of events/event labels
  ***********************************************************/
 
+const VectorClock& ExecutionGraph::getPrefixView(Event e)
+{
+	return getPorfBefore(e);
+}
+
 std::vector<std::unique_ptr<EventLabel> >
-ExecutionGraph::getPrefixLabelsNotBefore(const View &prefix, const View &before)
+ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
 	std::vector<std::unique_ptr<EventLabel> > result;
 
+	auto &prefix = sLab->getPorfView();
+	auto before = getViewFromStamp(rLab->getStamp());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
@@ -877,54 +859,6 @@ ExecutionGraph::getPrefixLabelsNotBefore(const View &prefix, const View &before)
 			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
 				if (!prefix.contains(eLab->getParentJoin()) &&
 				    !before.contains(eLab->getParentJoin()))
-					eLab->setParentJoin(Event::getInitializer());
-			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
-				/* We can keep the begin event of the child
-				 * the since it will not be deleted */
-				;
-			}
-		}
-	}
-	return result;
-}
-
-std::vector<std::unique_ptr<EventLabel> >
-ExecutionGraph::getPrefixLabelsNotBeforePPoRf(const WriteLabel *sLab, const ReadLabel *rLab)
-{
-	std::vector<std::unique_ptr<EventLabel> > result;
-
-	auto &pporf = sLab->getPPoRfView();
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->getStamp() <= rLab->getStamp() ||
-			    !pporf.contains(lab->getPos()))
-				continue;
-
-			// if (auto *eLab = llvm::dyn_cast<ReadLabel>(lab))
-			// 	if (!pporf.contains(eLab->getRf())) {
-			// 		llvm::dbgs() << "The write " << *sLab << " is trying to revisit " << *rLab << "\n";
-			// 		llvm::dbgs() << "THIS IS FISHY\n "
-			// 			     << "There exists a read in the prefix of the write, namely " << *eLab << "\n the rf of which is not in the view of the reviitng write, .i.e. " << pporf << "\n";
-			// 		llvm::dbgs() << "READ-RF VIEW " << getEventLabel(eLab->getRf())->getPPoRfView() << "\n";
-			// 		llvm::dbgs() << "READ VIEW " << eLab->getPPoRfView() << "\n";
-			// 		llvm::dbgs() << "READ-NEXT VIEW " << getEventLabel(eLab->getPos().next())->getPPoRfView() << "\n";
-			// 		llvm::dbgs() << "READ-NEXT-NEXT VIEW " << getEventLabel(eLab->getPos().next().next())->getPPoRfView() << "\n";
-			// 		llvm::dbgs() << *this << "\n";
-			// 		BUG();
-			// 	}
-
-			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
-
-			auto &curLab = result.back();
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
-				wLab->removeReader([&](Event r) {
-						return getEventLabel(r)->getStamp() > rLab->getStamp() &&
-						       !pporf.contains(r);
-					});
-			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
-				if (getEventLabel(eLab->getParentJoin())->getStamp() > rLab->getStamp() &&
-				    !pporf.contains(eLab->getPos()))
 					eLab->setParentJoin(Event::getInitializer());
 			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
 				/* We can keep the begin event of the child
@@ -994,7 +928,6 @@ ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel>
  ** Calculation of writes a read can read from
  ***********************************************************/
 
-/* Returns true if it is [e]; hb; [w]; rf? */
 bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write)
 {
 	const EventLabel *lab = getEventLabel(write);
@@ -1089,20 +1022,6 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 		}
 	}
 	return false;
-}
-
-std::vector<Event> ExecutionGraph::findOverwrittenBoundary(const llvm::GenericValue *addr, int thread)
-{
-	std::vector<Event> boundary;
-	auto &before = getHbBefore(getLastThreadEvent(thread));
-
-	if (before.empty())
-		return boundary;
-
-	for (auto &e : modOrder[addr])
-		if (isWriteRfBefore(before, e))
-			boundary.push_back(e.prev());
-	return boundary;
 }
 
 
@@ -1226,10 +1145,6 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	return preds;
 }
 
-/*
- * Similar to getViewFromStamp(), but for graphs where events might have
- * been added out-of-order. It thus returns a DepView object.
- */
 DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp)
 {
 	DepView preds;
@@ -1248,8 +1163,10 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp)
 	return preds;
 }
 
-void ExecutionGraph::cutToView(const View &preds)
+void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
+	auto preds = getViewFromStamp(stamp);
+
 	/* Restrict the graph according to the view (keep begins around) */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
@@ -1286,85 +1203,6 @@ void ExecutionGraph::cutToView(const View &preds)
 						{ return !preds.contains(e); }),
 				 it->second.end());
 	return;
-}
-
-template< typename ContainerT, typename PredicateT >
-void erase_if( ContainerT& items, const PredicateT& predicate )
-{
-	for (auto it = items.begin(), e = items.end(); it != e; ) {
-		if (predicate(*it))
-			it = items.erase(it);
-		else
-			++it;
-	}
-}
-
-void ExecutionGraph::cutToStamp(unsigned int stamp)
-{
-	/* First remove events from the modification order */
-	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
-		it->second.erase(
-			std::remove_if(it->second.begin(), it->second.end(),
-				       [&](Event &e){
-					       const EventLabel *lab = getEventLabel(e);
-					       return lab->getStamp() > stamp; }),
-			it->second.end());
-
-	/* Then, restict dependencies */
-	erase_if(addrDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-	erase_if(dataDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-	erase_if(ctrlDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-
-	/* Finally, restrict the graph */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		/* We reset the maximum index for this thread, as we
-		 * do not know the order in which events were added */
-		auto newMax = 1u;
-		for (auto j = 1u; j < getThreadSize(i); j++) { /* Keeps begins */
-			EventLabel *lab = events[i][j].get();
-			/* If this label should not be deleted, check if it
-			 * is gonna be the new maximum, and then skip */
-			if (lab->getStamp() <= stamp) {
-				if (lab->getIndex() >= newMax)
-					newMax = lab->getIndex() + 1;
-				continue;
-			}
-
-			/* Otherwise, remove 'pointers' to it, in an
-			 * analogous manner cutToView(). */
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				Event rf = rLab->getRf();
-				/* Make sure RF label exists */
-				if (getEventLabel(rf)) {
-					if (auto *wLab = llvm::dyn_cast<WriteLabel>(
-						    events[rf.thread][rf.index].get())) {
-						wLab->removeReader([&](Event r){
-								return r == rLab->getPos();
-							});
-					}
-				}
-			} else if (auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
-				Event pj = fLab->getParentJoin();
-				if (getEventLabel(pj)) /* Make sure the parent exists */
-					resetJoin(pj);
-			}
-			events[i][j] = nullptr;
-		}
-		events[i].resize(newMax);
-	}
-
-	/* Do not keep any nullptrs in the graph */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			if (events[i][j])
-				continue;
-			events[i][j] = std::unique_ptr<EmptyLabel>(
-				new EmptyLabel(nextStamp(), Event(i, j)));
-		}
-	}
 }
 
 void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,

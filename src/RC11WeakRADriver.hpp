@@ -32,6 +32,7 @@ public:
 			 clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
+	std::vector<Event> findOverwrittenBoundary(const llvm::GenericValue *addr, int thread);
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr);
 	std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW);
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab);

@@ -24,6 +24,22 @@
  ** WEAK RA DRIVER -- UNIMPLEMENTED
  ***********************************************************/
 
+std::vector<Event> RC11WeakRADriver::findOverwrittenBoundary(const llvm::GenericValue *addr,
+							     int thread)
+{
+	auto &g = getGraph();
+	auto &before = g.getHbBefore(g.getLastThreadEvent(thread));
+	std::vector<Event> boundary;
+
+	if (before.empty())
+		return boundary;
+
+	for (auto &e : g.modOrder[addr])
+		if (g.isWriteRfBefore(before, e))
+			boundary.push_back(e.prev());
+	return boundary;
+}
+
 std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	auto &g = getGraph();

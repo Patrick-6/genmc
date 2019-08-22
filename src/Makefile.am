@@ -14,6 +14,7 @@ libgenmc_a_SOURCES = \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
+  DepExecutionGraph.cpp DepExecutionGraph.hpp \
   DepInfo.cpp DepInfo.hpp \
   DepTracker.hpp \
   DepView.cpp DepView.hpp \

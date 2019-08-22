@@ -226,8 +226,7 @@ std::pair<std::vector<std::unique_ptr<EventLabel> >,
 RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
 {
 	auto &g = getGraph();
-	auto preds = g.getViewFromStamp(rLab->getStamp());
-	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(wLab->getPos()), preds);
+	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }
 

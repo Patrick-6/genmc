@@ -104,9 +104,7 @@ std::pair<std::vector<std::unique_ptr<EventLabel> >,
 RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
 {
 	auto &g = getGraph();
-	auto preds = g.getViewFromStamp(rLab->getStamp());
-	auto writePrefix = g.getPrefixLabelsNotBefore(g.getPorfBefore(wLab->getPos()),
-						      preds);
+	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
 	auto moPlacings = g.getMOPredsInBefore(writePrefix, preds);
 	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
