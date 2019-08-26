@@ -24,6 +24,107 @@
  ** WEAK RA DRIVER -- UNIMPLEMENTED
  ***********************************************************/
 
+
+std::unique_ptr<ReadLabel>
+RC11WeakRADriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				  const llvm::GenericValue *ptr, const llvm::Type *typ,
+				  Event rf)
+{
+}
+
+std::unique_ptr<FaiReadLabel>
+RC11WeakRADriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				     const llvm::GenericValue *ptr, const llvm::Type *typ,
+				     Event rf, llvm::AtomicRMWInst::BinOp op,
+				     llvm::GenericValue &&opValue)
+{
+}
+
+std::unique_ptr<CasReadLabel>
+RC11WeakRADriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				     const llvm::GenericValue *ptr, const llvm::Type *typ,
+				     Event rf, const llvm::GenericValue &expected,
+				     const llvm::GenericValue &swap,
+				     bool isLock)
+{
+}
+
+std::unique_ptr<LibReadLabel>
+RC11WeakRADriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				     const llvm::GenericValue *ptr, const llvm::Type *typ,
+				     Event rf, std::string functionName)
+{
+}
+
+std::unique_ptr<WriteLabel>
+RC11WeakRADriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				   const llvm::GenericValue *ptr, const llvm::Type *typ,
+				   const llvm::GenericValue &val, int offsetMO,
+				   bool isUnlock)
+{
+}
+
+std::unique_ptr<FaiWriteLabel>
+RC11WeakRADriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				      const llvm::GenericValue *ptr, const llvm::Type *typ,
+				      const llvm::GenericValue &val, int offsetMO)
+{
+}
+
+std::unique_ptr<CasWriteLabel>
+RC11WeakRADriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				      const llvm::GenericValue *ptr, const llvm::Type *typ,
+				      const llvm::GenericValue &val, int offsetMO,
+				      bool isLock)
+{
+}
+
+std::unique_ptr<LibWriteLabel>
+RC11WeakRADriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				      const llvm::GenericValue *ptr, const llvm::Type *typ,
+				      llvm::GenericValue &val, int offsetMO,
+				      std::string functionName, bool isInit)
+{
+}
+
+std::unique_ptr<FenceLabel>
+RC11WeakRADriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
+{
+}
+
+
+std::unique_ptr<MallocLabel>
+RC11WeakRADriver::createMallocLabel(int tid, int index, const void *addr,
+				    unsigned int size, bool isLocal)
+{
+}
+
+std::unique_ptr<FreeLabel>
+RC11WeakRADriver::createFreeLabel(int tid, int index, const void *addr,
+				  unsigned int size)
+{
+}
+
+std::unique_ptr<ThreadCreateLabel>
+RC11WeakRADriver::createTCreateLabel(int tid, int index, int cid)
+{
+}
+
+std::unique_ptr<ThreadJoinLabel>
+RC11WeakRADriver::createTJoinLabel(int tid, int index, int cid)
+{
+}
+
+std::unique_ptr<ThreadStartLabel>
+RC11WeakRADriver::createStartLabel(int tid, int index, Event tc)
+{
+}
+
+std::unique_ptr<ThreadFinishLabel>
+RC11WeakRADriver::createFinishLabel(int tid, int index)
+{
+}
+
 std::vector<Event> RC11WeakRADriver::findOverwrittenBoundary(const llvm::GenericValue *addr,
 							     int thread)
 {

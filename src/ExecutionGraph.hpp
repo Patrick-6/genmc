@@ -114,6 +114,12 @@ public:
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp();
 
+	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+					     Event rf);
+	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					       unsigned int offsetMO);
+	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
+
 	const ReadLabel *addReadToGraph(int tid, int index,
 					llvm::AtomicOrdering ord,
 					const llvm::GenericValue *ptr,

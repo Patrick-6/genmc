@@ -99,6 +99,15 @@ public:
 	/* Returns the thread of this label in the execution graph */
 	int getThread() const { return position.thread; }
 
+	/* Methods that get/set the vector clocks for this label. */
+	const View& getHbView() const { return hbView; }
+	const View& getPorfView() const { return porfView; }
+	const DepView& getPPoRfView() const { return pporfView; }
+
+	void setHbView(View &&v) { hbView = std::move(v); }
+	void setPorfView(View &&v) { porfView = std::move(v); }
+	void setPPoRfView(DepView &&v) { pporfView = std::move(v); }
+
 	/* Returns true if this label corresponds to a non-atomic access */
 	bool isNotAtomic() const {
 		return ordering == llvm::AtomicOrdering::NotAtomic;
@@ -131,16 +140,6 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const EventLabel &lab);
 
 private:
-	/* Methods that get/set the vector clocks for this label.
-	 * These are to be used only from the execution graph */
-	const View& getHbView() const { return hbView; }
-	const View& getPorfView() const { return porfView; }
-	const DepView& getPPoRfView() const { return pporfView; }
-
-	void setHbView(View &&v) { hbView = std::move(v); }
-	void setPorfView(View &&v) { porfView = std::move(v); }
-	void setPPoRfView(DepView &&v) { pporfView = std::move(v); }
-
 	/* Discriminator enum for LLVM-style RTTI */
 	const EventLabelKind kind;
 
@@ -174,15 +173,11 @@ private:
  * RTTI, in contrast to nullptr */
 class EmptyLabel : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
+public:
 
 	EmptyLabel(unsigned int st, Event pos)
 		: EventLabel(EL_Empty, st, llvm::AtomicOrdering::NotAtomic,
 			     pos) {}
-
-public:
 
 	EmptyLabel *clone() const override { return new EmptyLabel(*this); }
 
@@ -233,13 +228,13 @@ protected:
 		: MemAccessLabel(k, st, ord, pos), addr(loc),
 		  valueType(typ), readsFrom(rf), revisitable(true) {}
 
+public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
 		  Event rf)
 		: MemAccessLabel(EL_Read, st, ord, pos), addr(loc),
 		  valueType(typ), readsFrom(rf), revisitable(true) {}
 
-public:
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
@@ -299,13 +294,13 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val)
 		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf),
 		  binOp(op), opValue(val) {}
 
-public:
 	/* Returns the type of this RMW operation (e.g., add, sub) */
 	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
 
@@ -338,6 +333,7 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
@@ -345,7 +341,6 @@ protected:
 		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf),
 		  expected(exp), swapValue(swap), lockCas(lockCas) {}
 
-public:
 	/* Returns the value that will make this CAS succeed */
 	const llvm::GenericValue& getExpected() const { return expected; }
 
@@ -385,13 +380,13 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	LibReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     std::string name)
 		: ReadLabel(EL_LibRead, st, ord, pos, addr, typ, rf),
 		  functionName(name) {}
 
-public:
 	/* Returns the name of this operation */
 	const std::string& getFunctionName() const { return functionName; }
 
@@ -437,13 +432,13 @@ protected:
 		: MemAccessLabel(k, st, ord, pos), value(val), addr(addr),
 		  valueType(valTyp), unlock(isUnlock) {}
 
+public:
 	WriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		   const llvm::GenericValue *addr, const llvm::Type *valTyp,
 		   llvm::GenericValue val, bool isUnlock = false)
 		: MemAccessLabel(EL_Write, st, ord, pos), value(val),
 		  addr(addr), valueType(valTyp), unlock(isUnlock) {}
 
-public:
 	/* Returns the value written by this write access */
 	const llvm::GenericValue& getVal() const { return value; }
 
@@ -455,6 +450,11 @@ public:
 
 	/* Returns the type of the value this write is writing */
 	const llvm::Type *getType() const override { return valueType; }
+
+	/* Getter/setter for a view representing the
+	 * release sequence of this write */
+	const View& getMsgView() const { return msgView; }
+	void setMsgView(View &&v) { msgView = std::move(v); }
 
 	/* Returns true if this write models the release of a lock */
 	bool isUnlock() const { return unlock; }
@@ -482,11 +482,6 @@ private:
 						{ return cond(r); }),
 				 readerList.end());
 	}
-
-	/* Getter/setter for a view representing the release sequence
-	 * of this write */
-	const View& getMsgView() const { return msgView; }
-	void setMsgView(View &&v) { msgView = std::move(v); }
 
 	/* The value written by this label */
 	const llvm::GenericValue value;
@@ -520,12 +515,12 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	FaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
 		      llvm::GenericValue val)
 		: WriteLabel(EL_FaiWrite, st, ord, pos, addr, valTyp, val) {}
 
-public:
 	FaiWriteLabel *clone() const override { return new FaiWriteLabel(*this); }
 
 	static bool classof(const EventLabel *lab) {
@@ -545,13 +540,13 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	CasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
 		      llvm::GenericValue val, bool lockCas)
 		: WriteLabel(EL_CasWrite, st, ord, pos, addr, valTyp, val),
 		  lockCas(lockCas) {}
 
-public:
 	/* Returns true if this label is used for modeling a lock-acquire op */
 	bool isLock() const { return lockCas; }
 
@@ -578,13 +573,13 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	LibWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
 		      llvm::GenericValue val, std::string name, bool isInit)
 		: WriteLabel(EL_LibWrite, st, ord, pos, addr, valTyp, val),
 		  functionName(name), initial(isInit) {}
 
-public:
 	/* Returns the name of the respective function of the library */
 	const std::string& getFunctionName() const { return functionName; }
 
@@ -618,10 +613,10 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+public:
 	FenceLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
 		: EventLabel(EL_Fence, st, ord, pos) {}
 
-public:
 	FenceLabel *clone() const override { return new FenceLabel(*this); }
 
 	static bool classof(const EventLabel *lab) {
@@ -637,15 +632,15 @@ public:
 /* This label denotes the creation of a thread (via, e.g., pthread_create()) */
 class ThreadCreateLabel : public EventLabel {
 
-friend class ExecutionGraph;
-friend class DepExecutionGraph;
-
 protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
 	ThreadCreateLabel(unsigned int st, llvm::AtomicOrdering ord,
 			  Event pos, unsigned int cid)
 		: EventLabel(EL_ThreadCreate, st, ord, pos), childId(cid) {}
 
-public:
 	/* Returns an identifier for the thread created (child) */
 	unsigned int getChildId() const { return childId; }
 
@@ -670,16 +665,16 @@ private:
 /* Represents a join() operation (e.g., pthread_join()) */
 class ThreadJoinLabel : public EventLabel {
 
-friend class ExecutionGraph;
-friend class DepExecutionGraph;
-
 protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
 	ThreadJoinLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			unsigned int childId)
 		: EventLabel(EL_ThreadJoin, st, ord, pos),
 		  childId(childId), childLast(Event::getInitializer()) {}
 
-public:
 	/* Returns the identifier of the thread this join() is waiting on */
 	unsigned int getChildId() const { return childId; }
 
@@ -716,13 +711,13 @@ class ThreadStartLabel : public EventLabel {
 
 protected:
 	friend class ExecutionGraph;
-friend class DepExecutionGraph;
+	friend class DepExecutionGraph;
 
+public:
 	ThreadStartLabel(unsigned int st, llvm::AtomicOrdering ord,
 			 Event pos, Event pc)
 		: EventLabel(EL_ThreadStart, st, ord, pos), parentCreate(pc) {}
 
-public:
 	/* Returns the position of the corresponding create operation */
 	Event getParentCreate() const { return parentCreate; }
 
@@ -752,14 +747,13 @@ private:
 class ThreadFinishLabel : public EventLabel {
 
 	friend class ExecutionGraph;
-friend class DepExecutionGraph;
+	friend class DepExecutionGraph;
 
-protected:
+public:
 	ThreadFinishLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
 		: EventLabel(EL_ThreadFinish, st, ord, pos),
 		  parentJoin(Event::getInitializer()) {}
 
-public:
 	/* Returns the join() operation waiting on this thread (or the
 	 * initializer event, if no such operation exists) */
 	Event getParentJoin() const { return parentJoin; }
@@ -789,16 +783,16 @@ private:
 /* Corresponds to a memory-allocating operation (e.g., malloc()) */
 class MallocLabel : public EventLabel {
 
-friend class ExecutionGraph;
-friend class DepExecutionGraph;
-
 protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		    const void *addr, unsigned int size, bool local = false)
 		: EventLabel(EL_Malloc, st, ord, pos),
 		  allocAddr(addr), allocSize(size), local(local) {}
 
-public:
 	/* Returns the (fresh) address returned by the allocation */
 	const void *getAllocAddr() const { return allocAddr; }
 
@@ -833,16 +827,16 @@ private:
 /* Corresponds to a memory-freeing operation (e.g., free()) */
 class FreeLabel : public EventLabel {
 
-friend class ExecutionGraph;
-friend class DepExecutionGraph;
-
 protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
 	FreeLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const void *addr, unsigned int size)
 		: EventLabel(EL_Free, st, ord, pos),
 		  freeAddr(addr), allocSize(size) {}
 
-public:
 	/* Returns the address being freed */
 	const void *getFreedAddr() const { return freeAddr; }
 

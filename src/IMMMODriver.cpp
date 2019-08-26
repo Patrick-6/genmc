@@ -110,6 +110,473 @@ int IMMMODriver::splitLocMOAfterHb(const llvm::GenericValue *addr, const Event e
 	return locMO.size();
 }
 
+/* Calculates a minimal hb vector clock based on po for a given label */
+View IMMMODriver::calcBasicHbView(Event e) const
+{
+	View v(getGraph().getPreviousLabel(e)->getHbView());
+
+	++v[e.thread];
+	return v;
+}
+
+/* Calculates a minimal (po U rf) vector clock based on po for a given label */
+View IMMMODriver::calcBasicPorfView(Event e) const
+{
+	View v(getGraph().getPreviousLabel(e)->getPorfView());
+
+	++v[e.thread];
+	return v;
+}
+
+DepView IMMMODriver::calcBasicPPoRfView(Event e) /* not const */
+{
+	auto &g = getGraph();
+	DepView v;
+
+	/* Update ppo based on dependencies (data, addr, ctrl, addr;po) */
+	for (auto &adep : g.addrDeps[e])
+		v.update(g.getPPoRfBefore(adep));
+	for (auto &ddep : g.dataDeps[e])
+		v.update(g.getPPoRfBefore(ddep));
+	for (auto &cdep : g.ctrlDeps[e])
+		v.update(g.getPPoRfBefore(cdep));
+	for (auto &apdep : g.addrPoDeps[e])
+		v.update(g.getPPoRfBefore(apdep));
+	for (auto &csdep : g.casDeps[e])
+		v.update(g.getPPoRfBefore(csdep));
+
+	/* This event does not depend on anything else */
+	int oldIdx = v[e.thread];
+	v[e.thread] = e.index;
+	for (auto i = oldIdx + 1; i < e.index; i++)
+		v.addHole(Event(e.thread, i));
+
+	/* Update based on the view of the last acquire of the thread */
+	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
+	for (auto &ev : acqs)
+		v.update(g.getPPoRfBefore(ev));
+	return v;
+}
+
+void IMMMODriver::calcBasicReadViews(ReadLabel *lab)
+{
+	const auto &g = getGraph();
+	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	porf.update(rfLab->getPorfView());
+	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != lab->getThread()) {
+		for (auto i = 0u; i < lab->getIndex(); i++) {
+			const EventLabel *eLab = g.getEventLabel(Event(lab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
+	if (lab->isAtLeastAcquire()) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+			hb.update(wLab->getMsgView());
+	}
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+}
+
+void IMMMODriver::calcBasicWriteViews(WriteLabel *lab)
+{
+	const auto &g = getGraph();
+
+	/* First, we calculate the hb and (po U rf) views */
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+
+	/* Then, we calculate the (ppo U rf) view */
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = g.getLastThreadRelease(lab->getPos());
+		if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
+		    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
+			--rel.index;
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    g.getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
+	pporf.update(g.getPPoRfBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								  lab->getAddr())));
+	lab->setPPoRfView(std::move(pporf));
+}
+
+void IMMMODriver::calcWriteMsgView(WriteLabel *lab)
+{
+	const auto &g = getGraph();
+	View msg;
+
+	/* Should only be called with plain writes */
+	BUG_ON(llvm::isa<FaiWriteLabel>(lab) || llvm::isa<CasWriteLabel>(lab));
+
+	if (lab->isAtLeastRelease())
+		msg = lab->getHbView();
+	else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
+		 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
+		msg = g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								lab->getAddr()));
+	lab->setMsgView(std::move(msg));
+}
+
+void IMMMODriver::calcRMWWriteMsgView(WriteLabel *lab)
+{
+	const auto &g = getGraph();
+	View msg;
+
+	/* Should only be called with RMW writes */
+	BUG_ON(!llvm::isa<FaiWriteLabel>(lab) && !llvm::isa<CasWriteLabel>(lab));
+
+	const EventLabel *pLab = g.getPreviousLabel(lab);
+
+	BUG_ON(pLab->getOrdering() == llvm::AtomicOrdering::NotAtomic);
+	BUG_ON(!llvm::isa<ReadLabel>(pLab));
+
+	const ReadLabel *rLab = static_cast<const ReadLabel *>(pLab);
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(rLab->getRf())))
+		msg.update(wLab->getMsgView());
+
+	if (rLab->isAtLeastRelease())
+		msg.update(lab->getHbView());
+	else
+		msg.update(g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								     lab->getAddr())));
+
+	lab->setMsgView(std::move(msg));
+}
+
+void IMMMODriver::calcFenceRelRfPoBefore(Event last, View &v)
+{
+	const auto &g = getGraph();
+	for (auto i = last.index; i > 0; i--) {
+		const EventLabel *lab = g.getEventLabel(Event(last.thread, i));
+		if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire())
+			return;
+		if (!llvm::isa<ReadLabel>(lab))
+			continue;
+		auto *rLab = static_cast<const ReadLabel *>(lab);
+		if (rLab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
+		    rLab->getOrdering() == llvm::AtomicOrdering::Release) {
+			const EventLabel *rfLab = g.getEventLabel(rLab->getRf());
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+				v.update(wLab->getMsgView());
+		}
+	}
+}
+
+
+void IMMMODriver::calcBasicFenceViews(FenceLabel *lab)
+{
+	const auto &g = getGraph();
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	if (lab->isAtLeastAcquire())
+		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = g.getLastThreadRelease(lab->getPos());
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    g.getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+}
+
+std::unique_ptr<ReadLabel>
+IMMMODriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			     const llvm::GenericValue *ptr, const llvm::Type *typ,
+			     Event rf)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf);
+
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<FaiReadLabel>
+IMMMODriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				Event rf, llvm::AtomicRMWInst::BinOp op,
+				llvm::GenericValue &&opValue)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
+						   rf, op, opValue);
+
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<CasReadLabel>
+IMMMODriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				Event rf, const llvm::GenericValue &expected,
+				const llvm::GenericValue &swap,
+				bool isLock)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
+						   rf, expected, swap, isLock);
+
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<LibReadLabel>
+IMMMODriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				Event rf, std::string functionName)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<LibReadLabel>(g.nextStamp(), ord, pos, ptr,
+						   typ, rf, functionName);
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<WriteLabel>
+IMMMODriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      const llvm::GenericValue &val, int offsetMO,
+			      bool isUnlock)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<WriteLabel>(g.nextStamp(), ord, pos, ptr,
+						 typ, val, isUnlock);
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<FaiWriteLabel>
+IMMMODriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				 const llvm::GenericValue *ptr, const llvm::Type *typ,
+				 const llvm::GenericValue &val, int offsetMO)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<FaiWriteLabel>(g.nextStamp(), ord, pos,
+						    ptr, typ, val);
+	calcBasicWriteViews(lab.get());
+	calcRMWWriteMsgView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<CasWriteLabel>
+IMMMODriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				 const llvm::GenericValue *ptr, const llvm::Type *typ,
+				 const llvm::GenericValue &val, int offsetMO,
+				 bool isLock)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<CasWriteLabel>(g.nextStamp(), ord, pos, ptr,
+						    typ, val, isLock);
+
+	calcBasicWriteViews(lab.get());
+	calcRMWWriteMsgView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<LibWriteLabel>
+IMMMODriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				 const llvm::GenericValue *ptr, const llvm::Type *typ,
+				 llvm::GenericValue &val, int offsetMO,
+				 std::string functionName, bool isInit)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<LibWriteLabel>(g.nextStamp(), ord, pos, ptr,
+						    typ, val, functionName, isInit);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<FenceLabel>
+IMMMODriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<FenceLabel>(g.nextStamp(), ord, pos);
+
+	calcBasicFenceViews(lab.get());
+	return std::move(lab);
+}
+
+
+std::unique_ptr<MallocLabel>
+IMMMODriver::createMallocLabel(int tid, int index, const void *addr,
+			       unsigned int size, bool isLocal)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<MallocLabel>(g.nextStamp(),
+						  llvm::AtomicOrdering::NotAtomic,
+						  pos, addr, size, isLocal);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<FreeLabel>
+IMMMODriver::createFreeLabel(int tid, int index, const void *addr,
+			     unsigned int size)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	std::unique_ptr<FreeLabel> lab(
+		new FreeLabel(g.nextStamp(), llvm::AtomicOrdering::NotAtomic,
+			      pos, addr, size));
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	WARN("Calculate pporf views!\n");
+	BUG();
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<ThreadCreateLabel>
+IMMMODriver::createTCreateLabel(int tid, int index, int cid)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<ThreadCreateLabel>(getGraph().nextStamp(),
+							llvm::AtomicOrdering::Release, pos, cid);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<ThreadJoinLabel>
+IMMMODriver::createTJoinLabel(int tid, int index, int cid)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<ThreadJoinLabel>(g.nextStamp(),
+						      llvm::AtomicOrdering::Acquire,
+						      pos, cid);
+
+	/* Thread joins have acquire semantics -- but we have to wait
+	 * for the other thread to finish first, so we do not fully
+	 * update the view yet */
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<ThreadStartLabel>
+IMMMODriver::createStartLabel(int tid, int index, Event tc)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<ThreadStartLabel>(g.nextStamp(),
+						       llvm::AtomicOrdering::Acquire,
+						       pos, tc);
+
+	/* Thread start has Acquire semantics */
+	View hb(g.getHbBefore(tc));
+	View porf(g.getPorfBefore(tc));
+	DepView pporf(g.getPPoRfBefore(tc));
+
+	hb[tid] = pos.index;
+	porf[tid] = pos.index;
+	pporf[tid] = pos.index;
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<ThreadFinishLabel>
+IMMMODriver::createFinishLabel(int tid, int index)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<ThreadFinishLabel>(getGraph().nextStamp(),
+							llvm::AtomicOrdering::Release,
+							pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcBasicPPoRfView(lab->getPos());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
 std::vector<Event> IMMMODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;

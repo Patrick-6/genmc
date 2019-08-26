@@ -318,6 +318,39 @@ DepView ExecutionGraph::calcBasicPPoRfView(const EventLabel *lab) /* not const *
 	return v;
 }
 
+const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+						     Event rf)
+{
+	EventLabel *rfLab = getEventLabel(rf);
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
+		wLab->addReader(lab->getPos());
+	}
+
+	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
+}
+
+const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+						       unsigned int offsetMO)
+{
+
+	modOrder[lab->getAddr()].insert(modOrder[lab->getAddr()].begin() + offsetMO,
+					lab->getPos());
+	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+}
+
+const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
+{
+	auto pos = lab->getPos();
+
+	if (pos.index < events[pos.thread].size()) {
+		events[pos.thread][pos.index] = std::move(lab);
+	} else {
+		events[pos.thread].push_back(std::move(lab));
+	}
+	BUG_ON(pos.index > events[pos.thread].size());
+	return getEventLabel(pos);
+}
+
 const EventLabel *ExecutionGraph::addEventToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto pos = lab->getPos();

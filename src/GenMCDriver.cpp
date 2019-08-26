@@ -568,7 +568,9 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 	}
 
 	/* Add an event for the thread creation */
-	getGraph().addTCreateToGraph(cur.thread, cur.index, cid);
+	auto tcLab = createTCreateLabel(cur.thread, cur. index, cid);
+	getGraph().addOtherLabelToGraph(std::move(tcLab));
+	// getGraph().addTCreateToGraph(cur.thread, cur.index, cid);
 
 	/* Prepare the execution context for the new thread */
 	llvm::Thread thr(calledFun, cid, cur.thread, SF);
@@ -602,8 +604,11 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 	}
 
 	/* If necessary, add a relevant event to the graph */
-	if (!isExecutionDrivenByGraph())
-		getGraph().addTJoinToGraph(thr.id, thr.globalInstructions, cid);
+	if (!isExecutionDrivenByGraph()) {
+		auto jLab = createTJoinLabel(thr.id, thr.globalInstructions, cid);
+		getGraph().addOtherLabelToGraph(std::move(jLab));
+		// getGraph().addTJoinToGraph(thr.id, thr.globalInstructions, cid);
+	}
 
 	/* If the update failed (child has not terminated yet) block this thread */
 	if (!getGraph().updateJoin(getCurrentLabel()->getPos(),
@@ -627,7 +632,9 @@ void GenMCDriver::visitThreadFinish()
 
 	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
 	    !thr.isBlocked) {
-		getGraph().addFinishToGraph(thr.id, thr.globalInstructions);
+		auto eLab = createFinishLabel(thr.id, thr.globalInstructions);
+		getGraph().addOtherLabelToGraph(std::move(eLab));
+		// getGraph().addFinishToGraph(thr.id, thr.globalInstructions);
 
 		if (thr.id == 0)
 			return;
@@ -655,7 +662,9 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 	if (isExecutionDrivenByGraph())
 		return;
 
-	getGraph().addFenceToGraph(thr.id, thr.globalInstructions, ord);
+	auto fLab = createFenceLabel(thr.id, thr.globalInstructions, ord);
+	getGraph().addOtherLabelToGraph(std::move(fLab));
+	// getGraph().addFenceToGraph(thr.id, thr.globalInstructions, ord);
 	return;
 }
 
@@ -705,24 +714,32 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
 	/* ... and add an appropriate label with a particular rf */
-	const ReadLabel *lab = nullptr;
+	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
-		lab = g.addReadToGraph(thr.id, idx, ord, addr, typ, validStores[0]);
+		rLab = std::move(createReadLabel(thr.id, idx, ord, addr, typ, validStores[0]));
+		// lab = g.addReadToGraph(thr.id, idx, ord, addr, typ, validStores[0]);
 		break;
 	case llvm::Interpreter::IA_Fai:
-		lab = g.addFaiReadToGraph(thr.id, idx, ord, addr, typ, validStores[0],
-					  op, std::move(rmwVal));
+		rLab = std::move(createFaiReadLabel(thr.id, idx, ord, addr, typ, validStores[0],
+						   op, std::move(rmwVal)));
+		// lab = g.addFaiReadToGraph(thr.id, idx, ord, addr, typ, validStores[0],
+		// 			  op, std::move(rmwVal));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		lab = g.addCasReadToGraph(thr.id, idx, ord, addr, typ,
-					  validStores[0], cmpVal, rmwVal,
-					  attr == llvm::Interpreter::IA_Lock);
+		rLab = std::move(createCasReadLabel(thr.id, idx, ord, addr, typ,
+						    validStores[0], cmpVal, rmwVal,
+						    attr == llvm::Interpreter::IA_Lock));
+		// lab = g.addCasReadToGraph(thr.id, idx, ord, addr, typ,
+		// 			  validStores[0], cmpVal, rmwVal,
+		// 			  attr == llvm::Interpreter::IA_Lock);
 		break;
 	default:
 		BUG();
 	}
+
+	const ReadLabel *lab = g.addReadLabelToGraph(std::move(rLab), validStores[0]);
 
 	/* Check for races */
 	checkForRaces();
@@ -772,22 +789,30 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	auto &endO = placesRange.second;
 
 	/* It is always consistent to add the store at the end of MO */
-	const WriteLabel *lab = nullptr;
+	std::unique_ptr<WriteLabel> wLab = nullptr;
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
 	case llvm::Interpreter::IA_Unlock:
-		lab = g.addStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
-					attr == llvm::Interpreter::IA_Unlock);
+		wLab = std::move(createStoreLabel(thr.id, idx, ord, addr, typ, val, endO,
+						  attr == llvm::Interpreter::IA_Unlock));
+		// lab = g.addStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
+		// 			attr == llvm::Interpreter::IA_Unlock);
 		break;
 	case llvm::Interpreter::IA_Fai:
-		lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
+		wLab = std::move(createFaiStoreLabel(thr.id, idx, ord, addr,
+						     typ, val, endO));
+		// lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
-					   attr == llvm::Interpreter::IA_Lock);
+		wLab = std::move(createCasStoreLabel(thr.id, idx, ord, addr, typ, val, endO,
+						     attr == llvm::Interpreter::IA_Lock));
+		// lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
+		// 			   attr == llvm::Interpreter::IA_Lock);
 		break;
 	}
+
+	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 
 	/* Check for races */
 	checkForRaces();
@@ -833,8 +858,11 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* 
 	allocBegin.PointerVal = EE->getFreshAddr(allocSize, isLocal);
 
 	/* Add a relevant label to the graph and return the new address */
-	g.addMallocToGraph(thr.id, thr.globalInstructions,
+	auto aLab = createMallocLabel(thr.id, thr.globalInstructions,
 			   allocBegin.PointerVal, allocSize, isLocal);
+	g.addOtherLabelToGraph(std::move(aLab));
+	// g.addMallocToGraph(thr.id, thr.globalInstructions,
+	// 		   allocBegin.PointerVal, allocSize, isLocal);
 	return allocBegin;
 }
 
@@ -880,8 +908,11 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	EE->freedMem.push_back(ptr);
 
 	/* Add a label with the appropriate store */
-	getGraph().addFreeToGraph(thr.id, thr.globalInstructions,
+	auto dLab = createFreeLabel(thr.id, thr.globalInstructions,
 				  ptr, m->getAllocSize());
+	getGraph().addOtherLabelToGraph(std::move(dLab));
+	// getGraph().addFreeToGraph(thr.id, thr.globalInstructions,
+	// 			  ptr, m->getAllocSize());
 	return;
 }
 

@@ -207,8 +207,9 @@ protected:
 	/* Returns a pointer to the interpreter */
 	llvm::Interpreter *getEE() const { return EE; }
 
-	/* Returns a reference to the current graph (can be modified) */
+	/* Returns a reference to the current graph */
 	ExecutionGraph &getGraph() { return *execGraph; };
+	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
 	llvm::GenericValue getWriteValue(Event w,
@@ -324,7 +325,93 @@ private:
 	/* Collects metadata for all events leading up to e in buf */
 	void calcTraceBefore(const Event &e, View &a, std::stringstream &buf);
 
+
 	/*** To be overrided by instances of the Driver ***/
+
+	/* Creates a label for a plain read to be added to the graph */
+	virtual std::unique_ptr<ReadLabel>
+	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			const llvm::GenericValue *ptr, const llvm::Type *typ,
+			Event rf) = 0;
+
+	/* Creates a label for a FAI read to be added to the graph */
+	virtual std::unique_ptr<FaiReadLabel>
+	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *ptr, const llvm::Type *typ,
+			   Event rf, llvm::AtomicRMWInst::BinOp op,
+			   llvm::GenericValue &&opValue) = 0;
+
+	/* Creates a label for a CAS read to be added to the graph */
+	virtual std::unique_ptr<CasReadLabel>
+	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *ptr, const llvm::Type *typ,
+			   Event rf, const llvm::GenericValue &expected,
+			   const llvm::GenericValue &swap,
+			   bool isLock = false) = 0;
+
+	/* Creates a label for a library read to be added to the graph */
+	virtual std::unique_ptr<LibReadLabel>
+	createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *ptr, const llvm::Type *typ,
+			   Event rf, std::string functionName) = 0 ;
+
+	/* Creates a label for a plain write to be added to the graph */
+	virtual std::unique_ptr<WriteLabel>
+	createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			 const llvm::GenericValue *ptr, const llvm::Type *typ,
+			 const llvm::GenericValue &val, int offsetMO,
+			 bool isUnlock = false) = 0;
+
+	/* Creates a label for a FAI write to be added to the graph */
+	virtual std::unique_ptr<FaiWriteLabel>
+	createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val, int offsetMO) = 0;
+
+	/* Creates a label for a CAS write to be added to the graph */
+	virtual std::unique_ptr<CasWriteLabel>
+	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val, int offsetMO,
+			    bool isLock = false) = 0;
+
+	/* Creates a label for a library write to be added to the graph */
+	virtual std::unique_ptr<LibWriteLabel>
+	createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    llvm::GenericValue &val, int offsetMO,
+			    std::string functionName, bool isInit) = 0;
+
+	/* Creates a label for a fence to be added to the graph */
+	virtual std::unique_ptr<FenceLabel>
+	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) = 0;
+
+
+	/* Creates a label for a malloc event to be added to the graph */
+	virtual std::unique_ptr<MallocLabel>
+	createMallocLabel(int tid, int index, const void *addr,
+			  unsigned int size, bool isLocal = false) = 0;
+
+	/* Creates a label for a free event to be added to the graph */
+	virtual std::unique_ptr<FreeLabel>
+	createFreeLabel(int tid, int index, const void *addr,
+			unsigned int size) = 0;
+
+	/* Creates a label for the creation of a thread to be added to the graph */
+	virtual std::unique_ptr<ThreadCreateLabel>
+	createTCreateLabel(int tid, int index, int cid) = 0;
+
+	/* Creates a label for the join of a thread to be added to the graph */
+	virtual std::unique_ptr<ThreadJoinLabel>
+	createTJoinLabel(int tid, int index, int cid) = 0;
+
+	/* Creates a label for the start of a thread to be added to the graph */
+	virtual std::unique_ptr<ThreadStartLabel>
+	createStartLabel(int tid, int index, Event tc) = 0;
+
+	/* Creates a label for the end of a thread to be added to the graph */
+	virtual std::unique_ptr<ThreadFinishLabel>
+	createFinishLabel(int tid, int index) = 0;
 
 	/* Should return the set of stores that it is consistent for current
 	 * load to read-from  (excluding atomicity violations) */
