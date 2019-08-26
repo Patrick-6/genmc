@@ -140,7 +140,7 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	return result;
 }
 
-std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab)
+std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab) const
 {
 	std::vector<Event> pending;
 
@@ -162,12 +162,11 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab)
 				pending.push_back(lab->getPos());
 		}
 	}
-	if (pending.size() > 1) llvm::dbgs() << *this << "\n with slab " << *sLab << "\n";
 	BUG_ON(pending.size() > 1);
 	return pending;
 }
 
-Event ExecutionGraph::getPendingLibRead(const LibReadLabel *lab)
+Event ExecutionGraph::getPendingLibRead(const LibReadLabel *lab) const
 {
 	/* Should only be called with a read of a functional library that doesn't read BOT */
 	BUG_ON(lab->getRf().isInitializer());
@@ -181,7 +180,7 @@ Event ExecutionGraph::getPendingLibRead(const LibReadLabel *lab)
 	return *it;
 }
 
-std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab)
+std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
 	std::vector<Event> loads;
 
@@ -200,7 +199,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab)
 }
 
 /* Returns a vector with all reads of a particular location reading from INIT */
-std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *addr)
+std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *addr) const
 {
 	std::vector<Event> result;
 
@@ -217,7 +216,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *add
 }
 
 /* Returns a vector with events that are mo;rf? after sLab */
-std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab)
+std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab) const
 {
 	auto ls = modOrder.getMoAfter(sLab->getAddr(), sLab->getPos());
 	std::vector<Event> rfs;
@@ -238,7 +237,7 @@ std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab)
 }
 
 /* Returns a vector with events that are mo^-1;rf? after sLab */
-std::vector<Event> ExecutionGraph::getMoInvOptRfAfter(const WriteLabel *sLab)
+std::vector<Event> ExecutionGraph::getMoInvOptRfAfter(const WriteLabel *sLab) const
 {
 	auto ls = modOrder.getMoBefore(sLab->getAddr(), sLab->getPos());
 	std::vector<Event> rfs;
@@ -728,9 +727,9 @@ ExecutionGraph::addFinishToGraph(int tid, int index)
  ***********************************************************/
 
 std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericValue *loc,
-							  const std::vector<Event> &chain)
+							  const std::vector<Event> &chain) const
 {
-	auto &stores = modOrder[loc];
+	auto &stores = getModOrderAtLoc(loc);
 	std::vector<Event> result;
 
 	for (auto &s : stores) {
@@ -744,22 +743,22 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 	return result;
 }
 
-const DepView &ExecutionGraph::getPPoRfBefore(Event e)
+const DepView &ExecutionGraph::getPPoRfBefore(Event e) const
 {
 	return getEventLabel(e)->getPPoRfView();
 }
 
-const View &ExecutionGraph::getPorfBefore(Event e)
+const View &ExecutionGraph::getPorfBefore(Event e) const
 {
 	return getEventLabel(e)->getPorfView();
 }
 
-const View &ExecutionGraph::getHbBefore(Event e)
+const View &ExecutionGraph::getHbBefore(Event e) const
 {
 	return getEventLabel(e)->getHbView();
 }
 
-View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
+View ExecutionGraph::getHbBefore(const std::vector<Event> &es) const
 {
 	View v;
 
@@ -768,13 +767,13 @@ View ExecutionGraph::getHbBefore(const std::vector<Event> &es)
 	return v;
 }
 
-const View &ExecutionGraph::getHbPoBefore(Event e)
+const View &ExecutionGraph::getHbPoBefore(Event e) const
 {
 	return getPreviousNonEmptyLabel(e)->getHbView();
 }
 
 void ExecutionGraph::calcHbRfBefore(Event e, const llvm::GenericValue *addr,
-				    View &a)
+				    View &a) const
 {
 	if (a.contains(e))
 		return;
@@ -795,7 +794,7 @@ void ExecutionGraph::calcHbRfBefore(Event e, const llvm::GenericValue *addr,
 	return;
 }
 
-View ExecutionGraph::getHbRfBefore(const std::vector<Event> &es)
+View ExecutionGraph::getHbRfBefore(const std::vector<Event> &es) const
 {
 	View a;
 
@@ -810,7 +809,7 @@ View ExecutionGraph::getHbRfBefore(const std::vector<Event> &es)
 	return a;
 }
 
-void ExecutionGraph::calcRelRfPoBefore(Event last, View &v)
+void ExecutionGraph::calcRelRfPoBefore(Event last, View &v) const
 {
 	for (auto i = last.index; i > 0; i--) {
 		const EventLabel *lab = getEventLabel(Event(last.thread, i));
@@ -833,13 +832,14 @@ void ExecutionGraph::calcRelRfPoBefore(Event last, View &v)
  ** Calculation of particular sets of events/event labels
  ***********************************************************/
 
-const VectorClock& ExecutionGraph::getPrefixView(Event e)
+const VectorClock& ExecutionGraph::getPrefixView(Event e) const
 {
 	return getPorfBefore(e);
 }
 
 std::vector<std::unique_ptr<EventLabel> >
-ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
+ExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
+					 const ReadLabel *rLab) const
 {
 	std::vector<std::unique_ptr<EventLabel> > result;
 
@@ -871,7 +871,7 @@ ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel
 }
 
 std::vector<Event>
-ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs)
+ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs) const
 {
 	std::vector<Event> rfs;
 
@@ -884,7 +884,7 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 
 std::vector<std::pair<Event, Event> >
 ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-				   const VectorClock &before)
+				   const VectorClock &before) const
 {
 	std::vector<std::pair<Event, Event> > pairs;
 
@@ -902,7 +902,7 @@ ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel>
 
 		/* We need to find the previous MO store that is in before or
 		 * in the vector for which we are getting the predecessors */
-		std::reverse_iterator<std::vector<Event>::iterator> predPos(moPos);
+		decltype(locMO.crbegin()) predPos(moPos);
 		auto predFound = false;
 		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
 			if (before.contains(*rit) ||
@@ -928,7 +928,7 @@ ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel>
  ** Calculation of writes a read can read from
  ***********************************************************/
 
-bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write)
+bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const
 {
 	const EventLabel *lab = getEventLabel(write);
 
@@ -950,7 +950,7 @@ bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write)
 }
 
 bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
-					   const VectorClock &v)
+					   const VectorClock &v) const
 {
 	const EventLabel *lab = getEventLabel(write);
 
@@ -971,7 +971,7 @@ bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
 	return false;
 }
 
-bool ExecutionGraph::isWriteRfBefore(const View &before, Event e)
+bool ExecutionGraph::isWriteRfBefore(const View &before, Event e) const
 {
 	if (before.contains(e))
 		return true;
@@ -986,7 +986,8 @@ bool ExecutionGraph::isWriteRfBefore(const View &before, Event e)
 	return false;
 }
 
-bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr)
+bool ExecutionGraph::isStoreReadByExclusiveRead(Event store,
+						const llvm::GenericValue *ptr) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -1003,7 +1004,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, const llvm::Generic
 }
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-					     const VectorClock &porfBefore)
+					     const VectorClock &porfBefore) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -1028,6 +1029,12 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 /************************************************************
  ** Graph modification methods
  ***********************************************************/
+
+void ExecutionGraph::changeStoreOffset(const llvm::GenericValue *addr,
+				       Event s, int newOffset)
+{
+	getModOrder().changeStoreOffset(addr, s, newOffset);
+}
 
 void ExecutionGraph::changeRf(Event read, Event store)
 {
@@ -1129,7 +1136,7 @@ void ExecutionGraph::resetJoin(Event join)
  * we can obtain a view of the graph, given a timestamp. This function
  * returns such a view.
  */
-View ExecutionGraph::getViewFromStamp(unsigned int stamp)
+View ExecutionGraph::getViewFromStamp(unsigned int stamp) const
 {
 	View preds;
 
@@ -1145,7 +1152,7 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp)
 	return preds;
 }
 
-DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp)
+DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 {
 	DepView preds;
 
@@ -1297,7 +1304,7 @@ void ExecutionGraph::addToRevisitSet(const ReadLabel *r, const std::vector<Event
  ** Consistency checks
  ***********************************************************/
 
-bool ExecutionGraph::isConsistent(void)
+bool ExecutionGraph::isConsistent(void) const
 {
 	return true;
 }
@@ -1307,10 +1314,10 @@ bool ExecutionGraph::isConsistent(void)
  ** Race detection methods
  ***********************************************************/
 
-Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
+Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab) const
 {
 	const View &before = getPreviousNonEmptyLabel(rLab)->getHbView();
-	std::vector<Event> &stores = modOrder[rLab->getAddr()];
+	const auto &stores = modOrder[rLab->getAddr()];
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -1329,7 +1336,7 @@ Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
 	return Event::getInitializer(); /* Race not found */
 }
 
-Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab)
+Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab) const
 {
 	auto &before = getPreviousNonEmptyLabel(wLab)->getHbView();
 
@@ -1357,7 +1364,7 @@ Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab)
  ** PSC calculation
  ***********************************************************/
 
-bool ExecutionGraph::isRMWLoad(const EventLabel *lab)
+bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 {
 	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
 		return false;
@@ -1378,13 +1385,13 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab)
 	return false;
 }
 
-bool ExecutionGraph::isRMWLoad(Event e)
+bool ExecutionGraph::isRMWLoad(Event e) const
 {
 	return isRMWLoad(getEventLabel(e));
 }
 
 std::pair<std::vector<Event>, std::vector<Event> >
-ExecutionGraph::getSCs()
+ExecutionGraph::getSCs() const
 {
 	std::vector<Event> scs, fcs;
 
@@ -1400,7 +1407,7 @@ ExecutionGraph::getSCs()
 	return std::make_pair(scs,fcs);
 }
 
-std::vector<const llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
+std::vector<const llvm::GenericValue *> ExecutionGraph::getDoubleLocs() const
 {
 	std::vector<const llvm::GenericValue *> singles, doubles;
 
@@ -1430,7 +1437,7 @@ std::vector<const llvm::GenericValue *> ExecutionGraph::getDoubleLocs()
 }
 
 std::vector<Event> ExecutionGraph::calcSCFencesSuccs(const std::vector<Event> &fcs,
-						     const Event e)
+						     const Event e) const
 {
 	std::vector<Event> succs;
 
@@ -1443,7 +1450,8 @@ std::vector<Event> ExecutionGraph::calcSCFencesSuccs(const std::vector<Event> &f
 	return succs;
 }
 
-std::vector<Event> ExecutionGraph::calcSCFencesPreds(const std::vector<Event> &fcs, const Event e)
+std::vector<Event> ExecutionGraph::calcSCFencesPreds(const std::vector<Event> &fcs,
+						     const Event e) const
 {
 	std::vector<Event> preds;
 	auto &before = getHbBefore(e);
@@ -1457,7 +1465,8 @@ std::vector<Event> ExecutionGraph::calcSCFencesPreds(const std::vector<Event> &f
 	return preds;
 }
 
-std::vector<Event> ExecutionGraph::calcSCSuccs(const std::vector<Event> &fcs, const Event e)
+std::vector<Event> ExecutionGraph::calcSCSuccs(const std::vector<Event> &fcs,
+					       const Event e) const
 {
 	const EventLabel *lab = getEventLabel(e);
 
@@ -1470,7 +1479,7 @@ std::vector<Event> ExecutionGraph::calcSCSuccs(const std::vector<Event> &fcs, co
 }
 
 std::vector<Event> ExecutionGraph::calcSCPreds(const std::vector<Event> &fcs,
-					       const Event e)
+					       const Event e) const
 {
 	const EventLabel *lab = getEventLabel(e);
 
@@ -1483,7 +1492,7 @@ std::vector<Event> ExecutionGraph::calcSCPreds(const std::vector<Event> &fcs,
 }
 
 std::vector<Event> ExecutionGraph::getSCRfSuccs(const std::vector<Event> &fcs,
-						const Event ev)
+						const Event ev) const
 {
 	const EventLabel *lab = getEventLabel(ev);
 	std::vector<Event> rfs;
@@ -1498,7 +1507,7 @@ std::vector<Event> ExecutionGraph::getSCRfSuccs(const std::vector<Event> &fcs,
 }
 
 std::vector<Event> ExecutionGraph::getSCFenceRfSuccs(const std::vector<Event> &fcs,
-						     const Event ev)
+						     const Event ev) const
 {
 	const EventLabel *lab = getEventLabel(ev);
 	std::vector<Event> fenceRfs;
@@ -1512,9 +1521,11 @@ std::vector<Event> ExecutionGraph::getSCFenceRfSuccs(const std::vector<Event> &f
 	return fenceRfs;
 }
 
-void ExecutionGraph::addRbEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
-				std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix,
-				const Event &ev)
+void ExecutionGraph::addRbEdges(const std::vector<Event> &fcs,
+				const std::vector<Event> &moAfter,
+				const std::vector<Event> &moRfAfter,
+				Matrix2D<Event> &matrix,
+				const Event &ev) const
 {
 	const EventLabel *lab = getEventLabel(ev);
 
@@ -1530,9 +1541,11 @@ void ExecutionGraph::addRbEdges(std::vector<Event> &fcs, std::vector<Event> &moA
 	return;
 }
 
-void ExecutionGraph::addMoRfEdges(std::vector<Event> &fcs, std::vector<Event> &moAfter,
-				  std::vector<Event> &moRfAfter, Matrix2D<Event> &matrix,
-				  const Event &ev)
+void ExecutionGraph::addMoRfEdges(const std::vector<Event> &fcs,
+				  const std::vector<Event> &moAfter,
+				  const std::vector<Event> &moRfAfter,
+				  Matrix2D<Event> &matrix,
+				  const Event &ev) const
 {
 	auto preds = calcSCPreds(fcs, ev);
 	auto fencePreds = calcSCFencesPreds(fcs, ev);
@@ -1558,8 +1571,9 @@ void ExecutionGraph::addMoRfEdges(std::vector<Event> &fcs, std::vector<Event> &m
  * more than one step either do not compose, or lead to an already added
  * single-step relation (e.g, (rf;rb) => mo, (rb;mo) => rb)
  */
-void ExecutionGraph::addSCEcos(std::vector<Event> &fcs,
-			       std::vector<Event> &mo, Matrix2D<Event> &matrix)
+void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
+			       const std::vector<Event> &mo,
+			       Matrix2D<Event> &matrix) const
 {
 	std::vector<Event> moAfter;   /* mo-after SC writes or writes that reach an SC fence */
 	std::vector<Event> moRfAfter; /* SC fences that can be reached by (mo;rf)-after reads */
@@ -1581,9 +1595,9 @@ void ExecutionGraph::addSCEcos(std::vector<Event> &fcs,
  * like addSCEcos. The difference between them lies in the fact that addSCEcos
  * uses MO for adding mo and rb edges, addSCWBEcos uses WB for that.
  */
-void ExecutionGraph::addSCWbEcos(std::vector<Event> &fcs,
+void ExecutionGraph::addSCWbEcos(const std::vector<Event> &fcs,
 				 Matrix2D<Event> &wbMatrix,
-				 Matrix2D<Event> &pscMatrix)
+				 Matrix2D<Event> &pscMatrix) const
 {
 	auto &stores = wbMatrix.getElems();
 	for (auto i = 0u; i < stores.size(); i++) {
@@ -1608,7 +1622,7 @@ void ExecutionGraph::addSCWbEcos(std::vector<Event> &fcs,
 	}
 }
 
-void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix)
+void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix) const
 {
 	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
@@ -1653,7 +1667,8 @@ void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix)
 	return;
 }
 
-void ExecutionGraph::addInitEdges(std::vector<Event> &fcs, Matrix2D<Event> &matrix)
+void ExecutionGraph::addInitEdges(const std::vector<Event> &fcs,
+				  Matrix2D<Event> &matrix) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -1683,7 +1698,7 @@ void ExecutionGraph::addInitEdges(std::vector<Event> &fcs, Matrix2D<Event> &matr
 	return;
 }
 
-bool ExecutionGraph::isPscWeakAcyclicWB()
+bool ExecutionGraph::isPscWeakAcyclicWB() const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1717,7 +1732,7 @@ bool ExecutionGraph::isPscWeakAcyclicWB()
 	return !matrix.isReflexive();
 }
 
-bool ExecutionGraph::isPscWbAcyclicWB()
+bool ExecutionGraph::isPscWbAcyclicWB() const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1750,7 +1765,7 @@ bool ExecutionGraph::isPscWbAcyclicWB()
 	return !matrix.isReflexive();
 }
 
-bool ExecutionGraph::isPscAcyclicWB()
+bool ExecutionGraph::isPscAcyclicWB() const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1812,7 +1827,7 @@ bool ExecutionGraph::isPscAcyclicWB()
 	return false;
 }
 
-Matrix2D<Event> ExecutionGraph::calcPscMO()
+Matrix2D<Event> ExecutionGraph::calcPscMO() const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1836,7 +1851,7 @@ Matrix2D<Event> ExecutionGraph::calcPscMO()
 	 */
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto &stores = modOrder[loc];
+		const auto &stores = modOrder[loc];
 		addSCEcos(fcs, stores, matrix);
 	}
 
@@ -1844,7 +1859,7 @@ Matrix2D<Event> ExecutionGraph::calcPscMO()
 	return matrix;
 }
 
-bool ExecutionGraph::isPscAcyclicMO()
+bool ExecutionGraph::isPscAcyclicMO() const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1895,7 +1910,7 @@ bool ExecutionGraph::isPscAcyclicMO()
  * e.g., in getRevisitLoads(), where the view of the resulting graph
  * is not calculated.)
  */
-std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &wb)
+std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &wb) const
 {
 	auto &s = wb.getElems();
 	auto size = s.size();
@@ -1984,13 +1999,13 @@ std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &w
 }
 
 Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr,
-						 const VectorClock &v)
+						 const VectorClock &v) const
 {
 	std::vector<Event> storesInView;
 
 	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(),
 		     std::back_inserter(storesInView),
-		     [&](Event &s){ return v.contains(s); });
+		     [&](const Event &s){ return v.contains(s); });
 
 	Matrix2D<Event> matrix(std::move(storesInView));
 	auto &stores = matrix.getElems();
@@ -2037,7 +2052,7 @@ Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr,
 	return matrix;
 }
 
-Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr)
+Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr) const
 {
 	Matrix2D<Event> matrix(modOrder[addr]);
 	auto &stores = matrix.getElems();
@@ -2078,9 +2093,10 @@ Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr)
 	return matrix;
 }
 
-bool ExecutionGraph::isWbAcyclic(void)
+bool ExecutionGraph::isWbAcyclic(void) const
 {
-	for (auto it = modOrder.begin(); it != modOrder.end(); ++it) {
+	const auto &mo = getModOrder();
+	for (auto it = mo.cbegin(); it != mo.cend(); ++it) {
 		auto wb = calcWb(it->first);
 		if (wb.isReflexive())
 			return false;

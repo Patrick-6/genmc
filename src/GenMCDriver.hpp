@@ -26,7 +26,7 @@
 #include "EventLabel.hpp"
 #include "DepInfo.hpp"
 #include "Interpreter.h"
-#include "ExecutionGraph.hpp"
+#include "DepExecutionGraph.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
 
@@ -208,7 +208,7 @@ protected:
 	llvm::Interpreter *getEE() const { return EE; }
 
 	/* Returns a reference to the current graph (can be modified) */
-	ExecutionGraph &getGraph() { return execGraph; };
+	ExecutionGraph &getGraph() { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
 	llvm::GenericValue getWriteValue(Event w,
@@ -374,7 +374,7 @@ private:
 	llvm::Interpreter *EE;
 
 	/* The execution graph */
-	ExecutionGraph execGraph;
+	std::unique_ptr<ExecutionGraph> execGraph;
 
 	/* The worklist for backtracking. map[stamp->stack item list] */
 	std::map<unsigned int, std::vector<StackItem> > workqueue;

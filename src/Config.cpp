@@ -141,6 +141,8 @@ void Config::getConfigOptions(int argc, char **argv)
 	specsFile = clLibrarySpecsFile;
 	dotFile = clDotGraphFile;
 	model = clModelType;
+	isDepTrackingModel = (model == ModelType::imm ||
+			      model == ModelType::imm_mo);
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
 	checkWbAcyclicity = clCheckWbAcyclicity;

@@ -36,6 +36,7 @@ public:
 	std::string dotFile;
 	std::string specsFile;
 	ModelType model;
+	bool isDepTrackingModel;
 	CheckPSCType checkPscAcyclicity;
 	int unroll;
 	bool spinAssume;

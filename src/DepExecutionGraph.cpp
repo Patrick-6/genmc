@@ -20,7 +20,7 @@
 
 #include "DepExecutionGraph.hpp"
 
-std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab)
+std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
 	std::vector<Event> loads;
 
@@ -40,13 +40,14 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab)
 	return loads;
 }
 
-const VectorClock& DepExecutionGraph::getPrefixView(Event e)
+const VectorClock& DepExecutionGraph::getPrefixView(Event e) const
 {
 	return getPPoRfBefore(e);
 }
 
 std::vector<std::unique_ptr<EventLabel> >
-DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
+DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
+					    const ReadLabel *rLab) const
 {
 	std::vector<std::unique_ptr<EventLabel> > result;
 
@@ -131,9 +132,9 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				Event rf = rLab->getRf();
 				/* Make sure RF label exists */
-				if (getEventLabel(rf)) {
-					if (auto *wLab = llvm::dyn_cast<WriteLabel>(
-						    getEventLabel(rf))) {
+				EventLabel *rfLab = getEventLabel(rf);
+				if (rfLab) {
+					if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
 						wLab->removeReader([&](Event r){
 								return r == rLab->getPos();
 							});

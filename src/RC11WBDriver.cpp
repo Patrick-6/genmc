@@ -31,7 +31,7 @@
 View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
 					  const View &hbBefore)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	View result;
 
 	for (const auto &w : stores) {
@@ -60,7 +60,7 @@ View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
 void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
 						   View &storeView)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 
 	/* Expand view for maximal stores */
 	for (const auto &w : stores) {
@@ -105,9 +105,9 @@ void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 
 std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
-	auto &allStores = g.modOrder[addr];
+	auto &allStores = g.getModOrderAtLoc(addr);
 	auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	std::vector<Event> result;
 
@@ -154,13 +154,14 @@ std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
-	auto locMOSize = (int) getGraph().modOrder[addr].size();
+	const auto &g = getGraph();
+	auto locMOSize = (int) g.getModOrderAtLoc(addr).size();
 	return std::make_pair(locMOSize, locMOSize);
 }
 
 std::vector<Event> RC11WBDriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
 
 	/* Optimization:
@@ -225,7 +226,7 @@ std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
 RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
 	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
 }

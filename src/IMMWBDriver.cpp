@@ -38,7 +38,7 @@ void IMMWBDriver::updateGraphDependencies(Event e,
 
 void IMMWBDriver::restrictGraph(unsigned int stamp)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 
 	/* First, free memory allocated by events that will no longer
 	 * be in the graph */
@@ -55,13 +55,13 @@ void IMMWBDriver::restrictGraph(unsigned int stamp)
 	}
 
 	/* Then, restrict the graph */
-	g.cutToStamp(stamp);
+	getGraph().cutToStamp(stamp);
 	return;
 }
 
 std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 	// auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
 	auto last = Event(thr.id, thr.globalInstructions - 1);
@@ -129,14 +129,15 @@ std::vector<Event> IMMWBDriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 std::pair<int, int> IMMWBDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
-	auto locMOSize = (int) getGraph().modOrder[addr].size();
+	const auto &g = getGraph();
+	auto locMOSize = (int) g.getModOrderAtLoc(addr).size();
 	return std::make_pair(locMOSize, locMOSize);
 }
 
 std::vector<Event> IMMWBDriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	auto &g = getGraph();
-	auto ls = g.getRevisitablePPoRf(sLab);
+	const auto &g = getGraph();
+	auto ls = g.getRevisitable(sLab);
 
 	/* Optimization:
 	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
@@ -224,8 +225,8 @@ std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
 IMMWBDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
-	auto &g = getGraph();
-	auto prefix = g.getPrefixLabelsNotBeforePPoRf(sLab, rLab);
+	const auto &g = getGraph();
+	auto prefix = g.getPrefixLabelsNotBefore(sLab, rLab);
 
 	BUG_ON(prefix.empty());
 	return std::make_pair(std::move(prefix), std::vector<std::pair<Event, Event>>());

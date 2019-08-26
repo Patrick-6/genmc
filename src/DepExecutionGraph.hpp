@@ -35,21 +35,15 @@
 class DepExecutionGraph : public ExecutionGraph {
 
 public:
-	std::vector<Event> getRevisitable(const WriteLabel *sLab);
+	std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
 
-	const VectorClock& getPrefixView(Event e);
+	const VectorClock& getPrefixView(Event e) const;
 
 	std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab);
+	getPrefixLabelsNotBefore(const EventLabel *sLab,
+				 const ReadLabel *rLab) const;
 
 	void cutToStamp(unsigned int st);
-
-// private:
-	std::unordered_map<Event, DepInfo, EventHasher> addrDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> dataDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> ctrlDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> addrPoDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> casDeps;
 };
 
 #endif /* __DEP_EXECUTION_GRAPH_HPP__ */

@@ -42,7 +42,7 @@ void IMMMODriver::updateGraphDependencies(Event e,
 
 void IMMMODriver::restrictGraph(unsigned int stamp)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 
 	/* First, free memory allocated by events that will no longer
 	 * be in the graph */
@@ -59,14 +59,14 @@ void IMMMODriver::restrictGraph(unsigned int stamp)
 	}
 
 	/* Then, restrict the graph */
-	g.cutToStamp(stamp);
+	getGraph().cutToStamp(stamp);
 	return;
 }
 
 int IMMMODriver::splitLocMOBefore(const llvm::GenericValue *addr, const View &before)
 {
-	auto &g = getGraph();
-	auto &locMO = g.modOrder[addr];
+	const auto &g = getGraph();
+	auto &locMO = g.getModOrderAtLoc(addr);
 
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (before.empty() || !g.isWriteRfBefore(before, *rit))
@@ -78,8 +78,8 @@ int IMMMODriver::splitLocMOBefore(const llvm::GenericValue *addr, const View &be
 
 int IMMMODriver::splitLocMOAfter(const llvm::GenericValue *addr, const Event e)
 {
-	auto &g = getGraph();
-	auto &locMO = g.modOrder[addr];
+	const auto &g = getGraph();
+	auto &locMO = g.getModOrderAtLoc(addr);
 
 	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
 		if (g.isHbOptRfBefore(e, *it))
@@ -90,8 +90,8 @@ int IMMMODriver::splitLocMOAfter(const llvm::GenericValue *addr, const Event e)
 
 int IMMMODriver::splitLocMOAfterHb(const llvm::GenericValue *addr, const Event e)
 {
-	auto &g = getGraph();
-	auto &locMO = g.modOrder[addr];
+	const auto &g = getGraph();
+	auto &locMO = g.getModOrderAtLoc(addr);
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
 	for (auto &rf : initRfs) {
@@ -114,9 +114,9 @@ std::vector<Event> IMMMODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	std::vector<Event> stores;
 
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
-	auto &locMO = g.modOrder[addr];
+	auto &locMO = g.getModOrderAtLoc(addr);
 	auto last = Event(thr.id, thr.globalInstructions - 1);
 	auto &before = g.getHbBefore(last);
 
@@ -142,13 +142,13 @@ std::vector<Event> IMMMODriver::getStoresToLoc(const llvm::GenericValue *addr)
 
 std::pair<int, int> IMMMODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 	Event curr = Event(thr.id, thr.globalInstructions - 1);
 
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(curr))) {
-			auto offset = g.modOrder.getStoreOffset(addr, rLab->getRf()) + 1;
+			auto offset = g.getModOrder().getStoreOffset(addr, rLab->getRf()) + 1;
 			return std::make_pair(offset, offset);
 		}
 		BUG();
@@ -161,9 +161,9 @@ std::pair<int, int> IMMMODriver::getPossibleMOPlaces(const llvm::GenericValue *a
 
 std::vector<Event> IMMMODriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	auto &g = getGraph();
-	auto ls = g.getRevisitablePPoRf(sLab);
-	auto &locMO = g.modOrder[sLab->getAddr()];
+	const auto &g = getGraph();
+	auto ls = g.getRevisitable(sLab);
+	auto &locMO = g.getModOrderAtLoc(sLab->getAddr());
 
 	// /* If this store is mo-maximal then we are done */
 	// if (locMO.back() == sLab->getPos())
@@ -206,8 +206,8 @@ std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
 IMMMODriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
-	auto &g = getGraph();
-	auto prefix = g.getPrefixLabelsNotBeforePPoRf(sLab, rLab);
+	const auto &g = getGraph();
+	auto prefix = g.getPrefixLabelsNotBefore(sLab, rLab);
 	auto moPlacings = g.getMOPredsInBefore(prefix, g.getDepViewFromStamp(rLab->getStamp()));
 
 	BUG_ON(prefix.empty());
@@ -216,7 +216,7 @@ IMMMODriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *r
 
 std::vector<Event> IMMMODriver::collectAllEvents()
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	std::vector<Event> result;
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
@@ -234,7 +234,7 @@ std::vector<Event> IMMMODriver::collectAllEvents()
 void IMMMODriver::fillMatrixFromView(const Event e, const DepView &v,
 				     Matrix2D<Event> &matrix)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
  	auto eI = matrix.getIndex(e);
 
 	for (auto i = 0u; i < v.size(); i++) {
@@ -261,7 +261,7 @@ Matrix2D<Event> IMMMODriver::getARMatrix()
 	Matrix2D<Event> ar(collectAllEvents());
 	const std::vector<Event> &es = ar.getElems();
         auto len = ar.size();
-	auto &g = getGraph();
+	const auto &g = getGraph();
 
         /* First, add ppo edges */
         for (auto i = 0u; i < len; i++) {

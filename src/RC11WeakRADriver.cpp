@@ -27,14 +27,14 @@
 std::vector<Event> RC11WeakRADriver::findOverwrittenBoundary(const llvm::GenericValue *addr,
 							     int thread)
 {
-	auto &g = getGraph();
+	const auto &g = getGraph();
 	auto &before = g.getHbBefore(g.getLastThreadEvent(thread));
 	std::vector<Event> boundary;
 
 	if (before.empty())
 		return boundary;
 
-	for (auto &e : g.modOrder[addr])
+	for (auto &e : g.getModOrderAtLoc(addr))
 		if (g.isWriteRfBefore(before, e))
 			boundary.push_back(e.prev());
 	return boundary;
@@ -42,12 +42,12 @@ std::vector<Event> RC11WeakRADriver::findOverwrittenBoundary(const llvm::Generic
 
 std::vector<Event> RC11WeakRADriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	auto &g = getGraph();
-	auto overwritten = g.findOverwrittenBoundary(addr, getEE()->getCurThr().id);
+	const auto &g = getGraph();
+	auto overwritten = findOverwrittenBoundary(addr, getEE()->getCurThr().id);
 	std::vector<Event> stores;
 
 	if (overwritten.empty()) {
-		auto &locMO = g.modOrder[addr];
+		auto &locMO = g.getModOrderAtLoc(addr);
 		stores.push_back(Event::getInitializer());
 		stores.insert(stores.end(), locMO.begin(), locMO.end());
 		return stores;

@@ -37,8 +37,8 @@ ModOrder::ModOrder() {}
 ModOrder::iterator ModOrder::begin() { return mo_.begin(); }
 ModOrder::iterator ModOrder::end()   { return mo_.end(); }
 
-ModOrder::const_iterator ModOrder::cbegin() { return mo_.cbegin(); }
-ModOrder::const_iterator ModOrder::cend()   { return mo_.cend(); }
+ModOrder::const_iterator ModOrder::cbegin() const { return mo_.cbegin(); }
+ModOrder::const_iterator ModOrder::cend()   const { return mo_.cend(); }
 
 
 /************************************************************
@@ -50,15 +50,19 @@ const llvm::GenericValue *ModOrder::getAddrAtPos(ModOrder::iterator it)
 	return it->first;
 }
 
-std::vector<Event> ModOrder::getMoBefore(const llvm::GenericValue *addr, Event e)
+std::vector<Event> ModOrder::getMoBefore(const llvm::GenericValue *addr,
+					 Event e) const
 {
+	BUG_ON(mo_.count(addr) == 0);
+
 	/* No store is mo-before the INIT */
 	if (e.isInitializer())
 		return std::vector<Event>();
 
 	std::vector<Event> res = { Event::getInitializer() };
 
-	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+	auto &locMO = mo_.at(addr);
+	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
 		if (*it == e)
 			return res;
 		res.push_back(*it);
@@ -66,15 +70,19 @@ std::vector<Event> ModOrder::getMoBefore(const llvm::GenericValue *addr, Event e
 	BUG();
 }
 
-std::vector<Event> ModOrder::getMoAfter(const llvm::GenericValue *addr, Event e)
+std::vector<Event> ModOrder::getMoAfter(const llvm::GenericValue *addr,
+					Event e) const
 {
 	std::vector<Event> res;
 
+	BUG_ON(mo_.count(addr) == 0);
+
 	/* All stores are mo-after INIT */
 	if (e.isInitializer())
-		return mo_[addr];
+		return mo_.at(addr);
 
-	for (auto rit = mo_[addr].rbegin(); rit != mo_[addr].rend(); ++rit) {
+	auto &locMO = mo_.at(addr);
+	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (*rit == e) {
 			std::reverse(res.begin(), res.end());
 			return res;
@@ -132,14 +140,17 @@ bool ModOrder::areOrdered(const llvm::GenericValue *addr, Event a, Event b)
 	return false;
 }
 
-int ModOrder::getStoreOffset(const llvm::GenericValue *addr, Event e)
+int ModOrder::getStoreOffset(const llvm::GenericValue *addr, Event e) const
 {
+	BUG_ON(mo_.count(addr) == 0);
+
 	if (e == Event::getInitializer())
 		return -1;
 
-	for (auto it = mo_[addr].begin(); it != mo_[addr].end(); ++it) {
+	auto &locMO = mo_.at(addr);
+	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
 		if (*it == e)
-			return std::distance(mo_[addr].begin(), it);
+			return std::distance(locMO.begin(), it);
 	}
 	BUG();
 }
