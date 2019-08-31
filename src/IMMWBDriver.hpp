@@ -32,18 +32,14 @@ public:
 		    clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
-	void updateGraphDependencies(Event pos,
-				     const DepInfo &addr,
-				     const DepInfo &data,
-				     const DepInfo &ctrl,
-				     const DepInfo &addrPo,
-				     const DepInfo &casDep) override;
+
 	const View &getPrefix(const Event e) { return getGraph().getPPoRfBefore(e).getView(); }
+
 	void restrictGraph(unsigned int stamp) override;
 
 	View calcBasicHbView(Event e) const;
 	View calcBasicPorfView(Event e) const;
-	DepView calcBasicPPoRfView(Event e); /* not const */
+	DepView calcPPoView(Event e); /* not const */
 	void calcBasicReadViews(ReadLabel *lab);
 	void calcBasicWriteViews(WriteLabel *lab);
 	void calcWriteMsgView(WriteLabel *lab);
@@ -142,6 +138,13 @@ public:
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
+
+	void changeRf(Event read, Event store) override;
+
+	void resetJoin(Event join) override;
+
+	bool updateJoin(Event join, Event childLast) override;
+
 	bool checkPscAcyclicity(CheckPSCType t) override;
 	bool isExecutionValid() override;
 };

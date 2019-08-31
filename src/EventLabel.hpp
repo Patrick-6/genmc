@@ -102,10 +102,17 @@ public:
 	/* Methods that get/set the vector clocks for this label. */
 	const View& getHbView() const { return hbView; }
 	const View& getPorfView() const { return porfView; }
+	const DepView& getPPoView() const { return ppoView; }
 	const DepView& getPPoRfView() const { return pporfView; }
+
+	void updateHbView(const View &v) { hbView.update(v); };
+	void updatePorfView(const View &v) { porfView.update(v); };
+	void updatePPoView(const View &v) { ppoView.update(v); };
+	void updatePPoRfView(const DepView &v) { pporfView.update(v); };
 
 	void setHbView(View &&v) { hbView = std::move(v); }
 	void setPorfView(View &&v) { porfView = std::move(v); }
+	void setPPoView(DepView &&v) { ppoView = std::move(v); }
 	void setPPoRfView(DepView &&v) { pporfView = std::move(v); }
 
 	/* Returns true if this label corresponds to a non-atomic access */
@@ -158,7 +165,10 @@ private:
 	/* Events that are (po U rf)-before this label */
 	View porfView;
 
-	/* Events that are (ppo U rf)-before this label */
+	/* Events that are (ppo U rf)*;ppo-before this label */
+	DepView ppoView;
+
+	/* Events that are (ppo U rf)*-before this label */
 	DepView pporfView;
 };
 

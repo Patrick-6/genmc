@@ -34,19 +34,49 @@
 class IMMDepTracker : public DepTracker {
 
 public:
+	/* Returns the current addr;po dependencies */
+	const DepInfo *getCurrentAddrDeps() const { return currentAddrDeps; };
+
+	/* Returns the current data dependencies */
+	const DepInfo *getCurrentDataDeps() const { return currentDataDeps; };
+
+	/* Returns the current control dependencies */
+	const DepInfo *getCurrentCtrlDeps() const { return currentCtrlDeps; };
+
+	/* Returns the current addr;po dependencies */
+	const DepInfo *getCurrentAddrPoDeps() const { return currentAddrPoDeps; };
+
+	/* Returns the current cas dependencies */
+	const DepInfo *getCurrentCasDeps() const { return currentCasDeps; };
+
+	/* Sets the current address dependencies */
+	void setCurrentAddrDeps(const DepInfo *di) { currentAddrDeps = di; };
+
+	/* Sets the current data dependencies */
+	void setCurrentDataDeps(const DepInfo *di) { currentDataDeps = di; };
+
+	/* Sets the current control dependencies */
+	void setCurrentCtrlDeps(const DepInfo *di) { currentCtrlDeps = di; };
+
+	/* Sets the current addr;po dependencies */
+	void setCurrentAddrPoDeps(const DepInfo *di) { currentAddrPoDeps = di; };
+
+	/* Sets the current cas dependencies */
+	void setCurrentCasDeps(const DepInfo *di) { currentCasDeps = di; };
+
 	/* Returns data dependencies for instruction i in thread tid */
-	const DepInfo &getDataDeps(unsigned int tid, llvm::Value *i) {
-		return dataDeps[tid][i];
+	const DepInfo *getDataDeps(unsigned int tid, llvm::Value *i) {
+		return &dataDeps[tid][i];
 	};
 
 	/* Returns the address dependencies collected so far for tid */
-	const DepInfo &getAddrDeps(unsigned int tid) {
-		return addrDeps[tid];
+	const DepInfo *getAddrPoDeps(unsigned int tid) {
+		return &addrPoDeps[tid];
 	};
 
 	/* Returns the control dependencies collected so far for tid */
-	const DepInfo &getCtrlDeps(unsigned int tid) {
-		return ctrlDeps[tid];
+	const DepInfo *getCtrlDeps(unsigned int tid) {
+		return &ctrlDeps[tid];
 	};
 
 	/* Updates data dependencies of dst, as it is dependent on src */
@@ -58,8 +88,8 @@ public:
 	};
 
 	/* Adds the dependencies from src to the address dependencies */
-	void updateAddrDeps(unsigned int tid, llvm::Value *src) {
-		addrDeps[tid].update(dataDeps[tid][src]);
+	void updateAddrPoDeps(unsigned int tid, llvm::Value *src) {
+		addrPoDeps[tid].update(dataDeps[tid][src]);
 	};
 
 	/* Adds the dependencies from src to the control dependencies */
@@ -70,11 +100,17 @@ public:
 	/* Clears the dependencies calculated for thread TID */
 	void clearDeps(unsigned int tid) {
 		dataDeps[tid].clear();
-		addrDeps[tid].clear();
+		addrPoDeps[tid].clear();
 		ctrlDeps[tid].clear();
 	};
 
 private:
+	const DepInfo *currentAddrDeps = nullptr;
+	const DepInfo *currentDataDeps = nullptr;
+	const DepInfo *currentCtrlDeps = nullptr;
+	const DepInfo *currentAddrPoDeps = nullptr;
+	const DepInfo *currentCasDeps = nullptr;
+
 	/* The data dependencies of each instruction are
 	 * stored in a map (per thread) */
 	std::unordered_map<unsigned int,
@@ -82,7 +118,7 @@ private:
 
 	/* Since {addr, ctrl} are forwards-closed under po, we just
 	 * keep a DepInfo item for these */
-	std::unordered_map<unsigned int, DepInfo> addrDeps;
+	std::unordered_map<unsigned int, DepInfo> addrPoDeps;
 	std::unordered_map<unsigned int, DepInfo> ctrlDeps;
 };
 

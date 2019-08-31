@@ -51,12 +51,6 @@ private:
 	using Graph = std::vector<Thread>;
 
 public:
-// private:
-	std::unordered_map<Event, DepInfo, EventHasher> addrDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> dataDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> ctrlDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> addrPoDeps;
-	std::unordered_map<Event, DepInfo, EventHasher> casDeps;
 
 	/* Constructors */
 	ExecutionGraph();
@@ -120,83 +114,14 @@ public:
 					       unsigned int offsetMO);
 	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
-	const ReadLabel *addReadToGraph(int tid, int index,
-					llvm::AtomicOrdering ord,
-					const llvm::GenericValue *ptr,
-					const llvm::Type *typ, Event rf);
-
-	const FaiReadLabel *addFaiReadToGraph(int tid, int index,
-					      llvm::AtomicOrdering ord,
-					      const llvm::GenericValue *ptr,
-					      const llvm::Type *typ, Event rf,
-					      llvm::AtomicRMWInst::BinOp op,
-					      llvm::GenericValue &&opValue);
-
-	const CasReadLabel *addCasReadToGraph(int tid, int index,
-					      llvm::AtomicOrdering ord,
-					      const llvm::GenericValue *ptr,
-					      const llvm::Type *typ, Event rf,
-					      const llvm::GenericValue &expected,
-					      const llvm::GenericValue &swap,
-					      bool isLock = false);
-
-	const LibReadLabel *addLibReadToGraph(int tid, int index,
-					      llvm::AtomicOrdering ord,
-					      const llvm::GenericValue *ptr,
-					      const llvm::Type *typ, Event rf,
-					      std::string functionName);
-
-	const WriteLabel *addStoreToGraph(int tid, int index,
-					  llvm::AtomicOrdering ord,
-					  const llvm::GenericValue *ptr,
-					  const llvm::Type *typ,
-					  const llvm::GenericValue &val,
-					  int offsetMO, bool isUnlock = false);
-
-	const FaiWriteLabel *addFaiStoreToGraph(int tid, int index,
-						llvm::AtomicOrdering ord,
-						const llvm::GenericValue *ptr,
-						const llvm::Type *typ,
-						const llvm::GenericValue &val,
-						int offsetMO);
-
-	const CasWriteLabel *addCasStoreToGraph(int tid, int index,
-						llvm::AtomicOrdering ord,
-						const llvm::GenericValue *ptr,
-						const llvm::Type *typ,
-						const llvm::GenericValue &val,
-						int offsetMO, bool isLock = false);
-
-	const LibWriteLabel *addLibStoreToGraph(int tid, int index,
-						llvm::AtomicOrdering ord,
-						const llvm::GenericValue *ptr,
-						const llvm::Type *typ,
-						llvm::GenericValue &val,
-						int offsetMO,
-						std::string functionName,
-						bool isInit);
-
-	const FenceLabel *addFenceToGraph(int tid, int index, llvm::AtomicOrdering ord);
-
-	const MallocLabel *addMallocToGraph(int tid, int index, const void *addr,
-					    unsigned int size, bool isLocal = false);
-
-	const FreeLabel *addFreeToGraph(int tid, int index, const void *addr,
-					unsigned int size);
-
-	const ThreadCreateLabel *addTCreateToGraph(int tid, int index, int cid);
-
-	const ThreadJoinLabel *addTJoinToGraph(int tid, int index, int cid);
-
-	const ThreadStartLabel *addStartToGraph(int tid, int index, Event tc);
-
-	const ThreadFinishLabel *addFinishToGraph(int tid, int index);
-
 
 	/* Event getter methods */
 
 	/* Returns the label in the position denoted by event e */
 	const EventLabel *getEventLabel(Event e) const;
+	EventLabel *getEventLabel(Event e) {
+		return events[e.thread][e.index].get();
+	};
 
 	/* Returns the label in the previous position of e.
 	 * Does _not_ perform any out-of-bounds checks */
@@ -285,6 +210,11 @@ public:
 	 * revisitable, or in the view porfBefore */
 	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
 				     const VectorClock &porfBefore) const;
+
+	/* Returns true if the graph that will be created when sLab revisits rLab
+	 * will be the same as the current one */
+	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
+					  const EventLabel *sLab) const;
 
 
 	/* Race detection methods */
@@ -390,10 +320,6 @@ protected:
 		events[tid].resize(size);
 	};
 
-	EventLabel *getEventLabel(Event e) {
-		return events[e.thread][e.index].get();
-	};
-
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
@@ -401,12 +327,6 @@ protected:
 	ModOrder& getModOrder() { return modOrder; };
 
 	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb) const;
-	View calcBasicHbView(const EventLabel *lab) const;
-	View calcBasicPorfView(const EventLabel *lab) const;
-	DepView calcBasicPPoRfView(const EventLabel *lab);
-	const EventLabel *addEventToGraph(std::unique_ptr<EventLabel> lab);
-	const ReadLabel *addReadToGraphCommon(std::unique_ptr<ReadLabel> lab);
-	const WriteLabel *addStoreToGraphCommon(std::unique_ptr<WriteLabel> lab);
 	void calcPorfAfter(const Event e, View &a);
 	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a) const;
 	void calcRelRfPoBefore(const Event last, View &v) const;

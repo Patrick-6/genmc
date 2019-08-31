@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-GenMC=../src/genmc
+GenMC="${GenMC:-../src/genmc}"
 
 header_printed=""
 runtime=0

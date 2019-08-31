@@ -183,6 +183,21 @@ RC11WeakRADriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLab
 	BUG();
 }
 
+void RC11WeakRADriver::changeRf(Event read, Event store)
+{
+	BUG();
+}
+
+void RC11WeakRADriver::resetJoin(Event join)
+{
+	BUG();
+}
+
+bool RC11WeakRADriver::updateJoin(Event join, Event childLast)
+{
+	BUG();
+}
+
 bool RC11WeakRADriver::checkPscAcyclicity(CheckPSCType t)
 {
 	WARN("Unimplemented!\n");

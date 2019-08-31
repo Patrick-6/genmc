@@ -906,6 +906,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   //     memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   //   }
   if (ECStack().empty()) {
+    setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
     driver->visitThreadFinish();
   } else {
     // If we have a previous stack frame, and we have a previous call,
@@ -1059,6 +1060,9 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   // Avoid malloc-ing zero bytes, use max()...
   unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
 
+  setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		 getAddrPoDeps(getCurThr().id), nullptr);
+
   /* The driver will provide the address this alloca returns */
   GenericValue Result = driver->visitMalloc(MemToAlloc, true);
 
@@ -1141,23 +1145,20 @@ void Interpreter::visitLoadInst(LoadInst &I)
 
 	}
 
-	/* Otherwise, the driver will provide the appropriate value */
-	auto res = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ,
-				     getDataDeps(thr.id, I.getPointerOperand()),
-				     // thr.dataDeps[I.getPointerOperand()],
-				     DepInfo(),
-				     getCtrlDeps(thr.id),
-				     // thr.ctrlDeps,
-				     getAddrDeps(thr.id),
-				     // thr.addrPoDeps,
-				     DepInfo());
-	updateDataDeps(thr.id, &I, res.second);
+	/* Otherwise, set the dependencies for this instruction.. */
+	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
+		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+
+	/* ... and then the driver will provide the appropriate value */
+	auto res = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ);
+
+	updateDataDeps(thr.id, &I, getCurrentPosition());
 	// thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(res.second);
-	updateAddrDeps(thr.id, I.getPointerOperand());
+	updateAddrPoDeps(thr.id, I.getPointerOperand());
 	// thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 
 	/* Last, set the return value for this instruction */
-	SetValue(&I, res.first, SF);
+	SetValue(&I, res, SF);
 	return;
 }
 
@@ -1176,24 +1177,23 @@ void Interpreter::visitStoreInst(StoreInst &I)
 		return;
 	}
 
+	/* First, record the dependencies for this instruction */
+	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+		       getDataDeps(thr.id, I.getOperand(0)), getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
 	/* Inform the Driver about the newly interpreter store */
-	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val,
-			   getDataDeps(thr.id, I.getPointerOperand()),
-			   // thr.dataDeps[I.getPointerOperand()],
-			   getDataDeps(thr.id, I.getOperand(0)),
-			   // thr.dataDeps[I.getOperand(0)],
-			   getCtrlDeps(thr.id),
-			   // thr.ctrlDeps,
-			   getAddrDeps(thr.id),
-			   // thr.addrPoDeps,
-			   DepInfo());
-	updateAddrDeps(thr.id, I.getPointerOperand());
+	driver->visitStore(IA_None, I.getOrdering(), ptr, typ, val);
+
+	updateAddrPoDeps(thr.id, I.getPointerOperand());
 	// thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 	return;
 }
 
 void Interpreter::visitFenceInst(FenceInst &I)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       nullptr, nullptr);
 	driver->visitFence(I.getOrdering());
 	return;
 }
@@ -1220,37 +1220,29 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
+	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+		       getDataDeps(thr.id, I.getNewValOperand()),
+		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
+		       getDataDeps(thr.id, I.getCompareOperand()));
+
 	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
-				     getDataDeps(thr.id, I.getPointerOperand()),
-				     // thr.dataDeps[I.getPointerOperand()],
-				     getDataDeps(thr.id, I.getNewValOperand()),
-				     // thr.dataDeps[I.getNewValOperand()],
-				     getCtrlDeps(thr.id),
-				     // thr.ctrlDeps,
-				     getAddrDeps(thr.id),
-				     // thr.addrPoDeps,
-				     getDataDeps(thr.id, I.getCompareOperand()),
-				     // thr.dataDeps[I.getCompareOperand()],
 				     cmpVal, newVal);
-	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue()) {
-		driver->visitStore(IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal,
-				   getDataDeps(thr.id, I.getPointerOperand()),
-				   // thr.dataDeps[I.getPointerOperand()],
-				   getDataDeps(thr.id, I.getNewValOperand()).depUnion(ret.second),
-				   // thr.dataDeps[I.getNewValOperand()].depUnion(ret.second),
-				   getCtrlDeps(thr.id),
-				   // thr.ctrlDeps,
-				   getAddrDeps(thr.id),
-				   // thr.addrPoDeps,
-				   DepInfo());
-	}
-	updateDataDeps(thr.id, &I, ret.second);
+
+	updateDataDeps(thr.id, &I, getCurrentPosition());
 	// thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(ret.second);
-	updateAddrDeps(thr.id, I.getPointerOperand());
+	updateAddrPoDeps(thr.id, I.getPointerOperand());
 	// thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
 
-	result.AggregateVal.push_back(ret.first);
+	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue()) {
+		setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+			       getDataDeps(thr.id, I.getNewValOperand()),
+			       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+		driver->visitStore(IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal);
+		// address: .depUnion(ret.second),
+	}
+
+	result.AggregateVal.push_back(ret);
 	result.AggregateVal.push_back(cmpRes);
 	SetValue(&I, result, SF);
 	return;
@@ -1305,35 +1297,27 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
+	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+		       getDataDeps(thr.id, I.getValOperand()),
+		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+
 	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
-				     getDataDeps(thr.id, I.getPointerOperand()),
-				     // thr.dataDeps[I.getPointerOperand()],
-				     getDataDeps(thr.id, I.getValOperand()),
-				     // thr.dataDeps[I.getValOperand()],
-				     getCtrlDeps(thr.id),
-				     // thr.ctrlDeps,
-				     getAddrDeps(thr.id),
-				     // thr.addrPoDeps,
-				     DepInfo(),
 				     GenericValue(), val, I.getOperation());
-	executeAtomicRMWOperation(newVal, ret.first, val, I.getOperation());
 
-	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal,
-			   getDataDeps(thr.id, I.getPointerOperand()),
-			   // thr.dataDeps[I.getPointerOperand()],
-			   getDataDeps(thr.id, I.getValOperand()).depUnion(ret.second),
-			   // thr.dataDeps[I.getValOperand()].depUnion(DepInfo(ret.second)),
-			   getCtrlDeps(thr.id),
-			   // thr.ctrlDeps,
-			   getAddrDeps(thr.id),
-			   // thr.addrPoDeps,
-			   DepInfo());
-
-	updateDataDeps(thr.id, &I, ret.second);
+	updateDataDeps(thr.id, &I, getCurrentPosition());
 	// thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(ret.second);
-	updateAddrDeps(thr.id, I.getPointerOperand());
+	updateAddrPoDeps(thr.id, I.getPointerOperand());
 	// thr.addrPoDeps.update(thr.dataDeps[I.getPointerOperand()]);
-	SetValue(&I, ret.first, SF);
+
+	executeAtomicRMWOperation(newVal, ret, val, I.getOperation());
+
+	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+		       getDataDeps(thr.id, I.getValOperand()),
+		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+
+	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
+
+	SetValue(&I, ret, SF);
 	return;
 }
 
@@ -2511,6 +2495,8 @@ void Interpreter::callVerifierNondetInt(Function *F,
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue());
 	returnValueToCaller(F->getReturnType(), address);
 	return;
@@ -2520,6 +2506,9 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 
+	BUG();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitFree(ptr);
 	return;
 }
@@ -2554,18 +2543,15 @@ void Interpreter::callPthreadCreate(Function *F,
 	SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
 
 	/* Then, inform the driver about the thread creation */
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	auto tid = driver->visitThreadCreate(calledFun, SF);
 
 	/* ...and save the TID in the location pointed by the 1st arg */
 	Type *typ = static_cast<PointerType *>(F->arg_begin()->getType())->getElementType();
 	val.IntVal = APInt(typ->getIntegerBitWidth(), tid);
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, ptr, typ, val,
-			   DepInfo(), DepInfo(),
-			   getCtrlDeps(getCurThr().id),
-			   // getCurThr().ctrlDeps,
-			   getAddrDeps(getCurThr().id),
-			   // getCurThr().addrPoDeps,
-			   DepInfo());
+
+	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, ptr, typ, val);
 
 	/* Finally, return a value indicating that pthread_create() succeeded */
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
@@ -2576,6 +2562,8 @@ void Interpreter::callPthreadCreate(Function *F,
 void Interpreter::callPthreadJoin(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	auto result = driver->visitThreadJoin(F, ArgVals[0]);
 	returnValueToCaller(F->getReturnType(), result);
 }
@@ -2626,21 +2614,21 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(),
-				     getCtrlDeps(thr.id),
-				     // thr.ctrlDeps,
-				     getAddrDeps(thr.id),
-				     // thr.addrPoDeps,
-				     DepInfo(), cmpVal, newVal);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
 
-	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
+	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire,
+				     ptr, typ, cmpVal, newVal);
+
+	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue() == 0) {
 		thr.block();
 	} else {
-		driver->visitStore(IA_Lock, AtomicOrdering::Acquire, ptr, typ,
-				   newVal, DepInfo(), DepInfo(), DepInfo(),
-				   DepInfo(), DepInfo());
+		setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+			       getAddrPoDeps(thr.id), nullptr);
+
+		driver->visitStore(IA_Lock, AtomicOrdering::Acquire,
+				   ptr, typ, newVal);
 	}
 
 	/*
@@ -2668,13 +2656,11 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 
 	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 
-	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val,
-			   DepInfo(), DepInfo(),
-			   getCtrlDeps(thr.id),
-			   // thr.ctrlDeps,
-			   getAddrDeps(thr.id),
-			   // thr.addrPoDeps,
-			   DepInfo());
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val);
+
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -2696,19 +2682,20 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
-				     DepInfo(), DepInfo(),
-				     getCtrlDeps(thr.id),
-				     // thr.ctrlDeps,
-				     getAddrDeps(thr.id),
-				     // thr.addrPoDeps,
-				     DepInfo(), cmpVal, newVal);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
 
-	auto cmpRes = executeICMP_EQ(ret.first, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue())
-		driver->visitStore(IA_Cas, AtomicOrdering::Acquire, ptr, typ,
-				   newVal, DepInfo(), DepInfo(), DepInfo(),
-				   DepInfo(), DepInfo());
+	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
+				     typ, cmpVal, newVal);
+
+	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
+	if (cmpRes.IntVal.getBoolValue()) {
+		setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+			       getAddrPoDeps(thr.id), nullptr);
+
+		driver->visitStore(IA_Cas, AtomicOrdering::Acquire,
+				   ptr, typ, newVal);
+	}
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);
@@ -2721,6 +2708,8 @@ void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Functi
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	auto res = driver->visitLibLoad(IA_None, mem.getOrdering(), ptr,
 					typ, F->getName().str());
 	auto &val = res.first;
@@ -2747,6 +2736,8 @@ void Interpreter::callWriteFunction(const Library &lib, const LibMem &mem, Funct
 		abort();
 	}
 
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitLibStore(IA_None, mem.getOrdering(), ptr, typ, val,
 			      F->getName().str(), mem.isLibInit());
 	return;

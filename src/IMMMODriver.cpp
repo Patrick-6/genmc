@@ -24,22 +24,6 @@
  ** MO DRIVER
  ***********************************************************/
 
-void IMMMODriver::updateGraphDependencies(Event e,
-					  const DepInfo &addr,
-					  const DepInfo &data,
-					  const DepInfo &ctrl,
-					  const DepInfo &addrPo,
-					  const DepInfo &casDep)
-{
-	auto &g = getGraph();
-
-	g.addrDeps[e] = addr;
-	g.dataDeps[e] = data;
-	g.ctrlDeps[e] = ctrl;
-	g.addrPoDeps[e] = addrPo;
-	g.casDeps[e] = casDep;
-}
-
 void IMMMODriver::restrictGraph(unsigned int stamp)
 {
 	const auto &g = getGraph();
@@ -128,22 +112,38 @@ View IMMMODriver::calcBasicPorfView(Event e) const
 	return v;
 }
 
-DepView IMMMODriver::calcBasicPPoRfView(Event e) /* not const */
+DepView IMMMODriver::calcPPoView(Event e) /* not const */
 {
 	auto &g = getGraph();
+	auto *EE = getEE();
 	DepView v;
 
-	/* Update ppo based on dependencies (data, addr, ctrl, addr;po) */
-	for (auto &adep : g.addrDeps[e])
-		v.update(g.getPPoRfBefore(adep));
-	for (auto &ddep : g.dataDeps[e])
-		v.update(g.getPPoRfBefore(ddep));
-	for (auto &cdep : g.ctrlDeps[e])
-		v.update(g.getPPoRfBefore(cdep));
-	for (auto &apdep : g.addrPoDeps[e])
-		v.update(g.getPPoRfBefore(apdep));
-	for (auto &csdep : g.casDeps[e])
-		v.update(g.getPPoRfBefore(csdep));
+	/* Update ppo based on dependencies (addr, data, ctrl, addr;po, cas) */
+	auto *addr = EE->getCurrentAddrDeps();
+	if (addr) {
+		for (auto &adep : *addr)
+			v.update(g.getPPoRfBefore(adep));
+	}
+	auto *data = EE->getCurrentDataDeps();
+	if (data) {
+		for (auto &ddep : *data)
+			v.update(g.getPPoRfBefore(ddep));
+	}
+	auto *ctrl = EE->getCurrentCtrlDeps();
+	if (ctrl) {
+		for (auto &cdep : *ctrl)
+			v.update(g.getPPoRfBefore(cdep));
+	}
+	auto *addrPo = EE->getCurrentAddrPoDeps();
+	if (addrPo) {
+		for (auto &apdep : *addrPo)
+			v.update(g.getPPoRfBefore(apdep));
+	}
+	auto *cas = EE->getCurrentCasDeps();
+	if (cas) {
+		for (auto &csdep : *cas)
+			v.update(g.getPPoRfBefore(csdep));
+	}
 
 	/* This event does not depend on anything else */
 	int oldIdx = v[e.thread];
@@ -164,7 +164,8 @@ void IMMMODriver::calcBasicReadViews(ReadLabel *lab)
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos());
+	DepView pporf(ppo);
 
 	porf.update(rfLab->getPorfView());
 	pporf.update(rfLab->getPPoRfView());
@@ -172,7 +173,8 @@ void IMMMODriver::calcBasicReadViews(ReadLabel *lab)
 		for (auto i = 0u; i < lab->getIndex(); i++) {
 			const EventLabel *eLab = g.getEventLabel(Event(lab->getThread(), i));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
-				pporf.update(wLab->getPPoRfView());
+				if (wLab->getAddr() == lab->getAddr())
+					pporf.update(wLab->getPPoRfView());
 			}
 		}
 	}
@@ -182,6 +184,7 @@ void IMMMODriver::calcBasicReadViews(ReadLabel *lab)
 	}
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
 
@@ -197,7 +200,10 @@ void IMMMODriver::calcBasicWriteViews(WriteLabel *lab)
 	lab->setPorfView(std::move(porf));
 
 	/* Then, we calculate the (ppo U rf) view */
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
+		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
 
 	if (lab->isAtLeastRelease()) {
 		pporf.removeAllHoles(lab->getThread());
@@ -285,7 +291,7 @@ void IMMMODriver::calcBasicFenceViews(FenceLabel *lab)
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
@@ -447,7 +453,7 @@ IMMMODriver::createMallocLabel(int tid, int index, const void *addr,
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
@@ -486,7 +492,7 @@ IMMMODriver::createTCreateLabel(int tid, int index, int cid)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	pporf.removeAllHoles(lab->getThread());
 	Event rel = g.getLastThreadRelease(lab->getPos());
@@ -517,10 +523,11 @@ IMMMODriver::createTJoinLabel(int tid, int index, int cid)
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoView(std::move(pporf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -560,7 +567,7 @@ IMMMODriver::createFinishLabel(int tid, int index)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	DepView pporf = calcBasicPPoRfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	pporf.removeAllHoles(lab->getThread());
 	Event rel = g.getLastThreadRelease(lab->getPos());
@@ -679,6 +686,75 @@ IMMMODriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *r
 
 	BUG_ON(prefix.empty());
 	return std::make_pair(std::move(prefix), std::move(moPlacings));
+}
+
+void IMMMODriver::changeRf(Event read, Event store)
+{
+	auto &g = getGraph();
+
+	/* Change the reads-from relation in the graph */
+	g.changeRf(read, store);
+
+	/* And update the views of the load */
+	EventLabel *lab = g.getEventLabel(read);
+	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
+	EventLabel *rfLab = g.getEventLabel(store);
+	View hb = calcBasicHbView(rLab->getPos());
+	View porf = calcBasicPorfView(rLab->getPos());
+	DepView pporf(rLab->getPPoView());
+
+	porf.update(rfLab->getPorfView());
+	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != rLab->getThread()) {
+		for (auto i = 0u; i < rLab->getIndex(); i++) {
+			const EventLabel *eLab = g.getEventLabel(Event(rLab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				if (wLab->getAddr() == rLab->getAddr())
+					pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
+
+	if (rLab->isAtLeastAcquire()) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+			hb.update(wLab->getMsgView());
+	}
+	rLab->setHbView(std::move(hb));
+	rLab->setPorfView(std::move(porf));
+	rLab->setPPoRfView(std::move(pporf));
+}
+
+void IMMMODriver::resetJoin(Event join)
+{
+	auto &g = getGraph();
+
+	g.resetJoin(join);
+
+	EventLabel *jLab = g.getEventLabel(join);
+	View hb = calcBasicHbView(jLab->getPos());
+	View porf = calcBasicPorfView(jLab->getPos());
+	DepView pporf(jLab->getPPoView());
+
+	jLab->setHbView(std::move(hb));
+	jLab->setPorfView(std::move(porf));
+	jLab->setPPoRfView(std::move(pporf));
+	return;
+}
+
+bool IMMMODriver::updateJoin(Event join, Event childLast)
+{
+	auto &g = getGraph();
+
+	if (!g.updateJoin(join, childLast))
+		return false;
+
+	EventLabel *jLab = g.getEventLabel(join);
+	EventLabel *fLab = g.getEventLabel(childLast);
+
+	jLab->updateHbView(fLab->getHbView());
+	jLab->updatePorfView(fLab->getPorfView());
+	jLab->updatePPoRfView(fLab->getPPoRfView());
+	return true;
 }
 
 std::vector<Event> IMMMODriver::collectAllEvents()

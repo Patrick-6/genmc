@@ -115,9 +115,6 @@ public:
 	llvm::ExecutionContext initSF;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
-	DepInfo ctrlDeps;
-	DepInfo addrPoDeps;
-	std::unordered_map<Value *, DepInfo> dataDeps;
 	bool isBlocked;
 	MyRNG rng;
 	std::vector<std::vector<std::pair<int, std::string> > > prefixLOC;
@@ -170,7 +167,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, GenMCDriver *driver);
+  explicit Interpreter(Module *M, GenMCDriver *driver, bool shouldTrackDeps);
   virtual ~Interpreter();
 
   /* Enum to inform the driver about possible special attributes
@@ -206,6 +203,7 @@ public:
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
   static ExecutionEngine *create(Module *M, GenMCDriver *driver,
+				 bool shouldTrackDeps,
 				 std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
@@ -244,6 +242,12 @@ public:
   std::vector<Thread> threads;
   int currentThread = 0;
 
+  /* Returns the current (global) position (thread, index) interpreted */
+  Event getCurrentPosition() {
+	  const Thread &thr = getCurThr();
+	  return Event(thr.id, thr.globalInstructions);
+  };
+
   /* List of thread-local variables, with their initializing values */
   std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
 
@@ -261,14 +265,25 @@ public:
   std::vector<void *> freedMem;
 
   /* Dependency tracking */
-  void setDepTracker();
-  const DepInfo &getDataDeps(unsigned int tid, Value *i);
-  const DepInfo &getAddrDeps(unsigned int tid);
-  const DepInfo &getCtrlDeps(unsigned int tid);
+
+  const DepInfo *getAddrPoDeps(unsigned int tid);
+  const DepInfo *getDataDeps(unsigned int tid, Value *i);
+  const DepInfo *getCtrlDeps(unsigned int tid);
+
+  const DepInfo *getCurrentAddrDeps() const;
+  const DepInfo *getCurrentDataDeps() const;
+  const DepInfo *getCurrentCtrlDeps() const;
+  const DepInfo *getCurrentAddrPoDeps() const;
+  const DepInfo *getCurrentCasDeps() const;
+
+  void setCurrentDeps(const DepInfo *addrDeps, const DepInfo *dataDeps,
+		      const DepInfo *ctrlDeps, const DepInfo *addrPoDeps,
+		      const DepInfo *casDeps);
 
   void updateDataDeps(unsigned int tid, Value *dst, Value *src);
-  void updateDataDeps(unsigned int tid, Value *dst, DepInfo e);
-  void updateAddrDeps(unsigned int tid, Value *src);
+  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e);
+  void updateDataDeps(unsigned int tid, Value *dst, Event e);
+  void updateAddrPoDeps(unsigned int tid, Value *src);
   void updateCtrlDeps(unsigned int tid, Value *src);
 
   void clearDeps(unsigned int tid);

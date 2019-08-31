@@ -45,6 +45,20 @@ const VectorClock& DepExecutionGraph::getPrefixView(Event e) const
 	return getPPoRfBefore(e);
 }
 
+bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
+					     const EventLabel *sLab) const
+{
+	auto v = getDepViewFromStamp(rLab->getStamp());
+	auto &pfx = getPPoRfBefore(sLab->getPos());
+
+	v.update(pfx);
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		if (v[i] + 1 != (int) getThreadSize(i))
+			return true;
+	}
+	return false;
+}
+
 std::vector<std::unique_ptr<EventLabel> >
 DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 					    const ReadLabel *rLab) const
@@ -81,17 +95,6 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 	return result;
 }
 
-template< typename ContainerT, typename PredicateT >
-void erase_if( ContainerT& items, const PredicateT& predicate )
-{
-	for (auto it = items.begin(), e = items.end(); it != e; ) {
-		if (predicate(*it))
-			it = items.erase(it);
-		else
-			++it;
-	}
-}
-
 void DepExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	/* First remove events from the modification order */
@@ -104,15 +107,7 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 					       return lab->getStamp() > stamp; }),
 			it->second.end());
 
-	/* Then, restict dependencies */
-	erase_if(addrDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-	erase_if(dataDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-	erase_if(ctrlDeps, [&](std::pair<const Event, DepInfo> &p)
-		 { return getEventLabel(p.first)->getStamp() > stamp; });
-
-	/* Finally, restrict the graph */
+	/* Then, restrict the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		/* We reset the maximum index for this thread, as we
 		 * do not know the order in which events were added */
@@ -150,7 +145,7 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 		resizeThread(i, newMax);
 	}
 
-	/* Do not keep any nullptrs in the graph */
+	/* Finally, do not keep any nullptrs in the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			if (getEventLabel(Event(i, j)))

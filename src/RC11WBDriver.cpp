@@ -586,6 +586,59 @@ std::vector<Event> RC11WBDriver::getRevisitLoads(const WriteLabel *sLab)
 	return result;
 }
 
+void RC11WBDriver::changeRf(Event read, Event store)
+{
+	auto &g = getGraph();
+
+	/* Change the reads-from relation in the graph */
+	g.changeRf(read, store);
+
+	/* And update the views of the load */
+	EventLabel *lab = g.getEventLabel(read);
+	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
+	EventLabel *rfLab = g.getEventLabel(store);
+	View hb = calcBasicHbView(rLab->getPos());
+	View porf = calcBasicPorfView(rLab->getPos());
+
+	porf.update(rfLab->getPorfView());
+	if (rLab->isAtLeastAcquire()) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+			hb.update(wLab->getMsgView());
+	}
+	rLab->setHbView(std::move(hb));
+	rLab->setPorfView(std::move(porf));
+}
+
+void RC11WBDriver::resetJoin(Event join)
+{
+	auto &g = getGraph();
+
+	g.resetJoin(join);
+
+	EventLabel *jLab = g.getEventLabel(join);
+	View hb = calcBasicHbView(jLab->getPos());
+	View porf = calcBasicPorfView(jLab->getPos());
+
+	jLab->setHbView(std::move(hb));
+	jLab->setPorfView(std::move(porf));
+	return;
+}
+
+bool RC11WBDriver::updateJoin(Event join, Event childLast)
+{
+	auto &g = getGraph();
+
+	if (!g.updateJoin(join, childLast))
+		return false;
+
+	EventLabel *jLab = g.getEventLabel(join);
+	EventLabel *fLab = g.getEventLabel(childLast);
+
+	jLab->updateHbView(fLab->getHbView());
+	jLab->updatePorfView(fLab->getPorfView());
+	return true;
+}
+
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
 RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)

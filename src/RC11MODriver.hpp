@@ -135,6 +135,13 @@ public:
 	std::pair<std::vector<std::unique_ptr<EventLabel> >,
 		  std::vector<std::pair<Event, Event> > >
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
+
+	void changeRf(Event read, Event store) override;
+
+	void resetJoin(Event join) override;
+
+	bool updateJoin(Event join, Event childLast) override;
+
 	bool checkPscAcyclicity(CheckPSCType t) override;
 	bool isExecutionValid() override;
 };

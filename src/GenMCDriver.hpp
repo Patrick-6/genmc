@@ -24,7 +24,6 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
-#include "DepInfo.hpp"
 #include "Interpreter.h"
 #include "DepExecutionGraph.hpp"
 #include "Library.hpp"
@@ -122,12 +121,10 @@ public:
 
 	/*** Instruction-related actions ***/
 
-	/* Returns the value this load reads, and possibly dependence info */
-	std::pair<llvm::GenericValue, DepInfo>
+	/* Returns the value this load reads */
+	llvm::GenericValue
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
-		  DepInfo addrDeps, DepInfo dataDeps, DepInfo ctrlDeps,
-		  DepInfo addrPoDeps, DepInfo casDeps,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -144,8 +141,7 @@ public:
 	void
 	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		   const llvm::GenericValue *addr, llvm::Type *typ,
-		   llvm::GenericValue &val, DepInfo addrDeps, DepInfo dataDeps,
-		   DepInfo ctrlDeps, DepInfo addrPoDeps, DepInfo casDeps);
+		   llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
@@ -238,17 +234,6 @@ private:
 	 * Exhaustively explores all  consistent executions of a program */
 	void visitGraph();
 
-	/* Updates dependency information in the execution graph.
-	 * Since this is not useful for all memory models, this
-	 * function does nothing by default. The driver gives up
-	 * the ownership of the dependency information */
-	virtual void updateGraphDependencies(Event e,
-					     const DepInfo &addr,
-					     const DepInfo &data,
-					     const DepInfo &ctrl,
-					     const DepInfo &addrPo,
-					     const DepInfo &cas) {};
-
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
@@ -260,8 +245,8 @@ private:
 	bool isExecutionDrivenByGraph();
 
 	/* If the execution is guided, returns the corresponding label for
-	 * this instruction */
-	const EventLabel *getCurrentLabel();
+	 * this instruction. Reports an error if the execution is not guided */
+	const EventLabel *getCurrentLabel() const;
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -293,16 +278,20 @@ private:
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
 
+	std::vector<Event>
+	getLibConsRfsInView(const Library &lib, Event read,
+			    const std::vector<Event> &stores,
+			    const View &v);
+
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
 	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
 					       const std::vector<Event> &stores,
-					       const DepView &before);
+					       const VectorClock &before);
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
-	bool tryToRevisitLock(const CasReadLabel *rLab, const DepView &preds,
-			      const WriteLabel *sLab, const DepView &before,
+	bool tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 
@@ -431,6 +420,17 @@ private:
 	virtual std::pair<std::vector<std::unique_ptr<EventLabel> >,
 			  std::vector<std::pair<Event, Event> > >
 	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) = 0;
+
+	/* Changes the reads-from edge for the specified label.
+	 * This effectively changes the label, hence this method is virtual */
+	virtual void changeRf(Event read, Event store) = 0;
+
+	/* Used to make a join label synchronize with a finished thread */
+	virtual bool updateJoin(Event join, Event childLast) = 0;
+
+	/* After restriction, resets a join label as to "forget"
+	 * possible threads that it has synchronized with */
+	virtual void resetJoin(Event join) = 0;
 
 	/* Should return true if the current graph is PSC-consistent */
 	virtual bool checkPscAcyclicity(CheckPSCType type) = 0;

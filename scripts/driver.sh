@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-GenMC=./src/genmc
+GenMC="${GenMC:-../src/genmc}"
 
 # We need to get the LLVM version for this particular configuration
 LLVM_VERSION=`cat ../config.h | awk '/LLVM_VERSION/ {gsub(/\"/, "", $3); print $3}'`
