@@ -403,26 +403,27 @@ RC11MODriver::createFinishLabel(int tid, int index)
 
 std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	std::vector<Event> stores;
+	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
+	// std::vector<Event> stores;
 
-	const auto &g = getGraph();
-	auto &locMO = g.getModOrderAtLoc(addr);
-	auto &before = g.getHbBefore(g.getLastThreadEvent(getEE()->getCurThr().id));
+	// const auto &g = getGraph();
+	// auto &locMO = g.getModOrderAtLoc(addr);
+	// auto &before = g.getHbBefore(g.getLastThreadEvent(getEE()->getCurThr().id));
 
-	auto begO = splitLocMOBefore(addr, before);
+	// auto begO = splitLocMOBefore(addr, before);
 
-	/*
-	 * If there are no stores (hb;rf?)-before the current event
-	 * then we can read read from all concurrent stores and the
-	 * initializer store. Otherwise, we can read from all concurrent
-	 * stores and the mo-latest of the (hb;rf?)-before stores.
-	 */
-	if (begO == 0)
-		stores.push_back(Event::getInitializer());
-	else
-		stores.push_back(*(locMO.begin() + begO - 1));
-	stores.insert(stores.end(), locMO.begin() + begO, locMO.end());
-	return stores;
+	// /*
+	//  * If there are no stores (hb;rf?)-before the current event
+	//  * then we can read read from all concurrent stores and the
+	//  * initializer store. Otherwise, we can read from all concurrent
+	//  * stores and the mo-latest of the (hb;rf?)-before stores.
+	//  */
+	// if (begO == 0)
+	// 	stores.push_back(Event::getInitializer());
+	// else
+	// 	stores.push_back(*(locMO.begin() + begO - 1));
+	// stores.insert(stores.end(), locMO.begin() + begO, locMO.end());
+	// return stores;
 }
 
 std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)

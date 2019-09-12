@@ -33,6 +33,8 @@
 
 #include <memory>
 
+class CoherenceCalculator;
+
 /*******************************************************************************
  **                           ExecutionGraph Class
  ******************************************************************************/
@@ -51,10 +53,15 @@ private:
 	using Graph = std::vector<Thread>;
 
 public:
+	/* Should be used for the contruction of execution graphs */
+	class Builder;
 
-	/* Constructors */
+protected:
+	/* Constructor should only be called from the builder */
+	friend class GraphBuilder;
 	ExecutionGraph();
 
+public:
 	/* Iterators */
 	using iterator = Graph::iterator;
 	using const_iterator = Graph::const_iterator;
@@ -80,12 +87,11 @@ public:
 	std::vector<Event>& getModOrderAtLoc(const llvm::GenericValue *addr) {
 		return modOrder[addr];
 	};
-	unsigned int getModOrderSizeAtLoc(const llvm::GenericValue *addr) const {
-		if (modOrder.contains(addr))
-			return modOrder[addr].size();
-		return 0;
-	};
-	void registerMemLocation(const llvm::GenericValue *addr) { modOrder[addr]; };
+	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr);
+	std::vector<Event> getCoherentStores(const llvm::GenericValue *addr,
+					     Event pos);
+	std::pair<int, int> getCoherentPlacings(const llvm::GenericValue *addr,
+						Event pos, bool isRMW);
 
 
 	/* Thread-related methods */
@@ -316,6 +322,9 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	/* Returns a reference to the graph's coherence calculator */
+	CoherenceCalculator *getCoherenceCalculator() { return cohTracker.get(); };
+
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
@@ -383,9 +392,24 @@ protected:
 	calculateAllRelations(const Library &lib, std::vector<Event> &es);
 
 private:
+
+	/* Sets the coherence calculator to the specified one */
+	void setCoherenceCalculator(std::unique_ptr<CoherenceCalculator> cc) {
+		cohTracker = std::move(cc);
+	};
+
+	/* A collection of threads and the events for each threads */
 	Graph events;
+
+	/* A coherence calculator for the graph */
+	std::unique_ptr<CoherenceCalculator> cohTracker = nullptr;
+
 	ModOrder modOrder;
+
+	/* The next available timestamp */
 	unsigned int timestamp;
 };
+
+#include "CoherenceCalculator.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

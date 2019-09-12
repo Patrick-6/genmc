@@ -48,6 +48,17 @@ clModelType(llvm::cl::values(
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::init(ModelType::wb),
 	    llvm::cl::desc("Choose model type:"));
+llvm::cl::opt<CoherenceType>
+clCoherenceType(llvm::cl::values(
+			clEnumValN(CoherenceType::coh_mo, "cmo", "Track modification order"),
+			clEnumValN(CoherenceType::coh_wb, "cwb", "Calculate writes-before")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+			, NULL
+#endif
+			),
+		llvm::cl::cat(clGeneral),
+		llvm::cl::init(CoherenceType::coh_wb),
+		llvm::cl::desc("Choose coherence type:"));
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
@@ -143,6 +154,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	model = clModelType;
 	isDepTrackingModel = (model == ModelType::imm ||
 			      model == ModelType::imm_mo);
+	coherence = clCoherenceType;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
 	checkWbAcyclicity = clCheckWbAcyclicity;

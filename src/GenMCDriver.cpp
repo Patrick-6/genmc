@@ -20,6 +20,7 @@
 
 #include "Config.hpp"
 #include "Error.hpp"
+#include "GraphBuilder.hpp"
 #include "LLVMModule.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
@@ -52,11 +53,9 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	/* Register a signal handler for abort() */
 	std::signal(SIGABRT, abortHandler);
 
-	/* Set up the proper execution graph */
-	if (userConf->isDepTrackingModel)
-		execGraph = llvm::make_unique<DepExecutionGraph>();
-	else
-		execGraph = llvm::make_unique<ExecutionGraph>();
+	/* Set up an appropriate execution graph */
+	execGraph = GraphBuilder(userConf->isDepTrackingModel)
+		.withCoherenceType(userConf->coherence).build();
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -719,7 +718,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	// 			std::move(dataDeps), std::move(ctrlDeps),
 	// 			std::move(addrPoDeps), std::move(casDeps));
 
-	g.registerMemLocation(addr);
+	// g.registerMemLocation(addr);
 
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
@@ -779,22 +778,22 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 			     llvm::GenericValue &val)
 
 {
-	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-
 	if (isExecutionDrivenByGraph())
 		return;
 
 	/* Record dependencies in the graph */
-	int idx = thr.globalInstructions;
+	// int idx = thr.globalInstructions;
 	// updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
 	// 			std::move(dataDeps), std::move(ctrlDeps),
 	// 			std::move(addrPoDeps), std::move(casDeps));
 
-	g.registerMemLocation(addr);
+	auto &g = getGraph();
+	auto *EE = getEE();
+	auto pos = EE->getCurrentPosition();
+
 	auto placesRange =
-		getPossibleMOPlaces(addr, attr != llvm::Interpreter::IA_None &&
-				    attr != llvm::Interpreter::IA_Unlock);
+		g.getCoherentPlacings(addr, pos, attr != llvm::Interpreter::IA_None &&
+				      attr != llvm::Interpreter::IA_Unlock);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 
@@ -803,19 +802,21 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
 	case llvm::Interpreter::IA_Unlock:
-		wLab = std::move(createStoreLabel(thr.id, idx, ord, addr, typ, val, endO,
+		wLab = std::move(createStoreLabel(pos.thread, pos.index, ord,
+						  addr, typ, val, endO,
 						  attr == llvm::Interpreter::IA_Unlock));
 		// lab = g.addStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
 		// 			attr == llvm::Interpreter::IA_Unlock);
 		break;
 	case llvm::Interpreter::IA_Fai:
-		wLab = std::move(createFaiStoreLabel(thr.id, idx, ord, addr,
-						     typ, val, endO));
+		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
+						     addr, typ, val, endO));
 		// lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		wLab = std::move(createCasStoreLabel(thr.id, idx, ord, addr, typ, val, endO,
+		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
+						     addr, typ, val, endO,
 						     attr == llvm::Interpreter::IA_Lock));
 		// lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
 		// 			   attr == llvm::Interpreter::IA_Lock);
@@ -827,13 +828,12 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	/* Check for races */
 	checkForRaces();
 
-	const auto &cg = getGraph();
-	auto &locMO = cg.getModOrderAtLoc(addr);
+	auto &locMO = g.getStoresToLoc(addr);
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
 
 		/* We cannot place the write just before the write of an RMW */
-		if (llvm::isa<FaiWriteLabel>(cg.getEventLabel(*it)) ||
-		    llvm::isa<CasWriteLabel>(cg.getEventLabel(*it)))
+		if (llvm::isa<FaiWriteLabel>(g.getEventLabel(*it)) ||
+		    llvm::isa<CasWriteLabel>(g.getEventLabel(*it)))
 			continue;
 
 		/* Push the stack item */
@@ -1147,8 +1147,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		/* Try a different MO ordering, and also consider reads to revisit */
 		BUG_ON(!llvm::isa<WriteLabel>(lab));
 		auto *wLab = static_cast<const WriteLabel *>(lab);
-		getGraph().changeStoreOffset(wLab->getAddr(),
-					     wLab->getPos(), p.moPos);
+		getGraph().changeStoreOffset(wLab->getAddr(), wLab->getPos(), p.moPos);
 		return calcRevisits(wLab); /* Nothing else to do */
 	}
 	case MOWriteLib: {
@@ -1326,7 +1325,7 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 	 * which is explicitly included in MO, in the case of libraries.
 	 */
 	auto begO = 1;
-	auto endO = g.getModOrderSizeAtLoc(addr);
+	auto endO = getGraph().getStoresToLoc(addr).size();
 
 	/* If there was not any store previously, check if this location was initialized.
 	 * We only set a flag here and report an error after the relevant event is added   */

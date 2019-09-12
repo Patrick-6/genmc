@@ -586,32 +586,33 @@ IMMMODriver::createFinishLabel(int tid, int index)
 
 std::vector<Event> IMMMODriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	std::vector<Event> stores;
+	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
+	// std::vector<Event> stores;
 
-	const auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-	auto &locMO = g.getModOrderAtLoc(addr);
-	auto last = Event(thr.id, thr.globalInstructions - 1);
-	auto &before = g.getHbBefore(last);
+	// const auto &g = getGraph();
+	// auto &thr = getEE()->getCurThr();
+	// auto &locMO = g.getModOrderAtLoc(addr);
+	// auto last = Event(thr.id, thr.globalInstructions - 1);
+	// auto &before = g.getHbBefore(last);
 
-	auto begO = splitLocMOBefore(addr, before);
-	auto endO = splitLocMOAfterHb(addr, last.next());
+	// auto begO = splitLocMOBefore(addr, before);
+	// auto endO = splitLocMOAfterHb(addr, last.next());
 
-	/*
-	 * If there are no stores (hb;rf?)-before the current event
-	 * then we can read read from all concurrent stores and the
-	 * initializer store. Otherwise, we can read from all concurrent
-	 * stores and the mo-latest of the (hb;rf?)-before stores.
-	 */
-	if (begO == 0)
-		stores.push_back(Event::getInitializer());
-	else
-		stores.push_back(*(locMO.begin() + begO - 1));
-	// if (endO != locMO.size() && !g.getHbBefore(*(locMO.begin() + endO)).contains(last.next()))
-	// 	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO + 1);
+	// /*
+	//  * If there are no stores (hb;rf?)-before the current event
+	//  * then we can read read from all concurrent stores and the
+	//  * initializer store. Otherwise, we can read from all concurrent
+	//  * stores and the mo-latest of the (hb;rf?)-before stores.
+	//  */
+	// if (begO == 0)
+	// 	stores.push_back(Event::getInitializer());
 	// else
-	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
-	return stores;
+	// 	stores.push_back(*(locMO.begin() + begO - 1));
+	// // if (endO != locMO.size() && !g.getHbBefore(*(locMO.begin() + endO)).contains(last.next()))
+	// // 	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO + 1);
+	// // else
+	// stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
+	// return stores;
 }
 
 std::pair<int, int> IMMMODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)

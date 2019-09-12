@@ -25,6 +25,7 @@
 #include <vector>
 
 enum class ModelType { weakra, mo, wb, imm, imm_mo };
+enum class CoherenceType { coh_mo, coh_wb };
 enum class CheckPSCType { nocheck, weak, wb, full };
 
 struct Config {
@@ -37,6 +38,7 @@ public:
 	std::string specsFile;
 	ModelType model;
 	bool isDepTrackingModel;
+	CoherenceType coherence;
 	CheckPSCType checkPscAcyclicity;
 	int unroll;
 	bool spinAssume;

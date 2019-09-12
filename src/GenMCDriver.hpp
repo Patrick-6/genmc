@@ -24,8 +24,8 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
+#include "ExecutionGraph.hpp"
 #include "Interpreter.h"
-#include "DepExecutionGraph.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
 

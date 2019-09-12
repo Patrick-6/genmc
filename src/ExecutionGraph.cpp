@@ -19,6 +19,7 @@
  */
 
 #include "Library.hpp"
+#include "MOCoherenceCalculator.hpp"
 #include "Parser.hpp"
 #include "ExecutionGraph.hpp"
 #include <llvm/IR/DebugInfo.h>
@@ -259,6 +260,24 @@ std::vector<Event> ExecutionGraph::getMoInvOptRfAfter(const WriteLabel *sLab) co
 	return ls;
 }
 
+const std::vector<Event>&
+ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr)
+{
+	return getCoherenceCalculator()->getStoresToLoc(addr);
+}
+
+std::pair<int, int>
+ExecutionGraph::getCoherentPlacings(const llvm::GenericValue *addr,
+				    Event pos, bool isRMW) {
+	return getCoherenceCalculator()->getPossiblePlacings(addr, pos, isRMW);
+};
+
+std::vector<Event>
+ExecutionGraph::getCoherentStores(const llvm::GenericValue *addr, Event pos)
+{
+	return getCoherenceCalculator()->getCoherentStores(addr, pos);
+}
+
 
 /*******************************************************************************
  **                       Label addition methods
@@ -279,6 +298,7 @@ const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabe
 						       unsigned int offsetMO)
 {
 
+	getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), offsetMO);
 	modOrder[lab->getAddr()].insert(modOrder[lab->getAddr()].begin() + offsetMO,
 					lab->getPos());
 	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
@@ -623,7 +643,11 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 void ExecutionGraph::changeStoreOffset(const llvm::GenericValue *addr,
 				       Event s, int newOffset)
 {
-	getModOrder().changeStoreOffset(addr, s, newOffset);
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCoherenceCalculator *>(
+		getCoherenceCalculator());
+
+	cohTracker->changeStoreOffset(addr, s, newOffset);
 }
 
 void ExecutionGraph::changeRf(Event read, Event store)
@@ -760,12 +784,8 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 		}
 	}
 
-	/* Remove cutted events from the modification order as well */
-	for (auto it = modOrder.begin(); it != modOrder.end(); ++it)
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&](Event &e)
-						{ return !preds.contains(e); }),
-				 it->second.end());
+	/* Remove cutted events from the coherence order as well */
+	getCoherenceCalculator()->removeStoresAfter(preds);
 	return;
 }
 

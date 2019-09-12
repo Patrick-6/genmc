@@ -10,6 +10,7 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
+  CoherenceCalculator.hpp \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
@@ -26,6 +27,7 @@ libgenmc_a_SOURCES = \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
   GenMCDriver.cpp GenMCDriver.hpp \
+  GraphBuilder.hpp \
   IMMDepTracker.hpp \
   IMMWBDriver.cpp IMMWBDriver.hpp \
   IMMMODriver.cpp IMMMODriver.hpp \
@@ -35,6 +37,7 @@ libgenmc_a_SOURCES = \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
+  MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
   ModOrder.cpp ModOrder.hpp \
   Parser.cpp Parser.hpp \
   RC11WeakRADriver.cpp RC11WeakRADriver.hpp \
@@ -42,6 +45,7 @@ libgenmc_a_SOURCES = \
   RC11MODriver.cpp RC11MODriver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
+  WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \
   VSet.hpp VSet.tcc

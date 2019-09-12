@@ -34,6 +34,11 @@
  */
 class DepExecutionGraph : public ExecutionGraph {
 
+protected:
+	/* Constructor should only be called from the builder */
+	friend class GraphBuilder;
+	DepExecutionGraph() : ExecutionGraph() {}
+
 public:
 	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
 

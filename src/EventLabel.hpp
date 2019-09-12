@@ -81,7 +81,7 @@ protected:
 
 public:
 
-	/* Returns the descriminator of this object */
+	/* Returns the discriminator of this object */
 	EventLabelKind getKind() const { return kind; }
 
 	/* The stamp this label has in the execution graph*/

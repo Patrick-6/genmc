@@ -98,14 +98,15 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 void DepExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	/* First remove events from the modification order */
-	auto &mo = getModOrder();
-	for (auto it = mo.begin(); it != mo.end(); ++it)
-		it->second.erase(
-			std::remove_if(it->second.begin(), it->second.end(),
-				       [&](Event &e){
-					       const EventLabel *lab = getEventLabel(e);
-					       return lab->getStamp() > stamp; }),
-			it->second.end());
+	auto preds = getDepViewFromStamp(stamp);
+	getCoherenceCalculator()->removeStoresAfter(preds);
+	// for (auto it = mo.begin(); it != mo.end(); ++it)
+	// 	it->second.erase(
+	// 		std::remove_if(it->second.begin(), it->second.end(),
+	// 			       [&](Event &e){
+	// 				       const EventLabel *lab = getEventLabel(e);
+	// 				       return lab->getStamp() > stamp; }),
+	// 		it->second.end());
 
 	/* Then, restrict the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {
