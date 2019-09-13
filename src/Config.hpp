@@ -24,8 +24,8 @@
 #include <string>
 #include <vector>
 
-enum class ModelType { weakra, mo, wb, imm, imm_mo };
-enum class CoherenceType { coh_mo, coh_wb };
+enum class ModelType { rc11, imm };
+enum class CoherenceType { mo, wb };
 enum class CheckPSCType { nocheck, weak, wb, full };
 
 struct Config {
@@ -53,7 +53,6 @@ public:
 	bool prettyPrintExecGraphs;
 	bool countDuplicateExecs;
 	bool printErrorTrace;
-	bool checkWbAcyclicity;
 
 	void getConfigOptions(int argc, char **argv);
 };

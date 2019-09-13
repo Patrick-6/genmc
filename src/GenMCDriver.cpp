@@ -161,10 +161,8 @@ void GenMCDriver::handleFinishedExecution()
 	const auto &g = getGraph();
 	if (!checkPscAcyclicity(userConf->checkPscAcyclicity))
 		return;
-	if (userConf->checkWbAcyclicity && !g.isWbAcyclic())
-		return;
 	if (userConf->printExecGraphs)
-		llvm::dbgs() << g << g.getModOrder() << "\n";
+		llvm::dbgs() << g << "\n";
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
 	if (userConf->countDuplicateExecs) {
@@ -420,7 +418,7 @@ void GenMCDriver::checkForRaces()
 
 	auto racy = Event::getInitializer();
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-		racy = g.findRaceForNewLoad(rLab);
+		racy = getGraph().findRaceForNewLoad(rLab);
 	else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
 		racy = g.findRaceForNewStore(wLab);
 
@@ -720,6 +718,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	// g.registerMemLocation(addr);
 
+	g.trackCoherenceAtLoc(addr);
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
 	// if (stores.empty())
@@ -791,6 +790,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	auto *EE = getEE();
 	auto pos = EE->getCurrentPosition();
 
+	g.trackCoherenceAtLoc(addr);
 	auto placesRange =
 		g.getCoherentPlacings(addr, pos, attr != llvm::Interpreter::IA_None &&
 				      attr != llvm::Interpreter::IA_Unlock);
@@ -1056,7 +1056,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-	auto offsetMO = g.getModOrder().getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
+	auto offsetMO = 0;
 
 	const WriteLabel *sLab = nullptr;
 	std::unique_ptr<WriteLabel> wLab = nullptr;
@@ -1109,7 +1109,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		}
 	}
 	if (wLab)
-		return getGraph().addWriteLabelToGraph(std::move(wLab), offsetMO);
+		return getGraph().addWriteLabelToGraph(std::move(wLab), rLab->getRf());
 	return nullptr;
 }
 
@@ -1165,6 +1165,8 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 	auto *rLab = static_cast<const ReadLabel *>(lab);
 
+	// llvm::dbgs() << "AFTER RESTRICTION " << g << "\n";
+
 	/*
 	 * For the case where an reads-from is changed, change the respective reads-from label
 	 * and check whether a part of an RMW should be added
@@ -1173,7 +1175,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	changeRf(rLab->getPos(), p.shouldRf);
 
 	// llvm::dbgs() << "REVISITING: " << rLab->getPos() << " TO READ-FROM " << p.shouldRf;
-	// llvm::dbgs() << "AFTER RESTRICTION " << g << "\n";
+
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))
@@ -1219,7 +1221,7 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 	auto *lab = getGraph().addReadLabelToGraph(std::move(lLab), Event::getInitializer());
 
 	/* Make sure there exists an initializer event for this memory location */
-	auto stores(g.getModOrderAtLoc(addr));
+	auto stores(g.getStoresToLoc(addr));
 	auto it = std::find_if(stores.begin(), stores.end(), [&](Event e){
 			const EventLabel *eLab = g.getEventLabel(e);
 			if (auto *wLab = llvm::dyn_cast<LibWriteLabel>(eLab))
@@ -1356,7 +1358,7 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 	 * Check for alternative MO placings. Temporarily remove sLab from
 	 * MO, find all possible alternatives, and push them to the workqueue
 	 */
-	auto &locMO = getGraph().getModOrderAtLoc(addr);
+	auto locMO = getGraph().getStoresToLoc(addr);
 	locMO.pop_back();
 	for (auto i = begO; i < endO; ++i) {
 		locMO.insert(locMO.begin() + i, sLab->getPos());
@@ -1431,7 +1433,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 		for (auto &rf : rfs) {
 			/* Push consistent options to stack */
 			auto writePrefix = g.getPrefixLabelsNotBefore(lab, rLab);
-			auto moPlacings = (lib->tracksCoherence()) ? g.getMOPredsInBefore(writePrefix, preds)
+			auto moPlacings = (lib->tracksCoherence()) ? g.saveCoherenceStatus(writePrefix, preds)
 				                                   : std::vector<std::pair<Event, Event> >();
 			auto writePrefixPos = g.extractRfs(writePrefix);
 			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());

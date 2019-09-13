@@ -42,24 +42,50 @@ public:
 	MOCoherenceCalculator(ExecutionGraph &g, bool ooo)
 		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
+	/* Track coherence at location addr */
+	void
+	trackCoherenceAtLoc(const llvm::GenericValue *addr) override;
+
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
-	virtual std::pair<int, int>
+	std::pair<int, int>
 	getPossiblePlacings(const llvm::GenericValue *addr,
 			    Event store, bool isRMW) override;
 
-	/* Tracks a store by inserting it into the appropriate offset */
-	virtual void
+	/* Inserts a store in the appropriate offset in coherence.
+	 * The offset should have been a valid (non-RMW) placing returned
+	 * from getPossiblePlacings() */
+	void
 	addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset) override;
+
+	/* Inserts "store" after "pred" in coherence order */
+	void
+	addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
-	getStoresToLoc(const llvm::GenericValue *addr) override;
+	getStoresToLoc(const llvm::GenericValue *addr) const override;
 
 	/* Returns all the stores for which if "read" reads-from, coherence
 	 * is not violated */
 	std::vector<Event>
 	getCoherentStores(const llvm::GenericValue *addr, Event read) override;
+
+	/* Returns all the reads that "wLab" can revisit without violating
+	 * coherence */
+	std::vector<Event>
+	getCoherentRevisits(const WriteLabel *wLab) override;
+
+	/* Saves the coherence status for all write labels in prefix.
+	 * This means that for each write we save a predecessor in preds (or within
+	 * the prefix itself), which will be present when the prefix is restored. */
+	std::vector<std::pair<Event, Event> >
+	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+			    const VectorClock &preds) const override;
+
+	/* Restores a previously saved coherence status */
+	void
+	restoreCoherenceStatus(std::vector<std::pair<Event, Event> > &status) override;
 
 	/* Stops tracking all stores not included in "preds" in the graph */
 	void removeStoresAfter(VectorClock &preds) override;
@@ -67,6 +93,16 @@ public:
 	/* Changes the offset of "store" to "newOffset" */
 	void changeStoreOffset(const llvm::GenericValue *addr,
 			       Event store, int newOffset);
+
+	/* Returns all stores in "addr" that are mo-before "e" */
+	std::vector<Event>
+	getMOBefore(const llvm::GenericValue *addr, Event e) const;
+
+	/* Returns all stores in "addr" that are mo-after "e" */
+	std::vector<Event>
+	getMOAfter(const llvm::GenericValue *addr, Event e) const;
+
+	const std::vector<Event> &getModOrderAtLoc(const llvm::GenericValue *addr) const;
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_ModificationOrder;
@@ -96,6 +132,15 @@ private:
 	 * the first store that is hb-after "s" or is read by a read that is
 	 * hb-after "s" */
 	int splitLocMOAfter(const llvm::GenericValue *addr, const Event s);
+
+	/* Returns the events that are mo;rf?-after sLab */
+	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
+
+	/* Returns the events that are mo^-1;rf?-after sLab */
+	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
+
+	/* Returns true if the location "loc" contains the event "e" */
+	bool locContains(const llvm::GenericValue *loc, Event e) const;
 
 
 	typedef std::unordered_map<const llvm::GenericValue *,

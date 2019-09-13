@@ -68,6 +68,10 @@ public:
 
 	virtual ~CoherenceCalculator() {}
 
+	/* Track coherence at location addr */
+	virtual void
+	trackCoherenceAtLoc(const llvm::GenericValue *addr) = 0;
+
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
 	virtual std::pair<int, int>
@@ -77,15 +81,33 @@ public:
 	/* Tracks a store by inserting it into the appropriate offset */
 	virtual void
 	addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset) = 0;
+	virtual void
+	addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred) = 0;
 
 	/* Returns a list of stores to a particular memory location */
 	virtual const std::vector<Event>&
-	getStoresToLoc(const llvm::GenericValue *addr) = 0;
+	getStoresToLoc(const llvm::GenericValue *addr) const = 0;
 
 	/* Returns all the stores for which if "read" reads-from, coherence
 	 * is not violated */
 	virtual std::vector<Event>
 	getCoherentStores(const llvm::GenericValue *addr, Event read) = 0;
+
+	/* Returns all the reads that "wLab" can revisit without violating
+	 * coherence */
+	virtual std::vector<Event>
+	getCoherentRevisits(const WriteLabel *wLab) = 0;
+
+	/* Saves the coherence status for all write labels in prefix.
+	 * This means that for each write we save a predecessor in preds (or within
+	 * the prefix itself), which will be present when the prefix is restored. */
+	virtual std::vector<std::pair<Event, Event> >
+	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+			    const VectorClock &preds) const = 0;
+
+	/* Restores a previously saved coherence status */
+	virtual void
+	restoreCoherenceStatus(std::vector<std::pair<Event, Event> > &status) = 0;
 
 	/* Stops tracking all stores not included in "preds" in the graph */
 	virtual void

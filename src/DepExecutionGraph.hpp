@@ -42,6 +42,9 @@ protected:
 public:
 	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
 
+	std::unique_ptr<VectorClock>
+	getRevisitView(const ReadLabel *rLab, const WriteLabel *wLab) const override;
+
 	const VectorClock& getPrefixView(Event e) const override;
 
 	bool revisitModifiesGraph(const ReadLabel *rLab,

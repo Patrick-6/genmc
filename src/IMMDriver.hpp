@@ -23,13 +23,13 @@
 
 #include "GenMCDriver.hpp"
 
-class IMMMODriver : public GenMCDriver {
+class IMMDriver : public GenMCDriver {
 
 public:
 
-	IMMMODriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::vector<Library> &granted, std::vector<Library> &toVerify,
-		    clock_t start)
+	IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
+		  std::vector<Library> &granted, std::vector<Library> &toVerify,
+		  clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
 	const View &getPrefix(const Event e) { return getGraph().getPPoRfBefore(e).getView(); }

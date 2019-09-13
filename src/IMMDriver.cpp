@@ -18,27 +18,33 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "RC11MODriver.hpp"
+#include "IMMDriver.hpp"
 
-/************************************************************
- ** MO DRIVER
- ***********************************************************/
-
-int RC11MODriver::splitLocMOBefore(const llvm::GenericValue *addr, const View &before)
+void IMMDriver::restrictGraph(unsigned int stamp)
 {
 	const auto &g = getGraph();
-	auto &locMO = g.getModOrderAtLoc(addr);
 
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !g.isWriteRfBefore(before, *rit))
-			continue;
-		return std::distance(rit, locMO.rend());
+	/* First, free memory allocated by events that will no longer
+	 * be in the graph */
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 1u; j < g.getThreadSize(i); j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (lab->getStamp() <= stamp)
+				continue;
+			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
+				getEE()->deallocateAddr(mLab->getAllocAddr(),
+							mLab->getAllocSize(),
+							mLab->isLocal());
+		}
 	}
-	return 0;
+
+	/* Then, restrict the graph */
+	getGraph().cutToStamp(stamp);
+	return;
 }
 
 /* Calculates a minimal hb vector clock based on po for a given label */
-View RC11MODriver::calcBasicHbView(Event e) const
+View IMMDriver::calcBasicHbView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getHbView());
 
@@ -47,7 +53,7 @@ View RC11MODriver::calcBasicHbView(Event e) const
 }
 
 /* Calculates a minimal (po U rf) vector clock based on po for a given label */
-View RC11MODriver::calcBasicPorfView(Event e) const
+View IMMDriver::calcBasicPorfView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getPorfView());
 
@@ -55,23 +61,83 @@ View RC11MODriver::calcBasicPorfView(Event e) const
 	return v;
 }
 
-void RC11MODriver::calcBasicReadViews(ReadLabel *lab)
+DepView IMMDriver::calcPPoView(Event e) /* not const */
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	DepView v;
+
+	/* Update ppo based on dependencies (addr, data, ctrl, addr;po, cas) */
+	auto *addr = EE->getCurrentAddrDeps();
+	if (addr) {
+		for (auto &adep : *addr)
+			v.update(g.getPPoRfBefore(adep));
+	}
+	auto *data = EE->getCurrentDataDeps();
+	if (data) {
+		for (auto &ddep : *data)
+			v.update(g.getPPoRfBefore(ddep));
+	}
+	auto *ctrl = EE->getCurrentCtrlDeps();
+	if (ctrl) {
+		for (auto &cdep : *ctrl)
+			v.update(g.getPPoRfBefore(cdep));
+	}
+	auto *addrPo = EE->getCurrentAddrPoDeps();
+	if (addrPo) {
+		for (auto &apdep : *addrPo)
+			v.update(g.getPPoRfBefore(apdep));
+	}
+	auto *cas = EE->getCurrentCasDeps();
+	if (cas) {
+		for (auto &csdep : *cas)
+			v.update(g.getPPoRfBefore(csdep));
+	}
+
+	/* This event does not depend on anything else */
+	int oldIdx = v[e.thread];
+	v[e.thread] = e.index;
+	for (auto i = oldIdx + 1; i < e.index; i++)
+		v.addHole(Event(e.thread, i));
+
+	/* Update based on the view of the last acquire of the thread */
+	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
+	for (auto &ev : acqs)
+		v.update(g.getPPoRfBefore(ev));
+	return v;
+}
+
+void IMMDriver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos());
+	DepView pporf(ppo);
 
 	porf.update(rfLab->getPorfView());
+	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != lab->getThread()) {
+		for (auto i = 0u; i < lab->getIndex(); i++) {
+			const EventLabel *eLab = g.getEventLabel(Event(lab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				if (wLab->getAddr() == lab->getAddr())
+					pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
 	if (lab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
 	}
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoView(std::move(ppo));
+	lab->setPPoRfView(std::move(pporf));
 }
 
-void RC11MODriver::calcBasicWriteViews(WriteLabel *lab)
+void IMMDriver::calcBasicWriteViews(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 
@@ -81,9 +147,32 @@ void RC11MODriver::calcBasicWriteViews(WriteLabel *lab)
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+
+	/* Then, we calculate the (ppo U rf) view */
+	DepView pporf = calcPPoView(lab->getPos());
+
+	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
+		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
+
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = g.getLastThreadRelease(lab->getPos());
+		if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
+		    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
+			--rel.index;
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    g.getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
+	pporf.update(g.getPPoRfBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								  lab->getAddr())));
+	lab->setPPoRfView(std::move(pporf));
 }
 
-void RC11MODriver::calcWriteMsgView(WriteLabel *lab)
+void IMMDriver::calcWriteMsgView(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 	View msg;
@@ -100,7 +189,7 @@ void RC11MODriver::calcWriteMsgView(WriteLabel *lab)
 	lab->setMsgView(std::move(msg));
 }
 
-void RC11MODriver::calcRMWWriteMsgView(WriteLabel *lab)
+void IMMDriver::calcRMWWriteMsgView(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 	View msg;
@@ -126,7 +215,7 @@ void RC11MODriver::calcRMWWriteMsgView(WriteLabel *lab)
 	lab->setMsgView(std::move(msg));
 }
 
-void RC11MODriver::calcFenceRelRfPoBefore(Event last, View &v)
+void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 {
 	const auto &g = getGraph();
 	for (auto i = last.index; i > 0; i--) {
@@ -146,21 +235,33 @@ void RC11MODriver::calcFenceRelRfPoBefore(Event last, View &v)
 }
 
 
-void RC11MODriver::calcBasicFenceViews(FenceLabel *lab)
+void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
+	if (lab->isAtLeastRelease()) {
+		pporf.removeAllHoles(lab->getThread());
+		Event rel = g.getLastThreadRelease(lab->getPos());
+		for (auto i = rel.index; i < lab->getIndex(); i++) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+				    g.getEventLabel(Event(lab->getThread(), i)))) {
+				pporf.update(rLab->getPPoRfView());
+			}
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 }
 
 std::unique_ptr<ReadLabel>
-RC11MODriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			     const llvm::GenericValue *ptr, const llvm::Type *typ,
 			     Event rf)
 {
@@ -173,7 +274,7 @@ RC11MODriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FaiReadLabel>
-RC11MODriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
 				Event rf, llvm::AtomicRMWInst::BinOp op,
 				llvm::GenericValue &&opValue)
@@ -188,11 +289,10 @@ RC11MODriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<CasReadLabel>
-RC11MODriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
 				Event rf, const llvm::GenericValue &expected,
-				const llvm::GenericValue &swap,
-				bool isLock)
+				const llvm::GenericValue &swap, bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -204,7 +304,7 @@ RC11MODriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<LibReadLabel>
-RC11MODriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
 				Event rf, std::string functionName)
 {
@@ -217,7 +317,7 @@ RC11MODriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<WriteLabel>
-RC11MODriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			      const llvm::GenericValue *ptr, const llvm::Type *typ,
 			      const llvm::GenericValue &val, int offsetMO,
 			      bool isUnlock)
@@ -232,7 +332,7 @@ RC11MODriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FaiWriteLabel>
-RC11MODriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
 				 const llvm::GenericValue &val, int offsetMO)
 {
@@ -246,7 +346,7 @@ RC11MODriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<CasWriteLabel>
-RC11MODriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
 				 const llvm::GenericValue &val, int offsetMO,
 				 bool isLock)
@@ -262,7 +362,7 @@ RC11MODriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<LibWriteLabel>
-RC11MODriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+IMMDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
 				 llvm::GenericValue &val, int offsetMO,
 				 std::string functionName, bool isInit)
@@ -278,7 +378,7 @@ RC11MODriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FenceLabel>
-RC11MODriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
+IMMDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -290,7 +390,7 @@ RC11MODriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 
 
 std::unique_ptr<MallocLabel>
-RC11MODriver::createMallocLabel(int tid, int index, const void *addr,
+IMMDriver::createMallocLabel(int tid, int index, const void *addr,
 			       unsigned int size, bool isLocal)
 {
 	auto &g = getGraph();
@@ -301,14 +401,16 @@ RC11MODriver::createMallocLabel(int tid, int index, const void *addr,
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
 std::unique_ptr<FreeLabel>
-RC11MODriver::createFreeLabel(int tid, int index, const void *addr,
+IMMDriver::createFreeLabel(int tid, int index, const void *addr,
 			     unsigned int size)
 {
 	auto &g = getGraph();
@@ -320,6 +422,8 @@ RC11MODriver::createFreeLabel(int tid, int index, const void *addr,
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 
+	WARN("Calculate pporf views!\n");
+	BUG();
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
@@ -327,7 +431,7 @@ RC11MODriver::createFreeLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<ThreadCreateLabel>
-RC11MODriver::createTCreateLabel(int tid, int index, int cid)
+IMMDriver::createTCreateLabel(int tid, int index, int cid)
 {
 	const auto &g = getGraph();
 	Event pos(tid, index);
@@ -336,15 +440,25 @@ RC11MODriver::createTCreateLabel(int tid, int index, int cid)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
 std::unique_ptr<ThreadJoinLabel>
-RC11MODriver::createTJoinLabel(int tid, int index, int cid)
+IMMDriver::createTJoinLabel(int tid, int index, int cid)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -357,14 +471,17 @@ RC11MODriver::createTJoinLabel(int tid, int index, int cid)
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoView(std::move(pporf));
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
 std::unique_ptr<ThreadStartLabel>
-RC11MODriver::createStartLabel(int tid, int index, Event tc)
+IMMDriver::createStartLabel(int tid, int index, Event tc)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -375,17 +492,20 @@ RC11MODriver::createStartLabel(int tid, int index, Event tc)
 	/* Thread start has Acquire semantics */
 	View hb(g.getHbBefore(tc));
 	View porf(g.getPorfBefore(tc));
+	DepView pporf(g.getPPoRfBefore(tc));
 
 	hb[tid] = pos.index;
 	porf[tid] = pos.index;
+	pporf[tid] = pos.index;
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
 std::unique_ptr<ThreadFinishLabel>
-RC11MODriver::createFinishLabel(int tid, int index)
+IMMDriver::createFinishLabel(int tid, int index)
 {
 	const auto &g = getGraph();
 	Event pos(tid, index);
@@ -395,88 +515,51 @@ RC11MODriver::createFinishLabel(int tid, int index)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
-std::vector<Event> RC11MODriver::getStoresToLoc(const llvm::GenericValue *addr)
+std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
-	// std::vector<Event> stores;
-
-	// const auto &g = getGraph();
-	// auto &locMO = g.getModOrderAtLoc(addr);
-	// auto &before = g.getHbBefore(g.getLastThreadEvent(getEE()->getCurThr().id));
-
-	// auto begO = splitLocMOBefore(addr, before);
-
-	// /*
-	//  * If there are no stores (hb;rf?)-before the current event
-	//  * then we can read read from all concurrent stores and the
-	//  * initializer store. Otherwise, we can read from all concurrent
-	//  * stores and the mo-latest of the (hb;rf?)-before stores.
-	//  */
-	// if (begO == 0)
-	// 	stores.push_back(Event::getInitializer());
-	// else
-	// 	stores.push_back(*(locMO.begin() + begO - 1));
-	// stores.insert(stores.end(), locMO.begin() + begO, locMO.end());
-	// return stores;
 }
 
-std::pair<int, int> RC11MODriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
+std::pair<int, int> IMMDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
-	const auto &g = getGraph();
-	const EventLabel *pLab = g.getLastThreadLabel(getEE()->getCurThr().id);
-
-	if (isRMW) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab)) {
-			auto offset = g.getModOrder().getStoreOffset(addr, rLab->getRf()) + 1;
-			return std::make_pair(offset, offset);
-		}
-		BUG();
-	}
-
-	auto &before = g.getHbBefore(pLab->getPos());
-	return std::make_pair(splitLocMOBefore(addr, before),
-			      g.getModOrderAtLoc(addr).size());
+	return std::make_pair(0,0);
 }
 
-std::vector<Event> RC11MODriver::getRevisitLoads(const WriteLabel *sLab)
+std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	const auto &g = getGraph();
-	auto ls = g.getRevisitable(sLab);
-	auto &locMO = g.getModOrderAtLoc(sLab->getAddr());
-
-	/* If this store is mo-maximal then we are done */
-	if (locMO.back() == sLab->getPos())
-		return ls;
-
-	/* Otherwise, we have to exclude (mo;rf?;hb?;sb)-after reads */
-	auto optRfs = g.getMoOptRfAfter(sLab);
-	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
-				{ const View &before = g.getHbPoBefore(e);
-				  return std::any_of(optRfs.begin(), optRfs.end(),
-					 [&](Event ev)
-					 { return before.contains(ev); });
-				}), ls.end());
-	return ls;
+	return getGraph().getCoherentRevisits(sLab);
 }
 
 std::pair<std::vector<std::unique_ptr<EventLabel> >,
 	  std::vector<std::pair<Event, Event> > >
-RC11MODriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
+IMMDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
-	auto preds = g.getViewFromStamp(rLab->getStamp());
-	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
-	auto moPlacings = g.getMOPredsInBefore(writePrefix, preds);
-	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
+	auto prefix = g.getPrefixLabelsNotBefore(sLab, rLab);
+	auto moPlacings = g.saveCoherenceStatus(prefix, g.getDepViewFromStamp(rLab->getStamp()));
+
+	BUG_ON(prefix.empty());
+	return std::make_pair(std::move(prefix), std::move(moPlacings));
 }
 
-void RC11MODriver::changeRf(Event read, Event store)
+void IMMDriver::changeRf(Event read, Event store)
 {
 	auto &g = getGraph();
 
@@ -489,17 +572,30 @@ void RC11MODriver::changeRf(Event read, Event store)
 	EventLabel *rfLab = g.getEventLabel(store);
 	View hb = calcBasicHbView(rLab->getPos());
 	View porf = calcBasicPorfView(rLab->getPos());
+	DepView pporf(rLab->getPPoView());
 
 	porf.update(rfLab->getPorfView());
+	pporf.update(rfLab->getPPoRfView());
+	if (rfLab->getThread() != rLab->getThread()) {
+		for (auto i = 0u; i < rLab->getIndex(); i++) {
+			const EventLabel *eLab = g.getEventLabel(Event(rLab->getThread(), i));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
+				if (wLab->getAddr() == rLab->getAddr())
+					pporf.update(wLab->getPPoRfView());
+			}
+		}
+	}
+
 	if (rLab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
 	}
 	rLab->setHbView(std::move(hb));
 	rLab->setPorfView(std::move(porf));
+	rLab->setPPoRfView(std::move(pporf));
 }
 
-void RC11MODriver::resetJoin(Event join)
+void IMMDriver::resetJoin(Event join)
 {
 	auto &g = getGraph();
 
@@ -508,13 +604,15 @@ void RC11MODriver::resetJoin(Event join)
 	EventLabel *jLab = g.getEventLabel(join);
 	View hb = calcBasicHbView(jLab->getPos());
 	View porf = calcBasicPorfView(jLab->getPos());
+	DepView pporf(jLab->getPPoView());
 
 	jLab->setHbView(std::move(hb));
 	jLab->setPorfView(std::move(porf));
+	jLab->setPPoRfView(std::move(pporf));
 	return;
 }
 
-bool RC11MODriver::updateJoin(Event join, Event childLast)
+bool IMMDriver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
 
@@ -526,27 +624,127 @@ bool RC11MODriver::updateJoin(Event join, Event childLast)
 
 	jLab->updateHbView(fLab->getHbView());
 	jLab->updatePorfView(fLab->getPorfView());
+	jLab->updatePPoRfView(fLab->getPPoRfView());
 	return true;
 }
 
-bool RC11MODriver::checkPscAcyclicity(CheckPSCType t)
+std::vector<Event> IMMDriver::collectAllEvents()
 {
-	switch (t) {
-	case CheckPSCType::nocheck:
-		return true;
-	case CheckPSCType::weak:
-	case CheckPSCType::wb:
-		WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
-			  "to be checked for the MO-tracking exploration...\n");
-	case CheckPSCType::full:
-		return getGraph().isPscAcyclicMO();
-	default:
-		WARN("Unimplemented model!\n");
-		BUG();
+	const auto &g = getGraph();
+	std::vector<Event> result;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 1u; j < g.getThreadSize(i); j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (llvm::isa<MemAccessLabel>(lab) ||
+			    llvm::isa<FenceLabel>(lab))
+				result.push_back(lab->getPos());
+		}
+	}
+	return result;
+}
+
+/* TODO: Add function in VC interface that transforms VC to Matrix? */
+void IMMDriver::fillMatrixFromView(const Event e, const DepView &v,
+				     Matrix2D<Event> &matrix)
+{
+	const auto &g = getGraph();
+ 	auto eI = matrix.getIndex(e);
+
+	for (auto i = 0u; i < v.size(); i++) {
+                if ((int) i == e.thread)
+			continue;
+		for (auto j = v[i]; j > 0; j--) {
+			auto curr = Event(i, j);
+			if (!v.contains(curr))
+				continue;
+
+			auto *lab = g.getEventLabel(curr);
+                        if (!llvm::isa<MemAccessLabel>(lab) &&
+			    !llvm::isa<FenceLabel>(lab))
+                                continue;
+
+			matrix(lab->getPos(), eI) = true;
+                        break;
+                }
+ 	}
+}
+
+Matrix2D<Event> IMMDriver::getARMatrix()
+{
+	Matrix2D<Event> ar(collectAllEvents());
+	const std::vector<Event> &es = ar.getElems();
+        auto len = ar.size();
+	const auto &g = getGraph();
+
+        /* First, add ppo edges */
+        for (auto i = 0u; i < len; i++) {
+                for (auto j = 0u; j < len; j++) {
+			if (es[i].thread == es[j].thread &&
+			    es[i].index < es[j].index &&
+			    g.getPPoRfBefore(es[j]).contains(es[i]))
+				ar(i, j) = true;
+                }
+        }
+
+        /* Then, add the remaining ar edges */
+        for (const auto &e : es) {
+                auto *lab = g.getEventLabel(e);
+                BUG_ON(!llvm::isa<MemAccessLabel>(lab) && !llvm::isa<FenceLabel>(lab));
+                fillMatrixFromView(e, g.getPPoRfBefore(e), ar);
+        }
+	ar.transClosure();
+	return ar;
+}
+
+bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
+{
+	if (getConf()->coherence == CoherenceType::mo) {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+		case CheckPSCType::wb:
+			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
+				  "to be checked for the MO-tracking exploration...\n");
+		case CheckPSCType::full: {
+			return getGraph().isPscAcyclicMO();
+			// auto &g = getGraph();
+			// Matrix2D<Event> ar = getARMatrix();
+			// auto scs = g.getSCs();
+			// auto &fcs = scs.second;
+			// Matrix2D<Event> psc =  g.calcPscMO();
+
+			// for (auto &f1 : fcs) {
+			// 	for (auto &f2 : fcs)
+			// 		if (psc(f1, f2))
+			// 			ar(f1, f2) = true;
+			// }
+			// ar.transClosure();
+			// return !ar.isReflexive();
+		}
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
+	} else {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+			return getGraph().isPscWeakAcyclicWB();
+		case CheckPSCType::wb:
+			return getGraph().isPscWbAcyclicWB();
+		case CheckPSCType::full:
+			return getGraph().isPscAcyclicWB();
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
 	}
 }
 
-bool RC11MODriver::isExecutionValid()
+bool IMMDriver::isExecutionValid()
 {
 	return checkPscAcyclicity(CheckPSCType::full);
 }

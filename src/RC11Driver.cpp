@@ -18,14 +18,10 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "RC11WBDriver.hpp"
-
-/************************************************************
- ** WB DRIVER
- ***********************************************************/
+#include "RC11Driver.hpp"
 
 /* Calculates a minimal hb vector clock based on po for a given label */
-View RC11WBDriver::calcBasicHbView(Event e) const
+View RC11Driver::calcBasicHbView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getHbView());
 
@@ -34,7 +30,7 @@ View RC11WBDriver::calcBasicHbView(Event e) const
 }
 
 /* Calculates a minimal (po U rf) vector clock based on po for a given label */
-View RC11WBDriver::calcBasicPorfView(Event e) const
+View RC11Driver::calcBasicPorfView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getPorfView());
 
@@ -42,7 +38,7 @@ View RC11WBDriver::calcBasicPorfView(Event e) const
 	return v;
 }
 
-void RC11WBDriver::calcBasicReadViews(ReadLabel *lab)
+void RC11Driver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
@@ -58,7 +54,7 @@ void RC11WBDriver::calcBasicReadViews(ReadLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void RC11WBDriver::calcBasicWriteViews(WriteLabel *lab)
+void RC11Driver::calcBasicWriteViews(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 
@@ -70,7 +66,7 @@ void RC11WBDriver::calcBasicWriteViews(WriteLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void RC11WBDriver::calcWriteMsgView(WriteLabel *lab)
+void RC11Driver::calcWriteMsgView(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 	View msg;
@@ -87,7 +83,7 @@ void RC11WBDriver::calcWriteMsgView(WriteLabel *lab)
 	lab->setMsgView(std::move(msg));
 }
 
-void RC11WBDriver::calcRMWWriteMsgView(WriteLabel *lab)
+void RC11Driver::calcRMWWriteMsgView(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 	View msg;
@@ -113,7 +109,7 @@ void RC11WBDriver::calcRMWWriteMsgView(WriteLabel *lab)
 	lab->setMsgView(std::move(msg));
 }
 
-void RC11WBDriver::calcFenceRelRfPoBefore(Event last, View &v)
+void RC11Driver::calcFenceRelRfPoBefore(Event last, View &v)
 {
 	const auto &g = getGraph();
 	for (auto i = last.index; i > 0; i--) {
@@ -133,7 +129,7 @@ void RC11WBDriver::calcFenceRelRfPoBefore(Event last, View &v)
 }
 
 
-void RC11WBDriver::calcBasicFenceViews(FenceLabel *lab)
+void RC11Driver::calcBasicFenceViews(FenceLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -147,9 +143,9 @@ void RC11WBDriver::calcBasicFenceViews(FenceLabel *lab)
 }
 
 std::unique_ptr<ReadLabel>
-RC11WBDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			     const llvm::GenericValue *ptr, const llvm::Type *typ,
-			     Event rf)
+RC11Driver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    Event rf)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -160,10 +156,10 @@ RC11WBDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FaiReadLabel>
-RC11WBDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, llvm::AtomicRMWInst::BinOp op,
-				llvm::GenericValue &&opValue)
+RC11Driver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       Event rf, llvm::AtomicRMWInst::BinOp op,
+			       llvm::GenericValue &&opValue)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -175,11 +171,11 @@ RC11WBDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<CasReadLabel>
-RC11WBDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, const llvm::GenericValue &expected,
-				const llvm::GenericValue &swap,
-				bool isLock)
+RC11Driver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       Event rf, const llvm::GenericValue &expected,
+			       const llvm::GenericValue &swap,
+			       bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -191,9 +187,9 @@ RC11WBDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<LibReadLabel>
-RC11WBDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, std::string functionName)
+RC11Driver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       Event rf, std::string functionName)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -204,10 +200,10 @@ RC11WBDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<WriteLabel>
-RC11WBDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			      const llvm::GenericValue *ptr, const llvm::Type *typ,
-			      const llvm::GenericValue &val, int offsetMO,
-			      bool isUnlock)
+RC11Driver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+			     const llvm::GenericValue *ptr, const llvm::Type *typ,
+			     const llvm::GenericValue &val, int offsetMO,
+			     bool isUnlock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -219,9 +215,9 @@ RC11WBDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FaiWriteLabel>
-RC11WBDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val, int offsetMO)
+RC11Driver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				const llvm::GenericValue &val, int offsetMO)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -233,10 +229,10 @@ RC11WBDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<CasWriteLabel>
-RC11WBDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val, int offsetMO,
-				 bool isLock)
+RC11Driver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				const llvm::GenericValue &val, int offsetMO,
+				bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -249,10 +245,10 @@ RC11WBDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<LibWriteLabel>
-RC11WBDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 llvm::GenericValue &val, int offsetMO,
-				 std::string functionName, bool isInit)
+RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				llvm::GenericValue &val, int offsetMO,
+				std::string functionName, bool isInit)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -265,7 +261,7 @@ RC11WBDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 }
 
 std::unique_ptr<FenceLabel>
-RC11WBDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
+RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -277,8 +273,8 @@ RC11WBDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 
 
 std::unique_ptr<MallocLabel>
-RC11WBDriver::createMallocLabel(int tid, int index, const void *addr,
-			       unsigned int size, bool isLocal)
+RC11Driver::createMallocLabel(int tid, int index, const void *addr,
+			      unsigned int size, bool isLocal)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -295,8 +291,8 @@ RC11WBDriver::createMallocLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<FreeLabel>
-RC11WBDriver::createFreeLabel(int tid, int index, const void *addr,
-			     unsigned int size)
+RC11Driver::createFreeLabel(int tid, int index, const void *addr,
+			    unsigned int size)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -314,7 +310,7 @@ RC11WBDriver::createFreeLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<ThreadCreateLabel>
-RC11WBDriver::createTCreateLabel(int tid, int index, int cid)
+RC11Driver::createTCreateLabel(int tid, int index, int cid)
 {
 	const auto &g = getGraph();
 	Event pos(tid, index);
@@ -331,7 +327,7 @@ RC11WBDriver::createTCreateLabel(int tid, int index, int cid)
 }
 
 std::unique_ptr<ThreadJoinLabel>
-RC11WBDriver::createTJoinLabel(int tid, int index, int cid)
+RC11Driver::createTJoinLabel(int tid, int index, int cid)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -351,7 +347,7 @@ RC11WBDriver::createTJoinLabel(int tid, int index, int cid)
 }
 
 std::unique_ptr<ThreadStartLabel>
-RC11WBDriver::createStartLabel(int tid, int index, Event tc)
+RC11Driver::createStartLabel(int tid, int index, Event tc)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -372,7 +368,7 @@ RC11WBDriver::createStartLabel(int tid, int index, Event tc)
 }
 
 std::unique_ptr<ThreadFinishLabel>
-RC11WBDriver::createFinishLabel(int tid, int index)
+RC11Driver::createFinishLabel(int tid, int index)
 {
 	const auto &g = getGraph();
 	Event pos(tid, index);
@@ -388,205 +384,33 @@ RC11WBDriver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
-/*
- * Checks which of the stores are (rf?;hb)-before some event e, given the
- * hb-before view of e
- */
-View RC11WBDriver::getRfOptHbBeforeStores(const std::vector<Event> &stores,
-					  const View &hbBefore)
+std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	const auto &g = getGraph();
-	View result;
-
-	for (const auto &w : stores) {
-		/* Check if w itself is in the hb view */
-		if (hbBefore.contains(w)) {
-			result.updateIdx(w);
-			continue;
-		}
-
-		const EventLabel *lab = g.getEventLabel(w);
-		BUG_ON(!llvm::isa<WriteLabel>(lab));
-		auto *wLab = static_cast<const WriteLabel *>(lab);
-
-		/* Check whether [w];rf;[r] is in the hb view, for some r */
-		for (const auto &r : wLab->getReadersList()) {
-			if (r.thread != w.thread && hbBefore.contains(r)) {
-				result.updateIdx(w);
-				result.updateIdx(r);
-				break;
-			}
-		}
-	}
-	return result;
+	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
-void RC11WBDriver::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
-						   View &storeView)
+std::pair<int, int> RC11Driver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
 {
-	const auto &g = getGraph();
-
-	/* Expand view for maximal stores */
-	for (const auto &w : stores) {
-		/* If the store is not maximal, skip */
-		if (w.index != storeView[w.thread])
-			continue;
-
-		const EventLabel *lab = g.getEventLabel(w);
-		BUG_ON(!llvm::isa<WriteLabel>(lab));
-		auto *wLab = static_cast<const WriteLabel *>(lab);
-
-		for (const auto &r : wLab->getReadersList()) {
-			if (r.thread != w.thread)
-				storeView.updateIdx(r);
-		}
-	}
-
-	/* Check if maximal writes have been overwritten */
-	for (const auto &w : stores) {
-		/* If the store is not maximal, skip*/
-		if (w.index != storeView[w.thread])
-			continue;
-
-		const EventLabel *lab = g.getEventLabel(w);
-		BUG_ON(!llvm::isa<WriteLabel>(lab));
-		auto *wLab = static_cast<const WriteLabel *>(lab);
-
-		for (const auto &r : wLab->getReadersList()) {
-			if (r.thread != w.thread && r.index < storeView[r.thread]) {
-				const EventLabel *lab = g.getEventLabel(Event(r.thread, storeView[r.thread]));
-				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-					if (rLab->getRf() != w) {
-						storeView[w.thread]++;
-						break;
-					}
-				}
-			}
-		}
-	}
-	return;
+	return std::make_pair(0,0);
 }
 
-std::vector<Event> RC11WBDriver::getStoresToLoc(const llvm::GenericValue *addr)
+std::vector<Event> RC11Driver::getRevisitLoads(const WriteLabel *sLab)
 {
-	const auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-	auto &allStores = g.getModOrderAtLoc(addr);
-	auto &hbBefore = g.getHbBefore(g.getLastThreadEvent(thr.id));
-	std::vector<Event> result;
-
-	auto view = getRfOptHbBeforeStores(allStores, hbBefore);
-
-	/* Can we read from the initializer event? */
-	if (std::none_of(view.begin(), view.end(), [](int i){ return i > 0; }))
-		result.push_back(Event::getInitializer());
-
-
-	expandMaximalAndMarkOverwritten(allStores, view);
-
-	int count = 0;
-	for (const auto &w : allStores) {
-		if (w.index >= view[w.thread]) {
-			if (count++ > 0) {
-				result.pop_back();
-				break;
-			}
-			result.push_back(w);
-		}
-	}
-	if (count <= 1)
-		return result;
-
-	auto wb = g.calcWb(addr);
-	auto &stores = wb.getElems();
-
-	/* Find the stores from which we can read-from */
-	for (auto i = 0u; i < stores.size(); i++) {
-		auto allowed = true;
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
-				allowed = false;
-				break;
-			}
-		}
-		if (allowed)
-			result.push_back(stores[i]);
-	}
-
-	return result;
+	return getGraph().getCoherentRevisits(sLab);
 }
 
-std::pair<int, int> RC11WBDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
+std::pair<std::vector<std::unique_ptr<EventLabel> >,
+	  std::vector<std::pair<Event, Event> > >
+RC11Driver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
-	auto locMOSize = (int) g.getModOrderAtLoc(addr).size();
-	return std::make_pair(locMOSize, locMOSize);
+	auto preds = g.getViewFromStamp(rLab->getStamp());
+	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
+	auto moPlacings = g.saveCoherenceStatus(writePrefix, preds);
+	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
-std::vector<Event> RC11WBDriver::getRevisitLoads(const WriteLabel *sLab)
-{
-	const auto &g = getGraph();
-	auto ls = g.getRevisitable(sLab);
-
-	/* Optimization:
-	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
-	 * wb-maximal (and so, all revisitable loads can read from it).
-	 */
-	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
-		return ls;
-
-	/* Optimization:
-	 * If sLab is maximal in WB, then all revisitable loads can read
-	 * from it.
-	 */
-	if (ls.size() > 1) {
-		auto wb = g.calcWb(sLab->getAddr());
-		auto i = wb.getIndex(sLab->getPos());
-		bool allowed = true;
-		for (auto j = 0u; j < wb.size(); j++)
-			if (wb(i,j)) {
-				allowed = false;
-				break;
-			}
-		if (allowed)
-			return ls;
-	}
-
-	std::vector<Event> result;
-
-	/*
-	 * We calculate WB again, in order to filter-out inconsistent
-	 * revisit options. For example, if sLab is an RMW, we cannot
-	 * revisit a read r for which:
-	 * \exists c_a in C_a .
-	 *         (c_a, r) \in (hb;[\lW_x];\lRF^?;hb;po)
-	 *
-	 * since this will create a cycle in WB
-	 */
-
-	for (auto &l : ls) {
-		auto v = g.getViewFromStamp(g.getEventLabel(l)->getStamp());
-		v.update(g.getPorfBefore(sLab->getPos()));
-
-		auto wb = g.calcWbRestricted(sLab->getAddr(), v);
-		auto &stores = wb.getElems();
-		auto i = wb.getIndex(sLab->getPos());
-
-		auto &hbBefore = g.getHbBefore(l.prev());
-		bool allowed = true;
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
-				allowed = false;
-				break;
-			}
-		}
-		if (allowed)
-			result.push_back(l);
-	}
-	return result;
-}
-
-void RC11WBDriver::changeRf(Event read, Event store)
+void RC11Driver::changeRf(Event read, Event store)
 {
 	auto &g = getGraph();
 
@@ -609,7 +433,7 @@ void RC11WBDriver::changeRf(Event read, Event store)
 	rLab->setPorfView(std::move(porf));
 }
 
-void RC11WBDriver::resetJoin(Event join)
+void RC11Driver::resetJoin(Event join)
 {
 	auto &g = getGraph();
 
@@ -624,7 +448,7 @@ void RC11WBDriver::resetJoin(Event join)
 	return;
 }
 
-bool RC11WBDriver::updateJoin(Event join, Event childLast)
+bool RC11Driver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
 
@@ -639,33 +463,40 @@ bool RC11WBDriver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
-std::pair<std::vector<std::unique_ptr<EventLabel> >,
-	  std::vector<std::pair<Event, Event> > >
-RC11WBDriver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
+bool RC11Driver::checkPscAcyclicity(CheckPSCType t)
 {
-	const auto &g = getGraph();
-	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
-	return std::make_pair(std::move(writePrefix), std::vector<std::pair<Event, Event>>());
-}
-
-bool RC11WBDriver::checkPscAcyclicity(CheckPSCType t)
-{
-	switch (t) {
-	case CheckPSCType::nocheck:
-		return true;
-	case CheckPSCType::weak:
-		return getGraph().isPscWeakAcyclicWB();
-	case CheckPSCType::wb:
-		return getGraph().isPscWbAcyclicWB();
-	case CheckPSCType::full:
-		return getGraph().isPscAcyclicWB();
-	default:
-		WARN("Unimplemented model!\n");
-		BUG();
+	if (getConf()->coherence == CoherenceType::mo) {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+		case CheckPSCType::wb:
+			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
+				  "to be checked for the MO-tracking exploration...\n");
+		case CheckPSCType::full:
+			return getGraph().isPscAcyclicMO();
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
+	} else {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+			return getGraph().isPscWeakAcyclicWB();
+		case CheckPSCType::wb:
+			return getGraph().isPscWbAcyclicWB();
+		case CheckPSCType::full:
+			return getGraph().isPscAcyclicWB();
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
 	}
 }
 
-bool RC11WBDriver::isExecutionValid()
+bool RC11Driver::isExecutionValid()
 {
 	return checkPscAcyclicity(CheckPSCType::full);
 }

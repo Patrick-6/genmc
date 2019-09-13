@@ -34,18 +34,18 @@ public:
 	GraphBuilder(bool shouldTrackDeps) {
                 tracksDeps = shouldTrackDeps;
 		if (tracksDeps)
-			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph);
-		else
 			graph = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph);
+		else
+			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph);
 	};
 
 	GraphBuilder &withCoherenceType(CoherenceType co) {
 		switch (co) {
-		case CoherenceType::coh_mo:
+		case CoherenceType::mo:
 			graph->setCoherenceCalculator(
 				llvm::make_unique<MOCoherenceCalculator>(*graph, tracksDeps));
 			break;
-		case CoherenceType::coh_wb:
+		case CoherenceType::wb:
 			graph->setCoherenceCalculator(
 				llvm::make_unique<WBCoherenceCalculator>(*graph, tracksDeps));
 			break;

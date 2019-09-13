@@ -20,6 +20,7 @@
 
 #include "Library.hpp"
 #include "MOCoherenceCalculator.hpp"
+#include "WBCoherenceCalculator.hpp"
 #include "Parser.hpp"
 #include "ExecutionGraph.hpp"
 #include <llvm/IR/DebugInfo.h>
@@ -216,48 +217,15 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *add
 	return result;
 }
 
-/* Returns a vector with events that are mo;rf? after sLab */
-std::vector<Event> ExecutionGraph::getMoOptRfAfter(const WriteLabel *sLab) const
+void ExecutionGraph::trackCoherenceAtLoc(const llvm::GenericValue *addr)
 {
-	auto ls = modOrder.getMoAfter(sLab->getAddr(), sLab->getPos());
-	std::vector<Event> rfs;
-
-	/*
-	 * We push the RFs to a different vector in order
-	 * not to invalidate the iterator
-	 */
-	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getEventLabel(*it);
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			for (auto &l : wLab->getReadersList())
-				rfs.push_back(l);
-		}
-	}
-	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
-	return ls;
+	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
 }
 
-/* Returns a vector with events that are mo^-1;rf? after sLab */
-std::vector<Event> ExecutionGraph::getMoInvOptRfAfter(const WriteLabel *sLab) const
+const std::vector<Event>&
+ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr) const
 {
-	auto ls = modOrder.getMoBefore(sLab->getAddr(), sLab->getPos());
-	std::vector<Event> rfs;
-
-	/* First, we add the rfs of all the mo-before events */
-	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getEventLabel(*it);
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			for (auto &l : wLab->getReadersList())
-				rfs.push_back(l);
-		}
-	}
-	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
-
-	/* Then, we add the reader list for the initializer */
-	auto initRfs = getInitRfsAtLoc(sLab->getAddr());
-	std::move(initRfs.begin(), initRfs.end(), std::back_inserter(ls));
-
-	return ls;
+	return getCoherenceCalculator()->getStoresToLoc(addr);
 }
 
 const std::vector<Event>&
@@ -276,6 +244,12 @@ std::vector<Event>
 ExecutionGraph::getCoherentStores(const llvm::GenericValue *addr, Event pos)
 {
 	return getCoherenceCalculator()->getCoherentStores(addr, pos);
+}
+
+std::vector<Event>
+ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab)
+{
+	return getCoherenceCalculator()->getCoherentRevisits(wLab);
 }
 
 
@@ -299,8 +273,14 @@ const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabe
 {
 
 	getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), offsetMO);
-	modOrder[lab->getAddr()].insert(modOrder[lab->getAddr()].begin() + offsetMO,
-					lab->getPos());
+	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+}
+
+const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+						       Event pred)
+{
+
+	getCoherenceCalculator()->addStoreToLocAfter(lab->getAddr(), lab->getPos(), pred);
 	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 }
 
@@ -325,7 +305,7 @@ const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabe
 std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericValue *loc,
 							  const std::vector<Event> &chain) const
 {
-	auto &stores = getModOrderAtLoc(loc);
+	auto &stores = getStoresToLoc(loc);
 	std::vector<Event> result;
 
 	for (auto &s : stores) {
@@ -337,6 +317,15 @@ std::vector<Event> ExecutionGraph::getStoresHbAfterStores(const llvm::GenericVal
 			result.push_back(s);
 	}
 	return result;
+}
+
+std::unique_ptr<VectorClock>
+ExecutionGraph::getRevisitView(const ReadLabel *rLab,
+			       const WriteLabel *wLab) const
+{
+	auto preds = llvm::make_unique<View>(getViewFromStamp(rLab->getStamp()));
+	preds->update(wLab->getPorfView());
+	return preds;
 }
 
 const DepView &ExecutionGraph::getPPoRfBefore(Event e) const
@@ -476,47 +465,6 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 			rfs.push_back(rLab->getRf());
 	}
 	return rfs;
-}
-
-std::vector<std::pair<Event, Event> >
-ExecutionGraph::getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-				   const VectorClock &before) const
-{
-	std::vector<std::pair<Event, Event> > pairs;
-
-	for (const auto &lab : labs) {
-		/* Only store MO pairs for labels that are not in before */
-		if (!llvm::isa<WriteLabel>(lab.get()) || before.contains(lab->getPos()))
-			continue;
-
-		auto *wLab = static_cast<const WriteLabel *>(lab.get());
-		auto &locMO = modOrder[wLab->getAddr()];
-		auto moPos = std::find(locMO.begin(), locMO.end(), wLab->getPos());
-
-		/* This store must definitely be in this location's MO */
-		BUG_ON(moPos == locMO.end());
-
-		/* We need to find the previous MO store that is in before or
-		 * in the vector for which we are getting the predecessors */
-		decltype(locMO.crbegin()) predPos(moPos);
-		auto predFound = false;
-		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
-			if (before.contains(*rit) ||
-			    std::find_if(labs.begin(), labs.end(),
-					 [&](const std::unique_ptr<EventLabel> &lab)
-					 { return lab->getPos() == *rit; })
-			    != labs.end()) {
-				pairs.push_back(std::make_pair(*moPos, *rit));
-				predFound = true;
-				break;
-			}
-		}
-		/* If there is not predecessor in the vector or in before,
-		 * then INIT is the only valid predecessor */
-		if (!predFound)
-			pairs.push_back(std::make_pair(*moPos, Event::getInitializer()));
-	}
-	return pairs;
 }
 
 
@@ -789,6 +737,13 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	return;
 }
 
+std::vector<std::pair<Event, Event> >
+ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+				    const VectorClock &preds) const
+{
+	return getCoherenceCalculator()->saveCoherenceStatus(prefix, preds);
+}
+
 void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 					std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 					std::vector<std::pair<Event, Event> > &moPlacings)
@@ -832,28 +787,17 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 	}
 
 	/* If there are no specific mo placings, just insert all stores */
-	if (moPlacings.empty()) {
-		for (const auto &e : inserted) {
-			const EventLabel *lab = getEventLabel(e);
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
-				modOrder.addAtLocEnd(wLab->getAddr(), wLab->getPos());
-		}
-		return;
-	}
+	// if (moPlacings.empty()) {
+	// 	for (const auto &e : inserted) {
+	// 		const EventLabel *lab = getEventLabel(e);
+	// 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
+	// 			modOrder.addAtLocEnd(wLab->getAddr(), wLab->getPos());
+	// 	}
+	// 	return;
+	// }
 
 	/* Otherwise, insert the writes of storePrefix into the appropriate places */
-	auto insertedMO = 0u;
-	while (insertedMO < moPlacings.size()) {
-		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
-			/* it->fist is a WriteLabel by construction */
-			auto *lab = static_cast<const WriteLabel *>(getEventLabel(it->first));
-			if (modOrder.locContains(lab->getAddr(), it->second) &&
-			    !modOrder.locContains(lab->getAddr(), it->first)) {
-				modOrder.addAtLocAfter(lab->getAddr(), it->second, it->first);
-				++insertedMO;
-			}
-		}
-	}
+	getCoherenceCalculator()->restoreCoherenceStatus(moPlacings);
 }
 
 bool ExecutionGraph::revisitSetContains(const ReadLabel *r, const std::vector<Event> &writePrefix,
@@ -891,10 +835,10 @@ bool ExecutionGraph::isConsistent(void) const
  ** Race detection methods
  ***********************************************************/
 
-Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab) const
+Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const View &before = getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = modOrder[rLab->getAddr()];
+	const auto &stores = getStoresToLoc(rLab->getAddr());
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -1259,7 +1203,7 @@ void ExecutionGraph::addInitEdges(const std::vector<Event> &fcs,
 
 			auto preds = calcSCPreds(fcs, rLab->getPos());
 			auto fencePreds = calcSCFencesPreds(fcs, rLab->getPos());
-			for (auto &w : modOrder[rLab->getAddr()]) {
+			for (auto &w : getStoresToLoc(rLab->getAddr())) {
 				/* Can be casted to WriteLabel by construction */
 				auto *wLab = static_cast<const WriteLabel *>(
 					getEventLabel(w));
@@ -1277,6 +1221,10 @@ void ExecutionGraph::addInitEdges(const std::vector<Event> &fcs,
 
 bool ExecutionGraph::isPscWeakAcyclicWB() const
 {
+	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
+	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
+
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
 	auto &scs = accesses.first;
@@ -1300,7 +1248,7 @@ bool ExecutionGraph::isPscWeakAcyclicWB() const
 	 */
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto wb = calcWb(loc);
+		auto wb = cohTracker->calcWb(loc);
 		auto sortedStores = wb.topoSort();
 		addSCEcos(fcs, sortedStores, matrix);
 	}
@@ -1311,6 +1259,10 @@ bool ExecutionGraph::isPscWeakAcyclicWB() const
 
 bool ExecutionGraph::isPscWbAcyclicWB() const
 {
+	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
+	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
+
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
 	auto &scs = accesses.first;
@@ -1334,7 +1286,7 @@ bool ExecutionGraph::isPscWbAcyclicWB() const
 	 */
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto wb = calcWb(loc);
+		auto wb = cohTracker->calcWb(loc);
 		addSCWbEcos(fcs, wb, matrix);
 	}
 
@@ -1344,6 +1296,10 @@ bool ExecutionGraph::isPscWbAcyclicWB() const
 
 bool ExecutionGraph::isPscAcyclicWB() const
 {
+	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
+	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
+
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
 	auto &scs = accesses.first;
@@ -1368,7 +1324,7 @@ bool ExecutionGraph::isPscAcyclicWB() const
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
 	for (auto i = 0u; i < scLocs.size(); i++) {
-		auto wb = calcWb(scLocs[i]);
+		auto wb = cohTracker->calcWb(scLocs[i]);
 		topoSorts[i] = wb.allTopoSort();
 	}
 
@@ -1428,7 +1384,7 @@ Matrix2D<Event> ExecutionGraph::calcPscMO() const
 	 */
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		const auto &stores = modOrder[loc];
+		const auto &stores = getStoresToLoc(loc);
 		addSCEcos(fcs, stores, matrix);
 	}
 
@@ -1461,224 +1417,12 @@ bool ExecutionGraph::isPscAcyclicMO() const
 	 */
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
-		auto &stores = modOrder[loc];
+		auto &stores = getStoresToLoc(loc);
 		addSCEcos(fcs, stores, matrix);
 	}
 
 	matrix.transClosure();
 	return !matrix.isReflexive();
-}
-
-/*
- * Given a WB matrix returns a vector that, for each store in the WB
- * matrix, contains the index (in the WB matrix) of the upper and the
- * lower limit of the RMW chain that store belongs to. We use N for as
- * the index of the initializer write, where N is the number of stores
- * in the WB matrix.
- *
- * The vector is partitioned into 3 parts: | UPPER | LOWER | LOWER_I |
- *
- * The first part contains the upper limits, the second part the lower
- * limits and the last part the lower limit for the initiazizer write,
- * which is not part of the WB matrix.
- *
- * If there is an atomicity violation in the graph, the returned
- * vector is empty. (This may happen as part of some optimization,
- * e.g., in getRevisitLoads(), where the view of the resulting graph
- * is not calculated.)
- */
-std::vector<unsigned int> ExecutionGraph::calcRMWLimits(const Matrix2D<Event> &wb) const
-{
-	auto &s = wb.getElems();
-	auto size = s.size();
-
-	/* upperL is the vector to return, with size (2 * N + 1) */
-	std::vector<unsigned int> upperL(2 * size + 1);
-	std::vector<unsigned int>::iterator lowerL = upperL.begin() + size;
-
-	/*
-	 * First, we initialize the vector. For the upper limit of a
-	 * non-RMW store we set the store itself, and for an RMW-store
-	 * its predecessor in the RMW chain. For the lower limit of
-	 * any store we set the store itself.  For the initializer
-	 * write, we use "size" as its index, since it does not exist
-	 * in the WB matrix.
-	 */
-	for (auto i = 0u; i < size; i++) {
-		/* static casts below are based on the construction of the EG */
-		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(s[i]));
-		if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab)) {
-			auto *pLab = static_cast<const ReadLabel *>(
-				getPreviousLabel(wLab));
-			Event prev = pLab->getRf();
-			upperL[i] = (prev == Event::getInitializer()) ? size :
-				wb.getIndex(prev);
-		} else {
-			upperL[i] = i;
-		}
-		lowerL[i] = i;
-	}
-	lowerL[size] = size;
-
-	/*
-	 * Next, we set the lower limit of the upper limit of an RMW
-	 * store to be the store itself.
-	 */
-	for (auto i = 0u; i < size; i++) {
-		auto ui = upperL[i];
-		if (ui == i)
-			continue;
-		if (lowerL[ui] != ui) {
-			/* If the lower limit of this upper limit has already
-			 * been set, we have two RMWs reading from the same write */
-			upperL.clear();
-			return upperL;
-		}
-		lowerL[upperL[i]] = i;
-	}
-
-	/*
-	 * Calculate the actual upper limit, by taking the
-	 * predecessor's predecessor as an upper limit, until the end
-	 * of the chain is reached.
-	 */
-        bool changed;
-	do {
-		changed = false;
-		for (auto i = 0u; i < size; i++) {
-			auto j = upperL[i];
-			if (j == size || j == i)
-				continue;
-
-			auto k = upperL[j];
-			if (j == k)
-				continue;
-			upperL[i] = k;
-			changed = true;
-		}
-	} while (changed);
-
-	/* Similarly for the lower limits */
-	do {
-		changed = false;
-		for (auto i = 0u; i <= size; i++) {
-			auto j = lowerL[i];
-			if (j == i)
-				continue;
-			auto k = lowerL[j];
-			if (j == k)
-				continue;
-			lowerL[i] = k;
-			changed = true;
-		}
-	} while (changed);
-	return upperL;
-}
-
-Matrix2D<Event> ExecutionGraph::calcWbRestricted(const llvm::GenericValue *addr,
-						 const VectorClock &v) const
-{
-	std::vector<Event> storesInView;
-
-	std::copy_if(modOrder[addr].begin(), modOrder[addr].end(),
-		     std::back_inserter(storesInView),
-		     [&](const Event &s){ return v.contains(s); });
-
-	Matrix2D<Event> matrix(std::move(storesInView));
-	auto &stores = matrix.getElems();
-
-	/* Optimization */
-	if (stores.size() <= 1)
-		return matrix;
-
-	auto upperLimit = calcRMWLimits(matrix);
-	if (upperLimit.empty()) {
-		for (auto i = 0u; i < stores.size(); i++)
-			matrix(i,i) = true;
-		return matrix;
-	}
-
-	auto lowerLimit = upperLimit.begin() + stores.size();
-
-	for (auto i = 0u; i < stores.size(); i++) {
-		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(stores[i]));
-
-		std::vector<Event> es;
-		const std::vector<Event> readers = wLab->getReadersList();
-		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
-			     [&](const Event &r){ return v.contains(r); });
-
-		auto before = getHbBefore(es).
-			update(getPreviousNonEmptyLabel(wLab)->getHbView());
-		auto upi = upperLimit[i];
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (i == j || !isWriteRfBefore(before, stores[j]))
-				continue;
-			matrix(j, i) = true;
-
-			if (upi == stores.size() || upi == upperLimit[j])
-				continue;
-			matrix(lowerLimit[j], upi) = true;
-		}
-
-		if (lowerLimit[stores.size()] == stores.size() || upi == stores.size())
-			continue;
-		matrix(lowerLimit[stores.size()], i) = true;
-	}
-	matrix.transClosure();
-	return matrix;
-}
-
-Matrix2D<Event> ExecutionGraph::calcWb(const llvm::GenericValue *addr) const
-{
-	Matrix2D<Event> matrix(modOrder[addr]);
-	auto &stores = matrix.getElems();
-
-	/* Optimization */
-	if (stores.size() <= 1)
-		return matrix;
-
-	auto upperLimit = calcRMWLimits(matrix);
-	if (upperLimit.empty()) {
-		for (auto i = 0u; i < stores.size(); i++)
-			matrix(i,i) = true;
-		return matrix;
-	}
-
-	auto lowerLimit = upperLimit.begin() + stores.size();
-
-	for (auto i = 0u; i < stores.size(); i++) {
-		auto *wLab = static_cast<const WriteLabel *>(getEventLabel(stores[i]));
-		auto before = getHbBefore(wLab->getReadersList()).
-			update(getPreviousNonEmptyLabel(wLab)->getHbView());
-
-		auto upi = upperLimit[i];
-		for (auto j = 0u; j < stores.size(); j++) {
-			if (i == j || !isWriteRfBefore(before, stores[j]))
-				continue;
-			matrix(j, i) = true;
-			if (upi == stores.size() || upi == upperLimit[j])
-				continue;
-			matrix(lowerLimit[j], upi) = true;
-		}
-
-		if (lowerLimit[stores.size()] == stores.size() || upi == stores.size())
-			continue;
-		matrix(lowerLimit[stores.size()], i) = true;
-	}
-	matrix.transClosure();
-	return matrix;
-}
-
-bool ExecutionGraph::isWbAcyclic(void) const
-{
-	const auto &mo = getModOrder();
-	for (auto it = mo.cbegin(); it != mo.cend(); ++it) {
-		auto wb = calcWb(it->first);
-		if (wb.isReflexive())
-			return false;
-	}
-	return true;
 }
 
 
@@ -1788,6 +1532,9 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				    std::vector<Event> &tos)
 {
+	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
+	auto *cohTracker = static_cast<WBCoherenceCalculator *>(cc);
 	std::vector<Event> buf;
 
 	for (auto i = 0u; i < froms.size(); i++) {
@@ -1802,7 +1549,7 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 			for (auto &t : tos)
 				v.update(getEventLabel(t)->getHbView());
 
-			auto wb = calcWbRestricted(wLab->getAddr(), v);
+			auto wb = cohTracker->calcWbRestricted(wLab->getAddr(), v);
 			auto &ss = wb.getElems();
 			// TODO: Make a map with already calculated WBs??
 
@@ -1824,6 +1571,9 @@ void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 {
 	std::vector<Event> buf;
 
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCoherenceCalculator *>(getCoherenceCalculator());
+
 	for (auto i = 0u; i < froms.size(); i++) {
 		buf = {};
 		for (auto j = 0u; j < froms[i].second.size(); j++) {
@@ -1833,7 +1583,7 @@ void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 
 			/* Collect all mo-after events that are in the "tos" range */
 			auto *wLab = static_cast<const WriteLabel *>(lab);
-			auto moAfter = modOrder.getMoAfter(wLab->getAddr(), wLab->getPos());
+			auto moAfter = cohTracker->getMOAfter(wLab->getAddr(), wLab->getPos());
 			for (const auto &s : moAfter)
 				if (std::find(tos.begin(), tos.end(), s) != tos.end())
 					buf.push_back(s);

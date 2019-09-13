@@ -23,7 +23,7 @@
 
 #include "GenMCDriver.hpp"
 
-class RC11MODriver : public GenMCDriver {
+class RC11Driver : public GenMCDriver {
 
 protected:
 	View calcBasicHbView(Event e) const;
@@ -39,9 +39,9 @@ protected:
 
 public:
 
-	RC11MODriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		     std::vector<Library> &granted, std::vector<Library> &toVerify,
-		     clock_t start)
+	RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
+		   std::vector<Library> &granted, std::vector<Library> &toVerify,
+		   clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
 	/* Creates a label for a plain read to be added to the graph */

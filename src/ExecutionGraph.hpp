@@ -27,7 +27,6 @@
 #include "EventLabel.hpp"
 #include "Library.hpp"
 #include "Matrix2D.hpp"
-#include "ModOrder.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -80,18 +79,14 @@ public:
 
 
 	/* Modification order methods */
-	const ModOrder& getModOrder() const { return modOrder; };
-	const std::vector<Event>& getModOrderAtLoc(const llvm::GenericValue *addr) const {
-		return modOrder[addr];
-	};
-	std::vector<Event>& getModOrderAtLoc(const llvm::GenericValue *addr) {
-		return modOrder[addr];
-	};
+	void trackCoherenceAtLoc(const llvm::GenericValue *addr);
+	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr) const;
 	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr);
 	std::vector<Event> getCoherentStores(const llvm::GenericValue *addr,
 					     Event pos);
 	std::pair<int, int> getCoherentPlacings(const llvm::GenericValue *addr,
 						Event pos, bool isRMW);
+	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);
 
 
 	/* Thread-related methods */
@@ -118,6 +113,8 @@ public:
 					     Event rf);
 	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 					       unsigned int offsetMO);
+	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					       Event pred);
 	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 
@@ -175,6 +172,9 @@ public:
 	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
 						  const std::vector<Event> &chain) const;
 
+	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
+							    const WriteLabel *wLab) const;
+
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	const DepView &getPPoRfBefore(Event e) const;
@@ -185,18 +185,6 @@ public:
 	View getHbRfBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
-	std::vector<Event> getMoOptRfAfter(const WriteLabel *sLab) const;
-	std::vector<Event> getMoInvOptRfAfter(const WriteLabel *sLab) const;
-
-
-	/* WB calculations */
-
-	/* Calculates WB */
-	Matrix2D<Event> calcWb(const llvm::GenericValue *addr) const;
-
-	/* Calculates WB restricted in v */
-	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr,
-					 const VectorClock &v) const;
 
 
 	/* Boolean helper functions */
@@ -225,7 +213,7 @@ public:
 
 	/* Race detection methods */
 
-	Event findRaceForNewLoad(const ReadLabel *rLab) const;
+	Event findRaceForNewLoad(const ReadLabel *rLab);
 	Event findRaceForNewStore(const WriteLabel *wLab) const;
 
 
@@ -238,8 +226,6 @@ public:
 
 	Matrix2D<Event> calcPscMO() const;
 	bool isPscAcyclicMO() const;
-
-	bool isWbAcyclic() const;
 
 
 	/* Library consistency checks */
@@ -298,8 +284,8 @@ public:
 	/* Returns pairs of the form <store, pred> where store is a write from labs,
 	 * and pred is an mo-before store that is in before */
 	std::vector<std::pair<Event, Event> >
-	getMOPredsInBefore(const std::vector<std::unique_ptr<EventLabel> > &labs,
-			   const VectorClock &before) const;
+	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+			    const VectorClock &preds) const;
 
 	/* Restores the prefix stored in storePrefix (for revisiting rLab) and
 	 * also the moPlacings of the above prefix */
@@ -324,6 +310,7 @@ public:
 protected:
 	/* Returns a reference to the graph's coherence calculator */
 	CoherenceCalculator *getCoherenceCalculator() { return cohTracker.get(); };
+	const CoherenceCalculator *getCoherenceCalculator() const { return cohTracker.get(); };
 
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
@@ -333,9 +320,6 @@ protected:
 		events[e.thread][e.index] = std::move(lab);
 	};
 
-	ModOrder& getModOrder() { return modOrder; };
-
-	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb) const;
 	void calcPorfAfter(const Event e, View &a);
 	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a) const;
 	void calcRelRfPoBefore(const Event last, View &v) const;
@@ -403,8 +387,6 @@ private:
 
 	/* A coherence calculator for the graph */
 	std::unique_ptr<CoherenceCalculator> cohTracker = nullptr;
-
-	ModOrder modOrder;
 
 	/* The next available timestamp */
 	unsigned int timestamp;

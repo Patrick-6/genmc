@@ -41,6 +41,10 @@ public:
 	WBCoherenceCalculator(ExecutionGraph &g, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, g, ooo) {}
 
+	/* Track coherence at location addr */
+	void
+	trackCoherenceAtLoc(const llvm::GenericValue *addr) override;
+
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
 	std::pair<int, int>
@@ -50,23 +54,68 @@ public:
 	/* Tracks a store by inserting it into the appropriate offset */
 	void
 	addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset) override;
+	void
+	addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
-	getStoresToLoc(const llvm::GenericValue *addr) override;
+	getStoresToLoc(const llvm::GenericValue *addr) const override;
 
 	/* Returns all the stores for which if "read" reads-from, coherence
 	 * is not violated */
 	std::vector<Event>
 	getCoherentStores(const llvm::GenericValue *addr, Event read) override;
 
+	/* Returns all the reads that "wLab" can revisit without violating
+	 * coherence */
+	std::vector<Event>
+	getCoherentRevisits(const WriteLabel *wLab) override;
+
+	/* Saves the coherence status for all write labels in prefix.
+	 * This means that for each write we save a predecessor in preds (or within
+	 * the prefix itself), which will be present when the prefix is restored. */
+	std::vector<std::pair<Event, Event> >
+	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+			    const VectorClock &preds) const override;
+
+	/* Restores a previously saved coherence status */
+	void
+	restoreCoherenceStatus(std::vector<std::pair<Event, Event> > &status) override;
+
 	void removeStoresAfter(VectorClock &preds) override;
+
+	/* Calculates WB */
+	Matrix2D<Event> calcWb(const llvm::GenericValue *addr) const;
+
+	/* Calculates WB restricted in v */
+	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr,
+					 const VectorClock &v) const;
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_WritesBefore;
 	}
 
 private:
+	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb) const;
+
+	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
+				    const View &hbBefore);
+	void expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
+					     View &storeView);
+
+	bool tryOptimizeWBCalculation(const llvm::GenericValue *addr,
+				      Event read, std::vector<Event> &result);
+
+	bool isWbMaximal(const WriteLabel *wLab, const std::vector<Event> &ls) const;
+
+	bool isCoherentRf(const llvm::GenericValue *addr,
+			  const Matrix2D<Event> &wb, Event read,
+			  Event store, int storeWbIdx);
+	bool isInitCoherentRf(const Matrix2D<Event> &wb, Event read);
+
+	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
+
+
 
 	typedef std::unordered_map<const llvm::GenericValue *,
 				   std::vector<Event> > StoresList;

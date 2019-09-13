@@ -40,6 +40,15 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) con
 	return loads;
 }
 
+std::unique_ptr<VectorClock>
+DepExecutionGraph::getRevisitView(const ReadLabel *rLab,
+				  const WriteLabel *wLab) const
+{
+	auto preds = llvm::make_unique<DepView>(getDepViewFromStamp(rLab->getStamp()));
+	preds->update(wLab->getPPoRfView());
+	return preds;
+}
+
 const VectorClock& DepExecutionGraph::getPrefixView(Event e) const
 {
 	return getPPoRfBefore(e);

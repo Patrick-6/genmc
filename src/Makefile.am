@@ -29,8 +29,7 @@ libgenmc_a_SOURCES = \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
   IMMDepTracker.hpp \
-  IMMWBDriver.cpp IMMWBDriver.hpp \
-  IMMMODriver.cpp IMMMODriver.hpp \
+  IMMDriver.cpp IMMDriver.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   Library.cpp Library.hpp \
@@ -40,9 +39,7 @@ libgenmc_a_SOURCES = \
   MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
   ModOrder.cpp ModOrder.hpp \
   Parser.cpp Parser.hpp \
-  RC11WeakRADriver.cpp RC11WeakRADriver.hpp \
-  RC11WBDriver.cpp RC11WBDriver.hpp \
-  RC11MODriver.cpp RC11MODriver.hpp \
+  RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
