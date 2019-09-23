@@ -46,7 +46,7 @@ DepExecutionGraph::getRevisitView(const ReadLabel *rLab,
 {
 	auto preds = llvm::make_unique<DepView>(getDepViewFromStamp(rLab->getStamp()));
 	preds->update(wLab->getPPoRfView());
-	return preds;
+	return std::move(preds);
 }
 
 const VectorClock& DepExecutionGraph::getPrefixView(Event e) const

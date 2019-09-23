@@ -325,7 +325,7 @@ ExecutionGraph::getRevisitView(const ReadLabel *rLab,
 {
 	auto preds = llvm::make_unique<View>(getViewFromStamp(rLab->getStamp()));
 	preds->update(wLab->getPorfView());
-	return preds;
+	return std::move(preds);
 }
 
 const DepView &ExecutionGraph::getPPoRfBefore(Event e) const
