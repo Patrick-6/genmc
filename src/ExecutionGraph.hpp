@@ -212,12 +212,6 @@ public:
 					  const EventLabel *sLab) const;
 
 
-	/* Race detection methods */
-
-	Event findRaceForNewLoad(const ReadLabel *rLab);
-	Event findRaceForNewStore(const WriteLabel *wLab) const;
-
-
 	/* Consistency checks */
 
 	bool isConsistent() const;

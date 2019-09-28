@@ -830,57 +830,6 @@ bool ExecutionGraph::isConsistent(void) const
 	return true;
 }
 
-
-/************************************************************
- ** Race detection methods
- ***********************************************************/
-
-Event ExecutionGraph::findRaceForNewLoad(const ReadLabel *rLab)
-{
-	const View &before = getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = getStoresToLoc(rLab->getAddr());
-
-	/* If there are not any events hb-before the read, there is nothing to do */
-	if (before.empty())
-		return Event::getInitializer();
-
-	/* Check for events that race with the current load */
-	for (auto &s : stores) {
-		if (before.contains(s))
-			continue;
-
-		auto *sLab = static_cast<const WriteLabel *>(getEventLabel(s));
-		if ((rLab->isNotAtomic() || sLab->isNotAtomic()) &&
-		    rLab->getPos() != sLab->getPos())
-			return s; /* Race detected! */
-	}
-	return Event::getInitializer(); /* Race not found */
-}
-
-Event ExecutionGraph::findRaceForNewStore(const WriteLabel *wLab) const
-{
-	auto &before = getPreviousNonEmptyLabel(wLab)->getHbView();
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before[i] + 1u; j < getThreadSize(i); j++) {
-			const EventLabel *oLab = getEventLabel(Event(i, j));
-
-			/* If they are both atomics, nothing to check */
-			if (!wLab->isNotAtomic() && !oLab->isNotAtomic())
-				continue;
-			if (!llvm::isa<MemAccessLabel>(oLab))
-				continue;
-
-			auto *mLab = static_cast<const MemAccessLabel *>(oLab);
-			if (mLab->getAddr() == wLab->getAddr() &&
-			    mLab->getPos() != wLab->getPos())
-				return mLab->getPos(); /* Race detected */
-		}
-	}
-	return Event::getInitializer(); /* Race not found */
-}
-
-
 /************************************************************
  ** PSC calculation
  ***********************************************************/

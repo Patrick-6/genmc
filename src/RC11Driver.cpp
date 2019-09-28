@@ -384,6 +384,53 @@ RC11Driver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
+Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
+{
+	const auto &g = getGraph();
+	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
+	const auto &stores = g.getStoresToLoc(rLab->getAddr());
+
+	/* If there are not any events hb-before the read, there is nothing to do */
+	if (before.empty())
+		return Event::getInitializer();
+
+	/* Check for events that race with the current load */
+	for (auto &s : stores) {
+		if (before.contains(s))
+			continue;
+
+		auto *sLab = static_cast<const WriteLabel *>(g.getEventLabel(s));
+		if ((rLab->isNotAtomic() || sLab->isNotAtomic()) &&
+		    rLab->getPos() != sLab->getPos())
+			return s; /* Race detected! */
+	}
+	return Event::getInitializer(); /* Race not found */
+}
+
+Event RC11Driver::findRaceForNewStore(const WriteLabel *wLab)
+{
+	const auto &g = getGraph();
+	auto &before = g.getPreviousNonEmptyLabel(wLab)->getHbView();
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
+			const EventLabel *oLab = g.getEventLabel(Event(i, j));
+
+			/* If they are both atomics, nothing to check */
+			if (!wLab->isNotAtomic() && !oLab->isNotAtomic())
+				continue;
+			if (!llvm::isa<MemAccessLabel>(oLab))
+				continue;
+
+			auto *mLab = static_cast<const MemAccessLabel *>(oLab);
+			if (mLab->getAddr() == wLab->getAddr() &&
+			    mLab->getPos() != wLab->getPos())
+				return mLab->getPos(); /* Race detected */
+		}
+	}
+	return Event::getInitializer(); /* Race not found */
+}
+
 std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());

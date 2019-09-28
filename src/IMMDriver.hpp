@@ -130,6 +130,11 @@ public:
 	std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) override;
 
+	/* Checks for races after a load/store is added to the graph.
+	 * Return the racy event, or INIT if no such event exists */
+	Event findRaceForNewLoad(const ReadLabel *rLab) override;
+	Event findRaceForNewStore(const WriteLabel *wLab) override;
+
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
 
 	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);

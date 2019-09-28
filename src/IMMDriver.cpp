@@ -532,6 +532,16 @@ IMMDriver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
+Event IMMDriver::findRaceForNewLoad(const ReadLabel *rLab)
+{
+	return Event::getInitializer(); /* Race detection disabled for IMM */
+}
+
+Event IMMDriver::findRaceForNewStore(const WriteLabel *wLab)
+{
+	return Event::getInitializer(); /* Race detection disabled for IMM */
+}
+
 std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());

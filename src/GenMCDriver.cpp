@@ -410,7 +410,6 @@ void GenMCDriver::checkForRaces()
 	if (userConf->disableRaceDetection)
 		return;
 
-	const auto &g = getGraph();
 	const EventLabel *lab = getCurrentLabel();
 
 	/* We only check for races when reads and writes are added */
@@ -418,9 +417,9 @@ void GenMCDriver::checkForRaces()
 
 	auto racy = Event::getInitializer();
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-		racy = getGraph().findRaceForNewLoad(rLab);
+		racy = findRaceForNewLoad(rLab);
 	else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
-		racy = g.findRaceForNewStore(wLab);
+		racy = findRaceForNewStore(wLab);
 
 	/* If a race is found and the execution is consistent, return it */
 	if (!racy.isInitializer() && isExecutionValid()) {
@@ -433,6 +432,7 @@ void GenMCDriver::checkForRaces()
 	if (!getEE()->isHeapAlloca(mLab->getAddr()))
 		return;
 
+	const auto &g = getGraph();
 	const View &before = g.getHbBefore(lab->getPos().prev());
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {

@@ -402,6 +402,11 @@ private:
 	virtual std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) = 0;
 
+	/* Checks for races after a load/store is added to the graph.
+	 * Should return the racy event, or INIT if no such event exists */
+	virtual Event findRaceForNewLoad(const ReadLabel *rLab) = 0;
+	virtual Event findRaceForNewStore(const WriteLabel *wLab) = 0;
+
 	/* Should return the set of stores that it is consistent for current
 	 * load to read-from  (excluding atomicity violations) */
 	virtual std::vector<Event>
