@@ -697,8 +697,14 @@ Matrix2D<Event> IMMDriver::getARMatrix()
 	return ar;
 }
 
+bool isPscAcyclicIMM(const Matrix2D<Event> &psc)
+{
+	return !psc.isReflexive();
+}
+
 bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
 {
+	return getGraph().checkPscCondition(t, isPscAcyclicIMM);
 	if (getConf()->coherence == CoherenceType::mo) {
 		switch (t) {
 		case CheckPSCType::nocheck:
@@ -708,7 +714,7 @@ bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
 			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 				  "to be checked for the MO-tracking exploration...\n");
 		case CheckPSCType::full: {
-			return getGraph().isPscAcyclicMO();
+			// return getGraph().isPscAcyclicMO();
 			// auto &g = getGraph();
 			// Matrix2D<Event> ar = getARMatrix();
 			// auto scs = g.getSCs();
@@ -728,20 +734,21 @@ bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
 			BUG();
 		}
 	} else {
-		switch (t) {
-		case CheckPSCType::nocheck:
-			return true;
-		case CheckPSCType::weak:
-			return getGraph().isPscWeakAcyclicWB();
-		case CheckPSCType::wb:
-			return getGraph().isPscWbAcyclicWB();
-		case CheckPSCType::full:
-			return getGraph().isPscAcyclicWB();
-		default:
-			WARN("Unimplemented model!\n");
-			BUG();
-		}
+		// switch (t) {
+		// case CheckPSCType::nocheck:
+		// 	return true;
+		// case CheckPSCType::weak:
+		// 	return getGraph().isPscWeakAcyclicWB();
+		// case CheckPSCType::wb:
+		// 	return getGraph().isPscWbAcyclicWB();
+		// case CheckPSCType::full:
+		// 	return getGraph().isPscAcyclicWB();
+		// default:
+		// 	WARN("Unimplemented model!\n");
+		// 	BUG();
+		// }
 	}
+	return false;
 }
 
 bool IMMDriver::isExecutionValid()

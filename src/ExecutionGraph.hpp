@@ -21,6 +21,7 @@
 #ifndef __EXECUTION_GRAPH_HPP__
 #define __EXECUTION_GRAPH_HPP__
 
+#include "DriverGraphEnumAPI.hpp"
 #include "DepInfo.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
@@ -220,10 +221,8 @@ public:
 	/* Consistency checks */
 
 	bool isConsistent() const;
-	bool isPscWeakAcyclicWB() const;
-	bool isPscWbAcyclicWB() const;
-	bool isPscAcyclicWB() const;
-	bool isPscAcyclicMO() const;
+	template <typename F>
+	bool checkPscCondition(CheckPSCType t, F cond) const;
 
 
 	/* Library consistency checks */
@@ -335,7 +334,9 @@ protected:
 					     const Event e) const;
 	bool isRMWLoad(const Event e) const;
 	bool isRMWLoad(const EventLabel *lab) const;
+
 	void spawnAllChildren(int thread);
+
 	void addRbEdges(const std::vector<Event> &fcs,
 			const std::vector<Event> &moAfter,
 			const std::vector<Event> &moRfAfter,
@@ -344,14 +345,35 @@ protected:
 			  const std::vector<Event> &moAfter,
 			  const std::vector<Event> &moRfAfter,
 			  Matrix2D<Event> &matrix, const Event &e) const;
-	void addInitEdges(const std::vector<Event> &fcs, Matrix2D<Event> &matrix) const;
-	void addSbHbEdges(Matrix2D<Event> &matrix) const;
 	void addSCEcos(const std::vector<Event> &fcs,
 		       const std::vector<Event> &mo,
 		       Matrix2D<Event> &matrix) const;
-	void addSCWbEcos(const std::vector<Event> &fcs,
+	void addSCEcos(const std::vector<Event> &fcs,
 			 Matrix2D<Event> &wbMatrix,
 			 Matrix2D<Event> &pscMatrix) const;
+
+	template <typename F>
+	bool addSCEcosMO(const std::vector<Event> &fcs,
+			 const std::vector<const llvm::GenericValue *> &scLocs,
+			 Matrix2D<Event> &psc, F cond) const;
+	template <typename F>
+	bool addSCEcosWBWeak(const std::vector<Event> &fcs,
+			     const std::vector<const llvm::GenericValue *> &scLocs,
+			     Matrix2D<Event> &psc, F cond) const;
+	template <typename F>
+	bool addSCEcosWB(const std::vector<Event> &fcs,
+			 const std::vector<const llvm::GenericValue *> &scLocs,
+			 Matrix2D<Event> &matrix, F cond) const;
+	template <typename F>
+	bool addSCEcosWBFull(const std::vector<Event> &fcs,
+			     const std::vector<const llvm::GenericValue *> &scLocs,
+			     Matrix2D<Event> &matrix, F cond) const;
+
+	void addInitEdges(const std::vector<Event> &fcs, Matrix2D<Event> &matrix) const;
+	void addSbHbEdges(Matrix2D<Event> &matrix) const;
+	template <typename F>
+	bool addEcoEdgesAndCheckCond(CheckPSCType t, const std::vector<Event> &fcs,
+				     Matrix2D<Event> &psc, F cond) const;
 
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);

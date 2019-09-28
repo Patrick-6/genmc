@@ -1112,13 +1112,12 @@ void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
 }
 
 /*
- * addSCWbEcos is a helper function that calculates a part of PSC_base and PSC_fence,
- * like addSCEcos. The difference between them lies in the fact that addSCEcos
- * uses MO for adding mo and rb edges, addSCWBEcos uses WB for that.
+ * Similar to addSCEcos but uses a partial order among stores (WB) to
+ * add coherence (mo/wb) and rb edges.
  */
-void ExecutionGraph::addSCWbEcos(const std::vector<Event> &fcs,
-				 Matrix2D<Event> &wbMatrix,
-				 Matrix2D<Event> &pscMatrix) const
+void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
+			       Matrix2D<Event> &wbMatrix,
+			       Matrix2D<Event> &pscMatrix) const
 {
 	auto &stores = wbMatrix.getElems();
 	for (auto i = 0u; i < stores.size(); i++) {
@@ -1219,109 +1218,65 @@ void ExecutionGraph::addInitEdges(const std::vector<Event> &fcs,
 	return;
 }
 
-bool ExecutionGraph::isPscWeakAcyclicWB() const
+template <typename F>
+bool ExecutionGraph::addSCEcosMO(const std::vector<Event> &fcs,
+				 const std::vector<const llvm::GenericValue *> &scLocs,
+				 Matrix2D<Event> &matrix, F cond) const
 {
-	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	for (auto loc : scLocs) {
+		auto &stores = getStoresToLoc(loc); /* Will already be ordered... */
+		addSCEcos(fcs, stores, matrix);
+	}
+	matrix.transClosure();
+	return cond(matrix);
+}
+
+template <typename F>
+bool ExecutionGraph::addSCEcosWBWeak(const std::vector<Event> &fcs,
+				     const std::vector<const llvm::GenericValue *> &scLocs,
+				     Matrix2D<Event> &matrix, F cond) const
+{
+	const auto *cc = getCoherenceCalculator();
+
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
-
-	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getSCs();
-	auto &scs = accesses.first;
-	auto &fcs = accesses.second;
-
-	/* If there are no SC events, it is a valid execution */
-	if (scs.empty())
-		return true;
-
-	Matrix2D<Event> matrix(scs);
-
-	/* Add edges from the initializer write (special case) */
-	addInitEdges(fcs, matrix);
-	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(matrix);
-
-	/*
-	 * Collect memory locations with more than one SC accesses
-	 * and add the rest of PSC_base and PSC_fence for only
-	 * _one_ possible extension of WB for each location
-	 */
-	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
 		auto wb = cohTracker->calcWb(loc);
 		auto sortedStores = wb.topoSort();
 		addSCEcos(fcs, sortedStores, matrix);
 	}
-
 	matrix.transClosure();
-	return !matrix.isReflexive();
+	return cond(matrix);
 }
 
-bool ExecutionGraph::isPscWbAcyclicWB() const
+template <typename F>
+bool ExecutionGraph::addSCEcosWB(const std::vector<Event> &fcs,
+				 const std::vector<const llvm::GenericValue *> &scLocs,
+				 Matrix2D<Event> &matrix, F cond) const
 {
-	auto *cc = getCoherenceCalculator();
+	const auto *cc = getCoherenceCalculator();
+
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
-
-	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getSCs();
-	auto &scs = accesses.first;
-	auto &fcs = accesses.second;
-
-	/* If there are no SC events, it is a valid execution */
-	if (scs.empty())
-		return true;
-
-	Matrix2D<Event> matrix(scs);
-
-	/* Add edges from the initializer write (special case) */
-	addInitEdges(fcs, matrix);
-	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(matrix);
-
-	/*
-	 * Collect memory locations with more than one SC accesses
-	 * and add the rest of PSC_base and PSC_fence using WB
-	 * instead of MO
-	 */
-	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	for (auto loc : scLocs) {
 		auto wb = cohTracker->calcWb(loc);
-		addSCWbEcos(fcs, wb, matrix);
+		addSCEcos(fcs, wb, matrix);
 	}
-
 	matrix.transClosure();
-	return !matrix.isReflexive();
+	return cond(matrix);
 }
 
-bool ExecutionGraph::isPscAcyclicWB() const
+template <typename F>
+bool ExecutionGraph::addSCEcosWBFull(const std::vector<Event> &fcs,
+				     const std::vector<const llvm::GenericValue *> &scLocs,
+				     Matrix2D<Event> &matrix, F cond) const
 {
-	auto *cc = getCoherenceCalculator();
+	const auto *cc = getCoherenceCalculator();
+
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
 
-	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getSCs();
-	auto &scs = accesses.first;
-	auto &fcs = accesses.second;
-
-	/* If there are no SC events, it is a valid execution */
-	if (scs.empty())
-		return true;
-
-	Matrix2D<Event> matrix(scs);
-
-	/* Add edges from the initializer write (special case) */
-	addInitEdges(fcs, matrix);
-	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(matrix);
-
-	/*
-	 * Collect memory locations that have more than one SC
-	 * memory access, and then calculate the possible extensions
-	 * of writes-before (WB) for these memory locations
-	 */
-	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
 	for (auto i = 0u; i < scLocs.size(); i++) {
 		auto wb = cohTracker->calcWb(scLocs[i]);
@@ -1345,7 +1300,7 @@ bool ExecutionGraph::isPscAcyclicWB() const
 			addSCEcos(fcs, topoSorts[i][count[i]], tentativePSC);
 
 		tentativePSC.transClosure();
-		if (!tentativePSC.isReflexive())
+		if (cond(tentativePSC))
 			return true;
 
 		/* Find next combination */
@@ -1360,7 +1315,50 @@ bool ExecutionGraph::isPscAcyclicWB() const
 	return false;
 }
 
-bool ExecutionGraph::isPscAcyclicMO() const
+template <typename F>
+bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCType t,
+					     const std::vector<Event> &fcs,
+					     Matrix2D<Event> &matrix, F cond) const
+{
+	const auto *cohTracker = getCoherenceCalculator();
+
+	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
+	if (auto *moTracker = llvm::dyn_cast<MOCoherenceCalculator>(cohTracker)) {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+		case CheckPSCType::wb:
+			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
+				  "to be checked for the MO-tracking exploration...\n");
+		case CheckPSCType::full:
+			return addSCEcosMO(fcs, scLocs, matrix, cond);
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
+	} else if (auto *wbTacker = llvm::dyn_cast<WBCoherenceCalculator>(cohTracker)) {
+		switch (t) {
+		case CheckPSCType::nocheck:
+			return true;
+		case CheckPSCType::weak:
+			return addSCEcosWBWeak(fcs, scLocs, matrix, cond);
+		case CheckPSCType::wb:
+			return addSCEcosWB(fcs, scLocs, matrix, cond);
+		case CheckPSCType::full:
+			return addSCEcosWBFull(fcs, scLocs, matrix, cond);
+		default:
+			WARN("Unimplemented model!\n");
+			BUG();
+		}
+	}
+	BUG();
+	return false;
+}
+
+
+template <typename F>
+bool ExecutionGraph::checkPscCondition(CheckPSCType t, F cond) const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1380,19 +1378,13 @@ bool ExecutionGraph::isPscAcyclicMO() const
 
 	/*
 	 * Collect memory locations with more than one SC accesses
-	 * and add the rest of PSC_base and PSC_fence for only
-	 * _one_ possible extension of WB for each location
+	 * and add the rest of PSC_base and PSC_fence
 	 */
-	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
-	for (auto loc : scLocs) {
-		auto &stores = getStoresToLoc(loc);
-		addSCEcos(fcs, stores, matrix);
-	}
-
-	matrix.transClosure();
-	return !matrix.isReflexive();
+	return addEcoEdgesAndCheckCond(t, fcs, matrix, cond);
 }
 
+template bool ExecutionGraph::checkPscCondition<bool (*)(const Matrix2D<Event>&)>
+(CheckPSCType, bool (*)(const Matrix2D<Event>&)) const;
 
 /************************************************************
  ** Library consistency checking methods

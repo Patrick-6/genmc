@@ -463,37 +463,14 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
+bool isPscAcyclic(const Matrix2D<Event> &psc)
+{
+	return !psc.isReflexive();
+}
+
 bool RC11Driver::checkPscAcyclicity(CheckPSCType t)
 {
-	if (getConf()->coherence == CoherenceType::mo) {
-		switch (t) {
-		case CheckPSCType::nocheck:
-			return true;
-		case CheckPSCType::weak:
-		case CheckPSCType::wb:
-			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
-				  "to be checked for the MO-tracking exploration...\n");
-		case CheckPSCType::full:
-			return getGraph().isPscAcyclicMO();
-		default:
-			WARN("Unimplemented model!\n");
-			BUG();
-		}
-	} else {
-		switch (t) {
-		case CheckPSCType::nocheck:
-			return true;
-		case CheckPSCType::weak:
-			return getGraph().isPscWeakAcyclicWB();
-		case CheckPSCType::wb:
-			return getGraph().isPscWbAcyclicWB();
-		case CheckPSCType::full:
-			return getGraph().isPscAcyclicWB();
-		default:
-			WARN("Unimplemented model!\n");
-			BUG();
-		}
-	}
+	return getGraph().checkPscCondition(t, isPscAcyclic);
 }
 
 bool RC11Driver::isExecutionValid()
