@@ -1360,38 +1360,6 @@ bool ExecutionGraph::isPscAcyclicWB() const
 	return false;
 }
 
-Matrix2D<Event> ExecutionGraph::calcPscMO() const
-{
-	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getSCs();
-	auto &scs = accesses.first;
-	auto &fcs = accesses.second;
-
-	/* If there are no SC events, return the empty matrix */
-	Matrix2D<Event> matrix(scs);
-	if (scs.empty())
-		return matrix;
-
-	/* Add edges from the initializer write (special case) */
-	addInitEdges(fcs, matrix);
-	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(matrix);
-
-	/*
-	 * Collect memory locations with more than one SC accesses
-	 * and add the rest of PSC_base and PSC_fence for only
-	 * _one_ possible extension of WB for each location
-	 */
-	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
-	for (auto loc : scLocs) {
-		const auto &stores = getStoresToLoc(loc);
-		addSCEcos(fcs, stores, matrix);
-	}
-
-	matrix.transClosure();
-	return matrix;
-}
-
 bool ExecutionGraph::isPscAcyclicMO() const
 {
 	/* Collect all SC events (except for RMW loads) */

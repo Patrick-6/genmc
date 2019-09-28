@@ -223,8 +223,6 @@ public:
 	bool isPscWeakAcyclicWB() const;
 	bool isPscWbAcyclicWB() const;
 	bool isPscAcyclicWB() const;
-
-	Matrix2D<Event> calcPscMO() const;
 	bool isPscAcyclicMO() const;
 
 
