@@ -21,7 +21,6 @@
 #ifndef __GRAPH_BUILDER_HPP__
 #define __GRAPH_BUILDER_HPP__
 
-#include "Config.hpp"
 #include "ExecutionGraph.hpp"
 #include "DepExecutionGraph.hpp"
 #include "MOCoherenceCalculator.hpp"

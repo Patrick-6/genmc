@@ -19,6 +19,7 @@ libgenmc_a_SOURCES = \
   DepInfo.cpp DepInfo.hpp \
   DepTracker.hpp \
   DepView.cpp DepView.hpp \
+  DriverGraphEnumAPI.hpp \
   DriverFactory.cpp DriverFactory.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \

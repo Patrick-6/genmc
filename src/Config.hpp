@@ -21,12 +21,12 @@
 #ifndef __CONFIG_HPP__
 #define __CONFIG_HPP__
 
+#include "DriverGraphEnumAPI.hpp"
+
 #include <string>
 #include <vector>
 
 enum class ModelType { rc11, imm };
-enum class CoherenceType { mo, wb };
-enum class CheckPSCType { nocheck, weak, wb, full };
 
 struct Config {
 
