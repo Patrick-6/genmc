@@ -38,7 +38,6 @@ libgenmc_a_SOURCES = \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
-  ModOrder.cpp ModOrder.hpp \
   Parser.cpp Parser.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
