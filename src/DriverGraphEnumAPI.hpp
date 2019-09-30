@@ -23,6 +23,5 @@
 
 enum class CoherenceType { mo, wb };
 enum class CheckPSCType { nocheck, weak, wb, full };
-enum class CheckPSCPart { fence, full };
 
 #endif /* __DRIVER_GRAPH_ENUM_API_HPP__ */

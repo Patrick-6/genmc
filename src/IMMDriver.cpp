@@ -714,7 +714,7 @@ bool isPscAcyclicIMM(const Matrix2D<Event> &psc)
 
 bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
 {
-	return getGraph().checkPscCondition(CheckPSCPart::full, t, isPscAcyclicIMM);
+	return getGraph().checkPscCondition(t, isPscAcyclicIMM);
 }
 
 bool IMMDriver::isExecutionValid()
@@ -738,6 +738,5 @@ bool IMMDriver::isExecutionValid()
 		return !basicAr.isReflexive();
 	};
 
-	return g.checkPscCondition(CheckPSCPart::fence, CheckPSCType::full, check) &&
-	       g.checkPscCondition(CheckPSCPart::full, CheckPSCType::full, isPscAcyclicIMM);
+	return g.checkPscCondition(CheckPSCType::full, check);
 }

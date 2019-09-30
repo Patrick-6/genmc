@@ -991,7 +991,7 @@ std::vector<Event> ExecutionGraph::getSCFenceRfSuccs(const std::vector<Event> &f
 	return fenceRfs;
 }
 
-void ExecutionGraph::addRbEdges(CheckPSCPart p, const std::vector<Event> &fcs,
+void ExecutionGraph::addRbEdges(const std::vector<Event> &fcs,
 				const std::vector<Event> &moAfter,
 				const std::vector<Event> &moRfAfter,
 				Matrix2D<Event> &matrix,
@@ -1002,7 +1002,7 @@ void ExecutionGraph::addRbEdges(CheckPSCPart p, const std::vector<Event> &fcs,
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *wLab = static_cast<const WriteLabel *>(lab);
 	for (const auto &e : wLab->getReadersList()) {
-		auto preds = (p == CheckPSCPart::full) ? calcSCPreds(fcs, e) : calcSCFencesPreds(fcs, e);
+		auto preds = calcSCPreds(fcs, e);
 		auto fencePreds = calcSCFencesPreds(fcs, e);
 
 		matrix.addEdgesFromTo(preds, moAfter);        /* Base/fence: Adds rb-edges */
@@ -1011,15 +1011,15 @@ void ExecutionGraph::addRbEdges(CheckPSCPart p, const std::vector<Event> &fcs,
 	return;
 }
 
-void ExecutionGraph::addMoRfEdges(CheckPSCPart p, const std::vector<Event> &fcs,
+void ExecutionGraph::addMoRfEdges(const std::vector<Event> &fcs,
 				  const std::vector<Event> &moAfter,
 				  const std::vector<Event> &moRfAfter,
 				  Matrix2D<Event> &matrix,
 				  const Event &ev) const
 {
-	auto preds = (p == CheckPSCPart::full) ? calcSCPreds(fcs, ev) : calcSCFencesPreds(fcs, ev);
+	auto preds = calcSCPreds(fcs, ev);
 	auto fencePreds = calcSCFencesPreds(fcs, ev);
-	auto rfs = (p == CheckPSCPart::full) ? getSCRfSuccs(fcs, ev) : getSCFenceRfSuccs(fcs, ev);
+	auto rfs = getSCRfSuccs(fcs, ev);
 
 	matrix.addEdgesFromTo(preds, moAfter);        /* Base/fence:  Adds mo-edges */
 	matrix.addEdgesFromTo(preds, rfs);            /* Base/fence:  Adds rf-edges (hb_loc) */
@@ -1041,7 +1041,7 @@ void ExecutionGraph::addMoRfEdges(CheckPSCPart p, const std::vector<Event> &fcs,
  * more than one step either do not compose, or lead to an already added
  * single-step relation (e.g, (rf;rb) => mo, (rb;mo) => rb)
  */
-void ExecutionGraph::addSCEcos(CheckPSCPart p, const std::vector<Event> &fcs,
+void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
 			       const std::vector<Event> &mo,
 			       Matrix2D<Event> &matrix) const
 {
@@ -1051,11 +1051,11 @@ void ExecutionGraph::addSCEcos(CheckPSCPart p, const std::vector<Event> &fcs,
 	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
 
 		/* First, add edges to SC events that are (mo U rb);rf?-after this write */
-		addRbEdges(p, fcs, moAfter, moRfAfter, matrix, *rit);
-		addMoRfEdges(p, fcs, moAfter, moRfAfter, matrix, *rit);
+		addRbEdges(fcs, moAfter, moRfAfter, matrix, *rit);
+		addMoRfEdges(fcs, moAfter, moRfAfter, matrix, *rit);
 
 		/* Then, update the lists of mo and mo;rf SC successors */
-		auto succs = (p == CheckPSCPart::full) ? calcSCSuccs(fcs, *rit) : calcSCFencesSuccs(fcs, *rit);
+		auto succs = calcSCSuccs(fcs, *rit);
 		auto fenceRfs = getSCFenceRfSuccs(fcs, *rit);
 		moAfter.insert(moAfter.end(), succs.begin(), succs.end());
 		moRfAfter.insert(moRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
@@ -1066,7 +1066,7 @@ void ExecutionGraph::addSCEcos(CheckPSCPart p, const std::vector<Event> &fcs,
  * Similar to addSCEcos but uses a partial order among stores (WB) to
  * add coherence (mo/wb) and rb edges.
  */
-void ExecutionGraph::addSCEcos(CheckPSCPart p, const std::vector<Event> &fcs,
+void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
 			       Matrix2D<Event> &wbMatrix,
 			       Matrix2D<Event> &pscMatrix) const
 {
@@ -1088,19 +1088,18 @@ void ExecutionGraph::addSCEcos(CheckPSCPart p, const std::vector<Event> &fcs,
 		}
 
 		/* Then, add the proper edges to PSC using wb-after and (wb;rf)-after successors */
-		addRbEdges(p, fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
-		addMoRfEdges(p, fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
+		addRbEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
+		addMoRfEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
 	}
 }
 
 /*
  * Adds sb as well as [Esc];sb_(<>loc);hb;sb_(<>loc);[Esc] edges. The first
- * argument remains unused since the first part is common for PSC_base and
- * PSC_fence, while the second part of this function is not triggered for
- * fences anyway. (We still pass the argument for consistency with the other
- * PSC methods, and compatibility with possible future changes.)
+ * part of this function is common for PSC_base and PSC_fence, while the second
+ * part of this function is not triggered for fences (these edges are covered in
+ * addSCEcos()).
  */
-void ExecutionGraph::addSbHbEdges(CheckPSCPart psc, Matrix2D<Event> &matrix) const
+void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix) const
 {
 	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
@@ -1148,7 +1147,7 @@ void ExecutionGraph::addSbHbEdges(CheckPSCPart psc, Matrix2D<Event> &matrix) con
 	return;
 }
 
-void ExecutionGraph::addInitEdges(CheckPSCPart psc, const std::vector<Event> &fcs,
+void ExecutionGraph::addInitEdges(const std::vector<Event> &fcs,
 				  Matrix2D<Event> &matrix) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -1161,15 +1160,13 @@ void ExecutionGraph::addInitEdges(CheckPSCPart psc, const std::vector<Event> &fc
 			if (!rLab->getRf().isInitializer())
 				continue;
 
-			auto preds = (psc == CheckPSCPart::full) ? calcSCPreds(fcs, rLab->getPos()) :
-				calcSCFencesPreds(fcs, rLab->getPos());
+			auto preds = calcSCPreds(fcs, rLab->getPos());
 			auto fencePreds = calcSCFencesPreds(fcs, rLab->getPos());
 			for (auto &w : getStoresToLoc(rLab->getAddr())) {
 				/* Can be casted to WriteLabel by construction */
 				auto *wLab = static_cast<const WriteLabel *>(
 					getEventLabel(w));
-				auto wSuccs = (psc == CheckPSCPart::full) ? calcSCSuccs(fcs, w) :
-					calcSCFencesSuccs(fcs, w);
+				auto wSuccs = calcSCSuccs(fcs, w);
 				matrix.addEdgesFromTo(preds, wSuccs); /* Adds rb-edges */
 				for (auto &r : wLab->getReadersList()) {
 					auto fenceSuccs = calcSCFencesSuccs(fcs, r);
@@ -1182,21 +1179,21 @@ void ExecutionGraph::addInitEdges(CheckPSCPart psc, const std::vector<Event> &fc
 }
 
 template <typename F>
-bool ExecutionGraph::addSCEcosMO(CheckPSCPart p, const std::vector<Event> &fcs,
+bool ExecutionGraph::addSCEcosMO(const std::vector<Event> &fcs,
 				 const std::vector<const llvm::GenericValue *> &scLocs,
 				 Matrix2D<Event> &matrix, F cond) const
 {
 	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
 	for (auto loc : scLocs) {
 		auto &stores = getStoresToLoc(loc); /* Will already be ordered... */
-		addSCEcos(p, fcs, stores, matrix);
+		addSCEcos(fcs, stores, matrix);
 	}
 	matrix.transClosure();
 	return cond(matrix);
 }
 
 template <typename F>
-bool ExecutionGraph::addSCEcosWBWeak(CheckPSCPart p, const std::vector<Event> &fcs,
+bool ExecutionGraph::addSCEcosWBWeak(const std::vector<Event> &fcs,
 				     const std::vector<const llvm::GenericValue *> &scLocs,
 				     Matrix2D<Event> &matrix, F cond) const
 {
@@ -1207,14 +1204,14 @@ bool ExecutionGraph::addSCEcosWBWeak(CheckPSCPart p, const std::vector<Event> &f
 	for (auto loc : scLocs) {
 		auto wb = cohTracker->calcWb(loc);
 		auto sortedStores = wb.topoSort();
-		addSCEcos(p, fcs, sortedStores, matrix);
+		addSCEcos(fcs, sortedStores, matrix);
 	}
 	matrix.transClosure();
 	return cond(matrix);
 }
 
 template <typename F>
-bool ExecutionGraph::addSCEcosWB(CheckPSCPart p, const std::vector<Event> &fcs,
+bool ExecutionGraph::addSCEcosWB(const std::vector<Event> &fcs,
 				 const std::vector<const llvm::GenericValue *> &scLocs,
 				 Matrix2D<Event> &matrix, F cond) const
 {
@@ -1224,14 +1221,14 @@ bool ExecutionGraph::addSCEcosWB(CheckPSCPart p, const std::vector<Event> &fcs,
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
 	for (auto loc : scLocs) {
 		auto wb = cohTracker->calcWb(loc);
-		addSCEcos(p, fcs, wb, matrix);
+		addSCEcos(fcs, wb, matrix);
 	}
 	matrix.transClosure();
 	return cond(matrix);
 }
 
 template <typename F>
-bool ExecutionGraph::addSCEcosWBFull(CheckPSCPart p, const std::vector<Event> &fcs,
+bool ExecutionGraph::addSCEcosWBFull(const std::vector<Event> &fcs,
 				     const std::vector<const llvm::GenericValue *> &scLocs,
 				     Matrix2D<Event> &matrix, F cond) const
 {
@@ -1260,7 +1257,7 @@ bool ExecutionGraph::addSCEcosWBFull(CheckPSCPart p, const std::vector<Event> &f
 		/* Process current combination */
 		auto tentativePSC(matrix);
 		for (auto i = 0u; i < K; i++)
-			addSCEcos(p, fcs, topoSorts[i][count[i]], tentativePSC);
+			addSCEcos(fcs, topoSorts[i][count[i]], tentativePSC);
 
 		tentativePSC.transClosure();
 		if (cond(tentativePSC))
@@ -1279,7 +1276,7 @@ bool ExecutionGraph::addSCEcosWBFull(CheckPSCPart p, const std::vector<Event> &f
 }
 
 template <typename F>
-bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCPart p, CheckPSCType t,
+bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCType t,
 					     const std::vector<Event> &fcs,
 					     Matrix2D<Event> &matrix, F cond) const
 {
@@ -1295,7 +1292,7 @@ bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCPart p, CheckPSCType t,
 			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
 				  "to be checked for the MO-tracking exploration...\n");
 		case CheckPSCType::full:
-			return addSCEcosMO(p, fcs, scLocs, matrix, cond);
+			return addSCEcosMO(fcs, scLocs, matrix, cond);
 		default:
 			WARN("Unimplemented model!\n");
 			BUG();
@@ -1305,11 +1302,11 @@ bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCPart p, CheckPSCType t,
 		case CheckPSCType::nocheck:
 			return true;
 		case CheckPSCType::weak:
-			return addSCEcosWBWeak(p, fcs, scLocs, matrix, cond);
+			return addSCEcosWBWeak(fcs, scLocs, matrix, cond);
 		case CheckPSCType::wb:
-			return addSCEcosWB(p, fcs, scLocs, matrix, cond);
+			return addSCEcosWB(fcs, scLocs, matrix, cond);
 		case CheckPSCType::full:
-			return addSCEcosWBFull(p, fcs, scLocs, matrix, cond);
+			return addSCEcosWBFull(fcs, scLocs, matrix, cond);
 		default:
 			WARN("Unimplemented model!\n");
 			BUG();
@@ -1321,7 +1318,7 @@ bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCPart p, CheckPSCType t,
 
 
 template <typename F>
-bool ExecutionGraph::checkPscCondition(CheckPSCPart p, CheckPSCType t, F cond) const
+bool ExecutionGraph::checkPscCondition(CheckPSCType t, F cond) const
 {
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getSCs();
@@ -1333,25 +1330,24 @@ bool ExecutionGraph::checkPscCondition(CheckPSCPart p, CheckPSCType t, F cond) c
 		return true;
 
 	/* Depending on the part of PSC calculated, instantiate the matrix */
-	Matrix2D<Event> matrix = (p == CheckPSCPart::full) ? Matrix2D<Event>(scs) :
-		Matrix2D<Event>(fcs);
+	Matrix2D<Event> matrix(scs);
 
 	/* Add edges from the initializer write (special case) */
-	addInitEdges(p, fcs, matrix);
+	addInitEdges(fcs, matrix);
 	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
-	addSbHbEdges(p, matrix);
+	addSbHbEdges(matrix);
 
 	/*
 	 * Collect memory locations with more than one SC accesses
 	 * and add the rest of PSC_base and PSC_fence
 	 */
-	return addEcoEdgesAndCheckCond(p, t, fcs, matrix, cond);
+	return addEcoEdgesAndCheckCond(t, fcs, matrix, cond);
 }
 
 template bool ExecutionGraph::checkPscCondition<bool (*)(const Matrix2D<Event>&)>
-(CheckPSCPart, CheckPSCType, bool (*)(const Matrix2D<Event>&)) const;
+(CheckPSCType, bool (*)(const Matrix2D<Event>&)) const;
 template bool ExecutionGraph::checkPscCondition<std::function<bool(const Matrix2D<Event>&)>>
-(CheckPSCPart, CheckPSCType, std::function<bool(const Matrix2D<Event>&)>) const;
+(CheckPSCType, std::function<bool(const Matrix2D<Event>&)>) const;
 
 
 
