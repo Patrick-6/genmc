@@ -726,15 +726,16 @@ bool IMMDriver::isExecutionValid()
 
 	std::function<bool(const Matrix2D<Event>&)> check =
 		[&](const Matrix2D<Event> &psc) -> bool {
+		auto basicAr = ar;
 		if (psc.isReflexive())
 			return false;
 		for (auto &f1 : fcs) {
 			for (auto &f2 : fcs)
 				if (psc(f1, f2))
-					ar(f1, f2) = true;
+					basicAr(f1, f2) = true;
 		}
-		ar.transClosure();
-		return !ar.isReflexive();
+		basicAr.transClosure();
+		return !basicAr.isReflexive();
 	};
 
 	return g.checkPscCondition(CheckPSCPart::fence, CheckPSCType::full, check) &&
