@@ -517,7 +517,7 @@ bool isPscAcyclic(const Matrix2D<Event> &psc)
 
 bool RC11Driver::checkPscAcyclicity(CheckPSCType t)
 {
-	return getGraph().checkPscCondition(t, isPscAcyclic);
+	return getGraph().checkPscCondition(CheckPSCPart::full, t, isPscAcyclic);
 }
 
 bool RC11Driver::isExecutionValid()

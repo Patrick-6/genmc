@@ -714,54 +714,29 @@ bool isPscAcyclicIMM(const Matrix2D<Event> &psc)
 
 bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
 {
-	return getGraph().checkPscCondition(t, isPscAcyclicIMM);
-	if (getConf()->coherence == CoherenceType::mo) {
-		switch (t) {
-		case CheckPSCType::nocheck:
-			return true;
-		case CheckPSCType::weak:
-		case CheckPSCType::wb:
-			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
-				  "to be checked for the MO-tracking exploration...\n");
-		case CheckPSCType::full: {
-			// return getGraph().isPscAcyclicMO();
-			// auto &g = getGraph();
-			// Matrix2D<Event> ar = getARMatrix();
-			// auto scs = g.getSCs();
-			// auto &fcs = scs.second;
-			// Matrix2D<Event> psc =  g.calcPscMO();
-
-			// for (auto &f1 : fcs) {
-			// 	for (auto &f2 : fcs)
-			// 		if (psc(f1, f2))
-			// 			ar(f1, f2) = true;
-			// }
-			// ar.transClosure();
-			// return !ar.isReflexive();
-		}
-		default:
-			WARN("Unimplemented model!\n");
-			BUG();
-		}
-	} else {
-		// switch (t) {
-		// case CheckPSCType::nocheck:
-		// 	return true;
-		// case CheckPSCType::weak:
-		// 	return getGraph().isPscWeakAcyclicWB();
-		// case CheckPSCType::wb:
-		// 	return getGraph().isPscWbAcyclicWB();
-		// case CheckPSCType::full:
-		// 	return getGraph().isPscAcyclicWB();
-		// default:
-		// 	WARN("Unimplemented model!\n");
-		// 	BUG();
-		// }
-	}
-	return false;
+	return getGraph().checkPscCondition(CheckPSCPart::full, t, isPscAcyclicIMM);
 }
 
 bool IMMDriver::isExecutionValid()
 {
-	return checkPscAcyclicity(CheckPSCType::full);
+	const auto &g = getGraph();
+	Matrix2D<Event> ar = getARMatrix();
+	auto scs = g.getSCs();
+	auto &fcs = scs.second;
+
+	std::function<bool(const Matrix2D<Event>&)> check =
+		[&](const Matrix2D<Event> &psc) -> bool {
+		if (psc.isReflexive())
+			return false;
+		for (auto &f1 : fcs) {
+			for (auto &f2 : fcs)
+				if (psc(f1, f2))
+					ar(f1, f2) = true;
+		}
+		ar.transClosure();
+		return !ar.isReflexive();
+	};
+
+	return g.checkPscCondition(CheckPSCPart::fence, CheckPSCType::full, check) &&
+	       g.checkPscCondition(CheckPSCPart::full, CheckPSCType::full, isPscAcyclicIMM);
 }
