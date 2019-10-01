@@ -961,8 +961,8 @@ std::vector<Event> ExecutionGraph::calcSCPreds(const std::vector<Event> &fcs,
 		return calcSCFencesPreds(fcs, e);
 }
 
-std::vector<Event> ExecutionGraph::getSCRfSuccs(const std::vector<Event> &fcs,
-						const Event ev) const
+std::vector<Event> ExecutionGraph::calcRfSCSuccs(const std::vector<Event> &fcs,
+						 const Event ev) const
 {
 	const EventLabel *lab = getEventLabel(ev);
 	std::vector<Event> rfs;
@@ -976,8 +976,8 @@ std::vector<Event> ExecutionGraph::getSCRfSuccs(const std::vector<Event> &fcs,
 	return rfs;
 }
 
-std::vector<Event> ExecutionGraph::getSCFenceRfSuccs(const std::vector<Event> &fcs,
-						     const Event ev) const
+std::vector<Event> ExecutionGraph::calcRfSCFencesSuccs(const std::vector<Event> &fcs,
+						       const Event ev) const
 {
 	const EventLabel *lab = getEventLabel(ev);
 	std::vector<Event> fenceRfs;
@@ -1019,7 +1019,7 @@ void ExecutionGraph::addMoRfEdges(const std::vector<Event> &fcs,
 {
 	auto preds = calcSCPreds(fcs, ev);
 	auto fencePreds = calcSCFencesPreds(fcs, ev);
-	auto rfs = getSCRfSuccs(fcs, ev);
+	auto rfs = calcRfSCSuccs(fcs, ev);
 
 	matrix.addEdgesFromTo(preds, moAfter);        /* Base/fence:  Adds mo-edges */
 	matrix.addEdgesFromTo(preds, rfs);            /* Base/fence:  Adds rf-edges (hb_loc) */
@@ -1056,7 +1056,7 @@ void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
 
 		/* Then, update the lists of mo and mo;rf SC successors */
 		auto succs = calcSCSuccs(fcs, *rit);
-		auto fenceRfs = getSCFenceRfSuccs(fcs, *rit);
+		auto fenceRfs = calcRfSCFencesSuccs(fcs, *rit);
 		moAfter.insert(moAfter.end(), succs.begin(), succs.end());
 		moRfAfter.insert(moRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
 	}
@@ -1081,7 +1081,7 @@ void ExecutionGraph::addSCEcos(const std::vector<Event> &fcs,
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (wbMatrix(i, j)) {
 				auto succs = calcSCSuccs(fcs, stores[j]);
-				auto fenceRfs = getSCFenceRfSuccs(fcs, stores[j]);
+				auto fenceRfs = calcRfSCFencesSuccs(fcs, stores[j]);
 				wbAfter.insert(wbAfter.end(), succs.begin(), succs.end());
 				wbRfAfter.insert(wbRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
 			}

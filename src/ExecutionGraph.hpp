@@ -326,10 +326,10 @@ protected:
 				       const Event e) const;
 	std::vector<Event> calcSCPreds(const std::vector<Event> &fcs,
 				       const Event e) const;
-	std::vector<Event> getSCRfSuccs(const std::vector<Event> &fcs,
-					const Event e) const;
-	std::vector<Event> getSCFenceRfSuccs(const std::vector<Event> &fcs,
-					     const Event e) const;
+	std::vector<Event> calcRfSCSuccs(const std::vector<Event> &fcs,
+					 const Event e) const;
+	std::vector<Event> calcRfSCFencesSuccs(const std::vector<Event> &fcs,
+					       const Event e) const;
 	bool isRMWLoad(const Event e) const;
 	bool isRMWLoad(const EventLabel *lab) const;
 
