@@ -4,6 +4,8 @@ atomic_int x;
 atomic_int y;
 atomic_int z;
 
+int res;
+
 void *thread_1(void *unused)
 {
 	int a = atomic_load_explicit(&y, memory_order_relaxed);
@@ -34,5 +36,6 @@ void *thread_3(void *unused)
 		atomic_store_explicit(&y, 1, memory_order_relaxed);
 
 	__VERIFIER_assume(d == 1);
+	res = d; /* Used in an assertion in main(), to make sure it's invalid */
 	return NULL;
 }

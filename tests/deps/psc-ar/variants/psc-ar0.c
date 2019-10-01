@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <assert.h>
 
 #include "../psc-ar.c"
 
@@ -14,6 +15,15 @@ int main()
 		abort();
 	if (pthread_create(&t3, NULL, thread_3, NULL))
 		abort();
+
+	if (pthread_join(t1, NULL))
+		abort();
+	if (pthread_join(t2, NULL))
+		abort();
+	if (pthread_join(t3, NULL))
+		abort();
+
+	assert(!(res == 1));
 
 	return 0;
 }
