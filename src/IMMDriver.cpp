@@ -112,11 +112,9 @@ void IMMDriver::calcBasicReadViews(ReadLabel *lab)
 	const auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView ppo = calcPPoView(lab->getPos());
 	DepView pporf(ppo);
 
-	porf.update(rfLab->getPorfView());
 	pporf.update(rfLab->getPPoRfView());
 	if (rfLab->getThread() != lab->getThread()) {
 		for (auto i = 0u; i < lab->getIndex(); i++) {
@@ -132,7 +130,6 @@ void IMMDriver::calcBasicReadViews(ReadLabel *lab)
 			hb.update(wLab->getMsgView());
 	}
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
@@ -143,10 +140,7 @@ void IMMDriver::calcBasicWriteViews(WriteLabel *lab)
 
 	/* First, we calculate the hb and (po U rf) views */
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
-
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 
 	/* Then, we calculate the (ppo U rf) view */
 	DepView pporf = calcPPoView(lab->getPos());
@@ -239,7 +233,6 @@ void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	if (lab->isAtLeastAcquire())
@@ -256,7 +249,6 @@ void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 	}
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
@@ -400,11 +392,9 @@ IMMDriver::createMallocLabel(int tid, int index, const void *addr,
 						  pos, addr, size, isLocal);
 
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -420,13 +410,11 @@ IMMDriver::createFreeLabel(int tid, int index, const void *addr,
 			      pos, addr, size));
 
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 
 	WARN("Calculate pporf views!\n");
 	BUG();
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	return std::move(lab);
 }
 
@@ -439,7 +427,6 @@ IMMDriver::createTCreateLabel(int tid, int index, int cid)
 							llvm::AtomicOrdering::Release, pos, cid);
 
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	pporf.removeAllHoles(lab->getThread());
@@ -452,7 +439,6 @@ IMMDriver::createTCreateLabel(int tid, int index, int cid)
 	}
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -470,11 +456,9 @@ IMMDriver::createTJoinLabel(int tid, int index, int cid)
 	 * for the other thread to finish first, so we do not fully
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(pporf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
@@ -491,15 +475,12 @@ IMMDriver::createStartLabel(int tid, int index, Event tc)
 
 	/* Thread start has Acquire semantics */
 	View hb(g.getHbBefore(tc));
-	View porf(g.getPorfBefore(tc));
 	DepView pporf(g.getPPoRfBefore(tc));
 
 	hb[tid] = pos.index;
-	porf[tid] = pos.index;
 	pporf[tid] = pos.index;
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -514,7 +495,6 @@ IMMDriver::createFinishLabel(int tid, int index)
 							pos);
 
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	pporf.removeAllHoles(lab->getThread());
@@ -527,7 +507,6 @@ IMMDriver::createFinishLabel(int tid, int index)
 	}
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -581,10 +560,8 @@ void IMMDriver::changeRf(Event read, Event store)
 	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
 	EventLabel *rfLab = g.getEventLabel(store);
 	View hb = calcBasicHbView(rLab->getPos());
-	View porf = calcBasicPorfView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	porf.update(rfLab->getPorfView());
 	pporf.update(rfLab->getPPoRfView());
 	if (rfLab->getThread() != rLab->getThread()) {
 		for (auto i = 0u; i < rLab->getIndex(); i++) {
@@ -601,7 +578,6 @@ void IMMDriver::changeRf(Event read, Event store)
 			hb.update(wLab->getMsgView());
 	}
 	rLab->setHbView(std::move(hb));
-	rLab->setPorfView(std::move(porf));
 	rLab->setPPoRfView(std::move(pporf));
 }
 
@@ -613,11 +589,9 @@ void IMMDriver::resetJoin(Event join)
 
 	EventLabel *jLab = g.getEventLabel(join);
 	View hb = calcBasicHbView(jLab->getPos());
-	View porf = calcBasicPorfView(jLab->getPos());
 	DepView pporf(jLab->getPPoView());
 
 	jLab->setHbView(std::move(hb));
-	jLab->setPorfView(std::move(porf));
 	jLab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -633,7 +607,6 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	EventLabel *fLab = g.getEventLabel(childLast);
 
 	jLab->updateHbView(fLab->getHbView());
-	jLab->updatePorfView(fLab->getPorfView());
 	jLab->updatePPoRfView(fLab->getPPoRfView());
 	return true;
 }
