@@ -1130,15 +1130,15 @@ void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix) const
 			auto *ejMLab = static_cast<const MemAccessLabel *>(ejLab);
 			auto *eiMLab = static_cast<const MemAccessLabel *>(eiLab);
 
-			if (ejPrevMLab->getAddr() != ejMLab->getAddr() &&
-			    ejPrevMLab->getHbView().contains(eiMLab->getPos())) {
+			if (ejPrevMLab->getAddr() != ejMLab->getAddr()) {
 				Event next = eiMLab->getPos().next();
 				if (next == getLastThreadEvent(eiMLab->getThread()))
 					continue;
 				const EventLabel *eiNextLab = getEventLabel(next);
 				if (auto *eiNextMLab =
 				    llvm::dyn_cast<MemAccessLabel>(eiNextLab)) {
-					if (eiMLab->getAddr() != eiNextMLab->getAddr())
+					if (eiMLab->getAddr() != eiNextMLab->getAddr() &&
+					    ejPrevMLab->getHbView().contains(eiNextMLab->getPos()))
 						matrix(i, j) = true;
 				}
 			}
