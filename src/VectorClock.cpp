@@ -19,6 +19,19 @@
  */
 
 #include "VectorClock.hpp"
+#include "View.hpp"
+#include "DepView.hpp"
+
+VectorClock *VectorClock::clone() const
+{
+	switch (getKind()) {
+	case VC_View:
+                return new View(*static_cast<const View *>(this));
+	case VC_DepView:
+                return new DepView(*static_cast<const DepView *>(this));
+	}
+	BUG();
+}
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const VectorClock &vc)
 {

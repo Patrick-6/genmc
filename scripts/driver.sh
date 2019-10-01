@@ -60,7 +60,7 @@ total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 # total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 # # Then, run the testcases in the wrong/ directory
-# model=wb && testdir=../tests/wrong && source runwrong.sh
+# model=rc11 && coherence=wb && testdir=../tests/wrong && source runwrong.sh
 # total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 if test -n "$result"

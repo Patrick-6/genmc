@@ -1414,7 +1414,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 	}
 
 	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto &before = getPrefix(lab->getPos());
+	auto &before = g.getPorfBefore(lab->getPos());
 	for (auto &l : loads) {
 		const EventLabel *revLab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<ReadLabel>(revLab));
@@ -1519,11 +1519,11 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	std::string dump;
 	llvm::raw_string_ostream ss(dump);
 
-	View before(getPrefix(errorEvent));
+	auto *before = g.getPrefixView(errorEvent).clone();
 	if (!confEvent.isInitializer())
-		before.update(getPrefix(confEvent));
+		before->update(g.getPrefixView(confEvent));
 
-	EE->replayExecutionBefore(before);
+	EE->replayExecutionBefore(*before);
 
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";
@@ -1535,11 +1535,11 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	ss << "\t\"" << Event::getInitializer() << "\"[label=INIT,root=true]\n";
 
 	/* Print all nodes with each thread represented by a cluster */
-	for (auto i = 0u; i < before.size(); i++) {
+	for (auto i = 0u; i < before->size(); i++) {
 		auto &thr = EE->getThrById(i);
 		ss << "subgraph cluster_" << thr.id << "{\n";
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
-		for (auto j = 1; j <= before[i]; j++) {
+		for (auto j = 1; j <= (*before)[i]; j++) {
 			std::stringstream buf;
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 
@@ -1553,16 +1553,16 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	}
 
 	/* Print relations between events (po U rf) */
-	for (auto i = 0u; i < before.size(); i++) {
+	for (auto i = 0u; i < before->size(); i++) {
 		auto &thr = EE->getThrById(i);
-		for (auto j = 0; j <= before[i]; j++) {
+		for (auto j = 0; j <= (*before)[i]; j++) {
 			std::stringstream buf;
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 
 			Parser::parseInstFromMData(buf, thr.prefixLOC[j], "");
 			/* Print a po-edge, but skip dummy start events for
 			 * all threads except for the first one */
-			if (j < before[i] && !(llvm::isa<ThreadStartLabel>(lab) && i > 0))
+			if (j < (*before)[i] && !(llvm::isa<ThreadStartLabel>(lab) && i > 0))
 				ss << "\"" << lab->getPos() << "\" -> \""
 				   << lab->getPos().next() << "\"\n";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
@@ -1603,7 +1603,7 @@ void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &bu
 			calcTraceBefore(jLab->getChildLast(), a, buf);
 		if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab))
 			if (!bLab->getParentCreate().isInitializer())
-				calcTraceBefore(bLab->getParentCreate(), a, buf);
+				calcTraceBefore(bLab->getParentCreate(), a,buf);
 		Parser::parseInstFromMData(buf, thr.prefixLOC[i], thr.threadFun->getName().str());
 	}
 	return;
@@ -1611,15 +1611,17 @@ void GenMCDriver::calcTraceBefore(const Event &e, View &a, std::stringstream &bu
 
 void GenMCDriver::printTraceBefore(Event e)
 {
-	View before(getPrefix(e));
+	const VectorClock &before = getGraph().getPrefixView(e);
 	std::stringstream buf;
 
 	llvm::dbgs() << "Trace to " << e << ":\n";
 
-	/* Replay the execution up to the error event (collects mdata) */
+	/* Replay the execution up to the error event (collects mdata).
+	 * Even if the prefix has holes, replaying will fill them up,
+	 * so we end up with a (po U rf) view of the offending execution */
 	getEE()->replayExecutionBefore(before);
 
-	/* Linearizate (po U rf) and put relevant source code lines to buf */
+	/* Linearize (po U rf) and put relevant source code lines to buf */
 	View a;
 	calcTraceBefore(e, a, buf);
 

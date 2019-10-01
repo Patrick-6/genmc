@@ -23,7 +23,7 @@ GenMC="${GenMC:-../src/genmc}"
 
 header_printed=""
 runtime=0
-model="${model:-wb}"
+model="${model:-rc11}"
 
 printheader() {
     if test -z "${header_printed}"
@@ -33,7 +33,8 @@ printheader() {
 	# Update status
 	echo ''; printline
 	echo -n '--- Preparing to run testcases in '
-	echo "${testdir##*/}" 'under' "${model}" | awk '{ print toupper($1), $2, toupper($3) }'
+	echo "${testdir##*/}" 'under' "${model}" 'with' "${coherence}" |
+	    awk '{ print toupper($1), $2, toupper($3), $4, toupper($5) }'
 	printline; echo ''
 
 	# Print table's header
@@ -60,11 +61,12 @@ runvariants() {
     failure=""
     diff=""
     outcome_failure=""
-    checker_args="" && [[ -f "${dir}/genmc.in" ]] && checker_args=`head -1 "${dir}/genmc.in"`
+    checker_args="" && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
+	checker_args=`head -1 "${dir}/genmc.${model}.${coherence}.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
 	if test "$?" -eq 0
 	then
 	    outcome_failure=1

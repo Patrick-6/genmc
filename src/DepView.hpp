@@ -57,7 +57,6 @@ public:
 	DepView() : view_(), holes_() {}
 
 	/* Basic operations on Views */
-	const View& getView() const { return view_; }
 	unsigned int size() const { return view_.size(); }
 	bool empty() const { return size() == 0; }
 	bool contains(const Event e) const;
@@ -68,6 +67,7 @@ public:
 	void removeHolesInRange(Event start, int endIdx);
 	View& update(const View &v);
 	DepView& update(const DepView &v);
+	VectorClock &update(const VectorClock &vc);
 
 	/* Overloaded operators */
 	inline int operator[](int idx) const {
@@ -79,6 +79,10 @@ public:
 	}
 
 	void printData(llvm::raw_ostream &s) const;
+
+	static bool classof(const VectorClock *vc) {
+		return vc->getKind() == VC_DepView;
+	}
 
 private:
 	View view_;

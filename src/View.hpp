@@ -47,8 +47,11 @@ public:
 	unsigned int size() const;
 	bool empty() const;
 	bool contains(const Event e) const;
+
 	View& update(const View &v);
 	DepView& update(const DepView &dv);
+	VectorClock &update(const VectorClock &vc);
+
 	View& updateIdx(const Event e);
 
 	/* Overloaded operators */
@@ -70,6 +73,10 @@ public:
 	}
 
 	void printData(llvm::raw_ostream &s) const;
+
+	static bool classof(const VectorClock *vc) {
+		return vc->getKind() == VC_View;
+	}
 };
 
 #endif /* __VIEW_HPP__ */

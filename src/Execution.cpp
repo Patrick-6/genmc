@@ -2421,7 +2421,7 @@ std::string getFilenameFromMData(MDNode *node)
 	return absPath;
 }
 
-void Interpreter::replayExecutionBefore(const View &before)
+void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	threads[0].initSF = mainECStack.back();
 	for (auto i = 0u; i < before.size(); i++) {

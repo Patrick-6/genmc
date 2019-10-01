@@ -263,9 +263,6 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* TODO: Move this and restrictGraph to EG (make an abstract EG) */
-	virtual const View& getPrefix(const Event e) { return getGraph().getPorfBefore(e); }
-
 	/* Removes all labels with stamp >= st from the graph */
 	virtual void restrictGraph(unsigned int st);
 

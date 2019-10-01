@@ -22,6 +22,7 @@
 #define __VECTOR_CLOCK_HPP__
 
 #include "Event.hpp"
+#include <llvm/Support/Casting.h>
 
 /*******************************************************************************
  **                        VectorClock Class (Abstract)
@@ -40,12 +41,23 @@ class DepView;
 class VectorClock {
 
 public:
+	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
+	 * It is public to allow clients perform a switch() on it */
+	enum VectorClockKind {
+		VC_View,
+		VC_DepView,
+	};
+
+	/* Returns the kind of this vector clock */
+	VectorClockKind getKind() const { return kind; }
+
 	/* Returns true if this clock contains e */
 	virtual bool contains(const Event e) const = 0;
 
 	/* Updates the clock based on another clock **of the same kind** */
 	virtual View& update(const View &v) = 0;
 	virtual DepView& update(const DepView &v) = 0;
+	virtual VectorClock& update(const VectorClock &v) = 0;
 
 	/* Returns the size of this vector clock. As size, we basically
 	 * define the ID of the maximum thread the clock has seen */
@@ -53,6 +65,9 @@ public:
 
 	/* Returns true if this vector clock is empty */
 	bool empty() const { return size() == 0; }
+
+	/* Clones a VectorClock (deep copying) */
+	VectorClock *clone() const;
 
 	virtual ~VectorClock() {};
 
@@ -63,6 +78,10 @@ public:
 	/* Printing facilities */
 	virtual void printData(llvm::raw_ostream &s) const = 0;
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const VectorClock &v);
+
+private:
+	/* The kind of this VectorClock */
+	VectorClockKind kind;
 };
 
 #endif /* __VECTOR_CLOCK_HPP__ */

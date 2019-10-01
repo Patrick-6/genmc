@@ -32,7 +32,6 @@ public:
 		  clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
-	const View &getPrefix(const Event e) { return getGraph().getPPoRfBefore(e).getView(); }
 	void restrictGraph(unsigned int stamp) override;
 
 	View calcBasicHbView(Event e) const;

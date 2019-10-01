@@ -84,6 +84,13 @@ DepView& DepView::update(const DepView &v)
 	return *this;
 }
 
+VectorClock &DepView::update(const VectorClock &vc)
+{
+	if (auto *v = llvm::dyn_cast<DepView>(&vc))
+		this->update(*v);
+	BUG();
+}
+
 void DepView::printData(llvm::raw_ostream &s) const
 {
 	s << "[\n";
