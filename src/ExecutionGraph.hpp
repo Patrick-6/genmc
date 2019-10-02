@@ -195,8 +195,8 @@ public:
 	bool isHbOptRfBeforeInView(const Event e, const Event write,
 				   const VectorClock &v) const;
 
-	/* Returns true if e (or any of the reads that read from it) is in before */
-	bool isWriteRfBefore(const View &before, Event e) const;
+	/* Returns true if a (or any of the reads reading from a) is hb-before b */
+	bool isWriteRfBefore(Event a, Event b) const;
 
 	/* Returns true if store is read a successful RMW in the location ptr */
 	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr) const;

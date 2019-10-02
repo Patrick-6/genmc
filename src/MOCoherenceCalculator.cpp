@@ -150,7 +150,7 @@ int MOCoherenceCalculator::splitLocMOBefore(const llvm::GenericValue *addr,
 	auto &before = g.getHbBefore(e.prev());
 
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !g.isWriteRfBefore(before, *rit))
+		if (before.empty() || !g.isWriteRfBefore(*rit, e.prev()))
 			continue;
 		return std::distance(rit, locMO.rend());
 	}

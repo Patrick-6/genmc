@@ -511,17 +511,18 @@ bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
 	return false;
 }
 
-bool ExecutionGraph::isWriteRfBefore(const View &before, Event e) const
+bool ExecutionGraph::isWriteRfBefore(Event a, Event b) const
 {
-	if (before.contains(e))
+	auto &before = getEventLabel(b)->getHbView();
+	if (before.contains(a))
 		return true;
 
-	const EventLabel *lab = getEventLabel(e);
+	const EventLabel *lab = getEventLabel(a);
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto &e : wLab->getReadersList())
-		if (before.contains(e))
+	for (auto &r : wLab->getReadersList())
+		if (before.contains(r))
 			return true;
 	return false;
 }

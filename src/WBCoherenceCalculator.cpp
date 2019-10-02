@@ -161,11 +161,11 @@ Matrix2D<Event> WBCoherenceCalculator::calcWbRestricted(const llvm::GenericValue
 		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
 			     [&](const Event &r){ return v.contains(r); });
 
-		auto before = g.getHbBefore(es).
-			update(g.getPreviousNonEmptyLabel(wLab)->getHbView());
+		es.push_back(g.getPreviousNonEmptyLabel(wLab)->getPos());
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (i == j || !g.isWriteRfBefore(before, stores[j]))
+			if (i == j || std::none_of(es.begin(), es.end(), [&](Event e)
+				      { return g.isWriteRfBefore(stores[j], e); }))
 				continue;
 			matrix(j, i) = true;
 
@@ -203,12 +203,13 @@ Matrix2D<Event> WBCoherenceCalculator::calcWb(const llvm::GenericValue *addr) co
 
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto *wLab = static_cast<const WriteLabel *>(g.getEventLabel(stores[i]));
-		auto before = g.getHbBefore(wLab->getReadersList()).
-			update(g.getPreviousNonEmptyLabel(wLab)->getHbView());
+		std::vector<Event> es(wLab->getReadersList());
+		es.push_back(g.getPreviousNonEmptyLabel(wLab)->getPos());
 
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (i == j || !g.isWriteRfBefore(before, stores[j]))
+			if (i == j || std::none_of(es.begin(), es.end(), [&](Event e)
+				      { return g.isWriteRfBefore(stores[j], e); }))
 				continue;
 			matrix(j, i) = true;
 			if (upi == stores.size() || upi == upperLimit[j])
@@ -378,7 +379,7 @@ bool WBCoherenceCalculator::isCoherentRf(const llvm::GenericValue *addr,
 
 	/* First, check whether it is wb;rf?;hb-before the read */
 	for (auto j = 0u; j < stores.size(); j++) {
-		if (wb(storeWbIdx, j) && g.isWriteRfBefore(hbBefore, stores[j]))
+		if (wb(storeWbIdx, j) && g.isWriteRfBefore(stores[j], read.prev()))
 			return false;
 	}
 
@@ -418,7 +419,7 @@ bool WBCoherenceCalculator::isInitCoherentRf(const Matrix2D<Event> &wb,
 	auto &stores = wb.getElems();
 
 	for (auto j = 0u; j < stores.size(); j++)
-		if (g.isWriteRfBefore(hbBefore, stores[j]))
+		if (g.isWriteRfBefore(stores[j], read.prev()))
 			return false;
 	return true;
 }
@@ -497,7 +498,7 @@ bool WBCoherenceCalculator::isCoherentRevisit(const WriteLabel *sLab,
 
 	auto &hbBefore = g.getHbBefore(g.getPreviousNonEmptyLabel(read)->getPos());
 	for (auto j = 0u; j < stores.size(); j++) {
-		if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
+		if (wb(i, j) && g.isWriteRfBefore(stores[j], g.getPreviousNonEmptyLabel(read)->getPos())) {
 			return false;
 		}
 	}
