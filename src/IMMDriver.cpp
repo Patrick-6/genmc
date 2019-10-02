@@ -274,8 +274,8 @@ IMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<LibReadLabel>
 IMMDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, std::string functionName)
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      Event rf, std::string functionName)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -287,9 +287,8 @@ IMMDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<WriteLabel>
 IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			      const llvm::GenericValue *ptr, const llvm::Type *typ,
-			      const llvm::GenericValue &val, int offsetMO,
-			      bool isUnlock)
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val, bool isUnlock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -303,7 +302,7 @@ IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<FaiWriteLabel>
 IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val, int offsetMO)
+				 const llvm::GenericValue &val)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -317,8 +316,7 @@ IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<CasWriteLabel>
 IMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val, int offsetMO,
-				 bool isLock)
+				 const llvm::GenericValue &val, bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -332,9 +330,9 @@ IMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<LibWriteLabel>
 IMMDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 llvm::GenericValue &val, int offsetMO,
-				 std::string functionName, bool isInit)
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       llvm::GenericValue &val, std::string functionName,
+			       bool isInit)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);

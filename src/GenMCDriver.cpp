@@ -808,20 +808,20 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	case llvm::Interpreter::IA_None:
 	case llvm::Interpreter::IA_Unlock:
 		wLab = std::move(createStoreLabel(pos.thread, pos.index, ord,
-						  addr, typ, val, endO,
+						  addr, typ, val,
 						  attr == llvm::Interpreter::IA_Unlock));
 		// lab = g.addStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
 		// 			attr == llvm::Interpreter::IA_Unlock);
 		break;
 	case llvm::Interpreter::IA_Fai:
 		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val, endO));
+						     addr, typ, val));
 		// lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
 		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val, endO,
+						     addr, typ, val,
 						     attr == llvm::Interpreter::IA_Lock));
 		// lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
 		// 			   attr == llvm::Interpreter::IA_Lock);
@@ -1060,7 +1060,6 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-	auto offsetMO = 0;
 
 	const WriteLabel *sLab = nullptr;
 	std::unique_ptr<WriteLabel> wLab = nullptr;
@@ -1080,7 +1079,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						     faiLab->getOrdering(),
 						     faiLab->getAddr(),
 						     faiLab->getType(),
-						     result, offsetMO));
+						     result));
 		// sLab = getGraph().addFaiStoreToGraph(faiLab->getThread(),
 		// 				     faiLab->getIndex() + 1,
 		// 				     faiLab->getOrdering(),
@@ -1102,7 +1101,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 							     casLab->getAddr(),
 							     casLab->getType(),
 							     casLab->getSwapVal(),
-							     offsetMO, casLab->isLock()));
+							     casLab->isLock()));
 			// sLab = getGraph().addCasStoreToGraph(casLab->getThread(),
 			// 				     casLab->getIndex() + 1,
 			// 				     casLab->getOrdering(),
@@ -1341,7 +1340,7 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 
 	/* It is always consistent to add a new event at the end of MO */
 	auto lLab = createLibStoreLabel(thr.id, thr.globalInstructions,
-					ord, addr, typ, val, endO,
+					ord, addr, typ, val,
 					functionName, isInit);
 	auto *sLab = getGraph().addWriteLabelToGraph(std::move(lLab), endO);
 

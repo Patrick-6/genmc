@@ -202,8 +202,7 @@ RC11Driver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<WriteLabel>
 RC11Driver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			     const llvm::GenericValue *ptr, const llvm::Type *typ,
-			     const llvm::GenericValue &val, int offsetMO,
-			     bool isUnlock)
+			     const llvm::GenericValue &val, bool isUnlock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -217,7 +216,7 @@ RC11Driver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<FaiWriteLabel>
 RC11Driver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				const llvm::GenericValue &val, int offsetMO)
+				const llvm::GenericValue &val)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -231,8 +230,7 @@ RC11Driver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<CasWriteLabel>
 RC11Driver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				const llvm::GenericValue &val, int offsetMO,
-				bool isLock)
+				const llvm::GenericValue &val, bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
@@ -247,8 +245,8 @@ RC11Driver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<LibWriteLabel>
 RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				llvm::GenericValue &val, int offsetMO,
-				std::string functionName, bool isInit)
+				llvm::GenericValue &val, std::string functionName,
+				bool isInit)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);

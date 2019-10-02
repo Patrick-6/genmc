@@ -345,28 +345,26 @@ private:
 	virtual std::unique_ptr<WriteLabel>
 	createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			 const llvm::GenericValue *ptr, const llvm::Type *typ,
-			 const llvm::GenericValue &val, int offsetMO,
-			 bool isUnlock = false) = 0;
+			 const llvm::GenericValue &val, bool isUnlock = false) = 0;
 
 	/* Creates a label for a FAI write to be added to the graph */
 	virtual std::unique_ptr<FaiWriteLabel>
 	createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, int offsetMO) = 0;
+			    const llvm::GenericValue &val) = 0;
 
 	/* Creates a label for a CAS write to be added to the graph */
 	virtual std::unique_ptr<CasWriteLabel>
 	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, int offsetMO,
-			    bool isLock = false) = 0;
+			    const llvm::GenericValue &val, bool isLock = false) = 0;
 
 	/* Creates a label for a library write to be added to the graph */
 	virtual std::unique_ptr<LibWriteLabel>
 	createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    llvm::GenericValue &val, int offsetMO,
-			    std::string functionName, bool isInit) = 0;
+			    llvm::GenericValue &val, std::string functionName,
+			    bool isInit) = 0;
 
 	/* Creates a label for a fence to be added to the graph */
 	virtual std::unique_ptr<FenceLabel>
