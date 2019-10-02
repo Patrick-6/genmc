@@ -225,8 +225,8 @@ private:
 	 * A default-constructed item means that the list is empty */
 	StackItem getNextItem();
 
-	/* Restricts the worklist only to entries with stamps <= st */
-	void restrictWorklist(unsigned int st);
+	/* Restricts the worklist only to entries that were added before lab */
+	void restrictWorklist(const EventLabel *lab);
 
 	/*** Exploration-related ***/
 
@@ -264,7 +264,7 @@ private:
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
 	/* Removes all labels with stamp >= st from the graph */
-	virtual void restrictGraph(unsigned int st);
+	void restrictGraph(const EventLabel *lab);
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
@@ -409,19 +409,9 @@ private:
 	virtual std::vector<Event>
 	getStoresToLoc(const llvm::GenericValue *addr) = 0;
 
-	/* Should return the range of available MO places for current store */
-	virtual std::pair<int, int>
-	getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW = false) = 0;
-
 	/* Should return the set of reads that lab can revisit */
 	virtual std::vector<Event>
 	getRevisitLoads(const WriteLabel *lab) = 0;
-
-	/* Should return the prefix of wLab that was not added before rLab,
-	 * as well as the placings in MO for all stores in that prefix */
-	virtual std::pair<std::vector<std::unique_ptr<EventLabel> >,
-			  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) = 0;
 
 	/* Changes the reads-from edge for the specified label.
 	 * This effectively changes the label, hence this method is virtual */
@@ -433,9 +423,6 @@ private:
 	/* After restriction, resets a join label as to "forget"
 	 * possible threads that it has synchronized with */
 	virtual void resetJoin(Event join) = 0;
-
-	/* Should return true if the current graph is PSC-consistent */
-	virtual bool checkPscAcyclicity(CheckPSCType type) = 0;
 
 	/* Should return true if the current graph is consistent */
 	virtual bool isExecutionValid() = 0;

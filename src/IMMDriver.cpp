@@ -20,29 +20,6 @@
 
 #include "IMMDriver.hpp"
 
-void IMMDriver::restrictGraph(unsigned int stamp)
-{
-	const auto &g = getGraph();
-
-	/* First, free memory allocated by events that will no longer
-	 * be in the graph */
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = 1u; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= stamp)
-				continue;
-			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-				getEE()->deallocateAddr(mLab->getAllocAddr(),
-							mLab->getAllocSize(),
-							mLab->isLocal());
-		}
-	}
-
-	/* Then, restrict the graph */
-	getGraph().cutToStamp(stamp);
-	return;
-}
-
 /* Calculates a minimal hb vector clock based on po for a given label */
 View IMMDriver::calcBasicHbView(Event e) const
 {
@@ -526,26 +503,9 @@ std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
-std::pair<int, int> IMMDriver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
-{
-	return std::make_pair(0,0);
-}
-
 std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
 {
 	return getGraph().getCoherentRevisits(sLab);
-}
-
-std::pair<std::vector<std::unique_ptr<EventLabel> >,
-	  std::vector<std::pair<Event, Event> > >
-IMMDriver::getPrefixToSaveNotBefore(const WriteLabel *sLab, const ReadLabel *rLab)
-{
-	const auto &g = getGraph();
-	auto prefix = g.getPrefixLabelsNotBefore(sLab, rLab);
-	auto moPlacings = g.saveCoherenceStatus(prefix, g.getDepViewFromStamp(rLab->getStamp()));
-
-	BUG_ON(prefix.empty());
-	return std::make_pair(std::move(prefix), std::move(moPlacings));
 }
 
 void IMMDriver::changeRf(Event read, Event store)
@@ -678,16 +638,6 @@ Matrix2D<Event> IMMDriver::getARMatrix()
         }
 	ar.transClosure();
 	return ar;
-}
-
-bool isPscAcyclicIMM(const Matrix2D<Event> &psc)
-{
-	return !psc.isReflexive();
-}
-
-bool IMMDriver::checkPscAcyclicity(CheckPSCType t)
-{
-	return getGraph().checkPscCondition(t, isPscAcyclicIMM);
 }
 
 bool IMMDriver::isExecutionValid()

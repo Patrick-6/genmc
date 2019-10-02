@@ -159,7 +159,8 @@ void GenMCDriver::handleFinishedExecution()
 	}
 
 	const auto &g = getGraph();
-	if (!checkPscAcyclicity(userConf->checkPscAcyclicity))
+	if (userConf->checkPscAcyclicity != CheckPSCType::nocheck &&
+	    !g.isPscAcyclic(userConf->checkPscAcyclicity))
 		return;
 	if (userConf->printExecGraphs)
 		llvm::dbgs() << g << "\n";
@@ -231,9 +232,11 @@ GenMCDriver::StackItem GenMCDriver::getNextItem()
 	return StackItem();
 }
 
-void GenMCDriver::restrictWorklist(unsigned int stamp)
+void GenMCDriver::restrictWorklist(const EventLabel *rLab)
 {
+	auto stamp = rLab->getStamp();
 	std::vector<int> idxsToRemove;
+
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
 		if (rit->first > stamp && rit->second.empty())
 			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
@@ -242,15 +245,17 @@ void GenMCDriver::restrictWorklist(unsigned int stamp)
 		workqueue.erase(i);
 }
 
-void GenMCDriver::restrictGraph(unsigned int stamp)
+void GenMCDriver::restrictGraph(const EventLabel *rLab)
 {
 	const auto &g = getGraph();
-	auto v = g.getViewFromStamp(stamp);
+	auto v = g.getPredsView(rLab->getPos());
 
 	/* First, free memory allocated by events that will no longer be in the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = v[i] + 1u; j < g.getThreadSize(i); j++) {
+		for (auto j = 1; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (lab->getStamp() <= rLab->getStamp())
+				continue;
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
 				getEE()->deallocateAddr(mLab->getAllocAddr(),
 							mLab->getAllocSize(),
@@ -259,7 +264,7 @@ void GenMCDriver::restrictGraph(unsigned int stamp)
 	}
 
 	/* Then, restrict the graph */
-	getGraph().cutToStamp(stamp);
+	getGraph().cutToStamp(rLab->getStamp());
 	return;
 }
 
@@ -1019,9 +1024,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
 		/* Get the prefix of the write to save */
-		auto prefixP = getPrefixToSaveNotBefore(sLab, rLab);
-		auto &writePrefix = prefixP.first;
-		auto &moPlacings = prefixP.second;
+		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
+		auto moPlacings = g.saveCoherenceStatus(writePrefix, *g.getPredsView(rLab->getPos()));
 
 		auto writePrefixPos = g.extractRfs(writePrefix);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
@@ -1123,8 +1127,8 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	// llvm::dbgs() << "BEFORE RESTRICTION " << g << "\n";
 
 	/* Restrict to the predecessors of the event we are revisiting */
-	restrictGraph(lab->getStamp());
-	restrictWorklist(lab->getStamp());
+	restrictGraph(lab);
+	restrictWorklist(lab);
 
 	/* Restore events that might have been deleted from the graph */
 	switch (p.type) {

@@ -32,8 +32,6 @@ public:
 		  clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
-	void restrictGraph(unsigned int stamp) override;
-
 	View calcBasicHbView(Event e) const;
 	View calcBasicPorfView(Event e) const;
 	DepView calcPPoView(Event e); /* not const */
@@ -139,12 +137,8 @@ public:
 	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
 	int splitLocMOAfter(const llvm::GenericValue *addr, const Event e);
 	int splitLocMOAfterHb(const llvm::GenericValue *addr, const Event e);
-	std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW) override;
 
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
-	std::pair<std::vector<std::unique_ptr<EventLabel> >,
-		  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
 
 	void changeRf(Event read, Event store) override;
 
@@ -156,7 +150,6 @@ public:
 	void fillMatrixFromView(const Event e, const DepView &v,
 				Matrix2D<Event> &matrix);
 	Matrix2D<Event> getARMatrix();
-	bool checkPscAcyclicity(CheckPSCType t) override;
 	bool isExecutionValid() override;
 };
 

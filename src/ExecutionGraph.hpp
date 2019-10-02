@@ -222,6 +222,9 @@ public:
 	template <typename F>
 	bool checkPscCondition(CheckPSCType t, F cond) const;
 
+	/* Returns true if PSC is acyclic */
+	bool isPscAcyclic(CheckPSCType t) const;
+
 
 	/* Library consistency checks */
 
@@ -265,7 +268,13 @@ public:
 
 	/* Prefix saving and restoring */
 
+	/* Returns a vector clock representing the prefix of e.
+	 * Depending on whether dependencies are tracked, the prefix can be
+	 * either (po U rf) or (AR U rf) */
 	virtual const VectorClock& getPrefixView(Event e) const;
+
+	/* Returns a vector clock representing the events added before e */
+	virtual std::unique_ptr<VectorClock> getPredsView(Event e) const;
 
 	/* Saves the prefix of sLab that is not before rLab.
 	 * (Because of functional libraries, sLab can be a ReadLabel as well.) */

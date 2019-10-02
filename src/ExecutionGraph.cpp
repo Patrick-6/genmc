@@ -422,6 +422,12 @@ const VectorClock& ExecutionGraph::getPrefixView(Event e) const
 	return getPorfBefore(e);
 }
 
+std::unique_ptr<VectorClock> ExecutionGraph::getPredsView(Event e) const
+{
+	auto stamp = getEventLabel(e)->getStamp();
+	return llvm::make_unique<View>(getViewFromStamp(stamp));
+}
+
 std::vector<std::unique_ptr<EventLabel> >
 ExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 					 const ReadLabel *rLab) const
@@ -1349,6 +1355,15 @@ template bool ExecutionGraph::checkPscCondition<bool (*)(const Matrix2D<Event>&)
 template bool ExecutionGraph::checkPscCondition<std::function<bool(const Matrix2D<Event>&)>>
 (CheckPSCType, std::function<bool(const Matrix2D<Event>&)>) const;
 
+bool __isPscAcyclic(const Matrix2D<Event> &psc)
+{
+	return !psc.isReflexive();
+}
+
+bool ExecutionGraph::isPscAcyclic(CheckPSCType t) const
+{
+	return checkPscCondition(t, __isPscAcyclic);
+}
 
 
 /************************************************************

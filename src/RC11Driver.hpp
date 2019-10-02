@@ -135,11 +135,8 @@ public:
 	Event findRaceForNewStore(const WriteLabel *wLab) override;
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
-	std::pair<int, int> getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW) override;
+
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
-	std::pair<std::vector<std::unique_ptr<EventLabel> >,
-		  std::vector<std::pair<Event, Event> > >
-	getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab) override;
 
 	void changeRf(Event read, Event store) override;
 
@@ -147,7 +144,6 @@ public:
 
 	bool updateJoin(Event join, Event childLast) override;
 
-	bool checkPscAcyclicity(CheckPSCType t) override;
 	bool isExecutionValid() override;
 };
 

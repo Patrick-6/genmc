@@ -47,6 +47,8 @@ public:
 
 	const VectorClock& getPrefixView(Event e) const override;
 
+	std::unique_ptr<VectorClock> getPredsView(Event e) const override;
+
 	bool revisitModifiesGraph(const ReadLabel *rLab,
 				  const EventLabel *sLab) const override;
 

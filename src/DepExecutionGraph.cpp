@@ -54,6 +54,12 @@ const VectorClock& DepExecutionGraph::getPrefixView(Event e) const
 	return getPPoRfBefore(e);
 }
 
+std::unique_ptr<VectorClock> DepExecutionGraph::getPredsView(Event e) const
+{
+	auto stamp = getEventLabel(e)->getStamp();
+	return llvm::make_unique<DepView>(getDepViewFromStamp(stamp));
+}
+
 bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 					     const EventLabel *sLab) const
 {

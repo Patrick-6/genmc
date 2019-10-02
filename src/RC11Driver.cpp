@@ -436,25 +436,9 @@ std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
-std::pair<int, int> RC11Driver::getPossibleMOPlaces(const llvm::GenericValue *addr, bool isRMW)
-{
-	return std::make_pair(0,0);
-}
-
 std::vector<Event> RC11Driver::getRevisitLoads(const WriteLabel *sLab)
 {
 	return getGraph().getCoherentRevisits(sLab);
-}
-
-std::pair<std::vector<std::unique_ptr<EventLabel> >,
-	  std::vector<std::pair<Event, Event> > >
-RC11Driver::getPrefixToSaveNotBefore(const WriteLabel *wLab, const ReadLabel *rLab)
-{
-	const auto &g = getGraph();
-	auto preds = g.getViewFromStamp(rLab->getStamp());
-	auto writePrefix = g.getPrefixLabelsNotBefore(wLab, rLab);
-	auto moPlacings = g.saveCoherenceStatus(writePrefix, preds);
-	return std::make_pair(std::move(writePrefix), std::move(moPlacings));
 }
 
 void RC11Driver::changeRf(Event read, Event store)
@@ -510,17 +494,7 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
-bool isPscAcyclic(const Matrix2D<Event> &psc)
-{
-	return !psc.isReflexive();
-}
-
-bool RC11Driver::checkPscAcyclicity(CheckPSCType t)
-{
-	return getGraph().checkPscCondition(t, isPscAcyclic);
-}
-
 bool RC11Driver::isExecutionValid()
 {
-	return checkPscAcyclicity(CheckPSCType::full);
+	return getGraph().isPscAcyclic(CheckPSCType::full);
 }
