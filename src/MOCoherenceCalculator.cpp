@@ -391,5 +391,6 @@ bool MOCoherenceCalculator::locContains(const llvm::GenericValue *addr, Event e)
 {
 	BUG_ON(mo_.count(addr) == 0);
 	return e == Event::getInitializer() ||
-	       std::any_of(mo_.at(addr).begin(), mo_.at(addr).end(), [&e](Event s){ return s == e; });
+	       std::any_of(mo_.at(addr).begin(), mo_.at(addr).end(),
+			   [&e](Event s){ return s == e; });
 }

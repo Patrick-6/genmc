@@ -593,7 +593,6 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 	/* Add an event for the thread creation */
 	auto tcLab = createTCreateLabel(cur.thread, cur. index, cid);
 	getGraph().addOtherLabelToGraph(std::move(tcLab));
-	// getGraph().addTCreateToGraph(cur.thread, cur.index, cid);
 
 	/* Prepare the execution context for the new thread */
 	llvm::Thread thr(calledFun, cid, cur.thread, SF);
@@ -631,7 +630,6 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 	if (!isExecutionDrivenByGraph()) {
 		auto jLab = createTJoinLabel(thr.id, thr.globalInstructions, cid);
 		getGraph().addOtherLabelToGraph(std::move(jLab));
-		// getGraph().addTJoinToGraph(thr.id, thr.globalInstructions, cid);
 	}
 
 	/* If the update failed (child has not terminated yet) block this thread */
@@ -657,7 +655,6 @@ void GenMCDriver::visitThreadFinish()
 	    !thr.isBlocked) {
 		auto eLab = createFinishLabel(thr.id, thr.globalInstructions);
 		getGraph().addOtherLabelToGraph(std::move(eLab));
-		// getGraph().addFinishToGraph(thr.id, thr.globalInstructions);
 
 		if (thr.id == 0)
 			return;
@@ -687,7 +684,6 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 
 	auto fLab = createFenceLabel(thr.id, thr.globalInstructions, ord);
 	getGraph().addOtherLabelToGraph(std::move(fLab));
-	// getGraph().addFenceToGraph(thr.id, thr.globalInstructions, ord);
 	return;
 }
 
@@ -705,53 +701,38 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
-		// if ((char *) addr == (char *) 0x8) {
-		// 	llvm::dbgs() << "REPLAY ALERT " << *lab << " in ";
-		// 	llvm::dbgs() << g << "\n";
-		// }
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			return getWriteValue(rLab->getRf(), addr, typ);
 		}
 		BUG();
 	}
 
-	/* Record dependencies in the graph */
-	int idx = thr.globalInstructions;
-	// updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
-	// 			std::move(dataDeps), std::move(ctrlDeps),
-	// 			std::move(addrPoDeps), std::move(casDeps));
-
-	// g.registerMemLocation(addr);
-
+	/* Make the graph aware of a (potentially) new memory location */
 	g.trackCoherenceAtLoc(addr);
+
 	/* Get all stores to this location from which we can read from */
 	auto stores = getStoresToLoc(addr);
-	// if (stores.empty())
-	// 	llvm::dbgs() << g << " trying to add " << Event(thr.id, idx) << " " << addr << "\n";
 	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
 	/* ... and add an appropriate label with a particular rf */
+	int idx = thr.globalInstructions;
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
-		rLab = std::move(createReadLabel(thr.id, idx, ord, addr, typ, validStores[0]));
-		// lab = g.addReadToGraph(thr.id, idx, ord, addr, typ, validStores[0]);
+		rLab = std::move(createReadLabel(thr.id, idx, ord, addr,
+						 typ, validStores[0]));
 		break;
 	case llvm::Interpreter::IA_Fai:
-		rLab = std::move(createFaiReadLabel(thr.id, idx, ord, addr, typ, validStores[0],
-						   op, std::move(rmwVal)));
-		// lab = g.addFaiReadToGraph(thr.id, idx, ord, addr, typ, validStores[0],
-		// 			  op, std::move(rmwVal));
+		rLab = std::move(createFaiReadLabel(thr.id, idx, ord,
+						    addr, typ, validStores[0],
+						    op, std::move(rmwVal)));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
 		rLab = std::move(createCasReadLabel(thr.id, idx, ord, addr, typ,
 						    validStores[0], cmpVal, rmwVal,
 						    attr == llvm::Interpreter::IA_Lock));
-		// lab = g.addCasReadToGraph(thr.id, idx, ord, addr, typ,
-		// 			  validStores[0], cmpVal, rmwVal,
-		// 			  attr == llvm::Interpreter::IA_Lock);
 		break;
 	default:
 		BUG();
@@ -761,13 +742,6 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	/* Check for races */
 	checkForRaces();
-
-	// if (EE->isStackAlloca(addr) && std::any_of(validStores.begin(), validStores.end(),
-	// 					   [&](Event &w){ return w.isInitializer(); })) {
-	// 	llvm::dbgs() << "current is " << *lab << "\n";
-	// 	llvm::dbgs() << "graph is " << g << "\n";
-	// 	BUG();
-	// }
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
@@ -784,12 +758,6 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 {
 	if (isExecutionDrivenByGraph())
 		return;
-
-	/* Record dependencies in the graph */
-	// int idx = thr.globalInstructions;
-	// updateGraphDependencies(Event(thr.id, idx), std::move(addrDeps),
-	// 			std::move(dataDeps), std::move(ctrlDeps),
-	// 			std::move(addrPoDeps), std::move(casDeps));
 
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -810,21 +778,16 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 		wLab = std::move(createStoreLabel(pos.thread, pos.index, ord,
 						  addr, typ, val,
 						  attr == llvm::Interpreter::IA_Unlock));
-		// lab = g.addStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
-		// 			attr == llvm::Interpreter::IA_Unlock);
 		break;
 	case llvm::Interpreter::IA_Fai:
 		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
 						     addr, typ, val));
-		// lab = g.addFaiStoreToGraph(thr.id, idx, ord, addr, typ, val, endO);
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
 		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
 						     addr, typ, val,
 						     attr == llvm::Interpreter::IA_Lock));
-		// lab = g.addCasStoreToGraph(thr.id, idx, ord, addr, typ, val, endO,
-		// 			   attr == llvm::Interpreter::IA_Lock);
 		break;
 	}
 
@@ -876,8 +839,6 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* 
 	auto aLab = createMallocLabel(thr.id, thr.globalInstructions,
 			   allocBegin.PointerVal, allocSize, isLocal);
 	g.addOtherLabelToGraph(std::move(aLab));
-	// g.addMallocToGraph(thr.id, thr.globalInstructions,
-	// 		   allocBegin.PointerVal, allocSize, isLocal);
 	return allocBegin;
 }
 
@@ -926,8 +887,6 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	auto dLab = createFreeLabel(thr.id, thr.globalInstructions,
 				  ptr, m->getAllocSize());
 	getGraph().addOtherLabelToGraph(std::move(dLab));
-	// getGraph().addFreeToGraph(thr.id, thr.globalInstructions,
-	// 			  ptr, m->getAllocSize());
 	return;
 }
 
@@ -988,12 +947,6 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 		changeRf(rLab->getPos(), sLab->getPos());
 
 		completeRevisitedRMW(rLab);
-		// auto newVal = rLab->getSwapVal();
-		// auto offsetMO = g.modOrder.getStoreOffset(rLab->getAddr(), rLab->getRf()) + 1;
-
-		// g.addCasStoreToGraph(rLab->getThread(), rLab->getIndex() + 1,
-		// 		     rLab->getOrdering(), rLab->getAddr(),
-		// 		     rLab->getType(), newVal, offsetMO, true /* isLock */);
 
 		prioritizeThread = rLab->getThread();
 		if (EE->getThrById(rLab->getThread()).globalInstructions != 0)
@@ -1068,32 +1021,14 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		EE->executeAtomicRMWOperation(result, rfVal, faiLab->getOpVal(),
 					      faiLab->getOp());
 		EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-		// updateGraphDependencies(rLab->getPos().next(), /* sLab has not pos yet! */
-		// 			getGraph().addrDeps[rLab->getPos()],
-		// 			getGraph().dataDeps[rLab->getPos()].depUnion(rLab->getPos()),
-		// 			getGraph().ctrlDeps[rLab->getPos()],
-		// 			getGraph().addrPoDeps[rLab->getPos()],
-		// 			DepInfo());
 		wLab = std::move(createFaiStoreLabel(faiLab->getThread(),
 						     faiLab->getIndex() + 1,
 						     faiLab->getOrdering(),
 						     faiLab->getAddr(),
 						     faiLab->getType(),
 						     result));
-		// sLab = getGraph().addFaiStoreToGraph(faiLab->getThread(),
-		// 				     faiLab->getIndex() + 1,
-		// 				     faiLab->getOrdering(),
-		// 				     faiLab->getAddr(),
-		// 				     faiLab->getType(),
-		// 				     result, offsetMO);
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
-			// updateGraphDependencies(rLab->getPos().next(),
-			// 			getGraph().addrDeps[rLab->getPos()],
-			// 			getGraph().dataDeps[rLab->getPos()].depUnion(rLab->getPos()),
-			// 			getGraph().ctrlDeps[rLab->getPos()],
-			// 			getGraph().addrPoDeps[rLab->getPos()],
-			// 			DepInfo());
 			EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 			wLab = std::move(createCasStoreLabel(casLab->getThread(),
 							     casLab->getIndex() + 1,
@@ -1102,13 +1037,6 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 							     casLab->getType(),
 							     casLab->getSwapVal(),
 							     casLab->isLock()));
-			// sLab = getGraph().addCasStoreToGraph(casLab->getThread(),
-			// 				     casLab->getIndex() + 1,
-			// 				     casLab->getOrdering(),
-			// 				     casLab->getAddr(),
-			// 				     casLab->getType(),
-			// 				     casLab->getSwapVal(),
-			// 				     offsetMO, casLab->isLock());
 		}
 	}
 	if (wLab)
@@ -1121,9 +1049,6 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
-
-	// llvm::dbgs() << "RESTRICTING TO " << lab->getPos() << " WHICH SHOULD READ FROM " << p.shouldRf << "\n";
-	// llvm::dbgs() << "BEFORE RESTRICTION " << g << "\n";
 
 	/* Restrict to the predecessors of the event we are revisiting */
 	restrictGraph(lab);
@@ -1168,17 +1093,12 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 	auto *rLab = static_cast<const ReadLabel *>(lab);
 
-	// llvm::dbgs() << "AFTER RESTRICTION " << g << "\n";
-
 	/*
 	 * For the case where an reads-from is changed, change the respective reads-from label
 	 * and check whether a part of an RMW should be added
 	 */
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), p.shouldRf);
-
-	// llvm::dbgs() << "REVISITING: " << rLab->getPos() << " TO READ-FROM " << p.shouldRf;
-
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))

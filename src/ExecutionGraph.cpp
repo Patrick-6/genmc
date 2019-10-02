@@ -484,17 +484,12 @@ bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *sLab = static_cast<const WriteLabel *>(lab);
-	// llvm::dbgs() << "In hbbefore sLab is " << *sLab << " and e is " << e << "\n";
-	if (sLab->getHbView().contains(e)) { // llvm::dbgs() << "disallowed as hbbefore sLab\n";
-		// llvm::dbgs() << sLab->getHbView() << "\n";
+	if (sLab->getHbView().contains(e))
 		return true;
-	}
 
 	for (auto &r : sLab->getReadersList()) {
-		if (getHbBefore(r).contains(e)) {
-			// llvm::dbgs() << "disallowed because is hb-before " << r << "\n";
+		if (getHbBefore(r).contains(e))
 			return true;
-		}
 	}
 	return false;
 }
@@ -506,17 +501,12 @@ bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *sLab = static_cast<const WriteLabel *>(lab);
-	// llvm::dbgs() << "In hbbefore sLab is " << *sLab << " and e is " << e << "\n";
-	if (sLab->getHbView().contains(e)) { // llvm::dbgs() << "disallowed as hbbefore sLab\n";
-		// llvm::dbgs() << sLab->getHbView() << "\n";
+	if (sLab->getHbView().contains(e))
 		return true;
-	}
 
 	for (auto &r : sLab->getReadersList()) {
-		if (v.contains(r) && r != e && getHbBefore(r).contains(e)) {
-			// llvm::dbgs() << "disallowed because is hb-before " << r << "\n";
+		if (v.contains(r) && r != e && getHbBefore(r).contains(e))
 			return true;
-		}
 	}
 	return false;
 }
@@ -757,8 +747,6 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 	std::vector<Event> inserted;
 
 	for (auto &lab : storePrefix) {
-		// BUG_ON(lab->getIndex() != (int) getThreadSize(lab->getThread()) &&
-		//        "Events should be added in order!");
 		inserted.push_back(lab->getPos());
 		if (events[lab->getThread()].size() <= lab->getIndex()) {
 			events[lab->getThread()].resize(lab->getIndex());
@@ -792,17 +780,7 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 		}
 	}
 
-	/* If there are no specific mo placings, just insert all stores */
-	// if (moPlacings.empty()) {
-	// 	for (const auto &e : inserted) {
-	// 		const EventLabel *lab = getEventLabel(e);
-	// 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
-	// 			modOrder.addAtLocEnd(wLab->getAddr(), wLab->getPos());
-	// 	}
-	// 	return;
-	// }
-
-	/* Otherwise, insert the writes of storePrefix into the appropriate places */
+	/* Insert the writes of storePrefix into the appropriate places */
 	getCoherenceCalculator()->restoreCoherenceStatus(moPlacings);
 }
 

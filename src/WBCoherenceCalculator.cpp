@@ -454,61 +454,6 @@ WBCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 		result.push_back(Event::getInitializer());
 
 	return result;
-
-	// for (auto i = 0u; i < stores.size(); i++) {
-	// 	auto allowed = true;
-	// 	for (auto j = 0u; j < stores.size(); j++) {
-	// 		if (wb(i, j) && g.isWriteRfBefore(hbBefore, stores[j])) {
-	// 			// llvm::dbgs() << "disallowed1 " << stores[i] << "\n";
-	// 			allowed = false;
-	// 			break;
-	// 		}
-	// 		if (wb(j, i) && g.isHbOptRfBefore(last.next(), stores[j])) {
-	// 			allowed = false;
-	// 			// llvm::dbgs() << "disallowed2 " << stores[i] << "\n";
-	// 			break;
-	// 		}
-	// 		// if (last == Event(2,14) && stores[i] == Event(1,7)) {
-	// 		// 	llvm::dbgs() << "hb view of " <<  stores[j]
-	// 		// 		     << " is " << g.getHbBefore(stores[j]) << "\n";
-	// 		// }
-	// 	}
-	// 	/* We cannot read from hb-after stores... */
-	// 	if (g.getHbBefore(stores[i]).contains(last.next())) {
-	// 		// llvm::dbgs() << "disallowed 3 " << stores[i] << "\n";
-	// 		allowed = false;
-	// 	}
-	// 	/* Also check for violations against the initializer */
-	// 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-	// 		for (auto j = 1u; j < g.getThreadSize(i); j++) {
-	// 			auto *lab = g.getEventLabel(Event(i, j));
-	// 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-	// 				if (rLab->getRf().isInitializer() &&
-	// 				    rLab->getAddr() == addr &&
-	// 				    g.getHbBefore(rLab->getPos()).contains(last.next()))
-	// 					allowed = false;
-	// 			// llvm::dbgs() << "disallowed4 " << stores[i] << "\n";
-	// 		}
-	// 	}
-	// 	if (allowed) {
-	// 		// if (last == Event(2,14) && stores[i] == Event(1,7)) {
-	// 		//     llvm::dbgs() << "allowed " << stores[i] << "\n";
-	// 		//     llvm::dbgs() << "hb view of store " << g.getHbBefore(stores[i]) << "\n";
-	// 		//     llvm::dbgs() << "graph is " << g << "\n";
-	// 		// }
-	// 		result.push_back(stores[i]);
-	// 	}
-	// }
-
-	// /* Also check the initializer event */
-	// bool allowed = true;
-	// for (auto j = 0u; j < stores.size(); j++)
-	// 	if (g.isWriteRfBefore(hbBefore, stores[j]))
-	// 		allowed = false;
-
-	// if (allowed && !getEE()->isStackAlloca(addr))
-	// 	result.insert(result.begin(), Event::getInitializer());
-	// return result;
 }
 
 bool WBCoherenceCalculator::isWbMaximal(const WriteLabel *sLab,
