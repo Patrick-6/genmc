@@ -568,14 +568,13 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
-	auto &curThr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph()) {
 		auto *cLab = static_cast<const ThreadCreateLabel *>(getCurrentLabel());
 		return cLab->getChildId();
 	}
 
-	Event cur(curThr.id, curThr.globalInstructions);
+	Event cur = EE->getCurrentPosition();
 	int cid = 0;
 
 	/* First, check if the thread to be created already exists */
@@ -633,7 +632,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 	}
 
 	/* If the update failed (child has not terminated yet) block this thread */
-	if (!updateJoin(getCurrentLabel()->getPos(), g.getLastThreadEvent(cid)))
+	if (!updateJoin(getEE()->getCurrentPosition(), g.getLastThreadEvent(cid)))
 		thr.block();
 
 	/*
@@ -677,12 +676,11 @@ void GenMCDriver::visitThreadFinish()
 
 void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 {
-	auto &thr = getEE()->getCurThr();
-
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto fLab = createFenceLabel(thr.id, thr.globalInstructions, ord);
+	auto pos = getEE()->getCurrentPosition();
+	auto fLab = createFenceLabel(pos.thread, pos.index, ord);
 	getGraph().addOtherLabelToGraph(std::move(fLab));
 	return;
 }
@@ -716,21 +714,21 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 
 	/* ... and add an appropriate label with a particular rf */
-	int idx = thr.globalInstructions;
+	Event pos = getEE()->getCurrentPosition();
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
-		rLab = std::move(createReadLabel(thr.id, idx, ord, addr,
-						 typ, validStores[0]));
+		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
+						 addr, typ, validStores[0]));
 		break;
 	case llvm::Interpreter::IA_Fai:
-		rLab = std::move(createFaiReadLabel(thr.id, idx, ord,
+		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
 						    addr, typ, validStores[0],
 						    op, std::move(rmwVal)));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
-		rLab = std::move(createCasReadLabel(thr.id, idx, ord, addr, typ,
+		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
 						    validStores[0], cmpVal, rmwVal,
 						    attr == llvm::Interpreter::IA_Lock));
 		break;
@@ -836,8 +834,9 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* 
 	allocBegin.PointerVal = EE->getFreshAddr(allocSize, isLocal);
 
 	/* Add a relevant label to the graph and return the new address */
-	auto aLab = createMallocLabel(thr.id, thr.globalInstructions,
-			   allocBegin.PointerVal, allocSize, isLocal);
+	Event pos = EE->getCurrentPosition();
+	auto aLab = createMallocLabel(pos.thread, pos.index, allocBegin.PointerVal,
+				      allocSize, isLocal);
 	g.addOtherLabelToGraph(std::move(aLab));
 	return allocBegin;
 }
@@ -855,8 +854,9 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	if (ptr == NULL)
 		return;
 
+	auto pos = EE->getCurrentPosition();
 	const MallocLabel *m = nullptr;
-	auto &before = g.getHbBefore(g.getLastThreadEvent(thr.id));
+	auto &before = g.getHbBefore(pos.prev());
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 1; j <= before[i]; j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
@@ -870,6 +870,8 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	}
 
 	if (!m) {
+		/* Add a dummy label just for printing purposes */
+		createFreeLabel(pos.thread, pos.index, ptr, 0);
 		visitError("", Event::getInitializer(), DE_FreeNonMalloc);
 		BUG(); /* visitError() should abort */
 	}
@@ -884,8 +886,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	EE->freedMem.push_back(ptr);
 
 	/* Add a label with the appropriate store */
-	auto dLab = createFreeLabel(thr.id, thr.globalInstructions,
-				  ptr, m->getAllocSize());
+	auto dLab = createFreeLabel(pos.thread, pos.index, ptr, m->getAllocSize());
 	getGraph().addOtherLabelToGraph(std::move(dLab));
 	return;
 }
@@ -903,7 +904,7 @@ void GenMCDriver::visitError(std::string err, Event confEvent,
 		return;
 	}
 
-	Event errorEvent = g.getLastThreadEvent(thr.id);
+	Event errorEvent = getEE()->getCurrentPosition();
 
 	/* Print a basic error message and the graph */
 	llvm::dbgs() << "Error detected: " << t << "!\n";
@@ -1138,8 +1139,8 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 	}
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	auto lLab = createLibReadLabel(thr.id, thr.globalInstructions,
-				       ord, addr, typ,
+	Event pos = getEE()->getCurrentPosition();
+	auto lLab = createLibReadLabel(pos.thread, pos.index, ord, addr, typ,
 				       Event::getInitializer(), functionName);
 	auto *lab = getGraph().addReadLabelToGraph(std::move(lLab), Event::getInitializer());
 
@@ -1259,9 +1260,9 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 		isUninitialized = true;
 
 	/* It is always consistent to add a new event at the end of MO */
-	auto lLab = createLibStoreLabel(thr.id, thr.globalInstructions,
-					ord, addr, typ, val,
-					functionName, isInit);
+	Event pos = getEE()->getCurrentPosition();
+	auto lLab = createLibStoreLabel(pos.thread, pos.index, ord, addr, typ,
+					val, functionName, isInit);
 	auto *sLab = getGraph().addWriteLabelToGraph(std::move(lLab), endO);
 
 	if (isUninitialized) {
