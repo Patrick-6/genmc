@@ -978,7 +978,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
-		auto moPlacings = g.saveCoherenceStatus(writePrefix, *g.getPredsView(rLab->getPos()));
+		auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
 
 		auto writePrefixPos = g.extractRfs(writePrefix);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
@@ -1356,7 +1356,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 		for (auto &rf : rfs) {
 			/* Push consistent options to stack */
 			auto writePrefix = g.getPrefixLabelsNotBefore(lab, rLab);
-			auto moPlacings = (lib->tracksCoherence()) ? g.saveCoherenceStatus(writePrefix, preds)
+			auto moPlacings = (lib->tracksCoherence()) ? g.saveCoherenceStatus(writePrefix, rLab)
 				                                   : std::vector<std::pair<Event, Event> >();
 			auto writePrefixPos = g.extractRfs(writePrefix);
 			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());

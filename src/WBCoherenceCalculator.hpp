@@ -76,7 +76,7 @@ public:
 	 * the prefix itself), which will be present when the prefix is restored. */
 	std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-			    const VectorClock &preds) const override;
+			    const ReadLabel *rLab) const override;
 
 	/* Restores a previously saved coherence status */
 	void

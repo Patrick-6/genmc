@@ -564,13 +564,13 @@ WBCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
 
 std::vector<std::pair<Event, Event> >
 WBCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
-		    const VectorClock &before) const
+					   const ReadLabel *rLab) const
 {
 	std::vector<std::pair<Event, Event> > pairs;
 
 	for (const auto &lab : labs) {
-		/* Only store MO pairs for labels that are not in before */
-		if (!llvm::isa<WriteLabel>(lab.get()) || before.contains(lab->getPos()))
+		/* Only store MO pairs for write labels */
+		if (!llvm::isa<WriteLabel>(lab.get()))
 			continue;
 
 		auto *wLab = static_cast<const WriteLabel *>(lab.get());

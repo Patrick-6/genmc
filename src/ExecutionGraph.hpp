@@ -286,10 +286,10 @@ public:
 	extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs) const;
 
 	/* Returns pairs of the form <store, pred> where store is a write from labs,
-	 * and pred is an mo-before store that is in before */
+	 * and pred is an mo-before store that was added before rLab */
 	std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-			    const VectorClock &preds) const;
+			    const ReadLabel *rLab) const;
 
 	/* Restores the prefix stored in storePrefix (for revisiting rLab) and
 	 * also the moPlacings of the above prefix */

@@ -319,15 +319,17 @@ MOCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
 
 std::vector<std::pair<Event, Event> >
 MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
-					   const VectorClock &before) const
+					   const ReadLabel *rLab) const
 {
+	auto before = getGraph().getPredsView(rLab->getPos());
 	std::vector<std::pair<Event, Event> > pairs;
 
 	for (const auto &lab : labs) {
-		/* Only store MO pairs for labels that are not in before */
-		if (!llvm::isa<WriteLabel>(lab.get()) || before.contains(lab->getPos()))
+		/* Only store MO pairs for write labels */
+		if (!llvm::isa<WriteLabel>(lab.get()))
 			continue;
 
+		BUG_ON(before->contains(lab->getPos()));
 		auto *wLab = static_cast<const WriteLabel *>(lab.get());
 		auto &locMO = getStoresToLoc(wLab->getAddr());
 		auto moPos = std::find(locMO.begin(), locMO.end(), wLab->getPos());
@@ -340,7 +342,7 @@ MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 		decltype(locMO.crbegin()) predPos(moPos);
 		auto predFound = false;
 		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
-			if (before.contains(*rit) ||
+			if (before->contains(*rit) ||
 			    std::find_if(labs.begin(), labs.end(),
 					 [&](const std::unique_ptr<EventLabel> &lab)
 					 { return lab->getPos() == *rit; })

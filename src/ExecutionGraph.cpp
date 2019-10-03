@@ -736,9 +736,9 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 
 std::vector<std::pair<Event, Event> >
 ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-				    const VectorClock &preds) const
+				    const ReadLabel *rLab) const
 {
-	return getCoherenceCalculator()->saveCoherenceStatus(prefix, preds);
+	return getCoherenceCalculator()->saveCoherenceStatus(prefix, rLab);
 }
 
 void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
