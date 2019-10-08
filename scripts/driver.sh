@@ -19,7 +19,7 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-GenMC=./src/genmc
+GenMC="${GenMC:-../src/genmc}"
 
 # We need to get the LLVM version for this particular configuration
 LLVM_VERSION=`cat ../config.h | awk '/LLVM_VERSION/ {gsub(/\"/, "", $3); print $3}'`
@@ -33,23 +33,35 @@ then
     fastrun=1
 fi
 
+model=imm && coherence=wb && testdir=../tests/deps && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+
+model=imm && coherence=mo && testdir=../tests/deps && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+
 # First run the testcases in the correct/ directory
 # ... under WB
-model=wb && testdir=../tests/correct && source runcorrect.sh
+model=rc11 && coherence=wb && testdir=../tests/correct && source runcorrect.sh
 total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
-# ... and under MO
-model=mo && testdir=../tests/correct && source runcorrect.sh
+# ... under MO
+model=rc11 && coherence=mo && testdir=../tests/correct && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# ... under IMM
+model=imm && coherence=wb && testdir=../tests/correct && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# ... and under IMM-MO
+model=imm && coherence=mo && testdir=../tests/correct && source runcorrect.sh
 total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# Then, do all the library tests
-model=wb && testdir=../tests/libs && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
-model=mo && testdir=../tests/libs && source runcorrect.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# # Then, do all the library tests
+# model=wb && testdir=../tests/libs && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# model=mo && testdir=../tests/libs && source runcorrect.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# Then, run the testcases in the wrong/ directory
-model=wb && testdir=../tests/wrong && source runwrong.sh
-total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# # Then, run the testcases in the wrong/ directory
+# model=rc11 && coherence=wb && testdir=../tests/wrong && source runwrong.sh
+# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 if test -n "$result"
 then

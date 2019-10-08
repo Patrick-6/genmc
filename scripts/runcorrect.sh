@@ -19,11 +19,11 @@
 # Author: Michalis Kokologiannakis <mixaskok@gmail.com>
 
 source terminal.sh
-GenMC=../src/genmc
+GenMC="${GenMC:-../src/genmc}"
 
 header_printed=""
 runtime=0
-model="${model:-wb}"
+model="${model:-rc11}"
 
 printheader() {
     if test -z "${header_printed}"
@@ -33,7 +33,8 @@ printheader() {
         # Update status
 	echo ''; printline
 	echo -n '--- Preparing to run testcases in '
-	echo "${testdir##*/}" 'under' "${model}" | awk '{ print toupper($1), $2, toupper($3) }'
+	echo "${testdir##*/}" 'under' "${model}" 'with' "${coherence}" |
+	    awk '{ print toupper($1), $2, toupper($3), $4, toupper($5) }'
 	printline; echo ''
 
 	# Print table's header
@@ -60,11 +61,12 @@ runvariants() {
     failure=""
     outcome_failure=""
     unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
-    checker_args="" && [[ -f "${dir}/genmc.${model}.in" ]] && checker_args=`head -1 "${dir}/genmc.${model}.in"`
+    checker_args="" && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
+	checker_args=`head -1 "${dir}/genmc.${model}.${coherence}.in"`
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" "${unroll}" ${checker_args} -- ${CFLAGS} ${test_args} "${t}" 2>&1`
+	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" "-${coherence}" "${unroll}" ${checker_args} -- ${CFLAGS} ${test_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    outcome_failure=1
@@ -96,7 +98,12 @@ runvariants() {
 	outcome="${GREEN}SAFE  ${NC}"
     fi
     printf "${outcome} | % 10s | % 8s | % 8s |\n" \
-       "${explored}" "${blocked}" "${average_time}"
+	   "${explored}" "${blocked}" "${average_time}"
+
+    if test -n "${failure}" -o -n "${outcome_failure}"
+    then
+	echo "${output}"
+    fi
 }
 
 runtest() {
@@ -105,17 +112,17 @@ runtest() {
     then
 	return
     fi
-    if test -f "${dir}/args.${model}.in"
+    if test -f "${dir}/args.${model}.${coherence}.in"
     then
 	while read test_args <&3 && read expected <&4; do
 	    n="/`echo ${test_args} |
                  awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
 	    runvariants
-	done 3<"${dir}/args.${model}.in" 4<"${dir}/expected.${model}.in"
+	done 3<"${dir}/args.${model}.${coherence}.in" 4<"${dir}/expected.${model}.${coherence}.in"
     else
 	test_args=""
 	n=""
-	expected=`head -n 1 "${dir}/expected.${model}.in"`
+	expected=`head -n 1 "${dir}/expected.${model}.${coherence}.in"`
 	runvariants
     fi
 }
