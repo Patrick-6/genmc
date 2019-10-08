@@ -401,7 +401,32 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	return result;
 }
 
-
+void GenMCDriver::findRaceForHeapAlloca(const MemAccessLabel *mLab)
+{
+	const auto &g = getGraph();
+	const View &before = g.getHbBefore(mLab->getPos().prev());
+	for (auto i = 0u; i < g.getNumThreads(); i++)
+		for (auto j = 0u; j < g.getThreadSize(i); j++) {
+			const EventLabel *oLab = g.getEventLabel(Event(i, j));
+			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
+				if (fLab->getFreedAddr() == mLab->getAddr()) {
+					visitError("The accessed address has already been freed!",
+						   oLab->getPos(), DE_AccessFreed);
+				}
+			}
+			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
+				if (aLab->getAllocAddr() <= mLab->getAddr() &&
+				    ((char *) aLab->getAllocAddr() +
+				     aLab->getAllocSize() > (char *) mLab->getAddr()) &&
+				    !before.contains(oLab->getPos())) {
+					visitError("The allocating operation (malloc()) "
+						   "does not happen-before the memory access!",
+						   oLab->getPos(), DE_AccessNonMalloc);
+				}
+			}
+	}
+	return;
+}
 
 /*
  * This function is called to check for races when a new event is added.
@@ -437,28 +462,7 @@ void GenMCDriver::checkForRaces()
 	if (!getEE()->isHeapAlloca(mLab->getAddr()))
 		return;
 
-	const auto &g = getGraph();
-	const View &before = g.getHbBefore(lab->getPos().prev());
-	for (auto i = 0u; i < g.getNumThreads(); i++)
-		for (auto j = 0u; j < g.getThreadSize(i); j++) {
-			const EventLabel *oLab = g.getEventLabel(Event(i, j));
-			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
-				if (fLab->getFreedAddr() == mLab->getAddr()) {
-					visitError("The accessed address has already been freed!",
-						   oLab->getPos(), DE_AccessFreed);
-				}
-			}
-			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
-				if (aLab->getAllocAddr() <= mLab->getAddr() &&
-				    ((char *) aLab->getAllocAddr() +
-				     aLab->getAllocSize() > (char *) mLab->getAddr()) &&
-				    !before.contains(oLab->getPos())) {
-					visitError("The allocating operation (malloc()) "
-						   "does not happen-before the memory access!",
-						   oLab->getPos(), DE_AccessNonMalloc);
-				}
-			}
-	}
+	findRaceForHeapAlloca(mLab);
 	return;
 }
 

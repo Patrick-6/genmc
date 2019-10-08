@@ -402,6 +402,10 @@ private:
 	virtual Event findRaceForNewLoad(const ReadLabel *rLab) = 0;
 	virtual Event findRaceForNewStore(const WriteLabel *wLab) = 0;
 
+	/* Checks whether there is some race when allocating/deallocating
+	 * memory and reports an error as necessary (default impl. provided) */
+	virtual void findRaceForHeapAlloca(const MemAccessLabel *mLab);
+
 	/* Should return the set of stores that it is consistent for current
 	 * load to read-from  (excluding atomicity violations) */
 	virtual std::vector<Event>
