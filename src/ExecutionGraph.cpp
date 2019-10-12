@@ -1111,14 +1111,15 @@ void ExecutionGraph::addSbHbEdges(Matrix2D<Event> &matrix) const
 			    !llvm::isa<MemAccessLabel>(eiLab))
 				continue;
 
+			if (eiLab->getPos() == getLastThreadEvent(eiLab->getThread()))
+				continue;
+
 			auto *ejPrevMLab = static_cast<const MemAccessLabel *>(ejPrevLab);
 			auto *ejMLab = static_cast<const MemAccessLabel *>(ejLab);
 			auto *eiMLab = static_cast<const MemAccessLabel *>(eiLab);
 
 			if (ejPrevMLab->getAddr() != ejMLab->getAddr()) {
 				Event next = eiMLab->getPos().next();
-				if (next == getLastThreadEvent(eiMLab->getThread()))
-					continue;
 				const EventLabel *eiNextLab = getEventLabel(next);
 				if (auto *eiNextMLab =
 				    llvm::dyn_cast<MemAccessLabel>(eiNextLab)) {
