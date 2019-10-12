@@ -257,9 +257,9 @@ void GenMCDriver::restrictGraph(const EventLabel *rLab)
 			if (lab->getStamp() <= rLab->getStamp())
 				continue;
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-				getEE()->deallocateAddr(mLab->getAllocAddr(),
-							mLab->getAllocSize(),
-							mLab->isLocal());
+				getEE()->deallocateBlock(mLab->getAllocAddr(),
+							 mLab->getAllocSize(),
+							 mLab->isLocal());
 		}
 	}
 
@@ -267,6 +267,31 @@ void GenMCDriver::restrictGraph(const EventLabel *rLab)
 	getGraph().cutToStamp(rLab->getStamp());
 	return;
 }
+
+/*
+ * Restore the part of the SBRF-prefix of the store that revisits a load,
+ * that is not already present in the graph, the MO edges between that
+ * part and the previous MO, and make that part non-revisitable
+ */
+void GenMCDriver::restorePrefix(const EventLabel *lab,
+				std::vector<std::unique_ptr<EventLabel> > &&prefix,
+				std::vector<std::pair<Event, Event> > &&moPlacings)
+{
+	const auto &g = getGraph();
+	BUG_ON(!llvm::isa<ReadLabel>(lab));
+	auto *rLab = static_cast<const ReadLabel *>(lab);
+
+	/* Re-allocate memory for the allocation events in the prefix */
+	for (auto &lab : prefix) {
+		if (auto *mLab = llvm::dyn_cast<MallocLabel>(&*lab))
+			getEE()->allocateBlock(mLab->getAllocAddr(),
+					       mLab->getAllocSize(),
+					       mLab->isLocal());
+	}
+
+	getGraph().restoreStorePrefix(rLab, prefix, moPlacings);
+}
+
 
 /************************************************************
  ** Scheduling methods
@@ -463,6 +488,22 @@ void GenMCDriver::checkForRaces()
 		return;
 
 	findRaceForHeapAlloca(mLab);
+	return;
+}
+
+void GenMCDriver::checkAccessValidity()
+{
+	const EventLabel *lab = getCurrentLabel();
+
+	/* Should only be called with reads and writes */
+	BUG_ON(!llvm::isa<MemAccessLabel>(lab));
+
+	auto *mLab = static_cast<const MemAccessLabel *>(lab);
+	if (!getEE()->isShared(mLab->getAddr())) {
+		visitError("", Event::getInitializer(),
+			   DE_AccessNonMalloc);
+		BUG();
+	}
 	return;
 }
 
@@ -739,8 +780,9 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	const ReadLabel *lab = g.addReadLabelToGraph(std::move(rLab), validStores[0]);
 
-	/* Check for races */
+	/* Check for races and access validity */
 	checkForRaces();
+	checkAccessValidity();
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
@@ -792,8 +834,9 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 
-	/* Check for races */
+	/* Check for races and access validity */
 	checkForRaces();
+	checkAccessValidity();
 
 	auto &locMO = g.getStoresToLoc(addr);
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
@@ -1064,53 +1107,26 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
 
-	/* Restrict to the predecessors of the event we are revisiting */
-	restrictGraph(lab);
+	/* First, appropriately restrict the worklist and the graph */
 	restrictWorklist(lab);
+	restrictGraph(lab);
 
-	/* Restore events that might have been deleted from the graph */
-	switch (p.type) {
-	case SRead:
-	case SReadLibFunc:
-		/* Nothing to restore in this case */
-		break;
-	case SRevisit: {
-		/*
-		 * Restore the part of the SBRF-prefix of the store that revisits a load,
-		 * that is not already present in the graph, the MO edges between that
-		 * part and the previous MO, and make that part non-revisitable
-		 */
-		BUG_ON(!llvm::isa<ReadLabel>(lab));
-		auto *rLab = static_cast<const ReadLabel *>(lab);
-		getGraph().restoreStorePrefix(rLab, p.writePrefix, p.moPlacings);
-		break;
-	}
-	case MOWrite: {
-		/* Try a different MO ordering, and also consider reads to revisit */
-		BUG_ON(!llvm::isa<WriteLabel>(lab));
-		auto *wLab = static_cast<const WriteLabel *>(lab);
+	if (p.type == SRevisit)
+		restorePrefix(lab, std::move(p.writePrefix), std::move(p.moPlacings));
+
+	/* Finally, appropriately modify the graph:
+	 * 1) If we are restricting to a write, then change its MO position */
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+		BUG_ON(p.type != MOWrite && p.type != MOWriteLib);
 		getGraph().changeStoreOffset(wLab->getAddr(), wLab->getPos(), p.moPos);
-		return calcRevisits(wLab); /* Nothing else to do */
-	}
-	case MOWriteLib: {
-		BUG_ON(!llvm::isa<WriteLabel>(lab));
-		auto *wLab = static_cast<const WriteLabel *>(lab);
-		getGraph().changeStoreOffset(wLab->getAddr(),
-					     wLab->getPos(), p.moPos);
-		return calcLibRevisits(wLab);
-	}
-	default:
-		BUG();
+		return (p.type == MOWrite) ? calcRevisits(wLab) : calcLibRevisits(wLab);
 	}
 
-	/* If we reached this point, we are dealing with a read, so casting is safe */
+	/* 2) If we are dealing with a read, change its reads-from,
+	 * and check whether a part of an RMW should be added */
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 	auto *rLab = static_cast<const ReadLabel *>(lab);
 
-	/*
-	 * For the case where an reads-from is changed, change the respective reads-from label
-	 * and check whether a part of an RMW should be added
-	 */
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), p.shouldRf);
 

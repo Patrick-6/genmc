@@ -34,7 +34,6 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-
 #include "config.h"
 
 #ifndef LLI_INTERPRETER_H
@@ -44,7 +43,6 @@
 #include "Library.hpp"
 #include "View.hpp"
 
-#include <llvm/ADT/SmallVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
@@ -247,6 +245,7 @@ public:
 	  return Event(thr.id, thr.globalInstructions);
   };
 
+
   /* Dependency tracking */
 
   const DepInfo *getAddrPoDeps(unsigned int tid);
@@ -271,13 +270,36 @@ public:
 
   void clearDeps(unsigned int tid);
 
-  /* Checks whether an address is the address of a global variable */
+
+  /* Memory pools checks */
+
+  /* Check whether the given address is shared among threads */
+  bool isShared(const void *);
+
+  /* Returns true is this is a global variable or a heap allocation */
   bool isGlobal(const void *);
+
+  /* Returns true if it is a heap allocation */
   bool isHeapAlloca(const void *);
+
+  /* Returns true if it is a stack allocation*/
   bool isStackAlloca(const void *);
+
+  /* Returns the name of the variable residing in addr */
   std::string getVarName(const void *addr);
-  void deallocateAddr(const void *addr, unsigned int size, bool isLocal = false);
+
+  /* Records that the memory block in addr is no longer used, so that the
+   * interpreter stops tracking the address */
+  void deallocateBlock(const void *addr, unsigned int size, bool isLocal = false);
+
+  /* Records that the memory block in addr is used, so that we track it */
+  void allocateBlock(const void *addr, unsigned int size, bool isLocal = false);
+
+  /* Returns a fresh address for a new allocation */
   void *getFreshAddr(unsigned int size, bool isLocal = false);
+
+  /* Updates the names for all global variables, and calculates the
+   * starting address of the allocation pool */
   void collectGlobalAddresses(Module *M);
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to

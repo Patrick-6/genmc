@@ -144,11 +144,15 @@ Thread Interpreter::createNewThread(llvm::Function *F, int tid, int pid,
 	return thr;
 }
 
+bool Interpreter::isShared(const void *addr)
+{
+	return isGlobal(addr) || isStackAlloca(addr);
+}
+
 /* Returns true if "addr" points to global memory (static or heap) */
 bool Interpreter::isGlobal(const void *addr)
 {
-	auto ha = std::equal_range(heapAllocas.begin(), heapAllocas.end(), addr);
-	return (globalVars.count(addr) || (ha.first != ha.second));
+	return globalVars.count(addr) || isHeapAlloca(addr);
 }
 
 /* Returns true if "addr" points to the stack */
@@ -192,8 +196,21 @@ void *Interpreter::getFreshAddr(unsigned int size, bool isLocal /* false */)
 	return newAddr;
 }
 
+void Interpreter::allocateBlock(const void *addr, unsigned int size, bool isLocal)
+{
+	if (isLocal) {
+		for (auto i = 0u; i < size; i++)
+			stackAllocas.insert((char *) addr + i);
+		/* The name information will be updated after control
+		 * returns to the interpreter */
+	} else {
+		for (auto i = 0u; i < size; i++)
+			heapAllocas.insert((char *) addr + i);
+	}
+}
+
 /* Stops tracking of a memory allocation after deletion from the graph */
-void Interpreter::deallocateAddr(const void *addr, unsigned int size, bool isLocal /* false */)
+void Interpreter::deallocateBlock(const void *addr, unsigned int size, bool isLocal /* false */)
 {
 	if (isLocal) {
 		for (auto i = 0u; i < size; i++)
@@ -207,6 +224,26 @@ void Interpreter::deallocateAddr(const void *addr, unsigned int size, bool isLoc
 	return;
 }
 
+void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
+				 std::unordered_map<const void *, std::string> &vars)
+{
+	BUG_ON(!isa<GlobalVariable>(v));
+	auto gv = static_cast<GlobalVariable *>(v);
+
+	/* Exit if it is a private variable it is not accessible in the program */
+	if (gv->hasPrivateLinkage())
+		return;
+
+	/* Otherwise, collect the addresses anyway and use a default name */
+	WARN_ONCE("name-info", ("WARNING: Inadequate naming info for variable " +
+				v->getName() + ".\nPlease submit a bug report to "
+				PACKAGE_BUGREPORT "\n"));
+	for (auto i = 0u; i < typeSize; i++) {
+		vars[ptr + i] = v->getName();
+	}
+	return;
+}
+
 /* Updates the name corresponding to an address based on the collected VariableInfo */
 void Interpreter::updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
 				    bool isLocal /* false */)
@@ -214,9 +251,23 @@ void Interpreter::updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
 	auto &vars = (isLocal) ? stackVars : globalVars;
 	auto &vi = (isLocal) ? VI.localInfo[v] : VI.globalInfo[v];
 
-	if (vi.empty())
+	if (vi.empty()) {
+		/* If it is not a local value, then we should collect the address
+		 * anyway, since globalVars will be used to check whether some
+		 * access accesses a global variable */
+		if (!isLocal)
+			collectUnnamedGlobalAddress(v, ptr, typeSize, vars);
 		return;
+	}
 
+	/* If there is no name for the beginning of the block, use a default one */
+	if (vi[0].first != 0) {
+		WARN_ONCE("name-info", ("WARNING: Inadequate naming info for variable " +
+					v->getName() + ".\nPlease submit a bug report to "
+					PACKAGE_BUGREPORT "\n"));
+		for (auto j = 0u; j < vi[0].first; j++)
+			vars[ptr + j] = v->getName();
+	}
 	for (auto i = 0u; i < vi.size() - 1; i++) {
 		for (auto j = 0u; j < vi[i + 1].first - vi[i].first; j++)
 			vars[ptr + vi[i].first + j] = vi[i].second;

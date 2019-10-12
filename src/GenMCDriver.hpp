@@ -228,6 +228,7 @@ private:
 	/* Restricts the worklist only to entries that were added before lab */
 	void restrictWorklist(const EventLabel *lab);
 
+
 	/*** Exploration-related ***/
 
 	/* The workhorse for run().
@@ -236,6 +237,10 @@ private:
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
+
+	/* Checks whether the last memory access recorded accesses
+	 * a valid address. Appropriately calls visitError() and terminates */
+	void checkAccessValidity();
 
 	/* Checks for races when a load or a store is added.
 	 * Appropriately calls visitError() and terminates */
@@ -265,6 +270,11 @@ private:
 
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
+
+	/* Restores the previously saved prefix and coherence status */
+	void restorePrefix(const EventLabel *lab,
+			   std::vector<std::unique_ptr<EventLabel> > &&prefix,
+			   std::vector<std::pair<Event, Event> > &&moPlacings);
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
