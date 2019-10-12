@@ -235,7 +235,7 @@ void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
 		return;
 
 	/* Otherwise, collect the addresses anyway and use a default name */
-	WARN_ONCE("name-info", ("WARNING: Inadequate naming info for variable " +
+	WARN_ONCE("name-info", ("Inadequate naming info for variable " +
 				v->getName() + ".\nPlease submit a bug report to "
 				PACKAGE_BUGREPORT "\n"));
 	for (auto i = 0u; i < typeSize; i++) {
@@ -262,7 +262,7 @@ void Interpreter::updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
 
 	/* If there is no name for the beginning of the block, use a default one */
 	if (vi[0].first != 0) {
-		WARN_ONCE("name-info", ("WARNING: Inadequate naming info for variable " +
+		WARN_ONCE("name-info", ("Inadequate naming info for variable " +
 					v->getName() + ".\nPlease submit a bug report to "
 					PACKAGE_BUGREPORT "\n"));
 		for (auto j = 0u; j < vi[0].first; j++)

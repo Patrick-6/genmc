@@ -1274,7 +1274,7 @@ bool ExecutionGraph::addEcoEdgesAndCheckCond(CheckPSCType t,
 			return true;
 		case CheckPSCType::weak:
 		case CheckPSCType::wb:
-			WARN_ONCE("check-mo-psc", "WARNING: The full PSC condition is going "
+			WARN_ONCE("check-mo-psc", "The full PSC condition is going "
 				  "to be checked for the MO-tracking exploration...\n");
 		case CheckPSCType::full:
 			return addSCEcosMO(fcs, scLocs, matrix, cond);

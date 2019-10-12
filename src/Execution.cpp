@@ -1275,7 +1275,7 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, const GenericV
 		break;
 	default:
 		WARN_ONCE("invalid-rmw-op",
-			  "WARNING: Unsupported operation in RMW instruction!\n");
+			  "Unsupported operation in RMW instruction!\n");
 		result.IntVal = oldVal.IntVal;
 	}
 }
@@ -1348,7 +1348,7 @@ void Interpreter::visitInlineAsm(CallSite &CS, const std::string &asmStr)
 		; /* Plain compiler fence */
 	else
 		WARN_ONCE("invalid-inline-asm",
-			  "WARNING: Arbitrary inline assembly not supported: " +
+			  "Arbitrary inline assembly not supported: " +
 			  asmStr + "! Skipping...\n");
 	return;
 }
@@ -1386,7 +1386,7 @@ void Interpreter::visitCallSite(CallSite CS) {
       SetValue(CS.getInstruction(), getOperandValue(*CS.arg_begin(), SF), SF);
       return;
     default:
-	    WARN_ONCE("unknown-intrinsic", "WARNING: Unknown intrinstic function" \
+	    WARN_ONCE("unknown-intrinsic", "Unknown intrinstic function" \
 		      "encountered. Attempting to lower it...\n");
       // If it is an unknown intrinsic function, use the intrinsic lowering
       // class to transform it into hopefully tasty LLVM code.
@@ -2590,10 +2590,10 @@ void Interpreter::callPthreadMutexInit(Function *F,
 
 	if (attr)
 		WARN_ONCE("pthread-mutex-init-arg",
-			  "WARNING: Ignoring non-null argument given to pthread_mutex_init.\n");
+			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
 	if (lock == nullptr) {
-		WARN("ERROR: pthread_mutex_init called with NULL pointer as first argument!");
+		WARN("pthread_mutex_init called with NULL pointer as first argument!");
 		abort();
 	}
 
@@ -2612,7 +2612,7 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	GenericValue cmpVal, newVal, result;
 
 	if (ptr == nullptr) {
-		WARN("ERROR: pthread_mutex_lock called with NULL pointer!");
+		WARN("pthread_mutex_lock called with NULL pointer!");
 		abort();
 	}
 
