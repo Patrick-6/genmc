@@ -70,6 +70,12 @@ bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if (v[i] + 1 != (int) getThreadSize(i))
 			return true;
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			const EventLabel *lab = getEventLabel(Event(i, j));
+			if (!v.contains(lab->getPos()) &&
+			    !llvm::isa<EmptyLabel>(lab))
+				return true;
+		}
 	}
 	return false;
 }
