@@ -289,14 +289,13 @@ RC11Driver::createMallocLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<FreeLabel>
-RC11Driver::createFreeLabel(int tid, int index, const void *addr,
-			    unsigned int size)
+RC11Driver::createFreeLabel(int tid, int index, const void *addr)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	std::unique_ptr<FreeLabel> lab(
 		new FreeLabel(g.nextStamp(), llvm::AtomicOrdering::NotAtomic,
-			      pos, addr, size));
+			      pos, addr));
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
@@ -427,6 +426,16 @@ Event RC11Driver::findRaceForNewStore(const WriteLabel *wLab)
 		}
 	}
 	return Event::getInitializer(); /* Race not found */
+}
+
+Event RC11Driver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
+{
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(mLab))
+		return findRaceForNewLoad(rLab);
+	else if (auto *wLab = llvm::dyn_cast<WriteLabel>(mLab))
+		return findRaceForNewStore(wLab);
+	BUG();
+	return Event::getInitializer();
 }
 
 std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)

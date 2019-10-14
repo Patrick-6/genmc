@@ -2511,7 +2511,6 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 
-	BUG();
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitFree(ptr);

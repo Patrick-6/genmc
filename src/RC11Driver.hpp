@@ -110,8 +110,7 @@ public:
 
 	/* Creates a label for a free event to be added to the graph */
 	std::unique_ptr<FreeLabel>
-	createFreeLabel(int tid, int index, const void *addr,
-			unsigned int size) override;
+	createFreeLabel(int tid, int index, const void *addr) override;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	std::unique_ptr<ThreadCreateLabel>
@@ -131,8 +130,7 @@ public:
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Return the racy event, or INIT if no such event exists */
-	Event findRaceForNewLoad(const ReadLabel *rLab) override;
-	Event findRaceForNewStore(const WriteLabel *wLab) override;
+	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
 
@@ -145,6 +143,11 @@ public:
 	bool updateJoin(Event join, Event childLast) override;
 
 	bool isExecutionValid() override;
+
+private:
+	/* Helpers for findDataRaceForMemAccess() */
+	Event findRaceForNewLoad(const ReadLabel *rLab);
+	Event findRaceForNewStore(const WriteLabel *wLab);
 };
 
 #endif /* __RC11_MO_DRIVER_HPP__ */

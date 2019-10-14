@@ -849,15 +849,12 @@ protected:
 
 public:
 	FreeLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		  const void *addr, unsigned int size)
+		  const void *addr)
 		: EventLabel(EL_Free, st, ord, pos),
-		  freeAddr(addr), allocSize(size) {}
+		  freeAddr(addr) {}
 
 	/* Returns the address being freed */
 	const void *getFreedAddr() const { return freeAddr; }
-
-	/* Returns the size of the freed allocation */
-	unsigned int getAllocSize() const { return allocSize; }
 
 	FreeLabel *clone() const override { return new FreeLabel(*this); }
 
@@ -868,9 +865,6 @@ public:
 private:
 	/* The address of the memory freed */
 	const void *freeAddr;
-
-	/* The size of the freed allocation */
-	unsigned int allocSize;
 };
 
 #endif /* #define __EVENTLABEL_HPP__ */

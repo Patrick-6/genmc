@@ -612,13 +612,18 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	 *     2) That oldRf has not been deleted (and a different event is
 	 *        now in its place, perhaps after the restoration of some prefix
 	 *        during a revisit)
-	 *     3) That oldRf is not th initializer */
-	if (oldRf.index < (int) getThreadSize(oldRf.thread)) {
+	 *     3) That oldRf is not the initializer */
+	if (oldRf.index > 0 && oldRf.index < (int) getThreadSize(oldRf.thread)) {
 		EventLabel *labRef = events[oldRf.thread][oldRf.index].get();
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(labRef))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
 	}
 
+	/* If this read is now reading from bottom, nothing else to do */
+	if (store.isBottom())
+		return;
+
+	/* Otherwise, add it to the write's reader list */
 	EventLabel *rfLab = events[store.thread][store.index].get();
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 		wLab->addReader(rLab->getPos());

@@ -21,9 +21,12 @@
 source terminal.sh
 GenMC="${GenMC:-../src/genmc}"
 
+ERROR_STATUS=42
+
 header_printed=""
 runtime=0
 model="${model:-rc11}"
+suppress_diff="${suppress_diff:-}"
 
 printheader() {
     if test -z "${header_printed}"
@@ -67,14 +70,16 @@ runvariants() {
     do
 	vars=$((vars+1))
 	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
-	if test "$?" -eq 0
+	if test "$?" -ne "${ERROR_STATUS}"
 	then
 	    outcome_failure=1
 	fi
 	trace=`echo "${output}" | awk '!/status|time/ {print $0 }' > tmp.trace`
-	diff_file="${t%.*}.trace" && [[ -f "${t%.*}.trace-${LLVM_VERSION}" ]] && diff_file="${t%.*}.trace-${LLVM_VERSION}"
+	diff_file="${t%.*}.${model}.${coherence}.trace" &&
+	    [[ -f "${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}" ]] &&
+	    diff_file="${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}"
 	diff=`diff tmp.trace "${diff_file}"`
-	if test -n "${diff}"
+	if test -n "${diff}" -a -z "${suppress_diff}"
 	then
 	    failure=1
 	fi

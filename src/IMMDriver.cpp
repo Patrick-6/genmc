@@ -375,21 +375,19 @@ IMMDriver::createMallocLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<FreeLabel>
-IMMDriver::createFreeLabel(int tid, int index, const void *addr,
-			     unsigned int size)
+IMMDriver::createFreeLabel(int tid, int index, const void *addr)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	std::unique_ptr<FreeLabel> lab(
 		new FreeLabel(g.nextStamp(), llvm::AtomicOrdering::NotAtomic,
-			      pos, addr, size));
+			      pos, addr));
 
 	View hb = calcBasicHbView(lab->getPos());
-
-	WARN("Calculate pporf views!\n");
-	BUG();
+	DepView pporf = calcPPoView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
 
@@ -486,12 +484,7 @@ IMMDriver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
-Event IMMDriver::findRaceForNewLoad(const ReadLabel *rLab)
-{
-	return Event::getInitializer(); /* Race detection disabled for IMM */
-}
-
-Event IMMDriver::findRaceForNewStore(const WriteLabel *wLab)
+Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	return Event::getInitializer(); /* Race detection disabled for IMM */
 }

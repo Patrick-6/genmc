@@ -37,6 +37,27 @@
 class GenMCDriver {
 
 private:
+	/* Different error types that may occur.
+	 * Public to enable the interpreter utilize it */
+	enum DriverErrorKind {
+		DE_Safety,
+		DE_RaceNotAtomic,
+		DE_RaceFreeMalloc,
+		DE_FreeNonMalloc,
+		DE_DoubleFree,
+		DE_InvalidAccessBegin,
+		DE_UninitializedMem,
+		DE_AccessNonMalloc,
+		DE_AccessFreed,
+		DE_InvalidAccessEnd,
+		DE_InvalidJoin,
+	};
+
+	static bool isInvalidAccessError(DriverErrorKind e) {
+		return DE_InvalidAccessBegin <= e &&
+			e <= DE_InvalidAccessEnd;
+	};
+
 	/* Enumeration for different types of revisits */
 	enum StackItemType {
 		SRead,        /* Forward revisit */
@@ -82,20 +103,6 @@ private:
 	};
 
 public:
-	/* Different error types that may occur.
-	 * Public to enable the interpreter utilize it */
-	enum DriverErrorKind {
-		DE_Safety,
-		DE_UninitializedMem,
-		DE_RaceNotAtomic,
-		DE_RaceFreeMalloc,
-		DE_FreeNonMalloc,
-		DE_AccessNonMalloc,
-		DE_AccessFreed,
-		DE_DoubleFree,
-		DE_InvalidJoin,
-	};
-
 	/* Returns a list of the libraries the specification of which are given */
 	const std::vector<Library> &getGrantedLibs()  const { return grantedLibs; };
 
@@ -242,9 +249,20 @@ private:
 	 * a valid address. Appropriately calls visitError() and terminates */
 	void checkAccessValidity();
 
-	/* Checks for races when a load or a store is added.
+	/* Checks for data races when a read/write is added.
 	 * Appropriately calls visitError() and terminates */
-	void checkForRaces();
+	void checkForDataRaces();
+
+	/* Checks whether there is some race when allocating/deallocating
+	 * memory and reports an error as necessary.
+	 * Helpers for checkForMemoryRaces() */
+	void findMemoryRaceForMemAccess(const MemAccessLabel *mLab);
+	void findMemoryRaceForAllocAccess(const FreeLabel *fLab);
+
+	/* Checks for memory races (e.g., double free, access freed memory, etc)
+	 * whenever a read/write/free is added.
+	 * Appropriately calls visitError() and terminates */
+	void checkForMemoryRaces(const void *addr);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
@@ -315,15 +333,15 @@ private:
 	void recPrintTraceBefore(const Event &e, View &a,
 				 llvm::raw_ostream &ss = llvm::dbgs());
 
-	/* Outputs the full graph. If getMetadata is set, it outputs
-	 * more debugging information */
+	/* Outputs the full graph.
+	 * If getMetadata is set, it outputs more debugging information */
 	void printGraph(bool getMetadata = false);
 
 	/* Outputs the graph in a condensed form */
 	void prettyPrintGraph();
 
-	/* Outputs the current graph into a file (DOT format), and marks
-	 * Events e and c */
+	/* Outputs the current graph into a file (DOT format),
+	 * and visually marks events e and c (conflicting)  */
 	void dotPrintToFile(const std::string &filename, Event e, Event c);
 
 
@@ -393,8 +411,7 @@ private:
 
 	/* Creates a label for a free event to be added to the graph */
 	virtual std::unique_ptr<FreeLabel>
-	createFreeLabel(int tid, int index, const void *addr,
-			unsigned int size) = 0;
+	createFreeLabel(int tid, int index, const void *addr) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>
@@ -414,12 +431,7 @@ private:
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */
-	virtual Event findRaceForNewLoad(const ReadLabel *rLab) = 0;
-	virtual Event findRaceForNewStore(const WriteLabel *wLab) = 0;
-
-	/* Checks whether there is some race when allocating/deallocating
-	 * memory and reports an error as necessary (default impl. provided) */
-	virtual void findRaceForHeapAlloca(const MemAccessLabel *mLab);
+	virtual Event findDataRaceForMemAccess(const MemAccessLabel *mLab) = 0;
 
 	/* Should return the set of stores that it is consistent for current
 	 * load to read-from  (excluding atomicity violations) */
