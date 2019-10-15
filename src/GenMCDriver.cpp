@@ -1184,6 +1184,8 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 		BUG();
 	}
 
+	getGraph().trackCoherenceAtLoc(addr);
+
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
 	Event pos = getEE()->getCurrentPosition();
 	auto lLab = createLibReadLabel(pos.thread, pos.index, ord, addr, typ,
@@ -1292,6 +1294,8 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 	if (isExecutionDrivenByGraph())
 		return;
 
+	getGraph().trackCoherenceAtLoc(addr);
+
 	/*
 	 * We need to try all possible MO placements, but after the initialization write,
 	 * which is explicitly included in MO, in the case of libraries.
@@ -1328,19 +1332,19 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 	 * Check for alternative MO placings. Temporarily remove sLab from
 	 * MO, find all possible alternatives, and push them to the workqueue
 	 */
-	auto locMO = getGraph().getStoresToLoc(addr);
-	locMO.pop_back();
+	const auto &locMO = getGraph().getStoresToLoc(addr);
+	auto oldOffset = std::find(locMO.begin(), locMO.end(), sLab->getPos()) - locMO.begin();
 	for (auto i = begO; i < endO; ++i) {
-		locMO.insert(locMO.begin() + i, sLab->getPos());
+		getGraph().changeStoreOffset(addr, sLab->getPos(), i);
 
 		/* Check consistency for the graph with this MO */
 		auto preds = g.getViewFromStamp(sLab->getStamp());
-		if (getGraph().isLibConsistentInView(*lib, preds))
+		if (getGraph().isLibConsistentInView(*lib, preds)) {
 			addToWorklist(MOWriteLib, sLab->getPos(),
 				      Event::getInitializer(), {}, {}, i);
-		locMO.erase(locMO.begin() + i);
+		}
 	}
-	locMO.push_back(sLab->getPos());
+	getGraph().changeStoreOffset(addr, sLab->getPos(), oldOffset);
 	return;
 }
 
@@ -1403,8 +1407,8 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 		for (auto &rf : rfs) {
 			/* Push consistent options to stack */
 			auto writePrefix = g.getPrefixLabelsNotBefore(lab, rLab);
-			auto moPlacings = (lib->tracksCoherence()) ? g.saveCoherenceStatus(writePrefix, rLab)
-				                                   : std::vector<std::pair<Event, Event> >();
+			auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
+
 			auto writePrefixPos = g.extractRfs(writePrefix);
 			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());
 

@@ -53,11 +53,11 @@ total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 model=imm && coherence=mo && testdir=../tests/correct && source runcorrect.sh
 total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
-# # Then, do all the library tests
-# model=wb && testdir=../tests/libs && source runcorrect.sh
-# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
-# model=mo && testdir=../tests/libs && source runcorrect.sh
-# total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+# Then, do all the library tests
+model=rc11 && coherence=wb && testdir=../tests/libs && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
+model=rc11 && coherence=mo && testdir=../tests/libs && source runcorrect.sh
+total_time=`echo "scale=2; ${total_time}+${runtime}" | bc -l`
 
 # Then, run the testcases in the wrong/ directory
 model=rc11 && coherence=wb && testdir=../tests/wrong/safety && source runwrong.sh
