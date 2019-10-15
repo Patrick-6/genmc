@@ -72,6 +72,7 @@ runvariants() {
 	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
 	if test "$?" -ne "${ERROR_STATUS}"
 	then
+	    failure_status="$?"
 	    outcome_failure=1
 	fi
 	trace=`echo "${output}" | awk '!/status|time/ {print $0 }' > tmp.trace`
@@ -95,6 +96,8 @@ runvariants() {
     then
 	printf "${RED}%-15s${NC} | %-6s | % 13s |\n" \
 	       "BUG NOT FOUND" "${vars}" "${average_time}"
+	echo "${output}" # also print the output in this case
+	echo "Return status: ${failure_status}"
 	result=1
     elif test -n "${failure}"
     then
