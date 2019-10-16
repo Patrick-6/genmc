@@ -434,10 +434,11 @@ IMMDriver::createTJoinLabel(int tid, int index, int cid)
 	 * for the other thread to finish first, so we do not fully
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos(), false);
+	DepView ppo = calcPPoView(lab->getPos(), false);
+	DepView pporf(ppo);
 
 	lab->setHbView(std::move(hb));
-	lab->setPPoView(std::move(pporf));
+	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
 }
@@ -545,10 +546,10 @@ void IMMDriver::resetJoin(Event join)
 
 	EventLabel *jLab = g.getEventLabel(join);
 	View hb = calcBasicHbView(jLab->getPos());
-	DepView pporf(jLab->getPPoView());
+	DepView ppo(jLab->getPPoView());
 
 	jLab->setHbView(std::move(hb));
-	jLab->setPPoRfView(std::move(pporf));
+	jLab->setPPoRfView(std::move(ppo));
 	return;
 }
 
@@ -562,13 +563,13 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	EventLabel *jLab = g.getEventLabel(join);
 	EventLabel *fLab = g.getEventLabel(childLast);
 
-	DepView pporf(jLab->getPPoRfView()); /* same as ppo (it's reset) */
+	/* At this point the pporf view is the same as ppo (it's is reset) */
 	std::vector<Event> acqs = g.getThreadAcquiresAndFences(join);
 	for (auto &ev : acqs)
-		pporf.update(g.getPPoRfBefore(ev));
+		jLab->updatePPoRfView(g.getPPoRfBefore(ev));
 
 	jLab->updateHbView(fLab->getHbView());
-	jLab->updatePPoRfView(pporf);
+	jLab->updatePPoRfView(fLab->getPPoRfView());
 	return true;
 }
 
