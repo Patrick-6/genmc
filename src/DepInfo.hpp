@@ -25,22 +25,38 @@ n * You should have received a copy of the GNU General Public License
 #include "VSet.hpp"
 #include <llvm/Support/raw_ostream.h>
 
+/*******************************************************************************
+ **                             DepInfo Class
+ ******************************************************************************/
+
+/*
+ * A class to model the dependencies (of some kind) of an event. Each DepInfo
+ * objects holds a collection of events on which some events depend on. In
+ * principle, such an object should be used for each event of each thread.
+ */
 class DepInfo {
 
 protected:
 	using Set = VSet<Event>;
 
 public:
+	/* Constructors */
 	DepInfo() : set_() {}
 	DepInfo(Event e) : set_({ e }) {}
 
-	DepInfo depUnion(const DepInfo& dep) const;
+	/* Updates this object based on the dependencies of dep (union) */
 	void update(const DepInfo& dep);
+
+	/* Clears all the stored dependencies */
 	void clear();
 
+	/* Returns true if e is contained in the dependencies */
 	bool contains(Event e) const { return set_.count(e); }
+
+	/* Returns true if there are no dependencies */
 	bool empty() const;
 
+	/* Iterators */
 	using iterator = typename Set::iterator;
 	using const_iterator = typename Set::const_iterator;
 	using reverse_iterator = typename Set::reverse_iterator;
@@ -51,11 +67,12 @@ public:
 	const_iterator begin() const { return set_.begin(); };
 	const_iterator end() const { return set_.end(); };
 
+	/* Printing */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const DepInfo &dep);
 
 private:
+	/* The actual container for the dependencies */
 	Set set_;
-
 };
 
 #endif /* __DEP_INFO_HPP__ */

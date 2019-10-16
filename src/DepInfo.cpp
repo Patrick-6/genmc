@@ -19,15 +19,6 @@ n * You should have received a copy of the GNU General Public License
  */
 
 #include "DepInfo.hpp"
-#include <algorithm>
-
-DepInfo DepInfo::depUnion(const DepInfo& dep) const
-{
-	DepInfo res(*this);
-
-	res.set_.insert(dep.set_);
-	return res;
-}
 
 void DepInfo::update(const DepInfo& dep)
 {
