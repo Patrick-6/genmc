@@ -96,6 +96,9 @@ Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
 {
 	for (int i = upperLimit.index - 1; i > 0; i--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
+		if (llvm::isa<ThreadCreateLabel>(lab) || llvm::isa<ThreadFinishLabel>(lab)) {
+			return Event(upperLimit.thread, i);
+		}
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {
 			if (fLab->isAtLeastRelease())
 				return Event(upperLimit.thread, i);
@@ -112,6 +115,9 @@ Event ExecutionGraph::getLastThreadRelease(Event upperLimit) const
 {
 	for (int i = upperLimit.index - 1; i > 0; i--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
+		if (llvm::isa<ThreadCreateLabel>(lab) || llvm::isa<ThreadFinishLabel>(lab)) {
+			return Event(upperLimit.thread, i);
+		}
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {
 			if (fLab->isAtLeastRelease())
 				return Event(upperLimit.thread, i);
@@ -132,6 +138,8 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	result.push_back(Event(upperLimit.thread, 0));
 	for (int i = 1u; i < upperLimit.index; i++) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
+		if (llvm::isa<ThreadJoinLabel>(lab))
+			result.push_back(lab->getPos());
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab))
 			result.push_back(lab->getPos());
 		if (auto *wLab = llvm::dyn_cast<ReadLabel>(lab)) {

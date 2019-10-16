@@ -32,16 +32,6 @@ public:
 		  clock_t start)
 		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
 
-	View calcBasicHbView(Event e) const;
-	View calcBasicPorfView(Event e) const;
-	DepView calcPPoView(Event e); /* not const */
-	void calcBasicReadViews(ReadLabel *lab);
-	void calcBasicWriteViews(WriteLabel *lab);
-	void calcWriteMsgView(WriteLabel *lab);
-	void calcRMWWriteMsgView(WriteLabel *lab);
-	void calcBasicFenceViews(FenceLabel *lab);
-	void calcFenceRelRfPoBefore(Event last, View &v);
-
 	/* Creates a label for a plain read to be added to the graph */
 	std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
@@ -131,10 +121,6 @@ public:
 
 	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
 
-	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
-	int splitLocMOAfter(const llvm::GenericValue *addr, const Event e);
-	int splitLocMOAfterHb(const llvm::GenericValue *addr, const Event e);
-
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
 
 	void changeRf(Event read, Event store) override;
@@ -143,11 +129,24 @@ public:
 
 	bool updateJoin(Event join, Event childLast) override;
 
+	bool isExecutionValid() override;
+
+private:
+
+	View calcBasicHbView(Event e) const;
+	View calcBasicPorfView(Event e) const;
+	DepView calcPPoView(Event e, bool mergeAcquires = true); /* not const */
+	void calcBasicReadViews(ReadLabel *lab);
+	void calcBasicWriteViews(WriteLabel *lab);
+	void calcWriteMsgView(WriteLabel *lab);
+	void calcRMWWriteMsgView(WriteLabel *lab);
+	void calcBasicFenceViews(FenceLabel *lab);
+	void calcFenceRelRfPoBefore(Event last, View &v);
+
 	std::vector<Event> collectAllEvents();
 	void fillMatrixFromView(const Event e, const DepView &v,
 				Matrix2D<Event> &matrix);
 	Matrix2D<Event> getARMatrix();
-	bool isExecutionValid() override;
 };
 
 #endif /* __IMM_WB_DRIVER_HPP__ */

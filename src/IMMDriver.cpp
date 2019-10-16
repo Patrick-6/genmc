@@ -38,7 +38,7 @@ View IMMDriver::calcBasicPorfView(Event e) const
 	return v;
 }
 
-DepView IMMDriver::calcPPoView(Event e) /* not const */
+DepView IMMDriver::calcPPoView(Event e, bool mergeAcquires /* true */) /* not const */
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -77,7 +77,12 @@ DepView IMMDriver::calcPPoView(Event e) /* not const */
 	for (auto i = oldIdx + 1; i < e.index; i++)
 		v.addHole(Event(e.thread, i));
 
-	/* Update based on the view of the last acquire of the thread */
+	/* If we shouldn't merge the views of the previous acquire events
+	 * (e.g., because we are adding a join), then just return v */
+	if (!mergeAcquires)
+		return v;
+
+	/* Otherwise, update based on the views of the acquires of the thread */
 	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
 	for (auto &ev : acqs)
 		v.update(g.getPPoRfBefore(ev));
@@ -429,7 +434,7 @@ IMMDriver::createTJoinLabel(int tid, int index, int cid)
 	 * for the other thread to finish first, so we do not fully
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos(), false);
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoView(std::move(pporf));
@@ -557,8 +562,13 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	EventLabel *jLab = g.getEventLabel(join);
 	EventLabel *fLab = g.getEventLabel(childLast);
 
+	DepView pporf(jLab->getPPoRfView()); /* same as ppo (it's reset) */
+	std::vector<Event> acqs = g.getThreadAcquiresAndFences(join);
+	for (auto &ev : acqs)
+		pporf.update(g.getPPoRfBefore(ev));
+
 	jLab->updateHbView(fLab->getHbView());
-	jLab->updatePPoRfView(fLab->getPPoRfView());
+	jLab->updatePPoRfView(pporf);
 	return true;
 }
 
