@@ -133,7 +133,7 @@ private:
 
 	View calcBasicHbView(Event e) const;
 	View calcBasicPorfView(Event e) const;
-	DepView calcPPoView(Event e, bool mergeAcquires = true); /* not const */
+	DepView calcPPoView(Event e); /* not const */
 	void calcBasicReadViews(ReadLabel *lab);
 	void calcBasicWriteViews(WriteLabel *lab);
 	void calcWriteMsgView(WriteLabel *lab);
