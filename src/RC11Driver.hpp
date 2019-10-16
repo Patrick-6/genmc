@@ -138,8 +138,6 @@ public:
 
 	void changeRf(Event read, Event store) override;
 
-	void resetJoin(Event join) override;
-
 	bool updateJoin(Event join, Event childLast) override;
 
 	bool isExecutionValid() override;

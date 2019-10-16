@@ -538,21 +538,6 @@ void IMMDriver::changeRf(Event read, Event store)
 	rLab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::resetJoin(Event join)
-{
-	auto &g = getGraph();
-
-	g.resetJoin(join);
-
-	EventLabel *jLab = g.getEventLabel(join);
-	View hb = calcBasicHbView(jLab->getPos());
-	DepView ppo(jLab->getPPoView());
-
-	jLab->setHbView(std::move(hb));
-	jLab->setPPoRfView(std::move(ppo));
-	return;
-}
-
 bool IMMDriver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
@@ -563,13 +548,21 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	EventLabel *jLab = g.getEventLabel(join);
 	EventLabel *fLab = g.getEventLabel(childLast);
 
-	/* At this point the pporf view is the same as ppo (it's is reset) */
-	std::vector<Event> acqs = g.getThreadAcquiresAndFences(join);
-	for (auto &ev : acqs)
-		jLab->updatePPoRfView(g.getPPoRfBefore(ev));
+       /* Since the pporf view may contain elements from threads joined
+	* in previous explorations, we have to reset it to the ppo one,
+	* and also update it with previous acquires */
+	DepView pporf(jLab->getPPoView());
+	View hb = calcBasicHbView(jLab->getPos());
 
-	jLab->updateHbView(fLab->getHbView());
-	jLab->updatePPoRfView(fLab->getPPoRfView());
+        std::vector<Event> acqs = g.getThreadAcquiresAndFences(join);
+        for (auto &ev : acqs)
+		pporf.update(g.getPPoRfBefore(ev));
+
+	hb.update(fLab->getHbView());
+	pporf.update(fLab->getPPoRfView());
+
+        jLab->setHbView(std::move(hb));
+	jLab->setPPoRfView(std::move(pporf));
 	return true;
 }
 

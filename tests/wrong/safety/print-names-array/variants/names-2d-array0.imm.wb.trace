@@ -40,10 +40,12 @@ Trace to (0, 12):
 [thread_2] names-2d-array.c: 34: x = 42;
 [thread_1] names-2d-array.c: 23: if (x == 42) {
 [thread_1] names-2d-array.c: 24: a[1][1] = 42;
+[thread_1] names-2d-array.c: 25: a[0][0] = 17;
 [thread_1] names-2d-array.c: 27: return NULL;
 [main] names-2d-array0.c: 17: if (pthread_join(t1, NULL))
 [main] names-2d-array0.c: 19: if (pthread_join(t2, NULL))
 [thread_2] names-2d-array.c: 34: x = 42;
+[thread_2] names-2d-array.c: 35: return NULL;
 [main] names-2d-array0.c: 19: if (pthread_join(t2, NULL))
 [main] names-2d-array0.c: 22: if (a[1][1] == 42 && stack.nodes[1][1].value == 42)
 [main] names-2d-array0.c: 22: if (a[1][1] == 42 && stack.nodes[1][1].value == 42)

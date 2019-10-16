@@ -446,12 +446,10 @@ private:
 	 * This effectively changes the label, hence this method is virtual */
 	virtual void changeRf(Event read, Event store) = 0;
 
-	/* Used to make a join label synchronize with a finished thread */
+	/* Used to make a join label synchronize with a finished thread.
+	 * Returns true if the child thread has finished and updates the
+	 * views of the join, or false otherwise */
 	virtual bool updateJoin(Event join, Event childLast) = 0;
-
-	/* After restriction, resets a join label as to "forget"
-	 * possible threads that it has synchronized with */
-	virtual void resetJoin(Event join) = 0;
 
 	/* Should return true if the current graph is consistent */
 	virtual bool isExecutionValid() = 0;

@@ -471,21 +471,6 @@ void RC11Driver::changeRf(Event read, Event store)
 	rLab->setPorfView(std::move(porf));
 }
 
-void RC11Driver::resetJoin(Event join)
-{
-	auto &g = getGraph();
-
-	g.resetJoin(join);
-
-	EventLabel *jLab = g.getEventLabel(join);
-	View hb = calcBasicHbView(jLab->getPos());
-	View porf = calcBasicPorfView(jLab->getPos());
-
-	jLab->setHbView(std::move(hb));
-	jLab->setPorfView(std::move(porf));
-	return;
-}
-
 bool RC11Driver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
@@ -496,8 +481,16 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 	EventLabel *jLab = g.getEventLabel(join);
 	EventLabel *fLab = g.getEventLabel(childLast);
 
-	jLab->updateHbView(fLab->getHbView());
-	jLab->updatePorfView(fLab->getPorfView());
+       /* Since the pporf view may contain elements from threads joined
+	* in previous explorations, we have to reset it to a po-local one */
+	View porf = calcBasicPorfView(jLab->getPos());
+	View hb = calcBasicHbView(jLab->getPos());
+
+	hb.update(fLab->getHbView());
+	porf.update(fLab->getPorfView());
+
+        jLab->setHbView(std::move(hb));
+	jLab->setPorfView(std::move(porf));
 	return true;
 }
 
