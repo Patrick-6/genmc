@@ -28,6 +28,15 @@
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/Support/raw_ostream.h>
 
+/*******************************************************************************
+ **                             View Class
+ ******************************************************************************/
+
+/*
+ * An instantiation of a vector clock where if an event is contained in the clock,
+ * it is _not_ guaranteed that all of its po-predecessors are also contained in
+ * the clock.
+ */
 class DepView : public VectorClock {
 private:
 	using Holes = VSet<int>;
@@ -56,15 +65,33 @@ public:
 	/* Constructors */
 	DepView() : view_(), holes_() {}
 
-	/* Basic operations on Views */
+	/* Returns the size of the depview (i.e., number of threads seen) */
 	unsigned int size() const { return view_.size(); }
+
+	/* Returns true if the clock is empty */
 	bool empty() const { return size() == 0; }
+
+	/* Returns true if the clock contains e */
 	bool contains(const Event e) const;
+
+	/* Records that the event in the index of e has not been
+	 * seen in the respective thread */
 	void addHole(const Event e);
+
+	/* Similar to addHole(), but records that a range has not been seen */
 	void addHolesInRange(Event start, int endIdx);
+
+	/* Marks event e as seen */
 	void removeHole(const Event e);
+
+	/* Marks all events of "thread" as seen */
 	void removeAllHoles(int thread);
+
+	/* Marks all events in a range as seen */
 	void removeHolesInRange(Event start, int endIdx);
+
+	/* Updates the view based on another clock. The update is valid
+	 * only if the other clock provided is also a DepView */
 	View& update(const View &v);
 	DepView& update(const DepView &v);
 	VectorClock &update(const VectorClock &vc);
@@ -85,7 +112,10 @@ public:
 	}
 
 private:
+	/* A view containing the highest index seen for each thread */
 	View view_;
+
+	/* A view of holes, showing which events are not seen for each thread */
 	HoleView holes_;
 };
 
