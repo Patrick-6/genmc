@@ -1,5 +1,5 @@
 #+LATEX_CLASS: michalis-demo
-#+TITLE: \textsc{GenMC}: A Generic Model Checker for C Programs
+#+TITLE: \genmc: A Generic Model Checker for C Programs
 #+OPTIONS: author:nil date:nil
 #+CREATOR: <a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.2.2 (<a href="http://orgmode.org">Org</a> mode)
 #+LATEX_HEADER: \usepackage{calc}
@@ -19,7 +19,7 @@
 \newpage
 #+END_EXPORT
 
-* Introduction \label{sec:intro}
+* Introduction <<sec:intro>>
 
 \genmc is a model checker that is an instantiation of the algorithm
 described in cite:genmc for programs written under the RC11 cite:rc11
@@ -46,7 +46,7 @@ A generic invocation of \genmc looks like the following:
 #+END_SRC
 
 In the above command, =OPTIONS= include several options that can be
-passed to \genmc (see Section \ref{sec:cli} for more details), and
+passed to \genmc (see Section [[sec:cli]] for more details), and
 =CFLAGS= are the options that one would normally pass to the C
 compiler. If no such flags exist, the =--= can be omitted.
 Lastly, =file= should be a C file that uses the =stdatomic.h=
@@ -56,7 +56,7 @@ Note that, in order for \genmc to be able to verify it, =file=
 needs to meet two requirements: finiteness and data-determinism.
 Finiteness means that all tests need to have finite traces,
 i.e., no infinite loops (these need to be bounded; see
-Section \ref{sec:basic-loops}). Data-determinism means that
+Section [[sec:basic-loops]]). Data-determinism means that
 the code under test should be data-deterministic, i.e.,
 not perform actions like calling =rand()=, performing
 actions based on user input or the clock, etc. In other words,
@@ -128,7 +128,7 @@ As can be seen, \genmc will explore two executions: one where
 $ready = data =0$, and one where $ready = data = 1$.
 
 
-** Reducing the state space of a program with \texttt{assume()} statements \label{sec:basic-assume}
+** Reducing the state space of a program with =assume()= statements <<sec:basic-assume>>
 
 In some programs, we only care about what happens when certain
 reads read certain values of interest. That said, \genmc, being
@@ -192,7 +192,7 @@ int main()
 #+END_SRC
 Note that the =__VERIFIER_assume()= function has to be declared. Alternatively,
 one can include the <genmc.h> header, that contains the declarations for all
-the special function that \genmc offers (see Section \ref{sec:apis}).
+the special function that \genmc offers (see Section [[sec:apis]]).
 
 If we ran \genmc on the =mp-assume.c= program above, we get the following
 output:
@@ -211,7 +211,7 @@ programs where there are a lot of (global) accesses after the
 =assume()= statement.
 
 
-** Handling Infinite Loops \label{sec:basic-loops}
+** Handling Infinite Loops <<sec:basic-loops>>
 
 As mentioned in the beginning of this section, all programs that
 \genmc can handle need to have finite traces. That said, many programs
@@ -221,7 +221,7 @@ cases, depending on the type of the loop.
 
 For simple spin loops, like the one shown below, \genmc automatically
 transforms them into =assume()= statements:
-#+BEGIN_SRC sh
+#+BEGIN_SRC C
 while (!condition)
         ;
 #+END_SRC
@@ -232,7 +232,7 @@ or has side-effects (e.g., if it is a compare-and-exchange instruction),
 \genmc will /not/ transform the loop into an =assume()= statement.
 
 For infinite loops with side effects, one has to use the =-unroll=N=
-command-line option (see Section \ref{sec:cli}). This option
+command-line option (see Section [[sec:cli]]). This option
 bounds all loops so that they are executed at most =N= times.
 Naturally, in this case, any verification guarantees that \genmc
 provides hold up to that bound.
@@ -242,7 +242,7 @@ which means that the loops there may not directly correspond to loops
 in the C code (depending on the enabled compiled optimizations, etc).
 
 
-** Error Reporting \label{sec:basic-error}
+** Error Reporting <<sec:basic-error>>
 
 In the previous sections, saw how \genmc verifies the small MP program.
 Let us now proceed with an erroneous version of this program, in order
@@ -358,7 +358,7 @@ from can be determined simply by locating the previous write in the
 same memory location in the sequence.
 
 
-* Command-line Options \label{sec:cli}
+* Command-line Options <<sec:cli>>
 
 A full list of the available command-line options can by viewed
 by issuing =genmc -help=. Below we will describe the ones that
@@ -382,23 +382,23 @@ are most useful when verifying user programs.
      =assume()= statements.
 
 
-* Supported APIs \label{sec:apis}
+* Supported APIs <<sec:apis>>
 
 Apart from C11 API (defined in =stdatomic.h=) and the =assert()=
 function used to define safety specifications, below we list supported
 functions from different libraries.
 
-** Supported \texttt{stdio} API
+** Supported =stdio= API
 
 The following functions are supported from =stdio.h=:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- int fclose(FILE *) :: \hfill
-- int fflush(FILE *) :: \hfill
-- FILE *fopen(const char *, const char *) :: \hfill
-- int printf(const char *, ...) :: \hfill
-- int fprintf(FILE *, const char *, ...) :: \hfill
-- =size_t fwrite(const void *, size_t, size_t, FILE *)= :: \hfill
+- int fclose(FILE *) ::
+- int fflush(FILE *) ::
+- FILE *fopen(const char *, const char *) ::
+- int printf(const char *, ...) ::
+- int fprintf(FILE *, const char *, ...) ::
+- =size_t fwrite(const void *, size_t, size_t, FILE *)= ::
 
 Note that, in this case, said support is provided only for programs to
 compile, and is not meant to provide functional substitutes for the
@@ -407,30 +407,30 @@ violate the data non-determinism requirement of stateless model checking.)
 That said, functions like =printf()= should execute normally on Linux
 machines.
 
-** Supported \texttt{stdlib} API
+** Supported =stdlib= API
 
 The following functions are supported from =stdlib.h=:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- void abort(void) :: \hfill
-- int abs(int) :: \hfill
-- int atoi(const char *) :: \hfill
-- void free(void *) :: \hfill
-- =void *malloc(size_t)= :: \hfill
+- void abort(void) ::
+- int abs(int) ::
+- int atoi(const char *) ::
+- void free(void *) ::
+- =void *malloc(size_t)= ::
 
-** Supported \texttt{pthread} API
+** Supported =pthread= API
 
 The following functions are supported from =pthread.h=:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- =int pthread_create (pthread_t *, const pthread_attr_t *, void *(*) (void *), void *)= :: \hfill
-- =int pthread_join (pthread_t, void **)= :: \hfill
-- =pthread_t pthread_self (void)= :: \hfill
-- =void pthread_exit (void *)= :: \hfill
-- =int pthread_mutex_init (pthread_mutex_t *, const pthread_mutexattr_t *)= :: \hfill
-- =int pthread_mutex_lock (pthread_mutex_t *)= :: \hfill
-- =int pthread_mutex_unlock (pthread_mutex_t *)= :: \hfill
-- =int pthread_mutex_trylock (pthread_mutex_t *)= :: \hfill
+- =int pthread_create (pthread_t *, const pthread_attr_t *, void *(*) (void *), void *)= ::
+- =int pthread_join (pthread_t, void **)= ::
+- =pthread_t pthread_self (void)= ::
+- =void pthread_exit (void *)= ::
+- =int pthread_mutex_init (pthread_mutex_t *, const pthread_mutexattr_t *)= ::
+- =int pthread_mutex_lock (pthread_mutex_t *)= ::
+- =int pthread_mutex_unlock (pthread_mutex_t *)= ::
+- =int pthread_mutex_trylock (pthread_mutex_t *)= ::
 
 
 ** Supported SV-COMP cite:www:svcomp API
@@ -439,15 +439,15 @@ The following functions from the ones defined in SV-COMP
 cite:www:svcomp are supported:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- =void __VERIFIER_assume(int)= :: \hfill
-- =int __VERIFIER_nondet_int(void)= :: \hfill
+- =void __VERIFIER_assume(int)= ::
+- =int __VERIFIER_nondet_int(void)= ::
 
 Note that, since \genmc is a stateless model checker, =__VERIFIER_nondet_int()=
 only "simulates" data non-determism, and does actually provide support for it.
 More specifically, the sequence of numbers it produces for each thread, remains
 the same across different executions.
 
-* Contact \label{sec:contact}
+* Contact <<sec:contact>>
 
 For feedback, questions, and bug reports please send an e-mail to
 [[mailto:michalis@mpi-sws.org][michalis@mpi-sws.org]].
