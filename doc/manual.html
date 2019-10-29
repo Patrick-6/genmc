@@ -3,10 +3,10 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
-<!-- 2019-10-18 Fri 19:00 -->
+<!-- 2019-10-29 Tue 16:38 -->
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>\genmc: A Generic Model Checker for C Programs</title>
+<title><font style="font-variant: small-caps">GenMC</font>: A Generic Model Checker for C Programs</title>
 <meta name="generator" content="Org mode" />
 <style type="text/css">
  <!--/*--><![CDATA[/*><!--*/
@@ -250,48 +250,48 @@ for the JavaScript code in this tag.
 </head>
 <body>
 <div id="content">
-<h1 class="title">\genmc: A Generic Model Checker for C Programs</h1>
+<h1 class="title"><font style="font-variant: small-caps">GenMC</font>: A Generic Model Checker for C Programs</h1>
 <div id="table-of-contents">
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#org047f9bc">1. Introduction </a></li>
-<li><a href="#orgbc7d238">2. Basic Usage</a>
+<li><a href="#org1921873">1. Introduction </a></li>
+<li><a href="#orgb733026">2. Basic Usage</a>
 <ul>
-<li><a href="#orge9a8b71">2.1. A First Example</a></li>
-<li><a href="#org9b9ebd9">2.2. Reducing the state space of a program with <code>assume()</code> statements </a></li>
-<li><a href="#org1ed926f">2.3. Handling Infinite Loops </a></li>
-<li><a href="#org4f2220a">2.4. Error Reporting </a></li>
+<li><a href="#org0d1d928">2.1. A First Example</a></li>
+<li><a href="#org0ac80fc">2.2. Reducing the state space of a program with <code>assume()</code> statements </a></li>
+<li><a href="#org9893d20">2.3. Handling Infinite Loops </a></li>
+<li><a href="#org4bbe613">2.4. Error Reporting </a></li>
 </ul>
 </li>
-<li><a href="#org28e7c9c">3. Command-line Options </a></li>
-<li><a href="#orge5e9fab">4. Supported APIs </a>
+<li><a href="#org458008a">3. Command-line Options </a></li>
+<li><a href="#orgd603da0">4. Supported APIs </a>
 <ul>
-<li><a href="#orgb161a34">4.1. Supported <code>stdio</code> API</a></li>
-<li><a href="#org71385b9">4.2. Supported <code>stdlib</code> API</a></li>
-<li><a href="#org7858260">4.3. Supported <code>pthread</code> API</a></li>
-<li><a href="#org1474eb7">4.4. Supported SV-COMP cite:www:svcomp API</a></li>
+<li><a href="#orgce4678e">4.1. Supported <code>stdio</code> API</a></li>
+<li><a href="#orgbe8a3c5">4.2. Supported <code>stdlib</code> API</a></li>
+<li><a href="#org91de7d6">4.3. Supported <code>pthread</code> API</a></li>
+<li><a href="#org16d30d4">4.4. Supported SV-COMP cite:www:svcomp API</a></li>
 </ul>
 </li>
-<li><a href="#org6070ce2">5. Contact </a></li>
+<li><a href="#org64aa757">5. Contact </a></li>
 </ul>
 </div>
 </div>
 
-<div id="outline-container-org047f9bc" class="outline-2">
-<h2 id="org047f9bc"><span class="section-number-2">1</span> Introduction <a id="org913e612"></a></h2>
+<div id="outline-container-org1921873" class="outline-2">
+<h2 id="org1921873"><span class="section-number-2">1</span> Introduction <a id="org5318578"></a></h2>
 <div class="outline-text-2" id="text-1">
 <p>
-\genmc is a model checker that is an instantiation of the algorithm
+<font style="font-variant: small-caps">GenMC</font> is a model checker that is an instantiation of the algorithm
 described in <a class='org-ref-reference' href="#genmc">genmc</a> for programs written under the RC11 <a class='org-ref-reference' href="#rc11">rc11</a>
-memory model.  \genmc works for C programs that use <code>C11</code> atomics and
+memory model.  <font style="font-variant: small-caps">GenMC</font> works for C programs that use <code>C11</code> atomics and
 the <code>pthread</code> library for concurrency. It uses a very effective dynamic
 partial order reduction technique, and can verify safety properties in
 a sound, complete, and optimal fashion.
 </p>
 
 <p>
-\genmc works at the level of LLVM Intermediate Representation (LLVM-IR)
+<font style="font-variant: small-caps">GenMC</font> works at the level of LLVM Intermediate Representation (LLVM-IR)
 and uses <code>clang</code> to translate C programs to LLVM-IR. This means it
 can miss some bugs that are removed during the translation to LLVM-IR,
 but it is guaranteed to encounter at least as many bugs as the
@@ -299,17 +299,17 @@ compiler backend will encounter.
 </p>
 
 <p>
-\genmc should compile on Linux and Mac OSX provided that the relevant
+<font style="font-variant: small-caps">GenMC</font> should compile on Linux and Mac OSX provided that the relevant
 dependencies are installed.
 </p>
 </div>
 </div>
 
-<div id="outline-container-orgbc7d238" class="outline-2">
-<h2 id="orgbc7d238"><span class="section-number-2">2</span> Basic Usage</h2>
+<div id="outline-container-orgb733026" class="outline-2">
+<h2 id="orgb733026"><span class="section-number-2">2</span> Basic Usage</h2>
 <div class="outline-text-2" id="text-2">
 <p>
-A generic invocation of \genmc looks like the following:
+A generic invocation of <font style="font-variant: small-caps">GenMC</font> looks like the following:
 </p>
 
 <div class="org-src-container">
@@ -319,7 +319,7 @@ A generic invocation of \genmc looks like the following:
 
 <p>
 In the above command, <code>OPTIONS</code> include several options that can be
-passed to \genmc (see Section <a href="#orgf79e14c">3</a> for more details), and
+passed to <font style="font-variant: small-caps">GenMC</font> (see Section <a href="#orgb499cfd">3</a> for more details), and
 <code>CFLAGS</code> are the options that one would normally pass to the C
 compiler. If no such flags exist, the <code>--</code> can be omitted.
 Lastly, <code>file</code> should be a C file that uses the <code>stdatomic.h</code>
@@ -327,11 +327,11 @@ and <code>pthread.h</code> APIs for concurrency.
 </p>
 
 <p>
-Note that, in order for \genmc to be able to verify it, <code>file</code>
+Note that, in order for <font style="font-variant: small-caps">GenMC</font> to be able to verify it, <code>file</code>
 needs to meet two requirements: finiteness and data-determinism.
 Finiteness means that all tests need to have finite traces,
 i.e., no infinite loops (these need to be bounded; see
-Section <a href="#org9d44f87">2.3</a>). Data-determinism means that
+Section <a href="#org14c00e1">2.3</a>). Data-determinism means that
 the code under test should be data-deterministic, i.e.,
 not perform actions like calling <code>rand()</code>, performing
 actions based on user input or the clock, etc. In other words,
@@ -340,15 +340,15 @@ or the employed (weak) memory model.
 </p>
 
 <p>
-As long as these requirements as satisfied, \genmc will detect safety
+As long as these requirements as satisfied, <font style="font-variant: small-caps">GenMC</font> will detect safety
 errors, races on non-atomic variables, as well as some memory errors
 (e.g., double-free error). Users can provide safety specifications for
 their programs by using <code>assert()</code> statements.
 </p>
 </div>
 
-<div id="outline-container-orge9a8b71" class="outline-3">
-<h3 id="orge9a8b71"><span class="section-number-3">2.1</span> A First Example</h3>
+<div id="outline-container-org0d1d928" class="outline-3">
+<h3 id="org0d1d928"><span class="section-number-3">2.1</span> A First Example</h3>
 <div class="outline-text-3" id="text-2-1">
 <p>
 Consider the following program, demonstrating the Message-Passing (MP)
@@ -397,7 +397,7 @@ idiom:
 </div>
 
 <p>
-In order to analyze the code above with \genmc, we can use the
+In order to analyze the code above with <font style="font-variant: small-caps">GenMC</font>, we can use the
 following command:
 </p>
 
@@ -406,7 +406,7 @@ following command:
 </pre>
 </div>
 <p>
-with which \genmc will yield the following result:
+with which <font style="font-variant: small-caps">GenMC</font> will yield the following result:
 </p>
 <div class="org-src-container">
 <pre class="src src-sh">Number of complete executions explored: 2
@@ -414,19 +414,19 @@ Total wall-clock time: 0.02s
 </pre>
 </div>
 <p>
-As can be seen, \genmc will explore two executions: one where
+As can be seen, <font style="font-variant: small-caps">GenMC</font> will explore two executions: one where
 \(ready = data =0\), and one where \(ready = data = 1\).
 </p>
 </div>
 </div>
 
 
-<div id="outline-container-org9b9ebd9" class="outline-3">
-<h3 id="org9b9ebd9"><span class="section-number-3">2.2</span> Reducing the state space of a program with <code>assume()</code> statements <a id="org3489520"></a></h3>
+<div id="outline-container-org0ac80fc" class="outline-3">
+<h3 id="org0ac80fc"><span class="section-number-3">2.2</span> Reducing the state space of a program with <code>assume()</code> statements <a id="org5aeb0cb"></a></h3>
 <div class="outline-text-3" id="text-2-2">
 <p>
 In some programs, we only care about what happens when certain
-reads read certain values of interest. That said, \genmc, being
+reads read certain values of interest. That said, <font style="font-variant: small-caps">GenMC</font>, being
 a model checker, will explore all the consistent values values
 for each read of interest, as well as all consistent options for
 all reads after the reads of interest, leading to the exploration
@@ -434,7 +434,7 @@ of an exponential number of executions that are not of interest.
 </p>
 
 <p>
-To alleviate this problem, \genmc supports the <code>__VERIFIER_assume()</code>
+To alleviate this problem, <font style="font-variant: small-caps">GenMC</font> supports the <code>__VERIFIER_assume()</code>
 function (similar to the one specified in <a class='org-ref-reference' href="#www:svcomp">www:svcomp</a>). This
 function takes an integer argument (possibly the value read from
 a read), and only continues the execution if the argument is non-zero.
@@ -494,11 +494,11 @@ use an <code>assume()</code> statement to achieve this, as shown below:
 <p>
 Note that the <code>__VERIFIER_assume()</code> function has to be declared. Alternatively,
 one can include the &lt;genmc.h&gt; header, that contains the declarations for all
-the special function that \genmc offers (see Section <a href="#org3c58990">4</a>).
+the special function that <font style="font-variant: small-caps">GenMC</font> offers (see Section <a href="#orgc708202">4</a>).
 </p>
 
 <p>
-If we ran \genmc on the <code>mp-assume.c</code> program above, we get the following
+If we ran <font style="font-variant: small-caps">GenMC</font> on the <code>mp-assume.c</code> program above, we get the following
 output:
 </p>
 <div class="org-src-container">
@@ -508,7 +508,7 @@ Total wall-clock time: 0.02s
 </pre>
 </div>
 <p>
-As can be seen, \genmc only explored one full execution (the one where
+As can be seen, <font style="font-variant: small-caps">GenMC</font> only explored one full execution (the one where
 \(r = 1\), while the execution where \(r = 0\) was blocked, because of
 the <code>assume()</code> statement.
 </p>
@@ -523,19 +523,19 @@ programs where there are a lot of (global) accesses after the
 </div>
 
 
-<div id="outline-container-org1ed926f" class="outline-3">
-<h3 id="org1ed926f"><span class="section-number-3">2.3</span> Handling Infinite Loops <a id="org9d44f87"></a></h3>
+<div id="outline-container-org9893d20" class="outline-3">
+<h3 id="org9893d20"><span class="section-number-3">2.3</span> Handling Infinite Loops <a id="org14c00e1"></a></h3>
 <div class="outline-text-3" id="text-2-3">
 <p>
 As mentioned in the beginning of this section, all programs that
-\genmc can handle need to have finite traces. That said, many programs
+<font style="font-variant: small-caps">GenMC</font> can handle need to have finite traces. That said, many programs
 of interest do not fulfill this requirement, because, for example,
-they have some infinite loop. \genmc offers two solutions for such
+they have some infinite loop. <font style="font-variant: small-caps">GenMC</font> offers two solutions for such
 cases, depending on the type of the loop.
 </p>
 
 <p>
-For simple spin loops, like the one shown below, \genmc automatically
+For simple spin loops, like the one shown below, <font style="font-variant: small-caps">GenMC</font> automatically
 transforms them into <code>assume()</code> statements:
 </p>
 <div class="org-src-container">
@@ -548,14 +548,14 @@ The <code>condition</code> should be a simple condition (e.g., a load from
 a global variable), and the body of the loop should have no
 side-effects. In cases where <code>condition</code> is a complex expression,
 or has side-effects (e.g., if it is a compare-and-exchange instruction),
-\genmc will <i>not</i> transform the loop into an <code>assume()</code> statement.
+<font style="font-variant: small-caps">GenMC</font> will <i>not</i> transform the loop into an <code>assume()</code> statement.
 </p>
 
 <p>
 For infinite loops with side effects, one has to use the <code>-unroll=N</code>
-command-line option (see Section <a href="#orgf79e14c">3</a>). This option
+command-line option (see Section <a href="#orgb499cfd">3</a>). This option
 bounds all loops so that they are executed at most <code>N</code> times.
-Naturally, in this case, any verification guarantees that \genmc
+Naturally, in this case, any verification guarantees that <font style="font-variant: small-caps">GenMC</font>
 provides hold up to that bound.
 </p>
 
@@ -568,13 +568,13 @@ in the C code (depending on the enabled compiled optimizations, etc).
 </div>
 
 
-<div id="outline-container-org4f2220a" class="outline-3">
-<h3 id="org4f2220a"><span class="section-number-3">2.4</span> Error Reporting <a id="orgfb43edf"></a></h3>
+<div id="outline-container-org4bbe613" class="outline-3">
+<h3 id="org4bbe613"><span class="section-number-3">2.4</span> Error Reporting <a id="orgd562a3c"></a></h3>
 <div class="outline-text-3" id="text-2-4">
 <p>
-In the previous sections, saw how \genmc verifies the small MP program.
+In the previous sections, saw how <font style="font-variant: small-caps">GenMC</font> verifies the small MP program.
 Let us now proceed with an erroneous version of this program, in order
-to show how \genmc reports errors to the user.
+to show how <font style="font-variant: small-caps">GenMC</font> reports errors to the user.
 </p>
 
 <p>
@@ -630,7 +630,7 @@ not just 42.
 </p>
 
 <p>
-Running \genmc on the above program, we get the following outcome:
+Running <font style="font-variant: small-caps">GenMC</font> on the above program, we get the following outcome:
 </p>
 <div class="org-src-container">
 <pre class="src src-sh">Error detected: Safety violation!
@@ -661,7 +661,7 @@ Total wall-clock time: 0.02s
 </div>
 
 <p>
-\genmc reports an error and prints some information relevant for
+<font style="font-variant: small-caps">GenMC</font> reports an error and prints some information relevant for
 debugging. First, it prints the type of the error, then the execution
 graph representing the erroneous execution, and finally the error
 message, along with the executions explored so far and the time that
@@ -680,9 +680,9 @@ from which the read is reading from is printed.
 
 <p>
 Note that there are many different types of events. However, many of
-them are \genmc-related and not of particular interest to users (e.g.,
+them are <font style="font-variant: small-caps">GenMC</font>-related and not of particular interest to users (e.g.,
 events labeled with `B', which correspond to the beginning of a
-thread). Thus, \genmc only prints the source-code lines for events
+thread). Thus, <font style="font-variant: small-caps">GenMC</font> only prints the source-code lines for events
 that correspond to actual user instructions, thus helping the
 debugging procedure.
 </p>
@@ -706,8 +706,8 @@ same memory location in the sequence.
 </div>
 
 
-<div id="outline-container-org28e7c9c" class="outline-2">
-<h2 id="org28e7c9c"><span class="section-number-2">3</span> Command-line Options <a id="orgf79e14c"></a></h2>
+<div id="outline-container-org458008a" class="outline-2">
+<h2 id="org458008a"><span class="section-number-2">3</span> Command-line Options <a id="orgb499cfd"></a></h2>
 <div class="outline-text-2" id="text-3">
 <p>
 A full list of the available command-line options can by viewed
@@ -716,9 +716,9 @@ are most useful when verifying user programs.
 </p>
 
 <dl class="org-dl">
-<dt>-wb</dt><dd>Perform the exploration based on the \(\lPORF\)
+<dt>-wb</dt><dd>Perform the exploration based on the <span style="color: #808080; font-family: monospace">po</span><span style="color: #00ff00; font-family: monospace">rf</span>
 equivalence partitioning (default).</dd>
-<dt>-mo</dt><dd>Perform the exploration based on the \((\lPO \cup \lRF \cup \lMO)\)
+<dt>-mo</dt><dd>Perform the exploration based on the <span style="color: #808080; font-family: monospace">po</span> \(\cup\) <span style="color: #00ff00; font-family: monospace">rf</span> \(\cup\) <span style="color: #ffa500; font-family: monospace">mo</span>
 equivalence partitioning.</dd>
 <dt>-unroll=&lt;N&gt;</dt><dd>All loops will be executed at most \(N\) times.</dd>
 <dt>-dump-error-graph=&lt;file&gt;</dt><dd>Outputs an erroneous graph to file
@@ -736,8 +736,8 @@ as the program's entry point, instead of <code>main()</code>.</dd>
 </div>
 
 
-<div id="outline-container-orge5e9fab" class="outline-2">
-<h2 id="orge5e9fab"><span class="section-number-2">4</span> Supported APIs <a id="org3c58990"></a></h2>
+<div id="outline-container-orgd603da0" class="outline-2">
+<h2 id="orgd603da0"><span class="section-number-2">4</span> Supported APIs <a id="orgc708202"></a></h2>
 <div class="outline-text-2" id="text-4">
 <p>
 Apart from C11 API (defined in <code>stdatomic.h</code>) and the <code>assert()</code>
@@ -746,8 +746,8 @@ functions from different libraries.
 </p>
 </div>
 
-<div id="outline-container-orgb161a34" class="outline-3">
-<h3 id="orgb161a34"><span class="section-number-3">4.1</span> Supported <code>stdio</code> API</h3>
+<div id="outline-container-orgce4678e" class="outline-3">
+<h3 id="orgce4678e"><span class="section-number-3">4.1</span> Supported <code>stdio</code> API</h3>
 <div class="outline-text-3" id="text-4-1">
 <p>
 The following functions are supported from <code>stdio.h</code>:
@@ -778,8 +778,8 @@ machines.
 </div>
 </div>
 
-<div id="outline-container-org71385b9" class="outline-3">
-<h3 id="org71385b9"><span class="section-number-3">4.2</span> Supported <code>stdlib</code> API</h3>
+<div id="outline-container-orgbe8a3c5" class="outline-3">
+<h3 id="orgbe8a3c5"><span class="section-number-3">4.2</span> Supported <code>stdlib</code> API</h3>
 <div class="outline-text-3" id="text-4-2">
 <p>
 The following functions are supported from <code>stdlib.h</code>:
@@ -799,8 +799,8 @@ The following functions are supported from <code>stdlib.h</code>:
 </div>
 </div>
 
-<div id="outline-container-org7858260" class="outline-3">
-<h3 id="org7858260"><span class="section-number-3">4.3</span> Supported <code>pthread</code> API</h3>
+<div id="outline-container-org91de7d6" class="outline-3">
+<h3 id="org91de7d6"><span class="section-number-3">4.3</span> Supported <code>pthread</code> API</h3>
 <div class="outline-text-3" id="text-4-3">
 <p>
 The following functions are supported from <code>pthread.h</code>:
@@ -827,8 +827,8 @@ The following functions are supported from <code>pthread.h</code>:
 </div>
 
 
-<div id="outline-container-org1474eb7" class="outline-3">
-<h3 id="org1474eb7"><span class="section-number-3">4.4</span> Supported SV-COMP <a class='org-ref-reference' href="#www:svcomp">www:svcomp</a> API</h3>
+<div id="outline-container-org16d30d4" class="outline-3">
+<h3 id="org16d30d4"><span class="section-number-3">4.4</span> Supported SV-COMP <a class='org-ref-reference' href="#www:svcomp">www:svcomp</a> API</h3>
 <div class="outline-text-3" id="text-4-4">
 <p>
 The following functions from the ones defined in SV-COMP
@@ -842,7 +842,7 @@ The following functions from the ones defined in SV-COMP
 </dl>
 
 <p>
-Note that, since \genmc is a stateless model checker, <code>__VERIFIER_nondet_int()</code>
+Note that, since <font style="font-variant: small-caps">GenMC</font> is a stateless model checker, <code>__VERIFIER_nondet_int()</code>
 only "simulates" data non-determism, and does actually provide support for it.
 More specifically, the sequence of numbers it produces for each thread, remains
 the same across different executions.
@@ -851,8 +851,8 @@ the same across different executions.
 </div>
 </div>
 
-<div id="outline-container-org6070ce2" class="outline-2">
-<h2 id="org6070ce2"><span class="section-number-2">5</span> Contact <a id="orgabfa821"></a></h2>
+<div id="outline-container-org64aa757" class="outline-2">
+<h2 id="org64aa757"><span class="section-number-2">5</span> Contact <a id="orgaeb2ce8"></a></h2>
 <div class="outline-text-2" id="text-5">
 <p>
 For feedback, questions, and bug reports please send an e-mail to
@@ -878,7 +878,7 @@ For feedback, questions, and bug reports please send an e-mail to
 </div>
 </div>
 <div id="postamble" class="status">
-<p class="date">Created: 2019-10-18 Fri 19:00</p>
+<p class="date">Created: 2019-10-29 Tue 16:38</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>
 </body>

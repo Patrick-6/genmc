@@ -1,19 +1,39 @@
 #+LATEX_CLASS: michalis-demo
-#+TITLE: \genmc: A Generic Model Checker for C Programs
+#+TITLE: {{{genmc}}}: A Generic Model Checker for C Programs
 #+OPTIONS: author:nil date:nil
 #+CREATOR: <a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.2.2 (<a href="http://orgmode.org">Org</a> mode)
 #+LATEX_HEADER: \usepackage{calc}
 #+LATEX_HEADER: \usepackage{xspace}
 #+LATEX_HEADER: \usepackage{enumitem}
-#+LATEX_HEADER: \colorlet{colorPO}{gray!60!black}
-#+LATEX_HEADER: \colorlet{colorRF}{green!60!black}
-#+LATEX_HEADER: \colorlet{colorMO}{orange}
-#+LATEX_HEADER: \newcommand{\lPO}{{\color{colorPO}\mathtt{po}}}
-#+LATEX_HEADER: \newcommand{\lRF}{{\color{colorRF} \mathtt{rf}}}
-#+LATEX_HEADER: \newcommand{\lMO}{{\color{colorMO} \mathtt{mo}}}
-#+LATEX_HEADER: \newcommand{\lPORF}{\lPO\lRF}
-#+LATEX_HEADER: \newcommand{\genmc}{\textsc{GenMC}\xspace}
 
+# The macros below should be defined properly according to the export.
+# For GenMC's name, specifically:
+#
+#     HTML:  @@html:<font style="font-variant: small-caps">GenMC</font>@@
+#     LaTeX: \textsc{GenMC}\xspace
+#
+# To understand LaTeX's color mixing:
+#
+# https://tex.stackexchange.com/questions/34909/understanding-xcolor-color-mixing-model
+#
+# Example definitions of coloring macros (see below for a uniform way):
+#
+#    HTML: <span style="color: rgb(COLOR)"><code>$1</code></font>@@
+#    LaTeX: \textcolor[RGB]{COLOR}{\mathtt{$1}}
+#
+# Colors used for relations:
+#
+#    colorPO #808080
+#    colorRF #00ff00
+#    colorMO #ffa500
+
+#+MACRO: color   @@html:<span style="color: #$1">$2</span>@@@@latex:\textcolor[HTML]{$1}{$2}@@
+#+MACRO: colortt @@html:<span style="color: #$1; font-family: monospace">$2</span>@@@@latex:\textcolor[HTML]{$1}{\texttt{$2}}@@
+
+#+MACRO: genmc @@html:<font style="font-variant: small-caps">GenMC</font>@@@@latex:\textsc{GenMC}\xspace@@
+#+MACRO: po {{{colortt(808080,po)}}}
+#+MACRO: rf {{{colortt(00ff00,rf)}}}
+#+MACRO: mo {{{colortt(ffa500,mo)}}}
 
 #+BEGIN_EXPORT latex
 \newpage
@@ -21,38 +41,38 @@
 
 * Introduction <<sec:intro>>
 
-\genmc is a model checker that is an instantiation of the algorithm
+{{{genmc}}} is a model checker that is an instantiation of the algorithm
 described in cite:genmc for programs written under the RC11 cite:rc11
-memory model.  \genmc works for C programs that use =C11= atomics and
+memory model.  {{{genmc}}} works for C programs that use =C11= atomics and
 the =pthread= library for concurrency. It uses a very effective dynamic
 partial order reduction technique, and can verify safety properties in
 a sound, complete, and optimal fashion.
 
-\genmc works at the level of LLVM Intermediate Representation (LLVM-IR)
+{{{genmc}}} works at the level of LLVM Intermediate Representation (LLVM-IR)
 and uses =clang= to translate C programs to LLVM-IR. This means it
 can miss some bugs that are removed during the translation to LLVM-IR,
 but it is guaranteed to encounter at least as many bugs as the
 compiler backend will encounter.
 
-\genmc should compile on Linux and Mac OSX provided that the relevant
+{{{genmc}}} should compile on Linux and Mac OSX provided that the relevant
 dependencies are installed.
 
 * Basic Usage
 
-A generic invocation of \genmc looks like the following:
+A generic invocation of {{{genmc}}} looks like the following:
 
 #+BEGIN_SRC sh
     genmc [OPTIONS] -- [CFLAGS] <file>
 #+END_SRC
 
 In the above command, =OPTIONS= include several options that can be
-passed to \genmc (see Section [[sec:cli]] for more details), and
+passed to {{{genmc}}} (see Section [[sec:cli]] for more details), and
 =CFLAGS= are the options that one would normally pass to the C
 compiler. If no such flags exist, the =--= can be omitted.
 Lastly, =file= should be a C file that uses the =stdatomic.h=
 and =pthread.h= APIs for concurrency.
 
-Note that, in order for \genmc to be able to verify it, =file=
+Note that, in order for {{{genmc}}} to be able to verify it, =file=
 needs to meet two requirements: finiteness and data-determinism.
 Finiteness means that all tests need to have finite traces,
 i.e., no infinite loops (these need to be bounded; see
@@ -63,7 +83,7 @@ actions based on user input or the clock, etc. In other words,
 all non-determinism should originate either from the scheduler
 or the employed (weak) memory model.
 
-As long as these requirements as satisfied, \genmc will detect safety
+As long as these requirements as satisfied, {{{genmc}}} will detect safety
 errors, races on non-atomic variables, as well as some memory errors
 (e.g., double-free error). Users can provide safety specifications for
 their programs by using =assert()= statements.
@@ -113,31 +133,31 @@ int main()
 }
 #+END_SRC
 
-In order to analyze the code above with \genmc, we can use the
+In order to analyze the code above with {{{genmc}}}, we can use the
 following command:
 
 #+BEGIN_SRC sh
 genmc mp.c
 #+END_SRC
-with which \genmc will yield the following result:
+with which {{{genmc}}} will yield the following result:
 #+BEGIN_SRC sh
 Number of complete executions explored: 2
 Total wall-clock time: 0.02s
 #+END_SRC
-As can be seen, \genmc will explore two executions: one where
+As can be seen, {{{genmc}}} will explore two executions: one where
 $ready = data =0$, and one where $ready = data = 1$.
 
 
 ** Reducing the state space of a program with =assume()= statements <<sec:basic-assume>>
 
 In some programs, we only care about what happens when certain
-reads read certain values of interest. That said, \genmc, being
+reads read certain values of interest. That said, {{{genmc}}}, being
 a model checker, will explore all the consistent values values
 for each read of interest, as well as all consistent options for
 all reads after the reads of interest, leading to the exploration
 of an exponential number of executions that are not of interest.
 
-To alleviate this problem, \genmc supports the =__VERIFIER_assume()=
+To alleviate this problem, {{{genmc}}} supports the =__VERIFIER_assume()=
 function (similar to the one specified in cite:www:svcomp). This
 function takes an integer argument (possibly the value read from
 a read), and only continues the execution if the argument is non-zero.
@@ -192,16 +212,16 @@ int main()
 #+END_SRC
 Note that the =__VERIFIER_assume()= function has to be declared. Alternatively,
 one can include the <genmc.h> header, that contains the declarations for all
-the special function that \genmc offers (see Section [[sec:apis]]).
+the special function that {{{genmc}}} offers (see Section [[sec:apis]]).
 
-If we ran \genmc on the =mp-assume.c= program above, we get the following
+If we ran {{{genmc}}} on the =mp-assume.c= program above, we get the following
 output:
 #+BEGIN_SRC sh
 Number of complete executions explored: 1
 Number of blocked executions seen: 1
 Total wall-clock time: 0.02s
 #+END_SRC
-As can be seen, \genmc only explored one full execution (the one where
+As can be seen, {{{genmc}}} only explored one full execution (the one where
 $r = 1$, while the execution where $r = 0$ was blocked, because of
 the =assume()= statement.
 
@@ -214,12 +234,12 @@ programs where there are a lot of (global) accesses after the
 ** Handling Infinite Loops <<sec:basic-loops>>
 
 As mentioned in the beginning of this section, all programs that
-\genmc can handle need to have finite traces. That said, many programs
+{{{genmc}}} can handle need to have finite traces. That said, many programs
 of interest do not fulfill this requirement, because, for example,
-they have some infinite loop. \genmc offers two solutions for such
+they have some infinite loop. {{{genmc}}} offers two solutions for such
 cases, depending on the type of the loop.
 
-For simple spin loops, like the one shown below, \genmc automatically
+For simple spin loops, like the one shown below, {{{genmc}}} automatically
 transforms them into =assume()= statements:
 #+BEGIN_SRC C
 while (!condition)
@@ -229,12 +249,12 @@ The =condition= should be a simple condition (e.g., a load from
 a global variable), and the body of the loop should have no
 side-effects. In cases where =condition= is a complex expression,
 or has side-effects (e.g., if it is a compare-and-exchange instruction),
-\genmc will /not/ transform the loop into an =assume()= statement.
+{{{genmc}}} will /not/ transform the loop into an =assume()= statement.
 
 For infinite loops with side effects, one has to use the =-unroll=N=
 command-line option (see Section [[sec:cli]]). This option
 bounds all loops so that they are executed at most =N= times.
-Naturally, in this case, any verification guarantees that \genmc
+Naturally, in this case, any verification guarantees that {{{genmc}}}
 provides hold up to that bound.
 
 Finally, note that the loop-bounding happens at the LLVM-IR level,
@@ -244,9 +264,9 @@ in the C code (depending on the enabled compiled optimizations, etc).
 
 ** Error Reporting <<sec:basic-error>>
 
-In the previous sections, saw how \genmc verifies the small MP program.
+In the previous sections, saw how {{{genmc}}} verifies the small MP program.
 Let us now proceed with an erroneous version of this program, in order
-to show how \genmc reports errors to the user.
+to show how {{{genmc}}} reports errors to the user.
 
 Consider the following variant of the MP program below, where the
 store to =ready= in the first thread is now performed using a relaxed
@@ -295,7 +315,7 @@ synchronizes with the corresponding store, which in turn means that
 the load from =data= may also read 0 (the initial value), and
 not just 42.
 
-Running \genmc on the above program, we get the following outcome:
+Running {{{genmc}}} on the above program, we get the following outcome:
 #+BEGIN_SRC sh
 Error detected: Safety violation!
 Event (2, 2) in graph:
@@ -323,7 +343,7 @@ Number of complete executions explored: 1
 Total wall-clock time: 0.02s
 #+END_SRC
 
-\genmc reports an error and prints some information relevant for
+{{{genmc}}} reports an error and prints some information relevant for
 debugging. First, it prints the type of the error, then the execution
 graph representing the erroneous execution, and finally the error
 message, along with the executions explored so far and the time that
@@ -338,9 +358,9 @@ for reads (e.g., event (2, 1)), but also the position in the graph
 from which the read is reading from is printed.
 
 Note that there are many different types of events. However, many of
-them are \genmc-related and not of particular interest to users (e.g.,
+them are {{{genmc}}}-related and not of particular interest to users (e.g.,
 events labeled with `B', which correspond to the beginning of a
-thread). Thus, \genmc only prints the source-code lines for events
+thread). Thus, {{{genmc}}} only prints the source-code lines for events
 that correspond to actual user instructions, thus helping the
 debugging procedure.
 
@@ -365,9 +385,9 @@ by issuing =genmc -help=. Below we will describe the ones that
 are most useful when verifying user programs.
 
 #+ATTR_LATEX: :options [leftmargin=!, labelwidth=\widthof{\ttfamily pprogrampentrypfunction=pfunpnamep}, font={\color{blue!50!black}\ttfamily}, labelindent=\parindent]
-- -wb :: Perform the exploration based on the $\lPORF$
+- -wb :: Perform the exploration based on the {{{po}}}{{{rf}}}
      equivalence partitioning (default).
-- -mo :: Perform the exploration based on the $(\lPO \cup \lRF \cup \lMO)$
+- -mo :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
      equivalence partitioning.
 - -unroll=<N> :: All loops will be executed at most $N$ times.
 - -dump-error-graph=<file> :: Outputs an erroneous graph to file
@@ -442,7 +462,7 @@ cite:www:svcomp are supported:
 - =void __VERIFIER_assume(int)= ::
 - =int __VERIFIER_nondet_int(void)= ::
 
-Note that, since \genmc is a stateless model checker, =__VERIFIER_nondet_int()=
+Note that, since {{{genmc}}} is a stateless model checker, =__VERIFIER_nondet_int()=
 only "simulates" data non-determism, and does actually provide support for it.
 More specifically, the sequence of numbers it produces for each thread, remains
 the same across different executions.
