@@ -41,12 +41,12 @@
 
 * Introduction <<sec:intro>>
 
-{{{genmc}}} is a model checker that is an instantiation of the algorithm
-described in cite:genmc for programs written under the RC11 cite:rc11
-memory model.  {{{genmc}}} works for C programs that use =C11= atomics and
-the =pthread= library for concurrency. It uses a very effective dynamic
-partial order reduction technique, and can verify safety properties in
-a sound, complete, and optimal fashion.
+{{{genmc}}} is a model checker that is an instantiation of the
+respective algorithm cite:genmc for programs written under the
+RC11 cite:rc11 memory model.  {{{genmc}}} works for C programs that use
+=C11= atomics and the =pthread= library for concurrency. It uses a
+very effective dynamic partial order reduction technique, and can
+verify safety properties in a sound, complete, and optimal fashion.
 
 {{{genmc}}} works at the level of LLVM Intermediate Representation (LLVM-IR)
 and uses =clang= to translate C programs to LLVM-IR. This means it
@@ -158,7 +158,7 @@ all reads after the reads of interest, leading to the exploration
 of an exponential number of executions that are not of interest.
 
 To alleviate this problem, {{{genmc}}} supports the =__VERIFIER_assume()=
-function (similar to the one specified in cite:www:svcomp). This
+function (similar to the one specified in SV-COMP cite:www:svcomp). This
 function takes an integer argument (possibly the value read from
 a read), and only continues the execution if the argument is non-zero.
 
@@ -385,20 +385,20 @@ by issuing =genmc -help=. Below we will describe the ones that
 are most useful when verifying user programs.
 
 #+ATTR_LATEX: :options [leftmargin=!, labelwidth=\widthof{\ttfamily pprogrampentrypfunction=pfunpnamep}, font={\color{blue!50!black}\ttfamily}, labelindent=\parindent]
-- -wb :: Perform the exploration based on the {{{po}}}{{{rf}}}
+- =-wb= :: Perform the exploration based on the {{{po}}}{{{rf}}}
      equivalence partitioning (default).
-- -mo :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
+- =-mo= :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
      equivalence partitioning.
-- -unroll=<N> :: All loops will be executed at most $N$ times.
-- -dump-error-graph=<file> :: Outputs an erroneous graph to file
+- =-unroll=<N>= :: All loops will be executed at most $N$ times.
+- =-dump-error-graph=<file>= :: Outputs an erroneous graph to file
      =<file>=.
-- -print-error-trace :: Outputs a sequence of source-code instructions
+- =-print-error-trace= :: Outputs a sequence of source-code instructions
      that lead to an error.
-- -disable-race-detection :: Disables race detection for non-atomic
+- =-disable-race-detection= :: Disables race detection for non-atomic
      accesses.
 - =-program-entry-function=<fun_name>= :: Uses function =<fun_name>=
      as the program's entry point, instead of =main()=.
-- -disable-spin-assume :: Disables the transformation of spin loops to
+- =-disable-spin-assume= :: Disables the transformation of spin loops to
      =assume()= statements.
 
 
@@ -413,11 +413,11 @@ functions from different libraries.
 The following functions are supported from =stdio.h=:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- int fclose(FILE *) ::
-- int fflush(FILE *) ::
-- FILE *fopen(const char *, const char *) ::
-- int printf(const char *, ...) ::
-- int fprintf(FILE *, const char *, ...) ::
+- =int fclose(FILE *)= ::
+- =int fflush(FILE *)= ::
+- =FILE *fopen(const char *, const char *)= ::
+- =int printf(const char *, ...)= ::
+- =int fprintf(FILE *, const char *, ...)= ::
 - =size_t fwrite(const void *, size_t, size_t, FILE *)= ::
 
 Note that, in this case, said support is provided only for programs to
@@ -432,10 +432,10 @@ machines.
 The following functions are supported from =stdlib.h=:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
-- void abort(void) ::
-- int abs(int) ::
-- int atoi(const char *) ::
-- void free(void *) ::
+- =void abort(void)= ::
+- =int abs(int)= ::
+- =int atoi(const char *)= ::
+- =void free(void *)= ::
 - =void *malloc(size_t)= ::
 
 ** Supported =pthread= API
@@ -455,8 +455,7 @@ The following functions are supported from =pthread.h=:
 
 ** Supported SV-COMP cite:www:svcomp API
 
-The following functions from the ones defined in SV-COMP
-cite:www:svcomp are supported:
+The following functions from the ones defined in SV-COMP cite:www:svcomp are supported:
 
 #+ATTR_LATEX: :options [leftmargin=!, font={\color{red!50!black}\ttfamily}, labelindent=\parindent]
 - =void __VERIFIER_assume(int)= ::
@@ -472,6 +471,29 @@ the same across different executions.
 For feedback, questions, and bug reports please send an e-mail to
 [[mailto:michalis@mpi-sws.org][michalis@mpi-sws.org]].
 
+#
+# Uncomment the lines below (or add local hooks) for a decent HTML bib export
+#
+
+# * Bibliography <<sec:bib>>
+
+# #+BEGIN_SRC emacs-lisp :exports none
+# (add-to-list 'load-path ".")
+# (require 'org-ref-citeproc)
+
+# (when (file-exists-p "readme.html") (delete-file "readme.html"))
+# (let ((org-export-before-parsing-hook '(orcp-citeproc)))
+#   (browse-url (org-html-export-to-html)))
+# #+END_SRC
+
+# #+RESULTS:
+
+# #+BEGIN_SRC emacs-lisp :exports none
+# (add-hook 'org-export-before-parsing-hook 'orcp-citeproc)
+# #+END_SRC
+
+# #+RESULTS:
+# | orcp-citeproc |
 
 bibliographystyle:unsrt
 bibliography:~/Documents/wmbib/biblio.bib
