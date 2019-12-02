@@ -55,6 +55,14 @@ public:
 		return *this;
 	}
 
+	GraphBuilder &withEnabledLAPOR(bool lapor) {
+		if (lapor) {
+			graph->setLbCalculatorLAPOR(
+				llvm::make_unique<LBCalculatorLAPOR>(*graph));
+		}
+		return *this;
+	}
+
 	std::unique_ptr<ExecutionGraph> build() {
 		BUG_ON(!graph->getCoherenceCalculator());
 		return std::move(graph);

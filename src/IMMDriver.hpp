@@ -116,6 +116,14 @@ public:
 	std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) override;
 
+	/* LAPOR: Creates a (dummy) label for a lock() operation */
+	std::unique_ptr<LockLabelLAPOR>
+	createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
+
+	/* LAPOR: Creates a (dummy) label for an unlock() operation */
+	std::unique_ptr<UnlockLabelLAPOR>
+	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
+
 	/* Since there is no concept of race in IMM, always returns INIT */
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 
@@ -132,7 +140,6 @@ public:
 private:
 
 	View calcBasicHbView(Event e) const;
-	View calcBasicPorfView(Event e) const;
 	DepView calcPPoView(Event e); /* not const */
 	void calcBasicReadViews(ReadLabel *lab);
 	void calcBasicWriteViews(WriteLabel *lab);
@@ -141,9 +148,6 @@ private:
 	void calcBasicFenceViews(FenceLabel *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
 
-	std::vector<Event> collectAllEvents();
-	void fillMatrixFromView(const Event e, const DepView &v,
-				Matrix2D<Event> &matrix);
 	Matrix2D<Event> getARMatrix();
 };
 

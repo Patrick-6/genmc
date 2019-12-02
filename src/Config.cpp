@@ -56,6 +56,9 @@ clCoherenceType(llvm::cl::values(
 		llvm::cl::cat(clGeneral),
 		llvm::cl::init(CoherenceType::wb),
 		llvm::cl::desc("Choose coherence type:"));
+llvm::cl::opt<bool>
+clLAPOR("lapor", llvm::cl::cat(clGeneral),
+	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
@@ -148,6 +151,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	model = clModelType;
 	isDepTrackingModel = (model == ModelType::imm);
 	coherence = clCoherenceType;
+	LAPOR = clLAPOR;
 	printErrorTrace = clPrintErrorTrace;
 	checkPscAcyclicity = clCheckPscAcyclicity;
 	disableRaceDetection = clDisableRaceDetection;

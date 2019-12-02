@@ -161,7 +161,9 @@ Matrix2D<Event> WBCoherenceCalculator::calcWbRestricted(const llvm::GenericValue
 		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
 			     [&](const Event &r){ return v.contains(r); });
 
-		es.push_back(g.getPreviousNonEmptyLabel(wLab)->getPos());
+		es.push_back(// g.getPreviousNonEmptyLabel(
+				     wLab// )
+			->getPos());
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || std::none_of(es.begin(), es.end(), [&](Event e)
@@ -204,7 +206,9 @@ Matrix2D<Event> WBCoherenceCalculator::calcWb(const llvm::GenericValue *addr) co
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto *wLab = static_cast<const WriteLabel *>(g.getEventLabel(stores[i]));
 		std::vector<Event> es(wLab->getReadersList());
-		es.push_back(g.getPreviousNonEmptyLabel(wLab)->getPos());
+		es.push_back(// g.getPreviousNonEmptyLabel(
+				     wLab// )
+			->getPos());
 
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {
@@ -374,7 +378,6 @@ bool WBCoherenceCalculator::isCoherentRf(const llvm::GenericValue *addr,
 					 Event read, Event store, int storeWbIdx)
 {
 	auto &g = getGraph();
-	auto &hbBefore = g.getHbBefore(read.prev());
 	auto &stores = wb.getElems();
 
 	/* First, check whether it is wb;rf?;hb-before the read */
@@ -415,7 +418,6 @@ bool WBCoherenceCalculator::isInitCoherentRf(const Matrix2D<Event> &wb,
 					     Event read)
 {
 	auto &g = getGraph();
-	auto &hbBefore = g.getHbBefore(read.prev());
 	auto &stores = wb.getElems();
 
 	for (auto j = 0u; j < stores.size(); j++)
@@ -440,7 +442,6 @@ WBCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 
 	auto wb = calcWb(addr);
 	auto &stores = wb.getElems();
-	auto &hbBefore = g.getHbBefore(read.prev());
 
 	/* Find the stores from which we can read-from */
 	for (auto i = 0u; i < stores.size(); i++) {
@@ -496,7 +497,6 @@ bool WBCoherenceCalculator::isCoherentRevisit(const WriteLabel *sLab,
 	auto &stores = wb.getElems();
 	auto i = wb.getIndex(sLab->getPos());
 
-	auto &hbBefore = g.getHbBefore(g.getPreviousNonEmptyLabel(read)->getPos());
 	for (auto j = 0u; j < stores.size(); j++) {
 		if (wb(i, j) && g.isWriteRfBefore(stores[j], g.getPreviousNonEmptyLabel(read)->getPos())) {
 			return false;

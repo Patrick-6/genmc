@@ -33,6 +33,7 @@ libgenmc_a_SOURCES = \
   IMMDriver.cpp IMMDriver.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \

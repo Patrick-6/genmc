@@ -83,6 +83,17 @@ std::vector<T> Matrix2D<T>::getOutEdges(const T &e) const
 	return result;
 }
 
+template<typename T>
+bool Matrix2D<T>::hasNoEdges(const T &e) const
+{
+	auto eI = getIndex(e);
+	for (auto i = 0u; i < size(); i++) {
+		if ((*this)(i, eI) || (*this)(eI, i))
+			return false;
+	}
+	return true;
+}
+
 /*
  * Get in-degrees for event es, according to adjacency matrix
  */
@@ -212,12 +223,12 @@ bool Matrix2D<T>::empty() const
 }
 
 template<typename T>
-bool Matrix2D<T>::isReflexive() const
+bool Matrix2D<T>::isIrreflexive() const
 {
 	for (auto i = 0u; i < size(); i++)
 		if ((*this)(i, i))
-			return true;
-	return false;
+			return false;
+	return true;
 }
 
 template<typename T>

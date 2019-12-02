@@ -128,6 +128,14 @@ public:
 	std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) override;
 
+	/* LAPOR: Creates a (dummy) label for a lock() operation */
+	std::unique_ptr<LockLabelLAPOR>
+	createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
+
+	/* LAPOR: Creates a (dummy) label for an unlock() operation */
+	std::unique_ptr<UnlockLabelLAPOR>
+	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
+
 	/* Checks for races after a load/store is added to the graph.
 	 * Return the racy event, or INIT if no such event exists */
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;

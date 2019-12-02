@@ -39,6 +39,7 @@ public:
 	ModelType model;
 	bool isDepTrackingModel;
 	CoherenceType coherence;
+	bool LAPOR;
 	CheckPSCType checkPscAcyclicity;
 	int unroll;
 	bool spinAssume;

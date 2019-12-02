@@ -150,6 +150,49 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	return result;
 }
 
+Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
+{
+	std::vector<const llvm::GenericValue *> unlocks;
+
+	for (auto j = upperLimit.index; j >= 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
+
+		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
+			if (std::find_if(unlocks.rbegin(), unlocks.rend(),
+					 [&](const llvm::GenericValue *addr)
+					 { return lLab->getLockAddr() == addr; })
+			    ==  unlocks.rend())
+				return lLab->getPos();
+		}
+
+		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab))
+			unlocks.push_back(uLab->getLockAddr());
+	}
+	return Event::getInitializer();
+}
+
+Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit,
+						  const llvm::GenericValue *loc) const
+{
+	for (auto j = upperLimit.index; j >= 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
+
+		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
+			if (lLab->getLockAddr() == loc)
+				return lLab->getPos();
+		}
+
+	}
+	return Event::getInitializer();
+}
+
+std::vector<Event> ExecutionGraph::getLbOrderingLAPOR() const
+{
+	BUG_ON(!getLbCalculatorLAPOR());
+
+	return getLbCalculatorLAPOR()->getLbOrdering();
+}
+
 std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab) const
 {
 	std::vector<Event> pending;
@@ -292,6 +335,12 @@ const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabe
 	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 }
 
+const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
+{
+	getLbCalculatorLAPOR()->addLockToList(lab->getPos());
+	return static_cast<const LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
+}
+
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto pos = lab->getPos();
@@ -418,6 +467,36 @@ void ExecutionGraph::calcRelRfPoBefore(Event last, View &v) const
 				v.update(wLab->getMsgView());
 		}
 	}
+}
+
+#define IMPLEMENT_POPULATE_ENTRIES(MATRIX, GET_VIEW)			\
+do {								        \
+									\
+        const std::vector<Event> &es = MATRIX.getElems();		\
+        auto len = MATRIX.size();					\
+									\
+        for (auto i = 0u; i < len; i++) {				\
+		for (auto j = 0u; j < len; j++) {			\
+			if (es[i] != es[j] &&				\
+			    GET_VIEW(es[j]).contains(es[i]))		\
+				MATRIX(i, j) = true;			\
+		}							\
+        }								\
+} while (0)
+
+void ExecutionGraph::populatePorfEntries(Matrix2D<Event> &relation) const
+{
+	IMPLEMENT_POPULATE_ENTRIES(relation, getPorfBefore);
+}
+
+void ExecutionGraph::populatePPoRfEntries(Matrix2D<Event> &relation) const
+{
+	IMPLEMENT_POPULATE_ENTRIES(relation, getPPoRfBefore);
+}
+
+void ExecutionGraph::populateHbEntries(Matrix2D<Event> &relation) const
+{
+	IMPLEMENT_POPULATE_ENTRIES(relation, getHbBefore);
 }
 
 
@@ -553,7 +632,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store,
 }
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-					     const VectorClock &porfBefore) const
+					     const VectorClock &prefix) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -567,7 +646,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 
 			if (!rLab->isRevisitable())
 				return true;
-			if (porfBefore.contains(rLab->getPos()))
+			if (prefix.contains(rLab->getPos()))
 				return true;
 		}
 	}
@@ -744,6 +823,9 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 
 	/* Remove cutted events from the coherence order as well */
 	getCoherenceCalculator()->removeStoresAfter(preds);
+	/* Inform the LB calculator about cutted events --under LAPOR only-- */
+	if (isLAPORenabled())
+		getLbCalculatorLAPOR()->removeLocksAfter(preds);
 	return;
 }
 
@@ -782,6 +864,11 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 		} else if (auto *curWLab = llvm::dyn_cast<WriteLabel>(curLab)) {
 			curWLab->removeReader([&](Event r){ return r == rLab->getPos(); });
 		}
+
+		/* Inform the LB calculator about the new events --under LAPOR only--
+		 * (If the if-statement triggers, LB tracker should be set) */
+		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(curLab))
+			getLbCalculatorLAPOR()->addLockToList(lLab->getPos());
 	}
 
 	/* Do not keep any nullptrs in the graph */
@@ -818,15 +905,6 @@ void ExecutionGraph::addToRevisitSet(const ReadLabel *r, const std::vector<Event
 	return rLab->revs.add(writePrefix, moPlacings);
 }
 
-
-/************************************************************
- ** Consistency checks
- ***********************************************************/
-
-bool ExecutionGraph::isConsistent(void) const
-{
-	return true;
-}
 
 /************************************************************
  ** PSC calculation
@@ -1350,7 +1428,7 @@ template bool ExecutionGraph::checkPscCondition<std::function<bool(const Matrix2
 
 bool __isPscAcyclic(const Matrix2D<Event> &psc)
 {
-	return !psc.isReflexive();
+	return psc.isIrreflexive();
 }
 
 bool ExecutionGraph::isPscAcyclic(CheckPSCType t) const
@@ -1594,7 +1672,7 @@ bool ExecutionGraph::isLibConsistentInView(const Library &lib, const View &v)
 	auto &constraints = lib.getConstraints();
 	if (std::all_of(constraints.begin(), constraints.end(),
 			[&](const Constraint &c)
-			{ return !relations[c.getName()].isReflexive(); }))
+			{ return relations[c.getName()].isIrreflexive(); }))
 		return true;
 	return false;
 }

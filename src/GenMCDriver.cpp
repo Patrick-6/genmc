@@ -45,17 +45,17 @@ void abortHandler(int signum)
 GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::vector<Library> &granted, std::vector<Library> &toVerify,
 			 clock_t start)
-	: userConf(std::move(conf)), mod(std::move(mod)),
-	  grantedLibs(granted), toVerifyLibs(toVerify),
-	  isMootExecution(false), prioritizeThread(-1),
-	  explored(0), exploredBlocked(0), duplicates(0), start(start)
+	: userConf(std::move(conf)), mod(std::move(mod)), grantedLibs(granted),
+	  toVerifyLibs(toVerify), isMootExecution(false), explored(0),
+	  exploredBlocked(0), duplicates(0), start(start)
 {
 	/* Register a signal handler for abort() */
 	std::signal(SIGABRT, abortHandler);
 
 	/* Set up an appropriate execution graph */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
-		.withCoherenceType(userConf->coherence).build();
+		.withCoherenceType(userConf->coherence)
+		.withEnabledLAPOR(userConf->LAPOR).build();
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -90,10 +90,102 @@ void GenMCDriver::printResults()
 		     << "s\n";
 }
 
+void GenMCDriver::resetThreadPrioritization()
+{
+	if (!userConf->LAPOR) {
+		threadPrios.clear();
+		return;
+	}
+
+	/*
+	 * Check if there is some thread that did not manage to finish its
+	 * critical section, and mark this execution as blocked
+	 */
+	const auto &g = getGraph();
+	auto *EE = getEE();
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		Event last = g.getLastThreadEvent(i);
+		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer())
+			EE->getThrById(i).block();
+	}
+
+	/* Clear all prioritization */
+	threadPrios.clear();
+}
+
+void GenMCDriver::prioritizeThreads()
+{
+	if (!userConf->LAPOR)
+		return;
+
+	const auto &g = getGraph();
+
+	/* Prioritize threads according to lock acquisitions */
+	threadPrios = g.getLbOrderingLAPOR();
+
+	/* Remove threads that are executed completely */
+	auto remIt = std::remove_if(threadPrios.begin(), threadPrios.end(), [&](Event e)
+				    { return llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(e.thread)); });
+	threadPrios.erase(remIt, threadPrios.end());
+	return;
+}
+
+bool GenMCDriver::schedulePrioritized()
+{
+	/* Return false if no thread is prioritized */
+	if (threadPrios.empty())
+		return false;
+
+	const auto &g = getGraph();
+	auto *EE = getEE();
+	for (auto &e : threadPrios) {
+		auto &thr = EE->getThrById(e.thread);
+
+		/* Make sure that the thread is not blocked or done */
+		if (thr.ECStack.empty() || thr.isBlocked ||
+		    llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(e.thread)))
+			continue;
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = e.thread;
+		return true;
+	}
+	return false;
+}
+
+void GenMCDriver::deprioritizeThread()
+{
+	/* Extra check to make sure the function is properly used */
+	if (!userConf->LAPOR)
+		return;
+
+	auto &g = getGraph();
+	auto *lab = getCurrentLabel();
+
+	BUG_ON(!llvm::isa<UnlockLabelLAPOR>(lab));
+	auto *uLab = static_cast<const UnlockLabelLAPOR *>(lab);
+
+	auto delIt = threadPrios.end();
+	for (auto it = threadPrios.begin(); it != threadPrios.end(); ++it) {
+		const EventLabel *lab = g.getEventLabel(*it);
+		BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
+
+		auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
+		if (lLab->getThread() == uLab->getThread() &&
+		    lLab->getLockAddr() == uLab->getLockAddr()) {
+			delIt = it;
+			break;
+		}
+	}
+
+	if (delIt != threadPrios.end())
+		threadPrios.erase(delIt);
+}
+
 void GenMCDriver::resetExplorationOptions()
 {
 	isMootExecution = false;
-	prioritizeThread = -1;
+	resetThreadPrioritization();
 }
 
 void GenMCDriver::handleExecutionBeginning()
@@ -135,6 +227,9 @@ void GenMCDriver::handleExecutionBeginning()
 				thr.block();
 		}
 	}
+
+	/* Then, set up thread prioritization */
+	prioritizeThreads();
 }
 
 void GenMCDriver::handleExecutionInProgress()
@@ -306,16 +401,8 @@ bool GenMCDriver::scheduleNext()
 	auto *EE = getEE();
 
 	/* First, check if we should prioritize some thread */
-	if (0 <= prioritizeThread && prioritizeThread < (int) g.getNumThreads()) {
-		auto &thr = EE->getThrById(prioritizeThread);
-		if (!thr.ECStack.empty() && !thr.isBlocked &&
-		    !llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(prioritizeThread))) {
-			EE->currentThread = prioritizeThread;
-			return true;
-		}
-	}
-	prioritizeThread = -2;
-
+	if (schedulePrioritized())
+		return true;
 
 	/* Check if randomize scheduling is enabled and schedule some thread */
 	MyDist dist(0, g.getNumThreads());
@@ -602,7 +689,7 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *pt
 				return false;
 			});
 		BUG_ON(lit == stores.end());
-		prioritizeThread = lit->thread;
+		threadPrios = {*lit};
 		valid.push_back(*lit);
 	}
 	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
@@ -900,6 +987,64 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	return;
 }
 
+void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = getEE()->getCurrentPosition();
+	auto lLab = createLockLabelLAPOR(pos.thread, pos.index, addr);
+
+	getGraph().addLockLabelToGraphLAPOR(std::move(lLab));
+	return;
+}
+
+void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
+			    llvm::GenericValue &cmpVal, llvm::GenericValue &newVal)
+{
+	/* Treatment of locks based on whether LAPOR is enabled */
+	if (userConf->LAPOR) {
+		visitLockLAPOR(addr);
+		return;
+	}
+
+	auto ret = visitLoad(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
+			     addr, typ, cmpVal, newVal);
+
+	if (EE->compareValues(typ, cmpVal, ret)) {
+		visitStore(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
+			   addr, typ, newVal);
+	} else {
+		EE->getCurThr().block();
+	}
+}
+
+void GenMCDriver::visitUnlockLAPOR(const llvm::GenericValue *addr)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = getEE()->getCurrentPosition();
+	auto lLab = createUnlockLabelLAPOR(pos.thread, pos.index, addr);
+
+	getGraph().addOtherLabelToGraph(std::move(lLab));
+	return;
+}
+
+void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
+			      llvm::GenericValue &val)
+{
+	/* Treatment of unlocks based on whether LAPOR is enabled */
+	if (userConf->LAPOR) {
+		visitUnlockLAPOR(addr);
+		return;
+	}
+
+	visitStore(llvm::Interpreter::IA_Unlock,
+		   llvm::AtomicOrdering::Release, addr, typ, val);
+	return;
+}
+
 llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* false */)
 {
 	auto &g = getGraph();
@@ -1016,7 +1161,7 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 
 		completeRevisitedRMW(rLab);
 
-		prioritizeThread = rLab->getThread();
+		threadPrios = {rLab->getPos()};
 		if (EE->getThrById(rLab->getThread()).globalInstructions != 0)
 			++EE->getThrById(rLab->getThread()).globalInstructions;
 
@@ -1148,7 +1293,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	/* Blocked lock -> prioritize locking thread */
 	if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
 		if (lLab->isLock()) {
-			prioritizeThread = lLab->getRf().thread;
+			threadPrios = {lLab->getRf()};
 			EE->getThrById(p.toRevisit.thread).block();
 		}
 	}

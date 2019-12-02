@@ -34,6 +34,7 @@
 #include <memory>
 
 class CoherenceCalculator;
+class LBCalculatorLAPOR;
 
 /*******************************************************************************
  **                           ExecutionGraph Class
@@ -116,6 +117,7 @@ public:
 					       unsigned int offsetMO);
 	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 					       Event pred);
+	const LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
 	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 
@@ -154,6 +156,18 @@ public:
 	/* Returns a list of acquire (R or F) in upperLimit's thread (before it) */
 	std::vector<Event> getThreadAcquiresAndFences(const Event upperLimit) const;
 
+	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
+	 * If no such event exists, returns INIT */
+	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;
+
+	/* LAPOR: Returns the last lock at location "loc" before "upperLimit".
+	 * If no such event exists, returns INIT */
+	Event getLastThreadLockAtLocLAPOR(const Event upperLimit,
+					  const llvm::GenericValue *loc) const;
+
+	/* LAPOR: Returns a linear extension of LB */
+	std::vector<Event> getLbOrderingLAPOR() const;
+
 	/* Returns pair with all SC accesses and all SC fences */
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
 
@@ -176,6 +190,18 @@ public:
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const WriteLabel *wLab) const;
 
+	/* Returns a list of all events satisfying property F */
+	template <typename F>
+	std::vector<Event> collectAllEvents(F cond) const {
+		std::vector<Event> result;
+
+		for (auto i = 0u; i < getNumThreads(); i++)
+			for (auto j = 0u; j < getThreadSize(i); j++)
+				if (cond(getEventLabel(Event(i, j))))
+					result.push_back(Event(i, j));
+		return result;
+	}
+
 
 	/* Calculation of [(po U rf)*] predecessors and successors */
 	const DepView &getPPoRfBefore(Event e) const;
@@ -186,6 +212,11 @@ public:
 	View getHbRfBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
+
+	/* Matrix filling for external relation calculation */
+	void populatePorfEntries(Matrix2D<Event> &relation) const;
+	void populatePPoRfEntries(Matrix2D<Event> &relation) const;
+	void populateHbEntries(Matrix2D<Event> &relation) const;
 
 
 	/* Boolean helper functions */
@@ -213,9 +244,6 @@ public:
 
 
 	/* Consistency checks */
-
-	/* Returns true if the current graph is consistent */
-	bool isConsistent() const;
 
 	/* Checks whether the provided condition "cond" holds for PSC.
 	 * The calculation type (e.g., weak, full, etc) is determined by "t" */
@@ -316,6 +344,9 @@ protected:
 	CoherenceCalculator *getCoherenceCalculator() { return cohTracker.get(); };
 	const CoherenceCalculator *getCoherenceCalculator() const { return cohTracker.get(); };
 
+	LBCalculatorLAPOR *getLbCalculatorLAPOR() { return lbTracker.get(); };
+	const LBCalculatorLAPOR *getLbCalculatorLAPOR() const { return lbTracker.get(); };
+
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
@@ -411,16 +442,27 @@ private:
 		cohTracker = std::move(cc);
 	};
 
+	/* Sets the LB calculator appropriately --under LAPOR only-- */
+	void setLbCalculatorLAPOR(std::unique_ptr<LBCalculatorLAPOR> lc) {
+		lbTracker = std::move(lc);
+	};
+
+	bool isLAPORenabled() const { return lbTracker != nullptr; }
+
 	/* A collection of threads and the events for each threads */
 	Graph events;
 
 	/* A coherence calculator for the graph */
 	std::unique_ptr<CoherenceCalculator> cohTracker = nullptr;
 
+	/* A calculator for LB --under LAPOR only-- */
+	std::unique_ptr<LBCalculatorLAPOR> lbTracker = nullptr;
+
 	/* The next available timestamp */
 	unsigned int timestamp;
 };
 
 #include "CoherenceCalculator.hpp"
+#include "LBCalculatorLAPOR.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

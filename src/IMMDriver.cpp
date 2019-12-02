@@ -29,15 +29,6 @@ View IMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-/* Calculates a minimal (po U rf) vector clock based on po for a given label */
-View IMMDriver::calcBasicPorfView(Event e) const
-{
-	View v(getGraph().getPreviousLabel(e)->getPorfView());
-
-	++v[e.thread];
-	return v;
-}
-
 DepView IMMDriver::calcPPoView(Event e) /* not const */
 {
 	auto &g = getGraph();
@@ -485,6 +476,40 @@ IMMDriver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
+std::unique_ptr<LockLabelLAPOR>
+IMMDriver::createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<LockLabelLAPOR>(getGraph().nextStamp(),
+						     llvm::AtomicOrdering::Acquire,
+						     pos, addr);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<UnlockLabelLAPOR>
+IMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<UnlockLabelLAPOR>(getGraph().nextStamp(),
+						       llvm::AtomicOrdering::Release,
+						       pos, addr);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
 Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	return Event::getInitializer(); /* Race detection disabled for IMM */
@@ -557,71 +582,15 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
-std::vector<Event> IMMDriver::collectAllEvents()
-{
-	const auto &g = getGraph();
-	std::vector<Event> result;
-
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = 1u; j < g.getThreadSize(i); j++) {
-			auto *lab = g.getEventLabel(Event(i, j));
-			if (llvm::isa<MemAccessLabel>(lab) ||
-			    llvm::isa<FenceLabel>(lab))
-				result.push_back(lab->getPos());
-		}
-	}
-	return result;
-}
-
-/* TODO: Add function in VC interface that transforms VC to Matrix? */
-void IMMDriver::fillMatrixFromView(const Event e, const DepView &v,
-				     Matrix2D<Event> &matrix)
-{
-	const auto &g = getGraph();
- 	auto eI = matrix.getIndex(e);
-
-	for (auto i = 0u; i < v.size(); i++) {
-                if ((int) i == e.thread)
-			continue;
-		for (auto j = v[i]; j > 0; j--) {
-			auto curr = Event(i, j);
-			if (!v.contains(curr))
-				continue;
-
-			auto *lab = g.getEventLabel(curr);
-                        if (!llvm::isa<MemAccessLabel>(lab) &&
-			    !llvm::isa<FenceLabel>(lab))
-                                continue;
-
-			matrix(lab->getPos(), eI) = true;
-                        break;
-                }
- 	}
-}
-
 Matrix2D<Event> IMMDriver::getARMatrix()
 {
-	Matrix2D<Event> ar(collectAllEvents());
-	const std::vector<Event> &es = ar.getElems();
-        auto len = ar.size();
 	const auto &g = getGraph();
+	auto events = g.collectAllEvents([&](const EventLabel *lab)
+					 { return llvm::isa<MemAccessLabel>(lab) ||
+					   llvm::isa<FenceLabel>(lab); });
+	Matrix2D<Event> ar(std::move(events));
 
-        /* First, add ppo edges */
-        for (auto i = 0u; i < len; i++) {
-                for (auto j = 0u; j < len; j++) {
-			if (es[i].thread == es[j].thread &&
-			    es[i].index < es[j].index &&
-			    g.getPPoRfBefore(es[j]).contains(es[i]))
-				ar(i, j) = true;
-                }
-        }
-
-        /* Then, add the remaining ar edges */
-        for (const auto &e : es) {
-                auto *lab = g.getEventLabel(e);
-                BUG_ON(!llvm::isa<MemAccessLabel>(lab) && !llvm::isa<FenceLabel>(lab));
-                fillMatrixFromView(e, g.getPPoRfBefore(e), ar);
-        }
+	g.populatePPoRfEntries(ar);
 	ar.transClosure();
 	return ar;
 }
@@ -636,7 +605,7 @@ bool IMMDriver::isExecutionValid()
 	std::function<bool(const Matrix2D<Event>&)> check =
 		[&](const Matrix2D<Event> &psc) -> bool {
 		auto basicAr = ar;
-		if (psc.isReflexive())
+		if (!psc.isIrreflexive())
 			return false;
 		for (auto &f1 : fcs) {
 			for (auto &f2 : fcs)
@@ -644,7 +613,7 @@ bool IMMDriver::isExecutionValid()
 					basicAr(f1, f2) = true;
 		}
 		basicAr.transClosure();
-		return !basicAr.isReflexive();
+		return basicAr.isIrreflexive();
 	};
 
 	return g.checkPscCondition(CheckPSCType::full, check);

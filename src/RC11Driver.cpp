@@ -381,6 +381,40 @@ RC11Driver::createFinishLabel(int tid, int index)
 	return std::move(lab);
 }
 
+std::unique_ptr<LockLabelLAPOR>
+RC11Driver::createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<LockLabelLAPOR>(getGraph().nextStamp(),
+						     llvm::AtomicOrdering::Acquire,
+						     pos, addr);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<UnlockLabelLAPOR>
+RC11Driver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr)
+{
+	const auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<UnlockLabelLAPOR>(getGraph().nextStamp(),
+						       llvm::AtomicOrdering::Release,
+						       pos, addr);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
 Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();

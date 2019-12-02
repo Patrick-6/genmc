@@ -158,6 +158,16 @@ public:
 		      llvm::GenericValue &val, std::string functionName,
 		      bool isInit = false);
 
+	/* A lock() call has been interpreted, nothing for the interpeter */
+	void
+	visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
+		  llvm::GenericValue &cmpVal, llvm::GenericValue &newVal);
+
+	/* An unlock() call has been interpreter, nothing for the interpreter */
+	void
+	visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
+		    llvm::GenericValue &val);
+
 	/* A fence has been interpreted, nothing for the interpreter */
 	void
 	visitFence(llvm::AtomicOrdering ord);
@@ -245,6 +255,18 @@ private:
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
+	/* Sets up a prioritization scheme among threads */
+	void prioritizeThreads();
+
+	/* Deprioritizes the current thread */
+	void deprioritizeThread();
+
+	/* Tries to schedule according to the current prioritization scheme */
+	bool schedulePrioritized();
+
+	/* Resets the prioritization scheme */
+	void resetThreadPrioritization();
+
 	/* Checks whether the last memory access recorded accesses
 	 * a valid address. Appropriately calls visitError() and terminates */
 	void checkAccessValidity();
@@ -319,6 +341,10 @@ private:
 	bool tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
+
+	/* LAPOR: Helper for visiting a lock()/unlock() event */
+	void visitLockLAPOR(const llvm::GenericValue *addr);
+	void visitUnlockLAPOR(const llvm::GenericValue *addr);
 
 
 	/*** Output-related ***/
@@ -429,6 +455,14 @@ private:
 	virtual std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) = 0;
 
+	/* LAPOR: Creates a (dummy) label for a lock() operation */
+	virtual std::unique_ptr<LockLabelLAPOR>
+	createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) = 0;
+
+	/* LAPOR: Creates a (dummy) label for an unlock() operation */
+	virtual std::unique_ptr<UnlockLabelLAPOR>
+	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) = 0;
+
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */
 	virtual Event findDataRaceForMemAccess(const MemAccessLabel *mLab) = 0;
@@ -485,9 +519,9 @@ private:
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;
 
-	/* Opt: Which thread the scheduler should prioritize
-	 * (negative if none) */
-	int prioritizeThread;
+	/* Opt: Which thread(s) the scheduler should prioritize
+	 * (empty if none) */
+	std::vector<Event> threadPrios;
 
 	/* Number of complete executions explored */
 	int explored;

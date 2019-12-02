@@ -2615,22 +2615,12 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
+	/* We will not need to set the dependencies again, since they
+	 * will not be modified (even if the lock is added as two events) */
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	auto ret = driver->visitLoad(IA_Lock, AtomicOrdering::Acquire,
-				     ptr, typ, cmpVal, newVal);
-
-	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue() == 0) {
-		thr.block();
-	} else {
-		setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-			       getAddrPoDeps(thr.id), nullptr);
-
-		driver->visitStore(IA_Lock, AtomicOrdering::Acquire,
-				   ptr, typ, newVal);
-	}
+	driver->visitLock(ptr, typ, cmpVal, newVal);
 
 	/*
 	 * We need to return a result anyway, because even if the current thread
@@ -2660,7 +2650,7 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	driver->visitStore(IA_Unlock, AtomicOrdering::Release, ptr, typ, val);
+	driver->visitUnlock(ptr, typ, val);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
