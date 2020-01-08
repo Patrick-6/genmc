@@ -21,11 +21,23 @@
 #ifndef __GRAPH_BUILDER_HPP__
 #define __GRAPH_BUILDER_HPP__
 
-#include "ExecutionGraph.hpp"
 #include "DepExecutionGraph.hpp"
+#include "GraphManager.hpp"
+#include "LBCalculatorLAPOR.hpp"
 #include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
 
+/*******************************************************************************
+ **                           GraphBuilder Class
+ ******************************************************************************/
+
+/*
+ * A class that builds a graph object to be handed over to the
+ * driver. This class abstracts away all the functionality that is
+ * common across different driver instances (and only dependent on the
+ * given configuration options), like creating the execution graph and
+ * some basic relations on the graph (e.g., coherence).
+ */
 class GraphBuilder {
 
 public:
@@ -33,20 +45,25 @@ public:
 	GraphBuilder(bool shouldTrackDeps) {
                 tracksDeps = shouldTrackDeps;
 		if (tracksDeps)
-			graph = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph);
+			graph = llvm::make_unique<GraphManager>(
+				std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph));
 		else
-			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph);
+			graph = llvm::make_unique<GraphManager>(
+				std::unique_ptr<ExecutionGraph>(new ExecutionGraph));
 	};
 
 	GraphBuilder &withCoherenceType(CoherenceType co) {
 		switch (co) {
 		case CoherenceType::mo:
-			graph->setCoherenceCalculator(
-				llvm::make_unique<MOCoherenceCalculator>(*graph, tracksDeps));
+			graph->addCalculator(
+				llvm::make_unique<MOCoherenceCalculator>(*graph, graph->co, tracksDeps),
+				GraphManager::RelationId::co, true);
 			break;
 		case CoherenceType::wb:
-			graph->setCoherenceCalculator(
-				llvm::make_unique<WBCoherenceCalculator>(*graph, tracksDeps));
+			graph->addCalculator(
+				llvm::make_unique<WBCoherenceCalculator>(*graph, graph->co,
+									 graph->hb, tracksDeps),
+				GraphManager::RelationId::co, true);
 			break;
 		default:
 			WARN("Unhandled coherence type!\n");
@@ -57,13 +74,15 @@ public:
 
 	GraphBuilder &withEnabledLAPOR(bool lapor) {
 		if (lapor) {
-			graph->setLbCalculatorLAPOR(
-				llvm::make_unique<LBCalculatorLAPOR>(*graph));
+			graph->addCalculator(
+				llvm::make_unique<LBCalculatorLAPOR>(*graph, graph->hb,
+								     graph->lb, graph->co),
+				GraphManager::RelationId::lb, true);
 		}
 		return *this;
 	}
 
-	std::unique_ptr<ExecutionGraph> build() {
+	std::unique_ptr<GraphManager> build() {
 		BUG_ON(!graph->getCoherenceCalculator());
 		return std::move(graph);
 	};
@@ -72,8 +91,8 @@ private:
 	/* Keep the type of graph constructed */
         bool tracksDeps = false;
 
-	/* The execution graph to be constructed */
-	std::unique_ptr<ExecutionGraph> graph = nullptr;
+	/* The graph to be constructed */
+	std::unique_ptr<GraphManager> graph = nullptr;
 };
 
 #endif /* __GRAPH_BUILDER_HPP__ */

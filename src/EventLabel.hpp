@@ -924,7 +924,7 @@ public:
 	}
 
 	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_LockLabelLAPOR;
+		return lab->getKind() == EL_UnlockLabelLAPOR;
 	}
 
 private:

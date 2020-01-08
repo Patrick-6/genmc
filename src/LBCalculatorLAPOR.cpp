@@ -22,6 +22,7 @@
 
 std::vector<Event> LBCalculatorLAPOR::collectEvents() const
 {
+	const auto &g = getGraphManager().getGraph();
 	return g.collectAllEvents([](const EventLabel *lab)
 				  { return llvm::isa<MemAccessLabel>(lab); });
 }
@@ -33,6 +34,7 @@ std::vector<Event> LBCalculatorLAPOR::collectLocks() const
 
 Event LBCalculatorLAPOR::getFirstMemAccessInCS(const Event lock) const
 {
+	const auto &g = getGraphManager().getGraph();
 	const EventLabel *lab = g.getEventLabel(lock);
 	BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
 	auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
@@ -52,6 +54,7 @@ Event LBCalculatorLAPOR::getFirstMemAccessInCS(const Event lock) const
 
 Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 {
+	const auto &g = getGraphManager().getGraph();
 	const EventLabel *lab = g.getEventLabel(lock);
 	BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
 	auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
@@ -76,12 +79,12 @@ Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 
 std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 {
-	std::vector<Event> threadPrios = relations.lbRelation.topoSort();
+	std::vector<Event> threadPrios = lbRelation.topoSort();
 
 	/* Remove threads that are unordered with all other threads */
 	threadPrios.
 		erase(std::remove_if(threadPrios.begin(), threadPrios.end(),
-				     [&](Event e){ return relations.lbRelation.hasNoEdges(e); }),
+				     [&](Event e){ return lbRelation.hasNoEdges(e); }),
 		      threadPrios.end());
 	return threadPrios;
 }
@@ -94,78 +97,70 @@ bool LBCalculatorLAPOR::addLbConstraints()
 		auto ul = getLastMemAccessInCS(l);
 		if (ul == Event::getInitializer())
 			continue;
-		auto lIndex = relations.lbRelation.getIndex(l);
+		auto lIndex = lbRelation.getIndex(l);
 		for (auto &o : locks) {
-			if (!relations.lbRelation(lIndex, o))
+			if (!lbRelation(lIndex, o))
 				continue;
 			auto o1 = getFirstMemAccessInCS(o);
 			if (o1 != Event::getInitializer() &&
-			    !relations.hbRelation(ul, o1)) {
+			    !hbRelation(ul, o1)) {
 				changed = true;
-				relations.hbRelation(ul, o1) = true;
+				hbRelation(ul, o1) = true;
 			}
 		}
 	}
 	return changed;
 }
 
-void LBCalculatorLAPOR::calcHbRelation()
-{
-	BUG_ON(relations.hbRelation.getElems().empty());
-	g.populateHbEntries(relations.hbRelation);
-}
-
-Matrix2D<Event> LBCalculatorLAPOR::calcWbRelation(const llvm::GenericValue *addr)
-{
-	return Matrix2D<Event>();
-}
-
 void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 				       const LockLabelLAPOR *lLab)
 {
-	const auto &wb = calcWbRelation(rLab->getAddr());
+	const auto &g = getGraphManager().getGraph();
+	const auto &co = coRelation[rLab->getAddr()];
 	Event lock = lLab->getPos();
 
 	Event rfLock = g.getLastThreadLockAtLocLAPOR(rLab->getRf(), lLab->getLockAddr());
 	if (rfLock != Event::getInitializer() && rfLock != lock &&
 	    rLab->getRf().index >= rfLock.index) {
-		relations.lbRelation(rfLock, lock) = true;
+		lbRelation(rfLock, lock) = true;
 	}
 
-	for (auto &s : wb.getElems()) {
-		if (!rLab->getRf().isInitializer() && !wb(rLab->getRf(), s))
+	for (auto &s : co.getElems()) {
+		if (!rLab->getRf().isInitializer() && !co(rLab->getRf(), s))
 			continue;
 		auto sLock = g.getLastThreadLockAtLocLAPOR(s, lLab->getLockAddr());
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		relations.lbRelation(lock, sLock) = true;
+		lbRelation(lock, sLock) = true;
 	}
 }
 
 void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 					const LockLabelLAPOR *lLab)
 {
-	const auto &wb = calcWbRelation(wLab->getAddr());
+	const auto &g = getGraphManager().getGraph();
+	const auto &co = coRelation[wLab->getAddr()];
 	Event lock = lLab->getPos();
 
-	/* Add an lb-edge if there exists a wb-later store
+	/* Add an lb-edge if there exists a co-later store
 	 * in a different critical section of lLab */
-	auto labIndex = wb.getIndex(wLab->getPos());
-	for (auto &s : wb.getElems()) {
-		if (!wb(labIndex, s))
+	auto labIndex = co.getIndex(wLab->getPos());
+	for (auto &s : co.getElems()) {
+		if (!co(labIndex, s))
 			continue;
 		auto sLock = g.getLastThreadLockAtLocLAPOR(s, lLab->getLockAddr());
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		relations.lbRelation(lock, sLock) = true;
+		lbRelation(lock, sLock) = true;
 	}
 }
 
 void LBCalculatorLAPOR::calcLbRelation()
 {
-	for (auto &l : relations.lbRelation) {
+	const auto &g = getGraphManager().getGraph();
+	for (auto &l : lbRelation) {
 		const EventLabel *lab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
 		auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
@@ -182,31 +177,31 @@ void LBCalculatorLAPOR::calcLbRelation()
 				calcLbFromStore(wLab, lLab);
 		}
 	}
-	relations.lbRelation.transClosure();
+	lbRelation.transClosure();
 }
 
-bool LBCalculatorLAPOR::calcLbFixpoint()
+void LBCalculatorLAPOR::initCalc()
 {
-	/* Fixpoint calculation */
-	do {
-		relations.wbRelation.clear();
-		relations.hbRelation.transClosure();
-		if (!relations.hbRelation.isIrreflexive())
-			return false;
-		calcLbRelation();
-		if (!relations.lbRelation.isIrreflexive())
-			return false;
-	} while (addLbConstraints());
+	lbRelation = Matrix2D<Event>(locks);
+	return;
+}
 
-	/* Check that no reads read from overwritten initialization write
-	 * and compute WB for all locations in view */
-	const auto &elems = relations.hbRelation.getElems();
+Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
+{
+	const auto &g = getGraphManager().getGraph();
+
+	if (!hbRelation.isIrreflexive())
+		return Calculator::CalculationResult(false, false);
+	calcLbRelation();
+	if (!lbRelation.isIrreflexive())
+		return Calculator::CalculationResult(false, false);
+	bool changed = addLbConstraints();
+	hbRelation.transClosure();
+
+	/* Check that no reads read from overwritten initialization write */
+	const auto &elems = hbRelation.getElems();
 	for (auto r = 0u; r < elems.size(); r++) {
 		const EventLabel *lab = g.getEventLabel(elems[r]);
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			calcWbRelation(wLab->getAddr());
-			continue;
-		}
 
 		if (!llvm::isa<ReadLabel>(lab))
 			continue;
@@ -215,27 +210,26 @@ bool LBCalculatorLAPOR::calcLbFixpoint()
 		if (rLab->getRf() != Event::getInitializer())
 			continue;
 
-		auto &stores = calcWbRelation(rLab->getAddr()).getElems();
+		auto &stores = coRelation[rLab->getAddr()].getElems();
 		for (auto s : stores) {
-			if (relations.hbRelation(s, r))
-				return false;
+			if (hbRelation(s, r))
+				return Calculator::CalculationResult(changed, false);
 		}
 	}
 
-	/* Check that WB is acyclic */
-	return std::all_of(relations.wbRelation.begin(), relations.wbRelation.end(),
+	/* Check that co is acyclic */
+	if (std::any_of(coRelation.begin(), coRelation.end(),
 			[](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
-			   { return p.second.isIrreflexive(); });
+			{ return !p.second.isIrreflexive(); }))
+		return Calculator::CalculationResult(changed, false);
+	return Calculator::CalculationResult(changed, true);
 }
 
-bool LBCalculatorLAPOR::isLbConsistent()
+void LBCalculatorLAPOR::removeAfter(const VectorClock &preds)
 {
-	auto es = collectEvents();
-	auto ls = collectLocks();
-
-	relations = Relations(std::move(es), std::move(ls));
-	calcHbRelation();
-	return calcLbFixpoint();
+	locks.erase(std::remove_if(locks.begin(), locks.end(), [&](Event &e)
+				   { return !preds.contains(e); }),
+		    locks.end());
 }
 
 void LBCalculatorLAPOR::addLockToList(const Event lock)
@@ -243,9 +237,12 @@ void LBCalculatorLAPOR::addLockToList(const Event lock)
 	locks.push_back(lock);
 }
 
-void LBCalculatorLAPOR::removeLocksAfter(const VectorClock &preds)
+void LBCalculatorLAPOR::restorePrefix(const ReadLabel *rLab,
+				      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+				      const std::vector<std::pair<Event, Event> > &status)
 {
-	locks.erase(std::remove_if(locks.begin(), locks.end(), [&](Event &e)
-				   { return !preds.contains(e); }),
-		    locks.end());
+	for (const auto &lab : storePrefix) {
+		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab.get()))
+			addLockToList(lLab->getPos());
+	}
 }

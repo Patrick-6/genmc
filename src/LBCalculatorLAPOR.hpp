@@ -21,31 +21,23 @@
 #ifndef __LB_CALCULATOR_LAPOR_HPP__
 #define __LB_CALCULATOR_LAPOR_HPP__
 
-#include "ExecutionGraph.hpp"
+#include "Calculator.hpp"
+#include "EventLabel.hpp"
+#include "GraphManager.hpp"
+#include "Matrix2D.hpp"
 #include <unordered_map>
 #include <vector>
 
-class LBCalculatorLAPOR {
-
-private:
-	struct Relations {
-		typedef std::unordered_map<const llvm::GenericValue *, Matrix2D<Event> > WbOrder;
-
-		Relations() = default;
-		Relations (std::vector<Event> &&events, std::vector<Event> &&locks)
-			: hbRelation(std::move(events)),
-			  lbRelation(std::move(locks)), wbRelation() {};
-
-		void clear();
-
-		Matrix2D<Event> hbRelation;
-		Matrix2D<Event> lbRelation;
-		WbOrder wbRelation;
-	};
+class LBCalculatorLAPOR : public Calculator {
 
 public:
-	/* Constructor */
-	LBCalculatorLAPOR(ExecutionGraph &g) : g(g) {}
+	/* Default constructor */
+	LBCalculatorLAPOR(GraphManager &m, GlobalCalcMatrix &hb,
+			  GlobalCalcMatrix &lb, PerLocCalcMatrix &co)
+		: Calculator(m), hbRelation(hb), lbRelation(lb), coRelation(co) {}
+
+	/* Adds a lock to the maintained list */
+	void addLockToList(const Event lock);
 
 	/* Returns the first memory access event in the critical section
 	 * that "lock" opens */
@@ -58,34 +50,41 @@ public:
 	/* Returns a linear extension of LB */
 	std::vector<Event> getLbOrdering() const;
 
-	/* Returns whether the associated graph is LB-consistent */
-	bool isLbConsistent();
-
-	void addLockToList(const Event lock);
-	void removeLocksAfter(const VectorClock &preds);
-
 	/* TODO: Add comments for relations and move to protected */
-	void calcHbRelation();
-	Matrix2D<Event> calcWbRelation(const llvm::GenericValue *addr);
 	void calcLbFromLoad(const ReadLabel *rLab, const LockLabelLAPOR *lLab);
 	void calcLbFromStore(const WriteLabel *wLab, const LockLabelLAPOR *lLab);
 	void calcLbRelation();
 	bool addLbConstraints();
 	bool calcLbFixpoint();
 
+	/* Overrided Calculator methods */
+
+	/* Initialize necessary matrices */
+	void initCalc() override;
+
+	/* Performs a step of the LB calculation */
+	Calculator::CalculationResult doCalc() override;
+
+	/* The calculator is informed about the removal of some events */
+	void removeAfter(const VectorClock &preds) override;
+
+	/* The calculator is informed about the restoration of some events */
+	void restorePrefix(const ReadLabel *rLab,
+			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+			   const std::vector<std::pair<Event, Event> > &status) override;
+
 protected:
 	std::vector<Event> collectEvents() const;
 	std::vector<Event> collectLocks() const;
 
 private:
-	/* The execution graph to the lifetime of which the calculator is bound */
-	ExecutionGraph &g;
-
-	/* A list of all locks currently present in g */
+	/* A list of all locks currently present in the graph */
 	std::vector<Event> locks;
 
-	/* The necessary relations stored by the LB calculator */
-	Relations relations;
+	/* Relation matrices participating in LB */
+	GlobalCalcMatrix &hbRelation;
+	GlobalCalcMatrix &lbRelation;
+	PerLocCalcMatrix &coRelation;
 };
 
 #endif /* __LB_CALCULATOR_LAPOR_HPP__ */

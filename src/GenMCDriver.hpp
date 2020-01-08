@@ -24,9 +24,10 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
-#include "ExecutionGraph.hpp"
+#include "GraphManager.hpp"
 #include "Interpreter.h"
 #include "Library.hpp"
+#include "RelationsManager.hpp"
 #include <llvm/IR/Module.h>
 
 #include <ctime>
@@ -221,8 +222,11 @@ protected:
 	llvm::Interpreter *getEE() const { return EE; }
 
 	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return *execGraph; };
-	ExecutionGraph &getGraph() const { return *execGraph; };
+	GraphManager &getGraphManager() { return *execGraph; };
+	GraphManager &getGraphManager() const { return *execGraph; };
+
+	ExecutionGraph &getGraph() { return execGraph->getGraph(); };
+	ExecutionGraph &getGraph() const { return execGraph->getGraph(); };
 
 	/* Given a write event from the graph, returns the value it writes */
 	llvm::GenericValue getWriteValue(Event w,
@@ -293,6 +297,9 @@ private:
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
 
+	/* Returns true if the current graph is consistent */
+	bool isConsistent(bool checkFull = false);
+
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
@@ -324,6 +331,9 @@ private:
 					       const llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
+
+	/* Removes rfs from "rfs" until a consistent option for rLab is found */
+	void ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
 
 	std::vector<Event>
 	getLibConsRfsInView(const Library &lib, Event read,
@@ -488,6 +498,13 @@ private:
 	/* Should return true if the current graph is consistent */
 	virtual bool isExecutionValid() = 0;
 
+	/* Returns true if consistency can be trivially determined (fastpath) */
+	virtual bool isTriviallyConsistent() const = 0;
+
+	/* Performs the necessary initializations for the
+	 * consistency calculation */
+	virtual void initConsCalculation() = 0;
+
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
@@ -510,8 +527,8 @@ private:
 	/* The interpreter used by the driver */
 	llvm::Interpreter *EE;
 
-	/* The execution graph */
-	std::unique_ptr<ExecutionGraph> execGraph;
+	/* The graph managing object */
+	std::unique_ptr<GraphManager> execGraph;
 
 	/* The worklist for backtracking. map[stamp->stack item list] */
 	std::map<unsigned int, std::vector<StackItem> > workqueue;

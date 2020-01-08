@@ -22,6 +22,7 @@
 #define __WB_COHERENCE_CALCULATOR_HPP__
 
 #include "CoherenceCalculator.hpp"
+#include "GraphManager.hpp"
 #include <unordered_map>
 
 /*******************************************************************************
@@ -38,8 +39,10 @@ class WBCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	WBCoherenceCalculator(ExecutionGraph &g, bool ooo)
-		: CoherenceCalculator(CC_WritesBefore, g, ooo) {}
+	WBCoherenceCalculator(GraphManager &m, PerLocCalcMatrix &co,
+			      GlobalCalcMatrix &hb, bool ooo)
+		: CoherenceCalculator(CC_WritesBefore, m, co, ooo),
+		  hbRelation(hb) {}
 
 	/* Track coherence at location addr */
 	void
@@ -78,12 +81,6 @@ public:
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const override;
 
-	/* Restores a previously saved coherence status */
-	void
-	restoreCoherenceStatus(std::vector<std::pair<Event, Event> > &status) override;
-
-	void removeStoresAfter(VectorClock &preds) override;
-
 	/* Calculates WB */
 	Matrix2D<Event> calcWb(const llvm::GenericValue *addr) const;
 
@@ -91,11 +88,26 @@ public:
 	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr,
 					 const VectorClock &v) const;
 
+	void initCalc() override;
+
+	Calculator::CalculationResult doCalc() override;
+
+	/* Restores a previously saved coherence status */
+	void
+	restorePrefix(const ReadLabel *rLab,
+		      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+		      const std::vector<std::pair<Event, Event> > &status) override;
+
+	/* Will remove stores not in preds */
+	void removeAfter(const VectorClock &preds) override;
+
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_WritesBefore;
 	}
 
 private:
+	bool isWriteRfBefore(Event a, Event b) const;
+
 	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb) const;
 
 	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
@@ -115,7 +127,7 @@ private:
 
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
 
-
+	GlobalCalcMatrix &hbRelation;
 
 	typedef std::unordered_map<const llvm::GenericValue *,
 				   std::vector<Event> > StoresList;

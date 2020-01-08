@@ -419,7 +419,7 @@ Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
 	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = g.getStoresToLoc(rLab->getAddr());
+	const auto &stores = getGraphManager().getStoresToLoc(rLab->getAddr());
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -474,12 +474,12 @@ Event RC11Driver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 
 std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
+	return getGraphManager().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
 std::vector<Event> RC11Driver::getRevisitLoads(const WriteLabel *sLab)
 {
-	return getGraph().getCoherentRevisits(sLab);
+	return getGraphManager().getCoherentRevisits(sLab);
 }
 
 void RC11Driver::changeRf(Event read, Event store)
@@ -528,7 +528,20 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
+bool RC11Driver::isTriviallyConsistent() const
+{
+	if (getConf()->LAPOR)
+		return false;
+	return true;
+}
+
+void RC11Driver::initConsCalculation()
+{
+	return;
+}
+
 bool RC11Driver::isExecutionValid()
 {
-	return getGraph().isPscAcyclic(CheckPSCType::full);
+	BUG();
+	// return getGraph().isPscAcyclic(CheckPSCType::full);
 }

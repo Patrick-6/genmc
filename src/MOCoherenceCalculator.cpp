@@ -93,7 +93,7 @@ std::pair<int, int>
 MOCoherenceCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
 					   Event store, bool isRMW)
 {
-	const auto &g = getGraph();
+	const auto &g = getGraphManager().getGraph();
 
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
@@ -145,7 +145,7 @@ int MOCoherenceCalculator::splitLocMOBefore(const llvm::GenericValue *addr,
 					    Event e)
 
 {
-	const auto &g = getGraph();
+	const auto &g = getGraphManager().getGraph();
 	auto &locMO = getStoresToLoc(addr);
 	auto &before = g.getHbBefore(e.prev());
 
@@ -160,7 +160,7 @@ int MOCoherenceCalculator::splitLocMOBefore(const llvm::GenericValue *addr,
 int MOCoherenceCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr,
 					     const Event read)
 {
-	const auto &g = getGraph();
+	const auto &g = getGraphManager().getGraph();
 	auto &locMO = getStoresToLoc(addr);
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
@@ -183,7 +183,7 @@ int MOCoherenceCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr,
 int MOCoherenceCalculator::splitLocMOAfter(const llvm::GenericValue *addr,
 					   const Event e)
 {
-	const auto &g = getGraph();
+	const auto &g = getGraphManager().getGraph();
 	auto &locMO = getStoresToLoc(addr);
 
 	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
@@ -197,7 +197,7 @@ std::vector<Event>
 MOCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 					 Event read)
 {
-	auto &g = getGraph();
+	auto &g = getGraphManager().getGraph();
 	auto &locMO = getStoresToLoc(addr);
 	std::vector<Event> stores;
 
@@ -235,7 +235,7 @@ MOCoherenceCalculator::getMOOptRfAfter(const WriteLabel *sLab)
 	 * not to invalidate the iterator
 	 */
 	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getGraph().getEventLabel(*it);
+		const EventLabel *lab = getGraphManager().getGraph().getEventLabel(*it);
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 			for (auto &l : wLab->getReadersList())
 				rfs.push_back(l);
@@ -253,7 +253,7 @@ MOCoherenceCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 
 	/* First, we add the rfs of all the mo-before events */
 	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getGraph().getEventLabel(*it);
+		const EventLabel *lab = getGraphManager().getGraph().getEventLabel(*it);
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 			for (auto &l : wLab->getReadersList())
 				rfs.push_back(l);
@@ -262,7 +262,7 @@ MOCoherenceCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
 
 	/* Then, we add the reader list for the initializer */
-	auto initRfs = getGraph().getInitRfsAtLoc(sLab->getAddr());
+	auto initRfs = getGraphManager().getGraph().getInitRfsAtLoc(sLab->getAddr());
 	std::move(initRfs.begin(), initRfs.end(), std::back_inserter(ls));
 
 	return ls;
@@ -271,7 +271,7 @@ MOCoherenceCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 std::vector<Event>
 MOCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
 {
-	const auto &g = getGraph();
+	const auto &g = getGraphManager().getGraph();
 	auto ls = g.getRevisitable(sLab);
 	auto &locMO = getStoresToLoc(sLab->getAddr());
 
@@ -321,7 +321,7 @@ std::vector<std::pair<Event, Event> >
 MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
 					   const ReadLabel *rLab) const
 {
-	auto before = getGraph().getPredsView(rLab->getPos());
+	auto before = getGraphManager().getGraph().getPredsView(rLab->getPos());
 	std::vector<std::pair<Event, Event> > pairs;
 
 	for (const auto &lab : labs) {
@@ -360,16 +360,44 @@ MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 	return pairs;
 }
 
-void MOCoherenceCalculator::restoreCoherenceStatus(std::vector<std::pair<Event, Event> >
-						   &moPlacings)
+void MOCoherenceCalculator::initCalc()
 {
-	const auto &g = getGraph();
+	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
+		coRelation[locIt->first] = Matrix2D<Event>(getStoresToLoc(locIt->first));
+		if (locIt->second.empty())
+			continue;
+		for (auto sIt = locIt->second.begin(); sIt != locIt->second.end() - 1; sIt++) {
+			for (auto sIt2 = sIt + 1; sIt2 != locIt->second.end(); sIt2++)
+				coRelation[locIt->first](*sIt, *sIt2) = true;
+		}
+	}
+	return;
+}
+
+Calculator::CalculationResult MOCoherenceCalculator::doCalc()
+{
+	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
+		if (!coRelation[locIt->first].isIrreflexive())
+			return Calculator::CalculationResult(false, false);
+	}
+	return Calculator::CalculationResult(false, true);
+}
+
+void MOCoherenceCalculator::restorePrefix(const ReadLabel *rLab,
+					  const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+					  const std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	const auto &g = getGraphManager().getGraph();
 
 	auto insertedMO = 0u;
 	while (insertedMO < moPlacings.size()) {
 		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
-			/* it->fist is a WriteLabel by construction */
-			auto *lab = static_cast<const WriteLabel *>(g.getEventLabel(it->first));
+			/* it->first is a WriteLabel by construction */
+			auto labIt = std::find_if(storePrefix.begin(), storePrefix.end(),
+						  [&](const std::unique_ptr<EventLabel> &lab)
+						  { return lab->getPos() == it->first; });
+			BUG_ON(labIt == storePrefix.end());
+			auto *lab = static_cast<const WriteLabel *>(labIt->get());
 			if (locContains(lab->getAddr(), it->second) &&
 			    !locContains(lab->getAddr(), it->first)) {
 				int offset = getStoreOffset(lab->getAddr(), it->second);
@@ -380,7 +408,7 @@ void MOCoherenceCalculator::restoreCoherenceStatus(std::vector<std::pair<Event, 
 	}
 }
 
-void MOCoherenceCalculator::removeStoresAfter(VectorClock &preds)
+void MOCoherenceCalculator::removeAfter(const VectorClock &preds)
 {
 	for (auto it = mo_.begin(); it != mo_.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),

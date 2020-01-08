@@ -33,9 +33,6 @@
 
 #include <memory>
 
-class CoherenceCalculator;
-class LBCalculatorLAPOR;
-
 /*******************************************************************************
  **                           ExecutionGraph Class
  ******************************************************************************/
@@ -60,6 +57,7 @@ public:
 protected:
 	/* Constructor should only be called from the builder */
 	friend class GraphBuilder;
+	friend class GraphManager;
 	ExecutionGraph();
 
 public:
@@ -78,17 +76,6 @@ public:
 	reverse_iterator rend()   { return events.rend(); };
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend()   const { return events.rend(); };
-
-
-	/* Modification order methods */
-	void trackCoherenceAtLoc(const llvm::GenericValue *addr);
-	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr) const;
-	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr);
-	std::vector<Event> getCoherentStores(const llvm::GenericValue *addr,
-					     Event pos);
-	std::pair<int, int> getCoherentPlacings(const llvm::GenericValue *addr,
-						Event pos, bool isRMW);
-	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);
 
 
 	/* Thread-related methods */
@@ -110,15 +97,6 @@ public:
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp();
-
-	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-					     Event rf);
-	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-					       unsigned int offsetMO);
-	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-					       Event pred);
-	const LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
-	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 
 	/* Event getter methods */
@@ -182,11 +160,6 @@ public:
 	/* Similar to getPendingRMWs() but for libraries (w/ functional RF) */
 	Event getPendingLibRead(const LibReadLabel *lab) const;
 
-	/* Returns a list of stores that access location loc, not part chain,
-	 * that are hb-after some store in chain */
-	std::vector<Event> getStoresHbAfterStores(const llvm::GenericValue *loc,
-						  const std::vector<Event> &chain) const;
-
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const WriteLabel *wLab) const;
 
@@ -241,17 +214,6 @@ public:
 	 * will be the same as the current one */
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
-
-
-	/* Consistency checks */
-
-	/* Checks whether the provided condition "cond" holds for PSC.
-	 * The calculation type (e.g., weak, full, etc) is determined by "t" */
-	template <typename F>
-	bool checkPscCondition(CheckPSCType t, F cond) const;
-
-	/* Returns true if PSC is acyclic */
-	bool isPscAcyclic(CheckPSCType t) const;
 
 
 	/* Library consistency checks */
@@ -340,12 +302,11 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
-	/* Returns a reference to the graph's coherence calculator */
-	CoherenceCalculator *getCoherenceCalculator() { return cohTracker.get(); };
-	const CoherenceCalculator *getCoherenceCalculator() const { return cohTracker.get(); };
-
-	LBCalculatorLAPOR *getLbCalculatorLAPOR() { return lbTracker.get(); };
-	const LBCalculatorLAPOR *getLbCalculatorLAPOR() const { return lbTracker.get(); };
+	/* Event addition methods should be called from the managing objects,
+	 * so that the relation managing objects are also informed */
+	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+					     Event rf);
+	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
@@ -436,33 +397,11 @@ protected:
 	calculateAllRelations(const Library &lib, std::vector<Event> &es);
 
 private:
-
-	/* Sets the coherence calculator to the specified one */
-	void setCoherenceCalculator(std::unique_ptr<CoherenceCalculator> cc) {
-		cohTracker = std::move(cc);
-	};
-
-	/* Sets the LB calculator appropriately --under LAPOR only-- */
-	void setLbCalculatorLAPOR(std::unique_ptr<LBCalculatorLAPOR> lc) {
-		lbTracker = std::move(lc);
-	};
-
-	bool isLAPORenabled() const { return lbTracker != nullptr; }
-
 	/* A collection of threads and the events for each threads */
 	Graph events;
-
-	/* A coherence calculator for the graph */
-	std::unique_ptr<CoherenceCalculator> cohTracker = nullptr;
-
-	/* A calculator for LB --under LAPOR only-- */
-	std::unique_ptr<LBCalculatorLAPOR> lbTracker = nullptr;
 
 	/* The next available timestamp */
 	unsigned int timestamp;
 };
-
-#include "CoherenceCalculator.hpp"
-#include "LBCalculatorLAPOR.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

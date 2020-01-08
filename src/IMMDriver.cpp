@@ -505,6 +505,18 @@ IMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
+	    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
+		--rel.index;
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
+
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
@@ -517,12 +529,12 @@ Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 
 std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
+	return getGraphManager().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
 std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	return getGraph().getCoherentRevisits(sLab);
+	return getGraphManager().getCoherentRevisits(sLab);
 }
 
 void IMMDriver::changeRf(Event read, Event store)
@@ -595,11 +607,26 @@ Matrix2D<Event> IMMDriver::getARMatrix()
 	return ar;
 }
 
+bool IMMDriver::isTriviallyConsistent() const
+{
+	if (getConf()->LAPOR)
+		return false;
+	return true;
+}
+
+void IMMDriver::initConsCalculation()
+{
+	return;
+}
+
 bool IMMDriver::isExecutionValid()
 {
 	const auto &g = getGraph();
 	Matrix2D<Event> ar = getARMatrix();
-	auto scs = g.getSCs();
+
+	BUG();
+	auto scs = std::make_pair(std::vector<Event>(), std::vector<Event>()); // g.getSCs();
+
 	auto &fcs = scs.second;
 
 	std::function<bool(const Matrix2D<Event>&)> check =
@@ -616,5 +643,6 @@ bool IMMDriver::isExecutionValid()
 		return basicAr.isIrreflexive();
 	};
 
-	return g.checkPscCondition(CheckPSCType::full, check);
+	BUG();
+	// return g.checkPscCondition(CheckPSCType::full, check);
 }
