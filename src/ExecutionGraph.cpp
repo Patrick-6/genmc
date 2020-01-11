@@ -824,6 +824,23 @@ bool ExecutionGraph::isRMWLoad(Event e) const
 	return isRMWLoad(getEventLabel(e));
 }
 
+std::pair<std::vector<Event>, std::vector<Event> >
+ExecutionGraph::getSCs() const
+{
+	std::vector<Event> scs, fcs;
+
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			const EventLabel *lab = getEventLabel(Event(i, j));
+			if (lab->isSC() && !isRMWLoad(lab))
+				scs.push_back(lab->getPos());
+			if (lab->isSC() && llvm::isa<FenceLabel>(lab))
+				fcs.push_back(lab->getPos());
+		}
+	}
+	return std::make_pair(scs,fcs);
+}
+
 
 /************************************************************
  ** Library consistency checking methods

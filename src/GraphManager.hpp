@@ -27,6 +27,7 @@
 
 class CoherenceCalculator;
 class LBCalculatorLAPOR;
+class PSCCalculator;
 
 /*******************************************************************************
  **                           GraphManager Class
@@ -134,5 +135,6 @@ private:
 
 #include "CoherenceCalculator.hpp"
 #include "LBCalculatorLAPOR.hpp"
+#include "PSCCalculator.hpp"
 
 #endif /* __GRAPH_MANAGER_HPP__ */

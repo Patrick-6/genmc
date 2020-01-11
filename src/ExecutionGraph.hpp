@@ -149,9 +149,6 @@ public:
 	/* Returns pair with all SC accesses and all SC fences */
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
 
-	/* Returns a list with all accesses that are accessed at least twice */
-	std::vector<const llvm::GenericValue *> getDoubleLocs() const;
-
 	/* Given an write label sLab that is part of an RMW, return all
 	 * other RMWs that read from the same write. Of course, there must
 	 * be _at most_ one other RMW reading from the same write (see [Rex] set) */
@@ -193,6 +190,10 @@ public:
 
 
 	/* Boolean helper functions */
+
+	/* Return true if its argument is the load part of a successful RMW */
+	bool isRMWLoad(const Event e) const;
+	bool isRMWLoad(const EventLabel *lab) const;
 
 	/* Returns true if e is hb-before w, or any of the reads that read from w */
 	bool isHbOptRfBefore(const Event e, const Event write) const;
@@ -319,63 +320,6 @@ protected:
 	void calcPorfAfter(const Event e, View &a);
 	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a) const;
 	void calcRelRfPoBefore(const Event last, View &v) const;
-	std::vector<Event> calcSCFencesSuccs(const std::vector<Event> &fcs,
-					     const Event e) const;
-	std::vector<Event> calcSCFencesPreds(const std::vector<Event> &fcs,
-					     const Event e) const;
-	std::vector<Event> calcSCSuccs(const std::vector<Event> &fcs,
-				       const Event e) const;
-	std::vector<Event> calcSCPreds(const std::vector<Event> &fcs,
-				       const Event e) const;
-	std::vector<Event> calcRfSCSuccs(const std::vector<Event> &fcs,
-					 const Event e) const;
-	std::vector<Event> calcRfSCFencesSuccs(const std::vector<Event> &fcs,
-					       const Event e) const;
-	bool isRMWLoad(const Event e) const;
-	bool isRMWLoad(const EventLabel *lab) const;
-
-	void spawnAllChildren(int thread);
-
-	void addRbEdges(const std::vector<Event> &fcs,
-			const std::vector<Event> &moAfter,
-			const std::vector<Event> &moRfAfter,
-			Matrix2D<Event> &matrix, const Event &e) const;
-	void addMoRfEdges(const std::vector<Event> &fcs,
-			  const std::vector<Event> &moAfter,
-			  const std::vector<Event> &moRfAfter,
-			  Matrix2D<Event> &matrix, const Event &e) const;
-	void addSCEcos(const std::vector<Event> &fcs,
-		       const std::vector<Event> &mo,
-		       Matrix2D<Event> &matrix) const;
-	void addSCEcos(const std::vector<Event> &fcs,
-		       Matrix2D<Event> &wbMatrix,
-		       Matrix2D<Event> &pscMatrix) const;
-
-	template <typename F>
-	bool addSCEcosMO(const std::vector<Event> &fcs,
-			 const std::vector<const llvm::GenericValue *> &scLocs,
-			 Matrix2D<Event> &psc, F cond) const;
-	template <typename F>
-	bool addSCEcosWBWeak(const std::vector<Event> &fcs,
-			     const std::vector<const llvm::GenericValue *> &scLocs,
-			     Matrix2D<Event> &psc, F cond) const;
-	template <typename F>
-	bool addSCEcosWB(const std::vector<Event> &fcs,
-			 const std::vector<const llvm::GenericValue *> &scLocs,
-			 Matrix2D<Event> &matrix, F cond) const;
-	template <typename F>
-	bool addSCEcosWBFull(const std::vector<Event> &fcs,
-			     const std::vector<const llvm::GenericValue *> &scLocs,
-			     Matrix2D<Event> &matrix, F cond) const;
-
-	void addInitEdges(const std::vector<Event> &fcs,
-			  Matrix2D<Event> &matrix) const;
-	void addSbHbEdges(Matrix2D<Event> &matrix) const;
-	template <typename F>
-	bool addEcoEdgesAndCheckCond(CheckPSCType t,
-				     const std::vector<Event> &fcs,
-				     Matrix2D<Event> &psc, F cond) const;
-
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
 	void getRfEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,

@@ -19,31 +19,17 @@
  */
 
 #include "PSCCalculator.hpp"
-
-std::pair<std::vector<Event>, std::vector<Event> >
-PSCCalculator::getSCs() const
-{
-	std::vector<Event> scs, fcs;
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->isSC() && !isRMWLoad(lab))
-				scs.push_back(lab->getPos());
-			if (lab->isSC() && llvm::isa<FenceLabel>(lab))
-				fcs.push_back(lab->getPos());
-		}
-	}
-	return std::make_pair(scs,fcs);
-}
+#include "MOCoherenceCalculator.hpp"
+#include "WBCoherenceCalculator.hpp"
 
 std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
 {
+	auto &g = getGraphManager().getGraph();
 	std::vector<const llvm::GenericValue *> singles, doubles;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1u; j < getThreadSize(i); j++) { /* Do not consider thread inits */
-			const EventLabel *lab = getEventLabel(Event(i, j));
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 1u; j < g.getThreadSize(i); j++) { /* Do not consider thread inits */
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (!llvm::isa<MemAccessLabel>(lab))
 				continue;
 
@@ -69,12 +55,13 @@ std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
 std::vector<Event> PSCCalculator::calcSCFencesSuccs(const std::vector<Event> &fcs,
 						     const Event e) const
 {
+	auto &g = getGraphManager().getGraph();
 	std::vector<Event> succs;
 
-	if (isRMWLoad(e))
+	if (g.isRMWLoad(e))
 		return succs;
 	for (auto &f : fcs) {
-		if (getHbBefore(f).contains(e))
+		if (hbRelation(e, f))
 			succs.push_back(f);
 	}
 	return succs;
@@ -83,13 +70,13 @@ std::vector<Event> PSCCalculator::calcSCFencesSuccs(const std::vector<Event> &fc
 std::vector<Event> PSCCalculator::calcSCFencesPreds(const std::vector<Event> &fcs,
 						     const Event e) const
 {
+	auto &g = getGraphManager().getGraph();
 	std::vector<Event> preds;
-	auto &before = getHbBefore(e);
 
-	if (isRMWLoad(e))
+	if (g.isRMWLoad(e))
 		return preds;
 	for (auto &f : fcs) {
-		if (before.contains(f))
+		if (hbRelation(f, e))
 			preds.push_back(f);
 	}
 	return preds;
@@ -98,9 +85,10 @@ std::vector<Event> PSCCalculator::calcSCFencesPreds(const std::vector<Event> &fc
 std::vector<Event> PSCCalculator::calcSCSuccs(const std::vector<Event> &fcs,
 					       const Event e) const
 {
-	const EventLabel *lab = getEventLabel(e);
+	auto &g = getGraphManager().getGraph();
+	const EventLabel *lab = g.getEventLabel(e);
 
-	if (isRMWLoad(lab))
+	if (g.isRMWLoad(lab))
 		return {};
 	if (lab->isSC())
 		return {e};
@@ -111,9 +99,10 @@ std::vector<Event> PSCCalculator::calcSCSuccs(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcSCPreds(const std::vector<Event> &fcs,
 					       const Event e) const
 {
-	const EventLabel *lab = getEventLabel(e);
+	auto &g = getGraphManager().getGraph();
+	const EventLabel *lab = g.getEventLabel(e);
 
-	if (isRMWLoad(lab))
+	if (g.isRMWLoad(lab))
 		return {};
 	if (lab->isSC())
 		return {e};
@@ -124,7 +113,8 @@ std::vector<Event> PSCCalculator::calcSCPreds(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcRfSCSuccs(const std::vector<Event> &fcs,
 						 const Event ev) const
 {
-	const EventLabel *lab = getEventLabel(ev);
+	auto &g = getGraphManager().getGraph();
+	const EventLabel *lab = g.getEventLabel(ev);
 	std::vector<Event> rfs;
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
@@ -139,7 +129,8 @@ std::vector<Event> PSCCalculator::calcRfSCSuccs(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcRfSCFencesSuccs(const std::vector<Event> &fcs,
 						       const Event ev) const
 {
-	const EventLabel *lab = getEventLabel(ev);
+	auto &g = getGraphManager().getGraph();
+	const EventLabel *lab = g.getEventLabel(ev);
 	std::vector<Event> fenceRfs;
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
@@ -157,7 +148,8 @@ void PSCCalculator::addRbEdges(const std::vector<Event> &fcs,
 				Matrix2D<Event> &matrix,
 				const Event &ev) const
 {
-	const EventLabel *lab = getEventLabel(ev);
+	auto &g = getGraphManager().getGraph();
+	const EventLabel *lab = g.getEventLabel(ev);
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *wLab = static_cast<const WriteLabel *>(lab);
@@ -177,6 +169,7 @@ void PSCCalculator::addMoRfEdges(const std::vector<Event> &fcs,
 				  Matrix2D<Event> &matrix,
 				  const Event &ev) const
 {
+	auto &g = getGraphManager().getGraph();
 	auto preds = calcSCPreds(fcs, ev);
 	auto fencePreds = calcSCFencesPreds(fcs, ev);
 	auto rfs = calcRfSCSuccs(fcs, ev);
@@ -261,13 +254,14 @@ void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
  */
 void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 {
+	auto &g = getGraphManager().getGraph();
 	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
 		for (auto j = 0u; j < scs.size(); j++) {
 			if (i == j)
 				continue;
-			const EventLabel *eiLab = getEventLabel(scs[i]);
-			const EventLabel *ejLab = getEventLabel(scs[j]);
+			const EventLabel *eiLab = g.getEventLabel(scs[i]);
+			const EventLabel *ejLab = g.getEventLabel(scs[j]);
 
 			/* PSC_base/PSC_fence: Adds sb-edges*/
 			if (eiLab->getThread() == ejLab->getThread()) {
@@ -280,13 +274,13 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 			 * We do need to consider the [Fsc];hb? cases, since these
 			 * will be covered by addSCEcos(). (More speficically, from
 			 * the rf/hb_loc case in addMoRfEdges().)  */
-			const EventLabel *ejPrevLab = getPreviousNonEmptyLabel(ejLab);
+			const EventLabel *ejPrevLab = g.getPreviousNonEmptyLabel(ejLab);
 			if (!llvm::isa<MemAccessLabel>(ejPrevLab) ||
 			    !llvm::isa<MemAccessLabel>(ejLab) ||
 			    !llvm::isa<MemAccessLabel>(eiLab))
 				continue;
 
-			if (eiLab->getPos() == getLastThreadEvent(eiLab->getThread()))
+			if (eiLab->getPos() == g.getLastThreadEvent(eiLab->getThread()))
 				continue;
 
 			auto *ejPrevMLab = static_cast<const MemAccessLabel *>(ejPrevLab);
@@ -295,7 +289,7 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 
 			if (ejPrevMLab->getAddr() != ejMLab->getAddr()) {
 				Event next = eiMLab->getPos().next();
-				const EventLabel *eiNextLab = getEventLabel(next);
+				const EventLabel *eiNextLab = g.getEventLabel(next);
 				if (auto *eiNextMLab =
 				    llvm::dyn_cast<MemAccessLabel>(eiNextLab)) {
 					if (eiMLab->getAddr() != eiNextMLab->getAddr() &&
@@ -311,11 +305,13 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 				  Matrix2D<Event> &matrix) const
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
+	auto &gm = getGraphManager();
+	auto &g = gm.getGraph();
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 0u; j < g.getThreadSize(i); j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			/* Consider only reads that read from the initializer write */
-			if (!llvm::isa<ReadLabel>(lab) || isRMWLoad(lab))
+			if (!llvm::isa<ReadLabel>(lab) || g.isRMWLoad(lab))
 				continue;
 			auto *rLab = static_cast<const ReadLabel *>(lab);
 			if (!rLab->getRf().isInitializer())
@@ -323,10 +319,10 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 
 			auto preds = calcSCPreds(fcs, rLab->getPos());
 			auto fencePreds = calcSCFencesPreds(fcs, rLab->getPos());
-			for (auto &w : getStoresToLoc(rLab->getAddr())) {
+			for (auto &w : gm.getStoresToLoc(rLab->getAddr())) {
 				/* Can be casted to WriteLabel by construction */
 				auto *wLab = static_cast<const WriteLabel *>(
-					getEventLabel(w));
+					g.getEventLabel(w));
 				auto wSuccs = calcSCSuccs(fcs, w);
 				matrix.addEdgesFromTo(preds, wSuccs); /* Adds rb-edges */
 				for (auto &r : wLab->getReadersList()) {
@@ -344,9 +340,10 @@ bool PSCCalculator::addSCEcosMO(const std::vector<Event> &fcs,
 				 const std::vector<const llvm::GenericValue *> &scLocs,
 				 Matrix2D<Event> &matrix, F cond) const
 {
-	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	auto &gm = getGraphManager();
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(gm.getCoherenceCalculator()));
 	for (auto loc : scLocs) {
-		auto &stores = getStoresToLoc(loc); /* Will already be ordered... */
+		auto &stores = gm.getStoresToLoc(loc); /* Will already be ordered... */
 		addSCEcos(fcs, stores, matrix);
 	}
 	matrix.transClosure();
@@ -358,7 +355,8 @@ bool PSCCalculator::addSCEcosWBWeak(const std::vector<Event> &fcs,
 				     const std::vector<const llvm::GenericValue *> &scLocs,
 				     Matrix2D<Event> &matrix, F cond) const
 {
-	const auto *cc = getCoherenceCalculator();
+	auto &gm = getGraphManager();
+	const auto *cc = gm.getCoherenceCalculator();
 
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
@@ -376,7 +374,8 @@ bool PSCCalculator::addSCEcosWB(const std::vector<Event> &fcs,
 				 const std::vector<const llvm::GenericValue *> &scLocs,
 				 Matrix2D<Event> &matrix, F cond) const
 {
-	const auto *cc = getCoherenceCalculator();
+	auto &gm = getGraphManager();
+	const auto *cc = gm.getCoherenceCalculator();
 
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
@@ -393,7 +392,8 @@ bool PSCCalculator::addSCEcosWBFull(const std::vector<Event> &fcs,
 				     const std::vector<const llvm::GenericValue *> &scLocs,
 				     Matrix2D<Event> &matrix, F cond) const
 {
-	const auto *cc = getCoherenceCalculator();
+	auto &gm = getGraphManager();
+	const auto *cc = gm.getCoherenceCalculator();
 
 	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
 	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
@@ -441,7 +441,8 @@ bool PSCCalculator::addEcoEdgesAndCheckCond(CheckPSCType t,
 					     const std::vector<Event> &fcs,
 					     Matrix2D<Event> &matrix, F cond) const
 {
-	const auto *cohTracker = getCoherenceCalculator();
+	auto &gm = getGraphManager();
+	const auto *cohTracker = gm.getCoherenceCalculator();
 
 	std::vector<const llvm::GenericValue *> scLocs = getDoubleLocs();
 	if (auto *moTracker = llvm::dyn_cast<MOCoherenceCalculator>(cohTracker)) {
@@ -481,8 +482,10 @@ bool PSCCalculator::addEcoEdgesAndCheckCond(CheckPSCType t,
 template <typename F>
 bool PSCCalculator::checkPscCondition(CheckPSCType t, F cond) const
 {
+	auto &g = getGraphManager().getGraph();
+
 	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getSCs();
+	auto accesses = g.getSCs();
 	auto &scs = accesses.first;
 	auto &fcs = accesses.second;
 
