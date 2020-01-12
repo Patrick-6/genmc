@@ -19,6 +19,20 @@
  */
 
 #include "RC11Driver.hpp"
+#include "PSCCalculator.hpp"
+
+RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
+		       std::vector<Library> &granted, std::vector<Library> &toVerify,
+		       clock_t start)
+	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
+{
+	auto &gm = getGraphManager();
+
+	/* RC11 requires the calculation of PSC */
+	gm.addCalculator(llvm::make_unique<PSCCalculator>(gm, gm.hb, gm.psc, gm.co),
+			 GraphManager::RelationId::other, false);
+	return;
+}
 
 /* Calculates a minimal hb vector clock based on po for a given label */
 View RC11Driver::calcBasicHbView(Event e) const

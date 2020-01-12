@@ -73,9 +73,9 @@ public:
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
-protected:
-	std::vector<Event> collectEvents() const;
-	std::vector<Event> collectLocks() const;
+// protected:
+// 	std::vector<Event> collectEvents() const;
+// 	std::vector<Event> collectLocks() const;
 
 private:
 	/* A list of all locks currently present in the graph */

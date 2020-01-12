@@ -254,7 +254,7 @@ void GenMCDriver::handleFinishedExecution()
 
 	const auto &g = getGraph();
 	if (userConf->checkPscAcyclicity != CheckPSCType::nocheck &&
-	    isConsistent(true))
+	    !isConsistent(true))
 	    // !g.isPscAcyclic(userConf->checkPscAcyclicity))
 		return;
 	if (userConf->printExecGraphs)
@@ -641,18 +641,18 @@ void GenMCDriver::checkAccessValidity()
 bool GenMCDriver::isConsistent(bool checkFull /* = false */)
 {
 	/* Fastpath: No fixpoint is required */
-	if (isTriviallyConsistent())
+	if (!checkFull && isTriviallyConsistent())
 		return true;
 
 	/* The specific instance will populate the necessary entries
 	 * in the manager */
-	getGraphManager().doInits();
+	getGraphManager().doInits(checkFull);
 	initConsCalculation();
 
 	/* Fixpoint calculation */
 	Calculator::CalculationResult step;
 	do {
-		step = getGraphManager().doCalcs();
+		step = getGraphManager().doCalcs(checkFull);
 		if (!step.cons)
 			return false;
 	} while (step.changed);

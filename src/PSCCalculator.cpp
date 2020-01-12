@@ -335,6 +335,16 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 	return;
 }
 
+void PSCCalculator::addSCEcosNEW(const std::vector<Event> &fcs,
+				 const std::vector<const llvm::GenericValue *> &scLocs,
+				 Matrix2D<Event> &matrix) const
+{
+	for (auto loc : scLocs)
+		addSCEcos(fcs, coRelation[loc], matrix);
+	matrix.transClosure();
+	return;
+}
+
 template <typename F>
 bool PSCCalculator::addSCEcosMO(const std::vector<Event> &fcs,
 				 const std::vector<const llvm::GenericValue *> &scLocs,
@@ -521,4 +531,122 @@ bool __isPscAcyclic(const Matrix2D<Event> &psc)
 bool PSCCalculator::isPscAcyclic(CheckPSCType t) const
 {
 	return checkPscCondition(t, __isPscAcyclic);
+}
+
+void PSCCalculator::calcPscRelation()
+{
+	auto &g = getGraphManager().getGraph();
+
+	/* Collect all SC events (except for RMW loads) */
+	auto accesses = g.getSCs();
+	auto &scs = accesses.first;
+	auto &fcs = accesses.second;
+
+	/* If there are no SC events, it is a valid execution */
+	if (scs.empty())
+		return;
+
+	/* Add edges from the initializer write (special case) */
+	addInitEdges(fcs, pscRelation);
+	/* Add sb and sb_(<>loc);hb;sb_(<>loc) edges (+ Fsc;hb;Fsc) */
+	addSbHbEdges(pscRelation);
+
+	/*
+	 * Collect memory locations with more than one SC accesses
+	 * and add the rest of PSC_base and PSC_fence
+	 */
+	addSCEcosNEW(fcs, getDoubleLocs(), pscRelation);
+	return;
+}
+
+bool PSCCalculator::addPscConstraints()
+{
+	return false;
+	// auto &g = getGraphManager().getGraph();
+	// auto &scs = pscRelation.getElems();
+	// bool changed = false;
+
+	// for (auto &a : scs) {
+	// 	// if (!llvm::isa<WriteLabel>(g.getEventLabel(a)))
+	// 	// 	continue;
+	// 	if (!llvm::isa<MemAccessLabel>(g.getEventLabel(a)))
+	// 		continue;
+	// 	if (g.isRMWLoad(a))
+	// 		continue;
+
+	// 	auto *aLab = // static_cast<const WriteLabel *>(
+	// 		g.getEventLabel(a)// )
+	// 	;
+	// 	auto aIndex = pscRelation.getIndex(a);
+
+	// 	for (auto &b : scs) {
+	// 		// if (!llvm::isa<WriteLabel>(g.getEventLabel(b)))
+	// 		// 	continue;
+	// 		if (!llvm::isa<MemAccessLabel>(g.getEventLabel(b)))
+	// 			continue;
+	// 		if (g.isRMWLoad(b))
+	// 			continue;
+
+	// 		auto *bLab = // static_cast<const WriteLabel *>(
+	// 			g.getEventLabel(b)// )
+	// 		;
+	// 		// if (aLab->getAddr() != bLab->getAddr())
+	// 		// 	continue;
+	// 		if (!pscRelation(aIndex, b))
+	// 			continue;
+
+	// 		// if (!coRelation[aLab->getAddr()](a, b)) {
+	// 		if (!hbRelation(a, b)) {
+	// 			changed = true;
+	// 			// coRelation[aLab->getAddr()](a, b) = true;
+	// 			hbRelation(a, b) = true;
+	// 		}
+	// 	}
+	// }
+	// return changed;
+}
+
+void PSCCalculator::initCalc()
+{
+	/* Collect all SC events (except for RMW loads) */
+	auto accesses = getGraphManager().getGraph().getSCs();
+
+	pscRelation = Matrix2D<Event>(accesses.first);
+	return;
+}
+
+Calculator::CalculationResult PSCCalculator::doCalc()
+{
+
+	hbRelation.transClosure();
+	if (!hbRelation.isIrreflexive())
+		return Calculator::CalculationResult(false, false);
+	calcPscRelation();
+	if (!pscRelation.isIrreflexive())
+		return Calculator::CalculationResult(false, false);
+	bool changed = addPscConstraints();
+	std::for_each(coRelation.begin(), coRelation.end(),
+		      [](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
+		      { p.second.transClosure(); });
+
+	/* Check that co is acyclic */
+	if (std::any_of(coRelation.begin(), coRelation.end(),
+			[](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
+			{ return !p.second.isIrreflexive(); }))
+		return Calculator::CalculationResult(changed, false);
+	return Calculator::CalculationResult(changed, true);
+}
+
+void PSCCalculator::removeAfter(const VectorClock &preds)
+{
+	/* We do not track anything specific for PSC */
+	return;
+}
+
+void PSCCalculator::restorePrefix(const ReadLabel *rLab,
+				  const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+				  const std::vector<std::pair<Event, Event> > &status)
+{
+	/* We do not track anything specific for PSC */
+	return;
 }

@@ -49,6 +49,7 @@ public:
 	Calculator::PerLocCalcMatrix co;
 	Calculator::GlobalCalcMatrix hb;
 	Calculator::GlobalCalcMatrix lb;
+	Calculator::GlobalCalcMatrix psc;
 
 	/* Constructors */
 	GraphManager() = delete;
@@ -77,7 +78,7 @@ public:
 
 	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 
-	void doInits();
+	void doInits(bool fullCalc = false);
 
 	/* Performs a step of all the specified calculations. Takes as
 	 * a parameter whether a full calculation needs to be performed */

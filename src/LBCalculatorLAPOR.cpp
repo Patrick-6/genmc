@@ -20,17 +20,17 @@
 
 #include "LBCalculatorLAPOR.hpp"
 
-std::vector<Event> LBCalculatorLAPOR::collectEvents() const
-{
-	const auto &g = getGraphManager().getGraph();
-	return g.collectAllEvents([](const EventLabel *lab)
-				  { return llvm::isa<MemAccessLabel>(lab); });
-}
+// std::vector<Event> LBCalculatorLAPOR::collectEvents() const
+// {
+// 	const auto &g = getGraphManager().getGraph();
+// 	return g.collectAllEvents([](const EventLabel *lab)
+// 				  { return llvm::isa<MemAccessLabel>(lab); });
+// }
 
-std::vector<Event> LBCalculatorLAPOR::collectLocks() const
-{
-	return locks;
-}
+// std::vector<Event> LBCalculatorLAPOR::collectLocks() const
+// {
+// 	return locks;
+// }
 
 Event LBCalculatorLAPOR::getFirstMemAccessInCS(const Event lock) const
 {

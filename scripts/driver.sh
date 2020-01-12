@@ -109,11 +109,11 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in imm # rc11 imm
+for model in rc11 # rc11 imm
 do
     for coherence in wb mo
     do
-	for testdir in "${correctdir}/lapor" # "${correctdir}/litmus" "${correctdir}/synthetic" "${correctdir}/data-structures"
+	for testdir in "${correctdir}/litmus" # "${correctdir}/litmus" "${correctdir}/synthetic" "${correctdir}/data-structures"
 
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set

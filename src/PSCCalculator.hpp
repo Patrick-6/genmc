@@ -46,18 +46,18 @@ public:
 	/* Overrided Calculator methods */
 
 	/* Initialize necessary matrices */
-	void initCalc() override { BUG(); };
+	void initCalc() override;
 
 	/* Performs a step of the LB calculation */
-	Calculator::CalculationResult doCalc() override { BUG(); };
+	Calculator::CalculationResult doCalc() override;
 
 	/* The calculator is informed about the removal of some events */
-	void removeAfter(const VectorClock &preds) override { BUG(); };
+	void removeAfter(const VectorClock &preds) override;
 
 	/* The calculator is informed about the restoration of some events */
 	void restorePrefix(const ReadLabel *rLab,
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-			   const std::vector<std::pair<Event, Event> > &status) override { BUG(); };
+			   const std::vector<std::pair<Event, Event> > &status) override;
 
 private:
 	/* Returns a list with all accesses that are accessed at least twice */
@@ -91,6 +91,10 @@ private:
 		       Matrix2D<Event> &wbMatrix,
 		       Matrix2D<Event> &pscMatrix) const;
 
+	void addSCEcosNEW(const std::vector<Event> &fcs,
+			  const std::vector<const llvm::GenericValue *> &scLocs,
+			  Matrix2D<Event> &matrix) const;
+
 	template <typename F>
 	bool addSCEcosMO(const std::vector<Event> &fcs,
 			 const std::vector<const llvm::GenericValue *> &scLocs,
@@ -115,6 +119,9 @@ private:
 	bool addEcoEdgesAndCheckCond(CheckPSCType t,
 				     const std::vector<Event> &fcs,
 				     Matrix2D<Event> &psc, F cond) const;
+
+	bool addPscConstraints();
+	void calcPscRelation();
 
 	/* Relation matrices participating in PSC */
 	GlobalCalcMatrix &hbRelation;

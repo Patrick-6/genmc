@@ -74,19 +74,25 @@ const std::vector<const Calculator *> GraphManager::getPartialCalcs() const
 	return result;
 }
 
-void GraphManager::doInits()
+void GraphManager::doInits(bool full /* = false */)
 {
 	auto events = getGraph().collectAllEvents([&](const EventLabel *lab)
-						  { return llvm::isa<ReadLabel>(lab) ||
-						    llvm::isa<WriteLabel>(lab); });
+						  { return llvm::isa<MemAccessLabel>(lab) ||
+						    llvm::isa<FenceLabel>(lab); });
 
 	hb = Matrix2D<Event>(std::move(events));
 	getGraph().populateHbEntries(hb);
 	hb.transClosure();
 
 	auto &calcs = consistencyCalculators;
-	for (auto i = 0u; i < calcs.size(); i++)
+	auto &partial = partialConsCalculators;
+	for (auto i = 0u; i < calcs.size(); i++) {
+		if (!full && std::find(partial.begin(), partial.end(), i) == partial.end())
+			continue;
+
 		calcs[i]->initCalc();
+	}
+	return;
 }
 
 Calculator::CalculationResult GraphManager::doCalcs(bool full /* = false */)

@@ -38,11 +38,10 @@ protected:
 	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
 
 public:
-
+	/* Constructor */
 	RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		   std::vector<Library> &granted, std::vector<Library> &toVerify,
-		   clock_t start)
-		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
+		   clock_t start);
 
 	/* Creates a label for a plain read to be added to the graph */
 	std::unique_ptr<ReadLabel>
