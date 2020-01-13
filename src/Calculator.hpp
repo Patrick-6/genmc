@@ -58,9 +58,9 @@ public:
 	};
 
 	/* Represents the structure on which calculations take place */
-	using PerLocCalcMatrix = std::unordered_map<const llvm::GenericValue *,
-						    Matrix2D<Event> >;
 	using GlobalCalcMatrix = Matrix2D<Event>;
+	using PerLocCalcMatrix = std::unordered_map<const llvm::GenericValue *,
+						    GlobalCalcMatrix >;
 
 	/* Constructor */
 	Calculator(GraphManager &m) : manager(m) {}

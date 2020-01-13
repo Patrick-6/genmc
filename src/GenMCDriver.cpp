@@ -1151,7 +1151,7 @@ void GenMCDriver::visitError(std::string err, Event confEvent,
 	auto &thr = getEE()->getCurThr();
 
 	/* If the execution that led to the error is not consistent, block */
-	if (!isExecutionValid()) {
+	if (!isConsistent(true)) {
 		thr.block();
 		return;
 	}

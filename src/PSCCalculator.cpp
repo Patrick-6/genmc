@@ -559,9 +559,19 @@ void PSCCalculator::calcPscRelation()
 	return;
 }
 
-bool PSCCalculator::addPscConstraints()
+Calculator::CalculationResult PSCCalculator::addPscConstraints()
 {
-	return false;
+	Calculator::CalculationResult result;
+	if (auto *wbCoh = llvm::dyn_cast<WBCoherenceCalculator>(
+		    getGraphManager().getCoherenceCalculator())) {
+		for (auto &coLoc : coRelation)
+			result |= wbCoh->calcWbRelation(coLoc.first, coLoc.second,
+							pscRelation, [&](Event e)
+							{ return getGraphManager().getGraph()
+									.getEventLabel(e)->isSC() &&
+								 !getGraphManager().getGraph().isRMWLoad(e); });
+	}
+	return result;
 	// auto &g = getGraphManager().getGraph();
 	// auto &scs = pscRelation.getElems();
 	// bool changed = false;
@@ -624,17 +634,18 @@ Calculator::CalculationResult PSCCalculator::doCalc()
 	calcPscRelation();
 	if (!pscRelation.isIrreflexive())
 		return Calculator::CalculationResult(false, false);
-	bool changed = addPscConstraints();
-	std::for_each(coRelation.begin(), coRelation.end(),
-		      [](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
-		      { p.second.transClosure(); });
+	auto result = addPscConstraints();
+	if (!result.cons)
+		return Calculator::CalculationResult(result.changed, false);
+	for (auto &coLoc : coRelation)
+		coLoc.second.transClosure();
 
 	/* Check that co is acyclic */
 	if (std::any_of(coRelation.begin(), coRelation.end(),
 			[](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
 			{ return !p.second.isIrreflexive(); }))
-		return Calculator::CalculationResult(changed, false);
-	return Calculator::CalculationResult(changed, true);
+		return Calculator::CalculationResult(result.changed, false);
+	return Calculator::CalculationResult(result.changed, true);
 }
 
 void PSCCalculator::removeAfter(const VectorClock &preds)

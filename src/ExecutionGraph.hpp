@@ -203,6 +203,13 @@ public:
 	/* Returns true if a (or any of the reads reading from a) is hb-before b */
 	bool isWriteRfBefore(Event a, Event b) const;
 
+	/* Returns true if a (or any of the reads reading from a) is before b in
+	 * the relation "rel".
+	 * Pre: all examined events need to be a part of rel */
+	template <typename F = bool (*)(Event)>
+	bool isWriteRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+				F prop = [](Event e){ return true; }) const;
+
 	/* Returns true if store is read a successful RMW in the location ptr */
 	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr) const;
 
@@ -347,5 +354,22 @@ private:
 	/* The next available timestamp */
 	unsigned int timestamp;
 };
+
+template <typename F>
+bool ExecutionGraph::isWriteRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+					F prop /* = [&](Event e){ return true; }*/) const
+{
+	if (rel(a, b))
+		return true;
+
+	const EventLabel *lab = getEventLabel(a);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *wLab = static_cast<const WriteLabel *>(lab);
+	for (auto &r : wLab->getReadersList())
+		if (prop(r) && rel(r, b))
+			return true;
+	return false;
+}
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

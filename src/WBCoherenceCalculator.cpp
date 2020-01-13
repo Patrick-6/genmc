@@ -591,21 +591,6 @@ void WBCoherenceCalculator::initCalc()
 	return;
 }
 
-bool WBCoherenceCalculator::isWriteRfBefore(Event a, Event b) const
-{
-	if (hbRelation(a, b))
-		return true;
-
-	const EventLabel *lab = getGraphManager().getGraph().getEventLabel(a);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto &r : wLab->getReadersList())
-		if (hbRelation(r, b))
-			return true;
-	return false;
-}
-
 Calculator::CalculationResult WBCoherenceCalculator::doCalc()
 {
 	auto &g = getGraphManager().getGraph();
@@ -634,8 +619,9 @@ Calculator::CalculationResult WBCoherenceCalculator::doCalc()
 
 			auto upi = upperLimit[i];
 			for (auto j = 0u; j < stores.size(); j++) {
-				if (i == j || std::none_of(es.begin(), es.end(), [&](Event e)
-							   { return isWriteRfBefore(stores[j], e); }))
+				if (i == j ||
+				    std::none_of(es.begin(), es.end(), [&](Event e)
+						 { return g.isWriteRfBeforeRel(hbRelation, stores[j], e); }))
 					continue;
 
 				if (!matrix(j, i)) {

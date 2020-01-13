@@ -120,7 +120,7 @@ private:
 				     const std::vector<Event> &fcs,
 				     Matrix2D<Event> &psc, F cond) const;
 
-	bool addPscConstraints();
+	Calculator::CalculationResult addPscConstraints();
 	void calcPscRelation();
 
 	/* Relation matrices participating in PSC */
