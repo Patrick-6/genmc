@@ -144,11 +144,15 @@ std::vector<T> Matrix2D<T>::topoSort() const
 }
 
 template<typename T>
-void Matrix2D<T>::allTopoSortUtil(std::vector<std::vector<T> > &sortings,
-				  std::vector<T> &current,
+template<typename F>
+void Matrix2D<T>::allTopoSortUtil(std::vector<T> &current,
 				  std::vector<bool> visited,
-				  std::vector<int> &inDegree) const
+				  std::vector<int> &inDegree,
+				  F&& prop, bool &found) const
 {
+	/* If we have already found a sorting satisfying "prop", return */
+	if (found)
+		return;
 	/*
 	 * The boolean variable 'scheduled' indicates whether this recursive call
 	 * has added (scheduled) one event (at least) to the current topological sorting.
@@ -168,7 +172,11 @@ void Matrix2D<T>::allTopoSortUtil(std::vector<std::vector<T> > &sortings,
 			current.push_back(es[i]);
 			visited[i] = true;
 
-			allTopoSortUtil(sortings, current, visited, inDegree);
+			allTopoSortUtil(current, visited, inDegree, prop, found);
+
+			/* If the recursion yielded a sorting satisfying prop, stop */
+			if (found)
+				return;
 
 			/* Reset visited, current sorting, and inDegree */
 			visited[i] = false;
@@ -185,21 +193,25 @@ void Matrix2D<T>::allTopoSortUtil(std::vector<std::vector<T> > &sortings,
 	 * We reach this point if no events were added in the current sorting, meaning
 	 * that this is a complete sorting
 	 */
-	if (!scheduled)
-		sortings.push_back(current);
+	if (!scheduled) {
+		if (prop(current))
+			found = true;
+		return;
+	}
 	return;
 }
 
 template<typename T>
-std::vector<std::vector<T> > Matrix2D<T>::allTopoSort() const
+template<typename F>
+void Matrix2D<T>::allTopoSort(F&& prop) const
 {
 	std::vector<bool> visited(size(), false);
-	std::vector<std::vector<T> > sortings;
 	std::vector<T> current;
-
 	auto inDegree = getInDegrees();
-	allTopoSortUtil(sortings, current, visited, inDegree);
-	return sortings;
+	auto found = false;
+
+	allTopoSortUtil(current, visited, inDegree, prop, found);
+	return;
 }
 
 template<typename T>

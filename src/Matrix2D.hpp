@@ -32,10 +32,11 @@ protected:
 	MatrixRep matrix_;
 	std::vector<T> elems_;
 
-	void allTopoSortUtil(std::vector<std::vector<T> > &sortings,
-			     std::vector<T> &current,
+	template<typename F>
+	void allTopoSortUtil(std::vector<T> &current,
 			     std::vector<bool> visited,
-			     std::vector<int> &inDegree) const;
+			     std::vector<int> &inDegree,
+			     F&& prop, bool &found) const;
 
 #ifdef __MATRIX_2D_INCREMENTAL__
 	static inline unsigned int computeIndex (unsigned int i, unsigned int j) {
@@ -71,7 +72,9 @@ public:
 
 	std::vector<int> getInDegrees() const;
 	std::vector<T> topoSort() const;
-	std::vector<std::vector<T> > allTopoSort() const;
+
+	template<typename F>
+	void allTopoSort(F&& prop) const;
 
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 

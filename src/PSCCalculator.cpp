@@ -416,7 +416,7 @@ bool PSCCalculator::addSCEcosWBFull(const std::vector<Event> &fcs,
 	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
 	for (auto i = 0u; i < scLocs.size(); i++) {
 		auto wb = cohTracker->calcWb(scLocs[i]);
-		topoSorts[i] = wb.allTopoSort();
+		// topoSorts[i] = wb.allTopoSort();
 	}
 
 	unsigned int K = topoSorts.size();
