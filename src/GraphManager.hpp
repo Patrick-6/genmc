@@ -48,7 +48,7 @@ public:
 	/* Matrices for different relations */
 	Calculator::PerLocCalcMatrix co;
 	Calculator::GlobalCalcMatrix hb;
-	Calculator::GlobalCalcMatrix lb;
+	Calculator::PerLocCalcMatrix lb;
 	Calculator::GlobalCalcMatrix psc;
 
 	/* Constructors */

@@ -33,11 +33,11 @@ class LBCalculatorLAPOR : public Calculator {
 public:
 	/* Default constructor */
 	LBCalculatorLAPOR(GraphManager &m, GlobalCalcMatrix &hb,
-			  GlobalCalcMatrix &lb, PerLocCalcMatrix &co)
+			  PerLocCalcMatrix &lb, PerLocCalcMatrix &co)
 		: Calculator(m), hbRelation(hb), lbRelation(lb), coRelation(co) {}
 
 	/* Adds a lock to the maintained list */
-	void addLockToList(const Event lock);
+	void addLockToList(const llvm::GenericValue *addr, const Event lock);
 
 	/* Returns the first memory access event in the critical section
 	 * that "lock" opens */
@@ -73,17 +73,13 @@ public:
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
-// protected:
-// 	std::vector<Event> collectEvents() const;
-// 	std::vector<Event> collectLocks() const;
-
 private:
-	/* A list of all locks currently present in the graph */
-	std::vector<Event> locks;
+	/* A per-location list of all locks currently present in the graph */
+	std::unordered_map<const llvm::GenericValue *, std::vector<Event> > locks;
 
 	/* Relation matrices participating in LB */
 	GlobalCalcMatrix &hbRelation;
-	GlobalCalcMatrix &lbRelation;
+	PerLocCalcMatrix &lbRelation;
 	PerLocCalcMatrix &coRelation;
 };
 

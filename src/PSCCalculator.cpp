@@ -641,10 +641,10 @@ Calculator::CalculationResult PSCCalculator::doCalc()
 		coLoc.second.transClosure();
 
 	/* Check that co is acyclic */
-	if (std::any_of(coRelation.begin(), coRelation.end(),
-			[](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
-			{ return !p.second.isIrreflexive(); }))
+	for (auto &coLoc : coRelation) {
+		if (!coLoc.second.isIrreflexive())
 		return Calculator::CalculationResult(result.changed, false);
+	}
 	return Calculator::CalculationResult(result.changed, true);
 }
 

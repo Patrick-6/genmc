@@ -20,18 +20,6 @@
 
 #include "LBCalculatorLAPOR.hpp"
 
-// std::vector<Event> LBCalculatorLAPOR::collectEvents() const
-// {
-// 	const auto &g = getGraphManager().getGraph();
-// 	return g.collectAllEvents([](const EventLabel *lab)
-// 				  { return llvm::isa<MemAccessLabel>(lab); });
-// }
-
-// std::vector<Event> LBCalculatorLAPOR::collectLocks() const
-// {
-// 	return locks;
-// }
-
 Event LBCalculatorLAPOR::getFirstMemAccessInCS(const Event lock) const
 {
 	const auto &g = getGraphManager().getGraph();
@@ -79,13 +67,23 @@ Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 
 std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 {
-	std::vector<Event> threadPrios = lbRelation.topoSort();
+	const auto &g = getGraphManager().getGraph();
+	std::vector<Event> threadPrios;
+
+	for (auto &lbLoc : lbRelation) {
+		auto topoLoc = lbLoc.second.topoSort();
+		threadPrios.insert(threadPrios.end(), topoLoc.begin(), topoLoc.end());
+	}
 
 	/* Remove threads that are unordered with all other threads */
-	threadPrios.
-		erase(std::remove_if(threadPrios.begin(), threadPrios.end(),
-				     [&](Event e){ return lbRelation.hasNoEdges(e); }),
-		      threadPrios.end());
+	threadPrios.erase(
+		std::remove_if(threadPrios.begin(), threadPrios.end(), [&](Event e){
+				auto *lab = g.getEventLabel(e);
+				if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab))
+					return lbRelation[lLab->getLockAddr()].hasNoEdges(e);
+				BUG();
+			}),
+		threadPrios.end());
 	return threadPrios;
 }
 
@@ -93,19 +91,22 @@ bool LBCalculatorLAPOR::addLbConstraints()
 {
 	bool changed = false;
 
-	for (auto &l : locks) {
-		auto ul = getLastMemAccessInCS(l);
-		if (ul == Event::getInitializer())
-			continue;
-		auto lIndex = lbRelation.getIndex(l);
-		for (auto &o : locks) {
-			if (!lbRelation(lIndex, o))
+	for (auto &lbLoc : lbRelation) {
+		for (auto &l : lbLoc.second) {
+			auto ul = getLastMemAccessInCS(l);
+			if (ul == Event::getInitializer())
 				continue;
-			auto o1 = getFirstMemAccessInCS(o);
-			if (o1 != Event::getInitializer() &&
-			    !hbRelation(ul, o1)) {
-				changed = true;
-				hbRelation(ul, o1) = true;
+
+			auto lIndex = lbLoc.second.getIndex(l);
+			for (auto &o : lbLoc.second) {
+				if (!lbLoc.second(lIndex, o))
+					continue;
+				auto o1 = getFirstMemAccessInCS(o);
+				if (o1 != Event::getInitializer() &&
+				    !hbRelation(ul, o1)) {
+					changed = true;
+					hbRelation(ul, o1) = true;
+				}
 			}
 		}
 	}
@@ -122,7 +123,7 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 	Event rfLock = g.getLastThreadLockAtLocLAPOR(rLab->getRf(), lLab->getLockAddr());
 	if (rfLock != Event::getInitializer() && rfLock != lock &&
 	    rLab->getRf().index >= rfLock.index) {
-		lbRelation(rfLock, lock) = true;
+		lbRelation[lLab->getLockAddr()](rfLock, lock) = true;
 	}
 
 	for (auto &s : co.getElems()) {
@@ -132,7 +133,7 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		lbRelation(lock, sLock) = true;
+		lbRelation[lLab->getLockAddr()](lock, sLock) = true;
 	}
 }
 
@@ -153,36 +154,39 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		lbRelation(lock, sLock) = true;
+		lbRelation[lLab->getLockAddr()](lock, sLock) = true;
 	}
 }
 
 void LBCalculatorLAPOR::calcLbRelation()
 {
 	const auto &g = getGraphManager().getGraph();
-	for (auto &l : lbRelation) {
-		const EventLabel *lab = g.getEventLabel(l);
-		BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
-		auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
+	for (auto &lbLoc : lbRelation) {
+		for (auto &l : lbLoc.second) {
+			const EventLabel *lab = g.getEventLabel(l);
+			BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
+			auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
 
-		auto ul = getLastMemAccessInCS(l);
-		if (ul == Event::getInitializer())
-			continue;
+			auto ul = getLastMemAccessInCS(l);
+			if (ul == Event::getInitializer())
+				continue;
 
-		for (auto i = l.index; i <= ul.index; i++) { /* l.index >= 0 */
-			const EventLabel *lab = g.getEventLabel(Event(l.thread, i));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-				calcLbFromLoad(rLab, lLab);
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
-				calcLbFromStore(wLab, lLab);
+			for (auto i = l.index; i <= ul.index; i++) { /* l.index >= 0 */
+				const EventLabel *lab = g.getEventLabel(Event(l.thread, i));
+				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+					calcLbFromLoad(rLab, lLab);
+				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
+					calcLbFromStore(wLab, lLab);
+			}
 		}
+		lbLoc.second.transClosure();
 	}
-	lbRelation.transClosure();
 }
 
 void LBCalculatorLAPOR::initCalc()
 {
-	lbRelation = Matrix2D<Event>(locks);
+	for (auto it = locks.begin(); it != locks.end(); ++it)
+		lbRelation[it->first] = Matrix2D<Event>(it->second);
 	return;
 }
 
@@ -193,8 +197,10 @@ Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 	if (!hbRelation.isIrreflexive())
 		return Calculator::CalculationResult(false, false);
 	calcLbRelation();
-	if (!lbRelation.isIrreflexive())
-		return Calculator::CalculationResult(false, false);
+	for (auto &lbLoc : lbRelation) {
+		if (!lbLoc.second.isIrreflexive())
+			return Calculator::CalculationResult(false, false);
+	}
 	bool changed = addLbConstraints();
 	hbRelation.transClosure();
 
@@ -218,23 +224,26 @@ Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 	}
 
 	/* Check that co is acyclic */
-	if (std::any_of(coRelation.begin(), coRelation.end(),
-			[](std::pair<const llvm::GenericValue *, Matrix2D<Event> > p)
-			{ return !p.second.isIrreflexive(); }))
-		return Calculator::CalculationResult(changed, false);
+	for (auto &coLoc : coRelation) {
+		if (!coLoc.second.isIrreflexive())
+			return Calculator::CalculationResult(changed, false);
+	}
 	return Calculator::CalculationResult(changed, true);
 }
 
 void LBCalculatorLAPOR::removeAfter(const VectorClock &preds)
 {
-	locks.erase(std::remove_if(locks.begin(), locks.end(), [&](Event &e)
-				   { return !preds.contains(e); }),
-		    locks.end());
+	for (auto it = locks.begin(); it != locks.end(); ++it)
+		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
+						[&](Event &e)
+						{ return !preds.contains(e); }),
+				 it->second.end());
+	return;
 }
 
-void LBCalculatorLAPOR::addLockToList(const Event lock)
+void LBCalculatorLAPOR::addLockToList(const llvm::GenericValue *addr, const Event lock)
 {
-	locks.push_back(lock);
+	locks[addr].push_back(lock);
 }
 
 void LBCalculatorLAPOR::restorePrefix(const ReadLabel *rLab,
@@ -243,6 +252,6 @@ void LBCalculatorLAPOR::restorePrefix(const ReadLabel *rLab,
 {
 	for (const auto &lab : storePrefix) {
 		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab.get()))
-			addLockToList(lLab->getPos());
+			addLockToList(lLab->getLockAddr(), lLab->getPos());
 	}
 }

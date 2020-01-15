@@ -136,7 +136,7 @@ const WriteLabel *GraphManager::addWriteLabelToGraph(std::unique_ptr<WriteLabel>
 
 const LockLabelLAPOR *GraphManager::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
 {
-	getLbCalculatorLAPOR()->addLockToList(lab->getPos());
+	getLbCalculatorLAPOR()->addLockToList(lab->getLockAddr(), lab->getPos());
 	return static_cast<const LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
 }
 
