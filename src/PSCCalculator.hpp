@@ -30,10 +30,7 @@
 class PSCCalculator : public Calculator {
 
 public:
-	PSCCalculator(GraphManager &m, GlobalCalcMatrix &hb,
-		      GlobalCalcMatrix &psc, PerLocCalcMatrix &co)
-		: Calculator(m), hbRelation(hb),
-		  pscRelation(psc), coRelation(co) {}
+	PSCCalculator(GraphManager &m) : Calculator(m) {}
 
 	/* Checks whether the provided condition "cond" holds for PSC.
 	 * The calculation type (e.g., weak, full, etc) is determined by "t" */
@@ -122,11 +119,6 @@ private:
 
 	Calculator::CalculationResult addPscConstraints();
 	void calcPscRelation();
-
-	/* Relation matrices participating in PSC */
-	GlobalCalcMatrix &hbRelation;
-	GlobalCalcMatrix &pscRelation;
-	PerLocCalcMatrix &coRelation;
 };
 
 #endif /* __PSC_CALCULATOR_HPP__ */

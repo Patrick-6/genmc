@@ -362,6 +362,9 @@ MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 
 void MOCoherenceCalculator::initCalc()
 {
+	auto &gm = getGraphManager();
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+
 	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
 		coRelation[locIt->first] = Matrix2D<Event>(getStoresToLoc(locIt->first));
 		if (locIt->second.empty())
@@ -376,6 +379,9 @@ void MOCoherenceCalculator::initCalc()
 
 Calculator::CalculationResult MOCoherenceCalculator::doCalc()
 {
+	auto &gm = getGraphManager();
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+
 	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
 		if (!coRelation[locIt->first].isIrreflexive())
 			return Calculator::CalculationResult(false, false);

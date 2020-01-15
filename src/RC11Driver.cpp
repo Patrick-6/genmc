@@ -29,8 +29,8 @@ RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 	auto &gm = getGraphManager();
 
 	/* RC11 requires the calculation of PSC */
-	gm.addCalculator(llvm::make_unique<PSCCalculator>(gm, gm.hb, gm.psc, gm.co),
-			 GraphManager::RelationId::other, false);
+	gm.addCalculator(llvm::make_unique<PSCCalculator>(gm),
+			 GraphManager::RelationId::psc, false);
 	return;
 }
 

@@ -39,10 +39,8 @@ class WBCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	WBCoherenceCalculator(GraphManager &m, PerLocCalcMatrix &co,
-			      GlobalCalcMatrix &hb, bool ooo)
-		: CoherenceCalculator(CC_WritesBefore, m, co, ooo),
-		  hbRelation(hb) {}
+	WBCoherenceCalculator(GraphManager &m, bool ooo)
+		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
 	/* Track coherence at location addr */
 	void
@@ -139,8 +137,6 @@ private:
 
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
 
-	GlobalCalcMatrix &hbRelation;
-
 	typedef std::unordered_map<const llvm::GenericValue *,
 				   std::vector<Event> > StoresList;
 	StoresList stores_;
@@ -151,12 +147,15 @@ Calculator::CalculationResult
 WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &wb,
 				      F prop /* = [](Event e){ return true; } */)
 {
+	auto &gm = getGraphManager();
+	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+
 	return calcWbRelation(addr, wb, hbRelation, prop);
 }
 
 template <typename F>
 Calculator::CalculationResult
-WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &wb,
+WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &matrix,
 				      const Matrix2D<Event> &rel,
 				      F prop /* = [](Event e){ return true; } */)
 {
@@ -164,7 +163,6 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalc
 
 	bool changed = false;
 	for (auto locIt = stores_.begin(); locIt != stores_.end(); ++locIt) {
-		auto &matrix = coRelation[locIt->first];
 		auto &stores = matrix.getElems();
 
 		/* If it is empty, nothing to do */

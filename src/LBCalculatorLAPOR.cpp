@@ -67,7 +67,9 @@ Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 
 std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 {
-	const auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	const auto &g = gm.getGraph();
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
 	std::vector<Event> threadPrios;
 
 	for (auto &lbLoc : lbRelation) {
@@ -89,6 +91,9 @@ std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 
 bool LBCalculatorLAPOR::addLbConstraints()
 {
+	auto &gm = getGraphManager();
+	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
 	bool changed = false;
 
 	for (auto &lbLoc : lbRelation) {
@@ -116,7 +121,10 @@ bool LBCalculatorLAPOR::addLbConstraints()
 void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 				       const LockLabelLAPOR *lLab)
 {
-	const auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	const auto &g = gm.getGraph();
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 	const auto &co = coRelation[rLab->getAddr()];
 	Event lock = lLab->getPos();
 
@@ -140,7 +148,10 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 					const LockLabelLAPOR *lLab)
 {
-	const auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	const auto &g = gm.getGraph();
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 	const auto &co = coRelation[wLab->getAddr()];
 	Event lock = lLab->getPos();
 
@@ -160,7 +171,10 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 
 void LBCalculatorLAPOR::calcLbRelation()
 {
-	const auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	const auto &g = gm.getGraph();
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+
 	for (auto &lbLoc : lbRelation) {
 		for (auto &l : lbLoc.second) {
 			const EventLabel *lab = g.getEventLabel(l);
@@ -185,6 +199,9 @@ void LBCalculatorLAPOR::calcLbRelation()
 
 void LBCalculatorLAPOR::initCalc()
 {
+	auto &gm = getGraphManager();
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+
 	for (auto it = locks.begin(); it != locks.end(); ++it)
 		lbRelation[it->first] = Matrix2D<Event>(it->second);
 	return;
@@ -192,7 +209,11 @@ void LBCalculatorLAPOR::initCalc()
 
 Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 {
-	const auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	const auto &g = gm.getGraph();
+	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 
 	if (!hbRelation.isIrreflexive())
 		return Calculator::CalculationResult(false, false);

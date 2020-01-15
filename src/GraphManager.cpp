@@ -22,33 +22,93 @@
 #include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
 
-void GraphManager::addCalculator(std::unique_ptr<Calculator> cc,
-				 RelationId r /* = other */,
-				 bool partial /* = false */)
+GraphManager::GraphManager(std::unique_ptr<ExecutionGraph> g) : graph(std::move(g))
 {
-	auto size = getCalcs().size();
-	consistencyCalculators.push_back(std::move(cc));
+	globalRelations.push_back(Calculator::GlobalCalcMatrix());
+	globalRelationsCache.push_back(Calculator::GlobalCalcMatrix());
+	relationIndex[RelationId::hb] = 0;
+	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
+	return;
+}
 
-	/* Check whether it is part of the checks at each step */
+void GraphManager::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
+				 bool perLoc, bool partial /* = false */)
+{
+	/* Add a calculator for this relation */
+	auto calcSize = getCalcs().size();
+	consistencyCalculators.push_back(std::move(cc));
 	if (partial)
-		partialConsCalculators.push_back(size);
-	if (r != RelationId::other)
-		relIndices[r] = size;
+		partialConsCalculators.push_back(calcSize);
+
+	/* Add a matrix for this relation */
+	auto relSize = 0u;
+	if (perLoc) {
+		relSize = perLocRelations.size();
+		perLocRelations.push_back(Calculator::PerLocCalcMatrix());
+		perLocRelationsCache.push_back(Calculator::PerLocCalcMatrix());
+	} else {
+		relSize = globalRelations.size();
+		globalRelations.push_back(Calculator::GlobalCalcMatrix());
+		globalRelationsCache.push_back(Calculator::GlobalCalcMatrix());
+	}
+
+	/* Update indices trackers */
+	calculatorIndex[r] = calcSize;
+	relationIndex[r] = relSize;
+}
+
+Calculator::GlobalCalcMatrix& GraphManager::getGlobalRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return globalRelations[relationIndex[id]];
+}
+
+Calculator::PerLocCalcMatrix& GraphManager::getPerLocRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return perLocRelations[relationIndex[id]];
+}
+
+void GraphManager::cacheGlobalRelation(RelationId id, bool copy /* = true */)
+{
+	auto idx = relationIndex[id];
+	if (copy)
+		globalRelationsCache[idx] = globalRelations[idx];
+	else
+		globalRelationsCache[idx] = std::move(globalRelations[idx]);
+	return;
+}
+
+void GraphManager::cachePerLocRelation(RelationId id, bool copy /* = true */)
+{
+	auto idx = relationIndex[id];
+	if (copy)
+		perLocRelationsCache[idx] = perLocRelations[idx];
+	else
+		perLocRelationsCache[idx] = std::move(perLocRelations[idx]);
+}
+
+Calculator *GraphManager::getCalculator(RelationId id)
+{
+	return consistencyCalculators[calculatorIndex[id]].get();
 }
 
 CoherenceCalculator *GraphManager::getCoherenceCalculator()
 {
-	return static_cast<CoherenceCalculator *>(consistencyCalculators[relIndices[RelationId::co]].get());
+	return static_cast<CoherenceCalculator *>(
+		consistencyCalculators[relationIndex[RelationId::co]].get());
 };
 
 CoherenceCalculator *GraphManager::getCoherenceCalculator() const
 {
-	return static_cast<CoherenceCalculator *>(consistencyCalculators.at(relIndices.at(RelationId::co)).get());
+	return static_cast<CoherenceCalculator *>(
+		consistencyCalculators.at(relationIndex.at(RelationId::co)).get());
 };
 
 LBCalculatorLAPOR *GraphManager::getLbCalculatorLAPOR()
 {
-	return static_cast<LBCalculatorLAPOR *>(consistencyCalculators[relIndices[RelationId::lb]].get());
+	return static_cast<LBCalculatorLAPOR *>(
+		consistencyCalculators[relationIndex[RelationId::lb]].get());
 };
 
 std::vector<Event> GraphManager::getLbOrderingLAPOR()
@@ -80,6 +140,7 @@ void GraphManager::doInits(bool full /* = false */)
 						  { return llvm::isa<MemAccessLabel>(lab) ||
 						    llvm::isa<FenceLabel>(lab); });
 
+	auto &hb = globalRelations[relationIndex[RelationId::hb]];
 	hb = Matrix2D<Event>(std::move(events));
 	getGraph().populateHbEntries(hb);
 	hb.transClosure();

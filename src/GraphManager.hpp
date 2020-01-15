@@ -43,26 +43,19 @@ class PSCCalculator;
 class GraphManager {
 
 public:
-	enum class RelationId { co, lb, other };
-
-	/* Matrices for different relations */
-	Calculator::PerLocCalcMatrix co;
-	Calculator::GlobalCalcMatrix hb;
-	Calculator::PerLocCalcMatrix lb;
-	Calculator::GlobalCalcMatrix psc;
+	enum class RelationId { hb, co, lb, psc };
 
 	/* Constructors */
 	GraphManager() = delete;
-	GraphManager(std::unique_ptr<ExecutionGraph> g) : graph(std::move(g)) {}
+	GraphManager(std::unique_ptr<ExecutionGraph> g);
 
 	/* Returns the execution graph object */
 	ExecutionGraph &getGraph() { return *graph; };
 	ExecutionGraph &getGraph() const { return *graph; };
 
 	/* Adds the specified calculator to the list */
-	void addCalculator(std::unique_ptr<Calculator> cc,
-			   RelationId r = RelationId::other,
-			   bool partial = false);
+	void addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
+			   bool perLoc, bool partial = false);
 
 	/* Returns the list of the calculators */
 	const std::vector<const Calculator *> getCalcs() const;
@@ -70,13 +63,24 @@ public:
 	/* Returns the list of the partial calculators */
 	const std::vector<const Calculator *> getPartialCalcs() const;
 
-	/* Returns a reference to the graph's coherence calculator */
+	/* Returns a reference to the specified relation matrix */
+	Calculator::GlobalCalcMatrix& getGlobalRelation(RelationId id);
+	Calculator::PerLocCalcMatrix& getPerLocRelation(RelationId id);
+
+	/* Moves the specified relation to the cache.
+	 * If "copy" is true a copy of the relation is cached */
+	void cacheGlobalRelation(RelationId id, bool copy = true);
+	void cachePerLocRelation(RelationId id, bool copy = true);
+
+	/* Returns a pointer to the specified relation's calculator */
+	Calculator *getCalculator(RelationId id);
+
+	/* Commonly queried calculator getters */
 	CoherenceCalculator *getCoherenceCalculator();
 	CoherenceCalculator *getCoherenceCalculator() const;
+	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 
 	std::vector<Event> getLbOrderingLAPOR();
-
-	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 
 	void doInits(bool fullCalc = false);
 
@@ -130,8 +134,18 @@ private:
 	 * at each step of the algorithm (partial consistency check) */
 	std::vector<int> partialConsCalculators;
 
-	/* Keep track of the calculators of common relations */
-	std::unordered_map<RelationId, unsigned int> relIndices;
+	/* The relation matrices (and caches) maintained in the manager */
+	std::vector<Calculator::GlobalCalcMatrix> globalRelations;
+	std::vector<Calculator::GlobalCalcMatrix> globalRelationsCache;
+	std::vector<Calculator::PerLocCalcMatrix> perLocRelations;
+	std::vector<Calculator::PerLocCalcMatrix> perLocRelationsCache;
+
+	/* Keeps track of calculator indices */
+	std::unordered_map<RelationId, unsigned int> calculatorIndex;
+
+	/* Keeps track of relation indices. Note that an index might
+	 * refer to either globalRelations or perLocRelations */
+	std::unordered_map<RelationId, unsigned int> relationIndex;
 };
 
 #include "CoherenceCalculator.hpp"

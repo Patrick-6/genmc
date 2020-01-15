@@ -52,9 +52,8 @@ public:
 protected:
 
 	/* Constructor */
-	CoherenceCalculator(CoherenceCalculatorKind k, GraphManager &m,
-			    PerLocCalcMatrix &co, bool ooo)
-		: Calculator(m), kind(k), coRelation(co), outOfOrder(ooo) {}
+	CoherenceCalculator(CoherenceCalculatorKind k, GraphManager &m, bool ooo)
+		: Calculator(m), kind(k), outOfOrder(ooo) {}
 
 	/* Returns whether the model we are operating under supports
 	 * out-of-order execution */
@@ -102,10 +101,6 @@ public:
 	virtual std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const = 0;
-
-protected:
-	/* Coherence relation used in fixpoint calculations */
-	PerLocCalcMatrix &coRelation;
 
 private:
 

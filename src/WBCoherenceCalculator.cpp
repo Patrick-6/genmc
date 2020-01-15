@@ -586,6 +586,9 @@ WBCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 
 void WBCoherenceCalculator::initCalc()
 {
+	auto &gm = getGraphManager();
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+
 	for (auto it = stores_.begin(); it != stores_.end(); ++it)
 		coRelation[it->first] = calcWb(it->first);
 	return;
@@ -593,7 +596,10 @@ void WBCoherenceCalculator::initCalc()
 
 Calculator::CalculationResult WBCoherenceCalculator::doCalc()
 {
+	auto &gm = getGraphManager();
 	auto &g = getGraphManager().getGraph();
+	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 
 	bool changed = false;
 	for (auto locIt = stores_.begin(); locIt != stores_.end(); ++locIt) {

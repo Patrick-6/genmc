@@ -56,14 +56,13 @@ public:
 		switch (co) {
 		case CoherenceType::mo:
 			graph->addCalculator(
-				llvm::make_unique<MOCoherenceCalculator>(*graph, graph->co, tracksDeps),
-				GraphManager::RelationId::co, true);
+				llvm::make_unique<MOCoherenceCalculator>(*graph, tracksDeps),
+				GraphManager::RelationId::co, true, true);
 			break;
 		case CoherenceType::wb:
 			graph->addCalculator(
-				llvm::make_unique<WBCoherenceCalculator>(*graph, graph->co,
-									 graph->hb, tracksDeps),
-				GraphManager::RelationId::co, true);
+				llvm::make_unique<WBCoherenceCalculator>(*graph, tracksDeps),
+				GraphManager::RelationId::co, true, true);
 			break;
 		default:
 			WARN("Unhandled coherence type!\n");
@@ -75,9 +74,8 @@ public:
 	GraphBuilder &withEnabledLAPOR(bool lapor) {
 		if (lapor) {
 			graph->addCalculator(
-				llvm::make_unique<LBCalculatorLAPOR>(*graph, graph->hb,
-								     graph->lb, graph->co),
-				GraphManager::RelationId::lb, true);
+				llvm::make_unique<LBCalculatorLAPOR>(*graph),
+				GraphManager::RelationId::lb, true, true);
 		}
 		return *this;
 	}
