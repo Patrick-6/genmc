@@ -72,10 +72,13 @@ public:
 	Calculator::GlobalCalcMatrix& getCachedGlobalRelation(RelationId id);
 	Calculator::PerLocCalcMatrix& getCachedPerLocRelation(RelationId id);
 
-	/* Moves the specified relation to the cache.
-	 * If "copy" is true a copy of the relation is cached */
-	void cacheGlobalRelation(RelationId id, bool copy = true);
-	void cachePerLocRelation(RelationId id, bool copy = true);
+	/* Caches all calculated relations. If "copy" is true then a
+	 * copy of each relation is cached */
+	void cacheRelations(bool copy = true);
+
+	/* Restores all relations to their most recently cached versions.
+	 * If "move" is true then the cache is cleared as well */
+	void restoreCached(bool move = false);
 
 	/* Returns a pointer to the specified relation's calculator */
 	Calculator *getCalculator(RelationId id);

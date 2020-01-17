@@ -554,13 +554,6 @@ void RC11Driver::initConsCalculation()
 	return;
 }
 
-bool checkConsistency(std::vector<std::vector<Event>> &sortingCombin)
-{
-	// auto &gm = getGraphManager();
-
-	// cacheGlobalRelation(GraphManager::RelationId::lb);
-}
-
 bool RC11Driver::doFinalConsChecks(bool checkFull /* = false */)
 {
 	if (!getConf()->LAPOR || !checkFull)
@@ -571,12 +564,13 @@ bool RC11Driver::doFinalConsChecks(bool checkFull /* = false */)
 
 	llvm::dbgs() << gm.getGraph() << "\n";
 
-	gm.cachePerLocRelation(GraphManager::RelationId::lb);
+	gm.cacheRelations();
 	for (auto &lbLoc : gm.getCachedPerLocRelation(GraphManager::RelationId::lb))
 		matrices.push_back(&lbLoc.second);
 
 	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
 	auto res = Matrix2D<Event>::combineAllTopoSort(matrices, [&](std::vector<std::vector<Event>> &sortings){
+			gm.restoreCached();
 			auto count = 0u;
 			for (auto &lbLoc : lbRelation) {
 				lbRelation[lbLoc.first] = Matrix2D<Event>(sortings[count]);

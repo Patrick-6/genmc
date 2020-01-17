@@ -81,23 +81,36 @@ Calculator::PerLocCalcMatrix& GraphManager::getCachedPerLocRelation(RelationId i
 	return perLocRelationsCache[relationIndex[id]];
 }
 
-void GraphManager::cacheGlobalRelation(RelationId id, bool copy /* = true */)
+void GraphManager::cacheRelations(bool copy /* = true */)
 {
-	auto idx = relationIndex[id];
-	if (copy)
-		globalRelationsCache[idx] = globalRelations[idx];
-	else
-		globalRelationsCache[idx] = std::move(globalRelations[idx]);
+	if (copy) {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelationsCache[i] = globalRelations[i];
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelationsCache[i] = perLocRelations[i];
+	} else {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelationsCache[i] = std::move(globalRelations[i]);
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelationsCache[i] = std::move(perLocRelations[i]);
+	}
 	return;
 }
 
-void GraphManager::cachePerLocRelation(RelationId id, bool copy /* = true */)
+void GraphManager::restoreCached(bool move /* = false */)
 {
-	auto idx = relationIndex[id];
-	if (copy)
-		perLocRelationsCache[idx] = perLocRelations[idx];
-	else
-		perLocRelationsCache[idx] = std::move(perLocRelations[idx]);
+	if (!move) {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelations[i] = globalRelationsCache[i];
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelations[i] = perLocRelationsCache[i];
+	} else {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelations[i] = std::move(globalRelationsCache[i]);
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelations[i] = std::move(perLocRelationsCache[i]);
+	}
+	return;
 }
 
 Calculator *GraphManager::getCalculator(RelationId id)
