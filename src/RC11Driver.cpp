@@ -556,38 +556,65 @@ void RC11Driver::initConsCalculation()
 
 bool RC11Driver::doFinalConsChecks(bool checkFull /* = false */)
 {
-	if (!getConf()->LAPOR || !checkFull)
+	if (!checkFull)
+		return true;
+
+	bool hasLB = getConf()->LAPOR;
+	bool hasWB = getConf()->coherence == CoherenceType::wb;
+	if (!hasLB && !hasWB)
 		return true;
 
 	auto &gm = getGraphManager();
 	std::vector<Matrix2D<Event> *> matrices;
 
-	llvm::dbgs() << gm.getGraph() << "\n";
-
+	/* Cache all relations because we will need to restore them after possible
+	 * extensions were tried*/
 	gm.cacheRelations();
-	for (auto &lbLoc : gm.getCachedPerLocRelation(GraphManager::RelationId::lb))
-		matrices.push_back(&lbLoc.second);
 
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	/* If wb is used, try to extend it */
+	auto coSize = 0u;
+	auto lbSize = 0u;
+	if (hasWB) {
+		for (auto &coLoc : gm.getCachedPerLocRelation(GraphManager::RelationId::co))
+			matrices.push_back(&coLoc.second);
+		coSize = gm.getCachedPerLocRelation(GraphManager::RelationId::co).size();
+	}
+	/* If lb is used, try to extend it */
+	if (hasLB) {
+		for (auto &lbLoc : gm.getCachedPerLocRelation(GraphManager::RelationId::lb))
+			matrices.push_back(&lbLoc.second);
+		lbSize = gm.getCachedPerLocRelation(GraphManager::RelationId::lb).size();
+	}
+
 	auto res = Matrix2D<Event>::combineAllTopoSort(matrices, [&](std::vector<std::vector<Event>> &sortings){
 			gm.restoreCached();
 			auto count = 0u;
-			for (auto &lbLoc : lbRelation) {
-				lbRelation[lbLoc.first] = Matrix2D<Event>(sortings[count]);
-				for (auto i = 0u; i < sortings[count].size(); i++) {
-					for (auto j = i + 1; j < sortings[count].size(); j++)
-						lbRelation[lbLoc.first](sortings[count][i],
-									sortings[count][j]) = true;
+			if (hasWB && count < coSize) {
+				auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+				for (auto &coLoc : coRelation) {
+					coRelation[coLoc.first] = Matrix2D<Event>(sortings[count]);
+					for (auto i = 0u; i < sortings[count].size(); i++) {
+						for (auto j = i + 1; j < sortings[count].size(); j++)
+							coRelation[coLoc.first](sortings[count][i],
+										sortings[count][j]) = true;
+					}
+					++count;
 				}
-				++count;
-				llvm::dbgs() << "trying out lB" << lbLoc.second << "\n";
 			}
-			return gm.doCalcs().cons;
-			// return std::all_of(lbRelation.begin(), lbRelation.end(),
-			// 		   [&](std::pair<const llvm::GenericValue *, Matrix2D<Event>> p)
-			// 		   { return p.second.isIrreflexive(); });
+			if (hasLB && count >= coSize) {
+				auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+				for (auto &lbLoc : lbRelation) {
+					lbRelation[lbLoc.first] = Matrix2D<Event>(sortings[count]);
+					for (auto i = 0u; i < sortings[count].size(); i++) {
+						for (auto j = i + 1; j < sortings[count].size(); j++)
+							lbRelation[lbLoc.first](sortings[count][i],
+										sortings[count][j]) = true;
+					}
+					++count;
+				}
+			}
+			return gm.doCalcs(true).cons;
 		});
-	llvm::dbgs() << "tried em all\n";
 	return res;
 }
 
