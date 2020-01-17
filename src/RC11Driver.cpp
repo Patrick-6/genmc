@@ -554,6 +554,49 @@ void RC11Driver::initConsCalculation()
 	return;
 }
 
+bool checkConsistency(std::vector<std::vector<Event>> &sortingCombin)
+{
+	// auto &gm = getGraphManager();
+
+	// cacheGlobalRelation(GraphManager::RelationId::lb);
+}
+
+bool RC11Driver::doFinalConsChecks(bool checkFull /* = false */)
+{
+	if (!getConf()->LAPOR || !checkFull)
+		return true;
+
+	auto &gm = getGraphManager();
+	std::vector<Matrix2D<Event> *> matrices;
+
+	llvm::dbgs() << gm.getGraph() << "\n";
+
+	gm.cachePerLocRelation(GraphManager::RelationId::lb);
+	for (auto &lbLoc : gm.getCachedPerLocRelation(GraphManager::RelationId::lb))
+		matrices.push_back(&lbLoc.second);
+
+	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto res = Matrix2D<Event>::combineAllTopoSort(matrices, [&](std::vector<std::vector<Event>> &sortings){
+			auto count = 0u;
+			for (auto &lbLoc : lbRelation) {
+				lbRelation[lbLoc.first] = Matrix2D<Event>(sortings[count]);
+				for (auto i = 0u; i < sortings[count].size(); i++) {
+					for (auto j = i + 1; j < sortings[count].size(); j++)
+						lbRelation[lbLoc.first](sortings[count][i],
+									sortings[count][j]) = true;
+				}
+				++count;
+				llvm::dbgs() << "trying out lB" << lbLoc.second << "\n";
+			}
+			return gm.doCalcs().cons;
+			// return std::all_of(lbRelation.begin(), lbRelation.end(),
+			// 		   [&](std::pair<const llvm::GenericValue *, Matrix2D<Event>> p)
+			// 		   { return p.second.isIrreflexive(); });
+		});
+	llvm::dbgs() << "tried em all\n";
+	return res;
+}
+
 bool RC11Driver::isExecutionValid()
 {
 	BUG();

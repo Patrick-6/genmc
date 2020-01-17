@@ -151,6 +151,8 @@ public:
 
 	void initConsCalculation() override;
 
+	bool doFinalConsChecks(bool checkFull = false) override;
+
 	bool isExecutionValid() override;
 
 private:

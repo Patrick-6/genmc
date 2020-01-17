@@ -505,6 +505,10 @@ private:
 	 * consistency calculation */
 	virtual void initConsCalculation() = 0;
 
+	/* Does some final consistency checks after the fixpoint is over,
+	 * and returns the final decision re. consistency */
+	virtual bool doFinalConsChecks(bool checkFull = false) { return true; };
+
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;

@@ -69,6 +69,18 @@ Calculator::PerLocCalcMatrix& GraphManager::getPerLocRelation(RelationId id)
 	return perLocRelations[relationIndex[id]];
 }
 
+Calculator::GlobalCalcMatrix& GraphManager::getCachedGlobalRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return globalRelationsCache[relationIndex[id]];
+}
+
+Calculator::PerLocCalcMatrix& GraphManager::getCachedPerLocRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return perLocRelationsCache[relationIndex[id]];
+}
+
 void GraphManager::cacheGlobalRelation(RelationId id, bool copy /* = true */)
 {
 	auto idx = relationIndex[id];

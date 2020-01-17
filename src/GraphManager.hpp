@@ -67,6 +67,11 @@ public:
 	Calculator::GlobalCalcMatrix& getGlobalRelation(RelationId id);
 	Calculator::PerLocCalcMatrix& getPerLocRelation(RelationId id);
 
+	/* Returns a reference to the cached version of the
+	 * specified relation matrix */
+	Calculator::GlobalCalcMatrix& getCachedGlobalRelation(RelationId id);
+	Calculator::PerLocCalcMatrix& getCachedPerLocRelation(RelationId id);
+
 	/* Moves the specified relation to the cache.
 	 * If "copy" is true a copy of the relation is cached */
 	void cacheGlobalRelation(RelationId id, bool copy = true);

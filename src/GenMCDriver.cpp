@@ -657,8 +657,8 @@ bool GenMCDriver::isConsistent(bool checkFull /* = false */)
 			return false;
 	} while (step.changed);
 
-	/* Fixpoint is over, no inconsistency found */
-	return true;
+	/* Do final checks, after the fixpoint is over */
+	return doFinalConsChecks(checkFull);
 }
 
 std::vector<Event>
