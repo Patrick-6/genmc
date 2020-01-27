@@ -156,8 +156,13 @@ public:
 	bool isExecutionValid() override;
 
 private:
-	/* Helpers for findDataRaceForMemAccess() */
+	/* Returns true if aLab and bLab are in an RC11 data race*/
+	bool areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab);
+
+	/* Returns an event that is racy with rLab, or INIT if none is found */
 	Event findRaceForNewLoad(const ReadLabel *rLab);
+
+	/* Returns an event that is racy with wLab, or INIT if none is found */
 	Event findRaceForNewStore(const WriteLabel *wLab);
 };
 

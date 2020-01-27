@@ -518,6 +518,14 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	return result;
 }
 
+bool GenMCDriver::isHbBefore(Event a, Event b)
+{
+	if (isTriviallyConsistent())
+		return getGraph().getEventLabel(a)->getHbView().contains(b);
+
+	return getGraphManager().getGlobalRelation(GraphManager::RelationId::hb)(a, b);
+}
+
 void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	const auto &g = getGraph();
@@ -1007,11 +1015,6 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 
 	const WriteLabel *lab = getGraphManager().addWriteLabelToGraph(std::move(wLab), endO);
 
-	/* Check whether a valid address is accessed, and whether there are races */
-	checkAccessValidity();
-	checkForDataRaces();
-	checkForMemoryRaces(lab->getAddr());
-
 	auto &locMO = getGraphManager().getStoresToLoc(addr);
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
 
@@ -1030,7 +1033,13 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	if (userConf->LAPOR && !isConsistent()) {
 		for (auto i = 0u; i < g.getNumThreads(); i++)
 			EE->getThrById(i).block();
+		return;
 	}
+
+	/* Check whether a valid address is accessed, and whether there are races */
+	checkAccessValidity();
+	checkForDataRaces();
+	checkForMemoryRaces(lab->getAddr());
 	return;
 }
 

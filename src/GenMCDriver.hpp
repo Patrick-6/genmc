@@ -233,6 +233,9 @@ protected:
 					 const llvm::GenericValue *a,
 					 const llvm::Type *t);
 
+	/* Returns true if a is hb-before b */
+	bool isHbBefore(Event a, Event b);
+
 private:
 	/*** Worklist-related ***/
 

@@ -429,6 +429,42 @@ RC11Driver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue 
 	return std::move(lab);
 }
 
+bool RC11Driver::areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab)
+{
+	/* If there is an HB ordering between the two events, there is no race */
+	if (isHbBefore(aLab->getPos(), bLab->getPos()) ||
+	    isHbBefore(bLab->getPos(), aLab->getPos()) || aLab == bLab)
+		return false;
+
+	/* If both accesses are atomic, there is no race */
+	/* Note: one check suffices because a variable is either
+	 * atomic or not atomic, but we have not checked the address yet */
+	if (!aLab->isNotAtomic() && !bLab->isNotAtomic())
+		return false;
+
+	/* If they access a different address, there is no race */
+	if (aLab->getAddr() != bLab->getAddr())
+		return false;
+
+	/* If LAPOR is disabled, we are done */
+	if (!getConf()->LAPOR)
+		return true;
+
+	/* Otherwise, we have to make sure that the two accesses do _not_
+	 * belong in critical sections of the same lock */
+	const auto &g = getGraph();
+	auto aLock = g.getLastThreadUnmatchedLockLAPOR(aLab->getPos());
+	auto bLock = g.getLastThreadUnmatchedLockLAPOR(bLab->getPos());
+
+	/* If any of the two is _not_ in a CS, it is a race */
+	if (aLock.isInitializer() || bLock.isInitializer())
+		return true;
+
+	/* If both are in a CS, being in CSs of different locks is a race */
+	return llvm::dyn_cast<LockLabelLAPOR>(g.getEventLabel(aLock))->getLockAddr() !=
+	       llvm::dyn_cast<LockLabelLAPOR>(g.getEventLabel(bLock))->getLockAddr();
+}
+
 Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
@@ -445,8 +481,7 @@ Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 			continue;
 
 		auto *sLab = static_cast<const WriteLabel *>(g.getEventLabel(s));
-		if ((rLab->isNotAtomic() || sLab->isNotAtomic()) &&
-		    rLab->getPos() != sLab->getPos())
+		if (areInDataRace(rLab, sLab))
 			return s; /* Race detected! */
 	}
 	return Event::getInitializer(); /* Race not found */
@@ -460,16 +495,11 @@ Event RC11Driver::findRaceForNewStore(const WriteLabel *wLab)
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
-
-			/* If they are both atomics, nothing to check */
-			if (!wLab->isNotAtomic() && !oLab->isNotAtomic())
-				continue;
 			if (!llvm::isa<MemAccessLabel>(oLab))
 				continue;
 
 			auto *mLab = static_cast<const MemAccessLabel *>(oLab);
-			if (mLab->getAddr() == wLab->getAddr() &&
-			    mLab->getPos() != wLab->getPos())
+			if (areInDataRace(wLab, mLab))
 				return mLab->getPos(); /* Race detected */
 		}
 	}
