@@ -29,8 +29,7 @@ public:
 
 	IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		  std::vector<Library> &granted, std::vector<Library> &toVerify,
-		  clock_t start)
-		: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) {};
+		  clock_t start);
 
 	/* Creates a label for a plain read to be added to the graph */
 	std::unique_ptr<ReadLabel>
@@ -149,8 +148,6 @@ private:
 	void calcRMWWriteMsgView(WriteLabel *lab);
 	void calcBasicFenceViews(FenceLabel *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
-
-	Matrix2D<Event> getARMatrix();
 };
 
 #endif /* __IMM_WB_DRIVER_HPP__ */

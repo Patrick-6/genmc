@@ -19,6 +19,23 @@
  */
 
 #include "IMMDriver.hpp"
+#include "ARCalculator.hpp"
+#include "PSCCalculator.hpp"
+
+IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
+		     std::vector<Library> &granted, std::vector<Library> &toVerify,
+		     clock_t start)
+	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
+{
+	auto &gm = getGraphManager();
+
+	/* IMM requires acyclicity checks for both PSC and AR */
+	gm.addCalculator(llvm::make_unique<PSCCalculator>(gm),
+			 GraphManager::RelationId::psc, false);
+	gm.addCalculator(llvm::make_unique<ARCalculator>(gm),
+			 GraphManager::RelationId::ar, false);
+	return;
+}
 
 /* Calculates a minimal hb vector clock based on po for a given label */
 View IMMDriver::calcBasicHbView(Event e) const
@@ -594,19 +611,6 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
-Matrix2D<Event> IMMDriver::getARMatrix()
-{
-	const auto &g = getGraph();
-	auto events = g.collectAllEvents([&](const EventLabel *lab)
-					 { return llvm::isa<MemAccessLabel>(lab) ||
-					   llvm::isa<FenceLabel>(lab); });
-	Matrix2D<Event> ar(std::move(events));
-
-	g.populatePPoRfEntries(ar);
-	ar.transClosure();
-	return ar;
-}
-
 void IMMDriver::initConsCalculation()
 {
 	return;
@@ -615,27 +619,5 @@ void IMMDriver::initConsCalculation()
 bool IMMDriver::isExecutionValid()
 {
 	const auto &g = getGraph();
-	Matrix2D<Event> ar = getARMatrix();
-
 	BUG();
-	auto scs = std::make_pair(std::vector<Event>(), std::vector<Event>()); // g.getSCs();
-
-	auto &fcs = scs.second;
-
-	std::function<bool(const Matrix2D<Event>&)> check =
-		[&](const Matrix2D<Event> &psc) -> bool {
-		auto basicAr = ar;
-		if (!psc.isIrreflexive())
-			return false;
-		for (auto &f1 : fcs) {
-			for (auto &f2 : fcs)
-				if (psc(f1, f2))
-					basicAr(f1, f2) = true;
-		}
-		basicAr.transClosure();
-		return basicAr.isIrreflexive();
-	};
-
-	BUG();
-	// return g.checkPscCondition(CheckPSCType::full, check);
 }

@@ -524,10 +524,9 @@ bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 	    p == getConf()->checkConsPoint)
 		return true;
 
-	/* LAPOR requires consistency checks at each step.
-	 * (If we are at the end of an execution, if we were to check
-	 * consistency, the previous if would have fired.) */
-	if (getConf()->LAPOR && p != ProgramPoint::exec)
+	/* LAPOR requires consistency checks at each step, and at the
+	 * end of an execution, when popping an alternative rf option */
+	if (getConf()->LAPOR)
 		return true;
 
 	return false;

@@ -43,7 +43,7 @@ class PSCCalculator;
 class GraphManager {
 
 public:
-	enum class RelationId { hb, co, lb, psc };
+	enum class RelationId { hb, co, lb, psc, ar };
 
 	/* Constructors */
 	GraphManager() = delete;
