@@ -233,8 +233,15 @@ protected:
 					 const llvm::GenericValue *a,
 					 const llvm::Type *t);
 
+	/* Returns true if we should check consistency at p */
+	bool shouldCheckCons(ProgramPoint p);
+
+	/* Returns true if full consistency needs to be checked at p.
+	 * Assumes that consistency needs to be checked anyway. */
+	bool shouldCheckFullCons(ProgramPoint p);
+
 	/* Returns true if a is hb-before b */
-	bool isHbBefore(Event a, Event b);
+	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
 private:
 	/*** Worklist-related ***/
@@ -301,7 +308,7 @@ private:
 	const EventLabel *getCurrentLabel() const;
 
 	/* Returns true if the current graph is consistent */
-	bool isConsistent(bool checkFull = false);
+	bool isConsistent(ProgramPoint p);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -335,8 +342,14 @@ private:
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
 
-	/* Removes rfs from "rfs" until a consistent option for rLab is found */
+	/* Removes rfs from "rfs" until a consistent option for rLab is found,
+	 * if that is dictated by the CLI options */
 	void ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+
+	/* Makes sure that the current graph is consistent, if that is dictated
+	 * by the CLI options. Since that is not always the case for stores
+	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
+	bool ensureConsistentStore(const WriteLabel *wLab);
 
 	std::vector<Event>
 	getLibConsRfsInView(const Library &lib, Event read,
@@ -500,9 +513,6 @@ private:
 
 	/* Should return true if the current graph is consistent */
 	virtual bool isExecutionValid() = 0;
-
-	/* Returns true if consistency can be trivially determined (fastpath) */
-	virtual bool isTriviallyConsistent() const = 0;
 
 	/* Performs the necessary initializations for the
 	 * consistency calculation */

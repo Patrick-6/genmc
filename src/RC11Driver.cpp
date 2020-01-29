@@ -572,13 +572,6 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 	return true;
 }
 
-bool RC11Driver::isTriviallyConsistent() const
-{
-	if (getConf()->LAPOR)
-		return false;
-	return true;
-}
-
 void RC11Driver::initConsCalculation()
 {
 	return;

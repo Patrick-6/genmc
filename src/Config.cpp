@@ -66,14 +66,23 @@ static llvm::cl::opt<std::string>
 clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("file"),
 	       llvm::cl::cat(clGeneral),
 	       llvm::cl::desc("Dumps an error graph to a file (DOT format)"));
-static llvm::cl::opt<CheckPSCType>
-clCheckPscAcyclicity("check-psc-acyclicity", llvm::cl::init(CheckPSCType::nocheck), llvm::cl::cat(clGeneral),
-		     llvm::cl::desc("Check whether PSC is acyclic at the end of each execution"),
-		     llvm::cl::values(
-			     clEnumValN(CheckPSCType::nocheck, "none", "Disable PSC checks"),
-			     clEnumValN(CheckPSCType::weak,    "weak", "Check PSC-weak"),
-			     clEnumValN(CheckPSCType::wb,      "wb",   "Check PSC-wb"),
-			     clEnumValN(CheckPSCType::full,    "full", "Check complete PSC")
+static llvm::cl::opt<CheckConsType>
+clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::approx), llvm::cl::cat(clGeneral),
+		llvm::cl::desc("Type of consistency checks"),
+		llvm::cl::values(
+			clEnumValN(CheckConsType::approx, "approx", "Approximate checks"),
+			clEnumValN(CheckConsType::full,   "full",   "Full checks")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+		    , NULL
+#endif
+		    ));
+static llvm::cl::opt<ProgramPoint>
+clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error), llvm::cl::cat(clGeneral),
+		 llvm::cl::desc("Points at which consistency is checked"),
+		 llvm::cl::values(
+			 clEnumValN(ProgramPoint::error, "error", "At errors only"),
+			 clEnumValN(ProgramPoint::exec,  "exec",  "At the end of each execution"),
+			 clEnumValN(ProgramPoint::step,  "step",  "At each program step")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		    , NULL
 #endif
@@ -153,7 +162,8 @@ void Config::getConfigOptions(int argc, char **argv)
 	coherence = clCoherenceType;
 	LAPOR = clLAPOR;
 	printErrorTrace = clPrintErrorTrace;
-	checkPscAcyclicity = clCheckPscAcyclicity;
+	checkConsType = clCheckConsType;
+	checkConsPoint = clCheckConsPoint;
 	disableRaceDetection = clDisableRaceDetection;
 
 	/* Save transformation options */

@@ -607,13 +607,6 @@ Matrix2D<Event> IMMDriver::getARMatrix()
 	return ar;
 }
 
-bool IMMDriver::isTriviallyConsistent() const
-{
-	if (getConf()->LAPOR)
-		return false;
-	return true;
-}
-
 void IMMDriver::initConsCalculation()
 {
 	return;

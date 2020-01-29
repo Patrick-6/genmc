@@ -253,9 +253,8 @@ void GenMCDriver::handleFinishedExecution()
 	}
 
 	const auto &g = getGraph();
-	if (userConf->checkPscAcyclicity != CheckPSCType::nocheck &&
-	    !isConsistent(true))
-	    // !g.isPscAcyclic(userConf->checkPscAcyclicity))
+	if (userConf->checkConsPoint == ProgramPoint::exec &&
+	    !isConsistent(ProgramPoint::exec))
 		return;
 	if (userConf->printExecGraphs)
 		printGraph();
@@ -455,7 +454,7 @@ void GenMCDriver::visitGraph()
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = revisitReads(p) && isConsistent();
+			validExecution = revisitReads(p) && isConsistent(ProgramPoint::exec);
 		} while (!validExecution);
 	}
 }
@@ -518,9 +517,32 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	return result;
 }
 
-bool GenMCDriver::isHbBefore(Event a, Event b)
+bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 {
-	if (isTriviallyConsistent())
+	/* Always check consistency on error */
+	if (p == ProgramPoint::error ||
+	    p == getConf()->checkConsPoint)
+		return true;
+
+	/* LAPOR requires consistency checks at each step.
+	 * (If we are at the end of an execution, if we were to check
+	 * consistency, the previous if would have fired.) */
+	if (getConf()->LAPOR && p != ProgramPoint::exec)
+		return true;
+
+	return false;
+}
+
+bool GenMCDriver::shouldCheckFullCons(ProgramPoint p)
+{
+	if (p == ProgramPoint::error || getConf()->checkConsType == CheckConsType::full)
+		return true;
+	return false;
+}
+
+bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
+{
+	if (shouldCheckCons(p) == false)
 		return getGraph().getEventLabel(a)->getHbView().contains(b);
 
 	return getGraphManager().getGlobalRelation(GraphManager::RelationId::hb)(a, b);
@@ -646,11 +668,14 @@ void GenMCDriver::checkAccessValidity()
 	return;
 }
 
-bool GenMCDriver::isConsistent(bool checkFull /* = false */)
+bool GenMCDriver::isConsistent(ProgramPoint p)
 {
 	/* Fastpath: No fixpoint is required */
-	if (!checkFull && isTriviallyConsistent())
+	auto check = shouldCheckCons(p);
+	if (!check)
 		return true;
+
+	auto checkFull = shouldCheckFullCons(p);
 
 	/* The specific instance will populate the necessary entries
 	 * in the manager */
@@ -769,13 +794,23 @@ void GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	while (!found) {
 		found = true;
 		changeRf(rLab->getPos(), rfs[0]);
-		if (!isConsistent()) {
+		if (!isConsistent(ProgramPoint::step)) {
 			found = false;
 			rfs.erase(rfs.begin());
 			BUG_ON(rfs.empty());
 		}
 	}
 	return;
+}
+
+bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
+{
+	if (shouldCheckCons(ProgramPoint::step) && !isConsistent(ProgramPoint::step)) {
+		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
+			getEE()->getThrById(i).block();
+		return false;
+	}
+	return true;
 }
 
 llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
@@ -1029,12 +1064,9 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	}
 	calcRevisits(lab);
 
-	/* If LAPOR is enabled, make sure that the execution is valid */
-	if (userConf->LAPOR && !isConsistent()) {
-		for (auto i = 0u; i < g.getNumThreads(); i++)
-			EE->getThrById(i).block();
+	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
+	if (!ensureConsistentStore(lab))
 		return;
-	}
 
 	/* Check whether a valid address is accessed, and whether there are races */
 	checkAccessValidity();
@@ -1160,7 +1192,7 @@ void GenMCDriver::visitError(std::string err, Event confEvent,
 	auto &thr = getEE()->getCurThr();
 
 	/* If the execution that led to the error is not consistent, block */
-	if (!isConsistent(true)) {
+	if (!isConsistent(ProgramPoint::error)) {
 		thr.block();
 		return;
 	}

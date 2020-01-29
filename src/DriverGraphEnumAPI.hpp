@@ -21,7 +21,13 @@
 #ifndef __DRIVER_GRAPH_ENUM_API_HPP__
 #define __DRIVER_GRAPH_ENUM_API_HPP__
 
+/* Types of coherence */
 enum class CoherenceType { mo, wb };
-enum class CheckPSCType { nocheck, weak, wb, full };
+
+/* Whether we should approximate consistency checks when we get the chance */
+enum class CheckConsType { approx, full };
+
+/* Points of the program (at which consistency can be checked) */
+enum class ProgramPoint { step, exec, error };
 
 #endif /* __DRIVER_GRAPH_ENUM_API_HPP__ */

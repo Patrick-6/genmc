@@ -32,14 +32,6 @@ class PSCCalculator : public Calculator {
 public:
 	PSCCalculator(GraphManager &m) : Calculator(m) {}
 
-	/* Checks whether the provided condition "cond" holds for PSC.
-	 * The calculation type (e.g., weak, full, etc) is determined by "t" */
-	template <typename F>
-	bool checkPscCondition(CheckPSCType t, F cond) const;
-
-	/* Returns true if PSC is acyclic */
-	bool isPscAcyclic(CheckPSCType t) const;
-
 	/* Overrided Calculator methods */
 
 	/* Initialize necessary matrices */
@@ -112,10 +104,6 @@ private:
 	void addInitEdges(const std::vector<Event> &fcs,
 			  Matrix2D<Event> &matrix) const;
 	void addSbHbEdges(Matrix2D<Event> &matrix) const;
-	template <typename F>
-	bool addEcoEdgesAndCheckCond(CheckPSCType t,
-				     const std::vector<Event> &fcs,
-				     Matrix2D<Event> &psc, F cond) const;
 
 	Calculator::CalculationResult addPscConstraints();
 	void calcPscRelation();

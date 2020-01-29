@@ -147,8 +147,6 @@ public:
 
 	bool updateJoin(Event join, Event childLast) override;
 
-	bool isTriviallyConsistent() const override;
-
 	void initConsCalculation() override;
 
 	bool doFinalConsChecks(bool checkFull = false) override;
