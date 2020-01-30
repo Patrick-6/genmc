@@ -51,7 +51,9 @@ void ARCalculator::initCalc()
 
 	auto events = g.collectAllEvents([&](const EventLabel *lab)
 					 { return llvm::isa<MemAccessLabel>(lab) ||
-					   llvm::isa<FenceLabel>(lab); });
+					   llvm::isa<FenceLabel>(lab) ||
+					   llvm::isa<LockLabelLAPOR>(lab) ||
+					   llvm::isa<UnlockLabelLAPOR>(lab); });
 	ar = Matrix2D<Event>(std::move(events));
 	g.populatePPoRfEntries(ar);
 	ar.transClosure();

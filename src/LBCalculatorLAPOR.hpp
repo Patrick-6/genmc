@@ -37,10 +37,6 @@ public:
 	/* Adds a lock to the maintained list */
 	void addLockToList(const llvm::GenericValue *addr, const Event lock);
 
-	/* Returns the first memory access event in the critical section
-	 * that "lock" opens */
-	Event getFirstMemAccessInCS(const Event lock) const;
-
 	/* Returns the last memory access event in the critical section
 	 * that "lock" opens */
 	Event getLastMemAccessInCS(const Event lock) const;

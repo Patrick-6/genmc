@@ -11,23 +11,27 @@
 #endif
 
 static int num_threads;
+int param[MAX_THREADS + 1];
 pthread_t threads[MAX_THREADS + 1];
+
+int __thread tid;
+
+void set_thread_num(int i)
+{
+	tid = i;
+}
 
 int get_thread_num()
 {
-	pthread_t curr = pthread_self();
-	for (int i = 0; i <= num_threads; i++)
-		if (curr == threads[i])
-			return i;
-	assert(0);
-	return -1;
+	return tid;
 }
 
 DEFINE_HEAP(myheap);
 
-void *thread_n(void *unused)
+void *thread_n(void *tid)
 {
-	int t = get_thread_num();
+	int t = (*(int *) tid);
+	set_thread_num(t);
 
 	if (t % 2 == 0)
 		add(&myheap, t * 2, t);

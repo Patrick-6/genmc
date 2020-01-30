@@ -8,11 +8,13 @@
 int main()
 {
 	num_threads = N;
-	threads[0] = pthread_self();
+	for (int j = 0; j < num_threads; j++)
+		param[j] = j;
 
 	add(&myheap, 0, 0);
+
 	for (int i = 0; i < num_threads; i++)
-		if (pthread_create(&threads[i + 1], NULL, thread_n, NULL))
+		if (pthread_create(&threads[i + 1], NULL, thread_n, &param[i]))
 			abort();
 
 	for (int i = 0; i < num_threads; i++)

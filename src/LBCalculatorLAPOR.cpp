@@ -20,26 +20,6 @@
 
 #include "LBCalculatorLAPOR.hpp"
 
-Event LBCalculatorLAPOR::getFirstMemAccessInCS(const Event lock) const
-{
-	const auto &g = getGraphManager().getGraph();
-	const EventLabel *lab = g.getEventLabel(lock);
-	BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
-	auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
-
-	for (auto i = lLab->getIndex() + 1u; i < g.getThreadSize(lLab->getThread()); i++) {
-		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
-
-		if (llvm::isa<MemAccessLabel>(eLab))
-			return eLab->getPos();
-		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(eLab)) {
-			if (uLab->getLockAddr() == lLab->getLockAddr())
-				return Event::getInitializer();
-		}
-	}
-	return Event::getInitializer();
-}
-
 Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 {
 	const auto &g = getGraphManager().getGraph();
@@ -51,17 +31,21 @@ Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 	for (i = lLab->getIndex() + 1u; i < g.getThreadSize(lLab->getThread()); i++) {
 		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
 
+		/* If this is a matching unlock, return it */
 		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(eLab)) {
 			if (uLab->getLockAddr() == lLab->getLockAddr())
-				break;
+				return uLab->getPos();
 		}
 	}
-	for (--i; i > lLab->getIndex(); i--) {
+	/* Else, we have reached the end of the thread; we will start backtracking */
+	for (--i; i >= lLab->getIndex(); i--) {
 		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
 
 		if (llvm::isa<MemAccessLabel>(eLab))
 			return eLab->getPos();
 	}
+	/* The lock label should be returned, if no other access is found */
+	BUG();
 	return Event::getInitializer();
 }
 
@@ -99,18 +83,14 @@ bool LBCalculatorLAPOR::addLbConstraints()
 	for (auto &lbLoc : lbRelation) {
 		for (auto &l : lbLoc.second) {
 			auto ul = getLastMemAccessInCS(l);
-			if (ul == Event::getInitializer())
-				continue;
 
 			auto lIndex = lbLoc.second.getIndex(l);
 			for (auto &o : lbLoc.second) {
 				if (!lbLoc.second(lIndex, o))
 					continue;
-				auto o1 = getFirstMemAccessInCS(o);
-				if (o1 != Event::getInitializer() &&
-				    !hbRelation(ul, o1)) {
+				if (!hbRelation(ul, o)) {
 					changed = true;
-					hbRelation(ul, o1) = true;
+					hbRelation(ul, o) = true;
 				}
 			}
 		}
@@ -182,9 +162,6 @@ void LBCalculatorLAPOR::calcLbRelation()
 			auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
 
 			auto ul = getLastMemAccessInCS(l);
-			if (ul == Event::getInitializer())
-				continue;
-
 			for (auto i = l.index; i <= ul.index; i++) { /* l.index >= 0 */
 				const EventLabel *lab = g.getEventLabel(Event(l.thread, i));
 				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))

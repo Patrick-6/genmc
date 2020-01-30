@@ -1147,7 +1147,6 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	if (thr.tls.count(ptr)) {
 		SetValue(&I, thr.tls[ptr], SF);
 		return;
-
 	}
 
 	/* Otherwise, set the dependencies for this instruction.. */

@@ -163,7 +163,9 @@ void GraphManager::doInits(bool full /* = false */)
 {
 	auto events = getGraph().collectAllEvents([&](const EventLabel *lab)
 						  { return llvm::isa<MemAccessLabel>(lab) ||
-						    llvm::isa<FenceLabel>(lab); });
+						    llvm::isa<FenceLabel>(lab) ||
+						    llvm::isa<LockLabelLAPOR>(lab) ||
+						    llvm::isa<UnlockLabelLAPOR>(lab); });
 
 	auto &hb = globalRelations[relationIndex[RelationId::hb]];
 	hb = Matrix2D<Event>(std::move(events));
