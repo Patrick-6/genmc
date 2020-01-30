@@ -136,8 +136,6 @@ public:
 
 	void initConsCalculation() override;
 
-	bool isExecutionValid() override;
-
 private:
 
 	View calcBasicHbView(Event e) const;

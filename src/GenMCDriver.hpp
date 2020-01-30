@@ -511,16 +511,13 @@ private:
 	 * views of the join, or false otherwise */
 	virtual bool updateJoin(Event join, Event childLast) = 0;
 
-	/* Should return true if the current graph is consistent */
-	virtual bool isExecutionValid() = 0;
-
 	/* Performs the necessary initializations for the
 	 * consistency calculation */
 	virtual void initConsCalculation() = 0;
 
 	/* Does some final consistency checks after the fixpoint is over,
 	 * and returns the final decision re. consistency */
-	virtual bool doFinalConsChecks(bool checkFull = false) { return true; };
+	virtual bool doFinalConsChecks(bool checkFull = false);
 
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;

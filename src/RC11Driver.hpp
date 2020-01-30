@@ -149,10 +149,6 @@ public:
 
 	void initConsCalculation() override;
 
-	bool doFinalConsChecks(bool checkFull = false) override;
-
-	bool isExecutionValid() override;
-
 private:
 	/* Returns true if aLab and bLab are in an RC11 data race*/
 	bool areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab);

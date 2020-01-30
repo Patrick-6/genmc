@@ -615,9 +615,3 @@ void IMMDriver::initConsCalculation()
 {
 	return;
 }
-
-bool IMMDriver::isExecutionValid()
-{
-	const auto &g = getGraph();
-	BUG();
-}
