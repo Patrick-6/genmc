@@ -333,61 +333,6 @@ const View &ExecutionGraph::getHbPoBefore(Event e) const
 	return getPreviousNonEmptyLabel(e)->getHbView();
 }
 
-void ExecutionGraph::calcHbRfBefore(Event e, const llvm::GenericValue *addr,
-				    View &a) const
-{
-	if (a.contains(e))
-		return;
-	int ai = a[e.thread];
-	a[e.thread] = e.index;
-	for (int i = ai + 1; i <= e.index; i++) {
-		const EventLabel *lab = getEventLabel(Event(e.thread, i));
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (rLab->getAddr() == addr ||
-			    rLab->getHbView().contains(rLab->getRf()))
-				calcHbRfBefore(rLab->getRf(), addr, a);
-		} else if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
-			calcHbRfBefore(bLab->getParentCreate(), addr, a);
-		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
-			calcHbRfBefore(jLab->getChildLast(), addr, a);
-		}
-	}
-	return;
-}
-
-View ExecutionGraph::getHbRfBefore(const std::vector<Event> &es) const
-{
-	View a;
-
-	for (auto &e : es) {
-		const EventLabel *lab = getEventLabel(e);
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			calcHbRfBefore(e, rLab->getAddr(), a);
-		} else {
-			a.update(lab->getHbView());
-		}
-	}
-	return a;
-}
-
-void ExecutionGraph::calcRelRfPoBefore(Event last, View &v) const
-{
-	for (auto i = last.index; i > 0; i--) {
-		const EventLabel *lab = getEventLabel(Event(last.thread, i));
-		if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire())
-			return;
-		if (!llvm::isa<ReadLabel>(lab))
-			continue;
-		auto *rLab = static_cast<const ReadLabel *>(lab);
-		if (rLab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
-		    rLab->getOrdering() == llvm::AtomicOrdering::Release) {
-			const EventLabel *rfLab = getEventLabel(rLab->getRf());
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-				v.update(wLab->getMsgView());
-		}
-	}
-}
-
 #define IMPLEMENT_POPULATE_ENTRIES(MATRIX, GET_VIEW)			\
 do {								        \
 									\

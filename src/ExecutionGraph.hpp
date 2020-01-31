@@ -179,7 +179,6 @@ public:
 	const View &getHbBefore(Event e) const;
 	const View &getHbPoBefore(Event e) const;
 	View getHbBefore(const std::vector<Event> &es) const;
-	View getHbRfBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
 
@@ -332,8 +331,6 @@ protected:
 	};
 
 	void calcPorfAfter(const Event e, View &a);
-	void calcHbRfBefore(Event e, const llvm::GenericValue *addr, View &a) const;
-	void calcRelRfPoBefore(const Event last, View &v) const;
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 			    std::vector<Event> &tos);
 	void getRfEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
