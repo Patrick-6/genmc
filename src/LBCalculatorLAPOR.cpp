@@ -221,10 +221,20 @@ Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 		}
 	}
 
-	/* Check that co is acyclic */
+	/* Check that co is acyclic, and that it does not contradict hb */
 	for (auto &coLoc : coRelation) {
 		if (!coLoc.second.isIrreflexive())
 			return Calculator::CalculationResult(changed, false);
+		for (auto &s1 : coLoc.second.getElems())
+			for (auto &s2 : coLoc.second.getElems()) {
+				if (coLoc.second(s1, s2) && hbRelation(s2, s1))
+					return Calculator::CalculationResult(changed, false);
+				if (coLoc.second(s1, s2) && g.isWriteRfBeforeRel(hbRelation, s2, s1))
+					return Calculator::CalculationResult(changed, false);
+				if (coLoc.second(s1, s2) && g.isHbOptRfBeforeRel(hbRelation, s2, s1))
+					return Calculator::CalculationResult(changed, false);
+			}
+
 	}
 	return Calculator::CalculationResult(changed, true);
 }

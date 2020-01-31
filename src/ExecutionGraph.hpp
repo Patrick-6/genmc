@@ -200,6 +200,13 @@ public:
 	bool isHbOptRfBeforeInView(const Event e, const Event write,
 				   const VectorClock &v) const;
 
+	/* Returns true if e is hb-before w, or any of the reads that read from w
+	 * in the relation "rel".
+	 * Pre: all examined events need to be a part of rel */
+	template <typename F = bool (*)(Event)>
+	bool isHbOptRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+				F prop = [](Event e){ return true; }) const;
+
 	/* Returns true if a (or any of the reads reading from a) is hb-before b */
 	bool isWriteRfBefore(Event a, Event b) const;
 
@@ -356,8 +363,26 @@ private:
 };
 
 template <typename F>
+bool ExecutionGraph::isHbOptRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+					F prop /* = [](Event e){ return true; } */) const
+{
+	if (rel(a, b))
+		return true;
+
+	const EventLabel *lab = getEventLabel(b);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *wLab = static_cast<const WriteLabel *>(lab);
+	for (auto &r : wLab->getReadersList()) {
+		if (prop(r) && rel(a, r))
+			return true;
+	}
+	return false;
+}
+
+template <typename F>
 bool ExecutionGraph::isWriteRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
-					F prop /* = [&](Event e){ return true; }*/) const
+					F prop /* = [&](Event e){ return true; } */) const
 {
 	if (rel(a, b))
 		return true;
