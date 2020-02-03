@@ -19,7 +19,6 @@
  */
 
 #include "PSCCalculator.hpp"
-#include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
 
 std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
@@ -183,68 +182,43 @@ void PSCCalculator::addMoRfEdges(const std::vector<Event> &fcs,
 }
 
 /*
- * addSCEcos - Helper function that calculates a part of PSC_base and PSC_fence
+ * addSCEcosLoc - Helper function that calculates a part of PSC_base and PSC_fence
  *
- * For PSC_base and PSC_fence, it adds mo, rb, and hb_loc edges. The
- * procedure for mo and rb is straightforward: at each point, we only
- * need to keep a list of all the mo-after writes that are either SC,
+ * For PSC_base and PSC_fence, it adds co, rb, and hb_loc edges. The
+ * procedure for co and rb is straightforward: at each point, we only
+ * need to keep a list of all the co-after writes that are either SC,
  * or can reach an SC fence. For hb_loc, however, we only consider
- * rf-edges because the other cases are implicitly covered (sb, mo, etc).
+ * rf-edges because the other cases are implicitly covered (sb, co, etc).
  *
- * For PSC_fence only, it adds (mo;rf)- and (rb;rf)-edges. Simple cases like
- * mo, rf, and rb are covered by PSC_base, and all other combinations with
+ * For PSC_fence only, it adds (co;rf)- and (rb;rf)-edges. Simple cases like
+ * co, rf, and rb are covered by PSC_base, and all other combinations with
  * more than one step either do not compose, or lead to an already added
- * single-step relation (e.g, (rf;rb) => mo, (rb;mo) => rb)
+ * single-step relation (e.g, (rf;rb) => co, (rb;co) => rb)
  */
-void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
-			       const std::vector<Event> &mo,
-			       Matrix2D<Event> &matrix) const
+void PSCCalculator::addSCEcosLoc(const std::vector<Event> &fcs,
+				 Matrix2D<Event> &coMatrix,
+				 Matrix2D<Event> &pscMatrix) const
 {
-	std::vector<Event> moAfter;   /* mo-after SC writes or SC fences reached by an mo-after write */
-	std::vector<Event> moRfAfter; /* SC fences that can be reached by (mo;rf)-after reads */
-
-	for (auto rit = mo.rbegin(); rit != mo.rend(); rit++) {
-
-		/* First, add edges to SC events that are (mo U rb);rf?-after this write */
-		addRbEdges(fcs, moAfter, moRfAfter, matrix, *rit);
-		addMoRfEdges(fcs, moAfter, moRfAfter, matrix, *rit);
-
-		/* Then, update the lists of mo and mo;rf SC successors */
-		auto succs = calcSCSuccs(fcs, *rit);
-		auto fenceRfs = calcRfSCFencesSuccs(fcs, *rit);
-		moAfter.insert(moAfter.end(), succs.begin(), succs.end());
-		moRfAfter.insert(moRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
-	}
-}
-
-/*
- * Similar to addSCEcos but uses a partial order among stores (WB) to
- * add coherence (mo/wb) and rb edges.
- */
-void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
-			       Matrix2D<Event> &wbMatrix,
-			       Matrix2D<Event> &pscMatrix) const
-{
-	auto &stores = wbMatrix.getElems();
+	auto &stores = coMatrix.getElems();
 	for (auto i = 0u; i < stores.size(); i++) {
 
 		/*
-		 * Calculate which of the stores are wb-after the current
-		 * write, and then collect wb-after and (wb;rf)-after SC successors
+		 * Calculate which of the stores are co-after the current
+		 * write, and then collect co-after and (co;rf)-after SC successors
 		 */
-		std::vector<Event> wbAfter, wbRfAfter;
+		std::vector<Event> coAfter, coRfAfter;
 		for (auto j = 0u; j < stores.size(); j++) {
-			if (wbMatrix(i, j)) {
+			if (coMatrix(i, j)) {
 				auto succs = calcSCSuccs(fcs, stores[j]);
 				auto fenceRfs = calcRfSCFencesSuccs(fcs, stores[j]);
-				wbAfter.insert(wbAfter.end(), succs.begin(), succs.end());
-				wbRfAfter.insert(wbRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
+				coAfter.insert(coAfter.end(), succs.begin(), succs.end());
+				coRfAfter.insert(coRfAfter.end(), fenceRfs.begin(), fenceRfs.end());
 			}
 		}
 
-		/* Then, add the proper edges to PSC using wb-after and (wb;rf)-after successors */
-		addRbEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
-		addMoRfEdges(fcs, wbAfter, wbRfAfter, pscMatrix, stores[i]);
+		/* Then, add the proper edges to PSC using co-after and (co;rf)-after successors */
+		addRbEdges(fcs, coAfter, coRfAfter, pscMatrix, stores[i]);
+		addMoRfEdges(fcs, coAfter, coRfAfter, pscMatrix, stores[i]);
 	}
 }
 
@@ -337,118 +311,17 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 	return;
 }
 
-void PSCCalculator::addSCEcosNEW(const std::vector<Event> &fcs,
-				 const std::vector<const llvm::GenericValue *> &scLocs,
-				 Matrix2D<Event> &matrix) const
+void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
+			      const std::vector<const llvm::GenericValue *> &scLocs,
+			      Matrix2D<Event> &matrix) const
 {
 	auto &gm = getGraphManager();
 	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 
 	for (auto loc : scLocs)
-		addSCEcos(fcs, coRelation[loc], matrix);
+		addSCEcosLoc(fcs, coRelation[loc], matrix);
 	matrix.transClosure();
 	return;
-}
-
-template <typename F>
-bool PSCCalculator::addSCEcosMO(const std::vector<Event> &fcs,
-				 const std::vector<const llvm::GenericValue *> &scLocs,
-				 Matrix2D<Event> &matrix, F cond) const
-{
-	auto &gm = getGraphManager();
-	BUG_ON(!llvm::isa<MOCoherenceCalculator>(gm.getCoherenceCalculator()));
-	for (auto loc : scLocs) {
-		auto &stores = gm.getStoresToLoc(loc); /* Will already be ordered... */
-		addSCEcos(fcs, stores, matrix);
-	}
-	matrix.transClosure();
-	return cond(matrix);
-}
-
-template <typename F>
-bool PSCCalculator::addSCEcosWBWeak(const std::vector<Event> &fcs,
-				     const std::vector<const llvm::GenericValue *> &scLocs,
-				     Matrix2D<Event> &matrix, F cond) const
-{
-	auto &gm = getGraphManager();
-	const auto *cc = gm.getCoherenceCalculator();
-
-	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
-	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
-	for (auto loc : scLocs) {
-		auto wb = cohTracker->calcWb(loc);
-		auto sortedStores = wb.topoSort();
-		addSCEcos(fcs, sortedStores, matrix);
-	}
-	matrix.transClosure();
-	return cond(matrix);
-}
-
-template <typename F>
-bool PSCCalculator::addSCEcosWB(const std::vector<Event> &fcs,
-				 const std::vector<const llvm::GenericValue *> &scLocs,
-				 Matrix2D<Event> &matrix, F cond) const
-{
-	auto &gm = getGraphManager();
-	const auto *cc = gm.getCoherenceCalculator();
-
-	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
-	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
-	for (auto loc : scLocs) {
-		auto wb = cohTracker->calcWb(loc);
-		addSCEcos(fcs, wb, matrix);
-	}
-	matrix.transClosure();
-	return cond(matrix);
-}
-
-template <typename F>
-bool PSCCalculator::addSCEcosWBFull(const std::vector<Event> &fcs,
-				     const std::vector<const llvm::GenericValue *> &scLocs,
-				     Matrix2D<Event> &matrix, F cond) const
-{
-	auto &gm = getGraphManager();
-	const auto *cc = gm.getCoherenceCalculator();
-
-	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
-	auto *cohTracker = static_cast<const WBCoherenceCalculator *>(cc);
-
-	std::vector<std::vector<std::vector<Event> > > topoSorts(scLocs.size());
-	for (auto i = 0u; i < scLocs.size(); i++) {
-		auto wb = cohTracker->calcWb(scLocs[i]);
-		// topoSorts[i] = wb.allTopoSort();
-	}
-
-	unsigned int K = topoSorts.size();
-	std::vector<unsigned int> count(K, 0);
-
-	/*
-	 * It suffices to find one combination for the WB extensions of all
-	 * locations, for which PSC is acyclic. This loop is like an odometer:
-	 * given an array that contains K vectors, we keep a counter for each
-	 * vector, and proceed by incrementing the rightmost counter. Like in
-	 * addition, if a carry is created, this is propagated to the left.
-	 */
-	while (count[0] < topoSorts[0].size()) {
-		/* Process current combination */
-		auto tentativePSC(matrix);
-		for (auto i = 0u; i < K; i++)
-			addSCEcos(fcs, topoSorts[i][count[i]], tentativePSC);
-
-		tentativePSC.transClosure();
-		if (cond(tentativePSC))
-			return true;
-
-		/* Find next combination */
-		++count[K - 1];
-		for (auto i = K - 1; (i > 0) && (count[i] == topoSorts[i].size()); --i) {
-			count[i] = 0;
-			++count[i - 1];
-		}
-	}
-
-	/* No valid MO combination found */
-	return false;
 }
 
 void PSCCalculator::calcPscRelation()
@@ -474,7 +347,7 @@ void PSCCalculator::calcPscRelation()
 	 * Collect memory locations with more than one SC accesses
 	 * and add the rest of PSC_base and PSC_fence
 	 */
-	addSCEcosNEW(fcs, getDoubleLocs(), pscRelation);
+	addSCEcos(fcs, getDoubleLocs(), pscRelation);
 	return;
 }
 
@@ -495,48 +368,6 @@ Calculator::CalculationResult PSCCalculator::addPscConstraints()
 								 !g.isRMWLoad(e); });
 	}
 	return result;
-	// auto &g = getGraphManager().getGraph();
-	// auto &scs = pscRelation.getElems();
-	// bool changed = false;
-
-	// for (auto &a : scs) {
-	// 	// if (!llvm::isa<WriteLabel>(g.getEventLabel(a)))
-	// 	// 	continue;
-	// 	if (!llvm::isa<MemAccessLabel>(g.getEventLabel(a)))
-	// 		continue;
-	// 	if (g.isRMWLoad(a))
-	// 		continue;
-
-	// 	auto *aLab = // static_cast<const WriteLabel *>(
-	// 		g.getEventLabel(a)// )
-	// 	;
-	// 	auto aIndex = pscRelation.getIndex(a);
-
-	// 	for (auto &b : scs) {
-	// 		// if (!llvm::isa<WriteLabel>(g.getEventLabel(b)))
-	// 		// 	continue;
-	// 		if (!llvm::isa<MemAccessLabel>(g.getEventLabel(b)))
-	// 			continue;
-	// 		if (g.isRMWLoad(b))
-	// 			continue;
-
-	// 		auto *bLab = // static_cast<const WriteLabel *>(
-	// 			g.getEventLabel(b)// )
-	// 		;
-	// 		// if (aLab->getAddr() != bLab->getAddr())
-	// 		// 	continue;
-	// 		if (!pscRelation(aIndex, b))
-	// 			continue;
-
-	// 		// if (!coRelation[aLab->getAddr()](a, b)) {
-	// 		if (!hbRelation(a, b)) {
-	// 			changed = true;
-	// 			// coRelation[aLab->getAddr()](a, b) = true;
-	// 			hbRelation(a, b) = true;
-	// 		}
-	// 	}
-	// }
-	// return changed;
 }
 
 void PSCCalculator::initCalc()

@@ -73,33 +73,13 @@ private:
 			  const std::vector<Event> &moAfter,
 			  const std::vector<Event> &moRfAfter,
 			  Matrix2D<Event> &matrix, const Event &e) const;
+	void addSCEcosLoc(const std::vector<Event> &fcs,
+			  Matrix2D<Event> &coMatrix,
+			  Matrix2D<Event> &pscMatrix) const;
+
 	void addSCEcos(const std::vector<Event> &fcs,
-		       const std::vector<Event> &mo,
+		       const std::vector<const llvm::GenericValue *> &scLocs,
 		       Matrix2D<Event> &matrix) const;
-	void addSCEcos(const std::vector<Event> &fcs,
-		       Matrix2D<Event> &wbMatrix,
-		       Matrix2D<Event> &pscMatrix) const;
-
-	void addSCEcosNEW(const std::vector<Event> &fcs,
-			  const std::vector<const llvm::GenericValue *> &scLocs,
-			  Matrix2D<Event> &matrix) const;
-
-	template <typename F>
-	bool addSCEcosMO(const std::vector<Event> &fcs,
-			 const std::vector<const llvm::GenericValue *> &scLocs,
-			 Matrix2D<Event> &psc, F cond) const;
-	template <typename F>
-	bool addSCEcosWBWeak(const std::vector<Event> &fcs,
-			     const std::vector<const llvm::GenericValue *> &scLocs,
-			     Matrix2D<Event> &psc, F cond) const;
-	template <typename F>
-	bool addSCEcosWB(const std::vector<Event> &fcs,
-			 const std::vector<const llvm::GenericValue *> &scLocs,
-			 Matrix2D<Event> &matrix, F cond) const;
-	template <typename F>
-	bool addSCEcosWBFull(const std::vector<Event> &fcs,
-			     const std::vector<const llvm::GenericValue *> &scLocs,
-			     Matrix2D<Event> &matrix, F cond) const;
 
 	void addInitEdges(const std::vector<Event> &fcs,
 			  Matrix2D<Event> &matrix) const;
