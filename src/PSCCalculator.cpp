@@ -230,7 +230,10 @@ void PSCCalculator::addSCEcosLoc(const std::vector<Event> &fcs,
  */
 void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &gm = getGraphManager();
+	auto &g = gm.getGraph();
+	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+
 	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
 		for (auto j = 0u; j < scs.size(); j++) {
@@ -269,7 +272,7 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 				if (auto *eiNextMLab =
 				    llvm::dyn_cast<MemAccessLabel>(eiNextLab)) {
 					if (eiMLab->getAddr() != eiNextMLab->getAddr() &&
-					    ejPrevMLab->getHbView().contains(eiNextMLab->getPos()))
+					    hbRelation(eiNextMLab->getPos(), ejPrevMLab->getPos()))
 						matrix(i, j) = true;
 				}
 			}
