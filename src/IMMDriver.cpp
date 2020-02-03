@@ -92,6 +92,27 @@ DepView IMMDriver::calcPPoView(Event e) /* not const */
 	return v;
 }
 
+void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
+{
+	if (!lab->isAtLeastRelease())
+		return;
+
+	const auto &g = getGraph();
+
+	pporf.removeAllHoles(lab->getThread());
+	Event rel = g.getLastThreadRelease(lab->getPos());
+	if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
+	    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
+		--rel.index;
+	for (auto i = rel.index; i < lab->getIndex(); i++) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
+			    g.getEventLabel(Event(lab->getThread(), i)))) {
+			pporf.update(rLab->getPPoRfView());
+		}
+	}
+	return;
+}
+
 void IMMDriver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
@@ -132,20 +153,8 @@ void IMMDriver::calcBasicWriteViews(WriteLabel *lab)
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
 		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
-
-	if (lab->isAtLeastRelease()) {
-		pporf.removeAllHoles(lab->getThread());
-		Event rel = g.getLastThreadRelease(lab->getPos());
-		if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
-		    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
-			--rel.index;
-		for (auto i = rel.index; i < lab->getIndex(); i++) {
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
-				    g.getEventLabel(Event(lab->getThread(), i)))) {
-				pporf.update(rLab->getPPoRfView());
-			}
-		}
-	}
+	if (lab->isAtLeastRelease())
+		updateRelView(pporf, lab);
 	pporf.update(g.getPPoRfBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
 								  lab->getAddr())));
 	lab->setPPoRfView(std::move(pporf));
@@ -222,16 +231,8 @@ void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
-	if (lab->isAtLeastRelease()) {
-		pporf.removeAllHoles(lab->getThread());
-		Event rel = g.getLastThreadRelease(lab->getPos());
-		for (auto i = rel.index; i < lab->getIndex(); i++) {
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(
-				    g.getEventLabel(Event(lab->getThread(), i)))) {
-				pporf.update(rLab->getPPoRfView());
-			}
-		}
-	}
+	if (lab->isAtLeastRelease())
+		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
@@ -522,17 +523,7 @@ IMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
-	pporf.removeAllHoles(lab->getThread());
-	Event rel = g.getLastThreadRelease(lab->getPos());
-	if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
-	    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
-		--rel.index;
-	for (auto i = rel.index; i < lab->getIndex(); i++) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(
-			    g.getEventLabel(Event(lab->getThread(), i)))) {
-			pporf.update(rLab->getPPoRfView());
-		}
-	}
+	updateRelView(pporf, lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
