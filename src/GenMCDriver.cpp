@@ -1211,9 +1211,6 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* 
 		BUG();
 	}
 
-	WARN_ON_ONCE(allocSize > 64, "malloc-alignment",
-		     "malloc()'s alignment larger than 64-bit! Limiting...\n");
-
 	/* Get a fresh address and also track this allocation */
 	allocBegin.PointerVal = EE->getFreshAddr(allocSize, isLocal);
 
