@@ -21,6 +21,7 @@
 #ifndef __GRAPH_MANAGER_HPP__
 #define __GRAPH_MANAGER_HPP__
 
+#include "AdjList.hpp"
 #include "Calculator.hpp"
 #include "ExecutionGraph.hpp"
 #include <unordered_map>
@@ -64,13 +65,13 @@ public:
 	const std::vector<const Calculator *> getPartialCalcs() const;
 
 	/* Returns a reference to the specified relation matrix */
-	Calculator::GlobalCalcMatrix& getGlobalRelation(RelationId id);
-	Calculator::PerLocCalcMatrix& getPerLocRelation(RelationId id);
+	Calculator::GlobalRelation& getGlobalRelation(RelationId id);
+	Calculator::PerLocRelation& getPerLocRelation(RelationId id);
 
 	/* Returns a reference to the cached version of the
 	 * specified relation matrix */
-	Calculator::GlobalCalcMatrix& getCachedGlobalRelation(RelationId id);
-	Calculator::PerLocCalcMatrix& getCachedPerLocRelation(RelationId id);
+	Calculator::GlobalRelation& getCachedGlobalRelation(RelationId id);
+	Calculator::PerLocRelation& getCachedPerLocRelation(RelationId id);
 
 	/* Caches all calculated relations. If "copy" is true then a
 	 * copy of each relation is cached */
@@ -143,10 +144,10 @@ private:
 	std::vector<int> partialConsCalculators;
 
 	/* The relation matrices (and caches) maintained in the manager */
-	std::vector<Calculator::GlobalCalcMatrix> globalRelations;
-	std::vector<Calculator::GlobalCalcMatrix> globalRelationsCache;
-	std::vector<Calculator::PerLocCalcMatrix> perLocRelations;
-	std::vector<Calculator::PerLocCalcMatrix> perLocRelationsCache;
+	std::vector<Calculator::GlobalRelation> globalRelations;
+	std::vector<Calculator::GlobalRelation> globalRelationsCache;
+	std::vector<Calculator::PerLocRelation> perLocRelations;
+	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
 
 	/* Keeps track of calculator indices */
 	std::unordered_map<RelationId, unsigned int> calculatorIndex;
@@ -158,6 +159,6 @@ private:
 
 #include "CoherenceCalculator.hpp"
 #include "LBCalculatorLAPOR.hpp"
-#include "PSCCalculator.hpp"
+// #include "PSCCalculator.hpp"
 
 #endif /* __GRAPH_MANAGER_HPP__ */

@@ -111,15 +111,14 @@ void AdjList<T, H>::dfs(FC&& onCycle, FN&& onNeighbor, FE&& atExplored, FEND&& a
 }
 
 template<typename T, typename H>
-template<typename F>
-std::vector<T> AdjList<T, H>::topoSort(F&& onSort)
+std::vector<T> AdjList<T, H>::topoSort()
 {
 	std::vector<T> sort;
 
 	dfs([&](NodeId i, Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
 		std::vector<Timestamp> &f){ BUG(); }, /* onCycle */
-	    [&](NodeId j, Timestamp &t, std::vector<NodeStatus> &m,
+	    [&](NodeId i, NodeId j, Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
 		std::vector<Timestamp> &f){ return; }, /* onNeighbor*/
 	    [&](NodeId i, Timestamp &t, std::vector<NodeStatus> &m,
@@ -130,15 +129,17 @@ std::vector<T> AdjList<T, H>::topoSort(F&& onSort)
 	    [&](Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
 		std::vector<Timestamp> &f){ return; } /* atEnd*/);
-	return std::reverse(sort.begin(), sort.end());
+
+	std::reverse(sort.begin(), sort.end());
+	return sort;
 }
 
 template<typename T, typename H>
 template<typename F>
 bool AdjList<T, H>::allTopoSortUtil(std::vector<T> &current,
-				 std::vector<bool> visited,
-				 std::vector<int> &inDegree,
-				 F&& prop, bool &found) const
+				    std::vector<bool> visited,
+				    std::vector<unsigned int> &inDegree,
+				    F&& prop, bool &found) const
 {
 	/* If we have already found a sorting satisfying "prop", return */
 	if (found)
@@ -297,6 +298,18 @@ void AdjList<T, H>::transClosure()
 
 	calculatedTransC = true;
 	return;
+}
+
+template<typename T, typename H>
+bool AdjList<T, H>::isIrreflexive()
+{
+	if (!calculatedTransC)
+		transClosure();
+
+	for (auto i = 0u; i < getElems().size(); i++)
+		if (transC[i][i])
+			return false;
+	return true;
 }
 
 template<typename T, typename H>

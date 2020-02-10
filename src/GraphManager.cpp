@@ -24,8 +24,8 @@
 
 GraphManager::GraphManager(std::unique_ptr<ExecutionGraph> g) : graph(std::move(g))
 {
-	globalRelations.push_back(Calculator::GlobalCalcMatrix());
-	globalRelationsCache.push_back(Calculator::GlobalCalcMatrix());
+	globalRelations.push_back(Calculator::GlobalRelation());
+	globalRelationsCache.push_back(Calculator::GlobalRelation());
 	relationIndex[RelationId::hb] = 0;
 	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
 	return;
@@ -44,12 +44,12 @@ void GraphManager::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
 	auto relSize = 0u;
 	if (perLoc) {
 		relSize = perLocRelations.size();
-		perLocRelations.push_back(Calculator::PerLocCalcMatrix());
-		perLocRelationsCache.push_back(Calculator::PerLocCalcMatrix());
+		perLocRelations.push_back(Calculator::PerLocRelation());
+		perLocRelationsCache.push_back(Calculator::PerLocRelation());
 	} else {
 		relSize = globalRelations.size();
-		globalRelations.push_back(Calculator::GlobalCalcMatrix());
-		globalRelationsCache.push_back(Calculator::GlobalCalcMatrix());
+		globalRelations.push_back(Calculator::GlobalRelation());
+		globalRelationsCache.push_back(Calculator::GlobalRelation());
 	}
 
 	/* Update indices trackers */
@@ -57,25 +57,25 @@ void GraphManager::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
 	relationIndex[r] = relSize;
 }
 
-Calculator::GlobalCalcMatrix& GraphManager::getGlobalRelation(RelationId id)
+Calculator::GlobalRelation& GraphManager::getGlobalRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
 	return globalRelations[relationIndex[id]];
 }
 
-Calculator::PerLocCalcMatrix& GraphManager::getPerLocRelation(RelationId id)
+Calculator::PerLocRelation& GraphManager::getPerLocRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
 	return perLocRelations[relationIndex[id]];
 }
 
-Calculator::GlobalCalcMatrix& GraphManager::getCachedGlobalRelation(RelationId id)
+Calculator::GlobalRelation& GraphManager::getCachedGlobalRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
 	return globalRelationsCache[relationIndex[id]];
 }
 
-Calculator::PerLocCalcMatrix& GraphManager::getCachedPerLocRelation(RelationId id)
+Calculator::PerLocRelation& GraphManager::getCachedPerLocRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
 	return perLocRelationsCache[relationIndex[id]];
@@ -168,7 +168,7 @@ void GraphManager::doInits(bool full /* = false */)
 						    llvm::isa<UnlockLabelLAPOR>(lab); });
 
 	auto &hb = globalRelations[relationIndex[RelationId::hb]];
-	hb = Matrix2D<Event>(std::move(events));
+	hb = Calculator::GlobalRelation(std::move(events));
 	getGraph().populateHbEntries(hb);
 	hb.transClosure();
 

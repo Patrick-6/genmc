@@ -27,7 +27,7 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Library.hpp"
-#include "Matrix2D.hpp"
+#include "AdjList.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -183,9 +183,9 @@ public:
 	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
 
 	/* Matrix filling for external relation calculation */
-	void populatePorfEntries(Matrix2D<Event> &relation) const;
-	void populatePPoRfEntries(Matrix2D<Event> &relation) const;
-	void populateHbEntries(Matrix2D<Event> &relation) const;
+	void populatePorfEntries(AdjList<Event, EventHasher> &relation) const;
+	void populatePPoRfEntries(AdjList<Event, EventHasher> &relation) const;
+	void populateHbEntries(AdjList<Event, EventHasher> &relation) const;
 
 
 	/* Boolean helper functions */
@@ -203,7 +203,7 @@ public:
 	 * in the relation "rel".
 	 * Pre: all examined events need to be a part of rel */
 	template <typename F = bool (*)(Event)>
-	bool isHbOptRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+	bool isHbOptRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
 				F prop = [](Event e){ return true; }) const;
 
 	/* Returns true if a (or any of the reads reading from a) is hb-before b */
@@ -213,7 +213,7 @@ public:
 	 * the relation "rel".
 	 * Pre: all examined events need to be a part of rel */
 	template <typename F = bool (*)(Event)>
-	bool isWriteRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+	bool isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
 				F prop = [](Event e){ return true; }) const;
 
 	/* Returns true if store is read a successful RMW in the location ptr */
@@ -346,9 +346,9 @@ protected:
 	void calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				 const std::string &step, std::vector<Event> &tos);
 	void addStepEdgeToMatrix(std::vector<Event> &es,
-				 Matrix2D<Event> &relMatrix,
+				 AdjList<Event, EventHasher> &relMatrix,
 				 const std::vector<std::string> &substeps);
-	llvm::StringMap<Matrix2D<Event> >
+	llvm::StringMap<AdjList<Event, EventHasher> >
 	calculateAllRelations(const Library &lib, std::vector<Event> &es);
 
 private:
@@ -360,7 +360,7 @@ private:
 };
 
 template <typename F>
-bool ExecutionGraph::isHbOptRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+bool ExecutionGraph::isHbOptRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
 					F prop /* = [](Event e){ return true; } */) const
 {
 	if (rel(a, b))
@@ -378,7 +378,7 @@ bool ExecutionGraph::isHbOptRfBeforeRel(const Matrix2D<Event> &rel, Event a, Eve
 }
 
 template <typename F>
-bool ExecutionGraph::isWriteRfBeforeRel(const Matrix2D<Event> &rel, Event a, Event b,
+bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
 					F prop /* = [&](Event e){ return true; } */) const
 {
 	if (rel(a, b))

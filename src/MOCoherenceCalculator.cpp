@@ -366,12 +366,12 @@ void MOCoherenceCalculator::initCalc()
 	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 
 	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
-		coRelation[locIt->first] = Matrix2D<Event>(getStoresToLoc(locIt->first));
+		coRelation[locIt->first] = GlobalRelation(getStoresToLoc(locIt->first));
 		if (locIt->second.empty())
 			continue;
 		for (auto sIt = locIt->second.begin(); sIt != locIt->second.end() - 1; sIt++) {
 			for (auto sIt2 = sIt + 1; sIt2 != locIt->second.end(); sIt2++)
-				coRelation[locIt->first](*sIt, *sIt2) = true;
+				coRelation[locIt->first].addEdge(*sIt, *sIt2);
 		}
 	}
 	return;

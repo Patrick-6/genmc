@@ -80,23 +80,23 @@ public:
 			    const ReadLabel *rLab) const override;
 
 	/* Calculates WB */
-	Matrix2D<Event> calcWb(const llvm::GenericValue *addr) const;
+	GlobalRelation calcWb(const llvm::GenericValue *addr) const;
 
 	/* Calculates WB restricted in v */
-	Matrix2D<Event> calcWbRestricted(const llvm::GenericValue *addr,
-					 const VectorClock &v) const;
+	GlobalRelation calcWbRestricted(const llvm::GenericValue *addr,
+					const VectorClock &v) const;
 
 	/* Populates "wb" so that it represents coherence at loc "addr".
 	 * If "prop" is provided, only stores satisfying it are considered.
 	 * If "rel" is provided, "rel" is used instead of hb to provide ordering */
 	template <typename F>
 	Calculator::CalculationResult
-	calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &wb,
+	calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
 		       F prop = [](Event e){ return true; });
 	template <typename F>
 	Calculator::CalculationResult
-	calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &wb,
-		       const Matrix2D<Event> &rel,
+	calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
+		       const GlobalRelation &rel,
 		       F prop = [](Event e){ return true; });
 
 
@@ -118,7 +118,7 @@ public:
 	}
 
 private:
-	std::vector<unsigned int> calcRMWLimits(const Matrix2D<Event> &wb) const;
+	std::vector<unsigned int> calcRMWLimits(const GlobalRelation &wb) const;
 
 	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
 				    const View &hbBefore);
@@ -131,9 +131,9 @@ private:
 	bool isWbMaximal(const WriteLabel *wLab, const std::vector<Event> &ls) const;
 
 	bool isCoherentRf(const llvm::GenericValue *addr,
-			  const Matrix2D<Event> &wb, Event read,
+			  const GlobalRelation &wb, Event read,
 			  Event store, int storeWbIdx);
-	bool isInitCoherentRf(const Matrix2D<Event> &wb, Event read);
+	bool isInitCoherentRf(const GlobalRelation &wb, Event read);
 
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
 
@@ -144,7 +144,7 @@ private:
 
 template <typename F>
 Calculator::CalculationResult
-WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &wb,
+WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
 				      F prop /* = [](Event e){ return true; } */)
 {
 	auto &gm = getGraphManager();
@@ -155,8 +155,8 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalc
 
 template <typename F>
 Calculator::CalculationResult
-WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalcMatrix &matrix,
-				      const Matrix2D<Event> &rel,
+WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &matrix,
+				      const GlobalRelation &rel,
 				      F prop /* = [](Event e){ return true; } */)
 {
 	auto &g = getGraphManager().getGraph();
@@ -172,7 +172,7 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalc
 		auto upperLimit = calcRMWLimits(matrix);
 		if (upperLimit.empty()) {
 			for (auto i = 0u; i < stores.size(); i++)
-				matrix(i, i) = true;
+				matrix.addEdge(i, i);
 			return Calculator::CalculationResult(true, false);
 		}
 
@@ -200,13 +200,13 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalc
 
 				if (!matrix(j, i)) {
 					changed = true;
-					matrix(j, i) = true;
+					matrix.addEdge(j, i);
 				}
 				if (upi == stores.size() || upi == upperLimit[j])
 					continue;
 
 				if (!matrix(lowerLimit[j], upi)) {
-					matrix(lowerLimit[j], upi) = true;
+					matrix.addEdge(lowerLimit[j], upi);
 					changed = true;
 				}
 			}
@@ -215,7 +215,7 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalCalc
 				continue;
 
 			if (!matrix(lowerLimit[stores.size()], i)) {
-				matrix(lowerLimit[stores.size()], i) = true;
+				matrix.addEdge(lowerLimit[stores.size()], i);
 				changed = true;
 			}
 		}

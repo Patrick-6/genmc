@@ -49,9 +49,27 @@ protected:
 
 public:
 	AdjList() {}
-	AdjList(const std::vector<T> &es) {
-		for (auto i = 0u; i < es.size(); i++)
-			addNode(elems[i]);
+	AdjList(const std::vector<T> &es) : elems(es) {
+		auto size = elems.size();
+
+		for (auto i = 0u; i < size; i++)
+			ids[elems[i]] = i;
+
+		nodeSucc.resize(size);
+		nodePred.resize(size);
+		transC.resize(size);
+		calculatedTransC = false;
+	}
+	AdjList(std::vector<T> &&es) : elems(std::move(es)) {
+		auto size = elems.size();
+
+		for (auto i = 0u; i < size; i++)
+			ids[elems[i]] = i;
+
+		nodeSucc.resize(size);
+		nodePred.resize(size);
+		transC.resize(size);
+		calculatedTransC = false;
 	}
 
 	/* Iterator typedefs */
@@ -69,37 +87,63 @@ public:
 	/* Returns the elements (nodes) of the graph */
 	const std::vector<T> &getElems() const { return elems; }
 
+	unsigned int getIndex(T a) const { return ids.at(a); }
+
 	/* Adds a node to the graph */
 	void addNode(T a);
 
 	/* Adds a new edge to the graph */
 	void addEdge(T a, T b);
 
+	/* Helper for addEdge() that adds nodes with known IDs */
+	void addEdge(NodeId a, NodeId b);
+
 	/* Returns the in-degree of each element */
 	std::vector<unsigned int> getInDegrees() const;
+
+	/* Returns true if the in-degree and out-degree of a node is 0 */
+	bool hasNoEdges(T a) const {
+		return nodePred[ids.at(a)].size() == 0 &&
+		       nodeSucc[ids.at(a)].size() == 0;
+	}
 
 	/* Performs a DFS exploration */
 	template<typename FC, typename FN, typename FE, typename FEND>
 	void dfs(FC&& onCycle, FN&& onNeighbor, FE&& atExplored, FEND&& atEnd);
 
 	/* Returns a topological sorting of the graph */
-	template<typename F>
-	std::vector<T> topoSort(F&& onSort);
+	std::vector<T> topoSort();
 
 	/* Runs prop on all topological sortings */
 	template<typename F>
 	bool allTopoSort(F&& prop) const;
 
 	template<typename F>
-	bool combineAllTopoSort(const std::vector<AdjList<T, Hash> *> &toCombine, F&& prop);
+	static bool combineAllTopoSort(const std::vector<AdjList<T, Hash> *> &toCombine, F&& prop);
 
 	void transClosure();
 
+	bool isIrreflexive();
+
 	/* Returns true if the respective edge exists */
 	inline bool operator()(const T a, const T b) const {
-		return edges.count(std::make_pair(getId(a), getId(b)));
+		if (calculatedTransC)
+			return transC[ids.at(a)][ids.at(b)];
+		return edges.count(std::make_pair(ids.at(a), ids.at(b)));
+	}
+	inline bool operator()(const T a, NodeId b) const {
+		if (calculatedTransC)
+			return transC[ids.at(a)][b];
+		return edges.count(std::make_pair(ids.at(a), b));
+	}
+	inline bool operator()(NodeId a, const T b) const {
+		if (calculatedTransC)
+			return transC[a][ids.at(b)];
+		return edges.count(std::make_pair(a, ids.at(b)));
 	}
 	inline bool operator()(NodeId a, NodeId b) const {
+		if (calculatedTransC)
+			return transC[a][b];
 		return edges.count(std::make_pair(a, b));
 	}
 
@@ -107,9 +151,6 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const AdjList<U, Z> &l);
 
 private:
-	/* Helper for addEdge() that adds nodes with known IDs */
-	void addEdge(NodeId a, NodeId b);
-
 	/* Helper for dfs() */
 	template<typename FC, typename FN, typename FE>
 	void dfsUtil(NodeId i, Timestamp &t, std::vector<NodeStatus> &m,
@@ -119,12 +160,12 @@ private:
 
 	template<typename F>
 	bool allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
-			     std::vector<int> &inDegree, F&& prop, bool &found) const;
+			     std::vector<unsigned int> &inDegree, F&& prop, bool &found) const;
 
 	template<typename F>
-	bool combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
-				    bool &found, const std::vector<AdjList<T, Hash> *> &toCombine,
-				    F&& prop);
+	static bool combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
+					   bool &found, const std::vector<AdjList<T, Hash> *> &toCombine,
+					   F&& prop);
 
 	/* The node elements.
 	 * Must be in 1-1 correspondence with the lists below */

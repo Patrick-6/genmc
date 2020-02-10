@@ -678,7 +678,7 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 		return true;
 
 	auto &gm = getGraphManager();
-	std::vector<Matrix2D<Event> *> matrices;
+	std::vector<Calculator::GlobalRelation *> matrices;
 
 	/* Cache all relations because we will need to restore them after possible
 	 * extensions were tried*/
@@ -699,17 +699,18 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 		lbSize = gm.getCachedPerLocRelation(GraphManager::RelationId::lb).size();
 	}
 
-	auto res = Matrix2D<Event>::combineAllTopoSort(matrices, [&](std::vector<std::vector<Event>> &sortings){
+	auto res = Calculator::GlobalRelation::
+		combineAllTopoSort(matrices, [&](std::vector<std::vector<Event>> &sortings){
 			gm.restoreCached();
 			auto count = 0u;
 			if (hasWB && count < coSize) {
 				auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
 				for (auto &coLoc : coRelation) {
-					coRelation[coLoc.first] = Matrix2D<Event>(sortings[count]);
+					coRelation[coLoc.first] = Calculator::GlobalRelation(sortings[count]);
 					for (auto i = 0u; i < sortings[count].size(); i++) {
 						for (auto j = i + 1; j < sortings[count].size(); j++)
-							coRelation[coLoc.first](sortings[count][i],
-										sortings[count][j]) = true;
+							coRelation[coLoc.first].addEdge(sortings[count][i],
+											sortings[count][j]);
 					}
 					++count;
 				}
@@ -717,11 +718,11 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 			if (hasLB && count >= coSize) {
 				auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
 				for (auto &lbLoc : lbRelation) {
-					lbRelation[lbLoc.first] = Matrix2D<Event>(sortings[count]);
+					lbRelation[lbLoc.first] = Calculator::GlobalRelation(sortings[count]);
 					for (auto i = 0u; i < sortings[count].size(); i++) {
 						for (auto j = i + 1; j < sortings[count].size(); j++)
-							lbRelation[lbLoc.first](sortings[count][i],
-										sortings[count][j]) = true;
+							lbRelation[lbLoc.first].addEdge(sortings[count][i],
+											sortings[count][j]);
 					}
 					++count;
 				}

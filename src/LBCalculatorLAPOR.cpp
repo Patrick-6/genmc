@@ -90,7 +90,7 @@ bool LBCalculatorLAPOR::addLbConstraints()
 					continue;
 				if (!hbRelation(ul, o)) {
 					changed = true;
-					hbRelation(ul, o) = true;
+					hbRelation.addEdge(ul, o);
 				}
 			}
 		}
@@ -111,7 +111,7 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 	Event rfLock = g.getLastThreadLockAtLocLAPOR(rLab->getRf(), lLab->getLockAddr());
 	if (rfLock != Event::getInitializer() && rfLock != lock &&
 	    rLab->getRf().index >= rfLock.index) {
-		lbRelation[lLab->getLockAddr()](rfLock, lock) = true;
+		lbRelation[lLab->getLockAddr()].addEdge(rfLock, lock);
 	}
 
 	for (auto &s : co.getElems()) {
@@ -121,7 +121,7 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		lbRelation[lLab->getLockAddr()](lock, sLock) = true;
+		lbRelation[lLab->getLockAddr()].addEdge(lock, sLock);
 	}
 }
 
@@ -145,7 +145,7 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 
-		lbRelation[lLab->getLockAddr()](lock, sLock) = true;
+		lbRelation[lLab->getLockAddr()].addEdge(lock, sLock);
 	}
 }
 
@@ -180,7 +180,7 @@ void LBCalculatorLAPOR::initCalc()
 	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
 
 	for (auto it = locks.begin(); it != locks.end(); ++it)
-		lbRelation[it->first] = Matrix2D<Event>(it->second);
+		lbRelation[it->first] = GlobalRelation(it->second);
 	return;
 }
 

@@ -21,8 +21,8 @@
 #ifndef __CALCULATOR_HPP__
 #define __CALCULATOR_HPP__
 
+#include "AdjList.hpp"
 #include "EventLabel.hpp"
-#include "Matrix2D.hpp"
 #include "VectorClock.hpp"
 #include <vector>
 #include <unordered_map>
@@ -58,9 +58,9 @@ public:
 	};
 
 	/* Represents the structure on which calculations take place */
-	using GlobalCalcMatrix = Matrix2D<Event>;
-	using PerLocCalcMatrix = std::unordered_map<const llvm::GenericValue *,
-						    GlobalCalcMatrix >;
+	using GlobalRelation = AdjList<Event, EventHasher>;
+	using PerLocRelation = std::unordered_map<const llvm::GenericValue *,
+						  GlobalRelation >;
 
 	/* Constructor */
 	Calculator(GraphManager &m) : manager(m) {}

@@ -337,28 +337,28 @@ const View &ExecutionGraph::getHbPoBefore(Event e) const
 do {								        \
 									\
         const std::vector<Event> &es = MATRIX.getElems();		\
-        auto len = MATRIX.size();					\
+        auto len = es.size();						\
 									\
         for (auto i = 0u; i < len; i++) {				\
 		for (auto j = 0u; j < len; j++) {			\
 			if (es[i] != es[j] &&				\
 			    GET_VIEW(es[j]).contains(es[i]))		\
-				MATRIX(i, j) = true;			\
+				MATRIX.addEdge(i, j);			\
 		}							\
         }								\
 } while (0)
 
-void ExecutionGraph::populatePorfEntries(Matrix2D<Event> &relation) const
+void ExecutionGraph::populatePorfEntries(AdjList<Event, EventHasher> &relation) const
 {
 	IMPLEMENT_POPULATE_ENTRIES(relation, getPorfBefore);
 }
 
-void ExecutionGraph::populatePPoRfEntries(Matrix2D<Event> &relation) const
+void ExecutionGraph::populatePPoRfEntries(AdjList<Event, EventHasher> &relation) const
 {
 	IMPLEMENT_POPULATE_ENTRIES(relation, getPPoRfBefore);
 }
 
-void ExecutionGraph::populateHbEntries(Matrix2D<Event> &relation) const
+void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) const
 {
 	IMPLEMENT_POPULATE_ENTRIES(relation, getHbBefore);
 }
@@ -975,17 +975,17 @@ void ExecutionGraph::calcSingleStepPairs(std::vector<std::pair<Event, std::vecto
 }
 
 void addEdgePairsToMatrix(std::vector<std::pair<Event, std::vector<Event> > > &pairs,
-			  Matrix2D<Event> &matrix)
+			  AdjList<Event, EventHasher> &matrix)
 {
 	for (auto &p : pairs) {
 		for (auto k = 0u; k < p.second.size(); k++) {
-			matrix(p.first, p.second[k]) = true;
+			matrix.addEdge(p.first, p.second[k]);
 		}
 	}
 }
 
 void ExecutionGraph::addStepEdgeToMatrix(std::vector<Event> &es,
-					 Matrix2D<Event> &relMatrix,
+					 AdjList<Event, EventHasher> &relMatrix,
 					 const std::vector<std::string> &substeps)
 {
 	std::vector<std::pair<Event, std::vector<Event> > > edges;
@@ -999,13 +999,13 @@ void ExecutionGraph::addStepEdgeToMatrix(std::vector<Event> &es,
 	addEdgePairsToMatrix(edges, relMatrix);
 }
 
-llvm::StringMap<Matrix2D<Event> >
+llvm::StringMap<AdjList<Event, EventHasher> >
 ExecutionGraph::calculateAllRelations(const Library &lib, std::vector<Event> &es)
 {
-	llvm::StringMap<Matrix2D<Event> > relMap;
+	llvm::StringMap<AdjList<Event, EventHasher> > relMap;
 
 	for (auto &r : lib.getRelations()) {
-		Matrix2D<Event> relMatrix(es);
+		AdjList<Event, EventHasher> relMatrix(es);
 		auto &steps = r.getSteps();
 		for (auto &s : steps)
 			addStepEdgeToMatrix(es, relMatrix, s);
