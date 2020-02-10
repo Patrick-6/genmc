@@ -117,6 +117,10 @@ public:
 	const EventLabel *getPreviousNonEmptyLabel(Event e) const;
 	const EventLabel *getPreviousNonEmptyLabel(const EventLabel *lab) const;
 
+	/* Returns the previous non-trivial predecessor of e.
+	 * Returns INIT in case no such event is found */
+	Event getPreviousNonTrivial(const Event e) const;
+
 	/* Returns the last label in the thread tid */
 	const EventLabel *getLastThreadLabel(int tid) const;
 
@@ -189,6 +193,11 @@ public:
 
 
 	/* Boolean helper functions */
+
+	/* Returns true if the event should be taken into account when
+	 * calculating some relation (e.g., hb, ar, etc) */
+	bool isNonTrivial(const Event e) const;
+	bool isNonTrivial(const EventLabel *lab) const;
 
 	/* Return true if its argument is the load part of a successful RMW */
 	bool isRMWLoad(const Event e) const;

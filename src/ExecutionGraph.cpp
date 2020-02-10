@@ -79,6 +79,15 @@ const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(const EventLabel *lab
 	return getPreviousNonEmptyLabel(lab->getPos());
 }
 
+Event ExecutionGraph::getPreviousNonTrivial(const Event e) const
+{
+	for (auto i = e.index - 1; i >= 0; i--) {
+		if (isNonTrivial(Event(e.thread, i)))
+			return Event(e.thread, i);
+	}
+	return Event::getInitializer();
+}
+
 const EventLabel *ExecutionGraph::getLastThreadLabel(int thread) const
 {
 	return events[thread][events[thread].size() - 1].get();
@@ -360,7 +369,41 @@ void ExecutionGraph::populatePPoRfEntries(AdjList<Event, EventHasher> &relation)
 
 void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) const
 {
-	IMPLEMENT_POPULATE_ENTRIES(relation, getHbBefore);
+	std::vector<Event> elems;
+	std::vector<std::pair<Event, Event> > edges;
+
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		auto thrIdx = elems.size();
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			auto *lab = getEventLabel(Event(i, j));
+			if (!isNonTrivial(lab))
+				continue;
+
+			auto labIdx = elems.size();
+			elems.push_back(Event(i, j));
+
+			if (labIdx == thrIdx) {
+				auto *bLab = getEventLabel(Event(i, 0));
+				BUG_ON(!llvm::isa<ThreadStartLabel>(bLab));
+
+				auto parentLast = getPreviousNonTrivial(
+					llvm::dyn_cast<ThreadStartLabel>(bLab)->getParentCreate());
+				if (!parentLast.isInitializer())
+					edges.push_back(std::make_pair(parentLast, elems[labIdx]));
+			}
+			if (labIdx > thrIdx)
+				edges.push_back(std::make_pair(elems[labIdx - 1], elems[labIdx]));
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (!rLab->getRf().isInitializer() &&
+				    rLab->getHbView().contains(rLab->getRf()))
+					edges.push_back(std::make_pair(rLab->getRf(), Event(i, j)));
+			}
+		}
+	}
+	relation = std::move(AdjList<Event, EventHasher>(std::move(elems)));
+	for (auto &e : edges)
+		relation.addEdge(e.first, e.second);
+	return;
 }
 
 
@@ -428,6 +471,19 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 /************************************************************
  ** Calculation of writes a read can read from
  ***********************************************************/
+
+bool ExecutionGraph::isNonTrivial(const Event e) const
+{
+	return isNonTrivial(getEventLabel(e));
+}
+
+bool ExecutionGraph::isNonTrivial(const EventLabel *lab) const
+{
+	return llvm::isa<MemAccessLabel>(lab) ||
+	       llvm::isa<FenceLabel>(lab) ||
+	       llvm::isa<LockLabelLAPOR>(lab) ||
+	       llvm::isa<UnlockLabelLAPOR>(lab);
+}
 
 bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const
 {
