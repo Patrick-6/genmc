@@ -369,10 +369,8 @@ void MOCoherenceCalculator::initCalc()
 		coRelation[locIt->first] = GlobalRelation(getStoresToLoc(locIt->first));
 		if (locIt->second.empty())
 			continue;
-		for (auto sIt = locIt->second.begin(); sIt != locIt->second.end() - 1; sIt++) {
-			for (auto sIt2 = sIt + 1; sIt2 != locIt->second.end(); sIt2++)
-				coRelation[locIt->first].addEdge(*sIt, *sIt2);
-		}
+		for (auto sIt = locIt->second.begin(); sIt != locIt->second.end() - 1; sIt++)
+			coRelation[locIt->first].addEdge(*sIt, *(sIt + 1));
 	}
 	return;
 }

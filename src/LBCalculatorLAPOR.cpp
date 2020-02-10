@@ -20,7 +20,7 @@
 
 #include "LBCalculatorLAPOR.hpp"
 
-Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
+Event LBCalculatorLAPOR::getLastNonTrivialInCS(const Event lock) const
 {
 	const auto &g = getGraphManager().getGraph();
 	const EventLabel *lab = g.getEventLabel(lock);
@@ -34,19 +34,17 @@ Event LBCalculatorLAPOR::getLastMemAccessInCS(const Event lock) const
 		/* If this is a matching unlock, return it */
 		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(eLab)) {
 			if (uLab->getLockAddr() == lLab->getLockAddr())
-				return uLab->getPos();
+				break;
 		}
 	}
 	/* Else, we have reached the end of the thread; we will start backtracking */
-	for (--i; i >= lLab->getIndex(); i--) {
-		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
-
-		if (llvm::isa<MemAccessLabel>(eLab))
-			return eLab->getPos();
+	for (--i; i > lLab->getIndex(); i--) {
+		auto e = Event(lab->getThread(), i);
+		if (g.isNonTrivial(e))
+			return e;
 	}
 	/* The lock label should be returned, if no other access is found */
-	BUG();
-	return Event::getInitializer();
+	return lock;
 }
 
 std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
@@ -82,15 +80,17 @@ bool LBCalculatorLAPOR::addLbConstraints()
 
 	for (auto &lbLoc : lbRelation) {
 		for (auto &l : lbLoc.second) {
-			auto ul = getLastMemAccessInCS(l);
+			auto ul = getLastNonTrivialInCS(l);
 
 			auto lIndex = lbLoc.second.getIndex(l);
 			for (auto &o : lbLoc.second) {
 				if (!lbLoc.second(lIndex, o))
 					continue;
-				if (!hbRelation(ul, o)) {
+				auto ol = getLastNonTrivialInCS(o);
+
+				if (!hbRelation(ul, ol)) {
 					changed = true;
-					hbRelation.addEdge(ul, o);
+					hbRelation.addEdge(ul, ol);
 				}
 			}
 		}
@@ -161,7 +161,7 @@ void LBCalculatorLAPOR::calcLbRelation()
 			BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
 			auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
 
-			auto ul = getLastMemAccessInCS(l);
+			auto ul = getLastNonTrivialInCS(l);
 			for (auto i = l.index; i <= ul.index; i++) { /* l.index >= 0 */
 				const EventLabel *lab = g.getEventLabel(Event(l.thread, i));
 				if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))

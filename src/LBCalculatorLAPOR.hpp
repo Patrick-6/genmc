@@ -37,9 +37,9 @@ public:
 	/* Adds a lock to the maintained list */
 	void addLockToList(const llvm::GenericValue *addr, const Event lock);
 
-	/* Returns the last memory access event in the critical section
+	/* Returns the last non-trivial event in the critical section
 	 * that "lock" opens */
-	Event getLastMemAccessInCS(const Event lock) const;
+	Event getLastNonTrivialInCS(const Event lock) const;
 
 	/* Returns a linear extension of LB */
 	std::vector<Event> getLbOrdering() const;

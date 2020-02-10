@@ -161,14 +161,7 @@ const std::vector<const Calculator *> GraphManager::getPartialCalcs() const
 
 void GraphManager::doInits(bool full /* = false */)
 {
-	auto events = getGraph().collectAllEvents([&](const EventLabel *lab)
-						  { return llvm::isa<MemAccessLabel>(lab) ||
-						    llvm::isa<FenceLabel>(lab) ||
-						    llvm::isa<LockLabelLAPOR>(lab) ||
-						    llvm::isa<UnlockLabelLAPOR>(lab); });
-
 	auto &hb = globalRelations[relationIndex[RelationId::hb]];
-	hb = Calculator::GlobalRelation(std::move(events));
 	getGraph().populateHbEntries(hb);
 	hb.transClosure();
 

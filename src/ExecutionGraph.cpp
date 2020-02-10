@@ -479,10 +479,21 @@ bool ExecutionGraph::isNonTrivial(const Event e) const
 
 bool ExecutionGraph::isNonTrivial(const EventLabel *lab) const
 {
+	if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab))
+		return isCSEmptyLAPOR(lLab);
 	return llvm::isa<MemAccessLabel>(lab) ||
-	       llvm::isa<FenceLabel>(lab) ||
-	       llvm::isa<LockLabelLAPOR>(lab) ||
-	       llvm::isa<UnlockLabelLAPOR>(lab);
+	       llvm::isa<FenceLabel>(lab);
+}
+
+bool ExecutionGraph::isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const
+{
+	if (lLab->getIndex() == getThreadSize(lLab->getThread() - 1))
+		return true;
+
+	auto *nLab = getEventLabel(lLab->getPos().next());
+	if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(nLab))
+		return lLab->getLockAddr() == uLab->getLockAddr();
+	return false;
 }
 
 bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const

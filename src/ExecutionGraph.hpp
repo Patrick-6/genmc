@@ -199,6 +199,9 @@ public:
 	bool isNonTrivial(const Event e) const;
 	bool isNonTrivial(const EventLabel *lab) const;
 
+	/* LAPOR: Returns true if the critical section started by lLab is empty */
+	bool isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const;
+
 	/* Return true if its argument is the load part of a successful RMW */
 	bool isRMWLoad(const Event e) const;
 	bool isRMWLoad(const EventLabel *lab) const;

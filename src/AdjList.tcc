@@ -28,10 +28,10 @@ void AdjList<T, H>::addNode(T a)
 	ids[a] = id;
 	elems.push_back(a);
 	nodeSucc.push_back({});
-	nodePred.push_back({});
+	inDegree.push_back(0);
 
 	calculatedTransC = false;
-	transC.push_back(llvm::BitVector());
+	transC.push_back(llvm::BitVector(id));
 	return;
 }
 
@@ -42,9 +42,9 @@ void AdjList<T, H>::addEdge(NodeId a, NodeId b)
 	if ((*this)(a, b))
 		return;
 
-	edges.insert(std::make_pair(a, b));
 	nodeSucc[a].push_back(b);
-	nodePred[b].push_back(a);
+	transC[a].set(b);
+	++inDegree[b];
 	calculatedTransC = false;
 	return;
 }
@@ -52,18 +52,13 @@ void AdjList<T, H>::addEdge(NodeId a, NodeId b)
 template<typename T, typename H>
 void AdjList<T, H>::addEdge(T a, T b)
 {
-	BUG_ON(ids.count(a) == 0 || ids.count(b) == 0);
-	addEdge(ids[a], ids[b]);
+	addEdge(getIndex(a), getIndex(b));
 	return;
 }
 
 template<typename T, typename H>
-std::vector<unsigned int> AdjList<T, H>::getInDegrees() const
+const std::vector<unsigned int> &AdjList<T, H>::getInDegrees() const
 {
-	std::vector<unsigned int> inDegree(elems.size(), 0);
-
-	for (auto i = 0u; i < elems.size(); i++)
-		inDegree[i] = nodePred[i].size();
 	return inDegree;
 }
 
@@ -197,7 +192,7 @@ bool AdjList<T, H>::allTopoSort(F&& prop) const
 {
 	std::vector<bool> visited(elems.size(), false);
 	std::vector<T> current;
-	auto inDegree = getInDegrees();
+	auto inDegree(getInDegrees());
 	auto found = false;
 
 	return allTopoSortUtil(current, visited, inDegree, prop, found);
@@ -247,50 +242,19 @@ void AdjList<T, H>::transClosure()
 	if (calculatedTransC)
 		return;
 
-	std::vector<llvm::BitVector> indirect(elems.size(), llvm::BitVector(elems.size()));
-
-	transC.resize(elems.size());
-	for (auto i = 0u; i < elems.size(); i++) {
-		transC[i].resize(elems.size());
-		transC[i].reset();
-	}
-
 	dfs([&](NodeId i, Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
 		std::vector<Timestamp> &f){ return; }, /* onCycle */
 	    [&](NodeId i, NodeId j, Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
-		std::vector<Timestamp> &f){ indirect[i] |= transC[j]; }, /* onNeighbor*/
+		std::vector<Timestamp> &f){ return; }, /* onNeighbor*/
 	    [&](NodeId i, Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,
 		std::vector<Timestamp> &f){
-		    std::vector<NodeId> toRemove;
-
-		    /* Also calculate the transitive reduction */
-		    transC[i] = std::move(indirect[i]);
 		    for (auto &j : nodeSucc[i]) {
-			    if (transC[i][j])
-				    toRemove.push_back(j);
+			    transC[i] |= transC[j];
 			    transC[i].set(j);
 		    }
-
-		    for (auto &j : toRemove) {
-			    /* Remove i from preds of transitive successors */
-			    nodePred[j].erase(
-				    std::remove(nodePred[j].begin(),
-						nodePred[j].end(), i),
-				    nodePred[j].end());
-
-			    /* Remove transitive successors from i */
-			    nodeSucc[i].erase(
-				    std::remove(nodeSucc[i].begin(),
-						nodeSucc[i].end(), j),
-				    nodeSucc[i].end());
-
-			    /* Also Remove edge */
-			    edges.erase(std::make_pair(i, j));
-		    }
-
 	    }, /* atExplored*/
 	    [&](Timestamp &t, std::vector<NodeStatus> &m,
 		std::vector<NodeId> &p, std::vector<Timestamp> &d,

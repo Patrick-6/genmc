@@ -29,13 +29,6 @@
 #include <unordered_set>
 #include <vector>
 
-struct pair_hash {
-	inline std::size_t
-	operator()(const std::pair<unsigned int, unsigned int> &v) const {
-		return v.first * 31 + v.second;
-	}
-};
-
 template <class T, class Hash = std::hash<T> >
 class AdjList {
 
@@ -52,24 +45,28 @@ public:
 	AdjList(const std::vector<T> &es) : elems(es) {
 		auto size = elems.size();
 
-		for (auto i = 0u; i < size; i++)
-			ids[elems[i]] = i;
-
 		nodeSucc.resize(size);
-		nodePred.resize(size);
+		inDegree.resize(size);
 		transC.resize(size);
 		calculatedTransC = false;
+
+		for (auto i = 0u; i < size; i++) {
+			ids[elems[i]] = i;
+			transC[i].resize(size);
+		}
 	}
 	AdjList(std::vector<T> &&es) : elems(std::move(es)) {
 		auto size = elems.size();
 
-		for (auto i = 0u; i < size; i++)
-			ids[elems[i]] = i;
-
 		nodeSucc.resize(size);
-		nodePred.resize(size);
+		inDegree.resize(size);
 		transC.resize(size);
 		calculatedTransC = false;
+
+		for (auto i = 0u; i < size; i++) {
+			ids[elems[i]] = i;
+			transC[i].resize(size);
+		}
 	}
 
 	/* Iterator typedefs */
@@ -99,12 +96,12 @@ public:
 	void addEdge(NodeId a, NodeId b);
 
 	/* Returns the in-degree of each element */
-	std::vector<unsigned int> getInDegrees() const;
+	const std::vector<unsigned int> &getInDegrees() const;
 
 	/* Returns true if the in-degree and out-degree of a node is 0 */
 	bool hasNoEdges(T a) const {
-		return nodePred[ids.at(a)].size() == 0 &&
-		       nodeSucc[ids.at(a)].size() == 0;
+		return inDegree[getIndex(a)] == 0 &&
+		       nodeSucc[getIndex(a)].size() == 0;
 	}
 
 	/* Performs a DFS exploration */
@@ -127,24 +124,16 @@ public:
 
 	/* Returns true if the respective edge exists */
 	inline bool operator()(const T a, const T b) const {
-		if (calculatedTransC)
-			return transC[ids.at(a)][ids.at(b)];
-		return edges.count(std::make_pair(ids.at(a), ids.at(b)));
+		return transC[getIndex(a)][getIndex(b)];
 	}
 	inline bool operator()(const T a, NodeId b) const {
-		if (calculatedTransC)
-			return transC[ids.at(a)][b];
-		return edges.count(std::make_pair(ids.at(a), b));
+		return transC[getIndex(a)][b];
 	}
 	inline bool operator()(NodeId a, const T b) const {
-		if (calculatedTransC)
-			return transC[a][ids.at(b)];
-		return edges.count(std::make_pair(a, ids.at(b)));
+		return transC[a][getIndex(b)];
 	}
 	inline bool operator()(NodeId a, NodeId b) const {
-		if (calculatedTransC)
-			return transC[a][b];
-		return edges.count(std::make_pair(a, b));
+		return transC[a][b];
 	}
 
 	template<typename U, typename Z>
@@ -168,18 +157,16 @@ private:
 					   F&& prop);
 
 	/* The node elements.
-	 * Must be in 1-1 correspondence with the lists below */
+	 * Must be in 1-1 correspondence with the successor list below */
 	std::vector<T> elems;
 
-	/* The successor/predecessor list for each node */
+	/* The successor list for each node */
 	std::vector<std::vector<NodeId> > nodeSucc;
-	std::vector<std::vector<NodeId> > nodePred;
+
+	std::vector<unsigned int> inDegree;
 
 	/* Map that maintains the ID of each element */
 	std::unordered_map<T, NodeId, Hash> ids;
-
-	/* Keep all the edges in a map for quick access */
-	std::unordered_set<std::pair<NodeId, NodeId>, pair_hash> edges;
 
 	/* Maintain transitive closure info */
 	bool calculatedTransC = false;
