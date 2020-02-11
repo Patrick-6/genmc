@@ -57,6 +57,14 @@ void AdjList<T, H>::addEdge(T a, T b)
 }
 
 template<typename T, typename H>
+void AdjList<T, H>::addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos)
+{
+	for (auto &f : froms)
+		for (auto &t : tos)
+			addEdge(f, t);
+}
+
+template<typename T, typename H>
 const std::vector<unsigned int> &AdjList<T, H>::getInDegrees() const
 {
 	return inDegree;

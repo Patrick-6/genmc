@@ -43,6 +43,7 @@ libgenmc_a_SOURCES = \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
   Parser.cpp Parser.hpp \
+  PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \

@@ -371,6 +371,7 @@ void MOCoherenceCalculator::initCalc()
 			continue;
 		for (auto sIt = locIt->second.begin(); sIt != locIt->second.end() - 1; sIt++)
 			coRelation[locIt->first].addEdge(*sIt, *(sIt + 1));
+		coRelation[locIt->first].transClosure();
 	}
 	return;
 }

@@ -146,7 +146,7 @@ std::vector<Event> PSCCalculator::calcRfSCFencesSuccs(const std::vector<Event> &
 void PSCCalculator::addRbEdges(const std::vector<Event> &fcs,
 				const std::vector<Event> &moAfter,
 				const std::vector<Event> &moRfAfter,
-				Matrix2D<Event> &matrix,
+				Calculator::GlobalRelation &matrix,
 				const Event &ev) const
 {
 	auto &g = getGraphManager().getGraph();
@@ -167,7 +167,7 @@ void PSCCalculator::addRbEdges(const std::vector<Event> &fcs,
 void PSCCalculator::addMoRfEdges(const std::vector<Event> &fcs,
 				  const std::vector<Event> &moAfter,
 				  const std::vector<Event> &moRfAfter,
-				  Matrix2D<Event> &matrix,
+				  Calculator::GlobalRelation &matrix,
 				  const Event &ev) const
 {
 	auto &g = getGraphManager().getGraph();
@@ -196,8 +196,8 @@ void PSCCalculator::addMoRfEdges(const std::vector<Event> &fcs,
  * single-step relation (e.g, (rf;rb) => co, (rb;co) => rb)
  */
 void PSCCalculator::addSCEcosLoc(const std::vector<Event> &fcs,
-				 Matrix2D<Event> &coMatrix,
-				 Matrix2D<Event> &pscMatrix) const
+				 Calculator::GlobalRelation &coMatrix,
+				 Calculator::GlobalRelation &pscMatrix) const
 {
 	auto &stores = coMatrix.getElems();
 	for (auto i = 0u; i < stores.size(); i++) {
@@ -228,7 +228,7 @@ void PSCCalculator::addSCEcosLoc(const std::vector<Event> &fcs,
  * part of this function is not triggered for fences (these edges are covered in
  * addSCEcos()).
  */
-void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
+void PSCCalculator::addSbHbEdges(Calculator::GlobalRelation &matrix) const
 {
 	auto &gm = getGraphManager();
 	auto &g = gm.getGraph();
@@ -245,7 +245,7 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 			/* PSC_base/PSC_fence: Adds sb-edges*/
 			if (eiLab->getThread() == ejLab->getThread()) {
 				if (eiLab->getIndex() < ejLab->getIndex())
-					matrix(i, j) = true;
+					matrix.addEdge(i, j);
 				continue;
 			}
 
@@ -273,7 +273,7 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 				    llvm::dyn_cast<MemAccessLabel>(eiNextLab)) {
 					if (eiMLab->getAddr() != eiNextMLab->getAddr() &&
 					    hbRelation(eiNextMLab->getPos(), ejPrevMLab->getPos()))
-						matrix(i, j) = true;
+						matrix.addEdge(i, j);
 				}
 			}
 		}
@@ -282,7 +282,7 @@ void PSCCalculator::addSbHbEdges(Matrix2D<Event> &matrix) const
 }
 
 void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
-				  Matrix2D<Event> &matrix) const
+				  Calculator::GlobalRelation &matrix) const
 {
 	auto &gm = getGraphManager();
 	auto &g = gm.getGraph();
@@ -316,7 +316,7 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 
 void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
 			      const std::vector<const llvm::GenericValue *> &scLocs,
-			      Matrix2D<Event> &matrix) const
+			      Calculator::GlobalRelation &matrix) const
 {
 	auto &gm = getGraphManager();
 	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
@@ -381,7 +381,7 @@ void PSCCalculator::initCalc()
 	/* Collect all SC events (except for RMW loads) */
 	auto accesses = getGraphManager().getGraph().getSCs();
 
-	pscRelation = Matrix2D<Event>(accesses.first);
+	pscRelation = Calculator::GlobalRelation(accesses.first);
 	return;
 }
 

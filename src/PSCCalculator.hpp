@@ -68,22 +68,22 @@ private:
 	void addRbEdges(const std::vector<Event> &fcs,
 			const std::vector<Event> &moAfter,
 			const std::vector<Event> &moRfAfter,
-			Matrix2D<Event> &matrix, const Event &e) const;
+			Calculator::GlobalRelation &matrix, const Event &e) const;
 	void addMoRfEdges(const std::vector<Event> &fcs,
 			  const std::vector<Event> &moAfter,
 			  const std::vector<Event> &moRfAfter,
-			  Matrix2D<Event> &matrix, const Event &e) const;
+			  Calculator::GlobalRelation &matrix, const Event &e) const;
 	void addSCEcosLoc(const std::vector<Event> &fcs,
-			  Matrix2D<Event> &coMatrix,
-			  Matrix2D<Event> &pscMatrix) const;
+			  Calculator::GlobalRelation &coMatrix,
+			  Calculator::GlobalRelation &pscMatrix) const;
 
 	void addSCEcos(const std::vector<Event> &fcs,
 		       const std::vector<const llvm::GenericValue *> &scLocs,
-		       Matrix2D<Event> &matrix) const;
+		       Calculator::GlobalRelation &matrix) const;
 
 	void addInitEdges(const std::vector<Event> &fcs,
-			  Matrix2D<Event> &matrix) const;
-	void addSbHbEdges(Matrix2D<Event> &matrix) const;
+			  Calculator::GlobalRelation &matrix) const;
+	void addSbHbEdges(Calculator::GlobalRelation &matrix) const;
 
 	Calculator::CalculationResult addPscConstraints();
 	void calcPscRelation();

@@ -95,6 +95,9 @@ public:
 	/* Helper for addEdge() that adds nodes with known IDs */
 	void addEdge(NodeId a, NodeId b);
 
+	/* For each "f" in "froms", adds edges to all the "tos"*/
+	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
+
 	/* Returns the in-degree of each element */
 	const std::vector<unsigned int> &getInDegrees() const;
 
