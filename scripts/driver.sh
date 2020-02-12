@@ -113,7 +113,7 @@ for model in rc11 imm
 do
     for coherence in wb mo
     do
-	for testdir in "${correctdir}"/lapor # "${correctdir}/"{litmus,synthetic,data-structures,lapor}
+	for testdir in "${correctdir}"/{litmus,synthetic} # "${correctdir}/"{litmus,synthetic,data-structures,lapor}
 
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set

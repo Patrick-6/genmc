@@ -10,6 +10,7 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
+  ARCalculator.cpp ARCalculator.hpp \
   Calculator.hpp \
   CoherenceCalculator.hpp \
   Config.cpp Config.hpp \

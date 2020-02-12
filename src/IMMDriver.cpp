@@ -19,8 +19,8 @@
  */
 
 #include "IMMDriver.hpp"
-// #include "ARCalculator.hpp"
-// #include "PSCCalculator.hpp"
+#include "ARCalculator.hpp"
+#include "PSCCalculator.hpp"
 
 IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		     std::vector<Library> &granted, std::vector<Library> &toVerify,
@@ -30,10 +30,10 @@ IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module>
 	auto &g = getGraph();
 
 	/* IMM requires acyclicity checks for both PSC and AR */
-	// gm.addCalculator(llvm::make_unique<PSCCalculator>(gm),
-	// 		 GraphManager::RelationId::psc, false);
-	// gm.addCalculator(llvm::make_unique<ARCalculator>(gm),
-	// 		 GraphManager::RelationId::ar, false);
+	g.addCalculator(llvm::make_unique<PSCCalculator>(g),
+			ExecutionGraph::RelationId::psc, false);
+	g.addCalculator(llvm::make_unique<ARCalculator>(g),
+			ExecutionGraph::RelationId::ar, false);
 	return;
 }
 

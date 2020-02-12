@@ -22,9 +22,9 @@
 
 bool ARCalculator::addArConstraints()
 {
-	auto &g = g.getGraph();
-	auto &ar = g.getGlobalRelation(ExecutionManager::RelationId::ar);
-	auto &psc = g.getGlobalRelation(ExecutionManager::RelationId::psc);
+	auto &g = getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar);
+	auto &psc = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
 	Calculator::CalculationResult result;
 
 	auto scs = g.getSCs();
@@ -35,7 +35,7 @@ bool ARCalculator::addArConstraints()
 		for (auto &f2 : fcs) {
 			if (psc(f1, f2) && !ar(f1, f2)) {
 				changed = true;
-				ar(f1, f2) = true;
+				ar.addEdge(f1, f2);
 			}
 		}
 	}
@@ -44,15 +44,15 @@ bool ARCalculator::addArConstraints()
 
 void ARCalculator::initCalc()
 {
-	auto &g = g.getGraph();
-	auto &ar = g.getGlobalRelation(ExecutionManager::RelationId::ar);
+	auto &g = getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar);
 
 	auto events = g.collectAllEvents([&](const EventLabel *lab)
 					 { return llvm::isa<MemAccessLabel>(lab) ||
 					   llvm::isa<FenceLabel>(lab) ||
 					   llvm::isa<LockLabelLAPOR>(lab) ||
 					   llvm::isa<UnlockLabelLAPOR>(lab); });
-	ar = Matrix2D<Event>(std::move(events));
+	ar = Calculator::GlobalRelation(std::move(events));
 	g.populatePPoRfEntries(ar);
 	ar.transClosure();
 	return;
@@ -61,7 +61,7 @@ void ARCalculator::initCalc()
 Calculator::CalculationResult ARCalculator::doCalc()
 {
 	auto &g = getGraph();
-	auto &arRelation = g.getGlobalRelation(ExecutionManager::RelationId::ar);
+	auto &arRelation = g.getGlobalRelation(ExecutionGraph::RelationId::ar);
 
 	auto changed = addArConstraints();
 	arRelation.transClosure();

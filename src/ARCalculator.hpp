@@ -30,7 +30,7 @@
 class ARCalculator : public Calculator {
 
 public:
-	ARCalculator(GraphManager &m) : Calculator(m) {}
+	ARCalculator(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 
