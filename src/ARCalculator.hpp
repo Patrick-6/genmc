@@ -25,7 +25,7 @@
 #include "DriverGraphEnumAPI.hpp"
 #include "EventLabel.hpp"
 #include "Error.hpp"
-#include "GraphManager.hpp"
+#include "ExecutionGraph.hpp"
 
 class ARCalculator : public Calculator {
 

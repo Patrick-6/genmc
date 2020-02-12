@@ -22,7 +22,6 @@
 #define __GRAPH_BUILDER_HPP__
 
 #include "DepExecutionGraph.hpp"
-#include "GraphManager.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
@@ -45,11 +44,9 @@ public:
 	GraphBuilder(bool shouldTrackDeps) {
                 tracksDeps = shouldTrackDeps;
 		if (tracksDeps)
-			graph = llvm::make_unique<GraphManager>(
-				std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph));
+			graph = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph());
 		else
-			graph = llvm::make_unique<GraphManager>(
-				std::unique_ptr<ExecutionGraph>(new ExecutionGraph));
+			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
 	};
 
 	GraphBuilder &withCoherenceType(CoherenceType co) {
@@ -57,12 +54,12 @@ public:
 		case CoherenceType::mo:
 			graph->addCalculator(
 				llvm::make_unique<MOCoherenceCalculator>(*graph, tracksDeps),
-				GraphManager::RelationId::co, true, true);
+				ExecutionGraph::RelationId::co, true, true);
 			break;
 		case CoherenceType::wb:
 			graph->addCalculator(
 				llvm::make_unique<WBCoherenceCalculator>(*graph, tracksDeps),
-				GraphManager::RelationId::co, true, true);
+				ExecutionGraph::RelationId::co, true, true);
 			break;
 		default:
 			WARN("Unhandled coherence type!\n");
@@ -75,12 +72,12 @@ public:
 		if (lapor) {
 			graph->addCalculator(
 				llvm::make_unique<LBCalculatorLAPOR>(*graph),
-				GraphManager::RelationId::lb, true, true);
+				ExecutionGraph::RelationId::lb, true, true);
 		}
 		return *this;
 	}
 
-	std::unique_ptr<GraphManager> build() {
+	std::unique_ptr<ExecutionGraph> build() {
 		BUG_ON(!graph->getCoherenceCalculator());
 		return std::move(graph);
 	};
@@ -90,7 +87,7 @@ private:
         bool tracksDeps = false;
 
 	/* The graph to be constructed */
-	std::unique_ptr<GraphManager> graph = nullptr;
+	std::unique_ptr<ExecutionGraph> graph = nullptr;
 };
 
 #endif /* __GRAPH_BUILDER_HPP__ */

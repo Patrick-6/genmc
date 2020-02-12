@@ -25,12 +25,11 @@
 #include "DriverGraphEnumAPI.hpp"
 #include "EventLabel.hpp"
 #include "Error.hpp"
-#include "GraphManager.hpp"
 
 class PSCCalculator : public Calculator {
 
 public:
-	PSCCalculator(GraphManager &m) : Calculator(m) {}
+	PSCCalculator(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 

@@ -21,17 +21,22 @@
 #ifndef __EXECUTION_GRAPH_HPP__
 #define __EXECUTION_GRAPH_HPP__
 
+#include "AdjList.hpp"
+#include "Calculator.hpp"
 #include "DriverGraphEnumAPI.hpp"
 #include "DepInfo.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Library.hpp"
-#include "AdjList.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
 #include <memory>
+
+class CoherenceCalculator;
+class LBCalculatorLAPOR;
+class PSCCalculator;
 
 /*******************************************************************************
  **                           ExecutionGraph Class
@@ -54,10 +59,12 @@ public:
 	/* Should be used for the contruction of execution graphs */
 	class Builder;
 
+	/* Different relations that might exist in the graph */
+	enum class RelationId { hb, co, lb, psc, ar };
+
 protected:
 	/* Constructor should only be called from the builder */
 	friend class GraphBuilder;
-	friend class GraphManager;
 	ExecutionGraph();
 
 public:
@@ -97,6 +104,17 @@ public:
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp();
+
+	/* Event addition methods should be called from the managing objects,
+	 * so that the relation managing objects are also informed */
+	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+					     Event rf);
+	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					       unsigned int offsetMO);
+	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					       Event pred);
+	const LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
+	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 
 	/* Event getter methods */
@@ -177,7 +195,44 @@ public:
 	}
 
 
-	/* Calculation of [(po U rf)*] predecessors and successors */
+	/* Calculation of relations in the graph */
+
+	/* Adds the specified calculator to the list */
+	void addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
+			   bool perLoc, bool partial = false);
+
+	/* Returns the list of the calculators */
+	const std::vector<Calculator *> getCalcs() const;
+
+	/* Returns the list of the partial calculators */
+	const std::vector<Calculator *> getPartialCalcs() const;
+
+	/* Returns a reference to the specified relation matrix */
+	Calculator::GlobalRelation& getGlobalRelation(RelationId id);
+	Calculator::PerLocRelation& getPerLocRelation(RelationId id);
+
+	/* Returns a reference to the cached version of the
+	 * specified relation matrix */
+	Calculator::GlobalRelation& getCachedGlobalRelation(RelationId id);
+	Calculator::PerLocRelation& getCachedPerLocRelation(RelationId id);
+
+	/* Caches all calculated relations. If "copy" is true then a
+	 * copy of each relation is cached */
+	void cacheRelations(bool copy = true);
+
+	/* Restores all relations to their most recently cached versions.
+	 * If "move" is true then the cache is cleared as well */
+	void restoreCached(bool move = false);
+
+	/* Returns a pointer to the specified relation's calculator */
+	Calculator *getCalculator(RelationId id);
+
+	/* Commonly queried calculator getters */
+	CoherenceCalculator *getCoherenceCalculator();
+	CoherenceCalculator *getCoherenceCalculator() const;
+	LBCalculatorLAPOR *getLbCalculatorLAPOR();
+	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
+
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
 	const View &getHbBefore(Event e) const;
@@ -185,6 +240,13 @@ public:
 	View getHbBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
+
+	void doInits(bool fullCalc = false);
+
+	/* Performs a step of all the specified calculations. Takes as
+	 * a parameter whether a full calculation needs to be performed */
+	Calculator::CalculationResult doCalcs(bool fullCalc = false);
+
 
 	/* Matrix filling for external relation calculation */
 	void populatePorfEntries(AdjList<Event, EventHasher> &relation) const;
@@ -258,6 +320,18 @@ public:
 	void validate(void);
 
 
+	/* Modification order methods */
+
+	void trackCoherenceAtLoc(const llvm::GenericValue *addr);
+	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr) const;
+	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr);
+	std::vector<Event> getCoherentStores(const llvm::GenericValue *addr,
+					     Event pos);
+	std::pair<int, int> getCoherentPlacings(const llvm::GenericValue *addr,
+						Event pos, bool isRMW);
+	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);
+
+
 	/* Graph modification methods */
 
 	void changeRf(Event read, Event store);
@@ -328,12 +402,6 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
-	/* Event addition methods should be called from the managing objects,
-	 * so that the relation managing objects are also informed */
-	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-					     Event rf);
-	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
-
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
@@ -369,6 +437,27 @@ private:
 
 	/* The next available timestamp */
 	unsigned int timestamp;
+
+	/* A list of all the calculations that need to be performed
+	 * when checking for full consistency*/
+	std::vector<std::unique_ptr<Calculator> > consistencyCalculators;
+
+	/* The indices of all the calculations that need to be performed
+	 * at each step of the algorithm (partial consistency check) */
+	std::vector<int> partialConsCalculators;
+
+	/* The relation matrices (and caches) maintained in the manager */
+	std::vector<Calculator::GlobalRelation> globalRelations;
+	std::vector<Calculator::GlobalRelation> globalRelationsCache;
+	std::vector<Calculator::PerLocRelation> perLocRelations;
+	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
+
+	/* Keeps track of calculator indices */
+	std::unordered_map<RelationId, unsigned int> calculatorIndex;
+
+	/* Keeps track of relation indices. Note that an index might
+	 * refer to either globalRelations or perLocRelations */
+	std::unordered_map<RelationId, unsigned int> relationIndex;
 };
 
 template <typename F>
@@ -405,5 +494,9 @@ bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, 
 			return true;
 	return false;
 }
+
+#include "CoherenceCalculator.hpp"
+#include "LBCalculatorLAPOR.hpp"
+#include "PSCCalculator.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

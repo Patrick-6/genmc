@@ -23,7 +23,7 @@
 
 std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	std::vector<const llvm::GenericValue *> singles, doubles;
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
@@ -54,11 +54,11 @@ std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
 std::vector<Event> PSCCalculator::calcSCFencesSuccs(const std::vector<Event> &fcs,
 						     const Event e) const
 {
-	auto &gm = getGraphManager();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
 	std::vector<Event> succs;
 
-	if (gm.getGraph().isRMWLoad(e))
+	if (g.isRMWLoad(e))
 		return succs;
 	for (auto &f : fcs) {
 		if (hbRelation(e, f))
@@ -70,11 +70,11 @@ std::vector<Event> PSCCalculator::calcSCFencesSuccs(const std::vector<Event> &fc
 std::vector<Event> PSCCalculator::calcSCFencesPreds(const std::vector<Event> &fcs,
 						     const Event e) const
 {
-	auto &gm = getGraphManager();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
 	std::vector<Event> preds;
 
-	if (gm.getGraph().isRMWLoad(e))
+	if (g.isRMWLoad(e))
 		return preds;
 	for (auto &f : fcs) {
 		if (hbRelation(f, e))
@@ -86,7 +86,7 @@ std::vector<Event> PSCCalculator::calcSCFencesPreds(const std::vector<Event> &fc
 std::vector<Event> PSCCalculator::calcSCSuccs(const std::vector<Event> &fcs,
 					       const Event e) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(e);
 
 	if (g.isRMWLoad(lab))
@@ -100,7 +100,7 @@ std::vector<Event> PSCCalculator::calcSCSuccs(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcSCPreds(const std::vector<Event> &fcs,
 					       const Event e) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(e);
 
 	if (g.isRMWLoad(lab))
@@ -114,7 +114,7 @@ std::vector<Event> PSCCalculator::calcSCPreds(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcRfSCSuccs(const std::vector<Event> &fcs,
 						 const Event ev) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(ev);
 	std::vector<Event> rfs;
 
@@ -130,7 +130,7 @@ std::vector<Event> PSCCalculator::calcRfSCSuccs(const std::vector<Event> &fcs,
 std::vector<Event> PSCCalculator::calcRfSCFencesSuccs(const std::vector<Event> &fcs,
 						       const Event ev) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(ev);
 	std::vector<Event> fenceRfs;
 
@@ -149,7 +149,7 @@ void PSCCalculator::addRbEdges(const std::vector<Event> &fcs,
 				Calculator::GlobalRelation &matrix,
 				const Event &ev) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(ev);
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
@@ -170,7 +170,7 @@ void PSCCalculator::addMoRfEdges(const std::vector<Event> &fcs,
 				  Calculator::GlobalRelation &matrix,
 				  const Event &ev) const
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 	auto preds = calcSCPreds(fcs, ev);
 	auto fencePreds = calcSCFencesPreds(fcs, ev);
 	auto rfs = calcRfSCSuccs(fcs, ev);
@@ -230,9 +230,8 @@ void PSCCalculator::addSCEcosLoc(const std::vector<Event> &fcs,
  */
 void PSCCalculator::addSbHbEdges(Calculator::GlobalRelation &matrix) const
 {
-	auto &gm = getGraphManager();
-	auto &g = gm.getGraph();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
 
 	auto &scs = matrix.getElems();
 	for (auto i = 0u; i < scs.size(); i++) {
@@ -284,8 +283,7 @@ void PSCCalculator::addSbHbEdges(Calculator::GlobalRelation &matrix) const
 void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 				  Calculator::GlobalRelation &matrix) const
 {
-	auto &gm = getGraphManager();
-	auto &g = gm.getGraph();
+	auto &g = getGraph();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
@@ -298,7 +296,7 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 
 			auto preds = calcSCPreds(fcs, rLab->getPos());
 			auto fencePreds = calcSCFencesPreds(fcs, rLab->getPos());
-			for (auto &w : gm.getStoresToLoc(rLab->getAddr())) {
+			for (auto &w : g.getStoresToLoc(rLab->getAddr())) {
 				/* Can be casted to WriteLabel by construction */
 				auto *wLab = static_cast<const WriteLabel *>(
 					g.getEventLabel(w));
@@ -318,8 +316,8 @@ void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
 			      const std::vector<const llvm::GenericValue *> &scLocs,
 			      Calculator::GlobalRelation &matrix) const
 {
-	auto &gm = getGraphManager();
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+	auto &g = getGraph();
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 
 	for (auto loc : scLocs)
 		addSCEcosLoc(fcs, coRelation[loc], matrix);
@@ -329,11 +327,11 @@ void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
 
 void PSCCalculator::calcPscRelation()
 {
-	auto &gm = getGraphManager();
-	auto &pscRelation = gm.getGlobalRelation(GraphManager::RelationId::psc);
+	auto &g = getGraph();
+	auto &pscRelation = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
 
 	/* Collect all SC events (except for RMW loads) */
-	auto accesses = gm.getGraph().getSCs();
+	auto accesses = g.getSCs();
 	auto &scs = accesses.first;
 	auto &fcs = accesses.second;
 
@@ -356,14 +354,13 @@ void PSCCalculator::calcPscRelation()
 
 Calculator::CalculationResult PSCCalculator::addPscConstraints()
 {
-	auto &gm = getGraphManager();
-	auto &g = gm.getGraph();
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
-	auto &pscRelation = gm.getGlobalRelation(GraphManager::RelationId::psc);
+	auto &g = getGraph();
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
+	auto &pscRelation = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
 	Calculator::CalculationResult result;
 
 	if (auto *wbCoh = llvm::dyn_cast<WBCoherenceCalculator>(
-		    getGraphManager().getCoherenceCalculator())) {
+		    g.getCoherenceCalculator())) {
 		for (auto &coLoc : coRelation)
 			result |= wbCoh->calcWbRelation(coLoc.first, coLoc.second,
 							pscRelation, [&](Event e)
@@ -375,11 +372,11 @@ Calculator::CalculationResult PSCCalculator::addPscConstraints()
 
 void PSCCalculator::initCalc()
 {
-	auto &gm = getGraphManager();
-	auto &pscRelation = gm.getGlobalRelation(GraphManager::RelationId::psc);
+	auto &g = getGraph();
+	auto &pscRelation = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
 
 	/* Collect all SC events (except for RMW loads) */
-	auto accesses = getGraphManager().getGraph().getSCs();
+	auto accesses = getGraph().getSCs();
 
 	pscRelation = Calculator::GlobalRelation(accesses.first);
 	return;
@@ -387,10 +384,10 @@ void PSCCalculator::initCalc()
 
 Calculator::CalculationResult PSCCalculator::doCalc()
 {
-	auto &gm = getGraphManager();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
-	auto &pscRelation = gm.getGlobalRelation(GraphManager::RelationId::psc);
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
+	auto &pscRelation = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 
 	hbRelation.transClosure();
 	if (!hbRelation.isIrreflexive())

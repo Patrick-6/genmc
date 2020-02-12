@@ -27,7 +27,7 @@
 #include <vector>
 #include <unordered_map>
 
-class GraphManager;
+class ExecutionGraph;
 
 /*******************************************************************************
  **                        Calculator Class (Abstract)
@@ -63,12 +63,12 @@ public:
 						  GlobalRelation >;
 
 	/* Constructor */
-	Calculator(GraphManager &m) : manager(m) {}
+	Calculator(ExecutionGraph &g) : execGraph(g) {}
 
 	virtual ~Calculator() {}
 
-	GraphManager &getGraphManager();
-	GraphManager &getGraphManager() const;
+	ExecutionGraph &getGraph() { return execGraph; }
+	ExecutionGraph &getGraph() const { return execGraph; }
 
 	/* Should perform the necessary initializations for the calculation */
 	virtual void initCalc() = 0;
@@ -88,7 +88,7 @@ public:
 
 private:
 	/* A reference to the graph managing object */
-	GraphManager &manager;
+	ExecutionGraph &execGraph;
 };
 
 #endif /* __CALCULATOR_HPP__ */

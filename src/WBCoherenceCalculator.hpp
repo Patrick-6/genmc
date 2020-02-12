@@ -22,7 +22,7 @@
 #define __WB_COHERENCE_CALCULATOR_HPP__
 
 #include "CoherenceCalculator.hpp"
-#include "GraphManager.hpp"
+#include "ExecutionGraph.hpp"
 #include <unordered_map>
 
 /*******************************************************************************
@@ -39,7 +39,7 @@ class WBCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	WBCoherenceCalculator(GraphManager &m, bool ooo)
+	WBCoherenceCalculator(ExecutionGraph &m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
 	/* Track coherence at location addr */
@@ -147,8 +147,8 @@ Calculator::CalculationResult
 WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
 				      F prop /* = [](Event e){ return true; } */)
 {
-	auto &gm = getGraphManager();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
+	auto &gm = getGraph();
+	auto &hbRelation = gm.getGlobalRelation(ExecutionGraph::RelationId::hb);
 
 	return calcWbRelation(addr, wb, hbRelation, prop);
 }
@@ -159,7 +159,7 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRela
 				      const GlobalRelation &rel,
 				      F prop /* = [](Event e){ return true; } */)
 {
-	auto &g = getGraphManager().getGraph();
+	auto &g = getGraph();
 
 	bool changed = false;
 	for (auto locIt = stores_.begin(); locIt != stores_.end(); ++locIt) {

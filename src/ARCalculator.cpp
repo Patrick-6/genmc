@@ -22,10 +22,9 @@
 
 bool ARCalculator::addArConstraints()
 {
-	auto &gm = getGraphManager();
-	auto &g = gm.getGraph();
-	auto &ar = gm.getGlobalRelation(GraphManager::RelationId::ar);
-	auto &psc = gm.getGlobalRelation(GraphManager::RelationId::psc);
+	auto &g = g.getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionManager::RelationId::ar);
+	auto &psc = g.getGlobalRelation(ExecutionManager::RelationId::psc);
 	Calculator::CalculationResult result;
 
 	auto scs = g.getSCs();
@@ -45,9 +44,8 @@ bool ARCalculator::addArConstraints()
 
 void ARCalculator::initCalc()
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &ar = gm.getGlobalRelation(GraphManager::RelationId::ar);
+	auto &g = g.getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionManager::RelationId::ar);
 
 	auto events = g.collectAllEvents([&](const EventLabel *lab)
 					 { return llvm::isa<MemAccessLabel>(lab) ||
@@ -62,8 +60,8 @@ void ARCalculator::initCalc()
 
 Calculator::CalculationResult ARCalculator::doCalc()
 {
-	auto &gm = getGraphManager();
-	auto &arRelation = gm.getGlobalRelation(GraphManager::RelationId::ar);
+	auto &g = getGraph();
+	auto &arRelation = g.getGlobalRelation(ExecutionManager::RelationId::ar);
 
 	auto changed = addArConstraints();
 	arRelation.transClosure();

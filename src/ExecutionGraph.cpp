@@ -18,9 +18,11 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Library.hpp"
-#include "Parser.hpp"
 #include "ExecutionGraph.hpp"
+#include "Library.hpp"
+#include "MOCoherenceCalculator.hpp"
+#include "Parser.hpp"
+#include "WBCoherenceCalculator.hpp"
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
@@ -37,6 +39,12 @@ ExecutionGraph::ExecutionGraph() : timestamp(1)
 					     Event(0, 0),
 					     Event::getInitializer() )
 				     ) );
+
+	globalRelations.push_back(Calculator::GlobalRelation());
+	globalRelationsCache.push_back(Calculator::GlobalRelation());
+	relationIndex[RelationId::hb] = 0;
+	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
+	return;
 }
 
 
@@ -286,6 +294,26 @@ const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> 
 	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
 }
 
+const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+						     unsigned int offsetMO)
+{
+	getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), offsetMO);
+	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+}
+
+const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+						     Event pred)
+{
+	getCoherenceCalculator()->addStoreToLocAfter(lab->getAddr(), lab->getPos(), pred);
+	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+}
+
+const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
+{
+	getLbCalculatorLAPOR()->addLockToList(lab->getLockAddr(), lab->getPos());
+	return static_cast<const LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
+}
+
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto pos = lab->getPos();
@@ -303,6 +331,212 @@ const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabe
 /************************************************************
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
+
+void ExecutionGraph::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
+				 bool perLoc, bool partial /* = false */)
+{
+	/* Add a calculator for this relation */
+	auto calcSize = getCalcs().size();
+	consistencyCalculators.push_back(std::move(cc));
+	if (partial)
+		partialConsCalculators.push_back(calcSize);
+
+	/* Add a matrix for this relation */
+	auto relSize = 0u;
+	if (perLoc) {
+		relSize = perLocRelations.size();
+		perLocRelations.push_back(Calculator::PerLocRelation());
+		perLocRelationsCache.push_back(Calculator::PerLocRelation());
+	} else {
+		relSize = globalRelations.size();
+		globalRelations.push_back(Calculator::GlobalRelation());
+		globalRelationsCache.push_back(Calculator::GlobalRelation());
+	}
+
+	/* Update indices trackers */
+	calculatorIndex[r] = calcSize;
+	relationIndex[r] = relSize;
+}
+
+Calculator::GlobalRelation& ExecutionGraph::getGlobalRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return globalRelations[relationIndex[id]];
+}
+
+Calculator::PerLocRelation& ExecutionGraph::getPerLocRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return perLocRelations[relationIndex[id]];
+}
+
+Calculator::GlobalRelation& ExecutionGraph::getCachedGlobalRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return globalRelationsCache[relationIndex[id]];
+}
+
+Calculator::PerLocRelation& ExecutionGraph::getCachedPerLocRelation(RelationId id)
+{
+	BUG_ON(relationIndex.count(id) == 0);
+	return perLocRelationsCache[relationIndex[id]];
+}
+
+void ExecutionGraph::cacheRelations(bool copy /* = true */)
+{
+	if (copy) {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelationsCache[i] = globalRelations[i];
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelationsCache[i] = perLocRelations[i];
+	} else {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelationsCache[i] = std::move(globalRelations[i]);
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelationsCache[i] = std::move(perLocRelations[i]);
+	}
+	return;
+}
+
+void ExecutionGraph::restoreCached(bool move /* = false */)
+{
+	if (!move) {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelations[i] = globalRelationsCache[i];
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelations[i] = perLocRelationsCache[i];
+	} else {
+		for (auto i = 0u; i < globalRelations.size(); i++)
+			globalRelations[i] = std::move(globalRelationsCache[i]);
+		for (auto i = 0u; i < perLocRelations.size(); i++)
+			perLocRelations[i] = std::move(perLocRelationsCache[i]);
+	}
+	return;
+}
+
+Calculator *ExecutionGraph::getCalculator(RelationId id)
+{
+	return consistencyCalculators[calculatorIndex[id]].get();
+}
+
+CoherenceCalculator *ExecutionGraph::getCoherenceCalculator()
+{
+	return static_cast<CoherenceCalculator *>(
+		consistencyCalculators[relationIndex[RelationId::co]].get());
+}
+
+CoherenceCalculator *ExecutionGraph::getCoherenceCalculator() const
+{
+	return static_cast<CoherenceCalculator *>(
+		consistencyCalculators.at(relationIndex.at(RelationId::co)).get());
+}
+
+LBCalculatorLAPOR *ExecutionGraph::getLbCalculatorLAPOR()
+{
+	return static_cast<LBCalculatorLAPOR *>(
+		consistencyCalculators[relationIndex[RelationId::lb]].get());
+}
+
+LBCalculatorLAPOR *ExecutionGraph::getLbCalculatorLAPOR() const
+{
+	return static_cast<LBCalculatorLAPOR *>(
+		consistencyCalculators.at(relationIndex.at(RelationId::lb)).get());
+}
+
+std::vector<Event> ExecutionGraph::getLbOrderingLAPOR() const
+{
+	return getLbCalculatorLAPOR()->getLbOrdering();
+}
+
+const std::vector<Calculator *> ExecutionGraph::getCalcs() const
+{
+	std::vector<Calculator *> result;
+
+	for (auto i = 0u; i < consistencyCalculators.size(); i++)
+		result.push_back(consistencyCalculators[i].get());
+	return result;
+}
+
+const std::vector<Calculator *> ExecutionGraph::getPartialCalcs() const
+{
+	std::vector<Calculator *> result;
+
+	for (auto i = 0u; i < partialConsCalculators.size(); i++)
+		result.push_back(consistencyCalculators[partialConsCalculators[i]].get());
+	return result;
+}
+
+void ExecutionGraph::doInits(bool full /* = false */)
+{
+	auto &hb = globalRelations[relationIndex[RelationId::hb]];
+	populateHbEntries(hb);
+	hb.transClosure();
+
+	auto &calcs = consistencyCalculators;
+	auto &partial = partialConsCalculators;
+	for (auto i = 0u; i < calcs.size(); i++) {
+		if (!full && std::find(partial.begin(), partial.end(), i) == partial.end())
+			continue;
+
+		calcs[i]->initCalc();
+	}
+	return;
+}
+
+Calculator::CalculationResult ExecutionGraph::doCalcs(bool full /* = false */)
+{
+	Calculator::CalculationResult result;
+
+	auto &calcs = consistencyCalculators;
+	auto &partial = partialConsCalculators;
+	for (auto i = 0u; i < calcs.size(); i++) {
+		if (!full && std::find(partial.begin(), partial.end(), i) == partial.end())
+			continue;
+
+		result |= calcs[i]->doCalc();
+
+		/* If an inconsistency was spotted, no reason to call
+		 * the other calculators */
+		if (!result.cons)
+			return result;
+	}
+	return result;
+}
+
+void ExecutionGraph::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+{
+	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
+}
+
+const std::vector<Event>&
+ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr) const
+{
+	return getCoherenceCalculator()->getStoresToLoc(addr);
+}
+
+const std::vector<Event>&
+ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr)
+{
+	return getCoherenceCalculator()->getStoresToLoc(addr);
+}
+
+std::pair<int, int>
+ExecutionGraph::getCoherentPlacings(const llvm::GenericValue *addr,
+				    Event pos, bool isRMW) {
+	return getCoherenceCalculator()->getPossiblePlacings(addr, pos, isRMW);
+};
+
+std::vector<Event>
+ExecutionGraph::getCoherentStores(const llvm::GenericValue *addr, Event pos)
+{
+	return getCoherenceCalculator()->getCoherentStores(addr, pos);
+}
+
+std::vector<Event>
+ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab)
+{
+	return getCoherenceCalculator()->getCoherentRevisits(wLab);
+}
 
 std::unique_ptr<VectorClock>
 ExecutionGraph::getRevisitView(const ReadLabel *rLab,
@@ -395,6 +629,7 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 				edges.push_back(std::make_pair(elems[labIdx - 1], elems[labIdx]));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (!rLab->getRf().isInitializer() &&
+				    rLab->getRf().thread != rLab->getThread() &&
 				    rLab->getHbView().contains(rLab->getRf()))
 					edges.push_back(std::make_pair(rLab->getRf(), Event(i, j)));
 			}
@@ -709,9 +944,31 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 	return preds;
 }
 
+void ExecutionGraph::changeStoreOffset(const llvm::GenericValue *addr,
+				     Event s, int newOffset)
+{
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCoherenceCalculator *>(
+		getCoherenceCalculator());
+
+	cohTracker->changeStoreOffset(addr, s, newOffset);
+}
+
+std::vector<std::pair<Event, Event> >
+ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+				    const ReadLabel *rLab) const
+{
+	return getCoherenceCalculator()->saveCoherenceStatus(prefix, rLab);
+}
+
 void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	auto preds = getViewFromStamp(stamp);
+
+	/* Inform all calculators about the events cutted */
+	auto &calcs = consistencyCalculators;
+	for (auto i = 0u; i < calcs.size(); i++)
+		calcs[i]->removeAfter(preds);
 
 	/* Restrict the graph according to the view (keep begins around) */
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -748,6 +1005,10 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 					std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 					std::vector<std::pair<Event, Event> > &moPlacings)
 {
+	auto &calcs = consistencyCalculators;
+	for (auto i = 0u; i < calcs.size() ; i++)
+		calcs[i]->restorePrefix(rLab, storePrefix, moPlacings);
+
 	std::vector<Event> inserted;
 
 	for (auto &lab : storePrefix) {

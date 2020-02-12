@@ -24,10 +24,9 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
-#include "GraphManager.hpp"
+#include "ExecutionGraph.hpp"
 #include "Interpreter.h"
 #include "Library.hpp"
-#include "RelationsManager.hpp"
 #include <llvm/IR/Module.h>
 
 #include <ctime>
@@ -222,11 +221,8 @@ protected:
 	llvm::Interpreter *getEE() const { return EE; }
 
 	/* Returns a reference to the current graph */
-	GraphManager &getGraphManager() { return *execGraph; };
-	GraphManager &getGraphManager() const { return *execGraph; };
-
-	ExecutionGraph &getGraph() { return execGraph->getGraph(); };
-	ExecutionGraph &getGraph() const { return execGraph->getGraph(); };
+	ExecutionGraph &getGraph() { return *execGraph; };
+	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
 	llvm::GenericValue getWriteValue(Event w,
@@ -542,7 +538,7 @@ private:
 	llvm::Interpreter *EE;
 
 	/* The graph managing object */
-	std::unique_ptr<GraphManager> execGraph;
+	std::unique_ptr<ExecutionGraph> execGraph;
 
 	/* The worklist for backtracking. map[stamp->stack item list] */
 	std::map<unsigned int, std::vector<StackItem> > workqueue;

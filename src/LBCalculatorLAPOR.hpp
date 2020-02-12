@@ -23,7 +23,7 @@
 
 #include "Calculator.hpp"
 #include "EventLabel.hpp"
-#include "GraphManager.hpp"
+#include "ExecutionGraph.hpp"
 #include "Matrix2D.hpp"
 #include <unordered_map>
 #include <vector>
@@ -32,7 +32,7 @@ class LBCalculatorLAPOR : public Calculator {
 
 public:
 	/* Default constructor */
-	LBCalculatorLAPOR(GraphManager &m) : Calculator(m) {}
+	LBCalculatorLAPOR(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Adds a lock to the maintained list */
 	void addLockToList(const llvm::GenericValue *addr, const Event lock);

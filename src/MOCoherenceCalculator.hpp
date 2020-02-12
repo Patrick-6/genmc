@@ -39,8 +39,8 @@ class MOCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	MOCoherenceCalculator(GraphManager &m, bool ooo)
-		: CoherenceCalculator(CC_ModificationOrder, m, ooo) {}
+	MOCoherenceCalculator(ExecutionGraph &g, bool ooo)
+		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
 	/* Track coherence at location addr */
 	void

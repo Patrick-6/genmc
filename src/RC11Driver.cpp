@@ -26,11 +26,11 @@ RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 		       clock_t start)
 	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
 {
-	auto &gm = getGraphManager();
+	auto &g = getGraph();
 
 	/* RC11 requires the calculation of PSC */
-	gm.addCalculator(llvm::make_unique<PSCCalculator>(gm),
-			 GraphManager::RelationId::psc, false);
+	g.addCalculator(llvm::make_unique<PSCCalculator>(g),
+			ExecutionGraph::RelationId::psc, false);
 	return;
 }
 
@@ -469,7 +469,7 @@ Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
 	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = getGraphManager().getStoresToLoc(rLab->getAddr());
+	const auto &stores = g.getStoresToLoc(rLab->getAddr());
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
@@ -518,12 +518,12 @@ Event RC11Driver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 
 std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	return getGraphManager().getCoherentStores(addr, getEE()->getCurrentPosition());
+	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
 std::vector<Event> RC11Driver::getRevisitLoads(const WriteLabel *sLab)
 {
-	return getGraphManager().getCoherentRevisits(sLab);
+	return getGraph().getCoherentRevisits(sLab);
 }
 
 void RC11Driver::changeRf(Event read, Event store)

@@ -22,7 +22,7 @@
 
 Event LBCalculatorLAPOR::getLastNonTrivialInCS(const Event lock) const
 {
-	const auto &g = getGraphManager().getGraph();
+	const auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(lock);
 	BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
 	auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
@@ -49,9 +49,8 @@ Event LBCalculatorLAPOR::getLastNonTrivialInCS(const Event lock) const
 
 std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &g = getGraph();
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
 	std::vector<Event> threadPrios;
 
 	for (auto &lbLoc : lbRelation) {
@@ -73,9 +72,9 @@ std::vector<Event> LBCalculatorLAPOR::getLbOrdering() const
 
 bool LBCalculatorLAPOR::addLbConstraints()
 {
-	auto &gm = getGraphManager();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
 	bool changed = false;
 
 	for (auto &lbLoc : lbRelation) {
@@ -101,10 +100,9 @@ bool LBCalculatorLAPOR::addLbConstraints()
 void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 				       const LockLabelLAPOR *lLab)
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+	auto &g = getGraph();
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 	const auto &co = coRelation[rLab->getAddr()];
 	Event lock = lLab->getPos();
 
@@ -128,10 +126,9 @@ void LBCalculatorLAPOR::calcLbFromLoad(const ReadLabel *rLab,
 void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 					const LockLabelLAPOR *lLab)
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+	auto &g = getGraph();
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 	const auto &co = coRelation[wLab->getAddr()];
 	Event lock = lLab->getPos();
 
@@ -151,9 +148,8 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 
 void LBCalculatorLAPOR::calcLbRelation()
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &g = getGraph();
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
 
 	for (auto &lbLoc : lbRelation) {
 		for (auto &l : lbLoc.second) {
@@ -176,8 +172,8 @@ void LBCalculatorLAPOR::calcLbRelation()
 
 void LBCalculatorLAPOR::initCalc()
 {
-	auto &gm = getGraphManager();
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
+	auto &g = getGraph();
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
 
 	for (auto it = locks.begin(); it != locks.end(); ++it)
 		lbRelation[it->first] = GlobalRelation(it->second);
@@ -186,11 +182,10 @@ void LBCalculatorLAPOR::initCalc()
 
 Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 {
-	auto &gm = getGraphManager();
-	const auto &g = gm.getGraph();
-	auto &hbRelation = gm.getGlobalRelation(GraphManager::RelationId::hb);
-	auto &lbRelation = gm.getPerLocRelation(GraphManager::RelationId::lb);
-	auto &coRelation = gm.getPerLocRelation(GraphManager::RelationId::co);
+	auto &g = getGraph();
+	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
+	auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
+	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 
 	if (!hbRelation.isIrreflexive())
 		return Calculator::CalculationResult(false, false);

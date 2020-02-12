@@ -27,7 +27,7 @@ IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module>
 		     clock_t start)
 	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
 {
-	auto &gm = getGraphManager();
+	auto &g = getGraph();
 
 	/* IMM requires acyclicity checks for both PSC and AR */
 	// gm.addCalculator(llvm::make_unique<PSCCalculator>(gm),
@@ -537,12 +537,12 @@ Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 
 std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
 {
-	return getGraphManager().getCoherentStores(addr, getEE()->getCurrentPosition());
+	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }
 
 std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
 {
-	return getGraphManager().getCoherentRevisits(sLab);
+	return getGraph().getCoherentRevisits(sLab);
 }
 
 void IMMDriver::changeRf(Event read, Event store)

@@ -23,7 +23,7 @@
 
 #include "Calculator.hpp"
 #include "EventLabel.hpp"
-#include "GraphManager.hpp"
+#include "ExecutionGraph.hpp"
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
@@ -52,7 +52,7 @@ public:
 protected:
 
 	/* Constructor */
-	CoherenceCalculator(CoherenceCalculatorKind k, GraphManager &m, bool ooo)
+	CoherenceCalculator(CoherenceCalculatorKind k, ExecutionGraph &m, bool ooo)
 		: Calculator(m), kind(k), outOfOrder(ooo) {}
 
 	/* Returns whether the model we are operating under supports

@@ -10,7 +10,7 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
-  Calculator.hpp Calculator.cpp \
+  Calculator.hpp \
   CoherenceCalculator.hpp \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
@@ -30,7 +30,6 @@ libgenmc_a_SOURCES = \
   ExternalFunctions.cpp \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
-  GraphManager.hpp GraphManager.cpp \
   IMMDepTracker.hpp \
   IMMDriver.cpp IMMDriver.hpp \
   Interpreter.cpp Interpreter.h \
