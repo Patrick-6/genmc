@@ -628,10 +628,23 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 			if (labIdx > thrIdx)
 				edges.push_back(std::make_pair(elems[labIdx - 1], elems[labIdx]));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (!rLab->getRf().isInitializer() &&
-				    rLab->getRf().thread != rLab->getThread() &&
-				    rLab->getHbView().contains(rLab->getRf()))
-					edges.push_back(std::make_pair(rLab->getRf(), Event(i, j)));
+				if (!rLab->getRf().isInitializer()) {
+					auto pred = (labIdx > thrIdx) ?
+						elems[labIdx - 1] : Event::getInitializer();
+					auto &v = rLab->getHbView();
+					auto &predV = getHbBefore(pred);
+					for (auto k = 0u; k < v.size(); k++) {
+						if (k != rLab->getThread() &&
+						    v[k] > 0 &&
+						    !predV.contains(Event(k, v[k]))) {
+							auto cndt = getPreviousNonTrivial(Event(k, v[k]).next());
+							if (cndt.isInitializer())
+								continue;
+							edges.push_back(
+								std::make_pair(cndt, rLab->getPos()));
+						}
+					}
+				}
 			}
 		}
 	}
