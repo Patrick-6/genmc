@@ -37,6 +37,10 @@ public:
 	/* Adds a lock to the maintained list */
 	void addLockToList(const llvm::GenericValue *addr, const Event lock);
 
+	/* Returns the first non-trivial event in the critical section
+	 * that "lock" opens */
+	Event getFirstNonTrivialInCS(const Event lock) const;
+
 	/* Returns the last non-trivial event in the critical section
 	 * that "lock" opens */
 	Event getLastNonTrivialInCS(const Event lock) const;

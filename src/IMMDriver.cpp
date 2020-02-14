@@ -506,6 +506,11 @@ IMMDriver::createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *ad
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
+	auto prevUnlock = g.getLastThreadUnlockAtLocLAPOR(lab->getPos().prev(),
+							  addr);
+	if (!prevUnlock.isInitializer())
+		pporf.update(g.getPPoRfBefore(prevUnlock));
+
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);

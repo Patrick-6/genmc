@@ -1085,11 +1085,11 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
          "Cannot getElementOffset of a nonpointer type!");
 
   Thread &thr = getCurThr();
-  uint64_t Total = 0;
+  updateDataDeps(thr.id, SF.CurInst->getPrevNode(), Ptr);
 
+  uint64_t Total = 0;
   for (; I != E; ++I) {
     updateDataDeps(thr.id, SF.CurInst->getPrevNode(), I.getOperand());
-      // thr.dataDeps[SF.CurInst->getPrevNode()].update(thr.dataDeps[I.getOperand()]);
 #ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (StructType *STy = I.getStructTypeOrNull()) {
 #else
@@ -1424,6 +1424,12 @@ void Interpreter::visitCallSite(CallSite CS) {
 		  updateCtrlDeps(thr.id, *i);
 		  // thr.ctrlDeps.update(thr.dataDeps[*i]);
 	  }
+  }
+  if (CS.getCalledFunction()->getName() == "pthread_mutex_lock") {
+	  Thread &thr = getCurThr();
+	  setCurrentDeps(getDataDeps(thr.id, *SF.Caller.arg_begin()),
+			 nullptr, getCtrlDeps(thr.id),
+			 getAddrPoDeps(thr.id), nullptr);
   }
 
   // To handle indirect calls, we must get the pointer value from the argument
@@ -2018,19 +2024,22 @@ void Interpreter::visitFPToSIInst(FPToSIInst &I) {
 
 void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
+  updateDataDeps(thr.id, &I, I.getOperand(0));
   SetValue(&I, executePtrToIntInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
   ExecutionContext &SF = ECStack().back();
+  Thread &thr = getCurThr();
+  updateDataDeps(thr.id, &I, I.getOperand(0));
   SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitBitCastInst(BitCastInst &I) {
   ExecutionContext &SF = ECStack().back();
   Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0)),
-  // thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
+  updateDataDeps(thr.id, &I, I.getOperand(0));
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2616,8 +2625,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 
 	/* We will not need to set the dependencies again, since they
 	 * will not be modified (even if the lock is added as two events) */
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	// setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+	// 	       getAddrPoDeps(thr.id), nullptr);
 
 	driver->visitLock(ptr, typ, cmpVal, newVal);
 

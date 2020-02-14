@@ -31,7 +31,7 @@ Event LBCalculatorLAPOR::getLastNonTrivialInCS(const Event lock) const
 	for (i = lLab->getIndex() + 1u; i < g.getThreadSize(lLab->getThread()); i++) {
 		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
 
-		/* If this is a matching unlock, return it */
+		/* If this is a matching unlock, break */
 		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(eLab)) {
 			if (uLab->getLockAddr() == lLab->getLockAddr())
 				break;
@@ -44,6 +44,29 @@ Event LBCalculatorLAPOR::getLastNonTrivialInCS(const Event lock) const
 			return e;
 	}
 	/* The lock label should be returned, if no other access is found */
+	return lock;
+}
+
+Event LBCalculatorLAPOR::getFirstNonTrivialInCS(const Event lock) const
+{
+	const auto &g = getGraph();
+	const EventLabel *lab = g.getEventLabel(lock);
+	BUG_ON(!llvm::isa<LockLabelLAPOR>(lab));
+	auto *lLab = static_cast<const LockLabelLAPOR *>(lab);
+
+	for (auto i = lLab->getIndex() + 1u; i < g.getThreadSize(lLab->getThread()); i++) {
+		const EventLabel *eLab = g.getEventLabel(Event(lLab->getThread(), i));
+
+		if (g.isNonTrivial(eLab->getPos()))
+			return eLab->getPos();
+
+		/* If this is a matching unlock, break */
+		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(eLab)) {
+			if (uLab->getLockAddr() == lLab->getLockAddr())
+				break;
+		}
+	}
+	/* Since we did not find an appropriate event, we return the lock */
 	return lock;
 }
 
@@ -85,7 +108,7 @@ bool LBCalculatorLAPOR::addLbConstraints()
 			for (auto &o : lbLoc.second) {
 				if (!lbLoc.second(lIndex, o))
 					continue;
-				auto ol = getLastNonTrivialInCS(o);
+				auto ol = getFirstNonTrivialInCS(o);
 
 				if (!hbRelation(ul, ol)) {
 					changed = true;
@@ -131,6 +154,28 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 	const auto &co = coRelation[wLab->getAddr()];
 	Event lock = lLab->getPos();
+
+	/* Add an lb-edge to critical sections from lLab to any critical section l'
+	 * that is hb-before some read r that reads from this wLab.
+	 * Note that r should not be a part of l' */
+	// for (auto &r : wLab->getReadersList()) {
+	// 	auto rLock = g.getLastThreadLockAtLocLAPOR(r, lLab->getLockAddr());
+	// 	if (rLock.isInitializer() || rLock == lock)
+	// 		continue;
+
+	// 	auto uLock = g.getMatchingUnlockLAPOR(rLock);
+	// 	if (uLock.isInitializer() || r.index < uLock.index)
+	// 		continue;
+
+	// 	auto f1 = getFirstNonTrivialInCS(lock);
+	// 	auto f2 = getFirstNonTrivialInCS(rLock);
+	// 	auto &hb = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
+	// 	if (hb(f1, f2))
+	// 		continue;
+
+	// 	llvm::dbgs() << "adding " << rLock << " -> " << lock << " because of " << r << "\n";
+	// 	lbRelation[lLab->getLockAddr()].addEdge(rLock, lock);
+	// }
 
 	/* Add an lb-edge if there exists a co-later store
 	 * in a different critical section of lLab */

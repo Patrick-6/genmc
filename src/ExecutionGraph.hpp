@@ -160,10 +160,19 @@ public:
 	 * If no such event exists, returns INIT */
 	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;
 
+	/* LAPOR: Returns the unlock that matches "lock". If no such event
+	 * exists, returns INIT */
+	Event getMatchingUnlockLAPOR(const Event lock) const;
+
 	/* LAPOR: Returns the last lock at location "loc" before "upperLimit".
 	 * If no such event exists, returns INIT */
 	Event getLastThreadLockAtLocLAPOR(const Event upperLimit,
 					  const llvm::GenericValue *loc) const;
+
+	/* LAPOR: Returns the last unlock at location "loc" before "upperLimit".
+	 * If no such event exists, returns INIT */
+	Event getLastThreadUnlockAtLocLAPOR(const Event upperLimit,
+					    const llvm::GenericValue *loc) const;
 
 	/* LAPOR: Returns a linear extension of LB */
 	std::vector<Event> getLbOrderingLAPOR() const;

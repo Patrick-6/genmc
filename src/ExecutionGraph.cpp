@@ -188,6 +188,33 @@ Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) co
 	return Event::getInitializer();
 }
 
+Event ExecutionGraph::getMatchingUnlockLAPOR(const Event lock) const
+{
+	std::vector<Event> locLocks;
+
+	const EventLabel *lockL = getEventLabel(lock);
+	BUG_ON(!llvm::isa<LockLabelLAPOR>(lockL));
+	auto *lLab = static_cast<const LockLabelLAPOR *>(lockL);
+
+	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
+		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
+
+		if (auto *slLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
+			if (slLab->getLockAddr() == lLab->getLockAddr())
+				locLocks.push_back(slLab->getPos());
+		}
+		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab)) {
+			if (uLab->getLockAddr() == lLab->getLockAddr()) {
+				if (locLocks.empty())
+					return uLab->getPos();
+				else
+					locLocks.pop_back();
+			}
+		}
+	}
+	return Event::getInitializer();
+}
+
 Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit,
 						  const llvm::GenericValue *loc) const
 {
@@ -195,6 +222,21 @@ Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit,
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
 
 		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
+			if (lLab->getLockAddr() == loc)
+				return lLab->getPos();
+		}
+
+	}
+	return Event::getInitializer();
+}
+
+Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit,
+						    const llvm::GenericValue *loc) const
+{
+	for (auto j = upperLimit.index; j >= 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
+
+		if (auto *lLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab)) {
 			if (lLab->getLockAddr() == loc)
 				return lLab->getPos();
 		}
@@ -735,7 +777,7 @@ bool ExecutionGraph::isNonTrivial(const EventLabel *lab) const
 
 bool ExecutionGraph::isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const
 {
-	if (lLab->getIndex() == getThreadSize(lLab->getThread() - 1))
+	if (lLab->getIndex() == getThreadSize(lLab->getThread()) - 1)
 		return true;
 
 	auto *nLab = getEventLabel(lLab->getPos().next());
