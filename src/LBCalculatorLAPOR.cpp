@@ -179,11 +179,10 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 
 	/* Add an lb-edge if there exists a co-later store
 	 * in a different critical section of lLab */
+	auto &elems = co.getElems();
 	auto labIndex = co.getIndex(wLab->getPos());
-	for (auto &s : co.getElems()) {
-		if (!co(labIndex, s))
-			continue;
-		auto sLock = g.getLastThreadLockAtLocLAPOR(s, lLab->getLockAddr());
+	for (auto it = co.adj_begin(labIndex), ei = co.adj_end(labIndex); it != ei; ++it) {
+		auto sLock = g.getLastThreadLockAtLocLAPOR(elems[*it], lLab->getLockAddr());
 		if (sLock.isInitializer() || sLock == lock)
 			continue;
 

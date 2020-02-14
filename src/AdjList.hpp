@@ -72,14 +72,24 @@ public:
 	/* Iterator typedefs */
 	using iterator = typename std::vector<T>::iterator;
 	using const_iterator = typename std::vector<T>::const_iterator;
-	using reverse_iterator = typename std::vector<T>::reverse_iterator;
-	using const_revserse_iteratr = typename std::vector<T>::const_reverse_iterator;
+
+	using adj_iterator = std::vector<NodeId>::iterator;
+	using const_adj_iterator = std::vector<NodeId>::const_iterator;
 
 	/* Iterators -- they iterate over the nodes of the graph */
 	iterator begin() { return elems.begin(); };
-	iterator end() { return elems.end(); };
+	iterator end()   { return elems.end(); };
 	const_iterator begin() const { return elems.begin(); };
-	const_iterator end() const { return elems.end(); };
+	const_iterator end()   const { return elems.end(); };
+
+	adj_iterator adj_begin(T a) { return nodeSucc[getIndex(a)].begin(); }
+	adj_iterator adj_end(T a)   { return nodeSucc[getIndex(a)].end(); }
+	adj_iterator adj_begin(NodeId a) { return nodeSucc[a].begin(); }
+	adj_iterator adj_end(NodeId a)   { return nodeSucc[a].end(); }
+	const_adj_iterator adj_begin(T a) const { return nodeSucc[getIndex(a)].begin(); }
+	const_adj_iterator adj_end(T a)   const { return nodeSucc[getIndex(a)].end(); }
+	const_adj_iterator adj_begin(NodeId a) const { return nodeSucc[a].begin(); }
+	const_adj_iterator adj_end(NodeId a)   const { return nodeSucc[a].end(); }
 
 	/* Returns the elements (nodes) of the graph */
 	const std::vector<T> &getElems() const { return elems; }
