@@ -127,16 +127,6 @@ void GenMCDriver::prioritizeThreads()
 	auto remIt = std::remove_if(threadPrios.begin(), threadPrios.end(), [&](Event e)
 				    { return llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(e.thread)); });
 	threadPrios.erase(remIt, threadPrios.end());
-
-	if (threadPrios.empty()) {
-		for (auto i = 0u; i < g.getNumThreads(); i++) {
-			auto lock = g.getLastThreadUnmatchedLockLAPOR(g.getLastThreadEvent(i));
-			if (!lock.isInitializer()) {
-				threadPrios.push_back(lock);
-				break;
-			}
-		}
-	}
 	return;
 }
 
@@ -1158,7 +1148,7 @@ void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
 	auto lLab = createLockLabelLAPOR(pos.thread, pos.index, addr);
 	getGraph().addLockLabelToGraphLAPOR(std::move(lLab));
 
-	threadPrios.push_back(pos);
+	threadPrios.insert(threadPrios.begin(), pos);
 	return;
 }
 
