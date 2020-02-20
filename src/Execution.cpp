@@ -1417,19 +1417,30 @@ void Interpreter::visitCallSite(CallSite CS) {
     ArgVals.push_back(getOperandValue(V, SF));
   }
 
-  if (CS.getCalledFunction()->getName() == "__VERIFIER_assume") {
-	  Thread &thr = getCurThr();
+  Thread &thr = getCurThr();
+  StringRef name = CS.getCalledFunction()->getName();
+  if (name == "__VERIFIER_assume") {
+	  /* We have ctrl dependency on the argument of an assume() */
 	  for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
 		       e = SF.Caller.arg_end(); i != e; ++i, ++pNum) {
 		  updateCtrlDeps(thr.id, *i);
-		  // thr.ctrlDeps.update(thr.dataDeps[*i]);
 	  }
-  }
-  if (CS.getCalledFunction()->getName() == "pthread_mutex_lock") {
-	  Thread &thr = getCurThr();
+  } else if (name == "pthread_mutex_lock" ||
+	     name == "pthread_mutex_unlock" ||
+	     name == "pthread_mutex_trylock") {
+	  /* We have addr dependency on the argument of mutex calls */
 	  setCurrentDeps(getDataDeps(thr.id, *SF.Caller.arg_begin()),
 			 nullptr, getCtrlDeps(thr.id),
 			 getAddrPoDeps(thr.id), nullptr);
+  } else {
+	  Function *F = SF.Caller.getCalledFunction();
+	  auto ai = F->arg_begin();
+	  /* The parameters of the function called get the data
+	   * dependencies of the actual arguments */
+	  for (CallSite::arg_iterator ci = SF.Caller.arg_begin(),
+		       ce = SF.Caller.arg_end(); ci != ce; ++ci, ++ai) {
+		  updateDataDeps(getCurThr().id, &*ai, &*ci->get());
+	  }
   }
 
   // To handle indirect calls, we must get the pointer value from the argument
@@ -2809,7 +2820,6 @@ void Interpreter::callFunction(Function *F,
 	  callPthreadMutexTrylock(F, ArgVals);
 	  return;
   }
-
 
   assert((ECStack().empty() || !ECStack().back().Caller.getInstruction() ||
 	  ECStack().back().Caller.arg_size() == ArgVals.size()) &&
