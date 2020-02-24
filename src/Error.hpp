@@ -27,10 +27,13 @@
 #include <string>
 
 #define WARN_MESSAGE(msg) "WARNING: " << (msg)
+#define ERROR_MESSAGE(msg) "ERROR: " << (msg)
+
 #define WARN(msg) GenMCError::warn() << WARN_MESSAGE(msg)
 #define WARN_ONCE(id, msg) GenMCError::warnOnce(id) << WARN_MESSAGE(msg)
 #define WARN_ON(condition, msg) GenMCError::warnOn(condition) << WARN_MESSAGE(msg)
 #define WARN_ON_ONCE(condition, id, msg) GenMCError::warnOnOnce(condition, id) << WARN_MESSAGE(msg)
+#define ERROR(msg) ({ GenMCError::warn() << ERROR_MESSAGE(msg); abort(); })
 
 #define BUG() do { \
 	llvm::errs() << "BUG: Failure at " << __FILE__ ":" << __LINE__ \
@@ -50,6 +53,19 @@ namespace GenMCError {
 	llvm::raw_ostream &warnOn(bool condition);
 	llvm::raw_ostream &warnOnOnce(bool condition, const std::string &warningID);
 
+}
+
+/* Useful for debugging */
+template <typename T>
+void dumpVector(const std::vector<T>& v)
+{
+	if (v.empty())
+		return;
+
+	llvm::dbgs() << '[';
+	std::copy(v.begin(), v.end(), std::ostream_iterator<T>(llvm::dbgs(), ", "));
+	llvm::dbgs() << "\b\b]";
+	return;
 }
 
 #endif /* __ERROR_HPP__ */

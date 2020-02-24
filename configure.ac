@@ -103,6 +103,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether llvm::BitVector has find_first_unset()
+AC_MSG_CHECKING([whether llvm::BitVector has find_first_unset()])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ADT/BitVector.h>
+]],[[
+	llvm::BitVector bv;
+	bv.find_first_unset();
+]])],
+        [AC_DEFINE([LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET],[1],
+         [Define if llvm::BitVector has the find_first_unset() method.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check if AttributeSet is renamed to AttributeList
 AC_MSG_CHECKING([whether llvm::AttributeSet is renamed to llvm::AttributeList])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

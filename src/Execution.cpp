@@ -84,11 +84,17 @@ GenericValue Interpreter::getLocInitVal(GenericValue *ptr, Type *typ)
 }
 
 /* Returns the size (in bytes) for a given type */
-unsigned int Interpreter::getTypeSize(Type *typ)
+unsigned int Interpreter::getTypeSize(Type *typ) const
 {
 	return (size_t) TD.getTypeAllocSize(typ);
 }
 
+#define INT_TO_GV(typ, val)						\
+({							                \
+	GenericValue __ret;						\
+	__ret.IntVal = APInt(typ->getIntegerBitWidth(), val, true);	\
+	__ret;								\
+})
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
@@ -899,8 +905,11 @@ void Interpreter::exitCalled(GenericValue GV) {
 ///
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                  GenericValue Result) {
-  // Keep track of the ret inst to update deps if necessary...
-  auto *retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
+  // Keep track of the ret inst to update deps if necessary..
+  // (But make sure we are not emulating a ret for a declaration)
+  ReturnInst *retI = nullptr;
+  if (ECStack().back().CurBB) // dyn_cast since it might not be ret
+    retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
 
   // Pop the current stack frame.
   ECStack().pop_back();
@@ -1075,14 +1084,14 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
-  GenericValue Result = driver->visitMalloc(MemToAlloc, true);
+  GenericValue Result = driver->visitMalloc(MemToAlloc, AddressSpace::Stack);
 
   updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
 
   /* If this is not a replay, update naming information for this variable
    * based on previously collected information */
-  if (!stackVars.count(Result.PointerVal))
-	  updateVarNameInfo(&I, (char *) Result.PointerVal, MemToAlloc, true);
+  if (!varNames[static_cast<int>(AddressSpace::Stack)].count(Result.PointerVal))
+	  updateVarNameInfo((char *) Result.PointerVal, MemToAlloc, AddressSpace::Stack, &I);
 
   SetValue(&I, Result, SF);
 }
@@ -2434,66 +2443,6 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 //                        Dispatch and Execution Code
 //===----------------------------------------------------------------------===//
 
-std::string getFilenameFromMData(MDNode *node)
-{
-#ifdef LLVM_DILOCATION_IS_MDNODE
-	const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*node);
-#else
-	llvm::DILocation loc(node);
-#endif
-	std::string file = loc.getFilename();
-	std::string dir = loc.getDirectory();
-
-	BUG_ON(!file.size() || !dir.size());
-
-	std::string absPath;
-	if (file.front() == '/') {
-		absPath = file;
-	} else {
-		absPath = dir;
-		if (absPath.back() != '/')
-			absPath += "/";
-		absPath += file;
-	}
-	return absPath;
-}
-
-void Interpreter::replayExecutionBefore(const VectorClock &before)
-{
-	threads[0].initSF = mainECStack.back();
-	for (auto i = 0u; i < before.size(); i++) {
-		auto &thr = getThrById(i);
-		thr.ECStack.clear();
-		thr.ECStack.push_back(thr.initSF);
-		thr.globalInstructions = 0;
-		thr.prefixLOC.clear();
-		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
-		currentThread = i;
-		while ((int) thr.globalInstructions < before[i]) {
-			int snap = thr.globalInstructions;
-			ExecutionContext &SF = thr.ECStack.back();
-			Instruction &I = *SF.CurInst++;
-			visit(I);
-
-			/* Collect metadata only for global instructions */
-			if (thr.globalInstructions == snap)
-				continue;
-			/* If there are no metadata for this instruction, skip */
-			if (!I.getMetadata("dbg"))
-				continue;
-
-			/* Store relevant trace information in the appropriate spot */
-			int line = I.getDebugLoc().getLine();
-			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
-			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
-
-			/* If I was an RMW or a TCreate, we have to fill two spots */
-			if (thr.globalInstructions == snap + 2)
-				thr.prefixLOC[snap + 2] = std::make_pair(line, file);
-		}
-	}
-}
-
 /* callAssertFail - Call to assert() macro */
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
@@ -2502,6 +2451,12 @@ void Interpreter::callAssertFail(Function *F,
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
 	driver->visitError(err, Event::getInitializer());
+}
+
+void Interpreter::callRecoveryAssertFail(Function *F,
+					 const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitRecoveryError();
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2536,7 +2491,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
-	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue());
+	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue(),
+						   AddressSpace::Heap);
 	returnValueToCaller(F->getReturnType(), address);
 	return;
 }
@@ -2766,6 +2722,600 @@ void Interpreter::callWriteFunction(const Library &lib, const LibMem &mem, Funct
 	return;
 }
 
+/* Should match the definitions in include/unistd.h */
+#define GENMC_SEEK_SET	0	/* Seek from beginning of file.  */
+#define GENMC_SEEK_CUR	1	/* Seek from current position.  */
+#define GENMC_SEEK_END	2	/* Seek from end of file.  */
+
+/* Should match those in include/fcntl.h */
+#define GENMC_O_CREAT	00000100
+#define GENMC_O_TRUNC	00001000
+
+#define GET_PTR_TO_INT_TY(intTyp)					\
+({								        \
+	auto &ctx = intTyp->getContext();				\
+	auto *__ptrToIntType = Type::getIntNPtrTy(ctx, intTyp->getIntegerBitWidth()); \
+	__ptrToIntType;							\
+})
+
+/* Fetching different fields of a file description (model @ Interpreter.cpp) */
+#define GET_FILE_OFFSET_ADDR(file, intTyp)				\
+({								        \
+	auto __ptrToIntType = GET_PTR_TO_INT_TY(intTyp);		\
+        auto __off = (char *) file + getTypeSize(__ptrToIntType) +	\
+		getTypeSize(intTyp);					\
+	__off;								\
+})
+#define GET_FILE_INODE_ADDR(file, intTyp)			\
+({							        \
+	auto __inode = (char *) file + getTypeSize(intTyp);	\
+	__inode;						\
+})
+#define GET_FILE_LOCK_ADDR(file, intTyp)	\
+({					        \
+	(char *) file;				\
+})
+
+/* Fetching different offsets of an inode */
+#define GET_INODE_DATA_ADDR(inode, intTyp)			\
+({							        \
+	auto __data = (char *) inode + 2 * getTypeSize(intTyp);	\
+	__data;							\
+})
+#define GET_INODE_ISIZE_ADDR(inode, intTyp)			\
+({							        \
+	auto __isize = (char *) inode + getTypeSize(intTyp);	\
+	__isize;						\
+})
+#define GET_INODE_LOCK_ADDR(inode, intTyp)	\
+({						\
+	(char *) inode;				\
+})
+
+/* Returns the number of (global) instructions  */
+static int getNumGlobalInstructions(Thread &thr)
+{
+	return thr.globalInstructions;
+}
+
+/* Rolls back the current disk operation to the specified snapshot.
+ * The snapsnot must have occurred while executing the disk op */
+static void rollbackDskOperation(Thread &thr, int snapshot)
+{
+	ExecutionContext &SF = thr.ECStack.back();
+	thr.globalInstructions = snapshot; /* the beginning of the disk op */
+	--SF.CurInst;
+	return;
+}
+
+/* On success, returns a non-null pointer value that corresponds
+ * to the address of FILE's inode. Success: either if the inode was
+ * already created, or flags contain O_CREAT and the inode was
+ * created. */
+GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp)
+{
+	Thread &thr = getCurThr();
+	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+
+	/* Fetch the address of where the inode should be and read the contents */
+	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
+	auto inode = driver->visitDskRead(inodeAddr, intPtrType);
+
+	/* If the inode has not been created and O_CREAT has not been
+	 * specified, return null */
+	if (!inode.PointerVal && !(flags & GENMC_O_CREAT))
+		return inode;
+
+	/* Otherwise, we allocate an inode... */
+	unsigned int inodeSize = getInodeAllocSize(intTyp);
+	inode = driver->visitMalloc(inodeSize, AddressSpace::Internal);
+
+	/* ... properly initialize its fields... */
+	auto *inodeLock = (const GenericValue *) GET_INODE_LOCK_ADDR(inode.PointerVal, intTyp);
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal, intTyp);
+
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
+
+	/* ... and set the newly allocated inode to the appropriate address */
+	driver->visitDskWrite(inodeAddr, intPtrType, inode);
+
+	/* If we created the inode, we will not truncate it
+	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
+	flags &= ~GENMC_O_TRUNC;
+
+	/* Finally, update naming info */
+	std::string name("__inode_");
+	raw_string_ostream sname(name);
+	sname << (char *) file << thr.id << thr.globalInstructions;
+	updateVarNameInfo((char *) inode.PointerVal, inodeSize, AddressSpace::Internal,
+			  nullptr, sname.str(), "inode");
+	return inode;
+}
+
+GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &inode, Type *intTyp)
+{
+	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+
+	/* Get a fresh fd */
+	auto fd = driver->visitDskOpen(filename, intTyp);
+
+	/* We allocate space for the file description... */
+	auto fileSize = getFileAllocSize(intTyp);
+	auto *file = driver->visitMalloc(fileSize, AddressSpace::Internal).PointerVal;
+
+	/* ... and initialize its fields */
+	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file, intTyp);
+	auto *fileInode = (const GenericValue *) GET_FILE_INODE_ADDR(file, intTyp);
+	auto *fileOffset = (const GenericValue *) GET_FILE_OFFSET_ADDR(file, intTyp);
+
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   fileLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   fileInode, intPtrType, inode);
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   fileOffset, intTyp, INT_TO_GV(intTyp, 0));
+
+	setFdToFile(fd.IntVal.getLimitedValue(), file);
+	return fd;
+}
+
+GenericValue Interpreter::executeDskTruncate(const GenericValue &inode,
+					     const GenericValue &length,
+					     Type *intTyp, int snap)
+{
+	Thread &thr = getCurThr();
+
+	/* length is a signed integer... */
+	if (length.IntVal.getLimitedValue() < 0) {
+		WARN_ONCE("trunc-invalid-length", "Invalid length for truncate()!\n");
+		return INT_TO_GV(intTyp, -1);
+	}
+
+	/* Get inode's lock */
+	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode.PointerVal, intTyp));
+	driver->visitLock(inodeLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return INT_TO_GV(intTyp, 42);
+	}
+
+	/* Update inode's size */
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal, intTyp);
+	driver->visitDskWrite(inodeIsize, intTyp, length);
+
+	/* Release inode's lock */
+	driver->visitUnlock(inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	return INT_TO_GV(intTyp, 0); /* Success */
+}
+
+void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	void *file = GVTOP(ArgVals[0]);
+	int flags = ArgVals[1].IntVal.getLimitedValue();
+	Type *intTyp = F->getReturnType();
+
+	if (!checkPersistence) {
+		WARN("open() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	/* Try and find the requested inode */
+	auto inode = executeLookupOpen(file, flags, intTyp);
+
+	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+
+	/* Inode not found -- cannot open file */
+	if (!inode.PointerVal) {
+		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
+		return;
+	}
+
+	/* We allocate a new file description pointing to the file's inode... */
+	auto fd = executeDskOpen(file, inode, intTyp);
+
+	/* ... and truncate if necessary */
+	if (flags & GENMC_O_TRUNC) {
+		auto ret = executeDskTruncate(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
+		if (ret.IntVal.getLimitedValue() == 42)
+			return; /* Failed to acquire inode's lock... */
+		if (ret.IntVal.getLimitedValue() == -1) {
+			returnValueToCaller(F->getReturnType(), ret);
+			return; /* Something went really wrong (negative length?) */
+		}
+	}
+
+	returnValueToCaller(F->getReturnType(), fd);
+	return;
+}
+
+GenericValue Interpreter::executeDskRead(void *file, Type *intTyp, GenericValue *buf,
+					 Type *bufElemTyp, const GenericValue &offset,
+					 const GenericValue &count)
+{
+	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	GenericValue nr;
+
+	/* Fetch the address of the inode */
+	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
+	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
+					(const GenericValue *) fileInode, intPtrType).PointerVal;
+
+	/* Read the inode size and check whether we are reading past EOF */
+	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode, intTyp);
+	auto iSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
+	if (offset.IntVal.sge(iSize.IntVal)) {
+		nr.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
+		return nr;
+	}
+
+	/* Calculate how many bytes we can actually read from the file... */
+	nr.IntVal = iSize.IntVal - offset.IntVal;
+	nr.IntVal = (nr.IntVal.sge(count.IntVal)) ? count.IntVal : nr.IntVal;
+
+	/* ... and go ahead and read them one by one */
+	auto *inodeData = GET_INODE_DATA_ADDR(inode, intTyp);
+	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
+		auto *readAddr = inodeData + offset.IntVal.getLimitedValue() + i;
+		auto val = driver->visitDskRead((const GenericValue *) readAddr, bufElemTyp);
+		auto *storeAddr = (char *) buf + i;
+		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+				   (const GenericValue *) storeAddr, bufElemTyp, val);
+	}
+	return nr;
+}
+
+void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
+	GenericValue count = ArgVals[2];
+	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *intTyp = F->getFunctionType()->getParamType(0);
+
+	if (!checkPersistence) {
+		WARN("read() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
+	/* We get the address of the file description, from which we will get
+	 * the reading offset, as well as the address of the inode. */
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+
+	/* First, we must get the file's lock. If we fail to acquire the lock,
+	 * we reset the EE to this instruction */
+	auto *fileLock = (const GenericValue *) (GET_FILE_LOCK_ADDR(file, intTyp));
+	driver->visitLock(fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	/* Now we can read the offset at which we will try to read... */
+	auto *fileOffset = GET_FILE_OFFSET_ADDR(file, intTyp);
+	auto oldOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+					   (const GenericValue *) fileOffset, intTyp);
+
+	auto nr = executeDskRead(file, intTyp, buf, bufElemTyp, oldOffset, count);
+
+	/* We calculate the new offset to write to the file description... */
+	GenericValue newOffset;
+	newOffset.IntVal = oldOffset.IntVal + nr.IntVal;
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   (const GenericValue *) fileOffset, intTyp, newOffset);
+
+	/* ...and then release the description's lock */
+	driver->visitUnlock(fileLock, intTyp, INT_TO_GV(intTyp, 0));
+
+	/* Return #bytes read -- if successful, fullfills the read request in full */
+	auto *retTyp = F->getReturnType();
+	returnValueToCaller(retTyp, nr);
+	return;
+}
+
+GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue *buf,
+					  Type *bufElemTyp, const GenericValue &offset,
+					  const GenericValue &count, int snap)
+{
+	Thread &thr = getCurThr();
+	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+
+	/* ...as well as fetch the address inode */
+	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
+	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
+					(const GenericValue *) fileInode, intPtrType).PointerVal;
+
+	/* Since we are writing, we need to lock of the inode */
+	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode, intTyp));
+	driver->visitLock(inodeLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return INT_TO_GV(intTyp, -1);
+	}
+
+	/* Then, we proceed with the bytewise write */
+	auto *inodeData = GET_INODE_DATA_ADDR(inode, intTyp);
+	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
+		auto *loadAddr = (char *) buf + i;
+		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
+					     (const GenericValue *) loadAddr, bufElemTyp);
+		auto *writeAddr = inodeData + offset.IntVal.getLimitedValue() + i;
+		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val);
+	}
+
+	/* We update the inode's size, if necessary */
+	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode, intTyp);
+	auto iSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
+
+	GenericValue newSize;
+	newSize.IntVal = offset.IntVal + count.IntVal;
+	if (newSize.IntVal.sgt(iSize.IntVal))
+		driver->visitDskWrite((const GenericValue *) inodeIsize, intTyp, newSize);
+
+	/* Release inode's lock */
+	driver->visitUnlock(inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	return count;
+}
+
+void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
+	GenericValue count = ArgVals[2];
+	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *intTyp = F->getFunctionType()->getParamType(0);
+	GenericValue zeroVal, oneVal;
+
+	zeroVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
+	oneVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 1);
+
+	if (!checkPersistence) {
+		WARN("write() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
+	/* We get the address of the file description, from which we will get
+	 * the writing offset, as well as the address of the inode. */
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+
+	/* First, we must get the file's lock. If we fail to acquire the lock,
+	 * we reset the EE to this instruction */
+	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
+	driver->visitLock((const GenericValue *) fileLock, intTyp, zeroVal, oneVal);
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	/* Now we can read the offset at which we will try to write... */
+	auto *fileOffset = GET_FILE_OFFSET_ADDR(file, intTyp);
+	auto oldOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+					   (const GenericValue *) fileOffset, intTyp);
+
+	/* Perform the disk write operation
+	 * (If we failed to acquire the node's lock, block without returning anything) */
+	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, oldOffset, count, snap);
+	if (nw.IntVal.getLimitedValue() == -1)
+		return;
+
+	/* We calculate the new offset to write to the file description... */
+	GenericValue newOffset;
+	newOffset.IntVal = oldOffset.IntVal + nw.IntVal;
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   (const GenericValue *) fileOffset, intTyp, newOffset);
+
+	/* We release the file description's lock */
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp, zeroVal);
+
+	/* Return #bytes written -- always fulfills the request in full  */
+	auto *retTyp = F->getReturnType();
+	returnValueToCaller(retTyp, nw);
+	return;
+}
+
+void Interpreter::callDskSync(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitDskSync();
+	return;
+}
+
+void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
+	GenericValue count = ArgVals[2];
+	GenericValue offset = ArgVals[3];
+	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *intTyp = F->getFunctionType()->getParamType(0);
+
+	if (!checkPersistence) {
+		WARN("read() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
+	/* We get the address of the file description, from which we will get
+	 * the reading offset. In contrast to read(), we do not get the offset's lock */
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+
+	/* Execute the read in the specified offset */
+	auto nr = executeDskRead(file, intTyp, buf, bufElemTyp, offset, count);
+
+	/* Return the number of bytes read (similar to read()) */
+	auto *retTyp = F->getReturnType();
+	returnValueToCaller(retTyp, nr);
+	return;
+}
+
+void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
+	GenericValue count = ArgVals[2];
+	GenericValue offset = ArgVals[3];
+	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *intTyp = F->getFunctionType()->getParamType(0);
+	GenericValue result;
+
+	if (!checkPersistence) {
+		WARN("write() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
+	/* We get the address of the file description, from which we will get
+	 * the reading offset. In contrast to read(), we do not get the offset's lock */
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+
+	/* Execute the read in the specified offset */
+	auto nw = executeDskRead(file, intTyp, buf, bufElemTyp, offset, count);
+
+	/* Return the number of bytes written */
+	auto *retTyp = F->getReturnType();
+	returnValueToCaller(retTyp, nw);
+	return;
+}
+
+GenericValue Interpreter::executeLseek(void *file, Type *intTyp,
+				       const GenericValue &offset,
+				       const GenericValue &whence)
+{
+	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+
+	/* We get the address of the inode (to read isize, as in ext4_llseek) */
+	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
+	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
+					(const GenericValue *) fileInode, intPtrType).PointerVal;
+
+	/* We read the inode size before switching on WHENCE */
+	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode, intTyp);
+	auto fileSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
+
+	/* Then, we calculate the new offset before updating it */
+	GenericValue newOffset;
+	auto *fileOffset = GET_FILE_OFFSET_ADDR(file, intTyp);
+	switch (whence.IntVal.getLimitedValue()) {
+	case GENMC_SEEK_SET:
+		newOffset = offset;
+		break;
+	case GENMC_SEEK_END:
+		newOffset.IntVal = offset.IntVal;
+		newOffset.IntVal += fileSize.IntVal;
+		break;
+	case GENMC_SEEK_CUR: {
+		if (offset.IntVal.getLimitedValue() == 0) {
+			/* Special case: Position-querying operation */
+			return driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+						 (const GenericValue *) fileOffset, intTyp);
+		}
+
+		/* This case is weird in the kernel: The offset is updated while holding
+		 * f_lock (as opposed to f_pos_lock), but I think this is a leftover from
+		 * some previous version, where only SEEK_CURs would synchronize. Now,
+		 * since we hold f_pos_lock anyway, getting f_lock as well seems
+		 * unnecessary, at least for our purposes.
+		 *
+		 * In any case, the update is performed within the switch statement,
+		 * as is done in the kernel. */
+		newOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+					      (const GenericValue *) fileOffset, intTyp);
+		newOffset.IntVal += offset.IntVal;
+		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+				   (const GenericValue *) fileOffset, intTyp, newOffset);
+		return newOffset;
+	}
+	default:
+		WARN_ONCE("lseek-unknown-whence", "Unsupported whence value for lseek!\n");
+		newOffset.IntVal = APInt(intTyp->getIntegerBitWidth(), -1);
+		return newOffset;
+	}
+	/* Update the offset (if lseek has not already returned) */
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   (const GenericValue *) fileOffset, intTyp, newOffset);
+	return newOffset;
+}
+
+void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	GenericValue offset = ArgVals[1];
+	GenericValue whence = ArgVals[2];
+	Type *intTyp = F->getFunctionType()->getParamType(0);
+	GenericValue zeroVal, oneVal;
+
+	zeroVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
+	oneVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 1);
+
+	if (!checkPersistence) {
+		WARN("lseek() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
+	/* We get the address of the file description, from which we will get
+	 * the offset to modify */
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+
+	/* First, we must get the file's lock. If we fail to acquire the lock,
+	 * we reset the EE to this instruction */
+	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
+	driver->visitLock((const GenericValue *) fileLock, intTyp, zeroVal, oneVal);
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	auto newOffset = executeLseek(file, intTyp, offset, whence);
+
+	/* We release the file description's lock */
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp, zeroVal);
+	returnValueToCaller(F->getReturnType(), newOffset);
+	return;
+}
+
+void Interpreter::callPersistenceBarrier(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitDskPersists();
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -2791,6 +3341,9 @@ void Interpreter::callFunction(Function *F,
 
   if (functionName == "__assert_fail") {
 	  callAssertFail(F, ArgVals);
+	  return;
+  } else if (functionName == "__VERIFIER_recovery_assert_fail") {
+	  callRecoveryAssertFail(F, ArgVals);
 	  return;
   } else if (functionName == "__end_loop") {
 	  callEndLoop(F, ArgVals);
@@ -2832,6 +3385,30 @@ void Interpreter::callFunction(Function *F,
   } else if (functionName == "pthread_mutex_trylock") {
 	  callPthreadMutexTrylock(F, ArgVals);
 	  return;
+  } else if (functionName == "open") {
+	  callDskOpen(F, ArgVals);
+	  return;
+  } else if (functionName == "read") {
+	  callDskRead(F, ArgVals);
+	  return;
+  } else if (functionName == "write") {
+	  callDskWrite(F, ArgVals);
+	  return;
+  } else if (functionName == "sync") {
+	  callDskSync(F, ArgVals);
+	  return;
+  } else if (functionName == "pread") {
+	  callDskPread(F, ArgVals);
+	  return;
+  } else if (functionName == "pwrite") {
+	  callDskPwrite(F, ArgVals);
+	  return;
+  } else if (functionName == "lseek") {
+	  callLseek(F, ArgVals);
+	  return;
+  } else if (functionName == "__VERIFIER_persistence_barrier") {
+	  callPersistenceBarrier(F, ArgVals);
+	  return;
   }
 
   assert((ECStack().empty() || !ECStack().back().Caller.getInstruction() ||
@@ -2870,6 +3447,84 @@ void Interpreter::callFunction(Function *F,
   StackFrame.VarArgs.assign(ArgVals.begin()+i, ArgVals.end());
 }
 
+std::string getFilenameFromMData(MDNode *node)
+{
+#ifdef LLVM_DILOCATION_IS_MDNODE
+	const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*node);
+#else
+	llvm::DILocation loc(node);
+#endif
+	std::string file = loc.getFilename();
+	std::string dir = loc.getDirectory();
+
+	BUG_ON(!file.size() || !dir.size());
+
+	std::string absPath;
+	if (file.front() == '/') {
+		absPath = file;
+	} else {
+		absPath = dir;
+		if (absPath.back() != '/')
+			absPath += "/";
+		absPath += file;
+	}
+	return absPath;
+}
+
+void Interpreter::replayExecutionBefore(const VectorClock &before)
+{
+	/* We always follow LB-ordering (LAPOR) and setup persistence infrastructure */
+	reset();
+	driver->handleExecutionBeginning();
+
+	/* We have to replay all threads in order to get debug metadata */
+	threads[0].initSF = mainECStack.back();
+	for (auto i = 0u; i < before.size(); i++) {
+		auto &thr = getThrById(i);
+		thr.ECStack.clear();
+		thr.ECStack.push_back(thr.initSF);
+		thr.prefixLOC.clear();
+		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
+		currentThread = i;
+		while ((int) thr.globalInstructions < before[i]) {
+			int snap = thr.globalInstructions;
+			ExecutionContext &SF = thr.ECStack.back();
+			Instruction &I = *SF.CurInst++;
+			visit(I);
+
+			/* Collect metadata only for global instructions */
+			if (thr.globalInstructions == snap)
+				continue;
+			/* If there are no metadata for this instruction, skip */
+			if (!I.getMetadata("dbg"))
+				continue;
+
+			/* Store relevant trace information in the appropriate spot */
+			int line = I.getDebugLoc().getLine();
+			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
+			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
+
+			/* If I was an RMW or a TCreate, we have to fill two spots */
+			if (thr.globalInstructions == snap + 2)
+				thr.prefixLOC[snap + 2] = std::make_pair(line, file);
+		}
+	}
+}
+
+void Interpreter::runRecoveryRoutine()
+{
+	inRecovery = true;
+	driver->handleRecoveryStart();
+	while (driver->scheduleNext()) {
+		ExecutionContext &SF = ECStack().back();
+		Instruction &I = *SF.CurInst++;
+		visit(I);
+	}
+	driver->handleRecoveryEnd();
+	inRecovery = false;
+	return;
+}
+
 void Interpreter::run()
 {
 	mainECStack = ECStack();
@@ -2882,5 +3537,8 @@ void Interpreter::run()
 		visit(I);
 	}
 	driver->handleFinishedExecution();
+
+	if (checkPersistence)
+		runRecoveryRoutine();
 	return;
 }

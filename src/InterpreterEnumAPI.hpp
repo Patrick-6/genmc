@@ -18,21 +18,12 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
-#include "Interpreter.h"
+#ifndef __INTERPRETER_ENUM_API_HPP__
+#define __INTERPRETER_ENUM_API_HPP__
 
-#if defined(HAVE_LLVM_IR_MODULE_H)
-#include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
-#include <memory>
+/* Types of allocations in the interpreter */
+enum class AddressSpace { Static, Stack, Heap, Internal, AddressSpaceLast };
 
-namespace LLVMModule {
-	llvm::LLVMContext &getLLVMContext(void);
-	void destroyLLVMContext(void);
-	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &source);
-	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::DirInode &DI, bool spinAssume, int unroll);
-	void printLLVMModule(llvm::Module &mod, std::string &out);
-}
+/* TODO: Should we expose types of values here? */
+
+#endif /* __INTERPRETER_ENUM_API_HPP__ */

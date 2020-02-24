@@ -24,15 +24,22 @@
 #include <llvm/Support/CommandLine.h>
 
 /* Command-line argument categories */
+
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
+static llvm::cl::OptionCategory clPersistence("Persistence Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
-/* Command-line argument types, default values and descriptions */
+
+/* General syntax */
+
 llvm::cl::list<std::string>
 clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore, llvm::cl::desc("-- [CFLAGS]"));
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
+
+
+/* Exploration options */
 
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
@@ -95,6 +102,22 @@ static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
 
+
+/* Persistence options */
+
+static llvm::cl::opt<bool>
+clCheckPersistence("check-persistence", llvm::cl::cat(clPersistence),
+		   llvm::cl::desc("Check post-crash persistence guarantees"));
+static llvm::cl::opt<unsigned int>
+clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(1024),
+	      llvm::cl::desc("Maximum file size (in bytes)"));
+static llvm::cl::opt<unsigned int>
+clMaxOpenFiles("max-open-files", llvm::cl::cat(clPersistence), llvm::cl::init(20),
+	       llvm::cl::desc("Maximum number of open files"));
+
+
+/* Transformation options */
+
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 	     llvm::cl::cat(clTransformation),
@@ -102,6 +125,9 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
+
+
+/* Debugging options */
 
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
@@ -140,7 +166,7 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 void Config::getConfigOptions(int argc, char **argv)
 {
 	const llvm::cl::OptionCategory *cats[] =
-		{&clGeneral, &clDebugging, &clTransformation};
+		{&clGeneral, &clDebugging, &clTransformation, &clPersistence};
 
 	/* Hide unrelated LLVM options and parse user configuration */
 #ifdef LLVM_HAS_HIDE_UNRELATED_OPTS
@@ -152,9 +178,11 @@ void Config::getConfigOptions(int argc, char **argv)
 	llvm::cl::ResetCommandLineParser();
 #endif
 
-	/* Save general options */
+	/* General syntax */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
+
+	/* Save exploration options */
 	specsFile = clLibrarySpecsFile;
 	dotFile = clDotGraphFile;
 	model = clModelType;
@@ -165,6 +193,11 @@ void Config::getConfigOptions(int argc, char **argv)
 	checkConsType = clCheckConsType;
 	checkConsPoint = clCheckConsPoint;
 	disableRaceDetection = clDisableRaceDetection;
+
+	/* Save persistence options */
+	checkPersistence = clCheckPersistence;
+	maxFileSize = clMaxFileSize;
+	maxOpenFiles = clMaxOpenFiles;
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;

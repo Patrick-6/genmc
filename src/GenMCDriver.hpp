@@ -127,6 +127,10 @@ public:
 	/* Things to do when an execution ends */
 	void handleFinishedExecution();
 
+	/* Pers: Functions that run at the start/end of the recovery routine */
+	void handleRecoveryStart();
+	void handleRecoveryEnd();
+
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
@@ -145,11 +149,16 @@ public:
 		     const llvm::GenericValue *addr, llvm::Type *typ,
 		     std::string functionName);
 
+	/* A function modeling a write to disk has been interpreted.
+	 * Returns the value read */
+	llvm::GenericValue
+	visitDskRead(const llvm::GenericValue *readAddr, llvm::Type *typ);
+
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		   const llvm::GenericValue *addr, llvm::Type *typ,
-		   llvm::GenericValue &val);
+		   const llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
@@ -159,15 +168,31 @@ public:
 		      llvm::GenericValue &val, std::string functionName,
 		      bool isInit = false);
 
-	/* A lock() call has been interpreted, nothing for the interpeter */
+	/* A function modeling a write to disk has been interpreted */
 	void
-	visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
-		  llvm::GenericValue &cmpVal, llvm::GenericValue &newVal);
+	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
+		      const llvm::GenericValue &val);
 
-	/* An unlock() call has been interpreter, nothing for the interpreter */
+	/* A lock() operation has been interpreted, nothing for the interpreter */
+	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
+		       const llvm::GenericValue &cmpVal, const llvm::GenericValue &newVal);
+
+	/* An unlock() operation has been interpreted, nothing for the interpreter */
+	void visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
+			 const llvm::GenericValue &val);
+
+	/* A function modeling the beginning of the opening of a file.
+	 * The interpreter will get back the file descriptor */
+	llvm::GenericValue
+	visitDskOpen(void *fileName, llvm::Type *intTyp);
+
+	/* A sync() operation has been interpreted */
 	void
-	visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
-		    llvm::GenericValue &val);
+	visitDskSync();
+
+	/* A call to __VERIFIER_persistence_barrier() has been interpreted */
+	void
+	visitDskPersists();
 
 	/* A fence has been interpreted, nothing for the interpreter */
 	void
@@ -191,7 +216,7 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	llvm::GenericValue
-	visitMalloc(uint64_t allocSize, bool isLocal = false);
+	visitMalloc(uint64_t allocSize, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
@@ -202,6 +227,11 @@ public:
 	void
 	visitError(std::string err, Event confEvent,
 		   DriverErrorKind t = DE_Safety);
+
+	/* Pers; Similar to visitError() but for errors occurring during
+	 * the recovery procedure */
+	void
+	visitRecoveryError();
 
 	virtual ~GenMCDriver() {};
 
@@ -261,7 +291,10 @@ private:
 
 	/* The workhorse for run().
 	 * Exhaustively explores all  consistent executions of a program */
-	void visitGraph();
+	void explore();
+
+	/* Pers: Does some necessary setup for persistence checks */
+	void setupPersistence();
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -303,6 +336,9 @@ private:
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
+
+	/* Pers: Returns true if we are currently running the recovery routine */
+	bool inRecoveryMode() const;
 
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
@@ -434,6 +470,12 @@ private:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, std::string functionName) = 0 ;
 
+	/* Creates a label for a disk read to be added to the graph */
+	virtual std::unique_ptr<DskReadLabel>
+	createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *addr, const llvm::Type *typ,
+			   Event rf) = 0;
+
 	/* Creates a label for a plain write to be added to the graph */
 	virtual std::unique_ptr<WriteLabel>
 	createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
@@ -459,6 +501,12 @@ private:
 			    llvm::GenericValue &val, std::string functionName,
 			    bool isInit) = 0;
 
+	/* Creates a label for a disk write to be added to the graph */
+	virtual std::unique_ptr<DskWriteLabel>
+	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val) = 0;
+
 	/* Creates a label for a fence to be added to the graph */
 	virtual std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) = 0;
@@ -467,11 +515,25 @@ private:
 	/* Creates a label for a malloc event to be added to the graph */
 	virtual std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, bool isLocal = false) = 0;
+			  unsigned int size, AddressSpace spc) = 0;
 
 	/* Creates a label for a free event to be added to the graph */
 	virtual std::unique_ptr<FreeLabel>
 	createFreeLabel(int tid, int index, const void *addr) = 0;
+
+	/* Creates a label for a disk open event to be added to the graph */
+	virtual std::unique_ptr<DskOpenLabel>
+	createDskOpenLabel(int tid, int index, void *fileName,
+			   const llvm::GenericValue &fd) = 0;
+
+	/* Creates a label for a sync() event to be added to the graph */
+	virtual std::unique_ptr<DskSyncLabel>
+	createDskSyncLabel(int tid, int index) = 0;
+
+	/* Creates a label for a persistence barrier
+	 * (__VERIFIER_persistence_barrier()) to be added to the graph */
+	virtual std::unique_ptr<DskPersistsLabel>
+	createDskPersistsLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>
@@ -557,6 +619,9 @@ private:
 
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;
+
+	/* Pers: Whether the recovery routine is running */
+	bool inRecovery = false;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

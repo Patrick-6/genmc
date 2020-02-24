@@ -213,6 +213,26 @@ RC11Driver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	return std::move(lab);
 }
 
+std::unique_ptr<DskReadLabel>
+RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       Event rf)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
+						   typ, rf);
+	View pbView;
+
+	calcBasicReadViews(lab.get());
+	auto sync = g.getLastThreadDskSync(lab->getPos());
+	if (!sync.isInitializer()) {
+		pbView = g.getHbBefore(sync);
+	}
+	lab->setPbView(std::move(pbView));
+	return std::move(lab);
+}
+
 std::unique_ptr<WriteLabel>
 RC11Driver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			     const llvm::GenericValue *ptr, const llvm::Type *typ,
@@ -272,6 +292,29 @@ RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 	return std::move(lab);
 }
 
+std::unique_ptr<DskWriteLabel>
+RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				const llvm::GenericValue *ptr, const llvm::Type *typ,
+				const llvm::GenericValue &val)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskWriteLabel>(g.nextStamp(), ord, pos,
+						    ptr, typ, val);
+
+	View pbView;
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	auto sync = g.getLastThreadDskSync(lab->getPos());
+	if (!sync.isInitializer()) {
+		pbView = g.getHbBefore(sync);
+	}
+	lab->setPbView(std::move(pbView));
+
+	return std::move(lab);
+}
+
 std::unique_ptr<FenceLabel>
 RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 {
@@ -286,13 +329,13 @@ RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 
 std::unique_ptr<MallocLabel>
 RC11Driver::createMallocLabel(int tid, int index, const void *addr,
-			      unsigned int size, bool isLocal)
+			      unsigned int size, AddressSpace spc)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<MallocLabel>(g.nextStamp(),
 						  llvm::AtomicOrdering::NotAtomic,
-						  pos, addr, size, isLocal);
+						  pos, addr, size, spc);
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
@@ -314,6 +357,58 @@ RC11Driver::createFreeLabel(int tid, int index, const void *addr)
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<DskOpenLabel>
+RC11Driver::createDskOpenLabel(int tid, int index, void *fileName,
+			       const llvm::GenericValue &fd)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskOpenLabel>(g.nextStamp(),
+						   llvm::AtomicOrdering::NotAtomic,
+						   pos, fileName, fd);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<DskSyncLabel>
+RC11Driver::createDskSyncLabel(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskSyncLabel>(g.nextStamp(),
+						   llvm::AtomicOrdering::Release,
+						   pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<DskPersistsLabel>
+RC11Driver::createDskPersistsLabel(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskPersistsLabel>(g.nextStamp(),
+						       llvm::AtomicOrdering::Release,
+						       pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));

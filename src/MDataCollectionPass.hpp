@@ -22,6 +22,7 @@
 #define __MDATA_COLLECTION_PASS_HPP__
 
 #include "Interpreter.h"
+#include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 
@@ -34,18 +35,16 @@ class MDataCollectionPass : public llvm::ModulePass {
 public:
 	static char ID;
 	llvm::VariableInfo &VI;
+	llvm::DirInode &DI;
 
-	MDataCollectionPass(llvm::VariableInfo &VI)
-		: llvm::ModulePass(ID), VI(VI), collected(false) {}
+	MDataCollectionPass(llvm::VariableInfo &VI, llvm::DirInode &DI)
+		: llvm::ModulePass(ID), VI(VI), DI(DI), collected(false) {}
 
 	virtual bool runOnModule(llvm::Module &M);
 
 protected:
 
 	bool collected;
-
-	/* Collects names for all global variables */
-	void collectGlobalInfo(llvm::Module &M);
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	void collectVarName(llvm::Module &M, unsigned int ptr, llvm::Type *typ,
@@ -58,8 +57,17 @@ protected:
 
 #endif
 
-	/* Collects name for all stack variables */
-	void runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &M);
+	/* Collects name info for a global variable */
+	void collectGlobalInfo(llvm::GlobalVariable &v, llvm::Module &M);
+
+	/* Collects name info for a stack variable */
+	void collectLocalInfo(llvm::DbgDeclareInst *DD, llvm::Module &M);
+
+	/* Collect name info for internal types */
+	void collectInternalInfo(llvm::Module &M);
+
+	/* Collect info about the files used */
+	void collectFilenameInfo(llvm::CallInst *DD, llvm::Module &M);
 };
 
 #endif /* __MDATA_COLLECTION_PASS_HPP__ */

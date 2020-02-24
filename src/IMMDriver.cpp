@@ -294,6 +294,14 @@ IMMDriver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	return std::move(lab);
 }
 
+std::unique_ptr<DskReadLabel>
+IMMDriver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      Event rf)
+{
+	BUG();
+}
+
 std::unique_ptr<WriteLabel>
 IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
@@ -353,6 +361,14 @@ IMMDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 	return std::move(lab);
 }
 
+std::unique_ptr<DskWriteLabel>
+IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       const llvm::GenericValue &val)
+{
+	BUG();
+}
+
 std::unique_ptr<FenceLabel>
 IMMDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 {
@@ -367,13 +383,13 @@ IMMDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 
 std::unique_ptr<MallocLabel>
 IMMDriver::createMallocLabel(int tid, int index, const void *addr,
-			       unsigned int size, bool isLocal)
+			       unsigned int size, AddressSpace spc)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<MallocLabel>(g.nextStamp(),
 						  llvm::AtomicOrdering::NotAtomic,
-						  pos, addr, size, isLocal);
+						  pos, addr, size, spc);
 
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
@@ -381,6 +397,25 @@ IMMDriver::createMallocLabel(int tid, int index, const void *addr,
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 	return std::move(lab);
+}
+
+std::unique_ptr<DskOpenLabel>
+IMMDriver::createDskOpenLabel(int tid, int index, void *fileName,
+			      const llvm::GenericValue &fd)
+{
+	BUG();
+}
+
+std::unique_ptr<DskSyncLabel>
+IMMDriver::createDskSyncLabel(int tid, int index)
+{
+	BUG(); /* Do not forget to add release/correct semantics for this */
+}
+
+std::unique_ptr<DskPersistsLabel>
+IMMDriver::createDskPersistsLabel(int tid, int index)
+{
+	BUG(); /* Do not forget to add release semantics for this */
 }
 
 std::unique_ptr<FreeLabel>

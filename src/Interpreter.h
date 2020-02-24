@@ -39,10 +39,14 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
+#include "InterpreterEnumAPI.hpp"
+#include "Config.hpp"
 #include "IMMDepTracker.hpp"
 #include "Library.hpp"
 #include "View.hpp"
 
+#include <llvm/ADT/BitVector.h>
+#include <llvm/ADT/IndexedMap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include "llvm/IR/CallSite.h"
@@ -85,19 +89,6 @@ typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
 typedef std::vector<GenericValue> ValuePlaneTy;
 
-// ExecutionContext struct - This struct represents one stack frame currently
-// executing.
-//
-struct ExecutionContext {
-  Function             *CurFunction;// The currently executing function
-  BasicBlock           *CurBB;      // The currently executing BB
-  BasicBlock::iterator  CurInst;    // The next instruction to execute
-  CallSite             Caller;     // Holds the call that called subframes.
-                                   // NULL if main func or debugger invoked fn
-  std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
-  std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
-};
-
 /*
  * VariableInfo struct -- This struct contains source-code level (naming)
  * information for variables.
@@ -112,8 +103,91 @@ struct VariableInfo {
    */
   using NameInfo = std::vector<std::pair<unsigned, std::string > >;
 
+  /* Internal types (not exposed to user programs) for which we might
+   * want to collect naming information */
+  using InternalType = std::string;
+
   std::unordered_map<Value *, NameInfo> globalInfo;
   std::unordered_map<Value *, NameInfo> localInfo;
+  std::unordered_map<InternalType, NameInfo> internalInfo;
+};
+
+/*
+ * DirInode struct -- Maintains some information about the current
+ * directory (used when persistence checks are enabled)
+ */
+struct DirInode {
+
+  using Filename = const char *;
+  using NameMap = std::unordered_map<Filename, void *>;
+
+  /* Should hold the address of the directory's lock */
+  void *dirLock;
+
+  /* Maps a filename to the address of the contents of the directory's inode for
+   * said name (the contents should have the address of the file's inode) */
+  NameMap nameToInodeAddr;
+};
+
+/*
+ * AllocaTracker class -- Keeps track of addresses that have been allocated,
+ * and provides addresses available for allocation
+ */
+class AllocaTracker {
+
+public:
+
+  AllocaTracker() { allocas.grow(static_cast<int>(AddressSpace::AddressSpaceLast)); }
+
+  /* Sets the initial address of the pool */
+  void initPoolAddress(char *init) { allocRangeBegin = init; }
+
+  /* Whether an address is allocated in the respective space */
+  bool isAllocated(const void *addr, AddressSpace spc) const {
+	  return allocas[static_cast<int>(spc)].count(addr);
+  }
+
+  /* Allocates a chunk */
+  char *allocate(unsigned int size, AddressSpace spc) {
+	  char *newAddr = allocRangeBegin;
+	  allocRangeBegin += size;
+	  track(newAddr, size, spc);
+	  return newAddr;
+  }
+
+  /* Methods that map allocations to address spaces */
+  void track(const void *addr, unsigned int size, AddressSpace spc) {
+    for (auto i = 0u; i < size; i++)
+      allocas[static_cast<int>(spc)].insert((char *) addr + i);
+
+  }
+  void untrack(const void *addr, unsigned int size, AddressSpace spc) {
+    for (auto i = 0u; i < size; i++)
+      allocas[static_cast<int>(spc)].erase((char *) addr + i);
+  }
+
+private:
+
+  /* Allocations in each address space.
+   * Does not track allocations for Static */
+  IndexedMap<std::unordered_set<const void *> > allocas;
+
+  /* Address from which we will start allocating new addresses.
+   * Should be set by the interpreter accordingly */
+  char *allocRangeBegin = (char *) 620959777;
+};
+
+// ExecutionContext struct - This struct represents one stack frame currently
+// executing.
+//
+struct ExecutionContext {
+  Function             *CurFunction;// The currently executing function
+  BasicBlock           *CurBB;      // The currently executing BB
+  BasicBlock::iterator  CurInst;    // The next instruction to execute
+  CallSite             Caller;     // Holds the call that called subframes.
+                                   // NULL if main func or debugger invoked fn
+  std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
+  std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
 };
 
 /*
@@ -124,7 +198,7 @@ class Thread {
 public:
 	using MyRNG  = std::minstd_rand;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
-	static constexpr int seed = 1821;
+	static constexpr int seed = 1995;
 
 	int id;
 	int parentId;
@@ -164,29 +238,41 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* Naming information for all variables */
   VariableInfo VI;
 
-  /* List of all stack addresses, and a map that maps these addresses to names.
-   * We keep two separate structures because this set of addresses changes dynamically. */
-  std::unordered_set<const void *> stackAllocas;
-  std::unordered_map<const void *, std::string> stackVars;
-
-
-  /* Lists of global variables with their corresponding names. We do not need to
-   * keep a separate structure with the addresses, since they do not change
-   * dynamically. We only keep a list of (dynamic) heap allocations. */
-  std::unordered_map<const void *, std::string> globalVars;
-  std::unordered_set<const void *> heapAllocas;
+  /* Tracks the names of variables in each address space */
+  IndexedMap<std::unordered_map<const void *, std::string> > varNames;
 
   /* List of thread-local variables, with their initializing values */
   std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
 
-  /* The address from which the interpreter will start allocating new vars */
-  char *allocRangeBegin = nullptr;
+  /* A tracker for dynamic allocations */
+  AllocaTracker alloctor;
+
+  /* Pers: Information about the contents of the modeled directory */
+  DirInode DI;
+
+  /* Pers: A bitvector of available file descriptors */
+  llvm::BitVector fds;
+
+  /* Pers: Maximum allowed file size */
+  unsigned int maxFileSize;
+
+  /* Pers: A map from file descriptors to file descriptions */
+  llvm::IndexedMap<void *> fdToFile;
 
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
 
   /* Pointer to the dependency tracker */
   std::unique_ptr<DepTracker> depTracker = nullptr;
+
+  /* Pers: Whether we should run a recovery procedure after the execution finishes */
+  bool checkPersistence;
+
+  /* Pers: Whether the recovery routine is running */
+  bool inRecovery = false;
+
+  /* Pers: The recovery routine to run */
+  Function *recoveryRoutine = nullptr;
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
@@ -197,7 +283,8 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, VariableInfo &&VI, GenMCDriver *driver, bool shouldTrackDeps);
+  explicit Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
+		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
   /* Enum to inform the driver about possible special attributes
@@ -213,10 +300,13 @@ public:
   /* Resets the interpreter at the beginning of a new execution */
   void reset();
 
-  /* Updates the names of the variables corresponding to addresses
-   * in the range [ptr, ptr + typeSize) */
-  void updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
-			 bool isLocal = false);
+  /* Pers: Setups the execution context for the recovery routine
+   * in thread TID. Assumes that the thread has already been added
+   * to the thread list. */
+  void setupRecoveryRoutine(int tid);
+
+  /* Pers: Does cleanups after the recovery routine has run */
+  void cleanupRecoveryRoutine(int tid);
 
   /* Information about threads as well as the currently executing thread */
   std::vector<Thread> threads;
@@ -229,6 +319,10 @@ public:
   /* Creates a new thread, but does _not_ add it to the thread list */
   Thread createNewThread(llvm::Function *F, int tid, int pid,
 			 const llvm::ExecutionContext &SF);
+
+  /* Pers: Creates a thread for the recovery routine.
+   * It does _not_ add it to the thread list */
+  Thread createRecoveryThread(int tid);
 
   /* Returns the currently executing thread */
   Thread& getCurThr() { return threads[currentThread]; };
@@ -244,7 +338,6 @@ public:
 	  const Thread &thr = getCurThr();
 	  return Event(thr.id, thr.globalInstructions);
   };
-
 
   /* Dependency tracking */
 
@@ -270,37 +363,59 @@ public:
 
   void clearDeps(unsigned int tid);
 
-
   /* Memory pools checks */
-
-  /* Check whether the given address is shared among threads */
-  bool isShared(const void *);
-
-  /* Returns true is this is a global variable or a heap allocation */
-  bool isGlobal(const void *);
-
-  /* Returns true if it is a heap allocation */
-  bool isHeapAlloca(const void *);
-
-  /* Returns true if it is a stack allocation*/
-  bool isStackAlloca(const void *);
 
   /* Returns the name of the variable residing in addr */
   std::string getVarName(const void *addr);
 
-  /* Records that the memory block in addr is no longer used, so that the
-   * interpreter stops tracking the address */
-  void deallocateBlock(const void *addr, unsigned int size, bool isLocal = false);
-
-  /* Records that the memory block in addr is used, so that we track it */
-  void allocateBlock(const void *addr, unsigned int size, bool isLocal = false);
+  bool isInternal(const void *addr);
+  bool isStatic(const void *);
+  bool isStack(const void *);
+  bool isHeap(const void *);
+  bool isDynamic(const void *);
+  bool isShared(const void *);
 
   /* Returns a fresh address for a new allocation */
-  void *getFreshAddr(unsigned int size, bool isLocal = false);
+  void *getFreshAddr(unsigned int size, AddressSpace spc);
 
-  /* Updates the names for all global variables, and calculates the
-   * starting address of the allocation pool */
-  void collectGlobalAddresses(Module *M);
+  /* Records that the memory block in ADDR is used.
+   * Does _not_ update naming information */
+  void trackAlloca(const void *addr, unsigned int size, AddressSpace spc);
+
+  /* Records that the memory block in ADDR is no longer used.
+   * Also erases naming information */
+  void untrackAlloca(const void *addr, unsigned int size, AddressSpace spc);
+
+  /* Pers: Returns the amount of bytes that need to be allocated for an inode */
+  unsigned int getInodeAllocSize(Type *intTyp) const;
+
+  /* Pers: Returns the amount of bytes that need to be allocated for a file struct */
+  unsigned int getFileAllocSize(Type *intTyp) const;
+
+  /* Pers: Returns a fresh file descriptor for a new open() call */
+  int getFreshFd();
+
+  /* Pers: Returns the address of the file description referenced by FD */
+  void *getFileFromFd(int fd);
+
+  /* Pers: Tracks that the address of the file description of FD is FILEADDR */
+  void setFdToFile(int fd, void *fileAddr);
+
+  /* Pers: Fetches the address of the directory's lock */
+  void *getDirLock() const { return DI.dirLock; }
+
+  /* Pers: Fetches the address of FILENAME's inode */
+  void *getInodeAddrFromName(const char *filename) const {
+	  return DI.nameToInodeAddr.at(filename);
+  }
+
+  /* Pers: Sets the address of the directory's lock */
+  void setDirLock(void *addr) { DI.dirLock = addr; }
+
+  /* Pers: Fetches the mappings from names to inode addresses */
+  DirInode::NameMap& getFilenameInodeMap() {
+	  return DI.nameToInodeAddr;
+  }
 
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
@@ -309,9 +424,8 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, VariableInfo &&VI,
-				 GenMCDriver *driver,
-				 bool shouldTrackDeps,
+  static ExecutionEngine *create(Module *M, VariableInfo &&VI, DirInode &&DI,
+				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
@@ -352,35 +466,18 @@ public:
   void replayExecutionBefore(const VectorClock &before);
   bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
   GenericValue getLocInitVal(GenericValue *ptr, Type *typ);
-  unsigned int getTypeSize(Type *typ);
+  unsigned int getTypeSize(Type *typ) const;
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
-
-  /* Custom Opcode Implementations */ // TODO: Remove call* from the class?
-  void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callVerifierNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callReadFunction(const Library &lib, const LibMem &m, Function *F,
-			const std::vector<GenericValue> &ArgVals);
-  void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
-			 const std::vector<GenericValue> &ArgVals);
 
 
   // Methods used to execute code:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
   void run();                // Execute instructions until nothing left to do
+
+  /* Pers: Run the specified recovery routine */
+  void runRecoveryRoutine();
 
   // Opcode Implementations
   void visitReturnInst(ReturnInst &I);
@@ -499,6 +596,73 @@ private:  // Helper functions
                                     Type *Ty, ExecutionContext &SF);
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
+
+  GenericValue executeLookupOpen(void *file, int &flags, Type *intTyp);
+  GenericValue executeDskOpen(void *file, const GenericValue &inode, Type *intTyp);
+  GenericValue executeDskTruncate(const GenericValue &inode, const GenericValue &length,
+				  Type *intTyp, int snap);
+  GenericValue executeDskRead(void *file, Type *intTyp, GenericValue *buf,
+			      Type *bufElemTyp, const GenericValue &offset,
+			      const GenericValue &count);
+  GenericValue executeDskWrite(void *file, Type *intTyp, GenericValue *buf,
+			       Type *bufElemTyp, const GenericValue &offset,
+			       const GenericValue &count, int snap);
+  GenericValue executeLseek(void *file, Type *intTyp,
+			    const GenericValue &offset,
+			    const GenericValue &whence);
+
+
+  /* Custom Opcode Implementations */
+  void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callRecoveryAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callVerifierNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callReadFunction(const Library &lib, const LibMem &m, Function *F,
+			const std::vector<GenericValue> &ArgVals);
+  void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
+			 const std::vector<GenericValue> &ArgVals);
+  void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskSync(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskPread(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callLseek(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPersistenceBarrier(Function *F, const std::vector<GenericValue> &ArgVals);
+
+  /* Updates the names for all global variables, and calculates the
+   * starting address of the allocation pool */
+  void collectGlobalAddresses(Module *M);
+
+  /* Update naming information */
+
+  void updateTypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+			      Value *v, const std::string &prefix,
+			      const std::string &internal);
+  void updateUntypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+				Value *v, const std::string &prefix,
+				const std::string &internal);
+  void updateInternalVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+				 Value *v, const std::string &prefix,
+				 const std::string &internal);
+
+  /* Update/erase the names of the variables corresponding to addresses
+   * in the range [ptr, ptr + typeSize) */
+  void updateVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+			 Value *v, const std::string &prefix = {},
+			 const std::string &internal = {});
+  void eraseVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc);
 
 };
 

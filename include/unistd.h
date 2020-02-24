@@ -1,0 +1,63 @@
+#ifndef __UNISTD_H__
+#define __UNISTD_H__
+
+#include <stddef.h>
+#include <sys/types.h>
+
+#define __wur
+#define __THROW
+
+/* src/Execution.cpp is based on the values of the definitions below */
+#define SEEK_SET	0	/* Seek from beginning of file.  */
+#define SEEK_CUR	1	/* Seek from current position.  */
+#define SEEK_END	2	/* Seek from end of file.  */
+/* #define SEEK_DATA	3	/\* Seek to next data.  *\/ */
+/* #define SEEK_HOLE	4	/\* Seek to next hole.  *\/ */
+
+/* Move FD's file position to OFFSET bytes from the
+   beginning of the file (if WHENCE is SEEK_SET),
+   the current position (if WHENCE is SEEK_CUR),
+   or the end of the file (if WHENCE is SEEK_END).
+   Return the new file position.  */
+extern __off_t lseek (int __fd, __off_t __offset, int __whence) __THROW;
+
+/* Close the file descriptor FD.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern int close (int __fd);
+
+/* Read NBYTES into BUF from FD.  Return the
+   number read, -1 for errors or 0 for EOF.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t read (int __fd, void *__buf, size_t __nbytes) __wur;
+
+/* Write N bytes of BUF to FD.  Return the number written, or -1.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t write (int __fd, const void *__buf, size_t __n) __wur;
+
+/* Read NBYTES into BUF from FD at the given position OFFSET without
+   changing the file pointer.  Return the number read, -1 for errors
+   or 0 for EOF.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t pread (int __fd, void *__buf, size_t __nbytes,
+		      __off_t __offset) __wur;
+
+/* Write N bytes of BUF to FD at the given position OFFSET without
+   changing the file pointer.  Return the number written, or -1.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
+		       __off_t __offset) __wur;
+
+/* Make all changes done to all files actually appear on disk.  */
+extern void sync (void) __THROW;
+
+#endif /* __UNISTD_H__ */

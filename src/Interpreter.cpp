@@ -37,8 +37,9 @@
  */
 
 #include "config.h"
-#include "Error.hpp"
 
+#include "Config.hpp"
+#include "Error.hpp"
 #include "Interpreter.h"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
@@ -59,9 +60,9 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI,
-				     GenMCDriver *driver,
-				     bool shouldTrackDeps, std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, DirInode &&DI,
+				     GenMCDriver *driver, const Config *userConf,
+				     std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
@@ -95,7 +96,7 @@ ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI,
   }
 #endif
 
-  return new Interpreter(M, std::move(VI), driver, shouldTrackDeps);
+  return new Interpreter(M, std::move(VI), std::move(DI), driver, userConf);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -126,6 +127,24 @@ void Interpreter::reset()
 	}
 }
 
+void Interpreter::setupRecoveryRoutine(int tid)
+{
+	BUG_ON(tid >= threads.size());
+	currentThread = tid;
+
+	/* Only fill the stack if a recovery routine actually exists... */
+	if (recoveryRoutine)
+		callFunction(recoveryRoutine, {});
+	return;
+}
+
+void Interpreter::cleanupRecoveryRoutine(int tid)
+{
+	/* Nothing to do -- yet */
+	currentThread = 0;
+	return;
+}
+
 /* Creates an entry for the main() function */
 Thread Interpreter::createMainThread(llvm::Function *F)
 {
@@ -144,84 +163,150 @@ Thread Interpreter::createNewThread(llvm::Function *F, int tid, int pid,
 	return thr;
 }
 
-bool Interpreter::isShared(const void *addr)
+Thread Interpreter::createRecoveryThread(int tid)
 {
-	return isGlobal(addr) || isStackAlloca(addr);
-}
-
-/* Returns true if "addr" points to global memory (static or heap) */
-bool Interpreter::isGlobal(const void *addr)
-{
-	return globalVars.count(addr) || isHeapAlloca(addr);
-}
-
-/* Returns true if "addr" points to the stack */
-bool Interpreter::isStackAlloca(const void *addr)
-{
-	return stackAllocas.count(addr);
-}
-
-/* Returns ture if "addr" points to heap-allocated memory */
-bool Interpreter::isHeapAlloca(const void *addr)
-{
-	return heapAllocas.count(addr);
+	Thread rec(recoveryRoutine, tid);
+	rec.tls = threadLocalVars;
+	return rec;
 }
 
 /* Returns the (source-code) variable name corresponding to "addr" */
 std::string Interpreter::getVarName(const void *addr)
 {
-	if (isStackAlloca(addr))
-		return stackVars[addr];
-	if (isGlobal(addr))
-		return globalVars[addr];
+	if (isStack(addr))
+		return varNames[static_cast<int>(AddressSpace::Stack)][addr];
+	if (isStatic(addr))
+		return varNames[static_cast<int>(AddressSpace::Static)][addr];
+	if (isInternal(addr))
+		return varNames[static_cast<int>(AddressSpace::Internal)][addr];
 	return "";
 }
 
+bool Interpreter::isInternal(const void *addr)
+{
+	return alloctor.isAllocated(addr, AddressSpace::Internal);
+}
+
+bool Interpreter::isStatic(const void *addr)
+{
+	return varNames[static_cast<int>(AddressSpace::Static)].count(addr);
+}
+
+bool Interpreter::isStack(const void *addr)
+{
+	return alloctor.isAllocated(addr, AddressSpace::Stack);
+}
+
+bool Interpreter::isHeap(const void *addr)
+{
+	return alloctor.isAllocated(addr, AddressSpace::Heap);
+}
+
+bool Interpreter::isDynamic(const void *addr)
+{
+	return isStack(addr) || isHeap(addr);
+}
+
+bool Interpreter::isShared(const void *addr)
+{
+	return isStatic(addr) || isDynamic(addr);
+}
+
 /* Returns a fresh address to be used from the interpreter */
-void *Interpreter::getFreshAddr(unsigned int size, bool isLocal /* false */)
+void *Interpreter::getFreshAddr(unsigned int size, AddressSpace spc)
 {
-	char *newAddr = allocRangeBegin; /* Fetch the next from the pool */
-	allocRangeBegin += size;
-
-	/* Track the allocated space */
-	if (isLocal) {
-		for (auto i = 0u; i < size; i++)
-			stackAllocas.insert(newAddr + i);
-		/* The name information will be updated after control
-		 * returns to the interpreter */
-	} else {
-		for (auto i = 0u; i < size; i++)
-			heapAllocas.insert(newAddr + i);
-	}
-	return newAddr;
+	return alloctor.allocate(size, spc);
 }
 
-void Interpreter::allocateBlock(const void *addr, unsigned int size, bool isLocal)
+void Interpreter::trackAlloca(const void *addr, unsigned int size, AddressSpace spc)
 {
-	if (isLocal) {
-		for (auto i = 0u; i < size; i++)
-			stackAllocas.insert((char *) addr + i);
-		/* The name information will be updated after control
-		 * returns to the interpreter */
-	} else {
-		for (auto i = 0u; i < size; i++)
-			heapAllocas.insert((char *) addr + i);
-	}
-}
-
-/* Stops tracking of a memory allocation after deletion from the graph */
-void Interpreter::deallocateBlock(const void *addr, unsigned int size, bool isLocal /* false */)
-{
-	if (isLocal) {
-		for (auto i = 0u; i < size; i++)
-			stackAllocas.erase((char *) addr + i);
-		for (auto i = 0u; i < size; i++)
-			stackVars.erase((char *) addr + i);
-	} else {
-		for (auto i = 0u; i < size; i++)
-			heapAllocas.erase((char *) addr + i);
-	}
+	/* We cannot call updateVarNameInfo just yet, since we might be simply
+	 * restoring a prefix, and cannot get the respective Value. The naming
+	 * information will be updated from the interpreter */
+	alloctor.track(addr, size, spc);
 	return;
+}
+
+void Interpreter::untrackAlloca(const void *addr, unsigned int size, AddressSpace spc)
+{
+	alloctor.untrack(addr, size, spc);
+	eraseVarNameInfo((char *) addr, size, spc);
+	return;
+}
+
+#ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
+int my_find_first_unset(const llvm::BitVector &bv)
+{
+	for (auto i = 0u; i < bv.size(); i++)
+		if (bv[i] == 0)
+			return i;
+	return -1;
+}
+#endif /* LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET */
+
+int Interpreter::getFreshFd()
+{
+#ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
+	int fd = my_find_first_unset(fds);
+#else
+	int fd = fds.find_first_unset();
+#endif
+
+	/* If no available descriptor found, return -1 */
+	if (fd == -1)
+		return -1;
+
+	/* Otherwise, mark the file descriptor as used */
+	fds.set(fd);
+	return fd;
+}
+
+void *Interpreter::getFileFromFd(int fd)
+{
+	return fdToFile[fd];
+}
+
+void Interpreter::setFdToFile(int fd, void *fileAddr)
+{
+	fdToFile[fd] = fileAddr;
+}
+
+unsigned int Interpreter::getInodeAllocSize(Type *intTyp) const
+{
+	/* We assume that an inode is of the following form:
+	 *
+	 *     struct inode {
+	 *             pthread_mutex_t lock; // equivalent to int
+	 *             int isize;
+	 *             char data[maxFileSize];
+	 *     };
+	 */
+	auto &ctx = intTyp->getContext();
+	auto charPtrType = Type::getInt8PtrTy(ctx);
+
+	auto intSize = getTypeSize(intTyp);
+	auto charPtrSize = getTypeSize(charPtrType);
+
+	return 2 * intSize + charPtrSize * maxFileSize;
+}
+
+unsigned int Interpreter::getFileAllocSize(Type *intTyp) const
+{
+	/* We assume that the file struct has the following form:
+	 *
+	 *     struct file {
+	 *             pthread_mutex_t lock; // equivalent to int
+	 *             struct inode *inode; // equivalent to int *
+	 *             int offset;
+	 *     };
+	 */
+	auto &ctx = intTyp->getContext();
+	auto intPtrType = Type::getIntNPtrTy(ctx, intTyp->getIntegerBitWidth());
+
+	auto intSize = getTypeSize(intTyp);
+	auto intPtrSize = getTypeSize(intPtrType);
+
+	return 2 * intSize + intPtrSize;
 }
 
 void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
@@ -230,7 +315,7 @@ void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
 	BUG_ON(!isa<GlobalVariable>(v));
 	auto gv = static_cast<GlobalVariable *>(v);
 
-	/* Exit if it is a private variable it is not accessible in the program */
+	/* Exit if it is a private variable; it is not accessible in the program */
 	if (gv->hasPrivateLinkage())
 		return;
 
@@ -244,37 +329,93 @@ void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
 	return;
 }
 
-/* Updates the name corresponding to an address based on the collected VariableInfo */
-void Interpreter::updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
-				    bool isLocal /* false */)
+void updateVarInfoHelper(char *ptr, unsigned int typeSize,
+			 std::unordered_map<const void *, std::string> &vars,
+			 VariableInfo::NameInfo &vi, const std::string &baseName)
 {
-	auto &vars = (isLocal) ? stackVars : globalVars;
-	auto &vi = (isLocal) ? VI.localInfo[v] : VI.globalInfo[v];
+	/* If there is no name for the beginning of the block, use a default one */
+	if (vi[0].first != 0) {
+		WARN_ONCE("name-info", ("Inadequate naming info for variable " +
+					baseName + ".\nPlease submit a bug report to "
+					PACKAGE_BUGREPORT "\n"));
+		for (auto j = 0u; j < vi[0].first; j++)
+			vars[ptr + j] = baseName;
+	}
+	for (auto i = 0u; i < vi.size() - 1; i++) {
+		for (auto j = 0u; j < vi[i + 1].first - vi[i].first; j++)
+			vars[ptr + vi[i].first + j] = baseName + vi[i].second;
+	}
+	auto &last = vi.back();
+	for (auto j = 0u; j < typeSize - last.first; j++)
+		vars[ptr + last.first + j] = baseName + last.second;
+	return;
+}
+
+void Interpreter::updateTypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+					 Value *v, const std::string &prefix,
+					 const std::string &internal)
+{
+	auto &vars = varNames[static_cast<int>(spc)];
+	auto &vi = (spc == AddressSpace::Stack) ? VI.localInfo[v] : VI.globalInfo[v];
 
 	if (vi.empty()) {
 		/* If it is not a local value, then we should collect the address
 		 * anyway, since globalVars will be used to check whether some
 		 * access accesses a global variable */
-		if (!isLocal)
+		if (spc == AddressSpace::Static)
 			collectUnnamedGlobalAddress(v, ptr, typeSize, vars);
 		return;
 	}
+	updateVarInfoHelper(ptr, typeSize, vars, vi, v->getName());
+	return;
+}
 
-	/* If there is no name for the beginning of the block, use a default one */
-	if (vi[0].first != 0) {
-		WARN_ONCE("name-info", ("Inadequate naming info for variable " +
-					v->getName() + ".\nPlease submit a bug report to "
-					PACKAGE_BUGREPORT "\n"));
-		for (auto j = 0u; j < vi[0].first; j++)
-			vars[ptr + j] = v->getName();
+void Interpreter::updateUntypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+					   Value *v, const std::string &prefix,
+					   const std::string &internal)
+{
+	/* FIXME: Does nothing now */
+	return;
+}
+
+void Interpreter::updateInternalVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+					    Value *v, const std::string &prefix,
+					    const std::string &internal)
+{
+	auto &vars = varNames[static_cast<int>(spc)];
+	auto &vi = VI.internalInfo[internal]; /* should be the name for internals */
+	BUG_ON(spc != AddressSpace::Internal);
+
+	updateVarInfoHelper(ptr, typeSize, vars, vi, prefix);
+	return;
+}
+
+void Interpreter::updateVarNameInfo(char *ptr, unsigned int typeSize,
+				    AddressSpace spc, Value *v,
+				    const std::string &prefix, const std::string &extra)
+{
+	switch (spc) {
+	case AddressSpace::Static:
+	case AddressSpace::Stack:
+		updateTypedVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
+		return;
+	case AddressSpace::Heap:
+		updateUntypedVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
+		return;
+	case AddressSpace::Internal:
+		updateInternalVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
+		return;
+	default:
+		BUG();
 	}
-	for (auto i = 0u; i < vi.size() - 1; i++) {
-		for (auto j = 0u; j < vi[i + 1].first - vi[i].first; j++)
-			vars[ptr + vi[i].first + j] = vi[i].second;
-	}
-	auto &last = vi.back();
-	for (auto j = 0u; j < typeSize - last.first; j++)
-		vars[ptr + last.first + j] = last.second;
+	return;
+}
+
+void Interpreter::eraseVarNameInfo(char *addr, unsigned int size, AddressSpace spc)
+{
+	for (auto i = 0u; i < size; i++)
+		varNames[static_cast<int>(spc)].erase(addr + i);
+	return;
 }
 
 /* Updates the names for all global variables, and calculates the
@@ -282,14 +423,15 @@ void Interpreter::updateVarNameInfo(Value *v, char *ptr, unsigned int typeSize,
 void Interpreter::collectGlobalAddresses(Module *M)
 {
 	/* Collect all global and thread-local variables */
+	char *allocBegin = nullptr;
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize =
 		        TD.getTypeAllocSize(v.getType()->getElementType());
 
 		/* The allocation pool will point just after the static address */
-		if (!allocRangeBegin || ptr > allocRangeBegin)
-			allocRangeBegin = ptr + typeSize;
+		if (!allocBegin || ptr > allocBegin)
+			allocBegin = ptr + typeSize;
 
 		/* Record whether this is a thread local variable or not */
 		if (v.isThreadLocal()) {
@@ -298,12 +440,13 @@ void Interpreter::collectGlobalAddresses(Module *M)
 			continue;
 		}
 
-		/* Update the name for this global */
-		updateVarNameInfo(&v, ptr, typeSize);
+		/* Update the name for this global. We cheat a bit since we will use this
+		 * to indicate whether this is an allocated static address (see isStatic()) */
+		updateVarNameInfo(ptr, typeSize, AddressSpace::Static, &v);
 	}
-	/* If there are no global variables, pick a random address for the pool */
-	if (!allocRangeBegin)
-		allocRangeBegin = (char *) 0x25031821;
+	/* The allocator will start giving out addresses greater than the maximum static address */
+	if (allocBegin)
+		alloctor.initPoolAddress(allocBegin);
 }
 
 const DepInfo *Interpreter::getAddrPoDeps(unsigned int tid)
@@ -422,14 +565,14 @@ void Interpreter::clearDeps(unsigned int tid)
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, VariableInfo &&VI, GenMCDriver *driver,
-			 bool shouldTrackDeps)
+Interpreter::Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
+			 GenMCDriver *driver, const Config *userConf)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
 #else
   : ExecutionEngine(M),
 #endif
-    TD(M), VI(std::move(VI)), driver(driver) {
+    TD(M), VI(std::move(VI)), DI(std::move(DI)), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
@@ -440,10 +583,21 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, GenMCDriver *driver,
   initializeExternalFunctions();
   emitGlobals();
 
+  varNames.grow(static_cast<int>(AddressSpace::AddressSpaceLast));
   collectGlobalAddresses(M);
 
-  if (shouldTrackDeps)
+  /* Set up a dependency tracker if the model requires it */
+  if (userConf->isDepTrackingModel)
 	  depTracker = make_unique<IMMDepTracker>();
+
+  /* Also run a recovery routine if it is required to do so */
+  checkPersistence = userConf->checkPersistence;
+  if (checkPersistence) {
+	  recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
+	  fds = llvm::BitVector(userConf->maxOpenFiles);
+	  fdToFile.grow(userConf->maxOpenFiles);
+	  this->maxFileSize = userConf->maxFileSize;
+  }
 
   IL = new IntrinsicLowering(TD);
 }

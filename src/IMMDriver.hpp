@@ -56,7 +56,12 @@ public:
 	std::unique_ptr<LibReadLabel>
 	createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, std::string functionName)  override;
+			   Event rf, std::string functionName) override;
+
+	std::unique_ptr<DskReadLabel>
+	createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *ptr, const llvm::Type *typ,
+			   Event rf) override;
 
 	/* Creates a label for a plain write to be added to the graph */
 	std::unique_ptr<WriteLabel>
@@ -85,6 +90,12 @@ public:
 			    llvm::GenericValue &val, std::string functionName,
 			    bool isInit) override;
 
+	/* Creates a label for a disk write to be added to the graph */
+	std::unique_ptr<DskWriteLabel>
+	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val) override;
+
 	/* Creates a label for a fence to be added to the graph */
 	std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) override;
@@ -93,7 +104,17 @@ public:
 	/* Creates a label for a malloc event to be added to the graph */
 	std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, bool isLocal = false) override;
+			  unsigned int size, AddressSpace spc) override;
+
+	std::unique_ptr<DskOpenLabel>
+	createDskOpenLabel(int tid, int index, void *fileName,
+			   const llvm::GenericValue &fd) override;
+
+	std::unique_ptr<DskSyncLabel>
+	createDskSyncLabel(int tid, int index) override;
+
+	std::unique_ptr<DskPersistsLabel>
+	createDskPersistsLabel(int tid, int index) override;
 
 	/* Creates a label for a free event to be added to the graph */
 	std::unique_ptr<FreeLabel>

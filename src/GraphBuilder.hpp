@@ -25,6 +25,7 @@
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
+#include "PersistenceChecker.hpp"
 
 /*******************************************************************************
  **                           GraphBuilder Class
@@ -73,6 +74,14 @@ public:
 			graph->addCalculator(
 				llvm::make_unique<LBCalculatorLAPOR>(*graph),
 				ExecutionGraph::RelationId::lb, true, true);
+		}
+		return *this;
+	}
+
+	GraphBuilder &withEnabledPersistenceChecks(bool pers) {
+		if (pers) {
+			graph->addPersistenceChecker(
+				llvm::make_unique<PersistenceChecker>(*graph));
 		}
 		return *this;
 	}

@@ -24,10 +24,10 @@
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
-#include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
@@ -125,56 +125,135 @@ void MDataCollectionPass::collectVarName(unsigned int ptr, unsigned int typeSize
 }
 #endif
 
-void MDataCollectionPass::collectGlobalInfo(Module &M)
+void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 {
-	for (auto &v : M.getGlobalList()) {
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
-		if (!v.getMetadata("dbg"))
-			continue;
+	if (!v.getMetadata("dbg"))
+		return;
 
-		BUG_ON(!isa<DIGlobalVariableExpression>(v.getMetadata("dbg")));
-		auto *dive = static_cast<DIGlobalVariableExpression *>(v.getMetadata("dbg"));
-		auto dit = dive->getVariable()->getType();
+	BUG_ON(!isa<DIGlobalVariableExpression>(v.getMetadata("dbg")));
+	auto *dive = static_cast<DIGlobalVariableExpression *>(v.getMetadata("dbg"));
+	auto dit = dive->getVariable()->getType();
 
-		/* Check whether it is a global pointer */
-		if (auto ditc = dyn_cast<DIType>(dit)) {
-			collectVarName(M, 0, v.getType()->getElementType(),
-				       ditc, v.getName(), VI.globalInfo[&v]);
-		}
-#else
-		unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
-		collectVarName(0, typeSize, v.getType()->getElementType(),
-			       v.getName(), VI.globalInfo[&v]);
-#endif
-		std::sort(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
-		std::unique(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
+	/* Check whether it is a global pointer */
+	if (auto ditc = dyn_cast<DIType>(dit)) {
+		collectVarName(M, 0, v.getType()->getElementType(),
+			       ditc, "", VI.globalInfo[&v]);
 	}
+#else
+	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
+	collectVarName(0, typeSize, v.getType()->getElementType(),
+		       "", VI.globalInfo[&v]);
+#endif
+
+	std::sort(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
+	std::unique(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
+	return;
 }
 
-void MDataCollectionPass::runOnBasicBlock(BasicBlock &BB, Module &M)
+void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 {
-	for (auto it = BB.begin(); it != BB.end();  ++it) {
-		if (auto *DD = dyn_cast<DbgDeclareInst>(&*it)) {
-
-			auto *v = DD->getAddress();
-			BUG_ON(!isa<PointerType>(v->getType()));
-		        auto *vt = static_cast<PointerType *>(v->getType());
-			unsigned int typeSize =
-				GET_TYPE_ALLOC_SIZE(M, vt->getElementType());
+	auto *v = DD->getAddress();
+	BUG_ON(!isa<PointerType>(v->getType()));
+	auto *vt = static_cast<PointerType *>(v->getType());
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
-			auto dit = DD->getVariable()->getType();
-			if (auto ditc = dyn_cast<DIType>(dit))
-				collectVarName(M, 0, vt->getElementType(),
-					       ditc, v->getName(),
-					       VI.localInfo[v]);
+	auto dit = DD->getVariable()->getType();
+	if (auto ditc = dyn_cast<DIType>(dit))
+		collectVarName(M, 0, vt->getElementType(),
+			       ditc, "", VI.localInfo[v]);
 #else
-			collectVarName(0, typeSize, vt->getElementType(),
-				       v->getName(), VI.localInfo[v]);
+	unsigned int typeSize =
+		GET_TYPE_ALLOC_SIZE(M, vt->getElementType());
+	collectVarName(0, typeSize, vt->getElementType(),
+		       "", VI.localInfo[v]);
 #endif
-			std::sort(VI.localInfo[v].begin(), VI.localInfo[v].end());
-			std::unique(VI.localInfo[v].begin(), VI.localInfo[v].end());
-		}
+
+	std::sort(VI.localInfo[v].begin(), VI.localInfo[v].end());
+	std::unique(VI.localInfo[v].begin(), VI.localInfo[v].end());
+	return;
+}
+
+/* We need to take special care so that these internal types
+ * actually match the ones used by the ExecutionEngine */
+void MDataCollectionPass::collectInternalInfo(Module &M)
+{
+	using IT = VariableInfo::InternalType;
+
+	/* We need to find out the size of an integer and the size of a pointer
+	 * in this platform. HACK: since all types can be safely converted to
+	 * void *, we take the size of a void * to see how many bytes are
+	 * necessary to represent a pointer, and get the integer type from
+	 * main()'s return type... */
+	auto *main = M.getFunction("main");
+	if (!main || !main->getReturnType()->isIntegerTy()) {
+		WARN_ONCE("internal-mdata", "Could not get "	\
+			  "naming info for internal variable. "	\
+			  "(Does main() return int?)\n"		\
+			  "Please submit a bug report to "	\
+			  PACKAGE_BUGREPORT "\n");
+		return;
+	}
+
+	auto *voidPtrTyp = Type::getVoidTy(M.getContext())->getPointerTo();
+	unsigned int voidPtrByteWidth = GET_TYPE_ALLOC_SIZE(M, voidPtrTyp);
+
+	auto *intTyp = main->getReturnType();
+	unsigned int intByteWidth = GET_TYPE_ALLOC_SIZE(M, intTyp);
+
+	/* struct file */
+	VI.internalInfo["file"].push_back(
+		std::make_pair(0, ".lock"));
+	VI.internalInfo["file"].push_back(
+		std::make_pair(intByteWidth, ".inode"));
+	VI.internalInfo["file"].push_back(
+		std::make_pair(intByteWidth + voidPtrByteWidth, ".data"));
+
+	/* struct inode */
+	VI.internalInfo["inode"].push_back(
+		std::make_pair(0, ".lock"));
+	VI.internalInfo["inode"].push_back(
+		std::make_pair(intByteWidth, ".isize"));
+	VI.internalInfo["inode"].push_back(
+		std::make_pair(2 * intByteWidth, ".data"));
+	return;
+}
+
+bool isSyscallWPathname(CallInst *CI)
+{
+	auto name = CI->getCalledFunction()->getName();
+	return name == "open" || name == "creat" ||
+	       name == "rename" || name == "unlink";
+}
+
+void initializeFilenameEntry(DirInode &DI, Value *v)
+{
+	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
+		auto filename = dyn_cast<ConstantDataArray>(
+			dyn_cast<GlobalVariable>(CE->getOperand(0))->
+			getInitializer())->getAsCString();
+		DI.nameToInodeAddr[filename.data()] = (char *) 0xdeadbeef;
+	} else
+		ERROR("Non-constant expression in filename\n");
+	return;
+}
+
+void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
+{
+	auto *F = CI->getCalledFunction();
+	auto ai = CI->arg_begin();
+
+	/* Fetch the first argument of the syscall as a string.
+	 * We simply initialize the entries in the map; they will be
+	 * populated with actual addresses from the EE */
+	initializeFilenameEntry(DI, CI->getArgOperand(0));
+
+	/* For rename() only, we get the second argument as well */
+	if (F->getName() == "open" || F->getName() == "creat" ||
+	    F->getName() == "unlink") {
+		;
+	} else if (F->getName() == "rename") {
+		initializeFilenameEntry(DI, CI->getArgOperand(1));
 	}
 	return;
 }
@@ -185,12 +264,23 @@ bool MDataCollectionPass::runOnModule(Module &M)
 		return false;
 
 	/* First, get type information for all global variables */
-	collectGlobalInfo(M);
+	for (auto &v : M.getGlobalList())
+		collectGlobalInfo(v, M);
 
-	/* Scan through the instructions and lower intrinsic calls */
-	for (auto &F : M)
-		for (auto &BB : F)
-			runOnBasicBlock(BB, M);
+	/* Then for all stack variables and filenames used */
+	for (auto &F : M) {
+		for (auto it = inst_iterator(F), ei = inst_end(F); it != ei; ++it) {
+			if (auto *DD = dyn_cast<DbgDeclareInst>(&*it))
+				collectLocalInfo(DD, M);
+			if (auto *CI = dyn_cast<CallInst>(&*it)) {
+				if (isSyscallWPathname(CI))
+					collectFilenameInfo(CI, M);
+			}
+		}
+	}
+
+	/* Finally, collect internal type information */
+	collectInternalInfo(M);
 
 	collected = true;
 	return false;

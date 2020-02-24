@@ -21,8 +21,9 @@
 #ifndef __EVENTLABEL_HPP__
 #define __EVENTLABEL_HPP__
 
-#include "DepView.hpp"
 #include "Event.hpp"
+#include "DepView.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "RevisitSet.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
@@ -30,6 +31,7 @@
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
 
+class DskAccessLabel;
 class ExecutionGraph;
 
 /*******************************************************************************
@@ -59,18 +61,24 @@ public:
 		EL_FaiRead,
 		EL_CasRead,
 		EL_LibRead,
+		EL_DskRead,
 		EL_LastRead,
 		EL_Write,
 		EL_FaiWrite,
 		EL_CasWrite,
 		EL_LibWrite,
+		EL_DskWrite,
 		EL_LastWrite,
 		EL_MemAccessEnd,
 		EL_Fence,
+		EL_DskSync,
+		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
 		EL_LockLabelLAPOR,
-		EL_UnlockLabelLAPOR
+		EL_UnlockLabelLAPOR,
+		EL_DskOpen,
+		EL_DskPersists,
 	};
 
 protected:
@@ -141,6 +149,11 @@ public:
 		return ordering == llvm::AtomicOrdering::SequentiallyConsistent;
 	}
 
+	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
+	static bool classofKind(EventLabelKind K) { return true; }
+	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
+	static EventLabel *castFromDskAccessLabel(const DskAccessLabel *);
+
 	virtual ~EventLabel() {}
 
 	/* Returns a clone object (virtual to allow deep copying from base) */
@@ -175,6 +188,54 @@ private:
 	DepView pporfView;
 };
 
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+			      const llvm::AtomicOrdering o);
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+			      const EventLabel::EventLabelKind k);
+
+
+/*******************************************************************************
+ **                       DskAccessLabel Class
+ ******************************************************************************/
+
+/* This is used only as base class of specific labels that
+ * model disk accesses. These labels are (only the top classes that directly
+ * derive from EventLabel are listed, not their subclasses):
+ *
+ *     DskReadLabel
+ *     DskWriteLabel
+ *
+ * Note: This is not a child of EventLabel to avoid virtual inheritance */
+class DskAccessLabel {
+
+protected:
+	DskAccessLabel(EventLabel::EventLabelKind k)
+		: eventLabelKind(k) {}
+
+public:
+	/* Getter/setter for a view representing (a subset of)
+	 * events that have persisted before this disk access */
+	const View& getPbView() const { return pbView; }
+	void setPbView(View &&v) { pbView = std::move(v); }
+
+	EventLabel::EventLabelKind getEventLabelKind() const {
+		return eventLabelKind;
+	}
+
+	static bool classof(const EventLabel *lab) {
+		return lab->getKind() == EventLabel::EL_DskRead ||
+		       lab->getKind() == EventLabel::EL_DskWrite;
+	}
+
+private:
+	/* The EventLabel class that this disk access represents */
+	EventLabel::EventLabelKind eventLabelKind;
+
+	/* View indicating (a subset of) the events that must have
+	 * persisted before the access */
+	View pbView;
+};
+
 
 /*******************************************************************************
  **                            EmptyLabel Class
@@ -194,15 +255,9 @@ public:
 
 	EmptyLabel *clone() const override { return new EmptyLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_Empty;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Empty; }
 };
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-			      const llvm::AtomicOrdering o);
-llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-			      const EventLabel::EventLabelKind k);
 
 
 /*******************************************************************************
@@ -214,17 +269,27 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 class MemAccessLabel : public EventLabel {
 
 protected:
-	using EventLabel::EventLabel;
-
+	MemAccessLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
+		       Event pos, const llvm::GenericValue *loc, const llvm::Type *typ)
+		: EventLabel(k, st, ord, pos), addr(loc), valueType(typ) {}
 public:
+	/* Returns the address of this access */
+	const llvm::GenericValue *getAddr() const { return addr; }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() >= EL_MemAccessBegin &&
-		       lab->getKind() <= EL_MemAccessEnd;
+	/* Returns the type of the access's value */
+	const llvm::Type *getType() const { return valueType; }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) {
+		return k >= EL_MemAccessBegin && k <= EL_MemAccessEnd;
 	}
 
-	virtual const llvm::GenericValue *getAddr() const = 0;
-	virtual const llvm::Type *getType() const = 0;
+private:
+	/* The address of the accessing */
+	const llvm::GenericValue *addr;
+
+	/* The type of the value accessed */
+	const llvm::Type *valueType;
 };
 
 
@@ -243,15 +308,15 @@ protected:
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
 		  const llvm::Type *typ, Event rf)
-		: MemAccessLabel(k, st, ord, pos), addr(loc),
-		  valueType(typ), readsFrom(rf), revisitable(true) {}
+		: MemAccessLabel(k, st, ord, pos, loc, typ),
+		  readsFrom(rf), revisitable(true) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
 		  Event rf)
-		: MemAccessLabel(EL_Read, st, ord, pos), addr(loc),
-		  valueType(typ), readsFrom(rf), revisitable(true) {}
+		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
+		  readsFrom(rf), revisitable(true) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
@@ -259,17 +324,11 @@ public:
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
 
-	/* Returns the address this read is accessing */
-	const llvm::GenericValue *getAddr() const override { return addr; }
-
-	/* Returns the type of the value this read is reading */
-	const llvm::Type *getType() const override { return valueType; }
-
 	ReadLabel *clone() const override { return new ReadLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() >= EL_Read &&
-		       lab->getKind() <= EL_LastRead;
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) {
+		return k >= EL_Read && k <= EL_LastRead;
 	}
 
 private:
@@ -281,12 +340,6 @@ private:
 	/* Makes the relevant read revisitable/non-revisitable. The
 	 * execution graph is responsible for making such changes */
 	void setRevisitStatus(bool status) { revisitable = status; }
-
-	/* The address the read is accessing */
-	const llvm::GenericValue *addr;
-
-	/* The type of the value the read is accessing */
-	const llvm::Type *valueType;
 
 	/* Position of the write it is reading from in the graph */
 	Event readsFrom;
@@ -327,9 +380,8 @@ public:
 
 	FaiReadLabel *clone() const override { return new FaiReadLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_FaiRead;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_FaiRead; }
 
 private:
 	/* The binary operator for this RMW operation */
@@ -370,9 +422,8 @@ public:
 
 	CasReadLabel *clone() const override { return new CasReadLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_CasRead;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_CasRead; }
 
 private:
 	/* The value that will make this CAS succeed */
@@ -414,9 +465,8 @@ public:
 
 	LibReadLabel *clone() const override { return new LibReadLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_LibRead;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LibRead; }
 
 private:
 	/* Records a write that this read cannot read from */
@@ -428,6 +478,40 @@ private:
 	/* The list with writes this read could not read from when it was
 	 * first added to the execution graph */
 	std::vector<Event> invalidRfs;
+};
+
+
+/*******************************************************************************
+ **                         DskReadLabel Class
+ ******************************************************************************/
+
+/* Models a read from the disk (e.g., via read()) */
+class DskReadLabel : public ReadLabel, public DskAccessLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		     const llvm::GenericValue *loc, const llvm::Type *typ,
+		     Event rf)
+		: ReadLabel(EL_DskRead, st, ord, pos, loc, typ, rf),
+		  DskAccessLabel(EL_DskRead) {}
+
+	DskReadLabel *clone() const override { return new DskReadLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskRead; }
+	static DskAccessLabel *castToDskAccessLabel(const DskReadLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskReadLabel*>(D));
+	}
+	static DskReadLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskReadLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* Nothing necessary for the time being */
 };
 
 
@@ -447,27 +531,21 @@ protected:
 		   Event pos, const llvm::GenericValue *addr,
 		   const llvm::Type *valTyp, llvm::GenericValue val,
 		   bool isUnlock = false)
-		: MemAccessLabel(k, st, ord, pos), value(val), addr(addr),
-		  valueType(valTyp), unlock(isUnlock) {}
+		: MemAccessLabel(k, st, ord, pos, addr, valTyp),
+		  value(val), unlock(isUnlock) {}
 
 public:
 	WriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		   const llvm::GenericValue *addr, const llvm::Type *valTyp,
 		   llvm::GenericValue val, bool isUnlock = false)
-		: MemAccessLabel(EL_Write, st, ord, pos), value(val),
-		  addr(addr), valueType(valTyp), unlock(isUnlock) {}
+		: MemAccessLabel(EL_Write, st, ord, pos, addr, valTyp),
+		  value(val), unlock(isUnlock) {}
 
 	/* Returns the value written by this write access */
 	const llvm::GenericValue& getVal() const { return value; }
 
 	/* Returns a list of the reads reading from this write */
 	const std::vector<Event>& getReadersList() const { return readerList; }
-
-	/* Returns the address this write is accessing */
-	const llvm::GenericValue *getAddr() const override { return addr; }
-
-	/* Returns the type of the value this write is writing */
-	const llvm::Type *getType() const override { return valueType; }
 
 	/* Getter/setter for a view representing the
 	 * release sequence of this write */
@@ -479,9 +557,9 @@ public:
 
 	WriteLabel *clone() const override { return new WriteLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() >= EL_Write &&
-		       lab->getKind() <= EL_LastWrite;
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) {
+		return k >= EL_Write && k <= EL_LastWrite;
 	}
 
 private:
@@ -503,12 +581,6 @@ private:
 
 	/* The value written by this label */
 	const llvm::GenericValue value;
-
-	/* The address this write is accessing */
-	const llvm::GenericValue *addr;
-
-	/* The type of the value being written */
-	const llvm::Type *valueType;
 
 	/* Whether this write models an unlock operation */
 	const bool unlock;
@@ -541,9 +613,8 @@ public:
 
 	FaiWriteLabel *clone() const override { return new FaiWriteLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_FaiWrite;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_FaiWrite; }
 };
 
 
@@ -570,9 +641,8 @@ public:
 
 	CasWriteLabel *clone() const override { return new CasWriteLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_CasWrite;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_CasWrite; }
 
 private:
 	/* Whether this label is used for modeling a lock-acquire op */
@@ -607,9 +677,8 @@ public:
 
 	LibWriteLabel *clone() const override { return new LibWriteLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_LibWrite;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LibWrite; }
 
 private:
 	/* The name of the corresponding library member */
@@ -617,6 +686,41 @@ private:
 
 	/* Whether this is the initializing write */
 	bool initial;
+};
+
+
+
+/*******************************************************************************
+ **                         DskWriteLabel Class
+ ******************************************************************************/
+
+/* Models a write from the disk (e.g., via write()) */
+class DskWriteLabel : public WriteLabel, public DskAccessLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
+		      llvm::GenericValue val)
+		: WriteLabel(EL_DskWrite, st, ord, pos, addr, valTyp, val),
+		  DskAccessLabel(EL_DskWrite) {}
+
+	DskWriteLabel *clone() const override { return new DskWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskWrite; }
+	static DskAccessLabel *castToDskAccessLabel(const DskWriteLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskWriteLabel*>(D));
+	}
+	static DskWriteLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskWriteLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* Nothing more than what the write offers, for now */
 };
 
 
@@ -631,15 +735,41 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	FenceLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
+		   Event pos)
+		: EventLabel(k, st, ord, pos) {}
 public:
 	FenceLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
 		: EventLabel(EL_Fence, st, ord, pos) {}
 
 	FenceLabel *clone() const override { return new FenceLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_Fence;
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) {
+		return k >= EL_Fence && k <= EL_LastFence;
 	}
+};
+
+
+/*******************************************************************************
+ **                         DskSyncLabel Class
+ ******************************************************************************/
+
+/* Represents an operation that synchronizes writes to persistent storage (e.g, sync()) */
+class DskSyncLabel : public FenceLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskSyncLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: FenceLabel(EL_DskSync, st, ord, pos) {}
+
+	DskSyncLabel *clone() const override { return new DskSyncLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskSync; }
 };
 
 
@@ -666,9 +796,8 @@ public:
 		return new ThreadCreateLabel(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_ThreadCreate;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ThreadCreate; }
 
 private:
 	/* The identifier of the child thread */
@@ -703,9 +832,8 @@ public:
 		return new ThreadJoinLabel(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_ThreadJoin;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ThreadJoin; }
 
 private:
 	/* Sets the last event of the thread the join() is waiting on */
@@ -743,9 +871,8 @@ public:
 		return new ThreadStartLabel(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_ThreadStart;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ThreadStart; }
 
 private:
 	/* The position of the corresponding create opeartion */
@@ -780,9 +907,8 @@ public:
 		return new ThreadFinishLabel(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_ThreadFinish;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ThreadFinish; }
 
 private:
 	/* Sets the corresponding join() event */
@@ -807,9 +933,9 @@ protected:
 
 public:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		    const void *addr, unsigned int size, bool local = false)
+		    const void *addr, unsigned int size, AddressSpace spc)
 		: EventLabel(EL_Malloc, st, ord, pos),
-		  allocAddr(addr), allocSize(size), local(local) {}
+		  allocAddr(addr), allocSize(size), spc(spc) {}
 
 	/* Returns the (fresh) address returned by the allocation */
 	const void *getAllocAddr() const { return allocAddr; }
@@ -817,14 +943,13 @@ public:
 	/* Returns the size of this allocation */
 	unsigned int getAllocSize() const { return allocSize; }
 
-	/* Returns whether this models allocation of stack or heap memory */
-	bool isLocal() const { return local; }
+	/* Returns the address space of this chunk */
+	AddressSpace getAddrSpace() const { return spc; }
 
 	MallocLabel *clone() const override { return new MallocLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_Malloc;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Malloc; }
 
 private:
 	/* The address returned by malloc() */
@@ -833,8 +958,8 @@ private:
 	/* The size of the requested allocation */
 	unsigned int allocSize;
 
-	/* Whether this is an allocation for stack memory or heap memory */
-	bool local;
+	/* Whether this chunk lives in the stack/heap/internal memory */
+	AddressSpace spc;
 };
 
 
@@ -860,9 +985,8 @@ public:
 
 	FreeLabel *clone() const override { return new FreeLabel(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_Free;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Free; }
 
 private:
 	/* The address of the memory freed */
@@ -894,14 +1018,18 @@ public:
 		return new LockLabelLAPOR(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_LockLabelLAPOR;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LockLabelLAPOR; }
 
 private:
 	/* The address of the acquired lock */
 	const llvm::GenericValue *lockAddr;
 };
+
+
+/*******************************************************************************
+ **                         UnlockLabelLAPOR Class
+ ******************************************************************************/
 
 /* Corresponds to a label modeling an unlock operation --under LAPOR only-- */
 class UnlockLabelLAPOR : public EventLabel {
@@ -923,13 +1051,174 @@ public:
 		return new UnlockLabelLAPOR(*this);
 	}
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_UnlockLabelLAPOR;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_UnlockLabelLAPOR; }
 
 private:
 	/* The address of the released lock */
 	const llvm::GenericValue *lockAddr;
 };
 
-#endif /* #define __EVENTLABEL_HPP__ */
+
+/******************************************************************************
+ **                        DskOpenLabel Class
+ ******************************************************************************/
+
+/* Corresponds to the beginning of a file-opening operation (e.g., open()) */
+class DskOpenLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskOpenLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		     void *fileName, llvm::GenericValue fd)
+		: EventLabel(EL_DskOpen, st, ord, pos),
+		  fileName(fileName), fd(fd) {}
+
+	/* Returns the name of the opened file */
+	const void *getFileName() const { return fileName; }
+
+	/* Returns the file descriptor returned by open() */
+	const llvm::GenericValue &getFd() const { return fd; }
+
+	DskOpenLabel *clone() const override { return new DskOpenLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskOpen; }
+
+private:
+	/* The name of the opened file */
+	void *fileName;
+
+	/* The file descriptor allocated for this call */
+	llvm::GenericValue fd;
+};
+
+
+/******************************************************************************
+ **                        DskPersistsLabel Class
+ ******************************************************************************/
+
+/* Corresponds to a call to __VERIFIER_persistence_barrier(), i.e.,
+ * all events before this label will have persisted when the
+ * recovery routine runs */
+class DskPersistsLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskPersistsLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: EventLabel(EL_DskPersists, st, ord, pos) {}
+
+	DskPersistsLabel *clone() const override { return new DskPersistsLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskPersists; }
+
+private:
+	/* Nothing necessary for the time being */
+};
+
+
+/* Specialization selected when ToTy is not a known subclass of DskAccessLabel */
+template <class ToTy,
+	  bool IsKnownSubtype = ::std::is_base_of<DskAccessLabel, ToTy>::value>
+struct cast_convert_decl_context {
+	static const ToTy *doit(const DskAccessLabel *Val) {
+		return static_cast<const ToTy*>(EventLabel::castFromDskAccessLabel(Val));
+	}
+
+	static ToTy *doit(DskAccessLabel *Val) {
+		return static_cast<ToTy*>(EventLabel::castFromDskAccessLabel(Val));
+	}
+};
+
+/* Specialization selected when ToTy is a known subclass of DskAccessLabel */
+template <class ToTy>
+struct cast_convert_decl_context<ToTy, true> {
+	static const ToTy *doit(const DskAccessLabel *Val) {
+		return static_cast<const ToTy*>(Val);
+	}
+
+	static ToTy *doit(DskAccessLabel *Val) {
+		return static_cast<ToTy*>(Val);
+	}
+};
+
+namespace llvm {
+
+	/* isa<T>(DskAccessLabel *) */
+	template <typename To>
+	struct isa_impl<To, ::DskAccessLabel> {
+		static bool doit(const ::DskAccessLabel &Val) {
+			return To::classofKind(Val.getEventLabelKind());
+		}
+	};
+
+	/* cast<T>(DskAccessLabel *) */
+	template<class ToTy>
+	struct cast_convert_val<ToTy,
+				const ::DskAccessLabel,const ::DskAccessLabel> {
+		static const ToTy &doit(const ::DskAccessLabel &Val) {
+			return *::cast_convert_decl_context<ToTy>::doit(&Val);
+		}
+	};
+
+	template<class ToTy>
+	struct cast_convert_val<ToTy, ::DskAccessLabel, ::DskAccessLabel> {
+		static ToTy &doit(::DskAccessLabel &Val) {
+			return *::cast_convert_decl_context<ToTy>::doit(&Val);
+		}
+	};
+
+	template<class ToTy>
+	struct cast_convert_val<ToTy,
+				const ::DskAccessLabel*, const ::DskAccessLabel*> {
+		static const ToTy *doit(const ::DskAccessLabel *Val) {
+			return ::cast_convert_decl_context<ToTy>::doit(Val);
+		}
+	};
+
+	template<class ToTy>
+	struct cast_convert_val<ToTy, ::DskAccessLabel*, ::DskAccessLabel*> {
+		static ToTy *doit(::DskAccessLabel *Val) {
+			return ::cast_convert_decl_context<ToTy>::doit(Val);
+		}
+	};
+
+	/// Implement cast_convert_val for EventLabel -> DskAccessLabel conversions.
+	template<class FromTy>
+	struct cast_convert_val< ::DskAccessLabel, FromTy, FromTy> {
+		static ::DskAccessLabel &doit(const FromTy &Val) {
+			return *FromTy::castToDskAccessLabel(&Val);
+		}
+	};
+
+	template<class FromTy>
+	struct cast_convert_val< ::DskAccessLabel, FromTy*, FromTy*> {
+		static ::DskAccessLabel *doit(const FromTy *Val) {
+			return FromTy::castToDskAccessLabel(Val);
+		}
+	};
+
+	template<class FromTy>
+	struct cast_convert_val< const ::DskAccessLabel, FromTy, FromTy> {
+		static const ::DskAccessLabel &doit(const FromTy &Val) {
+			return *FromTy::castToDskAccessLabel(&Val);
+		}
+	};
+
+	template<class FromTy>
+	struct cast_convert_val< const ::DskAccessLabel, FromTy*, FromTy*> {
+		static const ::DskAccessLabel *doit(const FromTy *Val) {
+			return FromTy::castToDskAccessLabel(Val);
+		}
+	};
+
+} /* namespace llvm */
+
+#endif /* __EVENTLABEL_HPP__ */
