@@ -109,7 +109,7 @@ public:
 	void addEdgesFromTo(const std::vector<T> &froms, const std::vector<T> &tos);
 
 	/* Returns the in-degree of each element */
-	const std::vector<unsigned int> &getInDegrees() const;
+	const std::vector<int> &getInDegrees() const;
 
 	/* Returns true if the in-degree and out-degree of a node is 0 */
 	bool hasNoEdges(T a) const {
@@ -162,7 +162,7 @@ private:
 
 	template<typename F>
 	bool allTopoSortUtil(std::vector<T> &current, std::vector<bool> visited,
-			     std::vector<unsigned int> &inDegree, F&& prop, bool &found) const;
+			     std::vector<int> &inDegree, F&& prop, bool &found) const;
 
 	template<typename F>
 	static bool combineAllTopoSortUtil(unsigned int index, std::vector<std::vector<T>> &current,
@@ -176,7 +176,7 @@ private:
 	/* The successor list for each node */
 	std::vector<std::vector<NodeId> > nodeSucc;
 
-	std::vector<unsigned int> inDegree;
+	std::vector<int> inDegree;
 
 	/* Map that maintains the ID of each element */
 	std::unordered_map<T, NodeId, Hash> ids;

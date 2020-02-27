@@ -65,7 +65,7 @@ void AdjList<T, H>::addEdgesFromTo(const std::vector<T> &froms, const std::vecto
 }
 
 template<typename T, typename H>
-const std::vector<unsigned int> &AdjList<T, H>::getInDegrees() const
+const std::vector<int> &AdjList<T, H>::getInDegrees() const
 {
 	return inDegree;
 }
@@ -141,7 +141,7 @@ template<typename T, typename H>
 template<typename F>
 bool AdjList<T, H>::allTopoSortUtil(std::vector<T> &current,
 				    std::vector<bool> visited,
-				    std::vector<unsigned int> &inDegree,
+				    std::vector<int> &inDegree,
 				    F&& prop, bool &found) const
 {
 	/* If we have already found a sorting satisfying "prop", return */
@@ -159,9 +159,9 @@ bool AdjList<T, H>::allTopoSortUtil(std::vector<T> &current,
 		/* If ith-event can be added */
 		if (inDegree[i] == 0 && !visited[i]) {
 			/* Reduce in-degrees of its neighbors */
-			for (auto j = 0u; j < es.size(); j++)
-				if ((*this)(i, j))
-					--inDegree[j];
+			for (auto it = adj_begin(i), ei = adj_end(i); it != ei; ++it)
+				--inDegree[*it];
+
 			/* Add event in current sorting, mark as visited, and recurse */
 			current.push_back(es[i]);
 			visited[i] = true;
@@ -175,9 +175,8 @@ bool AdjList<T, H>::allTopoSortUtil(std::vector<T> &current,
 			/* Reset visited, current sorting, and inDegree */
 			visited[i] = false;
 			current.pop_back();
-			for (auto j = 0u; j < es.size(); j++)
-				if ((*this)(i, j))
-					++inDegree[j];
+			for (auto it = adj_begin(i), ei = adj_end(i); it != ei; ++it)
+				++inDegree[*it];
 			/* Mark that at least one event has been added to the current sorting */
 			scheduled = true;
 		}
@@ -225,13 +224,13 @@ bool AdjList<T, H>::combineAllTopoSortUtil(unsigned int index, std::vector<std::
 	}
 
 	/* Otherwise, we have more matrices to extend */
-	toCombine[index]->allTopoSort([&](std::vector<T> &sorting){
+	return toCombine[index]->allTopoSort([&](std::vector<T> &sorting){
 			current.push_back(sorting);
-			auto res = combineAllTopoSortUtil(index + 1, current, found, toCombine, prop);
+			if (combineAllTopoSortUtil(index + 1, current, found, toCombine, prop))
+				return true;
 			current.pop_back();
-			return res;
+			return false;
 		});
-	return found;
 }
 
 template<typename T, typename H>
@@ -304,7 +303,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const AdjList<T, H> &l)
 	if (!l.calculatedTransC)
 		return s;
 
-	s << "Transitively reduced. Transitive closure:\n";
+	s << "Transitive closure:\n";
 	for (auto i = 0u; i < elems.size(); i++) {
 		s << elems[i] << " -> ";
 		for (auto j = 0u; j < l.transC[i].size(); j++)

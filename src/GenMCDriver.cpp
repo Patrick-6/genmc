@@ -723,6 +723,7 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 						for (auto j = i + 1; j < sortings[count].size(); j++)
 							lbRelation[lbLoc.first].addEdge(sortings[count][i],
 											sortings[count][j]);
+
 					}
 					++count;
 				}
@@ -852,7 +853,7 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	return valid;
 }
 
-void GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
+bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
 	while (!found) {
@@ -861,10 +862,18 @@ void GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 		if (!isConsistent(ProgramPoint::step)) {
 			found = false;
 			rfs.erase(rfs.begin());
-			BUG_ON(rfs.empty());
+			BUG_ON(!userConf->LAPOR && rfs.empty());
+			if (rfs.empty())
+				break;
 		}
 	}
-	return;
+
+	if (!found) {
+		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
+			getEE()->getThrById(i).block();
+		return false;
+	}
+	return true;
 }
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
@@ -1057,7 +1066,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 							      validStores[0]);
 
 	/* ... and make sure that the rf we end up with is consistent */
-	ensureConsistentRf(lab, validStores);
+	if (!ensureConsistentRf(lab, validStores))
+		return llvm::GenericValue();
 
 	/* Check whether a valid address is accessed, and whether there are races */
 	checkAccessValidity();

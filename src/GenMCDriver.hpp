@@ -340,7 +340,7 @@ private:
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
-	void ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
 
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores

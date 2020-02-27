@@ -264,6 +264,7 @@ Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 	for (auto &coLoc : coRelation) {
 		if (!coLoc.second.isIrreflexive())
 			return Calculator::CalculationResult(changed, false);
+
 		for (auto &s1 : coLoc.second.getElems())
 			for (auto &s2 : coLoc.second.getElems()) {
 				if (coLoc.second(s1, s2) && hbRelation(s2, s1))
@@ -271,6 +272,16 @@ Calculator::CalculationResult LBCalculatorLAPOR::doCalc()
 				if (coLoc.second(s1, s2) && g.isWriteRfBeforeRel(hbRelation, s2, s1))
 					return Calculator::CalculationResult(changed, false);
 				if (coLoc.second(s1, s2) && g.isHbOptRfBeforeRel(hbRelation, s2, s1))
+					return Calculator::CalculationResult(changed, false);
+
+				auto *oLab = g.getEventLabel(s2);
+				BUG_ON(!llvm::isa<WriteLabel>(oLab));
+				auto *sLab = static_cast<const WriteLabel *>(oLab);
+				auto &readers = sLab->getReadersList();
+				if (coLoc.second(s1, s2) &&
+				    std::any_of(readers.begin(), readers.end(),
+						[&](Event r)
+						{ return g.isHbOptRfBeforeRel(hbRelation, r, s1); }))
 					return Calculator::CalculationResult(changed, false);
 			}
 

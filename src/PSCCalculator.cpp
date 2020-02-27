@@ -395,6 +395,7 @@ Calculator::CalculationResult PSCCalculator::doCalc()
 	calcPscRelation();
 	if (!pscRelation.isIrreflexive())
 		return Calculator::CalculationResult(false, false);
+
 	auto result = addPscConstraints();
 	if (!result.cons)
 		return Calculator::CalculationResult(result.changed, false);

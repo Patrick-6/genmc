@@ -682,8 +682,7 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 							auto cndt = getPreviousNonTrivial(Event(k, v[k]).next());
 							if (cndt.isInitializer())
 								continue;
-							edges.push_back(
-								std::make_pair(cndt, rLab->getPos()));
+							edges.push_back(std::make_pair(cndt, rLab->getPos()));
 						}
 					}
 				}

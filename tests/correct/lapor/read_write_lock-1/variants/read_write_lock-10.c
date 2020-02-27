@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <assert.h>
