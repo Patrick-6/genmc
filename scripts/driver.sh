@@ -113,7 +113,7 @@ for model in rc11 imm
 do
     for coherence in wb mo
     do
-	for testdir in "${correctdir}"/lapor # "${correctdir}/"{litmus,synthetic,data-structures,lapor}
+	for testdir in "${correctdir}/"{litmus,synthetic,data-structures,lapor}
 
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
@@ -123,40 +123,40 @@ do
 done
 
 # # Then, do all the library tests (and reprint header)
-# header_printed=""
-# libdir="${DIR}/../tests/libs"
-# for model in rc11
-# do
-#     for coherence in wb mo
-#     do
-# 	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
-# 	increase_total_time
-#     done
-# done
+header_printed=""
+libdir="${DIR}/../tests/libs"
+for model in rc11
+do
+    for coherence in wb mo
+    do
+	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
+	increase_total_time
+    done
+done
 
 # Finally, run the testcases in the wrong/ directory
-# header_printed=""
-# wrongdir="${DIR}/../tests/wrong"
-# for model in rc11 imm
-# do
-#     for cat in safety racy memory
-#     do
-# 	# under IMM, only run safety tests
-# 	if test "${model}" = "imm" -a "${cat}" != "safety"
-# 	then
-# 	    continue
-# 	fi
-# 	testdir="${wrongdir}/${cat}"
-# 	coherence="wb"
-# 	suppress_diff=""
-# 	if test "${cat}" = "memory"
-# 	then
-# 	    suppress_diff=1
-# 	fi
-# 	source "${DIR}/runwrong.sh"
-# 	increase_total_time
-#     done
-# done
+header_printed=""
+wrongdir="${DIR}/../tests/wrong"
+for model in rc11 imm
+do
+    for cat in safety racy memory
+    do
+	# under IMM, only run safety tests
+	if test "${model}" = "imm" -a "${cat}" != "safety"
+	then
+	    continue
+	fi
+	testdir="${wrongdir}/${cat}"
+	coherence="wb"
+	suppress_diff=""
+	if test "${cat}" = "memory"
+	then
+	    suppress_diff=1
+	fi
+	source "${DIR}/runwrong.sh"
+	increase_total_time
+    done
+done
 
 # Print results
 print_results

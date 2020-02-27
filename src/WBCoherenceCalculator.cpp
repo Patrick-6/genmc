@@ -162,9 +162,7 @@ WBCoherenceCalculator::calcWbRestricted(const llvm::GenericValue *addr,
 		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
 			     [&](const Event &r){ return v.contains(r); });
 
-		es.push_back(// g.getPreviousNonEmptyLabel(
-				     wLab// )
-			->getPos());
+		es.push_back(wLab->getPos());
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {
 			if (i == j || std::none_of(es.begin(), es.end(), [&](Event e)

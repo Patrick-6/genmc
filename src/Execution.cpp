@@ -2634,11 +2634,6 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	/* We will not need to set the dependencies again, since they
-	 * will not be modified (even if the lock is added as two events) */
-	// setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-	// 	       getAddrPoDeps(thr.id), nullptr);
-
 	driver->visitLock(ptr, typ, cmpVal, newVal);
 
 	/*

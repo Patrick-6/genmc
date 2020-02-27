@@ -1275,66 +1275,64 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				    std::vector<Event> &tos)
 {
-	BUG();
-	// auto *cc = getCoherenceCalculator();
-	// BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
-	// auto *cohTracker = static_cast<WBCoherenceCalculator *>(cc);
-	// std::vector<Event> buf;
+	auto *cc = getCoherenceCalculator();
+	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
+	auto *cohTracker = static_cast<WBCoherenceCalculator *>(cc);
+	std::vector<Event> buf;
 
-	// for (auto i = 0u; i < froms.size(); i++) {
-	// 	buf = {};
-	// 	for (auto j = 0u; j < froms[i].second.size(); j++) {
-	// 		const EventLabel *lab = getEventLabel(froms[i].second[j]);
-	// 		if (!llvm::isa<WriteLabel>(lab))
-	// 			continue;
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			const EventLabel *lab = getEventLabel(froms[i].second[j]);
+			if (!llvm::isa<WriteLabel>(lab))
+				continue;
 
-	// 		auto *wLab = static_cast<const WriteLabel *>(lab);
-	// 		View v(getHbBefore(tos[0]));
-	// 		for (auto &t : tos)
-	// 			v.update(getEventLabel(t)->getHbView());
+			auto *wLab = static_cast<const WriteLabel *>(lab);
+			View v(getHbBefore(tos[0]));
+			for (auto &t : tos)
+				v.update(getEventLabel(t)->getHbView());
 
-	// 		auto wb = cohTracker->calcWbRestricted(wLab->getAddr(), v);
-	// 		auto &ss = wb.getElems();
-	// 		// TODO: Make a map with already calculated WBs??
+			auto wb = cohTracker->calcWbRestricted(wLab->getAddr(), v);
+			auto &ss = wb.getElems();
+			// TODO: Make a map with already calculated WBs??
 
-	// 		if (std::find(ss.begin(), ss.end(), wLab->getPos()) == ss.end())
-	// 			continue;
+			if (std::find(ss.begin(), ss.end(), wLab->getPos()) == ss.end())
+				continue;
 
-	// 		/* Collect all wb-after stores that are in "tos" range */
-	// 		auto k = wb.getIndex(wLab->getPos());
-	// 		for (auto l = 0u; l < ss.size(); l++)
-	// 			if (wb(k, l))
-	// 				buf.push_back(ss[l]);
-	// 	}
-	// 	froms[i].second = buf;
-	// }
+			/* Collect all wb-after stores that are in "tos" range */
+			auto k = wb.getIndex(wLab->getPos());
+			for (auto l = 0u; l < ss.size(); l++)
+				if (wb(k, l))
+					buf.push_back(ss[l]);
+		}
+		froms[i].second = buf;
+	}
 }
 
 void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
 				    std::vector<Event> &tos)
 {
-	BUG();
-	// std::vector<Event> buf;
+	std::vector<Event> buf;
 
-	// BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
-	// auto *cohTracker = static_cast<MOCoherenceCalculator *>(getCoherenceCalculator());
+	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCoherenceCalculator *>(getCoherenceCalculator());
 
-	// for (auto i = 0u; i < froms.size(); i++) {
-	// 	buf = {};
-	// 	for (auto j = 0u; j < froms[i].second.size(); j++) {
-	// 		const EventLabel *lab = getEventLabel(froms[i].second[j]);
-	// 		if (!llvm::isa<WriteLabel>(lab))
-	// 			continue;
+	for (auto i = 0u; i < froms.size(); i++) {
+		buf = {};
+		for (auto j = 0u; j < froms[i].second.size(); j++) {
+			const EventLabel *lab = getEventLabel(froms[i].second[j]);
+			if (!llvm::isa<WriteLabel>(lab))
+				continue;
 
-	// 		/* Collect all mo-after events that are in the "tos" range */
-	// 		auto *wLab = static_cast<const WriteLabel *>(lab);
-	// 		auto moAfter = cohTracker->getMOAfter(wLab->getAddr(), wLab->getPos());
-	// 		for (const auto &s : moAfter)
-	// 			if (std::find(tos.begin(), tos.end(), s) != tos.end())
-	// 				buf.push_back(s);
-	// 	}
-	// 	froms[i].second = buf;
-	// }
+			/* Collect all mo-after events that are in the "tos" range */
+			auto *wLab = static_cast<const WriteLabel *>(lab);
+			auto moAfter = cohTracker->getMOAfter(wLab->getAddr(), wLab->getPos());
+			for (const auto &s : moAfter)
+				if (std::find(tos.begin(), tos.end(), s) != tos.end())
+					buf.push_back(s);
+		}
+		froms[i].second = buf;
+	}
 }
 
 void ExecutionGraph::calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,

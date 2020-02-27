@@ -155,28 +155,6 @@ void LBCalculatorLAPOR::calcLbFromStore(const WriteLabel *wLab,
 	const auto &co = coRelation[wLab->getAddr()];
 	Event lock = lLab->getPos();
 
-	/* Add an lb-edge to critical sections from lLab to any critical section l'
-	 * that is hb-before some read r that reads from this wLab.
-	 * Note that r should not be a part of l' */
-	// for (auto &r : wLab->getReadersList()) {
-	// 	auto rLock = g.getLastThreadLockAtLocLAPOR(r, lLab->getLockAddr());
-	// 	if (rLock.isInitializer() || rLock == lock)
-	// 		continue;
-
-	// 	auto uLock = g.getMatchingUnlockLAPOR(rLock);
-	// 	if (uLock.isInitializer() || r.index < uLock.index)
-	// 		continue;
-
-	// 	auto f1 = getFirstNonTrivialInCS(lock);
-	// 	auto f2 = getFirstNonTrivialInCS(rLock);
-	// 	auto &hb = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
-	// 	if (hb(f1, f2))
-	// 		continue;
-
-	// 	llvm::dbgs() << "adding " << rLock << " -> " << lock << " because of " << r << "\n";
-	// 	lbRelation[lLab->getLockAddr()].addEdge(rLock, lock);
-	// }
-
 	/* Add an lb-edge if there exists a co-later store
 	 * in a different critical section of lLab */
 	auto &elems = co.getElems();
