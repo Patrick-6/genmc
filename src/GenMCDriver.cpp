@@ -707,10 +707,9 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 				auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 				for (auto &coLoc : coRelation) {
 					coRelation[coLoc.first] = Calculator::GlobalRelation(sortings[count]);
-					for (auto i = 0u; i < sortings[count].size(); i++) {
-						for (auto j = i + 1; j < sortings[count].size(); j++)
-							coRelation[coLoc.first].addEdge(sortings[count][i],
-											sortings[count][j]);
+					for (auto i = 1; i < sortings[count].size(); i++) {
+						coRelation[coLoc.first].addEdge(sortings[count][i - 1],
+										sortings[count][i]);
 					}
 					++count;
 				}
@@ -719,10 +718,9 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 				auto &lbRelation = g.getPerLocRelation(ExecutionGraph::RelationId::lb);
 				for (auto &lbLoc : lbRelation) {
 					lbRelation[lbLoc.first] = Calculator::GlobalRelation(sortings[count]);
-					for (auto i = 0u; i < sortings[count].size(); i++) {
-						for (auto j = i + 1; j < sortings[count].size(); j++)
-							lbRelation[lbLoc.first].addEdge(sortings[count][i],
-											sortings[count][j]);
+					for (auto i = 1; i < sortings[count].size(); i++) {
+						lbRelation[lbLoc.first].addEdge(sortings[count][i - 1],
+										sortings[count][i]);
 
 					}
 					++count;
