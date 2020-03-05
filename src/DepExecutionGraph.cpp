@@ -96,6 +96,17 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
 
+			/* If it is a successful RMW load, since its RF will be in the
+			 * new graph as well, we also save the store part of the RMW.
+			 * This is in order to not mistakenly consider the RMW as
+			 * an unsuccessful one, due to its store part not being present.
+			 *
+			 * (Note that none if the if-statements below would have
+			 * fired for the load, but they will fired for the store.) */
+			if (isRMWLoad(lab))
+				result.push_back(std::unique_ptr<EventLabel>(
+						 getEventLabel(Event(i, j++ + 1))->clone()));
+
 			auto &curLab = result.back();
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
 				wLab->removeReader([&](Event r) {

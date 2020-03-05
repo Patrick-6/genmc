@@ -1229,6 +1229,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 
 	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
 				     cmpVal, newVal);
+	auto loadPos = getCurrentPosition();
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
@@ -1239,7 +1240,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	/* After the RMW operation is done, update dependencies */
-	updateDataDeps(thr.id, &I, getCurrentPosition());
+	updateDataDeps(thr.id, &I, loadPos);
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
 
 	result.AggregateVal.push_back(ret);
@@ -1313,7 +1314,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
 
 	/* After the RMW operation is done, update dependencies */
-	updateDataDeps(thr.id, &I, getCurrentPosition());
+	updateDataDeps(thr.id, &I, getCurrentPosition().prev());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
 
 	SetValue(&I, ret, SF);
