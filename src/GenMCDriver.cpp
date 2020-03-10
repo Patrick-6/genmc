@@ -454,7 +454,7 @@ void GenMCDriver::visitGraph()
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = revisitReads(p) && isConsistent(ProgramPoint::exec);
+			validExecution = revisitReads(p) && isConsistent(ProgramPoint::step);
 		} while (!validExecution);
 	}
 }
