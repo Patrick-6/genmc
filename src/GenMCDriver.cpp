@@ -519,9 +519,8 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 
 bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 {
-	/* Always check consistency on error */
-	if (p == ProgramPoint::error ||
-	    p == getConf()->checkConsPoint)
+	/* Always check consistency on error, or at user-specified points */
+	if (p <= getConf()->checkConsPoint)
 		return true;
 
 	/* LAPOR requires consistency checks at each step, and at the
@@ -534,7 +533,9 @@ bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 
 bool GenMCDriver::shouldCheckFullCons(ProgramPoint p)
 {
-	if (p == ProgramPoint::error || getConf()->checkConsType == CheckConsType::full)
+	if (p == ProgramPoint::error ||
+	    (p <= getConf()->checkConsPoint &&
+	     getConf()->checkConsType == CheckConsType::full))
 		return true;
 	return false;
 }

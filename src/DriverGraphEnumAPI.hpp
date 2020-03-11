@@ -28,6 +28,6 @@ enum class CoherenceType { mo, wb };
 enum class CheckConsType { approx, full };
 
 /* Points of the program (at which consistency can be checked) */
-enum class ProgramPoint { step, exec, error };
+enum class ProgramPoint { error = 1, exec, step };
 
 #endif /* __DRIVER_GRAPH_ENUM_API_HPP__ */
