@@ -42,11 +42,13 @@
 * Introduction <<sec:intro>>
 
 {{{genmc}}} is a model checker that is an instantiation of the
-respective algorithm cite:genmc for programs written under the
-RC11 cite:rc11 memory model.  {{{genmc}}} works for C programs that use
-=C11= atomics and the =pthread= library for concurrency. It uses a
-very effective dynamic partial order reduction technique, and can
-verify safety properties in a sound, complete, and optimal fashion.
+respective algorithm cite:kokologiannakis2019:genmc for programs
+written under the RC11 cite:kokologiannakis2017:rcmc and IMM
+cite:podkopaev2019:imm memory model.  {{{genmc}}} works for C programs
+that use =C11= atomics and the =pthread= library for concurrency. It
+uses a very effective dynamic partial order reduction technique, and
+can verify safety properties in a sound, complete, and optimal
+fashion.
 
 {{{genmc}}} works at the level of LLVM Intermediate Representation (LLVM-IR)
 and uses =clang= to translate C programs to LLVM-IR. This means it
@@ -385,10 +387,13 @@ by issuing =genmc -help=. Below we will describe the ones that
 are most useful when verifying user programs.
 
 #+ATTR_LATEX: :options [leftmargin=!, labelwidth=\widthof{\ttfamily pprogrampentrypfunction=pfunpnamep}, font={\color{blue!50!black}\ttfamily}, labelindent=\parindent]
+- =-rc11= :: Perform the exploration under the RC11 memory model
+- =-imm= :: Perform the exploration under the IMM memory model
 - =-wb= :: Perform the exploration based on the {{{po}}}{{{rf}}}
      equivalence partitioning (default).
 - =-mo= :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
      equivalence partitioning.
+- =-lapor= :: Enable Lock-Aware Partial Order Reduction (LAPOR)
 - =-unroll=<N>= :: All loops will be executed at most $N$ times.
 - =-dump-error-graph=<file>= :: Outputs an erroneous graph to file
      =<file>=.
