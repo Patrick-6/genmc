@@ -1983,7 +1983,6 @@ void Interpreter::visitTruncInst(TruncInst &I) {
   ExecutionContext &SF = ECStack().back();
   Thread &thr = getCurThr();
   updateDataDeps(thr.id, &I, I.getOperand(0)),
-  // thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -1991,7 +1990,6 @@ void Interpreter::visitSExtInst(SExtInst &I) {
   ExecutionContext &SF = ECStack().back();
   Thread &thr = getCurThr();
   updateDataDeps(thr.id, &I, I.getOperand(0)),
-  // thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -1999,7 +1997,6 @@ void Interpreter::visitZExtInst(ZExtInst &I) {
   ExecutionContext &SF = ECStack().back();
   Thread &thr = getCurThr();
   updateDataDeps(thr.id, &I, I.getOperand(0)),
-  // thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[I.getOperand(0)]);
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
