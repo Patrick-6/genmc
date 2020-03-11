@@ -659,12 +659,29 @@ void GenMCDriver::checkAccessValidity()
 	/* Should only be called with reads and writes */
 	BUG_ON(!llvm::isa<MemAccessLabel>(lab));
 
+	/* Only valid memory locations should be accessed */
 	auto *mLab = static_cast<const MemAccessLabel *>(lab);
 	if (!getEE()->isShared(mLab->getAddr())) {
 		visitError("", Event::getInitializer(),
 			   DE_AccessNonMalloc);
 	}
 	return;
+}
+
+void GenMCDriver::checkUnlockValidity()
+{
+	const EventLabel *lab = getCurrentLabel();
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *uLab = static_cast<const WriteLabel *>(lab);
+	BUG_ON(!uLab->isUnlock());
+
+	/* Unlocks should unlock mutexes locked by the same thread */
+	if (getGraph().getMatchingLock(uLab->getPos()).isInitializer()) {
+		visitError("Called unlock() on mutex not locked by the same thread!",
+			   Event::getInitializer(),
+			   DE_InvalidUnlock);
+	}
 }
 
 bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
@@ -1144,6 +1161,8 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	checkAccessValidity();
 	checkForDataRaces();
 	checkForMemoryRaces(lab->getAddr());
+	if (lab->isUnlock())
+		checkUnlockValidity();
 	return;
 }
 
@@ -1381,6 +1400,46 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	return !isMootExecution && consG;
 }
 
+void GenMCDriver::repairLock(Event lock)
+{
+	auto &g = getGraph();
+	auto *lab = static_cast<CasReadLabel *>(g.getEventLabel(lock));
+	auto &stores = g.getStoresToLoc(lab->getAddr());
+
+	BUG_ON(stores.empty());
+	for (auto rit = stores.rbegin(), re = stores.rend(); rit != re; ++rit) {
+		auto *posRf = static_cast<WriteLabel *>(g.getEventLabel(*rit));
+		if (llvm::isa<CasWriteLabel>(posRf)) {
+			auto prev = posRf->getPos().prev();
+			if (g.getMatchingUnlock(prev).isInitializer()) {
+				changeRf(lock, posRf->getPos());
+				threadPrios = { posRf->getPos() };
+				return;
+			}
+		}
+	}
+	BUG();
+}
+
+bool GenMCDriver::repairDanglingLocks()
+{
+	auto &g = getGraph();
+	bool repaired = false;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		EventLabel *lab = g.getEventLabel(g.getLastThreadEvent(i));
+		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
+			auto lockRf = lLab->getRf();
+			if (lLab->isLock() && lockRf.index >= g.getThreadSize(lockRf.thread)) {
+				repairLock(lLab->getPos());
+				repaired = true;
+				break; /* Only one such lock may exist at all times */
+			}
+		}
+	}
+	return repaired;
+}
+
 const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
@@ -1435,6 +1494,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 		BUG_ON(p.type != MOWrite && p.type != MOWriteLib);
 		getGraph().changeStoreOffset(wLab->getAddr(), wLab->getPos(), p.moPos);
+		repairDanglingLocks();
 		return (p.type == MOWrite) ? calcRevisits(wLab) : calcLibRevisits(wLab);
 	}
 
@@ -1451,6 +1511,7 @@ bool GenMCDriver::revisitReads(StackItem &p)
 		return calcRevisits(sLab);
 
 	/* Blocked lock -> prioritize locking thread */
+	repairDanglingLocks();
 	if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
 		if (lLab->isLock()) {
 			threadPrios = {lLab->getRf()};
@@ -1746,9 +1807,10 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Attempt to access non-allocated memory";
 	case GenMCDriver::DE_AccessFreed:
 		return s << "Attempt to access freed memory";
-
 	case GenMCDriver::DE_InvalidJoin:
 		return s << "Invalid join() operation";
+	case GenMCDriver::DE_InvalidUnlock:
+		return s << "Invalid unlock() operation";
 	default:
 		return s << "Uknown error";
 	}

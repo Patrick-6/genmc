@@ -156,6 +156,15 @@ public:
 	/* Returns a list of acquire (R or F) in upperLimit's thread (before it) */
 	std::vector<Event> getThreadAcquiresAndFences(const Event upperLimit) const;
 
+	/* Returns the unlock that matches UNLOCK.
+	 * If no such event exists, returns INIT */
+	Event getMatchingLock(const Event unlock) const;
+
+	/* Returns the unlock that matches LOCK. LOCK needs to be the
+	 * read part of a lock operation. If no such event exists,
+	 * returns INIT */
+	Event getMatchingUnlock(const Event lock) const;
+
 	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
 	 * If no such event exists, returns INIT */
 	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;

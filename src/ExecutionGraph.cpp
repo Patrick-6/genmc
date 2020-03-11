@@ -167,6 +167,64 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	return result;
 }
 
+Event ExecutionGraph::getMatchingLock(const Event unlock) const
+{
+	std::vector<Event> locUnlocks;
+
+	const EventLabel *unlockL = getEventLabel(unlock);
+	BUG_ON(!llvm::isa<WriteLabel>(unlockL));
+	auto *uLab = static_cast<const WriteLabel *>(unlockL);
+	BUG_ON(!uLab->isUnlock());
+
+	for (auto j = unlock.index - 1; j > 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(unlock.thread, j));
+
+		/* In case support for reentrant locks is added... */
+		if (auto *suLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (suLab->isUnlock() && suLab->getAddr() == uLab->getAddr())
+				locUnlocks.push_back(suLab->getPos());
+		}
+		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
+			if (lLab->isLock() && lLab->getAddr() == uLab->getAddr()) {
+				if (locUnlocks.empty())
+					return lLab->getPos();
+				else
+					locUnlocks.pop_back();
+			}
+		}
+	}
+	return Event::getInitializer();
+}
+
+Event ExecutionGraph::getMatchingUnlock(const Event lock) const
+{
+	std::vector<Event> locLocks;
+
+	const EventLabel *lockL = getEventLabel(lock);
+	BUG_ON(!llvm::isa<CasReadLabel>(lockL));
+	auto *lLab = static_cast<const CasReadLabel *>(lockL);
+	BUG_ON(!lLab->isLock());
+
+	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
+		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
+
+		/* In case support for reentrant locks is added... */
+		if (auto *slLab = llvm::dyn_cast<CasReadLabel>(lab)) {
+			if (slLab->isLock() && slLab->getAddr() == lLab->getAddr())
+				locLocks.push_back(slLab->getPos());
+		}
+		if (auto *uLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (uLab->isUnlock() && uLab->getAddr() == lLab->getAddr()) {
+				if (locLocks.empty())
+					return uLab->getPos();
+				else
+					locLocks.pop_back();
+			}
+		}
+	}
+	return Event::getInitializer();
+}
+
 Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
 {
 	std::vector<const llvm::GenericValue *> unlocks;

@@ -51,6 +51,7 @@ private:
 		DE_AccessFreed,
 		DE_InvalidAccessEnd,
 		DE_InvalidJoin,
+		DE_InvalidUnlock,
 	};
 
 	static bool isInvalidAccessError(DriverErrorKind e) {
@@ -285,6 +286,10 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForDataRaces();
 
+	/* Performs POSIX checks whenever an unlock event is added.
+	 * Appropriately calls visitError() and terminates */
+	void checkUnlockValidity();
+
 	/* Checks whether there is some race when allocating/deallocating
 	 * memory and reports an error as necessary.
 	 * Helpers for checkForMemoryRaces() */
@@ -363,6 +368,13 @@ private:
 	bool tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
+
+	/* Opt: Repairs the reads-from edge of a dangling lock */
+	void repairLock(Event lock);
+
+	/* Opt: Repairs some locks that may be "dangling", as part of the
+	 * in-place revisiting of locks */
+	bool repairDanglingLocks();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(const llvm::GenericValue *addr);
