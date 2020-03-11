@@ -122,7 +122,7 @@ do
     done
 done
 
-# # Then, do all the library tests (and reprint header)
+# Then, do all the library tests (and reprint header)
 header_printed=""
 libdir="${DIR}/../tests/libs"
 for model in rc11
@@ -139,7 +139,7 @@ header_printed=""
 wrongdir="${DIR}/../tests/wrong"
 for model in rc11 imm
 do
-    for cat in safety racy memory
+    for cat in safety racy memory locking
     do
 	# under IMM, only run safety tests
 	if test "${model}" = "imm" -a "${cat}" != "safety"
