@@ -16,4 +16,4 @@ COMMIT=master
 
 [ $# -gt 0 ] && COMMIT=$1 && shift
 
-git format-patch --stdout "${COMMIT}" -- . ':!./.gitlab-ci.yml' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./doc/manual.org'
+git diff "${COMMIT}" --binary -- . ':!./.gitlab-ci.yml' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./doc/manual.org'
