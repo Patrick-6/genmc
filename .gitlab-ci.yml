@@ -240,9 +240,9 @@ test:llvm-9:
   needs: ["build:llvm-9"]
   <<: *llvm_test
 
-### CLEANUPS
+# ### CLEANUPS
 
-cleanup_files:
-  stage: cleanup
-  script:
-    - make distclean
+# cleanup_files:
+#   stage: cleanup
+#   script:
+#     - make distclean
