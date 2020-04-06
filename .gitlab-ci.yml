@@ -1,9 +1,9 @@
 # image: localhost:5000/genmc-tool
 
-before_script:
-  - apt-get update && apt-get install -y -qq wget gnupg gnupg2 libtinfo5 bc
-    autoconf make automake libffi-dev zlib1g-dev libedit-dev
-    libxml2-dev xz-utils g++ libc6 libc6-dev
+# before_script:
+#   - apt-get update && apt-get install -y -qq wget gnupg gnupg2 libtinfo5 bc
+#     autoconf make automake libffi-dev zlib1g-dev libedit-dev
+#     libxml2-dev xz-utils g++ libc6 libc6-dev
   # - ./gitlab-ci/fetch_deps.sh
   # - export LLVM_DIR=$PWD/cache/clang+llvm-$LLVM_VERSION
   # - export PATH=$LLVM_DIR/bin:$PATH
@@ -24,7 +24,7 @@ stages:
 
 .build:llvm_job: &llvm_build
   script:
-    - apt-get -y -qq install clang-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev
+    # - apt-get -y -qq install clang-${LLVM_VERSION} libclang-${LLVM_VERSION}-dev llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev
     - autoreconf --install
     - ./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)
     - make
@@ -61,51 +61,51 @@ stages:
 
 ### DIFFERENT BUILDS
 
-build:llvm-3.5:
-  image: debian:jessie
-  stage: build
-  variables:
-    CXXFLAGS: "-D_GLIBCXX_USE_CXX11_ABI=0"
-    LLVM_VERSION: "3.5"
-  <<: *llvm_build
+# build:llvm-3.5:
+#   image: debian:jessie
+#   stage: build
+#   variables:
+#     CXXFLAGS: "-D_GLIBCXX_USE_CXX11_ABI=0"
+#     LLVM_VERSION: "3.5"
+#   <<: *llvm_build
 
 build:llvm-3.8:
-  image: debian:stretch
+  image: localhost:5000/genmc-tool-stretch
   stage: build
   variables:
     LLVM_VERSION: "3.8"
   <<: *llvm_build
 
 build:llvm-4.0:
-  image: debian:stretch
+  image: localhost:5000/genmc-tool-stretch
   stage: build
   variables:
     LLVM_VERSION: "4.0"
   <<: *llvm_build
 
 build:llvm-6.0:
-  image: debian:buster
+  image: localhost:5000/genmc-tool-bullseye
   stage: build
   variables:
     LLVM_VERSION: "6.0"
   <<: *llvm_build
 
 build:llvm-7:
-  image: debian:buster
+  image: localhost:5000/genmc-tool-stretch
   stage: build
   variables:
     LLVM_VERSION: "7"
   <<: *llvm_build
 
 build:llvm-8:
-  image: debian:bullseye
+  image: localhost:5000/genmc-tool-bullseye
   stage: build
   variables:
     LLVM_VERSION: "8"
   <<: *llvm_build
 
 build:llvm-9:
-  image: debian:bullseye
+  image: localhost:5000/genmc-tool-bullseye
   stage: build
   variables:
     LLVM_VERSION: "9"
@@ -113,111 +113,129 @@ build:llvm-9:
 
 ### PRELIMINARY TESTS
 
-ftest:llvm-3.5:
-  stage: ftest
-  needs: ["build:llvm-3.5"]
-  <<: *llvm_ftest
+# ftest:llvm-3.5:
+#   stage: ftest
+#   needs: ["build:llvm-3.5"]
+#   <<: *llvm_ftest
 
 ftest:llvm-3.8:
+  image: localhost:5000/genmc-tool-stretch
   stage: ftest
   needs: ["build:llvm-3.8"]
   <<: *llvm_ftest
 
 ftest:llvm-4.0:
+  image: localhost:5000/genmc-tool-stretch
   stage: ftest
   needs: ["build:llvm-4.0"]
   <<: *llvm_ftest
 
 ftest:llvm-6.0:
+  image: localhost:5000/genmc-tool-bullseye
   stage: ftest
   needs: ["build:llvm-6.0"]
   <<: *llvm_ftest
 
 ftest:llvm-7:
+  image: localhost:5000/genmc-tool-stretch
   stage: ftest
   needs: ["build:llvm-7"]
   <<: *llvm_ftest
 
 ftest:llvm-8:
+  image: localhost:5000/genmc-tool-bullseye
   stage: ftest
   needs: ["build:llvm-8"]
   <<: *llvm_ftest
 
 ftest:llvm-9:
+  image: localhost:5000/genmc-tool-bullseye
   stage: ftest
   needs: ["build:llvm-9"]
   <<: *llvm_ftest
 
 ### RANDOMIZED TESTING
 
-rtest:llvm-3.5:
-  stage: rtest
-  needs: ["build:llvm-3.5"]
-  <<: *llvm_rtest
+# rtest:llvm-3.5:
+#   stage: rtest
+#   needs: ["build:llvm-3.5"]
+#   <<: *llvm_rtest
 
 rtest:llvm-3.8:
+  image: localhost:5000/genmc-tool-stretch
   stage: rtest
   needs: ["build:llvm-3.8"]
   <<: *llvm_rtest
 
 rtest:llvm-4.0:
+  image: localhost:5000/genmc-tool-stretch
   stage: rtest
   needs: ["build:llvm-4.0"]
   <<: *llvm_rtest
 
 rtest:llvm-6.0:
+  image: localhost:5000/genmc-tool-bullseye
   stage: rtest
   needs: ["build:llvm-6.0"]
   <<: *llvm_rtest
 
 rtest:llvm-7:
+  image: localhost:5000/genmc-tool-stretch
   stage: rtest
   needs: ["build:llvm-7"]
   <<: *llvm_rtest
 
 rtest:llvm-8:
+  image: localhost:5000/genmc-tool-bullseye
   stage: rtest
   needs: ["build:llvm-8"]
   <<: *llvm_rtest
 
 rtest:llvm-9:
+  image: localhost:5000/genmc-tool-bullseye
   stage: rtest
   needs: ["build:llvm-9"]
   <<: *llvm_rtest
 
 ### FULL TESTS
 
-test:llvm-3.5:
-  stage: test
-  needs: ["build:llvm-3.5"]
-  <<: *llvm_test
+# test:llvm-3.5:
+#   stage: test
+#   needs: ["build:llvm-3.5"]
+#   <<: *llvm_test
 
 test:llvm-3.8:
+  image: localhost:5000/genmc-tool-stretch
   stage: test
   needs: ["build:llvm-3.8"]
   <<: *llvm_test
 
 test:llvm-4.0:
+  image: localhost:5000/genmc-tool-stretch
   stage: test
   needs: ["build:llvm-4.0"]
   <<: *llvm_test
 
 test:llvm-6.0:
+  image: localhost:5000/genmc-tool-bullseye
   stage: test
   needs: ["build:llvm-6.0"]
   <<: *llvm_test
 
 test:llvm-7:
+  image: localhost:5000/genmc-tool-stretch
   stage: test
   needs: ["build:llvm-7"]
   <<: *llvm_test
 
 test:llvm-8:
+  image: localhost:5000/genmc-tool-bullseye
   stage: test
   needs: ["build:llvm-8"]
   <<: *llvm_test
 
 test:llvm-9:
+  image: localhost:5000/genmc-tool-bullseye
   stage: test
   needs: ["build:llvm-9"]
   <<: *llvm_test
