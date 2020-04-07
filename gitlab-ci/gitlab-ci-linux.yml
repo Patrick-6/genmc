@@ -1,0 +1,211 @@
+### SUPPORTED VERSIONS
+
+.llvm:3.8: &llvm38
+  image: localhost:5000/genmc-tool-stretch
+  variables:
+    LLVM_VERSION: "3.8"
+
+.llvm:4.0: &llvm40
+  image: localhost:5000/genmc-tool-stretch
+  variables:
+    LLVM_VERSION: "4.0"
+
+.llvm:6.0: &llvm60
+  image: localhost:5000/genmc-tool-bullseye
+  variables:
+    LLVM_VERSION: "6.0"
+
+.llvm:7: &llvm7
+  image: localhost:5000/genmc-tool-stretch
+  variables:
+    LLVM_VERSION: "7"
+
+.llvm:8: &llvm8
+  image: localhost:5000/genmc-tool-bullseye
+  variables:
+    LLVM_VERSION: "8"
+
+.llvm:9: &llvm9
+  image: localhost:5000/genmc-tool-bullseye
+  variables:
+    LLVM_VERSION: "9"
+
+### PIPELINE STAGES
+
+stages:
+  - build
+  - ftest
+  - rtest
+  - test
+  - cleanup
+
+### TEMPLATES
+
+.build:llvm_job: &build
+  stage: build
+  script:
+    - autoreconf --install
+    - ./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)
+    - make
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - ./
+
+.test:llvm_job: &ftest
+  stage: ftest
+  script:
+    - make ftest
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - ./
+
+.test:llvm_job: &rtest
+  stage: rtest
+  script:
+    - make rtest
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - ./
+
+.test:llvm_job: &test
+  stage: test
+  only:
+    - schedules
+  script:
+    - make test
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - ./
+
+### DIFFERENT BUILDS
+
+build:llvm-3.8:
+  <<: *llvm38
+  <<: *build
+
+build:llvm-4.0:
+  <<: *llvm40
+  <<: *build
+
+build:llvm-6.0:
+  <<: *llvm60
+  <<: *build
+
+build:llvm-7:
+  <<: *llvm7
+  <<: *build
+
+build:llvm-8:
+  <<: *llvm8
+  <<: *build
+
+build:llvm-9:
+  <<: *llvm9
+  <<: *build
+
+### PRELIMINARY TESTS
+
+ftest:llvm-3.8:
+  needs: ["build:llvm-3.8"]
+  <<: *llvm38
+  <<: *ftest
+
+ftest:llvm-4.0:
+  needs: ["build:llvm-4.0"]
+  <<: *llvm40
+  <<: *ftest
+
+ftest:llvm-6.0:
+  needs: ["build:llvm-6.0"]
+  <<: *llvm60
+  <<: *ftest
+
+ftest:llvm-7:
+  needs: ["build:llvm-7"]
+  <<: *llvm7
+  <<: *ftest
+
+ftest:llvm-8:
+  needs: ["build:llvm-8"]
+  <<: *llvm8
+  <<: *ftest
+
+ftest:llvm-9:
+  needs: ["build:llvm-9"]
+  <<: *llvm9
+  <<: *ftest
+
+### RANDOMIZED TESTING
+
+rtest:llvm-3.8:
+  needs: ["build:llvm-3.8"]
+  <<: *llvm38
+  <<: *rtest
+
+rtest:llvm-4.0:
+  needs: ["build:llvm-4.0"]
+  <<: *llvm40
+  <<: *rtest
+
+rtest:llvm-6.0:
+  needs: ["build:llvm-6.0"]
+  <<: *llvm60
+  <<: *rtest
+
+rtest:llvm-7:
+  needs: ["build:llvm-7"]
+  <<: *llvm7
+  <<: *rtest
+
+rtest:llvm-8:
+  needs: ["build:llvm-8"]
+  <<: *llvm8
+  <<: *rtest
+
+rtest:llvm-9:
+  needs: ["build:llvm-9"]
+  <<: *llvm9
+  <<: *rtest
+
+### FULL TESTS
+
+test:llvm-3.8:
+  needs: ["build:llvm-3.8"]
+  <<: *llvm38
+  <<: *test
+
+test:llvm-4.0:
+  needs: ["build:llvm-4.0"]
+  <<: *llvm40
+  <<: *test
+
+test:llvm-6.0:
+  needs: ["build:llvm-6.0"]
+  <<: *llvm60
+  <<: *test
+
+test:llvm-7:
+  needs: ["build:llvm-7"]
+  <<: *llvm7
+  <<: *test
+
+test:llvm-8:
+  needs: ["build:llvm-8"]
+  <<: *llvm8
+  <<: *test
+
+test:llvm-9:
+  needs: ["build:llvm-9"]
+  <<: *llvm9
+  <<: *test
+
+# ### CLEANUPS
+
+# cleanup_files:
+#   stage: cleanup
+#   script:
+#     - make distclean
