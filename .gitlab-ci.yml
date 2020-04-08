@@ -1,9 +1,27 @@
+stages:
+  - generate_configs
+  - run_pipelines
+
+generate-config:
+  stage: generate_configs
+  script: cd gitlab-ci && ./generate-configs
+  artifacts:
+    paths:
+      - gitlab-ci/gitlab-ci-macos.yml
+      - gitlab-ci/gitlab-ci-linux.yml
+
 macos:
+  stage: run_pipelines
   trigger:
-    include: gitlab-ci/gitlab-ci-macos.yml
+    include:
+      - artifact: gitlab-ci/gitlab-ci-macos.yml
+        job: generate-config
     strategy: depend
 
 linux:
+  stage: run_pipelines
   trigger:
-    include: gitlab-ci/gitlab-ci-linux.yml
+    include:
+      - artifact: gitlab-ci/gitlab-ci-linux.yml
+        job: generate-config
     strategy: depend
