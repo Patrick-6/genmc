@@ -4,6 +4,7 @@
 # It excludes internal and Gitlab-specific files such as:
 #
 #    - .gitlab-ci.yml
+#    - gitlab-ci/
 #    - /doc/manual.org
 #    - clean-artifacts.sh
 #    - export-github-patch.sh (the script itself)
@@ -16,4 +17,4 @@ COMMIT=master
 
 [ $# -gt 0 ] && COMMIT=$1 && shift
 
-git diff "${COMMIT}" --binary -- . ':!./.gitlab-ci.yml' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./doc/manual.org'
+git diff "${COMMIT}" --binary -- . ':!./.gitlab-ci.yml' ':!./gitlab-ci' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./doc/manual.org'

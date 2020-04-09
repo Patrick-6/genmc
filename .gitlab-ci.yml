@@ -1,183 +1,27 @@
-image: localhost:5000/genmc-tool
-
 stages:
-  - build
-  - ftest
-  - rtest
-  - test
-  - cleanup
+  - generate_configs
+  - run_pipelines
 
-### TEMPLATES
-
-.build:llvm_job: &llvm_build
-  script:
-    - autoreconf --install
-    - ./configure --with-llvm=`llvm-config-${llvm_build_version} --prefix`
-    - make
+generate-config:
+  stage: generate_configs
+  script: cd gitlab-ci && ./generate-configs
   artifacts:
-    expire_in: 1 week
     paths:
-      - ./
+      - gitlab-ci/gitlab-ci-macos.yml
+      - gitlab-ci/gitlab-ci-linux.yml
 
-.test:llvm_job: &llvm_ftest
-  script:
-    - make ftest
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - ./
+macos:
+  stage: run_pipelines
+  trigger:
+    include:
+      - artifact: gitlab-ci/gitlab-ci-macos.yml
+        job: generate-config
+    strategy: depend
 
-.test:llvm_job: &llvm_rtest
-  script:
-    - make rtest
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - ./
-
-.test:llvm_job: &llvm_test
-  only:
-    - schedules
-  script:
-    - make test
-  artifacts:
-    expire_in: 1 week
-    paths:
-      - ./
-
-### DIFFERENT BUILDS
-
-build:llvm-3.5:
-  stage: build
-  variables:
-    CXXFLAGS: "-D_GLIBCXX_USE_CXX11_ABI=0"
-    llvm_build_version: "3.5"
-  <<: *llvm_build
-
-build:llvm-3.8:
-  stage: build
-  variables:
-    CXX: "clang++-3.8"
-    llvm_build_version: "3.8"
-  <<: *llvm_build
-
-build:llvm-4.0:
-  stage: build
-  variables:
-    llvm_build_version: "4.0"
-  <<: *llvm_build
-
-build:llvm-6.0:
-  stage: build
-  variables:
-    llvm_build_version: "6.0"
-  <<: *llvm_build
-
-build:llvm-7:
-  stage: build
-  variables:
-    llvm_build_version: "7"
-  <<: *llvm_build
-
-### PRELIMINARY TESTS
-
-ftest:llvm-3.5:
-  stage: ftest
-  dependencies:
-    - build:llvm-3.5
-  <<: *llvm_ftest
-
-ftest:llvm-3.8:
-  stage: ftest
-  dependencies:
-    - build:llvm-3.8
-  <<: *llvm_ftest
-
-ftest:llvm-4.0:
-  stage: ftest
-  dependencies:
-    - build:llvm-4.0
-  <<: *llvm_ftest
-
-ftest:llvm-6.0:
-  stage: ftest
-  dependencies:
-    - build:llvm-6.0
-  <<: *llvm_ftest
-
-ftest:llvm-7:
-  stage: ftest
-  dependencies:
-    - build:llvm-7
-  <<: *llvm_ftest
-
-### RANDOMIZED TESTING
-
-rtest:llvm-3.5:
-  stage: rtest
-  dependencies:
-    - build:llvm-3.5
-  <<: *llvm_rtest
-
-rtest:llvm-3.8:
-  stage: rtest
-  dependencies:
-    - build:llvm-3.8
-  <<: *llvm_rtest
-
-rtest:llvm-4.0:
-  stage: rtest
-  dependencies:
-    - build:llvm-4.0
-  <<: *llvm_rtest
-
-rtest:llvm-6.0:
-  stage: rtest
-  dependencies:
-    - build:llvm-6.0
-  <<: *llvm_rtest
-
-rtest:llvm-7:
-  stage: rtest
-  dependencies:
-    - build:llvm-7
-  <<: *llvm_rtest
-
-### FULL TESTS
-
-test:llvm-3.5:
-  stage: test
-  dependencies:
-    - build:llvm-3.5
-  <<: *llvm_test
-
-test:llvm-3.8:
-  stage: test
-  dependencies:
-    - build:llvm-3.8
-  <<: *llvm_test
-
-test:llvm-4.0:
-  stage: test
-  dependencies:
-    - build:llvm-4.0
-  <<: *llvm_test
-
-test:llvm-6.0:
-  stage: test
-  dependencies:
-    - build:llvm-6.0
-  <<: *llvm_test
-
-test:llvm-7:
-  stage: test
-  dependencies:
-    - build:llvm-7
-  <<: *llvm_test
-
-### CLEANUPS
-
-cleanup_files:
-  stage: cleanup
-  script:
-    - make distclean
+linux:
+  stage: run_pipelines
+  trigger:
+    include:
+      - artifact: gitlab-ci/gitlab-ci-linux.yml
+        job: generate-config
+    strategy: depend
