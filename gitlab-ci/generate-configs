@@ -74,8 +74,9 @@ anchor_macos() {
 LINUX_ANCHOR_FUN=anchor_linux
 MACOS_ANCHOR_FUN=anchor_macos
 
-## pipeline stages (shared between OSes) -- we assume the first stage is a build stage
-IFS=', ' read -r -a STAGES <<< "build ftest rtest test"
+## pipeline stages -- we assume the first stage is a build stage
+LINUX_STAGES="build ftest rtest test"
+MACOS_STAGES="build ftest" ## only run quick stages for macos
 
 LINUX_CONFIG_CMD='./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)'
 MACOS_CONFIG_CMD='./configure --with-llvm=`llvm-config --prefix` || (cat config.log; false)'
@@ -134,28 +135,28 @@ for os in LINUX MACOS; do
 
 	# print build stages
 	echo "### PIPELINE STAGES"
+	stages=${os}_STAGES
 	echo "stages:"
-	for stage in ${STAGES[@]}; do
+	for stage in ${!stages}; do
 	    echo "  - $stage"
 	done
 	echo ""
 
 	# print stage templates
 	echo "### JOB TEMPLATES"
-	for stage in ${STAGES[@]}; do
+	for stage in ${!stages}; do
 	    stage_anchor=${stage}_stage
 	    $stage_anchor $os
 	done
 
 	# print all versions for each stage
-	for stage_i in ${!STAGES[@]}; do
-	    stage=${STAGES[$stage_i]}
+	for stage in ${!stages}; do
 	    echo "### ${stage^^}"
 	    for version in ${!versions}; do
 		version_append=$(trunc_llvm_name $version)
 		echo "$stage:llvm-$version:"
-		if [[ $stage_i -gt 0 ]]; then
-		    echo "  needs: [\"${STAGES[0]}:llvm-$version\"]"
+		if [[ $stage != "build" ]]; then
+		    echo "  needs: [\"build:llvm-$version\"]"
 		fi
 		echo "  <<: *llvm$version_append"
 		echo "  <<: *$stage"
