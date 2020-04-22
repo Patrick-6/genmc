@@ -400,7 +400,7 @@ IMMDriver::createMallocLabel(int tid, int index, const void *addr,
 }
 
 std::unique_ptr<DskOpenLabel>
-IMMDriver::createDskOpenLabel(int tid, int index, void *fileName,
+IMMDriver::createDskOpenLabel(int tid, int index, const char *fileName,
 			      const llvm::GenericValue &fd)
 {
 	BUG();

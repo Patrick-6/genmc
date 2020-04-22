@@ -1,7 +1,10 @@
 #ifndef __FCNTL_H__
 #define __FCNTL_H__
 
+#include <bits/stat.h>
 #include <unistd.h>
+
+/* Flags */
 
 #define O_ACCMODE	00000003
 #define O_RDONLY	00000000
@@ -22,7 +25,27 @@
 #define O_NOATIME	01000000
 #define O_CLOEXEC	02000000
 
-extern int open (const char *__file, int __oflag, ...) __nonnull ((1));
+/* Protection bits */
+
+#define S_IRUSR		__S_IREAD       /* Read by owner.  */
+#define S_IWUSR		__S_IWRITE      /* Write by owner.  */
+#define S_IXUSR		__S_IEXEC       /* Execute by owner.  */
+/* Read, write, and execute by owner.  */
+#define S_IRWXU		(__S_IREAD|__S_IWRITE|__S_IEXEC)
+#define S_IRGRP		(S_IRUSR >> 3)  /* Read by group.  */
+#define S_IWGRP		(S_IWUSR >> 3)  /* Write by group.  */
+#define S_IXGRP		(S_IXUSR >> 3)  /* Execute by group.  */
+/* Read, write, and execute by group.  */
+#define S_IRWXG		(S_IRWXU >> 3)
+#define S_IROTH		(S_IRGRP >> 3)  /* Read by others.  */
+#define S_IWOTH		(S_IWGRP >> 3)  /* Write by others.  */
+#define S_IXOTH		(S_IXGRP >> 3)  /* Execute by others.  */
+/* Read, write, and execute by others.  */
+#define S_IRWXO		(S_IRWXG >> 3)
+
+extern int open (const char *__file, int __oflag, mode_t __mode) __nonnull ((1));
+
+extern int creat (const char *__file, mode_t __mode) __nonnull ((1));
 
 extern int rename (const char *__old, const char *__new) __THROW;
 

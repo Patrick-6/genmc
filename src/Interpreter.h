@@ -118,7 +118,7 @@ struct VariableInfo {
  */
 struct DirInode {
 
-  using Filename = const char *;
+  using Filename = std::string;
   using NameMap = std::unordered_map<Filename, void *>;
 
   /* Should hold the address of the directory's lock */
@@ -409,14 +409,6 @@ public:
 	  return DI.nameToInodeAddr.at(filename);
   }
 
-  /* Pers: Sets the address of the directory's lock */
-  void setDirLock(void *addr) { DI.dirLock = addr; }
-
-  /* Pers: Fetches the mappings from names to inode addresses */
-  DirInode::NameMap& getFilenameInodeMap() {
-	  return DI.nameToInodeAddr;
-  }
-
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
   ///
@@ -475,6 +467,9 @@ public:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
   void run();                // Execute instructions until nothing left to do
+
+  /* Pers: Sets up the directory's inode */
+  void setupDirInode();
 
   /* Pers: Run the specified recovery routine */
   void runRecoveryRoutine();
@@ -633,6 +628,7 @@ private:  // Helper functions
   void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
 			 const std::vector<GenericValue> &ArgVals);
   void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskSync(Function *F, const std::vector<GenericValue> &ArgVals);

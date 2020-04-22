@@ -184,7 +184,7 @@ public:
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
 	llvm::GenericValue
-	visitDskOpen(void *fileName, llvm::Type *intTyp);
+	visitDskOpen(const char *fileName, llvm::Type *intTyp);
 
 	/* A sync() operation has been interpreted */
 	void
@@ -292,9 +292,6 @@ private:
 	/* The workhorse for run().
 	 * Exhaustively explores all  consistent executions of a program */
 	void explore();
-
-	/* Pers: Does some necessary setup for persistence checks */
-	void setupPersistence();
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -523,7 +520,7 @@ private:
 
 	/* Creates a label for a disk open event to be added to the graph */
 	virtual std::unique_ptr<DskOpenLabel>
-	createDskOpenLabel(int tid, int index, void *fileName,
+	createDskOpenLabel(int tid, int index, const char *fileName,
 			   const llvm::GenericValue &fd) = 0;
 
 	/* Creates a label for a sync() event to be added to the graph */

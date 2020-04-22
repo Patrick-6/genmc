@@ -92,7 +92,7 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 #define INT_TO_GV(typ, val)						\
 ({							                \
 	GenericValue __ret;						\
-	__ret.IntVal = APInt(typ->getIntegerBitWidth(), val, true);	\
+	__ret.IntVal = APInt((typ)->getIntegerBitWidth(), (val), true);	\
 	__ret;								\
 })
 
@@ -2730,18 +2730,12 @@ void Interpreter::callWriteFunction(const Library &lib, const LibMem &mem, Funct
 /* Should match those in include/fcntl.h */
 #define GENMC_O_CREAT	00000100
 #define GENMC_O_TRUNC	00001000
-
-#define GET_PTR_TO_INT_TY(intTyp)					\
-({								        \
-	auto &ctx = intTyp->getContext();				\
-	auto *__ptrToIntType = Type::getIntNPtrTy(ctx, intTyp->getIntegerBitWidth()); \
-	__ptrToIntType;							\
-})
+#define GENMC_O_WRONLY	00000001
 
 /* Fetching different fields of a file description (model @ Interpreter.cpp) */
 #define GET_FILE_OFFSET_ADDR(file, intTyp)				\
 ({								        \
-	auto __ptrToIntType = GET_PTR_TO_INT_TY(intTyp);		\
+	auto __ptrToIntType = intTyp->getPointerTo();			\
         auto __off = (char *) file + getTypeSize(__ptrToIntType) +	\
 		getTypeSize(intTyp);					\
 	__off;								\
@@ -2795,7 +2789,7 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp)
 {
 	Thread &thr = getCurThr();
-	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	Type *intPtrType = intTyp->getPointerTo();
 
 	/* Fetch the address of where the inode should be and read the contents */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
@@ -2809,6 +2803,8 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 	/* Otherwise, we allocate an inode... */
 	unsigned int inodeSize = getInodeAllocSize(intTyp);
 	inode = driver->visitMalloc(inodeSize, AddressSpace::Internal);
+	updateVarNameInfo((char *) inode.PointerVal, inodeSize, AddressSpace::Internal,
+			  nullptr, std::string("__inode_") + (char *) file, "inode");
 
 	/* ... properly initialize its fields... */
 	auto *inodeLock = (const GenericValue *) GET_INODE_LOCK_ADDR(inode.PointerVal, intTyp);
@@ -2825,25 +2821,26 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
 	flags &= ~GENMC_O_TRUNC;
 
-	/* Finally, update naming info */
-	std::string name("__inode_");
-	raw_string_ostream sname(name);
-	sname << (char *) file << thr.id << thr.globalInstructions;
-	updateVarNameInfo((char *) inode.PointerVal, inodeSize, AddressSpace::Internal,
-			  nullptr, sname.str(), "inode");
 	return inode;
 }
 
 GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &inode, Type *intTyp)
 {
-	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	Thread &thr = getCurThr();
+	Type *intPtrType = intTyp->getPointerTo();
 
 	/* Get a fresh fd */
-	auto fd = driver->visitDskOpen(filename, intTyp);
+	auto fd = driver->visitDskOpen((const char *) filename, intTyp);
 
 	/* We allocate space for the file description... */
 	auto fileSize = getFileAllocSize(intTyp);
 	auto *file = driver->visitMalloc(fileSize, AddressSpace::Internal).PointerVal;
+
+	std::string varname("__file_");
+	raw_string_ostream sname(varname);
+	sname << (char *) filename << "_" << thr.id << "_" << thr.globalInstructions;
+	updateVarNameInfo((char *) file, fileSize, AddressSpace::Internal,
+			  nullptr, sname.str(), "file");
 
 	/* ... and initialize its fields */
 	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file, intTyp);
@@ -2943,11 +2940,19 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
+void Interpreter::callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Type *intTyp = F->getReturnType();
+	auto flags = INT_TO_GV(intTyp, GENMC_O_CREAT|GENMC_O_WRONLY|GENMC_O_TRUNC);
+	callDskOpen(F, {ArgVals[0], flags, ArgVals[1]});
+	return;
+}
+
 GenericValue Interpreter::executeDskRead(void *file, Type *intTyp, GenericValue *buf,
 					 Type *bufElemTyp, const GenericValue &offset,
 					 const GenericValue &count)
 {
-	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	Type *intPtrType = intTyp->getPointerTo();
 	GenericValue nr;
 
 	/* Fetch the address of the inode */
@@ -3038,7 +3043,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 					  const GenericValue &count, int snap)
 {
 	Thread &thr = getCurThr();
-	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	Type *intPtrType = intTyp->getPointerTo();
 
 	/* ...as well as fetch the address inode */
 	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
@@ -3212,7 +3217,7 @@ GenericValue Interpreter::executeLseek(void *file, Type *intTyp,
 				       const GenericValue &offset,
 				       const GenericValue &whence)
 {
-	Type *intPtrType = GET_PTR_TO_INT_TY(intTyp);
+	Type *intPtrType = intTyp->getPointerTo();
 
 	/* We get the address of the inode (to read isize, as in ext4_llseek) */
 	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
@@ -3388,6 +3393,9 @@ void Interpreter::callFunction(Function *F,
   } else if (functionName == "open") {
 	  callDskOpen(F, ArgVals);
 	  return;
+  } else if (functionName == "creat") {
+	  callDskCreat(F, ArgVals);
+	  return;
   } else if (functionName == "read") {
 	  callDskRead(F, ArgVals);
 	  return;
@@ -3475,7 +3483,8 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	/* We always follow LB-ordering (LAPOR) and setup persistence infrastructure */
 	reset();
-	driver->handleExecutionBeginning();
+	if (checkPersistence)
+		setupDirInode();
 
 	/* We have to replay all threads in order to get debug metadata */
 	threads[0].initSF = mainECStack.back();
@@ -3511,6 +3520,52 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 	}
 }
 
+void Interpreter::setupDirInode()
+{
+	if (!checkPersistence)
+		return;
+
+	auto &thr = getCurThr();
+	auto &fileInode = DI.nameToInodeAddr;
+
+	/* Make sure we are running the main() thread */
+	BUG_ON(thr.id != 0);
+
+	/* Get the types for the allocations we will do, and make sure that the lock
+	 * will have an integer type */
+	auto *intTy = thr.threadFun->getReturnType();
+	if (!intTy->isIntegerTy())
+		intTy = llvm::Type::getIntNTy(thr.threadFun->getContext(), 32);
+	auto *intPtrTy = intTy->getPointerTo();
+
+	/* Allocate enough space for the lock as well as the addresses that will hold
+	 * the addresses of the inodes of all files */
+	unsigned int intSize = getTypeSize(intTy);
+	unsigned int intPtrSize = getTypeSize(intPtrTy);
+	void *lock = driver->visitMalloc(intSize, AddressSpace::Internal).PointerVal;
+	void *inodes = driver->visitMalloc(fileInode.size() * intPtrSize, AddressSpace::Internal).PointerVal;
+
+	/* Initialize the allocated space */
+	DI.dirLock = lock;
+	driver->visitStore(llvm::Interpreter::IA_None, llvm::AtomicOrdering::Monotonic,
+			   (const llvm::GenericValue *) lock, intTy, INT_TO_GV(intTy, 0));
+	updateVarNameInfo((char *) lock, intSize, AddressSpace::Internal, nullptr,
+			  "__dir_inode.lock", "dir_inode_lock");
+
+	unsigned int count = 0;
+	for (auto &fname : fileInode) {
+		llvm::GenericValue inodeval;
+		inodeval.PointerVal = nullptr;
+		auto *addr = (char *) inodes + count * intPtrSize;
+		driver->visitDskWrite((const llvm::GenericValue *) addr, intPtrTy, inodeval);
+		fname.second = addr;
+		updateVarNameInfo((char *) addr, intPtrSize, AddressSpace::Internal, nullptr,
+				  "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
+		++count;
+	}
+	return;
+}
+
 void Interpreter::runRecoveryRoutine()
 {
 	inRecovery = true;
@@ -3530,6 +3585,8 @@ void Interpreter::run()
 	mainECStack = ECStack();
 
 	driver->handleExecutionBeginning();
+	if (checkPersistence)
+		setupDirInode();
 	while (driver->scheduleNext()) {
 		driver->handleExecutionInProgress();
 		llvm::ExecutionContext &SF = ECStack().back();

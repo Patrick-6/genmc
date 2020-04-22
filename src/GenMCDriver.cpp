@@ -237,8 +237,6 @@ void GenMCDriver::handleExecutionBeginning()
 
 	/* Then, set up thread prioritization and persistence stuff */
 	prioritizeThreads();
-	if (getConf()->checkPersistence)
-		setupPersistence();
 }
 
 void GenMCDriver::handleExecutionInProgress()
@@ -325,48 +323,6 @@ void GenMCDriver::handleRecoveryEnd()
 	inRecovery = false;
 	getEE()->cleanupRecoveryRoutine(getGraph().getRecoveryRoutineId());
 	llvm::dbgs() << "AFTER RECOVERY:";printGraph();
-	return;
-}
-
-void GenMCDriver::setupPersistence()
-{
-	auto *EE = getEE();
-	auto &thr = EE->getCurThr();
-	auto &fileInode = EE->getFilenameInodeMap();
-
-	/* Make sure we are running the main() thread */
-	BUG_ON(thr.id != 0);
-
-	/* Get the types for the allocations we will do, but make sure that the lock
-	 * will have an integer type */
-	auto *voidPtrTy = llvm::Type::getVoidTy(thr.threadFun->getContext())->getPointerTo();
-	auto *intTy = thr.threadFun->getReturnType();
-	if (!intTy->isIntegerTy())
-		intTy = llvm::Type::getIntNTy(thr.threadFun->getContext(), 32);
-
-	/* Allocate enough space for the lock as well as the addresses that will hold
-	 * the addresses of the inodes of all files */
-	unsigned int voidPtrSize = EE->getTypeSize(voidPtrTy);
-	void *lock = visitMalloc(EE->getTypeSize(intTy), AddressSpace::Internal).PointerVal;
-	void *inodes = visitMalloc(fileInode.size() * voidPtrSize, AddressSpace::Internal).PointerVal;
-
-	/* Initialize the allocated space */
-	llvm::GenericValue lockval;
-	lockval.IntVal = llvm::APInt(intTy->getIntegerBitWidth(), 0);
-	EE->setDirLock(lock);
-	visitStore(llvm::Interpreter::IA_None, llvm::AtomicOrdering::Monotonic,
-		   (const llvm::GenericValue *) lock, intTy, lockval);
-
-	unsigned int count = 0;
-	for (auto &fname : fileInode) {
-		llvm::GenericValue inodeval;
-		inodeval.PointerVal = nullptr;
-		auto *addr = (char *) inodes + count * voidPtrSize;
-		visitStore(llvm::Interpreter::IA_None, llvm::AtomicOrdering::Monotonic,
-			   (const llvm::GenericValue *) addr, voidPtrTy, inodeval);
-		fname.second = addr;
-		++count;
-	}
 	return;
 }
 
@@ -2001,7 +1957,7 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 }
 
 llvm::GenericValue
-GenMCDriver::visitDskOpen(void *fileName, llvm::Type *intTyp)
+GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();

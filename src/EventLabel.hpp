@@ -1073,12 +1073,12 @@ protected:
 
 public:
 	DskOpenLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		     void *fileName, llvm::GenericValue fd)
+		     const char *fileName, llvm::GenericValue fd)
 		: EventLabel(EL_DskOpen, st, ord, pos),
 		  fileName(fileName), fd(fd) {}
 
 	/* Returns the name of the opened file */
-	const void *getFileName() const { return fileName; }
+	const char *getFileName() const { return fileName; }
 
 	/* Returns the file descriptor returned by open() */
 	const llvm::GenericValue &getFd() const { return fd; }
@@ -1090,7 +1090,7 @@ public:
 
 private:
 	/* The name of the opened file */
-	void *fileName;
+	const char *fileName;
 
 	/* The file descriptor allocated for this call */
 	llvm::GenericValue fd;

@@ -364,7 +364,7 @@ RC11Driver::createFreeLabel(int tid, int index, const void *addr)
 }
 
 std::unique_ptr<DskOpenLabel>
-RC11Driver::createDskOpenLabel(int tid, int index, void *fileName,
+RC11Driver::createDskOpenLabel(int tid, int index, const char *fileName,
 			       const llvm::GenericValue &fd)
 {
 	auto &g = getGraph();

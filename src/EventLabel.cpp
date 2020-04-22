@@ -250,7 +250,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	}
 	case EventLabel::EL_DskOpen: {
 		auto &bLab = static_cast<const DskOpenLabel&>(lab);
-		s << bLab.getKind() << " " << bLab.getFd().IntVal.getLimitedValue();
+		s << bLab.getKind() << " (";
+		s << bLab.getFileName() << ", ";
+		s << bLab.getFd().IntVal.getLimitedValue() << ")";
 		break;
 	}
 	case EventLabel::EL_DskRead: {

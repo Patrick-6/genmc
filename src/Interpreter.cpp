@@ -333,6 +333,14 @@ void updateVarInfoHelper(char *ptr, unsigned int typeSize,
 			 std::unordered_map<const void *, std::string> &vars,
 			 VariableInfo::NameInfo &vi, const std::string &baseName)
 {
+	/* If there are no info for the variable, just use the base name.
+	 * (Except for internal types, this should normally be handled by the caller) */
+	if (vi.empty()) {
+		for (auto j = 0u; j < typeSize; j++)
+			vars[ptr + j] = baseName;
+		return;
+	}
+
 	/* If there is no name for the beginning of the block, use a default one */
 	if (vi[0].first != 0) {
 		WARN_ONCE("name-info", ("Inadequate naming info for variable " +

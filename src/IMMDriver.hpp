@@ -107,7 +107,7 @@ public:
 			  unsigned int size, AddressSpace spc) override;
 
 	std::unique_ptr<DskOpenLabel>
-	createDskOpenLabel(int tid, int index, void *fileName,
+	createDskOpenLabel(int tid, int index, const char *fileName,
 			   const llvm::GenericValue &fd) override;
 
 	std::unique_ptr<DskSyncLabel>

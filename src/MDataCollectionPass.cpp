@@ -207,7 +207,7 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["file"].push_back(
 		std::make_pair(intByteWidth, ".inode"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair(intByteWidth + voidPtrByteWidth, ".data"));
+		std::make_pair(intByteWidth + voidPtrByteWidth, ".offset"));
 
 	/* struct inode */
 	VI.internalInfo["inode"].push_back(
@@ -221,7 +221,8 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 
 bool isSyscallWPathname(CallInst *CI)
 {
-	auto name = CI->getCalledFunction()->getName();
+	/* Use getCalledValue() to deal with indirect invocations too */
+	auto name = CI->getCalledValue()->getName();
 	return name == "open" || name == "creat" ||
 	       name == "rename" || name == "unlink";
 }
@@ -232,7 +233,7 @@ void initializeFilenameEntry(DirInode &DI, Value *v)
 		auto filename = dyn_cast<ConstantDataArray>(
 			dyn_cast<GlobalVariable>(CE->getOperand(0))->
 			getInitializer())->getAsCString();
-		DI.nameToInodeAddr[filename.data()] = (char *) 0xdeadbeef;
+		DI.nameToInodeAddr[filename] = (char *) 0xdeadbeef;
 	} else
 		ERROR("Non-constant expression in filename\n");
 	return;
