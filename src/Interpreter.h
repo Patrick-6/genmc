@@ -629,6 +629,7 @@ private:  // Helper functions
 			 const std::vector<GenericValue> &ArgVals);
   void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskSync(Function *F, const std::vector<GenericValue> &ArgVals);

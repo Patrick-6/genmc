@@ -60,4 +60,8 @@ extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
 /* Make all changes done to all files actually appear on disk.  */
 extern void sync (void) __THROW;
 
+/* Truncate FILE to LENGTH bytes.  */
+extern int truncate (const char *__file, __off_t __length)
+     __THROW __nonnull ((1)) __wur;
+
 #endif /* __UNISTD_H__ */

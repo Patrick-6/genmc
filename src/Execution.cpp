@@ -2948,6 +2948,50 @@ void Interpreter::callDskCreat(Function *F, const std::vector<GenericValue> &Arg
 	return;
 }
 
+void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	void *file = GVTOP(ArgVals[0]);
+	GenericValue length  = ArgVals[1];
+	Type *intTyp = F->getReturnType();
+
+	if (!checkPersistence) {
+		WARN("truncate() function called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	/* Try and find the requested inode */
+	int flags = 0;
+	auto inode = executeLookupOpen(file, flags, intTyp);
+
+	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+
+	/* Inode not found -- cannot open file */
+	if (!inode.PointerVal) {
+		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
+		return;
+	}
+
+	auto ret = executeDskTruncate(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
+	if (ret.IntVal.getLimitedValue() == 42)
+		return; /* Failed to acquire inode's lock... */
+
+	returnValueToCaller(F->getReturnType(), ret);
+	return;
+}
+
 GenericValue Interpreter::executeDskRead(void *file, Type *intTyp, GenericValue *buf,
 					 Type *bufElemTyp, const GenericValue &offset,
 					 const GenericValue &count)
@@ -3394,6 +3438,9 @@ void Interpreter::callFunction(Function *F,
 	  callDskOpen(F, ArgVals);
 	  return;
   } else if (functionName == "creat") {
+	  callDskCreat(F, ArgVals);
+	  return;
+  } else if (functionName == "truncate") {
 	  callDskCreat(F, ArgVals);
 	  return;
   } else if (functionName == "read") {
