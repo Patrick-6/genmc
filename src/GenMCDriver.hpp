@@ -359,8 +359,14 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
+	/* Informs the interpreter about events being deleted before restriction */
+	void notifyEERemoved(unsigned int cutStamp);
+
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
+
+	/* Informs the interpreter about events being restored before restoration */
+	void notifyEERestored(const std::vector<std::unique_ptr<EventLabel> > &prefix);
 
 	/* Restores the previously saved prefix and coherence status */
 	void restorePrefix(const EventLabel *lab,

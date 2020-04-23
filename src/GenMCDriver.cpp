@@ -395,27 +395,47 @@ void GenMCDriver::restrictWorklist(const EventLabel *rLab)
 		workqueue.erase(i);
 }
 
-void GenMCDriver::restrictGraph(const EventLabel *rLab)
+void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 {
 	const auto &g = getGraph();
-	auto v = g.getPredsView(rLab->getPos());
-
-	/* First, free memory allocated by events that will no longer be in the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 1; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= rLab->getStamp())
+			if (lab->getStamp() <= cutStamp)
 				continue;
+			/* Untrack memory if allocation event will be deleted */
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
 				getEE()->untrackAlloca(mLab->getAllocAddr(),
 						       mLab->getAllocSize(),
 						       mLab->getAddrSpace());
+			/* For persistence, reclaim fds */
+			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
+				getEE()->reclaimUnusedFd(oLab->getFd().IntVal.getLimitedValue());
 		}
 	}
+}
 
-	/* Then, restrict the graph (and relations) */
-	getGraph().cutToStamp(rLab->getStamp());
+void GenMCDriver::restrictGraph(const EventLabel *rLab)
+{
+	unsigned int stamp = rLab->getStamp();
+
+	/* Inform the interpreter about deleted events, and then
+	 * restrict the graph (and relations) */
+	notifyEERemoved(stamp);
+	getGraph().cutToStamp(stamp);
 	return;
+}
+
+void GenMCDriver::notifyEERestored(const std::vector<std::unique_ptr<EventLabel> > &prefix)
+{
+	for (auto &lab : prefix) {
+		if (auto *mLab = llvm::dyn_cast<MallocLabel>(&*lab))
+			getEE()->trackAlloca(mLab->getAllocAddr(),
+					     mLab->getAllocSize(),
+					     mLab->getAddrSpace());
+		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(&*lab))
+			getEE()->markFdAsUsed(oLab->getFd().IntVal.getLimitedValue());
+	}
 }
 
 /*
@@ -431,14 +451,8 @@ void GenMCDriver::restorePrefix(const EventLabel *lab,
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 	auto *rLab = static_cast<const ReadLabel *>(lab);
 
-	/* Re-allocate memory for the allocation events in the prefix */
-	for (auto &lab : prefix) {
-		if (auto *mLab = llvm::dyn_cast<MallocLabel>(&*lab))
-			getEE()->trackAlloca(mLab->getAllocAddr(),
-					     mLab->getAllocSize(),
-					     mLab->getAddrSpace());
-	}
-
+	/* Inform the interpreter about events being restored, and then restore them */
+	notifyEERestored(prefix);
 	getGraph().restoreStorePrefix(rLab, prefix, moPlacings);
 }
 

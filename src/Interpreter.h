@@ -392,8 +392,14 @@ public:
   /* Pers: Returns the amount of bytes that need to be allocated for a file struct */
   unsigned int getFileAllocSize(Type *intTyp) const;
 
-  /* Pers: Returns a fresh file descriptor for a new open() call */
+  /* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
   int getFreshFd();
+
+  /* Pers: Marks that the file descriptor fd is in use */
+  void markFdAsUsed(int fd);
+
+  /* Pers: The interpreter reclaims a file descriptor that is no longer in use */
+  void reclaimUnusedFd(int fd);
 
   /* Pers: Returns the address of the file description referenced by FD */
   void *getFileFromFd(int fd);

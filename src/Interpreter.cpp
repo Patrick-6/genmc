@@ -257,8 +257,18 @@ int Interpreter::getFreshFd()
 		return -1;
 
 	/* Otherwise, mark the file descriptor as used */
-	fds.set(fd);
+	markFdAsUsed(fd);
 	return fd;
+}
+
+void Interpreter::markFdAsUsed(int fd)
+{
+	fds.set(fd);
+}
+
+void Interpreter::reclaimUnusedFd(int fd)
+{
+	fds.reset(fd);
 }
 
 void *Interpreter::getFileFromFd(int fd)
