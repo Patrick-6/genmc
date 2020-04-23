@@ -3075,7 +3075,7 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 	}
 
 	/* Otherwise, check if newpath exists */
-	target = executeInodeLookup(oldpath, intTyp);
+	target = executeInodeLookup(newpath, intTyp);
 	if (target.PointerVal) {
 		WARN_ONCE("link-entry-exists-newpath", "The entry for newpath exists at link()!\n");
 		result = INT_TO_GV(intTyp, -1);

@@ -1,8 +1,8 @@
 #ifndef __FCNTL_H__
 #define __FCNTL_H__
 
-#include <bits/stat.h>
-#include <unistd.h>
+#include "bits/stat.h"
+#include "unistd.h"
 
 /* Flags */
 
@@ -43,10 +43,10 @@
 /* Read, write, and execute by others.  */
 #define S_IRWXO		(S_IRWXG >> 3)
 
-extern int open (const char *__file, int __oflag, mode_t __mode) __nonnull ((1));
+extern int open (const char *__file, int __oflag, mode_t __mode);
 
-extern int creat (const char *__file, mode_t __mode) __nonnull ((1));
+extern int creat (const char *__file, mode_t __mode);
 
-extern int rename (const char *__old, const char *__new) __THROW;
+extern int rename (const char *__old, const char *__new);
 
 #endif /* __FCNTL_H__ */

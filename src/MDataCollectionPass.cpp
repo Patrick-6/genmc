@@ -224,7 +224,8 @@ bool isSyscallWPathname(CallInst *CI)
 	/* Use getCalledValue() to deal with indirect invocations too */
 	auto name = CI->getCalledValue()->getName();
 	return name == "open" || name == "creat" ||
-	       name == "rename" || name == "unlink";
+	       name == "rename" || name == "link" ||
+	       name == "unlink" || name == "truncate";
 }
 
 void initializeFilenameEntry(DirInode &DI, Value *v)
@@ -249,11 +250,8 @@ void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
 	 * populated with actual addresses from the EE */
 	initializeFilenameEntry(DI, CI->getArgOperand(0));
 
-	/* For rename() only, we get the second argument as well */
-	if (F->getName() == "open" || F->getName() == "creat" ||
-	    F->getName() == "unlink") {
-		;
-	} else if (F->getName() == "rename") {
+	/* For some syscalls we capture the second argument as well */
+	if (F->getName() == "rename" || F->getName() == "link") {
 		initializeFilenameEntry(DI, CI->getArgOperand(1));
 	}
 	return;

@@ -4,9 +4,6 @@
 #include <stddef.h>
 #include <sys/types.h>
 
-#define __wur
-#define __THROW
-
 /* src/Execution.cpp is based on the values of the definitions below */
 #define SEEK_SET	0	/* Seek from beginning of file.  */
 #define SEEK_CUR	1	/* Seek from current position.  */
@@ -19,7 +16,7 @@
    the current position (if WHENCE is SEEK_CUR),
    or the end of the file (if WHENCE is SEEK_END).
    Return the new file position.  */
-extern __off_t lseek (int __fd, __off_t __offset, int __whence) __THROW;
+extern __off_t lseek (int __fd, __off_t __offset, int __whence);
 
 /* Close the file descriptor FD.
 
@@ -32,13 +29,13 @@ extern int close (int __fd);
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t read (int __fd, void *__buf, size_t __nbytes) __wur;
+extern ssize_t read (int __fd, void *__buf, size_t __nbytes);
 
 /* Write N bytes of BUF to FD.  Return the number written, or -1.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t write (int __fd, const void *__buf, size_t __n) __wur;
+extern ssize_t write (int __fd, const void *__buf, size_t __n);
 
 /* Read NBYTES into BUF from FD at the given position OFFSET without
    changing the file pointer.  Return the number read, -1 for errors
@@ -47,7 +44,7 @@ extern ssize_t write (int __fd, const void *__buf, size_t __n) __wur;
    This function is a cancellation point and therefore not marked with
    __THROW.  */
 extern ssize_t pread (int __fd, void *__buf, size_t __nbytes,
-		      __off_t __offset) __wur;
+		      __off_t __offset);
 
 /* Write N bytes of BUF to FD at the given position OFFSET without
    changing the file pointer.  Return the number written, or -1.
@@ -55,20 +52,18 @@ extern ssize_t pread (int __fd, void *__buf, size_t __nbytes,
    This function is a cancellation point and therefore not marked with
    __THROW.  */
 extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
-		       __off_t __offset) __wur;
+		       __off_t __offset);
 
 /* Make a link to FROM named TO.  */
-extern int link (const char *__from, const char *__to)
-     __THROW __nonnull ((1, 2)) __wur;
+extern int link (const char *__from, const char *__to);
 
 /* Remove the link NAME.  */
-extern int unlink (const char *__name) __THROW __nonnull ((1));
+extern int unlink (const char *__name);
 
 /* Make all changes done to all files actually appear on disk.  */
-extern void sync (void) __THROW;
+extern void sync (void) ;
 
 /* Truncate FILE to LENGTH bytes.  */
-extern int truncate (const char *__file, __off_t __length)
-     __THROW __nonnull ((1)) __wur;
+extern int truncate (const char *__file, __off_t __length);
 
 #endif /* __UNISTD_H__ */
