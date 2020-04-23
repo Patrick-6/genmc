@@ -57,6 +57,10 @@ extern ssize_t pread (int __fd, void *__buf, size_t __nbytes,
 extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
 		       __off_t __offset) __wur;
 
+/* Make a link to FROM named TO.  */
+extern int link (const char *__from, const char *__to)
+     __THROW __nonnull ((1, 2)) __wur;
+
 /* Make all changes done to all files actually appear on disk.  */
 extern void sync (void) __THROW;
 

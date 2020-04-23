@@ -594,6 +594,10 @@ private:  // Helper functions
 
   GenericValue executeLookupOpen(void *file, int &flags, Type *intTyp);
   GenericValue executeDskOpen(void *file, const GenericValue &inode, Type *intTyp);
+  GenericValue executeDskRename(void *oldpath, const GenericValue &oldInode,
+				void *newpath, const GenericValue &newInode,
+				Type *intTyp);
+  GenericValue executeDskUnlink(void *pathname, Type *intTyp);
   GenericValue executeDskTruncate(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
   GenericValue executeDskRead(void *file, Type *intTyp, GenericValue *buf,
@@ -629,6 +633,8 @@ private:  // Helper functions
 			 const std::vector<GenericValue> &ArgVals);
   void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskRename(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskUnlink(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);

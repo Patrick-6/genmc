@@ -2948,6 +2948,128 @@ void Interpreter::callDskCreat(Function *F, const std::vector<GenericValue> &Arg
 	return;
 }
 
+GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &oldInode,
+					   void *newpath, const GenericValue &newInode,
+					   Type *intTyp)
+{
+	Type *intPtrTyp = intTyp->getPointerTo();
+
+	/* If hard links referring on the same file */
+	if (oldInode.PointerVal == newInode.PointerVal)
+		return INT_TO_GV(intTyp, 0);
+
+	/* Delete old name */
+	llvm::GenericValue null;
+	null.PointerVal = nullptr;
+	auto *oldAddr = (const GenericValue *) getInodeAddrFromName((const char *) oldpath);
+	driver->visitDskWrite(oldAddr, intPtrTyp, null);
+
+	/* Make new name point to old name's inode */
+	auto *newAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
+	driver->visitDskWrite(newAddr, intPtrTyp, oldInode);
+
+	return INT_TO_GV(intTyp, 0);
+}
+
+void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	void *oldpath = GVTOP(ArgVals[0]);
+	void *newpath = GVTOP(ArgVals[1]);
+	Type *intTyp = F->getReturnType();
+	GenericValue result;
+
+	if (!checkPersistence) {
+		WARN("rename() called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	/* Try to find source inode */
+	int flags = 0;
+	GenericValue source, target;
+	source = executeLookupOpen(oldpath, flags, intTyp);
+	if (!source.PointerVal) {
+		WARN_ONCE("rename-negative-source", "Source directory must exist for rename()!\n");
+		result = INT_TO_GV(intTyp, -1);
+		goto exit; /* Use gotos since we might add support for more flags/error checks */
+	}
+
+	/* Try to find target inode */
+	flags = 0;
+	target = executeLookupOpen(newpath, flags, intTyp);
+
+	result = executeDskRename(oldpath, source, newpath, target, intTyp);
+
+exit:
+	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
+GenericValue Interpreter::executeDskUnlink(void *pathname, Type *intTyp)
+{
+	int flags = 0;
+	auto inode = executeLookupOpen(pathname, flags, intTyp);
+
+	/* Check if component exists */
+	if (!inode.PointerVal) {
+		WARN_ONCE("unlink-no-entry", "Component does not exist for unlink()!\n");
+		return INT_TO_GV(intTyp, -1);
+	}
+
+	/* Unlink inode */
+	llvm::GenericValue null;
+	null.PointerVal = nullptr;
+	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), null);
+
+	return INT_TO_GV(intTyp, 0);
+}
+
+void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	void *file = GVTOP(ArgVals[0]);
+	Type *intTyp = F->getReturnType();
+
+	if (!checkPersistence) {
+		WARN("unlink() called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	auto result = executeDskUnlink(file, intTyp);
+
+	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
@@ -3439,6 +3561,12 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "creat") {
 	  callDskCreat(F, ArgVals);
+	  return;
+  } else if (functionName == "rename") {
+	  callDskRename(F, ArgVals);
+	  return;
+  } else if (functionName == "unlink") {
+	  callDskUnlink(F, ArgVals);
 	  return;
   } else if (functionName == "truncate") {
 	  callDskTruncate(F, ArgVals);
