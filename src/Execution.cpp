@@ -3441,7 +3441,7 @@ void Interpreter::callFunction(Function *F,
 	  callDskCreat(F, ArgVals);
 	  return;
   } else if (functionName == "truncate") {
-	  callDskCreat(F, ArgVals);
+	  callDskTruncate(F, ArgVals);
 	  return;
   } else if (functionName == "read") {
 	  callDskRead(F, ArgVals);
