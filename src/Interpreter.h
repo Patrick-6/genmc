@@ -599,6 +599,8 @@ private:  // Helper functions
   GenericValue executeDskRename(void *oldpath, const GenericValue &oldInode,
 				void *newpath, const GenericValue &newInode,
 				Type *intTyp);
+  GenericValue executeDskLink(void *oldpath, const GenericValue &oldInode,
+			      void *newpath, Type *intTyp);
   GenericValue executeDskUnlink(void *pathname, Type *intTyp);
   GenericValue executeDskTruncate(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
@@ -636,6 +638,7 @@ private:  // Helper functions
   void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskRename(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskLink(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskUnlink(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);

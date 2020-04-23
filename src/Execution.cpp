@@ -3029,6 +3029,67 @@ exit:
 	return;
 }
 
+GenericValue Interpreter::executeDskLink(void *oldpath, const GenericValue &oldInode,
+					 void *newpath, Type *intTyp)
+{
+	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
+	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode);
+	return INT_TO_GV(intTyp, 0);
+}
+
+void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	void *oldpath = GVTOP(ArgVals[0]);
+	void *newpath = GVTOP(ArgVals[1]);
+	Type *intTyp = F->getReturnType();
+	GenericValue result;
+
+	if (!checkPersistence) {
+		WARN("link() called without persistence checks enabled!\n");
+		abort();
+	}
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	GenericValue source, target;
+
+	/* Since we have a single-directory structure, link boils down to a simple cs */
+	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	if (thr.isBlocked) {
+		rollbackDskOperation(thr, snap);
+		return;
+	}
+
+	source = executeInodeLookup(oldpath, intTyp);
+
+	/* If no such entry found, exit */
+	if (!source.PointerVal) {
+		WARN_ONCE("link-no-entry-oldpath", "No entry found for oldpath at link()!\n");
+		result = INT_TO_GV(intTyp, -1);
+		goto exit;
+	}
+
+	/* Otherwise, check if newpath exists */
+	target = executeInodeLookup(oldpath, intTyp);
+	if (target.PointerVal) {
+		WARN_ONCE("link-entry-exists-newpath", "The entry for newpath exists at link()!\n");
+		result = INT_TO_GV(intTyp, -1);
+		goto exit;
+	}
+
+	result = executeDskLink(oldpath, source, newpath, intTyp);
+
+exit:
+	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 GenericValue Interpreter::executeDskUnlink(void *pathname, Type *intTyp)
 {
 	auto inode = executeInodeLookup(pathname, intTyp);
@@ -3572,6 +3633,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "rename") {
 	  callDskRename(F, ArgVals);
+	  return;
+  } else if (functionName == "link") {
+	  callDskLink(F, ArgVals);
 	  return;
   } else if (functionName == "unlink") {
 	  callDskUnlink(F, ArgVals);

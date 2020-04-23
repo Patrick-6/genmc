@@ -61,6 +61,9 @@ extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
 extern int link (const char *__from, const char *__to)
      __THROW __nonnull ((1, 2)) __wur;
 
+/* Remove the link NAME.  */
+extern int unlink (const char *__name) __THROW __nonnull ((1));
+
 /* Make all changes done to all files actually appear on disk.  */
 extern void sync (void) __THROW;
 
