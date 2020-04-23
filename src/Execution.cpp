@@ -2782,27 +2782,18 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 	return;
 }
 
-/* On success, returns a non-null pointer value that corresponds
- * to the address of FILE's inode. Success: either if the inode was
- * already created, or flags contain O_CREAT and the inode was
- * created. */
-GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp)
+GenericValue Interpreter::executeInodeLookup(void *file, Type *intTyp)
 {
-	Thread &thr = getCurThr();
-	Type *intPtrType = intTyp->getPointerTo();
-
-	/* Fetch the address of where the inode should be and read the contents */
+	/* Fetch the address where the inode should be and read the contents */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
-	auto inode = driver->visitDskRead(inodeAddr, intPtrType);
+	return driver->visitDskRead(inodeAddr, intTyp->getPointerTo());
+}
 
-	/* If the inode has not been created and O_CREAT has not been
-	 * specified, return null */
-	if (!inode.PointerVal && !(flags & GENMC_O_CREAT))
-		return inode;
-
-	/* Otherwise, we allocate an inode... */
+GenericValue Interpreter::executeInodeCreate(void *file, Type *intTyp)
+{
+	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getInodeAllocSize(intTyp);
-	inode = driver->visitMalloc(inodeSize, AddressSpace::Internal);
+	auto inode = driver->visitMalloc(inodeSize, AddressSpace::Internal);
 	updateVarNameInfo((char *) inode.PointerVal, inodeSize, AddressSpace::Internal,
 			  nullptr, std::string("__inode_") + (char *) file, "inode");
 
@@ -2815,7 +2806,28 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
 
 	/* ... and set the newly allocated inode to the appropriate address */
-	driver->visitDskWrite(inodeAddr, intPtrType, inode);
+	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode);
+
+	return inode;
+}
+
+/* On success, returns a non-null pointer value that corresponds
+ * to the address of FILE's inode. Success: either if the inode was
+ * already created, or flags contain O_CREAT and the inode was
+ * created. */
+GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp)
+{
+	/* Check if the corresponding inode already exists */
+	auto inode = executeInodeLookup(file, intTyp);
+
+	/* If the inode has not been created and O_CREAT has not been
+	 * specified, return null */
+	if (!inode.PointerVal && !(flags & GENMC_O_CREAT))
+		return inode;
+
+	/* Otherwise, we create an inode */
+	inode = executeInodeCreate(file, intTyp);
 
 	/* If we created the inode, we will not truncate it
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
@@ -2997,9 +3009,8 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 	}
 
 	/* Try to find source inode */
-	int flags = 0;
 	GenericValue source, target;
-	source = executeLookupOpen(oldpath, flags, intTyp);
+	source = executeInodeLookup(oldpath, intTyp);
 	if (!source.PointerVal) {
 		WARN_ONCE("rename-negative-source", "Source directory must exist for rename()!\n");
 		result = INT_TO_GV(intTyp, -1);
@@ -3007,8 +3018,7 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 	}
 
 	/* Try to find target inode */
-	flags = 0;
-	target = executeLookupOpen(newpath, flags, intTyp);
+	target = executeInodeLookup(newpath, intTyp);
 
 	result = executeDskRename(oldpath, source, newpath, target, intTyp);
 
@@ -3021,8 +3031,7 @@ exit:
 
 GenericValue Interpreter::executeDskUnlink(void *pathname, Type *intTyp)
 {
-	int flags = 0;
-	auto inode = executeLookupOpen(pathname, flags, intTyp);
+	auto inode = executeInodeLookup(pathname, intTyp);
 
 	/* Check if component exists */
 	if (!inode.PointerVal) {
@@ -3095,8 +3104,7 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 	}
 
 	/* Try and find the requested inode */
-	int flags = 0;
-	auto inode = executeLookupOpen(file, flags, intTyp);
+	auto inode = executeInodeLookup(file, intTyp);
 
 	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
 

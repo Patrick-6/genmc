@@ -592,6 +592,8 @@ private:  // Helper functions
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
+  GenericValue executeInodeLookup(void *file, Type *intTyp);
+  GenericValue executeInodeCreate(void *file, Type *intTyp);
   GenericValue executeLookupOpen(void *file, int &flags, Type *intTyp);
   GenericValue executeDskOpen(void *file, const GenericValue &inode, Type *intTyp);
   GenericValue executeDskRename(void *oldpath, const GenericValue &oldInode,
