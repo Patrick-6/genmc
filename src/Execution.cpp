@@ -2941,6 +2941,39 @@ void Interpreter::callDskCreat(Function *F, const std::vector<GenericValue> &Arg
 	return;
 }
 
+GenericValue Interpreter::executeDskClose(const GenericValue &fd, Type *intTyp)
+{
+	/* If it's not a valid open fd, report the error */
+	auto *fileDesc = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!fileDesc) {
+		WARN_ONCE("close-invalid-fd", "Invalid fd used in close()!\n");
+		return INT_TO_GV(intTyp, -1);
+	}
+
+	driver->visitFree((GenericValue *) fileDesc);
+	return INT_TO_GV(intTyp, 0);
+}
+
+void Interpreter::callDskClose(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	ExecutionContext &SF = ECStack().back();
+	GenericValue fd = ArgVals[0];
+	Type *intTyp = F->getReturnType();
+
+	if (!checkPersistence)
+		ERROR("close() called without persistence checks enabled!\n");
+
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
+		       getAddrPoDeps(thr.id), nullptr);
+
+	/* Close the file and return result to user */
+	auto result = executeDskClose(fd, intTyp);
+	returnValueToCaller(intTyp, result);
+	return;
+}
+
 GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &oldInode,
 					   void *newpath, const GenericValue &newInode,
 					   Type *intTyp)
@@ -3593,6 +3626,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "creat") {
 	  callDskCreat(F, ArgVals);
+	  return;
+  } else if (functionName == "close") {
+	  callDskClose(F, ArgVals);
 	  return;
   } else if (functionName == "rename") {
 	  callDskRename(F, ArgVals);
