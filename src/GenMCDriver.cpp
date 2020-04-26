@@ -1116,8 +1116,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto &thr = getEE()->getCurThr();
 
 	if (inRecoveryMode()) {
-		Event recLast = g.getLastThreadEvent(g.getRecoveryRoutineId());
-		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
+		Event recLast = getEE()->getCurrentPosition();
+		Event rf = g.getLastThreadStoreAtLoc(recLast, addr);
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
 	}
@@ -1265,6 +1265,10 @@ void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
 void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
 			    const llvm::GenericValue &cmpVal, const llvm::GenericValue &newVal)
 {
+	/* No locking when running the recovery routine */
+	if (userConf->checkPersistence && inRecoveryMode())
+		return;
+
 	/* Treatment of locks based on whether LAPOR is enabled */
 	if (userConf->LAPOR) {
 		visitLockLAPOR(addr);
@@ -1299,6 +1303,10 @@ void GenMCDriver::visitUnlockLAPOR(const llvm::GenericValue *addr)
 void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
 			      const llvm::GenericValue &val)
 {
+	/* No locking when running the recovery routine */
+	if (userConf->checkPersistence && inRecoveryMode())
+		return;
+
 	/* Treatment of unlocks based on whether LAPOR is enabled */
 	if (userConf->LAPOR) {
 		visitUnlockLAPOR(addr);
@@ -1896,6 +1904,7 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab)) {
 			return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		}
+		llvm::dbgs() << "Expected read in " << lab->getPos() << " @ " << addr << "\n"; printGraph();
 		BUG();
 	}
 
@@ -2184,11 +2193,11 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
 							 rLab->getType());
 				executeRLPrint(rLab, name, val);
-				llvm::dbgs() << rLab->getAddr();
+				llvm::dbgs() << " " << rLab->getAddr();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = EE->getVarName(wLab->getAddr());
 				executeWLPrint(wLab, name);
-				llvm::dbgs() << wLab->getAddr();
+				llvm::dbgs() << " " << wLab->getAddr();
 			} else {
 				llvm::dbgs() << *lab;
 			}

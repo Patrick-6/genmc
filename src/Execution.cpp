@@ -2804,9 +2804,9 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookup(file, intTyp);
 
-	/* If the inode has not been created and O_CREAT has not been
-	 * specified, return null */
-	if (!inode.PointerVal && !(flags & GENMC_O_CREAT))
+	/* Return the inode, if it already exists. If the inode has not been created
+	 * and O_CREAT has not been specified, return null */
+	if (inode.PointerVal || !(flags & GENMC_O_CREAT))
 		return inode;
 
 	/* Otherwise, we create an inode */
