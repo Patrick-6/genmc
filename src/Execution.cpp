@@ -2911,6 +2911,7 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* Inode not found -- cannot open file */
 	if (!inode.PointerVal) {
+		WARN_ONCE("open-no-inode", "File does not exist in open()!\n");
 		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
 		return;
 	}
@@ -3175,13 +3176,14 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 
 	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
 
-	/* Inode not found -- cannot open file */
+	/* Inode not found -- cannot truncate file */
 	if (!inode.PointerVal) {
+		WARN_ONCE("truncate-no-inode", "File does not exist in truncate()!\n");
 		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
 		return;
 	}
 
-	auto ret = executeDskTruncate(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
+	auto ret = executeDskTruncate(inode, length, intTyp, snap);
 	if (ret.IntVal.getLimitedValue() == 42)
 		return; /* Failed to acquire inode's lock... */
 
@@ -3284,7 +3286,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 
-	/* ...as well as fetch the address inode */
+	/* Fetch the inode */
 	auto *fileInode = GET_FILE_INODE_ADDR(file, intTyp);
 	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
 					(const GenericValue *) fileInode, intPtrType).PointerVal;
@@ -3294,7 +3296,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 	driver->visitLock(inodeLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
-		return INT_TO_GV(intTyp, -1);
+		return INT_TO_GV(intTyp, 42); // lock acquisition failed
 	}
 
 	/* Then, we proceed with the bytewise write */
@@ -3303,7 +3305,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 		auto *loadAddr = (char *) buf + i;
 		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
 					     (const GenericValue *) loadAddr, bufElemTyp);
-		auto *writeAddr = inodeData + offset.IntVal.getLimitedValue() + i;
+		auto *writeAddr = (char *) inodeData + offset.IntVal.getLimitedValue() + i;
 		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val);
 	}
 
@@ -3330,10 +3332,6 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue count = ArgVals[2];
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
-	GenericValue zeroVal, oneVal;
-
-	zeroVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
-	oneVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 1);
 
 	if (!checkPersistence)
 		ERROR("write() called without persistence checks enabled!\n");
@@ -3349,7 +3347,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
-	driver->visitLock((const GenericValue *) fileLock, intTyp, zeroVal, oneVal);
+	driver->visitLock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3363,8 +3361,8 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	/* Perform the disk write operation
 	 * (If we failed to acquire the node's lock, block without returning anything) */
 	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, oldOffset, count, snap);
-	if (nw.IntVal.getLimitedValue() == -1)
-		return;
+	if (nw.IntVal.getLimitedValue() == 42)
+		return; // lock acquisition failed
 
 	/* We calculate the new offset to write to the file description... */
 	GenericValue newOffset;
@@ -3373,7 +3371,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 			   (const GenericValue *) fileOffset, intTyp, newOffset);
 
 	/* We release the file description's lock */
-	driver->visitUnlock((const GenericValue *) fileLock, intTyp, zeroVal);
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0));
 
 	/* Return #bytes written -- always fulfills the request in full  */
 	auto *retTyp = F->getReturnType();
@@ -3418,6 +3416,7 @@ void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &Arg
 
 void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -3430,15 +3429,15 @@ void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &Ar
 	if (!checkPersistence)
 		ERROR("pwrite() called without persistence checks enabled!\n");
 
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-		       getAddrPoDeps(getCurThr().id), nullptr);
+	int snap = getNumGlobalInstructions(thr);
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 	/* We get the address of the file description, from which we will get
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 
-	/* Execute the read in the specified offset */
-	auto nw = executeDskRead(file, intTyp, buf, bufElemTyp, offset, count);
+	/* Execute the write in the specified offset */
+	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, offset, count, snap);
 
 	/* Return the number of bytes written */
 	auto *retTyp = F->getReturnType();
@@ -3513,10 +3512,6 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	GenericValue offset = ArgVals[1];
 	GenericValue whence = ArgVals[2];
 	Type *intTyp = F->getFunctionType()->getParamType(0);
-	GenericValue zeroVal, oneVal;
-
-	zeroVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
-	oneVal.IntVal = APInt(intTyp->getIntegerBitWidth(), 1);
 
 	if (!checkPersistence)
 		ERROR("lseek() called without persistence checks enabled!\n");
@@ -3532,7 +3527,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
-	driver->visitLock((const GenericValue *) fileLock, intTyp, zeroVal, oneVal);
+	driver->visitLock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3541,7 +3536,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	auto newOffset = executeLseek(file, intTyp, offset, whence);
 
 	/* We release the file description's lock */
-	driver->visitUnlock((const GenericValue *) fileLock, intTyp, zeroVal);
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0));
 	returnValueToCaller(F->getReturnType(), newOffset);
 	return;
 }
