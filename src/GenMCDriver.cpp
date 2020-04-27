@@ -1262,8 +1262,7 @@ void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
 	return;
 }
 
-void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
-			    const llvm::GenericValue &cmpVal, const llvm::GenericValue &newVal)
+void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ)
 {
 	/* No locking when running the recovery routine */
 	if (userConf->checkPersistence && inRecoveryMode())
@@ -1276,11 +1275,11 @@ void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
 	}
 
 	auto ret = visitLoad(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
-			     addr, typ, cmpVal, newVal);
+			     addr, typ, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
 
-	if (EE->compareValues(typ, cmpVal, ret)) {
+	if (EE->compareValues(typ, INT_TO_GV(typ, 0), ret)) {
 		visitStore(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
-			   addr, typ, newVal);
+			   addr, typ, INT_TO_GV(typ, 1));
 	} else {
 		EE->getCurThr().block();
 	}
@@ -1300,8 +1299,7 @@ void GenMCDriver::visitUnlockLAPOR(const llvm::GenericValue *addr)
 	return;
 }
 
-void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
-			      const llvm::GenericValue &val)
+void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ)
 {
 	/* No locking when running the recovery routine */
 	if (userConf->checkPersistence && inRecoveryMode())
@@ -1314,7 +1312,7 @@ void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
 	}
 
 	visitStore(llvm::Interpreter::IA_Unlock,
-		   llvm::AtomicOrdering::Release, addr, typ, val);
+		   llvm::AtomicOrdering::Release, addr, typ, INT_TO_GV(typ, 0));
 	return;
 }
 

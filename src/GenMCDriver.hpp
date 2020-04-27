@@ -174,12 +174,10 @@ public:
 		      const llvm::GenericValue &val);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
-		       const llvm::GenericValue &cmpVal, const llvm::GenericValue &newVal);
+	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
-			 const llvm::GenericValue &val);
+	void visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */

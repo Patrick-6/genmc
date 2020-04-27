@@ -89,13 +89,6 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 	return (size_t) TD.getTypeAllocSize(typ);
 }
 
-#define INT_TO_GV(typ, val)						\
-({							                \
-	GenericValue __ret;						\
-	__ret.IntVal = APInt((typ)->getIntegerBitWidth(), (val), true);	\
-	__ret;								\
-})
-
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
 //===----------------------------------------------------------------------===//
@@ -2598,12 +2591,9 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
-	GenericValue cmpVal, newVal, result;
+	GenericValue result;
 
-	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
-	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
-
-	driver->visitLock(ptr, typ, cmpVal, newVal);
+	driver->visitLock(ptr, typ);
 
 	/*
 	 * We need to return a result anyway, because even if the current thread
@@ -2621,14 +2611,9 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
-	GenericValue val, result;
+	GenericValue result;
 
-	val.IntVal = APInt(typ->getIntegerBitWidth(), 0);
-
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
-
-	driver->visitUnlock(ptr, typ, val);
+	driver->visitUnlock(ptr, typ);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
 	returnValueToCaller(F->getReturnType(), result);
@@ -2646,17 +2631,11 @@ void Interpreter::callPthreadMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
-
 	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
 				     typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
-		setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-			       getAddrPoDeps(thr.id), nullptr);
-
 		driver->visitStore(IA_Cas, AtomicOrdering::Acquire,
 				   ptr, typ, newVal);
 	}
@@ -2867,7 +2846,7 @@ GenericValue Interpreter::executeDskTruncate(const GenericValue &inode,
 
 	/* Get inode's lock */
 	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode.PointerVal, intTyp));
-	driver->visitLock(inodeLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(inodeLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return INT_TO_GV(intTyp, 42);
@@ -2878,7 +2857,7 @@ GenericValue Interpreter::executeDskTruncate(const GenericValue &inode,
 	driver->visitDskWrite(inodeIsize, intTyp, length);
 
 	/* Release inode's lock */
-	driver->visitUnlock(inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(inodeLock, intTyp);
 	return INT_TO_GV(intTyp, 0); /* Success */
 }
 
@@ -2898,7 +2877,7 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 		       getAddrPoDeps(thr.id), nullptr);
 
 	auto *dirLock = (const llvm::GenericValue *) getDirLock();
-	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -2907,7 +2886,7 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	/* Try and find the requested inode */
 	auto inode = executeLookupOpen(file, flags, intTyp);
 
-	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(dirLock, intTyp);
 
 	/* Inode not found -- cannot open file */
 	if (!inode.PointerVal) {
@@ -3015,7 +2994,7 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 		       getAddrPoDeps(thr.id), nullptr);
 
 	auto *dirLock = (const llvm::GenericValue *) getDirLock();
-	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3036,7 +3015,7 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 	result = executeDskRename(oldpath, source, newpath, target, intTyp);
 
 exit:
-	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(dirLock, intTyp);
 
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -3070,7 +3049,7 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue source, target;
 
 	/* Since we have a single-directory structure, link boils down to a simple cs */
-	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3096,7 +3075,7 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 	result = executeDskLink(oldpath, source, newpath, intTyp);
 
 exit:
-	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(dirLock, intTyp);
 	returnValueToCaller(F->getReturnType(), result);
 	return;
 }
@@ -3135,7 +3114,7 @@ void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &Ar
 		       getAddrPoDeps(thr.id), nullptr);
 
 	auto *dirLock = (const llvm::GenericValue *) getDirLock();
-	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3143,7 +3122,7 @@ void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &Ar
 
 	auto result = executeDskUnlink(file, intTyp);
 
-	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(dirLock, intTyp);
 
 	returnValueToCaller(F->getReturnType(), result);
 	return;
@@ -3165,7 +3144,7 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 		       getAddrPoDeps(thr.id), nullptr);
 
 	auto *dirLock = (const llvm::GenericValue *) getDirLock();
-	driver->visitLock(dirLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3174,7 +3153,7 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 	/* Try and find the requested inode */
 	auto inode = executeInodeLookup(file, intTyp);
 
-	driver->visitUnlock(dirLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(dirLock, intTyp);
 
 	/* Inode not found -- cannot truncate file */
 	if (!inode.PointerVal) {
@@ -3251,7 +3230,7 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
 	auto *fileLock = (const GenericValue *) (GET_FILE_LOCK_ADDR(file, intTyp));
-	driver->visitLock(fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3271,7 +3250,7 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 			   (const GenericValue *) fileOffset, intTyp, newOffset);
 
 	/* ...and then release the description's lock */
-	driver->visitUnlock(fileLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(fileLock, intTyp);
 
 	/* Return #bytes read -- if successful, fullfills the read request in full */
 	auto *retTyp = F->getReturnType();
@@ -3293,7 +3272,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 
 	/* Since we are writing, we need to lock of the inode */
 	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode, intTyp));
-	driver->visitLock(inodeLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock(inodeLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return INT_TO_GV(intTyp, 42); // lock acquisition failed
@@ -3319,7 +3298,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 		driver->visitDskWrite((const GenericValue *) inodeIsize, intTyp, newSize);
 
 	/* Release inode's lock */
-	driver->visitUnlock(inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock(inodeLock, intTyp);
 	return count;
 }
 
@@ -3347,7 +3326,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
-	driver->visitLock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock((const GenericValue *) fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3371,7 +3350,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 			   (const GenericValue *) fileOffset, intTyp, newOffset);
 
 	/* We release the file description's lock */
-	driver->visitUnlock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
 
 	/* Return #bytes written -- always fulfills the request in full  */
 	auto *retTyp = F->getReturnType();
@@ -3527,7 +3506,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_LOCK_ADDR(file, intTyp);
-	driver->visitLock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0), INT_TO_GV(intTyp, 1));
+	driver->visitLock((const GenericValue *) fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
 		return;
@@ -3536,7 +3515,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	auto newOffset = executeLseek(file, intTyp, offset, whence);
 
 	/* We release the file description's lock */
-	driver->visitUnlock((const GenericValue *) fileLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
 	returnValueToCaller(F->getReturnType(), newOffset);
 	return;
 }
