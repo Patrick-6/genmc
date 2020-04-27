@@ -2964,15 +2964,13 @@ GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &ol
 	if (oldInode.PointerVal == newInode.PointerVal)
 		return INT_TO_GV(intTyp, 0);
 
-	/* Delete old name */
-	llvm::GenericValue null;
-	null.PointerVal = nullptr;
-	auto *oldAddr = (const GenericValue *) getInodeAddrFromName((const char *) oldpath);
-	driver->visitDskWrite(oldAddr, intPtrTyp, null);
-
 	/* Make new name point to old name's inode */
 	auto *newAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newAddr, intPtrTyp, oldInode);
+
+	/* Delete old name */
+	auto *oldAddr = (const GenericValue *) getInodeAddrFromName((const char *) oldpath);
+	driver->visitDskWrite(oldAddr, intPtrTyp, PTR_TO_GV(nullptr));
 
 	return INT_TO_GV(intTyp, 0);
 }
