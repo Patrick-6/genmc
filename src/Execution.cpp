@@ -2954,8 +2954,7 @@ void Interpreter::callDskClose(Function *F, const std::vector<GenericValue> &Arg
 	return;
 }
 
-GenericValue Interpreter::executeDskLink(void *oldpath, const GenericValue &oldInode,
-					 void *newpath, Type *intTyp)
+GenericValue Interpreter::executeDskLink(void *newpath, const GenericValue &oldInode, Type *intTyp)
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode);
@@ -3005,7 +3004,7 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 		goto exit;
 	}
 
-	result = executeDskLink(oldpath, source, newpath, intTyp);
+	result = executeDskLink(newpath, source, intTyp);
 
 exit:
 	driver->visitUnlock(dirLock, intTyp);
@@ -3074,7 +3073,7 @@ GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &ol
 	GenericValue result;
 
 	/* Make new name point to old name's inode */
-	result = executeDskLink(oldpath, oldInode, newpath, intTyp);
+	result = executeDskLink(newpath, oldInode, intTyp);
 	BUG_ON(result.IntVal.getLimitedValue() == -1);
 
 	/* Delete old name */

@@ -620,8 +620,7 @@ private:  // Helper functions
   GenericValue executeDskRename(void *oldpath, const GenericValue &oldInode,
 				void *newpath, const GenericValue &newInode,
 				Type *intTyp);
-  GenericValue executeDskLink(void *oldpath, const GenericValue &oldInode,
-			      void *newpath, Type *intTyp);
+  GenericValue executeDskLink(void *newpath, const GenericValue &oldInode, Type *intTyp);
   GenericValue executeDskUnlink(void *pathname, Type *intTyp);
   GenericValue executeDskTruncate(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
