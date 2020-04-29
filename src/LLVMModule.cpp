@@ -106,7 +106,7 @@ namespace LLVMModule {
 	}
 
 	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::DirInode &DI, bool spinAssume, int unroll)
+				 llvm::FsInfo &FI, bool spinAssume, int unroll)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;
@@ -128,7 +128,7 @@ namespace LLVMModule {
 
 		OptPM.add(new DeclareAssumePass());
 		OptPM.add(new DefineLibcFunsPass());
-		OptPM.add(new MDataCollectionPass(VI, DI));
+		OptPM.add(new MDataCollectionPass(VI, FI));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
 #else

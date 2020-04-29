@@ -1,8 +1,8 @@
 #ifndef __FCNTL_H__
 #define __FCNTL_H__
 
-#include "bits/stat.h"
-#include "unistd.h"
+#include <bits/stat.h>
+#include <unistd.h>
 
 /* Flags */
 

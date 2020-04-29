@@ -60,7 +60,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, DirInode &&DI,
+ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, FsInfo &&FI,
 				     GenMCDriver *driver, const Config *userConf,
 				     std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
@@ -96,7 +96,7 @@ ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, DirInode &&DI
   }
 #endif
 
-  return new Interpreter(M, std::move(VI), std::move(DI), driver, userConf);
+  return new Interpreter(M, std::move(VI), std::move(FI), driver, userConf);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -173,10 +173,12 @@ Thread Interpreter::createRecoveryThread(int tid)
 /* Returns the (source-code) variable name corresponding to "addr" */
 std::string Interpreter::getVarName(const void *addr)
 {
-	if (isStack(addr))
-		return varNames[static_cast<int>(Storage::Automatic)][addr];
 	if (isStatic(addr))
 		return varNames[static_cast<int>(Storage::Static)][addr];
+	if (isStack(addr))
+		return varNames[static_cast<int>(Storage::Automatic)][addr];
+	if (isHeap(addr))
+		return varNames[static_cast<int>(Storage::Heap)][addr];
 	return "";
 }
 
@@ -247,9 +249,9 @@ int my_find_first_unset(const llvm::BitVector &bv)
 int Interpreter::getFreshFd()
 {
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(fds);
+	int fd = my_find_first_unset(FI.fds);
 #else
-	int fd = fds.find_first_unset();
+	int fd = FI.fds.find_first_unset();
 #endif
 
 	/* If no available descriptor found, return -1 */
@@ -263,62 +265,12 @@ int Interpreter::getFreshFd()
 
 void Interpreter::markFdAsUsed(int fd)
 {
-	fds.set(fd);
+	FI.fds.set(fd);
 }
 
 void Interpreter::reclaimUnusedFd(int fd)
 {
-	fds.reset(fd);
-}
-
-void *Interpreter::getFileFromFd(int fd) const
-{
-	if (!fdToFile.inBounds(fd))
-		return nullptr;
-	return fdToFile[fd];
-}
-
-void Interpreter::setFdToFile(int fd, void *fileAddr)
-{
-	fdToFile[fd] = fileAddr;
-}
-
-unsigned int Interpreter::getInodeAllocSize(Type *intTyp) const
-{
-	/* We assume that an inode is of the following form:
-	 *
-	 *     struct inode {
-	 *             pthread_mutex_t lock; // equivalent to int
-	 *             int isize;
-	 *             char data[maxFileSize];
-	 *     };
-	 */
-	auto &ctx = intTyp->getContext();
-	auto charPtrType = Type::getInt8PtrTy(ctx);
-
-	auto intSize = getTypeSize(intTyp);
-	auto charPtrSize = getTypeSize(charPtrType);
-
-	return 2 * intSize + charPtrSize * maxFileSize;
-}
-
-unsigned int Interpreter::getFileAllocSize(Type *intTyp) const
-{
-	/* We assume that the file struct has the following form:
-	 *
-	 *     struct file {
-	 *             pthread_mutex_t lock; // equivalent to int
-	 *             struct inode *inode; // equivalent to int *
-	 *             int offset;
-	 *     };
-	 */
-	auto &ctx = intTyp->getContext();
-	auto intPtrType = Type::getIntNPtrTy(ctx, intTyp->getIntegerBitWidth());
-
-	auto intSize = getTypeSize(intTyp);
-	auto intPtrSize = getTypeSize(intPtrType);
-
-	return 2 * intSize + intPtrSize;
+	FI.fds.reset(fd);
 }
 
 void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
@@ -448,7 +400,9 @@ void Interpreter::collectStaticAddresses(Module *M)
 		unsigned int typeSize =
 		        TD.getTypeAllocSize(v.getType()->getElementType());
 
-		/* The allocation pool will point just after the static address */
+		/* The allocation pool will point just after the static address
+		 * WARNING: This will not track the allocated space. Do that
+		 * either below, or elsewhere for internal variables */
 		if (!allocBegin || ptr > allocBegin)
 			allocBegin = ptr + typeSize;
 
@@ -461,11 +415,49 @@ void Interpreter::collectStaticAddresses(Module *M)
 
 		/* Update the name for this global. We cheat a bit since we will use this
 		 * to indicate whether this is an allocated static address (see isStatic()) */
-		updateVarNameInfo(ptr, typeSize, Storage::Static, AddressSpace::User, &v);
+		if (v.getAddressSpace() != 42) /* exclude internal variables */
+			updateVarNameInfo(ptr, typeSize, Storage::Static, AddressSpace::User, &v);
 	}
 	/* The allocator will start giving out addresses greater than the maximum static address */
 	if (allocBegin)
 		alloctor.initPoolAddress(allocBegin);
+}
+
+void Interpreter::setupFsInfo(Module *M, const Config *userConf)
+{
+	/* Setup config options first */
+	FI.fds = llvm::BitVector(userConf->maxOpenFiles);
+	FI.fdToFile.grow(userConf->maxOpenFiles);
+	FI.maxFileSize = userConf->maxFileSize;
+
+	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
+	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");
+	BUG_ON(!inodeVar || !fileVar);
+
+	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
+	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
+	BUG_ON(!FI.inodeTyp || !FI.fileTyp);
+
+	/* Initialize the directory's inode -- assume that the first field is int
+	 * We track this here to have custom naming info */
+	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
+	FI.dirLock = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
+
+	trackAlloca(FI.dirLock, inodeSize, Storage::Heap, AddressSpace::Internal);
+	updateVarNameInfo((char *) FI.dirLock, inodeSize, Storage::Heap,
+			  AddressSpace::Internal, nullptr, "__dir_inode.lock", "dir_inode_lock");
+
+	unsigned int count = 0;
+	unsigned int intPtrSize = getTypeSize(FI.inodeTyp->getElementType(0)->getPointerTo());
+	auto *SL = TD.getStructLayout(FI.inodeTyp);
+	for (auto &fname : FI.nameToInodeAddr) {
+		auto *addr = (char *) FI.dirLock + SL->getElementOffset(2) + count * intPtrSize;
+		fname.second = addr;
+		updateVarNameInfo((char *) addr, intPtrSize, Storage::Heap, AddressSpace::Internal,
+				  nullptr, "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
+		++count;
+	}
+	return;
 }
 
 const DepInfo *Interpreter::getAddrPoDeps(unsigned int tid)
@@ -584,14 +576,14 @@ void Interpreter::clearDeps(unsigned int tid)
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
+Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
 			 GenMCDriver *driver, const Config *userConf)
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
   : ExecutionEngine(std::unique_ptr<Module>(M)),
 #else
   : ExecutionEngine(M),
 #endif
-    TD(M), VI(std::move(VI)), DI(std::move(DI)), driver(driver) {
+    TD(M), VI(std::move(VI)), FI(std::move(FI)), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
@@ -611,12 +603,8 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
 
   /* Also run a recovery routine if it is required to do so */
   checkPersistence = userConf->checkPersistence;
-  if (checkPersistence) {
-	  recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
-	  fds = llvm::BitVector(userConf->maxOpenFiles);
-	  fdToFile.grow(userConf->maxOpenFiles);
-	  this->maxFileSize = userConf->maxFileSize;
-  }
+  recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
+  setupFsInfo(M, userConf);
 
   IL = new IntrinsicLowering(TD);
 }

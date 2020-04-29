@@ -127,13 +127,26 @@ struct VariableInfo {
 };
 
 /*
- * DirInode struct -- Maintains some information about the current
- * directory (used when persistence checks are enabled)
+ * Pers: FsInfo struct -- Maintains some information regarding the
+ * filesystem (e.g., type of inodes, files, etc)
  */
-struct DirInode {
+struct FsInfo {
 
   using Filename = std::string;
   using NameMap = std::unordered_map<Filename, void *>;
+
+  /* Type information */
+  StructType *inodeTyp;
+  StructType *fileTyp;
+
+  /* A bitvector of available file descriptors */
+  llvm::BitVector fds;
+
+  /* Maximum allowed file size */
+  unsigned int maxFileSize;
+
+  /* A map from file descriptors to file descriptions */
+  llvm::IndexedMap<void *> fdToFile;
 
   /* Should hold the address of the directory's lock */
   void *dirLock;
@@ -276,17 +289,8 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* A tracker for dynamic allocations */
   AllocaTracker alloctor;
 
-  /* Pers: Information about the contents of the modeled directory */
-  DirInode DI;
-
-  /* Pers: A bitvector of available file descriptors */
-  llvm::BitVector fds;
-
-  /* Pers: Maximum allowed file size */
-  unsigned int maxFileSize;
-
-  /* Pers: A map from file descriptors to file descriptions */
-  llvm::IndexedMap<void *> fdToFile;
+  /* Pers: Some information about the modeled filesystem */
+  FsInfo FI;
 
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
@@ -312,7 +316,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
+  explicit Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -415,12 +419,6 @@ public:
    * Also erases naming information */
   void untrackAlloca(const void *addr, unsigned int size, Storage s, AddressSpace spc);
 
-  /* Pers: Returns the amount of bytes that need to be allocated for an inode */
-  unsigned int getInodeAllocSize(Type *intTyp) const;
-
-  /* Pers: Returns the amount of bytes that need to be allocated for a file struct */
-  unsigned int getFileAllocSize(Type *intTyp) const;
-
   /* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
   int getFreshFd();
 
@@ -430,20 +428,6 @@ public:
   /* Pers: The interpreter reclaims a file descriptor that is no longer in use */
   void reclaimUnusedFd(int fd);
 
-  /* Pers: Returns the address of the file description referenced by FD */
-  void *getFileFromFd(int fd) const;
-
-  /* Pers: Tracks that the address of the file description of FD is FILEADDR */
-  void setFdToFile(int fd, void *fileAddr);
-
-  /* Pers: Fetches the address of the directory's lock */
-  void *getDirLock() const { return DI.dirLock; }
-
-  /* Pers: Fetches the address of FILENAME's inode */
-  void *getInodeAddrFromName(const char *filename) const {
-	  return DI.nameToInodeAddr.at(filename);
-  }
-
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
   ///
@@ -451,7 +435,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, VariableInfo &&VI, DirInode &&DI,
+  static ExecutionEngine *create(Module *M, VariableInfo &&VI, FsInfo &&FI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 
@@ -502,9 +486,6 @@ public:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
   void run();                // Execute instructions until nothing left to do
-
-  /* Pers: Sets up the directory's inode */
-  void setupDirInode();
 
   /* Pers: Run the specified recovery routine */
   void runRecoveryRoutine();
@@ -692,6 +673,9 @@ private:  // Helper functions
    * static storage. Also calculates the starting address of the allocation pool */
   void collectStaticAddresses(Module *M);
 
+  /* Pers: Sets up information about the modeled filesystem */
+  void setupFsInfo(Module *M, const Config *userConf);
+
   /* Update naming information */
 
   void updateUserTypedVarName(char *ptr, unsigned int typeSize, Storage s,
@@ -710,6 +694,18 @@ private:  // Helper functions
 			 Value *v, const std::string &prefix = {},
 			 const std::string &internal = {});
   void eraseVarNameInfo(char *ptr, unsigned int typeSize, Storage s, AddressSpace spc);
+
+  /* Pers: Returns the address of the file description referenced by FD */
+  void *getFileFromFd(int fd) const;
+
+  /* Pers: Tracks that the address of the file description of FD is FILEADDR */
+  void setFdToFile(int fd, void *fileAddr);
+
+  /* Pers: Fetches the address of the directory's lock */
+  void *getDirLock() const;
+
+  /* Pers: Fetches the address of FILENAME's inode */
+  void *getInodeAddrFromName(const char *filename) const;
 
 };
 

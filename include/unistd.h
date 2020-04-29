@@ -1,6 +1,7 @@
 #ifndef __UNISTD_H__
 #define __UNISTD_H__
 
+#include <pthread.h>
 #include <stddef.h>
 #include <sys/types.h>
 
@@ -71,5 +72,29 @@ extern void sync (void);
 
 /* Truncate FILE to LENGTH bytes.  */
 extern int truncate (const char *__file, __off_t __length);
+
+
+/*
+ * ******** GENMC RESERVED NAMESPACE ********
+ */
+
+#ifndef __CONFIG_GENMC_INODE_DATA_SIZE
+# error "Internal error: Inode size not defined!"
+#endif
+
+struct __genmc_inode {
+	pthread_mutex_t lock; // setupFsInfo() relies on the layout
+	int isize;
+	char data[__CONFIG_GENMC_INODE_DATA_SIZE];
+};
+
+struct __genmc_file {
+	pthread_mutex_t lock;
+	struct inode *inode;
+	int offset;
+};
+
+struct __genmc_inode __attribute((address_space(42))) __genmc_dir_inode;
+struct __genmc_file __attribute((address_space(42))) __genmc_dummy_file;
 
 #endif /* __UNISTD_H__ */

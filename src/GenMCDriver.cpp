@@ -330,15 +330,15 @@ void GenMCDriver::run()
 {
 	std::string buf;
 	llvm::VariableInfo VI;
-	llvm::DirInode DI;
+	llvm::FsInfo FI;
 
-	LLVMModule::transformLLVMModule(*mod, VI, DI, userConf->spinAssume, userConf->unroll);
+	LLVMModule::transformLLVMModule(*mod, VI, FI, userConf->spinAssume, userConf->unroll);
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions */
 	EE = (llvm::Interpreter *)
-	     llvm::Interpreter::create(&*mod, std::move(VI), std::move(DI),
+	     llvm::Interpreter::create(&*mod, std::move(VI), std::move(FI),
 				       this, getConf(), &buf);
 
 	/* Setup the interpreter for the exploration */
@@ -561,7 +561,7 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 {
 	/* If the even represents an invalid access, return some value */
 	if (write.isBottom())
-		return llvm::GenericValue();
+		return INT_TO_GV(typ, 0);
 
 	/* If the event is the initializer, ask the interpreter about
 	 * the initial value of that memory location */
@@ -2005,7 +2005,7 @@ GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph()) {
-		const EventLabel *lab = getCurrentLabel();llvm::dbgs() << "VISIT OPEN WITH " << *lab << "\n";
+		const EventLabel *lab = getCurrentLabel();
 		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab)) {
 			return oLab->getFd();
 		}

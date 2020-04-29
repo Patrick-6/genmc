@@ -228,13 +228,13 @@ bool isSyscallWPathname(CallInst *CI)
 	       name == "unlink" || name == "truncate";
 }
 
-void initializeFilenameEntry(DirInode &DI, Value *v)
+void initializeFilenameEntry(FsInfo &FI, Value *v)
 {
 	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
 		auto filename = dyn_cast<ConstantDataArray>(
 			dyn_cast<GlobalVariable>(CE->getOperand(0))->
 			getInitializer())->getAsCString();
-		DI.nameToInodeAddr[filename] = (char *) 0xdeadbeef;
+		FI.nameToInodeAddr[filename] = (char *) 0xdeadbeef;
 	} else
 		ERROR("Non-constant expression in filename\n");
 	return;
@@ -248,11 +248,11 @@ void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
 	/* Fetch the first argument of the syscall as a string.
 	 * We simply initialize the entries in the map; they will be
 	 * populated with actual addresses from the EE */
-	initializeFilenameEntry(DI, CI->getArgOperand(0));
+	initializeFilenameEntry(FI, CI->getArgOperand(0));
 
 	/* For some syscalls we capture the second argument as well */
 	if (F->getName() == "rename" || F->getName() == "link") {
-		initializeFilenameEntry(DI, CI->getArgOperand(1));
+		initializeFilenameEntry(FI, CI->getArgOperand(1));
 	}
 	return;
 }
