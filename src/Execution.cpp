@@ -2900,9 +2900,6 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	int flags = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
-	if (!checkPersistence)
-		ERROR("open() called without persistence checks enabled!\n");
-
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
@@ -2972,9 +2969,6 @@ void Interpreter::callDskClose(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue fd = ArgVals[0];
 	Type *intTyp = F->getReturnType();
 
-	if (!checkPersistence)
-		ERROR("close() called without persistence checks enabled!\n");
-
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
@@ -3000,9 +2994,6 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 	void *newpath = GVTOP(ArgVals[1]);
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
-
-	if (!checkPersistence)
-		ERROR("link() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
@@ -3058,9 +3049,6 @@ void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &Ar
 	void *pathname = GVTOP(ArgVals[0]);
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
-
-	if (!checkPersistence)
-		ERROR("unlink() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
@@ -3122,9 +3110,6 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
-	if (!checkPersistence)
-		ERROR("rename() called without persistence checks enabled!\n");
-
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
@@ -3164,9 +3149,6 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 	void *file = GVTOP(ArgVals[0]);
 	GenericValue length  = ArgVals[1];
 	Type *intTyp = F->getReturnType();
-
-	if (!checkPersistence)
-		ERROR("truncate() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
@@ -3245,9 +3227,6 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
-
-	if (!checkPersistence)
-		ERROR("read() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
@@ -3347,9 +3326,6 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	if (!checkPersistence)
-		ERROR("write() called without persistence checks enabled!\n");
-
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
@@ -3444,9 +3420,6 @@ void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &Arg
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	if (!checkPersistence)
-		ERROR("pread() called without persistence checks enabled!\n");
-
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
@@ -3478,9 +3451,6 @@ void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &Ar
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
-
-	if (!checkPersistence)
-		ERROR("pwrite() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
@@ -3570,9 +3540,6 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	GenericValue whence = ArgVals[2];
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
-
-	if (!checkPersistence)
-		ERROR("lseek() called without persistence checks enabled!\n");
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
