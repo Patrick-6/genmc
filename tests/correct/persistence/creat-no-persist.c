@@ -10,19 +10,20 @@
 
 void __VERIFIER_recovery_routine(void)
 {
-	int fd_y = open("y", O_RDONLY, S_IRWXU);
-	int fd_x = open("x", O_RDONLY, S_IRWXU);
+	char buf[8];
+	int fd = open("foo", O_RDONLY, S_IRWXU);
 
+	if (fd == -1)
+		return;
 
-	read(fd_y, buf_y, 1);
-	read(fd_x, buf_x, 1);
+	int nr = read(fd, buf, 1);
 
-	__VERIFIER_recovery_assert(!(buf_y[0] == 42 && buf_x[0] == 0));
+	__VERIFIER_recovery_assert(nr == 1);
 	return;
 }
 
 int main()
 {
-	int fd_x = creat("foo", S_IRWXU);
+	int fd = creat("foo", S_IRWXU);
 	return 0;
 }
