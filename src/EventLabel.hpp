@@ -987,9 +987,9 @@ protected:
 
 public:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		    const void *addr, unsigned int size, AddressSpace spc)
+		    const void *addr, unsigned int size, Storage s, AddressSpace spc)
 		: EventLabel(EL_Malloc, st, ord, pos),
-		  allocAddr(addr), allocSize(size), spc(spc) {}
+		  allocAddr(addr), allocSize(size), s(s), spc(spc) {}
 
 	/* Returns the (fresh) address returned by the allocation */
 	const void *getAllocAddr() const { return allocAddr; }
@@ -999,6 +999,9 @@ public:
 
 	/* Returns the address space of this chunk */
 	AddressSpace getAddrSpace() const { return spc; }
+
+	/* Returns the storage type of this chunk */
+	Storage getStorage() const { return s; }
 
 	MallocLabel *clone() const override { return new MallocLabel(*this); }
 
@@ -1014,6 +1017,9 @@ private:
 
 	/* Whether this chunk lives in the stack/heap/internal memory */
 	AddressSpace spc;
+
+	/* Storage typ */
+	Storage s;
 };
 
 

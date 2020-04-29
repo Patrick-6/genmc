@@ -104,7 +104,7 @@ public:
 	/* Creates a label for a malloc event to be added to the graph */
 	std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, AddressSpace spc) override;
+			  unsigned int size, Storage s, AddressSpace spc) override;
 
 	std::unique_ptr<DskOpenLabel>
 	createDskOpenLabel(int tid, int index, const char *fileName,

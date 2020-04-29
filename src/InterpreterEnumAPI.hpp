@@ -22,8 +22,9 @@
 #define __INTERPRETER_ENUM_API_HPP__
 
 /* Types of allocations in the interpreter */
-enum class AddressSpace { Static, Stack, Heap, Internal, AddressSpaceLast };
+enum class AddressSpace { User, Internal };
 
-/* TODO: Should we expose types of values here? */
+/* Storage types */
+enum class Storage { Static, Automatic, Heap, StorageLast };
 
 #endif /* __INTERPRETER_ENUM_API_HPP__ */

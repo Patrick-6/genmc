@@ -383,13 +383,13 @@ IMMDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 
 std::unique_ptr<MallocLabel>
 IMMDriver::createMallocLabel(int tid, int index, const void *addr,
-			       unsigned int size, AddressSpace spc)
+			     unsigned int size, Storage s, AddressSpace spc)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<MallocLabel>(g.nextStamp(),
 						  llvm::AtomicOrdering::NotAtomic,
-						  pos, addr, size, spc);
+						  pos, addr, size, s, spc);
 
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());

@@ -151,40 +151,55 @@ class AllocaTracker {
 
 public:
 
-  AllocaTracker() { allocas.grow(static_cast<int>(AddressSpace::AddressSpaceLast)); }
+  AllocaTracker() { allocas.grow(static_cast<int>(Storage::StorageLast)); }
 
   /* Sets the initial address of the pool */
   void initPoolAddress(char *init) { allocRangeBegin = init; }
 
-  /* Whether an address is allocated in the respective space */
-  bool isAllocated(const void *addr, AddressSpace spc) const {
-	  return allocas[static_cast<int>(spc)].count(addr);
+  /* Whether an address has a particular storage */
+  bool hasStorage(const void *addr, Storage s) const {
+	  return allocas[static_cast<int>(s)].count(addr);
+  }
+
+  /* Whether an address is in the internal address space */
+  bool isInternal(const void *addr) const {
+	  return internalAllocas.count(addr);
   }
 
   /* Allocates a chunk */
-  char *allocate(unsigned int size, AddressSpace spc) {
+  char *allocate(unsigned int size, Storage s, AddressSpace spc) {
 	  char *newAddr = allocRangeBegin;
 	  allocRangeBegin += size;
-	  track(newAddr, size, spc);
+	  track(newAddr, size, s, spc);
 	  return newAddr;
   }
 
-  /* Methods that map allocations to address spaces */
-  void track(const void *addr, unsigned int size, AddressSpace spc) {
+  /* Methods to track/untrack allocations */
+  void track(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
     for (auto i = 0u; i < size; i++)
-      allocas[static_cast<int>(spc)].insert((char *) addr + i);
-
+      allocas[static_cast<int>(s)].insert((char *) addr + i);
+    if (spc == AddressSpace::Internal) {
+      for (auto i = 0u; i < size; i++)
+        internalAllocas.insert((char *) addr + i);
+    }
   }
-  void untrack(const void *addr, unsigned int size, AddressSpace spc) {
+  void untrack(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
     for (auto i = 0u; i < size; i++)
       allocas[static_cast<int>(spc)].erase((char *) addr + i);
+    if (spc == AddressSpace::Internal) {
+      for (auto i = 0u; i < size; i++)
+        internalAllocas.erase((char *) addr + i);
+    }
   }
 
 private:
 
-  /* Allocations in each address space.
-   * Does not track allocations for Static */
+  /* Allocations for each storage type.
+   * Does not track allocations of static storage */
   IndexedMap<std::unordered_set<const void *> > allocas;
+
+  /* Keep track of the internal allocations */
+  std::unordered_set<const void *> internalAllocas;
 
   /* Address from which we will start allocating new addresses.
    * Should be set by the interpreter accordingly */
@@ -252,7 +267,7 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* Naming information for all variables */
   VariableInfo VI;
 
-  /* Tracks the names of variables in each address space */
+  /* Tracks the names of variables for each storage type */
   IndexedMap<std::unordered_map<const void *, std::string> > varNames;
 
   /* List of thread-local variables, with their initializing values */
@@ -390,15 +405,15 @@ public:
   bool isShared(const void *);
 
   /* Returns a fresh address for a new allocation */
-  void *getFreshAddr(unsigned int size, AddressSpace spc);
+  void *getFreshAddr(unsigned int size, Storage s, AddressSpace spc);
 
   /* Records that the memory block in ADDR is used.
    * Does _not_ update naming information */
-  void trackAlloca(const void *addr, unsigned int size, AddressSpace spc);
+  void trackAlloca(const void *addr, unsigned int size, Storage s, AddressSpace spc);
 
   /* Records that the memory block in ADDR is no longer used.
    * Also erases naming information */
-  void untrackAlloca(const void *addr, unsigned int size, AddressSpace spc);
+  void untrackAlloca(const void *addr, unsigned int size, Storage s, AddressSpace spc);
 
   /* Pers: Returns the amount of bytes that need to be allocated for an inode */
   unsigned int getInodeAllocSize(Type *intTyp) const;
@@ -673,28 +688,28 @@ private:  // Helper functions
   void callLseek(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPersistenceBarrier(Function *F, const std::vector<GenericValue> &ArgVals);
 
-  /* Updates the names for all global variables, and calculates the
-   * starting address of the allocation pool */
-  void collectGlobalAddresses(Module *M);
+  /* Collects the addresses (and some naming information) for all variables with
+   * static storage. Also calculates the starting address of the allocation pool */
+  void collectStaticAddresses(Module *M);
 
   /* Update naming information */
 
-  void updateTypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+  void updateUserTypedVarName(char *ptr, unsigned int typeSize, Storage s,
 			      Value *v, const std::string &prefix,
 			      const std::string &internal);
-  void updateUntypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+  void updateUserUntypedVarName(char *ptr, unsigned int typeSize, Storage s,
 				Value *v, const std::string &prefix,
 				const std::string &internal);
-  void updateInternalVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
-				 Value *v, const std::string &prefix,
-				 const std::string &internal);
+  void updateInternalVarName(char *ptr, unsigned int typeSize, Storage s,
+			     Value *v, const std::string &prefix,
+			     const std::string &internal);
 
   /* Update/erase the names of the variables corresponding to addresses
    * in the range [ptr, ptr + typeSize) */
-  void updateVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+  void updateVarNameInfo(char *ptr, unsigned int typeSize, Storage s, AddressSpace spc,
 			 Value *v, const std::string &prefix = {},
 			 const std::string &internal = {});
-  void eraseVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc);
+  void eraseVarNameInfo(char *ptr, unsigned int typeSize, Storage s, AddressSpace spc);
 
 };
 

@@ -174,32 +174,30 @@ Thread Interpreter::createRecoveryThread(int tid)
 std::string Interpreter::getVarName(const void *addr)
 {
 	if (isStack(addr))
-		return varNames[static_cast<int>(AddressSpace::Stack)][addr];
+		return varNames[static_cast<int>(Storage::Automatic)][addr];
 	if (isStatic(addr))
-		return varNames[static_cast<int>(AddressSpace::Static)][addr];
-	if (isInternal(addr))
-		return varNames[static_cast<int>(AddressSpace::Internal)][addr];
+		return varNames[static_cast<int>(Storage::Static)][addr];
 	return "";
 }
 
 bool Interpreter::isInternal(const void *addr)
 {
-	return alloctor.isAllocated(addr, AddressSpace::Internal);
+	return alloctor.isInternal(addr);
 }
 
 bool Interpreter::isStatic(const void *addr)
 {
-	return varNames[static_cast<int>(AddressSpace::Static)].count(addr);
+	return varNames[static_cast<int>(Storage::Static)].count(addr);
 }
 
 bool Interpreter::isStack(const void *addr)
 {
-	return alloctor.isAllocated(addr, AddressSpace::Stack);
+	return alloctor.hasStorage(addr, Storage::Automatic);
 }
 
 bool Interpreter::isHeap(const void *addr)
 {
-	return alloctor.isAllocated(addr, AddressSpace::Heap);
+	return alloctor.hasStorage(addr, Storage::Heap);
 }
 
 bool Interpreter::isDynamic(const void *addr)
@@ -213,24 +211,26 @@ bool Interpreter::isShared(const void *addr)
 }
 
 /* Returns a fresh address to be used from the interpreter */
-void *Interpreter::getFreshAddr(unsigned int size, AddressSpace spc)
+void *Interpreter::getFreshAddr(unsigned int size, Storage s, AddressSpace spc)
 {
-	return alloctor.allocate(size, spc);
+	return alloctor.allocate(size, s, spc);
 }
 
-void Interpreter::trackAlloca(const void *addr, unsigned int size, AddressSpace spc)
+void Interpreter::trackAlloca(const void *addr, unsigned int size,
+			      Storage s, AddressSpace spc)
 {
 	/* We cannot call updateVarNameInfo just yet, since we might be simply
 	 * restoring a prefix, and cannot get the respective Value. The naming
 	 * information will be updated from the interpreter */
-	alloctor.track(addr, size, spc);
+	alloctor.track(addr, size, s, spc);
 	return;
 }
 
-void Interpreter::untrackAlloca(const void *addr, unsigned int size, AddressSpace spc)
+void Interpreter::untrackAlloca(const void *addr, unsigned int size,
+				Storage s, AddressSpace spc)
 {
-	alloctor.untrack(addr, size, spc);
-	eraseVarNameInfo((char *) addr, size, spc);
+	alloctor.untrack(addr, size, s, spc);
+	eraseVarNameInfo((char *) addr, size, s, spc);
 	return;
 }
 
@@ -371,18 +371,18 @@ void updateVarInfoHelper(char *ptr, unsigned int typeSize,
 	return;
 }
 
-void Interpreter::updateTypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+void Interpreter::updateUserTypedVarName(char *ptr, unsigned int typeSize, Storage s,
 					 Value *v, const std::string &prefix,
 					 const std::string &internal)
 {
-	auto &vars = varNames[static_cast<int>(spc)];
-	auto &vi = (spc == AddressSpace::Stack) ? VI.localInfo[v] : VI.globalInfo[v];
+	auto &vars = varNames[static_cast<int>(s)];
+	auto &vi = (s == Storage::Automatic) ? VI.localInfo[v] : VI.globalInfo[v];
 
 	if (vi.empty()) {
 		/* If it is not a local value, then we should collect the address
 		 * anyway, since globalVars will be used to check whether some
 		 * access accesses a global variable */
-		if (spc == AddressSpace::Static)
+		if (s == Storage::Static)
 			collectUnnamedGlobalAddress(v, ptr, typeSize, vars);
 		return;
 	}
@@ -390,7 +390,7 @@ void Interpreter::updateTypedVarNameInfo(char *ptr, unsigned int typeSize, Addre
 	return;
 }
 
-void Interpreter::updateUntypedVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
+void Interpreter::updateUserUntypedVarName(char *ptr, unsigned int typeSize, Storage s,
 					   Value *v, const std::string &prefix,
 					   const std::string &internal)
 {
@@ -398,51 +398,50 @@ void Interpreter::updateUntypedVarNameInfo(char *ptr, unsigned int typeSize, Add
 	return;
 }
 
-void Interpreter::updateInternalVarNameInfo(char *ptr, unsigned int typeSize, AddressSpace spc,
-					    Value *v, const std::string &prefix,
-					    const std::string &internal)
+void Interpreter::updateInternalVarName(char *ptr, unsigned int typeSize, Storage s,
+					Value *v, const std::string &prefix,
+					const std::string &internal)
 {
-	auto &vars = varNames[static_cast<int>(spc)];
+	auto &vars = varNames[static_cast<int>(s)];
 	auto &vi = VI.internalInfo[internal]; /* should be the name for internals */
-	BUG_ON(spc != AddressSpace::Internal);
 
 	updateVarInfoHelper(ptr, typeSize, vars, vi, prefix);
 	return;
 }
 
-void Interpreter::updateVarNameInfo(char *ptr, unsigned int typeSize,
+void Interpreter::updateVarNameInfo(char *ptr, unsigned int typeSize, Storage s,
 				    AddressSpace spc, Value *v,
 				    const std::string &prefix, const std::string &extra)
 {
-	switch (spc) {
-	case AddressSpace::Static:
-	case AddressSpace::Stack:
-		updateTypedVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
-		return;
-	case AddressSpace::Heap:
-		updateUntypedVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
-		return;
-	case AddressSpace::Internal:
-		updateInternalVarNameInfo(ptr, typeSize, spc, v, prefix, extra);
-		return;
-	default:
+	if (spc == AddressSpace::User) {
+		switch (s) {
+		case Storage::Static:
+		case Storage::Automatic:
+			updateUserTypedVarName(ptr, typeSize, s, v, prefix, extra);
+			return;
+		case Storage::Heap:
+			updateUserUntypedVarName(ptr, typeSize, s, v, prefix, extra);
+			return;
+		default:
+			BUG();
+		}
+	} else if (spc == AddressSpace::Internal) {
+		updateInternalVarName(ptr, typeSize, s, v, prefix, extra);
+	} else {
 		BUG();
 	}
 	return;
 }
 
-void Interpreter::eraseVarNameInfo(char *addr, unsigned int size, AddressSpace spc)
+void Interpreter::eraseVarNameInfo(char *addr, unsigned int size, Storage s, AddressSpace spc)
 {
 	for (auto i = 0u; i < size; i++)
-		varNames[static_cast<int>(spc)].erase(addr + i);
+		varNames[static_cast<int>(s)].erase(addr + i);
 	return;
 }
 
-/* Updates the names for all global variables, and calculates the
- * starting address of the allocation pool */
-void Interpreter::collectGlobalAddresses(Module *M)
+void Interpreter::collectStaticAddresses(Module *M)
 {
-	/* Collect all global and thread-local variables */
 	char *allocBegin = nullptr;
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
@@ -462,7 +461,7 @@ void Interpreter::collectGlobalAddresses(Module *M)
 
 		/* Update the name for this global. We cheat a bit since we will use this
 		 * to indicate whether this is an allocated static address (see isStatic()) */
-		updateVarNameInfo(ptr, typeSize, AddressSpace::Static, &v);
+		updateVarNameInfo(ptr, typeSize, Storage::Static, AddressSpace::User, &v);
 	}
 	/* The allocator will start giving out addresses greater than the maximum static address */
 	if (allocBegin)
@@ -603,8 +602,8 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, DirInode &&DI,
   initializeExternalFunctions();
   emitGlobals();
 
-  varNames.grow(static_cast<int>(AddressSpace::AddressSpaceLast));
-  collectGlobalAddresses(M);
+  varNames.grow(static_cast<int>(Storage::StorageLast));
+  collectStaticAddresses(M);
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)

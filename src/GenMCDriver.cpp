@@ -407,6 +407,7 @@ void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
 				getEE()->untrackAlloca(mLab->getAllocAddr(),
 						       mLab->getAllocSize(),
+						       mLab->getStorage(),
 						       mLab->getAddrSpace());
 			/* For persistence, reclaim fds */
 			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
@@ -432,6 +433,7 @@ void GenMCDriver::notifyEERestored(const std::vector<std::unique_ptr<EventLabel>
 		if (auto *mLab = llvm::dyn_cast<MallocLabel>(&*lab))
 			getEE()->trackAlloca(mLab->getAllocAddr(),
 					     mLab->getAllocSize(),
+					     mLab->getStorage(),
 					     mLab->getAddrSpace());
 		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(&*lab))
 			getEE()->markFdAsUsed(oLab->getFd().IntVal.getLimitedValue());
@@ -1318,7 +1320,8 @@ void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ)
 	return;
 }
 
-llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, AddressSpace spc)
+llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, Storage s,
+					    AddressSpace spc)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
@@ -1335,12 +1338,12 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, AddressSpace spc
 	}
 
 	/* Get a fresh address and also track this allocation */
-	allocBegin.PointerVal = EE->getFreshAddr(allocSize, spc);
+	allocBegin.PointerVal = EE->getFreshAddr(allocSize, s, spc);
 
 	/* Add a relevant label to the graph and return the new address */
 	Event pos = EE->getCurrentPosition();
 	auto aLab = createMallocLabel(pos.thread, pos.index, allocBegin.PointerVal,
-				      allocSize, spc);
+				      allocSize, s, spc);
 	getGraph().addOtherLabelToGraph(std::move(aLab));
 	return allocBegin;
 }
@@ -2197,7 +2200,8 @@ bool shouldPrintLOC(const EventLabel *lab)
 
 	/* Similarly for allocations that don't come from malloc() */
 	if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-		return mLab->getAddrSpace() == AddressSpace::Heap;
+		return mLab->getStorage() == Storage::Heap &&
+		       mLab->getAddrSpace() != AddressSpace::Internal;
 
 	return true;
 }

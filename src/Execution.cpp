@@ -1077,14 +1077,15 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
-  GenericValue Result = driver->visitMalloc(MemToAlloc, AddressSpace::Stack);
+  GenericValue Result = driver->visitMalloc(MemToAlloc, Storage::Automatic, AddressSpace::User);
 
   updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
 
   /* If this is not a replay, update naming information for this variable
    * based on previously collected information */
-  if (!varNames[static_cast<int>(AddressSpace::Stack)].count(Result.PointerVal))
-	  updateVarNameInfo((char *) Result.PointerVal, MemToAlloc, AddressSpace::Stack, &I);
+  if (!varNames[static_cast<int>(Storage::Automatic)].count(Result.PointerVal))
+	  updateVarNameInfo((char *) Result.PointerVal, MemToAlloc,
+			    Storage::Automatic, AddressSpace::User, &I);
 
   SetValue(&I, Result, SF);
 }
@@ -2485,7 +2486,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue(),
-						   AddressSpace::Heap);
+						   Storage::Heap, AddressSpace::User);
 	returnValueToCaller(F->getReturnType(), address);
 	return;
 }
@@ -2755,8 +2756,8 @@ GenericValue Interpreter::executeInodeCreate(void *file, Type *intTyp)
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getInodeAllocSize(intTyp);
-	auto inode = driver->visitMalloc(inodeSize, AddressSpace::Internal);
-	updateVarNameInfo((char *) inode.PointerVal, inodeSize, AddressSpace::Internal,
+	auto inode = driver->visitMalloc(inodeSize, Storage::Heap, AddressSpace::Internal);
+	updateVarNameInfo((char *) inode.PointerVal, inodeSize, Storage::Heap, AddressSpace::Internal,
 			  nullptr, std::string("__inode_") + (char *) file, "inode");
 
 	/* ... properly initialize its fields... */
@@ -2808,12 +2809,12 @@ GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &ino
 
 	/* We allocate space for the file description... */
 	auto fileSize = getFileAllocSize(intTyp);
-	auto *file = driver->visitMalloc(fileSize, AddressSpace::Internal).PointerVal;
+	auto *file = driver->visitMalloc(fileSize, Storage::Heap, AddressSpace::Internal).PointerVal;
 
 	std::string varname("__file_");
 	raw_string_ostream sname(varname);
 	sname << (char *) filename << "_" << thr.id << "_" << thr.globalInstructions;
-	updateVarNameInfo((char *) file, fileSize, AddressSpace::Internal,
+	updateVarNameInfo((char *) file, fileSize, Storage::Heap, AddressSpace::Internal,
 			  nullptr, sname.str(), "file");
 
 	/* ... and initialize its fields */
@@ -3818,15 +3819,16 @@ void Interpreter::setupDirInode()
 	 * the addresses of the inodes of all files */
 	unsigned int intSize = getTypeSize(intTy);
 	unsigned int intPtrSize = getTypeSize(intPtrTy);
-	void *lock = driver->visitMalloc(intSize, AddressSpace::Internal).PointerVal;
-	void *inodes = driver->visitMalloc(fileInode.size() * intPtrSize, AddressSpace::Internal).PointerVal;
+	void *lock = driver->visitMalloc(intSize, Storage::Heap, AddressSpace::Internal).PointerVal;
+	void *inodes = driver->visitMalloc(fileInode.size() * intPtrSize,
+					   Storage::Heap, AddressSpace::Internal).PointerVal;
 
 	/* Initialize the allocated space */
 	DI.dirLock = lock;
 	driver->visitStore(llvm::Interpreter::IA_None, llvm::AtomicOrdering::Monotonic,
 			   (const llvm::GenericValue *) lock, intTy, INT_TO_GV(intTy, 0));
-	updateVarNameInfo((char *) lock, intSize, AddressSpace::Internal, nullptr,
-			  "__dir_inode.lock", "dir_inode_lock");
+	updateVarNameInfo((char *) lock, intSize, Storage::Heap, AddressSpace::Internal,
+			  nullptr, "__dir_inode.lock", "dir_inode_lock");
 
 	unsigned int count = 0;
 	for (auto &fname : fileInode) {
@@ -3835,8 +3837,8 @@ void Interpreter::setupDirInode()
 		auto *addr = (char *) inodes + count * intPtrSize;
 		driver->visitDskWrite((const llvm::GenericValue *) addr, intPtrTy, inodeval);
 		fname.second = addr;
-		updateVarNameInfo((char *) addr, intPtrSize, AddressSpace::Internal, nullptr,
-				  "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
+		updateVarNameInfo((char *) addr, intPtrSize, Storage::Heap, AddressSpace::Internal,
+				  nullptr, "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
 		++count;
 	}
 

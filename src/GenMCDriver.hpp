@@ -218,7 +218,7 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	llvm::GenericValue
-	visitMalloc(uint64_t allocSize, AddressSpace spc);
+	visitMalloc(uint64_t allocSize, Storage s, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
@@ -520,7 +520,7 @@ private:
 	/* Creates a label for a malloc event to be added to the graph */
 	virtual std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, AddressSpace spc) = 0;
+			  unsigned int size, Storage s, AddressSpace spc) = 0;
 
 	/* Creates a label for a free event to be added to the graph */
 	virtual std::unique_ptr<FreeLabel>
