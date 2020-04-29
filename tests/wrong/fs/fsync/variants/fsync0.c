@@ -20,7 +20,8 @@ void __VERIFIER_recovery_routine(void)
 
 int main()
 {
-	close(2);
+	int ret = fsync(42);
+	assert(ret != 1);
 
 	return 0;
 }

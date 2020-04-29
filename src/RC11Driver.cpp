@@ -404,6 +404,7 @@ RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 	View pbView;
+	BUG(); // FIXME: What should fsync()'s pbview contain?
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));

@@ -9,9 +9,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-atomic_int x;
-atomic_int y;
-
 void __VERIFIER_recovery_routine(void)
 {
 	/* printf("Nothing to do\n"); */
@@ -20,10 +17,11 @@ void __VERIFIER_recovery_routine(void)
 
 int main()
 {
-	int fd = open("foo", O_CREAT, S_IRWXU);
+	int fd = creat("foo", S_IRWXU);
 	assert(fd != -1);
 
-	fsync(3);
+	int ret = close(fd);
+	assert(ret != -1);
 
 	return 0;
 }

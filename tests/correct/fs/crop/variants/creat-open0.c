@@ -9,9 +9,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-atomic_int x;
-atomic_int y;
-
 void __VERIFIER_recovery_routine(void)
 {
 	/* printf("Nothing to do\n"); */
