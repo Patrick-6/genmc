@@ -406,6 +406,13 @@ IMMDriver::createDskOpenLabel(int tid, int index, const char *fileName,
 	BUG();
 }
 
+std::unique_ptr<DskFsyncLabel>
+IMMDriver::createDskFsyncLabel(int tid, int index, const void *inode,
+			       unsigned int size)
+{
+	BUG(); /* Do not forget to add release/correct semantics for this */
+}
+
 std::unique_ptr<DskSyncLabel>
 IMMDriver::createDskSyncLabel(int tid, int index)
 {

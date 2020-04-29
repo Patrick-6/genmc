@@ -60,8 +60,14 @@ extern int link (const char *__from, const char *__to);
 /* Remove the link NAME.  */
 extern int unlink (const char *__name);
 
+/* Make all changes done to FD actually appear on disk.
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern int fsync (int __fd);
+
+
 /* Make all changes done to all files actually appear on disk.  */
-extern void sync (void) ;
+extern void sync (void);
 
 /* Truncate FILE to LENGTH bytes.  */
 extern int truncate (const char *__file, __off_t __length);

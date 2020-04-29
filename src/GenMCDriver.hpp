@@ -184,6 +184,10 @@ public:
 	llvm::GenericValue
 	visitDskOpen(const char *fileName, llvm::Type *intTyp);
 
+	/* An fsync() operation has been interpreted */
+	void
+	visitDskFsync(void *inodeData, unsigned int size);
+
 	/* A sync() operation has been interpreted */
 	void
 	visitDskSync();
@@ -526,6 +530,11 @@ private:
 	virtual std::unique_ptr<DskOpenLabel>
 	createDskOpenLabel(int tid, int index, const char *fileName,
 			   const llvm::GenericValue &fd) = 0;
+
+	/* Creates a label for an fsync() event to be added to the graph */
+	virtual std::unique_ptr<DskFsyncLabel>
+	createDskFsyncLabel(int tid, int index, const void *inode,
+			    unsigned int size) = 0;
 
 	/* Creates a label for a sync() event to be added to the graph */
 	virtual std::unique_ptr<DskSyncLabel>

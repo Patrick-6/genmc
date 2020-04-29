@@ -23,11 +23,15 @@
 EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 {
 	EventLabel::EventLabelKind DK = D->getEventLabelKind();
-	switch(DK) {
+	switch (DK) {
 	case EventLabel::EventLabelKind::EL_DskRead:
 		return static_cast<DskReadLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskWrite:
 		return static_cast<DskWriteLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskSync:
+		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskFsync:
+		return static_cast<DskFsyncLabel *>(const_cast<DskAccessLabel *>(D));
 	default:
 		BUG();
 	}
@@ -36,11 +40,15 @@ EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 DskAccessLabel *EventLabel::castToDskAccessLabel(const EventLabel *E)
 {
 	EventLabel::EventLabelKind EK = E->getKind();
-	switch(EK) {
+	switch (EK) {
 	case EventLabel::EventLabelKind::EL_DskRead:
 		return static_cast<DskReadLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskWrite:
 		return static_cast<DskWriteLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskSync:
+		return static_cast<DskSyncLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskFsync:
+		return static_cast<DskFsyncLabel *>(const_cast<EventLabel *>(E));
 	default:
 		BUG();
 	}
@@ -100,6 +108,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_DskWrite:
 		s << "FW";
+		break;
+	case EventLabel::EL_DskFsync:
+		s << "FS";
 		break;
 	case EventLabel::EL_DskSync:
 		s << "S";
@@ -203,6 +214,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << fLab.getKind() << fLab.getOrdering();
 		break;
 	}
+	case EventLabel::EL_DskFsync: {
+		auto &fLab = static_cast<const DskSyncLabel&>(lab);
+		s << fLab.getKind();
+		break;
+	}
 	case EventLabel::EL_DskSync: {
 		auto &fLab = static_cast<const DskSyncLabel&>(lab);
 		s << fLab.getKind();
@@ -230,7 +246,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	}
 	case EventLabel::EL_Malloc: {
 		auto &bLab = static_cast<const MallocLabel&>(lab);
-		s << bLab.getKind();
+		s << bLab.getKind() << " " << bLab.getAllocAddr();
 		break;
 	}
 	case EventLabel::EL_Free: {

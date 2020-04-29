@@ -3213,6 +3213,7 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue count = ArgVals[2];
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
+	Type *retTyp = F->getReturnType();
 
 	if (!checkPersistence)
 		ERROR("read() called without persistence checks enabled!\n");
@@ -3224,6 +3225,11 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	/* We get the address of the file description, from which we will get
 	 * the reading offset, as well as the address of the inode. */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
+	}
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
@@ -3251,7 +3257,6 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	driver->visitUnlock(fileLock, intTyp);
 
 	/* Return #bytes read -- if successful, fullfills the read request in full */
-	auto *retTyp = F->getReturnType();
 	returnValueToCaller(retTyp, nr);
 	return;
 }
@@ -3309,6 +3314,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue count = ArgVals[2];
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
+	Type *retTyp = F->getReturnType();
 
 	if (!checkPersistence)
 		ERROR("write() called without persistence checks enabled!\n");
@@ -3320,6 +3326,11 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	/* We get the address of the file description, from which we will get
 	 * the writing offset, as well as the address of the inode. */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
+	}
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
@@ -3351,8 +3362,37 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
 
 	/* Return #bytes written -- always fulfills the request in full  */
-	auto *retTyp = F->getReturnType();
 	returnValueToCaller(retTyp, nw);
+	return;
+}
+
+void Interpreter::executeDskFsync(void *file, Type *intTyp)
+{
+	auto *fileInode = (GenericValue *) GET_FILE_INODE_ADDR(file, intTyp);
+	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
+				       fileInode, intTyp->getPointerTo()).PointerVal;
+
+	driver->visitDskFsync(inode, getInodeAllocSize(intTyp));
+	return;
+}
+
+void Interpreter::callDskFsync(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	GenericValue fd = ArgVals[0];
+	Type *retTyp = F->getReturnType();
+	GenericValue result = INT_TO_GV(retTyp, 0);
+
+	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("fsync-badf", "fsync() called with a bad file descriptor!\n");
+		result = INT_TO_GV(retTyp, -1);
+		goto exit;
+	}
+
+	executeDskFsync(file, retTyp);
+
+exit:
+	returnValueToCaller(retTyp, result);
 	return;
 }
 
@@ -3371,6 +3411,7 @@ void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue offset = ArgVals[3];
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
+	Type *retTyp = F->getReturnType();
 
 	if (!checkPersistence)
 		ERROR("pread() called without persistence checks enabled!\n");
@@ -3381,12 +3422,16 @@ void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &Arg
 	/* We get the address of the file description, from which we will get
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("pread-badf", "pread() called with a bad file descriptor!\n");
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
+	}
 
 	/* Execute the read in the specified offset */
 	auto nr = executeDskRead(file, intTyp, buf, bufElemTyp, offset, count);
 
 	/* Return the number of bytes read (similar to read()) */
-	auto *retTyp = F->getReturnType();
 	returnValueToCaller(retTyp, nr);
 	return;
 }
@@ -3401,7 +3446,7 @@ void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &Ar
 	GenericValue offset = ArgVals[3];
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
-	GenericValue result;
+	Type *retTyp = F->getReturnType();
 
 	if (!checkPersistence)
 		ERROR("pwrite() called without persistence checks enabled!\n");
@@ -3412,12 +3457,16 @@ void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &Ar
 	/* We get the address of the file description, from which we will get
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("pwrite-badf", "pwrite() called with a bad file descriptor!\n");
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
+	}
 
 	/* Execute the write in the specified offset */
 	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, offset, count, snap);
 
 	/* Return the number of bytes written */
-	auto *retTyp = F->getReturnType();
 	returnValueToCaller(retTyp, nw);
 	return;
 }
@@ -3489,6 +3538,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	GenericValue offset = ArgVals[1];
 	GenericValue whence = ArgVals[2];
 	Type *intTyp = F->getFunctionType()->getParamType(0);
+	Type *retTyp = F->getReturnType();
 
 	if (!checkPersistence)
 		ERROR("lseek() called without persistence checks enabled!\n");
@@ -3500,6 +3550,11 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	/* We get the address of the file description, from which we will get
 	 * the offset to modify */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
+	if (!file) {
+		WARN_ONCE("lseek-badf", "lseek() called with a bad file descriptor!\n");
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
+	}
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
@@ -3514,7 +3569,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 
 	/* We release the file description's lock */
 	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
-	returnValueToCaller(F->getReturnType(), newOffset);
+	returnValueToCaller(retTyp, newOffset);
 	return;
 }
 
@@ -3619,6 +3674,9 @@ void Interpreter::callFunction(Function *F,
 	  return;
   } else if (functionName == "write") {
 	  callDskWrite(F, ArgVals);
+	  return;
+  } else if (functionName == "fsync") {
+	  callDskFsync(F, ArgVals);
 	  return;
   } else if (functionName == "sync") {
 	  callDskSync(F, ArgVals);
@@ -3781,6 +3839,9 @@ void Interpreter::setupDirInode()
 				  "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
 		++count;
 	}
+
+	/* All these events should persist */
+	driver->visitDskPersists();
 	return;
 }
 

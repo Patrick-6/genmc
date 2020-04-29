@@ -127,6 +127,10 @@ public:
 	createDskOpenLabel(int tid, int index, const char *fileName,
 			   const llvm::GenericValue &fd) override;
 
+	std::unique_ptr<DskFsyncLabel>
+	createDskFsyncLabel(int tid, int index, const void *inode,
+			    unsigned int size) override;
+
 	std::unique_ptr<DskSyncLabel>
 	createDskSyncLabel(int tid, int index) override;
 

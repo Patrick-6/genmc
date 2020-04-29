@@ -71,6 +71,7 @@ public:
 		EL_LastWrite,
 		EL_MemAccessEnd,
 		EL_Fence,
+		EL_DskFsync,
 		EL_DskSync,
 		EL_LastFence,
 		EL_Malloc,
@@ -204,6 +205,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
  *
  *     DskReadLabel
  *     DskWriteLabel
+ *     DskSyncLabel
+ *     DskFsyncLabel
  *
  * Note: This is not a child of EventLabel to avoid virtual inheritance */
 class DskAccessLabel {
@@ -224,7 +227,9 @@ public:
 
 	static bool classof(const EventLabel *lab) {
 		return lab->getKind() == EventLabel::EL_DskRead ||
-		       lab->getKind() == EventLabel::EL_DskWrite;
+		       lab->getKind() == EventLabel::EL_DskWrite ||
+		       lab->getKind() == EventLabel::EL_DskSync ||
+		       lab->getKind() == EventLabel::EL_DskFsync;
 	}
 
 private:
@@ -752,11 +757,54 @@ public:
 
 
 /*******************************************************************************
+ **                         DskFsyncLabel Class
+ ******************************************************************************/
+
+/* Represents an fsync() operation */
+class DskFsyncLabel : public FenceLabel, public DskAccessLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskFsyncLabel(unsigned int st, llvm::AtomicOrdering ord,
+		      Event pos, const void *inode, unsigned int size)
+		: FenceLabel(EL_DskFsync, st, ord, pos), inode(inode), size(size),
+		  DskAccessLabel(EL_DskFsync) {}
+
+	/* Returns a pointer to the inode on which the fsync() took place */
+	const void *getInode() const { return inode; }
+
+	/* Returns the "size" of this fsync()'s range */
+	const unsigned int getSize() const { return size; }
+
+	DskFsyncLabel *clone() const override { return new DskFsyncLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskFsync; }
+	static DskAccessLabel *castToDskAccessLabel(const DskFsyncLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskFsyncLabel*>(D));
+	}
+	static DskFsyncLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskFsyncLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* The inode on which the fsync() was issued */
+	const void *inode;
+
+	/* The range of this fsync() */
+	const unsigned int size;
+};
+
+
+/*******************************************************************************
  **                         DskSyncLabel Class
  ******************************************************************************/
 
 /* Represents an operation that synchronizes writes to persistent storage (e.g, sync()) */
-class DskSyncLabel : public FenceLabel {
+class DskSyncLabel : public FenceLabel, public DskAccessLabel {
 
 protected:
 	friend class ExecutionGraph;
@@ -764,12 +812,18 @@ protected:
 
 public:
 	DskSyncLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
-		: FenceLabel(EL_DskSync, st, ord, pos) {}
+		: FenceLabel(EL_DskSync, st, ord, pos), DskAccessLabel(EL_DskSync) {}
 
 	DskSyncLabel *clone() const override { return new DskSyncLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskSync; }
+	static DskAccessLabel *castToDskAccessLabel(const DskSyncLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskSyncLabel*>(D));
+	}
+	static DskSyncLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
 };
 
 

@@ -1118,6 +1118,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	if (inRecoveryMode()) {
 		Event recLast = getEE()->getCurrentPosition();
 		Event rf = g.getLastThreadStoreAtLoc(recLast, addr);
+		if (rf.isInitializer()) {
+			llvm::dbgs() << "STUCK @ " << addr; printGraph();}
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
 	}
@@ -1900,6 +1902,15 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
 		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab)) {
+			if (rLab->getRf().isInitializer()) {
+				if (typ->isPointerTy())
+					return PTR_TO_GV(nullptr);
+				else {
+					llvm::GenericValue res;
+					res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
+					return res;
+				}
+			}
 			return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		}
 		llvm::dbgs() << "Expected read in " << lab->getPos() << " @ " << addr << "\n"; printGraph();
@@ -1928,8 +1939,15 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
-	if (validStores[0].isInitializer())
-		return llvm::GenericValue();
+	if (validStores[0].isInitializer()) {
+		if (typ->isPointerTy())
+			return PTR_TO_GV(nullptr);
+		else {
+			llvm::GenericValue res;
+			res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
+			return res;
+		}
+	}
 	return getWriteValue(validStores[0], lab->getAddr(), lab->getType());
 }
 
@@ -1984,7 +2002,7 @@ GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph()) {
-		const EventLabel *lab = getCurrentLabel();
+		const EventLabel *lab = getCurrentLabel();llvm::dbgs() << "VISIT OPEN WITH " << *lab << "\n";
 		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab)) {
 			return oLab->getFd();
 		}
@@ -2004,6 +2022,17 @@ GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 
 	/* Return the freshly allocated fd */
 	return fdR;
+}
+
+void GenMCDriver::visitDskFsync(void *inode, unsigned int size)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = getEE()->getCurrentPosition();
+	auto fLab = createDskFsyncLabel(pos.thread, pos.index, inode, size);
+	getGraph().addOtherLabelToGraph(std::move(fLab));
+	return;
 }
 
 void GenMCDriver::visitDskSync()

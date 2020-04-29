@@ -226,9 +226,14 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicReadViews(lab.get());
 	auto sync = g.getLastThreadDskSync(lab->getPos());
-	if (!sync.isInitializer()) {
+	if (!sync.isInitializer())
 		pbView = g.getHbBefore(sync);
+	auto fsync = g.getLastThreadDskFsyncAtLoc(lab->getPos(), ptr);
+	if (!fsync.isInitializer()) {
+		auto *fLab = llvm::dyn_cast<DskFsyncLabel>(g.getEventLabel(fsync));
+		pbView.update(fLab->getPbView());
 	}
+
 	lab->setPbView(std::move(pbView));
 	return std::move(lab);
 }
@@ -310,6 +315,11 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	if (!sync.isInitializer()) {
 		pbView = g.getHbBefore(sync);
 	}
+	auto fsync = g.getLastThreadDskFsyncAtLoc(lab->getPos(), ptr);
+	if (!fsync.isInitializer()) {
+		auto *fLab = llvm::dyn_cast<DskFsyncLabel>(g.getEventLabel(fsync));
+		pbView.update(fLab->getPbView());
+	}
 	lab->setPbView(std::move(pbView));
 
 	return std::move(lab);
@@ -378,6 +388,26 @@ RC11Driver::createDskOpenLabel(int tid, int index, const char *fileName,
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	return std::move(lab);
+}
+
+std::unique_ptr<DskFsyncLabel>
+RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
+				unsigned int size)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskFsyncLabel>(g.nextStamp(),
+						    llvm::AtomicOrdering::Release,
+						    pos, inode, size);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	View pbView;
+
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+	lab->setPbView(std::move(pbView));
 	return std::move(lab);
 }
 

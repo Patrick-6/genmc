@@ -271,8 +271,10 @@ void Interpreter::reclaimUnusedFd(int fd)
 	fds.reset(fd);
 }
 
-void *Interpreter::getFileFromFd(int fd)
+void *Interpreter::getFileFromFd(int fd) const
 {
+	if (!fdToFile.inBounds(fd))
+		return nullptr;
 	return fdToFile[fd];
 }
 

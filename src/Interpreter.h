@@ -416,7 +416,7 @@ public:
   void reclaimUnusedFd(int fd);
 
   /* Pers: Returns the address of the file description referenced by FD */
-  void *getFileFromFd(int fd);
+  void *getFileFromFd(int fd) const;
 
   /* Pers: Tracks that the address of the file description of FD is FILEADDR */
   void setFdToFile(int fd, void *fileAddr);
@@ -633,6 +633,8 @@ private:  // Helper functions
   GenericValue executeLseek(void *file, Type *intTyp,
 			    const GenericValue &offset,
 			    const GenericValue &whence);
+  void executeDskFsync(void *file, Type *intTyp);
+
 
 
   /* Custom Opcode Implementations */
@@ -665,6 +667,7 @@ private:  // Helper functions
   void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskSync(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callDskFsync(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskPread(Function *F, const std::vector<GenericValue> &ArgVals);
   void callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals);
   void callLseek(Function *F, const std::vector<GenericValue> &ArgVals);
