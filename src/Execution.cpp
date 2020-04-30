@@ -60,6 +60,39 @@ using namespace llvm;
 // static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 //           cl::desc("make the interpreter print every volatile load and store"));
 
+const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
+	{"__assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_recovery_assert_fail", InternalFunctions::FN_RecAssertFail},
+	{"__end_loop", InternalFunctions::FN_EndLoop},
+	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
+	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
+	{"malloc", InternalFunctions::FN_Malloc},
+	{"free", InternalFunctions::FN_Free},
+	{"pthread_self", InternalFunctions::FN_ThreadSelf},
+	{"pthread_create", InternalFunctions::FN_ThreadCreate},
+	{"pthread_join", InternalFunctions::FN_ThreadJoin},
+	{"pthread_exit", InternalFunctions::FN_ThreadExit},
+	{"pthread_mutex_init", InternalFunctions::FN_MutexInit},
+	{"pthread_mutex_lock", InternalFunctions::FN_MutexLock},
+	{"pthread_mutex_unlock", InternalFunctions::FN_MutexUnlock},
+	{"pthread_mutex_trylock", InternalFunctions::FN_MutexTrylock},
+	{"open", InternalFunctions::FN_OpenFS},
+	{"close", InternalFunctions::FN_CloseFS},
+	{"creat", InternalFunctions::FN_CreatFS},
+	{"rename", InternalFunctions::FN_RenameFS},
+	{"link", InternalFunctions::FN_LinkFS},
+	{"unlink", InternalFunctions::FN_UnlinkFS},
+	{"truncate", InternalFunctions::FN_TruncateFS},
+	{"read", InternalFunctions::FN_ReadFS},
+	{"pread", InternalFunctions::FN_PreadFS},
+	{"write", InternalFunctions::FN_WriteFS},
+	{"pwrite", InternalFunctions::FN_PwriteFS},
+	{"fsync", InternalFunctions::FN_FsyncFS},
+	{"sync", InternalFunctions::FN_SyncFS},
+	{"lseek", InternalFunctions::FN_LseekFS},
+	{"__VERIFIER_persistence_barrier", InternalFunctions::FN_PersBarrierFS},
+};
+
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
@@ -1151,15 +1184,15 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
-  GenericValue Result = driver->visitMalloc(MemToAlloc, Storage::Automatic, AddressSpace::User);
+  GenericValue Result = driver->visitMalloc(MemToAlloc, Storage::ST_Automatic, AddressSpace::AS_User);
 
   updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
 
   /* If this is not a replay, update naming information for this variable
    * based on previously collected information */
-  if (!varNames[static_cast<int>(Storage::Automatic)].count(Result.PointerVal))
+  if (!varNames[static_cast<int>(Storage::ST_Automatic)].count(Result.PointerVal))
 	  updateVarNameInfo((char *) Result.PointerVal, MemToAlloc,
-			    Storage::Automatic, AddressSpace::User, &I);
+			    Storage::ST_Automatic, AddressSpace::AS_User, &I);
 
   SetValue(&I, Result, SF);
 }
@@ -2521,8 +2554,8 @@ void Interpreter::callAssertFail(Function *F,
 	driver->visitError(err, Event::getInitializer());
 }
 
-void Interpreter::callRecoveryAssertFail(Function *F,
-					 const std::vector<GenericValue> &ArgVals)
+void Interpreter::callRecAssertFail(Function *F,
+				    const std::vector<GenericValue> &ArgVals)
 {
 	driver->visitRecoveryError();
 }
@@ -2532,8 +2565,7 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 	ECStack().clear();
 }
 
-void Interpreter::callVerifierAssume(Function *F,
-				     const std::vector<GenericValue> &ArgVals)
+void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	bool cond = ArgVals[0].IntVal.getBoolValue();
 
@@ -2542,8 +2574,7 @@ void Interpreter::callVerifierAssume(Function *F,
 		getCurThr().block();
 }
 
-void Interpreter::callVerifierNondetInt(Function *F,
-					const std::vector<GenericValue> &ArgVals)
+void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread::MyDist dist(std::numeric_limits<int>::min(),
 			    std::numeric_limits<int>::max());
@@ -2560,7 +2591,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue(),
-						   Storage::Heap, AddressSpace::User);
+						   Storage::ST_Heap, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), address);
 	return;
 }
@@ -2575,8 +2606,8 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 	return;
 }
 
-void Interpreter::callPthreadSelf(Function *F,
-				  const std::vector<GenericValue> &ArgVals)
+void Interpreter::callThreadSelf(Function *F,
+				 const std::vector<GenericValue> &ArgVals)
 {
 	llvm::Type *typ = F->getReturnType();
 
@@ -2585,9 +2616,8 @@ void Interpreter::callPthreadSelf(Function *F,
 	return;
 }
 
-/* callPthreadCreate - Call to pthread_create() function */
-void Interpreter::callPthreadCreate(Function *F,
-				    const std::vector<GenericValue> &ArgVals)
+void Interpreter::callThreadCreate(Function *F,
+				   const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]); /* tid */
 	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
@@ -2621,8 +2651,8 @@ void Interpreter::callPthreadCreate(Function *F,
 }
 
 /* callPthreadJoin - Call to pthread_join() function */
-void Interpreter::callPthreadJoin(Function *F,
-				  const std::vector<GenericValue> &ArgVals)
+void Interpreter::callThreadJoin(Function *F,
+				 const std::vector<GenericValue> &ArgVals)
 {
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
@@ -2630,17 +2660,16 @@ void Interpreter::callPthreadJoin(Function *F,
 	returnValueToCaller(F->getReturnType(), result);
 }
 
-/* callPthreadExit - Call to pthread_exit() function */
-void Interpreter::callPthreadExit(Function *F,
-				  const std::vector<GenericValue> &ArgVals)
+void Interpreter::callThreadExit(Function *F,
+				 const std::vector<GenericValue> &ArgVals)
 {
 	while (ECStack().size() > 1)
 		ECStack().pop_back();
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 
-void Interpreter::callPthreadMutexInit(Function *F,
-				       const std::vector<GenericValue> &ArgVals)
+void Interpreter::callMutexInit(Function *F,
+				const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
@@ -2660,8 +2689,8 @@ void Interpreter::callPthreadMutexInit(Function *F,
 	returnValueToCaller(F->getReturnType(), result);
 }
 
-void Interpreter::callPthreadMutexLock(Function *F,
-				       const std::vector<GenericValue> &ArgVals)
+void Interpreter::callMutexLock(Function *F,
+				const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
@@ -2680,8 +2709,8 @@ void Interpreter::callPthreadMutexLock(Function *F,
 	return;
 }
 
-void Interpreter::callPthreadMutexUnlock(Function *F,
-					 const std::vector<GenericValue> &ArgVals)
+void Interpreter::callMutexUnlock(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
@@ -2695,8 +2724,8 @@ void Interpreter::callPthreadMutexUnlock(Function *F,
 	return;
 }
 
-void Interpreter::callPthreadMutexTrylock(Function *F,
-					 const std::vector<GenericValue> &ArgVals)
+void Interpreter::callMutexTrylock(Function *F,
+				   const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
@@ -2775,19 +2804,19 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 	return;
 }
 
-GenericValue Interpreter::executeInodeLookup(void *file, Type *intTyp)
+GenericValue Interpreter::executeInodeLookupFS(void *file, Type *intTyp)
 {
 	/* Fetch the address where the inode should be and read the contents */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
 	return driver->visitDskRead(inodeAddr, intTyp->getPointerTo());
 }
 
-GenericValue Interpreter::executeInodeCreate(void *file, Type *intTyp)
+GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
-	auto inode = driver->visitMalloc(inodeSize, Storage::Heap, AddressSpace::Internal);
-	updateVarNameInfo((char *) inode.PointerVal, inodeSize, Storage::Heap, AddressSpace::Internal,
+	auto inode = driver->visitMalloc(inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
+	updateVarNameInfo((char *) inode.PointerVal, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 			  nullptr, std::string("__inode_") + (char *) file, "inode");
 
 	/* ... properly initialize its fields... */
@@ -2809,10 +2838,10 @@ GenericValue Interpreter::executeInodeCreate(void *file, Type *intTyp)
  * to the address of FILE's inode. Success: either if the inode was
  * already created, or flags contain O_CREAT and the inode was
  * created. */
-GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp)
+GenericValue Interpreter::executeLookupOpenFS(void *file, int &flags, Type *intTyp)
 {
 	/* Check if the corresponding inode already exists */
-	auto inode = executeInodeLookup(file, intTyp);
+	auto inode = executeInodeLookupFS(file, intTyp);
 
 	/* Return the inode, if it already exists. If the inode has not been created
 	 * and O_CREAT has not been specified, return null */
@@ -2820,7 +2849,7 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 		return inode;
 
 	/* Otherwise, we create an inode */
-	inode = executeInodeCreate(file, intTyp);
+	inode = executeInodeCreateFS(file, intTyp);
 
 	/* If we created the inode, we will not truncate it
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
@@ -2829,7 +2858,7 @@ GenericValue Interpreter::executeLookupOpen(void *file, int &flags, Type *intTyp
 	return inode;
 }
 
-GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &inode, Type *intTyp)
+GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &inode, Type *intTyp)
 {
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
@@ -2839,12 +2868,12 @@ GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &ino
 
 	/* We allocate space for the file description... */
 	auto fileSize = getTypeSize(FI.fileTyp);
-	auto *file = driver->visitMalloc(fileSize, Storage::Heap, AddressSpace::Internal).PointerVal;
+	auto *file = driver->visitMalloc(fileSize, Storage::ST_Heap, AddressSpace::AS_Internal).PointerVal;
 
 	std::string varname("__file_");
 	raw_string_ostream sname(varname);
 	sname << (char *) filename << "_" << thr.id << "_" << thr.globalInstructions;
-	updateVarNameInfo((char *) file, fileSize, Storage::Heap, AddressSpace::Internal,
+	updateVarNameInfo((char *) file, fileSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 			  nullptr, sname.str(), "file");
 
 	/* ... and initialize its fields */
@@ -2863,7 +2892,7 @@ GenericValue Interpreter::executeDskOpen(void *filename, const GenericValue &ino
 	return fd;
 }
 
-GenericValue Interpreter::executeDskTruncate(const GenericValue &inode,
+GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 					     const GenericValue &length,
 					     Type *intTyp, int snap)
 {
@@ -2892,7 +2921,7 @@ GenericValue Interpreter::executeDskTruncate(const GenericValue &inode,
 	return INT_TO_GV(intTyp, 0); /* Success */
 }
 
-void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -2912,7 +2941,7 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	}
 
 	/* Try and find the requested inode */
-	auto inode = executeLookupOpen(file, flags, intTyp);
+	auto inode = executeLookupOpenFS(file, flags, intTyp);
 
 	driver->visitUnlock(dirLock, intTyp);
 
@@ -2924,11 +2953,11 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	}
 
 	/* We allocate a new file description pointing to the file's inode... */
-	auto fd = executeDskOpen(file, inode, intTyp);
+	auto fd = executeOpenFS(file, inode, intTyp);
 
 	/* ... and truncate if necessary */
 	if (flags & GENMC_O_TRUNC) {
-		auto ret = executeDskTruncate(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
+		auto ret = executeTruncateFS(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
 		if (ret.IntVal.getLimitedValue() == 42)
 			return; /* Failed to acquire inode's lock... */
 		if (ret.IntVal.getLimitedValue() == -1) {
@@ -2941,15 +2970,15 @@ void Interpreter::callDskOpen(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
-void Interpreter::callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callCreatFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Type *intTyp = F->getReturnType();
 	auto flags = INT_TO_GV(intTyp, GENMC_O_CREAT|GENMC_O_WRONLY|GENMC_O_TRUNC);
-	callDskOpen(F, {ArgVals[0], flags, ArgVals[1]});
+	callOpenFS(F, {ArgVals[0], flags, ArgVals[1]});
 	return;
 }
 
-GenericValue Interpreter::executeDskClose(const GenericValue &fd, Type *intTyp)
+GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 {
 	/* If it's not a valid open fd, report the error */
 	auto *fileDesc = getFileFromFd(fd.IntVal.getLimitedValue());
@@ -2962,7 +2991,7 @@ GenericValue Interpreter::executeDskClose(const GenericValue &fd, Type *intTyp)
 	return INT_TO_GV(intTyp, 0);
 }
 
-void Interpreter::callDskClose(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -2974,19 +3003,19 @@ void Interpreter::callDskClose(Function *F, const std::vector<GenericValue> &Arg
 		       getAddrPoDeps(thr.id), nullptr);
 
 	/* Close the file and return result to user */
-	auto result = executeDskClose(fd, intTyp);
+	auto result = executeCloseFS(fd, intTyp);
 	returnValueToCaller(intTyp, result);
 	return;
 }
 
-GenericValue Interpreter::executeDskLink(void *newpath, const GenericValue &oldInode, Type *intTyp)
+GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp)
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode);
 	return INT_TO_GV(intTyp, 0);
 }
 
-void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3009,7 +3038,7 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 		return;
 	}
 
-	source = executeInodeLookup(oldpath, intTyp);
+	source = executeInodeLookupFS(oldpath, intTyp);
 
 	/* If no such entry found, exit */
 	if (!source.PointerVal) {
@@ -3019,14 +3048,14 @@ void Interpreter::callDskLink(Function *F, const std::vector<GenericValue> &ArgV
 	}
 
 	/* Otherwise, check if newpath exists */
-	target = executeInodeLookup(newpath, intTyp);
+	target = executeInodeLookupFS(newpath, intTyp);
 	if (target.PointerVal) {
 		WARN_ONCE("link-entry-exists-newpath", "The entry for newpath exists at link()!\n");
 		result = INT_TO_GV(intTyp, -1);
 		goto exit;
 	}
 
-	result = executeDskLink(newpath, source, intTyp);
+	result = executeLinkFS(newpath, source, intTyp);
 
 exit:
 	driver->visitUnlock(dirLock, intTyp);
@@ -3034,7 +3063,7 @@ exit:
 	return;
 }
 
-GenericValue Interpreter::executeDskUnlink(void *pathname, Type *intTyp)
+GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
 {
 	/* Unlink inode */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
@@ -3042,7 +3071,7 @@ GenericValue Interpreter::executeDskUnlink(void *pathname, Type *intTyp)
 	return INT_TO_GV(intTyp, 0);
 }
 
-void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3061,7 +3090,7 @@ void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &Ar
 		return;
 	}
 
-	auto inode = executeInodeLookup(pathname, intTyp);
+	auto inode = executeInodeLookupFS(pathname, intTyp);
 
 	/* Check if component exists */
 	if (!inode.PointerVal) {
@@ -3070,7 +3099,7 @@ void Interpreter::callDskUnlink(Function *F, const std::vector<GenericValue> &Ar
 		goto exit;
 	}
 
-	result = executeDskUnlink(pathname, intTyp);
+	result = executeUnlinkFS(pathname, intTyp);
 
 exit:
 	driver->visitUnlock(dirLock, intTyp);
@@ -3079,9 +3108,9 @@ exit:
 	return;
 }
 
-GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &oldInode,
-					   void *newpath, const GenericValue &newInode,
-					   Type *intTyp)
+GenericValue Interpreter::executeRenameFS(void *oldpath, const GenericValue &oldInode,
+					  void *newpath, const GenericValue &newInode,
+					  Type *intTyp)
 {
 	Type *intPtrTyp = intTyp->getPointerTo();
 
@@ -3092,16 +3121,16 @@ GenericValue Interpreter::executeDskRename(void *oldpath, const GenericValue &ol
 	GenericValue result;
 
 	/* Make new name point to old name's inode */
-	result = executeDskLink(newpath, oldInode, intTyp);
+	result = executeLinkFS(newpath, oldInode, intTyp);
 	BUG_ON(result.IntVal.getLimitedValue() == -1);
 
 	/* Delete old name */
-	result = executeDskUnlink(oldpath, intTyp);
+	result = executeUnlinkFS(oldpath, intTyp);
 
 	return result;
 }
 
-void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3123,7 +3152,7 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 
 	/* Try to find source inode */
 	GenericValue source, target;
-	source = executeInodeLookup(oldpath, intTyp);
+	source = executeInodeLookupFS(oldpath, intTyp);
 	if (!source.PointerVal) {
 		WARN_ONCE("rename-negative-source", "Source directory must exist for rename()!\n");
 		result = INT_TO_GV(intTyp, -1);
@@ -3131,9 +3160,9 @@ void Interpreter::callDskRename(Function *F, const std::vector<GenericValue> &Ar
 	}
 
 	/* Try to find target inode */
-	target = executeInodeLookup(newpath, intTyp);
+	target = executeInodeLookupFS(newpath, intTyp);
 
-	result = executeDskRename(oldpath, source, newpath, target, intTyp);
+	result = executeRenameFS(oldpath, source, newpath, target, intTyp);
 
 exit:
 	driver->visitUnlock(dirLock, intTyp);
@@ -3142,7 +3171,7 @@ exit:
 	return;
 }
 
-void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3162,7 +3191,7 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 	}
 
 	/* Try and find the requested inode */
-	auto inode = executeInodeLookup(file, intTyp);
+	auto inode = executeInodeLookupFS(file, intTyp);
 
 	driver->visitUnlock(dirLock, intTyp);
 
@@ -3173,7 +3202,7 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 		return;
 	}
 
-	auto ret = executeDskTruncate(inode, length, intTyp, snap);
+	auto ret = executeTruncateFS(inode, length, intTyp, snap);
 	if (ret.IntVal.getLimitedValue() == 42)
 		return; /* Failed to acquire inode's lock... */
 
@@ -3181,9 +3210,9 @@ void Interpreter::callDskTruncate(Function *F, const std::vector<GenericValue> &
 	return;
 }
 
-GenericValue Interpreter::executeDskRead(void *file, Type *intTyp, GenericValue *buf,
-					 Type *bufElemTyp, const GenericValue &offset,
-					 const GenericValue &count)
+GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *buf,
+					Type *bufElemTyp, const GenericValue &offset,
+					const GenericValue &count)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 	GenericValue nr;
@@ -3217,7 +3246,7 @@ GenericValue Interpreter::executeDskRead(void *file, Type *intTyp, GenericValue 
 	return nr;
 }
 
-void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3255,7 +3284,7 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	auto oldOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
 					   (const GenericValue *) fileOffset, intTyp);
 
-	auto nr = executeDskRead(file, intTyp, buf, bufElemTyp, oldOffset, count);
+	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, oldOffset, count);
 
 	/* We calculate the new offset to write to the file description... */
 	GenericValue newOffset;
@@ -3271,9 +3300,9 @@ void Interpreter::callDskRead(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
-GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue *buf,
-					  Type *bufElemTyp, const GenericValue &offset,
-					  const GenericValue &count, int snap)
+GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
+					 Type *bufElemTyp, const GenericValue &offset,
+					 const GenericValue &count, int snap)
 {
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
@@ -3315,7 +3344,7 @@ GenericValue Interpreter::executeDskWrite(void *file, Type *intTyp, GenericValue
 	return count;
 }
 
-void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3355,7 +3384,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 
 	/* Perform the disk write operation
 	 * (If we failed to acquire the node's lock, block without returning anything) */
-	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, oldOffset, count, snap);
+	auto nw = executeWriteFS(file, intTyp, buf, bufElemTyp, oldOffset, count, snap);
 	if (nw.IntVal.getLimitedValue() == 42)
 		return; // lock acquisition failed
 
@@ -3373,7 +3402,7 @@ void Interpreter::callDskWrite(Function *F, const std::vector<GenericValue> &Arg
 	return;
 }
 
-void Interpreter::executeDskFsync(void *file, Type *intTyp)
+void Interpreter::executeFsyncFS(void *file, Type *intTyp)
 {
 	auto *fileInode = (GenericValue *) GET_FILE_INODE_ADDR(file);
 	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
@@ -3383,7 +3412,7 @@ void Interpreter::executeDskFsync(void *file, Type *intTyp)
 	return;
 }
 
-void Interpreter::callDskFsync(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue fd = ArgVals[0];
 	Type *retTyp = F->getReturnType();
@@ -3396,20 +3425,20 @@ void Interpreter::callDskFsync(Function *F, const std::vector<GenericValue> &Arg
 		goto exit;
 	}
 
-	executeDskFsync(file, retTyp);
+	executeFsyncFS(file, retTyp);
 
 exit:
 	returnValueToCaller(retTyp, result);
 	return;
 }
 
-void Interpreter::callDskSync(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	driver->visitDskSync();
 	return;
 }
 
-void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
@@ -3433,14 +3462,14 @@ void Interpreter::callDskPread(Function *F, const std::vector<GenericValue> &Arg
 	}
 
 	/* Execute the read in the specified offset */
-	auto nr = executeDskRead(file, intTyp, buf, bufElemTyp, offset, count);
+	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
 
 	/* Return the number of bytes read (similar to read()) */
 	returnValueToCaller(retTyp, nr);
 	return;
 }
 
-void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3465,16 +3494,16 @@ void Interpreter::callDskPwrite(Function *F, const std::vector<GenericValue> &Ar
 	}
 
 	/* Execute the write in the specified offset */
-	auto nw = executeDskWrite(file, intTyp, buf, bufElemTyp, offset, count, snap);
+	auto nw = executeWriteFS(file, intTyp, buf, bufElemTyp, offset, count, snap);
 
 	/* Return the number of bytes written */
 	returnValueToCaller(retTyp, nw);
 	return;
 }
 
-GenericValue Interpreter::executeLseek(void *file, Type *intTyp,
-				       const GenericValue &offset,
-				       const GenericValue &whence)
+GenericValue Interpreter::executeLseekFS(void *file, Type *intTyp,
+					 const GenericValue &offset,
+					 const GenericValue &whence)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 
@@ -3531,7 +3560,7 @@ GenericValue Interpreter::executeLseek(void *file, Type *intTyp,
 	return newOffset;
 }
 
-void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
@@ -3563,7 +3592,7 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 		return;
 	}
 
-	auto newOffset = executeLseek(file, intTyp, offset, whence);
+	auto newOffset = executeLseekFS(file, intTyp, offset, whence);
 
 	/* We release the file description's lock */
 	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
@@ -3571,10 +3600,74 @@ void Interpreter::callLseek(Function *F, const std::vector<GenericValue> &ArgVal
 	return;
 }
 
-void Interpreter::callPersistenceBarrier(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	driver->visitDskPersists();
 	return;
+}
+
+#define CALL_INTERNAL_FUNCTION(NAME)		\
+	case InternalFunctions::FN_##NAME:	\
+	        call##NAME(F, ArgVals);		\
+		break
+
+bool Interpreter::callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	std::string name = F->getName().str();
+
+	/* Special handling for user-library calls */
+	auto granted = driver->getGrantedLibs();
+	auto lib = Library::getLibByMemberName(granted, name);
+	if (lib) {
+		auto m = lib->getMember(name);
+		BUG_ON(!m);
+		if (m->hasReadSemantics())
+			callReadFunction(*lib, *m, F, ArgVals);
+		else
+			callWriteFunction(*lib, *m, F, ArgVals);
+		return true;
+	}
+
+	/* Check if it is modeled internally */
+	if (!internalFunNames.count(F->getName().str()))
+		return false;
+
+	switch (internalFunNames.at(name)) {
+		CALL_INTERNAL_FUNCTION(AssertFail);
+		CALL_INTERNAL_FUNCTION(RecAssertFail);
+		CALL_INTERNAL_FUNCTION(EndLoop);
+		CALL_INTERNAL_FUNCTION(Assume);
+		CALL_INTERNAL_FUNCTION(NondetInt);
+		CALL_INTERNAL_FUNCTION(Malloc);
+		CALL_INTERNAL_FUNCTION(Free);
+		CALL_INTERNAL_FUNCTION(ThreadSelf);
+		CALL_INTERNAL_FUNCTION(ThreadCreate);
+		CALL_INTERNAL_FUNCTION(ThreadJoin);
+		CALL_INTERNAL_FUNCTION(ThreadExit);
+		CALL_INTERNAL_FUNCTION(MutexInit);
+		CALL_INTERNAL_FUNCTION(MutexLock);
+		CALL_INTERNAL_FUNCTION(MutexUnlock);
+		CALL_INTERNAL_FUNCTION(MutexTrylock);
+		CALL_INTERNAL_FUNCTION(OpenFS);
+		CALL_INTERNAL_FUNCTION(CreatFS);
+		CALL_INTERNAL_FUNCTION(CloseFS);
+		CALL_INTERNAL_FUNCTION(RenameFS);
+		CALL_INTERNAL_FUNCTION(LinkFS);
+		CALL_INTERNAL_FUNCTION(UnlinkFS);
+		CALL_INTERNAL_FUNCTION(TruncateFS);
+		CALL_INTERNAL_FUNCTION(ReadFS);
+		CALL_INTERNAL_FUNCTION(WriteFS);
+		CALL_INTERNAL_FUNCTION(FsyncFS);
+		CALL_INTERNAL_FUNCTION(SyncFS);
+		CALL_INTERNAL_FUNCTION(PreadFS);
+		CALL_INTERNAL_FUNCTION(PwriteFS);
+		CALL_INTERNAL_FUNCTION(LseekFS);
+		CALL_INTERNAL_FUNCTION(PersBarrierFS);
+	default:
+		BUG();
+		break;
+	}
+	return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -3583,115 +3676,9 @@ void Interpreter::callPersistenceBarrier(Function *F, const std::vector<GenericV
 void Interpreter::callFunction(Function *F,
                                const std::vector<GenericValue> &ArgVals)
 {
-  /* Custom function support */
-  std::string functionName = F->getName().str();
-
-  auto granted = driver->getGrantedLibs();
-  auto lib = Library::getLibByMemberName(granted, functionName);
-  if (lib) {
-	  auto m = lib->getMember(functionName);
-	  BUG_ON(!m);
-	  if (m->hasReadSemantics()) {
-		  callReadFunction(*lib, *m, F, ArgVals);
-		  return;
-	  } else {
-		  callWriteFunction(*lib, *m, F, ArgVals);
-		  return;
-	  }
-  }
-
-  if (functionName == "__assert_fail") {
-	  callAssertFail(F, ArgVals);
-	  return;
-  } else if (functionName == "__VERIFIER_recovery_assert_fail") {
-	  callRecoveryAssertFail(F, ArgVals);
-	  return;
-  } else if (functionName == "__end_loop") {
-	  callEndLoop(F, ArgVals);
-	  return;
-  } else if (functionName == "__VERIFIER_assume") {
-	  callVerifierAssume(F, ArgVals);
-	  return;
-  } else if (functionName == "__VERIFIER_nondet_int") {
-	  callVerifierNondetInt(F, ArgVals);
-	  return;
-  } else if (functionName == "malloc") {
-	  callMalloc(F, ArgVals);
-	  return;
-  } else if (functionName == "free") {
-	  callFree(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_self") {
-	  callPthreadSelf(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_create") {
-	  callPthreadCreate(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_join" ||
-	     functionName == "_pthread_join") { /* Mac OS X name mangling */
-	  callPthreadJoin(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_exit") {
-	  callPthreadExit(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_mutex_init") {
-	  callPthreadMutexInit(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_mutex_lock") {
-	  callPthreadMutexLock(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_mutex_unlock") {
-	  callPthreadMutexUnlock(F, ArgVals);
-	  return;
-  } else if (functionName == "pthread_mutex_trylock") {
-	  callPthreadMutexTrylock(F, ArgVals);
-	  return;
-  } else if (functionName == "open") {
-	  callDskOpen(F, ArgVals);
-	  return;
-  } else if (functionName == "creat") {
-	  callDskCreat(F, ArgVals);
-	  return;
-  } else if (functionName == "close") {
-	  callDskClose(F, ArgVals);
-	  return;
-  } else if (functionName == "rename") {
-	  callDskRename(F, ArgVals);
-	  return;
-  } else if (functionName == "link") {
-	  callDskLink(F, ArgVals);
-	  return;
-  } else if (functionName == "unlink") {
-	  callDskUnlink(F, ArgVals);
-	  return;
-  } else if (functionName == "truncate") {
-	  callDskTruncate(F, ArgVals);
-	  return;
-  } else if (functionName == "read") {
-	  callDskRead(F, ArgVals);
-	  return;
-  } else if (functionName == "write") {
-	  callDskWrite(F, ArgVals);
-	  return;
-  } else if (functionName == "fsync") {
-	  callDskFsync(F, ArgVals);
-	  return;
-  } else if (functionName == "sync") {
-	  callDskSync(F, ArgVals);
-	  return;
-  } else if (functionName == "pread") {
-	  callDskPread(F, ArgVals);
-	  return;
-  } else if (functionName == "pwrite") {
-	  callDskPwrite(F, ArgVals);
-	  return;
-  } else if (functionName == "lseek") {
-	  callLseek(F, ArgVals);
-	  return;
-  } else if (functionName == "__VERIFIER_persistence_barrier") {
-	  callPersistenceBarrier(F, ArgVals);
-	  return;
-  }
+  /* Special handling for internal functions */
+  if (callInternalFunction(F, ArgVals))
+    return;
 
   assert((ECStack().empty() || !ECStack().back().Caller.getInstruction() ||
 	  ECStack().back().Caller.arg_size() == ArgVals.size()) &&

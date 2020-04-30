@@ -174,11 +174,11 @@ Thread Interpreter::createRecoveryThread(int tid)
 std::string Interpreter::getVarName(const void *addr)
 {
 	if (isStatic(addr))
-		return varNames[static_cast<int>(Storage::Static)][addr];
+		return varNames[static_cast<int>(Storage::ST_Static)][addr];
 	if (isStack(addr))
-		return varNames[static_cast<int>(Storage::Automatic)][addr];
+		return varNames[static_cast<int>(Storage::ST_Automatic)][addr];
 	if (isHeap(addr))
-		return varNames[static_cast<int>(Storage::Heap)][addr];
+		return varNames[static_cast<int>(Storage::ST_Heap)][addr];
 	return "";
 }
 
@@ -189,17 +189,17 @@ bool Interpreter::isInternal(const void *addr)
 
 bool Interpreter::isStatic(const void *addr)
 {
-	return varNames[static_cast<int>(Storage::Static)].count(addr);
+	return varNames[static_cast<int>(Storage::ST_Static)].count(addr);
 }
 
 bool Interpreter::isStack(const void *addr)
 {
-	return alloctor.hasStorage(addr, Storage::Automatic);
+	return alloctor.hasStorage(addr, Storage::ST_Automatic);
 }
 
 bool Interpreter::isHeap(const void *addr)
 {
-	return alloctor.hasStorage(addr, Storage::Heap);
+	return alloctor.hasStorage(addr, Storage::ST_Heap);
 }
 
 bool Interpreter::isDynamic(const void *addr)
@@ -328,13 +328,13 @@ void Interpreter::updateUserTypedVarName(char *ptr, unsigned int typeSize, Stora
 					 const std::string &internal)
 {
 	auto &vars = varNames[static_cast<int>(s)];
-	auto &vi = (s == Storage::Automatic) ? VI.localInfo[v] : VI.globalInfo[v];
+	auto &vi = (s == Storage::ST_Automatic) ? VI.localInfo[v] : VI.globalInfo[v];
 
 	if (vi.empty()) {
 		/* If it is not a local value, then we should collect the address
 		 * anyway, since globalVars will be used to check whether some
 		 * access accesses a global variable */
-		if (s == Storage::Static)
+		if (s == Storage::ST_Static)
 			collectUnnamedGlobalAddress(v, ptr, typeSize, vars);
 		return;
 	}
@@ -365,21 +365,21 @@ void Interpreter::updateVarNameInfo(char *ptr, unsigned int typeSize, Storage s,
 				    AddressSpace spc, Value *v,
 				    const std::string &prefix, const std::string &extra)
 {
-	if (spc == AddressSpace::User) {
-		switch (s) {
-		case Storage::Static:
-		case Storage::Automatic:
-			updateUserTypedVarName(ptr, typeSize, s, v, prefix, extra);
-			return;
-		case Storage::Heap:
-			updateUserUntypedVarName(ptr, typeSize, s, v, prefix, extra);
-			return;
-		default:
-			BUG();
-		}
-	} else if (spc == AddressSpace::Internal) {
+	if (spc == AddressSpace::AS_Internal) {
 		updateInternalVarName(ptr, typeSize, s, v, prefix, extra);
-	} else {
+		return;
+	}
+
+	BUG_ON(spc != AddressSpace::AS_User);
+	switch (s) {
+	case Storage::ST_Static:
+	case Storage::ST_Automatic:
+		updateUserTypedVarName(ptr, typeSize, s, v, prefix, extra);
+		return;
+	case Storage::ST_Heap:
+		updateUserUntypedVarName(ptr, typeSize, s, v, prefix, extra);
+		return;
+	default:
 		BUG();
 	}
 	return;
@@ -416,7 +416,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 		/* Update the name for this global. We cheat a bit since we will use this
 		 * to indicate whether this is an allocated static address (see isStatic()) */
 		if (v.getAddressSpace() != 42) /* exclude internal variables */
-			updateVarNameInfo(ptr, typeSize, Storage::Static, AddressSpace::User, &v);
+			updateVarNameInfo(ptr, typeSize, Storage::ST_Static, AddressSpace::AS_User, &v);
 	}
 	/* The allocator will start giving out addresses greater than the maximum static address */
 	if (allocBegin)
@@ -432,7 +432,10 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 
 	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
 	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");
-	BUG_ON(!inodeVar || !fileVar);
+
+	/* unistd.h not included -- not dealing with fs stuff */
+	if (!inodeVar || !fileVar)
+		return;
 
 	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
 	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
@@ -443,9 +446,9 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
 	FI.dirLock = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
 
-	trackAlloca(FI.dirLock, inodeSize, Storage::Heap, AddressSpace::Internal);
-	updateVarNameInfo((char *) FI.dirLock, inodeSize, Storage::Heap,
-			  AddressSpace::Internal, nullptr, "__dir_inode.lock", "dir_inode_lock");
+	trackAlloca(FI.dirLock, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
+	updateVarNameInfo((char *) FI.dirLock, inodeSize, Storage::ST_Heap,
+			  AddressSpace::AS_Internal, nullptr, "__dir_inode.lock", "dir_inode_lock");
 
 	unsigned int count = 0;
 	unsigned int intPtrSize = getTypeSize(FI.inodeTyp->getElementType(0)->getPointerTo());
@@ -453,7 +456,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	for (auto &fname : FI.nameToInodeAddr) {
 		auto *addr = (char *) FI.dirLock + SL->getElementOffset(2) + count * intPtrSize;
 		fname.second = addr;
-		updateVarNameInfo((char *) addr, intPtrSize, Storage::Heap, AddressSpace::Internal,
+		updateVarNameInfo((char *) addr, intPtrSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 				  nullptr, "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");
 		++count;
 	}
@@ -594,7 +597,7 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
   initializeExternalFunctions();
   emitGlobals();
 
-  varNames.grow(static_cast<int>(Storage::StorageLast));
+  varNames.grow(static_cast<int>(Storage::ST_StorageLast));
   collectStaticAddresses(M);
 
   /* Set up a dependency tracker if the model requires it */

@@ -2200,8 +2200,8 @@ bool shouldPrintLOC(const EventLabel *lab)
 
 	/* Similarly for allocations that don't come from malloc() */
 	if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
-		return mLab->getStorage() == Storage::Heap &&
-		       mLab->getAddrSpace() != AddressSpace::Internal;
+		return mLab->getStorage() == Storage::ST_Heap &&
+		       mLab->getAddrSpace() != AddressSpace::AS_Internal;
 
 	return true;
 }

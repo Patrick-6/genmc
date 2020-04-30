@@ -164,7 +164,7 @@ class AllocaTracker {
 
 public:
 
-  AllocaTracker() { allocas.grow(static_cast<int>(Storage::StorageLast)); }
+  AllocaTracker() { allocas.grow(static_cast<int>(Storage::ST_StorageLast)); }
 
   /* Sets the initial address of the pool */
   void initPoolAddress(char *init) { allocRangeBegin = init; }
@@ -191,7 +191,7 @@ public:
   void track(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
     for (auto i = 0u; i < size; i++)
       allocas[static_cast<int>(s)].insert((char *) addr + i);
-    if (spc == AddressSpace::Internal) {
+    if (spc == AddressSpace::AS_Internal) {
       for (auto i = 0u; i < size; i++)
         internalAllocas.insert((char *) addr + i);
     }
@@ -199,7 +199,7 @@ public:
   void untrack(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
     for (auto i = 0u; i < size; i++)
       allocas[static_cast<int>(spc)].erase((char *) addr + i);
-    if (spc == AddressSpace::Internal) {
+    if (spc == AddressSpace::AS_Internal) {
       for (auto i = 0u; i < size; i++)
         internalAllocas.erase((char *) addr + i);
     }
@@ -608,66 +608,68 @@ private:  // Helper functions
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
-  GenericValue executeInodeLookup(void *file, Type *intTyp);
-  GenericValue executeInodeCreate(void *file, Type *intTyp);
-  GenericValue executeLookupOpen(void *file, int &flags, Type *intTyp);
-  GenericValue executeDskOpen(void *file, const GenericValue &inode, Type *intTyp);
-  GenericValue executeDskClose(const GenericValue &fd, Type *intTyp);
-  GenericValue executeDskRename(void *oldpath, const GenericValue &oldInode,
+  GenericValue executeInodeLookupFS(void *file, Type *intTyp);
+  GenericValue executeInodeCreateFS(void *file, Type *intTyp);
+  GenericValue executeLookupOpenFS(void *file, int &flags, Type *intTyp);
+  GenericValue executeOpenFS(void *file, const GenericValue &inode, Type *intTyp);
+  GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
+  GenericValue executeRenameFS(void *oldpath, const GenericValue &oldInode,
 				void *newpath, const GenericValue &newInode,
 				Type *intTyp);
-  GenericValue executeDskLink(void *newpath, const GenericValue &oldInode, Type *intTyp);
-  GenericValue executeDskUnlink(void *pathname, Type *intTyp);
-  GenericValue executeDskTruncate(const GenericValue &inode, const GenericValue &length,
+  GenericValue executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp);
+  GenericValue executeUnlinkFS(void *pathname, Type *intTyp);
+  GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
-  GenericValue executeDskRead(void *file, Type *intTyp, GenericValue *buf,
+  GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,
 			      Type *bufElemTyp, const GenericValue &offset,
 			      const GenericValue &count);
-  GenericValue executeDskWrite(void *file, Type *intTyp, GenericValue *buf,
+  GenericValue executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
 			       Type *bufElemTyp, const GenericValue &offset,
 			       const GenericValue &count, int snap);
-  GenericValue executeLseek(void *file, Type *intTyp,
+  GenericValue executeLseekFS(void *file, Type *intTyp,
 			    const GenericValue &offset,
 			    const GenericValue &whence);
-  void executeDskFsync(void *file, Type *intTyp);
+  void executeFsyncFS(void *file, Type *intTyp);
 
 
 
   /* Custom Opcode Implementations */
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callRecoveryAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callVerifierAssume(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callVerifierNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
   void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPthreadMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callThreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callThreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callThreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callThreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callReadFunction(const Library &lib, const LibMem &m, Function *F,
 			const std::vector<GenericValue> &ArgVals);
   void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
 			 const std::vector<GenericValue> &ArgVals);
-  void callDskOpen(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskCreat(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskClose(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskRename(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskLink(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskUnlink(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskTruncate(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskRead(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskWrite(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskSync(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskFsync(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskPread(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callDskPwrite(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callLseek(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPersistenceBarrier(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callCreatFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callRenameFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callLinkFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callUnlinkFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callTruncateFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callReadFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callFsyncFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
+
+  bool callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
 
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */

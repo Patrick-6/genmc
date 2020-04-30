@@ -21,10 +21,50 @@
 #ifndef __INTERPRETER_ENUM_API_HPP__
 #define __INTERPRETER_ENUM_API_HPP__
 
+#include <unordered_map>
+
 /* Types of allocations in the interpreter */
-enum class AddressSpace { User, Internal };
+enum class AddressSpace { AS_User, AS_Internal };
 
 /* Storage types */
-enum class Storage { Static, Automatic, Heap, StorageLast };
+enum class Storage { ST_Static, ST_Automatic, ST_Heap, ST_StorageLast };
+
+/* Modeled functions */
+enum class InternalFunctions {
+	FN_AssertFail,
+	FN_RecAssertFail,
+	FN_EndLoop,
+	FN_Assume,
+	FN_NondetInt,
+	FN_Malloc,
+	FN_Free,
+	FN_ThreadSelf,
+	FN_ThreadCreate,
+	FN_ThreadJoin,
+	FN_ThreadExit,
+	FN_MutexInit,
+	FN_MutexLock,
+	FN_MutexUnlock,
+	FN_MutexTrylock,
+	FN_BeginFS,
+	FN_OpenFS,
+	FN_CloseFS,
+	FN_CreatFS,
+	FN_RenameFS,
+	FN_LinkFS,
+	FN_UnlinkFS,
+	FN_TruncateFS,
+	FN_ReadFS,
+	FN_PreadFS,
+	FN_WriteFS,
+	FN_PwriteFS,
+	FN_FsyncFS,
+	FN_SyncFS,
+	FN_LseekFS,
+	FN_PersBarrierFS,
+	FN_EndFS,
+};
+
+extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
 
 #endif /* __INTERPRETER_ENUM_API_HPP__ */
