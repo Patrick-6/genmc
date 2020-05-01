@@ -52,11 +52,11 @@ enum class InternalFunctions {
 	FN_LinkFS,
 	FN_UnlinkFS,
 	FN_TruncateFS,
-	FN_LastNameCallFS,
+	FN_LastInodeFS,
 	FN_WriteFS,
 	FN_PwriteFS,
 	FN_PersBarrierFS,
-	FN_LastInvRecCallsFS,
+	FN_LastInvRecFS,
 	FN_ReadFS,
 	FN_PreadFS,
 	FN_FsyncFS,
@@ -65,6 +65,14 @@ enum class InternalFunctions {
 	FN_CloseFS,
 	FN_LastFS,
 };
+
+#define IS_INTERNAL_FUNCTION(name) internalFunNames.count(name)
+#define IS_FS_FN_CODE(code)						\
+	(code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastFS)
+#define IS_FS_INODE_FN_CODE(code)					\
+	(code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastInodeFS)
+#define IS_FS_INVALID_REC_CODE(code)					\
+	(code >= InternalFunctions::FN_CreatFS && code <= InternalFunctions::FN_LastInvRecFS)
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
 

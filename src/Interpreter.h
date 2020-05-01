@@ -669,7 +669,9 @@ private:  // Helper functions
   void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
 
-  bool callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
+  const Library *isUserLibCall(Function *F);
+  void callUserLibFunction(const Library *lib, Function *F, const std::vector<GenericValue> &ArgVals);
+  void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
 
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */

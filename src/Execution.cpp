@@ -3606,33 +3606,53 @@ void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue>
 	return;
 }
 
+const Library *
+Interpreter::isUserLibCall(Function *F)
+{
+	auto granted = driver->getGrantedLibs();
+	return Library::getLibByMemberName(granted, F->getName().str());
+}
+
+void Interpreter::callUserLibFunction(const Library *lib, Function *F,
+				      const std::vector<GenericValue> &ArgVals)
+{
+	auto m = lib->getMember(F->getName().str());
+	BUG_ON(!m);
+	if (m->hasReadSemantics())
+		callReadFunction(*lib, *m, F, ArgVals);
+	else
+		callWriteFunction(*lib, *m, F, ArgVals);
+	return;
+}
+
+bool isInternalCall(Function *F)
+{
+	return internalFunNames.count(F->getName().str());
+}
+
+bool isInvalidRecCall(InternalFunctions fCode, const std::vector<GenericValue> &ArgVals)
+{
+	return IS_FS_INVALID_REC_CODE(fCode) ||
+		(fCode == InternalFunctions::FN_OpenFS &&
+		 (ArgVals[1].IntVal.getLimitedValue() & GENMC_O_CREAT));
+}
+
 #define CALL_INTERNAL_FUNCTION(NAME)		\
 	case InternalFunctions::FN_##NAME:	\
 	        call##NAME(F, ArgVals);		\
 		break
 
-bool Interpreter::callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	std::string name = F->getName().str();
+	auto fCode = internalFunNames.at(F->getName().str());
 
-	/* Special handling for user-library calls */
-	auto granted = driver->getGrantedLibs();
-	auto lib = Library::getLibByMemberName(granted, name);
-	if (lib) {
-		auto m = lib->getMember(name);
-		BUG_ON(!m);
-		if (m->hasReadSemantics())
-			callReadFunction(*lib, *m, F, ArgVals);
-		else
-			callWriteFunction(*lib, *m, F, ArgVals);
-		return true;
+	/* Make sure we are not trying to make an invalid call during recovery */
+	if (inRecovery && isInvalidRecCall(fCode, ArgVals)) {
+		driver->visitError("My kind of error", Event::getInitializer());
+		return;
 	}
 
-	/* Check if it is modeled internally */
-	if (!internalFunNames.count(F->getName().str()))
-		return false;
-
-	switch (internalFunNames.at(name)) {
+	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
 		CALL_INTERNAL_FUNCTION(RecAssertFail);
 		CALL_INTERNAL_FUNCTION(EndLoop);
@@ -3667,7 +3687,7 @@ bool Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		BUG();
 		break;
 	}
-	return true;
+	return;
 }
 
 //===----------------------------------------------------------------------===//
@@ -3676,9 +3696,15 @@ bool Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 void Interpreter::callFunction(Function *F,
                                const std::vector<GenericValue> &ArgVals)
 {
-  /* Special handling for internal functions */
-  if (callInternalFunction(F, ArgVals))
+  /* Special handling for user lib calls and internal calls */
+  if (auto *lib = isUserLibCall(F)) {
+    callUserLibFunction(lib, F, ArgVals);
     return;
+  }
+  if (isInternalCall(F)) {
+    callInternalFunction(F, ArgVals);
+    return;
+  }
 
   assert((ECStack().empty() || !ECStack().back().Caller.getInstruction() ||
 	  ECStack().back().Caller.arg_size() == ArgVals.size()) &&
