@@ -223,9 +223,12 @@ bool isSyscallWPathname(CallInst *CI)
 {
 	/* Use getCalledValue() to deal with indirect invocations too */
 	auto name = CI->getCalledValue()->getName();
-	return name == "open" || name == "creat" ||
-	       name == "rename" || name == "link" ||
-	       name == "unlink" || name == "truncate";
+	if (!internalFunNames.count(name))
+		return false;
+
+	auto icode = internalFunNames.at(name);
+	return icode >= InternalFunctions::FN_OpenFS &&
+	       icode <= InternalFunctions::FN_LastNameCallFS;
 }
 
 void initializeFilenameEntry(FsInfo &FI, Value *v)
