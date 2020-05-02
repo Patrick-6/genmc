@@ -119,27 +119,12 @@ Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit,
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getLastThreadDskSync(Event upperLimit) const
+Event ExecutionGraph::getLastThreadDskSyncFsync(Event upperLimit) const
 {
 	for (auto j = upperLimit.index - 1; j > 0; j--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-		if (auto *sLab = llvm::dyn_cast<DskSyncLabel>(lab)) {
-			return sLab->getPos();
-		}
-	}
-	return Event::getInitializer();
-}
-
-Event ExecutionGraph::getLastThreadDskFsyncAtLoc(Event upperLimit,
-						 const llvm::GenericValue *addr) const
-{
-	for (auto j = upperLimit.index - 1; j > 0; j--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-		if (auto *fLab = llvm::dyn_cast<DskFsyncLabel>(lab)) {
-			auto *fInode = (char *) fLab->getInode();
-			if (fInode <= (char *) addr && (char *) addr < fInode + fLab->getSize())
-				return fLab->getPos();
-		}
+		if (llvm::isa<DskSyncLabel>(lab) || llvm::isa<DskFsyncLabel>(lab))
+			return lab->getPos();
 	}
 	return Event::getInitializer();
 }

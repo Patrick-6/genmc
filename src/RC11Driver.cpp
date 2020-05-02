@@ -156,6 +156,38 @@ void RC11Driver::calcBasicFenceViews(FenceLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
+bool isDskAccessInRange(const DskAccessLabel *dLab, char *inode, unsigned int iSize)
+{
+	/* (Disk) fences are included unconditionally */
+	if (llvm::isa<FenceLabel>(dLab))
+		return true;
+
+	auto *mAddr = (char *) llvm::dyn_cast<MemAccessLabel>(dLab)->getAddr();
+	BUG_ON(!llvm::isa<MemAccessLabel>(dLab));
+	return inode <= mAddr && mAddr < inode + iSize;
+}
+
+void RC11Driver::calcFsyncPbView(DskFsyncLabel *lab)
+{
+	auto &g = getGraph();
+	auto *fInode = (char *) lab->getInode();
+	auto iSize = lab->getSize();
+	auto &hb = lab->getHbView();
+	DepView pb;
+
+	/* TODO: Optimize? */
+	BUG_ON(hb.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < hb.size(); i++) {
+		for (auto j = 1u; j < hb[i]; j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
+				if (isDskAccessInRange(dLab, fInode, iSize))
+					pb.update(dLab->getPbView());
+		}
+	}
+	lab->setPbView(std::move(pb));
+}
+
 std::unique_ptr<ReadLabel>
 RC11Driver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
@@ -222,18 +254,14 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
 						   typ, rf);
-	View pbView;
+	DepView pbView;
 
 	calcBasicReadViews(lab.get());
-	auto sync = g.getLastThreadDskSync(lab->getPos());
-	if (!sync.isInitializer())
-		pbView = g.getHbBefore(sync);
-	auto fsync = g.getLastThreadDskFsyncAtLoc(lab->getPos(), ptr);
-	if (!fsync.isInitializer()) {
-		auto *fLab = llvm::dyn_cast<DskFsyncLabel>(g.getEventLabel(fsync));
-		pbView.update(fLab->getPbView());
+	auto sync = g.getLastThreadDskSyncFsync(lab->getPos());
+	if (!sync.isInitializer()) {
+		auto *sLab = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(sync));
+		pbView.update(sLab->getPbView());
 	}
-
 	lab->setPbView(std::move(pbView));
 	return std::move(lab);
 }
@@ -307,21 +335,16 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	auto lab = llvm::make_unique<DskWriteLabel>(g.nextStamp(), ord, pos,
 						    ptr, typ, val);
 
-	View pbView;
-
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-	auto sync = g.getLastThreadDskSync(lab->getPos());
+
+	DepView pbView;
+	auto sync = g.getLastThreadDskSyncFsync(lab->getPos());
 	if (!sync.isInitializer()) {
-		pbView = g.getHbBefore(sync);
-	}
-	auto fsync = g.getLastThreadDskFsyncAtLoc(lab->getPos(), ptr);
-	if (!fsync.isInitializer()) {
-		auto *fLab = llvm::dyn_cast<DskFsyncLabel>(g.getEventLabel(fsync));
-		pbView.update(fLab->getPbView());
+		auto *sLab = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(sync));
+		pbView.update(sLab->getPbView());
 	}
 	lab->setPbView(std::move(pbView));
-
 	return std::move(lab);
 }
 
@@ -403,12 +426,10 @@ RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
-	View pbView;
-	BUG(); // FIXME: What should fsync()'s pbview contain?
-
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	lab->setPbView(std::move(pbView));
+
+	calcFsyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -423,9 +444,13 @@ RC11Driver::createDskSyncLabel(int tid, int index)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pb;
 
+	for (auto i = 0u; i < hb.size(); i++)
+		pb[i] = hb[i];
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPbView(std::move(pb));
 	return std::move(lab);
 }
 

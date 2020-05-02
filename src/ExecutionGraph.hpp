@@ -168,15 +168,9 @@ public:
 	Event getLastThreadStoreAtLoc(Event upperLimit,
 				      const llvm::GenericValue *addr) const;
 
-	/* Returns the last sync() event before UPPERLIMIT in UPPERLIMIT's
-	* thread. If such event does not exist, returns INIT*/
-	Event getLastThreadDskSync(Event upperLimit) const;
-
-	/* Returns the last fsync() event before UPPERLIMIT in UPPERLIMIT's
-	 * thread. The fsync()'s range should cover the loc ADDR.
-	 * If no such event exists, returns INIT */
-	Event getLastThreadDskFsyncAtLoc(Event upperLimit,
-					 const llvm::GenericValue *addr) const;
+	/* Returns the last sync() or fsynct() event before UPPERLIMIT in
+	 * UPPERLIMIT's thread. If no such event exists, returns INIT */
+	Event getLastThreadDskSyncFsync(Event upperLimit) const;
 
 	/* Returns the last release before upperLimit in the latter's thread.
 	 * If it's not a fence, then it has to be at location addr */

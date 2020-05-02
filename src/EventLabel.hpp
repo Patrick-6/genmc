@@ -218,8 +218,8 @@ protected:
 public:
 	/* Getter/setter for a view representing (a subset of)
 	 * events that have persisted before this disk access */
-	const View& getPbView() const { return pbView; }
-	void setPbView(View &&v) { pbView = std::move(v); }
+	const DepView& getPbView() const { return pbView; }
+	void setPbView(DepView &&v) { pbView = std::move(v); }
 
 	EventLabel::EventLabelKind getEventLabelKind() const {
 		return eventLabelKind;
@@ -236,9 +236,9 @@ private:
 	/* The EventLabel class that this disk access represents */
 	EventLabel::EventLabelKind eventLabelKind;
 
-	/* View indicating (a subset of) the events that must have
+	/* View indicating a _subset_ of the events that must have
 	 * persisted before the access */
-	View pbView;
+	DepView pbView;
 };
 
 
