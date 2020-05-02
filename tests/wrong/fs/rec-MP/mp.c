@@ -1,6 +1,7 @@
 void *thread_1(void *unused)
 {
-	char buf[8] = {42, 42, 42, 42};
+	char buf[8];
+	buf[0] = 42;
 
 	int fd_x = open("x", O_WRONLY, S_IRWXU);
 	int fd_y = open("y", O_WRONLY, S_IRWXU);
