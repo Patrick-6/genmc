@@ -150,29 +150,49 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 #define GENMC_SEEK_CUR	1	/* Seek from current position.  */
 #define GENMC_SEEK_END	2	/* Seek from end of file.  */
 
-/* Should match those in include/fcntl.h */
+/* Should match those in include/fcntl.h (and be in the valid list below) */
+#define GENMC_O_RDONLY	00000000
+#define GENMC_O_WRONLY	00000001
+#define GENMC_O_RDWR	00000002
 #define GENMC_O_CREAT	00000100
 #define GENMC_O_TRUNC	00001000
-#define GENMC_O_WRONLY	00000001
+#define GENMC_O_APPEND	00002000
+#define GENMC_O_SYNC    04010000
+#define GENMC_O_DSYNC	00010000
+
+/* List of valid flags for the open flags argument -- FIXME: We do not support all flags */
+#define GENMC_VALID_OPEN_FLAGS \
+	(GENMC_O_RDONLY | GENMC_O_WRONLY | GENMC_O_RDWR | GENMC_O_CREAT | \
+	 GENMC_O_TRUNC | GENMC_O_APPEND | GENMC_O_SYNC | GENMC_O_DSYNC	\
+	 )
+
+#define GENMC_FMODE_READ  (GENMC_O_RDONLY | GENMC_O_RDWR)
+#define GENMC_FMODE_WRITE (GENMC_O_WRONLY | GENMC_O_RDWR)
 
 /* Fetching different fields of a file description (model @ include/unistd.h) */
 #define GET_FILE_OFFSET_ADDR(file)					\
 ({								        \
 	auto *SL = TD.getStructLayout(FI.fileTyp);			\
-        auto __off = (char *) file + SL->getElementOffset(2);		\
+        auto __off = (char *) file + SL->getElementOffset(3);		\
 	__off;								\
 })
-#define GET_FILE_INODE_ADDR(file)				\
-({							        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);		\
-	auto __inode = (char *) file + SL->getElementOffset(1); \
-	__inode;						\
+#define GET_FILE_FLAGS_ADDR(file)					\
+({								        \
+	auto *SL = TD.getStructLayout(FI.fileTyp);			\
+        auto __flags = (char *) file + SL->getElementOffset(2);		\
+	__flags;							\
 })
 #define GET_FILE_LOCK_ADDR(file)				\
 ({							        \
 	auto *SL = TD.getStructLayout(FI.fileTyp);		\
-	auto __lock = (char *) file + SL->getElementOffset(0);	\
+	auto __lock = (char *) file + SL->getElementOffset(1);	\
 	__lock;							\
+})
+#define GET_FILE_INODE_ADDR(file)				\
+({							        \
+	auto *SL = TD.getStructLayout(FI.fileTyp);		\
+	auto __inode = (char *) file + SL->getElementOffset(0); \
+	__inode;						\
 })
 
 /* Fetching different offsets of an inode */
@@ -2804,6 +2824,20 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 	return;
 }
 
+/* We may have to manipulate the flags at some point (depending on the model) */
+GenericValue Interpreter::checkOpenFlagsFS(GenericValue &flags, Type *intTyp)
+{
+	if (flags.IntVal.getLimitedValue() & ~GENMC_VALID_OPEN_FLAGS) {
+		WARN_ONCE("open-flags-einval", "Invalid flags used for open()!\n");
+		return INT_TO_GV(intTyp, -1);
+	}
+
+	if (flags.IntVal.getLimitedValue() & GENMC_O_DSYNC)
+		WARN_ONCE("open-dsync-osync", "O_DSYNC encountered. Assuming O_SYNC...\n");
+
+	return INT_TO_GV(intTyp, 0);
+}
+
 GenericValue Interpreter::executeInodeLookupFS(void *file, Type *intTyp)
 {
 	/* Fetch the address where the inode should be and read the contents */
@@ -2838,14 +2872,14 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
  * to the address of FILE's inode. Success: either if the inode was
  * already created, or flags contain O_CREAT and the inode was
  * created. */
-GenericValue Interpreter::executeLookupOpenFS(void *file, int &flags, Type *intTyp)
+GenericValue Interpreter::executeLookupOpenFS(void *file, GenericValue &flags, Type *intTyp)
 {
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
 
 	/* Return the inode, if it already exists. If the inode has not been created
 	 * and O_CREAT has not been specified, return null */
-	if (inode.PointerVal || !(flags & GENMC_O_CREAT))
+	if (inode.PointerVal || !(flags.IntVal.getLimitedValue() & GENMC_O_CREAT))
 		return inode;
 
 	/* Otherwise, we create an inode */
@@ -2853,12 +2887,13 @@ GenericValue Interpreter::executeLookupOpenFS(void *file, int &flags, Type *intT
 
 	/* If we created the inode, we will not truncate it
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
-	flags &= ~GENMC_O_TRUNC;
+	flags.IntVal &= ~GENMC_O_TRUNC;
 
 	return inode;
 }
 
-GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &inode, Type *intTyp)
+GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &flags,
+					const GenericValue &inode, Type *intTyp)
 {
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
@@ -2877,14 +2912,17 @@ GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &inod
 			  nullptr, sname.str(), "file");
 
 	/* ... and initialize its fields */
-	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file);
 	auto *fileInode = (const GenericValue *) GET_FILE_INODE_ADDR(file);
+	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file);
+	auto *fileFlags = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
 	auto *fileOffset = (const GenericValue *) GET_FILE_OFFSET_ADDR(file);
 
 	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   fileInode, intPtrType, inode);
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
 			   fileLock, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
-			   fileInode, intPtrType, inode);
+			   fileFlags, intTyp, flags);
 	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
 			   fileOffset, intTyp, INT_TO_GV(intTyp, 0));
 
@@ -2925,13 +2963,20 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *file = GVTOP(ArgVals[0]);
-	int flags = ArgVals[1].IntVal.getLimitedValue();
+	void *filename = GVTOP(ArgVals[0]);
+	GenericValue flags = ArgVals[1];
 	Type *intTyp = F->getReturnType();
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
+
+	/* Check the flags passed -- we ignore mode_t for the time being */
+	auto retO = checkOpenFlagsFS(flags, intTyp);
+	if (retO.IntVal.getLimitedValue() == -1) {
+		returnValueToCaller(F->getReturnType(), retO);
+		return;
+	}
 
 	auto *dirLock = (const llvm::GenericValue *) getDirLock();
 	driver->visitLock(dirLock, intTyp);
@@ -2941,7 +2986,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 	}
 
 	/* Try and find the requested inode */
-	auto inode = executeLookupOpenFS(file, flags, intTyp);
+	auto inode = executeLookupOpenFS(filename, flags, intTyp);
 
 	driver->visitUnlock(dirLock, intTyp);
 
@@ -2953,10 +2998,10 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 	}
 
 	/* We allocate a new file description pointing to the file's inode... */
-	auto fd = executeOpenFS(file, inode, intTyp);
+	auto fd = executeOpenFS(filename, flags, inode, intTyp);
 
 	/* ... and truncate if necessary */
-	if (flags & GENMC_O_TRUNC) {
+	if (flags.IntVal.getLimitedValue() & GENMC_O_TRUNC) {
 		auto ret = executeTruncateFS(inode, INT_TO_GV(intTyp, 0), intTyp, snap);
 		if (ret.IntVal.getLimitedValue() == 42)
 			return; /* Failed to acquire inode's lock... */
@@ -3215,7 +3260,15 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 					const GenericValue &count)
 {
 	Type *intPtrType = intTyp->getPointerTo();
-	GenericValue nr;
+	GenericValue nr = INT_TO_GV(intTyp, -1);
+
+	/* Check if we can read from the file */
+	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
+	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
+	if (!(flags.IntVal.getLimitedValue() & GENMC_FMODE_READ)) {
+		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
+		return nr;
+	}
 
 	/* Fetch the address of the inode */
 	auto *fileInode = GET_FILE_INODE_ADDR(file);
@@ -3256,6 +3309,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
+	GenericValue nr = INT_TO_GV(intTyp, -1); // Result
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
@@ -3266,13 +3320,13 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
-		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		returnValueToCaller(retTyp, nr);
 		return;
 	}
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
-	auto *fileLock = (const GenericValue *) (GET_FILE_LOCK_ADDR(file));
+	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file);
 	driver->visitLock(fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3280,17 +3334,18 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	}
 
 	/* Now we can read the offset at which we will try to read... */
-	auto *fileOffset = GET_FILE_OFFSET_ADDR(file);
-	auto oldOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
-					   (const GenericValue *) fileOffset, intTyp);
+	auto *fileOffset = (const GenericValue *) GET_FILE_OFFSET_ADDR(file);
+	auto offset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+					fileOffset, intTyp);
 
-	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, oldOffset, count);
+	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
 
-	/* We calculate the new offset to write to the file description... */
-	GenericValue newOffset;
-	newOffset.IntVal = oldOffset.IntVal + nr.IntVal;
-	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
-			   (const GenericValue *) fileOffset, intTyp, newOffset);
+	/* If the read succeeded, update the offset in the file description... */
+	if (nr.IntVal.getLimitedValue() >= 0) {
+		offset.IntVal += nr.IntVal;
+		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+				   fileOffset, intTyp, offset);
+	}
 
 	/* ...and then release the description's lock */
 	driver->visitUnlock(fileLock, intTyp);
@@ -3306,6 +3361,14 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 {
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
+
+	/* Check if we can write to the file */
+	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
+	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
+	if (!(flags.IntVal.getLimitedValue() & GENMC_FMODE_WRITE)) {
+		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
+		return INT_TO_GV(intTyp, -1);
+	}
 
 	/* Fetch the inode */
 	auto *fileInode = GET_FILE_INODE_ADDR(file);
@@ -3354,6 +3417,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
+	GenericValue nw = INT_TO_GV(intTyp, -1); // Result
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
@@ -3364,7 +3428,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
-		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		returnValueToCaller(retTyp, nw);
 		return;
 	}
 
@@ -3378,26 +3442,27 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	}
 
 	/* Now we can read the offset at which we will try to write... */
-	auto *fileOffset = GET_FILE_OFFSET_ADDR(file);
-	auto oldOffset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
-					   (const GenericValue *) fileOffset, intTyp);
+	auto *fileOffset = (const GenericValue *) GET_FILE_OFFSET_ADDR(file);
+	auto offset = driver->visitLoad(IA_None, llvm::AtomicOrdering::NotAtomic,
+					   fileOffset, intTyp);
 
-	/* Perform the disk write operation
+	/* Perform the disk write operation -- may not succeed
 	 * (If we failed to acquire the node's lock, block without returning anything) */
-	auto nw = executeWriteFS(file, intTyp, buf, bufElemTyp, oldOffset, count, snap);
+	nw = executeWriteFS(file, intTyp, buf, bufElemTyp, offset, count, snap);
 	if (nw.IntVal.getLimitedValue() == 42)
-		return; // lock acquisition failed
+		return; // SPECIAL CASE: lock acquisition failed
 
-	/* We calculate the new offset to write to the file description... */
-	GenericValue newOffset;
-	newOffset.IntVal = oldOffset.IntVal + nw.IntVal;
-	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
-			   (const GenericValue *) fileOffset, intTyp, newOffset);
+	/* If the write succeeded, we update the offset in the file description... */
+	if (nw.IntVal.getLimitedValue() >= 0) {
+		offset.IntVal += nw.IntVal;
+		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+				   fileOffset, intTyp, offset);
+	}
 
 	/* We release the file description's lock */
 	driver->visitUnlock((const GenericValue *) fileLock, intTyp);
 
-	/* Return #bytes written -- always fulfills the request in full  */
+	/* Return #bytes written -- if successful, fulfills the request in full  */
 	returnValueToCaller(retTyp, nw);
 	return;
 }
@@ -3448,6 +3513,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
+	GenericValue nr = INT_TO_GV(intTyp, -1); // Result;
 
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
@@ -3457,12 +3523,12 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		WARN_ONCE("pread-badf", "pread() called with a bad file descriptor!\n");
-		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		returnValueToCaller(retTyp, nr);
 		return;
 	}
 
 	/* Execute the read in the specified offset */
-	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
+	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
 
 	/* Return the number of bytes read (similar to read()) */
 	returnValueToCaller(retTyp, nr);
@@ -3480,6 +3546,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
+	GenericValue nw = INT_TO_GV(intTyp, -1);
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
@@ -3489,12 +3556,12 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		WARN_ONCE("pwrite-badf", "pwrite() called with a bad file descriptor!\n");
-		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		returnValueToCaller(retTyp, nw);
 		return;
 	}
 
 	/* Execute the write in the specified offset */
-	auto nw = executeWriteFS(file, intTyp, buf, bufElemTyp, offset, count, snap);
+	nw = executeWriteFS(file, intTyp, buf, bufElemTyp, offset, count, snap);
 
 	/* Return the number of bytes written */
 	returnValueToCaller(retTyp, nw);

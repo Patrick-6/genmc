@@ -201,21 +201,25 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	auto *intTyp = main->getReturnType();
 	unsigned int intByteWidth = GET_TYPE_ALLOC_SIZE(M, intTyp);
 
-	/* struct file */
+	/* struct file -- Note: sizeof(int) == sizeof(unsigned int) */
+	unsigned int offset = 0;
 	VI.internalInfo["file"].push_back(
-		std::make_pair(0, ".lock"));
+		std::make_pair(offset, ".inode"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair(intByteWidth, ".inode"));
+		std::make_pair((offset += voidPtrByteWidth), ".lock"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair(intByteWidth + voidPtrByteWidth, ".offset"));
+		std::make_pair((offset += intByteWidth), ".flags"));
+	VI.internalInfo["file"].push_back(
+		std::make_pair((offset += intByteWidth), ".offset"));
 
 	/* struct inode */
+	offset = 0;
 	VI.internalInfo["inode"].push_back(
-		std::make_pair(0, ".lock"));
+		std::make_pair(offset, ".lock"));
 	VI.internalInfo["inode"].push_back(
-		std::make_pair(intByteWidth, ".isize"));
+		std::make_pair((offset += intByteWidth), ".isize"));
 	VI.internalInfo["inode"].push_back(
-		std::make_pair(2 * intByteWidth, ".data"));
+		std::make_pair((offset += 2 * intByteWidth), ".data"));
 	return;
 }
 
@@ -253,7 +257,9 @@ void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
 	initializeFilenameEntry(FI, CI->getArgOperand(0));
 
 	/* For some syscalls we capture the second argument as well */
-	if (F->getName() == "rename" || F->getName() == "link") {
+	auto fCode = internalFunNames.at(F->getName());
+	if (fCode == InternalFunctions::FN_RenameFS ||
+	    fCode == InternalFunctions::FN_LinkFS) {
 		initializeFilenameEntry(FI, CI->getArgOperand(1));
 	}
 	return;

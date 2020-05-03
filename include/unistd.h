@@ -89,8 +89,9 @@ struct __genmc_inode {
 };
 
 struct __genmc_file {
-	pthread_mutex_t lock;
 	struct inode *inode;
+	pthread_mutex_t lock;
+	unsigned int flags; // encompasses f_mode
 	int offset;
 };
 

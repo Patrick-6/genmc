@@ -608,10 +608,12 @@ private:  // Helper functions
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
+  GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
   GenericValue executeInodeLookupFS(void *file, Type *intTyp);
   GenericValue executeInodeCreateFS(void *file, Type *intTyp);
-  GenericValue executeLookupOpenFS(void *file, int &flags, Type *intTyp);
-  GenericValue executeOpenFS(void *file, const GenericValue &inode, Type *intTyp);
+  GenericValue executeLookupOpenFS(void *file, GenericValue &flags, Type *intTyp);
+  GenericValue executeOpenFS(void *file, const GenericValue &flags,
+			     const GenericValue &inode, Type *intTyp);
   GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
   GenericValue executeRenameFS(void *oldpath, const GenericValue &oldInode,
 				void *newpath, const GenericValue &newInode,
