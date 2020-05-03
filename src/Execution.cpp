@@ -3411,6 +3411,11 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
+
+	/* Check for O_DSYNC/O_SYNC */
+	if (flags.IntVal.getLimitedValue() & GENMC_O_SYNC)
+		executeFsyncFS(file, intTyp);
+
 	return count;
 }
 
