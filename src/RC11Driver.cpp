@@ -167,25 +167,51 @@ bool isDskAccessInRange(const DskAccessLabel *dLab, char *inode, unsigned int iS
 	return inode <= mAddr && mAddr < inode + iSize;
 }
 
-void RC11Driver::calcFsyncPbView(DskFsyncLabel *lab)
+/* TODO: Optimize!!! */
+void RC11Driver::calcFsyncPbView(DskFsyncLabel *fLab)
 {
 	auto &g = getGraph();
-	auto *fInode = (char *) lab->getInode();
-	auto iSize = lab->getSize();
-	auto &hb = lab->getHbView();
+	auto *fInode = (char *) fLab->getInode();
+	auto iSize = fLab->getSize();
+	auto &hb = fLab->getHbView();
 	DepView pb;
 
-	/* TODO: Optimize? */
 	BUG_ON(hb.empty()); /* Must run after plain views calc */
 	for (auto i = 0u; i < hb.size(); i++) {
-		for (auto j = 1u; j < hb[i]; j++) {
+		auto lim = (i == fLab->getThread()) ? hb[i] - 1 : hb[i];
+		for (auto j = 1u; j <= lim; j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
+			if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab)) {
 				if (isDskAccessInRange(dLab, fInode, iSize))
 					pb.update(dLab->getPbView());
+			}
 		}
 	}
-	lab->setPbView(std::move(pb));
+	fLab->setPbView(std::move(pb));
+}
+
+/* TODO: Optimize!!! -- also @ changeRf() */
+void RC11Driver::calcMemAccessPbView(MemAccessLabel *mLab)
+{
+	auto &g = getGraph();
+	auto &porf = mLab->getPorfView();
+	DepView pb;
+
+	BUG_ON(porf.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < porf.size(); i++) {
+		auto lim = (i == mLab->getThread()) ? porf[i] - 1 : porf[i];
+		for (auto j = 1u; j <= lim; j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (llvm::isa<FenceLabel>(lab)) {
+				if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
+					pb.update(dLab->getPbView());
+			}
+		}
+	}
+	auto prevIdx = pb[mLab->getThread()];
+	pb[mLab->getThread()] = mLab->getIndex();
+	pb.addHolesInRange(Event(mLab->getThread(), prevIdx), mLab->getIndex());
+	llvm::dyn_cast<DskAccessLabel>(mLab)->setPbView(std::move(pb));
 }
 
 std::unique_ptr<ReadLabel>
@@ -254,15 +280,8 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
 						   typ, rf);
-	DepView pbView;
-
 	calcBasicReadViews(lab.get());
-	auto sync = g.getLastThreadDskSyncFsync(lab->getPos());
-	if (!sync.isInitializer()) {
-		auto *sLab = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(sync));
-		pbView.update(sLab->getPbView());
-	}
-	lab->setPbView(std::move(pbView));
+	calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -337,14 +356,7 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-
-	DepView pbView;
-	auto sync = g.getLastThreadDskSyncFsync(lab->getPos());
-	if (!sync.isInitializer()) {
-		auto *sLab = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(sync));
-		pbView.update(sLab->getPbView());
-	}
-	lab->setPbView(std::move(pbView));
+	calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -465,9 +477,13 @@ RC11Driver::createDskPersistsLabel(int tid, int index)
 
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
+	DepView pb;
 
+	for (auto i = 0u; i < hb.size(); i++)
+		pb[i] = hb[i];
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
+	lab->setPbView(std::move(pb));
 	return std::move(lab);
 }
 
@@ -685,19 +701,10 @@ void RC11Driver::changeRf(Event read, Event store)
 	g.changeRf(read, store);
 
 	/* And update the views of the load */
-	EventLabel *lab = g.getEventLabel(read);
-	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
-	EventLabel *rfLab = g.getEventLabel(store);
-	View hb = calcBasicHbView(rLab->getPos());
-	View porf = calcBasicPorfView(rLab->getPos());
-
-	porf.update(rfLab->getPorfView());
-	if (rLab->isAtLeastAcquire()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-			hb.update(wLab->getMsgView());
-	}
-	rLab->setHbView(std::move(hb));
-	rLab->setPorfView(std::move(porf));
+	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
+	calcBasicReadViews(rLab);
+	if (llvm::isa<DskReadLabel>(rLab))
+		calcMemAccessPbView(rLab);
 }
 
 bool RC11Driver::updateJoin(Event join, Event childLast)

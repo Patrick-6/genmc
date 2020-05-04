@@ -35,6 +35,7 @@ protected:
 	void calcBasicFenceViews(FenceLabel *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
 	void calcFsyncPbView(DskFsyncLabel *lab);
+	void calcMemAccessPbView(MemAccessLabel *lab);
 
 	int splitLocMOBefore(const llvm::GenericValue *addr, const View &before);
 

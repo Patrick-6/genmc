@@ -219,7 +219,7 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".isize"));
 	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += 2 * intByteWidth), ".data"));
+		std::make_pair((offset += intByteWidth), ".data"));
 	return;
 }
 

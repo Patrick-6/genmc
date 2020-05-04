@@ -73,13 +73,13 @@ public:
 		EL_Fence,
 		EL_DskFsync,
 		EL_DskSync,
+		EL_DskPersists,
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
 		EL_LockLabelLAPOR,
 		EL_UnlockLabelLAPOR,
 		EL_DskOpen,
-		EL_DskPersists,
 	};
 
 protected:
@@ -207,6 +207,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
  *     DskWriteLabel
  *     DskSyncLabel
  *     DskFsyncLabel
+ *     DskPersistsLabel
  *
  * Note: This is not a child of EventLabel to avoid virtual inheritance */
 class DskAccessLabel {
@@ -229,7 +230,8 @@ public:
 		return lab->getKind() == EventLabel::EL_DskRead ||
 		       lab->getKind() == EventLabel::EL_DskWrite ||
 		       lab->getKind() == EventLabel::EL_DskSync ||
-		       lab->getKind() == EventLabel::EL_DskFsync;
+		       lab->getKind() == EventLabel::EL_DskFsync ||
+		       lab->getKind() == EventLabel::EL_DskPersists;
 	}
 
 private:
@@ -827,6 +829,39 @@ public:
 };
 
 
+/******************************************************************************
+ **                        DskPersistsLabel Class
+ ******************************************************************************/
+
+/* Corresponds to a call to __VERIFIER_persistence_barrier(), i.e.,
+ * all events before this label will have persisted when the
+ * recovery routine runs */
+class DskPersistsLabel : public FenceLabel, public DskAccessLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskPersistsLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: FenceLabel(EL_DskPersists, st, ord, pos), DskAccessLabel(EL_DskPersists) {}
+
+	DskPersistsLabel *clone() const override { return new DskPersistsLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskPersists; }
+	static DskAccessLabel *castToDskAccessLabel(const DskPersistsLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskPersistsLabel*>(D));
+	}
+	static DskPersistsLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskPersistsLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* Nothing necessary for the time being */
+};
+
+
 /*******************************************************************************
  **                     ThreadCreateLabel Class
  ******************************************************************************/
@@ -1154,33 +1189,6 @@ private:
 
 	/* The file descriptor allocated for this call */
 	llvm::GenericValue fd;
-};
-
-
-/******************************************************************************
- **                        DskPersistsLabel Class
- ******************************************************************************/
-
-/* Corresponds to a call to __VERIFIER_persistence_barrier(), i.e.,
- * all events before this label will have persisted when the
- * recovery routine runs */
-class DskPersistsLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
-public:
-	DskPersistsLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
-		: EventLabel(EL_DskPersists, st, ord, pos) {}
-
-	DskPersistsLabel *clone() const override { return new DskPersistsLabel(*this); }
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_DskPersists; }
-
-private:
-	/* Nothing necessary for the time being */
 };
 
 

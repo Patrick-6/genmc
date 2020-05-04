@@ -119,16 +119,6 @@ Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit,
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getLastThreadDskSyncFsync(Event upperLimit) const
-{
-	for (auto j = upperLimit.index - 1; j > 0; j--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-		if (llvm::isa<DskSyncLabel>(lab) || llvm::isa<DskFsyncLabel>(lab))
-			return lab->getPos();
-	}
-	return Event::getInitializer();
-}
-
 Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
 						const llvm::GenericValue *addr) const
 {

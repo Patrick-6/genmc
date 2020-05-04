@@ -32,6 +32,8 @@ EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskFsync:
 		return static_cast<DskFsyncLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskPersists:
+		return static_cast<DskPersistsLabel *>(const_cast<DskAccessLabel *>(D));
 	default:
 		BUG();
 	}
@@ -49,6 +51,8 @@ DskAccessLabel *EventLabel::castToDskAccessLabel(const EventLabel *E)
 		return static_cast<DskSyncLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskFsync:
 		return static_cast<DskFsyncLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskPersists:
+		return static_cast<DskPersistsLabel *>(const_cast<EventLabel *>(E));
 	default:
 		BUG();
 	}

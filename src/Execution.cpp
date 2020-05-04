@@ -166,8 +166,12 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	 GENMC_O_TRUNC | GENMC_O_APPEND | GENMC_O_SYNC | GENMC_O_DSYNC	\
 	 )
 
-#define GENMC_FMODE_READ  (GENMC_O_RDONLY | GENMC_O_RDWR)
-#define GENMC_FMODE_WRITE (GENMC_O_WRONLY | GENMC_O_RDWR)
+#define GENMC_O_ACCMODE 00000003
+#define GENMC_ACC_MODE(x) ("\004\002\006\006"[(x)&GENMC_O_ACCMODE])
+#define GENMC_OPEN_FMODE(flag) (((flag + 1) & GENMC_O_ACCMODE))
+
+#define GENMC_FMODE_READ  0x1
+#define GENMC_FMODE_WRITE 0x2
 
 /* Fetching different fields of a file description (model @ include/unistd.h) */
 #define GET_FILE_OFFSET_ADDR(file)					\
@@ -2601,7 +2605,7 @@ void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &Ar
 
 	GenericValue result;
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(),
-			      dist(getCurThr().rng));
+			      dist(getCurThr().rng), true); // signed
 	returnValueToCaller(F->getReturnType(), result);
 	return;
 }
@@ -3265,7 +3269,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	/* Check if we can read from the file */
 	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
 	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
-	if (!(flags.IntVal.getLimitedValue() & GENMC_FMODE_READ)) {
+	if (!(GENMC_OPEN_FMODE(flags.IntVal.getLimitedValue()) & GENMC_FMODE_READ)) {
 		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
 		return nr;
 	}
@@ -3279,7 +3283,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode);
 	auto iSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
 	if (offset.IntVal.sge(iSize.IntVal)) {
-		nr.IntVal = APInt(intTyp->getIntegerBitWidth(), 0);
+		nr.IntVal = APInt(intTyp->getIntegerBitWidth(), 0, true); // signed
 		return nr;
 	}
 
@@ -3341,7 +3345,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
 
 	/* If the read succeeded, update the offset in the file description... */
-	if (nr.IntVal.getLimitedValue() >= 0) {
+	if (nr.IntVal.sge(INT_TO_GV(intTyp, 0).IntVal)) {
 		offset.IntVal += nr.IntVal;
 		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 				   fileOffset, intTyp, offset);
@@ -3365,7 +3369,7 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 	/* Check if we can write to the file */
 	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
 	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
-	if (!(flags.IntVal.getLimitedValue() & GENMC_FMODE_WRITE)) {
+	if (!(GENMC_OPEN_FMODE(flags.IntVal.getLimitedValue()) & GENMC_FMODE_WRITE)) {
 		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
 		return INT_TO_GV(intTyp, -1);
 	}
@@ -3465,7 +3469,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 		return; // SPECIAL CASE: lock acquisition failed
 
 	/* If the write succeeded, we update the offset in the file description... */
-	if (nw.IntVal.getLimitedValue() >= 0) {
+	if (nw.IntVal.sge(INT_TO_GV(intTyp, 0).IntVal)) {
 		offset.IntVal += nw.IntVal;
 		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 				   fileOffset, intTyp, offset);
@@ -3630,7 +3634,7 @@ GenericValue Interpreter::executeLseekFS(void *file, Type *intTyp,
 	}
 	default:
 		WARN_ONCE("lseek-unknown-whence", "Unsupported whence value for lseek!\n");
-		newOffset.IntVal = APInt(intTyp->getIntegerBitWidth(), -1);
+		newOffset.IntVal = APInt(intTyp->getIntegerBitWidth(), -1, true); // signed
 		return newOffset;
 	}
 	/* Update the offset (if lseek has not already returned) */

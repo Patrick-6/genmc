@@ -27,7 +27,8 @@ std::vector<Event> PersistenceChecker::getFileOperations() const
 	return g.collectAllEvents([&](const EventLabel *lab) {
 			if (lab->getThread() == recId)
 				return false;
-			return llvm::isa<DskAccessLabel>(lab);
+			return llvm::isa<DskAccessLabel>(lab) &&
+			       llvm::isa<MemAccessLabel>(lab);
 		});
 }
 
@@ -37,8 +38,6 @@ void PersistenceChecker::calcPb()
 	auto &pbRelation = getPbRelation();
 
 	pbRelation = Calculator::GlobalRelation(getFileOperations());
-
-	llvm::dbgs() << "init pb\n" << pbRelation; llvm::dbgs() << g << "\n";
 
 	/* Add all co edges to pb */
 	g.getCoherenceCalculator()->initCalc();
@@ -55,21 +54,21 @@ void PersistenceChecker::calcPb()
 			}
 		}
 	}
-	llvm::dbgs() << "added co\n" << pbRelation;
 
 	/* Add all sync edges
 	 * FIXME: optimize */
-	for (auto &d1 : pbRelation.getElems()) {
+	const auto &pbs = pbRelation.getElems();
+	for (auto &d1 : pbs) {
 		auto *lab1 = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(d1));
 		BUG_ON(!lab1);
-		llvm::dbgs() << lab1->getPbView() << "\n";
-		for (auto &d2 : pbRelation.getElems()) {
+		for (auto &d2 : pbs) {
+			if (d1 == d2)
+				continue;
 			if (lab1->getPbView().contains(d2))
 				pbRelation.addEdge(d2, d1);
 		}
-	}
 
-	llvm::dbgs() << "added sync\n" << pbRelation;
+	}
 
 	BUG_ON(!pbRelation.isIrreflexive());
 	return;
@@ -95,8 +94,6 @@ bool PersistenceChecker::isRecFromReadValid(const DskReadLabel *rLab)
 
 	/* Calculate pb (and propagate co relation) */
 	calcPb();
-
-	llvm::dbgs() << "calculated PB as " << getPbRelation() << " in Graph " << g << "\n";
 
 	/* co should already be calculated due to calcPb() */
 	auto &pbRelation = getPbRelation();
