@@ -3534,6 +3534,13 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
+	/* Check if the given offset is valid */
+	if (offset.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
+		WARN_ONCE("pread-einval", "pread() called with invalid offset!\n");
+		returnValueToCaller(retTyp, nr);
+		return;
+	}
+
 	/* We get the address of the file description, from which we will get
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
@@ -3566,6 +3573,13 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 
 	int snap = getNumGlobalInstructions(thr);
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+
+	/* Check if the given offset is valid */
+	if (offset.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
+		WARN_ONCE("pwrite-einval", "pwrite() called with invalid offset!\n");
+		returnValueToCaller(retTyp, nw);
+		return;
+	}
 
 	/* We get the address of the file description, from which we will get
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
