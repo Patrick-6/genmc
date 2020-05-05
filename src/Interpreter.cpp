@@ -423,6 +423,19 @@ void Interpreter::collectStaticAddresses(Module *M)
 		alloctor.initPoolAddress(allocBegin);
 }
 
+void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
+{
+	stopOnSystemErrors = !userConf->disableStopOnSystemError;
+
+	auto *errnoVar = M->getGlobalVariable("errno");
+	if (!errnoVar)
+		return;
+
+	errnoAddr = GVTOP(getConstantValue(errnoVar));
+	errnoTyp = errnoVar->getType()->getElementType();
+	return;
+}
+
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
 	/* Setup config options first */
@@ -603,6 +616,9 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
 	  depTracker = make_unique<IMMDepTracker>();
+
+  /* Set up the system error policy */
+  setupErrorPolicy(M, userConf);
 
   /* Also run a recovery routine if it is required to do so */
   checkPersistence = userConf->checkPersistence;

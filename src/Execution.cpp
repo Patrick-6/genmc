@@ -93,6 +93,19 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_persistence_barrier", InternalFunctions::FN_PersBarrierFS},
 };
 
+const std::unordered_map<SystemError, std::string> errorList = {
+	{SystemError::SE_EPERM, "Operation not permitted"},
+	{SystemError::SE_ENOENT, "No such file or directory"},
+	{SystemError::SE_EIO, "Input/output error"},
+	{SystemError::SE_EBADF, "Bad file descriptor"},
+	{SystemError::SE_ENOMEM, "Cannot allocate memory"},
+	{SystemError::SE_EEXIST, "File exists"},
+	{SystemError::SE_EINVAL, "Invalid argument"},
+	{SystemError::SE_EMFILE, "Too many open files"},
+	{SystemError::SE_ENFILE, "Too many open files in system"},
+};
+SystemError systemErrorNumber;
+
 //===----------------------------------------------------------------------===//
 //                     Various Helper Functions
 //===----------------------------------------------------------------------===//
@@ -2568,6 +2581,23 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 //                        Dispatch and Execution Code
 //===----------------------------------------------------------------------===//
 
+void Interpreter::handleSystemError(SystemError code, const std::string &msg)
+{
+	/* Do not get into an infinite loop... */
+	if (inReplay)
+		return;
+
+	if (stopOnSystemErrors) {
+		systemErrorNumber = code;
+		driver->visitError(GenMCDriver::DE_SystemError, msg);
+	} else {
+		WARN_ONCE(errorList.at(code), msg + "\n");
+		driver->visitStore(IA_None, AtomicOrdering::NotAtomic,
+				   (const GenericValue *) errnoAddr, errnoTyp,
+				   INT_TO_GV(errnoTyp, static_cast<int>(code)));
+	}
+}
+
 /* callAssertFail - Call to assert() macro */
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
@@ -2575,7 +2605,7 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
-	driver->visitError(err, Event::getInitializer());
+	driver->visitError(GenMCDriver::DE_Safety, err);
 }
 
 void Interpreter::callRecAssertFail(Function *F,
@@ -2832,7 +2862,7 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 GenericValue Interpreter::checkOpenFlagsFS(GenericValue &flags, Type *intTyp)
 {
 	if (flags.IntVal.getLimitedValue() & ~GENMC_VALID_OPEN_FLAGS) {
-		WARN_ONCE("open-flags-einval", "Invalid flags used for open()!\n");
+		handleSystemError(SystemError::SE_EINVAL, "Invalid flags used for open()");
 		return INT_TO_GV(intTyp, -1);
 	}
 
@@ -2941,8 +2971,8 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	Thread &thr = getCurThr();
 
 	/* length is a signed integer... */
-	if (length.IntVal.getLimitedValue() < 0) {
-		WARN_ONCE("trunc-invalid-length", "Invalid length for truncate()!\n");
+	if (length.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
+		handleSystemError(SystemError::SE_EINVAL, "Invalid length for truncate()");
 		return INT_TO_GV(intTyp, -1);
 	}
 
@@ -2996,7 +3026,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* Inode not found -- cannot open file */
 	if (!inode.PointerVal) {
-		WARN_ONCE("open-no-inode", "File does not exist in open()!\n");
+		handleSystemError(SystemError::SE_ENOENT, "File does not exist in open()");
 		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
 		return;
 	}
@@ -3032,7 +3062,7 @@ GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 	/* If it's not a valid open fd, report the error */
 	auto *fileDesc = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!fileDesc) {
-		WARN_ONCE("close-invalid-fd", "Invalid fd used in close()!\n");
+		handleSystemError(SystemError::SE_EBADF, "Invalid fd used in close()");
 		return INT_TO_GV(intTyp, -1);
 	}
 
@@ -3091,7 +3121,7 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* If no such entry found, exit */
 	if (!source.PointerVal) {
-		WARN_ONCE("link-no-entry-oldpath", "No entry found for oldpath at link()!\n");
+		handleSystemError(SystemError::SE_ENOENT, "No entry found for oldpath at link()");
 		result = INT_TO_GV(intTyp, -1);
 		goto exit;
 	}
@@ -3099,7 +3129,7 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 	/* Otherwise, check if newpath exists */
 	target = executeInodeLookupFS(newpath, intTyp);
 	if (target.PointerVal) {
-		WARN_ONCE("link-entry-exists-newpath", "The entry for newpath exists at link()!\n");
+		handleSystemError(SystemError::SE_EEXIST, "The entry for newpath exists at link()");
 		result = INT_TO_GV(intTyp, -1);
 		goto exit;
 	}
@@ -3143,7 +3173,7 @@ void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &Arg
 
 	/* Check if component exists */
 	if (!inode.PointerVal) {
-		WARN_ONCE("unlink-no-entry", "Component does not exist for unlink()!\n");
+		handleSystemError(SystemError::SE_ENOENT, "Component does not exist for unlink()");
 		result = INT_TO_GV(intTyp, -1);
 		goto exit;
 	}
@@ -3203,7 +3233,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue source, target;
 	source = executeInodeLookupFS(oldpath, intTyp);
 	if (!source.PointerVal) {
-		WARN_ONCE("rename-negative-source", "Source directory must exist for rename()!\n");
+		handleSystemError(SystemError::SE_ENOENT, "Oldpath does not exist for rename()");
 		result = INT_TO_GV(intTyp, -1);
 		goto exit; /* Use gotos since we might add support for more flags/error checks */
 	}
@@ -3246,7 +3276,7 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 
 	/* Inode not found -- cannot truncate file */
 	if (!inode.PointerVal) {
-		WARN_ONCE("truncate-no-inode", "File does not exist in truncate()!\n");
+		handleSystemError(SystemError::SE_ENOENT, "File does not exist in truncate()");
 		returnValueToCaller(F->getReturnType(), INT_TO_GV(intTyp, -1));
 		return;
 	}
@@ -3270,7 +3300,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
 	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
 	if (!(GENMC_OPEN_FMODE(flags.IntVal.getLimitedValue()) & GENMC_FMODE_READ)) {
-		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File not opened for reading in read()");
 		return nr;
 	}
 
@@ -3323,7 +3353,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	 * the reading offset, as well as the address of the inode. */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("read-badf", "read() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in read()");
 		returnValueToCaller(retTyp, nr);
 		return;
 	}
@@ -3370,7 +3400,7 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 	auto *flagsOffset = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
 	auto flags = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, flagsOffset, intTyp);
 	if (!(GENMC_OPEN_FMODE(flags.IntVal.getLimitedValue()) & GENMC_FMODE_WRITE)) {
-		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File not open for writing in write()");
 		return INT_TO_GV(intTyp, -1);
 	}
 
@@ -3443,7 +3473,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * the writing offset, as well as the address of the inode. */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("write-badf", "write() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in write()");
 		returnValueToCaller(retTyp, nw);
 		return;
 	}
@@ -3501,7 +3531,7 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("fsync-badf", "fsync() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in fsync()");
 		result = INT_TO_GV(retTyp, -1);
 		goto exit;
 	}
@@ -3536,7 +3566,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* Check if the given offset is valid */
 	if (offset.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
-		WARN_ONCE("pread-einval", "pread() called with invalid offset!\n");
+		handleSystemError(SystemError::SE_EINVAL, "Invalid offset in pread()");
 		returnValueToCaller(retTyp, nr);
 		return;
 	}
@@ -3545,7 +3575,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("pread-badf", "pread() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in pread()");
 		returnValueToCaller(retTyp, nr);
 		return;
 	}
@@ -3576,7 +3606,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 
 	/* Check if the given offset is valid */
 	if (offset.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
-		WARN_ONCE("pwrite-einval", "pwrite() called with invalid offset!\n");
+		handleSystemError(SystemError::SE_EINVAL, "Invalid offset in pwrite()");
 		returnValueToCaller(retTyp, nw);
 		return;
 	}
@@ -3585,7 +3615,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	 * the reading offset. In contrast to read(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("pwrite-badf", "pwrite() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in pwrite()");
 		returnValueToCaller(retTyp, nw);
 		return;
 	}
@@ -3647,7 +3677,7 @@ GenericValue Interpreter::executeLseekFS(void *file, Type *intTyp,
 		return newOffset;
 	}
 	default:
-		WARN_ONCE("lseek-unknown-whence", "Unsupported whence value for lseek!\n");
+		handleSystemError(SystemError::SE_EINVAL, "whence is not valid in lseek()");
 		newOffset.IntVal = APInt(intTyp->getIntegerBitWidth(), -1, true); // signed
 		return newOffset;
 	}
@@ -3675,7 +3705,7 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * the offset to modify */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
-		WARN_ONCE("lseek-badf", "lseek() called with a bad file descriptor!\n");
+		handleSystemError(SystemError::SE_EBADF, "File is not open in lseek()");
 		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
 		return;
 	}
@@ -3745,7 +3775,8 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	/* Make sure we are not trying to make an invalid call during recovery */
 	if (inRecovery && isInvalidRecCall(fCode, ArgVals)) {
-		driver->visitError("My kind of error", Event::getInitializer());
+		driver->visitError(GenMCDriver::DE_InvalidRecoveryCall,
+				   F->getName().str() + " cannot be called during recovery");
 		return;
 	}
 
@@ -3866,6 +3897,7 @@ std::string getFilenameFromMData(MDNode *node)
 void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	reset();
+	inReplay = true;
 
 	/* We have to replay all threads in order to get debug metadata */
 	threads[0].initSF = mainECStack.back();

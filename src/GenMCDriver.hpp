@@ -36,7 +36,7 @@
 
 class GenMCDriver {
 
-private:
+public:
 	/* Different error types that may occur.
 	 * Public to enable the interpreter utilize it */
 	enum DriverErrorKind {
@@ -52,8 +52,11 @@ private:
 		DE_InvalidAccessEnd,
 		DE_InvalidJoin,
 		DE_InvalidUnlock,
+		DE_InvalidRecoveryCall,
+		DE_SystemError,
 	};
 
+private:
 	static bool isInvalidAccessError(DriverErrorKind e) {
 		return DE_InvalidAccessBegin <= e &&
 			e <= DE_InvalidAccessEnd;
@@ -227,8 +230,8 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
-	visitError(std::string err, Event confEvent,
-		   DriverErrorKind t = DE_Safety);
+	visitError(DriverErrorKind t, std::string err,
+		   Event confEvent = Event::getInitializer());
 
 	/* Pers; Similar to visitError() but for errors occurring during
 	 * the recovery procedure */

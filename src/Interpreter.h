@@ -298,6 +298,16 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* Pointer to the dependency tracker */
   std::unique_ptr<DepTracker> depTracker = nullptr;
 
+  /* Whether the driver should be called on system errors */
+  bool stopOnSystemErrors;
+
+  /* Where system errors return values should be stored (if required) */
+  void *errnoAddr;
+  Type *errnoTyp;
+
+  /* Whether we are replaying an execution */
+  bool inReplay = false;
+
   /* Pers: Whether we should run a recovery procedure after the execution finishes */
   bool checkPersistence;
 
@@ -608,6 +618,8 @@ private:  // Helper functions
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 
+  void handleSystemError(SystemError code, const std::string &msg);
+
   GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
   GenericValue executeInodeLookupFS(void *file, Type *intTyp);
   GenericValue executeInodeCreateFS(void *file, Type *intTyp);
@@ -678,6 +690,9 @@ private:  // Helper functions
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */
   void collectStaticAddresses(Module *M);
+
+  /* Sets up how some errors will be reported to the user */
+  void setupErrorPolicy(Module *M, const Config *userConf);
 
   /* Pers: Sets up information about the modeled filesystem */
   void setupFsInfo(Module *M, const Config *userConf);

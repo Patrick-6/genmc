@@ -101,6 +101,9 @@ clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("fi
 static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
+static llvm::cl::opt<bool>
+clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
+			   llvm::cl::desc("Do not stop verification on system errors"));
 
 
 /* Persistence options */
@@ -193,6 +196,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	checkConsType = clCheckConsType;
 	checkConsPoint = clCheckConsPoint;
 	disableRaceDetection = clDisableRaceDetection;
+	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistence options */
 	checkPersistence = clCheckPersistence;

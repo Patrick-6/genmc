@@ -45,6 +45,7 @@ public:
 	bool printErrorTrace;
 	std::string dotFile;
 	bool disableRaceDetection;
+	bool disableStopOnSystemError;
 	std::string specsFile;
 
 	/* Persistence options */

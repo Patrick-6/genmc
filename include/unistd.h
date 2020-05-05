@@ -1,6 +1,7 @@
 #ifndef __UNISTD_H__
 #define __UNISTD_H__
 
+#include <errno.h>
 #include <pthread.h>
 #include <stddef.h>
 #include <sys/types.h>

@@ -76,4 +76,23 @@ enum class InternalFunctions {
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
 
+/* Someb basic system error codes for the user -- should match include/errno.h */
+enum class SystemError {
+	SE_EPERM   = 1,
+	SE_ENOENT  = 2,
+	SE_EIO     = 5,
+	SE_EBADF   = 9,
+	SE_ENOMEM  = 12,
+	SE_EEXIST  = 17,
+	SE_EINVAL  = 22,
+	SE_EMFILE  = 24,
+	SE_ENFILE  = 23,
+	SE_ETXTBSY = 26,
+	SE_EFBIG   = 27,
+	SE_ESPIPE  = 29,
+};
+
+extern SystemError systemErrorNumber; // just to inform the driver
+extern const std::unordered_map<SystemError, std::string> errorList;
+
 #endif /* __INTERPRETER_ENUM_API_HPP__ */
