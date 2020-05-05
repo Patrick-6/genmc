@@ -250,7 +250,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	}
 	case EventLabel::EL_Malloc: {
 		auto &bLab = static_cast<const MallocLabel&>(lab);
-		s << bLab.getKind() << " " << bLab.getAllocAddr();
+		s << bLab.getKind();
 		break;
 	}
 	case EventLabel::EL_Free: {

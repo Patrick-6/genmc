@@ -260,7 +260,7 @@ protected:
 	friend class Interpreter;
 
 	Thread(llvm::Function *F, int id)
-		: id(id), parentId(-1), threadFun(F), globalInstructions(0),
+		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
 		  isBlocked(false), rng(seed) {}
 
 	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
@@ -311,9 +311,6 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   /* Pers: Whether we should run a recovery procedure after the execution finishes */
   bool checkPersistence;
 
-  /* Pers: Whether the recovery routine is running */
-  bool inRecovery = false;
-
   /* Pers: The recovery routine to run */
   Function *recoveryRoutine = nullptr;
 
@@ -354,6 +351,9 @@ public:
   /* Information about threads as well as the currently executing thread */
   std::vector<Thread> threads;
   int currentThread = 0;
+
+  /* Pers: Whether the recovery routine is running */
+  bool inRecovery = false;
 
   /* Creates an entry for the main() function. More information are
    * filled from the execution engine when the exploration starts */

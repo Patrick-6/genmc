@@ -4,24 +4,26 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
-#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
 
-atomic_int x;
-atomic_int y;
-
 void __VERIFIER_recovery_routine(void)
 {
-	/* printf("Nothing to do\n"); */
+	char buf[8];
+	int fd = open("foo", O_RDONLY, S_IRWXU);
+
+	if (fd == -1)
+		return;
+
+	int nr = read(fd, buf, 1);
+
+	__VERIFIER_recovery_assert(nr == 1);
 	return;
 }
 
 int main()
 {
-	int fd = open("foo", O_TRUNC, S_IRWXU);
-	assert(fd != -1);
-
+	int fd = creat("foo", S_IRWXU);
 	return 0;
 }

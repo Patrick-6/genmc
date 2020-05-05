@@ -313,16 +313,13 @@ void GenMCDriver::handleRecoveryStart()
 	}
 
 	/* Finally, do all necessary preparations in the interpreter */
-	inRecovery = true;
 	getEE()->setupRecoveryRoutine(tid);
 	return;
 }
 
 void GenMCDriver::handleRecoveryEnd()
 {
-	inRecovery = false;
 	getEE()->cleanupRecoveryRoutine(getGraph().getRecoveryRoutineId());
-	llvm::dbgs() << "AFTER RECOVERY:";printGraph();
 	return;
 }
 
@@ -542,7 +539,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 
 bool GenMCDriver::inRecoveryMode() const
 {
-	return inRecovery;
+	return getEE()->inRecovery;
 }
 
 const EventLabel *GenMCDriver::getCurrentLabel() const
@@ -2225,11 +2222,9 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
 							 rLab->getType());
 				executeRLPrint(rLab, name, val);
-				llvm::dbgs() << " " << rLab->getAddr();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = EE->getVarName(wLab->getAddr());
 				executeWLPrint(wLab, name);
-				llvm::dbgs() << " " << wLab->getAddr();
 			} else {
 				llvm::dbgs() << *lab;
 			}

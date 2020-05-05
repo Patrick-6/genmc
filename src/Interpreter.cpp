@@ -135,6 +135,10 @@ void Interpreter::setupRecoveryRoutine(int tid)
 	/* Only fill the stack if a recovery routine actually exists... */
 	if (recoveryRoutine)
 		callFunction(recoveryRoutine, {});
+
+	/* Also set up initSF, if it is the first invocation */
+	if (!getThrById(tid).initSF.CurFunction)
+		getThrById(tid).initSF = ECStack().back();
 	return;
 }
 

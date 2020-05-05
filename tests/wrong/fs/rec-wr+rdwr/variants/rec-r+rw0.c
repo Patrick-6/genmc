@@ -47,7 +47,7 @@ void __VERIFIER_recovery_routine(void)
 	int fd_y = open("y", O_RDONLY, S_IRWXU);
 	int fd_x = open("x", O_RDONLY, S_IRWXU);
 
-	if (fd_y == -1)
+	if (fd_x == -1 || fd_y == -1)
 		return;
 
 	pread(fd_y, buf_y, 1, 0);
@@ -61,7 +61,9 @@ int main()
 {
 	pthread_t t1, t2;
 
-	int fd_x = creat("x", S_IRWXU);
+	int fd_x = open("x", O_CREAT|O_TRUNC|O_RDWR, S_IRWXU);
+
+	__VERIFIER_persistence_barrier();
 
 	if (pthread_create(&t1, NULL, thread_1, &fd_x))
 		abort();

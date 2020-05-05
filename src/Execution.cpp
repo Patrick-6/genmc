@@ -3776,7 +3776,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 	/* Make sure we are not trying to make an invalid call during recovery */
 	if (inRecovery && isInvalidRecCall(fCode, ArgVals)) {
 		driver->visitError(GenMCDriver::DE_InvalidRecoveryCall,
-				   F->getName().str() + " cannot be called during recovery");
+				   F->getName().str() + "() cannot be called during recovery");
 		return;
 	}
 
@@ -3898,6 +3898,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	reset();
 	inReplay = true;
+	inRecovery = false;
 
 	/* We have to replay all threads in order to get debug metadata */
 	threads[0].initSF = mainECStack.back();
@@ -3908,6 +3909,8 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
 		currentThread = i;
+		if (thr.threadFun == recoveryRoutine)
+			inRecovery = true;
 		while ((int) thr.globalInstructions < before[i]) {
 			int snap = thr.globalInstructions;
 			ExecutionContext &SF = thr.ECStack.back();

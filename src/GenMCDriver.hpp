@@ -633,9 +633,6 @@ private:
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;
 
-	/* Pers: Whether the recovery routine is running */
-	bool inRecovery = false;
-
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */
 	std::vector<Event> threadPrios;
