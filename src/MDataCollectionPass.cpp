@@ -206,18 +206,24 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["file"].push_back(
 		std::make_pair(offset, ".inode"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += voidPtrByteWidth), ".lock"));
+		std::make_pair((offset += voidPtrByteWidth), ".count"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += intByteWidth), ".flags"));
+		std::make_pair((offset += 2 * intByteWidth), ".flags"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += intByteWidth), ".offset"));
+		std::make_pair((offset += intByteWidth), ".pos_lock"));
+	VI.internalInfo["file"].push_back(
+		std::make_pair((offset += intByteWidth), ".pos"));
 
 	/* struct inode */
 	offset = 0;
 	VI.internalInfo["inode"].push_back(
 		std::make_pair(offset, ".lock"));
 	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".isize"));
+		std::make_pair((offset += intByteWidth), ".i_size"));
+	VI.internalInfo["inode"].push_back(
+		std::make_pair((offset += intByteWidth), ".da_alloc_close"));
+	VI.internalInfo["inode"].push_back(
+		std::make_pair((offset += intByteWidth), ".i_reserved_data_blocks"));
 	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".data"));
 	return;

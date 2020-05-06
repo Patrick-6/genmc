@@ -52,6 +52,7 @@ public:
 	bool checkPersistence;
 	unsigned int maxFileSize;
 	unsigned int maxOpenFiles;
+	bool disableAutoDaAlloc;
 
 	/* Transformation options */
 	int unroll;

@@ -446,6 +446,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	FI.fds = llvm::BitVector(userConf->maxOpenFiles);
 	FI.fdToFile.grow(userConf->maxOpenFiles);
 	FI.maxFileSize = userConf->maxFileSize;
+	FI.autoDaAlloc = !userConf->disableAutoDaAlloc;
 
 	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
 	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");

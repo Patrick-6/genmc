@@ -145,6 +145,9 @@ struct FsInfo {
   /* Maximum allowed file size */
   unsigned int maxFileSize;
 
+  /* "Mount" options */
+  bool autoDaAlloc;
+
   /* A map from file descriptors to file descriptions */
   llvm::IndexedMap<void *> fdToFile;
 
@@ -626,6 +629,8 @@ private:  // Helper functions
   GenericValue executeLookupOpenFS(void *file, GenericValue &flags, Type *intTyp);
   GenericValue executeOpenFS(void *file, const GenericValue &flags,
 			     const GenericValue &inode, Type *intTyp);
+  void executeAllocDaBlock(const GenericValue &inode, Type *intTyp);
+  void executeReleaseFileFS(void *fileDesc, Type *intTyp);
   GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
   GenericValue executeRenameFS(void *oldpath, const GenericValue &oldInode,
 				void *newpath, const GenericValue &newInode,
@@ -643,7 +648,8 @@ private:  // Helper functions
   GenericValue executeLseekFS(void *file, Type *intTyp,
 			    const GenericValue &offset,
 			    const GenericValue &whence);
-  void executeFsyncFS(void *file, Type *intTyp);
+  void resetReservedDataBlocks(void *inode, Type *intTyp);
+  void executeFsyncFS(void *inode, Type *intTyp);
 
 
 

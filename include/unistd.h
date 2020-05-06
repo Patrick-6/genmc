@@ -80,20 +80,28 @@ extern int truncate (const char *__file, __off_t __length);
  */
 
 #ifndef __CONFIG_GENMC_INODE_DATA_SIZE
-# error "Internal error: Inode size not defined!"
+# error "Internal error: inode size not defined!"
 #endif
 
 struct __genmc_inode {
-	pthread_mutex_t lock; // setupFsInfo() relies on the layout
-	int isize;
+	/* VFS */
+	pthread_mutex_t lock; // setupFsInfo() + interp rely on the layout
+	int i_size;
+
+	/* ext4 memory */
+	int da_alloc_close;
+	int i_reserved_data_blocks;
+
+	/* ext4 disk */
 	char data[__CONFIG_GENMC_INODE_DATA_SIZE];
 };
 
 struct __genmc_file {
 	struct inode *inode;
-	pthread_mutex_t lock;
+	unsigned int count; // need to manipulate atomically
 	unsigned int flags; // encompasses f_mode
-	int offset;
+	pthread_mutex_t pos_lock;
+	int pos;
 };
 
 struct __genmc_inode __attribute((address_space(42))) __genmc_dir_inode;

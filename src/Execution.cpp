@@ -190,8 +190,14 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 #define GET_FILE_OFFSET_ADDR(file)					\
 ({								        \
 	auto *SL = TD.getStructLayout(FI.fileTyp);			\
-        auto __off = (char *) file + SL->getElementOffset(3);		\
+        auto __off = (char *) file + SL->getElementOffset(4);		\
 	__off;								\
+})
+#define GET_FILE_POS_LOCK_ADDR(file)				\
+({							        \
+	auto *SL = TD.getStructLayout(FI.fileTyp);		\
+	auto __lock = (char *) file + SL->getElementOffset(3);	\
+	__lock;							\
 })
 #define GET_FILE_FLAGS_ADDR(file)					\
 ({								        \
@@ -199,11 +205,11 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
         auto __flags = (char *) file + SL->getElementOffset(2);		\
 	__flags;							\
 })
-#define GET_FILE_LOCK_ADDR(file)				\
-({							        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);		\
-	auto __lock = (char *) file + SL->getElementOffset(1);	\
-	__lock;							\
+#define GET_FILE_COUNT_ADDR(file)					\
+({								        \
+	auto *SL = TD.getStructLayout(FI.fileTyp);			\
+        auto __count = (char *) file + SL->getElementOffset(1);		\
+	__count;							\
 })
 #define GET_FILE_INODE_ADDR(file)				\
 ({							        \
@@ -216,8 +222,20 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 #define GET_INODE_DATA_ADDR(inode)				\
 ({							        \
 	auto *SL = TD.getStructLayout(FI.inodeTyp);		\
-	auto __data = (char *) inode + SL->getElementOffset(2);	\
+	auto __data = (char *) inode + SL->getElementOffset(4);	\
 	__data;							\
+})
+#define GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode)		\
+({							        \
+	auto *SL = TD.getStructLayout(FI.inodeTyp);		\
+	auto __rdb = (char *) inode + SL->getElementOffset(3);	\
+	__rdb;							\
+})
+#define GET_INODE_DA_ALLOC_CLOSE_ADDR(inode)			\
+({							        \
+	auto *SL = TD.getStructLayout(FI.inodeTyp);		\
+	auto __dac = (char *) inode + SL->getElementOffset(2);	\
+	__dac;							\
 })
 #define GET_INODE_ISIZE_ADDR(inode)					\
 ({							                \
@@ -2947,18 +2965,21 @@ GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &flag
 
 	/* ... and initialize its fields */
 	auto *fileInode = (const GenericValue *) GET_FILE_INODE_ADDR(file);
-	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file);
+	auto *fileCount = (const GenericValue *) GET_FILE_COUNT_ADDR(file);
 	auto *fileFlags = (const GenericValue *) GET_FILE_FLAGS_ADDR(file);
+	auto *filePosLock = (const GenericValue *) GET_FILE_POS_LOCK_ADDR(file);
 	auto *fileOffset = (const GenericValue *) GET_FILE_OFFSET_ADDR(file);
 
-	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   fileInode, intPtrType, inode);
-	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
-			   fileLock, intTyp, INT_TO_GV(intTyp, 0));
-	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   fileFlags, intTyp, flags);
-	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   fileOffset, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   filePosLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::Release,
+			   fileCount, intTyp, INT_TO_GV(intTyp, 1));
 
 	setFdToFile(fd.IntVal.getLimitedValue(), file);
 	return fd;
@@ -2976,7 +2997,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, -1);
 	}
 
-	/* Get inode's lock */
+	/* Get inode's lock (as in do_truncate()) */
 	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode.PointerVal));
 	driver->visitLock(inodeLock, intTyp);
 	if (thr.isBlocked) {
@@ -2984,9 +3005,19 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, 42);
 	}
 
-	/* Update inode's size */
+	/* Update inode's size (ext4_setattr()) */
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
+	auto oldIsize = driver->visitDskRead(inodeIsize, intTyp);
 	driver->visitDskWrite(inodeIsize, intTyp, length);
+
+	/* We will need to delete any preallocated blocks (ext4_truncate()) */
+	if (FI.autoDaAlloc) {
+		auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
+		if (oldIsize.IntVal.sge(INT_TO_GV(intTyp, 0).IntVal) &&
+		    length.IntVal.eq(INT_TO_GV(intTyp, 0).IntVal))
+			driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeDAC,
+					   intTyp, INT_TO_GV(intTyp, 1));
+	}
 
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
@@ -3057,6 +3088,36 @@ void Interpreter::callCreatFS(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
+void Interpreter::executeAllocDaBlock(const GenericValue &inode, Type *intTyp)
+{
+	auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode.PointerVal);
+	auto rdb = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp);
+
+	/* Flush the inode's data */
+	if (rdb.IntVal.eq(INT_TO_GV(intTyp, 1).IntVal))
+		executeFsyncFS(inode.PointerVal, intTyp);
+	return;
+}
+
+void Interpreter::executeReleaseFileFS(void *fileDesc, Type *intTyp)
+{
+	auto intPtrTyp = intTyp->getPointerTo();
+
+	/* Fetch inode */
+	auto *fileInode = (const GenericValue *) GET_FILE_INODE_ADDR(fileDesc);
+	auto inode = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, fileInode, intPtrTyp);
+
+	/* Check if AUTO_DA_ALLOC_CLOSE was set */
+	auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
+	auto dac = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeDAC, intTyp);
+	if (dac.IntVal.eq(INT_TO_GV(intTyp, 1).IntVal))
+		executeAllocDaBlock(inode, intTyp);
+
+	/* Free file description */
+	driver->visitFree((GenericValue *) fileDesc);
+	return;
+}
+
 GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 {
 	/* If it's not a valid open fd, report the error */
@@ -3066,7 +3127,25 @@ GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 		return INT_TO_GV(intTyp, -1);
 	}
 
-	driver->visitFree((GenericValue *) fileDesc);
+	/* Decrease the count for this file */
+	GenericValue newVal;
+	auto *fileCount = (const GenericValue *) GET_FILE_COUNT_ADDR(fileDesc);
+	auto ret = driver->visitLoad(IA_Fai, AtomicOrdering::AcquireRelease, fileCount,
+				     intTyp, GenericValue(), INT_TO_GV(intTyp, 1),
+				     AtomicRMWInst::Sub);
+
+	executeAtomicRMWOperation(newVal, ret, INT_TO_GV(intTyp, 1), AtomicRMWInst::Sub);
+
+	// setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
+	// 	       getDataDeps(thr.id, I.getValOperand()),
+	// 	       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+
+	driver->visitStore(IA_Fai, AtomicOrdering::AcquireRelease, fileCount, intTyp, newVal);
+
+	/* Check if it is the last reference to a file description */
+	if (newVal.IntVal.eq(INT_TO_GV(intTyp, 0).IntVal))
+		executeReleaseFileFS(fileDesc, intTyp);
+
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3360,7 +3439,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
-	auto *fileLock = (const GenericValue *) GET_FILE_LOCK_ADDR(file);
+	auto *fileLock = (const GenericValue *) GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock(fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3440,15 +3519,20 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 
 	GenericValue newSize;
 	newSize.IntVal = wOffset.IntVal + count.IntVal;
-	if (newSize.IntVal.sgt(iSize.IntVal))
+	if (newSize.IntVal.sgt(iSize.IntVal)) {
+		/* update size and set i_reserved_data_blocks */
 		driver->visitDskWrite(inodeIsize, intTyp, newSize);
+		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
+		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
+				   INT_TO_GV(intTyp, 1));
+	}
 
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
 
 	/* Check for O_DSYNC/O_SYNC */
 	if (flags.IntVal.getLimitedValue() & GENMC_O_SYNC)
-		executeFsyncFS(file, intTyp);
+		executeFsyncFS(inode, intTyp);
 
 	return count;
 }
@@ -3480,7 +3564,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
-	auto *fileLock = GET_FILE_LOCK_ADDR(file);
+	auto *fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock((const GenericValue *) fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3513,12 +3597,20 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
-void Interpreter::executeFsyncFS(void *file, Type *intTyp)
+void Interpreter::resetReservedDataBlocks(void *inode, Type *intTyp)
 {
-	auto *fileInode = (GenericValue *) GET_FILE_INODE_ADDR(file);
-	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
-				       fileInode, intTyp->getPointerTo()).PointerVal;
+	auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
+	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
+			   INT_TO_GV(intTyp, 0));
+	return;
+}
 
+void Interpreter::executeFsyncFS(void *inode, Type *intTyp)
+{
+	/* Clear i_reserved_data_blocks */
+	resetReservedDataBlocks(inode, intTyp);
+
+	/* do the fsync() */
 	driver->visitDskFsync(inode, getTypeSize(FI.inodeTyp));
 	return;
 }
@@ -3527,24 +3619,32 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 {
 	GenericValue fd = ArgVals[0];
 	Type *retTyp = F->getReturnType();
-	GenericValue result = INT_TO_GV(retTyp, 0);
 
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		handleSystemError(SystemError::SE_EBADF, "File is not open in fsync()");
-		result = INT_TO_GV(retTyp, -1);
-		goto exit;
+		returnValueToCaller(retTyp, INT_TO_GV(retTyp, -1));
+		return;
 	}
 
-	executeFsyncFS(file, retTyp);
+	auto *fileInode = (GenericValue *) GET_FILE_INODE_ADDR(file);
+	auto *inode = driver->visitLoad(IA_None, llvm::AtomicOrdering::Monotonic,
+				       fileInode, retTyp->getPointerTo()).PointerVal;
+	executeFsyncFS(inode, retTyp);
 
-exit:
-	returnValueToCaller(retTyp, result);
+	returnValueToCaller(retTyp, INT_TO_GV(retTyp, 0));
 	return;
 }
 
 void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	// /* Clear i_reserved_data_blocks for all inodes */
+	// for (auto &filename : FI.nameToInodeAddr) {
+	// 	auto &inode = driver->visitLoad(IA_None, filename.second;
+	// 	resetReservedDataBlocks(inode, intTyp);
+	// }
+
+	/* sync() */
 	driver->visitDskSync();
 	return;
 }
@@ -3712,7 +3812,7 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* First, we must get the file's lock. If we fail to acquire the lock,
 	 * we reset the EE to this instruction */
-	auto *fileLock = GET_FILE_LOCK_ADDR(file);
+	auto *fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock((const GenericValue *) fileLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
