@@ -2913,9 +2913,10 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 			   inodeLock, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
 
-	/* ... and set the newly allocated inode to the appropriate address */
+	/* ... set the newly allocated inode to the appropriate address and fsync dir */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode);
+	executeFsyncFS(getDirLock(), intTyp);
 
 	return inode;
 }
@@ -2991,7 +2992,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 {
 	Thread &thr = getCurThr();
 
-	/* length is a signed integer... */
+	/* length is a signed integer -- careful because it's long */
 	if (length.IntVal.slt(INT_TO_GV(intTyp, 0).IntVal)) {
 		handleSystemError(SystemError::SE_EINVAL, "Invalid length for truncate()");
 		return INT_TO_GV(intTyp, -1);
@@ -3014,7 +3015,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	if (FI.autoDaAlloc) {
 		auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
 		if (oldIsize.IntVal.sge(INT_TO_GV(intTyp, 0).IntVal) &&
-		    length.IntVal.eq(INT_TO_GV(intTyp, 0).IntVal))
+		    length.IntVal.getLimitedValue() == 0)
 			driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeDAC,
 					   intTyp, INT_TO_GV(intTyp, 1));
 	}
@@ -3108,10 +3109,12 @@ void Interpreter::executeReleaseFileFS(void *fileDesc, Type *intTyp)
 	auto inode = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, fileInode, intPtrTyp);
 
 	/* Check if AUTO_DA_ALLOC_CLOSE was set */
-	auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
-	auto dac = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeDAC, intTyp);
-	if (dac.IntVal.eq(INT_TO_GV(intTyp, 1).IntVal))
-		executeAllocDaBlock(inode, intTyp);
+	if (FI.autoDaAlloc) {
+		auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
+		auto dac = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeDAC, intTyp);
+		if (dac.IntVal.eq(INT_TO_GV(intTyp, 1).IntVal))
+			executeAllocDaBlock(inode, intTyp);
+	}
 
 	/* Free file description */
 	driver->visitFree((GenericValue *) fileDesc);
@@ -3170,6 +3173,7 @@ GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldIn
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode);
+	executeFsyncFS(getDirLock(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3226,6 +3230,7 @@ GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
 	/* Unlink inode */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr));
+	executeFsyncFS(getDirLock(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3276,10 +3281,12 @@ GenericValue Interpreter::executeRenameFS(void *oldpath, const GenericValue &old
 	if (oldInode.PointerVal == newInode.PointerVal)
 		return INT_TO_GV(intTyp, 0);
 
-	GenericValue result;
+	/* alloc_da_blocks() */
+	if (FI.autoDaAlloc)
+		executeAllocDaBlock(oldInode, intTyp);
 
 	/* Make new name point to old name's inode */
-	result = executeLinkFS(newpath, oldInode, intTyp);
+	GenericValue result = executeLinkFS(newpath, oldInode, intTyp);
 	BUG_ON(result.IntVal.getLimitedValue() == -1);
 
 	/* Delete old name */
@@ -3607,7 +3614,7 @@ void Interpreter::resetReservedDataBlocks(void *inode, Type *intTyp)
 
 void Interpreter::executeFsyncFS(void *inode, Type *intTyp)
 {
-	/* Clear i_reserved_data_blocks */
+	/* Clear reserved blocks */
 	resetReservedDataBlocks(inode, intTyp);
 
 	/* do the fsync() */

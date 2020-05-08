@@ -1430,7 +1430,6 @@ void GenMCDriver::visitRecoveryError()
 		thr.block();
 		return;
 	}
-
 	llvm::dbgs() << "FIXME: RECOVERY ERROR\n";
 	abort();
 }

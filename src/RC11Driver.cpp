@@ -187,6 +187,9 @@ void RC11Driver::calcFsyncPbView(DskFsyncLabel *fLab)
 			}
 		}
 	}
+	auto prevIdx = pb[fLab->getThread()];
+	pb[fLab->getThread()] = fLab->getIndex();
+	pb.addHolesInRange(Event(fLab->getThread(), prevIdx + 1), fLab->getIndex());
 	fLab->setPbView(std::move(pb));
 }
 
@@ -210,7 +213,7 @@ void RC11Driver::calcMemAccessPbView(MemAccessLabel *mLab)
 	}
 	auto prevIdx = pb[mLab->getThread()];
 	pb[mLab->getThread()] = mLab->getIndex();
-	pb.addHolesInRange(Event(mLab->getThread(), prevIdx), mLab->getIndex());
+	pb.addHolesInRange(Event(mLab->getThread(), prevIdx + 1), mLab->getIndex());
 	llvm::dyn_cast<DskAccessLabel>(mLab)->setPbView(std::move(pb));
 }
 

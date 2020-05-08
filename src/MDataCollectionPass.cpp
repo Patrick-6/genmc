@@ -208,7 +208,7 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["file"].push_back(
 		std::make_pair((offset += voidPtrByteWidth), ".count"));
 	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += 2 * intByteWidth), ".flags"));
+		std::make_pair((offset += intByteWidth), ".flags"));
 	VI.internalInfo["file"].push_back(
 		std::make_pair((offset += intByteWidth), ".pos_lock"));
 	VI.internalInfo["file"].push_back(
