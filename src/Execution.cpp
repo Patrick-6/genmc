@@ -2993,8 +2993,8 @@ GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &flag
 }
 
 GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
-					     const GenericValue &length,
-					     Type *intTyp, int snap)
+					    const GenericValue &length,
+					    Type *intTyp, int snap)
 {
 	Thread &thr = getCurThr();
 
@@ -3012,9 +3012,14 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, 42);
 	}
 
-	/* Update inode's size (ext4_setattr()) */
+	/* Check if we are actually extending the file */
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
+	auto *inodeData = GET_INODE_DATA_ADDR(inode.PointerVal);
 	auto oldIsize = driver->visitDskRead(inodeIsize, intTyp);
+	if (length.IntVal.sgt(oldIsize.IntVal))
+		zeroDskRangeFS(inodeData, oldIsize, length, Type::getInt8Ty(intTyp->getContext()));
+
+	/* Update inode's size (ext4_setattr()) */
 	driver->visitDskWrite(inodeIsize, intTyp, length);
 
 	/* We will need to delete any preallocated blocks (ext4_truncate()) */
@@ -3481,6 +3486,16 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	return;
 }
 
+void Interpreter::zeroDskRangeFS(void *base, const GenericValue &start,
+				 const GenericValue &end, Type *writeIntTyp)
+{
+	for (auto i = start.IntVal.getLimitedValue(); i < end.IntVal.getLimitedValue(); i++) {
+		auto *addr = (const GenericValue *) ((char *) base + i);
+		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0));
+	}
+	return;
+}
+
 GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
 					 Type *bufElemTyp, const GenericValue &offset,
 					 const GenericValue &count, int snap)
@@ -3509,15 +3524,19 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 		return INT_TO_GV(intTyp, 42); // lock acquisition failed
 	}
 
-	/* Non-POSIX-compliant behavior -- see ext4_write_checks() */
+	/* Check if we are writing past EOF */
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	auto *inodeData = GET_INODE_DATA_ADDR(inode);
+	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
+	if (offset.IntVal.sgt(iSize.IntVal))
+		zeroDskRangeFS(inodeData, iSize, offset, bufElemTyp);
+
+	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
 	auto wOffset = offset;
-	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND) {
-		auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-		wOffset = driver->visitDskRead(inodeIsize, intTyp);
-	}
+	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND)
+		wOffset = iSize;
 
 	/* Then, we proceed with the bytewise write */
-	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
 		auto *loadAddr = (char *) buf + i;
 		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
@@ -3527,9 +3546,6 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 	}
 
 	/* We update the inode's size, if necessary */
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
-
 	GenericValue newSize;
 	newSize.IntVal = wOffset.IntVal + count.IntVal;
 	if (newSize.IntVal.sgt(iSize.IntVal)) {
