@@ -2908,9 +2908,15 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 	/* ... properly initialize its fields... */
 	auto *inodeLock = (const GenericValue *) GET_INODE_LOCK_ADDR(inode.PointerVal);
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
+	auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
+	auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode.PointerVal);
 
 	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   inodeLock, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   inodeDAC, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   inodeRDB, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
 
 	/* ... set the newly allocated inode to the appropriate address and fsync dir */
