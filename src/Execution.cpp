@@ -94,15 +94,16 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 };
 
 const std::unordered_map<SystemError, std::string> errorList = {
-	{SystemError::SE_EPERM, "Operation not permitted"},
+	{SystemError::SE_EPERM,  "Operation not permitted"},
 	{SystemError::SE_ENOENT, "No such file or directory"},
-	{SystemError::SE_EIO, "Input/output error"},
-	{SystemError::SE_EBADF, "Bad file descriptor"},
+	{SystemError::SE_EIO,    "Input/output error"},
+	{SystemError::SE_EBADF,  "Bad file descriptor"},
 	{SystemError::SE_ENOMEM, "Cannot allocate memory"},
 	{SystemError::SE_EEXIST, "File exists"},
 	{SystemError::SE_EINVAL, "Invalid argument"},
 	{SystemError::SE_EMFILE, "Too many open files"},
 	{SystemError::SE_ENFILE, "Too many open files in system"},
+	{SystemError::SE_EFBIG,  "File too large"},
 };
 SystemError systemErrorNumber;
 
@@ -3012,12 +3013,20 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, 42);
 	}
 
-	/* Check if we are actually extending the file */
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
 	auto *inodeData = GET_INODE_DATA_ADDR(inode.PointerVal);
+
+	/* Check if we are actually extending the file */
+	GenericValue ret = INT_TO_GV(intTyp, 0);
 	auto oldIsize = driver->visitDskRead(inodeIsize, intTyp);
-	if (length.IntVal.sgt(oldIsize.IntVal))
+	if (length.IntVal.sgt(oldIsize.IntVal)) {
+		if (length.IntVal.sge(INT_TO_GV(intTyp, FI.maxFileSize).IntVal)) {
+			handleSystemError(SystemError::SE_EFBIG, "Length too big in truncate()");
+			ret = INT_TO_GV(intTyp, -1);
+			goto out;
+		}
 		zeroDskRangeFS(inodeData, oldIsize, length, Type::getInt8Ty(intTyp->getContext()));
+	}
 
 	/* Update inode's size (ext4_setattr()) */
 	driver->visitDskWrite(inodeIsize, intTyp, length);
@@ -3031,9 +3040,10 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 					   intTyp, INT_TO_GV(intTyp, 1));
 	}
 
+out:
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
-	return INT_TO_GV(intTyp, 0); /* Success */
+	return ret;
 }
 
 void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -3496,6 +3506,59 @@ void Interpreter::zeroDskRangeFS(void *base, const GenericValue &start,
 	return;
 }
 
+GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
+					       const GenericValue &offset, const GenericValue &flags,
+					       GenericValue &wOffset)
+{
+	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
+	wOffset = offset;
+	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND) {
+		auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+		wOffset = driver->visitDskRead(inodeIsize, intTyp);
+	}
+
+	/* Check if the maximum file size is going to be exceeded */
+	if (wOffset.IntVal.sge(INT_TO_GV(intTyp, FI.maxFileSize).IntVal)) {
+		handleSystemError(SystemError::SE_EFBIG, "Offset too big in write()");
+		return INT_TO_GV(intTyp, -1);
+	}
+	return INT_TO_GV(intTyp, 0);
+}
+
+GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
+						 Type *bufElemTyp, const GenericValue &wOffset,
+						 const GenericValue &count)
+{
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	auto *inodeData = GET_INODE_DATA_ADDR(inode);
+
+	/* Check if we are writing past EOF */
+	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
+	if (wOffset.IntVal.sgt(iSize.IntVal))
+		zeroDskRangeFS(inodeData, iSize, wOffset, bufElemTyp);
+
+	/* Bytewise write */
+	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
+		auto *loadAddr = (char *) buf + i;
+		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
+					     (const GenericValue *) loadAddr, bufElemTyp);
+		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
+		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val);
+	}
+
+	/* We update the inode's size, if necessary */
+	GenericValue newSize;
+	newSize.IntVal = wOffset.IntVal + count.IntVal;
+	if (newSize.IntVal.sgt(iSize.IntVal)) {
+		/* update size and set i_reserved_data_blocks */
+		driver->visitDskWrite(inodeIsize, intTyp, newSize);
+		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
+		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
+				   INT_TO_GV(intTyp, 1));
+	}
+	return count;
+}
+
 GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
 					 Type *bufElemTyp, const GenericValue &offset,
 					 const GenericValue &count, int snap)
@@ -3524,46 +3587,23 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 		return INT_TO_GV(intTyp, 42); // lock acquisition failed
 	}
 
-	/* Check if we are writing past EOF */
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	auto *inodeData = GET_INODE_DATA_ADDR(inode);
-	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
-	if (offset.IntVal.sgt(iSize.IntVal))
-		zeroDskRangeFS(inodeData, iSize, offset, bufElemTyp);
+	GenericValue wOffset, ret;
+	ret = executeWriteChecksFS(inode, intTyp, bufElemTyp, offset, flags, wOffset);
+	if (ret.IntVal.slt(INT_TO_GV(intTyp, -1).IntVal))
+		goto out;
 
-	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
-	auto wOffset = offset;
-	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND)
-		wOffset = iSize;
+	ret = executeBufferedWriteFS(inode, intTyp, buf, bufElemTyp, wOffset, count);
 
-	/* Then, we proceed with the bytewise write */
-	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
-		auto *loadAddr = (char *) buf + i;
-		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
-					     (const GenericValue *) loadAddr, bufElemTyp);
-		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
-		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val);
-	}
-
-	/* We update the inode's size, if necessary */
-	GenericValue newSize;
-	newSize.IntVal = wOffset.IntVal + count.IntVal;
-	if (newSize.IntVal.sgt(iSize.IntVal)) {
-		/* update size and set i_reserved_data_blocks */
-		driver->visitDskWrite(inodeIsize, intTyp, newSize);
-		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
-		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
-				   INT_TO_GV(intTyp, 1));
-	}
-
+out:
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
 
-	/* Check for O_DSYNC/O_SYNC */
-	if (flags.IntVal.getLimitedValue() & GENMC_O_SYNC)
-		executeFsyncFS(inode, intTyp);
-
-	return count;
+	/* Check for O_DSYNC/O_SYNC if write was performed */
+	if (ret.IntVal.sgt(INT_TO_GV(intTyp, 0).IntVal)) {
+		if (flags.IntVal.getLimitedValue() & GENMC_O_SYNC)
+			executeFsyncFS(inode, intTyp);
+	}
+	return ret;
 }
 
 void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals)

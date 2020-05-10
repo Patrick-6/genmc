@@ -644,6 +644,12 @@ private:  // Helper functions
 			      const GenericValue &count);
   void zeroDskRangeFS(void *base, const GenericValue &start,
 		      const GenericValue &end, Type *writeIntTyp);
+  GenericValue executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
+				    const GenericValue &offset, const GenericValue &flags,
+				    GenericValue &wOffset);
+  GenericValue executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
+				      Type *bufElemTyp, const GenericValue &wOffset,
+				      const GenericValue &count);
   GenericValue executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
 			       Type *bufElemTyp, const GenericValue &offset,
 			       const GenericValue &count, int snap);
