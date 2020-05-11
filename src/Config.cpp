@@ -112,7 +112,7 @@ static llvm::cl::opt<bool>
 clCheckPersistence("check-persistence", llvm::cl::cat(clPersistence),
 		   llvm::cl::desc("Check post-crash persistence guarantees"));
 static llvm::cl::opt<unsigned int>
-clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(60),
+clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(64),
 	      llvm::cl::desc("Maximum file size (in bytes)"));
 static llvm::cl::opt<unsigned int>
 clMaxOpenFiles("max-open-files", llvm::cl::cat(clPersistence), llvm::cl::init(20),
