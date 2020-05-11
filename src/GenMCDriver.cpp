@@ -56,7 +56,8 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
 		.withEnabledLAPOR(userConf->LAPOR)
-		.withEnabledPersistenceChecks(userConf->checkPersistence).build();
+		.withEnabledPersistenceChecks(userConf->checkPersistence,
+					      userConf->blockSize).build();
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -1949,7 +1950,7 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 
 void
 GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
-			   const llvm::GenericValue &val)
+			   const llvm::GenericValue &val, void *mapping)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1965,7 +1966,8 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 
 	/* It is always consistent to add the store at the end of MO */
 	auto ord = llvm::AtomicOrdering::Release;
-	auto wLab = createDskWriteLabel(pos.thread, pos.index, ord, addr, typ, val);
+	auto wLab = createDskWriteLabel(pos.thread, pos.index, ord, addr,
+					typ, val, mapping);
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 

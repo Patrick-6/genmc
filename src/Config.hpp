@@ -50,6 +50,7 @@ public:
 
 	/* Persistence options */
 	bool checkPersistence;
+	unsigned int blockSize;
 	unsigned int maxFileSize;
 	unsigned int maxOpenFiles;
 	bool disableAutoDaAlloc;

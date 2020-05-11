@@ -20,15 +20,24 @@
 
 #include "PersistenceChecker.hpp"
 
-std::vector<Event> PersistenceChecker::getFileOperations() const
+bool writeSameBlock(const DskWriteLabel *dw1, const DskWriteLabel *dw2,
+		    unsigned int blockSize)
 {
-	auto &g = getGraph();
+	if (dw1->getMapping() != dw2->getMapping())
+		return false;
+
+	ptrdiff_t off1 = (char *) dw1->getAddr() - (char *) dw1->getMapping();
+	ptrdiff_t off2 = (char *) dw2->getAddr() - (char *) dw2->getMapping();
+	return (off1 / blockSize) == (off2 / blockSize);
+}
+
+std::vector<Event> getDskWriteOperations(const ExecutionGraph &g)
+{
 	auto recId = g.getRecoveryRoutineId();
 	return g.collectAllEvents([&](const EventLabel *lab) {
-			if (lab->getThread() == recId)
-				return false;
-			return llvm::isa<DskAccessLabel>(lab) &&
-			       llvm::isa<MemAccessLabel>(lab);
+			BUG_ON(llvm::isa<DskWriteLabel>(lab) &&
+			       lab->getThread() == recId);
+			return llvm::isa<DskWriteLabel>(lab);
 		});
 }
 
@@ -37,7 +46,7 @@ void PersistenceChecker::calcPb()
 	auto &g = getGraph();
 	auto &pbRelation = getPbRelation();
 
-	pbRelation = Calculator::GlobalRelation(getFileOperations());
+	pbRelation = Calculator::GlobalRelation(getDskWriteOperations(g));
 
 	/* Add all co edges to pb */
 	g.getCoherenceCalculator()->initCalc();
@@ -55,17 +64,23 @@ void PersistenceChecker::calcPb()
 		}
 	}
 
-	/* Add all sync edges
+	/* Add all sync + same-block edges
 	 * FIXME: optimize */
 	const auto &pbs = pbRelation.getElems();
 	for (auto &d1 : pbs) {
-		auto *lab1 = llvm::dyn_cast<DskAccessLabel>(g.getEventLabel(d1));
+		auto *lab1 = llvm::dyn_cast<DskWriteLabel>(g.getEventLabel(d1));
 		BUG_ON(!lab1);
 		for (auto &d2 : pbs) {
 			if (d1 == d2)
 				continue;
+			auto *lab2 = llvm::dyn_cast<DskWriteLabel>(g.getEventLabel(d2));
+			BUG_ON(!lab2);
 			if (lab1->getPbView().contains(d2))
 				pbRelation.addEdge(d2, d1);
+			if (g.getHbBefore(d1).contains(d2)) {
+				if (writeSameBlock(lab1, lab2, getBlockSize()))
+					pbRelation.addEdge(d2, d1);
+			}
 		}
 
 	}
@@ -91,9 +106,6 @@ bool PersistenceChecker::isStoreReadFromRecRoutine(Event s)
 bool PersistenceChecker::isRecFromReadValid(const DskReadLabel *rLab)
 {
 	auto &g = getGraph();
-
-	/* Calculate pb (and propagate co relation) */
-	calcPb();
 
 	/* co should already be calculated due to calcPb() */
 	auto &pbRelation = getPbRelation();
@@ -131,6 +143,9 @@ bool PersistenceChecker::isRecAcyclic()
 	auto &g = getGraph();
 	auto recId = g.getRecoveryRoutineId();
 	BUG_ON(recId == -1);
+
+	/* Calculate pb (and propagate co relation) */
+	calcPb();
 
 	for (auto j = 1u; j < g.getThreadSize(recId); j++) {
 		const EventLabel *lab = g.getEventLabel(Event(recId, j));

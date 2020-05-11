@@ -364,7 +364,7 @@ IMMDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<DskWriteLabel>
 IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       const llvm::GenericValue &val)
+			       const llvm::GenericValue &val, void *mapping)
 {
 	BUG();
 }

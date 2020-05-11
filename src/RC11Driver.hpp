@@ -109,7 +109,7 @@ public:
 	std::unique_ptr<DskWriteLabel>
 	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val) override;
+			    const llvm::GenericValue &val, void *mapping) override;
 
 	/* Creates a label for a fence to be added to the graph */
 	std::unique_ptr<FenceLabel>

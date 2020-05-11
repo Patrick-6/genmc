@@ -36,11 +36,15 @@ class PersistenceChecker {
 
 public:
 	/* Constructor */
-	PersistenceChecker(ExecutionGraph &g) : execGraph(g) {}
+	PersistenceChecker(ExecutionGraph &g, unsigned int blockSize)
+		: execGraph(g), blockSize(blockSize) {}
 
 	/* Return a reference to the execution graph */
 	ExecutionGraph &getGraph() { return execGraph; }
 	ExecutionGraph &getGraph() const { return execGraph; }
+
+	/* Returns the block size */
+	unsigned int getBlockSize() const { return blockSize; }
 
 	/* Returns whether the recovery relation is acyclic */
 	bool isRecAcyclic();
@@ -48,10 +52,6 @@ public:
 private:
 	/* Returns a reference to the pb relation */
 	Calculator::GlobalRelation &getPbRelation() { return pbRelation; }
-
-	/* Returns all file operation labels in the graph,
-	 * excluding the ones in the recovery routine */
-	std::vector<Event> getFileOperations() const;
 
 	/* Returns true if S is read from a load
 	 * in the recovery routine */
@@ -68,6 +68,9 @@ private:
 
 	/* A reference to the execution graph */
 	ExecutionGraph &execGraph;
+
+	/* Block size in bytes */
+	unsigned int blockSize;
 
 	/* Persists-before and recovery relations.  These can be local
 	 * since they will only be modified from the persistence

@@ -462,17 +462,17 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	/* Initialize the directory's inode -- assume that the first field is int
 	 * We track this here to have custom naming info */
 	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
-	FI.dirLock = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
+	FI.dirInode = static_cast<char *>(GVTOP(getConstantValue(inodeVar)));
 
-	trackAlloca(FI.dirLock, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
-	updateVarNameInfo((char *) FI.dirLock, inodeSize, Storage::ST_Heap,
+	trackAlloca(FI.dirInode, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
+	updateVarNameInfo((char *) FI.dirInode, inodeSize, Storage::ST_Heap,
 			  AddressSpace::AS_Internal, nullptr, "__dir_inode.lock", "dir_inode_lock");
 
 	unsigned int count = 0;
 	unsigned int intPtrSize = getTypeSize(FI.inodeTyp->getElementType(0)->getPointerTo());
 	auto *SL = TD.getStructLayout(FI.inodeTyp);
 	for (auto &fname : FI.nameToInodeAddr) {
-		auto *addr = (char *) FI.dirLock + SL->getElementOffset(2) + count * intPtrSize;
+		auto *addr = (char *) FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
 		fname.second = addr;
 		updateVarNameInfo((char *) addr, intPtrSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 				  nullptr, "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");

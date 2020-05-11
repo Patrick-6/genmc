@@ -350,12 +350,12 @@ RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<DskWriteLabel>
 RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				const llvm::GenericValue &val)
+				const llvm::GenericValue &val, void *mapping)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<DskWriteLabel>(g.nextStamp(), ord, pos,
-						    ptr, typ, val);
+						    ptr, typ, val, mapping);
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());

@@ -151,8 +151,8 @@ struct FsInfo {
   /* A map from file descriptors to file descriptions */
   llvm::IndexedMap<void *> fdToFile;
 
-  /* Should hold the address of the directory's lock */
-  void *dirLock;
+  /* Should hold the address of the directory's inode */
+  void *dirInode;
 
   /* Maps a filename to the address of the contents of the directory's inode for
    * said name (the contents should have the address of the file's inode) */
@@ -642,7 +642,7 @@ private:  // Helper functions
   GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,
 			      Type *bufElemTyp, const GenericValue &offset,
 			      const GenericValue &count);
-  void zeroDskRangeFS(void *base, const GenericValue &start,
+  void zeroDskRangeFS(void *inode, const GenericValue &start,
 		      const GenericValue &end, Type *writeIntTyp);
   GenericValue executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
 				    const GenericValue &offset, const GenericValue &flags,
@@ -736,10 +736,8 @@ private:  // Helper functions
   /* Pers: Tracks that the address of the file description of FD is FILEADDR */
   void setFdToFile(int fd, void *fileAddr);
 
-  /* Pers: Fetches the address of the directory's lock */
-  void *getDirLock() const;
-
-  /* Pers: Fetches the address of FILENAME's inode */
+  /* Pers: Directory operations */
+  void *getDirInode() const;
   void *getInodeAddrFromName(const char *filename) const;
 
 };

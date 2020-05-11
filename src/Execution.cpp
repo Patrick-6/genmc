@@ -148,13 +148,11 @@ void Interpreter::setFdToFile(int fd, void *fileAddr)
 	FI.fdToFile[fd] = fileAddr;
 }
 
-/* Pers: Fetches the address of the directory's lock */
-void *Interpreter::getDirLock() const
+void *Interpreter::getDirInode() const
 {
-	return FI.dirLock;
+	return FI.dirInode;
 }
 
-/* Pers: Fetches the address of FILENAME's inode */
 void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	return FI.nameToInodeAddr.at(filename);
 }
@@ -250,7 +248,10 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	auto __lock = (char *) inode + SL->getElementOffset(0);		\
 	__lock;								\
 })
-
+#define GET_METADATA_MAPPING(inode)		\
+	GET_INODE_ISIZE_ADDR(inode)
+#define GET_DATA_MAPPING(inode)			\
+	GET_INODE_DATA_ADDR(inode)
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
@@ -2918,12 +2919,13 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 			   inodeDAC, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   inodeRDB, intTyp, INT_TO_GV(intTyp, 0));
-	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0),
+			      GET_METADATA_MAPPING(getDirInode()));
 
 	/* ... set the newly allocated inode to the appropriate address and fsync dir */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode);
-	executeFsyncFS(getDirLock(), intTyp);
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(getDirInode()));
+	executeFsyncFS(getDirInode(), intTyp);
 
 	return inode;
 }
@@ -3013,11 +3015,10 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, 42);
 	}
 
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
-	auto *inodeData = GET_INODE_DATA_ADDR(inode.PointerVal);
+	GenericValue ret = INT_TO_GV(intTyp, 0);
 
 	/* Check if we are actually extending the file */
-	GenericValue ret = INT_TO_GV(intTyp, 0);
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
 	auto oldIsize = driver->visitDskRead(inodeIsize, intTyp);
 	if (length.IntVal.sgt(oldIsize.IntVal)) {
 		if (length.IntVal.sge(INT_TO_GV(intTyp, FI.maxFileSize).IntVal)) {
@@ -3025,11 +3026,11 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 			ret = INT_TO_GV(intTyp, -1);
 			goto out;
 		}
-		zeroDskRangeFS(inodeData, oldIsize, length, Type::getInt8Ty(intTyp->getContext()));
+		zeroDskRangeFS(inode.PointerVal, oldIsize, length, Type::getInt8Ty(intTyp->getContext()));
 	}
 
 	/* Update inode's size (ext4_setattr()) */
-	driver->visitDskWrite(inodeIsize, intTyp, length);
+	driver->visitDskWrite(inodeIsize, intTyp, length, GET_METADATA_MAPPING(inode.PointerVal));
 
 	/* We will need to delete any preallocated blocks (ext4_truncate()) */
 	if (FI.autoDaAlloc) {
@@ -3065,7 +3066,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 		return;
 	}
 
-	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3193,8 +3194,9 @@ void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgV
 GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp)
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
-	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode);
-	executeFsyncFS(getDirLock(), intTyp);
+	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode,
+			      GET_DATA_MAPPING(getDirInode()));
+	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3211,7 +3213,7 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	GenericValue source, target;
 
 	/* Since we have a single-directory structure, link boils down to a simple cs */
@@ -3250,8 +3252,9 @@ GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
 {
 	/* Unlink inode */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr));
-	executeFsyncFS(getDirLock(), intTyp);
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr),
+			      GET_DATA_MAPPING(getDirInode()));
+	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3267,7 +3270,7 @@ void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &Arg
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3329,7 +3332,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3369,7 +3372,7 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
 		       getAddrPoDeps(thr.id), nullptr);
 
-	auto *dirLock = (const llvm::GenericValue *) getDirLock();
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
 	if (thr.isBlocked) {
 		rollbackDskOperation(thr, snap);
@@ -3496,12 +3499,14 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	return;
 }
 
-void Interpreter::zeroDskRangeFS(void *base, const GenericValue &start,
+void Interpreter::zeroDskRangeFS(void *inode, const GenericValue &start,
 				 const GenericValue &end, Type *writeIntTyp)
 {
+	auto *dataOffset = (char *) GET_INODE_DATA_ADDR(inode);
 	for (auto i = start.IntVal.getLimitedValue(); i < end.IntVal.getLimitedValue(); i++) {
-		auto *addr = (const GenericValue *) ((char *) base + i);
-		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0));
+		auto *addr = (const GenericValue *) (dataOffset + i);
+		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0),
+				      GET_DATA_MAPPING(inode));
 	}
 	return;
 }
@@ -3535,7 +3540,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	/* Check if we are writing past EOF */
 	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
 	if (wOffset.IntVal.sgt(iSize.IntVal))
-		zeroDskRangeFS(inodeData, iSize, wOffset, bufElemTyp);
+		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
 
 	/* Bytewise write */
 	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
@@ -3543,7 +3548,8 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
 					     (const GenericValue *) loadAddr, bufElemTyp);
 		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
-		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val);
+		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val,
+				      GET_DATA_MAPPING(inode));
 	}
 
 	/* We update the inode's size, if necessary */
@@ -3551,7 +3557,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	newSize.IntVal = wOffset.IntVal + count.IntVal;
 	if (newSize.IntVal.sgt(iSize.IntVal)) {
 		/* update size and set i_reserved_data_blocks */
-		driver->visitDskWrite(inodeIsize, intTyp, newSize);
+		driver->visitDskWrite(inodeIsize, intTyp, newSize, GET_METADATA_MAPPING(inode));
 		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
 		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
 				   INT_TO_GV(intTyp, 1));

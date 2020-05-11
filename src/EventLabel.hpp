@@ -711,9 +711,12 @@ protected:
 public:
 	DskWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val)
+		      llvm::GenericValue val, void *mapping)
 		: WriteLabel(EL_DskWrite, st, ord, pos, addr, valTyp, val),
-		  DskAccessLabel(EL_DskWrite) {}
+		  DskAccessLabel(EL_DskWrite), mapping(mapping) {}
+
+	/* Returns the starting offset for this write's disk mapping */
+	const void *getMapping() const { return mapping; }
 
 	DskWriteLabel *clone() const override { return new DskWriteLabel(*this); }
 
@@ -727,7 +730,8 @@ public:
 	}
 
 private:
-	/* Nothing more than what the write offers, for now */
+	/* The starting offset for this write's disk mapping */
+	void *mapping;
 };
 
 
