@@ -447,6 +447,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	FI.fdToFile.grow(userConf->maxOpenFiles);
 	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
+	FI.journalData = userConf->journalData;
 	FI.delalloc = !userConf->disableDelalloc;
 	FI.autoDaAlloc = !FI.delalloc || !userConf->disableAutoDaAlloc;
 

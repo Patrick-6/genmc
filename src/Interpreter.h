@@ -147,6 +147,7 @@ struct FsInfo {
   unsigned int maxFileSize;
 
   /* "Mount" options */
+  JournalDataFS journalData;
   bool delalloc;
   bool autoDaAlloc;
 
@@ -639,7 +640,14 @@ private:  // Helper functions
 				Type *intTyp);
   GenericValue executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp);
   GenericValue executeUnlinkFS(void *pathname, Type *intTyp);
+
   GenericValue readInodeSizeFS(void *inode, Type *intTyp);
+  void updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize);
+  void updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
+			     const GenericValue &ordDataBegin, const GenericValue &ordDataEnd);
+  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
+				   const GenericValue &offset, GenericValue &dSize);
+
   GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
   GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,
@@ -661,7 +669,6 @@ private:  // Helper functions
 			    const GenericValue &whence);
   void resetReservedDataBlocks(void *inode, Type *intTyp);
   void executeFsyncFS(void *inode, Type *intTyp);
-
 
 
   /* Custom Opcode Implementations */

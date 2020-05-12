@@ -53,6 +53,7 @@ public:
 	unsigned int blockSize;
 	unsigned int maxFileSize;
 	unsigned int maxOpenFiles;
+	JournalDataFS journalData;
 	bool disableDelalloc;
 	bool disableAutoDaAlloc;
 
