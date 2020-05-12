@@ -142,10 +142,12 @@ struct FsInfo {
   /* A bitvector of available file descriptors */
   llvm::BitVector fds;
 
-  /* Maximum allowed file size */
+  /* Filesystem options*/
+  unsigned int blockSize;
   unsigned int maxFileSize;
 
   /* "Mount" options */
+  bool delalloc;
   bool autoDaAlloc;
 
   /* A map from file descriptors to file descriptions */
@@ -637,6 +639,7 @@ private:  // Helper functions
 				Type *intTyp);
   GenericValue executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp);
   GenericValue executeUnlinkFS(void *pathname, Type *intTyp);
+  GenericValue readInodeSizeFS(void *inode, Type *intTyp);
   GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
   GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,

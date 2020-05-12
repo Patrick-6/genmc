@@ -711,9 +711,20 @@ protected:
 public:
 	DskWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val, void *mapping)
+		      llvm::GenericValue val, void *mapping, bool isMetadata,
+		      std::pair<void *, void*> ordDataRange)
 		: WriteLabel(EL_DskWrite, st, ord, pos, addr, valTyp, val),
-		  DskAccessLabel(EL_DskWrite), mapping(mapping) {}
+		  DskAccessLabel(EL_DskWrite), mapping(mapping),
+		  metadata(isMetadata), ordDataRange(ordDataRange) {}
+
+	/* Whether this is a metadata write */
+	bool isMetadata() const { return metadata; }
+
+	/* Helpers that return data with which this write is ordered */
+	const void *getOrdDataBegin() const { return ordDataRange.first; }
+	const void *getOrdDataEnd() const { return ordDataRange.second; }
+	const std::pair<void *, void *>
+	getOrdDataRange() const { return ordDataRange; }
 
 	/* Returns the starting offset for this write's disk mapping */
 	const void *getMapping() const { return mapping; }
@@ -732,6 +743,12 @@ public:
 private:
 	/* The starting offset for this write's disk mapping */
 	void *mapping;
+
+	/* Whether this write writes metadata */
+	bool metadata;
+
+	/* The data range [begin, end) that with which this write is ordered */
+	std::pair<void *, void *> ordDataRange;
 };
 
 

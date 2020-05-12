@@ -221,8 +221,14 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 #define GET_INODE_DATA_ADDR(inode)				\
 ({							        \
 	auto *SL = TD.getStructLayout(FI.inodeTyp);		\
-	auto __data = (char *) inode + SL->getElementOffset(4);	\
+	auto __data = (char *) inode + SL->getElementOffset(5);	\
 	__data;							\
+})
+#define GET_INODE_IDISKSIZE_ADDR(inode)					\
+({							                \
+	auto *SL = TD.getStructLayout(FI.inodeTyp);			\
+	auto __disksize = (char *) inode + SL->getElementOffset(4);	\
+	__disksize;							\
 })
 #define GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode)		\
 ({							        \
@@ -2912,19 +2918,24 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
 	auto *inodeDAC = (const GenericValue *) GET_INODE_DA_ALLOC_CLOSE_ADDR(inode.PointerVal);
 	auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode.PointerVal);
+	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode.PointerVal);
 
 	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   inodeLock, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
+			   inodeIsize, intTyp, INT_TO_GV(intTyp, 0));
+	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   inodeDAC, intTyp, INT_TO_GV(intTyp, 0));
 	driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
 			   inodeRDB, intTyp, INT_TO_GV(intTyp, 0));
-	driver->visitDskWrite(inodeIsize, intTyp, INT_TO_GV(intTyp, 0),
-			      GET_METADATA_MAPPING(getDirInode()));
+	driver->visitDskWrite(inodeIdisksize, intTyp, INT_TO_GV(intTyp, 0),
+			      GET_METADATA_MAPPING(getDirInode()),
+			      std::make_pair(nullptr, nullptr), true);
 
 	/* ... set the newly allocated inode to the appropriate address and fsync dir */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(getDirInode()));
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode,
+			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
 	executeFsyncFS(getDirInode(), intTyp);
 
 	return inode;
@@ -3015,11 +3026,13 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 		return INT_TO_GV(intTyp, 42);
 	}
 
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
+	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode.PointerVal);
+	auto ordDataRange = std::make_pair((void *) nullptr, (void *) nullptr);
 	GenericValue ret = INT_TO_GV(intTyp, 0);
 
 	/* Check if we are actually extending the file */
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode.PointerVal);
-	auto oldIsize = driver->visitDskRead(inodeIsize, intTyp);
+	auto oldIsize = readInodeSizeFS(inode.PointerVal, intTyp);
 	if (length.IntVal.sgt(oldIsize.IntVal)) {
 		if (length.IntVal.sge(INT_TO_GV(intTyp, FI.maxFileSize).IntVal)) {
 			handleSystemError(SystemError::SE_EFBIG, "Length too big in truncate()");
@@ -3027,10 +3040,14 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 			goto out;
 		}
 		zeroDskRangeFS(inode.PointerVal, oldIsize, length, Type::getInt8Ty(intTyp->getContext()));
+		ordDataRange.first = (char *) inode.PointerVal + oldIsize.IntVal.getLimitedValue();
+		ordDataRange.second = (char *) inode.PointerVal + length.IntVal.getLimitedValue();
 	}
 
 	/* Update inode's size (ext4_setattr()) */
-	driver->visitDskWrite(inodeIsize, intTyp, length, GET_METADATA_MAPPING(inode.PointerVal));
+	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp, length);
+	driver->visitDskWrite(inodeIdisksize, intTyp, length, GET_METADATA_MAPPING(inode.PointerVal),
+			      ordDataRange, true);
 
 	/* We will need to delete any preallocated blocks (ext4_truncate()) */
 	if (FI.autoDaAlloc) {
@@ -3195,7 +3212,7 @@ GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldIn
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode,
-			      GET_DATA_MAPPING(getDirInode()));
+			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
 	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
@@ -3253,7 +3270,7 @@ GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
 	/* Unlink inode */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr),
-			      GET_DATA_MAPPING(getDirInode()));
+			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
 	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
@@ -3399,6 +3416,17 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 	return;
 }
 
+GenericValue Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
+{
+	if (inRecovery) {
+		auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
+		return driver->visitDskRead(inodeIdisksize, intTyp);
+	}
+
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	return driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp);
+}
+
 GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *buf,
 					Type *bufElemTyp, const GenericValue &offset,
 					const GenericValue &count)
@@ -3420,8 +3448,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 					(const GenericValue *) fileInode, intPtrType).PointerVal;
 
 	/* Read the inode size and check whether we are reading past EOF */
-	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode);
-	auto iSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
+	auto iSize = readInodeSizeFS(inode, intTyp);
 	if (offset.IntVal.sge(iSize.IntVal)) {
 		nr.IntVal = APInt(intTyp->getIntegerBitWidth(), 0, true); // signed
 		return nr;
@@ -3506,7 +3533,7 @@ void Interpreter::zeroDskRangeFS(void *inode, const GenericValue &start,
 	for (auto i = start.IntVal.getLimitedValue(); i < end.IntVal.getLimitedValue(); i++) {
 		auto *addr = (const GenericValue *) (dataOffset + i);
 		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0),
-				      GET_DATA_MAPPING(inode));
+				      GET_DATA_MAPPING(inode), std::make_pair(nullptr, nullptr));
 	}
 	return;
 }
@@ -3517,10 +3544,8 @@ GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, Type *
 {
 	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
 	wOffset = offset;
-	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND) {
-		auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-		wOffset = driver->visitDskRead(inodeIsize, intTyp);
-	}
+	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND)
+		wOffset = readInodeSizeFS(inode, intTyp);
 
 	/* Check if the maximum file size is going to be exceeded */
 	if (wOffset.IntVal.sge(INT_TO_GV(intTyp, FI.maxFileSize).IntVal)) {
@@ -3535,12 +3560,27 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 						 const GenericValue &count)
 {
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 
-	/* Check if we are writing past EOF */
-	auto iSize = driver->visitDskRead(inodeIsize, intTyp);
-	if (wOffset.IntVal.sgt(iSize.IntVal))
+	/* Take special care for appends and past-EOF writes */
+	auto iSize = readInodeSizeFS(inode, intTyp);
+	if (FI.delalloc && wOffset.IntVal.getLimitedValue() == iSize.IntVal.getLimitedValue()) { // diff lengths HACK
+		/* Is the block already preallocated? */
+		auto sz = iSize.IntVal.getLimitedValue();
+		auto bi = sz % FI.blockSize;
+		if (bi > 0) {
+			auto rb = FI.blockSize - bi;
+			auto nsz = INT_TO_GV(intTyp, sz + rb);
+			zeroDskRangeFS(inode, iSize, nsz, bufElemTyp);
+			driver->visitDskWrite(inodeIdisksize, intTyp, nsz, GET_METADATA_MAPPING(inode),
+					      std::make_pair((void *) ((char *) inodeData + sz),
+							     (void *) ((char *) inodeData + sz + rb)),
+					      true);
+		}
+	} else if (wOffset.IntVal.sgt(iSize.IntVal)) {
 		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
+	}
 
 	/* Bytewise write */
 	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
@@ -3549,7 +3589,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 					     (const GenericValue *) loadAddr, bufElemTyp);
 		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
 		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val,
-				      GET_DATA_MAPPING(inode));
+				      GET_DATA_MAPPING(inode), std::make_pair(nullptr, nullptr));
 	}
 
 	/* We update the inode's size, if necessary */
@@ -3557,7 +3597,13 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	newSize.IntVal = wOffset.IntVal + count.IntVal;
 	if (newSize.IntVal.sgt(iSize.IntVal)) {
 		/* update size and set i_reserved_data_blocks */
-		driver->visitDskWrite(inodeIsize, intTyp, newSize, GET_METADATA_MAPPING(inode));
+		driver->visitStore(IA_None, AtomicOrdering::NotAtomic,
+				   inodeIsize, intTyp, newSize);
+		driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
+				      std::make_pair(inodeData + wOffset.IntVal.getLimitedValue(),
+						     inodeData + wOffset.IntVal.getLimitedValue() +
+						     count.IntVal.getLimitedValue()), true);
+
 		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
 		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
 				   INT_TO_GV(intTyp, 1));
@@ -3815,8 +3861,7 @@ GenericValue Interpreter::executeLseekFS(void *file, Type *intTyp,
 					(const GenericValue *) fileInode, intPtrType).PointerVal;
 
 	/* We read the inode size before switching on WHENCE */
-	auto *inodeIsize = GET_INODE_ISIZE_ADDR(inode);
-	auto fileSize = driver->visitDskRead((const GenericValue *) inodeIsize, intTyp);
+	auto fileSize = readInodeSizeFS(inode, intTyp);
 
 	/* Then, we calculate the new offset before updating it */
 	GenericValue newOffset;

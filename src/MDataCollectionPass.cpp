@@ -225,6 +225,8 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".i_reserved_data_blocks"));
 	VI.internalInfo["inode"].push_back(
+		std::make_pair((offset += intByteWidth), ".i_disksize"));
+	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".data"));
 	return;
 }

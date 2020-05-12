@@ -154,12 +154,12 @@ runvariants() {
     failure=""
     diff=""
     outcome_failure=""
-    checker_args="" && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
-	checker_args=`head -1 "${dir}/genmc.${model}.${coherence}.in"`
+    checker_args=() && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
+	checker_args=(`cat "${dir}/genmc.${model}.${coherence}.in"`)
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${t} 2>&1`
 	if test "$?" -ne "${ERROR_STATUS}"
 	then
 	    failure_status="$?"

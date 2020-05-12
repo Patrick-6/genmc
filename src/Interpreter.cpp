@@ -445,8 +445,10 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	/* Setup config options first */
 	FI.fds = llvm::BitVector(userConf->maxOpenFiles);
 	FI.fdToFile.grow(userConf->maxOpenFiles);
+	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
-	FI.autoDaAlloc = !userConf->disableAutoDaAlloc;
+	FI.delalloc = !userConf->disableDelalloc;
+	FI.autoDaAlloc = !FI.delalloc || !userConf->disableAutoDaAlloc;
 
 	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
 	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");
@@ -472,7 +474,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	unsigned int intPtrSize = getTypeSize(FI.inodeTyp->getElementType(0)->getPointerTo());
 	auto *SL = TD.getStructLayout(FI.inodeTyp);
 	for (auto &fname : FI.nameToInodeAddr) {
-		auto *addr = (char *) FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
+		auto *addr = (char *) FI.dirInode + SL->getElementOffset(5) + count * intPtrSize;
 		fname.second = addr;
 		updateVarNameInfo((char *) addr, intPtrSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 				  nullptr, "__dir_inode.addr[" + fname.first + "]", "dir_inode_locs");

@@ -157,7 +157,7 @@ runvariants() {
     outcome_failure=""
     failure_output=""
     unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
-    checker_args="" && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
+    checker_args=() && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
 	checker_args=(`cat "${dir}/genmc.${model}.${coherence}.in"`)
     for t in $dir/variants/*.c
     do

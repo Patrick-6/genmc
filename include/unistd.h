@@ -88,12 +88,13 @@ struct __genmc_inode {
 	pthread_mutex_t lock; // setupFsInfo() + interp rely on the layout
 	int i_size;
 
-	/* ext4 memory */
+	/* ext4 memory data */
 	int da_alloc_close;
 	int i_reserved_data_blocks;
 
-	/* ext4 disk */
-	char data[__CONFIG_GENMC_INODE_DATA_SIZE];
+	/* ext4 disk data (embedded to avoid indirection) */
+	int i_disksize; // <-- used as metadata block mapping
+	char data[__CONFIG_GENMC_INODE_DATA_SIZE]; // <-- used as data block mapping
 };
 
 struct __genmc_file {

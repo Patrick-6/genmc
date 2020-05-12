@@ -1431,6 +1431,7 @@ void GenMCDriver::visitRecoveryError()
 		thr.block();
 		return;
 	}
+	// printGraph();
 	llvm::dbgs() << "FIXME: RECOVERY ERROR\n";
 	abort();
 }
@@ -1950,7 +1951,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 
 void
 GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
-			   const llvm::GenericValue &val, void *mapping)
+			   const llvm::GenericValue &val, void *mapping,
+			   std::pair<void *, void *> ordDataRange,
+			   bool isMetadata /* = false */)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1966,8 +1969,8 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 
 	/* It is always consistent to add the store at the end of MO */
 	auto ord = llvm::AtomicOrdering::Release;
-	auto wLab = createDskWriteLabel(pos.thread, pos.index, ord, addr,
-					typ, val, mapping);
+	auto wLab = createDskWriteLabel(pos.thread, pos.index, ord, addr, typ,
+					val, mapping, isMetadata, ordDataRange);
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 

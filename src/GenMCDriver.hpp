@@ -174,7 +174,8 @@ public:
 	/* A function modeling a write to disk has been interpreted */
 	void
 	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
-		      const llvm::GenericValue &val, void *mapping);
+		      const llvm::GenericValue &val, void *mapping,
+		      std::pair<void *, void *> ordDataRange, bool isMetadata = false);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
 	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ);
@@ -513,7 +514,8 @@ private:
 	virtual std::unique_ptr<DskWriteLabel>
 	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, void *dataOffset) = 0;
+			    const llvm::GenericValue &val, void *mapping,
+			    bool isMetadata, std::pair<void *, void *> ordDataRange) = 0;
 
 	/* Creates a label for a fence to be added to the graph */
 	virtual std::unique_ptr<FenceLabel>

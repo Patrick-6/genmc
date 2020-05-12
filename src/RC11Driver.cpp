@@ -200,6 +200,11 @@ void RC11Driver::calcMemAccessPbView(MemAccessLabel *mLab)
 	auto &porf = mLab->getPorfView();
 	DepView pb;
 
+	/* Check whether we are ordered wrt other writes */
+	auto ordRange = std::make_pair((void *) nullptr, (void *) nullptr);
+	if (auto *wLab = llvm::dyn_cast<DskWriteLabel>(mLab))
+		ordRange = wLab->getOrdDataRange();
+
 	BUG_ON(porf.empty()); /* Must run after plain views calc */
 	for (auto i = 0u; i < porf.size(); i++) {
 		auto lim = (i == mLab->getThread()) ? porf[i] - 1 : porf[i];
@@ -209,8 +214,14 @@ void RC11Driver::calcMemAccessPbView(MemAccessLabel *mLab)
 				if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
 					pb.update(dLab->getPbView());
 			}
+			if (auto *oLab = llvm::dyn_cast<DskWriteLabel>(lab)) {
+				if (oLab->getAddr() >= ordRange.first &&
+				    oLab->getAddr() <  ordRange.second)
+					pb.update(oLab->getPbView());
+			}
 		}
 	}
+
 	auto prevIdx = pb[mLab->getThread()];
 	pb[mLab->getThread()] = mLab->getIndex();
 	pb.addHolesInRange(Event(mLab->getThread(), prevIdx + 1), mLab->getIndex());
@@ -350,12 +361,13 @@ RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<DskWriteLabel>
 RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				const llvm::GenericValue &val, void *mapping)
+				const llvm::GenericValue &val, void *mapping,
+				bool isMetadata, std::pair<void *, void *> ordDataRange)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = llvm::make_unique<DskWriteLabel>(g.nextStamp(), ord, pos,
-						    ptr, typ, val, mapping);
+	auto lab = llvm::make_unique<DskWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, isMetadata, ordDataRange);
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
