@@ -1963,9 +1963,12 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	auto pos = EE->getCurrentPosition();
 
 	g.trackCoherenceAtLoc(addr);
+
+	/* Disk writes should be ordered */
 	auto placesRange = g.getCoherentPlacings(addr, pos, false);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
+	BUG_ON(begO != endO);
 
 	/* It is always consistent to add the store at the end of MO */
 	auto ord = llvm::AtomicOrdering::Release;
@@ -1978,19 +1981,6 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	// checkAccessValidity();
 	// checkForDataRaces();
 	// checkForMemoryRaces(lab->getAddr());
-
-	auto &locMO = g.getStoresToLoc(addr);
-	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
-
-		/* We cannot place the write just before the write of an RMW */
-		if (llvm::isa<FaiWriteLabel>(g.getEventLabel(*it)) ||
-		    llvm::isa<CasWriteLabel>(g.getEventLabel(*it)))
-			continue;
-
-		/* Push the stack item */
-		addToWorklist(MOWrite, lab->getPos(), Event::getInitializer(),
-			      {}, {}, std::distance(locMO.begin(), it));
-	}
 
 	calcRevisits(lab);
 	return;
