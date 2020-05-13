@@ -3524,7 +3524,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 
 	/* ... and go ahead and read them one by one */
 	copyDiskDataToUser(inode, offset.IntVal.getLimitedValue(), buf, 0,
-			   count.IntVal.getLimitedValue(), bufElemTyp);
+			   nr.IntVal.getLimitedValue(), bufElemTyp);
 	return nr;
 }
 
