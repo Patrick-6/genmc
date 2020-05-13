@@ -2892,13 +2892,13 @@ GenericValue Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
 	}
 
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	return driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp);
+	return driver->visitLoad(IA_None, AtomicOrdering::Acquire, inodeIsize, intTyp);
 }
 
 void Interpreter::updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize)
 {
 	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp, newSize);
+	driver->visitStore(IA_None, AtomicOrdering::Release, inodeIsize, intTyp, newSize);
 	return;
 }
 
@@ -2994,8 +2994,8 @@ GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTy
 	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode.PointerVal);
 
 	GenericValue zero = INT_TO_GV(intTyp, 0);
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeLock, intTyp, zero);
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp, zero);
+	driver->visitStore(IA_None, AtomicOrdering::Release, inodeLock, intTyp, zero);
+	driver->visitStore(IA_None, AtomicOrdering::Release, inodeIsize, intTyp, zero);
 	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeDAC, intTyp, zero);
 	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp, zero);
 	updateInodeDisksizeFS(inode.PointerVal, intTyp, zero, zero, zero);

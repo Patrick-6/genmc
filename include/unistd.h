@@ -86,7 +86,7 @@ extern int truncate (const char *__file, __off_t __length);
 struct __genmc_inode {
 	/* VFS */
 	pthread_mutex_t lock; // setupFsInfo() + interp rely on the layout
-	int i_size;
+	int i_size; // <-- need to treat this atomically
 
 	/* ext4 memory data */
 	int da_alloc_close;
