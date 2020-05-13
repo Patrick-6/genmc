@@ -175,7 +175,9 @@ public:
 	void
 	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 		      const llvm::GenericValue &val, void *mapping,
-		      std::pair<void *, void *> ordDataRange, bool isMetadata = false);
+		      bool isMetadata = false,
+		      std::pair<void *, void *> ordDataRange =
+		      std::pair<void *, void *>{(void *) nullptr, (void *) nullptr});
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
 	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ);

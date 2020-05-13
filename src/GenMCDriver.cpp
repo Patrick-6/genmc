@@ -1952,8 +1952,8 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 void
 GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 			   const llvm::GenericValue &val, void *mapping,
-			   std::pair<void *, void *> ordDataRange,
-			   bool isMetadata /* = false */)
+			   bool isMetadata /* = false */,
+			   std::pair<void *, void *> ordDataRange /* = (NULL, NULL) */)
 {
 	if (isExecutionDrivenByGraph())
 		return;

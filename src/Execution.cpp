@@ -2929,8 +2929,7 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 
 	/* ... set the newly allocated inode to the appropriate address and fsync dir */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode,
-			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(getDirInode()));
 	executeFsyncFS(getDirInode(), intTyp);
 
 	return inode;
@@ -3204,7 +3203,7 @@ GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldIn
 {
 	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
 	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode,
-			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
+			      GET_DATA_MAPPING(getDirInode()));
 	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
@@ -3262,7 +3261,7 @@ GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
 	/* Unlink inode */
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr),
-			      GET_DATA_MAPPING(getDirInode()), std::make_pair(nullptr, nullptr));
+			      GET_DATA_MAPPING(getDirInode()));
 	executeFsyncFS(getDirInode(), intTyp);
 	return INT_TO_GV(intTyp, 0);
 }
@@ -3439,7 +3438,7 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 	}
 
 	driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
-			      ordDataRange, true);
+			      true, ordDataRange);
 	return;
 }
 
@@ -3568,7 +3567,7 @@ void Interpreter::zeroDskRangeFS(void *inode, const GenericValue &start,
 	for (auto i = start.IntVal.getLimitedValue(); i < end.IntVal.getLimitedValue(); i++) {
 		auto *addr = (const GenericValue *) (dataOffset + i);
 		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0),
-				      GET_DATA_MAPPING(inode), std::make_pair(nullptr, nullptr));
+				      GET_DATA_MAPPING(inode));
 	}
 	return;
 }
@@ -3617,7 +3616,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 					     (const GenericValue *) loadAddr, bufElemTyp);
 		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
 		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val,
-				      GET_DATA_MAPPING(inode), std::make_pair(nullptr, nullptr));
+				      GET_DATA_MAPPING(inode));
 	}
 
 	/* We update the inode's size, if necessary */
