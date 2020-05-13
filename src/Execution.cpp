@@ -2884,6 +2884,79 @@ static void rollbackDskOperation(Thread &thr, int snapshot)
 	return;
 }
 
+GenericValue Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
+{
+	if (inRecovery) {
+		auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
+		return driver->visitDskRead(inodeIdisksize, intTyp);
+	}
+
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	return driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp);
+}
+
+void Interpreter::updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize)
+{
+	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
+	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp, newSize);
+	return;
+}
+
+void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
+					const GenericValue &ordDataBegin, const GenericValue &ordDataEnd)
+{
+	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
+	auto ordDataRange = std::make_pair((void *) nullptr, (void *) nullptr);
+
+	if (FI.journalData == JournalDataFS::ordered) {
+		auto *inodeData = (char *) GET_INODE_DATA_ADDR(inode);
+		ordDataRange.first = inodeData + ordDataBegin.IntVal.getLimitedValue();
+		ordDataRange.second = inodeData + ordDataEnd.IntVal.getLimitedValue();
+	}
+
+	driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
+			      true, ordDataRange);
+	return;
+}
+
+void Interpreter::copyDiskDataFromUser(void *inode, int inodeOffset, void *buf, int bufOffset,
+				       int count, Type *dataTyp)
+{
+	auto *inodeData = GET_INODE_DATA_ADDR(inode);
+	for (auto i = 0u; i < count; i++) {
+		auto *loadAddr = (const GenericValue *) ((char *) buf + bufOffset + i);
+		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, loadAddr, dataTyp);
+
+		auto *writeAddr = (const GenericValue *) ((char *) inodeData + inodeOffset + i);
+		driver->visitDskWrite(writeAddr, dataTyp, val, GET_DATA_MAPPING(inode));
+	}
+	return;
+}
+
+void Interpreter::copyDiskDataToUser(void *inode, int inodeOffset, void *buf, int bufOffset,
+				     int count, Type *dataTyp)
+{
+	auto *inodeData = GET_INODE_DATA_ADDR(inode);
+	for (auto i = 0u; i < count; i++) {
+		auto *readAddr = (const GenericValue *) ((char *) inodeData + inodeOffset + i);
+		auto val = driver->visitDskRead((const GenericValue *) readAddr, dataTyp);
+
+		auto *storeAddr = (const GenericValue *) ((char *) buf + bufOffset + i);
+		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, storeAddr, dataTyp, val);
+	}
+	return;
+}
+
+void Interpreter::updateDirNameInode(const char *name, Type *intTyp, const GenericValue &inode)
+{
+	auto *dirInode = getDirInode();
+	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) name);
+
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(dirInode));
+	executeFsyncFS(dirInode, intTyp); //   /\ relies on inode layout
+	return;
+}
+
 /* We may have to manipulate the flags at some point (depending on the model) */
 GenericValue Interpreter::checkOpenFlagsFS(GenericValue &flags, Type *intTyp)
 {
@@ -2898,20 +2971,20 @@ GenericValue Interpreter::checkOpenFlagsFS(GenericValue &flags, Type *intTyp)
 	return INT_TO_GV(intTyp, 0);
 }
 
-GenericValue Interpreter::executeInodeLookupFS(void *file, Type *intTyp)
+GenericValue Interpreter::executeInodeLookupFS(const char *filename, Type *intTyp)
 {
 	/* Fetch the address where the inode should be and read the contents */
-	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
+	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName(filename);
 	return driver->visitDskRead(inodeAddr, intTyp->getPointerTo());
 }
 
-GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
+GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTyp)
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
 	auto inode = driver->visitMalloc(inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
 	updateVarNameInfo((char *) inode.PointerVal, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal,
-			  nullptr, std::string("__inode_") + (char *) file, "inode");
+			  nullptr, std::string("__inode_") + (char *) filename, "inode");
 
 	/* ... properly initialize its fields... */
 	auto *inodeLock = (const GenericValue *) GET_INODE_LOCK_ADDR(inode.PointerVal);
@@ -2927,10 +3000,8 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
 	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp, zero);
 	updateInodeDisksizeFS(inode.PointerVal, intTyp, zero, zero, zero);
 
-	/* ... set the newly allocated inode to the appropriate address and fsync dir */
-	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) file);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(getDirInode()));
-	executeFsyncFS(getDirInode(), intTyp);
+	/* ... set the newly allocated inode to the appropriate address */
+	updateDirNameInode(filename, intTyp, inode);
 
 	return inode;
 }
@@ -2939,7 +3010,7 @@ GenericValue Interpreter::executeInodeCreateFS(void *file, Type *intTyp)
  * to the address of FILE's inode. Success: either if the inode was
  * already created, or flags contain O_CREAT and the inode was
  * created. */
-GenericValue Interpreter::executeLookupOpenFS(void *file, GenericValue &flags, Type *intTyp)
+GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp)
 {
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
@@ -2959,7 +3030,7 @@ GenericValue Interpreter::executeLookupOpenFS(void *file, GenericValue &flags, T
 	return inode;
 }
 
-GenericValue Interpreter::executeOpenFS(void *filename, const GenericValue &flags,
+GenericValue Interpreter::executeOpenFS(const char *filename, const GenericValue &flags,
 					const GenericValue &inode, Type *intTyp)
 {
 	Thread &thr = getCurThr();
@@ -3059,7 +3130,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *filename = GVTOP(ArgVals[0]);
+	auto filename = (const char *) GVTOP(ArgVals[0]);
 	GenericValue flags = ArgVals[1];
 	Type *intTyp = F->getReturnType();
 
@@ -3199,12 +3270,9 @@ void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
-GenericValue Interpreter::executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp)
+GenericValue Interpreter::executeLinkFS(const char *newpath, const GenericValue &oldInode, Type *intTyp)
 {
-	auto *newInodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) newpath);
-	driver->visitDskWrite(newInodeAddr, intTyp->getPointerTo(), oldInode,
-			      GET_DATA_MAPPING(getDirInode()));
-	executeFsyncFS(getDirInode(), intTyp);
+	updateDirNameInode(newpath, intTyp, oldInode);
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3212,8 +3280,8 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *oldpath = GVTOP(ArgVals[0]);
-	void *newpath = GVTOP(ArgVals[1]);
+	auto oldpath = (const char *) GVTOP(ArgVals[0]);
+	auto newpath = (const char *) GVTOP(ArgVals[1]);
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3256,13 +3324,10 @@ exit:
 	return;
 }
 
-GenericValue Interpreter::executeUnlinkFS(void *pathname, Type *intTyp)
+GenericValue Interpreter::executeUnlinkFS(const char *pathname, Type *intTyp)
 {
 	/* Unlink inode */
-	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) pathname);
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), PTR_TO_GV(nullptr),
-			      GET_DATA_MAPPING(getDirInode()));
-	executeFsyncFS(getDirInode(), intTyp);
+	updateDirNameInode(pathname, intTyp, PTR_TO_GV(nullptr));
 	return INT_TO_GV(intTyp, 0);
 }
 
@@ -3270,7 +3335,7 @@ void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &Arg
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *pathname = GVTOP(ArgVals[0]);
+	auto pathname = (const char *) GVTOP(ArgVals[0]);
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3303,8 +3368,8 @@ exit:
 	return;
 }
 
-GenericValue Interpreter::executeRenameFS(void *oldpath, const GenericValue &oldInode,
-					  void *newpath, const GenericValue &newInode,
+GenericValue Interpreter::executeRenameFS(const char *oldpath, const GenericValue &oldInode,
+					  const char *newpath, const GenericValue &newInode,
 					  Type *intTyp)
 {
 	Type *intPtrTyp = intTyp->getPointerTo();
@@ -3331,8 +3396,8 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *oldpath = GVTOP(ArgVals[0]);
-	void *newpath = GVTOP(ArgVals[1]);
+	auto oldpath = (const char *) GVTOP(ArgVals[0]);
+	auto newpath = (const char *) GVTOP(ArgVals[1]);
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3372,7 +3437,7 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	void *file = GVTOP(ArgVals[0]);
+	auto filename = (const char *) GVTOP(ArgVals[0]);
 	GenericValue length  = ArgVals[1];
 	Type *intTyp = F->getReturnType();
 
@@ -3388,7 +3453,7 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 	}
 
 	/* Try and find the requested inode */
-	auto inode = executeInodeLookupFS(file, intTyp);
+	auto inode = executeInodeLookupFS(filename, intTyp);
 
 	driver->visitUnlock(dirLock, intTyp);
 
@@ -3404,41 +3469,6 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 		return; /* Failed to acquire inode's lock... */
 
 	returnValueToCaller(F->getReturnType(), ret);
-	return;
-}
-
-GenericValue Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
-{
-	if (inRecovery) {
-		auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
-		return driver->visitDskRead(inodeIdisksize, intTyp);
-	}
-
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	return driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp);
-}
-
-void Interpreter::updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize)
-{
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeIsize, intTyp, newSize);
-	return;
-}
-
-void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
-					const GenericValue &ordDataBegin, const GenericValue &ordDataEnd)
-{
-	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
-	auto ordDataRange = std::make_pair((void *) nullptr, (void *) nullptr);
-
-	if (FI.journalData == JournalDataFS::ordered) {
-		auto *inodeData = (char *) GET_INODE_DATA_ADDR(inode);
-		ordDataRange.first = inodeData + ordDataBegin.IntVal.getLimitedValue();
-		ordDataRange.second = inodeData + ordDataEnd.IntVal.getLimitedValue();
-	}
-
-	driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
-			      true, ordDataRange);
 	return;
 }
 
@@ -3493,14 +3523,8 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	nr.IntVal = (nr.IntVal.sge(count.IntVal)) ? count.IntVal : nr.IntVal;
 
 	/* ... and go ahead and read them one by one */
-	auto *inodeData = GET_INODE_DATA_ADDR(inode);
-	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
-		auto *readAddr = inodeData + offset.IntVal.getLimitedValue() + i;
-		auto val = driver->visitDskRead((const GenericValue *) readAddr, bufElemTyp);
-		auto *storeAddr = (char *) buf + i;
-		driver->visitStore(IA_None, llvm::AtomicOrdering::NotAtomic,
-				   (const GenericValue *) storeAddr, bufElemTyp, val);
-	}
+	copyDiskDataToUser(inode, offset.IntVal.getLimitedValue(), buf, 0,
+			   count.IntVal.getLimitedValue(), bufElemTyp);
 	return nr;
 }
 
@@ -3593,8 +3617,6 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 						 Type *bufElemTyp, const GenericValue &wOffset,
 						 const GenericValue &count)
 {
-	auto *inodeIsize = (const GenericValue *) GET_INODE_ISIZE_ADDR(inode);
-	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 
 	/* Take special care for appends and past-EOF writes */
@@ -3610,14 +3632,8 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	}
 
 	/* Bytewise write */
-	for (auto i = 0u; i < count.IntVal.getLimitedValue(); i++) {
-		auto *loadAddr = (char *) buf + i;
-		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic,
-					     (const GenericValue *) loadAddr, bufElemTyp);
-		auto *writeAddr = (char *) inodeData + wOffset.IntVal.getLimitedValue() + i;
-		driver->visitDskWrite((const GenericValue *) writeAddr, bufElemTyp, val,
-				      GET_DATA_MAPPING(inode));
-	}
+	copyDiskDataFromUser(inode, wOffset.IntVal.getLimitedValue(), buf, 0,
+			     count.IntVal.getLimitedValue(), bufElemTyp);
 
 	/* We update the inode's size, if necessary */
 	GenericValue newSize;

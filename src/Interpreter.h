@@ -626,27 +626,31 @@ private:  // Helper functions
 
   void handleSystemError(SystemError code, const std::string &msg);
 
-  GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
-  GenericValue executeInodeLookupFS(void *file, Type *intTyp);
-  GenericValue executeInodeCreateFS(void *file, Type *intTyp);
-  GenericValue executeLookupOpenFS(void *file, GenericValue &flags, Type *intTyp);
-  GenericValue executeOpenFS(void *file, const GenericValue &flags,
-			     const GenericValue &inode, Type *intTyp);
-  void executeAllocDaBlock(const GenericValue &inode, Type *intTyp);
-  void executeReleaseFileFS(void *fileDesc, Type *intTyp);
-  GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
-  GenericValue executeRenameFS(void *oldpath, const GenericValue &oldInode,
-				void *newpath, const GenericValue &newInode,
-				Type *intTyp);
-  GenericValue executeLinkFS(void *newpath, const GenericValue &oldInode, Type *intTyp);
-  GenericValue executeUnlinkFS(void *pathname, Type *intTyp);
-
   GenericValue readInodeSizeFS(void *inode, Type *intTyp);
   void updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize);
   void updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
 			     const GenericValue &ordDataBegin, const GenericValue &ordDataEnd);
-  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
-				   const GenericValue &offset, GenericValue &dSize);
+  void copyDiskDataFromUser(void *inode, int inodeOffset, void *buf, int bufOffset,
+				     int count, Type *dataTyp);
+  void copyDiskDataToUser(void *inode, int inodeOffset, void *buf, int bufOffset,
+			  int count, Type *dataTyp);
+  void updateDirNameInode(const char *name, Type *intTyp, const GenericValue &inode);
+
+  GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
+  GenericValue executeInodeLookupFS(const char *name, Type *intTyp);
+  GenericValue executeInodeCreateFS(const char *name, Type *intTyp);
+  GenericValue executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp);
+  GenericValue executeOpenFS(const char *file, const GenericValue &flags,
+			     const GenericValue &inode, Type *intTyp);
+  void executeAllocDaBlock(const GenericValue &inode, Type *intTyp);
+  void executeReleaseFileFS(void *fileDesc, Type *intTyp);
+  GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
+  GenericValue executeRenameFS(const char *oldpath, const GenericValue &oldInode,
+			       const char *newpath, const GenericValue &newInode,
+			       Type *intTyp);
+  GenericValue executeLinkFS(const char *newpath, const GenericValue &oldInode, Type *intTyp);
+  GenericValue executeUnlinkFS(const char *pathname, Type *intTyp);
+
 
   GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
 				  Type *intTyp, int snap);
@@ -658,6 +662,8 @@ private:  // Helper functions
   GenericValue executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
 				    const GenericValue &offset, const GenericValue &flags,
 				    GenericValue &wOffset);
+  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
+				   const GenericValue &offset, GenericValue &dSize);
   GenericValue executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
 				      Type *bufElemTyp, const GenericValue &wOffset,
 				      const GenericValue &count);
