@@ -448,8 +448,8 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
 	FI.journalData = userConf->journalData;
-	FI.delalloc = !userConf->disableDelalloc;
-	FI.autoDaAlloc = !FI.delalloc || !userConf->disableAutoDaAlloc;
+	FI.delalloc = FI.journalData == JournalDataFS::ordered && !userConf->disableDelalloc;
+	FI.autoDaAlloc = FI.delalloc && !userConf->disableAutoDaAlloc;
 
 	auto *inodeVar = M->getGlobalVariable("__genmc_dir_inode");
 	auto *fileVar = M->getGlobalVariable("__genmc_dummy_file");

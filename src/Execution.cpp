@@ -2908,14 +2908,20 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 	auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
 	auto ordDataRange = std::make_pair((void *) nullptr, (void *) nullptr);
 
+	/* In data=ordered mode, metadata are journaled after data are written */
 	if (FI.journalData == JournalDataFS::ordered) {
 		auto *inodeData = (char *) GET_INODE_DATA_ADDR(inode);
 		ordDataRange.first = inodeData + ordDataBegin.IntVal.getLimitedValue();
 		ordDataRange.second = inodeData + ordDataEnd.IntVal.getLimitedValue();
 	}
 
+	/* Update disksize*/
 	driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
 			      true, ordDataRange);
+
+	/* If there is no delayed allocation, we actually _wait_ for the write */
+	if (FI.journalData == JournalDataFS::ordered && !FI.delalloc)
+		executeFsyncFS(inode, intTyp);
 	return;
 }
 
