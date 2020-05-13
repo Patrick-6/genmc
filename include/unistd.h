@@ -92,7 +92,9 @@ struct __genmc_inode {
 	int da_alloc_close;
 	int i_reserved_data_blocks;
 
-	/* ext4 disk data (embedded to avoid indirection) */
+	/* ext4 disk data (embedded to avoid indirection)
+	 * The implementation can now accommodate only one metadata piece
+	 * due to the current metadata block mapping */
 	int i_disksize; // <-- used as metadata block mapping
 	char data[__CONFIG_GENMC_INODE_DATA_SIZE]; // <-- used as data block mapping
 };
