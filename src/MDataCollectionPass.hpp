@@ -44,8 +44,6 @@ public:
 
 protected:
 
-	bool collected;
-
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	void collectVarName(llvm::Module &M, unsigned int ptr, llvm::Type *typ,
 			    llvm::DIType *dit, std::string nameBuilder,
@@ -68,6 +66,18 @@ protected:
 
 	/* Collect info about the files used */
 	void collectFilenameInfo(llvm::CallInst *DD, llvm::Module &M);
+
+	/*
+	 * Collects name info about global variables w/ private linkage
+	 * used in memory intrinsics
+	 */
+	void collectMemCpyInfo(llvm::MemCpyInst *MI, llvm::Module &M);
+
+	/* Maps allocas to the metadata of the variable allocated */
+	std::unordered_map<llvm::AllocaInst *, llvm::DILocalVariable *> allocaMData;
+
+	/* Whether we have collected metadata or not */
+	bool collected;
 };
 
 #endif /* __MDATA_COLLECTION_PASS_HPP__ */

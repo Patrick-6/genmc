@@ -28,6 +28,7 @@
 #include "IntrinsicLoweringPass.hpp"
 #include "LoopUnrollPass.hpp"
 #include "MDataCollectionPass.hpp"
+#include "PromoteMemIntrinsicPass.hpp"
 #include "SpinAssumePass.hpp"
 #if defined(HAVE_LLVM_PASSMANAGER_H)
 # include <llvm/PassManager.h>
@@ -129,6 +130,7 @@ namespace LLVMModule {
 		OptPM.add(new DeclareAssumePass());
 		OptPM.add(new DefineLibcFunsPass());
 		OptPM.add(new MDataCollectionPass(VI, FI));
+		OptPM.add(new PromoteMemIntrinsicPass());
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
 #else

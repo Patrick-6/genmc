@@ -158,6 +158,9 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	auto *vt = static_cast<PointerType *>(v->getType());
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
+	/* Store alloca's metadata, in case it's used in memcpy */
+	allocaMData[dyn_cast<AllocaInst>(v)] = DD->getVariable();
+
 	auto dit = DD->getVariable()->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, vt->getElementType(),
@@ -171,6 +174,43 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 
 	std::sort(VI.localInfo[v].begin(), VI.localInfo[v].end());
 	std::unique(VI.localInfo[v].begin(), VI.localInfo[v].end());
+	return;
+}
+
+void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
+{
+	/*
+	 * Only mark global variables w/ private linkage that will
+	 * otherwise go undetected by this pass
+	 */
+	auto *src = dyn_cast<GlobalVariable>(MI->getSource());
+	if (!src)
+		return;
+
+	/*
+	 * Since there will be no metadata for variables with private linkage,
+	 * we do a small hack and take the metadata of memcpy()'s dest for
+	 * memcpy()'s source
+	 * The type of the dest is guaranteed to be a pointer
+	 */
+	auto *dst = dyn_cast<AllocaInst>(MI->getDest());
+	BUG_ON(!dst);
+	auto *dstTyp = dyn_cast<PointerType>(dst->getType());
+
+#ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
+	BUG_ON(allocaMData.count(dst) == 0);
+	auto dit = allocaMData[dst]->getType();
+	if (auto ditc = dyn_cast<DIType>(dit))
+		collectVarName(M, 0, dstTyp->getElementType(),
+			       ditc, "", VI.globalInfo[src]);
+#else
+	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, dstTyp->getElementType());
+	collectVarName(0, typeSize, dstTyp->getElementType(),
+		       "", VI.globalInfo[src]);
+#endif
+
+	std::sort(VI.globalInfo[src].begin(), VI.globalInfo[src].end());
+	std::unique(VI.globalInfo[src].begin(), VI.globalInfo[src].end());
 	return;
 }
 
@@ -278,15 +318,17 @@ bool MDataCollectionPass::runOnModule(Module &M)
 	if (collected)
 		return false;
 
-	/* First, get type information for all global variables */
+	/* First, get type information for user's global variables */
 	for (auto &v : M.getGlobalList())
 		collectGlobalInfo(v, M);
 
-	/* Then for all stack variables and filenames used */
+	/* Then for all local variables and some other special cases */
 	for (auto &F : M) {
 		for (auto it = inst_iterator(F), ei = inst_end(F); it != ei; ++it) {
 			if (auto *DD = dyn_cast<DbgDeclareInst>(&*it))
 				collectLocalInfo(DD, M);
+			if (auto *MI = dyn_cast<MemCpyInst>(&*it))
+				collectMemCpyInfo(MI, M);
 			if (auto *CI = dyn_cast<CallInst>(&*it)) {
 				if (isSyscallWPathname(CI))
 					collectFilenameInfo(CI, M);
