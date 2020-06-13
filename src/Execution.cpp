@@ -3602,10 +3602,13 @@ void Interpreter::zeroDskRangeFS(void *inode, const GenericValue &start,
 	return;
 }
 
-GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
-					       const GenericValue &offset, const GenericValue &flags,
+GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, const GenericValue &flags,
+					       const GenericValue &offset, const GenericValue &count,
 					       GenericValue &wOffset)
 {
+	if (count.IntVal.sle(INT_TO_GV(intTyp, 0).IntVal))
+		return count;
+
 	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
 	wOffset = offset;
 	if (flags.IntVal.getLimitedValue() & GENMC_O_APPEND)
@@ -3616,7 +3619,8 @@ GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, Type *
 		handleSystemError(SystemError::SE_EFBIG, "Offset too big in write()");
 		return INT_TO_GV(intTyp, -1);
 	}
-	return INT_TO_GV(intTyp, 0);
+	return INT_TO_GV(intTyp, std::min(count.IntVal.getLimitedValue(),
+					  FI.maxFileSize - wOffset.IntVal.getLimitedValue()));
 }
 
 GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
@@ -3684,12 +3688,14 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 		return INT_TO_GV(intTyp, 42); // lock acquisition failed
 	}
 
-	GenericValue wOffset, ret;
-	ret = executeWriteChecksFS(inode, intTyp, bufElemTyp, offset, flags, wOffset);
-	if (ret.IntVal.slt(INT_TO_GV(intTyp, -1).IntVal))
+	GenericValue ret = INT_TO_GV(intTyp, 0);
+	GenericValue wOffset, wCount;
+
+	wCount = executeWriteChecksFS(inode, intTyp, flags, offset, count, wOffset);
+	if (wCount.IntVal.sle(INT_TO_GV(intTyp, 0).IntVal))
 		goto out;
 
-	ret = executeBufferedWriteFS(inode, intTyp, buf, bufElemTyp, wOffset, count);
+	ret = executeBufferedWriteFS(inode, intTyp, buf, bufElemTyp, wOffset, wCount);
 
 out:
 	/* Release inode's lock */

@@ -659,8 +659,8 @@ private:  // Helper functions
 			      const GenericValue &count);
   void zeroDskRangeFS(void *inode, const GenericValue &start,
 		      const GenericValue &end, Type *writeIntTyp);
-  GenericValue executeWriteChecksFS(void *inode, Type *intTyp, Type *bufElemTyp,
-				    const GenericValue &offset, const GenericValue &flags,
+  GenericValue executeWriteChecksFS(void *inode, Type *intTyp, const GenericValue &flags,
+				    const GenericValue &offset, const GenericValue &count,
 				    GenericValue &wOffset);
   bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
 				   const GenericValue &offset, GenericValue &dSize);
