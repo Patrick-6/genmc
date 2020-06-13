@@ -2925,8 +2925,8 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 	return;
 }
 
-void Interpreter::copyDiskDataFromUser(void *inode, int inodeOffset, void *buf, int bufOffset,
-				       int count, Type *dataTyp)
+void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
+				  int count, Type *dataTyp)
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	for (auto i = 0u; i < count; i++) {
@@ -2939,8 +2939,8 @@ void Interpreter::copyDiskDataFromUser(void *inode, int inodeOffset, void *buf, 
 	return;
 }
 
-void Interpreter::copyDiskDataToUser(void *inode, int inodeOffset, void *buf, int bufOffset,
-				     int count, Type *dataTyp)
+void Interpreter::readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
+				   int count, Type *dataTyp)
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	for (auto i = 0u; i < count; i++) {
@@ -3528,9 +3528,10 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	nr.IntVal = iSize.IntVal - offset.IntVal;
 	nr.IntVal = (nr.IntVal.sge(count.IntVal)) ? count.IntVal : nr.IntVal;
 
-	/* ... and go ahead and read them one by one */
-	copyDiskDataToUser(inode, offset.IntVal.getLimitedValue(), buf, 0,
-			   nr.IntVal.getLimitedValue(), bufElemTyp);
+	/* ... and go ahead and read them one by one. (Here we cheat and not make
+	 * the read buffered, since it doesn't make a difference.)  */
+	readDataFromDisk(inode, offset.IntVal.getLimitedValue(), buf, 0,
+			 nr.IntVal.getLimitedValue(), bufElemTyp);
 	return nr;
 }
 
@@ -3629,7 +3630,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 
-	/* Take special care for appends and past-EOF writes */
+	/* Special care for appends and past-EOF writes (we zero ranges lazily) */
 	GenericValue dSize, ordRangeBegin;
 	auto iSize = readInodeSizeFS(inode, intTyp);
 	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, dSize)) {
@@ -3641,22 +3642,36 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 		ordRangeBegin = iSize;
 	}
 
-	/* Bytewise write */
-	copyDiskDataFromUser(inode, wOffset.IntVal.getLimitedValue(), buf, 0,
-			     count.IntVal.getLimitedValue(), bufElemTyp);
+	/* Block-wise write (we know that count > 0 at this point) */
+	auto dataCount = count.IntVal.getLimitedValue();
+	auto bufOffset = 0;
+	auto inodeOffset = wOffset.IntVal.getLimitedValue();
+	do {
+		/* Calculate amount to write */
+		auto bytes = std::min((unsigned long) FI.blockSize, dataCount);
 
-	/* We update the inode's size, if necessary */
-	GenericValue newSize;
-	newSize.IntVal = wOffset.IntVal + count.IntVal;
-	if (newSize.IntVal.sgt(iSize.IntVal)) {
-		/* update size and set i_reserved_data_blocks */
-		updateInodeSizeFS(inode, intTyp, newSize);
-		updateInodeDisksizeFS(inode, intTyp, newSize, ordRangeBegin, newSize);
+		/* Write data */
+		writeDataToDisk(buf, bufOffset, inode, inodeOffset, bytes, bufElemTyp);
 
-		auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
-		driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
-				   INT_TO_GV(intTyp, 1));
-	}
+		/* Update the inode's size, if necessary */
+		GenericValue newSize;
+		newSize.IntVal = APInt(intTyp->getIntegerBitWidth(), inodeOffset + bytes);
+		if (newSize.IntVal.sgt(readInodeSizeFS(inode, intTyp).IntVal)) {
+			/* update size and set i_reserved_data_blocks */
+			updateInodeSizeFS(inode, intTyp, newSize);
+			updateInodeDisksizeFS(inode, intTyp, newSize, ordRangeBegin, newSize);
+
+			auto *inodeRDB = (const GenericValue *) GET_INODE_RESERVED_DATA_BLOCKS_ADDR(inode);
+			driver->visitStore(IA_None, AtomicOrdering::NotAtomic, inodeRDB, intTyp,
+					   INT_TO_GV(intTyp, 1));
+			ordRangeBegin = newSize;
+		}
+
+		bufOffset += bytes;
+		inodeOffset += bytes;
+		dataCount -= bytes;
+	} while (dataCount);
+
 	return count;
 }
 

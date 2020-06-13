@@ -630,10 +630,10 @@ private:  // Helper functions
   void updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize);
   void updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
 			     const GenericValue &ordDataBegin, const GenericValue &ordDataEnd);
-  void copyDiskDataFromUser(void *inode, int inodeOffset, void *buf, int bufOffset,
-				     int count, Type *dataTyp);
-  void copyDiskDataToUser(void *inode, int inodeOffset, void *buf, int bufOffset,
-			  int count, Type *dataTyp);
+  void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
+		       int count, Type *dataTyp);
+  void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
+			int count, Type *dataTyp);
   void updateDirNameInode(const char *name, Type *intTyp, const GenericValue &inode);
 
   GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
