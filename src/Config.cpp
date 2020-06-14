@@ -133,9 +133,6 @@ clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(Journ
 static llvm::cl::opt<bool>
 clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistence),
 		  llvm::cl::desc("Do not model delayed allocation"));
-static llvm::cl::opt<bool>
-clDisableAutoDaAlloc("disable-auto-da-alloc", llvm::cl::cat(clPersistence),
-		     llvm::cl::desc("Do not detect replace-via-{rename,truncate} patterns"));
 
 
 /* Transformation options */
@@ -224,7 +221,6 @@ void Config::getConfigOptions(int argc, char **argv)
 	maxOpenFiles = clMaxOpenFiles;
 	journalData = clJournalData;
 	disableDelalloc = clDisableDelalloc;
-	disableAutoDaAlloc = clDisableAutoDaAlloc;
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;

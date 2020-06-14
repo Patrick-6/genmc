@@ -1,3 +1,2 @@
 -check-persistence
 -disable-stop-on-system-error
--disable-auto-da-alloc

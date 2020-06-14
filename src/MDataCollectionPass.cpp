@@ -241,7 +241,7 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	auto *intTyp = main->getReturnType();
 	unsigned int intByteWidth = GET_TYPE_ALLOC_SIZE(M, intTyp);
 
-	/* struct file -- Note: sizeof(int) == sizeof(unsigned int) */
+	/* struct file */
 	unsigned int offset = 0;
 	VI.internalInfo["file"].push_back(
 		std::make_pair(offset, ".inode"));
@@ -261,9 +261,7 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".i_size"));
 	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".da_alloc_close"));
-	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".i_reserved_data_blocks"));
+		std::make_pair((offset += intByteWidth), ".i_transaction"));
 	VI.internalInfo["inode"].push_back(
 		std::make_pair((offset += intByteWidth), ".i_disksize"));
 	VI.internalInfo["inode"].push_back(

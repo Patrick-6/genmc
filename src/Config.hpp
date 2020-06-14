@@ -55,7 +55,6 @@ public:
 	unsigned int maxOpenFiles;
 	JournalDataFS journalData;
 	bool disableDelalloc;
-	bool disableAutoDaAlloc;
 
 	/* Transformation options */
 	int unroll;

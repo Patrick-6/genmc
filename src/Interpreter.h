@@ -149,7 +149,6 @@ struct FsInfo {
   /* "Mount" options */
   JournalDataFS journalData;
   bool delalloc;
-  bool autoDaAlloc;
 
   /* A map from file descriptors to file descriptions */
   llvm::IndexedMap<void *> fdToFile;
@@ -255,12 +254,22 @@ public:
 	llvm::ExecutionContext initSF;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
+	unsigned int globalInstSnap;
 	bool isBlocked;
 	MyRNG rng;
 	std::vector<std::pair<int, std::string> > prefixLOC;
 
 	void block() { isBlocked = true; };
 	void unblock() { isBlocked = false; };
+
+	/* Useful for one-to-many instr->events correspondence */
+	void takeSnapshot()   {
+		globalInstSnap = globalInstructions;
+	}
+	void rollToSnapshot() {
+		globalInstructions = globalInstSnap;
+		--ECStack.back().CurInst;
+	}
 
 protected:
 	friend class Interpreter;
@@ -626,6 +635,8 @@ private:  // Helper functions
 
   void handleSystemError(SystemError code, const std::string &msg);
 
+  GenericValue getInodeTransStatus(void *inode, Type *intTyp);
+  void setInodeTransStatus(void *inode, Type *intTyp, const GenericValue &status);
   GenericValue readInodeSizeFS(void *inode, Type *intTyp);
   void updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize);
   void updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
@@ -642,7 +653,7 @@ private:  // Helper functions
   GenericValue executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp);
   GenericValue executeOpenFS(const char *file, const GenericValue &flags,
 			     const GenericValue &inode, Type *intTyp);
-  void executeAllocDaBlock(const GenericValue &inode, Type *intTyp);
+
   void executeReleaseFileFS(void *fileDesc, Type *intTyp);
   GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
   GenericValue executeRenameFS(const char *oldpath, const GenericValue &oldInode,
@@ -653,7 +664,7 @@ private:  // Helper functions
 
 
   GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
-				  Type *intTyp, int snap);
+				  Type *intTyp);
   GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,
 			      Type *bufElemTyp, const GenericValue &offset,
 			      const GenericValue &count);
@@ -669,11 +680,10 @@ private:  // Helper functions
 				      const GenericValue &count);
   GenericValue executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
 			       Type *bufElemTyp, const GenericValue &offset,
-			       const GenericValue &count, int snap);
+			       const GenericValue &count);
   GenericValue executeLseekFS(void *file, Type *intTyp,
 			    const GenericValue &offset,
 			    const GenericValue &whence);
-  void resetReservedDataBlocks(void *inode, Type *intTyp);
   void executeFsyncFS(void *inode, Type *intTyp);
 
 

@@ -88,9 +88,8 @@ struct __genmc_inode {
 	pthread_mutex_t lock; // setupFsInfo() + interp rely on the layout
 	int i_size; // <-- need to treat this atomically
 
-	/* ext4 memory data */
-	int da_alloc_close;
-	int i_reserved_data_blocks;
+	/* journaling helpers (embedded avoid indirection) */
+	int i_transaction; // <-- writes protected by the lock above
 
 	/* ext4 disk data (embedded to avoid indirection)
 	 * The implementation can now accommodate only one metadata piece
