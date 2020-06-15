@@ -151,7 +151,7 @@ bool PersistenceChecker::isRecAcyclic()
 		const EventLabel *lab = g.getEventLabel(Event(recId, j));
 		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab)) {
 			if (!isRecFromReadValid(rLab))
-			    return false;
+				return false;
 		}
 	}
 	return true;

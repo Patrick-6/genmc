@@ -31,7 +31,7 @@ enum class CheckConsType { approx, full };
 enum class ProgramPoint { error = 1, exec, step };
 
 /* Pers: Journaling mount options */
-enum class JournalDataFS { writeback, ordered };
+enum class JournalDataFS { writeback, ordered, journal };
 
 #include "InterpreterEnumAPI.hpp"
 

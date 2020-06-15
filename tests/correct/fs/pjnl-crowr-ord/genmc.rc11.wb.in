@@ -1,0 +1,3 @@
+-check-persistence
+-disable-stop-on-system-error
+-journal-data=journal

@@ -125,7 +125,8 @@ clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(Journ
 	      llvm::cl::desc("Specify the journaling mode for file data:"),
 	      llvm::cl::values(
 		      clEnumValN(JournalDataFS::writeback, "writeback", "Data ordering not preserved"),
-		      clEnumValN(JournalDataFS::ordered,   "ordered",   "Data before metadata")
+		      clEnumValN(JournalDataFS::ordered,   "ordered",   "Data before metadata"),
+		      clEnumValN(JournalDataFS::journal,   "journal",   "Journal data")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		      , NULL
 #endif

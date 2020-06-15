@@ -2872,7 +2872,7 @@ void Interpreter::setInodeTransStatus(void *inode, Type *intTyp, const GenericVa
 {
 	/* Just synchronize with the whole inode range */
 	void *ordDataBegin = inode;
-	void *ordDataEnd = (char *) inode + FI.maxFileSize;
+	void *ordDataEnd = (char *) inode + getTypeSize(FI.inodeTyp);
 
 	/* Transaction status modifications do not have any mapping (journal only) */
 	auto *inodeItrans = (const GenericValue *) GET_INODE_ITRANSACTION_ADDR(inode);
@@ -2925,13 +2925,21 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
 				  int count, Type *dataTyp)
 {
+	std::pair<void *, void *> ordDataRange(nullptr, nullptr);
+	if (FI.journalData == JournalDataFS::journal) {
+		auto *inodeItrans = GET_INODE_ITRANSACTION_ADDR(inode);
+		ordDataRange.first = inodeItrans;
+		ordDataRange.second = (char *) inodeItrans + getTypeSize(dataTyp);
+	}
+
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	for (auto i = 0u; i < count; i++) {
 		auto *loadAddr = (const GenericValue *) ((char *) buf + bufOffset + i);
 		auto val = driver->visitLoad(IA_None, AtomicOrdering::NotAtomic, loadAddr, dataTyp);
 
 		auto *writeAddr = (const GenericValue *) ((char *) inodeData + inodeOffset + i);
-		driver->visitDskWrite(writeAddr, dataTyp, val, GET_DATA_MAPPING(inode));
+		driver->visitDskWrite(writeAddr, dataTyp, val, GET_DATA_MAPPING(inode),
+				      false, ordDataRange);
 	}
 	return;
 }
@@ -2957,6 +2965,8 @@ void Interpreter::updateDirNameInode(const char *name, Type *intTyp, const Gener
 
 	executeFsyncFS(dirInode, intTyp); //   /\ relies on inode layout
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(dirInode));
+	if (FI.journalData == JournalDataFS::journal)
+		executeFsyncFS(dirInode, intTyp);
 	return;
 }
 
@@ -3121,6 +3131,9 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	updateInodeSizeFS(inode.PointerVal, intTyp, length);
 	updateInodeDisksizeFS(inode.PointerVal, intTyp, length, ordRangeBegin, ordRangeEnd);
 
+	if (FI.journalData >= JournalDataFS::ordered)
+		executeFsyncFS(inode.PointerVal, intTyp);
+
 out:
 	/* Release inode's lock */
 	driver->visitUnlock(inodeLock, intTyp);
@@ -3197,7 +3210,7 @@ void Interpreter::executeReleaseFileFS(void *fileDesc, Type *intTyp)
 {
 	/* Nothing for auto_da_alloc_close */
 
-	/* Free file description -- no ref count since dup() not modeled */
+	/* Free file description */
 	driver->visitFree((GenericValue *) fileDesc);
 	return;
 }
@@ -3488,6 +3501,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 					Type *bufElemTyp, const GenericValue &offset,
 					const GenericValue &count)
 {
+	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 	GenericValue nr = INT_TO_GV(intTyp, -1);
 
@@ -3519,6 +3533,15 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	 * the read buffered, since it doesn't make a difference.)  */
 	readDataFromDisk(inode, offset.IntVal.getLimitedValue(), buf, 0,
 			 nr.IntVal.getLimitedValue(), bufElemTyp);
+
+	if (FI.journalData == JournalDataFS::journal) {
+		auto inTrans = getInodeTransStatus(inode, intTyp);
+		if (compareValues(intTyp, INT_TO_GV(intTyp, 1), inTrans)) {
+			thr.rollToSnapshot();
+			thr.block();
+			return INT_TO_GV(intTyp, 42); /* propagate block */
+		}
+	}
 	return nr;
 }
 
@@ -3562,6 +3585,8 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 					fileOffset, intTyp);
 
 	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
+	if (thr.isBlocked)
+		return;
 
 	/* If the read succeeded, update the offset in the file description... */
 	if (nr.IntVal.sge(INT_TO_GV(intTyp, 0).IntVal)) {
@@ -3623,19 +3648,21 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, dSize)) {
 		zeroDskRangeFS(inode, iSize, dSize, bufElemTyp);
 		updateInodeDisksizeFS(inode, intTyp, dSize, iSize, dSize);
-		ordRangeBegin = wOffset; // data before wOffset will be ordered wrt next size change
 	} else if (wOffset.IntVal.sgt(iSize.IntVal)) {
 		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
-		ordRangeBegin = iSize;
 	}
 
 	/* Block-wise write (we know that count > 0 at this point) */
+	ordRangeBegin.PointerVal = nullptr;
 	auto dataCount = count.IntVal.getLimitedValue();
 	auto bufOffset = 0;
 	auto inodeOffset = wOffset.IntVal.getLimitedValue();
 	do {
 		/* Calculate amount to write */
 		auto bytes = std::min((unsigned long) FI.blockSize, dataCount);
+
+		if (FI.journalData == JournalDataFS::journal)
+			setInodeTransStatus(inode, intTyp, INT_TO_GV(intTyp, 1));
 
 		/* Write data */
 		writeDataToDisk(buf, bufOffset, inode, inodeOffset, bytes, bufElemTyp);
@@ -3647,6 +3674,11 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 			updateInodeSizeFS(inode, intTyp, newSize);
 			updateInodeDisksizeFS(inode, intTyp, newSize, ordRangeBegin, newSize);
 			ordRangeBegin = newSize;
+		}
+
+		if (FI.journalData == JournalDataFS::journal) {
+			setInodeTransStatus(inode, intTyp, INT_TO_GV(intTyp, 0));
+			executeFsyncFS(inode, intTyp);
 		}
 
 		bufOffset += bytes;
@@ -3805,6 +3837,7 @@ void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -3836,6 +3869,8 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* Execute the read in the specified offset */
 	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
+	if (thr.isBlocked)
+		return;
 
 	/* Return the number of bytes read (similar to read()) */
 	returnValueToCaller(retTyp, nr);
@@ -3866,7 +3901,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	}
 
 	/* We get the address of the file description, from which we will get
-	 * the reading offset. In contrast to read(), we do not get the offset's lock */
+	 * the reading offset. In contrast to write(), we do not get the offset's lock */
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		handleSystemError(SystemError::SE_EBADF, "File is not open in pwrite()");
