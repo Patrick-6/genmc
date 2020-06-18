@@ -111,7 +111,7 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 # imm
 do
-    for coherence in wb # mo
+    for coherence in wb mo
     do
 	for testdir in "${correctdir}/fs" # {infr,litmus,synthetic,data-structures,lapor}
 
