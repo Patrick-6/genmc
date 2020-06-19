@@ -2222,7 +2222,7 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 			} else {
 				llvm::dbgs() << *lab;
 			}
-			if (getMetadata && shouldPrintLOC(lab)) {
+			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile);
 			}
 			llvm::dbgs() << "\n";
