@@ -4017,7 +4017,7 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	driver->visitDskPersists();
+	driver->visitDskPbarrier();
 	return;
 }
 

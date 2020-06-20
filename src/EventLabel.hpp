@@ -73,7 +73,7 @@ public:
 		EL_Fence,
 		EL_DskFsync,
 		EL_DskSync,
-		EL_DskPersists,
+		EL_DskPbarrier,
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
@@ -207,7 +207,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
  *     DskWriteLabel
  *     DskSyncLabel
  *     DskFsyncLabel
- *     DskPersistsLabel
+ *     DskPbarrierLabel
  *
  * Note: This is not a child of EventLabel to avoid virtual inheritance */
 class DskAccessLabel {
@@ -231,7 +231,7 @@ public:
 		       lab->getKind() == EventLabel::EL_DskWrite ||
 		       lab->getKind() == EventLabel::EL_DskSync ||
 		       lab->getKind() == EventLabel::EL_DskFsync ||
-		       lab->getKind() == EventLabel::EL_DskPersists;
+		       lab->getKind() == EventLabel::EL_DskPbarrier;
 	}
 
 private:
@@ -851,31 +851,31 @@ public:
 
 
 /******************************************************************************
- **                        DskPersistsLabel Class
+ **                        DskPbarrierLabel Class
  ******************************************************************************/
 
 /* Corresponds to a call to __VERIFIER_persistence_barrier(), i.e.,
  * all events before this label will have persisted when the
  * recovery routine runs */
-class DskPersistsLabel : public FenceLabel, public DskAccessLabel {
+class DskPbarrierLabel : public FenceLabel, public DskAccessLabel {
 
 protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
 public:
-	DskPersistsLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
-		: FenceLabel(EL_DskPersists, st, ord, pos), DskAccessLabel(EL_DskPersists) {}
+	DskPbarrierLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: FenceLabel(EL_DskPbarrier, st, ord, pos), DskAccessLabel(EL_DskPbarrier) {}
 
-	DskPersistsLabel *clone() const override { return new DskPersistsLabel(*this); }
+	DskPbarrierLabel *clone() const override { return new DskPbarrierLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_DskPersists; }
-	static DskAccessLabel *castToDskAccessLabel(const DskPersistsLabel *D) {
-		return static_cast<DskAccessLabel *>(const_cast<DskPersistsLabel*>(D));
+	static bool classofKind(EventLabelKind k) { return k == EL_DskPbarrier; }
+	static DskAccessLabel *castToDskAccessLabel(const DskPbarrierLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskPbarrierLabel*>(D));
 	}
-	static DskPersistsLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
-		return static_cast<DskPersistsLabel *>(const_cast<DskAccessLabel*>(DC));
+	static DskPbarrierLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskPbarrierLabel *>(const_cast<DskAccessLabel*>(DC));
 	}
 
 private:

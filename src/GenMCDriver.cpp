@@ -295,10 +295,10 @@ void GenMCDriver::handleRecoveryStart()
 	 * otherwise, we synchronize with nothing */
 	auto tid = g.getRecoveryRoutineId();
 	auto psb = g.collectAllEvents([&](const EventLabel *lab)
-				      { return llvm::isa<DskPersistsLabel>(lab); });
+				      { return llvm::isa<DskPbarrierLabel>(lab); });
 	if (psb.empty())
 		psb.push_back(Event::getInitializer());
-	BUG_ON(psb.size() > 1);
+	ERROR_ON(psb.size() > 1, "Usage of only one persistence barrier is allowed!\n");
 
 	auto tsLab = createStartLabel(tid, 0, psb.back());
 	g.addOtherLabelToGraph(std::move(tsLab));
@@ -340,8 +340,7 @@ void GenMCDriver::run()
 
 	/* Setup the interpreter for the exploration */
 	auto mainFun = mod->getFunction(userConf->programEntryFun);
-	if (!mainFun)
-		ERROR("Could not find program's entry point function!\n");
+	ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
 
 	auto main = EE->createMainThread(mainFun);
 	EE->threads.push_back(main);
@@ -2037,14 +2036,14 @@ void GenMCDriver::visitDskSync()
 	return;
 }
 
-void GenMCDriver::visitDskPersists()
+void GenMCDriver::visitDskPbarrier()
 {
 	if (isExecutionDrivenByGraph())
 		return;
 
 	Event pos = getEE()->getCurrentPosition();
 
-	auto dpLab = createDskPersistsLabel(pos.thread, pos.index);
+	auto dpLab = createDskPbarrierLabel(pos.thread, pos.index);
 	getGraph().addOtherLabelToGraph(std::move(dpLab));
 	return;
 }

@@ -135,8 +135,8 @@ public:
 	std::unique_ptr<DskSyncLabel>
 	createDskSyncLabel(int tid, int index) override;
 
-	std::unique_ptr<DskPersistsLabel>
-	createDskPersistsLabel(int tid, int index) override;
+	std::unique_ptr<DskPbarrierLabel>
+	createDskPbarrierLabel(int tid, int index) override;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	std::unique_ptr<ThreadCreateLabel>

@@ -34,6 +34,7 @@
 #define WARN_ON(condition, msg) GenMCError::warnOn(condition) << WARN_MESSAGE(msg)
 #define WARN_ON_ONCE(condition, id, msg) GenMCError::warnOnOnce(condition, id) << WARN_MESSAGE(msg)
 #define ERROR(msg) ({ GenMCError::warn() << ERROR_MESSAGE(msg); abort(); })
+#define ERROR_ON(condition, msg) ({ if (condition) { ERROR(msg); abort(); } })
 
 #define BUG() do { \
 	llvm::errs() << "BUG: Failure at " << __FILE__ ":" << __LINE__ \

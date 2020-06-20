@@ -43,7 +43,7 @@ public:
 	void calcMemAccessPbView(MemAccessLabel *mLab);
 	void calcFsyncPbView(DskFsyncLabel *fLab);
 	void calcSyncPbView(DskSyncLabel *fLab);
-	void calcPbarrierPbView(DskPersistsLabel *fLab);
+	void calcPbarrierPbView(DskPbarrierLabel *fLab);
 
 	/* Returns whether the recovery relation is acyclic */
 	bool isRecAcyclic();

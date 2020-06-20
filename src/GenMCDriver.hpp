@@ -200,7 +200,7 @@ public:
 
 	/* A call to __VERIFIER_persistence_barrier() has been interpreted */
 	void
-	visitDskPersists();
+	visitDskPbarrier();
 
 	/* A fence has been interpreted, nothing for the interpreter */
 	void
@@ -549,8 +549,8 @@ private:
 
 	/* Creates a label for a persistence barrier
 	 * (__VERIFIER_persistence_barrier()) to be added to the graph */
-	virtual std::unique_ptr<DskPersistsLabel>
-	createDskPersistsLabel(int tid, int index) = 0;
+	virtual std::unique_ptr<DskPbarrierLabel>
+	createDskPbarrierLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

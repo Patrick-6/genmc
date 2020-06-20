@@ -410,12 +410,12 @@ RC11Driver::createDskSyncLabel(int tid, int index)
 	return std::move(lab);
 }
 
-std::unique_ptr<DskPersistsLabel>
-RC11Driver::createDskPersistsLabel(int tid, int index)
+std::unique_ptr<DskPbarrierLabel>
+RC11Driver::createDskPbarrierLabel(int tid, int index)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = llvm::make_unique<DskPersistsLabel>(g.nextStamp(),
+	auto lab = llvm::make_unique<DskPbarrierLabel>(g.nextStamp(),
 						       llvm::AtomicOrdering::Release,
 						       pos);
 

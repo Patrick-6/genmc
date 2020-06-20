@@ -32,8 +32,8 @@ EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskFsync:
 		return static_cast<DskFsyncLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskPersists:
-		return static_cast<DskPersistsLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskPbarrier:
+		return static_cast<DskPbarrierLabel *>(const_cast<DskAccessLabel *>(D));
 	default:
 		BUG();
 	}
@@ -51,8 +51,8 @@ DskAccessLabel *EventLabel::castToDskAccessLabel(const EventLabel *E)
 		return static_cast<DskSyncLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskFsync:
 		return static_cast<DskFsyncLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskPersists:
-		return static_cast<DskPersistsLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskPbarrier:
+		return static_cast<DskPbarrierLabel *>(const_cast<EventLabel *>(E));
 	default:
 		BUG();
 	}
@@ -119,8 +119,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_DskSync:
 		s << "S";
 		break;
-	case EventLabel::EL_DskPersists:
-		s << "PERSISTENCE_BARRIER";
+	case EventLabel::EL_DskPbarrier:
+		s << "PB";
 		break;
 	default:
 		s << "UNKNOWN";
@@ -287,8 +287,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << wLab.getKind() << " " << wLab.getVal().IntVal;
 		break;
 	}
-	case EventLabel::EL_DskPersists: {
-		auto &pLab = static_cast<const DskPersistsLabel&>(lab);
+	case EventLabel::EL_DskPbarrier: {
+		auto &pLab = static_cast<const DskPbarrierLabel&>(lab);
 		s << pLab.getKind();
 		break;
 	}

@@ -138,7 +138,7 @@ void PersistenceChecker::calcSyncPbView(DskSyncLabel *fLab)
 	return;
 }
 
-void PersistenceChecker::calcPbarrierPbView(DskPersistsLabel *fLab)
+void PersistenceChecker::calcPbarrierPbView(DskPbarrierLabel *fLab)
 {
 	auto &hb = fLab->getHbView();
 	DepView pb;
