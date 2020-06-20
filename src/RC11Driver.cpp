@@ -224,7 +224,7 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 						   typ, rf);
 	calcBasicReadViews(lab.get());
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -301,7 +301,7 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -387,7 +387,7 @@ RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
 	lab->setPorfView(std::move(porf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcFsyncPbView(lab.get());
+		g.getPersChecker()->calcFsyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -406,7 +406,7 @@ RC11Driver::createDskSyncLabel(int tid, int index)
 	lab->setPorfView(std::move(porf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcSyncPbView(lab.get());
+		g.getPersChecker()->calcSyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -425,7 +425,7 @@ RC11Driver::createDskPersistsLabel(int tid, int index)
 	lab->setPorfView(std::move(porf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcPbarrierPbView(lab.get());
+		g.getPersChecker()->calcPbarrierPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -646,7 +646,7 @@ void RC11Driver::changeRf(Event read, Event store)
 	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	calcBasicReadViews(rLab);
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
-		g.getPersistenceChecker()->calcMemAccessPbView(rLab);
+		g.getPersChecker()->calcMemAccessPbView(rLab);
 	return;
 }
 

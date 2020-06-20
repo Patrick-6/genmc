@@ -305,7 +305,7 @@ IMMDriver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 						   typ, rf);
 	calcBasicReadViews(lab.get());
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -382,7 +382,7 @@ IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -455,7 +455,7 @@ IMMDriver::createDskFsyncLabel(int tid, int index, const void *inode,
 	lab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcFsyncPbView(lab.get());
+		g.getPersChecker()->calcFsyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -477,7 +477,7 @@ IMMDriver::createDskSyncLabel(int tid, int index)
 	lab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcSyncPbView(lab.get());
+		g.getPersChecker()->calcSyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -499,7 +499,7 @@ IMMDriver::createDskPersistsLabel(int tid, int index)
 	lab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere)
-		g.getPersistenceChecker()->calcPbarrierPbView(lab.get());
+		g.getPersChecker()->calcPbarrierPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -703,7 +703,7 @@ void IMMDriver::changeRf(Event read, Event store)
 	rLab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
-		g.getPersistenceChecker()->calcMemAccessPbView(rLab);
+		g.getPersChecker()->calcMemAccessPbView(rLab);
 }
 
 bool IMMDriver::updateJoin(Event join, Event childLast)

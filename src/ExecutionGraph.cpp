@@ -946,7 +946,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 
 bool ExecutionGraph::isRecoveryValid() const
 {
-	PersistenceChecker *pc = getPersistenceChecker();
+	PersistenceChecker *pc = getPersChecker();
 	BUG_ON(!pc);
 	return pc->isRecAcyclic();
 }

@@ -280,10 +280,10 @@ public:
 	}
 
 	/* Pers: Returns the persistence checker */
-	PersistenceChecker *getPersistenceChecker() const {
+	PersistenceChecker *getPersChecker() const {
 		return persChecker.get();
 	}
-	PersistenceChecker *getPersistenceChecker() {
+	PersistenceChecker *getPersChecker() {
 		return persChecker.get();
 	}
 
