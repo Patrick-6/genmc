@@ -299,7 +299,14 @@ IMMDriver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			      const llvm::GenericValue *ptr, const llvm::Type *typ,
 			      Event rf)
 {
-	BUG();
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
+						   typ, rf);
+	calcBasicReadViews(lab.get());
+	if (auto *pc = g.getPersistenceChecker())
+		pc->calcMemAccessPbView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<WriteLabel>
@@ -367,7 +374,16 @@ IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue &val, void *mapping,
 			       bool isMetadata, std::pair<void *, void *> ordDataRange)
 {
-	BUG();
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, isMetadata, ordDataRange);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (auto *pc = g.getPersistenceChecker())
+		pc->calcMemAccessPbView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<FenceLabel>
@@ -404,26 +420,87 @@ std::unique_ptr<DskOpenLabel>
 IMMDriver::createDskOpenLabel(int tid, int index, const char *fileName,
 			      const llvm::GenericValue &fd)
 {
-	BUG();
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskOpenLabel>(g.nextStamp(),
+						   llvm::AtomicOrdering::Release,
+						   pos, fileName, fd);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
 }
 
 std::unique_ptr<DskFsyncLabel>
 IMMDriver::createDskFsyncLabel(int tid, int index, const void *inode,
 			       unsigned int size)
 {
-	BUG(); /* Do not forget to add release/correct semantics for this */
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskFsyncLabel>(g.nextStamp(),
+						    llvm::AtomicOrdering::Release,
+						    pos, inode, size);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+
+	if (auto *pc = g.getPersistenceChecker())
+		pc->calcFsyncPbView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<DskSyncLabel>
 IMMDriver::createDskSyncLabel(int tid, int index)
 {
-	BUG(); /* Do not forget to add release/correct semantics for this */
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskSyncLabel>(g.nextStamp(),
+						   llvm::AtomicOrdering::Release,
+						   pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+
+	if (auto *pc = g.getPersistenceChecker())
+		pc->calcSyncPbView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<DskPersistsLabel>
 IMMDriver::createDskPersistsLabel(int tid, int index)
 {
-	BUG(); /* Do not forget to add release semantics for this */
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskPersistsLabel>(g.nextStamp(),
+						       llvm::AtomicOrdering::Release,
+						       pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+
+	if (auto *pc = g.getPersistenceChecker())
+		pc->calcPbarrierPbView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<FreeLabel>
@@ -624,6 +701,9 @@ void IMMDriver::changeRf(Event read, Event store)
 	}
 	rLab->setHbView(std::move(hb));
 	rLab->setPPoRfView(std::move(pporf));
+	if (llvm::isa<DskReadLabel>(rLab))
+		if (auto *pc = g.getPersistenceChecker())
+			pc->calcMemAccessPbView(rLab);
 }
 
 bool IMMDriver::updateJoin(Event join, Event childLast)

@@ -1,0 +1,2 @@
+-check-persistence
+-journal-data=writeback

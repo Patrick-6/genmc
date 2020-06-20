@@ -39,6 +39,16 @@ public:
 	PersistenceChecker(ExecutionGraph &g, unsigned int blockSize)
 		: execGraph(g), blockSize(blockSize) {}
 
+	/* Helpers that calculate pb-before events for disk accesses */
+	void calcMemAccessPbView(MemAccessLabel *mLab);
+	void calcFsyncPbView(DskFsyncLabel *fLab);
+	void calcSyncPbView(DskSyncLabel *fLab);
+	void calcPbarrierPbView(DskPersistsLabel *fLab);
+
+	/* Returns whether the recovery relation is acyclic */
+	bool isRecAcyclic();
+
+private:
 	/* Return a reference to the execution graph */
 	ExecutionGraph &getGraph() { return execGraph; }
 	ExecutionGraph &getGraph() const { return execGraph; }
@@ -46,10 +56,6 @@ public:
 	/* Returns the block size */
 	unsigned int getBlockSize() const { return blockSize; }
 
-	/* Returns whether the recovery relation is acyclic */
-	bool isRecAcyclic();
-
-private:
 	/* Returns a reference to the pb relation */
 	Calculator::GlobalRelation &getPbRelation() { return pbRelation; }
 
@@ -72,11 +78,9 @@ private:
 	/* Block size in bytes */
 	unsigned int blockSize;
 
-	/* Persists-before and recovery relations.  These can be local
-	 * since they will only be modified from the persistence
-	 * checker */
+	/* Persists-before relation.  This can be local since it will
+	 * only be modified from the persistence checker */
 	Calculator::GlobalRelation pbRelation;
-	Calculator::GlobalRelation recRelation;
 };
 
 #endif /* __PERSISTENCE_CHECKER_HPP__ */

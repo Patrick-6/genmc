@@ -20,6 +20,21 @@
 
 #include "PersistenceChecker.hpp"
 
+/************************************************************
+ ** Helper functions
+ ***********************************************************/
+
+bool isDskAccessInRange(const DskAccessLabel *dLab, char *inode, unsigned int iSize)
+{
+	/* Disk fences are included in the range unconditionally */
+	if (llvm::isa<FenceLabel>(dLab))
+		return true;
+
+	auto *mAddr = (char *) llvm::dyn_cast<MemAccessLabel>(dLab)->getAddr();
+	BUG_ON(!llvm::isa<MemAccessLabel>(dLab));
+	return inode <= mAddr && mAddr < inode + iSize;
+}
+
 bool writeSameBlock(const DskWriteLabel *dw1, const DskWriteLabel *dw2,
 		    unsigned int blockSize)
 {
@@ -40,6 +55,104 @@ std::vector<Event> getDskWriteOperations(const ExecutionGraph &g)
 			return llvm::isa<DskWriteLabel>(lab);
 		});
 }
+
+
+/************************************************************
+ ** View calculation
+ ***********************************************************/
+
+/* TODO: Optimize */
+void PersistenceChecker::calcMemAccessPbView(MemAccessLabel *mLab)
+{
+	auto &g = getGraph();
+	auto &porf = mLab->getPorfView();
+	auto &prefix = porf.empty() ? (VectorClock&) mLab->getPPoRfView() :
+		(VectorClock&) porf;
+	DepView pb;
+
+	/* Check whether we are ordered wrt other writes */
+	auto ordRange = std::make_pair((void *) nullptr, (void *) nullptr);
+	if (auto *wLab = llvm::dyn_cast<DskWriteLabel>(mLab))
+		ordRange = wLab->getOrdDataRange();
+
+	BUG_ON(prefix.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < prefix.size(); i++) {
+		auto lim = (i == mLab->getThread()) ? prefix[i] - 1 : prefix[i];
+		for (auto j = 1u; j <= lim; j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (llvm::isa<FenceLabel>(lab)) {
+				if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
+					pb.update(dLab->getPbView());
+			}
+			if (auto *oLab = llvm::dyn_cast<DskWriteLabel>(lab)) {
+				if (oLab->getAddr() >= ordRange.first &&
+				    oLab->getAddr() <  ordRange.second)
+					pb.update(oLab->getPbView());
+			}
+		}
+	}
+
+	auto prevIdx = pb[mLab->getThread()];
+	pb[mLab->getThread()] = mLab->getIndex();
+	pb.addHolesInRange(Event(mLab->getThread(), prevIdx + 1), mLab->getIndex());
+	llvm::dyn_cast<DskAccessLabel>(mLab)->setPbView(std::move(pb));
+	return;
+}
+
+/* TODO: Optimize */
+void PersistenceChecker::calcFsyncPbView(DskFsyncLabel *fLab)
+{
+	auto &g = getGraph();
+	auto *fInode = (char *) fLab->getInode();
+	auto iSize = fLab->getSize();
+	auto &hb = fLab->getHbView();
+	DepView pb;
+
+	BUG_ON(hb.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < hb.size(); i++) {
+		auto lim = (i == fLab->getThread()) ? hb[i] - 1 : hb[i];
+		for (auto j = 1u; j <= lim; j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab)) {
+				if (isDskAccessInRange(dLab, fInode, iSize))
+					pb.update(dLab->getPbView());
+			}
+		}
+	}
+	auto prevIdx = pb[fLab->getThread()];
+	pb[fLab->getThread()] = fLab->getIndex();
+	pb.addHolesInRange(Event(fLab->getThread(), prevIdx + 1), fLab->getIndex());
+	fLab->setPbView(std::move(pb));
+	return;
+}
+
+void PersistenceChecker::calcSyncPbView(DskSyncLabel *fLab)
+{
+	auto &hb = fLab->getHbView();
+	DepView pb;
+
+	BUG_ON(hb.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < hb.size(); i++)
+		pb[i] = hb[i];
+	fLab->setPbView(std::move(pb));
+	return;
+}
+
+void PersistenceChecker::calcPbarrierPbView(DskPersistsLabel *fLab)
+{
+	auto &hb = fLab->getHbView();
+	DepView pb;
+
+	BUG_ON(hb.empty()); /* Must run after plain views calc */
+	for (auto i = 0u; i < hb.size(); i++)
+		pb[i] = hb[i];
+	fLab->setPbView(std::move(pb));
+	return;
+}
+
+/************************************************************
+ ** PB calculation and recovery validity
+ ***********************************************************/
 
 void PersistenceChecker::calcPb()
 {
