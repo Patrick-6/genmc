@@ -2000,7 +2000,7 @@ GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 
 	/* We get a fresh file descriptor for this open() */
 	auto fd = EE->getFreshFd();
-	BUG_ON(fd == -1);
+	ERROR_ON(fd == -1, "Too many calls to open()!\n");
 
 	/* We add a relevant label to the graph... */
 	llvm::GenericValue fdR;
