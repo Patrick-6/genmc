@@ -1,7 +1,8 @@
-AC_INIT([genmc], [0.4], [michalis@mpi-sws.org])
+AC_INIT([GenMC], [0.4], [michalis@mpi-sws.org], [genmc], [https://plv.mpi-sws.org/genmc])
 
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_clang.m4])
+m4_include([m4/ax_git_commit.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CXX
@@ -16,6 +17,7 @@ AX_CLANG(,[
   AC_MSG_WARN([Consider indicating the binaries clang/clang++ with switches --with-clang/--with-clangxx,])
   AC_MSG_FAILURE([Failed to detect clang/clang++.])
 ])
+AX_GIT_COMMIT
 
 ## Checks for libraries
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
@@ -60,6 +62,18 @@ AC_CHECK_HEADERS([ffi/ffi.h],[],[
 ],[AC_INCLUDES_DEFAULT])
 
 # Check various functions in LLVM
+
+## Check whether llvm::cl::SetVersionPrinter takes arguments
+AC_MSG_CHECKING([whether llvm::cl::SetVersionPrinter needs an argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/CommandLine.h>
+]],[[
+	llvm::cl::SetVersionPrinter([&](llvm::raw_ostream &s){ return; });
+]])],
+        [AC_DEFINE([LLVM_SETVERSIONPRINTER_NEEDS_ARG],[1],
+         [Define if llvm::cl::SetVersionPrinter needs an argument.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
 
 ## Check whether llvm::cl has HideUnrelatedOptions
 AC_MSG_CHECKING([whether llvm::cl has HideUnrelatedOptions()])

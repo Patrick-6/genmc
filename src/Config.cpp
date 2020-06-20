@@ -183,10 +183,25 @@ static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
 
+#ifdef LLVM_SETVERSIONPRINTER_NEEDS_ARG
+void printVersion(llvm::raw_ostream &s)
+#else
+void printVersion()
+	auto &s = llvm::raw_ostream();
+#endif
+{
+	s << PACKAGE_NAME " (" PACKAGE_URL "):\n"
+	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION " (commit #" GIT_COMMIT ")\n"
+	  << "  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
+}
+
 void Config::getConfigOptions(int argc, char **argv)
 {
+	/* Option categories printed */
 	const llvm::cl::OptionCategory *cats[] =
 		{&clGeneral, &clDebugging, &clTransformation, &clPersistence};
+
+	llvm::cl::SetVersionPrinter(printVersion);
 
 	/* Hide unrelated LLVM options and parse user configuration */
 #ifdef LLVM_HAS_HIDE_UNRELATED_OPTS
