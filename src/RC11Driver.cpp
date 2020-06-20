@@ -223,8 +223,8 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
 						   typ, rf);
 	calcBasicReadViews(lab.get());
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcMemAccessPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -300,8 +300,8 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcMemAccessPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -386,8 +386,8 @@ RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcFsyncPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcFsyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -405,8 +405,8 @@ RC11Driver::createDskSyncLabel(int tid, int index)
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcSyncPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcSyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -424,8 +424,8 @@ RC11Driver::createDskPersistsLabel(int tid, int index)
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcPbarrierPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcPbarrierPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -645,9 +645,8 @@ void RC11Driver::changeRf(Event read, Event store)
 	/* And update the views of the load */
 	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	calcBasicReadViews(rLab);
-	if (llvm::isa<DskReadLabel>(rLab))
-		if (auto *pc = g.getPersistenceChecker())
-			pc->calcMemAccessPbView(rLab);
+	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
+		g.getPersistenceChecker()->calcMemAccessPbView(rLab);
 	return;
 }
 

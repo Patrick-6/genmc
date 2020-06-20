@@ -304,8 +304,8 @@ IMMDriver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	auto lab = llvm::make_unique<DskReadLabel>(g.nextStamp(), ord, pos, ptr,
 						   typ, rf);
 	calcBasicReadViews(lab.get());
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcMemAccessPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -381,8 +381,8 @@ IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcMemAccessPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcMemAccessPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -454,8 +454,8 @@ IMMDriver::createDskFsyncLabel(int tid, int index, const void *inode,
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcFsyncPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcFsyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -476,8 +476,8 @@ IMMDriver::createDskSyncLabel(int tid, int index)
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcSyncPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcSyncPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -498,8 +498,8 @@ IMMDriver::createDskPersistsLabel(int tid, int index)
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
 
-	if (auto *pc = g.getPersistenceChecker())
-		pc->calcPbarrierPbView(lab.get());
+	if (getConf()->persevere)
+		g.getPersistenceChecker()->calcPbarrierPbView(lab.get());
 	return std::move(lab);
 }
 
@@ -701,9 +701,9 @@ void IMMDriver::changeRf(Event read, Event store)
 	}
 	rLab->setHbView(std::move(hb));
 	rLab->setPPoRfView(std::move(pporf));
-	if (llvm::isa<DskReadLabel>(rLab))
-		if (auto *pc = g.getPersistenceChecker())
-			pc->calcMemAccessPbView(rLab);
+
+	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
+		g.getPersistenceChecker()->calcMemAccessPbView(rLab);
 }
 
 bool IMMDriver::updateJoin(Event join, Event childLast)

@@ -109,8 +109,8 @@ clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGener
 /* Persistence options */
 
 static llvm::cl::opt<bool>
-clCheckPersistence("check-persistence", llvm::cl::cat(clPersistence),
-		   llvm::cl::desc("Check post-crash persistence guarantees"));
+clPersevere("persevere", llvm::cl::cat(clPersistence),
+	    llvm::cl::desc("Enable persistence checks (Persevere)"));
 static llvm::cl::opt<unsigned int>
 clBlockSize("block-size", llvm::cl::cat(clPersistence), llvm::cl::init(2),
 	      llvm::cl::desc("Block size (in bytes)"));
@@ -216,7 +216,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistence options */
-	checkPersistence = clCheckPersistence;
+	persevere = clPersevere;
 	blockSize = clBlockSize;
 	maxFileSize = clMaxFileSize;
 	maxOpenFiles = clMaxOpenFiles;

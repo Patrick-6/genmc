@@ -1,2 +1,2 @@
--check-persistence
+-persevere
 -journal-data=writeback

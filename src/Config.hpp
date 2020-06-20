@@ -49,7 +49,7 @@ public:
 	std::string specsFile;
 
 	/* Persistence options */
-	bool checkPersistence;
+	bool persevere;
 	unsigned int blockSize;
 	unsigned int maxFileSize;
 	unsigned int maxOpenFiles;

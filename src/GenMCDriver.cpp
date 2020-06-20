@@ -56,8 +56,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
 		.withEnabledLAPOR(userConf->LAPOR)
-		.withEnabledPersistenceChecks(userConf->checkPersistence,
-					      userConf->blockSize).build();
+		.withEnabledPersevere(userConf->persevere, userConf->blockSize).build();
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -1266,7 +1265,7 @@ void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
 void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ)
 {
 	/* No locking when running the recovery routine */
-	if (userConf->checkPersistence && inRecoveryMode())
+	if (userConf->persevere && inRecoveryMode())
 		return;
 
 	/* Treatment of locks based on whether LAPOR is enabled */
@@ -1303,7 +1302,7 @@ void GenMCDriver::visitUnlockLAPOR(const llvm::GenericValue *addr)
 void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ)
 {
 	/* No locking when running the recovery routine */
-	if (userConf->checkPersistence && inRecoveryMode())
+	if (userConf->persevere && inRecoveryMode())
 		return;
 
 	/* Treatment of unlocks based on whether LAPOR is enabled */

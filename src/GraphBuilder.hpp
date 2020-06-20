@@ -78,7 +78,7 @@ public:
 		return *this;
 	}
 
-	GraphBuilder &withEnabledPersistenceChecks(bool pers, unsigned int blockSize) {
+	GraphBuilder &withEnabledPersevere(bool pers, unsigned int blockSize) {
 		if (pers) {
 			graph->addPersistenceChecker(
 				llvm::make_unique<PersistenceChecker>(*graph, blockSize));
