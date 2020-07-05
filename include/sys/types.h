@@ -12,6 +12,7 @@ typedef unsigned int __mode_t;
 typedef __mode_t mode_t;
 typedef unsigned long int __nlink_t;
 typedef long int __off_t;
+typedef long int off_t;
 typedef long int __off64_t;
 
 #endif /* __SYS_TYPES_H__ */
