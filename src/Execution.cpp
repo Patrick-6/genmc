@@ -3468,21 +3468,26 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 }
 
 bool Interpreter::shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &iSize,
-					      const GenericValue &wOffset, GenericValue &dSize)
+					      const GenericValue &wOffset, const GenericValue &countVal,
+					      GenericValue &dSize)
 {
 	/* ugly hack for comparing different length APInts... */
 	auto size = iSize.IntVal.getLimitedValue();
 	auto offset = wOffset.IntVal.getLimitedValue();
+	auto count = countVal.IntVal.getLimitedValue();
 
 	/* We should update if we are appending in the same (pre-allocated) block  */
 	auto bi = size % FI.blockSize;
-	bool shouldUpdate = offset >= size && (offset / FI.blockSize) == (size / FI.blockSize) && bi > 0;
+	auto rb = FI.blockSize - bi;
+	auto be = size + rb;
+	bool shouldUpdate = ((offset <= size && size < offset + count) ||
+			     (offset < be   && be <= offset + count)  ||
+			     (size <= offset  && offset + count <= be)) && bi > 0;
 	if (!shouldUpdate)
 		return false;
 
 	/* Calculate the new disksize */
-	auto rb = FI.blockSize - bi;
-	dSize = INT_TO_GV(intTyp, size + rb);
+	dSize = INT_TO_GV(intTyp, std::min(be, offset + count));
 	return true;
 }
 
@@ -3634,7 +3639,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	/* Special care for appends and past-EOF writes (we zero ranges lazily) */
 	GenericValue dSize, ordRangeBegin;
 	auto iSize = readInodeSizeFS(inode, intTyp);
-	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, dSize)) {
+	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, count, dSize)) {
 		zeroDskRangeFS(inode, iSize, dSize, bufElemTyp);
 		updateInodeDisksizeFS(inode, intTyp, dSize, iSize, dSize);
 	} else if (wOffset.IntVal.sgt(iSize.IntVal)) {
@@ -3647,8 +3652,12 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	auto bufOffset = 0;
 	auto inodeOffset = wOffset.IntVal.getLimitedValue();
 	do {
-		/* Calculate amount to write */
+		/* Calculate amount to write and align write */
 		auto bytes = std::min((unsigned long) FI.blockSize, dataCount);
+		auto blockIndex = inodeOffset % FI.blockSize;
+		auto blockRem = FI.blockSize - blockIndex;
+		if (blockIndex != 0 && bytes > blockRem)
+			bytes = blockRem;
 
 		if (FI.journalData == JournalDataFS::journal)
 			setInodeTransStatus(inode, intTyp, INT_TO_GV(intTyp, 1));

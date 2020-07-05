@@ -677,7 +677,8 @@ private:  // Helper functions
 				    const GenericValue &offset, const GenericValue &count,
 				    GenericValue &wOffset);
   bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
-				   const GenericValue &offset, GenericValue &dSize);
+				   const GenericValue &offset, const GenericValue &count,
+				   GenericValue &dSize);
   GenericValue executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
 				      Type *bufElemTyp, const GenericValue &wOffset,
 				      const GenericValue &count);
