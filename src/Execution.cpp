@@ -248,10 +248,9 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	auto __lock = (char *) inode + SL->getElementOffset(0);		\
 	__lock;								\
 })
-#define GET_METADATA_MAPPING(inode)		\
-	GET_INODE_ISIZE_ADDR(inode)
-#define GET_DATA_MAPPING(inode)			\
-	GET_INODE_DATA_ADDR(inode)
+#define GET_METADATA_MAPPING(inode)  (inode)
+#define GET_DATA_MAPPING(inode)	     (inode)
+#define GET_JOURNAL_MAPPING(inode)   (nullptr)
 
 //===----------------------------------------------------------------------===//
 //                    Binary Instruction Implementations
@@ -2870,14 +2869,10 @@ GenericValue Interpreter::getInodeTransStatus(void *inode, Type *intTyp)
 
 void Interpreter::setInodeTransStatus(void *inode, Type *intTyp, const GenericValue &val)
 {
-	/* Just synchronize with the whole inode range */
-	void *ordDataBegin = inode;
-	void *ordDataEnd = (char *) inode + getTypeSize(FI.inodeTyp);
-
 	/* Transaction status modifications do not have any mapping (journal only) */
 	auto *inodeItrans = (const GenericValue *) GET_INODE_ITRANSACTION_ADDR(inode);
-	driver->visitDskWrite(inodeItrans, intTyp, val, nullptr, false,
-			      std::make_pair(ordDataBegin, ordDataEnd));
+	driver->visitDskWrite(inodeItrans, intTyp, val, GET_JOURNAL_MAPPING(inode),
+			      IA_DskJnlOp, std::make_pair(nullptr, nullptr), inode);
 	return;
 }
 
@@ -2914,7 +2909,7 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 
 	/* Update disksize*/
 	driver->visitDskWrite(inodeIdisksize, intTyp, newSize, GET_METADATA_MAPPING(inode),
-			      true, ordDataRange);
+			      IA_DskMdata, ordDataRange);
 
 	/* If there is no delayed allocation, we actually _wait_ for the write */
 	if (FI.journalData == JournalDataFS::ordered && !FI.delalloc)
@@ -2925,13 +2920,6 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
 				  int count, Type *dataTyp)
 {
-	std::pair<void *, void *> ordDataRange(nullptr, nullptr);
-	if (FI.journalData == JournalDataFS::journal) {
-		auto *inodeItrans = GET_INODE_ITRANSACTION_ADDR(inode);
-		ordDataRange.first = inodeItrans;
-		ordDataRange.second = (char *) inodeItrans + getTypeSize(dataTyp);
-	}
-
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	for (auto i = 0u; i < count; i++) {
 		auto *loadAddr = (const GenericValue *) ((char *) buf + bufOffset + i);
@@ -2939,7 +2927,7 @@ void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int ino
 
 		auto *writeAddr = (const GenericValue *) ((char *) inodeData + inodeOffset + i);
 		driver->visitDskWrite(writeAddr, dataTyp, val, GET_DATA_MAPPING(inode),
-				      false, ordDataRange);
+				      IA_None);
 	}
 	return;
 }
@@ -2963,8 +2951,9 @@ void Interpreter::updateDirNameInode(const char *name, Type *intTyp, const Gener
 	auto *dirInode = getDirInode();
 	auto *inodeAddr = (const GenericValue *) getInodeAddrFromName((const char *) name);
 
-	executeFsyncFS(dirInode, intTyp); //   /\ relies on inode layout
-	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode, GET_DATA_MAPPING(dirInode));
+	executeFsyncFS(dirInode, intTyp); //   \/ relies on inode layout
+	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode,
+			      GET_DATA_MAPPING(dirInode), IA_DskDirOp);
 	if (FI.journalData == JournalDataFS::journal)
 		executeFsyncFS(dirInode, intTyp);
 	return;
@@ -3610,7 +3599,7 @@ void Interpreter::zeroDskRangeFS(void *inode, const GenericValue &start,
 	for (auto i = start.IntVal.getLimitedValue(); i < end.IntVal.getLimitedValue(); i++) {
 		auto *addr = (const GenericValue *) (dataOffset + i);
 		driver->visitDskWrite(addr, writeIntTyp, INT_TO_GV(writeIntTyp, 0),
-				      GET_DATA_MAPPING(inode));
+				      GET_DATA_MAPPING(inode), IA_None);
 	}
 	return;
 }

@@ -40,6 +40,8 @@ bool writeSameBlock(const DskWriteLabel *dw1, const DskWriteLabel *dw2,
 {
 	if (dw1->getMapping() != dw2->getMapping())
 		return false;
+	if (dw1->getKind() != dw2->getKind())
+		return false;
 
 	ptrdiff_t off1 = (char *) dw1->getAddr() - (char *) dw1->getMapping();
 	ptrdiff_t off2 = (char *) dw2->getAddr() - (char *) dw2->getMapping();
@@ -72,7 +74,7 @@ void PersistenceChecker::calcMemAccessPbView(MemAccessLabel *mLab)
 
 	/* Check whether we are ordered wrt other writes */
 	auto ordRange = std::make_pair((void *) nullptr, (void *) nullptr);
-	if (auto *wLab = llvm::dyn_cast<DskWriteLabel>(mLab))
+	if (auto *wLab = llvm::dyn_cast<DskMdWriteLabel>(mLab))
 		ordRange = wLab->getOrdDataRange();
 
 	BUG_ON(prefix.empty()); /* Must run after plain views calc */
@@ -84,11 +86,21 @@ void PersistenceChecker::calcMemAccessPbView(MemAccessLabel *mLab)
 				if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab))
 					pb.update(dLab->getPbView());
 			}
+			if (auto *jLab = llvm::dyn_cast<DskJnlWriteLabel>(lab))
+				if (auto *wLab = llvm::dyn_cast<DskWriteLabel>(mLab))
+					if (jLab->getTransInode() == wLab->getMapping())
+						pb.update(jLab->getPbView());
 			if (auto *oLab = llvm::dyn_cast<DskWriteLabel>(lab)) {
 				if (oLab->getAddr() >= ordRange.first &&
 				    oLab->getAddr() <  ordRange.second)
 					pb.update(oLab->getPbView());
+				if (auto *jLab = llvm::dyn_cast<DskJnlWriteLabel>(mLab))
+					if (jLab->getTransInode() == oLab->getMapping())
+						pb.update(oLab->getPbView());
 			}
+			if (auto *mdLab = llvm::dyn_cast<DskMdWriteLabel>(mLab))
+				if (auto *dLab = llvm::dyn_cast<DskDirWriteLabel>(lab))
+					pb.update(dLab->getPbView());
 		}
 	}
 

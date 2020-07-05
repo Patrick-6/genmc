@@ -290,13 +290,64 @@ RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<DskWriteLabel>
 RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				const llvm::GenericValue &val, void *mapping,
-				bool isMetadata, std::pair<void *, void *> ordDataRange)
+				const llvm::GenericValue &val, void *mapping)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<DskWriteLabel>(
-		g.nextStamp(), ord, pos, ptr, typ, val, mapping, isMetadata, ordDataRange);
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskMdWriteLabel>
+RC11Driver::createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				  const llvm::GenericValue *ptr, const llvm::Type *typ,
+				  const llvm::GenericValue &val, void *mapping,
+				  std::pair<void *, void *> ordDataRange)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskMdWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, ordDataRange);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskDirWriteLabel>
+RC11Driver::createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				   const llvm::GenericValue *ptr, const llvm::Type *typ,
+				   const llvm::GenericValue &val, void *mapping)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskDirWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskJnlWriteLabel>
+RC11Driver::createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				   const llvm::GenericValue *ptr, const llvm::Type *typ,
+				   const llvm::GenericValue &val, void *mapping, void *transInode)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskJnlWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, transInode);
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
@@ -315,7 +366,6 @@ RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 	calcBasicFenceViews(lab.get());
 	return std::move(lab);
 }
-
 
 std::unique_ptr<MallocLabel>
 RC11Driver::createMallocLabel(int tid, int index, const void *addr,

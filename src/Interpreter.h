@@ -350,6 +350,9 @@ public:
 	  IA_Cas,
 	  IA_Lock,
 	  IA_Unlock,
+	  IA_DskMdata,
+	  IA_DskDirOp,
+	  IA_DskJnlOp,
   };
 
   /* Resets the interpreter at the beginning of a new execution */

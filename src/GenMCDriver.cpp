@@ -1217,6 +1217,8 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 						     addr, typ, val,
 						     attr == llvm::Interpreter::IA_Lock));
 		break;
+	default:
+		BUG();
 	}
 
 	const WriteLabel *lab = getGraph().addWriteLabelToGraph(std::move(wLab), endO);
@@ -1950,8 +1952,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 void
 GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 			   const llvm::GenericValue &val, void *mapping,
-			   bool isMetadata /* = false */,
-			   std::pair<void *, void *> ordDataRange /* = (NULL, NULL) */)
+			   llvm::Interpreter::InstAttr attr /* = IA_None */,
+			   std::pair<void *, void *> ordDataRange /* = (NULL, NULL) */,
+			   void *transInode /* = NULL */)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1962,16 +1965,35 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 
 	g.trackCoherenceAtLoc(addr);
 
-	/* Disk writes should be ordered */
+	/* Disk writes should always be hb-ordered */
 	auto placesRange = g.getCoherentPlacings(addr, pos, false);
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 	BUG_ON(begO != endO);
 
-	/* It is always consistent to add the store at the end of MO */
+	/* Safe to _only_ add it at the end of MO */
+	std::unique_ptr<DskWriteLabel> wLab = nullptr;
 	auto ord = llvm::AtomicOrdering::Release;
-	auto wLab = createDskWriteLabel(pos.thread, pos.index, ord, addr, typ,
-					val, mapping, isMetadata, ordDataRange);
+	switch (attr) {
+	case llvm::Interpreter::IA_None:
+		wLab = createDskWriteLabel(pos.thread, pos.index, ord,
+					   addr, typ, val, mapping);
+		break;
+	case llvm::Interpreter::IA_DskMdata:
+		wLab = createDskMdWriteLabel(pos.thread, pos.index, ord,
+					     addr, typ, val, mapping, ordDataRange);
+		break;
+	case llvm::Interpreter::IA_DskDirOp:
+		wLab = createDskDirWriteLabel(pos.thread, pos.index, ord,
+					      addr, typ, val, mapping);
+		break;
+	case llvm::Interpreter::IA_DskJnlOp:
+		wLab = createDskJnlWriteLabel(pos.thread, pos.index, ord,
+					      addr, typ, val, mapping, transInode);
+		break;
+	default:
+		BUG();
+	}
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 

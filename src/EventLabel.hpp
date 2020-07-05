@@ -68,6 +68,10 @@ public:
 		EL_CasWrite,
 		EL_LibWrite,
 		EL_DskWrite,
+		EL_DskMdWrite,
+		EL_DskJnlWrite,
+		EL_DskDirWrite,
+		EL_LastDskWrite,
 		EL_LastWrite,
 		EL_MemAccessEnd,
 		EL_Fence,
@@ -228,7 +232,8 @@ public:
 
 	static bool classof(const EventLabel *lab) {
 		return lab->getKind() == EventLabel::EL_DskRead ||
-		       lab->getKind() == EventLabel::EL_DskWrite ||
+		       (lab->getKind() >= EventLabel::EL_DskWrite &&
+			lab->getKind() <= EventLabel::EL_LastDskWrite) ||
 		       lab->getKind() == EventLabel::EL_DskSync ||
 		       lab->getKind() == EventLabel::EL_DskFsync ||
 		       lab->getKind() == EventLabel::EL_DskPbarrier;
@@ -696,35 +701,28 @@ private:
 };
 
 
-
 /*******************************************************************************
  **                         DskWriteLabel Class
  ******************************************************************************/
 
-/* Models a write from the disk (e.g., via write()) */
+/* Models a write to disk (e.g., via write()) */
 class DskWriteLabel : public WriteLabel, public DskAccessLabel {
 
 protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	DskWriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
+		      Event pos,  const llvm::GenericValue *addr,
+		      const llvm::Type *valTyp, llvm::GenericValue val, void *mapping)
+		: WriteLabel(k, st, ord, pos, addr, valTyp, val),
+		  DskAccessLabel(k), mapping(mapping) {}
+
 public:
 	DskWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val, void *mapping, bool isMetadata,
-		      std::pair<void *, void*> ordDataRange)
-		: WriteLabel(EL_DskWrite, st, ord, pos, addr, valTyp, val),
-		  DskAccessLabel(EL_DskWrite), mapping(mapping),
-		  metadata(isMetadata), ordDataRange(ordDataRange) {}
-
-	/* Whether this is a metadata write */
-	bool isMetadata() const { return metadata; }
-
-	/* Helpers that return data with which this write is ordered */
-	const void *getOrdDataBegin() const { return ordDataRange.first; }
-	const void *getOrdDataEnd() const { return ordDataRange.second; }
-	const std::pair<void *, void *>
-	getOrdDataRange() const { return ordDataRange; }
+		      llvm::GenericValue val, void *mapping)
+		: DskWriteLabel(EL_DskWrite, st, ord, pos, addr, valTyp, val, mapping) {}
 
 	/* Returns the starting offset for this write's disk mapping */
 	const void *getMapping() const { return mapping; }
@@ -732,7 +730,9 @@ public:
 	DskWriteLabel *clone() const override { return new DskWriteLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_DskWrite; }
+	static bool classofKind(EventLabelKind k) {
+		return k >= EL_DskWrite && k <= EL_LastDskWrite;
+	}
 	static DskAccessLabel *castToDskAccessLabel(const DskWriteLabel *D) {
 		return static_cast<DskAccessLabel *>(const_cast<DskWriteLabel*>(D));
 	}
@@ -743,12 +743,120 @@ public:
 private:
 	/* The starting offset for this write's disk mapping */
 	void *mapping;
+};
 
-	/* Whether this write writes metadata */
-	bool metadata;
 
+/*******************************************************************************
+ **                         DskMdWriteLabel Class
+ ******************************************************************************/
+
+/* Models a disk write that writes metadata */
+class DskMdWriteLabel : public DskWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskMdWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			llvm::GenericValue val, void *mapping,
+			std::pair<void *, void*> ordDataRange)
+		: DskWriteLabel(EL_DskMdWrite, st, ord, pos, addr, valTyp, val, mapping),
+		  ordDataRange(ordDataRange) {}
+
+	/* Helpers that return data with which this write is ordered */
+	const void *getOrdDataBegin() const { return ordDataRange.first; }
+	const void *getOrdDataEnd() const { return ordDataRange.second; }
+	const std::pair<void *, void *>
+	getOrdDataRange() const { return ordDataRange; }
+
+	DskMdWriteLabel *clone() const override { return new DskMdWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskMdWrite; }
+	static DskAccessLabel *castToDskAccessLabel(const DskMdWriteLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskMdWriteLabel*>(D));
+	}
+	static DskMdWriteLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskMdWriteLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
 	/* The data range [begin, end) that with which this write is ordered */
 	std::pair<void *, void *> ordDataRange;
+};
+
+
+/*******************************************************************************
+ **                         DskDirWriteLabel Class
+ ******************************************************************************/
+
+/* Models a write to a directory on disk */
+class DskDirWriteLabel : public DskWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskDirWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			 const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			 llvm::GenericValue val, void *mapping)
+		: DskWriteLabel(EL_DskDirWrite, st, ord, pos, addr, valTyp, val, mapping) {}
+
+	DskDirWriteLabel *clone() const override { return new DskDirWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskDirWrite; }
+	static DskAccessLabel *castToDskAccessLabel(const DskDirWriteLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskDirWriteLabel*>(D));
+	}
+	static DskDirWriteLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskDirWriteLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* Nothing for the time being */
+};
+
+
+/*******************************************************************************
+ **                         DskJnlWriteLabel Class
+ ******************************************************************************/
+
+/* Models a write to disk that marks the beginning or end of a disk transaction.
+ * (We assume that each transaction affects only one inode.) */
+class DskJnlWriteLabel : public DskWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	DskJnlWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			 const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			 llvm::GenericValue val, void *mapping, void *inode)
+		: DskWriteLabel(EL_DskJnlWrite, st, ord, pos, addr, valTyp, val, mapping),
+		  inode(inode) {}
+
+	/* Returns the inode on which the transaction takes place */
+	const void *getTransInode() const { return inode; }
+
+	DskJnlWriteLabel *clone() const override { return new DskJnlWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_DskJnlWrite; }
+	static DskAccessLabel *castToDskAccessLabel(const DskJnlWriteLabel *D) {
+		return static_cast<DskAccessLabel *>(const_cast<DskJnlWriteLabel*>(D));
+	}
+	static DskJnlWriteLabel *castFromDskAccessLabel(const DskAccessLabel *DC) {
+		return static_cast<DskJnlWriteLabel *>(const_cast<DskAccessLabel*>(DC));
+	}
+
+private:
+	/* The inode on which the transaction takes place */
+	void *inode;
 };
 
 

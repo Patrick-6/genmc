@@ -107,8 +107,23 @@ public:
 	std::unique_ptr<DskWriteLabel>
 	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, void *mapping,
-			    bool isMetadata, std::pair<void *, void *> ordDataRange) override;
+			    const llvm::GenericValue &val, void *mapping) override;
+
+	std::unique_ptr<DskMdWriteLabel>
+	createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      const llvm::GenericValue &val, void *mapping,
+			      std::pair<void *, void *> ordDataRange) override;
+
+	std::unique_ptr<DskDirWriteLabel>
+	createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       const llvm::GenericValue &val, void *mapping) override;
+
+	std::unique_ptr<DskJnlWriteLabel>
+	createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       const llvm::GenericValue &val, void *mapping, void *transInode) override;
 
 	/* Creates a label for a fence to be added to the graph */
 	std::unique_ptr<FenceLabel>

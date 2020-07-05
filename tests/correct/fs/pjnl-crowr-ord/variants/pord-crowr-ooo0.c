@@ -18,16 +18,19 @@ void __VERIFIER_recovery_routine(void)
 	int fb = open("bar", O_RDONLY, 0640);
 	int nr = read(fd, buf, 2);
 
-	/* Is it possible to see the append but not "bar"? */
-	__VERIFIER_recovery_assert(!(nr == 2 && fb == -1));
+	/* Is it possible to see the overwrite but not "bar"? */
+	__VERIFIER_recovery_assert(!(nr == 2 && fb == -1 &&
+				     buf[1] == '1' && buf[0] == '1'));
 	return;
 }
 
 int main()
 {
-	char buf[2] = "00";
+	char buf_init[2] = "00";
+	char buf[2] = "11";
 
 	int fd = creat("foo", S_IRWXU);
+	write(fd, buf_init, 2);
 
 	__VERIFIER_persistence_barrier();
 

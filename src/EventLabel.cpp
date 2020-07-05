@@ -28,6 +28,12 @@ EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 		return static_cast<DskReadLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskWrite:
 		return static_cast<DskWriteLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskMdWrite:
+		return static_cast<DskMdWriteLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskJnlWrite:
+		return static_cast<DskJnlWriteLabel *>(const_cast<DskAccessLabel *>(D));
+	case EventLabel::EventLabelKind::EL_DskDirWrite:
+		return static_cast<DskDirWriteLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskSync:
 		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel *>(D));
 	case EventLabel::EventLabelKind::EL_DskFsync:
@@ -47,6 +53,12 @@ DskAccessLabel *EventLabel::castToDskAccessLabel(const EventLabel *E)
 		return static_cast<DskReadLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskWrite:
 		return static_cast<DskWriteLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskMdWrite:
+		return static_cast<DskMdWriteLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskJnlWrite:
+		return static_cast<DskJnlWriteLabel *>(const_cast<EventLabel *>(E));
+	case EventLabel::EventLabelKind::EL_DskDirWrite:
+		return static_cast<DskDirWriteLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskSync:
 		return static_cast<DskSyncLabel *>(const_cast<EventLabel *>(E));
 	case EventLabel::EventLabelKind::EL_DskFsync:
@@ -108,16 +120,19 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "FO";
 		break;
 	case EventLabel::EL_DskRead:
-		s << "FR";
+		s << "DR";
 		break;
 	case EventLabel::EL_DskWrite:
-		s << "FW";
+	case EventLabel::EL_DskMdWrite:
+	case EventLabel::EL_DskDirWrite:
+	case EventLabel::EL_DskJnlWrite:
+		s << "DW";
 		break;
 	case EventLabel::EL_DskFsync:
-		s << "FS";
+		s << "DF";
 		break;
 	case EventLabel::EL_DskSync:
-		s << "S";
+		s << "DS";
 		break;
 	case EventLabel::EL_DskPbarrier:
 		s << "PB";

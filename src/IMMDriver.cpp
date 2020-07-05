@@ -371,13 +371,64 @@ IMMDriver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<DskWriteLabel>
 IMMDriver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       const llvm::GenericValue &val, void *mapping,
-			       bool isMetadata, std::pair<void *, void *> ordDataRange)
+			       const llvm::GenericValue &val, void *mapping)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = llvm::make_unique<DskWriteLabel>(
-		g.nextStamp(), ord, pos, ptr, typ, val, mapping, isMetadata, ordDataRange);
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskMdWriteLabel>
+IMMDriver::createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				 const llvm::GenericValue *ptr, const llvm::Type *typ,
+				 const llvm::GenericValue &val, void *mapping,
+				 std::pair<void *, void *> ordDataRange)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskMdWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, ordDataRange);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskDirWriteLabel>
+IMMDriver::createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				  const llvm::GenericValue *ptr, const llvm::Type *typ,
+				  const llvm::GenericValue &val, void *mapping)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskDirWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping);
+
+	calcBasicWriteViews(lab.get());
+	calcWriteMsgView(lab.get());
+	if (getConf()->persevere)
+		g.getPersChecker()->calcMemAccessPbView(lab.get());
+	return std::move(lab);
+}
+
+std::unique_ptr<DskJnlWriteLabel>
+IMMDriver::createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+				  const llvm::GenericValue *ptr, const llvm::Type *typ,
+				  const llvm::GenericValue &val, void *mapping, void *transInode)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = llvm::make_unique<DskJnlWriteLabel>(
+		g.nextStamp(), ord, pos, ptr, typ, val, mapping, transInode);
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
