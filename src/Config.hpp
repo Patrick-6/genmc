@@ -50,6 +50,7 @@ public:
 
 	/* Persistence options */
 	bool persevere;
+	ProgramPoint checkPersPoint;
 	unsigned int blockSize;
 	unsigned int maxFileSize;
 	unsigned int maxOpenFiles;
