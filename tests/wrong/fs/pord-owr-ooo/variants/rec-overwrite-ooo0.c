@@ -30,7 +30,7 @@ int main()
 	char buf_a[8], buf_b[8];
 
 	/* Initialize bufs */
-	buf_a[0] = 0;
+	buf_a[0] = buf_a[1] = buf_a[2] = buf_a[3] = 0;
 	buf_b[0] = 42;
 
 	/* Initialize foo */
