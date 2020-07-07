@@ -1263,10 +1263,13 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 			continue;
 
 		/* Push the stack item */
-		addToWorklist(MOWrite, lab->getPos(), Event::getInitializer(),
-			      {}, {}, std::distance(locMO.begin(), it));
+		if (!inRecoveryMode()) {
+			addToWorklist(MOWrite, lab->getPos(), Event::getInitializer(),
+				      {}, {}, std::distance(locMO.begin(), it));
+		}
 	}
-	calcRevisits(lab);
+	if (!inRecoveryMode())
+		calcRevisits(lab);
 
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
 	if (!ensureConsistentStore(lab))
