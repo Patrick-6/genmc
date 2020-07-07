@@ -612,6 +612,12 @@ bool GenMCDriver::shouldCheckFullCons(ProgramPoint p)
 	return false;
 }
 
+bool GenMCDriver::shouldCheckPers(ProgramPoint p)
+{
+	/* Always check consistency on error, or at user-specified points */
+	return p <= getConf()->checkPersPoint;
+}
+
 bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 {
 	if (shouldCheckCons(p) == false)
@@ -847,6 +853,20 @@ bool GenMCDriver::isConsistent(ProgramPoint p)
 	return doFinalConsChecks(checkFull);
 }
 
+bool GenMCDriver::isRecoveryValid(ProgramPoint p)
+{
+	/* If we are not in the recovery routine, nothing to do */
+	if (!inRecoveryMode())
+		return true;
+
+	/* Fastpath: No fixpoint is required */
+	auto check = shouldCheckPers(p);
+	if (!check)
+		return true;
+
+	return getGraph().isRecoveryValid();
+}
+
 std::vector<Event>
 GenMCDriver::getLibConsRfsInView(const Library &lib, Event read,
 				 const std::vector<Event> &stores,
@@ -972,6 +992,17 @@ bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 		return false;
 	}
 	return true;
+}
+
+void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs)
+{
+	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](Event &r){
+		  changeRf(rLab->getPos(), r);
+		  return !isRecoveryValid(ProgramPoint::step);
+	}), rfs.end());
+	BUG_ON(rfs.empty());
+	changeRf(rLab->getPos(), rfs[0]);
+	return;
 }
 
 llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
@@ -1928,6 +1959,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	auto rLab = createDskReadLabel(pos.thread, pos.index, ord, addr, typ, validStores[0]);
 
 	const ReadLabel *lab = g.addReadLabelToGraph(std::move(rLab), validStores[0]);
+
+	/* ... filter out all option that make the recovery invalid */
+	filterInvalidRecRfs(lab, validStores);
 
 	/* Check whether a valid address is accessed, and whether there are races */
 	// checkAccessValidity();

@@ -277,6 +277,9 @@ protected:
 	 * Assumes that consistency needs to be checked anyway. */
 	bool shouldCheckFullCons(ProgramPoint p);
 
+	/* Returns true if we should check persistence at p */
+	bool shouldCheckPers(ProgramPoint p);
+
 	/* Returns true if a is hb-before b */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
@@ -354,6 +357,9 @@ private:
 	/* Returns true if the current graph is consistent */
 	bool isConsistent(ProgramPoint p);
 
+	/* Pers: Returns true if current recovery routine is valid */
+	bool isRecoveryValid(ProgramPoint p);
+
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
@@ -400,6 +406,10 @@ private:
 	 * by the CLI options. Since that is not always the case for stores
 	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
 	bool ensureConsistentStore(const WriteLabel *wLab);
+
+	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
+	 * Sets the rf of rLab to the first valid option in rfs */
+	void filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs);
 
 	std::vector<Event>
 	getLibConsRfsInView(const Library &lib, Event read,
