@@ -517,6 +517,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check if we can get the address space of a global value (LLVM >= 8)
+AC_MSG_CHECKING([if GlobalValue has getAddressSpace()])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/GlobalValue.h>
+]],[[
+          llvm::GlobalValue *gv = nullptr;
+          unsigned int spc = gv->getAddressSpace();
+        ]])],
+        [AC_DEFINE([LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE],[1],
+            [Define if we can get the address space from a GlobalValue.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Checking if an llvm::DILocation is an llvm::MDNode
 AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -396,6 +396,16 @@ void Interpreter::eraseVarNameInfo(char *addr, unsigned int size, Storage s, Add
 	return;
 }
 
+#ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
+# define GET_GV_ADDRESS_SPACE(v) (v).getAddressSpace()
+#else
+# define GET_GV_ADDRESS_SPACE(v)			\
+({						        \
+	llvm::PointerType *pTy = v.getType();		\
+	pTy->getAddressSpace();				\
+})
+#endif
+
 void Interpreter::collectStaticAddresses(Module *M)
 {
 	char *allocBegin = nullptr;
@@ -419,7 +429,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 
 		/* Update the name for this global. We cheat a bit since we will use this
 		 * to indicate whether this is an allocated static address (see isStatic()) */
-		if (v.getAddressSpace() != 42) /* exclude internal variables */
+		if (GET_GV_ADDRESS_SPACE(v) != 42) /* exclude internal variables */
 			updateVarNameInfo(ptr, typeSize, Storage::ST_Static, AddressSpace::AS_User, &v);
 	}
 	/* The allocator will start giving out addresses greater than the maximum static address */
