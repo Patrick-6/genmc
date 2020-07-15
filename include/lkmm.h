@@ -63,9 +63,9 @@ typedef _Atomic(long)  atomic_long;
 /* Fences */
 #define barrier() __asm__ __volatile__ (""   : : : "memory")
 
-void __genmc_lkmm_fence(const char *);
+void __VERIFIER_lkmm_fence(const char *);
 
-#define __LKMM_FENCE(type) __genmc_lkmm_fence(#type)
+#define __LKMM_FENCE(type) __VERIFIER_lkmm_fence(#type)
 #define smp_mb()  __LKMM_FENCE(mb)
 #define smp_rmb() __LKMM_FENCE(rmb)
 #define smp_wmb() __LKMM_FENCE(wmb)

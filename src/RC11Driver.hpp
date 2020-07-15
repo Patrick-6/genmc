@@ -129,6 +129,10 @@ public:
 	std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) override;
 
+	/* LKMM: Creates a label for a non-C11-style fence */
+	std::unique_ptr<SmpFenceLabelLKMM>
+	createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType) override;
+
 
 	/* Creates a label for a malloc event to be added to the graph */
 	std::unique_ptr<MallocLabel>

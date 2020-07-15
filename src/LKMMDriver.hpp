@@ -96,6 +96,8 @@ public:
 			       const llvm::GenericValue &val, void *mapping, void *transInode) override;
 	std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) override;
+	std::unique_ptr<SmpFenceLabelLKMM>
+	createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType) override;
 	std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
 			  unsigned int size, Storage s, AddressSpace spc) override;

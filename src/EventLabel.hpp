@@ -77,6 +77,7 @@ public:
 		EL_DskFsync,
 		EL_DskSync,
 		EL_DskPbarrier,
+		EL_SmpFenceLKMM,
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
@@ -983,6 +984,41 @@ public:
 
 private:
 	/* Nothing necessary for the time being */
+};
+
+
+/*******************************************************************************
+ **                         SmpFenceKLMMLabel Class
+ ******************************************************************************/
+
+enum class SmpFenceType {
+	MB, RMB, WMB, MBBA, MBAA, MBAS, MBAUL
+};
+
+/* Represents a non-C11-type fence (LKMM only) */
+class SmpFenceLabelLKMM : public FenceLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	SmpFenceLabelLKMM(unsigned int st, SmpFenceType t, Event pos)
+		: FenceLabel(st, llvm::AtomicOrdering::Monotonic, pos),
+		  type(t) {} /* AtomicOrdering is not used -- pass Monotonic */
+
+	/* Returns the type of this fence */
+	SmpFenceType getType() const { return type; }
+
+	SmpFenceLabelLKMM *clone() const override { return new SmpFenceLabelLKMM(*this); }
+
+	static bool classof(const EventLabel *lab) {
+		return lab->getKind() == EL_SmpFenceLKMM;
+	}
+
+private:
+	/* The type of this LKMM fence */
+	SmpFenceType type;
 };
 
 

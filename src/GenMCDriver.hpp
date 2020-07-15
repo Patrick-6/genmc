@@ -208,9 +208,11 @@ public:
 	void
 	visitDskPbarrier();
 
-	/* A fence has been interpreted, nothing for the interpreter */
+	/* A fence has been interpreted, nothing for the interpreter.
+	 * For LKMM fences, the argument lkmmType points to a description
+	 * of the fence's actual type */
 	void
-	visitFence(llvm::AtomicOrdering ord);
+	visitFence(llvm::AtomicOrdering ord, const char *lkmmType = nullptr);
 
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
@@ -486,6 +488,9 @@ private:
 	 * in-place revisiting of locks */
 	bool repairDanglingLocks();
 
+	/* LKMM: Helper for visiting LKMM fences */
+	void visitFenceLKMM(llvm::AtomicOrdering ord, const char *lkmmType);
+
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(const llvm::GenericValue *addr);
 	void visitUnlockLAPOR(const llvm::GenericValue *addr);
@@ -616,6 +621,9 @@ private:
 	virtual std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) = 0;
 
+	/* LKMM: Creates a label for a non-C11-style fence */
+	virtual std::unique_ptr<SmpFenceLabelLKMM>
+	createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType) = 0;
 
 	/* Creates a label for a malloc event to be added to the graph */
 	virtual std::unique_ptr<MallocLabel>

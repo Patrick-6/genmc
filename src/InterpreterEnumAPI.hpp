@@ -65,6 +65,7 @@ enum class InternalFunctions {
 	FN_LseekFS,
 	FN_CloseFS,
 	FN_LastFS,
+	FN_SmpFenceLKMM,
 };
 
 #define IS_INTERNAL_FUNCTION(name) internalFunNames.count(name)

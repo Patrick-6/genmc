@@ -21,6 +21,16 @@
 #include "config.h"
 #include "LKMMDriver.hpp"
 
+static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
+	{"mb", SmpFenceType::MB},
+	{"rmb", SmpFenceType::RMB},
+	{"wmb", SmpFenceType::WMB},
+	{"ba", SmpFenceType::MBBA},
+	{"aa", SmpFenceType::MBAA},
+	{"as", SmpFenceType::MBAS},
+	{"aul", SmpFenceType::MBAUL},
+};
+
 LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		       std::vector<Library> &granted, std::vector<Library> &toVerify,
 		       clock_t start)
@@ -439,15 +449,23 @@ LKMMDriver::createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<FenceLabel>
 LKMMDriver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 {
-	BUG();
-	// auto &g = getGraph();
-	// Event pos(tid, index);
-	// auto lab = LLVM_MAKE_UNIQUE<FenceLabel>(g.nextStamp(), ord, pos);
-
-	// calcBasicFenceViews(lab.get());
-	// return std::move(lab);
+	ERROR("(R)C11-style fences cannot be used with -lkmm!\n");
+	return nullptr;
 }
 
+std::unique_ptr<SmpFenceLabelLKMM>
+LKMMDriver::createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+
+	BUG_ON(smpFenceTypes.count(lkmmType) == 0);
+	auto lab = LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(
+		g.nextStamp(), smpFenceTypes.at(lkmmType), pos);
+
+	calcBasicFenceViews(lab.get());
+	return std::move(lab);
+}
 
 std::unique_ptr<MallocLabel>
 LKMMDriver::createMallocLabel(int tid, int index, const void *addr,

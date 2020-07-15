@@ -368,6 +368,13 @@ RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 	return std::move(lab);
 }
 
+std::unique_ptr<SmpFenceLabelLKMM>
+RC11Driver::createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType)
+{
+	ERROR("LKMM fence can only be used with -lkmm!\n");
+	return nullptr;
+}
+
 std::unique_ptr<MallocLabel>
 RC11Driver::createMallocLabel(int tid, int index, const void *addr,
 			      unsigned int size, Storage s, AddressSpace spc)

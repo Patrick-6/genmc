@@ -1352,8 +1352,24 @@ void GenMCDriver::visitThreadFinish()
 	  /* FIXME: Thread return values? */
 }
 
-void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
+void GenMCDriver::visitFenceLKMM(llvm::AtomicOrdering ord, const char *lkmmType)
 {
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = getEE()->getCurrentPosition();
+	auto fLab = createSmpFenceLabelLKMM(pos.thread, pos.index, lkmmType);
+	getGraph().addOtherLabelToGraph(std::move(fLab));
+	return;
+}
+
+void GenMCDriver::visitFence(llvm::AtomicOrdering ord, const char *lkmmType /* = nullptr */)
+{
+	if (lkmmType) {
+		visitFenceLKMM(ord, lkmmType);
+		return;
+	}
+
 	if (isExecutionDrivenByGraph())
 		return;
 

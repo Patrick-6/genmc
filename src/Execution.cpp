@@ -90,6 +90,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_syncFS", InternalFunctions::FN_SyncFS},
 	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
+	{"__VERIFIER_lkmm_fence", InternalFunctions::FN_SmpFenceLKMM},
 	/* Some C++ calls */
 	{"_Znwm", InternalFunctions::FN_Malloc},
 	{"_ZdlPv", InternalFunctions::FN_Free},
@@ -2781,6 +2782,17 @@ void Interpreter::callMutexTrylock(Function *F,
 	return;
 }
 
+void Interpreter::callSmpFenceLKMM(Function *F,
+				   const std::vector<GenericValue> &ArgVals)
+{
+	Thread &thr = getCurThr();
+	const char *ptr = (const char *) GVTOP(ArgVals[0]);
+	Type *typ = F->getReturnType();
+
+	driver->visitFence(llvm::AtomicOrdering::Monotonic, ptr);
+	return;
+}
+
 void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
@@ -4066,6 +4078,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(PwriteFS);
 		CALL_INTERNAL_FUNCTION(LseekFS);
 		CALL_INTERNAL_FUNCTION(PersBarrierFS);
+		CALL_INTERNAL_FUNCTION(SmpFenceLKMM);
 	default:
 		BUG();
 		break;
