@@ -21,12 +21,40 @@
 #ifndef __LKMM_H__
 #define __LKMM_H__
 
-#include <stdatomic.h>
+#ifdef __CLANG_STDATOMIC_H
+#error "Only one of <stdatomic.h> and <lkmm.h> may be used!"
+#endif
+
+/* Helper macros -- <stdatomic.h> style */
+typedef enum memory_order {
+  memory_order_relaxed = __ATOMIC_RELAXED,
+  memory_order_consume = __ATOMIC_CONSUME,
+  memory_order_acquire = __ATOMIC_ACQUIRE,
+  memory_order_release = __ATOMIC_RELEASE,
+  memory_order_acq_rel = __ATOMIC_ACQ_REL,
+  memory_order_seq_cst = __ATOMIC_SEQ_CST
+} memory_order;
+
+#define atomic_load_explicit  __c11_atomic_load
+#define atomic_store_explicit __c11_atomic_store
+#define atomic_exchange_explicit __c11_atomic_exchange
+#define atomic_compare_exchange_strong_explicit __c11_atomic_compare_exchange_strong
+#define atomic_compare_exchange_weak_explicit __c11_atomic_compare_exchange_weak
+#define atomic_fetch_add_explicit __c11_atomic_fetch_add
+#define atomic_fetch_sub_explicit __c11_atomic_fetch_sub
+#define atomic_fetch_or_explicit __c11_atomic_fetch_or
+#define atomic_fetch_xor_explicit __c11_atomic_fetch_xor
+#define atomic_fetch_and_explicit __c11_atomic_fetch_and
+
+#define atomic_thread_fence(order) __c11_atomic_thread_fence(order)
+#define atomic_signal_fence(order) __c11_atomic_signal_fence(order)
 
 /* Atomic data types */
-#define atomic_t       atomic_int
-#define atomic_long_t  atomic_long
-#define ATOMIC_INIT(i) ATOMIC_VAR_INIT(i)
+typedef _Atomic(int)   atomic_t;
+typedef _Atomic(long)  atomic_long;
+
+/* Initialization */
+#define ATOMIC_INIT(value) (value)
 
 /* ONCE */
 #define READ_ONCE(x)     atomic_load_explicit(&x, memory_order_relaxed)
@@ -34,13 +62,17 @@
 
 /* Fences */
 #define barrier() __asm__ __volatile__ (""   : : : "memory")
-#define smp_mb()  __asm__ __volatile__ ("mb" : : : "memory")
-#define smp_rmb() __asm__ __volatile__ ("rmb" : : : "memory")
-#define smp_wmb() __asm__ __volatile__ ("wmb" : : : "memory")
-#define smp_mb__before_atomic()     __asm__ __volatile__ ("ba" : : : "memory")
-#define smp_mb__after_atomic()      __asm__ __volatile__ ("aa" : : : "memory")
-#define smp_mb__after_spinlock()    __asm__ __volatile__ ("as" : : : "memory")
-#define smp_mb__after_unlock_lock() __asm__ __volatile__ ("au" : : : "memory")
+
+void __genmc_lkmm_fence(const char *);
+
+#define __LKMM_FENCE(type) __genmc_lkmm_fence(#type)
+#define smp_mb()  __LKMM_FENCE(mb)
+#define smp_rmb() __LKMM_FENCE(rmb)
+#define smp_wmb() __LKMM_FENCE(wmb)
+#define smp_mb__before_atomic()     __LKMM_FENCE(ba)
+#define smp_mb__after_atomic()      __LKMM_FENCE(aa)
+#define smp_mb__after_spinlock()    __LKMM_FENCE(as)
+#define smp_mb__after_unlock_lock() __LKMM_FENCE(aul)
 
 /* Acquire/Release and friends */
 #define smp_load_acquire(p)      atomic_load_explicit(p, memory_order_acquire)
@@ -54,14 +86,14 @@ do {								\
 } while (0)
 
 /* Exchange */
-#define xchg(p, v)         atomic_exchange(p, v)
+#define xchg(p, v)         atomic_exchange_explicit(p, v, memory_order_seq_cst)
 #define xchg_relaxed(p, v) atomic_exchange_explicit(p, v, memory_order_relaxed)
 #define xchg_release(p, v) atomic_exchange_explicit(p, v, memory_order_release)
 #define xchg_acquire(p, v) atomic_exchange_explicit(p, v, memory_order_acquire)
-#define __cmpxchg(p, o, n, s, f)				\
-({								\
-	__typeof__(&(o)) _o_ = (o);				\
-	(atomic_compare_exchange_strong(p, _o_, n, s, f));	\
+#define __cmpxchg(p, o, n, s, f)					\
+({									\
+	__typeof__(&(o)) _o_ = (o);					\
+	(atomic_compare_exchange_strong_explicit(p, _o_, n, s, f));	\
 })
 #define cmpxchg(p, o, n)					\
 	__cmpxchg(p, o, n, memory_order_seq_cst, memory_order_seq_cst)
