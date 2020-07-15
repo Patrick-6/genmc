@@ -20,6 +20,7 @@
 
 #include "DriverFactory.hpp"
 #include "IMMDriver.hpp"
+#include "LKMMDriver.hpp"
 #include "RC11Driver.hpp"
 
 std::unique_ptr<GenMCDriver>
@@ -36,6 +37,10 @@ DriverFactory::create(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module
 		return std::unique_ptr<IMMDriver>(
 			new IMMDriver(std::move(conf), std::move(mod),
 				      granted, toVerify, start));
+	case ModelType::lkmm:
+		return std::unique_ptr<LKMMDriver>(
+			new LKMMDriver(std::move(conf), std::move(mod),
+				       granted, toVerify, start));
 	default:
 		BUG();
 	}

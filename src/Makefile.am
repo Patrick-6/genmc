@@ -38,6 +38,7 @@ libgenmc_a_SOURCES = \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
+  LKMMDriver.cpp LKMMDriver.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
