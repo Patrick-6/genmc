@@ -292,6 +292,7 @@ public:
   void updateDataDeps(unsigned int tid, Value *dst, Event e);
   void updateAddrPoDeps(unsigned int tid, Value *src);
   void updateCtrlDeps(unsigned int tid, Value *src);
+  void updateFunArgDeps(unsigned int tid, Function *F);
 
   void clearDeps(unsigned int tid);
 
