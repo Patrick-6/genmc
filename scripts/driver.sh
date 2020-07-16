@@ -139,7 +139,7 @@ header_printed=""
 wrongdir="${DIR}/../tests/wrong"
 for model in rc11 imm
 do
-    for cat in safety racy memory locking
+    for cat in safety infr racy memory locking
     do
 	# under IMM, only run safety tests
 	if test "${model}" = "imm" -a "${cat}" != "safety"
