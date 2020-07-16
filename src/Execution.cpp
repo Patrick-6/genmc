@@ -2506,7 +2506,7 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
-	driver->visitError(err, Event::getInitializer());
+	driver->visitError(GenMCDriver::DE_Safety, Event::getInitializer(), err);
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)

@@ -557,7 +557,7 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
 			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 				if (fLab->getFreedAddr() == mLab->getAddr()) {
-					visitError("", oLab->getPos(), DE_AccessFreed);
+					visitError(DE_AccessFreed, oLab->getPos());
 				}
 			}
 			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
@@ -565,9 +565,9 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 				    ((char *) aLab->getAllocAddr() +
 				     aLab->getAllocSize() > (char *) mLab->getAddr()) &&
 				    !before.contains(oLab->getPos())) {
-					visitError("The allocating operation (malloc()) "
-						   "does not happen-before the memory access!",
-						   oLab->getPos(), DE_AccessNonMalloc);
+					visitError(DE_AccessNonMalloc, oLab->getPos(),
+						   "The allocating operation (malloc()) "
+						   "does not happen-before the memory access!");
 				}
 			}
 	}
@@ -592,13 +592,13 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
 				if (dLab->getFreedAddr() == ptr &&
 				    dLab->getPos() != fLab->getPos()) {
-					visitError("", dLab->getPos(), DE_DoubleFree);
+					visitError(DE_DoubleFree, dLab->getPos());
 				}
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAddr() == ptr &&
 				    !before.contains(mLab->getPos())) {
-					visitError("", mLab->getPos(), DE_AccessFreed);
+					visitError(DE_AccessFreed, mLab->getPos());
 				}
 
 			}
@@ -606,7 +606,7 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 	}
 
 	if (!m) {
-		visitError("", Event::getInitializer(), DE_FreeNonMalloc);
+		visitError(DE_FreeNonMalloc);
 	}
 	return;
 }
@@ -648,7 +648,7 @@ void GenMCDriver::checkForDataRaces()
 
 	/* If a race is found and the execution is consistent, return it */
 	if (!racy.isInitializer()) {
-		visitError("", racy, DE_RaceNotAtomic);
+		visitError(DE_RaceNotAtomic, racy);
 	}
 	return;
 }
@@ -669,9 +669,8 @@ void GenMCDriver::checkUnlockValidity()
 
 	/* Unlocks should unlock mutexes locked by the same thread */
 	if (getGraph().getMatchingLock(uLab->getPos()).isInitializer()) {
-		visitError("Called unlock() on mutex not locked by the same thread!",
-			   Event::getInitializer(),
-			   DE_InvalidUnlock);
+		visitError(DE_InvalidUnlock, Event::getInitializer(),
+			   "Called unlock() on mutex not locked by the same thread!");
 	}
 }
 
@@ -985,7 +984,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
 		if (cid == thr.id)
 			err += " (TID cannot be the same as the calling thread)";
-		visitError(err, Event::getInitializer(), DE_InvalidJoin);
+		visitError(DE_InvalidJoin, Event::getInitializer(), err);
 	}
 
 	/* If necessary, add a relevant event to the graph */
@@ -1109,7 +1108,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	getGraph().trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
 		createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, Event::getInitializer());
-		visitError("", Event::getInitializer(), DE_AccessNonMalloc);
+		visitError(DE_AccessNonMalloc);
 		return GET_ZERO_GV(typ); /* Return some value; this execution will be blocked */
 	}
 
@@ -1184,7 +1183,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	getGraph().trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
 		createAddStoreLabel(attr, ord, addr, typ, val, 0);
-		visitError("", Event::getInitializer(), DE_AccessNonMalloc);
+		visitError(DE_AccessNonMalloc);
 		return;
 	}
 
@@ -1336,8 +1335,7 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 	return;
 }
 
-void GenMCDriver::visitError(std::string err, Event confEvent,
-			     DriverErrorKind t /* = DE_Safety */ )
+void GenMCDriver::visitError(DriverErrorKind t, Event confEvent, const std::string &err)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
@@ -1621,10 +1619,9 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 		});
 
 	if (it == stores.end()) {
-		visitError(std::string("Uninitialized memory used by library ") +
-			   lib->getName() + ", member " + functionName +
-			   std::string(" found"), Event::getInitializer(),
-			   DE_UninitializedMem);
+		visitError(DE_UninitializedMem, Event::getInitializer(),
+			   std::string("Uninitialized memory used by library ") +
+			   lib->getName() + ", member " + functionName + std::string(" found"));
 	}
 
 	auto preds = g.getViewFromStamp(lab->getStamp());
@@ -1734,10 +1731,10 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 	auto *sLab = getGraph().addWriteLabelToGraph(std::move(lLab), endO);
 
 	if (isUninitialized) {
-		visitError(std::string("Uninitialized memory used by library \"") +
+		visitError(DE_UninitializedMem, Event::getInitializer(),
+			   std::string("Uninitialized memory used by library \"") +
 			   lib->getName() + "\", member \"" + functionName +
-			   std::string("\" found"), Event::getInitializer(),
-			   DE_UninitializedMem);
+			   std::string("\" found"));
 	}
 
 	calcLibRevisits(sLab);
