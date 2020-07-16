@@ -174,12 +174,12 @@ std::unique_ptr<FaiReadLabel>
 RC11Driver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue *ptr, const llvm::Type *typ,
 			       Event rf, llvm::AtomicRMWInst::BinOp op,
-			       llvm::GenericValue &&opValue)
+			       const llvm::GenericValue &opValue)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, op, opValue);
+						  rf, op, opValue);
 
 	calcBasicReadViews(lab.get());
 	return std::move(lab);

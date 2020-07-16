@@ -256,7 +256,7 @@ std::unique_ptr<FaiReadLabel>
 IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
 				Event rf, llvm::AtomicRMWInst::BinOp op,
-				llvm::GenericValue &&opValue)
+				const llvm::GenericValue &opValue)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
