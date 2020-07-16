@@ -72,6 +72,31 @@
 #include <unordered_map>
 #include <unordered_set>
 
+/* Some helpers for GenericValues */
+#define INT_TO_GV(typ, val)						\
+({							                \
+	llvm::GenericValue __ret;					\
+	__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true); \
+	__ret;								\
+})
+
+#define PTR_TO_GV(ptr)							\
+({							                \
+	llvm::GenericValue __ret;					\
+	__ret.PointerVal = (void *) (ptr);				\
+	__ret;								\
+})
+
+#define GET_ZERO_GV(typ)				\
+({							\
+	llvm::GenericValue __ret;			\
+	if (typ->isPointerTy())				\
+		__ret = PTR_TO_GV(nullptr);		\
+	else						\
+		__ret = INT_TO_GV(typ, 0);		\
+	__ret;						\
+})
+
 class GenMCDriver;
 
 namespace llvm {

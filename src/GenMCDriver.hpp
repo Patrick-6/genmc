@@ -278,9 +278,8 @@ private:
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 
-	/* Checks whether the last memory access recorded accesses
-	 * a valid address. Appropriately calls visitError() and terminates */
-	void checkAccessValidity();
+	/* Returns whether ADDR a valid address or not.  */
+	bool isAccessValid(const llvm::GenericValue *addr);
 
 	/* Checks for data races when a read/write is added.
 	 * Appropriately calls visitError() and terminates */
@@ -343,9 +342,28 @@ private:
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
 
+	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
+	const ReadLabel *
+	createAddReadLabel(llvm::Interpreter::InstAttr attr,
+			   llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *addr,
+			   llvm::Type *typ,
+			   const llvm::GenericValue &cmpVal,
+			   const llvm::GenericValue &rmwVal,
+			   llvm::AtomicRMWInst::BinOp op,
+			   Event store);
+
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
 	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+
+	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
+	const WriteLabel *
+	createAddStoreLabel(llvm::Interpreter::InstAttr attr,
+			    llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *addr,
+			    llvm::Type *typ,
+			    const llvm::GenericValue &val, int moPos);
 
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores
