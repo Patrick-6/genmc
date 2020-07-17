@@ -8,7 +8,9 @@ Event (2, 3) conflicts with event (1, 1) in graph:
 	(0, 4): Wna (t1, 1) L.11
 	(0, 5): TC [forks 2] L.13
 	(0, 6): Wna (t2, 2) L.13
-	(0, 7): E
+	(0, 7): D L.16
+	(0, 8): D
+	(0, 9): E
 <0, 1> thread_1:
 	(1, 0): B
 	(1, 1): Wna (x, 1) L.6: mp+rlx+acqf.c

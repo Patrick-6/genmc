@@ -615,7 +615,7 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 {
 	if (userConf->disableRaceDetection)
 		return;
-	if (!getEE()->isHeapAlloca(addr))
+	if (!getEE()->isHeapAlloca(addr) && !getEE()->isStackAlloca(addr))
 		return;
 
 	const EventLabel *lab = getCurrentLabel();
@@ -1312,7 +1312,7 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, bool isLocal /* 
 	return allocBegin;
 }
 
-void GenMCDriver::visitFree(llvm::GenericValue *ptr)
+void GenMCDriver::visitFree(void *ptr)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
@@ -1332,6 +1332,13 @@ void GenMCDriver::visitFree(llvm::GenericValue *ptr)
 
 	/* Check whether there is any memory race */
 	checkForMemoryRaces(ptr);
+	return;
+}
+
+void GenMCDriver::visitFree(const llvm::AllocaHolder::Allocas &ptrs)
+{
+	for (auto &p : ptrs)
+		visitFree(p);
 	return;
 }
 
@@ -2005,7 +2012,7 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 			} else {
 				llvm::dbgs() << *lab;
 			}
-			if (getMetadata && shouldPrintLOC(lab)) {
+			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile);
 			}
 			llvm::dbgs() << "\n";

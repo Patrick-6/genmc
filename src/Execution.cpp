@@ -884,7 +884,11 @@ void Interpreter::exitCalled(GenericValue GV) {
   // runAtExitHandlers() assumes there are no stack frames, but
   // if exit() was called, then it had a stack frame. Blow away
   // the stack before interpreting atexit handlers.
-  ECStack().clear();
+  WARN_ONCE("exit-called", "Usage of exit() is not thread-safe!\n");
+  while (ECStack().size() > 0) {
+    driver->visitFree(ECStack().back().Allocas.get());
+    ECStack().pop_back(); /* FIXME: Now assumes the user has properly used it */
+  }
   runAtExitHandlers();
   exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
 }
@@ -907,6 +911,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
 
   // Pop the current stack frame.
+  driver->visitFree(ECStack().back().Allocas.get());
   ECStack().pop_back();
 
   // if (ECStack.empty()) {  // Finished main.  Put result into exit code...
@@ -1080,14 +1085,14 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
   GenericValue Result = driver->visitMalloc(MemToAlloc, true);
-
-  updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
+  ECStack().back().Allocas.add(Result.PointerVal);
 
   /* If this is not a replay, update naming information for this variable
    * based on previously collected information */
   if (!stackVars.count(Result.PointerVal))
 	  updateVarNameInfo(&I, (char *) Result.PointerVal, MemToAlloc, true);
 
+  updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
   SetValue(&I, Result, SF);
 }
 
@@ -2590,8 +2595,10 @@ void Interpreter::callPthreadJoin(Function *F,
 void Interpreter::callPthreadExit(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
-	while (ECStack().size() > 1)
+	while (ECStack().size() > 1) {
+		driver->visitFree(ECStack().back().Allocas.get());
 		ECStack().pop_back();
+	}
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 

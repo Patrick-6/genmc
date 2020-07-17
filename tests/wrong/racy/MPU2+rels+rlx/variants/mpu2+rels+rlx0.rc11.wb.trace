@@ -14,7 +14,11 @@ Event (4, 2) conflicts with event (1, 1) in graph:
 	(0, 10): Wna (t3, 3) L.15
 	(0, 11): TC [forks 4] L.17
 	(0, 12): Wna (t4, 4) L.17
-	(0, 13): E
+	(0, 13): D L.20
+	(0, 14): D
+	(0, 15): D
+	(0, 16): D
+	(0, 17): E
 <0, 1> thread_1:
 	(1, 0): B
 	(1, 1): Wna (x, 1) L.6: mpu2+rels+rlx.c

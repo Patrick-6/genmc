@@ -196,7 +196,9 @@ public:
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
-	visitFree(llvm::GenericValue *ptr);
+	visitFree(void *ptr);
+	void
+	visitFree(const llvm::AllocaHolder::Allocas &ptrs); /* Helper for bulk-deallocs */
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
