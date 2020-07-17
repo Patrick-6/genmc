@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -53,7 +54,7 @@ void __VERIFIER_recovery_routine(void)
 	pread(fd_y, buf_y, 1, 0);
 	pread(fd_x, buf_x, 1, 0);
 
-	__VERIFIER_recovery_assert(!(buf_y[0] == 42 && buf_x[0] == 0));
+	assert(!(buf_y[0] == 42 && buf_x[0] == 0));
 	return;
 }
 

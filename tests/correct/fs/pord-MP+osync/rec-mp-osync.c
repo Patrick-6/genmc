@@ -25,6 +25,6 @@ void __VERIFIER_recovery_routine(void)
 	read(fd_y, buf_y, 1);
 	read(fd_x, buf_x, 1);
 
-	__VERIFIER_recovery_assert(!(buf_y[0] == 42 && buf_x[0] == 1));
+	assert(!(buf_y[0] == 42 && buf_x[0] == 1));
 	return;
 }

@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -21,9 +22,9 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Are (aligned) appends atomic? ? */
-	__VERIFIER_recovery_assert(nr == 4);
+	assert(nr == 4);
 	for (int i = 0u; i < 4; i++)
-		__VERIFIER_recovery_assert(buf[i] == '2');
+		assert(buf[i] == '2');
 	return;
 }
 

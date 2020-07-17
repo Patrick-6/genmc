@@ -62,7 +62,6 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__assert_fail", InternalFunctions::FN_AssertFail},
-	{"__VERIFIER_recovery_assert_fail", InternalFunctions::FN_RecAssertFail},
 	{"__end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -2621,16 +2620,11 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
+	auto errT = (inRecovery) ? GenMCDriver::DE_Safety : GenMCDriver::DE_Recovery;
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
-	driver->visitError(GenMCDriver::DE_Safety, err);
-}
-
-void Interpreter::callRecAssertFail(Function *F,
-				    const std::vector<GenericValue> &ArgVals)
-{
-	driver->visitRecoveryError();
+	driver->visitError(errT, err);
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -4068,7 +4062,6 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
-		CALL_INTERNAL_FUNCTION(RecAssertFail);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);

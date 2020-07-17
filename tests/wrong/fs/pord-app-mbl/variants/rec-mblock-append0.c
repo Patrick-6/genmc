@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -23,7 +24,7 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Is is possible to read other than {1,2} ? */
-	__VERIFIER_recovery_assert(!(buf[0] == 1 && buf[1] == 0));
+	assert(!(buf[0] == 1 && buf[1] == 0));
 	return;
 }
 

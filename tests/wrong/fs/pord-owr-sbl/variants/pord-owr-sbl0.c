@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -24,7 +25,7 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Is is possible to read {2,1} ? */
-	__VERIFIER_recovery_assert(!(buf[0] == 2 && buf[1] == 1));
+	assert(!(buf[0] == 2 && buf[1] == 1));
 	return;
 }
 

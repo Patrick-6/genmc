@@ -27,19 +27,4 @@ void __VERIFIER_recovery_routine(void);
  */
 void __VERIFIER_persistence_barrier(void);
 
-/*
- * Helper for __VERIFIER_recovery_assert() below
- */
-void __VERIFIER_recovery_assert_fail(void);
-
-/*
- * Behaves like assert() but checks a condition that
- * should hold at the end of the recovery routine
- */
-void __VERIFIER_recovery_assert(int cond)
-{
-	if (!cond)
-		__VERIFIER_recovery_assert_fail();
-}
-
 #endif /* __GENMC_H__ */

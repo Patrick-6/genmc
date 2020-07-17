@@ -28,7 +28,7 @@ void __VERIFIER_recovery_routine(void)
 	/* Just check if the first one persisted... */
 	int sz = lseek(fd, SEEK_END, 0);
 	if (fd > 0)
-		__VERIFIER_recovery_assert(sz >= 0);
+		assert(sz >= 0);
 	return;
 }
 

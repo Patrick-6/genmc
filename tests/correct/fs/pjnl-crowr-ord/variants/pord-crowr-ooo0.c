@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <assert.h>
 #include <genmc.h>
 
 #include <fcntl.h>
@@ -19,7 +20,7 @@ void __VERIFIER_recovery_routine(void)
 	int nr = read(fd, buf, 2);
 
 	/* Is it possible to see the overwrite but not "bar"? */
-	__VERIFIER_recovery_assert(!(nr == 2 && fb == -1 &&
+	assert(!(nr == 2 && fb == -1 &&
 				     buf[1] == '1' && buf[0] == '1'));
 	return;
 }

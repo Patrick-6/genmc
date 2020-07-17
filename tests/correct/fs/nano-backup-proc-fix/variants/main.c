@@ -51,14 +51,14 @@ void __VERIFIER_recovery_routine(void)
 	/* int nr = read(fd, buf, max_size); */
 
 	/* We wouldn't want to see the file smaller... */
-	/* __VERIFIER_recovery_assert(nr >= init_len && nr <= buf_len); */
+	/* assert(nr >= init_len && nr <= buf_len); */
 
 	/* If we do see the file smaller, there should at least be a full backup */
 	if (nr < init_len) {
-		/* __VERIFIER_recovery_assert(fb != -1); */
+		/* assert(fb != -1); */
 		int nrb = lseek(fb, 0, SEEK_END);
 		if (nrb >= 0)
-			__VERIFIER_recovery_assert(nrb == init_len);
+			assert(nrb == init_len);
 	}
 }
 

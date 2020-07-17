@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -21,7 +22,7 @@ void __VERIFIER_recovery_routine(void)
 	int nf = read(ff, buf_f, 2);
 
 	/* Is it possible to see the app in "bar" but not the tr in "foo"? */
-	__VERIFIER_recovery_assert(!(nb == 2 && nf == 2));
+	assert(!(nb == 2 && nf == 2));
 	return;
 }
 

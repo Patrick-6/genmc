@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <assert.h>
 #include <genmc.h>
 
 #include <fcntl.h>
@@ -17,7 +18,7 @@ void __VERIFIER_recovery_routine(void)
 	pread(fd, &buf[0], 2, 0);
 
 	/* Are overwrites atomic? */
-	__VERIFIER_recovery_assert(!(buf[0] == '1' && buf[1] == '0'));
+	assert(!(buf[0] == '1' && buf[1] == '0'));
 	return;
 }
 

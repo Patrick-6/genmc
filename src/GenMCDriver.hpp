@@ -41,6 +41,7 @@ public:
 	 * Public to enable the interpreter utilize it */
 	enum DriverErrorKind {
 		DE_Safety,
+		DE_Recovery,
 		DE_RaceNotAtomic,
 		DE_RaceFreeMalloc,
 		DE_FreeNonMalloc,
@@ -237,11 +238,6 @@ public:
 	void
 	visitError(DriverErrorKind t, std::string err,
 		   Event confEvent = Event::getInitializer());
-
-	/* Pers; Similar to visitError() but for errors occurring during
-	 * the recovery procedure */
-	void
-	visitRecoveryError();
 
 	virtual ~GenMCDriver() {};
 

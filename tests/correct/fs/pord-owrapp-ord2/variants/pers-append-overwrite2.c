@@ -21,7 +21,7 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Is is possible to read new data for the 2nd block w/out the 1st? */
-	__VERIFIER_recovery_assert(!(buf[3] == 2 && buf[4] == 2 &&
+	assert(!(buf[3] == 2 && buf[4] == 2 &&
 				     buf[0] == 1 && buf[1] == 1));
 	return;
 }

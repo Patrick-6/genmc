@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -20,7 +21,7 @@ void __VERIFIER_recovery_routine(void)
 	int nrb = read(fdb, buf, 1);
 
 	/* Is is possible for foo to be empty and for bar not to be? */
-	__VERIFIER_recovery_assert(!(nrb > 0 && nrf <= 0));
+	assert(!(nrb > 0 && nrf <= 0));
 	return;
 }
 

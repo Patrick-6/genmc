@@ -17,7 +17,7 @@ void __VERIFIER_recovery_routine(void)
 	int sf = lseek(ff, SEEK_END, 0);
 
 	/* Is it possible to see the new foo but not bar? */
-	__VERIFIER_recovery_assert(!(ff >= 0 && fb == -1 && sf < 2));
+	assert(!(ff >= 0 && fb == -1 && sf < 2));
 	return;
 }
 

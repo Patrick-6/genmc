@@ -23,7 +23,7 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Is is possible to read other than {2,2} ? */
-	__VERIFIER_recovery_assert(buf[0] == 2 && buf[1] == 2);
+	assert(buf[0] == 2 && buf[1] == 2);
 	return;
 }
 

@@ -1413,6 +1413,10 @@ void GenMCDriver::visitError(DriverErrorKind t, std::string err,
 		thr.block();
 		return;
 	}
+	if (inRecoveryMode() && !isRecoveryValid(ProgramPoint::error)) {
+		thr.block();
+		return;
+	}
 
 	const EventLabel *errLab = getCurrentLabel();
 
@@ -1447,26 +1451,6 @@ void GenMCDriver::visitError(DriverErrorKind t, std::string err,
 
 	/* Print results and abort */
 	printResults();
-	abort();
-}
-
-void GenMCDriver::visitRecoveryError()
-{
-	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-
-	/* If the execution that led to the error is not consistent, block */
-	if (!isConsistent(ProgramPoint::error)) {
-		thr.block();
-		return;
-	}
-
-	if (!g.isRecoveryValid()) {
-		thr.block();
-		return;
-	}
-	// printGraph();
-	llvm::dbgs() << "FIXME: RECOVERY ERROR\n";
 	abort();
 }
 
@@ -2118,6 +2102,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	switch (e) {
 	case GenMCDriver::DE_Safety:
 		return s << "Safety violation";
+	case GenMCDriver::DE_Recovery:
+		return s << "Recovery error";
 	case GenMCDriver::DE_RaceNotAtomic:
 		return s << "Non-Atomic race";
 	case GenMCDriver::DE_RaceFreeMalloc:

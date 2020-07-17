@@ -21,7 +21,7 @@ void __VERIFIER_recovery_routine(void)
 		return;
 
 	/* Is is possible to read the second block w/out the first? */
-	__VERIFIER_recovery_assert(!(buf[2] == 2 && buf[3] == 2 &&
+	assert(!(buf[2] == 2 && buf[3] == 2 &&
 				     buf[0] == 1 && buf[1] == 1));
 	return;
 }

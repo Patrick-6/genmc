@@ -16,7 +16,7 @@ void __VERIFIER_recovery_routine(void)
 	int fb = open("bar", O_RDONLY, 0640);
 
 	/* Rename should be atomic -- <= 1 name should exist */
-	__VERIFIER_recovery_assert((ff >= 0 && fb < 0  && fq < 0) ||
+	assert((ff >= 0 && fb < 0  && fq < 0) ||
 				   (ff < 0  && fb >= 0 && fq < 0) ||
 				   (ff < 0  && fb < 0  && fq >= 0));
 	return;

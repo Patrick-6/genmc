@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -21,7 +22,7 @@ void __VERIFIER_recovery_routine(void)
 	int nr = read(fd, buf, 1);
 
 	/* Is is possible to see bar as an empty file? */
-	__VERIFIER_recovery_assert(nr != 0);
+	assert(nr != 0);
 	return;
 }
 

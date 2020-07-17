@@ -24,7 +24,7 @@ void __VERIFIER_recovery_routine(void)
 
 	/* Is is possible to see the 2nd append but not the 1st?
 	 * ...The answer is 42 (executions) ;-)  */
-	__VERIFIER_recovery_assert(!(nr1 == 2 && nr2 == 2 &&
+	assert(!(nr1 == 2 && nr2 == 2 &&
 				     buf1[0] != 2 && buf1[1] != 2 &&
 				     buf2[0] == 3 && buf2[1] == 3));
 	return;

@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -23,7 +24,7 @@ void __VERIFIER_recovery_routine(void)
 	int nrb = pread(fdb, bufb, 2, 2);
 
 	/* Is is possible to see the append in BAR but not in FOO? */
-	__VERIFIER_recovery_assert(!(nrb == 2 && nrf == 0));
+	assert(!(nrb == 2 && nrf == 0));
 	return;
 }
 

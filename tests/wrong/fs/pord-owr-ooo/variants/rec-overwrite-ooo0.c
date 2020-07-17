@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <pthread.h>
 #include <genmc.h>
+#include <assert.h>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -21,7 +22,7 @@ void __VERIFIER_recovery_routine(void)
 	pread(fd, &buf[1], 1, 3);
 
 	/* Is is possible for the writes to persist out of order? */
-	__VERIFIER_recovery_assert(!(buf[0] == 0 && buf[1] == 42));
+	assert(!(buf[0] == 0 && buf[1] == 42));
 	return;
 }
 
