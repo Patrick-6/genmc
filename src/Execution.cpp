@@ -4022,7 +4022,7 @@ void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue>
 const Library *
 Interpreter::isUserLibCall(Function *F)
 {
-	auto granted = driver->getGrantedLibs();
+	auto &granted = driver->getGrantedLibs();
 	return Library::getLibByMemberName(granted, F->getName().str());
 }
 
