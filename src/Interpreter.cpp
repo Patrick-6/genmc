@@ -258,9 +258,12 @@ int Interpreter::getFreshFd()
 	int fd = FI.fds.find_first_unset();
 #endif
 
-	/* If no available descriptor found, return -1 */
-	if (fd == -1)
-		return -1;
+	/* If no available descriptor found, grow fds and try again */
+	if (fd == -1) {
+		FI.fds.resize(2 * FI.fds.size() + 1);
+		FI.fdToFile.grow(FI.fds.size());
+		return getFreshFd();
+	}
 
 	/* Otherwise, mark the file descriptor as used */
 	markFdAsUsed(fd);
@@ -453,8 +456,8 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
 	/* Setup config options first */
-	FI.fds = llvm::BitVector(userConf->maxOpenFiles);
-	FI.fdToFile.grow(userConf->maxOpenFiles);
+	FI.fds = llvm::BitVector(20);
+	FI.fdToFile.grow(FI.fds.size());
 	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
 	FI.journalData = userConf->journalData;

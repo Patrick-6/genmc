@@ -128,9 +128,6 @@ clBlockSize("block-size", llvm::cl::cat(clPersistence), llvm::cl::init(2),
 static llvm::cl::opt<unsigned int>
 clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(64),
 	      llvm::cl::desc("Maximum file size (in bytes)"));
-static llvm::cl::opt<unsigned int>
-clMaxOpenFiles("max-open-files", llvm::cl::cat(clPersistence), llvm::cl::init(20),
-	       llvm::cl::desc("Maximum number of open files"));
 static llvm::cl::opt<JournalDataFS>
 clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(JournalDataFS::ordered),
 	      llvm::cl::desc("Specify the journaling mode for file data:"),
@@ -246,7 +243,6 @@ void Config::getConfigOptions(int argc, char **argv)
 	checkPersPoint = clCheckPersPoint;
 	blockSize = clBlockSize;
 	maxFileSize = clMaxFileSize;
-	maxOpenFiles = clMaxOpenFiles;
 	journalData = clJournalData;
 	disableDelalloc = clDisableDelalloc;
 
