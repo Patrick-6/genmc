@@ -235,8 +235,9 @@ void GenMCDriver::handleExecutionBeginning()
 		}
 	}
 
-	/* Then, set up thread prioritization and persistence stuff */
+	/* Then, set up thread prioritization and interpreter's state */
 	prioritizeThreads();
+	getEE()->setProgramState(llvm::Interpreter::PS_Main);
 }
 
 void GenMCDriver::handleExecutionInProgress()
@@ -313,6 +314,7 @@ void GenMCDriver::handleRecoveryStart()
 	}
 
 	/* Finally, do all necessary preparations in the interpreter */
+	getEE()->setProgramState(llvm::Interpreter::PS_Recovery);
 	getEE()->setupRecoveryRoutine(tid);
 	return;
 }
@@ -538,7 +540,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 
 bool GenMCDriver::inRecoveryMode() const
 {
-	return getEE()->inRecovery;
+	return getEE()->getProgramState() == llvm::Interpreter::PS_Recovery;
 }
 
 const EventLabel *GenMCDriver::getCurrentLabel() const
@@ -1407,6 +1409,11 @@ void GenMCDriver::visitError(DriverErrorKind t, std::string err,
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
+
+	/* If we this is a replay (might happen if one LLVM instruction
+	 * maps to many MC events), do not get into an infinite loop... */
+	if (getEE()->getExecState() == llvm::Interpreter::ES_Replay)
+		return;
 
 	/* If the execution that led to the error is not consistent, block */
 	if (!isConsistent(ProgramPoint::error)) {

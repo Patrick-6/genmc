@@ -2601,10 +2601,6 @@ GenericValue Interpreter::getOperandValue(Value *V, ExecutionContext &SF) {
 
 void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 {
-	/* Do not get into an infinite loop... */
-	if (inReplay)
-		return;
-
 	if (stopOnSystemErrors) {
 		systemErrorNumber = code;
 		driver->visitError(GenMCDriver::DE_SystemError, msg);
@@ -2620,7 +2616,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
-	auto errT = (inRecovery) ? GenMCDriver::DE_Safety : GenMCDriver::DE_Recovery;
+	auto errT = (getProgramState() == PS_Recovery) ? GenMCDriver::DE_Safety : GenMCDriver::DE_Recovery;
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
@@ -2872,7 +2868,7 @@ void Interpreter::setInodeTransStatus(void *inode, Type *intTyp, const GenericVa
 
 GenericValue Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
 {
-	if (inRecovery) {
+	if (getProgramState() == PS_Recovery) {
 		auto *inodeIdisksize = (const GenericValue *) GET_INODE_IDISKSIZE_ADDR(inode);
 		return driver->visitDskRead(inodeIdisksize, intTyp);
 	}
@@ -4054,7 +4050,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 	auto fCode = internalFunNames.at(F->getName().str());
 
 	/* Make sure we are not trying to make an invalid call during recovery */
-	if (inRecovery && isInvalidRecCall(fCode, ArgVals)) {
+	if (getProgramState() == PS_Recovery && isInvalidRecCall(fCode, ArgVals)) {
 		driver->visitError(GenMCDriver::DE_InvalidRecoveryCall,
 				   F->getName().str() + "() cannot be called during recovery");
 		return;
@@ -4176,8 +4172,8 @@ std::string getFilenameFromMData(MDNode *node)
 void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	reset();
-	inReplay = true;
-	inRecovery = false;
+	setExecState(ES_Replay);
+	setProgramState(PS_Main);
 
 	/* We have to replay all threads in order to get debug metadata */
 	threads[0].initSF = mainECStack.back();
@@ -4189,7 +4185,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
 		currentThread = i;
 		if (thr.threadFun == recoveryRoutine)
-			inRecovery = true;
+			setProgramState(PS_Recovery);
 		while ((int) thr.globalInstructions < before[i]) {
 			int snap = thr.globalInstructions;
 			ExecutionContext &SF = thr.ECStack.back();
@@ -4217,7 +4213,6 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 
 void Interpreter::runRecoveryRoutine()
 {
-	inRecovery = true;
 	driver->handleRecoveryStart();
 	while (driver->scheduleNext()) {
 		ExecutionContext &SF = ECStack().back();
@@ -4225,7 +4220,6 @@ void Interpreter::runRecoveryRoutine()
 		visit(I);
 	}
 	driver->handleRecoveryEnd();
-	inRecovery = false;
 	return;
 }
 

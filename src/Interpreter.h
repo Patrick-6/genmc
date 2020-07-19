@@ -288,6 +288,35 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
+public:
+
+  /* Enum to inform the driver about possible special attributes
+   * of the instruction being interpreted */
+  enum InstAttr {
+	  IA_None,
+	  IA_Fai,
+	  IA_Cas,
+	  IA_Lock,
+	  IA_Unlock,
+	  IA_DskMdata,
+	  IA_DskDirOp,
+	  IA_DskJnlOp,
+  };
+
+  /* Pers: The state of the program -- i.e., part of the program being interpreted */
+  enum ProgramState {
+	  PS_Main,
+	  PS_Recovery
+  };
+
+  /* The state of the current execution */
+  enum ExecutionState {
+	  ES_Normal,
+	  ES_Replay
+  };
+
+protected:
+
   GenericValue ExitValue;          // The return value of the called function
   DataLayout TD;
   IntrinsicLowering *IL;
@@ -320,8 +349,9 @@ class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
   void *errnoAddr;
   Type *errnoTyp;
 
-  /* Whether we are replaying an execution */
-  bool inReplay = false;
+  /* Information about the interpreter's state */
+  ExecutionState execState = ES_Normal;
+  ProgramState programState = PS_Main; /* Pers */
 
   /* Pers: Whether we should run a recovery procedure after the execution finishes */
   bool checkPersistence;
@@ -342,19 +372,6 @@ public:
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
-  /* Enum to inform the driver about possible special attributes
-   * of the instruction being interpreted */
-  enum InstAttr {
-	  IA_None,
-	  IA_Fai,
-	  IA_Cas,
-	  IA_Lock,
-	  IA_Unlock,
-	  IA_DskMdata,
-	  IA_DskDirOp,
-	  IA_DskJnlOp,
-  };
-
   /* Resets the interpreter at the beginning of a new execution */
   void reset();
 
@@ -369,9 +386,6 @@ public:
   /* Information about threads as well as the currently executing thread */
   std::vector<Thread> threads;
   int currentThread = 0;
-
-  /* Pers: Whether the recovery routine is running */
-  bool inRecovery = false;
 
   /* Creates an entry for the main() function. More information are
    * filled from the execution engine when the exploration starts */
@@ -399,6 +413,12 @@ public:
 	  const Thread &thr = getCurThr();
 	  return Event(thr.id, thr.globalInstructions);
   };
+
+  /* Set and query interpreter's state */
+  ProgramState getProgramState() const { return programState; }
+  ExecutionState getExecState() const { return execState; }
+  void setProgramState(ProgramState s) { programState = s; }
+  void setExecState(ExecutionState s) { execState = s; }
 
   /* Dependency tracking */
 
