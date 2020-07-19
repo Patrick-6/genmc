@@ -54,6 +54,7 @@ public:
 		DE_InvalidJoin,
 		DE_InvalidUnlock,
 		DE_InvalidRecoveryCall,
+		DE_InvalidTruncate,
 		DE_SystemError,
 	};
 

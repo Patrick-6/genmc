@@ -2131,6 +2131,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Invalid unlock() operation";
 	case GenMCDriver::DE_InvalidRecoveryCall:
 		return s << "Invalid function call during recovery";
+	case GenMCDriver::DE_InvalidTruncate:
+		return s << "Invalid file truncation";
 	case GenMCDriver::DE_SystemError:
 		return s << errorList.at(systemErrorNumber);
 	default:

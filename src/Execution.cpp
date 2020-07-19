@@ -3164,6 +3164,11 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* ... and truncate if necessary */
 	if (flags.IntVal.getLimitedValue() & GENMC_O_TRUNC) {
+		if (!(GENMC_OPEN_FMODE(flags.IntVal.getLimitedValue()) & GENMC_FMODE_WRITE)) {
+			driver->visitError(GenMCDriver::DE_InvalidTruncate, "File is not open for writing");
+			returnValueToCaller(F->getReturnType(), INT_TO_GV(F->getReturnType(), -1));
+			return;
+		}
 		auto ret = executeTruncateFS(inode, INT_TO_GV(intTyp, 0), intTyp);
 		if (ret.IntVal.getLimitedValue() == 42)
 			return; /* Failed to acquire inode's lock... */
