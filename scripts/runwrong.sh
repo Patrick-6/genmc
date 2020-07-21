@@ -152,12 +152,12 @@ runvariants() {
     failure=""
     diff=""
     outcome_failure=""
-    checker_args="" && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
-	checker_args=`head -1 "${dir}/genmc.${model}.${coherence}.in"`
+    checker_args=() && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
+	checker_args=(`cat "${dir}/genmc.${model}.${coherence}.in"`)
     for t in $dir/variants/*.c
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
+	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${t} 2>&1`
 	if test "$?" -eq 0
 	then
 	    failure_status="$?"
@@ -173,7 +173,7 @@ runvariants() {
 	    failure=1
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
-	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
+	time=`echo "${output}" | awk '/wall-clock/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
 	runtime=`echo "scale=2; ${runtime}+${time}" | bc -l`

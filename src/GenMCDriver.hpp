@@ -41,6 +41,7 @@ public:
 	 * Public to enable the interpreter utilize it */
 	enum DriverErrorKind {
 		DE_Safety,
+		DE_Recovery,
 		DE_RaceNotAtomic,
 		DE_RaceFreeMalloc,
 		DE_FreeNonMalloc,
@@ -52,6 +53,9 @@ public:
 		DE_InvalidAccessEnd,
 		DE_InvalidJoin,
 		DE_InvalidUnlock,
+		DE_InvalidRecoveryCall,
+		DE_InvalidTruncate,
+		DE_SystemError,
 	};
 
 private:
@@ -128,6 +132,10 @@ public:
 	/* Things to do when an execution ends */
 	void handleFinishedExecution();
 
+	/* Pers: Functions that run at the start/end of the recovery routine */
+	void handleRecoveryStart();
+	void handleRecoveryEnd();
+
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
@@ -146,11 +154,16 @@ public:
 		     const llvm::GenericValue *addr, llvm::Type *typ,
 		     std::string functionName);
 
+	/* A function modeling a write to disk has been interpreted.
+	 * Returns the value read */
+	llvm::GenericValue
+	visitDskRead(const llvm::GenericValue *readAddr, llvm::Type *typ);
+
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		   const llvm::GenericValue *addr, llvm::Type *typ,
-		   llvm::GenericValue &val);
+		   const llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
@@ -160,15 +173,38 @@ public:
 		      llvm::GenericValue &val, std::string functionName,
 		      bool isInit = false);
 
-	/* A lock() call has been interpreted, nothing for the interpeter */
+	/* A function modeling a write to disk has been interpreted */
 	void
-	visitLock(const llvm::GenericValue *addr, llvm::Type *typ,
-		  llvm::GenericValue &cmpVal, llvm::GenericValue &newVal);
+	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
+		      const llvm::GenericValue &val, void *mapping,
+		      llvm::Interpreter::InstAttr attr =
+		      llvm::Interpreter::InstAttr::IA_None,
+		      std::pair<void *, void *> ordDataRange =
+		      std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
+		      void *transInode = nullptr);
 
-	/* An unlock() call has been interpreter, nothing for the interpreter */
+	/* A lock() operation has been interpreted, nothing for the interpreter */
+	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ);
+
+	/* An unlock() operation has been interpreted, nothing for the interpreter */
+	void visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ);
+
+	/* A function modeling the beginning of the opening of a file.
+	 * The interpreter will get back the file descriptor */
+	llvm::GenericValue
+	visitDskOpen(const char *fileName, llvm::Type *intTyp);
+
+	/* An fsync() operation has been interpreted */
 	void
-	visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ,
-		    llvm::GenericValue &val);
+	visitDskFsync(void *inodeData, unsigned int size);
+
+	/* A sync() operation has been interpreted */
+	void
+	visitDskSync();
+
+	/* A call to __VERIFIER_persistence_barrier() has been interpreted */
+	void
+	visitDskPbarrier();
 
 	/* A fence has been interpreted, nothing for the interpreter */
 	void
@@ -192,7 +228,7 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	llvm::GenericValue
-	visitMalloc(uint64_t allocSize, bool isLocal = false);
+	visitMalloc(uint64_t allocSize, Storage s, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
@@ -203,8 +239,8 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
-	visitError(DriverErrorKind t, Event confEvent = Event::getInitializer(),
-		   const std::string &err = std::string());
+	visitError(DriverErrorKind t, const std::string &err = std::string(),
+		   Event confEvent = Event::getInitializer());
 
 	virtual ~GenMCDriver() {};
 
@@ -240,6 +276,9 @@ protected:
 	 * Assumes that consistency needs to be checked anyway. */
 	bool shouldCheckFullCons(ProgramPoint p);
 
+	/* Returns true if we should check persistence at p */
+	bool shouldCheckPers(ProgramPoint p);
+
 	/* Returns true if a is hb-before b */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
@@ -264,7 +303,7 @@ private:
 
 	/* The workhorse for run().
 	 * Exhaustively explores all  consistent executions of a program */
-	void visitGraph();
+	void explore();
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -306,12 +345,18 @@ private:
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
 
+	/* Pers: Returns true if we are currently running the recovery routine */
+	bool inRecoveryMode() const;
+
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
 
 	/* Returns true if the current graph is consistent */
 	bool isConsistent(ProgramPoint p);
+
+	/* Pers: Returns true if current recovery routine is valid */
+	bool isRecoveryValid(ProgramPoint p);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -328,8 +373,14 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
+	/* Informs the interpreter about events being deleted before restriction */
+	void notifyEERemoved(unsigned int cutStamp);
+
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
+
+	/* Informs the interpreter about events being restored before restoration */
+	void notifyEERestored(const std::vector<std::unique_ptr<EventLabel> > &prefix);
 
 	/* Restores the previously saved prefix and coherence status */
 	void restorePrefix(const EventLabel *lab,
@@ -372,6 +423,10 @@ private:
 	 * by the CLI options. Since that is not always the case for stores
 	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
 	bool ensureConsistentStore(const WriteLabel *wLab);
+
+	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
+	 * Sets the rf of rLab to the first valid option in rfs */
+	void filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs);
 
 	std::vector<Event>
 	getLibConsRfsInView(const Library &lib, Event read,
@@ -455,6 +510,12 @@ private:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, std::string functionName) = 0 ;
 
+	/* Creates a label for a disk read to be added to the graph */
+	virtual std::unique_ptr<DskReadLabel>
+	createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *addr, const llvm::Type *typ,
+			   Event rf) = 0;
+
 	/* Creates a label for a plain write to be added to the graph */
 	virtual std::unique_ptr<WriteLabel>
 	createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
@@ -480,6 +541,28 @@ private:
 			    llvm::GenericValue &val, std::string functionName,
 			    bool isInit) = 0;
 
+	/* Creates a label for a disk write to be added to the graph */
+	virtual std::unique_ptr<DskWriteLabel>
+	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *ptr, const llvm::Type *typ,
+			    const llvm::GenericValue &val, void *mapping) = 0;
+
+	virtual std::unique_ptr<DskMdWriteLabel>
+	createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      const llvm::GenericValue &val, void *mapping,
+			      std::pair<void *, void *> ordDataRange) = 0;
+
+	virtual std::unique_ptr<DskDirWriteLabel>
+	createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       const llvm::GenericValue &val, void *mapping) = 0;
+
+	virtual std::unique_ptr<DskJnlWriteLabel>
+	createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       const llvm::GenericValue &val, void *mapping, void *transInode) = 0;
+
 	/* Creates a label for a fence to be added to the graph */
 	virtual std::unique_ptr<FenceLabel>
 	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) = 0;
@@ -488,11 +571,30 @@ private:
 	/* Creates a label for a malloc event to be added to the graph */
 	virtual std::unique_ptr<MallocLabel>
 	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, bool isLocal = false) = 0;
+			  unsigned int size, Storage s, AddressSpace spc) = 0;
 
 	/* Creates a label for a free event to be added to the graph */
 	virtual std::unique_ptr<FreeLabel>
 	createFreeLabel(int tid, int index, const void *addr) = 0;
+
+	/* Creates a label for a disk open event to be added to the graph */
+	virtual std::unique_ptr<DskOpenLabel>
+	createDskOpenLabel(int tid, int index, const char *fileName,
+			   const llvm::GenericValue &fd) = 0;
+
+	/* Creates a label for an fsync() event to be added to the graph */
+	virtual std::unique_ptr<DskFsyncLabel>
+	createDskFsyncLabel(int tid, int index, const void *inode,
+			    unsigned int size) = 0;
+
+	/* Creates a label for a sync() event to be added to the graph */
+	virtual std::unique_ptr<DskSyncLabel>
+	createDskSyncLabel(int tid, int index) = 0;
+
+	/* Creates a label for a persistence barrier
+	 * (__VERIFIER_persistence_barrier()) to be added to the graph */
+	virtual std::unique_ptr<DskPbarrierLabel>
+	createDskPbarrierLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

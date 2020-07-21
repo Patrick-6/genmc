@@ -24,15 +24,22 @@
 #include <llvm/Support/CommandLine.h>
 
 /* Command-line argument categories */
+
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
+static llvm::cl::OptionCategory clPersistence("Persistence Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
-/* Command-line argument types, default values and descriptions */
+
+/* General syntax */
+
 llvm::cl::list<std::string>
 clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore, llvm::cl::desc("-- [CFLAGS]"));
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
+
+
+/* Exploration options */
 
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
@@ -94,6 +101,50 @@ clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("fi
 static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
+static llvm::cl::opt<bool>
+clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
+			   llvm::cl::desc("Do not stop verification on system errors"));
+
+
+/* Persistence options */
+
+static llvm::cl::opt<bool>
+clPersevere("persevere", llvm::cl::cat(clPersistence),
+	    llvm::cl::desc("Enable persistence checks (Persevere)"));
+static llvm::cl::opt<ProgramPoint>
+clCheckPersPoint("check-persistence-point", llvm::cl::init(ProgramPoint::step), llvm::cl::cat(clPersistence),
+		 llvm::cl::desc("Points at which persistence is checked"),
+		 llvm::cl::values(
+			 clEnumValN(ProgramPoint::error, "error", "At errors only"),
+			 clEnumValN(ProgramPoint::exec,  "exec",  "At the end of each execution"),
+			 clEnumValN(ProgramPoint::step,  "step",  "At each program step")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+		    , NULL
+#endif
+		    ));
+static llvm::cl::opt<unsigned int>
+clBlockSize("block-size", llvm::cl::cat(clPersistence), llvm::cl::init(2),
+	      llvm::cl::desc("Block size (in bytes)"));
+static llvm::cl::opt<unsigned int>
+clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(64),
+	      llvm::cl::desc("Maximum file size (in bytes)"));
+static llvm::cl::opt<JournalDataFS>
+clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(JournalDataFS::ordered),
+	      llvm::cl::desc("Specify the journaling mode for file data:"),
+	      llvm::cl::values(
+		      clEnumValN(JournalDataFS::writeback, "writeback", "Data ordering not preserved"),
+		      clEnumValN(JournalDataFS::ordered,   "ordered",   "Data before metadata"),
+		      clEnumValN(JournalDataFS::journal,   "journal",   "Journal data")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+		      , NULL
+#endif
+		      ));
+static llvm::cl::opt<bool>
+clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistence),
+		  llvm::cl::desc("Do not model delayed allocation"));
+
+
+/* Transformation options */
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
@@ -102,6 +153,9 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
+
+
+/* Debugging options */
 
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
@@ -137,10 +191,25 @@ static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
 
+#ifdef LLVM_SETVERSIONPRINTER_NEEDS_ARG
+void printVersion(llvm::raw_ostream &s)
+#else
+void printVersion()
+	auto &s = llvm::raw_ostream();
+#endif
+{
+	s << PACKAGE_NAME " (" PACKAGE_URL "):\n"
+	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION " (commit #" GIT_COMMIT ")\n"
+	  << "  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
+}
+
 void Config::getConfigOptions(int argc, char **argv)
 {
+	/* Option categories printed */
 	const llvm::cl::OptionCategory *cats[] =
-		{&clGeneral, &clDebugging, &clTransformation};
+		{&clGeneral, &clDebugging, &clTransformation, &clPersistence};
+
+	llvm::cl::SetVersionPrinter(printVersion);
 
 	/* Hide unrelated LLVM options and parse user configuration */
 #ifdef LLVM_HAS_HIDE_UNRELATED_OPTS
@@ -149,9 +218,11 @@ void Config::getConfigOptions(int argc, char **argv)
 	llvm::cl::ParseCommandLineOptions(argc, argv, "GenMC -- "
 					  "Model Checking for C programs");
 
-	/* Save general options */
+	/* General syntax */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
+
+	/* Save exploration options */
 	specsFile = clLibrarySpecsFile;
 	dotFile = clDotGraphFile;
 	model = clModelType;
@@ -162,6 +233,15 @@ void Config::getConfigOptions(int argc, char **argv)
 	checkConsType = clCheckConsType;
 	checkConsPoint = clCheckConsPoint;
 	disableRaceDetection = clDisableRaceDetection;
+	disableStopOnSystemError = clDisableStopOnSystemError;
+
+	/* Save persistence options */
+	persevere = clPersevere;
+	checkPersPoint = clCheckPersPoint;
+	blockSize = clBlockSize;
+	maxFileSize = clMaxFileSize;
+	journalData = clJournalData;
+	disableDelalloc = clDisableDelalloc;
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;

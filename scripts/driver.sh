@@ -113,7 +113,7 @@ for model in rc11 imm
 do
     for coherence in wb mo
     do
-	for testdir in "${correctdir}/"{litmus,synthetic,data-structures,lapor}
+	for testdir in "${correctdir}/"{infr,litmus,synthetic,data-structures,lapor,fs}
 
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
@@ -139,7 +139,8 @@ header_printed=""
 wrongdir="${DIR}/../tests/wrong"
 for model in rc11 imm
 do
-    for cat in safety infr racy memory locking
+
+    for cat in safety infr racy memory locking fs
     do
 	# under IMM, only run safety tests
 	if test "${model}" = "imm" -a "${cat}" != "safety"
@@ -149,7 +150,7 @@ do
 	testdir="${wrongdir}/${cat}"
 	coherence="wb"
 	suppress_diff=""
-	if test "${cat}" = "memory"
+	if test "${cat}" = "memory" -o "${cat}" = "fs"
 	then
 	    suppress_diff=1
 	fi

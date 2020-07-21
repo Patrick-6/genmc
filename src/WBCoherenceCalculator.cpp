@@ -206,9 +206,7 @@ WBCoherenceCalculator::calcWb(const llvm::GenericValue *addr) const
 	for (auto i = 0u; i < stores.size(); i++) {
 		auto *wLab = static_cast<const WriteLabel *>(g.getEventLabel(stores[i]));
 		std::vector<Event> es(wLab->getReadersList());
-		es.push_back(// g.getPreviousNonEmptyLabel(
-				     wLab// )
-			->getPos());
+		es.push_back(wLab->getPos());
 
 		auto upi = upperLimit[i];
 		for (auto j = 0u; j < stores.size(); j++) {

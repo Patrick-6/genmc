@@ -31,30 +31,46 @@ enum class ModelType { rc11, imm };
 struct Config {
 
 public:
+	/* General syntax */
 	std::vector<std::string> cflags;
 	std::string inputFile;
-	std::string transformFile;
-	std::string dotFile;
-	std::string specsFile;
+
+	/* Exploration options */
 	ModelType model;
 	bool isDepTrackingModel;
 	CoherenceType coherence;
 	bool LAPOR;
 	CheckConsType checkConsType;
 	ProgramPoint checkConsPoint;
+	bool printErrorTrace;
+	std::string dotFile;
+	bool disableRaceDetection;
+	bool disableStopOnSystemError;
+	std::string specsFile;
+
+	/* Persistence options */
+	bool persevere;
+	ProgramPoint checkPersPoint;
+	unsigned int blockSize;
+	unsigned int maxFileSize;
+	JournalDataFS journalData;
+	bool disableDelalloc;
+
+	/* Transformation options */
 	int unroll;
 	bool spinAssume;
-	std::string programEntryFun;
+
+	/* Debugging options */
+	bool countDuplicateExecs;
 	bool inputFromBitcodeFile;
-	bool validateExecGraphs;
-	bool disableRaceDetection;
-	bool randomizeSchedule;
-	bool printRandomizeScheduleSeed;
-	std::string randomizeScheduleSeed;
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
-	bool countDuplicateExecs;
-	bool printErrorTrace;
+	bool randomizeSchedule;
+	std::string randomizeScheduleSeed;
+	bool printRandomizeScheduleSeed;
+	std::string transformFile;
+	std::string programEntryFun;
+	bool validateExecGraphs;
 
 	void getConfigOptions(int argc, char **argv);
 };

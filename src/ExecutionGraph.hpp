@@ -39,6 +39,7 @@
 class CoherenceCalculator;
 class LBCalculatorLAPOR;
 class PSCCalculator;
+class PersistenceChecker;
 
 /* For compilers that do not have a recent enough lib{std}c++ */
 #ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
@@ -104,6 +105,20 @@ public:
 	/* Creates a new thread in the execution graph */
 	inline void addNewThread() { events.push_back({}); };
 
+	/* Pers: Add/remove a thread for the recovery procedure */
+	inline void addRecoveryThread() {
+		recoveryTID = events.size();
+		events.push_back({});
+	};
+	inline void delRecoveryThread() {
+		events.pop_back();
+		recoveryTID = -1;
+	};
+
+	/* Returns the tid of the recovery routine.
+	 * If not in recovery mode, returns -1 */
+	inline int getRecoveryRoutineId() const { return recoveryTID; };
+
 	/* Returns the number of threads currently in the graph */
 	inline unsigned int getNumThreads() const { return events.size(); };
 
@@ -158,6 +173,12 @@ public:
 
 	/* Returns the last event in the thread tid */
 	Event getLastThreadEvent(int tid) const;
+
+	/* Returns the last store at ADDR that is before UPPERLIMIT in
+	 * UPPERLIMIT's thread. If such a store does not exist, it
+	 * returns INIT */
+	Event getLastThreadStoreAtLoc(Event upperLimit,
+				      const llvm::GenericValue *addr) const;
 
 	/* Returns the last release before upperLimit in the latter's thread.
 	 * If it's not a fence, then it has to be at location addr */
@@ -265,6 +286,19 @@ public:
 	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
 
+	/* Pers: Adds a persistence checker to the graph */
+	void addPersistenceChecker(std::unique_ptr<PersistenceChecker> pc) {
+		persChecker = std::move(pc);
+	}
+
+	/* Pers: Returns the persistence checker */
+	PersistenceChecker *getPersChecker() const {
+		return persChecker.get();
+	}
+	PersistenceChecker *getPersChecker() {
+		return persChecker.get();
+	}
+
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
 	const View &getHbBefore(Event e) const;
@@ -305,7 +339,7 @@ public:
 	bool isHbOptRfBeforeInView(const Event e, const Event write,
 				   const VectorClock &v) const;
 
-	/* Returns true if e is hb-before w, or any of the reads that read from w
+	/* Returns true if e is rel-before w, or any of the reads that read from w
 	 * in the relation "rel".
 	 * Pre: all examined events need to be a part of rel */
 	template <typename F = bool (*)(Event)>
@@ -329,6 +363,9 @@ public:
 	 * revisitable, or in the view porfBefore */
 	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
 				     const VectorClock &porfBefore) const;
+
+	/* Pers: Returns true if the recovery routine is valid */
+	bool isRecoveryValid() const;
 
 	/* Returns true if the graph that will be created when sLab revisits rLab
 	 * will be the same as the current one */
@@ -496,6 +533,14 @@ private:
 	/* Keeps track of relation indices. Note that an index might
 	 * refer to either globalRelations or perLocRelations */
 	std::unordered_map<RelationId, unsigned int, HashType<RelationId> > relationIndex;
+
+	/* Pers: An object calculating persistence relations */
+	std::unique_ptr<PersistenceChecker> persChecker = nullptr;
+
+	/* Pers: The ID of the recovery routine.
+	 * It should be -1 if not in recovery mode, or have the
+	 * value of the recovery routine otherwise. */
+	int recoveryTID = -1;
 };
 
 template <typename F>
@@ -536,5 +581,6 @@ bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, 
 #include "CoherenceCalculator.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "PSCCalculator.hpp"
+#include "PersistenceChecker.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

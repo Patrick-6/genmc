@@ -107,6 +107,19 @@ Event ExecutionGraph::getLastThreadEvent(int thread) const
 	return Event(thread, events[thread].size() - 1);
 }
 
+Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit,
+					      const llvm::GenericValue *addr) const
+{
+	for (auto j = upperLimit.index - 1; j > 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (wLab->getAddr() == addr)
+				return wLab->getPos();
+		}
+	}
+	return Event::getInitializer();
+}
+
 Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
 						const llvm::GenericValue *addr) const
 {
@@ -930,6 +943,13 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 		}
 	}
 	return false;
+}
+
+bool ExecutionGraph::isRecoveryValid() const
+{
+	PersistenceChecker *pc = getPersChecker();
+	BUG_ON(!pc);
+	return pc->isRecAcyclic();
 }
 
 bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
