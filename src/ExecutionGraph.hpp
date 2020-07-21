@@ -512,11 +512,11 @@ private:
 	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
 
 	/* Keeps track of calculator indices */
-	std::unordered_map<RelationId, unsigned int, ENUM_HASH<RelationId> > calculatorIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > calculatorIndex;
 
 	/* Keeps track of relation indices. Note that an index might
 	 * refer to either globalRelations or perLocRelations */
-	std::unordered_map<RelationId, unsigned int, ENUM_HASH<RelationId> > relationIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
 
 	/* Pers: An object calculating persistence relations */
 	std::unique_ptr<PersistenceChecker> persChecker = nullptr;

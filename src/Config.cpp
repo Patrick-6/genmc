@@ -22,6 +22,7 @@
 #include "Config.hpp"
 #include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/raw_ostream.h>
 
 /* Command-line argument categories */
 
@@ -193,14 +194,18 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 
 #ifdef LLVM_SETVERSIONPRINTER_NEEDS_ARG
 void printVersion(llvm::raw_ostream &s)
+{
 #else
 void printVersion()
-	auto &s = llvm::raw_ostream();
-#endif
 {
+	auto &s = llvm::outs();
+#endif
 	s << PACKAGE_NAME " (" PACKAGE_URL "):\n"
-	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION " (commit #" GIT_COMMIT ")\n"
-	  << "  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
+	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION
+#ifdef GIT_COMMIT
+	  << " (commit #" GIT_COMMIT ")"
+#endif
+	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
 void Config::getConfigOptions(int argc, char **argv)

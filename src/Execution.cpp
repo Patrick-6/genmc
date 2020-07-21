@@ -92,7 +92,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_persistence_barrier", InternalFunctions::FN_PersBarrierFS},
 };
 
-const std::unordered_map<SystemError, std::string> errorList = {
+const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList = {
 	{SystemError::SE_EPERM,  "Operation not permitted"},
 	{SystemError::SE_ENOENT, "No such file or directory"},
 	{SystemError::SE_EIO,    "Input/output error"},
@@ -3008,7 +3008,7 @@ GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &fl
 
 	/* If we created the inode, we will not truncate it
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
-	flags.IntVal &= ~GENMC_O_TRUNC;
+	flags.IntVal &= INT_TO_GV(intTyp, ~GENMC_O_TRUNC).IntVal; /* Compatible with LLVM <= 4 */
 
 	return inode;
 }
@@ -3632,7 +3632,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	auto inodeOffset = wOffset.IntVal.getLimitedValue();
 	do {
 		/* Calculate amount to write and align write */
-		auto bytes = std::min((unsigned long) FI.blockSize, dataCount);
+		auto bytes = std::min<unsigned long>(FI.blockSize, dataCount); /* should be small enough */
 		auto blockIndex = inodeOffset % FI.blockSize;
 		auto blockRem = FI.blockSize - blockIndex;
 		if (blockIndex != 0 && bytes > blockRem)

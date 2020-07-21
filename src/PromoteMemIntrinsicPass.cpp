@@ -72,7 +72,12 @@ void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F&& promoteFun)
 	}
 
 	if (SequentialType *AT = dyn_cast<SequentialType>(typ)) {
-		for (auto i = 0u; i < AT->getNumElements(); i++) {
+#ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
+		auto n = AT->getNumElements();
+#else
+		auto n = AT->getArrayNumElements();
+#endif
+		for (auto i = 0u; i < n; i++) {
 			args.push_back(Constant::getIntegerValue(i32Ty, APInt(32, i)));
 			promoteMemIntrinsic(AT->getElementType(), args, promoteFun);
 			args.pop_back();

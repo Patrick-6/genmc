@@ -56,17 +56,17 @@ namespace GenMCError {
 
 }
 
-/* Useful for debugging */
-template <typename T>
-void dumpVector(const std::vector<T>& v)
-{
-	if (v.empty())
-		return;
+// /* Useful for debugging */
+// template <typename T>
+// void dumpVector(const std::vector<T>& v)
+// {
+// 	if (v.empty())
+// 		return;
 
-	llvm::dbgs() << '[';
-	std::copy(v.begin(), v.end(), std::ostream_iterator<T>(llvm::dbgs(), ", "));
-	llvm::dbgs() << "\b\b]";
-	return;
-}
+// 	llvm::dbgs() << '[';
+// 	std::copy(v.begin(), v.end(), std::ostream_iterator<T>(llvm::dbgs(), ", "));
+// 	llvm::dbgs() << "\b\b]";
+// 	return;
+// }
 
 #endif /* __ERROR_HPP__ */

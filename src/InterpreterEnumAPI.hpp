@@ -100,12 +100,12 @@ struct EnumClassHash {
 		return static_cast<std::size_t>(t);
 	}
 };
-#define ENUM_HASH EnumClassHash
+#define ENUM_HASH(t) EnumClassHash
 #else
-#define ENUM_HASH std::hash
+#define ENUM_HASH(t) std::hash<t>
 #endif
 
 extern SystemError systemErrorNumber; // just to inform the driver
-extern const std::unordered_map<SystemError, std::string> errorList;
+extern const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList;
 
 #endif /* __INTERPRETER_ENUM_API_HPP__ */
