@@ -41,16 +41,6 @@ class LBCalculatorLAPOR;
 class PSCCalculator;
 class PersistenceChecker;
 
-/* For compilers that do not have a recent enough lib{std}c++ */
-#ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
-struct EnumClassHash {
-	template <typename T>
-	std::size_t operator()(T t) const {
-		return static_cast<std::size_t>(t);
-	}
-};
-#endif
-
 /*******************************************************************************
  **                           ExecutionGraph Class
  ******************************************************************************/
@@ -521,18 +511,12 @@ private:
 	std::vector<Calculator::PerLocRelation> perLocRelations;
 	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
 
-	template <typename Key>
-#ifdef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
-	using HashType = typename std::hash<Key>;
-#else
-	using HashType = EnumClassHash;
-#endif
 	/* Keeps track of calculator indices */
-	std::unordered_map<RelationId, unsigned int, HashType<RelationId> > calculatorIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH<RelationId> > calculatorIndex;
 
 	/* Keeps track of relation indices. Note that an index might
 	 * refer to either globalRelations or perLocRelations */
-	std::unordered_map<RelationId, unsigned int, HashType<RelationId> > relationIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH<RelationId> > relationIndex;
 
 	/* Pers: An object calculating persistence relations */
 	std::unique_ptr<PersistenceChecker> persChecker = nullptr;

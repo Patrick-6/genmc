@@ -21,6 +21,7 @@
 #ifndef __INTERPRETER_ENUM_API_HPP__
 #define __INTERPRETER_ENUM_API_HPP__
 
+#include <config.h>
 #include <unordered_map>
 
 /* Types of allocations in the interpreter */
@@ -75,7 +76,7 @@ enum class InternalFunctions {
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
 
-/* Someb basic system error codes for the user -- should match include/errno.h */
+/* Some basic system error codes for the user -- should match include/errno.h */
 enum class SystemError {
 	SE_EPERM   = 1,
 	SE_ENOENT  = 2,
@@ -90,6 +91,19 @@ enum class SystemError {
 	SE_EFBIG   = 27,
 	SE_ESPIPE  = 29,
 };
+
+/* For compilers that do not have a recent enough lib{std}c++ */
+#ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
+struct EnumClassHash {
+	template <typename T>
+	std::size_t operator()(T t) const {
+		return static_cast<std::size_t>(t);
+	}
+};
+#define ENUM_HASH EnumClassHash
+#else
+#define ENUM_HASH std::hash
+#endif
 
 extern SystemError systemErrorNumber; // just to inform the driver
 extern const std::unordered_map<SystemError, std::string> errorList;
