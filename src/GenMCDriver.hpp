@@ -36,7 +36,7 @@
 
 class GenMCDriver {
 
-private:
+public:
 	/* Different error types that may occur.
 	 * Public to enable the interpreter utilize it */
 	enum DriverErrorKind {
@@ -54,6 +54,7 @@ private:
 		DE_InvalidUnlock,
 	};
 
+private:
 	static bool isInvalidAccessError(DriverErrorKind e) {
 		return DE_InvalidAccessBegin <= e &&
 			e <= DE_InvalidAccessEnd;
@@ -195,13 +196,15 @@ public:
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
-	visitFree(llvm::GenericValue *ptr);
+	visitFree(void *ptr);
+	void
+	visitFree(const llvm::AllocaHolder::Allocas &ptrs); /* Helper for bulk-deallocs */
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
-	visitError(std::string err, Event confEvent,
-		   DriverErrorKind t = DE_Safety);
+	visitError(DriverErrorKind t, Event confEvent = Event::getInitializer(),
+		   const std::string &err = std::string());
 
 	virtual ~GenMCDriver() {};
 
@@ -278,9 +281,8 @@ private:
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 
-	/* Checks whether the last memory access recorded accesses
-	 * a valid address. Appropriately calls visitError() and terminates */
-	void checkAccessValidity();
+	/* Returns whether ADDR a valid address or not.  */
+	bool isAccessValid(const llvm::GenericValue *addr);
 
 	/* Checks for data races when a read/write is added.
 	 * Appropriately calls visitError() and terminates */
@@ -343,9 +345,28 @@ private:
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
 
+	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
+	const ReadLabel *
+	createAddReadLabel(llvm::Interpreter::InstAttr attr,
+			   llvm::AtomicOrdering ord,
+			   const llvm::GenericValue *addr,
+			   llvm::Type *typ,
+			   const llvm::GenericValue &cmpVal,
+			   const llvm::GenericValue &rmwVal,
+			   llvm::AtomicRMWInst::BinOp op,
+			   Event store);
+
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
 	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
+
+	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
+	const WriteLabel *
+	createAddStoreLabel(llvm::Interpreter::InstAttr attr,
+			    llvm::AtomicOrdering ord,
+			    const llvm::GenericValue *addr,
+			    llvm::Type *typ,
+			    const llvm::GenericValue &val, int moPos);
 
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores
@@ -418,7 +439,7 @@ private:
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, llvm::AtomicRMWInst::BinOp op,
-			   llvm::GenericValue &&opValue) = 0;
+			   const llvm::GenericValue &opValue) = 0;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	virtual std::unique_ptr<CasReadLabel>

@@ -412,6 +412,40 @@ void Interpreter::updateCtrlDeps(unsigned int tid, Value *src)
 	depTracker->setCurrentCtrlDeps(getCtrlDeps(tid));
 }
 
+void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
+{
+	if (!depTracker)
+		return;
+
+	ExecutionContext &SF = ECStack().back();
+	StringRef name = fun->getName();
+
+	/* First handle special cases and then normal function calls */
+	if (name == "__VERIFIER_assume") {
+		/* We have ctrl dependency on the argument of an assume() */
+		for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
+			     e = SF.Caller.arg_end(); i != e; ++i) {
+			updateCtrlDeps(tid, *i);
+		}
+	} else if (name == "pthread_mutex_lock" ||
+		   name == "pthread_mutex_unlock" ||
+		   name == "pthread_mutex_trylock") {
+		/* We have addr dependency on the argument of mutex calls */
+		setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+			       nullptr, getCtrlDeps(tid),
+			       getAddrPoDeps(tid), nullptr);
+	} else {
+		/* The parameters of the function called get the data
+		 * dependencies of the actual arguments */
+		auto ai = fun->arg_begin();
+		for (CallSite::arg_iterator ci = SF.Caller.arg_begin(),
+			     ce = SF.Caller.arg_end(); ci != ce; ++ci, ++ai) {
+			updateDataDeps(tid, &*ai, &*ci->get());
+		}
+	}
+	return;
+}
+
 void Interpreter::clearDeps(unsigned int tid)
 {
 	if (depTracker)

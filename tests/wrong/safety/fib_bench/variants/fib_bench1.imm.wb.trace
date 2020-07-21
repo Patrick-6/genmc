@@ -11,7 +11,10 @@ Event (3, 1) in graph:
 	(0, 7): Wna (id1, 2) L.12
 	(0, 8): TC [forks 3] L.13
 	(0, 9): Wna (id3, 3) L.13
-	(0, 10): E
+	(0, 10): D L.15
+	(0, 11): D
+	(0, 12): D
+	(0, 13): E
 <0, 1> t2:
 	(1, 0): B
 	(1, 1): Rrlx (i, 1) [INIT] L.19: fib_bench.c

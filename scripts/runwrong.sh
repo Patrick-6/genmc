@@ -23,8 +23,6 @@ GenMC="${GenMC:-$DIR/../src/genmc}"
 
 source "${DIR}/terminal.sh"
 
-ERROR_STATUS=42
-
 model="${model:-rc11}"
 coherence="${coherence:-wb}"
 suppress_diff="${suppress_diff:-}"
@@ -160,7 +158,7 @@ runvariants() {
     do
 	vars=$((vars+1))
 	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace "${checker_args}" -- "${CFLAGS}" "${t}" 2>&1`
-	if test "$?" -ne "${ERROR_STATUS}"
+	if test "$?" -eq 0
 	then
 	    failure_status="$?"
 	    outcome_failure=1

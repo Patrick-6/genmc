@@ -72,6 +72,31 @@
 #include <unordered_map>
 #include <unordered_set>
 
+/* Some helpers for GenericValues */
+#define INT_TO_GV(typ, val)						\
+({							                \
+	llvm::GenericValue __ret;					\
+	__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true); \
+	__ret;								\
+})
+
+#define PTR_TO_GV(ptr)							\
+({							                \
+	llvm::GenericValue __ret;					\
+	__ret.PointerVal = (void *) (ptr);				\
+	__ret;								\
+})
+
+#define GET_ZERO_GV(typ)				\
+({							\
+	llvm::GenericValue __ret;			\
+	if (typ->isPointerTy())				\
+		__ret = PTR_TO_GV(nullptr);		\
+	else						\
+		__ret = INT_TO_GV(typ, 0);		\
+	__ret;						\
+})
+
 class GenMCDriver;
 
 namespace llvm {
@@ -82,6 +107,22 @@ template<typename T> class generic_gep_type_iterator;
 class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
+// AllocaHolder - Object to track all of the blocks of memory allocated by
+// allocas in a particular stack frame. Since the driver needs to be made
+// aware of the deallocs, special care needs to be taken to inform the driver
+// when stack frames are popped
+//
+class AllocaHolder {
+   std::vector<void *> allocas;
+
+ public:
+   using Allocas = std::vector<void *>;
+
+   AllocaHolder() {}
+
+   void add(void *mem) { allocas.push_back(mem); }
+   const Allocas &get() const { return allocas; }
+};
 
 typedef std::vector<GenericValue> ValuePlaneTy;
 
@@ -96,6 +137,9 @@ struct ExecutionContext {
                                    // NULL if main func or debugger invoked fn
   std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
   std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
+  AllocaHolder Allocas;            // Track memory allocated by alloca
+
+  ExecutionContext() : CurFunction(nullptr), CurBB(nullptr), CurInst(nullptr) {}
 };
 
 /*
@@ -267,6 +311,7 @@ public:
   void updateDataDeps(unsigned int tid, Value *dst, Event e);
   void updateAddrPoDeps(unsigned int tid, Value *src);
   void updateCtrlDeps(unsigned int tid, Value *src);
+  void updateFunArgDeps(unsigned int tid, Function *F);
 
   void clearDeps(unsigned int tid);
 

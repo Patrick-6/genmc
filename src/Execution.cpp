@@ -884,7 +884,11 @@ void Interpreter::exitCalled(GenericValue GV) {
   // runAtExitHandlers() assumes there are no stack frames, but
   // if exit() was called, then it had a stack frame. Blow away
   // the stack before interpreting atexit handlers.
-  ECStack().clear();
+  WARN_ONCE("exit-called", "Usage of exit() is not thread-safe!\n");
+  while (ECStack().size() > 0) {
+    driver->visitFree(ECStack().back().Allocas.get());
+    ECStack().pop_back(); /* FIXME: Now assumes the user has properly used it */
+  }
   runAtExitHandlers();
   exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
 }
@@ -907,6 +911,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
 
   // Pop the current stack frame.
+  driver->visitFree(ECStack().back().Allocas.get());
   ECStack().pop_back();
 
   // if (ECStack.empty()) {  // Finished main.  Put result into exit code...
@@ -1080,14 +1085,14 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
   GenericValue Result = driver->visitMalloc(MemToAlloc, true);
-
-  updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
+  ECStack().back().Allocas.add(Result.PointerVal);
 
   /* If this is not a replay, update naming information for this variable
    * based on previously collected information */
   if (!stackVars.count(Result.PointerVal))
 	  updateVarNameInfo(&I, (char *) Result.PointerVal, MemToAlloc, true);
 
+  updateDataDeps(getCurThr().id, &I, Event(getCurThr().id, getCurThr().globalInstructions));
   SetValue(&I, Result, SF);
 }
 
@@ -1246,7 +1251,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 				     cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
-	if (cmpRes.IntVal.getBoolValue()) {
+	if (!thr.isBlocked && cmpRes.IntVal.getBoolValue()) {
 		setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
 			       getDataDeps(thr.id, I.getNewValOperand()),
 			       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
@@ -1325,7 +1330,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		       getDataDeps(thr.id, I.getValOperand()),
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-	driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
+	if (!thr.isBlocked)
+		driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
 
 	/* After the RMW operation is done, update dependencies */
 	updateDataDeps(thr.id, &I, getCurrentPosition());
@@ -1432,35 +1438,10 @@ void Interpreter::visitCallSite(CallSite CS) {
     ArgVals.push_back(getOperandValue(V, SF));
   }
 
-  Thread &thr = getCurThr();
-  StringRef name = CS.getCalledFunction()->getName();
-  if (name == "__VERIFIER_assume") {
-	  /* We have ctrl dependency on the argument of an assume() */
-	  for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
-		       e = SF.Caller.arg_end(); i != e; ++i, ++pNum) {
-		  updateCtrlDeps(thr.id, *i);
-	  }
-  } else if (name == "pthread_mutex_lock" ||
-	     name == "pthread_mutex_unlock" ||
-	     name == "pthread_mutex_trylock") {
-	  /* We have addr dependency on the argument of mutex calls */
-	  setCurrentDeps(getDataDeps(thr.id, *SF.Caller.arg_begin()),
-			 nullptr, getCtrlDeps(thr.id),
-			 getAddrPoDeps(thr.id), nullptr);
-  } else {
-	  Function *F = SF.Caller.getCalledFunction();
-	  auto ai = F->arg_begin();
-	  /* The parameters of the function called get the data
-	   * dependencies of the actual arguments */
-	  for (CallSite::arg_iterator ci = SF.Caller.arg_begin(),
-		       ce = SF.Caller.arg_end(); ci != ce; ++ci, ++ai) {
-		  updateDataDeps(getCurThr().id, &*ai, &*ci->get());
-	  }
-  }
-
   // To handle indirect calls, we must get the pointer value from the argument
   // and treat it as a function pointer.
   GenericValue SRC = getOperandValue(SF.Caller.getCalledValue(), SF);
+  updateFunArgDeps(getCurThr().id, (Function *) GVTOP(SRC));
   callFunction((Function*)GVTOP(SRC), ArgVals);
 }
 
@@ -2505,7 +2486,7 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
-	driver->visitError(err, Event::getInitializer());
+	driver->visitError(GenMCDriver::DE_Safety, Event::getInitializer(), err);
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2614,8 +2595,10 @@ void Interpreter::callPthreadJoin(Function *F,
 void Interpreter::callPthreadExit(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
-	while (ECStack().size() > 1)
+	while (ECStack().size() > 1) {
+		driver->visitFree(ECStack().back().Allocas.get());
 		ECStack().pop_back();
+	}
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 
