@@ -696,7 +696,7 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 {
 	if (userConf->disableRaceDetection)
 		return;
-	if (!getEE()->isHeap(addr) && !getEE()->isStack(addr))
+	if (!getEE()->isDynamic(addr))
 		return;
 
 	const EventLabel *lab = getCurrentLabel();
