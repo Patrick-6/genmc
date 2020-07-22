@@ -1998,10 +1998,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph()) {
-		const EventLabel *lab = getCurrentLabel();
-		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab))
-			return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-		BUG();
+		auto *rLab = llvm::dyn_cast<DskReadLabel>(getCurrentLabel());
+		BUG_ON(!rLab);
+		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 	}
 
 	/* Make the graph aware of a (potentially) new memory location */
