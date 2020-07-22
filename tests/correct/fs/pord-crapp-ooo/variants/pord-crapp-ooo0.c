@@ -30,7 +30,7 @@ int main()
 	char buf[2] = "11";
 
 	int fd = creat("foo", S_IRWXU);
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	int fd2 = creat("bar", 0640);
 	/* We won't do any operations on bar */

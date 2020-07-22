@@ -40,7 +40,7 @@ int main()
 
 	int fd = open("foo", O_CREAT|O_TRUNC|O_RDWR, S_IRWXU);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	pwrite(fd, buf1, 2, 0);
 	pwrite(fd, buf2, 2, 0);

@@ -64,7 +64,7 @@ int main()
 
 	int fd_x = open("x", O_CREAT|O_TRUNC|O_RDWR, S_IRWXU);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	if (pthread_create(&t1, NULL, thread_1, &fd_x))
 		abort();

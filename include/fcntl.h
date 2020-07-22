@@ -43,10 +43,14 @@
 /* Read, write, and execute by others.  */
 #define S_IRWXO		(S_IRWXG >> 3)
 
-extern int open (const char *__file, int __oflag, mode_t __mode);
+extern int __VERIFIER_openFS (const char *__file, int __oflag, mode_t __mode);
+#define open __VERIFIER_openFS
 
-extern int creat (const char *__file, mode_t __mode);
+/* extern int creat (const char *__file, mode_t __mode); */
+extern int __VERIFIER_creatFS (const char *__file, mode_t __mode);
+#define creat __VERIFIER_creatFS
 
-extern int rename (const char *__old, const char *__new);
+extern int __VERIFIER_renameFS (const char *__old, const char *__new);
+#define rename __VERIFIER_renameFS
 
 #endif /* __FCNTL_H__ */

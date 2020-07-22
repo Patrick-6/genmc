@@ -38,7 +38,7 @@ int main()
 	int fd = creat("foo", 0666);
 	write(fd, buf_a, 4);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	/* Write to different offsets */
 	pwrite(fd, buf_b, 1, 0);

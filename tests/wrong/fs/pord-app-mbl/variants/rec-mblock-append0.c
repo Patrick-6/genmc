@@ -41,7 +41,7 @@ int main()
 	int fd = open("foo", O_CREAT|O_TRUNC|O_RDWR, S_IRWXU);
 	write(fd, buf, 3);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	write(fd, buf + 3, 2);
 

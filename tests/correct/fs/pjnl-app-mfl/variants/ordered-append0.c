@@ -41,7 +41,7 @@ int main()
 	write(fdf, buf, 2);
 	write(fdb, buf, 2);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	write(fdf, buf + 2, 2);
 	write(fdb, buf + 2, 2);
