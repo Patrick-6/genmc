@@ -209,7 +209,7 @@ void PersistencyChecker::calcPb()
 		}
 
 	}
-
+	pbRelation.transClosure();
 	BUG_ON(!pbRelation.isIrreflexive());
 	return;
 }
