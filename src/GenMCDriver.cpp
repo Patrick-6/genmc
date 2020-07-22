@@ -2309,8 +2309,9 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 			llvm::dbgs() << "\t";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				auto name = EE->getVarName(rLab->getAddr());
-				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
-							 rLab->getType());
+				auto val = llvm::isa<DskReadLabel>(rLab) ?
+					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
+					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 				executeRLPrint(rLab, name, val);
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = EE->getVarName(wLab->getAddr());
@@ -2340,8 +2341,9 @@ void GenMCDriver::prettyPrintGraph()
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->isRevisitable())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
-				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
-							 rLab->getType());
+				auto val = llvm::isa<DskReadLabel>(rLab) ?
+					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
+					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 				llvm::dbgs() << "R" << EE->getVarName(rLab->getAddr()) << ","
 					     << val.IntVal << " ";
 				llvm::dbgs().resetColor();
