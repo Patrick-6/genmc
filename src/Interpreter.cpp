@@ -683,7 +683,7 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
   setupErrorPolicy(M, userConf);
 
   /* Also run a recovery routine if it is required to do so */
-  checkPersistence = userConf->persevere;
+  checkPersistency = userConf->persevere;
   recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
   setupFsInfo(M, userConf);
 

@@ -26,7 +26,7 @@
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCoherenceCalculator.hpp"
 #include "WBCoherenceCalculator.hpp"
-#include "PersistenceChecker.hpp"
+#include "PersistencyChecker.hpp"
 
 /*******************************************************************************
  **                           GraphBuilder Class
@@ -81,8 +81,8 @@ public:
 
 	GraphBuilder &withEnabledPersevere(bool pers, unsigned int blockSize) {
 		if (pers) {
-			graph->addPersistenceChecker(
-				llvm::make_unique<PersistenceChecker>(*graph, blockSize));
+			graph->addPersistencyChecker(
+				llvm::make_unique<PersistencyChecker>(*graph, blockSize));
 		}
 		return *this;
 	}

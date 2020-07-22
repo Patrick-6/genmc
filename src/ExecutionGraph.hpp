@@ -39,7 +39,7 @@
 class CoherenceCalculator;
 class LBCalculatorLAPOR;
 class PSCCalculator;
-class PersistenceChecker;
+class PersistencyChecker;
 
 /*******************************************************************************
  **                           ExecutionGraph Class
@@ -276,16 +276,16 @@ public:
 	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
 
-	/* Pers: Adds a persistence checker to the graph */
-	void addPersistenceChecker(std::unique_ptr<PersistenceChecker> pc) {
+	/* Pers: Adds a persistency checker to the graph */
+	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc) {
 		persChecker = std::move(pc);
 	}
 
-	/* Pers: Returns the persistence checker */
-	PersistenceChecker *getPersChecker() const {
+	/* Pers: Returns the persistency checker */
+	PersistencyChecker *getPersChecker() const {
 		return persChecker.get();
 	}
-	PersistenceChecker *getPersChecker() {
+	PersistencyChecker *getPersChecker() {
 		return persChecker.get();
 	}
 
@@ -518,8 +518,8 @@ private:
 	 * refer to either globalRelations or perLocRelations */
 	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
 
-	/* Pers: An object calculating persistence relations */
-	std::unique_ptr<PersistenceChecker> persChecker = nullptr;
+	/* Pers: An object calculating persistency relations */
+	std::unique_ptr<PersistencyChecker> persChecker = nullptr;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
@@ -565,6 +565,6 @@ bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, 
 #include "CoherenceCalculator.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "PSCCalculator.hpp"
-#include "PersistenceChecker.hpp"
+#include "PersistencyChecker.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

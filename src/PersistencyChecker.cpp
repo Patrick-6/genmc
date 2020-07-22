@@ -18,7 +18,7 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "PersistenceChecker.hpp"
+#include "PersistencyChecker.hpp"
 
 /************************************************************
  ** Helper functions
@@ -64,7 +64,7 @@ std::vector<Event> getDskWriteOperations(const ExecutionGraph &g)
  ***********************************************************/
 
 /* TODO: Optimize */
-void PersistenceChecker::calcMemAccessPbView(MemAccessLabel *mLab)
+void PersistencyChecker::calcMemAccessPbView(MemAccessLabel *mLab)
 {
 	auto &g = getGraph();
 	auto &porf = mLab->getPorfView();
@@ -112,7 +112,7 @@ void PersistenceChecker::calcMemAccessPbView(MemAccessLabel *mLab)
 }
 
 /* TODO: Optimize */
-void PersistenceChecker::calcFsyncPbView(DskFsyncLabel *fLab)
+void PersistencyChecker::calcFsyncPbView(DskFsyncLabel *fLab)
 {
 	auto &g = getGraph();
 	auto *fInode = (char *) fLab->getInode();
@@ -138,7 +138,7 @@ void PersistenceChecker::calcFsyncPbView(DskFsyncLabel *fLab)
 	return;
 }
 
-void PersistenceChecker::calcSyncPbView(DskSyncLabel *fLab)
+void PersistencyChecker::calcSyncPbView(DskSyncLabel *fLab)
 {
 	auto &hb = fLab->getHbView();
 	DepView pb;
@@ -150,7 +150,7 @@ void PersistenceChecker::calcSyncPbView(DskSyncLabel *fLab)
 	return;
 }
 
-void PersistenceChecker::calcPbarrierPbView(DskPbarrierLabel *fLab)
+void PersistencyChecker::calcPbarrierPbView(DskPbarrierLabel *fLab)
 {
 	auto &hb = fLab->getHbView();
 	DepView pb;
@@ -166,7 +166,7 @@ void PersistenceChecker::calcPbarrierPbView(DskPbarrierLabel *fLab)
  ** PB calculation and recovery validity
  ***********************************************************/
 
-void PersistenceChecker::calcPb()
+void PersistencyChecker::calcPb()
 {
 	auto &g = getGraph();
 	auto &pbRelation = getPbRelation();
@@ -214,7 +214,7 @@ void PersistenceChecker::calcPb()
 	return;
 }
 
-bool PersistenceChecker::isStoreReadFromRecRoutine(Event s)
+bool PersistencyChecker::isStoreReadFromRecRoutine(Event s)
 {
 	auto &g = getGraph();
 	auto recId = g.getRecoveryRoutineId();
@@ -228,7 +228,7 @@ bool PersistenceChecker::isStoreReadFromRecRoutine(Event s)
 				    r.index <= recLast.index; });
 }
 
-bool PersistenceChecker::isRecFromReadValid(const DskReadLabel *rLab)
+bool PersistencyChecker::isRecFromReadValid(const DskReadLabel *rLab)
 {
 	auto &g = getGraph();
 
@@ -263,7 +263,7 @@ bool PersistenceChecker::isRecFromReadValid(const DskReadLabel *rLab)
 	return true;
 }
 
-bool PersistenceChecker::isRecAcyclic()
+bool PersistencyChecker::isRecAcyclic()
 {
 	auto &g = getGraph();
 	auto recId = g.getRecoveryRoutineId();

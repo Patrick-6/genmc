@@ -48,7 +48,7 @@ public:
 	bool disableStopOnSystemError;
 	std::string specsFile;
 
-	/* Persistence options */
+	/* Persistency options */
 	bool persevere;
 	ProgramPoint checkPersPoint;
 	unsigned int blockSize;

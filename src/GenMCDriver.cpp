@@ -292,14 +292,14 @@ void GenMCDriver::handleRecoveryStart()
 		g.addRecoveryThread();
 
 	/* We will create a start label for the recovery thread.
-	 * We synchronize with a persistence barrier, if one exists,
+	 * We synchronize with a persistency barrier, if one exists,
 	 * otherwise, we synchronize with nothing */
 	auto tid = g.getRecoveryRoutineId();
 	auto psb = g.collectAllEvents([&](const EventLabel *lab)
 				      { return llvm::isa<DskPbarrierLabel>(lab); });
 	if (psb.empty())
 		psb.push_back(Event::getInitializer());
-	ERROR_ON(psb.size() > 1, "Usage of only one persistence barrier is allowed!\n");
+	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
 	auto tsLab = createStartLabel(tid, 0, psb.back());
 	g.addOtherLabelToGraph(std::move(tsLab));
@@ -407,7 +407,7 @@ void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 						       mLab->getAllocSize(),
 						       mLab->getStorage(),
 						       mLab->getAddrSpace());
-			/* For persistence, reclaim fds */
+			/* For persistency, reclaim fds */
 			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
 				getEE()->reclaimUnusedFd(oLab->getFd().IntVal.getLimitedValue());
 		}

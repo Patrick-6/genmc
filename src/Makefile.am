@@ -43,7 +43,7 @@ libgenmc_a_SOURCES = \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
   Parser.cpp Parser.hpp \
-  PersistenceChecker.cpp PersistenceChecker.hpp \
+  PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \

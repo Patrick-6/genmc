@@ -4225,7 +4225,7 @@ void Interpreter::run()
 	}
 	driver->handleFinishedExecution();
 
-	if (checkPersistence)
+	if (checkPersistency)
 		runRecoveryRoutine();
 	return;
 }

@@ -18,13 +18,13 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __PERSISTENCE_CHECKER_HPP__
-#define __PERSISTENCE_CHECKER_HPP__
+#ifndef __PERSISTENCY_CHECKER_HPP__
+#define __PERSISTENCY_CHECKER_HPP__
 
 #include "ExecutionGraph.hpp"
 
 /*******************************************************************************
- **                    PersistenceChecker Class
+ **                    PersistencyChecker Class
  ******************************************************************************/
 
 /*
@@ -32,11 +32,11 @@
  * order in which disk writes may be flushed to disk), as well as
  * a "recovery" relation
  */
-class PersistenceChecker {
+class PersistencyChecker {
 
 public:
 	/* Constructor */
-	PersistenceChecker(ExecutionGraph &g, unsigned int blockSize)
+	PersistencyChecker(ExecutionGraph &g, unsigned int blockSize)
 		: execGraph(g), blockSize(blockSize) {}
 
 	/* Helpers that calculate pb-before events for disk accesses */
@@ -79,8 +79,8 @@ private:
 	unsigned int blockSize;
 
 	/* Persists-before relation.  This can be local since it will
-	 * only be modified from the persistence checker */
+	 * only be modified from the persistency checker */
 	Calculator::GlobalRelation pbRelation;
 };
 
-#endif /* __PERSISTENCE_CHECKER_HPP__ */
+#endif /* __PERSISTENCY_CHECKER_HPP__ */
