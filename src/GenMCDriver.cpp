@@ -1201,8 +1201,6 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	if (inRecoveryMode()) {
 		Event recLast = getEE()->getCurrentPosition();
 		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
-		if (rf.isInitializer()) {
-			llvm::dbgs() << "STUCK @ " << recLast << ", " << addr; printGraph();}
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
 	}
