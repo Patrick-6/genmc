@@ -2020,11 +2020,6 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	/* ... filter out all option that make the recovery invalid */
 	filterInvalidRecRfs(lab, validStores);
 
-	/* Check whether a valid address is accessed, and whether there are races */
-	// checkAccessValidity();
-	// checkForDataRaces();
-	// checkForMemoryRaces(lab->getAddr());
-
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
@@ -2087,11 +2082,6 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	}
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
-
-	/* Check whether a valid address is accessed, and whether there are races */
-	// checkAccessValidity();
-	// checkForDataRaces();
-	// checkForMemoryRaces(lab->getAddr());
 
 	calcRevisits(lab);
 	return;
