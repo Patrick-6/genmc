@@ -591,6 +591,18 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	return result;
 }
 
+/* Same as above, but the data of a file are not explicitly initialized
+ * so as not to pollute the graph with events, since a file can be large.
+ * Thus, we treat the case where WRITE reads INIT specially. */
+llvm::GenericValue GenMCDriver::getDskWriteValue(Event write,
+						 const llvm::GenericValue *ptr,
+						 const llvm::Type *typ)
+{
+	if (write.isInitializer())
+		return GET_ZERO_GV(typ);
+	return getWriteValue(write, ptr, typ);
+}
+
 bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 {
 	/* Always check consistency on error, or at user-specified points */
@@ -1987,18 +1999,8 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 
 	if (isExecutionDrivenByGraph()) {
 		const EventLabel *lab = getCurrentLabel();
-		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab)) {
-			if (rLab->getRf().isInitializer()) {
-				if (typ->isPointerTy())
-					return PTR_TO_GV(nullptr);
-				else {
-					llvm::GenericValue res;
-					res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
-					return res;
-				}
-			}
-			return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-		}
+		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab))
+			return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		BUG();
 	}
 
@@ -2022,16 +2024,7 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
-	if (validStores[0].isInitializer()) {
-		if (typ->isPointerTy())
-			return PTR_TO_GV(nullptr);
-		else {
-			llvm::GenericValue res;
-			res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
-			return res;
-		}
-	}
-	return getWriteValue(validStores[0], lab->getAddr(), lab->getType());
+	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getType());
 }
 
 void

@@ -268,6 +268,9 @@ protected:
 	llvm::GenericValue getWriteValue(Event w,
 					 const llvm::GenericValue *a,
 					 const llvm::Type *t);
+	llvm::GenericValue getDskWriteValue(Event w,
+					    const llvm::GenericValue *a,
+					    const llvm::Type *t);
 
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
