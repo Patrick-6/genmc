@@ -1999,7 +1999,6 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 			}
 			return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		}
-		llvm::dbgs() << "Expected read in " << lab->getPos() << " @ " << addr << "\n"; printGraph();
 		BUG();
 	}
 
