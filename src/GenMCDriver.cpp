@@ -256,8 +256,8 @@ void GenMCDriver::handleFinishedExecution()
 	if (userConf->checkConsPoint == ProgramPoint::exec &&
 	    !isConsistent(ProgramPoint::exec))
 		return;
-	if (userConf->printExecGraphs)
-		printGraph();
+	if (userConf->printExecGraphs && !userConf->persevere)
+		printGraph(); /* Delay printing if persevere is enabled */
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
 	if (userConf->countDuplicateExecs) {
@@ -313,6 +313,9 @@ void GenMCDriver::handleRecoveryStart()
 
 void GenMCDriver::handleRecoveryEnd()
 {
+	/* Print the graph with the recovery routine */
+	if (userConf->printExecGraphs)
+		printGraph();
 	getEE()->cleanupRecoveryRoutine(getGraph().getRecoveryRoutineId());
 	return;
 }

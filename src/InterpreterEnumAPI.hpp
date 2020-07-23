@@ -22,6 +22,7 @@
 #define __INTERPRETER_ENUM_API_HPP__
 
 #include <config.h>
+#include <string>
 #include <unordered_map>
 
 /* Types of allocations in the interpreter */
