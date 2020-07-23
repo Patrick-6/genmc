@@ -2588,7 +2588,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 		driver->visitError(GenMCDriver::DE_SystemError, msg);
 	} else {
 		WARN_ONCE(errorList.at(code), msg + "\n");
-		driver->visitStore(IA_None, AtomicOrdering::NotAtomic,
+		driver->visitStore(IA_None, AtomicOrdering::Monotonic,
 				   (const GenericValue *) errnoAddr, errnoTyp,
 				   INT_TO_GV(errnoTyp, static_cast<int>(code)));
 	}
