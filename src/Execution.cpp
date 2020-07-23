@@ -3616,9 +3616,9 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, count, dSize)) {
 		zeroDskRangeFS(inode, iSize, dSize, bufElemTyp);
 		updateInodeDisksizeFS(inode, intTyp, dSize, iSize, dSize);
-	} else if (wOffset.IntVal.sgt(iSize.IntVal)) {
-		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
 	}
+	if (wOffset.IntVal.sgt(iSize.IntVal))
+		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
 
 	/* Block-wise write (we know that count > 0 at this point) */
 	ordRangeBegin.PointerVal = nullptr;
