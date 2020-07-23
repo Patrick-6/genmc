@@ -184,7 +184,7 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
 	 * otherwise go undetected by this pass
 	 */
 	auto *src = dyn_cast<GlobalVariable>(MI->getSource());
-	if (!src)
+	if (!src || VI.globalInfo[src].size())
 		return;
 
 	/*
@@ -198,7 +198,8 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
 	auto *dstTyp = dyn_cast<PointerType>(dst->getType());
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
-	BUG_ON(allocaMData.count(dst) == 0);
+	if (allocaMData.count(dst) == 0)
+		return; /* We did our best, but couldn't get a name for it... */
 	auto dit = allocaMData[dst]->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, dstTyp->getElementType(),
