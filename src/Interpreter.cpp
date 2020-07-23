@@ -133,8 +133,8 @@ void Interpreter::setupRecoveryRoutine(int tid)
 	currentThread = tid;
 
 	/* Only fill the stack if a recovery routine actually exists... */
-	if (recoveryRoutine)
-		callFunction(recoveryRoutine, {});
+	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
+	callFunction(recoveryRoutine, {});
 
 	/* Also set up initSF, if it is the first invocation */
 	if (!getThrById(tid).initSF.CurFunction)
