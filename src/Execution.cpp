@@ -2988,15 +2988,28 @@ GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTy
  * created. */
 GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp)
 {
+	Thread &thr = getCurThr();
+
+	/* If O_CREAT was not specified, just do the lookup */
+	if (!(flags.IntVal.getLimitedValue() & GENMC_O_CREAT))
+		return executeInodeLookupFS(file, intTyp);
+
+	/* Otherwise, we need to take the dir inode's lock */
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
+	driver->visitLock(dirLock, intTyp);
+	if (thr.isBlocked) {
+		thr.rollToSnapshot();
+		return INT_TO_GV(intTyp, 42);
+	}
+
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
-	if (getCurThr().isBlocked)
+	if (thr.isBlocked)
 		return inode; /* propagate the block */
 
-	/* Return the inode, if it already exists. If the inode has not been created
-	 * and O_CREAT has not been specified, return null */
-	if (inode.PointerVal || !(flags.IntVal.getLimitedValue() & GENMC_O_CREAT))
-		return inode;
+	/* Return the inode, if it already exists */
+	if (inode.PointerVal)
+		goto unlock;
 
 	/* Otherwise, we create an inode */
 	inode = executeInodeCreateFS(file, intTyp);
@@ -3005,6 +3018,8 @@ GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &fl
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
 	flags.IntVal &= INT_TO_GV(intTyp, ~GENMC_O_TRUNC).IntVal; /* Compatible with LLVM <= 4 */
 
+unlock:
+	driver->visitUnlock(dirLock, intTyp);
 	return inode;
 }
 
@@ -3117,19 +3132,10 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 		return;
 	}
 
-	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
-	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
-		thr.rollToSnapshot();
-		return;
-	}
-
 	/* Try and find the requested inode */
 	auto inode = executeLookupOpenFS(filename, flags, intTyp);
 	if (thr.isBlocked)
 		return;
-
-	driver->visitUnlock(dirLock, intTyp);
 
 	/* Inode not found -- cannot open file */
 	if (!inode.PointerVal) {
