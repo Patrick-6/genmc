@@ -37,11 +37,6 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-void abortHandler(int signum)
-{
-	exit(42);
-}
-
 GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::vector<Library> &granted, std::vector<Library> &toVerify,
 			 clock_t start)
@@ -49,9 +44,6 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	  toVerifyLibs(toVerify), isMootExecution(false), explored(0),
 	  exploredBlocked(0), duplicates(0), start(start)
 {
-	/* Register a signal handler for abort() */
-	std::signal(SIGABRT, abortHandler);
-
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
@@ -1533,7 +1525,7 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 
 	/* Print results and abort */
 	printResults();
-	abort();
+	exit(EVERIFY);
 }
 
 bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,

@@ -2725,11 +2725,6 @@ void Interpreter::callMutexInit(Function *F,
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
-	if (lock == nullptr) {
-		WARN("pthread_mutex_init called with NULL pointer as first argument!");
-		abort();
-	}
-
 	/* Just return 0 */
 	GenericValue result;
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);

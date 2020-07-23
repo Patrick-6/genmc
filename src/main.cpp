@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 
 	std::unique_ptr<Compilation> C(TheDriver.BuildCompilation(Args));
 	if (!C)
-		return 0;
+		return ECOMPILE;
 
 	const driver::JobList &Jobs = C->getJobs();
 #ifdef CLANG_LIST_TYPE_JOB_PTR
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 	// Create the compilers actual diagnostics engine.
 	Clang.createDiagnostics();
 	if (!Clang.hasDiagnostics())
-		return 1;
+		return ECOMPILE;
 
 	// Infer the builtin include path if unspecified.
 	if (Clang.getHeaderSearchOpts().UseBuiltinIncludes &&
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 	// Create and execute the frontend to generate an LLVM bitcode module.
 	std::unique_ptr<CodeGenAction> Act(new EmitLLVMOnlyAction());
 	if (!Clang.ExecuteAction(*Act))
-		return 1;
+		return ECOMPILE;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
 	std::unique_ptr<GenMCDriver> driver =
