@@ -133,8 +133,8 @@ void Interpreter::setupRecoveryRoutine(int tid)
 	currentThread = tid;
 
 	/* Only fill the stack if a recovery routine actually exists... */
-	if (recoveryRoutine)
-		callFunction(recoveryRoutine, {});
+	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
+	callFunction(recoveryRoutine, {});
 
 	/* Also set up initSF, if it is the first invocation */
 	if (!getThrById(tid).initSF.CurFunction)
@@ -615,19 +615,23 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 	StringRef name = fun->getName();
 
 	/* First handle special cases and then normal function calls */
-	if (name == "__VERIFIER_assume") {
-		/* We have ctrl dependency on the argument of an assume() */
-		for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
-			     e = SF.Caller.arg_end(); i != e; ++i) {
-			updateCtrlDeps(tid, *i);
+	bool isInternal = internalFunNames.count(name);
+	if (isInternal) {
+		auto iFunCode = internalFunNames.at(name);
+		if (iFunCode == InternalFunctions::FN_Assume) {
+			/* We have ctrl dependency on the argument of an assume() */
+			for (CallSite::arg_iterator i = SF.Caller.arg_begin(),
+				     e = SF.Caller.arg_end(); i != e; ++i) {
+				updateCtrlDeps(tid, *i);
+			}
+		} else if (iFunCode == InternalFunctions::FN_MutexLock ||
+			   iFunCode == InternalFunctions::FN_MutexUnlock ||
+			   iFunCode == InternalFunctions::FN_MutexTrylock) {
+			/* We have addr dependency on the argument of mutex calls */
+			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				       nullptr, getCtrlDeps(tid),
+				       getAddrPoDeps(tid), nullptr);
 		}
-	} else if (name == "pthread_mutex_lock" ||
-		   name == "pthread_mutex_unlock" ||
-		   name == "pthread_mutex_trylock") {
-		/* We have addr dependency on the argument of mutex calls */
-		setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
-			       nullptr, getCtrlDeps(tid),
-			       getAddrPoDeps(tid), nullptr);
 	} else {
 		/* The parameters of the function called get the data
 		 * dependencies of the actual arguments */
@@ -679,7 +683,7 @@ Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
   setupErrorPolicy(M, userConf);
 
   /* Also run a recovery routine if it is required to do so */
-  checkPersistence = userConf->persevere;
+  checkPersistency = userConf->persevere;
   recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
   setupFsInfo(M, userConf);
 

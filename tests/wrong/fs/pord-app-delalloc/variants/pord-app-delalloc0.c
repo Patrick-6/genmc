@@ -38,7 +38,7 @@ int main()
 	/* Make the file contain 1111 11 */
 	write(fd, buf1, 6);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	/* Append so that the file contains 1122 2222 */
 	pwrite(fd, buf2, 6, 2);

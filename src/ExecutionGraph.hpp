@@ -39,17 +39,7 @@
 class CoherenceCalculator;
 class LBCalculatorLAPOR;
 class PSCCalculator;
-class PersistenceChecker;
-
-/* For compilers that do not have a recent enough lib{std}c++ */
-#ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
-struct EnumClassHash {
-	template <typename T>
-	std::size_t operator()(T t) const {
-		return static_cast<std::size_t>(t);
-	}
-};
-#endif
+class PersistencyChecker;
 
 /*******************************************************************************
  **                           ExecutionGraph Class
@@ -286,16 +276,16 @@ public:
 	LBCalculatorLAPOR *getLbCalculatorLAPOR();
 	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
 
-	/* Pers: Adds a persistence checker to the graph */
-	void addPersistenceChecker(std::unique_ptr<PersistenceChecker> pc) {
+	/* Pers: Adds a persistency checker to the graph */
+	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc) {
 		persChecker = std::move(pc);
 	}
 
-	/* Pers: Returns the persistence checker */
-	PersistenceChecker *getPersChecker() const {
+	/* Pers: Returns the persistency checker */
+	PersistencyChecker *getPersChecker() const {
 		return persChecker.get();
 	}
-	PersistenceChecker *getPersChecker() {
+	PersistencyChecker *getPersChecker() {
 		return persChecker.get();
 	}
 
@@ -521,21 +511,15 @@ private:
 	std::vector<Calculator::PerLocRelation> perLocRelations;
 	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
 
-	template <typename Key>
-#ifdef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
-	using HashType = typename std::hash<Key>;
-#else
-	using HashType = EnumClassHash;
-#endif
 	/* Keeps track of calculator indices */
-	std::unordered_map<RelationId, unsigned int, HashType<RelationId> > calculatorIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > calculatorIndex;
 
 	/* Keeps track of relation indices. Note that an index might
 	 * refer to either globalRelations or perLocRelations */
-	std::unordered_map<RelationId, unsigned int, HashType<RelationId> > relationIndex;
+	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
 
-	/* Pers: An object calculating persistence relations */
-	std::unique_ptr<PersistenceChecker> persChecker = nullptr;
+	/* Pers: An object calculating persistency relations */
+	std::unique_ptr<PersistencyChecker> persChecker = nullptr;
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
@@ -581,6 +565,6 @@ bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, 
 #include "CoherenceCalculator.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "PSCCalculator.hpp"
-#include "PersistenceChecker.hpp"
+#include "PersistencyChecker.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

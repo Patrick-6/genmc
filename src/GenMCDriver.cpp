@@ -37,11 +37,6 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-void abortHandler(int signum)
-{
-	exit(42);
-}
-
 GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::vector<Library> &granted, std::vector<Library> &toVerify,
 			 clock_t start)
@@ -49,9 +44,6 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	  toVerifyLibs(toVerify), isMootExecution(false), explored(0),
 	  exploredBlocked(0), duplicates(0), start(start)
 {
-	/* Register a signal handler for abort() */
-	std::signal(SIGABRT, abortHandler);
-
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
@@ -264,8 +256,8 @@ void GenMCDriver::handleFinishedExecution()
 	if (userConf->checkConsPoint == ProgramPoint::exec &&
 	    !isConsistent(ProgramPoint::exec))
 		return;
-	if (userConf->printExecGraphs)
-		printGraph();
+	if (userConf->printExecGraphs && !userConf->persevere)
+		printGraph(); /* Delay printing if persevere is enabled */
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
 	if (userConf->countDuplicateExecs) {
@@ -292,14 +284,14 @@ void GenMCDriver::handleRecoveryStart()
 		g.addRecoveryThread();
 
 	/* We will create a start label for the recovery thread.
-	 * We synchronize with a persistence barrier, if one exists,
+	 * We synchronize with a persistency barrier, if one exists,
 	 * otherwise, we synchronize with nothing */
 	auto tid = g.getRecoveryRoutineId();
 	auto psb = g.collectAllEvents([&](const EventLabel *lab)
 				      { return llvm::isa<DskPbarrierLabel>(lab); });
 	if (psb.empty())
 		psb.push_back(Event::getInitializer());
-	ERROR_ON(psb.size() > 1, "Usage of only one persistence barrier is allowed!\n");
+	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
 	auto tsLab = createStartLabel(tid, 0, psb.back());
 	g.addOtherLabelToGraph(std::move(tsLab));
@@ -321,6 +313,9 @@ void GenMCDriver::handleRecoveryStart()
 
 void GenMCDriver::handleRecoveryEnd()
 {
+	/* Print the graph with the recovery routine */
+	if (userConf->printExecGraphs)
+		printGraph();
 	getEE()->cleanupRecoveryRoutine(getGraph().getRecoveryRoutineId());
 	return;
 }
@@ -407,7 +402,7 @@ void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 						       mLab->getAllocSize(),
 						       mLab->getStorage(),
 						       mLab->getAddrSpace());
-			/* For persistence, reclaim fds */
+			/* For persistency, reclaim fds */
 			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
 				getEE()->reclaimUnusedFd(oLab->getFd().IntVal.getLimitedValue());
 		}
@@ -591,6 +586,18 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	return result;
 }
 
+/* Same as above, but the data of a file are not explicitly initialized
+ * so as not to pollute the graph with events, since a file can be large.
+ * Thus, we treat the case where WRITE reads INIT specially. */
+llvm::GenericValue GenMCDriver::getDskWriteValue(Event write,
+						 const llvm::GenericValue *ptr,
+						 const llvm::Type *typ)
+{
+	if (write.isInitializer())
+		return GET_ZERO_GV(typ);
+	return getWriteValue(write, ptr, typ);
+}
+
 bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 {
 	/* Always check consistency on error, or at user-specified points */
@@ -696,7 +703,7 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 {
 	if (userConf->disableRaceDetection)
 		return;
-	if (!getEE()->isHeap(addr) && !getEE()->isStack(addr))
+	if (!getEE()->isDynamic(addr))
 		return;
 
 	const EventLabel *lab = getCurrentLabel();
@@ -1201,8 +1208,6 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	if (inRecoveryMode()) {
 		Event recLast = getEE()->getCurrentPosition();
 		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
-		if (rf.isInitializer()) {
-			llvm::dbgs() << "STUCK @ " << recLast << ", " << addr; printGraph();}
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
 	}
@@ -1523,7 +1528,7 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 
 	/* Print results and abort */
 	printResults();
-	abort();
+	exit(EVERIFY);
 }
 
 bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,
@@ -1988,21 +1993,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph()) {
-		const EventLabel *lab = getCurrentLabel();
-		if (auto *rLab = llvm::dyn_cast<DskReadLabel>(lab)) {
-			if (rLab->getRf().isInitializer()) {
-				if (typ->isPointerTy())
-					return PTR_TO_GV(nullptr);
-				else {
-					llvm::GenericValue res;
-					res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
-					return res;
-				}
-			}
-			return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-		}
-		llvm::dbgs() << "Expected read in " << lab->getPos() << " @ " << addr << "\n"; printGraph();
-		BUG();
+		auto *rLab = llvm::dyn_cast<DskReadLabel>(getCurrentLabel());
+		BUG_ON(!rLab);
+		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 	}
 
 	/* Make the graph aware of a (potentially) new memory location */
@@ -2022,24 +2015,10 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	/* ... filter out all option that make the recovery invalid */
 	filterInvalidRecRfs(lab, validStores);
 
-	/* Check whether a valid address is accessed, and whether there are races */
-	// checkAccessValidity();
-	// checkForDataRaces();
-	// checkForMemoryRaces(lab->getAddr());
-
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(SRead, lab->getPos(), *it, {}, {});
-	if (validStores[0].isInitializer()) {
-		if (typ->isPointerTy())
-			return PTR_TO_GV(nullptr);
-		else {
-			llvm::GenericValue res;
-			res.IntVal = llvm::APInt(typ->getIntegerBitWidth(), 0);
-			return res;
-		}
-	}
-	return getWriteValue(validStores[0], lab->getAddr(), lab->getType());
+	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getType());
 }
 
 void
@@ -2089,11 +2068,6 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	}
 
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
-
-	/* Check whether a valid address is accessed, and whether there are races */
-	// checkAccessValidity();
-	// checkForDataRaces();
-	// checkForMemoryRaces(lab->getAddr());
 
 	calcRevisits(lab);
 	return;
@@ -2330,8 +2304,9 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 			llvm::dbgs() << "\t";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				auto name = EE->getVarName(rLab->getAddr());
-				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
-							 rLab->getType());
+				auto val = llvm::isa<DskReadLabel>(rLab) ?
+					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
+					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 				executeRLPrint(rLab, name, val);
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = EE->getVarName(wLab->getAddr());
@@ -2361,8 +2336,9 @@ void GenMCDriver::prettyPrintGraph()
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->isRevisitable())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
-				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
-							 rLab->getType());
+				auto val = llvm::isa<DskReadLabel>(rLab) ?
+					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
+					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 				llvm::dbgs() << "R" << EE->getVarName(rLab->getAddr()) << ","
 					     << val.IntVal << " ";
 				llvm::dbgs().resetColor();

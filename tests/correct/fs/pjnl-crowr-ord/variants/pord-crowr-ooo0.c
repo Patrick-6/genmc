@@ -33,7 +33,7 @@ int main()
 	int fd = creat("foo", S_IRWXU);
 	write(fd, buf_init, 2);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	int fd2 = creat("bar", 0640);
 	/* We won't do any operations on bar */

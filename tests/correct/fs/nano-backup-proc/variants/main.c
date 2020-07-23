@@ -65,7 +65,7 @@ int main()
 	close(fd);
 
 	/* Assume the file has persisted on disk */
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	/* Fake nano's buffer creation and population */
 	fake_make_new_buffer();

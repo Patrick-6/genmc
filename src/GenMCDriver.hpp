@@ -202,7 +202,7 @@ public:
 	void
 	visitDskSync();
 
-	/* A call to __VERIFIER_persistence_barrier() has been interpreted */
+	/* A call to __VERIFIER_pbarrier() has been interpreted */
 	void
 	visitDskPbarrier();
 
@@ -268,6 +268,9 @@ protected:
 	llvm::GenericValue getWriteValue(Event w,
 					 const llvm::GenericValue *a,
 					 const llvm::Type *t);
+	llvm::GenericValue getDskWriteValue(Event w,
+					    const llvm::GenericValue *a,
+					    const llvm::Type *t);
 
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
@@ -276,7 +279,7 @@ protected:
 	 * Assumes that consistency needs to be checked anyway. */
 	bool shouldCheckFullCons(ProgramPoint p);
 
-	/* Returns true if we should check persistence at p */
+	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
 
 	/* Returns true if a is hb-before b */
@@ -591,8 +594,8 @@ private:
 	virtual std::unique_ptr<DskSyncLabel>
 	createDskSyncLabel(int tid, int index) = 0;
 
-	/* Creates a label for a persistence barrier
-	 * (__VERIFIER_persistence_barrier()) to be added to the graph */
+	/* Creates a label for a persistency barrier
+	 * (__VERIFIER_pbarrier()) to be added to the graph */
 	virtual std::unique_ptr<DskPbarrierLabel>
 	createDskPbarrierLabel(int tid, int index) = 0;
 

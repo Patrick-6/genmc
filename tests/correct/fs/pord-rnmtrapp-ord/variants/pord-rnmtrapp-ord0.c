@@ -31,7 +31,7 @@ int main()
 	write(fd, buf, 2);
 	close(fd);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	rename("foo", "bar");
 

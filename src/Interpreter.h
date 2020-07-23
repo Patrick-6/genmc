@@ -398,7 +398,7 @@ protected:
   ProgramState programState = PS_Main; /* Pers */
 
   /* Pers: Whether we should run a recovery procedure after the execution finishes */
-  bool checkPersistence;
+  bool checkPersistency;
 
   /* Pers: The recovery routine to run */
   Function *recoveryRoutine = nullptr;

@@ -19,7 +19,7 @@ int main()
 	int fd = creat("foo", S_IRWXU);
 	assert(fd != -1);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	if (pthread_create(&t1, NULL, thread_1, NULL))
 		abort();

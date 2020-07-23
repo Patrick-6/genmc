@@ -169,14 +169,8 @@ std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) 
 	result.push_back(Event(upperLimit.thread, 0));
 	for (int i = 1u; i < upperLimit.index; i++) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
-		if (llvm::isa<ThreadJoinLabel>(lab) || llvm::isa<LockLabelLAPOR>(lab))
+		if (llvm::isa<FenceLabel>(lab) || lab->isAtLeastAcquire())
 			result.push_back(lab->getPos());
-		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab))
-			result.push_back(lab->getPos());
-		if (auto *wLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (wLab->isAtLeastAcquire())
-				result.push_back(lab->getPos());
-		}
 	}
 	return result;
 }
@@ -947,7 +941,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericVal
 
 bool ExecutionGraph::isRecoveryValid() const
 {
-	PersistenceChecker *pc = getPersChecker();
+	PersistencyChecker *pc = getPersChecker();
 	BUG_ON(!pc);
 	return pc->isRecAcyclic();
 }
@@ -1535,7 +1529,7 @@ void ExecutionGraph::validate(void)
 				WARN("Read event is not the appropriate rf-1 list!\n");
 				llvm::dbgs() << rLab->getPos() << "\n";
 				llvm::dbgs() << *this << "\n";
-				abort();
+				exit(EGENMC);
 			}
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				const std::vector<Event> &rs = wLab->getReadersList();
@@ -1553,7 +1547,7 @@ void ExecutionGraph::validate(void)
 						llvm::dbgs() << r << " ";
 					llvm::dbgs() << "\n";
 					llvm::dbgs() << *this << "\n";
-					abort();
+					exit(EGENMC);
 				}
 
 				if (std::any_of(rs.begin(), rs.end(), [&](Event r) {
@@ -1562,13 +1556,13 @@ void ExecutionGraph::validate(void)
 						return rLab->getRf() != wLab->getPos();
 					} else {
 						WARN("Non-read event found in rf-1 list!\n");
-						abort();
+						exit(EGENMC);
 					}
 					})) {
 						WARN("Write event is not marked in the read event!\n");
 						llvm::dbgs() << wLab->getPos() << "\n";
 						llvm::dbgs() << *this << "\n";
-						abort();
+						exit(EGENMC);
 				}
 				for (auto &r : rs) {
 					if (r.thread > (int) getNumThreads() ||
@@ -1576,7 +1570,7 @@ void ExecutionGraph::validate(void)
 						WARN("Event in write's rf-list does not exist!\n");
 						llvm::dbgs() << r << "\n";
 						llvm::dbgs() << *this << "\n";
-						abort();
+						exit(EGENMC);
 					}
 				}
 

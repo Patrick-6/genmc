@@ -35,7 +35,7 @@ int main()
 
 	pwrite(ff, buf, 2, 0);
 
-	__VERIFIER_persistence_barrier();
+	__VERIFIER_pbarrier();
 
 	truncate("foo", 0);
 	write(fb, buf, 2);

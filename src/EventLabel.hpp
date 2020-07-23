@@ -962,7 +962,7 @@ public:
  **                        DskPbarrierLabel Class
  ******************************************************************************/
 
-/* Corresponds to a call to __VERIFIER_persistence_barrier(), i.e.,
+/* Corresponds to a call to __VERIFIER_pbarrier(), i.e.,
  * all events before this label will have persisted when the
  * recovery routine runs */
 class DskPbarrierLabel : public FenceLabel, public DskAccessLabel {

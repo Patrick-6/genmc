@@ -25,6 +25,6 @@ void __VERIFIER_recovery_routine(void);
  * have persisted to memory when the recovery routine runs.
  * Should be used only once.
  */
-void __VERIFIER_persistence_barrier(void);
+void __VERIFIER_pbarrier(void);
 
 #endif /* __GENMC_H__ */

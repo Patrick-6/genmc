@@ -61,38 +61,38 @@ using namespace llvm;
 //           cl::desc("make the interpreter print every volatile load and store"));
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
-	{"__assert_fail", InternalFunctions::FN_AssertFail},
-	{"__end_loop", InternalFunctions::FN_EndLoop},
+	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
-	{"malloc", InternalFunctions::FN_Malloc},
-	{"free", InternalFunctions::FN_Free},
-	{"pthread_self", InternalFunctions::FN_ThreadSelf},
-	{"pthread_create", InternalFunctions::FN_ThreadCreate},
-	{"pthread_join", InternalFunctions::FN_ThreadJoin},
-	{"pthread_exit", InternalFunctions::FN_ThreadExit},
-	{"pthread_mutex_init", InternalFunctions::FN_MutexInit},
-	{"pthread_mutex_lock", InternalFunctions::FN_MutexLock},
-	{"pthread_mutex_unlock", InternalFunctions::FN_MutexUnlock},
-	{"pthread_mutex_trylock", InternalFunctions::FN_MutexTrylock},
-	{"open", InternalFunctions::FN_OpenFS},
-	{"close", InternalFunctions::FN_CloseFS},
-	{"creat", InternalFunctions::FN_CreatFS},
-	{"rename", InternalFunctions::FN_RenameFS},
-	{"link", InternalFunctions::FN_LinkFS},
-	{"unlink", InternalFunctions::FN_UnlinkFS},
-	{"truncate", InternalFunctions::FN_TruncateFS},
-	{"read", InternalFunctions::FN_ReadFS},
-	{"pread", InternalFunctions::FN_PreadFS},
-	{"write", InternalFunctions::FN_WriteFS},
-	{"pwrite", InternalFunctions::FN_PwriteFS},
-	{"fsync", InternalFunctions::FN_FsyncFS},
-	{"sync", InternalFunctions::FN_SyncFS},
-	{"lseek", InternalFunctions::FN_LseekFS},
-	{"__VERIFIER_persistence_barrier", InternalFunctions::FN_PersBarrierFS},
+	{"__VERIFIER_malloc", InternalFunctions::FN_Malloc},
+	{"__VERIFIER_free", InternalFunctions::FN_Free},
+	{"__VERIFIER_thread_self", InternalFunctions::FN_ThreadSelf},
+	{"__VERIFIER_thread_create", InternalFunctions::FN_ThreadCreate},
+	{"__VERIFIER_thread_join", InternalFunctions::FN_ThreadJoin},
+	{"__VERIFIER_thread_exit", InternalFunctions::FN_ThreadExit},
+	{"__VERIFIER_mutex_init", InternalFunctions::FN_MutexInit},
+	{"__VERIFIER_mutex_lock", InternalFunctions::FN_MutexLock},
+	{"__VERIFIER_mutex_unlock", InternalFunctions::FN_MutexUnlock},
+	{"__VERIFIER_mutex_trylock", InternalFunctions::FN_MutexTrylock},
+	{"__VERIFIER_openFS", InternalFunctions::FN_OpenFS},
+	{"__VERIFIER_closeFS", InternalFunctions::FN_CloseFS},
+	{"__VERIFIER_creatFS", InternalFunctions::FN_CreatFS},
+	{"__VERIFIER_renameFS", InternalFunctions::FN_RenameFS},
+	{"__VERIFIER_linkFS", InternalFunctions::FN_LinkFS},
+	{"__VERIFIER_unlinkFS", InternalFunctions::FN_UnlinkFS},
+	{"__VERIFIER_truncateFS", InternalFunctions::FN_TruncateFS},
+	{"__VERIFIER_readFS", InternalFunctions::FN_ReadFS},
+	{"__VERIFIER_preadFS", InternalFunctions::FN_PreadFS},
+	{"__VERIFIER_writeFS", InternalFunctions::FN_WriteFS},
+	{"__VERIFIER_pwriteFS", InternalFunctions::FN_PwriteFS},
+	{"__VERIFIER_fsyncFS", InternalFunctions::FN_FsyncFS},
+	{"__VERIFIER_syncFS", InternalFunctions::FN_SyncFS},
+	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
+	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
 };
 
-const std::unordered_map<SystemError, std::string> errorList = {
+const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList = {
 	{SystemError::SE_EPERM,  "Operation not permitted"},
 	{SystemError::SE_ENOENT, "No such file or directory"},
 	{SystemError::SE_EIO,    "Input/output error"},
@@ -2588,7 +2588,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 		driver->visitError(GenMCDriver::DE_SystemError, msg);
 	} else {
 		WARN_ONCE(errorList.at(code), msg + "\n");
-		driver->visitStore(IA_None, AtomicOrdering::NotAtomic,
+		driver->visitStore(IA_None, AtomicOrdering::Monotonic,
 				   (const GenericValue *) errnoAddr, errnoTyp,
 				   INT_TO_GV(errnoTyp, static_cast<int>(code)));
 	}
@@ -2724,11 +2724,6 @@ void Interpreter::callMutexInit(Function *F,
 	if (attr)
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
-
-	if (lock == nullptr) {
-		WARN("pthread_mutex_init called with NULL pointer as first argument!");
-		abort();
-	}
 
 	/* Just return 0 */
 	GenericValue result;
@@ -2993,23 +2988,38 @@ GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTy
  * created. */
 GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp)
 {
+	Thread &thr = getCurThr();
+
+	/* If O_CREAT was not specified, just do the lookup */
+	if (!(flags.IntVal.getLimitedValue() & GENMC_O_CREAT))
+		return executeInodeLookupFS(file, intTyp);
+
+	/* Otherwise, we need to take the dir inode's lock */
+	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
+	driver->visitLock(dirLock, intTyp);
+	if (thr.isBlocked) {
+		thr.rollToSnapshot();
+		return INT_TO_GV(intTyp, 42);
+	}
+
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
-	if (getCurThr().isBlocked)
+	if (thr.isBlocked)
 		return inode; /* propagate the block */
 
-	/* Return the inode, if it already exists. If the inode has not been created
-	 * and O_CREAT has not been specified, return null */
-	if (inode.PointerVal || !(flags.IntVal.getLimitedValue() & GENMC_O_CREAT))
-		return inode;
+	/* Return the inode, if it already exists */
+	if (inode.PointerVal)
+		goto unlock;
 
 	/* Otherwise, we create an inode */
 	inode = executeInodeCreateFS(file, intTyp);
 
 	/* If we created the inode, we will not truncate it
 	 * (This should not happen here, but since we only model ext4 it doesn't matter) */
-	flags.IntVal &= ~GENMC_O_TRUNC;
+	flags.IntVal &= INT_TO_GV(intTyp, ~GENMC_O_TRUNC).IntVal; /* Compatible with LLVM <= 4 */
 
+unlock:
+	driver->visitUnlock(dirLock, intTyp);
 	return inode;
 }
 
@@ -3122,19 +3132,10 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 		return;
 	}
 
-	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
-	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
-		thr.rollToSnapshot();
-		return;
-	}
-
 	/* Try and find the requested inode */
 	auto inode = executeLookupOpenFS(filename, flags, intTyp);
 	if (thr.isBlocked)
 		return;
-
-	driver->visitUnlock(dirLock, intTyp);
 
 	/* Inode not found -- cannot open file */
 	if (!inode.PointerVal) {
@@ -3621,9 +3622,9 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	if (FI.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, count, dSize)) {
 		zeroDskRangeFS(inode, iSize, dSize, bufElemTyp);
 		updateInodeDisksizeFS(inode, intTyp, dSize, iSize, dSize);
-	} else if (wOffset.IntVal.sgt(iSize.IntVal)) {
-		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
 	}
+	if (wOffset.IntVal.sgt(iSize.IntVal))
+		zeroDskRangeFS(inode, iSize, wOffset, bufElemTyp);
 
 	/* Block-wise write (we know that count > 0 at this point) */
 	ordRangeBegin.PointerVal = nullptr;
@@ -3632,7 +3633,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	auto inodeOffset = wOffset.IntVal.getLimitedValue();
 	do {
 		/* Calculate amount to write and align write */
-		auto bytes = std::min((unsigned long) FI.blockSize, dataCount);
+		auto bytes = std::min<unsigned long>(FI.blockSize, dataCount); /* should be small enough */
 		auto blockIndex = inodeOffset % FI.blockSize;
 		auto blockRem = FI.blockSize - blockIndex;
 		if (blockIndex != 0 && bytes > blockRem)
@@ -4225,7 +4226,7 @@ void Interpreter::run()
 	}
 	driver->handleFinishedExecution();
 
-	if (checkPersistence)
+	if (checkPersistency)
 		runRecoveryRoutine();
 	return;
 }

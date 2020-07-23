@@ -18,26 +18,30 @@
    the current position (if WHENCE is SEEK_CUR),
    or the end of the file (if WHENCE is SEEK_END).
    Return the new file position.  */
-extern __off_t lseek (int __fd, __off_t __offset, int __whence);
+extern __off_t __VERIFIER_lseekFS (int __fd, __off_t __offset, int __whence);
+#define lseek __VERIFIER_lseekFS
 
 /* Close the file descriptor FD.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern int close (int __fd);
+extern int __VERIFIER_closeFS (int __fd);
+#define close __VERIFIER_closeFS
 
 /* Read NBYTES into BUF from FD.  Return the
    number read, -1 for errors or 0 for EOF.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t read (int __fd, void *__buf, size_t __nbytes);
+extern ssize_t __VERIFIER_readFS (int __fd, void *__buf, size_t __nbytes);
+#define read __VERIFIER_readFS
 
 /* Write N bytes of BUF to FD.  Return the number written, or -1.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t write (int __fd, const void *__buf, size_t __n);
+extern ssize_t __VERIFIER_writeFS (int __fd, const void *__buf, size_t __n);
+#define write __VERIFIER_writeFS
 
 /* Read NBYTES into BUF from FD at the given position OFFSET without
    changing the file pointer.  Return the number read, -1 for errors
@@ -45,34 +49,40 @@ extern ssize_t write (int __fd, const void *__buf, size_t __n);
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t pread (int __fd, void *__buf, size_t __nbytes,
-		      __off_t __offset);
+extern ssize_t __VERIFIER_preadFS (int __fd, void *__buf, size_t __nbytes,
+				   __off_t __offset);
+#define pread __VERIFIER_preadFS
 
 /* Write N bytes of BUF to FD at the given position OFFSET without
    changing the file pointer.  Return the number written, or -1.
 
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern ssize_t pwrite (int __fd, const void *__buf, size_t __n,
-		       __off_t __offset);
+extern ssize_t __VERIFIER_pwriteFS (int __fd, const void *__buf, size_t __n,
+				    __off_t __offset);
+#define pwrite __VERIFIER_pwriteFS
 
 /* Make a link to FROM named TO.  */
-extern int link (const char *__from, const char *__to);
+extern int __VERIFIER_linkFS (const char *__from, const char *__to);
+#define link __VERIFIER_linkFS
 
 /* Remove the link NAME.  */
-extern int unlink (const char *__name);
+extern int __VERIFIER_unlinkFS (const char *__name);
+#define unlink __VERIFIER_unlinkFS
 
 /* Make all changes done to FD actually appear on disk.
    This function is a cancellation point and therefore not marked with
    __THROW.  */
-extern int fsync (int __fd);
-
+extern int __VERIFIER_fsyncFS (int __fd);
+#define fsync __VERIFIER_fsyncFS
 
 /* Make all changes done to all files actually appear on disk.  */
-extern void sync (void);
+extern void __VERIFIER_syncFS (void);
+#define sync __VERIFIER_syncFS
 
 /* Truncate FILE to LENGTH bytes.  */
-extern int truncate (const char *__file, __off_t __length);
+extern int __VERIFIER_truncateFS (const char *__file, __off_t __length);
+#define truncate __VERIFIER_truncateFS
 
 
 /*

@@ -100,9 +100,8 @@ namespace LLVMModule {
 		auto mod = llvm::parseIR(buf->getMemBufferRef(), err, getLLVMContext()).release();
 #endif
 		if (!mod) {
-			llvm::dbgs() << "Error: Could not parse LLVM IR!\n";
 			err.print(filename.c_str(), llvm::dbgs());
-			abort();
+			ERROR("Could not parse LLVM IR!\n");
 		}
 		return std::unique_ptr<llvm::Module>(mod);
 	}

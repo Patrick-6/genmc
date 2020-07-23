@@ -22,11 +22,12 @@
 #include "Config.hpp"
 #include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/raw_ostream.h>
 
 /* Command-line argument categories */
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
-static llvm::cl::OptionCategory clPersistence("Persistence Options");
+static llvm::cl::OptionCategory clPersistency("Persistency Options");
 static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
@@ -106,14 +107,14 @@ clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGener
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
 
-/* Persistence options */
+/* Persistency options */
 
 static llvm::cl::opt<bool>
-clPersevere("persevere", llvm::cl::cat(clPersistence),
-	    llvm::cl::desc("Enable persistence checks (Persevere)"));
+clPersevere("persevere", llvm::cl::cat(clPersistency),
+	    llvm::cl::desc("Enable persistency checks (Persevere)"));
 static llvm::cl::opt<ProgramPoint>
-clCheckPersPoint("check-persistence-point", llvm::cl::init(ProgramPoint::step), llvm::cl::cat(clPersistence),
-		 llvm::cl::desc("Points at which persistence is checked"),
+clCheckPersPoint("check-persistency-point", llvm::cl::init(ProgramPoint::step), llvm::cl::cat(clPersistency),
+		 llvm::cl::desc("Points at which persistency is checked"),
 		 llvm::cl::values(
 			 clEnumValN(ProgramPoint::error, "error", "At errors only"),
 			 clEnumValN(ProgramPoint::exec,  "exec",  "At the end of each execution"),
@@ -123,13 +124,13 @@ clCheckPersPoint("check-persistence-point", llvm::cl::init(ProgramPoint::step), 
 #endif
 		    ));
 static llvm::cl::opt<unsigned int>
-clBlockSize("block-size", llvm::cl::cat(clPersistence), llvm::cl::init(2),
+clBlockSize("block-size", llvm::cl::cat(clPersistency), llvm::cl::init(2),
 	      llvm::cl::desc("Block size (in bytes)"));
 static llvm::cl::opt<unsigned int>
-clMaxFileSize("max-file-size", llvm::cl::cat(clPersistence), llvm::cl::init(64),
+clMaxFileSize("max-file-size", llvm::cl::cat(clPersistency), llvm::cl::init(64),
 	      llvm::cl::desc("Maximum file size (in bytes)"));
 static llvm::cl::opt<JournalDataFS>
-clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(JournalDataFS::ordered),
+clJournalData("journal-data", llvm::cl::cat(clPersistency), llvm::cl::init(JournalDataFS::ordered),
 	      llvm::cl::desc("Specify the journaling mode for file data:"),
 	      llvm::cl::values(
 		      clEnumValN(JournalDataFS::writeback, "writeback", "Data ordering not preserved"),
@@ -140,7 +141,7 @@ clJournalData("journal-data", llvm::cl::cat(clPersistence), llvm::cl::init(Journ
 #endif
 		      ));
 static llvm::cl::opt<bool>
-clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistence),
+clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistency),
 		  llvm::cl::desc("Do not model delayed allocation"));
 
 
@@ -193,21 +194,25 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 
 #ifdef LLVM_SETVERSIONPRINTER_NEEDS_ARG
 void printVersion(llvm::raw_ostream &s)
+{
 #else
 void printVersion()
-	auto &s = llvm::raw_ostream();
-#endif
 {
+	auto &s = llvm::outs();
+#endif
 	s << PACKAGE_NAME " (" PACKAGE_URL "):\n"
-	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION " (commit #" GIT_COMMIT ")\n"
-	  << "  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
+	  << "  " PACKAGE_NAME " v" PACKAGE_VERSION
+#ifdef GIT_COMMIT
+	  << " (commit #" GIT_COMMIT ")"
+#endif
+	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
 void Config::getConfigOptions(int argc, char **argv)
 {
 	/* Option categories printed */
 	const llvm::cl::OptionCategory *cats[] =
-		{&clGeneral, &clDebugging, &clTransformation, &clPersistence};
+		{&clGeneral, &clDebugging, &clTransformation, &clPersistency};
 
 	llvm::cl::SetVersionPrinter(printVersion);
 
@@ -235,7 +240,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	disableRaceDetection = clDisableRaceDetection;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
-	/* Save persistence options */
+	/* Save persistency options */
 	persevere = clPersevere;
 	checkPersPoint = clCheckPersPoint;
 	blockSize = clBlockSize;
