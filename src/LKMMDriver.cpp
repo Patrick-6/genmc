@@ -220,8 +220,30 @@ void LKMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 	}
 }
 
+void LKMMDriver::updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
+{
+	BUG_ON(fLab->getType() != SmpFenceType::WMB);
 
-void LKMMDriver::calcBasicFenceViews(FenceLabel *lab)
+	for (auto i = 1; i < fLab->getIndex(); i++) {
+		auto *lab = getGraph().getEventLabel(Event(fLab->getThread(), i));
+		if (llvm::isa<WriteLabel>(lab))
+			pporf.update(lab->getPPoRfView());
+	}
+}
+
+void LKMMDriver::updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
+{
+	BUG_ON(fLab->getType() != SmpFenceType::MB);
+
+	pporf.removeAllHoles(fLab->getThread());
+	for (auto i = 1; i < fLab->getIndex(); i++) {
+		auto *lab = getGraph().getEventLabel(Event(fLab->getThread(), i));
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			pporf.update(rLab->getPPoRfView());
+	}
+}
+
+void LKMMDriver::calcBasicFenceViews(SmpFenceLabelLKMM *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -231,6 +253,19 @@ void LKMMDriver::calcBasicFenceViews(FenceLabel *lab)
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
+
+	switch (lab->getType()) {
+	case SmpFenceType::WMB:
+		updateWmbFenceView(pporf, lab);
+		break;
+	case SmpFenceType::RMB:
+		break;
+	case SmpFenceType::MB:
+		updateMbFenceView(pporf, lab);
+		break;
+	default:
+		BUG();
+	}
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
