@@ -37,7 +37,11 @@ void PROPCalculator::initCalc()
 	cumulFences.clear();
 	strongFences.clear();
 	for (auto &e : events) {
-		auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(g.getEventLabel(e));
+		auto *lab = g.getEventLabel(e);
+		if (llvm::isa<WriteLabel>(lab) && lab->isAtLeastRelease())
+			cumulFences.push_back(e);
+
+		auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab);
 		if (fLab && fLab->isCumul())
 			cumulFences.push_back(e);
 		if (fLab && fLab->isStrong())
