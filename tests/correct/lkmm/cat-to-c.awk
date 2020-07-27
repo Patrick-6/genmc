@@ -24,7 +24,7 @@ BEGIN {
 	++line_count;
 
 	## Do not collect inits
-	if (match($0, "{}") != 0)
+	if (line_count == 1 || match($0, "{}") != 0)
 		next;
 
 	## Remove derefence from ONCEs
@@ -43,6 +43,14 @@ BEGIN {
 		in_comment = 0;
 		next;
 	}
+	if (in_comment == 1)
+		next;
+
+	## Collect variables from acquires, releases, etc
+	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
+	if (match($0, r, a)) {
+		++global_variables[a[2]];
+	}
 
 	## Change the way threads are printed
 	r = "(P[0-9]+)\\(.*";
@@ -56,8 +64,7 @@ BEGIN {
 		next;
 
 	## Collect line
-	if (line_count > 1 && !in_comment)
-		program = program "\n" $0;
+	program = program "\n" $0;
 }
 
 END {
