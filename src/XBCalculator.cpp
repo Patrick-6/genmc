@@ -19,15 +19,20 @@
  */
 
 #include "XBCalculator.hpp"
+#include "PROPCalculator.hpp"
+#include <llvm/ADT/SmallVector.h>
 
 void XBCalculator::initCalc()
 {
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+	auto *propCalc = static_cast<PROPCalculator *>(g.getCalculator(ExecutionGraph::RelationId::prop));
 
-	/* Xb should have the same events as prop -- marked only */
+	/* Xb should have the same events as prop -- runs after prop inits */
 	auto events = prop.getElems();
+	cumulFences = propCalc->getCumulFences();
+	strongFences = propCalc->getStrongFences();
 
 	xb = Calculator::GlobalRelation(std::move(events));
 	g.populatePPoRfEntries(xb);
@@ -45,9 +50,20 @@ bool XBCalculator::addXbConstraints()
 	bool changed = false;
 	for (auto &e1 : elems) {
 		for (auto &e2 : elems) {
+			/* Add prop_i constraints (normally part of AR) */
 			if (e1.thread == e2.thread && prop(e1, e2) && !xb(e1, e2)) {
 				changed = true;
 				xb.addEdge(e1, e2);
+			}
+			/* Add strong-fence;prop constraints (part of PB) */
+			if (!prop(e1, e2))
+				continue;
+			for (auto &e3 : elems) {
+				if (!xb(e1, e3) && std::any_of(strongFences.begin(), strongFences.end(),
+							       [&](Event f){ return f.isBetween(e2, e3); })) {
+					changed = true;
+					xb.addEdge(e1, e3);
+				}
 			}
 		}
 	}

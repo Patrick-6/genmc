@@ -27,6 +27,14 @@
 #include "Error.hpp"
 #include "ExecutionGraph.hpp"
 
+/*******************************************************************************
+ **                           XBCalculator Class
+ ******************************************************************************/
+
+/*
+ * Calculates LKMM's XB relation. It should always be added after all LKMM
+ * calculators have been added the graph, since it relies on information they store.
+ */
 class XBCalculator : public Calculator {
 
 public:
@@ -50,6 +58,10 @@ public:
 
 private:
 	bool addXbConstraints();
+
+	/* Cumulative and strong fences used by LKMM's relations */
+	std::vector<Event> cumulFences;
+	std::vector<Event> strongFences;
 };
 
 #endif /* __XB_CALCULATOR_HPP__ */

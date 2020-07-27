@@ -49,6 +49,9 @@ public:
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
+	const std::vector<Event> &getCumulFences() const { return cumulFences; }
+	const std::vector<Event> &getStrongFences() const { return strongFences; }
+
 private:
 	bool isCumulFenceBetween(Event f, Event a, Event b) const;
 	llvm::SmallVector<Event, 4> getExtOverwrites(Event e) const;
