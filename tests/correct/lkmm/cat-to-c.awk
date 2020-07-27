@@ -27,6 +27,10 @@ BEGIN {
 	if (line_count == 1 || match($0, "{}") != 0)
 		next;
 
+	## Do not collect "exists" and "always"
+	if (match($0, "exists|always|locations"))
+		next;
+
 	## Remove derefence from ONCEs
 	r = "([READ|WRITE]_ONCE)\\(\\*(\\w+)(.*;)"
 	if (match($0, r, a)) {
@@ -50,7 +54,7 @@ BEGIN {
 	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
-		sub(r, a[1] "(&" a[2] a[3]);
+		sub(r, a[1] "(\\&" a[2] a[3]);
 	}
 
 	## Change the way threads are printed
@@ -59,10 +63,6 @@ BEGIN {
 		++num_threads;
 		sub(r, "void *" a[1] "(void *unused)");
 	}
-
-	## Do not collect "exists" and "always"
-	if (match($0, "exists|always"))
-		next;
 
 	## Collect line
 	program = program "\n" $0;
