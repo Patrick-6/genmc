@@ -50,6 +50,7 @@ BEGIN {
 	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
+		sub(r, a[1] "(&" a[2] a[3]);
 	}
 
 	## Change the way threads are printed
