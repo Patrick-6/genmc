@@ -18,7 +18,7 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "PropCalculator.hpp"
+#include "PROPCalculator.hpp"
 
 void PROPCalculator::initCalc()
 {

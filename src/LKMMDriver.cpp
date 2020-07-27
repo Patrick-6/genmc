@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include "LKMMDriver.hpp"
-#include "PropCalculator.hpp"
+#include "PROPCalculator.hpp"
 #include "XBCalculator.hpp"
 
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {

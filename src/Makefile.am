@@ -47,7 +47,7 @@ libgenmc_a_SOURCES = \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
-  PropCalculator.cpp PropCalculator.hpp \
+  PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
