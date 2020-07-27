@@ -6,6 +6,8 @@
 atomic_t x;
 atomic_t y;
 
+int r0, r1;
+
 void *P0(void *unused)
 {
 	WRITE_ONCE(x, 1);
@@ -16,9 +18,6 @@ void *P0(void *unused)
 
 void *P1(void *unused)
 {
-	int r0;
-	int r1;
-
 	r0 = READ_ONCE(y);
 	smp_rmb();
 	r1 = READ_ONCE(x);
@@ -33,6 +32,13 @@ int main()
 		abort();
 	if (pthread_create(&t2, NULL, P1, NULL))
 		abort();
+
+	if (pthread_join(t1, NULL))
+		abort();
+	if (pthread_join(t2, NULL))
+		abort();
+
+	assert(!(r0 == 1 && r1 == 0));
 
 	return 0;
 }

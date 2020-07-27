@@ -992,7 +992,7 @@ private:
  ******************************************************************************/
 
 enum class SmpFenceType {
-	MB, RMB, WMB, MBBA, MBAA, MBAS, MBAUL
+	MB, WMB, RMB, MBBA, MBAA, MBAS, MBAUL
 };
 
 /* Represents a non-C11-type fence (LKMM only) */
@@ -1004,11 +1004,17 @@ protected:
 
 public:
 	SmpFenceLabelLKMM(unsigned int st, SmpFenceType t, Event pos)
-		: FenceLabel(st, llvm::AtomicOrdering::Monotonic, pos),
+		: FenceLabel(EL_SmpFenceLKMM, st, llvm::AtomicOrdering::Monotonic, pos),
 		  type(t) {} /* AtomicOrdering is not used -- pass Monotonic */
 
 	/* Returns the type of this fence */
 	SmpFenceType getType() const { return type; }
+
+	/* Returns true if this fence is cumulative */
+	bool isCumul() const { return type == SmpFenceType::MB || type == SmpFenceType::WMB; }
+
+	/* Returns true if this fence is a strong fence */
+	bool isStrong() const { return type == SmpFenceType::MB; }
 
 	SmpFenceLabelLKMM *clone() const override { return new SmpFenceLabelLKMM(*this); }
 

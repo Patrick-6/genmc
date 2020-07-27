@@ -91,6 +91,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "W";
 		break;
 	case EventLabel::EL_Fence:
+	case EventLabel::EL_SmpFenceLKMM:
 		s << "F";
 		break;
 	case EventLabel::EL_ThreadCreate:
@@ -155,6 +156,17 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const llvm::AtomicOrdering o
 	case llvm::AtomicOrdering::AcquireRelease : return s << "ar";
 	case llvm::AtomicOrdering::SequentiallyConsistent : return s << "sc";
 	default : return s;
+	}
+	return s;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t)
+{
+	switch (t) {
+	case SmpFenceType::MB : return s << "mb";
+	case SmpFenceType::WMB : return s << "wmb";
+	case SmpFenceType::RMB : return s << "rmb";
+	default : BUG();
 	}
 	return s;
 }
@@ -231,6 +243,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	case EventLabel::EL_Fence: {
 		auto &fLab = static_cast<const FenceLabel&>(lab);
 		s << fLab.getKind() << fLab.getOrdering();
+		break;
+	}
+	case EventLabel::EL_SmpFenceLKMM: {
+		auto &fLab = static_cast<const SmpFenceLabelLKMM&>(lab);
+		s << fLab.getKind() << fLab.getType();
 		break;
 	}
 	case EventLabel::EL_DskFsync: {

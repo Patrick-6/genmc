@@ -47,6 +47,7 @@ libgenmc_a_SOURCES = \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
+  PropCalculator.cpp PropCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
@@ -55,7 +56,8 @@ libgenmc_a_SOURCES = \
   WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \
-  VSet.hpp VSet.tcc
+  VSet.hpp VSet.tcc \
+  XBCalculator.hpp XBCalculator.cpp
 
 
 AM_CXXFLAGS = -Wno-unknown-warning-option -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"

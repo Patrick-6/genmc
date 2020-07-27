@@ -20,6 +20,8 @@
 
 #include "config.h"
 #include "LKMMDriver.hpp"
+#include "PropCalculator.hpp"
+#include "XBCalculator.hpp"
 
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
 	{"mb", SmpFenceType::MB},
@@ -34,7 +36,17 @@ static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
 LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
 		       std::vector<Library> &granted, std::vector<Library> &toVerify,
 		       clock_t start)
-	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start) { }
+	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
+{
+	auto &g = getGraph();
+
+	/* LKMM adds a prop and an xb calculator to the party */
+	g.addCalculator(LLVM_MAKE_UNIQUE<PROPCalculator>(g),
+			ExecutionGraph::RelationId::prop, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<XBCalculator>(g),
+			ExecutionGraph::RelationId::xb, false);
+	return;
+}
 
 /* Calculates a minimal hb vector clock based on po for a given label */
 View LKMMDriver::calcBasicHbView(Event e) const
@@ -773,6 +785,5 @@ bool LKMMDriver::updateJoin(Event join, Event childLast)
 
 void LKMMDriver::initConsCalculation()
 {
-	BUG();
 	return;
 }
