@@ -69,16 +69,16 @@ bool PROPCalculator::isCumulFenceBetween(Event f, Event a, Event b) const
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 		BUG_ON(!wLab->isAtLeastRelease());
 		return f.isBetween(a, b) ||
-			(rs && std::any_of(rs->begin(), rs->end(),
-					   [&](Event r){ return f.isBetween(r, b); }));
+			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
+					   { return a.thread != r.thread && f.isBetween(r, b); }));
 	} else if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab)) {
 		BUG_ON(!fLab->isCumul());
 		if (fLab->getType() == SmpFenceType::WMB)
 			return f.isBetween(a, b);
 		else if (fLab->getType() == SmpFenceType::MB)
 			return f.isBetween(a, b) ||
-			(rs && std::any_of(rs->begin(), rs->end(),
-					   [&](Event r){ return f.isBetween(r, b); }));
+			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
+					   { return a.thread != r.thread && f.isBetween(r, b); }));
 		else
 			BUG();
 
@@ -132,24 +132,6 @@ bool PROPCalculator::addConstraint(Event a, Event b)
 	return changed;
 }
 
-bool PROPCalculator::addConstraint(Event a, const std::vector<Event> &bs)
-{
-	bool changed = false;
-
-	for (auto b : bs)
-		changed |= addConstraint(a, b);
-	return changed;
-}
-
-bool PROPCalculator::addConstraint(const std::vector<Event> &as, Event b)
-{
-	bool changed = false;
-
-	for (auto a : as)
-		changed |= addConstraint(a, b);
-	return changed;
-}
-
 bool PROPCalculator::addPropConstraints()
 {
 	auto &g = getGraph();
@@ -159,7 +141,6 @@ bool PROPCalculator::addPropConstraints()
 	bool changed = false;
 	for (auto e1 : elems) {
 		auto owrs = getExtOverwrites(e1);
-		owrs.push_back(e1); /* Add e1 since we don't consider id edges anyway */
 
 		/* Add all edges from owrs to other events in elems */
 		for (auto o : owrs) {
@@ -170,9 +151,26 @@ bool PROPCalculator::addPropConstraints()
 			for (auto e2 : elems) {
 				if (std::any_of(cumulFences.begin(), cumulFences.end(),
 						[&](Event f){ return isCumulFenceBetween(f, o, e2); })) {
+					changed |= addConstraint(e1, e2);
 					changed |= addConstraint(o, e2);
-					if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2)))
-						changed |= addConstraint(o, wLab->getReadersList());
+
+					if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
+						for (auto &rf : wLab->getReadersList()) {
+							if (e2.thread != rf.thread) {
+								changed |= addConstraint(e1, rf);
+								changed |= addConstraint(e2, rf);
+							}
+						}
+					}
+				}
+			}
+			/* And also overwrite_e?; rfe edges*/
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(o))) {
+				for (auto &rf : wLab->getReadersList()) {
+					if (o.thread != rf.thread) {
+						changed |= addConstraint(e1, rf);
+						changed |= addConstraint(o, rf);
+					}
 				}
 			}
 		}

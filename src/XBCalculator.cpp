@@ -55,7 +55,7 @@ bool XBCalculator::addXbConstraints()
 				changed = true;
 				xb.addEdge(e1, e2);
 			}
-			/* Add strong-fence;prop constraints (part of PB) */
+			/* Add strong-fence;prop;ar* constraints (part of PB) */
 			if (!prop(e1, e2))
 				continue;
 			for (auto &e3 : elems) {

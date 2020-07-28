@@ -142,6 +142,7 @@ private:
 	void calcBasicWriteViews(WriteLabel *lab);
 	void calcWriteMsgView(WriteLabel *lab);
 	void calcRMWWriteMsgView(WriteLabel *lab);
+	void updateRmbFenceView(DepView &pporf, SmpFenceLabelLKMM *lab);
 	void updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *lab);
 	void updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab);
 	void calcBasicFenceViews(SmpFenceLabelLKMM *lab);

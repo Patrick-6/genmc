@@ -56,8 +56,6 @@ private:
 	bool isCumulFenceBetween(Event f, Event a, Event b) const;
 	llvm::SmallVector<Event, 4> getExtOverwrites(Event e) const;
 	bool addConstraint(Event a, Event b);
-	bool addConstraint(Event a, const std::vector<Event> &bs);
-	bool addConstraint(const std::vector<Event> &as, Event a);
 	bool addPropConstraints();
 
 	/* All cumulative fences currently in the graph */

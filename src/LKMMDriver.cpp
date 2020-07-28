@@ -232,6 +232,18 @@ void LKMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 	}
 }
 
+void LKMMDriver::updateRmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
+{
+	BUG_ON(fLab->getType() != SmpFenceType::RMB);
+
+	for (auto i = 1; i < fLab->getIndex(); i++) {
+		auto *lab = getGraph().getEventLabel(Event(fLab->getThread(), i));
+		if (llvm::isa<ReadLabel>(lab))
+			pporf.update(lab->getPPoRfView());
+	}
+	WARN_ONCE("fix-rmb", "Account for noreturn events!\n");
+}
+
 void LKMMDriver::updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
 {
 	BUG_ON(fLab->getType() != SmpFenceType::WMB);
@@ -271,6 +283,7 @@ void LKMMDriver::calcBasicFenceViews(SmpFenceLabelLKMM *lab)
 		updateWmbFenceView(pporf, lab);
 		break;
 	case SmpFenceType::RMB:
+		updateRmbFenceView(pporf, lab);
 		break;
 	case SmpFenceType::MB:
 		updateMbFenceView(pporf, lab);
@@ -507,8 +520,12 @@ LKMMDriver::createSmpFenceLabelLKMM(int tid, int index, const char *lkmmType)
 	Event pos(tid, index);
 
 	BUG_ON(smpFenceTypes.count(lkmmType) == 0);
+	auto typ = smpFenceTypes.at(lkmmType);
+
+	auto ord = (isStrong(typ)) ? llvm::AtomicOrdering::SequentiallyConsistent :
+		llvm::AtomicOrdering::Monotonic;
 	auto lab = LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(
-		g.nextStamp(), smpFenceTypes.at(lkmmType), pos);
+		g.nextStamp(), ord, typ, pos);
 
 	calcBasicFenceViews(lab.get());
 	return std::move(lab);

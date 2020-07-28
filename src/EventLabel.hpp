@@ -994,6 +994,8 @@ private:
 enum class SmpFenceType {
 	MB, WMB, RMB, MBBA, MBAA, MBAS, MBAUL
 };
+inline bool isCumul(SmpFenceType t) { return t == SmpFenceType::MB || t == SmpFenceType::WMB; }
+inline bool isStrong(SmpFenceType t) { return t == SmpFenceType::MB; }
 
 /* Represents a non-C11-type fence (LKMM only) */
 class SmpFenceLabelLKMM : public FenceLabel {
@@ -1003,18 +1005,17 @@ protected:
 	friend class DepExecutionGraph;
 
 public:
-	SmpFenceLabelLKMM(unsigned int st, SmpFenceType t, Event pos)
-		: FenceLabel(EL_SmpFenceLKMM, st, llvm::AtomicOrdering::Monotonic, pos),
-		  type(t) {} /* AtomicOrdering is not used -- pass Monotonic */
+	SmpFenceLabelLKMM(unsigned int st, llvm::AtomicOrdering ord, SmpFenceType t, Event pos)
+		: FenceLabel(EL_SmpFenceLKMM, st, ord, pos), type(t) {}
 
 	/* Returns the type of this fence */
 	SmpFenceType getType() const { return type; }
 
 	/* Returns true if this fence is cumulative */
-	bool isCumul() const { return type == SmpFenceType::MB || type == SmpFenceType::WMB; }
+	bool isCumul() const { return ::isCumul(getType()); }
 
 	/* Returns true if this fence is a strong fence */
-	bool isStrong() const { return type == SmpFenceType::MB; }
+	bool isStrong() const { return ::isStrong(getType()); }
 
 	SmpFenceLabelLKMM *clone() const override { return new SmpFenceLabelLKMM(*this); }
 
