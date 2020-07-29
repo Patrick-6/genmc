@@ -331,14 +331,13 @@ LKMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				Event rf, const llvm::GenericValue &expected,
 				const llvm::GenericValue &swap, bool isLock)
 {
-	BUG();
-	// auto &g = getGraph();
-	// Event pos(tid, index);
-	// auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-	// 					   rf, expected, swap, isLock);
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
+						  rf, expected, swap, isLock);
 
-	// calcBasicReadViews(lab.get());
-	// return std::move(lab);
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<LibReadLabel>
@@ -405,15 +404,14 @@ LKMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
 				 const llvm::GenericValue &val, bool isLock)
 {
-	BUG();
-	// auto &g = getGraph();
-	// Event pos(tid, index);
-	// auto lab = LLVM_MAKE_UNIQUE<CasWriteLabel>(g.nextStamp(), ord, pos, ptr,
-	// 					    typ, val, isLock);
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<CasWriteLabel>(g.nextStamp(), ord, pos, ptr,
+						    typ, val, isLock);
 
-	// calcBasicWriteViews(lab.get());
-	// calcRMWWriteMsgView(lab.get());
-	// return std::move(lab);
+	calcBasicWriteViews(lab.get());
+	calcRMWWriteMsgView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<LibWriteLabel>

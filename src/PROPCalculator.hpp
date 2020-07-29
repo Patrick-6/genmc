@@ -26,7 +26,6 @@
 #include "EventLabel.hpp"
 #include "Error.hpp"
 #include "ExecutionGraph.hpp"
-#include <llvm/ADT/SmallVector.h>
 
 class PROPCalculator : public Calculator {
 
@@ -54,8 +53,12 @@ public:
 
 private:
 	bool isCumulFenceBetween(Event f, Event a, Event b) const;
-	llvm::SmallVector<Event, 4> getExtOverwrites(Event e) const;
+	bool isCumulFenceBefore(Event a, Event b) const;
+	bool isPoUnlRfLockPoBefore(Event a, Event b) const;
+	std::vector<Event> getExtOverwrites(Event e) const;
 	bool addConstraint(Event a, Event b);
+	bool addConstraints(const std::vector<Event> &as, Event b);
+	bool addConstraints(Event a, const std::vector<Event> &bs);
 	bool addPropConstraints();
 
 	/* All cumulative fences currently in the graph */
@@ -63,6 +66,9 @@ private:
 
 	/* All strong fences currently in the graph */
 	std::vector<Event> strongFences;
+
+	/* All locks currently in the graph */
+	std::vector<Event> locks;
 };
 
 #endif /* __PROP_CALCULATOR_HPP__ */

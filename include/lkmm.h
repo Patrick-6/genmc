@@ -25,6 +25,9 @@
 #error "Only one of <stdatomic.h> and <lkmm.h> may be used!"
 #endif
 
+/* Rely on pthread types for the time being */
+#include <pthread.h>
+
 /* Helper macros -- <stdatomic.h> style */
 typedef enum memory_order {
   memory_order_relaxed = __ATOMIC_RELAXED,
@@ -105,10 +108,12 @@ do {								\
 	__cmpxchg(p, o, n, memory_order_release, memory_order_release)
 
 /* Spinlocks */
-#define spin_lock(l)      pthread_mutex_lock(&l)
-#define spin_unlock(l)    pthread_mutex_unlock(&l)
-#define spin_trylock(l)   pthread_mutex_trylock(&l)
-#define spin_is_locked(l) (atomic_load_explicit(&l, memory_order_relaxed) == 1)
+typedef pthread_mutex_t spinlock_t;
+
+#define spin_lock(l)      pthread_mutex_lock(l)
+#define spin_unlock(l)    pthread_mutex_unlock(l)
+#define spin_trylock(l)   pthread_mutex_trylock(l)
+#define spin_is_locked(l) (__atomic_load_n(&((l)->__private), __ATOMIC_RELAXED) == 1)
 
 /* RCU */
 void rcu_read_lock();

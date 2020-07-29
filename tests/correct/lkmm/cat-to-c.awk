@@ -31,7 +31,7 @@ BEGIN {
 	if (match($0, "exists|always|locations"))
 		next;
 
-	## Remove derefence from ONCEs
+	## Remove derefence from ONCEs and collect variables
 	r = "([READ|WRITE]_ONCE)\\(\\*(\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
@@ -57,6 +57,13 @@ BEGIN {
 		sub(r, a[1] "(\\&" a[2] a[3]);
 	}
 
+	## Collect variables from spinlocks
+	r = "(spin_lock|spin_unlock)\\((\\w+)(.*;)"
+	if (match($0, r, a)) {
+		++spinlocks[a[2]];
+		sub(r, a[1] "(\\&" a[2] a[3]);
+	}
+
 	## Change the way threads are printed
 	r = "(P[0-9]+)\\(.*";
 	if (match($0, r, a ) != 0) {
@@ -75,9 +82,11 @@ END {
 	## Print header
 	printf header "\n";
 
-	## atomic variables
+	## atomic variables and spinlocks
 	for (v in global_variables)
 		print "atomic_t " v ";"
+	for (s in spinlocks)
+		print "spinlock_t " s ";"
 
 	## print threads
 	print program "\n";

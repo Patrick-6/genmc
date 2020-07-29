@@ -46,6 +46,10 @@ void PROPCalculator::initCalc()
 			cumulFences.push_back(e);
 		if (fLab && fLab->isStrong())
 			strongFences.push_back(e);
+
+		if (auto *cLab = llvm::dyn_cast<CasReadLabel>(lab))
+			if (cLab->isLock())
+				locks.push_back(e);
 	}
 	events.erase(std::remove_if(events.begin(), events.end(), [&](Event e)
 				    { return llvm::isa<FenceLabel>(g.getEventLabel(e)); }),
@@ -86,7 +90,32 @@ bool PROPCalculator::isCumulFenceBetween(Event f, Event a, Event b) const
 	BUG();
 }
 
-llvm::SmallVector<Event, 4> PROPCalculator::getExtOverwrites(Event e) const
+bool PROPCalculator::isCumulFenceBefore(Event a, Event b) const
+{
+	return std::any_of(cumulFences.begin(), cumulFences.end(),
+			   [&](Event f){ return isCumulFenceBetween(f, a, b); });
+}
+
+bool PROPCalculator::isPoUnlRfLockPoBefore(Event a, Event b) const
+{
+	auto &g = getGraph();
+
+	for (auto &l1 : locks) {
+		auto ul1 = g.getMatchingUnlock(l1);
+		if (!a.isBetween(l1, ul1) || ul1.isInitializer())
+			continue;
+		for (auto &l2 : locks) {
+			auto *lab2 = llvm::dyn_cast<CasReadLabel>(g.getEventLabel(l2));
+			BUG_ON(!lab2);
+
+			if (lab2->getRf() == ul1 && b.thread == l2.thread && b.index > l2.index)
+				return true;
+		}
+	}
+	return false;
+}
+
+std::vector<Event> PROPCalculator::getExtOverwrites(Event e) const
 {
 	auto &g = getGraph();
 	auto *lab = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(e));
@@ -95,7 +124,7 @@ llvm::SmallVector<Event, 4> PROPCalculator::getExtOverwrites(Event e) const
 	auto &co = coRel[lab->getAddr()];
 	auto &stores = co.getElems();
 
-	llvm::SmallVector<Event, 4> owrs;
+	std::vector<Event> owrs;
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		auto rf = rLab->getRf();
 		/* If the read is reading from the initializer, just return all stores */
@@ -132,6 +161,22 @@ bool PROPCalculator::addConstraint(Event a, Event b)
 	return changed;
 }
 
+bool PROPCalculator::addConstraints(const std::vector<Event> &as, Event b)
+{
+	bool changed = false;
+	for (auto &a : as)
+		changed |= addConstraint(a, b);
+	return false;
+}
+
+bool PROPCalculator::addConstraints(Event a, const std::vector<Event> &bs)
+{
+	bool changed = false;
+	for (auto &b : bs)
+		changed |= addConstraint(a, b);
+	return false;
+}
+
 bool PROPCalculator::addPropConstraints()
 {
 	auto &g = getGraph();
@@ -140,31 +185,40 @@ bool PROPCalculator::addPropConstraints()
 
 	bool changed = false;
 	for (auto e1 : elems) {
+		/* First, add overwrite_e edges */
 		auto owrs = getExtOverwrites(e1);
+		changed |= addConstraints(e1, owrs);
 
-		/* Add all edges from owrs to other events in elems */
-		for (auto o : owrs) {
-			/* First, add overwrite_e edges */
-			changed |= addConstraint(e1, o);
+		/* Then, add cumul-fence; rfe? edges */
+		for (auto e2 : elems) {
+			if (isCumulFenceBefore(e1, e2)) {
+				changed |= addConstraint(e1, e2);
 
-			/* Then, add overwrite_e?; cumul-fence; rfe? edges */
-			for (auto e2 : elems) {
-				if (std::any_of(cumulFences.begin(), cumulFences.end(),
-						[&](Event f){ return isCumulFenceBetween(f, o, e2); })) {
-					changed |= addConstraint(e1, e2);
-					changed |= addConstraint(o, e2);
-
-					if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
-						for (auto &rf : wLab->getReadersList()) {
-							if (e2.thread != rf.thread) {
-								changed |= addConstraint(e1, rf);
-								changed |= addConstraint(e2, rf);
-							}
+				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
+					for (auto &rf : wLab->getReadersList()) {
+						if (e2.thread != rf.thread) {
+							changed |= addConstraint(e1, rf);
+							changed |= addConstraint(e2, rf);
 						}
 					}
 				}
 			}
-			/* And also overwrite_e?; rfe edges*/
+			/* Add po-unlock-rf-lock-po edges */
+			if (isPoUnlRfLockPoBefore(e1, e2)) {
+				changed |= addConstraint(e1, e2);
+
+				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
+					for (auto &rf : wLab->getReadersList()) {
+						if (e2.thread != rf.thread) {
+							changed |= addConstraint(e1, rf);
+							changed |= addConstraint(e2, rf);
+						}
+					}
+				}
+			}
+		}
+		/* And also overwrite_e; rfe edges*/
+		for (auto o : owrs) {
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(o))) {
 				for (auto &rf : wLab->getReadersList()) {
 					if (o.thread != rf.thread) {
