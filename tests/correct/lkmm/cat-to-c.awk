@@ -51,7 +51,7 @@ BEGIN {
 		next;
 
 	## Collect variables from acquires, releases, etc
-	r = "(smp_store_release|smp_load_acquire|atomic_dec_and_test|atomic_inc)\\((\\w+)(.*;)"
+	r = "(smp_store_release|smp_load_acquire|atomic_dec_and_test|atomic_inc|atomic_read|atomic_set)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
 		sub(r, a[1] "(\\&" a[2] a[3]);
