@@ -107,7 +107,11 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 			    (fLab->getType() == SmpFenceType::RMB && !llvm::isa<ReadLabel>(lab)))
 				continue;
 		}
-		v.update(g.getPPoRfBefore(ev));
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(eLab)) {
+			BUG_ON(!rLab->isAtLeastAcquire());
+			v.update(rLab->getPPoView());
+		} else
+			v.update(g.getPPoRfBefore(ev));
 	}
 	return v;
 }
@@ -138,8 +142,11 @@ void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab)
 	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 
-	pporf.update(rfLab->getPPoRfView());
-	if (rfLab->getThread() != lab->getThread()) {
+	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
+		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
+		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
+	} else {
+		pporf.update(rfLab->getPPoRfView());
 		for (auto i = 0u; i < lab->getIndex(); i++) {
 			const EventLabel *eLab = g.getEventLabel(Event(lab->getThread(), i));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
