@@ -133,13 +133,10 @@ void LKMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	return;
 }
 
-void LKMMDriver::calcBasicReadViews(ReadLabel *lab)
+void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
-	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab);
-	DepView pporf(ppo);
 
 	pporf.update(rfLab->getPPoRfView());
 	if (rfLab->getThread() != lab->getThread()) {
@@ -155,6 +152,18 @@ void LKMMDriver::calcBasicReadViews(ReadLabel *lab)
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
 	}
+	return;
+}
+
+void LKMMDriver::calcBasicReadViews(ReadLabel *lab)
+{
+	const auto &g = getGraph();
+	View hb = calcBasicHbView(lab->getPos());
+	DepView ppo = calcPPoView(lab);
+	DepView pporf(ppo);
+
+	updateReadViewsFromRf(pporf, hb, lab);
+
 	lab->setHbView(std::move(hb));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
@@ -762,25 +771,11 @@ void LKMMDriver::changeRf(Event read, Event store)
 	/* And update the views of the load */
 	EventLabel *lab = g.getEventLabel(read);
 	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
-	EventLabel *rfLab = g.getEventLabel(store);
 	View hb = calcBasicHbView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	pporf.update(rfLab->getPPoRfView());
-	if (rfLab->getThread() != rLab->getThread()) {
-		for (auto i = 0u; i < rLab->getIndex(); i++) {
-			const EventLabel *eLab = g.getEventLabel(Event(rLab->getThread(), i));
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
-				if (wLab->getAddr() == rLab->getAddr())
-					pporf.update(wLab->getPPoRfView());
-			}
-		}
-	}
+	updateReadViewsFromRf(pporf, hb, rLab);
 
-	if (rLab->isAtLeastAcquire()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-			hb.update(wLab->getMsgView());
-	}
 	rLab->setHbView(std::move(hb));
 	rLab->setPPoRfView(std::move(pporf));
 }

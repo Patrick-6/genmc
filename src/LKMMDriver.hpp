@@ -138,6 +138,7 @@ private:
 	View calcBasicHbView(Event e) const;
 	DepView calcPPoView(EventLabel *lab); /* not const */
 	void updateRelView(DepView &pporf, EventLabel *lab);
+	void updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *rLab);
 	void calcBasicReadViews(ReadLabel *lab);
 	void calcBasicWriteViews(WriteLabel *lab);
 	void calcWriteMsgView(WriteLabel *lab);
