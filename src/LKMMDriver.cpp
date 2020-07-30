@@ -175,8 +175,7 @@ void LKMMDriver::calcBasicWriteViews(WriteLabel *lab)
 		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
-	pporf.update(g.getPPoRfBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								  lab->getAddr())));
+
 	lab->setPPoRfView(std::move(pporf));
 }
 
