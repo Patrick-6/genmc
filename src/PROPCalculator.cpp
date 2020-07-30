@@ -40,6 +40,8 @@ void PROPCalculator::initCalc()
 		auto *lab = g.getEventLabel(e);
 		if (llvm::isa<WriteLabel>(lab) && lab->isAtLeastRelease())
 			cumulFences.push_back(e);
+		if (llvm::isa<WriteLabel>(lab) && lab->isSC())
+			strongFences.push_back(e);
 
 		auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab);
 		if (fLab && fLab->isCumul())
@@ -62,24 +64,27 @@ void PROPCalculator::initCalc()
 
 bool PROPCalculator::isCumulFenceBetween(Event f, Event a, Event b) const
 {
-	auto *lab = getGraph().getEventLabel(f);
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(f);
 
 	/* First, calculate the readers of a, if a is a write */
 	const std::vector<Event> *rs = nullptr;
-	if (auto *aLab = llvm::dyn_cast<WriteLabel>(getGraph().getEventLabel(a)))
+	if (auto *aLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(a)))
 		rs = &aLab->getReadersList();
 
 	/* Then, check if a is cumul-fence-before b */
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 		BUG_ON(!wLab->isAtLeastRelease());
-		return f.isBetween(a, b) ||
+		return f.isBetween(a, b) && f == b ||
 			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
-					   { return a.thread != r.thread && f.isBetween(r, b); }));
+					   { return a.thread != r.thread && f.isBetween(r, b) && f == b; }));
 	} else if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab)) {
 		BUG_ON(!fLab->isCumul());
 		if (fLab->getType() == SmpFenceType::WMB)
-			return f.isBetween(a, b);
-		else if (fLab->getType() == SmpFenceType::MB)
+			return llvm::isa<WriteLabel>(g.getEventLabel(a)) &&
+			       llvm::isa<WriteLabel>(g.getEventLabel(b)) &&
+			       f.isBetween(a, b);
+		else if (fLab->isStrong())
 			return f.isBetween(a, b) ||
 			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
 					   { return a.thread != r.thread && f.isBetween(r, b); }));

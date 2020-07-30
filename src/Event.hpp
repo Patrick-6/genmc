@@ -45,7 +45,7 @@ struct Event {
 			return false;
 		if (this->thread != a.thread)
 			return false;
-		return this->index > a.index && this->index <= b.index;
+		return this->index >= a.index && this->index <= b.index;
 	}
 
 	inline bool operator==(const Event &e) const {

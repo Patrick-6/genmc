@@ -796,6 +796,7 @@ private:  // Helper functions
   void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSmpFenceLKMM(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callAtomicRmwNoRet(Function *F, const std::vector<GenericValue> &ArgVals);
 
   const Library *isUserLibCall(Function *F);
   void callUserLibFunction(const Library *lib, Function *F, const std::vector<GenericValue> &ArgVals);

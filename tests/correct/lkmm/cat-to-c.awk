@@ -27,8 +27,8 @@ BEGIN {
 	if (line_count == 1 || match($0, "{}") != 0)
 		next;
 
-	## Do not collect "exists" and "always"
-	if (match($0, "exists|always|locations"))
+	## Do not collect "exists" and "forall"
+	if (match($0, "exists|forall|locations"))
 		next;
 
 	## Remove derefence from ONCEs and collect variables
@@ -51,14 +51,14 @@ BEGIN {
 		next;
 
 	## Collect variables from acquires, releases, etc
-	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
+	r = "(smp_store_release|smp_load_acquire|atomic_dec_and_test|atomic_inc)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
 		sub(r, a[1] "(\\&" a[2] a[3]);
 	}
 
 	## Collect variables from spinlocks
-	r = "(spin_lock|spin_unlock)\\((\\w+)(.*;)"
+	r = "(spin_lock|spin_unlock|spin_trylock|spin_is_locked)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++spinlocks[a[2]];
 		sub(r, a[1] "(\\&" a[2] a[3]);

@@ -57,7 +57,7 @@ View LKMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-DepView LKMMDriver::calcPPoView(Event e) /* not const */
+DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -90,6 +90,7 @@ DepView LKMMDriver::calcPPoView(Event e) /* not const */
 	}
 
 	/* This event does not depend on anything else */
+	Event e = lab->getPos();
 	int oldIdx = v[e.thread];
 	v[e.thread] = e.index;
 	for (auto i = oldIdx + 1; i < e.index; i++)
@@ -97,8 +98,17 @@ DepView LKMMDriver::calcPPoView(Event e) /* not const */
 
 	/* Update based on the views of the acquires of the thread */
 	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
-	for (auto &ev : acqs)
+	for (auto &ev : acqs) {
+		auto *eLab = g.getEventLabel(ev);
+		/* Make sure that smp_wmb() and smp_rmb() only
+		 * apply to stores and loads, respectively */
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
+			if ((fLab->getType() == SmpFenceType::WMB && !llvm::isa<WriteLabel>(lab)) ||
+			    (fLab->getType() == SmpFenceType::RMB && !llvm::isa<ReadLabel>(lab)))
+				continue;
+		}
 		v.update(g.getPPoRfBefore(ev));
+	}
 	return v;
 }
 
@@ -128,7 +138,7 @@ void LKMMDriver::calcBasicReadViews(ReadLabel *lab)
 	const auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos());
+	DepView ppo = calcPPoView(lab);
 	DepView pporf(ppo);
 
 	pporf.update(rfLab->getPPoRfView());
@@ -159,7 +169,7 @@ void LKMMDriver::calcBasicWriteViews(WriteLabel *lab)
 	lab->setHbView(std::move(hb));
 
 	/* Then, we calculate the (ppo U rf) view */
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab);
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
 		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
@@ -257,7 +267,7 @@ void LKMMDriver::updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
 
 void LKMMDriver::updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
 {
-	BUG_ON(fLab->getType() != SmpFenceType::MB);
+	BUG_ON(!fLab->isStrong());
 
 	pporf.removeAllHoles(fLab->getThread());
 	for (auto i = 1; i < fLab->getIndex(); i++) {
@@ -271,7 +281,7 @@ void LKMMDriver::calcBasicFenceViews(SmpFenceLabelLKMM *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab);
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
@@ -286,6 +296,10 @@ void LKMMDriver::calcBasicFenceViews(SmpFenceLabelLKMM *lab)
 		updateRmbFenceView(pporf, lab);
 		break;
 	case SmpFenceType::MB:
+	case SmpFenceType::MBBA:
+	case SmpFenceType::MBAA:
+	case SmpFenceType::MBAS:
+	case SmpFenceType::MBAUL:
 		updateMbFenceView(pporf, lab);
 		break;
 	default:
@@ -315,14 +329,13 @@ LKMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				Event rf, llvm::AtomicRMWInst::BinOp op,
 				const llvm::GenericValue &opValue)
 {
-	BUG();
-	// auto &g = getGraph();
-	// Event pos(tid, index);
-	// auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-	// 					   rf, op, opValue);
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
+						   rf, op, opValue);
 
-	// calcBasicReadViews(lab.get());
-	// return std::move(lab);
+	calcBasicReadViews(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<CasReadLabel>
@@ -389,14 +402,13 @@ LKMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
 				 const llvm::GenericValue &val)
 {
-	BUG();
-	// auto &g = getGraph();
-	// Event pos(tid, index);
-	// auto lab = LLVM_MAKE_UNIQUE<FaiWriteLabel>(g.nextStamp(), ord, pos,
-	// 					    ptr, typ, val);
-	// calcBasicWriteViews(lab.get());
-	// calcRMWWriteMsgView(lab.get());
-	// return std::move(lab);
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<FaiWriteLabel>(g.nextStamp(), ord, pos,
+						    ptr, typ, val);
+	calcBasicWriteViews(lab.get());
+	calcRMWWriteMsgView(lab.get());
+	return std::move(lab);
 }
 
 std::unique_ptr<CasWriteLabel>
@@ -539,7 +551,7 @@ LKMMDriver::createMallocLabel(int tid, int index, const void *addr,
 		g.nextStamp(), llvm::AtomicOrdering::NotAtomic, pos, addr, size, s, spc);
 
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
@@ -583,7 +595,7 @@ LKMMDriver::createFreeLabel(int tid, int index, const void *addr)
 		new FreeLabel(g.nextStamp(), llvm::AtomicOrdering::NotAtomic, pos, addr));
 
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
@@ -599,7 +611,7 @@ LKMMDriver::createTCreateLabel(int tid, int index, int cid)
 		g.nextStamp(), llvm::AtomicOrdering::Release, pos, cid);
 
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
 
 	pporf.removeAllHoles(lab->getThread());
 	Event rel = g.getLastThreadRelease(lab->getPos());
@@ -628,7 +640,7 @@ LKMMDriver::createTJoinLabel(int tid, int index, int cid)
 	 * for the other thread to finish first, so we do not fully
 	 * update the view yet */
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos());
+	DepView ppo = calcPPoView(lab.get());
 	DepView pporf(ppo);
 
 	lab->setHbView(std::move(hb));
@@ -666,7 +678,7 @@ LKMMDriver::createFinishLabel(int tid, int index)
 		g.nextStamp(), llvm::AtomicOrdering::Release, pos);
 
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
 
 	pporf.removeAllHoles(lab->getThread());
 	Event rel = g.getLastThreadRelease(lab->getPos());
@@ -693,7 +705,7 @@ LKMMDriver::createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *a
 	// 					     pos, addr);
 
 	// View hb = calcBasicHbView(lab->getPos());
-	// DepView pporf = calcPPoView(lab->getPos());
+	// DepView pporf = calcPPoView(lab.get());
 
 	// auto prevUnlock = g.getLastThreadUnlockAtLocLAPOR(lab->getPos().prev(),
 	// 						  addr);
@@ -716,7 +728,7 @@ LKMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue 
 	// 					       pos, addr);
 
 	// View hb = calcBasicHbView(lab->getPos());
-	// DepView pporf = calcPPoView(lab->getPos());
+	// DepView pporf = calcPPoView(lab.get());
 
 	// updateRelView(pporf, lab.get());
 

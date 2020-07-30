@@ -992,10 +992,10 @@ private:
  ******************************************************************************/
 
 enum class SmpFenceType {
-	MB, WMB, RMB, MBBA, MBAA, MBAS, MBAUL
+	MB = 0, WMB, RMB, MBBA, MBAA, MBAS, MBAUL
 };
-inline bool isCumul(SmpFenceType t) { return t == SmpFenceType::MB || t == SmpFenceType::WMB; }
-inline bool isStrong(SmpFenceType t) { return t == SmpFenceType::MB; }
+inline bool isCumul(SmpFenceType t) { return t <= SmpFenceType::WMB || t >= SmpFenceType::MBBA; }
+inline bool isStrong(SmpFenceType t) { return t == SmpFenceType::MB || t >= SmpFenceType::MBBA; }
 
 /* Represents a non-C11-type fence (LKMM only) */
 class SmpFenceLabelLKMM : public FenceLabel {
