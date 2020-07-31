@@ -54,7 +54,8 @@ public:
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, llvm::AtomicRMWInst::BinOp op,
-			   const llvm::GenericValue &opValue) override;
+			   const llvm::GenericValue &opValue,
+			   FaiReadLabel::FaiType ft) override;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	std::unique_ptr<CasReadLabel>

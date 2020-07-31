@@ -2807,14 +2807,14 @@ void Interpreter::callAtomicRmwNoRet(Function *F,
 	/* We have to do an ugly hack to get the ordering correct
 	 * (i.e. match LLVM's AtomicOrdering value), as the C ABI values are
 	 * not the same as the LLVM ones. */
-	auto ret = driver->visitLoad(IA_Fai, (llvm::AtomicOrdering)
+	auto ret = driver->visitLoad(IA_FaiNoRet, (llvm::AtomicOrdering)
 				     (ord.IntVal.getLimitedValue() + 2),
 				     ptr, typ, GenericValue(), val,
 				     (llvm::AtomicRMWInst::BinOp) binop.IntVal.getLimitedValue());
 	executeAtomicRMWOperation(newVal, ret, val, (llvm::AtomicRMWInst::BinOp)
 				  binop.IntVal.getLimitedValue());
 	if (!thr.isBlocked)
-		driver->visitStore(IA_Fai, (llvm::AtomicOrdering)
+		driver->visitStore(IA_FaiNoRet, (llvm::AtomicOrdering)
 				   (ord.IntVal.getLimitedValue() + 2), /* to match LLVM */
 				   ptr, typ, newVal);
 

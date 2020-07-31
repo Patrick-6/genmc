@@ -103,9 +103,15 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 		/* Make sure that smp_wmb() and smp_rmb() only
 		 * apply to stores and loads, respectively */
 		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
-			if ((fLab->getType() == SmpFenceType::WMB && !llvm::isa<WriteLabel>(lab)) ||
-			    (fLab->getType() == SmpFenceType::RMB && !llvm::isa<ReadLabel>(lab)))
+			if (fLab->getType() == SmpFenceType::WMB && !llvm::isa<WriteLabel>(lab))
 				continue;
+			if (fLab->getType() == SmpFenceType::RMB) {
+				if (!llvm::isa<ReadLabel>(lab))
+					continue;
+				auto *rLab = llvm::dyn_cast<FaiReadLabel>(lab);
+				if (rLab && rLab->getFaiType() == FaiReadLabel::NoRet)
+					continue;
+			}
 		}
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(eLab)) {
 			BUG_ON(!rLab->isAtLeastAcquire());
@@ -263,10 +269,12 @@ void LKMMDriver::updateRmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
 
 	for (auto i = 1; i < fLab->getIndex(); i++) {
 		auto *lab = getGraph().getEventLabel(Event(fLab->getThread(), i));
+		if (auto *rLab = llvm::dyn_cast<FaiReadLabel>(lab))
+			if (rLab->getFaiType() == FaiReadLabel::NoRet)
+				continue;
 		if (llvm::isa<ReadLabel>(lab))
 			pporf.update(lab->getPPoRfView());
 	}
-	WARN_ONCE("fix-rmb", "Account for noreturn events!\n");
 }
 
 void LKMMDriver::updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
@@ -340,14 +348,15 @@ LKMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<FaiReadLabel>
 LKMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, llvm::AtomicRMWInst::BinOp op,
-				const llvm::GenericValue &opValue)
+			       const llvm::GenericValue *ptr, const llvm::Type *typ,
+			       Event rf, llvm::AtomicRMWInst::BinOp op,
+			       const llvm::GenericValue &opValue,
+			       FaiReadLabel::FaiType ft)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, op, opValue);
+						  rf, op, opValue, ft);
 
 	calcBasicReadViews(lab.get());
 	return std::move(lab);

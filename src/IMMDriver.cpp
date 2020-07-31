@@ -254,14 +254,15 @@ IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<FaiReadLabel>
 IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, llvm::AtomicRMWInst::BinOp op,
-				const llvm::GenericValue &opValue)
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      Event rf, llvm::AtomicRMWInst::BinOp op,
+			      const llvm::GenericValue &opValue,
+			      FaiReadLabel::FaiType ft)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, op, opValue);
+						  rf, op, opValue, ft);
 
 	calcBasicReadViews(lab.get());
 	return std::move(lab);

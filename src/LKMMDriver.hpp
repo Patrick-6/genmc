@@ -40,7 +40,8 @@ public:
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, llvm::AtomicRMWInst::BinOp op,
-			   const llvm::GenericValue &opValue) override;
+			   const llvm::GenericValue &opValue,
+			   FaiReadLabel::FaiType ft) override;
 	std::unique_ptr<CasReadLabel>
 	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,

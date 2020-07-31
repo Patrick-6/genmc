@@ -1088,8 +1088,8 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
 		auto oldVal = getWriteValue(s, ptr, typ);
-		if ((attr == llvm::Interpreter::IA_Fai ||
-		     EE->compareValues(typ, oldVal, expVal)) &&
+		if ((attr >= llvm::Interpreter::IA_Fai && attr <= llvm::Interpreter::IA_FaiNoRet ||
+							EE->compareValues(typ, oldVal, expVal)) &&
 		    g.isStoreReadBySettledRMW(s, ptr, before))
 			continue;
 
@@ -1389,6 +1389,12 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 				llvm::AtomicRMWInst::BinOp op,
 				Event store)
 {
+	/* Helper maps to map instruction attributes to label attributes (for certain kind of labels) */
+	static std::unordered_map<llvm::Interpreter::InstAttr, FaiReadLabel::FaiType> attrMapFai = {
+		{llvm::Interpreter::IA_Fai, FaiReadLabel::Plain},
+		{llvm::Interpreter::IA_FaiNoRet, FaiReadLabel::NoRet},
+	};
+
 	Event pos = getEE()->getCurrentPosition();
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
@@ -1397,8 +1403,10 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 						 addr, typ, store));
 		break;
 	case llvm::Interpreter::IA_Fai:
-		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
-						    addr, typ, store, op, rmwVal));
+	case llvm::Interpreter::IA_FaiNoRet:
+
+		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord, addr,
+						    typ, store, op, rmwVal, attrMapFai.at(attr)));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
@@ -1493,6 +1501,7 @@ GenMCDriver::createAddStoreLabel(llvm::Interpreter::InstAttr attr,
 						  attr == llvm::Interpreter::IA_Unlock));
 		break;
 	case llvm::Interpreter::IA_Fai:
+	case llvm::Interpreter::IA_FaiNoRet:
 		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
 						     addr, typ, val));
 		break;

@@ -342,6 +342,7 @@ public:
   enum InstAttr {
 	  IA_None,
 	  IA_Fai,
+	  IA_FaiNoRet,
 	  IA_Cas,
 	  IA_Lock,
 	  IA_Unlock,

@@ -369,6 +369,13 @@ private:
  * fetch-and-sub, etc) operation (compare-and-exhange is excluded) */
 class FaiReadLabel : public ReadLabel {
 
+public:
+	/* Specialization for FAI reads depending on whether they return a value */
+	enum FaiType {
+		Plain,
+		NoRet,
+	};
+
 protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
@@ -376,15 +383,18 @@ protected:
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
-		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val)
+		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val, FaiType ft)
 		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf),
-		  binOp(op), opValue(val) {}
+		  binOp(op), opValue(val), faiType(ft) {}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
 	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
 
 	/* Returns the other operand's value */
 	const llvm::GenericValue& getOpVal() const { return opValue; }
+
+	/* Returns the type of this FAI read */
+	FaiType getFaiType() const { return faiType; }
 
 	FaiReadLabel *clone() const override { return new FaiReadLabel(*this); }
 
@@ -397,6 +407,9 @@ private:
 
 	/* The other operand's value for the operation */
 	const llvm::GenericValue opValue;
+
+	/* The type for this FAI read */
+	const FaiType faiType;
 };
 
 
