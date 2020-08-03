@@ -227,7 +227,7 @@ public:
   }
   void untrack(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
     for (auto i = 0u; i < size; i++)
-      allocas[static_cast<int>(spc)].erase((char *) addr + i);
+      allocas[static_cast<int>(s)].erase((char *) addr + i);
     if (spc == AddressSpace::AS_Internal) {
       for (auto i = 0u; i < size; i++)
         internalAllocas.erase((char *) addr + i);
