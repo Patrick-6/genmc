@@ -18,65 +18,65 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "XBCalculator.hpp"
+#include "PBCalculator.hpp"
 #include "PROPCalculator.hpp"
-#include <llvm/ADT/SmallVector.h>
 
-void XBCalculator::initCalc()
+void PBCalculator::initCalc()
 {
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
-	auto *propCalc = static_cast<PROPCalculator *>(g.getCalculator(ExecutionGraph::RelationId::prop));
+	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
 
-	/* Xb should have the same events as prop -- runs after prop inits */
+	/* pb should have the same events as prop and ar */
 	auto events = prop.getElems();
-	cumulFences = propCalc->getCumulFences();
-	strongFences = propCalc->getStrongFences();
-
-	xb = Calculator::GlobalRelation(std::move(events));
-	g.populatePPoRfEntries(xb);
-	xb.transClosure();
+	pb = Calculator::GlobalRelation(std::move(events));
 	return;
 }
 
-bool XBCalculator::addXbConstraints()
+bool PBCalculator::addPbConstraints()
 {
 	auto &g = getGraph();
-	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
+	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
-	auto &elems = xb.getElems();
+	auto *propCalc = static_cast<PROPCalculator *>(g.getCalculator(ExecutionGraph::RelationId::prop));
+	auto &elems = ar.getElems();
+	auto &strongFences = propCalc->getStrongFences();
 
 	bool changed = false;
 	for (auto &e1 : elems) {
 		for (auto &e2 : elems) {
-			if (!xb(e1, e2) && (ar(e1, e2) || pb(e1, e2))) {
-				changed = true;
-				xb.addEdge(e1, e2);
+			/* Add strong-fence;prop;ar* constraints (part of PB) */
+			if (!prop(e1, e2))
+				continue;
+			for (auto &e3 : elems) {
+				if (!pb(e1, e3) && std::any_of(strongFences.begin(), strongFences.end(),
+							       [&](Event f){ return f.isBetween(e2, e3); })) {
+					changed = true;
+					pb.addEdge(e1, e3);
+				}
 			}
 		}
 	}
 	return changed;
 }
 
-Calculator::CalculationResult XBCalculator::doCalc()
+Calculator::CalculationResult PBCalculator::doCalc()
 {
 	auto &g = getGraph();
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
 
-	auto changed = addXbConstraints();
-	xb.transClosure();
+	auto changed = addPbConstraints();
+	pb.transClosure();
 
-	return Calculator::CalculationResult(changed, xb.isIrreflexive());
+	return Calculator::CalculationResult(changed, pb.isIrreflexive());
 }
 
-void XBCalculator::removeAfter(const VectorClock &preds)
+void PBCalculator::removeAfter(const VectorClock &preds)
 {
 }
 
-void XBCalculator::restorePrefix(const ReadLabel *rLab,
+void PBCalculator::restorePrefix(const ReadLabel *rLab,
 				 const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 				 const std::vector<std::pair<Event, Event> > &status)
 {

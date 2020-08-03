@@ -11,6 +11,7 @@ noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
   ARCalculator.cpp ARCalculator.hpp \
+  ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \
   CoherenceCalculator.hpp \
@@ -47,6 +48,7 @@ libgenmc_a_SOURCES = \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
+  PBCalculator.cpp PBCalculator.hpp \
   PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \

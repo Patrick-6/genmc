@@ -63,7 +63,7 @@ public:
 	class Builder;
 
 	/* Different relations that might exist in the graph */
-	enum class RelationId { hb, co, lb, psc, ar, prop, xb };
+	enum class RelationId { hb, co, lb, psc, ar, prop, ar_lkmm, pb, xb };
 
 protected:
 	/* Constructor should only be called from the builder */

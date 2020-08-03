@@ -18,65 +18,60 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "XBCalculator.hpp"
+#include "ARCalculatorLKMM.hpp"
 #include "PROPCalculator.hpp"
-#include <llvm/ADT/SmallVector.h>
 
-void XBCalculator::initCalc()
-{
-	auto &g = getGraph();
-	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
-	auto *propCalc = static_cast<PROPCalculator *>(g.getCalculator(ExecutionGraph::RelationId::prop));
-
-	/* Xb should have the same events as prop -- runs after prop inits */
-	auto events = prop.getElems();
-	cumulFences = propCalc->getCumulFences();
-	strongFences = propCalc->getStrongFences();
-
-	xb = Calculator::GlobalRelation(std::move(events));
-	g.populatePPoRfEntries(xb);
-	xb.transClosure();
-	return;
-}
-
-bool XBCalculator::addXbConstraints()
+void ARCalculatorLKMM::initCalc()
 {
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
-	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
-	auto &elems = xb.getElems();
+
+	/* ar should have the same events as prop -- runs after prop inits */
+	auto events = prop.getElems();
+
+	ar = Calculator::GlobalRelation(std::move(events));
+	g.populatePPoRfEntries(ar);
+	ar.transClosure();
+	return;
+}
+
+bool ARCalculatorLKMM::addArConstraints()
+{
+	auto &g = getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
+	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
+	auto &elems = ar.getElems();
 
 	bool changed = false;
 	for (auto &e1 : elems) {
+		/* Add prop_i constraints (not part of pporf views) */
 		for (auto &e2 : elems) {
-			if (!xb(e1, e2) && (ar(e1, e2) || pb(e1, e2))) {
+			if (e1.thread == e2.thread && prop(e1, e2) && !ar(e1, e2)) {
 				changed = true;
-				xb.addEdge(e1, e2);
+				ar.addEdge(e1, e2);
 			}
 		}
 	}
 	return changed;
 }
 
-Calculator::CalculationResult XBCalculator::doCalc()
+Calculator::CalculationResult ARCalculatorLKMM::doCalc()
 {
 	auto &g = getGraph();
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
 
-	auto changed = addXbConstraints();
-	xb.transClosure();
+	auto changed = addArConstraints();
+	ar.transClosure();
 
-	return Calculator::CalculationResult(changed, xb.isIrreflexive());
+	return Calculator::CalculationResult(changed, ar.isIrreflexive());
 }
 
-void XBCalculator::removeAfter(const VectorClock &preds)
+void ARCalculatorLKMM::removeAfter(const VectorClock &preds)
 {
 }
 
-void XBCalculator::restorePrefix(const ReadLabel *rLab,
+void ARCalculatorLKMM::restorePrefix(const ReadLabel *rLab,
 				 const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 				 const std::vector<std::pair<Event, Event> > &status)
 {

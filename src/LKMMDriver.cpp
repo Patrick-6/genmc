@@ -21,6 +21,8 @@
 #include "config.h"
 #include "LKMMDriver.hpp"
 #include "PROPCalculator.hpp"
+#include "ARCalculatorLKMM.hpp"
+#include "PBCalculator.hpp"
 #include "XBCalculator.hpp"
 
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
@@ -43,6 +45,10 @@ LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 	/* LKMM adds a prop and an xb calculator to the party */
 	g.addCalculator(LLVM_MAKE_UNIQUE<PROPCalculator>(g),
 			ExecutionGraph::RelationId::prop, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<ARCalculatorLKMM>(g),
+			ExecutionGraph::RelationId::ar_lkmm, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<PBCalculator>(g),
+			ExecutionGraph::RelationId::pb, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<XBCalculator>(g),
 			ExecutionGraph::RelationId::xb, false);
 	return;
