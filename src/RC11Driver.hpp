@@ -182,6 +182,15 @@ public:
 	std::unique_ptr<UnlockLabelLAPOR>
 	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
 
+	std::unique_ptr<RCULockLabelLKMM>
+	createRCULockLabelLKMM(int tid, int index) override;
+
+	std::unique_ptr<RCUUnlockLabelLKMM>
+	createRCUUnlockLabelLKMM(int tid, int index) override;
+
+	std::unique_ptr<RCUSyncLabelLKMM>
+	createRCUSyncLabelLKMM(int tid, int index) override;
+
 	/* Checks for races after a load/store is added to the graph.
 	 * Return the racy event, or INIT if no such event exists */
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;

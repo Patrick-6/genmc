@@ -123,10 +123,14 @@ typedef pthread_mutex_t spinlock_t;
 #define spin_is_locked(l) (__atomic_load_n(&((l)->__private), __ATOMIC_RELAXED) == 1)
 
 /* RCU */
-void rcu_read_lock();
-void rcu_read_unlock();
-void synchronize_rcu();
-void synchronize_rcu_expedited();
+void __VERIFIER_rcu_read_lock();
+void __VERIFIER_rcu_read_unlock();
+void __VERIFIER_synchronize_rcu();
+
+#define rcu_read_lock()   __VERIFIER_rcu_read_lock()
+#define rcu_read_unlock() __VERIFIER_rcu_read_unlock()
+#define synchronize_rcu() __VERIFIER_synchronize_rcu()
+#define synchronize_rcu_expedited() __VERIFIER_synchronize_rcu()
 
 /* Atomic */
 #define atomic_read(v)   READ_ONCE(*v)

@@ -597,6 +597,28 @@ RC11Driver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue 
 	return std::move(lab);
 }
 
+
+std::unique_ptr<RCULockLabelLKMM>
+RC11Driver::createRCULockLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
+std::unique_ptr<RCUUnlockLabelLKMM>
+RC11Driver::createRCUUnlockLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
+std::unique_ptr<RCUSyncLabelLKMM>
+RC11Driver::createRCUSyncLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
 bool RC11Driver::areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab)
 {
 	/* If there is an HB ordering between the two events, there is no race */

@@ -67,6 +67,9 @@ enum class InternalFunctions {
 	FN_LastFS,
 	FN_AtomicRmwNoRet,
 	FN_SmpFenceLKMM,
+	FN_RCUReadLockLKMM,
+	FN_RCUReadUnlockLKMM,
+	FN_SynchronizeRCULKMM,
 };
 
 #define IS_INTERNAL_FUNCTION(name) internalFunNames.count(name)

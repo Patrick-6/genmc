@@ -1704,6 +1704,48 @@ void GenMCDriver::visitFree(const llvm::AllocaHolder::Allocas &ptrs)
 	return;
 }
 
+void GenMCDriver::visitRCULockLKMM()
+{
+	const auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = EE->getCurrentPosition();
+	auto lLab = createRCULockLabelLKMM(pos.thread, pos.index);
+	getGraph().addOtherLabelToGraph(std::move(lLab));
+	return;
+}
+
+void GenMCDriver::visitRCUUnlockLKMM()
+{
+	const auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = EE->getCurrentPosition();
+	auto uLab = createRCUUnlockLabelLKMM(pos.thread, pos.index);
+	getGraph().addOtherLabelToGraph(std::move(uLab));
+	return;
+}
+
+void GenMCDriver::visitRCUSyncLKMM()
+{
+	const auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = EE->getCurrentPosition();
+	auto gpLab = createRCUSyncLabelLKMM(pos.thread, pos.index);
+	getGraph().addOtherLabelToGraph(std::move(gpLab));
+	return;
+}
+
 void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" */,
 			     Event confEvent /* = INIT */)
 {

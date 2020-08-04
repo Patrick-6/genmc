@@ -45,8 +45,8 @@ bool PBCalculator::addPbConstraints()
 
 	bool changed = false;
 	for (auto &e1 : elems) {
+		/* Add strong-fence;prop;ar* constraints (part of PB) */
 		for (auto &e2 : elems) {
-			/* Add strong-fence;prop;ar* constraints (part of PB) */
 			if (!prop(e1, e2))
 				continue;
 			for (auto &e3 : elems) {

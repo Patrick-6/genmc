@@ -78,12 +78,15 @@ public:
 		EL_DskSync,
 		EL_DskPbarrier,
 		EL_SmpFenceLKMM,
+		EL_RCUSyncLKMM,
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
 		EL_LockLabelLAPOR,
 		EL_UnlockLabelLAPOR,
 		EL_DskOpen,
+		EL_RCULockLKMM,
+		EL_RCUUnlockLKMM,
 	};
 
 protected:
@@ -1032,13 +1035,37 @@ public:
 
 	SmpFenceLabelLKMM *clone() const override { return new SmpFenceLabelLKMM(*this); }
 
-	static bool classof(const EventLabel *lab) {
-		return lab->getKind() == EL_SmpFenceLKMM;
-	}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_SmpFenceLKMM; }
 
 private:
 	/* The type of this LKMM fence */
 	SmpFenceType type;
+};
+
+
+/******************************************************************************
+ **                        RCUSyncLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to a the beginning of a grace period */
+class RCUSyncLabelLKMM : public FenceLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCUSyncLabelLKMM(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: FenceLabel(EL_RCUSyncLKMM, st, ord, pos) {}
+
+	RCUSyncLabelLKMM *clone() const override { return new RCUSyncLabelLKMM(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCUSyncLKMM; }
+
+private:
+	/* The discriminator suffices */
 };
 
 
@@ -1375,6 +1402,56 @@ private:
 
 	/* The file descriptor allocated for this call */
 	llvm::GenericValue fd;
+};
+
+
+/******************************************************************************
+ **                        RCULockLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to the beginning of an RCU read-side critical section */
+class RCULockLabelLKMM : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCULockLabelLKMM(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: EventLabel(EL_RCULockLKMM, st, ord, pos) {}
+
+	RCULockLabelLKMM *clone() const override { return new RCULockLabelLKMM(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCULockLKMM; }
+
+private:
+	/* The discriminator suffices */
+};
+
+
+/******************************************************************************
+ **                        RCUUnlockLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to the ending of an RCU read-side critical section */
+class RCUUnlockLabelLKMM : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCUUnlockLabelLKMM(unsigned int st, llvm::AtomicOrdering ord, Event pos)
+		: EventLabel(EL_RCUUnlockLKMM, st, ord, pos) {}
+
+	RCUUnlockLabelLKMM *clone() const override { return new RCUUnlockLabelLKMM(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCUUnlockLKMM; }
+
+private:
+	/* The discriminator suffices */
 };
 
 

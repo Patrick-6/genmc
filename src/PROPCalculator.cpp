@@ -27,11 +27,9 @@ void PROPCalculator::initCalc()
 
 	/* Collect all atomic accesses and fences */
 	auto events = g.collectAllEvents([&](const EventLabel *lab)
-					 { return (llvm::isa<MemAccessLabel>(lab) ||
-						   llvm::isa<SmpFenceLabelLKMM>(lab) ||
-						   llvm::isa<LockLabelLAPOR>(lab) ||
-						   llvm::isa<UnlockLabelLAPOR>(lab)) &&
-						   !lab->isNotAtomic(); });
+					 { return PROPCalculator::isMarked(lab) ||
+						  llvm::isa<SmpFenceLabelLKMM>(lab) ||
+						  llvm::isa<RCUSyncLabelLKMM>(lab); });
 
 	/* Keep the fences separately because we will need them later */
 	cumulFences.clear();
@@ -41,6 +39,9 @@ void PROPCalculator::initCalc()
 		if (llvm::isa<WriteLabel>(lab) && lab->isAtLeastRelease())
 			cumulFences.push_back(e);
 		if (llvm::isa<WriteLabel>(lab) && lab->isSC())
+			strongFences.push_back(e);
+
+		if (llvm::isa<RCUSyncLabelLKMM>(lab))
 			strongFences.push_back(e);
 
 		auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab);
@@ -91,7 +92,10 @@ bool PROPCalculator::isCumulFenceBetween(Event f, Event a, Event b) const
 		else
 			BUG();
 
-	}
+	} else if (auto *fLab = llvm::dyn_cast<RCUSyncLabelLKMM>(lab))
+		return f.isBetween(a, b) ||
+			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
+					   { return a.thread != r.thread && f.isBetween(r, b); }));
 	BUG();
 }
 
@@ -222,7 +226,8 @@ bool PROPCalculator::addPropConstraints()
 				}
 			}
 		}
-		/* And also overwrite_e; rfe edges*/
+		/* And also overwrite_e?; rfe edges*/
+		owrs.push_back(e1); /* account for rfe */
 		for (auto o : owrs) {
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(o))) {
 				for (auto &rf : wLab->getReadersList()) {

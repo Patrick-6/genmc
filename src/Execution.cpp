@@ -92,6 +92,9 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
 	{"__VERIFIER_atomicrmw_noret", InternalFunctions::FN_AtomicRmwNoRet},
 	{"__VERIFIER_lkmm_fence", InternalFunctions::FN_SmpFenceLKMM},
+	{"__VERIFIER_rcu_read_lock", InternalFunctions::FN_RCUReadLockLKMM},
+	{"__VERIFIER_rcu_read_unlock", InternalFunctions::FN_RCUReadUnlockLKMM},
+	{"__VERIFIER_synchronize_rcu", InternalFunctions::FN_SynchronizeRCULKMM},
 	/* Some C++ calls */
 	{"_Znwm", InternalFunctions::FN_Malloc},
 	{"_ZdlPv", InternalFunctions::FN_Free},
@@ -2832,6 +2835,24 @@ void Interpreter::callSmpFenceLKMM(Function *F,
 	return;
 }
 
+void Interpreter::callRCUReadLockLKMM(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitRCULockLKMM();
+	return;
+}
+
+void Interpreter::callRCUReadUnlockLKMM(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitRCUUnlockLKMM();
+	return;
+}
+
+void Interpreter::callSynchronizeRCULKMM(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitRCUSyncLKMM();
+	return;
+}
+
 void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
@@ -4119,6 +4140,9 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(PersBarrierFS);
 		CALL_INTERNAL_FUNCTION(AtomicRmwNoRet);
 		CALL_INTERNAL_FUNCTION(SmpFenceLKMM);
+		CALL_INTERNAL_FUNCTION(RCUReadLockLKMM);
+		CALL_INTERNAL_FUNCTION(RCUReadUnlockLKMM);
+		CALL_INTERNAL_FUNCTION(SynchronizeRCULKMM);
 	default:
 		BUG();
 		break;

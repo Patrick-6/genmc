@@ -138,6 +138,15 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_DskPbarrier:
 		s << "PB";
 		break;
+	case EventLabel::EL_RCULockLKMM:
+		s << "RL";
+		break;
+	case EventLabel::EL_RCUUnlockLKMM:
+		s << "RU";
+		break;
+	case EventLabel::EL_RCUSyncLKMM:
+		s << "GP";
+		break;
 	default:
 		s << "UNKNOWN";
 		break;
@@ -322,6 +331,21 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	case EventLabel::EL_DskPbarrier: {
 		auto &pLab = static_cast<const DskPbarrierLabel&>(lab);
 		s << pLab.getKind();
+		break;
+	}
+	case EventLabel::EL_RCULockLKMM: {
+		auto &fLab = static_cast<const RCULockLabelLKMM&>(lab);
+		s << fLab.getKind();
+		break;
+	}
+	case EventLabel::EL_RCUUnlockLKMM: {
+		auto &fLab = static_cast<const RCUUnlockLabelLKMM&>(lab);
+		s << fLab.getKind();
+		break;
+	}
+	case EventLabel::EL_RCUSyncLKMM: {
+		auto &fLab = static_cast<const RCUSyncLabelLKMM&>(lab);
+		s << fLab.getKind();
 		break;
 	}
 	default:

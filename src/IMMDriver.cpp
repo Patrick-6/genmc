@@ -714,6 +714,27 @@ IMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *
 	return std::move(lab);
 }
 
+std::unique_ptr<RCULockLabelLKMM>
+IMMDriver::createRCULockLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
+std::unique_ptr<RCUUnlockLabelLKMM>
+IMMDriver::createRCUUnlockLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
+std::unique_ptr<RCUSyncLabelLKMM>
+IMMDriver::createRCUSyncLabelLKMM(int tid, int index)
+{
+	ERROR("RCU can only be used with -lkmm!\n");
+	return nullptr;
+}
+
 Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	return Event::getInitializer(); /* Race detection disabled for IMM */

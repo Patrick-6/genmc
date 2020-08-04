@@ -240,6 +240,14 @@ public:
 	void
 	visitFree(const llvm::AllocaHolder::Allocas &ptrs); /* Helper for bulk-deallocs */
 
+	/* LKMM: Visit RCU functions */
+	void
+	visitRCULockLKMM();
+	void
+	visitRCUUnlockLKMM();
+	void
+	visitRCUSyncLKMM();
+
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
@@ -677,6 +685,15 @@ private:
 	/* LAPOR: Creates a (dummy) label for an unlock() operation */
 	virtual std::unique_ptr<UnlockLabelLAPOR>
 	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) = 0;
+
+	virtual std::unique_ptr<RCULockLabelLKMM>
+	createRCULockLabelLKMM(int tid, int index) = 0;
+
+	virtual std::unique_ptr<RCUUnlockLabelLKMM>
+	createRCUUnlockLabelLKMM(int tid, int index) = 0;
+
+	virtual std::unique_ptr<RCUSyncLabelLKMM>
+	createRCUSyncLabelLKMM(int tid, int index) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */

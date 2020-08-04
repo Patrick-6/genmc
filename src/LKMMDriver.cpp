@@ -23,6 +23,7 @@
 #include "PROPCalculator.hpp"
 #include "ARCalculatorLKMM.hpp"
 #include "PBCalculator.hpp"
+#include "RCUCalculator.hpp"
 #include "XBCalculator.hpp"
 
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
@@ -49,6 +50,8 @@ LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 			ExecutionGraph::RelationId::ar_lkmm, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<PBCalculator>(g),
 			ExecutionGraph::RelationId::pb, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<RCUCalculator>(g),
+			ExecutionGraph::RelationId::rcu, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<XBCalculator>(g),
 			ExecutionGraph::RelationId::xb, false);
 	return;
@@ -765,6 +768,62 @@ LKMMDriver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue 
 	// lab->setHbView(std::move(hb));
 	// lab->setPPoRfView(std::move(pporf));
 	// return std::move(lab);
+}
+
+std::unique_ptr<RCULockLabelLKMM>
+LKMMDriver::createRCULockLabelLKMM(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+
+	auto lab = LLVM_MAKE_UNIQUE<RCULockLabelLKMM>(
+		g.nextStamp(), llvm::AtomicOrdering::Acquire, pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<RCUUnlockLabelLKMM>
+LKMMDriver::createRCUUnlockLabelLKMM(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+
+	auto lab = LLVM_MAKE_UNIQUE<RCUUnlockLabelLKMM>(
+		g.nextStamp(), llvm::AtomicOrdering::Release, pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
+
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
+}
+
+std::unique_ptr<RCUSyncLabelLKMM>
+LKMMDriver::createRCUSyncLabelLKMM(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+
+	auto lab = LLVM_MAKE_UNIQUE<RCUSyncLabelLKMM>(
+		g.nextStamp(), llvm::AtomicOrdering::SequentiallyConsistent, pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab.get());
+
+	calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
+	updateRelView(pporf, lab.get());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+	return std::move(lab);
 }
 
 Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)

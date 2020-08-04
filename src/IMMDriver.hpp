@@ -168,6 +168,15 @@ public:
 	std::unique_ptr<UnlockLabelLAPOR>
 	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) override;
 
+	std::unique_ptr<RCULockLabelLKMM>
+	createRCULockLabelLKMM(int tid, int index) override;
+
+	std::unique_ptr<RCUUnlockLabelLKMM>
+	createRCUUnlockLabelLKMM(int tid, int index) override;
+
+	std::unique_ptr<RCUSyncLabelLKMM>
+	createRCUSyncLabelLKMM(int tid, int index) override;
+
 	/* Since there is no concept of race in IMM, always returns INIT */
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 

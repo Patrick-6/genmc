@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __XB_CALCULATOR_HPP__
-#define __XB_CALCULATOR_HPP__
+#ifndef __RCU_CALCULATOR_HPP__
+#define __RCU_CALCULATOR_HPP__
 
 #include "Calculator.hpp"
 #include "DriverGraphEnumAPI.hpp"
@@ -28,17 +28,19 @@
 #include "ExecutionGraph.hpp"
 
 /*******************************************************************************
- **                           XBCalculator Class
+ **                           RCUCalculator Class
  ******************************************************************************/
 
 /*
- * Calculates LKMM's XB relation. It should always be added after all LKMM
- * calculators have been added the graph, since it relies on information they store.
+ * Calculates LKMM's rcu-order relation. We do not separately calculate rb
+ * since it is only used as part of xb in our case. Also, since rcu-link
+ * is not seen by any other relations apart from rcu-order, it is stored
+ * in a private field of this calculator.
  */
-class XBCalculator : public Calculator {
+class RCUCalculator : public Calculator {
 
 public:
-	XBCalculator(ExecutionGraph &g) : Calculator(g) {}
+	RCUCalculator(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 
@@ -57,8 +59,19 @@ public:
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
 private:
-	bool addRcuFenceConstraints(Event a, Event b);
-	bool addXbConstraints();
+	Event getMatchingUnlockRCU(Event lock) const;
+	bool linksTo(Event e, Event r) const;
+	std::vector<Event> getPbOptPropPoLinks(Event e) const;
+	bool addRcuLinks(Event e);
+	bool addRcuLinkConstraints();
+	void incRcuCounter(Event e, unsigned int &gps, unsigned int &css) const;
+	void decRcuCounter(Event e, unsigned int &gps, unsigned int &css) const;
+	bool checkAddRcuConstraint(Event a, Event b, const unsigned int gps,
+				   const unsigned int css);
+	bool addRcuConstraints();
+
+	/* Used by rcu-order */
+	GlobalRelation rcuLink;
 };
 
-#endif /* __XB_CALCULATOR_HPP__ */
+#endif /* __RCU_CALCULATOR_HPP__ */

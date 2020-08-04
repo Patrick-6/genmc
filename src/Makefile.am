@@ -52,6 +52,7 @@ libgenmc_a_SOURCES = \
   PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
+  RCUCalculator.cpp RCUCalculator.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
