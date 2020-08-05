@@ -199,14 +199,18 @@ void LKMMDriver::calcBasicWriteViews(WriteLabel *lab)
 	View hb = calcBasicHbView(lab->getPos());
 	lab->setHbView(std::move(hb));
 
-	/* Then, we calculate the (ppo U rf) view */
-	DepView pporf = calcPPoView(lab);
+	/* Then, we calculate the ppo and (ppo U rf) views
+	 * The former is important because we have to take dep;rfi
+	 * dependencies into account for subsequent reads. */
+	DepView ppo = calcPPoView(lab);
+	DepView pporf(ppo);
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
 		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
 
+	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
 
