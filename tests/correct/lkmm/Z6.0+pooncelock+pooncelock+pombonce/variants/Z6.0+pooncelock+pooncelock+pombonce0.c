@@ -3,9 +3,9 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x;
-atomic_t y;
-atomic_t z;
+int x;
+int y;
+int z;
 spinlock_t mylock;
 
 void *P0(void *unused)

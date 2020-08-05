@@ -3,8 +3,8 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x = ATOMIC_INIT(9);
-atomic_t a;
+int x = 9;
+int a;
 
 void *P0(void *unused)
 {

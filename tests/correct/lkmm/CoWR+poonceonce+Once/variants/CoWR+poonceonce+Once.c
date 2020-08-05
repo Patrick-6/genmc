@@ -3,8 +3,7 @@
 #include <assert.h>
 #include <lkmm.h>
 
-atomic_t x;
-
+int x;
 int r0;
 
 void *thread_1(void *unused)

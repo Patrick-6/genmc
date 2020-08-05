@@ -4,13 +4,13 @@
 #include <assert.h>
 
 atomic_t x;
-atomic_t y;
+int y;
 
 void *P0(void *unused)
 {
 	WRITE_ONCE(y, 1);
 	smp_wmb();
-	WRITE_ONCE(x, 1);
+	atomic_set(&x, 1);
 	return NULL;
 }
 

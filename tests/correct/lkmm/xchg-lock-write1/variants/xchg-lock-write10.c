@@ -3,8 +3,8 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x;
-atomic_t s;
+int x;
+int s;
 
 void *P0(void *unused)
 {

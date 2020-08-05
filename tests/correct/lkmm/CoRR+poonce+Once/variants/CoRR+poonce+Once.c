@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <lkmm.h>
 
-atomic_t x;
+int x;
 
 int r0, r1;
 

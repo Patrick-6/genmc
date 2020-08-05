@@ -3,8 +3,8 @@
 #include <lkmm.h>
 #include <assert.h>
 
-atomic_t x;
-atomic_t y;
+int x;
+int y;
 
 int r0, r1;
 

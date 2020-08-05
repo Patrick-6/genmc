@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x, y, s;
+int x, y, s;
 
 void *P0(void *unused)
 {

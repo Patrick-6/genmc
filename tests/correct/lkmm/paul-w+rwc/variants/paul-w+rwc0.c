@@ -3,10 +3,10 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x;
-atomic_t y;
-atomic_t a;
-atomic_t b;
+int x;
+int y;
+int a;
+int b;
 spinlock_t l;
 
 void *P0(void *unused)

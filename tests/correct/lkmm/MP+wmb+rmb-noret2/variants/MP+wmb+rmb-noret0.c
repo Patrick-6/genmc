@@ -3,12 +3,12 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x;
+int x;
 atomic_t y;
 
 void *P0(void *unused)
 {
-	WRITE_ONCE(y, 1);
+	atomic_set(&y, 1);
 	smp_wmb();
 	WRITE_ONCE(x, 1);
 	return NULL;

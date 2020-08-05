@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <assert.h>
 
-atomic_t x, y;
+int x, y;
 spinlock_t s;
 
 void *P0(void *unused)

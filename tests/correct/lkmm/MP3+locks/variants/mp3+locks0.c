@@ -5,7 +5,7 @@
 
 int r1, r2, r3;
 
-atomic_t x, y;
+int x, y;
 spinlock_t s;
 
 void *P0(void *unused)
