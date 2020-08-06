@@ -44,7 +44,7 @@ bool XBCalculator::addRcuFenceConstraints(Event a, Event b)
 	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
 
 	bool changed = false;
-	for (auto i = a.index + 1; i < g.getThreadSize(a.thread); i++) {
+	for (auto i = 1; i < a.index; i++) {
 		auto *labA = g.getEventLabel(Event(a.thread, i));
 		if (!PROPCalculator::isMarked(labA))
 			continue;

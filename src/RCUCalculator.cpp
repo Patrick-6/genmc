@@ -214,15 +214,15 @@ bool RCUCalculator::addRcuConstraints()
 			    std::vector<Timestamp> &f){ /* atTreeE */
 				incRcuCounter(rcuElems[j], gps, css);
 				changed |= checkAddRcuConstraint(e, rcuElems[j], gps, css);
-				incRcuCounter(rcuElems[j], gps, css);
+				decRcuCounter(rcuElems[j], gps, css);
 				return;
 			},
 			[&](NodeId i, NodeId j, Timestamp &t, std::vector<NodeStatus> &m,
 			    std::vector<NodeId> &p, std::vector<Timestamp> &d,
 			    std::vector<Timestamp> &f){ /* atBackE*/
-				incRcuCounter(rcuElems[j], gps, css);
+				/* We shouldn't manipulate the counters in back edges,
+				 * as such vertices have already been counted */
 				changed |= checkAddRcuConstraint(e, rcuElems[j], gps, css);
-				decRcuCounter(rcuElems[j], gps, css);
 				return;
 			},
 			[&](NodeId i, NodeId j, Timestamp &t, std::vector<NodeStatus> &m,
@@ -255,7 +255,6 @@ Calculator::CalculationResult RCUCalculator::doCalc()
 		addRcuConstraints();
 		rcu.transClosure();
 	}
-
 	return Calculator::CalculationResult(changed, rcu.isIrreflexive());
 }
 
