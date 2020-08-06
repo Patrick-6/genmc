@@ -49,8 +49,6 @@ typedef enum memory_order {
 #define atomic_load_explicit(p, m)     __atomic_load_n(p, m)
 #define atomic_store_explicit(p, v, m) __atomic_store_n(p, v, m)
 
-#define atomic_signal_fence(m) __atomic_signal_fence(m)
-
 #define atomic_exchange_explicit(p, v, m) __atomic_exchange_n(p, v, m)
 
 #define atomic_compare_exchange_strong_explicit(p, e, d, ms, mf)	\
@@ -82,14 +80,8 @@ typedef enum memory_order {
 
 /* Fences */
 
-/* We could model barrier() as
- *
- *     __asm__ __volatile__ (""   : : : "memory")
- *
- * but we save on one instruction using atomic_signal_fence(rlx), which
- * will boil down to nothing.
- */
-#define barrier() atomic_signal_fence(memory_order_relaxed)
+/* atomic_signal_fence(memory_order_relaxed) is useless for barrier() */
+#define barrier() __asm__ __volatile__ (""   : : : "memory")
 
 void __VERIFIER_lkmm_fence(const char *);
 
