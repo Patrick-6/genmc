@@ -50,10 +50,17 @@ BEGIN {
 	if (in_comment == 1)
 		next;
 
-	## Collect variables from acquires, releases, etc
-	r = "(smp_store_release|smp_load_acquire|atomic_dec_and_test|atomic_inc|atomic_read|atomic_set)\\((\\w+)(.*;)"
+	## Collect variables from acquires, releases
+	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
 	if (match($0, r, a)) {
 		++global_variables[a[2]];
+		sub(r, a[1] "(\\&" a[2] a[3]);
+	}
+
+	## Collect atomics
+	r = "(atomic_dec_and_test|atomic_inc|atomic_read|atomic_set|atomic_add|atomic_sub)\\((\\w+)(.*;)"
+	if (match($0, r, a)) {
+		++atomic_variables[a[2]];
 		sub(r, a[1] "(\\&" a[2] a[3]);
 	}
 
@@ -82,8 +89,10 @@ END {
 	## Print header
 	printf header "\n";
 
-	## atomic variables and spinlocks
+	## variables and spinlocks
 	for (v in global_variables)
+		print "int " v ";"
+	for (v in atomic_variables)
 		print "atomic_t " v ";"
 	for (s in spinlocks)
 		print "spinlock_t " s ";"
