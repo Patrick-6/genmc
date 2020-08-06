@@ -84,7 +84,7 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 			v.update(g.getPPoRfBefore(ddep));
 	}
 	auto *ctrl = EE->getCurrentCtrlDeps();
-	if (ctrl) {
+	if (ctrl && llvm::isa<WriteLabel>(lab)) { /* LKMM only keeps ctrl deps to writes */
 		for (auto &cdep : *ctrl)
 			v.update(g.getPPoRfBefore(cdep));
 	}
