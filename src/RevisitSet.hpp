@@ -26,7 +26,8 @@
 #include <vector>
 
 /*
- * RevisitSet class - This class represents the revisit set of an ExecutionGraph
+ * RevisitSet class - This class represents the revisit set of a particular
+ * read in the execution graph
  */
 class RevisitSet {
 
