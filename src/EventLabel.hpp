@@ -330,6 +330,10 @@ public:
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
 		  readsFrom(rf), revisitable(true) {}
 
+	ReadLabel(const ReadLabel &lab)
+		: MemAccessLabel(lab), readsFrom(lab.getRf()),
+		  revisitable(lab.isRevisitable()) {}
+
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
