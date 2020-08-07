@@ -24,7 +24,6 @@
 #include "Event.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
-#include "RevisitSet.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -330,10 +329,6 @@ public:
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
 		  readsFrom(rf), revisitable(true) {}
 
-	ReadLabel(const ReadLabel &lab)
-		: MemAccessLabel(lab), readsFrom(lab.getRf()),
-		  revisitable(lab.isRevisitable()) {}
-
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
@@ -362,10 +357,6 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
-
-	/* Information about writes that have revisited (or will revisit)
-	 * this read */
-	RevisitSet revs;
 };
 
 
