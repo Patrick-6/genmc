@@ -388,6 +388,32 @@ void GenMCDriver::restrictWorklist(const EventLabel *rLab)
 		workqueue.erase(i);
 }
 
+bool GenMCDriver::revisitSetContains(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
+				     const std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	return revisitSet[rLab->getStamp()].contains(writePrefix, moPlacings);
+}
+
+void GenMCDriver::addToRevisitSet(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
+				  const std::vector<std::pair<Event, Event> > &moPlacings)
+{
+	revisitSet[rLab->getStamp()].add(writePrefix, moPlacings);
+	return;
+}
+
+void GenMCDriver::restrictRevisitSet(const EventLabel *rLab)
+{
+	auto stamp = rLab->getStamp();
+	std::vector<int> idxsToRemove;
+
+	for (auto rit = revisitSet.rbegin(); rit != revisitSet.rend(); ++rit)
+		if (rit->first > stamp)
+			idxsToRemove.push_back(rit->first);
+
+	for (auto &i : idxsToRemove)
+		revisitSet.erase(i);
+}
+
 void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 {
 	const auto &g = getGraph();
@@ -1539,7 +1565,7 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 	auto *EE = getEE();
 
 	if (!g.revisitModifiesGraph(rLab, sLab) &&
-	    !g.revisitSetContains(rLab, writePrefixPos, moPlacings)) {
+	    !revisitSetContains(rLab, writePrefixPos, moPlacings)) {
 		EE->getThrById(rLab->getThread()).unblock();
 
 		changeRf(rLab->getPos(), sLab->getPos());
@@ -1550,7 +1576,7 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 		if (EE->getThrById(rLab->getThread()).globalInstructions != 0)
 			++EE->getThrById(rLab->getThread()).globalInstructions;
 
-		g.addToRevisitSet(rLab, writePrefixPos, moPlacings);
+		addToRevisitSet(rLab, writePrefixPos, moPlacings);
 		return true;
 	}
 	return false;
@@ -1592,11 +1618,11 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		}
 
 		/* If this prefix has revisited the read before, skip */
-		if (g.revisitSetContains(rLab, writePrefixPos, moPlacings))
+		if (revisitSetContains(rLab, writePrefixPos, moPlacings))
 			continue;
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
-		getGraph().addToRevisitSet(rLab, writePrefixPos, moPlacings);
+		addToRevisitSet(rLab, writePrefixPos, moPlacings);
 		addToWorklist(SRevisit, rLab->getPos(), sLab->getPos(),
 			      std::move(writePrefix), std::move(moPlacings));
 	}
@@ -1688,8 +1714,9 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	auto *EE = getEE();
 	const EventLabel *lab = g.getEventLabel(p.toRevisit);
 
-	/* First, appropriately restrict the worklist and the graph */
+	/* First, appropriately restrict the worklist, the revisit set, and the graph */
 	restrictWorklist(lab);
+	restrictRevisitSet(lab);
 	restrictGraph(lab);
 
 	if (p.type == SRevisit)
@@ -1974,10 +2001,10 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 			auto writePrefixPos = g.extractRfs(writePrefix);
 			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());
 
-			if (g.revisitSetContains(rLab, writePrefixPos, moPlacings))
+			if (revisitSetContains(rLab, writePrefixPos, moPlacings))
 				continue;
 
-			getGraph().addToRevisitSet(rLab, writePrefixPos, moPlacings);
+			addToRevisitSet(rLab, writePrefixPos, moPlacings);
 			addToWorklist(SRevisit, rLab->getPos(), rf,
 				      std::move(writePrefix), std::move(moPlacings));
 

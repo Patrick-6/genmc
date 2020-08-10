@@ -24,6 +24,7 @@
 #include "Config.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
+#include "RevisitSet.hpp"
 #include "ExecutionGraph.hpp"
 #include "Interpreter.h"
 #include "Library.hpp"
@@ -300,6 +301,20 @@ private:
 
 	/* Restricts the worklist only to entries that were added before lab */
 	void restrictWorklist(const EventLabel *lab);
+
+
+	/*** Revisit-related ***/
+
+	/* Returns true if the current revisit set for rLab contains
+	 * the pair (writePrefix, moPlacings) */
+	bool revisitSetContains(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
+				const std::vector<std::pair<Event, Event> > &moPlacings);
+
+	/* Adds to the revisit set of rLab the pair (writePrefix, moPlacings) */
+	void addToRevisitSet(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
+			     const std::vector<std::pair<Event, Event> > &moPlacings);
+
+	void restrictRevisitSet(const EventLabel *lab);
 
 
 	/*** Exploration-related ***/
@@ -680,6 +695,9 @@ private:
 
 	/* The worklist for backtracking. map[stamp->stack item list] */
 	std::map<unsigned int, std::vector<StackItem> > workqueue;
+
+	/* The revisit sets used during the exploration map[stamp->revisit set] */
+	std::map<unsigned int, RevisitSet > revisitSet;
 
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;

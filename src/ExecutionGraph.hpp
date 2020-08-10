@@ -225,6 +225,9 @@ public:
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const WriteLabel *wLab) const;
 
+	/* Returns a list of loads that can be revisited */
+	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
+
 	/* Returns a list of all events satisfying property F */
 	template <typename F>
 	std::vector<Event> collectAllEvents(F cond) const {
@@ -398,21 +401,6 @@ public:
 			       int newOffset);
 	void resetJoin(Event join);
 	bool updateJoin(Event join, Event childLast);
-
-
-	/* Revisit set methods */
-
-	/* Returns true if the revisit set for rLab contains the pair
-	 * <writePrefix, moPlacings>*/
-	bool revisitSetContains(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-				const std::vector<std::pair<Event, Event> > &moPlacings) const;
-
-	/* Adds to the revisit set of rLab the pair <writePrefix, moPlacings> */
-	void addToRevisitSet(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-			     const std::vector<std::pair<Event, Event> > &moPlacings);
-
-	/* Returns a list of loads that can be revisited */
-	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
 
 
 	/* Prefix saving and restoring */

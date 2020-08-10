@@ -1173,26 +1173,6 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 	}
 }
 
-bool ExecutionGraph::revisitSetContains(const ReadLabel *r, const std::vector<Event> &writePrefix,
-					const std::vector<std::pair<Event, Event> > &moPlacings) const
-{
-	EventLabel *lab = events[r->getThread()][r->getIndex()].get();
-	BUG_ON(!llvm::isa<ReadLabel>(lab));
-
-	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
-	return rLab->revs.contains(writePrefix, moPlacings);
-}
-
-void ExecutionGraph::addToRevisitSet(const ReadLabel *r, const std::vector<Event> &writePrefix,
-				     const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	EventLabel *lab = events[r->getThread()][r->getIndex()].get();
-	BUG_ON(!llvm::isa<ReadLabel>(lab));
-
-	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
-	return rLab->revs.add(writePrefix, moPlacings);
-}
-
 
 /************************************************************
  ** PSC calculation

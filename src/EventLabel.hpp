@@ -24,7 +24,6 @@
 #include "Event.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
-#include "RevisitSet.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -358,10 +357,6 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
-
-	/* Information about writes that have revisited (or will revisit)
-	 * this read */
-	RevisitSet revs;
 };
 
 
