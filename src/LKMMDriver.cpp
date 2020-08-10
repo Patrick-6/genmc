@@ -857,8 +857,7 @@ LKMMDriver::createRCUSyncLabelLKMM(int tid, int index)
 
 Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
-	BUG();
-	return Event::getBottom();
+	return Event::getInitializer();
 }
 
 std::vector<Event> LKMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
