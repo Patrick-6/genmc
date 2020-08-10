@@ -63,46 +63,13 @@ void PROPCalculator::initCalc()
 	return;
 }
 
-bool PROPCalculator::isCumulFenceBetween(Event f, Event a, Event b) const
-{
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(f);
-
-	/* First, calculate the readers of a, if a is a write */
-	const std::vector<Event> *rs = nullptr;
-	if (auto *aLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(a)))
-		rs = &aLab->getReadersList();
-
-	/* Then, check if a is cumul-fence-before b */
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-		BUG_ON(!wLab->isAtLeastRelease());
-		return f.isBetween(a, b) && f == b ||
-			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
-					   { return a.thread != r.thread && f.isBetween(r, b) && f == b; }));
-	} else if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab)) {
-		BUG_ON(!fLab->isCumul());
-		if (fLab->getType() == SmpFenceType::WMB)
-			return llvm::isa<WriteLabel>(g.getEventLabel(a)) &&
-			       llvm::isa<WriteLabel>(g.getEventLabel(b)) &&
-			       f.isBetween(a, b);
-		else if (fLab->isStrong())
-			return f.isBetween(a, b) ||
-			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
-					   { return a.thread != r.thread && f.isBetween(r, b); }));
-		else
-			BUG();
-
-	} else if (auto *fLab = llvm::dyn_cast<RCUSyncLabelLKMM>(lab))
-		return f.isBetween(a, b) ||
-			(rs && std::any_of(rs->begin(), rs->end(), [&](Event r)
-					   { return a.thread != r.thread && f.isBetween(r, b); }));
-	BUG();
-}
-
 bool PROPCalculator::isCumulFenceBefore(Event a, Event b) const
 {
-	return std::any_of(cumulFences.begin(), cumulFences.end(),
-			   [&](Event f){ return isCumulFenceBetween(f, a, b); });
+	auto &g = getGraph();
+	auto *labB = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(b));
+
+	BUG_ON(!labB || llvm::isa<LockLabelLAPOR>(labB) || llvm::isa<UnlockLabelLAPOR>(labB));
+	return labB->getFenceView().contains(a);
 }
 
 bool PROPCalculator::isPoUnlRfLockPoBefore(Event a, Event b) const
@@ -117,7 +84,7 @@ bool PROPCalculator::isPoUnlRfLockPoBefore(Event a, Event b) const
 			auto *lab2 = llvm::dyn_cast<CasReadLabel>(g.getEventLabel(l2));
 			BUG_ON(!lab2);
 
-			if (lab2->getRf() == ul1 && b.thread == l2.thread && b.index > l2.index)
+			if (lab2->getHbView().contains(ul1) && b.thread == l2.thread && b.index > l2.index)
 				return true;
 		}
 	}
@@ -132,29 +99,17 @@ std::vector<Event> PROPCalculator::getExtOverwrites(Event e) const
 	auto &coRel = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 	auto &co = coRel[lab->getAddr()];
 	auto &stores = co.getElems();
-
 	std::vector<Event> owrs;
-	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-		auto rf = rLab->getRf();
-		/* If the read is reading from the initializer, just return all stores */
-		if (rf.isInitializer()) {
-			for (auto &o : co) {
-				if (o.thread != e.thread)
-					owrs.push_back(o);
-			}
-			return owrs;
-		}
-		for (auto it = co.adj_begin(rf), ie = co.adj_end(rf); it != ie; ++it) {
-			if (stores[*it].thread != e.thread)
-				owrs.push_back(stores[*it]);
-		}
-	} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-		for (auto it = co.adj_begin(wLab->getPos()), ie = co.adj_end(wLab->getPos());
-		     it != ie; ++it) {
-			if (stores[*it].thread != e.thread)
-				owrs.push_back(stores[*it]);
-		}
-	}
+
+	auto from = e;
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+		from = rLab->getRf();
+
+	if (from.isInitializer())
+		return stores;
+
+	std::copy_if(stores.begin(), stores.end(), std::back_inserter(owrs),
+		     [&](Event s){ return co(from, s); });
 	return owrs;
 }
 
@@ -200,7 +155,10 @@ bool PROPCalculator::addPropConstraints()
 
 		/* Then, add cumul-fence; rfe? edges */
 		for (auto e2 : elems) {
-			if (isCumulFenceBefore(e1, e2)) {
+			if (e1 == e2)
+				continue;
+			if (isCumulFenceBefore(e1, e2) ||
+			    std::any_of(owrs.begin(), owrs.end(), [&](Event o){ return isCumulFenceBefore(o, e2); })) {
 				changed |= addConstraint(e1, e2);
 
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
@@ -213,7 +171,8 @@ bool PROPCalculator::addPropConstraints()
 				}
 			}
 			/* Add po-unlock-rf-lock-po edges */
-			if (isPoUnlRfLockPoBefore(e1, e2)) {
+			if (isPoUnlRfLockPoBefore(e1, e2) ||
+			    std::any_of(owrs.begin(), owrs.end(), [&](Event o){ return isPoUnlRfLockPoBefore(o, e2); })) {
 				changed |= addConstraint(e1, e2);
 
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
@@ -248,8 +207,6 @@ Calculator::CalculationResult PROPCalculator::doCalc()
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 
 	auto changed = addPropConstraints();
-	prop.transClosure();
-
 	return Calculator::CalculationResult(changed, prop.isIrreflexive());
 }
 

@@ -294,6 +294,10 @@ public:
 	/* Returns the type of the access's value */
 	const llvm::Type *getType() const { return valueType; }
 
+	/* Getter/setter for a the fence view of this memory access */
+	const DepView& getFenceView() const { return fenceView; }
+	void setFenceView(DepView &&v) { fenceView = std::move(v); }
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
 		return k >= EL_MemAccessBegin && k <= EL_MemAccessEnd;
@@ -305,6 +309,9 @@ private:
 
 	/* The type of the value accessed */
 	const llvm::Type *valueType;
+
+	/* A view of fences that could be used by some memory models (e.g., LKMM) */
+	DepView fenceView;
 };
 
 

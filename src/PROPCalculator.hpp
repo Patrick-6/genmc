@@ -60,7 +60,6 @@ public:
 	const std::vector<Event> &getStrongFences() const { return strongFences; }
 
 private:
-	bool isCumulFenceBetween(Event f, Event a, Event b) const;
 	bool isCumulFenceBefore(Event a, Event b) const;
 	bool isPoUnlRfLockPoBefore(Event a, Event b) const;
 	std::vector<Event> getExtOverwrites(Event e) const;

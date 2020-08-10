@@ -66,6 +66,26 @@ View LKMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
+DepView LKMMDriver::calcFenceView(const MemAccessLabel *lab) const
+{
+	auto &g = getGraph();
+	DepView fence;
+
+	for (auto i = 1; i < lab->getIndex(); i++) {
+		auto *eLab = g.getEventLabel(Event(lab->getThread(), i));
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
+			if (fLab->isStrong())
+				fence.update(fLab->getPPoRfView());
+			if (fLab->getType() == SmpFenceType::WMB &&
+			    llvm::isa<WriteLabel>(lab))
+				fence.update(fLab->getPPoRfView());
+		}
+		if (llvm::isa<FenceLabel>(eLab) && eLab->isAtLeastRelease())
+			fence.update(eLab->getPPoRfView());
+	}
+	return fence;
+}
+
 DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 {
 	auto &g = getGraph();
@@ -181,12 +201,14 @@ void LKMMDriver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
+	DepView fence = calcFenceView(lab);
 	DepView ppo = calcPPoView(lab);
 	DepView pporf(ppo);
 
 	updateReadViewsFromRf(pporf, hb, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setFenceView(std::move(fence));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
@@ -195,21 +217,24 @@ void LKMMDriver::calcBasicWriteViews(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 
-	/* First, we calculate the hb and (po U rf) views */
+	/* First, we calculate the hb view */
 	View hb = calcBasicHbView(lab->getPos());
 	lab->setHbView(std::move(hb));
 
-	/* Then, we calculate the ppo and (ppo U rf) views
-	 * The former is important because we have to take dep;rfi
+	/* Then, we calculate the ppo, (ppo U rf), and fence views
+	 * The first is important because we have to take dep;rfi
 	 * dependencies into account for subsequent reads. */
 	DepView ppo = calcPPoView(lab);
+	DepView fence = calcFenceView(lab);
 	DepView pporf(ppo);
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
 		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
-	if (lab->isAtLeastRelease())
+	if (lab->isAtLeastRelease()) {
 		updateRelView(pporf, lab);
-
+		fence = pporf;
+	}
+	lab->setFenceView(std::move(fence));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
