@@ -27,9 +27,11 @@ BEGIN {
 	if (line_count == 1 || match($0, "{}") != 0)
 		next;
 
-	## Do not collect "exists" and "forall"
-	if (match($0, "exists|forall|locations"))
-		next;
+	## Comment out "exists", "forall" and friends
+	r = "(exists|forall|locations|filter)(.*)"
+	if (match($0, r, a)) {
+		sub(r, "/* " a[0] " */");
+	}
 
 	## Remove derefence from ONCEs and collect variables
 	r = "([READ|WRITE]_ONCE)\\(\\*(\\w+)(.*;)"
@@ -38,17 +40,20 @@ BEGIN {
 		sub(r, a[1] "(" a[2] a[3]);
 	}
 
+	## Remove derefence from rcu_dereference and rcu_assign_pointer
+	r = "(.*rcu_(dereference|assign_pointer))\\(\\*(\\w+)(.*;)"
+	if (match($0, r, a)) {
+		++pointer_variables[a[3]];
+		sub(r, a[1] "(" a[3] a[4]);
+	}
+
 	## Remove comments
-	if (match($0, "\\(\\*") != 0) {
-		in_comment = 1;
-		next;
-	}
-	if (match($0, "\\*\\)") != 0) {
-		in_comment = 0;
-		next;
-	}
-	if (in_comment == 1)
-		next;
+	r = "(.*)(\\(\\*)(.*)"
+	if (match($0, r, a))
+		sub(r, a[1] "/*" a[3]);
+	r = "(.*)(\\*\\))(.*)";
+	if (match($0, r, a))
+		sub(r, a[1] "*/" a[3]);
 
 	## Collect variables from acquires, releases
 	r = "(smp_store_release|smp_load_acquire)\\((\\w+)(.*;)"
@@ -72,7 +77,7 @@ BEGIN {
 	}
 
 	## Change the way threads are printed
-	r = "(P[0-9]+)\\(.*";
+	r = "(P[0-9]+)\\(.+\\)";
 	if (match($0, r, a ) != 0) {
 		++num_threads;
 		sub(r, "void *" a[1] "(void *unused)");
@@ -92,6 +97,8 @@ END {
 	## variables and spinlocks
 	for (v in global_variables)
 		print "int " v ";"
+	for (v in pointer_variables)
+		print "int *" v ";"
 	for (v in atomic_variables)
 		print "atomic_t " v ";"
 	for (s in spinlocks)
