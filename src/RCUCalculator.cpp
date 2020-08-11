@@ -27,13 +27,18 @@ void RCUCalculator::initCalc()
 	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
 
 	/* Only collect synchronize_rcu()s and rcu_read_lock()s */
+	auto rcuEvents = g.collectAllEvents([&](const EventLabel* lab){
+						    return llvm::isa<RCUSyncLabelLKMM>(lab) ||
+							   llvm::isa<RCULockLabelLKMM>(lab);
+					    });
 	auto events = g.collectAllEvents([&](const EventLabel* lab){
-			return llvm::isa<RCUSyncLabelLKMM>(lab) ||
-			       llvm::isa<RCULockLabelLKMM>(lab);
-			});
+						 /* Also collect non-atomic events for rcu-fence */
+						 return PROPCalculator::isNonTrivial(lab);
+					 });
 
-	rcu = Calculator::GlobalRelation(std::move(events));
+	rcu = Calculator::GlobalRelation(std::move(rcuEvents));
 	rcuLink = Calculator::GlobalRelation(rcu.getElems());
+	rcuFence = Calculator::GlobalRelation(std::move(events));
 	return;
 }
 
@@ -124,7 +129,7 @@ bool RCUCalculator::addRcuLinks(Event e)
 	/* Start looking for links */
 	for (auto i = e.index + 1; i < upperLimit.index; i++) {
 		auto *lab = g.getEventLabel(Event(e.thread, i));
-		if (!PROPCalculator::isMarked(lab))
+		if (!PROPCalculator::isNonTrivial(lab) || lab->isNotAtomic())
 			continue;
 
 		auto links = getPbOptPropPoLinks(Event(e.thread, i));
@@ -245,6 +250,46 @@ bool RCUCalculator::addRcuConstraints()
 	return changed;
 }
 
+bool RCUCalculator::checkAddRcuFenceConstraint(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto &rcufence = getRcuFenceRelation();
+
+	bool changed = false;
+	for (auto i = 1; i < a.index; i++) {
+		auto *labA = g.getEventLabel(Event(a.thread, i));
+		if (!PROPCalculator::isNonTrivial(labA))
+			continue;
+		for (auto j = b.index + 1; j < g.getThreadSize(b.thread); j++) {
+			auto *labB = g.getEventLabel(Event(b.thread, j));
+			if (!PROPCalculator::isNonTrivial(labB))
+				continue;
+			if (!rcufence(labA->getPos(), labB->getPos())) {
+				changed = true;
+				rcufence.addEdge(labA->getPos(), labB->getPos());
+			}
+		}
+	}
+	return changed;
+}
+
+bool RCUCalculator::addRcuFenceConstraints()
+{
+	auto &g = getGraph();
+	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
+	auto &rcuElems = rcu.getElems();
+
+	if (rcuElems.empty())
+		return false;
+
+	bool changed = false;
+	for (auto r : rcuElems) {
+		for (auto it = rcu.adj_begin(r), ie = rcu.adj_end(r); it != ie; ++it)
+			changed |= checkAddRcuFenceConstraint(r, rcuElems[*it]);
+	}
+	return changed;
+}
+
 Calculator::CalculationResult RCUCalculator::doCalc()
 {
 	auto &g = getGraph();
@@ -254,6 +299,7 @@ Calculator::CalculationResult RCUCalculator::doCalc()
 	if (changed) {
 		addRcuConstraints();
 		rcu.transClosure();
+		addRcuFenceConstraints();
 	}
 	return Calculator::CalculationResult(changed, rcu.isIrreflexive());
 }

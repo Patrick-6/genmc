@@ -294,6 +294,12 @@ protected:
 	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
 
+	/* Returns true if the current graph is consistent */
+	bool isConsistent(ProgramPoint p);
+
+	/* Pers: Returns true if current recovery routine is valid */
+	bool isRecoveryValid(ProgramPoint p);
+
 	/* Returns true if a is hb-before b */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
@@ -395,12 +401,6 @@ private:
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
-
-	/* Returns true if the current graph is consistent */
-	bool isConsistent(ProgramPoint p);
-
-	/* Pers: Returns true if current recovery routine is valid */
-	bool isRecoveryValid(ProgramPoint p);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */

@@ -855,8 +855,551 @@ LKMMDriver::createRCUSyncLabelLKMM(int tid, int index)
 	return std::move(lab);
 }
 
+bool LKMMDriver::areInPotentialRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab)
+{
+	/* If there is an HB ordering between the two events, there is no race */
+	if (isHbBefore(aLab->getPos(), bLab->getPos()) ||
+	    isHbBefore(bLab->getPos(), aLab->getPos()) || aLab == bLab)
+		return false;
+
+	/* If both accesses are atomic, there is no race */
+	/* Note: one check suffices because a variable is either
+	 * atomic or not atomic, but we have not checked the address yet */
+	if (!aLab->isNotAtomic() && !bLab->isNotAtomic())
+		return false;
+
+	/* If they access a different address, there is no race */
+	if (aLab->getAddr() != bLab->getAddr())
+		return false;
+
+	/* If LAPOR is disabled, we are done */
+	if (!getConf()->LAPOR)
+		return true;
+
+	/* Otherwise, we have to make sure that the two accesses do _not_
+	 * belong in critical sections of the same lock */
+	const auto &g = getGraph();
+	auto aLock = g.getLastThreadUnmatchedLockLAPOR(aLab->getPos());
+	auto bLock = g.getLastThreadUnmatchedLockLAPOR(bLab->getPos());
+
+	/* If any of the two is _not_ in a CS, it is a race */
+	if (aLock.isInitializer() || bLock.isInitializer())
+		return true;
+
+	/* If both are in a CS, being in CSs of different locks is a race */
+	return llvm::dyn_cast<LockLabelLAPOR>(g.getEventLabel(aLock))->getLockAddr() !=
+	       llvm::dyn_cast<LockLabelLAPOR>(g.getEventLabel(bLock))->getLockAddr();
+}
+
+std::vector<Event> LKMMDriver::findPotentialRacesForNewLoad(const ReadLabel *rLab)
+{
+	const auto &g = getGraph();
+	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
+	const auto &stores = g.getStoresToLoc(rLab->getAddr());
+	std::vector<Event> potential;
+
+	/* If there are not any events hb-before the read, there is nothing to do */
+	if (before.empty())
+		return potential;
+
+	/* Check for events that race with the current load */
+	for (auto &s : stores) {
+		if (before.contains(s))
+			continue;
+
+		auto *sLab = static_cast<const WriteLabel *>(g.getEventLabel(s));
+		if (areInPotentialRace(rLab, sLab))
+			potential.push_back(s); /* Potential race */
+	}
+	return potential;
+}
+
+std::vector<Event> LKMMDriver::findPotentialRacesForNewStore(const WriteLabel *wLab)
+{
+	const auto &g = getGraph();
+	auto &before = g.getPreviousNonEmptyLabel(wLab)->getHbView();
+	std::vector<Event> potential;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
+			const EventLabel *oLab = g.getEventLabel(Event(i, j));
+			if (!llvm::isa<MemAccessLabel>(oLab))
+				continue;
+
+			auto *mLab = static_cast<const MemAccessLabel *>(oLab);
+			if (areInPotentialRace(wLab, mLab))
+				potential.push_back(mLab->getPos()); /* Potential race */
+		}
+	}
+	return potential;
+}
+
+bool LKMMDriver::isNoRetRead(const EventLabel *lab)
+{
+	auto &g = getGraph();
+	auto *rLab = llvm::dyn_cast<FaiReadLabel>(lab);
+	return rLab && rLab->getFaiType() == FaiReadLabel::NoRet;
+}
+
+bool LKMMDriver::isNoRetRead(Event r)
+{
+	return isNoRetRead(getGraph().getEventLabel(r));
+}
+
+bool LKMMDriver::isAcqPoOrPoRelBefore(Event a, Event b)
+{
+	if (a.thread != b.thread)
+		return false;
+
+	auto &g = getGraph();
+	auto *labA = g.getEventLabel(a);
+	auto *labB = g.getEventLabel(b);
+
+	return (labA->isAtLeastAcquire() && b.index > a.index) ||
+	       (labB->isAtLeastRelease() && a.index < b.index);
+}
+
+bool LKMMDriver::isFenceBefore(Event a, Event b)
+{
+	if (a.thread != b.thread)
+		return false;
+
+	auto &g = getGraph();
+	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
+	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
+	auto &rcuFence = rcuCalc->getRcuFenceRelation();
+	auto *labA = g.getEventLabel(a);
+	auto *labB = g.getEventLabel(b);
+
+	if (isAcqPoOrPoRelBefore(a, b))
+		return true;
+	if (rcuFence(a, b))
+		return true;
+
+	auto mm = std::minmax(a.index, b.index);
+	auto minI = mm.first;
+	auto maxI = mm.second;
+	for (auto i = minI; i < maxI; i++) {
+		auto *eLab = g.getEventLabel(Event(a.thread, i));
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
+			if (fLab->getType() == SmpFenceType::RMB) {
+				if (llvm::isa<ReadLabel>(labA) && llvm::isa<ReadLabel>(labB) &&
+				    !isNoRetRead(labA->getPos()) && !isNoRetRead(labB->getPos()))
+					return true;
+			} else if (fLab->getType() == SmpFenceType::WMB) {
+				if (llvm::isa<WriteLabel>(labA) && llvm::isa<WriteLabel>(labB))
+					return true;
+			} else if (fLab->isStrong()) {
+				return true;
+			}
+		} else if (auto *sLab = llvm::dyn_cast<RCUSyncLabelLKMM>(eLab)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+std::vector<Event> LKMMDriver::getOverwrites(const MemAccessLabel *lab)
+{
+	auto &g = getGraph();
+	auto &co = g.getPerLocRelation(ExecutionGraph::RelationId::co)[lab->getAddr()];
+	auto &stores = co.getElems();
+
+	auto from = lab->getPos();
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+		from = rLab->getRf();
+
+	if (from.isInitializer())
+		return stores;
+
+	std::vector<Event> owrs;
+	std::copy_if(stores.begin(), stores.end(), std::back_inserter(owrs),
+		     [&](Event s){ return co(from, s); });
+	return owrs;
+}
+
+std::vector<Event> LKMMDriver::getMarkedWritePreds(const EventLabel *lab)
+{
+	/* If lab is marked, we found a predecessor */
+	if (!lab->isNotAtomic())
+		return {lab->getPos()};
+
+	auto &g = getGraph();
+	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
+	auto &elems = prop.getElems();
+	std::vector<Event> preds;
+
+	/* Otherwise, check whether any other marked access is fence-before lab */
+	std::copy_if(elems.begin(), elems.end(), std::back_inserter(preds),
+		     [&](Event e){ return isFenceBefore(e, lab->getPos()) ||
+				     lab->getPPoView().contains(e); });
+	WARN_ONCE("pred-fix", "FIXME: Take only addr preds into account!\n");
+	return preds;
+}
+
+std::vector<Event> LKMMDriver::getMarkedWriteSuccs(const EventLabel *lab)
+{
+	if (!lab->isNotAtomic())
+		return {lab->getPos()};
+
+	auto &g = getGraph();
+	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
+	auto &elems = prop.getElems();
+	std::vector<Event> succs;
+
+	/* Otherwise, check whether lab is fence-before any other marked access */
+	std::copy_if(elems.begin(), elems.end(), std::back_inserter(succs),
+		     [&](Event e){ return isFenceBefore(lab->getPos(), e); });
+	return succs;
+}
+
+std::vector<Event> LKMMDriver::getMarkedReadPreds(const EventLabel *lab)
+{
+	if (!lab->isNotAtomic())
+		return {lab->getPos()};
+
+	auto &g = getGraph();
+	std::vector<Event> preds;
+
+	bool rmb = false;
+	bool sfence = false;
+	bool isLabNoRetRead = isNoRetRead(lab->getPos());
+	for (auto i = lab->getIndex() - 1; i > 0; i--) {
+		auto *eLab = g.getEventLabel(Event(lab->getThread(), i));
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
+			if (fLab->isStrong())
+				sfence = true;
+			if (fLab->getType() == SmpFenceType::RMB)
+				rmb = true;
+			continue;
+		}
+		if (auto *fLab = llvm::dyn_cast<RCUSyncLabelLKMM>(eLab)) {
+			sfence = true;
+			continue;
+		}
+		if (PROPCalculator::isNonTrivial(eLab) && !eLab->isNotAtomic() && sfence)
+			preds.push_back(eLab->getPos());
+		if (eLab->isAtLeastAcquire())
+			preds.push_back(eLab->getPos());
+		if (llvm::isa<ReadLabel>(eLab) && !eLab->isNotAtomic() && rmb && !isLabNoRetRead)
+			preds.push_back(eLab->getPos());
+		if (!eLab->isNotAtomic() && lab->getPPoView().contains(eLab->getPos())) {
+			WARN_ONCE("pred-fix", "FIXME: Take only addr preds into account!\n");
+			preds.push_back(eLab->getPos());
+		}
+	}
+	return preds;
+}
+
+std::vector<Event> LKMMDriver::getMarkedReadSuccs(const EventLabel *lab)
+{
+	if (!lab->isNotAtomic())
+		return {lab->getPos()};
+
+	auto &g = getGraph();
+	std::vector<Event> succs;
+
+	bool rmb = false;
+	bool isLabNoRetRead = isNoRetRead(lab);
+	for (auto i = lab->getIndex() + 1; i < g.getThreadSize(lab->getThread()); i++) {
+		auto *eLab = g.getEventLabel(Event(lab->getThread(), i));
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(eLab)) {
+			if (fLab->getType() == SmpFenceType::RMB)
+				rmb = true;
+			continue;
+		}
+		if (llvm::isa<ReadLabel>(eLab) && !isNoRetRead(eLab) &&
+		    !lab->isNotAtomic() && !isLabNoRetRead)
+			succs.push_back(eLab->getPos());
+	}
+	return succs;
+}
+
+std::vector<Event> LKMMDriver::getStrongFenceSuccs(Event e)
+{
+	auto &g = getGraph();
+	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
+	auto &rcuFence = rcuCalc->getRcuFenceRelation();
+	auto &allElems = rcuFence.getElems();
+	std::vector<Event> succs;
+
+	/* First account for successors in the same thread */
+	bool strong = false;
+	for (auto i = e.index; i < g.getThreadSize(e.thread); i++) {
+		auto *lab = g.getEventLabel(Event(e.thread, i));
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab))
+			if (fLab->isStrong())
+				strong = true;
+		if (auto *fLab = llvm::dyn_cast<RCUSyncLabelLKMM>(lab))
+			strong = true;
+		if (PROPCalculator::isNonTrivial(lab) && strong)
+			succs.push_back(lab->getPos());
+	}
+	/* Also account for rcu-fence successors */
+	for (auto it = rcuFence.adj_begin(e), ie = rcuFence.adj_end(e); it != ie; ++it)
+		succs.push_back(allElems[*it]);
+
+	/* Remove duplicates */
+	std::sort(succs.begin(), succs.end());
+	auto last = std::unique(succs.begin(), succs.end());
+	succs.erase(last, succs.end());
+	return succs;
+}
+
+bool LKMMDriver::isVisConnected(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+	BUG_ON(g.getEventLabel(b)->isNotAtomic());
+
+	if (a.thread == b.thread && !g.getEventLabel(a)->isNotAtomic() && xb(a, b))
+		return true;
+
+	auto sfenceSuccsA = getStrongFenceSuccs(a);
+	return std::any_of(sfenceSuccsA.begin(), sfenceSuccsA.end(),
+			   [&](Event e){
+				   auto *eLab = g.getEventLabel(e);
+				   return !eLab->isNotAtomic() && xb(e, b);
+			   });
+}
+
+bool LKMMDriver::isVisBefore(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+	auto &elems = xb.getElems();
+
+	if (isVisConnected(a, b))
+		return true;
+
+	auto *mLabA = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(a));
+	for (auto e : elems) {
+		if (!isVisConnected(e, b))
+			continue;
+
+		auto *eLab = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(e));
+		if (!eLab)
+			continue;
+		if (eLab->getFenceView().contains(a))
+			return true;
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(eLab)) {
+			if (rLab->getRf() == a)
+				return true;
+			auto *rfLab = g.getEventLabel(rLab->getRf());
+			if (auto *rfmLab = llvm::dyn_cast<WriteLabel>(rfLab))
+				if (mLabA->getFenceView().contains(rfmLab->getPos()))
+					return true;
+		}
+	}
+	return false;
+}
+
+bool LKMMDriver::isWWVisBefore(const MemAccessLabel *labA, const MemAccessLabel *labB)
+{
+	if (isFenceBefore(labA->getPos(), labB->getPos()))
+		return true;
+
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+
+	auto markedSuccsA = getMarkedWriteSuccs(labA);
+	auto sfenceSuccsA = getStrongFenceSuccs(labA->getPos());
+	auto markedPredsB = getMarkedWritePreds(labB);
+
+	/* If any of A's sfence-succs is xb-before some marked-pred of B we have ww-vis */
+	for (auto e : sfenceSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return xb(e, p); }))
+			return true;
+	}
+
+	/* If any of A's marked-succs is vis-before some marked-pred of B we have ww-vis */
+	for (auto e : markedSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return isVisBefore(e, p); }))
+			return true;
+	}
+	return false;
+}
+
+bool LKMMDriver::isWRVisBefore(const MemAccessLabel *labA, const MemAccessLabel *labB)
+{
+	if (isFenceBefore(labA->getPos(), labB->getPos()))
+		return true;
+
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+
+	auto markedSuccsA = getMarkedWriteSuccs(labA);
+	auto sfenceSuccsA = getStrongFenceSuccs(labA->getPos());
+	auto markedPredsB = getMarkedReadPreds(labB);
+
+	/* If any of A's sfence-succs is xb-before some marked-pred of B we have ww-vis */
+	for (auto e : sfenceSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return xb(e, p); }))
+			return true;
+	}
+
+	/* If any of A's marked-succs is vis-before some marked-pred of B we have ww-vis */
+	for (auto e : markedSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return isVisBefore(e, p); }))
+			return true;
+	}
+	return false;
+}
+
+bool LKMMDriver::isRWXbBefore(const MemAccessLabel *labA, const MemAccessLabel *labB)
+{
+	if (isFenceBefore(labA->getPos(), labB->getPos()))
+		return true;
+
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+
+	auto markedSuccsA = getMarkedReadSuccs(labA);
+	auto markedPredsB = getMarkedWritePreds(labB);
+
+	/* If any of A's marked-succs is vis-before some marked-pred of B we have rw-xb */
+	for (auto e : markedSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return xb(e, p); }))
+			return true;
+	}
+	return false;
+}
+
+bool LKMMDriver::isWRXbBefore(const MemAccessLabel *labA, const MemAccessLabel *labB)
+{
+	if (isFenceBefore(labA->getPos(), labB->getPos()))
+		return true;
+
+	auto &g = getGraph();
+	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
+
+	auto markedSuccsA = getMarkedWriteSuccs(labA);
+	auto markedPredsB = getMarkedReadPreds(labB);
+
+	/* If any of A's marked-succs is vis-before some marked-pred of B we have wr-xb */
+	for (auto e : markedSuccsA) {
+		auto *eLab = g.getEventLabel(e);
+		if (!eLab->isNotAtomic() && std::any_of(markedPredsB.begin(), markedPredsB.end(),
+							[&](Event p){ return xb(e, p); }))
+			return true;
+	}
+	return false;
+}
+
+bool LKMMDriver::isValidWWRace(const WriteLabel *labA, const WriteLabel *labB)
+{
+	auto &g = getGraph();
+	auto &co = g.getPerLocRelation(ExecutionGraph::RelationId::co)[labA->getAddr()];
+
+	/* If (a, b) \nin co then this is definitely not a valid race */
+	if (!co(labA->getPos(), labB->getPos()))
+		return false;
+
+	/* If (a, b) \nin ww-vis this is definitely a race */
+	if (!isWWVisBefore(labA, labB))
+		return true;
+
+	/* If a or b are plain accesses, we also have to check that they are r-bounded */
+	if (!labA->isNotAtomic() && labB->isNotAtomic())
+		return !isWRVisBefore(labA, labB);
+	else if (labA->isNotAtomic() && !labB->isNotAtomic())
+		return !isRWXbBefore(labA, labB);
+	else
+		return !(isWRVisBefore(labA, labB) && isRWXbBefore(labA, labB));
+	BUG();
+}
+
+bool LKMMDriver::isValidWRRace(const WriteLabel *labA, const ReadLabel *labB)
+{
+	auto &g = getGraph();
+	auto owrs = getOverwrites(labA);
+
+	/* If (a, b) \nin (co?; rf) then the race is invalid */
+	if (labB->getRf() != labA->getPos() &&
+	    std::all_of(owrs.begin(), owrs.end(), [&](Event s){ return labB->getRf() != s; }))
+		return false;
+
+	/* Otherwise, if one the following holds, then (a, b) \nin race */
+	if (isWRVisBefore(labA, labB))
+	    return false;
+	if (isWRXbBefore(labA, labB))
+	    return false;
+
+	return true;
+}
+
+bool LKMMDriver::isValidRWRace(const ReadLabel *labA, const WriteLabel *labB)
+{
+	auto &g = getGraph();
+	auto owrs = getOverwrites(labA);
+
+	/* If (a, b) \nin fr then this is not a valid race */
+	if (std::find(owrs.begin(), owrs.end(), labB->getPos()) == owrs.end())
+		return false;
+
+	return !isRWXbBefore(labA, labB);
+}
+
+bool LKMMDriver::isValidRace(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto *labA = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(a));
+	auto *labB = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(b));
+	BUG_ON(!labA || !labB);
+
+	if (auto *wLabA = llvm::dyn_cast<WriteLabel>(labA)) {
+		if (auto *wLabB = llvm::dyn_cast<WriteLabel>(labB)) {
+			return isValidWWRace(wLabA, wLabB) || isValidWWRace(wLabB, wLabA);
+		} else {
+			auto *rLabB = static_cast<const ReadLabel *>(labB);
+			return isValidWRRace(wLabA, rLabB) || isValidRWRace(rLabB, wLabA);
+		}
+	} else { /* labA _has to_ be a read => labB _has to_ be a write */
+		auto *rLabA = static_cast<const ReadLabel *>(labA);
+		auto *wLabB = static_cast<const WriteLabel *>(labB);
+		return isValidRWRace(rLabA, wLabB) || isValidWRRace(wLabB, rLabA);
+	}
+	BUG();
+	return false;
+}
+
 Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
+	std::vector<Event> potential;
+
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(mLab))
+		potential = findPotentialRacesForNewLoad(rLab);
+	else if (auto *wLab = llvm::dyn_cast<WriteLabel>(mLab))
+		potential = findPotentialRacesForNewStore(wLab);
+	else
+		BUG();
+
+	/* If no potential races found, exit early */
+	if (potential.empty())
+		return Event::getInitializer();
+
+	/* Otherwise, first make sure the graph is consistent.
+	 * We do this prematurely because the validity of a race
+	 * assumes (among others) that xb is already calculated */
+	if (!isConsistent(ProgramPoint::error)) {
+		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
+			getEE()->getThrById(i).block();
+		return Event::getInitializer();
+	}
+
+	for (auto p : potential)
+		if (isValidRace(mLab->getPos(), p))
+			return p;
 	return Event::getInitializer();
 }
 

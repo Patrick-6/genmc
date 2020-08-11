@@ -27,7 +27,8 @@ void PROPCalculator::initCalc()
 
 	/* Collect all atomic accesses and fences */
 	auto events = g.collectAllEvents([&](const EventLabel *lab)
-					 { return PROPCalculator::isMarked(lab) ||
+					     { return (PROPCalculator::isNonTrivial(lab) &&
+						       !lab->isNotAtomic()) ||
 						  llvm::isa<SmpFenceLabelLKMM>(lab) ||
 						  llvm::isa<RCUSyncLabelLKMM>(lab); });
 
@@ -105,11 +106,13 @@ std::vector<Event> PROPCalculator::getExtOverwrites(Event e) const
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
 		from = rLab->getRf();
 
-	if (from.isInitializer())
-		return stores;
-
-	std::copy_if(stores.begin(), stores.end(), std::back_inserter(owrs),
-		     [&](Event s){ return co(from, s); });
+	if (from.isInitializer()) {
+		std::copy_if(stores.begin(), stores.end(), std::back_inserter(owrs),
+			     [&](Event s){ return s.thread != e.thread; });
+	} else {
+		std::copy_if(stores.begin(), stores.end(), std::back_inserter(owrs),
+			     [&](Event s){ return co(from, s) && s.thread != e.thread; });
+	}
 	return owrs;
 }
 
@@ -151,7 +154,10 @@ bool PROPCalculator::addPropConstraints()
 	for (auto e1 : elems) {
 		/* First, add overwrite_e edges */
 		auto owrs = getExtOverwrites(e1);
-		changed |= addConstraints(e1, owrs);
+		for (auto o : owrs) {
+			if (!g.getEventLabel(o)->isNotAtomic())
+				changed |= addConstraint(e1, o);
+		}
 
 		/* Then, add cumul-fence; rfe? edges */
 		for (auto e2 : elems) {
@@ -164,8 +170,10 @@ bool PROPCalculator::addPropConstraints()
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
 					for (auto &rf : wLab->getReadersList()) {
 						if (e2.thread != rf.thread) {
-							changed |= addConstraint(e1, rf);
-							changed |= addConstraint(e2, rf);
+							if (!g.getEventLabel(rf)->isNotAtomic()) {
+								changed |= addConstraint(e1, rf);
+								changed |= addConstraint(e2, rf);
+							}
 						}
 					}
 				}
@@ -178,8 +186,10 @@ bool PROPCalculator::addPropConstraints()
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(e2))) {
 					for (auto &rf : wLab->getReadersList()) {
 						if (e2.thread != rf.thread) {
-							changed |= addConstraint(e1, rf);
-							changed |= addConstraint(e2, rf);
+							if (!g.getEventLabel(rf)->isNotAtomic()) {
+								changed |= addConstraint(e1, rf);
+								changed |= addConstraint(e2, rf);
+							}
 						}
 					}
 				}
@@ -191,8 +201,11 @@ bool PROPCalculator::addPropConstraints()
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(o))) {
 				for (auto &rf : wLab->getReadersList()) {
 					if (o.thread != rf.thread) {
-						changed |= addConstraint(e1, rf);
-						changed |= addConstraint(o, rf);
+						if (!g.getEventLabel(rf)->isNotAtomic()) {
+							changed |= addConstraint(e1, rf);
+							if (!g.getEventLabel(o)->isNotAtomic())
+								changed |= addConstraint(o, rf);
+						}
 					}
 				}
 			}

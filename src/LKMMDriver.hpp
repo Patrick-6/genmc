@@ -156,6 +156,36 @@ private:
 	void updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab);
 	void calcBasicFenceViews(SmpFenceLabelLKMM *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
+
+	bool areInPotentialRace(const MemAccessLabel *labA, const MemAccessLabel *labB);
+	std::vector<Event> findPotentialRacesForNewLoad(const ReadLabel *rLab);
+	std::vector<Event> findPotentialRacesForNewStore(const WriteLabel *wLab);
+
+
+	bool isNoRetRead(const EventLabel *lab);
+	bool isNoRetRead(Event r);
+	bool isAcqPoOrPoRelBefore(Event a, Event b);
+	bool isFenceBefore(Event a, Event b);
+
+	std::vector<Event> getOverwrites(const MemAccessLabel *lab);
+	std::vector<Event> getMarkedWritePreds(const EventLabel *lab);
+	std::vector<Event> getMarkedWriteSuccs(const EventLabel *lab);
+	std::vector<Event> getMarkedReadPreds(const EventLabel *lab);
+	std::vector<Event> getMarkedReadSuccs(const EventLabel *lab);
+	std::vector<Event> getStrongFenceSuccs(Event e);
+
+	bool isVisConnected(Event a, Event b);
+	bool isVisBefore(Event a, Event b);
+
+	bool isWWVisBefore(const MemAccessLabel *labA, const MemAccessLabel *labB);
+	bool isWRVisBefore(const MemAccessLabel *labA, const MemAccessLabel *labB);
+	bool isRWXbBefore(const MemAccessLabel *labA, const MemAccessLabel *labB);
+	bool isWRXbBefore(const MemAccessLabel *labA, const MemAccessLabel *labB);
+
+	bool isValidWWRace(const WriteLabel *labA, const WriteLabel *labB);
+	bool isValidWRRace(const WriteLabel *labA, const ReadLabel *labB);
+	bool isValidRWRace(const ReadLabel *labA, const WriteLabel *labB);
+	bool isValidRace(Event a, Event b);
 };
 
 #endif /* __LKMM_DRIVER_HPP__ */

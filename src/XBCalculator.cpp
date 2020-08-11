@@ -20,6 +20,7 @@
 
 #include "XBCalculator.hpp"
 #include "PROPCalculator.hpp"
+#include "RCUCalculator.hpp"
 #include <llvm/ADT/SmallVector.h>
 
 void XBCalculator::initCalc()
@@ -38,55 +39,25 @@ void XBCalculator::initCalc()
 	return;
 }
 
-bool XBCalculator::addRcuFenceConstraints(Event a, Event b)
-{
-	auto &g = getGraph();
-	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
-
-	bool changed = false;
-	for (auto i = 1; i < a.index; i++) {
-		auto *labA = g.getEventLabel(Event(a.thread, i));
-		if (!PROPCalculator::isMarked(labA))
-			continue;
-		for (auto j = b.index + 1; j < g.getThreadSize(b.thread); j++) {
-			auto *labB = g.getEventLabel(Event(b.thread, j));
-			if (!PROPCalculator::isMarked(labB))
-				continue;
-			if (!xb(labA->getPos(), labB->getPos())) {
-				changed = true;
-				xb.addEdge(labA->getPos(), labB->getPos());
-			}
-		}
-	}
-	return changed;
-}
-
 bool XBCalculator::addXbConstraints()
 {
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
 	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
-	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
+	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
+	auto &rcufence = rcuCalc->getRcuFenceRelation();
 	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
 	auto &elems = xb.getElems();
-	auto &rcuElems = rcu.getElems();
 
 	bool changed = false;
 	for (auto &e1 : elems) {
-		/* Add ar and pb constraints */
+		/* Add ar, pb and rb constraints */
 		for (auto &e2 : elems) {
-			if (!xb(e1, e2) && (ar(e1, e2) || pb(e1, e2))) {
+			if (!xb(e1, e2) && (ar(e1, e2) || pb(e1, e2) || rcufence(e1, e2))) {
 				changed = true;
 				xb.addEdge(e1, e2);
 			}
-		}
-		/* Add rb constraints */
-		if (rcuElems.empty())
-			continue;
-		for (auto r : rcuElems) {
-			for (auto it = rcu.adj_begin(r), ie = rcu.adj_end(r); it != ie; ++it)
-				changed |= addRcuFenceConstraints(r, rcuElems[*it]);
 		}
 	}
 	return changed;

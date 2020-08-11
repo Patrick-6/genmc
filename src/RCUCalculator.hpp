@@ -42,6 +42,9 @@ class RCUCalculator : public Calculator {
 public:
 	RCUCalculator(ExecutionGraph &g) : Calculator(g) {}
 
+	GlobalRelation &getRcuLinkRelation() { return rcuLink; }
+	GlobalRelation &getRcuFenceRelation() { return rcuFence; }
+
 	/* Overrided Calculator methods */
 
 	/* Initialize necessary matrices */
@@ -69,9 +72,12 @@ private:
 	bool checkAddRcuConstraint(Event a, Event b, const unsigned int gps,
 				   const unsigned int css);
 	bool addRcuConstraints();
+	bool checkAddRcuFenceConstraint(Event a, Event b);
+	bool addRcuFenceConstraints();
 
-	/* Used by rcu-order */
+	/* Non-fixpoint relations: rcu-link and rcu-fence */
 	GlobalRelation rcuLink;
+	GlobalRelation rcuFence;
 };
 
 #endif /* __RCU_CALCULATOR_HPP__ */

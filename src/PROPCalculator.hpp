@@ -32,12 +32,11 @@ class PROPCalculator : public Calculator {
 public:
 	PROPCalculator(ExecutionGraph &g) : Calculator(g) {}
 
-	/* Returns true if a memory access is marked (does not include fences) */
-	static bool isMarked(const EventLabel *lab) {
+	/* Returns true if an event should be considered for prop */
+	static bool isNonTrivial(const EventLabel *lab) {
 		return (llvm::isa<MemAccessLabel>(lab) ||
 			llvm::isa<LockLabelLAPOR>(lab) ||
-			llvm::isa<UnlockLabelLAPOR>(lab)) &&
-			!lab->isNotAtomic();
+			llvm::isa<UnlockLabelLAPOR>(lab));
 	}
 
 	/* Overrided Calculator methods */
