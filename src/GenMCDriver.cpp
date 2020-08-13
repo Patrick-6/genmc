@@ -146,6 +146,101 @@ bool GenMCDriver::schedulePrioritized()
 	return false;
 }
 
+bool GenMCDriver::scheduleNextLTR()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+
+		if (thr.ECStack.empty() || thr.isBlocked)
+			continue;
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = i;
+		return true;
+	}
+
+	/* No schedulable thread found */
+	return false;
+}
+
+bool GenMCDriver::isNextThreadInstLoad(int tid)
+{
+	auto &I = getEE()->getThrById(tid).ECStack.back().CurInst;
+
+	/* Overapproximate with function calls some of which might be modeled as loads */
+	return &*I && (llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
+		       llvm::isa<llvm::AtomicRMWInst>(I) || llvm::isa<llvm::CallInst>(I));
+}
+
+bool GenMCDriver::scheduleNextWF()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* Try and find a thread that satisfies the policy.
+	 * Keep a fallback option in case this fails */
+	long fallback = -1;
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+		if (!thr.ECStack.empty() && !thr.isBlocked) {
+			fallback = i;
+			if (!isNextThreadInstLoad(i)) {
+				EE->currentThread = i;
+				return true;
+			}
+		}
+	}
+
+	/* Otherwise, try to schedule the fallback thread */
+	if (fallback != -1) {
+		EE->currentThread = fallback;
+		return true;
+	}
+	return false;
+}
+
+bool GenMCDriver::scheduleNextRandom()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* Check if randomize scheduling is enabled and schedule some thread */
+	MyDist dist(0, g.getNumThreads());
+	auto random = dist(rng);
+	for (auto j = 0u; j < g.getNumThreads(); j++) {
+		auto i = (j + random) % g.getNumThreads();
+		auto &thr = EE->getThrById(i);
+
+		if (thr.ECStack.empty() || thr.isBlocked)
+			continue;
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = i;
+		return true;
+	}
+
+	/* No schedulable thread found */
+	return false;
+}
+
 void GenMCDriver::deprioritizeThread()
 {
 	/* Extra check to make sure the function is properly used */
@@ -494,28 +589,18 @@ bool GenMCDriver::scheduleNext()
 	if (schedulePrioritized())
 		return true;
 
-	/* Check if randomize scheduling is enabled and schedule some thread */
-	MyDist dist(0, g.getNumThreads());
-	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
-	for (auto j = 0u; j < g.getNumThreads(); j++) {
-		auto i = (j + random) % g.getNumThreads();
-		auto &thr = EE->getThrById(i);
-
-		if (thr.ECStack.empty() || thr.isBlocked)
-			continue;
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
-		}
-
-		/* Found a not-yet-complete thread; schedule it */
-		EE->currentThread = i;
-		return true;
+	/* Schedule the next thread according to the chosen policy */
+	switch (getConf()->schedulePolicy) {
+	case SchedulePolicy::ltr:
+		return scheduleNextLTR();
+	case SchedulePolicy::wf:
+		return scheduleNextWF();
+	case SchedulePolicy::random:
+		return scheduleNextRandom();
+	default:
+		BUG();
 	}
-
-	/* No schedulable thread found */
-	return false;
+	BUG();
 }
 
 void GenMCDriver::explore()

@@ -8,9 +8,6 @@ Event (1, 2) conflicts with event (2, 1) in graph:
 	(0, 4): Wna (t2, 1) L.11
 	(0, 5): TC [forks 2] L.13
 	(0, 6): Wna (t1, 2) L.13
-	(0, 7): D L.16
-	(0, 8): D
-	(0, 9): E
 <0, 1> thread_2:
 	(1, 0): B
 	(1, 1): Rrlx (y, 1) [(2, 2)] L.15: mp+rlx+rlx.c
@@ -19,6 +16,7 @@ Event (1, 2) conflicts with event (2, 1) in graph:
 	(2, 0): B
 	(2, 1): Wna (x, 1) L.6: mp+rlx+rlx.c
 	(2, 2): Wrlx (y, 1) L.7: mp+rlx+rlx.c
+	(2, 3): E
 
 Trace to (1, 2):
 [main] mp+rlx+rlx1.c: 11: if (pthread_create(&t2, NULL, thread_2, NULL))

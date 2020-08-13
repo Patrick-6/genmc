@@ -335,6 +335,16 @@ private:
 	/* Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
 
+	/* Returns true if the next instruction of TID is a load
+	 * Note: assumes there is a next instruction in TID*/
+	bool isNextThreadInstLoad(int tid);
+
+	/* Helpers that try to schedule the next thread according to
+	 * the chosen policy */
+	bool scheduleNextLTR();
+	bool scheduleNextWF();
+	bool scheduleNextRandom();
+
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 

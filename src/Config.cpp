@@ -172,9 +172,17 @@ clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("fi
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step"));
-static llvm::cl::opt<bool>
-clRandomizeSchedule("randomize-schedule", llvm::cl::cat(clDebugging),
-		    llvm::cl::desc("Execute threads in random order"));
+llvm::cl::opt<SchedulePolicy>
+clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
+		 llvm::cl::desc("Choose the scheduling policy:"),
+		 llvm::cl::values(
+			 clEnumValN(SchedulePolicy::ltr,     "ltr",      "Left-to-right"),
+			 clEnumValN(SchedulePolicy::wf,      "wf",       "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::random,  "random",   "Random")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+			 , NULL
+#endif
+			 ));
 static llvm::cl::opt<bool>
 clPrintRandomizeScheduleSeed("print-randomize-schedule-seed", llvm::cl::cat(clDebugging),
 			     llvm::cl::desc("Print the seed used for randomized scheduling"));
@@ -255,7 +263,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;
 	validateExecGraphs = clValidateExecGraphs;
-	randomizeSchedule = clRandomizeSchedule;
+	schedulePolicy = clSchedulePolicy;
 	printRandomizeScheduleSeed = clPrintRandomizeScheduleSeed;
 	randomizeScheduleSeed = clRandomizeScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
