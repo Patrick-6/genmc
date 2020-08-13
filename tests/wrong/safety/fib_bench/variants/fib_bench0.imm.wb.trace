@@ -97,4 +97,4 @@ Trace to (3, 2):
 [t2] fib_bench.c: 21: atomic_store_explicit(&j, prevI + prevJ, memory_order_relaxed);
 [t3] fib_bench.c: 29: atomic_load_explicit(&j, memory_order_relaxed) >= 144)
 Assertion violation: 0
-Number of complete executions explored: 504398
+Number of complete executions explored: 492518

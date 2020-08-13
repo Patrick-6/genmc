@@ -186,7 +186,7 @@ bool GenMCDriver::scheduleNextWF()
 	auto *EE = getEE();
 
 	/* Try and find a thread that satisfies the policy.
-	 * Keep a fallback option in case this fails */
+	 * Keep an LTR fallback option in case this fails */
 	long fallback = -1;
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
@@ -196,7 +196,8 @@ bool GenMCDriver::scheduleNextWF()
 			continue;
 		}
 		if (!thr.ECStack.empty() && !thr.isBlocked) {
-			fallback = i;
+			if (fallback == -1)
+				fallback = i;
 			if (!isNextThreadInstLoad(i)) {
 				EE->currentThread = i;
 				return true;
