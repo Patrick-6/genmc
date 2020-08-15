@@ -177,8 +177,8 @@ bool GenMCDriver::isNextThreadInstLoad(int tid)
 	auto &I = getEE()->getThrById(tid).ECStack.back().CurInst;
 
 	/* Overapproximate with function calls some of which might be modeled as loads */
-	return &*I && (llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
-		       llvm::isa<llvm::AtomicRMWInst>(I) || llvm::isa<llvm::CallInst>(I));
+	return llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
+		llvm::isa<llvm::AtomicRMWInst>(I) || llvm::isa<llvm::CallInst>(I);
 }
 
 bool GenMCDriver::scheduleNextWF()
