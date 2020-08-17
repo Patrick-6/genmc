@@ -18,6 +18,7 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
+#include "config.h"
 #include "Config.hpp"
 #include "Error.hpp"
 #include "GraphBuilder.hpp"
@@ -143,6 +144,102 @@ bool GenMCDriver::schedulePrioritized()
 		EE->currentThread = e.thread;
 		return true;
 	}
+	return false;
+}
+
+bool GenMCDriver::scheduleNextLTR()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+
+		if (thr.ECStack.empty() || thr.isBlocked)
+			continue;
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = i;
+		return true;
+	}
+
+	/* No schedulable thread found */
+	return false;
+}
+
+bool GenMCDriver::isNextThreadInstLoad(int tid)
+{
+	auto &I = getEE()->getThrById(tid).ECStack.back().CurInst;
+
+	/* Overapproximate with function calls some of which might be modeled as loads */
+	return llvm::isa<llvm::LoadInst>(I) || llvm::isa<llvm::AtomicCmpXchgInst>(I) ||
+		llvm::isa<llvm::AtomicRMWInst>(I) || llvm::isa<llvm::CallInst>(I);
+}
+
+bool GenMCDriver::scheduleNextWF()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* Try and find a thread that satisfies the policy.
+	 * Keep an LTR fallback option in case this fails */
+	long fallback = -1;
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+		if (!thr.ECStack.empty() && !thr.isBlocked) {
+			if (fallback == -1)
+				fallback = i;
+			if (!isNextThreadInstLoad(i)) {
+				EE->currentThread = i;
+				return true;
+			}
+		}
+	}
+
+	/* Otherwise, try to schedule the fallback thread */
+	if (fallback != -1) {
+		EE->currentThread = fallback;
+		return true;
+	}
+	return false;
+}
+
+bool GenMCDriver::scheduleNextRandom()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* Check if randomize scheduling is enabled and schedule some thread */
+	MyDist dist(0, g.getNumThreads());
+	auto random = dist(rng);
+	for (auto j = 0u; j < g.getNumThreads(); j++) {
+		auto i = (j + random) % g.getNumThreads();
+		auto &thr = EE->getThrById(i);
+
+		if (thr.ECStack.empty() || thr.isBlocked)
+			continue;
+
+		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
+			thr.ECStack.clear();
+			continue;
+		}
+
+		/* Found a not-yet-complete thread; schedule it */
+		EE->currentThread = i;
+		return true;
+	}
+
+	/* No schedulable thread found */
 	return false;
 }
 
@@ -348,31 +445,25 @@ void GenMCDriver::run()
 	return;
 }
 
-void GenMCDriver::addToWorklist(StackItemType t, Event e, Event shouldRf,
-				std::vector<std::unique_ptr<EventLabel> > &&prefix,
-				std::vector<std::pair<Event, Event> > &&moPlacings,
-				int newMoPos = 0)
+void GenMCDriver::addToWorklist(std::unique_ptr<WorkItem> item)
 
 {
 	const auto &g = getGraph();
-	const EventLabel *lab = g.getEventLabel(e);
-	StackItem s(t, e, shouldRf, std::move(prefix),
-		    std::move(moPlacings), newMoPos);
+	const EventLabel *lab = g.getEventLabel(item->getPos());
 
-	workqueue[lab->getStamp()].push_back(std::move(s));
+	workqueue[lab->getStamp()].add(std::move(item));
+	return;
 }
 
-GenMCDriver::StackItem GenMCDriver::getNextItem()
+std::unique_ptr<WorkItem> GenMCDriver::getNextItem()
 {
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
 		if (rit->second.empty())
 			continue;
 
-		auto si = std::move(rit->second.back());
-		rit->second.pop_back();
-		return si;
+		return rit->second.getNext();
 	}
-	return StackItem();
+	return nullptr;
 }
 
 void GenMCDriver::restrictWorklist(const EventLabel *rLab)
@@ -494,28 +585,18 @@ bool GenMCDriver::scheduleNext()
 	if (schedulePrioritized())
 		return true;
 
-	/* Check if randomize scheduling is enabled and schedule some thread */
-	MyDist dist(0, g.getNumThreads());
-	auto random = (userConf->randomizeSchedule) ? dist(rng) : 0;
-	for (auto j = 0u; j < g.getNumThreads(); j++) {
-		auto i = (j + random) % g.getNumThreads();
-		auto &thr = EE->getThrById(i);
-
-		if (thr.ECStack.empty() || thr.isBlocked)
-			continue;
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
-		}
-
-		/* Found a not-yet-complete thread; schedule it */
-		EE->currentThread = i;
-		return true;
+	/* Schedule the next thread according to the chosen policy */
+	switch (getConf()->schedulePolicy) {
+	case SchedulePolicy::ltr:
+		return scheduleNextLTR();
+	case SchedulePolicy::wf:
+		return scheduleNextWF();
+	case SchedulePolicy::random:
+		return scheduleNextRandom();
+	default:
+		BUG();
 	}
-
-	/* No schedulable thread found */
-	return false;
+	BUG();
 }
 
 void GenMCDriver::explore()
@@ -539,12 +620,12 @@ void GenMCDriver::explore()
 			 */
 			resetExplorationOptions();
 
-			auto p = getNextItem();
-			if (p.type == None) {
+			auto item = getNextItem();
+			if (!item) {
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = revisitReads(p) && isConsistent(ProgramPoint::step);
+			validExecution = revisitReads(std::move(item)) && isConsistent(ProgramPoint::step);
 		} while (!validExecution);
 	}
 }
@@ -1276,7 +1357,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(SRead, lab->getPos(), *it, {}, {});
+		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 	return getWriteValue(validStores[0], addr, typ);
 }
 
@@ -1355,8 +1436,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 
 		/* Push the stack item */
 		if (!inRecoveryMode()) {
-			addToWorklist(MOWrite, lab->getPos(), Event::getInitializer(),
-				      {}, {}, std::distance(locMO.begin(), it));
+			addToWorklist(LLVM_MAKE_UNIQUE<MOItem>(lab->getPos(), std::distance(locMO.begin(), it)));
 		}
 	}
 	if (!inRecoveryMode())
@@ -1623,8 +1703,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
 		addToRevisitSet(rLab, writePrefixPos, moPlacings);
-		addToWorklist(SRevisit, rLab->getPos(), sLab->getPos(),
-			      std::move(writePrefix), std::move(moPlacings));
+		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
+							 std::move(writePrefix), std::move(moPlacings)));
 	}
 
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
@@ -1708,36 +1788,41 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	return nullptr;
 }
 
-bool GenMCDriver::revisitReads(StackItem &p)
+bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
-	const EventLabel *lab = g.getEventLabel(p.toRevisit);
+	const EventLabel *lab = g.getEventLabel(item->getPos());
 
 	/* First, appropriately restrict the worklist, the revisit set, and the graph */
 	restrictWorklist(lab);
 	restrictRevisitSet(lab);
 	restrictGraph(lab);
 
-	if (p.type == SRevisit)
-		restorePrefix(lab, std::move(p.writePrefix), std::move(p.moPlacings));
-
-	/* Finally, appropriately modify the graph:
-	 * 1) If we are restricting to a write, then change its MO position */
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-		BUG_ON(p.type != MOWrite && p.type != MOWriteLib);
-		getGraph().changeStoreOffset(wLab->getAddr(), wLab->getPos(), p.moPos);
+	/* Handle the MO case first: if we are restricting to a write, change its MO position */
+	if (auto *mi = llvm::dyn_cast<MOItem>(item.get())) {
+		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+		BUG_ON(!wLab);
+		getGraph().changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
 		repairDanglingLocks();
-		return (p.type == MOWrite) ? calcRevisits(wLab) : calcLibRevisits(wLab);
+		return (llvm::isa<MOLibItem>(mi)) ? calcLibRevisits(wLab) : calcRevisits(wLab);
 	}
 
-	/* 2) If we are dealing with a read, change its reads-from,
-	 * and check whether a part of an RMW should be added */
+	/* Otherwise, handle the revisit case */
+	auto *ri = llvm::dyn_cast<RevItem>(item.get());
+	BUG_ON(!ri);
+
+	/* Restore the prefix, if this is a backward revisit */
+	if (auto *bri = llvm::dyn_cast<BRevItem>(ri))
+		restorePrefix(lab, bri->getPrefixRel(), bri->getMOPlacingsRel());
+
+	/* We are dealing with a read: change its reads-from and also check
+	 * whether a part of an RMW should be added */
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 	auto *rLab = static_cast<const ReadLabel *>(lab);
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-	changeRf(rLab->getPos(), p.shouldRf);
+	changeRf(rLab->getPos(), ri->getRev());
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))
@@ -1748,11 +1833,12 @@ bool GenMCDriver::revisitReads(StackItem &p)
 	if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
 		if (lLab->isLock()) {
 			threadPrios = {lLab->getRf()};
-			EE->getThrById(p.toRevisit.thread).block();
+			EE->getThrById(lab->getThread()).block();
 		}
 	}
 
-	if (p.type == SReadLibFunc)
+	/* Special handling for library revs */
+	if (auto *fi = llvm::dyn_cast<FRevLibItem>(ri))
 		return calcLibRevisits(lab);
 
 	return true;
@@ -1812,7 +1898,7 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 		BUG_ON(validStores.empty());
 		changeRf(lab->getPos(), validStores[0]);
 		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-			addToWorklist(SRead, lab->getPos(), *it, {}, {});
+			addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 		return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
 				      lab->getRf().isInitializer());
 	}
@@ -1844,7 +1930,7 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 		auto *rdLab = static_cast<const ReadLabel *>(
 			g.getEventLabel(readers.back()));
 		if (rdLab->isRevisitable())
-			addToWorklist(SReadLibFunc, lab->getPos(), *it, {}, {});
+			addToWorklist(LLVM_MAKE_UNIQUE<FRevLibItem>(lab->getPos(), *it));
 	}
 
 	/* If there is no valid RF, we have to read BOTTOM */
@@ -1864,7 +1950,7 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 	changeRf(lab->getPos(), validStores[0]);
 
 	for (auto it = validStores.begin() + 1; it != invIt; ++it)
-		addToWorklist(SRead, lab->getPos(), *it, {}, {});
+		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 
 	return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
 			      lab->getRf().isInitializer());
@@ -1929,8 +2015,7 @@ void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
 		/* Check consistency for the graph with this MO */
 		auto preds = g.getViewFromStamp(sLab->getStamp());
 		if (getGraph().isLibConsistentInView(*lib, preds)) {
-			addToWorklist(MOWriteLib, sLab->getPos(),
-				      Event::getInitializer(), {}, {}, i);
+			addToWorklist(LLVM_MAKE_UNIQUE<MOLibItem>(sLab->getPos(), i));
 		}
 	}
 	getGraph().changeStoreOffset(addr, sLab->getPos(), oldOffset);
@@ -2005,8 +2090,8 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 				continue;
 
 			addToRevisitSet(rLab, writePrefixPos, moPlacings);
-			addToWorklist(SRevisit, rLab->getPos(), rf,
-				      std::move(writePrefix), std::move(moPlacings));
+			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), rf,
+								 std::move(writePrefix), std::move(moPlacings)));
 
 		}
 	}
@@ -2044,7 +2129,7 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(SRead, lab->getPos(), *it, {}, {});
+		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getType());
 }
 

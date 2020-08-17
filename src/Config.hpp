@@ -27,6 +27,7 @@
 #include <vector>
 
 enum class ModelType { rc11, imm };
+enum class SchedulePolicy { ltr, wf, random };
 
 struct Config {
 
@@ -65,7 +66,7 @@ public:
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
-	bool randomizeSchedule;
+	SchedulePolicy schedulePolicy;
 	std::string randomizeScheduleSeed;
 	bool printRandomizeScheduleSeed;
 	std::string transformFile;

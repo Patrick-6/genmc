@@ -27,6 +27,7 @@
 #include "RevisitSet.hpp"
 #include "ExecutionGraph.hpp"
 #include "Interpreter.h"
+#include "WorkSet.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
 
@@ -290,14 +291,11 @@ private:
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(StackItemType t, Event e, Event shouldRf,
-			   std::vector<std::unique_ptr<EventLabel> > &&prefix,
-			   std::vector<std::pair<Event, Event> > &&moPlacings,
-			   int newMoPos);
+	void addToWorklist(std::unique_ptr<WorkItem> item);
 
 	/* Fetches the next backtrack option.
 	 * A default-constructed item means that the list is empty */
-	StackItem getNextItem();
+	std::unique_ptr<WorkItem> getNextItem();
 
 	/* Restricts the worklist only to entries that were added before lab */
 	void restrictWorklist(const EventLabel *lab);
@@ -334,6 +332,16 @@ private:
 
 	/* Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
+
+	/* Returns true if the next instruction of TID is a load
+	 * Note: assumes there is a next instruction in TID*/
+	bool isNextThreadInstLoad(int tid);
+
+	/* Helpers that try to schedule the next thread according to
+	 * the chosen policy */
+	bool scheduleNextLTR();
+	bool scheduleNextWF();
+	bool scheduleNextRandom();
 
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
@@ -383,7 +391,7 @@ private:
 
 	/* Adjusts the graph and the worklist for the next backtracking option.
 	 * Returns true if the resulting graph should be explored */
-	bool revisitReads(StackItem &s);
+	bool revisitReads(std::unique_ptr<WorkItem> s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -693,11 +701,11 @@ private:
 	/* The graph managing object */
 	std::unique_ptr<ExecutionGraph> execGraph;
 
-	/* The worklist for backtracking. map[stamp->stack item list] */
-	std::map<unsigned int, std::vector<StackItem> > workqueue;
+	/* The worklist for backtracking. map[stamp->work set] */
+	std::map<unsigned int, WorkSet> workqueue;
 
 	/* The revisit sets used during the exploration map[stamp->revisit set] */
-	std::map<unsigned int, RevisitSet > revisitSet;
+	std::map<unsigned int, RevisitSet> revisitSet;
 
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;

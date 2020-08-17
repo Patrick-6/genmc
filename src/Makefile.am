@@ -50,6 +50,7 @@ libgenmc_a_SOURCES = \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
+  WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \
   VSet.hpp VSet.tcc
