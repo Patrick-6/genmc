@@ -98,7 +98,7 @@ void __VERIFIER_lkmm_fence(const char *);
 #define smp_load_acquire(p)      atomic_load_explicit(p, memory_order_acquire)
 #define smp_store_release(p, v)  atomic_store_explicit(p, v, memory_order_release)
 #define rcu_dereference(p)       READ_ONCE(p)
-#define rcu_assign_pointer(p, v) smp_store_release(&p, v)
+#define rcu_assign_pointer(p, v) smp_store_release(&(p), v)
 #define smp_store_mb(x, v)					\
 do {								\
 	atomic_store_explicit(&x, v, memory_order_relaxed);	\
