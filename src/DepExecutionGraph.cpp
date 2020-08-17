@@ -91,9 +91,25 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 1; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
+
+			/* If not part of pporf, skip */
 			if (lab->getStamp() <= rLab->getStamp() ||
 			    !pporf.contains(lab->getPos()))
 				continue;
+			/* Handle the case where an rfi is not in pporf */
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (!pporf.contains(rLab->getRf())) {
+					auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf()));
+					BUG_ON(!wLab); /* Note: rLab->getRf() != INIT */
+					result.push_back(std::unique_ptr<EventLabel>(wLab->clone()));
+					auto &curLab = result.back();
+					auto curWLab = llvm::dyn_cast<WriteLabel>(curLab.get());
+					curWLab->removeReader([&](Event r) {
+						return getEventLabel(r)->getStamp() > rLab->getStamp() &&
+						       !pporf.contains(r);
+				        });
+				}
+			}
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
 
