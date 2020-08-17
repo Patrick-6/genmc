@@ -35,6 +35,7 @@ void PROPCalculator::initCalc()
 	/* Keep the fences separately because we will need them later */
 	cumulFences.clear();
 	strongFences.clear();
+	locks.clear();
 	for (auto &e : events) {
 		auto *lab = g.getEventLabel(e);
 		if (llvm::isa<WriteLabel>(lab) && lab->isAtLeastRelease())
