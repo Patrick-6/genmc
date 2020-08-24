@@ -489,6 +489,16 @@ private:
 	void visitLockLAPOR(const llvm::GenericValue *addr);
 	void visitUnlockLAPOR(const llvm::GenericValue *addr);
 
+	/* SR: Returns the IDs of threads that are symmetric to THREAD */
+	std::vector<int> getSymmetricTIDsSR(int thread, llvm::Function *threadFun);
+
+	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
+	bool sharePrefixSR(int tid, Event pos) const;
+
+	/* SR: Filter stores that will lead to a symmetric execution */
+	void filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
+				     std::vector<Event> &stores) const;
+
 
 	/*** Output-related ***/
 

@@ -1141,6 +1141,59 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	return valid;
 }
 
+bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
+{
+	auto &g = getGraph();
+
+	if (g.getThreadSize(tid) <= pos.index)
+		return false;
+	for (auto j = 1u; j < pos.index; j++) {
+		auto *labA = g.getEventLabel(Event(tid, j));
+		auto *labB = g.getEventLabel(Event(pos.thread, j));
+
+		if (labA->getKind() != labB->getKind())
+			return false;
+
+		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
+			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
+			if (!rLabB)
+				return false;
+			if (rLabA->getRf() != rLabB->getRf() || rLabA->getAddr() != rLabB->getAddr() ||
+			    rLabA->getType() != rLabB->getType())
+				return false;
+		}
+	}
+	return true;
+}
+
+void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
+					  std::vector<Event> &stores) const
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	auto pos = EE->getCurrentPosition();
+	auto &tids = EE->getThrById(pos.thread).symmetricTIDs;
+
+	for (auto t : tids) {
+		/* Check whether the po-prefixes of the two threads match */
+		if (!sharePrefixSR(t, pos))
+			continue;
+
+		/* Get the symmetric event and make sure it matches as well */
+		auto *lab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(t, pos.index)));
+		if (!lab || lab->getAddr() != addr || lab->getType() != typ)
+			continue;
+
+		/* Remove stores that will be explored symmetrically */
+		auto rfStamp = g.getEventLabel(lab->getRf())->getStamp();
+		stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event s) {
+						    auto *sLab = g.getEventLabel(s);
+						    return sLab->getStamp() <= rfStamp;
+			     }), stores.end());
+	}
+	return;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1193,6 +1246,20 @@ llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 	return result;
 }
 
+std::vector<int> GenMCDriver::getSymmetricTIDsSR(int thread, llvm::Function *threadFun)
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	std::vector<int> result; /* symmetric tids */
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+		if (thr.id != thread && thr.threadFun == threadFun)
+			result.push_back(i);
+	}
+	return result;
+}
+
 int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
 {
 	const auto &g = getGraph();
@@ -1235,6 +1302,11 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 		/* Otherwise, just push the execution context to the interpreter */
 		EE->threads[cid] = thr;
 	}
+
+	/* SR: Mark threads this thread is symmetric to */
+	if (getConf()->symmetryReduction)
+		EE->threads[cid].symmetricTIDs = getSymmetricTIDsSR(cid, calledFun);
+
 	return cid;
 }
 
@@ -1387,6 +1459,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto stores = getStoresToLoc(addr);
 	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
+	if (getConf()->symmetryReduction)
+		filterSymmetricStoresSR(addr, typ, validStores);
 
 	/* ... add an appropriate label with a random rf */
 	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
@@ -1708,6 +1782,13 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
+	if (getConf()->symmetryReduction) {
+		auto &tids = getEE()->threads[sLab->getThread()].symmetricTIDs;
+		if (std::any_of(tids.begin(), tids.end(),
+				[&](int tid){ return sharePrefixSR(tid, sLab->getPos()); }))
+			return true;
+	}
+
 	const auto &g = getGraph();
 	std::vector<Event> loads = getRevisitLoads(sLab);
 	std::vector<Event> pendingRMWs = g.getPendingRMWs(sLab); /* empty or singleton */
