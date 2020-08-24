@@ -219,7 +219,7 @@ public:
 
 	/* Returns the TID of the newly created thread */
 	int
-	visitThreadCreate(llvm::Function *F, const llvm::ExecutionContext &SF);
+	visitThreadCreate(llvm::Function *F, const llvm::GenericValue &arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
 	llvm::GenericValue
@@ -490,7 +490,8 @@ private:
 	void visitUnlockLAPOR(const llvm::GenericValue *addr);
 
 	/* SR: Returns the IDs of threads that are symmetric to THREAD */
-	std::vector<int> getSymmetricTIDsSR(int thread, llvm::Function *threadFun);
+	std::vector<int> getSymmetricTIDsSR(int thread, llvm::Function *threadFun,
+					    const llvm::GenericValue &threadArg);
 
 	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
 	bool sharePrefixSR(int tid, Event pos) const;

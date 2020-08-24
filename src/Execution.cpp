@@ -2683,7 +2683,7 @@ void Interpreter::callThreadCreate(Function *F,
 	/* Then, inform the driver about the thread creation */
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
-	auto tid = driver->visitThreadCreate(calledFun, SF);
+	auto tid = driver->visitThreadCreate(calledFun, ArgVals[3], SF);
 
 	/* ... and return the TID of the created thread to the caller */
 	Type *typ = F->getReturnType();

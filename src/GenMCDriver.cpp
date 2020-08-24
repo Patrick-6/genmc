@@ -1246,7 +1246,8 @@ llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 	return result;
 }
 
-std::vector<int> GenMCDriver::getSymmetricTIDsSR(int thread, llvm::Function *threadFun)
+std::vector<int> GenMCDriver::getSymmetricTIDsSR(int thread, llvm::Function *threadFun,
+						 const llvm::GenericValue &threadArg)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -1254,13 +1255,15 @@ std::vector<int> GenMCDriver::getSymmetricTIDsSR(int thread, llvm::Function *thr
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		if (thr.id != thread && thr.threadFun == threadFun)
+		if (thr.id != thread && thr.threadFun == threadFun &&
+		    thr.threadArg.PointerVal == threadArg.PointerVal)
 			result.push_back(i);
 	}
 	return result;
 }
 
-int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
+int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::GenericValue &arg,
+				   const llvm::ExecutionContext &SF)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
@@ -1290,7 +1293,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 	getGraph().addOtherLabelToGraph(std::move(tcLab));
 
 	/* Prepare the execution context for the new thread */
-	llvm::Thread thr = EE->createNewThread(calledFun, cid, cur.thread, SF);
+	llvm::Thread thr = EE->createNewThread(calledFun, arg, cid, cur.thread, SF);
 
 	if (cid == (int) g.getNumThreads()) {
 		/* If the thread does not exist in the graph, make an entry for it */
@@ -1305,7 +1308,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 
 	/* SR: Mark threads this thread is symmetric to */
 	if (getConf()->symmetryReduction)
-		EE->threads[cid].symmetricTIDs = getSymmetricTIDsSR(cid, calledFun);
+		EE->threads[cid].symmetricTIDs = getSymmetricTIDsSR(cid, calledFun, arg);
 
 	return cid;
 }
