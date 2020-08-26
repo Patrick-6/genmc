@@ -1153,15 +1153,9 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 		auto *labA = g.getEventLabel(Event(tid, j));
 		auto *labB = g.getEventLabel(Event(pos.thread, j));
 
-		if (labA->getKind() != labB->getKind())
-			return false;
-
 		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
 			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
-			if (!rLabB)
-				return false;
-			if (rLabA->getRf() != rLabB->getRf() || rLabA->getAddr() != rLabB->getAddr() ||
-			    rLabA->getType() != rLabB->getType())
+			if (!rLabB || rLabA->getRf() != rLabB->getRf())
 				return false;
 		}
 	}
