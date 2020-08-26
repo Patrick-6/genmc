@@ -1185,9 +1185,10 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 
 	/* Remove stores that will be explored symmetrically */
 	auto rfStamp = g.getEventLabel(lab->getRf())->getStamp();
+	auto st = (g.isRMWLoad(lab)) ? rfStamp + 1 : rfStamp;
 	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event s) {
 				    auto *sLab = g.getEventLabel(s);
-				    return sLab->getStamp() <= rfStamp;
+				    return sLab->getStamp() < st;
 		     }), stores.end());
 	return;
 }
