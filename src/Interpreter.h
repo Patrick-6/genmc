@@ -310,7 +310,7 @@ public:
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
-	std::vector<int> symmetricTIDs;
+	int symmetricTid;
 	unsigned int globalInstructions;
 	unsigned int globalInstSnap;
 	BlockageType blocked;
