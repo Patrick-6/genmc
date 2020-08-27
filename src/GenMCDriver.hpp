@@ -334,6 +334,10 @@ private:
 	/* Deprioritizes the current thread */
 	void deprioritizeThread();
 
+	/* Returns true if THREAD is schedulable (i.e., there are more
+	 * instructions to run and it is not blocked) */
+	bool isSchedulable(int thread) const;
+
 	/* Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
 

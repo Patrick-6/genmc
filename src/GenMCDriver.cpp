@@ -124,6 +124,13 @@ void GenMCDriver::prioritizeThreads()
 	return;
 }
 
+bool GenMCDriver::isSchedulable(int thread) const
+{
+	auto &thr = getEE()->getThrById(thread);
+	return !thr.ECStack.empty() && !thr.isBlocked() &&
+		!llvm::isa<ThreadFinishLabel>(getGraph().getLastThreadLabel(thread));
+}
+
 bool GenMCDriver::schedulePrioritized()
 {
 	/* Return false if no thread is prioritized */
@@ -133,11 +140,8 @@ bool GenMCDriver::schedulePrioritized()
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	for (auto &e : threadPrios) {
-		auto &thr = EE->getThrById(e.thread);
-
-		/* Make sure that the thread is not blocked or done */
-		if (thr.ECStack.empty() || thr.isBlocked() ||
-		    llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(e.thread)))
+		/* Skip unschedulable threads */
+		if (!isSchedulable(e.thread))
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
@@ -153,15 +157,8 @@ bool GenMCDriver::scheduleNextLTR()
 	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-
-		if (thr.ECStack.empty() || thr.isBlocked())
+		if (!isSchedulable(i))
 			continue;
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
-		}
 
 		/* Found a not-yet-complete thread; schedule it */
 		EE->currentThread = i;
@@ -190,19 +187,14 @@ bool GenMCDriver::scheduleNextWF()
 	 * Keep an LTR fallback option in case this fails */
 	long fallback = -1;
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
+		if (!isSchedulable(i))
 			continue;
-		}
-		if (!thr.ECStack.empty() && !thr.isBlocked()) {
-			if (fallback == -1)
-				fallback = i;
-			if (!isNextThreadInstLoad(i)) {
-				EE->currentThread = i;
-				return true;
-			}
+
+		if (fallback == -1)
+			fallback = i;
+		if (!isNextThreadInstLoad(i)) {
+			EE->currentThread = i;
+			return true;
 		}
 	}
 
@@ -224,14 +216,18 @@ bool GenMCDriver::scheduleNextRandom()
 	auto random = dist(rng);
 	for (auto j = 0u; j < g.getNumThreads(); j++) {
 		auto i = (j + random) % g.getNumThreads();
-		auto &thr = EE->getThrById(i);
 
-		if (thr.ECStack.empty() || thr.isBlocked())
+		if (!isSchedulable(i))
 			continue;
 
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
+		/* SR: Symmetric threads have to always be executed in order */
+		if (getConf()->symmetryReduction) {
+			auto symm = EE->getThrById(i).symmetricTid;
+			if (symm != -1 && isSchedulable(symm) &&
+			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
+				EE->currentThread = symm;
+				return true;
+			}
 		}
 
 		/* Found a not-yet-complete thread; schedule it */
