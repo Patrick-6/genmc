@@ -170,6 +170,7 @@ runvariants() {
 	diff=`diff tmp.trace "${diff_file}"`
 	if test -n "${diff}" -a -z "${suppress_diff}"
 	then
+	    echo "${diff}"
 	    failure=1
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`

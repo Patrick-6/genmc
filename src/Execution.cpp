@@ -2664,12 +2664,9 @@ void Interpreter::callThreadSelf(Function *F,
 void Interpreter::callThreadCreate(Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
-	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]); /* tid */
-	Function *calledFun = (Function*) GVTOP(ArgVals[2]);
+	Function *calledFun = (Function*) GVTOP(ArgVals[1]);
 	ExecutionContext SF;
 	GenericValue val, result;
-
-	WARN_ON(ptr == nullptr, "NULL argument to pthread_create()!\n");
 
 	/* First, set up the stack frame for the new function.
 	 * Calling function needs to take only one argument ... */
@@ -2677,22 +2674,16 @@ void Interpreter::callThreadCreate(Function *F,
 	SF.CurBB = &calledFun->front();
 	SF.CurInst = SF.CurBB->begin();
 
-	SetValue(&*calledFun->arg_begin(), ArgVals[3], SF);
+	SetValue(&*calledFun->arg_begin(), ArgVals[2], SF);
 
 	/* Then, inform the driver about the thread creation */
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 	auto tid = driver->visitThreadCreate(calledFun, SF);
 
-	/* ...and save the TID in the location pointed by the 1st arg */
-	Type *typ = static_cast<PointerType *>(F->arg_begin()->getType())->getElementType();
-	val.IntVal = APInt(typ->getIntegerBitWidth(), tid);
-
-	driver->visitStore(IA_None, AtomicOrdering::NotAtomic, ptr, typ, val);
-
-	/* Finally, return a value indicating that pthread_create() succeeded */
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
-	returnValueToCaller(F->getReturnType(), result);
+	/* ... and return the TID of the created thread to the caller */
+	Type *typ = F->getReturnType();
+	returnValueToCaller(typ, INT_TO_GV(typ, tid));
 }
 
 /* callPthreadJoin - Call to pthread_join() function */
