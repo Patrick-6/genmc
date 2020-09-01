@@ -744,6 +744,18 @@ bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 }
 
+bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p /* = step */)
+{
+	auto &g = getGraph();
+
+	if (!shouldCheckCons(p))
+		return g.getCoherenceCalculator()->isCoMaximal(addr, e);
+
+	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
+	return (e.isInitializer() && coLoc.empty()) ||
+	       (!e.isInitializer() && coLoc.adj_begin(e) == coLoc.adj_end(e));
+}
+
 void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	const auto &g = getGraph();
@@ -1009,11 +1021,9 @@ void GenMCDriver::checkLiveness()
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
-	auto &co = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 	std::vector<int> spinBlocked;
 
-	WARN_ONCE("liveness", "TODO: Find better way for consistency checks\n");
-	if (!isConsistent(ProgramPoint::exec))
+	if (shouldCheckCons(ProgramPoint::exec) && !isConsistent(ProgramPoint::exec))
 		return;
 
 	/* Collect all threads blocked at spinloops */
@@ -1029,10 +1039,7 @@ void GenMCDriver::checkLiveness()
 			[&](int tid){
 				rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(tid));
 				BUG_ON(!rLab); /* Due to thread being blocked on a spinloop */
-				auto &coLoc = co[rLab->getAddr()];
-				return (rLab->getRf().isInitializer() && coLoc.empty()) ||
-				       (!rLab->getRf().isInitializer() &&
-					coLoc.adj_begin(rLab->getRf()) == coLoc.adj_end(rLab->getRf()));
+				return isCoMaximal(rLab->getAddr(), rLab->getRf());
 			})) {
 		/* Print the name of one of the spinloop variables that are not live */
 		visitError(DE_Liveness, "Spinloop variable " + EE->getVarName(rLab->getAddr()) + " is not live");

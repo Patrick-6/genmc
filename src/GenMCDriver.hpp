@@ -288,6 +288,9 @@ protected:
 	/* Returns true if a is hb-before b */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
+	/* Returns true if e is maximal in addr */
+	bool isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p = ProgramPoint::step);
+
 private:
 	/*** Worklist-related ***/
 
