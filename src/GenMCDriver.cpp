@@ -346,6 +346,8 @@ void GenMCDriver::handleFinishedExecution()
 	if (std::any_of(getEE()->threads.begin(), getEE()->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked(); })) {
 		++exploredBlocked;
+		if (userConf->checkLiveness)
+			checkLiveness();
 		return;
 	}
 
@@ -1001,6 +1003,41 @@ bool GenMCDriver::isRecoveryValid(ProgramPoint p)
 		return true;
 
 	return getGraph().isRecoveryValid();
+}
+
+void GenMCDriver::checkLiveness()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	auto &co = g.getPerLocRelation(ExecutionGraph::RelationId::co);
+	std::vector<int> spinBlocked;
+
+	WARN_ONCE("liveness", "TODO: Find better way for consistency checks\n");
+	if (!isConsistent(ProgramPoint::exec))
+		return;
+
+	/* Collect all threads blocked at spinloops */
+	for (auto &thr : EE->threads) {
+		if (thr.getBlockageType() == llvm::Thread::BT_Spinloop)
+			spinBlocked.push_back(thr.id);
+	}
+
+	/* And check whether all of them are live or not */
+	const ReadLabel *rLab = nullptr;
+	if (!spinBlocked.empty() &&
+	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
+			[&](int tid){
+				rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(tid));
+				BUG_ON(!rLab); /* Due to thread being blocked on a spinloop */
+				auto &coLoc = co[rLab->getAddr()];
+				return (rLab->getRf().isInitializer() && coLoc.empty()) ||
+				       (!rLab->getRf().isInitializer() &&
+					coLoc.adj_begin(rLab->getRf()) == coLoc.adj_end(rLab->getRf()));
+			})) {
+		/* Print the name of one of the spinloop variables that are not live */
+		visitError(DE_Liveness, "Spinloop variable " + EE->getVarName(rLab->getAddr()) + " is not live");
+	}
+	return;
 }
 
 std::vector<Event>
@@ -2262,6 +2299,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Safety violation";
 	case GenMCDriver::DE_Recovery:
 		return s << "Recovery error";
+	case GenMCDriver::DE_Liveness:
+		return s << "Liveness violation";
 	case GenMCDriver::DE_RaceNotAtomic:
 		return s << "Non-Atomic race";
 	case GenMCDriver::DE_RaceFreeMalloc:

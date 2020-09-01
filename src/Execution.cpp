@@ -2615,8 +2615,12 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	Instruction *I = ECStack().back().CurInst->getPrevNode();
+	auto t = (I->getMetadata("assume.kind")) ? Thread::BlockageType::BT_Spinloop :
+		Thread::BlockageType::BT_User;
+
 	if (!ArgVals[0].IntVal.getBoolValue())
-		getCurThr().block(llvm::Thread::BlockageType::BT_User);
+		getCurThr().block(t);
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals)

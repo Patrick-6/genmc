@@ -95,6 +95,9 @@ clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error),
 		    , NULL
 #endif
 		    ));
+llvm::cl::opt<bool>
+clCheckLiveness("check-liveness", llvm::cl::cat(clGeneral),
+		llvm::cl::desc("Check for liveness violations"));
 static llvm::cl::opt<std::string>
 clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("file"),
 		   llvm::cl::cat(clGeneral),
@@ -245,6 +248,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	printErrorTrace = clPrintErrorTrace;
 	checkConsType = clCheckConsType;
 	checkConsPoint = clCheckConsPoint;
+	checkLiveness = clCheckLiveness;
 	disableRaceDetection = clDisableRaceDetection;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 

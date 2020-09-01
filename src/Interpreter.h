@@ -291,6 +291,7 @@ public:
 	enum BlockageType {
 		BT_NotBlocked,
 		BT_ThreadJoin,
+		BT_Spinloop,
 		BT_LockAcq,
 		BT_LockRel,
 		BT_Cons,
@@ -317,6 +318,7 @@ public:
 	void block(BlockageType t) { blocked = t; }
 	void unblock() { blocked = BT_NotBlocked; }
 	bool isBlocked() const { return blocked != BT_NotBlocked; }
+	BlockageType getBlockageType() const { return blocked; }
 
 	/* Useful for one-to-many instr->events correspondence */
 	void takeSnapshot()   {

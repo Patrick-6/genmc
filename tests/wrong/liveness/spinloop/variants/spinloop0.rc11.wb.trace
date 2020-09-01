@@ -1,0 +1,16 @@
+Error detected: Liveness violation!
+Event (1, 1) in graph:
+<-1, 0> main:
+	(0, 0): B
+	(0, 1): M
+	(0, 2): TC [forks 1] L.19
+	(0, 3): Wna (t1, 1) L.19
+	(0, 4): D L.22
+	(0, 5): E
+<0, 1> thread_1:
+	(1, 0): B
+	(1, 1): Rsc (x, 0) [INIT] L.9
+
+Spinloop variable x is not live
+Number of complete executions explored: 0
+Number of blocked executions seen: 1
