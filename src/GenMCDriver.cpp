@@ -1256,12 +1256,12 @@ bool GenMCDriver::isSymmetricToSR(int candidate, int thread, Event parent,
 		return false;
 
 	/* Then make sure that there is no memory access in between the spawn events */
-	// auto mm = std::minmax(parent.index, cParent.index);
-	// auto minI = mm.first;
-	// auto maxI = mm.second;
-	// for (auto j = minI; j < maxI; j++)
-	// 	if (llvm::isa<MemAccessLabel>(g.getEventLabel(Event(parent.thread, j))))
-	// 		return false;
+	auto mm = std::minmax(parent.index, cParent.index);
+	auto minI = mm.first;
+	auto maxI = mm.second;
+	for (auto j = minI; j < maxI; j++)
+		if (llvm::isa<MemAccessLabel>(g.getEventLabel(Event(parent.thread, j))))
+			return false;
 	return true;
 }
 

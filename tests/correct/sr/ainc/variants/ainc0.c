@@ -2,6 +2,12 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+/*
+ * Symmetry reduction cannot be applied for this one, due to memory
+ * accesses generated between the creation of the threads.
+ * These memory accesses are created to access the t[N] array.
+ */
+
 #ifndef N
 # define N 2
 #endif
