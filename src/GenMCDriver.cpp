@@ -223,7 +223,7 @@ bool GenMCDriver::scheduleNextRandom()
 		/* SR: Symmetric threads have to always be executed in order */
 		if (getConf()->symmetryReduction) {
 			auto symm = EE->getThrById(i).symmetricTid;
-			if (symm != -1 && isSchedulable(symm) &&
+			if (symm != -1 && symm < i && isSchedulable(symm) &&
 			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
 				EE->currentThread = symm;
 				return true;
@@ -1145,13 +1145,24 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 		return false;
 	if (g.getThreadSize(tid) <= pos.index)
 		return false;
+
 	for (auto j = 1u; j < pos.index; j++) {
 		auto *labA = g.getEventLabel(Event(tid, j));
 		auto *labB = g.getEventLabel(Event(pos.thread, j));
 
 		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
 			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
-			if (!rLabB || rLabA->getRf() != rLabB->getRf())
+			if (!rLabB)
+				return false;
+			auto rfA = rLabA->getRf();
+			auto rfB = rLabB->getRf();
+			if (rfA.isInitializer() && !rfB.isInitializer())
+				return false;
+			if (rfA.thread != rLabA->getThread() &&
+			    ((rfA.thread != rLabB->getThread() && rfB != rfA) ||
+			     ((rfA.thread == rLabB->getThread() && rfB != Event(rLabA->getThread(), rfA.index)))))
+				return false;
+			if (rfA.thread == rLabA->getThread() && rfB != Event(rLabB->getThread(), rfA.index))
 				return false;
 		}
 	}
@@ -1322,8 +1333,11 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 	}
 
 	/* SR: Mark threads this thread is symmetric to */
-	if (getConf()->symmetryReduction)
-		EE->threads[cid].symmetricTid = getSymmetricTidSR(cid, cur, calledFun, arg);
+	if (getConf()->symmetryReduction) {
+		auto symm = getSymmetricTidSR(cid, cur, calledFun, arg);
+		EE->threads[cid].symmetricTid = symm;
+		EE->threads[symm].symmetricTid = cid;
+	}
 
 	return cid;
 }
