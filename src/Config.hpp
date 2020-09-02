@@ -69,8 +69,8 @@ public:
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
 	SchedulePolicy schedulePolicy;
-	std::string randomizeScheduleSeed;
-	bool printRandomizeScheduleSeed;
+	std::string randomScheduleSeed;
+	bool printRandomScheduleSeed;
 	std::string transformFile;
 	std::string programEntryFun;
 	bool validateExecGraphs;

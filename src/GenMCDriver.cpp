@@ -53,9 +53,9 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
-	auto seedVal = (userConf->randomizeScheduleSeed != "") ?
-		(MyRNG::result_type) stoull(userConf->randomizeScheduleSeed) : rd();
-	if (userConf->printRandomizeScheduleSeed)
+	auto seedVal = (userConf->randomScheduleSeed != "") ?
+		(MyRNG::result_type) stoull(userConf->randomScheduleSeed) : rd();
+	if (userConf->printRandomScheduleSeed)
 		llvm::dbgs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
 

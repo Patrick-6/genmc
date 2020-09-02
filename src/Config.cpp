@@ -191,10 +191,10 @@ clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(S
 #endif
 			 ));
 static llvm::cl::opt<bool>
-clPrintRandomizeScheduleSeed("print-randomize-schedule-seed", llvm::cl::cat(clDebugging),
+clPrintRandomScheduleSeed("print-random-schedule-seed", llvm::cl::cat(clDebugging),
 			     llvm::cl::desc("Print the seed used for randomized scheduling"));
 static llvm::cl::opt<std::string>
-clRandomizeScheduleSeed("randomize-schedule-seed", llvm::cl::init(""),
+clRandomScheduleSeed("random-schedule-seed", llvm::cl::init(""),
 			llvm::cl::value_desc("seed"), llvm::cl::cat(clDebugging),
 			llvm::cl::desc("Seed to be used for randomized scheduling"));
 static llvm::cl::opt<bool>
@@ -276,8 +276,8 @@ void Config::saveConfigOptions()
 	programEntryFun = clProgramEntryFunction;
 	validateExecGraphs = clValidateExecGraphs;
 	schedulePolicy = clSchedulePolicy;
-	printRandomizeScheduleSeed = clPrintRandomizeScheduleSeed;
-	randomizeScheduleSeed = clRandomizeScheduleSeed;
+	printRandomScheduleSeed = clPrintRandomScheduleSeed;
+	randomScheduleSeed = clRandomScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
 	prettyPrintExecGraphs = clPrettyPrintExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
