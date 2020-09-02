@@ -76,6 +76,10 @@ public:
 	bool validateExecGraphs;
 
 	void getConfigOptions(int argc, char **argv);
+
+private:
+	void checkConfigOptions() const;
+	void saveConfigOptions();
 };
 
 #endif /* __CONFIG_HPP__ */

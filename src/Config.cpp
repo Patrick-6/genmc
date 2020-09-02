@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "Error.hpp"
 #include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
@@ -222,21 +223,24 @@ void printVersion()
 	  << "\n  Built with LLVM " LLVM_VERSION " (" LLVM_BUILDMODE ")\n";
 }
 
-void Config::getConfigOptions(int argc, char **argv)
+void Config::checkConfigOptions() const
 {
-	/* Option categories printed */
-	const llvm::cl::OptionCategory *cats[] =
-		{&clGeneral, &clDebugging, &clTransformation, &clPersistency};
+	/* Check exploration options */
+	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
+		WARN("LAPOR usage with -mo is experimental.\n");
+	}
 
-	llvm::cl::SetVersionPrinter(printVersion);
+	/* Check debugging options */
+	if (schedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
+		WARN("--print-random-schedule-seed used without -schedule-policy=random.\n");
+	}
+	if (schedulePolicy != SchedulePolicy::random && clRandomScheduleSeed != "") {
+		WARN("--random-schedule-seed used without -schedule-policy=random.\n");
+	}
+}
 
-	/* Hide unrelated LLVM options and parse user configuration */
-#ifdef LLVM_HAS_HIDE_UNRELATED_OPTS
-	llvm::cl::HideUnrelatedOptions(cats);
-#endif
-	llvm::cl::ParseCommandLineOptions(argc, argv, "GenMC -- "
-					  "Model Checking for C programs");
-
+void Config::saveConfigOptions()
+{
 	/* General syntax */
 	cflags.insert(cflags.end(), clCFLAGS.begin(), clCFLAGS.end());
 	inputFile = clInputFile;
@@ -279,6 +283,26 @@ void Config::getConfigOptions(int argc, char **argv)
 	countDuplicateExecs = clCountDuplicateExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;
+}
+
+void Config::getConfigOptions(int argc, char **argv)
+{
+	/* Option categories printed */
+	const llvm::cl::OptionCategory *cats[] =
+		{&clGeneral, &clDebugging, &clTransformation, &clPersistency};
+
+	llvm::cl::SetVersionPrinter(printVersion);
+
+	/* Hide unrelated LLVM options and parse user configuration */
+#ifdef LLVM_HAS_HIDE_UNRELATED_OPTS
+	llvm::cl::HideUnrelatedOptions(cats);
+#endif
+	llvm::cl::ParseCommandLineOptions(argc, argv, "GenMC -- "
+					  "Model Checking for C programs");
+
+	/* Sanity-check config options and then appropriately save them */
+	checkConfigOptions();
+	saveConfigOptions();
 
 #ifdef LLVM_HAS_RESET_COMMANDLINE_PARSER
 	llvm::cl::ResetCommandLineParser();
