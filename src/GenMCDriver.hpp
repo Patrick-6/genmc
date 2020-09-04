@@ -376,6 +376,10 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForMemoryRaces(const void *addr);
 
+	/* Calls visitError() if rLab is reading from an uninitialized
+	 * (dynamically allocated) memory location */
+	void checkForUninitializedMem(const ReadLabel *rLab);
+
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
 
