@@ -114,7 +114,6 @@ do
     for coherence in wb mo
     do
 	for testdir in "${correctdir}/"{infr,litmus,synthetic,data-structures,lapor,fs}
-
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
 	    increase_total_time

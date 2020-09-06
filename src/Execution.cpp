@@ -90,6 +90,9 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_syncFS", InternalFunctions::FN_SyncFS},
 	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
+	/* Some C++ calls */
+	{"_Znwm", InternalFunctions::FN_Malloc},
+	{"_ZdlPv", InternalFunctions::FN_Free},
 };
 
 const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList = {
@@ -4136,7 +4139,7 @@ std::string getFilenameFromMData(MDNode *node)
 	std::string file = loc.getFilename();
 	std::string dir = loc.getDirectory();
 
-	BUG_ON(!file.size() || !dir.size());
+	BUG_ON(!file.size() && !dir.size());
 
 	std::string absPath;
 	if (file.front() == '/') {

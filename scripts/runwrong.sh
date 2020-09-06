@@ -31,6 +31,8 @@ runtime=0
 tests_success=0
 tests_fail=0
 
+shopt -s nullglob
+
 print_debug_header() {
     # Print status
     echo ''; printline
@@ -154,10 +156,10 @@ runvariants() {
     outcome_failure=""
     checker_args=() && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
 	checker_args=(`cat "${dir}/genmc.${model}.${coherence}.in"`)
-    for t in $dir/variants/*.c
+    for t in $dir/variants/*.c $dir/variants/*.cpp
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${t} 2>&1`
+	output=`"${GenMC}" "-${model}" "-${coherence}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} ${t} 2>&1`
 	if test "$?" -eq 0
 	then
 	    failure_status="$?"
@@ -186,19 +188,11 @@ runvariants() {
 
 runtest() {
     dir=$1
-    if test -f "${dir}/args.in"
-    then
-	while read test_args <&3 && read expected <&4; do
-	    n="/`echo ${test_args} |
-                 awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
-	    runvariants
-	done 3<"${dir}/args.in" 4<"${dir}/expected.in"
-    else
-	test_args=""
-	n=""
-	#expected=`head -n 1 "${dir}/expected.in"`
-	runvariants
-    fi
+    n=""
+    test_args="" && [[ -f "${dir}/args.${model}.${coherence}.in" ]] &&
+	test_args=`head -n 1 "${dir}/args.${model}.${coherence}.in"`
+    #expected=`head -n 1 "${dir}/expected.in"`
+    runvariants
 }
 
 [ -z "${TESTFILTER}" ] && TESTFILTER=*
