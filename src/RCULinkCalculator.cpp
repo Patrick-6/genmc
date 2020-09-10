@@ -113,6 +113,7 @@ bool RCULinkCalculator::addRcuLinks(Event e)
 	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
 	auto &rcuLink = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_link);
 	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
+	auto &elems = prop.getElems();
 	bool changed = false;
 
 	/* Calculate the upper limit in po until which we will look for links */
@@ -127,6 +128,12 @@ bool RCULinkCalculator::addRcuLinks(Event e)
 			continue;
 
 		auto links = getPbOptPropPoLinks(Event(e.thread, i));
+		for (auto ev : elems) {
+			if (ev != lab->getPos() && ar(lab->getPos(), ev)) {
+				auto arLinks = getPbOptPropPoLinks(ev);
+				links.insert(links.end(), arLinks.begin(), arLinks.end());
+			}
+		}
 		for (auto l : links) {
 			if (!rcuLink(e, l)) {
 				changed = true;
