@@ -23,7 +23,9 @@
 #include "PROPCalculator.hpp"
 #include "ARCalculatorLKMM.hpp"
 #include "PBCalculator.hpp"
+#include "RCULinkCalculator.hpp"
 #include "RCUCalculator.hpp"
+#include "RCUFenceCalculator.hpp"
 #include "XBCalculator.hpp"
 
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
@@ -50,8 +52,12 @@ LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 			ExecutionGraph::RelationId::ar_lkmm, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<PBCalculator>(g),
 			ExecutionGraph::RelationId::pb, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<RCULinkCalculator>(g),
+			ExecutionGraph::RelationId::rcu_link, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<RCUCalculator>(g),
 			ExecutionGraph::RelationId::rcu, false);
+	g.addCalculator(LLVM_MAKE_UNIQUE<RCUFenceCalculator>(g),
+			ExecutionGraph::RelationId::rcu_fence, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<XBCalculator>(g),
 			ExecutionGraph::RelationId::xb, false);
 	return;
@@ -965,9 +971,8 @@ bool LKMMDriver::isFenceBefore(Event a, Event b)
 		return false;
 
 	auto &g = getGraph();
-	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
 	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
-	auto &rcuFence = rcuCalc->getRcuFenceRelation();
+	auto &rcuFence = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_fence);
 	auto *labA = g.getEventLabel(a);
 	auto *labB = g.getEventLabel(b);
 
@@ -1118,8 +1123,7 @@ std::vector<Event> LKMMDriver::getMarkedReadSuccs(const EventLabel *lab)
 std::vector<Event> LKMMDriver::getStrongFenceSuccs(Event e)
 {
 	auto &g = getGraph();
-	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
-	auto &rcuFence = rcuCalc->getRcuFenceRelation();
+	auto &rcuFence = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_fence);
 	auto &allElems = rcuFence.getElems();
 	std::vector<Event> succs;
 

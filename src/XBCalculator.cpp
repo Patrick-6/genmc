@@ -45,8 +45,7 @@ bool XBCalculator::addXbConstraints()
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
 	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
-	auto *rcuCalc = static_cast<RCUCalculator *>(g.getCalculator(ExecutionGraph::RelationId::rcu));
-	auto &rcufence = rcuCalc->getRcuFenceRelation();
+	auto &rcufence = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_fence);
 	auto &xb = g.getGlobalRelation(ExecutionGraph::RelationId::xb);
 	auto &elems = xb.getElems();
 

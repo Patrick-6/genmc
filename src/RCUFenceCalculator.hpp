@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __RCU_CALCULATOR_HPP__
-#define __RCU_CALCULATOR_HPP__
+#ifndef __RCU_FENCE_CALCULATOR_HPP__
+#define __RCU_FENCE_CALCULATOR_HPP__
 
 #include "Calculator.hpp"
 #include "DriverGraphEnumAPI.hpp"
@@ -28,19 +28,13 @@
 #include "ExecutionGraph.hpp"
 
 /*******************************************************************************
- **                           RCUCalculator Class
+ **                           RCUFenceCalculator Class
  ******************************************************************************/
 
-/*
- * Calculates LKMM's rcu-order relation. We do not separately calculate rb
- * since it is only used as part of xb in our case. Also, since rcu-link
- * is not seen by any other relations apart from rcu-order, it is stored
- * in a private field of this calculator.
- */
-class RCUCalculator : public Calculator {
+class RCUFenceCalculator : public Calculator {
 
 public:
-	RCUCalculator(ExecutionGraph &g) : Calculator(g) {}
+	RCUFenceCalculator(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 
@@ -59,11 +53,8 @@ public:
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
 private:
-	void incRcuCounter(Event e, unsigned int &gps, unsigned int &css) const;
-	void decRcuCounter(Event e, unsigned int &gps, unsigned int &css) const;
-	bool checkAddRcuConstraint(Event a, Event b, const unsigned int gps,
-				   const unsigned int css);
-	bool addRcuConstraints();
+	bool checkAddRcuFenceConstraint(Event a, Event b);
+	bool addRcuFenceConstraints();
 };
 
-#endif /* __RCU_CALCULATOR_HPP__ */
+#endif /* __RCU_FENCE_CALCULATOR_HPP__ */
