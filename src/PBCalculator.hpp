@@ -33,7 +33,10 @@
 
 /*
  * Calculates LKMM's PB relation. For better performance, it should be added
- * after the prop and ar calculators.
+ * after the prop and ar calculators. Note that we do not add the trailing ar*
+ * part of PB in this calculation. Since this is necessary only for rcu-link,
+ * it is added add-hoc in the respective calculator; for all other purposes,
+ * xb* will do the trick.
  */
 class PBCalculator : public Calculator {
 

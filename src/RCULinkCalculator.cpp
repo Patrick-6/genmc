@@ -80,6 +80,7 @@ bool RCULinkCalculator::linksTo(Event e, Event r) const
 std::vector<Event> RCULinkCalculator::getPbOptPropPoLinks(Event e1) const
 {
 	auto &g = getGraph();
+	auto &ar = g.getGlobalRelation(ExecutionGraph::RelationId::ar_lkmm);
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &pb = g.getGlobalRelation(ExecutionGraph::RelationId::pb);
 	auto &rcuLink = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_link);
@@ -100,6 +101,12 @@ std::vector<Event> RCULinkCalculator::getPbOptPropPoLinks(Event e1) const
 			if (prop(e2, e3)) {
 				std::copy_if(candidates.begin(), candidates.end(), std::back_inserter(links),
 					     [&](Event r){ return linksTo(e3, r); });
+			} else if (ar(e2, e3)) {
+				for (auto e4 : elems) {
+					if (prop(e3, e4))
+						std::copy_if(candidates.begin(), candidates.end(), std::back_inserter(links),
+							     [&](Event r){ return linksTo(e4, r); });
+				}
 			}
 		}
 	}
