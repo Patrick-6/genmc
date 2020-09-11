@@ -967,18 +967,19 @@ bool LKMMDriver::isAcqPoOrPoRelBefore(Event a, Event b)
 
 bool LKMMDriver::isFenceBefore(Event a, Event b)
 {
-	if (a.thread != b.thread)
-		return false;
-
 	auto &g = getGraph();
 	auto &rcu = g.getGlobalRelation(ExecutionGraph::RelationId::rcu);
 	auto &rcuFence = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_fence);
 	auto *labA = g.getEventLabel(a);
 	auto *labB = g.getEventLabel(b);
 
-	if (isAcqPoOrPoRelBefore(a, b))
-		return true;
+	/* If a and b do not belong in the same thread, they have to be connected by an rcu fence */
 	if (rcuFence(a, b))
+		return true;
+	if (a.thread != b.thread)
+		return false;
+
+	if (isAcqPoOrPoRelBefore(a, b))
 		return true;
 
 	auto mm = std::minmax(a.index, b.index);
@@ -1025,10 +1026,6 @@ std::vector<Event> LKMMDriver::getOverwrites(const MemAccessLabel *lab)
 
 std::vector<Event> LKMMDriver::getMarkedWritePreds(const EventLabel *lab)
 {
-	/* If lab is marked, we found a predecessor */
-	if (!lab->isNotAtomic())
-		return {lab->getPos()};
-
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &elems = prop.getElems();
@@ -1037,20 +1034,19 @@ std::vector<Event> LKMMDriver::getMarkedWritePreds(const EventLabel *lab)
 	/* Otherwise, check whether any other marked access is fence-before lab */
 	std::copy_if(elems.begin(), elems.end(), std::back_inserter(preds),
 		     [&](Event e){ return isFenceBefore(e, lab->getPos()) ||
-				     lab->getPPoView().contains(e); });
-	WARN_ONCE("pred-fix", "FIXME: Take only addr preds into account!\n");
+				     lab->getPPoRfView().contains(e); });
 	return preds;
 }
 
 std::vector<Event> LKMMDriver::getMarkedWriteSuccs(const EventLabel *lab)
 {
-	if (!lab->isNotAtomic())
-		return {lab->getPos()};
-
 	auto &g = getGraph();
 	auto &prop = g.getGlobalRelation(ExecutionGraph::RelationId::prop);
 	auto &elems = prop.getElems();
 	std::vector<Event> succs;
+
+	if (!lab->isNotAtomic())
+		succs.push_back(lab->getPos());
 
 	/* Otherwise, check whether lab is fence-before any other marked access */
 	std::copy_if(elems.begin(), elems.end(), std::back_inserter(succs),
@@ -1060,11 +1056,11 @@ std::vector<Event> LKMMDriver::getMarkedWriteSuccs(const EventLabel *lab)
 
 std::vector<Event> LKMMDriver::getMarkedReadPreds(const EventLabel *lab)
 {
-	if (!lab->isNotAtomic())
-		return {lab->getPos()};
-
 	auto &g = getGraph();
 	std::vector<Event> preds;
+
+	if (!lab->isNotAtomic())
+		preds.push_back(lab->getPos());
 
 	bool rmb = false;
 	bool sfence = false;
@@ -1088,21 +1084,19 @@ std::vector<Event> LKMMDriver::getMarkedReadPreds(const EventLabel *lab)
 			preds.push_back(eLab->getPos());
 		if (llvm::isa<ReadLabel>(eLab) && !eLab->isNotAtomic() && rmb && !isLabNoRetRead)
 			preds.push_back(eLab->getPos());
-		if (!eLab->isNotAtomic() && lab->getPPoView().contains(eLab->getPos())) {
-			WARN_ONCE("pred-fix", "FIXME: Take only addr preds into account!\n");
+		if (!eLab->isNotAtomic() && lab->getPPoRfView().contains(eLab->getPos()))
 			preds.push_back(eLab->getPos());
-		}
 	}
 	return preds;
 }
 
 std::vector<Event> LKMMDriver::getMarkedReadSuccs(const EventLabel *lab)
 {
-	if (!lab->isNotAtomic())
-		return {lab->getPos()};
-
 	auto &g = getGraph();
 	std::vector<Event> succs;
+
+	if (!lab->isNotAtomic())
+		succs.push_back(lab->getPos());
 
 	bool rmb = false;
 	bool isLabNoRetRead = isNoRetRead(lab);
@@ -1178,7 +1172,7 @@ bool LKMMDriver::isVisBefore(Event a, Event b)
 
 	auto *mLabA = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(a));
 	for (auto e : elems) {
-		if (!isVisConnected(e, b))
+		if (e != b && !isVisConnected(e, b))
 			continue;
 
 		auto *eLab = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(e));
@@ -1191,7 +1185,7 @@ bool LKMMDriver::isVisBefore(Event a, Event b)
 				return true;
 			auto *rfLab = g.getEventLabel(rLab->getRf());
 			if (auto *rfmLab = llvm::dyn_cast<WriteLabel>(rfLab))
-				if (mLabA->getFenceView().contains(rfmLab->getPos()))
+				if (rfmLab->getFenceView().contains(mLabA->getPos()))
 					return true;
 		}
 	}
