@@ -362,7 +362,6 @@ public:
 protected:
 
   GenericValue ExitValue;          // The return value of the called function
-  DataLayout TD;
   IntrinsicLowering *IL;
 
   /* Naming information for all variables */
@@ -412,7 +411,7 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
+  explicit Interpreter(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -528,7 +527,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(Module *M, VariableInfo &&VI, FsInfo &&FI,
+  static ExecutionEngine *create(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 

@@ -383,21 +383,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([string])],
         [AC_MSG_RESULT([error_code])])
 
-## Check whether an ExecutionEngine takes a Module pointer or a Module unique_ptr
-AC_MSG_CHECKING([for unique_ptr<Module> in ExecutionEngine])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-]],[[
-  class EE : public llvm::ExecutionEngine {
-  public:
-    EE(llvm::Module *M) : llvm::ExecutionEngine(std::unique_ptr<llvm::Module>(M)) {};
-  };
-]])],
-        [AC_DEFINE([LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR],[1],
-         [Define if llvm::ExecutionEngine takes a unique_ptr to its Module.])
-         AC_MSG_RESULT([yes])],
-       	[AC_MSG_RESULT([no])])
-
 ## Check if Mutexes use the method "lock" or "acquire"
 AC_MSG_CHECKING([for llvm::sys::Mutex::lock])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -613,19 +598,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_DEFINE([LLVM_DILOCATION_IS_MDNODE],[1],
          [Define if an llvm::DILocation is an MDNode.])],
         [AC_MSG_RESULT([no])])
-
-## Check if the datalayout of an execution engine is a pointer
-AC_MSG_CHECKING([whether DataLayout of ExecutionEngine is a pointer])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-]],[[
-  llvm::ExecutionEngine *E = 0;
-  const llvm::DataLayout *DL = E->getDataLayout();
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([LLVM_EXECUTIONENGINE_DATALAYOUT_PTR],[1],
-   [Define if the DataLayout field of ExecutionEngine is a pointer.])],
-  [AC_MSG_RESULT([no])])
 
 ## Check if llvm::LoopInfo::markAsRemoved exists
 AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
