@@ -60,7 +60,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, FsInfo &&FI,
+ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
 				     GenMCDriver *driver, const Config *userConf,
 				     std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
@@ -96,7 +96,7 @@ ExecutionEngine *Interpreter::create(Module *M, VariableInfo &&VI, FsInfo &&FI,
   }
 #endif
 
-  return new Interpreter(M, std::move(VI), std::move(FI), driver, userConf);
+  return new Interpreter(std::move(M), std::move(VI), std::move(FI), driver, userConf);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -418,7 +418,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize =
-		        TD.getTypeAllocSize(v.getType()->getElementType());
+		        getDataLayout().getTypeAllocSize(v.getType()->getElementType());
 
 		/* The allocation pool will point just after the static address
 		 * WARNING: This will not track the allocated space. Do that
@@ -492,7 +492,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 
 	unsigned int count = 0;
 	unsigned int intPtrSize = getTypeSize(intTyp->getPointerTo());
-	auto *SL = TD.getStructLayout(FI.inodeTyp);
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);
 	for (auto &fname : FI.nameToInodeAddr) {
 		auto *addr = (char *) FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
 		fname.second = addr;
@@ -657,40 +657,41 @@ void Interpreter::clearDeps(unsigned int tid)
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(Module *M, VariableInfo &&VI, FsInfo &&FI,
+Interpreter::Interpreter(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
 			 GenMCDriver *driver, const Config *userConf)
-#ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-  : ExecutionEngine(std::unique_ptr<Module>(M)),
-#else
-  : ExecutionEngine(M),
-#endif
-    TD(M), VI(std::move(VI)), FI(std::move(FI)), driver(driver) {
+  : ExecutionEngine(std::move(M)), VI(std::move(VI)), FI(std::move(FI)), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-  setDataLayout(&TD);
-#endif
+
   // Initialize the "backend"
   initializeExecutionEngine();
   initializeExternalFunctions();
   emitGlobals();
 
+  IL = new IntrinsicLowering(getDataLayout());
+
+  auto mod = Modules.back().get();
   varNames.grow(static_cast<int>(Storage::ST_StorageLast));
-  collectStaticAddresses(M);
+  collectStaticAddresses(mod);
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
 	  depTracker = LLVM_MAKE_UNIQUE<IMMDepTracker>();
 
   /* Set up the system error policy */
-  setupErrorPolicy(M, userConf);
+  setupErrorPolicy(mod, userConf);
 
   /* Also run a recovery routine if it is required to do so */
   checkPersistency = userConf->persevere;
-  recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
-  setupFsInfo(M, userConf);
+  recoveryRoutine = mod->getFunction("__VERIFIER_recovery_routine");
+  setupFsInfo(mod, userConf);
 
-  IL = new IntrinsicLowering(TD);
+  /* Setup the interpreter for the exploration */
+  auto mainFun = mod->getFunction(userConf->programEntryFun);
+  ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
+
+  auto main = createMainThread(mainFun);
+  threads.push_back(main);
 }
 
 Interpreter::~Interpreter() {

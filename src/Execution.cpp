@@ -138,7 +138,7 @@ GenericValue Interpreter::getLocInitVal(GenericValue *ptr, Type *typ)
 /* Returns the size (in bytes) for a given type */
 unsigned int Interpreter::getTypeSize(Type *typ) const
 {
-	return (size_t) TD.getTypeAllocSize(typ);
+	return (size_t) getDataLayout().getTypeAllocSize(typ);
 }
 
 void *Interpreter::getFileFromFd(int fd) const
@@ -193,31 +193,31 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 /* Fetching different fields of a file description (model @ include/unistd.h) */
 #define GET_FILE_OFFSET_ADDR(file)					\
 ({								        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.fileTyp);		\
         auto __off = (char *) file + SL->getElementOffset(4);		\
 	__off;								\
 })
 #define GET_FILE_POS_LOCK_ADDR(file)				\
 ({							        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);		\
+	auto *SL = getDataLayout().getStructLayout(FI.fileTyp);	\
 	auto __lock = (char *) file + SL->getElementOffset(3);	\
 	__lock;							\
 })
 #define GET_FILE_FLAGS_ADDR(file)					\
 ({								        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.fileTyp);		\
         auto __flags = (char *) file + SL->getElementOffset(2);		\
 	__flags;							\
 })
 #define GET_FILE_COUNT_ADDR(file)					\
 ({								        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.fileTyp);		\
         auto __count = (char *) file + SL->getElementOffset(1);		\
 	__count;							\
 })
 #define GET_FILE_INODE_ADDR(file)				\
 ({							        \
-	auto *SL = TD.getStructLayout(FI.fileTyp);		\
+	auto *SL = getDataLayout().getStructLayout(FI.fileTyp);	\
 	auto __inode = (char *) file + SL->getElementOffset(0); \
 	__inode;						\
 })
@@ -225,31 +225,31 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 /* Fetching different offsets of an inode */
 #define GET_INODE_DATA_ADDR(inode)				\
 ({							        \
-	auto *SL = TD.getStructLayout(FI.inodeTyp);		\
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);\
 	auto __data = (char *) inode + SL->getElementOffset(4);	\
 	__data;							\
 })
 #define GET_INODE_IDISKSIZE_ADDR(inode)					\
 ({							                \
-	auto *SL = TD.getStructLayout(FI.inodeTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);	\
 	auto __disksize = (char *) inode + SL->getElementOffset(3);	\
 	__disksize;							\
 })
 #define GET_INODE_ITRANSACTION_ADDR(inode)				\
 ({							                \
-	auto *SL = TD.getStructLayout(FI.inodeTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);	\
 	auto __trans = (char *) inode + SL->getElementOffset(2);	\
 	__trans;							\
 })
 #define GET_INODE_ISIZE_ADDR(inode)					\
 ({							                \
-	auto *SL = TD.getStructLayout(FI.inodeTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);	\
 	auto __isize = (char *) inode + SL->getElementOffset(1);	\
 	__isize;							\
 })
 #define GET_INODE_LOCK_ADDR(inode)					\
 ({								        \
-	auto *SL = TD.getStructLayout(FI.inodeTyp);			\
+	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);	\
 	auto __lock = (char *) inode + SL->getElementOffset(0);		\
 	__lock;								\
 })
@@ -1242,7 +1242,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   unsigned NumElements =
     getOperandValue(I.getOperand(0), SF).IntVal.getZExtValue();
 
-  unsigned TypeSize = (size_t)TD.getTypeAllocSize(Ty);
+  unsigned TypeSize = (size_t)getDataLayout().getTypeAllocSize(Ty);
 
   // Avoid malloc-ing zero bytes, use max()...
   unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
@@ -1284,7 +1284,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
 #else
     if (StructType *STy = dyn_cast<StructType>(*I)) {
 #endif
-      const StructLayout *SLO = TD.getStructLayout(STy);
+      const StructLayout *SLO = getDataLayout().getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
       unsigned Index = unsigned(CPU->getZExtValue());
@@ -1304,9 +1304,9 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
 #ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
-      Total += TD.getTypeAllocSize(I.getIndexedType()) * Idx;
+      Total += getDataLayout().getTypeAllocSize(I.getIndexedType()) * Idx;
 #else
-      Total += TD.getTypeAllocSize(cast<SequentialType>(*I)->getElementType()) * Idx;
+      Total += getDataLayout().getTypeAllocSize(cast<SequentialType>(*I)->getElementType()) * Idx;
 #endif
     }
   }
@@ -1974,7 +1974,7 @@ GenericValue Interpreter::executeIntToPtrInst(Value *SrcVal, Type *DstTy,
   GenericValue Dest, Src = getOperandValue(SrcVal, SF);
   assert(DstTy->isPointerTy() && "Invalid PtrToInt instruction");
 
-  uint32_t PtrSize = TD.getPointerSizeInBits();
+  uint32_t PtrSize = getDataLayout().getPointerSizeInBits();
   if (PtrSize != Src.IntVal.getBitWidth())
     Src.IntVal = Src.IntVal.zextOrTrunc(PtrSize);
 
@@ -1993,7 +1993,7 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
   if (isa<VectorType>(SrcTy) || isa<VectorType>(DstTy)) {
     // vector src bitcast to vector dst or vector src bitcast to scalar dst or
     // scalar src bitcast to vector dst
-    bool isLittleEndian = TD.isLittleEndian();
+    bool isLittleEndian = getDataLayout().isLittleEndian();
     GenericValue TempDst, TempSrc, SrcVec;
     const Type *SrcElemTy;
     const Type *DstElemTy;
