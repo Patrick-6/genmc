@@ -63,12 +63,10 @@ public:
 						  GlobalRelation >;
 
 	/* Constructor */
-	Calculator(ExecutionGraph &g) : execGraph(g) {}
+	Calculator(ExecutionGraph *g) : execGraph(g) {}
 
-	virtual ~Calculator() {}
-
-	ExecutionGraph &getGraph() { return execGraph; }
-	ExecutionGraph &getGraph() const { return execGraph; }
+	ExecutionGraph &getGraph() { return *execGraph; }
+	ExecutionGraph &getGraph() const { return *execGraph; }
 
 	/* Should perform the necessary initializations for the calculation */
 	virtual void initCalc() = 0;
@@ -86,9 +84,17 @@ public:
 		      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 		      const std::vector<std::pair<Event, Event> > &status) = 0;
 
+	virtual Calculator *clone() const = 0;
+
+	virtual ~Calculator() {}
+
+protected:
+	friend class ExecutionGraph;
+	void setGraph(ExecutionGraph *g) { execGraph = g; }
+
 private:
 	/* A reference to the graph managing object */
-	ExecutionGraph &execGraph;
+	ExecutionGraph *execGraph;
 };
 
 #endif /* __CALCULATOR_HPP__ */

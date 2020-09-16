@@ -39,7 +39,7 @@ class WBCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	WBCoherenceCalculator(ExecutionGraph &m, bool ooo)
+	WBCoherenceCalculator(ExecutionGraph *m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
 	/* Track coherence at location addr */
@@ -112,6 +112,8 @@ public:
 
 	/* Will remove stores not in preds */
 	void removeAfter(const VectorClock &preds) override;
+
+	WBCoherenceCalculator *clone() const override { return new WBCoherenceCalculator(*this); }
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_WritesBefore;

@@ -32,7 +32,7 @@ class LBCalculatorLAPOR : public Calculator {
 
 public:
 	/* Default constructor */
-	LBCalculatorLAPOR(ExecutionGraph &g) : Calculator(g) {}
+	LBCalculatorLAPOR(ExecutionGraph *g) : Calculator(g) {}
 
 	/* Adds a lock to the maintained list */
 	void addLockToList(const llvm::GenericValue *addr, const Event lock);
@@ -70,6 +70,8 @@ public:
 	void restorePrefix(const ReadLabel *rLab,
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
+
+	LBCalculatorLAPOR *clone() const override { return new LBCalculatorLAPOR(*this); }
 
 private:
 	/* A per-location list of all locks currently present in the graph */

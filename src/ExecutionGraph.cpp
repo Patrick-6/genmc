@@ -27,7 +27,7 @@
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
- ** Class Constructors
+ ** Class constructors/destructors
  ***********************************************************/
 
 ExecutionGraph::ExecutionGraph() : timestamp(1)
@@ -46,6 +46,44 @@ ExecutionGraph::ExecutionGraph() : timestamp(1)
 	relationIndex[RelationId::hb] = 0;
 	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
 	return;
+}
+
+ExecutionGraph::ExecutionGraph(const ExecutionGraph &og)
+	: timestamp(og.timestamp), partialConsCalculators(og.partialConsCalculators),
+	  globalRelations(og.globalRelations), globalRelationsCache(og.globalRelationsCache),
+	  perLocRelations(og.perLocRelations), perLocRelationsCache(og.perLocRelationsCache),
+	  calculatorIndex(og.calculatorIndex), relationIndex(og.relationIndex),
+	  recoveryTID(og.recoveryTID)
+{
+	/* Copy the events */
+	events.reserve(og.events.size());
+	for (auto i = 0u; i < events.size(); i++) {
+		events[i].reserve(og.events[i].size());
+		std::transform(
+			std::begin(og.events[i]),
+			std::end(og.events[i]),
+			std::back_inserter(events[i]),
+			[](const std::unique_ptr<EventLabel>& lab) {
+				BUG_ON(!lab);
+				return std::unique_ptr<EventLabel>(lab->clone());
+			});
+	}
+
+	/* Copy the calculators */
+	consistencyCalculators.reserve(og.consistencyCalculators.size());
+	std::transform(
+		std::begin(og.consistencyCalculators),
+		std::end(og.consistencyCalculators),
+		std::back_inserter(consistencyCalculators),
+		[&](const std::unique_ptr<Calculator>& cc) {
+			BUG_ON(!cc);
+			auto ccCopy = std::unique_ptr<Calculator>(cc->clone());
+			ccCopy->setGraph(this);
+			return ccCopy;
+		});
+
+	/* Copy the persistency checker */
+	persChecker = std::unique_ptr<PersistencyChecker>(new PersistencyChecker(*og.persChecker));
 }
 
 

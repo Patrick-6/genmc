@@ -55,12 +55,12 @@ public:
 		switch (co) {
 		case CoherenceType::mo:
 			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<MOCoherenceCalculator>(*graph, tracksDeps),
+				LLVM_MAKE_UNIQUE<MOCoherenceCalculator>(graph.get(), tracksDeps),
 				ExecutionGraph::RelationId::co, true, true);
 			break;
 		case CoherenceType::wb:
 			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<WBCoherenceCalculator>(*graph, tracksDeps),
+				LLVM_MAKE_UNIQUE<WBCoherenceCalculator>(graph.get(), tracksDeps),
 				ExecutionGraph::RelationId::co, true, true);
 			break;
 		default:
@@ -73,7 +73,7 @@ public:
 	GraphBuilder &withEnabledLAPOR(bool lapor) {
 		if (lapor) {
 			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<LBCalculatorLAPOR>(*graph),
+				LLVM_MAKE_UNIQUE<LBCalculatorLAPOR>(graph.get()),
 				ExecutionGraph::RelationId::lb, true, true);
 		}
 		return *this;
@@ -82,7 +82,7 @@ public:
 	GraphBuilder &withEnabledPersevere(bool pers, unsigned int blockSize) {
 		if (pers) {
 			graph->addPersistencyChecker(
-				llvm::make_unique<PersistencyChecker>(*graph, blockSize));
+				llvm::make_unique<PersistencyChecker>(graph.get(), blockSize));
 		}
 		return *this;
 	}

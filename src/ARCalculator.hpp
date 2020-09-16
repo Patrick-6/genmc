@@ -30,7 +30,7 @@
 class ARCalculator : public Calculator {
 
 public:
-	ARCalculator(ExecutionGraph &g) : Calculator(g) {}
+	ARCalculator(ExecutionGraph *g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 
@@ -47,6 +47,8 @@ public:
 	void restorePrefix(const ReadLabel *rLab,
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
+
+	ARCalculator *clone() const override { return new ARCalculator(*this); }
 
 private:
 	bool addArConstraints();

@@ -29,7 +29,7 @@
 class PSCCalculator : public Calculator {
 
 public:
-	PSCCalculator(ExecutionGraph &g) : Calculator(g) {}
+	PSCCalculator(ExecutionGraph *g) : Calculator(g) {}
 
 	/* Overrided Calculator methods */
 
@@ -46,6 +46,8 @@ public:
 	void restorePrefix(const ReadLabel *rLab,
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
+
+	PSCCalculator *clone() const override { return new PSCCalculator(*this); }
 
 private:
 	/* Returns a list with all accesses that are accessed at least twice */

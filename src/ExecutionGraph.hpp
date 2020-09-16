@@ -69,8 +69,11 @@ protected:
 	/* Constructor should only be called from the builder */
 	friend class GraphBuilder;
 	ExecutionGraph();
+	ExecutionGraph(const ExecutionGraph &og);
 
 public:
+	virtual ExecutionGraph *clone() const { return new ExecutionGraph(*this); }
+
 	virtual ~ExecutionGraph() {};
 
 	/* Iterators */

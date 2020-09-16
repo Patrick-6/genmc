@@ -36,7 +36,7 @@ class PersistencyChecker {
 
 public:
 	/* Constructor */
-	PersistencyChecker(ExecutionGraph &g, unsigned int blockSize)
+	PersistencyChecker(ExecutionGraph *g, unsigned int blockSize)
 		: execGraph(g), blockSize(blockSize) {}
 
 	/* Helpers that calculate pb-before events for disk accesses */
@@ -50,8 +50,8 @@ public:
 
 private:
 	/* Return a reference to the execution graph */
-	ExecutionGraph &getGraph() { return execGraph; }
-	ExecutionGraph &getGraph() const { return execGraph; }
+	ExecutionGraph &getGraph() { return *execGraph; }
+	ExecutionGraph &getGraph() const { return *execGraph; }
 
 	/* Returns the block size */
 	unsigned int getBlockSize() const { return blockSize; }
@@ -73,7 +73,7 @@ private:
 	bool isRecFromReadValid(const DskReadLabel *rLab);
 
 	/* A reference to the execution graph */
-	ExecutionGraph &execGraph;
+	ExecutionGraph *execGraph;
 
 	/* Block size in bytes */
 	unsigned int blockSize;

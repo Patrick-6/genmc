@@ -39,7 +39,7 @@ class MOCoherenceCalculator : public CoherenceCalculator {
 public:
 
 	/* Constructor */
-	MOCoherenceCalculator(ExecutionGraph &g, bool ooo)
+	MOCoherenceCalculator(ExecutionGraph *g, bool ooo)
 		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
 	/* Track coherence at location addr */
@@ -111,6 +111,8 @@ public:
 
 	/* Stops tracking all stores not included in "preds" in the graph */
 	void removeAfter(const VectorClock &preds) override;
+
+	MOCoherenceCalculator *clone() const override { return new MOCoherenceCalculator(*this); }
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_ModificationOrder;

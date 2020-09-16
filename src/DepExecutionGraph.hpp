@@ -40,6 +40,8 @@ protected:
 	DepExecutionGraph() : ExecutionGraph() {}
 
 public:
+	DepExecutionGraph *clone() const override { return new DepExecutionGraph(*this); }
+
 	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
 
 	std::unique_ptr<VectorClock>

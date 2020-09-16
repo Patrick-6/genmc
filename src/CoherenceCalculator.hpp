@@ -52,7 +52,7 @@ public:
 protected:
 
 	/* Constructor */
-	CoherenceCalculator(CoherenceCalculatorKind k, ExecutionGraph &m, bool ooo)
+	CoherenceCalculator(CoherenceCalculatorKind k, ExecutionGraph *m, bool ooo)
 		: Calculator(m), kind(k), outOfOrder(ooo) {}
 
 	/* Returns whether the model we are operating under supports
