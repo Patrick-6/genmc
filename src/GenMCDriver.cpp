@@ -38,12 +38,11 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-			 std::vector<Library> &granted, std::vector<Library> &toVerify,
-			 clock_t start)
-	: userConf(std::move(conf)), grantedLibs(granted), toVerifyLibs(toVerify),
-	  isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0), start(start)
+GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
+	: userConf(std::move(conf)), isMootExecution(false), explored(0),
+	  exploredBlocked(0), duplicates(0), start(start)
 {
+	Parser parser;
 	std::string buf;
 	llvm::VariableInfo VI;
 	llvm::FsInfo FI;
@@ -72,6 +71,15 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	if (userConf->printRandomizeScheduleSeed)
 		llvm::dbgs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
+
+	/* If a specs file has been specified, parse it */
+	if (userConf->specsFile != "") {
+		auto res = parser.parseSpecs(userConf->specsFile);
+		std::copy_if(res.begin(), res.end(), std::back_inserter(grantedLibs),
+			     [](Library &l){ return l.getType() == Granted; });
+		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerifyLibs),
+			     [](Library &l){ return l.getType() == ToVerify; });
+	}
 
 	/*
 	 * Make sure we can resolve symbols in the program as well. We use 0

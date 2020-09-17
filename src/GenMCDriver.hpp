@@ -248,9 +248,7 @@ public:
 
 protected:
 
-	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::vector<Library> &granted, std::vector<Library> &toVerify,
-		    clock_t start);
+	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
