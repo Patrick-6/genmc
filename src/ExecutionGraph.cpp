@@ -56,8 +56,8 @@ ExecutionGraph::ExecutionGraph(const ExecutionGraph &og)
 	  recoveryTID(og.recoveryTID)
 {
 	/* Copy the events */
-	events.reserve(og.events.size());
-	for (auto i = 0u; i < events.size(); i++) {
+	events.resize(og.events.size());
+	for (auto i = 0u; i < og.events.size(); i++) {
 		events[i].reserve(og.events[i].size());
 		std::transform(
 			std::begin(og.events[i]),
@@ -83,7 +83,9 @@ ExecutionGraph::ExecutionGraph(const ExecutionGraph &og)
 		});
 
 	/* Copy the persistency checker */
-	persChecker = std::unique_ptr<PersistencyChecker>(new PersistencyChecker(*og.persChecker));
+	persChecker = (og.persChecker) ?
+		std::unique_ptr<PersistencyChecker>(new PersistencyChecker(*og.persChecker)) :
+		nullptr;
 }
 
 
