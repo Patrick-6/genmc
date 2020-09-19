@@ -32,7 +32,7 @@ namespace LLVMModule {
 	llvm::LLVMContext &getLLVMContext(void);
 	void destroyLLVMContext(void);
 	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &source);
-	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, bool spinAssume, int unroll);
-	void printLLVMModule(llvm::Module &mod, std::string &out);
+	bool transformLLVMModule(llvm::Module &mod, llvm::ModuleInfo &MI,
+				 const std::shared_ptr<const Config> &conf);
+	void printLLVMModule(llvm::Module &mod, const std::string &out);
 }

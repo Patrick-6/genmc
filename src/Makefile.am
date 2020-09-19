@@ -49,6 +49,7 @@ libgenmc_a_SOURCES = \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
+  ThreadPool.cpp ThreadPool.hpp \
   WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
   WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
@@ -59,4 +60,5 @@ libgenmc_a_SOURCES = \
 AM_CXXFLAGS = -Wno-unknown-warning-option -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"
 bin_PROGRAMS = genmc
 genmc_SOURCES = main.cpp
+genmc_LDFLAGS = -lpthread
 genmc_LDADD   = libgenmc.a -lclangCodeGen -lclangFrontend -lclangFrontendTool -lclangDriver -lclangSerialization -lclangParse -lclangSema -lclangStaticAnalyzerFrontend -lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore -lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend -lclangEdit -lclangAST -lclangASTMatchers -lclangLex -lclangBasic

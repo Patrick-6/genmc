@@ -88,9 +88,9 @@ int main(int argc, char **argv)
 	if (conf->inputFromBitcodeFile) {
 		auto sourceCode = parser.readFile(conf->inputFile);
 		auto mod = LLVMModule::getLLVMModule(conf->inputFile, sourceCode);
-		std::unique_ptr<GenMCDriver> driver =
-			DriverFactory::create(std::move(conf), std::move(mod), start);
-		driver->run();
+		// std::unique_ptr<GenMCDriver> driver =
+		// 	DriverFactory::create(std::move(conf), std::move(mod), start);
+		// driver->run();
 		/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 		return 0;
 	}
@@ -184,16 +184,29 @@ int main(int argc, char **argv)
 		return ECOMPILE;
 
 #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
-	std::unique_ptr<GenMCDriver> driver =
-		DriverFactory::create(std::move(conf), Act->takeModule(), start);
+	auto mod = Act->takeModule();
 #else
-	std::unique_ptr<GenMCDriver> driver =
-		DriverFactory::create(std::move(conf), std::unique_ptr<llvm::Module>(Act->takeModule()),
-				      start);
+	auto mod = std::unique_ptr<llvm::Module>(Act->takeModule());
 #endif
 
-	driver->run();
+	GenMCDriver::verify(std::move(conf), std::move(mod));
+
+// #ifdef LLVM_EXECUTIONENGINE_MODULE_UNIQUE_PTR
+// 	std::unique_ptr<GenMCDriver> driver =
+// 		DriverFactory::create(std::move(conf), Act->takeModule(), start);
+// #else
+// 	std::unique_ptr<GenMCDriver> driver =
+// 		DriverFactory::create(std::move(conf), std::unique_ptr<llvm::Module>(Act->takeModule()),
+// 				      start);
+// #endif
+
+// 	driver->run();
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
+
+	llvm::dbgs() << "--- VERIFICATION DONE\n";
+	llvm::dbgs() << "Total wall-clock time: "
+		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
+		     << "s\n";
 
 	return 0;
 }

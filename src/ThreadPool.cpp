@@ -1,0 +1,92 @@
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
+#include "ThreadPool.hpp"
+
+void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
+{
+	auto t = std::thread([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){
+		     while (true) {
+			     // std::this_thread::sleep_for(std::chrono::milliseconds((i == 0) ? 1000 : 0));
+			     auto state = popTask();
+
+			     /* If the state is empty, we should halt */
+			     if (!state)
+				     break;
+
+			     /* Prepare the driver and start the exploration */
+			     driver->setState(std::move(state));
+			     // llvm::dbgs() << "WORKER " << i << " picked up a task\n";
+			     activeThreads.fetch_add(1, std::memory_order_relaxed);
+			     driver->run();
+			     decRemainingTasks();
+			     activeThreads.fetch_sub(1, std::memory_order_relaxed);
+
+			     if (remainingTasks.load(std::memory_order_relaxed) == 0) {
+				     halt();
+				     break;
+			     }
+		     }
+		     /* Do some printing here and maybe move driver to the result */
+	}, i, std::move(d));
+
+	workers.push_back(std::move(t));
+	return;
+}
+
+void ThreadPool::submit(std::unique_ptr<TaskT> t)
+{
+	incRemainingTasks();
+	queue.push(std::move(t));
+	return;
+}
+
+std::unique_ptr<ThreadPool::TaskT> ThreadPool::tryPopPoolQueue()
+{
+	return queue.tryPop();
+}
+
+std::unique_ptr<ThreadPool::TaskT> ThreadPool::tryStealOtherQueue()
+{
+	/* TODO: Implement work-stealing */
+	return nullptr;
+}
+
+std::unique_ptr<ThreadPool::TaskT> ThreadPool::popTask()
+{
+	do {
+		if (auto t = tryPopPoolQueue())
+			return t;
+		else if (auto t = tryStealOtherQueue())
+			return t;
+		else
+			std::this_thread::yield();
+	} while (!shouldHalt.load(std::memory_order_relaxed));
+	return nullptr;
+}
+
+void ThreadPool::waitForTasks()
+{
+	while (remainingTasks.load(std::memory_order_relaxed) > 0 // ||
+	       // !shouldHalt.load(std::memory_order_relaxed)
+		)
+		std::this_thread::yield();
+	return;
+}

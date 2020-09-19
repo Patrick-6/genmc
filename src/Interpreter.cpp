@@ -60,9 +60,8 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
-				     GenMCDriver *driver, const Config *userConf,
-				     std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, const ModuleInfo &MI, GenMCDriver *driver,
+				     const Config *userConf, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
@@ -96,7 +95,7 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, VariableInfo &&V
   }
 #endif
 
-  return new Interpreter(std::move(M), std::move(VI), std::move(FI), driver, userConf);
+  return new Interpreter(std::move(M), MI, driver, userConf);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -253,15 +252,15 @@ int my_find_first_unset(const llvm::BitVector &bv)
 int Interpreter::getFreshFd()
 {
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(FI.fds);
+	int fd = my_find_first_unset(MI.fsInfo.fds);
 #else
-	int fd = FI.fds.find_first_unset();
+	int fd = MI.fsInfo.fds.find_first_unset();
 #endif
 
 	/* If no available descriptor found, grow fds and try again */
 	if (fd == -1) {
-		FI.fds.resize(2 * FI.fds.size() + 1);
-		FI.fdToFile.grow(FI.fds.size());
+		MI.fsInfo.fds.resize(2 * MI.fsInfo.fds.size() + 1);
+		MI.fsInfo.fdToFile.grow(MI.fsInfo.fds.size());
 		return getFreshFd();
 	}
 
@@ -272,12 +271,12 @@ int Interpreter::getFreshFd()
 
 void Interpreter::markFdAsUsed(int fd)
 {
-	FI.fds.set(fd);
+	MI.fsInfo.fds.set(fd);
 }
 
 void Interpreter::reclaimUnusedFd(int fd)
 {
-	FI.fds.reset(fd);
+	MI.fsInfo.fds.reset(fd);
 }
 
 void collectUnnamedGlobalAddress(Value *v, char *ptr, unsigned int typeSize,
@@ -335,7 +334,7 @@ void Interpreter::updateUserTypedVarName(char *ptr, unsigned int typeSize, Stora
 					 const std::string &internal)
 {
 	auto &vars = varNames[static_cast<int>(s)];
-	auto &vi = (s == Storage::ST_Automatic) ? VI.localInfo[v] : VI.globalInfo[v];
+	auto &vi = (s == Storage::ST_Automatic) ? MI.varInfo.localInfo[v] : MI.varInfo.globalInfo[v];
 
 	if (vi.empty()) {
 		/* If it is not a local value, then we should collect the address
@@ -362,7 +361,7 @@ void Interpreter::updateInternalVarName(char *ptr, unsigned int typeSize, Storag
 					const std::string &internal)
 {
 	auto &vars = varNames[static_cast<int>(s)];
-	auto &vi = VI.internalInfo[internal]; /* should be the name for internals */
+	auto &vi = MI.varInfo.internalInfo[internal]; /* should be the name for internals */
 
 	updateVarInfoHelper(ptr, typeSize, vars, vi, prefix);
 	return;
@@ -455,6 +454,8 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
+	auto &FI = MI.fsInfo;
+
 	/* Setup config options first */
 	FI.fds = llvm::BitVector(20);
 	FI.fdToFile.grow(FI.fds.size());
@@ -654,9 +655,9 @@ void Interpreter::clearDeps(unsigned int tid)
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
+Interpreter::Interpreter(std::unique_ptr<Module> M, const ModuleInfo &MI,
 			 GenMCDriver *driver, const Config *userConf)
-  : ExecutionEngine(std::move(M)), VI(std::move(VI)), FI(std::move(FI)), driver(driver) {
+  : ExecutionEngine(std::move(M)), MI(MI), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 

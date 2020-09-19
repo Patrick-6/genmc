@@ -23,8 +23,9 @@
 #include "ARCalculator.hpp"
 #include "PSCCalculator.hpp"
 
-IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: GenMCDriver(std::move(conf), std::move(mod), start)
+IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		     const llvm::ModuleInfo &MI, clock_t start)
+	: GenMCDriver(conf, std::move(mod), MI, start)
 {
 	auto &g = getGraph();
 

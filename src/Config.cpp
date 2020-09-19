@@ -24,7 +24,7 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 
-/* Command-line argument categories */
+/*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
 static llvm::cl::OptionCategory clPersistency("Persistency Options");
@@ -32,15 +32,16 @@ static llvm::cl::OptionCategory clTransformation("Transformation Options");
 static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 
-/* General syntax */
+/*** General syntax ***/
 
 llvm::cl::list<std::string>
 clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore, llvm::cl::desc("-- [CFLAGS]"));
+
 static llvm::cl::opt<std::string>
 clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input file>"));
 
 
-/* Exploration options */
+/*** Exploration options ***/
 
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
@@ -53,6 +54,7 @@ clModelType(llvm::cl::values(
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::init(ModelType::rc11),
 	    llvm::cl::desc("Choose model type:"));
+
 llvm::cl::opt<CoherenceType>
 clCoherenceType(llvm::cl::values(
 			clEnumValN(CoherenceType::mo, "mo", "Track modification order"),
@@ -64,16 +66,24 @@ clCoherenceType(llvm::cl::values(
 		llvm::cl::cat(clGeneral),
 		llvm::cl::init(CoherenceType::wb),
 		llvm::cl::desc("Choose coherence type:"));
+
+static llvm::cl::opt<unsigned int>
+clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
+	      llvm::cl::desc("Number of threads to be used in the exploration"));
+
 llvm::cl::opt<bool>
 clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
+
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
+
 static llvm::cl::opt<std::string>
 clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("file"),
 	       llvm::cl::cat(clGeneral),
-	       llvm::cl::desc("Dumps an error graph to a file (DOT format)"));
+	       llvm::cl::desc("Dump an error graph to a file (DOT format)"));
+
 static llvm::cl::opt<CheckConsType>
 clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::approx), llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Type of consistency checks"),
@@ -84,6 +94,7 @@ clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::approx),
 		    , NULL
 #endif
 		    ));
+
 static llvm::cl::opt<ProgramPoint>
 clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error), llvm::cl::cat(clGeneral),
 		 llvm::cl::desc("Points at which consistency is checked"),
@@ -95,19 +106,22 @@ clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error),
 		    , NULL
 #endif
 		    ));
+
 static llvm::cl::opt<std::string>
 clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("file"),
 		   llvm::cl::cat(clGeneral),
 		   llvm::cl::desc("Check for library correctness"));
+
 static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
+
 static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
 
-/* Persistency options */
+/*** Persistency options ***/
 
 static llvm::cl::opt<bool>
 clPersevere("persevere", llvm::cl::cat(clPersistency),
@@ -145,33 +159,38 @@ clDisableDelalloc("disable-delalloc", llvm::cl::cat(clPersistency),
 		  llvm::cl::desc("Do not model delayed allocation"));
 
 
-/* Transformation options */
+/*** Transformation options ***/
 
 static llvm::cl::opt<int>
 clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 	     llvm::cl::cat(clTransformation),
 	     llvm::cl::desc("Unroll loops N times"));
+
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
 
 
-/* Debugging options */
+/*** Debugging options ***/
 
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
 		       llvm::cl::value_desc("fun_name"), llvm::cl::cat(clDebugging),
 		       llvm::cl::desc("Function used as program entrypoint (default: main())"));
+
 static llvm::cl::opt<bool>
 clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
 		       llvm::cl::desc("Read LLVM bitcode directly from file"));
+
 static llvm::cl::opt<std::string>
 clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
 		llvm::cl::cat(clDebugging),
 		llvm::cl::desc("Output the transformed LLVM code to file"));
+
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step"));
+
 llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
 		 llvm::cl::desc("Choose the scheduling policy:"),
@@ -183,19 +202,24 @@ clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(S
 			 , NULL
 #endif
 			 ));
+
 static llvm::cl::opt<bool>
 clPrintRandomizeScheduleSeed("print-randomize-schedule-seed", llvm::cl::cat(clDebugging),
 			     llvm::cl::desc("Print the seed used for randomized scheduling"));
+
 static llvm::cl::opt<std::string>
 clRandomizeScheduleSeed("randomize-schedule-seed", llvm::cl::init(""),
 			llvm::cl::value_desc("seed"), llvm::cl::cat(clDebugging),
 			llvm::cl::desc("Seed to be used for randomized scheduling"));
+
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
+
 static llvm::cl::opt<bool>
 clPrettyPrintExecGraphs("pretty-print-exec-graphs", llvm::cl::cat(clDebugging),
 			llvm::cl::desc("Pretty-print explored execution graphs"));
+
 static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
@@ -241,6 +265,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	model = clModelType;
 	isDepTrackingModel = (model == ModelType::imm);
 	coherence = clCoherenceType;
+	threads = clThreads;
 	LAPOR = clLAPOR;
 	printErrorTrace = clPrintErrorTrace;
 	checkConsType = clCheckConsType;

@@ -36,7 +36,13 @@
 #include <random>
 #include <unordered_set>
 
+class ThreadPool;
+
 class GenMCDriver {
+
+protected:
+	typedef std::map<unsigned int, WorkSet> LocalQueueT;
+	typedef	std::map<unsigned int, RevisitSet> RevisitSetT;
 
 public:
 	/* Different error types that may occur.
@@ -58,6 +64,18 @@ public:
 		DE_InvalidRecoveryCall,
 		DE_InvalidTruncate,
 		DE_SystemError,
+	};
+
+	/* Represents the exploration state at any given point */
+	struct State {
+		std::unique_ptr<ExecutionGraph> graph;
+		RevisitSetT revset;
+
+		State() = delete;
+		State(const std::unique_ptr<ExecutionGraph> &g, const RevisitSetT &r)
+			: graph((g == nullptr) ? nullptr : g->clone()), revset(r) {}
+		State(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r)
+			: graph(std::move(g)), revset(std::move(r)) {}
 	};
 
 private:
@@ -119,9 +137,6 @@ public:
 
 	/**** Generic actions ***/
 
-	/* Starts the verification procedure */
-	void run();
-
 	/* Sets up the next thread to run in the interpreter */
 	bool scheduleNext();
 
@@ -137,6 +152,31 @@ public:
 	/* Pers: Functions that run at the start/end of the recovery routine */
 	void handleRecoveryStart();
 	void handleRecoveryEnd();
+
+	/* Starts the verification procedure for a driver */
+	void run();
+
+	/* Creates driver instance(s) and starts verification for the given module. */
+	static void verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+
+	/*** State-related ***/
+
+	/* Returns a copy of the current exploration state */
+	std::unique_ptr<State> copyCurrentState() const;
+
+	/* Returns the current exploration state, leaving the driver with an invalid one */
+	std::unique_ptr<State> releaseCurrentState();
+
+	/* Returns a copy of the state that will arise when item gets applied */
+	std::unique_ptr<State> getStateFromItem(const std::unique_ptr<WorkItem> &item);
+
+	/* Sets the state of the exploration to the specified one */
+	void setState(std::unique_ptr<GenMCDriver::State> state);
+
+	/* Gets/sets the thread pool this driver should account to */
+	ThreadPool *getThreadPool() { return pool; }
+	ThreadPool *getThreadPool() const { return pool; }
+	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/*** Instruction-related actions ***/
 
@@ -248,7 +288,8 @@ public:
 
 protected:
 
-	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
+	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		    const llvm::ModuleInfo &MI, clock_t start);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -678,11 +719,14 @@ private:
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 
+	/* The thread pool this driver may belong to */
+	ThreadPool *pool = nullptr;
+
 	/* The source code of the program under test */
 	std::string sourceCode;
 
 	/* User configuration */
-	std::unique_ptr<Config> userConf;
+	std::shared_ptr<const Config> userConf;
 
 	/* Specifications for libraries assumed correct */
 	std::vector<Library> grantedLibs;
@@ -697,10 +741,10 @@ private:
 	std::unique_ptr<ExecutionGraph> execGraph;
 
 	/* The worklist for backtracking. map[stamp->work set] */
-	std::map<unsigned int, WorkSet> workqueue;
+	LocalQueueT workqueue;
 
 	/* The revisit sets used during the exploration map[stamp->revisit set] */
-	std::map<unsigned int, RevisitSet> revisitSet;
+	RevisitSetT revisitSet;
 
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;

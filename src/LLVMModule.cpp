@@ -106,8 +106,8 @@ namespace LLVMModule {
 		return std::unique_ptr<llvm::Module>(mod);
 	}
 
-	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, bool spinAssume, int unroll)
+	bool transformLLVMModule(llvm::Module &mod, llvm::ModuleInfo &MI,
+				 const std::shared_ptr<const Config> &conf)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;
@@ -129,7 +129,7 @@ namespace LLVMModule {
 
 		OptPM.add(new DeclareAssumePass());
 		OptPM.add(new DefineLibcFunsPass());
-		OptPM.add(new MDataCollectionPass(VI, FI));
+		OptPM.add(new MDataCollectionPass(MI.varInfo, MI.fsInfo));
 		OptPM.add(new PromoteMemIntrinsicPass());
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
@@ -142,11 +142,11 @@ namespace LLVMModule {
 
 		modified = OptPM.run(mod);
 
-		if (spinAssume)
+		if (conf->spinAssume)
 			BndPM.add(new SpinAssumePass());
 		BndPM.add(new DeclareEndLoopPass());
-		if (unroll >= 0)
-			BndPM.add(new LoopUnrollPass(unroll));
+		if (conf->unroll >= 0)
+			BndPM.add(new LoopUnrollPass(conf->unroll));
 
 		modified |= BndPM.run(mod);
 		modified |= OptPM.run(mod);
@@ -155,7 +155,7 @@ namespace LLVMModule {
 		return modified;
 	}
 
-	void printLLVMModule(llvm::Module &mod, std::string &out)
+	void printLLVMModule(llvm::Module &mod, const std::string &out)
 	{
 		PassManager PM;
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR

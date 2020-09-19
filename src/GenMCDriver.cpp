@@ -26,6 +26,7 @@
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "Parser.hpp"
+#include "ThreadPool.hpp"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
@@ -38,25 +39,15 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: userConf(std::move(conf)), isMootExecution(false), explored(0),
-	  exploredBlocked(0), duplicates(0), start(start)
+GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			 const llvm::ModuleInfo &MI, clock_t start)
+	: userConf(conf), isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0), start(start)
 {
-	Parser parser;
 	std::string buf;
-	llvm::VariableInfo VI;
-	llvm::FsInfo FI;
-
-	LLVMModule::transformLLVMModule(*mod, VI, FI, userConf->spinAssume, userConf->unroll);
-	if (userConf->transformFile != "")
-		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), std::move(VI), std::move(FI),
-					  this, getConf(), &buf));
-
-
+		llvm::Interpreter::create(std::move(mod), MI, this, getConf(), &buf));
 
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
@@ -74,7 +65,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* If a specs file has been specified, parse it */
 	if (userConf->specsFile != "") {
-		auto res = parser.parseSpecs(userConf->specsFile);
+		auto res = Parser().parseSpecs(userConf->specsFile);
 		std::copy_if(res.begin(), res.end(), std::back_inserter(grantedLibs),
 			     [](Library &l){ return l.getType() == Granted; });
 		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerifyLibs),
@@ -443,7 +434,26 @@ void GenMCDriver::run()
 {
 	/* Explore all graphs and print the results */
 	explore();
-	printResults();
+	// printResults();
+	return;
+}
+
+void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+{
+	llvm::ModuleInfo MI;
+
+	/* First, prepare the module for verification */
+	// LLVMModule::transformLLVMModule(*mod, MI, conf);
+	// if (conf->transformFile != "")
+	// 	LLVMModule::printLLVMModule(*mod, conf->transformFile);
+
+	/* Then, fire up drivers */
+	ThreadPool tp(conf, mod, MI);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
+
+	tp.waitForTasks();
+
 	return;
 }
 
@@ -505,6 +515,31 @@ void GenMCDriver::restrictRevisitSet(const EventLabel *rLab)
 
 	for (auto &i : idxsToRemove)
 		revisitSet.erase(i);
+}
+
+std::unique_ptr<GenMCDriver::State> GenMCDriver::copyCurrentState() const
+{
+	return LLVM_MAKE_UNIQUE<GenMCDriver::State>(
+		std::unique_ptr<ExecutionGraph>(execGraph->clone()), revisitSet);
+}
+
+std::unique_ptr<GenMCDriver::State> GenMCDriver::releaseCurrentState()
+{
+	return LLVM_MAKE_UNIQUE<GenMCDriver::State>(
+		std::move(execGraph), std::move(revisitSet));
+}
+
+std::unique_ptr<GenMCDriver::State> GenMCDriver::getStateFromItem(const std::unique_ptr<WorkItem> &item)
+{
+	BUG();
+	return nullptr;
+}
+
+void GenMCDriver::setState(std::unique_ptr<GenMCDriver::State> state)
+{
+	execGraph = std::move(state->graph);
+	revisitSet = std::move(state->revset);
+	return;
 }
 
 void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
@@ -1842,6 +1877,17 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	/* Special handling for library revs */
 	if (auto *fi = llvm::dyn_cast<FRevLibItem>(ri))
 		return calcLibRevisits(lab);
+
+	/* If there are idle workers in the thread pool,
+	 * try submiting the job instead */
+	auto *tp = getThreadPool();
+	if (tp && tp->getNumActive() < tp->size()) {
+		// llvm::dbgs() << "\ttrying to submit a job\n";
+		auto st = copyCurrentState();
+		// llvm::dbgs() << "--- NEW STATE GRAPH:\n" << *st->graph << "\n";
+		tp->submit(std::move(st));
+		return false;
+	}
 
 	return true;
 }
