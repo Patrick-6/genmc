@@ -127,11 +127,14 @@ enum
 /* 			   const pthread_attr_t *__restrict __attr, */
 /* 			   void *(*__start_routine) (void *), */
 /* 			   void *__restrict __arg); */
-extern int __VERIFIER_thread_create (pthread_t *__restrict __newthread,
-				     const pthread_attr_t *__restrict __attr,
+extern int __VERIFIER_thread_create (const pthread_attr_t *__restrict __attr,
 				     void *(*__start_routine) (void *),
 				     void *__restrict __arg);
-#define pthread_create __VERIFIER_thread_create
+#define pthread_create(newthread, attr, start_routine, arg) \
+({									\
+	*(newthread) = __VERIFIER_thread_create(attr, start_routine, arg); \
+	0;								\
+})
 
 /* Terminate calling thread.  */
 /* extern void pthread_exit (void *__retval) __attribute__ ((__noreturn__)); */
