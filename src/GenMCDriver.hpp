@@ -658,7 +658,7 @@ private:
 
 	/* Creates a label for the start of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadStartLabel>
-	createStartLabel(int tid, int index, Event tc) = 0;
+	createStartLabel(int tid, int index, Event tc, int symm = -1) = 0;
 
 	/* Creates a label for the end of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadFinishLabel>

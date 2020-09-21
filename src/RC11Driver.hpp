@@ -163,7 +163,7 @@ public:
 
 	/* Creates a label for the start of a thread to be added to the graph */
 	std::unique_ptr<ThreadStartLabel>
-	createStartLabel(int tid, int index, Event tc) override;
+	createStartLabel(int tid, int index, Event tc, int symm = -1) override;
 
 	/* Creates a label for the end of a thread to be added to the graph */
 	std::unique_ptr<ThreadFinishLabel>

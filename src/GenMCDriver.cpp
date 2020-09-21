@@ -222,7 +222,8 @@ bool GenMCDriver::scheduleNextRandom()
 
 		/* SR: Symmetric threads have to always be executed in order */
 		if (getConf()->symmetryReduction) {
-			auto symm = EE->getThrById(i).symmetricTid;
+			auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(i, 0)));
+			auto symm = bLab->getSymmetricTid();
 			if (symm != -1 && isSchedulable(symm) &&
 			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
 				EE->currentThread = symm;
@@ -1164,7 +1165,7 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 	auto &g = getGraph();
 	auto *EE = getEE();
 	auto pos = EE->getCurrentPosition();
-	auto t = EE->getThrById(pos.thread).symmetricTid;
+	auto t = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(pos.thread, 0)))->getSymmetricTid();
 
 	/* If there is no symmetric thread, exit */
 	if (t == -1)
@@ -1272,7 +1273,7 @@ int GenMCDriver::getSymmetricTidSR(int thread, Event parent, llvm::Function *thr
 	auto *EE = getEE();
 
 	for (auto i = g.getNumThreads() - 1; i > 0; i--)
-		if (isSymmetricToSR(i, thread, parent, threadFun, threadArg))
+		if (i != thread && isSymmetricToSR(i, thread, parent, threadFun, threadArg))
 			return i;
 	return -1;
 }
@@ -1314,16 +1315,13 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 		/* If the thread does not exist in the graph, make an entry for it */
 		EE->threads.push_back(thr);
 		getGraph().addNewThread();
-		auto tsLab = createStartLabel(cid, 0, cur);
+		auto symm = getConf()->symmetryReduction ? getSymmetricTidSR(cid, cur, calledFun, arg) : -1;
+		auto tsLab = createStartLabel(cid, 0, cur, symm);
 		auto *ss = getGraph().addOtherLabelToGraph(std::move(tsLab));
 	} else {
 		/* Otherwise, just push the execution context to the interpreter */
 		EE->threads[cid] = thr;
 	}
-
-	/* SR: Mark threads this thread is symmetric to */
-	if (getConf()->symmetryReduction)
-		EE->threads[cid].symmetricTid = getSymmetricTidSR(cid, cur, calledFun, arg);
 
 	return cid;
 }
@@ -1800,13 +1798,15 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
+	const auto &g = getGraph();
+
 	if (getConf()->symmetryReduction) {
-		auto tid = getEE()->threads[sLab->getThread()].symmetricTid;
+		auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(sLab->getThread(), 0)));
+		auto tid = bLab->getSymmetricTid();
 		if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
 			return true;
 	}
 
-	const auto &g = getGraph();
 	std::vector<Event> loads = getRevisitLoads(sLab);
 	std::vector<Event> pendingRMWs = g.getPendingRMWs(sLab); /* empty or singleton */
 

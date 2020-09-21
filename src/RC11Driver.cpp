@@ -518,13 +518,13 @@ RC11Driver::createTJoinLabel(int tid, int index, int cid)
 }
 
 std::unique_ptr<ThreadStartLabel>
-RC11Driver::createStartLabel(int tid, int index, Event tc)
+RC11Driver::createStartLabel(int tid, int index, Event tc, int symm /* = -1 */)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<ThreadStartLabel>(g.nextStamp(),
-						       llvm::AtomicOrdering::Acquire,
-						       pos, tc);
+						      llvm::AtomicOrdering::Acquire,
+						      pos, tc, symm);
 
 	/* Thread start has Acquire semantics */
 	View hb(g.getHbBefore(tc));
