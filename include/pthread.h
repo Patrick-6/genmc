@@ -18,6 +18,11 @@
 #ifndef _PTHREAD_H
 #define _PTHREAD_H	1
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 //#include <features.h>
 //#include <endian.h>
 #include <sched.h>
@@ -561,5 +566,8 @@ extern int pthread_atfork (void (*__prepare) (void),
 			   void (*__parent) (void),
 			   void (*__child) (void)) ;
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* pthread.h */

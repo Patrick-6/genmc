@@ -94,7 +94,8 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 
 		/* It can be dictElems.size() < ST->getNumElements(), e.g., for va_arg */
 		auto i = 0u;
-		for (auto it = ST->element_begin(); i < dictElems.size(); ++it, ++i) {
+		auto minSize = std::min(dictElems.size(), ST->getNumElements());
+		for (auto it = ST->element_begin(); i < minSize; ++it, ++i) {
 			unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, *it);
 			auto didt = dictElems[i];
 			if (auto *dit = dyn_cast<DIDerivedType>(didt)) {
