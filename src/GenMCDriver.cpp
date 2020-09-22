@@ -836,7 +836,8 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 
 void GenMCDriver::checkForUninitializedMem(const ReadLabel *rLab)
 {
-	if (getEE()->isDynamic(rLab->getAddr()) && rLab->getRf().isInitializer())
+	auto *EE = getEE();
+	if (EE->isDynamic(rLab->getAddr()) && rLab->getRf().isInitializer() && !EE->isInternal(rLab->getAddr()))
 		visitError(DE_UninitializedMem);
 	return;
 }
