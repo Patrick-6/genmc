@@ -158,10 +158,10 @@ Thread Interpreter::createMainThread(llvm::Function *F)
 }
 
 /* Creates an entry for another thread */
-Thread Interpreter::createNewThread(llvm::Function *F, int tid, int pid,
-				    const llvm::ExecutionContext &SF)
+Thread Interpreter::createNewThread(llvm::Function *F, const llvm::GenericValue &arg,
+				    int tid, int pid, const llvm::ExecutionContext &SF)
 {
-	Thread thr(F, tid, pid, SF);
+	Thread thr(F, arg, tid, pid, SF);
 	thr.ECStack.push_back(SF);
 	thr.tls = threadLocalVars;
 	return thr;

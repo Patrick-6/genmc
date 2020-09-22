@@ -306,6 +306,7 @@ public:
 	int id;
 	int parentId;
 	llvm::Function *threadFun;
+	llvm::GenericValue threadArg;
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
@@ -336,9 +337,10 @@ protected:
 		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
 		  blocked(BT_NotBlocked), rng(seed) {}
 
-	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
-		: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
-		  blocked(BT_NotBlocked), rng(seed) {}
+	Thread(llvm::Function *F, const llvm::GenericValue &arg,
+	       int id, int pid, const llvm::ExecutionContext &SF)
+		: id(id), parentId(pid), threadFun(F), threadArg(arg),
+		  initSF(SF), globalInstructions(0), blocked(BT_NotBlocked), rng(seed) {}
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
@@ -450,8 +452,8 @@ public:
   Thread createMainThread(llvm::Function *F);
 
   /* Creates a new thread, but does _not_ add it to the thread list */
-  Thread createNewThread(llvm::Function *F, int tid, int pid,
-			 const llvm::ExecutionContext &SF);
+  Thread createNewThread(llvm::Function *F, const llvm::GenericValue &arg,
+			 int tid, int pid, const llvm::ExecutionContext &SF);
 
   /* Pers: Creates a thread for the recovery routine.
    * It does _not_ add it to the thread list */

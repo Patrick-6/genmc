@@ -41,6 +41,7 @@ public:
 	bool isDepTrackingModel;
 	CoherenceType coherence;
 	bool LAPOR;
+	bool symmetryReduction;
 	CheckConsType checkConsType;
 	ProgramPoint checkConsPoint;
 	bool checkLiveness;

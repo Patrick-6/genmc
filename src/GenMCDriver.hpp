@@ -219,7 +219,7 @@ public:
 
 	/* Returns the TID of the newly created thread */
 	int
-	visitThreadCreate(llvm::Function *F, const llvm::ExecutionContext &SF);
+	visitThreadCreate(llvm::Function *F, const llvm::GenericValue &arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
 	llvm::GenericValue
@@ -333,6 +333,10 @@ private:
 
 	/* Deprioritizes the current thread */
 	void deprioritizeThread();
+
+	/* Returns true if THREAD is schedulable (i.e., there are more
+	 * instructions to run and it is not blocked) */
+	bool isSchedulable(int thread) const;
 
 	/* Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
@@ -489,6 +493,21 @@ private:
 	void visitLockLAPOR(const llvm::GenericValue *addr);
 	void visitUnlockLAPOR(const llvm::GenericValue *addr);
 
+	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
+	bool isSymmetricToSR(int candidate, int thread, Event parent,
+			     llvm::Function *threadFun, const llvm::GenericValue &threadArg) const;
+
+	/* SR: Returns the (greatest) ID of a thread that is symmetric to THREAD */
+	int getSymmetricTidSR(int thread, Event parent, llvm::Function *threadFun,
+			      const llvm::GenericValue &threadArg) const;
+
+	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
+	bool sharePrefixSR(int tid, Event pos) const;
+
+	/* SR: Filter stores that will lead to a symmetric execution */
+	void filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
+				     std::vector<Event> &stores) const;
+
 
 	/*** Output-related ***/
 
@@ -639,7 +658,7 @@ private:
 
 	/* Creates a label for the start of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadStartLabel>
-	createStartLabel(int tid, int index, Event tc) = 0;
+	createStartLabel(int tid, int index, Event tc, int symm = -1) = 0;
 
 	/* Creates a label for the end of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadFinishLabel>

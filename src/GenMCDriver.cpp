@@ -124,6 +124,13 @@ void GenMCDriver::prioritizeThreads()
 	return;
 }
 
+bool GenMCDriver::isSchedulable(int thread) const
+{
+	auto &thr = getEE()->getThrById(thread);
+	return !thr.ECStack.empty() && !thr.isBlocked() &&
+		!llvm::isa<ThreadFinishLabel>(getGraph().getLastThreadLabel(thread));
+}
+
 bool GenMCDriver::schedulePrioritized()
 {
 	/* Return false if no thread is prioritized */
@@ -133,11 +140,8 @@ bool GenMCDriver::schedulePrioritized()
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	for (auto &e : threadPrios) {
-		auto &thr = EE->getThrById(e.thread);
-
-		/* Make sure that the thread is not blocked or done */
-		if (thr.ECStack.empty() || thr.isBlocked() ||
-		    llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(e.thread)))
+		/* Skip unschedulable threads */
+		if (!isSchedulable(e.thread))
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
@@ -153,15 +157,8 @@ bool GenMCDriver::scheduleNextLTR()
 	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-
-		if (thr.ECStack.empty() || thr.isBlocked())
+		if (!isSchedulable(i))
 			continue;
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
-		}
 
 		/* Found a not-yet-complete thread; schedule it */
 		EE->currentThread = i;
@@ -190,19 +187,14 @@ bool GenMCDriver::scheduleNextWF()
 	 * Keep an LTR fallback option in case this fails */
 	long fallback = -1;
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
+		if (!isSchedulable(i))
 			continue;
-		}
-		if (!thr.ECStack.empty() && !thr.isBlocked()) {
-			if (fallback == -1)
-				fallback = i;
-			if (!isNextThreadInstLoad(i)) {
-				EE->currentThread = i;
-				return true;
-			}
+
+		if (fallback == -1)
+			fallback = i;
+		if (!isNextThreadInstLoad(i)) {
+			EE->currentThread = i;
+			return true;
 		}
 	}
 
@@ -224,14 +216,19 @@ bool GenMCDriver::scheduleNextRandom()
 	auto random = dist(rng);
 	for (auto j = 0u; j < g.getNumThreads(); j++) {
 		auto i = (j + random) % g.getNumThreads();
-		auto &thr = EE->getThrById(i);
 
-		if (thr.ECStack.empty() || thr.isBlocked())
+		if (!isSchedulable(i))
 			continue;
 
-		if (llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(i))) {
-			thr.ECStack.clear();
-			continue;
+		/* SR: Symmetric threads have to always be executed in order */
+		if (getConf()->symmetryReduction) {
+			auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(i, 0)));
+			auto symm = bLab->getSymmetricTid();
+			if (symm != -1 && isSchedulable(symm) &&
+			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
+				EE->currentThread = symm;
+				return true;
+			}
 		}
 
 		/* Found a not-yet-complete thread; schedule it */
@@ -1141,6 +1138,58 @@ GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
 	return valid;
 }
 
+bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
+{
+	auto &g = getGraph();
+
+	if (tid < 0 || tid >= g.getNumThreads())
+		return false;
+	if (g.getThreadSize(tid) <= pos.index)
+		return false;
+	for (auto j = 1u; j < pos.index; j++) {
+		auto *labA = g.getEventLabel(Event(tid, j));
+		auto *labB = g.getEventLabel(Event(pos.thread, j));
+
+		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
+			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
+			if (!rLabB || rLabA->getRf() != rLabB->getRf())
+				return false;
+		}
+	}
+	return true;
+}
+
+void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
+					  std::vector<Event> &stores) const
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	auto pos = EE->getCurrentPosition();
+	auto t = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(pos.thread, 0)))->getSymmetricTid();
+
+	/* If there is no symmetric thread, exit */
+	if (t == -1)
+		return;
+
+	/* Check whether the po-prefixes of the two threads match */
+	if (!sharePrefixSR(t, pos))
+		return;
+
+	/* Get the symmetric event and make sure it matches as well */
+	auto *lab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(t, pos.index)));
+	if (!lab || lab->getAddr() != addr || lab->getType() != typ)
+		return;
+
+	/* Remove stores that will be explored symmetrically */
+	auto rfStamp = g.getEventLabel(lab->getRf())->getStamp();
+	auto st = (g.isRMWLoad(lab)) ? rfStamp + 1 : rfStamp;
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event s) {
+				    auto *sLab = g.getEventLabel(s);
+				    return sLab->getStamp() < st;
+		     }), stores.end());
+	return;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1193,7 +1242,44 @@ llvm::GenericValue GenMCDriver::visitThreadSelf(llvm::Type *typ)
 	return result;
 }
 
-int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::ExecutionContext &SF)
+bool GenMCDriver::isSymmetricToSR(int candidate, int thread, Event parent,
+				  llvm::Function *threadFun, const llvm::GenericValue &threadArg) const
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+	auto &cThr = EE->getThrById(candidate);
+	auto cParent = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(candidate, 0)))->getParentCreate();
+
+	/* First, check that the two threads are actually similar */
+	if (cThr.id == thread || cThr.threadFun != threadFun ||
+	    cThr.threadArg.PointerVal != threadArg.PointerVal ||
+	    cParent.thread != parent.thread)
+		return false;
+
+	/* Then make sure that there is no memory access in between the spawn events */
+	auto mm = std::minmax(parent.index, cParent.index);
+	auto minI = mm.first;
+	auto maxI = mm.second;
+	for (auto j = minI; j < maxI; j++)
+		if (llvm::isa<MemAccessLabel>(g.getEventLabel(Event(parent.thread, j))))
+			return false;
+	return true;
+}
+
+int GenMCDriver::getSymmetricTidSR(int thread, Event parent, llvm::Function *threadFun,
+				   const llvm::GenericValue &threadArg) const
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	for (auto i = g.getNumThreads() - 1; i > 0; i--)
+		if (i != thread && isSymmetricToSR(i, thread, parent, threadFun, threadArg))
+			return i;
+	return -1;
+}
+
+int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::GenericValue &arg,
+				   const llvm::ExecutionContext &SF)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
@@ -1223,18 +1309,20 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Execut
 	getGraph().addOtherLabelToGraph(std::move(tcLab));
 
 	/* Prepare the execution context for the new thread */
-	llvm::Thread thr = EE->createNewThread(calledFun, cid, cur.thread, SF);
+	llvm::Thread thr = EE->createNewThread(calledFun, arg, cid, cur.thread, SF);
 
 	if (cid == (int) g.getNumThreads()) {
 		/* If the thread does not exist in the graph, make an entry for it */
 		EE->threads.push_back(thr);
 		getGraph().addNewThread();
-		auto tsLab = createStartLabel(cid, 0, cur);
+		auto symm = getConf()->symmetryReduction ? getSymmetricTidSR(cid, cur, calledFun, arg) : -1;
+		auto tsLab = createStartLabel(cid, 0, cur, symm);
 		auto *ss = getGraph().addOtherLabelToGraph(std::move(tsLab));
 	} else {
 		/* Otherwise, just push the execution context to the interpreter */
 		EE->threads[cid] = thr;
 	}
+
 	return cid;
 }
 
@@ -1387,6 +1475,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto stores = getStoresToLoc(addr);
 	BUG_ON(stores.empty());
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
+	if (getConf()->symmetryReduction)
+		filterSymmetricStoresSR(addr, typ, validStores);
 
 	/* ... add an appropriate label with a random rf */
 	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
@@ -1709,6 +1799,14 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	const auto &g = getGraph();
+
+	if (getConf()->symmetryReduction) {
+		auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(sLab->getThread(), 0)));
+		auto tid = bLab->getSymmetricTid();
+		if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
+			return true;
+	}
+
 	std::vector<Event> loads = getRevisitLoads(sLab);
 	std::vector<Event> pendingRMWs = g.getPendingRMWs(sLab); /* empty or singleton */
 

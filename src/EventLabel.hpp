@@ -1074,11 +1074,14 @@ protected:
 
 public:
 	ThreadStartLabel(unsigned int st, llvm::AtomicOrdering ord,
-			 Event pos, Event pc)
-		: EventLabel(EL_ThreadStart, st, ord, pos), parentCreate(pc) {}
+			 Event pos, Event pc, int symm = -1)
+		: EventLabel(EL_ThreadStart, st, ord, pos), parentCreate(pc), symmetricTid(symm) {}
 
 	/* Returns the position of the corresponding create operation */
 	Event getParentCreate() const { return parentCreate; }
+
+	/* SR: Returns the id of a symmetric thread, or -1 if no symmetric thread exists  */
+	int getSymmetricTid() const { return symmetricTid; }
 
 	ThreadStartLabel *clone() const override {
 		return new ThreadStartLabel(*this);
@@ -1090,6 +1093,9 @@ public:
 private:
 	/* The position of the corresponding create opeartion */
 	Event parentCreate;
+
+	/* SR: The tid a symmetric thread (currently: minimum among all) */
+	int symmetricTid = -1;
 };
 
 
