@@ -53,9 +53,9 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
-	auto seedVal = (userConf->randomizeScheduleSeed != "") ?
-		(MyRNG::result_type) stoull(userConf->randomizeScheduleSeed) : rd();
-	if (userConf->printRandomizeScheduleSeed)
+	auto seedVal = (userConf->randomScheduleSeed != "") ?
+		(MyRNG::result_type) stoull(userConf->randomScheduleSeed) : rd();
+	if (userConf->printRandomScheduleSeed)
 		llvm::dbgs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
 
@@ -834,6 +834,14 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 	return;
 }
 
+void GenMCDriver::checkForUninitializedMem(const ReadLabel *rLab)
+{
+	auto *EE = getEE();
+	if (EE->isDynamic(rLab->getAddr()) && rLab->getRf().isInitializer() && !EE->isInternal(rLab->getAddr()))
+		visitError(DE_UninitializedMem);
+	return;
+}
+
 /*
  * This function is called to check for data races when a new event is added.
  * When a race is detected visit error is called, which will report an error
@@ -1485,9 +1493,10 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	if (!ensureConsistentRf(lab, validStores))
 		return GET_ZERO_GV(typ);
 
-	/* Check for races */
+	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces();
 	checkForMemoryRaces(lab->getAddr());
+	checkForUninitializedMem(lab);
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
@@ -1966,6 +1975,8 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
 
+	checkForUninitializedMem(rLab);
+
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))
 		return calcRevisits(sLab);
@@ -2415,7 +2426,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	case GenMCDriver::DE_DoubleFree:
 		return s << "Double-free error";
 	case GenMCDriver::DE_UninitializedMem:
-		return s << "Uninitialized memory location";
+		return s << "Attempt to read from uninitialized memory";
 	case GenMCDriver::DE_AccessNonMalloc:
 		return s << "Attempt to access non-allocated memory";
 	case GenMCDriver::DE_AccessFreed:

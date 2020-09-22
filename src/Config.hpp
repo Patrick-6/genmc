@@ -69,13 +69,17 @@ public:
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
 	SchedulePolicy schedulePolicy;
-	std::string randomizeScheduleSeed;
-	bool printRandomizeScheduleSeed;
+	std::string randomScheduleSeed;
+	bool printRandomScheduleSeed;
 	std::string transformFile;
 	std::string programEntryFun;
 	bool validateExecGraphs;
 
 	void getConfigOptions(int argc, char **argv);
+
+private:
+	void checkConfigOptions() const;
+	void saveConfigOptions();
 };
 
 #endif /* __CONFIG_HPP__ */
