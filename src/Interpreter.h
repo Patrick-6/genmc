@@ -287,6 +287,18 @@ struct ExecutionContext {
 class Thread {
 
 public:
+	/* Different ways a thread can be blocked */
+	enum BlockageType {
+		BT_NotBlocked,
+		BT_ThreadJoin,
+		BT_Spinloop,
+		BT_LockAcq,
+		BT_LockRel,
+		BT_Cons,
+		BT_Error,
+		BT_User,
+	};
+
 	using MyRNG  = std::minstd_rand;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 	static constexpr int seed = 1995;
@@ -299,12 +311,14 @@ public:
 	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	unsigned int globalInstSnap;
-	bool isBlocked;
+	BlockageType blocked;
 	MyRNG rng;
 	std::vector<std::pair<int, std::string> > prefixLOC;
 
-	void block() { isBlocked = true; };
-	void unblock() { isBlocked = false; };
+	void block(BlockageType t) { blocked = t; }
+	void unblock() { blocked = BT_NotBlocked; }
+	bool isBlocked() const { return blocked != BT_NotBlocked; }
+	BlockageType getBlockageType() const { return blocked; }
 
 	/* Useful for one-to-many instr->events correspondence */
 	void takeSnapshot()   {
@@ -320,11 +334,11 @@ protected:
 
 	Thread(llvm::Function *F, int id)
 		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
-		  isBlocked(false), rng(seed) {}
+		  blocked(BT_NotBlocked), rng(seed) {}
 
 	Thread(llvm::Function *F, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), initSF(SF), globalInstructions(0),
-		  isBlocked(false), rng(seed) {}
+		  blocked(BT_NotBlocked), rng(seed) {}
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
