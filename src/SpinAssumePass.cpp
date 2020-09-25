@@ -146,21 +146,38 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 
 bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 {
-	llvm::BasicBlock *incoming, *backedge;
+	llvm::BasicBlock *H = l->getHeader();
+        llvm::BasicBlock *Incoming, *Backedge;
 	TerminatorInst *ei;
 	llvm::BranchInst *bi;
 
-	if (!l->getIncomingAndBackEdge(incoming, backedge))
+	Incoming = nullptr;
+	Backedge = nullptr;
+	llvm::pred_iterator PI = llvm::pred_begin(H);
+	assert(PI != pred_end(H) && "Loop must have at least one backedge!");
+	Backedge = *PI++;
+	if (PI == pred_end(H))
+		return false; // dead loop
+	Incoming = *PI++;
+	if (PI != pred_end(H))
+		return false; // multiple backedges?
+	
+	if (l->contains(Incoming)) {
+		if (l->contains(Backedge))
+			return false;
+		std::swap(Incoming, Backedge);
+	} else if (!l->contains(Backedge))
 		return false;
+	assert(Incoming && Backedge && "expected non-null incoming and backedges");
 
 	/* Is the last instruction of the loop a branch? */
-	ei = backedge->getTerminator();
+	ei = Backedge->getTerminator();
 	BUG_ON(!ei);
 	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
 	if (!bi || bi->isConditional())
 		return false;
 
-	addStartLoopCall(l->getHeader());
+	addStartLoopCall(H);
 	addAssumeCallBeforeInstruction(bi);
 	return true;
 }
