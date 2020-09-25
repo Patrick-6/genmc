@@ -24,6 +24,7 @@
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareAssumePass.hpp"
+#include "DeclareStartLoopPass.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/Dominators.h>
@@ -33,6 +34,7 @@
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <llvm/IR/IRBuilder.h>
 
 #ifdef LLVM_HAS_TERMINATORINST
  typedef llvm::TerminatorInst TerminatorInst;
@@ -44,7 +46,9 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<llvm::DominatorTreeWrapperPass>();
 	au.addRequired<DeclareAssumePass>();
+//	au.addRequired<DeclareStartLoopPass>();
 	au.addPreserved<DeclareAssumePass>();
+//	au.addPreserved<DeclareStartLoopPass>();
 }
 
 bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
@@ -73,41 +77,28 @@ bool SpinAssumePass::isSpinLoop(const llvm::Loop *l) const
 	return true;
 }
 
-void SpinAssumePass::addAssumeCallToBlock(llvm::BasicBlock *eb, llvm::BasicBlock *nb,
-					  llvm::BranchInst *bi, bool exitOn)
+void SpinAssumePass::addAssumeCallBeforeInstruction(llvm::Instruction *bi)
 {
-	llvm::Value *cond;
-	llvm::MDNode *mdata, *extraMdata;
-	llvm::BinaryOperator *bop;
-	llvm::Function *assumeFun;
-	llvm::Type *assumeArgTyp;
-	llvm::ZExtInst *ei;
-	llvm::Instruction *ci, *newBI;
+        auto *assumeFun = bi->getParent()->getParent()->getParent()->getFunction("__VERIFIER_assume");
+        auto *assumeArgTyp = assumeFun->arg_begin()->getType();
+        BUG_ON(!assumeArgTyp->isIntegerTy());
 
-	cond = bi->getCondition();
-	mdata = bi->getMetadata("dbg");
-	extraMdata = llvm::MDNode::get(bi->getContext(), llvm::MDString::get(bi->getContext(), "spinloop"));
-	eb->getInstList().pop_back();
-	if (!exitOn) {
-		bop = llvm::BinaryOperator::CreateNot(cond, "notcond", eb);
-		bop->setMetadata("dbg", mdata);
-		cond = bop;
-	}
+        llvm::Value *zero = llvm::ConstantInt::get(assumeArgTyp, 0);
 
-	assumeFun = eb->getParent()->getParent()->getFunction("__VERIFIER_assume");
-	assumeArgTyp = assumeFun->arg_begin()->getType();
-	BUG_ON(!assumeArgTyp->isIntegerTy());
-	if (assumeArgTyp->getIntegerBitWidth() != 1) {
-		ei = new llvm::ZExtInst(cond, assumeArgTyp, "", eb);
-		ei->setMetadata("dbg", mdata);
-		cond = ei;
-	}
-	ci = llvm::CallInst::Create(assumeFun, {cond}, "", eb);
-	ci->setMetadata("dbg", mdata);
-	ci->setMetadata("assume.kind", extraMdata);
-	newBI = llvm::BranchInst::Create(nb, eb);
-	newBI->setMetadata("dbg", mdata);
-	return;
+        llvm::IRBuilder<> Builder(bi);
+        auto *ci = Builder.CreateCall(assumeFun, {zero}, "");
+        ci->setMetadata("dbg", bi->getMetadata("dbg"));
+        auto extraMdata = llvm::MDNode::get(bi->getContext(), llvm::MDString::get(bi->getContext(), "spinloop"));
+        ci->setMetadata("assume.kind", extraMdata);
+}
+
+void SpinAssumePass::addStartLoopCall(llvm::BasicBlock *b)
+{
+        auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_start_loop");
+
+	auto *i = b->getFirstNonPHI();
+        llvm::IRBuilder<> Builder(i);
+        auto *ci = Builder.CreateCall(startFun, {}, "");
 }
 
 void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
@@ -155,37 +146,29 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 
 bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 {
-	llvm::BasicBlock *eb, *nb;
+	llvm::BasicBlock *incoming, *backedge;
 	TerminatorInst *ei;
 	llvm::BranchInst *bi;
-	bool exitOn = false;
 
-	/* Has the loop more than one exiting blocks? */
-	eb = l->getExitingBlock();
-	if (!eb)
+	if (!l->getIncomingAndBackEdge(incoming, backedge))
 		return false;
 
 	/* Is the last instruction of the loop a branch? */
-	ei = eb->getTerminator();
+	ei = backedge->getTerminator();
 	BUG_ON(!ei);
 	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
-	if (!bi || !bi->isConditional())
+	if (!bi || bi->isConditional())
 		return false;
 
-	nb = l->getExitBlock();
-	BUG_ON(!nb || bi->getNumSuccessors() != 2);
-	if (bi->getSuccessor(0) == nb)
-		exitOn = true;
-	addAssumeCallToBlock(eb, nb, bi, exitOn);
-	removeDisconnectedBlocks(l);
+	addStartLoopCall(l->getHeader());
+	addAssumeCallBeforeInstruction(bi);
 	return true;
 }
 
 bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 {
 	bool modified = false;
-
-	if (isSpinLoop(l))
+	if (isSpinLoop(l)) {
 		if (transformLoop(l, lpm)) {
 #ifdef LLVM_HAVE_LOOPINFO_ERASE
 			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
@@ -197,7 +180,7 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 #endif
 			modified = true;
 		}
-
+	}
 	return modified;
 }
 

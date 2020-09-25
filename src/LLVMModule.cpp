@@ -22,6 +22,7 @@
 
 #include "LLVMModule.hpp"
 #include "DeclareAssumePass.hpp"
+#include "DeclareStartLoopPass.hpp"
 #include "DeclareEndLoopPass.hpp"
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
@@ -128,6 +129,7 @@ namespace LLVMModule {
 		llvm::initializeTarget(Registry);
 
 		OptPM.add(new DeclareAssumePass());
+		OptPM.add(new DeclareStartLoopPass());
 		OptPM.add(new DefineLibcFunsPass());
 		OptPM.add(new MDataCollectionPass(VI, FI));
 		OptPM.add(new PromoteMemIntrinsicPass());

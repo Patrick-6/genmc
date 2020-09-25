@@ -18,30 +18,17 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SPIN_ASSUME_PASS_HPP__
-#define __SPIN_ASSUME_PASS_HPP__
+#ifndef __DECLARE_START_LOOP_PASS_HPP__
+#define __DECLARE_START_LOOP_PASS_HPP__
 
 #include <llvm/Pass.h>
-#include <llvm/Analysis/LoopPass.h>
-#include <llvm/IR/Instructions.h>
 
-class SpinAssumePass : public llvm::LoopPass {
-
-protected:
-	bool isAssumeStatement(llvm::Instruction &i) const;
-	bool isSpinLoop(const llvm::Loop *l) const;
-	void addAssumeCallBeforeInstruction(llvm::Instruction *i);
-	void addStartLoopCall(llvm::BasicBlock *b);
-	void removeDisconnectedBlocks(llvm::Loop *l);
-	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);
-	
+class DeclareStartLoopPass : public llvm::ModulePass {
 public:
 	static char ID;
-	
-	SpinAssumePass() : llvm::LoopPass(ID) {};
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
-	
+
+	DeclareStartLoopPass() : ModulePass(ID) {};
+	virtual bool runOnModule(llvm::Module &M);
 };
 
-#endif /* __SPIN_ASSUME_PASS_HPP__ */
+#endif /* __DECLARE_START_LOOP_PASS_HPP__ */

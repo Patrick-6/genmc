@@ -55,6 +55,7 @@ public:
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
+		EL_StartLoop,
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_FaiRead,
@@ -198,6 +199,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 			      const EventLabel::EventLabelKind k);
 
 
+
 /*******************************************************************************
  **                       DskAccessLabel Class
  ******************************************************************************/
@@ -269,6 +271,27 @@ public:
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Empty; }
 };
+
+/*******************************************************************************
+ **                            StartLoopLabel Class
+ ******************************************************************************/
+
+/* A label that marks the beginning of reduced spinloops. It is meant to be used
+ * by the liveness (await-termination) checks. */
+class StartLoopLabel : public EventLabel {
+
+public:
+
+	StartLoopLabel(unsigned int st, Event pos)
+		: EventLabel(EL_StartLoop, st, llvm::AtomicOrdering::NotAtomic,
+			     pos) {}
+
+	StartLoopLabel *clone() const override { return new StartLoopLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_StartLoop; }
+};
+
 
 
 /*******************************************************************************

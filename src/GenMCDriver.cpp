@@ -1038,16 +1038,22 @@ void GenMCDriver::checkLiveness()
 	}
 
 	/* And check whether all of them are live or not */
-	const ReadLabel *rLab = nullptr;
 	if (!spinBlocked.empty() &&
 	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
 			[&](int tid){
-				rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(tid));
-				BUG_ON(!rLab); /* Due to thread being blocked on a spinloop */
-				return isCoMaximal(rLab->getAddr(), rLab->getRf());
+				for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
+					auto *lab = g.getEventLabel(Event(tid, j));
+					if (llvm::isa<StartLoopLabel>(lab))
+						return true;
+					if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+						if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
+							return false;
+					}
+				}
+        			return true;
 			})) {
 		/* Print the name of one of the spinloop variables that are not live */
-		visitError(DE_Liveness, "Spinloop variable " + EE->getVarName(rLab->getAddr()) + " is not live");
+		visitError(DE_Liveness, "Non-terminating spinloop");
 	}
 	return;
 }
@@ -2402,6 +2408,18 @@ void GenMCDriver::visitDskPbarrier()
 
 	auto dpLab = createDskPbarrierLabel(pos.thread, pos.index);
 	getGraph().addOtherLabelToGraph(std::move(dpLab));
+	return;
+}
+
+void GenMCDriver::visitStartLoop()
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = getEE()->getCurrentPosition();
+
+	auto lab = createStartLoopLabel(pos.thread, pos.index);
+	getGraph().addOtherLabelToGraph(std::move(lab));
 	return;
 }
 

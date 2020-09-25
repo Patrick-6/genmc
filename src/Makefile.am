@@ -16,6 +16,7 @@ libgenmc_a_SOURCES = \
   CoherenceCalculator.hpp \
   Config.cpp Config.hpp \
   DeclareAssumePass.cpp DeclareAssumePass.hpp \
+  DeclareStartLoopPass.cpp DeclareStartLoopPass.hpp \
   DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
   DepExecutionGraph.cpp DepExecutionGraph.hpp \

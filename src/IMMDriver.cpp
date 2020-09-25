@@ -576,6 +576,22 @@ IMMDriver::createDskPbarrierLabel(int tid, int index)
 	return std::move(lab);
 }
 
+std::unique_ptr<StartLoopLabel>
+IMMDriver::createStartLoopLabel(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<StartLoopLabel>(g.nextStamp(), pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos());
+
+	lab->setHbView(std::move(hb));
+	lab->setPPoRfView(std::move(pporf));
+
+	return std::move(lab);
+}
+
 std::unique_ptr<FreeLabel>
 IMMDriver::createFreeLabel(int tid, int index, const void *addr)
 {
