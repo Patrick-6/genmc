@@ -2462,7 +2462,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		break;
 
 #define IMPLEMENT_VECTOR_INTEGER_PRINT(OS, TY)				\
-	case llvm::Type::VectorTyID: {					\
+	LLVM_VECTOR_TYPEID_CASES {					\
 		OS << "[";						\
 		for (uint32_t _i=0;_i<val.AggregateVal.size();_i++) {	\
 			OS << val.AggregateVal[_i].IntVal << " ";	\

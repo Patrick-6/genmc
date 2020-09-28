@@ -29,9 +29,9 @@
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
-#include <llvm/IR/CallSite.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #ifdef LLVM_HAS_TERMINATORINST
@@ -53,8 +53,7 @@ bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
 	if (!ci)
 		return false;
 
-	llvm::CallSite cs(ci);
-	llvm::Function *fun = cs.getCalledFunction();
+	llvm::Function *fun = ci->getCalledFunction();
 	return fun && fun->getName().str() == "__VERIFIER_assume";
 }
 

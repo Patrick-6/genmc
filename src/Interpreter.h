@@ -44,12 +44,13 @@
 #include "IMMDepTracker.hpp"
 #include "Library.hpp"
 #include "View.hpp"
+#include "CallInstWrapper.hpp"
 
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-#include "llvm/IR/CallSite.h"
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/DebugInfo.h>
 #if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
@@ -272,8 +273,8 @@ struct ExecutionContext {
   Function             *CurFunction;// The currently executing function
   BasicBlock           *CurBB;      // The currently executing BB
   BasicBlock::iterator  CurInst;    // The next instruction to execute
-  CallSite             Caller;     // Holds the call that called subframes.
-                                   // NULL if main func or debugger invoked fn
+  CallInstWrapper       Caller;     // Holds the call that called subframes.
+                                    // NULL if main func or debugger invoked fn
   std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
   std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
   AllocaHolder Allocas;            // Track memory allocated by alloca
@@ -629,10 +630,12 @@ public:
   void visitBitCastInst(BitCastInst &I);
   void visitSelectInst(SelectInst &I);
 
-
-  void visitCallSite(CallSite CS);
-  void visitCallInst(CallInst &I) { visitCallSite (CallSite (&I)); }
-  void visitInvokeInst(InvokeInst &I) { visitCallSite (CallSite (&I)); }
+  void visitCallInstWrapper(CallInstWrapper CIW);
+#ifdef LLVM_HAS_CALLSITE
+  void visitCallSite(CallSite  CS) { visitCallInstWrapper(CallInstWrapper(CS)); }
+#else
+  void visitCallBase(CallBase &CB) { visitCallInstWrapper(CallInstWrapper(CB)); }
+#endif
   void visitUnreachableInst(UnreachableInst &I);
 
   void visitShl(BinaryOperator &I);
@@ -651,8 +654,8 @@ public:
   void visitAtomicRMWInst(AtomicRMWInst &I);
   void visitFenceInst(FenceInst &I);
 
-  bool isInlineAsm(CallSite &CS, std::string *asmStr);
-  void visitInlineAsm(CallSite &CS, const std::string &asmString);
+  bool isInlineAsm(CallInstWrapper CIW, std::string *asmStr);
+  void visitInlineAsm(CallInstWrapper CIW, const std::string &asmString);
 
   void visitInstruction(Instruction &I) {
     errs() << I << "\n";
