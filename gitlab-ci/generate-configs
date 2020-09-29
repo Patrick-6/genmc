@@ -21,7 +21,7 @@ MACOS_HEADER="default:
 "
 
 ## supported versions
-LINUX_LLVM_VERSIONS="3.8 4.0 6.0 7 8 9 10 11"
+LINUX_LLVM_VERSIONS="3.8 4.0 6.0 7 8 9"
 MACOS_LLVM_VERSIONS="6.0 7 8 9"
 
 declare -A LINUX_IMAGES
@@ -30,7 +30,7 @@ declare -A LINUX_IMAGES_VERSIONS
 LINUX_IMAGES["imageA"]="localhost:5000/genmc-tool-stretch"
 LINUX_IMAGES["imageB"]="localhost:5000/genmc-tool-bullseye"
 LINUX_IMAGES_VERSIONS["imageA"]=" 3.8 4.0 7 " # spaces --> hack to match regex
-LINUX_IMAGES_VERSIONS["imageB"]=" 6.0 8 9 10 11 "
+LINUX_IMAGES_VERSIONS["imageB"]=" 6.0 8 9 "
 
 find_image_name() {
     version=$1
