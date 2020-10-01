@@ -401,6 +401,9 @@ private:
 	/* Pers: Returns true if current recovery routine is valid */
 	bool isRecoveryValid(ProgramPoint p);
 
+	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
+	bool threadReadsMaximal(int tid);
+
 	/* Liveness: Calls visitError() if there is a liveness violation */
 	void checkLiveness();
 

@@ -1022,6 +1022,22 @@ bool GenMCDriver::isRecoveryValid(ProgramPoint p)
 	return getGraph().isRecoveryValid();
 }
 
+bool GenMCDriver::threadReadsMaximal(int tid)
+{
+	auto &g = getGraph();
+
+	for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
+		auto *lab = g.getEventLabel(Event(tid, j));
+		if (llvm::isa<StartLoopLabel>(lab))
+			return false;
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
+				return true;
+		}
+	}
+	return false;
+}
+
 void GenMCDriver::checkLiveness()
 {
 	auto &g = getGraph();
@@ -1039,19 +1055,8 @@ void GenMCDriver::checkLiveness()
 
 	/* And check whether all of them are live or not */
 	if (!spinBlocked.empty() &&
-	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
-			[&](int tid){
-				for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
-					auto *lab = g.getEventLabel(Event(tid, j));
-					if (llvm::isa<StartLoopLabel>(lab))
-						return true;
-					if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-						if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
-							return false;
-					}
-				}
-        			return true;
-			})) {
+	    std::none_of(spinBlocked.begin(), spinBlocked.end(),
+			[&](int tid){ return threadReadsMaximal(tid); })) {
 		/* Print the name of one of the spinloop variables that are not live */
 		visitError(DE_Liveness, "Non-terminating spinloop");
 	}
