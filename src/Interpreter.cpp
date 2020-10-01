@@ -120,7 +120,7 @@ void Interpreter::reset()
 	for (auto i = 0u; i < threads.size(); i++) {
 		threads[i].ECStack = {};
 		threads[i].tls = threadLocalVars;
-		threads[i].blocked = Thread::BlockageType::BT_NotBlocked;
+		threads[i].isBlocked = false;
 		threads[i].globalInstructions = 0;
 		threads[i].rng.seed(Thread::seed);
 		clearDeps(i);
