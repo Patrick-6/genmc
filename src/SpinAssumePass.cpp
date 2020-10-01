@@ -45,9 +45,7 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<llvm::DominatorTreeWrapperPass>();
 	au.addRequired<DeclareAssumePass>();
-//	au.addRequired<DeclareStartLoopPass>();
 	au.addPreserved<DeclareAssumePass>();
-//	au.addPreserved<DeclareStartLoopPass>();
 }
 
 bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
