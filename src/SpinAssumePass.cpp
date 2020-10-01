@@ -144,16 +144,14 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 	}
 }
 
-bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
+#ifndef LLVM_HAVE_LOOPINFO_GETINCANDBACKEDGE
+bool getIncomingAndBackEdge(llvm::Loop *l, llvm::BasicBlock *&Incoming, llvm::BasicBlock *&Backedge)
 {
 	llvm::BasicBlock *H = l->getHeader();
-        llvm::BasicBlock *Incoming, *Backedge;
-	TerminatorInst *ei;
-	llvm::BranchInst *bi;
 
 	Incoming = nullptr;
 	Backedge = nullptr;
-	llvm::pred_iterator PI = llvm::pred_begin(H);
+	llvm::pred_iterator PI = pred_begin(H);
 	assert(PI != pred_end(H) && "Loop must have at least one backedge!");
 	Backedge = *PI++;
 	if (PI == pred_end(H))
@@ -161,23 +159,40 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	Incoming = *PI++;
 	if (PI != pred_end(H))
 		return false; // multiple backedges?
-	
+
 	if (l->contains(Incoming)) {
 		if (l->contains(Backedge))
 			return false;
 		std::swap(Incoming, Backedge);
 	} else if (!l->contains(Backedge))
 		return false;
+
 	assert(Incoming && Backedge && "expected non-null incoming and backedges");
+	return true;
+}
+# define GET_INCOMING_AND_BACK_EDGE(l, i, b) getIncomingAndBackEdge(l, i, b)
+#else
+# define GET_INCOMING_AND_BACK_EDGE(l, i, b) l->getIncomingAndBackEdge(i, b)
+#endif
+
+bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
+{
+        llvm::BasicBlock *incoming, *backedge;
+	TerminatorInst *ei;
+	llvm::BranchInst *bi;
+
+	/* Is the incoming/backedge unique? */
+	if (!GET_INCOMING_AND_BACK_EDGE(l, incoming, backedge))
+		return false;
 
 	/* Is the last instruction of the loop a branch? */
-	ei = Backedge->getTerminator();
+	ei = backedge->getTerminator();
 	BUG_ON(!ei);
 	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
 	if (!bi || bi->isConditional())
 		return false;
 
-	addStartLoopCall(H);
+	addStartLoopCall(l->getHeader());
 	addAssumeCallBeforeInstruction(bi);
 	return true;
 }

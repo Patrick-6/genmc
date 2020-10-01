@@ -547,6 +547,20 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::LoopInfo::erase exists])],
   [AC_MSG_RESULT([no])])
 
+## Check whether llvm::LoopInfo::getIncomingAndBackEdge exists (>= llvm 9)
+AC_MSG_CHECKING([whether llvm::LoopInfo::getIncomingAndBackEdge exists])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/LoopPass.h>
+]],[[
+  llvm::BasicBlock *BB = nullptr;
+  llvm::Loop *L = nullptr;
+  L->getIncomingAndBackEdge(BB, BB);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_LOOPINFO_GETINCANDBACKEDGE],[1],
+   [Define if llvm::LoopInfo::getIncomingAndBackEdge exists])],
+  [AC_MSG_RESULT([no])])
+
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
