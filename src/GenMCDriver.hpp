@@ -214,9 +214,9 @@ public:
 	void
 	visitFence(llvm::AtomicOrdering ord);
 
-	/* A call to __VERIFIER_start_loop() has been interpreted */
+	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
-	visitStartLoop();
+	visitSpinStart();
 
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
@@ -661,8 +661,8 @@ private:
 	createDskPbarrierLabel(int tid, int index) = 0;
 
 	/* Creates a label for the start of a spinloop to be added to the graph */
-	virtual std::unique_ptr<StartLoopLabel>
-	createStartLoopLabel(int tid, int index) = 0;
+	virtual std::unique_ptr<SpinStartLabel>
+	createSpinStartLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

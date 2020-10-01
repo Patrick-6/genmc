@@ -1028,7 +1028,7 @@ bool GenMCDriver::threadReadsMaximal(int tid)
 
 	for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
 		auto *lab = g.getEventLabel(Event(tid, j));
-		if (llvm::isa<StartLoopLabel>(lab))
+		if (llvm::isa<SpinStartLabel>(lab))
 			return false;
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
@@ -2416,14 +2416,14 @@ void GenMCDriver::visitDskPbarrier()
 	return;
 }
 
-void GenMCDriver::visitStartLoop()
+void GenMCDriver::visitSpinStart()
 {
 	if (isExecutionDrivenByGraph())
 		return;
 
 	Event pos = getEE()->getCurrentPosition();
 
-	auto lab = createStartLoopLabel(pos.thread, pos.index);
+	auto lab = createSpinStartLabel(pos.thread, pos.index);
 	getGraph().addOtherLabelToGraph(std::move(lab));
 	return;
 }

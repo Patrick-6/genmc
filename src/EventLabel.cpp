@@ -74,8 +74,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 			      const EventLabel::EventLabelKind k)
 {
 	switch (k) {
-	case EventLabel::EL_StartLoop:
-		s << "SPINLOOP";
+	case EventLabel::EL_Empty:
+		s << "EMPTY";
+		break;
+	case EventLabel::EL_SpinStart:
+		s << "SPIN_START";
 		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_LibRead:
@@ -176,11 +179,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 
 	switch (lab.getKind()) {
 	case EventLabel::EL_Empty: {
-		s << "EMPTY";
+		auto &eLab = static_cast<const EmptyLabel&>(lab);
+		s << eLab.getKind();
 		break;
 	}
-	case EventLabel::EL_StartLoop: {
-		s << "SPINLOOP";
+	case EventLabel::EL_SpinStart: {
+		auto &sLab = static_cast<const SpinStartLabel&>(lab);
+		s << sLab.getKind();
 		break;
 	}
 	case EventLabel::EL_Read: {

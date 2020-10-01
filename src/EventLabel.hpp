@@ -55,7 +55,7 @@ public:
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
-		EL_StartLoop,
+		EL_SpinStart,
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_FaiRead,
@@ -272,24 +272,24 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_Empty; }
 };
 
+
 /*******************************************************************************
- **                            StartLoopLabel Class
+ **                            SpinStartLabel Class
  ******************************************************************************/
 
 /* A label that marks the beginning of reduced spinloops. It is meant to be used
  * by the liveness (await-termination) checks. */
-class StartLoopLabel : public EventLabel {
+class SpinStartLabel : public EventLabel {
 
 public:
 
-	StartLoopLabel(unsigned int st, Event pos)
-		: EventLabel(EL_StartLoop, st, llvm::AtomicOrdering::NotAtomic,
-			     pos) {}
+	SpinStartLabel(unsigned int st, Event pos)
+		: EventLabel(EL_SpinStart, st, llvm::AtomicOrdering::NotAtomic, pos) {}
 
-	StartLoopLabel *clone() const override { return new StartLoopLabel(*this); }
+	SpinStartLabel *clone() const override { return new SpinStartLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_StartLoop; }
+	static bool classofKind(EventLabelKind k) { return k == EL_SpinStart; }
 };
 
 

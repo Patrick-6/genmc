@@ -31,17 +31,17 @@ protected:
 	bool isAssumeStatement(llvm::Instruction &i) const;
 	bool isSpinLoop(const llvm::Loop *l) const;
 	void addAssumeCallBeforeInstruction(llvm::Instruction *i);
-	void addStartLoopCall(llvm::BasicBlock *b);
+	void addSpinStartCall(llvm::BasicBlock *b);
 	void removeDisconnectedBlocks(llvm::Loop *l);
 	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);
-	
+
 public:
 	static char ID;
-	
+
 	SpinAssumePass() : llvm::LoopPass(ID) {};
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
-	
+
 };
 
 #endif /* __SPIN_ASSUME_PASS_HPP__ */

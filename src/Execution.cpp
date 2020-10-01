@@ -62,7 +62,7 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
-	{"__VERIFIER_start_loop", InternalFunctions::FN_StartLoop},
+	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -2609,9 +2609,9 @@ void Interpreter::callAssertFail(Function *F,
 	driver->visitError(errT, err);
 }
 
-void Interpreter::callStartLoop(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	driver->visitStartLoop();
+	driver->visitSpinStart();
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -4073,7 +4073,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
-		CALL_INTERNAL_FUNCTION(StartLoop);
+		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);

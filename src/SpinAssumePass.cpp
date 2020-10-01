@@ -24,7 +24,7 @@
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareAssumePass.hpp"
-#include "DeclareStartLoopPass.hpp"
+#include "DeclareSpinStartPass.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/Dominators.h>
@@ -88,9 +88,9 @@ void SpinAssumePass::addAssumeCallBeforeInstruction(llvm::Instruction *bi)
         ci->setMetadata("assume.kind", extraMdata);
 }
 
-void SpinAssumePass::addStartLoopCall(llvm::BasicBlock *b)
+void SpinAssumePass::addSpinStartCall(llvm::BasicBlock *b)
 {
-        auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_start_loop");
+        auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
 
 	auto *i = b->getFirstNonPHI();
         auto *ci = llvm::CallInst::Create(startFun, {}, "", i);
@@ -187,7 +187,7 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	if (!bi || bi->isConditional())
 		return false;
 
-	addStartLoopCall(l->getHeader());
+	addSpinStartCall(l->getHeader());
 	addAssumeCallBeforeInstruction(bi);
 	return true;
 }

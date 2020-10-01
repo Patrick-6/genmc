@@ -18,17 +18,17 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DECLARE_START_LOOP_PASS_HPP__
-#define __DECLARE_START_LOOP_PASS_HPP__
+#ifndef __DECLARE_SPIN_START_PASS_HPP__
+#define __DECLARE_SPIN_START_PASS_HPP__
 
 #include <llvm/Pass.h>
 
-class DeclareStartLoopPass : public llvm::ModulePass {
+class DeclareSpinStartPass : public llvm::ModulePass {
 public:
 	static char ID;
 
-	DeclareStartLoopPass() : ModulePass(ID) {};
+	DeclareSpinStartPass() : ModulePass(ID) {};
 	virtual bool runOnModule(llvm::Module &M);
 };
 
-#endif /* __DECLARE_START_LOOP_PASS_HPP__ */
+#endif /* __DECLARE_SPIN_START_PASS_HPP__ */

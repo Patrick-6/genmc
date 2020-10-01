@@ -19,7 +19,7 @@
  */
 
 #include <config.h>
-#include "DeclareStartLoopPass.hpp"
+#include "DeclareSpinStartPass.hpp"
 #include "Error.hpp"
 #include <llvm/Pass.h>
 #include <llvm/PassSupport.h>
@@ -37,26 +37,26 @@ using namespace llvm;
 # define AttributeList AttributeSet
 #endif
 
-bool DeclareStartLoopPass::runOnModule(Module &M)
+bool DeclareSpinStartPass::runOnModule(Module &M)
 {
-	Function *startLoopFun;
-	FunctionType *startLoopTyp;
-	AttributeList startLoopAtt;
+	Function *spinStartFun;
+	FunctionType *spinStartTyp;
+	AttributeList spinStartAtt;
 	bool modified = false;
 
-	startLoopFun = M.getFunction("__VERIFIER_start_loop");
-	if (!startLoopFun) {
+	spinStartFun = M.getFunction("__VERIFIER_spin_start");
+	if (!spinStartFun) {
 		Type *retTyp = Type::getVoidTy(M.getContext());
-		startLoopTyp = FunctionType::get(retTyp, {}, false);
+		spinStartTyp = FunctionType::get(retTyp, {}, false);
 
 		AttributeList::get(M.getContext(), AttributeList::FunctionIndex,
 				  std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
-		M.getOrInsertFunction("__VERIFIER_start_loop", startLoopTyp, startLoopAtt);
+		M.getOrInsertFunction("__VERIFIER_spin_start", spinStartTyp, spinStartAtt);
 		modified = true;
 	}
 	return modified;
 }
 
-char DeclareStartLoopPass::ID = 42;
-static llvm::RegisterPass<DeclareStartLoopPass> P("declare-start-loop",
-						"Declares the __VERIFIER_start_loop function.");
+char DeclareSpinStartPass::ID = 42;
+static llvm::RegisterPass<DeclareSpinStartPass> P("declare-spin-start",
+						"Declares the __VERIFIER_spin_start function.");
