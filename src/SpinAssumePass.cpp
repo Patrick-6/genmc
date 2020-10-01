@@ -34,7 +34,6 @@
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
-#include <llvm/IR/IRBuilder.h>
 
 #ifdef LLVM_HAS_TERMINATORINST
  typedef llvm::TerminatorInst TerminatorInst;
@@ -85,8 +84,7 @@ void SpinAssumePass::addAssumeCallBeforeInstruction(llvm::Instruction *bi)
 
         llvm::Value *zero = llvm::ConstantInt::get(assumeArgTyp, 0);
 
-        llvm::IRBuilder<> Builder(bi);
-        auto *ci = Builder.CreateCall(assumeFun, {zero}, "");
+        auto *ci = llvm::CallInst::Create(assumeFun, {zero}, "", bi);
         ci->setMetadata("dbg", bi->getMetadata("dbg"));
         auto extraMdata = llvm::MDNode::get(bi->getContext(), llvm::MDString::get(bi->getContext(), "spinloop"));
         ci->setMetadata("assume.kind", extraMdata);
@@ -97,8 +95,7 @@ void SpinAssumePass::addStartLoopCall(llvm::BasicBlock *b)
         auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_start_loop");
 
 	auto *i = b->getFirstNonPHI();
-        llvm::IRBuilder<> Builder(i);
-        auto *ci = Builder.CreateCall(startFun, {}, "");
+        auto *ci = llvm::CallInst::Create(startFun, {}, "", i);
 }
 
 void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
