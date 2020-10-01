@@ -187,7 +187,9 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	if (!bi || bi->isConditional())
 		return false;
 
-	addSpinStartCall(l->getHeader());
+	/* If liveness checks are specified, also mark the start of the spinloop */
+	if (liveness)
+		addSpinStartCall(l->getHeader());
 	addAssumeCallBeforeInstruction(bi);
 	return true;
 }
@@ -212,5 +214,5 @@ bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 }
 
 char SpinAssumePass::ID = 42;
-static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
-					    "Replaces spin-loops with __VERIFIER_assume().");
+// static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
+// 					    "Replaces spin-loops with __VERIFIER_assume().");

@@ -422,7 +422,7 @@ void GenMCDriver::run()
 	llvm::VariableInfo VI;
 	llvm::FsInfo FI;
 
-	LLVMModule::transformLLVMModule(*mod, VI, FI, userConf->spinAssume, userConf->unroll);
+	LLVMModule::transformLLVMModule(*mod, VI, FI, getConf());
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 

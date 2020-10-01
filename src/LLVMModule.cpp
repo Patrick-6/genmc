@@ -108,7 +108,7 @@ namespace LLVMModule {
 	}
 
 	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, bool spinAssume, int unroll)
+				 llvm::FsInfo &FI, const Config *conf)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;
@@ -144,11 +144,11 @@ namespace LLVMModule {
 
 		modified = OptPM.run(mod);
 
-		if (spinAssume)
-			BndPM.add(new SpinAssumePass());
+		if (conf->spinAssume)
+			BndPM.add(new SpinAssumePass(conf->checkLiveness));
 		BndPM.add(new DeclareEndLoopPass());
-		if (unroll >= 0)
-			BndPM.add(new LoopUnrollPass(unroll));
+		if (conf->unroll >= 0)
+			BndPM.add(new LoopUnrollPass(conf->unroll));
 
 		modified |= BndPM.run(mod);
 		modified |= OptPM.run(mod);

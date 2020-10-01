@@ -19,6 +19,8 @@
  */
 
 #include "config.h"
+
+#include "Config.hpp"
 #include "Interpreter.h"
 
 #if defined(HAVE_LLVM_IR_MODULE_H)
@@ -33,6 +35,6 @@ namespace LLVMModule {
 	void destroyLLVMContext(void);
 	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &source);
 	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, bool spinAssume, int unroll);
+				 llvm::FsInfo &FI, const Config *conf);
 	void printLLVMModule(llvm::Module &mod, std::string &out);
 }

@@ -38,9 +38,13 @@ protected:
 public:
 	static char ID;
 
-	SpinAssumePass() : llvm::LoopPass(ID) {};
+	SpinAssumePass(bool live) : llvm::LoopPass(ID), liveness(live) {};
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
+
+private:
+	/* Whether liveness checks will be performed */
+	bool liveness;
 
 };
 
