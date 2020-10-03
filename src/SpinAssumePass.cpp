@@ -49,9 +49,9 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.addPreserved<DeclareAssumePass>();
 }
 
-bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
+bool isAssumeStatement(llvm::Instruction &i)
 {
-	llvm::CallInst *ci = llvm::dyn_cast<llvm::CallInst>(&i);
+	auto *ci = llvm::dyn_cast<llvm::CallInst>(&i);
 	if (!ci)
 		return false;
 
@@ -59,20 +59,130 @@ bool SpinAssumePass::isAssumeStatement(llvm::Instruction &i) const
 	return fun && fun->getName().str() == "__VERIFIER_assume";
 }
 
+bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
+{
+	if (!i1 || !i2)
+		return false;
+
+	for (auto &u : i1->operands()) {
+		if (auto *i = llvm::dyn_cast<llvm::Instruction>(u.get()))
+			return i == i2 || isDependentOn(i, i2);
+	}
+	return false;
+}
+
+bool areSameLoadOrdering(llvm::AtomicOrdering o1, llvm::AtomicOrdering o2)
+{
+	return o1 == o2 ||
+	       (o1 == llvm::AtomicOrdering::Acquire && o2 == llvm::AtomicOrdering::AcquireRelease) ||
+	       (o1 == llvm::AtomicOrdering::AcquireRelease && o2 == llvm::AtomicOrdering::Acquire);
+}
+
+bool isPhiTiedToCasCmp(const llvm::PHINode *curPhi, const std::vector<llvm::Value *> &inVals,
+		       const llvm::AtomicCmpXchgInst *casi, const llvm::PHINode *cmpPhi)
+{
+	return (inVals[0] == cmpPhi && inVals[1] == casi->getNextNode()) ||
+		(inVals[1] == cmpPhi && inVals[0] == casi->getNextNode());
+}
+
+bool checkPhis(const llvm::PHINode *cmpPhi, const llvm::PHINode *curPhi,
+	       const llvm::AtomicCmpXchgInst *casi, VSet<const llvm::PHINode *> &phis)
+{
+	std::vector<llvm::Value *> inVals;
+
+	BUG_ON(curPhi->getNumIncomingValues() != 2);
+	inVals.push_back(curPhi->getIncomingValue(0));
+	inVals.push_back(curPhi->getIncomingValue(1));
+
+	/* Base case: the current PHI is the one right after the CAS */
+	if (isPhiTiedToCasCmp(curPhi, inVals, casi, cmpPhi)) {
+		phis.erase(curPhi);
+		return true;
+	}
+
+	/* Recursive step: the current PHI is not the one right after the CAS */
+	for (unsigned i = 0; i < inVals.size(); i++) {
+		if (auto *li = llvm::dyn_cast<llvm::LoadInst>(inVals[i])) {
+			if (li->getPointerOperand() != casi->getPointerOperand() ||
+			    !areSameLoadOrdering(li->getOrdering(), casi->getSuccessOrdering()))
+				return false;
+			continue;
+		}
+		if (auto *extract = llvm::dyn_cast<llvm::ExtractValueInst>(inVals[i])) {
+			BUG_ON(!extract->getType()->isIntegerTy());
+			BUG_ON(extract->getType()->getIntegerBitWidth() == 1);
+
+			auto *ecasi = llvm::dyn_cast<llvm::AtomicCmpXchgInst>(extract->getAggregateOperand());
+			if (!ecasi || ecasi->getPointerOperand() != casi->getPointerOperand() ||
+			    !areSameLoadOrdering(ecasi->getSuccessOrdering(), casi->getSuccessOrdering()))
+				return false;
+
+			continue;
+		}
+
+		auto *phi = llvm::dyn_cast<llvm::PHINode>(inVals[i]);
+		if (!phi || !checkPhis(cmpPhi, phi, casi, phis))
+			return false;
+	}
+
+	phis.erase(curPhi);
+	return true;
+}
+
+bool isCasSpinLoop(const llvm::Loop *l, const llvm::AtomicCmpXchgInst *casi, VSet<const llvm::PHINode *> &phis)
+{
+	llvm::BasicBlock *eb = l->getExitingBlock();
+	if (!eb)
+		return false;
+
+	llvm::BranchInst *bi = llvm::dyn_cast<llvm::BranchInst>(eb->getTerminator());
+	if (!bi || !bi->isConditional() ||
+	    !isDependentOn(llvm::dyn_cast<llvm::Instruction>(bi->getCondition()), casi))
+		return false;
+
+	auto *cmpOp = casi->getCompareOperand();
+	if (llvm::isa<llvm::Constant>(cmpOp))
+		return phis.empty();
+
+	auto *cmpPhi = llvm::dyn_cast<llvm::PHINode>(cmpOp);
+	if (!cmpPhi)
+		return false;
+
+	return checkPhis(cmpPhi, cmpPhi, casi, phis) && phis.empty();
+}
+
 bool SpinAssumePass::isSpinLoop(const llvm::Loop *l) const
 {
+	std::vector<const llvm::AtomicCmpXchgInst *> cass;
+	VSet<const llvm::PHINode *> phis;
+
+	/* A spinloop has no side effects, so all instructions need to have no
+	 * side effects too. The only exceptions are calls to __VERIFIER_assume()
+	 * and CAS/PHI instructions (as these may belong to a CAS spinloop). */
 	for (auto bb = l->block_begin(); bb != l->block_end(); ++bb) {
 		for (auto i = (*bb)->begin(); i != (*bb)->end(); ++i) {
-			if (i->mayHaveSideEffects() &&
-			    !llvm::isa<llvm::LoadInst>(*i))
-				return false;
 			if (llvm::isa<llvm::AllocaInst>(*i))
 				return false;
-			if (llvm::isa<llvm::PHINode>(*i))
-				return false;
+			if (auto *phii = llvm::dyn_cast<llvm::PHINode>(&*i))
+				phis.insert(phii);
+			if (i->mayHaveSideEffects()) {
+				if (auto *casi = llvm::dyn_cast<llvm::AtomicCmpXchgInst>(&*i)) {
+					cass.push_back(casi);
+				} else if (auto *ci = llvm::dyn_cast<llvm::CallInst>(&*i)) {
+					if (!isAssumeStatement(*ci))
+						return false;
+				} else if (!llvm::isa<llvm::LoadInst>(&*i)) {
+					return false;
+				}
+			}
 		}
 	}
-	return true;
+	/* If there were CASes, there can be only 1, and the spinloop needs to be checked */
+	if (cass.size())
+		return cass.size() == 1 && isCasSpinLoop(l, cass[0], phis);
+
+	/* Otherwise, it is a plain spinloop; there should be no PHI nodes */
+	return phis.empty();
 }
 
 void SpinAssumePass::addAssumeCallBeforeInstruction(llvm::Instruction *bi)
