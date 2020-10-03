@@ -192,6 +192,7 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	if (liveness)
 		addSpinStartCall(l->getHeader());
 	addAssumeCallBeforeInstruction(bi);
+	removeDisconnectedBlocks(l);
 	return true;
 }
 
