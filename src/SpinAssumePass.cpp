@@ -27,6 +27,7 @@
 #include "DeclareSpinStartPass.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
