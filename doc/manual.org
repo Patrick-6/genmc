@@ -589,10 +589,10 @@ slowdown.
 
 Since v0.5, {{{genmc}}} supports the verification programs involving
 system calls for file manipulation like =read()= and =write()=.  In
-addition, using =-persevere= {{{genmc}}} can verify persistency
-properties of such programs. Below we discuss some details that
-are important when it comes to verifying programs that involve
-file manipulation.
+addition, using {{{persevere}}} cite:kokologiannakis2021:persevere-temp,
+{{{genmc}}} can verify persistency properties of such programs. Below
+we discuss some details that are important when it comes to verifying
+programs that involve file manipulation.
 
 *** Consistency of File-Manipulating Programs
 
