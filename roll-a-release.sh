@@ -41,7 +41,7 @@ git clean -dfX
 
 # publish dockerfile
 cd "${INTERNAL_PATH}"
-sudo docker build --no-cache -t genmc:"v${VERSION}"
+sudo docker build --no-cache -t genmc:"v${VERSION}" .
 sudo docker image tag genmc:"v${VERSION}" genmc/genmc:"v${VERSION}"
 sudo docker image tag genmc:"v${VERSION}" genmc/genmc:latest
 sudo docker image push genmc/genmc:"v${VERSION}"
