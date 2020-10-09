@@ -119,7 +119,7 @@ public:
 	std::unique_ptr<ThreadJoinLabel>
 	createTJoinLabel(int tid, int index, int cid) override;
 	std::unique_ptr<ThreadStartLabel>
-	createStartLabel(int tid, int index, Event tc) override;
+	createStartLabel(int tid, int index, Event tc, int symm = -1) override;
 	std::unique_ptr<ThreadFinishLabel>
 	createFinishLabel(int tid, int index) override;
 	std::unique_ptr<LockLabelLAPOR>
