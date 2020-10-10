@@ -381,10 +381,7 @@ class FaiReadLabel : public ReadLabel {
 
 public:
 	/* Specialization for FAI reads depending on whether they return a value */
-	enum FaiType {
-		Plain,
-		NoRet,
-	};
+	enum FaiType { Plain, NoRet, };
 
 protected:
 	friend class ExecutionGraph;
@@ -430,6 +427,10 @@ private:
 /* Represents the read part of a compare-and-swap (CAS) operation */
 class CasReadLabel : public ReadLabel {
 
+public:
+	/* Specialization for CAS reads depending on whether they are part of a lock op */
+	enum CasType { CT_Plain, CT_Lock, CT_Trylock, };
+
 protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
@@ -438,9 +439,9 @@ public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
-		     bool lockCas = false)
+		     CasType casType = CT_Plain)
 		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf),
-		  expected(exp), swapValue(swap), lockCas(lockCas) {}
+		  expected(exp), swapValue(swap), casType(casType) {}
 
 	/* Returns the value that will make this CAS succeed */
 	const llvm::GenericValue& getExpected() const { return expected; }
@@ -448,8 +449,11 @@ public:
 	/* Returns the value that will be written is the CAS succeeds */
 	const llvm::GenericValue& getSwapVal() const { return swapValue; }
 
-	/* Returns true if this CAS models a lock acquire operation */
-	bool isLock() const { return lockCas; }
+	/* Returns the type of this CAS operation */
+	CasType getCasType() const { return casType; }
+
+	/* Returns true if this CAS models a lock acquisition */
+	bool isLock() const { return casType == CT_Lock || casType == CT_Trylock; }
 
 	CasReadLabel *clone() const override { return new CasReadLabel(*this); }
 
@@ -463,8 +467,8 @@ private:
 	/* The value that will be written if the CAS succeeds */
 	const llvm::GenericValue swapValue;
 
-	/* Whether this CAS models a lock-acquire operation */
-	const bool lockCas;
+	/* Whether this CAS models a lock-acquisition operation */
+	const CasType casType;
 };
 
 
@@ -663,12 +667,15 @@ protected:
 public:
 	CasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val, bool lockCas)
+		      llvm::GenericValue val, CasReadLabel::CasType casType)
 		: WriteLabel(EL_CasWrite, st, ord, pos, addr, valTyp, val),
-		  lockCas(lockCas) {}
+		  casType(casType) {}
 
 	/* Returns true if this label is used for modeling a lock-acquire op */
-	bool isLock() const { return lockCas; }
+	bool isLock() const { return casType == CasReadLabel::CT_Lock || casType == CasReadLabel::CT_Trylock; }
+
+	/* Returns the type of this CAS operation */
+	CasReadLabel::CasType getCasType() const { return casType; }
 
 	CasWriteLabel *clone() const override { return new CasWriteLabel(*this); }
 
@@ -676,8 +683,8 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_CasWrite; }
 
 private:
-	/* Whether this label is used for modeling a lock-acquire op */
-	const bool lockCas;
+	/* Whether this label is used for modeling a lock-acquisition */
+	const CasReadLabel::CasType casType;
 };
 
 

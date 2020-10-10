@@ -51,7 +51,7 @@ public:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
-			   bool isLock = false) override;
+			    CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) override;
 
 	/* Creates a label for a library read to be added to the graph */
 	std::unique_ptr<LibReadLabel>
@@ -82,7 +82,7 @@ public:
 	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
 			    const llvm::GenericValue &val,
-			    bool isLock = false) override;
+			    CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) override;
 
 	/* Creates a label for a library write to be added to the graph */
 	std::unique_ptr<LibWriteLabel>

@@ -272,12 +272,12 @@ std::unique_ptr<CasReadLabel>
 IMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 				const llvm::GenericValue *ptr, const llvm::Type *typ,
 				Event rf, const llvm::GenericValue &expected,
-				const llvm::GenericValue &swap, bool isLock)
+				const llvm::GenericValue &swap, CasReadLabel::CasType casType)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, expected, swap, isLock);
+						   rf, expected, swap, casType);
 
 	calcBasicReadViews(lab.get());
 	return std::move(lab);
@@ -342,12 +342,12 @@ IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<CasWriteLabel>
 IMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val, bool isLock)
+				 const llvm::GenericValue &val, CasReadLabel::CasType casType)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<CasWriteLabel>(g.nextStamp(), ord, pos, ptr,
-						    typ, val, isLock);
+						    typ, val, casType);
 
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());

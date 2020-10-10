@@ -345,6 +345,7 @@ public:
 	  IA_FaiNoRet,
 	  IA_Cas,
 	  IA_Lock,
+	  IA_Trylock,
 	  IA_Unlock,
 	  IA_DskMdata,
 	  IA_DskDirOp,

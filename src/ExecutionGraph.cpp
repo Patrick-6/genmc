@@ -192,12 +192,13 @@ Event ExecutionGraph::getMatchingLock(const Event unlock) const
 			if (suLab->isUnlock() && suLab->getAddr() == uLab->getAddr())
 				locUnlocks.push_back(suLab->getPos());
 		}
-		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
-			if (lLab->isLock() && lLab->getAddr() == uLab->getAddr()) {
+		if (auto *lLab = llvm::dyn_cast<CasWriteLabel>(lab)) {
+			auto ct = lLab->getCasType();
+			if ((ct == CasReadLabel::CT_Lock || ct == CasReadLabel::CT_Trylock) &&
+			    lLab->getAddr() == uLab->getAddr()) {
 				if (locUnlocks.empty())
-					return lLab->getPos();
-				else
-					locUnlocks.pop_back();
+					return lLab->getPos().prev();
+				locUnlocks.pop_back();
 			}
 		}
 	}

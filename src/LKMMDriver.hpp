@@ -47,7 +47,7 @@ public:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
-			   bool isLock = false) override;
+			    CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) override;
 	std::unique_ptr<DskReadLabel>
 	createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
@@ -69,7 +69,7 @@ public:
 	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
 			    const llvm::GenericValue &val,
-			    bool isLock = false) override;
+			    CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) override;
 	std::unique_ptr<LibWriteLabel>
 	createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,

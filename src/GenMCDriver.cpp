@@ -316,7 +316,7 @@ void GenMCDriver::handleExecutionBeginning()
 
 		/* Mark threads that are blocked appropriately */
 		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(labLast)) {
-			if (lLab->isLock())
+			if (lLab->getCasType() == CasReadLabel::CT_Lock)
 				thr.block();
 		}
 	}
@@ -1379,6 +1379,17 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord, const char *lkmmType /* =
 	return;
 }
 
+/* Helper maps to map instruction attributes to label attributes (for certain kind of labels) */
+static std::unordered_map<llvm::Interpreter::InstAttr, FaiReadLabel::FaiType> attrMapFai = {
+	{llvm::Interpreter::IA_Fai, FaiReadLabel::Plain},
+	{llvm::Interpreter::IA_FaiNoRet, FaiReadLabel::NoRet},
+};
+static std::unordered_map<llvm::Interpreter::InstAttr, CasReadLabel::CasType> attrMapCas = {
+	{llvm::Interpreter::IA_Cas, CasReadLabel::CT_Plain},
+	{llvm::Interpreter::IA_Lock, CasReadLabel::CT_Lock},
+	{llvm::Interpreter::IA_Trylock, CasReadLabel::CT_Trylock},
+};
+
 const ReadLabel *
 GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 				llvm::AtomicOrdering ord,
@@ -1389,11 +1400,7 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 				llvm::AtomicRMWInst::BinOp op,
 				Event store)
 {
-	/* Helper maps to map instruction attributes to label attributes (for certain kind of labels) */
-	static std::unordered_map<llvm::Interpreter::InstAttr, FaiReadLabel::FaiType> attrMapFai = {
-		{llvm::Interpreter::IA_Fai, FaiReadLabel::Plain},
-		{llvm::Interpreter::IA_FaiNoRet, FaiReadLabel::NoRet},
-	};
+
 
 	Event pos = getEE()->getCurrentPosition();
 	std::unique_ptr<ReadLabel> rLab = nullptr;
@@ -1410,9 +1417,9 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
+	case llvm::Interpreter::IA_Trylock:
 		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
-						    store, cmpVal, rmwVal,
-						    attr == llvm::Interpreter::IA_Lock));
+						    store, cmpVal, rmwVal, attrMapCas.at(attr)));
 		break;
 	default:
 		BUG();
@@ -1507,9 +1514,9 @@ GenMCDriver::createAddStoreLabel(llvm::Interpreter::InstAttr attr,
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
+	case llvm::Interpreter::IA_Trylock:
 		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val,
-						     attr == llvm::Interpreter::IA_Lock));
+						     addr, typ, val, attrMapCas.at(attr)));
 		break;
 	default:
 		BUG();
@@ -1863,7 +1870,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* Optimize handling of lock operations */
 		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
-			if (lLab->isLock() && getEE()->getThrById(lLab->getThread()).isBlocked &&
+			if (lLab->getCasType() == CasReadLabel::CT_Lock &&
+			    getEE()->getThrById(lLab->getThread()).isBlocked &&
 			    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
 				if (tryToRevisitLock(lLab, sLab, writePrefixPos, moPlacings))
 					continue;
@@ -1954,7 +1962,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 							     casLab->getAddr(),
 							     casLab->getType(),
 							     casLab->getSwapVal(),
-							     casLab->isLock()));
+							     casLab->getCasType()));
 		}
 	}
 	if (wLab)
@@ -2007,7 +2015,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	/* Blocked lock -> prioritize locking thread */
 	repairDanglingLocks();
 	if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
-		if (lLab->isLock()) {
+		if (lLab->getCasType() == CasReadLabel::CT_Lock) {
 			threadPrios = {lLab->getRf()};
 			EE->getThrById(lab->getThread()).block();
 		}

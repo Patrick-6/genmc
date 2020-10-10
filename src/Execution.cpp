@@ -2772,12 +2772,12 @@ void Interpreter::callMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
+	auto ret = driver->visitLoad(IA_Trylock, AtomicOrdering::Acquire, ptr,
 				     typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
-		driver->visitStore(IA_Cas, AtomicOrdering::Acquire,
+		driver->visitStore(IA_Trylock, AtomicOrdering::Acquire,
 				   ptr, typ, newVal);
 	}
 

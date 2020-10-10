@@ -565,7 +565,7 @@ private:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
-			   bool isLock = false) = 0;
+			   CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) = 0;
 
 	/* Creates a label for a library read to be added to the graph */
 	virtual std::unique_ptr<LibReadLabel>
@@ -595,7 +595,8 @@ private:
 	virtual std::unique_ptr<CasWriteLabel>
 	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, bool isLock = false) = 0;
+			    const llvm::GenericValue &val,
+			    CasReadLabel::CasType casType = CasReadLabel::CasType::CT_Plain) = 0;
 
 	/* Creates a label for a library write to be added to the graph */
 	virtual std::unique_ptr<LibWriteLabel>
