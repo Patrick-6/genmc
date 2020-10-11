@@ -19,10 +19,9 @@
  */
 
 #include <config.h>
-#include "DeclareAssumePass.hpp"
+#include "DeclareInternalsPass.hpp"
 #include "Error.hpp"
 #include <llvm/Pass.h>
-#include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
@@ -36,32 +35,31 @@ using namespace llvm;
 # define AttributeList AttributeSet
 #endif
 
-bool DeclareAssumePass::runOnModule(Module &M)
+bool declareInternal(Module &M, const std::string &name, Type *retTyp,
+		     const ArrayRef<Type *> &argTyps)
 {
-	Function *assumeFun;
-	FunctionType *assumeTyp;
-	AttributeList assumeAtt;
+	auto *fun = M.getFunction(name);
+	if (fun)
+		return false;
+
+	auto funTyp = FunctionType::get(retTyp, argTyps, false);
+	auto funAttrs = AttributeList::get(M.getContext(), AttributeList::FunctionIndex,
+					   std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
+	M.getOrInsertFunction(name, funTyp, funAttrs);
+	return true;
+}
+
+bool DeclareInternalsPass::runOnModule(Module &M)
+{
 	bool modified = false;
 
-	/*
-	 * TODO: Check whether __VERIFIER_assume() is already declared
-	 * but malformed.
-	 */
-	assumeFun = M.getFunction("__VERIFIER_assume");
-	if (!assumeFun) {
-		Type *retTyp = Type::getVoidTy(M.getContext());
-		Type *argTyp = Type::getInt1Ty(M.getContext());
-		assumeTyp = FunctionType::get(retTyp, {argTyp}, false);
-
-		AttributeList::get(M.getContext(),
-				  AttributeList::FunctionIndex,
-				  std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
-		M.getOrInsertFunction("__VERIFIER_assume", assumeTyp, assumeAtt);
-		modified = true;
-	}
+	modified |= declareInternal(M, "__VERIFIER_assume", Type::getVoidTy(M.getContext()),
+				    {Type::getInt1Ty(M.getContext())});
+	modified |= declareInternal(M, "__VERIFIER_end_loop", Type::getVoidTy(M.getContext()), {});
+	modified |= declareInternal(M, "__VERIFIER_spin_start", Type::getVoidTy(M.getContext()), {});
 	return modified;
 }
 
-char DeclareAssumePass::ID = 42;
-static llvm::RegisterPass<DeclareAssumePass> P("declare-assume",
-					       "Declares the __VERIFIER_assume function.");
+char DeclareInternalsPass::ID = 42;
+static llvm::RegisterPass<DeclareInternalsPass> P("declare-internals",
+						  "Declares internal functions.");

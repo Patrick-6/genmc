@@ -23,8 +23,7 @@
 #include "VSet.hpp"
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
-#include "DeclareAssumePass.hpp"
-#include "DeclareSpinStartPass.hpp"
+#include "DeclareInternalsPass.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/Constants.h>
@@ -45,8 +44,8 @@
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<llvm::DominatorTreeWrapperPass>();
-	au.addRequired<DeclareAssumePass>();
-	au.addPreserved<DeclareAssumePass>();
+	au.addRequired<DeclareInternalsPass>();
+	au.addPreserved<DeclareInternalsPass>();
 }
 
 bool isAssumeStatement(llvm::Instruction &i)

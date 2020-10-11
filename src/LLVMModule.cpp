@@ -21,9 +21,7 @@
 #include "config.h"
 
 #include "LLVMModule.hpp"
-#include "DeclareAssumePass.hpp"
-#include "DeclareEndLoopPass.hpp"
-#include "DeclareSpinStartPass.hpp"
+#include "DeclareInternalsPass.hpp"
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
 #include "IntrinsicLoweringPass.hpp"
@@ -128,8 +126,7 @@ namespace LLVMModule {
 		llvm::initializeInstrumentation(Registry);
 		llvm::initializeTarget(Registry);
 
-		OptPM.add(new DeclareAssumePass());
-		OptPM.add(new DeclareSpinStartPass());
+		OptPM.add(new DeclareInternalsPass());
 		OptPM.add(new DefineLibcFunsPass());
 		OptPM.add(new MDataCollectionPass(VI, FI));
 		OptPM.add(new PromoteMemIntrinsicPass());
@@ -146,7 +143,6 @@ namespace LLVMModule {
 
 		if (conf->spinAssume)
 			BndPM.add(new SpinAssumePass(conf->checkLiveness));
-		BndPM.add(new DeclareEndLoopPass());
 		if (conf->unroll >= 0)
 			BndPM.add(new LoopUnrollPass(conf->unroll));
 

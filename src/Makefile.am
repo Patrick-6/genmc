@@ -15,9 +15,7 @@ libgenmc_a_SOURCES = \
   CallInstWrapper.hpp \
   CoherenceCalculator.hpp \
   Config.cpp Config.hpp \
-  DeclareAssumePass.cpp DeclareAssumePass.hpp \
-  DeclareSpinStartPass.cpp DeclareSpinStartPass.hpp \
-  DeclareEndLoopPass.cpp DeclareEndLoopPass.hpp \
+  DeclareInternalsPass.cpp DeclareInternalsPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \
   DepExecutionGraph.cpp DepExecutionGraph.hpp \
   DepInfo.cpp DepInfo.hpp \

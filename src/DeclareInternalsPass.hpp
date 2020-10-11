@@ -18,17 +18,17 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DECLARE_END_LOOP_PASS_HPP__
-#define __DECLARE_END_LOOP_PASS_HPP__
+#ifndef __DECLARE_INTERNALS_PASS_HPP__
+#define __DECLARE_INTERNALS_PASS_HPP__
 
 #include <llvm/Pass.h>
 
-class DeclareEndLoopPass : public llvm::ModulePass {
+class DeclareInternalsPass : public llvm::ModulePass {
 public:
 	static char ID;
 
-	DeclareEndLoopPass() : ModulePass(ID) {};
+	DeclareInternalsPass() : ModulePass(ID) {};
 	virtual bool runOnModule(llvm::Module &M);
 };
 
-#endif /* __DECLARE_END_LOOP_PASS_HPP__ */
+#endif /* __DECLARE_INTERNALS_PASS_HPP__ */

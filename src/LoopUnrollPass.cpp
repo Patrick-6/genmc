@@ -22,8 +22,7 @@
 
 #include "VSet.hpp"
 #include "LoopUnrollPass.hpp"
-#include "DeclareAssumePass.hpp"
-#include "DeclareEndLoopPass.hpp"
+#include "DeclareInternalsPass.hpp"
 #include "SpinAssumePass.hpp"
 #include "Error.hpp"
 #include <llvm/IR/Module.h>
@@ -52,8 +51,8 @@
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	llvm::LoopPass::getAnalysisUsage(au);
-	au.addRequired<DeclareEndLoopPass>();
-	au.addPreserved<DeclareEndLoopPass>();
+	au.addRequired<DeclareInternalsPass>();
+	au.addPreserved<DeclareInternalsPass>();
 }
 
 /*
