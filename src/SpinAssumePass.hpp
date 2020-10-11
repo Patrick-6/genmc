@@ -29,7 +29,7 @@ class SpinAssumePass : public llvm::LoopPass {
 
 protected:
 	bool isSpinLoop(const llvm::Loop *l) const;
-	void addAssumeCallBeforeInstruction(llvm::Instruction *i);
+	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
 	void addSpinStartCall(llvm::BasicBlock *b);
 	void removeDisconnectedBlocks(llvm::Loop *l);
 	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);

@@ -184,18 +184,13 @@ bool SpinAssumePass::isSpinLoop(const llvm::Loop *l) const
 	return phis.empty();
 }
 
-void SpinAssumePass::addAssumeCallBeforeInstruction(llvm::Instruction *bi)
+void SpinAssumePass::addSpinEndCallBeforeInstruction(llvm::Instruction *bi)
 {
-        auto *assumeFun = bi->getParent()->getParent()->getParent()->getFunction("__VERIFIER_assume");
-        auto *assumeArgTyp = assumeFun->arg_begin()->getType();
-        BUG_ON(!assumeArgTyp->isIntegerTy());
+        auto *endFun = bi->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
 
-        llvm::Value *zero = llvm::ConstantInt::get(assumeArgTyp, 0);
-
-        auto *ci = llvm::CallInst::Create(assumeFun, {zero}, "", bi);
+        auto *ci = llvm::CallInst::Create(endFun, {}, "", bi);
         ci->setMetadata("dbg", bi->getMetadata("dbg"));
-        auto extraMdata = llvm::MDNode::get(bi->getContext(), llvm::MDString::get(bi->getContext(), "spinloop"));
-        ci->setMetadata("assume.kind", extraMdata);
+	return;
 }
 
 void SpinAssumePass::addSpinStartCall(llvm::BasicBlock *b)
@@ -300,7 +295,7 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	/* If liveness checks are specified, also mark the start of the spinloop */
 	if (liveness)
 		addSpinStartCall(l->getHeader());
-	addAssumeCallBeforeInstruction(bi);
+	addSpinEndCallBeforeInstruction(bi);
 	removeDisconnectedBlocks(l);
 	return true;
 }

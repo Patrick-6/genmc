@@ -781,6 +781,7 @@ private:  // Helper functions
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
