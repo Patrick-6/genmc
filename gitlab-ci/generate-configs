@@ -10,6 +10,8 @@ LINUX_HEADER="default:
     expire_in: 1 week
     paths:
       - ./
+    exclude:
+      - .git/
 "
 MACOS_HEADER="default:
   tags:
@@ -18,6 +20,8 @@ MACOS_HEADER="default:
     expire_in: 1 week
     paths:
       - ./
+    exclude:
+      - .git/
 "
 
 ## supported versions
