@@ -3091,8 +3091,8 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	}
 
 	/* Update inode's size (ext4_setattr()) */
-	updateInodeSizeFS(inode.PointerVal, intTyp, length);
 	updateInodeDisksizeFS(inode.PointerVal, intTyp, length, ordRangeBegin, ordRangeEnd);
+	updateInodeSizeFS(inode.PointerVal, intTyp, length);
 
 	if (FI.journalData >= JournalDataFS::ordered)
 		executeFsyncFS(inode.PointerVal, intTyp);
@@ -3639,8 +3639,8 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 		GenericValue newSize;
 		newSize.IntVal = APInt(intTyp->getIntegerBitWidth(), inodeOffset + bytes);
 		if (newSize.IntVal.sgt(readInodeSizeFS(inode, intTyp).IntVal)) {
-			updateInodeSizeFS(inode, intTyp, newSize);
 			updateInodeDisksizeFS(inode, intTyp, newSize, ordRangeBegin, newSize);
+			updateInodeSizeFS(inode, intTyp, newSize);
 			ordRangeBegin = newSize;
 		}
 
