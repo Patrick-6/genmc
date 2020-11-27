@@ -117,13 +117,10 @@ void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	return;
 }
 
-void IMMDriver::calcBasicReadViews(ReadLabel *lab)
+void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
-	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos());
-	DepView pporf(ppo);
 
 	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
 		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
@@ -142,6 +139,18 @@ void IMMDriver::calcBasicReadViews(ReadLabel *lab)
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
 	}
+	return;
+}
+
+void IMMDriver::calcBasicReadViews(ReadLabel *lab)
+{
+	const auto &g = getGraph();
+	View hb = calcBasicHbView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos());
+	DepView pporf(ppo);
+
+	updateReadViewsFromRf(pporf, hb, lab);
+
 	lab->setHbView(std::move(hb));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
@@ -742,30 +751,12 @@ void IMMDriver::changeRf(Event read, Event store)
 	g.changeRf(read, store);
 
 	/* And update the views of the load */
-	EventLabel *lab = g.getEventLabel(read);
-	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
-	EventLabel *rfLab = g.getEventLabel(store);
+	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	View hb = calcBasicHbView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
-		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
-		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
-	} else {
-		pporf.update(rfLab->getPPoRfView());
-		for (auto i = 0u; i < rLab->getIndex(); i++) {
-			const EventLabel *eLab = g.getEventLabel(Event(rLab->getThread(), i));
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
-				if (wLab->getAddr() == rLab->getAddr())
-					pporf.update(wLab->getPPoRfView());
-			}
-		}
-	}
+	updateReadViewsFromRf(pporf, hb, rLab);
 
-	if (rLab->isAtLeastAcquire()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-			hb.update(wLab->getMsgView());
-	}
 	rLab->setHbView(std::move(hb));
 	rLab->setPPoRfView(std::move(pporf));
 
