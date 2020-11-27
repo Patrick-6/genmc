@@ -46,7 +46,22 @@ DepExecutionGraph::getRevisitView(const ReadLabel *rLab,
 				  const WriteLabel *wLab) const
 {
 	auto preds = LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(rLab->getStamp()));
-	preds->update(wLab->getPPoRfView());
+	auto &pporf = wLab->getPPoRfView();
+
+	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
+	preds->update(pporf);
+	for (auto i = 0u; i < pporf.size(); i++) {
+		for (auto j = 1; j <= pporf[i]; j++) {
+			auto *lab = getEventLabel(Event(i, j));
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (preds->contains(rLab->getPos()) && !preds->contains(rLab->getRf())) {
+					BUG_ON(rLab->getRf().thread != rLab->getThread() &&
+					       !rLab->getRf().isInitializer());
+					preds->removeHole(rLab->getRf());
+				}
+			}
+		}
+	}
 	return std::move(preds);
 }
 
@@ -87,13 +102,32 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 {
 	std::vector<std::unique_ptr<EventLabel> > result;
 
-	auto &pporf = sLab->getPPoRfView();
+	auto pporf(sLab->getPPoRfView());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 1; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
+
+			/* If not part of pporf, skip */
 			if (lab->getStamp() <= rLab->getStamp() ||
 			    !pporf.contains(lab->getPos()))
 				continue;
+
+			/* Handle the case where an rfi is not in pporf (and won't be in the graph) */
+			if (auto *rdLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rdLab->getRf()));
+				if (wLab && !pporf.contains(wLab->getPos()) &&
+				    wLab->getStamp() > rLab->getStamp()) {
+					/* Make sure we will not store twice and clone */
+					pporf.removeHole(wLab->getPos());
+					result.push_back(std::unique_ptr<EventLabel>(wLab->clone()));
+					auto &curLab = result.back();
+					auto curWLab = llvm::dyn_cast<WriteLabel>(curLab.get());
+					curWLab->removeReader([&](Event r) {
+						return getEventLabel(r)->getStamp() > rLab->getStamp() &&
+							!pporf.contains(r);
+					});
+				}
+			}
 
 			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
 
