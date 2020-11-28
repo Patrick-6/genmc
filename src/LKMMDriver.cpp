@@ -148,16 +148,12 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab) /* not const */
 					continue;
 			}
 		}
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(eLab)) {
-			BUG_ON(!rLab->isAtLeastAcquire());
-			v.update(rLab->getPPoView());
-		} else
-			v.update(g.getPPoRfBefore(ev));
+		v.update(g.getPPoRfBefore(ev));
 	}
 	return v;
 }
 
-void LKMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
+void LKMMDriver::updateRelView(DepView &pporf, const EventLabel *lab)
 {
 	if (!lab->isAtLeastRelease())
 		return;
@@ -165,7 +161,10 @@ void LKMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	const auto &g = getGraph();
 
 	pporf.removeAllHoles(lab->getThread());
+
 	Event rel = g.getLastThreadRelease(lab->getPos());
+	pporf.update(g.getEventLabel(rel)->getPPoRfView());
+
 	if (llvm::isa<FaiWriteLabel>(g.getEventLabel(rel)) ||
 	    llvm::isa<CasWriteLabel>(g.getEventLabel(rel)))
 		--rel.index;
@@ -234,8 +233,10 @@ void LKMMDriver::calcBasicWriteViews(WriteLabel *lab)
 	DepView fence = calcFenceView(lab);
 	DepView pporf(ppo);
 
-	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab))
-		pporf.update(g.getPPoRfBefore(g.getPreviousLabel(lab)->getPos()));
+	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab)) {
+		ppo.update(g.getPreviousLabel(lab)->getPPoRfView());
+		pporf.update(g.getPreviousLabel(lab)->getPPoRfView());
+	}
 	if (lab->isAtLeastRelease()) {
 		updateRelView(pporf, lab);
 		fence = pporf;
