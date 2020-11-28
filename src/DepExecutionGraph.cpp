@@ -101,8 +101,8 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 	std::vector<std::unique_ptr<EventLabel> > result;
 
 	auto pporf(sLab->getPPoRfView());
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1; j < getThreadSize(i); j++) {
+	for (auto i = 0u; i < pporf.size(); i++) {
+		for (auto j = 1; j <= pporf[i]; j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 
 			/* If not part of pporf, skip */
