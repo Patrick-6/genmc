@@ -79,16 +79,14 @@ std::unique_ptr<VectorClock> DepExecutionGraph::getPredsView(Event e) const
 bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 					     const EventLabel *sLab) const
 {
-	auto v = getDepViewFromStamp(rLab->getStamp());
-	auto &pfx = getPPoRfBefore(sLab->getPos());
+	auto v = getRevisitView(rLab, sLab);
 
-	v.update(pfx);
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (v[i] + 1 != (int) getThreadSize(i))
+	for (auto i = 0u; i < v->size(); i++) {
+		if ((*v)[i] + 1 != (int) getThreadSize(i))
 			return true;
-		for (auto j = 0u; j < getThreadSize(i); j++) {
+		for (auto j = 1; j <= (*v)[i]; j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!v.contains(lab->getPos()) &&
+			if (!v->contains(lab->getPos()) &&
 			    !llvm::isa<EmptyLabel>(lab))
 				return true;
 		}
