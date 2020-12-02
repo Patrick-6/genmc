@@ -1248,7 +1248,8 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		 getAddrPoDeps(getCurThr().id), nullptr);
 
-  GenericValue Result = driver->visitMalloc(MemToAlloc, Storage::ST_Automatic, AddressSpace::AS_User);
+  GenericValue Result = driver->visitMalloc(MemToAlloc, I.getAlignment(),
+					    Storage::ST_Automatic, AddressSpace::AS_User);
   ECStack().back().Allocas.add(Result.PointerVal);
 
   /* If this is not a replay, update naming information for this variable
@@ -2632,9 +2633,14 @@ void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &Ar
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	if (!ArgVals[0].IntVal.isStrictlyPositive())
+		driver->visitError(GenMCDriver::DE_Allocation, "Invalid size in malloc()");
+
+	auto size = ArgVals[0].IntVal.getLimitedValue();
+
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
-	GenericValue address = driver->visitMalloc(ArgVals[0].IntVal.getLimitedValue(),
+	GenericValue address = driver->visitMalloc(size, alignof(std::max_align_t),
 						   Storage::ST_Heap, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), address);
 	return;
@@ -2952,7 +2958,8 @@ GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTy
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(FI.inodeTyp);
-	auto inode = driver->visitMalloc(inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal);
+	auto inode = driver->visitMalloc(inodeSize, alignof(std::max_align_t),
+					 Storage::ST_Heap, AddressSpace::AS_Internal);
 	updateVarNameInfo((char *) inode.PointerVal, inodeSize, Storage::ST_Heap, AddressSpace::AS_Internal,
 			  nullptr, std::string("__inode_") + (char *) filename, "inode");
 
@@ -3024,7 +3031,8 @@ GenericValue Interpreter::executeOpenFS(const char *filename, const GenericValue
 
 	/* We allocate space for the file description... */
 	auto fileSize = getTypeSize(FI.fileTyp);
-	auto *file = driver->visitMalloc(fileSize, Storage::ST_Heap, AddressSpace::AS_Internal).PointerVal;
+	auto *file = driver->visitMalloc(fileSize, alignof(std::max_align_t),
+					 Storage::ST_Heap, AddressSpace::AS_Internal).PointerVal;
 
 	std::string varname("__file_");
 	raw_string_ostream sname(varname);

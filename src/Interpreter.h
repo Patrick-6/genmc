@@ -210,9 +210,11 @@ public:
   }
 
   /* Allocates a chunk */
-  char *allocate(unsigned int size, Storage s, AddressSpace spc) {
-	  char *newAddr = allocRangeBegin;
-	  allocRangeBegin += size;
+  char *allocate(unsigned int size, unsigned int alignment, Storage s, AddressSpace spc) {
+	  auto offset = alignment - 1;
+	  auto *oldAddr = allocRangeBegin;
+	  allocRangeBegin += (offset + size);
+	  auto *newAddr = (char *) (((uintptr_t) oldAddr + offset) & ~(alignment - 1));
 	  track(newAddr, size, s, spc);
 	  return newAddr;
   }
@@ -505,7 +507,7 @@ public:
   bool isShared(const void *);
 
   /* Returns a fresh address for a new allocation */
-  void *getFreshAddr(unsigned int size, Storage s, AddressSpace spc);
+  void *getFreshAddr(unsigned int size, int alignment, Storage s, AddressSpace spc);
 
   /* Records that the memory block in ADDR is used.
    * Does _not_ update naming information */

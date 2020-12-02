@@ -1621,8 +1621,8 @@ void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ)
 	return;
 }
 
-llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, Storage s,
-					    AddressSpace spc)
+llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, unsigned int alignment,
+					    Storage s, AddressSpace spc)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
@@ -1639,7 +1639,7 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, Storage s,
 	}
 
 	/* Get a fresh address and also track this allocation */
-	allocBegin.PointerVal = EE->getFreshAddr(allocSize, s, spc);
+	allocBegin.PointerVal = EE->getFreshAddr(allocSize, alignment, s, spc);
 
 	/* Add a relevant label to the graph and return the new address */
 	Event pos = EE->getCurrentPosition();
@@ -2379,6 +2379,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Attempt to free non-allocated memory";
 	case GenMCDriver::DE_DoubleFree:
 		return s << "Double-free error";
+	case GenMCDriver::DE_Allocation:
+		return s << "Allocation error";
 	case GenMCDriver::DE_UninitializedMem:
 		return s << "Attempt to read from uninitialized memory";
 	case GenMCDriver::DE_AccessNonMalloc:
