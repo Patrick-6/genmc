@@ -770,6 +770,7 @@ private:  // Helper functions
   void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMallocAligned(Function *F, const std::vector<GenericValue> &ArgVals);
   void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
   void callThreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
   void callThreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);

@@ -66,6 +66,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
 	{"__VERIFIER_malloc", InternalFunctions::FN_Malloc},
+	{"__VERIFIER_malloc_aligned", InternalFunctions::FN_MallocAligned},
 	{"__VERIFIER_free", InternalFunctions::FN_Free},
 	{"__VERIFIER_thread_self", InternalFunctions::FN_ThreadSelf},
 	{"__VERIFIER_thread_create", InternalFunctions::FN_ThreadCreate},
@@ -2646,6 +2647,23 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	return;
 }
 
+void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	auto align = ArgVals[0].IntVal.getLimitedValue();
+	auto size = ArgVals[1].IntVal.getLimitedValue();
+
+	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1)))
+		driver->visitError(GenMCDriver::DE_Allocation, "Invalid alignment in aligned_alloc()");
+	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align))
+		driver->visitError(GenMCDriver::DE_Allocation, "Invalid size in aligned_alloc()");
+
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+	GenericValue address = driver->visitMalloc(size, align, Storage::ST_Heap, AddressSpace::AS_User);
+	returnValueToCaller(F->getReturnType(), address);
+	return;
+}
+
 void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
@@ -4050,6 +4068,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);
 		CALL_INTERNAL_FUNCTION(Malloc);
+		CALL_INTERNAL_FUNCTION(MallocAligned);
 		CALL_INTERNAL_FUNCTION(Free);
 		CALL_INTERNAL_FUNCTION(ThreadSelf);
 		CALL_INTERNAL_FUNCTION(ThreadCreate);
