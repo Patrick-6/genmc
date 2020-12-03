@@ -1863,12 +1863,14 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
-	auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 
 	const WriteLabel *sLab = nullptr;
 	std::unique_ptr<WriteLabel> wLab = nullptr;
 	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
 		llvm::GenericValue result;
+		/* Need to get the rf value within the if, as rLab might be a disk op,
+		 * and we cannot get the value in that case (but it will also not be an RMW)  */
+		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		EE->executeAtomicRMWOperation(result, rfVal, faiLab->getOpVal(),
 					      faiLab->getOp());
 		EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
@@ -1879,6 +1881,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						     faiLab->getType(),
 						     result));
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
+		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
 			EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 			wLab = std::move(createCasStoreLabel(casLab->getThread(),
