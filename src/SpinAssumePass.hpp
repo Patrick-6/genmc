@@ -27,12 +27,16 @@
 
 class SpinAssumePass : public llvm::LoopPass {
 
+public:
+	enum LoopType { None, Plain, Cas, Fai };
+
 protected:
-	bool isSpinLoop(const llvm::Loop *l) const;
+	bool isSpinLoop(const llvm::Loop *l, LoopType &typ) const;
+	void addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l);
 	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
 	void addSpinStartCall(llvm::BasicBlock *b);
 	void removeDisconnectedBlocks(llvm::Loop *l);
-	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);
+	bool transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm);
 
 public:
 	static char ID;

@@ -238,6 +238,8 @@ public:
 		BT_NotBlocked,
 		BT_ThreadJoin,
 		BT_Spinloop,
+		BT_FaiSpinloop,
+		BT_SpinloopEnd,
 		BT_LockAcq,
 		BT_LockRel,
 		BT_Cons,
@@ -721,6 +723,7 @@ private:  // Helper functions
   void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);

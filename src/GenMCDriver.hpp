@@ -218,6 +218,10 @@ public:
 	void
 	visitSpinStart();
 
+	/* A call to __VERIFIER_potential_spin_end() has been interpreted */
+	void
+	visitPotentialSpinEnd();
+
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
 	visitThreadSelf(llvm::Type *typ);
@@ -480,6 +484,14 @@ private:
 			    const std::vector<Event> &stores,
 			    const View &v);
 
+	/* Opt: Checks whether the addition of an event changes our
+	 * perspective of a potential spinloop */
+	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
+
+	/* Opt: Given the end of a potential spinloop, returns true if
+	 * it is indeed a spinloop */
+	bool areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab);
+
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
 	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
@@ -661,6 +673,10 @@ private:
 	/* Creates a label for the start of a spinloop to be added to the graph */
 	virtual std::unique_ptr<SpinStartLabel>
 	createSpinStartLabel(int tid, int index) = 0;
+
+	/* Creates a label for the end of a potential spinloop to be added to the graph */
+	virtual std::unique_ptr<PotentialSpinEndLabel>
+	createPotentialSpinEndLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

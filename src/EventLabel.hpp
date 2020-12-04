@@ -56,6 +56,7 @@ public:
 		EL_ThreadCreate,
 		EL_ThreadJoin,
 		EL_SpinStart,
+		EL_PotentialSpinEnd,
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_FaiRead,
@@ -292,6 +293,25 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_SpinStart; }
 };
 
+
+/*******************************************************************************
+ **                            PotentialSpinEndLabel Class
+ ******************************************************************************/
+
+/* A label that marks the end of a potential spinloop. If the loop turns out to be not
+ * a spinloop, this is meaningless; otherwise, it indicates that the thread should block */
+class PotentialSpinEndLabel : public EventLabel {
+
+public:
+
+	PotentialSpinEndLabel(unsigned int st, Event pos)
+		: EventLabel(EL_PotentialSpinEnd, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	PotentialSpinEndLabel *clone() const override { return new PotentialSpinEndLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_PotentialSpinEnd; }
+};
 
 
 /*******************************************************************************

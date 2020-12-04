@@ -39,6 +39,7 @@ enum class InternalFunctions {
 	FN_AssertFail,
 	FN_SpinStart,
 	FN_SpinEnd,
+	FN_PotentialSpinEnd,
 	FN_EndLoop,
 	FN_Assume,
 	FN_NondetInt,

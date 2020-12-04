@@ -64,6 +64,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
 	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
+	{"__VERIFIER_potential_spin_end", InternalFunctions::FN_PotentialSpinEnd},
 	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -2620,6 +2621,11 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 	getCurThr().block(Thread::BlockageType::BT_Spinloop);
 }
 
+void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitPotentialSpinEnd();
+}
+
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	ECStack().clear();
@@ -4079,6 +4085,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(AssertFail);
 		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(SpinEnd);
+		CALL_INTERNAL_FUNCTION(PotentialSpinEnd);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);

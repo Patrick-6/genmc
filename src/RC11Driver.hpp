@@ -154,6 +154,9 @@ public:
 	std::unique_ptr<SpinStartLabel>
 	createSpinStartLabel(int tid, int index) override;
 
+	std::unique_ptr<PotentialSpinEndLabel>
+	createPotentialSpinEndLabel(int tid, int index) override;
+
 	/* Creates a label for the creation of a thread to be added to the graph */
 	std::unique_ptr<ThreadCreateLabel>
 	createTCreateLabel(int tid, int index, int cid) override;
