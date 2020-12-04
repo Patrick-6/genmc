@@ -227,14 +227,17 @@ Number of complete executions explored: 1
 Number of blocked executions seen: 1
 Total wall-clock time: 0.02s
 #+END_SRC
-As can be seen, {{{genmc}}} only explored one full execution (the one where
-$r = 1$, while the execution where $r = 0$ was blocked, because of
-the =assume()= statement.
+As can be seen, {{{genmc}}} only explored one full execution (the one
+where $r = 1$, while the execution where $r = 0$ was blocked, because
+of the =assume()= statement. Of course, while the usage of =assume()=
+does not make any practical difference in this small example, this is
+always the case: in programs where there are a lot of (global) accesses
+after an =assume()= statement, there can be a significant reduction in
+the {{{genmc}}}'s running time.
 
-We note that, while the usage of =assume()= does not make any
-practical difference in this small example, this is not the case in
-programs where there are a lot of (global) accesses after the
-=assume()= statement.
+Finally, note that, when using {{{genmc}}} under memory models that
+track dependencies (see Section [[sec:features-mms]]), an =assume()=
+statement will introduce a control dependency in the program's code.
 
 
 ** Handling Infinite Loops <<sec:basic-loops>>
@@ -389,7 +392,7 @@ same memory location in the sequence.
 # {{{genmc}}} has a number of features and extensions that are
 # discussed below.
 
-** Available Memory Models
+** Available Memory Models <<sec:features-mms>>
 
 By default, {{{genmc}}} verifies programs under RC11. However, apart
 from RC11, {{{genmc}}} also supports IMM. The difference between
@@ -589,7 +592,7 @@ slowdown.
 
 Since v0.5, {{{genmc}}} supports the verification programs involving
 system calls for file manipulation like =read()= and =write()=.  In
-addition, using {{{persevere}}} cite:kokologiannakis2021:persevere-temp,
+addition, using {{{persevere}}} cite:kokologiannakis2021:persevere,
 {{{genmc}}} can verify persistency properties of such programs. Below
 we discuss some details that are important when it comes to verifying
 programs that involve file manipulation.
@@ -843,6 +846,7 @@ The following functions are supported from =stdlib.h=:
 - =int atoi(const char *)= ::
 - =void free(void *)= ::
 - =void *malloc(size_t)= ::
+- =void *aligned_alloc(size_t, size_t)= ::
 
 ** Supported =pthread= API
 
