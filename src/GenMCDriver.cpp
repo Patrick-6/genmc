@@ -734,7 +734,7 @@ bool GenMCDriver::shouldCheckPers(ProgramPoint p)
 bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 {
 	if (shouldCheckCons(p) == false)
-		return getGraph().getEventLabel(a)->getHbView().contains(b);
+		return getGraph().getEventLabel(b)->getHbView().contains(a);
 
 	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 }
