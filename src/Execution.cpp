@@ -1440,6 +1440,8 @@ void Interpreter::executeAtomicRMWOperation(GenericValue &result, const GenericV
 {
 	switch (op) {
 	case AtomicRMWInst::Xchg:
+		WARN_ON_ONCE(depTracker != nullptr, "unsupported-xchg-deps",
+			     "Atomic xchg support is experimental under dependency-tracking models!\n");
 		result = val;
 		break;
 	case AtomicRMWInst::Add:
