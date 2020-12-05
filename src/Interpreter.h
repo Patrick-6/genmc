@@ -187,6 +187,16 @@ struct FsInfo {
 };
 
 /*
+ * ModuleInfo -- A struct to pack together all useful information like
+ * VariableInfo and FsInfo
+ */
+struct ModuleInfo {
+
+  VariableInfo varInfo;
+  FsInfo fsInfo;
+};
+
+/*
  * AllocaTracker class -- Keeps track of addresses that have been allocated,
  * and provides addresses available for allocation
  */
@@ -383,8 +393,8 @@ protected:
   GenericValue ExitValue;          // The return value of the called function
   IntrinsicLowering *IL;
 
-  /* Naming information for all variables */
-  VariableInfo VI;
+  /* Information about the module under test */
+  ModuleInfo MI;
 
   /* Tracks the names of variables for each storage type */
   IndexedMap<std::unordered_map<const void *, std::string> > varNames;
@@ -394,9 +404,6 @@ protected:
 
   /* A tracker for dynamic allocations */
   AllocaTracker alloctor;
-
-  /* Pers: Some information about the modeled filesystem */
-  FsInfo FI;
 
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
@@ -430,7 +437,7 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
+  explicit Interpreter(std::unique_ptr<Module> M, const ModuleInfo &MI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -546,7 +553,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(std::unique_ptr<Module> M, VariableInfo &&VI, FsInfo &&FI,
+  static ExecutionEngine *create(std::unique_ptr<Module> M, const ModuleInfo &MI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 

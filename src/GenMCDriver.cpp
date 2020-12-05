@@ -42,21 +42,17 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	: userConf(std::move(conf)), isMootExecution(false), explored(0),
 	  exploredBlocked(0), duplicates(0), start(start)
 {
-	Parser parser;
+	llvm::ModuleInfo MI;
 	std::string buf;
-	llvm::VariableInfo VI;
-	llvm::FsInfo FI;
 
-	LLVMModule::transformLLVMModule(*mod, VI, FI, userConf->spinAssume, userConf->unroll);
+	/* Prepare the module for verification */
+	LLVMModule::transformLLVMModule(*mod, getConf(), MI);
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), std::move(VI), std::move(FI),
-					  this, getConf(), &buf));
-
-
+		llvm::Interpreter::create(std::move(mod), MI, this, getConf(), &buf));
 
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
@@ -74,7 +70,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* If a specs file has been specified, parse it */
 	if (userConf->specsFile != "") {
-		auto res = parser.parseSpecs(userConf->specsFile);
+		auto res = Parser().parseSpecs(userConf->specsFile);
 		std::copy_if(res.begin(), res.end(), std::back_inserter(grantedLibs),
 			     [](Library &l){ return l.getType() == Granted; });
 		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerifyLibs),
