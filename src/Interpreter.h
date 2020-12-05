@@ -43,6 +43,7 @@
 #include "Config.hpp"
 #include "IMMDepTracker.hpp"
 #include "Library.hpp"
+#include "ModuleInfo.hpp"
 #include "View.hpp"
 #include "CallInstWrapper.hpp"
 
@@ -127,74 +128,6 @@ class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
 typedef std::vector<GenericValue> ValuePlaneTy;
-
-/*
- * VariableInfo struct -- This struct contains source-code level (naming)
- * information for variables.
- */
-struct VariableInfo {
-
-  /*
-   * We keep a map (Values -> (offset, name_at_offset)), and after
-   * the interpreter and the variables are allocated and initialized,
-   * we use the map to dynamically find out the name corresponding to
-   * a particular address.
-   */
-  using NameInfo = std::vector<std::pair<unsigned, std::string > >;
-
-  /* Internal types (not exposed to user programs) for which we might
-   * want to collect naming information */
-  using InternalType = std::string;
-
-  std::unordered_map<Value *, NameInfo> globalInfo;
-  std::unordered_map<Value *, NameInfo> localInfo;
-  std::unordered_map<InternalType, NameInfo> internalInfo;
-};
-
-/*
- * Pers: FsInfo struct -- Maintains some information regarding the
- * filesystem (e.g., type of inodes, files, etc)
- */
-struct FsInfo {
-
-  using Filename = std::string;
-  using NameMap = std::unordered_map<Filename, void *>;
-
-  /* Type information */
-  StructType *inodeTyp;
-  StructType *fileTyp;
-
-  /* A bitvector of available file descriptors */
-  llvm::BitVector fds;
-
-  /* Filesystem options*/
-  unsigned int blockSize;
-  unsigned int maxFileSize;
-
-  /* "Mount" options */
-  JournalDataFS journalData;
-  bool delalloc;
-
-  /* A map from file descriptors to file descriptions */
-  llvm::IndexedMap<void *> fdToFile;
-
-  /* Should hold the address of the directory's inode */
-  void *dirInode;
-
-  /* Maps a filename to the address of the contents of the directory's inode for
-   * said name (the contents should have the address of the file's inode) */
-  NameMap nameToInodeAddr;
-};
-
-/*
- * ModuleInfo -- A struct to pack together all useful information like
- * VariableInfo and FsInfo
- */
-struct ModuleInfo {
-
-  VariableInfo varInfo;
-  FsInfo fsInfo;
-};
 
 /*
  * AllocaTracker class -- Keeps track of addresses that have been allocated,

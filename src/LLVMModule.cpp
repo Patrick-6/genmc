@@ -105,7 +105,7 @@ namespace LLVMModule {
 		return std::unique_ptr<llvm::Module>(mod);
 	}
 
-	bool transformLLVMModule(llvm::Module &mod, const Config *conf, llvm::ModuleInfo &MI)
+	bool transformLLVMModule(llvm::Module &mod, const Config *conf, ModuleInfo &MI)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;

@@ -19,10 +19,12 @@
  */
 
 #include "config.h"
+#include "CallInstWrapper.hpp"
 #include "Error.hpp"
 #include "MDataCollectionPass.hpp"
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstrTypes.h>

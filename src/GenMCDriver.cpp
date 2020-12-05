@@ -42,7 +42,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	: userConf(std::move(conf)), isMootExecution(false), explored(0),
 	  exploredBlocked(0), duplicates(0), start(start)
 {
-	llvm::ModuleInfo MI;
+	ModuleInfo MI;
 	std::string buf;
 
 	/* Prepare the module for verification */
