@@ -69,6 +69,7 @@ libgenmc_a_SOURCES = \
   SExprVisitor.tcc SExprVisitor.hpp \
   Stamp.cpp Stamp.hpp \
   SVal.cpp SVal.hpp \
+  SCDetectorPass.cpp SCDetectorPass.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBIterator.hpp \
   ThreadInfo.hpp \

@@ -22,13 +22,12 @@
 #define __CONFIG_HPP__
 
 #include "InterpreterEnumAPI.hpp"
+#include "MemoryModel.hpp"
 #include "Verbosity.hpp"
 #include "VSet.hpp"
 
 #include <string>
 
-
-enum class ModelType { SC, RA, RC11, IMM };
 enum class SchedulePolicy { ltr, wf, random };
 
 struct Config {
@@ -72,6 +71,7 @@ public:
 	bool loadAnnot;
 	bool assumePropagation;
 	bool confirmAnnot;
+	bool scDetector;
 
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;

@@ -143,4 +143,10 @@ llvm::Pass *createEliminateRedundantInstPass();
  */
 llvm::ModulePass *createFunctionInlinerPass();
 
+/*
+ * Checks whether all accesses of a module are SC,
+ * and populates accordingly the module information
+ */
+llvm::ModulePass *createSCDetectorPass(PassModuleInfo *PI);
+
 #endif /* __PASSES_HPP__ */

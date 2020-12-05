@@ -654,7 +654,7 @@ void GenMCDriver::halt(VerificationError status)
 		getThreadPool()->halt();
 }
 
-GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod)
 {
 	auto MI = std::make_unique<ModuleInfo>(*mod);
 
@@ -663,6 +663,15 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 	if (conf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, conf->transformFile);
 
+	/* Perhaps override the MM under which verification will take place */
+	if (conf->scDetector && MI->determinedMM.has_value() && *MI->determinedMM != conf->model) {
+		conf->model = *MI->determinedMM;
+		conf->isDepTrackingModel = (conf->model == ModelType::IMM);
+		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to SC. "
+					 << "You can disable this behavior with -disable-sc-detector.\n";
+	}
+
+	/* Spawn a single or multiple drivers depending on the configuration */
 	if (conf->threads == 1) {
 		auto driver = DriverFactory::create(conf, std::move(mod), std::move(MI));
 		driver->run();

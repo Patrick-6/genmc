@@ -123,6 +123,7 @@ namespace LLVMModule {
 		initializeVariableInfo(MI, PI);
 		initializeAnnotationInfo(MI, PI);
 		initializeFsInfo(MI, PI);
+		MI.determinedMM = PI.determinedMM;
 		return;
 	}
 
@@ -162,6 +163,8 @@ namespace LLVMModule {
 		OptPM.add(createLocalSimplifyCFGPass());
 		OptPM.add(createEliminateAnnotationsPass());
 		OptPM.add(createEliminateRedundantInstPass());
+		if (conf->scDetector)
+			OptPM.add(createSCDetectorPass(&PI));
 
 		modified = OptPM.run(mod);
 

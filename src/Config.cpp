@@ -179,6 +179,10 @@ static llvm::cl::opt<bool>
 clDisableConfirmAnnot("disable-confirmation-annotation", llvm::cl::cat(clTransformation),
 		      llvm::cl::desc("Disable confirmation-annotation transformation"));
 
+static llvm::cl::opt<bool>
+clDisableSCDetector("disable-sc-detector", llvm::cl::cat(clTransformation),
+		      llvm::cl::desc("Disable SC detector pass"));
+
 
 /*** Debugging options ***/
 
@@ -336,6 +340,7 @@ void Config::saveConfigOptions()
 	loadAnnot = !clDisableLoadAnnot;
 	assumePropagation = !clDisableAssumePropagation;
 	confirmAnnot = !clDisableConfirmAnnot;
+	scDetector = !clDisableSCDetector;
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;
