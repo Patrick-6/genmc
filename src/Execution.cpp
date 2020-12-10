@@ -1418,7 +1418,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 				     cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
-	if (!thr.isBlocked && cmpRes.IntVal.getBoolValue()) {
+	if (!thr.isBlocked() && cmpRes.IntVal.getBoolValue()) {
 		setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()),
 			       getDataDeps(thr.id, I.getNewValOperand()),
 			       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
@@ -1499,7 +1499,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		       getDataDeps(thr.id, I.getValOperand()),
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-	if (!thr.isBlocked)
+	if (!thr.isBlocked())
 		driver->visitStore(IA_Fai, I.getOrdering(), ptr, typ, newVal);
 
 	/* After the RMW operation is done, update dependencies */
@@ -2615,11 +2615,12 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	bool cond = ArgVals[0].IntVal.getBoolValue();
+	Instruction *I = ECStack().back().CurInst->getPrevNode();
+	auto t = (I->getMetadata("assume.kind")) ? Thread::BlockageType::BT_Spinloop :
+		Thread::BlockageType::BT_User;
 
-	/* TODO: When support for nested functions is added, rewrite this */
-	if (!cond)
-		getCurThr().block();
+	if (!ArgVals[0].IntVal.getBoolValue())
+		getCurThr().block(t);
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2821,7 +2822,7 @@ void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Functi
 	auto shouldBlock = res.second;
 
 	if (shouldBlock) {
-		getCurThr().block();
+		getCurThr().block(llvm::Thread::BlockageType::BT_User);
 		return;
 	}
 	returnValueToCaller(F->getReturnType(), val);
@@ -2965,7 +2966,7 @@ GenericValue Interpreter::executeInodeLookupFS(const char *filename, Type *intTy
 	auto inTrans = getInodeTransStatus(getDirInode(), intTyp);
 	if (compareValues(intTyp, INT_TO_GV(intTyp, 1), inTrans)) {
 		thr.rollToSnapshot();
-		thr.block();
+		thr.block(llvm::Thread::BlockageType::BT_Cons);
 		return INT_TO_GV(intTyp, 42); /* propagate block */
 	}
 
@@ -3014,14 +3015,14 @@ GenericValue Interpreter::executeLookupOpenFS(const char *file, GenericValue &fl
 	/* Otherwise, we need to take the dir inode's lock */
 	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return INT_TO_GV(intTyp, 42);
 	}
 
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return inode; /* propagate the block */
 
 	/* Return the inode, if it already exists */
@@ -3097,7 +3098,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	/* Get inode's lock (as in do_truncate()) */
 	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode.PointerVal));
 	driver->visitLock(inodeLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return INT_TO_GV(intTyp, 42);
 	}
@@ -3152,7 +3153,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* Try and find the requested inode */
 	auto inode = executeLookupOpenFS(filename, flags, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	/* Inode not found -- cannot open file */
@@ -3274,13 +3275,13 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* Since we have a single-directory structure, link boils down to a simple cs */
 	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
 
 	source = executeInodeLookupFS(oldpath, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	/* If no such entry found, exit */
@@ -3327,13 +3328,13 @@ void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &Arg
 
 	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
 
 	auto inode = executeInodeLookupFS(pathname, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	/* Check if component exists */
@@ -3394,7 +3395,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 
 	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
@@ -3402,7 +3403,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 	/* Try to find source inode */
 	GenericValue source, target;
 	source = executeInodeLookupFS(oldpath, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 	if (!source.PointerVal) {
 		handleSystemError(SystemError::SE_ENOENT, "Oldpath does not exist for rename()");
@@ -3412,7 +3413,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 
 	/* Try to find target inode */
 	target = executeInodeLookupFS(newpath, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	result = executeRenameFS(oldpath, source, newpath, target, intTyp);
@@ -3438,14 +3439,14 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 
 	auto *dirLock = (const llvm::GenericValue *) GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
 
 	/* Try and find the requested inode */
 	auto inode = executeInodeLookupFS(filename, intTyp);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	driver->visitUnlock(dirLock, intTyp);
@@ -3530,7 +3531,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 		auto inTrans = getInodeTransStatus(inode, intTyp);
 		if (compareValues(intTyp, INT_TO_GV(intTyp, 1), inTrans)) {
 			thr.rollToSnapshot();
-			thr.block();
+			thr.block(llvm::Thread::BlockageType::BT_Cons);
 			return INT_TO_GV(intTyp, 42); /* propagate block */
 		}
 	}
@@ -3566,7 +3567,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	 * we reset the EE to this instruction */
 	auto *fileLock = (const GenericValue *) GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock(fileLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
@@ -3577,7 +3578,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 					fileOffset, intTyp);
 
 	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	/* If the read succeeded, update the offset in the file description... */
@@ -3708,7 +3709,7 @@ GenericValue Interpreter::executeWriteFS(void *file, Type *intTyp, GenericValue 
 	/* Since we are writing, we need to lock of the inode */
 	auto *inodeLock = (const GenericValue *) (GET_INODE_LOCK_ADDR(inode));
 	driver->visitLock(inodeLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return INT_TO_GV(intTyp, 42); // lock acquisition failed
 	}
@@ -3763,7 +3764,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock((const GenericValue *) fileLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}
@@ -3865,7 +3866,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* Execute the read in the specified offset */
 	nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
-	if (thr.isBlocked)
+	if (thr.isBlocked())
 		return;
 
 	/* Return the number of bytes read (similar to read()) */
@@ -3998,7 +3999,7 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock((const GenericValue *) fileLock, intTyp);
-	if (thr.isBlocked) {
+	if (thr.isBlocked()) {
 		thr.rollToSnapshot();
 		return;
 	}

@@ -44,6 +44,7 @@ public:
 	bool symmetryReduction;
 	CheckConsType checkConsType;
 	ProgramPoint checkConsPoint;
+	bool checkLiveness;
 	bool printErrorTrace;
 	std::string dotFile;
 	bool disableRaceDetection;
