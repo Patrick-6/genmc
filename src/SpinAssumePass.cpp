@@ -199,8 +199,9 @@ bool areCancelingBinops(const llvm::AtomicRMWInst *a, const llvm::AtomicRMWInst 
 	    checkConstantsCondition(v1, v2, [&](const APInt &i1, const APInt &i2) { return i1.abs() == i2.abs(); }))
 		return true;
 
+	bool overflow;
 	if (op1 == op2 && (op1 == BinOp::Add || op1 == BinOp::Sub) &&
-	    checkConstantsCondition(v1, v2, [&](const APInt &i1, const APInt &i2) { return i1.sadd_sat(i2) == 0; }))
+	    checkConstantsCondition(v1, v2, [&](const APInt &i1, const APInt &i2) { return i1.sadd_ov(i2, overflow) == 0; }))
 		return true;
 	return false;
 }
