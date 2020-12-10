@@ -150,6 +150,24 @@ bool isCasSpinLoop(const llvm::Loop *l, const llvm::AtomicCmpXchgInst *casi, VSe
 	return checkPhis(cmpPhi, cmpPhi, casi, phis) && phis.empty();
 }
 
+bool accessSameVariable(const llvm::Value *p1, const llvm::Value *p2)
+{
+	if (p1 == p2)
+		return true;
+
+	if (auto *bi1 = llvm::dyn_cast<llvm::BitCastInst>(p1)) {
+		if (bi1->getOperand(0) == p2)
+			return true;
+		if (auto *bi2 = llvm::dyn_cast<llvm::BitCastInst>(p2)) {
+			if (p1 == bi2->getOperand(0))
+				return true;
+			if (bi1->getOperand(0) == bi2->getOperand(0))
+				return true;
+		}
+	}
+	return false;
+}
+
 template<typename F>
 bool checkConstantsCondition(const llvm::Value *v1, const llvm::Value *v2, F&& cond)
 {
@@ -173,7 +191,7 @@ bool areCancelingBinops(const llvm::AtomicRMWInst *a, const llvm::AtomicRMWInst 
 	auto v2 = b->getValOperand();
 
 	/* The two operations need to manipulate the same memory location */
-	if (a->getPointerOperand() != b->getPointerOperand())
+	if (!accessSameVariable(a->getPointerOperand(), b->getPointerOperand()))
 		return false;
 
 	/* The operators need to be opposite and the values the same, or vice versa */
