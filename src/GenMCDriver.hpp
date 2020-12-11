@@ -214,6 +214,10 @@ public:
 	void
 	visitFence(llvm::AtomicOrdering ord);
 
+	/* A call to __VERIFIER_spin_start() has been interpreted */
+	void
+	visitSpinStart();
+
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
 	visitThreadSelf(llvm::Type *typ);
@@ -396,6 +400,9 @@ private:
 
 	/* Pers: Returns true if current recovery routine is valid */
 	bool isRecoveryValid(ProgramPoint p);
+
+	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
+	bool threadReadsMaximal(int tid);
 
 	/* Liveness: Calls visitError() if there is a liveness violation */
 	void checkLiveness();
@@ -652,6 +659,10 @@ private:
 	 * (__VERIFIER_pbarrier()) to be added to the graph */
 	virtual std::unique_ptr<DskPbarrierLabel>
 	createDskPbarrierLabel(int tid, int index) = 0;
+
+	/* Creates a label for the start of a spinloop to be added to the graph */
+	virtual std::unique_ptr<SpinStartLabel>
+	createSpinStartLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

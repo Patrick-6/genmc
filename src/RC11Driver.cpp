@@ -480,6 +480,21 @@ RC11Driver::createDskPbarrierLabel(int tid, int index)
 	return std::move(lab);
 }
 
+std::unique_ptr<SpinStartLabel>
+RC11Driver::createSpinStartLabel(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<SpinStartLabel>(g.nextStamp(), pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+
+	return std::move(lab);
+}
+
 std::unique_ptr<ThreadCreateLabel>
 RC11Driver::createTCreateLabel(int tid, int index, int cid)
 {

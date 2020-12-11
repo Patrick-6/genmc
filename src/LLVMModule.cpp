@@ -21,8 +21,7 @@
 #include "config.h"
 
 #include "LLVMModule.hpp"
-#include "DeclareAssumePass.hpp"
-#include "DeclareEndLoopPass.hpp"
+#include "DeclareInternalsPass.hpp"
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
 #include "IntrinsicLoweringPass.hpp"
@@ -107,7 +106,7 @@ namespace LLVMModule {
 	}
 
 	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, bool spinAssume, int unroll)
+				 llvm::FsInfo &FI, const Config *conf)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;
@@ -127,7 +126,7 @@ namespace LLVMModule {
 		llvm::initializeInstrumentation(Registry);
 		llvm::initializeTarget(Registry);
 
-		OptPM.add(new DeclareAssumePass());
+		OptPM.add(new DeclareInternalsPass());
 		OptPM.add(new DefineLibcFunsPass());
 		OptPM.add(new MDataCollectionPass(VI, FI));
 		OptPM.add(new PromoteMemIntrinsicPass());
@@ -142,11 +141,10 @@ namespace LLVMModule {
 
 		modified = OptPM.run(mod);
 
-		if (spinAssume)
-			BndPM.add(new SpinAssumePass());
-		BndPM.add(new DeclareEndLoopPass());
-		if (unroll >= 0)
-			BndPM.add(new LoopUnrollPass(unroll));
+		if (conf->spinAssume)
+			BndPM.add(new SpinAssumePass(conf->checkLiveness));
+		if (conf->unroll >= 0)
+			BndPM.add(new LoopUnrollPass(conf->unroll));
 
 		modified |= BndPM.run(mod);
 		modified |= OptPM.run(mod);

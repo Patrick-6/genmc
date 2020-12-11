@@ -62,6 +62,8 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
+	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
 	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -2608,6 +2610,16 @@ void Interpreter::callAssertFail(Function *F,
 	driver->visitError(errT, err);
 }
 
+void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitSpinStart();
+}
+
+void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	getCurThr().block(Thread::BlockageType::BT_Spinloop);
+}
+
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	ECStack().clear();
@@ -2616,11 +2628,9 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	Instruction *I = ECStack().back().CurInst->getPrevNode();
-	auto t = (I->getMetadata("assume.kind")) ? Thread::BlockageType::BT_Spinloop :
-		Thread::BlockageType::BT_User;
 
 	if (!ArgVals[0].IntVal.getBoolValue())
-		getCurThr().block(t);
+		getCurThr().block(Thread::BlockageType::BT_User);
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -4067,6 +4077,8 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
+		CALL_INTERNAL_FUNCTION(SpinStart);
+		CALL_INTERNAL_FUNCTION(SpinEnd);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);

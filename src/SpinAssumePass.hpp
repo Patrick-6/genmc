@@ -28,20 +28,23 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
-	bool isAssumeStatement(llvm::Instruction &i) const;
 	bool isSpinLoop(const llvm::Loop *l) const;
-	void addAssumeCallToBlock(llvm::BasicBlock *eb, llvm::BasicBlock *nb,
-				  llvm::BranchInst *bi, bool exitOn);
+	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
+	void addSpinStartCall(llvm::BasicBlock *b);
 	void removeDisconnectedBlocks(llvm::Loop *l);
 	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);
-	
+
 public:
 	static char ID;
-	
-	SpinAssumePass() : llvm::LoopPass(ID) {};
+
+	SpinAssumePass(bool live) : llvm::LoopPass(ID), liveness(live) {};
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
-	
+
+private:
+	/* Whether liveness checks will be performed */
+	bool liveness;
+
 };
 
 #endif /* __SPIN_ASSUME_PASS_HPP__ */

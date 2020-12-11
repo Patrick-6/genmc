@@ -422,7 +422,7 @@ void GenMCDriver::run()
 	llvm::VariableInfo VI;
 	llvm::FsInfo FI;
 
-	LLVMModule::transformLLVMModule(*mod, VI, FI, userConf->spinAssume, userConf->unroll);
+	LLVMModule::transformLLVMModule(*mod, VI, FI, getConf());
 	if (userConf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
 
@@ -1022,6 +1022,22 @@ bool GenMCDriver::isRecoveryValid(ProgramPoint p)
 	return getGraph().isRecoveryValid();
 }
 
+bool GenMCDriver::threadReadsMaximal(int tid)
+{
+	auto &g = getGraph();
+
+	for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
+		auto *lab = g.getEventLabel(Event(tid, j));
+		if (llvm::isa<SpinStartLabel>(lab))
+			return false;
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
+				return true;
+		}
+	}
+	return false;
+}
+
 void GenMCDriver::checkLiveness()
 {
 	auto &g = getGraph();
@@ -1038,16 +1054,11 @@ void GenMCDriver::checkLiveness()
 	}
 
 	/* And check whether all of them are live or not */
-	const ReadLabel *rLab = nullptr;
 	if (!spinBlocked.empty() &&
-	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
-			[&](int tid){
-				rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(tid));
-				BUG_ON(!rLab); /* Due to thread being blocked on a spinloop */
-				return isCoMaximal(rLab->getAddr(), rLab->getRf());
-			})) {
+	    std::none_of(spinBlocked.begin(), spinBlocked.end(),
+			[&](int tid){ return threadReadsMaximal(tid); })) {
 		/* Print the name of one of the spinloop variables that are not live */
-		visitError(DE_Liveness, "Spinloop variable " + EE->getVarName(rLab->getAddr()) + " is not live");
+		visitError(DE_Liveness, "Non-terminating spinloop");
 	}
 	return;
 }
@@ -2402,6 +2413,18 @@ void GenMCDriver::visitDskPbarrier()
 
 	auto dpLab = createDskPbarrierLabel(pos.thread, pos.index);
 	getGraph().addOtherLabelToGraph(std::move(dpLab));
+	return;
+}
+
+void GenMCDriver::visitSpinStart()
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = getEE()->getCurrentPosition();
+
+	auto lab = createSpinStartLabel(pos.thread, pos.index);
+	getGraph().addOtherLabelToGraph(std::move(lab));
 	return;
 }
 

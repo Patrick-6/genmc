@@ -365,7 +365,6 @@ public:
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
-
 	/* Library consistency checks */
 
 	std::vector<Event> getLibEventsInView(const Library &lib, const View &v);
