@@ -55,8 +55,12 @@ bool isAssumeStatement(llvm::Instruction &i)
 	if (!ci)
 		return false;
 
-	llvm::Function *fun = ci->getCalledFunction();
-	return fun && fun->getName().str() == "__VERIFIER_assume";
+	auto *fun = ci->getCalledFunction();
+	if (fun)
+		return fun->getName().str() == "__VERIFIER_assume";
+
+	auto *v = ci->getCalledValue()->stripPointerCasts();
+	return v->getName() == "__VERIFIER_assume";
 }
 
 bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
