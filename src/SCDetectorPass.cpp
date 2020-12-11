@@ -37,9 +37,9 @@ void SCDetectorPass::setDeterminedMM(ModelType m)
 	PI->determinedMM = m;
 }
 
-bool isSCOrdering(AtomicOrdering o)
+bool isSCNAOrdering(AtomicOrdering o)
 {
-	return o == AtomicOrdering::SequentiallyConsistent;
+	return o == AtomicOrdering::SequentiallyConsistent || o == AtomicOrdering::NotAtomic;
 }
 
 bool SCDetectorPass::runOnModule(Module &M)
@@ -48,28 +48,28 @@ bool SCDetectorPass::runOnModule(Module &M)
 	for (auto &F : M) {
 		for (auto &I : F) {
 			if (auto *li = dyn_cast<LoadInst>(&I)) {
-				if (!isSCOrdering(li->getOrdering())) {
+				if (!isSCNAOrdering(li->getOrdering())) {
 					isSC = false;
 					break;
 				}
 			} else if (auto *si = dyn_cast<StoreInst>(&I)) {
-				if (!isSCOrdering(si->getOrdering())) {
+				if (!isSCNAOrdering(si->getOrdering())) {
 					isSC = false;
 					break;
 				}
 			} else if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&I)) {
-				if (!isSCOrdering(casi->getSuccessOrdering()) ||
-				    !isSCOrdering(casi->getFailureOrdering())) {
+				if (!isSCNAOrdering(casi->getSuccessOrdering()) ||
+				    !isSCNAOrdering(casi->getFailureOrdering())) {
 					isSC = false;
 					break;
 				}
 			} else if (auto *faii = dyn_cast<AtomicRMWInst>(&I)) {
-				if (!isSCOrdering(faii->getOrdering())) {
+				if (!isSCNAOrdering(faii->getOrdering())) {
 					isSC = false;
 					break;
 				}
 			} else if (auto *fi = dyn_cast<FenceInst>(&I)) {
-				if (!isSCOrdering(fi->getOrdering())) {
+				if (!isSCNAOrdering(fi->getOrdering())) {
 					isSC = false;
 					break;
 				}
