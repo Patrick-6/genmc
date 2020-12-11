@@ -32,6 +32,9 @@ public:
 
 protected:
 	bool isSpinLoop(const llvm::Loop *l, LoopType &typ) const;
+	bool isPotentialFaiSpinLoop(const llvm::Loop *l,
+				    const std::vector<const llvm::AtomicRMWInst *> fais,
+				    const VSet<const llvm::PHINode *> &phis) const;
 	void addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l);
 	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
 	void addSpinStartCall(llvm::BasicBlock *b);

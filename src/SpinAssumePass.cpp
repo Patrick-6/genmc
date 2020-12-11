@@ -26,8 +26,8 @@
 #include "DeclareInternalsPass.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Dominators.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
@@ -44,8 +44,9 @@
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<llvm::DominatorTreeWrapperPass>();
+	au.addRequired<llvm::PostDominatorTreeWrapperPass>();
 	au.addRequired<DeclareInternalsPass>();
-	au.addPreserved<DeclareInternalsPass>();
+	au.setPreservesAll();
 }
 
 bool isAssumeStatement(llvm::Instruction &i)
@@ -206,10 +207,17 @@ bool areCancelingBinops(const llvm::AtomicRMWInst *a, const llvm::AtomicRMWInst 
 	return false;
 }
 
-bool isPotentialFaiSpinLoop(const llvm::Loop *l, const std::vector<const llvm::AtomicRMWInst *> fais,
-			    const VSet<const llvm::PHINode *> &phis)
+bool SpinAssumePass::isPotentialFaiSpinLoop(const llvm::Loop *l,
+					    const std::vector<const llvm::AtomicRMWInst *> fais,
+					    const VSet<const llvm::PHINode *> &phis) const
 {
-	return areCancelingBinops(fais[0], fais[1]) && phis.empty();
+	auto &DT = getAnalysis<llvm::DominatorTreeWrapperPass>().getDomTree();
+	auto &PDT = getAnalysis<llvm::PostDominatorTreeWrapperPass>().getPostDomTree();
+
+	return DT.dominates(fais[0], fais[1]) &&
+	       PDT.dominates(fais[0]->getParent(), fais[1]->getParent()) &&
+	       areCancelingBinops(fais[0], fais[1]) &&
+	       phis.empty();
 }
 
 bool SpinAssumePass::isSpinLoop(const llvm::Loop *l, LoopType &lt) const
