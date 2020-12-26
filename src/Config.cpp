@@ -161,6 +161,9 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
+static llvm::cl::opt<bool>
+clDisableCodeCondenser("disable-code-condenser", llvm::cl::cat(clTransformation),
+		       llvm::cl::desc("Disable code-condenser transformation"));
 
 
 /* Debugging options */
@@ -271,6 +274,7 @@ void Config::saveConfigOptions()
 	/* Save transformation options */
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
+	codeCondenser = !clDisableCodeCondenser;
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;

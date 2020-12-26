@@ -11,6 +11,8 @@ noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
   ARCalculator.cpp ARCalculator.hpp \
+  BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
+  CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \
   CoherenceCalculator.hpp \

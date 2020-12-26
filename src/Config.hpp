@@ -62,6 +62,7 @@ public:
 	/* Transformation options */
 	int unroll;
 	bool spinAssume;
+	bool codeCondenser;
 
 	/* Debugging options */
 	bool countDuplicateExecs;

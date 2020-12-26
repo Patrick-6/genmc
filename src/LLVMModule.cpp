@@ -21,6 +21,8 @@
 #include "config.h"
 
 #include "LLVMModule.hpp"
+#include "BisimilarityCheckerPass.hpp"
+#include "CodeCondenserPass.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
@@ -134,9 +136,10 @@ namespace LLVMModule {
 #else
 		OptPM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
 #endif
-
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
 		OptPM.add(llvm::createDeadArgEliminationPass());
+		OptPM.add(new BisimilarityCheckerPass());
+		OptPM.add(new CodeCondenserPass());
 
 		modified = OptPM.run(mod);
 
