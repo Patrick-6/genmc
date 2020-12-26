@@ -35,6 +35,8 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
+#include <unordered_set>
+
 #ifdef LLVM_HAS_TERMINATORINST
  typedef llvm::TerminatorInst TerminatorInst;
 #else
@@ -49,7 +51,18 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.setPreservesAll();
 }
 
-bool isAssumeStatement(llvm::Instruction &i)
+const std::unordered_set<std::string> cleanInstrinsics = {
+	{"__VERIFIER_assert_fail"},
+	{"__VERIFIER_spin_start"},
+	{"__VERIFIER_spin_end"},
+	{"__VERIFIER_potential_spin_end"},
+	{"__VERIFIER_end_loop"},
+	{"__VERIFIER_assume"},
+	{"__VERIFIER_nondet_int"},
+	{"__VERIFIER_thread_self"}
+};
+
+bool isIntrinsicCallNoSideEffects(llvm::Instruction &i)
 {
 	auto *ci = llvm::dyn_cast<llvm::CallInst>(&i);
 	if (!ci)
@@ -57,10 +70,10 @@ bool isAssumeStatement(llvm::Instruction &i)
 
 	auto *fun = ci->getCalledFunction();
 	if (fun)
-		return fun->getName().str() == "__VERIFIER_assume";
+		return cleanInstrinsics.count(fun->getName().str());
 
 	auto *v = ci->getCalledValue()->stripPointerCasts();
-	return v->getName() == "__VERIFIER_assume";
+	return cleanInstrinsics.count(v->getName());
 }
 
 bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
@@ -245,7 +258,7 @@ bool SpinAssumePass::isSpinLoop(const llvm::Loop *l, LoopType &lt) const
 				} else if (auto *faii = llvm::dyn_cast<llvm::AtomicRMWInst>(&*i)) {
 					fais.push_back(faii);
 				} else if (auto *ci = llvm::dyn_cast<llvm::CallInst>(&*i)) {
-					if (!isAssumeStatement(*ci))
+					if (!isIntrinsicCallNoSideEffects(*ci))
 						return false;
 				} else if (!llvm::isa<llvm::LoadInst>(&*i)) {
 					return false;
@@ -392,6 +405,7 @@ bool SpinAssumePass::transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPP
 	ei = backedge->getTerminator();
 	BUG_ON(!ei);
 	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
+
 	if (!bi || bi->isConditional())
 		return false;
 
