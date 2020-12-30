@@ -76,16 +76,26 @@ bool isIntrinsicCallNoSideEffects(llvm::Instruction &i)
 	return cleanInstrinsics.count(v->getName());
 }
 
-bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
+bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2, VSet<const llvm::Instruction *> chain)
 {
-	if (!i1 || !i2)
+	if (!i1 || !i2 || chain.find(i1) != chain.end())
 		return false;
 
 	for (auto &u : i1->operands()) {
-		if (auto *i = llvm::dyn_cast<llvm::Instruction>(u.get()))
-			return i == i2 || isDependentOn(i, i2);
+		if (auto *i = llvm::dyn_cast<llvm::Instruction>(u.get())) {
+			chain.insert(i1);
+			if (i == i2 || isDependentOn(i, i2, chain))
+				return true;
+			chain.erase(i1);
+		}
 	}
 	return false;
+}
+
+bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
+{
+	VSet<const llvm::Instruction *> chain;
+	return isDependentOn(i1, i2, chain);
 }
 
 bool areSameLoadOrdering(llvm::AtomicOrdering o1, llvm::AtomicOrdering o2)
