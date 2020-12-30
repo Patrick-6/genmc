@@ -168,10 +168,12 @@ bool CodeCondenserPass::runOnFunction(Function &F)
 			auto *aNewBB = (aBB->begin() != aIt || &*F.begin() == aBB) ? aBB->splitBasicBlock(aIt) : aBB;
 			auto *bNewBB = (bBB->begin() != bIt || &*F.begin() == bBB) ? bBB->splitBasicBlock(bIt) : bBB;
 
-			for (auto *pred : predecessors(aBB)) {
+			for (auto *pred : predecessors(aNewBB)) {
 				auto *term = dyn_cast<BranchInst>(pred->getTerminator());
+				if (!term)
+					continue;
 				for (auto i = 0u; i < term->getNumSuccessors(); i++)
-					if (term->getSuccessor(i) == aBB)
+					if (term->getSuccessor(i) == aNewBB)
 						term->setSuccessor(i, bNewBB);
 			}
 			break;

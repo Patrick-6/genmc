@@ -79,56 +79,45 @@ bool solvesConstraint(const BsPoint &bsp, const Constraint &c)
  * Given a list of constrained bisimilarity points (CANDIDATES) and a bisimilarity point (BSP),
  * filters from CANDIDATES all constraints that are satisfied by BSP.
  */
-void filterCandidateConstraints(std::vector<ConstrainedBsPoint> &candidates, BsPoint &bsp)
+void filterCandidateConstraints(BsPoint &bsp, const std::vector<Constraint> &cs,
+				std::vector<ConstrainedBsPoint> &candidates)
 {
-	for (auto &c : candidates) {
-		c.constraints.erase(std::remove_if(c.constraints.begin(), c.constraints.end(),
-						   [&](Constraint &cst){ return solvesConstraint(bsp, cst); }),
-				    c.constraints.end());
+	for (auto &cnd : candidates) {
+		for (auto cit = cnd.constraints.begin(), cie = cnd.constraints.end(); cit != cie; /* empty */) {
+			if (solvesConstraint(bsp, *cit)) {
+				/* Remove the solved constraint */
+				cit = cnd.constraints.erase(cit);
+				/* Add the new ones */
+				cit = cnd.constraints.insert(cit, cs.begin(), cs.end());
+				cit += cs.size();
+				if (cs.empty())
+					++cit;
+			} else {
+				++cit;
+			}
+		}
 	}
+	candidates.push_back(ConstrainedBsPoint(bsp, cs));
 	return;
 }
 
-/*
- * Adds a constrained bisimilarity point to the candidate list; if the same point already exists,
- * the constraint list is modified accordingly
- */
-void addConstrainedBsPoint(const BsPoint &bsp, const Constraint &c, std::vector<ConstrainedBsPoint> &candidates)
+bool calcOperatorConstraints(Instruction *a, Instruction *b, std::vector<Constraint> &constraints)
 {
-	for (auto &cnd : candidates) {
-		if (cnd.p == bsp) {
-			if (c.first != nullptr && c.second != nullptr)
-				cnd.constraints.push_back(c);
-			return;
-		}
-	}
-	if (c.first == nullptr || c.second == nullptr)
-		candidates.push_back(ConstrainedBsPoint(bsp));
-	else
-		candidates.push_back(ConstrainedBsPoint(bsp, {c}));
-}
+	std::vector<Constraint> cs;
 
-/*
- * Given two (similar) instructions A and B, this function will add a
- * constrained bisimilarity point for each operand that differs
- * between A and B.
- */
-void addConstrainedBsPointOps(const BsPoint &bsp,
-			      Instruction *a,
-			      Instruction *b,
-			      std::vector<ConstrainedBsPoint> &candidates)
-{
 	for (auto i = 0u; i < a->getNumOperands(); i++) {
 		auto *opA = a->getOperand(i);
 		auto *opB = b->getOperand(i);
 
-		if (auto *cA = dyn_cast<Constant>(opA)) {
-			if (cA == opB)
+		if (isa<Constant>(opA) || isa<BasicBlock>(opA)) {
+			if (opA == opB)
 				continue;
-			return;
+			return false;
 		}
-		addConstrainedBsPoint(bsp, std::make_pair(opA, opB), candidates);
+		cs.push_back(std::make_pair(opA, opB));
 	}
+	constraints.insert(constraints.end(), cs.begin(), cs.end());
+	return true;
 }
 
 void calcBsPointCandidates(Instruction *a,
@@ -139,22 +128,19 @@ void calcBsPointCandidates(Instruction *a,
 	if (!a || !b)
 		return;
 
-	bool similar = a->isSameOperationAs(b);
-	bool identical = a->isIdenticalTo(b);
+	/* Candidate bisimilarity point */
+	auto bsp = BsPoint(std::make_pair(a, b));
+	std::vector<Constraint> cs; /* to be populated */
 
-	/* Case 1: a = b */
-	if (identical) {
-		auto bsp = BsPoint(std::make_pair(a, b));
-		filterCandidateConstraints(candidates, bsp);
-		addConstrainedBsPoint(bsp, {}, candidates);
+	if (a->isIdenticalTo(b)) {
+		/* Case 1: a = b */
+		filterCandidateConstraints(bsp, cs, candidates);
 		calcBsPointCandidates(a->getPrevNode(), b->getPrevNode(), candidates);
-	}
-
-	/* Case 2: a ~ b */
-	if (!identical && similar) {
-		auto bsp = BsPoint(std::make_pair(a, b));
-		filterCandidateConstraints(candidates, bsp);
-		addConstrainedBsPointOps(bsp, a, b, candidates);
+	} else if (a->isSameOperationAs(b)) {
+		/* Case 2: a ~ b */
+		if (!calcOperatorConstraints(a, b, cs))
+			return;
+		filterCandidateConstraints(bsp, cs, candidates);
 		calcBsPointCandidates(a->getPrevNode(), b->getPrevNode(), candidates);
 	}
 	return;
@@ -171,15 +157,28 @@ std::vector<BsPoint> getBsPoints(Instruction *a, Instruction *b)
 bool BisimilarityCheckerPass::runOnFunction(Function &F)
 {
 	for (auto bit = F.begin(), be = F.end(); bit != be; ++bit) {
-		/* Only handle 2 preds for the time being */
+		/* Only handle 2 preds for the time being (assumption used below) */
 		if (std::distance(pred_begin(&*bit), pred_end(&*bit)) != 2)
 			continue;
 
 		auto b1 = *pred_begin(&*bit);     /* pred 1 */
 		auto b2 = *(++pred_begin(&*bit)); /* pred 2 */
 
+		/* Find bisimilar points and make sure they lead to the same state */
 		auto ps = getBsPoints(b1->getTerminator(), b2->getTerminator());
-		funcBsPoints[&F].insert(funcBsPoints[&F].end(), ps.begin(), ps.end());
+		bool sameState = true;
+		for (auto iit = bit->begin(); auto phi = llvm::dyn_cast<llvm::PHINode>(iit); ++iit) {
+			auto bp1 = std::find_if(ps.begin(), ps.end(),
+					       [&](const BsPoint &p){ return phi->getIncomingValue(0) == p.first; });
+			auto bp2 = std::find_if(ps.begin(), ps.end(),
+					       [&](const BsPoint &p){ return phi->getIncomingValue(0) == p.second; });
+			if ((bp1 == ps.end() && bp2 == ps.end()) ||
+			    (bp1 == ps.end() && bp2->first != phi->getIncomingValue(1)) ||
+			    (bp2 == ps.end() && bp1->second != phi->getIncomingValue(1)))
+				sameState = false;
+		}
+		if (sameState)
+			funcBsPoints[&F].insert(funcBsPoints[&F].end(), ps.begin(), ps.end());
 	}
 
 	auto &bsps = funcBsPoints[&F];
