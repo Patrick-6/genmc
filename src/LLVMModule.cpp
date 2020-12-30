@@ -138,8 +138,6 @@ namespace LLVMModule {
 #endif
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
 		OptPM.add(llvm::createDeadArgEliminationPass());
-		OptPM.add(new BisimilarityCheckerPass());
-		OptPM.add(new CodeCondenserPass());
 
 		modified = OptPM.run(mod);
 
@@ -147,6 +145,9 @@ namespace LLVMModule {
 			BndPM.add(new SpinAssumePass(conf->checkLiveness));
 		if (conf->unroll >= 0)
 			BndPM.add(new LoopUnrollPass(conf->unroll));
+		BndPM.add(new BisimilarityCheckerPass());
+		if (conf->codeCondenser)
+			BndPM.add(new CodeCondenserPass());
 
 		modified |= BndPM.run(mod);
 		modified |= OptPM.run(mod);
