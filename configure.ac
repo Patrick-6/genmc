@@ -667,6 +667,20 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::LoopInfo::markAsRemoved exists])],
   [AC_MSG_RESULT([no])])
 
+## Check whether llvm::EliminateUnreachableBlocks exists
+AC_MSG_CHECKING([for llvm::EliminateUnreachableBlocks])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+]],[[
+  llvm::Function *F = nullptr;
+  llvm::EliminateUnreachableBlocks(*F);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS],[1],
+   [Define if llvm::EliminateUnreachableBlocks exists])],
+  [AC_MSG_RESULT([no])])
+
+
 ## Check if initializeIPA exists
 AC_MSG_CHECKING([for llvm::initializeIPA])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -172,7 +172,7 @@ bool BisimilarityCheckerPass::runOnFunction(Function &F)
 {
 	for (auto bit = F.begin(), be = F.end(); bit != be; ++bit) {
 		/* Only handle 2 preds for the time being */
-		if (pred_size(&*bit) != 2)
+		if (std::distance(pred_begin(&*bit), pred_end(&*bit)) != 2)
 			continue;
 
 		auto b1 = *pred_begin(&*bit);     /* pred 1 */
