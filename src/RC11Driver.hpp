@@ -39,9 +39,7 @@ protected:
 
 public:
 	/* Constructor */
-	RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		   std::vector<Library> &granted, std::vector<Library> &toVerify,
-		   clock_t start);
+	RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
 
 	/* Creates a label for a plain read to be added to the graph */
 	std::unique_ptr<ReadLabel>

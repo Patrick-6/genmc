@@ -254,9 +254,7 @@ public:
 
 protected:
 
-	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::vector<Library> &granted, std::vector<Library> &toVerify,
-		    clock_t start);
+	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -266,7 +264,7 @@ protected:
 	const Config *getConf() const { return userConf.get(); }
 
 	/* Returns a pointer to the interpreter */
-	llvm::Interpreter *getEE() const { return EE; }
+	llvm::Interpreter *getEE() const { return EE.get(); }
 
 	/* Returns a reference to the current graph */
 	ExecutionGraph &getGraph() { return *execGraph; };
@@ -728,9 +726,6 @@ private:
 	/* User configuration */
 	std::unique_ptr<Config> userConf;
 
-	/* The LLVM module for this program */
-	std::unique_ptr<llvm::Module> mod;
-
 	/* Specifications for libraries assumed correct */
 	std::vector<Library> grantedLibs;
 
@@ -738,7 +733,7 @@ private:
 	std::vector<Library> toVerifyLibs;
 
 	/* The interpreter used by the driver */
-	llvm::Interpreter *EE;
+	std::unique_ptr<llvm::Interpreter> EE;
 
 	/* The graph managing object */
 	std::unique_ptr<ExecutionGraph> execGraph;

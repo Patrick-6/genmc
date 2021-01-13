@@ -105,8 +105,7 @@ namespace LLVMModule {
 		return std::unique_ptr<llvm::Module>(mod);
 	}
 
-	bool transformLLVMModule(llvm::Module &mod, llvm::VariableInfo &VI,
-				 llvm::FsInfo &FI, const Config *conf)
+	bool transformLLVMModule(llvm::Module &mod, const Config *conf, ModuleInfo &MI)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 		PassManager OptPM, BndPM;
@@ -128,7 +127,7 @@ namespace LLVMModule {
 
 		OptPM.add(new DeclareInternalsPass());
 		OptPM.add(new DefineLibcFunsPass());
-		OptPM.add(new MDataCollectionPass(VI, FI));
+		OptPM.add(new MDataCollectionPass(MI.varInfo, MI.fsInfo));
 		OptPM.add(new PromoteMemIntrinsicPass());
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
@@ -153,7 +152,7 @@ namespace LLVMModule {
 		return modified;
 	}
 
-	void printLLVMModule(llvm::Module &mod, std::string &out)
+	void printLLVMModule(llvm::Module &mod, const std::string &out)
 	{
 		PassManager PM;
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR

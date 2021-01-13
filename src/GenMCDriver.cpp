@@ -38,13 +38,22 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-			 std::vector<Library> &granted, std::vector<Library> &toVerify,
-			 clock_t start)
-	: userConf(std::move(conf)), mod(std::move(mod)), grantedLibs(granted),
-	  toVerifyLibs(toVerify), isMootExecution(false), explored(0),
+GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
+	: userConf(std::move(conf)), isMootExecution(false), explored(0),
 	  exploredBlocked(0), duplicates(0), start(start)
 {
+	ModuleInfo MI;
+	std::string buf;
+
+	/* Prepare the module for verification */
+	LLVMModule::transformLLVMModule(*mod, getConf(), MI);
+	if (userConf->transformFile != "")
+		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
+
+	/* Create an interpreter for the program's instructions */
+	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
+		llvm::Interpreter::create(std::move(mod), MI, this, getConf(), &buf));
+
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
@@ -58,6 +67,15 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	if (userConf->printRandomScheduleSeed)
 		llvm::dbgs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
+
+	/* If a specs file has been specified, parse it */
+	if (userConf->specsFile != "") {
+		auto res = Parser().parseSpecs(userConf->specsFile);
+		std::copy_if(res.begin(), res.end(), std::back_inserter(grantedLibs),
+			     [](Library &l){ return l.getType() == Granted; });
+		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerifyLibs),
+			     [](Library &l){ return l.getType() == ToVerify; });
+	}
 
 	/*
 	 * Make sure we can resolve symbols in the program as well. We use 0
@@ -418,26 +436,6 @@ void GenMCDriver::handleRecoveryEnd()
 
 void GenMCDriver::run()
 {
-	std::string buf;
-	llvm::VariableInfo VI;
-	llvm::FsInfo FI;
-
-	LLVMModule::transformLLVMModule(*mod, VI, FI, getConf());
-	if (userConf->transformFile != "")
-		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
-
-	/* Create an interpreter for the program's instructions */
-	EE = (llvm::Interpreter *)
-	     llvm::Interpreter::create(&*mod, std::move(VI), std::move(FI),
-				       this, getConf(), &buf);
-
-	/* Setup the interpreter for the exploration */
-	auto mainFun = mod->getFunction(userConf->programEntryFun);
-	ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
-
-	auto main = EE->createMainThread(mainFun);
-	EE->threads.push_back(main);
-
 	/* Explore all graphs and print the results */
 	explore();
 	printResults();
@@ -607,7 +605,7 @@ void GenMCDriver::explore()
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(mod->getFunction(userConf->programEntryFun), {"prog"}, nullptr);
+		EE->runFunctionAsMain(EE->FindFunctionNamed(userConf->programEntryFun.c_str()), {"prog"}, nullptr);
 		EE->runStaticConstructorsDestructors(true);
 
 		auto validExecution = true;

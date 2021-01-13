@@ -22,10 +22,8 @@
 #include "RC11Driver.hpp"
 #include "PSCCalculator.hpp"
 
-RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod,
-		       std::vector<Library> &granted, std::vector<Library> &toVerify,
-		       clock_t start)
-	: GenMCDriver(std::move(conf), std::move(mod), granted, toVerify, start)
+RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
+	: GenMCDriver(std::move(conf), std::move(mod), start)
 {
 	auto &g = getGraph();
 
