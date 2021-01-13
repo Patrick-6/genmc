@@ -605,7 +605,7 @@ void GenMCDriver::explore()
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(EE->FindFunctionNamed(userConf->programEntryFun), {"prog"}, nullptr);
+		EE->runFunctionAsMain(EE->FindFunctionNamed(userConf->programEntryFun.c_str()), {"prog"}, nullptr);
 		EE->runStaticConstructorsDestructors(true);
 
 		auto validExecution = true;
