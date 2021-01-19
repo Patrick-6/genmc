@@ -83,14 +83,14 @@ void filterCandidateConstraints(BsPoint &bsp, const std::vector<Constraint> &cs,
 				std::vector<ConstrainedBsPoint> &candidates)
 {
 	for (auto &cnd : candidates) {
-		for (auto cit = cnd.constraints.begin(), cie = cnd.constraints.end(); cit != cie; /* empty */) {
+		for (auto cit = cnd.constraints.begin(); cit != cnd.constraints.end(); /* empty */) {
 			if (solvesConstraint(bsp, *cit)) {
 				/* Remove the solved constraint */
 				cit = cnd.constraints.erase(cit);
 				/* Add the new ones */
 				cit = cnd.constraints.insert(cit, cs.begin(), cs.end());
 				cit += cs.size();
-				if (cs.empty())
+				if (cs.empty() && cit != cnd.constraints.end())
 					++cit;
 			} else {
 				++cit;
