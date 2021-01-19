@@ -35,11 +35,8 @@ protected:
 	bool isPotentialFaiSpinLoop(const llvm::Loop *l,
 				    const std::vector<const llvm::AtomicRMWInst *> fais,
 				    const VSet<const llvm::PHINode *> &phis) const;
-	void addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l);
-	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
-	void addSpinStartCall(llvm::BasicBlock *b);
 	void removeDisconnectedBlocks(llvm::Loop *l);
-	bool transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm);
+	void transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm);
 
 public:
 	static char ID;

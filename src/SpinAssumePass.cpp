@@ -290,16 +290,33 @@ bool SpinAssumePass::isSpinLoop(const llvm::Loop *l, LoopType &lt) const
 	return phis.empty() && (lt = LoopType::Plain); /* deliberate assignment */
 }
 
-void SpinAssumePass::addSpinEndCallBeforeInstruction(llvm::Instruction *bi)
+llvm::Value *getOrCreateExitingCondition(llvm::BasicBlock *header, llvm::Instruction *term)
 {
-        auto *endFun = bi->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+	if (auto *ibr = llvm::dyn_cast<llvm::IndirectBrInst>(term))
+		return llvm::ConstantInt::getFalse(term->getContext());
 
-        auto *ci = llvm::CallInst::Create(endFun, {}, "", bi);
-        ci->setMetadata("dbg", bi->getMetadata("dbg"));
+	auto *bi = llvm::dyn_cast<llvm::BranchInst>(term);
+	BUG_ON(!bi);
+
+	if (bi->isUnconditional())
+		return llvm::ConstantInt::getFalse(term->getContext());
+	if (bi->getSuccessor(0) != header)
+		return bi->getCondition();
+	return llvm::BinaryOperator::CreateNot(bi->getCondition(), "", term);
+}
+
+void addSpinEndCallBeforeTerm(llvm::BasicBlock *header, llvm::BasicBlock *latch)
+{
+	auto *term = latch->getTerminator();
+        auto *endFun = term->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+
+	auto *cond = getOrCreateExitingCondition(header, term);
+        auto *ci = llvm::CallInst::Create(endFun, {cond}, "", term);
+        ci->setMetadata("dbg", term->getMetadata("dbg"));
 	return;
 }
 
-void SpinAssumePass::addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l)
+void addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l)
 {
 	/* Find the last FAI call of the loop */
 	std::vector<llvm::AtomicRMWInst *> fais;
@@ -319,7 +336,7 @@ void SpinAssumePass::addPotentialSpinEndCallBeforeLastFai(llvm::Loop *l)
 	return;
 }
 
-void SpinAssumePass::addSpinStartCall(llvm::BasicBlock *b)
+void addSpinStartCall(llvm::BasicBlock *b)
 {
         auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
 
@@ -370,85 +387,44 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 	}
 }
 
-#ifndef LLVM_HAVE_LOOPINFO_GETINCANDBACKEDGE
-bool getIncomingAndBackEdge(llvm::Loop *l, llvm::BasicBlock *&Incoming, llvm::BasicBlock *&Backedge)
+void SpinAssumePass::transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm)
 {
-	llvm::BasicBlock *H = l->getHeader();
+	llvm::BasicBlock *header = l->getHeader();
+	llvm::SmallVector<llvm::BasicBlock *, 4> latches;
 
-	Incoming = nullptr;
-	Backedge = nullptr;
-	llvm::pred_iterator PI = pred_begin(H);
-	assert(PI != pred_end(H) && "Loop must have at least one backedge!");
-	Backedge = *PI++;
-	if (PI == pred_end(H))
-		return false; // dead loop
-	Incoming = *PI++;
-	if (PI != pred_end(H))
-		return false; // multiple backedges?
-
-	if (l->contains(Incoming)) {
-		if (l->contains(Backedge))
-			return false;
-		std::swap(Incoming, Backedge);
-	} else if (!l->contains(Backedge))
-		return false;
-
-	assert(Incoming && Backedge && "expected non-null incoming and backedges");
-	return true;
-}
-# define GET_INCOMING_AND_BACK_EDGE(l, i, b) getIncomingAndBackEdge(l, i, b)
-#else
-# define GET_INCOMING_AND_BACK_EDGE(l, i, b) l->getIncomingAndBackEdge(i, b)
-#endif
-
-bool SpinAssumePass::transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm)
-{
-        llvm::BasicBlock *incoming, *backedge;
-	TerminatorInst *ei;
-	llvm::BranchInst *bi;
-
-	/* Is the incoming/backedge unique? */
-	if (!GET_INCOMING_AND_BACK_EDGE(l, incoming, backedge))
-		return false;
-
-	/* Is the last instruction of the loop a branch? */
-	ei = backedge->getTerminator();
-	BUG_ON(!ei);
-	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
-
-	if (!bi || bi->isConditional())
-		return false;
-
-	/* If liveness checks are specified, also mark the start of the spinloop */
+	/* If liveness checks are specified, mark the start of the spinloop */
 	if (liveness)
-		addSpinStartCall(l->getHeader());
-	if (typ == LoopType::Fai)
+		addSpinStartCall(header);
+
+	if (typ == LoopType::Fai) {
 		addPotentialSpinEndCallBeforeLastFai(l);
-	else
-		addSpinEndCallBeforeInstruction(bi);
+	} else {
+		l->getLoopLatches(latches);
+		for (auto &latch : latches)
+			addSpinEndCallBeforeTerm(header, latch);
+	}
 	removeDisconnectedBlocks(l);
-	return true;
+	return;
 }
 
 bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 {
 	LoopType t = LoopType::None;
-	bool modified = false;
 
-	if (isSpinLoop(l, t)) {
-		if (transformLoop(l, t, lpm)) {
+	/* All LLVM loops are natural loops */
+	if (!isSpinLoop(l, t))
+		return false;
+
+	transformLoop(l, t, lpm);
 #ifdef LLVM_HAVE_LOOPINFO_ERASE
-			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
-			lpm.markLoopAsDeleted(*l);
+	lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
+	lpm.markLoopAsDeleted(*l);
 #elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
-			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
+	lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
 #else
-			lpm.deleteLoopFromQueue(l);
+	lpm.deleteLoopFromQueue(l);
 #endif
-			modified = true;
-		}
-	}
-	return modified;
+	return true;
 }
 
 char SpinAssumePass::ID = 42;

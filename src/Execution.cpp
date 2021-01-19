@@ -2618,7 +2618,8 @@ void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &Ar
 
 void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	getCurThr().block(Thread::BlockageType::BT_Spinloop);
+	if (!ArgVals[0].IntVal.getBoolValue())
+		getCurThr().block(Thread::BlockageType::BT_Spinloop);
 }
 
 void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2633,8 +2634,6 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Instruction *I = ECStack().back().CurInst->getPrevNode();
-
 	if (!ArgVals[0].IntVal.getBoolValue())
 		getCurThr().block(Thread::BlockageType::BT_User);
 }

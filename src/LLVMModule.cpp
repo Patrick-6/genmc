@@ -141,13 +141,13 @@ namespace LLVMModule {
 
 		modified = OptPM.run(mod);
 
+		BndPM.add(new BisimilarityCheckerPass());
+		if (conf->codeCondenser && !conf->checkLiveness)
+			BndPM.add(new CodeCondenserPass());
 		if (conf->spinAssume)
 			BndPM.add(new SpinAssumePass(conf->checkLiveness));
 		if (conf->unroll >= 0)
 			BndPM.add(new LoopUnrollPass(conf->unroll));
-		BndPM.add(new BisimilarityCheckerPass());
-		if (conf->codeCondenser)
-			BndPM.add(new CodeCondenserPass());
 
 		modified |= BndPM.run(mod);
 		modified |= OptPM.run(mod);
