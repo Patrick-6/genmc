@@ -122,6 +122,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_UnlockLabelLAPOR:
 		s << "LU";
+		break;
 	case EventLabel::EL_DskOpen:
 		s << "FO";
 		break;
