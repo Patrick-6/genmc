@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "AnnotExpr.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -56,6 +57,16 @@ struct VariableInfo {
   std::unordered_map<llvm::Value *, NameInfo> globalInfo;
   std::unordered_map<llvm::Value *, NameInfo> localInfo;
   std::unordered_map<InternalType, NameInfo> internalInfo;
+};
+
+// FIXME: rename to annotinfo; fix include; map names
+/*
+ * AnnotInfo struct -- Contains annotations for loads used by assume()s
+ */
+struct LoadAnnotateInfo {
+
+  std::unordered_map<llvm::Instruction *, std::shared_ptr<AnnotationExpr> > loadASTInfo;
+  std::unordered_map<llvm::Instruction *, AnnotationExpr *> instSymbolicVals;
 };
 
 /*
@@ -100,6 +111,7 @@ struct FsInfo {
 struct ModuleInfo {
 
   VariableInfo varInfo;
+  LoadAnnotateInfo annotInfo;
   FsInfo fsInfo;
 };
 

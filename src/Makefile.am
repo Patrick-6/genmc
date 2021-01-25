@@ -10,6 +10,7 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
+  AnnotExpr.cpp AnnotExpr.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
@@ -37,6 +38,7 @@ libgenmc_a_SOURCES = \
   IMMDriver.cpp IMMDriver.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  LoadAnnotPass.cpp LoadAnnotPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \

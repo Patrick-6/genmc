@@ -21,6 +21,7 @@
 #ifndef __SPIN_ASSUME_PASS_HPP__
 #define __SPIN_ASSUME_PASS_HPP__
 
+#include "VSet.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/Instructions.h>

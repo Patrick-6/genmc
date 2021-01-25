@@ -27,6 +27,7 @@
 #include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
 #include "IntrinsicLoweringPass.hpp"
+#include "LoadAnnotPass.hpp"
 #include "LoopUnrollPass.hpp"
 #include "MDataCollectionPass.hpp"
 #include "PromoteMemIntrinsicPass.hpp"
@@ -150,6 +151,9 @@ namespace LLVMModule {
 			BndPM.add(new LoopUnrollPass(conf->unroll));
 
 		modified |= BndPM.run(mod);
+
+		/* The last pass we run is the load-annotation pass */
+		OptPM.add(new AnnotateLoadsPass(MI.annotInfo));
 		modified |= OptPM.run(mod);
 
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));
