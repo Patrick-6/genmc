@@ -117,8 +117,10 @@ void GenMCDriver::resetThreadPrioritization()
 	auto *EE = getEE();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		Event last = g.getLastThreadEvent(i);
-		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer())
+		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer()) {
+			WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 			EE->getThrById(i).block(llvm::Thread::BlockageType::BT_LockRel);
+		}
 	}
 
 	/* Clear all prioritization */
