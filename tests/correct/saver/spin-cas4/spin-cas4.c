@@ -1,5 +1,5 @@
 /*
- * spin-cas4: A more complicated CAS spinloop captured by the transformation.
+ * spin-cas4: CAS spinloop with a join point; captured by spin-assume
  */
 
 atomic_int x, y;

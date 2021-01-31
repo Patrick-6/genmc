@@ -1,5 +1,6 @@
 /*
  * spin-cas3: CAS spinloop captured by the transformation.
+ *            Models the acquisition and release of a lock.
  */
 
 atomic_int x;

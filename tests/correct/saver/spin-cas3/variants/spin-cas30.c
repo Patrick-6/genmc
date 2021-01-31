@@ -2,6 +2,10 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+#ifndef N
+# define N 3
+#endif
+
 #include "../spin-cas3.c"
 
 int main()

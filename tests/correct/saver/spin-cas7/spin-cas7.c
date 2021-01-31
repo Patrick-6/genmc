@@ -1,6 +1,6 @@
 /*
- * spin-cas7: Invalid PHIs in the CAS loop.
- * Transformation should fail in this case as well.
+ * spin-cas7: Invalid PHI in the CAS header (load result is manipulated).
+ *            Transformation fails in this case.
  */
 
 atomic_int x;

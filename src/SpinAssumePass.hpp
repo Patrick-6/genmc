@@ -28,16 +28,10 @@
 
 class SpinAssumePass : public llvm::LoopPass {
 
-public:
-	enum LoopType { None, Plain, Cas, Fai };
-
 protected:
-	bool isSpinLoop(const llvm::Loop *l, LoopType &typ) const;
-	bool isPotentialFaiSpinLoop(const llvm::Loop *l,
-				    const std::vector<const llvm::AtomicRMWInst *> fais,
-				    const VSet<const llvm::PHINode *> &phis) const;
-	void removeDisconnectedBlocks(llvm::Loop *l);
-	void transformLoop(llvm::Loop *l, const LoopType &typ, llvm::LPPassManager &lpm);
+	bool isPathToHeaderEffectFree(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
+	bool isPathToHeaderCASClean(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
+	bool isPathToHeaderZNE(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
 
 public:
 	static char ID;
