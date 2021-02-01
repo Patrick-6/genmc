@@ -20,6 +20,7 @@
 
 #include <config.h>
 #include "LoadAnnotPass.hpp"
+#include "LLVMUtils.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "Error.hpp"
 #ifdef HAVE_LLVM_IR_DEBUGINFOMETADATA_H
@@ -30,12 +31,6 @@
 #include <llvm/IR/Function.h>
 #include <llvm/Analysis/PostDominators.h>
 #include <llvm/Support/Debug.h>
-
-#ifdef LLVM_HAS_TERMINATORINST
- typedef llvm::TerminatorInst TerminatorInst;
-#else
- typedef llvm::Instruction TerminatorInst;
-#endif
 
 AnnotateLoadsPass::AnnotateInfo::AnnotateInfo()
 {
@@ -319,7 +314,7 @@ bool AnnotateLoadsPass::runOnFunction(llvm::Function &F)
 	for (auto &BB : F) {
 		for (auto &I : BB) {
 			if (auto *a = llvm::dyn_cast<llvm::CallInst>(&I)) {
-				if (a->getCalledFunction()->getName() == "__VERIFIER_assume") {
+				if (getCalledFunOrStripValName(*a) == "__VERIFIER_assume") {
 					currAnnotateInfo.callInst = a;
 					annotateSourceLoads();
 				}
