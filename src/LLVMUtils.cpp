@@ -91,7 +91,7 @@ bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* =
 			const auto *fun = dyn_cast<Function>(ci->getCalledValue()->stripPointerCasts());
 			if (!fun || !cleanFuns->count(const_cast<Function*>(fun)))
 				return true;
-		} else if (!isa<LoadInst>(i)) {
+		} else if (!isa<LoadInst>(i) && !isa<FenceInst>(i)) {
 			return true;
 		}
 	}
