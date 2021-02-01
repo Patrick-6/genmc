@@ -42,6 +42,7 @@ libgenmc_a_SOURCES = \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \
+  LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \

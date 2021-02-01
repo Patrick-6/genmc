@@ -24,6 +24,7 @@
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
+#include "LLVMUtils.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/PostDominators.h>
@@ -36,24 +37,6 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 #include <unordered_set>
-
-#ifdef LLVM_HAS_TERMINATORINST
- typedef llvm::TerminatorInst TerminatorInst;
-#else
- typedef llvm::Instruction TerminatorInst;
-#endif
-
-// FIXME: Incorporate to internalapis
-const std::unordered_set<std::string> cleanInstrinsics = {
-	{"__VERIFIER_assert_fail"},
-	{"__VERIFIER_spin_start"},
-	{"__VERIFIER_spin_end"},
-	{"__VERIFIER_potential_spin_end"},
-	{"__VERIFIER_end_loop"},
-	{"__VERIFIER_assume"},
-	{"__VERIFIER_nondet_int"},
-	{"__VERIFIER_thread_self"}
-};
 
 using namespace llvm;
 
@@ -79,13 +62,6 @@ void getLoopCASs(const Loop *l, SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 bool isBlockPHIClean(const BasicBlock *bb)
 {
 	return !isa<PHINode>(&*bb->begin());
-}
-
-bool areSameLoadOrdering(AtomicOrdering o1, AtomicOrdering o2)
-{
-	return o1 == o2 ||
-	       (o1 == AtomicOrdering::Acquire && o2 == AtomicOrdering::AcquireRelease) ||
-	       (o1 == AtomicOrdering::AcquireRelease && o2 == AtomicOrdering::Acquire);
 }
 
 bool accessSameVariable(const Value *p1, const Value *p2)
@@ -115,14 +91,6 @@ bool accessSameVariable(const Value *p1, const Value *p2)
 	return false;
 }
 
-const Value *stripCasts(const Value *val)
-{
-	while (isa<CastInst>(val)) {
-		val = dyn_cast<CastInst>(val)->getOperand(0);
-	}
-	return val;
-}
-
 bool isPHIRelatedToCASCmp(const PHINode *curr, const SmallVector<const AtomicCmpXchgInst *, 4> &cass,
 			  SmallVector<const PHINode *, 4> &phiChain, VSet<const PHINode *> &related)
 {
@@ -130,7 +98,7 @@ bool isPHIRelatedToCASCmp(const PHINode *curr, const SmallVector<const AtomicCmp
 	if (related.count(curr) || std::find(phiChain.begin(), phiChain.end(), curr) != phiChain.end())
 		return true;
 
-	for (const Value *val : curr->incoming_values()) {
+	for (Value *val : curr->incoming_values()) {
 		val = stripCasts(val);
 		if (auto *uv = dyn_cast<UndefValue>(val)) {
 			continue;
@@ -175,7 +143,7 @@ bool isPHIRelatedToCASRes(const PHINode *curr, const SmallVector<const AtomicCmp
 	if (related.count(curr) || std::find(phiChain.begin(), phiChain.end(), curr) != phiChain.end())
 		return true;
 
-	for (const Value *val : curr->incoming_values()) {
+	for (Value *val : curr->incoming_values()) {
 		val = stripCasts(val);
 		if (auto *c = dyn_cast<Constant>(val)) {
 			if (auto *ci = dyn_cast<ConstantInt>(c)) {
@@ -252,81 +220,6 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 			return false;
 	}
 	return true;
-}
-
-bool isIntrinsicCallNoSideEffects(const Instruction &i)
-{
-	auto *ci = dyn_cast<CallInst>(&i);
-	if (!ci)
-		return false;
-
-	auto *fun = ci->getCalledFunction();
-	if (fun)
-		return cleanInstrinsics.count(fun->getName().str());
-
-	auto *v = ci->getCalledValue()->stripPointerCasts();
-	return cleanInstrinsics.count(v->getName());
-}
-
-bool isDependentOn(const Instruction *i1, const Instruction *i2, VSet<const Instruction *> chain)
-{
-	if (!i1 || !i2 || chain.find(i1) != chain.end())
-		return false;
-
-	for (auto &u : i1->operands()) {
-		if (auto *i = dyn_cast<Instruction>(u.get())) {
-			chain.insert(i1);
-			if (i == i2 || isDependentOn(i, i2, chain))
-				return true;
-			chain.erase(i1);
-		}
-	}
-	return false;
-}
-
-bool isDependentOn(const Instruction *i1, const Instruction *i2)
-{
-	VSet<const Instruction *> chain;
-	return isDependentOn(i1, i2, chain);
-}
-
-template<typename F>
-void foreachInPathToHeader(const BasicBlock *curr, const BasicBlock *header,
-			   SmallVector<const BasicBlock *, 4> &path, F&& fun)
-{
-	std::for_each(curr->rbegin(), curr->rend(), fun);
-
-	if (curr == header)
-		return;
-
-	path.push_back(curr);
-	for (auto *pred: predecessors(curr))
-		if (std::find(path.begin(), path.end(), pred) == path.end())
-			foreachInPathToHeader(pred, header, path, fun);
-	path.pop_back();
-	return;
-}
-
-template<typename F>
-void foreachInPathToHeader(const BasicBlock *curr, const BasicBlock *header, F&& fun)
-{
-	SmallVector<const BasicBlock *, 4> path;
-	foreachInPathToHeader(curr, header, path, fun);
-}
-
-bool hasSideEffects(const Instruction *i)
-{
-	if (isa<AllocaInst>(i))
-		return true;
-	if (i->mayHaveSideEffects()) {
-		if (auto *ci = dyn_cast<CallInst>(i)) {
-			if (!isIntrinsicCallNoSideEffects(*ci))
-				return true;
-		} else if (!isa<LoadInst>(i)) {
-			return true;
-		}
-	}
-	return false;
 }
 
 /* Only for loops as it may not terminate if called for general code */
