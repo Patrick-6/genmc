@@ -22,6 +22,7 @@
 
 #include "LLVMModule.hpp"
 #include "BisimilarityCheckerPass.hpp"
+#include "CallInfoCollectionPass.hpp"
 #include "CodeCondenserPass.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "DefineLibcFunsPass.hpp"
@@ -145,6 +146,7 @@ namespace LLVMModule {
 		BndPM.add(new BisimilarityCheckerPass());
 		if (conf->codeCondenser && !conf->checkLiveness)
 			BndPM.add(new CodeCondenserPass());
+		BndPM.add(new CallInfoCollectionPass());
 		if (conf->spinAssume)
 			BndPM.add(new SpinAssumePass(conf->checkLiveness));
 		if (conf->unroll >= 0)

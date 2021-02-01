@@ -64,9 +64,10 @@ bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2);
 
 /*
  * Returns true if its argument has side-effects.
- * Calls to non-intrinsic functions are considered to produce side-effects.
+ * Calls to non-intrinsic functions are considered to produce side-effects
+ * unless a clean list "cleanFuns" is provided.
  */
-bool hasSideEffects(const llvm::Instruction *i);
+bool hasSideEffects(const llvm::Instruction *i, const VSet<llvm::Function *> *cleanFuns = nullptr);
 
 namespace details {
 	template<typename F>

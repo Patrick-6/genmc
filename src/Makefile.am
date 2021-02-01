@@ -13,6 +13,7 @@ libgenmc_a_SOURCES = \
   AnnotExpr.cpp AnnotExpr.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
+  CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \

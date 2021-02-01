@@ -77,13 +77,19 @@ bool isDependentOn(const Instruction *i1, const Instruction *i2)
 	return isDependentOn(i1, i2, chain);
 }
 
-bool hasSideEffects(const Instruction *i)
+bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* = nullptr */)
 {
 	if (isa<AllocaInst>(i))
 		return true;
 	if (i->mayHaveSideEffects()) {
 		if (auto *ci = dyn_cast<CallInst>(i)) {
-			if (!isIntrinsicCallNoSideEffects(*ci))
+			auto name = getCalledFunOrStripValName(*ci);
+			if (isInternalFunction(name))
+				return !isCleanInternalFunction(name);
+			if (!cleanFuns)
+				return true;
+			const auto *fun = dyn_cast<Function>(ci->getCalledValue()->stripPointerCasts());
+			if (!fun || !cleanFuns->count(const_cast<Function*>(fun)))
 				return true;
 		} else if (!isa<LoadInst>(i)) {
 			return true;

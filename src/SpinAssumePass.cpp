@@ -24,6 +24,7 @@
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
+#include "CallInfoCollectionPass.hpp"
 #include "LLVMUtils.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
@@ -45,6 +46,7 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.addRequired<DominatorTreeWrapperPass>();
 	au.addRequired<PostDominatorTreeWrapperPass>();
 	au.addRequired<DeclareInternalsPass>();
+	au.addRequired<CallInfoCollectionPass>();
 	au.setPreservesAll();
 }
 
@@ -225,10 +227,11 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 /* Only for loops as it may not terminate if called for general code */
 bool SpinAssumePass::isPathToHeaderEffectFree(const BasicBlock *start, const BasicBlock *header)
 {
-	bool effects = false;
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
 
 	foreachInPathToHeader(start, header, [&](const Instruction &i){
-		effects |= hasSideEffects(&i);
+		effects |= hasSideEffects(&i, &cleanSet);
 	});
 	return !effects;
 }
@@ -245,7 +248,8 @@ bool areCASsMutuallyExclusive(const VSet<const AtomicCmpXchgInst *> &cass,
 
 bool SpinAssumePass::isPathToHeaderCASClean(const BasicBlock *start, const BasicBlock *header)
 {
-	bool effects = false;
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
 	VSet<const AtomicCmpXchgInst *> cass;
 
 	foreachInPathToHeader(start, header, [&](const Instruction &i){
@@ -253,7 +257,7 @@ bool SpinAssumePass::isPathToHeaderCASClean(const BasicBlock *start, const Basic
 			cass.insert(casi);
 			return;
 		}
-		effects |= hasSideEffects(&i);
+		effects |= hasSideEffects(&i, &cleanSet);
 	});
 
 	// FIXME 1: For now we under-approximate by requiring there is only 1 CAS.
@@ -301,7 +305,8 @@ bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
 
 bool SpinAssumePass::isPathToHeaderZNE(const BasicBlock *start, const BasicBlock *header)
 {
-	bool effects = false;
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
 	VSet<const PHINode *> phis;
 	VSet<const AtomicRMWInst *> fais;
 
@@ -314,7 +319,7 @@ bool SpinAssumePass::isPathToHeaderZNE(const BasicBlock *start, const BasicBlock
 			phis.insert(phi);
 			return;
 		}
-		effects |= hasSideEffects(&i);
+		effects |= hasSideEffects(&i, &cleanSet);
 	});
 
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
