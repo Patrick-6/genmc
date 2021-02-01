@@ -19,23 +19,11 @@
  */
 
 #include "LLVMUtils.hpp"
-#include "VSet.hpp"
+#include "InterpreterEnumAPI.hpp"
 
 #include <unordered_set>
 
 using namespace llvm;
-
-// FIXME: Incorporate to internalapis
-const std::unordered_set<std::string> cleanInstrinsics = {
-	{"__VERIFIER_assert_fail"},
-	{"__VERIFIER_spin_start"},
-	{"__VERIFIER_spin_end"},
-	{"__VERIFIER_potential_spin_end"},
-	{"__VERIFIER_end_loop"},
-	{"__VERIFIER_assume"},
-	{"__VERIFIER_nondet_int"},
-	{"__VERIFIER_thread_self"}
-};
 
 bool areSameLoadOrdering(AtomicOrdering o1, AtomicOrdering o2)
 {
@@ -64,7 +52,7 @@ bool isIntrinsicCallNoSideEffects(const Instruction &i)
 	if (!ci)
 		return false;
 
-	return cleanInstrinsics.count(getCalledFunOrStripValName(*ci));
+	return isCleanInternalFunction(getCalledFunOrStripValName(*ci));
 }
 
 bool isDependentOn(const Instruction *i1, const Instruction *i2, VSet<const Instruction *> chain)

@@ -22,6 +22,7 @@
 #define __LLVM_UTILS_HPP__
 
 #include "config.h"
+#include "VSet.hpp"
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CFG.h>

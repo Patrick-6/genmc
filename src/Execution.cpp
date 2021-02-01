@@ -4059,7 +4059,7 @@ bool isInternalCall(Function *F)
 
 bool isInvalidRecCall(InternalFunctions fCode, const std::vector<GenericValue> &ArgVals)
 {
-	return IS_FS_INVALID_REC_CODE(fCode) ||
+	return isFsInvalidRecCode(fCode) ||
 		(fCode == InternalFunctions::FN_OpenFS &&
 		 (ArgVals[1].IntVal.getLimitedValue() & GENMC_O_CREAT));
 }
