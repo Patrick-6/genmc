@@ -1206,6 +1206,27 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 	return;
 }
 
+bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+						 const std::shared_ptr<AnnotationExpr> &annot,
+						 std::vector<Event> &validStores)
+{
+	if (!annot.get())
+		return false;
+
+	BUG_ON(validStores.empty());
+	/* For WB, there might be many maximal ones */
+	auto shouldBlock = std::any_of(validStores.begin(), validStores.end(),
+				    [&](const Event &s){ return isCoMaximal(addr, s) &&
+						       !annot->evaluate(getWriteValue(s, addr, typ)); });
+	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
+			                 return !annot->evaluate(getWriteValue(w, addr, typ)); }),
+			  validStores.end());
+
+	if (shouldBlock)
+		validStores.insert(validStores.begin(), Event::getBottom());
+	return shouldBlock;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1502,6 +1523,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       const llvm::GenericValue *addr,
 		       llvm::Type *typ,
+		       std::shared_ptr<AnnotationExpr> annot,
 		       llvm::GenericValue cmpVal,
 		       llvm::GenericValue rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
@@ -1542,6 +1564,19 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	auto validStores = properlyOrderStores(attr, typ, addr, cmpVal, stores);
 	if (getConf()->symmetryReduction)
 		filterSymmetricStoresSR(addr, typ, validStores);
+
+	/* If this load is annotatable, try and keep interesting values only */
+	if (annot.get()) {
+		auto shouldBlock = filterUninterestingValuesSAVER(addr, typ, annot, validStores);
+		if(shouldBlock) {
+			auto *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
+			const_cast<ReadLabel*>(lab)->setAnnotBlocked();
+			for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+				addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
+			thr.block(llvm::Thread::BlockageType::BT_User);
+			return GET_ZERO_GV(typ); /* No interesting value found; block */
+		}
+	}
 
 	/* ... add an appropriate label with a random rf */
 	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
@@ -1685,7 +1720,7 @@ void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ)
 	}
 
 	auto ret = visitLoad(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
-			     addr, typ, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
+			     addr, typ, nullptr, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
 	if (!rLab->getRf().isBottom() && EE->compareValues(typ, INT_TO_GV(typ, 0), ret)) {
@@ -1888,10 +1923,19 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			    loads.end());
 
 	for (auto &l : loads) {
-		const EventLabel *lab = g.getEventLabel(l);
+		auto *lab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<ReadLabel>(lab));
 
 		auto *rLab = static_cast<const ReadLabel *>(lab);
+
+		if (rLab->getAnnot() && isCoMaximal(sLab->getAddr(), sLab->getPos()) &&
+		    !rLab->getAnnot()->evaluate(sLab->getVal())) {
+			if (!rLab->hasAnnotBlocked()) {
+				const_cast<ReadLabel*>(rLab)->setAnnotBlocked();
+				addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(rLab->getPos(), Event::getBottom()));
+			}
+			continue;
+		}
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);

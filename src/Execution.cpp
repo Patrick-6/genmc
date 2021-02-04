@@ -1339,12 +1339,16 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
+	std::shared_ptr<AnnotationExpr> annotationExpr = nullptr;
+	if (AI.loadASTInfo.count(&I) > 0)
+		annotationExpr = AI.loadASTInfo[&I].get()->clone(thr.id);
+
 	/* Otherwise, set the dependencies for this instruction.. */
 	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 	/* ... and then the driver will provide the appropriate value */
-	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ);
+	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ, annotationExpr);
 
 	updateDataDeps(thr.id, &I, getCurrentPosition());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
@@ -1418,7 +1422,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		       getDataDeps(thr.id, I.getCompareOperand()));
 
 	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
-				     cmpVal, newVal);
+				     nullptr, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (!thr.isBlocked() && cmpRes.IntVal.getBoolValue()) {
@@ -1493,7 +1497,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		       getDataDeps(thr.id, I.getValOperand()),
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
+	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ, nullptr,
 				     GenericValue(), val, I.getOperation());
 
 	executeAtomicRMWOperation(newVal, ret, val, I.getOperation());
@@ -2810,7 +2814,7 @@ void Interpreter::callMutexTrylock(Function *F,
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
 	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
-				     typ, cmpVal, newVal);
+				     typ, nullptr, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
@@ -3231,7 +3235,7 @@ GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 	GenericValue newVal;
 	auto *fileCount = (const GenericValue *) GET_FILE_COUNT_ADDR(fileDesc);
 	auto ret = driver->visitLoad(IA_Fai, AtomicOrdering::AcquireRelease, fileCount,
-				     intTyp, GenericValue(), INT_TO_GV(intTyp, 1),
+				     intTyp, nullptr, GenericValue(), INT_TO_GV(intTyp, 1),
 				     AtomicRMWInst::Sub);
 
 	executeAtomicRMWOperation(newVal, ret, INT_TO_GV(intTyp, 1), AtomicRMWInst::Sub);

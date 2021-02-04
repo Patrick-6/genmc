@@ -21,6 +21,7 @@
 #ifndef __LOOP_UNROLL_PASS_HPP__
 #define __LOOP_UNROLL_PASS_HPP__
 
+#include "config.h"
 #include <llvm/Pass.h>
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
 #include <llvm/ADT/StringRef.h>

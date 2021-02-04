@@ -146,6 +146,7 @@ public:
 	llvm::GenericValue
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
+		  std::shared_ptr<AnnotationExpr> annot = nullptr,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -529,6 +530,11 @@ private:
 	/* SR: Filter stores that will lead to a symmetric execution */
 	void filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
 				     std::vector<Event> &stores) const;
+
+	/* SAVer: Filters stores that will lead to an assume-blocked execution */
+	bool filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+					    const std::shared_ptr<AnnotationExpr> &annot,
+					    std::vector<Event> &stores);
 
 
 	/*** Output-related ***/

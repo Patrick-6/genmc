@@ -52,10 +52,9 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
+#include <llvm/Transforms/Scalar.h>
 #if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
-# include <llvm/Transforms/Utils.h>
-#else
-# include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Utils.h>
 #endif
 
 #ifdef LLVM_PASSMANAGER_TEMPLATE
@@ -155,7 +154,8 @@ namespace LLVMModule {
 		modified |= BndPM.run(mod);
 
 		/* The last pass we run is the load-annotation pass */
-		OptPM.add(new AnnotateLoadsPass(MI.annotInfo));
+		if (conf->loadAnnot)
+			OptPM.add(new AnnotateLoadsPass(MI.annotInfo));
 		modified |= OptPM.run(mod);
 
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));

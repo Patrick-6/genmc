@@ -314,7 +314,8 @@ bool AnnotateLoadsPass::runOnFunction(llvm::Function &F)
 	for (auto &BB : F) {
 		for (auto &I : BB) {
 			if (auto *a = llvm::dyn_cast<llvm::CallInst>(&I)) {
-				if (getCalledFunOrStripValName(*a) == "__VERIFIER_assume") {
+				if (getCalledFunOrStripValName(*a) == "__VERIFIER_assume" ||
+				    getCalledFunOrStripValName(*a) == "__VERIFIER_spin_end") {
 					currAnnotateInfo.callInst = a;
 					annotateSourceLoads();
 				}

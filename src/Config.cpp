@@ -21,7 +21,6 @@
 #include "config.h"
 #include "Config.hpp"
 #include "Error.hpp"
-#include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -164,6 +163,9 @@ clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 static llvm::cl::opt<bool>
 clDisableCodeCondenser("disable-code-condenser", llvm::cl::cat(clTransformation),
 		       llvm::cl::desc("Disable code-condenser transformation"));
+static llvm::cl::opt<bool>
+clDisableLoadAnnot("disable-load-annotation", llvm::cl::cat(clTransformation),
+		       llvm::cl::desc("Disable load-annotation transformation"));
 
 
 /* Debugging options */
@@ -275,6 +277,7 @@ void Config::saveConfigOptions()
 	unroll = clLoopUnroll;
 	spinAssume = !clDisableSpinAssume;
 	codeCondenser = !clDisableCodeCondenser;
+	loadAnnot = !clDisableLoadAnnot;
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;

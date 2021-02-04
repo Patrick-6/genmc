@@ -63,6 +63,7 @@ public:
 	int unroll;
 	bool spinAssume;
 	bool codeCondenser;
+	bool loadAnnot;
 
 	/* Debugging options */
 	bool countDuplicateExecs;

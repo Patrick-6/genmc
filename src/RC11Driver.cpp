@@ -54,14 +54,16 @@ View RC11Driver::calcBasicPorfView(Event e) const
 void RC11Driver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
-	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 
-	porf.update(rfLab->getPorfView());
-	if (lab->isAtLeastAcquire()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-			hb.update(wLab->getMsgView());
+	if (!lab->getRf().isBottom()) {
+		const auto *rfLab = g.getEventLabel(lab->getRf());
+		porf.update(rfLab->getPorfView());
+		if (lab->isAtLeastAcquire()) {
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+				hb.update(wLab->getMsgView());
+		}
 	}
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));

@@ -25,6 +25,7 @@
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "View.hpp"
+#include "AnnotExpr.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/Casting.h>
@@ -361,22 +362,27 @@ protected:
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
-		  const llvm::Type *typ, Event rf)
+		  const llvm::Type *typ, Event rf, std::shared_ptr<AnnotationExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true) {}
+		  readsFrom(rf), revisitable(true), annotExpr(annot) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
-		  Event rf)
+		  Event rf, std::shared_ptr<AnnotationExpr> annot = nullptr)
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true) {}
+		  readsFrom(rf), revisitable(true), annotExpr(annot) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
+
+	/* SAVer: Returns the expression with which this load is annotated */
+	const AnnotationExpr *getAnnot() const { return annotExpr.get(); }
+	bool hasAnnotBlocked() const { return annotBlocked; }
+	void setAnnotBlocked(bool status = true) { annotBlocked = status; }
 
 	ReadLabel *clone() const override { return new ReadLabel(*this); }
 
@@ -400,6 +406,11 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
+
+	/* SAVer: Expression for annotatable loads */
+	std::shared_ptr<AnnotationExpr> annotExpr;
+
+	bool annotBlocked;
 };
 
 

@@ -331,6 +331,9 @@ protected:
   /* Information about the module under test */
   ModuleInfo MI;
 
+  /* SAVer: Load annotation info */
+  LoadAnnotateInfo AI;
+
   /* Tracks the names of variables for each storage type */
   IndexedMap<std::unordered_map<const void *, std::string> > varNames;
 
