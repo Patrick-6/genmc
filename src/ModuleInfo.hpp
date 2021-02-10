@@ -23,7 +23,7 @@
 
 #include "config.h"
 #include "Config.hpp"
-#include "AnnotExpr.hpp"
+#include "SExpr.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -65,8 +65,9 @@ struct VariableInfo {
  */
 struct LoadAnnotateInfo {
 
-  std::unordered_map<llvm::Instruction *, std::shared_ptr<AnnotationExpr> > loadASTInfo;
-  std::unordered_map<llvm::Instruction *, AnnotationExpr *> instSymbolicVals;
+   using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
+
+   AnnotUM annotsMap;
 };
 
 /*

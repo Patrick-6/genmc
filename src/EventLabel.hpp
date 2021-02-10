@@ -25,7 +25,7 @@
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "View.hpp"
-#include "AnnotExpr.hpp"
+#include "SExpr.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/Casting.h>
@@ -362,16 +362,16 @@ protected:
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
-		  const llvm::Type *typ, Event rf, std::shared_ptr<AnnotationExpr> annot = nullptr)
+		  const llvm::Type *typ, Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), annotExpr(annot) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
-		  Event rf, std::shared_ptr<AnnotationExpr> annot = nullptr)
+		  Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), annotExpr(annot) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
@@ -380,7 +380,7 @@ public:
 	bool isRevisitable() const { return revisitable; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
-	const AnnotationExpr *getAnnot() const { return annotExpr.get(); }
+	const SExpr *getAnnot() const { return annotExpr.get(); }
 	bool hasAnnotBlocked() const { return annotBlocked; }
 	void setAnnotBlocked(bool status = true) { annotBlocked = status; }
 
@@ -407,8 +407,8 @@ private:
 	/* Revisitability status */
 	bool revisitable;
 
-	/* SAVer: Expression for annotatable loads */
-	std::shared_ptr<AnnotationExpr> annotExpr;
+	/* SAVer: Expression for annotatable loads (shared between clones) */
+	std::shared_ptr<SExpr> annotExpr;
 
 	bool annotBlocked;
 };

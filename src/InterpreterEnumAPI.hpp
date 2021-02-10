@@ -38,10 +38,12 @@ enum class Storage { ST_Static, ST_Automatic, ST_Heap, ST_StorageLast };
 enum class InternalFunctions {
 	FN_AssertFail,
 	FN_SpinStart,
+
 	FN_SpinEnd,
 	FN_PotentialSpinEnd,
-	FN_EndLoop,
 	FN_Assume,
+	/* Assume calls */
+	FN_EndLoop,
 	FN_NondetInt,
 	FN_ThreadSelf,
 	FN_NoSideEffectsLast,
@@ -94,6 +96,20 @@ inline bool isCleanInternalFunction(const std::string &name)
 
 	auto &code = internalFunNames.at(name);
 	return code >= InternalFunctions::FN_AssertFail && code <= InternalFunctions::FN_NoSideEffectsLast;
+}
+
+inline bool isErrorFunction(const std::string &name)
+{
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AssertFail;
+}
+
+inline bool isAssumeFunction(const std::string &name)
+{
+	if (!isInternalFunction(name))
+		return false;
+
+	auto &code = internalFunNames.at(name);
+	return code >= InternalFunctions::FN_SpinEnd && code <= InternalFunctions::FN_Assume;
 }
 
 inline bool isFsCode(InternalFunctions code)

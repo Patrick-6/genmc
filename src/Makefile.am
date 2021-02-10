@@ -10,7 +10,6 @@ libgenmc_a_HEADERS = $(top_builddir)/include/*.h
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
-  AnnotExpr.cpp AnnotExpr.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
   CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
@@ -55,6 +54,8 @@ libgenmc_a_SOURCES = \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
+  SExpr.cpp SExpr.hpp \
+  SExprVisitor.cpp SExprVisitor.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
   WorkSet.hpp WorkSet.cpp \

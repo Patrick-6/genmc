@@ -375,7 +375,7 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(std::unique_ptr<Module> M, const ModuleInfo &MI,
+  explicit Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -491,7 +491,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(std::unique_ptr<Module> M, const ModuleInfo &MI,
+  static ExecutionEngine *create(std::unique_ptr<Module> M, ModuleInfo &&MI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 

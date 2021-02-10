@@ -38,6 +38,7 @@
 #include "Event.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
+#include "SExprVisitor.hpp"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
@@ -1339,16 +1340,16 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
-	std::shared_ptr<AnnotationExpr> annotationExpr = nullptr;
-	if (AI.loadASTInfo.count(&I) > 0)
-		annotationExpr = AI.loadASTInfo[&I].get()->clone(thr.id);
+	std::unique_ptr<SExpr> annot = nullptr;
+	if (AI.annotsMap.count(&I) > 0)
+		annot = SExprConcretizer().concretize(AI.annotsMap[&I].get(), SF.Values);
 
 	/* Otherwise, set the dependencies for this instruction.. */
 	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 	/* ... and then the driver will provide the appropriate value */
-	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ, annotationExpr);
+	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ, std::move(annot));
 
 	updateDataDeps(thr.id, &I, getCurrentPosition());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());

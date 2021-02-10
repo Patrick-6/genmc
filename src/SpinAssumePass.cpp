@@ -225,12 +225,12 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 }
 
 /* Only for loops as it may not terminate if called for general code */
-bool SpinAssumePass::isPathToHeaderEffectFree(const BasicBlock *start, const BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *start, BasicBlock *header)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
 
-	foreachInPathToHeader(start, header, [&](const Instruction &i){
+	foreachInBackPathTo(start, header, [&](Instruction &i){
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
 	return !effects;
@@ -246,13 +246,13 @@ bool areCASsMutuallyExclusive(const VSet<const AtomicCmpXchgInst *> &cass,
 	return true;
 }
 
-bool SpinAssumePass::isPathToHeaderCASClean(const BasicBlock *start, const BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *start, BasicBlock *header)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
 	VSet<const AtomicCmpXchgInst *> cass;
 
-	foreachInPathToHeader(start, header, [&](const Instruction &i){
+	foreachInBackPathTo(start, header, [&](Instruction &i){
 		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
 			cass.insert(casi);
 			return;
@@ -303,14 +303,14 @@ bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
 	return false;
 }
 
-bool SpinAssumePass::isPathToHeaderZNE(const BasicBlock *start, const BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *start, BasicBlock *header)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
-	VSet<const PHINode *> phis;
-	VSet<const AtomicRMWInst *> fais;
+	VSet<PHINode *> phis;
+	VSet<AtomicRMWInst *> fais;
 
-	foreachInPathToHeader(start, header, [&](const Instruction &i){
+	foreachInBackPathTo(start, header, [&](Instruction &i){
 		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
 			fais.insert(faii);
 			return;
@@ -362,7 +362,7 @@ void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
 {
 	/* Find the last FAI call of the path */
 	SmallVector<AtomicRMWInst *, 2> fais;
-	foreachInPathToHeader(latch, header, [&](const Instruction &i){
+	foreachInBackPathTo(latch, header, [&](const Instruction &i){
 		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
 			fais.push_back(const_cast<AtomicRMWInst *>(faii));
 			return;

@@ -26,6 +26,7 @@
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "Parser.hpp"
+#include "SExprVisitor.hpp"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
@@ -52,7 +53,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), MI, this, getConf(), &buf));
+		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(), &buf));
 
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
@@ -1207,20 +1208,21 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 }
 
 bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
-						 const std::shared_ptr<AnnotationExpr> &annot,
+						 const SExpr *annot,
 						 std::vector<Event> &validStores)
 {
-	if (!annot.get())
+	if (!annot)
 		return false;
 
 	BUG_ON(validStores.empty());
 	/* For WB, there might be many maximal ones */
-	auto shouldBlock = std::any_of(validStores.begin(), validStores.end(),
-				    [&](const Event &s){ return isCoMaximal(addr, s) &&
-						       !annot->evaluate(getWriteValue(s, addr, typ)); });
+	auto shouldBlock =
+		std::any_of(validStores.begin(), validStores.end(),
+			    [&](const Event &s){ return isCoMaximal(addr, s) &&
+					    !SExprEvaluator().evaluate(annot, getWriteValue(s, addr, typ)); });
 	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
-			                 return !annot->evaluate(getWriteValue(w, addr, typ)); }),
-			  validStores.end());
+		return !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, typ)); }),
+		validStores.end());
 
 	if (shouldBlock)
 		validStores.insert(validStores.begin(), Event::getBottom());
@@ -1523,7 +1525,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       const llvm::GenericValue *addr,
 		       llvm::Type *typ,
-		       std::shared_ptr<AnnotationExpr> annot,
+		       std::unique_ptr<SExpr> annot,
 		       llvm::GenericValue cmpVal,
 		       llvm::GenericValue rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
@@ -1567,7 +1569,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 
 	/* If this load is annotatable, try and keep interesting values only */
 	if (annot.get()) {
-		auto shouldBlock = filterUninterestingValuesSAVER(addr, typ, annot, validStores);
+		auto shouldBlock = filterUninterestingValuesSAVER(addr, typ, annot.get(), validStores);
 		if(shouldBlock) {
 			auto *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
 			const_cast<ReadLabel*>(lab)->setAnnotBlocked();
@@ -1929,7 +1931,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
 		if (rLab->getAnnot() && isCoMaximal(sLab->getAddr(), sLab->getPos()) &&
-		    !rLab->getAnnot()->evaluate(sLab->getVal())) {
+		    !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal())) {
 			if (!rLab->hasAnnotBlocked()) {
 				const_cast<ReadLabel*>(rLab)->setAnnotBlocked();
 				addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(rLab->getPos(), Event::getBottom()));

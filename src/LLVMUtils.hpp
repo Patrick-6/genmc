@@ -64,6 +64,7 @@ bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2);
 
 /*
  * Returns true if its argument has side-effects.
+ * Clean intrinsic functions (e.g., assert, assume) are considered side-effect-free.
  * Calls to non-intrinsic functions are considered to produce side-effects
  * unless a clean list "cleanFuns" is provided.
  */
@@ -71,36 +72,38 @@ bool hasSideEffects(const llvm::Instruction *i, const VSet<llvm::Function *> *cl
 
 namespace details {
 	template<typename F>
-	void foreachInPathToHeader(const llvm::BasicBlock *curr,
-				   const llvm::BasicBlock *header,
-				   llvm::SmallVector<const llvm::BasicBlock *, 4> &path,
-				   F&& fun)
+	void foreachInBackPathTo(llvm::BasicBlock *curr,
+				 llvm::BasicBlock *to,
+				 llvm::SmallVector<llvm::BasicBlock *, 4> &path,
+				 F&& fun)
 	{
-		std::for_each(curr->rbegin(), curr->rend(), fun);
-
-		if (curr == header)
-			return;
-
 		path.push_back(curr);
+		if (curr == to) {
+			for (auto *bb : path)
+				std::for_each(bb->rbegin(), bb->rend(), fun);
+			path.pop_back();
+			return;
+		}
+
 		for (auto *pred: predecessors(curr))
 			if (std::find(path.begin(), path.end(), pred) == path.end())
-				foreachInPathToHeader(pred, header, path, fun);
+				foreachInBackPathTo(pred, to, path, fun);
 		path.pop_back();
 		return;
 	}
 };
 
 /*
- * Executes fun for all instructions from curr to header.
- * header needs to be a predecessor of curr.
- * fun is applied in reverse iteration order within a block.
+ * Executes FUN for all instructions from FROM to TO.
+ * TO needs to be a predecessor of FROM, otherwise FUN is not applied.
+ * FUN is applied in reverse iteration order within a block.
  */
 
 template<typename F>
-void foreachInPathToHeader(const llvm::BasicBlock *curr, const llvm::BasicBlock *header, F&& fun)
+void foreachInBackPathTo(llvm::BasicBlock *from, llvm::BasicBlock *to, F&& fun)
 {
-	llvm::SmallVector<const llvm::BasicBlock *, 4> path;
-	details::foreachInPathToHeader(curr, header, path, fun);
+	llvm::SmallVector<llvm::BasicBlock *, 4> path;
+	details::foreachInBackPathTo(from, to, path, fun);
 }
 
 #endif /* __LLVM_UTILS_HPP__ */

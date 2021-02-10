@@ -29,9 +29,9 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
-	bool isPathToHeaderEffectFree(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
-	bool isPathToHeaderCASClean(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
-	bool isPathToHeaderZNE(const llvm::BasicBlock *start, const llvm::BasicBlock *header);
+	bool isPathToHeaderEffectFree(llvm::BasicBlock *start, llvm::BasicBlock *header);
+	bool isPathToHeaderCASClean(llvm::BasicBlock *start, llvm::BasicBlock *header);
+	bool isPathToHeaderZNE(llvm::BasicBlock *start, llvm::BasicBlock *header);
 
 public:
 	static char ID;

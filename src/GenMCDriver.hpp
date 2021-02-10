@@ -146,7 +146,7 @@ public:
 	llvm::GenericValue
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
-		  std::shared_ptr<AnnotationExpr> annot = nullptr,
+		  std::unique_ptr<SExpr> annot = nullptr,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -533,8 +533,7 @@ private:
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
 	bool filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
-					    const std::shared_ptr<AnnotationExpr> &annot,
-					    std::vector<Event> &stores);
+					    const SExpr *annot, std::vector<Event> &stores);
 
 
 	/*** Output-related ***/

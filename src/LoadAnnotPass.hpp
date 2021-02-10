@@ -21,52 +21,65 @@
 #ifndef __ANNOTATE_LOADS_PASS_HPP__
 #define __ANNOTATE_LOADS_PASS_HPP__
 
-#include "AnnotExpr.hpp"
 #include "ModuleInfo.hpp"
-#include <set>
 #include <llvm/Pass.h>
 #include <llvm/IR/Instructions.h>
 
-class AnnotateLoadsPass : public llvm::FunctionPass {
+#include <unordered_map>
 
-private:
+using namespace llvm;
 
-	class AnnotateInfo{
-		public:
-	                llvm::CallInst *callInst;
-	                std::vector<llvm::Instruction*> loadInsts;
-			std::set<llvm::BasicBlock*> sweptBBs;
-
-	                AnnotateInfo();
-			void reset();
-	};
-
-	AnnotateInfo currAnnotateInfo;
-
-	/* Check if there are other loads and stores between "loadInst" and "callInst" */
-	bool findOtherMemoryInsts(llvm::Instruction *nextInst);
-
-	/* check if there is one loadInst which is dominated by all other loads recorded in the currAnnotateInfo. */
-	llvm::Instruction *findAnnotateInst();
-
-protected:
-	/* Generated ASTs for the dependent "loadInst" */
-	std::shared_ptr<AnnotationExpr> __generateASTs(llvm::Instruction *annotatedInst, llvm::Value *v);
-	void generateASTs(llvm::Instruction *annotateInst);
-
-	/* Finds and annotates loads on which the assume "callInst" depends on */
-	void annotateSourceLoads();
-        void __annotateSourceLoads(llvm::Instruction *i);
+class AnnotateLoadsPass : public FunctionPass {
 
 public:
 	static char ID;
 	LoadAnnotateInfo &LAI;
 
 	AnnotateLoadsPass(LoadAnnotateInfo &LAI)
-	: llvm::FunctionPass(ID), LAI(LAI) {};
+	: FunctionPass(ID), LAI(LAI) {};
 
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnFunction(llvm::Function &F);
+	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+	virtual bool runOnFunction(Function &F);
+
+private:
+	enum Status { unseen, entered, left };
+
+	using InstStatusMap = DenseMap<Instruction *, Status>;
+	using InstAnnotsMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
+	using InstPath = std::vector<Instruction *>;
+
+	/*
+	 * Returns the source loads of an assume statement, that is,
+	 * loads the result of which is used in the assume.
+	 */
+	std::vector<LoadInst *> getSourceLoads(CallInst *assm) const;
+
+	/*
+	 * Given an assume's source loads, returns the annotatable ones.
+	 */
+	std::vector<LoadInst *>
+	filterAnnotatableFromSource(CallInst *assm, const std::vector<LoadInst *> &source) const;
+
+	/*
+	 * Returns all of ASSM's annotatable loads
+	 */
+	std::vector<LoadInst *>
+	getAnnotatableLoads(CallInst *assm) const;
+
+	/* Returns the annotation for CURR by propagating SUCC's annotation backwards */
+	std::unique_ptr<SExpr> propagateAnnotFromSucc(Instruction *curr, Instruction *succ);
+
+	/* Helper for tryAnnotateDFS */
+	void tryAnnotateDFSHelper(Instruction *curr);
+
+	/* Will try and set the annotation for L in ANNOTSMAP */
+	void tryAnnotateDFS(LoadInst *l);
+
+	/* A helper status map */
+	InstStatusMap statusMap;
+
+	/* A map storing the annotations for this function's annotatable loads */
+	InstAnnotsMap annotsMap;
 };
 
 #endif /* __ANNOTATE_LOADS_PASS_HPP__ */
