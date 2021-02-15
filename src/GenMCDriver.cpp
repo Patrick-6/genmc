@@ -245,7 +245,7 @@ bool GenMCDriver::scheduleNextRandom()
 
 		/* SR: Symmetric threads have to always be executed in order */
 		if (getConf()->symmetryReduction) {
-			auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(i, 0)));
+			auto *bLab = llvm::dyn_cast<const ThreadStartLabel>(g.getEventLabel(Event(i, 0)));
 			auto symm = bLab->getSymmetricTid();
 			if (symm != -1 && isSchedulable(symm) &&
 			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
@@ -359,6 +359,8 @@ void GenMCDriver::handleFinishedExecution()
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(getEE()->threads.begin(), getEE()->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked(); })) {
+		if (userConf->printExecGraphs && !userConf->persevere)
+			printGraph(); /* Delay printing if persevere is enabled */
 		++exploredBlocked;
 		if (userConf->checkLiveness)
 			checkLiveness();
@@ -1222,10 +1224,10 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *pt
 		});
 		BUG_ON(lit == stores.end());
 		threadPrios = {*lit};
-		valid.push_back(*lit);
-	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
-	return valid;
+		conflicting.push_back(*lit);
+	} else
+		conflicting.insert(conflicting.end(), valid.begin(), valid.end());
+	return conflicting;
 }
 
 std::vector<Event>
@@ -1259,9 +1261,10 @@ GenMCDriver::properlyOrderStores(InstAttr attr,
 	}
 
 	/* barrier_wait()'s FAI loads should not read from conflicting stores */
-	if (!isBPostAttr(attr) || getConf()->disableBarrierOpt)
-		valid.insert(valid.end(), conflicting.begin(), conflicting.end());
-	return valid;
+	if (isBPostAttr(attr) && !getConf()->disableBarrierOpt)
+		return valid;
+	conflicting.insert(conflicting.end(), valid.begin(), valid.end());
+	return conflicting;
 }
 
 bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
@@ -1693,11 +1696,11 @@ GenMCDriver::visitLoad(InstAttr attr,
 
 	/* ... add an appropriate label with a random rf */
 	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, std::move(annot),
-						  cmpVal, rmwVal, op, validStores[0]);
+						  cmpVal, rmwVal, op, validStores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
-	if (!ensureConsistentRf(lab, validStores))
-		return GET_ZERO_GV(typ);
+//	if (!ensureConsistentRf(lab, validStores))
+//		return GET_ZERO_GV(typ);
 
 	/* Check whether the load forces us to reconsider some potential spinloop */
 	checkReconsiderFaiSpinloop(lab);
@@ -1712,13 +1715,13 @@ GenMCDriver::visitLoad(InstAttr attr,
 		checkBIncValidity(validStores);
 
 	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = getWriteValue(validStores[0], addr, typ);
+	auto retVal = getWriteValue(validStores.back(), addr, typ);
 	if (llvm::isa<BWaitReadLabel>(lab) &&
 	    !EE->compareValues(typ, retVal, getBarrierInitValue(addr, typ)))
 		thr.block(llvm::Thread::BlockageType::BT_Barrier);
 
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+	for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
 		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 	return retVal;
 }
@@ -2036,6 +2039,62 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 	return false;
 }
 
+
+bool coherenceBeforeRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
+			    const VectorClock &v, const ReadLabel *rLab)
+{
+	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
+		return false;
+
+	auto &stores = g.getStoresToLoc(wLab->getAddr());
+	auto it = stores.begin();
+	while (*it != wLab->getPos()) ++it;
+	++it;
+	for (; it != stores.end(); ++it) {
+		auto *nlab = g.getEventLabel(*it);
+		if (v.contains(nlab->getPos()))
+			return false;
+		if (nlab->getStamp() <= rLab->getStamp())
+			return false;
+		if (nlab->getStamp() < wLab->getStamp())
+			return true;
+	}
+	return false;
+}
+
+bool isMaximalEvent(const EventLabel *lab)
+{
+	if (auto *lLab = llvm::dyn_cast<ReadLabel>(lab))
+		return lLab->isRevisitable();
+
+	if (auto *lLab = llvm::dyn_cast<WriteLabel>(lab))
+		return lLab->isMaximal();
+
+	return true;
+}
+
+bool inMaximalPath(const ExecutionGraph &g, const WriteLabel *wLab, const ReadLabel *rLab)
+{
+        const VectorClock &v = g.getPrefixView(wLab->getPos());
+
+	for (auto i = 0u; i < g.getNumThreads(); i++)
+		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (lab->getStamp() <= rLab->getStamp())
+				break;
+			if (v.contains(Event(i, j))) {
+				if (auto *lLab = llvm::dyn_cast<WriteLabel>(lab)) {
+					if (coherenceBeforeRemoved(g, lLab, v, rLab))
+						return false;
+				}
+				continue;
+			}
+			if (!isMaximalEvent(lab)) return false;
+		}
+
+	return true;
+}
+
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -2080,6 +2139,9 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		}
 
+		if (!inMaximalPath(g, sLab, rLab))
+			continue;
+
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
 		auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
@@ -2102,9 +2164,14 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			continue;
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
-		addToRevisitSet(rLab, writePrefixPos, moPlacings);
-		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
-							 std::move(writePrefix), std::move(moPlacings)));
+		//addToRevisitSet(rLab, writePrefixPos, moPlacings);
+		if (pendingRMWs.size() > 0 && l == pendingRMWs.back()) {
+			addToWorklist(LLVM_MAKE_UNIQUE<BRevConflictingRMWItem>(rLab->getPos(), sLab->getPos(),
+								 std::move(writePrefix), std::move(moPlacings)));
+		} else {
+			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
+								 std::move(writePrefix), std::move(moPlacings)));
+		}
 	}
 
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
@@ -2231,7 +2298,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
-	const EventLabel *lab = g.getEventLabel(item->getPos());
+	EventLabel *lab = g.getEventLabel(item->getPos());
 
 	/* First, appropriately restrict the worklist, the revisit set, and the graph */
 	restrictWorklist(lab);
@@ -2243,6 +2310,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
+		wLab->setMaximal(false);
 		repairDanglingLocks();
 		repairDanglingBarriers();
 		return (llvm::isa<MOLibItem>(mi)) ? calcLibRevisits(wLab) : calcRevisits(wLab);
@@ -2253,16 +2321,18 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	BUG_ON(!ri);
 
 	/* Restore the prefix, if this is a backward revisit */
-	if (auto *bri = llvm::dyn_cast<BRevItem>(ri))
+	if (auto *bri = llvm::dyn_cast<BRevItem>(ri)) {
 		restorePrefix(lab, bri->getPrefixRel(), bri->getMOPlacingsRel());
+	}
 
 	/* We are dealing with a read: change its reads-from and also check
 	 * whether a part of an RMW should be added */
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
-	auto *rLab = static_cast<const ReadLabel *>(lab);
+	auto *rLab = static_cast<ReadLabel *>(lab);
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
+	rLab->setRevisitStatus(llvm::isa<BRevConflictingRMWItem>(ri));
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
@@ -2338,8 +2408,8 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 	 */
 	if (!lib->hasFunctionalRfs()) {
 		BUG_ON(validStores.empty());
-		changeRf(lab->getPos(), validStores[0]);
-		for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
+		changeRf(lab->getPos(), validStores.back());
+		for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
 			addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 		return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
 				      lab->getRf().isInitializer());
@@ -2389,9 +2459,9 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 	 */
 	WARN_ONCE("lib-check-before-push", "FIXME: CHECK IF IT'S A NON BLOCKING LIB BEFORE PUSHING?\n");
 	g.addBottomToInvalidRfs(lab->getPos());
-	changeRf(lab->getPos(), validStores[0]);
+	changeRf(lab->getPos(), *(invIt - 1));
 
-	for (auto it = validStores.begin() + 1; it != invIt; ++it)
+	for (auto it = validStores.begin(); it != invIt - 1; ++it)
 		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
 
 	return std::make_pair(getWriteValue(lab->getRf(), addr, typ),
@@ -2969,8 +3039,11 @@ void GenMCDriver::prettyPrintGraph()
 					     << val.IntVal << " ";
 				llvm::dbgs().resetColor();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+				if (wLab->isMaximal())
+					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
 				llvm::dbgs() << "W" << EE->getVarName(wLab->getAddr()) << ","
 					     << wLab->getVal().IntVal << " ";
+				llvm::dbgs().resetColor();
 			}
 		}
 		llvm::dbgs() << "\n";
