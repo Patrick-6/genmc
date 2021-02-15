@@ -84,6 +84,8 @@ public:
 		WI_FRevLib,
 		WI_FRevLast,
 		WI_BRev,
+		WI_BRevConflictingRMW,
+		WI_BRevLast,
 		WI_RevLast,
 		WI_MO,
 		WI_MOLib,
@@ -171,13 +173,19 @@ public:
  */
 class BRevItem : public RevItem {
 
+protected:
+	BRevItem(Kind k, Event p, Event r,
+		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
+		 std::vector<std::pair<Event, Event> > &&moPlacings)
+		: RevItem(k, p, r),
+		  prefix(std::move(prefix)),
+		  moPlacings(std::move(moPlacings)) {}
+
 public:
 	BRevItem(Event p, Event r,
 		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
 		 std::vector<std::pair<Event, Event> > &&moPlacings)
-		: RevItem(WI_BRev, p, r),
-		  prefix(std::move(prefix)),
-		  moPlacings(std::move(moPlacings)) {}
+		: BRevItem(WI_BRev, p, r, std::move(prefix), std::move(moPlacings)) {}
 
 	/* Returns (releases) the prefix of the revisiting event */
 	std::vector<std::unique_ptr<EventLabel> > &&getPrefixRel() {
@@ -195,12 +203,30 @@ public:
 	}
 
 	static bool classof(const WorkItem *item) {
-		return item->getKind() == WI_BRev;
+		return item->getKind() >= WI_BRev && item->getKind() <= WI_BRevLast;
 	}
 
 private:
 	std::vector<std::unique_ptr<EventLabel> >  prefix;
 	std::vector<std::pair<Event, Event> >  moPlacings;
+};
+
+
+/*
+ * BRevConflictingRMWItem class - Represents a backward revisit of a conflicting RMW
+ */
+class BRevConflictingRMWItem : public BRevItem {
+
+public:
+	BRevConflictingRMWItem(Event p, Event r,
+		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
+		 std::vector<std::pair<Event, Event> > &&moPlacings)
+		: BRevItem(WI_BRevConflictingRMW, p, r, std::move(prefix), std::move(moPlacings)) {}
+
+	static bool classof(const WorkItem *item) {
+		return item->getKind() == WI_BRevConflictingRMW;
+	}
+
 };
 
 
