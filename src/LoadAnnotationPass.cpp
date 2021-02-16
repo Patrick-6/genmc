@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "LoadAnnotPass.hpp"
+#include "LoadAnnotationPass.hpp"
 #include "Error.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
@@ -30,7 +30,7 @@
 
 using namespace llvm;
 
-void AnnotateLoadsPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
+void LoadAnnotationPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.setPreservesAll();
 }
@@ -197,7 +197,7 @@ void calcSourceLoads(Instruction *i, VSet<PHINode *> phis, std::vector<LoadInst 
 	return;
 }
 
-std::vector<LoadInst *> AnnotateLoadsPass::getSourceLoads(CallInst *assm) const
+std::vector<LoadInst *> LoadAnnotationPass::getSourceLoads(CallInst *assm) const
 {
 	VSet<PHINode *> phis;
 	std::vector<LoadInst *> source;
@@ -209,7 +209,7 @@ std::vector<LoadInst *> AnnotateLoadsPass::getSourceLoads(CallInst *assm) const
 }
 
 std::vector<LoadInst *>
-AnnotateLoadsPass::filterAnnotatableFromSource(CallInst *assm, const std::vector<LoadInst *> &source) const
+LoadAnnotationPass::filterAnnotatableFromSource(CallInst *assm, const std::vector<LoadInst *> &source) const
 {
 	std::vector<LoadInst *> result;
 
@@ -247,7 +247,7 @@ AnnotateLoadsPass::filterAnnotatableFromSource(CallInst *assm, const std::vector
 }
 
 std::vector<LoadInst *>
-AnnotateLoadsPass::getAnnotatableLoads(CallInst *assm) const
+LoadAnnotationPass::getAnnotatableLoads(CallInst *assm) const
 {
 	if (!isAssumeFunction(getCalledFunOrStripValName(*assm)))
 		return std::vector<LoadInst *>(); /* yet another check...x */
@@ -286,9 +286,9 @@ std::vector<Instruction *> getNextOrBranchSuccessors(Instruction *i)
 }
 
 std::unique_ptr<SExpr>
-AnnotateLoadsPass::propagateAnnotFromSucc(Instruction *curr, Instruction *succ)
+LoadAnnotationPass::propagateAnnotFromSucc(Instruction *curr, Instruction *succ)
 {
-	auto succExp = annotsMap[succ]->clone();
+	auto succExp = annotMap[succ]->clone();
 	auto substitutor = SExprRegSubstitutor();
 
 	PHINode *succPhi = nullptr;
@@ -306,59 +306,59 @@ AnnotateLoadsPass::propagateAnnotFromSucc(Instruction *curr, Instruction *succ)
 	return substitutor.substitute(succExp.get(), curr, currOp.get());
 }
 
-void AnnotateLoadsPass::tryAnnotateDFSHelper(Instruction *curr)
+void LoadAnnotationPass::tryAnnotateDFSHelper(Instruction *curr)
 {
-	statusMap[curr] = AnnotateLoadsPass::entered;
+	statusMap[curr] = LoadAnnotationPass::entered;
 
 	std::vector<Instruction *> succs = getNextOrBranchSuccessors(curr);
 	BUG_ON(succs.size() > 2);
 
 	for (auto *succ : succs) {
-		if (statusMap[succ] == AnnotateLoadsPass::unseen)
+		if (statusMap[succ] == LoadAnnotationPass::unseen)
 			tryAnnotateDFSHelper(succ);
-		else if (statusMap[succ] == AnnotateLoadsPass::entered)
-			annotsMap[succ] = generateTrueExpr();
+		else if (statusMap[succ] == LoadAnnotationPass::entered)
+			annotMap[succ] = generateTrueExpr();
 	}
 
-	statusMap[curr] = AnnotateLoadsPass::left;
+	statusMap[curr] = LoadAnnotationPass::left;
 
 	/* If we cannot get past this instruction, return either TRUE or the assumed expression */
 	if (succs.empty()) {
 		if (auto *ci = dyn_cast<CallInst>(curr)) {
 			if (isAssumeFunction(getCalledFunOrStripValName(*ci))) {
-				annotsMap[curr] = generateOperandExpr(ci->getOperand(0));
+				annotMap[curr] = generateOperandExpr(ci->getOperand(0));
 				return;
 			}
 		}
-		annotsMap[curr] = generateTrueExpr();
+		annotMap[curr] = generateTrueExpr();
 		return;
 	}
 	/* If this is a branch instruction, create a select expression */
 	if (succs.size() == 2) {
 		auto cond = dyn_cast<BranchInst>(curr)->getCondition();
-		annotsMap[curr] = SelectExpr::create(RegisterExpr::create(cond),
+		annotMap[curr] = SelectExpr::create(RegisterExpr::create(cond),
 						     propagateAnnotFromSucc(curr, succs[0]),
 						     propagateAnnotFromSucc(curr, succs[1]));
 		return;
 	}
 	/* At this point we know there is just one successor: substitute */
-	annotsMap[curr] = propagateAnnotFromSucc(curr, succs[0]);
+	annotMap[curr] = propagateAnnotFromSucc(curr, succs[0]);
 	return;
 }
 
-void AnnotateLoadsPass::tryAnnotateDFS(LoadInst *curr)
+void LoadAnnotationPass::tryAnnotateDFS(LoadInst *curr)
 {
 	/* Reset DFS data */
 	statusMap.clear();
-	annotsMap.clear();
+	annotMap.clear();
 
 	for (auto &i : instructions(curr->getParent()->getParent()))
-		statusMap[&i] = AnnotateLoadsPass::unseen;
+		statusMap[&i] = LoadAnnotationPass::unseen;
 	tryAnnotateDFSHelper(curr->getNextNode());
 	return;
 }
 
-bool AnnotateLoadsPass::runOnFunction(llvm::Function &F)
+bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 {
 	for (auto &i : instructions(F)) {
 		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
@@ -366,7 +366,7 @@ bool AnnotateLoadsPass::runOnFunction(llvm::Function &F)
 				auto loads = getAnnotatableLoads(a);
 				for (auto *l : loads) {
 					tryAnnotateDFS(l);
-					LAI.annotsMap[l] = annotsMap[l->getNextNode()]->clone();
+					LAI.annotMap[l] = annotMap[l->getNextNode()]->clone();
 				}
 			}
 		}
@@ -374,6 +374,6 @@ bool AnnotateLoadsPass::runOnFunction(llvm::Function &F)
 	return false;
 }
 
-char AnnotateLoadsPass::ID = 42;
-//static llvm::RegisterPass<AnnotateLoadsPass> P("annotate-loads",
+char LoadAnnotationPass::ID = 42;
+//static llvm::RegisterPass<LoadAnnotationPass> P("annotate-loads",
 //					       "Annotates loads directly used by __VERIFIER_assume().");

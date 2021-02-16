@@ -59,15 +59,14 @@ struct VariableInfo {
   std::unordered_map<InternalType, NameInfo> internalInfo;
 };
 
-// FIXME: rename to annotinfo; fix include; map names
 /*
- * SAVer: AnnotInfo struct -- Contains annotations for loads used by assume()s
+ * SAVer: AnnotationInfo struct -- Contains annotations for loads used by assume()s
  */
-struct LoadAnnotateInfo {
+struct AnnotationInfo {
 
    using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
 
-   AnnotUM annotsMap;
+   AnnotUM annotMap;
 };
 
 /*
@@ -112,7 +111,7 @@ struct FsInfo {
 struct ModuleInfo {
 
   VariableInfo varInfo;
-  LoadAnnotateInfo annotInfo;
+  AnnotationInfo annotInfo;
   FsInfo fsInfo;
 };
 

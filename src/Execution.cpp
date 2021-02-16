@@ -1341,8 +1341,8 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	std::unique_ptr<SExpr> annot = nullptr;
-	if (MI.annotInfo.annotsMap.count(&I) > 0)
-		annot = SExprConcretizer().concretize(MI.annotInfo.annotsMap[&I].get(), SF.Values);
+	if (MI.annotInfo.annotMap.count(&I) > 0)
+		annot = SExprConcretizer().concretize(MI.annotInfo.annotMap[&I].get(), SF.Values);
 
 	/* Otherwise, set the dependencies for this instruction.. */
 	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,

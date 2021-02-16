@@ -29,13 +29,13 @@
 
 using namespace llvm;
 
-class AnnotateLoadsPass : public FunctionPass {
+class LoadAnnotationPass : public FunctionPass {
 
 public:
 	static char ID;
-	LoadAnnotateInfo &LAI;
+	AnnotationInfo &LAI;
 
-	AnnotateLoadsPass(LoadAnnotateInfo &LAI)
+	LoadAnnotationPass(AnnotationInfo &LAI)
 	: FunctionPass(ID), LAI(LAI) {};
 
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
@@ -45,7 +45,7 @@ private:
 	enum Status { unseen, entered, left };
 
 	using InstStatusMap = DenseMap<Instruction *, Status>;
-	using InstAnnotsMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
+	using InstAnnotMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
 	using InstPath = std::vector<Instruction *>;
 
 	/*
@@ -79,7 +79,7 @@ private:
 	InstStatusMap statusMap;
 
 	/* A map storing the annotations for this function's annotatable loads */
-	InstAnnotsMap annotsMap;
+	InstAnnotMap annotMap;
 };
 
 #endif /* __ANNOTATE_LOADS_PASS_HPP__ */
