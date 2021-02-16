@@ -24,7 +24,6 @@
 #include "Error.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
-#include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Function.h>
@@ -33,7 +32,6 @@ using namespace llvm;
 
 void AnnotateLoadsPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
-	au.addRequired<PostDominatorTreeWrapperPass>();
 	au.setPreservesAll();
 }
 
@@ -208,18 +206,10 @@ std::vector<LoadInst *> AnnotateLoadsPass::getSourceLoads(CallInst *assm) const
 std::vector<LoadInst *>
 AnnotateLoadsPass::filterAnnotatableFromSource(CallInst *assm, const std::vector<LoadInst *> &source) const
 {
-	auto &PDT = getAnalysis<llvm::PostDominatorTreeWrapperPass>().getPostDomTree();
-	std::vector<LoadInst *> candidates;
-
-	/* Annotatable loads should be post-dominated by the assume */
-	for (auto *li : source) {
-		if (PDT.dominates(assm->getParent(), li->getParent()))
-			candidates.push_back(li);
-	}
+	std::vector<LoadInst *> result;
 
 	/* Collect candidates for which the path to the assume is clear */
-	std::vector<LoadInst *> result;
-	for (auto *li : candidates) {
+	for (auto *li : source) {
 		auto assumeFound = false;
 		auto loadFound = false;
 		auto sideEffects = false;
