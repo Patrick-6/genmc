@@ -61,7 +61,7 @@ struct VariableInfo {
 
 // FIXME: rename to annotinfo; fix include; map names
 /*
- * AnnotInfo struct -- Contains annotations for loads used by assume()s
+ * SAVer: AnnotInfo struct -- Contains annotations for loads used by assume()s
  */
 struct LoadAnnotateInfo {
 
