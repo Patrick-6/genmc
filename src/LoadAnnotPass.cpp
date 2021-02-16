@@ -35,6 +35,11 @@ void AnnotateLoadsPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.setPreservesAll();
 }
 
+std::unique_ptr<SExpr> generateTrueExpr()
+{
+	return ConcreteExpr::create(APInt(1, 1));
+}
+
 std::unique_ptr<SExpr> generateOperandExpr(Value *op)
 {
 	if (auto *c = dyn_cast<Constant>(op)) {
@@ -147,7 +152,7 @@ std::unique_ptr<SExpr> generateInstExpr(Instruction *curr)
 		/* Don't know how to annotate this */
 		break;
 	}
-	return ConcreteExpr::create(APInt(1, 0));
+	return generateTrueExpr();
 }
 
 /*
@@ -227,14 +232,15 @@ AnnotateLoadsPass::filterAnnotatableFromSource(CallInst *assm, const std::vector
 				if (!loadFound) {
 					loadFound |= (dyn_cast<LoadInst>(&i) == li);
 					if (loadFound) {
-						/* reset for next path (except for side-effects) */
+						if (!sideEffects)
+							result.push_back(li);
+						/* reset for next path */
 						assumeFound = false;
 						loadFound = false;
+						sideEffects = false;
 					}
 				}
 			});
-		if (!sideEffects)
-			result.push_back(li);
 	}
 	result.erase(std::unique(result.begin(), result.end()), result.end());
 	return result;
@@ -311,12 +317,12 @@ void AnnotateLoadsPass::tryAnnotateDFSHelper(Instruction *curr)
 		if (statusMap[succ] == AnnotateLoadsPass::unseen)
 			tryAnnotateDFSHelper(succ);
 		else if (statusMap[succ] == AnnotateLoadsPass::entered)
-			annotsMap[succ] = ConcreteExpr::create(llvm::APInt(1, 0));
+			annotsMap[succ] = generateTrueExpr();
 	}
 
 	statusMap[curr] = AnnotateLoadsPass::left;
 
-	/* If we cannot get past this instruction, return either FALSE or the assumed expression */
+	/* If we cannot get past this instruction, return either TRUE or the assumed expression */
 	if (succs.empty()) {
 		if (auto *ci = dyn_cast<CallInst>(curr)) {
 			if (isAssumeFunction(getCalledFunOrStripValName(*ci))) {
@@ -324,7 +330,7 @@ void AnnotateLoadsPass::tryAnnotateDFSHelper(Instruction *curr)
 				return;
 			}
 		}
-		annotsMap[curr] = ConcreteExpr::create(llvm::APInt(1, 0));
+		annotsMap[curr] = generateTrueExpr();
 		return;
 	}
 	/* If this is a branch instruction, create a select expression */
