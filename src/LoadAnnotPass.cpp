@@ -46,14 +46,6 @@ std::unique_ptr<SExpr> generateOperandExpr(Value *op)
 	return RegisterExpr::create(op);
 }
 
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout()->getTypeAllocSize((x))
-#else
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout().getTypeAllocSize((x))
-#endif
-
 std::unique_ptr<SExpr> generateInstExpr(Instruction *curr)
 {
 	/*
