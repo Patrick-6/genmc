@@ -1281,7 +1281,11 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 
 		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
 			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
-			if (!rLabB || rLabA->getRf() != rLabB->getRf())
+			if (!rLabB) return false;
+		        if (rLabA->getRf().thread == tid && rLabB->getRf().thread == pos.thread
+			    && rLabA->getRf().index == rLabB->getRf().index)
+				continue;
+			if (rLabA->getRf() != rLabB->getRf())
 				return false;
 		}
 	}
@@ -2122,8 +2126,10 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	if (getConf()->symmetryReduction) {
 		auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(sLab->getThread(), 0)));
 		auto tid = bLab->getSymmetricTid();
-		if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
+		if (tid != -1 && sharePrefixSR(tid, sLab->getPos())) {
+			std::vector<Event> loads = getRevisitLoads(sLab);
 			return true;
+		}
 	}
 
 	if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
@@ -3029,6 +3035,12 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 				executeWLPrint(wLab, name);
 			} else {
 				llvm::dbgs() << *lab;
+				if (getConf()->symmetryReduction) {
+					if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
+						auto symm = bLab->getSymmetricTid();
+						if (symm != -1) llvm::dbgs() << " symmetric with " << symm;
+					}
+				}
 			}
 			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile);
