@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ANNOTATE_LOADS_PASS_HPP__
-#define __ANNOTATE_LOADS_PASS_HPP__
+#ifndef __LOAD_ANNOTATION_PASS_HPP__
+#define __LOAD_ANNOTATION_PASS_HPP__
 
 #include "ModuleInfo.hpp"
 #include <llvm/Pass.h>
@@ -82,4 +82,4 @@ private:
 	InstAnnotMap annotMap;
 };
 
-#endif /* __ANNOTATE_LOADS_PASS_HPP__ */
+#endif /* __LOAD_ANNOTATION_PASS_HPP__ */
