@@ -1957,6 +1957,26 @@ void GenMCDriver::visitFree(void *ptr)
 	return;
 }
 
+void GenMCDriver::visitBlock()
+{
+	getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_User);
+
+	const auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+	while (pos.index > 0) {
+		const auto &lab = g.getEventLabel(pos);
+		if (llvm::isa<SpinStartLabel>(lab) || llvm::isa<FenceLabel>(lab)) continue;
+		if (const auto *lLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (!lLab->isRevisitable()) break;
+		return;
+		pos.index--;
+	}
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = getEE()->getThrById(i);
+		if (!thr.isBlocked()) thr.block(llvm::Thread::BlockageType::BT_User);
+	}
+}
+
 void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" */,
 			     Event confEvent /* = INIT */)
 {

@@ -2643,7 +2643,7 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
-		getCurThr().block(Thread::BlockageType::BT_User);
+		driver->visitBlock();
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals)

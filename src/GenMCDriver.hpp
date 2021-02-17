@@ -222,6 +222,10 @@ public:
 			visitFree(*it);
 	}
 
+
+	/* This method blocks the current thread  */
+	void visitBlock();
+
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
