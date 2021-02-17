@@ -21,9 +21,9 @@
 #include "config.h"
 
 #include "LoadAnnotationPass.hpp"
+#include "InstAnnotator.hpp"
 #include "Error.hpp"
 #include "LLVMUtils.hpp"
-#include "SExprVisitor.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Function.h>
@@ -33,126 +33,6 @@ using namespace llvm;
 void LoadAnnotationPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.setPreservesAll();
-}
-
-std::unique_ptr<SExpr> generateTrueExpr()
-{
-	return ConcreteExpr::create(APInt(1, 1));
-}
-
-std::unique_ptr<SExpr> generateOperandExpr(Value *op)
-{
-	if (auto *c = dyn_cast<Constant>(op)) {
-		BUG_ON(!c->getType()->isIntegerTy());
-		return ConcreteExpr::create(c->getUniqueInteger());
-	}
-	return RegisterExpr::create(op);
-}
-
-std::unique_ptr<SExpr> generateInstExpr(Instruction *curr)
-{
-	/*
-	 * Next, we try to generate an annotation for a whole bunch of instructions,
-	 * apart from function calls, memory instructions, and some pointer casts.
-	 * For the cases we do not handle, we simply return false.
-	 */
-
-#define HANDLE_INST(op, ...)			\
-	case Instruction::op:			\
-		return op##Expr::create(__VA_ARGS__)
-
-	switch (curr->getOpcode()) {
-		HANDLE_INST(ZExt, curr->getType()->getPrimitiveSizeInBits(),
-			    generateOperandExpr(curr->getOperand(0)));
-		HANDLE_INST(SExt, curr->getType()->getPrimitiveSizeInBits(),
-			    generateOperandExpr(curr->getOperand(0)));
-		HANDLE_INST(Trunc, curr->getType()->getPrimitiveSizeInBits(),
-			    generateOperandExpr(curr->getOperand(0)));
-
-		HANDLE_INST(Select, generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)),
-			    generateOperandExpr(curr->getOperand(2)));
-
-		HANDLE_INST(Add, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(Sub, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(Mul, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(UDiv, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(SDiv, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(URem, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(And, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(Or, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(Xor, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(Shl, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(LShr, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-		HANDLE_INST(AShr, curr->getType(),
-			    generateOperandExpr(curr->getOperand(0)),
-			    generateOperandExpr(curr->getOperand(1)));
-
-	case Instruction::ICmp: {
-		llvm::CmpInst *cmpi = llvm::dyn_cast<llvm::CmpInst>(curr);
-		switch(cmpi->getPredicate()) {
-		case CmpInst::ICMP_EQ :
-			return EqExpr::create(generateOperandExpr(curr->getOperand(0)),
-					      generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_NE :
-			return NeExpr::create(generateOperandExpr(curr->getOperand(0)),
-					      generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_UGT :
-			return UgtExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_UGE :
-			return UgeExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_ULT :
-			return UltExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_ULE :
-			return UleExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_SGT :
-			return SgtExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_SGE :
-			return SgeExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_SLT :
-			return SltExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		case CmpInst::ICMP_SLE :
-			return SleExpr::create(generateOperandExpr(curr->getOperand(0)),
-					       generateOperandExpr(curr->getOperand(1)));
-		default:
-			/* Unsupported compare predicate; quit */
-			break;
-		}
-	}
-	default:
-		/* Don't know how to annotate this */
-		break;
-	}
-	return generateTrueExpr();
 }
 
 /*
@@ -256,117 +136,16 @@ LoadAnnotationPass::getAnnotatableLoads(CallInst *assm) const
 	return filterAnnotatableFromSource(assm, sourceLoads);
 }
 
-std::vector<Instruction *> getNextOrBranchSuccessors(Instruction *i)
-{
-	std::vector<Instruction *> succs;
-
-	/*
-	 * Do not return any successors for points beyond which we
-	 * cannot annotate (even though the CFG does have edges we can follow)
-	 */
-	if (isa<LoadInst>(i) || hasSideEffects(i))
-		return succs;
-	if (auto *ci = dyn_cast<CallInst>(i)) {
-		if (isAssumeFunction(getCalledFunOrStripValName(*ci)) ||
-		    isErrorFunction(getCalledFunOrStripValName(*ci)))
-			return succs;
-	}
-
-	if (i->getNextNode())
-		succs.push_back(i->getNextNode());
-	else if (auto *bi = dyn_cast<BranchInst>(i)) {
-		if (bi->isUnconditional()) {
-			succs.push_back(&*bi->getSuccessor(0)->begin());
-		} else {
-			succs.push_back(&*bi->getSuccessor(0)->begin());
-			succs.push_back(&*bi->getSuccessor(1)->begin());
-		}
-	}
-	return succs;
-}
-
-std::unique_ptr<SExpr>
-LoadAnnotationPass::propagateAnnotFromSucc(Instruction *curr, Instruction *succ)
-{
-	auto succExp = annotMap[succ]->clone();
-	auto substitutor = SExprRegSubstitutor();
-
-	PHINode *succPhi = nullptr;
-	for (auto iit = succ;
-	     (succPhi = dyn_cast<PHINode>(iit)) && curr->getParent() != succ->getParent();
-	     iit = iit->getNextNode()) {
-		auto phiOp = generateOperandExpr(succPhi->getIncomingValueForBlock(curr->getParent()));
-		succExp = substitutor.substitute(succExp.get(), iit, phiOp.get());
-	}
-
-	if (isa<BranchInst>(curr) || (isa<PHINode>(curr) && curr->getParent() == succ->getParent()))
-		return succExp;
-
-	auto currOp = generateInstExpr(curr);
-	return substitutor.substitute(succExp.get(), curr, currOp.get());
-}
-
-void LoadAnnotationPass::tryAnnotateDFSHelper(Instruction *curr)
-{
-	statusMap[curr] = LoadAnnotationPass::entered;
-
-	std::vector<Instruction *> succs = getNextOrBranchSuccessors(curr);
-	BUG_ON(succs.size() > 2);
-
-	for (auto *succ : succs) {
-		if (statusMap[succ] == LoadAnnotationPass::unseen)
-			tryAnnotateDFSHelper(succ);
-		else if (statusMap[succ] == LoadAnnotationPass::entered)
-			annotMap[succ] = generateTrueExpr();
-	}
-
-	statusMap[curr] = LoadAnnotationPass::left;
-
-	/* If we cannot get past this instruction, return either TRUE or the assumed expression */
-	if (succs.empty()) {
-		if (auto *ci = dyn_cast<CallInst>(curr)) {
-			if (isAssumeFunction(getCalledFunOrStripValName(*ci))) {
-				annotMap[curr] = generateOperandExpr(ci->getOperand(0));
-				return;
-			}
-		}
-		annotMap[curr] = generateTrueExpr();
-		return;
-	}
-	/* If this is a branch instruction, create a select expression */
-	if (succs.size() == 2) {
-		auto cond = dyn_cast<BranchInst>(curr)->getCondition();
-		annotMap[curr] = SelectExpr::create(RegisterExpr::create(cond),
-						     propagateAnnotFromSucc(curr, succs[0]),
-						     propagateAnnotFromSucc(curr, succs[1]));
-		return;
-	}
-	/* At this point we know there is just one successor: substitute */
-	annotMap[curr] = propagateAnnotFromSucc(curr, succs[0]);
-	return;
-}
-
-void LoadAnnotationPass::tryAnnotateDFS(LoadInst *curr)
-{
-	/* Reset DFS data */
-	statusMap.clear();
-	annotMap.clear();
-
-	for (auto &i : instructions(curr->getParent()->getParent()))
-		statusMap[&i] = LoadAnnotationPass::unseen;
-	tryAnnotateDFSHelper(curr->getNextNode());
-	return;
-}
-
 bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 {
+	InstAnnotator annotator;
+
 	for (auto &i : instructions(F)) {
 		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
 			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
 				auto loads = getAnnotatableLoads(a);
 				for (auto *l : loads) {
-					tryAnnotateDFS(l);
-					LAI.annotMap[l] = annotMap[l->getNextNode()]->clone();
+					LAI.annotMap[l] = annotator.annotate(l);
 				}
 			}
 		}

@@ -36,6 +36,7 @@ libgenmc_a_SOURCES = \
   GraphBuilder.hpp \
   IMMDepTracker.hpp \
   IMMDriver.cpp IMMDriver.hpp \
+  InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \

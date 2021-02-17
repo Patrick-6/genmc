@@ -25,8 +25,6 @@
 #include <llvm/Pass.h>
 #include <llvm/IR/Instructions.h>
 
-#include <unordered_map>
-
 using namespace llvm;
 
 class LoadAnnotationPass : public FunctionPass {
@@ -42,12 +40,6 @@ public:
 	virtual bool runOnFunction(Function &F);
 
 private:
-	enum Status { unseen, entered, left };
-
-	using InstStatusMap = DenseMap<Instruction *, Status>;
-	using InstAnnotMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
-	using InstPath = std::vector<Instruction *>;
-
 	/*
 	 * Returns the source loads of an assume statement, that is,
 	 * loads the result of which is used in the assume.
@@ -65,21 +57,6 @@ private:
 	 */
 	std::vector<LoadInst *>
 	getAnnotatableLoads(CallInst *assm) const;
-
-	/* Returns the annotation for CURR by propagating SUCC's annotation backwards */
-	std::unique_ptr<SExpr> propagateAnnotFromSucc(Instruction *curr, Instruction *succ);
-
-	/* Helper for tryAnnotateDFS */
-	void tryAnnotateDFSHelper(Instruction *curr);
-
-	/* Will try and set the annotation for L in ANNOTSMAP */
-	void tryAnnotateDFS(LoadInst *l);
-
-	/* A helper status map */
-	InstStatusMap statusMap;
-
-	/* A map storing the annotations for this function's annotatable loads */
-	InstAnnotMap annotMap;
 };
 
 #endif /* __LOAD_ANNOTATION_PASS_HPP__ */
