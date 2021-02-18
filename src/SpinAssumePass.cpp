@@ -217,6 +217,9 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 	SmallVector<const AtomicCmpXchgInst *, 4> cass;
 
 	getLoopCASs(l, cass);
+	if (cass.empty())
+		return false;
+
 	for (auto iit = bb->begin(); auto phi = llvm::dyn_cast<llvm::PHINode>(iit); ++iit) {
 		if (!isPHIRelatedToCASCmp(phi, cass) && !isPHIRelatedToCASRes(phi, cass))
 			return false;
