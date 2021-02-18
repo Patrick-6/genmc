@@ -23,6 +23,7 @@
 
 #include "Error.hpp"
 #include "SExpr.hpp"
+#include "VSet.hpp"
 
 #include <map>
 
@@ -236,13 +237,17 @@ public:
 	 */
 	using RetTy = llvm::APInt;
 
-	RetTy evaluate(const SExpr *e, llvm::APInt v) {
+	/* Evaluates the given expression replacing all symbolic variables with v */
+	RetTy evaluate(const SExpr *e, llvm::APInt v, size_t *numSeen = nullptr) {
 		val = v;
-		return visit(const_cast<SExpr *>(e));
+		seen.clear();
+		auto res = visit(const_cast<SExpr *>(e));
+		if (numSeen)
+			*numSeen = seen.size();
+		return res;
 	}
-
-	RetTy evaluate(const SExpr *e, const llvm::GenericValue &v) {
-		return evaluate(e, v.IntVal);
+	RetTy evaluate(const SExpr *e, const llvm::GenericValue &v, size_t *numSeen = nullptr) {
+		return evaluate(e, v.IntVal, numSeen);
 	}
 
 	RetTy visitConcreteExpr(ConcreteExpr &e);
@@ -283,9 +288,14 @@ public:
 	RetTy visitSExpr(SExpr &e) { BUG(); }
 
 private:
+	/* Returns the value we are evaluating with */
 	llvm::APInt getVal() const { return val; }
 
+	/* Value we are evaluating with */
 	llvm::APInt val;
+
+	/* Symbolic variables seen during an evaluation */
+	VSet<llvm::Value *> seen;
 };
 
 /*******************************************************************************

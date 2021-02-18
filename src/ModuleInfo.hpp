@@ -29,6 +29,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Value.h>
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 

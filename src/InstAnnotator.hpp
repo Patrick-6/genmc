@@ -42,11 +42,19 @@ public:
 	/* Returns the annotation for a load L */
 	std::unique_ptr<SExpr> annotate(LoadInst *l);
 
+	/* Returns the condition under which BB jumps to its first successor.
+	 * If PRED is non-null, assumes that the predecessor of the basic block is PRED
+	 * during the calculation of the annotation */
+	std::unique_ptr<SExpr> annotateBBCond(BasicBlock *bb, BasicBlock *pred = nullptr);
+
 private:
 	enum Status { unseen, entered, left };
 
 	using InstStatusMap = DenseMap<Instruction *, Status>;
 	using InstAnnotMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
+
+	/* Resets all helper members used in the annotation */
+	void reset();
 
 	/* Helper that returns the annotation for CURR by propagating SUCC's annotation backwards */
 	std::unique_ptr<SExpr> propagateAnnotFromSucc(Instruction *curr, Instruction *succ);

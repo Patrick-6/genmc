@@ -262,6 +262,7 @@ llvm::APInt SExprEvaluator::visitConcreteExpr(ConcreteExpr &e)
 
 llvm::APInt SExprEvaluator::visitRegisterExpr(RegisterExpr &e)
 {
+	seen.insert(e.getRegister());
 	return getVal();
 }
 

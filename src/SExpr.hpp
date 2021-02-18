@@ -205,9 +205,14 @@ public:
 	static std::unique_ptr<ConcreteExpr> create(const llvm::APInt &v) {
 		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(v));
 	}
-
 	static std::unique_ptr<ConcreteExpr> create(Width w, const llvm::APInt &v) {
 		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(w, v));
+	}
+	static std::unique_ptr<ConcreteExpr> createTrue() {
+		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(llvm::APInt(1, 1)));
+	}
+	static std::unique_ptr<ConcreteExpr> createFalse() {
+		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(llvm::APInt(1, 0)));
 	}
 
 	std::unique_ptr<SExpr> clone() const override {

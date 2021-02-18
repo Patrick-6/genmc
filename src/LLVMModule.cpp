@@ -30,6 +30,7 @@
 #include "IntrinsicLoweringPass.hpp"
 #include "LoadAnnotationPass.hpp"
 #include "LoopUnrollPass.hpp"
+#include "LoopJumpThreadingPass.hpp"
 #include "MDataCollectionPass.hpp"
 #include "PromoteMemIntrinsicPass.hpp"
 #include "SpinAssumePass.hpp"
@@ -145,6 +146,8 @@ namespace LLVMModule {
 		BndPM.add(new BisimilarityCheckerPass());
 		if (conf->codeCondenser && !conf->checkLiveness)
 			BndPM.add(new CodeCondenserPass());
+		if (conf->loopJumpThreading)
+			BndPM.add(new LoopJumpThreadingPass());
 		BndPM.add(new CallInfoCollectionPass());
 		if (conf->spinAssume)
 			BndPM.add(new SpinAssumePass(conf->checkLiveness));
@@ -158,6 +161,7 @@ namespace LLVMModule {
 			OptPM.add(new LoadAnnotationPass(MI.annotInfo));
 		modified |= OptPM.run(mod);
 
+		printLLVMModule(mod, "out.ll");
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));
 		return modified;
 	}

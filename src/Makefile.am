@@ -45,6 +45,7 @@ libgenmc_a_SOURCES = \
   LLVMModule.cpp LLVMModule.hpp \
   LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
+  LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \

@@ -27,15 +27,19 @@
 
 using namespace llvm;
 
-std::unique_ptr<SExpr> generateTrueExpr()
+void InstAnnotator::reset()
 {
-	return ConcreteExpr::create(APInt(1, 1));
+	statusMap.clear();
+	annotMap.clear();
+	return;
 }
 
 std::unique_ptr<SExpr> generateOperandExpr(Value *op)
 {
 	if (auto *c = dyn_cast<Constant>(op)) {
 		BUG_ON(!c->getType()->isIntegerTy());
+		if (isa<UndefValue>(c))
+			return ConcreteExpr::create(APInt(c->getType()->getIntegerBitWidth(), 42));
 		return ConcreteExpr::create(c->getUniqueInteger());
 	}
 	return RegisterExpr::create(op);
@@ -144,7 +148,7 @@ std::unique_ptr<SExpr> generateInstExpr(Instruction *curr)
 		/* Don't know how to annotate this */
 		break;
 	}
-	return generateTrueExpr();
+	return ConcreteExpr::createTrue();
 }
 
 std::vector<Instruction *> getNextOrBranchSuccessors(Instruction *i)
@@ -208,7 +212,7 @@ void InstAnnotator::annotateDFS(Instruction *curr)
 		if (statusMap[succ] == InstAnnotator::unseen)
 			annotateDFS(succ);
 		else if (statusMap[succ] == InstAnnotator::entered)
-			annotMap[succ] = generateTrueExpr();
+			annotMap[succ] = ConcreteExpr::createTrue();
 	}
 
 	statusMap[curr] = InstAnnotator::left;
@@ -221,7 +225,7 @@ void InstAnnotator::annotateDFS(Instruction *curr)
 				return;
 			}
 		}
-		annotMap[curr] = generateTrueExpr();
+		annotMap[curr] = ConcreteExpr::createTrue();
 		return;
 	}
 	/* If this is a branch instruction, create a select expression */
@@ -240,11 +244,33 @@ void InstAnnotator::annotateDFS(Instruction *curr)
 std::unique_ptr<SExpr> InstAnnotator::annotate(LoadInst *curr)
 {
 	/* Reset DFS data */
-	statusMap.clear();
-	annotMap.clear();
+	reset();
 
 	for (auto &i : instructions(curr->getParent()->getParent()))
 		statusMap[&i] = InstAnnotator::unseen;
 	annotateDFS(curr->getNextNode());
 	return std::move(annotMap[curr->getNextNode()]);
+}
+
+std::unique_ptr<SExpr> InstAnnotator::annotateBBCond(BasicBlock *bb, BasicBlock *pred /* = nullptr */)
+{
+	auto *bi = dyn_cast<BranchInst>(bb->getTerminator());
+	if (!bi)
+		return ConcreteExpr::createFalse();
+	if (bi->isUnconditional())
+		return ConcreteExpr::createTrue();
+
+	/* Reset data */
+	reset();
+
+	/* Propagate jump condition backwards to the beginning of the basic block */
+	annotMap[bi] = generateOperandExpr(bi->getCondition());
+	for (auto irit = ++bb->rbegin(); irit != bb->rend(); ++irit) {
+		annotMap[&*irit] = propagateAnnotFromSucc(&*irit, irit->getNextNode());
+	}
+
+	/* If a predecessor is given substitute Φ values too */
+	if (pred)
+		return propagateAnnotFromSucc(pred->getTerminator(), &*bb->begin());
+	return std::move(annotMap[&*bb->begin()]);
 }
