@@ -36,11 +36,13 @@ void SExprPrinter::visitRegisterExpr(RegisterExpr &e)
 
 void SExprPrinter::visitSelectExpr(SelectExpr &e)
 {
+	output += "(";
 	visit(e.getKid(0));
 	output += " ? ";
 	visit(e.getKid(1));
 	output += " : ";
 	visit(e.getKid(2));
+	output += ")";
 }
 
 // void SExprPrinter::visitConcat(ConcatExpr &e)
