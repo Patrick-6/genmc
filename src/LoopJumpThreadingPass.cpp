@@ -85,7 +85,7 @@ bool entryAlwaysJumpsToBody(Loop *l)
 
 	/* ...and check whether it always evaluates to true */
 	size_t numSeen;
-	auto res = SExprEvaluator().evaluate(e.get(), APInt(1, 1), &numSeen);
+	auto res = SExprEvaluator().evaluate(e.get(), std::unordered_map<Value *, APInt>(), &numSeen);
 	return (numSeen == 0) && res.getBoolValue();
 }
 

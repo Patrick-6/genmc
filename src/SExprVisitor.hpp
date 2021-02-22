@@ -24,8 +24,10 @@
 #include "Error.hpp"
 #include "SExpr.hpp"
 #include "VSet.hpp"
+#include <llvm/IR/Type.h>
 
 #include <map>
+#include <unordered_map>
 
 /*******************************************************************************
  **                           SExprVisitor Class
@@ -237,17 +239,30 @@ public:
 	 */
 	using RetTy = llvm::APInt;
 
-	/* Evaluates the given expression replacing all symbolic variables with v */
-	RetTy evaluate(const SExpr *e, llvm::APInt v, size_t *numSeen = nullptr) {
+	/* BFE: Evaluates the given expression replacing _all_ symbolic variables with v */
+	RetTy evaluate(const SExpr *e, llvm::APInt v, size_t *numUnknown = nullptr) {
+		bruteForce = true;
 		val = v;
-		seen.clear();
+		unknown.clear();
+		valueMapping = nullptr;
 		auto res = visit(const_cast<SExpr *>(e));
-		if (numSeen)
-			*numSeen = seen.size();
+		if (numUnknown)
+			*numUnknown = unknown.size();
+		bruteForce = false;
 		return res;
 	}
-	RetTy evaluate(const SExpr *e, const llvm::GenericValue &v, size_t *numSeen = nullptr) {
-		return evaluate(e, v.IntVal, numSeen);
+	RetTy evaluate(const SExpr *e, const llvm::GenericValue &v, size_t *numUnknown = nullptr) {
+		return evaluate(e, v.IntVal, numUnknown);
+	}
+
+	/* NBFE: Evaluates according to a given mapping */
+	RetTy evaluate(const SExpr *e, const std::unordered_map<llvm::Value *, llvm::APInt> &map,
+		       size_t *numUnknown = nullptr) {
+		valueMapping = &map;
+		auto res = visit(const_cast<SExpr *>(e));
+		if (numUnknown)
+			*numUnknown = unknown.size();
+		return res;
 	}
 
 	RetTy visitConcreteExpr(ConcreteExpr &e);
@@ -288,14 +303,29 @@ public:
 	RetTy visitSExpr(SExpr &e) { BUG(); }
 
 private:
-	/* Returns the value we are evaluating with */
+	/* NBFE: Checks whether a symbolic variable has a mapping */
+	bool hasKnownMapping(llvm::Value *reg) const { return valueMapping && valueMapping->count(reg); }
+
+	/* NBFE: Returns the value of a symbolic variable */
+	llvm::APInt getMappingFor(llvm::Value *reg) const {
+		return (hasKnownMapping(reg)) ? valueMapping->at(reg) :
+			llvm::APInt(reg->getType()->getPrimitiveSizeInBits(), 42);
+	}
+
+	/* BFE: Returns the value we are evaluating with in a brute-force eval */
 	llvm::APInt getVal() const { return val; }
 
-	/* Value we are evaluating with */
+	/* NBFE: Value mapping we are evaluating with */
+	const std::unordered_map<llvm::Value *, llvm::APInt> *valueMapping;
+
+	/* BFE: Value we are evaluating with */
 	llvm::APInt val;
 
-	/* Symbolic variables seen during an evaluation */
-	VSet<llvm::Value *> seen;
+	/* Whether this is a BFE */
+	bool bruteForce = false;
+
+	/* Unknown symbolic variables seen during an evaluation */
+	VSet<llvm::Value *> unknown;
 };
 
 /*******************************************************************************

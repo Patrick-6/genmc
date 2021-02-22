@@ -264,8 +264,12 @@ llvm::APInt SExprEvaluator::visitConcreteExpr(ConcreteExpr &e)
 
 llvm::APInt SExprEvaluator::visitRegisterExpr(RegisterExpr &e)
 {
-	seen.insert(e.getRegister());
-	return getVal();
+	if (bruteForce)
+		return getVal();
+
+	if (!hasKnownMapping(e.getRegister()))
+		unknown.insert(e.getRegister());
+	return getMappingFor(e.getRegister());
 }
 
 llvm::APInt SExprEvaluator::visitSelectExpr(SelectExpr &e)
