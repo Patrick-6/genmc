@@ -228,12 +228,12 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 }
 
 /* Only for loops as it may not terminate if called for general code */
-bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *start, BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
 
-	foreachInBackPathTo(start, header, [&](Instruction &i){
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
 	return !effects;
@@ -249,13 +249,13 @@ bool areCASsMutuallyExclusive(const VSet<const AtomicCmpXchgInst *> &cass,
 	return true;
 }
 
-bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *start, BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
 	VSet<const AtomicCmpXchgInst *> cass;
 
-	foreachInBackPathTo(start, header, [&](Instruction &i){
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
 		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
 			cass.insert(casi);
 			return;
@@ -306,14 +306,14 @@ bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
 	return false;
 }
 
-bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *start, BasicBlock *header)
+bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
 	VSet<PHINode *> phis;
 	VSet<AtomicRMWInst *> fais;
 
-	foreachInBackPathTo(start, header, [&](Instruction &i){
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
 		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
 			fais.insert(faii);
 			return;
@@ -445,11 +445,11 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	auto spinloop = true;
 	auto modified = false;
 	for (auto &latch : latches) {
-		if (isPathToHeaderEffectFree(latch, header) ||
-		    isPathToHeaderCASClean(latch, header)) {
+		if (isPathToHeaderEffectFree(latch, l) ||
+		    isPathToHeaderCASClean(latch, l)) {
 			modified = true;
 			addSpinEndCallBeforeTerm(latch, header);
-		} else if (isPathToHeaderZNE(latch, header)) {
+		} else if (isPathToHeaderZNE(latch, l)) {
 			modified = true;
 			addPotentialSpinEndCallBeforeLastFai(latch, header);
 		} else {
