@@ -348,6 +348,8 @@ protected:
 	/* For convenience */
 	LogicalExpr(Kind k, std::unique_ptr<SExpr> &&e)
 		: SExpr(k, BoolWidth) { addKid(std::move(e)); }
+	LogicalExpr(Kind k, std::unique_ptr<SExpr> &&e1, std::unique_ptr<SExpr> &&e2)
+		: SExpr(k, BoolWidth) { addKid(std::move(e1)); addKid(std::move(e2)); }
 
 public:
 
@@ -365,6 +367,8 @@ protected:                                                                      
 	: LogicalExpr(_class_kind, std::move(es)) {}							  \
         _class_kind ## Expr(std::unique_ptr<SExpr> &&e)                                     	  	  \
 	: LogicalExpr(_class_kind, std::move(e)) {}							  \
+        _class_kind ## Expr(std::unique_ptr<SExpr> &&e1, std::unique_ptr<SExpr> &&e2) 			  \
+	: LogicalExpr(_class_kind, std::move(e1), std::move(e2)) {}					  \
 													  \
 public:													  \
 	static std::unique_ptr<_class_kind##Expr> create(std::vector<std::unique_ptr<SExpr> > &&es) {     \
@@ -373,6 +377,10 @@ public:													  \
 									                                  \
 	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&e) {	  	  	  \
 		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(e))); 	  \
+	}												  \
+	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&e1, 			  \
+							 std::unique_ptr<SExpr> &&e2) {			  \
+		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(e1), std::move(e2))); \
 	}												  \
 								                                          \
 	std::unique_ptr<SExpr> clone() const override {                              		  	  \
