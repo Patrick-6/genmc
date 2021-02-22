@@ -157,6 +157,11 @@ bool LoopJumpThreadingPass::runOnLoop(Loop *l, LPPassManager &lpm)
 	return modified;
 }
 
+Pass *createLoopJumpThreadingPass()
+{
+	return new LoopJumpThreadingPass();
+}
+
 char LoopJumpThreadingPass::ID = 42;
 static RegisterPass<LoopJumpThreadingPass> P("loop-jump-threading",
 					     "Performs jump threading for simple loop headers.");

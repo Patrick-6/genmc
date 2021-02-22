@@ -184,6 +184,11 @@ bool CodeCondenserPass::runOnFunction(Function &F)
 	return true;
 }
 
+FunctionPass *createCodeCondenserPass()
+{
+	return new CodeCondenserPass();
+}
+
 char CodeCondenserPass::ID = 42;
 static llvm::RegisterPass<CodeCondenserPass> P("code-condenser",
 					       "Reduces the size of the code by leveraging bisimilarity information.");

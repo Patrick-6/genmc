@@ -154,6 +154,11 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 	return false;
 }
 
+FunctionPass *createLoadAnnotationPass(AnnotationInfo &LAI)
+{
+	return new LoadAnnotationPass(LAI);
+}
+
 char LoadAnnotationPass::ID = 42;
-//static llvm::RegisterPass<LoadAnnotationPass> P("annotate-loads",
-//					       "Annotates loads directly used by __VERIFIER_assume().");
+// static llvm::RegisterPass<LoadAnnotationPass> P("annotate-loads",
+// 						"Annotates loads used by assume() statements.");

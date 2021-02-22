@@ -349,4 +349,9 @@ bool MDataCollectionPass::runOnModule(Module &M)
 	return false;
 }
 
+ModulePass *createMDataCollectionPass(VariableInfo &VI, FsInfo &FI)
+{
+	return new MDataCollectionPass(VI, FI);
+}
+
 char MDataCollectionPass::ID = 42;

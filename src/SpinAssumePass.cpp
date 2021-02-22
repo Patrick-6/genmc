@@ -538,6 +538,11 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	return modified;
 }
 
+Pass *createSpinAssumePass(bool liveness)
+{
+	return new SpinAssumePass(liveness);
+}
+
 char SpinAssumePass::ID = 42;
 // static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
 // 					    "Replaces spin-loops with __VERIFIER_assume().");

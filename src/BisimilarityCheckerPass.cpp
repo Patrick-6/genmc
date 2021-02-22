@@ -188,6 +188,11 @@ bool BisimilarityCheckerPass::runOnFunction(Function &F)
 	return false;
 }
 
+FunctionPass *createBisimilarityCheckerPass()
+{
+	return new BisimilarityCheckerPass();
+}
+
 char BisimilarityCheckerPass::ID = 42;
 static llvm::RegisterPass<BisimilarityCheckerPass> P("bisimilarity-checker",
 						     "Calculates bisimilar points in all functions.");

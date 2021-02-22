@@ -89,6 +89,11 @@ bool CallInfoCollectionPass::runOnModule(Module &M)
 	return false;
 }
 
+ModulePass *createCallInfoCollectionPass()
+{
+	return new CallInfoCollectionPass();
+}
+
 char CallInfoCollectionPass::ID = 42;
 static llvm::RegisterPass<CallInfoCollectionPass> P("call-info-collection",
 						    "Collects information about side-effect-free functions.");

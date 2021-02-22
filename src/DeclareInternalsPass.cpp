@@ -63,6 +63,11 @@ bool DeclareInternalsPass::runOnModule(Module &M)
 	return modified;
 }
 
+ModulePass *createDeclareInternalsPass()
+{
+	return new DeclareInternalsPass();
+}
+
 char DeclareInternalsPass::ID = 42;
 static llvm::RegisterPass<DeclareInternalsPass> P("declare-internals",
 						  "Declares internal functions.");
