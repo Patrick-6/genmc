@@ -25,7 +25,9 @@
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "CallInfoCollectionPass.hpp"
+#include "InstAnnotator.hpp"
 #include "LLVMUtils.hpp"
+#include "SExprVisitor.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/PostDominators.h>
@@ -239,13 +241,72 @@ bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l)
 	return !effects;
 }
 
-bool areCASsMutuallyExclusive(const VSet<const AtomicCmpXchgInst *> &cass,
-			      const DominatorTree &DT)
+/*
+ * Returns whether extract extracts from a CAS. If a second argument is provided, it is ensured
+ * that the extract extracts from this particular CAS.
+ */
+bool isCASExtract(ExtractValueInst *extract, AtomicCmpXchgInst *cas = nullptr)
 {
-	for (auto i = 0u; i < cass.size(); i++)
-		for (auto j = 0u; j < cass.size(); j++)
-			if (i != j && (DT.dominates(cass[i], cass[j]) || DT.dominates(cass[j], cass[i])))
-				return false;
+	if (!extract->getType()->isIntegerTy() ||
+	    extract->getNumIndices() > 1)
+		return false;
+
+	auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
+	if (!ecasi)
+		return false;
+	return (cas) ? (cas == ecasi) : true;
+}
+
+/*
+ * Tries to extract extractinsts corresponding to the results of a list of CASes.
+ * Returns whether that was possible or not.
+ */
+bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
+			     std::vector<ExtractValueInst *> &extracts)
+{
+	for (auto &cas : cass) {
+		auto *candidateExtract = cas->getNextNode()->getNextNode();
+		auto *extract = dyn_cast<ExtractValueInst>(candidateExtract);
+		if (!candidateExtract || !extract)
+			return false;
+
+		if (!isCASExtract(extract, cas))
+			return false;
+		if (*extract->idx_begin() != 1)
+			return false;
+		extracts.push_back(extract);
+	}
+	return true;
+}
+
+/*
+ * Returns whether the CASes of a backedge LATCH -> header(L) will lead to the loop header if
+ * they fail. (If we exit the backedge paths with any of the CASes being successful, this function
+ * will return false.)
+ */
+bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch, Loop *l)
+{
+	std::vector<ExtractValueInst *> extracts;
+
+	if (!tryGetCASResultExtracts(cass, extracts))
+		return false;
+
+	std::vector<std::unique_ptr<SExpr> > casConditions;
+	for (auto *cas : cass)
+		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l));
+
+	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
+	for (auto i = 1u; i < (1 << extracts.size()); i++) {
+
+		std::unordered_map<Value *, llvm::APInt> valueMap;
+		for (auto j = 0u; j < extracts.size(); j++)
+			valueMap[extracts[j]] = (i & (1 << j)) ? APInt(1, 1) : APInt(1, 0);
+
+		size_t unknowns;
+		auto res = SExprEvaluator().evaluate(backedgeCondition.get(), valueMap, &unknowns);
+		if (unknowns > 0 || res.getBoolValue())
+			return false;
+	}
 	return true;
 }
 
@@ -253,19 +314,19 @@ bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
-	VSet<const AtomicCmpXchgInst *> cass;
+	std::vector<AtomicCmpXchgInst *> cass;
 
 	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
 		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
-			cass.insert(casi);
+			cass.push_back(casi);
 			return;
 		}
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
+	std::sort(cass.begin(), cass.end());
+	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
 
-	// FIXME 1: For now we under-approximate by requiring there is only 1 CAS.
-	// FIXME 2: We also don't check if the CAS's success leads to an exit block.
-	return !effects && areCASsMutuallyExclusive(cass, getAnalysis<DominatorTreeWrapperPass>().getDomTree());
+	return !effects && !cass.empty() && failedCASesLeadToHeader(cass, latch, l);
 }
 
 template<typename F>

@@ -21,6 +21,7 @@
 #include "config.h"
 
 #include "InstAnnotator.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
 #include <llvm/IR/InstIterator.h>
@@ -273,4 +274,126 @@ std::unique_ptr<SExpr> InstAnnotator::annotateBBCond(BasicBlock *bb, BasicBlock 
 	if (pred)
 		return propagateAnnotFromSucc(pred->getTerminator(), &*bb->begin());
 	return std::move(annotMap[&*bb->begin()]);
+}
+
+std::vector<Instruction *> getNextOrBranchSuccessorsInLoop(Instruction *i,
+							   const VSet<BasicBlock *> &backedgePaths,
+							   Loop *l)
+{
+	std::vector<Instruction *> succs;
+
+	/*
+	 * The points beyond which we cannot annotate are different when it comes
+	 * to backedges: CASes are ignored (they should fail and will be checked later),
+	 * while loop headers or blocks outside the loop have no successors
+	 */
+	if (!backedgePaths.count(i->getParent()) || i == &*l->getHeader()->begin())
+		return succs;
+
+	BUG_ON(hasSideEffects(i) && !isa<AtomicCmpXchgInst>(i));
+
+	if (i->getNextNode())
+		succs.push_back(i->getNextNode());
+	else if (auto *bi = dyn_cast<BranchInst>(i)) {
+		if (bi->isUnconditional()) {
+			succs.push_back(&*bi->getSuccessor(0)->begin());
+		} else {
+			succs.push_back(&*bi->getSuccessor(0)->begin());
+			succs.push_back(&*bi->getSuccessor(1)->begin());
+		}
+	}
+	return succs;
+}
+
+std::unique_ptr<SExpr>
+InstAnnotator::propagateAnnotFromSuccInLoop(Instruction *curr, Instruction *succ,
+					    const VSet<BasicBlock *> &backedgePaths, Loop *l)
+{
+	auto succExp = annotMap[succ]->clone();
+	auto substitutor = SExprRegSubstitutor();
+
+	PHINode *succPhi = nullptr;
+	for (auto iit = succ;
+	     (succPhi = dyn_cast<PHINode>(iit)) && curr->getParent() != succ->getParent();
+	     iit = iit->getNextNode()) {
+		auto phiOp = generateOperandExpr(succPhi->getIncomingValueForBlock(curr->getParent()));
+		succExp = substitutor.substitute(succExp.get(), iit, phiOp.get());
+	}
+
+	if (isa<BranchInst>(curr) || (isa<PHINode>(curr) && curr->getParent() == succ->getParent()) ||
+	    isa<AtomicCmpXchgInst>(curr) || isa<ExtractValueInst>(curr) || isa<LoadInst>(curr) ||
+	    isa<CallInst>(curr))
+		return succExp;
+
+	/* Transform assume()s into disjunctions */
+	if (auto *ci = dyn_cast<CallInst>(curr)) {
+		BUG_ON(!isAssumeFunction(getCalledFunOrStripValName(*ci)));
+		return ConjunctionExpr::create(std::move(generateOperandExpr(ci->getOperand(0))),
+					       std::move(succExp));
+	}
+
+	auto currOp = generateInstExpr(curr);
+	return substitutor.substitute(succExp.get(), curr, currOp.get());
+}
+
+void InstAnnotator::annotateCASWithBackedgeCondDFS(Instruction *curr,
+						   const VSet<BasicBlock *> &backedgePaths,
+						   Loop *l)
+{
+	statusMap[curr] = InstAnnotator::entered;
+
+	std::vector<Instruction *> succs = getNextOrBranchSuccessorsInLoop(curr, backedgePaths, l);
+	BUG_ON(succs.size() > 2);
+
+	for (auto *succ : succs) {
+		if (statusMap[succ] == InstAnnotator::unseen)
+			annotateCASWithBackedgeCondDFS(succ, backedgePaths, l);
+		else if (statusMap[succ] == InstAnnotator::entered)
+			annotMap[succ] = ConcreteExpr::createTrue();
+	}
+
+	statusMap[curr] = InstAnnotator::left;
+
+	/*
+	 * If we cannot get past this instruction (meaning we either exited the loop or
+	 * traversed the backedge), return FALSE or TRUE (respectively)
+	 */
+	if (succs.empty()) {
+		if (!backedgePaths.count(curr->getParent())) {
+			annotMap[curr] = ConcreteExpr::createFalse();
+			return;
+		} else if (curr->getParent() == l->getHeader()) {
+			annotMap[curr] = ConcreteExpr::createTrue();
+			return;
+		}
+		BUG();
+	}
+
+	/* If this is a branch instruction, create a select expression */
+	if (succs.size() == 2) {
+		auto cond = dyn_cast<BranchInst>(curr)->getCondition();
+		annotMap[curr] = SelectExpr::create(RegisterExpr::create(cond),
+						    propagateAnnotFromSuccInLoop(curr, succs[0], backedgePaths, l),
+						    propagateAnnotFromSuccInLoop(curr, succs[1], backedgePaths, l));
+		return;
+	}
+	/* At this point we know there is just one successor: substitute */
+	annotMap[curr] = propagateAnnotFromSuccInLoop(curr, succs[0], backedgePaths, l);
+	return;
+}
+
+std::unique_ptr<SExpr> InstAnnotator::annotateCASWithBackedgeCond(AtomicCmpXchgInst *curr,
+								  BasicBlock *latch, Loop *l)
+{
+	/* Reset DFS data */
+	reset();
+
+	/* Collect backedge paths */
+	VSet<BasicBlock *> backedgePaths;
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){ backedgePaths.insert(i.getParent()); });
+
+	for (auto &i : instructions(curr->getParent()->getParent()))
+		statusMap[&i] = InstAnnotator::unseen;
+	annotateCASWithBackedgeCondDFS(curr->getNextNode(), backedgePaths, l);
+	return std::move(annotMap[curr->getNextNode()]);
 }

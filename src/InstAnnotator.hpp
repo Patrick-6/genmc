@@ -21,8 +21,9 @@
 #ifndef __INST_ANNOTATOR_HPP__
 #define __INST_ANNOTATOR_HPP__
 
-#include "ModuleInfo.hpp"
+#include "VSet.hpp"
 #include <llvm/Pass.h>
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/IR/Instructions.h>
 
 #include <unordered_map>
@@ -47,7 +48,11 @@ public:
 	 * during the calculation of the annotation */
 	std::unique_ptr<SExpr> annotateBBCond(BasicBlock *bb, BasicBlock *pred = nullptr);
 
+	/* Returns the annotation for a CAS associated with the backedge LATCH->header(L) */
+	std::unique_ptr<SExpr> annotateCASWithBackedgeCond(AtomicCmpXchgInst *cas, BasicBlock *latch, Loop *l);
+
 private:
+	/* Helper types for the annotation routines */
 	enum Status { unseen, entered, left };
 
 	using InstStatusMap = DenseMap<Instruction *, Status>;
@@ -59,8 +64,15 @@ private:
 	/* Helper that returns the annotation for CURR by propagating SUCC's annotation backwards */
 	std::unique_ptr<SExpr> propagateAnnotFromSucc(Instruction *curr, Instruction *succ);
 
-	/* Helper for tryAnnotateDFS; performs the actual DFS procedure */
+	/* Helper for annotate(); performs the actual annotation */
 	void annotateDFS(Instruction *curr);
+
+	/* Similar to propagateAnnotFromSucc, but for when annotating backedges */
+	std::unique_ptr<SExpr> propagateAnnotFromSuccInLoop(Instruction *curr, Instruction *succ,
+							    const VSet<BasicBlock *> &latch, Loop *l);
+
+	/* Helper for annotateCASWithBackedgeCond(); performs the actual annotation (for backedge paths) */
+	void annotateCASWithBackedgeCondDFS(Instruction *curr, const VSet<BasicBlock *> &backedgePaths, Loop *l);
 
 	/* A helper status map */
 	InstStatusMap statusMap;
