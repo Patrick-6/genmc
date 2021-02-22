@@ -23,7 +23,6 @@
 
 #include "config.h"
 #include "Config.hpp"
-#include "SExpr.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -36,6 +35,8 @@
 /*
  * Information kept about the module under test by the interpreter.
  */
+
+class SExpr;
 
 /*
  * VariableInfo struct -- This struct contains source-code level (naming)
@@ -65,9 +66,15 @@ struct VariableInfo {
  */
 struct AnnotationInfo {
 
-   using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
+  using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
 
-   AnnotUM annotMap;
+  /* Forward declarations (pimpl-style) */
+  AnnotationInfo();
+  AnnotationInfo(AnnotationInfo &&other);
+  ~AnnotationInfo();
+  AnnotationInfo &operator=(AnnotationInfo &&other);
+
+  AnnotUM annotMap;
 };
 
 /*

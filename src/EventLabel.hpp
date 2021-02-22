@@ -24,8 +24,8 @@
 #include "Event.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
-#include "View.hpp"
 #include "SExpr.hpp"
+#include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/Casting.h>
@@ -407,7 +407,8 @@ private:
 	/* Revisitability status */
 	bool revisitable;
 
-	/* SAVer: Expression for annotatable loads (shared between clones) */
+	/* SAVer: Expression for annotatable loads. Shared between clones
+	 * for easier copying, but clones will not be revisitable anyway */
 	std::shared_ptr<SExpr> annotExpr;
 
 	bool annotBlocked;

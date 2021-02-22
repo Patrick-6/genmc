@@ -24,6 +24,7 @@
 #include "InstAnnotator.hpp"
 #include "Error.hpp"
 #include "LLVMUtils.hpp"
+#include "SExpr.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Function.h>
