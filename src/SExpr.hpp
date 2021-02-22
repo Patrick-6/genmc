@@ -342,7 +342,7 @@ class LogicalExpr : public SExpr {
 
 protected:
 	LogicalExpr(Kind k, Width w, std::vector<std::unique_ptr<SExpr> > &&es)
-		: SExpr(k, w, std::move(es)) { BUG_ON(es.empty()); }
+		: SExpr(k, w, std::move(es)) { BUG_ON(getKids().empty()); }
 	LogicalExpr(Kind k, std::vector<std::unique_ptr<SExpr> > &&es)
 		: LogicalExpr(k, BoolWidth, std::move(es)) {}
 	/* For convenience */
