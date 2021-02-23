@@ -158,6 +158,16 @@ public:
 	 * Returns INIT in case no such event is found */
 	Event getPreviousNonTrivial(const Event e) const;
 
+	/* Returns the first event in the thread tid */
+	Event getFirstThreadEvent(int tid) const {
+		return Event(tid, 0);
+	}
+
+	/* Returns the first label in the thread tid */
+	const EventLabel *getFirstThreadLabel(int tid) const {
+		return getEventLabel(getFirstThreadEvent(tid));
+	}
+
 	/* Returns the last label in the thread tid */
 	const EventLabel *getLastThreadLabel(int tid) const;
 
