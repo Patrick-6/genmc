@@ -269,10 +269,14 @@ public:
 	}
 
 private:
-	const std::string name;
-	static unsigned regCount;
+	/* Unique identifier for the symbolic variable */
 	llvm::Value *reg;
-	Width width;
+
+	/* The name of this symbolic variable */
+	const std::string name;
+
+	/* Counter used when creating names for symbolic vars */
+	static unsigned regCount;
 };
 
 
