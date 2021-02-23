@@ -778,6 +778,23 @@ void IMMDriver::changeRf(Event read, Event store)
 		g.getPersChecker()->calcMemAccessPbView(rLab);
 }
 
+void IMMDriver::updateStart(Event create, Event start)
+{
+	auto &g = getGraph();
+	auto *bLab = g.getEventLabel(start);
+
+	/* Re-synchronize views */
+	View hb(g.getHbBefore(create));
+	DepView pporf(g.getPPoRfBefore(create));
+
+	hb[start.thread] = 0;
+	pporf[start.thread] = 0;
+
+	bLab->setHbView(std::move(hb));
+	bLab->setPPoRfView(std::move(pporf));
+	return;
+}
+
 bool IMMDriver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
