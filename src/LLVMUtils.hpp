@@ -91,7 +91,7 @@ namespace details {
 		path.pop_back();
 		return;
 	}
-};
+}
 
 /*
  * Executes FUN for all instructions from FROM to TO.
