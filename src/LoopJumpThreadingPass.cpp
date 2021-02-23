@@ -22,6 +22,7 @@
 #include "InstAnnotator.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
+#include <llvm/IR/Constants.h>
 
 using namespace llvm;
 
@@ -69,7 +70,7 @@ std::unique_ptr<SExpr> generateExprJumpsToBody(Loop *l)
 		return ConcreteExpr::createFalse();
 
 	if (inLoopBody(l, bi->getSuccessor(0)))
-		return std::move(condExp);
+		return condExp;
 	return NotExpr::create(std::move(condExp));
 }
 

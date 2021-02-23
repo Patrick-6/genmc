@@ -24,6 +24,7 @@
 #include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/InstIterator.h>
 
 using namespace llvm;
