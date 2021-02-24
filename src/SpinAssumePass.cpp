@@ -43,10 +43,16 @@
 
 using namespace llvm;
 
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+# define POSTDOM_PASS PostDominatorTreeWrapperPass
+#else
+# define POSTDOM_PASS PostDominatorTree
+#endif
+
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<DominatorTreeWrapperPass>();
-	au.addRequired<PostDominatorTreeWrapperPass>();
+	au.addRequired<POSTDOM_PASS>();
 	au.addRequired<DeclareInternalsPass>();
 	au.addRequired<CallInfoCollectionPass>();
 	au.setPreservesAll();
@@ -387,7 +393,7 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 	});
 
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	auto &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
+	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
 	return !effects &&
 	       DT.dominates(fais[0], fais[1]) &&

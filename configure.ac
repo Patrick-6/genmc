@@ -545,6 +545,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
 
+## Check how to get post-dominators (> llvm 3.8)
+AC_MSG_CHECKING([how to get PostDominator analysis])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/PostDominators.h>
+]],[[
+  llvm::PostDominatorTreeWrapperPass *PDP = 0;
+]])],
+  [AC_MSG_RESULT([llvm::PostDominatorTreeWrapperPass])
+   AC_DEFINE([LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS],[1],
+   [Define if llvm::PostDominatorTreeWrapperPass exists.])],
+   [AC_MSG_RESULT([llvm::PostDominatorTree])])
+
 ## Check if llvm::cl::getRegisteredOptions takes an argument
 AC_MSG_CHECKING([if llvm::cl::getRegisteredOptions takes an argument.])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
