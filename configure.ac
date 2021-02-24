@@ -653,6 +653,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::LoopInfo::markAsRemoved exists])],
   [AC_MSG_RESULT([no])])
 
+## Check whether llvm::df_iterator_default_set exists
+AC_MSG_CHECKING([for llvm::df_iterator_default_set])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ADT/DepthFirstIterator.h>
+]],[[
+  llvm::df_iterator_default_set<int *> Reachable;
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_DF_ITERATOR_DEFAULT_SET],[1],
+   [Define if llvm::df_iterator_default_set exists])],
+  [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::EliminateUnreachableBlocks exists
 AC_MSG_CHECKING([for llvm::EliminateUnreachableBlocks])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

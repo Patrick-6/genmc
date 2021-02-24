@@ -29,6 +29,7 @@
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/CFG.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
@@ -46,7 +47,23 @@ void CodeCondenserPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 #ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS
 
 #include <llvm/IR/Dominators.h>
-class DomTreeUpdater;
+
+#ifndef LLVM_HAVE_DF_ITERATOR_DEFAULT_SET
+template <typename NodeRef, unsigned SmallSize=8>
+struct df_iterator_default_set : public SmallPtrSet<NodeRef, SmallSize> {
+  typedef SmallPtrSet<NodeRef, SmallSize>  BaseSet;
+  typedef typename BaseSet::iterator iterator;
+  std::pair<iterator,bool> insert(NodeRef N) { return BaseSet::insert(N) ; }
+  template <typename IterT>
+  void insert(IterT Begin, IterT End) { BaseSet::insert(Begin,End); }
+
+  void completed(NodeRef) { }
+};
+#endif
+
+namespace llvm {
+	class DomTreeUpdater;
+}
 
 void DetatchDeadBlocks(
 	ArrayRef<BasicBlock *> BBs,
