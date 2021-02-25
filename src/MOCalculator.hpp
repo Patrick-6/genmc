@@ -18,15 +18,15 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MO_COHERENCE_CALCULATOR_HPP__
-#define __MO_COHERENCE_CALCULATOR_HPP__
+#ifndef __MO_CALCULATOR_HPP__
+#define __MO_CALCULATOR_HPP__
 
 #include "CoherenceCalculator.hpp"
 #include "Error.hpp"
 #include <unordered_map>
 
 /*******************************************************************************
- **                    MOCoherenceCalculator Class
+ **                        MOCalculator Class
  ******************************************************************************/
 
 /*
@@ -34,12 +34,12 @@
  * by recording the modification order. Should be used along with the "mo"
  * version of the driver.
  */
-class MOCoherenceCalculator : public CoherenceCalculator {
+class MOCalculator : public CoherenceCalculator {
 
 public:
 
 	/* Constructor */
-	MOCoherenceCalculator(ExecutionGraph &g, bool ooo)
+	MOCalculator(ExecutionGraph &g, bool ooo)
 		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
 	/* Track coherence at location addr */
@@ -160,4 +160,4 @@ private:
 	ModifOrder mo_;
 };
 
-#endif /* __COHERENCE_CALCULATOR_HPP__ */
+#endif /* __MO_CALCULATOR_HPP__ */

@@ -48,7 +48,7 @@ libgenmc_a_SOURCES = \
   LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
-  MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
+  MOCalculator.hpp MOCalculator.cpp \
   ModuleInfo.cpp ModuleInfo.hpp \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
@@ -59,7 +59,7 @@ libgenmc_a_SOURCES = \
   SExpr.cpp SExpr.hpp \
   SExprVisitor.cpp SExprVisitor.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
-  WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
+  WBCalculator.cpp WBCalculator.hpp \
   WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \

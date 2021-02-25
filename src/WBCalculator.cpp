@@ -18,7 +18,7 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "WBCoherenceCalculator.hpp"
+#include "WBCalculator.hpp"
 
 /*
  * Given a WB matrix returns a vector that, for each store in the WB
@@ -38,7 +38,7 @@
  * e.g., in getRevisitLoads(), where the view of the resulting graph
  * is not calculated.)
  */
-std::vector<unsigned int> WBCoherenceCalculator::calcRMWLimits(const GlobalRelation &wb) const
+std::vector<unsigned int> WBCalculator::calcRMWLimits(const GlobalRelation &wb) const
 {
 	auto &g = getGraph();
 	auto &s = wb.getElems();
@@ -128,8 +128,7 @@ std::vector<unsigned int> WBCoherenceCalculator::calcRMWLimits(const GlobalRelat
 }
 
 Calculator::GlobalRelation
-WBCoherenceCalculator::calcWbRestricted(const llvm::GenericValue *addr,
-					const VectorClock &v) const
+WBCalculator::calcWbRestricted(const llvm::GenericValue *addr, const VectorClock &v) const
 {
 	auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -183,8 +182,7 @@ WBCoherenceCalculator::calcWbRestricted(const llvm::GenericValue *addr,
 	return matrix;
 }
 
-Calculator::GlobalRelation
-WBCoherenceCalculator::calcWb(const llvm::GenericValue *addr) const
+Calculator::GlobalRelation WBCalculator::calcWb(const llvm::GenericValue *addr) const
 {
 	auto &g = getGraph();
 	GlobalRelation matrix(getStoresToLoc(addr));
@@ -227,36 +225,32 @@ WBCoherenceCalculator::calcWb(const llvm::GenericValue *addr) const
 	return matrix;
 }
 
-void
-WBCoherenceCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+void WBCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
 {
 	stores_[addr];
 }
 
 
 std::pair<int, int>
-WBCoherenceCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
-					   Event store, bool isRMW)
+WBCalculator::getPossiblePlacings(const llvm::GenericValue *addr, Event store, bool isRMW)
 {
 	auto locMOSize = getStoresToLoc(addr).size();
 	return std::make_pair(locMOSize, locMOSize);
 }
 
-void WBCoherenceCalculator::addStoreToLoc(const llvm::GenericValue *addr,
-					  Event store, int offset)
+void WBCalculator::addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset)
 {
 	/* The offset given is ignored */
 	stores_[addr].push_back(store);
 }
 
-void WBCoherenceCalculator::addStoreToLocAfter(const llvm::GenericValue *addr,
-					  Event store, Event pred)
+void WBCalculator::addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred)
 {
 	/* Again the offset given is ignored */
 	addStoreToLoc(addr, store, 0);
 }
 
-bool WBCoherenceCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
+bool WBCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
 {
 	auto &stores = getStoresToLoc(addr);
 	if (store.isInitializer())
@@ -266,7 +260,7 @@ bool WBCoherenceCalculator::isCoMaximal(const llvm::GenericValue *addr, Event st
 	return wb.adj_begin(store) == wb.adj_end(store);
 }
 
-bool WBCoherenceCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+bool WBCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
 {
 	auto &stores = getStoresToLoc(addr);
 	if (store.isInitializer())
@@ -276,7 +270,7 @@ bool WBCoherenceCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Ev
 }
 
 const std::vector<Event>&
-WBCoherenceCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
+WBCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
 {
 	BUG_ON(stores_.count(addr) == 0);
 	return stores_.at(addr);
@@ -286,8 +280,7 @@ WBCoherenceCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
  * Checks which of the stores are (rf?;hb)-before some event e, given the
  * hb-before view of e
  */
-View WBCoherenceCalculator::getRfOptHbBeforeStores(const std::vector<Event> &stores,
-						   const View &hbBefore)
+View WBCalculator::getRfOptHbBeforeStores(const std::vector<Event> &stores, const View &hbBefore)
 {
 	const auto &g = getGraph();
 	View result;
@@ -315,8 +308,8 @@ View WBCoherenceCalculator::getRfOptHbBeforeStores(const std::vector<Event> &sto
 	return result;
 }
 
-void WBCoherenceCalculator::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
-							    View &storeView)
+void WBCalculator::expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
+						   View &storeView)
 {
 	const auto &g = getGraph();
 
@@ -362,9 +355,9 @@ void WBCoherenceCalculator::expandMaximalAndMarkOverwritten(const std::vector<Ev
 	return;
 }
 
-bool WBCoherenceCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *addr,
-						     Event read,
-						     std::vector<Event> &result)
+bool WBCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *addr,
+					    Event read,
+					    std::vector<Event> &result)
 {
 	auto &g = getGraph();
 	auto &allStores = getStoresToLoc(addr);
@@ -394,9 +387,9 @@ bool WBCoherenceCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *a
 	return (count <= 1);
 }
 
-bool WBCoherenceCalculator::isCoherentRf(const llvm::GenericValue *addr,
-					 const GlobalRelation &wb,
-					 Event read, Event store, int storeWbIdx)
+bool WBCalculator::isCoherentRf(const llvm::GenericValue *addr,
+				const GlobalRelation &wb,
+				Event read, Event store, int storeWbIdx)
 {
 	auto &g = getGraph();
 	auto &stores = wb.getElems();
@@ -435,8 +428,7 @@ bool WBCoherenceCalculator::isCoherentRf(const llvm::GenericValue *addr,
 	return true;
 }
 
-bool WBCoherenceCalculator::isInitCoherentRf(const GlobalRelation &wb,
-					     Event read)
+bool WBCalculator::isInitCoherentRf(const GlobalRelation &wb, Event read)
 {
 	auto &g = getGraph();
 	auto &stores = wb.getElems();
@@ -448,8 +440,7 @@ bool WBCoherenceCalculator::isInitCoherentRf(const GlobalRelation &wb,
 }
 
 std::vector<Event>
-WBCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
-					 Event read)
+WBCalculator::getCoherentStores(const llvm::GenericValue *addr, Event read)
 {
 	const auto &g = getGraph();
 	std::vector<Event> result;
@@ -481,8 +472,7 @@ WBCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 	return result;
 }
 
-bool WBCoherenceCalculator::isWbMaximal(const WriteLabel *sLab,
-					const std::vector<Event> &ls) const
+bool WBCalculator::isWbMaximal(const WriteLabel *sLab, const std::vector<Event> &ls) const
 {
 	/* Optimization:
 	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
@@ -508,8 +498,7 @@ bool WBCoherenceCalculator::isWbMaximal(const WriteLabel *sLab,
 	return false;
 }
 
-bool WBCoherenceCalculator::isCoherentRevisit(const WriteLabel *sLab,
-					      Event read) const
+bool WBCalculator::isCoherentRevisit(const WriteLabel *sLab, Event read) const
 {
 	auto &g = getGraph();
 	const EventLabel *rLab = g.getEventLabel(read);
@@ -558,7 +547,7 @@ bool WBCoherenceCalculator::isCoherentRevisit(const WriteLabel *sLab,
 }
 
 std::vector<Event>
-WBCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
+WBCalculator::getCoherentRevisits(const WriteLabel *sLab)
 {
 	const auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
@@ -586,8 +575,8 @@ WBCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
 }
 
 std::vector<std::pair<Event, Event> >
-WBCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
-					   const ReadLabel *rLab) const
+WBCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
+				  const ReadLabel *rLab) const
 {
 	std::vector<std::pair<Event, Event> > pairs;
 
@@ -607,7 +596,7 @@ WBCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 	return pairs;
 }
 
-void WBCoherenceCalculator::initCalc()
+void WBCalculator::initCalc()
 {
 	auto &g = getGraph();
 	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
@@ -617,7 +606,7 @@ void WBCoherenceCalculator::initCalc()
 	return;
 }
 
-Calculator::CalculationResult WBCoherenceCalculator::doCalc()
+Calculator::CalculationResult WBCalculator::doCalc()
 {
 	auto &g = getGraph();
 	auto &hbRelation = g.getGlobalRelation(ExecutionGraph::RelationId::hb);
@@ -684,9 +673,9 @@ Calculator::CalculationResult WBCoherenceCalculator::doCalc()
 }
 
 void
-WBCoherenceCalculator::restorePrefix(const ReadLabel *rLab,
-				     const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-				     const std::vector<std::pair<Event, Event> > &status)
+WBCalculator::restorePrefix(const ReadLabel *rLab,
+			    const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+			    const std::vector<std::pair<Event, Event> > &status)
 {
 	auto &g = getGraph();
 	for (const auto &lab : storePrefix) {
@@ -695,7 +684,7 @@ WBCoherenceCalculator::restorePrefix(const ReadLabel *rLab,
 	}
 }
 
-void WBCoherenceCalculator::removeAfter(const VectorClock &preds)
+void WBCalculator::removeAfter(const VectorClock &preds)
 {
 	for (auto it = stores_.begin(); it != stores_.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),

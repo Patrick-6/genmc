@@ -18,15 +18,15 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "MOCoherenceCalculator.hpp"
+#include "MOCalculator.hpp"
 #include <vector>
 
-void MOCoherenceCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+void MOCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
 {
 	mo_[addr];
 }
 
-int MOCoherenceCalculator::getStoreOffset(const llvm::GenericValue *addr, Event e) const
+int MOCalculator::getStoreOffset(const llvm::GenericValue *addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 
@@ -42,7 +42,7 @@ int MOCoherenceCalculator::getStoreOffset(const llvm::GenericValue *addr, Event 
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getMOBefore(const llvm::GenericValue *addr, Event e) const
+MOCalculator::getMOBefore(const llvm::GenericValue *addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 
@@ -62,7 +62,7 @@ MOCoherenceCalculator::getMOBefore(const llvm::GenericValue *addr, Event e) cons
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getMOAfter(const llvm::GenericValue *addr, Event e) const
+MOCalculator::getMOAfter(const llvm::GenericValue *addr, Event e) const
 {
 	std::vector<Event> res;
 
@@ -84,14 +84,14 @@ MOCoherenceCalculator::getMOAfter(const llvm::GenericValue *addr, Event e) const
 }
 
 const std::vector<Event>&
-MOCoherenceCalculator::getModOrderAtLoc(const llvm::GenericValue *addr) const
+MOCalculator::getModOrderAtLoc(const llvm::GenericValue *addr) const
 {
 	return getStoresToLoc(addr);
 }
 
 std::pair<int, int>
-MOCoherenceCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
-					   Event store, bool isRMW)
+MOCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
+				  Event store, bool isRMW)
 {
 	const auto &g = getGraph();
 
@@ -112,33 +112,31 @@ MOCoherenceCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
 
 }
 
-void MOCoherenceCalculator::addStoreToLoc(const llvm::GenericValue *addr,
-					  Event store, int offset)
+void MOCalculator::addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset)
 {
 	mo_[addr].insert(mo_[addr].begin() + offset, store);
 }
 
-void MOCoherenceCalculator::addStoreToLocAfter(const llvm::GenericValue *addr,
-					       Event store, Event pred)
+void MOCalculator::addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred)
 {
 	int offset = getStoreOffset(addr, pred);
 	addStoreToLoc(addr, store, offset + 1);
 }
 
-bool MOCoherenceCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
+bool MOCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
 {
 	auto &locMO = mo_[addr];
 	return (store.isInitializer() && locMO.empty()) ||
 	       (!store.isInitializer() && !locMO.empty() && store == locMO.back());
 }
 
-bool MOCoherenceCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+bool MOCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
 {
 	return isCoMaximal(addr, store);
 }
 
-void MOCoherenceCalculator::changeStoreOffset(const llvm::GenericValue *addr,
-					      Event store, int newOffset)
+void MOCalculator::changeStoreOffset(const llvm::GenericValue *addr,
+				     Event store, int newOffset)
 {
 	auto &locMO = mo_[addr];
 
@@ -147,14 +145,13 @@ void MOCoherenceCalculator::changeStoreOffset(const llvm::GenericValue *addr,
 }
 
 const std::vector<Event>&
-MOCoherenceCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
+MOCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 	return mo_.at(addr);
 }
 
-int MOCoherenceCalculator::splitLocMOBefore(const llvm::GenericValue *addr,
-					    Event e)
+int MOCalculator::splitLocMOBefore(const llvm::GenericValue *addr, Event e)
 
 {
 	const auto &g = getGraph();
@@ -169,8 +166,7 @@ int MOCoherenceCalculator::splitLocMOBefore(const llvm::GenericValue *addr,
 	return 0;
 }
 
-int MOCoherenceCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr,
-					     const Event read)
+int MOCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr, const Event read)
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -192,8 +188,7 @@ int MOCoherenceCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr,
 	return locMO.size();
 }
 
-int MOCoherenceCalculator::splitLocMOAfter(const llvm::GenericValue *addr,
-					   const Event e)
+int MOCalculator::splitLocMOAfter(const llvm::GenericValue *addr, const Event e)
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -206,8 +201,7 @@ int MOCoherenceCalculator::splitLocMOAfter(const llvm::GenericValue *addr,
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
-					 Event read)
+MOCalculator::getCoherentStores(const llvm::GenericValue *addr, Event read)
 {
 	auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -237,7 +231,7 @@ MOCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getMOOptRfAfter(const WriteLabel *sLab)
+MOCalculator::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	auto ls = getMOAfter(sLab->getAddr(), sLab->getPos());
 	std::vector<Event> rfs;
@@ -258,7 +252,7 @@ MOCoherenceCalculator::getMOOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
+MOCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 {
 	auto ls = getMOBefore(sLab->getAddr(), sLab->getPos());
 	std::vector<Event> rfs;
@@ -281,7 +275,7 @@ MOCoherenceCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-MOCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
+MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 {
 	const auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
@@ -330,8 +324,8 @@ MOCoherenceCalculator::getCoherentRevisits(const WriteLabel *sLab)
 }
 
 std::vector<std::pair<Event, Event> >
-MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
-					   const ReadLabel *rLab) const
+MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
+				  const ReadLabel *rLab) const
 {
 	auto before = getGraph().getPredsView(rLab->getPos());
 	std::vector<std::pair<Event, Event> > pairs;
@@ -372,7 +366,7 @@ MOCoherenceCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<Eve
 	return pairs;
 }
 
-void MOCoherenceCalculator::initCalc()
+void MOCalculator::initCalc()
 {
 	auto &gm = getGraph();
 	auto &coRelation = gm.getPerLocRelation(ExecutionGraph::RelationId::co);
@@ -388,7 +382,7 @@ void MOCoherenceCalculator::initCalc()
 	return;
 }
 
-Calculator::CalculationResult MOCoherenceCalculator::doCalc()
+Calculator::CalculationResult MOCalculator::doCalc()
 {
 	auto &gm = getGraph();
 	auto &coRelation = gm.getPerLocRelation(ExecutionGraph::RelationId::co);
@@ -400,9 +394,9 @@ Calculator::CalculationResult MOCoherenceCalculator::doCalc()
 	return Calculator::CalculationResult(false, true);
 }
 
-void MOCoherenceCalculator::restorePrefix(const ReadLabel *rLab,
-					  const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-					  const std::vector<std::pair<Event, Event> > &moPlacings)
+void MOCalculator::restorePrefix(const ReadLabel *rLab,
+				 const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
+				 const std::vector<std::pair<Event, Event> > &moPlacings)
 {
 	const auto &g = getGraph();
 
@@ -425,7 +419,7 @@ void MOCoherenceCalculator::restorePrefix(const ReadLabel *rLab,
 	}
 }
 
-void MOCoherenceCalculator::removeAfter(const VectorClock &preds)
+void MOCalculator::removeAfter(const VectorClock &preds)
 {
 	for (auto it = mo_.begin(); it != mo_.end(); ++it)
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
@@ -434,7 +428,7 @@ void MOCoherenceCalculator::removeAfter(const VectorClock &preds)
 				 it->second.end());
 }
 
-bool MOCoherenceCalculator::locContains(const llvm::GenericValue *addr, Event e) const
+bool MOCalculator::locContains(const llvm::GenericValue *addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 	return e == Event::getInitializer() ||

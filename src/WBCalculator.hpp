@@ -18,15 +18,15 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __WB_COHERENCE_CALCULATOR_HPP__
-#define __WB_COHERENCE_CALCULATOR_HPP__
+#ifndef __WB_CALCULATOR_HPP__
+#define __WB_CALCULATOR_HPP__
 
 #include "CoherenceCalculator.hpp"
 #include "ExecutionGraph.hpp"
 #include <unordered_map>
 
 /*******************************************************************************
- **                    WBCoherenceCalculator Class
+ **                           WBCalculator Class
  ******************************************************************************/
 
 /*
@@ -34,12 +34,12 @@
  * by calculating the writes-before relation in the execution graph.
  * Should be used along with the "wb" version of the driver.
  */
-class WBCoherenceCalculator : public CoherenceCalculator {
+class WBCalculator : public CoherenceCalculator {
 
 public:
 
 	/* Constructor */
-	WBCoherenceCalculator(ExecutionGraph &m, bool ooo)
+	WBCalculator(ExecutionGraph &m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
 	/* Track coherence at location addr */
@@ -215,8 +215,8 @@ private:
 
 template <typename F>
 Calculator::CalculationResult
-WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
-				      F prop /* = [](Event e){ return true; } */)
+WBCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
+			     F prop /* = [](Event e){ return true; } */)
 {
 	auto &gm = getGraph();
 	auto &hbRelation = gm.getGlobalRelation(ExecutionGraph::RelationId::hb);
@@ -226,9 +226,9 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRela
 
 template <typename F>
 Calculator::CalculationResult
-WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &matrix,
-				      const GlobalRelation &rel,
-				      F prop /* = [](Event e){ return true; } */)
+WBCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &matrix,
+			     const GlobalRelation &rel,
+			     F prop /* = [](Event e){ return true; } */)
 {
 	auto &g = getGraph();
 
@@ -300,4 +300,4 @@ WBCoherenceCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRela
 	return CalculationResult(changed, true);
 }
 
-#endif /* __COHERENCE_CALCULATOR_HPP__ */
+#endif /* __WB_CALCULATOR_HPP__ */
