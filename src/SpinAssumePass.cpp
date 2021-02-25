@@ -393,7 +393,11 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 	});
 
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
 	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
+#else
+	auto &PDT = getAnalysis<POSTDOM_PASS>();
+#endif
 
 	return !effects &&
 	       DT.dominates(fais[0], fais[1]) &&
