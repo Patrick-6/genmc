@@ -60,6 +60,8 @@ public:
 
 	/* Returns whether STORE is maximal in LOC */
 	bool isCoMaximal(const llvm::GenericValue *addr, Event store) override;
+	/* Returns whether STORE is maximal in LOC */
+	bool isCachedCoMaximal(const llvm::GenericValue *addr, Event store) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
@@ -121,6 +123,70 @@ public:
 	}
 
 private:
+	/*
+	 * Stores a calculation results so that subsequent queries of particular
+	 * kinds will not have to calculate WB again. Currently stores information
+	 * about (the most recent) calculations taking place on a single memory location.
+	 */
+	class Cache {
+
+	public:
+		/*
+		 * For now, only store whether an internal calculation has been
+		 * performed (ignore fixpoints), and whether that calculation
+		 * was optimized.
+		 */
+		enum Kind { Invalid, InternalOpt, InternalCalc };
+
+		Kind getKind() { return k; }
+
+		/*
+		 * Caches the fact that E1 and E2 aer maximal;
+		 * (assumes that we got this from an optimization)
+		 */
+		void addMaximalInfo(const std::vector<Event> &es) {
+			k = InternalOpt;
+			maximals = es;
+		}
+		void addMaximalInfo(std::vector<Event> &&es) {
+			k = InternalOpt;
+			maximals = std::move(es);
+		}
+
+		/* Caches the calculation for a single memory location */
+		void addCalcInfo(GlobalRelation &wb) {
+			k = InternalCalc;
+			cache = wb;
+		}
+		void addCalcInfo(GlobalRelation &&wb) {
+			k = InternalCalc;
+			cache = std::move(wb);
+		}
+
+		bool isMaximal(const Event &store) {
+			if (getKind() == InternalOpt)
+				return std::any_of(maximals.begin(), maximals.end(),
+						   [&](Event &m){ return store == m; });
+			else if (getKind() == InternalCalc)
+				return cache.adj_begin(store) == cache.adj_end(store);
+			BUG();
+		}
+
+		/* Invalidates the cache */
+		void invalidate() { k = Invalid; }
+
+	private:
+		Kind k;
+
+		/* When the internal calculation was optimized */
+		std::vector<Event> maximals;
+
+		/* When the internal calculation was fully performed */
+		GlobalRelation cache;
+	};
+
+	Cache &getCache() { return cache_; }
+
 	std::vector<unsigned int> calcRMWLimits(const GlobalRelation &wb) const;
 
 	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
@@ -143,6 +209,8 @@ private:
 	typedef std::unordered_map<const llvm::GenericValue *,
 				   std::vector<Event> > StoresList;
 	StoresList stores_;
+
+	Cache cache_;
 };
 
 template <typename F>

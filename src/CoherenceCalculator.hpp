@@ -85,6 +85,11 @@ public:
 	virtual bool
 	isCoMaximal(const llvm::GenericValue *addr, Event store) = 0;
 
+	/* Returns whether STORE is maximal in LOC.
+	 * Pre: Cached information for this location exist. */
+	virtual bool
+	isCachedCoMaximal(const llvm::GenericValue *addr, Event store) = 0;
+
 	/* Returns a list of stores to a particular memory location */
 	virtual const std::vector<Event>&
 	getStoresToLoc(const llvm::GenericValue *addr) const = 0;

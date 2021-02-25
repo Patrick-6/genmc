@@ -132,6 +132,11 @@ bool MOCoherenceCalculator::isCoMaximal(const llvm::GenericValue *addr, Event st
 	       (!store.isInitializer() && !locMO.empty() && store == locMO.back());
 }
 
+bool MOCoherenceCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+{
+	return isCoMaximal(addr, store);
+}
+
 void MOCoherenceCalculator::changeStoreOffset(const llvm::GenericValue *addr,
 					      Event store, int newOffset)
 {

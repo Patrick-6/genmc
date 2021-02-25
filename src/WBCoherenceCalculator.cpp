@@ -267,6 +267,14 @@ bool WBCoherenceCalculator::isCoMaximal(const llvm::GenericValue *addr, Event st
 	       std::none_of(stores.begin(), stores.end(), [&](Event s){ return wb(store, s); });
 }
 
+bool WBCoherenceCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+{
+	auto &stores = getStoresToLoc(addr);
+	if (store.isInitializer())
+		return stores.empty();
+
+	return cache_.isMaximal(store);
+}
 
 const std::vector<Event>&
 WBCoherenceCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
@@ -378,6 +386,10 @@ bool WBCoherenceCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *a
 				break;
 			}
 			result.push_back(w);
+
+			/* Also set the cache */
+			BUG_ON(result.size() > 2);
+			getCache().addMaximalInfo(result);
 		}
 	}
 	return (count <= 1);
@@ -465,6 +477,8 @@ WBCoherenceCalculator::getCoherentStores(const llvm::GenericValue *addr,
 	if (supportsOutOfOrder() && isInitCoherentRf(wb, read))
 		result.push_back(Event::getInitializer());
 
+	/* Set the cache before returning */
+	getCache().addCalcInfo(std::move(wb));
 	return result;
 }
 

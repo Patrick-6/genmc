@@ -64,6 +64,7 @@ public:
 
 	/* Returns whether STORE is maximal in LOC */
 	bool isCoMaximal(const llvm::GenericValue *addr, Event store) override;
+	bool isCachedCoMaximal(const llvm::GenericValue *addr, Event store) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
