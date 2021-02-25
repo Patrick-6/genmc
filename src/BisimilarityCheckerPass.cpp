@@ -164,6 +164,10 @@ bool BisimilarityCheckerPass::runOnFunction(Function &F)
 		auto b1 = *pred_begin(&*bit);     /* pred 1 */
 		auto b2 = *(++pred_begin(&*bit)); /* pred 2 */
 
+		/* Skip if the predecessors are the same */
+		if (b1 == b2)
+			continue;
+
 		/* Find bisimilar points and make sure they lead to the same state */
 		auto ps = getBsPoints(b1->getTerminator(), b2->getTerminator());
 		bool sameState = true;
