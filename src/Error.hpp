@@ -25,6 +25,7 @@
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
+#include <vector>
 
 #define WARN_MESSAGE(msg) "WARNING: " << (msg)
 #define ERROR_MESSAGE(msg) "ERROR: " << (msg)
