@@ -449,6 +449,17 @@ public:
 
   void clearDeps(unsigned int tid);
 
+  /* Annotation information */
+
+  /* Returns annotation information for the instruction I */
+  const SExpr *getAnnotation(Instruction *I) const {
+	  return MI.annotInfo.annotMap.count(I) ? MI.annotInfo.annotMap.at(I).get() : nullptr;
+  }
+
+  /* Returns (concretized) annotation information for the
+   * current instruction (assuming we're executing it) */
+  std::unique_ptr<SExpr> getCurrentAnnotConcretized();
+
   /* Memory pools checks */
 
   /* Returns the name of the variable residing in addr */

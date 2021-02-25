@@ -146,7 +146,6 @@ public:
 	llvm::GenericValue
 	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
 		  const llvm::GenericValue *addr, llvm::Type *typ,
-		  std::unique_ptr<SExpr> annot = nullptr,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -297,7 +296,8 @@ protected:
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
 	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p = ProgramPoint::step);
+	bool isCoMaximal(const llvm::GenericValue *addr, Event e,
+			 bool checkCache = false, ProgramPoint p = ProgramPoint::step);
 
 private:
 	/*** Worklist-related ***/
@@ -454,6 +454,7 @@ private:
 			   llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *addr,
 			   llvm::Type *typ,
+			   std::unique_ptr<SExpr> annot,
 			   const llvm::GenericValue &cmpVal,
 			   const llvm::GenericValue &rmwVal,
 			   llvm::AtomicRMWInst::BinOp op,
@@ -566,20 +567,22 @@ private:
 	virtual std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf) = 0;
+			Event rf, std::unique_ptr<SExpr> annot) = 0;
 
 	/* Creates a label for a FAI read to be added to the graph */
 	virtual std::unique_ptr<FaiReadLabel>
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, llvm::AtomicRMWInst::BinOp op,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   llvm::AtomicRMWInst::BinOp op,
 			   const llvm::GenericValue &opValue) = 0;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	virtual std::unique_ptr<CasReadLabel>
 	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, const llvm::GenericValue &expected,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
 			   bool isLock = false) = 0;
 

@@ -381,8 +381,6 @@ public:
 
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
-	bool hasAnnotBlocked() const { return annotBlocked; }
-	void setAnnotBlocked(bool status = true) { annotBlocked = status; }
 
 	ReadLabel *clone() const override { return new ReadLabel(*this); }
 
@@ -410,8 +408,6 @@ private:
 	/* SAVer: Expression for annotatable loads. Shared between clones
 	 * for easier copying, but clones will not be revisitable anyway */
 	std::shared_ptr<SExpr> annotExpr;
-
-	bool annotBlocked;
 };
 
 
@@ -430,8 +426,9 @@ protected:
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
-		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val)
-		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf),
+		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, std::move(annot)),
 		  binOp(op), opValue(val) {}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
@@ -469,8 +466,8 @@ public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
-		     bool lockCas = false)
-		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf),
+		     bool lockCas = false, std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, std::move(annot)),
 		  expected(exp), swapValue(swap), lockCas(lockCas) {}
 
 	/* Returns the value that will make this CAS succeed */

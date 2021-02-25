@@ -41,6 +41,7 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Interpreter.h"
+#include "SExprVisitor.hpp"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
@@ -652,6 +653,14 @@ void Interpreter::clearDeps(unsigned int tid)
 {
 	if (depTracker)
 		depTracker->clearDeps(tid);
+}
+
+std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
+{
+	auto *a = getAnnotation(ECStack().back().CurInst->getPrevNode());
+	if (!a)
+		return nullptr;
+	return SExprConcretizer().concretize(a, ECStack().back().Values);
 }
 
 

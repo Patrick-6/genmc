@@ -38,7 +38,6 @@
 #include "Event.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
-#include "SExprVisitor.hpp"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
@@ -1340,16 +1339,12 @@ void Interpreter::visitLoadInst(LoadInst &I)
 		return;
 	}
 
-	std::unique_ptr<SExpr> annot = nullptr;
-	if (MI.annotInfo.annotMap.count(&I) > 0)
-		annot = SExprConcretizer().concretize(MI.annotInfo.annotMap[&I].get(), SF.Values);
-
 	/* Otherwise, set the dependencies for this instruction.. */
 	setCurrentDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 	/* ... and then the driver will provide the appropriate value */
-	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ, std::move(annot));
+	auto val = driver->visitLoad(IA_None, I.getOrdering(), ptr, typ);
 
 	updateDataDeps(thr.id, &I, getCurrentPosition());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
@@ -1422,8 +1417,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
 		       getDataDeps(thr.id, I.getCompareOperand()));
 
-	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
-				     nullptr, cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (!thr.isBlocked() && cmpRes.IntVal.getBoolValue()) {
@@ -1498,7 +1492,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		       getDataDeps(thr.id, I.getValOperand()),
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ, nullptr,
+	auto ret = driver->visitLoad(IA_Fai, I.getOrdering(), ptr, typ,
 				     GenericValue(), val, I.getOperation());
 
 	executeAtomicRMWOperation(newVal, ret, val, I.getOperation());
@@ -2814,8 +2808,7 @@ void Interpreter::callMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
-				     typ, nullptr, cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
@@ -3236,7 +3229,7 @@ GenericValue Interpreter::executeCloseFS(const GenericValue &fd, Type *intTyp)
 	GenericValue newVal;
 	auto *fileCount = (const GenericValue *) GET_FILE_COUNT_ADDR(fileDesc);
 	auto ret = driver->visitLoad(IA_Fai, AtomicOrdering::AcquireRelease, fileCount,
-				     intTyp, nullptr, GenericValue(), INT_TO_GV(intTyp, 1),
+				     intTyp, GenericValue(), INT_TO_GV(intTyp, 1),
 				     AtomicRMWInst::Sub);
 
 	executeAtomicRMWOperation(newVal, ret, INT_TO_GV(intTyp, 1), AtomicRMWInst::Sub);

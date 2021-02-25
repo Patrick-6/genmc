@@ -260,12 +260,12 @@ void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 
 std::unique_ptr<ReadLabel>
 IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			     const llvm::GenericValue *ptr, const llvm::Type *typ,
-			     Event rf)
+			   const llvm::GenericValue *ptr, const llvm::Type *typ,
+			   Event rf, std::unique_ptr<SExpr> annot)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf);
+	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -273,14 +273,15 @@ IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<FaiReadLabel>
 IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, llvm::AtomicRMWInst::BinOp op,
-				const llvm::GenericValue &opValue)
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      Event rf, std::unique_ptr<SExpr> annot,
+			      llvm::AtomicRMWInst::BinOp op,
+			      const llvm::GenericValue &opValue)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, op, opValue);
+						  rf, op, opValue, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -288,14 +289,15 @@ IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 std::unique_ptr<CasReadLabel>
 IMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-				const llvm::GenericValue *ptr, const llvm::Type *typ,
-				Event rf, const llvm::GenericValue &expected,
-				const llvm::GenericValue &swap, bool isLock)
+			      const llvm::GenericValue *ptr, const llvm::Type *typ,
+			      Event rf, std::unique_ptr<SExpr> annot,
+			      const llvm::GenericValue &expected,
+			      const llvm::GenericValue &swap, bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, expected, swap, isLock);
+	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
+						  expected, swap, isLock, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;

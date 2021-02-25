@@ -739,12 +739,15 @@ bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 }
 
-bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p /* = step */)
+bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e,
+			      bool checkCache /* = false */, ProgramPoint p /* = step */)
 {
 	auto &g = getGraph();
 
-	if (!shouldCheckCons(p))
-		return g.getCoherenceCalculator()->isCoMaximal(addr, e);
+	if (!shouldCheckCons(p)) {
+		auto *cc = g.getCoherenceCalculator();
+		return checkCache ? cc->isCachedCoMaximal(addr, e) : cc->isCoMaximal(addr, e);
+	}
 
 	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
 	return (e.isInitializer() && coLoc.empty()) ||
@@ -1218,14 +1221,13 @@ bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr,
 	/* For WB, there might be many maximal ones */
 	auto shouldBlock =
 		std::any_of(validStores.begin(), validStores.end(),
-			    [&](const Event &s){ return isCoMaximal(addr, s) &&
+			    [&](const Event &s){ return isCoMaximal(addr, s, true) &&
 					    !SExprEvaluator().evaluate(annot, getWriteValue(s, addr, typ)); });
 	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
-		return !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, typ)); }),
+		return !isCoMaximal(addr, w, true) &&
+		       !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, typ)); }),
 		validStores.end());
 
-	if (shouldBlock)
-		validStores.insert(validStores.begin(), Event::getBottom());
 	return shouldBlock;
 }
 
@@ -1443,6 +1445,7 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 				llvm::AtomicOrdering ord,
 				const llvm::GenericValue *addr,
 				llvm::Type *typ,
+				std::unique_ptr<SExpr> annot,
 				const llvm::GenericValue &cmpVal,
 				const llvm::GenericValue &rmwVal,
 				llvm::AtomicRMWInst::BinOp op,
@@ -1453,16 +1456,16 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
 		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
-						 addr, typ, store));
+						 addr, typ, store, std::move(annot)));
 		break;
 	case llvm::Interpreter::IA_Fai:
 		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
-						    addr, typ, store, op, rmwVal));
+						    addr, typ, store, std::move(annot), op, rmwVal));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
 		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
-						    store, cmpVal, rmwVal,
+						    store, std::move(annot), cmpVal, rmwVal,
 						    attr == llvm::Interpreter::IA_Lock));
 		break;
 	default:
@@ -1525,16 +1528,16 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       const llvm::GenericValue *addr,
 		       llvm::Type *typ,
-		       std::unique_ptr<SExpr> annot,
 		       llvm::GenericValue cmpVal,
 		       llvm::GenericValue rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
+	auto *EE = getEE();
+	auto &thr = EE->getCurThr();
 
 	if (inRecoveryMode()) {
-		Event recLast = getEE()->getCurrentPosition();
+		Event recLast = EE->getCurrentPosition();
 		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
@@ -1555,7 +1558,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	 * consistency checks may be triggered if the access is invalid */
 	getGraph().trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
-		createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, Event::getInitializer());
+		createAddReadLabel(attr, ord, addr, typ, nullptr, cmpVal,
+				   rmwVal, op, Event::getInitializer());
 		visitError(DE_AccessNonMalloc);
 		return GET_ZERO_GV(typ); /* Return some value; this execution will be blocked */
 	}
@@ -1568,20 +1572,13 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		filterSymmetricStoresSR(addr, typ, validStores);
 
 	/* If this load is annotatable, try and keep interesting values only */
-	if (annot.get()) {
-		auto shouldBlock = filterUninterestingValuesSAVER(addr, typ, annot.get(), validStores);
-		if(shouldBlock) {
-			auto *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
-			const_cast<ReadLabel*>(lab)->setAnnotBlocked();
-			for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-				addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
-			thr.block(llvm::Thread::BlockageType::BT_User);
-			return GET_ZERO_GV(typ); /* No interesting value found; block */
-		}
-	}
+	auto annot = EE->getCurrentAnnotConcretized();
+	if (annot.get())
+		filterUninterestingValuesSAVER(addr, typ, annot.get(), validStores);
 
 	/* ... add an appropriate label with a random rf */
-	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
+	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, std::move(annot),
+						  cmpVal, rmwVal, op, validStores[0]);
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, validStores))
@@ -1722,7 +1719,7 @@ void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ)
 	}
 
 	auto ret = visitLoad(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
-			     addr, typ, nullptr, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
+			     addr, typ, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
 	if (!rLab->getRf().isBottom() && EE->compareValues(typ, INT_TO_GV(typ, 0), ret)) {
@@ -1930,14 +1927,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
-		if (rLab->getAnnot() && isCoMaximal(sLab->getAddr(), sLab->getPos()) &&
-		    !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal())) {
-			if (!rLab->hasAnnotBlocked()) {
-				const_cast<ReadLabel*>(rLab)->setAnnotBlocked();
-				addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(rLab->getPos(), Event::getBottom()));
-			}
+		if (rLab->getAnnot() && !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal()))
 			continue;
-		}
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
