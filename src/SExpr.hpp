@@ -239,8 +239,7 @@ class RegisterExpr : public SExpr {
 protected:
 	explicit RegisterExpr(Width width, llvm::Value *reg, const std::string &argname = "")
 		: SExpr(Register, width), reg(reg),
-		  name(!argname.empty() ? argname :
-		       (!reg->getName().empty() ? reg->getName().str() : ("#s" + regCount++))) {}
+		  name(!argname.empty() ? argname : ("#s" + std::to_string(regCount++))) {}
 
 	explicit RegisterExpr(llvm::Value *reg, const std::string &argname = "")
 		: RegisterExpr(reg->getType()->getIntegerBitWidth(), reg, argname) {}
