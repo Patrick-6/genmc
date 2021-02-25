@@ -146,7 +146,6 @@ namespace LLVMModule {
 			OptPM.add(createLoadAnnotationPass(MI.annotInfo));
 		modified |= OptPM.run(mod);
 
-		printLLVMModule(mod, "out.ll");
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));
 		return modified;
 	}
