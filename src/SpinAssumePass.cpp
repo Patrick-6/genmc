@@ -426,6 +426,7 @@ void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 {
 	auto *term = latch->getTerminator();
         auto *endFun = term->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+	BUG_ON(!endFun);
 
 	auto *cond = getOrCreateExitingCondition(header, term);
         auto *ci = CallInst::Create(endFun, {cond}, "", term);
@@ -447,6 +448,7 @@ void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
 	BUG_ON(fais.size() != 2);
 	auto lastFai = fais[0];
 	auto *endFun = lastFai->getParent()->getParent()->getParent()->getFunction("__VERIFIER_potential_spin_end");
+	BUG_ON(!endFun);
 
 	auto *ci = CallInst::Create(endFun, {}, "", lastFai);
 	ci->setMetadata("dbg", lastFai->getMetadata("dbg"));
