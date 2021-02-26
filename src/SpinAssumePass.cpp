@@ -400,6 +400,7 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 #endif
 
 	return !effects &&
+	       fais.size() == 2 &&
 	       DT.dominates(fais[0], fais[1]) &&
 	       PDT.dominates(fais[0]->getParent(), fais[1]->getParent()) &&
 	       areCancelingBinops(fais[0], fais[1]) &&
