@@ -87,6 +87,6 @@ llvm::ModulePass *createPromoteMemIntrinsicPass();
 /*
  * Transforms certain classes of spinloops to assume() statements.
  */
-llvm::Pass *createSpinAssumePass(bool liveness);
+llvm::Pass *createSpinAssumePass(bool markStarts = false);
 
 #endif /* __PASSES_HPP__ */

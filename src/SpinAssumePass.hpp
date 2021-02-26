@@ -36,13 +36,16 @@ protected:
 public:
 	static char ID;
 
-	SpinAssumePass(bool live) : llvm::LoopPass(ID), liveness(live) {};
+	SpinAssumePass() : llvm::LoopPass(ID) {};
+
+	void markSpinloopStarts(bool mark)  { markStarts = mark; }
+
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 
 private:
-	/* Whether liveness checks will be performed */
-	bool liveness;
+	/* Whether we should mark spinloop starts */
+	bool markStarts = false;
 
 };
 

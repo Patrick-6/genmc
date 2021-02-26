@@ -532,8 +532,8 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	if (!spinloop)
 		return modified;
 
-	/* If liveness checks are specified, mark the start of the spinloop */
-	if (liveness)
+	/* Mark spinloop starts if we have to */
+	if (markStarts)
 		addSpinStartCall(header);
 
 #ifdef LLVM_HAVE_LOOPINFO_ERASE
@@ -548,9 +548,11 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	return modified;
 }
 
-Pass *createSpinAssumePass(bool liveness)
+Pass *createSpinAssumePass(bool markStarts /* = false */)
 {
-	return new SpinAssumePass(liveness);
+	auto *p = new SpinAssumePass();
+	p->markSpinloopStarts(markStarts);
+	return p;
 }
 
 char SpinAssumePass::ID = 42;
