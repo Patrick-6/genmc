@@ -29,6 +29,9 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
+	void addSpinEndCallBeforeTerm(llvm::BasicBlock *latch, llvm::BasicBlock *header);
+	void addPotentialSpinEndCallBeforeLastFai(llvm::BasicBlock *latch, llvm::BasicBlock *header);
+
 	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l);
 	bool isPathToHeaderCASClean(llvm::BasicBlock *latch, llvm::Loop *l);
 	bool isPathToHeaderZNE(llvm::BasicBlock *latch, llvm::Loop *l);

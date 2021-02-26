@@ -39,6 +39,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
+#include <utility>
 #include <unordered_set>
 
 using namespace llvm;
@@ -373,6 +374,11 @@ bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
 	return false;
 }
 
+bool dominatesAndPostdominates(Instruction *a, Instruction *b, DominatorTree &DT, PostDominatorTree &PDT)
+{
+	return DT.dominates(a, b) && PDT.dominates(a->getParent(), b->getParent());
+}
+
 bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
@@ -401,8 +407,8 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 
 	return !effects &&
 	       fais.size() == 2 &&
-	       DT.dominates(fais[0], fais[1]) &&
-	       PDT.dominates(fais[0]->getParent(), fais[1]->getParent()) &&
+	       (dominatesAndPostdominates(fais[0], fais[1], DT, PDT) || /* due to VSet */
+		dominatesAndPostdominates(fais[1], fais[0], DT, PDT)) &&
 	       areCancelingBinops(fais[0], fais[1]) &&
 	       phis.empty();
 }
@@ -422,10 +428,10 @@ Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
 	return BinaryOperator::CreateNot(bi->getCondition(), "", term);
 }
 
-void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
+void SpinAssumePass::addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 {
 	auto *term = latch->getTerminator();
-        auto *endFun = term->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+        auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
 	BUG_ON(!endFun);
 
 	auto *cond = getOrCreateExitingCondition(header, term);
@@ -434,8 +440,15 @@ void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 	return;
 }
 
-void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
+void SpinAssumePass::addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
 {
+	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
+#else
+	auto &PDT = getAnalysis<POSTDOM_PASS>();
+#endif
+
 	/* Find the last FAI call of the path */
 	SmallVector<AtomicRMWInst *, 2> fais;
 	foreachInBackPathTo(latch, header, [&](const Instruction &i){
@@ -444,10 +457,15 @@ void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
 			return;
 		}
 	});
-
 	BUG_ON(fais.size() != 2);
-	auto lastFai = fais[0];
-	auto *endFun = lastFai->getParent()->getParent()->getParent()->getFunction("__VERIFIER_potential_spin_end");
+
+	/* Be resilient against collection order, but enforce invariant */
+	if (!dominatesAndPostdominates(fais[0], fais[1], DT, PDT))
+		std::swap(fais[0], fais[1]);
+	BUG_ON(!dominatesAndPostdominates(fais[0], fais[1], DT, PDT));
+
+	auto lastFai = fais[1];
+	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_potential_spin_end");
 	BUG_ON(!endFun);
 
 	auto *ci = CallInst::Create(endFun, {}, "", lastFai);
