@@ -80,6 +80,7 @@ bool CallInfoCollectionPass::runOnModule(Module &M)
 {
 	VSet<Function *> dirty;
 
+	clean.clear();
 	for (auto &F : M) {
 		if (hasSideEffects(&F, clean, dirty))
 			dirty.insert(&F);
