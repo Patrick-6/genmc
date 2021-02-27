@@ -25,6 +25,7 @@
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
+#include <sstream>
 #include <vector>
 
 #define WARN_MESSAGE(msg) "WARNING: " << (msg)
@@ -58,18 +59,37 @@ namespace GenMCError {
 
 }
 
-/* Useful for debugging */
-template <typename T>
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const std::vector<T>& v)
+/* Useful for debugging (naive generalized printing doesn't work for llvm::raw_ostream) */
+template<typename T>
+std::ostream& print(std::ostream &out, const T &val)
 {
-	if (v.empty())
-		return s;
+	return (out << val);
+}
 
-	s << '[';
-	for (const auto &e : v)
-		s << e << ", ";
-	s << "\b\b]";
-	return s;
+template<typename T1, typename T2>
+std::ostream& print(std::ostream &out, const std::pair<T1, T2> &val)
+{
+	return (out << "(" << val.first << ", " << val.second << ")");
+}
+
+template <typename Container>
+std::string format(const Container &c)
+{
+	std::ostringstream out;
+
+	out << "[ ";
+	for (const auto &e : c)
+		print(out, e) << " ";
+	out << "]";
+	return out.str();
+}
+
+template <typename T1, typename T2>
+std::string format(const std::pair<T1, T2> &p)
+{
+	std::ostringstream out;
+	print(out, p);
+	return out.str();
 }
 
 #endif /* __ERROR_HPP__ */
