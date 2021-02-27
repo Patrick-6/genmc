@@ -68,50 +68,6 @@ private:
 			e <= DE_InvalidAccessEnd;
 	};
 
-	/* Enumeration for different types of revisits */
-	enum StackItemType {
-		SRead,        /* Forward revisit */
-		SReadLibFunc, /* Forward revisit (functional lib) */
-		SRevisit,     /* Backward revisit */
-		MOWrite,      /* Alternative MO position */
-		MOWriteLib,   /* Alternative MO position (lib) */
-		None /* For default constructor */
-	};
-
-	/* Types of worklist items */
-	struct StackItem {
-		StackItem() : type(None) {};
-		StackItem(StackItemType t, Event e, Event shouldRf,
-			  std::vector<std::unique_ptr<EventLabel> > &&writePrefix,
-			  std::vector<std::pair<Event, Event> > &&moPlacings,
-			  int newMoPos)
-			: type(t), toRevisit(e), shouldRf(shouldRf),
-			  writePrefix(std::move(writePrefix)),
-			  moPlacings(std::move(moPlacings)),
-			  moPos(newMoPos) {};
-
-		/* Type of the revisit taking place */
-		StackItemType type;
-
-		/* Position in the graph of the event to be revisited */
-		Event toRevisit;
-
-		/* Where the event revisited should read from.
-		 * It is INIT if not applicable for this revisit type */
-		Event shouldRf;
-
-		/* The prefix to be restored in the graph */
-		std::vector<std::unique_ptr<EventLabel> > writePrefix;
-
-		/* Appropriate positionings for the writes in the prefix
-		 * to be restored */
-		std::vector<std::pair<Event, Event> > moPlacings;
-
-		/* New position in MO for the event to be revisited
-		 * (only if the driver tracks MO) */
-		int moPos;
-	};
-
 public:
 	/* Returns a list of the libraries the specification of which are given */
 	const std::vector<Library> &getGrantedLibs()  const { return grantedLibs; };
