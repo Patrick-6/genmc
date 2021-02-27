@@ -165,7 +165,7 @@ RC11Driver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf);
 
 	calcBasicReadViews(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<FaiReadLabel>
@@ -180,7 +180,7 @@ RC11Driver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 						  rf, op, opValue);
 
 	calcBasicReadViews(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<CasReadLabel>
@@ -196,7 +196,7 @@ RC11Driver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 						   rf, expected, swap, isLock);
 
 	calcBasicReadViews(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<LibReadLabel>
@@ -209,7 +209,7 @@ RC11Driver::createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	auto lab = LLVM_MAKE_UNIQUE<LibReadLabel>(g.nextStamp(), ord, pos, ptr,
 						   typ, rf, functionName);
 	calcBasicReadViews(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskReadLabel>
@@ -224,7 +224,7 @@ RC11Driver::createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcBasicReadViews(lab.get());
 	if (getConf()->persevere)
 		g.getPersChecker()->calcMemAccessPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<WriteLabel>
@@ -238,7 +238,7 @@ RC11Driver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 						 typ, val, isUnlock);
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<FaiWriteLabel>
@@ -252,7 +252,7 @@ RC11Driver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 						    ptr, typ, val);
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<CasWriteLabel>
@@ -267,7 +267,7 @@ RC11Driver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<LibWriteLabel>
@@ -283,7 +283,7 @@ RC11Driver::createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskWriteLabel>
@@ -300,7 +300,7 @@ RC11Driver::createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
 		g.getPersChecker()->calcMemAccessPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskMdWriteLabel>
@@ -318,7 +318,7 @@ RC11Driver::createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
 		g.getPersChecker()->calcMemAccessPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskDirWriteLabel>
@@ -335,7 +335,7 @@ RC11Driver::createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
 		g.getPersChecker()->calcMemAccessPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskJnlWriteLabel>
@@ -352,7 +352,7 @@ RC11Driver::createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
 	calcWriteMsgView(lab.get());
 	if (getConf()->persevere)
 		g.getPersChecker()->calcMemAccessPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<FenceLabel>
@@ -363,7 +363,7 @@ RC11Driver::createFenceLabel(int tid, int index, llvm::AtomicOrdering ord)
 	auto lab = LLVM_MAKE_UNIQUE<FenceLabel>(g.nextStamp(), ord, pos);
 
 	calcBasicFenceViews(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<MallocLabel>
@@ -381,7 +381,7 @@ RC11Driver::createMallocLabel(int tid, int index, const void *addr,
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<FreeLabel>
@@ -399,7 +399,7 @@ RC11Driver::createFreeLabel(int tid, int index, const void *addr)
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskOpenLabel>
@@ -417,7 +417,7 @@ RC11Driver::createDskOpenLabel(int tid, int index, const char *fileName,
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskFsyncLabel>
@@ -437,7 +437,7 @@ RC11Driver::createDskFsyncLabel(int tid, int index, const void *inode,
 
 	if (getConf()->persevere)
 		g.getPersChecker()->calcFsyncPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskSyncLabel>
@@ -456,7 +456,7 @@ RC11Driver::createDskSyncLabel(int tid, int index)
 
 	if (getConf()->persevere)
 		g.getPersChecker()->calcSyncPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<DskPbarrierLabel>
@@ -475,7 +475,7 @@ RC11Driver::createDskPbarrierLabel(int tid, int index)
 
 	if (getConf()->persevere)
 		g.getPersChecker()->calcPbarrierPbView(lab.get());
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<SpinStartLabel>
@@ -490,7 +490,7 @@ RC11Driver::createSpinStartLabel(int tid, int index)
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<ThreadCreateLabel>
@@ -507,7 +507,7 @@ RC11Driver::createTCreateLabel(int tid, int index, int cid)
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<ThreadJoinLabel>
@@ -527,7 +527,7 @@ RC11Driver::createTJoinLabel(int tid, int index, int cid)
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<ThreadStartLabel>
@@ -548,7 +548,7 @@ RC11Driver::createStartLabel(int tid, int index, Event tc, int symm /* = -1 */)
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<ThreadFinishLabel>
@@ -565,7 +565,7 @@ RC11Driver::createFinishLabel(int tid, int index)
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<LockLabelLAPOR>
@@ -582,7 +582,7 @@ RC11Driver::createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *a
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 std::unique_ptr<UnlockLabelLAPOR>
@@ -599,7 +599,7 @@ RC11Driver::createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue 
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
-	return std::move(lab);
+	return lab;
 }
 
 bool RC11Driver::areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab)
@@ -711,6 +711,22 @@ void RC11Driver::changeRf(Event read, Event store)
 	calcBasicReadViews(rLab);
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
 		g.getPersChecker()->calcMemAccessPbView(rLab);
+	return;
+}
+
+void RC11Driver::updateStart(Event create, Event start)
+{
+	auto &g = getGraph();
+	auto *bLab = g.getEventLabel(start);
+
+	View hb(g.getHbBefore(create));
+	View porf(g.getPorfBefore(create));
+
+	hb[start.thread] = 0;
+	porf[start.thread] = 0;
+
+	bLab->setHbView(std::move(hb));
+	bLab->setPorfView(std::move(porf));
 	return;
 }
 

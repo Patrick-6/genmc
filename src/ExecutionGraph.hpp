@@ -158,6 +158,16 @@ public:
 	 * Returns INIT in case no such event is found */
 	Event getPreviousNonTrivial(const Event e) const;
 
+	/* Returns the first event in the thread tid */
+	Event getFirstThreadEvent(int tid) const {
+		return Event(tid, 0);
+	}
+
+	/* Returns the first label in the thread tid */
+	const EventLabel *getFirstThreadLabel(int tid) const {
+		return getEventLabel(getFirstThreadEvent(tid));
+	}
+
 	/* Returns the last label in the thread tid */
 	const EventLabel *getLastThreadLabel(int tid) const;
 
@@ -314,6 +324,15 @@ public:
 
 
 	/* Boolean helper functions */
+
+	/* Returns true if the graph contains e */
+	bool contains(const Event &e) const {
+		return e.thread >= 0 && e.thread < getNumThreads() &&
+			e.index >= 0 && e.index < getThreadSize(e.thread);
+	}
+	bool contains(const EventLabel *lab) const {
+		return contains(lab->getPos());
+	}
 
 	/* Returns true if the event should be taken into account when
 	 * calculating some relation (e.g., hb, ar, etc) */

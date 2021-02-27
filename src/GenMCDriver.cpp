@@ -117,8 +117,10 @@ void GenMCDriver::resetThreadPrioritization()
 	auto *EE = getEE();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		Event last = g.getLastThreadEvent(i);
-		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer())
+		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer()) {
+			WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 			EE->getThrById(i).block(llvm::Thread::BlockageType::BT_LockRel);
+		}
 	}
 
 	/* Clear all prioritization */
@@ -309,13 +311,9 @@ void GenMCDriver::handleExecutionBeginning()
 		auto *labFst = static_cast<const ThreadStartLabel *>(lab);
 		Event parent = labFst->getParentCreate();
 
-		/* Skip if parent create does not exist yet */
-		if (parent.index >= (int) g.getThreadSize(parent.thread))
+		/* Skip if parent create does not exist yet (or anymore) */
+		if (!g.contains(parent) || !llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)))
 			continue;
-
-		/* This could fire for the main() thread */
-		BUG_ON(!llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)) &&
-		       lab->getThread() != g.getRecoveryRoutineId());
 
 		/* Skip finished threads */
 		const EventLabel *labLast = g.getLastThreadLabel(i);
@@ -510,6 +508,7 @@ void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (lab->getStamp() <= cutStamp)
 				continue;
+
 			/* Untrack memory if allocation event will be deleted */
 			if (auto *mLab = llvm::dyn_cast<MallocLabel>(lab))
 				getEE()->untrackAlloca(mLab->getAllocAddr(),
@@ -1310,20 +1309,19 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 	int cid = 0;
 
 	/* First, check if the thread to be created already exists */
-	while (cid < (int) g.getNumThreads()) {
+	while (cid < (long) g.getNumThreads()) {
 		if (!g.isThreadEmpty(cid)) {
-			if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(
-				    g.getEventLabel(Event(cid, 0)))) {
-				if (bLab->getParentCreate() == cur)
-					break;
-			}
+			auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getFirstThreadLabel(cid));
+			BUG_ON(!bLab);
+			if (bLab->getParentCreate() == cur)
+				break;
 		}
 		++cid;
 	}
 
 	/* Add an event for the thread creation */
 	auto tcLab = createTCreateLabel(cur.thread, cur.index, cid);
-	getGraph().addOtherLabelToGraph(std::move(tcLab));
+	auto *lab = getGraph().addOtherLabelToGraph(std::move(tcLab));
 
 	/* Prepare the execution context for the new thread */
 	llvm::Thread thr = EE->createNewThread(calledFun, arg, cid, cur.thread, SF);
@@ -1336,8 +1334,9 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 		auto tsLab = createStartLabel(cid, 0, cur, symm);
 		auto *ss = getGraph().addOtherLabelToGraph(std::move(tsLab));
 	} else {
-		/* Otherwise, just push the execution context to the interpreter */
+		/* Otherwise, push the execution context to the interpreter and update the graph */
 		EE->threads[cid] = thr;
+		updateStart(lab->getPos(), g.getFirstThreadEvent(cid));
 	}
 
 	return cid;

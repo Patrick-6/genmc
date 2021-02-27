@@ -173,7 +173,7 @@ public:
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
 
 	void changeRf(Event read, Event store) override;
-
+	void updateStart(Event create, Event start) override;
 	bool updateJoin(Event join, Event childLast) override;
 
 	void initConsCalculation() override;

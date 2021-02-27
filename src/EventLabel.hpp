@@ -919,8 +919,8 @@ protected:
 public:
 	DskFsyncLabel(unsigned int st, llvm::AtomicOrdering ord,
 		      Event pos, const void *inode, unsigned int size)
-		: FenceLabel(EL_DskFsync, st, ord, pos), inode(inode), size(size),
-		  DskAccessLabel(EL_DskFsync) {}
+		: FenceLabel(EL_DskFsync, st, ord, pos),
+		  DskAccessLabel(EL_DskFsync), inode(inode), size(size) {}
 
 	/* Returns a pointer to the inode on which the fsync() took place */
 	const void *getInode() const { return inode; }
@@ -1185,11 +1185,11 @@ public:
 	/* Returns the size of this allocation */
 	unsigned int getAllocSize() const { return allocSize; }
 
-	/* Returns the address space of this chunk */
-	AddressSpace getAddrSpace() const { return spc; }
-
 	/* Returns the storage type of this chunk */
 	Storage getStorage() const { return s; }
+
+	/* Returns the address space of this chunk */
+	AddressSpace getAddrSpace() const { return spc; }
 
 	MallocLabel *clone() const override { return new MallocLabel(*this); }
 
@@ -1203,11 +1203,11 @@ private:
 	/* The size of the requested allocation */
 	unsigned int allocSize;
 
-	/* Whether this chunk lives in the stack/heap/internal memory */
-	AddressSpace spc;
-
 	/* Storage typ */
 	Storage s;
+
+	/* Whether this chunk lives in the stack/heap/internal memory */
+	AddressSpace spc;
 };
 
 
