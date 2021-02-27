@@ -254,7 +254,7 @@ public:
 	visitError(DriverErrorKind t, const std::string &err = std::string(),
 		   Event confEvent = Event::getInitializer());
 
-	virtual ~GenMCDriver() {};
+	virtual ~GenMCDriver() = default;
 
 protected:
 
