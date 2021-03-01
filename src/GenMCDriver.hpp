@@ -25,7 +25,6 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
-#include "ExecutionGraph.hpp"
 #include "WorkSet.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
@@ -39,6 +38,7 @@ namespace llvm {
 	class ExecutionContext;
 	class Interpreter;
 }
+class ExecutionGraph;
 
 class GenMCDriver {
 

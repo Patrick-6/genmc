@@ -21,6 +21,7 @@
 #include "config.h"
 #include "IMMDriver.hpp"
 #include "Interpreter.h"
+#include "ExecutionGraph.hpp"
 #include "ARCalculator.hpp"
 #include "PSCCalculator.hpp"
 
