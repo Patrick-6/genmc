@@ -1054,7 +1054,8 @@ void Interpreter::exitCalled(GenericValue GV) {
   // the stack before interpreting atexit handlers.
   WARN_ONCE("exit-called", "Usage of exit() is not thread-safe!\n");
   while (ECStack().size() > 0) {
-    driver->visitFree(ECStack().back().Allocas.get());
+    auto &allocas = ECStack().back().Allocas.get();
+    driver->visitFree(allocas.begin(), allocas.end());
     ECStack().pop_back(); /* FIXME: Now assumes the user has properly used it */
   }
   runAtExitHandlers();
@@ -1079,7 +1080,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
 
   // Pop the current stack frame.
-  driver->visitFree(ECStack().back().Allocas.get());
+  driver->visitFree(ECStack().back().Allocas.get().begin(), ECStack().back().Allocas.get().end());
   ECStack().pop_back();
 
   // if (ECStack.empty()) {  // Finished main.  Put result into exit code...
@@ -2741,7 +2742,8 @@ void Interpreter::callThreadExit(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
 	while (ECStack().size() > 1) {
-		driver->visitFree(ECStack().back().Allocas.get());
+		auto &allocas = ECStack().back().Allocas.get();
+		driver->visitFree(allocas.begin(), allocas.end());
 		ECStack().pop_back();
 	}
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);

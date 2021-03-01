@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "RC11Driver.hpp"
+#include "Interpreter.h"
 #include "PSCCalculator.hpp"
 
 RC11Driver::RC11Driver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)

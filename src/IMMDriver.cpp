@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "IMMDriver.hpp"
+#include "Interpreter.h"
 #include "ARCalculator.hpp"
 #include "PSCCalculator.hpp"
 

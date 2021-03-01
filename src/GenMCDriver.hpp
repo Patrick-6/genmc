@@ -26,7 +26,6 @@
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
 #include "ExecutionGraph.hpp"
-#include "Interpreter.h"
 #include "WorkSet.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
@@ -35,6 +34,11 @@
 #include <memory>
 #include <random>
 #include <unordered_set>
+
+namespace llvm {
+	class ExecutionContext;
+	class Interpreter;
+}
 
 class GenMCDriver {
 
@@ -210,8 +214,12 @@ public:
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
 	visitFree(void *ptr);
-	void
-	visitFree(const llvm::AllocaHolder::Allocas &ptrs); /* Helper for bulk-deallocs */
+	/* Helper for bulk-deallocs */
+	template<typename ITER>
+	void visitFree(ITER begin, ITER end) {
+		for (auto it = begin; it != end; ++it)
+			visitFree(*it);
+	}
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
@@ -219,7 +227,7 @@ public:
 	visitError(DriverErrorKind t, const std::string &err = std::string(),
 		   Event confEvent = Event::getInitializer());
 
-	virtual ~GenMCDriver() = default;
+	virtual ~GenMCDriver();
 
 protected:
 

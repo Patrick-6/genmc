@@ -89,6 +89,8 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 		WARN("Could not resolve symbols in the program: " + ErrorStr);
 }
 
+GenMCDriver::~GenMCDriver() = default;
+
 void GenMCDriver::printResults()
 {
 	std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
@@ -1806,13 +1808,6 @@ void GenMCDriver::visitFree(void *ptr)
 
 	/* Check whether there is any memory race */
 	checkForMemoryRaces(ptr);
-	return;
-}
-
-void GenMCDriver::visitFree(const llvm::AllocaHolder::Allocas &ptrs)
-{
-	for (auto &p : ptrs)
-		visitFree(p);
 	return;
 }
 
