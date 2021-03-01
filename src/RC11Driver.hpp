@@ -45,20 +45,22 @@ public:
 	std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf) override;
+			Event rf, std::unique_ptr<SExpr> annot) override;
 
 	/* Creates a label for a FAI read to be added to the graph */
 	std::unique_ptr<FaiReadLabel>
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, llvm::AtomicRMWInst::BinOp op,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   llvm::AtomicRMWInst::BinOp op,
 			   const llvm::GenericValue &opValue) override;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	std::unique_ptr<CasReadLabel>
 	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, const llvm::GenericValue &expected,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
 			   bool isLock = false) override;
 
@@ -153,6 +155,9 @@ public:
 
 	std::unique_ptr<SpinStartLabel>
 	createSpinStartLabel(int tid, int index) override;
+
+	std::unique_ptr<PotentialSpinEndLabel>
+	createPotentialSpinEndLabel(int tid, int index) override;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	std::unique_ptr<ThreadCreateLabel>

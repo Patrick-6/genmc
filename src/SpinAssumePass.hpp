@@ -21,6 +21,7 @@
 #ifndef __SPIN_ASSUME_PASS_HPP__
 #define __SPIN_ASSUME_PASS_HPP__
 
+#include "VSet.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/IR/Instructions.h>
@@ -28,22 +29,26 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
-	bool isSpinLoop(const llvm::Loop *l) const;
-	void addSpinEndCallBeforeInstruction(llvm::Instruction *i);
-	void addSpinStartCall(llvm::BasicBlock *b);
-	void removeDisconnectedBlocks(llvm::Loop *l);
-	bool transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm);
+	void addSpinEndCallBeforeTerm(llvm::BasicBlock *latch, llvm::BasicBlock *header);
+	void addPotentialSpinEndCallBeforeLastFai(llvm::BasicBlock *latch, llvm::BasicBlock *header);
+
+	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l);
+	bool isPathToHeaderCASClean(llvm::BasicBlock *latch, llvm::Loop *l);
+	bool isPathToHeaderZNE(llvm::BasicBlock *latch, llvm::Loop *l);
 
 public:
 	static char ID;
 
-	SpinAssumePass(bool live) : llvm::LoopPass(ID), liveness(live) {};
+	SpinAssumePass() : llvm::LoopPass(ID) {};
+
+	void markSpinloopStarts(bool mark)  { markStarts = mark; }
+
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
 	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 
 private:
-	/* Whether liveness checks will be performed */
-	bool liveness;
+	/* Whether we should mark spinloop starts */
+	bool markStarts = false;
 
 };
 

@@ -68,50 +68,6 @@ private:
 			e <= DE_InvalidAccessEnd;
 	};
 
-	/* Enumeration for different types of revisits */
-	enum StackItemType {
-		SRead,        /* Forward revisit */
-		SReadLibFunc, /* Forward revisit (functional lib) */
-		SRevisit,     /* Backward revisit */
-		MOWrite,      /* Alternative MO position */
-		MOWriteLib,   /* Alternative MO position (lib) */
-		None /* For default constructor */
-	};
-
-	/* Types of worklist items */
-	struct StackItem {
-		StackItem() : type(None) {};
-		StackItem(StackItemType t, Event e, Event shouldRf,
-			  std::vector<std::unique_ptr<EventLabel> > &&writePrefix,
-			  std::vector<std::pair<Event, Event> > &&moPlacings,
-			  int newMoPos)
-			: type(t), toRevisit(e), shouldRf(shouldRf),
-			  writePrefix(std::move(writePrefix)),
-			  moPlacings(std::move(moPlacings)),
-			  moPos(newMoPos) {};
-
-		/* Type of the revisit taking place */
-		StackItemType type;
-
-		/* Position in the graph of the event to be revisited */
-		Event toRevisit;
-
-		/* Where the event revisited should read from.
-		 * It is INIT if not applicable for this revisit type */
-		Event shouldRf;
-
-		/* The prefix to be restored in the graph */
-		std::vector<std::unique_ptr<EventLabel> > writePrefix;
-
-		/* Appropriate positionings for the writes in the prefix
-		 * to be restored */
-		std::vector<std::pair<Event, Event> > moPlacings;
-
-		/* New position in MO for the event to be revisited
-		 * (only if the driver tracks MO) */
-		int moPos;
-	};
-
 public:
 	/* Returns a list of the libraries the specification of which are given */
 	const std::vector<Library> &getGrantedLibs()  const { return grantedLibs; };
@@ -218,6 +174,10 @@ public:
 	void
 	visitSpinStart();
 
+	/* A call to __VERIFIER_potential_spin_end() has been interpreted */
+	void
+	visitPotentialSpinEnd();
+
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
 	visitThreadSelf(llvm::Type *typ);
@@ -250,7 +210,7 @@ public:
 	visitError(DriverErrorKind t, const std::string &err = std::string(),
 		   Event confEvent = Event::getInitializer());
 
-	virtual ~GenMCDriver() {};
+	virtual ~GenMCDriver() = default;
 
 protected:
 
@@ -292,7 +252,8 @@ protected:
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
 	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p = ProgramPoint::step);
+	bool isCoMaximal(const llvm::GenericValue *addr, Event e,
+			 bool checkCache = false, ProgramPoint p = ProgramPoint::step);
 
 private:
 	/*** Worklist-related ***/
@@ -449,6 +410,7 @@ private:
 			   llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *addr,
 			   llvm::Type *typ,
+			   std::unique_ptr<SExpr> annot,
 			   const llvm::GenericValue &cmpVal,
 			   const llvm::GenericValue &rmwVal,
 			   llvm::AtomicRMWInst::BinOp op,
@@ -479,6 +441,14 @@ private:
 	getLibConsRfsInView(const Library &lib, Event read,
 			    const std::vector<Event> &stores,
 			    const View &v);
+
+	/* Opt: Checks whether the addition of an event changes our
+	 * perspective of a potential spinloop */
+	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
+
+	/* Opt: Given the end of a potential spinloop, returns true if
+	 * it is indeed a spinloop */
+	bool areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab);
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
@@ -518,6 +488,10 @@ private:
 	void filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
 				     std::vector<Event> &stores) const;
 
+	/* SAVer: Filters stores that will lead to an assume-blocked execution */
+	bool filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+					    const SExpr *annot, std::vector<Event> &stores);
+
 
 	/*** Output-related ***/
 
@@ -549,20 +523,22 @@ private:
 	virtual std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf) = 0;
+			Event rf, std::unique_ptr<SExpr> annot) = 0;
 
 	/* Creates a label for a FAI read to be added to the graph */
 	virtual std::unique_ptr<FaiReadLabel>
 	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, llvm::AtomicRMWInst::BinOp op,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   llvm::AtomicRMWInst::BinOp op,
 			   const llvm::GenericValue &opValue) = 0;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	virtual std::unique_ptr<CasReadLabel>
 	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, const llvm::GenericValue &expected,
+			   Event rf, std::unique_ptr<SExpr> annot,
+			   const llvm::GenericValue &expected,
 			   const llvm::GenericValue &swap,
 			   bool isLock = false) = 0;
 
@@ -661,6 +637,10 @@ private:
 	/* Creates a label for the start of a spinloop to be added to the graph */
 	virtual std::unique_ptr<SpinStartLabel>
 	createSpinStartLabel(int tid, int index) = 0;
+
+	/* Creates a label for the end of a potential spinloop to be added to the graph */
+	virtual std::unique_ptr<PotentialSpinEndLabel>
+	createPotentialSpinEndLabel(int tid, int index) = 0;
 
 	/* Creates a label for the creation of a thread to be added to the graph */
 	virtual std::unique_ptr<ThreadCreateLabel>

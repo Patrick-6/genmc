@@ -7,18 +7,24 @@
 
 int main()
 {
-	unsigned int in_sum = 0, out_sum = 0;
+	int i = 0;
+
+	num_threads = readers + writers + rdwr;
 
 	atomic_init(&x[1], 0);
 	atomic_init(&x[2], 0);
 
 	init_stack(&stack, num_threads);
-	for (int i = 0; i < num_threads; i++) {
-		param[i] = i;
-		pthread_create(&threads[i], NULL, main_task, &param[i]);
-	}
+	for (int j = 0; j < num_threads; j++)
+		param[j] = j;
+	for (int j = 0; j < writers; j++, i++)
+		pthread_create(&threads[i], NULL, threadW, &param[i]);
+	for (int j = 0; j < readers; j++, i++)
+		pthread_create(&threads[i], NULL, threadR, &param[i]);
+	for (int j = 0; j < rdwr; j++, i++)
+		pthread_create(&threads[i], NULL, threadRW, &param[i]);
 
-	for (int i = 0; i < num_threads; i++)
+	for (i = 0; i < num_threads; i++)
 		pthread_join(threads[i], NULL);
 
 	/* bool correct = false; */

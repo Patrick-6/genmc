@@ -21,14 +21,8 @@
 #include "config.h"
 
 #include "LLVMModule.hpp"
-#include "DeclareInternalsPass.hpp"
-#include "DefineLibcFunsPass.hpp"
 #include "Error.hpp"
-#include "IntrinsicLoweringPass.hpp"
-#include "LoopUnrollPass.hpp"
-#include "MDataCollectionPass.hpp"
-#include "PromoteMemIntrinsicPass.hpp"
-#include "SpinAssumePass.hpp"
+#include "Passes.hpp"
 #include <llvm/InitializePasses.h>
 #if defined(HAVE_LLVM_PASSMANAGER_H)
 # include <llvm/PassManager.h>
@@ -48,10 +42,9 @@
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
+#include <llvm/Transforms/Scalar.h>
 #if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
-# include <llvm/Transforms/Utils.h>
-#else
-# include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Utils.h>
 #endif
 
 #ifdef LLVM_PASSMANAGER_TEMPLATE
@@ -125,27 +118,32 @@ namespace LLVMModule {
 		llvm::initializeInstrumentation(Registry);
 		llvm::initializeTarget(Registry);
 
-		OptPM.add(new DeclareInternalsPass());
-		OptPM.add(new DefineLibcFunsPass());
-		OptPM.add(new MDataCollectionPass(MI.varInfo, MI.fsInfo));
-		OptPM.add(new PromoteMemIntrinsicPass());
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-		OptPM.add(new IntrinsicLoweringPass(*mod.getDataLayout()));
-#else
-		OptPM.add(new IntrinsicLoweringPass(mod.getDataLayout()));
-#endif
-
+		OptPM.add(createDeclareInternalsPass());
+		OptPM.add(createDefineLibcFunsPass());
+		OptPM.add(createMDataCollectionPass(MI.varInfo, MI.fsInfo));
+		OptPM.add(createPromoteMemIntrinsicPass());
+		OptPM.add(createIntrinsicLoweringPass(mod));
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
 		OptPM.add(llvm::createDeadArgEliminationPass());
 
 		modified = OptPM.run(mod);
 
+		BndPM.add(createBisimilarityCheckerPass());
+		if (conf->codeCondenser && !conf->checkLiveness)
+			BndPM.add(createCodeCondenserPass());
+		if (conf->loopJumpThreading)
+			BndPM.add(createLoopJumpThreadingPass());
+		BndPM.add(createCallInfoCollectionPass());
 		if (conf->spinAssume)
-			BndPM.add(new SpinAssumePass(conf->checkLiveness));
+			BndPM.add(createSpinAssumePass(conf->checkLiveness));
 		if (conf->unroll >= 0)
-			BndPM.add(new LoopUnrollPass(conf->unroll));
+			BndPM.add(createLoopUnrollPass(conf->unroll));
 
 		modified |= BndPM.run(mod);
+
+		/* The last pass we run is the load-annotation pass */
+		if (conf->loadAnnot)
+			OptPM.add(createLoadAnnotationPass(MI.annotInfo));
 		modified |= OptPM.run(mod);
 
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));

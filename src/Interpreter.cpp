@@ -41,6 +41,7 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Interpreter.h"
+#include "SExprVisitor.hpp"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
@@ -60,7 +61,7 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, const ModuleInfo& MI, GenMCDriver *driver,
+ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, ModuleInfo &&MI, GenMCDriver *driver,
 				     const Config *userConf, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
@@ -95,7 +96,7 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, const ModuleInfo
   }
 #endif
 
-  return new Interpreter(std::move(M), MI, driver, userConf);
+  return new Interpreter(std::move(M), std::move(MI), driver, userConf);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -654,13 +655,21 @@ void Interpreter::clearDeps(unsigned int tid)
 		depTracker->clearDeps(tid);
 }
 
+std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
+{
+	auto *a = getAnnotation(ECStack().back().CurInst->getPrevNode());
+	if (!a)
+		return nullptr;
+	return SExprConcretizer().concretize(a, ECStack().back().Values);
+}
+
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(std::unique_ptr<Module> M, const ModuleInfo &MI,
+Interpreter::Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
 			 GenMCDriver *driver, const Config *userConf)
-	: ExecutionEngine(std::move(M)), MI(MI), driver(driver) {
+	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 

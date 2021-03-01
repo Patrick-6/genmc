@@ -54,15 +54,16 @@ View RC11Driver::calcBasicPorfView(Event e) const
 void RC11Driver::calcBasicReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
-	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 
+	const auto *rfLab = g.getEventLabel(lab->getRf());
 	porf.update(rfLab->getPorfView());
 	if (lab->isAtLeastAcquire()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 			hb.update(wLab->getMsgView());
 	}
+
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
 }
@@ -158,11 +159,11 @@ void RC11Driver::calcBasicFenceViews(FenceLabel *lab)
 std::unique_ptr<ReadLabel>
 RC11Driver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    Event rf)
+			    Event rf, std::unique_ptr<SExpr> annot)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf);
+	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -171,13 +172,14 @@ RC11Driver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<FaiReadLabel>
 RC11Driver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       Event rf, llvm::AtomicRMWInst::BinOp op,
+			       Event rf, std::unique_ptr<SExpr> annot,
+			       llvm::AtomicRMWInst::BinOp op,
 			       const llvm::GenericValue &opValue)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						  rf, op, opValue);
+						  rf, op, opValue, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -186,14 +188,14 @@ RC11Driver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<CasReadLabel>
 RC11Driver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       Event rf, const llvm::GenericValue &expected,
-			       const llvm::GenericValue &swap,
-			       bool isLock)
+			       Event rf, std::unique_ptr<SExpr> annot,
+			       const llvm::GenericValue &expected,
+			       const llvm::GenericValue &swap, bool isLock)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						   rf, expected, swap, isLock);
+						  rf, expected, swap, isLock, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -491,6 +493,21 @@ RC11Driver::createSpinStartLabel(int tid, int index)
 	lab->setPorfView(std::move(porf));
 
 	return lab;
+}
+
+std::unique_ptr<PotentialSpinEndLabel>
+RC11Driver::createPotentialSpinEndLabel(int tid, int index)
+{
+	auto &g = getGraph();
+	Event pos(tid, index);
+	auto lab = LLVM_MAKE_UNIQUE<PotentialSpinEndLabel>(g.nextStamp(), pos);
+
+	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
+
+	return std::move(lab);
 }
 
 std::unique_ptr<ThreadCreateLabel>

@@ -64,6 +64,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
 	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
+	{"__VERIFIER_potential_spin_end", InternalFunctions::FN_PotentialSpinEnd},
 	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -1416,8 +1417,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		       getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
 		       getDataDeps(thr.id, I.getCompareOperand()));
 
-	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ,
-				     cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Cas, I.getSuccessOrdering(), ptr, typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (!thr.isBlocked() && cmpRes.IntVal.getBoolValue()) {
@@ -2617,7 +2617,13 @@ void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &Ar
 
 void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	getCurThr().block(Thread::BlockageType::BT_Spinloop);
+	if (!ArgVals[0].IntVal.getBoolValue())
+		getCurThr().block(Thread::BlockageType::BT_Spinloop);
+}
+
+void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitPotentialSpinEnd();
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -2627,8 +2633,6 @@ void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Instruction *I = ECStack().back().CurInst->getPrevNode();
-
 	if (!ArgVals[0].IntVal.getBoolValue())
 		getCurThr().block(Thread::BlockageType::BT_User);
 }
@@ -2804,8 +2808,7 @@ void Interpreter::callMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
-	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr,
-				     typ, cmpVal, newVal);
+	auto ret = driver->visitLoad(IA_Cas, AtomicOrdering::Acquire, ptr, typ, cmpVal, newVal);
 
 	auto cmpRes = executeICMP_EQ(ret, cmpVal, typ);
 	if (cmpRes.IntVal.getBoolValue()) {
@@ -4054,7 +4057,7 @@ bool isInternalCall(Function *F)
 
 bool isInvalidRecCall(InternalFunctions fCode, const std::vector<GenericValue> &ArgVals)
 {
-	return IS_FS_INVALID_REC_CODE(fCode) ||
+	return isFsInvalidRecCode(fCode) ||
 		(fCode == InternalFunctions::FN_OpenFS &&
 		 (ArgVals[1].IntVal.getLimitedValue() & GENMC_O_CREAT));
 }
@@ -4079,6 +4082,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(AssertFail);
 		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(SpinEnd);
+		CALL_INTERNAL_FUNCTION(PotentialSpinEnd);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);

@@ -238,6 +238,8 @@ public:
 		BT_NotBlocked,
 		BT_ThreadJoin,
 		BT_Spinloop,
+		BT_FaiSpinloop,
+		BT_SpinloopEnd,
 		BT_LockAcq,
 		BT_LockRel,
 		BT_Cons,
@@ -370,7 +372,7 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(std::unique_ptr<Module> M, const ModuleInfo &MI,
+  explicit Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -447,6 +449,17 @@ public:
 
   void clearDeps(unsigned int tid);
 
+  /* Annotation information */
+
+  /* Returns annotation information for the instruction I */
+  const SExpr *getAnnotation(Instruction *I) const {
+	  return MI.annotInfo.annotMap.count(I) ? MI.annotInfo.annotMap.at(I).get() : nullptr;
+  }
+
+  /* Returns (concretized) annotation information for the
+   * current instruction (assuming we're executing it) */
+  std::unique_ptr<SExpr> getCurrentAnnotConcretized();
+
   /* Memory pools checks */
 
   /* Returns the name of the variable residing in addr */
@@ -486,7 +499,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(std::unique_ptr<Module> M, const ModuleInfo &MI,
+  static ExecutionEngine *create(std::unique_ptr<Module> M, ModuleInfo &&MI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 
@@ -721,6 +734,7 @@ private:  // Helper functions
   void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);

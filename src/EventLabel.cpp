@@ -80,6 +80,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_SpinStart:
 		s << "SPIN_START";
 		break;
+	case EventLabel::EL_PotentialSpinEnd:
+		s << "POT_SPIN_END";
+		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_LibRead:
 		s << "R";
@@ -187,6 +190,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	case EventLabel::EL_SpinStart: {
 		auto &sLab = static_cast<const SpinStartLabel&>(lab);
 		s << sLab.getKind();
+		break;
+	}
+	case EventLabel::EL_PotentialSpinEnd: {
+		auto &eLab = static_cast<const PotentialSpinEndLabel&>(lab);
+		s << eLab.getKind();
 		break;
 	}
 	case EventLabel::EL_Read: {

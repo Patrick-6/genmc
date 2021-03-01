@@ -24,10 +24,14 @@
 #include "Error.hpp"
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
+#include "CallInfoCollectionPass.hpp"
+#include "InstAnnotator.hpp"
+#include "LLVMUtils.hpp"
+#include "SExprVisitor.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopPass.h>
+#include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Constants.h>
-#include <llvm/IR/Dominators.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
@@ -35,173 +39,449 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
-#ifdef LLVM_HAS_TERMINATORINST
- typedef llvm::TerminatorInst TerminatorInst;
+#include <utility>
+#include <unordered_set>
+
+using namespace llvm;
+
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+# define POSTDOM_PASS PostDominatorTreeWrapperPass
 #else
- typedef llvm::Instruction TerminatorInst;
+# define POSTDOM_PASS PostDominatorTree
 #endif
 
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
-	au.addRequired<llvm::DominatorTreeWrapperPass>();
+	au.addRequired<DominatorTreeWrapperPass>();
+	au.addRequired<POSTDOM_PASS>();
 	au.addRequired<DeclareInternalsPass>();
-	au.addPreserved<DeclareInternalsPass>();
+	au.addRequired<CallInfoCollectionPass>();
+	au.setPreservesAll();
 }
 
-bool isAssumeStatement(llvm::Instruction &i)
+void getLoopCASs(const Loop *l, SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 {
-	auto *ci = llvm::dyn_cast<llvm::CallInst>(&i);
-	if (!ci)
-		return false;
-
-	llvm::Function *fun = ci->getCalledFunction();
-	return fun && fun->getName().str() == "__VERIFIER_assume";
+	for (auto bb = l->block_begin(); bb != l->block_end(); ++bb) {
+		for (auto i = (*bb)->begin(); i != (*bb)->end(); ++i) {
+			if (auto *casi = dyn_cast<AtomicCmpXchgInst>(i))
+				cass.push_back(casi);
+		}
+	}
+	return;
 }
 
-bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2)
+bool isBlockPHIClean(const BasicBlock *bb)
 {
-	if (!i1 || !i2)
-		return false;
+	return !isa<PHINode>(&*bb->begin());
+}
 
-	for (auto &u : i1->operands()) {
-		if (auto *i = llvm::dyn_cast<llvm::Instruction>(u.get()))
-			return i == i2 || isDependentOn(i, i2);
+bool accessSameVariable(const Value *p1, const Value *p2)
+{
+	/* Check if they are trivially the same */
+	if (p1 == p2)
+		return true;
+
+	/* Check if they come from identical instructions */
+	if (auto *i1 = dyn_cast<Instruction>(p1))
+		if (auto *i2 = dyn_cast<Instruction>(p2))
+			if (i1->isIdenticalTo(i2))
+				return true;
+
+	// FIXME: Is this really necessary?
+	/* Special case: check if they are produced by bitcasts */
+	if (auto *bi1 = dyn_cast<BitCastInst>(p1)) {
+		if (bi1->getOperand(0) == p2)
+			return true;
+		if (auto *bi2 = dyn_cast<BitCastInst>(p2)) {
+			if (p1 == bi2->getOperand(0))
+				return true;
+			if (bi1->getOperand(0) == bi2->getOperand(0))
+				return true;
+		}
 	}
 	return false;
 }
 
-bool areSameLoadOrdering(llvm::AtomicOrdering o1, llvm::AtomicOrdering o2)
+bool isPHIRelatedToCASCmp(const PHINode *curr, const SmallVector<const AtomicCmpXchgInst *, 4> &cass,
+			  SmallVector<const PHINode *, 4> &phiChain, VSet<const PHINode *> &related)
 {
-	return o1 == o2 ||
-	       (o1 == llvm::AtomicOrdering::Acquire && o2 == llvm::AtomicOrdering::AcquireRelease) ||
-	       (o1 == llvm::AtomicOrdering::AcquireRelease && o2 == llvm::AtomicOrdering::Acquire);
-}
-
-bool isPhiTiedToCasCmp(const llvm::PHINode *curPhi, const std::vector<llvm::Value *> &inVals,
-		       const llvm::AtomicCmpXchgInst *casi, const llvm::PHINode *cmpPhi)
-{
-	return (inVals[0] == cmpPhi && inVals[1] == casi->getNextNode()) ||
-		(inVals[1] == cmpPhi && inVals[0] == casi->getNextNode());
-}
-
-bool checkPhis(const llvm::PHINode *cmpPhi, const llvm::PHINode *curPhi,
-	       const llvm::AtomicCmpXchgInst *casi, VSet<const llvm::PHINode *> &phis)
-{
-	std::vector<llvm::Value *> inVals;
-
-	BUG_ON(curPhi->getNumIncomingValues() != 2);
-	inVals.push_back(curPhi->getIncomingValue(0));
-	inVals.push_back(curPhi->getIncomingValue(1));
-
-	/* Base case: the current PHI is the one right after the CAS */
-	if (isPhiTiedToCasCmp(curPhi, inVals, casi, cmpPhi)) {
-		phis.erase(curPhi);
+	/* Check if we have already decided (or assumed) this phi is good */
+	if (related.count(curr) || std::find(phiChain.begin(), phiChain.end(), curr) != phiChain.end())
 		return true;
-	}
 
-	/* Recursive step: the current PHI is not the one right after the CAS */
-	for (unsigned i = 0; i < inVals.size(); i++) {
-		if (auto *li = llvm::dyn_cast<llvm::LoadInst>(inVals[i])) {
-			if (li->getPointerOperand() != casi->getPointerOperand() ||
-			    !areSameLoadOrdering(li->getOrdering(), casi->getSuccessOrdering()))
-				return false;
+	for (Value *val : curr->incoming_values()) {
+		val = stripCasts(val);
+		if (auto *uv = dyn_cast<UndefValue>(val)) {
 			continue;
-		}
-		if (auto *extract = llvm::dyn_cast<llvm::ExtractValueInst>(inVals[i])) {
-			BUG_ON(!extract->getType()->isIntegerTy());
-			BUG_ON(extract->getType()->getIntegerBitWidth() == 1);
-
-			auto *ecasi = llvm::dyn_cast<llvm::AtomicCmpXchgInst>(extract->getAggregateOperand());
-			if (!ecasi || ecasi->getPointerOperand() != casi->getPointerOperand() ||
-			    !areSameLoadOrdering(ecasi->getSuccessOrdering(), casi->getSuccessOrdering()))
+		} else if (auto *li = dyn_cast<LoadInst>(val)) {
+			if (std::all_of(cass.begin(), cass.end(), [&](const AtomicCmpXchgInst *casi){
+				return !accessSameVariable(li->getPointerOperand(), casi->getPointerOperand()) ||
+					!areSameLoadOrdering(li->getOrdering(), casi->getSuccessOrdering());
+			}))
+				return false;
+		} else if (auto *extract = dyn_cast<ExtractValueInst>(val)) {
+			if (!extract->getType()->isIntegerTy() ||
+			    extract->getNumIndices() > 1 ||
+			    *extract->idx_begin() != 0)
 				return false;
 
-			continue;
+			auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
+			if (!ecasi)
+				return false;
+			if (std::all_of(cass.begin(), cass.end(), [&](const AtomicCmpXchgInst *casi){
+				return !accessSameVariable(ecasi->getPointerOperand(), casi->getPointerOperand()) ||
+				       !areSameLoadOrdering(ecasi->getSuccessOrdering(), casi->getSuccessOrdering());
+			}))
+				return false;
+		} else {
+			auto *phi = dyn_cast<PHINode>(val);
+			if (!phi)
+				return false;
+
+			phiChain.push_back(curr);
+			if(!isPHIRelatedToCASCmp(phi, cass, phiChain, related))
+				return false;
+			phiChain.pop_back();
 		}
-
-		auto *phi = llvm::dyn_cast<llvm::PHINode>(inVals[i]);
-		if (!phi || !checkPhis(cmpPhi, phi, casi, phis))
-			return false;
 	}
-
-	phis.erase(curPhi);
 	return true;
 }
 
-bool isCasSpinLoop(const llvm::Loop *l, const llvm::AtomicCmpXchgInst *casi, VSet<const llvm::PHINode *> &phis)
+bool isPHIRelatedToCASRes(const PHINode *curr, const SmallVector<const AtomicCmpXchgInst *, 4> &cass,
+			  SmallVector<const PHINode *, 4> &phiChain, VSet<const PHINode *> &related)
 {
-	llvm::BasicBlock *eb = l->getExitingBlock();
-	if (!eb)
-		return false;
+	/* Check if we have already decided (or assumed) this phi is good */
+	if (related.count(curr) || std::find(phiChain.begin(), phiChain.end(), curr) != phiChain.end())
+		return true;
 
-	llvm::BranchInst *bi = llvm::dyn_cast<llvm::BranchInst>(eb->getTerminator());
-	if (!bi || !bi->isConditional() ||
-	    !isDependentOn(llvm::dyn_cast<llvm::Instruction>(bi->getCondition()), casi))
-		return false;
-
-	auto *cmpOp = casi->getCompareOperand();
-	if (llvm::isa<llvm::Constant>(cmpOp))
-		return phis.empty();
-
-	auto *cmpPhi = llvm::dyn_cast<llvm::PHINode>(cmpOp);
-	if (!cmpPhi)
-		return false;
-
-	return checkPhis(cmpPhi, cmpPhi, casi, phis) && phis.empty();
-}
-
-bool SpinAssumePass::isSpinLoop(const llvm::Loop *l) const
-{
-	std::vector<const llvm::AtomicCmpXchgInst *> cass;
-	VSet<const llvm::PHINode *> phis;
-
-	/* A spinloop has no side effects, so all instructions need to have no
-	 * side effects too. The only exceptions are calls to __VERIFIER_assume()
-	 * and CAS/PHI instructions (as these may belong to a CAS spinloop). */
-	for (auto bb = l->block_begin(); bb != l->block_end(); ++bb) {
-		for (auto i = (*bb)->begin(); i != (*bb)->end(); ++i) {
-			if (llvm::isa<llvm::AllocaInst>(*i))
-				return false;
-			if (auto *phii = llvm::dyn_cast<llvm::PHINode>(&*i))
-				phis.insert(phii);
-			if (i->mayHaveSideEffects()) {
-				if (auto *casi = llvm::dyn_cast<llvm::AtomicCmpXchgInst>(&*i)) {
-					cass.push_back(casi);
-				} else if (auto *ci = llvm::dyn_cast<llvm::CallInst>(&*i)) {
-					if (!isAssumeStatement(*ci))
-						return false;
-				} else if (!llvm::isa<llvm::LoadInst>(&*i)) {
+	for (Value *val : curr->incoming_values()) {
+		val = stripCasts(val);
+		if (auto *c = dyn_cast<Constant>(val)) {
+			if (auto *ci = dyn_cast<ConstantInt>(c)) {
+				if (!ci->isZero())
 					return false;
-				}
+			} else if (!isa<UndefValue>(c)) {
+				return false;
 			}
+		} else if (auto *extract = dyn_cast<ExtractValueInst>(val)) {
+			if (!extract->getType()->isIntegerTy() ||
+			    extract->getNumIndices() > 1 ||
+			    *extract->idx_begin() != 1)
+				return false;
+
+			auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
+			if (!ecasi)
+				return false;
+			if (std::all_of(cass.begin(), cass.end(), [&](const AtomicCmpXchgInst *casi){
+				return !accessSameVariable(ecasi->getPointerOperand(), casi->getPointerOperand()) ||
+					!areSameLoadOrdering(ecasi->getSuccessOrdering(), casi->getSuccessOrdering());
+			}))
+				return false;
+		} else {
+			auto *phi = dyn_cast<PHINode>(val);
+			if (!phi)
+				return false;
+
+			phiChain.push_back(curr);
+			if(!isPHIRelatedToCASRes(phi, cass, phiChain, related))
+				return false;
+			phiChain.pop_back();
 		}
 	}
-	/* If there were CASes, there can be only 1, and the spinloop needs to be checked */
-	if (cass.size())
-		return cass.size() == 1 && isCasSpinLoop(l, cass[0], phis);
 
-	/* Otherwise, it is a plain spinloop; there should be no PHI nodes */
-	return phis.empty();
+	/* If the current PHI does not depend on any other PHI being good, then we mark it as such */
+	if (phiChain.empty())
+		related.insert(curr);
+	return true;
 }
 
-void SpinAssumePass::addSpinEndCallBeforeInstruction(llvm::Instruction *bi)
+bool isPHIRelatedToCASCmp(const PHINode *phi, const SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 {
-        auto *endFun = bi->getParent()->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+	VSet<const PHINode *> related;
+	SmallVector<const PHINode *, 4> phiChain;
 
-        auto *ci = llvm::CallInst::Create(endFun, {}, "", bi);
-        ci->setMetadata("dbg", bi->getMetadata("dbg"));
+	return isPHIRelatedToCASCmp(phi, cass, phiChain, related);
+}
+
+bool isPHIRelatedToCASRes(const PHINode *phi, const SmallVector<const AtomicCmpXchgInst *, 4> &cass)
+{
+	VSet<const PHINode *> related;
+	SmallVector<const PHINode *, 4> phiChain;
+
+	return isPHIRelatedToCASRes(phi, cass, phiChain, related);
+}
+
+/*
+ * This function checks whether a PHI node is tied to some CAS operation ('good' PHI).
+ * A 'good' PHI node has incoming values that are either 1) PHI nodes that have been
+ * deemed 'good', 2) constants and results of CASes, or 3) loads at the same location
+ * as some CAS and the compare operands of some CAS.
+ * To avoid circles between PHIs, whenever we try to see whether a PHI is good,
+ * we keep the current path in <phiChain>; if a node is deemed good and the chain
+ * is empty (i.e., it does not depend on another node being deemed good), it is
+ * moved to <related>, which stores PHIs that are related to some CAS operation.
+ */
+bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
+{
+	SmallVector<const AtomicCmpXchgInst *, 4> cass;
+
+	getLoopCASs(l, cass);
+	if (cass.empty())
+		return false;
+
+	for (auto iit = bb->begin(); auto phi = llvm::dyn_cast<llvm::PHINode>(iit); ++iit) {
+		if (!isPHIRelatedToCASCmp(phi, cass) && !isPHIRelatedToCASRes(phi, cass))
+			return false;
+	}
+	return true;
+}
+
+/* Only for loops as it may not terminate if called for general code */
+bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l)
+{
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
+
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
+		effects |= hasSideEffects(&i, &cleanSet);
+	});
+	return !effects;
+}
+
+/*
+ * Returns whether extract extracts from a CAS. If a second argument is provided, it is ensured
+ * that the extract extracts from this particular CAS.
+ */
+bool isCASExtract(ExtractValueInst *extract, AtomicCmpXchgInst *cas = nullptr)
+{
+	if (!extract->getType()->isIntegerTy() ||
+	    extract->getNumIndices() > 1)
+		return false;
+
+	auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
+	if (!ecasi)
+		return false;
+	return (cas) ? (cas == ecasi) : true;
+}
+
+/*
+ * Tries to extract extractinsts corresponding to the results of a list of CASes.
+ * Returns whether that was possible or not.
+ */
+bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
+			     std::vector<ExtractValueInst *> &extracts)
+{
+	for (auto &cas : cass) {
+		auto *candidateExtract = cas->getNextNode()->getNextNode();
+		auto *extract = dyn_cast<ExtractValueInst>(candidateExtract);
+		if (!candidateExtract || !extract)
+			return false;
+
+		if (!isCASExtract(extract, cas))
+			return false;
+		if (*extract->idx_begin() != 1)
+			return false;
+		extracts.push_back(extract);
+	}
+	return true;
+}
+
+/*
+ * Returns whether the CASes of a backedge LATCH -> header(L) will lead to the loop header if
+ * they fail. (If we exit the backedge paths with any of the CASes being successful, this function
+ * will return false.)
+ */
+bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch, Loop *l)
+{
+	std::vector<ExtractValueInst *> extracts;
+
+	if (!tryGetCASResultExtracts(cass, extracts))
+		return false;
+
+	std::vector<std::unique_ptr<SExpr> > casConditions;
+	for (auto *cas : cass)
+		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l));
+
+	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
+	for (auto i = 1u; i < (1 << extracts.size()); i++) {
+
+		std::unordered_map<Value *, llvm::APInt> valueMap;
+		for (auto j = 0u; j < extracts.size(); j++)
+			valueMap[extracts[j]] = (i & (1 << j)) ? APInt(1, 1) : APInt(1, 0);
+
+		size_t unknowns;
+		auto res = SExprEvaluator().evaluate(backedgeCondition.get(), valueMap, &unknowns);
+		if (unknowns > 0 || res.getBoolValue())
+			return false;
+	}
+	return true;
+}
+
+bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l)
+{
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
+	std::vector<AtomicCmpXchgInst *> cass;
+
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
+		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
+			cass.push_back(casi);
+			return;
+		}
+		effects |= hasSideEffects(&i, &cleanSet);
+	});
+	std::sort(cass.begin(), cass.end());
+	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
+
+	return !effects && !cass.empty() && failedCASesLeadToHeader(cass, latch, l);
+}
+
+template<typename F>
+bool checkConstantsCondition(const Value *v1, const Value *v2, F&& cond)
+{
+	auto c1 = dyn_cast<ConstantInt>(v1);
+	auto c2 = dyn_cast<ConstantInt>(v2);
+
+	if (!c1 || !c2)
+		return false;
+
+	return cond(c1->getValue(), c2->getValue());
+}
+
+bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
+{
+	using namespace llvm;
+	using BinOp = AtomicRMWInst::BinOp;
+
+	auto op1 = a->getOperation();
+	auto op2 = b->getOperation();
+	auto v1 = a->getValOperand();
+	auto v2 = b->getValOperand();
+
+	/* The two operations need to manipulate the same memory location */
+	if (!accessSameVariable(a->getPointerOperand(), b->getPointerOperand()))
+		return false;
+
+	/* The operators need to be opposite and the values the same, or vice versa */
+	if (((op1 == BinOp::Add && op2 == BinOp::Sub) || (op1 == BinOp::Sub && op2 == BinOp::Add)) &&
+	    checkConstantsCondition(v1, v2, [&](const APInt &i1, const APInt &i2) { return i1 == i2; }))
+		return true;
+
+	bool overflow;
+	if (op1 == op2 && (op1 == BinOp::Add || op1 == BinOp::Sub) &&
+	    checkConstantsCondition(v1, v2, [&](const APInt &i1, const APInt &i2) { return i1.sadd_ov(i2, overflow) == 0; }))
+		return true;
+	return false;
+}
+
+bool dominatesAndPostdominates(Instruction *a, Instruction *b, DominatorTree &DT, PostDominatorTree &PDT)
+{
+	return DT.dominates(a, b) && PDT.dominates(a->getParent(), b->getParent());
+}
+
+bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
+{
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
+	VSet<PHINode *> phis;
+	VSet<AtomicRMWInst *> fais;
+
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
+		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
+			fais.insert(faii);
+			return;
+		}
+		if (auto *phi = dyn_cast<PHINode>(&i)) {
+			phis.insert(phi);
+			return;
+		}
+		effects |= hasSideEffects(&i, &cleanSet);
+	});
+
+	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
+#else
+	auto &PDT = getAnalysis<POSTDOM_PASS>();
+#endif
+
+	return !effects &&
+	       fais.size() == 2 &&
+	       (dominatesAndPostdominates(fais[0], fais[1], DT, PDT) || /* due to VSet */
+		dominatesAndPostdominates(fais[1], fais[0], DT, PDT)) &&
+	       areCancelingBinops(fais[0], fais[1]) &&
+	       phis.empty();
+}
+
+Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
+{
+	if (auto *ibr = dyn_cast<IndirectBrInst>(term))
+		return ConstantInt::getFalse(term->getContext());
+
+	auto *bi = dyn_cast<BranchInst>(term);
+	BUG_ON(!bi);
+
+	if (bi->isUnconditional())
+		return ConstantInt::getFalse(term->getContext());
+	if (bi->getSuccessor(0) != header)
+		return bi->getCondition();
+	return BinaryOperator::CreateNot(bi->getCondition(), "", term);
+}
+
+void SpinAssumePass::addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
+{
+	auto *term = latch->getTerminator();
+        auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
+	BUG_ON(!endFun);
+
+	auto *cond = getOrCreateExitingCondition(header, term);
+        auto *ci = CallInst::Create(endFun, {cond}, "", term);
+        ci->setMetadata("dbg", term->getMetadata("dbg"));
 	return;
 }
 
-void SpinAssumePass::addSpinStartCall(llvm::BasicBlock *b)
+void SpinAssumePass::addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
+{
+	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
+#else
+	auto &PDT = getAnalysis<POSTDOM_PASS>();
+#endif
+
+	/* Find the last FAI call of the path */
+	SmallVector<AtomicRMWInst *, 2> fais;
+	foreachInBackPathTo(latch, header, [&](const Instruction &i){
+		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
+			fais.push_back(const_cast<AtomicRMWInst *>(faii));
+			return;
+		}
+	});
+	BUG_ON(fais.size() != 2);
+
+	/* Be resilient against collection order, but enforce invariant */
+	if (!dominatesAndPostdominates(fais[0], fais[1], DT, PDT))
+		std::swap(fais[0], fais[1]);
+	BUG_ON(!dominatesAndPostdominates(fais[0], fais[1], DT, PDT));
+
+	auto lastFai = fais[1];
+	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_potential_spin_end");
+	BUG_ON(!endFun);
+
+	auto *ci = CallInst::Create(endFun, {}, "", lastFai);
+	ci->setMetadata("dbg", lastFai->getMetadata("dbg"));
+	return;
+}
+
+void addSpinStartCall(BasicBlock *b)
 {
         auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
 
 	auto *i = b->getFirstNonPHI();
-        auto *ci = llvm::CallInst::Create(startFun, {}, "", i);
+        auto *ci = CallInst::Create(startFun, {}, "", i);
 }
 
-void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
+void removeDisconnectedBlocks(Loop *l)
 {
 	bool done;
 
@@ -209,7 +489,7 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 		done = false;
 		while (!done) {
 			done = true;
-			VSet<llvm::BasicBlock*> hasPredecessor;
+			VSet<BasicBlock*> hasPredecessor;
 
 			/*
 			 * We collect blocks with predecessors in l, and we also
@@ -244,79 +524,56 @@ void SpinAssumePass::removeDisconnectedBlocks(llvm::Loop *l)
 	}
 }
 
-#ifndef LLVM_HAVE_LOOPINFO_GETINCANDBACKEDGE
-bool getIncomingAndBackEdge(llvm::Loop *l, llvm::BasicBlock *&Incoming, llvm::BasicBlock *&Backedge)
+bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 {
-	llvm::BasicBlock *H = l->getHeader();
+	auto *header = l->getHeader();
 
-	Incoming = nullptr;
-	Backedge = nullptr;
-	llvm::pred_iterator PI = pred_begin(H);
-	assert(PI != pred_end(H) && "Loop must have at least one backedge!");
-	Backedge = *PI++;
-	if (PI == pred_end(H))
-		return false; // dead loop
-	Incoming = *PI++;
-	if (PI != pred_end(H))
-		return false; // multiple backedges?
-
-	if (l->contains(Incoming)) {
-		if (l->contains(Backedge))
-			return false;
-		std::swap(Incoming, Backedge);
-	} else if (!l->contains(Backedge))
+	if (!isBlockPHIClean(header) && !areBlockPHIsRelatedToLoopCASs(header, l))
 		return false;
 
-	assert(Incoming && Backedge && "expected non-null incoming and backedges");
-	return true;
-}
-# define GET_INCOMING_AND_BACK_EDGE(l, i, b) getIncomingAndBackEdge(l, i, b)
-#else
-# define GET_INCOMING_AND_BACK_EDGE(l, i, b) l->getIncomingAndBackEdge(i, b)
-#endif
+	SmallVector<BasicBlock *, 4> latches;
+	l->getLoopLatches(latches);
 
-bool SpinAssumePass::transformLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
-{
-        llvm::BasicBlock *incoming, *backedge;
-	TerminatorInst *ei;
-	llvm::BranchInst *bi;
-
-	/* Is the incoming/backedge unique? */
-	if (!GET_INCOMING_AND_BACK_EDGE(l, incoming, backedge))
-		return false;
-
-	/* Is the last instruction of the loop a branch? */
-	ei = backedge->getTerminator();
-	BUG_ON(!ei);
-	bi = llvm::dyn_cast<llvm::BranchInst>(ei);
-	if (!bi || bi->isConditional())
-		return false;
-
-	/* If liveness checks are specified, also mark the start of the spinloop */
-	if (liveness)
-		addSpinStartCall(l->getHeader());
-	addSpinEndCallBeforeInstruction(bi);
-	removeDisconnectedBlocks(l);
-	return true;
-}
-
-bool SpinAssumePass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
-{
-	bool modified = false;
-	if (isSpinLoop(l)) {
-		if (transformLoop(l, lpm)) {
-#ifdef LLVM_HAVE_LOOPINFO_ERASE
-			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().erase(l);
-			lpm.markLoopAsDeleted(*l);
-#elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
-			lpm.getAnalysis<llvm::LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
-#else
-			lpm.deleteLoopFromQueue(l);
-#endif
+	auto spinloop = true;
+	auto modified = false;
+	for (auto &latch : latches) {
+		if (isPathToHeaderEffectFree(latch, l) ||
+		    isPathToHeaderCASClean(latch, l)) {
 			modified = true;
+			addSpinEndCallBeforeTerm(latch, header);
+		} else if (isPathToHeaderZNE(latch, l)) {
+			modified = true;
+			addPotentialSpinEndCallBeforeLastFai(latch, header);
+		} else {
+			spinloop = false;
 		}
 	}
+
+	/* If the transformation applied in all backedges, this is not a loop */
+	if (!spinloop)
+		return modified;
+
+	/* Mark spinloop starts if we have to */
+	if (markStarts)
+		addSpinStartCall(header);
+
+#ifdef LLVM_HAVE_LOOPINFO_ERASE
+	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().erase(l);
+	lpm.markLoopAsDeleted(*l);
+#elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
+	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
+#else
+	lpm.deleteLoopFromQueue(l);
+#endif
+	removeDisconnectedBlocks(l);
 	return modified;
+}
+
+Pass *createSpinAssumePass(bool markStarts /* = false */)
+{
+	auto *p = new SpinAssumePass();
+	p->markSpinloopStarts(markStarts);
+	return p;
 }
 
 char SpinAssumePass::ID = 42;

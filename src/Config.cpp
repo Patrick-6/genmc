@@ -21,7 +21,6 @@
 #include "config.h"
 #include "Config.hpp"
 #include "Error.hpp"
-#include <llvm/ADT/ArrayRef.h>	// needed for 3.5
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -159,8 +158,17 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 	     llvm::cl::cat(clTransformation),
 	     llvm::cl::desc("Unroll loops N times"));
 static llvm::cl::opt<bool>
+clDisableLoopJumpThreading("disable-loop-jump-threading", llvm::cl::cat(clTransformation),
+			   llvm::cl::desc("Disable loop-jump-threading transformation"));
+static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
+static llvm::cl::opt<bool>
+clDisableCodeCondenser("disable-code-condenser", llvm::cl::cat(clTransformation),
+		       llvm::cl::desc("Disable code-condenser transformation"));
+static llvm::cl::opt<bool>
+clDisableLoadAnnot("disable-load-annotation", llvm::cl::cat(clTransformation),
+		       llvm::cl::desc("Disable load-annotation transformation"));
 
 
 /* Debugging options */
@@ -270,7 +278,10 @@ void Config::saveConfigOptions()
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;
+	loopJumpThreading = !clDisableLoopJumpThreading;
 	spinAssume = !clDisableSpinAssume;
+	codeCondenser = !clDisableCodeCondenser;
+	loadAnnot = !clDisableLoadAnnot;
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;

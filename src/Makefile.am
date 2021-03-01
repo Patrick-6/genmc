@@ -11,6 +11,9 @@ noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
   ARCalculator.cpp ARCalculator.hpp \
+  BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
+  CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
+  CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \
   CoherenceCalculator.hpp \
@@ -33,24 +36,30 @@ libgenmc_a_SOURCES = \
   GraphBuilder.hpp \
   IMMDepTracker.hpp \
   IMMDriver.cpp IMMDriver.hpp \
+  InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \
+  LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
+  LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
-  MOCoherenceCalculator.hpp MOCoherenceCalculator.cpp \
-  ModuleInfo.hpp \
+  MOCalculator.hpp MOCalculator.cpp \
+  ModuleInfo.cpp ModuleInfo.hpp \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
+  SExpr.cpp SExpr.hpp \
+  SExprVisitor.cpp SExprVisitor.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
-  WBCoherenceCalculator.cpp WBCoherenceCalculator.hpp \
+  WBCalculator.cpp WBCalculator.hpp \
   WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \

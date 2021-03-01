@@ -22,6 +22,7 @@
 #include "CallInstWrapper.hpp"
 #include "Error.hpp"
 #include "MDataCollectionPass.hpp"
+#include "LLVMUtils.hpp"
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DebugInfo.h>
@@ -279,12 +280,12 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 bool isSyscallWPathname(CallInst *CI)
 {
 	/* Use getCalledValue() to deal with indirect invocations too */
-	auto name = CallInstWrapper(CI).getCalledOperand()->getName().str();
-	if (!IS_INTERNAL_FUNCTION(name))
+	auto name = getCalledFunOrStripValName(*CI);
+	if (!isInternalFunction(name))
 		return false;
 
 	auto icode = internalFunNames.at(name);
-	return IS_FS_INODE_FN_CODE(icode);
+	return isFsInodeCode(icode);
 }
 
 void initializeFilenameEntry(FsInfo &FI, Value *v)
@@ -346,6 +347,11 @@ bool MDataCollectionPass::runOnModule(Module &M)
 
 	collected = true;
 	return false;
+}
+
+ModulePass *createMDataCollectionPass(VariableInfo &VI, FsInfo &FI)
+{
+	return new MDataCollectionPass(VI, FI);
 }
 
 char MDataCollectionPass::ID = 42;

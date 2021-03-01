@@ -532,20 +532,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::LoopInfo::erase exists])],
   [AC_MSG_RESULT([no])])
 
-## Check whether llvm::LoopInfo::getIncomingAndBackEdge exists (>= llvm 9)
-AC_MSG_CHECKING([whether llvm::LoopInfo::getIncomingAndBackEdge exists])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::BasicBlock *BB = nullptr;
-  llvm::Loop *L = nullptr;
-  L->getIncomingAndBackEdge(BB, BB);
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([LLVM_HAVE_LOOPINFO_GETINCANDBACKEDGE],[1],
-   [Define if llvm::LoopInfo::getIncomingAndBackEdge exists])],
-  [AC_MSG_RESULT([no])])
-
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -558,6 +544,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_DEFINE([LLVM_GET_ANALYSIS_LOOP_INFO],[1],
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
+
+## Check how to get post-dominators (> llvm 3.8)
+AC_MSG_CHECKING([how to get PostDominator analysis])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/PostDominators.h>
+]],[[
+  llvm::PostDominatorTreeWrapperPass *PDP = 0;
+]])],
+  [AC_MSG_RESULT([llvm::PostDominatorTreeWrapperPass])
+   AC_DEFINE([LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS],[1],
+   [Define if llvm::PostDominatorTreeWrapperPass exists.])],
+   [AC_MSG_RESULT([llvm::PostDominatorTree])])
 
 ## Check if llvm::cl::getRegisteredOptions takes an argument
 AC_MSG_CHECKING([if llvm::cl::getRegisteredOptions takes an argument.])
@@ -666,6 +664,32 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    AC_DEFINE([LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED],[1],
    [Define if llvm::LoopInfo::markAsRemoved exists])],
   [AC_MSG_RESULT([no])])
+
+## Check whether llvm::df_iterator_default_set exists
+AC_MSG_CHECKING([for llvm::df_iterator_default_set])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/ADT/DepthFirstIterator.h>
+]],[[
+  llvm::df_iterator_default_set<int *> Reachable;
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_DF_ITERATOR_DEFAULT_SET],[1],
+   [Define if llvm::df_iterator_default_set exists])],
+  [AC_MSG_RESULT([no])])
+
+## Check whether llvm::EliminateUnreachableBlocks exists
+AC_MSG_CHECKING([for llvm::EliminateUnreachableBlocks])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
+]],[[
+  llvm::Function *F = nullptr;
+  llvm::EliminateUnreachableBlocks(*F);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS],[1],
+   [Define if llvm::EliminateUnreachableBlocks exists])],
+  [AC_MSG_RESULT([no])])
+
 
 ## Check if initializeIPA exists
 AC_MSG_CHECKING([for llvm::initializeIPA])

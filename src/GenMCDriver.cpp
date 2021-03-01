@@ -26,6 +26,7 @@
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "Parser.hpp"
+#include "SExprVisitor.hpp"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
@@ -52,7 +53,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), MI, this, getConf(), &buf));
+		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(), &buf));
 
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
@@ -738,12 +739,15 @@ bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 }
 
-bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e, ProgramPoint p /* = step */)
+bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e,
+			      bool checkCache /* = false */, ProgramPoint p /* = step */)
 {
 	auto &g = getGraph();
 
-	if (!shouldCheckCons(p))
-		return g.getCoherenceCalculator()->isCoMaximal(addr, e);
+	if (!shouldCheckCons(p)) {
+		auto *cc = g.getCoherenceCalculator();
+		return checkCache ? cc->isCachedCoMaximal(addr, e) : cc->isCoMaximal(addr, e);
+	}
 
 	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
 	return (e.isInitializer() && coLoc.empty()) ||
@@ -1206,6 +1210,27 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 	return;
 }
 
+bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+						 const SExpr *annot,
+						 std::vector<Event> &validStores)
+{
+	if (!annot)
+		return false;
+
+	BUG_ON(validStores.empty());
+	/* For WB, there might be many maximal ones */
+	auto shouldBlock =
+		std::any_of(validStores.begin(), validStores.end(),
+			    [&](const Event &s){ return isCoMaximal(addr, s, true) &&
+					    !SExprEvaluator().evaluate(annot, getWriteValue(s, addr, typ)); });
+	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
+		return !isCoMaximal(addr, w, true) &&
+		       !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, typ)); }),
+		validStores.end());
+
+	return shouldBlock;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1420,6 +1445,7 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 				llvm::AtomicOrdering ord,
 				const llvm::GenericValue *addr,
 				llvm::Type *typ,
+				std::unique_ptr<SExpr> annot,
 				const llvm::GenericValue &cmpVal,
 				const llvm::GenericValue &rmwVal,
 				llvm::AtomicRMWInst::BinOp op,
@@ -1430,22 +1456,71 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 	switch (attr) {
 	case llvm::Interpreter::IA_None:
 		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
-						 addr, typ, store));
+						 addr, typ, store, std::move(annot)));
 		break;
 	case llvm::Interpreter::IA_Fai:
 		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
-						    addr, typ, store, op, rmwVal));
+						    addr, typ, store, std::move(annot), op, rmwVal));
 		break;
 	case llvm::Interpreter::IA_Cas:
 	case llvm::Interpreter::IA_Lock:
 		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
-						    store, cmpVal, rmwVal,
+						    store, std::move(annot), cmpVal, rmwVal,
 						    attr == llvm::Interpreter::IA_Lock));
 		break;
 	default:
 		BUG();
 	}
 	return getGraph().addReadLabelToGraph(std::move(rLab), store);
+}
+
+const WriteLabel *locatePreviousFaiWrite(ExecutionGraph &g, const PotentialSpinEndLabel *lab)
+{
+	for (auto j = lab->getIndex() - 1; j > 0; j--) {
+		if (auto *wLab = llvm::dyn_cast<FaiWriteLabel>(
+			    g.getEventLabel(Event(lab->getThread(), j)))) {
+			return wLab;
+		}
+	}
+	return nullptr;
+}
+
+void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto &thr = EE->getThrById(i);
+
+		/* Is there any thread blocked on a potential spinloop? */
+		auto *eLab = llvm::dyn_cast<PotentialSpinEndLabel>(g.getLastThreadLabel(i));
+		if (!eLab)
+			continue;
+
+		/* Check whether this access affects the spinloop variable */
+		auto *faiLab = locatePreviousFaiWrite(g, eLab);
+		if (faiLab->getAddr() != lab->getAddr())
+			continue;
+		if (llvm::isa<FaiWriteLabel>(lab)) /* FAIs on the same variable are OK... */
+			continue;
+
+		/* If it does, and also breaks the assumptions, unblock thread */
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			auto *rfLab = g.getEventLabel(rLab->getRf());
+			if (auto *wLab = llvm::dyn_cast<FaiWriteLabel>(rfLab)) {
+				if (wLab->getReadersList().size() >= 2)
+					thr.unblock();
+			}
+		} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			auto &stores = g.getStoresToLoc(wLab->getAddr());
+			if (std::all_of(stores.rend(), stores.rbegin(), [&](Event s){
+				return !isHbBefore(wLab->getPos(), s);
+			}))
+				thr.unblock();
+		}
+	}
+	return;
 }
 
 llvm::GenericValue
@@ -1458,10 +1533,11 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 		       llvm::AtomicRMWInst::BinOp op)
 {
 	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
+	auto *EE = getEE();
+	auto &thr = EE->getCurThr();
 
 	if (inRecoveryMode()) {
-		Event recLast = getEE()->getCurrentPosition();
+		Event recLast = EE->getCurrentPosition();
 		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
 		BUG_ON(rf.isInitializer());
 		return getWriteValue(rf, addr, typ);
@@ -1482,7 +1558,8 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	 * consistency checks may be triggered if the access is invalid */
 	getGraph().trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
-		createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, Event::getInitializer());
+		createAddReadLabel(attr, ord, addr, typ, nullptr, cmpVal,
+				   rmwVal, op, Event::getInitializer());
 		visitError(DE_AccessNonMalloc);
 		return GET_ZERO_GV(typ); /* Return some value; this execution will be blocked */
 	}
@@ -1494,12 +1571,21 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 	if (getConf()->symmetryReduction)
 		filterSymmetricStoresSR(addr, typ, validStores);
 
+	/* If this load is annotatable, try and keep interesting values only */
+	auto annot = EE->getCurrentAnnotConcretized();
+	if (annot.get())
+		filterUninterestingValuesSAVER(addr, typ, annot.get(), validStores);
+
 	/* ... add an appropriate label with a random rf */
-	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, cmpVal, rmwVal, op, validStores[0]);
+	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, std::move(annot),
+						  cmpVal, rmwVal, op, validStores[0]);
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, validStores))
 		return GET_ZERO_GV(typ);
+
+	/* Check whether the load forces us to reconsider some potential spinloop */
+	checkReconsiderFaiSpinloop(lab);
 
 	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces();
@@ -1596,6 +1682,8 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
 	if (!ensureConsistentStore(lab))
 		return;
+
+	checkReconsiderFaiSpinloop(lab);
 
 	/* Check for races */
 	checkForDataRaces();
@@ -1834,10 +1922,13 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			    loads.end());
 
 	for (auto &l : loads) {
-		const EventLabel *lab = g.getEventLabel(l);
+		auto *lab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<ReadLabel>(lab));
 
 		auto *rLab = static_cast<const ReadLabel *>(lab);
+
+		if (rLab->getAnnot() && !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal()))
+			continue;
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
@@ -2422,6 +2513,50 @@ void GenMCDriver::visitSpinStart()
 
 	auto lab = createSpinStartLabel(pos.thread, pos.index);
 	getGraph().addOtherLabelToGraph(std::move(lab));
+	return;
+}
+
+bool GenMCDriver::areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab)
+{
+	auto &g = getGraph();
+
+	auto *wLab = locatePreviousFaiWrite(g, lab);
+	BUG_ON(!wLab);
+
+	auto &stores = g.getStoresToLoc(wLab->getAddr());
+	BUG_ON(stores.empty());
+
+	/* All stores in the RMW chain need to be read from at most 1 read,
+	 * and there need to be no other stores that are not hb-before lab */
+	for (auto it = stores.begin(), ie = stores.end(); it != ie; ++it) {
+		auto *sLab = static_cast<const WriteLabel *>(g.getEventLabel(*it));
+		if (auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(sLab)) {
+			if (faiLab->getReadersList().size() >= 2)
+				return false;
+		} else {
+			if (!isHbBefore(sLab->getPos(), wLab->getPos()))
+				return false;
+		}
+	}
+	return true;
+}
+
+void GenMCDriver::visitPotentialSpinEnd()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* If there are more events after this one, it is not a spin loop*/
+	if (isExecutionDrivenByGraph() &&
+	    EE->getCurrentPosition().index < g.getLastThreadEvent(EE->getCurrentPosition().thread).index)
+		return;
+
+	auto pos = EE->getCurrentPosition();
+	auto lab = createPotentialSpinEndLabel(pos.thread, pos.index);
+	auto *eLab = getGraph().addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
+
+	if (areFaiSpinloopConstraintsSat(static_cast<const PotentialSpinEndLabel *>(eLab)))
+		getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_FaiSpinloop);
 	return;
 }
 

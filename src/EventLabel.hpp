@@ -24,6 +24,7 @@
 #include "Event.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
+#include "SExpr.hpp"
 #include "View.hpp"
 #include <llvm/IR/Instructions.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -56,6 +57,7 @@ public:
 		EL_ThreadCreate,
 		EL_ThreadJoin,
 		EL_SpinStart,
+		EL_PotentialSpinEnd,
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_FaiRead,
@@ -293,6 +295,25 @@ public:
 };
 
 
+/*******************************************************************************
+ **                            PotentialSpinEndLabel Class
+ ******************************************************************************/
+
+/* A label that marks the end of a potential spinloop. If the loop turns out to be not
+ * a spinloop, this is meaningless; otherwise, it indicates that the thread should block */
+class PotentialSpinEndLabel : public EventLabel {
+
+public:
+
+	PotentialSpinEndLabel(unsigned int st, Event pos)
+		: EventLabel(EL_PotentialSpinEnd, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	PotentialSpinEndLabel *clone() const override { return new PotentialSpinEndLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_PotentialSpinEnd; }
+};
+
 
 /*******************************************************************************
  **                       MemAccessLabel Class (Abstract)
@@ -341,22 +362,25 @@ protected:
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
-		  const llvm::Type *typ, Event rf)
+		  const llvm::Type *typ, Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
-		  Event rf)
+		  Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
+
+	/* SAVer: Returns the expression with which this load is annotated */
+	const SExpr *getAnnot() const { return annotExpr.get(); }
 
 	ReadLabel *clone() const override { return new ReadLabel(*this); }
 
@@ -380,6 +404,10 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
+
+	/* SAVer: Expression for annotatable loads. Shared between clones
+	 * for easier copying, but clones will not be revisitable anyway */
+	std::shared_ptr<SExpr> annotExpr;
 };
 
 
@@ -398,8 +426,9 @@ protected:
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
-		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val)
-		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf),
+		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, std::move(annot)),
 		  binOp(op), opValue(val) {}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
@@ -437,8 +466,8 @@ public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
-		     bool lockCas = false)
-		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf),
+		     bool lockCas = false, std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, std::move(annot)),
 		  expected(exp), swapValue(swap), lockCas(lockCas) {}
 
 	/* Returns the value that will make this CAS succeed */

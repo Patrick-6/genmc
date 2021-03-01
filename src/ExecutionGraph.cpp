@@ -21,9 +21,9 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "Library.hpp"
-#include "MOCoherenceCalculator.hpp"
+#include "MOCalculator.hpp"
 #include "Parser.hpp"
-#include "WBCoherenceCalculator.hpp"
+#include "WBCalculator.hpp"
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
@@ -394,9 +394,10 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *add
 const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
 						     Event rf)
 {
-	EventLabel *rfLab = getEventLabel(rf);
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
-		wLab->addReader(lab->getPos());
+	if (!lab->getRf().isBottom()) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf()))) {
+			wLab->addReader(lab->getPos());
+		}
 	}
 
 	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
@@ -1074,8 +1075,8 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 void ExecutionGraph::changeStoreOffset(const llvm::GenericValue *addr,
 				     Event s, int newOffset)
 {
-	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
-	auto *cohTracker = static_cast<MOCoherenceCalculator *>(
+	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCalculator *>(
 		getCoherenceCalculator());
 
 	cohTracker->changeStoreOffset(addr, s, newOffset);
@@ -1329,8 +1330,8 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				    std::vector<Event> &tos)
 {
 	auto *cc = getCoherenceCalculator();
-	BUG_ON(!llvm::isa<WBCoherenceCalculator>(cc));
-	auto *cohTracker = static_cast<WBCoherenceCalculator *>(cc);
+	BUG_ON(!llvm::isa<WBCalculator>(cc));
+	auto *cohTracker = static_cast<WBCalculator *>(cc);
 	std::vector<Event> buf;
 
 	for (auto i = 0u; i < froms.size(); i++) {
@@ -1367,8 +1368,8 @@ void ExecutionGraph::getMoEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 {
 	std::vector<Event> buf;
 
-	BUG_ON(!llvm::isa<MOCoherenceCalculator>(getCoherenceCalculator()));
-	auto *cohTracker = static_cast<MOCoherenceCalculator *>(getCoherenceCalculator());
+	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
+	auto *cohTracker = static_cast<MOCalculator *>(getCoherenceCalculator());
 
 	for (auto i = 0u; i < froms.size(); i++) {
 		buf = {};

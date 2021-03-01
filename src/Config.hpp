@@ -61,7 +61,10 @@ public:
 
 	/* Transformation options */
 	int unroll;
+	bool loopJumpThreading;
 	bool spinAssume;
+	bool codeCondenser;
+	bool loadAnnot;
 
 	/* Debugging options */
 	bool countDuplicateExecs;

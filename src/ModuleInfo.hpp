@@ -28,12 +28,15 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Value.h>
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 /*
  * Information kept about the module under test by the interpreter.
  */
+
+class SExpr;
 
 /*
  * VariableInfo struct -- This struct contains source-code level (naming)
@@ -56,6 +59,22 @@ struct VariableInfo {
   std::unordered_map<llvm::Value *, NameInfo> globalInfo;
   std::unordered_map<llvm::Value *, NameInfo> localInfo;
   std::unordered_map<InternalType, NameInfo> internalInfo;
+};
+
+/*
+ * SAVer: AnnotationInfo struct -- Contains annotations for loads used by assume()s
+ */
+struct AnnotationInfo {
+
+  using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
+
+  /* Forward declarations (pimpl-style) */
+  AnnotationInfo();
+  AnnotationInfo(AnnotationInfo &&other);
+  ~AnnotationInfo();
+  AnnotationInfo &operator=(AnnotationInfo &&other);
+
+  AnnotUM annotMap;
 };
 
 /*
@@ -100,6 +119,7 @@ struct FsInfo {
 struct ModuleInfo {
 
   VariableInfo varInfo;
+  AnnotationInfo annotInfo;
   FsInfo fsInfo;
 };
 

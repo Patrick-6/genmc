@@ -210,6 +210,11 @@ bool LoopUnrollPass::runOnLoop(llvm::Loop *l, llvm::LPPassManager &lpm)
 	return true;
 }
 
+llvm::Pass *createLoopUnrollPass(int depth)
+{
+	return new LoopUnrollPass(depth);
+}
+
 char LoopUnrollPass::ID = 42;
 // static llvm::RegisterPass<LoopUnrollPass> P("loop-unroll",
 // 					    "Unrolls all loops at LLVM-IR level.");

@@ -92,7 +92,7 @@ build_stage() {
     echo "  script:"
     echo "    - autoreconf --install"
     echo "    - ${!cmd}"
-    echo "    - make"
+    echo "    - make -j `sysctl -n hw.ncpu`"
     echo ""
 }
 
