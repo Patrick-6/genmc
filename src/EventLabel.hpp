@@ -161,7 +161,7 @@ public:
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
 	static EventLabel *castFromDskAccessLabel(const DskAccessLabel *);
 
-	virtual ~EventLabel() {}
+	virtual ~EventLabel() = default;
 
 	/* Returns a clone object (virtual to allow deep copying from base) */
 	virtual EventLabel *clone() const = 0;

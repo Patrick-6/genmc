@@ -63,7 +63,7 @@ public:
 	/* Returns the discriminator of this object */
 	CoherenceCalculatorKind getKind() const { return kind; }
 
-	virtual ~CoherenceCalculator() {}
+	virtual ~CoherenceCalculator() = default;
 
 	/* Track coherence at location addr */
 	virtual void
