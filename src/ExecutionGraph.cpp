@@ -21,16 +21,18 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "Library.hpp"
+#include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
 #include "WBCalculator.hpp"
+#include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : timestamp(1)
+ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -48,6 +50,7 @@ ExecutionGraph::ExecutionGraph() : timestamp(1)
 	return;
 }
 
+ExecutionGraph::~ExecutionGraph() = default;
 
 /************************************************************
  ** Basic getter methods
@@ -573,6 +576,12 @@ const std::vector<Calculator *> ExecutionGraph::getPartialCalcs() const
 	for (auto i = 0u; i < partialConsCalculators.size(); i++)
 		result.push_back(consistencyCalculators[partialConsCalculators[i]].get());
 	return result;
+}
+
+void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc)
+{
+	persChecker = std::move(pc);
+	return;
 }
 
 void ExecutionGraph::doInits(bool full /* = false */)

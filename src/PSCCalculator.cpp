@@ -19,6 +19,8 @@
  */
 
 #include "PSCCalculator.hpp"
+#include "Error.hpp"
+#include "ExecutionGraph.hpp"
 #include "WBCalculator.hpp"
 
 std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const

@@ -19,6 +19,7 @@
  */
 
 #include "MOCalculator.hpp"
+#include "ExecutionGraph.hpp"
 #include <vector>
 
 void MOCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)

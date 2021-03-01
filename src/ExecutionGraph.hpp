@@ -71,7 +71,7 @@ protected:
 	ExecutionGraph();
 
 public:
-	virtual ~ExecutionGraph() {};
+	virtual ~ExecutionGraph();
 
 	/* Iterators */
 	using iterator = Graph::iterator;
@@ -290,9 +290,7 @@ public:
 	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
 
 	/* Pers: Adds a persistency checker to the graph */
-	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc) {
-		persChecker = std::move(pc);
-	}
+	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc);
 
 	/* Pers: Returns the persistency checker */
 	PersistencyChecker *getPersChecker() const {
@@ -525,7 +523,7 @@ private:
 	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
 
 	/* Pers: An object calculating persistency relations */
-	std::unique_ptr<PersistencyChecker> persChecker = nullptr;
+	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the
@@ -567,10 +565,5 @@ bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, 
 			return true;
 	return false;
 }
-
-#include "CoherenceCalculator.hpp"
-#include "LBCalculatorLAPOR.hpp"
-#include "PSCCalculator.hpp"
-#include "PersistencyChecker.hpp"
 
 #endif /* __EXECUTION_GRAPH_HPP__ */
