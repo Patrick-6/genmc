@@ -590,6 +590,12 @@ void ExecutionGraph::doInits(bool full /* = false */)
 	populateHbEntries(hb);
 	hb.transClosure();
 
+	/* Clear out unused locations */
+	for (auto i = 0u; i < perLocRelations.size(); i++) {
+		perLocRelations[i].clear();
+		perLocRelationsCache[i].clear();
+       }
+
 	auto &calcs = consistencyCalculators;
 	auto &partial = partialConsCalculators;
 	for (auto i = 0u; i < calcs.size(); i++) {
