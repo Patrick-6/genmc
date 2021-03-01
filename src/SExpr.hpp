@@ -35,7 +35,7 @@
  * nodes. That, however, would complicate cloning a bit, which does occur
  * frequently in the current setting. Given that the expressions constructed
  * are probably going to be small,
- *
+ */
 
 /*
  * The hierarchy below is largely inspired from the KLEE one:
@@ -389,7 +389,7 @@ public:													  \
 	std::unique_ptr<SExpr> clone() const override {                              		  	  \
 		std::vector<std::unique_ptr<SExpr> > kidsCopy; 				  		  \
 		std::for_each(getKids().begin(), getKids().end(),		                          \
-			      [&](const std::unique_ptr<SExpr> &s){ kidsCopy.push_back(std::move(s->clone())); }); \
+			      [&](const std::unique_ptr<SExpr> &s){ kidsCopy.push_back(s->clone()); });   \
 		return create(std::move(kidsCopy));							  \
 	}                                                                                                 \
 								                                          \

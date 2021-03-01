@@ -955,7 +955,7 @@ public:
 	const void *getInode() const { return inode; }
 
 	/* Returns the "size" of this fsync()'s range */
-	const unsigned int getSize() const { return size; }
+	unsigned int getSize() const { return size; }
 
 	DskFsyncLabel *clone() const override { return new DskFsyncLabel(*this); }
 

@@ -24,9 +24,9 @@
 #include "config.h"
 #include <llvm/Pass.h>
 
-class VariableInfo;
-class AnnotationInfo;
-class FsInfo;
+struct VariableInfo;
+struct AnnotationInfo;
+struct FsInfo;
 
 /*
  * Finds all bisimilarity pairs in a function.

@@ -35,7 +35,7 @@
 #include <unordered_set>
 
 namespace llvm {
-	class ExecutionContext;
+	struct ExecutionContext;
 	class Interpreter;
 }
 class ExecutionGraph;

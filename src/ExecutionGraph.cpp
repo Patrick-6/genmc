@@ -771,7 +771,7 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 			}
 		}
 	}
-	relation = std::move(AdjList<Event, EventHasher>(std::move(elems)));
+	relation = AdjList<Event, EventHasher>(std::move(elems));
 	for (auto &e : edges)
 		relation.addEdge(e.first, e.second);
 	return;
