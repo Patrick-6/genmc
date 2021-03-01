@@ -1124,27 +1124,26 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const llvm::GenericValue *pt
 }
 
 std::vector<Event>
-GenMCDriver::properlyOrderStores(llvm::Interpreter::InstAttr attr,
+GenMCDriver::properlyOrderStores(InstAttr attr,
 				 llvm::Type *typ,
 				 const llvm::GenericValue *ptr,
 				 llvm::GenericValue &expVal,
 				 std::vector<Event> &stores)
 {
-	if (attr == llvm::Interpreter::IA_None ||
-	    attr == llvm::Interpreter::IA_Unlock)
+	if (!isRMWAttr(attr))
 		return stores;
 
 	const auto &g = getGraph();
 	auto curr = getEE()->getCurrentPosition().prev();
 	auto &before = g.getPrefixView(curr);
 
-	if (attr == llvm::Interpreter::IA_Lock)
+	if (attr == InstAttr::IA_Lock)
 		return filterAcquiredLocks(ptr, stores, before);
 
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
 		auto oldVal = getWriteValue(s, ptr, typ);
-		if ((attr == llvm::Interpreter::IA_Fai ||
+		if ((attr == InstAttr::IA_Fai ||
 		     EE->compareValues(typ, oldVal, expVal)) &&
 		    g.isStoreReadBySettledRMW(s, ptr, before))
 			continue;
@@ -1441,7 +1440,7 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 }
 
 const ReadLabel *
-GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
+GenMCDriver::createAddReadLabel(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				const llvm::GenericValue *addr,
 				llvm::Type *typ,
@@ -1454,19 +1453,19 @@ GenMCDriver::createAddReadLabel(llvm::Interpreter::InstAttr attr,
 	Event pos = getEE()->getCurrentPosition();
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
-	case llvm::Interpreter::IA_None:
+	case InstAttr::IA_None:
 		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
 						 addr, typ, store, std::move(annot)));
 		break;
-	case llvm::Interpreter::IA_Fai:
+	case InstAttr::IA_Fai:
 		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
 						    addr, typ, store, std::move(annot), op, rmwVal));
 		break;
-	case llvm::Interpreter::IA_Cas:
-	case llvm::Interpreter::IA_Lock:
+	case InstAttr::IA_Cas:
+	case InstAttr::IA_Lock:
 		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
 						    store, std::move(annot), cmpVal, rmwVal,
-						    attr == llvm::Interpreter::IA_Lock));
+						    attr == InstAttr::IA_Lock));
 		break;
 	default:
 		BUG();
@@ -1524,7 +1523,7 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 }
 
 llvm::GenericValue
-GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
+GenMCDriver::visitLoad(InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       const llvm::GenericValue *addr,
 		       llvm::Type *typ,
@@ -1599,7 +1598,7 @@ GenMCDriver::visitLoad(llvm::Interpreter::InstAttr attr,
 }
 
 const WriteLabel *
-GenMCDriver::createAddStoreLabel(llvm::Interpreter::InstAttr attr,
+GenMCDriver::createAddStoreLabel(InstAttr attr,
 				 llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *addr,
 				 llvm::Type *typ,
@@ -1608,21 +1607,21 @@ GenMCDriver::createAddStoreLabel(llvm::Interpreter::InstAttr attr,
 	auto pos = EE->getCurrentPosition();
 	std::unique_ptr<WriteLabel> wLab = nullptr;
 	switch (attr) {
-	case llvm::Interpreter::IA_None:
-	case llvm::Interpreter::IA_Unlock:
+	case InstAttr::IA_None:
+	case InstAttr::IA_Unlock:
 		wLab = std::move(createStoreLabel(pos.thread, pos.index, ord,
 						  addr, typ, val,
-						  attr == llvm::Interpreter::IA_Unlock));
+						  attr == InstAttr::IA_Unlock));
 		break;
-	case llvm::Interpreter::IA_Fai:
+	case InstAttr::IA_Fai:
 		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
 						     addr, typ, val));
 		break;
-	case llvm::Interpreter::IA_Cas:
-	case llvm::Interpreter::IA_Lock:
+	case InstAttr::IA_Cas:
+	case InstAttr::IA_Lock:
 		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
 						     addr, typ, val,
-						     attr == llvm::Interpreter::IA_Lock));
+						     attr == InstAttr::IA_Lock));
 		break;
 	default:
 		BUG();
@@ -1631,7 +1630,7 @@ GenMCDriver::createAddStoreLabel(llvm::Interpreter::InstAttr attr,
 	return getGraph().addWriteLabelToGraph(std::move(wLab), moPos);
 }
 
-void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
+void GenMCDriver::visitStore(InstAttr attr,
 			     llvm::AtomicOrdering ord,
 			     const llvm::GenericValue *addr,
 			     llvm::Type *typ,
@@ -1655,8 +1654,7 @@ void GenMCDriver::visitStore(llvm::Interpreter::InstAttr attr,
 
 	/* Find all possible placings in coherence for this store */
 	auto placesRange =
-		getGraph().getCoherentPlacings(addr, pos, attr != llvm::Interpreter::IA_None &&
-					       attr != llvm::Interpreter::IA_Unlock);
+		getGraph().getCoherentPlacings(addr, pos, isRMWAttr(attr));
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 
@@ -1718,12 +1716,12 @@ void GenMCDriver::visitLock(const llvm::GenericValue *addr, llvm::Type *typ)
 		return;
 	}
 
-	auto ret = visitLoad(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
+	auto ret = visitLoad(InstAttr::IA_Lock, llvm::AtomicOrdering::Acquire,
 			     addr, typ, INT_TO_GV(typ, 0), INT_TO_GV(typ, 1));
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
 	if (!rLab->getRf().isBottom() && EE->compareValues(typ, INT_TO_GV(typ, 0), ret)) {
-		visitStore(llvm::Interpreter::IA_Lock, llvm::AtomicOrdering::Acquire,
+		visitStore(InstAttr::IA_Lock, llvm::AtomicOrdering::Acquire,
 			   addr, typ, INT_TO_GV(typ, 1));
 	} else {
 		EE->getCurThr().block(llvm::Thread::BlockageType::BT_LockAcq);
@@ -1756,8 +1754,7 @@ void GenMCDriver::visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ)
 		return;
 	}
 
-	visitStore(llvm::Interpreter::IA_Unlock,
-		   llvm::AtomicOrdering::Release, addr, typ, INT_TO_GV(typ, 0));
+	visitStore(InstAttr::IA_Unlock, llvm::AtomicOrdering::Release, addr, typ, INT_TO_GV(typ, 0));
 	return;
 }
 
@@ -2100,7 +2097,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 }
 
 std::pair<llvm::GenericValue, bool>
-GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
+GenMCDriver::visitLibLoad(InstAttr attr,
 			  llvm::AtomicOrdering ord,
 			  const llvm::GenericValue *addr,
 			  llvm::Type *typ,
@@ -2211,7 +2208,7 @@ GenMCDriver::visitLibLoad(llvm::Interpreter::InstAttr attr,
 			      lab->getRf().isInitializer());
 }
 
-void GenMCDriver::visitLibStore(llvm::Interpreter::InstAttr attr,
+void GenMCDriver::visitLibStore(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				const llvm::GenericValue *addr,
 				llvm::Type *typ,
@@ -2391,7 +2388,7 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 void
 GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 			   const llvm::GenericValue &val, void *mapping,
-			   llvm::Interpreter::InstAttr attr /* = IA_None */,
+			   InstAttr attr /* = IA_None */,
 			   std::pair<void *, void *> ordDataRange /* = (NULL, NULL) */,
 			   void *transInode /* = NULL */)
 {
@@ -2414,19 +2411,19 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	std::unique_ptr<DskWriteLabel> wLab = nullptr;
 	auto ord = llvm::AtomicOrdering::Release;
 	switch (attr) {
-	case llvm::Interpreter::IA_None:
+	case InstAttr::IA_None:
 		wLab = createDskWriteLabel(pos.thread, pos.index, ord,
 					   addr, typ, val, mapping);
 		break;
-	case llvm::Interpreter::IA_DskMdata:
+	case InstAttr::IA_DskMdata:
 		wLab = createDskMdWriteLabel(pos.thread, pos.index, ord,
 					     addr, typ, val, mapping, ordDataRange);
 		break;
-	case llvm::Interpreter::IA_DskDirOp:
+	case InstAttr::IA_DskDirOp:
 		wLab = createDskDirWriteLabel(pos.thread, pos.index, ord,
 					      addr, typ, val, mapping);
 		break;
-	case llvm::Interpreter::IA_DskJnlOp:
+	case InstAttr::IA_DskJnlOp:
 		wLab = createDskJnlWriteLabel(pos.thread, pos.index, ord,
 					      addr, typ, val, mapping, transInode);
 		break;

@@ -100,8 +100,10 @@ public:
 
 	/* Returns the value this load reads */
 	llvm::GenericValue
-	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		  const llvm::GenericValue *addr, llvm::Type *typ,
+	visitLoad(InstAttr attr,
+		  llvm::AtomicOrdering ord,
+		  const llvm::GenericValue *addr,
+		  llvm::Type *typ,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -110,8 +112,10 @@ public:
 	/* Returns the value this load reads, as well as whether
 	 * the interpreter should block due to a blocking library read */
 	std::pair<llvm::GenericValue, bool>
-	visitLibLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		     const llvm::GenericValue *addr, llvm::Type *typ,
+	visitLibLoad(InstAttr attr,
+		     llvm::AtomicOrdering ord,
+		     const llvm::GenericValue *addr,
+		     llvm::Type *typ,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
@@ -121,26 +125,31 @@ public:
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
-	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		   const llvm::GenericValue *addr, llvm::Type *typ,
+	visitStore(InstAttr attr,
+		   llvm::AtomicOrdering ord,
+		   const llvm::GenericValue *addr,
+		   llvm::Type *typ,
 		   const llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
-	visitLibStore(llvm::Interpreter::InstAttr attr,
+	visitLibStore(InstAttr attr,
 		      llvm::AtomicOrdering ord,
-		      const llvm::GenericValue *addr, llvm::Type *typ,
-		      llvm::GenericValue &val, std::string functionName,
+		      const llvm::GenericValue *addr,
+		      llvm::Type *typ,
+		      llvm::GenericValue &val,
+		      std::string functionName,
 		      bool isInit = false);
 
 	/* A function modeling a write to disk has been interpreted */
 	void
-	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
-		      const llvm::GenericValue &val, void *mapping,
-		      llvm::Interpreter::InstAttr attr =
-		      llvm::Interpreter::InstAttr::IA_None,
+	visitDskWrite(const llvm::GenericValue *addr,
+		      llvm::Type *typ,
+		      const llvm::GenericValue &val,
+		      void *mapping,
+		      InstAttr attr = InstAttr::IA_None,
 		      std::pair<void *, void *> ordDataRange =
-		      std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
+		        std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
@@ -398,7 +407,7 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
-	std::vector<Event> properlyOrderStores(llvm::Interpreter::InstAttr attr,
+	std::vector<Event> properlyOrderStores(InstAttr attr,
 					       llvm::Type *typ,
 					       const llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal,
@@ -406,7 +415,7 @@ private:
 
 	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
 	const ReadLabel *
-	createAddReadLabel(llvm::Interpreter::InstAttr attr,
+	createAddReadLabel(InstAttr attr,
 			   llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *addr,
 			   llvm::Type *typ,
@@ -422,7 +431,7 @@ private:
 
 	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
 	const WriteLabel *
-	createAddStoreLabel(llvm::Interpreter::InstAttr attr,
+	createAddStoreLabel(InstAttr attr,
 			    llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *addr,
 			    llvm::Type *typ,
