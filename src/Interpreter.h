@@ -298,19 +298,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 public:
 
-  /* Enum to inform the driver about possible special attributes
-   * of the instruction being interpreted */
-  enum InstAttr {
-	  IA_None,
-	  IA_Fai,
-	  IA_Cas,
-	  IA_Lock,
-	  IA_Unlock,
-	  IA_DskMdata,
-	  IA_DskDirOp,
-	  IA_DskJnlOp,
-  };
-
   /* Pers: The state of the program -- i.e., part of the program being interpreted */
   enum ProgramState {
 	  PS_Main,

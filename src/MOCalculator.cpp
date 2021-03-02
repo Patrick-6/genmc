@@ -19,6 +19,7 @@
  */
 
 #include "MOCalculator.hpp"
+#include "ExecutionGraph.hpp"
 #include <vector>
 
 void MOCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
@@ -371,6 +372,7 @@ void MOCalculator::initCalc()
 	auto &gm = getGraph();
 	auto &coRelation = gm.getPerLocRelation(ExecutionGraph::RelationId::co);
 
+	coRelation.clear();
 	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
 		coRelation[locIt->first] = GlobalRelation(getStoresToLoc(locIt->first));
 		if (locIt->second.empty())
@@ -400,6 +402,12 @@ void MOCalculator::restorePrefix(const ReadLabel *rLab,
 {
 	const auto &g = getGraph();
 
+	for (const auto &lab : storePrefix) {
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab.get())) {
+			trackCoherenceAtLoc(mLab->getAddr());
+		}
+	}
+
 	auto insertedMO = 0u;
 	while (insertedMO < moPlacings.size()) {
 		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
@@ -421,11 +429,32 @@ void MOCalculator::restorePrefix(const ReadLabel *rLab,
 
 void MOCalculator::removeAfter(const VectorClock &preds)
 {
-	for (auto it = mo_.begin(); it != mo_.end(); ++it)
+	auto &g = getGraph();
+	VSet<const void *> keep;
+
+	/* Check which locations should be kept */
+	for (auto i = 0u; i < preds.size(); i++) {
+		for (auto j = 0u; j <= preds[i]; j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+				keep.insert(mLab->getAddr());
+		}
+	}
+
+	for (auto it = mo_.begin(); it != mo_.end(); /* empty */) {
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
 						[&](Event &e)
 						{ return !preds.contains(e); }),
 				 it->second.end());
+
+		/* Should we keep this memory location lying around? */
+		if (!keep.count(it->first)) {
+			BUG_ON(!it->second.empty());
+			it = mo_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 bool MOCalculator::locContains(const llvm::GenericValue *addr, Event e) const

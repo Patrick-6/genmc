@@ -21,7 +21,9 @@
 #ifndef __PERSISTENCY_CHECKER_HPP__
 #define __PERSISTENCY_CHECKER_HPP__
 
-#include "ExecutionGraph.hpp"
+#include "Calculator.hpp"
+
+class ExecutionGraph;
 
 /*******************************************************************************
  **                    PersistencyChecker Class

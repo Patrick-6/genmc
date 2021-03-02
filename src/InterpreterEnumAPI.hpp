@@ -25,6 +25,22 @@
 #include <string>
 #include <unordered_map>
 
+/* Used to inform the driver about possible special attributes of the
+ * instruction being interpreted */
+enum class InstAttr {
+	IA_None,
+	IA_Fai,
+	IA_Cas,
+	IA_Lock,
+	IA_Unlock,
+	IA_DskMdata,
+	IA_DskDirOp,
+	IA_DskJnlOp,
+};
+
+inline bool isRMWAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_Lock; }
+inline bool isDskAttr(InstAttr attr) { return attr >= InstAttr::IA_DskMdata && attr <= InstAttr::IA_DskJnlOp; }
+
 /* Pers: Journaling mount options */
 enum class JournalDataFS { writeback, ordered, journal };
 

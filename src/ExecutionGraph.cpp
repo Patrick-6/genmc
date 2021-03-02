@@ -21,16 +21,18 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "Library.hpp"
+#include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
 #include "WBCalculator.hpp"
+#include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
  ** Class Constructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : timestamp(1)
+ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -48,6 +50,7 @@ ExecutionGraph::ExecutionGraph() : timestamp(1)
 	return;
 }
 
+ExecutionGraph::~ExecutionGraph() = default;
 
 /************************************************************
  ** Basic getter methods
@@ -575,11 +578,23 @@ const std::vector<Calculator *> ExecutionGraph::getPartialCalcs() const
 	return result;
 }
 
+void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc)
+{
+	persChecker = std::move(pc);
+	return;
+}
+
 void ExecutionGraph::doInits(bool full /* = false */)
 {
 	auto &hb = globalRelations[relationIndex[RelationId::hb]];
 	populateHbEntries(hb);
 	hb.transClosure();
+
+	/* Clear out unused locations */
+	for (auto i = 0u; i < perLocRelations.size(); i++) {
+		perLocRelations[i].clear();
+		perLocRelationsCache[i].clear();
+       }
 
 	auto &calcs = consistencyCalculators;
 	auto &partial = partialConsCalculators;
@@ -756,7 +771,7 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 			}
 		}
 	}
-	relation = std::move(AdjList<Event, EventHasher>(std::move(elems)));
+	relation = AdjList<Event, EventHasher>(std::move(elems));
 	for (auto &e : edges)
 		relation.addEdge(e.first, e.second);
 	return;

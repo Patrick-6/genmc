@@ -22,7 +22,6 @@
 #define __MO_CALCULATOR_HPP__
 
 #include "CoherenceCalculator.hpp"
-#include "Error.hpp"
 #include <unordered_map>
 
 /*******************************************************************************

@@ -601,6 +601,7 @@ void WBCalculator::initCalc()
 	auto &g = getGraph();
 	auto &coRelation = g.getPerLocRelation(ExecutionGraph::RelationId::co);
 
+	coRelation.clear(); /* in case this is called directly (e.g., from PersChecker) */
 	for (auto it = stores_.begin(); it != stores_.end(); ++it)
 		coRelation[it->first] = calcWb(it->first);
 	return;
@@ -679,16 +680,40 @@ WBCalculator::restorePrefix(const ReadLabel *rLab,
 {
 	auto &g = getGraph();
 	for (const auto &lab : storePrefix) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab.get()))
-			addStoreToLoc(wLab->getAddr(), wLab->getPos(), 0);
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab.get())) {
+			trackCoherenceAtLoc(mLab->getAddr());
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(mLab))
+				addStoreToLoc(wLab->getAddr(), wLab->getPos(), 0);
+		}
 	}
 }
 
 void WBCalculator::removeAfter(const VectorClock &preds)
 {
-	for (auto it = stores_.begin(); it != stores_.end(); ++it)
+	auto &g = getGraph();
+	VSet<const void *> keep;
+
+	/* Check which locations should be kept */
+	for (auto i = 0u; i < preds.size(); i++) {
+		for (auto j = 0u; j <= preds[i]; j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+				keep.insert(mLab->getAddr());
+		}
+	}
+
+	for (auto it = stores_.begin(); it != stores_.end(); /* empty */) {
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
 						[&](Event &e)
 						{ return !preds.contains(e); }),
 				 it->second.end());
+
+		/* Should we keep this memory location lying around? */
+		if (!keep.count(it->first)) {
+			BUG_ON(!it->second.empty());
+			it = stores_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }

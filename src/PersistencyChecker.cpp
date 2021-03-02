@@ -19,6 +19,8 @@
  */
 
 #include "PersistencyChecker.hpp"
+#include "CoherenceCalculator.hpp"
+#include "ExecutionGraph.hpp"
 
 /************************************************************
  ** Helper functions

@@ -22,12 +22,12 @@
 #define __COHERENCE_CALCULATOR_HPP__
 
 #include "Calculator.hpp"
-#include "EventLabel.hpp"
-#include "ExecutionGraph.hpp"
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
 #include <vector>
+
+class ExecutionGraph;
 
 /*******************************************************************************
  **                      CoherenceCalculator Class (Abstract)
@@ -63,7 +63,7 @@ public:
 	/* Returns the discriminator of this object */
 	CoherenceCalculatorKind getKind() const { return kind; }
 
-	virtual ~CoherenceCalculator() {}
+	virtual ~CoherenceCalculator() = default;
 
 	/* Track coherence at location addr */
 	virtual void

@@ -161,7 +161,7 @@ public:
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
 	static EventLabel *castFromDskAccessLabel(const DskAccessLabel *);
 
-	virtual ~EventLabel() {}
+	virtual ~EventLabel() = default;
 
 	/* Returns a clone object (virtual to allow deep copying from base) */
 	virtual EventLabel *clone() const = 0;
@@ -955,7 +955,7 @@ public:
 	const void *getInode() const { return inode; }
 
 	/* Returns the "size" of this fsync()'s range */
-	const unsigned int getSize() const { return size; }
+	unsigned int getSize() const { return size; }
 
 	DskFsyncLabel *clone() const override { return new DskFsyncLabel(*this); }
 

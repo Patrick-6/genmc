@@ -36,7 +36,7 @@ public:
 	static char ID;
 
 	BisimilarityCheckerPass() : FunctionPass(ID) {}
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 	virtual bool doInitialization(Module &M) override;
 	virtual bool runOnFunction(Function &F) override;
 

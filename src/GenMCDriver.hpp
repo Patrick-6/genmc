@@ -25,8 +25,6 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
-#include "ExecutionGraph.hpp"
-#include "Interpreter.h"
 #include "WorkSet.hpp"
 #include "Library.hpp"
 #include <llvm/IR/Module.h>
@@ -35,6 +33,12 @@
 #include <memory>
 #include <random>
 #include <unordered_set>
+
+namespace llvm {
+	struct ExecutionContext;
+	class Interpreter;
+}
+class ExecutionGraph;
 
 class GenMCDriver {
 
@@ -100,8 +104,10 @@ public:
 
 	/* Returns the value this load reads */
 	llvm::GenericValue
-	visitLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		  const llvm::GenericValue *addr, llvm::Type *typ,
+	visitLoad(InstAttr attr,
+		  llvm::AtomicOrdering ord,
+		  const llvm::GenericValue *addr,
+		  llvm::Type *typ,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -110,8 +116,10 @@ public:
 	/* Returns the value this load reads, as well as whether
 	 * the interpreter should block due to a blocking library read */
 	std::pair<llvm::GenericValue, bool>
-	visitLibLoad(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		     const llvm::GenericValue *addr, llvm::Type *typ,
+	visitLibLoad(InstAttr attr,
+		     llvm::AtomicOrdering ord,
+		     const llvm::GenericValue *addr,
+		     llvm::Type *typ,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
@@ -121,26 +129,31 @@ public:
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
-	visitStore(llvm::Interpreter::InstAttr attr, llvm::AtomicOrdering ord,
-		   const llvm::GenericValue *addr, llvm::Type *typ,
+	visitStore(InstAttr attr,
+		   llvm::AtomicOrdering ord,
+		   const llvm::GenericValue *addr,
+		   llvm::Type *typ,
 		   const llvm::GenericValue &val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
-	visitLibStore(llvm::Interpreter::InstAttr attr,
+	visitLibStore(InstAttr attr,
 		      llvm::AtomicOrdering ord,
-		      const llvm::GenericValue *addr, llvm::Type *typ,
-		      llvm::GenericValue &val, std::string functionName,
+		      const llvm::GenericValue *addr,
+		      llvm::Type *typ,
+		      llvm::GenericValue &val,
+		      std::string functionName,
 		      bool isInit = false);
 
 	/* A function modeling a write to disk has been interpreted */
 	void
-	visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
-		      const llvm::GenericValue &val, void *mapping,
-		      llvm::Interpreter::InstAttr attr =
-		      llvm::Interpreter::InstAttr::IA_None,
+	visitDskWrite(const llvm::GenericValue *addr,
+		      llvm::Type *typ,
+		      const llvm::GenericValue &val,
+		      void *mapping,
+		      InstAttr attr = InstAttr::IA_None,
 		      std::pair<void *, void *> ordDataRange =
-		      std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
+		        std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
@@ -201,8 +214,12 @@ public:
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
 	visitFree(void *ptr);
-	void
-	visitFree(const llvm::AllocaHolder::Allocas &ptrs); /* Helper for bulk-deallocs */
+	/* Helper for bulk-deallocs */
+	template<typename ITER>
+	void visitFree(ITER begin, ITER end) {
+		for (auto it = begin; it != end; ++it)
+			visitFree(*it);
+	}
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
@@ -210,7 +227,7 @@ public:
 	visitError(DriverErrorKind t, const std::string &err = std::string(),
 		   Event confEvent = Event::getInitializer());
 
-	virtual ~GenMCDriver() = default;
+	virtual ~GenMCDriver();
 
 protected:
 
@@ -398,7 +415,7 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
-	std::vector<Event> properlyOrderStores(llvm::Interpreter::InstAttr attr,
+	std::vector<Event> properlyOrderStores(InstAttr attr,
 					       llvm::Type *typ,
 					       const llvm::GenericValue *ptr,
 					       llvm::GenericValue &expVal,
@@ -406,7 +423,7 @@ private:
 
 	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
 	const ReadLabel *
-	createAddReadLabel(llvm::Interpreter::InstAttr attr,
+	createAddReadLabel(InstAttr attr,
 			   llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *addr,
 			   llvm::Type *typ,
@@ -422,7 +439,7 @@ private:
 
 	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
 	const WriteLabel *
-	createAddStoreLabel(llvm::Interpreter::InstAttr attr,
+	createAddStoreLabel(InstAttr attr,
 			    llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *addr,
 			    llvm::Type *typ,
