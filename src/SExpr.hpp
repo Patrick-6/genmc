@@ -202,11 +202,10 @@ public:
 	/* Returns the constant value */
 	const llvm::APInt &getValue() const { return value; }
 
-	static std::unique_ptr<ConcreteExpr> create(const llvm::APInt &v) {
-		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(v));
-	}
-	static std::unique_ptr<ConcreteExpr> create(Width w, const llvm::APInt &v) {
-		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(w, v));
+	template<typename... Ts>
+	static std::unique_ptr<ConcreteExpr> create(Ts&&... params) {
+		return std::unique_ptr<ConcreteExpr>(
+			new ConcreteExpr(std::forward<Ts>(params)...));
 	}
 	static std::unique_ptr<ConcreteExpr> createTrue() {
 		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(llvm::APInt(1, 1)));
@@ -251,12 +250,10 @@ public:
 	/* Returns the name of this register (in LLVM-IR) */
 	const std::string &getName() const { return name; }
 
-	static std::unique_ptr<RegisterExpr> create(Width w, llvm::Value *reg, const std::string &argname = "") {
-		return std::unique_ptr<RegisterExpr>(new RegisterExpr(w, reg, argname));
-	}
-
-	static std::unique_ptr<RegisterExpr> create(llvm::Value *reg, const std::string &argname = "") {
-		return std::unique_ptr<RegisterExpr>(new RegisterExpr(reg, argname));
+	template<typename... Ts>
+	static std::unique_ptr<RegisterExpr> create(Ts&&... params) {
+		return std::unique_ptr<RegisterExpr>(
+			new RegisterExpr(std::forward<Ts>(params)...));
 	}
 
 	std::unique_ptr<SExpr> clone() const override {
@@ -305,17 +302,10 @@ protected:
 		: SelectExpr(t->getWidth(), std::move(c), std::move(t), std::move(f)) {}
 
 public:
-	static std::unique_ptr<SelectExpr> create(Width w,
-						  std::unique_ptr<SExpr> &&c,
-						  std::unique_ptr<SExpr> &&t,
-						  std::unique_ptr<SExpr> &&f) {
-		return std::unique_ptr<SelectExpr>(new SelectExpr(w, std::move(c), std::move(t), std::move(f)));
-	}
-
-	static std::unique_ptr<SelectExpr> create(std::unique_ptr<SExpr> &&c,
-						  std::unique_ptr<SExpr> &&t,
-						  std::unique_ptr<SExpr> &&f) {
-		return std::unique_ptr<SelectExpr>(new SelectExpr(std::move(c), std::move(t), std::move(f)));
+	template<typename... Ts>
+	static std::unique_ptr<SelectExpr> create(Ts&&... params) {
+		return std::unique_ptr<SelectExpr>(
+			new SelectExpr(std::forward<Ts>(params)...));
 	}
 
 	std::unique_ptr<SExpr> clone() const override {
@@ -374,17 +364,11 @@ protected:                                                                      
 	: LogicalExpr(_class_kind, std::move(e1), std::move(e2)) {}					  \
 													  \
 public:													  \
-	static std::unique_ptr<_class_kind##Expr> create(std::vector<std::unique_ptr<SExpr> > &&es) {     \
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(es))); 	  \
-	}								                                  \
-									                                  \
-	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&e) {	  	  	  \
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(e))); 	  \
-	}												  \
-	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&e1, 			  \
-							 std::unique_ptr<SExpr> &&e2) {			  \
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(e1), std::move(e2))); \
-	}												  \
+	template<typename... Ts>									  \
+	static std::unique_ptr<_class_kind##Expr> create(Ts&&... params) {				  \
+		return std::unique_ptr<_class_kind##Expr>(						  \
+			new _class_kind##Expr(std::forward<Ts>(params)...));				  \
+	}				 								  \
 								                                          \
 	std::unique_ptr<SExpr> clone() const override {                              		  	  \
 		std::vector<std::unique_ptr<SExpr> > kidsCopy; 				  		  \
@@ -410,8 +394,9 @@ protected:
 		: LogicalExpr(Not, std::move(e)) {}
 
 public:
-	static std::unique_ptr<NotExpr> create(std::unique_ptr<SExpr> &&e) {
-		return std::unique_ptr<NotExpr>(new NotExpr(std::move(e)));
+	template<typename... Ts>
+	static std::unique_ptr<NotExpr> create(Ts&&... params) {
+		return std::unique_ptr<NotExpr>(new NotExpr(std::forward<Ts>(params)...));
 	}
 
 	std::unique_ptr<SExpr> clone() const override {
@@ -453,9 +438,11 @@ protected:                                                                      
 	: CastExpr(_class_kind, w, std::move(e)) {}							  \
 													  \
 public:													  \
-	static std::unique_ptr<_class_kind##Expr> create(Width w, std::unique_ptr<SExpr> &&e) {  	  \
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(w, std::move(e))); 	  \
-	}												  \
+	template<typename... Ts>									  \
+	static std::unique_ptr<_class_kind##Expr> create(Ts&&... params) {				  \
+		return std::unique_ptr<_class_kind##Expr>(						  \
+			new _class_kind##Expr(std::forward<Ts>(params)...));				  \
+	}				 								  \
 								                                          \
 	std::unique_ptr<SExpr> clone() const override {		                          		  \
 		return create(getWidth(), getKid(0)->clone()); 						  \
@@ -520,19 +507,11 @@ protected:							                                        \
 	: BinaryExpr(_class_kind, t, std::move(l), std::move(r)) {}					\
 													\
 public:													\
-	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&l,           		\
-							 std::unique_ptr<SExpr> &&r) {         		\
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(l), std::move(r))); \
-	}												\
-	static std::unique_ptr<_class_kind##Expr> create(Width w, std::unique_ptr<SExpr> &&l, 		\
-							 std::unique_ptr<SExpr> &&r) {         		\
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(w, std::move(l), std::move(r))); \
-	}												\
-	static std::unique_ptr<_class_kind##Expr> create(const llvm::Type *t, 				\
-							 std::unique_ptr<SExpr> &&l, 			\
-							 std::unique_ptr<SExpr> &&r) {         		\
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(t, std::move(l), std::move(r))); \
-	}												\
+	template<typename... Ts>									\
+	static std::unique_ptr<_class_kind##Expr> create(Ts&&... params) {				\
+		return std::unique_ptr<_class_kind##Expr>(						\
+			new _class_kind##Expr(std::forward<Ts>(params)...));				\
+	}				 								\
 								                                        \
 	std::unique_ptr<SExpr> clone() const override {                            			\
 		return create(getKid(0)->clone(), getKid(1)->clone());                 			\
@@ -591,10 +570,11 @@ protected:									                              \
         : CmpExpr(_class_kind, std::move(l), std::move(r)) {}		                                      \
 									                                      \
 public:													      \
-	static std::unique_ptr<_class_kind##Expr> create(std::unique_ptr<SExpr> &&l,                 	      \
-							 std::unique_ptr<SExpr> &&r) {               	      \
-		return std::unique_ptr<_class_kind##Expr>(new _class_kind##Expr(std::move(l), std::move(r))); \
-	}												      \
+	template<typename... Ts>									      \
+	static std::unique_ptr<_class_kind##Expr> create(Ts&&... params) {				      \
+		return std::unique_ptr<_class_kind##Expr>(						      \
+			new _class_kind##Expr(std::forward<Ts>(params)...));				      \
+	}				 								      \
 									                                      \
 	std::unique_ptr<SExpr> clone() const override {                                  	      	      \
 		return create(getKid(0)->clone(), getKid(1)->clone());                       	      	      \
