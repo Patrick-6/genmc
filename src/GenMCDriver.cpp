@@ -704,6 +704,57 @@ llvm::GenericValue GenMCDriver::getDskWriteValue(Event write,
 	return getWriteValue(write, ptr, typ);
 }
 
+llvm::GenericValue GenMCDriver::getBarrierInitValue(const llvm::GenericValue *ptr,
+						    const llvm::Type *typ)
+{
+	auto &g = getGraph();
+	auto &stores = g.getStoresToLoc(ptr);
+
+	auto sIt = std::find_if(stores.begin(), stores.end(), [ptr,&g](const Event &s){
+		auto *bLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
+		BUG_ON(!bLab);
+		return bLab->getAddr() == ptr && bLab->isNotAtomic();
+	});
+
+	/* All errors pertinent to initialization should be captured elsewhere */
+	BUG_ON(sIt == stores.end());
+	return getWriteValue(*sIt, ptr, typ);
+}
+
+llvm::GenericValue GenMCDriver::getReadRetValueAndMaybeBlock(Event read,
+							     const llvm::GenericValue *ptr,
+							     const llvm::Type *typ)
+{
+	auto &g = getGraph();
+	auto &thr = getEE()->getCurThr();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(read));
+	BUG_ON(!rLab);
+
+	/* Fetch appropriate return value */
+	auto res = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
+
+	/* Check whether we should block */
+	if (rLab->getRf().isBottom()) {
+		/* Bottom is an acceptable re-option only @ replay; block anyway */
+		BUG_ON(!getEE()->getExecState() == llvm::Interpreter::ExecutionState::ES_Replay);
+		thr.block(llvm::Thread::BlockageType::BT_Error);
+	} else if (rLab->isBWait() && !getEE()->compareValues(typ, res, getBarrierInitValue(ptr, typ))) {
+		/* Reading a non-init barrier value means that the thread should block */
+		thr.block(llvm::Thread::BlockageType::BT_Barrier);
+	}
+	return res;
+}
+
+llvm::GenericValue GenMCDriver::getRecReadRetValue(const llvm::GenericValue *addr,
+						   const llvm::Type *typ)
+{
+	auto &g = getGraph();
+	auto recLast = getEE()->getCurrentPosition();
+	auto rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
+	BUG_ON(rf.isInitializer());
+	return getWriteValue(rf, addr, typ);
+}
+
 bool GenMCDriver::shouldCheckCons(ProgramPoint p)
 {
 	/* Always check consistency on error, or at user-specified points */
@@ -1139,14 +1190,13 @@ GenMCDriver::properlyOrderStores(InstAttr attr,
 	auto curr = getEE()->getCurrentPosition().prev();
 	auto &before = g.getPrefixView(curr);
 
-	if (attr == InstAttr::IA_Lock)
+	if (isLockAttr(attr))
 		return filterAcquiredLocks(ptr, stores, before);
 
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
 		auto oldVal = getWriteValue(s, ptr, typ);
-		if ((attr == InstAttr::IA_Fai ||
-		     EE->compareValues(typ, oldVal, expVal)) &&
+		if ((isFAIAttr(attr) || EE->compareValues(typ, oldVal, expVal)) &&
 		    g.isStoreReadBySettledRMW(s, ptr, before))
 			continue;
 
@@ -1155,7 +1205,10 @@ GenMCDriver::properlyOrderStores(InstAttr attr,
 		else
 			valid.push_back(s);
 	}
-	valid.insert(valid.end(), conflicting.begin(), conflicting.end());
+
+	/* barrier_wait()'s FAI loads should not read from conflicting stores */
+	if (!isBPostAttr(attr) || getConf()->disableBarrierOpt)
+		valid.insert(valid.end(), conflicting.begin(), conflicting.end());
 	return valid;
 }
 
@@ -1456,12 +1509,16 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case InstAttr::IA_None:
+	case InstAttr::IA_BWait:
 		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
-						 addr, typ, store, std::move(annot)));
+						 addr, typ, store, std::move(annot),
+						 attr == InstAttr::IA_BWait));
 		break;
 	case InstAttr::IA_Fai:
-		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord,
-						    addr, typ, store, std::move(annot), op, rmwVal));
+	case InstAttr::IA_BPost:
+		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord, addr, typ,
+						    store, std::move(annot), op, rmwVal,
+						    attr == InstAttr::IA_BPost));
 		break;
 	case InstAttr::IA_Cas:
 	case InstAttr::IA_Lock:
@@ -1537,20 +1594,11 @@ GenMCDriver::visitLoad(InstAttr attr,
 	auto *EE = getEE();
 	auto &thr = EE->getCurThr();
 
-	if (inRecoveryMode()) {
-		Event recLast = EE->getCurrentPosition();
-		Event rf = g.getLastThreadStoreAtLoc(recLast.next(), addr);
-		BUG_ON(rf.isInitializer());
-		return getWriteValue(rf, addr, typ);
-	}
+	if (inRecoveryMode())
+		return getRecReadRetValue(addr, typ);
 
-	if (isExecutionDrivenByGraph()) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
-		BUG_ON(!rLab);
-		if (rLab->getRf().isBottom())
-			thr.block(llvm::Thread::BlockageType::BT_Error); /* This should only happen @ replay */
-		return getWriteValue(rLab->getRf(), addr, typ);
-	}
+	if (isExecutionDrivenByGraph())
+		return getReadRetValueAndMaybeBlock(EE->getCurrentPosition(), addr, typ);
 
 	/* First, we have to check whether the access is valid. This has to
 	 * happen here because we may query the interpreter for this location's
@@ -1593,10 +1641,15 @@ GenMCDriver::visitLoad(InstAttr attr,
 	checkForMemoryRaces(lab->getAddr());
 	checkForUninitializedMem(lab);
 
+	/* If this is the last part of barrier_wait() check whether we should block */
+	auto retVal = getWriteValue(validStores[0], addr, typ);
+	if (lab->isBWait() && !EE->compareValues(typ, retVal, getBarrierInitValue(addr, typ)))
+		thr.block(llvm::Thread::BlockageType::BT_Barrier);
+
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
 		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
-	return getWriteValue(validStores[0], addr, typ);
+	return retVal;
 }
 
 const WriteLabel *
@@ -1617,8 +1670,15 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 		break;
 	case InstAttr::IA_Fai:
 		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val));
+						     addr, typ, val, false));
 		break;
+	case InstAttr::IA_BPost: {
+		/* Barrier hack: reset barrier to initial if it reached 0 */
+		auto bVal = (val.IntVal == 0) ? getBarrierInitValue(addr, typ) : val;
+		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
+						     addr, typ, bVal, true));
+		break;
+	}
 	case InstAttr::IA_Cas:
 	case InstAttr::IA_Lock:
 		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
@@ -1894,12 +1954,19 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 
 	if (getConf()->symmetryReduction) {
 		auto *bLab = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(sLab->getThread(), 0)));
 		auto tid = bLab->getSymmetricTid();
 		if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
+			return true;
+	}
+
+	if (auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(sLab)) {
+		if (faiLab->isBPost() && !getConf()->disableBarrierOpt &&
+		    !getEE()->compareValues(sLab->getType(), sLab->getVal(),
+					    getBarrierInitValue(sLab->getAddr(), sLab->getType())))
 			return true;
 	}
 
@@ -1920,6 +1987,17 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		if (rLab->getAnnot() && !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal()))
 			continue;
+
+		/* Optimize barrier revisits */
+		if (auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(sLab)) {
+			if (faiLab->isBPost() && !getConf()->disableBarrierOpt &&
+			    rLab->getPos() == g.getLastThreadEvent(rLab->getThread())) {
+				BUG_ON(!rLab->isBWait() || llvm::isa<FaiReadLabel>(rLab));
+				changeRf(rLab->getPos(), faiLab->getPos());
+				getEE()->getThrById(rLab->getThread()).unblock();
+				continue;
+			}
+		}
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
@@ -1974,23 +2052,41 @@ void GenMCDriver::repairLock(Event lock)
 	BUG();
 }
 
-bool GenMCDriver::repairDanglingLocks()
+void GenMCDriver::repairDanglingLocks()
 {
 	auto &g = getGraph();
-	bool repaired = false;
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		EventLabel *lab = g.getEventLabel(g.getLastThreadEvent(i));
+		auto *lab = g.getEventLabel(g.getLastThreadEvent(i)); /* get non-const */
 		if (auto *lLab = llvm::dyn_cast<CasReadLabel>(lab)) {
 			auto lockRf = lLab->getRf();
 			if (lLab->isLock() && lockRf.index >= g.getThreadSize(lockRf.thread)) {
 				repairLock(lLab->getPos());
-				repaired = true;
 				break; /* Only one such lock may exist at all times */
 			}
 		}
 	}
-	return repaired;
+	return;
+}
+
+void GenMCDriver::repairDanglingBarriers()
+{
+	auto &g = getGraph();
+
+	/* The wait-load of a barrier may lose its rf after cutting the graph.
+	 * If this happens, fix the problem by making it read from the barrier's
+	 * increment operation. */
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto *lab = g.getEventLabel(g.getLastThreadEvent(i)); /* get non-const */
+		if (auto *bLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (bLab->isBWait() && !g.contains(bLab->getRf())) {
+				BUG_ON(!llvm::isa<FaiWriteLabel>(g.getPreviousLabel(bLab)));
+				BUG_ON(!g.contains(bLab->getPos()));
+				changeRf(bLab->getPos(), bLab->getPos().prev());
+			}
+		}
+	}
+	return;
 }
 
 const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
@@ -2007,13 +2103,16 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		EE->executeAtomicRMWOperation(result, rfVal, faiLab->getOpVal(),
 					      faiLab->getOp());
+		if (faiLab->isBPost() && result.IntVal == 0)
+			result = getBarrierInitValue(rLab->getAddr(), rLab->getType());
 		EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 		wLab = std::move(createFaiStoreLabel(faiLab->getThread(),
 						     faiLab->getIndex() + 1,
 						     faiLab->getOrdering(),
 						     faiLab->getAddr(),
 						     faiLab->getType(),
-						     result));
+						     result,
+						     faiLab->isBPost()));
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
@@ -2049,6 +2148,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
 		repairDanglingLocks();
+		repairDanglingBarriers();
 		return (llvm::isa<MOLibItem>(mi)) ? calcLibRevisits(wLab) : calcRevisits(wLab);
 	}
 
@@ -2069,6 +2169,9 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	changeRf(rLab->getPos(), ri->getRev());
 
 	checkForUninitializedMem(rLab);
+
+	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
+	repairDanglingBarriers();
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))

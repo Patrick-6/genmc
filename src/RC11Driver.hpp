@@ -45,7 +45,8 @@ public:
 	std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf, std::unique_ptr<SExpr> annot) override;
+			Event rf, std::unique_ptr<SExpr> annot,
+			bool isBWait = false) override;
 
 	/* Creates a label for a FAI read to be added to the graph */
 	std::unique_ptr<FaiReadLabel>
@@ -53,7 +54,8 @@ public:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, std::unique_ptr<SExpr> annot,
 			   llvm::AtomicRMWInst::BinOp op,
-			   const llvm::GenericValue &opValue) override;
+			   const llvm::GenericValue &opValue,
+			   bool isBPost = false) override;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	std::unique_ptr<CasReadLabel>
@@ -87,7 +89,8 @@ public:
 	std::unique_ptr<FaiWriteLabel>
 	createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val) override;
+			    const llvm::GenericValue &val,
+			    bool isBPost = false) override;
 
 	/* Creates a label for a CAS write to be added to the graph */
 	std::unique_ptr<CasWriteLabel>

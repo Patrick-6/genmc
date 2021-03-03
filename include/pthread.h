@@ -45,7 +45,6 @@ typedef long pthread_t;
 
 #define PTHREAD_MUTEX_INITIALIZER { 0 }
 
-
 /* Detach state.  */
 enum
 {
@@ -124,6 +123,12 @@ enum
 
 /* Single execution handling.  */
 #define PTHREAD_ONCE_INIT 0
+
+/* Value returned by 'pthread_barrier_wait' for one of the threads after
+   the required number of threads have called this function.
+   -1 is distinct from 0 and all errno constants */
+#define PTHREAD_BARRIER_SERIAL_THREAD -1
+
 
 /* Create a new thread, starting with execution of START-ROUTINE
    getting passed ARG.  Creation attributed come from ATTR.  The new
@@ -565,6 +570,29 @@ extern int pthread_setspecific (pthread_key_t __key,
 extern int pthread_atfork (void (*__prepare) (void),
 			   void (*__parent) (void),
 			   void (*__child) (void)) ;
+
+
+/* Functions to handle barriers.  */
+
+/* Initialize BARRIER with the attributes in ATTR.  The barrier is
+   opened when COUNT waiters arrived.  */
+/* extern int pthread_barrier_init (pthread_barrier_t *__restrict __barrier, */
+/* 				 const pthread_barrierattr_t *__restrict __attr, */
+/* 				 unsigned int __count); */
+extern int __VERIFIER_barrier_init (pthread_barrier_t *__restrict __barrier,
+				    const pthread_barrierattr_t *__restrict __attr,
+				    unsigned int __count);
+#define pthread_barrier_init __VERIFIER_barrier_init
+
+/* Destroy a previously dynamically initialized barrier BARRIER.  */
+/* extern int pthread_barrier_destroy (pthread_barrier_t *__barrier); */
+extern int __VERIFIER_barrier_destroy (pthread_barrier_t *__barrier);
+#define pthread_barrier_destroy __VERIFIER_barrier_destroy
+
+/* Wait on barrier BARRIER.  */
+/* extern int pthread_barrier_wait (pthread_barrier_t *__barrier); */
+extern int __VERIFIER_barrier_wait (pthread_barrier_t *__barrier);
+#define pthread_barrier_wait __VERIFIER_barrier_wait
 
 #ifdef __cplusplus
 }

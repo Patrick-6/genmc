@@ -255,6 +255,20 @@ protected:
 					    const llvm::GenericValue *a,
 					    const llvm::Type *t);
 
+	/* Returns the value that a read is reading. This function should be
+	 * used when calculating the value that we should return to the
+	 * interpreter; if the read is reading from an invalid place
+	 * (e.g., bottom) also blocks the currently running thread. */
+	llvm::GenericValue getReadRetValueAndMaybeBlock(Event r,
+							const llvm::GenericValue *addr,
+							const llvm::Type *t);
+	llvm::GenericValue getRecReadRetValue(const llvm::GenericValue *addr,
+					      const llvm::Type *typ);
+
+	/* Returns the value with which a barrier at PTR has been initialized */
+	llvm::GenericValue getBarrierInitValue(const llvm::GenericValue *ptr,
+					       const llvm::Type *typ);
+
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
 
@@ -484,7 +498,10 @@ private:
 
 	/* Opt: Repairs some locks that may be "dangling", as part of the
 	 * in-place revisiting of locks */
-	bool repairDanglingLocks();
+	void repairDanglingLocks();
+
+	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
+	void repairDanglingBarriers();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(const llvm::GenericValue *addr);
@@ -540,7 +557,8 @@ private:
 	virtual std::unique_ptr<ReadLabel>
 	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf, std::unique_ptr<SExpr> annot) = 0;
+			Event rf, std::unique_ptr<SExpr> annot,
+			bool isBWait = false) = 0;
 
 	/* Creates a label for a FAI read to be added to the graph */
 	virtual std::unique_ptr<FaiReadLabel>
@@ -548,7 +566,8 @@ private:
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
 			   Event rf, std::unique_ptr<SExpr> annot,
 			   llvm::AtomicRMWInst::BinOp op,
-			   const llvm::GenericValue &opValue) = 0;
+			   const llvm::GenericValue &opValue,
+			   bool isBPost = false) = 0;
 
 	/* Creates a label for a CAS read to be added to the graph */
 	virtual std::unique_ptr<CasReadLabel>
@@ -581,7 +600,8 @@ private:
 	virtual std::unique_ptr<FaiWriteLabel>
 	createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val) = 0;
+			    const llvm::GenericValue &val,
+			    bool isBPost = false) = 0;
 
 	/* Creates a label for a CAS write to be added to the graph */
 	virtual std::unique_ptr<CasWriteLabel>

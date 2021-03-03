@@ -79,6 +79,8 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_mutex_lock", InternalFunctions::FN_MutexLock},
 	{"__VERIFIER_mutex_unlock", InternalFunctions::FN_MutexUnlock},
 	{"__VERIFIER_mutex_trylock", InternalFunctions::FN_MutexTrylock},
+	{"__VERIFIER_barrier_init", InternalFunctions::FN_BarrierInit},
+	{"__VERIFIER_barrier_wait", InternalFunctions::FN_BarrierWait},
 	{"__VERIFIER_openFS", InternalFunctions::FN_OpenFS},
 	{"__VERIFIER_closeFS", InternalFunctions::FN_CloseFS},
 	{"__VERIFIER_creatFS", InternalFunctions::FN_CreatFS},
@@ -162,6 +164,9 @@ void *Interpreter::getDirInode() const
 void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	return MI.fsInfo.nameToInodeAddr.at(filename);
 }
+
+/* Should match include/pthread.h (or barrier/mutex/thread decls) */
+#define GENMC_PTHREAD_BARRIER_SERIAL_THREAD -1
 
 /* Should match the definitions in include/unistd.h */
 #define GENMC_SEEK_SET	0	/* Seek from beginning of file.  */
@@ -2825,6 +2830,52 @@ void Interpreter::callMutexTrylock(Function *F,
 	return;
 }
 
+void Interpreter::callBarrierInit(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *attr = (GenericValue *) GVTOP(ArgVals[1]);
+	auto value = ArgVals[2];
+	auto *typ = F->getReturnType();
+
+	if (attr)
+		WARN_ONCE("pthread-barrier-init-arg",
+			  "Ignoring non-null argument given to pthread_barrier_init.\n");
+
+	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic, barrier, typ, value);
+
+	/* Just return 0 */
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+	return;
+}
+
+void Interpreter::callBarrierWait(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	auto oldVal = driver->visitLoad(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
+					barrier, typ, GenericValue(), INT_TO_GV(typ, 1),
+					AtomicRMWInst::BinOp::Sub);
+	BUG_ON(oldVal.IntVal.sle(0));
+
+	GenericValue newVal;
+	executeAtomicRMWOperation(newVal, oldVal, INT_TO_GV(typ, 1), AtomicRMWInst::BinOp::Sub);
+
+	driver->visitStore(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
+			   barrier, typ, newVal);
+
+	driver->visitLoad(InstAttr::IA_BWait, AtomicOrdering::Acquire, barrier, typ);
+
+	auto result = (newVal.IntVal != 0) ? INT_TO_GV(typ, 0)
+		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
+	returnValueToCaller(typ, result);
+	return;
+}
+
 void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
@@ -4101,6 +4152,8 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(MutexLock);
 		CALL_INTERNAL_FUNCTION(MutexUnlock);
 		CALL_INTERNAL_FUNCTION(MutexTrylock);
+		CALL_INTERNAL_FUNCTION(BarrierInit);
+		CALL_INTERNAL_FUNCTION(BarrierWait);
 		CALL_INTERNAL_FUNCTION(OpenFS);
 		CALL_INTERNAL_FUNCTION(CreatFS);
 		CALL_INTERNAL_FUNCTION(CloseFS);

@@ -362,22 +362,27 @@ protected:
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
-		  const llvm::Type *typ, Event rf, std::unique_ptr<SExpr> annot = nullptr)
+		  const llvm::Type *typ, Event rf,  bool isBWait = false,
+		  std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rf), revisitable(true), bWait(isBWait),
+		  annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
-		  Event rf, std::unique_ptr<SExpr> annot = nullptr)
+		  Event rf, bool isBWait = false, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rf), bWait(isBWait), revisitable(true), annotExpr(std::move(annot)) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
+
+	/* Returns whether this read is part of a barrier_wait() operation */
+	bool isBWait() const { return bWait; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
@@ -405,6 +410,9 @@ private:
 	/* Revisitability status */
 	bool revisitable;
 
+	/* Whether this read is part of a barrier_wait() operation */
+	bool bWait;
+
 	/* SAVer: Expression for annotatable loads. Shared between clones
 	 * for easier copying, but clones will not be revisitable anyway */
 	std::shared_ptr<SExpr> annotExpr;
@@ -427,15 +435,17 @@ public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
-		     std::unique_ptr<SExpr> annot = nullptr)
-		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, std::move(annot)),
-		  binOp(op), opValue(val) {}
+		     bool barrierFai = false, std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, false, std::move(annot)),
+		  binOp(op), opValue(val), barrierFai(barrierFai) {}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
 	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
 
 	/* Returns the other operand's value */
 	const llvm::GenericValue& getOpVal() const { return opValue; }
+
+	bool isBPost() const { return barrierFai; }
 
 	FaiReadLabel *clone() const override { return new FaiReadLabel(*this); }
 
@@ -448,6 +458,9 @@ private:
 
 	/* The other operand's value for the operation */
 	const llvm::GenericValue opValue;
+
+	/* Whether this is part of a barrier_wait() op */
+	bool barrierFai;
 };
 
 
@@ -467,7 +480,7 @@ public:
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
 		     bool lockCas = false, std::unique_ptr<SExpr> annot = nullptr)
-		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, std::move(annot)),
+		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, false, std::move(annot)),
 		  expected(exp), swapValue(swap), lockCas(lockCas) {}
 
 	/* Returns the value that will make this CAS succeed */
@@ -667,13 +680,20 @@ protected:
 public:
 	FaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val)
-		: WriteLabel(EL_FaiWrite, st, ord, pos, addr, valTyp, val) {}
+		      llvm::GenericValue val, bool barrierFai = false)
+		: WriteLabel(EL_FaiWrite, st, ord, pos, addr, valTyp, val),
+		  barrierFai(barrierFai) {}
+
+	bool isBPost() const { return barrierFai; }
 
 	FaiWriteLabel *clone() const override { return new FaiWriteLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_FaiWrite; }
+
+private:
+	/* Whether this is part of a barrier_wait() op */
+	bool barrierFai;
 };
 
 

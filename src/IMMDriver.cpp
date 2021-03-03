@@ -264,11 +264,12 @@ void IMMDriver::calcBasicFenceViews(FenceLabel *lab)
 std::unique_ptr<ReadLabel>
 IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, std::unique_ptr<SExpr> annot)
+			   Event rf, std::unique_ptr<SExpr> annot, bool isBWait)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, std::move(annot));
+	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
+					       isBWait, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -279,12 +280,12 @@ IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 			      const llvm::GenericValue *ptr, const llvm::Type *typ,
 			      Event rf, std::unique_ptr<SExpr> annot,
 			      llvm::AtomicRMWInst::BinOp op,
-			      const llvm::GenericValue &opValue)
+			      const llvm::GenericValue &opValue, bool isBPost)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ,
-						  rf, op, opValue, std::move(annot));
+	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
+						  op, opValue, isBPost, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -351,12 +352,12 @@ IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 std::unique_ptr<FaiWriteLabel>
 IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 				 const llvm::GenericValue *ptr, const llvm::Type *typ,
-				 const llvm::GenericValue &val)
+			       const llvm::GenericValue &val, bool isBPost)
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
 	auto lab = LLVM_MAKE_UNIQUE<FaiWriteLabel>(g.nextStamp(), ord, pos,
-						    ptr, typ, val);
+						   ptr, typ, val, isBPost);
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());
 	return lab;

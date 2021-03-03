@@ -29,17 +29,29 @@
  * instruction being interpreted */
 enum class InstAttr {
 	IA_None,
+
 	IA_Fai,
+	IA_BPost,
 	IA_Cas,
 	IA_Lock,
+	IA_RMWEnd,
+
 	IA_Unlock,
+	IA_BInit,
+	IA_BWait,
+
 	IA_DskMdata,
 	IA_DskDirOp,
 	IA_DskJnlOp,
+	IA_DskJnlEnd
 };
 
-inline bool isRMWAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_Lock; }
-inline bool isDskAttr(InstAttr attr) { return attr >= InstAttr::IA_DskMdata && attr <= InstAttr::IA_DskJnlOp; }
+inline bool isRMWAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_RMWEnd; }
+inline bool isFAIAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_BPost; }
+inline bool isLockAttr(InstAttr attr) { return attr == InstAttr::IA_Lock; }
+inline bool isBPostAttr(InstAttr attr) { return attr == InstAttr::IA_BPost; }
+inline bool isBWaitAttr(InstAttr attr) { return attr == InstAttr::IA_BWait; }
+inline bool isDskAttr(InstAttr attr) { return attr >= InstAttr::IA_DskMdata && attr <= InstAttr::IA_DskJnlEnd; }
 
 /* Pers: Journaling mount options */
 enum class JournalDataFS { writeback, ordered, journal };
@@ -74,6 +86,8 @@ enum class InternalFunctions {
 	FN_MutexLock,
 	FN_MutexUnlock,
 	FN_MutexTrylock,
+	FN_BarrierInit,
+	FN_BarrierWait,
 
 	FN_OpenFS,
 	FN_CreatFS,
