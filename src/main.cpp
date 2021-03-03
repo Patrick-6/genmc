@@ -21,7 +21,6 @@
 #include "config.h"
 #include "Config.hpp"
 #include "DriverFactory.hpp"
-#include "GenMCDriver.hpp"
 #include "Error.hpp"
 #include "LLVMModule.hpp"
 #include "Parser.hpp"
