@@ -1793,11 +1793,11 @@ void GenMCDriver::visitFree(void *ptr)
 	auto *EE = getEE();
 	auto &thr = EE->getCurThr();
 
-	if (isExecutionDrivenByGraph())
+	/* Attempt to free a NULL pointer; don't increase counters */
+	if (ptr == NULL)
 		return;
 
-	/* Attempt to free a NULL pointer */
-	if (ptr == NULL)
+	if (isExecutionDrivenByGraph())
 		return;
 
 	/* Add a label with the appropriate store */
