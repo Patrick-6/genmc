@@ -268,8 +268,9 @@ IMMDriver::createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
-					       isBWait, std::move(annot));
+	auto lab = isBWait ?
+		LLVM_MAKE_UNIQUE<BWaitReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, std::move(annot)) :
+		LLVM_MAKE_UNIQUE<ReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -284,8 +285,11 @@ IMMDriver::createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
-						  op, opValue, isBPost, std::move(annot));
+	auto lab = isBPost ?
+		LLVM_MAKE_UNIQUE<BIncFaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, op,
+						   opValue, std::move(annot)) :
+		LLVM_MAKE_UNIQUE<FaiReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf, op,
+					       opValue, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -300,8 +304,11 @@ IMMDriver::createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
-						  expected, swap, isLock, std::move(annot));
+	auto lab = isLock ?
+		LLVM_MAKE_UNIQUE<LockCasReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
+						   expected, swap, std::move(annot)) :
+		LLVM_MAKE_UNIQUE<CasReadLabel>(g.nextStamp(), ord, pos, ptr, typ, rf,
+					       expected, swap, std::move(annot));
 
 	calcBasicReadViews(lab.get());
 	return lab;
@@ -342,8 +349,10 @@ IMMDriver::createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<WriteLabel>(g.nextStamp(), ord, pos, ptr,
-						 typ, val, isUnlock);
+	auto lab = isUnlock ?
+		LLVM_MAKE_UNIQUE<UnlockWriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val) :
+		LLVM_MAKE_UNIQUE<WriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val);
+
 	calcBasicWriteViews(lab.get());
 	calcWriteMsgView(lab.get());
 	return lab;
@@ -356,8 +365,10 @@ IMMDriver::createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<FaiWriteLabel>(g.nextStamp(), ord, pos,
-						   ptr, typ, val, isBPost);
+	auto lab = isBPost ?
+		LLVM_MAKE_UNIQUE<BIncFaiWriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val) :
+		LLVM_MAKE_UNIQUE<FaiWriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val);
+
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());
 	return lab;
@@ -370,8 +381,9 @@ IMMDriver::createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
 {
 	auto &g = getGraph();
 	Event pos(tid, index);
-	auto lab = LLVM_MAKE_UNIQUE<CasWriteLabel>(g.nextStamp(), ord, pos, ptr,
-						    typ, val, isLock);
+	auto lab = isLock ?
+		LLVM_MAKE_UNIQUE<LockCasWriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val) :
+		LLVM_MAKE_UNIQUE<CasWriteLabel>(g.nextStamp(), ord, pos, ptr, typ, val);
 
 	calcBasicWriteViews(lab.get());
 	calcRMWWriteMsgView(lab.get());

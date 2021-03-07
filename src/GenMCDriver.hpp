@@ -494,7 +494,7 @@ private:
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 
 	/* Opt: Repairs the reads-from edge of a dangling lock */
-	void repairLock(Event lock);
+	void repairLock(LockCasReadLabel *lab);
 
 	/* Opt: Repairs some locks that may be "dangling", as part of the
 	 * in-place revisiting of locks */

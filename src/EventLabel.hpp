@@ -60,14 +60,25 @@ public:
 		EL_PotentialSpinEnd,
 		EL_MemAccessBegin,
 		EL_Read,
+		EL_BWaitRead,
 		EL_FaiRead,
+		EL_BIncFaiRead,
+		EL_FaiReadLast,
 		EL_CasRead,
+		EL_LockCasRead,
+		EL_CasReadLast,
 		EL_LibRead,
 		EL_DskRead,
 		EL_LastRead,
 		EL_Write,
+		EL_UnlockWrite,
+		EL_BInitWrite,
 		EL_FaiWrite,
+		EL_BIncFaiWrite,
+		EL_FaiWriteLast,
 		EL_CasWrite,
+		EL_LockCasWrite,
+		EL_CasWriteLast,
 		EL_LibWrite,
 		EL_DskWrite,
 		EL_DskMdWrite,
@@ -362,27 +373,22 @@ protected:
 
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, const llvm::GenericValue *loc,
-		  const llvm::Type *typ, Event rf,  bool isBWait = false,
-		  std::unique_ptr<SExpr> annot = nullptr)
+		  const llvm::Type *typ, Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), bWait(isBWait),
-		  annotExpr(std::move(annot)) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  const llvm::GenericValue *loc, const llvm::Type *typ,
-		  Event rf, bool isBWait = false, std::unique_ptr<SExpr> annot = nullptr)
+		  Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(EL_Read, st, ord, pos, loc, typ),
-		  readsFrom(rf), bWait(isBWait), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
-
-	/* Returns whether this read is part of a barrier_wait() operation */
-	bool isBWait() const { return bWait; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
@@ -410,12 +416,33 @@ private:
 	/* Revisitability status */
 	bool revisitable;
 
-	/* Whether this read is part of a barrier_wait() operation */
-	bool bWait;
-
 	/* SAVer: Expression for annotatable loads. Shared between clones
 	 * for easier copying, but clones will not be revisitable anyway */
 	std::shared_ptr<SExpr> annotExpr;
+};
+
+
+/*******************************************************************************
+ **                         BWaitReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of ReadLabel for the read part of a barrier_wait() op */
+class BWaitReadLabel : public ReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	BWaitReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		       const llvm::GenericValue *loc, const llvm::Type *typ,
+		       Event rf, std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_BWaitRead, st, ord, pos, loc, typ, rf, std::move(annot)) {}
+
+	BWaitReadLabel *clone() const override { return new BWaitReadLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_BWaitRead; }
 };
 
 
@@ -431,13 +458,19 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	FaiReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(k, st, ord, pos, addr, typ, rf, std::move(annot)),
+		  binOp(op), opValue(val) {}
+
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
-		     bool barrierFai = false, std::unique_ptr<SExpr> annot = nullptr)
-		: ReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, false, std::move(annot)),
-		  binOp(op), opValue(val), barrierFai(barrierFai) {}
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: FaiReadLabel(EL_FaiRead, st, ord, pos, addr, typ, rf, op, val, std::move(annot)) {}
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
 	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
@@ -445,12 +478,10 @@ public:
 	/* Returns the other operand's value */
 	const llvm::GenericValue& getOpVal() const { return opValue; }
 
-	bool isBPost() const { return barrierFai; }
-
 	FaiReadLabel *clone() const override { return new FaiReadLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_FaiRead; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_FaiRead && k <= EL_FaiReadLast; }
 
 private:
 	/* The binary operator for this RMW operation */
@@ -458,9 +489,32 @@ private:
 
 	/* The other operand's value for the operation */
 	const llvm::GenericValue opValue;
+};
 
-	/* Whether this is part of a barrier_wait() op */
-	bool barrierFai;
+
+/*******************************************************************************
+ **                         BIncFaiReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of FaiReadLabel for barrier FAIs */
+class BIncFaiReadLabel : public FaiReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	BIncFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			 const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+			 llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
+			 std::unique_ptr<SExpr> annot = nullptr)
+		: FaiReadLabel(EL_BIncFaiRead, st, ord, pos, addr, typ, rf,
+			       op, val, std::move(annot)) {}
+
+	BIncFaiReadLabel *clone() const override { return new BIncFaiReadLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_BIncFaiRead; }
 };
 
 
@@ -475,13 +529,20 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	CasReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(k, st, ord, pos, addr, typ, rf, std::move(annot)),
+		  expected(exp), swapValue(swap) {}
+
 public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
 		     const llvm::GenericValue &exp, const llvm::GenericValue &swap,
-		     bool lockCas = false, std::unique_ptr<SExpr> annot = nullptr)
-		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, false, std::move(annot)),
-		  expected(exp), swapValue(swap), lockCas(lockCas) {}
+		     std::unique_ptr<SExpr> annot = nullptr)
+		: ReadLabel(EL_CasRead, st, ord, pos, addr, typ, rf, std::move(annot)),
+		  expected(exp), swapValue(swap) {}
 
 	/* Returns the value that will make this CAS succeed */
 	const llvm::GenericValue& getExpected() const { return expected; }
@@ -489,13 +550,10 @@ public:
 	/* Returns the value that will be written is the CAS succeeds */
 	const llvm::GenericValue& getSwapVal() const { return swapValue; }
 
-	/* Returns true if this CAS models a lock acquire operation */
-	bool isLock() const { return lockCas; }
-
 	CasReadLabel *clone() const override { return new CasReadLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_CasRead; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_CasRead && k <= EL_CasReadLast; }
 
 private:
 	/* The value that will make this CAS succeed */
@@ -503,9 +561,32 @@ private:
 
 	/* The value that will be written if the CAS succeeds */
 	const llvm::GenericValue swapValue;
+};
 
-	/* Whether this CAS models a lock-acquire operation */
-	const bool lockCas;
+
+/*******************************************************************************
+ **                         LockCasReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasReadLabel for lock CASes */
+class LockCasReadLabel : public CasReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	LockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			 const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+			 const llvm::GenericValue &exp, const llvm::GenericValue &swap,
+			 std::unique_ptr<SExpr> annot = nullptr)
+		: CasReadLabel(EL_LockCasRead, st, ord, pos, addr, typ, rf,
+			       exp, swap, std::move(annot)) {}
+
+	LockCasReadLabel *clone() const override { return new LockCasReadLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LockCasRead; }
 };
 
 
@@ -601,17 +682,14 @@ protected:
 
 	WriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		   Event pos, const llvm::GenericValue *addr,
-		   const llvm::Type *valTyp, llvm::GenericValue val,
-		   bool isUnlock = false)
-		: MemAccessLabel(k, st, ord, pos, addr, valTyp),
-		  value(val), unlock(isUnlock) {}
+		   const llvm::Type *valTyp, llvm::GenericValue val)
+		: MemAccessLabel(k, st, ord, pos, addr, valTyp), value(val) {}
 
 public:
 	WriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		   const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		   llvm::GenericValue val, bool isUnlock = false)
-		: MemAccessLabel(EL_Write, st, ord, pos, addr, valTyp),
-		  value(val), unlock(isUnlock) {}
+		   llvm::GenericValue val)
+		: WriteLabel(EL_Write, st, ord, pos, addr, valTyp, val) {}
 
 	/* Returns the value written by this write access */
 	const llvm::GenericValue& getVal() const { return value; }
@@ -623,9 +701,6 @@ public:
 	 * release sequence of this write */
 	const View& getMsgView() const { return msgView; }
 	void setMsgView(View &&v) { msgView = std::move(v); }
-
-	/* Returns true if this write models the release of a lock */
-	bool isUnlock() const { return unlock; }
 
 	WriteLabel *clone() const override { return new WriteLabel(*this); }
 
@@ -654,14 +729,59 @@ private:
 	/* The value written by this label */
 	const llvm::GenericValue value;
 
-	/* Whether this write models an unlock operation */
-	const bool unlock;
-
 	/* View for the release sequence of the write */
 	View msgView;
 
 	/* List of reads reading from the write */
 	std::vector<Event> readerList;
+};
+
+
+/*******************************************************************************
+ **                         UnlockWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of writes for unlock events */
+class UnlockWriteLabel : public WriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	UnlockWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			 const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			 llvm::GenericValue val)
+		: WriteLabel(EL_UnlockWrite, st, ord, pos, addr, valTyp, val) {}
+
+	UnlockWriteLabel *clone() const override { return new UnlockWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_UnlockWrite; }
+};
+
+
+/*******************************************************************************
+ **                         BInitWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of writes for barrier initializations */
+class BInitWriteLabel : public WriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	BInitWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			llvm::GenericValue val)
+		: WriteLabel(EL_BInitWrite, st, ord, pos, addr, valTyp, val) {}
+
+	BInitWriteLabel *clone() const override { return new BInitWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_BInitWrite; }
 };
 
 
@@ -677,23 +797,44 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	FaiWriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		      const llvm::GenericValue *addr, const llvm::Type *valTyp, llvm::GenericValue val)
+		: WriteLabel(k, st, ord, pos, addr, valTyp, val) {}
+
 public:
 	FaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val, bool barrierFai = false)
-		: WriteLabel(EL_FaiWrite, st, ord, pos, addr, valTyp, val),
-		  barrierFai(barrierFai) {}
-
-	bool isBPost() const { return barrierFai; }
+		      llvm::GenericValue val)
+		: FaiWriteLabel(EL_FaiWrite, st, ord, pos, addr, valTyp, val) {}
 
 	FaiWriteLabel *clone() const override { return new FaiWriteLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_FaiWrite; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_FaiWrite && k <= EL_FaiWriteLast; }
+};
 
-private:
-	/* Whether this is part of a barrier_wait() op */
-	bool barrierFai;
+
+/*******************************************************************************
+ **                         BIncFaiWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of FaiWriteLabel for barrier FAIs */
+class BIncFaiWriteLabel : public FaiWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	BIncFaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			  const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			  llvm::GenericValue val)
+		: FaiWriteLabel(EL_BIncFaiWrite, st, ord, pos, addr, valTyp, val) {}
+
+	BIncFaiWriteLabel *clone() const override { return new BIncFaiWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_BIncFaiWrite; }
 };
 
 
@@ -708,24 +849,45 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	CasWriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
+		      llvm::GenericValue val)
+		: WriteLabel(k, st, ord, pos, addr, valTyp, val) {}
+
 public:
 	CasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		      const llvm::GenericValue *addr, const llvm::Type *valTyp,
-		      llvm::GenericValue val, bool lockCas)
-		: WriteLabel(EL_CasWrite, st, ord, pos, addr, valTyp, val),
-		  lockCas(lockCas) {}
-
-	/* Returns true if this label is used for modeling a lock-acquire op */
-	bool isLock() const { return lockCas; }
+		      llvm::GenericValue val)
+		: CasWriteLabel(EL_CasWrite, st, ord, pos, addr, valTyp, val) {}
 
 	CasWriteLabel *clone() const override { return new CasWriteLabel(*this); }
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_CasWrite; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_CasWrite && k <= EL_CasWriteLast; }
+};
 
-private:
-	/* Whether this label is used for modeling a lock-acquire op */
-	const bool lockCas;
+
+/*******************************************************************************
+ **                         LockCasWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasWriteLabel for lock CASes */
+class LockCasWriteLabel : public CasWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	LockCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			  const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			  llvm::GenericValue val)
+		: CasWriteLabel(EL_LockCasWrite, st, ord, pos, addr, valTyp, val) {}
+
+	LockCasWriteLabel *clone() const override { return new LockCasWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LockCasWrite; }
 };
 
 
