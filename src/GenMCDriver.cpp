@@ -648,7 +648,7 @@ const EventLabel *GenMCDriver::getCurrentLabel() const
 	const auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
 
-	BUG_ON(pos.index >= g.getThreadSize(pos.thread));
+	BUG_ON(!g.contains(pos));
 	return g.getEventLabel(pos);
 }
 

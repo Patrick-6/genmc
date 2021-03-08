@@ -349,7 +349,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_BIncFaiRead:
 		calcReadViews(llvm::dyn_cast<ReadLabel>(lab));
 		if (getConf()->persevere && llvm::isa<DskReadLabel>(lab))
-			g.getPersChecker()->calcMemAccessPbView(llvm::dyn_cast<DskReadLabel>(lab));
+			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskReadLabel>(lab));
 		break;
 	case EventLabel::EL_Write:
 	case EventLabel::EL_BInitWrite:
@@ -365,25 +365,15 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_DskJnlWrite:
 		calcWriteViews(llvm::dyn_cast<WriteLabel>(lab));
 		if (getConf()->persevere && llvm::isa<DskWriteLabel>(lab))
-			g.getPersChecker()->calcMemAccessPbView(llvm::dyn_cast<DskWriteLabel>(lab));
+			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskWriteLabel>(lab));
 		break;
 	case EventLabel::EL_Fence:
-		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab));
-		break;
 	case EventLabel::EL_DskFsync:
-		calcFenceViews(llvm::dyn_cast<DskFsyncLabel>(lab));
-		if (getConf()->persevere)
-			g.getPersChecker()->calcFsyncPbView(llvm::dyn_cast<DskFsyncLabel>(lab));
-		break;
 	case EventLabel::EL_DskSync:
-		calcFenceViews(llvm::dyn_cast<DskSyncLabel>(lab));
-		if (getConf()->persevere)
-			g.getPersChecker()->calcSyncPbView(llvm::dyn_cast<DskSyncLabel>(lab));
-		break;
 	case EventLabel::EL_DskPbarrier:
-		calcFenceViews(llvm::dyn_cast<DskPbarrierLabel>(lab));
-		if (getConf()->persevere)
-			g.getPersChecker()->calcPbarrierPbView(llvm::dyn_cast<DskPbarrierLabel>(lab));
+		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab));
+		if (getConf()->persevere && llvm::isa<DskAccessLabel>(lab))
+			g.getPersChecker()->calcDskFencePbView(llvm::dyn_cast<FenceLabel>(lab));
 		break;
 	case EventLabel::EL_ThreadStart:
 		calcStartViews(llvm::dyn_cast<ThreadStartLabel>(lab));
@@ -443,7 +433,7 @@ void IMMDriver::changeRf(Event read, Event store)
 	rLab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
-		g.getPersChecker()->calcMemAccessPbView(rLab);
+		g.getPersChecker()->calcDskMemAccessPbView(rLab);
 }
 
 void IMMDriver::updateStart(Event create, Event start)
