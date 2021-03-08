@@ -365,6 +365,10 @@ private:
 	 Appropriately calls visitError() and terminates */
 	void checkBInitValidity();
 
+	/* Perfoms POSIX checks whenever a barrier_wait event is added.
+	 Appropriately calls visitError() and terminates */
+	void checkBIncValidity(const ReadLabel *rLab);
+
 	/* Checks whether there is some race when allocating/deallocating
 	 * memory and reports an error as necessary.
 	 * Helpers for checkForMemoryRaces() */

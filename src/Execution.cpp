@@ -2860,7 +2860,10 @@ void Interpreter::callBarrierWait(Function *F,
 	auto oldVal = driver->visitLoad(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
 					barrier, typ, GenericValue(), INT_TO_GV(typ, 1),
 					AtomicRMWInst::BinOp::Sub);
-	BUG_ON(oldVal.IntVal.sle(0));
+
+	/* If the barrier was uninitialized and we blocked, abort */
+	if (getCurThr().isBlocked())
+		return;
 
 	GenericValue newVal;
 	executeAtomicRMWOperation(newVal, oldVal, INT_TO_GV(typ, 1), AtomicRMWInst::BinOp::Sub);

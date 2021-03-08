@@ -963,6 +963,19 @@ void GenMCDriver::checkBInitValidity()
 	}
 }
 
+void GenMCDriver::checkBIncValidity(const ReadLabel *rLab)
+{
+	auto *bLab = llvm::dyn_cast<BIncFaiReadLabel>(rLab);
+	if (!bLab)
+		return;
+
+	auto rfVal = getWriteValue(bLab->getRf(), bLab->getAddr(), bLab->getType());
+	if (bLab->getRf().isInitializer() ||
+	    getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType())))
+		visitError(DE_UninitializedMem,
+			   "Called barrier_wait() on uninitialized or destroyed barrier!");
+}
+
 void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
 			       std::vector<Calculator::GlobalRelation *> &toExtend,
 			       std::vector<const llvm::GenericValue *> &extOrder)
@@ -1671,6 +1684,8 @@ GenMCDriver::visitLoad(InstAttr attr,
 	checkForDataRaces();
 	checkForMemoryRaces(lab->getAddr());
 	checkForUninitializedMem(lab);
+	if (llvm::isa<BIncFaiReadLabel>(lab))
+		checkBIncValidity(lab);
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(validStores[0], addr, typ);
