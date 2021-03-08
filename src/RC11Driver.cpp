@@ -220,6 +220,7 @@ void RC11Driver::updateLabelViews(EventLabel *lab)
 		break;
 	case EventLabel::EL_Write:
 	case EventLabel::EL_BInitWrite:
+	case EventLabel::EL_BDestroyWrite:
 	case EventLabel::EL_UnlockWrite:
 	case EventLabel::EL_LibWrite:
 	case EventLabel::EL_CasWrite:

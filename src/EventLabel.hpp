@@ -73,6 +73,7 @@ public:
 		EL_Write,
 		EL_UnlockWrite,
 		EL_BInitWrite,
+		EL_BDestroyWrite,
 		EL_FaiWrite,
 		EL_BIncFaiWrite,
 		EL_FaiWriteLast,
@@ -848,6 +849,35 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_BInitWrite; }
+};
+
+
+/*******************************************************************************
+ **                         BDestroyWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of writes for barrier destruction */
+class BDestroyWriteLabel : public WriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	BDestroyWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			llvm::GenericValue val)
+		: WriteLabel(EL_BDestroyWrite, st, ord, pos, addr, valTyp, val) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<BDestroyWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<BDestroyWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	BDestroyWriteLabel *clone() const override { return new BDestroyWriteLabel(*this); }
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_BDestroyWrite; }
 };
 
 

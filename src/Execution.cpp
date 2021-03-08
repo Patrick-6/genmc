@@ -81,6 +81,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_mutex_trylock", InternalFunctions::FN_MutexTrylock},
 	{"__VERIFIER_barrier_init", InternalFunctions::FN_BarrierInit},
 	{"__VERIFIER_barrier_wait", InternalFunctions::FN_BarrierWait},
+	{"__VERIFIER_barrier_destroy", InternalFunctions::FN_BarrierDestroy},
 	{"__VERIFIER_openFS", InternalFunctions::FN_OpenFS},
 	{"__VERIFIER_closeFS", InternalFunctions::FN_CloseFS},
 	{"__VERIFIER_creatFS", InternalFunctions::FN_CreatFS},
@@ -2862,7 +2863,7 @@ void Interpreter::callBarrierWait(Function *F,
 					AtomicRMWInst::BinOp::Sub);
 
 	/* If the barrier was uninitialized and we blocked, abort */
-	if (getCurThr().isBlocked())
+	if (oldVal.IntVal.sle(0) || getCurThr().isBlocked())
 		return;
 
 	GenericValue newVal;
@@ -2875,6 +2876,21 @@ void Interpreter::callBarrierWait(Function *F,
 
 	auto result = (newVal.IntVal != 0) ? INT_TO_GV(typ, 0)
 		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
+	returnValueToCaller(typ, result);
+	return;
+}
+
+void Interpreter::callBarrierDestroy(Function *F,
+				     const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	driver->visitStore(InstAttr::IA_BDestroy, AtomicOrdering::NotAtomic, barrier, typ, GET_ZERO_GV(typ));
+
+	/* Just return 0 */
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	returnValueToCaller(typ, result);
 	return;
 }
@@ -4157,6 +4173,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(MutexTrylock);
 		CALL_INTERNAL_FUNCTION(BarrierInit);
 		CALL_INTERNAL_FUNCTION(BarrierWait);
+		CALL_INTERNAL_FUNCTION(BarrierDestroy);
 		CALL_INTERNAL_FUNCTION(OpenFS);
 		CALL_INTERNAL_FUNCTION(CreatFS);
 		CALL_INTERNAL_FUNCTION(CloseFS);
@@ -4291,9 +4308,9 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
 			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
 
-			/* If I was an RMW or a TCreate, we have to fill two spots */
-			if (thr.globalInstructions == snap + 2)
-				thr.prefixLOC[snap + 2] = std::make_pair(line, file);
+			/* If the instruction maps to more than one events, we have to fill more spots */
+			for (auto i = snap + 2; i <= thr.globalInstructions; i++)
+				thr.prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
 }

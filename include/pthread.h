@@ -594,6 +594,11 @@ extern int __VERIFIER_barrier_destroy (pthread_barrier_t *__barrier);
 extern int __VERIFIER_barrier_wait (pthread_barrier_t *__barrier);
 #define pthread_barrier_wait __VERIFIER_barrier_wait
 
+/* Destroy a previously dynamically initialized barrier BARRIER.  */
+/* extern int pthread_barrier_destroy (pthread_barrier_t *__barrier); */
+extern int __VERIFIER_barrier_destroy (pthread_barrier_t *__barrier);
+#define pthread_barrier_destroy __VERIFIER_barrier_destroy
+
 #ifdef __cplusplus
 }
 #endif

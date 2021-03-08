@@ -102,6 +102,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_Write:
 	case EventLabel::EL_BInitWrite:
+	case EventLabel::EL_BDestroyWrite:
 	case EventLabel::EL_UnlockWrite:
 	case EventLabel::EL_LibWrite:
 		s << "W";

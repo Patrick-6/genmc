@@ -39,6 +39,7 @@ enum class InstAttr {
 	IA_Unlock,
 	IA_BInit,
 	IA_BWait,
+	IA_BDestroy,
 
 	IA_DskMdata,
 	IA_DskDirOp,
@@ -88,6 +89,7 @@ enum class InternalFunctions {
 	FN_MutexTrylock,
 	FN_BarrierInit,
 	FN_BarrierWait,
+	FN_BarrierDestroy,
 
 	FN_OpenFS,
 	FN_CreatFS,

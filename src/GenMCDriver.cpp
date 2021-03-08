@@ -970,10 +970,10 @@ void GenMCDriver::checkBIncValidity(const ReadLabel *rLab)
 		return;
 
 	auto rfVal = getWriteValue(bLab->getRf(), bLab->getAddr(), bLab->getType());
-	if (bLab->getRf().isInitializer() ||
-	    getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType())))
-		visitError(DE_UninitializedMem,
-			   "Called barrier_wait() on uninitialized or destroyed barrier!");
+	if (bLab->getRf().isInitializer())
+		visitError(DE_UninitializedMem, "Called barrier_wait() on uninitialized barrier!");
+	else if (getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType())))
+		visitError(DE_AccessFreed, "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
 void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
@@ -1719,6 +1719,9 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 		break;
 	case InstAttr::IA_BInit:
 		wLab = BInitWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
+	case InstAttr::IA_BDestroy:
+		wLab = BDestroyWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
 	case InstAttr::IA_Fai:
 		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
