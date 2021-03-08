@@ -61,6 +61,7 @@ public:
 		DE_InvalidAccessEnd,
 		DE_InvalidJoin,
 		DE_InvalidUnlock,
+		DE_InvalidBInit,
 		DE_InvalidRecoveryCall,
 		DE_InvalidTruncate,
 		DE_SystemError,
@@ -359,6 +360,10 @@ private:
 	/* Performs POSIX checks whenever an unlock event is added.
 	 * Appropriately calls visitError() and terminates */
 	void checkUnlockValidity();
+
+	/* Perfoms POSIX checks whenever a barrier_init event is added.
+	 Appropriately calls visitError() and terminates */
+	void checkBInitValidity();
 
 	/* Checks whether there is some race when allocating/deallocating
 	 * memory and reports an error as necessary.

@@ -940,6 +940,29 @@ void GenMCDriver::checkUnlockValidity()
 	}
 }
 
+void GenMCDriver::checkBInitValidity()
+{
+	auto *wLab = llvm::dyn_cast<BInitWriteLabel>(getCurrentLabel());
+	if (!wLab)
+		return;
+
+	/* Make sure the barrier hasn't already been initialized, and
+	 * that the initializing value is greater than 0 */
+	auto &g = getGraph();
+	auto &stores = g.getStoresToLoc(wLab->getAddr());
+	auto sIt = std::find_if(stores.begin(), stores.end(), [&g, wLab](const Event &s){
+		auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
+		return sLab != wLab && sLab->getAddr() == wLab->getAddr() &&
+			llvm::isa<BInitWriteLabel>(sLab);
+	});
+
+	if (sIt != stores.end() ||
+	    getEE()->compareValues(wLab->getType(), wLab->getVal(), GET_ZERO_GV(wLab->getType()))) {
+		visitError(DE_InvalidBInit,
+			   "Barriers cannot be initialized multiple times or get the value 0!");
+	}
+}
+
 void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
 			       std::vector<Calculator::GlobalRelation *> &toExtend,
 			       std::vector<const llvm::GenericValue *> &extOrder)
@@ -1679,6 +1702,9 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 	case InstAttr::IA_Unlock:
 		wLab = UnlockWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
+	case InstAttr::IA_BInit:
+		wLab = BInitWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
 	case InstAttr::IA_Fai:
 		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
@@ -1758,6 +1784,8 @@ void GenMCDriver::visitStore(InstAttr attr,
 	checkForMemoryRaces(lab->getAddr());
 	if (llvm::isa<UnlockWriteLabel>(lab))
 		checkUnlockValidity();
+	if (llvm::isa<BInitWriteLabel>(lab))
+		checkBInitValidity();
 	return;
 }
 
@@ -2727,6 +2755,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Invalid join() operation";
 	case GenMCDriver::DE_InvalidUnlock:
 		return s << "Invalid unlock() operation";
+	case GenMCDriver::DE_InvalidBInit:
+		return s << "Invalid barrier_init() operation";
 	case GenMCDriver::DE_InvalidRecoveryCall:
 		return s << "Invalid function call during recovery";
 	case GenMCDriver::DE_InvalidTruncate:

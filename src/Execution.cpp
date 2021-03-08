@@ -2842,7 +2842,7 @@ void Interpreter::callBarrierInit(Function *F,
 		WARN_ONCE("pthread-barrier-init-arg",
 			  "Ignoring non-null argument given to pthread_barrier_init.\n");
 
-	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic, barrier, typ, value);
+	driver->visitStore(InstAttr::IA_BInit, AtomicOrdering::NotAtomic, barrier, typ, value);
 
 	/* Just return 0 */
 	GenericValue result;
