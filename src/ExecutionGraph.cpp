@@ -798,7 +798,7 @@ ExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			result.push_back(std::unique_ptr<EventLabel>(lab->clone()));
+			result.push_back(lab->clone());
 
 			auto &curLab = result.back();
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
