@@ -406,7 +406,8 @@ void GenMCDriver::handleRecoveryStart()
 		psb.push_back(Event::getInitializer());
 	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
-	auto tsLab = createStartLabel(tid, 0, psb.back());
+	auto tsLab = ThreadStartLabel::create(g.nextStamp(), Event(tid, 0), psb.back());
+	updateLabelViews(tsLab.get());
 	g.addOtherLabelToGraph(std::move(tsLab));
 
 	/* Create a thread for the interpreter, and appropriately
@@ -1368,7 +1369,7 @@ int GenMCDriver::getSymmetricTidSR(int thread, Event parent, llvm::Function *thr
 int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::GenericValue &arg,
 				   const llvm::ExecutionContext &SF)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph()) {
@@ -1391,8 +1392,9 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 	}
 
 	/* Add an event for the thread creation */
-	auto tcLab = createTCreateLabel(cur.thread, cur.index, cid);
-	auto *lab = getGraph().addOtherLabelToGraph(std::move(tcLab));
+	auto tcLab = ThreadCreateLabel::create(g.nextStamp(), cur, cid);
+	updateLabelViews(tcLab.get());
+	auto *lab = g.addOtherLabelToGraph(std::move(tcLab));
 
 	/* Prepare the execution context for the new thread */
 	llvm::Thread thr = EE->createNewThread(calledFun, arg, cid, cur.thread, SF);
@@ -1400,10 +1402,11 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 	if (cid == (int) g.getNumThreads()) {
 		/* If the thread does not exist in the graph, make an entry for it */
 		EE->threads.push_back(thr);
-		getGraph().addNewThread();
+		g.addNewThread();
 		auto symm = getConf()->symmetryReduction ? getSymmetricTidSR(cid, cur, calledFun, arg) : -1;
-		auto tsLab = createStartLabel(cid, 0, cur, symm);
-		auto *ss = getGraph().addOtherLabelToGraph(std::move(tsLab));
+		auto tsLab = ThreadStartLabel::create(g.nextStamp(), Event(cid, 0), cur, symm);
+		updateLabelViews(tsLab.get());
+		auto *ss = g.addOtherLabelToGraph(std::move(tsLab));
 	} else {
 		/* Otherwise, push the execution context to the interpreter and update the graph */
 		EE->threads[cid] = thr;
@@ -1428,7 +1431,8 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 
 	/* If necessary, add a relevant event to the graph */
 	if (!isExecutionDrivenByGraph()) {
-		auto jLab = createTJoinLabel(thr.id, thr.globalInstructions, cid);
+		auto jLab = ThreadJoinLabel::create(g.nextStamp(), Event(thr.id, thr.globalInstructions), cid);
+		updateLabelViews(jLab.get());
 		g.addOtherLabelToGraph(std::move(jLab));
 	}
 
@@ -1453,7 +1457,8 @@ void GenMCDriver::visitThreadFinish()
 
 	if (!isExecutionDrivenByGraph() && /* Make sure that there is not a failed assume... */
 	    !thr.isBlocked()) {
-		auto eLab = createFinishLabel(thr.id, thr.globalInstructions);
+		auto eLab = ThreadFinishLabel::create(g.nextStamp(), Event(thr.id, thr.globalInstructions));
+		updateLabelViews(eLab.get());
 		g.addOtherLabelToGraph(std::move(eLab));
 
 		if (thr.id == 0)
@@ -1480,9 +1485,11 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
 	if (isExecutionDrivenByGraph())
 		return;
 
+	auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
-	auto fLab = createFenceLabel(pos.thread, pos.index, ord);
-	getGraph().addOtherLabelToGraph(std::move(fLab));
+	auto fLab = FenceLabel::create(g.nextStamp(), ord, pos);
+	updateLabelViews(fLab.get());
+	g.addOtherLabelToGraph(std::move(fLab));
 	return;
 }
 
@@ -1497,30 +1504,39 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 				llvm::AtomicRMWInst::BinOp op,
 				Event store)
 {
-	Event pos = getEE()->getCurrentPosition();
+	auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case InstAttr::IA_None:
+		rLab = ReadLabel::create(g.nextStamp(), ord, pos,
+					 addr, typ, store, std::move(annot));
+		break;
 	case InstAttr::IA_BWait:
-		rLab = std::move(createReadLabel(pos.thread, pos.index, ord,
-						 addr, typ, store, std::move(annot),
-						 attr == InstAttr::IA_BWait));
+		rLab = BWaitReadLabel::create(g.nextStamp(), ord, pos,
+					      addr, typ, store, std::move(annot));
 		break;
 	case InstAttr::IA_Fai:
+		rLab = FaiReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+					    store, op, rmwVal, std::move(annot));
+		break;
 	case InstAttr::IA_BPost:
-		rLab = std::move(createFaiReadLabel(pos.thread, pos.index, ord, addr, typ,
-						    store, std::move(annot), op, rmwVal,
-						    attr == InstAttr::IA_BPost));
+		rLab = BIncFaiReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+						store, op, rmwVal, std::move(annot));
 		break;
 	case InstAttr::IA_Cas:
+		rLab = CasReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+					    store, cmpVal, rmwVal, std::move(annot));
+		break;
 	case InstAttr::IA_Lock:
-		rLab = std::move(createCasReadLabel(pos.thread, pos.index, ord, addr, typ,
-						    store, std::move(annot), cmpVal, rmwVal,
-						    attr == InstAttr::IA_Lock));
+		rLab = LockCasReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+						store, cmpVal, rmwVal, std::move(annot));
 		break;
 	default:
 		BUG();
 	}
+	updateLabelViews(rLab.get());
 	return getGraph().addReadLabelToGraph(std::move(rLab), store);
 }
 
@@ -1652,36 +1668,36 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 				 llvm::Type *typ,
 				 const llvm::GenericValue &val, int moPos)
 {
+	auto &g = getGraph();
 	auto pos = EE->getCurrentPosition();
+
 	std::unique_ptr<WriteLabel> wLab = nullptr;
 	switch (attr) {
 	case InstAttr::IA_None:
+		wLab = WriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
 	case InstAttr::IA_Unlock:
-		wLab = std::move(createStoreLabel(pos.thread, pos.index, ord,
-						  addr, typ, val,
-						  attr == InstAttr::IA_Unlock));
+		wLab = UnlockWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
 	case InstAttr::IA_Fai:
-		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val, false));
+		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
 	case InstAttr::IA_BPost: {
 		/* Barrier hack: reset barrier to initial if it reached 0 */
 		auto bVal = (val.IntVal == 0) ? getBarrierInitValue(addr, typ) : val;
-		wLab = std::move(createFaiStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, bVal, true));
+		wLab = BIncFaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, bVal);
 		break;
 	}
 	case InstAttr::IA_Cas:
+		wLab = CasWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
 	case InstAttr::IA_Lock:
-		wLab = std::move(createCasStoreLabel(pos.thread, pos.index, ord,
-						     addr, typ, val,
-						     attr == InstAttr::IA_Lock));
+		wLab = LockCasWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
 	default:
 		BUG();
 	}
-
+	updateLabelViews(wLab.get());
 	return getGraph().addWriteLabelToGraph(std::move(wLab), moPos);
 }
 
@@ -1750,9 +1766,11 @@ void GenMCDriver::visitLockLAPOR(const llvm::GenericValue *addr)
 	if (isExecutionDrivenByGraph())
 		return;
 
+	auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
-	auto lLab = createLockLabelLAPOR(pos.thread, pos.index, addr);
-	getGraph().addLockLabelToGraphLAPOR(std::move(lLab));
+	auto lLab = LockLabelLAPOR::create(g.nextStamp(), pos, addr);
+	updateLabelViews(lLab.get());
+	g.addLockLabelToGraphLAPOR(std::move(lLab));
 
 	threadPrios.insert(threadPrios.begin(), pos);
 	return;
@@ -1789,10 +1807,11 @@ void GenMCDriver::visitUnlockLAPOR(const llvm::GenericValue *addr)
 		return;
 	}
 
+	auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
-	auto lLab = createUnlockLabelLAPOR(pos.thread, pos.index, addr);
-
-	getGraph().addOtherLabelToGraph(std::move(lLab));
+	auto lLab = UnlockLabelLAPOR::create(g.nextStamp(), pos, addr);
+	updateLabelViews(lLab.get());
+	g.addOtherLabelToGraph(std::move(lLab));
 	return;
 }
 
@@ -1834,8 +1853,9 @@ llvm::GenericValue GenMCDriver::visitMalloc(uint64_t allocSize, unsigned int ali
 
 	/* Add a relevant label to the graph and return the new address */
 	Event pos = EE->getCurrentPosition();
-	auto aLab = createMallocLabel(pos.thread, pos.index, allocBegin.PointerVal,
-				      allocSize, s, spc);
+	auto aLab = MallocLabel::create(g.nextStamp(), pos,
+					allocBegin.PointerVal, allocSize, s, spc);
+	updateLabelViews(aLab.get());
 	g.addOtherLabelToGraph(std::move(aLab));
 	return allocBegin;
 }
@@ -1855,7 +1875,8 @@ void GenMCDriver::visitFree(void *ptr)
 
 	/* Add a label with the appropriate store */
 	Event pos = EE->getCurrentPosition();
-	auto dLab = createFreeLabel(pos.thread, pos.index, ptr);
+	auto dLab = FreeLabel::create(g.nextStamp(), pos, ptr);
+	updateLabelViews(dLab.get());
 	g.addOtherLabelToGraph(std::move(dLab));
 
 	/* Check whether there is any memory race */
@@ -2101,29 +2122,41 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 			result = getBarrierInitValue(rLab->getAddr(), rLab->getType());
 		}
 		EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-		wLab = std::move(createFaiStoreLabel(faiLab->getThread(),
-						     faiLab->getIndex() + 1,
-						     faiLab->getOrdering(),
-						     faiLab->getAddr(),
-						     faiLab->getType(),
-						     result,
-						     isBarrier));
+		wLab = isBarrier ?
+			BIncFaiWriteLabel::create(g.nextStamp(),
+						  faiLab->getOrdering(),
+						  Event(faiLab->getThread(), faiLab->getIndex() + 1),
+						  faiLab->getAddr(),
+						  faiLab->getType(), result) :
+			FaiWriteLabel::create(g.nextStamp(),
+					      faiLab->getOrdering(),
+					      Event(faiLab->getThread(), faiLab->getIndex() + 1),
+					      faiLab->getAddr(),
+					      faiLab->getType(), result);
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		auto isLock = llvm::isa<LockCasReadLabel>(casLab);
 		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
 		if (EE->compareValues(casLab->getType(), casLab->getExpected(), rfVal)) {
 			EE->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-			wLab = std::move(createCasStoreLabel(casLab->getThread(),
-							     casLab->getIndex() + 1,
-							     casLab->getOrdering(),
-							     casLab->getAddr(),
-							     casLab->getType(),
-							     casLab->getSwapVal(),
-							     isLock));
+			wLab = isLock ?
+				LockCasWriteLabel::create(g.nextStamp(),
+							  casLab->getOrdering(),
+							  Event(casLab->getThread(), casLab->getIndex() + 1),
+							  casLab->getAddr(),
+							  casLab->getType(),
+							  casLab->getSwapVal()) :
+				CasWriteLabel::create(g.nextStamp(),
+						      casLab->getOrdering(),
+						      Event(casLab->getThread(), casLab->getIndex() + 1),
+						      casLab->getAddr(),
+						      casLab->getType(),
+						      casLab->getSwapVal());
 		}
 	}
-	if (wLab)
+	if (wLab) {
+		updateLabelViews(wLab.get());
 		return g.addWriteLabelToGraph(std::move(wLab), rLab->getRf());
+	}
 	return nullptr;
 }
 
@@ -2210,8 +2243,9 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
 	Event pos = getEE()->getCurrentPosition();
-	auto lLab = createLibReadLabel(pos.thread, pos.index, ord, addr, typ,
-				       Event::getInitializer(), functionName);
+	auto lLab = LibReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+					 Event::getInitializer(), functionName);
+	updateLabelViews(lLab.get());
 	auto *lab = g.addReadLabelToGraph(std::move(lLab), Event::getInitializer());
 
 	/* Make sure there exists an initializer event for this memory location */
@@ -2331,8 +2365,9 @@ void GenMCDriver::visitLibStore(InstAttr attr,
 
 	/* It is always consistent to add a new event at the end of MO */
 	Event pos = getEE()->getCurrentPosition();
-	auto lLab = createLibStoreLabel(pos.thread, pos.index, ord, addr, typ,
-					val, functionName, isInit);
+	auto lLab = LibWriteLabel::create(g.nextStamp(), ord, pos, addr, typ,
+					  val, functionName, isInit);
+	updateLabelViews(lLab.get());
 	auto *sLab = g.addWriteLabelToGraph(std::move(lLab), endO);
 
 	if (isUninitialized) {
@@ -2463,8 +2498,9 @@ GenMCDriver::visitDskRead(const llvm::GenericValue *addr, llvm::Type *typ)
 	/* ... and add an appropriate label with a particular rf */
 	Event pos = getEE()->getCurrentPosition();
 	auto ord = (inRecoveryMode()) ? llvm::AtomicOrdering::Monotonic : llvm::AtomicOrdering::Acquire;
-	auto rLab = createDskReadLabel(pos.thread, pos.index, ord, addr, typ, validStores[0]);
+	auto rLab = DskReadLabel::create(g.nextStamp(), ord, pos, addr, typ, validStores[0]);
 
+	updateLabelViews(rLab.get());
 	const ReadLabel *lab = g.addReadLabelToGraph(std::move(rLab), validStores[0]);
 
 	/* ... filter out all option that make the recovery invalid */
@@ -2503,25 +2539,26 @@ GenMCDriver::visitDskWrite(const llvm::GenericValue *addr, llvm::Type *typ,
 	auto ord = llvm::AtomicOrdering::Release;
 	switch (attr) {
 	case InstAttr::IA_None:
-		wLab = createDskWriteLabel(pos.thread, pos.index, ord,
-					   addr, typ, val, mapping);
+		wLab = DskWriteLabel::create(g.nextStamp(), ord, pos,
+					     addr, typ, val, mapping);
 		break;
 	case InstAttr::IA_DskMdata:
-		wLab = createDskMdWriteLabel(pos.thread, pos.index, ord,
-					     addr, typ, val, mapping, ordDataRange);
+		wLab = DskMdWriteLabel::create(g.nextStamp(), ord, pos,
+					       addr, typ, val, mapping, ordDataRange);
 		break;
 	case InstAttr::IA_DskDirOp:
-		wLab = createDskDirWriteLabel(pos.thread, pos.index, ord,
-					      addr, typ, val, mapping);
+		wLab = DskDirWriteLabel::create(g.nextStamp(), ord, pos,
+						addr, typ, val, mapping);
 		break;
 	case InstAttr::IA_DskJnlOp:
-		wLab = createDskJnlWriteLabel(pos.thread, pos.index, ord,
-					      addr, typ, val, mapping, transInode);
+		wLab = DskJnlWriteLabel::create(g.nextStamp(), ord, pos,
+						addr, typ, val, mapping, transInode);
 		break;
 	default:
 		BUG();
 	}
 
+	updateLabelViews(wLab.get());
 	const WriteLabel *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 
 	calcRevisits(lab);
@@ -2550,7 +2587,8 @@ GenMCDriver::visitDskOpen(const char *fileName, llvm::Type *intTyp)
 	llvm::GenericValue fdR;
 	fdR.IntVal = llvm::APInt(intTyp->getIntegerBitWidth(), fd);
 	Event pos = EE->getCurrentPosition();
-	auto oLab = createDskOpenLabel(pos.thread, pos.index, fileName, fdR);
+	auto oLab = DskOpenLabel::create(g.nextStamp(), pos, fileName, fdR);
+	updateLabelViews(oLab.get());
 	g.addOtherLabelToGraph(std::move(oLab));
 
 	/* Return the freshly allocated fd */
@@ -2562,9 +2600,11 @@ void GenMCDriver::visitDskFsync(void *inode, unsigned int size)
 	if (isExecutionDrivenByGraph())
 		return;
 
-	Event pos = getEE()->getCurrentPosition();
-	auto fLab = createDskFsyncLabel(pos.thread, pos.index, inode, size);
-	getGraph().addOtherLabelToGraph(std::move(fLab));
+	auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+	auto fLab = DskFsyncLabel::create(g.nextStamp(), pos, inode, size);
+	updateLabelViews(fLab.get());
+	g.addOtherLabelToGraph(std::move(fLab));
 	return;
 }
 
@@ -2573,10 +2613,11 @@ void GenMCDriver::visitDskSync()
 	if (isExecutionDrivenByGraph())
 		return;
 
-	Event pos = getEE()->getCurrentPosition();
-
-	auto sncLab = createDskSyncLabel(pos.thread, pos.index);
-	getGraph().addOtherLabelToGraph(std::move(sncLab));
+	auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+	auto sncLab = DskSyncLabel::create(g.nextStamp(), pos);
+	updateLabelViews(sncLab.get());
+	g.addOtherLabelToGraph(std::move(sncLab));
 	return;
 }
 
@@ -2585,10 +2626,11 @@ void GenMCDriver::visitDskPbarrier()
 	if (isExecutionDrivenByGraph())
 		return;
 
-	Event pos = getEE()->getCurrentPosition();
-
-	auto dpLab = createDskPbarrierLabel(pos.thread, pos.index);
-	getGraph().addOtherLabelToGraph(std::move(dpLab));
+	auto &g = getGraph();
+	auto  pos = getEE()->getCurrentPosition();
+	auto dpLab = DskPbarrierLabel::create(g.nextStamp(), pos);
+	updateLabelViews(dpLab.get());
+	g.addOtherLabelToGraph(std::move(dpLab));
 	return;
 }
 
@@ -2597,10 +2639,11 @@ void GenMCDriver::visitSpinStart()
 	if (isExecutionDrivenByGraph())
 		return;
 
-	Event pos = getEE()->getCurrentPosition();
-
-	auto lab = createSpinStartLabel(pos.thread, pos.index);
-	getGraph().addOtherLabelToGraph(std::move(lab));
+	auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+	auto lab = SpinStartLabel::create(g.nextStamp(), pos);
+	updateLabelViews(lab.get());
+	g.addOtherLabelToGraph(std::move(lab));
 	return;
 }
 
@@ -2640,8 +2683,9 @@ void GenMCDriver::visitPotentialSpinEnd()
 		return;
 
 	auto pos = EE->getCurrentPosition();
-	auto lab = createPotentialSpinEndLabel(pos.thread, pos.index);
-	auto *eLab = getGraph().addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
+	auto lab = PotentialSpinEndLabel::create(g.nextStamp(), pos);
+	updateLabelViews(lab.get());
+	auto *eLab = g.addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
 
 	if (areFaiSpinloopConstraintsSat(static_cast<const PotentialSpinEndLabel *>(eLab)))
 		getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_FaiSpinloop);
