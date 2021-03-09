@@ -976,11 +976,11 @@ void GenMCDriver::checkBInitValidity()
 			llvm::isa<BInitWriteLabel>(sLab);
 	});
 
-	if (sIt != stores.end() ||
-	    getEE()->compareValues(wLab->getType(), wLab->getVal(), GET_ZERO_GV(wLab->getType()))) {
-		visitError(DE_InvalidBInit,
-			   "Barriers cannot be initialized multiple times or get the value 0!");
-	}
+	if (sIt != stores.end())
+		visitError(DE_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
+	else if (getEE()->compareValues(wLab->getType(), wLab->getVal(), GET_ZERO_GV(wLab->getType())))
+		visitError(DE_InvalidBInit, "Called barrier_init() with 0!");
+	return;
 }
 
 void GenMCDriver::checkBIncValidity(const std::vector<Event> &rfs)
