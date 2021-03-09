@@ -357,6 +357,12 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForDataRaces();
 
+	/* Performs POSIX checks whenever a lock event is added.
+	 * Given its list of possible rfs, makes sure it cannot read
+	 * from a destroyed lock.
+	 * Appropriately calls visitErro() and terminates */
+	void checkLockValidity(const std::vector<Event> &rfs);
+
 	/* Performs POSIX checks whenever an unlock event is added.
 	 * Appropriately calls visitError() and terminates */
 	void checkUnlockValidity();
@@ -367,7 +373,7 @@ private:
 
 	/* Perfoms POSIX checks whenever a barrier_wait event is added.
 	 Appropriately calls visitError() and terminates */
-	void checkBIncValidity(const ReadLabel *rLab);
+	void checkBIncValidity(const std::vector<Event> &rfs);
 
 	/* Checks whether there is some race when allocating/deallocating
 	 * memory and reports an error as necessary.
@@ -380,9 +386,9 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForMemoryRaces(const void *addr);
 
-	/* Calls visitError() if rLab is reading from an uninitialized
+	/* Calls visitError() if a newly added read can read from an uninitialized
 	 * (dynamically allocated) memory location */
-	void checkForUninitializedMem(const ReadLabel *rLab);
+	void checkForUninitializedMem(const std::vector<Event> &rfs);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();

@@ -341,7 +341,9 @@ extern int __VERIFIER_mutex_init (pthread_mutex_t *__mutex,
 #define pthread_mutex_init __VERIFIER_mutex_init
 
 /* Destroy a mutex.  */
-extern int pthread_mutex_destroy (pthread_mutex_t *__mutex);
+/* extern int pthread_mutex_destroy (pthread_mutex_t *__mutex); */
+extern int __VERIFIER_mutex_destroy (pthread_mutex_t *__mutex);
+#define pthread_mutex_destroy __VERIFIER_mutex_destroy
 
 /* Try locking a mutex.  */
 /* extern int pthread_mutex_trylock (pthread_mutex_t *__mutex); */

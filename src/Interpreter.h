@@ -737,6 +737,7 @@ private:  // Helper functions
   void callMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   void callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals);
   void callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals);
   void callBarrierDestroy(Function *F, const std::vector<GenericValue> &ArgVals);

@@ -79,6 +79,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_mutex_lock", InternalFunctions::FN_MutexLock},
 	{"__VERIFIER_mutex_unlock", InternalFunctions::FN_MutexUnlock},
 	{"__VERIFIER_mutex_trylock", InternalFunctions::FN_MutexTrylock},
+	{"__VERIFIER_mutex_destroy", InternalFunctions::FN_MutexDestroy},
 	{"__VERIFIER_barrier_init", InternalFunctions::FN_BarrierInit},
 	{"__VERIFIER_barrier_wait", InternalFunctions::FN_BarrierWait},
 	{"__VERIFIER_barrier_destroy", InternalFunctions::FN_BarrierDestroy},
@@ -2834,6 +2835,21 @@ void Interpreter::callMutexTrylock(Function *F,
 	return;
 }
 
+void Interpreter::callMutexDestroy(Function *F,
+				   const std::vector<GenericValue> &ArgVals)
+{
+	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
+			   lock, typ, INT_TO_GV(typ, -1));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+	return;
+}
+
 void Interpreter::callBarrierInit(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
@@ -4174,6 +4190,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(MutexLock);
 		CALL_INTERNAL_FUNCTION(MutexUnlock);
 		CALL_INTERNAL_FUNCTION(MutexTrylock);
+		CALL_INTERNAL_FUNCTION(MutexDestroy);
 		CALL_INTERNAL_FUNCTION(BarrierInit);
 		CALL_INTERNAL_FUNCTION(BarrierWait);
 		CALL_INTERNAL_FUNCTION(BarrierDestroy);

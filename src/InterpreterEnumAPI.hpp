@@ -87,6 +87,7 @@ enum class InternalFunctions {
 	FN_MutexLock,
 	FN_MutexUnlock,
 	FN_MutexTrylock,
+	FN_MutexDestroy,
 	FN_BarrierInit,
 	FN_BarrierWait,
 	FN_BarrierDestroy,

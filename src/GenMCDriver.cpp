@@ -888,10 +888,15 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 	return;
 }
 
-void GenMCDriver::checkForUninitializedMem(const ReadLabel *rLab)
+void GenMCDriver::checkForUninitializedMem(const std::vector<Event> &rfs)
 {
+	auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
+	if (!rLab)
+		return;
+
 	auto *EE = getEE();
-	if (EE->isDynamic(rLab->getAddr()) && rLab->getRf().isInitializer() && !EE->isInternal(rLab->getAddr()))
+	if (EE->isDynamic(rLab->getAddr()) && !EE->isInternal(rLab->getAddr()) &&
+	    std::any_of(rfs.begin(), rfs.end(), [](const Event &rf){ return rf.isInitializer(); }))
 		visitError(DE_UninitializedMem);
 	return;
 }
@@ -925,6 +930,21 @@ bool GenMCDriver::isAccessValid(const llvm::GenericValue *addr)
 {
 	/* Only valid memory locations should be accessed */
 	return getEE()->isShared(addr);
+}
+
+void GenMCDriver::checkLockValidity(const std::vector<Event> &rfs)
+{
+	auto *lLab = llvm::dyn_cast<LockCasReadLabel>(getCurrentLabel());
+	if (!lLab)
+		return;
+
+	/* Should not read from destroyed mutex */
+	auto rfIt = std::find_if(rfs.cbegin(), rfs.cend(), [this, lLab](const Event &rf){
+		auto rfVal = getWriteValue(rf, lLab->getAddr(), lLab->getType());
+		return getEE()->compareValues(lLab->getType(), rfVal, INT_TO_GV(lLab->getType(), -1));
+	});
+	if (rfIt != rfs.cend())
+		visitError(DE_UninitializedMem, "Called lock() on destroyed mutex!", *rfIt);
 }
 
 void GenMCDriver::checkUnlockValidity()
@@ -963,16 +983,18 @@ void GenMCDriver::checkBInitValidity()
 	}
 }
 
-void GenMCDriver::checkBIncValidity(const ReadLabel *rLab)
+void GenMCDriver::checkBIncValidity(const std::vector<Event> &rfs)
 {
-	auto *bLab = llvm::dyn_cast<BIncFaiReadLabel>(rLab);
+	auto *bLab = llvm::dyn_cast<BIncFaiReadLabel>(getCurrentLabel());
 	if (!bLab)
 		return;
 
-	auto rfVal = getWriteValue(bLab->getRf(), bLab->getAddr(), bLab->getType());
-	if (bLab->getRf().isInitializer())
+	if (std::any_of(rfs.cbegin(), rfs.cend(), [](const Event &rf){ return rf.isInitializer(); }))
 		visitError(DE_UninitializedMem, "Called barrier_wait() on uninitialized barrier!");
-	else if (getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType())))
+	else if (std::any_of(rfs.cbegin(), rfs.cend(), [this, bLab](const Event &rf){
+		auto rfVal = getWriteValue(rf, bLab->getAddr(), bLab->getType());
+		return getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType()));
+	}))
 		visitError(DE_AccessFreed, "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
@@ -1683,9 +1705,11 @@ GenMCDriver::visitLoad(InstAttr attr,
 	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces();
 	checkForMemoryRaces(lab->getAddr());
-	checkForUninitializedMem(lab);
+	checkForUninitializedMem(validStores);
+	if (llvm::isa<LockCasReadLabel>(lab))
+		checkLockValidity(validStores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
-		checkBIncValidity(lab);
+		checkBIncValidity(validStores);
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(validStores[0], addr, typ);
@@ -2242,8 +2266,6 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
-
-	checkForUninitializedMem(rLab);
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
