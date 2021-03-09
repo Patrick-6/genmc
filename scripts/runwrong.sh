@@ -166,7 +166,7 @@ runvariants() {
 	    failure_status="$?"
 	    outcome_failure=1
 	fi
-	trace=`echo "${output}" | awk '!/status|time/ {print $0 }' > tmp.trace`
+	trace=`echo "${output}" | awk '!/status|Total wall-clock time/ {print $0 }' > tmp.trace`
 	diff_file="${t%.*}.${model}.${coherence}.trace" &&
 	    [[ -f "${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}" ]] &&
 	    diff_file="${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}"
