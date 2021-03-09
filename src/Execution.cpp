@@ -2760,15 +2760,18 @@ void Interpreter::callMutexInit(Function *F,
 {
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
 
 	if (attr)
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
-	/* Just return 0 */
+	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
+			   lock, typ, INT_TO_GV(typ, 0));
+
 	GenericValue result;
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
-	returnValueToCaller(F->getReturnType(), result);
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
 }
 
 void Interpreter::callMutexLock(Function *F,
