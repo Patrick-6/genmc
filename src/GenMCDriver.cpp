@@ -687,7 +687,7 @@ llvm::GenericValue GenMCDriver::getWriteValue(Event write,
 	} else if (typ->isPointerTy() && wLab->getType()->isIntegerTy()) {
 		result.PointerVal = (void *) wLab->getVal().IntVal.getZExtValue();
 	} else {
-		BUG();
+		ERROR("Mixed-size accesses detected! Please check the LLVM-IR.\n");
 	}
 	return result;
 }
