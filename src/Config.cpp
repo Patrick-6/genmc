@@ -109,6 +109,9 @@ static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
 static llvm::cl::opt<bool>
+clDisableBarrierOpt("disable-barrier-opt", llvm::cl::cat(clGeneral),
+		    llvm::cl::desc("Do not optimize handling of barriers."));
+static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
@@ -266,6 +269,7 @@ void Config::saveConfigOptions()
 	checkConsPoint = clCheckConsPoint;
 	checkLiveness = clCheckLiveness;
 	disableRaceDetection = clDisableRaceDetection;
+	disableBarrierOpt = clDisableBarrierOpt;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistency options */

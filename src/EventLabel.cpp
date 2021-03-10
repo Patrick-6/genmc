@@ -84,18 +84,26 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "POT_SPIN_END";
 		break;
 	case EventLabel::EL_Read:
+	case EventLabel::EL_BWaitRead:
 	case EventLabel::EL_LibRead:
 		s << "R";
 		break;
 	case EventLabel::EL_FaiRead:
+	case EventLabel::EL_BIncFaiRead:
 	case EventLabel::EL_FaiWrite:
+	case EventLabel::EL_BIncFaiWrite:
 		s << "U";
 		break;
 	case EventLabel::EL_CasRead:
+	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_CasWrite:
+	case EventLabel::EL_LockCasWrite:
 		s << "C";
 		break;
 	case EventLabel::EL_Write:
+	case EventLabel::EL_BInitWrite:
+	case EventLabel::EL_BDestroyWrite:
+	case EventLabel::EL_UnlockWrite:
 	case EventLabel::EL_LibWrite:
 		s << "W";
 		break;

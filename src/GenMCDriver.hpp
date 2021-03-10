@@ -61,6 +61,7 @@ public:
 		DE_InvalidAccessEnd,
 		DE_InvalidJoin,
 		DE_InvalidUnlock,
+		DE_InvalidBInit,
 		DE_InvalidRecoveryCall,
 		DE_InvalidTruncate,
 		DE_SystemError,
@@ -255,6 +256,20 @@ protected:
 					    const llvm::GenericValue *a,
 					    const llvm::Type *t);
 
+	/* Returns the value that a read is reading. This function should be
+	 * used when calculating the value that we should return to the
+	 * interpreter; if the read is reading from an invalid place
+	 * (e.g., bottom) also blocks the currently running thread. */
+	llvm::GenericValue getReadRetValueAndMaybeBlock(Event r,
+							const llvm::GenericValue *addr,
+							const llvm::Type *t);
+	llvm::GenericValue getRecReadRetValue(const llvm::GenericValue *addr,
+					      const llvm::Type *typ);
+
+	/* Returns the value with which a barrier at PTR has been initialized */
+	llvm::GenericValue getBarrierInitValue(const llvm::GenericValue *ptr,
+					       const llvm::Type *typ);
+
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
 
@@ -342,9 +357,23 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForDataRaces();
 
+	/* Performs POSIX checks whenever a lock event is added.
+	 * Given its list of possible rfs, makes sure it cannot read
+	 * from a destroyed lock.
+	 * Appropriately calls visitErro() and terminates */
+	void checkLockValidity(const std::vector<Event> &rfs);
+
 	/* Performs POSIX checks whenever an unlock event is added.
 	 * Appropriately calls visitError() and terminates */
 	void checkUnlockValidity();
+
+	/* Perfoms POSIX checks whenever a barrier_init event is added.
+	 Appropriately calls visitError() and terminates */
+	void checkBInitValidity();
+
+	/* Perfoms POSIX checks whenever a barrier_wait event is added.
+	 Appropriately calls visitError() and terminates */
+	void checkBIncValidity(const std::vector<Event> &rfs);
 
 	/* Checks whether there is some race when allocating/deallocating
 	 * memory and reports an error as necessary.
@@ -357,9 +386,9 @@ private:
 	 * Appropriately calls visitError() and terminates */
 	void checkForMemoryRaces(const void *addr);
 
-	/* Calls visitError() if rLab is reading from an uninitialized
+	/* Calls visitError() if a newly added read can read from an uninitialized
 	 * (dynamically allocated) memory location */
-	void checkForUninitializedMem(const ReadLabel *rLab);
+	void checkForUninitializedMem(const std::vector<Event> &rfs);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
@@ -480,11 +509,14 @@ private:
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 
 	/* Opt: Repairs the reads-from edge of a dangling lock */
-	void repairLock(Event lock);
+	void repairLock(LockCasReadLabel *lab);
 
 	/* Opt: Repairs some locks that may be "dangling", as part of the
 	 * in-place revisiting of locks */
-	bool repairDanglingLocks();
+	void repairDanglingLocks();
+
+	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
+	void repairDanglingBarriers();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(const llvm::GenericValue *addr);
@@ -536,152 +568,9 @@ private:
 
 	/*** To be overrided by instances of the Driver ***/
 
-	/* Creates a label for a plain read to be added to the graph */
-	virtual std::unique_ptr<ReadLabel>
-	createReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			const llvm::GenericValue *ptr, const llvm::Type *typ,
-			Event rf, std::unique_ptr<SExpr> annot) = 0;
-
-	/* Creates a label for a FAI read to be added to the graph */
-	virtual std::unique_ptr<FaiReadLabel>
-	createFaiReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, std::unique_ptr<SExpr> annot,
-			   llvm::AtomicRMWInst::BinOp op,
-			   const llvm::GenericValue &opValue) = 0;
-
-	/* Creates a label for a CAS read to be added to the graph */
-	virtual std::unique_ptr<CasReadLabel>
-	createCasReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, std::unique_ptr<SExpr> annot,
-			   const llvm::GenericValue &expected,
-			   const llvm::GenericValue &swap,
-			   bool isLock = false) = 0;
-
-	/* Creates a label for a library read to be added to the graph */
-	virtual std::unique_ptr<LibReadLabel>
-	createLibReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			   const llvm::GenericValue *ptr, const llvm::Type *typ,
-			   Event rf, std::string functionName) = 0 ;
-
-	/* Creates a label for a disk read to be added to the graph */
-	virtual std::unique_ptr<DskReadLabel>
-	createDskReadLabel(int tid, int index, llvm::AtomicOrdering ord,
-			   const llvm::GenericValue *addr, const llvm::Type *typ,
-			   Event rf) = 0;
-
-	/* Creates a label for a plain write to be added to the graph */
-	virtual std::unique_ptr<WriteLabel>
-	createStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			 const llvm::GenericValue *ptr, const llvm::Type *typ,
-			 const llvm::GenericValue &val, bool isUnlock = false) = 0;
-
-	/* Creates a label for a FAI write to be added to the graph */
-	virtual std::unique_ptr<FaiWriteLabel>
-	createFaiStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val) = 0;
-
-	/* Creates a label for a CAS write to be added to the graph */
-	virtual std::unique_ptr<CasWriteLabel>
-	createCasStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, bool isLock = false) = 0;
-
-	/* Creates a label for a library write to be added to the graph */
-	virtual std::unique_ptr<LibWriteLabel>
-	createLibStoreLabel(int tid, int index, llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    llvm::GenericValue &val, std::string functionName,
-			    bool isInit) = 0;
-
-	/* Creates a label for a disk write to be added to the graph */
-	virtual std::unique_ptr<DskWriteLabel>
-	createDskWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *ptr, const llvm::Type *typ,
-			    const llvm::GenericValue &val, void *mapping) = 0;
-
-	virtual std::unique_ptr<DskMdWriteLabel>
-	createDskMdWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
-			      const llvm::GenericValue *ptr, const llvm::Type *typ,
-			      const llvm::GenericValue &val, void *mapping,
-			      std::pair<void *, void *> ordDataRange) = 0;
-
-	virtual std::unique_ptr<DskDirWriteLabel>
-	createDskDirWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
-			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       const llvm::GenericValue &val, void *mapping) = 0;
-
-	virtual std::unique_ptr<DskJnlWriteLabel>
-	createDskJnlWriteLabel(int tid, int index, llvm::AtomicOrdering ord,
-			       const llvm::GenericValue *ptr, const llvm::Type *typ,
-			       const llvm::GenericValue &val, void *mapping, void *transInode) = 0;
-
-	/* Creates a label for a fence to be added to the graph */
-	virtual std::unique_ptr<FenceLabel>
-	createFenceLabel(int tid, int index, llvm::AtomicOrdering ord) = 0;
-
-
-	/* Creates a label for a malloc event to be added to the graph */
-	virtual std::unique_ptr<MallocLabel>
-	createMallocLabel(int tid, int index, const void *addr,
-			  unsigned int size, Storage s, AddressSpace spc) = 0;
-
-	/* Creates a label for a free event to be added to the graph */
-	virtual std::unique_ptr<FreeLabel>
-	createFreeLabel(int tid, int index, const void *addr) = 0;
-
-	/* Creates a label for a disk open event to be added to the graph */
-	virtual std::unique_ptr<DskOpenLabel>
-	createDskOpenLabel(int tid, int index, const char *fileName,
-			   const llvm::GenericValue &fd) = 0;
-
-	/* Creates a label for an fsync() event to be added to the graph */
-	virtual std::unique_ptr<DskFsyncLabel>
-	createDskFsyncLabel(int tid, int index, const void *inode,
-			    unsigned int size) = 0;
-
-	/* Creates a label for a sync() event to be added to the graph */
-	virtual std::unique_ptr<DskSyncLabel>
-	createDskSyncLabel(int tid, int index) = 0;
-
-	/* Creates a label for a persistency barrier
-	 * (__VERIFIER_pbarrier()) to be added to the graph */
-	virtual std::unique_ptr<DskPbarrierLabel>
-	createDskPbarrierLabel(int tid, int index) = 0;
-
-	/* Creates a label for the start of a spinloop to be added to the graph */
-	virtual std::unique_ptr<SpinStartLabel>
-	createSpinStartLabel(int tid, int index) = 0;
-
-	/* Creates a label for the end of a potential spinloop to be added to the graph */
-	virtual std::unique_ptr<PotentialSpinEndLabel>
-	createPotentialSpinEndLabel(int tid, int index) = 0;
-
-	/* Creates a label for the creation of a thread to be added to the graph */
-	virtual std::unique_ptr<ThreadCreateLabel>
-	createTCreateLabel(int tid, int index, int cid) = 0;
-
-	/* Creates a label for the join of a thread to be added to the graph */
-	virtual std::unique_ptr<ThreadJoinLabel>
-	createTJoinLabel(int tid, int index, int cid) = 0;
-
-	/* Creates a label for the start of a thread to be added to the graph */
-	virtual std::unique_ptr<ThreadStartLabel>
-	createStartLabel(int tid, int index, Event tc, int symm = -1) = 0;
-
-	/* Creates a label for the end of a thread to be added to the graph */
-	virtual std::unique_ptr<ThreadFinishLabel>
-	createFinishLabel(int tid, int index) = 0;
-
-	/* LAPOR: Creates a (dummy) label for a lock() operation */
-	virtual std::unique_ptr<LockLabelLAPOR>
-	createLockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) = 0;
-
-	/* LAPOR: Creates a (dummy) label for an unlock() operation */
-	virtual std::unique_ptr<UnlockLabelLAPOR>
-	createUnlockLabelLAPOR(int tid, int index, const llvm::GenericValue *addr) = 0;
+	/* Updates lab with model-specific information.
+	 * Needs to be called every time a new label is added to the graph */
+	virtual void updateLabelViews(EventLabel *lab) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */

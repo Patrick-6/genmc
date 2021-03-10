@@ -48,6 +48,7 @@ public:
 	bool printErrorTrace;
 	std::string dotFile;
 	bool disableRaceDetection;
+	bool disableBarrierOpt;
 	bool disableStopOnSystemError;
 	std::string specsFile;
 

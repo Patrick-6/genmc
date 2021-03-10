@@ -79,6 +79,10 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_mutex_lock", InternalFunctions::FN_MutexLock},
 	{"__VERIFIER_mutex_unlock", InternalFunctions::FN_MutexUnlock},
 	{"__VERIFIER_mutex_trylock", InternalFunctions::FN_MutexTrylock},
+	{"__VERIFIER_mutex_destroy", InternalFunctions::FN_MutexDestroy},
+	{"__VERIFIER_barrier_init", InternalFunctions::FN_BarrierInit},
+	{"__VERIFIER_barrier_wait", InternalFunctions::FN_BarrierWait},
+	{"__VERIFIER_barrier_destroy", InternalFunctions::FN_BarrierDestroy},
 	{"__VERIFIER_openFS", InternalFunctions::FN_OpenFS},
 	{"__VERIFIER_closeFS", InternalFunctions::FN_CloseFS},
 	{"__VERIFIER_creatFS", InternalFunctions::FN_CreatFS},
@@ -162,6 +166,9 @@ void *Interpreter::getDirInode() const
 void *Interpreter::getInodeAddrFromName(const char *filename) const {
 	return MI.fsInfo.nameToInodeAddr.at(filename);
 }
+
+/* Should match include/pthread.h (or barrier/mutex/thread decls) */
+#define GENMC_PTHREAD_BARRIER_SERIAL_THREAD -1
 
 /* Should match the definitions in include/unistd.h */
 #define GENMC_SEEK_SET	0	/* Seek from beginning of file.  */
@@ -2754,15 +2761,18 @@ void Interpreter::callMutexInit(Function *F,
 {
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
 
 	if (attr)
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
-	/* Just return 0 */
+	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
+			   lock, typ, INT_TO_GV(typ, 0));
+
 	GenericValue result;
-	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), 0);
-	returnValueToCaller(F->getReturnType(), result);
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
 }
 
 void Interpreter::callMutexLock(Function *F,
@@ -2822,6 +2832,85 @@ void Interpreter::callMutexTrylock(Function *F,
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), !cmpRes.IntVal.getBoolValue());
 	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
+void Interpreter::callMutexDestroy(Function *F,
+				   const std::vector<GenericValue> &ArgVals)
+{
+	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
+			   lock, typ, INT_TO_GV(typ, -1));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+	return;
+}
+
+void Interpreter::callBarrierInit(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *attr = (GenericValue *) GVTOP(ArgVals[1]);
+	auto value = ArgVals[2];
+	auto *typ = F->getReturnType();
+
+	if (attr)
+		WARN_ONCE("pthread-barrier-init-arg",
+			  "Ignoring non-null argument given to pthread_barrier_init.\n");
+
+	driver->visitStore(InstAttr::IA_BInit, AtomicOrdering::NotAtomic, barrier, typ, value);
+
+	/* Just return 0 */
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+	return;
+}
+
+void Interpreter::callBarrierWait(Function *F,
+				  const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	auto oldVal = driver->visitLoad(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
+					barrier, typ, GenericValue(), INT_TO_GV(typ, 1),
+					AtomicRMWInst::BinOp::Sub);
+
+	/* If the barrier was uninitialized and we blocked, abort */
+	if (oldVal.IntVal.sle(0) || getCurThr().isBlocked())
+		return;
+
+	GenericValue newVal;
+	executeAtomicRMWOperation(newVal, oldVal, INT_TO_GV(typ, 1), AtomicRMWInst::BinOp::Sub);
+
+	driver->visitStore(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
+			   barrier, typ, newVal);
+
+	driver->visitLoad(InstAttr::IA_BWait, AtomicOrdering::Acquire, barrier, typ);
+
+	auto result = (newVal.IntVal != 0) ? INT_TO_GV(typ, 0)
+		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
+	returnValueToCaller(typ, result);
+	return;
+}
+
+void Interpreter::callBarrierDestroy(Function *F,
+				     const std::vector<GenericValue> &ArgVals)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+
+	driver->visitStore(InstAttr::IA_BDestroy, AtomicOrdering::NotAtomic, barrier, typ, GET_ZERO_GV(typ));
+
+	/* Just return 0 */
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
 	return;
 }
 
@@ -4101,6 +4190,10 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(MutexLock);
 		CALL_INTERNAL_FUNCTION(MutexUnlock);
 		CALL_INTERNAL_FUNCTION(MutexTrylock);
+		CALL_INTERNAL_FUNCTION(MutexDestroy);
+		CALL_INTERNAL_FUNCTION(BarrierInit);
+		CALL_INTERNAL_FUNCTION(BarrierWait);
+		CALL_INTERNAL_FUNCTION(BarrierDestroy);
 		CALL_INTERNAL_FUNCTION(OpenFS);
 		CALL_INTERNAL_FUNCTION(CreatFS);
 		CALL_INTERNAL_FUNCTION(CloseFS);
@@ -4235,9 +4328,9 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
 			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
 
-			/* If I was an RMW or a TCreate, we have to fill two spots */
-			if (thr.globalInstructions == snap + 2)
-				thr.prefixLOC[snap + 2] = std::make_pair(line, file);
+			/* If the instruction maps to more than one events, we have to fill more spots */
+			for (auto i = snap + 2; i <= thr.globalInstructions; i++)
+				thr.prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
 }

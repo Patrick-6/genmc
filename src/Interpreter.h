@@ -242,6 +242,7 @@ public:
 		BT_SpinloopEnd,
 		BT_LockAcq,
 		BT_LockRel,
+		BT_Barrier,
 		BT_Cons,
 		BT_Error,
 		BT_User,
@@ -736,6 +737,10 @@ private:  // Helper functions
   void callMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
   void callMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callBarrierDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
   void callReadFunction(const Library &lib, const LibMem &m, Function *F,
 			const std::vector<GenericValue> &ArgVals);
   void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
