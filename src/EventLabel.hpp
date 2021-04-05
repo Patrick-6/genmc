@@ -418,10 +418,6 @@ public:
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
 
-	/* Makes the relevant read revisitable/non-revisitable. The
-	 * execution graph is responsible for making such changes */
-	void setRevisitStatus(bool status) { revisitable = status; }
-
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<ReadLabel>(*this);
 	}
@@ -436,6 +432,10 @@ private:
 	 * be called from the execution graph to update other relevant
 	 * information as well */
 	void setRf(Event rf) { readsFrom = rf; }
+
+	/* Makes the relevant read revisitable/non-revisitable. The
+	 * execution graph is responsible for making such changes */
+	void setRevisitStatus(bool status) { revisitable = status; }
 
 	/* Position of the write it is reading from in the graph */
 	Event readsFrom;

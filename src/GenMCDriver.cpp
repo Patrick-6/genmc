@@ -2191,13 +2191,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
 		//addToRevisitSet(rLab, writePrefixPos, moPlacings);
-		if (pendingRMWs.size() > 0 && l == pendingRMWs.back()) {
-			addToWorklist(LLVM_MAKE_UNIQUE<BRevConflictingRMWItem>(rLab->getPos(), sLab->getPos(),
-								 std::move(writePrefix), std::move(moPlacings)));
-		} else {
-			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
-								 std::move(writePrefix), std::move(moPlacings)));
-		}
+		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
+							 std::move(writePrefix), std::move(moPlacings)));
 	}
 
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
@@ -2358,7 +2353,6 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
-	rLab->setRevisitStatus(llvm::isa<BRevConflictingRMWItem>(ri));
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
