@@ -109,9 +109,9 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in rc11 imm
+for model in rc11 # imm
 do
-    for coherence in wb mo
+    for coherence in mo # wb mo
     do
 	for testdir in "${correctdir}/"{infr,litmus,saver,liveness,synthetic,data-structures,lapor,fs}
 	do
@@ -126,37 +126,37 @@ header_printed=""
 libdir="${DIR}/../tests/libs"
 for model in rc11
 do
-    for coherence in wb mo
+    for coherence in mo # wb mo
     do
 	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
 	increase_total_time
     done
 done
 
-# Finally, run the testcases in the wrong/ directory
-header_printed=""
-wrongdir="${DIR}/../tests/wrong"
-for model in rc11 imm
-do
+# # Finally, run the testcases in the wrong/ directory
+# header_printed=""
+# wrongdir="${DIR}/../tests/wrong"
+# for model in rc11 imm
+# do
 
-    for cat in safety liveness infr racy memory locking barriers fs
-    do
-	# under IMM, only run safety and liveness tests
-	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
-	then
-	    continue
-	fi
-	testdir="${wrongdir}/${cat}"
-	coherence="wb"
-	suppress_diff=""
-	if test "${cat}" = "memory" -o "${cat}" = "fs"
-	then
-	    suppress_diff=1
-	fi
-	source "${DIR}/runwrong.sh"
-	increase_total_time
-    done
-done
+#     for cat in safety liveness infr racy memory locking barriers fs
+#     do
+# 	# under IMM, only run safety and liveness tests
+# 	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
+# 	then
+# 	    continue
+# 	fi
+# 	testdir="${wrongdir}/${cat}"
+# 	coherence="wb"
+# 	suppress_diff=""
+# 	if test "${cat}" = "memory" -o "${cat}" = "fs"
+# 	then
+# 	    suppress_diff=1
+# 	fi
+# 	source "${DIR}/runwrong.sh"
+# 	increase_total_time
+#     done
+# done
 
 # Print results
 print_results
