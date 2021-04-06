@@ -2070,52 +2070,169 @@ bool coherenceBeforeRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
 		return false;
 
-	auto &stores = g.getStoresToLoc(wLab->getAddr());
-	auto it = stores.begin();
-	while (*it != wLab->getPos()) ++it;
-	++it;
-	for (; it != stores.end(); ++it) {
-		auto *nlab = g.getEventLabel(*it);
-		if (v.contains(nlab->getPos()))
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	BUG_ON(!cc);
+
+	auto &locMO = cc->getModOrderAtLoc(wLab->getAddr());
+	auto it = locMO.begin();
+
+	for (; *it != wLab->getPos(); ++it)
+		;
+	for (++it; it != locMO.end(); ++it) {
+		auto *slab = g.getEventLabel(*it);
+		if (v.contains(slab->getPos()))
 			return false;
-		if (nlab->getStamp() <= rLab->getStamp())
+		if (slab->getStamp() <= rLab->getStamp())
 			return false;
-		if (nlab->getStamp() < wLab->getStamp())
+		if (slab->getStamp() < wLab->getStamp())
 			return true;
 	}
 	return false;
 }
 
-bool isMaximalEvent(const EventLabel *lab)
+bool readsFromPrefix(const ExecutionGraph &g,
+		     const EventLabel *lab,
+		     const ReadLabel *revLab,
+		     const MemAccessLabel *wLab,
+		     const VectorClock &prefix)
 {
-	if (auto *lLab = llvm::dyn_cast<ReadLabel>(lab))
-		return lLab->isRevisitable();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	if (!rLab)
+		return false;
 
-	if (auto *lLab = llvm::dyn_cast<WriteLabel>(lab))
-		return lLab->isMaximal();
+	auto *rfLab = g.getEventLabel(rLab->getRf());
+	if (rfLab->getStamp() <= revLab->getStamp() || !prefix.contains(rfLab->getPos()))
+		return false;
 
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	BUG_ON(!cc);
+
+	auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
+	auto it = locMO.begin();
+
+	for (; *it != rfLab->getPos(); ++it)
+		;
+	for (++it; it != locMO.end(); ++it) {
+		auto *slab = g.getEventLabel(*it);
+		if (prefix.contains(slab->getPos()) && slab->getPos() != wLab->getPos())
+			return false;
+	}
 	return true;
 }
 
-bool inMaximalPath(const ExecutionGraph &g, const WriteLabel *wLab, const ReadLabel *rLab)
+bool GenMCDriver::readsBeforePrefix(const EventLabel *lab,
+				    const ReadLabel *revLab,
+				    const MemAccessLabel *wLab,
+				    const VectorClock &prefix)
 {
-        const VectorClock &v = g.getPrefixView(wLab->getPos());
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	if (!rLab)
+		return false;
 
-	for (auto i = 0u; i < g.getNumThreads(); i++)
+	BUG_ON(!wLab);
+	if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab)) {
+		auto *lib = Library::getLibByMemberName(getGrantedLibs(), rLab->getFunctionName());
+		if (lib->hasFunctionalRfs())
+			return false;
+	}
+
+	auto &g = getGraph();
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	BUG_ON(!cc);
+	auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
+
+	/* FIXME: very dirty -- make proper iterators */
+	auto it = locMO.begin();
+	for (; it != locMO.end() && *it != rLab->getRf(); ++it)
+		;
+	it = (it == locMO.end()) ? locMO.begin() : it + 1;
+	for (; it != locMO.end(); ++it) {
+		auto *sLab = g.getEventLabel(*it);
+		if (sLab->getStamp() > revLab->getStamp() && prefix.contains(*it) && *it != wLab->getPos()) {
+			// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<*it << " in " << g << "\n";
+			return true;
+		}
+	}
+	return false;
+}
+
+bool GenMCDriver::isMaximalEvent(const EventLabel *lab)
+{
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+		return mLab->wasAddedMax();
+	// if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+	// 	return isCoMaximal(rLab->getAddr(), rLab->getRf());
+	// if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
+	// 	return isCoMaximal(wLab->getAddr(), wLab->getPos());
+	return true;
+}
+
+bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
+{
+	auto &g = getGraph();
+        auto &v = g.getPrefixView(wLab->getPos());
+
+	// if (!isMaximalEvent(rLab) ||
+	//     (g.getEventLabel(rLab->getRf())->getStamp() > rLab->getStamp() && !v.contains(rLab->getRf())))
+	// 	return false;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
 			auto *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= rLab->getStamp())
+			if (lab->getStamp() < rLab->getStamp())
 				break;
-			if (v.contains(Event(i, j))) {
-				if (auto *lLab = llvm::dyn_cast<WriteLabel>(lab)) {
-					if (coherenceBeforeRemoved(g, lLab, v, rLab))
+			if (v.contains(lab->getPos())) {
+				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+					if (coherenceBeforeRemoved(g, wLab, v, rLab))
 						return false;
 				}
 				continue;
 			}
-			if (!isMaximalEvent(lab)) return false;
-		}
+			if (!v.contains(lab->getPos())) {
+				if (readsBeforePrefix(lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v)) {
+					// llvm::dbgs() << " revisit " << wLab->getPos() << "-->" << rLab->getPos() << " discarded\n";
+					return false;
+				}
+			}
 
+			if (!isMaximalEvent(lab) && !v.contains(lab->getPos())) {
+				// if (lab == rLab  && rfFromPrefix)
+				// 	continue;
+				if (readsFromPrefix(g, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v))
+					continue;
+				// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
+				// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
+				// printGraph();
+				return false;
+			}
+		}
+	}
+	if (auto *lLab = llvm::dyn_cast<LibReadLabel>(rLab))  {
+		auto *lib = Library::getLibByMemberName(getGrantedLibs(), lLab->getFunctionName());
+		auto *rfLab = g.getEventLabel(rLab->getRf());
+		if (!rfLab->getPos().isBottom() && lib->hasFunctionalRfs())
+			return false;
+	}
+	if (g.isRMWLoad(rLab)) {
+		auto *nLab = g.getEventLabel(rLab->getPos().next());
+		auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(nLab));
+		auto *rfLab = g.getEventLabel(rLab->getRf());
+		// llvm::dbgs() << "checking whether " << wLab->getPos() << " --> " << rLab->getPos() << " should happen\n";
+		if (// rfLab->getStamp() > rLab->getStamp() && // v.contains(rfLab->getPos()) &&
+		    pending.size() && pending.back().next() != wLab->getPos())
+			return false;
+		// llvm::dbgs() << "yiss\n";
+	}
+	// if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab)) {
+	// 	auto *rfLab = g.getEventLabel(rLab->getRf());
+	// 	auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(wLab));
+	// 	// llvm::dbgs() << "checking whether " << wLab->getPos() << " --> " << rLab->getPos() << " should happen\n";
+	// 	if (!isMaximalEvent(rLab) &&
+	// 	    pending.size() &&
+	// 	    rLab->getPos() != pending.back())
+	// 		return false;
+	// 	// llvm::dbgs() << "yiss\n";
+	// }
 	return true;
 }
 
@@ -2165,7 +2282,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		}
 
-		if (!inMaximalPath(g, sLab, rLab))
+		if (!inMaximalPath(rLab, sLab))
 			continue;
 
 		/* Get the prefix of the write to save */
@@ -2186,13 +2303,20 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		}
 
 		/* If this prefix has revisited the read before, skip */
-		if (revisitSetContains(rLab, writePrefixPos, moPlacings))
-			continue;
+		if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
+			// llvm::dbgs() << "duplicate execution found in\n";
+			// prettyPrintGraph();
+			// printGraph();
+			// llvm::dbgs() << sLab->getPos() << " --> " << rLab->getPos() << "\n\n";
+			;
+		} else {
+			addToRevisitSet(rLab, writePrefixPos, moPlacings);
+		}
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
-		//addToRevisitSet(rLab, writePrefixPos, moPlacings);
-		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), sLab->getPos(),
-							 std::move(writePrefix), std::move(moPlacings)));
+		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
+				      rLab->getPos(), sLab->getPos(),
+				      std::move(writePrefix), std::move(moPlacings)));
 	}
 
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
@@ -2331,7 +2455,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
-		wLab->setMaximal(false);
+		wLab->setAddedMax(false);
 		repairDanglingLocks();
 		repairDanglingBarriers();
 		return (llvm::isa<MOLibItem>(mi)) ? calcLibRevisits(wLab) : calcRevisits(wLab);
@@ -2353,6 +2477,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
+	rLab->setAddedMax(false); // llvm::isa<BRevItem>(ri));
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
@@ -2581,7 +2706,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 		valid = false;
 		Event conf = g.getPendingLibRead(rLab);
 		loads = {conf};
-		const EventLabel *confLab = g.getEventLabel(conf);
+		auto *confLab = g.getEventLabel(conf);
 		if (auto *conflLab = llvm::dyn_cast<LibReadLabel>(confLab))
 			stores = conflLab->getInvalidRfs();
 		else
@@ -2602,9 +2727,12 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 
 		/* Get the read label to revisit */
 		auto *rLab = static_cast<const ReadLabel *>(revLab);
-		auto preds = g.getViewFromStamp(rLab->getStamp());
+
+		if (!inMaximalPath(rLab, lab))
+			continue;
 
 		/* Calculate the view of the resulting graph */
+		auto preds = g.getViewFromStamp(rLab->getStamp());
 		auto v = preds;
 		v.update(before);
 
@@ -2622,9 +2750,12 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 			if (revisitSetContains(rLab, writePrefixPos, moPlacings))
 				continue;
 
-			addToRevisitSet(rLab, writePrefixPos, moPlacings);
-			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), rf,
-								 std::move(writePrefix), std::move(moPlacings)));
+			// addToRevisitSet(rLab, writePrefixPos, moPlacings);
+			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
+					      rLab->getPos(), rf,
+					      std::move(writePrefix), std::move(moPlacings)));
+			// addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), rf,
+			// 					 std::move(writePrefix), std::move(moPlacings)));
 
 		}
 	}
@@ -3056,7 +3187,7 @@ void GenMCDriver::prettyPrintGraph()
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->isRevisitable())
+				if (rLab->wasAddedMax())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
 					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
@@ -3065,7 +3196,7 @@ void GenMCDriver::prettyPrintGraph()
 					     << val.IntVal << " ";
 				llvm::dbgs().resetColor();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				if (wLab->isMaximal())
+				if (wLab->wasAddedMax())
 					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
 				llvm::dbgs() << "W" << EE->getVarName(wLab->getAddr()) << ","
 					     << wLab->getVal().IntVal << " ";

@@ -365,6 +365,9 @@ public:
 	/* Returns the type of the access's value */
 	const llvm::Type *getType() const { return valueType; }
 
+	bool wasAddedMax() const { return maximal; }
+	void setAddedMax(bool status) { maximal = status; }
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
 		return k >= EL_MemAccessBegin && k <= EL_MemAccessEnd;
@@ -376,6 +379,9 @@ private:
 
 	/* The type of the value accessed */
 	const llvm::Type *valueType;
+
+	/* Whether was mo-maximal when added */
+	bool maximal = true;
 };
 
 
@@ -790,9 +796,6 @@ public:
 		return k >= EL_Write && k <= EL_LastWrite;
 	}
 
-	bool isMaximal() const { return maximal; }
-	void setMaximal(bool val) { maximal = val; }
-
 private:
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(Event r) {
@@ -812,9 +815,6 @@ private:
 
 	/* The value written by this label */
 	const llvm::GenericValue value;
-
-	/* Whether the write is maximal in MO */
-	bool maximal = true;
 
 	/* View for the release sequence of the write */
 	View msgView;

@@ -113,7 +113,7 @@ for model in rc11 # imm
 do
     for coherence in mo # wb mo
     do
-	for testdir in "${correctdir}/"{infr,litmus,saver,liveness,synthetic,data-structures,lapor,fs}
+	for testdir in "${correctdir}/"{infr,litmus,saver,liveness,synthetic,data-structures,fs} # {infr,litmus,saver,liveness,synthetic,data-structures,lapor,fs}
 	do
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
 	    increase_total_time
@@ -121,17 +121,17 @@ do
     done
 done
 
-# Then, do all the library tests (and reprint header)
-header_printed=""
-libdir="${DIR}/../tests/libs"
-for model in rc11
-do
-    for coherence in mo # wb mo
-    do
-	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
-	increase_total_time
-    done
-done
+# # Then, do all the library tests (and reprint header)
+# header_printed=""
+# libdir="${DIR}/../tests/libs"
+# for model in rc11
+# do
+#     for coherence in mo # wb mo
+#     do
+# 	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
+# 	increase_total_time
+#     done
+# done
 
 # # Finally, run the testcases in the wrong/ directory
 # header_printed=""

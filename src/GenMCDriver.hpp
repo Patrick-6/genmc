@@ -416,6 +416,11 @@ private:
 	/* Liveness: Calls visitError() if there is a liveness violation */
 	void checkLiveness();
 
+	bool readsBeforePrefix(const EventLabel *lab, const ReadLabel *revLab,
+			       const MemAccessLabel *wLab, const VectorClock &prefix);
+	bool isMaximalEvent(const EventLabel *lab);
+	bool inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab);
+
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
