@@ -2064,7 +2064,7 @@ bool GenMCDriver::tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *s
 }
 
 
-bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
+bool coherenceBeforeRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 			    const VectorClock &v, const ReadLabel *rLab)
 {
 	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
@@ -2076,8 +2076,17 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 	auto &locMO = cc->getModOrderAtLoc(wLab->getAddr());
 	auto it = locMO.begin();
 
-	for (; *it != wLab->getPos(); ++it)
+	for (; *it != wLab->getPos(); ++it) {
+		/* auto *slab = g.getEventLabel(*it); */
+		/* if (v.contains(slab->getPos())) */
+		/* 	return false; */
+		/* if (slab->getStamp() <= rLab->getStamp()) */
+		/* 	return false; */
+		/* if (slab->getStamp() < wLab->getStamp()) */
+		/* 	return true; */
 		;
+	}
+
 	for (++it; it != locMO.end(); ++it) {
 		auto *slab = g.getEventLabel(*it);
 		if (v.contains(slab->getPos()))
@@ -2128,12 +2137,14 @@ bool shouldReadFromPrefixButDoesnt(const ExecutionGraph &g,
 	for (auto i = 0u; i < v.size(); i++) {
 		for (auto j = 0u; j <= v[i]; j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
+			if (lab->getStamp() <= rLab->getStamp())
+				continue;
 			if (!v.contains(lab->getPos()))
 				continue;
 			if (auto *mLab = llvm::dyn_cast<WriteLabel>(lab))
 				if (mLab->getPos() != wLab->getPos() &&
 				    mLab->getAddr() == rLab->getAddr() &&
-				    (g.getEventLabel(rLab->getRf())->getStamp() > rLab->getStamp() &&
+				    (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp() ||
 				     !v.contains(rLab->getRf()))) {
 					return true;
 				}
@@ -2207,7 +2218,7 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 				break;
 			if (v.contains(lab->getPos())) {
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-					if (coherenceAfterRemoved(g, wLab, v, rLab))
+					if (coherenceBeforeRemoved(g, wLab, v, rLab))
 						return false;
 				}
 				continue;
@@ -2265,6 +2276,17 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	// 		return false;
 	// 	// llvm::dbgs() << "yiss\n";
 	// }
+	/* if (wLab->getPos() == Event(4,3) && rLab->getPos() == Event(2,2)) { */
+	/* 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(3,2))); */
+	/* 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(4,2))); */
+	/* 	if (rLab3 && rLab4 && rLab4->getRf() == rLab3->getPos().next()) { */
+	/* 		llvm::dbgs() << "REV 43 -> 22 about to take place in\n"; */
+	/* 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator()); */
+	/* 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr())); */
+	/* 		prettyPrintGraph(); */
+	/* 		printGraph(); */
+	/* 	} */
+	/* } */
 	return true;
 }
 
