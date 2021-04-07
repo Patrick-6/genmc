@@ -1348,10 +1348,10 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	bool found = false;
 	while (!found) {
 		found = true;
-		changeRf(rLab->getPos(), rfs[0]);
+		changeRf(rLab->getPos(), rfs.back());
 		if (!isConsistent(ProgramPoint::step)) {
 			found = false;
-			rfs.erase(rfs.begin());
+			rfs.erase(rfs.end() - 1);
 			BUG_ON(!userConf->LAPOR && rfs.empty());
 			if (rfs.empty())
 				break;
@@ -1703,8 +1703,8 @@ GenMCDriver::visitLoad(InstAttr attr,
 						  cmpVal, rmwVal, op, validStores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
-//	if (!ensureConsistentRf(lab, validStores))
-//		return GET_ZERO_GV(typ);
+	if (!ensureConsistentRf(lab, validStores))
+		return GET_ZERO_GV(typ);
 
 	/* Check whether the load forces us to reconsider some potential spinloop */
 	checkReconsiderFaiSpinloop(lab);
@@ -2134,6 +2134,17 @@ bool shouldReadFromPrefixButDoesnt(const ExecutionGraph &g,
 				   const MemAccessLabel *wLab,
 				   const VectorClock &v)
 {
+	auto findMaxInPrefix = [&g,&v,wLab,rLab](){
+		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+		auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
+		// return (locMO.size() <= 1 && mLab->getRf().isInitializer()) ||
+		// 	mLab->getRf() == *++locMO.rbegin();
+		for (auto rit = locMO.crbegin(); rit != locMO.rend(); ++rit)
+			if (*rit != wLab->getPos() && (v.contains(*rit) || g.getEventLabel(*rit)->getStamp() <= rLab->getStamp()))
+				return *rit;
+		return Event::getInitializer();
+	};
+
 	for (auto i = 0u; i < v.size(); i++) {
 		for (auto j = 0u; j <= v[i]; j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
@@ -2144,8 +2155,11 @@ bool shouldReadFromPrefixButDoesnt(const ExecutionGraph &g,
 			if (auto *mLab = llvm::dyn_cast<WriteLabel>(lab))
 				if (mLab->getPos() != wLab->getPos() &&
 				    mLab->getAddr() == rLab->getAddr() &&
-				    (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp() ||
-				     !v.contains(rLab->getRf()))) {
+				    rLab->getRf() != findMaxInPrefix()
+				    // (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp() ||
+				    //  !v.contains(rLab->getRf()))
+					) {
+					// llvm::dbgs() << "should've read from the prefix. stamp<?" << (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp()) << "\n";
 					return true;
 				}
 		}
@@ -2205,12 +2219,26 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	auto &g = getGraph();
         auto &v = g.getPrefixView(wLab->getPos());
 
+	// if (wLab->getPos() == Event(2,6) && rLab->getPos() == Event(1,4)) {
+	// 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,4)));
+	// 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,5)));
+	// 	if (rLab3 && rLab4 && rLab4->getRf() == Event(0,0) && rLab3->getRf() == Event(1,3)) {
+	// 		llvm::dbgs() << "REV 2,11 -> 2,6 MAY TAKE PLACE in\n";
+	// 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	// 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr()));
+	// 		prettyPrintGraph();
+	// 		printGraph();
+	// 	}
+	// }
+
+	// llvm::dbgs() << "checking read\n";
 	if (!isMaximalEvent(rLab) ||
 	    (g.getEventLabel(rLab->getRf())->getStamp() > rLab->getStamp() && !v.contains(rLab->getRf())) ||
 	    shouldReadFromPrefixButDoesnt(g, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v) ||
 	    readsBeforePrefix(rLab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v))
 		return false;
 
+	// llvm::dbgs() << "checking intermediates\n";
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
 			auto *lab = g.getEventLabel(Event(i, j));
@@ -2218,27 +2246,32 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 				break;
 			if (v.contains(lab->getPos())) {
 				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-					if (coherenceBeforeRemoved(g, wLab, v, rLab))
+					if (coherenceBeforeRemoved(g, wLab, v, rLab)) {
+						// llvm::dbgs() << "NO, DUE TO COH\n";
 						return false;
+					}
 				}
 				continue;
 			}
 			if (!v.contains(lab->getPos())) {
 				if (readsBeforePrefix(lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v)) {
-					/* llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos(); */
+					// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
 					return false;
 				}
 			}
 
 			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (g.getEventLabel(rLabB->getRf())->getStamp() > rLabB->getStamp() &&
-				    !v.contains(rLabB->getRf()))
+				    !v.contains(rLabB->getRf())) {
+					// llvm::dbgs() << "RF WILL BE DELETED\n";
 					return false;
-				if (shouldReadFromPrefixButDoesnt(g, rLabB, llvm::dyn_cast<MemAccessLabel>(wLab), v))
-					return false;
+				}
+				// if (shouldReadFromPrefixButDoesnt(g, rLabB, llvm::dyn_cast<MemAccessLabel>(wLab), v))
+				// 	return false;
 			}
 
 			if (!isMaximalEvent(lab) && !v.contains(lab->getPos())) {
+				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
 				// if (lab == rLab  && rfFromPrefix)
 				// 	continue;
 				// if (readsFromPrefix(g, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v))
@@ -2276,17 +2309,17 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	// 		return false;
 	// 	// llvm::dbgs() << "yiss\n";
 	// }
-	/* if (wLab->getPos() == Event(4,3) && rLab->getPos() == Event(2,2)) { */
-	/* 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(3,2))); */
-	/* 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(4,2))); */
-	/* 	if (rLab3 && rLab4 && rLab4->getRf() == rLab3->getPos().next()) { */
-	/* 		llvm::dbgs() << "REV 43 -> 22 about to take place in\n"; */
-	/* 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator()); */
-	/* 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr())); */
-	/* 		prettyPrintGraph(); */
-	/* 		printGraph(); */
-	/* 	} */
-	/* } */
+	// if (wLab->getPos() == Event(2,6) && rLab->getPos() == Event(1,4)) {
+	// 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,4)));
+	// 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,5)));
+	// 	if (rLab3 && rLab4 && rLab4->getRf() == Event(0,0) && rLab3->getRf() == Event(1,3)) {
+	// 		llvm::dbgs() << "REV 2,11 -> 2,6 about to take place in\n";
+	// 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	// 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr()));
+	// 		prettyPrintGraph();
+	// 		printGraph();
+	// 	}
+	// }
 	return true;
 }
 
