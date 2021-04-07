@@ -61,13 +61,13 @@ namespace GenMCError {
 
 /* Useful for debugging (naive generalized printing doesn't work for llvm::raw_ostream) */
 template<typename T>
-std::ostream& print(std::ostream &out, const T &val)
+llvm::raw_ostream& print(llvm::raw_ostream &out, const T &val)
 {
 	return (out << val);
 }
 
 template<typename T1, typename T2>
-std::ostream& print(std::ostream &out, const std::pair<T1, T2> &val)
+llvm::raw_ostream& print(llvm::raw_ostream &out, const std::pair<T1, T2> &val)
 {
 	return (out << "(" << val.first << ", " << val.second << ")");
 }
@@ -75,7 +75,8 @@ std::ostream& print(std::ostream &out, const std::pair<T1, T2> &val)
 template <typename Container>
 std::string format(const Container &c)
 {
-	std::ostringstream out;
+	std::string str;
+	llvm::raw_string_ostream out(str);
 
 	out << "[ ";
 	for (const auto &e : c)
@@ -87,7 +88,7 @@ std::string format(const Container &c)
 template <typename T1, typename T2>
 std::string format(const std::pair<T1, T2> &p)
 {
-	std::ostringstream out;
+	llvm::raw_string_ostream out;
 	print(out, p);
 	return out.str();
 }
