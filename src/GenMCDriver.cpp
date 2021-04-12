@@ -2294,7 +2294,7 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 		auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(nLab));
 		auto *rfLab = g.getEventLabel(rLab->getRf());
 		// llvm::dbgs() << "checking whether " << wLab->getPos() << " --> " << rLab->getPos() << " should happen\n";
-		if (// rfLab->getStamp() > rLab->getStamp() && // v.contains(rfLab->getPos()) &&
+		if (rfLab->getStamp() > rLab->getStamp() && // v.contains(rfLab->getPos()) &&
 		    pending.size() && pending.back().next() != wLab->getPos())
 			return false;
 		// llvm::dbgs() << "yiss\n";
@@ -2391,10 +2391,12 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* If this prefix has revisited the read before, skip */
 		if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
-			/* llvm::dbgs() << "duplicate execution found in\n"; */
-			/* prettyPrintGraph(); */
-			/* printGraph(); */
-			/* llvm::dbgs() << sLab->getPos() << " --> " << rLab->getPos() << "\n\n"; */
+			// llvm::dbgs() << "duplicate execution found in\n";
+			// prettyPrintGraph();
+			// printGraph();
+			// llvm::dbgs() << sLab->getPos() << " --> " << rLab->getPos() << "\n\n";
+			// llvm::dbgs() << format(llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())->
+			// 		       getStoresToLoc(rLab->getAddr())) << "\n";
 			;
 		} else {
 			addToRevisitSet(rLab, writePrefixPos, moPlacings);
@@ -2564,7 +2566,7 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	changeRf(rLab->getPos(), ri->getRev());
-	rLab->setAddedMax(llvm::isa<BRevItem>(ri));
+	rLab->setAddedMax(isCoMaximal(rLab->getAddr(), ri->getRev())); // llvm::isa<BRevItem>(ri));
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
