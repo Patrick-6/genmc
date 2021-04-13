@@ -796,11 +796,12 @@ bool GenMCDriver::isCoMaximal(const llvm::GenericValue *addr, Event e,
 			      bool checkCache /* = false */, ProgramPoint p /* = step */)
 {
 	auto &g = getGraph();
+	auto *cc = g.getCoherenceCalculator();
 
-	if (!shouldCheckCons(p)) {
-		auto *cc = g.getCoherenceCalculator();
-		return checkCache ? cc->isCachedCoMaximal(addr, e) : cc->isCoMaximal(addr, e);
-	}
+	if (checkCache)
+		return cc->isCachedCoMaximal(addr, e);
+	if (!shouldCheckCons(p))
+		return cc->isCoMaximal(addr, e);
 
 	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
 	return (e.isInitializer() && coLoc.empty()) ||
