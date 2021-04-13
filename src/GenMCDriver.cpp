@@ -2069,9 +2069,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		auto *rLab = static_cast<const ReadLabel *>(lab);
 
-		if (rLab->getAnnot() && !SExprEvaluator().evaluate(rLab->getAnnot(), sLab->getVal()))
-			continue;
-
 		/* Optimize barrier revisits */
 		if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
 			if (!getConf()->disableBarrierOpt &&
