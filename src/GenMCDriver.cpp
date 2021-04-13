@@ -1315,14 +1315,12 @@ void GenMCDriver::filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::
 	return;
 }
 
-bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
-						 const SExpr *annot,
-						 std::vector<Event> &validStores)
+bool GenMCDriver::filterValuesFromAnnotSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+					     const SExpr *annot, std::vector<Event> &validStores)
 {
 	if (!annot)
 		return false;
 
-	BUG_ON(validStores.empty());
 	/* For WB, there might be many maximal ones */
 	auto shouldBlock =
 		std::any_of(validStores.begin(), validStores.end(),
@@ -1332,6 +1330,7 @@ bool GenMCDriver::filterUninterestingValuesSAVER(const llvm::GenericValue *addr,
 		return !isCoMaximal(addr, w, true) &&
 		       !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, typ)); }),
 		validStores.end());
+	BUG_ON(validStores.empty());
 
 	return shouldBlock;
 }
@@ -1686,10 +1685,10 @@ GenMCDriver::visitLoad(InstAttr attr,
 	if (getConf()->symmetryReduction)
 		filterSymmetricStoresSR(addr, typ, validStores);
 
-	/* If this load is annotatable, try and keep interesting values only */
+	/* If this load is annotatable, keep values that will not leed to blocking */
 	auto annot = EE->getCurrentAnnotConcretized();
 	if (annot.get())
-		filterUninterestingValuesSAVER(addr, typ, annot.get(), validStores);
+		filterValuesFromAnnotSAVER(addr, typ, annot.get(), validStores);
 
 	/* ... add an appropriate label with a random rf */
 	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, typ, std::move(annot),
