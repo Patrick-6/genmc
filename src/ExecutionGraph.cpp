@@ -193,10 +193,11 @@ Event ExecutionGraph::getMatchingLock(const Event unlock) const
 			if (suLab->getAddr() == uLab->getAddr())
 				locUnlocks.push_back(suLab->getPos());
 		}
-		if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(lab)) {
-			if (lLab->getAddr() == uLab->getAddr()) {
+		if (auto *lLab = llvm::dyn_cast<CasWriteLabel>(lab)) {
+			if ((llvm::isa<LockCasWriteLabel>(lLab) || llvm::isa<TrylockCasWriteLabel>(lLab)) &&
+			    lLab->getAddr() == uLab->getAddr()) {
 				if (locUnlocks.empty())
-					return lLab->getPos();
+					return lLab->getPos().prev();
 				locUnlocks.pop_back();
 			}
 		}
@@ -208,16 +209,17 @@ Event ExecutionGraph::getMatchingUnlock(const Event lock) const
 {
 	std::vector<Event> locLocks;
 
-	auto *lLab = llvm::dyn_cast<LockCasReadLabel>(getEventLabel(lock));
-	BUG_ON(!lLab);
+	auto *lLab = llvm::dyn_cast<CasReadLabel>(getEventLabel(lock));
+	BUG_ON(!lLab || (!llvm::isa<LockCasReadLabel>(lLab) && !llvm::isa<TrylockCasReadLabel>(lLab)));
 
-	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
+	for (auto j = lock.index + 2; j < getThreadSize(lock.thread); j++) { /* skip next event */
 		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
 
 		/* In case support for reentrant locks is added... */
-		if (auto *slLab = llvm::dyn_cast<LockCasReadLabel>(lab)) {
-			if (slLab->getAddr() == lLab->getAddr())
-				locLocks.push_back(slLab->getPos());
+		if (auto *slLab = llvm::dyn_cast<CasWriteLabel>(lab)) {
+			if ((llvm::isa<LockCasWriteLabel>(slLab) || llvm::isa<TrylockCasWriteLabel>(slLab)) &&
+			    slLab->getAddr() == lLab->getAddr())
+				locLocks.push_back(slLab->getPos().prev());
 		}
 		if (auto *uLab = llvm::dyn_cast<UnlockWriteLabel>(lab)) {
 			if (uLab->getAddr() == lLab->getAddr()) {

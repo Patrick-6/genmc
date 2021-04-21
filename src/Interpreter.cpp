@@ -636,6 +636,10 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				       nullptr, getCtrlDeps(tid),
 				       getAddrPoDeps(tid), nullptr);
+		} else if (iFunCode == InternalFunctions::FN_AtomicRmwNoRet) {
+			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				       getDataDeps(tid, *(SF.Caller.arg_begin() + 1)),
+				       getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
 		}
 	} else {
 		/* The parameters of the function called get the data

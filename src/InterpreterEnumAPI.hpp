@@ -31,9 +31,11 @@ enum class InstAttr {
 	IA_None,
 
 	IA_Fai,
+	IA_NoRetFai,
 	IA_BPost,
 	IA_Cas,
 	IA_Lock,
+	IA_Trylock,
 	IA_RMWEnd,
 
 	IA_Unlock,
@@ -50,6 +52,7 @@ enum class InstAttr {
 inline bool isRMWAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_RMWEnd; }
 inline bool isFAIAttr(InstAttr attr) { return attr >= InstAttr::IA_Fai && attr <= InstAttr::IA_BPost; }
 inline bool isLockAttr(InstAttr attr) { return attr == InstAttr::IA_Lock; }
+inline bool isTrylockAttr(InstAttr attr) { return attr == InstAttr::IA_Trylock; }
 inline bool isBPostAttr(InstAttr attr) { return attr == InstAttr::IA_BPost; }
 inline bool isBWaitAttr(InstAttr attr) { return attr == InstAttr::IA_BWait; }
 inline bool isDskAttr(InstAttr attr) { return attr >= InstAttr::IA_DskMdata && attr <= InstAttr::IA_DskJnlEnd; }
@@ -77,6 +80,7 @@ enum class InternalFunctions {
 	FN_ThreadSelf,
 	FN_NoSideEffectsLast,
 	/* No side effects */
+	FN_AtomicRmwNoRet,
 	FN_ThreadCreate,
 	FN_ThreadJoin,
 	FN_ThreadExit,
@@ -113,6 +117,12 @@ enum class InternalFunctions {
 	FN_CloseFS,
 	FN_LastFS,
 	/* FS ops */
+
+	FN_SmpFenceLKMM,
+	FN_RCUReadLockLKMM,
+	FN_RCUReadUnlockLKMM,
+	FN_SynchronizeRCULKMM,
+	/* LKMM ops */
 };
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;

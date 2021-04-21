@@ -180,9 +180,11 @@ public:
 	void
 	visitDskPbarrier();
 
-	/* A fence has been interpreted, nothing for the interpreter */
+	/* A fence has been interpreted, nothing for the interpreter.
+	 * For LKMM fences, the argument lkmmType points to a description
+	 * of the fence's actual type */
 	void
-	visitFence(llvm::AtomicOrdering ord);
+	visitFence(llvm::AtomicOrdering ord, const char *lkmmType = nullptr);
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
@@ -221,6 +223,14 @@ public:
 		for (auto it = begin; it != end; ++it)
 			visitFree(*it);
 	}
+
+	/* LKMM: Visit RCU functions */
+	void
+	visitRCULockLKMM();
+	void
+	visitRCUUnlockLKMM();
+	void
+	visitRCUSyncLKMM();
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
@@ -279,6 +289,18 @@ protected:
 
 	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
+
+	/* Returns true if the current graph is consistent */
+	bool isConsistent(ProgramPoint p);
+
+	/* Pers: Returns true if current recovery routine is valid */
+	bool isRecoveryValid(ProgramPoint p);
+
+	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
+	bool threadReadsMaximal(int tid);
+
+	/* Liveness: Calls visitError() if there is a liveness violation */
+	void checkLiveness();
 
 	/* Returns true if a is hb-before b */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
@@ -400,18 +422,6 @@ private:
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
 
-	/* Returns true if the current graph is consistent */
-	bool isConsistent(ProgramPoint p);
-
-	/* Pers: Returns true if current recovery routine is valid */
-	bool isRecoveryValid(ProgramPoint p);
-
-	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
-	bool threadReadsMaximal(int tid);
-
-	/* Liveness: Calls visitError() if there is a liveness violation */
-	void checkLiveness();
-
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
@@ -517,6 +527,9 @@ private:
 
 	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
 	void repairDanglingBarriers();
+
+	/* LKMM: Helper for visiting LKMM fences */
+	void visitFenceLKMM(llvm::AtomicOrdering ord, const char *lkmmType);
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(const llvm::GenericValue *addr);

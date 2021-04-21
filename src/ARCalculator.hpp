@@ -48,4 +48,4 @@ private:
 	bool addArConstraints();
 };
 
-#endif /* __PSC_CALCULATOR_HPP__ */
+#endif /* __AR_CALCULATOR_HPP__ */
