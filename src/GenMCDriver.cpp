@@ -1582,6 +1582,7 @@ void GenMCDriver::visitFence(llvm::AtomicOrdering ord, const char *lkmmType /* =
 	auto pos = getEE()->getCurrentPosition();
 
 	auto fLab = FenceLabel::create(g.nextStamp(), ord, pos);
+	updateLabelViews(fLab.get());
 	g.addOtherLabelToGraph(std::move(fLab));
 	return;
 }
