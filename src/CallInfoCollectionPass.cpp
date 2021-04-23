@@ -46,7 +46,7 @@ bool hasSideEffects(Function *F, SmallVector<Function *, 4> &chain,
 	if (clean.count(F) || std::find(chain.begin(), chain.end(), F) != chain.end())
 		return false;
 	if (F->empty())
-		return !isCleanInternalFunction(F->getName());
+		return !isCleanInternalFunction(F->getName().str());
 
 	for (auto it = inst_iterator(*F), ei = inst_end(*F); it != ei; ++it) {
 		if (!hasSideEffects(&*it))

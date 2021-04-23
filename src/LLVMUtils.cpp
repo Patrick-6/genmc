@@ -19,6 +19,7 @@
  */
 
 #include "LLVMUtils.hpp"
+#include "CallInstWrapper.hpp"
 #include "InterpreterEnumAPI.hpp"
 
 #include <unordered_set>
@@ -39,11 +40,11 @@ Value *stripCasts(Value *val)
 	return val;
 }
 
-StringRef getCalledFunOrStripValName(const CallInst &ci)
+std::string getCalledFunOrStripValName(const CallInst &ci)
 {
 	if (auto *fun = ci.getCalledFunction())
-		return fun->getName();
-	return ci.getCalledValue()->stripPointerCasts()->getName();
+		return fun->getName().str();
+	return CallInstWrapper(const_cast<CallInst *>(&ci)).getCalledOperand()->stripPointerCasts()->getName().str();
 }
 
 bool isIntrinsicCallNoSideEffects(const Instruction &i)
@@ -88,7 +89,8 @@ bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* =
 				return !isCleanInternalFunction(name);
 			if (!cleanFuns)
 				return true;
-			const auto *fun = dyn_cast<Function>(ci->getCalledValue()->stripPointerCasts());
+			CallInstWrapper CW(const_cast<CallInst *>(ci));
+			const auto *fun = dyn_cast<Function>(CW.getCalledOperand()->stripPointerCasts());
 			if (!fun || !cleanFuns->count(const_cast<Function*>(fun)))
 				return true;
 		} else if (!isa<LoadInst>(i) && !isa<FenceInst>(i)) {
