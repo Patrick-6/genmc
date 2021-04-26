@@ -549,10 +549,15 @@ void atomic_signal_fence(memory_order m) noexcept;
 #define _LIBCPP_CONSTEXPR constexpr
 #define _LIBCPP_DEFAULT = default;
 
-#define _LIBCPP_DIAGNOSE_WARNING(...) \
-   __attribute__((diagnose_if(__VA_ARGS__, "warning")))
-#define _LIBCPP_DIAGNOSE_ERROR(...) \
-   __attribute__((diagnose_if(__VA_ARGS__, "error")))
+#if __has_attribute(diagnose_if) && !defined(_LIBCPP_DISABLE_ADDITIONAL_DIAGNOSTICS)
+#  define _LIBCPP_DIAGNOSE_WARNING(...) \
+     __attribute__((diagnose_if(__VA_ARGS__, "warning")))
+#  define _LIBCPP_DIAGNOSE_ERROR(...) \
+     __attribute__((diagnose_if(__VA_ARGS__, "error")))
+#else
+#  define _LIBCPP_DIAGNOSE_WARNING(...)
+#  define _LIBCPP_DIAGNOSE_ERROR(...)
+#endif
 
 #include <cstddef>
 #include <cstdint>
