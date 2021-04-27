@@ -538,8 +538,8 @@ private:
 				     std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterUninterestingValuesSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
-					    const SExpr *annot, std::vector<Event> &stores);
+	bool filterValuesFromAnnotSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+					const SExpr *annot, std::vector<Event> &stores);
 
 
 	/*** Output-related ***/

@@ -26,6 +26,7 @@
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CFG.h>
+#include <string>
 
 #ifdef LLVM_HAS_TERMINATORINST
  typedef llvm::TerminatorInst TerminatorInst;
@@ -48,7 +49,7 @@ llvm::Value *stripCasts(llvm::Value *val);
 /*
  * Returns the name of the function ci calls
  */
-llvm::StringRef getCalledFunOrStripValName(const llvm::CallInst &ci);
+std::string getCalledFunOrStripValName(const llvm::CallInst &ci);
 
 /*
  * Returns true if its argument is an intrinsic call that does
