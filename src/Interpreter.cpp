@@ -631,7 +631,8 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 			}
 		} else if (iFunCode == InternalFunctions::FN_MutexLock ||
 			   iFunCode == InternalFunctions::FN_MutexUnlock ||
-			   iFunCode == InternalFunctions::FN_MutexTrylock) {
+			   iFunCode == InternalFunctions::FN_MutexTrylock ||
+			   iFunCode == InternalFunctions::FN_BarrierWait) {
 			/* We have addr dependency on the argument of mutex calls */
 			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				       nullptr, getCtrlDeps(tid),

@@ -190,37 +190,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	s << lab.getPos() << ": ";
 
 	switch (lab.getKind()) {
-	case EventLabel::EL_Empty: {
-		auto &eLab = static_cast<const EmptyLabel&>(lab);
-		s << eLab.getKind();
-		break;
-	}
-	case EventLabel::EL_SpinStart: {
-		auto &sLab = static_cast<const SpinStartLabel&>(lab);
-		s << sLab.getKind();
-		break;
-	}
-	case EventLabel::EL_PotentialSpinEnd: {
-		auto &eLab = static_cast<const PotentialSpinEndLabel&>(lab);
-		s << eLab.getKind();
-		break;
-	}
-	case EventLabel::EL_Read: {
+	case EventLabel::EL_Read:
+	case EventLabel::EL_FaiRead:
+	case EventLabel::EL_BIncFaiRead:
+	case EventLabel::EL_BWaitRead:
+	case EventLabel::EL_CasRead:
+	case EventLabel::EL_LockCasRead: {
 		auto &rLab = static_cast<const ReadLabel&>(lab);
-		s << rLab.getKind() << rLab.getOrdering() << " [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
-	case EventLabel::EL_FaiRead: {
-		auto &rLab = static_cast<const FaiReadLabel&>(lab);
-		s << rLab.getKind() << rLab.getOrdering() << " [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
-	case EventLabel::EL_CasRead: {
-		auto &rLab = static_cast<const CasReadLabel&>(lab);
 		s << rLab.getKind() << rLab.getOrdering() << " [";
 		PRINT_RF(s, rLab.getRf());
 		s << "]";
@@ -230,94 +206,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		auto &rLab = static_cast<const LibReadLabel&>(lab);
 		s << rLab.getKind() << rLab.getOrdering() << " ("
 		  << rLab.getFunctionName() << ") [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
-	case EventLabel::EL_Write: {
-		auto &wLab = static_cast<const WriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " " << wLab.getVal().IntVal;
-		break;
-	}
-	case EventLabel::EL_FaiWrite: {
-		auto &wLab = static_cast<const FaiWriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " "
-		  << wLab.getVal().IntVal;
-		break;
-	}
-	case EventLabel::EL_CasWrite: {
-		auto &wLab = static_cast<const CasWriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " "
-		  << wLab.getVal().IntVal << "";
-		break;
-	}
-	case EventLabel::EL_LibWrite: {
-		auto &wLab = static_cast<const LibWriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " ("
-		  << wLab.getFunctionName() << ") " << wLab.getVal().IntVal;
-		break;
-	}
-	case EventLabel::EL_Fence: {
-		auto &fLab = static_cast<const FenceLabel&>(lab);
-		s << fLab.getKind() << fLab.getOrdering();
-		break;
-	}
-	case EventLabel::EL_DskFsync: {
-		auto &fLab = static_cast<const DskSyncLabel&>(lab);
-		s << fLab.getKind();
-		break;
-	}
-	case EventLabel::EL_DskSync: {
-		auto &fLab = static_cast<const DskSyncLabel&>(lab);
-		s << fLab.getKind();
-		break;
-	}
-	case EventLabel::EL_ThreadCreate: {
-		auto &cLab = static_cast<const ThreadCreateLabel&>(lab);
-		s << cLab.getKind() << " [forks " << cLab.getChildId() << "]";
-		break;
-	}
-	case EventLabel::EL_ThreadJoin: {
-		auto &jLab = static_cast<const ThreadJoinLabel&>(lab);
-		s << jLab.getKind();
-		break;
-	}
-	case EventLabel::EL_ThreadStart: {
-		auto &bLab = static_cast<const ThreadStartLabel&>(lab);
-		s << bLab.getKind();
-		break;
-	}
-	case EventLabel::EL_ThreadFinish: {
-		auto &eLab = static_cast<const ThreadFinishLabel&>(lab);
-		s << eLab.getKind();
-		break;
-	}
-	case EventLabel::EL_Malloc: {
-		auto &bLab = static_cast<const MallocLabel&>(lab);
-		s << bLab.getKind();
-		break;
-	}
-	case EventLabel::EL_Free: {
-		auto &bLab = static_cast<const FreeLabel&>(lab);
-		s << bLab.getKind();
-		break;
-	}
-	case EventLabel::EL_LockLabelLAPOR: {
-		auto &lLab = static_cast<const LockLabelLAPOR&>(lab);
-		s << lLab.getKind();
-		break;
-	}
-	case EventLabel::EL_UnlockLabelLAPOR: {
-		auto &uLab = static_cast<const UnlockLabelLAPOR&>(lab);
-		s << uLab.getKind();
-		break;
-	}
-	case EventLabel::EL_DskOpen: {
-		auto &bLab = static_cast<const DskOpenLabel&>(lab);
-		s << bLab.getKind() << " (";
-		s << bLab.getFileName() << ", ";
-		s << bLab.getFd().IntVal.getLimitedValue() << ")";
-		break;
 	}
 	case EventLabel::EL_DskRead: {
 		auto &rLab = static_cast<const DskReadLabel&>(lab);
@@ -326,18 +214,51 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << "]";
 		break;
 	}
+
+	case EventLabel::EL_Write:
+	case EventLabel::EL_FaiWrite:
+	case EventLabel::EL_BIncFaiWrite:
+	case EventLabel::EL_CasWrite:
+	case EventLabel::EL_LockCasWrite: {
+		auto &wLab = static_cast<const WriteLabel&>(lab);
+		s << wLab.getKind() << wLab.getOrdering() << " "
+		  << wLab.getVal().IntVal;
+		break;
+	}
+	case EventLabel::EL_LibWrite: {
+		auto &wLab = static_cast<const LibWriteLabel&>(lab);
+		s << wLab.getKind() << wLab.getOrdering() << " ("
+		  << wLab.getFunctionName() << ") " << wLab.getVal().IntVal;
+		break;
+	}
 	case EventLabel::EL_DskWrite: {
 		auto &wLab = static_cast<const DskWriteLabel&>(lab);
 		s << wLab.getKind() << " " << wLab.getVal().IntVal;
 		break;
 	}
-	case EventLabel::EL_DskPbarrier: {
-		auto &pLab = static_cast<const DskPbarrierLabel&>(lab);
-		s << pLab.getKind();
+
+	case EventLabel::EL_Fence: {
+		auto &fLab = static_cast<const FenceLabel&>(lab);
+		s << fLab.getKind() << fLab.getOrdering();
 		break;
 	}
+
+	case EventLabel::EL_ThreadCreate: {
+		auto &cLab = static_cast<const ThreadCreateLabel&>(lab);
+		s << cLab.getKind() << " [forks " << cLab.getChildId() << "]";
+		break;
+	}
+
+	case EventLabel::EL_DskOpen: {
+		auto &bLab = static_cast<const DskOpenLabel&>(lab);
+		s << bLab.getKind() << " (";
+		s << bLab.getFileName() << ", ";
+		s << bLab.getFd().IntVal.getLimitedValue() << ")";
+		break;
+	}
+
 	default:
-		s << "UNKNOWN";
+		s << lab.getKind();
 		break;
 	}
 	return s;
