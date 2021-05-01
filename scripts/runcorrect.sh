@@ -158,13 +158,12 @@ runvariants() {
     failure=""
     outcome_failure=""
     failure_output=""
-    unroll="" && [[ -f "${dir}/unroll.in" ]] && unroll="-unroll="`head -1 "${dir}/unroll.in"`
-    checker_args=() && [[ -f "${dir}/genmc.${model}.${coherence}.in" ]] &&
-	checker_args=(`cat "${dir}/genmc.${model}.${coherence}.in"`)
+    genmc_args=$(echo "$test_args" | cut -f1 -d'|')
+    clang_args=$(echo "$test_args" | cut -f2 -d'|')
     for t in $dir/variants/*.c $dir/variants/*.cpp
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" "-${coherence}" "${unroll}" $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} "${t}" 2>&1`
+	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" "-${coherence}" $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    failure_output="${output}"
