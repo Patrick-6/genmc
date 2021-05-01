@@ -402,7 +402,7 @@ protected:
 		  Event pos, const llvm::GenericValue *loc,
 		  const llvm::Type *typ, Event rf, std::unique_ptr<SExpr> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, typ),
-		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rf), revisitable(true), inPlaceRev(false), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
@@ -420,6 +420,9 @@ public:
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
+
+	bool isRevisitedInPlace() const { return inPlaceRev; }
+	void setInPlaceRevisitStatus(bool status) { inPlaceRev = status ; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
@@ -448,6 +451,8 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
+
+	bool inPlaceRev;
 
 	/* SAVer: Expression for annotatable loads. Shared between clones
 	 * for easier copying, but clones will not be revisitable anyway */

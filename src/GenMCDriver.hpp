@@ -513,7 +513,7 @@ private:
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
-	bool tryToRevisitLock(const CasReadLabel *rLab, const WriteLabel *sLab,
+	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
 			      const std::vector<Event> &writePrefixPos,
 			      const std::vector<std::pair<Event, Event> > &moPlacings);
 
