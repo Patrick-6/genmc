@@ -88,7 +88,8 @@ std::string format(const Container &c)
 template <typename T1, typename T2>
 std::string format(const std::pair<T1, T2> &p)
 {
-	llvm::raw_string_ostream out;
+	std::string str;
+	llvm::raw_string_ostream out(str);
 	print(out, p);
 	return out.str();
 }
