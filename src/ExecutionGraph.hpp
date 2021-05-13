@@ -244,6 +244,17 @@ public:
 	/* Returns a list of loads that can be revisited */
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
 
+	/* Returns the first po-predecessor satisfying F */
+	template <typename F>
+	const EventLabel *getPreviousLabelST(const EventLabel *lab, F&& cond) const {
+		for (auto j = lab->getIndex() - 1; j >= 0; j--) {
+			auto *eLab = getEventLabel(Event(lab->getThread(), j));
+			if (cond(eLab))
+				return eLab;
+		}
+		return nullptr;
+	}
+
 	/* Returns a list of all events satisfying property F */
 	template <typename F>
 	std::vector<Event> collectAllEvents(F cond) const {

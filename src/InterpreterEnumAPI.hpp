@@ -72,7 +72,8 @@ enum class InternalFunctions {
 	FN_SpinStart,
 
 	FN_SpinEnd,
-	FN_PotentialSpinEnd,
+	FN_FaiZNESpinEnd,
+	FN_LockZNESpinEnd,
 	FN_Assume,
 	/* Assume calls */
 	FN_EndLoop,

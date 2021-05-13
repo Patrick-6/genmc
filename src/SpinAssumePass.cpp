@@ -25,6 +25,7 @@
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "CallInfoCollectionPass.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "InstAnnotator.hpp"
 #include "LLVMUtils.hpp"
 #include "SExprVisitor.hpp"
@@ -291,16 +292,16 @@ bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
  * they fail. (If we exit the backedge paths with any of the CASes being successful, this function
  * will return false.)
  */
-bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch, Loop *l)
+bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch, Loop *l,
+			     const CallInfoCollectionPass::CallSet &cleanSet)
 {
 	std::vector<ExtractValueInst *> extracts;
 
-	if (!tryGetCASResultExtracts(cass, extracts))
-		return false;
+	BUG_ON(!tryGetCASResultExtracts(cass, extracts));
 
 	std::vector<std::unique_ptr<SExpr> > casConditions;
 	for (auto *cas : cass)
-		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l));
+		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l, &cleanSet));
 
 	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
 	for (auto i = 1u; i < (1 << extracts.size()); i++) {
@@ -317,7 +318,7 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	return true;
 }
 
-bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l)
+bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l, bool &checkDynamically)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
@@ -333,7 +334,11 @@ bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l)
 	std::sort(cass.begin(), cass.end());
 	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
 
-	return !effects && !cass.empty() && failedCASesLeadToHeader(cass, latch, l);
+	if (effects || cass.empty())
+		return false;
+
+	checkDynamically = !failedCASesLeadToHeader(cass, latch, l, cleanSet);
+	return true;
 }
 
 template<typename F>
@@ -379,7 +384,7 @@ bool dominatesAndPostdominates(Instruction *a, Instruction *b, DominatorTree &DT
 	return DT.dominates(a, b) && PDT.dominates(a->getParent(), b->getParent());
 }
 
-bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
+bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instruction *&lastEffect)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
@@ -398,6 +403,9 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
 
+	if (effects || fais.size() != 2 || !phis.empty())
+		return false;
+
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 #ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
 	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
@@ -405,12 +413,60 @@ bool SpinAssumePass::isPathToHeaderZNE(BasicBlock *latch, Loop *l)
 	auto &PDT = getAnalysis<POSTDOM_PASS>();
 #endif
 
-	return !effects &&
-	       fais.size() == 2 &&
-	       (dominatesAndPostdominates(fais[0], fais[1], DT, PDT) || /* due to VSet */
-		dominatesAndPostdominates(fais[1], fais[0], DT, PDT)) &&
-	       areCancelingBinops(fais[0], fais[1]) &&
-	       phis.empty();
+	auto aDomB = dominatesAndPostdominates(fais[0], fais[1], DT, PDT);
+	auto bDomA = dominatesAndPostdominates(fais[1], fais[0], DT, PDT);
+	if (!areCancelingBinops(fais[0], fais[1]) || (!aDomB && !bDomA)) /* due to VSet */
+		return false;
+
+	lastEffect = (aDomB) ? fais[1] : fais[0];
+	return true;
+}
+
+bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instruction *&lastEffect)
+{
+	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto effects = false;
+	VSet<CallInst *> locks;
+	VSet<CallInst *> unlocks;
+	VSet<PHINode *> phis;
+
+	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
+		if (auto *ci = dyn_cast<CallInst>(&i)) {
+			auto name = getCalledFunOrStripValName(*ci);
+			if (isInternalFunction(name)) {
+				auto icode = internalFunNames.at(name);
+				if (icode == InternalFunctions::FN_MutexLock) {
+					locks.insert(ci);
+					return;
+				}
+				if (icode == InternalFunctions::FN_MutexUnlock) {
+					unlocks.insert(ci);
+					return;
+				}
+			}
+		}
+		if (auto *phi = dyn_cast<PHINode>(&i)) {
+			phis.insert(phi);
+			return;
+		}
+		effects |= hasSideEffects(&i, &cleanSet);
+	});
+
+	if (effects || locks.size() != 1 || unlocks.size() != 1 || !phis.empty())
+		return false;
+
+	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
+	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
+#else
+	auto &PDT = getAnalysis<POSTDOM_PASS>();
+#endif
+	auto lDomU = dominatesAndPostdominates(locks[0], unlocks[0], DT, PDT);
+	if (!lDomU || !accessSameVariable(*locks[0]->arg_begin(), *unlocks[0]->arg_begin()))
+		return false;
+
+	lastEffect = unlocks[0];
+	return true;
 }
 
 Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
@@ -428,7 +484,7 @@ Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
 	return BinaryOperator::CreateNot(bi->getCondition(), "", term);
 }
 
-void SpinAssumePass::addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
+void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 {
 	auto *term = latch->getTerminator();
         auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_spin_end");
@@ -440,45 +496,45 @@ void SpinAssumePass::addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *hea
 	return;
 }
 
-void SpinAssumePass::addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header)
+void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header, Instruction *lastEffect)
 {
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
-	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
-#else
-	auto &PDT = getAnalysis<POSTDOM_PASS>();
-#endif
-
-	/* Find the last FAI call of the path */
-	SmallVector<AtomicRMWInst *, 2> fais;
-	foreachInBackPathTo(latch, header, [&](const Instruction &i){
-		if (auto *faii = dyn_cast<AtomicRMWInst>(&i)) {
-			fais.push_back(const_cast<AtomicRMWInst *>(faii));
-			return;
-		}
-	});
-	BUG_ON(fais.size() != 2);
-
-	/* Be resilient against collection order, but enforce invariant */
-	if (!dominatesAndPostdominates(fais[0], fais[1], DT, PDT))
-		std::swap(fais[0], fais[1]);
-	BUG_ON(!dominatesAndPostdominates(fais[0], fais[1], DT, PDT));
-
-	auto lastFai = fais[1];
-	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_potential_spin_end");
+	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_faiZNE_spin_end");
 	BUG_ON(!endFun);
 
-	auto *ci = CallInst::Create(endFun, {}, "", lastFai);
-	ci->setMetadata("dbg", lastFai->getMetadata("dbg"));
+	auto *ci = CallInst::Create(endFun, {}, "", lastEffect);
+	ci->setMetadata("dbg", lastEffect->getMetadata("dbg"));
 	return;
 }
 
-void addSpinStartCall(BasicBlock *b)
+void addPotentialSpinEndCallBeforeUnlock(BasicBlock *latch, BasicBlock *header, Instruction *lastEffect)
 {
-        auto *startFun = b->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
+	auto *endFun = latch->getParent()->getParent()->getFunction("__VERIFIER_lockZNE_spin_end");
+	BUG_ON(!endFun);
 
-	auto *i = b->getFirstNonPHI();
-        auto *ci = CallInst::Create(startFun, {}, "", i);
+	auto *ci = CallInst::Create(endFun, {}, "", lastEffect);
+	ci->setMetadata("dbg", lastEffect->getMetadata("dbg"));
+	return;
+}
+
+unsigned int getLoopId(Loop *l)
+{
+	static unsigned int spinloopId = 0;
+	static std::unordered_map<Loop *, unsigned int> ids;
+
+	if (ids.count(l))
+		return ids.at(l);
+
+	ids[l] = ++spinloopId;
+	return ids.at(l);
+}
+
+void addSpinStartCall(Loop *l)
+{
+        auto *startFun = l->getHeader()->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
+	auto *arg = ConstantInt::get(Type::getInt32Ty(l->getHeader()->getContext()), getLoopId(l));
+
+	auto *i = l->getHeader()->getFirstNonPHI();
+        auto *ci = CallInst::Create(startFun, {arg}, "", i);
 }
 
 void removeDisconnectedBlocks(Loop *l)
@@ -536,26 +592,38 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 
 	auto spinloop = true;
 	auto modified = false;
+	auto checkDynamically = false;
+	llvm::Instruction *lastZNEEffect = nullptr;
 	for (auto &latch : latches) {
-		if (isPathToHeaderEffectFree(latch, l) ||
-		    isPathToHeaderCASClean(latch, l)) {
+		if (isPathToHeaderEffectFree(latch, l)) {
 			modified = true;
 			addSpinEndCallBeforeTerm(latch, header);
-		} else if (isPathToHeaderZNE(latch, l)) {
+		} else if (isPathToHeaderCASClean(latch, l, checkDynamically)) {
+			/* If we have to dynamically validate the loop,
+			 * the spin-end call will be inserted at runtime */
+			if (checkDynamically)
+				spinloop = false;
+			else
+				addSpinEndCallBeforeTerm(latch, header);
+			modified = true; /* We will insert a partial_start call */
+		} else if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
 			modified = true;
-			addPotentialSpinEndCallBeforeLastFai(latch, header);
+			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
+		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
+			modified = true;
+			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
 		} else {
 			spinloop = false;
 		}
 	}
 
-	/* If the transformation applied in all backedges, this is not a loop */
+	/* Mark spinloop start if we have to */
+	if (checkDynamically || (spinloop && markStarts))
+		addSpinStartCall(l);
+
+	/* If the transformation applied did not apply in all backedges, this is indeed a loop */
 	if (!spinloop)
 		return modified;
-
-	/* Mark spinloop starts if we have to */
-	if (markStarts)
-		addSpinStartCall(header);
 
 #ifdef LLVM_HAVE_LOOPINFO_ERASE
 	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().erase(l);

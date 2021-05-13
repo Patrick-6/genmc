@@ -252,7 +252,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_ThreadCreate:
 	case EventLabel::EL_ThreadFinish:
 	case EventLabel::EL_SpinStart:
-	case EventLabel::EL_PotentialSpinEnd:
+	case EventLabel::EL_FaiZNESpinEnd:
+	case EventLabel::EL_LockZNESpinEnd:
 	case EventLabel::EL_Malloc:
 	case EventLabel::EL_Free:
 	case EventLabel::EL_LockLabelLAPOR:

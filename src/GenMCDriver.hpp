@@ -188,11 +188,15 @@ public:
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
-	visitSpinStart();
+	visitSpinStart(unsigned int loopId);
 
-	/* A call to __VERIFIER_potential_spin_end() has been interpreted */
+	/* A call to __VERIFIER_faiZNE_spin_end() has been interpreted */
 	void
-	visitPotentialSpinEnd();
+	visitFaiZNESpinEnd();
+
+	/* A call to __VERIFIER_lockZNE_spin_end() has been interpreted */
+	void
+	visitLockZNESpinEnd();
 
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
@@ -502,9 +506,9 @@ private:
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
 
-	/* Opt: Given the end of a potential spinloop, returns true if
-	 * it is indeed a spinloop */
-	bool areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab);
+	/* Opt: Given the end of a potential FAI-ZNE spinloop,
+	 * returns true if it is indeed a spinloop */
+	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */

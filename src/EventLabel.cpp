@@ -80,8 +80,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_SpinStart:
 		s << "SPIN_START";
 		break;
-	case EventLabel::EL_PotentialSpinEnd:
-		s << "POT_SPIN_END";
+	case EventLabel::EL_FaiZNESpinEnd:
+	case EventLabel::EL_LockZNESpinEnd:
+		s << "ZNE_SPIN_END";
 		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
