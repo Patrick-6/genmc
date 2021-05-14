@@ -78,12 +78,16 @@ bool PROPCalculator::isPoUnlRfLockPoBefore(Event a, Event b) const
 	auto &g = getGraph();
 
 	for (auto &l1 : locks) {
+		auto *lab1 = llvm::dyn_cast<CasReadLabel>(g.getEventLabel(l1));
+		BUG_ON(!lab1);
 		auto ul1 = g.getMatchingUnlock(l1);
 		if (!a.isBetween(l1, ul1) || ul1.isInitializer())
 			continue;
 		for (auto &l2 : locks) {
 			auto *lab2 = llvm::dyn_cast<CasReadLabel>(g.getEventLabel(l2));
 			BUG_ON(!lab2);
+			if (lab2->getAddr() != lab1->getAddr())
+				continue;
 
 			if (lab2->getHbView().contains(ul1) && b.thread == l2.thread && b.index > l2.index)
 				return true;
