@@ -237,18 +237,6 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 	return true;
 }
 
-/* Only for loops as it may not terminate if called for general code */
-bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l)
-{
-	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
-	auto effects = false;
-
-	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
-		effects |= hasSideEffects(&i, &cleanSet);
-	});
-	return !effects;
-}
-
 /*
  * Returns whether extract extracts from a CAS. If a second argument is provided, it is ensured
  * that the extract extracts from this particular CAS.
@@ -295,6 +283,9 @@ bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
 bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch, Loop *l,
 			     const CallInfoCollectionPass::CallSet &cleanSet)
 {
+	if (cass.empty())
+		return true;
+
 	std::vector<ExtractValueInst *> extracts;
 
 	BUG_ON(!tryGetCASResultExtracts(cass, extracts));
@@ -318,9 +309,10 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	return true;
 }
 
-bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l, bool &checkDynamically)
+bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &checkDynamically)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto callEffects = false;
 	auto effects = false;
 	std::vector<AtomicCmpXchgInst *> cass;
 
@@ -329,15 +321,21 @@ bool SpinAssumePass::isPathToHeaderCASClean(BasicBlock *latch, Loop *l, bool &ch
 			cass.push_back(casi);
 			return;
 		}
+		/* Don't give up on spinloops that only have call effects */
+		if (hasSideEffects(&i, &cleanSet) && llvm::isa<CallInst>(&i)) {
+			callEffects = true;
+			return;
+		}
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
+	if (effects)
+		return false;
+
 	std::sort(cass.begin(), cass.end());
 	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
 
-	if (effects || cass.empty())
-		return false;
-
-	checkDynamically = !failedCASesLeadToHeader(cass, latch, l, cleanSet);
+	checkDynamically = callEffects;
+	checkDynamically |= !failedCASesLeadToHeader(cass, latch, l, cleanSet);
 	return true;
 }
 
@@ -595,23 +593,22 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	auto checkDynamically = false;
 	llvm::Instruction *lastZNEEffect = nullptr;
 	for (auto &latch : latches) {
-		if (isPathToHeaderEffectFree(latch, l)) {
+		if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
 			modified = true;
-			addSpinEndCallBeforeTerm(latch, header);
-		} else if (isPathToHeaderCASClean(latch, l, checkDynamically)) {
+			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
+		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
+			/* Check for lockZNE before effect-free paths,
+			 * as locks are function calls too...  */
+			modified = true;
+			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
+		} else if (isPathToHeaderEffectFree(latch, l, checkDynamically)) {
 			/* If we have to dynamically validate the loop,
 			 * the spin-end call will be inserted at runtime */
 			if (checkDynamically)
 				spinloop = false;
 			else
 				addSpinEndCallBeforeTerm(latch, header);
-			modified = true; /* We will insert a partial_start call */
-		} else if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
-			modified = true;
-			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
-		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
-			modified = true;
-			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
+			modified = true; /* At the very least, a spin_start is inserted */
 		} else {
 			spinloop = false;
 		}

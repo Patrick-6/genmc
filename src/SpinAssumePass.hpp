@@ -29,8 +29,7 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
-	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l);
-	bool isPathToHeaderCASClean(llvm::BasicBlock *latch, llvm::Loop *l, bool &checkDynamically);
+	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l, bool &checkDynamically);
 	bool isPathToHeaderFAIZNE(llvm::BasicBlock *latch, llvm::Loop *l, llvm::Instruction *&lastEffect);
 	bool isPathToHeaderLockZNE(llvm::BasicBlock *latch, llvm::Loop *l, llvm::Instruction *&lastEffect);
 
