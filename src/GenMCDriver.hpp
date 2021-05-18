@@ -506,11 +506,14 @@ private:
 			    const std::vector<Event> &stores,
 			    const View &v);
 
-	/* Opt: Checks whether the addition of an event changes our
+	/* SAVer: Checks whether the effects of a write are observable */
+	bool isWriteObservable(const WriteLabel *lab);
+
+	/* SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
 
-	/* Opt: Given the end of a potential FAI-ZNE spinloop,
+	/* SAVer: Given the end of a potential FAI-ZNE spinloop,
 	 * returns true if it is indeed a spinloop */
 	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 

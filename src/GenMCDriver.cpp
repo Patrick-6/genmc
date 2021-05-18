@@ -2810,6 +2810,30 @@ void GenMCDriver::visitLoopBegin()
 	return;
 }
 
+bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
+{
+	if (wLab->isAtLeastRelease() || !getEE()->isDynamic(wLab->getAddr()))
+		return true;
+
+	auto &g = getGraph();
+	auto *mLab = g.getPreviousLabelST(wLab, [wLab](const EventLabel *lab){
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+			if (aLab->getAllocAddr() <= wLab->getAddr() &&
+			    ((char *) aLab->getAllocAddr() + aLab->getAllocSize() >
+			     (char *) wLab->getAddr()))
+				return true;
+		}
+		return false;
+	});
+	if (mLab == nullptr)
+		return true;
+
+	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++)
+		if (g.getEventLabel(Event(wLab->getThread(), j))->isAtLeastRelease())
+			return true;
+	return false;
+}
+
 void GenMCDriver::visitSpinStart()
 {
 	auto &g = getGraph();
@@ -2829,7 +2853,8 @@ void GenMCDriver::visitSpinStart()
 	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
 		return llvm::isa<LoopBeginLabel>(lab);
 	});
-	BUG_ON(!lbLab);
+	if (!lbLab)
+		return; /* no begin-loop => full spinloop (liveness-checks) */
 
 	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
 		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
@@ -2838,7 +2863,8 @@ void GenMCDriver::visitSpinStart()
 		return;
 
 	for (auto i = pLab->getIndex() + 1; i < stLab->getIndex(); i++) {
-		if (llvm::isa<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i))))
+		auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i)));
+		if (wLab && isWriteObservable(wLab))
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */

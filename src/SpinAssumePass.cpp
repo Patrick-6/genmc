@@ -313,30 +313,27 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &checkDynamically)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
-	auto callEffects = false;
 	auto effects = false;
 	std::vector<AtomicCmpXchgInst *> cass;
 
 	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
+		/* Try to prove that failed CASes imply another iteration */
 		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
 			cass.push_back(casi);
 			return;
 		}
-		/* Don't give up on spinloops that only have call effects */
-		if (hasSideEffects(&i, &cleanSet) && llvm::isa<CallInst>(&i)) {
-			callEffects = true;
-			return;
-		}
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
-	if (effects)
+	if (effects) {
+		checkDynamically = true;
 		return false;
+	}
 
 	std::sort(cass.begin(), cass.end());
 	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
 
-	checkDynamically = callEffects;
-	checkDynamically |= !failedCASesLeadToHeader(cass, latch, l, cleanSet);
+	if (!cass.empty())
+		checkDynamically = !failedCASesLeadToHeader(cass, latch, l, cleanSet);
 	return true;
 }
 

@@ -148,7 +148,7 @@ static void notify_waiters(struct combiner *cmb,
 		if (cur) {
 			__atomic_store_n(&cur->is_done, next, mo_rel); // Michalis: mo_rlx triggers race
 		} else {
-			__atomic_store_n(&cmb->takeover, next, mo_rel); // Michalis: mo_rlx triggers assertion
+			__atomic_store_n(&cmb->takeover, next, mo_rlx); // Michalis: mo_rlx triggers assertion
 		}
 	}
 }
