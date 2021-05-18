@@ -62,6 +62,7 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_loop_begin", InternalFunctions::FN_LoopBegin},
 	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
 	{"__VERIFIER_faiZNE_spin_end", InternalFunctions::FN_FaiZNESpinEnd},
@@ -2630,10 +2631,15 @@ void Interpreter::callAssertFail(Function *F,
 	driver->visitError(errT, err);
 }
 
+void Interpreter::callLoopBegin(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitLoopBegin();
+}
+
 void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
-	driver->visitSpinStart(ArgVals[0].IntVal.getLimitedValue());
+	driver->visitSpinStart();
 }
 
 void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -4285,6 +4291,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
+		CALL_INTERNAL_FUNCTION(LoopBegin);
 		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(SpinEnd);
 		CALL_INTERNAL_FUNCTION(FaiZNESpinEnd);

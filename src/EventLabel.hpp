@@ -56,6 +56,7 @@ public:
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
+		EL_LoopBegin,
 		EL_SpinStart,
 		EL_FaiZNESpinEnd,
 		EL_LockZNESpinEnd,
@@ -302,25 +303,48 @@ public:
 
 
 /*******************************************************************************
+ **                            LoopBeginLabel Class
+ ******************************************************************************/
+
+/* A label that marks the beginning of a spinloop. Used in DSA. */
+class LoopBeginLabel : public EventLabel {
+
+public:
+
+	LoopBeginLabel(unsigned int st, Event pos)
+		: EventLabel(EL_LoopBegin, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<LoopBeginLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LoopBegin; }
+};
+
+
+/*******************************************************************************
  **                            SpinStartLabel Class
  ******************************************************************************/
 
-/* A label that marks the beginning of reduced spinloops. It is meant to be used
- * by the liveness (await-termination) checks. */
+/* A label that marks the beginning of a spinloop iteration. It is meant
+ * to be used by the liveness (await-termination) checks. */
 class SpinStartLabel : public EventLabel {
 
 public:
 
-	SpinStartLabel(unsigned int st, Event pos, unsigned int id)
-		: EventLabel(EL_SpinStart, st, llvm::AtomicOrdering::NotAtomic, pos),
-		  loopId(id) {}
+	SpinStartLabel(unsigned int st, Event pos)
+		: EventLabel(EL_SpinStart, st, llvm::AtomicOrdering::NotAtomic, pos) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<SpinStartLabel> create(Ts&&... params) {
 		return LLVM_MAKE_UNIQUE<SpinStartLabel>(std::forward<Ts>(params)...);
 	}
-
-	unsigned int getLoopId() const { return loopId; }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<SpinStartLabel>(*this);
@@ -328,9 +352,6 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_SpinStart; }
-
-private:
-	unsigned int loopId;
 };
 
 

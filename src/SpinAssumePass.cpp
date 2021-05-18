@@ -39,6 +39,7 @@
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <llvm/Transforms/Utils/LoopUtils.h>
 
 #include <utility>
 #include <unordered_set>
@@ -482,6 +483,17 @@ Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
 	return BinaryOperator::CreateNot(bi->getCondition(), "", term);
 }
 
+void addLoopBeginCallBeforeTerm(BasicBlock *preheader)
+{
+	auto *term = preheader->getTerminator();
+	auto *beginFun = preheader->getParent()->getParent()->getFunction("__VERIFIER_loop_begin");
+	BUG_ON(!beginFun);
+
+	auto *ci = CallInst::Create(beginFun, {}, "", term);
+	ci->setMetadata("dbg", term->getMetadata("dbg"));
+	return;
+}
+
 void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 {
 	auto *term = latch->getTerminator();
@@ -514,25 +526,12 @@ void addPotentialSpinEndCallBeforeUnlock(BasicBlock *latch, BasicBlock *header, 
 	return;
 }
 
-unsigned int getLoopId(Loop *l)
-{
-	static unsigned int spinloopId = 0;
-	static std::unordered_map<Loop *, unsigned int> ids;
-
-	if (ids.count(l))
-		return ids.at(l);
-
-	ids[l] = ++spinloopId;
-	return ids.at(l);
-}
-
 void addSpinStartCall(Loop *l)
 {
         auto *startFun = l->getHeader()->getParent()->getParent()->getFunction("__VERIFIER_spin_start");
-	auto *arg = ConstantInt::get(Type::getInt32Ty(l->getHeader()->getContext()), getLoopId(l));
 
 	auto *i = l->getHeader()->getFirstNonPHI();
-        auto *ci = CallInst::Create(startFun, {arg}, "", i);
+        auto *ci = CallInst::Create(startFun, {}, "", i);
 }
 
 void removeDisconnectedBlocks(Loop *l)
@@ -615,8 +614,16 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	}
 
 	/* Mark spinloop start if we have to */
-	if (checkDynamically || (spinloop && markStarts))
+	if (checkDynamically || (spinloop && markStarts)) {
 		addSpinStartCall(l);
+		/* DSA also requires us to know when we actually enter the loop */
+		if (checkDynamically) {
+			auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+			auto &LI = lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+			auto *ph = llvm::InsertPreheaderForLoop(l, &DT, &LI, false);
+			addLoopBeginCallBeforeTerm(ph);
+		}
+	}
 
 	/* If the transformation applied did not apply in all backedges, this is indeed a loop */
 	if (!spinloop)

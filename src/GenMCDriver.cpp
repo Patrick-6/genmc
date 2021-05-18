@@ -2797,7 +2797,20 @@ void GenMCDriver::visitDskPbarrier()
 	return;
 }
 
-void GenMCDriver::visitSpinStart(unsigned int loopId)
+void GenMCDriver::visitLoopBegin()
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto &g = getGraph();
+	auto  pos = getEE()->getCurrentPosition();
+	auto lbLab = LoopBeginLabel::create(g.nextStamp(), pos);
+	updateLabelViews(lbLab.get());
+	g.addOtherLabelToGraph(std::move(lbLab));
+	return;
+}
+
+void GenMCDriver::visitSpinStart()
 {
 	auto &g = getGraph();
 	const EventLabel *stLab = nullptr;
@@ -2805,7 +2818,7 @@ void GenMCDriver::visitSpinStart(unsigned int loopId)
 	/* If it has not been added to the graph, do so */
 	if (!isExecutionDrivenByGraph()) {
 		auto pos = getEE()->getCurrentPosition();
-		auto lab = SpinStartLabel::create(g.nextStamp(), pos, loopId);
+		auto lab = SpinStartLabel::create(g.nextStamp(), pos);
 		updateLabelViews(lab.get());
 		stLab = g.addOtherLabelToGraph(std::move(lab));
 	} else {
@@ -2813,9 +2826,13 @@ void GenMCDriver::visitSpinStart(unsigned int loopId)
 	}
 
 	/* Check whether we can detect some spinloop dynamically */
-	auto *pLab = g.getPreviousLabelST(stLab, [loopId](const EventLabel *lab){
-		auto *eLab = llvm::dyn_cast<SpinStartLabel>(lab);
-		return eLab && eLab->getLoopId() == loopId;
+	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
+		return llvm::isa<LoopBeginLabel>(lab);
+	});
+	BUG_ON(!lbLab);
+
+	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
+		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
 	});
 	if (!pLab)
 		return;

@@ -186,9 +186,13 @@ public:
 	void
 	visitFence(llvm::AtomicOrdering ord, const char *lkmmType = nullptr);
 
+	/* A call to __VERIFIER_loop_begin() has been interpreted */
+	void
+	visitLoopBegin();
+
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
-	visitSpinStart(unsigned int loopId);
+	visitSpinStart();
 
 	/* A call to __VERIFIER_faiZNE_spin_end() has been interpreted */
 	void

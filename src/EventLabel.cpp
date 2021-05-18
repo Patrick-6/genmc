@@ -77,6 +77,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_Empty:
 		s << "EMPTY";
 		break;
+	case EventLabel::EL_LoopBegin:
+		s << "LOOP_BEGIN";
+		break;
 	case EventLabel::EL_SpinStart:
 		s << "SPIN_START";
 		break;

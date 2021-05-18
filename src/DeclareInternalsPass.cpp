@@ -56,8 +56,8 @@ bool DeclareInternalsPass::runOnModule(Module &M)
 	modified |= declareInternal(M, "__VERIFIER_assume", Type::getVoidTy(M.getContext()),
 				    {Type::getInt1Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_end_loop", Type::getVoidTy(M.getContext()), {});
-	modified |= declareInternal(M, "__VERIFIER_spin_start", Type::getVoidTy(M.getContext()),
-				    {Type::getInt32Ty(M.getContext())});
+	modified |= declareInternal(M, "__VERIFIER_loop_begin", Type::getVoidTy(M.getContext()), {});
+	modified |= declareInternal(M, "__VERIFIER_spin_start", Type::getVoidTy(M.getContext()), {});
 	modified |= declareInternal(M, "__VERIFIER_spin_end", Type::getVoidTy(M.getContext()),
 				    {Type::getInt1Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_faiZNE_spin_end", Type::getVoidTy(M.getContext()), {});

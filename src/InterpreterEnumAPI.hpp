@@ -69,6 +69,7 @@ enum class Storage { ST_Static, ST_Automatic, ST_Heap, ST_StorageLast };
 /* Modeled functions -- (CAUTION: Order matters) */
 enum class InternalFunctions {
 	FN_AssertFail,
+	FN_LoopBegin,
 	FN_SpinStart,
 
 	FN_SpinEnd,
