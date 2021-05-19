@@ -735,7 +735,7 @@ llvm::GenericValue GenMCDriver::getReadRetValueAndMaybeBlock(Event read,
 	/* Check whether we should block */
 	if (rLab->getRf().isBottom()) {
 		/* Bottom is an acceptable re-option only @ replay; block anyway */
-		BUG_ON(!getEE()->getExecState() == llvm::Interpreter::ExecutionState::ES_Replay);
+		BUG_ON(getEE()->getExecState() != llvm::Interpreter::ExecutionState::ES_Replay);
 		thr.block(llvm::Thread::BlockageType::BT_Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
 		   !getEE()->compareValues(typ, res, getBarrierInitValue(ptr, typ))) {
