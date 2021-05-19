@@ -52,6 +52,14 @@ using namespace llvm;
 # define POSTDOM_PASS PostDominatorTree
 #endif
 
+#ifdef LLVM_INSERT_PREHEADER_FOR_LOOP_NEEDS_UPDATER
+# define INSERT_PREHEADER_FOR_LOOP(L, DT, LI)			\
+	llvm::InsertPreheaderForLoop(L, DT, LI, nullptr, false)
+#else
+# define INSERT_PREHEADER_FOR_LOOP(L, DT, LI)			\
+	llvm::InsertPreheaderForLoop(L, DT, LI, false)
+#endif
+
 void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.addRequired<DominatorTreeWrapperPass>();
@@ -617,7 +625,7 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 		if (checkDynamically) {
 			auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 			auto &LI = lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-			auto *ph = llvm::InsertPreheaderForLoop(l, &DT, &LI, false);
+			auto *ph = INSERT_PREHEADER_FOR_LOOP(l, &DT, &LI);
 			addLoopBeginCallBeforeTerm(ph);
 		}
 	}

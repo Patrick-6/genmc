@@ -545,6 +545,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
         [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
 
+## Check if llvm::InsertPreheadersForLoop() takes MemorySSAUpdater
+AC_MSG_CHECKING([if llvm::InsertPreheaderForLoop takes MemorySSAUpdater])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Transforms/Utils/LoopUtils.h>
+]],[[
+  llvm::InsertPreheaderForLoop(nullptr, nullptr, nullptr, nullptr, false);
+]])],
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_INSERT_PREHEADER_FOR_LOOP_NEEDS_UPDATER],[1],
+         [Define if llvm::InsertPreheaderForLoop needs MemorySSAUpdater.])],
+        [AC_MSG_RESULT([no])])
+
 ## Check how to get post-dominators (> llvm 3.8)
 AC_MSG_CHECKING([how to get PostDominator analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
