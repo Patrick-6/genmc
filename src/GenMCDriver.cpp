@@ -2068,8 +2068,8 @@ bool GenMCDriver::tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
 }
 
 
-bool coherenceBeforeRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
-			    const VectorClock &v, const ReadLabel *rLab)
+bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
+			   const VectorClock &v, const ReadLabel *rLab)
 {
 	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
 		return false;
@@ -2081,24 +2081,25 @@ bool coherenceBeforeRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 	auto it = locMO.begin();
 
 	for (; *it != wLab->getPos(); ++it) {
-		/* auto *slab = g.getEventLabel(*it); */
-		/* if (v.contains(slab->getPos())) */
-		/* 	return false; */
-		/* if (slab->getStamp() <= rLab->getStamp()) */
-		/* 	return false; */
-		/* if (slab->getStamp() < wLab->getStamp()) */
-		/* 	return true; */
-		;
+		auto *slab = g.getEventLabel(*it);
+		if (v.contains(slab->getPos()))
+			continue;
+		if (slab->getStamp() <= rLab->getStamp())
+			continue;
+		if (slab->getStamp() < wLab->getStamp() &&
+		    !((llvm::isa<FaiWriteLabel>(slab) || llvm::isa<CasWriteLabel>(slab)) &&
+		      slab->getPos().prev() == rLab->getPos()))
+			return true;
 	}
 
 	for (++it; it != locMO.end(); ++it) {
-		auto *slab = g.getEventLabel(*it);
-		if (v.contains(slab->getPos()))
-			return false;
-		if (slab->getStamp() <= rLab->getStamp())
-			return false;
-		if (slab->getStamp() < wLab->getStamp())
-			return true;
+		// auto *slab = g.getEventLabel(*it);
+		// if (v.contains(slab->getPos()))
+		// 	return false;
+		// if (slab->getStamp() <= rLab->getStamp())
+		// 	return false;
+		// if (slab->getStamp() < wLab->getStamp())
+		// 	return true;
 	}
 	return false;
 }
@@ -2207,6 +2208,36 @@ bool GenMCDriver::readsBeforePrefix(const EventLabel *lab,
 	return false;
 }
 
+bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const EventLabel *wLab,
+				const VectorClock &v)
+{
+	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
+		return true;
+
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	BUG_ON(!cc);
+	auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
+	auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(wLab));
+	// llvm::dbgs() << format(pending) << "\n";
+
+	auto it = locMO.begin();
+	for (; it != locMO.end() && *it != wLab->getPos(); ++it)
+		;
+	BUG_ON(it == locMO.end());
+	if (++it == locMO.end())
+		return true;
+
+	auto *sLab = g.getEventLabel(*it);
+	if (sLab->getStamp() > rLab->getStamp() && !v.contains(sLab->getPos()) // &&
+	    // (!g.isRMWLoad(rLab) || sLab->getPos() != rLab->getPos().next()) &&
+	    // (pending.empty() || !g.getPrefixView(pending.back().next()).contains(sLab->getPos()))
+		) {
+		// llvm::dbgs() << "not revisiting " << rLab->getPos() << " from " << wLab->getPos() << " due to " << *it << " in " << g << "\n";
+		return false;
+	}
+	return true;
+}
+
 bool GenMCDriver::isMaximalEvent(const EventLabel *lab)
 {
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
@@ -2223,17 +2254,8 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	auto &g = getGraph();
         auto &v = g.getPrefixView(wLab->getPos());
 
-	// if (wLab->getPos() == Event(2,6) && rLab->getPos() == Event(1,4)) {
-	// 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,4)));
-	// 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,5)));
-	// 	if (rLab3 && rLab4 && rLab4->getRf() == Event(0,0) && rLab3->getRf() == Event(1,3)) {
-	// 		llvm::dbgs() << "REV 2,11 -> 2,6 MAY TAKE PLACE in\n";
-	// 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
-	// 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr()));
-	// 		prettyPrintGraph();
-	// 		printGraph();
-	// 	}
-	// }
+	if (!coherenceSuccRemainInGraph(g, rLab, wLab, v))
+		return false;
 
 	// llvm::dbgs() << "checking read\n";
 	if (!isMaximalEvent(rLab) ||
@@ -2250,8 +2272,9 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 			if (lab->getStamp() <= rLab->getStamp())
 				break;
 			if (v.contains(lab->getPos())) {
-				if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-					if (coherenceBeforeRemoved(g, wLab, v, rLab)) {
+				if (auto *sLab = llvm::dyn_cast<WriteLabel>(lab)) {
+					if (sLab->getPos() != wLab->getPos() &&
+					    coherenceAfterRemoved(g, sLab, v, rLab)) {
 						// llvm::dbgs() << "NO, DUE TO COH\n";
 						return false;
 					}
