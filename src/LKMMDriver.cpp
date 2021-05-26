@@ -283,8 +283,10 @@ void LKMMDriver::calcRMWWriteMsgView(WriteLabel *lab)
 	BUG_ON(!llvm::isa<ReadLabel>(pLab));
 
 	const ReadLabel *rLab = static_cast<const ReadLabel *>(pLab);
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(rLab->getRf())))
-		msg.update(wLab->getMsgView());
+	if (!llvm::isa<NoRetFaiReadLabel>(rLab)) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(rLab->getRf())))
+			msg.update(wLab->getMsgView());
+	}
 
 	if (rLab->isAtLeastRelease())
 		msg.update(lab->getHbView());
