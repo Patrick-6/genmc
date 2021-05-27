@@ -241,6 +241,9 @@ void Config::checkConfigOptions() const
 	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
 		WARN("LAPOR usage with -mo is experimental.\n");
 	}
+	if (clLAPOR && clModelType == ModelType::lkmm) {
+		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
+	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
