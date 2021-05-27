@@ -36,27 +36,6 @@ void RCULinkCalculator::initCalc()
 	return;
 }
 
-Event RCULinkCalculator::getMatchingUnlockRCU(Event lock) const
-{
-	auto &g = getGraph();
-	std::vector<Event> locks;
-
-	BUG_ON(!llvm::isa<RCULockLabelLKMM>(g.getEventLabel(lock)));
-	for (auto j = lock.index + 1; j < g.getThreadSize(lock.thread); j++) {
-		const EventLabel *lab = g.getEventLabel(Event(lock.thread, j));
-
-		if (auto *lLab = llvm::dyn_cast<RCULockLabelLKMM>(lab))
-			locks.push_back(lLab->getPos());
-
-		if (auto *uLab = llvm::dyn_cast<RCUUnlockLabelLKMM>(lab)) {
-			if (locks.empty())
-				return uLab->getPos();
-			locks.pop_back();
-		}
-	}
-	return g.getLastThreadEvent(lock.thread).next();
-}
-
 /* Returns true if E links to R.
  * R should be a synchronize_rcu() (F-type) or a rcu_read_lock() (L-type) event.
  *  - An event links to an F-type event if it is po-before it.
@@ -70,7 +49,7 @@ bool RCULinkCalculator::linksTo(Event e, Event r) const
 	if (llvm::isa<RCUSyncLabelLKMM>(lab)) {
 		return e.thread == r.thread && e.index < r.index;
 	} else if (llvm::isa<RCULockLabelLKMM>(lab)) {
-		auto ul = getMatchingUnlockRCU(r);
+		auto ul = g.getMatchingRCUUnlockLKMM(r);
 		return e.thread == ul.thread && e.index < ul.index;
 	}
 	BUG();
@@ -126,7 +105,7 @@ bool RCULinkCalculator::addRcuLinks(Event e)
 	/* Calculate the upper limit in po until which we will look for links */
 	auto *lab = g.getEventLabel(e);
 	auto upperLimit = (llvm::isa<RCULockLabelLKMM>(lab)) ?
-		getMatchingUnlockRCU(e) : g.getLastThreadEvent(e.thread).next();
+		g.getMatchingRCUUnlockLKMM(e) : g.getLastThreadEvent(e.thread).next();
 
 	/* Start looking for links */
 	for (auto i = e.index + 1; i < upperLimit.index; i++) {

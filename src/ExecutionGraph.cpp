@@ -232,6 +232,26 @@ Event ExecutionGraph::getMatchingUnlock(const Event lock) const
 	return Event::getInitializer();
 }
 
+Event ExecutionGraph::getMatchingRCUUnlockLKMM(Event lock) const
+{
+	std::vector<Event> locks;
+
+	BUG_ON(!llvm::isa<RCULockLabelLKMM>(getEventLabel(lock)));
+	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
+		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
+
+		if (auto *lLab = llvm::dyn_cast<RCULockLabelLKMM>(lab))
+			locks.push_back(lLab->getPos());
+
+		if (auto *uLab = llvm::dyn_cast<RCUUnlockLabelLKMM>(lab)) {
+			if (locks.empty())
+				return uLab->getPos();
+			locks.pop_back();
+		}
+	}
+	return getLastThreadEvent(lock.thread).next();
+}
+
 Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
 {
 	std::vector<const llvm::GenericValue *> unlocks;

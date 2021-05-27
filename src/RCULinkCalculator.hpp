@@ -53,7 +53,6 @@ public:
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
 private:
-	Event getMatchingUnlockRCU(Event lock) const;
 	bool linksTo(Event e, Event r) const;
 	std::vector<Event> getPbOptPropPoLinks(Event e) const;
 	bool addRcuLinks(Event e);

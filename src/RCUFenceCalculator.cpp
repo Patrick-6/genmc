@@ -41,11 +41,13 @@ bool RCUFenceCalculator::checkAddRcuFenceConstraint(Event a, Event b)
 	auto &rcufence = g.getGlobalRelation(ExecutionGraph::RelationId::rcu_fence);
 
 	bool changed = false;
-	for (auto i = 1; i < a.index; i++) {
+	auto toLimitA = llvm::isa<RCUSyncLabelLKMM>(g.getEventLabel(a)) ? a.index :
+		g.getMatchingRCUUnlockLKMM(a).index;
+	for (auto i = 1; i < toLimitA; i++) {
 		auto *labA = g.getEventLabel(Event(a.thread, i));
 		if (!PROPCalculator::isNonTrivial(labA))
 			continue;
-		for (auto j = b.index + 1; j < g.getThreadSize(b.thread); j++) {
+		for (auto j = b.index; j < g.getThreadSize(b.thread); j++) {
 			auto *labB = g.getEventLabel(Event(b.thread, j));
 			if (!PROPCalculator::isNonTrivial(labB))
 				continue;

@@ -202,6 +202,10 @@ public:
 	 * returns INIT */
 	Event getMatchingUnlock(const Event lock) const;
 
+	/* Returns the RCU unlock that matches LOCK. If such an event does not exist,
+	 * it returns the (non-existing event) at thread size */
+	Event getMatchingRCUUnlockLKMM(Event lock) const;
+
 	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
 	 * If no such event exists, returns INIT */
 	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;
