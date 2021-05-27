@@ -85,6 +85,7 @@ private:
 	bool isValidWRRace(const WriteLabel *labA, const ReadLabel *labB);
 	bool isValidRWRace(const ReadLabel *labA, const WriteLabel *labB);
 	bool isValidRace(Event a, Event b);
+	bool isRaceIncoherent(Event a, Event b);
 };
 
 #endif /* __LKMM_DRIVER_HPP__ */

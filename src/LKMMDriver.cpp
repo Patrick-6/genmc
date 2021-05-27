@@ -999,6 +999,37 @@ bool LKMMDriver::isValidRace(Event a, Event b)
 	return false;
 }
 
+bool isCoBefore(Event a, Event b, Calculator::GlobalRelation &co)
+{
+	if (a.isInitializer())
+		return !b.isInitializer();
+	if (b.isInitializer())
+		return false;
+	return co(a, b);
+}
+
+bool LKMMDriver::isRaceIncoherent(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto *mLabA = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(a));
+	auto *mLabB = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(b));
+	auto &co = g.getPerLocRelation(ExecutionGraph::RelationId::co)[mLabA->getAddr()];
+	BUG_ON(!mLabA || !mLabB || mLabA->getAddr() != mLabB->getAddr());
+
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(mLabA)) {
+		return (rLab->getRf() == mLabB->getPos() && isRWXbBefore(rLab, mLabB)) ||
+			(isCoBefore(rLab->getRf(), b, co) && isWRVisBefore(mLabB, rLab));
+	} else if (auto *rLab = llvm::dyn_cast<ReadLabel>(mLabB)) {
+		return (rLab->getRf() == mLabA->getPos() && isRWXbBefore(rLab, mLabA)) ||
+			(isCoBefore(rLab->getRf(), a, co) && isWRVisBefore(mLabA, rLab));
+	} else {
+		return (isCoBefore(a, b, co) && isWWVisBefore(mLabB, mLabA)) ||
+			(isCoBefore(b, a, co) && isWWVisBefore(mLabA, mLabB));
+	}
+	BUG();
+	return true;
+}
+
 Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	std::vector<Event> potential;
@@ -1024,7 +1055,7 @@ Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	}
 
 	for (auto p : potential)
-		if (isValidRace(mLab->getPos(), p))
+		if (isValidRace(mLab->getPos(), p) && !isRaceIncoherent(mLab->getPos(), p))
 			return p;
 	return Event::getInitializer();
 }
