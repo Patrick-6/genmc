@@ -1066,6 +1066,8 @@ void Interpreter::exitCalled(GenericValue GV) {
   // the stack before interpreting atexit handlers.
   WARN_ONCE("exit-called", "Usage of exit() is not thread-safe!\n");
   while (ECStack().size() > 0) {
+    setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		   getAddrPoDeps(getCurThr().id), nullptr);
     auto &allocas = ECStack().back().Allocas.get();
     driver->visitFree(allocas.begin(), allocas.end());
     ECStack().pop_back(); /* FIXME: Now assumes the user has properly used it */
@@ -1092,6 +1094,8 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
 
   // Pop the current stack frame.
+  setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		 getAddrPoDeps(getCurThr().id), nullptr);
   driver->visitFree(ECStack().back().Allocas.get().begin(), ECStack().back().Allocas.get().end());
   ECStack().pop_back();
 
@@ -1102,7 +1106,7 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   //     memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   //   }
   if (ECStack().empty()) {
-    setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
+    setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
     driver->visitThreadFinish();
   } else {
     // If we have a previous stack frame, and we have a previous call,
@@ -2621,11 +2625,13 @@ void Interpreter::callAssertFail(Function *F,
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) GVTOP(ArgVals[0]))	: "Unknown";
 
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitError(errT, err);
 }
 
 void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitSpinStart();
 }
 
@@ -2637,6 +2643,7 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitPotentialSpinEnd();
 }
 
@@ -2755,6 +2762,7 @@ void Interpreter::callThreadExit(Function *F,
 {
 	while (ECStack().size() > 1) {
 		auto &allocas = ECStack().back().Allocas.get();
+		setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 		driver->visitFree(allocas.begin(), allocas.end());
 		ECStack().pop_back();
 	}
@@ -2772,6 +2780,7 @@ void Interpreter::callMutexInit(Function *F,
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
+	/* Dependencies already set */
 	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
 			   lock, typ, INT_TO_GV(typ, 0));
 
@@ -2788,6 +2797,7 @@ void Interpreter::callMutexLock(Function *F,
 	Type *typ = F->getReturnType();
 	GenericValue result;
 
+	/* Dependencies already set */
 	driver->visitLock(ptr, typ);
 
 	/*
@@ -2808,6 +2818,7 @@ void Interpreter::callMutexUnlock(Function *F,
 	Type *typ = F->getReturnType();
 	GenericValue result;
 
+	/* Dependencies already set */
 	driver->visitUnlock(ptr, typ);
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
@@ -2826,6 +2837,7 @@ void Interpreter::callMutexTrylock(Function *F,
 	cmpVal.IntVal = APInt(typ->getIntegerBitWidth(), 0);
 	newVal.IntVal = APInt(typ->getIntegerBitWidth(), 1);
 
+	/* Dependencies already set */
 	auto ret = driver->visitLoad(InstAttr::IA_Trylock, AtomicOrdering::Acquire, ptr,
 				     typ, cmpVal, newVal);
 
@@ -2845,6 +2857,7 @@ void Interpreter::callMutexDestroy(Function *F,
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
 
+	/* Dependencies already set */
 	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
 			   lock, typ, INT_TO_GV(typ, -1));
 
@@ -2865,7 +2878,7 @@ void Interpreter::callBarrierInit(Function *F,
 	if (attr)
 		WARN_ONCE("pthread-barrier-init-arg",
 			  "Ignoring non-null argument given to pthread_barrier_init.\n");
-
+	/* Dependencies already set */
 	driver->visitStore(InstAttr::IA_BInit, AtomicOrdering::NotAtomic, barrier, typ, value);
 
 	/* Just return 0 */
@@ -2881,6 +2894,7 @@ void Interpreter::callBarrierWait(Function *F,
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
 
+	/* Dependencies already set */
 	auto oldVal = driver->visitLoad(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
 					barrier, typ, GenericValue(), INT_TO_GV(typ, 1),
 					AtomicRMWInst::BinOp::Sub);
@@ -2909,6 +2923,7 @@ void Interpreter::callBarrierDestroy(Function *F,
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
 
+	/* Dependencies already set */
 	driver->visitStore(InstAttr::IA_BDestroy, AtomicOrdering::NotAtomic, barrier, typ, GET_ZERO_GV(typ));
 
 	/* Just return 0 */
@@ -2939,6 +2954,8 @@ void Interpreter::callAtomicRmwNoRet(Function *F,
 		return;
 	}
 
+	/* Dependencies already set */
+
 	/* We have to do an ugly hack to get the ordering correct
 	 * (i.e. match LLVM's AtomicOrdering value), as the C ABI values are
 	 * not the same as the LLVM ones. */
@@ -2963,24 +2980,28 @@ void Interpreter::callSmpFenceLKMM(Function *F,
 	const char *ptr = (const char *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitFence(llvm::AtomicOrdering::Monotonic, ptr);
 	return;
 }
 
 void Interpreter::callRCUReadLockLKMM(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitRCULockLKMM();
 	return;
 }
 
 void Interpreter::callRCUReadUnlockLKMM(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitRCUUnlockLKMM();
 	return;
 }
 
 void Interpreter::callSynchronizeRCULKMM(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitRCUSyncLKMM();
 	return;
 }
@@ -3986,6 +4007,10 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue fd = ArgVals[0];
 	Type *retTyp = F->getReturnType();
 
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
 		handleSystemError(SystemError::SE_EBADF, "File is not open in fsync()");
@@ -4004,6 +4029,10 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
 	/* sync() */
 	driver->visitDskSync();
 	return;
@@ -4022,6 +4051,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *retTyp = F->getReturnType();
 	GenericValue nr = INT_TO_GV(intTyp, -1); // Result;
 
+	thr.takeSnapshot();
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
@@ -4191,6 +4221,10 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
+
 	driver->visitDskPbarrier();
 	return;
 }

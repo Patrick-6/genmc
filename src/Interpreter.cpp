@@ -629,10 +629,8 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 				     e = SF.Caller.arg_end(); i != e; ++i) {
 				updateCtrlDeps(tid, *i);
 			}
-		} else if (iFunCode == InternalFunctions::FN_MutexLock ||
-			   iFunCode == InternalFunctions::FN_MutexUnlock ||
-			   iFunCode == InternalFunctions::FN_MutexTrylock) {
-			/* We have addr dependency on the argument of mutex calls */
+		} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
+			/* We have addr dependency on the argument of mutex/barrier calls */
 			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				       nullptr, getCtrlDeps(tid),
 				       getAddrPoDeps(tid), nullptr);

@@ -155,6 +155,16 @@ inline bool isAssumeFunction(const std::string &name)
 	return code >= InternalFunctions::FN_SpinEnd && code <= InternalFunctions::FN_Assume;
 }
 
+inline bool isMutexCode(InternalFunctions code)
+{
+	return (code >= InternalFunctions::FN_MutexInit && code <= InternalFunctions::FN_MutexDestroy);
+}
+
+inline bool isBarrierCode(InternalFunctions code)
+{
+	return (code >= InternalFunctions::FN_BarrierInit && code <= InternalFunctions::FN_BarrierDestroy);
+}
+
 inline bool isFsCode(InternalFunctions code)
 {
 	return (code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastFS);
