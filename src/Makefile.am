@@ -11,6 +11,7 @@ noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
   $(libgenmc_a_HEADERS) \
   ARCalculator.cpp ARCalculator.hpp \
+  ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
   CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
@@ -42,6 +43,7 @@ libgenmc_a_SOURCES = \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \
+  LKMMDriver.cpp LKMMDriver.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
@@ -53,8 +55,13 @@ libgenmc_a_SOURCES = \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
+  PBCalculator.cpp PBCalculator.hpp \
+  PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
+  RCUCalculator.cpp RCUCalculator.hpp \
+  RCULinkCalculator.cpp RCULinkCalculator.hpp \
+  RCUFenceCalculator.cpp RCUFenceCalculator.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SExpr.cpp SExpr.hpp \
   SExprVisitor.cpp SExprVisitor.hpp \
@@ -63,7 +70,8 @@ libgenmc_a_SOURCES = \
   WorkSet.hpp WorkSet.cpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \
-  VSet.hpp VSet.tcc
+  VSet.hpp VSet.tcc \
+  XBCalculator.hpp XBCalculator.cpp
 
 
 AM_CXXFLAGS = -Wno-unknown-warning-option -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"

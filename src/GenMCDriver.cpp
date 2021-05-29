@@ -1538,13 +1538,49 @@ void GenMCDriver::visitThreadFinish()
 	  /* FIXME: Thread return values? */
 }
 
-void GenMCDriver::visitFence(llvm::AtomicOrdering ord)
+static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
+	{"mb", SmpFenceType::MB},
+	{"rmb", SmpFenceType::RMB},
+	{"wmb", SmpFenceType::WMB},
+	{"ba", SmpFenceType::MBBA},
+	{"aa", SmpFenceType::MBAA},
+	{"as", SmpFenceType::MBAS},
+	{"aul", SmpFenceType::MBAUL},
+};
+
+void GenMCDriver::visitFenceLKMM(llvm::AtomicOrdering ord, const char *lkmmType)
 {
 	if (isExecutionDrivenByGraph())
 		return;
 
 	auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
+
+	BUG_ON(smpFenceTypes.count(lkmmType) == 0);
+	auto typ = smpFenceTypes.at(lkmmType);
+
+	ord = (isStrong(typ)) ? llvm::AtomicOrdering::SequentiallyConsistent :
+		llvm::AtomicOrdering::Monotonic;
+
+	auto fLab = SmpFenceLabelLKMM::create(g.nextStamp(), ord, typ, pos);
+	updateLabelViews(fLab.get());
+	g.addOtherLabelToGraph(std::move(fLab));
+	return;
+}
+
+void GenMCDriver::visitFence(llvm::AtomicOrdering ord, const char *lkmmType /* = nullptr */)
+{
+	if (lkmmType) {
+		visitFenceLKMM(ord, lkmmType);
+		return;
+	}
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto &g = getGraph();
+	auto pos = getEE()->getCurrentPosition();
+
 	auto fLab = FenceLabel::create(g.nextStamp(), ord, pos);
 	updateLabelViews(fLab.get());
 	g.addOtherLabelToGraph(std::move(fLab));
@@ -1579,6 +1615,10 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 		rLab = FaiReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
 					    store, op, rmwVal, std::move(annot));
 		break;
+	case InstAttr::IA_NoRetFai:
+		rLab = NoRetFaiReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+						 store, op, rmwVal, std::move(annot));
+		break;
 	case InstAttr::IA_BPost:
 		rLab = BIncFaiReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
 						store, op, rmwVal, std::move(annot));
@@ -1591,11 +1631,15 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 		rLab = LockCasReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
 						store, cmpVal, rmwVal, std::move(annot));
 		break;
+	case InstAttr::IA_Trylock:
+		rLab = TrylockCasReadLabel::create(g.nextStamp(), ord, pos, addr, typ,
+						   store, cmpVal, rmwVal, std::move(annot));
+		break;
 	default:
 		BUG();
 	}
 	updateLabelViews(rLab.get());
-	return getGraph().addReadLabelToGraph(std::move(rLab), store);
+	return g.addReadLabelToGraph(std::move(rLab), store);
 }
 
 const WriteLabel *locatePreviousFaiWrite(ExecutionGraph &g, const PotentialSpinEndLabel *lab)
@@ -1750,6 +1794,9 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 	case InstAttr::IA_Fai:
 		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
+	case InstAttr::IA_NoRetFai:
+		wLab = NoRetFaiWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
 	case InstAttr::IA_BPost: {
 		/* Barrier hack: reset barrier to initial if it reached 0 */
 		auto bVal = (val.IntVal == 0) ? getBarrierInitValue(addr, typ) : val;
@@ -1761,6 +1808,9 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 		break;
 	case InstAttr::IA_Lock:
 		wLab = LockCasWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
+		break;
+	case InstAttr::IA_Trylock:
+		wLab = TrylockCasWriteLabel::create(g.nextStamp(), ord, pos, addr, typ, val);
 		break;
 	default:
 		BUG();
@@ -1954,6 +2004,51 @@ void GenMCDriver::visitFree(void *ptr)
 	return;
 }
 
+void GenMCDriver::visitRCULockLKMM()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = EE->getCurrentPosition();
+	auto lLab = RCULockLabelLKMM::create(g.nextStamp(), pos);
+	updateLabelViews(lLab.get());
+	g.addOtherLabelToGraph(std::move(lLab));
+	return;
+}
+
+void GenMCDriver::visitRCUUnlockLKMM()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = EE->getCurrentPosition();
+	auto uLab = RCUUnlockLabelLKMM::create(g.nextStamp(), pos);
+	updateLabelViews(uLab.get());
+	g.addOtherLabelToGraph(std::move(uLab));
+	return;
+}
+
+void GenMCDriver::visitRCUSyncLKMM()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	Event pos = EE->getCurrentPosition();
+	auto gpLab = RCUSyncLabelLKMM::create(g.nextStamp(), pos);
+	updateLabelViews(gpLab.get());
+	g.addOtherLabelToGraph(std::move(gpLab));
+	return;
+}
+
 void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" */,
 			     Event confEvent /* = INIT */)
 {
@@ -2120,7 +2215,7 @@ void GenMCDriver::repairLock(LockCasReadLabel *lab)
 	BUG_ON(stores.empty());
 	for (auto rit = stores.rbegin(), re = stores.rend(); rit != re; ++rit) {
 		auto *posRf = llvm::dyn_cast<WriteLabel>(g.getEventLabel(*rit));
-		if (llvm::isa<LockCasWriteLabel>(posRf)) {
+		if (llvm::isa<LockCasWriteLabel>(posRf) || llvm::isa<TrylockCasWriteLabel>(posRf)) {
 			auto prev = posRf->getPos().prev();
 			if (g.getMatchingUnlock(prev).isInitializer()) {
 				changeRf(lab->getPos(), posRf->getPos());
@@ -2195,11 +2290,17 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						  Event(faiLab->getThread(), faiLab->getIndex() + 1),
 						  faiLab->getAddr(),
 						  faiLab->getType(), result) :
-			FaiWriteLabel::create(g.nextStamp(),
-					      faiLab->getOrdering(),
-					      Event(faiLab->getThread(), faiLab->getIndex() + 1),
-					      faiLab->getAddr(),
-					      faiLab->getType(), result);
+			(llvm::isa<NoRetFaiReadLabel>(faiLab) ?
+			 NoRetFaiWriteLabel::create(g.nextStamp(),
+						    faiLab->getOrdering(),
+						    Event(faiLab->getThread(), faiLab->getIndex() + 1),
+						    faiLab->getAddr(),
+						    faiLab->getType(), result) :
+			 FaiWriteLabel::create(g.nextStamp(),
+					       faiLab->getOrdering(),
+					       Event(faiLab->getThread(), faiLab->getIndex() + 1),
+					       faiLab->getAddr(),
+					       faiLab->getType(), result));
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		auto isLock = llvm::isa<LockCasReadLabel>(casLab);
 		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
@@ -2212,12 +2313,19 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 							  casLab->getAddr(),
 							  casLab->getType(),
 							  casLab->getSwapVal()) :
-				CasWriteLabel::create(g.nextStamp(),
-						      casLab->getOrdering(),
-						      Event(casLab->getThread(), casLab->getIndex() + 1),
-						      casLab->getAddr(),
-						      casLab->getType(),
-						      casLab->getSwapVal());
+				(llvm::isa<TrylockCasReadLabel>(casLab) ?
+				 TrylockCasWriteLabel::create(g.nextStamp(),
+							      casLab->getOrdering(),
+							      Event(casLab->getThread(), casLab->getIndex() + 1),
+							      casLab->getAddr(),
+							      casLab->getType(),
+							      casLab->getSwapVal()) :
+				 CasWriteLabel::create(g.nextStamp(),
+						       casLab->getOrdering(),
+						       Event(casLab->getThread(), casLab->getIndex() + 1),
+						       casLab->getAddr(),
+						       casLab->getType(),
+						       casLab->getSwapVal()));
 		}
 	}
 	if (wLab) {

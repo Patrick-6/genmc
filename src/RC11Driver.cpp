@@ -260,6 +260,11 @@ void RC11Driver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_DskOpen:
 		calcBasicViews(lab);
 		break;
+	case EventLabel::EL_RCULockLKMM:
+	case EventLabel::EL_RCUUnlockLKMM:
+	case EventLabel::EL_RCUSyncLKMM:
+		ERROR("RCU primitives can only be used with -lkmm!\n");
+		break;
 	default:
 		BUG();
 	}

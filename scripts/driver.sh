@@ -109,12 +109,18 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in rc11 imm
+for model in rc11 imm lkmm
 do
     for coherence in wb mo
     do
-	for testdir in "${correctdir}/"{infr,litmus,saver,liveness,synthetic,data-structures,lapor,fs}
+	for cat in infr litmus lkmm saver liveness synthetic data-structures lapor fs
 	do
+	    testdir="${correctdir}/${cat}"
+	    if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
+		  ("${model}" != "lkmm" && "${cat}" == "lkmm") ]]
+	    then
+		continue
+	    fi
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
 	    increase_total_time
 	done

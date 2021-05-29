@@ -45,7 +45,8 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::rc11, "rc11", "RC11 memory model"),
-		    clEnumValN(ModelType::imm, "imm",       "IMM model")
+		    clEnumValN(ModelType::imm,  "imm",  "IMM memory model"),
+		    clEnumValN(ModelType::lkmm, "lkmm", "LKMM memory model")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		    , NULL
 #endif
@@ -240,6 +241,9 @@ void Config::checkConfigOptions() const
 	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
 		WARN("LAPOR usage with -mo is experimental.\n");
 	}
+	if (clLAPOR && clModelType == ModelType::lkmm) {
+		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
+	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
@@ -260,7 +264,7 @@ void Config::saveConfigOptions()
 	specsFile = clLibrarySpecsFile;
 	dotFile = clDotGraphFile;
 	model = clModelType;
-	isDepTrackingModel = (model == ModelType::imm);
+	isDepTrackingModel = (model == ModelType::imm || model == ModelType::lkmm);
 	coherence = clCoherenceType;
 	LAPOR = clLAPOR;
 	symmetryReduction = clSymmetryReduction;

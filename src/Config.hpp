@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-enum class ModelType { rc11, imm };
+enum class ModelType { rc11, imm, lkmm };
 enum class SchedulePolicy { ltr, wf, random };
 
 struct Config {

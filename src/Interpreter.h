@@ -533,7 +533,6 @@ public:
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
 
-
   // Methods used to execute code:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
@@ -760,6 +759,11 @@ private:  // Helper functions
   void callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callSmpFenceLKMM(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callAtomicRmwNoRet(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callRCUReadLockLKMM(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callRCUReadUnlockLKMM(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callSynchronizeRCULKMM(Function *F, const std::vector<GenericValue> &ArgVals);
 
   const Library *isUserLibCall(Function *F);
   void callUserLibFunction(const Library *lib, Function *F, const std::vector<GenericValue> &ArgVals);

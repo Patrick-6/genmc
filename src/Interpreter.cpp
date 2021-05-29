@@ -629,14 +629,15 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 				     e = SF.Caller.arg_end(); i != e; ++i) {
 				updateCtrlDeps(tid, *i);
 			}
-		} else if (iFunCode == InternalFunctions::FN_MutexLock ||
-			   iFunCode == InternalFunctions::FN_MutexUnlock ||
-			   iFunCode == InternalFunctions::FN_MutexTrylock ||
-			   iFunCode == InternalFunctions::FN_BarrierWait) {
-			/* We have addr dependency on the argument of mutex calls */
+		} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
+			/* We have addr dependency on the argument of mutex/barrier calls */
 			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				       nullptr, getCtrlDeps(tid),
 				       getAddrPoDeps(tid), nullptr);
+		} else if (iFunCode == InternalFunctions::FN_AtomicRmwNoRet) {
+			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				       getDataDeps(tid, *(SF.Caller.arg_begin() + 1)),
+				       getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
 		}
 	} else {
 		/* The parameters of the function called get the data

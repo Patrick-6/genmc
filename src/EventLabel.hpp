@@ -62,10 +62,12 @@ public:
 		EL_Read,
 		EL_BWaitRead,
 		EL_FaiRead,
+		EL_NoRetFaiRead,
 		EL_BIncFaiRead,
 		EL_FaiReadLast,
 		EL_CasRead,
 		EL_LockCasRead,
+		EL_TrylockCasRead,
 		EL_CasReadLast,
 		EL_LibRead,
 		EL_DskRead,
@@ -75,10 +77,12 @@ public:
 		EL_BInitWrite,
 		EL_BDestroyWrite,
 		EL_FaiWrite,
+		EL_NoRetFaiWrite,
 		EL_BIncFaiWrite,
 		EL_FaiWriteLast,
 		EL_CasWrite,
 		EL_LockCasWrite,
+		EL_TrylockCasWrite,
 		EL_CasWriteLast,
 		EL_LibWrite,
 		EL_DskWrite,
@@ -92,12 +96,16 @@ public:
 		EL_DskFsync,
 		EL_DskSync,
 		EL_DskPbarrier,
+		EL_SmpFenceLKMM,
+		EL_RCUSyncLKMM,
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
 		EL_LockLabelLAPOR,
 		EL_UnlockLabelLAPOR,
 		EL_DskOpen,
+		EL_RCULockLKMM,
+		EL_RCUUnlockLKMM,
 	};
 
 protected:
@@ -365,6 +373,10 @@ public:
 	/* Returns the type of the access's value */
 	const llvm::Type *getType() const { return valueType; }
 
+	/* Getter/setter for a the fence view of this memory access */
+	const DepView& getFenceView() const { return fenceView; }
+	void setFenceView(DepView &&v) { fenceView = std::move(v); }
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
 		return k >= EL_MemAccessBegin && k <= EL_MemAccessEnd;
@@ -376,6 +388,9 @@ private:
 
 	/* The type of the value accessed */
 	const llvm::Type *valueType;
+
+	/* A view of fences that could be used by some memory models (e.g., LKMM) */
+	DepView fenceView;
 };
 
 
@@ -537,6 +552,39 @@ private:
  **                         BIncFaiReadLabel Class
  ******************************************************************************/
 
+/* Specialization of FaiReadLabel for FAI reads that do not return a value */
+class NoRetFaiReadLabel : public FaiReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	NoRetFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			  const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+			  llvm::AtomicRMWInst::BinOp op, llvm::GenericValue val,
+			  std::unique_ptr<SExpr> annot = nullptr)
+		: FaiReadLabel(EL_NoRetFaiRead, st, ord, pos, addr, typ, rf,
+			       op, val, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<NoRetFaiReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<NoRetFaiReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<NoRetFaiReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_NoRetFaiRead; }
+};
+
+
+/*******************************************************************************
+ **                         BIncFaiReadLabel Class
+ ******************************************************************************/
+
 /* Specialization of FaiReadLabel for barrier FAIs */
 class BIncFaiReadLabel : public FaiReadLabel {
 
@@ -648,6 +696,39 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockCasRead; }
+};
+
+
+/*******************************************************************************
+ **                         TrylockCasReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasReadLabel for trylock CASes */
+class TrylockCasReadLabel : public CasReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	TrylockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			    const llvm::GenericValue *addr, const llvm::Type *typ, Event rf,
+			    const llvm::GenericValue &exp, const llvm::GenericValue &swap,
+			    std::unique_ptr<SExpr> annot = nullptr)
+		: CasReadLabel(EL_TrylockCasRead, st, ord, pos, addr, typ, rf,
+			       exp, swap, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<TrylockCasReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<TrylockCasReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<TrylockCasReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasRead; }
 };
 
 
@@ -948,6 +1029,37 @@ public:
 
 
 /*******************************************************************************
+ **                         NoRetFaiWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of FaiWriteLabel for non-value-returning FAIs */
+class NoRetFaiWriteLabel : public FaiWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	NoRetFaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			   const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			   llvm::GenericValue val)
+		: FaiWriteLabel(EL_NoRetFaiWrite, st, ord, pos, addr, valTyp, val) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<NoRetFaiWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<NoRetFaiWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<NoRetFaiWriteLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_NoRetFaiWrite; }
+};
+
+
+/*******************************************************************************
  **                         BIncFaiWriteLabel Class
  ******************************************************************************/
 
@@ -1042,6 +1154,37 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockCasWrite; }
+};
+
+
+/*******************************************************************************
+ **                         TrylockCasWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasWriteLabel for trylock CASes */
+class TrylockCasWriteLabel : public CasWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	TrylockCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     const llvm::GenericValue *addr, const llvm::Type *valTyp,
+			     llvm::GenericValue val)
+		: CasWriteLabel(EL_TrylockCasWrite, st, ord, pos, addr, valTyp, val) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<TrylockCasWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<TrylockCasWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<TrylockCasWriteLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasWrite; }
 };
 
 
@@ -1440,6 +1583,86 @@ public:
 
 private:
 	/* Nothing necessary for the time being */
+};
+
+
+/*******************************************************************************
+ **                         SmpFenceKLMMLabel Class
+ ******************************************************************************/
+
+enum class SmpFenceType {
+	MB = 0, WMB, RMB, MBBA, MBAA, MBAS, MBAUL
+};
+inline bool isCumul(SmpFenceType t) { return t <= SmpFenceType::WMB || t >= SmpFenceType::MBBA; }
+inline bool isStrong(SmpFenceType t) { return t == SmpFenceType::MB || t >= SmpFenceType::MBBA; }
+
+/* Represents a non-C11-type fence (LKMM only) */
+class SmpFenceLabelLKMM : public FenceLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	SmpFenceLabelLKMM(unsigned int st, llvm::AtomicOrdering ord, SmpFenceType t, Event pos)
+		: FenceLabel(EL_SmpFenceLKMM, st, ord, pos), type(t) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<SmpFenceLabelLKMM> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(std::forward<Ts>(params)...);
+	}
+
+	/* Returns the type of this fence */
+	SmpFenceType getType() const { return type; }
+
+	/* Returns true if this fence is cumulative */
+	bool isCumul() const { return ::isCumul(getType()); }
+
+	/* Returns true if this fence is a strong fence */
+	bool isStrong() const { return ::isStrong(getType()); }
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_SmpFenceLKMM; }
+
+private:
+	/* The type of this LKMM fence */
+	SmpFenceType type;
+};
+
+
+/******************************************************************************
+ **                        RCUSyncLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to a the beginning of a grace period */
+class RCUSyncLabelLKMM : public FenceLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCUSyncLabelLKMM(unsigned int st, Event pos)
+		: FenceLabel(EL_RCUSyncLKMM, st, llvm::AtomicOrdering::SequentiallyConsistent, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<RCUSyncLabelLKMM> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<RCUSyncLabelLKMM>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<RCUSyncLabelLKMM>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCUSyncLKMM; }
+
+private:
+	/* The discriminator suffices */
 };
 
 
@@ -1847,6 +2070,70 @@ private:
 
 	/* The file descriptor allocated for this call */
 	llvm::GenericValue fd;
+};
+
+
+/******************************************************************************
+ **                        RCULockLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to the beginning of an RCU read-side critical section */
+class RCULockLabelLKMM : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCULockLabelLKMM(unsigned int st, Event pos)
+		: EventLabel(EL_RCULockLKMM, st, llvm::AtomicOrdering::Acquire, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<RCULockLabelLKMM> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<RCULockLabelLKMM>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<RCULockLabelLKMM>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCULockLKMM; }
+
+private:
+	/* The discriminator suffices */
+};
+
+
+/******************************************************************************
+ **                        RCUUnlockLabelLKMM Class
+ ******************************************************************************/
+
+/* Corresponds to the ending of an RCU read-side critical section */
+class RCUUnlockLabelLKMM : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	RCUUnlockLabelLKMM(unsigned int st, Event pos)
+		: EventLabel(EL_RCUUnlockLKMM, st, llvm::AtomicOrdering::Release, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<RCUUnlockLabelLKMM> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<RCUUnlockLabelLKMM>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<RCUUnlockLabelLKMM>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_RCUUnlockLKMM; }
+
+private:
+	/* The discriminator suffices */
 };
 
 

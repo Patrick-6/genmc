@@ -63,7 +63,9 @@ public:
 	class Builder;
 
 	/* Different relations that might exist in the graph */
-	enum class RelationId { hb, co, lb, psc, ar };
+	enum class RelationId {
+		hb, co, lb, psc, ar, prop, ar_lkmm, pb, rcu_link, rcu, rcu_fence, xb
+	};
 
 protected:
 	/* Constructor should only be called from the builder */
@@ -199,6 +201,10 @@ public:
 	 * read part of a lock operation. If no such event exists,
 	 * returns INIT */
 	Event getMatchingUnlock(const Event lock) const;
+
+	/* Returns the RCU unlock that matches LOCK. If such an event does not exist,
+	 * it returns the (non-existing event) at thread size */
+	Event getMatchingRCUUnlockLKMM(Event lock) const;
 
 	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
 	 * If no such event exists, returns INIT */
