@@ -279,7 +279,8 @@ std::unique_ptr<SExpr> InstAnnotator::annotateBBCond(BasicBlock *bb, BasicBlock 
 
 std::vector<Instruction *> getNextOrBranchSuccessorsInLoop(Instruction *i,
 							   const VSet<BasicBlock *> &backedgePaths,
-							   Loop *l)
+							   Loop *l,
+							   const VSet<llvm::Function *> *cleanSet)
 {
 	std::vector<Instruction *> succs;
 
@@ -291,8 +292,12 @@ std::vector<Instruction *> getNextOrBranchSuccessorsInLoop(Instruction *i,
 	if (!backedgePaths.count(i->getParent()) || i == &*l->getHeader()->begin())
 		return succs;
 
-	BUG_ON(hasSideEffects(i) && !isa<AtomicCmpXchgInst>(i));
+	/* Sanity checks for side-effects: only CASes and effect-free calls are allowed */
+	auto *ci = llvm::dyn_cast<CallInst>(i);
+	auto inCleanSet = ci && cleanSet && cleanSet->count(ci->getCalledFunction());
+	BUG_ON(hasSideEffects(i) && !isa<AtomicCmpXchgInst>(i) && !inCleanSet);
 
+	/* Find successors */
 	if (i->getNextNode())
 		succs.push_back(i->getNextNode());
 	else if (auto *bi = dyn_cast<BranchInst>(i)) {
@@ -339,16 +344,17 @@ InstAnnotator::propagateAnnotFromSuccInLoop(Instruction *curr, Instruction *succ
 
 void InstAnnotator::annotateCASWithBackedgeCondDFS(Instruction *curr,
 						   const VSet<BasicBlock *> &backedgePaths,
-						   Loop *l)
+						   Loop *l,
+						   const VSet<llvm::Function *> *cleanSet)
 {
 	statusMap[curr] = InstAnnotator::entered;
 
-	std::vector<Instruction *> succs = getNextOrBranchSuccessorsInLoop(curr, backedgePaths, l);
+	std::vector<Instruction *> succs = getNextOrBranchSuccessorsInLoop(curr, backedgePaths, l, cleanSet);
 	BUG_ON(succs.size() > 2);
 
 	for (auto *succ : succs) {
 		if (statusMap[succ] == InstAnnotator::unseen)
-			annotateCASWithBackedgeCondDFS(succ, backedgePaths, l);
+			annotateCASWithBackedgeCondDFS(succ, backedgePaths, l, cleanSet);
 		else if (statusMap[succ] == InstAnnotator::entered)
 			annotMap[succ] = ConcreteExpr::createTrue();
 	}
@@ -384,7 +390,9 @@ void InstAnnotator::annotateCASWithBackedgeCondDFS(Instruction *curr,
 }
 
 std::unique_ptr<SExpr> InstAnnotator::annotateCASWithBackedgeCond(AtomicCmpXchgInst *curr,
-								  BasicBlock *latch, Loop *l)
+								  BasicBlock *latch,
+								  Loop *l,
+								  const VSet<llvm::Function *> *cleanSet)
 {
 	/* Reset DFS data */
 	reset();
@@ -395,6 +403,6 @@ std::unique_ptr<SExpr> InstAnnotator::annotateCASWithBackedgeCond(AtomicCmpXchgI
 
 	for (auto &i : instructions(curr->getParent()->getParent()))
 		statusMap[&i] = InstAnnotator::unseen;
-	annotateCASWithBackedgeCondDFS(curr->getNextNode(), backedgePaths, l);
+	annotateCASWithBackedgeCondDFS(curr->getNextNode(), backedgePaths, l, cleanSet);
 	return std::move(annotMap[curr->getNextNode()]);
 }

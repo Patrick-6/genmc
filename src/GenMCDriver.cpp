@@ -735,7 +735,7 @@ llvm::GenericValue GenMCDriver::getReadRetValueAndMaybeBlock(Event read,
 	/* Check whether we should block */
 	if (rLab->getRf().isBottom()) {
 		/* Bottom is an acceptable re-option only @ replay; block anyway */
-		BUG_ON(!getEE()->getExecState() == llvm::Interpreter::ExecutionState::ES_Replay);
+		BUG_ON(getEE()->getExecState() != llvm::Interpreter::ExecutionState::ES_Replay);
 		thr.block(llvm::Thread::BlockageType::BT_Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
 		   !getEE()->compareValues(typ, res, getBarrierInitValue(ptr, typ))) {
@@ -1642,17 +1642,6 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 	return g.addReadLabelToGraph(std::move(rLab), store);
 }
 
-const WriteLabel *locatePreviousFaiWrite(ExecutionGraph &g, const PotentialSpinEndLabel *lab)
-{
-	for (auto j = lab->getIndex() - 1; j > 0; j--) {
-		if (auto *wLab = llvm::dyn_cast<FaiWriteLabel>(
-			    g.getEventLabel(Event(lab->getThread(), j)))) {
-			return wLab;
-		}
-	}
-	return nullptr;
-}
-
 void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 {
 	auto &g = getGraph();
@@ -1662,12 +1651,13 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 		auto &thr = EE->getThrById(i);
 
 		/* Is there any thread blocked on a potential spinloop? */
-		auto *eLab = llvm::dyn_cast<PotentialSpinEndLabel>(g.getLastThreadLabel(i));
+		auto *eLab = llvm::dyn_cast<FaiZNESpinEndLabel>(g.getLastThreadLabel(i));
 		if (!eLab)
 			continue;
 
 		/* Check whether this access affects the spinloop variable */
-		auto *faiLab = locatePreviousFaiWrite(g, eLab);
+		auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(g.getPreviousLabelST(eLab,
+			        [](const EventLabel *lab){ return llvm::isa<FaiWriteLabel>(lab); }));
 		if (faiLab->getAddr() != lab->getAddr())
 			continue;
 		if (llvm::isa<FaiWriteLabel>(lab)) /* FAIs on the same variable are OK... */
@@ -2807,24 +2797,87 @@ void GenMCDriver::visitDskPbarrier()
 	return;
 }
 
-void GenMCDriver::visitSpinStart()
+void GenMCDriver::visitLoopBegin()
 {
 	if (isExecutionDrivenByGraph())
 		return;
 
 	auto &g = getGraph();
-	auto pos = getEE()->getCurrentPosition();
-	auto lab = SpinStartLabel::create(g.nextStamp(), pos);
-	updateLabelViews(lab.get());
-	g.addOtherLabelToGraph(std::move(lab));
+	auto  pos = getEE()->getCurrentPosition();
+	auto lbLab = LoopBeginLabel::create(g.nextStamp(), pos);
+	updateLabelViews(lbLab.get());
+	g.addOtherLabelToGraph(std::move(lbLab));
 	return;
 }
 
-bool GenMCDriver::areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab)
+bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
+{
+	if (wLab->isAtLeastRelease() || !getEE()->isDynamic(wLab->getAddr()))
+		return true;
+
+	auto &g = getGraph();
+	auto *mLab = g.getPreviousLabelST(wLab, [wLab](const EventLabel *lab){
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+			if (aLab->getAllocAddr() <= wLab->getAddr() &&
+			    ((char *) aLab->getAllocAddr() + aLab->getAllocSize() >
+			     (char *) wLab->getAddr()))
+				return true;
+		}
+		return false;
+	});
+	if (mLab == nullptr)
+		return true;
+
+	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++)
+		if (g.getEventLabel(Event(wLab->getThread(), j))->isAtLeastRelease())
+			return true;
+	return false;
+}
+
+void GenMCDriver::visitSpinStart()
+{
+	auto &g = getGraph();
+	const EventLabel *stLab = nullptr;
+
+	/* If it has not been added to the graph, do so */
+	if (!isExecutionDrivenByGraph()) {
+		auto pos = getEE()->getCurrentPosition();
+		auto lab = SpinStartLabel::create(g.nextStamp(), pos);
+		updateLabelViews(lab.get());
+		stLab = g.addOtherLabelToGraph(std::move(lab));
+	} else {
+		stLab = g.getEventLabel(getEE()->getCurrentPosition());
+	}
+
+	/* Check whether we can detect some spinloop dynamically */
+	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
+		return llvm::isa<LoopBeginLabel>(lab);
+	});
+	if (!lbLab)
+		return; /* no begin-loop => full spinloop (liveness-checks) */
+
+	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
+		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
+	});
+	if (!pLab)
+		return;
+
+	for (auto i = pLab->getIndex() + 1; i < stLab->getIndex(); i++) {
+		auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i)));
+		if (wLab && isWriteObservable(wLab))
+			return; /* found event w/ side-effects */
+	}
+	/* Spinloop detected */
+	getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_Spinloop);
+	return;
+}
+
+bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 {
 	auto &g = getGraph();
 
-	auto *wLab = locatePreviousFaiWrite(g, lab);
+	auto *wLab = llvm::dyn_cast<FaiWriteLabel>(
+		g.getPreviousLabelST(lab, [](const EventLabel *lab){ return llvm::isa<FaiWriteLabel>(lab); }));
 	BUG_ON(!wLab);
 
 	auto &stores = g.getStoresToLoc(wLab->getAddr());
@@ -2845,7 +2898,7 @@ bool GenMCDriver::areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab)
 	return true;
 }
 
-void GenMCDriver::visitPotentialSpinEnd()
+void GenMCDriver::visitFaiZNESpinEnd()
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -2856,12 +2909,29 @@ void GenMCDriver::visitPotentialSpinEnd()
 		return;
 
 	auto pos = EE->getCurrentPosition();
-	auto lab = PotentialSpinEndLabel::create(g.nextStamp(), pos);
+	auto lab = FaiZNESpinEndLabel::create(g.nextStamp(), pos);
 	updateLabelViews(lab.get());
 	auto *eLab = g.addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
 
-	if (areFaiSpinloopConstraintsSat(static_cast<const PotentialSpinEndLabel *>(eLab)))
-		getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_FaiSpinloop);
+	if (areFaiZNEConstraintsSat(llvm::dyn_cast<FaiZNESpinEndLabel>(eLab)))
+		getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_ZNESpinloop);
+	return;
+}
+
+void GenMCDriver::visitLockZNESpinEnd()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto pos = EE->getCurrentPosition();
+	auto lab = LockZNESpinEndLabel::create(g.nextStamp(), pos);
+	updateLabelViews(lab.get());
+	auto *eLab = g.addOtherLabelToGraph(std::move(lab));
+
+	getEE()->getCurThr().block(llvm::Thread::BlockageType::BT_ZNESpinloop);
 	return;
 }
 

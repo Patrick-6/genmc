@@ -238,7 +238,7 @@ public:
 		BT_NotBlocked,
 		BT_ThreadJoin,
 		BT_Spinloop,
-		BT_FaiSpinloop,
+		BT_ZNESpinloop,
 		BT_SpinloopEnd,
 		BT_LockAcq,
 		BT_LockRel,
@@ -718,10 +718,11 @@ private:  // Helper functions
 
   /* Custom Opcode Implementations */
   void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callLoopBegin(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals);
   void callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callLockZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
   void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
   void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
   void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);

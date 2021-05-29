@@ -23,7 +23,6 @@
 #include "VSet.hpp"
 #include "LoopUnrollPass.hpp"
 #include "DeclareInternalsPass.hpp"
-#include "SpinAssumePass.hpp"
 #include "Error.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Constants.h>

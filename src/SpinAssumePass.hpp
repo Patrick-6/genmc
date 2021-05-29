@@ -29,12 +29,9 @@
 class SpinAssumePass : public llvm::LoopPass {
 
 protected:
-	void addSpinEndCallBeforeTerm(llvm::BasicBlock *latch, llvm::BasicBlock *header);
-	void addPotentialSpinEndCallBeforeLastFai(llvm::BasicBlock *latch, llvm::BasicBlock *header);
-
-	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l);
-	bool isPathToHeaderCASClean(llvm::BasicBlock *latch, llvm::Loop *l);
-	bool isPathToHeaderZNE(llvm::BasicBlock *latch, llvm::Loop *l);
+	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l, bool &checkDynamically);
+	bool isPathToHeaderFAIZNE(llvm::BasicBlock *latch, llvm::Loop *l, llvm::Instruction *&lastEffect);
+	bool isPathToHeaderLockZNE(llvm::BasicBlock *latch, llvm::Loop *l, llvm::Instruction *&lastEffect);
 
 public:
 	static char ID;
@@ -43,13 +40,12 @@ public:
 
 	void markSpinloopStarts(bool mark)  { markStarts = mark; }
 
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
+        virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
+        virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
 
 private:
 	/* Whether we should mark spinloop starts */
 	bool markStarts = false;
-
 };
 
 #endif /* __SPIN_ASSUME_PASS_HPP__ */

@@ -56,8 +56,10 @@ public:
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
+		EL_LoopBegin,
 		EL_SpinStart,
-		EL_PotentialSpinEnd,
+		EL_FaiZNESpinEnd,
+		EL_LockZNESpinEnd,
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_BWaitRead,
@@ -301,11 +303,37 @@ public:
 
 
 /*******************************************************************************
+ **                            LoopBeginLabel Class
+ ******************************************************************************/
+
+/* A label that marks the beginning of a spinloop. Used in DSA. */
+class LoopBeginLabel : public EventLabel {
+
+public:
+
+	LoopBeginLabel(unsigned int st, Event pos)
+		: EventLabel(EL_LoopBegin, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<LoopBeginLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LoopBegin; }
+};
+
+
+/*******************************************************************************
  **                            SpinStartLabel Class
  ******************************************************************************/
 
-/* A label that marks the beginning of reduced spinloops. It is meant to be used
- * by the liveness (await-termination) checks. */
+/* A label that marks the beginning of a spinloop iteration. It is meant
+ * to be used by the liveness (await-termination) checks. */
 class SpinStartLabel : public EventLabel {
 
 public:
@@ -328,29 +356,55 @@ public:
 
 
 /*******************************************************************************
- **                            PotentialSpinEndLabel Class
+ **                            FaiZNESpinEndLabel Class
  ******************************************************************************/
 
-/* A label that marks the end of a potential spinloop. If the loop turns out to be not
+/* A label that marks the end of a potential FaiZNE spinloop. If the loop turns out to be not
  * a spinloop, this is meaningless; otherwise, it indicates that the thread should block */
-class PotentialSpinEndLabel : public EventLabel {
+class FaiZNESpinEndLabel : public EventLabel {
 
 public:
 
-	PotentialSpinEndLabel(unsigned int st, Event pos)
-		: EventLabel(EL_PotentialSpinEnd, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+	FaiZNESpinEndLabel(unsigned int st, Event pos)
+		: EventLabel(EL_FaiZNESpinEnd, st, llvm::AtomicOrdering::NotAtomic, pos) {}
 
 	template<typename... Ts>
-	static std::unique_ptr<PotentialSpinEndLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<PotentialSpinEndLabel>(std::forward<Ts>(params)...);
+	static std::unique_ptr<FaiZNESpinEndLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<FaiZNESpinEndLabel>(std::forward<Ts>(params)...);
 	}
 
 	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<PotentialSpinEndLabel>(*this);
+		return LLVM_MAKE_UNIQUE<FaiZNESpinEndLabel>(*this);
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_PotentialSpinEnd; }
+	static bool classofKind(EventLabelKind k) { return k == EL_FaiZNESpinEnd; }
+};
+
+
+/*******************************************************************************
+ **                            LockZNESpinEndLabel Class
+ ******************************************************************************/
+
+/* A label that marks the end of a potential LockZNE spinloop */
+class LockZNESpinEndLabel : public EventLabel {
+
+public:
+
+	LockZNESpinEndLabel(unsigned int st, Event pos)
+		: EventLabel(EL_LockZNESpinEnd, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<LockZNESpinEndLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<LockZNESpinEndLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<LockZNESpinEndLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_LockZNESpinEnd; }
 };
 
 

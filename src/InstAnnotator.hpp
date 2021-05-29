@@ -49,7 +49,10 @@ public:
 	std::unique_ptr<SExpr> annotateBBCond(BasicBlock *bb, BasicBlock *pred = nullptr);
 
 	/* Returns the annotation for a CAS associated with the backedge LATCH->header(L) */
-	std::unique_ptr<SExpr> annotateCASWithBackedgeCond(AtomicCmpXchgInst *cas, BasicBlock *latch, Loop *l);
+	std::unique_ptr<SExpr> annotateCASWithBackedgeCond(AtomicCmpXchgInst *cas,
+							   BasicBlock *latch,
+							   Loop *l,
+							   const VSet<llvm::Function *> *cleanSet = nullptr);
 
 private:
 	/* Helper types for the annotation routines */
@@ -72,7 +75,8 @@ private:
 							    const VSet<BasicBlock *> &latch, Loop *l);
 
 	/* Helper for annotateCASWithBackedgeCond(); performs the actual annotation (for backedge paths) */
-	void annotateCASWithBackedgeCondDFS(Instruction *curr, const VSet<BasicBlock *> &backedgePaths, Loop *l);
+	void annotateCASWithBackedgeCondDFS(Instruction *curr, const VSet<BasicBlock *> &backedgePaths,
+					    Loop *l, const VSet<llvm::Function *> *cleanSet);
 
 	/* A helper status map */
 	InstStatusMap statusMap;

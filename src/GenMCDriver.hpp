@@ -186,13 +186,21 @@ public:
 	void
 	visitFence(llvm::AtomicOrdering ord, const char *lkmmType = nullptr);
 
+	/* A call to __VERIFIER_loop_begin() has been interpreted */
+	void
+	visitLoopBegin();
+
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
 	visitSpinStart();
 
-	/* A call to __VERIFIER_potential_spin_end() has been interpreted */
+	/* A call to __VERIFIER_faiZNE_spin_end() has been interpreted */
 	void
-	visitPotentialSpinEnd();
+	visitFaiZNESpinEnd();
+
+	/* A call to __VERIFIER_lockZNE_spin_end() has been interpreted */
+	void
+	visitLockZNESpinEnd();
 
 	/* Returns an appropriate result for pthread_self() */
 	llvm::GenericValue
@@ -498,13 +506,16 @@ private:
 			    const std::vector<Event> &stores,
 			    const View &v);
 
-	/* Opt: Checks whether the addition of an event changes our
+	/* SAVer: Checks whether the effects of a write are observable */
+	bool isWriteObservable(const WriteLabel *lab);
+
+	/* SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
 
-	/* Opt: Given the end of a potential spinloop, returns true if
-	 * it is indeed a spinloop */
-	bool areFaiSpinloopConstraintsSat(const PotentialSpinEndLabel *lab);
+	/* SAVer: Given the end of a potential FAI-ZNE spinloop,
+	 * returns true if it is indeed a spinloop */
+	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */

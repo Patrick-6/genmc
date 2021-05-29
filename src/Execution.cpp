@@ -62,9 +62,11 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_loop_begin", InternalFunctions::FN_LoopBegin},
 	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
-	{"__VERIFIER_potential_spin_end", InternalFunctions::FN_PotentialSpinEnd},
+	{"__VERIFIER_faiZNE_spin_end", InternalFunctions::FN_FaiZNESpinEnd},
+	{"__VERIFIER_lockZNE_spin_end", InternalFunctions::FN_LockZNESpinEnd},
 	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
@@ -2629,6 +2631,11 @@ void Interpreter::callAssertFail(Function *F,
 	driver->visitError(errT, err);
 }
 
+void Interpreter::callLoopBegin(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	driver->visitLoopBegin();
+}
+
 void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
@@ -2641,10 +2648,16 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 		getCurThr().block(Thread::BlockageType::BT_Spinloop);
 }
 
-void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
+void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
 {
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
-	driver->visitPotentialSpinEnd();
+	driver->visitFaiZNESpinEnd();
+}
+
+void Interpreter::callLockZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
+{
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
+	driver->visitLockZNESpinEnd();
 }
 
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals)
@@ -4278,9 +4291,11 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
+		CALL_INTERNAL_FUNCTION(LoopBegin);
 		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(SpinEnd);
-		CALL_INTERNAL_FUNCTION(PotentialSpinEnd);
+		CALL_INTERNAL_FUNCTION(FaiZNESpinEnd);
+		CALL_INTERNAL_FUNCTION(LockZNESpinEnd);
 		CALL_INTERNAL_FUNCTION(EndLoop);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);
