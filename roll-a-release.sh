@@ -15,7 +15,7 @@
 # otherwise the commit from which the patch should be created
 # needs to be passed as an argument.
 
-VERSION=0.5.3
+VERSION=0.6
 INTERNAL_PATH=/home/michalis/Documents/genmc-tool
 EXTERNAL_PATH=/home/michalis/Documents/genmc-github
 PATCH_PATH=/tmp/release-"${VERSION}".patch
