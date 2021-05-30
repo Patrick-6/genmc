@@ -50,6 +50,8 @@ LKMMDriver::LKMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Modul
 			ExecutionGraph::RelationId::rcu_fence, false);
 	g.addCalculator(LLVM_MAKE_UNIQUE<XBCalculator>(g),
 			ExecutionGraph::RelationId::xb, false);
+
+	WARN_ONCE("lkmm-experimental", "LKMM support is still at an experimental stage!\n");
 	return;
 }
 
