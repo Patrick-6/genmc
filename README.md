@@ -101,6 +101,14 @@ For a default build issue:
 
 			CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0" ./configure --with-llvm=LLVM_PATH
 
+* Linking problems under Arch Linux:
+
+    Arch Linux does not provide the `libclang*.a` files required for linking
+	against `clang` libraries. In order to for linking to succeed, please
+	change the last line in `src/Makefile.am` to the following:
+
+			genmc_LDADD = libgenmc.a -lclang-cpp
+
 
 <a name="license">License</a>
 -----------------------------
