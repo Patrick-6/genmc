@@ -576,7 +576,7 @@ private:
 
 	/* Helper for printTraceBefore() that prints events according to po U rf */
 	void recPrintTraceBefore(const Event &e, View &a,
-				 llvm::raw_ostream &ss = llvm::dbgs());
+				 llvm::raw_ostream &ss = llvm::outs());
 
 	/* Outputs the full graph.
 	 * If getMetadata is set, it outputs more debugging information */

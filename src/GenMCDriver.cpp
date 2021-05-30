@@ -66,7 +66,7 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 	auto seedVal = (userConf->randomScheduleSeed != "") ?
 		(MyRNG::result_type) stoull(userConf->randomScheduleSeed) : rd();
 	if (userConf->printRandomScheduleSeed)
-		llvm::dbgs() << "Seed: " << seedVal << "\n";
+		llvm::outs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
 
 	/* If a specs file has been specified, parse it */
@@ -94,13 +94,13 @@ GenMCDriver::~GenMCDriver() = default;
 void GenMCDriver::printResults()
 {
 	std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
-	llvm::dbgs() << "Number of complete executions explored: " << explored
+	llvm::outs() << "Number of complete executions explored: " << explored
 		     << ((userConf->countDuplicateExecs) ? dups : "") << "\n";
 	if (exploredBlocked) {
-		llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
+		llvm::outs() << "Number of blocked executions seen: " << exploredBlocked
 			     << "\n";
 	}
-	llvm::dbgs() << "Total wall-clock time: "
+	llvm::outs() << "Total wall-clock time: "
 		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
 		     << "s\n";
 }
@@ -2069,11 +2069,11 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 		g.changeRf(errLab->getPos(), Event::getBottom());
 
 	/* Print a basic error message and the graph */
-	llvm::dbgs() << "Error detected: " << t << "!\n";
-	llvm::dbgs() << "Event " << errLab->getPos() << " ";
+	llvm::outs() << "Error detected: " << t << "!\n";
+	llvm::outs() << "Event " << errLab->getPos() << " ";
 	if (!confEvent.isInitializer())
-		llvm::dbgs() << "conflicts with event " << confEvent << " ";
-	llvm::dbgs() << "in graph:\n";
+		llvm::outs() << "conflicts with event " << confEvent << " ";
+	llvm::outs() << "in graph:\n";
 	printGraph(true);
 
 	/* Print error trace leading up to the violating event(s) */
@@ -2085,7 +2085,7 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 
 	/* Print the specific error message */
 	if (!err.empty())
-		llvm::dbgs() << err << "\n";
+		llvm::outs() << err << "\n";
 
 	/* Dump the graph into a file (DOT format) */
 	if (userConf->dotFile != "")
@@ -3013,7 +3013,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		break;
 
 static void executeGVPrint(const llvm::GenericValue &val, const llvm::Type *typ,
-			   llvm::raw_ostream &s = llvm::dbgs())
+			   llvm::raw_ostream &s = llvm::outs())
 {
 	switch (typ->getTypeID()) {
 		IMPLEMENT_INTEGER_PRINT(s, typ);
@@ -3041,7 +3041,7 @@ do {					        \
 static void executeRLPrint(const ReadLabel *rLab,
 			   const std::string &varName,
 			   const llvm::GenericValue &val,
-			   llvm::raw_ostream &s = llvm::dbgs())
+			   llvm::raw_ostream &s = llvm::outs())
 {
 	s << rLab->getPos() << ": ";
 	s << rLab->getKind() << rLab->getOrdering()
@@ -3055,7 +3055,7 @@ static void executeRLPrint(const ReadLabel *rLab,
 
 static void executeWLPrint(const WriteLabel *wLab,
 			   const std::string &varName,
-			   llvm::raw_ostream &s = llvm::dbgs())
+			   llvm::raw_ostream &s = llvm::outs())
 {
 	s << wLab->getPos() << ": ";
 	s << wLab->getKind() << wLab->getOrdering()
@@ -3067,7 +3067,7 @@ static void executeWLPrint(const WriteLabel *wLab,
 static void executeMDPrint(const EventLabel *lab,
 			   const std::pair<int, std::string> &locAndFile,
 			   std::string inputFile,
-			   llvm::raw_ostream &os = llvm::dbgs())
+			   llvm::raw_ostream &os = llvm::outs())
 {
 	os << " L." << locAndFile.first;
 	std::string errPath = locAndFile.second;
@@ -3102,10 +3102,10 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		llvm::dbgs() << thr << ":\n";
+		llvm::outs() << thr << ":\n";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			llvm::dbgs() << "\t";
+			llvm::outs() << "\t";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				auto name = EE->getVarName(rLab->getAddr());
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
@@ -3116,15 +3116,15 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 				auto name = EE->getVarName(wLab->getAddr());
 				executeWLPrint(wLab, name);
 			} else {
-				llvm::dbgs() << *lab;
+				llvm::outs() << *lab;
 			}
 			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile);
 			}
-			llvm::dbgs() << "\n";
+			llvm::outs() << "\n";
 		}
 	}
-	llvm::dbgs() << "\n";
+	llvm::outs() << "\n";
 }
 
 void GenMCDriver::prettyPrintGraph()
@@ -3133,27 +3133,27 @@ void GenMCDriver::prettyPrintGraph()
 	auto *EE = getEE();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
+		llvm::outs() << "<" << thr.parentId << "," << thr.id
 			     << "> " << thr.threadFun->getName() << ": ";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->isRevisitable())
-					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
+					llvm::outs().changeColor(llvm::raw_ostream::Colors::GREEN);
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
 					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
 					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-				llvm::dbgs() << "R" << EE->getVarName(rLab->getAddr()) << ","
+				llvm::outs() << "R" << EE->getVarName(rLab->getAddr()) << ","
 					     << val.IntVal << " ";
-				llvm::dbgs().resetColor();
+				llvm::outs().resetColor();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				llvm::dbgs() << "W" << EE->getVarName(wLab->getAddr()) << ","
+				llvm::outs() << "W" << EE->getVarName(wLab->getAddr()) << ","
 					     << wLab->getVal().IntVal << " ";
 			}
 		}
-		llvm::dbgs() << "\n";
+		llvm::outs() << "\n";
 	}
-	llvm::dbgs() << "\n";
+	llvm::outs() << "\n";
 }
 
 void GenMCDriver::dotPrintToFile(const std::string &filename,
@@ -3247,7 +3247,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 }
 
 void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
-				      llvm::raw_ostream &ss /* llvm::dbgs() */)
+				      llvm::raw_ostream &ss /* llvm::outs() */)
 {
 	const auto &g = getGraph();
 
@@ -3283,7 +3283,7 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 
 void GenMCDriver::printTraceBefore(Event e)
 {
-	llvm::dbgs() << "Trace to " << e << ":\n";
+	llvm::outs() << "Trace to " << e << ":\n";
 
 	/* Replay the execution up to the error event (collects mdata).
 	 * Even if the prefix has holes, replaying will fill them up,

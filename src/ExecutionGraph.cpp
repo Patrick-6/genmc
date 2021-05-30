@@ -1539,8 +1539,8 @@ void ExecutionGraph::validate(void)
 				if (containsEvent(rfLab->getReadersList(), rLab->getPos()))
 					continue;
 				WARN("Read event is not the appropriate rf-1 list!\n");
-				llvm::dbgs() << rLab->getPos() << "\n";
-				llvm::dbgs() << *this << "\n";
+				llvm::errs() << rLab->getPos() << "\n";
+				llvm::errs() << *this << "\n";
 				exit(EGENMC);
 			}
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
@@ -1553,12 +1553,12 @@ void ExecutionGraph::validate(void)
 							       }))
 						continue;
 					WARN("RMW store is read from more than 1 load!\n");
-					llvm::dbgs() << "RMW store: " << wLab->getPos()
+					llvm::errs() << "RMW store: " << wLab->getPos()
 						     << "\nReads:";
 					for (auto &r : rs)
-						llvm::dbgs() << r << " ";
-					llvm::dbgs() << "\n";
-					llvm::dbgs() << *this << "\n";
+						llvm::errs() << r << " ";
+					llvm::errs() << "\n";
+					llvm::errs() << *this << "\n";
 					exit(EGENMC);
 				}
 
@@ -1572,16 +1572,16 @@ void ExecutionGraph::validate(void)
 					}
 					})) {
 						WARN("Write event is not marked in the read event!\n");
-						llvm::dbgs() << wLab->getPos() << "\n";
-						llvm::dbgs() << *this << "\n";
+						llvm::errs() << wLab->getPos() << "\n";
+						llvm::errs() << *this << "\n";
 						exit(EGENMC);
 				}
 				for (auto &r : rs) {
 					if (r.thread > (int) getNumThreads() ||
 					    r.index >= (int) getThreadSize(r.thread)) {
 						WARN("Event in write's rf-list does not exist!\n");
-						llvm::dbgs() << r << "\n";
-						llvm::dbgs() << *this << "\n";
+						llvm::errs() << r << "\n";
+						llvm::errs() << *this << "\n";
 						exit(EGENMC);
 					}
 				}
