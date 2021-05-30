@@ -1259,7 +1259,7 @@ GenMCDriver::properlyOrderStores(InstAttr attr,
 	}
 
 	/* barrier_wait()'s FAI loads should not read from conflicting stores */
-	if (!isBPostAttr(attr) || getConf()->disableBarrierOpt)
+	if (!isBPostAttr(attr) || getConf()->disableBAM)
 		valid.insert(valid.end(), conflicting.begin(), conflicting.end());
 	return valid;
 }
@@ -2133,7 +2133,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	}
 
 	if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
-		if (!getConf()->disableBarrierOpt &&
+		if (!getConf()->disableBAM &&
 		    !getEE()->compareValues(sLab->getType(), sLab->getVal(),
 					    getBarrierInitValue(sLab->getAddr(), sLab->getType())))
 			return true;
@@ -2156,7 +2156,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		/* Optimize barrier revisits */
 		if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
-			if (!getConf()->disableBarrierOpt &&
+			if (!getConf()->disableBAM &&
 			    rLab->getPos() == g.getLastThreadEvent(rLab->getThread())) {
 				BUG_ON(!llvm::isa<BWaitReadLabel>(rLab));
 				changeRf(rLab->getPos(), faiLab->getPos());
