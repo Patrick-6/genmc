@@ -205,14 +205,16 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << eLab.getKind();
 		break;
 	}
-	case EventLabel::EL_Read: {
+	case EventLabel::EL_Read:
+	case EventLabel::EL_BWaitRead: {
 		auto &rLab = static_cast<const ReadLabel&>(lab);
 		s << rLab.getKind() << rLab.getOrdering() << " [";
 		PRINT_RF(s, rLab.getRf());
 		s << "]";
 		break;
 	}
-	case EventLabel::EL_FaiRead: {
+	case EventLabel::EL_FaiRead:
+	case EventLabel::EL_BIncFaiRead: {
 		auto &rLab = static_cast<const FaiReadLabel&>(lab);
 		s << rLab.getKind() << rLab.getOrdering() << " [";
 		PRINT_RF(s, rLab.getRf());
@@ -239,7 +241,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << wLab.getKind() << wLab.getOrdering() << " " << wLab.getVal().IntVal;
 		break;
 	}
-	case EventLabel::EL_FaiWrite: {
+	case EventLabel::EL_FaiWrite:
+	case EventLabel::EL_BIncFaiWrite: {
 		auto &wLab = static_cast<const FaiWriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " "
 		  << wLab.getVal().IntVal;
@@ -337,7 +340,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		break;
 	}
 	default:
-		s << "UNKNOWN";
+		s << lab.getKind();
 		break;
 	}
 	return s;

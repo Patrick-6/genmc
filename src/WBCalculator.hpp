@@ -67,8 +67,9 @@ public:
 	const std::vector<Event>&
 	getStoresToLoc(const llvm::GenericValue *addr) const override;
 
-	/* Returns all the stores for which if "read" reads-from, coherence
-	 * is not violated */
+	/* Returns all the stores for which if "read" reads-from,
+	 * coherence is not violated.
+	 * Result is ordered according to coherence maximality */
 	std::vector<Event>
 	getCoherentStores(const llvm::GenericValue *addr, Event read) override;
 

@@ -461,11 +461,19 @@ WBCalculator::getCoherentStores(const llvm::GenericValue *addr, Event read)
 			result.push_back(stores[i]);
 	}
 
+	/* Ensure function contract is satisfied */
+	std::sort(result.begin(), result.end(), [&g, &wb](const Event &a, const Event &b){
+		if (b.isInitializer())
+			return false;
+		return a.isInitializer() || wb(a, b) ||
+			(!wb(b, a) && g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp());
+	});
+
 	/* For the OOO execution case:
 	 *
 	 * We check whether the initializer is a valid RF as well */
 	if (supportsOutOfOrder() && isInitCoherentRf(wb, read))
-		result.push_back(Event::getInitializer());
+		result.insert(result.begin(), Event::getInitializer());
 
 	/* Set the cache before returning */
 	getCache().addCalcInfo(std::move(wb));

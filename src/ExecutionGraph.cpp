@@ -1581,7 +1581,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 		s << "Thread " << i << ":\n";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			s << "\t" << *lab << "\n";
+			s << "\t" << lab->getStamp() << " @ " << *lab << "\n";
 		}
 	}
 	s << "Thread sizes:\n\t";
