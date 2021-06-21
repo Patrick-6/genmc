@@ -352,7 +352,7 @@ Event RC11Driver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	return Event::getInitializer();
 }
 
-std::vector<Event> RC11Driver::getStoresToLoc(const llvm::GenericValue *addr)
+std::vector<Event> RC11Driver::getStoresToLoc(SAddr addr)
 {
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }

@@ -110,8 +110,7 @@ Event ExecutionGraph::getLastThreadEvent(int thread) const
 	return Event(thread, events[thread].size() - 1);
 }
 
-Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit,
-					      const llvm::GenericValue *addr) const
+Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const
 {
 	for (auto j = upperLimit.index - 1; j > 0; j--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
@@ -123,8 +122,7 @@ Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit,
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit,
-						const llvm::GenericValue *addr) const
+Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) const
 {
 	for (int i = upperLimit.index - 1; i > 0; i--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
@@ -232,15 +230,14 @@ Event ExecutionGraph::getMatchingUnlock(const Event lock) const
 
 Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
 {
-	std::vector<const llvm::GenericValue *> unlocks;
+	std::vector<SAddr > unlocks;
 
 	for (auto j = upperLimit.index; j >= 0; j--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
 
 		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
 			if (std::find_if(unlocks.rbegin(), unlocks.rend(),
-					 [&](const llvm::GenericValue *addr)
-					 { return lLab->getLockAddr() == addr; })
+					 [&](SAddr addr){ return lLab->getLockAddr() == addr; })
 			    ==  unlocks.rend())
 				return lLab->getPos();
 		}
@@ -278,8 +275,7 @@ Event ExecutionGraph::getMatchingUnlockLAPOR(const Event lock) const
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit,
-						  const llvm::GenericValue *loc) const
+Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr loc) const
 {
 	for (auto j = upperLimit.index; j >= 0; j--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
@@ -293,8 +289,7 @@ Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit,
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit,
-						    const llvm::GenericValue *loc) const
+Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAddr loc) const
 {
 	for (auto j = upperLimit.index; j >= 0; j--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
@@ -304,6 +299,21 @@ Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit,
 				return lLab->getPos();
 		}
 
+	}
+	return Event::getInitializer();
+}
+
+Event ExecutionGraph::getPrecedingMalloc(const MemAccessLabel *mLab) const
+{
+	const auto &before = getHbBefore(mLab->getPos().prev());
+	for (auto i = 0u; i < getNumThreads(); i++)
+		for (auto j = 0u; j < getThreadSize(i); j++) {
+			const EventLabel *oLab = getEventLabel(Event(i, j));
+			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
+				if (aLab->contains(mLab->getAddr()) &&
+				    before.contains(oLab->getPos()))
+					return aLab->getPos();
+			}
 	}
 	return Event::getInitializer();
 }
@@ -367,7 +377,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 }
 
 /* Returns a vector with all reads of a particular location reading from INIT */
-std::vector<Event> ExecutionGraph::getInitRfsAtLoc(const llvm::GenericValue *addr) const
+std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 {
 	std::vector<Event> result;
 
@@ -621,31 +631,30 @@ Calculator::CalculationResult ExecutionGraph::doCalcs(bool full /* = false */)
 	return result;
 }
 
-void ExecutionGraph::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 {
 	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
 }
 
 const std::vector<Event>&
-ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr) const
+ExecutionGraph::getStoresToLoc(SAddr addr) const
 {
 	return getCoherenceCalculator()->getStoresToLoc(addr);
 }
 
 const std::vector<Event>&
-ExecutionGraph::getStoresToLoc(const llvm::GenericValue *addr)
+ExecutionGraph::getStoresToLoc(SAddr addr)
 {
 	return getCoherenceCalculator()->getStoresToLoc(addr);
 }
 
 std::pair<int, int>
-ExecutionGraph::getCoherentPlacings(const llvm::GenericValue *addr,
-				    Event pos, bool isRMW) {
+ExecutionGraph::getCoherentPlacings(SAddr addr, Event pos, bool isRMW) {
 	return getCoherenceCalculator()->getPossiblePlacings(addr, pos, isRMW);
 };
 
 std::vector<Event>
-ExecutionGraph::getCoherentStores(const llvm::GenericValue *addr, Event pos)
+ExecutionGraph::getCoherentStores(SAddr addr, Event pos)
 {
 	return getCoherenceCalculator()->getCoherentStores(addr, pos);
 }
@@ -910,8 +919,7 @@ bool ExecutionGraph::isWriteRfBefore(Event a, Event b) const
 	return false;
 }
 
-bool ExecutionGraph::isStoreReadByExclusiveRead(Event store,
-						const llvm::GenericValue *ptr) const
+bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -927,8 +935,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store,
 	return false;
 }
 
-bool ExecutionGraph::isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-					     const VectorClock &prefix) const
+bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const VectorClock &prefix) const
 {
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
@@ -1081,8 +1088,7 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 	return preds;
 }
 
-void ExecutionGraph::changeStoreOffset(const llvm::GenericValue *addr,
-				     Event s, int newOffset)
+void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
 	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
 	auto *cohTracker = static_cast<MOCalculator *>(

@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "NameInfo.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -44,21 +45,13 @@ class SExpr;
  */
 struct VariableInfo {
 
-  /*
-   * We keep a map (Values -> (offset, name_at_offset)), and after
-   * the interpreter and the variables are allocated and initialized,
-   * we use the map to dynamically find out the name corresponding to
-   * a particular address.
-   */
-  using NameInfo = std::vector<std::pair<unsigned, std::string > >;
-
   /* Internal types (not exposed to user programs) for which we might
    * want to collect naming information */
-  using InternalType = std::string;
+  using InternalKey = std::string;
 
   std::unordered_map<llvm::Value *, NameInfo> globalInfo;
   std::unordered_map<llvm::Value *, NameInfo> localInfo;
-  std::unordered_map<InternalType, NameInfo> internalInfo;
+  std::unordered_map<InternalKey, NameInfo> internalInfo;
 };
 
 /*

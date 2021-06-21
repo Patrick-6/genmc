@@ -59,8 +59,7 @@ public:
 
 	/* Represents the structure on which calculations take place */
 	using GlobalRelation = AdjList<Event, EventHasher>;
-	using PerLocRelation = std::unordered_map<const llvm::GenericValue *,
-						  GlobalRelation >;
+	using PerLocRelation = std::unordered_map<SAddr, GlobalRelation>;
 
 	/* Constructor */
 	Calculator(ExecutionGraph &g) : execGraph(g) {}

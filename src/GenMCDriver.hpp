@@ -107,7 +107,7 @@ public:
 	llvm::GenericValue
 	visitLoad(InstAttr attr,
 		  llvm::AtomicOrdering ord,
-		  const llvm::GenericValue *addr,
+		  SAddr addr,
 		  llvm::Type *typ,
 		  llvm::GenericValue cmpVal = llvm::GenericValue(),
 		  llvm::GenericValue rmwVal = llvm::GenericValue(),
@@ -119,20 +119,20 @@ public:
 	std::pair<llvm::GenericValue, bool>
 	visitLibLoad(InstAttr attr,
 		     llvm::AtomicOrdering ord,
-		     const llvm::GenericValue *addr,
+		     SAddr addr,
 		     llvm::Type *typ,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	llvm::GenericValue
-	visitDskRead(const llvm::GenericValue *readAddr, llvm::Type *typ);
+	visitDskRead(SAddr readAddr, llvm::Type *typ);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(InstAttr attr,
 		   llvm::AtomicOrdering ord,
-		   const llvm::GenericValue *addr,
+		   SAddr addr,
 		   llvm::Type *typ,
 		   const llvm::GenericValue &val);
 
@@ -140,7 +140,7 @@ public:
 	void
 	visitLibStore(InstAttr attr,
 		      llvm::AtomicOrdering ord,
-		      const llvm::GenericValue *addr,
+		      SAddr addr,
 		      llvm::Type *typ,
 		      llvm::GenericValue &val,
 		      std::string functionName,
@@ -148,7 +148,7 @@ public:
 
 	/* A function modeling a write to disk has been interpreted */
 	void
-	visitDskWrite(const llvm::GenericValue *addr,
+	visitDskWrite(SAddr addr,
 		      llvm::Type *typ,
 		      const llvm::GenericValue &val,
 		      void *mapping,
@@ -158,10 +158,10 @@ public:
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(const llvm::GenericValue *addr, llvm::Type *typ);
+	void visitLock(SAddr addr, llvm::Type *typ);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(const llvm::GenericValue *addr, llvm::Type *typ);
+	void visitUnlock(SAddr addr, llvm::Type *typ);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
@@ -210,18 +210,12 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	llvm::GenericValue
-	visitMalloc(uint64_t allocSize, unsigned int alignment, Storage s, AddressSpace spc);
+	visitMalloc(uint64_t allocSize, unsigned int alignment, Storage s, AddressSpace spc,
+		    NameInfo *nameInfo = nullptr, const std::string &name = {});
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
-	visitFree(void *ptr);
-	/* Helper for bulk-deallocs */
-	template<typename ITER>
-	void visitFree(ITER begin, ITER end) {
-		for (auto it = begin; it != end; ++it)
-			visitFree(*it);
-	}
-
+	visitFree(SAddr ptr);
 
 	/* This method blocks the current thread  */
 	void visitBlock();
@@ -253,26 +247,18 @@ protected:
 	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
-	llvm::GenericValue getWriteValue(Event w,
-					 const llvm::GenericValue *a,
-					 const llvm::Type *t);
-	llvm::GenericValue getDskWriteValue(Event w,
-					    const llvm::GenericValue *a,
-					    const llvm::Type *t);
+	llvm::GenericValue getWriteValue(Event w, SAddr a, const llvm::Type *t);
+	llvm::GenericValue getDskWriteValue(Event w, SAddr a, const llvm::Type *t);
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place
 	 * (e.g., bottom) also blocks the currently running thread. */
-	llvm::GenericValue getReadRetValueAndMaybeBlock(Event r,
-							const llvm::GenericValue *addr,
-							const llvm::Type *t);
-	llvm::GenericValue getRecReadRetValue(const llvm::GenericValue *addr,
-					      const llvm::Type *typ);
+	llvm::GenericValue getReadRetValueAndMaybeBlock(Event r, SAddr addr, const llvm::Type *t);
+	llvm::GenericValue getRecReadRetValue(SAddr addr, const llvm::Type *typ);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	llvm::GenericValue getBarrierInitValue(const llvm::GenericValue *ptr,
-					       const llvm::Type *typ);
+	llvm::GenericValue getBarrierInitValue(SAddr ptr, const llvm::Type *typ);
 
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
@@ -288,7 +274,7 @@ protected:
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
 	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(const llvm::GenericValue *addr, Event e,
+	bool isCoMaximal(SAddr addr, Event e,
 			 bool checkCache = false, ProgramPoint p = ProgramPoint::step);
 
 private:
@@ -355,7 +341,7 @@ private:
 	void resetThreadPrioritization();
 
 	/* Returns whether ADDR a valid address or not.  */
-	bool isAccessValid(const llvm::GenericValue *addr);
+	bool isAccessValid(SAddr addr);
 
 	/* Checks for data races when a read/write is added.
 	 * Appropriately calls visitError() and terminates */
@@ -388,7 +374,7 @@ private:
 	/* Checks for memory races (e.g., double free, access freed memory, etc)
 	 * whenever a read/write/free is added.
 	 * Appropriately calls visitError() and terminates */
-	void checkForMemoryRaces(const void *addr);
+	void checkForMemoryRaces(SAddr addr);
 
 	/* Calls visitError() if a newly added read can read from an uninitialized
 	 * (dynamically allocated) memory location */
@@ -453,7 +439,7 @@ private:
 	 * order in which these options should be explored */
 	std::vector<Event> properlyOrderStores(InstAttr attr,
 					       llvm::Type *typ,
-					       const llvm::GenericValue *ptr,
+					       SAddr ptr,
 					       llvm::GenericValue &expVal,
 					       std::vector<Event> &stores);
 
@@ -461,7 +447,7 @@ private:
 	const ReadLabel *
 	createAddReadLabel(InstAttr attr,
 			   llvm::AtomicOrdering ord,
-			   const llvm::GenericValue *addr,
+			   SAddr addr,
 			   llvm::Type *typ,
 			   std::unique_ptr<SExpr> annot,
 			   const llvm::GenericValue &cmpVal,
@@ -477,7 +463,7 @@ private:
 	const WriteLabel *
 	createAddStoreLabel(InstAttr attr,
 			    llvm::AtomicOrdering ord,
-			    const llvm::GenericValue *addr,
+			    SAddr addr,
 			    llvm::Type *typ,
 			    const llvm::GenericValue &val, int moPos);
 
@@ -505,7 +491,7 @@ private:
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
-	std::vector<Event> filterAcquiredLocks(const llvm::GenericValue *ptr,
+	std::vector<Event> filterAcquiredLocks(SAddr ptr,
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
 
@@ -526,8 +512,8 @@ private:
 	void repairDanglingBarriers();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void visitLockLAPOR(const llvm::GenericValue *addr);
-	void visitUnlockLAPOR(const llvm::GenericValue *addr);
+	void visitLockLAPOR(SAddr addr);
+	void visitUnlockLAPOR(SAddr addr);
 
 	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
 	bool isSymmetricToSR(int candidate, int thread, Event parent,
@@ -541,11 +527,11 @@ private:
 	bool sharePrefixSR(int tid, Event pos) const;
 
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(const llvm::GenericValue *addr, llvm::Type *typ,
+	void filterSymmetricStoresSR(SAddr addr, llvm::Type *typ,
 				     std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterValuesFromAnnotSAVER(const llvm::GenericValue *addr, llvm::Type *typ,
+	bool filterValuesFromAnnotSAVER(SAddr addr, llvm::Type *typ,
 					const SExpr *annot, std::vector<Event> &stores);
 
 
@@ -560,6 +546,9 @@ private:
 	/* Helper for printTraceBefore() that prints events according to po U rf */
 	void recPrintTraceBefore(const Event &e, View &a,
 				 llvm::raw_ostream &ss = llvm::dbgs());
+
+	/* Returns the name of the variable residing in addr */
+	std::string getVarName(const MemAccessLabel *mLab) const;
 
 	/* Outputs the full graph.
 	 * If getMetadata is set, it outputs more debugging information */
@@ -586,7 +575,7 @@ private:
 	/* Should return the set of stores that it is consistent for current
 	 * load to read-from  (excluding atomicity violations) */
 	virtual std::vector<Event>
-	getStoresToLoc(const llvm::GenericValue *addr) = 0;
+	getStoresToLoc(SAddr addr) = 0;
 
 	/* Should return the set of reads that lab can revisit */
 	virtual std::vector<Event>

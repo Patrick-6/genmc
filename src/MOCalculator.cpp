@@ -22,12 +22,12 @@
 #include "ExecutionGraph.hpp"
 #include <vector>
 
-void MOCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+void MOCalculator::trackCoherenceAtLoc(SAddr addr)
 {
 	mo_[addr];
 }
 
-int MOCalculator::getStoreOffset(const llvm::GenericValue *addr, Event e) const
+int MOCalculator::getStoreOffset(SAddr addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 
@@ -43,7 +43,7 @@ int MOCalculator::getStoreOffset(const llvm::GenericValue *addr, Event e) const
 }
 
 std::vector<Event>
-MOCalculator::getMOBefore(const llvm::GenericValue *addr, Event e) const
+MOCalculator::getMOBefore(SAddr addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 
@@ -63,7 +63,7 @@ MOCalculator::getMOBefore(const llvm::GenericValue *addr, Event e) const
 }
 
 std::vector<Event>
-MOCalculator::getMOAfter(const llvm::GenericValue *addr, Event e) const
+MOCalculator::getMOAfter(SAddr addr, Event e) const
 {
 	std::vector<Event> res;
 
@@ -85,14 +85,13 @@ MOCalculator::getMOAfter(const llvm::GenericValue *addr, Event e) const
 }
 
 const std::vector<Event>&
-MOCalculator::getModOrderAtLoc(const llvm::GenericValue *addr) const
+MOCalculator::getModOrderAtLoc(SAddr addr) const
 {
 	return getStoresToLoc(addr);
 }
 
 std::pair<int, int>
-MOCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
-				  Event store, bool isRMW)
+MOCalculator::getPossiblePlacings(SAddr addr, Event store, bool isRMW)
 {
 	const auto &g = getGraph();
 
@@ -113,31 +112,30 @@ MOCalculator::getPossiblePlacings(const llvm::GenericValue *addr,
 
 }
 
-void MOCalculator::addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset)
+void MOCalculator::addStoreToLoc(SAddr addr, Event store, int offset)
 {
 	mo_[addr].insert(mo_[addr].begin() + offset, store);
 }
 
-void MOCalculator::addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred)
+void MOCalculator::addStoreToLocAfter(SAddr addr, Event store, Event pred)
 {
 	int offset = getStoreOffset(addr, pred);
 	addStoreToLoc(addr, store, offset + 1);
 }
 
-bool MOCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
+bool MOCalculator::isCoMaximal(SAddr addr, Event store)
 {
 	auto &locMO = mo_[addr];
 	return (store.isInitializer() && locMO.empty()) ||
 	       (!store.isInitializer() && !locMO.empty() && store == locMO.back());
 }
 
-bool MOCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+bool MOCalculator::isCachedCoMaximal(SAddr addr, Event store)
 {
 	return isCoMaximal(addr, store);
 }
 
-void MOCalculator::changeStoreOffset(const llvm::GenericValue *addr,
-				     Event store, int newOffset)
+void MOCalculator::changeStoreOffset(SAddr addr, Event store, int newOffset)
 {
 	auto &locMO = mo_[addr];
 
@@ -146,13 +144,13 @@ void MOCalculator::changeStoreOffset(const llvm::GenericValue *addr,
 }
 
 const std::vector<Event>&
-MOCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
+MOCalculator::getStoresToLoc(SAddr addr) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 	return mo_.at(addr);
 }
 
-int MOCalculator::splitLocMOBefore(const llvm::GenericValue *addr, Event e)
+int MOCalculator::splitLocMOBefore(SAddr addr, Event e)
 
 {
 	const auto &g = getGraph();
@@ -167,7 +165,7 @@ int MOCalculator::splitLocMOBefore(const llvm::GenericValue *addr, Event e)
 	return 0;
 }
 
-int MOCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr, const Event read)
+int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -189,7 +187,7 @@ int MOCalculator::splitLocMOAfterHb(const llvm::GenericValue *addr, const Event 
 	return locMO.size();
 }
 
-int MOCalculator::splitLocMOAfter(const llvm::GenericValue *addr, const Event e)
+int MOCalculator::splitLocMOAfter(SAddr addr, const Event e)
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -202,7 +200,7 @@ int MOCalculator::splitLocMOAfter(const llvm::GenericValue *addr, const Event e)
 }
 
 std::vector<Event>
-MOCalculator::getCoherentStores(const llvm::GenericValue *addr, Event read)
+MOCalculator::getCoherentStores(SAddr addr, Event read)
 {
 	auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -430,7 +428,7 @@ void MOCalculator::restorePrefix(const ReadLabel *rLab,
 void MOCalculator::removeAfter(const VectorClock &preds)
 {
 	auto &g = getGraph();
-	VSet<const void *> keep;
+	VSet<SAddr> keep;
 
 	/* Check which locations should be kept */
 	for (auto i = 0u; i < preds.size(); i++) {
@@ -457,7 +455,7 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 	}
 }
 
-bool MOCalculator::locContains(const llvm::GenericValue *addr, Event e) const
+bool MOCalculator::locContains(SAddr addr, Event e) const
 {
 	BUG_ON(mo_.count(addr) == 0);
 	return e == Event::getInitializer() ||

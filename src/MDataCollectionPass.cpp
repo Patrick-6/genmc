@@ -48,11 +48,10 @@ using namespace llvm;
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
-					 DIType *dit, std::string nameBuilder,
-					 std::vector<std::pair<unsigned int, std::string > > &names)
+					 DIType *dit, std::string nameBuilder, NameInfo &info)
 {
 	if(!isa<StructType>(typ) && !isa<ArrayType>(typ) && !isa<VectorType>(typ)) {
-		names.push_back(std::make_pair(ptr, nameBuilder));
+		info.addOffsetInfo(ptr, nameBuilder);
 		return;
 	}
 
@@ -66,7 +65,7 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 		unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, AT->getElementType());
 		for (auto i = 0u; i < AT->getNumElements(); i++) {
 			collectVarName(M, ptr + offset, AT->getElementType(), newDit,
-				       nameBuilder + "[" + std::to_string(i) + "]", names);
+				       nameBuilder + "[" + std::to_string(i) + "]", info);
 			offset += elemSize;
 		}
 	} else if (StructType *ST = dyn_cast<StructType>(typ)) {
@@ -106,7 +105,7 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 				if (auto ditb = dyn_cast<DIType>(dit->getBaseType()))
 					collectVarName(M, ptr + offset, *it, ditb,
 						       nameBuilder + "." + dit->getName().str(),
-						       names);
+						       info);
 			}
 			offset += elemSize;
 		}
@@ -117,17 +116,16 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 }
 #else
 void MDataCollectionPass::collectVarName(unsigned int ptr, unsigned int typeSize,
-					 llvm::Type *typ, std::string nameBuilder,
-					 std::vector<std::pair<unsigned int, std::string > > &names)
+					 llvm::Type *typ, std::string nameBuilder, NameInfo &info)
 {
 	if (auto *AT = dyn_cast<ArrayType>(typ)) {
 		unsigned int elemTypeSize = typeSize / AT->getArrayNumElements();
 		for (auto i = 0u, s = 0u; s < typeSize; i++, s += elemTypeSize) {
 			std::string name = nameBuilder + "[" + std::to_string(i) + "]";
-			names.push_back(std::make_pair(ptr + s, name));
+			info.addOffsetInfo(ptr + s, name);
 		}
 	} else {
-		names.push_back(std::make_pair(ptr, nameBuilder));
+		info.addOffsetInfo(ptr, nameBuilder);
 	}
 }
 #endif
@@ -152,9 +150,6 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 	collectVarName(0, typeSize, v.getType()->getElementType(),
 		       "", VI.globalInfo[&v]);
 #endif
-
-	std::sort(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
-	std::unique(VI.globalInfo[&v].begin(), VI.globalInfo[&v].end());
 	return;
 }
 
@@ -178,9 +173,6 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	collectVarName(0, typeSize, vt->getElementType(),
 		       "", VI.localInfo[v]);
 #endif
-
-	std::sort(VI.localInfo[v].begin(), VI.localInfo[v].end());
-	std::unique(VI.localInfo[v].begin(), VI.localInfo[v].end());
 	return;
 }
 
@@ -216,9 +208,6 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
 	collectVarName(0, typeSize, dstTyp->getElementType(),
 		       "", VI.globalInfo[src]);
 #endif
-
-	std::sort(VI.globalInfo[src].begin(), VI.globalInfo[src].end());
-	std::unique(VI.globalInfo[src].begin(), VI.globalInfo[src].end());
 	return;
 }
 
@@ -226,8 +215,6 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
  * actually match the ones used by the ExecutionEngine */
 void MDataCollectionPass::collectInternalInfo(Module &M)
 {
-	using IT = VariableInfo::InternalType;
-
 	/* We need to find out the size of an integer and the size of a pointer
 	 * in this platform. HACK: since all types can be safely converted to
 	 * void *, we take the size of a void * to see how many bytes are
@@ -251,29 +238,19 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 
 	/* struct file */
 	unsigned int offset = 0;
-	VI.internalInfo["file"].push_back(
-		std::make_pair(offset, ".inode"));
-	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += voidPtrByteWidth), ".count"));
-	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += intByteWidth), ".flags"));
-	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += intByteWidth), ".pos_lock"));
-	VI.internalInfo["file"].push_back(
-		std::make_pair((offset += intByteWidth), ".pos"));
+	VI.internalInfo["file"].addOffsetInfo(offset, ".inode");
+	VI.internalInfo["file"].addOffsetInfo((offset += voidPtrByteWidth), ".count");
+	VI.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".flags");
+	VI.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".pos_lock");
+	VI.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".pos");
 
 	/* struct inode */
 	offset = 0;
-	VI.internalInfo["inode"].push_back(
-		std::make_pair(offset, ".lock"));
-	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".i_size"));
-	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".i_transaction"));
-	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".i_disksize"));
-	VI.internalInfo["inode"].push_back(
-		std::make_pair((offset += intByteWidth), ".data"));
+	VI.internalInfo["inode"].addOffsetInfo(offset, ".lock");
+	VI.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_size");
+	VI.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_transaction");
+	VI.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_disksize");
+	VI.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".data");
 	return;
 }
 

@@ -406,7 +406,7 @@ Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	return Event::getInitializer();
 }
 
-std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
+std::vector<Event> IMMDriver::getStoresToLoc(SAddr addr)
 {
 	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
 }

@@ -43,36 +43,35 @@ public:
 
 	/* Track coherence at location addr */
 	void
-	trackCoherenceAtLoc(const llvm::GenericValue *addr) override;
+	trackCoherenceAtLoc(SAddr addr) override;
 
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
 	std::pair<int, int>
-	getPossiblePlacings(const llvm::GenericValue *addr,
-			    Event store, bool isRMW) override;
+	getPossiblePlacings(SAddr addr, Event store, bool isRMW) override;
 
 	/* Inserts a store in the appropriate offset in coherence.
 	 * The offset should have been a valid (non-RMW) placing returned
 	 * from getPossiblePlacings() */
 	void
-	addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset) override;
+	addStoreToLoc(SAddr addr, Event store, int offset) override;
 
 	/* Inserts "store" after "pred" in coherence order */
 	void
-	addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred) override;
+	addStoreToLocAfter(SAddr addr, Event store, Event pred) override;
 
 	/* Returns whether STORE is maximal in LOC */
-	bool isCoMaximal(const llvm::GenericValue *addr, Event store) override;
-	bool isCachedCoMaximal(const llvm::GenericValue *addr, Event store) override;
+	bool isCoMaximal(SAddr addr, Event store) override;
+	bool isCachedCoMaximal(SAddr addr, Event store) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
-	getStoresToLoc(const llvm::GenericValue *addr) const override;
+	getStoresToLoc(SAddr addr) const override;
 
 	/* Returns all the stores for which if "read" reads-from, coherence
 	 * is not violated */
 	std::vector<Event>
-	getCoherentStores(const llvm::GenericValue *addr, Event read) override;
+	getCoherentStores(SAddr addr, Event read) override;
 
 	/* Returns all the reads that "wLab" can revisit without violating
 	 * coherence */
@@ -87,18 +86,17 @@ public:
 			    const ReadLabel *rLab) const override;
 
 	/* Changes the offset of "store" to "newOffset" */
-	void changeStoreOffset(const llvm::GenericValue *addr,
-			       Event store, int newOffset);
+	void changeStoreOffset(SAddr addr, Event store, int newOffset);
 
 	/* Returns all stores in "addr" that are mo-before "e" */
 	std::vector<Event>
-	getMOBefore(const llvm::GenericValue *addr, Event e) const;
+	getMOBefore(SAddr addr, Event e) const;
 
 	/* Returns all stores in "addr" that are mo-after "e" */
 	std::vector<Event>
-	getMOAfter(const llvm::GenericValue *addr, Event e) const;
+	getMOAfter(SAddr addr, Event e) const;
 
-	const std::vector<Event> &getModOrderAtLoc(const llvm::GenericValue *addr) const;
+	const std::vector<Event> &getModOrderAtLoc(SAddr addr) const;
 
 	/* Overrided Calculator methods */
 
@@ -122,27 +120,27 @@ public:
 private:
 
 	/* Returns the offset for a particular store */
-	int getStoreOffset(const llvm::GenericValue *addr, Event e) const;
+	int getStoreOffset(SAddr addr, Event e) const;
 
 	/* Returns the index of the first store that is _not_ (rf?;hb)-before
 	 * the event "read". If no such stores exist (i.e., all stores are
 	 * concurrent in models that do not support out-of-order execution),
 	 * it returns 0. */
-	int splitLocMOBefore(const llvm::GenericValue *addr, Event read);
+	int splitLocMOBefore(SAddr addr, Event read);
 
 	/* Returns the index of the first store that is hb-after "read",
 	 * or the next index of the first store that is read by a read that
 	 * is hb-after "read". Returns 0 if the latter condition holds for
 	 * the initializer event, and the number of the stores in "addr"
 	 * if the conditions do not hold for any store in that location. */
-	int splitLocMOAfterHb(const llvm::GenericValue *addr, const Event read);
+	int splitLocMOAfterHb(SAddr addr, const Event read);
 
 	/* Similar to splitLocMOAfterHb(), but used for calculating possible MO
 	 * placings. This means it does not take into account reads-from the
 	 * initializer, and also returns the index (as opposed to index+1) of
 	 * the first store that is hb-after "s" or is read by a read that is
 	 * hb-after "s" */
-	int splitLocMOAfter(const llvm::GenericValue *addr, const Event s);
+	int splitLocMOAfter(SAddr addr, const Event s);
 
 	/* Returns the events that are mo;rf?-after sLab */
 	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
@@ -151,11 +149,10 @@ private:
 	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
 
 	/* Returns true if the location "loc" contains the event "e" */
-	bool locContains(const llvm::GenericValue *loc, Event e) const;
+	bool locContains(SAddr loc, Event e) const;
 
 
-	typedef std::unordered_map<const llvm::GenericValue *,
-				   std::vector<Event> > ModifOrder;
+	typedef std::unordered_map<SAddr, std::vector<Event> > ModifOrder;
 	ModifOrder mo_;
 };
 

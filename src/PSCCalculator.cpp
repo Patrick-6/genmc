@@ -23,10 +23,10 @@
 #include "ExecutionGraph.hpp"
 #include "WBCalculator.hpp"
 
-std::vector<const llvm::GenericValue *> PSCCalculator::getDoubleLocs() const
+std::vector<SAddr> PSCCalculator::getDoubleLocs() const
 {
 	auto &g = getGraph();
-	std::vector<const llvm::GenericValue *> singles, doubles;
+	std::vector<SAddr> singles, doubles;
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 1u; j < g.getThreadSize(i); j++) { /* Do not consider thread inits */
@@ -315,7 +315,7 @@ void PSCCalculator::addInitEdges(const std::vector<Event> &fcs,
 }
 
 void PSCCalculator::addSCEcos(const std::vector<Event> &fcs,
-			      const std::vector<const llvm::GenericValue *> &scLocs,
+			      const std::vector<SAddr> &scLocs,
 			      Calculator::GlobalRelation &matrix) const
 {
 	auto &g = getGraph();

@@ -30,7 +30,7 @@ public:
 
 	void updateLabelViews(EventLabel *lab) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
-	std::vector<Event> getStoresToLoc(const llvm::GenericValue *addr) override;
+	std::vector<Event> getStoresToLoc(SAddr addr) override;
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;
 	void changeRf(Event read, Event store) override;
 	void updateStart(Event create, Event start) override;

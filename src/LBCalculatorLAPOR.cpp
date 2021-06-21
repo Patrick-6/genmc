@@ -278,7 +278,7 @@ void LBCalculatorLAPOR::removeAfter(const VectorClock &preds)
 	return;
 }
 
-void LBCalculatorLAPOR::addLockToList(const llvm::GenericValue *addr, const Event lock)
+void LBCalculatorLAPOR::addLockToList(SAddr addr, const Event lock)
 {
 	locks[addr].push_back(lock);
 }

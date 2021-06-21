@@ -177,13 +177,11 @@ public:
 	/* Returns the last store at ADDR that is before UPPERLIMIT in
 	 * UPPERLIMIT's thread. If such a store does not exist, it
 	 * returns INIT */
-	Event getLastThreadStoreAtLoc(Event upperLimit,
-				      const llvm::GenericValue *addr) const;
+	Event getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const;
 
 	/* Returns the last release before upperLimit in the latter's thread.
 	 * If it's not a fence, then it has to be at location addr */
-	Event getLastThreadReleaseAtLoc(Event upperLimit,
-					const llvm::GenericValue *addr) const;
+	Event getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) const;
 
 	/* Returns the last release before upperLimit in the latter's thread */
 	Event getLastThreadRelease(Event upperLimit) const;
@@ -210,16 +208,18 @@ public:
 
 	/* LAPOR: Returns the last lock at location "loc" before "upperLimit".
 	 * If no such event exists, returns INIT */
-	Event getLastThreadLockAtLocLAPOR(const Event upperLimit,
-					  const llvm::GenericValue *loc) const;
+	Event getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr addr) const;
 
 	/* LAPOR: Returns the last unlock at location "loc" before "upperLimit".
 	 * If no such event exists, returns INIT */
-	Event getLastThreadUnlockAtLocLAPOR(const Event upperLimit,
-					    const llvm::GenericValue *loc) const;
+	Event getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAddr addr) const;
 
 	/* LAPOR: Returns a linear extension of LB */
 	std::vector<Event> getLbOrderingLAPOR() const;
+
+	/* Returns the preceding allocating event for MLAB.
+	 * Assumes that only one such event may exist */
+	Event getPrecedingMalloc(const MemAccessLabel *mLab) const;
 
 	/* Returns pair with all SC accesses and all SC fences */
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
@@ -306,7 +306,7 @@ public:
 	const View &getHbPoBefore(Event e) const;
 	View getHbBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
-	std::vector<Event> getInitRfsAtLoc(const llvm::GenericValue *addr) const;
+	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
 	void doInits(bool fullCalc = false);
 
@@ -367,12 +367,11 @@ public:
 				F prop = [](Event e){ return true; }) const;
 
 	/* Returns true if store is read a successful RMW in the location ptr */
-	bool isStoreReadByExclusiveRead(Event store, const llvm::GenericValue *ptr) const;
+	bool isStoreReadByExclusiveRead(Event store, SAddr addr) const;
 
 	/* Returns true if store is read by a successful RMW that is either non
 	 * revisitable, or in the view porfBefore */
-	bool isStoreReadBySettledRMW(Event store, const llvm::GenericValue *ptr,
-				     const VectorClock &porfBefore) const;
+	bool isStoreReadBySettledRMW(Event store, SAddr addr, const VectorClock &porfBefore) const;
 
 	/* Pers: Returns true if the recovery routine is valid */
 	bool isRecoveryValid() const;
@@ -400,21 +399,18 @@ public:
 
 	/* Modification order methods */
 
-	void trackCoherenceAtLoc(const llvm::GenericValue *addr);
-	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr) const;
-	const std::vector<Event>& getStoresToLoc(const llvm::GenericValue *addr);
-	std::vector<Event> getCoherentStores(const llvm::GenericValue *addr,
-					     Event pos);
-	std::pair<int, int> getCoherentPlacings(const llvm::GenericValue *addr,
-						Event pos, bool isRMW);
+	void trackCoherenceAtLoc(SAddr addr);
+	const std::vector<Event>& getStoresToLoc(SAddr addr) const;
+	const std::vector<Event>& getStoresToLoc(SAddr addr);
+	std::vector<Event> getCoherentStores(SAddr addr, Event pos);
+	std::pair<int, int> getCoherentPlacings(SAddr addr, Event pos, bool isRMW);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);
 
 
 	/* Graph modification methods */
 
 	void changeRf(Event read, Event store);
-	void changeStoreOffset(const llvm::GenericValue *addr, Event s,
-			       int newOffset);
+	void changeStoreOffset(SAddr addr, Event s, int newOffset);
 	void resetJoin(Event join);
 	bool updateJoin(Event join, Event childLast);
 

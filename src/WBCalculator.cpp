@@ -128,7 +128,7 @@ std::vector<unsigned int> WBCalculator::calcRMWLimits(const GlobalRelation &wb) 
 }
 
 Calculator::GlobalRelation
-WBCalculator::calcWbRestricted(const llvm::GenericValue *addr, const VectorClock &v) const
+WBCalculator::calcWbRestricted(SAddr addr, const VectorClock &v) const
 {
 	auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
@@ -182,7 +182,7 @@ WBCalculator::calcWbRestricted(const llvm::GenericValue *addr, const VectorClock
 	return matrix;
 }
 
-Calculator::GlobalRelation WBCalculator::calcWb(const llvm::GenericValue *addr) const
+Calculator::GlobalRelation WBCalculator::calcWb(SAddr addr) const
 {
 	auto &g = getGraph();
 	GlobalRelation matrix(getStoresToLoc(addr));
@@ -225,32 +225,32 @@ Calculator::GlobalRelation WBCalculator::calcWb(const llvm::GenericValue *addr) 
 	return matrix;
 }
 
-void WBCalculator::trackCoherenceAtLoc(const llvm::GenericValue *addr)
+void WBCalculator::trackCoherenceAtLoc(SAddr addr)
 {
 	stores_[addr];
 }
 
 
 std::pair<int, int>
-WBCalculator::getPossiblePlacings(const llvm::GenericValue *addr, Event store, bool isRMW)
+WBCalculator::getPossiblePlacings(SAddr addr, Event store, bool isRMW)
 {
 	auto locMOSize = getStoresToLoc(addr).size();
 	return std::make_pair(locMOSize, locMOSize);
 }
 
-void WBCalculator::addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset)
+void WBCalculator::addStoreToLoc(SAddr addr, Event store, int offset)
 {
 	/* The offset given is ignored */
 	stores_[addr].push_back(store);
 }
 
-void WBCalculator::addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred)
+void WBCalculator::addStoreToLocAfter(SAddr addr, Event store, Event pred)
 {
 	/* Again the offset given is ignored */
 	addStoreToLoc(addr, store, 0);
 }
 
-bool WBCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
+bool WBCalculator::isCoMaximal(SAddr addr, Event store)
 {
 	auto &stores = getStoresToLoc(addr);
 	if (store.isInitializer())
@@ -260,7 +260,7 @@ bool WBCalculator::isCoMaximal(const llvm::GenericValue *addr, Event store)
 	return wb.adj_begin(store) == wb.adj_end(store);
 }
 
-bool WBCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store)
+bool WBCalculator::isCachedCoMaximal(SAddr addr, Event store)
 {
 	auto &stores = getStoresToLoc(addr);
 	if (store.isInitializer())
@@ -270,7 +270,7 @@ bool WBCalculator::isCachedCoMaximal(const llvm::GenericValue *addr, Event store
 }
 
 const std::vector<Event>&
-WBCalculator::getStoresToLoc(const llvm::GenericValue *addr) const
+WBCalculator::getStoresToLoc(SAddr addr) const
 {
 	BUG_ON(stores_.count(addr) == 0);
 	return stores_.at(addr);
@@ -355,7 +355,7 @@ void WBCalculator::expandMaximalAndMarkOverwritten(const std::vector<Event> &sto
 	return;
 }
 
-bool WBCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *addr,
+bool WBCalculator::tryOptimizeWBCalculation(SAddr addr,
 					    Event read,
 					    std::vector<Event> &result)
 {
@@ -387,7 +387,7 @@ bool WBCalculator::tryOptimizeWBCalculation(const llvm::GenericValue *addr,
 	return (count <= 1);
 }
 
-bool WBCalculator::isCoherentRf(const llvm::GenericValue *addr,
+bool WBCalculator::isCoherentRf(SAddr addr,
 				const GlobalRelation &wb,
 				Event read, Event store, int storeWbIdx)
 {
@@ -440,7 +440,7 @@ bool WBCalculator::isInitCoherentRf(const GlobalRelation &wb, Event read)
 }
 
 std::vector<Event>
-WBCalculator::getCoherentStores(const llvm::GenericValue *addr, Event read)
+WBCalculator::getCoherentStores(SAddr addr, Event read)
 {
 	const auto &g = getGraph();
 	std::vector<Event> result;
@@ -699,7 +699,7 @@ WBCalculator::restorePrefix(const ReadLabel *rLab,
 void WBCalculator::removeAfter(const VectorClock &preds)
 {
 	auto &g = getGraph();
-	VSet<const void *> keep;
+	VSet<SAddr> keep;
 
 	/* Check which locations should be kept */
 	for (auto i = 0u; i < preds.size(); i++) {

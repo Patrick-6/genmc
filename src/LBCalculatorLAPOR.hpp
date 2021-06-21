@@ -33,7 +33,7 @@ public:
 	LBCalculatorLAPOR(ExecutionGraph &g) : Calculator(g) {}
 
 	/* Adds a lock to the maintained list */
-	void addLockToList(const llvm::GenericValue *addr, const Event lock);
+	void addLockToList(SAddr addr, const Event lock);
 
 	/* Returns the first non-trivial event in the critical section
 	 * that "lock" opens */
@@ -71,7 +71,7 @@ public:
 
 private:
 	/* A per-location list of all locks currently present in the graph */
-	std::unordered_map<const llvm::GenericValue *, std::vector<Event> > locks;
+	std::unordered_map<SAddr, std::vector<Event> > locks;
 };
 
 #endif /* __LB_CALCULATOR_LAPOR_HPP__ */

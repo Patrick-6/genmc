@@ -46,7 +46,7 @@ public:
 
 private:
 	/* Returns a list with all accesses that are accessed at least twice */
-	std::vector<const llvm::GenericValue *> getDoubleLocs() const;
+	std::vector<SAddr> getDoubleLocs() const;
 
 	std::vector<Event> calcSCFencesSuccs(const std::vector<Event> &fcs,
 					     const Event e) const;
@@ -74,7 +74,7 @@ private:
 			  Calculator::GlobalRelation &pscMatrix) const;
 
 	void addSCEcos(const std::vector<Event> &fcs,
-		       const std::vector<const llvm::GenericValue *> &scLocs,
+		       const std::vector<SAddr> &scLocs,
 		       Calculator::GlobalRelation &matrix) const;
 
 	void addInitEdges(const std::vector<Event> &fcs,

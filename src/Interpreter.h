@@ -43,12 +43,13 @@
 #include "Config.hpp"
 #include "IMMDepTracker.hpp"
 #include "Library.hpp"
+#include "Memory.hpp"
 #include "ModuleInfo.hpp"
 #include "View.hpp"
 #include "CallInstWrapper.hpp"
 
 #include <llvm/ADT/BitVector.h>
-#include <llvm/ADT/IndexedMap.h>
+#include <llvm/ADT/IntervalMap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/Instructions.h>
@@ -128,71 +129,6 @@ class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
 typedef std::vector<GenericValue> ValuePlaneTy;
-
-/*
- * AllocaTracker class -- Keeps track of addresses that have been allocated,
- * and provides addresses available for allocation
- */
-class AllocaTracker {
-
-public:
-
-  AllocaTracker() { allocas.grow(static_cast<int>(Storage::ST_StorageLast)); }
-
-  /* Sets the initial address of the pool */
-  void initPoolAddress(char *init) { allocRangeBegin = init; }
-
-  /* Whether an address has a particular storage */
-  bool hasStorage(const void *addr, Storage s) const {
-	  return allocas[static_cast<int>(s)].count(addr);
-  }
-
-  /* Whether an address is in the internal address space */
-  bool isInternal(const void *addr) const {
-	  return internalAllocas.count(addr);
-  }
-
-  /* Allocates a chunk */
-  char *allocate(unsigned int size, unsigned int alignment, Storage s, AddressSpace spc) {
-	  auto offset = alignment - 1;
-	  auto *oldAddr = allocRangeBegin;
-	  allocRangeBegin += (offset + size);
-	  auto *newAddr = (char *) (((uintptr_t) oldAddr + offset) & ~(alignment - 1));
-	  track(newAddr, size, s, spc);
-	  return newAddr;
-  }
-
-  /* Methods to track/untrack allocations */
-  void track(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
-    for (auto i = 0u; i < size; i++)
-      allocas[static_cast<int>(s)].insert((char *) addr + i);
-    if (spc == AddressSpace::AS_Internal) {
-      for (auto i = 0u; i < size; i++)
-        internalAllocas.insert((char *) addr + i);
-    }
-  }
-  void untrack(const void *addr, unsigned int size, Storage s, AddressSpace spc) {
-    for (auto i = 0u; i < size; i++)
-      allocas[static_cast<int>(s)].erase((char *) addr + i);
-    if (spc == AddressSpace::AS_Internal) {
-      for (auto i = 0u; i < size; i++)
-        internalAllocas.erase((char *) addr + i);
-    }
-  }
-
-private:
-
-  /* Allocations for each storage type.
-   * Does not track allocations of static storage */
-  IndexedMap<std::unordered_set<const void *> > allocas;
-
-  /* Keep track of the internal allocations */
-  std::unordered_set<const void *> internalAllocas;
-
-  /* Address from which we will start allocating new addresses.
-   * Should be set by the interpreter accordingly */
-  char *allocRangeBegin = (char *) 620959777;
-};
 
 // AllocaHolder - Object to track all of the blocks of memory allocated by
 // allocas in a particular stack frame. Since the driver needs to be made
@@ -319,14 +255,26 @@ protected:
   /* Information about the module under test */
   ModuleInfo MI;
 
-  /* Tracks the names of variables for each storage type */
-  IndexedMap<std::unordered_map<const void *, std::string> > varNames;
-
   /* List of thread-local variables, with their initializing values */
   std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
 
+  /* Mapping between static allocation beginning and the actual addresses of
+   * global variables (where their contents are stored) */
+  std::unordered_map<SAddr, void *> staticValueMap;
+
+  /* Mapping between SAddresses and the respective allocation beginning */
+  using SAMap = IntervalMap<SAddr, SAddr,
+			    IntervalMapImpl::NodeSizer<SAddr, SAddr>::LeafSize,
+			    IntervalMapHalfOpenInfo<SAddr>>;
+  SAMap::Allocator samAlloc;
+  SAMap staticAllocMap;
+
+  /* Maintain the relationship between SAddr and global variables,
+   * so that we can get naming information */
+  std::unordered_map<SAddr, Value *> staticNames;
+
   /* A tracker for dynamic allocations */
-  AllocaTracker alloctor;
+  SAddrAllocator alloctor;
 
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
@@ -338,7 +286,7 @@ protected:
   bool stopOnSystemErrors;
 
   /* Where system errors return values should be stored (if required) */
-  void *errnoAddr;
+  SAddr errnoAddr;
   Type *errnoTyp;
 
   /* Information about the interpreter's state */
@@ -450,26 +398,13 @@ public:
 
   /* Memory pools checks */
 
-  /* Returns the name of the variable residing in addr */
-  std::string getVarName(const void *addr);
-
-  bool isInternal(const void *addr);
-  bool isStatic(const void *);
-  bool isStack(const void *);
-  bool isHeap(const void *);
-  bool isDynamic(const void *);
-  bool isShared(const void *);
+  /* Returns true if the interpreter has allocated space for the specified static */
+  bool isStaticallyAllocated(SAddr addr) const { return !staticAllocMap.lookup(addr).isNull(); }
+  void *getStaticAddr(SAddr addr) const;
+  std::string getStaticName(SAddr addr) const;
 
   /* Returns a fresh address for a new allocation */
-  void *getFreshAddr(unsigned int size, int alignment, Storage s, AddressSpace spc);
-
-  /* Records that the memory block in ADDR is used.
-   * Does _not_ update naming information */
-  void trackAlloca(const void *addr, unsigned int size, Storage s, AddressSpace spc);
-
-  /* Records that the memory block in ADDR is no longer used.
-   * Also erases naming information */
-  void untrackAlloca(const void *addr, unsigned int size, Storage s, AddressSpace spc);
+  SAddr getFreshAddr(unsigned int size, int alignment, Storage s, AddressSpace spc);
 
   /* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
   int getFreshFd();
@@ -528,7 +463,7 @@ public:
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
   bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
-  GenericValue getLocInitVal(GenericValue *ptr, Type *typ);
+  GenericValue getLocInitVal(SAddr addr, Type *typ);
   unsigned int getTypeSize(Type *typ) const;
   void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
 				 const GenericValue &val, AtomicRMWInst::BinOp op);
@@ -765,6 +700,8 @@ private:  // Helper functions
   void callUserLibFunction(const Library *lib, Function *F, const std::vector<GenericValue> &ArgVals);
   void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
 
+  void freeAllocas(const AllocaHolder &allocas) const;
+
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */
   void collectStaticAddresses(Module *M);
@@ -787,12 +724,10 @@ private:  // Helper functions
 			     Value *v, const std::string &prefix,
 			     const std::string &internal);
 
-  /* Update/erase the names of the variables corresponding to addresses
-   * in the range [ptr, ptr + typeSize) */
-  void updateVarNameInfo(char *ptr, unsigned int typeSize, Storage s, AddressSpace spc,
-			 Value *v, const std::string &prefix = {},
-			 const std::string &internal = {});
-  void eraseVarNameInfo(char *ptr, unsigned int typeSize, Storage s, AddressSpace spc);
+  /* Gets naming information for value V (or value with key KEY), if it is
+   * an internal variable with no value correspondence */
+  NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
+			   const VariableInfo::InternalKey &key = {});
 
   /* Pers: Returns the address of the file description referenced by FD */
   void *getFileFromFd(int fd) const;

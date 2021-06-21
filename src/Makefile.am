@@ -48,8 +48,10 @@ libgenmc_a_SOURCES = \
   LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
+  Memory.hpp Memory.cpp \
   MOCalculator.hpp MOCalculator.cpp \
   ModuleInfo.cpp ModuleInfo.hpp \
+  NameInfo.cpp NameInfo.hpp \
   Parser.cpp Parser.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \

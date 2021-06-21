@@ -44,34 +44,33 @@ public:
 
 	/* Track coherence at location addr */
 	void
-	trackCoherenceAtLoc(const llvm::GenericValue *addr) override;
+	trackCoherenceAtLoc(SAddr addr) override;
 
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
 	std::pair<int, int>
-	getPossiblePlacings(const llvm::GenericValue *addr,
-			    Event store, bool isRMW) override;
+	getPossiblePlacings(SAddr addr, Event store, bool isRMW) override;
 
 	/* Tracks a store by inserting it into the appropriate offset */
 	void
-	addStoreToLoc(const llvm::GenericValue *addr, Event store, int offset) override;
+	addStoreToLoc(SAddr addr, Event store, int offset) override;
 	void
-	addStoreToLocAfter(const llvm::GenericValue *addr, Event store, Event pred) override;
+	addStoreToLocAfter(SAddr addr, Event store, Event pred) override;
 
 	/* Returns whether STORE is maximal in LOC */
-	bool isCoMaximal(const llvm::GenericValue *addr, Event store) override;
+	bool isCoMaximal(SAddr addr, Event store) override;
 	/* Returns whether STORE is maximal in LOC */
-	bool isCachedCoMaximal(const llvm::GenericValue *addr, Event store) override;
+	bool isCachedCoMaximal(SAddr addr, Event store) override;
 
 	/* Returns a list of stores to a particular memory location */
 	const std::vector<Event>&
-	getStoresToLoc(const llvm::GenericValue *addr) const override;
+	getStoresToLoc(SAddr addr) const override;
 
 	/* Returns all the stores for which if "read" reads-from,
 	 * coherence is not violated.
 	 * Result is ordered according to coherence maximality */
 	std::vector<Event>
-	getCoherentStores(const llvm::GenericValue *addr, Event read) override;
+	getCoherentStores(SAddr addr, Event read) override;
 
 	/* Returns all the reads that "wLab" can revisit without violating
 	 * coherence */
@@ -86,23 +85,21 @@ public:
 			    const ReadLabel *rLab) const override;
 
 	/* Calculates WB */
-	GlobalRelation calcWb(const llvm::GenericValue *addr) const;
+	GlobalRelation calcWb(SAddr addr) const;
 
 	/* Calculates WB restricted in v */
-	GlobalRelation calcWbRestricted(const llvm::GenericValue *addr,
-					const VectorClock &v) const;
+	GlobalRelation calcWbRestricted(SAddr addr, const VectorClock &v) const;
 
 	/* Populates "wb" so that it represents coherence at loc "addr".
 	 * If "prop" is provided, only stores satisfying it are considered.
 	 * If "rel" is provided, "rel" is used instead of hb to provide ordering */
 	template <typename F>
 	Calculator::CalculationResult
-	calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
+	calcWbRelation(SAddr addr, GlobalRelation &wb,
 		       F prop = [](Event e){ return true; });
 	template <typename F>
 	Calculator::CalculationResult
-	calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
-		       const GlobalRelation &rel,
+	calcWbRelation(SAddr addr, GlobalRelation &wb, const GlobalRelation &rel,
 		       F prop = [](Event e){ return true; });
 
 
@@ -195,20 +192,17 @@ private:
 	void expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
 					     View &storeView);
 
-	bool tryOptimizeWBCalculation(const llvm::GenericValue *addr,
-				      Event read, std::vector<Event> &result);
+	bool tryOptimizeWBCalculation(SAddr addr, Event read, std::vector<Event> &result);
 
 	bool isWbMaximal(const WriteLabel *wLab, const std::vector<Event> &ls) const;
 
-	bool isCoherentRf(const llvm::GenericValue *addr,
-			  const GlobalRelation &wb, Event read,
+	bool isCoherentRf(SAddr addr, const GlobalRelation &wb, Event read,
 			  Event store, int storeWbIdx);
 	bool isInitCoherentRf(const GlobalRelation &wb, Event read);
 
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
 
-	typedef std::unordered_map<const llvm::GenericValue *,
-				   std::vector<Event> > StoresList;
+	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
 	StoresList stores_;
 
 	Cache cache_;
@@ -216,7 +210,7 @@ private:
 
 template <typename F>
 Calculator::CalculationResult
-WBCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
+WBCalculator::calcWbRelation(SAddr addr, GlobalRelation &wb,
 			     F prop /* = [](Event e){ return true; } */)
 {
 	auto &gm = getGraph();
@@ -227,7 +221,7 @@ WBCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &wb,
 
 template <typename F>
 Calculator::CalculationResult
-WBCalculator::calcWbRelation(const llvm::GenericValue *addr, GlobalRelation &matrix,
+WBCalculator::calcWbRelation(SAddr addr, GlobalRelation &matrix,
 			     const GlobalRelation &rel,
 			     F prop /* = [](Event e){ return true; } */)
 {
