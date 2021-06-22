@@ -230,6 +230,16 @@ protected:
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
 
+struct InterpState {
+	SAddrAllocator alloctor;
+	std::vector<Thread> threads;
+	int currentThread = 0;
+
+	InterpState() : alloctor(), threads(), currentThread(0) {}
+	InterpState(SAddrAllocator alloctor, std::vector<Thread> ts, int current)
+		: alloctor(alloctor), threads(ts), currentThread(current) {}
+};
+
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
@@ -311,6 +321,15 @@ public:
   explicit Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
+
+  std::unique_ptr<InterpState> getState() {
+	  return LLVM_MAKE_UNIQUE<InterpState>(alloctor, threads, currentThread);
+  }
+  void setState(std::unique_ptr<InterpState> state) {
+	  alloctor = std::move(state->alloctor);
+	  threads = std::move(state->threads);
+	  currentThread = state->currentThread;
+  }
 
   /* Resets the interpreter at the beginning of a new execution */
   void reset();

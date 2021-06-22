@@ -1493,13 +1493,18 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		driver->visitStore(InstAttr::IA_Cas, I.getSuccessOrdering(), ptr, typ, newVal);
 	}
 
-	/* After the RMW operation is done, update dependencies */
-	updateDataDeps(thr.id, &I, getCurrentPosition());
-	updateAddrPoDeps(thr.id, I.getPointerOperand());
+	/* After the RMW operation is done, update dependencies and return value.
+	 *
+	 * NOTE: If visitStore initiates a recursive exploration, all previous
+	 * references might be invalidated, due to the changing interpreter state.
+	 * Thus, we have to reacquire these references to not ride the train to UB
+	 */
+	updateDataDeps(getCurThr().id, &I, getCurrentPosition());
+	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 
 	result.AggregateVal.push_back(ret);
 	result.AggregateVal.push_back(cmpRes);
-	SetValue(&I, result, SF);
+	SetValue(&I, result, ECStack().back());
 	return;
 }
 
@@ -1570,11 +1575,12 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	if (!thr.isBlocked())
 		driver->visitStore(InstAttr::IA_Fai, I.getOrdering(), ptr, typ, newVal);
 
-	/* After the RMW operation is done, update dependencies */
-	updateDataDeps(thr.id, &I, getCurrentPosition());
-	updateAddrPoDeps(thr.id, I.getPointerOperand());
+	/* After the RMW operation is done, update dependencies.
+	 * (See comment for CASes to see why we re-acquire refs.) */
+	updateDataDeps(getCurThr().id, &I, getCurrentPosition());
+	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 
-	SetValue(&I, ret, SF);
+	SetValue(&I, ret, ECStack().back());
 	return;
 }
 

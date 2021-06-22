@@ -37,10 +37,15 @@
 namespace llvm {
 	struct ExecutionContext;
 	class Interpreter;
+	class InterpState;
 }
 class ExecutionGraph;
 
 class GenMCDriver {
+
+protected:
+	using LocalQueueT = std::map<unsigned int, WorkSet>;
+	using RevisitSetT = std::map<unsigned int, RevisitSet>;
 
 public:
 	/* Different error types that may occur.
@@ -67,6 +72,22 @@ public:
 		DE_SystemError,
 	};
 
+	/* Represents the exploration state at any given point */
+	struct State {
+		std::unique_ptr<ExecutionGraph> graph;
+		RevisitSetT revset;
+		LocalQueueT workqueue;
+		std::unique_ptr<llvm::InterpState> interpState;
+
+		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
+		State() = delete;
+		State(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
+		      LocalQueueT &&w, std::unique_ptr<llvm::InterpState> state);
+
+		~State();
+	};
+
+
 private:
 	static bool isInvalidAccessError(DriverErrorKind e) {
 		return DE_InvalidAccessBegin <= e &&
@@ -79,6 +100,14 @@ public:
 
 	/* Returns a list of the libraries which need to be verified (TODO) */
 	const std::vector<Library> &getToVerifyLibs() const { return toVerifyLibs; };
+
+	/*** State-related ***/
+
+	/* Returns the current exploration state, leaving the driver with an invalid one */
+	std::unique_ptr<State> releaseCurrentState();
+
+	/* Sets the state of the exploration to the specified one */
+	void setState(std::unique_ptr<GenMCDriver::State> state);
 
 	/**** Generic actions ***/
 
@@ -624,10 +653,10 @@ private:
 	std::unique_ptr<ExecutionGraph> execGraph;
 
 	/* The worklist for backtracking. map[stamp->work set] */
-	std::map<unsigned int, WorkSet> workqueue;
+	LocalQueueT workqueue;
 
 	/* The revisit sets used during the exploration map[stamp->revisit set] */
-	std::map<unsigned int, RevisitSet> revisitSet;
+	RevisitSetT revisitSet;
 
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;

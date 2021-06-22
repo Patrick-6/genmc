@@ -91,6 +91,29 @@ GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Mod
 
 GenMCDriver::~GenMCDriver() = default;
 
+GenMCDriver::State::~State() = default;
+
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
+			  std::unique_ptr<llvm::InterpState> interpState)
+	: graph(std::move(g)), revset(std::move(r)),
+	  workqueue(std::move(w)), interpState(std::move(interpState)) {}
+
+std::unique_ptr<GenMCDriver::State> GenMCDriver::releaseCurrentState()
+{
+	return LLVM_MAKE_UNIQUE<GenMCDriver::State>(
+		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
+		getEE()->getState());
+}
+
+void GenMCDriver::setState(std::unique_ptr<GenMCDriver::State> state)
+{
+	execGraph = std::move(state->graph);
+	revisitSet = std::move(state->revset);
+	workqueue = std::move(state->workqueue);
+	getEE()->setState(std::move(state->interpState));
+	return;
+}
+
 void GenMCDriver::printResults()
 {
 	std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
@@ -1458,6 +1481,7 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, const llvm::Generi
 		/* If the thread does not exist in the graph, make an entry for it */
 		EE->threads.push_back(thr);
 		g.addNewThread();
+		BUG_ON(EE->threads.size() != g.getNumThreads());
 		auto symm = getConf()->symmetryReduction ? getSymmetricTidSR(cid, cur, calledFun, arg) : -1;
 		auto tsLab = ThreadStartLabel::create(g.nextStamp(), Event(cid, 0), cur, symm);
 		updateLabelViews(tsLab.get());
@@ -2580,6 +2604,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 					  return g.getEventLabel(e)->getStamp() > confLab->getStamp(); }),
 			    loads.end());
 
+	// llvm::dbgs() << "OLD GRPAH \n"; printGraph();
 	for (auto &l : loads) {
 		auto *lab = g.getEventLabel(l);
 		BUG_ON(!llvm::isa<ReadLabel>(lab));
@@ -2647,13 +2672,67 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		}
 
 		/* Otherwise, add the prefix to the revisit set and the worklist */
-		addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
-				      rLab->getPos(), sLab->getPos(),
-				      std::move(writePrefix), std::move(moPlacings)));
-	}
+		// addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
+		// 		      rLab->getPos(), sLab->getPos(),
+		// 		      std::move(writePrefix), std::move(moPlacings)));
 
+		auto og = g.getCopyUpTo(*g.getRevisitView(rLab, sLab));
+		// llvm::dbgs() << "CUT GRAPH " << *og << "\n";
+
+		// save these because we are gonna change state
+		auto read = rLab->getPos();
+		auto readRf = rLab->getRf();
+		auto write = sLab->getPos();
+
+		auto oldState = releaseCurrentState();
+		auto newState = LLVM_MAKE_UNIQUE<State>(std::move(og), RevisitSetT(),
+							LocalQueueT(), getEE()->getState());
+
+		// IMM: DO WE NEED TO ALSO SAVE DEPTRACKER's STATE?
+		setState(std::move(newState));
+
+		// CHANGE RF
+		auto &ng = getGraph();
+		auto *nrLab = llvm::dyn_cast<ReadLabel>(ng.getEventLabel(read));
+		getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
+
+		changeRf(read, write);
+		nrLab->setAddedMax(isCoMaximal(nrLab->getAddr(), write)); // llvm::isa<BRevItem>(ri));
+		nrLab->setInPlaceRevisitStatus(false);
+
+		auto &prefix = ng.getPrefixView(write);
+		for (auto i = 0u; i < ng.getNumThreads(); i++) {
+			for (auto j = 1; j < ng.getThreadSize(i); j++) {
+				auto *lab = llvm::dyn_cast<ReadLabel>(ng.getEventLabel(Event(i, j)));
+				if (lab && prefix.contains(lab->getPos()))
+					lab->setRevisitStatus(false);
+			}
+		}
+
+		/* Repair barriers here, as dangling wait-reads may be part of the prefix */
+		repairDanglingBarriers();
+
+		/* If the revisited label became an RMW, add the store part and revisit */
+		if (auto *nsLab = completeRevisitedRMW(nrLab))
+			calcRevisits(nsLab);
+
+		repairDanglingLocks();
+		if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(nrLab)) {
+			threadPrios = {lLab->getRf()};
+			EE->getThrById(lLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
+		}
+
+		// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
+		explore();
+		// llvm::dbgs() << "----- RESTORING" << "\n";
+
+		setState(std::move(oldState));
+	}
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
 		pendingRMWs.empty();
+	// if (!isMootExecution  && consG) {
+	// 	llvm::dbgs() << "CONTINUING WITH \n"; printGraph();
+	// }
 	return !isMootExecution && consG;
 }
 

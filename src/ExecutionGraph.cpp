@@ -1215,16 +1215,24 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 
 	/* Then, copy the appropriate events */
 	/* FIXME: Fix LAPOR (use addLockLabelToGraphLAPOR??) */
-	og->events.resize(v.size());
+	auto *cc = getCoherenceCalculator();
+	auto *occ = og->getCoherenceCalculator();
+	BUG_ON(!cc || !occ);
+
+	// FIXME: The reason why we resize to num of threads instead of v.size() is
+	// to keep the same size as the interpreter threads.
+	og->events.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		og->addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
 		for (auto j = 1; j <= v[i]; j++) {
-			auto *nLab = og->addOtherLabelToGraph(std::move(getEventLabel(Event(i, j))->clone()));
+			auto *nLab = og->addOtherLabelToGraph(getEventLabel(Event(i, j))->clone());
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(nLab)) {
 				const_cast<WriteLabel *>(wLab)->removeReader([&v](const Event &r){
 					return !v.contains(r);
 				});
 			}
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(nLab))
+				occ->trackCoherenceAtLoc(mLab->getAddr());
 			if (auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(nLab))
 				;
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
@@ -1234,13 +1242,9 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 
 	/* Finally, copy coherence info */
 	/* FIXME: Temporary ugly hack */
-	auto *cc = getCoherenceCalculator();
-	auto *occ = og->getCoherenceCalculator();
-	BUG_ON(!cc || !occ);
 	for (auto it = cc->begin(); it != cc->end(); ++it) {
 		for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
 			if (v.contains(*sIt)) {
-				occ->trackCoherenceAtLoc(it->first);
 				occ->addStoreToLoc(it->first, *sIt, occ->getStoresToLoc(it->first).size());
 			}
 		}
@@ -1659,7 +1663,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	BUG_ON(!cc);
 	for (auto it = cc->begin(); it != cc->end(); ++it) {
 		s << it->first << ": ";
-		s << format(it->second);
+		s << format(it->second) << "\n";
 	}
 	return s;
 }
