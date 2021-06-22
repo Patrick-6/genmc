@@ -2633,7 +2633,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			// 	calcWb(rLab->getAddr()) << "\n";
 			;
 		} else {
-			addToRevisitSet(rLab, writePrefixPos, moPlacings);
+			// addToRevisitSet(rLab, writePrefixPos, moPlacings);
 			// if (rLab->getPos() == Event(2, 2) && sLab->getPos() == Event(4, 3) &&
 			//     llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(4, 2)))->getRf() == Event(3, 2) // &&
 			//     // llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2, 2)))->getRf() == Event(3, 2)
