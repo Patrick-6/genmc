@@ -57,6 +57,8 @@ public:
 				 const ReadLabel *rLab) const override;
 
 	void cutToStamp(unsigned int st) override;
+
+	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override { BUG(); }
 };
 
 #endif /* __DEP_EXECUTION_GRAPH_HPP__ */

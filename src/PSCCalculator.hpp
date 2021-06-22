@@ -44,6 +44,10 @@ public:
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
+	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
+		return LLVM_MAKE_UNIQUE<PSCCalculator>(g);
+	}
+
 private:
 	/* Returns a list with all accesses that are accessed at least twice */
 	std::vector<SAddr> getDoubleLocs() const;

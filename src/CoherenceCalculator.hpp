@@ -65,6 +65,16 @@ public:
 
 	virtual ~CoherenceCalculator() = default;
 
+	/* FIXME: Properize these */
+	using StoresList = std::unordered_map<SAddr, std::vector<Event>>;
+
+	using iterator = StoresList::iterator;
+	using const_iterator = StoresList::const_iterator;
+	virtual iterator begin() = 0;
+	virtual iterator end() = 0;
+	virtual const_iterator cbegin() const = 0;
+	virtual const_iterator cend() const = 0;
+
 	/* Track coherence at location addr */
 	virtual void
 	trackCoherenceAtLoc(SAddr addr) = 0;
@@ -110,7 +120,8 @@ public:
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const = 0;
 
-private:
+	/* FIXME: Revert to public */
+protected:
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const CoherenceCalculatorKind kind;

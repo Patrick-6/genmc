@@ -42,6 +42,11 @@ public:
 	WBCalculator(ExecutionGraph &m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
+	iterator begin() override { return stores_.begin(); };
+	iterator end() override { return stores_.end(); };
+	const_iterator cbegin() const override { return stores_.cbegin(); };
+	const_iterator cend() const override { return stores_.cend(); };
+
 	/* Track coherence at location addr */
 	void
 	trackCoherenceAtLoc(SAddr addr) override;
@@ -115,6 +120,11 @@ public:
 
 	/* Will remove stores not in preds */
 	void removeAfter(const VectorClock &preds) override;
+
+	/* FIXME: When copying coherence calcs, OOO should be decided based on G */
+	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
+		return LLVM_MAKE_UNIQUE<WBCalculator>(g, outOfOrder);
+	}
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_WritesBefore;

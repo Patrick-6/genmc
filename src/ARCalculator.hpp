@@ -44,6 +44,10 @@ public:
 			   const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 			   const std::vector<std::pair<Event, Event> > &status) override;
 
+	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
+		return LLVM_MAKE_UNIQUE<ARCalculator>(g);
+	}
+
 private:
 	bool addArConstraints();
 };

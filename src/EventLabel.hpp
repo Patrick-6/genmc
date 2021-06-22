@@ -422,8 +422,11 @@ public:
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
-
 	bool isRevisitedInPlace() const { return inPlaceRev; }
+
+	/* Makes the relevant read revisitable/non-revisitable. The
+	 * execution graph is responsible for making such changes */
+	void setRevisitStatus(bool status) { revisitable = status; }
 	void setInPlaceRevisitStatus(bool status) { inPlaceRev = status ; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
@@ -443,10 +446,6 @@ private:
 	 * be called from the execution graph to update other relevant
 	 * information as well */
 	void setRf(Event rf) { readsFrom = rf; }
-
-	/* Makes the relevant read revisitable/non-revisitable. The
-	 * execution graph is responsible for making such changes */
-	void setRevisitStatus(bool status) { revisitable = status; }
 
 	/* Position of the write it is reading from in the graph */
 	Event readsFrom;

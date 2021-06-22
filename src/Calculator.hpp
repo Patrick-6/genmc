@@ -85,6 +85,8 @@ public:
 		      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
 		      const std::vector<std::pair<Event, Event> > &status) = 0;
 
+	virtual std::unique_ptr<Calculator> clone(ExecutionGraph &g) const = 0;
+
 private:
 	/* A reference to the graph managing object */
 	ExecutionGraph &execGraph;

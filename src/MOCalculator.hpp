@@ -41,6 +41,11 @@ public:
 	MOCalculator(ExecutionGraph &g, bool ooo)
 		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
+	iterator begin() override { return mo_.begin(); };
+	iterator end() override { return mo_.end(); };
+	const_iterator cbegin() const override { return mo_.cbegin(); };
+	const_iterator cend() const override { return mo_.cend(); };
+
 	/* Track coherence at location addr */
 	void
 	trackCoherenceAtLoc(SAddr addr) override;
@@ -112,6 +117,11 @@ public:
 
 	/* Stops tracking all stores not included in "preds" in the graph */
 	void removeAfter(const VectorClock &preds) override;
+
+	/* FIXME: When copying coherence calcs, OOO should be decided based on G */
+	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
+		return LLVM_MAKE_UNIQUE<MOCalculator>(g, outOfOrder);
+	}
 
 	static bool classof(const CoherenceCalculator *cohTracker) {
 		return cohTracker->getKind() == CC_ModificationOrder;

@@ -457,6 +457,13 @@ public:
 	/* Cuts a graph so that it only contains events with stamp <= st */
 	virtual void cutToStamp(unsigned int st);
 
+	/* FIXME: Use value ptrs? (less error-prone than using explicit copy fun) */
+	/* Or maybe simply consolidate the copying procedure:
+	 * 1) Copy graph structure (calculators, constant members, etc)
+	 * 2) Copy events => these should notify calculators so that calcs populate their structures
+	 */
+	virtual std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const;
+
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 

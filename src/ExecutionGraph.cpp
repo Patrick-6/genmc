@@ -1189,6 +1189,66 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 	}
 }
 
+std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
+{
+	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
+
+	/* First, populate calculators, etc */
+	og->timestamp = timestamp;
+
+	for (const auto &cc : consistencyCalculators)
+		og->consistencyCalculators.push_back(cc->clone(*og));
+
+	og->partialConsCalculators = partialConsCalculators;
+
+	og->globalRelations = globalRelations;
+	og->globalRelationsCache = globalRelationsCache;
+	og->perLocRelations = perLocRelations;
+	og->perLocRelationsCache = perLocRelationsCache;
+
+	og->calculatorIndex = calculatorIndex;
+	og->relationIndex = relationIndex;
+
+	if (persChecker.get())
+		og->persChecker = persChecker->clone(*og);
+	og->recoveryTID = recoveryTID;
+
+	/* Then, copy the appropriate events */
+	/* FIXME: Fix LAPOR (use addLockLabelToGraphLAPOR??) */
+	og->events.resize(v.size());
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		og->addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
+		for (auto j = 1; j <= v[i]; j++) {
+			auto *nLab = og->addOtherLabelToGraph(std::move(getEventLabel(Event(i, j))->clone()));
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(nLab)) {
+				const_cast<WriteLabel *>(wLab)->removeReader([&v](const Event &r){
+					return !v.contains(r);
+				});
+			}
+			if (auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(nLab))
+				;
+			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
+				;
+		}
+	}
+
+	/* Finally, copy coherence info */
+	/* FIXME: Temporary ugly hack */
+	auto *cc = getCoherenceCalculator();
+	auto *occ = og->getCoherenceCalculator();
+	BUG_ON(!cc || !occ);
+	for (auto it = cc->begin(); it != cc->end(); ++it) {
+		for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
+			if (v.contains(*sIt)) {
+				occ->trackCoherenceAtLoc(it->first);
+				occ->addStoreToLoc(it->first, *sIt, occ->getStoresToLoc(it->first).size());
+			}
+		}
+	}
+	/* FIXME: Make sure all fields are copied */
+	return og;
+}
+
 
 /************************************************************
  ** PSC calculation
@@ -1594,5 +1654,12 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		s << g.events[i].size() << " ";
 	s << "\n";
+
+	auto *cc = g.getCoherenceCalculator();
+	BUG_ON(!cc);
+	for (auto it = cc->begin(); it != cc->end(); ++it) {
+		s << it->first << ": ";
+		s << format(it->second);
+	}
 	return s;
 }
