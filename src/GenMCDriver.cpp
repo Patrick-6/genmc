@@ -27,6 +27,7 @@
 #include "Interpreter.h"
 #include "Parser.hpp"
 #include "SExprVisitor.hpp"
+#include "ThreadPool.hpp"
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Format.h>
@@ -39,17 +40,16 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: userConf(std::move(conf)), isMootExecution(false), explored(0),
-	  exploredBlocked(0), duplicates(0), start(start)
+GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
+	: userConf(conf), isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0), start(start)
 {
 	ModuleInfo MI;
 	std::string buf;
 
 	/* Prepare the module for verification */
-	LLVMModule::transformLLVMModule(*mod, getConf(), MI);
-	if (userConf->transformFile != "")
-		LLVMModule::printLLVMModule(*mod, userConf->transformFile);
+	LLVMModule::transformLLVMModule(*mod, MI, conf);
+	if (conf->transformFile != "")
+		LLVMModule::printLLVMModule(*mod, conf->transformFile);
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
@@ -461,7 +461,19 @@ void GenMCDriver::run()
 {
 	/* Explore all graphs and print the results */
 	explore();
-	printResults();
+	// printResults();
+	return;
+}
+
+void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+{
+	/* Then, fire up drivers */
+	ThreadPool tp(conf, mod);
+
+	// std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
+
+	tp.waitForTasks();
+
 	return;
 }
 
@@ -2722,9 +2734,17 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			EE->getThrById(lLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
 		}
 
-		// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
-		explore();
-		// llvm::dbgs() << "----- RESTORING" << "\n";
+		/* If there are idle workers in the thread pool,
+		 * try submitting the job instead */
+		auto *tp = getThreadPool();
+		if (tp && explored % 100000 == 0
+			) {
+			tp->submit(releaseCurrentState());
+		} else {
+			// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
+			explore();
+			// llvm::dbgs() << "----- RESTORING" << "\n";
+		}
 
 		setState(std::move(oldState));
 	}

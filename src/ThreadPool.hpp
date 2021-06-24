@@ -1,0 +1,234 @@
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
+#ifndef __THREAD_POOL_HPP__
+#define __THREAD_POOL_HPP__
+
+#include "config.h"
+#include "Error.hpp"
+#include "DriverFactory.hpp"
+#include <llvm/IR/Module.h>
+#include <llvm/Transforms/Utils/Cloning.h>
+
+#include <atomic>
+#include <memory>
+#include <thread>
+
+
+/*******************************************************************************
+ **                           GlobalWorkQueue Class
+ ******************************************************************************/
+
+/* Represents the global workqueue shared among threads. */
+class GlobalWorkQueue {
+
+protected:
+	typedef GenMCDriver::State QueueItemT;
+	typedef std::vector<std::unique_ptr<QueueItemT> > QueueT;
+
+public:
+	/*** Constructors ***/
+
+	GlobalWorkQueue() {}
+	GlobalWorkQueue(const GlobalWorkQueue &) = delete;
+
+	/*** Queue operations ***/
+
+	/* Returns true if the queue is empty */
+	bool empty() {
+		std::lock_guard<std::mutex> lock(qMutex);
+		return queue.empty();
+	}
+
+	/* Adds a new item to the queue */
+	void push(std::unique_ptr<QueueItemT> item) {
+		std::lock_guard<std::mutex> lock(qMutex);
+		queue.push_back(std::move(item));
+	}
+
+	/* Tries to pop an item from the queue */
+	std::unique_ptr<QueueItemT> tryPop() {
+		std::lock_guard<std::mutex> lock(qMutex);
+		if (queue.empty())
+			return nullptr;
+		auto item = std::move(queue.back());
+		queue.pop_back();
+		return item;
+	}
+
+private:
+	/* The actual queue data structure */
+	QueueT queue;
+
+	/* Protection against unsynchronized accesses */
+	std::mutex qMutex;
+};
+
+
+/*******************************************************************************
+ **                           ThreadJoiner Class
+ ******************************************************************************/
+
+/* A class responsible for joining a bunch of threads */
+class ThreadJoiner {
+
+public:
+	/*** Constructor ***/
+	explicit ThreadJoiner(std::vector<std::thread> &ts) : threads(ts) {}
+	ThreadJoiner() = delete;
+	ThreadJoiner(const ThreadJoiner &) = delete;
+
+	/*** Destructor ***/
+	~ThreadJoiner() {
+		for (auto i = 0u; i < threads.size(); i++) {
+			if (threads[i].joinable())
+				threads[i].join();
+		}
+	}
+
+private:
+	/* The threads to join */
+	std::vector<std::thread> &threads;
+};
+
+/*******************************************************************************
+ **                            ThreadPool Class
+ ******************************************************************************/
+
+/*
+ * A class responsible for creating and managing a pool of threads, with tasks
+ * submitted dynamically to the threads for execution. Each thread will have
+ * each own exploration driver so that they will able to execute the submitted
+ * (exploration) tasks concurrently.
+ */
+class ThreadPool {
+
+public:
+	typedef GenMCDriver::State TaskT;
+	typedef GlobalWorkQueue GlobalQueueT;
+
+	/*** Constructors ***/
+
+	ThreadPool(const std::shared_ptr<const Config> conf,
+		   const std::unique_ptr<llvm::Module> &mod)
+		: joiner(workers) {
+		numWorkers = conf->threads;
+		auto hwThreads = std::thread::hardware_concurrency();
+		if (numWorkers > hwThreads) {
+			WARN("Limiting threads to " + hwThreads);
+			numWorkers = hwThreads;
+		}
+
+		/* Set global variables before spawning the threads */
+		shouldHalt.store(false, std::memory_order_relaxed);
+		activeThreads.store(0, std::memory_order_relaxed);
+		remainingTasks.store(0, std::memory_order_release);
+
+		for (auto i = 0u; i < numWorkers; i++) {
+			auto dw = DriverFactory::create(this, conf, std::move(llvm::CloneModule(*mod)),
+							clock());
+			if (i == 0)
+				submit(std::move(dw->releaseCurrentState()));
+			addWorker(i, std::move(dw));
+		}
+	}
+
+	ThreadPool() = delete;
+	ThreadPool(const ThreadPool &) = delete; /* non-copyable to avoid rcs for now */
+
+	/*** Getters/setters ***/
+
+	/* Returns the (current) number of threads in the pool
+	 * (may be called before all threads have been added) */
+	size_t size() const { return workers.size(); }
+
+	/* Returnst the number of workers that will be added in the pool */
+	unsigned int getNumWorkers() const { return numWorkers; }
+
+	/* Returns the number of currently active threads */
+	unsigned int getNumActive() const { return activeThreads.load(std::memory_order_relaxed); }
+
+	/* Returns the index of the calling thread */
+	unsigned int getIndex() const { return index; }
+
+	/* Sets the index of the calling thread */
+	void setIndex(unsigned int i) { index = i; }
+
+	/*** Tasks-related ***/
+
+	/* Submits a task to be executed by a worker */
+	void submit(std::unique_ptr<TaskT> task);
+
+	/* Notify the pool about the addition/completion of a task */
+	void incRemainingTasks() { remainingTasks.fetch_add(1, std::memory_order_relaxed); }
+	void decRemainingTasks() { remainingTasks.fetch_sub(1, std::memory_order_relaxed); }
+
+	/* Waits for all tasks to complete */
+	void waitForTasks();
+
+	/*** Destructor ***/
+
+	~ThreadPool() {
+		llvm::dbgs() << "halting\n";
+		halt();
+	}
+
+private:
+	/* Adds a worker thread to the pool */
+	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver);
+
+	/* Stops all threads */
+	void halt() { shouldHalt.store(true, std::memory_order_seq_cst); }
+
+	/* Tries to pop a task from the global queue */
+	std::unique_ptr<TaskT> tryPopPoolQueue();
+
+	/* Tries to steal a task from another thread */
+	std::unique_ptr<TaskT> tryStealOtherQueue();
+
+	/* Pops the next task to be executed by a thread */
+	std::unique_ptr<TaskT> popTask();
+
+	/* Whether the pool is active (i.e., accepting more jobs) or not */
+	std::atomic<bool> shouldHalt;
+
+	/* The number of workers the pool should reach */
+	unsigned int numWorkers;
+
+	/* The worker threads */
+	std::vector<std::thread> workers;
+
+	/* The number of threads currently active (i.e., executing jobs) */
+	std::atomic<unsigned> activeThreads;
+
+	/* A queue where tasks are stored */
+	GlobalQueueT queue;
+
+	/* Number of tasks that need to be executed across threads */
+	std::atomic<unsigned> remainingTasks;
+
+	/* The index of a worker thread */
+	static thread_local unsigned int index;
+
+	/* The thread joiner */
+	ThreadJoiner joiner;
+};
+
+#endif /* __THREAD_POOL_HPP__ */

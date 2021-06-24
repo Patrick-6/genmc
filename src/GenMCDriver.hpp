@@ -40,6 +40,7 @@ namespace llvm {
 	class InterpState;
 }
 class ExecutionGraph;
+class ThreadPool;
 
 class GenMCDriver {
 
@@ -111,9 +112,6 @@ public:
 
 	/**** Generic actions ***/
 
-	/* Starts the verification procedure */
-	void run();
-
 	/* Sets up the next thread to run in the interpreter */
 	bool scheduleNext();
 
@@ -129,6 +127,17 @@ public:
 	/* Pers: Functions that run at the start/end of the recovery routine */
 	void handleRecoveryStart();
 	void handleRecoveryEnd();
+
+	/* Starts the verification procedure for a driver */
+	void run();
+
+	/* Creates driver instance(s) and starts verification for the given module. */
+	static void verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+
+	/* Gets/sets the thread pool this driver should account to */
+	ThreadPool *getThfreadPool() { return pool; }
+	ThreadPool *getThreadPool() const { return pool; }
+	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
 	/*** Instruction-related actions ***/
 
@@ -259,7 +268,8 @@ public:
 
 protected:
 
-	GenMCDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
+	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		    clock_t start);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -634,11 +644,14 @@ private:
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 
+	/* The thread pool this driver may belong to */
+	ThreadPool *pool = nullptr;
+
 	/* The source code of the program under test */
 	std::string sourceCode;
 
 	/* User configuration */
-	std::unique_ptr<Config> userConf;
+	std::shared_ptr<const Config> userConf;
 
 	/* Specifications for libraries assumed correct */
 	std::vector<Library> grantedLibs;

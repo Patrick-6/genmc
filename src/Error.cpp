@@ -33,8 +33,8 @@ llvm::raw_ostream &GenMCError::warnOnce(const std::string &warningID)
 
 llvm::raw_ostream &GenMCError::warnOn(bool condition)
 {
-	static std::string buf;
-	static llvm::raw_string_ostream s(buf);
+	static __thread std::string buf;
+	static __thread llvm::raw_string_ostream s(buf);
 
 	if (!condition) {
 		buf.clear();
@@ -46,9 +46,9 @@ llvm::raw_ostream &GenMCError::warnOn(bool condition)
 
 llvm::raw_ostream &GenMCError::warnOnOnce(bool condition, const std::string &warningID)
 {
-	static std::set<std::string> ids;
-	static std::string buf;
-	static llvm::raw_string_ostream s(buf);
+	static __thread std::set<std::string> ids;
+	static __thread std::string buf;
+	static __thread llvm::raw_string_ostream s(buf);
 
 	if (!condition || ids.count(warningID)) {
 		buf.clear();

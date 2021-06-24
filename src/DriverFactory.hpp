@@ -31,7 +31,12 @@
 class DriverFactory {
  public:
 	static std::unique_ptr<GenMCDriver>
-	create(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start);
+	create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+	       clock_t start);
+
+	static std::unique_ptr<GenMCDriver>
+	create(ThreadPool *pool, std::shared_ptr<const Config> conf,
+	       std::unique_ptr<llvm::Module> mod, clock_t start);
 };
 
 #endif /* __DRIVER_FACTORY_HPP__ */

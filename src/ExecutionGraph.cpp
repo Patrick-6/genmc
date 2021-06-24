@@ -29,7 +29,7 @@
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
- ** Class Constructors
+ ** Class constructors/destructors
  ***********************************************************/
 
 ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr)

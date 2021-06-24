@@ -473,8 +473,7 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 //
 Interpreter::Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
 			 GenMCDriver *driver, const Config *userConf)
-	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver),
-	  staticAllocMap(samAlloc) {
+	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver), staticAllocMap(samAlloc) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 

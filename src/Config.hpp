@@ -32,14 +32,15 @@ enum class SchedulePolicy { ltr, wf, random };
 struct Config {
 
 public:
-	/* General syntax */
+	/*** General syntax ***/
 	std::vector<std::string> cflags;
 	std::string inputFile;
 
-	/* Exploration options */
+	/*** Exploration options ***/
 	ModelType model;
 	bool isDepTrackingModel;
 	CoherenceType coherence;
+	unsigned int threads;
 	bool LAPOR;
 	bool symmetryReduction;
 	CheckConsType checkConsType;
@@ -52,7 +53,7 @@ public:
 	bool disableStopOnSystemError;
 	std::string specsFile;
 
-	/* Persistency options */
+	/*** Persistency options ***/
 	bool persevere;
 	ProgramPoint checkPersPoint;
 	unsigned int blockSize;
@@ -60,14 +61,14 @@ public:
 	JournalDataFS journalData;
 	bool disableDelalloc;
 
-	/* Transformation options */
+	/*** Transformation options ***/
 	int unroll;
 	bool loopJumpThreading;
 	bool spinAssume;
 	bool codeCondenser;
 	bool loadAnnot;
 
-	/* Debugging options */
+	/*** Debugging options ***/
 	bool countDuplicateExecs;
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
@@ -79,6 +80,7 @@ public:
 	std::string programEntryFun;
 	bool validateExecGraphs;
 
+	/* Parses the CLI options and initialized the respective fields */
 	void getConfigOptions(int argc, char **argv);
 
 private:
