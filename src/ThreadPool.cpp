@@ -34,10 +34,10 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 			     /* Prepare the driver and start the exploration */
 			     driver->setState(std::move(state));
 			     // llvm::dbgs() << "WORKER " << i << " picked up a task\n";
-			     // activeThreads.fetch_add(1, std::memory_order_relaxed);
+			     activeThreads.fetch_add(1, std::memory_order_relaxed);
 			     driver->run();
 			     decRemainingTasks();
-			     // activeThreads.fetch_sub(1, std::memory_order_relaxed);
+			     activeThreads.fetch_sub(1, std::memory_order_relaxed);
 
 			     if (remainingTasks.load(std::memory_order_relaxed) == 0) {
 				     halt();

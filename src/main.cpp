@@ -189,9 +189,11 @@ int main(int argc, char **argv)
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 
 	llvm::dbgs() << "--- VERIFICATION DONE\n";
-	llvm::dbgs() << "Total wall-clock time: "
-		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
-		     << "s\n";
+
+	// WE CANNOT USE CLOCK TO MEASURE TIME
+	// llvm::dbgs() << "Total wall-clock time: "
+	// 	     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
+	// 	     << "s\n";
 
 	return 0;
 }

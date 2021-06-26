@@ -2737,8 +2737,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		/* If there are idle workers in the thread pool,
 		 * try submitting the job instead */
 		auto *tp = getThreadPool();
-		if (tp && explored % 100000 == 0
-			) {
+		if (tp && tp->getNumActive() < tp->size()) {
 			tp->submit(releaseCurrentState());
 		} else {
 			// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
