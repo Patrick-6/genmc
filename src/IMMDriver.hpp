@@ -26,8 +26,7 @@
 class IMMDriver : public GenMCDriver {
 
 public:
-	IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		  clock_t start);
+	IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
 
 	void updateLabelViews(EventLabel *lab) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;

@@ -23,23 +23,22 @@
 #include "RC11Driver.hpp"
 
 std::unique_ptr<GenMCDriver>
-DriverFactory::create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		      clock_t start)
+DriverFactory::create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
-	return DriverFactory::create(nullptr, std::move(conf), std::move(mod), start);
+	return DriverFactory::create(nullptr, std::move(conf), std::move(mod));
 }
 
 std::unique_ptr<GenMCDriver>
 DriverFactory::create(ThreadPool *pool, std::shared_ptr<const Config> conf,
-		      std::unique_ptr<llvm::Module> mod, clock_t start)
+		      std::unique_ptr<llvm::Module> mod)
 {
 	GenMCDriver *driver = nullptr;
 	switch (conf->model) {
 	case ModelType::rc11:
-		driver = new RC11Driver(conf, std::move(mod), start);
+		driver = new RC11Driver(conf, std::move(mod));
 		break;
 	case ModelType::imm:
-		driver = new IMMDriver(conf, std::move(mod), start);
+		driver = new IMMDriver(conf, std::move(mod));
 		break;
 	default:
 		BUG();

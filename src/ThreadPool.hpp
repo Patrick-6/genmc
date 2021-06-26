@@ -142,8 +142,7 @@ public:
 		remainingTasks.store(0, std::memory_order_release);
 
 		for (auto i = 0u; i < numWorkers; i++) {
-			auto dw = DriverFactory::create(this, conf, std::move(llvm::CloneModule(*mod)),
-							clock());
+			auto dw = DriverFactory::create(this, conf, std::move(llvm::CloneModule(*mod)));
 			if (i == 0)
 				submit(std::move(dw->releaseCurrentState()));
 			addWorker(i, std::move(dw));

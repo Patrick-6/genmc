@@ -26,17 +26,14 @@
 #include "GenMCDriver.hpp"
 #include <llvm/IR/Module.h>
 
-#include <ctime>
-
 class DriverFactory {
  public:
 	static std::unique_ptr<GenMCDriver>
-	create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-	       clock_t start);
+	create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
 
 	static std::unique_ptr<GenMCDriver>
 	create(ThreadPool *pool, std::shared_ptr<const Config> conf,
-	       std::unique_ptr<llvm::Module> mod, clock_t start);
+	       std::unique_ptr<llvm::Module> mod);
 };
 
 #endif /* __DRIVER_FACTORY_HPP__ */

@@ -40,8 +40,8 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: userConf(conf), isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0), start(start)
+GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+	: userConf(conf), isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0)
 {
 	ModuleInfo MI;
 	std::string buf;
@@ -116,16 +116,7 @@ void GenMCDriver::setState(std::unique_ptr<GenMCDriver::State> state)
 
 void GenMCDriver::printResults()
 {
-	std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
-	llvm::dbgs() << "Number of complete executions explored: " << explored
-		     << ((userConf->countDuplicateExecs) ? dups : "") << "\n";
-	if (exploredBlocked) {
-		llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
-			     << "\n";
-	}
-	llvm::dbgs() << "Total wall-clock time: "
-		     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
-		     << "s\n";
+
 }
 
 void GenMCDriver::resetThreadPrioritization()
@@ -474,6 +465,13 @@ void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 	tp.waitForTasks();
 
+	// std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
+	// llvm::dbgs() << "Number of complete executions explored: " << explored
+	// 	     << ((userConf->countDuplicateExecs) ? dups : "") << "\n";
+	// if (exploredBlocked) {
+	// 	llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
+	// 		     << "\n";
+	// }
 	return;
 }
 

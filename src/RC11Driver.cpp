@@ -25,9 +25,8 @@
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
-RC11Driver::RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		       clock_t start)
-	: GenMCDriver(conf, std::move(mod), start)
+RC11Driver::RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+	: GenMCDriver(conf, std::move(mod))
 {
 	auto &g = getGraph();
 

@@ -268,8 +268,7 @@ public:
 
 protected:
 
-	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    clock_t start);
+	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -689,9 +688,6 @@ private:
 
 	/* Set of (po U rf) unique executions explored */
 	std::unordered_set<std::string> uniqueExecs;
-
-	/* Total wall-clock time for the verification */
-	clock_t start;
 
 	/* Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng;
