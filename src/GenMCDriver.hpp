@@ -49,28 +49,53 @@ protected:
 	using RevisitSetT = std::map<unsigned int, RevisitSet>;
 
 public:
-	/* Different error types that may occur.
+	/* Verification status.
 	 * Public to enable the interpreter utilize it */
-	enum DriverErrorKind {
-		DE_Safety,
-		DE_Recovery,
-		DE_Liveness,
-		DE_RaceNotAtomic,
-		DE_RaceFreeMalloc,
-		DE_FreeNonMalloc,
-		DE_DoubleFree,
-		DE_Allocation,
-		DE_InvalidAccessBegin,
-		DE_UninitializedMem,
-		DE_AccessNonMalloc,
-		DE_AccessFreed,
-		DE_InvalidAccessEnd,
-		DE_InvalidJoin,
-		DE_InvalidUnlock,
-		DE_InvalidBInit,
-		DE_InvalidRecoveryCall,
-		DE_InvalidTruncate,
-		DE_SystemError,
+	enum class Status {
+		VS_OK,
+		VS_Safety,
+		VS_Recovery,
+		VS_Liveness,
+		VS_RaceNotAtomic,
+		VS_RaceFreeMalloc,
+		VS_FreeNonMalloc,
+		VS_DoubleFree,
+		VS_Allocation,
+		VS_InvalidAccessBegin,
+		VS_UninitializedMem,
+		VS_AccessNonMalloc,
+		VS_AccessFreed,
+		VS_InvalidAccessEnd,
+		VS_InvalidJoin,
+		VS_InvalidUnlock,
+		VS_InvalidBInit,
+		VS_InvalidRecoveryCall,
+		VS_InvalidTruncate,
+		VS_SystemError,
+	};
+
+	/* Verification result */
+	struct Result {
+		Status status;            /* Verification status */
+		unsigned explored;        /* Number of complete executions explored */
+		unsigned exploredBlocked; /* Number of blocked executions explored */
+		unsigned duplicates;      /* Number of duplicate executions explored */
+		std::string message;      /* A message to be printed */
+
+		Result() : status(Status::VS_OK), explored(0), exploredBlocked(0),
+			   duplicates(0), message() {}
+
+		Result &operator+=(const Result &other) {
+			/* Propagate latest error */
+			if (other.status != Status::VS_OK) {
+				status = other.status;
+				message = other.message;
+			}
+			explored += other.explored;
+			exploredBlocked += other.exploredBlocked;
+			duplicates += other.duplicates;
+			return *this;
+		}
 	};
 
 	/* Represents the exploration state at any given point */
@@ -90,9 +115,9 @@ public:
 
 
 private:
-	static bool isInvalidAccessError(DriverErrorKind e) {
-		return DE_InvalidAccessBegin <= e &&
-			e <= DE_InvalidAccessEnd;
+	static bool isInvalidAccessError(Status s) {
+		return Status::VS_InvalidAccessBegin <= s &&
+			s <= Status::VS_InvalidAccessEnd;
 	};
 
 public:
@@ -130,6 +155,9 @@ public:
 
 	/* Starts the verification procedure for a driver */
 	void run();
+
+	/* Returns the result of the verification procedure */
+	Result getResult() const { return result; }
 
 	/* Creates driver instance(s) and starts verification for the given module. */
 	static void verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
@@ -261,7 +289,7 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void
-	visitError(DriverErrorKind t, const std::string &err = std::string(),
+	visitError(Status r, const std::string &err = std::string(),
 		   Event confEvent = Event::getInitializer());
 
 	virtual ~GenMCDriver();
@@ -590,10 +618,10 @@ private:
 
 	/* Outputs the full graph.
 	 * If getMetadata is set, it outputs more debugging information */
-	void printGraph(bool getMetadata = false);
+	void printGraph(bool getMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the graph in a condensed form */
-	void prettyPrintGraph();
+	void prettyPrintGraph(llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the current graph into a file (DOT format),
 	 * and visually marks events e and c (conflicting)  */
@@ -677,23 +705,14 @@ private:
 	 * (empty if none) */
 	std::vector<Event> threadPrios;
 
-	/* Number of complete executions explored */
-	int explored;
-
-	/* Number of blocked executions explored */
-	int exploredBlocked;
-
-	/* Number of duplicate executions explored */
-	int duplicates;
-
-	/* Set of (po U rf) unique executions explored */
-	std::unordered_set<std::string> uniqueExecs;
+	/* Verification result to be returned to caller */
+	Result result;
 
 	/* Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng;
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
-					     const DriverErrorKind &o);
+					     const Status &r);
 };
 
 #endif /* __GENMC_DRIVER_HPP__ */

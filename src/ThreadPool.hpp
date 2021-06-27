@@ -30,6 +30,7 @@
 #include <atomic>
 #include <memory>
 #include <thread>
+#include <future>
 
 
 /*******************************************************************************
@@ -128,7 +129,7 @@ public:
 
 	ThreadPool(const std::shared_ptr<const Config> conf,
 		   const std::unique_ptr<llvm::Module> &mod)
-		: joiner(workers) {
+		: joiner(workers) { // FIXME: both lists are wrong; see below
 		numWorkers = conf->threads;
 		auto hwThreads = std::thread::hardware_concurrency();
 		if (numWorkers > hwThreads) {
@@ -180,7 +181,7 @@ public:
 	void decRemainingTasks() { remainingTasks.fetch_sub(1, std::memory_order_relaxed); }
 
 	/* Waits for all tasks to complete */
-	void waitForTasks();
+	std::vector<std::future<GenMCDriver::Result>> waitForTasks();
 
 	/*** Destructor ***/
 
@@ -204,6 +205,9 @@ private:
 
 	/* Pops the next task to be executed by a thread */
 	std::unique_ptr<TaskT> popTask();
+
+	/* Result of each thread */
+	std::vector<std::future<GenMCDriver::Result>> results;
 
 	/* Whether the pool is active (i.e., accepting more jobs) or not */
 	std::atomic<bool> shouldHalt;

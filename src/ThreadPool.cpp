@@ -22,7 +22,7 @@
 
 void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 {
-	auto t = std::thread([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){
+	std::packaged_task<GenMCDriver::Result(unsigned int, std::unique_ptr<GenMCDriver> driver)> t([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){
 		     while (true) {
 			     // std::this_thread::sleep_for(std::chrono::milliseconds((i == 0) ? 1000 : 0));
 			     auto state = popTask();
@@ -45,9 +45,12 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 			     }
 		     }
 		     /* Do some printing here and maybe move driver to the result */
-	}, i, std::move(d));
+		     return driver->getResult();
+	});
 
-	workers.push_back(std::move(t));
+	results.push_back(std::move(t.get_future()));
+
+	workers.push_back(std::thread(std::move(t), i, std::move(d)));
 	return;
 }
 
@@ -82,11 +85,12 @@ std::unique_ptr<ThreadPool::TaskT> ThreadPool::popTask()
 	return nullptr;
 }
 
-void ThreadPool::waitForTasks()
+std::vector<std::future<GenMCDriver::Result>> ThreadPool::waitForTasks()
 {
 	while (remainingTasks.load(std::memory_order_relaxed) > 0 // ||
 	       // !shouldHalt.load(std::memory_order_relaxed)
 		)
 		std::this_thread::yield();
-	return;
+
+	return std::move(results);
 }

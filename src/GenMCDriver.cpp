@@ -41,7 +41,7 @@
  ***********************************************************/
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
-	: userConf(conf), isMootExecution(false), explored(0), exploredBlocked(0), duplicates(0)
+	: userConf(conf), isMootExecution(false), result()
 {
 	ModuleInfo MI;
 	std::string buf;
@@ -112,11 +112,6 @@ void GenMCDriver::setState(std::unique_ptr<GenMCDriver::State> state)
 	workqueue = std::move(state->workqueue);
 	getEE()->setState(std::move(state->interpState));
 	return;
-}
-
-void GenMCDriver::printResults()
-{
-
 }
 
 void GenMCDriver::resetThreadPrioritization()
@@ -373,7 +368,7 @@ void GenMCDriver::handleFinishedExecution()
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(getEE()->threads.begin(), getEE()->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked(); })) {
-		++exploredBlocked;
+		++result.exploredBlocked;
 		if (userConf->checkLiveness)
 			checkLiveness();
 		return;
@@ -391,12 +386,13 @@ void GenMCDriver::handleFinishedExecution()
 		std::string exec;
 		llvm::raw_string_ostream buf(exec);
 		buf << g;
-		if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-			++duplicates;
-		else
-			uniqueExecs.insert(buf.str());
+		BUG(); // FIXME: Count duplicates
+		// if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+		// 	++duplicates;
+		// else
+		// 	uniqueExecs.insert(buf.str());
 	}
-	++explored;
+	++result.explored;
 	return;
 }
 
@@ -458,20 +454,32 @@ void GenMCDriver::run()
 
 void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
-	/* Then, fire up drivers */
-	ThreadPool tp(conf, mod);
+	std::vector<std::future<GenMCDriver::Result>> futures;
+	{
+		/* Then, fire up drivers */
+		ThreadPool tp(conf, mod);
 
-	// std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
+		// std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
 
-	tp.waitForTasks();
+		futures = tp.waitForTasks();
+	}
 
-	// std::string dups = " (" + std::to_string(duplicates) + " duplicates)";
-	// llvm::dbgs() << "Number of complete executions explored: " << explored
-	// 	     << ((userConf->countDuplicateExecs) ? dups : "") << "\n";
-	// if (exploredBlocked) {
-	// 	llvm::dbgs() << "Number of blocked executions seen: " << exploredBlocked
-	// 		     << "\n";
-	// }
+	GenMCDriver::Result res;
+	for (auto &f : futures)
+		res += f.get();
+
+	if (res.status == Status::VS_OK)
+		llvm::outs() << "No errors were detected.\n";
+	else
+		llvm::outs() << res.message << "\n";
+
+	std::string dups = " (" + std::to_string(res.duplicates) + " duplicates)";
+	llvm::outs() << "Number of complete executions explored: " << res.explored
+		     << ((conf->countDuplicateExecs) ? dups : "") << "\n";
+	if (res.exploredBlocked) {
+		llvm::outs() << "Number of blocked executions seen: " << res.exploredBlocked
+			     << "\n";
+	}
 	return;
 }
 
@@ -837,13 +845,13 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
 			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 				if (fLab->getFreedAddr() == mLab->getAddr()) {
-					visitError(DE_AccessFreed, "", oLab->getPos());
+					visitError(Status::VS_AccessFreed, "", oLab->getPos());
 				}
 			}
 			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
 				if (aLab->contains(mLab->getAddr()) &&
 				    !before.contains(oLab->getPos())) {
-					visitError(DE_AccessNonMalloc,
+					visitError(Status::VS_AccessNonMalloc,
 						   "The allocating operation (malloc()) "
 						   "does not happen-before the memory access!",
 						   oLab->getPos());
@@ -853,7 +861,7 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 
 	/* Also make sure there is an allocating event; do this separately for better error message */
 	if (g.getPrecedingMalloc(mLab).isInitializer())
-		visitError(DE_AccessNonMalloc);
+		visitError(Status::VS_AccessNonMalloc);
 	return;
 }
 
@@ -875,13 +883,13 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
 				if (dLab->getFreedAddr() == ptr &&
 				    dLab->getPos() != fLab->getPos()) {
-					visitError(DE_DoubleFree, "", dLab->getPos());
+					visitError(Status::VS_DoubleFree, "", dLab->getPos());
 				}
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 				if (mLab->getAddr() == ptr &&
 				    !before.contains(mLab->getPos())) {
-					visitError(DE_AccessFreed, "", mLab->getPos());
+					visitError(Status::VS_AccessFreed, "", mLab->getPos());
 				}
 
 			}
@@ -889,7 +897,7 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 	}
 
 	if (!m) {
-		visitError(DE_FreeNonMalloc);
+		visitError(Status::VS_FreeNonMalloc);
 	}
 	return;
 }
@@ -920,7 +928,7 @@ void GenMCDriver::checkForUninitializedMem(const std::vector<Event> &rfs)
 	auto *EE = getEE();
 	if (rLab->getAddr().isDynamic() && !rLab->getAddr().isInternal() &&
 	    std::any_of(rfs.begin(), rfs.end(), [](const Event &rf){ return rf.isInitializer(); }))
-		visitError(DE_UninitializedMem);
+		visitError(Status::VS_UninitializedMem);
 	return;
 }
 
@@ -944,7 +952,7 @@ void GenMCDriver::checkForDataRaces()
 
 	/* If a race is found and the execution is consistent, return it */
 	if (!racy.isInitializer()) {
-		visitError(DE_RaceNotAtomic, "", racy);
+		visitError(Status::VS_RaceNotAtomic, "", racy);
 	}
 	return;
 }
@@ -971,7 +979,7 @@ void GenMCDriver::checkLockValidity(const std::vector<Event> &rfs)
 		return getEE()->compareValues(lLab->getType(), rfVal, INT_TO_GV(lLab->getType(), -1));
 	});
 	if (rfIt != rfs.cend())
-		visitError(DE_UninitializedMem, "Called lock() on destroyed mutex!", *rfIt);
+		visitError(Status::VS_UninitializedMem, "Called lock() on destroyed mutex!", *rfIt);
 }
 
 void GenMCDriver::checkUnlockValidity()
@@ -982,7 +990,7 @@ void GenMCDriver::checkUnlockValidity()
 
 	/* Unlocks should unlock mutexes locked by the same thread */
 	if (getGraph().getMatchingLock(uLab->getPos()).isInitializer()) {
-		visitError(DE_InvalidUnlock,
+		visitError(Status::VS_InvalidUnlock,
 			   "Called unlock() on mutex not locked by the same thread!");
 	}
 }
@@ -1004,9 +1012,9 @@ void GenMCDriver::checkBInitValidity()
 	});
 
 	if (sIt != stores.end())
-		visitError(DE_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
+		visitError(Status::VS_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
 	else if (getEE()->compareValues(wLab->getType(), wLab->getVal(), GET_ZERO_GV(wLab->getType())))
-		visitError(DE_InvalidBInit, "Called barrier_init() with 0!");
+		visitError(Status::VS_InvalidBInit, "Called barrier_init() with 0!");
 	return;
 }
 
@@ -1017,12 +1025,12 @@ void GenMCDriver::checkBIncValidity(const std::vector<Event> &rfs)
 		return;
 
 	if (std::any_of(rfs.cbegin(), rfs.cend(), [](const Event &rf){ return rf.isInitializer(); }))
-		visitError(DE_UninitializedMem, "Called barrier_wait() on uninitialized barrier!");
+		visitError(Status::VS_UninitializedMem, "Called barrier_wait() on uninitialized barrier!");
 	else if (std::any_of(rfs.cbegin(), rfs.cend(), [this, bLab](const Event &rf){
 		auto rfVal = getWriteValue(rf, bLab->getAddr(), bLab->getType());
 		return getEE()->compareValues(bLab->getType(), rfVal, GET_ZERO_GV(bLab->getType()));
 	}))
-		visitError(DE_AccessFreed, "Called barrier_wait() on destroyed barrier!", bLab->getRf());
+		visitError(Status::VS_AccessFreed, "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
 void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
@@ -1195,7 +1203,7 @@ void GenMCDriver::checkLiveness()
 	    std::none_of(spinBlocked.begin(), spinBlocked.end(),
 			[&](int tid){ return threadReadsMaximal(tid); })) {
 		/* Print the name of one of the spinloop variables that are not live */
-		visitError(DE_Liveness, "Non-terminating spinloop");
+		visitError(Status::VS_Liveness, "Non-terminating spinloop");
 	}
 	return;
 }
@@ -1515,7 +1523,7 @@ llvm::GenericValue GenMCDriver::visitThreadJoin(llvm::Function *F, const llvm::G
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
 		if (cid == thr.id)
 			err += " (TID cannot be the same as the calling thread)";
-		visitError(DE_InvalidJoin, err);
+		visitError(Status::VS_InvalidJoin, err);
 	}
 
 	/* If necessary, add a relevant event to the graph */
@@ -1706,7 +1714,7 @@ GenMCDriver::visitLoad(InstAttr attr,
 	if (!isAccessValid(addr)) {
 		createAddReadLabel(attr, ord, addr, typ, nullptr, cmpVal,
 				   rmwVal, op, Event::getInitializer());
-		visitError(DE_AccessNonMalloc);
+		visitError(Status::VS_AccessNonMalloc);
 		return GET_ZERO_GV(typ); /* Return some value; this execution will be blocked */
 	}
 
@@ -1818,7 +1826,7 @@ void GenMCDriver::visitStore(InstAttr attr,
 	g.trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
 		createAddStoreLabel(attr, ord, addr, typ, val, 0);
-		visitError(DE_AccessNonMalloc);
+		visitError(Status::VS_AccessNonMalloc);
 		return;
 	}
 
@@ -2007,7 +2015,7 @@ void GenMCDriver::visitBlock()
 	}
 }
 
-void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" */,
+void GenMCDriver::visitError(Status s, const std::string &err /* = "" */,
 			     Event confEvent /* = INIT */)
 {
 	auto &g = getGraph();
@@ -2033,16 +2041,19 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 	/* If this is an invalid access, change the RF of the offending
 	 * event to BOTTOM, so that we do not try to get its value.
 	 * Don't bother updating the views */
-	if (isInvalidAccessError(t) && llvm::isa<ReadLabel>(errLab))
+	if (isInvalidAccessError(s) && llvm::isa<ReadLabel>(errLab))
 		g.changeRf(errLab->getPos(), Event::getBottom());
 
 	/* Print a basic error message and the graph */
-	llvm::dbgs() << "Error detected: " << t << "!\n";
-	llvm::dbgs() << "Event " << errLab->getPos() << " ";
+	std::string str;
+	llvm::raw_string_ostream out(str);
+
+	out << "Error detected: " << s << "!\n";
+	out << "Event " << errLab->getPos() << " ";
 	if (!confEvent.isInitializer())
-		llvm::dbgs() << "conflicts with event " << confEvent << " ";
-	llvm::dbgs() << "in graph:\n";
-	printGraph(true);
+		out << "conflicts with event " << confEvent << " ";
+	out << "in graph:\n";
+	printGraph(true, out);
 
 	/* Print error trace leading up to the violating event(s) */
 	if (userConf->printErrorTrace) {
@@ -2053,14 +2064,13 @@ void GenMCDriver::visitError(DriverErrorKind t, const std::string &err /* = "" *
 
 	/* Print the specific error message */
 	if (!err.empty())
-		llvm::dbgs() << err << "\n";
+		out << err << "\n";
 
 	/* Dump the graph into a file (DOT format) */
 	if (userConf->dotFile != "")
 		dotPrintToFile(userConf->dotFile, errLab->getPos(), confEvent);
 
-	/* Print results and abort */
-	printResults();
+	/* Set error status and abort */
 	exit(EVERIFY);
 }
 
@@ -2976,7 +2986,7 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 		});
 
 	if (it == stores.end()) {
-		visitError(DE_UninitializedMem,
+		visitError(Status::VS_UninitializedMem,
 			   std::string("Uninitialized memory used by library ") +
 			   lib->getName() + ", member " + functionName + std::string(" found"));
 	}
@@ -3089,7 +3099,7 @@ void GenMCDriver::visitLibStore(InstAttr attr,
 	auto *sLab = g.addWriteLabelToGraph(std::move(lLab), endO);
 
 	if (isUninitialized) {
-		visitError(DE_UninitializedMem,
+		visitError(Status::VS_UninitializedMem,
 			   std::string("Uninitialized memory used by library \"") +
 			   lib->getName() + "\", member \"" + functionName + std::string("\" found"));
 	}
@@ -3422,45 +3432,49 @@ void GenMCDriver::visitPotentialSpinEnd()
  ***********************************************************/
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
-			      const GenMCDriver::DriverErrorKind &e)
+			      const GenMCDriver::Status &st)
 {
-	switch (e) {
-	case GenMCDriver::DE_Safety:
+	using Status = GenMCDriver::Status;
+
+	switch (st) {
+	case Status::VS_OK:
+		return s << "OK";
+	case Status::VS_Safety:
 		return s << "Safety violation";
-	case GenMCDriver::DE_Recovery:
+	case Status::VS_Recovery:
 		return s << "Recovery error";
-	case GenMCDriver::DE_Liveness:
+	case Status::VS_Liveness:
 		return s << "Liveness violation";
-	case GenMCDriver::DE_RaceNotAtomic:
+	case Status::VS_RaceNotAtomic:
 		return s << "Non-Atomic race";
-	case GenMCDriver::DE_RaceFreeMalloc:
+	case Status::VS_RaceFreeMalloc:
 		return s << "Malloc-Free race";
-	case GenMCDriver::DE_FreeNonMalloc:
+	case Status::VS_FreeNonMalloc:
 		return s << "Attempt to free non-allocated memory";
-	case GenMCDriver::DE_DoubleFree:
+	case Status::VS_DoubleFree:
 		return s << "Double-free error";
-	case GenMCDriver::DE_Allocation:
+	case Status::VS_Allocation:
 		return s << "Allocation error";
-	case GenMCDriver::DE_UninitializedMem:
+	case Status::VS_UninitializedMem:
 		return s << "Attempt to read from uninitialized memory";
-	case GenMCDriver::DE_AccessNonMalloc:
+	case Status::VS_AccessNonMalloc:
 		return s << "Attempt to access non-allocated memory";
-	case GenMCDriver::DE_AccessFreed:
+	case Status::VS_AccessFreed:
 		return s << "Attempt to access freed memory";
-	case GenMCDriver::DE_InvalidJoin:
+	case Status::VS_InvalidJoin:
 		return s << "Invalid join() operation";
-	case GenMCDriver::DE_InvalidUnlock:
+	case Status::VS_InvalidUnlock:
 		return s << "Invalid unlock() operation";
-	case GenMCDriver::DE_InvalidBInit:
+	case Status::VS_InvalidBInit:
 		return s << "Invalid barrier_init() operation";
-	case GenMCDriver::DE_InvalidRecoveryCall:
+	case Status::VS_InvalidRecoveryCall:
 		return s << "Invalid function call during recovery";
-	case GenMCDriver::DE_InvalidTruncate:
+	case Status::VS_InvalidTruncate:
 		return s << "Invalid file truncation";
-	case GenMCDriver::DE_SystemError:
+	case Status::VS_SystemError:
 		return s << errorList.at(systemErrorNumber);
 	default:
-		return s << "Uknown error";
+		return s << "Uknown status";
 	}
 }
 
@@ -3592,7 +3606,7 @@ std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
 	return "";
 }
 
-void GenMCDriver::printGraph(bool getMetadata /* false */)
+void GenMCDriver::printGraph(bool getMetadata /* false */, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	auto &g = getGraph();
 
@@ -3601,10 +3615,10 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		llvm::dbgs() << thr << ":\n";
+		s << thr << ":\n";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			llvm::dbgs() << "\t";
+			s << "\t";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				auto name = getVarName(rLab);
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
@@ -3615,53 +3629,53 @@ void GenMCDriver::printGraph(bool getMetadata /* false */)
 				auto name = getVarName(wLab);
 				executeWLPrint(wLab, name);
 			} else {
-				llvm::dbgs() << *lab;
+				s << *lab;
 				if (getConf()->symmetryReduction) {
 					if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
 						auto symm = bLab->getSymmetricTid();
-						if (symm != -1) llvm::dbgs() << " symmetric with " << symm;
+						if (symm != -1) s << " symmetric with " << symm;
 					}
 				}
 			}
 			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile);
 			}
-			llvm::dbgs() << "\n";
+			s << "\n";
 		}
 	}
-	llvm::dbgs() << "\n";
+	s << "\n";
 }
 
-void GenMCDriver::prettyPrintGraph()
+void GenMCDriver::prettyPrintGraph(llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	const auto &g = getGraph();
 	auto *EE = getEE();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		llvm::dbgs() << "<" << thr.parentId << "," << thr.id
+		s << "<" << thr.parentId << "," << thr.id
 			     << "> " << thr.threadFun->getName() << ": ";
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->wasAddedMax())
-					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
+					s.changeColor(llvm::raw_ostream::Colors::GREEN);
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
 					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType()) :
 					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getType());
-				llvm::dbgs() << "R" << getVarName(rLab) << ","
+				s << "R" << getVarName(rLab) << ","
 					     << val.IntVal << " ";
-				llvm::dbgs().resetColor();
+				s.resetColor();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				if (wLab->wasAddedMax())
-					llvm::dbgs().changeColor(llvm::raw_ostream::Colors::GREEN);
-				llvm::dbgs() << "W" << getVarName(wLab) << ","
+					s.changeColor(llvm::raw_ostream::Colors::GREEN);
+				s << "W" << getVarName(wLab) << ","
 					     << wLab->getVal().IntVal << " ";
-				llvm::dbgs().resetColor();
+				s.resetColor();
 			}
 		}
-		llvm::dbgs() << "\n";
+		s << "\n";
 	}
-	llvm::dbgs() << "\n";
+	s << "\n";
 }
 
 void GenMCDriver::dotPrintToFile(const std::string &filename,
