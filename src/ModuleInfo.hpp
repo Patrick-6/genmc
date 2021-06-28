@@ -28,6 +28,7 @@
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Value.h>
+#include <llvm/Transforms/Utils/ValueMapper.h>
 
 #include <memory>
 #include <string>
@@ -76,6 +77,10 @@ struct AnnotationInfo {
  */
 struct FsInfo {
 
+  /* Explicitly initialize PODs to be C++11-compatible */
+  FsInfo() : inodeTyp(nullptr), fileTyp(nullptr), fds(), blockSize(0), maxFileSize(0),
+	     journalData(JournalDataFS::writeback), delalloc(false), fdToFile(), dirInode(nullptr) {}
+
   using Filename = std::string;
   using NameMap = std::unordered_map<Filename, void *>;
 
@@ -114,6 +119,9 @@ struct ModuleInfo {
   VariableInfo varInfo;
   AnnotationInfo annotInfo;
   FsInfo fsInfo;
+
+  /* Assumes only statis information have been collected */
+  std::unique_ptr<ModuleInfo> clone(llvm::ValueToValueMapTy &VMap) const;
 };
 
 #endif /* __MODULE_INFO_HPP__ */

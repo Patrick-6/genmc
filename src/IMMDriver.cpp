@@ -26,8 +26,9 @@
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
-IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
-	: GenMCDriver(conf, std::move(mod))
+IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		     std::unique_ptr<ModuleInfo> MI)
+	: GenMCDriver(conf, std::move(mod), std::move(MI))
 {
 	auto &g = getGraph();
 

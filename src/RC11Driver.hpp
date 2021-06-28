@@ -26,7 +26,8 @@
 class RC11Driver : public GenMCDriver {
 
 public:
-	RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+	RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		   std::unique_ptr<ModuleInfo> MI);
 
 	void updateLabelViews(EventLabel *lab) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;

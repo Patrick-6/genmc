@@ -263,7 +263,7 @@ protected:
   IntrinsicLowering *IL;
 
   /* Information about the module under test */
-  ModuleInfo MI;
+  std::unique_ptr<ModuleInfo> MI;
 
   /* List of thread-local variables, with their initializing values */
   std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
@@ -318,7 +318,7 @@ protected:
   std::vector<Function*> AtExitHandlers;
 
 public:
-  explicit Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
+  explicit Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
@@ -408,7 +408,7 @@ public:
 
   /* Returns annotation information for the instruction I */
   const SExpr *getAnnotation(Instruction *I) const {
-	  return MI.annotInfo.annotMap.count(I) ? MI.annotInfo.annotMap.at(I).get() : nullptr;
+	  return MI->annotInfo.annotMap.count(I) ? MI->annotInfo.annotMap.at(I).get() : nullptr;
   }
 
   /* Returns (concretized) annotation information for the
@@ -441,7 +441,7 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(std::unique_ptr<Module> M, ModuleInfo &&MI,
+  static ExecutionEngine *create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 				 GenMCDriver *driver, const Config *userConf,
 				 std::string *ErrorStr = nullptr);
 

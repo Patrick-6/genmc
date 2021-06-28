@@ -136,13 +136,13 @@ NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
 				      const VariableInfo::InternalKey &key /* = {} */)
 {
 	if (spc == AddressSpace::AS_Internal)
-		return &MI.varInfo.internalInfo[key];
+		return &MI->varInfo.internalInfo[key];
 
 	switch (s) {
 	case Storage::ST_Static:
-		return &MI.varInfo.globalInfo[v];
+		return &MI->varInfo.globalInfo[v];
 	case Storage::ST_Automatic:
-		return &MI.varInfo.localInfo[v];
+		return &MI->varInfo.localInfo[v];
 	case Storage::ST_Heap:
 		return nullptr;
 	default:
@@ -158,8 +158,8 @@ std::string Interpreter::getStaticName(SAddr addr) const
 		return "";
 
 	BUG_ON(!staticNames.count(sBeg));
-	BUG_ON(!MI.varInfo.globalInfo.count(staticNames.at(sBeg)));
-	auto &gi = MI.varInfo.globalInfo.at(staticNames.at(sBeg));
+	BUG_ON(!MI->varInfo.globalInfo.count(staticNames.at(sBeg)));
+	auto &gi = MI->varInfo.globalInfo.at(staticNames.at(sBeg));
 	return staticNames.at(sBeg)->getName().str() + gi.getNameAtOffset(addr - sBeg);
 }
 
@@ -205,23 +205,23 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 
 void *Interpreter::getFileFromFd(int fd) const
 {
-	if (!MI.fsInfo.fdToFile.inBounds(fd))
+	if (!MI->fsInfo.fdToFile.inBounds(fd))
 		return nullptr;
-	return MI.fsInfo.fdToFile[fd];
+	return MI->fsInfo.fdToFile[fd];
 }
 
 void Interpreter::setFdToFile(int fd, void *fileAddr)
 {
-	MI.fsInfo.fdToFile[fd] = fileAddr;
+	MI->fsInfo.fdToFile[fd] = fileAddr;
 }
 
 void *Interpreter::getDirInode() const
 {
-	return MI.fsInfo.dirInode;
+	return MI->fsInfo.dirInode;
 }
 
 void *Interpreter::getInodeAddrFromName(const char *filename) const {
-	return MI.fsInfo.nameToInodeAddr.at(filename);
+	return MI->fsInfo.nameToInodeAddr.at(filename);
 }
 
 /* Should match include/pthread.h (or barrier/mutex/thread decls) */
@@ -258,31 +258,31 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 /* Fetching different fields of a file description (model @ include/unistd.h) */
 #define GET_FILE_OFFSET_ADDR(file)					\
 ({								        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.fileTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);	\
         auto __off = (char *) file + SL->getElementOffset(4);		\
 	__off;								\
 })
 #define GET_FILE_POS_LOCK_ADDR(file)				\
 ({							        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.fileTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);	\
 	auto __lock = (char *) file + SL->getElementOffset(3);	\
 	__lock;							\
 })
 #define GET_FILE_FLAGS_ADDR(file)					\
 ({								        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.fileTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);	\
         auto __flags = (char *) file + SL->getElementOffset(2);		\
 	__flags;							\
 })
 #define GET_FILE_COUNT_ADDR(file)					\
 ({								        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.fileTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);	\
         auto __count = (char *) file + SL->getElementOffset(1);		\
 	__count;							\
 })
 #define GET_FILE_INODE_ADDR(file)				\
 ({							        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.fileTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.fileTyp);	\
 	auto __inode = (char *) file + SL->getElementOffset(0); \
 	__inode;						\
 })
@@ -290,31 +290,31 @@ void *Interpreter::getInodeAddrFromName(const char *filename) const {
 /* Fetching different offsets of an inode */
 #define GET_INODE_DATA_ADDR(inode)				\
 ({							        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.inodeTyp);\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);\
 	auto __data = (char *) inode + SL->getElementOffset(4);	\
 	__data;							\
 })
 #define GET_INODE_IDISKSIZE_ADDR(inode)					\
 ({							                \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.inodeTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);\
 	auto __disksize = (char *) inode + SL->getElementOffset(3);	\
 	__disksize;							\
 })
 #define GET_INODE_ITRANSACTION_ADDR(inode)				\
 ({							                \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.inodeTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);\
 	auto __trans = (char *) inode + SL->getElementOffset(2);	\
 	__trans;							\
 })
 #define GET_INODE_ISIZE_ADDR(inode)					\
 ({							                \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.inodeTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);\
 	auto __isize = (char *) inode + SL->getElementOffset(1);	\
 	__isize;							\
 })
 #define GET_INODE_LOCK_ADDR(inode)					\
 ({								        \
-	auto *SL = getDataLayout().getStructLayout(MI.fsInfo.inodeTyp);	\
+	auto *SL = getDataLayout().getStructLayout(MI->fsInfo.inodeTyp);\
 	auto __lock = (char *) inode + SL->getElementOffset(0);		\
 	__lock;								\
 })
@@ -3057,7 +3057,7 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 	auto ordDataRange = std::make_pair((void *) nullptr, (void *) nullptr);
 
 	/* In data=ordered mode, metadata are journaled after data are written */
-	if (MI.fsInfo.journalData == JournalDataFS::ordered) {
+	if (MI->fsInfo.journalData == JournalDataFS::ordered) {
 		auto *inodeData = (char *) GET_INODE_DATA_ADDR(inode);
 		ordDataRange.first = inodeData + ordDataBegin.IntVal.getLimitedValue();
 		ordDataRange.second = inodeData + ordDataEnd.IntVal.getLimitedValue();
@@ -3068,7 +3068,7 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, const Generic
 			      InstAttr::IA_DskMdata, ordDataRange);
 
 	/* If there is no delayed allocation, we actually _wait_ for the write */
-	if (MI.fsInfo.journalData == JournalDataFS::ordered && !MI.fsInfo.delalloc)
+	if (MI->fsInfo.journalData == JournalDataFS::ordered && !MI->fsInfo.delalloc)
 		executeFsyncFS(inode, intTyp);
 	return;
 }
@@ -3110,7 +3110,7 @@ void Interpreter::updateDirNameInode(const char *name, Type *intTyp, const Gener
 	executeFsyncFS(dirInode, intTyp); //   \/ relies on inode layout
 	driver->visitDskWrite(inodeAddr, intTyp->getPointerTo(), inode,
 			      GET_DATA_MAPPING(dirInode), InstAttr::IA_DskDirOp);
-	if (MI.fsInfo.journalData == JournalDataFS::journal)
+	if (MI->fsInfo.journalData == JournalDataFS::journal)
 		executeFsyncFS(dirInode, intTyp);
 	return;
 }
@@ -3148,7 +3148,7 @@ GenericValue Interpreter::executeInodeLookupFS(const char *filename, Type *intTy
 GenericValue Interpreter::executeInodeCreateFS(const char *filename, Type *intTyp)
 {
 	/* Allocate enough space for the inode... */
-	unsigned int inodeSize = getTypeSize(MI.fsInfo.inodeTyp);
+	unsigned int inodeSize = getTypeSize(MI->fsInfo.inodeTyp);
 	auto *info = getVarNameInfo(nullptr, Storage::ST_Heap, AddressSpace::AS_Internal, "inode");
 	auto inode = driver->visitMalloc(inodeSize, alignof(std::max_align_t),
 					 Storage::ST_Heap, AddressSpace::AS_Internal, info,
@@ -3226,7 +3226,7 @@ GenericValue Interpreter::executeOpenFS(const char *filename, const GenericValue
 	sname << (char *) filename << "_" << thr.id << "_" << thr.globalInstructions;
 
 	/* We allocate space for the file description... */
-	auto fileSize = getTypeSize(MI.fsInfo.fileTyp);
+	auto fileSize = getTypeSize(MI->fsInfo.fileTyp);
 	auto *info = getVarNameInfo(nullptr, Storage::ST_Heap, AddressSpace::AS_Internal, "file");
 	auto *file = driver->visitMalloc(fileSize, alignof(std::max_align_t), Storage::ST_Heap,
 					 AddressSpace::AS_Internal, info, sname.str()).PointerVal;
@@ -3279,7 +3279,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	/* Check if we are actually extending the file */
 	auto oldIsize = readInodeSizeFS(inode.PointerVal, intTyp);
 	if (length.IntVal.sgt(oldIsize.IntVal)) {
-		if (length.IntVal.sge(INT_TO_GV(intTyp, MI.fsInfo.maxFileSize).IntVal)) {
+		if (length.IntVal.sge(INT_TO_GV(intTyp, MI->fsInfo.maxFileSize).IntVal)) {
 			handleSystemError(SystemError::SE_EFBIG, "Length too big in truncate()");
 			ret = INT_TO_GV(intTyp, -1);
 			goto out;
@@ -3293,7 +3293,7 @@ GenericValue Interpreter::executeTruncateFS(const GenericValue &inode,
 	updateInodeDisksizeFS(inode.PointerVal, intTyp, length, ordRangeBegin, ordRangeEnd);
 	updateInodeSizeFS(inode.PointerVal, intTyp, length);
 
-	if (MI.fsInfo.journalData >= JournalDataFS::ordered)
+	if (MI->fsInfo.journalData >= JournalDataFS::ordered)
 		executeFsyncFS(inode.PointerVal, intTyp);
 
 out:
@@ -3646,8 +3646,8 @@ bool Interpreter::shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const G
 	auto count = countVal.IntVal.getLimitedValue();
 
 	/* We should update if we are appending in the same (pre-allocated) block  */
-	auto bi = size % MI.fsInfo.blockSize;
-	auto rb = MI.fsInfo.blockSize - bi;
+	auto bi = size % MI->fsInfo.blockSize;
+	auto rb = MI->fsInfo.blockSize - bi;
 	auto be = size + rb;
 	bool shouldUpdate = ((offset <= size && size < offset + count) ||
 			     (offset < be   && be <= offset + count)  ||
@@ -3697,7 +3697,7 @@ GenericValue Interpreter::executeReadFS(void *file, Type *intTyp, GenericValue *
 	readDataFromDisk(inode, offset.IntVal.getLimitedValue(), buf, 0,
 			 nr.IntVal.getLimitedValue(), bufElemTyp);
 
-	if (MI.fsInfo.journalData == JournalDataFS::journal) {
+	if (MI->fsInfo.journalData == JournalDataFS::journal) {
 		auto inTrans = getInodeTransStatus(inode, intTyp);
 		if (compareValues(intTyp, INT_TO_GV(intTyp, 1), inTrans)) {
 			thr.rollToSnapshot();
@@ -3791,12 +3791,12 @@ GenericValue Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, const 
 		wOffset = readInodeSizeFS(inode, intTyp);
 
 	/* Check if the maximum file size is going to be exceeded */
-	if (wOffset.IntVal.sge(INT_TO_GV(intTyp, MI.fsInfo.maxFileSize).IntVal)) {
+	if (wOffset.IntVal.sge(INT_TO_GV(intTyp, MI->fsInfo.maxFileSize).IntVal)) {
 		handleSystemError(SystemError::SE_EFBIG, "Offset too big in write()");
 		return INT_TO_GV(intTyp, -1);
 	}
 	return INT_TO_GV(intTyp, std::min(count.IntVal.getLimitedValue(),
-					  MI.fsInfo.maxFileSize - wOffset.IntVal.getLimitedValue()));
+					  MI->fsInfo.maxFileSize - wOffset.IntVal.getLimitedValue()));
 }
 
 GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
@@ -3808,7 +3808,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	/* Special care for appends and past-EOF writes (we zero ranges lazily) */
 	GenericValue dSize, ordRangeBegin;
 	auto iSize = readInodeSizeFS(inode, intTyp);
-	if (MI.fsInfo.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, count, dSize)) {
+	if (MI->fsInfo.delalloc && shouldUpdateInodeDisksizeFS(inode, intTyp, iSize, wOffset, count, dSize)) {
 		zeroDskRangeFS(inode, iSize, dSize, bufElemTyp);
 		updateInodeDisksizeFS(inode, intTyp, dSize, iSize, dSize);
 	}
@@ -3822,13 +3822,13 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 	auto inodeOffset = wOffset.IntVal.getLimitedValue();
 	do {
 		/* Calculate amount to write and align write */
-		auto bytes = std::min<unsigned long>(MI.fsInfo.blockSize, dataCount); /* should be small enough */
-		auto blockIndex = inodeOffset % MI.fsInfo.blockSize;
-		auto blockRem = MI.fsInfo.blockSize - blockIndex;
+		auto bytes = std::min<unsigned long>(MI->fsInfo.blockSize, dataCount); /* should be small enough */
+		auto blockIndex = inodeOffset % MI->fsInfo.blockSize;
+		auto blockRem = MI->fsInfo.blockSize - blockIndex;
 		if (blockIndex != 0 && bytes > blockRem)
 			bytes = blockRem;
 
-		if (MI.fsInfo.journalData == JournalDataFS::journal)
+		if (MI->fsInfo.journalData == JournalDataFS::journal)
 			setInodeTransStatus(inode, intTyp, INT_TO_GV(intTyp, 1));
 
 		/* Write data */
@@ -3843,7 +3843,7 @@ GenericValue Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, Gene
 			ordRangeBegin = newSize;
 		}
 
-		if (MI.fsInfo.journalData == JournalDataFS::journal) {
+		if (MI->fsInfo.journalData == JournalDataFS::journal) {
 			setInodeTransStatus(inode, intTyp, INT_TO_GV(intTyp, 0));
 			executeFsyncFS(inode, intTyp);
 		}
@@ -3970,7 +3970,7 @@ void Interpreter::executeFsyncFS(void *inode, Type *intTyp)
 	/* No need to clear reserved blocks */
 
 	/* do the fsync() */
-	driver->visitDskFsync(inode, getTypeSize(MI.fsInfo.inodeTyp));
+	driver->visitDskFsync(inode, getTypeSize(MI->fsInfo.inodeTyp));
 	return;
 }
 

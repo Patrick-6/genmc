@@ -40,16 +40,11 @@
  ** GENERIC MODEL CHECKING DRIVER
  ***********************************************************/
 
-GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+			 std::unique_ptr<ModuleInfo> MI)
 	: userConf(conf), isMootExecution(false), result()
 {
-	ModuleInfo MI;
 	std::string buf;
-
-	/* Prepare the module for verification */
-	LLVMModule::transformLLVMModule(*mod, MI, conf);
-	if (conf->transformFile != "")
-		LLVMModule::printLLVMModule(*mod, conf->transformFile);
 
 	/* Create an interpreter for the program's instructions */
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
@@ -454,10 +449,17 @@ void GenMCDriver::run()
 
 void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
+	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>();
+
+	/* Prepare the module for verification */
+	LLVMModule::transformLLVMModule(*mod, *MI, conf);
+	if (conf->transformFile != "")
+		LLVMModule::printLLVMModule(*mod, conf->transformFile);
+
 	std::vector<std::future<GenMCDriver::Result>> futures;
 	{
 		/* Then, fire up drivers */
-		ThreadPool tp(conf, mod);
+		ThreadPool tp(conf, mod, MI);
 
 		// std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
 

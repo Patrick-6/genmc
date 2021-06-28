@@ -183,12 +183,10 @@ int main(int argc, char **argv)
 	if (!Clang.ExecuteAction(*Act))
 		return ECOMPILE;
 
-	GenMCDriver::verify(std::move(conf), Act->takeModule());
+	GenMCDriver::verify(std::move(conf), std::move(Act->takeModule()));
 
 // 	driver->run();
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
-
-	llvm::dbgs() << "--- VERIFICATION DONE\n";
 
 	// WE CANNOT USE CLOCK TO MEASURE TIME
 	// llvm::dbgs() << "Total wall-clock time: "

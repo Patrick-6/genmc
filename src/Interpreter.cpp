@@ -61,8 +61,8 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, ModuleInfo &&MI, GenMCDriver *driver,
-				     const Config *userConf, std::string* ErrStr) {
+ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
+				     GenMCDriver *driver, const Config *userConf, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
 #ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
   if (std::error_code EC = M->materializeAllPermanently()) {
@@ -187,15 +187,15 @@ int my_find_first_unset(const llvm::BitVector &bv)
 int Interpreter::getFreshFd()
 {
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(MI.fsInfo.fds);
+	int fd = my_find_first_unset(MI->fsInfo.fds);
 #else
-	int fd = MI.fsInfo.fds.find_first_unset();
+	int fd = MI->fsInfo.fds.find_first_unset();
 #endif
 
 	/* If no available descriptor found, grow fds and try again */
 	if (fd == -1) {
-		MI.fsInfo.fds.resize(2 * MI.fsInfo.fds.size() + 1);
-		MI.fsInfo.fdToFile.grow(MI.fsInfo.fds.size());
+		MI->fsInfo.fds.resize(2 * MI->fsInfo.fds.size() + 1);
+		MI->fsInfo.fdToFile.grow(MI->fsInfo.fds.size());
 		return getFreshFd();
 	}
 
@@ -206,12 +206,12 @@ int Interpreter::getFreshFd()
 
 void Interpreter::markFdAsUsed(int fd)
 {
-	MI.fsInfo.fds.set(fd);
+	MI->fsInfo.fds.set(fd);
 }
 
 void Interpreter::reclaimUnusedFd(int fd)
 {
-	MI.fsInfo.fds.reset(fd);
+	MI->fsInfo.fds.reset(fd);
 }
 
 #ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
@@ -245,7 +245,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 		staticAllocMap.insert(addr, std::max(addr + typeSize - 1, addr + 1), addr);
 		staticValueMap[addr] = ptr;
 		staticNames[addr] = &v;
-		if (!v.hasPrivateLinkage() && !MI.varInfo.globalInfo.count(&v)) {
+		if (!v.hasPrivateLinkage() && !MI->varInfo.globalInfo.count(&v)) {
 			WARN_ONCE("name-info", ("Inadequate naming info for variable " + v.getName() +
 						".\nPlease submit a bug report to " PACKAGE_BUGREPORT "\n"));
 		}
@@ -267,7 +267,7 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
-	auto &FI = MI.fsInfo;
+	auto &FI = MI->fsInfo;
 
 	/* Setup config options first */
 	FI.fds = llvm::BitVector(20);
@@ -471,7 +471,7 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
-Interpreter::Interpreter(std::unique_ptr<Module> M, ModuleInfo &&MI,
+Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 			 GenMCDriver *driver, const Config *userConf)
 	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver), staticAllocMap(samAlloc) {
 

@@ -24,6 +24,8 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <thread>
+
 /*** Command-line argument categories ***/
 
 static llvm::cl::OptionCategory clGeneral("Exploration Options");
@@ -274,6 +276,11 @@ void Config::checkConfigOptions() const
 	/* Check exploration options */
 	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
 		WARN("LAPOR usage with -mo is experimental.\n");
+	}
+	auto hwThreads = std::thread::hardware_concurrency();
+	if (clThreads > hwThreads) {
+		WARN("Limiting threads to " + std::to_string(hwThreads) + "\n");
+		clThreads = hwThreads;
 	}
 
 	/* Check debugging options */

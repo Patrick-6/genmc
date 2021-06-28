@@ -24,6 +24,7 @@
 #include "config.h"
 #include "Error.hpp"
 #include "DriverFactory.hpp"
+#include "ModuleInfo.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -128,14 +129,10 @@ public:
 	/*** Constructors ***/
 
 	ThreadPool(const std::shared_ptr<const Config> conf,
-		   const std::unique_ptr<llvm::Module> &mod)
-		: joiner(workers) { // FIXME: both lists are wrong; see below
+		   const std::unique_ptr<llvm::Module> &mod,
+		   const std::unique_ptr<ModuleInfo> &MI)
+		: numWorkers(conf->threads), joiner(workers) {
 		numWorkers = conf->threads;
-		auto hwThreads = std::thread::hardware_concurrency();
-		if (numWorkers > hwThreads) {
-			WARN("Limiting threads to " + hwThreads);
-			numWorkers = hwThreads;
-		}
 
 		/* Set global variables before spawning the threads */
 		shouldHalt.store(false, std::memory_order_relaxed);
@@ -143,7 +140,10 @@ public:
 		remainingTasks.store(0, std::memory_order_release);
 
 		for (auto i = 0u; i < numWorkers; i++) {
-			auto dw = DriverFactory::create(this, conf, std::move(llvm::CloneModule(*mod)));
+			llvm::ValueToValueMapTy VMap;
+			auto newmod = llvm::CloneModule(*mod, VMap);
+			auto newMI = MI->clone(VMap);
+			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));
 			if (i == 0)
 				submit(std::move(dw->releaseCurrentState()));
 			addWorker(i, std::move(dw));
@@ -185,10 +185,7 @@ public:
 
 	/*** Destructor ***/
 
-	~ThreadPool() {
-		llvm::dbgs() << "halting\n";
-		halt();
-	}
+	~ThreadPool() { halt(); }
 
 private:
 	/* Adds a worker thread to the pool */

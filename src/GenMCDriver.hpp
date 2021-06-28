@@ -39,6 +39,7 @@ namespace llvm {
 	class Interpreter;
 	class InterpState;
 }
+class ModuleInfo;
 class ExecutionGraph;
 class ThreadPool;
 
@@ -296,7 +297,8 @@ public:
 
 protected:
 
-	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		    std::unique_ptr<ModuleInfo> MI);
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;

@@ -29,11 +29,12 @@
 class DriverFactory {
  public:
 	static std::unique_ptr<GenMCDriver>
-	create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+	create(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+	       std::unique_ptr<ModuleInfo> MI);
 
 	static std::unique_ptr<GenMCDriver>
 	create(ThreadPool *pool, std::shared_ptr<const Config> conf,
-	       std::unique_ptr<llvm::Module> mod);
+	       std::unique_ptr<llvm::Module> mod, std::unique_ptr<ModuleInfo> MI);
 };
 
 #endif /* __DRIVER_FACTORY_HPP__ */
