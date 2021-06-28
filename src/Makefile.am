@@ -25,7 +25,7 @@ libgenmc_a_SOURCES = \
   DepTracker.hpp \
   DepView.cpp DepView.hpp \
   DriverGraphEnumAPI.hpp \
-  DriverFactory.cpp DriverFactory.hpp \
+  DriverFactory.hpp \
   Error.cpp Error.hpp \
   Event.cpp Event.hpp \
   EventLabel.cpp EventLabel.hpp \
