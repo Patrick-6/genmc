@@ -158,8 +158,8 @@ Thread Interpreter::createMainThread(llvm::Function *F)
 }
 
 /* Creates an entry for another thread */
-Thread Interpreter::createNewThread(llvm::Function *F, const llvm::GenericValue &arg,
-				    int tid, int pid, const llvm::ExecutionContext &SF)
+Thread Interpreter::createNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+				    const llvm::ExecutionContext &SF)
 {
 	Thread thr(F, arg, tid, pid, SF);
 	thr.ECStack.push_back(SF);

@@ -171,53 +171,53 @@ public:
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
-	llvm::GenericValue
+	SVal
 	visitLoad(InstAttr attr,
 		  llvm::AtomicOrdering ord,
 		  SAddr addr,
-		  llvm::Type *typ,
-		  llvm::GenericValue cmpVal = llvm::GenericValue(),
-		  llvm::GenericValue rmwVal = llvm::GenericValue(),
+		  SSize size,
+		  SVal cmpVal = SVal(),
+		  SVal rmwVal = SVal(),
 		  llvm::AtomicRMWInst::BinOp op =
 		  llvm::AtomicRMWInst::BinOp::BAD_BINOP);
 
 	/* Returns the value this load reads, as well as whether
 	 * the interpreter should block due to a blocking library read */
-	std::pair<llvm::GenericValue, bool>
+	std::pair<SVal, bool>
 	visitLibLoad(InstAttr attr,
 		     llvm::AtomicOrdering ord,
 		     SAddr addr,
-		     llvm::Type *typ,
+		     SSize size,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
-	llvm::GenericValue
-	visitDskRead(SAddr readAddr, llvm::Type *typ);
+	SVal
+	visitDskRead(SAddr readAddr, SSize size);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(InstAttr attr,
 		   llvm::AtomicOrdering ord,
 		   SAddr addr,
-		   llvm::Type *typ,
-		   const llvm::GenericValue &val);
+		   SSize size,
+		   SVal val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
 	void
 	visitLibStore(InstAttr attr,
 		      llvm::AtomicOrdering ord,
 		      SAddr addr,
-		      llvm::Type *typ,
-		      llvm::GenericValue &val,
+		      SSize size,
+		      SVal val,
 		      std::string functionName,
 		      bool isInit = false);
 
 	/* A function modeling a write to disk has been interpreted */
 	void
 	visitDskWrite(SAddr addr,
-		      llvm::Type *typ,
-		      const llvm::GenericValue &val,
+		      SSize size,
+		      SVal val,
 		      void *mapping,
 		      InstAttr attr = InstAttr::IA_None,
 		      std::pair<void *, void *> ordDataRange =
@@ -225,15 +225,15 @@ public:
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(SAddr addr, llvm::Type *typ);
+	void visitLock(SAddr addr, SSize size);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(SAddr addr, llvm::Type *typ);
+	void visitUnlock(SAddr addr, SSize size);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
-	llvm::GenericValue
-	visitDskOpen(const char *fileName, llvm::Type *intTyp);
+	SVal
+	visitDskOpen(const char *fileName, SSize intSize);
 
 	/* An fsync() operation has been interpreted */
 	void
@@ -260,23 +260,23 @@ public:
 	visitPotentialSpinEnd();
 
 	/* Returns an appropriate result for pthread_self() */
-	llvm::GenericValue
-	visitThreadSelf(llvm::Type *typ);
+	SVal
+	visitThreadSelf();
 
 	/* Returns the TID of the newly created thread */
 	int
-	visitThreadCreate(llvm::Function *F, const llvm::GenericValue &arg, const llvm::ExecutionContext &SF);
+	visitThreadCreate(llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
-	llvm::GenericValue
-	visitThreadJoin(llvm::Function *F, const llvm::GenericValue &arg);
+	SVal
+	visitThreadJoin(llvm::Function *F, SVal arg);
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void
 	visitThreadFinish();
 
 	/* Returns an appropriate result for malloc() */
-	llvm::GenericValue
+	SVal
 	visitMalloc(uint64_t allocSize, unsigned int alignment, Storage s, AddressSpace spc,
 		    NameInfo *nameInfo = nullptr, const std::string &name = {});
 
@@ -315,18 +315,18 @@ protected:
 	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
-	llvm::GenericValue getWriteValue(Event w, SAddr a, const llvm::Type *t);
-	llvm::GenericValue getDskWriteValue(Event w, SAddr a, const llvm::Type *t);
+	SVal getWriteValue(Event w, SAddr a, SSize s);
+	SVal getDskWriteValue(Event w, SAddr a, SSize s);
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place
 	 * (e.g., bottom) also blocks the currently running thread. */
-	llvm::GenericValue getReadRetValueAndMaybeBlock(Event r, SAddr addr, const llvm::Type *t);
-	llvm::GenericValue getRecReadRetValue(SAddr addr, const llvm::Type *typ);
+	SVal getReadRetValueAndMaybeBlock(Event r, SAddr addr, SSize s);
+	SVal getRecReadRetValue(SAddr addr, SSize s);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	llvm::GenericValue getBarrierInitValue(SAddr ptr, const llvm::Type *typ);
+	SVal getBarrierInitValue(SAddr ptr, SSize s);
 
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
@@ -506,9 +506,9 @@ private:
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
 	std::vector<Event> properlyOrderStores(InstAttr attr,
-					       llvm::Type *typ,
+					       SSize size,
 					       SAddr ptr,
-					       llvm::GenericValue &expVal,
+					       SVal expVal,
 					       std::vector<Event> &stores);
 
 	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
@@ -516,10 +516,10 @@ private:
 	createAddReadLabel(InstAttr attr,
 			   llvm::AtomicOrdering ord,
 			   SAddr addr,
-			   llvm::Type *typ,
+			   SSize size,
 			   std::unique_ptr<SExpr> annot,
-			   const llvm::GenericValue &cmpVal,
-			   const llvm::GenericValue &rmwVal,
+			   SVal cmpVal,
+			   SVal rmwVal,
 			   llvm::AtomicRMWInst::BinOp op,
 			   Event store);
 
@@ -532,8 +532,9 @@ private:
 	createAddStoreLabel(InstAttr attr,
 			    llvm::AtomicOrdering ord,
 			    SAddr addr,
-			    llvm::Type *typ,
-			    const llvm::GenericValue &val, int moPos);
+			    SSize size,
+			    SVal val,
+			    int moPos);
 
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores
@@ -585,21 +586,21 @@ private:
 
 	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
 	bool isSymmetricToSR(int candidate, int thread, Event parent,
-			     llvm::Function *threadFun, const llvm::GenericValue &threadArg) const;
+			     llvm::Function *threadFun, SVal threadArg) const;
 
 	/* SR: Returns the (greatest) ID of a thread that is symmetric to THREAD */
 	int getSymmetricTidSR(int thread, Event parent, llvm::Function *threadFun,
-			      const llvm::GenericValue &threadArg) const;
+			      SVal threadArg) const;
 
 	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
 	bool sharePrefixSR(int tid, Event pos) const;
 
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(SAddr addr, llvm::Type *typ,
+	void filterSymmetricStoresSR(SAddr addr, SSize size,
 				     std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterValuesFromAnnotSAVER(SAddr addr, llvm::Type *typ,
+	bool filterValuesFromAnnotSAVER(SAddr addr, SSize size,
 					const SExpr *annot, std::vector<Event> &stores);
 
 

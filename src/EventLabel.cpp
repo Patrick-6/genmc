@@ -238,26 +238,26 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	}
 	case EventLabel::EL_Write: {
 		auto &wLab = static_cast<const WriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " " << wLab.getVal().IntVal;
+		s << wLab.getKind() << wLab.getOrdering() << " " << wLab.getVal();
 		break;
 	}
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite: {
 		auto &wLab = static_cast<const FaiWriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " "
-		  << wLab.getVal().IntVal;
+		  << wLab.getVal();
 		break;
 	}
 	case EventLabel::EL_CasWrite: {
 		auto &wLab = static_cast<const CasWriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " "
-		  << wLab.getVal().IntVal << "";
+		  << wLab.getVal() << "";
 		break;
 	}
 	case EventLabel::EL_LibWrite: {
 		auto &wLab = static_cast<const LibWriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " ("
-		  << wLab.getFunctionName() << ") " << wLab.getVal().IntVal;
+		  << wLab.getFunctionName() << ") " << wLab.getVal();
 		break;
 	}
 	case EventLabel::EL_Fence: {
@@ -319,7 +319,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		auto &bLab = static_cast<const DskOpenLabel&>(lab);
 		s << bLab.getKind() << " (";
 		s << bLab.getFileName() << ", ";
-		s << bLab.getFd().IntVal.getLimitedValue() << ")";
+		s << bLab.getFd() << ")";
 		break;
 	}
 	case EventLabel::EL_DskRead: {
@@ -331,7 +331,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	}
 	case EventLabel::EL_DskWrite: {
 		auto &wLab = static_cast<const DskWriteLabel&>(lab);
-		s << wLab.getKind() << " " << wLab.getVal().IntVal;
+		s << wLab.getKind() << " " << wLab.getVal();
 		break;
 	}
 	case EventLabel::EL_DskPbarrier: {

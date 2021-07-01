@@ -20,6 +20,12 @@
 
 #include "Memory.hpp"
 
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SVal &v)
+{
+	s << v.get();
+	return s;
+}
+
 llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SAddr &addr)
 {
 	auto internal = addr.isInternal() ? "I" : "U";

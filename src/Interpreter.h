@@ -191,7 +191,7 @@ public:
 	int id;
 	int parentId;
 	llvm::Function *threadFun;
-	llvm::GenericValue threadArg;
+	SVal threadArg;
 	std::vector<llvm::ExecutionContext> ECStack;
 	llvm::ExecutionContext initSF;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
@@ -222,8 +222,7 @@ protected:
 		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
 		  blocked(BT_NotBlocked), rng(seed) {}
 
-	Thread(llvm::Function *F, const llvm::GenericValue &arg,
-	       int id, int pid, const llvm::ExecutionContext &SF)
+	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), threadArg(arg),
 		  initSF(SF), globalInstructions(0), blocked(BT_NotBlocked), rng(seed) {}
 };
@@ -351,8 +350,8 @@ public:
   Thread createMainThread(llvm::Function *F);
 
   /* Creates a new thread, but does _not_ add it to the thread list */
-  Thread createNewThread(llvm::Function *F, const llvm::GenericValue &arg,
-			 int tid, int pid, const llvm::ExecutionContext &SF);
+  Thread createNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+			 const llvm::ExecutionContext &SF);
 
   /* Pers: Creates a thread for the recovery routine.
    * It does _not_ add it to the thread list */
@@ -481,11 +480,10 @@ public:
 
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
-  bool compareValues(const llvm::Type *typ, const GenericValue &val1, const GenericValue &val2);
-  GenericValue getLocInitVal(SAddr addr, Type *typ);
+  bool compareValues(SSize size, SVal val1, SVal val2);
+  SVal getLocInitVal(SAddr addr, SSize size);
   unsigned int getTypeSize(Type *typ) const;
-  void executeAtomicRMWOperation(GenericValue &result, const GenericValue &oldVal,
-				 const GenericValue &val, AtomicRMWInst::BinOp op);
+  SVal executeAtomicRMWOperation(SVal val1, SVal val2, AtomicRMWInst::BinOp op);
 
 
   // Methods used to execute code:
@@ -618,56 +616,45 @@ private:  // Helper functions
 
   void handleSystemError(SystemError code, const std::string &msg);
 
-  GenericValue getInodeTransStatus(void *inode, Type *intTyp);
-  void setInodeTransStatus(void *inode, Type *intTyp, const GenericValue &status);
-  GenericValue readInodeSizeFS(void *inode, Type *intTyp);
-  void updateInodeSizeFS(void *inode, Type *intTyp, const GenericValue &newSize);
-  void updateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &newSize,
-			     const GenericValue &ordDataBegin, const GenericValue &ordDataEnd);
+  SVal getInodeTransStatus(void *inode, Type *intTyp);
+  void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
+  SVal readInodeSizeFS(void *inode, Type *intTyp);
+  void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize);
+  void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize,
+			     SVal ordDataBegin, SVal ordDataEnd);
   void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
 		       int count, Type *dataTyp);
   void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
 			int count, Type *dataTyp);
-  void updateDirNameInode(const char *name, Type *intTyp, const GenericValue &inode);
+  void updateDirNameInode(const char *name, Type *intTyp, SVal inode);
 
-  GenericValue checkOpenFlagsFS(GenericValue &flags, Type *intTyp);
-  GenericValue executeInodeLookupFS(const char *name, Type *intTyp);
-  GenericValue executeInodeCreateFS(const char *name, Type *intTyp);
-  GenericValue executeLookupOpenFS(const char *file, GenericValue &flags, Type *intTyp);
-  GenericValue executeOpenFS(const char *file, const GenericValue &flags,
-			     const GenericValue &inode, Type *intTyp);
+  SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
+  SVal executeInodeLookupFS(const char *name, Type *intTyp);
+  SVal executeInodeCreateFS(const char *name, Type *intTyp);
+  SVal executeLookupOpenFS(const char *file, SVal &flags, Type *intTyp);
+  SVal executeOpenFS(const char *file, SVal flags, SVal inode, Type *intTyp);
 
   void executeReleaseFileFS(void *fileDesc, Type *intTyp);
-  GenericValue executeCloseFS(const GenericValue &fd, Type *intTyp);
-  GenericValue executeRenameFS(const char *oldpath, const GenericValue &oldInode,
-			       const char *newpath, const GenericValue &newInode,
-			       Type *intTyp);
-  GenericValue executeLinkFS(const char *newpath, const GenericValue &oldInode, Type *intTyp);
-  GenericValue executeUnlinkFS(const char *pathname, Type *intTyp);
+  SVal executeCloseFS(SVal fd, Type *intTyp);
+  SVal executeRenameFS(const char *oldpath, SVal oldInode, const char *newpath,
+		       SVal newInode, Type *intTyp);
+  SVal executeLinkFS(const char *newpath, SVal oldInode, Type *intTyp);
+  SVal executeUnlinkFS(const char *pathname, Type *intTyp);
 
 
-  GenericValue executeTruncateFS(const GenericValue &inode, const GenericValue &length,
-				  Type *intTyp);
-  GenericValue executeReadFS(void *file, Type *intTyp, GenericValue *buf,
-			      Type *bufElemTyp, const GenericValue &offset,
-			      const GenericValue &count);
-  void zeroDskRangeFS(void *inode, const GenericValue &start,
-		      const GenericValue &end, Type *writeIntTyp);
-  GenericValue executeWriteChecksFS(void *inode, Type *intTyp, const GenericValue &flags,
-				    const GenericValue &offset, const GenericValue &count,
-				    GenericValue &wOffset);
-  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, const GenericValue &size,
-				   const GenericValue &offset, const GenericValue &count,
-				   GenericValue &dSize);
-  GenericValue executeBufferedWriteFS(void *inode, Type *intTyp, GenericValue *buf,
-				      Type *bufElemTyp, const GenericValue &wOffset,
-				      const GenericValue &count);
-  GenericValue executeWriteFS(void *file, Type *intTyp, GenericValue *buf,
-			       Type *bufElemTyp, const GenericValue &offset,
-			       const GenericValue &count);
-  GenericValue executeLseekFS(void *file, Type *intTyp,
-			    const GenericValue &offset,
-			    const GenericValue &whence);
+  SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp);
+  SVal executeReadFS(void *file, Type *intTyp, void *buf,
+		     Type *bufElemTyp, SVal offset, SVal count);
+  void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
+  SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags,
+			    SVal offset, SVal count, SVal &wOffset);
+  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size,
+				   SVal offset, SVal count, SVal &dSize);
+  SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf,
+			      Type *bufElemTyp, SVal wOffset, SVal count);
+  SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp,
+		      SVal offset, SVal count);
+  SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence);
   void executeFsyncFS(void *inode, Type *intTyp);
 
 

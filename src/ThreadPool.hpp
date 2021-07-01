@@ -26,6 +26,8 @@
 #include "DriverFactory.hpp"
 #include "ModuleInfo.hpp"
 #include <llvm/IR/Module.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #include <atomic>
@@ -114,6 +116,9 @@ private:
  **                            ThreadPool Class
  ******************************************************************************/
 
+std::unique_ptr<llvm::Module> cloneModule(const std::unique_ptr<llvm::Module> &mod,
+					  const std::unique_ptr<llvm::LLVMContext> &ctx);
+
 /*
  * A class responsible for creating and managing a pool of threads, with tasks
  * submitted dynamically to the threads for execution. Each thread will have
@@ -140,9 +145,12 @@ public:
 		remainingTasks.store(0, std::memory_order_release);
 
 		for (auto i = 0u; i < numWorkers; i++) {
+			contexts.push_back(LLVM_MAKE_UNIQUE<llvm::LLVMContext>());
 			llvm::ValueToValueMapTy VMap;
-			auto newmod = llvm::CloneModule(*mod, VMap);
-			auto newMI = MI->clone(VMap);
+			auto newmod = cloneModule(mod, contexts.back());
+			// auto newMI = MI->clone(VMap);
+			auto newMI = LLVM_MAKE_UNIQUE<ModuleInfo>();
+
 			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));
 			if (i == 0)
 				submit(std::move(dw->releaseCurrentState()));
@@ -202,6 +210,8 @@ private:
 
 	/* Pops the next task to be executed by a thread */
 	std::unique_ptr<TaskT> popTask();
+
+	std::vector<std::unique_ptr<llvm::LLVMContext>> contexts;
 
 	/* Result of each thread */
 	std::vector<std::future<GenMCDriver::Result>> results;

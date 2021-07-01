@@ -28,13 +28,13 @@
 
 /*
  * This file contains information regarding the symbolic
- * representation of memory in GenMC. Currently only models the
- * address domain, as we use LLVM builtins for values.
+ * representation of memory in GenMC (addresses, values, types).
  */
 
 namespace llvm {
 	class Interpreter;
 };
+
 
 /*******************************************************************************
  **                             SAddr Class
@@ -146,6 +146,165 @@ public:
 private:
 	/* The actual address */
 	Width addr;
+};
+
+
+/*******************************************************************************
+ **                             SVal Class
+ ******************************************************************************/
+
+/*
+ * Represents a value to be written to memory. All values are represented as
+ * integers, and the interpreter has to convert these values to values of
+ * the appropriate type.
+ */
+class SVal {
+
+protected:
+	/* We represent Values using a type that is big-enough
+	 * to accommodate for all the types we are interested in */
+	using Value = uint64_t;
+	static_assert(sizeof(SVal::Value) >= sizeof(SAddr::Width));
+	static_assert(sizeof(SVal::Value) >= sizeof(uintptr_t));
+
+public:
+	/* Constructors/destructors */
+	SVal() : value(0) {}
+	SVal(uint64_t v) : value(v) {}
+	// explicit SVal(void *v) : value((Value) ((uintptr_t) v)) {}
+
+	/* Returns a (limited) representation of this Value */
+	uint64_t get() const { return value; }
+
+	/* Returns a (limited) signed representation of this Value */
+	int64_t getSigned() const {
+		int64_t tmp;
+		std::memcpy(&tmp, &value, sizeof(tmp));
+		return tmp;
+	}
+
+
+	inline bool operator==(const SVal &v) const {
+		return v.value == value;
+	}
+	inline bool operator!=(const SVal &v) const {
+		return !(*this == v);
+	}
+	inline bool operator<=(const SVal &v) const {
+		return value <= v.value;
+	}
+	inline bool operator<(const SVal &v) const {
+		return value < v.value;
+	}
+	inline bool operator>=(const SVal &v) const {
+		return !(*this < v);
+	}
+	inline bool operator>(const SVal &v) const {
+		return !(*this <= v);
+	}
+	SVal operator+(const SVal &v) const {
+		SVal n(*this);
+		n.value += v.value;
+		return n;
+	}
+	SVal &operator+=(const SVal &v) {
+		value += v.value;
+		return *this;
+	}
+	SVal operator-(const SVal &v) const {
+		SVal n(*this);
+		n.value -= v.value;
+		return n;
+	}
+	SVal &operator-=(const SVal &v) {
+		value -= v.value;
+		return *this;
+	}
+	SVal operator&(const SVal &v) const {
+		SVal n(*this);
+		n.value &= v.value;
+		return n;
+	};
+	SVal &operator&=(const SVal &v) {
+		value &= v.value;
+		return *this;
+	}
+	SVal operator|(const SVal &v) const {
+		SVal n(*this);
+		n.value |= v.value;
+		return n;
+	}
+	SVal &operator|=(const SVal &v) {
+		value |= v.value;
+		return *this;
+	}
+	SVal operator^(const SVal &v) const {
+		SVal n(*this);
+		n.value ^= v.value;
+		return n;
+	}
+	SVal &operator^=(const SVal &v) {
+		value ^= v.value;
+		return *this;
+	}
+	uint64_t operator()() const { return value; }
+
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+					     const SVal &v);
+
+private:
+	/* The actual value */
+	Value value;
+};
+
+
+/*******************************************************************************
+ **                             SSize Class
+ ******************************************************************************/
+
+/*
+ * Represents the size of an atomic memory access.
+ */
+class SSize {
+
+protected:
+	/* We could be a bit more frugal with this, but it should be fine */
+	using Size = uint64_t;
+
+public:
+	/* Constructors/destructors */
+	SSize() = delete;
+	SSize(uint64_t s) : size(s) {}
+
+	/* Returns the number of bits this Size occupies */
+	uint64_t get() const { return size; }
+
+	inline bool operator==(const SSize &s) const {
+		return s.size == size;
+	}
+	inline bool operator!=(const SSize &s) const {
+		return !(*this == s);
+	}
+	inline bool operator<=(const SSize &s) const {
+		return size <= s.size;
+	}
+	inline bool operator<(const SSize &s) const {
+		return size < s.size;
+	}
+	inline bool operator>=(const SSize &s) const {
+		return !(*this < s);
+	}
+	inline bool operator>(const SSize &s) const {
+		return !(*this <= s);
+	}
+	uint64_t operator()() const { return size; }
+
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+					     const SSize &s);
+
+private:
+	/* The actual size */
+	Size size;
 };
 
 
