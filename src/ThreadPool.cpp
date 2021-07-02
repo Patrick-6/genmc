@@ -49,7 +49,7 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 				     break;
 
 			     /* Prepare the driver and start the exploration */
-			     driver->setState(std::move(state));
+			     driver->setSharedState(std::move(state));
 			     // llvm::dbgs() << "WORKER " << i << " picked up a task\n";
 			     activeThreads.fetch_add(1, std::memory_order_relaxed);
 			     driver->run();

@@ -86,26 +86,45 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 GenMCDriver::~GenMCDriver() = default;
 
-GenMCDriver::State::~State() = default;
+GenMCDriver::LocalState::~LocalState() = default;
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
-			  std::unique_ptr<llvm::InterpState> interpState)
+GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
+				    std::unique_ptr<llvm::EELocalState> interpState)
 	: graph(std::move(g)), revset(std::move(r)),
 	  workqueue(std::move(w)), interpState(std::move(interpState)) {}
 
-std::unique_ptr<GenMCDriver::State> GenMCDriver::releaseCurrentState()
+std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<GenMCDriver::State>(
+	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
 		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
-		getEE()->getState());
+		getEE()->releaseLocalState());
 }
 
-void GenMCDriver::setState(std::unique_ptr<GenMCDriver::State> state)
+void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
 {
 	execGraph = std::move(state->graph);
 	revisitSet = std::move(state->revset);
 	workqueue = std::move(state->workqueue);
-	getEE()->setState(std::move(state->interpState));
+	getEE()->restoreLocalState(std::move(state->interpState));
+	return;
+}
+
+GenMCDriver::SharedState::~SharedState() = default;
+
+GenMCDriver::SharedState::SharedState(std::unique_ptr<ExecutionGraph> g,
+				      std::unique_ptr<llvm::EESharedState> interpState)
+	: graph(std::move(g)), interpState(std::move(interpState)) {}
+
+std::unique_ptr<GenMCDriver::SharedState> GenMCDriver::getSharedState()
+{
+	return LLVM_MAKE_UNIQUE<GenMCDriver::SharedState>(
+		std::move(execGraph), getEE()->getSharedState());
+}
+
+void GenMCDriver::setSharedState(std::unique_ptr<GenMCDriver::SharedState> state)
+{
+	execGraph = std::move(state->graph);
+	getEE()->setSharedState(std::move(state->interpState));
 	return;
 }
 
@@ -2689,12 +2708,11 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto readRf = rLab->getRf();
 		auto write = sLab->getPos();
 
-		auto oldState = releaseCurrentState();
-		auto newState = LLVM_MAKE_UNIQUE<State>(std::move(og), RevisitSetT(),
-							LocalQueueT(), getEE()->getState());
+		auto localState = releaseLocalState();
+		auto newState = LLVM_MAKE_UNIQUE<SharedState>(std::move(og), getEE()->getSharedState());
 
 		// IMM: DO WE NEED TO ALSO SAVE DEPTRACKER's STATE?
-		setState(std::move(newState));
+		setSharedState(std::move(newState));
 
 		// CHANGE RF
 		auto &ng = getGraph();
@@ -2731,14 +2749,14 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		 * try submitting the job instead */
 		auto *tp = getThreadPool();
 		if (tp && tp->getNumActive() < tp->size()) {
-			tp->submit(releaseCurrentState());
+			tp->submit(getSharedState());
 		} else {
 			// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
 			explore();
 			// llvm::dbgs() << "----- RESTORING" << "\n";
 		}
 
-		setState(std::move(oldState));
+		restoreLocalState(std::move(localState));
 	}
 	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
 		pendingRMWs.empty();

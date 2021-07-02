@@ -44,7 +44,7 @@
 class GlobalWorkQueue {
 
 protected:
-	typedef GenMCDriver::State QueueItemT;
+	typedef GenMCDriver::SharedState QueueItemT;
 	typedef std::vector<std::unique_ptr<QueueItemT> > QueueT;
 
 public:
@@ -128,7 +128,7 @@ std::unique_ptr<llvm::Module> cloneModule(const std::unique_ptr<llvm::Module> &m
 class ThreadPool {
 
 public:
-	typedef GenMCDriver::State TaskT;
+	typedef GenMCDriver::SharedState TaskT;
 	typedef GlobalWorkQueue GlobalQueueT;
 
 	/*** Constructors ***/
@@ -151,7 +151,7 @@ public:
 
 			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));
 			if (i == 0)
-				submit(std::move(dw->releaseCurrentState()));
+				submit(std::move(dw->getSharedState()));
 			addWorker(i, std::move(dw));
 		}
 	}

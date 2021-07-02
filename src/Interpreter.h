@@ -229,14 +229,34 @@ protected:
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
 
-struct InterpState {
+struct ThreadInfo {
+	int id;
+	int parentId;
+	unsigned int funId;
+	SVal arg;
+
+	ThreadInfo() = default;
+	ThreadInfo(int id, int parentId, unsigned funId, SVal arg)
+		: id(id), parentId(parentId), funId(funId), arg(arg) {}
+};
+
+struct EELocalState {
 	SAddrAllocator alloctor;
 	std::vector<Thread> threads;
 	int currentThread = 0;
 
-	InterpState() : alloctor(), threads(), currentThread(0) {}
-	InterpState(SAddrAllocator alloctor, std::vector<Thread> ts, int current)
+	EELocalState() = default;
+	EELocalState(SAddrAllocator alloctor, std::vector<Thread> ts, int current)
 		: alloctor(alloctor), threads(ts), currentThread(current) {}
+};
+
+struct EESharedState {
+	SAddrAllocator alloctor;
+	std::vector<ThreadInfo> threadInfos;
+
+	EESharedState() = default;
+	EESharedState(SAddrAllocator alloctor, std::vector<ThreadInfo> tis)
+		: alloctor(alloctor), threadInfos(tis) {}
 };
 
 // Interpreter - This class represents the entirety of the interpreter.
@@ -321,13 +341,42 @@ public:
 		       GenMCDriver *driver, const Config *userConf);
   virtual ~Interpreter();
 
-  std::unique_ptr<InterpState> getState() {
-	  return LLVM_MAKE_UNIQUE<InterpState>(alloctor, threads, currentThread);
+  /* FIXME: Document and move to .cpp */
+  std::unique_ptr<EELocalState> releaseLocalState() {
+	  return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, threads, currentThread);
   }
-  void setState(std::unique_ptr<InterpState> state) {
+  void restoreLocalState(std::unique_ptr<EELocalState> state) {
 	  alloctor = std::move(state->alloctor);
 	  threads = std::move(state->threads);
 	  currentThread = state->currentThread;
+  }
+
+  std::unique_ptr<EESharedState> getSharedState() const {
+	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
+
+	  shared->alloctor = alloctor;
+	  for (auto &thr : threads) {
+		  shared->threadInfos.emplace_back(
+			  thr.id, thr.parentId, MI->idInfo.funID.at(thr.threadFun), thr.threadArg);
+	  }
+	  return shared;
+  }
+  Thread constructThreadFromInfo(const ThreadInfo &ti) {
+	  Function *calledFun = const_cast<Function *>(MI->idInfo.IDFun.at(ti.funId));
+	  ExecutionContext SF;
+
+	  SF.CurFunction = calledFun;
+	  SF.CurBB = &calledFun->front();
+	  SF.CurInst = SF.CurBB->begin();
+
+	  SF.Values[&*calledFun->arg_begin()] = PTR_TO_GV(ti.arg.get());
+	  return createNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
+  }
+  void setSharedState(std::unique_ptr<EESharedState> state) {
+	  alloctor = std::move(state->alloctor);
+	  threads.clear();
+	  for (auto &ti : state->threadInfos)
+		  threads.push_back(constructThreadFromInfo(ti));
   }
 
   /* Resets the interpreter at the beginning of a new execution */

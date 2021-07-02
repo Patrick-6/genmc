@@ -37,7 +37,8 @@
 namespace llvm {
 	struct ExecutionContext;
 	class Interpreter;
-	class InterpState;
+	class EELocalState;
+	class EESharedState;
 }
 class ModuleInfo;
 class ExecutionGraph;
@@ -100,18 +101,29 @@ public:
 	};
 
 	/* Represents the exploration state at any given point */
-	struct State {
+	struct LocalState {
 		std::unique_ptr<ExecutionGraph> graph;
 		RevisitSetT revset;
 		LocalQueueT workqueue;
-		std::unique_ptr<llvm::InterpState> interpState;
+		std::unique_ptr<llvm::EELocalState> interpState;
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
-		State() = delete;
-		State(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
-		      LocalQueueT &&w, std::unique_ptr<llvm::InterpState> state);
+		LocalState() = delete;
+		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
+			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state);
 
-		~State();
+		~LocalState();
+	};
+	struct SharedState {
+		std::unique_ptr<ExecutionGraph> graph;
+		std::unique_ptr<llvm::EESharedState> interpState;
+
+		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
+		SharedState() = delete;
+		SharedState(std::unique_ptr<ExecutionGraph> g,
+			    std::unique_ptr<llvm::EESharedState> state);
+
+		~SharedState();
 	};
 
 
@@ -130,11 +142,12 @@ public:
 
 	/*** State-related ***/
 
-	/* Returns the current exploration state, leaving the driver with an invalid one */
-	std::unique_ptr<State> releaseCurrentState();
+	/* FIXME: Document */
+	std::unique_ptr<LocalState> releaseLocalState();
+	void restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state);
 
-	/* Sets the state of the exploration to the specified one */
-	void setState(std::unique_ptr<GenMCDriver::State> state);
+	std::unique_ptr<SharedState> getSharedState();
+	void setSharedState(std::unique_ptr<GenMCDriver::SharedState> state);
 
 	/**** Generic actions ***/
 
