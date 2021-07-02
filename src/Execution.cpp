@@ -141,8 +141,6 @@ SystemError systemErrorNumber;
 	__result;							\
 })
 
-static GenericValue executeICMP_EQ(GenericValue Src1, GenericValue Src2, Type *typ);
-
 static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
