@@ -79,8 +79,8 @@ llvm::opt::ArgStringList filterCC1Args(const llvm::opt::ArgStringList &ccArgs)
 
 int main(int argc, char **argv)
 {
-	clock_t start = clock();
-	std::unique_ptr<Config> conf(new Config());
+	auto begin = std::chrono::high_resolution_clock::now();
+	auto conf = std::make_shared<Config>();
 	Parser parser;
 
 	conf->getConfigOptions(argc, argv);
@@ -183,15 +183,28 @@ int main(int argc, char **argv)
 	if (!Clang.ExecuteAction(*Act))
 		return ECOMPILE;
 
-	GenMCDriver::verify(std::move(conf), std::move(Act->takeModule()));
+	auto res = GenMCDriver::verify(conf, std::move(Act->takeModule()));
 
-// 	driver->run();
+	auto end = std::chrono::high_resolution_clock::now();
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
+
+	if (res.status == GenMCDriver::Status::VS_OK)
+		llvm::outs() << "No errors were detected.\n";
+	else
+		llvm::outs() << res.message << "\n";
+
+	std::string dups = " (" + std::to_string(res.duplicates) + " duplicates)";
+	llvm::outs() << "Number of complete executions explored: " << res.explored
+		     << ((conf->countDuplicateExecs) ? dups : "") << "\n";
+	if (res.exploredBlocked) {
+		llvm::outs() << "Number of blocked executions seen: " << res.exploredBlocked
+			     << "\n";
+	}
+	llvm::outs() << "Total wall-clock time: "
+		     << llvm::format("%.2f", elapsed.count() * 1e-3)
+		     << "s\n";
+
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
-
-	// WE CANNOT USE CLOCK TO MEASURE TIME
-	// llvm::dbgs() << "Total wall-clock time: "
-	// 	     << llvm::format("%.2f", ((float) clock() - start)/CLOCKS_PER_SEC)
-	// 	     << "s\n";
 
 	return 0;
 }

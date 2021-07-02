@@ -466,7 +466,7 @@ void GenMCDriver::run()
 	return;
 }
 
-void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
+GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
 	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>(*mod);
 
@@ -486,26 +486,9 @@ void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	}
 
 	GenMCDriver::Result res;
-	int i = 0u;
-	for (auto &f : futures) {
-		auto r = f.get();
-		// llvm::outs() << i++ << " explored " << r.explored << "\n";
-		res += r;
-	}
-
-	if (res.status == Status::VS_OK)
-		llvm::outs() << "No errors were detected.\n";
-	else
-		llvm::outs() << res.message << "\n";
-
-	std::string dups = " (" + std::to_string(res.duplicates) + " duplicates)";
-	llvm::outs() << "Number of complete executions explored: " << res.explored
-		     << ((conf->countDuplicateExecs) ? dups : "") << "\n";
-	if (res.exploredBlocked) {
-		llvm::outs() << "Number of blocked executions seen: " << res.exploredBlocked
-			     << "\n";
-	}
-	return;
+	for (auto &f : futures)
+		res += f.get();
+	return res;
 }
 
 void GenMCDriver::addToWorklist(std::unique_ptr<WorkItem> item)

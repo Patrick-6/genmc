@@ -174,7 +174,7 @@ public:
 	Result getResult() const { return result; }
 
 	/* Creates driver instance(s) and starts verification for the given module. */
-	static void verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
+	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
 
 	/* Gets/sets the thread pool this driver should account to */
 	ThreadPool *getThfreadPool() { return pool; }
