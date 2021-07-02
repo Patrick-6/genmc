@@ -245,7 +245,8 @@ void Interpreter::collectStaticAddresses(Module *M)
 		staticAllocMap.insert(addr, std::max(addr + typeSize - 1, addr + 1), addr);
 		staticValueMap[addr] = ptr;
 		staticNames[addr] = &v;
-		if (!v.hasPrivateLinkage() && !MI->varInfo.globalInfo.count(&v)) {
+		if (!v.hasPrivateLinkage() && (!MI->idInfo.GVID.count(&v) ||
+					       !MI->varInfo.globalInfo.count(MI->idInfo.GVID.at(&v)))) {
 			WARN_ONCE("name-info", ("Inadequate naming info for variable " + v.getName() +
 						".\nPlease submit a bug report to " PACKAGE_BUGREPORT "\n"));
 		}

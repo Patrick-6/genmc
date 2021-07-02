@@ -160,9 +160,9 @@ NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
 
 	switch (s) {
 	case Storage::ST_Static:
-		return &MI->varInfo.globalInfo[v];
+		return &MI->varInfo.globalInfo[MI->idInfo.GVID[v]];
 	case Storage::ST_Automatic:
-		return &MI->varInfo.localInfo[v];
+		return &MI->varInfo.localInfo[MI->idInfo.instID[v]];
 	case Storage::ST_Heap:
 		return nullptr;
 	default:
@@ -178,9 +178,11 @@ std::string Interpreter::getStaticName(SAddr addr) const
 		return "";
 
 	BUG_ON(!staticNames.count(sBeg));
-	BUG_ON(!MI->varInfo.globalInfo.count(staticNames.at(sBeg)));
-	auto &gi = MI->varInfo.globalInfo.at(staticNames.at(sBeg));
-	return staticNames.at(sBeg)->getName().str() + gi.getNameAtOffset(addr - sBeg);
+	auto gv = staticNames.at(sBeg);
+	auto gvID = MI->idInfo.GVID[gv];
+	BUG_ON(!MI->varInfo.globalInfo.count(gvID));
+	auto &gi = MI->varInfo.globalInfo.at(gvID);
+	return gv->getName().str() + gi.getNameAtOffset(addr - sBeg);
 }
 
 /* Returns a fresh address to be used from the interpreter */

@@ -20,39 +20,64 @@
 
 #include "ModuleInfo.hpp"
 #include "SExpr.hpp"
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Module.h>
 
 AnnotationInfo::AnnotationInfo() = default;
 AnnotationInfo::~AnnotationInfo() = default;
 AnnotationInfo::AnnotationInfo(AnnotationInfo &&other) = default;
 AnnotationInfo& AnnotationInfo::operator=(AnnotationInfo &&other) = default;
 
+ModuleInfo::ModuleInfo(const llvm::Module &mod) : varInfo(), annotInfo(), fsInfo()
+{
+	auto gvCount = 0u;
+	for (auto &gv : mod.getGlobalList()) {
+		auto id = gvCount++;
+		idInfo.GVID[&gv] = id;
+		idInfo.IDGV[id] = &gv;
+	}
+
+	auto funCount = 0u;
+	auto instCount = 0u;
+	for (auto &fun : mod.getFunctionList()) {
+		auto id = funCount++;
+		idInfo.funID[&fun] = id;
+		idInfo.IDFun[id] = &fun;
+
+		for (auto iit = inst_begin(fun), iie = inst_end(fun); iit != iie; ++iit) {
+			auto id = instCount++;
+			idInfo.instID[&*iit] = id;
+			idInfo.IDInst[id] = &*iit;
+		}
+	}
+}
+
 /*
  * If we ever use different contexts, we have to be very careful when
  * cloning annotation/fs information, as these may contain LLVM
  * type information.
  */
-std::unique_ptr<ModuleInfo> ModuleInfo::clone(llvm::ValueToValueMapTy &VMap) const
+std::unique_ptr<ModuleInfo> ModuleInfo::clone(const llvm::Module &mod) const
 {
-	auto info = LLVM_MAKE_UNIQUE<ModuleInfo>();
+	auto info = LLVM_MAKE_UNIQUE<ModuleInfo>(mod);
 
 	/* Copy variable information */
 	for (auto &kv : varInfo.globalInfo) {
-		BUG_ON(!VMap.count(kv.first));
-		info->varInfo.globalInfo[VMap[kv.first]] = kv.second;
+		BUG_ON(!idInfo.IDGV.count(kv.first));
+		info->varInfo.globalInfo[kv.first] = kv.second;
 	}
 	for (auto &kv : varInfo.localInfo) {
 		/* We may have collected information about allocas that got deleted ... */
-		if (!VMap.count(kv.first))
+		if (!idInfo.IDInst.count(kv.first))
 			continue;
-		info->varInfo.localInfo[VMap[kv.first]] = kv.second;
+		info->varInfo.localInfo[kv.first] = kv.second;
 	}
 	for (auto &kv : varInfo.internalInfo)
 		info->varInfo.internalInfo[kv.first] = kv.second;
 
 	/* Copy annotation information */
 	for (auto &kv : annotInfo.annotMap)
-		info->annotInfo.annotMap[
-		    (llvm::Instruction*) ((llvm::Value *) VMap[(llvm::Value *) kv.first])] = kv.second->clone();
+		info->annotInfo.annotMap[kv.first] = kv.second->clone();
 
 	/* Copy fs information */
 	info->fsInfo.inodeTyp = fsInfo.inodeTyp;

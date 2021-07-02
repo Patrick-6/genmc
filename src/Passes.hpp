@@ -62,7 +62,7 @@ llvm::ModulePass *createIntrinsicLoweringPass(llvm::Module &M);
 /*
  * Collects annotation information for a function's load instructions.
  */
-llvm::FunctionPass *createLoadAnnotationPass(AnnotationInfo &AI);
+llvm::FunctionPass *createLoadAnnotationPass(const IDInfo &II, AnnotationInfo &AI);
 
 /*
  * Unrolls a loop N times.
@@ -77,7 +77,7 @@ llvm::Pass *createLoopJumpThreadingPass();
 /*
  * Collects naming information about a module's variables and fs calls.
  */
-llvm::ModulePass *createMDataCollectionPass(VariableInfo &VI, FsInfo &FI);
+llvm::ModulePass *createMDataCollectionPass(const IDInfo &II, VariableInfo &VI, FsInfo &FI);
 
 /*
  * Promotes memcpy() and memset() calls to a series of loads and stores.

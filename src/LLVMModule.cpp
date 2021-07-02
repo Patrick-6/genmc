@@ -121,7 +121,6 @@ namespace LLVMModule {
 
 		OptPM.add(createDeclareInternalsPass());
 		OptPM.add(createDefineLibcFunsPass());
-		OptPM.add(createMDataCollectionPass(MI.varInfo, MI.fsInfo));
 		OptPM.add(createPromoteMemIntrinsicPass());
 		OptPM.add(createIntrinsicLoweringPass(mod));
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
@@ -142,9 +141,11 @@ namespace LLVMModule {
 
 		modified |= BndPM.run(mod);
 
-		/* The last pass we run is the load-annotation pass */
+		/* We run load-annotation and mdata-collection last so
+		 * that the module will not change again */
+		OptPM.add(createMDataCollectionPass(MI.idInfo, MI.varInfo, MI.fsInfo));
 		if (conf->loadAnnot)
-			OptPM.add(createLoadAnnotationPass(MI.annotInfo));
+			OptPM.add(createLoadAnnotationPass(MI.idInfo, MI.annotInfo));
 		modified |= OptPM.run(mod);
 
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));

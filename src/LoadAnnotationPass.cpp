@@ -146,7 +146,7 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
 				auto loads = getAnnotatableLoads(a);
 				for (auto *l : loads) {
-					LAI.annotMap[l] = annotator.annotate(l);
+					LAI.annotMap[II.instID.at(l)] = annotator.annotate(l);
 				}
 			}
 		}
@@ -154,9 +154,9 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 	return false;
 }
 
-FunctionPass *createLoadAnnotationPass(AnnotationInfo &LAI)
+FunctionPass *createLoadAnnotationPass(const IDInfo &II, AnnotationInfo &LAI)
 {
-	return new LoadAnnotationPass(LAI);
+	return new LoadAnnotationPass(II, LAI);
 }
 
 char LoadAnnotationPass::ID = 42;

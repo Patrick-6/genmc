@@ -449,7 +449,7 @@ void GenMCDriver::run()
 
 void GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
-	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>();
+	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>(*mod);
 
 	/* Prepare the module for verification */
 	LLVMModule::transformLLVMModule(*mod, *MI, conf);

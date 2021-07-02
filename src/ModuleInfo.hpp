@@ -27,8 +27,7 @@
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Value.h>
-#include <llvm/Transforms/Utils/ValueMapper.h>
+#include <llvm/IR/Instruction.h>
 
 #include <memory>
 #include <string>
@@ -41,6 +40,22 @@
 class SExpr;
 
 /*
+ * IDInfo struct -- Contains (unique) identification information for
+ * some of the module's crucial components (e.g., GVs, functions, etc)
+ */
+struct IDInfo {
+	using ID = unsigned int;
+
+	std::unordered_map<ID, const llvm::Value *> IDGV;
+	std::unordered_map<const llvm::Value *, ID> GVID;
+	std::unordered_map<ID, const llvm::Value *> IDInst;
+	std::unordered_map<const llvm::Value *, ID> instID;
+	std::unordered_map<ID, const llvm::Function *> IDFun;
+	std::unordered_map<const llvm::Function *, ID> funID;
+};
+
+
+/*
  * VariableInfo struct -- This struct contains source-code level (naming)
  * information for variables.
  */
@@ -48,10 +63,11 @@ struct VariableInfo {
 
   /* Internal types (not exposed to user programs) for which we might
    * want to collect naming information */
+  using ID = IDInfo::ID;
   using InternalKey = std::string;
 
-  std::unordered_map<llvm::Value *, NameInfo> globalInfo;
-  std::unordered_map<llvm::Value *, NameInfo> localInfo;
+  std::unordered_map<ID, NameInfo> globalInfo;
+  std::unordered_map<ID, NameInfo> localInfo;
   std::unordered_map<InternalKey, NameInfo> internalInfo;
 };
 
@@ -60,7 +76,8 @@ struct VariableInfo {
  */
 struct AnnotationInfo {
 
-  using AnnotUM = std::unordered_map<llvm::Instruction *, std::unique_ptr<SExpr> >;
+  using ID = IDInfo::ID;
+  using AnnotUM = std::unordered_map<ID, std::unique_ptr<SExpr> >;
 
   /* Forward declarations (pimpl-style) */
   AnnotationInfo();
@@ -116,12 +133,16 @@ struct FsInfo {
  */
 struct ModuleInfo {
 
+  ModuleInfo() = delete;
+  ModuleInfo(const llvm::Module &mod);
+
+  IDInfo idInfo;
   VariableInfo varInfo;
   AnnotationInfo annotInfo;
   FsInfo fsInfo;
 
   /* Assumes only statis information have been collected */
-  std::unique_ptr<ModuleInfo> clone(llvm::ValueToValueMapTy &VMap) const;
+  std::unique_ptr<ModuleInfo> clone(const llvm::Module &mod) const;
 };
 
 #endif /* __MODULE_INFO_HPP__ */

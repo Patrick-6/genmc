@@ -407,7 +407,8 @@ public:
 
   /* Returns annotation information for the instruction I */
   const SExpr *getAnnotation(Instruction *I) const {
-	  return MI->annotInfo.annotMap.count(I) ? MI->annotInfo.annotMap.at(I).get() : nullptr;
+	  auto id = MI->idInfo.instID[I];
+	  return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get() : nullptr;
   }
 
   /* Returns (concretized) annotation information for the

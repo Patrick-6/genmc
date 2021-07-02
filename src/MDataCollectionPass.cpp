@@ -143,12 +143,12 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 	/* Check whether it is a global pointer */
 	if (auto ditc = dyn_cast<DIType>(dit)) {
 		collectVarName(M, 0, v.getType()->getElementType(),
-			       ditc, "", VI.globalInfo[&v]);
+			       ditc, "", VI.globalInfo[II.GVID.at(&v)]);
 	}
 #else
 	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
 	collectVarName(0, typeSize, v.getType()->getElementType(),
-		       "", VI.globalInfo[&v]);
+		       "", VI.globalInfo[II.GVID.at(&v)]);
 #endif
 	return;
 }
@@ -166,12 +166,12 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	auto dit = DD->getVariable()->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, vt->getElementType(),
-			       ditc, "", VI.localInfo[v]);
+			       ditc, "", VI.localInfo[II.instID.at(v)]);
 #else
 	unsigned int typeSize =
 		GET_TYPE_ALLOC_SIZE(M, vt->getElementType());
 	collectVarName(0, typeSize, vt->getElementType(),
-		       "", VI.localInfo[v]);
+		       "", VI.localInfo[II.instID.at(v)]);
 #endif
 	return;
 }
@@ -183,7 +183,7 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
 	 * otherwise go undetected by this pass
 	 */
 	auto *src = dyn_cast<GlobalVariable>(MI->getSource());
-	if (!src || VI.globalInfo[src].size())
+	if (!src || VI.globalInfo[II.GVID.at(src)].size())
 		return;
 
 	/*
@@ -202,11 +202,11 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *MI, Module &M)
 	auto dit = allocaMData[dst]->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, dstTyp->getElementType(),
-			       ditc, "", VI.globalInfo[src]);
+			       ditc, "", VI.globalInfo[II.GVID.at(src)]);
 #else
 	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, dstTyp->getElementType());
 	collectVarName(0, typeSize, dstTyp->getElementType(),
-		       "", VI.globalInfo[src]);
+		       "", VI.globalInfo[II.GVID.at(src)]);
 #endif
 	return;
 }
@@ -326,9 +326,9 @@ bool MDataCollectionPass::runOnModule(Module &M)
 	return false;
 }
 
-ModulePass *createMDataCollectionPass(VariableInfo &VI, FsInfo &FI)
+ModulePass *createMDataCollectionPass(const IDInfo &II, VariableInfo &VI, FsInfo &FI)
 {
-	return new MDataCollectionPass(VI, FI);
+	return new MDataCollectionPass(II, VI, FI);
 }
 
 char MDataCollectionPass::ID = 42;

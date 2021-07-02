@@ -35,11 +35,12 @@ class MDataCollectionPass : public llvm::ModulePass {
 
 public:
 	static char ID;
+	const IDInfo &II;
 	VariableInfo &VI;
 	FsInfo &FI;
 
-	MDataCollectionPass(VariableInfo &VI, FsInfo &FI)
-		: llvm::ModulePass(ID), VI(VI), FI(FI), collected(false) {}
+	MDataCollectionPass(const IDInfo &II, VariableInfo &VI, FsInfo &FI)
+		: llvm::ModulePass(ID), II(II), VI(VI), FI(FI), collected(false) {}
 
 	virtual bool runOnModule(llvm::Module &M);
 

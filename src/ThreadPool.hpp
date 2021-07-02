@@ -146,10 +146,8 @@ public:
 
 		for (auto i = 0u; i < numWorkers; i++) {
 			contexts.push_back(LLVM_MAKE_UNIQUE<llvm::LLVMContext>());
-			llvm::ValueToValueMapTy VMap;
 			auto newmod = cloneModule(mod, contexts.back());
-			// auto newMI = MI->clone(VMap);
-			auto newMI = LLVM_MAKE_UNIQUE<ModuleInfo>();
+			auto newMI = MI->clone(*newmod);
 
 			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));
 			if (i == 0)
