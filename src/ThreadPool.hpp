@@ -34,6 +34,7 @@
 #include <memory>
 #include <thread>
 #include <future>
+#include <hwloc.h>
 
 
 /*******************************************************************************
@@ -87,6 +88,35 @@ private:
 
 
 /*******************************************************************************
+ **                           ThreadPinner Class
+ ******************************************************************************/
+
+/* A class responsible for pinning threads to CPUs */
+class ThreadPinner {
+
+public:
+	/*** Constructor ***/
+	explicit ThreadPinner(unsigned int n);
+	ThreadPinner() = delete;
+	ThreadPinner(const ThreadPinner &) = delete;
+
+	void pin(std::thread &t, unsigned int cpu);
+
+	/*** Destructor ***/
+	~ThreadPinner() {
+		hwloc_topology_destroy(topology);
+		for (auto set : cpusets)
+			hwloc_bitmap_free(set);
+	}
+
+private:
+	unsigned int numTasks;
+	hwloc_topology_t topology;
+	std::vector<hwloc_cpuset_t> cpusets;
+};
+
+
+/*******************************************************************************
  **                           ThreadJoiner Class
  ******************************************************************************/
 
@@ -136,7 +166,7 @@ public:
 	ThreadPool(const std::shared_ptr<const Config> conf,
 		   const std::unique_ptr<llvm::Module> &mod,
 		   const std::unique_ptr<ModuleInfo> &MI)
-		: numWorkers(conf->threads), joiner(workers) {
+		: numWorkers(conf->threads), pinner(numWorkers), joiner(workers) {
 		numWorkers = conf->threads;
 
 		/* Set global variables before spawning the threads */
@@ -234,6 +264,8 @@ private:
 
 	/* The index of a worker thread */
 	static thread_local unsigned int index;
+
+	ThreadPinner pinner;
 
 	/* The thread joiner */
 	ThreadJoiner joiner;
