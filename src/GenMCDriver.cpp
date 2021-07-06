@@ -475,6 +475,12 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 	if (conf->transformFile != "")
 		LLVMModule::printLLVMModule(*mod, conf->transformFile);
 
+	if (conf->threads == 1) {
+		auto driver = DriverFactory::create(conf, std::move(mod), std::move(MI));
+		driver->run();
+		return driver->getResult();
+	}
+
 	std::vector<std::future<GenMCDriver::Result>> futures;
 	{
 		/* Then, fire up drivers */
