@@ -199,7 +199,7 @@ public:
 	unsigned int getNumWorkers() const { return numWorkers; }
 
 	/* Returns the number of currently active threads */
-	unsigned int getNumActive() const { return activeThreads.load(std::memory_order_relaxed); }
+	unsigned int getNumActive() const { return activeThreads.load(std::memory_order_seq_cst); }
 
 	/* Returns the index of the calling thread */
 	unsigned int getIndex() const { return index; }
@@ -213,8 +213,10 @@ public:
 	void submit(std::unique_ptr<TaskT> task);
 
 	/* Notify the pool about the addition/completion of a task */
-	void incRemainingTasks() { remainingTasks.fetch_add(1, std::memory_order_relaxed); }
-	void decRemainingTasks() { remainingTasks.fetch_sub(1, std::memory_order_relaxed); }
+	void incRemainingTasks() { remainingTasks.fetch_add(1, std::memory_order_seq_cst); }
+	void decRemainingTasks() { remainingTasks.fetch_sub(1, std::memory_order_seq_cst); }
+
+	unsigned getRemainingTasks() { return remainingTasks.load(std::memory_order_seq_cst); }
 
 	/* Waits for all tasks to complete */
 	std::vector<std::future<GenMCDriver::Result>> waitForTasks();
@@ -228,7 +230,7 @@ private:
 	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver);
 
 	/* Stops all threads */
-	void halt() { shouldHalt.store(true, std::memory_order_seq_cst); }
+	void halt() { shouldHalt.store(true, std::memory_order_seq_cst); std::lock_guard<std::mutex> lock(mtx); cv.notify_all(); }
 
 	/* Tries to pop a task from the global queue */
 	std::unique_ptr<TaskT> tryPopPoolQueue();
@@ -264,6 +266,9 @@ private:
 
 	/* The index of a worker thread */
 	static thread_local unsigned int index;
+
+	std::mutex mtx;
+	std::condition_variable cv;
 
 	ThreadPinner pinner;
 

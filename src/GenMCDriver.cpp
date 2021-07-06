@@ -2611,6 +2611,10 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 					  return g.getEventLabel(e)->getStamp() > confLab->getStamp(); }),
 			    loads.end());
 
+	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
+		return g.getEventLabel(l1)->getStamp() < g.getEventLabel(l2)->getStamp();
+	});
+
 	// llvm::dbgs() << "OLD GRPAH \n"; printGraph();
 	for (auto &l : loads) {
 		auto *lab = g.getEventLabel(l);
@@ -2731,7 +2735,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		/* If there are idle workers in the thread pool,
 		 * try submitting the job instead */
 		auto *tp = getThreadPool();
-		if (tp && tp->getNumActive() < tp->size()) {
+		if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
 			tp->submit(getSharedState());
 		} else {
 			// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
