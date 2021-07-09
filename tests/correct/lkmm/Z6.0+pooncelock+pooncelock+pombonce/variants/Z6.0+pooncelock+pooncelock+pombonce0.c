@@ -22,6 +22,7 @@ void *P1(void *unused)
 	int r0;
 
 	spin_lock(&mylock);
+	smp_mb__after_spinlock();
 	r0 = READ_ONCE(y);
 	WRITE_ONCE(z, 1);
 	spin_unlock(&mylock);
