@@ -277,11 +277,6 @@ void Config::checkConfigOptions() const
 	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
 		WARN("LAPOR usage with -mo is experimental.\n");
 	}
-	auto hwThreads = std::thread::hardware_concurrency();
-	if (clThreads > hwThreads) {
-		WARN("Limiting threads to " + std::to_string(hwThreads) + "\n");
-		clThreads = hwThreads;
-	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
