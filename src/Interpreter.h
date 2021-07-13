@@ -49,7 +49,6 @@
 #include "CallInstWrapper.hpp"
 
 #include <llvm/ADT/BitVector.h>
-#include <llvm/ADT/IntervalMap.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/Instructions.h>
@@ -291,12 +290,8 @@ protected:
    * global variables (where their contents are stored) */
   std::unordered_map<SAddr, void *> staticValueMap;
 
-  /* Mapping between SAddresses and the respective allocation beginning */
-  using SAMap = IntervalMap<SAddr, SAddr,
-			    IntervalMapImpl::NodeSizer<SAddr, SAddr>::LeafSize,
-			    IntervalMapHalfOpenInfo<SAddr>>;
-  SAMap::Allocator samAlloc;
-  SAMap staticAllocMap;
+  /* Keep all static ranges that have been allocated */
+  VSet<std::pair<SAddr, SAddr> > staticAllocas;
 
   /* Maintain the relationship between SAddr and global variables,
    * so that we can get naming information */
@@ -467,7 +462,7 @@ public:
   /* Memory pools checks */
 
   /* Returns true if the interpreter has allocated space for the specified static */
-  bool isStaticallyAllocated(SAddr addr) const { return !staticAllocMap.lookup(addr).isNull(); }
+  bool isStaticallyAllocated(SAddr addr) const;
   void *getStaticAddr(SAddr addr) const;
   std::string getStaticName(SAddr addr) const;
 

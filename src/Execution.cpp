@@ -150,6 +150,27 @@ bool Interpreter::compareValues(SSize size, SVal val1, SVal val2)
 	return val1 == val2;
 }
 
+bool Interpreter::isStaticallyAllocated(SAddr addr) const
+{
+	auto p = std::make_pair(addr, addr);
+	auto it = std::lower_bound(staticAllocas.begin(), staticAllocas.end(), p,
+				   [](const decltype(p) &itV, const decltype(p) &v){
+					   return itV.second < v.first;
+				   });
+	return it == staticAllocas.end() ? false : (it->first <= addr && addr <= it->second);
+}
+
+SAddr getStaticAllocBegin(const VSet<std::pair<SAddr, SAddr>> &allocMap, SAddr addr)
+{
+	auto p = std::make_pair(addr, addr);
+	auto it = std::lower_bound(allocMap.begin(), allocMap.end(), p,
+				   [](const decltype(p) &itV, const decltype(p) &v){
+					   return itV.second < v.first;
+				   });
+	BUG_ON(it == allocMap.end() || addr < it->first || addr > it->second);
+	return it->first;
+}
+
 NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
 				      const VariableInfo::InternalKey &key /* = {} */)
 {
@@ -171,10 +192,11 @@ NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
 
 std::string Interpreter::getStaticName(SAddr addr) const
 {
-	auto sBeg = staticAllocMap.lookup(addr);
-	if (sBeg.isNull())
+	/* Don't complain if it's not allocated so that we can safely use it during error reporting */
+	if (!isStaticallyAllocated(addr))
 		return "";
 
+	auto sBeg = getStaticAllocBegin(staticAllocas, addr);
 	BUG_ON(!staticNames.count(sBeg));
 	auto gv = staticNames.at(sBeg);
 	auto gvID = MI->idInfo.GVID[gv];
@@ -203,8 +225,8 @@ SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, Storage s, Add
 
 void *Interpreter::getStaticAddr(SAddr addr) const
 {
-	BUG_ON(staticAllocMap.lookup(addr).isNull());
-	auto sBeg = staticAllocMap.lookup(addr);
+	BUG_ON(!isStaticallyAllocated(addr));
+	auto sBeg = getStaticAllocBegin(staticAllocas, addr);
 	BUG_ON(!staticValueMap.count(sBeg));
 	return (char *) staticValueMap.at(sBeg) + (addr.get() - sBeg.get());
 }

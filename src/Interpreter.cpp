@@ -242,7 +242,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 						 GET_GV_ADDRESS_SPACE(v) == 42);
 
 		updateGlobalMapping(&v, (void *) addr.get());
-		staticAllocMap.insert(addr, std::max(addr + typeSize - 1, addr + 1), addr);
+		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;
 		staticNames[addr] = &v;
 		if (!v.hasPrivateLinkage() && (!MI->idInfo.GVID.count(&v) ||
@@ -474,7 +474,7 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 //
 Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 			 GenMCDriver *driver, const Config *userConf)
-	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver), staticAllocMap(samAlloc) {
+	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver) {
 
   memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
 
