@@ -183,6 +183,8 @@ public:
 		return tmp;
 	}
 
+	/* Returns a (limited) representation of the Value as a boolean */
+	bool getBool() const { return (!!*this).get(); }
 
 	inline bool operator==(const SVal &v) const {
 		return v.value == value;
@@ -202,52 +204,39 @@ public:
 	inline bool operator>(const SVal &v) const {
 		return !(*this <= v);
 	}
-	SVal operator+(const SVal &v) const {
+
+#define IMPL_BINOP(_op)				  \
+	SVal operator _op (const SVal &v) const { \
+		SVal n(*this);			  \
+		n.value _op##= v.value;		  \
+		return n;			  \
+	}					  \
+	SVal &operator _op##= (const SVal &v) {	  \
+		value _op##= v.value; 		  \
+		return *this;			  \
+	}
+
+	IMPL_BINOP(+);
+	IMPL_BINOP(-);
+	IMPL_BINOP(*);
+	IMPL_BINOP(/);
+	IMPL_BINOP(%);
+	IMPL_BINOP(&);
+	IMPL_BINOP(|);
+	IMPL_BINOP(^);
+	IMPL_BINOP(<<);
+	IMPL_BINOP(>>);
+
+	SVal operator!() const {
 		SVal n(*this);
-		n.value += v.value;
+		n.value = !value;
 		return n;
-	}
-	SVal &operator+=(const SVal &v) {
-		value += v.value;
-		return *this;
-	}
-	SVal operator-(const SVal &v) const {
-		SVal n(*this);
-		n.value -= v.value;
-		return n;
-	}
-	SVal &operator-=(const SVal &v) {
-		value -= v.value;
-		return *this;
-	}
-	SVal operator&(const SVal &v) const {
-		SVal n(*this);
-		n.value &= v.value;
-		return n;
-	};
-	SVal &operator&=(const SVal &v) {
-		value &= v.value;
-		return *this;
-	}
-	SVal operator|(const SVal &v) const {
-		SVal n(*this);
-		n.value |= v.value;
-		return n;
-	}
-	SVal &operator|=(const SVal &v) {
-		value |= v.value;
-		return *this;
-	}
-	SVal operator^(const SVal &v) const {
-		SVal n(*this);
-		n.value ^= v.value;
-		return n;
-	}
-	SVal &operator^=(const SVal &v) {
-		value ^= v.value;
-		return *this;
 	}
 	uint64_t operator()() const { return value; }
+
+	std::string toString(bool sign = false) const {
+		return sign ? std::to_string(getSigned()) : std::to_string(get());
+	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 					     const SVal &v);
@@ -263,7 +252,7 @@ private:
  ******************************************************************************/
 
 /*
- * Represents the size of an atomic memory access.
+ * Represents the size (in bits) of an atomic memory access .
  */
 class SSize {
 
