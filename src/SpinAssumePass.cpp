@@ -577,5 +577,5 @@ Pass *createSpinAssumePass(bool markStarts /* = false */)
 }
 
 char SpinAssumePass::ID = 42;
-// static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
-// 					    "Replaces spin-loops with __VERIFIER_assume().");
+static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
+					    "Performs GenMC's spin-assume transformation.");
