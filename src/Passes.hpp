@@ -76,8 +76,9 @@ llvm::Pass *createLoopJumpThreadingPass();
 
 /*
  * Collects naming information about a module's variables and fs calls.
+ * Makes sure the module information is up-to-date before doing so.
  */
-llvm::ModulePass *createMDataCollectionPass(const IDInfo &II, VariableInfo &VI, FsInfo &FI);
+llvm::ModulePass *createMDataCollectionPass(ModuleInfo &MI);
 
 /*
  * Promotes memcpy() and memset() calls to a series of loads and stores.

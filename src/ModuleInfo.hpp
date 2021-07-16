@@ -46,12 +46,13 @@ class SExpr;
 struct IDInfo {
 	using ID = unsigned int;
 
-	std::unordered_map<ID, const llvm::Value *> IDGV;
-	std::unordered_map<const llvm::Value *, ID> GVID;
-	std::unordered_map<ID, const llvm::Value *> IDInst;
-	std::unordered_map<const llvm::Value *, ID> instID;
-	std::unordered_map<ID, const llvm::Function *> IDFun;
-	std::unordered_map<const llvm::Function *, ID> funID;
+	std::unordered_map<ID, const llvm::Value *> IDV;
+	std::unordered_map<const llvm::Value *, ID> VID;
+
+	void clear() {
+		IDV.clear();
+		VID.clear();
+	}
 };
 
 
@@ -61,14 +62,20 @@ struct IDInfo {
  */
 struct VariableInfo {
 
-  /* Internal types (not exposed to user programs) for which we might
-   * want to collect naming information */
-  using ID = IDInfo::ID;
-  using InternalKey = std::string;
+	/* Internal types (not exposed to user programs) for which we might
+	 * want to collect naming information */
+	using ID = IDInfo::ID;
+	using InternalKey = std::string;
 
-  std::unordered_map<ID, NameInfo> globalInfo;
-  std::unordered_map<ID, NameInfo> localInfo;
-  std::unordered_map<InternalKey, NameInfo> internalInfo;
+	std::unordered_map<ID, NameInfo> globalInfo;
+	std::unordered_map<ID, NameInfo> localInfo;
+	std::unordered_map<InternalKey, NameInfo> internalInfo;
+
+	void clear() {
+		globalInfo.clear();
+		localInfo.clear();
+		internalInfo.clear();
+	}
 };
 
 /*
@@ -76,16 +83,18 @@ struct VariableInfo {
  */
 struct AnnotationInfo {
 
-  using ID = IDInfo::ID;
-  using AnnotUM = std::unordered_map<ID, std::unique_ptr<SExpr> >;
+	using ID = IDInfo::ID;
+	using AnnotUM = std::unordered_map<ID, std::unique_ptr<SExpr> >;
 
-  /* Forward declarations (pimpl-style) */
-  AnnotationInfo();
-  AnnotationInfo(AnnotationInfo &&other);
-  ~AnnotationInfo();
-  AnnotationInfo &operator=(AnnotationInfo &&other);
+	/* Forward declarations (pimpl-style) */
+	AnnotationInfo();
+	AnnotationInfo(AnnotationInfo &&other);
+	~AnnotationInfo();
+	AnnotationInfo &operator=(AnnotationInfo &&other);
 
-  AnnotUM annotMap;
+	AnnotUM annotMap;
+
+	void clear();
 };
 
 /*
@@ -94,55 +103,76 @@ struct AnnotationInfo {
  */
 struct FsInfo {
 
-  /* Explicitly initialize PODs to be C++11-compatible */
-  FsInfo() : inodeTyp(nullptr), fileTyp(nullptr), fds(), blockSize(0), maxFileSize(0),
-	     journalData(JournalDataFS::writeback), delalloc(false), fdToFile(), dirInode(nullptr) {}
+	/* Explicitly initialize PODs to be C++11-compatible */
+	FsInfo() : inodeTyp(nullptr), fileTyp(nullptr), fds(), blockSize(0), maxFileSize(0),
+		   journalData(JournalDataFS::writeback), delalloc(false), fdToFile(), dirInode(nullptr) {}
 
-  using Filename = std::string;
-  using NameMap = std::unordered_map<Filename, void *>;
+	using Filename = std::string;
+	using NameMap = std::unordered_map<Filename, void *>;
 
-  /* Type information */
-  llvm::StructType *inodeTyp;
-  llvm::StructType *fileTyp;
+	/* Type information */
+	llvm::StructType *inodeTyp;
+	llvm::StructType *fileTyp;
 
-  /* A bitvector of available file descriptors */
-  llvm::BitVector fds;
+	/* A bitvector of available file descriptors */
+	llvm::BitVector fds;
 
-  /* Filesystem options*/
-  unsigned int blockSize;
-  unsigned int maxFileSize;
+	/* Filesystem options*/
+	unsigned int blockSize;
+	unsigned int maxFileSize;
 
-  /* "Mount" options */
-  JournalDataFS journalData;
-  bool delalloc;
+	/* "Mount" options */
+	JournalDataFS journalData;
+	bool delalloc;
 
-  /* A map from file descriptors to file descriptions */
-  llvm::IndexedMap<void *> fdToFile;
+	/* A map from file descriptors to file descriptions */
+	llvm::IndexedMap<void *> fdToFile;
 
-  /* Should hold the address of the directory's inode */
-  void *dirInode;
+	/* Should hold the address of the directory's inode */
+	void *dirInode;
 
-  /* Maps a filename to the address of the contents of the directory's inode for
-   * said name (the contents should have the address of the file's inode) */
-  NameMap nameToInodeAddr;
+	/* Maps a filename to the address of the contents of the directory's inode for
+	 * said name (the contents should have the address of the file's inode) */
+	NameMap nameToInodeAddr;
+
+	void clear() {
+		inodeTyp = nullptr;
+		fileTyp = nullptr;
+		fds.clear();
+		blockSize = 0;
+		maxFileSize = 0;
+		journalData = JournalDataFS::writeback;
+		delalloc = false;
+		fdToFile.clear();
+		dirInode = nullptr;
+	}
 };
 
 /*
  * ModuleInfo -- A struct to pack together all useful information like
- * VariableInfo and FsInfo
+ * VariableInfo and FsInfo for a given module
  */
 struct ModuleInfo {
 
-  ModuleInfo() = delete;
-  ModuleInfo(const llvm::Module &mod);
+	ModuleInfo() = delete;
+	ModuleInfo(const llvm::Module &mod);
 
-  IDInfo idInfo;
-  VariableInfo varInfo;
-  AnnotationInfo annotInfo;
-  FsInfo fsInfo;
+	void clear();
 
-  /* Assumes only statis information have been collected */
-  std::unique_ptr<ModuleInfo> clone(const llvm::Module &mod) const;
+	/* Collects all IDs for the given module.
+	 * Should be manually called after the module is modified */
+	void collectIDs();
+
+	/* Assumes only statis information have been collected */
+	std::unique_ptr<ModuleInfo> clone(const llvm::Module &mod) const;
+
+	IDInfo idInfo;
+	VariableInfo varInfo;
+	AnnotationInfo annotInfo;
+	FsInfo fsInfo;
+
+private:
+	const llvm::Module &mod;
 };
 
 #endif /* __MODULE_INFO_HPP__ */

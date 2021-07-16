@@ -141,9 +141,11 @@ namespace LLVMModule {
 
 		modified |= BndPM.run(mod);
 
-		/* We run load-annotation and mdata-collection last so
-		 * that the module will not change again */
-		OptPM.add(createMDataCollectionPass(MI.idInfo, MI.varInfo, MI.fsInfo));
+		/* Run passes with shareable info last: this is done so that
+		 * the info we collect at MDataCollection is about the most
+		 * "recent" version of the LLVM module, that will not change again.
+		 * (MDataCollection will also update the IDs of the module.) */
+		OptPM.add(createMDataCollectionPass(MI));
 		if (conf->loadAnnot)
 			OptPM.add(createLoadAnnotationPass(MI.idInfo, MI.annotInfo));
 		modified |= OptPM.run(mod);

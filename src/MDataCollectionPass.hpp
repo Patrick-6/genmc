@@ -35,16 +35,18 @@ class MDataCollectionPass : public llvm::ModulePass {
 
 public:
 	static char ID;
-	const IDInfo &II;
-	VariableInfo &VI;
-	FsInfo &FI;
 
-	MDataCollectionPass(const IDInfo &II, VariableInfo &VI, FsInfo &FI)
-		: llvm::ModulePass(ID), II(II), VI(VI), FI(FI), collected(false) {}
+	ModuleInfo &MI;
+
+	MDataCollectionPass(ModuleInfo &MI)
+		: llvm::ModulePass(ID), MI(MI) {}
 
 	virtual bool runOnModule(llvm::Module &M);
 
 protected:
+
+	/* Resets internal structures so the pass can run again */
+	void reset();
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	void collectVarName(llvm::Module &M, unsigned int ptr, llvm::Type *typ,
@@ -75,9 +77,6 @@ protected:
 
 	/* Maps allocas to the metadata of the variable allocated */
 	std::unordered_map<llvm::AllocaInst *, llvm::DILocalVariable *> allocaMData;
-
-	/* Whether we have collected metadata or not */
-	bool collected;
 };
 
 #endif /* __MDATA_COLLECTION_PASS_HPP__ */

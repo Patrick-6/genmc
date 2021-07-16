@@ -25,6 +25,7 @@
 #include "SExpr.hpp"
 #include "Memory.hpp"
 #include "VSet.hpp"
+#include <llvm/Support/Casting.h>
 
 #include <map>
 #include <unordered_map>

@@ -245,8 +245,8 @@ void Interpreter::collectStaticAddresses(Module *M)
 		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;
 		staticNames[addr] = &v;
-		if (!v.hasPrivateLinkage() && (!MI->idInfo.GVID.count(&v) ||
-					       !MI->varInfo.globalInfo.count(MI->idInfo.GVID.at(&v)))) {
+		if (!v.hasPrivateLinkage() && (!MI->idInfo.VID.count(&v) ||
+					       !MI->varInfo.globalInfo.count(MI->idInfo.VID.at(&v)))) {
 			WARN_ONCE("name-info", ("Inadequate naming info for variable " + v.getName() +
 						".\nPlease submit a bug report to " PACKAGE_BUGREPORT "\n"));
 		}
@@ -470,7 +470,7 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 	SExprConcretizer::ReplaceMap vMap;
 
 	for (auto &kv : stackVals)
-		vMap.insert({((void *) (intptr_t) MI->idInfo.instID.at(kv.first)),
+		vMap.insert({((void *) (intptr_t) MI->idInfo.VID.at(kv.first)),
 			    std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
 					   SSize(getTypeSize(kv.first->getType()) * 8))});
 

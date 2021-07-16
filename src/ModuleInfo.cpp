@@ -28,28 +28,54 @@ AnnotationInfo::~AnnotationInfo() = default;
 AnnotationInfo::AnnotationInfo(AnnotationInfo &&other) = default;
 AnnotationInfo& AnnotationInfo::operator=(AnnotationInfo &&other) = default;
 
-ModuleInfo::ModuleInfo(const llvm::Module &mod) : varInfo(), annotInfo(), fsInfo()
+void AnnotationInfo::clear()
 {
-	auto gvCount = 0u;
+	annotMap.clear();
+}
+
+void ModuleInfo::clear()
+{
+	idInfo.clear();
+	varInfo.clear();
+	annotInfo.clear();
+	fsInfo.clear();
+}
+
+void ModuleInfo::collectIDs()
+{
+	clear();
+
+	auto valueCount = 0u;
 	for (auto &gv : mod.getGlobalList()) {
-		auto id = gvCount++;
-		idInfo.GVID[&gv] = id;
-		idInfo.IDGV[id] = &gv;
+		auto id = valueCount++;
+		idInfo.VID[&gv] = id;
+		idInfo.IDV[id] = &gv;
 	}
 
-	auto funCount = 0u;
-	auto instCount = 0u;
 	for (auto &fun : mod.getFunctionList()) {
-		auto id = funCount++;
-		idInfo.funID[&fun] = id;
-		idInfo.IDFun[id] = &fun;
+		auto id = valueCount++;
+		idInfo.VID[&fun] = id;
+		idInfo.IDV[id] = &fun;
+
+		for (auto ai = fun.arg_begin(), ae = fun.arg_end(); ai != ae; ++ai) {
+			auto id = valueCount++;
+			idInfo.VID[&*ai] = id;
+			idInfo.IDV[id] = &*ai;
+		}
 
 		for (auto iit = inst_begin(fun), iie = inst_end(fun); iit != iie; ++iit) {
-			auto id = instCount++;
-			idInfo.instID[&*iit] = id;
-			idInfo.IDInst[id] = &*iit;
+			auto id = valueCount++;
+			idInfo.VID[&*iit] = id;
+			idInfo.IDV[id] = &*iit;
 		}
 	}
+	return;
+}
+
+ModuleInfo::ModuleInfo(const llvm::Module &mod) : mod(mod), varInfo(), annotInfo(), fsInfo()
+{
+	collectIDs();
+	return;
 }
 
 /*
@@ -63,12 +89,12 @@ std::unique_ptr<ModuleInfo> ModuleInfo::clone(const llvm::Module &mod) const
 
 	/* Copy variable information */
 	for (auto &kv : varInfo.globalInfo) {
-		BUG_ON(!idInfo.IDGV.count(kv.first));
+		BUG_ON(!idInfo.IDV.count(kv.first));
 		info->varInfo.globalInfo[kv.first] = kv.second;
 	}
 	for (auto &kv : varInfo.localInfo) {
 		/* We may have collected information about allocas that got deleted ... */
-		if (!idInfo.IDInst.count(kv.first))
+		if (!idInfo.IDV.count(kv.first))
 			continue;
 		info->varInfo.localInfo[kv.first] = kv.second;
 	}

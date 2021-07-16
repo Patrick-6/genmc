@@ -40,7 +40,7 @@ void InstAnnotator::reset()
 void *InstAnnotator::getAnnotMapKey(Value *i) const
 {
 	BUG_ON(useIDs && !II);
-	return useIDs ? ((void *) (intptr_t) II->instID.at(i)) : (void *) i;
+	return useIDs ? ((void *) (intptr_t) II->VID.at(i)) : (void *) i;
 }
 
 const SExpr *InstAnnotator::getAnnot(Instruction *i)

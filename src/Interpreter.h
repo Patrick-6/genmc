@@ -352,12 +352,13 @@ public:
 	  shared->alloctor = alloctor;
 	  for (auto &thr : threads) {
 		  shared->threadInfos.emplace_back(
-			  thr.id, thr.parentId, MI->idInfo.funID.at(thr.threadFun), thr.threadArg);
+			  thr.id, thr.parentId, MI->idInfo.VID.at(thr.threadFun), thr.threadArg);
 	  }
 	  return shared;
   }
   Thread constructThreadFromInfo(const ThreadInfo &ti) {
-	  Function *calledFun = const_cast<Function *>(MI->idInfo.IDFun.at(ti.funId));
+	  auto *calledFun = dyn_cast<Function>(const_cast<Value *>(MI->idInfo.IDV.at(ti.funId)));
+	  BUG_ON(!calledFun);
 	  ExecutionContext SF;
 
 	  SF.CurFunction = calledFun;
@@ -451,7 +452,7 @@ public:
 
   /* Returns annotation information for the instruction I */
   const SExpr *getAnnotation(Instruction *I) const {
-	  auto id = MI->idInfo.instID[I];
+	  auto id = MI->idInfo.VID[I];
 	  return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get() : nullptr;
   }
 

@@ -141,12 +141,13 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 {
 	InstAnnotator annotator(&II);
 
+	LAI.clear();
 	for (auto &i : instructions(F)) {
 		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
 			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
 				auto loads = getAnnotatableLoads(a);
 				for (auto *l : loads) {
-					LAI.annotMap[II.instID.at(l)] = annotator.annotate(l);
+					LAI.annotMap[II.VID.at(l)] = annotator.annotate(l);
 				}
 			}
 		}
