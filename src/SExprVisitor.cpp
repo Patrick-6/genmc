@@ -26,7 +26,7 @@
 
 void SExprPrinter::visitConcreteExpr(ConcreteExpr &e)
 {
-	output += e.getValue().toString(10, false);
+	output += e.getValue().toString();
 }
 
 void SExprPrinter::visitRegisterExpr(RegisterExpr &e)
@@ -256,13 +256,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const SExpr &annot)
  **                           SExprEvaluator Class
  ******************************************************************************/
 
-llvm::APInt SExprEvaluator::visitConcreteExpr(ConcreteExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitConcreteExpr(ConcreteExpr &e)
 {
 
 	return e.getValue();
 }
 
-llvm::APInt SExprEvaluator::visitRegisterExpr(RegisterExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitRegisterExpr(RegisterExpr &e)
 {
 	if (bruteForce)
 		return getVal();
@@ -272,56 +272,57 @@ llvm::APInt SExprEvaluator::visitRegisterExpr(RegisterExpr &e)
 	return getMappingFor(e.getRegister());
 }
 
-llvm::APInt SExprEvaluator::visitSelectExpr(SelectExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSelectExpr(SelectExpr &e)
 {
-	return visit(e.getKid(0)).getBoolValue() ? visit(e.getKid(1)) : visit(e.getKid(2));
+	return visit(e.getKid(0)).getBool() ? visit(e.getKid(1)) : visit(e.getKid(2));
 }
 
-// llvm::APInt SExprEvaluator::visitConcat(ConcatExpr &e)
+// SExprEvaluator::RetTy SExprEvaluator::visitConcat(ConcatExpr &e)
 // {
 // }
 
-// llvm::APInt SExprEvaluator::visitExtract(ExtractExpr &e)
+// SExprEvaluator::RetTy SExprEvaluator::visitExtract(ExtractExpr &e)
 // {
 // }
 
 #define IMPLEMENT_LOGOP(op)						\
 	if (op(e.getKids().begin(), e.getKids().end(),			\
-	       [&](const std::unique_ptr<SExpr> &kid){ return visit(kid).getBoolValue(); })) \
-		return llvm::APInt(e.getWidth(), 1);			\
-	return llvm::APInt(e.getWidth(), 0)
+	       [&](const std::unique_ptr<SExpr> &kid){ return visit(kid).getBool(); })) \
+		return SVal(1);						\
+	return SVal(0);
 
-llvm::APInt SExprEvaluator::visitConjunctionExpr(ConjunctionExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitConjunctionExpr(ConjunctionExpr &e)
 {
 	IMPLEMENT_LOGOP(std::all_of);
 }
 
-llvm::APInt SExprEvaluator::visitDisjunctionExpr(DisjunctionExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitDisjunctionExpr(DisjunctionExpr &e)
 {
 	IMPLEMENT_LOGOP(std::any_of);
 }
 
-#define IMPLEMENT_CAST(op)				\
-	return visit(e.getKid(0)).op(e.getWidth())
+/* No special care taken using SVals */
+#define IMPLEMENT_CAST(op)			\
+	return visit(e.getKid(0))
 
-llvm::APInt SExprEvaluator::visitZExtExpr(ZExtExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitZExtExpr(ZExtExpr &e)
 {
 	IMPLEMENT_CAST(zext);
 }
 
-llvm::APInt SExprEvaluator::visitSExtExpr(SExtExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSExtExpr(SExtExpr &e)
 {
 	IMPLEMENT_CAST(sext);
 }
 
-llvm::APInt SExprEvaluator::visitTruncExpr(TruncExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitTruncExpr(TruncExpr &e)
 {
 	IMPLEMENT_CAST(trunc);
 }
 
-llvm::APInt SExprEvaluator::visitNotExpr(NotExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitNotExpr(NotExpr &e)
 {
-	return llvm::APInt(1, !visit(e.getKid(0)));
+	return !e.getKid(0);
 }
 
 #define IMPLEMENT_BINOP(op)					\
@@ -330,122 +331,122 @@ llvm::APInt SExprEvaluator::visitNotExpr(NotExpr &e)
 #define IMPLEMENT_BINOP_NONMEM(op)				\
 	return visit(e.getKid(0)) op visit(e.getKid(1))
 
-llvm::APInt SExprEvaluator::visitAddExpr(AddExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitAddExpr(AddExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(+);
 }
 
-llvm::APInt SExprEvaluator::visitSubExpr(SubExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSubExpr(SubExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(-);
 }
 
-llvm::APInt SExprEvaluator::visitMulExpr(MulExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitMulExpr(MulExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(*);
 }
 
-llvm::APInt SExprEvaluator::visitUDivExpr(UDivExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitUDivExpr(UDivExpr &e)
 {
-	IMPLEMENT_BINOP(udiv);
+	IMPLEMENT_BINOP_NONMEM(/);
 }
 
-llvm::APInt SExprEvaluator::visitSDivExpr(SDivExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSDivExpr(SDivExpr &e)
 {
-	IMPLEMENT_BINOP(sdiv);
+	IMPLEMENT_BINOP_NONMEM(/);
 }
 
-llvm::APInt SExprEvaluator::visitURemExpr(URemExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitURemExpr(URemExpr &e)
 {
-	IMPLEMENT_BINOP(urem);
+	IMPLEMENT_BINOP_NONMEM(/);
 }
 
-llvm::APInt SExprEvaluator::visitSRemExpr(SRemExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSRemExpr(SRemExpr &e)
 {
-	IMPLEMENT_BINOP(srem);
+	IMPLEMENT_BINOP_NONMEM(/);
 }
 
-llvm::APInt SExprEvaluator::visitAndExpr(AndExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitAndExpr(AndExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(&);
 }
 
-llvm::APInt SExprEvaluator::visitOrExpr(OrExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitOrExpr(OrExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(|);
 }
 
-llvm::APInt SExprEvaluator::visitXorExpr(XorExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitXorExpr(XorExpr &e)
 {
 	IMPLEMENT_BINOP_NONMEM(^);
 }
 
-llvm::APInt SExprEvaluator::visitShlExpr(ShlExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitShlExpr(ShlExpr &e)
 {
-	IMPLEMENT_BINOP(shl);
+	IMPLEMENT_BINOP_NONMEM(<<);
 }
 
-llvm::APInt SExprEvaluator::visitLShrExpr(LShrExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitLShrExpr(LShrExpr &e)
 {
-	IMPLEMENT_BINOP(lshr);
+	IMPLEMENT_BINOP_NONMEM(>>);
 }
 
-llvm::APInt SExprEvaluator::visitAShrExpr(AShrExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitAShrExpr(AShrExpr &e)
 {
-	IMPLEMENT_BINOP(ashr);
+	IMPLEMENT_BINOP_NONMEM(>>);
 }
 
 #define IMPLEMENT_CMPOP(op)				\
-	if (visit(e.getKid(0)).op(visit(e.getKid(1))))	\
-		return llvm::APInt(e.getWidth(), 1);	\
-	return llvm::APInt(e.getWidth(), 0);
+	if (visit(e.getKid(0)) op (visit(e.getKid(1))))	\
+		return SVal(1);				\
+	return SVal(0);
 
-llvm::APInt SExprEvaluator::visitEqExpr(EqExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitEqExpr(EqExpr &e)
 {
-	IMPLEMENT_CMPOP(eq);
+	IMPLEMENT_CMPOP(==);
 }
 
-llvm::APInt SExprEvaluator::visitNeExpr(NeExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitNeExpr(NeExpr &e)
 {
-	IMPLEMENT_CMPOP(ne);
+	IMPLEMENT_CMPOP(!=);
 }
 
-llvm::APInt SExprEvaluator::visitUltExpr(UltExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitUltExpr(UltExpr &e)
 {
-	IMPLEMENT_CMPOP(ult);
+	IMPLEMENT_CMPOP(<);
 }
 
-llvm::APInt SExprEvaluator::visitUleExpr(UleExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitUleExpr(UleExpr &e)
 {
-	IMPLEMENT_CMPOP(ule);
+	IMPLEMENT_CMPOP(<=);
 }
 
-llvm::APInt SExprEvaluator::visitUgtExpr(UgtExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitUgtExpr(UgtExpr &e)
 {
-	IMPLEMENT_CMPOP(ugt);
+	IMPLEMENT_CMPOP(>);
 }
 
-llvm::APInt SExprEvaluator::visitUgeExpr(UgeExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitUgeExpr(UgeExpr &e)
 {
-	IMPLEMENT_CMPOP(uge);
+	IMPLEMENT_CMPOP(>=);
 }
 
-llvm::APInt SExprEvaluator::visitSltExpr(SltExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSltExpr(SltExpr &e)
 {
-	IMPLEMENT_CMPOP(slt);
+	IMPLEMENT_CMPOP(<);
 }
 
-llvm::APInt SExprEvaluator::visitSleExpr(SleExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSleExpr(SleExpr &e)
 {
-	IMPLEMENT_CMPOP(sle);
+	IMPLEMENT_CMPOP(<=);
 }
 
-llvm::APInt SExprEvaluator::visitSgtExpr(SgtExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSgtExpr(SgtExpr &e)
 {
-	IMPLEMENT_CMPOP(sgt);
+	IMPLEMENT_CMPOP(>);
 }
 
-llvm::APInt SExprEvaluator::visitSgeExpr(SgeExpr &e)
+SExprEvaluator::RetTy SExprEvaluator::visitSgeExpr(SgeExpr &e)
 {
-	IMPLEMENT_CMPOP(sge);
+	IMPLEMENT_CMPOP(>=);
 }

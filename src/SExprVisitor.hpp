@@ -23,8 +23,8 @@
 
 #include "Error.hpp"
 #include "SExpr.hpp"
+#include "Memory.hpp"
 #include "VSet.hpp"
-#include <llvm/IR/Type.h>
 
 #include <map>
 #include <unordered_map>
@@ -230,17 +230,20 @@ private:
  * and that are no registers (these should have been concretized).
  */
 
-class SExprEvaluator: public SExprVisitor<SExprEvaluator, llvm::APInt> {
+class SExprEvaluator: public SExprVisitor<SExprEvaluator, SVal> {
 
 public:
+	using RegID = RegisterExpr::RegID;
+	using VMap = std::unordered_map<RegID, SVal>;
+
 	/*
 	 * We could implement this using a stack for intermediate results,
 	 * but overriding the return type is easier
 	 */
-	using RetTy = llvm::APInt;
+	using RetTy = SVal;
 
 	/* BFE: Evaluates the given expression replacing _all_ symbolic variables with v */
-	RetTy evaluate(const SExpr *e, llvm::APInt v, size_t *numUnknown = nullptr) {
+	RetTy evaluate(const SExpr *e, SVal v, size_t *numUnknown = nullptr) {
 		bruteForce = true;
 		val = v;
 		unknown.clear();
@@ -251,13 +254,9 @@ public:
 		bruteForce = false;
 		return res;
 	}
-	RetTy evaluate(const SExpr *e, const llvm::GenericValue &v, size_t *numUnknown = nullptr) {
-		return evaluate(e, v.IntVal, numUnknown);
-	}
 
 	/* NBFE: Evaluates according to a given mapping */
-	RetTy evaluate(const SExpr *e, const std::unordered_map<llvm::Value *, llvm::APInt> &map,
-		       size_t *numUnknown = nullptr) {
+	RetTy evaluate(const SExpr *e, const VMap &map, size_t *numUnknown = nullptr) {
 		valueMapping = &map;
 		auto res = visit(const_cast<SExpr *>(e));
 		if (numUnknown)
@@ -304,28 +303,27 @@ public:
 
 private:
 	/* NBFE: Checks whether a symbolic variable has a mapping */
-	bool hasKnownMapping(llvm::Value *reg) const { return valueMapping && valueMapping->count(reg); }
+	bool hasKnownMapping(RegID reg) const { return valueMapping && valueMapping->count(reg); }
 
 	/* NBFE: Returns the value of a symbolic variable */
-	llvm::APInt getMappingFor(llvm::Value *reg) const {
-		return (hasKnownMapping(reg)) ? valueMapping->at(reg) :
-			llvm::APInt(reg->getType()->getPrimitiveSizeInBits(), 42);
+	RetTy getMappingFor(RegID reg) const {
+		return (hasKnownMapping(reg)) ? valueMapping->at(reg) :	SVal(42);
 	}
 
 	/* BFE: Returns the value we are evaluating with in a brute-force eval */
-	llvm::APInt getVal() const { return val; }
+	RetTy getVal() const { return val; }
 
 	/* NBFE: Value mapping we are evaluating with */
-	const std::unordered_map<llvm::Value *, llvm::APInt> *valueMapping;
+	const std::unordered_map<RegID, SVal> *valueMapping;
 
 	/* BFE: Value we are evaluating with */
-	llvm::APInt val;
+	SVal val;
 
 	/* Whether this is a BFE */
 	bool bruteForce = false;
 
 	/* Unknown symbolic variables seen during an evaluation */
-	VSet<llvm::Value *> unknown;
+	VSet<RegID> unknown;
 };
 
 /*******************************************************************************
@@ -339,10 +337,11 @@ private:
 class SExprRegSubstitutor: public SExprVisitor<SExprRegSubstitutor> {
 
 public:
+	using RegID = RegisterExpr::RegID;
+
 	/* Performs the substitution (returns a new expression) */
 	std::unique_ptr<SExpr>
-	substitute(const SExpr *orig, llvm::Value *reg,
-		   const SExpr *r) {
+	substitute(const SExpr *orig, RegID reg, const SExpr *r) {
 		auto e = orig->clone();
 		if (auto *re = llvm::dyn_cast<RegisterExpr>(e.get()))
 			if (re->getRegister() == reg)
@@ -364,10 +363,10 @@ public:
 	}
 
 private:
-	llvm::Value *getRegToReplace() const { return replaceReg; }
+	RegID getRegToReplace() const { return replaceReg; }
 	const SExpr *getReplaceExpr() const { return replaceExpr; }
 
-	llvm::Value *replaceReg;
+	RegID replaceReg;
 	const SExpr *replaceExpr;
 };
 
@@ -383,14 +382,17 @@ private:
 class SExprConcretizer: public SExprVisitor<SExprConcretizer> {
 
 public:
+	using RegID = RegisterExpr::RegID;
+	using ReplaceMap = std::map<RegID, std::pair<SVal, SSize>>;
+
 	/* Performs the concretization (returns a new expression) */
 	std::unique_ptr<SExpr>
-	concretize(const SExpr *orig,
-		   const std::map<llvm::Value *, llvm::GenericValue> &rMap) {
+	concretize(const SExpr *orig, const ReplaceMap &rMap) {
 		auto e = orig->clone();
 		if (auto *re = llvm::dyn_cast<RegisterExpr>(e.get()))
 			if (shouldReplace(re->getRegister()))
-				return ConcreteExpr::create(getReplaceVal(re->getRegister()));
+				return ConcreteExpr::create(getReplaceValSize(re->getRegister()),
+							    getReplaceVal(re->getRegister()));
 
 		replaceMap = &rMap;
 		visit(e.get());
@@ -402,15 +404,17 @@ public:
 			visit(e.getKid(i));
 			if (auto *re = llvm::dyn_cast<RegisterExpr>(e.getKid(i)))
 				if (shouldReplace(re->getRegister()))
-					e.setKid(i, ConcreteExpr::create(getReplaceVal(re->getRegister())));
+					e.setKid(i, ConcreteExpr::create(getReplaceValSize(re->getRegister()),
+									 getReplaceVal(re->getRegister())));
 		}
 	}
 
 private:
-	bool shouldReplace(llvm::Value *reg) const { return replaceMap->count(reg); }
-	llvm::APInt getReplaceVal(llvm::Value *reg) const { return replaceMap->at(reg).IntVal; }
+	bool shouldReplace(RegID reg) const { return replaceMap->count(reg); }
+	SVal getReplaceVal(RegID reg) const { return replaceMap->at(reg).first; }
+	SExpr::Width getReplaceValSize(RegID reg) const { return replaceMap->at(reg).second.get(); }
 
-	const std::map<llvm::Value *, llvm::GenericValue> *replaceMap;
+	const ReplaceMap *replaceMap;
 };
 
 #endif /* __S_EXPR_VISITOR_HPP__ */

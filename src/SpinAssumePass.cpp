@@ -305,13 +305,13 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
 	for (auto i = 1u; i < (1 << extracts.size()); i++) {
 
-		std::unordered_map<Value *, llvm::APInt> valueMap;
+		std::unordered_map<SExprEvaluator::RegID, SVal> valueMap;
 		for (auto j = 0u; j < extracts.size(); j++)
-			valueMap[extracts[j]] = (i & (1 << j)) ? APInt(1, 1) : APInt(1, 0);
+			valueMap[extracts[j]] = (i & (1 << j)) ? SVal(1) : SVal(0);
 
 		size_t unknowns;
 		auto res = SExprEvaluator().evaluate(backedgeCondition.get(), valueMap, &unknowns);
-		if (unknowns > 0 || res.getBoolValue())
+		if (unknowns > 0 || res.getBool())
 			return false;
 	}
 	return true;

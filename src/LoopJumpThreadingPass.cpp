@@ -86,8 +86,8 @@ bool entryAlwaysJumpsToBody(Loop *l)
 
 	/* ...and check whether it always evaluates to true */
 	size_t numSeen;
-	auto res = SExprEvaluator().evaluate(e.get(), std::unordered_map<Value *, APInt>(), &numSeen);
-	return (numSeen == 0) && res.getBoolValue();
+	auto res = SExprEvaluator().evaluate(e.get(), SExprEvaluator::VMap(), &numSeen);
+	return (numSeen == 0) && res.getBool();
 }
 
 bool invertLoop(Loop *l, PHINode *criticalPHI)

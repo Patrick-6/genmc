@@ -465,7 +465,16 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 	auto *a = getAnnotation(ECStack().back().CurInst->getPrevNode());
 	if (!a)
 		return nullptr;
-	return SExprConcretizer().concretize(a, ECStack().back().Values);
+
+	auto &stackVals = ECStack().back().Values;
+	SExprConcretizer::ReplaceMap vMap;
+
+	for (auto &kv : stackVals)
+		vMap.insert({((void *) (intptr_t) MI->idInfo.instID.at(kv.first)),
+			    std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
+					   SSize(getTypeSize(kv.first->getType()) * 8))});
+
+	return SExprConcretizer().concretize(a, vMap);
 }
 
 

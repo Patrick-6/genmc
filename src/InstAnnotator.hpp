@@ -21,6 +21,7 @@
 #ifndef __INST_ANNOTATOR_HPP__
 #define __INST_ANNOTATOR_HPP__
 
+#include "Error.hpp"
 #include "VSet.hpp"
 #include <llvm/Pass.h>
 #include <llvm/Analysis/LoopInfo.h>
@@ -31,6 +32,7 @@
 using namespace llvm;
 
 class SExpr;
+class IDInfo;
 
 /*
  * A class that annotates loads by performing a DFS-like propagation procedure.
@@ -40,6 +42,11 @@ class SExpr;
 class InstAnnotator {
 
 public:
+	/* NOTE: For annotations to be used in a multithreaded environment
+	 * IDInfo has to be provided so that the annotations are module-agnostic. */
+	InstAnnotator() { useIDs = false; }
+	InstAnnotator(const IDInfo *II) : II(II) { BUG_ON(!II); useIDs = true; }
+
 	/* Returns the annotation for a load L */
 	std::unique_ptr<SExpr> annotate(LoadInst *l);
 
@@ -55,11 +62,19 @@ private:
 	/* Helper types for the annotation routines */
 	enum Status { unseen, entered, left };
 
+	/* InstAnnotMap maps void * so that we can use it both with ID keys and Value *.
+	 * It is a big ugly, but on par with RegisterExpr identifiers (see SExpr.hpp) */
+	using InstAnnotMap = std::unordered_map<void *, std::unique_ptr<SExpr> >;
 	using InstStatusMap = DenseMap<Instruction *, Status>;
-	using InstAnnotMap = std::unordered_map<Instruction *, std::unique_ptr<SExpr> >;
 
 	/* Resets all helper members used in the annotation */
 	void reset();
+
+	/* Generates an expression for a given instruction operand */
+	std::unique_ptr<SExpr> generateOperandExpr(Value *op);
+
+	/* Generates an expression for an instruction */
+	std::unique_ptr<SExpr> generateInstExpr(Instruction *curr);
 
 	/* Helper that returns the annotation for CURR by propagating SUCC's annotation backwards */
 	std::unique_ptr<SExpr> propagateAnnotFromSucc(Instruction *curr, Instruction *succ);
@@ -74,11 +89,31 @@ private:
 	/* Helper for annotateCASWithBackedgeCond(); performs the actual annotation (for backedge paths) */
 	void annotateCASWithBackedgeCondDFS(Instruction *curr, const VSet<BasicBlock *> &backedgePaths, Loop *l);
 
+	/* Various getters/setters */
+
+	/* Returns the appropriate key to be used when accessing annotMaps depending on useIDs */
+	void *getAnnotMapKey(Value *i) const;
+
+	/* Returns the annotation of I */
+	const SExpr *getAnnot(Instruction *i);
+
+	/* Assumes ownership of I's annotation */
+	std::unique_ptr<SExpr> releaseAnnot(Instruction *i);
+
+	/* Sets the annotation of I To be ANNOT */
+	void setAnnot(Instruction *i, std::unique_ptr<SExpr> annot);
+
 	/* A helper status map */
 	InstStatusMap statusMap;
 
-	/* A map storing the annotations for this function's annotatable loads */
+	/* Maps instructions to annotations */
 	InstAnnotMap annotMap;
+
+	/* ID information to keep annotations module-agnostic */
+	const IDInfo *II = nullptr;
+
+	/* Whether we should use IDs or not */
+	bool useIDs = false;
 };
 
 #endif /* __INST_ANNOTATOR_HPP__ */

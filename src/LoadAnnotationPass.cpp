@@ -131,7 +131,7 @@ std::vector<LoadInst *>
 LoadAnnotationPass::getAnnotatableLoads(CallInst *assm) const
 {
 	if (!isAssumeFunction(getCalledFunOrStripValName(*assm)))
-		return std::vector<LoadInst *>(); /* yet another check...x */
+		return std::vector<LoadInst *>(); /* yet another check... */
 
 	auto sourceLoads = getSourceLoads(assm);
 	return filterAnnotatableFromSource(assm, sourceLoads);
@@ -139,7 +139,7 @@ LoadAnnotationPass::getAnnotatableLoads(CallInst *assm) const
 
 bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 {
-	InstAnnotator annotator;
+	InstAnnotator annotator(&II);
 
 	for (auto &i : instructions(F)) {
 		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {

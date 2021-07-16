@@ -22,10 +22,7 @@
 #define __S_EXPR_HPP__
 
 #include "Error.hpp"
-
-#include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/IR/Value.h>
-#include <llvm/IR/Type.h>
+#include "Memory.hpp"
 
 #include <memory>
 
@@ -34,7 +31,7 @@
  * would be to use shared_ptr<>s, which would enable sharing of expression
  * nodes. That, however, would complicate cloning a bit, which does occur
  * frequently in the current setting. Given that the expressions constructed
- * are probably going to be small,
+ * are probably going to be small, using unique_ptr<>s should be OK.
  */
 
 /*
@@ -124,11 +121,8 @@ public:
 
 protected:
 	SExpr() = delete;
-
 	SExpr(Kind k, Width w, std::vector<std::unique_ptr<SExpr> > &&kids = {})
 		: kind(k), width(w), kids(std::move(kids)) {}
-	SExpr(Kind k, const llvm::Type *t, std::vector<std::unique_ptr<SExpr> > &&kids = {})
-		: SExpr(k, t->getIntegerBitWidth(), std::move(kids)) {}
 
 public:
 
@@ -195,12 +189,11 @@ private:
 class ConcreteExpr : public SExpr {
 
 protected:
-	ConcreteExpr(Width w, llvm::APInt val) : SExpr(Concrete, w), value(val) {}
-	ConcreteExpr(llvm::APInt val) : ConcreteExpr(val.getBitWidth(), val) {}
+	ConcreteExpr(Width w, SVal val) : SExpr(Concrete, w), value(val) {}
 
 public:
 	/* Returns the constant value */
-	const llvm::APInt &getValue() const { return value; }
+	const SVal &getValue() const { return value; }
 
 	template<typename... Ts>
 	static std::unique_ptr<ConcreteExpr> create(Ts&&... params) {
@@ -208,10 +201,10 @@ public:
 			new ConcreteExpr(std::forward<Ts>(params)...));
 	}
 	static std::unique_ptr<ConcreteExpr> createTrue() {
-		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(llvm::APInt(1, 1)));
+		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(1, SVal(1)));
 	}
 	static std::unique_ptr<ConcreteExpr> createFalse() {
-		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(llvm::APInt(1, 0)));
+		return std::unique_ptr<ConcreteExpr>(new ConcreteExpr(1, SVal(0)));
 	}
 
 	std::unique_ptr<SExpr> clone() const override {
@@ -221,7 +214,7 @@ public:
 	static bool classof(const SExpr *E) { return E->getKind() == SExpr::Concrete; }
 
 private:
-	llvm::APInt value;
+	SVal value;
 };
 
 
@@ -231,21 +224,25 @@ private:
 
 /*
  * Represents a register the value of which is still unknown (symbolic variable).
+ * Each register is (uniquely) represented using a void *. This class is completely
+ * oblivious to what the void * actually points to and does not use/dereference it.
+ * The users have to be careful and not assign the same pointer to different
+ * registers. (Perhaps using a dedicated "ID" class for that would be better.)
  */
 
 class RegisterExpr : public SExpr {
 
+public:
+	using RegID = void *;
+
 protected:
-	explicit RegisterExpr(Width width, llvm::Value *reg, const std::string &argname = "")
+	explicit RegisterExpr(Width width, RegID reg, const std::string &argname = "")
 		: SExpr(Register, width), reg(reg),
 		  name(!argname.empty() ? argname : ("#s" + std::to_string(regCount++))) {}
 
-	explicit RegisterExpr(llvm::Value *reg, const std::string &argname = "")
-		: RegisterExpr(reg->getType()->getIntegerBitWidth(), reg, argname) {}
-
 public:
 	/* Returns an identifier to this register */
-	llvm::Value *getRegister() const { return reg; }
+	RegID getRegister() const { return reg; }
 
 	/* Returns the name of this register (in LLVM-IR) */
 	const std::string &getName() const { return name; }
@@ -266,7 +263,7 @@ public:
 
 private:
 	/* Unique identifier for the symbolic variable */
-	llvm::Value *reg;
+	RegID reg;
 
 	/* The name of this symbolic variable */
 	const std::string name;
@@ -475,10 +472,6 @@ protected:
 	BinaryExpr(Kind k, Width w, std::unique_ptr<SExpr> &&l,
 		   std::unique_ptr<SExpr> &&r)
 		: SExpr(k, w) { addKid(std::move(l)); addKid(std::move(r)); }
-	BinaryExpr(Kind k, const llvm::Type *t, std::unique_ptr<SExpr> &&l,
-		   std::unique_ptr<SExpr> &&r)
-		: SExpr(k, t) { addKid(std::move(l)); addKid(std::move(r)); }
-
 	BinaryExpr(Kind k, std::unique_ptr<SExpr> &&l, std::unique_ptr<SExpr> &&r)
 		: BinaryExpr(k, l->getWidth(), std::move(l), std::move(r)) {
 		BUG_ON(getKid(0)->getWidth() != getKid(1)->getWidth());
@@ -502,9 +495,6 @@ protected:							                                        \
 	_class_kind##Expr(Width w, std::unique_ptr<SExpr> &&l, 						\
 			  std::unique_ptr<SExpr> &&r)							\
 	: BinaryExpr(_class_kind, w, std::move(l), std::move(r)) {}					\
-	_class_kind##Expr(const llvm::Type *t, std::unique_ptr<SExpr> &&l, 				\
-			  std::unique_ptr<SExpr> &&r)							\
-	: BinaryExpr(_class_kind, t, std::move(l), std::move(r)) {}					\
 													\
 public:													\
 	template<typename... Ts>									\
