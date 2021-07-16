@@ -657,6 +657,8 @@ private:  // Helper functions
                                   ExecutionContext &SF);
   GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
                                     Type *Ty, ExecutionContext &SF);
+  std::vector<GenericValue> translateExternalCallArgs(Function *F,
+						      const std::vector<GenericValue> &Args) const;
   void returnValueToCaller(Type *RetTy, GenericValue Result);
   void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
 

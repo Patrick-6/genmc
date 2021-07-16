@@ -4298,6 +4298,24 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 	return;
 }
 
+std::vector<GenericValue>
+Interpreter::translateExternalCallArgs(Function *F,
+				       const std::vector<GenericValue> &ArgVals) const
+{
+	std::vector<GenericValue> result;
+
+	auto i = 0u;
+	for (auto ai = F->arg_begin(), ae = F->arg_end(); ai != ae; ++ai, ++i) {
+		if (ai->getType()->isPointerTy() && SAddr(GVTOP(ArgVals[i])).isStatic()) {
+			auto transAddr = PTOGV(getStaticAddr(GVTOP(ArgVals[i])));
+			result.push_back(transAddr);
+		} else {
+			result.push_back(ArgVals[i]);
+		}
+	}
+	return result;
+}
+
 //===----------------------------------------------------------------------===//
 // callFunction - Execute the specified function...
 //
@@ -4325,8 +4343,8 @@ void Interpreter::callFunction(Function *F,
 
   // Special handling for external functions.
   if (F->isDeclaration()) {
-    BUG(); // Translate pointer argument addresses
-    GenericValue Result = callExternalFunction (F, ArgVals);
+    auto translated = translateExternalCallArgs(F, ArgVals);
+    auto Result = callExternalFunction (F, translated);
     // Simulate a 'ret' instruction of the appropriate type.
     popStackAndReturnValueToCaller (F->getReturnType (), Result);
     return;
