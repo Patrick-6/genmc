@@ -2853,8 +2853,7 @@ void GenMCDriver::visitSpinStart()
 	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
 		return llvm::isa<LoopBeginLabel>(lab);
 	});
-	if (!lbLab)
-		return; /* no begin-loop => full spinloop (liveness-checks) */
+	BUG_ON(!lbLab);
 
 	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
 		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
