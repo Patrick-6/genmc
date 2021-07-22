@@ -83,6 +83,6 @@ Trace to (2, 21):
 [thread_1] lamport-deadlock0.c: 21: p1 = false;
 [thread_1] lamport-deadlock0.c: 15: p1 = true;
 [thread_2] lamport-deadlock0.c: 31: while (p1)
-Non-terminating spinloop
-Number of complete executions explored: 75
-Number of blocked executions seen: 97
+Non-terminating spinloop: thread 1
+Number of complete executions explored: 691
+Number of blocked executions seen: 501
