@@ -1164,39 +1164,47 @@ bool GenMCDriver::threadReadsMaximal(int tid)
 {
 	auto &g = getGraph();
 
-	for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
+	/*
+	 * Depending on whether this is a DSA loop or not, we have to
+	 * adjust the detection starting point: DSA-blocked threads
+	 * will have a SpinStart as their last event.
+	 */
+	auto *lastLab = g.getLastThreadLabel(tid);
+	auto start = llvm::isa<SpinStartLabel>(lastLab) ? lastLab->getPos().prev() : lastLab->getPos();
+	for (auto j = start.index; j > 0; j--) {
 		auto *lab = g.getEventLabel(Event(tid, j));
+		BUG_ON(llvm::isa<LoopBeginLabel>(lab));
 		if (llvm::isa<SpinStartLabel>(lab))
-			return false;
+			return true;
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
-				return true;
+				return false;
 		}
 	}
-	return false;
+	BUG();
 }
 
 void GenMCDriver::checkLiveness()
 {
-	auto &g = getGraph();
-	auto *EE = getEE();
-	std::vector<int> spinBlocked;
-
 	if (shouldCheckCons(ProgramPoint::exec) && !isConsistent(ProgramPoint::exec))
 		return;
 
+	const auto &g = getGraph();
+	const auto *EE = getEE();
+	std::vector<int> spinBlocked;
+
 	/* Collect all threads blocked at spinloops */
-	for (auto &thr : EE->threads) {
+	for (const auto &thr : EE->threads) {
 		if (thr.getBlockageType() == llvm::Thread::BT_Spinloop)
 			spinBlocked.push_back(thr.id);
 	}
-
 	/* And check whether all of them are live or not */
 	if (!spinBlocked.empty() &&
-	    std::none_of(spinBlocked.begin(), spinBlocked.end(),
+	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
 			[&](int tid){ return threadReadsMaximal(tid); })) {
-		/* Print the name of one of the spinloop variables that are not live */
-		visitError(DE_Liveness, "Non-terminating spinloop");
+		/* Print some TID blocked by a spinloop */
+		visitError(DE_Liveness, "Non-terminating spinloop: " \
+			   "thread " + std::to_string(spinBlocked[0]));
 	}
 	return;
 }
@@ -2880,7 +2888,8 @@ void GenMCDriver::visitSpinStart()
 	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
 		return llvm::isa<LoopBeginLabel>(lab);
 	});
-	BUG_ON(!lbLab);
+	/* If we did not found a loop-begin, this a manual instrumentation(?); report to user */
+	ERROR_ON(!lbLab, "No loop-beginning found!\n");
 
 	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
 		return llvm::isa<SpinStartLabel>(lab) && lab->getIndex() > lbLab->getIndex();
