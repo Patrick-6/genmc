@@ -812,44 +812,74 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	const auto &g = getGraph();
 	const View &before = g.getHbBefore(mLab->getPos().prev());
-	for (auto i = 0u; i < g.getNumThreads(); i++)
+	const MallocLabel *allocLab = nullptr;
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
-			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
-				if (fLab->getFreedAddr() == mLab->getAddr()) {
-					visitError(DE_AccessFreed, "", oLab->getPos());
-				}
-			}
+			/* Find preceding malloc */
 			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
 				if (aLab->getAllocAddr() <= mLab->getAddr() &&
 				    ((char *) aLab->getAllocAddr() +
-				     aLab->getAllocSize() > (char *) mLab->getAddr()) &&
-				    !before.contains(oLab->getPos())) {
-					visitError(DE_AccessNonMalloc,
-						   "The allocating operation (malloc()) "
-						   "does not happen-before the memory access!",
-						   oLab->getPos());
+				     aLab->getAllocSize() > (char *) mLab->getAddr())) {
+					allocLab = aLab;
+					if (!before.contains(oLab->getPos())) {
+						visitError(DE_AccessNonMalloc,
+							   "The allocating operation (malloc()) "
+							   "does not happen-before the memory access!",
+							   oLab->getPos());
+						return;
+					}
 				}
 			}
+		}
+	}
+	if (!allocLab) {
+		visitError(DE_AccessNonMalloc, "No happens-before preceding allocation (malloc()) found!");
+		return;
+	}
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 0u; j < g.getThreadSize(i); j++) {
+			const EventLabel *oLab = g.getEventLabel(Event(i, j));
+			/* Check if the malloc()-address has been freed */
+			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
+				if (fLab->getFreedAddr() == allocLab->getAllocAddr()) {
+					visitError(DE_AccessFreed, "", oLab->getPos());
+					return;
+				}
+			}
+		}
 	}
 	return;
 }
 
 void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 {
-	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
 	const auto &g = getGraph();
 	auto *ptr = fLab->getFreedAddr();
 	auto &before = g.getHbBefore(fLab->getPos());
+	const MallocLabel *allocLab = nullptr; /* There must be a malloc() before the free() */
+
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
 				if (aLab->getAllocAddr() == ptr &&
 				    before.contains(aLab->getPos())) {
-					m = aLab;
+					allocLab = aLab;
 				}
 			}
+		}
+	}
+	if (!allocLab) {
+		visitError(DE_FreeNonMalloc);
+		return;
+	}
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = 1u; j < g.getThreadSize(i); j++) {
+			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
 				if (dLab->getFreedAddr() == ptr &&
 				    dLab->getPos() != fLab->getPos()) {
@@ -857,17 +887,14 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 				}
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
-				if (mLab->getAddr() == ptr &&
+				if (mLab->getAddr() >= allocLab->getAllocAddr() &&
+				    (char *) mLab->getAddr() < (char *) allocLab->getAllocAddr() +
+				    allocLab->getAllocSize() &&
 				    !before.contains(mLab->getPos())) {
 					visitError(DE_AccessFreed, "", mLab->getPos());
 				}
-
 			}
 		}
-	}
-
-	if (!m) {
-		visitError(DE_FreeNonMalloc);
 	}
 	return;
 }
@@ -876,7 +903,7 @@ void GenMCDriver::checkForMemoryRaces(const void *addr)
 {
 	if (userConf->disableRaceDetection)
 		return;
-	if (!getEE()->isDynamic(addr))
+	if (!getEE()->isDynamic(addr) || getEE()->isInternal(addr))
 		return;
 
 	const EventLabel *lab = getCurrentLabel();
