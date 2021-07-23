@@ -108,11 +108,11 @@ do {								\
 /* Exchange */
 #define __xchg(p, v, m)				\
 	atomic_exchange_explicit(p, v, m)
-#define xchg(p, v, m)							\
+#define xchg(p, v)							\
 ({									\
 	__typeof__((v)) _v_ = (v);					\
 	smp_mb__before_atomic();					\
-	_v_ = __xchg(p, v, m);						\
+	_v_ = __xchg(p, v, memory_order_relaxed);			\
 	smp_mb__after_atomic();						\
 	_v_;								\
 })
