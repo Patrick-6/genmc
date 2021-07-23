@@ -2888,7 +2888,7 @@ void GenMCDriver::visitSpinStart()
 	auto *lbLab = g.getPreviousLabelST(stLab, [](const EventLabel *lab){
 		return llvm::isa<LoopBeginLabel>(lab);
 	});
-	/* If we did not found a loop-begin, this a manual instrumentation(?); report to user */
+	/* If we did not find a loop-begin, this a manual instrumentation(?); report to user */
 	ERROR_ON(!lbLab, "No loop-beginning found!\n");
 
 	auto *pLab = g.getPreviousLabelST(stLab, [lbLab](const EventLabel *lab){
