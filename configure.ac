@@ -250,6 +250,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Case labels depending on whether VectorTyID exists.])
          AC_MSG_RESULT([{llvm::Type::FixedVectorTyID, llvm::Type::ScalableVectorTyID}])])
 
+## Check whether the function llvm::onlyUsedByLifetimeMarkersOrDroppableInsts() exists (LLVM >= 12)
+AC_MSG_CHECKING([for llvm::onlyUsedByLifetimeMarkersOrDroppableInsts])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/ValueTracking.h>
+]],[[
+  int result = llvm::onlyUsedByLifetimeMarkersOrDroppableInsts(nullptr);
+]])],
+        [AC_DEFINE([LLVM_HAS_ONLYUSEDBYLIFETIMEMARKERSORDROPPABLEINSTS],[1],
+         [Define if the function llvm::onlyUsedByLifetimeMarkersOrDroppableInsts exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether the class llvm::TerminatorInst exists (LLVM < 8)
 AC_MSG_CHECKING([for llvm::TerminatorInst])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -165,6 +165,9 @@ static llvm::cl::opt<bool>
 clDisableLoopJumpThreading("disable-loop-jump-threading", llvm::cl::cat(clTransformation),
 			   llvm::cl::desc("Disable loop-jump-threading transformation"));
 static llvm::cl::opt<bool>
+clDisableCastElimination("disable-cast-elimination", llvm::cl::cat(clTransformation),
+			   llvm::cl::desc("Disable cast-elimination transformation"));
+static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
 static llvm::cl::opt<bool>
@@ -293,6 +296,7 @@ void Config::saveConfigOptions()
 	/* Save transformation options */
 	unroll = clLoopUnroll;
 	loopJumpThreading = !clDisableLoopJumpThreading;
+	castElimination = !clDisableCastElimination;
 	spinAssume = !clDisableSpinAssume;
 	codeCondenser = !clDisableCodeCondenser;
 	loadAnnot = !clDisableLoadAnnot;
