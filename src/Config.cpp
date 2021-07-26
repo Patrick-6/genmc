@@ -191,6 +191,9 @@ clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("fi
 static llvm::cl::opt<bool>
 clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 		     llvm::cl::desc("Validate the execution graphs in each step"));
+static llvm::cl::opt<unsigned int>
+clWarnOnGraphSize("warn-on-graph-size", llvm::cl::init(42042), llvm::cl::value_desc("N"),
+		  llvm::cl::cat(clDebugging), llvm::cl::desc("Warn about graphs larget than N"));
 llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
 		 llvm::cl::desc("Choose the scheduling policy:"),
@@ -297,6 +300,7 @@ void Config::saveConfigOptions()
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;
 	validateExecGraphs = clValidateExecGraphs;
+	warnOnGraphSize = clWarnOnGraphSize;
 	schedulePolicy = clSchedulePolicy;
 	printRandomScheduleSeed = clPrintRandomScheduleSeed;
 	randomScheduleSeed = clRandomScheduleSeed;
