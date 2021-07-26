@@ -120,14 +120,33 @@ void GenMCDriver::resetThreadPrioritization()
 	auto *EE = getEE();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		Event last = g.getLastThreadEvent(i);
-		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer()) {
-			WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
+		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer())
 			EE->getThrById(i).block(llvm::Thread::BlockageType::BT_LockRel);
-		}
 	}
 
 	/* Clear all prioritization */
 	threadPrios.clear();
+}
+
+bool GenMCDriver::isLockWellFormedLAPOR() const
+{
+	if (!getConf()->LAPOR)
+		return true;
+
+	/*
+	 * Check if there is some thread that did not manage to finish its
+	 * critical section, and mark this execution as blocked
+	 */
+	const auto &g = getGraph();
+	auto *EE = getEE();
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		Event last = g.getLastThreadEvent(i);
+		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer() &&
+		    std::none_of(EE->threads.begin(), EE->threads.end(), [](const llvm::Thread &thr){
+				    return thr.getBlockageType() == llvm::Thread::BlockageType::BT_Cons; }))
+			return false;
+	}
+	return true;
 }
 
 void GenMCDriver::prioritizeThreads()
@@ -356,7 +375,11 @@ void GenMCDriver::handleFinishedExecution()
 	/* First, reset all exploration options */
 	resetExplorationOptions();
 
-	/* Ignore the execution if some assume has failed */
+	/* LAPOR: Check lock-well-formedness */
+	if (userConf->LAPOR && !isLockWellFormedLAPOR())
+		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
+
+	/* Ignore the execution if some assume has failed; check liveness here */
 	if (std::any_of(getEE()->threads.begin(), getEE()->threads.end(),
 			[](llvm::Thread &thr){ return thr.isBlocked(); })) {
 		++exploredBlocked;
@@ -365,6 +388,7 @@ void GenMCDriver::handleFinishedExecution()
 		return;
 	}
 
+	/* Handle printing and counting */
 	const auto &g = getGraph();
 	if (userConf->checkConsPoint == ProgramPoint::exec &&
 	    !isConsistent(ProgramPoint::exec))
