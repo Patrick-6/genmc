@@ -3,6 +3,7 @@ AUTOMAKE_OPTIONS = -Wno-override
 
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
+  EliminateCastsPass.cpp EliminateCastsPass.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \

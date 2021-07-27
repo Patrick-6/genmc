@@ -62,6 +62,7 @@ public:
 
 	/* Transformation options */
 	int unroll;
+	bool castElimination;
 	bool loopJumpThreading;
 	bool spinAssume;
 	bool codeCondenser;
