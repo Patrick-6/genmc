@@ -33,7 +33,9 @@
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IRBuilder.h>
+#if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
 #include <llvm/Transforms/Utils.h>
+#endif
 #include <llvm/Transforms/Utils/PromoteMemToReg.h>
 
 using namespace llvm;
