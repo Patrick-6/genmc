@@ -222,6 +222,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([no])],
         [AC_MSG_RESULT([yes])])
 
+## Check whether llvm::Align has been introduced (>= 11)
+AC_MSG_CHECKING([whether llvm::Align has been introduced])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Alignment.h>
+]],[[
+  llvm::Align a;
+]])],
+        [AC_DEFINE([LLVM_HAS_ALIGN],[1],
+         [Define if llvm::Align exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::SwitchInst::CaseIt needs dereference (>= 4.0)
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -52,10 +52,10 @@ using namespace llvm;
 # define ONLY_USED_BY_MARKERS_OR_DROPPABLE(i) onlyUsedByLifetimeMarkers(i)
 #endif
 
-#ifdef LLVM_LOADINST_VALUE_ONLY
-# define GET_INST_ALIGN(i) i->getAlignment()
-#else
+#ifdef LLVM_HAS_ALIGN
 # define GET_INST_ALIGN(i) i->getAlign()
+#else
+# define GET_INST_ALIGN(i) i->getAlignment()
 #endif
 
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
