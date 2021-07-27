@@ -25,7 +25,6 @@
 
 #include <llvm/Analysis/AssumptionCache.h>
 #include <llvm/Analysis/ValueTracking.h>
-#include <llvm/Analysis/Utils/Local.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/Function.h>
