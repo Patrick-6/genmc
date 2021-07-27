@@ -234,6 +234,19 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether getSyncScopeID() exists (>= 6?)
+AC_MSG_CHECKING([whether getSyncSopeID() exists])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instructions.h>
+]],[[
+  llvm::LoadInst *li = nullptr;
+  li->getSyncScopeID();
+]])],
+        [AC_DEFINE([LLVM_HAS_GET_SYNC_SCOPE_ID],[1],
+         [Define if getSyncScopeID() exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::SwitchInst::CaseIt needs dereference (>= 4.0)
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

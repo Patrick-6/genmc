@@ -33,6 +33,7 @@
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Module.h>
 #if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
 #include <llvm/Transforms/Utils.h>
 #endif
@@ -57,6 +58,12 @@ using namespace llvm;
 # define GET_INST_ALIGN(i) i->getAlign()
 #else
 # define GET_INST_ALIGN(i) i->getAlignment()
+#endif
+
+#ifdef LLVM_HAS_GET_SYNC_SCOPE_ID
+# define GET_INST_SYNC_SCOPE(i) i->getSyncScopeID()
+#else
+# define GET_INST_SYNC_SCOPE(i) i->getSynchScope()
 #endif
 
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
@@ -267,9 +274,9 @@ static bool commonCastTransforms(CastInst &ci, std::vector<Instruction *> &alias
 
 		auto *load = new LoadInst(origPTy->getElementType(), lsrc, li->getName(),
 					  li->isVolatile(), GET_INST_ALIGN(li), li->getOrdering(),
-					  li->getSyncScopeID(), si);
-		auto *store = new StoreInst(load, ci.getOperand(0), si->isVolatile(),
-					    GET_INST_ALIGN(si), si->getOrdering(), si->getSyncScopeID(), si);
+					  GET_INST_SYNC_SCOPE(li), si);
+		auto *store = new StoreInst(load, ci.getOperand(0), si->isVolatile(), GET_INST_ALIGN(si),
+					    si->getOrdering(), GET_INST_SYNC_SCOPE(si), si);
 
 		replaceAndMarkDelete(si, store);
 		replaceAndMarkDelete(li, load);
