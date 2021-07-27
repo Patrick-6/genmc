@@ -52,6 +52,12 @@ using namespace llvm;
 # define ONLY_USED_BY_MARKERS_OR_DROPPABLE(i) onlyUsedByLifetimeMarkers(i)
 #endif
 
+#ifdef LLVM_LOADINST_VALUE_ONLY
+# define GET_INST_ALIGN(i) i->getAlignment()
+#else
+# define GET_INST_ALIGN(i) i->getAlign()
+#endif
+
 #ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
 # define GET_TYPE_ALLOC_SIZE(M, x)		\
 	(M).getDataLayout()->getTypeAllocSize((x))
@@ -259,10 +265,10 @@ static bool commonCastTransforms(CastInst &ci, std::vector<Instruction *> &alias
 				replaceAndMarkDelete(lci, nullptr);
 
 		auto *load = new LoadInst(origPTy->getElementType(), lsrc, li->getName(),
-					  li->isVolatile(), li->getAlignment(), li->getOrdering(),
+					  li->isVolatile(), GET_INST_ALIGN(li), li->getOrdering(),
 					  li->getSyncScopeID(), si);
 		auto *store = new StoreInst(load, ci.getOperand(0), si->isVolatile(),
-					    si->getAlignment(), si->getOrdering(), si->getSyncScopeID(), si);
+					    GET_INST_ALIGN(si), si->getOrdering(), si->getSyncScopeID(), si);
 
 		replaceAndMarkDelete(si, store);
 		replaceAndMarkDelete(li, load);
