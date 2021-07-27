@@ -78,6 +78,7 @@ public:
 	std::string transformFile;
 	std::string programEntryFun;
 	bool validateExecGraphs;
+	unsigned int warnOnGraphSize;
 
 	void getConfigOptions(int argc, char **argv);
 
