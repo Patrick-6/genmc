@@ -363,7 +363,7 @@ void GenMCDriver::handleExecutionBeginning()
 
 	/* Then, set up thread prioritization and interpreter's state */
 	prioritizeThreads();
-	getEE()->setProgramState(llvm::Interpreter::PS_Main);
+	getEE()->setProgramState(llvm::ProgramState::Main);
 }
 
 void GenMCDriver::handleExecutionInProgress()
@@ -444,7 +444,7 @@ void GenMCDriver::handleRecoveryStart()
 	}
 
 	/* Finally, do all necessary preparations in the interpreter */
-	getEE()->setProgramState(llvm::Interpreter::PS_Recovery);
+	getEE()->setProgramState(llvm::ProgramState::Recovery);
 	getEE()->setupRecoveryRoutine(tid);
 	return;
 }
@@ -684,7 +684,7 @@ bool GenMCDriver::isExecutionDrivenByGraph()
 
 bool GenMCDriver::inRecoveryMode() const
 {
-	return getEE()->getProgramState() == llvm::Interpreter::PS_Recovery;
+	return getEE()->getProgramState() == llvm::ProgramState::Recovery;
 }
 
 const EventLabel *GenMCDriver::getCurrentLabel() const
@@ -761,7 +761,7 @@ SVal GenMCDriver::getReadRetValueAndMaybeBlock(Event read, SAddr addr, SSize siz
 	/* Check whether we should block */
 	if (rLab->getRf().isBottom()) {
 		/* Bottom is an acceptable re-option only @ replay; block anyway */
-		BUG_ON(getEE()->getExecState() != llvm::Interpreter::ExecutionState::ES_Replay);
+		BUG_ON(getEE()->getExecState() != llvm::ExecutionState::Replay);
 		thr.block(llvm::Thread::BlockageType::BT_Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
 		   !getEE()->compareValues(size, res, getBarrierInitValue(addr, size))) {
@@ -2016,7 +2016,7 @@ void GenMCDriver::visitError(Status s, const std::string &err /* = "" */,
 
 	/* If we this is a replay (might happen if one LLVM instruction
 	 * maps to many MC events), do not get into an infinite loop... */
-	if (getEE()->getExecState() == llvm::Interpreter::ES_Replay)
+	if (getEE()->getExecState() == llvm::ExecutionState::Replay)
 		return;
 
 	/* If the execution that led to the error is not consistent, block */
@@ -3297,7 +3297,7 @@ GenMCDriver::visitDskWrite(SAddr addr,
 }
 
 SVal
-GenMCDriver::visitDskOpen(const char *fileName, SSize intSize)
+GenMCDriver::visitDskOpen(const std::string &fileName, SSize intSize)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();

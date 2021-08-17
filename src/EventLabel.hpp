@@ -1807,10 +1807,10 @@ protected:
 
 public:
 	DskOpenLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		     const char *fileName, SVal fd)
+		     const std::string &fileName, SVal fd)
 		: EventLabel(EL_DskOpen, st, ord, pos),
 		  fileName(fileName), fd(fd) {}
-	DskOpenLabel(unsigned int st, Event pos, const char *fileName, SVal fd)
+	DskOpenLabel(unsigned int st, Event pos, const std::string &fileName, SVal fd)
 		: DskOpenLabel(st, llvm::AtomicOrdering::Release, pos, fileName, fd) {}
 
 	template<typename... Ts>
@@ -1819,7 +1819,7 @@ public:
 	}
 
 	/* Returns the name of the opened file */
-	const char *getFileName() const { return fileName; }
+	const std::string &getFileName() const { return fileName; }
 
 	/* Returns the file descriptor returned by open() */
 	SVal getFd() const { return fd; }
@@ -1833,7 +1833,7 @@ public:
 
 private:
 	/* The name of the opened file */
-	const char *fileName;
+	std::string fileName;
 
 	/* The file descriptor allocated for this call */
 	SVal fd;

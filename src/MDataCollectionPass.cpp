@@ -272,13 +272,13 @@ bool isSyscallWPathname(CallInst *CI)
 	return isFsInodeCode(icode);
 }
 
-void initializeFilenameEntry(FsInfo &FI, Value *v)
+void initializeFilenameEntry(ModuleInfo &MI, Value *v)
 {
 	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
 		auto filename = dyn_cast<ConstantDataArray>(
 			dyn_cast<GlobalVariable>(CE->getOperand(0))->
 			getInitializer())->getAsCString().str();
-		FI.nameToInodeAddr[filename] = (char *) 0xdeadbeef;
+		MI.fsInfo.filenames.insert(filename);
 	} else
 		ERROR("Non-constant expression in filename\n");
 	return;
@@ -292,13 +292,13 @@ void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
 	/* Fetch the first argument of the syscall as a string.
 	 * We simply initialize the entries in the map; they will be
 	 * populated with actual addresses from the EE */
-	initializeFilenameEntry(MI.fsInfo, CI->getArgOperand(0));
+	initializeFilenameEntry(MI, CI->getArgOperand(0));
 
 	/* For some syscalls we capture the second argument as well */
 	auto fCode = internalFunNames.at(F->getName().str());
 	if (fCode == InternalFunctions::FN_RenameFS ||
 	    fCode == InternalFunctions::FN_LinkFS) {
-		initializeFilenameEntry(MI.fsInfo, CI->getArgOperand(1));
+		initializeFilenameEntry(MI, CI->getArgOperand(1));
 	}
 	return;
 }

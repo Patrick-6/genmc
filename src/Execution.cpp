@@ -248,14 +248,14 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 
 void *Interpreter::getFileFromFd(int fd) const
 {
-	if (!MI->fsInfo.fdToFile.inBounds(fd))
+	if (!fdToFile.inBounds(fd))
 		return nullptr;
-	return MI->fsInfo.fdToFile[fd];
+	return fdToFile[fd];
 }
 
 void Interpreter::setFdToFile(int fd, void *fileAddr)
 {
-	MI->fsInfo.fdToFile[fd] = fileAddr;
+	fdToFile[fd] = fileAddr;
 }
 
 void *Interpreter::getDirInode() const
@@ -263,8 +263,9 @@ void *Interpreter::getDirInode() const
 	return MI->fsInfo.dirInode;
 }
 
-void *Interpreter::getInodeAddrFromName(const char *filename) const {
-	return MI->fsInfo.nameToInodeAddr.at(filename);
+void *Interpreter::getInodeAddrFromName(const std::string &filename) const
+{
+	return nameToInodeAddr.at(filename);
 }
 
 /* Should match include/pthread.h (or barrier/mutex/thread decls) */
@@ -2714,7 +2715,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 void Interpreter::callAssertFail(Function *F,
 				 const std::vector<GenericValue> &ArgVals)
 {
-	auto errT = (getProgramState() == PS_Recovery) ? GenMCDriver::Status::VS_Recovery : GenMCDriver::Status::VS_Safety;
+	auto errT = (getProgramState() == ProgramState::Recovery) ? GenMCDriver::Status::VS_Recovery : GenMCDriver::Status::VS_Safety;
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) getStaticAddr(GVTOP(ArgVals[0])))	: "Unknown";
 
@@ -3070,7 +3071,7 @@ void Interpreter::setInodeTransStatus(void *inode, Type *intTyp, SVal val)
 
 SVal Interpreter::readInodeSizeFS(void *inode, Type *intTyp)
 {
-	if (getProgramState() == PS_Recovery) {
+	if (getProgramState() == ProgramState::Recovery) {
 		auto inodeIdisksize = GET_INODE_IDISKSIZE_ADDR(inode);
 		return driver->visitDskRead(inodeIdisksize, getTypeSize(intTyp));
 	}
@@ -3140,7 +3141,7 @@ void Interpreter::readDataFromDisk(void *inode, int inodeOffset, void *buf, int 
 	return;
 }
 
-void Interpreter::updateDirNameInode(const char *name, Type *intTyp, SVal inode)
+void Interpreter::updateDirNameInode(const std::string &name, Type *intTyp, SVal inode)
 {
 	auto *dirInode = getDirInode();
 	auto inodeAddr = getInodeAddrFromName(name);
@@ -3167,7 +3168,7 @@ SVal Interpreter::checkOpenFlagsFS(SVal &flags, Type *intTyp)
 	return SVal(0);
 }
 
-SVal Interpreter::executeInodeLookupFS(const char *filename, Type *intTyp)
+SVal Interpreter::executeInodeLookupFS(const std::string &filename, Type *intTyp)
 {
 	Thread &thr = getCurThr();
 
@@ -3183,14 +3184,14 @@ SVal Interpreter::executeInodeLookupFS(const char *filename, Type *intTyp)
 	return driver->visitDskRead(inodeAddr, getTypeSize(intTyp->getPointerTo()));
 }
 
-SVal Interpreter::executeInodeCreateFS(const char *filename, Type *intTyp)
+SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp)
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(MI->fsInfo.inodeTyp);
 	auto *info = getVarNameInfo(nullptr, Storage::ST_Heap, AddressSpace::AS_Internal, "inode");
 	auto *inode = (void *) driver->visitMalloc(inodeSize, alignof(std::max_align_t),
 						   Storage::ST_Heap, AddressSpace::AS_Internal, info,
-						   std::string("__inode_") + (char *) filename).get();
+						   std::string("__inode_") + filename).get();
 
 	/* ... properly initialize its fields... */
 	auto inodeLock = GET_INODE_LOCK_ADDR(inode);
@@ -3212,7 +3213,7 @@ SVal Interpreter::executeInodeCreateFS(const char *filename, Type *intTyp)
  * to the address of FILE's inode. Success: either if the inode was
  * already created, or flags contain O_CREAT and the inode was
  * created. */
-SVal Interpreter::executeLookupOpenFS(const char *file, SVal &flags, Type *intTyp)
+SVal Interpreter::executeLookupOpenFS(const std::string &file, SVal &flags, Type *intTyp)
 {
 	Thread &thr = getCurThr();
 
@@ -3249,18 +3250,18 @@ unlock:
 	return inode;
 }
 
-SVal Interpreter::executeOpenFS(const char *filename, SVal flags, SVal inode, Type *intTyp)
+SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp)
 {
 	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 
 	/* Get a fresh fd */
-	auto fd = driver->visitDskOpen((const char *) filename, getTypeSize(intTyp));
+	auto fd = driver->visitDskOpen(filename, getTypeSize(intTyp));
 
 	/* Also a name for the description */
 	std::string varname("__file_");
 	raw_string_ostream sname(varname);
-	sname << (char *) filename << "_" << thr.id << "_" << thr.globalInstructions;
+	sname << filename << "_" << thr.id << "_" << thr.globalInstructions;
 
 	/* We allocate space for the file description... */
 	auto fileSize = getTypeSize(MI->fsInfo.fileTyp);
@@ -3341,7 +3342,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	auto filename = (const char *) GVTOP(ArgVals[0]);
+	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	SVal flags = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
@@ -3451,7 +3452,7 @@ void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgV
 	return;
 }
 
-SVal Interpreter::executeLinkFS(const char *newpath, SVal oldInode, Type *intTyp)
+SVal Interpreter::executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp)
 {
 	updateDirNameInode(newpath, intTyp, oldInode);
 	return SVal(0);
@@ -3461,8 +3462,8 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	auto oldpath = (const char *) GVTOP(ArgVals[0]);
-	auto newpath = (const char *) GVTOP(ArgVals[1]);
+	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
+	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3507,7 +3508,7 @@ exit:
 	return;
 }
 
-SVal Interpreter::executeUnlinkFS(const char *pathname, Type *intTyp)
+SVal Interpreter::executeUnlinkFS(const std::string &pathname, Type *intTyp)
 {
 	/* Unlink inode */
 	updateDirNameInode(pathname, intTyp, SVal(0));
@@ -3518,7 +3519,7 @@ void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &Arg
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	auto pathname = (const char *) GVTOP(ArgVals[0]);
+	std::string pathname = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3553,8 +3554,8 @@ exit:
 	return;
 }
 
-SVal Interpreter::executeRenameFS(const char *oldpath, SVal oldInode,
-				  const char *newpath, SVal newInode,
+SVal Interpreter::executeRenameFS(const std::string &oldpath, SVal oldInode,
+				  const std::string &newpath, SVal newInode,
 				  Type *intTyp)
 {
 	Type *intPtrTyp = intTyp->getPointerTo();
@@ -3584,8 +3585,8 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	auto oldpath = (const char *) GVTOP(ArgVals[0]);
-	auto newpath = (const char *) GVTOP(ArgVals[1]);
+	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
+	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
@@ -3629,7 +3630,7 @@ void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &A
 {
 	Thread &thr = getCurThr();
 	ExecutionContext &SF = ECStack().back();
-	auto filename = (const char *) GVTOP(ArgVals[0]);
+	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	auto length  = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
@@ -3719,7 +3720,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf,
 
 	/* Calculate how many bytes we can actually read from the file... */
 	nr = iSize - offset;
-	nr = (nr.getSigned() <= count.getSigned()) ? count : nr;
+	nr = (nr.getSigned() >= count.getSigned()) ? count : nr;
 
 	/* ... and go ahead and read them one by one. (Here we cheat and not make
 	 * the read buffered, since it doesn't make a difference.)  */
@@ -3807,7 +3808,7 @@ void Interpreter::zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeI
 SVal Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, SVal flags,
 				       SVal offset, SVal count, SVal &wOffset)
 {
-	if (count.getSigned() < 0)
+	if (count.getSigned() <= 0)
 		return count;
 
 	/* Non-POSIX-compliant behavior for pwrite() -- see ext4_write_checks() */
@@ -4247,7 +4248,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 	auto fCode = internalFunNames.at(F->getName().str());
 
 	/* Make sure we are not trying to make an invalid call during recovery */
-	if (getProgramState() == PS_Recovery && isInvalidRecCall(fCode, ArgVals)) {
+	if (getProgramState() == ProgramState::Recovery && isInvalidRecCall(fCode, ArgVals)) {
 		driver->visitError(GenMCDriver::Status::VS_InvalidRecoveryCall,
 				   F->getName().str() + "() cannot be called during recovery");
 		return;
@@ -4397,8 +4398,8 @@ std::string getFilenameFromMData(MDNode *node)
 void Interpreter::replayExecutionBefore(const VectorClock &before)
 {
 	reset();
-	setExecState(ES_Replay);
-	setProgramState(PS_Main);
+	setExecState(ExecutionState::Replay);
+	setProgramState(ProgramState::Main);
 
 	/* We have to replay all threads in order to get debug metadata */
 	threads[0].initSF = mainECStack.back();
@@ -4410,7 +4411,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
 		currentThread = i;
 		if (thr.threadFun == recoveryRoutine)
-			setProgramState(PS_Recovery);
+			setProgramState(ProgramState::Recovery);
 		while ((int) thr.globalInstructions < before[i]) {
 			int snap = thr.globalInstructions;
 			ExecutionContext &SF = thr.ECStack.back();

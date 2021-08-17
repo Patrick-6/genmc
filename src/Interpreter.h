@@ -239,14 +239,41 @@ struct ThreadInfo {
 		: id(id), parentId(parentId), funId(funId), arg(arg) {}
 };
 
+
+/* Pers: The state of the program -- i.e., part of the program being interpreted */
+enum class ProgramState {
+	Main,
+	Recovery
+};
+
+/* The state of the current execution */
+enum class ExecutionState {
+	Normal,
+	Replay
+};
+
 struct EELocalState {
 	SAddrAllocator alloctor;
+	ExecutionState execState;
+	ProgramState programState;
+	llvm::BitVector fds;
+	llvm::IndexedMap<void *> fdToFile;
+	std::unordered_map<std::string, void *> nameToInodeAddr;
 	std::vector<Thread> threads;
 	int currentThread = 0;
 
 	EELocalState() = default;
-	EELocalState(SAddrAllocator alloctor, std::vector<Thread> ts, int current)
-		: alloctor(alloctor), threads(ts), currentThread(current) {}
+	EELocalState(const SAddrAllocator &alloctor,
+		     const ExecutionState &execState,
+		     const ProgramState &programState,
+		     const llvm::BitVector &fds,
+		     const llvm::IndexedMap<void *> &fdToFile,
+		     const std::unordered_map<std::string, void *> &nameToInodeAddr,
+		     const std::vector<Thread> &ts,
+		     int current)
+		: alloctor(alloctor), execState(execState), programState(programState),
+		  fds(fds), fdToFile(fdToFile), nameToInodeAddr(nameToInodeAddr),
+		  threads(ts), currentThread(current) {}
 };
 
 struct EESharedState {
@@ -258,27 +285,14 @@ struct EESharedState {
 		: alloctor(alloctor), threadInfos(tis) {}
 };
 
+
 // Interpreter - This class represents the entirety of the interpreter.
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
-public:
-
-  /* Pers: The state of the program -- i.e., part of the program being interpreted */
-  enum ProgramState {
-	  PS_Main,
-	  PS_Recovery
-  };
-
-  /* The state of the current execution */
-  enum ExecutionState {
-	  ES_Normal,
-	  ES_Replay
-  };
 
 protected:
 
-  GenericValue ExitValue;          // The return value of the called function
-  IntrinsicLowering *IL;
+  /*** Static components (once set, do not change) ***/
 
   /* Information about the module under test */
   std::unique_ptr<ModuleInfo> MI;
@@ -297,14 +311,8 @@ protected:
    * so that we can get naming information */
   std::unordered_map<SAddr, Value *> staticNames;
 
-  /* A tracker for dynamic allocations */
-  SAddrAllocator alloctor;
-
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
-
-  /* Pointer to the dependency tracker */
-  std::unique_ptr<DepTracker> depTracker = nullptr;
 
   /* Whether the driver should be called on system errors */
   bool stopOnSystemErrors;
@@ -313,19 +321,40 @@ protected:
   SAddr errnoAddr;
   Type *errnoTyp;
 
-  /* Information about the interpreter's state */
-  ExecutionState execState = ES_Normal;
-  ProgramState programState = PS_Main; /* Pers */
-
   /* Pers: Whether we should run a recovery procedure after the execution finishes */
   bool checkPersistency;
 
   /* Pers: The recovery routine to run */
   Function *recoveryRoutine = nullptr;
 
+  /*** Dynamic components (change during verification) ***/
+
+  /* A tracker for dynamic allocations */
+  SAddrAllocator alloctor;
+
+  /* Pointer to the dependency tracker */
+  std::unique_ptr<DepTracker> depTracker = nullptr;
+
+  /* Information about the interpreter's state */
+  ExecutionState execState = ExecutionState::Normal;
+  ProgramState programState = ProgramState::Main; /* Pers */
+
+  /* Pers: A bitvector of available file descriptors */
+  llvm::BitVector fds;
+
+  /* Pers: A map from file descriptors to file descriptions */
+  llvm::IndexedMap<void *> fdToFile;
+
+  /* Pers: Maps a filename to the address of the contents of the directory's inode for
+   * said name (the contents should have the address of the file's inode) */
+  std::unordered_map<std::string, void *> nameToInodeAddr;
+
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
   std::vector<ExecutionContext> mainECStack;
+
+  GenericValue ExitValue;          // The return value of the called function
+  IntrinsicLowering *IL;
 
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
@@ -338,10 +367,16 @@ public:
 
   /* FIXME: Document and move to .cpp */
   std::unique_ptr<EELocalState> releaseLocalState() {
-	  return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, threads, currentThread);
+	  return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, execState, programState, fds,
+						fdToFile, nameToInodeAddr, threads, currentThread);
   }
   void restoreLocalState(std::unique_ptr<EELocalState> state) {
 	  alloctor = std::move(state->alloctor);
+	  execState = state->execState;
+	  programState = state->programState;
+	  fds = std::move(state->fds);
+	  fdToFile = std::move(state->fdToFile);
+	  nameToInodeAddr = std::move(state->nameToInodeAddr);
 	  threads = std::move(state->threads);
 	  currentThread = state->currentThread;
   }
@@ -674,20 +709,20 @@ private:  // Helper functions
 		       int count, Type *dataTyp);
   void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
 			int count, Type *dataTyp);
-  void updateDirNameInode(const char *name, Type *intTyp, SVal inode);
+  void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
 
   SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
-  SVal executeInodeLookupFS(const char *name, Type *intTyp);
-  SVal executeInodeCreateFS(const char *name, Type *intTyp);
-  SVal executeLookupOpenFS(const char *file, SVal &flags, Type *intTyp);
-  SVal executeOpenFS(const char *file, SVal flags, SVal inode, Type *intTyp);
+  SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
+  SVal executeInodeCreateFS(const std::string &name, Type *intTyp);
+  SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp);
+  SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp);
 
   void executeReleaseFileFS(void *fileDesc, Type *intTyp);
   SVal executeCloseFS(SVal fd, Type *intTyp);
-  SVal executeRenameFS(const char *oldpath, SVal oldInode, const char *newpath,
+  SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
 		       SVal newInode, Type *intTyp);
-  SVal executeLinkFS(const char *newpath, SVal oldInode, Type *intTyp);
-  SVal executeUnlinkFS(const char *pathname, Type *intTyp);
+  SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
+  SVal executeUnlinkFS(const std::string &pathname, Type *intTyp);
 
 
   SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp);
@@ -791,7 +826,7 @@ private:  // Helper functions
 
   /* Pers: Directory operations */
   void *getDirInode() const;
-  void *getInodeAddrFromName(const char *filename) const;
+  void *getInodeAddrFromName(const std::string &filename) const;
 
 };
 

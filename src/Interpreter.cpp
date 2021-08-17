@@ -187,15 +187,15 @@ int my_find_first_unset(const llvm::BitVector &bv)
 int Interpreter::getFreshFd()
 {
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(MI->fsInfo.fds);
+	int fd = my_find_first_unset(fds);
 #else
-	int fd = MI->fsInfo.fds.find_first_unset();
+	int fd = fds.find_first_unset();
 #endif
 
 	/* If no available descriptor found, grow fds and try again */
 	if (fd == -1) {
-		MI->fsInfo.fds.resize(2 * MI->fsInfo.fds.size() + 1);
-		MI->fsInfo.fdToFile.grow(MI->fsInfo.fds.size());
+		fds.resize(2 * fds.size() + 1);
+		fdToFile.grow(fds.size());
 		return getFreshFd();
 	}
 
@@ -206,12 +206,12 @@ int Interpreter::getFreshFd()
 
 void Interpreter::markFdAsUsed(int fd)
 {
-	MI->fsInfo.fds.set(fd);
+	fds.set(fd);
 }
 
 void Interpreter::reclaimUnusedFd(int fd)
 {
-	MI->fsInfo.fds.reset(fd);
+	fds.reset(fd);
 }
 
 #ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
@@ -271,8 +271,6 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	auto &FI = MI->fsInfo;
 
 	/* Setup config options first */
-	FI.fds = llvm::BitVector(20);
-	FI.fdToFile.grow(FI.fds.size());
 	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
 	FI.journalData = userConf->journalData;
@@ -284,6 +282,9 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	/* unistd.h not included -- not dealing with fs stuff */
 	if (!inodeVar || !fileVar)
 		return;
+
+	fds = llvm::BitVector(20);
+	fdToFile.grow(fds.size());
 
 	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
 	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
@@ -297,14 +298,12 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	Type *intTyp = FI.inodeTyp->getElementType(0);
 	unsigned int intSize = getTypeSize(intTyp);
 
-	BUG(); // change nameToInodeAddr map keys
-
 	unsigned int count = 0;
 	unsigned int intPtrSize = getTypeSize(intTyp->getPointerTo());
 	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);
-	for (auto &fname : FI.nameToInodeAddr) {
+	for (auto &fname : FI.filenames) {
 		auto *addr = (char *) FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
-		fname.second = addr;
+		nameToInodeAddr[fname] = addr;
 		++count;
 	}
 	return;

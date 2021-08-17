@@ -24,6 +24,7 @@
 #include "config.h"
 #include "Config.hpp"
 #include "NameInfo.hpp"
+#include "VSet.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -104,18 +105,12 @@ struct AnnotationInfo {
 struct FsInfo {
 
 	/* Explicitly initialize PODs to be C++11-compatible */
-	FsInfo() : inodeTyp(nullptr), fileTyp(nullptr), fds(), blockSize(0), maxFileSize(0),
-		   journalData(JournalDataFS::writeback), delalloc(false), fdToFile(), dirInode(nullptr) {}
-
-	using Filename = std::string;
-	using NameMap = std::unordered_map<Filename, void *>;
+	FsInfo() : inodeTyp(nullptr), fileTyp(nullptr), blockSize(0), maxFileSize(0),
+		   journalData(JournalDataFS::writeback), delalloc(false), dirInode(nullptr) {}
 
 	/* Type information */
 	llvm::StructType *inodeTyp;
 	llvm::StructType *fileTyp;
-
-	/* A bitvector of available file descriptors */
-	llvm::BitVector fds;
 
 	/* Filesystem options*/
 	unsigned int blockSize;
@@ -125,25 +120,20 @@ struct FsInfo {
 	JournalDataFS journalData;
 	bool delalloc;
 
-	/* A map from file descriptors to file descriptions */
-	llvm::IndexedMap<void *> fdToFile;
+	/* Filenames in the module. These must be known statically. */
+	VSet<std::string> filenames;
 
 	/* Should hold the address of the directory's inode */
 	void *dirInode;
 
-	/* Maps a filename to the address of the contents of the directory's inode for
-	 * said name (the contents should have the address of the file's inode) */
-	NameMap nameToInodeAddr;
-
 	void clear() {
 		inodeTyp = nullptr;
 		fileTyp = nullptr;
-		fds.clear();
 		blockSize = 0;
 		maxFileSize = 0;
 		journalData = JournalDataFS::writeback;
 		delalloc = false;
-		fdToFile.clear();
+		filenames.clear();
 		dirInode = nullptr;
 	}
 };

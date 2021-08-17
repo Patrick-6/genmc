@@ -246,7 +246,7 @@ public:
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
 	SVal
-	visitDskOpen(const char *fileName, SSize intSize);
+	visitDskOpen(const std::string &fileName, SSize intSize);
 
 	/* An fsync() operation has been interpreted */
 	void

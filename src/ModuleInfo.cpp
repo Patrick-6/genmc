@@ -109,25 +109,17 @@ std::unique_ptr<ModuleInfo> ModuleInfo::clone(const llvm::Module &mod) const
 	info->fsInfo.inodeTyp = fsInfo.inodeTyp;
 	info->fsInfo.fileTyp = fsInfo.fileTyp;
 
-	BUG_ON(!fsInfo.fds.empty());
-	info->fsInfo.fds = fsInfo.fds;
-
 	info->fsInfo.blockSize = fsInfo.blockSize;
 	info->fsInfo.blockSize = fsInfo.blockSize;
 
 	info->fsInfo.journalData = fsInfo.journalData;
 	info->fsInfo.delalloc = fsInfo.delalloc;
 
-	BUG_ON(fsInfo.fdToFile.size() != 0);
-	info->fsInfo.fdToFile = fsInfo.fdToFile;
-
 	BUG_ON(fsInfo.dirInode != nullptr);
 	info->fsInfo.dirInode = fsInfo.dirInode;
 
-	for (auto &kv : fsInfo.nameToInodeAddr) {
-		BUG_ON(kv.second != (char *) 0xdeadbeef);
-		info->fsInfo.nameToInodeAddr[kv.first] = kv.second;
-	}
+	for (auto &name : fsInfo.filenames)
+		info->fsInfo.filenames.insert(name);
 
 	return info;
 }
