@@ -226,6 +226,8 @@ void Interpreter::reclaimUnusedFd(int fd)
 
 void Interpreter::collectStaticAddresses(Module *M)
 {
+	std::vector<std::pair<const GlobalVariable *, void *> > toReinitialize;
+
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize =
@@ -238,12 +240,18 @@ void Interpreter::collectStaticAddresses(Module *M)
 			continue;
 		}
 
+		/* "Allocate" an address for this global variable... */
 		auto addr = alloctor.allocStatic(typeSize, v.getAlignment(),
 						 GET_GV_ADDRESS_SPACE(v) == 42);
-
-		updateGlobalMapping(&v, (void *) addr.get());
 		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;
+
+		/* ... and use that in the EE instead. Make sure to re-initialize it too;
+		 * it might contain the address of another global */
+		updateGlobalMapping(&v, (void *) addr.get());
+		toReinitialize.push_back(std::make_pair(&v, ptr));
+
+		/* Update naming information */
 		staticNames[addr] = &v;
 		if (!v.hasPrivateLinkage() && (!MI->idInfo.VID.count(&v) ||
 					       !MI->varInfo.globalInfo.count(MI->idInfo.VID.at(&v)))) {
@@ -251,6 +259,10 @@ void Interpreter::collectStaticAddresses(Module *M)
 						".\nPlease submit a bug report to " PACKAGE_BUGREPORT "\n"));
 		}
 	}
+
+	/* Now that we've updated all mappings, go ahead and re-initialize */
+	for (auto &p : toReinitialize)
+		InitializeMemory(p.first->getInitializer(), p.second);
 }
 
 void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
