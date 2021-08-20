@@ -1,3 +1,5 @@
+/* Ensures the address-translation mechanism works properly with static pointers */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -5,7 +7,7 @@
 #include <genmc.h>
 
 #ifndef N
-# define N 42
+# define N 41
 #endif
 
 int v;
