@@ -19,9 +19,10 @@ AX_CLANG(,[
 ])
 AX_GIT_COMMIT
 
-## Checks for libraries
+## Check for libraries
 AC_CHECK_LIB([dl], [dlopen],[],[AC_MSG_FAILURE([Could not find library libdl.])])
 AC_CHECK_LIB([ffi], [ffi_call],[],[AC_MSG_FAILURE([Could not find library libffi.])])
+AC_CHECK_LIB([hwloc], [hwloc_topology_init], [], [])
 
 ## Check for (proper) C++11 stdlibc++ support
 AC_MSG_CHECKING([whether enum class can be used as unordered_map<> key])
@@ -37,7 +38,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
-
+## Check for LLVM headers
 ## XXX: List below is currently INCOMPLETE
 AC_CHECK_HEADERS([\
   stdlib.h \
@@ -48,7 +49,7 @@ AC_CHECK_HEADERS([\
   llvm/Support/ErrorHandling.h
 ],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 
-## Checks for header files in alternative locations
+## Checks for headers in alternative locations (useful for LLVM headers)
 AC_DEFUN([AC_CHECK_HEADERS_ALT],
 [
   ac_check_headers_alt_ok="no"

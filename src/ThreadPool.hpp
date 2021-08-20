@@ -25,6 +25,7 @@
 #include "Error.hpp"
 #include "DriverFactory.hpp"
 #include "ModuleInfo.hpp"
+#include "ThreadPinner.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -34,7 +35,6 @@
 #include <memory>
 #include <thread>
 #include <future>
-#include <hwloc.h>
 
 
 /*******************************************************************************
@@ -84,35 +84,6 @@ private:
 
 	/* Protection against unsynchronized accesses */
 	std::mutex qMutex;
-};
-
-
-/*******************************************************************************
- **                           ThreadPinner Class
- ******************************************************************************/
-
-/* A class responsible for pinning threads to CPUs */
-class ThreadPinner {
-
-public:
-	/*** Constructor ***/
-	explicit ThreadPinner(unsigned int n);
-	ThreadPinner() = delete;
-	ThreadPinner(const ThreadPinner &) = delete;
-
-	void pin(std::thread &t, unsigned int cpu);
-
-	/*** Destructor ***/
-	~ThreadPinner() {
-		hwloc_topology_destroy(topology);
-		for (auto set : cpusets)
-			hwloc_bitmap_free(set);
-	}
-
-private:
-	unsigned int numTasks;
-	hwloc_topology_t topology;
-	std::vector<hwloc_cpuset_t> cpusets;
 };
 
 
