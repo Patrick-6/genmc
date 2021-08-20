@@ -1237,6 +1237,8 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 				;
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
 				;
+			if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(nLab))
+				og->getLbCalculatorLAPOR()->addLockToList(lLab->getLockAddr(), lLab->getPos());
 		}
 	}
 

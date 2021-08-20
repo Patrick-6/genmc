@@ -106,11 +106,14 @@ public:
 		RevisitSetT revset;
 		LocalQueueT workqueue;
 		std::unique_ptr<llvm::EELocalState> interpState;
+		bool isMootExecution;
+		std::vector<Event> threadPrios;
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
 		LocalState() = delete;
 		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
-			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state);
+			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
+			   bool isMootExecution, const std::vector<Event> &threadPrios);
 
 		~LocalState();
 	};
