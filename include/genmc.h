@@ -1,6 +1,8 @@
 #ifndef __GENMC_H__
 #define __GENMC_H__
 
+#include <genmc_internal.h>
+
 /*
  * If the argument is not true, blocks the execution
  */
@@ -37,6 +39,22 @@ int __VERIFIER_nondet_int(void);
 void __VERIFIER_loop_begin(void);
 void __VERIFIER_spin_start(void);
 void __VERIFIER_spin_end(int);
+
+/*
+ * GenMC-specific CAS instructions. They can be used for CASes that
+ * have a "helping" role (e.g., tail advancement in Michael-Scott queue),
+ * and can aid in state-space reduction. They do not return any value
+ * See the manual for a lengthier explanation.
+ */
+#define __VERIFIER_CAS_helped_explicit(p, c, v, ms, mf)		\
+	__VERIFIER_cmpxchg_noret(p, c, v, ms, mf, 1)
+#define __VERIFIER_CAS_helped(p, c, v)				\
+	__VERIFIER_CAS_helped(p, c, v, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+
+#define __VERIFIER_CAS_helping_explicit(p, c, v, ms, mf)	\
+	__VERIFIER_cmpxchg_noret(p, c, v, ms, mf, 2)
+#define __VERIFIER_CAS_helping(p, c, v)				\
+	__VERIFIER_CAS_helping(p, c, v, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 
 /*
  * The signature of a recovery routine to be specified

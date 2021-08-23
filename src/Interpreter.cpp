@@ -430,6 +430,11 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				     getDataDeps(tid, *(SF.Caller.arg_begin() + 1)),
 				     getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
+	} else if (iFunCode == InternalFunctions::FN_AtomicCasNoRet) {
+		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				     getDataDeps(tid, *(SF.Caller.arg_begin() + 2)),
+				     getCtrlDeps(tid), getAddrPoDeps(tid),
+				     getDataDeps(tid, *(SF.Caller.arg_begin() + 1)));
 	}
 	return nullptr;
 }

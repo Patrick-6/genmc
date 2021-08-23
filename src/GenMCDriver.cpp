@@ -387,6 +387,16 @@ void GenMCDriver::handleExecutionInProgress()
 	return;
 }
 
+void GenMCDriver::checkHelpedCasAnnotation() const
+{
+	if (std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
+			 [](const llvm::Thread &thr) {
+				return thr.getBlockageType() == BlockageType::HelpedCas;
+			 }))
+		ERROR("Helped/Helping CAS annotation error! Does helped CAS always execute?\n");
+	return;
+}
+
 void GenMCDriver::handleFinishedExecution()
 {
 	/* First, reset all exploration options */
@@ -402,6 +412,7 @@ void GenMCDriver::handleFinishedExecution()
 				auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(thr.id));
 				return bLab || thr.isBlocked(); })) {
 		++result.exploredBlocked;
+		checkHelpedCasAnnotation();
 		if (userConf->checkLiveness)
 			checkLiveness();
 		return;
@@ -1225,6 +1236,44 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 	return shouldBlock;
 }
 
+void GenMCDriver::unblockWaitingHelping()
+{
+	/* We have to wake up all threads waiting on helping CASes,
+	 * as we don't know which ones are from the same CAS */
+	std::for_each(getEE()->threads_begin(), getEE()->threads_end(), [](Thread &thr){
+			if (thr.isBlocked() && thr.getBlockageType() == BlockageType::HelpedCas)
+				thr.unblock();
+		});
+}
+
+bool GenMCDriver::filterHelpedCasStores(const HelpingCasReadLabel *hLab,
+					std::vector<Event> &stores)
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	auto hs = g.collectAllEvents([&](const EventLabel *lab){
+		auto *rLab = llvm::dyn_cast<HelpedCasReadLabel>(lab);
+		return rLab && g.isRMWLoad(rLab) && rLab->getAddr() == hLab->getAddr() &&
+			rLab->getType() == hLab->getType() && rLab->getSize() == hLab->getSize() &&
+			rLab->getOrdering() == hLab->getOrdering() &&
+			rLab->getExpected() == hLab->getExpected() &&
+			rLab->getSwapVal() == hLab->getSwapVal();
+	});
+
+	if (hs.empty())
+		return false;
+
+	std::vector<Event> rfs;
+	std::transform(hs.begin(), hs.end(), std::back_inserter(rfs),
+		       [&](Event &e){ return llvm::dyn_cast<ReadLabel>(g.getEventLabel(e))->getRf(); });
+
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event &s){
+		return std::find(rfs.begin(), rfs.end(), s) != rfs.end(); }),
+		stores.end());
+	return true;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1516,6 +1565,14 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	auto validStores = properlyOrderStores(lab, stores);
 	if (getConf()->symmetryReduction)
 		filterSymmetricStoresSR(lab, validStores);
+	if (llvm::isa<HelpedCasReadLabel>(lab))
+		unblockWaitingHelping();
+	if (llvm::isa<HelpingCasReadLabel>(lab) &&
+	    !filterHelpedCasStores(llvm::dyn_cast<HelpingCasReadLabel>(lab), validStores)) {
+		thr.block(BlockageType::HelpedCas);
+		thr.rollToSnapshot();
+		return SVal(0); /* The execution will be blocked */
+	}
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
 	if (lab->getAnnot())

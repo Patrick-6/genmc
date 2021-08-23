@@ -550,6 +550,17 @@ private:
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
 
+	/* Opt: Wake up any threads blocked on a helping CAS */
+	void unblockWaitingHelping();
+
+	/* Opt: Returns whether there is a helped-CAS the rf of which is a valid RF.
+	 * In case such a CAS exists, filters out the RF from STORES */
+	bool filterHelpedCasStores(const HelpingCasReadLabel *rLab,
+				   std::vector<Event> &stores);
+
+	/* Opt: Checks whether the user annotation about helped/helping CASes seems OK */
+	void checkHelpedCasAnnotation() const;
+
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
 	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab);

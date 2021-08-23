@@ -28,6 +28,7 @@
 /* Rely on pthread types for the time being */
 #include <pthread.h>
 #include <stdint.h>
+#include <genmc_internal.h>
 
 /*
  * Helper macros for the rest of definitions
@@ -159,10 +160,6 @@ typedef pthread_mutex_t spinlock_t;
  **                               RCU
  ******************************************************************************/
 
-void __VERIFIER_rcu_read_lock();
-void __VERIFIER_rcu_read_unlock();
-void __VERIFIER_synchronize_rcu();
-
 #define rcu_read_lock()   __VERIFIER_rcu_read_lock()
 #define rcu_read_unlock() __VERIFIER_rcu_read_unlock()
 #define synchronize_rcu() __VERIFIER_synchronize_rcu()
@@ -191,13 +188,6 @@ typedef atomic64_t  atomic_long_t;
 #define atomic_set(v, i) WRITE_ONCE(((v)->counter), (i))
 #define atomic_read_acquire(v)   smp_load_acquire(&(v)->counter)
 #define atomic_set_release(v, i) smp_store_release(&(v)->counter, (i))
-
-/* Helpers for *non-value-returning* atomics.
- * The last argument of __VERIFIER_atomic_noret stems from llvm::AtomicRMWInst::BinOp,
- * and encodes the type of operation performed. */
-void __VERIFIER_atomicrmw_noret(int *, int, memory_order, int);
-#define __VERIFIER_fetch_add_noret(v, i, m) __VERIFIER_atomicrmw_noret(v, i, m, 1)
-#define __VERIFIER_fetch_sub_noret(v, i, m) __VERIFIER_atomicrmw_noret(v, i, m, 2)
 
 /* Non-value-returning atomics */
 #define __atomic_add(i, v, m) __VERIFIER_fetch_add_noret(&(v)->counter, i, m)

@@ -214,6 +214,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_DskRead:
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
+	case EventLabel::EL_HelpedCasRead:
+	case EventLabel::EL_HelpingCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_BIncFaiRead:
 		calcReadViews(llvm::dyn_cast<ReadLabel>(lab));
@@ -226,6 +228,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_UnlockWrite:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
+	case EventLabel::EL_HelpedCasWrite:
+	case EventLabel::EL_HelpingCasWrite:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
 	case EventLabel::EL_DskWrite:

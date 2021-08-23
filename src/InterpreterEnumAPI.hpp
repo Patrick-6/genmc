@@ -33,6 +33,7 @@ enum class BlockageType {
 	SpinloopEnd,
 	FaiZNESpinloop,
 	LockZNESpinloop,
+	HelpedCas,
 	LockOptBlock,
 	LockNotAcq,
 	LockNotRel,
@@ -67,6 +68,7 @@ enum class InternalFunctions {
 	FN_ThreadSelf,
 	FN_NoSideEffectsLast,
 	/* No side effects */
+	FN_AtomicCasNoRet,
 	FN_AtomicRmwNoRet,
 	FN_ThreadCreate,
 	FN_ThreadJoin,

@@ -103,9 +103,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
+	case EventLabel::EL_HelpedCasRead:
+	case EventLabel::EL_HelpingCasRead:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
+	case EventLabel::EL_HelpedCasWrite:
+	case EventLabel::EL_HelpingCasWrite:
 		s << "C";
 		break;
 	case EventLabel::EL_Write:

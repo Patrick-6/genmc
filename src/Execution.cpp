@@ -100,6 +100,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_syncFS", InternalFunctions::FN_SyncFS},
 	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
+	{"__VERIFIER_atomiccas_noret", InternalFunctions::FN_AtomicCasNoRet},
 	{"__VERIFIER_atomicrmw_noret", InternalFunctions::FN_AtomicRmwNoRet},
 	{"__VERIFIER_lkmm_fence", InternalFunctions::FN_SmpFenceLKMM},
 	{"__VERIFIER_rcu_read_lock", InternalFunctions::FN_RCUReadLockLKMM},
@@ -3064,6 +3065,60 @@ void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue
 	return;
 }
 
+llvm::AtomicOrdering getOrderingFromCABI(const llvm::GenericValue &ord)
+{
+	return (llvm::AtomicOrdering) (ord.IntVal.getLimitedValue() + 2);
+}
+
+void Interpreter::callAtomicCasNoRet(Function *F, const std::vector<GenericValue> &ArgVals,
+				     const std::unique_ptr<EventDeps> &specialDeps)
+{
+	Thread &thr = getCurThr();
+	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
+	GenericValue cmpVal = ArgVals[1];
+	GenericValue newVal = ArgVals[2];
+	unsigned int size = ArgVals[3].IntVal.getLimitedValue();
+	Type *typ = Type::getIntNPtrTy(ECStack().back().Caller.getCalledFunction()->getContext(), size * 8)->
+		getPointerElementType();
+	auto atyp = TYPE_TO_ATYPE(typ);
+	auto succOrd = getOrderingFromCABI(ArgVals[4]);
+	auto failOrd = getOrderingFromCABI(ArgVals[5]);
+	unsigned int attrVal = ArgVals[6].IntVal.getLimitedValue();
+
+	if (size > 8)
+		ERROR("Called non-value-returning CAS intrinsic on too large datatype!\n");
+
+	cmpVal.IntVal = cmpVal.IntVal.trunc(size * 8);
+	newVal.IntVal = newVal.IntVal.trunc(size * 8);
+
+	/* If this is a helped/helping CAS, we need to invoke appropriate driver functions */
+	thr.takeSnapshot();
+
+	if (thr.tls.count(ptr)) {
+		GenericValue oldVal = thr.tls[ptr];
+		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
+		if (cmpRes.IntVal.getBoolValue())
+			thr.tls[ptr] = newVal;
+		return;
+	}
+
+	if (attrVal == 1) {
+		auto ret = driver->visitLoad(
+			HelpedCasReadLabel::create(succOrd, nextPos(), ptr, size, atyp,
+						   GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)), &*specialDeps);
+
+		auto cmpRes = ret == GV_TO_SVAL(cmpVal, typ);
+		if (!getCurThr().isBlocked() && cmpRes)
+			driver->visitStore(
+				HelpedCasWriteLabel::create(succOrd, nextPos(), ptr, size, atyp,
+							    GV_TO_SVAL(newVal, typ)), &*specialDeps);
+	}
+
+	/* We only update addr;po dependencies */
+	updateAddrPoDeps(getCurThr().id, *ECStack().back().Caller.arg_begin());
+	return;
+}
+
 void Interpreter::callAtomicRmwNoRet(Function *F, const std::vector<GenericValue> &ArgVals,
 				     const std::unique_ptr<EventDeps> &specialDeps)
 {
@@ -3093,7 +3148,7 @@ void Interpreter::callAtomicRmwNoRet(Function *F, const std::vector<GenericValue
 	 * (i.e. match LLVM's AtomicOrdering value), as the C ABI values are
 	 * not the same as the LLVM ones. */
 	auto ret = driver->visitLoad(
-		NoRetFaiReadLabel::create((llvm::AtomicOrdering) (ord.IntVal.getLimitedValue() + 2),
+		NoRetFaiReadLabel::create(getOrderingFromCABI(ord),
 					  nextPos(), ptr, size, atyp, (llvm::AtomicRMWInst::BinOp)
 					  binop.IntVal.getLimitedValue(), GV_TO_SVAL(val, typ)),
 		&*specialDeps);
@@ -3101,8 +3156,7 @@ void Interpreter::callAtomicRmwNoRet(Function *F, const std::vector<GenericValue
 						binop.IntVal.getLimitedValue());
 	if (!getCurThr().isBlocked())
 		driver->visitStore(
-			NoRetFaiWriteLabel::create((llvm::AtomicOrdering) (ord.IntVal.getLimitedValue() + 2)
-						   /* to match LLVM */, nextPos(), ptr, size, atyp, newVal),
+			NoRetFaiWriteLabel::create(getOrderingFromCABI(ord), nextPos(), ptr, size, atyp, newVal),
 			&*specialDeps);
 
 	return;
@@ -4414,6 +4468,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(PwriteFS);
 		CALL_INTERNAL_FUNCTION(LseekFS);
 		CALL_INTERNAL_FUNCTION(PersBarrierFS);
+		CALL_INTERNAL_FUNCTION(AtomicCasNoRet);
 		CALL_INTERNAL_FUNCTION(AtomicRmwNoRet);
 		CALL_INTERNAL_FUNCTION(SmpFenceLKMM);
 		CALL_INTERNAL_FUNCTION(RCUReadLockLKMM);

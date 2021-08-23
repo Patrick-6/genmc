@@ -76,6 +76,8 @@ public:
 		EL_CasRead,
 		EL_LockCasRead,
 		EL_TrylockCasRead,
+		EL_HelpedCasRead,
+		EL_HelpingCasRead,
 		EL_CasReadLast,
 		EL_DskRead,
 		EL_LastRead,
@@ -90,6 +92,8 @@ public:
 		EL_CasWrite,
 		EL_LockCasWrite,
 		EL_TrylockCasWrite,
+		EL_HelpedCasWrite,
+		EL_HelpingCasWrite,
 		EL_CasWriteLast,
 		EL_DskWrite,
 		EL_DskMdWrite,
@@ -927,6 +931,80 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasRead; }
 };
 
+/*******************************************************************************
+ **                         HelpedCasReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasReadLabel for helped CASes */
+class HelpedCasReadLabel : public CasReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HelpedCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			   Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		: CasReadLabel(EL_HelpedCasRead, st, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+	HelpedCasReadLabel(llvm::AtomicOrdering ord, Event pos,
+			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			   Event rf = Event::getBottom(),
+			   AnnotVP annot = nullptr)
+		: CasReadLabel(EL_HelpedCasRead, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<HelpedCasReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HelpedCasReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HelpedCasReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HelpedCasRead; }
+};
+
+/*******************************************************************************
+ **                         HelpingCasReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasReadLabel for helping CASes */
+class HelpingCasReadLabel : public CasReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HelpingCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			    SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			    Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		: CasReadLabel(EL_HelpingCasRead, st, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+	HelpingCasReadLabel(llvm::AtomicOrdering ord, Event pos,
+			    SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			    Event rf = Event::getBottom(),
+			    AnnotVP annot = nullptr)
+		: CasReadLabel(EL_HelpingCasRead, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<HelpingCasReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HelpingCasReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HelpingCasReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HelpingCasRead; }
+};
+
 
 /*******************************************************************************
  **                         DskReadLabel Class
@@ -1388,6 +1466,72 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasWrite; }
+};
+
+/*******************************************************************************
+ **                         HelpedCasWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasWriteLabel for trylock CASes */
+class HelpedCasWriteLabel : public CasWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HelpedCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     SAddr addr, ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_HelpedCasWrite, st, ord, pos, addr, size, type, val) {}
+	HelpedCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
+			     ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_HelpedCasWrite, ord, pos, addr, size, type, val) {}
+
+
+	template<typename... Ts>
+	static std::unique_ptr<HelpedCasWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HelpedCasWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HelpedCasWriteLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HelpedCasWrite; }
+};
+
+/*******************************************************************************
+ **                         HelpingCasWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasWriteLabel for trylock CASes */
+class HelpingCasWriteLabel : public CasWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HelpingCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     SAddr addr, ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_HelpingCasWrite, st, ord, pos, addr, size, type, val) {}
+	HelpingCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
+			     ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_HelpingCasWrite, ord, pos, addr, size, type, val) {}
+
+
+	template<typename... Ts>
+	static std::unique_ptr<HelpingCasWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HelpingCasWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HelpingCasWriteLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HelpingCasWrite; }
 };
 
 
