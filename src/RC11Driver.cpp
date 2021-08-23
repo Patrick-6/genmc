@@ -214,6 +214,7 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_DskRead:
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
+	case EventLabel::EL_TrylockCasRead:
 	case EventLabel::EL_HelpedCasRead:
 	case EventLabel::EL_HelpingCasRead:
 	case EventLabel::EL_FaiRead:
@@ -228,6 +229,7 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_UnlockWrite:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
+	case EventLabel::EL_TrylockCasWrite:
 	case EventLabel::EL_HelpedCasWrite:
 	case EventLabel::EL_HelpingCasWrite:
 	case EventLabel::EL_FaiWrite:

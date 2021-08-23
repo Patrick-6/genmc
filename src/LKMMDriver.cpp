@@ -456,6 +456,8 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
+	case EventLabel::EL_HelpedCasRead:
+	case EventLabel::EL_HelpingCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_NoRetFaiRead:
 	case EventLabel::EL_BIncFaiRead:
@@ -470,6 +472,8 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
+	case EventLabel::EL_HelpedCasWrite:
+	case EventLabel::EL_HelpingCasWrite:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_NoRetFaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
