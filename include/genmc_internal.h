@@ -1,17 +1,165 @@
 #ifndef __GENMC_INTERNAL_H__
 #define __GENMC_INTERNAL_H__
 
+#include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 /* Internal declarations for GenMC -- should not be used by user programs */
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+/* Data types and variables */
+
+typedef long __VERIFIER_thread_t;
+typedef struct { int __private; } __VERIFIER_attr_t;
+
+typedef struct { int __private; } __VERIFIER_barrier_t;
+typedef int __VERIFIER_barrierattr_t;
+
+typedef struct { int __private; } __VERIFIER_mutex_t;
+typedef long __VERIFIER_mutexattr_t;
+
+#define __VERIFIER_MUTEX_INITIALIZER { 0 }
+
+#ifndef __cplusplus
+
+#ifndef __CONFIG_GENMC_INODE_DATA_SIZE
+# error "Internal error: inode size not defined!"
+#endif
+
+#define __genmc __attribute__((address_space(42)))
+
+struct __VERIFIER_inode {
+	/* VFS */
+	__VERIFIER_mutex_t lock; // setupFsInfo() + interp rely on the layout
+	int i_size; // <-- need to treat this atomically
+
+	/* journaling helpers (embedded avoid indirection) */
+	int i_transaction; // <-- writes protected by the lock above
+
+	/* ext4 disk data (embedded to avoid indirection)
+	 * The implementation can now accommodate only one metadata piece
+	 * due to the current metadata block mapping */
+	int i_disksize; // <-- used as metadata block mapping
+	char data[__CONFIG_GENMC_INODE_DATA_SIZE]; // <-- used as data block mapping
+};
+
+struct __VERIFIER_file {
+	struct inode *inode;
+	unsigned int count; // need to manipulate atomically
+	unsigned int flags; // encompasses f_mode
+	__VERIFIER_mutex_t pos_lock;
+	int pos;
+};
+
+struct __VERIFIER_inode __genmc __genmc_dir_inode;
+struct __VERIFIER_file __genmc __genmc_dummy_file;
+
+#endif /* __cplusplus */
+
+/* assert */
+
+extern void __VERIFIER_assert_fail(const char *, const char *, int);
+
+
+/* stdlib */
+
+extern void __VERIFIER_free(void *);
+
+extern void *__VERIFIER_malloc(size_t);
+
+extern void *__VERIFIER_malloc_aligned(size_t, size_t);
+
+
+/* fcntl */
+
+extern int __VERIFIER_openFS (const char *__file, int __oflag, mode_t __mode);
+
+extern int __VERIFIER_creatFS (const char *__file, mode_t __mode);
+
+extern int __VERIFIER_renameFS (const char *__old, const char *__new);
+
+
+/* unistd */
+
+extern __off_t __VERIFIER_lseekFS (int __fd, __off_t __offset, int __whence);
+
+extern int __VERIFIER_closeFS (int __fd);
+
+extern ssize_t __VERIFIER_readFS (int __fd, void *__buf, size_t __nbytes);
+
+extern ssize_t __VERIFIER_writeFS (int __fd, const void *__buf, size_t __n);
+
+extern ssize_t __VERIFIER_preadFS (int __fd, void *__buf, size_t __nbytes,
+				   __off_t __offset);
+
+extern ssize_t __VERIFIER_pwriteFS (int __fd, const void *__buf, size_t __n,
+				    __off_t __offset);
+
+extern int __VERIFIER_linkFS (const char *__from, const char *__to);
+
+extern int __VERIFIER_unlinkFS (const char *__name);
+
+extern int __VERIFIER_fsyncFS (int __fd);
+
+extern void __VERIFIER_syncFS (void);
+
+extern int __VERIFIER_truncateFS (const char *__file, __off_t __length);
+
+
+/* Thread functions */
+
+extern int __VERIFIER_thread_create (const __VERIFIER_attr_t *__restrict __attr,
+				     void *(*__start_routine) (void *),
+				     void *__restrict __arg);
+
+extern void __VERIFIER_thread_exit (void *__retval) __attribute__ ((__noreturn__));
+
+extern int __VERIFIER_thread_join (__VERIFIER_thread_t __th, void **__thread_return);
+
+extern __VERIFIER_thread_t __VERIFIER_thread_self (void);
+
+
+/* Mutex functions */
+
+extern int __VERIFIER_mutex_init (__VERIFIER_mutex_t *__mutex,
+				  const __VERIFIER_mutexattr_t *__mutexattr);
+
+extern int __VERIFIER_mutex_destroy (__VERIFIER_mutex_t *__mutex);
+
+extern int __VERIFIER_mutex_trylock (__VERIFIER_mutex_t *__mutex);
+
+extern int __VERIFIER_mutex_lock (__VERIFIER_mutex_t *__mutex);
+
+extern int __VERIFIER_mutex_unlock (__VERIFIER_mutex_t *__mutex);
+
+
+/* barrier functions */
+
+extern int __VERIFIER_barrier_init (__VERIFIER_barrier_t *__restrict __barrier,
+				    const __VERIFIER_barrierattr_t *__restrict __attr,
+				    unsigned int __count);
+
+extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
+
+extern int __VERIFIER_barrier_wait (__VERIFIER_barrier_t *__barrier);
+
+extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
+
+
+/* Custom opcode implementations */
 
 /*
  * A non-value-returning CAS instruction. In contrast to the C11 one,
  * it does *not* return the old value of the memory location in the 2nd arg.
  * Use __VERIFIER_cmpxchg_noret in user-exposed libraries.
  * Attribute: 0 -> normal, 1-> helped, 2 -> helping */
-void __VERIFIER_atomiccas_noret(void *, uint64_t c, uint64_t v, int size,
-				int memsucc, int memfail, int attr);
+extern void __VERIFIER_atomiccas_noret(void *, uint64_t c, uint64_t v, int size,
+				       int memsucc, int memfail, int attr);
 
 #define __VERIFIER_cmpxchg_noret(p, c, v, ms, mf, a)			\
 do {									\
@@ -25,12 +173,16 @@ do {									\
  * The last argument of __VERIFIER_atomic_noret stems from llvm::AtomicRMWInst::BinOp,
  * and encodes the type of operation performed. */
 /* TODO: Unify signature w/ __VERIFIER_atomiccas_noret */
-void __VERIFIER_atomicrmw_noret(int *, int, int memory_order, int);
+extern void __VERIFIER_atomicrmw_noret(int *, int, int memory_order, int);
 #define __VERIFIER_fetch_add_noret(v, i, m) __VERIFIER_atomicrmw_noret(v, i, m, 1)
 #define __VERIFIER_fetch_sub_noret(v, i, m) __VERIFIER_atomicrmw_noret(v, i, m, 2)
 
-void __VERIFIER_rcu_read_lock();
-void __VERIFIER_rcu_read_unlock();
-void __VERIFIER_synchronize_rcu();
+extern void __VERIFIER_rcu_read_lock();
+extern void __VERIFIER_rcu_read_unlock();
+extern void __VERIFIER_synchronize_rcu();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __GENMC_INTERNAL_H__ */

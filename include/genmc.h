@@ -3,6 +3,11 @@
 
 #include <genmc_internal.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /*
  * If the argument is not true, blocks the execution
  */
@@ -69,5 +74,9 @@ void __VERIFIER_recovery_routine(void);
  * Should be used only once.
  */
 void __VERIFIER_pbarrier(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __GENMC_H__ */
