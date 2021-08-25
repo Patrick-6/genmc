@@ -1246,6 +1246,20 @@ void GenMCDriver::unblockWaitingHelping()
 		});
 }
 
+bool writesBeforeHelpedContainedInView(const ExecutionGraph &g, const HelpedCasReadLabel *lab, const View &view)
+{
+	auto &hb = lab->getHbView();
+
+	for (auto i = 0u; i < hb.size(); i++) {
+		auto j = hb[i];
+		while (!llvm::isa<WriteLabel>(g.getEventLabel(Event(i, j))) && j > 0)
+			--j;
+		if (j > 0 && !view.contains(Event(i, j)))
+			return false;
+	}
+	return true;
+}
+
 bool GenMCDriver::filterHelpedCasStores(const HelpingCasReadLabel *hLab,
 					std::vector<Event> &stores)
 {
@@ -1263,6 +1277,14 @@ bool GenMCDriver::filterHelpedCasStores(const HelpingCasReadLabel *hLab,
 
 	if (hs.empty())
 		return false;
+
+	if (std::any_of(hs.begin(), hs.end(), [&g, EE](const Event &h){
+		auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(g.getEventLabel(h));
+		auto &view = g.getPreviousNonEmptyLabel(EE->getCurrentPosition())->getHbView();
+		return !writesBeforeHelpedContainedInView(g, hLab, view);
+	}))
+		ERROR("Helped/Helping CAS annotation error! "
+		      "Not all stores before helped-CAS are visible to helping-CAS!\n");
 
 	std::vector<Event> rfs;
 	std::transform(hs.begin(), hs.end(), std::back_inserter(rfs),
