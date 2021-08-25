@@ -82,7 +82,11 @@ namespace LLVMModule {
 		std::string str;
 		llvm::raw_string_ostream  stream(str);
 
+#ifdef LLVM_WRITE_BITCODE_TO_FILE_PTR
+		llvm::WriteBitcodeToFile(&*mod, stream);
+#else
 		llvm::WriteBitcodeToFile(*mod, stream);
+#endif
 
 		llvm::StringRef ref(stream.str());
 		std::unique_ptr<llvm::MemoryBuffer> buf(llvm::MemoryBuffer::getMemBuffer(ref));

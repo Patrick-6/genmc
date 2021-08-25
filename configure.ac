@@ -210,6 +210,26 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether llvm::WriteBitcodeToFile takes a pointer (>= 7)
+AC_MSG_CHECKING([whether llvm::WriteBitcodeToFile takes a pointer])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <string>
+#include <llvm/Support/raw_ostream.h>
+#ifdef HAVE_LLVM_BITCODE_BITCODEWRITER_H
+# include <llvm/Bitcode/BitcodeWriter.h>
+#else
+# include <llvm/Bitcode/ReaderWriter.h>
+#endif
+]],[[
+	std::string str;
+	llvm::raw_string_ostream  stream(str);
+	llvm::WriteBitcodeToFile(nullptr, stream);
+]])],
+        [AC_DEFINE([LLVM_WRITE_BITCODE_TO_FILE_PTR],[1],
+         [Define if llvm::WriteBitcodeToFile takes a pointer.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::LoadInst constructor needs a type argument (>= 11)
 AC_MSG_CHECKING([whether llvm::LoadInst constructor needs a type argument])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
