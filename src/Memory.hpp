@@ -52,10 +52,7 @@ namespace llvm {
 class SAddr {
 
 public:
-	/* The implementation is currently not quite portable.
-	 * Ideally, this should be equal to the size of a pointer
-	 * so that we can easily convert to actual pointers */
-	using Width = uint64_t;
+	using Width = uintptr_t;
 
 protected:
 	friend class llvm::Interpreter;
