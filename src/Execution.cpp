@@ -3304,8 +3304,8 @@ SVal Interpreter::executeTruncateFS(SVal inode, SVal length, Type *intTyp)
 
 	/* Check if we are actually extending the file */
 	auto oldIsize = readInodeSizeFS((void *) inode.get(), intTyp);
-	if (length > oldIsize) {
-		if (length >= SVal(MI->fsInfo.maxFileSize)) {
+	if (length.getSigned() > oldIsize.getSigned()) {
+		if (length.getSigned() >= MI->fsInfo.maxFileSize) {
 			handleSystemError(SystemError::SE_EFBIG, "Length too big in truncate()");
 			ret = SVal(-1);
 			goto out;
