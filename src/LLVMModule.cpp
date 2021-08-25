@@ -155,23 +155,21 @@ namespace LLVMModule {
 		std::error_code errs;
 #endif
 #ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
-		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), errs,
+		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs,
 								 llvm::sys::fs::F_None);
 #else
-		llvm::raw_ostream *os = new llvm::raw_fd_ostream(out.c_str(), errs, 0);
+		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, 0);
 #endif
 
 		/* TODO: Do we need an exception? If yes, properly handle it */
 #ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
 		if (errs.size()) {
-			delete os;
 			WARN("Failed to write transformed module to file "
 			     + out + ": " + errs);
 			return;
 		}
 #else
 		if (errs) {
-			delete os;
 			WARN("Failed to write transformed module to file "
 			     + out + ": " + errs.message());
 			return;
