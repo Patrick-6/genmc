@@ -63,6 +63,7 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
   fi
 ])
 
+AC_CHECK_HEADERS_ALT([llvm/Bitcode/ReaderWriter.h llvm/Bitcode/BitcodeReader.h llvm/Bitcode/BitcodeWriter.h], [], [AC_MSG_FAILURE([Could not find necessary headers.])], [AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/DataLayout.h llvm/IR/DataLayout.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/DebugInfo.h llvm/Analysis/DebugInfo.h llvm/IR/DebugInfo.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/DerivedTypes.h llvm/IR/DerivedTypes.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])

@@ -24,11 +24,9 @@
 #include "config.h"
 #include "Error.hpp"
 #include "DriverFactory.hpp"
-#include "ModuleInfo.hpp"
+#include "LLVMModule.hpp"
 #include "ThreadPinner.hpp"
 #include <llvm/IR/Module.h>
-#include <llvm/Bitcode/BitcodeReader.h>
-#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #include <atomic>
@@ -117,9 +115,6 @@ private:
  **                            ThreadPool Class
  ******************************************************************************/
 
-std::unique_ptr<llvm::Module> cloneModule(const std::unique_ptr<llvm::Module> &mod,
-					  const std::unique_ptr<llvm::LLVMContext> &ctx);
-
 /*
  * A class responsible for creating and managing a pool of threads, with tasks
  * submitted dynamically to the threads for execution. Each thread will have
@@ -147,7 +142,7 @@ public:
 
 		for (auto i = 0u; i < numWorkers; i++) {
 			contexts.push_back(LLVM_MAKE_UNIQUE<llvm::LLVMContext>());
-			auto newmod = cloneModule(mod, contexts.back());
+			auto newmod = LLVMModule::cloneModule(mod, contexts.back());
 			auto newMI = MI->clone(*newmod);
 
 			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));

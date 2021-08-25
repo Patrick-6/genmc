@@ -20,23 +20,6 @@
 
 #include "ThreadPool.hpp"
 
-std::unique_ptr<llvm::Module> cloneModule(const std::unique_ptr<llvm::Module> &mod,
-					  const std::unique_ptr<llvm::LLVMContext> &ctx)
-{
-	// Otherwise, round trip the module to a stream and then back
-	// into the new context.  This approach allows for duplication
-	// and optimization to proceed in parallel for different
-	// modules.
-	std::string         str;
-	llvm::raw_string_ostream  stream(str);
-	llvm::WriteBitcodeToFile(*mod, stream);
-
-	llvm::StringRef                   ref(stream.str());
-	std::unique_ptr<llvm::MemoryBuffer>
-		buf(llvm::MemoryBuffer::getMemBuffer(ref));
-	return std::move(llvm::parseBitcodeFile(buf->getMemBufferRef(), *ctx).get());
-}
-
 void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 {
 	std::packaged_task<GenMCDriver::Result(unsigned int, std::unique_ptr<GenMCDriver> driver)> t([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){

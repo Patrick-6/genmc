@@ -85,8 +85,8 @@ int main(int argc, char **argv)
 
 	conf->getConfigOptions(argc, argv);
 	if (conf->inputFromBitcodeFile) {
-		auto sourceCode = parser.readFile(conf->inputFile);
-		auto mod = LLVMModule::getLLVMModule(conf->inputFile, sourceCode);
+		auto ctx = LLVM_MAKE_UNIQUE<llvm::LLVMContext>();
+		auto mod = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
 		BUG(); // FIXME
 		// std::unique_ptr<GenMCDriver> driver =
 		// 	DriverFactory::create(std::move(conf), std::move(mod), start);

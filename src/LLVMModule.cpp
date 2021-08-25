@@ -24,6 +24,12 @@
 #include "Error.hpp"
 #include "Passes.hpp"
 #include <llvm/InitializePasses.h>
+#if defined(HAVE_LLVM_BITCODE_READERWRITER_H)
+# include <llvm/Bitcode/ReaderWriter.h>
+#else
+# include <llvm/Bitcode/BitcodeReader.h>
+# include <llvm/Bitcode/BitcodeWriter.h>
+#endif
 #if defined(HAVE_LLVM_PASSMANAGER_H)
 # include <llvm/PassManager.h>
 #elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
@@ -53,49 +59,35 @@
 # define PassManager llvm::PassManager
 #endif
 
-/* TODO: Move explanation comments to *.hpp files. */
 namespace LLVMModule {
-/* Global variable to handle the LLVM context */
-	llvm::LLVMContext *globalContext = nullptr;
 
-/* Returns the LLVM context */
-	llvm::LLVMContext &getLLVMContext(void)
+	std::unique_ptr<llvm::Module>
+	parseLLVMModule(std::string &filename, const std::unique_ptr<llvm::LLVMContext> &ctx)
 	{
-		if (!globalContext)
-			globalContext = new llvm::LLVMContext();
-		return *globalContext;
-	}
-
-/*
- * Destroys the LLVM context. This function should be called explicitly
- * when we are done managing the LLVM data.
- */
-	void destroyLLVMContext(void)
-	{
-		delete globalContext;
-	}
-
-/* Returns the LLVM module corresponding to the source code stored in src. */
-	std::unique_ptr<llvm::Module> getLLVMModule(std::string &filename, std::string &src)
-	{
-		llvm::MemoryBuffer *buf;
 		llvm::SMDiagnostic err;
 
-#ifdef LLVM_GETMEMBUFFER_RET_PTR
-		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false);
-#else
-		buf = llvm::MemoryBuffer::getMemBuffer(src, "", false).release();
-#endif
-#ifdef LLVM_PARSE_IR_MEMBUF_PTR
-		auto mod = llvm::ParseIR(buf, err, getLLVMContext());
-#else
-		auto mod = llvm::parseIR(buf->getMemBufferRef(), err, getLLVMContext()).release();
-#endif
+		auto mod = llvm::parseIRFile(filename, err, *ctx);
 		if (!mod) {
 			err.print(filename.c_str(), llvm::dbgs());
 			ERROR("Could not parse LLVM IR!\n");
 		}
-		return std::unique_ptr<llvm::Module>(mod);
+		return std::move(mod);
+	}
+
+	std::unique_ptr<llvm::Module>
+	cloneModule(const std::unique_ptr<llvm::Module> &mod,
+		    const std::unique_ptr<llvm::LLVMContext> &ctx)
+	{
+		/* Roundtrip the module to a stream and then back into the new context */
+		std::string str;
+		llvm::raw_string_ostream  stream(str);
+
+		llvm::WriteBitcodeToFile(*mod, stream);
+
+		llvm::StringRef ref(stream.str());
+		std::unique_ptr<llvm::MemoryBuffer> buf(llvm::MemoryBuffer::getMemBuffer(ref));
+
+		return std::move(llvm::parseBitcodeFile(buf->getMemBufferRef(), *ctx).get());
 	}
 
 	bool transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
