@@ -2880,7 +2880,6 @@ void Interpreter::callMutexInit(Function *F,
 void Interpreter::callMutexLock(Function *F,
 				const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue result;
@@ -2900,7 +2899,6 @@ void Interpreter::callMutexLock(Function *F,
 void Interpreter::callMutexUnlock(Function *F,
 				  const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue result;
@@ -2915,7 +2913,6 @@ void Interpreter::callMutexUnlock(Function *F,
 void Interpreter::callMutexTrylock(Function *F,
 				   const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
 	GenericValue result;
@@ -3170,12 +3167,10 @@ SVal Interpreter::checkOpenFlagsFS(SVal &flags, Type *intTyp)
 
 SVal Interpreter::executeInodeLookupFS(const std::string &filename, Type *intTyp)
 {
-	Thread &thr = getCurThr();
-
 	auto inTrans = getInodeTransStatus(getDirInode(), intTyp);
 	if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
-		thr.rollToSnapshot();
-		thr.block(llvm::Thread::BlockageType::BT_Cons);
+		getCurThr().rollToSnapshot();
+		getCurThr().block(llvm::Thread::BlockageType::BT_Cons);
 		return SVal(42); /* propagate block */
 	}
 
@@ -3215,8 +3210,6 @@ SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp
  * created. */
 SVal Interpreter::executeLookupOpenFS(const std::string &file, SVal &flags, Type *intTyp)
 {
-	Thread &thr = getCurThr();
-
 	/* If O_CREAT was not specified, just do the lookup */
 	if (!(flags.get() & GENMC_O_CREAT))
 		return executeInodeLookupFS(file, intTyp);
@@ -3224,14 +3217,14 @@ SVal Interpreter::executeLookupOpenFS(const std::string &file, SVal &flags, Type
 	/* Otherwise, we need to take the dir inode's lock */
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return SVal(42);
 	}
 
 	/* Check if the corresponding inode already exists */
 	auto inode = executeInodeLookupFS(file, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return inode; /* propagate the block */
 
 	/* Return the inode, if it already exists */
@@ -3252,7 +3245,6 @@ unlock:
 
 SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp)
 {
-	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 
 	/* Get a fresh fd */
@@ -3261,7 +3253,7 @@ SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal in
 	/* Also a name for the description */
 	std::string varname("__file_");
 	raw_string_ostream sname(varname);
-	sname << filename << "_" << thr.id << "_" << thr.globalInstructions;
+	sname << filename << "_" << getCurThr().id << "_" << getCurThr().globalInstructions;
 
 	/* We allocate space for the file description... */
 	auto fileSize = getTypeSize(MI->fsInfo.fileTyp);
@@ -3293,8 +3285,6 @@ SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal in
 
 SVal Interpreter::executeTruncateFS(SVal inode, SVal length, Type *intTyp)
 {
-	Thread &thr = getCurThr();
-
 	/* length is a signed integer -- careful because it's long */
 	if (length.getSigned() < 0) {
 		handleSystemError(SystemError::SE_EINVAL, "Invalid length for truncate()");
@@ -3304,8 +3294,8 @@ SVal Interpreter::executeTruncateFS(SVal inode, SVal length, Type *intTyp)
 	/* Get inode's lock (as in do_truncate()) */
 	auto inodeLock = GET_INODE_LOCK_ADDR((void *) inode.get());
 	driver->visitLock(inodeLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return SVal(42);
 	}
 
@@ -3340,15 +3330,13 @@ out:
 
 void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	SVal flags = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Check the flags passed -- we ignore mode_t for the time being */
 	auto retO = checkOpenFlagsFS(flags, intTyp);
@@ -3359,7 +3347,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 	/* Try and find the requested inode */
 	auto inode = executeLookupOpenFS(filename, flags, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	/* Inode not found -- cannot open file */
@@ -3437,14 +3425,12 @@ SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp)
 
 void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	SVal fd = ArgVals[0].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Close the file and return result to user */
 	auto result = executeCloseFS(fd, intTyp);
@@ -3460,29 +3446,27 @@ SVal Interpreter::executeLinkFS(const std::string &newpath, SVal oldInode, Type 
 
 void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	SVal source, target;
 
 	/* Since we have a single-directory structure, link boils down to a simple cs */
 	driver->visitLock(dirLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
 	source = executeInodeLookupFS(oldpath, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	/* If no such entry found, exit */
@@ -3517,25 +3501,23 @@ SVal Interpreter::executeUnlinkFS(const std::string &pathname, Type *intTyp)
 
 void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	std::string pathname = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
 	auto inode = executeInodeLookupFS(pathname, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	/* Check if component exists */
@@ -3583,28 +3565,26 @@ SVal Interpreter::executeRenameFS(const std::string &oldpath, SVal oldInode,
 
 void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
 	/* Try to find source inode */
 	SVal source, target;
 	source = executeInodeLookupFS(oldpath, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 	if ((void *) source.get() == nullptr) {
 		handleSystemError(SystemError::SE_ENOENT, "Oldpath does not exist for rename()");
@@ -3614,7 +3594,7 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 
 	/* Try to find target inode */
 	target = executeInodeLookupFS(newpath, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	result = SVAL_TO_GV(executeRenameFS(oldpath, source, newpath, target, intTyp), F->getReturnType());
@@ -3628,26 +3608,24 @@ exit:
 
 void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	auto length  = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id),
-		       getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(dirLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
 	/* Try and find the requested inode */
 	auto inode = executeInodeLookupFS(filename, intTyp);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	driver->visitUnlock(dirLock, getTypeSize(intTyp));
@@ -3693,7 +3671,6 @@ bool Interpreter::shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal iS
 SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf,
 				Type *bufElemTyp, SVal offset, SVal count)
 {
-	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 	SVal nr = SVal(-1);
 
@@ -3729,8 +3706,8 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf,
 	if (MI->fsInfo.journalData == JournalDataFS::journal) {
 		auto inTrans = getInodeTransStatus(inode, intTyp);
 		if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
-			thr.rollToSnapshot();
-			thr.block(llvm::Thread::BlockageType::BT_Cons);
+			getCurThr().rollToSnapshot();
+			getCurThr().block(llvm::Thread::BlockageType::BT_Cons);
 			return SVal(42); /* propagate block */
 		}
 	}
@@ -3739,8 +3716,6 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf,
 
 void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
@@ -3748,7 +3723,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	thr.takeSnapshot();
+	getCurThr().takeSnapshot();
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
@@ -3765,8 +3740,8 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	 * we reset the EE to this instruction */
 	auto fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock(fileLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
@@ -3776,7 +3751,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 					fileOffset, getTypeSize(intTyp));
 
 	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	/* If the read succeeded, update the offset in the file description... */
@@ -3882,7 +3857,6 @@ SVal Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, void *buf,
 SVal Interpreter::executeWriteFS(void *file, Type *intTyp, void *buf,
 				 Type *bufElemTyp, SVal offset, SVal count)
 {
-	Thread &thr = getCurThr();
 	Type *intPtrType = intTyp->getPointerTo();
 
 	/* Check if we can write to the file */
@@ -3902,8 +3876,8 @@ SVal Interpreter::executeWriteFS(void *file, Type *intTyp, void *buf,
 	/* Since we are writing, we need to lock of the inode */
 	auto inodeLock = GET_INODE_LOCK_ADDR(inode);
 	driver->visitLock(inodeLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return SVal(42); // lock acquisition failed
 	}
 
@@ -3930,8 +3904,6 @@ out:
 
 void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
@@ -3939,7 +3911,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	thr.takeSnapshot();
+	getCurThr().takeSnapshot();
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
@@ -3956,8 +3928,8 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * we reset the EE to this instruction */
 	auto fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock(fileLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
@@ -4026,8 +3998,6 @@ void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVa
 
 void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
@@ -4057,7 +4027,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 
 	/* Execute the read in the specified offset */
 	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count);
-	if (thr.isBlocked())
+	if (getCurThr().isBlocked())
 		return;
 
 	/* Return the number of bytes read (similar to read()) */
@@ -4067,8 +4037,6 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
@@ -4077,8 +4045,8 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	thr.takeSnapshot();
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+	getCurThr().takeSnapshot();
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Check if the given offset is valid */
 	if (offset.getSigned() < 0) {
@@ -4163,15 +4131,13 @@ SVal Interpreter::executeLseekFS(void *file, Type *intTyp,
 
 void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals)
 {
-	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
 	GenericValue fd = ArgVals[0];
 	SVal offset = ArgVals[1].IntVal.getLimitedValue();
 	SVal whence = ArgVals[2].IntVal.getLimitedValue();
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
-	thr.takeSnapshot();
+	getCurThr().takeSnapshot();
 	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 		       getAddrPoDeps(getCurThr().id), nullptr);
 
@@ -4188,8 +4154,8 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 	 * we reset the EE to this instruction */
 	auto *fileLock = GET_FILE_POS_LOCK_ADDR(file);
 	driver->visitLock(fileLock, getTypeSize(intTyp));
-	if (thr.isBlocked()) {
-		thr.rollToSnapshot();
+	if (getCurThr().isBlocked()) {
+		getCurThr().rollToSnapshot();
 		return;
 	}
 
