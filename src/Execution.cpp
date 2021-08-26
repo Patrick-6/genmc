@@ -145,7 +145,7 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-bool Interpreter::compareValues(SSize size, SVal val1, SVal val2)
+bool Interpreter::compareValues(ASize size, SVal val1, SVal val2)
 {
 	return val1 == val2;
 }
@@ -232,7 +232,7 @@ void *Interpreter::getStaticAddr(SAddr addr) const
 }
 
 /* Returns the initial value for the specified memory location */
-SVal Interpreter::getLocInitVal(SAddr addr, SSize size)
+SVal Interpreter::getLocInitVal(SAddr addr, ASize size)
 {
 	GenericValue result;
 	LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),

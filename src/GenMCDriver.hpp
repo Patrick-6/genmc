@@ -191,7 +191,7 @@ public:
 	visitLoad(InstAttr attr,
 		  llvm::AtomicOrdering ord,
 		  SAddr addr,
-		  SSize size,
+		  ASize size,
 		  SVal cmpVal = SVal(),
 		  SVal rmwVal = SVal(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -203,20 +203,20 @@ public:
 	visitLibLoad(InstAttr attr,
 		     llvm::AtomicOrdering ord,
 		     SAddr addr,
-		     SSize size,
+		     ASize size,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	SVal
-	visitDskRead(SAddr readAddr, SSize size);
+	visitDskRead(SAddr readAddr, ASize size);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
 	visitStore(InstAttr attr,
 		   llvm::AtomicOrdering ord,
 		   SAddr addr,
-		   SSize size,
+		   ASize size,
 		   SVal val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
@@ -224,7 +224,7 @@ public:
 	visitLibStore(InstAttr attr,
 		      llvm::AtomicOrdering ord,
 		      SAddr addr,
-		      SSize size,
+		      ASize size,
 		      SVal val,
 		      std::string functionName,
 		      bool isInit = false);
@@ -232,7 +232,7 @@ public:
 	/* A function modeling a write to disk has been interpreted */
 	void
 	visitDskWrite(SAddr addr,
-		      SSize size,
+		      ASize size,
 		      SVal val,
 		      void *mapping,
 		      InstAttr attr = InstAttr::IA_None,
@@ -241,15 +241,15 @@ public:
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(SAddr addr, SSize size);
+	void visitLock(SAddr addr, ASize size);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(SAddr addr, SSize size);
+	void visitUnlock(SAddr addr, ASize size);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
 	SVal
-	visitDskOpen(const std::string &fileName, SSize intSize);
+	visitDskOpen(const std::string &fileName, ASize intSize);
 
 	/* An fsync() operation has been interpreted */
 	void
@@ -331,18 +331,18 @@ protected:
 	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(Event w, SAddr a, SSize s);
-	SVal getDskWriteValue(Event w, SAddr a, SSize s);
+	SVal getWriteValue(Event w, SAddr a, ASize s);
+	SVal getDskWriteValue(Event w, SAddr a, ASize s);
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place
 	 * (e.g., bottom) also blocks the currently running thread. */
-	SVal getReadRetValueAndMaybeBlock(Event r, SAddr addr, SSize s);
-	SVal getRecReadRetValue(SAddr addr, SSize s);
+	SVal getReadRetValueAndMaybeBlock(Event r, SAddr addr, ASize s);
+	SVal getRecReadRetValue(SAddr addr, ASize s);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	SVal getBarrierInitValue(SAddr ptr, SSize s);
+	SVal getBarrierInitValue(SAddr ptr, ASize s);
 
 	/* Returns true if we should check consistency at p */
 	bool shouldCheckCons(ProgramPoint p);
@@ -522,7 +522,7 @@ private:
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
 	std::vector<Event> properlyOrderStores(InstAttr attr,
-					       SSize size,
+					       ASize size,
 					       SAddr ptr,
 					       SVal expVal,
 					       std::vector<Event> &stores);
@@ -532,7 +532,7 @@ private:
 	createAddReadLabel(InstAttr attr,
 			   llvm::AtomicOrdering ord,
 			   SAddr addr,
-			   SSize size,
+			   ASize size,
 			   std::unique_ptr<SExpr> annot,
 			   SVal cmpVal,
 			   SVal rmwVal,
@@ -548,7 +548,7 @@ private:
 	createAddStoreLabel(InstAttr attr,
 			    llvm::AtomicOrdering ord,
 			    SAddr addr,
-			    SSize size,
+			    ASize size,
 			    SVal val,
 			    int moPos);
 
@@ -612,11 +612,11 @@ private:
 	bool sharePrefixSR(int tid, Event pos) const;
 
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(SAddr addr, SSize size,
+	void filterSymmetricStoresSR(SAddr addr, ASize size,
 				     std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterValuesFromAnnotSAVER(SAddr addr, SSize size,
+	bool filterValuesFromAnnotSAVER(SAddr addr, ASize size,
 					const SExpr *annot, std::vector<Event> &stores);
 
 

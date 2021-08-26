@@ -483,7 +483,7 @@ std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
 	for (auto &kv : stackVals)
 		vMap.insert({((void *) (intptr_t) MI->idInfo.VID.at(kv.first)),
 			    std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
-					   SSize(getTypeSize(kv.first->getType()) * 8))});
+					   ASize(getTypeSize(kv.first->getType()) * 8))});
 
 	return SExprConcretizer().concretize(a, vMap);
 }

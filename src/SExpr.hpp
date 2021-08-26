@@ -22,7 +22,7 @@
 #define __S_EXPR_HPP__
 
 #include "Error.hpp"
-#include "Memory.hpp"
+#include "SVal.hpp"
 
 #include <memory>
 

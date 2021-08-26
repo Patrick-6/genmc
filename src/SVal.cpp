@@ -18,7 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Memory.hpp"
+#include "SVal.hpp"
+#include "SAddr.hpp"
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SVal &v)
 {
@@ -26,17 +27,5 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SVal &v)
 	return s;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SAddr &addr)
-{
-	auto internal = addr.isInternal() ? "I" : "U";
-
-	if (addr.isStatic())
-		s << "G" << internal << "#" << (addr.get() & SAddr::addressMask);
-	else if (addr.isAutomatic())
-		s << "S" << internal << "#" << (addr.get() & SAddr::addressMask);
-	else if (addr.isHeap())
-		s << "H" << internal << "#" << (addr.get() & SAddr::addressMask);
-	else
-		BUG();
-	return s;
-}
+static_assert(sizeof(SVal::Value) >= sizeof(SAddr::Width), "SVal needs to be able to hold SAddr");
+static_assert(sizeof(SVal::Value) >= sizeof(uintptr_t), "SVal needs to be able to hold pointers");

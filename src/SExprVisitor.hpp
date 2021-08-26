@@ -22,8 +22,8 @@
 #define __S_EXPR_VISITOR_HPP__
 
 #include "Error.hpp"
+#include "MemAccess.hpp"
 #include "SExpr.hpp"
-#include "Memory.hpp"
 #include "VSet.hpp"
 #include <llvm/Support/Casting.h>
 
@@ -384,7 +384,7 @@ class SExprConcretizer: public SExprVisitor<SExprConcretizer> {
 
 public:
 	using RegID = RegisterExpr::RegID;
-	using ReplaceMap = std::map<RegID, std::pair<SVal, SSize>>;
+	using ReplaceMap = std::map<RegID, std::pair<SVal, ASize>>;
 
 	/* Performs the concretization (returns a new expression) */
 	std::unique_ptr<SExpr>

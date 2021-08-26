@@ -43,8 +43,11 @@
 #include "Config.hpp"
 #include "IMMDepTracker.hpp"
 #include "Library.hpp"
-#include "Memory.hpp"
+#include "MemAccess.hpp"
 #include "ModuleInfo.hpp"
+#include "SAddr.hpp"
+#include "SAddrAllocator.hpp"
+#include "SVal.hpp"
 #include "View.hpp"
 #include "CallInstWrapper.hpp"
 
@@ -561,8 +564,8 @@ public:
 
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
-  bool compareValues(SSize size, SVal val1, SVal val2);
-  SVal getLocInitVal(SAddr addr, SSize size);
+  bool compareValues(ASize size, SVal val1, SVal val2);
+  SVal getLocInitVal(SAddr addr, ASize size);
   unsigned int getTypeSize(Type *typ) const;
   SVal executeAtomicRMWOperation(SVal val1, SVal val2, AtomicRMWInst::BinOp op);
 

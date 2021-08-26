@@ -700,7 +700,7 @@ const EventLabel *GenMCDriver::getCurrentLabel() const
 }
 
 /* Given an event in the graph, returns the value of it */
-SVal GenMCDriver::getWriteValue(Event write, SAddr addr, SSize size)
+SVal GenMCDriver::getWriteValue(Event write, SAddr addr, ASize size)
 {
 	/* If the even represents an invalid access, return some value */
 	if (write.isBottom())
@@ -728,14 +728,14 @@ SVal GenMCDriver::getWriteValue(Event write, SAddr addr, SSize size)
 /* Same as above, but the data of a file are not explicitly initialized
  * so as not to pollute the graph with events, since a file can be large.
  * Thus, we treat the case where WRITE reads INIT specially. */
-SVal GenMCDriver::getDskWriteValue(Event write, SAddr addr, SSize size)
+SVal GenMCDriver::getDskWriteValue(Event write, SAddr addr, ASize size)
 {
 	if (write.isInitializer())
 		return SVal();
 	return getWriteValue(write, addr, size);
 }
 
-SVal GenMCDriver::getBarrierInitValue(SAddr addr, SSize size)
+SVal GenMCDriver::getBarrierInitValue(SAddr addr, ASize size)
 {
 	auto &g = getGraph();
 	auto &stores = g.getStoresToLoc(addr);
@@ -751,7 +751,7 @@ SVal GenMCDriver::getBarrierInitValue(SAddr addr, SSize size)
 	return getWriteValue(*sIt, addr, size);
 }
 
-SVal GenMCDriver::getReadRetValueAndMaybeBlock(Event read, SAddr addr, SSize size)
+SVal GenMCDriver::getReadRetValueAndMaybeBlock(Event read, SAddr addr, ASize size)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
@@ -774,7 +774,7 @@ SVal GenMCDriver::getReadRetValueAndMaybeBlock(Event read, SAddr addr, SSize siz
 	return res;
 }
 
-SVal GenMCDriver::getRecReadRetValue(SAddr addr, SSize size)
+SVal GenMCDriver::getRecReadRetValue(SAddr addr, ASize size)
 {
 	auto &g = getGraph();
 	auto recLast = getEE()->getCurrentPosition();
@@ -1265,7 +1265,7 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(SAddr ptr,
 
 std::vector<Event>
 GenMCDriver::properlyOrderStores(InstAttr attr,
-				 SSize size,
+				 ASize size,
 				 SAddr ptr,
 				 SVal expVal,
 				 std::vector<Event> &stores)
@@ -1325,7 +1325,7 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 	return true;
 }
 
-void GenMCDriver::filterSymmetricStoresSR(SAddr addr, SSize size, std::vector<Event> &stores) const
+void GenMCDriver::filterSymmetricStoresSR(SAddr addr, ASize size, std::vector<Event> &stores) const
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -1355,7 +1355,7 @@ void GenMCDriver::filterSymmetricStoresSR(SAddr addr, SSize size, std::vector<Ev
 	return;
 }
 
-bool GenMCDriver::filterValuesFromAnnotSAVER(SAddr addr, SSize size,
+bool GenMCDriver::filterValuesFromAnnotSAVER(SAddr addr, ASize size,
 					     const SExpr *annot, std::vector<Event> &validStores)
 {
 	if (!annot)
@@ -1592,7 +1592,7 @@ const ReadLabel *
 GenMCDriver::createAddReadLabel(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				SAddr addr,
-				SSize size,
+				ASize size,
 				std::unique_ptr<SExpr> annot,
 				SVal cmpVal,
 				SVal rmwVal,
@@ -1688,7 +1688,7 @@ SVal
 GenMCDriver::visitLoad(InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       SAddr addr,
-		       SSize size,
+		       ASize size,
 		       SVal cmpVal,
 		       SVal rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
@@ -1764,7 +1764,7 @@ const WriteLabel *
 GenMCDriver::createAddStoreLabel(InstAttr attr,
 				 llvm::AtomicOrdering ord,
 				 SAddr addr,
-				 SSize size,
+				 ASize size,
 				 SVal val,
 				 int moPos)
 {
@@ -1810,7 +1810,7 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 void GenMCDriver::visitStore(InstAttr attr,
 			     llvm::AtomicOrdering ord,
 			     SAddr addr,
-			     SSize size,
+			     ASize size,
 			     SVal val)
 
 {
@@ -1889,7 +1889,7 @@ void GenMCDriver::visitLockLAPOR(SAddr addr)
 	return;
 }
 
-void GenMCDriver::visitLock(SAddr addr, SSize size)
+void GenMCDriver::visitLock(SAddr addr, ASize size)
 {
 	/* No locking when running the recovery routine */
 	if (userConf->persevere && inRecoveryMode())
@@ -1932,7 +1932,7 @@ void GenMCDriver::visitUnlockLAPOR(SAddr addr)
 	return;
 }
 
-void GenMCDriver::visitUnlock(SAddr addr, SSize size)
+void GenMCDriver::visitUnlock(SAddr addr, ASize size)
 {
 	/* No locking when running the recovery routine */
 	if (userConf->persevere && inRecoveryMode())
@@ -2967,7 +2967,7 @@ std::pair<SVal, bool>
 GenMCDriver::visitLibLoad(InstAttr attr,
 			  llvm::AtomicOrdering ord,
 			  SAddr addr,
-			  SSize size,
+			  ASize size,
 			  std::string functionName)
 {
 	auto &g = getGraph();
@@ -3079,7 +3079,7 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 void GenMCDriver::visitLibStore(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				SAddr addr,
-				SSize size,
+				ASize size,
 				SVal val,
 				std::string functionName,
 				bool isInit)
@@ -3226,7 +3226,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 }
 
 SVal
-GenMCDriver::visitDskRead(SAddr addr, SSize size)
+GenMCDriver::visitDskRead(SAddr addr, ASize size)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -3263,7 +3263,7 @@ GenMCDriver::visitDskRead(SAddr addr, SSize size)
 
 void
 GenMCDriver::visitDskWrite(SAddr addr,
-			   SSize size,
+			   ASize size,
 			   SVal val,
 			   void *mapping,
 			   InstAttr attr /* = IA_None */,
@@ -3317,7 +3317,7 @@ GenMCDriver::visitDskWrite(SAddr addr,
 }
 
 SVal
-GenMCDriver::visitDskOpen(const std::string &fileName, SSize intSize)
+GenMCDriver::visitDskOpen(const std::string &fileName, ASize intSize)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();

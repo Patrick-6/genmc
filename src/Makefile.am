@@ -48,7 +48,7 @@ libgenmc_a_SOURCES = \
   LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
-  Memory.hpp Memory.cpp \
+  MemAccess.hpp \
   MOCalculator.hpp MOCalculator.cpp \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \
@@ -58,8 +58,11 @@ libgenmc_a_SOURCES = \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RevisitSet.cpp RevisitSet.hpp \
+  SAddr.cpp SAddr.hpp \
+  SAddrAllocator.hpp \
   SExpr.cpp SExpr.hpp \
   SExprVisitor.cpp SExprVisitor.hpp \
+  SVal.cpp SVal.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBCalculator.cpp WBCalculator.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
