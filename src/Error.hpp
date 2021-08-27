@@ -37,13 +37,20 @@
 #define WARN_ON_ONCE(condition, id, msg) GenMCError::warnOnOnce(condition, id) << WARN_MESSAGE(msg)
 #define ERROR(msg) ({ GenMCError::warn() << ERROR_MESSAGE(msg); exit(EUSER); })
 #define ERROR_ON(condition, msg) ({ if (condition) { ERROR(msg); } })
-
 #define BUG() do { \
 	llvm::errs() << "BUG: Failure at " << __FILE__ ":" << __LINE__ \
 		     << "/" << __func__ << "()!\n";		       \
 	exit(EGENMC);						       \
 	} while (0)
 #define BUG_ON(condition) do { if (condition) BUG(); } while (0)
+
+#ifdef ENABLE_GENMC_DEBUG
+# define GENMC_DEBUG(s) do {			\
+	s					\
+	} while (0)
+#else
+# define GENMC_DEBUG(s) do {} while (0)
+#endif
 
 #define ECOMPILE 5
 #define EGENMC   7

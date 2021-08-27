@@ -194,8 +194,9 @@ int main(int argc, char **argv)
 		llvm::outs() << res.message << "\n";
 
 	std::string dups = " (" + std::to_string(res.duplicates) + " duplicates)";
-	llvm::outs() << "Number of complete executions explored: " << res.explored
-		     << ((conf->countDuplicateExecs) ? dups : "") << "\n";
+	llvm::outs() << "Number of complete executions explored: " << res.explored;
+	GENMC_DEBUG(llvm::outs() << ((conf->countDuplicateExecs) ? dups : ""););
+	llvm::outs() << "\n";
 	if (res.exploredBlocked) {
 		llvm::outs() << "Number of blocked executions seen: " << res.exploredBlocked
 			     << "\n";

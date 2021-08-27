@@ -28,6 +28,9 @@
 
 enum class ModelType { rc11, imm };
 enum class SchedulePolicy { ltr, wf, random };
+#ifdef ENABLE_GENMC_DEBUG
+enum class VerbosityLevel { V0, V1, V2, V3 };
+#endif
 
 struct Config {
 
@@ -69,7 +72,6 @@ public:
 	bool loadAnnot;
 
 	/*** Debugging options ***/
-	bool countDuplicateExecs;
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
 	bool prettyPrintExecGraphs;
@@ -78,7 +80,11 @@ public:
 	bool printRandomScheduleSeed;
 	std::string transformFile;
 	std::string programEntryFun;
+#ifdef ENABLE_GENMC_DEBUG
 	bool validateExecGraphs;
+	bool countDuplicateExecs;
+	VerbosityLevel vLevel;
+#endif
 
 	/* Parses the CLI options and initialized the respective fields */
 	void getConfigOptions(int argc, char **argv);

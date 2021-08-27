@@ -372,8 +372,10 @@ void GenMCDriver::handleExecutionBeginning()
 void GenMCDriver::handleExecutionInProgress()
 {
 	/* Check if there are checks to be done while running */
-	if (userConf->validateExecGraphs)
-		getGraph().validate();
+	GENMC_DEBUG(
+		if (userConf->validateExecGraphs)
+			getGraph().validate();
+	);
 	return;
 }
 
@@ -399,16 +401,18 @@ void GenMCDriver::handleFinishedExecution()
 		printGraph(); /* Delay printing if persevere is enabled */
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
-	if (userConf->countDuplicateExecs) {
-		std::string exec;
-		llvm::raw_string_ostream buf(exec);
-		buf << g;
-		BUG(); // FIXME: Count duplicates
-		// if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-		// 	++duplicates;
-		// else
-		// 	uniqueExecs.insert(buf.str());
-	}
+	GENMC_DEBUG(
+		if (userConf->countDuplicateExecs) {
+			std::string exec;
+			llvm::raw_string_ostream buf(exec);
+			buf << g;
+			BUG(); // FIXME: Count duplicates
+			// if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
+			// 	++duplicates;
+			// else
+			// 	uniqueExecs.insert(buf.str());
+		}
+	);
 	++result.explored;
 	return;
 }
@@ -1738,6 +1742,13 @@ GenMCDriver::visitLoad(InstAttr attr,
 	if (!ensureConsistentRf(lab, validStores))
 		return SVal(0);
 
+	GENMC_DEBUG(
+		if (getConf()->vLevel >= VerbosityLevel::V3) {
+			llvm::dbgs() << "--- Added load " << lab->getPos() << "\n";
+			printGraph();
+		}
+	);
+
 	/* Check whether the load forces us to reconsider some potential spinloop */
 	checkReconsiderFaiSpinloop(lab);
 
@@ -1863,6 +1874,13 @@ void GenMCDriver::visitStore(InstAttr attr,
 
 	if (!cons)
 		return;
+
+	GENMC_DEBUG(
+		if (getConf()->vLevel >= VerbosityLevel::V3) {
+			llvm::dbgs() << "--- Added store " << lab->getPos() << "\n";
+			printGraph();
+		}
+	);
 
 	checkReconsiderFaiSpinloop(lab);
 
@@ -2731,6 +2749,13 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		changeRf(read, write);
 
+		GENMC_DEBUG(
+			if (getConf()->vLevel >= VerbosityLevel::V2) {
+				llvm::dbgs() << "--- Backward revisiting " << write << " --> " << read << "\n";
+				printGraph();
+			}
+		);
+
 		bool cons = isConsistent(ProgramPoint::step);
 
 		nrLab->setAddedMax(isCoMaximal(nrLab->getAddr(), write)); // llvm::isa<BRevItem>(ri));
@@ -2939,6 +2964,14 @@ bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 
 	changeRf(rLab->getPos(), ri->getRev());
+
+	GENMC_DEBUG(
+		if (getConf()->vLevel >= VerbosityLevel::V2) {
+			llvm::dbgs() << "--- Forward revisiting " << rLab->getPos()
+				     << " --> " << ri->getRev() << "\n";
+			printGraph();
+		}
+	);
 
 	auto cons = isConsistent(ProgramPoint::step);
 
@@ -3642,6 +3675,10 @@ void GenMCDriver::printGraph(bool getMetadata /* false */, llvm::raw_ostream &s 
 					}
 				}
 			}
+			GENMC_DEBUG(
+				if (getConf()->vLevel >= VerbosityLevel::V1)
+					s << " @ " << lab->getStamp();
+			);
 			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, s);
 			}
@@ -3670,12 +3707,20 @@ void GenMCDriver::prettyPrintGraph(llvm::raw_ostream &s /* = llvm::dbgs() */)
 				s << "R" << getVarName(rLab) << ",";
 				executeValPrint(val, rLab->getType(), s);
 				s.resetColor();
+				GENMC_DEBUG(
+					if (getConf()->vLevel >= VerbosityLevel::V1)
+						s << " @ " << lab->getStamp() << " ";
+				);
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				if (wLab->wasAddedMax())
 					s.changeColor(llvm::raw_ostream::Colors::GREEN);
 				s << "W" << getVarName(wLab) << ",";
 				executeValPrint(wLab->getVal(), wLab->getType(), s);
 				s.resetColor();
+				GENMC_DEBUG(
+					if (getConf()->vLevel >= VerbosityLevel::V1)
+						s << " @ " << lab->getStamp() << " ";
+				);
 			}
 		}
 		s << "\n";
@@ -3719,10 +3764,10 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 				auto name = getVarName(rLab);
 				auto val = getWriteValue(rLab->getRf(), rLab->getAddr(),
 							 rLab->getSize());
-				// executeRLPrint(rLab, name, val, ss);
+				executeRLPrint(rLab, name, val, ss);
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = getVarName(wLab);
-				// executeWLPrint(wLab, name, ss);
+				executeWLPrint(wLab, name, ss);
 			} else {
 				ss << *lab;
 			}

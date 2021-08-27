@@ -218,10 +218,6 @@ clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("fi
 		llvm::cl::cat(clDebugging),
 		llvm::cl::desc("Output the transformed LLVM code to file"));
 
-static llvm::cl::opt<bool>
-clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
-		     llvm::cl::desc("Validate the execution graphs in each step"));
-
 llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
 		 llvm::cl::desc("Choose the scheduling policy:"),
@@ -251,9 +247,30 @@ static llvm::cl::opt<bool>
 clPrettyPrintExecGraphs("pretty-print-exec-graphs", llvm::cl::cat(clDebugging),
 			llvm::cl::desc("Pretty-print explored execution graphs"));
 
+
+#ifdef ENABLE_GENMC_DEBUG
+static llvm::cl::opt<bool>
+clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
+		     llvm::cl::desc("Validate the execution graphs in each step"));
+
 static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
+
+llvm::cl::opt<VerbosityLevel>
+clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::V0),
+	 llvm::cl::desc("Choose verbosity level:"),
+	 llvm::cl::values(
+		 clEnumValN(VerbosityLevel::V0, "v0", "No verbosity"),
+		 clEnumValN(VerbosityLevel::V1, "v1", "Print stamps on executions"),
+		 clEnumValN(VerbosityLevel::V2, "v2", "Print restricted executions"),
+		 clEnumValN(VerbosityLevel::V3, "v3", "Print execution after each instruction")
+#ifdef LLVM_CL_VALUES_NEED_SENTINEL
+		 , NULL
+#endif
+		 ));
+#endif /* ENABLE_GENMC_DEBUG */
+
 
 #ifdef LLVM_SETVERSIONPRINTER_NEEDS_ARG
 void printVersion(llvm::raw_ostream &s)
@@ -327,15 +344,18 @@ void Config::saveConfigOptions()
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;
-	validateExecGraphs = clValidateExecGraphs;
 	schedulePolicy = clSchedulePolicy;
 	printRandomScheduleSeed = clPrintRandomScheduleSeed;
 	randomScheduleSeed = clRandomScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
 	prettyPrintExecGraphs = clPrettyPrintExecGraphs;
-	countDuplicateExecs = clCountDuplicateExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;
+#ifdef ENABLE_GENMC_DEBUG
+	validateExecGraphs = clValidateExecGraphs;
+	countDuplicateExecs = clCountDuplicateExecs;
+	vLevel = clVLevel;
+#endif
 }
 
 void Config::getConfigOptions(int argc, char **argv)
