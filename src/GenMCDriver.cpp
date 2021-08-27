@@ -3503,43 +3503,24 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 }
 
 #define IMPLEMENT_INTEGER_PRINT(OS, TY)			\
-	case llvm::Type::IntegerTyID:			\
-	        OS << val.IntVal;			\
+	case AType::Signed:				\
+		OS << val.getSigned();			\
+		break;					\
+	case AType::Unsigned:				\
+		OS << val.get();			\
 		break;
 
-#define IMPLEMENT_FLOAT_PRINT(OS, TY)			\
-	case llvm::Type::FloatTyID:			\
-	        OS << val.FloatVal;			\
+#define IMPLEMENT_POINTER_PRINT(OS, TY)			\
+	case AType::Pointer:				\
+		OS << val.getPointer();			\
 		break;
 
-#define IMPLEMENT_DOUBLE_PRINT(OS, TY)			\
-	case llvm::Type::DoubleTyID:			\
-	        OS << val.DoubleVal;			\
-		break;
-
-#define IMPLEMENT_VECTOR_INTEGER_PRINT(OS, TY)				\
-	LLVM_VECTOR_TYPEID_CASES {					\
-		OS << "[";						\
-		for (uint32_t _i=0;_i<val.AggregateVal.size();_i++) {	\
-			OS << val.AggregateVal[_i].IntVal << " ";	\
-		}							\
-		OS << "]";						\
-	} break;
-
-#define IMPLEMENT_POINTER_PRINT(OS, TY)					\
-	case llvm::Type::PointerTyID:					\
-	        OS << (void*)(intptr_t)val.PointerVal;	\
-		break;
-
-static void executeGVPrint(const llvm::GenericValue &val, const llvm::Type *typ,
+static void executeValPrint(const SVal &val, AType atyp,
 			   llvm::raw_ostream &s = llvm::dbgs())
 {
-	switch (typ->getTypeID()) {
-		IMPLEMENT_INTEGER_PRINT(s, typ);
-		IMPLEMENT_FLOAT_PRINT(s, typ);
-		IMPLEMENT_DOUBLE_PRINT(s, typ);
-		IMPLEMENT_VECTOR_INTEGER_PRINT(s, typ);
-		IMPLEMENT_POINTER_PRINT(s, typ);
+	switch (atyp) {
+		IMPLEMENT_INTEGER_PRINT(s, atyp);
+		IMPLEMENT_POINTER_PRINT(s, atyp);
 	default:
 		WARN("Unhandled type for GVPrint predicate!\n");
 		BUG();
@@ -3565,8 +3546,7 @@ static void executeRLPrint(const ReadLabel *rLab,
 	s << rLab->getPos() << ": ";
 	s << rLab->getKind() << rLab->getOrdering()
 	  << " (" << varName << ", ";
-	// executeGVPrint(val, rLab->getType(), s);
-	s << val;
+	executeValPrint(val, rLab->getType(), s);
 	s << ")";
 	s << " [";
 	PRINT_AS_RF(s, rLab->getRf());
@@ -3580,8 +3560,7 @@ static void executeWLPrint(const WriteLabel *wLab,
 	s << wLab->getPos() << ": ";
 	s << wLab->getKind() << wLab->getOrdering()
 	  << " (" << varName << ", ";
-	// executeGVPrint(wLab->getVal(), wLab->getType(), s);
-	s << wLab->getVal();
+	executeValPrint(wLab->getVal(), wLab->getType(), s);
 	s << ")";
 }
 
@@ -3688,14 +3667,14 @@ void GenMCDriver::prettyPrintGraph(llvm::raw_ostream &s /* = llvm::dbgs() */)
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
 					getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getSize()) :
 					getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getSize());
-				// s << "R" << getVarName(rLab) << ","
-				// 	     << val.IntVal << " ";
+				s << "R" << getVarName(rLab) << ",";
+				executeValPrint(val, rLab->getType(), s);
 				s.resetColor();
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				if (wLab->wasAddedMax())
 					s.changeColor(llvm::raw_ostream::Colors::GREEN);
-				// s << "W" << getVarName(wLab) << ","
-				// 	     << wLab->getVal().IntVal << " ";
+				s << "W" << getVarName(wLab) << ",";
+				executeValPrint(wLab->getVal(), wLab->getType(), s);
 				s.resetColor();
 			}
 		}
