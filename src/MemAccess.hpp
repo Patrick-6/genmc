@@ -27,6 +27,18 @@
 #include <cstdint>
 
 /*******************************************************************************
+ **                             AType Enum
+ ******************************************************************************/
+
+/*
+ * Represents the type of an access: pointer, signed integer, unsigned integer
+ */
+enum class AType {
+	Pointer, Signed, Unsigned
+};
+
+
+/*******************************************************************************
  **                             ASize Class
  ******************************************************************************/
 
@@ -37,7 +49,7 @@ class ASize {
 
 protected:
 	/* We could be a bit more frugal with this, but it should be fine */
-	using Size = uint64_t;
+	using Size = uint32_t;
 
 public:
 	/* Constructors/destructors */
@@ -74,5 +86,6 @@ private:
 	/* The actual size */
 	Size size;
 };
+
 
 #endif /* __MEM_ACCESS_HPP__ */

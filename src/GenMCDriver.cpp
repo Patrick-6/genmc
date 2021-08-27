@@ -1593,6 +1593,7 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				SAddr addr,
 				ASize size,
+				AType type,
 				std::unique_ptr<SExpr> annot,
 				SVal cmpVal,
 				SVal rmwVal,
@@ -1606,26 +1607,26 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 	switch (attr) {
 	case InstAttr::IA_None:
 		rLab = ReadLabel::create(g.nextStamp(), ord, pos,
-					 addr, size, store, std::move(annot));
+					 addr, size, type, store, std::move(annot));
 		break;
 	case InstAttr::IA_BWait:
 		rLab = BWaitReadLabel::create(g.nextStamp(), ord, pos,
-					      addr, size, store, std::move(annot));
+					      addr, size, type, store, std::move(annot));
 		break;
 	case InstAttr::IA_Fai:
-		rLab = FaiReadLabel::create(g.nextStamp(), ord, pos, addr, size,
+		rLab = FaiReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 					    store, op, rmwVal, std::move(annot));
 		break;
 	case InstAttr::IA_BPost:
-		rLab = BIncFaiReadLabel::create(g.nextStamp(), ord, pos, addr, size,
+		rLab = BIncFaiReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 						store, op, rmwVal, std::move(annot));
 		break;
 	case InstAttr::IA_Cas:
-		rLab = CasReadLabel::create(g.nextStamp(), ord, pos, addr, size,
+		rLab = CasReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 					    store, cmpVal, rmwVal, std::move(annot));
 		break;
 	case InstAttr::IA_Lock:
-		rLab = LockCasReadLabel::create(g.nextStamp(), ord, pos, addr, size,
+		rLab = LockCasReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 						store, cmpVal, rmwVal, std::move(annot));
 		break;
 	default:
@@ -1689,6 +1690,7 @@ GenMCDriver::visitLoad(InstAttr attr,
 		       llvm::AtomicOrdering ord,
 		       SAddr addr,
 		       ASize size,
+		       AType type,
 		       SVal cmpVal,
 		       SVal rmwVal,
 		       llvm::AtomicRMWInst::BinOp op)
@@ -1710,7 +1712,7 @@ GenMCDriver::visitLoad(InstAttr attr,
 	 * consistency checks may be triggered if the access is invalid */
 	g.trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
-		createAddReadLabel(attr, ord, addr, size, nullptr, cmpVal,
+		createAddReadLabel(attr, ord, addr, size, type, nullptr, cmpVal,
 				   rmwVal, op, Event::getInitializer());
 		visitError(Status::VS_AccessNonMalloc);
 		return SVal(0); /* Return some value; this execution will be blocked */
@@ -1729,7 +1731,7 @@ GenMCDriver::visitLoad(InstAttr attr,
 		filterValuesFromAnnotSAVER(addr, size, annot.get(), validStores);
 
 	/* ... add an appropriate label with a random rf */
-	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, size, std::move(annot),
+	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, size, type, std::move(annot),
 						  cmpVal, rmwVal, op, validStores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
@@ -1765,6 +1767,7 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 				 llvm::AtomicOrdering ord,
 				 SAddr addr,
 				 ASize size,
+				 AType type,
 				 SVal val,
 				 int moPos)
 {
@@ -1774,31 +1777,31 @@ GenMCDriver::createAddStoreLabel(InstAttr attr,
 	std::unique_ptr<WriteLabel> wLab = nullptr;
 	switch (attr) {
 	case InstAttr::IA_None:
-		wLab = WriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = WriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_Unlock:
-		wLab = UnlockWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = UnlockWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_BInit:
-		wLab = BInitWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = BInitWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_BDestroy:
-		wLab = BDestroyWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = BDestroyWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_Fai:
-		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = FaiWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_BPost: {
 		/* Barrier hack: reset barrier to initial if it reached 0 */
 		auto bVal = (val == SVal(0)) ? getBarrierInitValue(addr, size) : val;
-		wLab = BIncFaiWriteLabel::create(g.nextStamp(), ord, pos, addr, size, bVal);
+		wLab = BIncFaiWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, bVal);
 		break;
 	}
 	case InstAttr::IA_Cas:
-		wLab = CasWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = CasWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	case InstAttr::IA_Lock:
-		wLab = LockCasWriteLabel::create(g.nextStamp(), ord, pos, addr, size, val);
+		wLab = LockCasWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type, val);
 		break;
 	default:
 		BUG();
@@ -1811,6 +1814,7 @@ void GenMCDriver::visitStore(InstAttr attr,
 			     llvm::AtomicOrdering ord,
 			     SAddr addr,
 			     ASize size,
+			     AType type,
 			     SVal val)
 
 {
@@ -1824,7 +1828,7 @@ void GenMCDriver::visitStore(InstAttr attr,
 	/* If it's a valid access, track coherence for this location */
 	g.trackCoherenceAtLoc(addr);
 	if (!isAccessValid(addr)) {
-		createAddStoreLabel(attr, ord, addr, size, val, 0);
+		createAddStoreLabel(attr, ord, addr, size, type, val, 0);
 		visitError(Status::VS_AccessNonMalloc);
 		return;
 	}
@@ -1835,7 +1839,7 @@ void GenMCDriver::visitStore(InstAttr attr,
 	auto &endO = placesRange.second;
 
 	/* It is always consistent to add the store at the end of MO */
-	const WriteLabel *lab = createAddStoreLabel(attr, ord, addr, size, val, endO);
+	const WriteLabel *lab = createAddStoreLabel(attr, ord, addr, size, type, val, endO);
 
 	auto &locMO = g.getStoresToLoc(addr);
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
@@ -1902,12 +1906,12 @@ void GenMCDriver::visitLock(SAddr addr, ASize size)
 	}
 
 	auto ret = visitLoad(InstAttr::IA_Lock, llvm::AtomicOrdering::Acquire,
-			     addr, size, SVal(0), SVal(1));
+			     addr, size, AType::Signed, SVal(0), SVal(1));
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getCurrentLabel());
 	if (!rLab->getRf().isBottom() && EE->compareValues(size, SVal(0), ret)) {
 		visitStore(InstAttr::IA_Lock, llvm::AtomicOrdering::Acquire,
-			   addr, size, SVal(1));
+			   addr, size, AType::Signed, SVal(1));
 	} else {
 		EE->getCurThr().block(llvm::Thread::BlockageType::BT_LockAcq);
 	}
@@ -1944,7 +1948,7 @@ void GenMCDriver::visitUnlock(SAddr addr, ASize size)
 		return;
 	}
 
-	visitStore(InstAttr::IA_Unlock, llvm::AtomicOrdering::Release, addr, size, SVal(0));
+	visitStore(InstAttr::IA_Unlock, llvm::AtomicOrdering::Release, addr, size, AType::Signed, SVal(0));
 	return;
 }
 
@@ -2861,12 +2865,12 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						  faiLab->getOrdering(),
 						  Event(faiLab->getThread(), faiLab->getIndex() + 1),
 						  faiLab->getAddr(),
-						  faiLab->getSize(), result) :
+						  faiLab->getSize(), faiLab->getType(), result) :
 			FaiWriteLabel::create(g.nextStamp(),
 					      faiLab->getOrdering(),
 					      Event(faiLab->getThread(), faiLab->getIndex() + 1),
 					      faiLab->getAddr(),
-					      faiLab->getSize(), result);
+					      faiLab->getSize(), faiLab->getType(), result);
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		auto isLock = llvm::isa<LockCasReadLabel>(casLab);
 		auto rfVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getSize());
@@ -2878,12 +2882,14 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 							  Event(casLab->getThread(), casLab->getIndex() + 1),
 							  casLab->getAddr(),
 							  casLab->getSize(),
+							  casLab->getType(),
 							  casLab->getSwapVal()) :
 				CasWriteLabel::create(g.nextStamp(),
 						      casLab->getOrdering(),
 						      Event(casLab->getThread(), casLab->getIndex() + 1),
 						      casLab->getAddr(),
 						      casLab->getSize(),
+						      casLab->getType(),
 						      casLab->getSwapVal());
 		}
 	}
@@ -2968,6 +2974,7 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 			  llvm::AtomicOrdering ord,
 			  SAddr addr,
 			  ASize size,
+			  AType type,
 			  std::string functionName)
 {
 	auto &g = getGraph();
@@ -2986,7 +2993,7 @@ GenMCDriver::visitLibLoad(InstAttr attr,
 
 	/* Add the event to the graph so we'll be able to calculate consistent RFs */
 	Event pos = getEE()->getCurrentPosition();
-	auto lLab = LibReadLabel::create(g.nextStamp(), ord, pos, addr, size,
+	auto lLab = LibReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 					 Event::getInitializer(), functionName);
 	updateLabelViews(lLab.get());
 	auto *lab = g.addReadLabelToGraph(std::move(lLab), Event::getInitializer());
@@ -3080,6 +3087,7 @@ void GenMCDriver::visitLibStore(InstAttr attr,
 				llvm::AtomicOrdering ord,
 				SAddr addr,
 				ASize size,
+				AType type,
 				SVal val,
 				std::string functionName,
 				bool isInit)
@@ -3108,7 +3116,7 @@ void GenMCDriver::visitLibStore(InstAttr attr,
 
 	/* It is always consistent to add a new event at the end of MO */
 	Event pos = getEE()->getCurrentPosition();
-	auto lLab = LibWriteLabel::create(g.nextStamp(), ord, pos, addr, size,
+	auto lLab = LibWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type,
 					  val, functionName, isInit);
 	updateLabelViews(lLab.get());
 	auto *sLab = g.addWriteLabelToGraph(std::move(lLab), endO);
@@ -3226,7 +3234,7 @@ bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
 }
 
 SVal
-GenMCDriver::visitDskRead(SAddr addr, ASize size)
+GenMCDriver::visitDskRead(SAddr addr, ASize size, AType type)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -3247,7 +3255,7 @@ GenMCDriver::visitDskRead(SAddr addr, ASize size)
 	/* ... and add an appropriate label with a particular rf */
 	Event pos = getEE()->getCurrentPosition();
 	auto ord = (inRecoveryMode()) ? llvm::AtomicOrdering::Monotonic : llvm::AtomicOrdering::Acquire;
-	auto rLab = DskReadLabel::create(g.nextStamp(), ord, pos, addr, size, validStores[0]);
+	auto rLab = DskReadLabel::create(g.nextStamp(), ord, pos, addr, size, type, validStores[0]);
 
 	updateLabelViews(rLab.get());
 	const ReadLabel *lab = g.addReadLabelToGraph(std::move(rLab), validStores[0]);
@@ -3264,6 +3272,7 @@ GenMCDriver::visitDskRead(SAddr addr, ASize size)
 void
 GenMCDriver::visitDskWrite(SAddr addr,
 			   ASize size,
+			   AType type,
 			   SVal val,
 			   void *mapping,
 			   InstAttr attr /* = IA_None */,
@@ -3291,19 +3300,19 @@ GenMCDriver::visitDskWrite(SAddr addr,
 	switch (attr) {
 	case InstAttr::IA_None:
 		wLab = DskWriteLabel::create(g.nextStamp(), ord, pos,
-					     addr, size, val, mapping);
+					     addr, size, type, val, mapping);
 		break;
 	case InstAttr::IA_DskMdata:
 		wLab = DskMdWriteLabel::create(g.nextStamp(), ord, pos,
-					       addr, size, val, mapping, ordDataRange);
+					       addr, size, type, val, mapping, ordDataRange);
 		break;
 	case InstAttr::IA_DskDirOp:
 		wLab = DskDirWriteLabel::create(g.nextStamp(), ord, pos,
-						addr, size, val, mapping);
+						addr, size, type, val, mapping);
 		break;
 	case InstAttr::IA_DskJnlOp:
 		wLab = DskJnlWriteLabel::create(g.nextStamp(), ord, pos,
-						addr, size, val, mapping, transInode);
+						addr, size, type, val, mapping, transInode);
 		break;
 	default:
 		BUG();

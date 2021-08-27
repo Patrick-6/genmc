@@ -192,6 +192,7 @@ public:
 		  llvm::AtomicOrdering ord,
 		  SAddr addr,
 		  ASize size,
+		  AType type,
 		  SVal cmpVal = SVal(),
 		  SVal rmwVal = SVal(),
 		  llvm::AtomicRMWInst::BinOp op =
@@ -204,12 +205,13 @@ public:
 		     llvm::AtomicOrdering ord,
 		     SAddr addr,
 		     ASize size,
+		     AType type,
 		     std::string functionName);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	SVal
-	visitDskRead(SAddr readAddr, ASize size);
+	visitDskRead(SAddr readAddr, ASize size, AType type);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
@@ -217,6 +219,7 @@ public:
 		   llvm::AtomicOrdering ord,
 		   SAddr addr,
 		   ASize size,
+		   AType type,
 		   SVal val);
 
 	/* A lib store has been interpreted, nothing for the interpreter */
@@ -225,6 +228,7 @@ public:
 		      llvm::AtomicOrdering ord,
 		      SAddr addr,
 		      ASize size,
+		      AType type,
 		      SVal val,
 		      std::string functionName,
 		      bool isInit = false);
@@ -233,6 +237,7 @@ public:
 	void
 	visitDskWrite(SAddr addr,
 		      ASize size,
+		      AType type,
 		      SVal val,
 		      void *mapping,
 		      InstAttr attr = InstAttr::IA_None,
@@ -533,6 +538,7 @@ private:
 			   llvm::AtomicOrdering ord,
 			   SAddr addr,
 			   ASize size,
+			   AType type,
 			   std::unique_ptr<SExpr> annot,
 			   SVal cmpVal,
 			   SVal rmwVal,
@@ -549,6 +555,7 @@ private:
 			    llvm::AtomicOrdering ord,
 			    SAddr addr,
 			    ASize size,
+			    AType type,
 			    SVal val,
 			    int moPos);
 
