@@ -42,7 +42,6 @@ public:
 	/* Constructors/destructors */
 	SVal() : value(0) {}
 	SVal(uint64_t v) : value(v) {}
-	// explicit SVal(void *v) : value((Value) ((uintptr_t) v)) {}
 
 	/* Returns a (limited) representation of this Value */
 	uint64_t get() const { return value; }
@@ -52,6 +51,11 @@ public:
 		int64_t tmp;
 		std::memcpy(&tmp, &value, sizeof(tmp));
 		return tmp;
+	}
+
+	/* Returns a pointer representation of this Value */
+	void *getPointer() const {
+		return (void *) (uintptr_t) value;
 	}
 
 	/* Returns a (limited) representation of the Value as a boolean */
