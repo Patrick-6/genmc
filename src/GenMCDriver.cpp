@@ -2221,44 +2221,6 @@ bool readsFromPrefix(const ExecutionGraph &g,
 	return true;
 }
 
-bool shouldReadFromPrefixButDoesnt(const ExecutionGraph &g,
-				   const ReadLabel *rLab,
-				   const MemAccessLabel *wLab,
-				   const VectorClock &v)
-{
-	auto findMaxInPrefix = [&g,&v,wLab,rLab](){
-		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
-		auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
-		// return (locMO.size() <= 1 && mLab->getRf().isInitializer()) ||
-		// 	mLab->getRf() == *++locMO.rbegin();
-		for (auto rit = locMO.crbegin(); rit != locMO.rend(); ++rit)
-			if (*rit != wLab->getPos() && (v.contains(*rit) || g.getEventLabel(*rit)->getStamp() <= rLab->getStamp()))
-				return *rit;
-		return Event::getInitializer();
-	};
-
-	for (auto i = 0u; i < v.size(); i++) {
-		for (auto j = 0u; j <= v[i]; j++) {
-			auto *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= rLab->getStamp())
-				continue;
-			if (!v.contains(lab->getPos()))
-				continue;
-			if (auto *mLab = llvm::dyn_cast<WriteLabel>(lab))
-				if (mLab->getPos() != wLab->getPos() &&
-				    mLab->getAddr() == rLab->getAddr() &&
-				    rLab->getRf() != findMaxInPrefix()
-				    // (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp() ||
-				    //  !v.contains(rLab->getRf()))
-					) {
-					// llvm::dbgs() << "should've read from the prefix. stamp<?" << (g.getEventLabel(rLab->getRf())->getStamp() <= rLab->getStamp()) << "\n";
-					return true;
-				}
-		}
-	}
-	return false;
-}
-
 bool readsBeforePrefix(const ExecutionGraph &g,
 		       const EventLabel *lab,
 		       const ReadLabel *revLab,
@@ -2530,7 +2492,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	    (g.getEventLabel(rLab->getRf())->getStamp() > rLab->getStamp() &&
 	     !v.contains(rLab->getRf()) && !rLab->isRevisitedInPlace()) ||
 	    !readsFromMaximalInRevGraph(g, rLab, rLab, v, llvm::dyn_cast<WriteLabel>(wLab), initMaximals) ||
-	    // shouldReadFromPrefixButDoesnt(g, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v) ||
 	    readsBeforePrefix(g, rLab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v, wbs))
 		return false;
 
@@ -2566,8 +2527,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 				}
 				if (!readsFromMaximalInRevGraph(g, rLabB, rLab, v, llvm::dyn_cast<WriteLabel>(wLab), initMaximals))
 					return false;
-				// if (shouldReadFromPrefixButDoesnt(g, rLabB, llvm::dyn_cast<MemAccessLabel>(wLab), v))
-				// 	return false;
 			}
 
 			if (!isMaximalEvent(lab, llvm::dyn_cast<WriteLabel>(wLab)) && !v.contains(lab->getPos())) {
