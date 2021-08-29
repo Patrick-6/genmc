@@ -342,7 +342,6 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
 	case EventLabel::EL_HelpedCasRead:
-	case EventLabel::EL_HelpingCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_BIncFaiRead:
 		calcReadViews(llvm::dyn_cast<ReadLabel>(lab), deps);
@@ -357,7 +356,6 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
 	case EventLabel::EL_HelpedCasWrite:
-	case EventLabel::EL_HelpingCasWrite:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
 	case EventLabel::EL_DskWrite:
@@ -392,6 +390,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_Free:
 	case EventLabel::EL_UnlockLabelLAPOR:
 	case EventLabel::EL_DskOpen:
+	case EventLabel::EL_HelpingCas:
 		calcBasicViews(lab, deps);
 		break;
 	case EventLabel::EL_LockLabelLAPOR: /* special case */

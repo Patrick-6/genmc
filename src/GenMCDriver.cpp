@@ -387,13 +387,56 @@ void GenMCDriver::handleExecutionInProgress()
 	return;
 }
 
-void GenMCDriver::checkHelpedCasAnnotation() const
+void GenMCDriver::checkHelpingCasAnnotation()
 {
+	/* If we were waiting for a helped CAS that did not appear, complain */
 	if (std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
 			 [](const llvm::Thread &thr) {
 				return thr.getBlockageType() == BlockageType::HelpedCas;
 			 }))
 		ERROR("Helped/Helping CAS annotation error! Does helped CAS always execute?\n");
+
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* Next, we need to check whether there are any extraneous
+	 * stores, not visible to the helped/helping CAS */
+	auto hs = g.collectAllEvents([&](const EventLabel *lab){ return llvm::isa<HelpingCasLabel>(lab); });
+	if (hs.empty())
+		return;
+
+	for (auto &h : hs) {
+		auto *hLab = llvm::dyn_cast<HelpingCasLabel>(g.getEventLabel(h));
+		BUG_ON(!hLab);
+		auto &stores = g.getStoresToLoc(hLab->getAddr());
+
+		/* Check that all stores that would make this helping
+		 * CAS succeed are read by a helped CAS.
+		 * We don't need to check the swap value of the helped CAS */
+		if (std::any_of(stores.begin(), stores.end(), [&](const Event &s){
+			auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
+			return hLab->getExpected() == sLab->getVal() &&
+				std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
+					    [&](const Event &r){
+						    return llvm::isa<HelpedCasReadLabel>(g.getEventLabel(r));
+					    });
+		}))
+			ERROR("Helped/Helping CAS annotation error! "
+			      "Unordered store to helping CAS location!\n");
+
+		/* Special case for the initializer (as above) */
+		if (hLab->getExpected() == EE->getLocInitVal(hLab->getAddr(), hLab->getAccess())) {
+			auto rs = g.collectAllEvents([&](const EventLabel *lab){
+				auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+				return rLab && rLab->getAddr() == hLab->getAddr();
+			});
+			if (std::none_of(rs.begin(), rs.end(), [&](const Event &r){
+				return llvm::isa<HelpedCasReadLabel>(g.getEventLabel(r));
+			}))
+				ERROR("Helped/Helping CAS annotation error! "
+				      "Unordered store to helping CAS location!\n");
+		}
+	}
 	return;
 }
 
@@ -406,13 +449,15 @@ void GenMCDriver::handleFinishedExecution()
 	if (userConf->LAPOR && !isLockWellFormedLAPOR())
 		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 
+	/* Helper: Check helping CAS annotation */
+	checkHelpingCasAnnotation();
+
 	/* Ignore the execution if some assume has failed */
 	if (std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
 			[this](const llvm::Thread &thr){
 				auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(thr.id));
 				return bLab || thr.isBlocked(); })) {
 		++result.exploredBlocked;
-		checkHelpedCasAnnotation();
 		if (userConf->checkLiveness)
 			checkLiveness();
 		return;
@@ -1260,8 +1305,7 @@ bool writesBeforeHelpedContainedInView(const ExecutionGraph &g, const HelpedCasR
 	return true;
 }
 
-bool GenMCDriver::filterHelpedCasStores(const HelpingCasReadLabel *hLab,
-					std::vector<Event> &stores)
+bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -1280,19 +1324,11 @@ bool GenMCDriver::filterHelpedCasStores(const HelpingCasReadLabel *hLab,
 
 	if (std::any_of(hs.begin(), hs.end(), [&g, EE](const Event &h){
 		auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(g.getEventLabel(h));
-		auto &view = g.getPreviousNonEmptyLabel(EE->getCurrentPosition())->getHbView();
+		auto &view = g.getPreviousNonEmptyLabel(hLab->getPos())->getHbView();
 		return !writesBeforeHelpedContainedInView(g, hLab, view);
 	}))
 		ERROR("Helped/Helping CAS annotation error! "
 		      "Not all stores before helped-CAS are visible to helping-CAS!\n");
-
-	std::vector<Event> rfs;
-	std::transform(hs.begin(), hs.end(), std::back_inserter(rfs),
-		       [&](Event &e){ return llvm::dyn_cast<ReadLabel>(g.getEventLabel(e))->getRf(); });
-
-	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event &s){
-		return std::find(rfs.begin(), rfs.end(), s) != rfs.end(); }),
-		stores.end());
 	return true;
 }
 
@@ -1589,12 +1625,6 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 		filterSymmetricStoresSR(lab, validStores);
 	if (llvm::isa<HelpedCasReadLabel>(lab))
 		unblockWaitingHelping();
-	if (llvm::isa<HelpingCasReadLabel>(lab) &&
-	    !filterHelpedCasStores(llvm::dyn_cast<HelpingCasReadLabel>(lab), validStores)) {
-		thr.block(BlockageType::HelpedCas);
-		thr.rollToSnapshot();
-		return SVal(0); /* The execution will be blocked */
-	}
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
 	if (lab->getAnnot())
@@ -2404,6 +2434,24 @@ void GenMCDriver::visitDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab)
 
 	updateLabelViews(fLab.get(), nullptr);
 	getGraph().addOtherLabelToGraph(std::move(fLab));
+	return;
+}
+
+void GenMCDriver::visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	/* Before adding it to the graph, ensure that the helped CAS exists */
+	auto &thr = getEE()->getCurThr();
+	if (!checkHelpingCasCondition(&*hLab)) {
+		thr.block(BlockageType::HelpedCas);
+		thr.rollToSnapshot();
+		return;
+	}
+
+	updateLabelViews(hLab.get(), deps);
+	getGraph().addOtherLabelToGraph(std::move(hLab));
 	return;
 }
 

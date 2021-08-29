@@ -210,6 +210,9 @@ public:
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
 	void visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
 
+	/* A helping CAS operation has been interpreter, the result is unobservable */
+	void visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
+
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
 	SVal visitDskOpen(std::unique_ptr<DskOpenLabel> oLab);
@@ -550,17 +553,6 @@ private:
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
 
-	/* Opt: Wake up any threads blocked on a helping CAS */
-	void unblockWaitingHelping();
-
-	/* Opt: Returns whether there is a helped-CAS the rf of which is a valid RF.
-	 * In case such a CAS exists, filters out the RF from STORES */
-	bool filterHelpedCasStores(const HelpingCasReadLabel *rLab,
-				   std::vector<Event> &stores);
-
-	/* Opt: Checks whether the user annotation about helped/helping CASes seems OK */
-	void checkHelpedCasAnnotation() const;
-
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
 	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab);
@@ -584,6 +576,17 @@ private:
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
 	void visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
 	void visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
+
+	/* Helper: Wake up any threads blocked on a helping CAS */
+	void unblockWaitingHelping();
+
+	/* Helper: Returns whether there is a valid helped-CAS which the helping-CAS
+	 * to be added will be helping. (If an invalid helped-CAS exists, this
+	 * method raises an error.) */
+	bool checkHelpingCasCondition(const HelpingCasLabel *lab);
+
+	/* Helper: Checks whether the user annotation about helped/helping CASes seems OK */
+	void checkHelpingCasAnnotation();
 
 	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
 	bool isSymmetricToSR(int candidate, int thread, Event parent,

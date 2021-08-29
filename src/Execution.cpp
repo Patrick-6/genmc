@@ -3091,9 +3091,6 @@ void Interpreter::callAtomicCasNoRet(Function *F, const std::vector<GenericValue
 	cmpVal.IntVal = cmpVal.IntVal.trunc(size * 8);
 	newVal.IntVal = newVal.IntVal.trunc(size * 8);
 
-	/* If this is a helped/helping CAS, we need to invoke appropriate driver functions */
-	thr.takeSnapshot();
-
 	if (thr.tls.count(ptr)) {
 		GenericValue oldVal = thr.tls[ptr];
 		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
@@ -3102,19 +3099,29 @@ void Interpreter::callAtomicCasNoRet(Function *F, const std::vector<GenericValue
 		return;
 	}
 
+	/* If this is a helped/helping CAS, we need to invoke appropriate driver functions */
+	thr.takeSnapshot();
+
 	if (attrVal == 1) {
 		auto ret = driver->visitLoad(
 			HelpedCasReadLabel::create(succOrd, nextPos(), ptr, size, atyp,
-						   GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)), &*specialDeps);
+						   GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)),
+			&*specialDeps);
 
 		auto cmpRes = ret == GV_TO_SVAL(cmpVal, typ);
 		if (!getCurThr().isBlocked() && cmpRes)
 			driver->visitStore(
 				HelpedCasWriteLabel::create(succOrd, nextPos(), ptr, size, atyp,
 							    GV_TO_SVAL(newVal, typ)), &*specialDeps);
+	} else if (attrVal == 2) {
+		driver->visitHelpingCas(HelpingCasLabel::create(succOrd, nextPos(), ptr, size, atyp,
+								GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)),
+					&*specialDeps);
+	} else {
+		BUG(); /* Generic non-value-returning CASes are currently unsupported */
 	}
 
-	/* We only update addr;po dependencies */
+	/* We only update addr;po dependencies (retake references) */
 	updateAddrPoDeps(getCurThr().id, *ECStack().back().Caller.arg_begin());
 	return;
 }
