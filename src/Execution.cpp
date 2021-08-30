@@ -1510,6 +1510,33 @@ void Interpreter::visitFenceInst(FenceInst &I)
 	return;
 }
 
+constexpr unsigned int switchPair(std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> p)
+{
+	return (unsigned(p.first) << 16) + p.second;
+}
+
+constexpr unsigned int switchPair(EventLabel::EventLabelKind a, EventLabel::EventLabelKind b)
+{
+	return switchPair(std::make_pair(a, b));
+}
+
+std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
+getCasKinds(AtomicCmpXchgInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("cas.attr");
+	if (!md)
+		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
+
+	auto &op = md->getOperand(0);
+	BUG_ON(!llvm::isa<llvm::MDString>(op));
+
+	if (llvm::dyn_cast<MDString>(op)->getString() == "helped")
+		return std::make_pair(Kind::EL_HelpedCasRead, Kind::EL_HelpedCasWrite);
+	return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
+}
+
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 {
 	Thread &thr = getCurThr();
@@ -1539,17 +1566,39 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
 				  getDataDeps(thr.id, I.getCompareOperand()));
 
-	auto ret = driver->visitLoad(
-		CasReadLabel::create(I.getSuccessOrdering(), nextPos(), ptr, size, atyp, GV_TO_SVAL(cmpVal, typ),
-				     GV_TO_SVAL(newVal, typ)), &*lDeps);
+#define IMPLEMENT_CAS_VISIT(nameR, nameW)				\
+	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
+		ret = driver->visitLoad(nameR ## Label::create(	\
+			I.getSuccessOrdering(), nextPos(), ptr,		\
+			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
+			GV_TO_SVAL(newVal, typ)), &*lDeps);		\
+		cmpRes = ret == GV_TO_SVAL(cmpVal, typ);		\
+		if (!getCurThr().isBlocked() && cmpRes) {		\
+			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
+						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
+						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
+			driver->visitStore(nameW ## Label::create(	\
+				I.getSuccessOrdering(), nextPos(), ptr, size, \
+				atyp, GV_TO_SVAL(newVal, typ)), &*sDeps); \
+		}							\
+		break;							\
+	}
 
-	auto cmpRes = ret == GV_TO_SVAL(cmpVal, typ);
-	if (!getCurThr().isBlocked() && cmpRes) {
-		auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()),
-					   getDataDeps(getCurThr().id, I.getNewValOperand()),
-					   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr);
-		driver->visitStore(CasWriteLabel::create(I.getSuccessOrdering(), nextPos(), ptr, size,
-							 atyp, GV_TO_SVAL(newVal, typ)), &*sDeps);
+	/* Check whether this is some special CAS; in such cases we also need a snapshot */
+	SVal ret, cmpRes;
+	thr.takeSnapshot();
+	switch (switchPair(getCasKinds(I))) {
+		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
+		IMPLEMENT_CAS_VISIT(HelpedCasRead, HelpedCasWrite);
+		case switchPair(EventLabel::EL_HelpingCas, EventLabel::EL_HelpingCas):
+			driver->visitHelpingCas(HelpingCasLabel::create(
+							I.getSuccessOrdering(), nextPos(), ptr,
+							size, atyp, GV_TO_SVAL(cmpVal, typ),
+							GV_TO_SVAL(newVal, typ)),
+						&*lDeps);
+			break;
+	default:
+		BUG();
 	}
 
 	/* After the RMW operation is done, update dependencies and return value.
@@ -1565,6 +1614,23 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	result.AggregateVal.push_back(INT_TO_GV(Type::getInt1Ty(I.getContext()), cmpRes));
 	SetValue(&I, result, ECStack().back());
 	return;
+}
+
+std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
+getFaiKinds(AtomicRMWInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("fai.attr");
+	if (!md)
+		return std::make_pair(Kind::EL_FaiRead, Kind::EL_FaiWrite);
+
+	auto &op = md->getOperand(0);
+	BUG_ON(!llvm::isa<llvm::MDString>(op));
+
+	if (llvm::dyn_cast<MDString>(op)->getString() == "noret")
+		return std::make_pair(Kind::EL_NoRetFaiRead, Kind::EL_NoRetFaiWrite);
+	BUG();
 }
 
 SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, AtomicRMWInst::BinOp op)
@@ -1627,12 +1693,29 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 				  getDataDeps(thr.id, I.getValOperand()),
 				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-	auto ret = driver->visitLoad(FaiReadLabel::create(I.getOrdering(), nextPos(), ptr, size,
-							  atyp, I.getOperation(), val), &*deps);
-	auto newVal = executeAtomicRMWOperation(ret, val, I.getOperation());
-	if (!thr.isBlocked())
-		driver->visitStore(FaiWriteLabel::create(I.getOrdering(), nextPos(), ptr, size,
-							 atyp, newVal), &*deps);
+#define IMPLEMENT_FAI_VISIT(nameR, nameW)				\
+	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
+		ret = driver->visitLoad(nameR ## Label::create(		\
+			I.getOrdering(), nextPos(), ptr,		\
+			size, atyp, I.getOperation(), val), &*deps);	\
+		auto newVal = executeAtomicRMWOperation(ret, val, I.getOperation()); \
+		if (!thr.isBlocked())					\
+			driver->visitStore(				\
+				nameW ## Label::create(I.getOrdering(), nextPos(), ptr, size, \
+						       atyp, newVal), &*deps); \
+		break;							\
+	}
+
+	/* Check whether this is a special FAI */
+	SVal ret;
+	switch (switchPair(getFaiKinds(I))) {
+		IMPLEMENT_FAI_VISIT(FaiRead, FaiWrite);
+		IMPLEMENT_FAI_VISIT(NoRetFaiRead, NoRetFaiWrite);
+	default:
+		BUG();
+	}
+
+
 
 	/* After the RMW operation is done, update dependencies.
 	 * (See comment for CASes to see why we re-acquire refs.) */
@@ -3065,110 +3148,6 @@ void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue
 	return;
 }
 
-llvm::AtomicOrdering getOrderingFromCABI(const llvm::GenericValue &ord)
-{
-	return (llvm::AtomicOrdering) (ord.IntVal.getLimitedValue() + 2);
-}
-
-void Interpreter::callAtomicCasNoRet(Function *F, const std::vector<GenericValue> &ArgVals,
-				     const std::unique_ptr<EventDeps> &specialDeps)
-{
-	Thread &thr = getCurThr();
-	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
-	GenericValue cmpVal = ArgVals[1];
-	GenericValue newVal = ArgVals[2];
-	unsigned int size = ArgVals[3].IntVal.getLimitedValue();
-	Type *typ = Type::getIntNPtrTy(ECStack().back().Caller.getCalledFunction()->getContext(), size * 8)->
-		getPointerElementType();
-	auto atyp = TYPE_TO_ATYPE(typ);
-	auto succOrd = getOrderingFromCABI(ArgVals[4]);
-	auto failOrd = getOrderingFromCABI(ArgVals[5]);
-	unsigned int attrVal = ArgVals[6].IntVal.getLimitedValue();
-
-	if (size > 8)
-		ERROR("Called non-value-returning CAS intrinsic on too large datatype!\n");
-
-	cmpVal.IntVal = cmpVal.IntVal.trunc(size * 8);
-	newVal.IntVal = newVal.IntVal.trunc(size * 8);
-
-	if (thr.tls.count(ptr)) {
-		GenericValue oldVal = thr.tls[ptr];
-		GenericValue cmpRes = executeICMP_EQ(oldVal, cmpVal, typ);
-		if (cmpRes.IntVal.getBoolValue())
-			thr.tls[ptr] = newVal;
-		return;
-	}
-
-	/* If this is a helped/helping CAS, we need to invoke appropriate driver functions */
-	thr.takeSnapshot();
-
-	if (attrVal == 1) {
-		auto ret = driver->visitLoad(
-			HelpedCasReadLabel::create(succOrd, nextPos(), ptr, size, atyp,
-						   GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)),
-			&*specialDeps);
-
-		auto cmpRes = ret == GV_TO_SVAL(cmpVal, typ);
-		if (!getCurThr().isBlocked() && cmpRes)
-			driver->visitStore(
-				HelpedCasWriteLabel::create(succOrd, nextPos(), ptr, size, atyp,
-							    GV_TO_SVAL(newVal, typ)), &*specialDeps);
-	} else if (attrVal == 2) {
-		driver->visitHelpingCas(HelpingCasLabel::create(succOrd, nextPos(), ptr, size, atyp,
-								GV_TO_SVAL(cmpVal, typ), GV_TO_SVAL(newVal, typ)),
-					&*specialDeps);
-	} else {
-		BUG(); /* Generic non-value-returning CASes are currently unsupported */
-	}
-
-	/* We only update addr;po dependencies (retake references) */
-	updateAddrPoDeps(getCurThr().id, *ECStack().back().Caller.arg_begin());
-	return;
-}
-
-void Interpreter::callAtomicRmwNoRet(Function *F, const std::vector<GenericValue> &ArgVals,
-				     const std::unique_ptr<EventDeps> &specialDeps)
-{
-	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
-	GenericValue val = ArgVals[1];
-	GenericValue ord = ArgVals[2];
-	GenericValue binop = ArgVals[3];
-	Type *typ = (*ECStack().back().Caller.arg_begin())->getType()->getPointerElementType();
-	auto size = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-
-	BUG_ON(!typ->isIntegerTy()); /* Make sure that the ugly hack we used to get the type works */
-
-	if (getCurThr().tls.count(ptr)) {
-		GenericValue oldVal = getCurThr().tls[ptr];
-		auto newVal = executeAtomicRMWOperation(GV_TO_SVAL(oldVal, typ),
-							GV_TO_SVAL(val, typ),
-							(llvm::AtomicRMWInst::BinOp)
-							binop.IntVal.getLimitedValue());
-		getCurThr().tls[ptr] = SVAL_TO_GV(newVal, typ);
-		return;
-	}
-
-	/* Dependencies already set */
-
-	/* We have to do an ugly hack to get the ordering correct
-	 * (i.e. match LLVM's AtomicOrdering value), as the C ABI values are
-	 * not the same as the LLVM ones. */
-	auto ret = driver->visitLoad(
-		NoRetFaiReadLabel::create(getOrderingFromCABI(ord),
-					  nextPos(), ptr, size, atyp, (llvm::AtomicRMWInst::BinOp)
-					  binop.IntVal.getLimitedValue(), GV_TO_SVAL(val, typ)),
-		&*specialDeps);
-	auto newVal = executeAtomicRMWOperation(ret, GV_TO_SVAL(val, typ), (llvm::AtomicRMWInst::BinOp)
-						binop.IntVal.getLimitedValue());
-	if (!getCurThr().isBlocked())
-		driver->visitStore(
-			NoRetFaiWriteLabel::create(getOrderingFromCABI(ord), nextPos(), ptr, size, atyp, newVal),
-			&*specialDeps);
-
-	return;
-}
-
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
 	{"mb", SmpFenceType::MB},
 	{"rmb", SmpFenceType::RMB},
@@ -4475,8 +4454,6 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(PwriteFS);
 		CALL_INTERNAL_FUNCTION(LseekFS);
 		CALL_INTERNAL_FUNCTION(PersBarrierFS);
-		CALL_INTERNAL_FUNCTION(AtomicCasNoRet);
-		CALL_INTERNAL_FUNCTION(AtomicRmwNoRet);
 		CALL_INTERNAL_FUNCTION(SmpFenceLKMM);
 		CALL_INTERNAL_FUNCTION(RCUReadLockLKMM);
 		CALL_INTERNAL_FUNCTION(RCUReadUnlockLKMM);

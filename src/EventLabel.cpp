@@ -98,6 +98,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_BIncFaiRead:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
+	case EventLabel::EL_NoRetFaiRead:
+	case EventLabel::EL_NoRetFaiWrite:
 		s << "U";
 		break;
 	case EventLabel::EL_CasRead:
@@ -251,6 +253,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 	case EventLabel::EL_Write:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
+	case EventLabel::EL_NoRetFaiWrite:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite: {

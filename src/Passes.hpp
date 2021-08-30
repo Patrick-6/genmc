@@ -96,4 +96,7 @@ llvm::Pass *createSpinAssumePass(bool markStarts = false);
  */
 llvm::Pass *createEliminateCastsPass();
 
+/* Eliminates GenMC's internal annotations */
+llvm::Pass *createEliminateAnnotationsPass();
+
 #endif /* __PASSES_HPP__ */

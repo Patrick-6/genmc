@@ -66,10 +66,10 @@ enum class InternalFunctions {
 	FN_EndLoop,
 	FN_NondetInt,
 	FN_ThreadSelf,
-	FN_NoSideEffectsLast,
-	/* No side effects */
 	FN_AtomicCasNoRet,
 	FN_AtomicRmwNoRet,
+	FN_NoSideEffectsLast,
+	/* No side effects */
 	FN_ThreadCreate,
 	FN_ThreadJoin,
 	FN_ThreadExit,

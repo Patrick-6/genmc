@@ -117,8 +117,10 @@ void enqueue(queue_t *q, unsigned int val)
 				unsigned int ptr = get_ptr(atomic_load_explicit(&q->nodes[get_ptr(tail)].next, acquire));
 				pointer value = MAKE_POINTER(ptr,
 						get_count(tail) + 1);
-				__VERIFIER_CAS_helping_explicit(&q->tail, &tail, value,
-								release, release);
+				__VERIFIER_helping_CAS(
+					atomic_compare_exchange_strong_explicit(&q->tail, &tail, value,
+										release, release);
+				);
 				/* atomic_compare_exchange_strong_explicit(&q->tail, */
 				/* 		&tail, value, */
 				/* 		release, release); */
@@ -126,9 +128,11 @@ void enqueue(queue_t *q, unsigned int val)
 			}
 		}
 	}
-	__VERIFIER_CAS_helped_explicit(&q->tail, &tail,
-				       MAKE_POINTER(get_ptr(node), get_count(tail) + 1),
-				       release, release);
+	__VERIFIER_helped_CAS(
+		atomic_compare_exchange_strong_explicit(&q->tail, &tail,
+							MAKE_POINTER(get_ptr(node), get_count(tail) + 1),
+							release, release);
+	);
 	/* atomic_compare_exchange_strong_explicit(&q->tail, */
 	/* 		&tail, */
 	/* 		MAKE_POINTER(node, get_count(tail) + 1), */
@@ -144,7 +148,7 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 
 	while (!success) {
 		head = atomic_load_explicit(&q->head, acquire);
-		tail = atomic_load_explicit(&q->tail, relaxed);
+		tail = atomic_load_explicit(&q->tail, acquire);
 		next = atomic_load_explicit(&q->nodes[get_ptr(head)].next, acquire);
 		if (atomic_load_explicit(&q->head, relaxed) == head) {
 			if (get_ptr(head) == get_ptr(tail)) {
@@ -155,9 +159,11 @@ bool dequeue(queue_t *q, unsigned int *retVal)
 				if (get_ptr(next) == 0) { // NULL
 					return false; // NULL
 				}
-				__VERIFIER_CAS_helping_explicit(&q->tail, &tail,
+				__VERIFIER_helping_CAS(
+					atomic_compare_exchange_strong_explicit(&q->tail, &tail,
 						MAKE_POINTER(get_ptr(next), get_count(tail) + 1),
 						release, release);
+				);
 				/* atomic_compare_exchange_strong_explicit(&q->tail, */
 				/* 		&tail, */
 				/* 		MAKE_POINTER(get_ptr(next), get_count(tail) + 1), */
