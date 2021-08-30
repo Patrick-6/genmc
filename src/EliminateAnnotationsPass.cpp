@@ -24,6 +24,7 @@
 #include "LLVMUtils.hpp"
 #include "InterpreterEnumAPI.hpp"
 
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
