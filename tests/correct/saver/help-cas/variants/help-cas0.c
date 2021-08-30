@@ -9,14 +9,18 @@ atomic_int x;
 void *thread_1(void *unused)
 {
 	int r = 0;
-	__VERIFIER_CAS_helped_explicit(&x, &r, 42, memory_order_relaxed, memory_order_relaxed);
+	__VERIFIER_helped_CAS(
+		atomic_compare_exchange_strong_explicit(&x, &r, 42, memory_order_relaxed, memory_order_relaxed);
+	);
 	return NULL;
 }
 
 void *thread_2(void *unused)
 {
 	int r = 0;
-	__VERIFIER_CAS_helping_explicit(&x, &r, 42, memory_order_relaxed, memory_order_relaxed);
+	__VERIFIER_helping_CAS(
+		atomic_compare_exchange_strong_explicit(&x, &r, 42, memory_order_relaxed, memory_order_relaxed);
+	);
 	return NULL;
 }
 
