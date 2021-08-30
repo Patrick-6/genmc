@@ -108,6 +108,42 @@ llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 		 << " " << thr.threadFun->getName().str();
 }
 
+EELocalState::EELocalState(const SAddrAllocator &alloctor,
+			   const ExecutionState &execState,
+			   const ProgramState &programState,
+			   const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
+			   const llvm::BitVector &fds,
+			   const llvm::IndexedMap<void *> &fdToFile,
+			   const std::unordered_map<std::string, void *> &nameToInodeAddr,
+			   const std::vector<Thread> &ts,
+			   int current)
+	: alloctor(alloctor), execState(execState), programState(programState),
+	  fds(fds), fdToFile(fdToFile), nameToInodeAddr(nameToInodeAddr),
+	  threads(ts), currentThread(current)
+{
+	for (auto &kv : annots)
+		annotMap[kv.first] = kv.second->clone();
+}
+
+std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
+{
+	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, execState, programState, annotMap, fds,
+					      fdToFile, nameToInodeAddr, threads, currentThread);
+}
+
+void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
+{
+	alloctor = std::move(state->alloctor);
+	execState = state->execState;
+	programState = state->programState;
+	annotMap = std::move(state->annotMap);
+	fds = std::move(state->fds);
+	fdToFile = std::move(state->fdToFile);
+	nameToInodeAddr = std::move(state->nameToInodeAddr);
+	threads = std::move(state->threads);
+	currentThread = state->currentThread;
+}
+
 /* Resets the interpreter for a new exploration */
 void Interpreter::reset()
 {
@@ -275,6 +311,15 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 
 	errnoAddr = GVTOP(getConstantValue(errnoVar));
 	errnoTyp = errnoVar->getType()->getElementType();
+	return;
+}
+
+void Interpreter::setupAnnotationInfo(Module *M, const Config *userConf)
+{
+	auto &AI = MI->annotInfo;
+
+	for (auto &kv : AI.annotMap)
+		annotMap[kv.first] = kv.second->clone();
 	return;
 }
 
@@ -514,6 +559,9 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
+
+  /* Set up annotation information */
+  setupAnnotationInfo(mod, userConf);
 
   /* Also run a recovery routine if it is required to do so */
   checkPersistency = userConf->persevere;

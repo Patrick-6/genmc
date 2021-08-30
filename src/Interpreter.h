@@ -260,6 +260,7 @@ struct EELocalState {
 	ExecutionState execState;
 	ProgramState programState;
 	llvm::BitVector fds;
+	std::unordered_map<unsigned int, std::unique_ptr<SExpr> > annotMap;
 	llvm::IndexedMap<void *> fdToFile;
 	std::unordered_map<std::string, void *> nameToInodeAddr;
 	std::vector<Thread> threads;
@@ -269,14 +270,12 @@ struct EELocalState {
 	EELocalState(const SAddrAllocator &alloctor,
 		     const ExecutionState &execState,
 		     const ProgramState &programState,
+		     const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
 		     const llvm::BitVector &fds,
 		     const llvm::IndexedMap<void *> &fdToFile,
 		     const std::unordered_map<std::string, void *> &nameToInodeAddr,
 		     const std::vector<Thread> &ts,
-		     int current)
-		: alloctor(alloctor), execState(execState), programState(programState),
-		  fds(fds), fdToFile(fdToFile), nameToInodeAddr(nameToInodeAddr),
-		  threads(ts), currentThread(current) {}
+		     int current);
 };
 
 struct EESharedState {
@@ -342,6 +341,9 @@ protected:
   ExecutionState execState = ExecutionState::Normal;
   ProgramState programState = ProgramState::Main; /* Pers */
 
+  /* SAVer: (Mutable) allocation map */
+  std::unordered_map<unsigned int, std::unique_ptr<SExpr> > annotMap;
+
   /* Pers: A bitvector of available file descriptors */
   llvm::BitVector fds;
 
@@ -369,20 +371,8 @@ public:
   virtual ~Interpreter();
 
   /* FIXME: Document and move to .cpp */
-  std::unique_ptr<EELocalState> releaseLocalState() {
-	  return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, execState, programState, fds,
-						fdToFile, nameToInodeAddr, threads, currentThread);
-  }
-  void restoreLocalState(std::unique_ptr<EELocalState> state) {
-	  alloctor = std::move(state->alloctor);
-	  execState = state->execState;
-	  programState = state->programState;
-	  fds = std::move(state->fds);
-	  fdToFile = std::move(state->fdToFile);
-	  nameToInodeAddr = std::move(state->nameToInodeAddr);
-	  threads = std::move(state->threads);
-	  currentThread = state->currentThread;
-  }
+  std::unique_ptr<EELocalState> releaseLocalState();
+  void restoreLocalState(std::unique_ptr<EELocalState> state);
 
   std::unique_ptr<EESharedState> getSharedState() const {
 	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
@@ -491,7 +481,7 @@ public:
   /* Returns annotation information for the instruction I */
   const SExpr *getAnnotation(Instruction *I) const {
 	  auto id = MI->idInfo.VID[I];
-	  return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get() : nullptr;
+	  return annotMap.count(id) ? annotMap.at(id).get() : nullptr;
   }
 
   /* Returns (concretized) annotation information for the
@@ -797,6 +787,9 @@ private:  // Helper functions
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */
   void collectStaticAddresses(Module *M);
+
+  /* Set up annotation-related data-structures */
+  void setupAnnotationInfo(Module *M, const Config *userConf);
 
   /* Sets up how some errors will be reported to the user */
   void setupErrorPolicy(Module *M, const Config *userConf);
