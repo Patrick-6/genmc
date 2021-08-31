@@ -610,16 +610,13 @@ static GenericValue executeICMP_SGE(GenericValue Src1, GenericValue Src2,
 
 void Interpreter::visitICmpInst(ICmpInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
 
-  updateDataDeps(thr.id, &I, I.getOperand(0));
-  updateDataDeps(thr.id, &I, I.getOperand(1));
-  // thr.dataDeps[&I] = thr.dataDeps[I.getOperand(0)].
-  // 	  depUnion(thr.dataDeps[I.getOperand(1)]);
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0));
+  updateDataDeps(getCurThr().id, &I, I.getOperand(1));
 
   switch (I.getPredicate()) {
   case ICmpInst::ICMP_EQ:  R = executeICMP_EQ(Src1,  Src2, Ty); break;
@@ -1019,17 +1016,14 @@ static GenericValue executeCmpInst(unsigned predicate, GenericValue Src1,
 
 void Interpreter::visitBinaryOperator(BinaryOperator &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
   Type *Ty    = I.getOperand(0)->getType();
   GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
   GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
   GenericValue R;   // Result
 
   /* Update dependencies */
-  updateDataDeps(thr.id, &I, I.getOperand(0));
-  updateDataDeps(thr.id, &I, I.getOperand(1));
-  // thr.dataDeps[&I] = thr.dataDeps[I.getOperand(0)].
-  // 	  depUnion(thr.dataDeps[I.getOperand(1)]);
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0));
+  updateDataDeps(getCurThr().id, &I, I.getOperand(1));
 
   // First process vector operation
   if (Ty->isVectorTy()) {
@@ -1268,7 +1262,6 @@ void Interpreter::visitUnreachableInst(UnreachableInst &I) {
 
 void Interpreter::visitBranchInst(BranchInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
   BasicBlock *Dest;
 
   Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -1276,7 +1269,7 @@ void Interpreter::visitBranchInst(BranchInst &I) {
     Value *Cond = I.getCondition();
     if (getOperandValue(Cond, SF).IntVal == 0) // If false cond...
       Dest = I.getSuccessor(1);
-    updateCtrlDeps(thr.id, Cond);
+    updateCtrlDeps(getCurThr().id, Cond);
   }
   SwitchToNewBasicBlock(Dest, SF);
 }
@@ -1343,7 +1336,6 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
     // Save the incoming value for this PHI node...
     ResultValues.push_back(getOperandValue(IncomingValue, SF));
     updateDataDeps(getCurThr().id, PN, IncomingValue);
-    // getCurThr().dataDeps[PN] = getCurThr().dataDeps[IncomingValue];
   }
 
   // Now loop over all of the PHI nodes setting their values...
@@ -1394,12 +1386,11 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   assert(Ptr->getType()->isPointerTy() &&
          "Cannot getElementOffset of a nonpointer type!");
 
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, SF.CurInst->getPrevNode(), Ptr);
+  updateDataDeps(getCurThr().id, SF.CurInst->getPrevNode(), Ptr);
 
   uint64_t Total = 0;
   for (; I != E; ++I) {
-    updateDataDeps(thr.id, SF.CurInst->getPrevNode(), I.getOperand());
+    updateDataDeps(getCurThr().id, SF.CurInst->getPrevNode(), I.getOperand());
 #ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (StructType *STy = I.getStructTypeOrNull()) {
 #else
@@ -1501,7 +1492,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	/* Inform the Driver about the newly interpreter store */
 	driver->visitStore(InstAttr::IA_None, I.getOrdering(), ptr, asize, atyp, GV_TO_SVAL(val, typ));
 
-	updateAddrPoDeps(thr.id, I.getPointerOperand());
+	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 	return;
 }
 
@@ -2278,22 +2269,19 @@ GenericValue Interpreter::executeBitCastInst(Value *SrcVal, Type *DstTy,
 
 void Interpreter::visitTruncInst(TruncInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0)),
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0)),
   SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitSExtInst(SExtInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0)),
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0)),
   SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitZExtInst(ZExtInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0)),
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0)),
   SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2329,22 +2317,19 @@ void Interpreter::visitFPToSIInst(FPToSIInst &I) {
 
 void Interpreter::visitPtrToIntInst(PtrToIntInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0));
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0));
   SetValue(&I, executePtrToIntInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitIntToPtrInst(IntToPtrInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0));
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0));
   SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
 void Interpreter::visitBitCastInst(BitCastInst &I) {
   ExecutionContext &SF = ECStack().back();
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, I.getOperand(0));
+  updateDataDeps(getCurThr().id, &I, I.getOperand(0));
   SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
 }
 
@@ -2534,9 +2519,7 @@ void Interpreter::visitExtractValueInst(ExtractValueInst &I) {
     ++IdxBegin;
   }
 
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, getDataDeps(thr.id, Agg));
-  // thr.dataDeps[&I] = thr.dataDeps[&I].depUnion(thr.dataDeps[Agg]);
+  updateDataDeps(getCurThr().id, &I, getDataDeps(getCurThr().id, Agg));
 
   Type *IndexedType = ExtractValueInst::getIndexedType(Agg->getType(), I.getIndices());
   switch (IndexedType->getTypeID()) {
@@ -2584,8 +2567,7 @@ void Interpreter::visitInsertValueInst(InsertValueInst &I) {
   }
   // pDest points to the target value in the Dest now
 
-  Thread &thr = getCurThr();
-  updateDataDeps(thr.id, &I, getDataDeps(thr.id, Agg));
+  updateDataDeps(getCurThr().id, &I, getDataDeps(getCurThr().id, Agg));
 
   Type *IndexedType = ExtractValueInst::getIndexedType(Agg->getType(), I.getIndices());
 
