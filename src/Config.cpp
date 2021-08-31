@@ -199,7 +199,7 @@ clDisableCodeCondenser("disable-code-condenser", llvm::cl::cat(clTransformation)
 
 static llvm::cl::opt<bool>
 clDisableLoadAnnot("disable-load-annotation", llvm::cl::cat(clTransformation),
-		       llvm::cl::desc("Disable load-annotation transformation"));
+		   llvm::cl::desc("Disable load-annotation transformation"));
 
 
 /*** Debugging options ***/

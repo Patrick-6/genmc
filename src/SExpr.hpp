@@ -177,6 +177,13 @@ private:
 	std::vector<std::unique_ptr<SExpr> > kids;
 };
 
+/* Helper class to clone SExprs w/ value_ptr<>s */
+struct SExprCloner {
+	SExpr *operator()(SExpr const &x) const { return x.clone().release(); }
+	// SExpr *operator()(SExpr &&x) const { return new SExpr(std::move(x)); }
+};
+
+
 
 /*******************************************************************************
  **                           ConcreteExpr Class

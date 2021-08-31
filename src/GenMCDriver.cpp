@@ -1365,19 +1365,20 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(SAddr addr, ASize size,
 	if (!annot)
 		return false;
 
-	BUG();
-	// /* For WB, there might be many maximal ones */
-	// auto shouldBlock =
-	// 	std::any_of(validStores.begin(), validStores.end(),
-	// 		    [&](const Event &s){ return isCoMaximal(addr, s, true) &&
-	// 				    !SExprEvaluator().evaluate(annot, getWriteValue(s, addr, size)); });
-	// validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
-	// 	return !isCoMaximal(addr, w, true) &&
-	// 	       !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, size)); }),
-	// 	validStores.end());
-	// BUG_ON(validStores.empty());
+	auto cons = isConsistent(ProgramPoint::step);
 
-	// return shouldBlock;
+	/* For WB, there might be many maximal ones */
+	auto shouldBlock =
+		std::any_of(validStores.begin(), validStores.end(),
+			    [&](const Event &s){ return isCoMaximal(addr, s, true) &&
+					    !SExprEvaluator().evaluate(annot, getWriteValue(s, addr, size)); });
+	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
+		return !isCoMaximal(addr, w, true) &&
+		       !SExprEvaluator().evaluate(annot, getWriteValue(w, addr, size)); }),
+		validStores.end());
+	BUG_ON(validStores.empty());
+
+	return shouldBlock;
 	return false;
 }
 
@@ -1607,31 +1608,32 @@ GenMCDriver::createAddReadLabel(InstAttr attr,
 	auto &g = getGraph();
 	auto pos = getEE()->getCurrentPosition();
 
+	value_ptr<SExpr, SExprCloner> annotVal(annot.release());
 	std::unique_ptr<ReadLabel> rLab = nullptr;
 	switch (attr) {
 	case InstAttr::IA_None:
 		rLab = ReadLabel::create(g.nextStamp(), ord, pos,
-					 addr, size, type, store, std::move(annot));
+					 addr, size, type, store, annotVal);
 		break;
 	case InstAttr::IA_BWait:
 		rLab = BWaitReadLabel::create(g.nextStamp(), ord, pos,
-					      addr, size, type, store, std::move(annot));
+					      addr, size, type, store, annotVal);
 		break;
 	case InstAttr::IA_Fai:
 		rLab = FaiReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-					    store, op, rmwVal, std::move(annot));
+					    store, op, rmwVal, annotVal);
 		break;
 	case InstAttr::IA_BPost:
 		rLab = BIncFaiReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-						store, op, rmwVal, std::move(annot));
+						store, op, rmwVal, annotVal);
 		break;
 	case InstAttr::IA_Cas:
 		rLab = CasReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-					    store, cmpVal, rmwVal, std::move(annot));
+					    store, cmpVal, rmwVal, annotVal);
 		break;
 	case InstAttr::IA_Lock:
 		rLab = LockCasReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-						store, cmpVal, rmwVal, std::move(annot));
+						store, cmpVal, rmwVal, annotVal);
 		break;
 	default:
 		BUG();

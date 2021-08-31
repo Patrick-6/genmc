@@ -2995,7 +2995,7 @@ void Interpreter::callBarrierWait(Function *F,
 
 	driver->visitLoad(InstAttr::IA_BWait, AtomicOrdering::Acquire, barrier, asize, atyp);
 
-	auto result = (newVal != 0) ? INT_TO_GV(typ, 0)
+	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
 		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
 	returnValueToCaller(typ, result);
 	return;

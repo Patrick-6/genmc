@@ -141,7 +141,6 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 {
 	InstAnnotator annotator(&II);
 
-	LAI.clear();
 	for (auto &i : instructions(F)) {
 		if (auto *a = llvm::dyn_cast<llvm::CallInst>(&i)) {
 			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {

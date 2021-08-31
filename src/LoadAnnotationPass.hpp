@@ -35,7 +35,7 @@ public:
 	AnnotationInfo &LAI;
 
 	LoadAnnotationPass(const IDInfo &II, AnnotationInfo &LAI)
-		: FunctionPass(ID), II(II) ,LAI(LAI) {};
+		: FunctionPass(ID), II(II), LAI(LAI) {};
 
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 	virtual bool runOnFunction(Function &F);

@@ -22,6 +22,7 @@
 #define __EVENTLABEL_HPP__
 
 #include "Event.hpp"
+#include "value_ptr.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "NameInfo.hpp"
@@ -409,13 +410,13 @@ protected:
 protected:
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, SAddr loc, ASize size, AType type, Event rf,
-		  std::unique_ptr<SExpr> annot = nullptr)
+		  value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, size, type),
 		  readsFrom(rf), revisitable(true), inPlaceRev(false), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr loc,
-		  ASize size, AType type, Event rf, std::unique_ptr<SExpr> annot = nullptr)
+		  ASize size, AType type, Event rf, value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: ReadLabel(EL_Read, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
 
 	template<typename... Ts>
@@ -461,9 +462,9 @@ private:
 
 	bool inPlaceRev;
 
-	/* SAVer: Expression for annotatable loads. Shared between clones
-	 * for easier copying, but clones will not be revisitable anyway */
-	std::shared_ptr<SExpr> annotExpr;
+	/* SAVer: Expression for annotatable loads. This needs to have
+	 * heap-value semantics so that it does not create concurrency issues */
+	value_ptr<SExpr, SExprCloner> annotExpr;
 };
 
 
@@ -481,7 +482,7 @@ protected:
 public:
 	BWaitReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		       SAddr loc, ASize size, AType type, Event rf,
-		       std::unique_ptr<SExpr> annot = nullptr)
+		       value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: ReadLabel(EL_BWaitRead, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
 
 	template<typename... Ts>
@@ -512,7 +513,7 @@ protected:
 
 	FaiReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, Event rf, llvm::AtomicRMWInst::BinOp op,
-		     SVal val, std::unique_ptr<SExpr> annot = nullptr)
+		     SVal val, value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
 		  binOp(op), opValue(val) {}
 
@@ -520,7 +521,7 @@ public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, Event rf,
 		     llvm::AtomicRMWInst::BinOp op, SVal val,
-		     std::unique_ptr<SExpr> annot = nullptr)
+		     value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: FaiReadLabel(EL_FaiRead, st, ord, pos, addr, size,
 			       type, rf, op, val, std::move(annot)) {}
 
@@ -566,7 +567,7 @@ public:
 	BIncFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			 SAddr addr, ASize size, AType type, Event rf,
 			 llvm::AtomicRMWInst::BinOp op, SVal val,
-			 std::unique_ptr<SExpr> annot = nullptr)
+			 value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: FaiReadLabel(EL_BIncFaiRead, st, ord, pos, addr, size,
 			       type, rf, op, val, std::move(annot)) {}
 
@@ -597,14 +598,14 @@ protected:
 
 	CasReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, Event rf, SVal exp, SVal swap,
-		     std::unique_ptr<SExpr> annot = nullptr)
+		     value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
 		  expected(exp), swapValue(swap) {}
 
 public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, Event rf, SVal exp, SVal swap,
-		     std::unique_ptr<SExpr> annot = nullptr)
+		     value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: CasReadLabel(EL_CasRead, st, ord, pos, addr, size, type,
 			       rf, exp, swap, std::move(annot)) {}
 
@@ -649,7 +650,7 @@ protected:
 public:
 	LockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			 SAddr addr, ASize size, AType type, Event rf, SVal exp, SVal swap,
-			 std::unique_ptr<SExpr> annot = nullptr)
+			 value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: CasReadLabel(EL_LockCasRead, st, ord, pos, addr, size,
 			       type, rf, exp, swap, std::move(annot)) {}
 

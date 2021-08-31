@@ -107,6 +107,9 @@ public:
 		n.value = !value;
 		return n;
 	}
+	operator bool() const {
+		return !!value;
+	}
 	uint64_t operator()() const { return value; }
 
 	std::string toString(bool sign = false) const {
