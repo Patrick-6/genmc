@@ -68,6 +68,7 @@ libgenmc_a_SOURCES = \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
   WorkSet.hpp WorkSet.cpp \
+  value_ptr.hpp \
   VectorClock.hpp VectorClock.cpp \
   View.hpp View.cpp \
   VSet.hpp VSet.tcc
