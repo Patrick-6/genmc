@@ -92,11 +92,18 @@ llvm::ModulePass *createPromoteMemIntrinsicPass();
 llvm::Pass *createSpinAssumePass(bool markStarts = false);
 
 /*
+ * Eliminates certain form of PHIs stemming from CASes
+ */
+llvm::Pass *createEliminateCASPHIsPass();
+
+/*
  * Eliminates certain form of casts
  */
 llvm::Pass *createEliminateCastsPass();
 
-/* Eliminates GenMC's internal annotations */
+/*
+ * Eliminates GenMC's internal annotations
+ */
 llvm::Pass *createEliminateAnnotationsPass();
 
 #endif /* __PASSES_HPP__ */

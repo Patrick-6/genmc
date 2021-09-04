@@ -48,6 +48,7 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/Scalar.h>
 #if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
@@ -168,6 +169,8 @@ namespace LLVMModule {
 
 		modified = OptPM.run(mod);
 
+		BndPM.add(createEliminateCASPHIsPass());
+		BndPM.add(llvm::createJumpThreadingPass());
 		BndPM.add(createBisimilarityCheckerPass());
 		if (conf->codeCondenser && !conf->checkLiveness)
 			BndPM.add(createCodeCondenserPass());
