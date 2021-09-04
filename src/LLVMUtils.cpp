@@ -21,6 +21,7 @@
 #include "LLVMUtils.hpp"
 #include "CallInstWrapper.hpp"
 #include "InterpreterEnumAPI.hpp"
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 
 #include <unordered_set>
