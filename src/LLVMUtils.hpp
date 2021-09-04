@@ -23,6 +23,9 @@
 
 #include "config.h"
 #include "VSet.hpp"
+#ifdef LLVM_HAVE_ELIMINATE_UNCREACHABLE_BLOCKS
+#include <llvm/Analysis/DomTreeUpdater.h>
+#endif
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CFG.h>
@@ -106,5 +109,47 @@ void foreachInBackPathTo(llvm::BasicBlock *from, llvm::BasicBlock *to, F&& fun)
 	llvm::SmallVector<llvm::BasicBlock *, 4> path;
 	details::foreachInBackPathTo(from, to, path, fun);
 }
+
+/*
+ * LLVM Utilities for older LLVM versions
+ */
+
+/* Copy portions of LLVM code for older LLVM versions */
+#ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS
+
+using namespace llvm;
+
+#ifndef LLVM_HAVE_DF_ITERATOR_DEFAULT_SET
+template <typename NodeRef, unsigned SmallSize=8>
+struct df_iterator_default_set : public SmallPtrSet<NodeRef, SmallSize> {
+  typedef SmallPtrSet<NodeRef, SmallSize>  BaseSet;
+  typedef typename BaseSet::iterator iterator;
+  std::pair<iterator,bool> insert(NodeRef N) { return BaseSet::insert(N) ; }
+  template <typename IterT>
+  void insert(IterT Begin, IterT End) { BaseSet::insert(Begin,End); }
+
+  void completed(NodeRef) { }
+};
+#endif
+
+namespace llvm {
+	class DomTreeUpdater;
+}
+
+void DetatchDeadBlocks(
+	ArrayRef<BasicBlock *> BBs,
+	// SmallVectorImpl<DominatorTree::UpdateType> *Updates,
+	bool KeepOneInputPHIs);
+
+void DeleteDeadBlocks(ArrayRef <BasicBlock *> BBs, DomTreeUpdater *DTU,
+		      bool KeepOneInputPHIs);
+
+void DeleteDeadBlock(BasicBlock *BB, DomTreeUpdater *DTU = nullptr,
+		     bool KeepOneInputPHIs = false);
+
+bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU = nullptr,
+				bool KeepOneInputPHIs = false);
+
+#endif /* !LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS */
 
 #endif /* __LLVM_UTILS_HPP__ */
