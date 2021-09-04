@@ -101,6 +101,8 @@ bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* =
 	return false;
 }
 
+#ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS
+
 void DetatchDeadBlocks(
 	ArrayRef<BasicBlock *> BBs,
 	// SmallVectorImpl<DominatorTree::UpdateType> *Updates,
@@ -190,3 +192,5 @@ bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU /* = nullptr */
 
 	return !DeadBlocks.empty();
 }
+
+#endif /* !LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS */
