@@ -340,9 +340,12 @@ bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &
 	std::sort(cass.begin(), cass.end());
 	cass.erase(std::unique(cass.begin(), cass.end()), cass.end());
 
-	if (!cass.empty())
-		checkDynamically = !failedCASesLeadToHeader(cass, latch, l, cleanSet);
-	return true;
+	auto casOK = true;
+	if (!cass.empty()) {
+		casOK = failedCASesLeadToHeader(cass, latch, l, cleanSet);
+		checkDynamically |= !casOK;
+	}
+	return casOK;
 }
 
 template<typename F>
@@ -609,16 +612,16 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
 		} else if (isPathToHeaderEffectFree(latch, l, checkDynamically)) {
 			/* If we have to dynamically validate the loop,
-			 * the spin-end call will be inserted at runtime */
-			if (checkDynamically)
-				spinloop = false;
-			else
-				addSpinEndCallBeforeTerm(latch, header);
+			 * the above check will return false, but the path
+			 * may be checked dynamically */
+			addSpinEndCallBeforeTerm(latch, header);
 			modified = true; /* At the very least, a spin_start is inserted */
 		} else {
 			spinloop = false;
 		}
 	}
+	if (checkDynamically)
+		spinloop = false;
 
 	/* Mark spinloop start if we have to */
 	if (checkDynamically || (spinloop && markStarts)) {
