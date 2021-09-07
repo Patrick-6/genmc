@@ -663,7 +663,7 @@ void GenMCDriver::explore()
 		auto validExecution = true;
 		do {
 			/*
-			 * revisitReads() might deem some execution infeasible,
+			 * revisitEvent() might deem some execution infeasible,
 			 * so we have to reset all exploration options before
 			 * calling it again
 			 */
@@ -674,7 +674,7 @@ void GenMCDriver::explore()
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = revisitReads(std::move(item)) && isConsistent(ProgramPoint::step);
+			validExecution = revisitEvent(std::move(item)) && isConsistent(ProgramPoint::step);
 		} while (!validExecution);
 	}
 }
@@ -2833,7 +2833,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	return nullptr;
 }
 
-bool GenMCDriver::revisitReads(std::unique_ptr<WorkItem> item)
+bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();

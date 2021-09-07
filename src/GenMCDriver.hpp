@@ -499,9 +499,9 @@ private:
 	bool calcRevisits(const WriteLabel *lab);
 	bool calcLibRevisits(const EventLabel *lab);
 
-	/* Adjusts the graph and the worklist for the next backtracking option.
+	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool revisitReads(std::unique_ptr<WorkItem> s);
+	bool revisitEvent(std::unique_ptr<WorkItem> s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
