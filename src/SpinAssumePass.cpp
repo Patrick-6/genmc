@@ -297,7 +297,8 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 
 	std::vector<ExtractValueInst *> extracts;
 
-	BUG_ON(!tryGetCASResultExtracts(cass, extracts));
+	if (!tryGetCASResultExtracts(cass, extracts))
+		return false;
 
 	std::vector<std::unique_ptr<SExpr<Value *>> > casConditions;
 	for (auto *cas : cass)
