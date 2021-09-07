@@ -2410,13 +2410,6 @@ bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const 
 			return false;
 		}
 	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
-		// if (!wbs.count(rLab->getAddr())) {
-		// 	// auto p = g.getPredsView(wLab->getPos());
-		// 	// --(*p)[wLab->getThread()];
-		// 	// BUG_ON(llvm::isa<DepView>(&*p));
-		// 	wbs[rLab->getAddr()] = cc->calcWb(rLab->getAddr());
-		// }
-		// auto &wb = wbs[rLab->getAddr()];
 		auto wb = cc->calcWb(rLab->getAddr());
 		auto &stores = wb.getElems();
 		if (std::all_of(stores.begin(), stores.end(), [&wb, wLab](const Event &s)
@@ -2447,34 +2440,9 @@ bool GenMCDriver::isMaximalEvent(const EventLabel *lab, const WriteLabel *wLab)
 			return mLab->wasAddedMax();
 		else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
 			return true;
-		// 	auto p = g.getViewFromStamp(mLab->getStamp());
-		// 	p.update(g.getPorfBefore(wLab->getPos()));
-		// 	--(p)[wLab->getThread()];
-		// 	// --(p)[mLab->getThread()];
-		// 	BUG_ON(getConf()->isDepTrackingModel);
-		// 	auto wb = cc->calcWbRestricted(mLab->getAddr(), p);
-		// 	auto &stores = wb.getElems();
-		// 	std::vector<Event> maximals;
-		// 	for (auto &s : stores)
-		// 		if (wb.adj_begin(s) == wb.adj_end(s))
-		// 			maximals.push_back(s);
-		// 	std::sort(maximals.begin(), maximals.end(), [&g](const Event &a, const Event &b)
-		// 		{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
-		// 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(mLab))
-		// 		return (rLab->getRf().isInitializer() && maximals.empty()) ||
-		// 		       (maximals.size() && rLab->getRf() == maximals.back());
-		// 	else if (auto *wLab = llvm::dyn_cast<WriteLabel>(mLab))
-		// 		return std::find(maximals.begin(), maximals.end(),
-		// 				 wLab->getPos()) != maximals.end();
-		// 	else
-		// 		BUG();
 		} else
 			BUG();
 	}
-	// if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-	// 	return isCoMaximal(rLab->getAddr(), rLab->getRf());
-	// if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
-	// 	return isCoMaximal(wLab->getAddr(), wLab->getPos());
 	return true;
 }
 
@@ -2560,27 +2528,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 			return false;
 		// llvm::dbgs() << "yiss\n";
 	}
-	// if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab)) {
-	// 	auto *rfLab = g.getEventLabel(rLab->getRf());
-	// 	auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(wLab));
-	// 	// llvm::dbgs() << "checking whether " << wLab->getPos() << " --> " << rLab->getPos() << " should happen\n";
-	// 	if (!isMaximalEvent(rLab) &&
-	// 	    pending.size() &&
-	// 	    rLab->getPos() != pending.back())
-	// 		return false;
-	// 	// llvm::dbgs() << "yiss\n";
-	// }
-	// if (wLab->getPos() == Event(2,6) && rLab->getPos() == Event(1,4)) {
-	// 	auto *rLab3 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,4)));
-	// 	auto *rLab4 = llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2,5)));
-	// 	if (rLab3 && rLab4 && rLab4->getRf() == Event(0,0) && rLab3->getRf() == Event(1,3)) {
-	// 		llvm::dbgs() << "REV 2,11 -> 2,6 about to take place in\n";
-	// 		auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
-	// 		llvm::dbgs() << format(cc->getStoresToLoc(rLab->getAddr()));
-	// 		prettyPrintGraph();
-	// 		printGraph();
-	// 	}
-	// }
 	return true;
 }
 
