@@ -2849,7 +2849,8 @@ void Interpreter::callLockZNESpinEnd(Function *F, const std::vector<GenericValue
 void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals,
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
-	ECStack().clear();
+	if (ArgVals[0].IntVal.getBoolValue())
+		ECStack().clear();
 }
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals,

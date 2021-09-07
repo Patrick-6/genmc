@@ -34,14 +34,6 @@ class LoopUnrollPass : public llvm::LoopPass {
 protected:
 	int unrollDepth;
 
-	llvm::Value *createBoundAlloca(llvm::Loop *l);
-	llvm::BasicBlock *createBoundInitBlock(llvm::Loop *l, llvm::Value *boundAlloca);
-	llvm::BasicBlock *createBoundDecrBlock(llvm::Loop *l, llvm::Value *boundAlloca);
-	llvm::BasicBlock *createLoopDivergeBlock(llvm::Loop *l);
-
-	template<typename Func>
-	void redirectLoopPreds(llvm::Loop *l, llvm::BasicBlock *toBlock, Func &&f);
-
 public:
 	static char ID;
 
