@@ -23,6 +23,7 @@
 #include "InterpreterEnumAPI.hpp"
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
+#include <llvm/IR/ValueHandle.h>
 
 #include <unordered_set>
 
@@ -195,3 +196,41 @@ bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU /* = nullptr */
 }
 
 #endif /* !LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS */
+
+#ifndef LLVM_HAVE_REPLACE_USES_WITH_IF
+
+void replaceUsesWithIf(Value *Old, Value *New,
+		       llvm::function_ref<bool(Use &U)> ShouldReplace)
+{
+	// assert(New && "Value::replaceUsesWithIf(<null>) is invalid!");
+	// assert(New->getType() == old->getType() &&
+	//        "replaceUses of value with new value of different type!");
+
+	SmallVector<TrackingVH<Constant>, 8> Consts;
+	SmallPtrSet<Constant *, 8> Visited;
+
+	for (auto UI = Old->use_begin(), E = Old->use_end(); UI != E;) {
+		Use &U = *UI;
+		++UI;
+		if (!ShouldReplace(U))
+			continue;
+		// Must handle Constants specially, we cannot call replaceUsesOfWith on a
+		// constant because they are uniqued.
+		if (auto *C = dyn_cast<Constant>(U.getUser())) {
+			if (!isa<GlobalValue>(C)) {
+				if (Visited.insert(C).second)
+					Consts.push_back(TrackingVH<Constant>(C));
+				continue;
+			}
+		}
+		U.set(New);
+	}
+
+	while (!Consts.empty()) {
+		// FIXME: handleOperandChange() updates all the uses in a given Constant,
+		//        not just the one passed to ShouldReplace
+		Consts.pop_back_val()->handleOperandChange(Old, New);
+	}
+}
+
+#endif /* !LLVM_HAVE_REPLACE_USES_WITH_IF */

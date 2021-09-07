@@ -28,6 +28,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Analysis/ValueTracking.h>
 
 using namespace llvm;
 
@@ -313,7 +314,8 @@ InstAnnotator::IRExprUP InstAnnotator::annotateBBCond(BasicBlock *bb, BasicBlock
 	/* Propagate jump condition backwards to the beginning of the basic block */
 	setAnnot(bi, generateOperandExpr(bi->getCondition()));
 	for (auto irit = ++bb->rbegin(); irit != bb->rend(); ++irit) {
-		setAnnot(&*irit, propagateAnnotFromSucc(&*irit, irit->getNextNode()));
+		annotMap[&*irit] = irit->mayReadOrWriteMemory() ?
+			ConcreteExpr<Value *>::createFalse() : propagateAnnotFromSucc(&*irit, irit->getNextNode());
 	}
 
 	/* If a predecessor is given substitute Φ values too */
