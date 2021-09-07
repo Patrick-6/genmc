@@ -106,4 +106,9 @@ llvm::Pass *createEliminateCastsPass();
  */
 llvm::Pass *createEliminateAnnotationsPass();
 
+/*
+ * Eliminates some unused code that does not affect the verification result
+ */
+llvm::Pass *createEliminateUnusedCodePass();
+
 #endif /* __PASSES_HPP__ */

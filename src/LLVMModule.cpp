@@ -171,6 +171,7 @@ namespace LLVMModule {
 
 		BndPM.add(createEliminateCASPHIsPass());
 		BndPM.add(llvm::createJumpThreadingPass());
+		BndPM.add(createEliminateUnusedCodePass());
 		BndPM.add(createBisimilarityCheckerPass());
 		if (conf->codeCondenser && !conf->checkLiveness)
 			BndPM.add(createCodeCondenserPass());

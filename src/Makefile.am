@@ -6,6 +6,7 @@ libgenmc_a_SOURCES = \
   EliminateAnnotationsPass.cpp EliminateAnnotationsPass.hpp \
   EliminateCASPHIsPass.cpp EliminateCASPHIsPass.hpp \
   EliminateCastsPass.cpp EliminateCastsPass.hpp \
+  EliminateUnusedCodePass.cpp EliminateUnusedCodePass.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
