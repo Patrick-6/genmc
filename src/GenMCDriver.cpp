@@ -2650,13 +2650,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		// IMM: DO WE NEED TO ALSO SAVE DEPTRACKER's STATE?
 		setSharedState(std::move(newState));
 
-		// CHANGE RF
-		auto &ng = getGraph();
-		auto *nrLab = llvm::dyn_cast<ReadLabel>(ng.getEventLabel(read));
-		getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-
-		changeRf(read, write);
-
 		GENMC_DEBUG(
 			if (getConf()->vLevel >= VerbosityLevel::V2) {
 				llvm::dbgs() << "--- Backward revisiting " << write << " --> " << read << "\n";
@@ -2664,11 +2657,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		);
 
-		bool cons = isConsistent(ProgramPoint::step);
-
-		nrLab->setAddedMax(isCoMaximal(nrLab->getAddr(), write)); // llvm::isa<BRevItem>(ri));
-		nrLab->setInPlaceRevisitStatus(false);
-
+		auto &ng = getGraph();
 		auto &prefix = ng.getPrefixView(write);
 		for (auto i = 0u; i < ng.getNumThreads(); i++) {
 			for (auto j = 1; j < ng.getThreadSize(i); j++) {
@@ -2678,18 +2667,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		}
 
-		/* Repair barriers here, as dangling wait-reads may be part of the prefix */
-		repairDanglingBarriers();
-
-		/* If the revisited label became an RMW, add the store part and revisit */
-		if (auto *nsLab = completeRevisitedRMW(nrLab))
-			calcRevisits(nsLab);
-
-		repairDanglingLocks();
-		if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(nrLab)) {
-			threadPrios = {lLab->getRf()};
-			EE->getThrById(lLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
-		}
+		revisitRead(BRevItem(read, write, {}, {}));
 
 		/* If there are idle workers in the thread pool,
 		 * try submitting the job instead */
@@ -2833,6 +2811,46 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	return nullptr;
 }
 
+bool GenMCDriver::revisitRead(const RevItem &ri)
+{
+	/* We are dealing with a read: change its reads-from and also check
+	 * whether a part of an RMW should be added */
+	auto &g = getGraph();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(ri.getPos()));
+	BUG_ON(!rLab);
+
+	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
+
+	changeRf(rLab->getPos(), ri.getRev());
+
+	auto cons = isConsistent(ProgramPoint::step);
+
+	if (llvm::isa<BRevItem>(ri))
+		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), ri.getRev())); // llvm::isa<BRevItem>(ri));
+	else
+		rLab->setAddedMax(false);
+	rLab->setInPlaceRevisitStatus(false);
+
+	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
+	repairDanglingBarriers();
+
+	/* If the revisited label became an RMW, add the store part and revisit */
+	if (auto *sLab = completeRevisitedRMW(rLab))
+		return calcRevisits(sLab);
+
+	/* Blocked lock -> prioritize locking thread */
+	repairDanglingLocks();
+	if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
+		threadPrios = {lLab->getRf()};
+		EE->getThrById(rLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
+	}
+
+	/* Special handling for library revs */
+	if (auto *fi = llvm::dyn_cast<FRevLibItem>(&ri))
+		return calcLibRevisits(rLab);
+	return true;
+}
+
 bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 {
 	auto &g = getGraph();
@@ -2864,15 +2882,6 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 		restorePrefix(lab, bri->getPrefixRel(), bri->getMOPlacingsRel());
 	}
 
-	/* We are dealing with a read: change its reads-from and also check
-	 * whether a part of an RMW should be added */
-	BUG_ON(!llvm::isa<ReadLabel>(lab));
-	auto *rLab = static_cast<ReadLabel *>(lab);
-
-	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
-
-	changeRf(rLab->getPos(), ri->getRev());
-
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V2) {
 			llvm::dbgs() << "--- Forward revisiting " << rLab->getPos()
@@ -2881,33 +2890,7 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 		}
 	);
 
-	auto cons = isConsistent(ProgramPoint::step);
-
-	if (llvm::isa<BRevItem>(ri))
-		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), ri->getRev())); // llvm::isa<BRevItem>(ri));
-	else
-		rLab->setAddedMax(false);
-	rLab->setInPlaceRevisitStatus(false);
-
-	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
-	repairDanglingBarriers();
-
-	/* If the revisited label became an RMW, add the store part and revisit */
-	if (auto *sLab = completeRevisitedRMW(rLab))
-		return calcRevisits(sLab);
-
-	/* Blocked lock -> prioritize locking thread */
-	repairDanglingLocks();
-	if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(lab)) {
-		threadPrios = {lLab->getRf()};
-		EE->getThrById(lab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
-	}
-
-	/* Special handling for library revs */
-	if (auto *fi = llvm::dyn_cast<FRevLibItem>(ri))
-		return calcLibRevisits(lab);
-
-	return true;
+	return revisitRead(*ri);
 }
 
 std::pair<SVal, bool>

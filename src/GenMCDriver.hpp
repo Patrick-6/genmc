@@ -499,6 +499,10 @@ private:
 	bool calcRevisits(const WriteLabel *lab);
 	bool calcLibRevisits(const EventLabel *lab);
 
+	/* Adjusts the graph only when we are revisiting a read.
+	 * Returns true if the resulting graph should be explored. */
+	bool revisitRead(const RevItem &s);
+
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
 	bool revisitEvent(std::unique_ptr<WorkItem> s);
