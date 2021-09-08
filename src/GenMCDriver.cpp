@@ -2825,10 +2825,7 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 
 	auto cons = isConsistent(ProgramPoint::step);
 
-	if (llvm::isa<BRevItem>(ri))
-		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), ri.getRev())); // llvm::isa<BRevItem>(ri));
-	else
-		rLab->setAddedMax(false);
+	rLab->setAddedMax(llvm::isa<BRevItem>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
 	rLab->setInPlaceRevisitStatus(false);
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
@@ -2840,13 +2837,13 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 
 	/* Blocked lock -> prioritize locking thread */
 	repairDanglingLocks();
-	if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
-		threadPrios = {lLab->getRf()};
+	if (llvm::isa<LockCasReadLabel>(rLab)) {
+		threadPrios = {rLab->getRf()};
 		EE->getThrById(rLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
 	}
 
 	/* Special handling for library revs */
-	if (auto *fi = llvm::dyn_cast<FRevLibItem>(&ri))
+	if (llvm::isa<FRevLibItem>(&ri))
 		return calcLibRevisits(rLab);
 	return true;
 }
