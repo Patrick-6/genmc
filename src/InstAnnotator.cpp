@@ -27,8 +27,17 @@
 #include "SExprVisitor.hpp"
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Module.h>
 
 using namespace llvm;
+
+#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
+# define GET_TYPE_ALLOC_SIZE(M, x)		\
+	(M).getDataLayout()->getTypeAllocSize((x))
+#else
+# define GET_TYPE_ALLOC_SIZE(M, x)		\
+	(M).getDataLayout().getTypeAllocSize((x))
+#endif
 
 void InstAnnotator::reset()
 {
@@ -61,13 +70,25 @@ void InstAnnotator::setAnnot(Instruction *i, std::unique_ptr<SExpr> annot)
 std::unique_ptr<SExpr> InstAnnotator::generateOperandExpr(Value *op)
 {
 	if (auto *c = dyn_cast<Constant>(op)) {
-		BUG_ON(!c->getType()->isIntegerTy());
-		if (isa<UndefValue>(c))
+		if (isa<UndefValue>(c)) {
 			return ConcreteExpr::create(c->getType()->getIntegerBitWidth(), 42);
-		auto v = c->getUniqueInteger();
-		return ConcreteExpr::create(v.getBitWidth(), v.getLimitedValue());
+		} else if (c->getType()->isIntegerTy()) {
+			auto v = c->getUniqueInteger();
+			return ConcreteExpr::create(v.getBitWidth(), v.getLimitedValue());
+		} else if (isa<ConstantPointerNull>(c)) {
+			BUG_ON(!op->getType()->isPointerTy());
+			auto iIt = std::find_if(op->user_begin(), op->user_end(), [](const User *u){
+					return llvm::isa<Instruction>(u);
+				});
+			BUG_ON(iIt == op->user_end());
+			auto *mod = dyn_cast<Instruction>(*iIt)->getParent()->getParent()->getParent();
+			return ConcreteExpr::create(GET_TYPE_ALLOC_SIZE(*mod, op->getType()) * 8, 0);
+		}
+		ERROR("Only integer and null constants currently allowed in assume() expressions.\n");
 	}
-	return RegisterExpr::create(op->getType()->getPrimitiveSizeInBits(), getAnnotMapKey(op));
+	BUG_ON(!isa<Instruction>(op));
+	auto *mod = dyn_cast<Instruction>(op)->getParent()->getParent()->getParent();
+	return RegisterExpr::create(GET_TYPE_ALLOC_SIZE(*mod, op->getType()) * 8, getAnnotMapKey(op));
 }
 
 std::unique_ptr<SExpr> InstAnnotator::generateInstExpr(Instruction *curr)
