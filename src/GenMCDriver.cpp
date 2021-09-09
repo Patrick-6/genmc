@@ -393,7 +393,7 @@ void GenMCDriver::handleFinishedExecution()
 		return;
 	}
 
-	const auto &g = getGraph();
+	auto &g = getGraph();
 	if (userConf->checkConsPoint == ProgramPoint::exec &&
 	    !isConsistent(ProgramPoint::exec))
 		return;
@@ -805,26 +805,13 @@ bool GenMCDriver::shouldCheckPers(ProgramPoint p)
 
 bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 {
-	if (getCheckConsType(p) == CheckConsType::fast)
-		return getGraph().getEventLabel(b)->getHbView().contains(a);
-
-	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
+	return getGraph().isHbBefore(a, b, getCheckConsType(p));
 }
 
-bool GenMCDriver::isCoMaximal(SAddr addr, Event e,
-			      bool checkCache /* = false */, ProgramPoint p /* = step */)
+bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */,
+			      ProgramPoint p /* = step */)
 {
-	auto &g = getGraph();
-	auto *cc = g.getCoherenceCalculator();
-
-	if (checkCache)
-		return cc->isCachedCoMaximal(addr, e);
-	if (getCheckConsType(p) == CheckConsType::fast)
-		return cc->isCoMaximal(addr, e);
-
-	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
-	return (e.isInitializer() && coLoc.empty()) ||
-	       (!e.isInitializer() && coLoc.adj_begin(e) == coLoc.adj_end(e));
+	return getGraph().isCoMaximal(addr, e, checkCache, getCheckConsType(p));
 }
 
 void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
@@ -1025,122 +1012,10 @@ void GenMCDriver::checkBIncValidity(const std::vector<Event> &rfs)
 		visitError(Status::VS_AccessFreed, "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
-void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
-			       std::vector<Calculator::GlobalRelation *> &toExtend,
-			       std::vector<SAddr > &extOrder)
-
-{
-	for (auto &loc : rel) {
-		toExtend.push_back(&loc.second);
-		extOrder.push_back(loc.first);
-	}
-}
-
-void extendPerLocRelation(Calculator::PerLocRelation &rel,
-			  std::vector<std::vector<Event> >::iterator extsBegin,
-			  std::vector<std::vector<Event> >::iterator extsEnd,
-			  std::vector<SAddr >::iterator locsBegin,
-			  std::vector<SAddr >::iterator locsEnd)
-
-{
-	BUG_ON(std::distance(extsBegin, extsEnd) != std::distance(locsBegin, locsEnd));
-	auto locIt = locsBegin;
-	for (auto extIt = extsBegin; extIt != extsEnd; ++extIt, ++locIt) {
-		rel[*locIt] = Calculator::GlobalRelation(*extIt);
-		for (auto j = 1; j < extIt->size(); j++)
-			rel[*locIt].addEdge((*extIt)[j - 1], (*extIt)[j]);
-	}
-}
-
-bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
-{
-	if (!checkFull)
-		return true;
-
-	bool hasLB = getConf()->LAPOR;
-	bool hasWB = getConf()->coherence == CoherenceType::wb;
-	if (!hasLB && !hasWB)
-		return true;
-
-	auto &g = getGraph();
-
-	/* Cache all relations because we will need to restore them
-	 * after possible extensions were tried*/
-	g.cacheRelations();
-
-	/* We flatten all per-location relations that need to be
-	 * extended.  However, we need to ensure that, for each
-	 * per-location relation, the order in which the locations of
-	 * the relation are added to the extension list is the same as
-	 * the order in which the extensions of said locations are
-	 * restored.
-	 *
-	 * This is not the case in all platforms if we are simply
-	 * iterating over unordered_maps<> (e.g. macΟS). The iteration
-	 * order may differ if, e.g., when saving an extension we
-	 * iterate over a relation's cache, while when restoring we
-	 * iterate over the relation itself, even though the relation
-	 * is the same as its cache just before restoring. */
-	auto coSize = 0u;
-	auto lbSize = 0u;
-	std::vector<Calculator::GlobalRelation *> toExtend;
-	std::vector<SAddr> extOrder;
-	if (hasWB) {
-		addPerLocRelationToExtend(g.getCachedPerLocRelation(ExecutionGraph::RelationId::co),
-					  toExtend, extOrder);
-		coSize = g.getCachedPerLocRelation(ExecutionGraph::RelationId::co).size();
-	}
-	if (hasLB) {
-		addPerLocRelationToExtend(g.getCachedPerLocRelation(ExecutionGraph::RelationId::lb),
-					  toExtend, extOrder);
-		lbSize = g.getCachedPerLocRelation(ExecutionGraph::RelationId::lb).size();
-	}
-
-	auto res = Calculator::GlobalRelation::
-		combineAllTopoSort(toExtend, [&](std::vector<std::vector<Event>> &sortings){
-			g.restoreCached();
-			auto count = 0u;
-			if (hasWB) {
-				extendPerLocRelation(g.getPerLocRelation(ExecutionGraph::RelationId::co),
-						     sortings.begin(), sortings.begin() + coSize,
-						     extOrder.begin(), extOrder.begin() + coSize);
-			}
-			count += coSize;
-			if (hasLB && count >= coSize) {
-				extendPerLocRelation(g.getPerLocRelation(ExecutionGraph::RelationId::lb),
-						     sortings.begin() + count,
-						     sortings.begin() + count + lbSize,
-						     extOrder.begin() + count,
-						     extOrder.begin() + count + lbSize);
-			}
-			count += lbSize;
-			return g.doCalcs(true).cons;
-		});
-	return res;
-}
-
 bool GenMCDriver::isConsistent(ProgramPoint p)
 {
-	/* Fastpath: No fixpoint is required */
-	auto checkT = getCheckConsType(p);
-	if (checkT == CheckConsType::fast)
-		return true;
-
-	/* The specific instance will populate the necessary entries
-	 * in the graph */
-	getGraph().doInits(checkT == CheckConsType::full);
 	initConsCalculation();
-
-	/* Fixpoint calculation */
-	Calculator::CalculationResult step;
-	do {
-		step = getGraph().doCalcs(checkT == CheckConsType::full);
-		if (!step.cons)
-			return false;
-	} while (step.changed);
-
-	/* Do final checks, after the fixpoint is over */
-	return doFinalConsChecks(checkT == CheckConsType::full);
+	return getGraph().isConsistent(getCheckConsType(p));
 }
 
 bool GenMCDriver::isRecoveryValid(ProgramPoint p)
@@ -1350,6 +1225,7 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(SAddr addr, ASize size,
 	if (!annot)
 		return false;
 
+	auto &g = getGraph();
 	auto cons = isConsistent(ProgramPoint::step);
 
 	/* For WB, there might be many maximal ones */

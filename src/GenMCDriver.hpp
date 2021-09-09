@@ -356,12 +356,12 @@ protected:
 	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
 
-	/* Returns true if a is hb-before b */
+	/* Returns true if A is hb-before B at P */
 	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
-	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(SAddr addr, Event e,
-			 bool checkCache = false, ProgramPoint p = ProgramPoint::step);
+	/* Returns true if E is maximal in ADDR at P*/
+	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
+			 ProgramPoint p = ProgramPoint::step);
 
 private:
 	/*** Worklist-related ***/
@@ -689,10 +689,6 @@ private:
 	/* Performs the necessary initializations for the
 	 * consistency calculation */
 	virtual void initConsCalculation() = 0;
-
-	/* Does some final consistency checks after the fixpoint is over,
-	 * and returns the final decision re. consistency */
-	virtual bool doFinalConsChecks(bool checkFull = false);
 
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;

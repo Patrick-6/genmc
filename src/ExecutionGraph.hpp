@@ -281,6 +281,9 @@ public:
 	 * If "move" is true then the cache is cleared as well */
 	void restoreCached(bool move = false);
 
+	/* Returns a pointer if the graph has a calculator for the specified relation */
+	bool hasCalculator(RelationId id) const;
+
 	/* Returns a pointer to the specified relation's calculator */
 	Calculator *getCalculator(RelationId id);
 
@@ -309,12 +312,15 @@ public:
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
-	void doInits(bool fullCalc = false);
+	/* Returns true if a is hb-before b */
+	bool isHbBefore(Event a, Event b, CheckConsType t = CheckConsType::fast);
 
-	/* Performs a step of all the specified calculations. Takes as
-	 * a parameter whether a full calculation needs to be performed */
-	Calculator::CalculationResult doCalcs(bool fullCalc = false);
+	/* Returns true if e is maximal in addr */
+	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
+			 CheckConsType t = CheckConsType::fast);
 
+	/* Returns true if the current graph is consistent */
+	bool isConsistent(CheckConsType t = CheckConsType::fast);
 
 	/* Matrix filling for external relation calculation */
 	void populatePorfEntries(AdjList<Event, EventHasher> &relation) const;
@@ -476,6 +482,16 @@ protected:
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
+
+	void doInits(bool fullCalc = false);
+
+	/* Performs a step of all the specified calculations. Takes as
+	 * a parameter whether a full calculation needs to be performed */
+	Calculator::CalculationResult doCalcs(bool fullCalc = false);
+
+	/* Does some final consistency checks after the fixpoint is over,
+	 * and returns the final decision re. consistency */
+	bool doFinalConsChecks(bool checkFull = false);
 
 	void calcPorfAfter(const Event e, View &a);
 	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
