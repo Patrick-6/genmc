@@ -57,6 +57,9 @@ class ExecutionGraph {
 private:
 	using Thread = std::vector<std::unique_ptr<EventLabel> >;
 	using Graph = std::vector<Thread>;
+	using FixpointResult = Calculator::CalculationResult;
+
+	enum FixpointStatus { FS_Stale, FS_InProgress, FS_Done };
 
 public:
 	/* Should be used for the contruction of execution graphs */
@@ -487,7 +490,7 @@ protected:
 
 	/* Performs a step of all the specified calculations. Takes as
 	 * a parameter whether a full calculation needs to be performed */
-	Calculator::CalculationResult doCalcs(bool fullCalc = false);
+	FixpointResult doCalcs(bool fullCalc = false);
 
 	/* Does some final consistency checks after the fixpoint is over,
 	 * and returns the final decision re. consistency */
@@ -520,6 +523,17 @@ private:
 
 	/* The next available timestamp */
 	unsigned int timestamp;
+
+	/* Current calculation status */
+	FixpointStatus fixStatus;
+	FixpointStatus fixStatusCache;
+
+	/* Current calculation result */
+	FixpointResult fixResult;
+	FixpointResult fixResultCache;
+
+	CheckConsType fixType;
+	CheckConsType fixTypeCache;
 
 	/* A list of all the calculations that need to be performed
 	 * when checking for full consistency*/

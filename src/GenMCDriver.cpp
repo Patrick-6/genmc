@@ -1226,7 +1226,6 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(SAddr addr, ASize size,
 		return false;
 
 	auto &g = getGraph();
-	auto cons = isConsistent(ProgramPoint::step);
 
 	/* For WB, there might be many maximal ones */
 	auto shouldBlock =
@@ -2327,7 +2326,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 		return false;
 
 	// llvm::dbgs() << "checking intermediates\n";
-	bool cons = isConsistent(ProgramPoint::step);
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
 			auto *lab = g.getEventLabel(Event(i, j));
@@ -2683,8 +2681,6 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	getEE()->setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 
 	changeRf(rLab->getPos(), ri.getRev());
-
-	auto cons = isConsistent(ProgramPoint::step);
 
 	rLab->setAddedMax(llvm::isa<BRevItem>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
 	rLab->setInPlaceRevisitStatus(false);

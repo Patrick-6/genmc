@@ -32,7 +32,8 @@
  ** Class constructors/destructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr)
+ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr), fixStatus(FS_Stale),
+				   fixType(CheckConsType::fast), fixResult()
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -430,8 +431,9 @@ const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<L
 
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
-	auto pos = lab->getPos();
+	fixStatus = FS_Stale;
 
+	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
 		events[pos.thread][pos.index] = std::move(lab);
 	} else {
@@ -509,6 +511,9 @@ void ExecutionGraph::cacheRelations(bool copy /* = true */)
 		for (auto i = 0u; i < perLocRelations.size(); i++)
 			perLocRelationsCache[i] = std::move(perLocRelations[i]);
 	}
+	fixStatusCache = fixStatus;
+	fixTypeCache = fixType;
+	fixResultCache = fixResult;
 	return;
 }
 
@@ -525,6 +530,9 @@ void ExecutionGraph::restoreCached(bool move /* = false */)
 		for (auto i = 0u; i < perLocRelations.size(); i++)
 			perLocRelations[i] = std::move(perLocRelationsCache[i]);
 	}
+	fixStatus = fixStatusCache;
+	fixType = fixTypeCache;
+	fixResult = fixResultCache;
 	return;
 }
 
@@ -596,10 +604,21 @@ void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> p
 
 bool ExecutionGraph::isHbBefore(Event a, Event b, CheckConsType t /* = fast */)
 {
+	if (fixStatus == FS_Done && t == fixType)
+		return getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 	if (t == CheckConsType::fast)
 		return getEventLabel(b)->getHbView().contains(a);
 
+	/* We have to trigger a calculation */
+	isConsistent(t);
 	return getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
+}
+
+bool isCoMaximalInRel(const Calculator::PerLocRelation &co, SAddr addr, const Event &e)
+{
+	auto &coLoc = co.at(addr);
+	return (e.isInitializer() && coLoc.empty()) ||
+		(!e.isInitializer() && coLoc.adj_begin(e) == coLoc.adj_end(e));
 }
 
 bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */,
@@ -609,12 +628,13 @@ bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false
 
 	if (checkCache)
 		return cc->isCachedCoMaximal(addr, e);
+	if (fixStatus == FS_Done && t == fixType)
+		return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
 	if (t == CheckConsType::fast)
 		return cc->isCoMaximal(addr, e);
 
-	auto &coLoc = getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
-	return (e.isInitializer() && coLoc.empty()) ||
-	       (!e.isInitializer() && coLoc.adj_begin(e) == coLoc.adj_end(e));
+	isConsistent(t);
+	return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
 }
 
 void ExecutionGraph::doInits(bool full /* = false */)
@@ -755,24 +775,26 @@ bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
 
 bool ExecutionGraph::isConsistent(CheckConsType checkT)
 {
-	/* Fastpath: No fixpoint is required */
+	/* Fastpath: We have cached info or no fixpoint is required */
+	if (fixStatus == FS_Done && fixType == checkT)
+		return fixResult.cons;
 	if (checkT == CheckConsType::fast)
 		return true;
 
-	/* The specific instance will populate the necessary entries
-	 * in the graph */
+	/* Slowpath: Go calculate fixpoint */
+	fixStatus = FS_InProgress;
 	doInits(checkT == CheckConsType::full);
-
-	/* Fixpoint calculation */
-	Calculator::CalculationResult step;
 	do {
-		step = doCalcs(checkT == CheckConsType::full);
-		if (!step.cons)
+		fixResult = doCalcs(checkT == CheckConsType::full);
+		if (!fixResult.cons)
 			return false;
-	} while (step.changed);
+	} while (fixResult.changed);
 
 	/* Do final checks, after the fixpoint is over */
-	return doFinalConsChecks(checkT == CheckConsType::full);
+	fixResult.cons = doFinalConsChecks(checkT == CheckConsType::full);
+	fixStatus = FS_Done;
+	fixType = checkT;
+	return fixResult.cons;
 }
 
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
@@ -1128,6 +1150,8 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 
 void ExecutionGraph::changeRf(Event read, Event store)
 {
+	fixStatus = FS_Stale;
+
 	EventLabel *lab = events[read.thread][read.index].get();
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
 
@@ -1162,6 +1186,8 @@ void ExecutionGraph::changeRf(Event read, Event store)
 
 bool ExecutionGraph::updateJoin(Event join, Event childLast)
 {
+	fixStatus = FS_Stale;
+
 	EventLabel *lab = events[join.thread][join.index].get();
 	BUG_ON(!llvm::isa<ThreadJoinLabel>(lab));
 
@@ -1181,6 +1207,8 @@ bool ExecutionGraph::updateJoin(Event join, Event childLast)
 
 void ExecutionGraph::resetJoin(Event join)
 {
+	fixStatus = FS_Stale;
+
 	/* If there is no parent join label, return */
 	EventLabel *lab = events[join.thread][join.index].get();
 	if (!llvm::isa<ThreadJoinLabel>(lab))
@@ -1234,6 +1262,8 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 
 void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
+	fixStatus = FS_Stale;
+
 	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
 	auto *cohTracker = static_cast<MOCalculator *>(
 		getCoherenceCalculator());
@@ -1250,6 +1280,7 @@ ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel
 
 void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
+	fixStatus = FS_Stale;
 	auto preds = getViewFromStamp(stamp);
 
 	/* Inform all calculators about the events cutted */
@@ -1339,6 +1370,13 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 
 	/* First, populate calculators, etc */
 	og->timestamp = timestamp;
+
+	og->fixStatus = FS_Stale;
+	og->fixStatusCache = FS_Stale;
+	og->fixType = CheckConsType::fast;
+	og->fixTypeCache = CheckConsType::fast;
+	og->fixResult = FixpointResult();
+	og->fixResultCache = FixpointResult();
 
 	for (const auto &cc : consistencyCalculators)
 		og->consistencyCalculators.push_back(cc->clone(*og));
