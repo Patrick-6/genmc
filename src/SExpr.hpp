@@ -480,9 +480,7 @@ protected:
 		   std::unique_ptr<SExpr> &&r)
 		: SExpr(k, w) { addKid(std::move(l)); addKid(std::move(r)); }
 	BinaryExpr(Kind k, std::unique_ptr<SExpr> &&l, std::unique_ptr<SExpr> &&r)
-		: BinaryExpr(k, l->getWidth(), std::move(l), std::move(r)) {
-		BUG_ON(getKid(0)->getWidth() != getKid(1)->getWidth());
-	}
+		: BinaryExpr(k, l->getWidth(), std::move(l), std::move(r)) {}
 
 public:
 	static bool classof(const SExpr *E) {
