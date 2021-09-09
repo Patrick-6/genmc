@@ -787,27 +787,14 @@ SVal GenMCDriver::getRecReadRetValue(SAddr addr, ASize size)
 	return getWriteValue(rf, addr, size);
 }
 
-bool GenMCDriver::shouldCheckCons(ProgramPoint p)
+CheckConsType GenMCDriver::getCheckConsType(ProgramPoint p) const
 {
-	/* Always check consistency on error, or at user-specified points */
+	/* Always check consistency on error, or at user-specified points.
+	 * Assume that extensions that require more extensive checks have
+	 * enabled them during config */
 	if (p <= getConf()->checkConsPoint)
-		return true;
-
-	/* LAPOR requires consistency checks at each step, and at the
-	 * end of an execution, when popping an alternative rf option */
-	if (getConf()->LAPOR)
-		return true;
-
-	return false;
-}
-
-bool GenMCDriver::shouldCheckFullCons(ProgramPoint p)
-{
-	if (p == ProgramPoint::error ||
-	    (p <= getConf()->checkConsPoint &&
-	     getConf()->checkConsType == CheckConsType::full))
-		return true;
-	return false;
+		return (p == ProgramPoint::error ? CheckConsType::full : getConf()->checkConsType);
+	return CheckConsType::fast;
 }
 
 bool GenMCDriver::shouldCheckPers(ProgramPoint p)
@@ -818,7 +805,7 @@ bool GenMCDriver::shouldCheckPers(ProgramPoint p)
 
 bool GenMCDriver::isHbBefore(Event a, Event b, ProgramPoint p /* = step */)
 {
-	if (shouldCheckCons(p) == false)
+	if (getCheckConsType(p) == CheckConsType::fast)
 		return getGraph().getEventLabel(b)->getHbView().contains(a);
 
 	return getGraph().getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
@@ -832,7 +819,7 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e,
 
 	if (checkCache)
 		return cc->isCachedCoMaximal(addr, e);
-	if (!shouldCheckCons(p))
+	if (getCheckConsType(p) == CheckConsType::fast)
 		return cc->isCoMaximal(addr, e);
 
 	auto &coLoc = g.getPerLocRelation(ExecutionGraph::RelationId::co)[addr];
@@ -1135,27 +1122,25 @@ bool GenMCDriver::doFinalConsChecks(bool checkFull /* = false */)
 bool GenMCDriver::isConsistent(ProgramPoint p)
 {
 	/* Fastpath: No fixpoint is required */
-	auto check = shouldCheckCons(p);
-	if (!check)
+	auto checkT = getCheckConsType(p);
+	if (checkT == CheckConsType::fast)
 		return true;
-
-	auto checkFull = shouldCheckFullCons(p);
 
 	/* The specific instance will populate the necessary entries
 	 * in the graph */
-	getGraph().doInits(checkFull);
+	getGraph().doInits(checkT == CheckConsType::full);
 	initConsCalculation();
 
 	/* Fixpoint calculation */
 	Calculator::CalculationResult step;
 	do {
-		step = getGraph().doCalcs(checkFull);
+		step = getGraph().doCalcs(checkT == CheckConsType::full);
 		if (!step.cons)
 			return false;
 	} while (step.changed);
 
 	/* Do final checks, after the fixpoint is over */
-	return doFinalConsChecks(checkFull);
+	return doFinalConsChecks(checkT == CheckConsType::full);
 }
 
 bool GenMCDriver::isRecoveryValid(ProgramPoint p)
@@ -1194,7 +1179,7 @@ void GenMCDriver::checkLiveness()
 	auto *EE = getEE();
 	std::vector<int> spinBlocked;
 
-	if (shouldCheckCons(ProgramPoint::exec) && !isConsistent(ProgramPoint::exec))
+	if (!isConsistent(ProgramPoint::exec))
 		return;
 
 	/* Collect all threads blocked at spinloops */
@@ -1407,7 +1392,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (shouldCheckCons(ProgramPoint::step) && !isConsistent(ProgramPoint::step)) {
+	if (!isConsistent(ProgramPoint::step)) {
 		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
 			getEE()->getThrById(i).block(llvm::Thread::BlockageType::BT_Cons);
 		return false;

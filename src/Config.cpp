@@ -91,11 +91,11 @@ clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("fil
 	       llvm::cl::desc("Dump an error graph to a file (DOT format)"));
 
 static llvm::cl::opt<CheckConsType>
-clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::approx), llvm::cl::cat(clGeneral),
-		llvm::cl::desc("Type of consistency checks"),
+clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::slow), llvm::cl::cat(clGeneral),
+		llvm::cl::desc("Type of (configurable) consistency checks"),
 		llvm::cl::values(
-			clEnumValN(CheckConsType::approx, "approx", "Approximate checks"),
-			clEnumValN(CheckConsType::full,   "full",   "Full checks")
+			clEnumValN(CheckConsType::slow, "slow", "Approximatition check"),
+			clEnumValN(CheckConsType::full, "full", "Full checks")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		    , NULL
 #endif
@@ -294,6 +294,9 @@ void Config::checkConfigOptions() const
 	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
 		WARN("LAPOR usage with -mo is experimental.\n");
 	}
+	if (clLAPOR && clCheckConsPoint < ProgramPoint::step) {
+		WARN("LAPOR requires pointwise consistency steps.\n");
+	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
@@ -321,7 +324,7 @@ void Config::saveConfigOptions()
 	symmetryReduction = clSymmetryReduction;
 	printErrorTrace = clPrintErrorTrace;
 	checkConsType = clCheckConsType;
-	checkConsPoint = clCheckConsPoint;
+	checkConsPoint = (LAPOR ? ProgramPoint::step : clCheckConsPoint);
 	checkLiveness = clCheckLiveness;
 	disableRaceDetection = clDisableRaceDetection;
 	disableBarrierOpt = clDisableBarrierOpt;

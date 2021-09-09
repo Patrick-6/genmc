@@ -349,12 +349,9 @@ protected:
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(SAddr ptr, ASize s);
 
-	/* Returns true if we should check consistency at p */
-	bool shouldCheckCons(ProgramPoint p);
-
-	/* Returns true if full consistency needs to be checked at p.
-	 * Assumes that consistency needs to be checked anyway. */
-	bool shouldCheckFullCons(ProgramPoint p);
+	/* Returns the type of consistency types we need to perform at
+	 * P according to the configuration */
+	CheckConsType getCheckConsType(ProgramPoint p) const;
 
 	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
