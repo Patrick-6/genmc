@@ -211,13 +211,13 @@ runtest() {
     fi
     if test -f "${dir}/args.${model}.${coherence}.in"
     then
-	i=0
+	varNum=0
 	while read test_args <&3 && read expected <&4; do
-	    i=$((i+1))
+	    varNum=$((varNum + 1))
 	    n="/`echo ${test_args} |
                  awk ' { if (match($0, /-DN=[0-9]+/)) print substr($0, RSTART+4, RLENGTH-4) } '`"
 	    expected_blocked="" && [[ -f "${dir}/blocked.${model}.${coherence}.in" ]] &&
-		expected_blocked=`sed "${i}q;d" "${dir}/blocked.${model}.${coherence}.in"`
+		expected_blocked=`sed "${varNum}q;d" "${dir}/blocked.${model}.${coherence}.in"`
 	    runvariants
 	done 3<"${dir}/args.${model}.${coherence}.in" 4<"${dir}/expected.${model}.${coherence}.in"
     else
