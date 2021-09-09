@@ -817,8 +817,7 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */
 void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	const auto &g = getGraph();
-	const View &before = g.getHbBefore(mLab->getPos().prev());
-
+	const View &before = g.getEventLabel(mLab->getPos().prev())->getHbView();
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
@@ -849,7 +848,7 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
 	const auto &g = getGraph();
 	auto ptr = fLab->getFreedAddr();
-	auto &before = g.getHbBefore(fLab->getPos());
+	auto &before = g.getEventLabel(fLab->getPos())->getHbView();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));

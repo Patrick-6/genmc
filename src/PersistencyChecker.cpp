@@ -218,7 +218,7 @@ void PersistencyChecker::calcPb()
 			BUG_ON(!lab2);
 			if (lab1->getPbView().contains(d2))
 				pbRelation.addEdge(d2, d1);
-			if (g.getHbBefore(d1).contains(d2)) {
+			if (g.getEventLabel(d1)->getHbView().contains(d2)) {
 				if (writeSameBlock(lab1, lab2, getBlockSize()))
 					pbRelation.addEdge(d2, d1);
 			}

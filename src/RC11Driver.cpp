@@ -104,8 +104,8 @@ void RC11Driver::calcWriteMsgView(WriteLabel *lab)
 		msg = lab->getHbView();
 	else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
 		 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
-		msg = g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								lab->getAddr()));
+		msg = g.getEventLabel(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								  lab->getAddr()))->getHbView();
 	lab->setMsgView(std::move(msg));
 }
 
@@ -129,8 +129,8 @@ void RC11Driver::calcRMWWriteMsgView(WriteLabel *lab)
 	if (rLab->isAtLeastRelease())
 		msg.update(lab->getHbView());
 	else
-		msg.update(g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								     lab->getAddr())));
+		msg.update(g.getEventLabel(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								       lab->getAddr()))->getHbView());
 
 	lab->setMsgView(std::move(msg));
 }
@@ -383,8 +383,8 @@ void RC11Driver::updateStart(Event create, Event start)
 	auto &g = getGraph();
 	auto *bLab = g.getEventLabel(start);
 
-	View hb(g.getHbBefore(create));
-	View porf(g.getPorfBefore(create));
+	View hb(g.getEventLabel(create)->getHbView());
+	View porf(g.getEventLabel(create)->getPorfView());
 
 	hb[start.thread] = 0;
 	porf[start.thread] = 0;

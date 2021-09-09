@@ -214,8 +214,8 @@ void IMMDriver::calcWriteMsgView(WriteLabel *lab)
 		msg = lab->getHbView();
 	else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
 		 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
-		msg = g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								lab->getAddr()));
+		msg = g.getEventLabel(
+			g.getLastThreadReleaseAtLoc(lab->getPos(), lab->getAddr()))->getHbView();
 	lab->setMsgView(std::move(msg));
 }
 
@@ -239,8 +239,8 @@ void IMMDriver::calcRMWWriteMsgView(WriteLabel *lab)
 	if (rLab->isAtLeastRelease())
 		msg.update(lab->getHbView());
 	else
-		msg.update(g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								     lab->getAddr())));
+		msg.update(g.getEventLabel(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								       lab->getAddr()))->getHbView());
 
 	lab->setMsgView(std::move(msg));
 }
@@ -444,8 +444,8 @@ void IMMDriver::updateStart(Event create, Event start)
 	auto *bLab = g.getEventLabel(start);
 
 	/* Re-synchronize views */
-	View hb(g.getHbBefore(create));
-	DepView pporf(g.getPPoRfBefore(create));
+	View hb(g.getEventLabel(create)->getHbView());
+	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
 	hb[start.thread] = 0;
 	pporf[start.thread] = 0;

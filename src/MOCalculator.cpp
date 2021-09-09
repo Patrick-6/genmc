@@ -155,7 +155,7 @@ int MOCalculator::splitLocMOBefore(SAddr addr, Event e)
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
-	auto &before = g.getHbBefore(e.prev());
+	auto &before = g.getEventLabel(e.prev())->getHbView();
 
 	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
 		if (before.empty() || !g.isWriteRfBefore(*rit, e.prev()))
@@ -172,13 +172,13 @@ int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
 	for (auto &rf : initRfs) {
-		if (g.getHbBefore(rf).contains(read))
+		if (g.getEventLabel(rf)->getHbView().contains(read))
 			return 0;
 	}
 
 	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
 		if (g.isHbOptRfBefore(read, *it)) {
-			if (g.getHbBefore(*it).contains(read))
+			if (g.getEventLabel(*it)->getHbView().contains(read))
 				return std::distance(locMO.begin(), it);
 			else
 				return std::distance(locMO.begin(), it) + 1;
@@ -300,8 +300,8 @@ MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 
 	/* Otherwise, we also have to exclude hb-before loads */
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
-				{ return g.getHbBefore(sLab->getPos()).contains(e); }),
-		 ls.end());
+		{ return g.getEventLabel(sLab->getPos())->getHbView().contains(e); }),
+		ls.end());
 
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */

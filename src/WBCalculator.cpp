@@ -361,7 +361,7 @@ bool WBCalculator::tryOptimizeWBCalculation(SAddr addr,
 {
 	auto &g = getGraph();
 	auto &allStores = getStoresToLoc(addr);
-	auto &hbBefore = g.getHbBefore(read.prev());
+	auto &hbBefore = g.getEventLabel(read.prev())->getHbView();
 	auto view = getRfOptHbBeforeStores(allStores, hbBefore);
 
 	/* Can we read from the initializer event? */
@@ -411,7 +411,7 @@ bool WBCalculator::isCoherentRf(SAddr addr,
 	}
 
 	/* We cannot read from hb-after stores... */
-	if (g.getHbBefore(store).contains(read))
+	if (g.getEventLabel(store)->getHbView().contains(read))
 		return false;
 
 	/* Also check for violations against the initializer */
@@ -421,7 +421,7 @@ bool WBCalculator::isCoherentRf(SAddr addr,
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
 				if (rLab->getRf().isInitializer() &&
 				    rLab->getAddr() == addr &&
-				    g.getHbBefore(rLab->getPos()).contains(read))
+				    g.getEventLabel(rLab->getPos())->getHbView().contains(read))
 					return false;
 		}
 	}
@@ -533,7 +533,7 @@ bool WBCalculator::isCoherentRevisit(const WriteLabel *sLab, Event read) const
 	}
 
 	/* Do not revisit hb-before loads... */
-	if (g.getHbBefore(sLab->getPos()).contains(read))
+	if (g.getEventLabel(sLab->getPos())->getHbView().contains(read))
 		return false;
 
 	/* Also check for violations against the initializer */
@@ -547,7 +547,7 @@ bool WBCalculator::isCoherentRevisit(const WriteLabel *sLab, Event read) const
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
 				if (rLab->getRf().isInitializer() &&
 				    rLab->getAddr() == sLab->getAddr() &&
-				    g.getHbBefore(rLab->getPos()).contains(read))
+				    g.getEventLabel(rLab->getPos())->getHbView().contains(read))
 					return false;
 		}
 	}

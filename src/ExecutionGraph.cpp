@@ -306,7 +306,7 @@ Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAdd
 
 Event ExecutionGraph::getPrecedingMalloc(const MemAccessLabel *mLab) const
 {
-	const auto &before = getHbBefore(mLab->getPos().prev());
+	const auto &before = getEventLabel(mLab->getPos().prev())->getHbView();
 	for (auto i = 0u; i < getNumThreads(); i++)
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *oLab = getEventLabel(Event(i, j));
@@ -315,7 +315,7 @@ Event ExecutionGraph::getPrecedingMalloc(const MemAccessLabel *mLab) const
 				    before.contains(oLab->getPos()))
 					return aLab->getPos();
 			}
-	}
+		}
 	return Event::getInitializer();
 }
 
@@ -850,20 +850,6 @@ const View &ExecutionGraph::getPorfBefore(Event e) const
 	return getEventLabel(e)->getPorfView();
 }
 
-const View &ExecutionGraph::getHbBefore(Event e) const
-{
-	return getEventLabel(e)->getHbView();
-}
-
-View ExecutionGraph::getHbBefore(const std::vector<Event> &es) const
-{
-	View v;
-
-	for (auto &e : es)
-		v.update(getEventLabel(e)->getHbView());
-	return v;
-}
-
 const View &ExecutionGraph::getHbPoBefore(Event e) const
 {
 	return getPreviousNonEmptyLabel(e)->getHbView();
@@ -925,7 +911,7 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 					auto pred = (labIdx > thrIdx) ?
 						elems[labIdx - 1] : Event::getInitializer();
 					auto &v = rLab->getHbView();
-					auto &predV = getHbBefore(pred);
+					auto &predV = getEventLabel(pred)->getHbView();
 					for (auto k = 0u; k < v.size(); k++) {
 						if (k != rLab->getThread() &&
 						    v[k] > 0 &&
@@ -1046,7 +1032,7 @@ bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const
 		return true;
 
 	for (auto &r : sLab->getReadersList()) {
-		if (getHbBefore(r).contains(e))
+		if (getEventLabel(r)->getHbView().contains(e))
 			return true;
 	}
 	return false;
@@ -1063,7 +1049,7 @@ bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
 		return true;
 
 	for (auto &r : sLab->getReadersList()) {
-		if (v.contains(r) && r != e && getHbBefore(r).contains(e))
+		if (v.contains(r) && r != e && getEventLabel(r)->getHbView().contains(e))
 			return true;
 	}
 	return false;
@@ -1579,7 +1565,7 @@ void ExecutionGraph::getHbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 		buf = {};
 		for (auto j = 0u; j < froms[i].second.size(); j++) {
 			for (auto &e : tos) {
-				auto &before = getHbBefore(e);
+				auto &before = getEventLabel(e)->getHbView();
 				if (froms[i].second[j].index <
 				    before[froms[i].second[j].thread])
 					buf.push_back(e);
@@ -1605,7 +1591,7 @@ void ExecutionGraph::getWbEdgePairs(std::vector<std::pair<Event, std::vector<Eve
 				continue;
 
 			auto *wLab = static_cast<const WriteLabel *>(lab);
-			View v(getHbBefore(tos[0]));
+			View v(getEventLabel(tos[0])->getHbView());
 			for (auto &t : tos)
 				v.update(getEventLabel(t)->getHbView());
 

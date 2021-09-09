@@ -309,9 +309,7 @@ public:
 
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
-	const View &getHbBefore(Event e) const;
 	const View &getHbPoBefore(Event e) const;
-	View getHbBefore(const std::vector<Event> &es) const;
 	View getPorfBeforeNoRfs(const std::vector<Event> &es) const;
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
