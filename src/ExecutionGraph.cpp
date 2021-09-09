@@ -401,10 +401,8 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
 						     Event rf)
 {
-	if (!lab->getRf().isBottom()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf()))) {
-			wLab->addReader(lab->getPos());
-		}
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf()))) {
+		wLab->addReader(lab->getPos());
 	}
 
 	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
