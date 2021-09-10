@@ -2325,11 +2325,10 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 				}
 				continue;
 			}
-			if (!v.contains(lab->getPos())) {
-				if (readsBeforePrefix(g, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v, wbs)) {
-					// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
-					return false;
-				}
+
+			if (readsBeforePrefix(g, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v, wbs)) {
+				// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
+				return false;
 			}
 
 			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
@@ -2342,7 +2341,7 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 					return false;
 			}
 
-			if (!isMaximalEvent(lab, llvm::dyn_cast<WriteLabel>(wLab)) && !v.contains(lab->getPos())) {
+			if (!isMaximalEvent(lab, llvm::dyn_cast<WriteLabel>(wLab))) {
 				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
 				// if (lab == rLab  && rfFromPrefix)
 				// 	continue;
