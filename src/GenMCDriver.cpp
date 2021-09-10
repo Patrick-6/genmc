@@ -2403,7 +2403,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			    loads.end());
 
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
-		return g.getEventLabel(l1)->getStamp() < g.getEventLabel(l2)->getStamp();
+		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});
 
 	// llvm::dbgs() << "OLD GRPAH \n"; printGraph();
@@ -2430,7 +2430,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			// llvm::dbgs() << "NOT REVISITING " << rLab->getPos() << " from " << sLab->getPos() << " in ";
 			// printGraph();
 			// prettyPrintGraph();
-			continue;
+			break;
 		}
 
 		/* Get the prefix of the write to save */
