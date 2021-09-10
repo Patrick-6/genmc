@@ -2309,20 +2309,11 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	if (!coherenceSuccRemainInGraph(g, rLab, wLab, v))
 		return false;
 
-	// llvm::dbgs() << "checking read\n";
-	// llvm::dbgs() << "maximality status " << isMaximalEvent(rLab) << "\n";
-	if (!isMaximalEvent(rLab, llvm::dyn_cast<WriteLabel>(wLab)) ||
-	    (g.getEventLabel(rLab->getRf())->getStamp() > rLab->getStamp() &&
-	     !v.contains(rLab->getRf()) && !rLab->isRevisitedInPlace()) ||
-	    !readsFromMaximalInRevGraph(g, rLab, rLab, v, llvm::dyn_cast<WriteLabel>(wLab), initMaximals) ||
-	    readsBeforePrefix(g, rLab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v, wbs))
-		return false;
-
 	// llvm::dbgs() << "checking intermediates\n";
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
 			auto *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= rLab->getStamp())
+			if (lab->getStamp() < rLab->getStamp())
 				break;
 			if (v.contains(lab->getPos())) {
 				if (auto *sLab = llvm::dyn_cast<WriteLabel>(lab)) {
