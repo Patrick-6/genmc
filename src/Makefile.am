@@ -39,6 +39,7 @@ libgenmc_a_SOURCES = \
   InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  LabelIterator.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   Library.cpp Library.hpp \

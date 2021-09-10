@@ -25,6 +25,7 @@
 #include "LLVMModule.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
+#include "LabelIterator.hpp"
 #include "Parser.hpp"
 #include "SExprVisitor.hpp"
 #include "ThreadPool.hpp"
@@ -818,23 +819,19 @@ void GenMCDriver::findMemoryRaceForMemAccess(const MemAccessLabel *mLab)
 {
 	const auto &g = getGraph();
 	const View &before = g.getEventLabel(mLab->getPos().prev())->getHbView();
-	for (auto i = 0u; i < g.getNumThreads(); i++)
-		for (auto j = 0u; j < g.getThreadSize(i); j++) {
-			const EventLabel *oLab = g.getEventLabel(Event(i, j));
-			if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
-				if (fLab->getFreedAddr() == mLab->getAddr()) {
-					visitError(Status::VS_AccessFreed, "", oLab->getPos());
-				}
+	for (const auto *oLab : labels(g)) {
+		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
+			if (fLab->getFreedAddr() == mLab->getAddr())
+				visitError(Status::VS_AccessFreed, "", oLab->getPos());
+		}
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
+			if (aLab->contains(mLab->getAddr()) && !before.contains(oLab->getPos())) {
+				visitError(Status::VS_AccessNonMalloc,
+					   "The allocating operation (malloc()) "
+					   "does not happen-before the memory access!",
+					   oLab->getPos());
 			}
-			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
-				if (aLab->contains(mLab->getAddr()) &&
-				    !before.contains(oLab->getPos())) {
-					visitError(Status::VS_AccessNonMalloc,
-						   "The allocating operation (malloc()) "
-						   "does not happen-before the memory access!",
-						   oLab->getPos());
-				}
-			}
+		}
 	}
 
 	/* Also make sure there is an allocating event; do this separately for better error message */
@@ -849,28 +846,25 @@ void GenMCDriver::findMemoryRaceForAllocAccess(const FreeLabel *fLab)
 	const auto &g = getGraph();
 	auto ptr = fLab->getFreedAddr();
 	auto &before = g.getEventLabel(fLab->getPos())->getHbView();
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = 1u; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
-				if (aLab->getAllocAddr() == ptr &&
-				    before.contains(aLab->getPos())) {
-					m = aLab;
-				}
+	for (const auto *lab : labels(g)) {
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+			if (aLab->getAllocAddr() == ptr &&
+			    before.contains(aLab->getPos())) {
+				m = aLab;
 			}
-			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
-				if (dLab->getFreedAddr() == ptr &&
-				    dLab->getPos() != fLab->getPos()) {
-					visitError(Status::VS_DoubleFree, "", dLab->getPos());
-				}
+		}
+		if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
+			if (dLab->getFreedAddr() == ptr &&
+			    dLab->getPos() != fLab->getPos()) {
+				visitError(Status::VS_DoubleFree, "", dLab->getPos());
 			}
-			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
-				if (mLab->getAddr() == ptr &&
-				    !before.contains(mLab->getPos())) {
-					visitError(Status::VS_AccessFreed, "", mLab->getPos());
-				}
+		}
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+			if (mLab->getAddr() == ptr &&
+			    !before.contains(mLab->getPos())) {
+				visitError(Status::VS_AccessFreed, "", mLab->getPos());
+			}
 
-			}
 		}
 	}
 

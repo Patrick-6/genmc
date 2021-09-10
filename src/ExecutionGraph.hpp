@@ -54,9 +54,11 @@ class PersistencyChecker;
  */
 class ExecutionGraph {
 
-private:
+public:
 	using Thread = std::vector<std::unique_ptr<EventLabel> >;
-	using Graph = std::vector<Thread>;
+	using ThreadList = std::vector<Thread>;
+
+private:
 	using FixpointResult = Calculator::CalculationResult;
 
 	enum FixpointStatus { FS_Stale, FS_InProgress, FS_Done };
@@ -78,10 +80,10 @@ public:
 	virtual ~ExecutionGraph();
 
 	/* Iterators */
-	using iterator = Graph::iterator;
-	using const_iterator = Graph::const_iterator;
-	using reverse_iterator = Graph::reverse_iterator;
-	using const_reverse_iterator = Graph::const_reverse_iterator;
+	using iterator = ThreadList::iterator;
+	using const_iterator = ThreadList::const_iterator;
+	using reverse_iterator = ThreadList::reverse_iterator;
+	using const_reverse_iterator = ThreadList::const_reverse_iterator;
 
 	iterator begin() { return events.begin(); };
 	iterator end() { return events.end(); };
@@ -95,6 +97,14 @@ public:
 
 
 	/* Thread-related methods */
+
+	/* Returns a list of the threads in the graph */
+	inline const ThreadList &getThreadList() const {
+		return events;
+	}
+	inline ThreadList &getThreadList() {
+		return const_cast<ThreadList &>(static_cast<const ExecutionGraph &>(*this).getThreadList());
+	}
 
 	/* Creates a new thread in the execution graph */
 	inline void addNewThread() { events.push_back({}); };
@@ -517,7 +527,7 @@ protected:
 
 private:
 	/* A collection of threads and the events for each threads */
-	Graph events;
+	ThreadList events;
 
 	/* The next available timestamp */
 	unsigned int timestamp;
