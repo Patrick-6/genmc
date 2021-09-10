@@ -57,26 +57,6 @@ ExecutionGraph::~ExecutionGraph() = default;
  ** Basic getter methods
  ***********************************************************/
 
-unsigned int ExecutionGraph::nextStamp()
-{
-	return timestamp++;
-}
-
-const EventLabel *ExecutionGraph::getEventLabel(Event e) const
-{
-	return events[e.thread][e.index].get();
-}
-
-const EventLabel *ExecutionGraph::getPreviousLabel(Event e) const
-{
-	return events[e.thread][e.index - 1].get();
-}
-
-const EventLabel *ExecutionGraph::getPreviousLabel(const EventLabel *lab) const
-{
-	return events[lab->getThread()][lab->getIndex() - 1].get();
-}
-
 const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(Event e) const
 {
 	for (int i = e.index - 1; i > 0; i--) {
@@ -87,11 +67,6 @@ const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(Event e) const
 	return getEventLabel(Event(e.thread, 0));
 }
 
-const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(const EventLabel *lab) const
-{
-	return getPreviousNonEmptyLabel(lab->getPos());
-}
-
 Event ExecutionGraph::getPreviousNonTrivial(const Event e) const
 {
 	for (auto i = e.index - 1; i >= 0; i--) {
@@ -99,16 +74,6 @@ Event ExecutionGraph::getPreviousNonTrivial(const Event e) const
 			return Event(e.thread, i);
 	}
 	return Event::getInitializer();
-}
-
-const EventLabel *ExecutionGraph::getLastThreadLabel(int thread) const
-{
-	return events[thread][events[thread].size() - 1].get();
-}
-
-Event ExecutionGraph::getLastThreadEvent(int thread) const
-{
-	return Event(thread, events[thread].size() - 1);
 }
 
 Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const

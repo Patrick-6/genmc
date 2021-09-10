@@ -136,7 +136,7 @@ public:
 	/* Event addition methods */
 
 	/* Returns the next available stamp (and increases the counter) */
-	unsigned int nextStamp();
+	unsigned int nextStamp() { return timestamp++; }
 
 	/* Event addition methods should be called from the managing objects,
 	 * so that the relation managing objects are also informed */
@@ -153,20 +153,26 @@ public:
 	/* Event getter methods */
 
 	/* Returns the label in the position denoted by event e */
-	const EventLabel *getEventLabel(Event e) const;
-	EventLabel *getEventLabel(Event e) {
+	const EventLabel *getEventLabel(Event e) const {
 		return events[e.thread][e.index].get();
-	};
+	}
+	EventLabel *getEventLabel(Event e) {
+		return const_cast<EventLabel *>(static_cast<const ExecutionGraph&>(*this).getEventLabel(e));
+	}
 
 	/* Returns the label in the previous position of e.
 	 * Does _not_ perform any out-of-bounds checks */
-	const EventLabel *getPreviousLabel(Event e) const;
-	const EventLabel *getPreviousLabel(const EventLabel *lab) const;
+	const EventLabel *getPreviousLabel(Event e) const { return getEventLabel(e.prev()); }
+	const EventLabel *getPreviousLabel(const EventLabel *lab) const {
+		return getPreviousLabel(lab->getPos());
+	}
 
 	/* Returns the previous non-empty label of e. Since all threads
 	 * have an initializing event, it returns that as a base case */
 	const EventLabel *getPreviousNonEmptyLabel(Event e) const;
-	const EventLabel *getPreviousNonEmptyLabel(const EventLabel *lab) const;
+	const EventLabel *getPreviousNonEmptyLabel(const EventLabel *lab) const {
+		return getPreviousNonEmptyLabel(lab->getPos());
+	}
 
 	/* Returns the previous non-trivial predecessor of e.
 	 * Returns INIT in case no such event is found */
@@ -182,11 +188,13 @@ public:
 		return getEventLabel(getFirstThreadEvent(tid));
 	}
 
-	/* Returns the last label in the thread tid */
-	const EventLabel *getLastThreadLabel(int tid) const;
-
-	/* Returns the last event in the thread tid */
-	Event getLastThreadEvent(int tid) const;
+	/* Returns the last event/label in the thread tid */
+	Event getLastThreadEvent(int thread) const {
+		return Event(thread, getThreadSize(thread) - 1);
+	}
+	const EventLabel *getLastThreadLabel(int thread) const {
+		return getEventLabel(getLastThreadEvent(thread));
+	}
 
 	/* Returns the last store at ADDR that is before UPPERLIMIT in
 	 * UPPERLIMIT's thread. If such a store does not exist, it
