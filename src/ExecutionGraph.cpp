@@ -32,8 +32,8 @@
  ** Class constructors/destructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr), fixStatus(FS_Stale),
-				   fixType(CheckConsType::fast), fixResult()
+ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr),
+				   relations(), relsCache()
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -44,8 +44,8 @@ ExecutionGraph::ExecutionGraph() : timestamp(1), persChecker(nullptr), fixStatus
 					     Event::getInitializer() )
 				     ) );
 
-	globalRelations.push_back(Calculator::GlobalRelation());
-	globalRelationsCache.push_back(Calculator::GlobalRelation());
+	relations.global.push_back(Calculator::GlobalRelation());
+	relsCache.global.push_back(Calculator::GlobalRelation());
 	relationIndex[RelationId::hb] = 0;
 	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
 	return;
@@ -396,7 +396,7 @@ const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<L
 
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
@@ -425,13 +425,13 @@ void ExecutionGraph::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
 	/* Add a matrix for this relation */
 	auto relSize = 0u;
 	if (perLoc) {
-		relSize = perLocRelations.size();
-		perLocRelations.push_back(Calculator::PerLocRelation());
-		perLocRelationsCache.push_back(Calculator::PerLocRelation());
+		relSize = relations.perLoc.size();
+		relations.perLoc.push_back(Calculator::PerLocRelation());
+		relsCache.perLoc.push_back(Calculator::PerLocRelation());
 	} else {
-		relSize = globalRelations.size();
-		globalRelations.push_back(Calculator::GlobalRelation());
-		globalRelationsCache.push_back(Calculator::GlobalRelation());
+		relSize = relations.global.size();
+		relations.global.push_back(Calculator::GlobalRelation());
+		relsCache.global.push_back(Calculator::GlobalRelation());
 	}
 
 	/* Update indices trackers */
@@ -442,62 +442,42 @@ void ExecutionGraph::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
 Calculator::GlobalRelation& ExecutionGraph::getGlobalRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
-	return globalRelations[relationIndex[id]];
+	return relations.global[relationIndex[id]];
 }
 
 Calculator::PerLocRelation& ExecutionGraph::getPerLocRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
-	return perLocRelations[relationIndex[id]];
+	return relations.perLoc[relationIndex[id]];
 }
 
 Calculator::GlobalRelation& ExecutionGraph::getCachedGlobalRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
-	return globalRelationsCache[relationIndex[id]];
+	return relsCache.global[relationIndex[id]];
 }
 
 Calculator::PerLocRelation& ExecutionGraph::getCachedPerLocRelation(RelationId id)
 {
 	BUG_ON(relationIndex.count(id) == 0);
-	return perLocRelationsCache[relationIndex[id]];
+	return relsCache.perLoc[relationIndex[id]];
 }
 
 void ExecutionGraph::cacheRelations(bool copy /* = true */)
 {
-	if (copy) {
-		for (auto i = 0u; i < globalRelations.size(); i++)
-			globalRelationsCache[i] = globalRelations[i];
-		for (auto i = 0u; i < perLocRelations.size(); i++)
-			perLocRelationsCache[i] = perLocRelations[i];
-	} else {
-		for (auto i = 0u; i < globalRelations.size(); i++)
-			globalRelationsCache[i] = std::move(globalRelations[i]);
-		for (auto i = 0u; i < perLocRelations.size(); i++)
-			perLocRelationsCache[i] = std::move(perLocRelations[i]);
-	}
-	fixStatusCache = fixStatus;
-	fixTypeCache = fixType;
-	fixResultCache = fixResult;
+	if (copy)
+		relsCache = relations;
+	else
+		relsCache = std::move(relations);
 	return;
 }
 
 void ExecutionGraph::restoreCached(bool move /* = false */)
 {
-	if (!move) {
-		for (auto i = 0u; i < globalRelations.size(); i++)
-			globalRelations[i] = globalRelationsCache[i];
-		for (auto i = 0u; i < perLocRelations.size(); i++)
-			perLocRelations[i] = perLocRelationsCache[i];
-	} else {
-		for (auto i = 0u; i < globalRelations.size(); i++)
-			globalRelations[i] = std::move(globalRelationsCache[i]);
-		for (auto i = 0u; i < perLocRelations.size(); i++)
-			perLocRelations[i] = std::move(perLocRelationsCache[i]);
-	}
-	fixStatus = fixStatusCache;
-	fixType = fixTypeCache;
-	fixResult = fixResultCache;
+	if (!move)
+		relations = relsCache;
+	else
+		relations = std::move(relsCache);
 	return;
 }
 
@@ -569,7 +549,7 @@ void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> p
 
 bool ExecutionGraph::isHbBefore(Event a, Event b, CheckConsType t /* = fast */)
 {
-	if (fixStatus == FS_Done && t == fixType)
+	if (getFPStatus() == FS_Done && getFPType() == t)
 		return getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 	if (t == CheckConsType::fast)
 		return getEventLabel(b)->getHbView().contains(a);
@@ -593,7 +573,7 @@ bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false
 
 	if (checkCache)
 		return cc->isCachedCoMaximal(addr, e);
-	if (fixStatus == FS_Done && t == fixType)
+	if (getFPStatus() == FS_Done && getFPType() == t)
 		return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
 	if (t == CheckConsType::fast)
 		return cc->isCoMaximal(addr, e);
@@ -604,14 +584,14 @@ bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false
 
 void ExecutionGraph::doInits(bool full /* = false */)
 {
-	auto &hb = globalRelations[relationIndex[RelationId::hb]];
+	auto &hb = relations.global[relationIndex[RelationId::hb]];
 	populateHbEntries(hb);
 	hb.transClosure();
 
 	/* Clear out unused locations */
-	for (auto i = 0u; i < perLocRelations.size(); i++) {
-		perLocRelations[i].clear();
-		perLocRelationsCache[i].clear();
+	for (auto i = 0u; i < relations.perLoc.size(); i++) {
+		relations.perLoc[i].clear();
+		relsCache.perLoc[i].clear();
        }
 
 	auto &calcs = consistencyCalculators;
@@ -741,25 +721,25 @@ bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
 bool ExecutionGraph::isConsistent(CheckConsType checkT)
 {
 	/* Fastpath: We have cached info or no fixpoint is required */
-	if (fixStatus == FS_Done && fixType == checkT)
-		return fixResult.cons;
+	if (getFPStatus() == FS_Done && getFPType() == checkT)
+		return getFPResult().cons;
 	if (checkT == CheckConsType::fast)
 		return true;
 
 	/* Slowpath: Go calculate fixpoint */
-	fixStatus = FS_InProgress;
+	setFPStatus(FS_InProgress);
 	doInits(checkT == CheckConsType::full);
 	do {
-		fixResult = doCalcs(checkT == CheckConsType::full);
-		if (!fixResult.cons)
+		setFPResult(doCalcs(checkT == CheckConsType::full));
+		if (!getFPResult().cons)
 			return false;
-	} while (fixResult.changed);
+	} while (getFPResult().changed);
 
 	/* Do final checks, after the fixpoint is over */
-	fixResult.cons = doFinalConsChecks(checkT == CheckConsType::full);
-	fixStatus = FS_Done;
-	fixType = checkT;
-	return fixResult.cons;
+	setFPResult(FixpointResult(false, doFinalConsChecks(checkT == CheckConsType::full)));
+	setFPStatus(FS_Done);
+	setFPType(checkT);
+	return getFPResult().cons;
 }
 
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
@@ -1101,7 +1081,7 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 
 void ExecutionGraph::changeRf(Event read, Event store)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 
 	EventLabel *lab = events[read.thread][read.index].get();
 	BUG_ON(!llvm::isa<ReadLabel>(lab));
@@ -1137,7 +1117,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 
 bool ExecutionGraph::updateJoin(Event join, Event childLast)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 
 	EventLabel *lab = events[join.thread][join.index].get();
 	BUG_ON(!llvm::isa<ThreadJoinLabel>(lab));
@@ -1158,7 +1138,7 @@ bool ExecutionGraph::updateJoin(Event join, Event childLast)
 
 void ExecutionGraph::resetJoin(Event join)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 
 	/* If there is no parent join label, return */
 	EventLabel *lab = events[join.thread][join.index].get();
@@ -1213,7 +1193,7 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 
 void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 
 	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
 	auto *cohTracker = static_cast<MOCalculator *>(
@@ -1231,7 +1211,7 @@ ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel
 
 void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
-	fixStatus = FS_Stale;
+	setFPStatus(FS_Stale);
 	auto preds = getViewFromStamp(stamp);
 
 	/* Inform all calculators about the events cutted */
@@ -1322,22 +1302,16 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 	/* First, populate calculators, etc */
 	og->timestamp = timestamp;
 
-	og->fixStatus = FS_Stale;
-	og->fixStatusCache = FS_Stale;
-	og->fixType = CheckConsType::fast;
-	og->fixTypeCache = CheckConsType::fast;
-	og->fixResult = FixpointResult();
-	og->fixResultCache = FixpointResult();
+	og->relations = relations;
+	og->relsCache = relsCache;
+
+	og->relations.fixStatus = FS_Stale;
+	og->relsCache.fixStatus = FS_Stale;
 
 	for (const auto &cc : consistencyCalculators)
 		og->consistencyCalculators.push_back(cc->clone(*og));
 
 	og->partialConsCalculators = partialConsCalculators;
-
-	og->globalRelations = globalRelations;
-	og->globalRelationsCache = globalRelationsCache;
-	og->perLocRelations = perLocRelations;
-	og->perLocRelationsCache = perLocRelationsCache;
 
 	og->calculatorIndex = calculatorIndex;
 	og->relationIndex = relationIndex;

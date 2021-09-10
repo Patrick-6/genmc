@@ -63,6 +63,19 @@ private:
 
 	enum FixpointStatus { FS_Stale, FS_InProgress, FS_Done };
 
+	/* Packs together structures useful for calculations on relations */
+	struct Relations {
+
+		Relations() = default;
+
+		std::vector<Calculator::GlobalRelation> global;
+		std::vector<Calculator::PerLocRelation> perLoc;
+
+		FixpointStatus fixStatus;
+		FixpointResult fixResult;
+		CheckConsType fixType;
+	};
+
 public:
 	/* Should be used for the contruction of execution graphs */
 	class Builder;
@@ -501,6 +514,15 @@ protected:
 		events[e.thread][e.index] = std::move(lab);
 	};
 
+	FixpointStatus getFPStatus() const { return relations.fixStatus; }
+	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }
+
+	CheckConsType getFPType() const { return relations.fixType; }
+	void setFPType(CheckConsType t) { relations.fixType = t; }
+
+	FixpointResult getFPResult() const { return relations.fixResult; }
+	void setFPResult(FixpointResult r) { relations.fixResult = r; }
+
 	void doInits(bool fullCalc = false);
 
 	/* Performs a step of all the specified calculations. Takes as
@@ -539,16 +561,9 @@ private:
 	/* The next available timestamp */
 	unsigned int timestamp;
 
-	/* Current calculation status */
-	FixpointStatus fixStatus;
-	FixpointStatus fixStatusCache;
-
-	/* Current calculation result */
-	FixpointResult fixResult;
-	FixpointResult fixResultCache;
-
-	CheckConsType fixType;
-	CheckConsType fixTypeCache;
+	/* Relations and calculation status/result */
+	Relations relations;
+	Relations relsCache;
 
 	/* A list of all the calculations that need to be performed
 	 * when checking for full consistency*/
@@ -558,17 +573,11 @@ private:
 	 * at each step of the algorithm (partial consistency check) */
 	std::vector<int> partialConsCalculators;
 
-	/* The relation matrices (and caches) maintained in the manager */
-	std::vector<Calculator::GlobalRelation> globalRelations;
-	std::vector<Calculator::GlobalRelation> globalRelationsCache;
-	std::vector<Calculator::PerLocRelation> perLocRelations;
-	std::vector<Calculator::PerLocRelation> perLocRelationsCache;
-
 	/* Keeps track of calculator indices */
 	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > calculatorIndex;
 
 	/* Keeps track of relation indices. Note that an index might
-	 * refer to either globalRelations or perLocRelations */
+	 * refer to either relations.global or relations.perLoc */
 	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
 
 	/* Pers: An object calculating persistency relations */
