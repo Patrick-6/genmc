@@ -2046,36 +2046,6 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 	return false;
 }
 
-bool readsFromPrefix(const ExecutionGraph &g,
-		     const EventLabel *lab,
-		     const ReadLabel *revLab,
-		     const MemAccessLabel *wLab,
-		     const VectorClock &prefix)
-{
-	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-	if (!rLab)
-		return false;
-
-	auto *rfLab = g.getEventLabel(rLab->getRf());
-	if (rfLab->getStamp() <= revLab->getStamp() || !prefix.contains(rfLab->getPos()))
-		return false;
-
-	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
-	BUG_ON(!cc);
-
-	auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
-	auto it = locMO.begin();
-
-	for (; *it != rfLab->getPos(); ++it)
-		;
-	for (++it; it != locMO.end(); ++it) {
-		auto *slab = g.getEventLabel(*it);
-		if (prefix.contains(slab->getPos()) && slab->getPos() != wLab->getPos())
-			return false;
-	}
-	return true;
-}
-
 bool readsBeforePrefix(const ExecutionGraph &g,
 		       const EventLabel *lab,
 		       const ReadLabel *revLab,
@@ -2344,8 +2314,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 			if (!isMaximalEvent(lab, llvm::dyn_cast<WriteLabel>(wLab))) {
 				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
 				// if (lab == rLab  && rfFromPrefix)
-				// 	continue;
-				// if (readsFromPrefix(g, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v))
 				// 	continue;
 				// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
 				// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
