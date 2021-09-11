@@ -1994,30 +1994,16 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 		return false;
 
 	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
-		auto &locMO = cc->getModOrderAtLoc(wLab->getAddr());
-		auto it = locMO.begin();
-
-		for (; *it != wLab->getPos(); ++it) {
-			auto *slab = g.getEventLabel(*it);
-			if (v.contains(slab->getPos()))
-				continue;
-			if (slab->getStamp() <= rLab->getStamp())
-				continue;
-			if (slab->getStamp() < wLab->getStamp() &&
-			    !((llvm::isa<FaiWriteLabel>(slab) || llvm::isa<CasWriteLabel>(slab)) &&
-			      slab->getPos().prev() == rLab->getPos()))
-				return true;
-		}
-
-		for (++it; it != locMO.end(); ++it) {
-			// auto *slab = g.getEventLabel(*it);
-			// if (v.contains(slab->getPos()))
-			// 	return false;
-			// if (slab->getStamp() <= rLab->getStamp())
-			// 	return false;
-			// if (slab->getStamp() < wLab->getStamp())
-			// 	return true;
-		}
+		if (std::any_of(cc->pred_begin(wLab->getAddr(), wLab->getPos()),
+				cc->pred_end(wLab->getAddr(), wLab->getPos()), [&](const Event &s){
+					auto *sLab = g.getEventLabel(s);
+					return !v.contains(sLab->getPos()) &&
+						sLab->getStamp() > rLab->getStamp() &&
+						sLab->getStamp() < wLab->getStamp() &&
+						!((llvm::isa<FaiWriteLabel>(sLab) || llvm::isa<CasWriteLabel>(sLab)) &&
+						  sLab->getPos().prev() == rLab->getPos());
+				}))
+			return true;
 	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
 		if (!wbs.count(wLab->getAddr())) {
 			auto p = g.getPredsView(wrLab->getPos()); // NOTE THIS WRLAB
@@ -2065,19 +2051,15 @@ bool readsBeforePrefix(const ExecutionGraph &g,
 	// }
 
 	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
-		auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
-
-		/* FIXME: very dirty -- make proper iterators */
-		auto it = locMO.begin();
-		for (; it != locMO.end() && *it != rLab->getRf(); ++it)
-			;
-		it = (it == locMO.end()) ? locMO.begin() : it + 1;
-		for (; it != locMO.end(); ++it) {
-			auto *sLab = g.getEventLabel(*it);
-			if (sLab->getStamp() > revLab->getStamp() && prefix.contains(*it) && *it != wLab->getPos()) {
+		if (std::any_of(cc->succ_begin(rLab->getAddr(), rLab->getRf()),
+				cc->succ_end(rLab->getAddr(), rLab->getRf()), [&](const Event &s){
+					auto *sLab = g.getEventLabel(s);
+					return (sLab->getStamp() > revLab->getStamp() &&
+						prefix.contains(sLab->getPos()) &&
+						sLab->getPos() != wLab->getPos());
+				})) {
 				// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<*it << " in " << g << "\n";
 				return true;
-			}
 		}
 	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
 		if (!wbs.count(rLab->getAddr())) {
@@ -2206,29 +2188,20 @@ bool readsFromMaximalInRevGraph(const ExecutionGraph &g,
 	return lab->getRf() == initMaximals[lab->getAddr()];
 }
 
-bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const EventLabel *wLab,
+bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const WriteLabel *wLab,
 				const VectorClock &v)
 {
 	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
 		return true;
 
 	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
-		auto &locMO = cc->getModOrderAtLoc(rLab->getAddr());
-		auto pending = g.getPendingRMWs(llvm::dyn_cast<WriteLabel>(wLab));
-		// llvm::dbgs() << format(pending) << "\n";
-
-		auto it = locMO.begin();
-		for (; it != locMO.end() && *it != wLab->getPos(); ++it)
-			;
-		BUG_ON(it == locMO.end());
-		if (++it == locMO.end())
+		auto succIt = cc->succ_begin(wLab->getAddr(), wLab->getPos());
+		auto succE = cc->succ_end(wLab->getAddr(), wLab->getPos());
+		if (succIt == succE)
 			return true;
 
-		auto *sLab = g.getEventLabel(*it);
-		if (sLab->getStamp() > rLab->getStamp() && !v.contains(sLab->getPos()) // &&
-		    // (!g.isRMWLoad(rLab) || sLab->getPos() != rLab->getPos().next()) &&
-		    // (pending.empty() || !g.getPrefixView(pending.back().next()).contains(sLab->getPos()))
-			) {
+		auto *sLab = g.getEventLabel(*succIt);
+		if (sLab->getStamp() > rLab->getStamp() && !v.contains(sLab->getPos())) {
 			// llvm::dbgs() << "not revisiting " << rLab->getPos() << " from " << wLab->getPos() << " due to " << *it << " in " << g << "\n";
 			return false;
 		}
@@ -2276,7 +2249,7 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 	Calculator::PerLocRelation wbs;
 	std::unordered_map<SAddr, Event> initMaximals;
 
-	if (!coherenceSuccRemainInGraph(g, rLab, wLab, v))
+	if (!coherenceSuccRemainInGraph(g, rLab, llvm::dyn_cast<WriteLabel>(wLab), v))
 		return false;
 
 	// llvm::dbgs() << "checking intermediates\n";

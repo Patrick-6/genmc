@@ -22,6 +22,36 @@
 #include "ExecutionGraph.hpp"
 #include <vector>
 
+MOCalculator::LocStores::const_iterator
+MOCalculator::succ_begin(SAddr addr, Event store) const
+{
+	auto &locMO = getModOrderAtLoc(addr);
+	auto offset = getStoreOffset(addr, store);
+	return locMO.begin() + (offset + 1);
+}
+
+MOCalculator::LocStores::const_iterator
+MOCalculator::succ_end(SAddr addr, Event store) const
+{
+	auto &locMO = getModOrderAtLoc(addr);
+	return locMO.end();
+}
+
+MOCalculator::LocStores::const_iterator
+MOCalculator::pred_begin(SAddr addr, Event store) const
+{
+	auto &locMO = getModOrderAtLoc(addr);
+	return locMO.begin();
+}
+
+MOCalculator::LocStores::const_iterator
+MOCalculator::pred_end(SAddr addr, Event store) const
+{
+	auto &locMO = getModOrderAtLoc(addr);
+	auto offset = getStoreOffset(addr, store);
+	return locMO.begin() + (offset >= 0 ? offset : 0);
+}
+
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)
 {
 	mo_[addr];

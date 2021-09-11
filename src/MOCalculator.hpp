@@ -35,6 +35,10 @@
  */
 class MOCalculator : public CoherenceCalculator {
 
+private:
+	using LocStores = std::vector<Event>;
+	using ModifOrder = std::unordered_map<SAddr, LocStores>;
+
 public:
 
 	/* Constructor */
@@ -45,6 +49,17 @@ public:
 	iterator end() override { return mo_.end(); };
 	const_iterator cbegin() const override { return mo_.cbegin(); };
 	const_iterator cend() const override { return mo_.cend(); };
+
+	/* Iterates over the successors of STORE.
+	 * Pre: STORE needs to be in mo_ADDR */
+	LocStores::const_iterator succ_begin(SAddr addr, Event store) const;
+	LocStores::const_iterator succ_end(SAddr addr, Event store) const;
+
+	/* Iterates over the predecessors of STORE, excluding the
+	 * initializer.
+	 * Pre: STORE needs to be in mo_ADDR */
+	LocStores::const_iterator pred_begin(SAddr addr, Event store) const;
+	LocStores::const_iterator pred_end(SAddr addr, Event store) const;
 
 	/* Track coherence at location addr */
 	void
@@ -161,8 +176,6 @@ private:
 	/* Returns true if the location "loc" contains the event "e" */
 	bool locContains(SAddr loc, Event e) const;
 
-
-	typedef std::unordered_map<SAddr, std::vector<Event> > ModifOrder;
 	ModifOrder mo_;
 };
 
