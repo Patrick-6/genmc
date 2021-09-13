@@ -1360,16 +1360,6 @@ bool ExecutionGraph::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab
 			}
 		}
 	}
-	if (isRMWLoad(rLab)) {
-		auto *nLab = getEventLabel(rLab->getPos().next());
-		auto pending = getPendingRMWs(llvm::dyn_cast<WriteLabel>(nLab));
-		auto *rfLab = getEventLabel(rLab->getRf());
-		// llvm::dbgs() << "checking whether " << wLab->getPos() << " --> " << rLab->getPos() << " should happen\n";
-		if (rfLab->getStamp() > rLab->getStamp() && // v.contains(rfLab->getPos()) &&
-		    pending.size() && pending.back().next() != wLab->getPos())
-			return false;
-		// llvm::dbgs() << "yiss\n";
-	}
 	return true;
 }
 
