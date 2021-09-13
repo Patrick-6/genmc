@@ -415,6 +415,9 @@ public:
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
+	bool isMaximalEvent(const EventLabel *lab, const WriteLabel *wLab);
+	bool inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab);
+
 
 	/* Debugging methods */
 
