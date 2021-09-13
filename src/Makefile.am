@@ -42,7 +42,6 @@ libgenmc_a_SOURCES = \
   LabelIterator.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
-  Library.cpp Library.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \

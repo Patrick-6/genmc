@@ -54,7 +54,6 @@ public:
 	bool disableRaceDetection;
 	bool disableBarrierOpt;
 	bool disableStopOnSystemError;
-	std::string specsFile;
 
 	/*** Persistency options ***/
 	bool persevere;

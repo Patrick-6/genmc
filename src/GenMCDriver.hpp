@@ -26,7 +26,6 @@
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
 #include "WorkSet.hpp"
-#include "Library.hpp"
 #include <llvm/IR/Module.h>
 
 #include <ctime>
@@ -137,12 +136,6 @@ private:
 	};
 
 public:
-	/* Returns a list of the libraries the specification of which are given */
-	const std::vector<Library> &getGrantedLibs()  const { return grantedLibs; };
-
-	/* Returns a list of the libraries which need to be verified (TODO) */
-	const std::vector<Library> &getToVerifyLibs() const { return toVerifyLibs; };
-
 	/*** State-related ***/
 
 	/* FIXME: Document */
@@ -198,16 +191,6 @@ public:
 		  llvm::AtomicRMWInst::BinOp op =
 		  llvm::AtomicRMWInst::BinOp::BAD_BINOP);
 
-	/* Returns the value this load reads, as well as whether
-	 * the interpreter should block due to a blocking library read */
-	std::pair<SVal, bool>
-	visitLibLoad(InstAttr attr,
-		     llvm::AtomicOrdering ord,
-		     SAddr addr,
-		     ASize size,
-		     AType type,
-		     std::string functionName);
-
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	SVal
@@ -221,17 +204,6 @@ public:
 		   ASize size,
 		   AType type,
 		   SVal val);
-
-	/* A lib store has been interpreted, nothing for the interpreter */
-	void
-	visitLibStore(InstAttr attr,
-		      llvm::AtomicOrdering ord,
-		      SAddr addr,
-		      ASize size,
-		      AType type,
-		      SVal val,
-		      std::string functionName,
-		      bool isInit = false);
 
 	/* A function modeling a write to disk has been interpreted */
 	void
@@ -494,7 +466,6 @@ private:
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
-	bool calcLibRevisits(const EventLabel *lab);
 
 	/* Adjusts the graph only when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
@@ -568,11 +539,6 @@ private:
 	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
 	 * Sets the rf of rLab to the first valid option in rfs */
 	void filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs);
-
-	std::vector<Event>
-	getLibConsRfsInView(const Library &lib, Event read,
-			    const std::vector<Event> &stores,
-			    const View &v);
 
 	/* Opt: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
@@ -702,12 +668,6 @@ private:
 
 	/* User configuration */
 	std::shared_ptr<const Config> userConf;
-
-	/* Specifications for libraries assumed correct */
-	std::vector<Library> grantedLibs;
-
-	/* Specifications for libraries that need to be verified (TODO) */
-	std::vector<Library> toVerifyLibs;
 
 	/* The interpreter used by the driver */
 	std::unique_ptr<llvm::Interpreter> EE;

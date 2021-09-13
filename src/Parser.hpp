@@ -21,7 +21,6 @@
 #ifndef __PARSER_HPP__
 #define __PARSER_HPP__
 
-#include "Library.hpp"
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 #include <iostream>
@@ -40,7 +39,6 @@ public:
 	static void parseInstFromMData(std::pair<int, std::string> &locAndFile,
 				       std::string functionName,
 				       llvm::raw_ostream &os = llvm::dbgs());
-	std::vector<Library> parseSpecs(const string &fileName);
 };
 
 #endif /* __PARSER_HPP__ */

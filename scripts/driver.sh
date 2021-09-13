@@ -124,19 +124,7 @@ do
     done
 done
 
-# # Then, do all the library tests (and reprint header)
-# header_printed=""
-# libdir="${DIR}/../tests/libs"
-# for model in rc11
-# do
-#     for coherence in mo # wb mo
-#     do
-# 	testdir="${libdir}" && source "${DIR}/runcorrect.sh"
-# 	increase_total_time
-#     done
-# done
-
-# # Finally, run the testcases in the wrong/ directory
+# # Then, run the testcases in the wrong/ directory
 # header_printed=""
 # wrongdir="${DIR}/../tests/wrong"
 # for model in rc11 imm

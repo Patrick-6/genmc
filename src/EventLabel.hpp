@@ -71,7 +71,6 @@ public:
 		EL_CasRead,
 		EL_LockCasRead,
 		EL_CasReadLast,
-		EL_LibRead,
 		EL_DskRead,
 		EL_LastRead,
 		EL_Write,
@@ -84,7 +83,6 @@ public:
 		EL_CasWrite,
 		EL_LockCasWrite,
 		EL_CasWriteLast,
-		EL_LibWrite,
 		EL_DskWrite,
 		EL_DskMdWrite,
 		EL_DskJnlWrite,
@@ -669,55 +667,6 @@ public:
 
 
 /*******************************************************************************
- **                         LibReadLabel Class
- ******************************************************************************/
-
-/* Represents an operation with read semantics of a higher-level library
- * (e.g., lock, dequeue, etc) */
-class LibReadLabel : public ReadLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
-public:
-	LibReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		     SAddr addr, ASize size, AType type, Event rf, std::string name)
-		: ReadLabel(EL_LibRead, st, ord, pos, addr, size, type, rf), functionName(name) {}
-
-	template<typename... Ts>
-	static std::unique_ptr<LibReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LibReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	/* Returns the name of this operation */
-	const std::string& getFunctionName() const { return functionName; }
-
-	/* Returns a vector with writes that this read could not read from
-	 * when it was first added to the graph */
-	const std::vector<Event>& getInvalidRfs() const { return invalidRfs; }
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LibReadLabel>(*this);
-	}
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_LibRead; }
-
-private:
-	/* Records a write that this read cannot read from */
-	void addInvalidRf(Event rf) { invalidRfs.push_back(rf); }
-
-	/* Name of the corresponding library member with read semantics */
-	std::string functionName;
-
-	/* The list with writes this read could not read from when it was
-	 * first added to the execution graph */
-	std::vector<Event> invalidRfs;
-};
-
-
-/*******************************************************************************
  **                         DskReadLabel Class
  ******************************************************************************/
 
@@ -1047,52 +996,6 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockCasWrite; }
-};
-
-
-/*******************************************************************************
- **                         LibWriteLabel Class
- ******************************************************************************/
-
-/* Write counterpart of LibReadLabel clas */
-class LibWriteLabel : public WriteLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
-public:
-	LibWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val,
-		      std::string name, bool isInit)
-		: WriteLabel(EL_LibWrite, st, ord, pos, addr, size, type, val),
-		  functionName(name), initial(isInit) {}
-
-	template<typename... Ts>
-	static std::unique_ptr<LibWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LibWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	/* Returns the name of the respective function of the library */
-	const std::string& getFunctionName() const { return functionName; }
-
-	/* Returns true if this is the initializing write for this memory
-	 * location and this particular library */
-	bool isLibInit() const { return initial; }
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LibWriteLabel>(*this);
-	}
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_LibWrite; }
-
-private:
-	/* The name of the corresponding library member */
-	std::string functionName;
-
-	/* Whether this is the initializing write */
-	bool initial;
 };
 
 

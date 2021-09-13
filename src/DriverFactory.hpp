@@ -22,7 +22,6 @@
 #define __DRIVER_FACTORY_HPP__
 
 #include "Config.hpp"
-#include "Library.hpp"
 #include "IMMDriver.hpp"
 #include "RC11Driver.hpp"
 #include <llvm/IR/Module.h>

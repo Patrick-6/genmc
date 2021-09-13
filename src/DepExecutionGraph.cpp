@@ -95,7 +95,7 @@ bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 }
 
 std::vector<std::unique_ptr<EventLabel> >
-DepExecutionGraph::getPrefixLabelsNotBefore(const EventLabel *sLab,
+DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 					    const ReadLabel *rLab) const
 {
 	std::vector<std::unique_ptr<EventLabel> > result;

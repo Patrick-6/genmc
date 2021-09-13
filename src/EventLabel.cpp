@@ -85,7 +85,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
-	case EventLabel::EL_LibRead:
 		s << "R";
 		break;
 	case EventLabel::EL_FaiRead:
@@ -104,7 +103,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_BInitWrite:
 	case EventLabel::EL_BDestroyWrite:
 	case EventLabel::EL_UnlockWrite:
-	case EventLabel::EL_LibWrite:
 		s << "W";
 		break;
 	case EventLabel::EL_Fence:
@@ -228,14 +226,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << "]";
 		break;
 	}
-	case EventLabel::EL_LibRead: {
-		auto &rLab = static_cast<const LibReadLabel&>(lab);
-		s << rLab.getKind() << rLab.getOrdering() << " ("
-		  << rLab.getFunctionName() << ") [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
 	case EventLabel::EL_Write: {
 		auto &wLab = static_cast<const WriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " " << wLab.getVal();
@@ -252,12 +242,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		auto &wLab = static_cast<const CasWriteLabel&>(lab);
 		s << wLab.getKind() << wLab.getOrdering() << " "
 		  << wLab.getVal() << "";
-		break;
-	}
-	case EventLabel::EL_LibWrite: {
-		auto &wLab = static_cast<const LibWriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " ("
-		  << wLab.getFunctionName() << ") " << wLab.getVal();
 		break;
 	}
 	case EventLabel::EL_Fence: {

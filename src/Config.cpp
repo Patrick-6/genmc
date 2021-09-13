@@ -117,11 +117,6 @@ llvm::cl::opt<bool>
 clCheckLiveness("check-liveness", llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Check for liveness violations"));
 
-static llvm::cl::opt<std::string>
-clLibrarySpecsFile("library-specs", llvm::cl::init(""), llvm::cl::value_desc("file"),
-		   llvm::cl::cat(clGeneral),
-		   llvm::cl::desc("Check for library correctness"));
-
 static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
@@ -314,7 +309,6 @@ void Config::saveConfigOptions()
 	inputFile = clInputFile;
 
 	/* Save exploration options */
-	specsFile = clLibrarySpecsFile;
 	dotFile = clDotGraphFile;
 	model = clModelType;
 	isDepTrackingModel = (model == ModelType::imm);

@@ -65,15 +65,6 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 		llvm::dbgs() << "Seed: " << seedVal << "\n";
 	rng.seed(seedVal);
 
-	/* If a specs file has been specified, parse it */
-	if (userConf->specsFile != "") {
-		auto res = Parser().parseSpecs(userConf->specsFile);
-		std::copy_if(res.begin(), res.end(), std::back_inserter(grantedLibs),
-			     [](Library &l){ return l.getType() == Granted; });
-		std::copy_if(res.begin(), res.end(), std::back_inserter(toVerifyLibs),
-			     [](Library &l){ return l.getType() == ToVerify; });
-	}
-
 	/*
 	 * Make sure we can resolve symbols in the program as well. We use 0
 	 * as an argument in order to load the program, not a library. This
@@ -1066,28 +1057,6 @@ void GenMCDriver::checkLiveness()
 	return;
 }
 
-std::vector<Event>
-GenMCDriver::getLibConsRfsInView(const Library &lib, Event read,
-				 const std::vector<Event> &stores,
-				 const View &v)
-{
-	EventLabel *lab = getGraph().getEventLabel(read);
-	BUG_ON(!llvm::isa<LibReadLabel>(lab));
-
-	auto *rLab = static_cast<ReadLabel *>(lab);
-	Event oldRf = rLab->getRf();
-	std::vector<Event> filtered;
-
-	for (auto &s : stores) {
-		changeRf(rLab->getPos(), s);
-		if (getGraph().isLibConsistentInView(lib, v))
-			filtered.push_back(s);
-	}
-	/* Restore the old reads-from, and eturn all the valid reads-from options */
-	changeRf(rLab->getPos(), oldRf);
-	return filtered;
-}
-
 std::vector<Event> GenMCDriver::filterAcquiredLocks(SAddr ptr,
 						    const std::vector<Event> &stores,
 						    const VectorClock &before)
@@ -2044,11 +2013,6 @@ bool readsBeforePrefix(const ExecutionGraph &g,
 		return false;
 
 	BUG_ON(!wLab);
-	// if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab)) {
-	// 	auto *lib = Library::getLibByMemberName(getGrantedLibs(), rLab->getFunctionName());
-	// 	if (lib->hasFunctionalRfs())
-	// 		return false;
-	// }
 
 	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
 		if (std::any_of(cc->succ_begin(rLab->getAddr(), rLab->getRf()),
@@ -2294,12 +2258,6 @@ bool GenMCDriver::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
 				return false;
 			}
 		}
-	}
-	if (auto *lLab = llvm::dyn_cast<LibReadLabel>(rLab))  {
-		auto *lib = Library::getLibByMemberName(getGrantedLibs(), lLab->getFunctionName());
-		auto *rfLab = g.getEventLabel(rLab->getRf());
-		if (!rfLab->getPos().isBottom() && lib->hasFunctionalRfs())
-			return false;
 	}
 	if (g.isRMWLoad(rLab)) {
 		auto *nLab = g.getEventLabel(rLab->getPos().next());
@@ -2622,10 +2580,6 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 		threadPrios = {rLab->getRf()};
 		EE->getThrById(rLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
 	}
-
-	/* Special handling for library revs */
-	if (llvm::isa<FRevLibItem>(&ri))
-		return calcLibRevisits(rLab);
 	return true;
 }
 
@@ -2648,7 +2602,7 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 		wLab->setAddedMax(false);
 		repairDanglingLocks();
 		repairDanglingBarriers();
-		return (llvm::isa<MOLibItem>(mi)) ? calcLibRevisits(wLab) : calcRevisits(wLab);
+		return calcRevisits(wLab);
 	}
 
 	/* Otherwise, handle the revisit case */
@@ -2669,270 +2623,6 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 	);
 
 	return revisitRead(*ri);
-}
-
-std::pair<SVal, bool>
-GenMCDriver::visitLibLoad(InstAttr attr,
-			  llvm::AtomicOrdering ord,
-			  SAddr addr,
-			  ASize size,
-			  AType type,
-			  std::string functionName)
-{
-	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
-
-	if (isExecutionDrivenByGraph()) {
-		const EventLabel *lab = getCurrentLabel();
-		if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab))
-			return std::make_pair(getWriteValue(rLab->getRf(), addr, size),
-					      rLab->getRf().isInitializer());
-		BUG();
-	}
-
-	g.trackCoherenceAtLoc(addr);
-
-	/* Add the event to the graph so we'll be able to calculate consistent RFs */
-	Event pos = getEE()->getCurrentPosition();
-	auto lLab = LibReadLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-					 Event::getInitializer(), functionName);
-	updateLabelViews(lLab.get());
-	auto *lab = g.addReadLabelToGraph(std::move(lLab), Event::getInitializer());
-
-	/* Make sure there exists an initializer event for this memory location */
-	auto stores(g.getStoresToLoc(addr));
-	auto it = std::find_if(stores.begin(), stores.end(), [&](Event e){
-			const EventLabel *eLab = g.getEventLabel(e);
-			if (auto *wLab = llvm::dyn_cast<LibWriteLabel>(eLab))
-				return wLab->isLibInit();
-			BUG();
-		});
-
-	if (it == stores.end()) {
-		visitError(Status::VS_UninitializedMem,
-			   std::string("Uninitialized memory used by library ") +
-			   lib->getName() + ", member " + functionName + std::string(" found"));
-	}
-
-	auto preds = g.getViewFromStamp(lab->getStamp());
-	auto validStores = getLibConsRfsInView(*lib, lab->getPos(), stores, preds);
-
-	/*
-	 * If this is a non-functional library, choose one of the available reads-from
-	 * options, push the rest to the stack, and return an appropriate value to
-	 * the interpreter
-	 */
-	if (!lib->hasFunctionalRfs()) {
-		BUG_ON(validStores.empty());
-		changeRf(lab->getPos(), validStores.back());
-		for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
-			addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
-		return std::make_pair(getWriteValue(lab->getRf(), addr, size),
-				      lab->getRf().isInitializer());
-	}
-
-	/* Otherwise, first record all the inconsistent options */
-	std::vector<Event> invalid;
-	std::copy_if(stores.begin(), stores.end(), std::back_inserter(invalid),
-		     [&](Event &e){ return std::find(validStores.begin(), validStores.end(),
-						     e) == validStores.end(); });
-	g.addInvalidRfs(lab->getPos(), invalid);
-
-	/* Then, partition the stores based on whether they are read */
-	auto invIt = std::partition(validStores.begin(), validStores.end(), [&](Event &e){
-			const EventLabel *eLab = g.getEventLabel(e);
-			if (auto *wLab = llvm::dyn_cast<LibWriteLabel>(eLab))
-				return wLab->getReadersList().empty();
-			BUG();
-		});
-
-	/* Push all options that break RF functionality to the stack */
-	for (auto it = invIt; it != validStores.end(); ++it) {
-		const EventLabel *iLab = g.getEventLabel(*it);
-		BUG_ON(!llvm::isa<LibWriteLabel>(iLab));
-
-		auto *sLab = static_cast<const WriteLabel *>(iLab);
-		const std::vector<Event> &readers = sLab->getReadersList();
-
-		BUG_ON(readers.size() > 1);
-		auto *rdLab = static_cast<const ReadLabel *>(
-			g.getEventLabel(readers.back()));
-		if (rdLab->isRevisitable())
-			addToWorklist(LLVM_MAKE_UNIQUE<FRevLibItem>(lab->getPos(), *it));
-	}
-
-	/* If there is no valid RF, we have to read BOTTOM */
-	if (invIt == validStores.begin()) {
-		WARN_ONCE("lib-not-always-block", "FIXME: SHOULD NOT ALWAYS BLOCK -- ALSO IN EE\n");
-		auto tempRf = Event::getInitializer();
-		return std::make_pair(getWriteValue(tempRf, addr, size), true);
-	}
-
-	/*
-	 * If BOTTOM is not the only option, push it to inconsistent RFs as well,
-	 * choose a valid store to read-from, and push the other alternatives to
-	 * the stack
-	 */
-	WARN_ONCE("lib-check-before-push", "FIXME: CHECK IF IT'S A NON BLOCKING LIB BEFORE PUSHING?\n");
-	g.addBottomToInvalidRfs(lab->getPos());
-	changeRf(lab->getPos(), *(invIt - 1));
-
-	for (auto it = validStores.begin(); it != invIt - 1; ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
-
-	return std::make_pair(getWriteValue(lab->getRf(), addr, size),
-			      lab->getRf().isInitializer());
-}
-
-void GenMCDriver::visitLibStore(InstAttr attr,
-				llvm::AtomicOrdering ord,
-				SAddr addr,
-				ASize size,
-				AType type,
-				SVal val,
-				std::string functionName,
-				bool isInit)
-{
-	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
-	auto lib = Library::getLibByMemberName(getGrantedLibs(), functionName);
-
-	if (isExecutionDrivenByGraph())
-		return;
-
-	g.trackCoherenceAtLoc(addr);
-
-	/*
-	 * We need to try all possible MO placements, but after the initialization write,
-	 * which is explicitly included in MO, in the case of libraries.
-	 */
-	auto begO = 1;
-	auto endO = g.getStoresToLoc(addr).size();
-
-	/* If there was not any store previously, check if this location was initialized.
-	 * We only set a flag here and report an error after the relevant event is added   */
-	bool isUninitialized = false;
-	if (endO == 0 && !isInit)
-		isUninitialized = true;
-
-	/* It is always consistent to add a new event at the end of MO */
-	Event pos = getEE()->getCurrentPosition();
-	auto lLab = LibWriteLabel::create(g.nextStamp(), ord, pos, addr, size, type,
-					  val, functionName, isInit);
-	updateLabelViews(lLab.get());
-	auto *sLab = g.addWriteLabelToGraph(std::move(lLab), endO);
-
-	if (isUninitialized) {
-		visitError(Status::VS_UninitializedMem,
-			   std::string("Uninitialized memory used by library \"") +
-			   lib->getName() + "\", member \"" + functionName + std::string("\" found"));
-	}
-
-	calcLibRevisits(sLab);
-
-	if (lib && !lib->tracksCoherence())
-		return;
-
-	/*
-	 * Check for alternative MO placings. Temporarily remove sLab from
-	 * MO, find all possible alternatives, and push them to the workqueue
-	 */
-	const auto &locMO = g.getStoresToLoc(addr);
-	auto oldOffset = std::find(locMO.begin(), locMO.end(), sLab->getPos()) - locMO.begin();
-	for (auto i = begO; i < endO; ++i) {
-		g.changeStoreOffset(addr, sLab->getPos(), i);
-
-		/* Check consistency for the graph with this MO */
-		auto preds = g.getViewFromStamp(sLab->getStamp());
-		if (g.isLibConsistentInView(*lib, preds)) {
-			addToWorklist(LLVM_MAKE_UNIQUE<MOLibItem>(sLab->getPos(), i));
-		}
-	}
-	g.changeStoreOffset(addr, sLab->getPos(), oldOffset);
-	return;
-}
-
-bool GenMCDriver::calcLibRevisits(const EventLabel *lab)
-{
-	auto &g = getGraph();
-	auto valid = true; /* Suppose we are in a valid state */
-	std::vector<Event> loads, stores;
-
-	/* First, get the library of the event causing the revisit */
-	const Library *lib = nullptr;
-	if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab))
-		lib = Library::getLibByMemberName(getGrantedLibs(), rLab->getFunctionName());
-	else if (auto *wLab = llvm::dyn_cast<LibWriteLabel>(lab))
-		lib = Library::getLibByMemberName(getGrantedLibs(), wLab->getFunctionName());
-	else
-		BUG();
-
-	/*
-	 * If this is a read of a functional library causing the revisit,
-	 * then this is a functionality violation: we need to find the conflicting
-	 * event, and find an alternative reads-from edge for it
-	 */
-	if (auto *rLab = llvm::dyn_cast<LibReadLabel>(lab)) {
-		/* Since a read is causing a revisit, this has to be a functional lib */
-		BUG_ON(!lib->hasFunctionalRfs());
-		valid = false;
-		Event conf = g.getPendingLibRead(rLab);
-		loads = {conf};
-		auto *confLab = g.getEventLabel(conf);
-		if (auto *conflLab = llvm::dyn_cast<LibReadLabel>(confLab))
-			stores = conflLab->getInvalidRfs();
-		else
-			BUG();
-	} else if (auto *wLab = llvm::dyn_cast<LibWriteLabel>(lab)) {
-		/* It is a normal store -- we need to find revisitable loads */
-		loads = g.getRevisitable(wLab);
-		stores = {wLab->getPos()};
-	} else {
-		BUG();
-	}
-
-	/* Next, find which of the 'stores' can be read by 'loads' */
-	auto &before = g.getPorfBefore(lab->getPos());
-	for (auto &l : loads) {
-		const EventLabel *revLab = g.getEventLabel(l);
-		BUG_ON(!llvm::isa<ReadLabel>(revLab));
-
-		/* Get the read label to revisit */
-		auto *rLab = static_cast<const ReadLabel *>(revLab);
-
-		if (!inMaximalPath(rLab, lab))
-			continue;
-
-		/* Calculate the view of the resulting graph */
-		auto preds = g.getViewFromStamp(rLab->getStamp());
-		auto v = preds;
-		v.update(before);
-
-		/* Check if this the resulting graph is consistent */
-		auto rfs = getLibConsRfsInView(*lib, rLab->getPos(), stores, v);
-
-		for (auto &rf : rfs) {
-			/* Push consistent options to stack */
-			auto writePrefix = g.getPrefixLabelsNotBefore(lab, rLab);
-			auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
-
-			auto writePrefixPos = g.extractRfs(writePrefix);
-			writePrefixPos.insert(writePrefixPos.begin(), lab->getPos());
-
-			if (revisitSetContains(rLab, writePrefixPos, moPlacings))
-				continue;
-
-			// addToRevisitSet(rLab, writePrefixPos, moPlacings);
-			addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
-					      rLab->getPos(), rf,
-					      std::move(writePrefix), std::move(moPlacings)));
-			// addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(rLab->getPos(), rf,
-			// 					 std::move(writePrefix), std::move(moPlacings)));
-
-		}
-	}
-	return valid;
 }
 
 SVal

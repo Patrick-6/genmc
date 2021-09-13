@@ -53,7 +53,7 @@ public:
 				  const EventLabel *sLab) const override;
 
 	std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBefore(const EventLabel *sLab,
+	getPrefixLabelsNotBefore(const WriteLabel *sLab,
 				 const ReadLabel *rLab) const override;
 
 	void cutToStamp(unsigned int st) override;

@@ -3019,49 +3019,6 @@ void Interpreter::callBarrierDestroy(Function *F,
 	return;
 }
 
-void Interpreter::callReadFunction(const Library &lib, const LibMem &mem, Function *F,
-				   const std::vector<GenericValue> &ArgVals)
-{
-	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
-	Type *typ = F->getReturnType();
-	auto size = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-		       getAddrPoDeps(getCurThr().id), nullptr);
-	auto res = driver->visitLibLoad(InstAttr::IA_None, mem.getOrdering(),
-					ptr, size, atyp, F->getName().str());
-	auto &val = res.first;
-	auto shouldBlock = res.second;
-
-	if (shouldBlock) {
-		getCurThr().block(llvm::Thread::BlockageType::BT_User);
-		return;
-	}
-	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(val, F->getReturnType()));
-	return;
-}
-
-void Interpreter::callWriteFunction(const Library &lib, const LibMem &mem, Function *F,
-				    const std::vector<GenericValue> &ArgVals)
-{
-	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
-	Type *typ = F->getFunctionType()->getParamType(1);
-	auto val = GV_TO_SVAL(ArgVals[1], typ);
-	auto asize = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-	GenericValue result;
-
-	if (ptr == nullptr)
-		ERROR(F->getName().str() + " called with NULL pointer!");
-
-	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-		       getAddrPoDeps(getCurThr().id), nullptr);
-	driver->visitLibStore(InstAttr::IA_None, mem.getOrdering(), ptr,
-			      asize, atyp, val, F->getName().str(), mem.isLibInit());
-	return;
-}
-
 SVal Interpreter::getInodeTransStatus(void *inode, Type *intTyp)
 {
 	auto inodeItrans = GET_INODE_ITRANSACTION_ADDR(inode);
@@ -4212,25 +4169,6 @@ void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue>
 	return;
 }
 
-const Library *
-Interpreter::isUserLibCall(Function *F)
-{
-	auto &granted = driver->getGrantedLibs();
-	return Library::getLibByMemberName(granted, F->getName().str());
-}
-
-void Interpreter::callUserLibFunction(const Library *lib, Function *F,
-				      const std::vector<GenericValue> &ArgVals)
-{
-	auto m = lib->getMember(F->getName().str());
-	BUG_ON(!m);
-	if (m->hasReadSemantics())
-		callReadFunction(*lib, *m, F, ArgVals);
-	else
-		callWriteFunction(*lib, *m, F, ArgVals);
-	return;
-}
-
 bool isInternalCall(Function *F)
 {
 	return internalFunNames.count(F->getName().str());
@@ -4328,11 +4266,7 @@ Interpreter::translateExternalCallArgs(Function *F,
 void Interpreter::callFunction(Function *F,
                                const std::vector<GenericValue> &ArgVals)
 {
-  /* Special handling for user lib calls and internal calls */
-  if (auto *lib = isUserLibCall(F)) {
-    callUserLibFunction(lib, F, ArgVals);
-    return;
-  }
+  /* Special handling for internal calls */
   if (isInternalCall(F)) {
     callInternalFunction(F, ArgVals);
     return;

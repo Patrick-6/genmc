@@ -42,7 +42,6 @@
 #include "InterpreterEnumAPI.hpp"
 #include "Config.hpp"
 #include "IMMDepTracker.hpp"
-#include "Library.hpp"
 #include "MemAccess.hpp"
 #include "ModuleInfo.hpp"
 #include "SAddr.hpp"
@@ -758,10 +757,6 @@ private:  // Helper functions
   void callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals);
   void callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals);
   void callBarrierDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callReadFunction(const Library &lib, const LibMem &m, Function *F,
-			const std::vector<GenericValue> &ArgVals);
-  void callWriteFunction(const Library &lib, const LibMem &m, Function *F,
-			 const std::vector<GenericValue> &ArgVals);
   void callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callCreatFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals);
@@ -778,8 +773,6 @@ private:  // Helper functions
   void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
   void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
 
-  const Library *isUserLibCall(Function *F);
-  void callUserLibFunction(const Library *lib, Function *F, const std::vector<GenericValue> &ArgVals);
   void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
 
   void freeAllocas(const AllocaHolder &allocas) const;

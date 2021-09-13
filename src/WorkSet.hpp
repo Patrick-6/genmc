@@ -81,13 +81,11 @@ public:
 	enum Kind {
 		WI_RevBegin,
 		WI_FRev,
-		WI_FRevLib,
 		WI_FRevLast,
 		WI_BRev,
 		WI_BRevLast,
 		WI_RevLast,
 		WI_MO,
-		WI_MOLib,
 		WI_MOLast
 	};
 
@@ -149,20 +147,6 @@ public:
 
 	static bool classof(const WorkItem *item) {
 		return item->getKind() >= WI_FRev && item->getKind() <= WI_FRevLast;
-	}
-};
-
-
-/*
- * FRevLibItem class - Represents a forward revisit for libraries
- */
-class FRevLibItem : public FRevItem {
-
-public:
-	FRevLibItem(Event p, Event r) : FRevItem(WI_FRevLib, p, r) {}
-
-	static bool classof(const WorkItem *item) {
-		return item->getKind() == WI_FRevLib;
 	}
 };
 
@@ -235,19 +219,5 @@ private:
 	int moPos;
 };
 
-
-/*
- * MOLibItem class - Represents an alternative MO position for a library store
- * (Used by libraries that track MO only)
- */
-class MOLibItem : public MOItem {
-
-public:
-	MOLibItem(Event p, int moPos) : MOItem(WI_MOLib, p, moPos) {}
-
-	static bool classof(const WorkItem *item) {
-		return item->getKind() == WI_MOLib;
-	}
-};
 
 #endif /* __WORK_SET_HPP__ */

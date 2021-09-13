@@ -29,7 +29,6 @@
 #include "Error.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
-#include "Library.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -264,9 +263,6 @@ public:
 	 * be _at most_ one other RMW reading from the same write (see [Rex] set) */
 	std::vector<Event> getPendingRMWs(const WriteLabel *sLab) const;
 
-	/* Similar to getPendingRMWs() but for libraries (w/ functional RF) */
-	Event getPendingLibRead(const LibReadLabel *lab) const;
-
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const EventLabel *wLab) const;
 
@@ -419,16 +415,6 @@ public:
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
-	/* Library consistency checks */
-
-	std::vector<Event> getLibEventsInView(const Library &lib, const View &v);
-	std::vector<Event> getLibConsRfsInView(const Library &lib, Event read,
-					       const std::vector<Event> &stores,
-					       const View &v);
-	bool isLibConsistentInView(const Library &lib, const View &v);
-	void addInvalidRfs(Event read, const std::vector<Event> &es);
-	void addBottomToInvalidRfs(Event read);
-
 
 	/* Debugging methods */
 
@@ -463,10 +449,9 @@ public:
 	/* Returns a vector clock representing the events added before e */
 	virtual std::unique_ptr<VectorClock> getPredsView(Event e) const;
 
-	/* Saves the prefix of sLab that is not before rLab.
-	 * (Because of functional libraries, sLab can be a ReadLabel as well.) */
+	/* Saves the prefix of sLab that is not before rLab. */
 	virtual std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBefore(const EventLabel *sLab, const ReadLabel *rLab) const;
+	getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab) const;
 
 	/* Returns a list of the rfs of the reads in labs */
 	std::vector<Event>
@@ -532,27 +517,6 @@ protected:
 	/* Does some final consistency checks after the fixpoint is over,
 	 * and returns the final decision re. consistency */
 	bool doFinalConsChecks(bool checkFull = false);
-
-	void calcPorfAfter(const Event e, View &a);
-	void getPoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			    std::vector<Event> &tos);
-	void getRfEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			    std::vector<Event> &tos);
-	void getHbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			    std::vector<Event> &tos);
-	void getRfm1EdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			      std::vector<Event> &tos);
-	void getWbEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			    std::vector<Event> &tos);
-	void getMoEdgePairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-			    std::vector<Event> &tos);
-	void calcSingleStepPairs(std::vector<std::pair<Event, std::vector<Event> > > &froms,
-				 const std::string &step, std::vector<Event> &tos);
-	void addStepEdgeToMatrix(std::vector<Event> &es,
-				 AdjList<Event, EventHasher> &relMatrix,
-				 const std::vector<std::string> &substeps);
-	llvm::StringMap<AdjList<Event, EventHasher> >
-	calculateAllRelations(const Library &lib, std::vector<Event> &es);
 
 private:
 	/* A collection of threads and the events for each threads */
