@@ -1054,27 +1054,28 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	return false;
 }
 
-bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
-			   const VectorClock &v, const ReadLabel *rLab,
-			   const WriteLabel *wrLab, Calculator::PerLocRelation &wbs)
+bool ExecutionGraph::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
+				      const EventLabel *lab, Calculator::PerLocRelation &wbs)
 {
-	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
+	if (!llvm::isa<WriteLabel>(lab) || isRMWStore(lab))
 		return false;
 
-	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	BUG_ON(!wLab);
+
+	if (auto *cc = llvm::dyn_cast<MOCalculator>(getCoherenceCalculator())) {
 		if (std::any_of(cc->pred_begin(wLab->getAddr(), wLab->getPos()),
-				cc->pred_end(wLab->getAddr(), wLab->getPos()), [&](const Event &s){
-					auto *sLab = g.getEventLabel(s);
-					return !v.contains(sLab->getPos()) &&
-						sLab->getStamp() > rLab->getStamp() &&
-						sLab->getStamp() < wLab->getStamp() &&
-						!(g.isRMWStore(sLab) && sLab->getPos().prev() == rLab->getPos());
+				cc->pred_end(wLab->getAddr(), wLab->getPos()), [&](const Event &e){
+					auto *eLab = getEventLabel(e);
+					return revisitDeletesEvent(rLab, sLab, eLab) &&
+						eLab->getStamp() < wLab->getStamp() &&
+						!(isRMWStore(eLab) && eLab->getPos().prev() == rLab->getPos());
 				}))
 			return true;
-	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
+	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(getCoherenceCalculator())) {
 		if (!wbs.count(wLab->getAddr())) {
-			auto p = g.getPredsView(wrLab->getPos()); // NOTE THIS WRLAB
-			--(*p)[wrLab->getThread()]; // THIS IS ALSO WRLAB
+			auto p = getPredsView(sLab->getPos()); // NOTE THIS WRLAB
+			--(*p)[sLab->getThread()]; // THIS IS ALSO WRLAB
 			BUG_ON(llvm::isa<DepView>(&*p));
 			wbs[wLab->getAddr()] = cc->calcWbRestricted(wLab->getAddr(), *p);
 		}
@@ -1084,13 +1085,10 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 			/* Only process wb-before stores */
 			if (!wb(stores[i], wLab->getPos()))
 				continue;
-			auto *slab = g.getEventLabel(stores[i]);
-			if (v.contains(slab->getPos()))
-				continue;
-			if (slab->getStamp() <= rLab->getStamp())
-				continue;
-			if (slab->getStamp() < wLab->getStamp() &&
-			    !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos()))
+			auto *slab = getEventLabel(stores[i]);
+			if (revisitDeletesEvent(rLab, sLab, slab) &&
+			    slab->getStamp() < wLab->getStamp() &&
+			    !(isRMWStore(slab) && slab->getPos().prev() == rLab->getPos()))
 				return true;
 		}
 	} else
@@ -1300,7 +1298,7 @@ bool ExecutionGraph::isMaximalEvent(const EventLabel *lab, const WriteLabel *wLa
 	return true;
 }
 
-bool ExecutionGraph::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab)
+bool ExecutionGraph::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 {
         auto &v = getPrefixView(wLab->getPos());
 	Calculator::PerLocRelation wbs;
@@ -1316,13 +1314,8 @@ bool ExecutionGraph::inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab
 			if (lab->getStamp() < rLab->getStamp())
 				break;
 			if (v.contains(lab->getPos())) {
-				if (auto *sLab = llvm::dyn_cast<WriteLabel>(lab)) {
-					if (sLab->getPos() != wLab->getPos() &&
-					    coherenceAfterRemoved(*this, sLab, v, rLab, llvm::dyn_cast<WriteLabel>(wLab), wbs)) {
-						// llvm::dbgs() << "NO, DUE TO COH\n";
-						return false;
-					}
-				}
+				if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab, wbs))
+					return false;
 				continue;
 			}
 

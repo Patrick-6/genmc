@@ -414,13 +414,23 @@ public:
 	/* Pers: Returns true if the recovery routine is valid */
 	bool isRecoveryValid() const;
 
+	/* Returnes true if the revisit SLAB->RLAB will delete LAB from the graph */
+	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab,
+				 const EventLabel *lab) const {
+		auto &v = getPrefixView(sLab->getPos());
+		return lab->getStamp() > rLab->getStamp() && !v.contains(lab->getPos());
+	}
+	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab, Event e) const {
+		return revisitDeletesEvent(rLab, sLab, getEventLabel(e));
+	}
+
 	/* Returns true if the graph that will be created when sLab revisits rLab
 	 * will be the same as the current one */
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
 	bool isMaximalEvent(const EventLabel *lab, const WriteLabel *wLab);
-	bool inMaximalPath(const ReadLabel *rLab, const EventLabel *wLab);
+	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab);
 
 
 	/* Debugging methods */
@@ -452,7 +462,7 @@ public:
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
 	virtual const VectorClock& getPrefixView(Event e) const {
-		return getEventLabel(e)->getPorfView();;
+		return getEventLabel(e)->getPorfView();
 	}
 
 	/* Returns a vector clock representing the events added before e */
@@ -507,6 +517,11 @@ protected:
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
+
+	/* Returns true if LAB is co-after any event that would be
+	 * removed by the revisit SLAB->RLAB */
+	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
+			      const EventLabel *lab, Calculator::PerLocRelation &wbs);
 
 	FixpointStatus getFPStatus() const { return relations.fixStatus; }
 	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }
