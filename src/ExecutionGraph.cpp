@@ -288,7 +288,7 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab) const
 	std::vector<Event> pending;
 
 	/* If this is _not_ an RMW event, return an empty vector */
-	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
+	if (!isRMWStore(sLab))
 		return pending;
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
@@ -1068,8 +1068,7 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 					return !v.contains(sLab->getPos()) &&
 						sLab->getStamp() > rLab->getStamp() &&
 						sLab->getStamp() < wLab->getStamp() &&
-						!((llvm::isa<FaiWriteLabel>(sLab) || llvm::isa<CasWriteLabel>(sLab)) &&
-						  sLab->getPos().prev() == rLab->getPos());
+						!(g.isRMWStore(sLab) && sLab->getPos().prev() == rLab->getPos());
 				}))
 			return true;
 	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
@@ -1091,8 +1090,7 @@ bool coherenceAfterRemoved(const ExecutionGraph &g, const WriteLabel *wLab,
 			if (slab->getStamp() <= rLab->getStamp())
 				continue;
 			if (slab->getStamp() < wLab->getStamp() &&
-			    !((llvm::isa<FaiWriteLabel>(slab) || llvm::isa<CasWriteLabel>(slab)) &&
-			      slab->getPos().prev() == rLab->getPos()))
+			    !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos()))
 				return true;
 		}
 	} else
@@ -1254,7 +1252,7 @@ bool readsFromMaximalInRevGraph(const ExecutionGraph &g,
 bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const WriteLabel *wLab,
 				const VectorClock &v)
 {
-	if (llvm::isa<FaiWriteLabel>(wLab) || llvm::isa<CasWriteLabel>(wLab))
+	if (g.isRMWStore(wLab))
 		return true;
 
 	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
@@ -1271,17 +1269,16 @@ bool coherenceSuccRemainInGraph(ExecutionGraph &g, const ReadLabel *rLab, const 
 	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
 		auto wb = cc->calcWb(rLab->getAddr());
 		auto &stores = wb.getElems();
-		if (std::all_of(stores.begin(), stores.end(), [&wb, wLab](const Event &s)
-			{ return !wb(wLab->getPos(), s); }))
-			return true;
 
 		/* Find the "immediate" successor of wLab */
 		std::vector<Event> succs;
 		for (auto it = wb.adj_begin(wLab->getPos()), ie = wb.adj_end(wLab->getPos()); it != ie; ++it)
 			succs.push_back(stores[*it]);
+		if (succs.empty())
+			return true;
+
 		std::sort(succs.begin(), succs.end(), [&g](const Event &a, const Event &b)
 			{ return g.getEventLabel(a) < g.getEventLabel(b); });
-		BUG_ON(succs.empty());
 		auto *sLab = g.getEventLabel(succs[0]);
 		if (sLab->getStamp() > rLab->getStamp() && !v.contains(sLab->getPos()))
 			return false;
@@ -1666,8 +1663,7 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 		return false;
 	auto *mLab = static_cast<const MemAccessLabel *>(nLab);
 
-	if ((llvm::isa<CasWriteLabel>(mLab) || llvm::isa<FaiWriteLabel>(mLab)) &&
-	    mLab->getAddr() == rLab->getAddr())
+	if (isRMWStore(mLab) && mLab->getAddr() == rLab->getAddr())
 		return true;
 	return false;
 }
