@@ -867,11 +867,6 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
  ** Calculation of particular sets of events/event labels
  ***********************************************************/
 
-const VectorClock& ExecutionGraph::getPrefixView(Event e) const
-{
-	return getPorfBefore(e);
-}
-
 std::unique_ptr<VectorClock> ExecutionGraph::getPredsView(Event e) const
 {
 	auto stamp = getEventLabel(e)->getStamp();

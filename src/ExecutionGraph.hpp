@@ -447,7 +447,9 @@ public:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	virtual const VectorClock& getPrefixView(Event e) const;
+	virtual const VectorClock& getPrefixView(Event e) const {
+		return getEventLabel(e)->getPorfView();;
+	}
 
 	/* Returns a vector clock representing the events added before e */
 	virtual std::unique_ptr<VectorClock> getPredsView(Event e) const;

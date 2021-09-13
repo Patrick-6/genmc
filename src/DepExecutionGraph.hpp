@@ -45,7 +45,9 @@ public:
 	std::unique_ptr<VectorClock>
 	getRevisitView(const ReadLabel *rLab, const EventLabel *wLab) const override;
 
-	const VectorClock& getPrefixView(Event e) const override;
+	const VectorClock& getPrefixView(Event e) const override {
+		return getEventLabel(e)->getPPoRfView();
+	}
 
 	std::unique_ptr<VectorClock> getPredsView(Event e) const override;
 
