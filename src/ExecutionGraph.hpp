@@ -374,9 +374,13 @@ public:
 	/* LAPOR: Returns true if the critical section started by lLab is empty */
 	bool isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const;
 
-	/* Return true if its argument is the load part of a successful RMW */
-	bool isRMWLoad(const Event e) const;
+	/* Return true if its argument is the load/store part of a successful RMW */
 	bool isRMWLoad(const EventLabel *lab) const;
+	bool isRMWLoad(const Event e) const { return isRMWLoad(getEventLabel(e)); }
+	bool isRMWStore(const EventLabel *lab) const {
+		return llvm::isa<FaiWriteLabel>(lab) || llvm::isa<CasWriteLabel>(lab);
+	}
+	bool isRMWStore(const Event e) const { return isRMWStore(getEventLabel(e)); }
 
 	/* Returns true if e is hb-before w, or any of the reads that read from w */
 	bool isHbOptRfBefore(const Event e, const Event write) const;

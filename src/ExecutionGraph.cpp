@@ -1672,11 +1672,6 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 	return false;
 }
 
-bool ExecutionGraph::isRMWLoad(Event e) const
-{
-	return isRMWLoad(getEventLabel(e));
-}
-
 std::pair<std::vector<Event>, std::vector<Event> >
 ExecutionGraph::getSCs() const
 {
