@@ -24,6 +24,7 @@
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
 #include "WBCalculator.hpp"
+#include "WBIterator.hpp"
 #include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
 
@@ -1081,11 +1082,8 @@ bool ExecutionGraph::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *s
 		}
 		auto &wb = wbs[wLab->getAddr()];
 		auto &stores = wb.getElems();
-		for (auto i = 0u; i < stores.size(); i++) {
-			/* Only process wb-before stores */
-			if (!wb(stores[i], wLab->getPos()))
-				continue;
-			auto *slab = getEventLabel(stores[i]);
+		for (const auto &s : wb_preds(wb, wLab->getPos())) {
+			auto *slab = getEventLabel(s);
 			if (revisitDeletesEvent(rLab, sLab, slab) &&
 			    slab->getStamp() < wLab->getStamp() &&
 			    !(isRMWStore(slab) && slab->getPos().prev() == rLab->getPos()))
@@ -1129,16 +1127,12 @@ bool readsBeforePrefix(const ExecutionGraph &g,
 		}
 		auto &wb = wbs[rLab->getAddr()];
 		auto &stores = wb.getElems();
-		for (auto i = 0u; i < stores.size(); i++) {
-			if (!prefix.contains(stores[i]))
-				continue;
-			if (rLab->getRf().isInitializer() ||
-			    (rLab->getRf() != wLab->getPos() && wb(rLab->getRf(), stores[i]))) {
-				auto *sLab = g.getEventLabel(stores[i]);
-			if (sLab->getStamp() > revLab->getStamp()) {
-					// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<stores[i] << " in " << g << " " << wb << "\n";
-					return true;
-				}
+		for (auto &s : wb_succs(wb, rLab->getRf())) {
+			auto *sLab = g.getEventLabel(s);
+			if (prefix.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
+			    sLab->getStamp() > revLab->getStamp()) {
+				// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<stores[i] << " in " << g << " " << wb << "\n";
+				return true;
 			}
 		}
 	} else

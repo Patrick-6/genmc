@@ -64,6 +64,7 @@ libgenmc_a_SOURCES = \
   SExprVisitor.cpp SExprVisitor.hpp \
   SVal.cpp SVal.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
+  WBIterator.hpp \
   WBCalculator.cpp WBCalculator.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
