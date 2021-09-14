@@ -1094,33 +1094,28 @@ bool ExecutionGraph::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *s
 	return false;
 }
 
-bool readsBeforePrefix(const ExecutionGraph &g,
-		       const EventLabel *lab,
-		       const ReadLabel *revLab,
-		       const MemAccessLabel *wLab,
-		       const VectorClock &prefix,
-		       Calculator::PerLocRelation &wbs)
+bool ExecutionGraph::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
+					   const EventLabel *lab, Calculator::PerLocRelation &wbs)
 {
 	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 	if (!rLab)
 		return false;
 
-	BUG_ON(!wLab);
-
-	if (auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
+        auto &v = getPrefixView(wLab->getPos());
+	if (auto *cc = llvm::dyn_cast<MOCalculator>(getCoherenceCalculator())) {
 		if (std::any_of(cc->succ_begin(rLab->getAddr(), rLab->getRf()),
 				cc->succ_end(rLab->getAddr(), rLab->getRf()), [&](const Event &s){
-					auto *sLab = g.getEventLabel(s);
+					auto *sLab = getEventLabel(s);
 					return (sLab->getStamp() > revLab->getStamp() &&
-						prefix.contains(sLab->getPos()) &&
+						v.contains(sLab->getPos()) &&
 						sLab->getPos() != wLab->getPos());
 				})) {
 				// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<*it << " in " << g << "\n";
 				return true;
 		}
-	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())) {
+	} else if (auto *cc = llvm::dyn_cast<WBCalculator>(getCoherenceCalculator())) {
 		if (!wbs.count(rLab->getAddr())) {
-			auto p = g.getPredsView(wLab->getPos());
+			auto p = getPredsView(wLab->getPos());
 			--(*p)[wLab->getThread()];
 			BUG_ON(llvm::isa<DepView>(&*p));
 			wbs[rLab->getAddr()] = cc->calcWbRestricted(rLab->getAddr(), *p);
@@ -1128,8 +1123,8 @@ bool readsBeforePrefix(const ExecutionGraph &g,
 		auto &wb = wbs[rLab->getAddr()];
 		auto &stores = wb.getElems();
 		for (auto &s : wb_succs(wb, rLab->getRf())) {
-			auto *sLab = g.getEventLabel(s);
-			if (prefix.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
+			auto *sLab = getEventLabel(s);
+			if (v.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
 			    sLab->getStamp() > revLab->getStamp()) {
 				// llvm::dbgs() << "not revisiting due to " << lab->getPos() << " and "  <<stores[i] << " in " << g << " " << wb << "\n";
 				return true;
@@ -1313,7 +1308,7 @@ bool ExecutionGraph::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab
 				continue;
 			}
 
-			if (readsBeforePrefix(*this, lab, rLab, llvm::dyn_cast<MemAccessLabel>(wLab), v, wbs)) {
+			if (isRbBeforeSavedPrefix(rLab, wLab, lab, wbs)) {
 				// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
 				return false;
 			}

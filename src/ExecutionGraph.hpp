@@ -523,6 +523,11 @@ protected:
 	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
 			      const EventLabel *lab, Calculator::PerLocRelation &wbs);
 
+	/* Returns true if LAB is rb-before any event that would be part
+	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
+	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
+				   const EventLabel *lab, Calculator::PerLocRelation &wbs);
+
 	FixpointStatus getFPStatus() const { return relations.fixStatus; }
 	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }
 
