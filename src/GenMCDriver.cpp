@@ -2298,7 +2298,7 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V2) {
-			llvm::dbgs() << "--- Forward revisiting " << rLab->getPos()
+			llvm::dbgs() << "--- Forward revisiting " << lab->getPos()
 				     << " --> " << ri->getRev() << "\n";
 			printGraph();
 		}
