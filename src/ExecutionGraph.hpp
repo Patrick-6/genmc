@@ -429,8 +429,8 @@ public:
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
-	bool isMaximalEvent(const EventLabel *lab, const WriteLabel *wLab);
-	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab);
+	bool isMaximalExtension(const ReadLabel *rLab,
+				const WriteLabel *sLab) const;
 
 
 	/* Debugging methods */
@@ -517,16 +517,6 @@ protected:
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
-
-	/* Returns true if LAB is co-after any event that would be
-	 * removed by the revisit SLAB->RLAB */
-	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
-			      const EventLabel *lab, Calculator::PerLocRelation &wbs);
-
-	/* Returns true if LAB is rb-before any event that would be part
-	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
-	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
-				   const EventLabel *lab, Calculator::PerLocRelation &wbs);
 
 	FixpointStatus getFPStatus() const { return relations.fixStatus; }
 	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }

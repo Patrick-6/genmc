@@ -395,6 +395,112 @@ MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 	return pairs;
 }
 
+bool MOCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
+				    const EventLabel *lab)
+{
+	auto &g = getGraph();
+	if (!llvm::isa<WriteLabel>(lab) || g.isRMWStore(lab))
+		return false;
+
+
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	BUG_ON(!wLab);
+
+	return std::any_of(pred_begin(wLab->getAddr(), wLab->getPos()),
+			   pred_end(wLab->getAddr(), wLab->getPos()), [&](const Event &e){
+				   auto *eLab = g.getEventLabel(e);
+				   return g.revisitDeletesEvent(rLab, sLab, eLab) &&
+					   eLab->getStamp() < wLab->getStamp() &&
+					   !(g.isRMWStore(eLab) && eLab->getPos().prev() == rLab->getPos());
+			});
+}
+
+bool MOCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
+					 const EventLabel *lab)
+{
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	if (!rLab)
+		return false;
+
+	auto &g = getGraph();
+        auto &v = g.getPrefixView(wLab->getPos());
+	return any_of(succ_begin(rLab->getAddr(), rLab->getRf()),
+		      succ_end(rLab->getAddr(), rLab->getRf()), [&](const Event &s){
+			      auto *sLab = g.getEventLabel(s);
+			      return (sLab->getStamp() > revLab->getStamp() &&
+				      v.contains(sLab->getPos()) &&
+				      sLab->getPos() != wLab->getPos());
+		      });
+}
+
+bool MOCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab)
+{
+	auto &g = getGraph();
+	if (g.isRMWStore(wLab))
+		return true;
+
+	auto succIt = succ_begin(wLab->getAddr(), wLab->getPos());
+	auto succE = succ_end(wLab->getAddr(), wLab->getPos());
+	if (succIt == succE)
+		return true;
+
+	auto *sLab = g.getEventLabel(*succIt);
+	return sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
+}
+
+bool MOCalculator::wasAddedMaximally(const EventLabel *lab)
+{
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+		return mLab->wasAddedMax();
+	return true;
+}
+
+bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
+{
+	if (!coherenceSuccRemainInGraph(rLab, wLab))
+		return false;
+
+	auto &g = getGraph();
+        auto &v = g.getPrefixView(wLab->getPos());
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (lab->getStamp() < rLab->getStamp())
+				break;
+			if (v.contains(lab->getPos())) {
+				if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
+					return false;
+				continue;
+			}
+
+			if (isRbBeforeSavedPrefix(rLab, wLab, lab)) {
+				// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
+				return false;
+			}
+
+			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (g.getEventLabel(rLabB->getRf())->getStamp() > rLabB->getStamp() &&
+				    !v.contains(rLabB->getRf()) && !rLabB->isRevisitedInPlace()) {
+					// llvm::dbgs() << "RF WILL BE DELETED\n";
+					return false;
+				}
+			}
+
+			if (!wasAddedMaximally(lab)) {
+				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
+				// if (lab == rLab  && rfFromPrefix)
+				// 	continue;
+				// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
+				// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
+				// printGraph();
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 void MOCalculator::initCalc()
 {
 	auto &gm = getGraph();

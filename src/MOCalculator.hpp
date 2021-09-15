@@ -105,6 +105,8 @@ public:
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const override;
 
+	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) override;
+
 	/* Changes the offset of "store" to "newOffset" */
 	void changeStoreOffset(SAddr addr, Event store, int newOffset);
 
@@ -172,6 +174,18 @@ private:
 
 	/* Returns the events that are mo^-1;rf?-after sLab */
 	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
+
+	bool coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab);
+
+	bool wasAddedMaximally(const EventLabel *lab);
+
+	/* Returns true if LAB is co-after any event that would be
+	 * removed by the revisit SLAB->RLAB */
+	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab, const EventLabel *lab);
+
+	/* Returns true if LAB is rb-before any event that would be part
+	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
+	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab, const EventLabel *lab);
 
 	/* Returns true if the location "loc" contains the event "e" */
 	bool locContains(SAddr loc, Event e) const;

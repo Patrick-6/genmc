@@ -89,6 +89,8 @@ public:
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const override;
 
+	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) override;
+
 	/* Calculates WB */
 	GlobalRelation calcWb(SAddr addr) const;
 
@@ -211,6 +213,26 @@ private:
 	bool isInitCoherentRf(const GlobalRelation &wb, Event read);
 
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
+
+	const Calculator::GlobalRelation &
+	getOrInsertWbCalc(SAddr addr, const View &v, Calculator::PerLocRelation &cache);
+
+	Event getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map<SAddr, Event> &cache);
+
+	bool coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab);
+
+	bool wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
+			       const EventLabel *lab, std::unordered_map<SAddr, Event> &cache);
+
+	/* Returns true if LAB is co-after any event that would be
+	 * removed by the revisit SLAB->RLAB */
+	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
+			      const EventLabel *lab, Calculator::PerLocRelation &wbs);
+
+	/* Returns true if LAB is rb-before any event that would be part
+	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
+	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
+				   const EventLabel *lab, Calculator::PerLocRelation &wbs);
 
 	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
 	StoresList stores_;

@@ -2007,7 +2007,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		}
 
-		if (!g.inMaximalPath(rLab, sLab)) {
+		if (!g.isMaximalExtension(rLab, sLab)) {
 			// llvm::dbgs() << "NOT REVISITING " << rLab->getPos() << " from " << sLab->getPos() << " in ";
 			// printGraph();
 			// prettyPrintGraph();

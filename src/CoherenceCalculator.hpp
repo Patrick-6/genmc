@@ -120,6 +120,9 @@ public:
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const = 0;
 
+	virtual bool
+	inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) = 0;
+
 	/* FIXME: Revert to public */
 protected:
 
