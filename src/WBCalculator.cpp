@@ -684,6 +684,32 @@ Event WBCalculator::getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map
 	return cache.at(addr);
 }
 
+Event WBCalculator::getTiebraker(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab) const
+{
+	auto &g = getGraph();
+	auto &locMO = getStoresToLoc(lab->getAddr());
+
+	auto *tbLab = g.getEventLabel(lab->getRf());
+	for (const auto &s : locMO) {
+		auto *sLab = g.getEventLabel(s);
+		if (g.revisitDeletesEvent(rLab, wLab, sLab) && sLab->getStamp() < lab->getStamp() &&
+		    !llvm::isa<BIncFaiWriteLabel>(sLab) && sLab->getStamp() > tbLab->getStamp())
+			tbLab = sLab;
+	}
+	return tbLab->getPos();
+}
+
+bool WBCalculator::ignoresDeletedStore(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab) const
+{
+	auto &g = getGraph();
+	auto &locMO = getStoresToLoc(lab->getAddr());
+
+	return std::any_of(locMO.begin(), locMO.end(), [&](const Event &s){
+		auto *sLab = g.getEventLabel(s);
+		return g.revisitDeletesEvent(rLab, wLab, sLab) && sLab->getStamp() < lab->getStamp();
+	});
+}
+
 bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
 				     const EventLabel *eLab, std::unordered_map<SAddr, Event> &cache)
 {
@@ -695,56 +721,13 @@ bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wL
 	auto p = g.getRevisitView(rLab, wLab);
 
 	/* If it reads from the deleted events, it must be reading from the deleted event added latest before it */
-	if (!p->contains(lab->getRf())) {
-		auto &stores = getStoresToLoc(lab->getAddr());
-		for (auto &s : stores) {
-			auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
-			/* Skip if the store will remain */
-			if (p->contains(sLab->getPos()))
-				continue;
-			/* Also skip if the store was added afterwards (special care for in-place revs) */
-			if (sLab->getStamp() > lab->getStamp() &&
-			    std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
-					 [&](const Event &r)
-					 { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-						 return eLab->getStamp() <= lab->getStamp(); })
-				)
-				continue;
-			/* Whoops! LAB should've been reading from SLAB */
-			if (sLab->getStamp() > g.getEventLabel(lab->getRf())->getStamp() &&
-			    !(llvm::isa<BIncFaiWriteLabel>(sLab)) // ++ DISABLED BAM CONDITION, ALSO BELOW
-// &&
-			    // std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
-			    // 		 [&](const Event &r)
-			    // 		 { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-			    // 		   return eLab->getStamp() < g.getEventLabel(lab->getRf())->getStamp(); })
-				) {
-				// llvm::dbgs() << wLab->getPos() << " --> " << rLab->getPos() << "\n";
-				// llvm::dbgs() << "NO, DUE TO " << sLab->getPos() << " and " << *lab << "\n" << g;
-				return false;
-			}
-		}
-		return true;
-	}
+	if (!p->contains(lab->getRf()))
+		return lab->getRf() == getTiebraker(rLab, wLab, lab);
 
 	/* If there is a store that will not remain in the graph (but added after RLAB),
 	 * LAB should be reading from there */
-	auto &stores = getStoresToLoc(lab->getAddr());
-	if (std::any_of(stores.begin(), stores.end(), [&](const Event &s)
-		{ auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
-		  return !p->contains(sLab->getPos())  // &&
-			 // std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
-			 // 	      [&](const Event &r)
-			 // 	      { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-			 // 		return eLab->getStamp() <= rLab->getStamp(); })
-			  && // ALSO BAM
-			  (sLab->getStamp() < lab->getStamp() || (!llvm::isa<BIncFaiWriteLabel>(sLab) &&
-			   std::any_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
-				     [&](const Event &r)
-				       { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-					 return eLab->getStamp() <= lab->getStamp(); }))
-				  );
-		}))
+	auto &locMO = getStoresToLoc(lab->getAddr());
+	if (ignoresDeletedStore(rLab, wLab, lab))
 		return false;
 
 	/* Otherwise, it needs to be reading from the maximal write in the remaining graph */

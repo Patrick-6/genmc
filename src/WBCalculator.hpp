@@ -234,6 +234,9 @@ private:
 	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
 				   const EventLabel *lab, Calculator::PerLocRelation &wbs);
 
+	Event getTiebraker(const ReadLabel *revLab, const WriteLabel *wLab, const ReadLabel *lab) const;
+	bool ignoresDeletedStore(const ReadLabel *revLab, const WriteLabel *wLab, const ReadLabel *lab) const;
+
 	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
 	StoresList stores_;
 
