@@ -55,7 +55,8 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	execGraph = GraphBuilder(userConf->isDepTrackingModel)
 		.withCoherenceType(userConf->coherence)
 		.withEnabledLAPOR(userConf->LAPOR)
-		.withEnabledPersevere(userConf->persevere, userConf->blockSize).build();
+		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
+		.withEnabledBAM(!userConf->disableBarrierOpt).build();
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;

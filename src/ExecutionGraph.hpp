@@ -374,6 +374,9 @@ public:
 	/* LAPOR: Returns true if the critical section started by lLab is empty */
 	bool isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const;
 
+	/* BAM: Returns true if BAM is enabled for this graph */
+	bool hasBAM() const { return bam; }
+
 	/* Return true if its argument is the load/store part of a successful RMW */
 	bool isRMWLoad(const EventLabel *lab) const;
 	bool isRMWLoad(const Event e) const { return isRMWLoad(getEventLabel(e)); }
@@ -515,6 +518,8 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
+	void enableBAM() { bam = true; }
+
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
@@ -575,6 +580,9 @@ private:
 	 * It should be -1 if not in recovery mode, or have the
 	 * value of the recovery routine otherwise. */
 	int recoveryTID = -1;
+
+	/* BAM: Flag indicating how we should treat barrier operations */
+	bool bam = false;
 };
 
 template <typename F>

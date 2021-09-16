@@ -1049,7 +1049,7 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 	auto *rfLab = getEventLabel(lab->getRf());
 	return rfLab->getStamp() > lab->getStamp() && rfLab->getStamp() > rLab->getStamp() &&
 		!getPrefixView(sLab->getPos()).contains(rfLab->getPos()) &&
-		!llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos()));
+		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
 }
 
 bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,

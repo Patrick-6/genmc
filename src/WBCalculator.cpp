@@ -692,8 +692,10 @@ Event WBCalculator::getTiebraker(const ReadLabel *rLab, const WriteLabel *wLab, 
 	auto *tbLab = g.getEventLabel(lab->getRf());
 	for (const auto &s : locMO) {
 		auto *sLab = g.getEventLabel(s);
-		if (g.revisitDeletesEvent(rLab, wLab, sLab) && sLab->getStamp() < lab->getStamp() &&
-		    !llvm::isa<BIncFaiWriteLabel>(sLab) && sLab->getStamp() > tbLab->getStamp())
+		if (sLab->getStamp() > tbLab->getStamp() &&
+		    g.revisitDeletesEvent(rLab, wLab, sLab) &&
+		    sLab->getStamp() < lab->getStamp() &&
+		    (!g.hasBAM() || !llvm::isa<BIncFaiWriteLabel>(sLab)))
 			tbLab = sLab;
 	}
 	return tbLab->getPos();
