@@ -1046,6 +1046,7 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
 	if (!lab)
 		return false;
+
 	auto *rfLab = getEventLabel(lab->getRf());
 	return rfLab->getStamp() > lab->getStamp() && rfLab->getStamp() > rLab->getStamp() &&
 		!getPrefixView(sLab->getPos()).contains(rfLab->getPos()) &&
@@ -1318,6 +1319,8 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 	if (persChecker.get())
 		og->persChecker = persChecker->clone(*og);
 	og->recoveryTID = recoveryTID;
+
+	og->bam = bam;
 
 	/* Then, copy the appropriate events */
 	/* FIXME: Fix LAPOR (use addLockLabelToGraphLAPOR??) */
