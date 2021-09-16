@@ -410,7 +410,7 @@ protected:
 		  Event pos, SAddr loc, ASize size, AType type, Event rf,
 		  value_ptr<SExpr, SExprCloner> annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, size, type),
-		  readsFrom(rf), revisitable(true), inPlaceRev(false), annotExpr(std::move(annot)) {}
+		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr loc,
@@ -427,12 +427,10 @@ public:
 
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
-	bool isRevisitedInPlace() const { return inPlaceRev; }
 
 	/* Makes the relevant read revisitable/non-revisitable. The
 	 * execution graph is responsible for making such changes */
 	void setRevisitStatus(bool status) { revisitable = status; }
-	void setInPlaceRevisitStatus(bool status) { inPlaceRev = status ; }
 
 	/* SAVer: Returns the expression with which this load is annotated */
 	const SExpr *getAnnot() const { return annotExpr.get(); }
@@ -457,8 +455,6 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
-
-	bool inPlaceRev;
 
 	/* SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */

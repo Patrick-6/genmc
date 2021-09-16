@@ -707,8 +707,7 @@ bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wL
 			    std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
 					 [&](const Event &r)
 					 { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-						 return eLab->isRevisitedInPlace() &&
-							eLab->getStamp() <= lab->getStamp(); })
+						 return eLab->getStamp() <= lab->getStamp(); })
 				)
 				continue;
 			/* Whoops! LAB should've been reading from SLAB */
@@ -718,8 +717,7 @@ bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wL
 			    // std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
 			    // 		 [&](const Event &r)
 			    // 		 { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-			    // 		   return eLab->isRevisitedInPlace() &&
-			    // 		   eLab->getStamp() < g.getEventLabel(lab->getRf())->getStamp(); })
+			    // 		   return eLab->getStamp() < g.getEventLabel(lab->getRf())->getStamp(); })
 				) {
 				// llvm::dbgs() << wLab->getPos() << " --> " << rLab->getPos() << "\n";
 				// llvm::dbgs() << "NO, DUE TO " << sLab->getPos() << " and " << *lab << "\n" << g;
@@ -738,13 +736,13 @@ bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wL
 			 // std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
 			 // 	      [&](const Event &r)
 			 // 	      { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-			 // 		return eLab->isRevisitedInPlace() && eLab->getStamp() <= rLab->getStamp(); })
+			 // 		return eLab->getStamp() <= rLab->getStamp(); })
 			  && // ALSO BAM
 			  (sLab->getStamp() < lab->getStamp() || (!llvm::isa<BIncFaiWriteLabel>(sLab) &&
 			   std::any_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
 				     [&](const Event &r)
 				       { auto *eLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(r));
-					 return eLab->isRevisitedInPlace() && eLab->getStamp() <= lab->getStamp(); }))
+					 return eLab->getStamp() <= lab->getStamp(); }))
 				  );
 		}))
 		return false;
@@ -787,7 +785,7 @@ bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 
 			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (g.getEventLabel(rLabB->getRf())->getStamp() > rLabB->getStamp() &&
-				    !v.contains(rLabB->getRf()) && !rLabB->isRevisitedInPlace()) {
+				    !v.contains(rLabB->getRf()) && !llvm::isa<BIncFaiWriteLabel>(g.getEventLabel(rLabB->getRf()))) {
 					// llvm::dbgs() << "RF WILL BE DELETED\n";
 					return false;
 				}

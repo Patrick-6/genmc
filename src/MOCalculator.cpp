@@ -481,7 +481,7 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 
 			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (g.getEventLabel(rLabB->getRf())->getStamp() > rLabB->getStamp() &&
-				    !v.contains(rLabB->getRf()) && !rLabB->isRevisitedInPlace()) {
+				    !v.contains(rLabB->getRf()) && !(llvm::isa<BIncFaiWriteLabel>(g.getEventLabel(rLabB->getRf())))) {
 					// llvm::dbgs() << "RF WILL BE DELETED\n";
 					return false;
 				}

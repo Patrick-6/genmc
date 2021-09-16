@@ -1940,7 +1940,6 @@ bool GenMCDriver::tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
 		// printGraph();
 		changeRf(rLab->getPos(), sLab->getPos());
 		rLab->setAddedMax(true); // isCoMaximal(rLab->getAddr(), rLab->getRf()));
-		rLab->setInPlaceRevisitStatus(true); //sLab->getStamp() > rLab->getStamp());
 
 		completeRevisitedRMW(rLab);
 
@@ -2001,7 +2000,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 				BUG_ON(!llvm::isa<BWaitReadLabel>(rLab));
 				changeRf(rLab->getPos(), faiLab->getPos());
 				rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()));
- 				rLab->setInPlaceRevisitStatus(true);
 				getEE()->getThrById(rLab->getThread()).unblock();
 				continue;
 			}
@@ -2022,14 +2020,14 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
 
 		/* Optimize handling of lock operations */
-		if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
-			if (getEE()->getThrById(lLab->getThread()).isBlocked() &&
-			    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
-				if (tryToRevisitLock(lLab, sLab, writePrefixPos, moPlacings))
-					continue;
-				isMootExecution = true;
-			}
-		}
+		// if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
+		// 	if (getEE()->getThrById(lLab->getThread()).isBlocked() &&
+		// 	    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
+		// 		if (tryToRevisitLock(lLab, sLab, writePrefixPos, moPlacings))
+		// 			continue;
+		// 		isMootExecution = true;
+		// 	}
+		// }
 
 		/* If this prefix has revisited the read before, skip */
 		if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
@@ -2127,7 +2125,6 @@ void GenMCDriver::repairLock(LockCasReadLabel *lab)
 			if (g.getMatchingUnlock(prev).isInitializer()) {
 				changeRf(lab->getPos(), posRf->getPos());
 				lab->setAddedMax(true); // isCoMaximal(lab->getAddr(), lab->getRf()));
-				lab->setInPlaceRevisitStatus(true); // lab->getStamp() < posRf->getStamp());
 				threadPrios = { posRf->getPos() };
 				return;
 			}
@@ -2168,7 +2165,6 @@ void GenMCDriver::repairDanglingBarriers()
 			BUG_ON(!g.contains(bLab->getPos()));
 			changeRf(bLab->getPos(), bLab->getPos().prev());
 			bLab->setAddedMax(true); // isCoMaximal(bLab->getAddr(), bLab->getRf()));
-			bLab->setInPlaceRevisitStatus(true);
 		}
 	}
 	return;
@@ -2247,7 +2243,6 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	changeRf(rLab->getPos(), ri.getRev());
 
 	rLab->setAddedMax(llvm::isa<BRevItem>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
-	rLab->setInPlaceRevisitStatus(false);
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
