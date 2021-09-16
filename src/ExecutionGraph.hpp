@@ -424,6 +424,11 @@ public:
 		return revisitDeletesEvent(rLab, sLab, getEventLabel(e));
 	}
 
+	/* Returns true if ELAB has been revisited by some event that
+	 * will be deleted by the revisit RLAB->WLAB */
+	bool hasBeenRevisitedByDeleted(const ReadLabel *rLab, const WriteLabel *sLab,
+				       const EventLabel *eLab) const;
+
 	/* Returns true if the graph that will be created when sLab revisits rLab
 	 * will be the same as the current one */
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,

@@ -479,12 +479,9 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 				return false;
 			}
 
-			if (auto *rLabB = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (g.getEventLabel(rLabB->getRf())->getStamp() > rLabB->getStamp() &&
-				    !v.contains(rLabB->getRf()) && !(llvm::isa<BIncFaiWriteLabel>(g.getEventLabel(rLabB->getRf())))) {
-					// llvm::dbgs() << "RF WILL BE DELETED\n";
-					return false;
-				}
+			if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab)) {
+				// llvm::dbgs() << "RF WILL BE DELETED\n";
+				return false;
 			}
 
 			if (!wasAddedMaximally(lab)) {

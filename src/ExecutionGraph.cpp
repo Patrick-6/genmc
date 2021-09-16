@@ -1040,6 +1040,18 @@ bool ExecutionGraph::isRecoveryValid() const
 	return pc->isRecAcyclic();
 }
 
+bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const WriteLabel *sLab,
+					       const EventLabel *eLab) const
+{
+	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
+	if (!lab)
+		return false;
+	auto *rfLab = getEventLabel(lab->getRf());
+	return rfLab->getStamp() > lab->getStamp() && rfLab->getStamp() > rLab->getStamp() &&
+		!getPrefixView(sLab->getPos()).contains(rfLab->getPos()) &&
+		!llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos()));
+}
+
 bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const
 {
