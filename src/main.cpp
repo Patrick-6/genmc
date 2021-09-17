@@ -23,7 +23,6 @@
 #include "DriverFactory.hpp"
 #include "Error.hpp"
 #include "LLVMModule.hpp"
-#include "Parser.hpp"
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/Compilation.h"
@@ -50,6 +49,7 @@
 #include <chrono>
 #include <fstream>
 #include <set>
+#include <sys/stat.h>
 
 using namespace clang;
 using namespace clang::driver;
@@ -81,9 +81,13 @@ int main(int argc, char **argv)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto conf = std::make_shared<Config>();
-	Parser parser;
+	struct stat s;
 
+	/* Parse the config and make sure a proper filename is given */
 	conf->getConfigOptions(argc, argv);
+	if (stat(conf->inputFile.c_str(), &s) != 0 || !(s.st_mode & S_IFREG))
+		ERROR("Input file is not a regular file!\n");
+
 	if (conf->inputFromBitcodeFile) {
 		auto ctx = LLVM_MAKE_UNIQUE<llvm::LLVMContext>();
 		auto mod = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
