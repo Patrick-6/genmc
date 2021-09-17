@@ -555,7 +555,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
-	  depTracker = LLVM_MAKE_UNIQUE<IMMDepTracker>();
+	  depTracker = LLVM_MAKE_UNIQUE<DepTracker>();
 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);

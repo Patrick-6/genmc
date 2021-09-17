@@ -41,7 +41,7 @@
 
 #include "InterpreterEnumAPI.hpp"
 #include "Config.hpp"
-#include "IMMDepTracker.hpp"
+#include "DepTracker.hpp"
 #include "MemAccess.hpp"
 #include "ModuleInfo.hpp"
 #include "SAddr.hpp"

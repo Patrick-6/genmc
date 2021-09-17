@@ -34,7 +34,6 @@ libgenmc_a_SOURCES = \
   ExternalFunctions.cpp \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
-  IMMDepTracker.hpp \
   IMMDriver.cpp IMMDriver.hpp \
   InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
