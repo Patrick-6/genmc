@@ -24,6 +24,7 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include <iterator>
+#include <llvm/ADT/iterator_range.h>
 
 /*******************************************************************************
  **                         LabelIterator Class
@@ -122,8 +123,8 @@ using const_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 					   const EventLabel,
 					   ExecutionGraph::Thread::const_iterator>;
 
-using label_range = iterator_range<label_iterator>;
-using const_label_range = iterator_range<const_label_iterator>;
+using label_range = llvm::iterator_range<label_iterator>;
+using const_label_range = llvm::iterator_range<const_label_iterator>;
 
 inline label_iterator label_begin(ExecutionGraph *G) { return label_iterator(*G); }
 inline label_iterator label_begin(ExecutionGraph &G) { return label_iterator(G); }
