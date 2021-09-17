@@ -22,6 +22,7 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <thread>
@@ -300,6 +301,10 @@ void Config::checkConfigOptions() const
 	if (clSchedulePolicy != SchedulePolicy::random && clRandomScheduleSeed != "") {
 		WARN("--random-schedule-seed used without -schedule-policy=random.\n");
 	}
+
+	/* Make sure filename is a regular file */
+	if (!llvm::sys::fs::is_regular_file(clInputFile))
+		ERROR("Input file is not a regular file!\n");
 }
 
 void Config::saveConfigOptions()
