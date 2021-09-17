@@ -3005,6 +3005,7 @@ void Interpreter::callBarrierWait(Function *F,
 	driver->visitStore(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
 			   barrier, asize, atyp, newVal);
 
+	setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	driver->visitLoad(InstAttr::IA_BWait, AtomicOrdering::Acquire, barrier, asize, atyp);
 
 	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
