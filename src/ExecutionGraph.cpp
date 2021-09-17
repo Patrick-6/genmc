@@ -352,8 +352,9 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
 						     Event rf)
 {
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf()))) {
-		wLab->addReader(lab->getPos());
+	if (!lab->getRf().isBottom()) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf())))
+			wLab->addReader(lab->getPos());
 	}
 
 	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
@@ -1050,6 +1051,7 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 	auto *rfLab = getEventLabel(lab->getRf());
 	return rfLab->getStamp() > lab->getStamp() && rfLab->getStamp() > rLab->getStamp() &&
 		!getPrefixView(sLab->getPos()).contains(rfLab->getPos()) &&
+		!prefixContainsSameLoc(rLab, sLab, rfLab) &&
 		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
 }
 
@@ -1067,6 +1069,11 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	return false;
 }
 
+bool ExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
+					   const EventLabel *lab) const
+{
+	return false;
+}
 
 bool ExecutionGraph::isMaximalExtension(const ReadLabel *rLab,
 					const WriteLabel *sLab) const
@@ -1295,46 +1302,49 @@ void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
 	}
 }
 
-std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
+void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const
 {
-	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
-
 	/* First, populate calculators, etc */
-	og->timestamp = timestamp;
+	other.timestamp = timestamp;
 
-	og->relations = relations;
-	og->relsCache = relsCache;
+	other.relations = relations;
+	other.relsCache = relsCache;
 
-	og->relations.fixStatus = FS_Stale;
-	og->relsCache.fixStatus = FS_Stale;
+	other.relations.fixStatus = FS_Stale;
+	other.relsCache.fixStatus = FS_Stale;
 
 	for (const auto &cc : consistencyCalculators)
-		og->consistencyCalculators.push_back(cc->clone(*og));
+		other.consistencyCalculators.push_back(cc->clone(other));
 
-	og->partialConsCalculators = partialConsCalculators;
+	other.partialConsCalculators = partialConsCalculators;
 
-	og->calculatorIndex = calculatorIndex;
-	og->relationIndex = relationIndex;
+	other.calculatorIndex = calculatorIndex;
+	other.relationIndex = relationIndex;
 
 	if (persChecker.get())
-		og->persChecker = persChecker->clone(*og);
-	og->recoveryTID = recoveryTID;
+		other.persChecker = persChecker->clone(other);
+	other.recoveryTID = recoveryTID;
 
-	og->bam = bam;
+	other.bam = bam;
 
 	/* Then, copy the appropriate events */
 	/* FIXME: Fix LAPOR (use addLockLabelToGraphLAPOR??) */
 	auto *cc = getCoherenceCalculator();
-	auto *occ = og->getCoherenceCalculator();
+	auto *occ = other.getCoherenceCalculator();
 	BUG_ON(!cc || !occ);
 
 	// FIXME: The reason why we resize to num of threads instead of v.size() is
 	// to keep the same size as the interpreter threads.
-	og->events.resize(getNumThreads());
+	other.events.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		og->addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
+		other.addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
 		for (auto j = 1; j <= v[i]; j++) {
-			auto *nLab = og->addOtherLabelToGraph(getEventLabel(Event(i, j))->clone());
+			if (!v.contains(Event(i, j))) {
+				other.addOtherLabelToGraph(
+					EmptyLabel::create(other.nextStamp(), Event(i, j)));
+				continue;
+			}
+			auto *nLab = other.addOtherLabelToGraph(getEventLabel(Event(i, j))->clone());
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(nLab)) {
 				const_cast<WriteLabel *>(wLab)->removeReader([&v](const Event &r){
 					return !v.contains(r);
@@ -1347,7 +1357,7 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
 				;
 			if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(nLab))
-				og->getLbCalculatorLAPOR()->addLockToList(lLab->getLockAddr(), lLab->getPos());
+				other.getLbCalculatorLAPOR()->addLockToList(lLab->getLockAddr(), lLab->getPos());
 		}
 	}
 
@@ -1361,6 +1371,13 @@ std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v
 		}
 	}
 	/* FIXME: Make sure all fields are copied */
+	return;
+}
+
+std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
+{
+	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
+	copyGraphUpTo(*og, v);
 	return og;
 }
 

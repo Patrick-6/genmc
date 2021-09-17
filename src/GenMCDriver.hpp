@@ -495,11 +495,8 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
-	std::vector<Event> properlyOrderStores(InstAttr attr,
-					       ASize size,
-					       SAddr ptr,
-					       SVal expVal,
-					       std::vector<Event> &stores);
+	std::vector<Event>
+	properlyOrderStores(InstAttr attr, const ReadLabel *lab, const std::vector<Event> &stores);
 
 	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
 	const ReadLabel *

@@ -109,11 +109,11 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in rc11 # imm
+for model in imm # rc11 imm
 do
-    for coherence in wb mo
+    for coherence in mo # wb mo
     do
-	for cat in infr litmus saver liveness synthetic data-structures lapor fs
+	for cat in litmus # infr litmus saver liveness synthetic data-structures lapor fs
 	do
 	    testdir="${correctdir}/${cat}"
 	    check_blocked="" && [[ "${cat}" == "saver" ]] &&

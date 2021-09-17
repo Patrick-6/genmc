@@ -133,6 +133,9 @@ void IMMDriver::calcBasicViews(EventLabel *lab)
 
 void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab)
 {
+	if (lab->getRf().isBottom())
+		return;
+
 	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 

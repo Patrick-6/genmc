@@ -437,6 +437,9 @@ public:
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
 					  const EventLabel *sLab) const;
 
+	virtual bool prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
+					   const EventLabel *lab) const;
+
 	bool isMaximalExtension(const ReadLabel *rLab,
 				const WriteLabel *sLab) const;
 
@@ -527,6 +530,8 @@ protected:
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
+
+	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 
 	FixpointStatus getFPStatus() const { return relations.fixStatus; }
 	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }

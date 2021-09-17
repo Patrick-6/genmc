@@ -1091,30 +1091,29 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(SAddr ptr,
 }
 
 std::vector<Event>
-GenMCDriver::properlyOrderStores(InstAttr attr,
-				 ASize size,
-				 SAddr ptr,
-				 SVal expVal,
-				 std::vector<Event> &stores)
+GenMCDriver::properlyOrderStores(InstAttr attr, const ReadLabel *lab, const std::vector<Event> &stores)
 {
 	if (!isRMWAttr(attr))
 		return stores;
 
 	const auto &g = getGraph();
-	auto curr = getEE()->getCurrentPosition().prev();
-	auto &before = g.getPrefixView(curr);
+	auto &before = g.getPrefixView(lab->getPos());
 
 	if (isLockAttr(attr))
-		return filterAcquiredLocks(ptr, stores, before);
+		return filterAcquiredLocks(lab->getAddr(), stores, before);
 
 	std::vector<Event> valid, conflicting;
 	for (auto &s : stores) {
-		auto oldVal = getWriteValue(s, ptr, size);
-		if ((isFAIAttr(attr) || EE->compareValues(size, oldVal, expVal)) &&
-		    g.isStoreReadBySettledRMW(s, ptr, before))
+		auto oldVal = getWriteValue(s, lab->getAddr(), lab->getSize());
+		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
 			continue;
+		if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
+			if (EE->compareValues(rLab->getSize(), oldVal, rLab->getExpected()) &&
+			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
+				continue;
+		}
 
-		if (g.isStoreReadByExclusiveRead(s, ptr))
+		if (g.isStoreReadByExclusiveRead(s, lab->getAddr()))
 			conflicting.push_back(s);
 		else
 			valid.push_back(s);
@@ -1540,9 +1539,12 @@ GenMCDriver::visitLoad(InstAttr attr,
 	 * Coherence needs to be tracked before validity is established, as
 	 * consistency checks may be triggered if the access is invalid */
 	g.trackCoherenceAtLoc(addr);
+
+	auto annot = EE->getCurrentAnnotConcretized();
+	auto *lab = createAddReadLabel(attr, ord, addr, size, type, std::move(annot),
+				       cmpVal, rmwVal, op, Event::getBottom());
+
 	if (!isAccessValid(addr)) {
-		createAddReadLabel(attr, ord, addr, size, type, nullptr, cmpVal,
-				   rmwVal, op, Event::getInitializer());
 		visitError(Status::VS_AccessNonMalloc);
 		return SVal(0); /* Return some value; this execution will be blocked */
 	}
@@ -1550,18 +1552,18 @@ GenMCDriver::visitLoad(InstAttr attr,
 	/* Get an approximation of the stores we can read from */
 	auto stores = getStoresToLoc(addr);
 	BUG_ON(stores.empty());
-	auto validStores = properlyOrderStores(attr, size, addr, cmpVal, stores);
+	auto validStores = properlyOrderStores(attr, lab, stores);
 	if (getConf()->symmetryReduction)
 		filterSymmetricStoresSR(addr, size, validStores);
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
-	auto annot = EE->getCurrentAnnotConcretized();
-	if (annot.get())
-		filterValuesFromAnnotSAVER(addr, size, annot.get(), validStores);
+	if (lab->getAnnot())
+		filterValuesFromAnnotSAVER(addr, size, lab->getAnnot(), validStores);
 
 	/* ... add an appropriate label with a random rf */
-	const ReadLabel *lab = createAddReadLabel(attr, ord, addr, size, type, std::move(annot),
-						  cmpVal, rmwVal, op, validStores.back());
+	// const ReadLabel *lab = createAddReadLabel(attr, ord, addr, size, type, std::move(annot),
+	// 					  cmpVal, rmwVal, op, validStores.back());
+	changeRf(lab->getPos(), validStores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, validStores))

@@ -54,13 +54,16 @@ public:
 	bool revisitModifiesGraph(const ReadLabel *rLab,
 				  const EventLabel *sLab) const override;
 
+	bool prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
+				   const EventLabel *lab) const override;
+
 	std::vector<std::unique_ptr<EventLabel> >
 	getPrefixLabelsNotBefore(const WriteLabel *sLab,
 				 const ReadLabel *rLab) const override;
 
 	void cutToStamp(unsigned int st) override;
 
-	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override { BUG(); }
+	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override;
 };
 
 #endif /* __DEP_EXECUTION_GRAPH_HPP__ */

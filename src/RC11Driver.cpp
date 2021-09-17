@@ -72,11 +72,13 @@ void RC11Driver::calcReadViews(ReadLabel *lab)
 	View hb = calcBasicHbView(lab->getPos());
 	View porf = calcBasicPorfView(lab->getPos());
 
-	const auto *rfLab = g.getEventLabel(lab->getRf());
-	porf.update(rfLab->getPorfView());
-	if (lab->isAtLeastAcquire()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
-			hb.update(wLab->getMsgView());
+	if (!lab->getRf().isBottom()) {
+		const auto *rfLab = g.getEventLabel(lab->getRf());
+		porf.update(rfLab->getPorfView());
+		if (lab->isAtLeastAcquire()) {
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+				hb.update(wLab->getMsgView());
+		}
 	}
 
 	lab->setHbView(std::move(hb));

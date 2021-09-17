@@ -109,6 +109,7 @@ llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 }
 
 EELocalState::EELocalState(const SAddrAllocator &alloctor,
+			   const std::unique_ptr<DepTracker> &depTr,
 			   const ExecutionState &execState,
 			   const ProgramState &programState,
 			   const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
@@ -117,9 +118,11 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 			   const std::unordered_map<std::string, void *> &nameToInodeAddr,
 			   const std::vector<Thread> &ts,
 			   int current)
-	: alloctor(alloctor), execState(execState), programState(programState),
-	  fds(fds), fdToFile(fdToFile), nameToInodeAddr(nameToInodeAddr),
-	  threads(ts), currentThread(current)
+	: alloctor(alloctor),
+	  depTracker(depTr ? LLVM_MAKE_UNIQUE<DepTracker>(*depTr) : nullptr),
+	  execState(execState),
+	  programState(programState), fds(fds), fdToFile(fdToFile),
+	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current)
 {
 	for (auto &kv : annots)
 		annotMap[kv.first] = kv.second->clone();
@@ -127,13 +130,14 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 
 std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, execState, programState, annotMap, fds,
+	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState, annotMap, fds,
 					      fdToFile, nameToInodeAddr, threads, currentThread);
 }
 
 void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
 {
 	alloctor = std::move(state->alloctor);
+	depTracker = std::move(state->depTracker);
 	execState = state->execState;
 	programState = state->programState;
 	annotMap = std::move(state->annotMap);
@@ -490,9 +494,11 @@ void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 				     e = SF.Caller.arg_end(); i != e; ++i) {
 				updateCtrlDeps(tid, *i);
 			}
-		} else if (iFunCode == InternalFunctions::FN_MutexLock ||
+		} else if (iFunCode == InternalFunctions::FN_MutexInit ||
+			   iFunCode == InternalFunctions::FN_MutexLock ||
 			   iFunCode == InternalFunctions::FN_MutexUnlock ||
-			   iFunCode == InternalFunctions::FN_MutexTrylock) {
+			   iFunCode == InternalFunctions::FN_MutexTrylock ||
+			   iFunCode == InternalFunctions::FN_MutexDestroy) {
 			/* We have addr dependency on the argument of mutex calls */
 			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
 				       nullptr, getCtrlDeps(tid),

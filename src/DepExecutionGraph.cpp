@@ -89,6 +89,57 @@ bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	return false;
 }
 
+bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
+					      const EventLabel *lab) const
+{
+	auto &v = getPrefixView(wLab->getPos());
+	if (lab->getIndex() > v[lab->getThread()])
+		return false;
+
+	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
+		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
+				   [&v](const Event &r){ return v.contains(r); });
+
+	auto *rLabB = llvm::dyn_cast<ReadLabel>(lab);
+	if (!rLabB)
+		return false;
+
+	for (auto i = 0u; i < v.size(); i++) {
+		for (auto j = 0u; j <= v[i]; j++) {
+			if (!v.contains(Event(i, j)))
+				continue;
+			if (auto *mLab = llvm::dyn_cast<ReadLabel>(getEventLabel(Event(i, j))))
+				if (mLab->getAddr() == rLabB->getAddr() && mLab->getRf() == rLabB->getRf())
+						return true;
+		}
+	}
+
+	if (isRMWLoad(rLabB)) {
+		auto *wLabB = llvm::dyn_cast<WriteLabel>(getEventLabel(rLabB->getPos().next()));
+		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
+				   [&v](const Event &r){ return v.contains(r); });
+
+	}
+
+	// auto &locMO = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())->getModOrderAtLoc(rLabB->getAddr());
+	// auto it = locMO.begin();
+
+	// if (!rLabB->getRf().isInitializer()) {
+	// 	for (; *it != rLabB->getRf(); ++it)
+	// 		;
+	// 	++it;
+	// }
+
+	// for (; it != locMO.end(); ++it) {
+	// 	auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(*it));
+	// 	if (!v.contains(sLab->getPos()) &&
+	// 	    !sLab->getPPoRfView().contains(rLab->getPos()))
+	// 		return false;
+	// }
+	// return true;
+	return false;
+}
+
 std::vector<std::unique_ptr<EventLabel> >
 DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 					    const ReadLabel *rLab) const
@@ -201,4 +252,12 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 				      new EmptyLabel(nextStamp(), Event(i, j))));
 		}
 	}
+}
+
+std::unique_ptr<ExecutionGraph>
+DepExecutionGraph::getCopyUpTo(const VectorClock &v) const
+{
+	auto og = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph());
+	copyGraphUpTo(*og, v);
+	return og;
 }

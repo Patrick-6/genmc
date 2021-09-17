@@ -20,6 +20,7 @@
 
 #include "MOCalculator.hpp"
 #include "ExecutionGraph.hpp"
+#include "LabelIterator.hpp"
 #include <vector>
 
 MOCalculator::LocStores::const_iterator
@@ -463,36 +464,33 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 	auto &g = getGraph();
         auto &v = g.getPrefixView(wLab->getPos());
 
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
-			auto *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() < rLab->getStamp())
-				break;
-			if (v.contains(lab->getPos())) {
-				if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
-					return false;
-				continue;
-			}
-
-			if (isRbBeforeSavedPrefix(rLab, wLab, lab)) {
-				// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
+	for (const auto *lab : labels(g)) {
+		if (lab->getStamp() < rLab->getStamp())
+			continue;
+		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab)) {
+			if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
 				return false;
-			}
+			continue;
+		}
 
-			if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab)) {
-				// llvm::dbgs() << "RF WILL BE DELETED\n";
-				return false;
-			}
+		if (isRbBeforeSavedPrefix(rLab, wLab, lab)) {
+			// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
+			return false;
+		}
 
-			if (!wasAddedMaximally(lab)) {
-				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
-				// if (lab == rLab  && rfFromPrefix)
-				// 	continue;
-				// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
-				// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
-				// printGraph();
-				return false;
-			}
+		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab)) {
+			// llvm::dbgs() << "RF WILL BE DELETED\n";
+			return false;
+		}
+
+		if (!wasAddedMaximally(lab)) {
+			// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
+			// if (lab == rLab  && rfFromPrefix)
+			// 	continue;
+			// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
+			// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
+			// printGraph();
+			return false;
 		}
 	}
 	return true;

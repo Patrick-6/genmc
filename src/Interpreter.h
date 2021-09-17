@@ -256,6 +256,7 @@ enum class ExecutionState {
 
 struct EELocalState {
 	SAddrAllocator alloctor;
+	std::unique_ptr<DepTracker> depTracker;
 	ExecutionState execState;
 	ProgramState programState;
 	llvm::BitVector fds;
@@ -267,6 +268,7 @@ struct EELocalState {
 
 	EELocalState() = default;
 	EELocalState(const SAddrAllocator &alloctor,
+		     const std::unique_ptr<DepTracker> &depTracker,
 		     const ExecutionState &execState,
 		     const ProgramState &programState,
 		     const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
@@ -430,7 +432,7 @@ public:
   Thread createRecoveryThread(int tid);
 
   /* Returns the currently executing thread */
-  Thread& getCurThr() { return threads[currentThread]; };
+  Thread& getCurThr() { return threads[currentThread]; }
 
   /* Returns the thread with the specified ID (taken from the graph) */
   Thread& getThrById(int id) { return threads[id]; };
@@ -775,7 +777,7 @@ private:  // Helper functions
 
   void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
 
-  void freeAllocas(const AllocaHolder &allocas) const;
+  void freeAllocas(const AllocaHolder &allocas);
 
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */

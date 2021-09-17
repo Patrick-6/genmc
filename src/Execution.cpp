@@ -1160,8 +1160,10 @@ void Interpreter::visitSelectInst(SelectInst &I) {
 //                     Terminator Instruction Implementations
 //===----------------------------------------------------------------------===//
 
-void Interpreter::freeAllocas(const AllocaHolder &allocas) const
+void Interpreter::freeAllocas(const AllocaHolder &allocas)
 {
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+		       getAddrPoDeps(getCurThr().id), nullptr);
 	for (auto it = allocas.get().begin(), ie = allocas.get().end(); it != ie; ++it)
 		driver->visitFree(*it);
 }
@@ -2721,6 +2723,7 @@ void Interpreter::callAssertFail(Function *F,
 
 void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	driver->visitSpinStart();
 }
 
@@ -2732,6 +2735,7 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 
 void Interpreter::callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals)
 {
+	setCurrentDeps(nullptr, nullptr, nullptr, nullptr, nullptr);
 	driver->visitPotentialSpinEnd();
 }
 
@@ -2805,6 +2809,7 @@ void Interpreter::callThreadSelf(Function *F,
 {
 	llvm::Type *typ = F->getReturnType();
 
+	setCurrentDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	auto result = driver->visitThreadSelf();
 	returnValueToCaller(typ, SVAL_TO_GV(result, typ));
 	return;
@@ -2868,6 +2873,7 @@ void Interpreter::callMutexInit(Function *F,
 		WARN_ONCE("pthread-mutex-init-arg",
 			  "Ignoring non-null argument given to pthread_mutex_init.\n");
 
+	/* Dependencies already set by the EE */
 	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
 			   lock, size, atyp, SVal(0));
 
@@ -2883,6 +2889,7 @@ void Interpreter::callMutexLock(Function *F,
 	Type *typ = F->getReturnType();
 	GenericValue result;
 
+	/* Dependencies already set by the EE */
 	driver->visitLock(ptr, getTypeSize(typ));
 
 	/*
@@ -2902,6 +2909,7 @@ void Interpreter::callMutexUnlock(Function *F,
 	Type *typ = F->getReturnType();
 	GenericValue result;
 
+	/* Dependencies already set by the EE */
 	driver->visitUnlock(ptr, getTypeSize(typ));
 
 	result.IntVal = APInt(typ->getIntegerBitWidth(), 0); /* Success */
@@ -2918,6 +2926,7 @@ void Interpreter::callMutexTrylock(Function *F,
 	auto atyp = TYPE_TO_ATYPE(typ);
 	GenericValue result;
 
+	/* Dependencies already set by the EE x*/
 	auto ret = driver->visitLoad(InstAttr::IA_Cas, AtomicOrdering::Acquire,
 				     ptr, size, atyp, SVal(0), SVal(1));
 
@@ -2939,6 +2948,7 @@ void Interpreter::callMutexDestroy(Function *F,
 	auto size = getTypeSize(typ);
 	auto atyp = TYPE_TO_ATYPE(typ);
 
+	/* Dependencies already set by the EE */
 	driver->visitStore(InstAttr::IA_None, AtomicOrdering::NotAtomic,
 			   lock, size, atyp, SVal(-1));
 
@@ -2962,6 +2972,7 @@ void Interpreter::callBarrierInit(Function *F,
 		WARN_ONCE("pthread-barrier-init-arg",
 			  "Ignoring non-null argument given to pthread_barrier_init.\n");
 
+	/* Dependencies already set by the EE (rebase pending) */
 	driver->visitStore(InstAttr::IA_BInit, AtomicOrdering::NotAtomic,
 			   barrier, size, atyp, value);
 
@@ -2980,6 +2991,7 @@ void Interpreter::callBarrierWait(Function *F,
 	auto asize = getTypeSize(typ);
 	auto atyp = TYPE_TO_ATYPE(typ);
 
+	/* Dependencies already set by the EE (rebase pending) */
 	auto oldVal = driver->visitLoad(InstAttr::IA_BPost, AtomicOrdering::AcquireRelease,
 					barrier, asize, atyp, SVal(), SVal(1),
 					AtomicRMWInst::BinOp::Sub);
@@ -3009,6 +3021,7 @@ void Interpreter::callBarrierDestroy(Function *F,
 	auto size = getTypeSize(typ);
 	auto atyp = TYPE_TO_ATYPE(typ);
 
+	/* Dependencies already set by the EE (rebase pending) */
 	driver->visitStore(InstAttr::IA_BDestroy, AtomicOrdering::NotAtomic,
 			   barrier, size, atyp, SVal(0));
 
