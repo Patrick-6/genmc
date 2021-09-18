@@ -158,8 +158,7 @@ WBCalculator::calcWbRestricted(SAddr addr, const VectorClock &v) const
 		auto *wLab = static_cast<const WriteLabel *>(g.getEventLabel(stores[i]));
 
 		std::vector<Event> es;
-		const std::vector<Event> readers = wLab->getReadersList();
-		std::copy_if(readers.begin(), readers.end(), std::back_inserter(es),
+		std::copy_if(wLab->readers_begin(), wLab->readers_end(), std::back_inserter(es),
 			     [&](const Event &r){ return v.contains(r); });
 
 		es.push_back(wLab->getPos());

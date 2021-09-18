@@ -236,10 +236,9 @@ bool PersistencyChecker::isStoreReadFromRecRoutine(Event s)
 	auto recId = g.getRecoveryRoutineId();
 	auto recLast = g.getLastThreadEvent(recId);
 
-	BUG_ON(!llvm::isa<WriteLabel>(g.getEventLabel(s)));
-	auto *wLab = static_cast<const WriteLabel *>(g.getEventLabel(s));
-	auto &readers = wLab->getReadersList();
-	return std::any_of(readers.begin(), readers.end(), [&](Event r)
+	auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
+	BUG_ON(!wLab);
+	return std::any_of(wLab->readers_begin(), wLab->readers_end(), [&](Event r)
 			   { return r.thread == recId &&
 				    r.index <= recLast.index; });
 }

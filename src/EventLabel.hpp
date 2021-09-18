@@ -734,6 +734,11 @@ public:
 	/* Returns a list of the reads reading from this write */
 	const std::vector<Event>& getReadersList() const { return readerList; }
 
+	/* Iterators for readers */
+	using const_iterator = std::vector<Event>::const_iterator;
+	const_iterator readers_begin() const { return readerList.begin(); }
+	const_iterator readers_end() const { return readerList.end(); }
+
 	/* Getter/setter for a view representing the
 	 * release sequence of this write */
 	const View& getMsgView() const { return msgView; }
