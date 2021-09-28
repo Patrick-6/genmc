@@ -41,10 +41,11 @@ public:
 private:
 
 	View calcBasicHbView(Event e) const;
+	View calcBasicPorfView(Event e) const;
 	DepView calcPPoView(Event e); /* not const */
 	void updateRelView(DepView &pporf, EventLabel *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
-	void updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab);
+	void updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, const ReadLabel *lab);
 
 	void calcBasicViews(EventLabel *lab);
 	void calcReadViews(ReadLabel *lab);

@@ -49,6 +49,14 @@ View IMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
+View IMMDriver::calcBasicPorfView(Event e) const
+{
+	View v(getGraph().getPreviousLabel(e)->getPorfView());
+
+	++v[e.thread];
+	return v;
+}
+
 DepView IMMDriver::calcPPoView(Event e) /* not const */
 {
 	auto &g = getGraph();
@@ -122,16 +130,18 @@ void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 void IMMDriver::calcBasicViews(EventLabel *lab)
 {
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab)
+void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, const ReadLabel *lab)
 {
 	if (lab->getRf().isBottom())
 		return;
@@ -139,6 +149,7 @@ void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel 
 	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 
+	porf.update(rfLab->getPorfView());
 	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
 		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
 		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
@@ -163,12 +174,14 @@ void IMMDriver::calcReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	DepView ppo = calcPPoView(lab->getPos());
 	DepView pporf(ppo);
 
-	updateReadViewsFromRf(pporf, hb, lab);
+	updateReadViewsFromRf(pporf, porf, hb, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
@@ -177,9 +190,11 @@ void IMMDriver::calcWriteViews(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 
-	/* First, we calculate the hb view */
+	/* First, we calculate the hb and porf view */
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 
 	/* Then, we calculate the ppo and (ppo U rf) views.
 	 * The first is important because we have to take dep;rfi
@@ -272,6 +287,7 @@ void IMMDriver::calcFenceViews(FenceLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos());
 
 	if (lab->isAtLeastAcquire())
@@ -280,6 +296,7 @@ void IMMDriver::calcFenceViews(FenceLabel *lab)
 		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
@@ -293,15 +310,18 @@ void IMMDriver::calcJoinViews(ThreadJoinLabel *lab)
 	* in previous explorations, we have to reset it to the ppo one,
 	* and then update it */
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	DepView ppo = calcPPoView(lab->getPos());
 	DepView pporf(ppo);
 
 	if (llvm::isa<ThreadFinishLabel>(fLab)) {
 		hb.update(fLab->getHbView());
+		porf.update(fLab->getPorfView());
 		pporf.update(fLab->getPPoRfView());
 	}
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 	return;
@@ -313,12 +333,15 @@ void IMMDriver::calcStartViews(ThreadStartLabel *lab)
 
 	/* Thread start has Acquire semantics */
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
+	View porf(g.getEventLabel(lab->getParentCreate())->getPorfView());
 	DepView pporf(g.getEventLabel(lab->getParentCreate())->getPPoRfView());
 
 	hb[lab->getThread()] = lab->getIndex();
+	porf[lab->getThread()] = lab->getIndex();
 	pporf[lab->getThread()] = lab->getIndex();
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -327,6 +350,7 @@ void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab)
 {
 	const auto &g = getGraph();
 	auto hb = calcBasicHbView(lab->getPos());
+	auto porf = calcBasicPorfView(lab->getPos());
 	auto pporf = calcPPoView(lab->getPos());
 
 	auto prevUnlock = g.getLastThreadUnlockAtLocLAPOR(lab->getPos().prev(), lab->getLockAddr());
@@ -334,6 +358,7 @@ void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab)
 		pporf.update(g.getPPoRfBefore(prevUnlock));
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -428,11 +453,13 @@ void IMMDriver::changeRf(Event read, Event store)
 	/* And update the views of the load */
 	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	View hb = calcBasicHbView(rLab->getPos());
+	View porf = calcBasicPorfView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	updateReadViewsFromRf(pporf, hb, rLab);
+	updateReadViewsFromRf(pporf, porf, hb, rLab);
 
 	rLab->setHbView(std::move(hb));
+	rLab->setPorfView(std::move(porf));
 	rLab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
@@ -446,12 +473,15 @@ void IMMDriver::updateStart(Event create, Event start)
 
 	/* Re-synchronize views */
 	View hb(g.getEventLabel(create)->getHbView());
+	View porf(g.getEventLabel(create)->getPorfView());
 	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
 	hb[start.thread] = 0;
+	porf[start.thread] = 0;
 	pporf[start.thread] = 0;
 
 	bLab->setHbView(std::move(hb));
+	bLab->setPorfView(std::move(porf));
 	bLab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -471,11 +501,14 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	* and then update it */
 	DepView pporf(jLab->getPPoView());
 	View hb = calcBasicHbView(jLab->getPos());
+	View porf = calcBasicPorfView(jLab->getPos());
 
 	hb.update(fLab->getHbView());
+	porf.update(fLab->getPorfView());
 	pporf.update(fLab->getPPoRfView());
 
         jLab->setHbView(std::move(hb));
+        jLab->setPorfView(std::move(porf));
 	jLab->setPPoRfView(std::move(pporf));
 	return true;
 }

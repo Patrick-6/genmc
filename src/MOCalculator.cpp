@@ -412,6 +412,7 @@ bool MOCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 				   auto *eLab = g.getEventLabel(e);
 				   return g.revisitDeletesEvent(rLab, sLab, eLab) &&
 					   eLab->getStamp() < wLab->getStamp() &&
+					   !wLab->getPorfView().contains(eLab->getPos()) &&
 					   !(g.isRMWStore(eLab) && eLab->getPos().prev() == rLab->getPos());
 			});
 }
@@ -430,6 +431,7 @@ bool MOCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLab
 			      auto *sLab = g.getEventLabel(s);
 			      return (sLab->getStamp() > revLab->getStamp() &&
 				      v.contains(sLab->getPos()) &&
+				      !sLab->getPorfView().contains(rLab->getPos()) &&
 				      sLab->getPos() != wLab->getPos());
 		      });
 }

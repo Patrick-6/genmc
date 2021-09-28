@@ -93,7 +93,7 @@ bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const Write
 					      const EventLabel *lab) const
 {
 	auto &v = getPrefixView(wLab->getPos());
-	if (lab->getIndex() > v[lab->getThread()])
+	if (!wLab->getPorfView().contains(lab->getPos()))
 		return false;
 
 	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
@@ -104,6 +104,7 @@ bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const Write
 	if (!rLabB)
 		return false;
 
+	/* If prefix has same address load, we must read from the same write */
 	for (auto i = 0u; i < v.size(); i++) {
 		for (auto j = 0u; j <= v[i]; j++) {
 			if (!v.contains(Event(i, j)))
@@ -120,7 +121,6 @@ bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const Write
 				   [&v](const Event &r){ return v.contains(r); });
 
 	}
-
 	// auto &locMO = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())->getModOrderAtLoc(rLabB->getAddr());
 	// auto it = locMO.begin();
 
