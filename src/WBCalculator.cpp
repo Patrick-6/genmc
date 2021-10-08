@@ -604,9 +604,8 @@ bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 	--(*p)[sLab->getThread()];
 
 	auto &wb = getOrInsertWbCalc(wLab->getAddr(), *llvm::dyn_cast<View>(&*p), wbs);
-	auto &stores = wb.getElems();
-	return std::any_of(wb_pred_begin(wb, wLab->getPos()),
-			   wb_pred_end(wb, wLab->getPos()), [&](const Event &s){
+	return std::any_of(wb_po_pred_begin(wb, wLab->getPos()),
+			   wb_po_pred_end(wb, wLab->getPos()), [&](const Event &s){
 				   auto *slab = g.getEventLabel(s);
 				   return g.revisitDeletesEvent(rLab, sLab, slab) &&
 					   slab->getStamp() < wLab->getStamp() &&
@@ -627,9 +626,8 @@ bool WBCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLab
 	--(*p)[wLab->getThread()];
 
 	auto &wb = getOrInsertWbCalc(rLab->getAddr(), *llvm::dyn_cast<View>(&*p), wbs);
-	auto &stores = wb.getElems();
-	return std::any_of(wb_succ_begin(wb, rLab->getRf()),
-			   wb_succ_end(wb, rLab->getRf()), [&](const Event &s){
+	return std::any_of(wb_po_succ_begin(wb, rLab->getRf()),
+			   wb_po_succ_end(wb, rLab->getRf()), [&](const Event &s){
 				   auto *sLab = g.getEventLabel(s);
 				   return v.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
 					   sLab->getStamp() > revLab->getStamp();
