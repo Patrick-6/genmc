@@ -2074,13 +2074,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		// IMM: DO WE NEED TO ALSO SAVE DEPTRACKER's STATE?
 		setSharedState(std::move(newState));
 
-		GENMC_DEBUG(
-			if (getConf()->vLevel >= VerbosityLevel::V2) {
-				llvm::dbgs() << "--- Backward revisiting " << write << " --> " << read << "\n";
-				printGraph();
-			}
-		);
-
 		auto &ng = getGraph();
 		auto &prefix = ng.getPrefixView(write);
 		for (auto i = 0u; i < ng.getNumThreads(); i++) {
@@ -2092,6 +2085,13 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		}
 
 		revisitRead(BRevItem(read, write, {}, {}));
+
+		GENMC_DEBUG(
+			if (getConf()->vLevel >= VerbosityLevel::V2) {
+				llvm::dbgs() << "--- Backward revisiting " << write << " --> " << read << "\n";
+				printGraph();
+			}
+		);
 
 		/* If there are idle workers in the thread pool,
 		 * try submitting the job instead */
