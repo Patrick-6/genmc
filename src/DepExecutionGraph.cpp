@@ -23,6 +23,7 @@
 
 std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
+	auto pendingRMWs = getPendingRMWs(sLab); /* empty or singleton */
 	std::vector<Event> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -38,6 +39,11 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) con
 			}
 		}
 	}
+	if (pendingRMWs.size() > 0)
+		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](Event &e){
+			auto *confLab = getEventLabel(pendingRMWs.back());
+			return getEventLabel(e)->getStamp() > confLab->getStamp();
+		}), loads.end());
 	return loads;
 }
 

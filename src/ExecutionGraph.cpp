@@ -311,9 +311,10 @@ std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab) const
 
 std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
+	auto &before = getPorfBefore(sLab->getPos());
+	auto pendingRMWs = getPendingRMWs(sLab); /* empty or singleton */
 	std::vector<Event> loads;
 
-	auto &before = getPorfBefore(sLab->getPos());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = before[i] + 1u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
@@ -324,6 +325,11 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 			}
 		}
 	}
+	if (pendingRMWs.size() > 0)
+		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](Event &e){
+			auto *confLab = getEventLabel(pendingRMWs.back());
+			return getEventLabel(e)->getStamp() > confLab->getStamp();
+		}), loads.end());
 	return loads;
 }
 

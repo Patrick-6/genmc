@@ -1977,13 +1977,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	}
 
 	std::vector<Event> loads = getRevisitLoads(sLab);
-	std::vector<Event> pendingRMWs = g.getPendingRMWs(sLab); /* empty or singleton */
-
-	if (pendingRMWs.size() > 0)
-		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](Event &e)
-					{ auto *confLab = g.getEventLabel(pendingRMWs.back());
-					  return g.getEventLabel(e)->getStamp() > confLab->getStamp(); }),
-			    loads.end());
 
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
@@ -2107,8 +2100,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		restoreLocalState(std::move(localState));
 	}
-	bool consG = !(llvm::isa<CasWriteLabel>(sLab) || llvm::isa<FaiWriteLabel>(sLab)) ||
-		pendingRMWs.empty();
+	bool consG = !g.isRMWStore(sLab) || g.getPendingRMWs(sLab).empty();
 	// if (!isMootExecution  && consG) {
 	// 	llvm::dbgs() << "CONTINUING WITH \n"; printGraph();
 	// }
