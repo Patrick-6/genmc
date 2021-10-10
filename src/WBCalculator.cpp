@@ -651,7 +651,7 @@ bool WBCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const Write
 		return true;
 
 	std::sort(succs.begin(), succs.end(), [&g](const Event &a, const Event &b)
-		{ return g.getEventLabel(a) < g.getEventLabel(b); });
+		{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
 	auto *sLab = g.getEventLabel(succs[0]);
 	return sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
 }
