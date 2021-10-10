@@ -658,27 +658,25 @@ bool WBCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const Write
 
 Event WBCalculator::getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map<SAddr, Event> &cache)
 {
-	if (!cache.count(addr)) {
-		auto &g = getGraph();
+	if (cache.count(addr))
+		return cache.at(addr);
 
-		auto wb = calcWbRestricted(addr, v);
-		auto &stores = wb.getElems();
+	auto wb = calcWbRestricted(addr, v);
+	auto &stores = wb.getElems();
 
-		/* It's a bit tricky to move this check above the if, due to atomicity violations */
-		if (stores.empty())
-			return Event::getInitializer();
+	if (stores.empty())
+		return cache[addr] = Event::getInitializer();
 
-		std::vector<Event> maximals;
-		for (auto &s : stores) {
-			if (wb.adj_begin(s) == wb.adj_end(s))
-				maximals.push_back(s);
-		}
-		std::sort(maximals.begin(), maximals.end(), [&g](const Event &a, const Event &b)
-			{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
-
-		cache[addr] = maximals.back();
+	std::vector<Event> maximals;
+	for (auto &s : stores) {
+		if (wb.adj_begin(s) == wb.adj_end(s))
+			maximals.push_back(s);
 	}
-	return cache.at(addr);
+
+	auto &g = getGraph();
+	std::sort(maximals.begin(), maximals.end(), [&g](const Event &a, const Event &b)
+		{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
+	return cache[addr] = maximals.back();
 }
 
 Event WBCalculator::getTiebraker(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab) const
