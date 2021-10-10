@@ -36,6 +36,74 @@
  */
 class WBCalculator : public CoherenceCalculator {
 
+private:
+	/*
+	 * Stores a calculation results so that subsequent queries of particular
+	 * kinds will not have to calculate WB again. Currently stores information
+	 * about (the most recent) calculations taking place on a single memory location.
+	 * FIXME: Now assumes that the user knows beforehand whether some info is cached.
+	 */
+	class Cache {
+
+	public:
+		/*
+		 * For now, only store whether an internal calculation has been
+		 * performed (ignore fixpoints), and whether that calculation
+		 * was optimized.
+		 */
+		enum Kind { Invalid, InternalOpt, InternalCalc };
+
+		Kind getKind() { return k; }
+
+		/*
+		 * Caches the fact that E1 and E2 are maximal;
+		 * (assumes that we got this from an optimization)
+		 */
+		void addMaximalInfo(const std::vector<Event> &es) {
+			k = InternalOpt;
+			maximals = es;
+		}
+		void addMaximalInfo(std::vector<Event> &&es) {
+			k = InternalOpt;
+			maximals = std::move(es);
+		}
+
+		/* Caches the calculation for a single memory location */
+		void addCalcInfo(GlobalRelation &wb) {
+			k = InternalCalc;
+			cache = wb;
+		}
+		void addCalcInfo(GlobalRelation &&wb) {
+			k = InternalCalc;
+			cache = std::move(wb);
+		}
+		const GlobalRelation &getCalcInfo() {
+			BUG_ON(getKind() != InternalCalc);;
+			return cache;
+		}
+
+		bool isMaximal(const Event &store) {
+			if (getKind() == InternalOpt)
+				return std::any_of(maximals.begin(), maximals.end(),
+						   [&](Event &m){ return store == m; });
+			else if (getKind() == InternalCalc)
+				return cache.adj_begin(store) == cache.adj_end(store);
+			BUG();
+		}
+
+		/* Invalidates the cache */
+		void invalidate() { k = Invalid; }
+
+	private:
+		Kind k;
+
+		/* When the internal calculation was optimized */
+		std::vector<Event> maximals;
+
+		/* When the internal calculation was fully performed */
+		GlobalRelation cache;
+	};
+
 public:
 
 	/* Constructor */
@@ -93,9 +161,11 @@ public:
 
 	/* Calculates WB */
 	GlobalRelation calcWb(SAddr addr) const;
-
-	/* Calculates WB restricted in v */
 	GlobalRelation calcWbRestricted(SAddr addr, const VectorClock &v) const;
+
+	/* Calculates and caches WB */
+	const GlobalRelation &calcCacheWb(SAddr addr);
+	const GlobalRelation &calcCacheWbRestricted(SAddr addr, const VectorClock &v);
 
 	/* Populates "wb" so that it represents coherence at loc "addr".
 	 * If "prop" is provided, only stores satisfying it are considered.
@@ -133,67 +203,10 @@ public:
 	}
 
 private:
-	/*
-	 * Stores a calculation results so that subsequent queries of particular
-	 * kinds will not have to calculate WB again. Currently stores information
-	 * about (the most recent) calculations taking place on a single memory location.
-	 */
-	class Cache {
 
-	public:
-		/*
-		 * For now, only store whether an internal calculation has been
-		 * performed (ignore fixpoints), and whether that calculation
-		 * was optimized.
-		 */
-		enum Kind { Invalid, InternalOpt, InternalCalc };
-
-		Kind getKind() { return k; }
-
-		/*
-		 * Caches the fact that E1 and E2 aer maximal;
-		 * (assumes that we got this from an optimization)
-		 */
-		void addMaximalInfo(const std::vector<Event> &es) {
-			k = InternalOpt;
-			maximals = es;
-		}
-		void addMaximalInfo(std::vector<Event> &&es) {
-			k = InternalOpt;
-			maximals = std::move(es);
-		}
-
-		/* Caches the calculation for a single memory location */
-		void addCalcInfo(GlobalRelation &wb) {
-			k = InternalCalc;
-			cache = wb;
-		}
-		void addCalcInfo(GlobalRelation &&wb) {
-			k = InternalCalc;
-			cache = std::move(wb);
-		}
-
-		bool isMaximal(const Event &store) {
-			if (getKind() == InternalOpt)
-				return std::any_of(maximals.begin(), maximals.end(),
-						   [&](Event &m){ return store == m; });
-			else if (getKind() == InternalCalc)
-				return cache.adj_begin(store) == cache.adj_end(store);
-			BUG();
-		}
-
-		/* Invalidates the cache */
-		void invalidate() { k = Invalid; }
-
-	private:
-		Kind k;
-
-		/* When the internal calculation was optimized */
-		std::vector<Event> maximals;
-
-		/* When the internal calculation was fully performed */
-		GlobalRelation cache;
-	};
+	bool isLocOrdered(SAddr addr) const { return ordered_.at(addr); }
+	bool isLocOrderedRestricted(SAddr addr, const VectorClock &v) const;
+	void setLocOrderedStatus(SAddr addr, bool status) { ordered_[addr] = status; }
 
 	Cache &getCache() { return cache_; }
 
@@ -208,11 +221,18 @@ private:
 
 	bool isWbMaximal(const WriteLabel *wLab, const std::vector<Event> &ls) const;
 
-	bool isCoherentRf(SAddr addr, const GlobalRelation &wb, Event read,
-			  Event store, int storeWbIdx);
-	bool isInitCoherentRf(const GlobalRelation &wb, Event read);
+	bool hasSuccRfBefore(SAddr addr, Event a, Event b);
+	bool hasSuccRfBeforeRestricted(SAddr addr, Event a, Event b,
+				       const VectorClock &v, bool orderedInView);
 
-	bool isCoherentRevisit(const WriteLabel *sLab, Event read) const;
+	bool hasPredHbOptRfAfter(SAddr addr, Event a, Event b);
+	bool hasPredHbOptRfAfterRestricted(SAddr addr, Event a, Event b,
+					   const VectorClock &v, bool orderedInView);
+
+	bool isCoherentRf(SAddr addr, Event read, Event store);
+	bool isInitCoherentRf(SAddr addr, Event read);
+
+	bool isCoherentRevisit(const WriteLabel *sLab, Event read);
 
 	const Calculator::GlobalRelation &
 	getOrInsertWbCalc(SAddr addr, const View &v, Calculator::PerLocRelation &cache);
@@ -239,6 +259,8 @@ private:
 
 	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
 	StoresList stores_;
+
+	std::unordered_map<SAddr, bool> ordered_;
 
 	Cache cache_;
 };

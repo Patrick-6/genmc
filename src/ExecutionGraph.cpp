@@ -369,15 +369,17 @@ const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 						     unsigned int offsetMO)
 {
-	getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), offsetMO);
-	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
+	return wLab;
 }
 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 						     Event pred)
 {
-	getCoherenceCalculator()->addStoreToLocAfter(lab->getAddr(), lab->getPos(), pred);
-	return static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	getCoherenceCalculator()->addStoreToLocAfter(wLab->getAddr(), wLab->getPos(), pred);
+	return wLab;
 }
 
 const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
