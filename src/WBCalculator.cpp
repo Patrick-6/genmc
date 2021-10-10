@@ -586,7 +586,7 @@ bool WBCalculator::isWbMaximal(const WriteLabel *sLab, const std::vector<Event> 
 	 * Since sLab is a porf-maximal store, unless it is an RMW, it is
 	 * wb-maximal (and so, all revisitable loads can read from it).
 	 */
-	if (!llvm::isa<FaiWriteLabel>(sLab) && !llvm::isa<CasWriteLabel>(sLab))
+	if (!getGraph().isRMWStore(sLab))
 		return true;
 
 	/* Optimization:
