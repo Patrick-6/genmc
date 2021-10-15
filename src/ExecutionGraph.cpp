@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "ExecutionGraph.hpp"
+#include "LabelIterator.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
@@ -338,14 +339,10 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 {
 	std::vector<Event> result;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1u; j < getThreadSize(i); j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-				if (rLab->getRf().isInitializer() &&
-				    rLab->getAddr() == addr)
-					result.push_back(rLab->getPos());
-		}
+	for (const auto *lab : labels(*this)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+				result.push_back(rLab->getPos());
 	}
 	return result;
 }
@@ -1007,37 +1004,31 @@ bool ExecutionGraph::isWriteRfBefore(Event a, Event b) const
 
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!isRMWLoad(lab))
-				continue;
+	for (const auto *lab : labels(*this)) {
+		if (!isRMWLoad(lab))
+			continue;
 
-			auto *rLab = static_cast<const ReadLabel *>(lab);
-			if (rLab->getRf() == store && rLab->getAddr() == ptr)
-				return true;
-		}
+		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		if (rLab->getRf() == store && rLab->getAddr() == ptr)
+			return true;
 	}
 	return false;
 }
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const VectorClock &prefix) const
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!isRMWLoad(lab))
-				continue;
+	for (const auto *lab : labels(*this)) {
+		if (!isRMWLoad(lab))
+			continue;
 
-			auto *rLab = static_cast<const ReadLabel *>(lab);
-			if (rLab->getRf() != store || rLab->getAddr() != ptr)
-				continue;
+		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		if (rLab->getRf() != store || rLab->getAddr() != ptr)
+			continue;
 
-			if (!rLab->isRevisitable())
-				return true;
-			if (prefix.contains(rLab->getPos()))
-				return true;
-		}
+		if (!rLab->isRevisitable())
+			return true;
+		if (prefix.contains(rLab->getPos()))
+			return true;
 	}
 	return false;
 }
@@ -1420,14 +1411,11 @@ ExecutionGraph::getSCs() const
 {
 	std::vector<Event> scs, fcs;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->isSC() && !isRMWLoad(lab))
-				scs.push_back(lab->getPos());
-			if (lab->isSC() && llvm::isa<FenceLabel>(lab))
-				fcs.push_back(lab->getPos());
-		}
+	for (const auto *lab : labels(*this)) {
+		if (lab->isSC() && !isRMWLoad(lab))
+			scs.push_back(lab->getPos());
+		if (lab->isSC() && llvm::isa<FenceLabel>(lab))
+			fcs.push_back(lab->getPos());
 	}
 	return std::make_pair(scs,fcs);
 }
