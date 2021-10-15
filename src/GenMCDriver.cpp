@@ -187,7 +187,7 @@ bool GenMCDriver::schedulePrioritized()
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->currentThread = e.thread;
+		EE->scheduleThread(e.thread);
 		return true;
 	}
 	return false;
@@ -203,7 +203,7 @@ bool GenMCDriver::scheduleNextLTR()
 			continue;
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->currentThread = i;
+		EE->scheduleThread(i);
 		return true;
 	}
 
@@ -235,14 +235,14 @@ bool GenMCDriver::scheduleNextWF()
 		if (fallback == -1)
 			fallback = i;
 		if (!isNextThreadInstLoad(i)) {
-			EE->currentThread = i;
+			EE->scheduleThread(i);
 			return true;
 		}
 	}
 
 	/* Otherwise, try to schedule the fallback thread */
 	if (fallback != -1) {
-		EE->currentThread = fallback;
+		EE->scheduleThread(fallback);
 		return true;
 	}
 	return false;
@@ -268,13 +268,13 @@ bool GenMCDriver::scheduleNextRandom()
 			auto symm = bLab->getSymmetricTid();
 			if (symm != -1 && isSchedulable(symm) &&
 			    g.getThreadSize(symm) <= g.getThreadSize(i)) {
-				EE->currentThread = symm;
+				EE->scheduleThread(symm);
 				return true;
 			}
 		}
 
 		/* Found a not-yet-complete thread; schedule it */
-		EE->currentThread = i;
+		EE->scheduleThread(i);
 		return true;
 	}
 
@@ -378,8 +378,8 @@ void GenMCDriver::handleFinishedExecution()
 	resetExplorationOptions();
 
 	/* Ignore the execution if some assume has failed */
-	if (std::any_of(getEE()->threads.begin(), getEE()->threads.end(),
-			[](llvm::Thread &thr){ return thr.isBlocked(); })) {
+	if (std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
+			[](const llvm::Thread &thr){ return thr.isBlocked(); })) {
 		++result.exploredBlocked;
 		if (userConf->checkLiveness)
 			checkLiveness();
@@ -436,12 +436,7 @@ void GenMCDriver::handleRecoveryStart()
 
 	/* Create a thread for the interpreter, and appropriately
 	 * add it to the thread list (pthread_create() style) */
-	auto rec = EE->createRecoveryThread(tid);
-	if (tid == (int) g.getNumThreads() - 1) {
-		EE->threads.push_back(rec);
-	} else {
-		EE->threads[tid] = rec;
-	}
+	EE->createAddRecoveryThread(tid);
 
 	/* Finally, do all necessary preparations in the interpreter */
 	getEE()->setProgramState(llvm::ProgramState::Recovery);
@@ -1037,15 +1032,15 @@ void GenMCDriver::checkLiveness()
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
-	std::vector<int> spinBlocked;
 
 	if (!isConsistent(ProgramPoint::exec))
 		return;
 
 	/* Collect all threads blocked at spinloops */
-	for (auto &thr : EE->threads) {
-		if (thr.getBlockageType() == llvm::Thread::BT_Spinloop)
-			spinBlocked.push_back(thr.id);
+	std::vector<int> spinBlocked;
+	for (auto thrIt = EE->threads_begin(), thrE = EE->threads_end(); thrIt != thrE; ++thrIt) {
+		if (thrIt->getBlockageType() == llvm::Thread::BT_Spinloop)
+			spinBlocked.push_back(thrIt->id);
 	}
 
 	/* And check whether all of them are live or not */
@@ -1320,20 +1315,18 @@ int GenMCDriver::visitThreadCreate(llvm::Function *calledFun, SVal arg,
 	auto *lab = g.addOtherLabelToGraph(std::move(tcLab));
 
 	/* Prepare the execution context for the new thread */
-	llvm::Thread thr = EE->createNewThread(calledFun, arg, cid, cur.thread, SF);
+	EE->createAddNewThread(calledFun, arg, cid, cur.thread, SF);
 
-	if (cid == (int) g.getNumThreads()) {
-		/* If the thread does not exist in the graph, make an entry for it */
-		EE->threads.push_back(thr);
+	/* If the thread does not exist in the graph, make an entry for it */
+	if (cid == (long) g.getNumThreads()) {
 		g.addNewThread();
-		BUG_ON(EE->threads.size() != g.getNumThreads());
+		BUG_ON(std::distance(EE->threads_begin(), EE->threads_end()) != g.getNumThreads());
 		auto symm = getConf()->symmetryReduction ? getSymmetricTidSR(cid, cur, calledFun, arg) : -1;
 		auto tsLab = ThreadStartLabel::create(g.nextStamp(), Event(cid, 0), cur, symm);
 		updateLabelViews(tsLab.get());
 		auto *ss = g.addOtherLabelToGraph(std::move(tsLab));
 	} else {
-		/* Otherwise, push the execution context to the interpreter and update the graph */
-		EE->threads[cid] = thr;
+		/* Otherwise, update the existing entry */
 		updateStart(lab->getPos(), g.getFirstThreadEvent(cid));
 	}
 
@@ -1346,7 +1339,7 @@ SVal GenMCDriver::visitThreadJoin(llvm::Function *F, SVal arg)
 	auto &thr = getEE()->getCurThr();
 
 	auto cid = arg.getSigned();
-	if (cid < 0 || int (EE->threads.size()) <= cid || cid == thr.id) {
+	if (cid < 0 || long (g.getNumThreads()) <= cid || cid == thr.id) {
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
 		if (cid == thr.id)
 			err += " (TID cannot be the same as the calling thread)";

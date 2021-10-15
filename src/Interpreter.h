@@ -332,6 +332,10 @@ protected:
 
   /*** Dynamic components (change during verification) ***/
 
+  /* Information about threads as well as the currently executing thread */
+  std::vector<Thread> threads;
+  int currentThread = 0;
+
   /* A tracker for dynamic allocations */
   SAddrAllocator alloctor;
 
@@ -385,7 +389,7 @@ public:
 	  }
 	  return shared;
   }
-  Thread constructThreadFromInfo(const ThreadInfo &ti) {
+  Thread &constructAddThreadFromInfo(const ThreadInfo &ti) {
 	  auto *calledFun = dyn_cast<Function>(const_cast<Value *>(MI->idInfo.IDV.at(ti.funId)));
 	  BUG_ON(!calledFun);
 	  ExecutionContext SF;
@@ -395,13 +399,13 @@ public:
 	  SF.CurInst = SF.CurBB->begin();
 
 	  SF.Values[&*calledFun->arg_begin()] = PTR_TO_GV(ti.arg.get());
-	  return createNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
+	  return createAddNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
   }
   void setSharedState(std::unique_ptr<EESharedState> state) {
 	  alloctor = std::move(state->alloctor);
 	  threads.clear();
 	  for (auto &ti : state->threadInfos)
-		  threads.push_back(constructThreadFromInfo(ti));
+		  constructAddThreadFromInfo(ti);
   }
 
   /* Resets the interpreter at the beginning of a new execution */
@@ -415,27 +419,26 @@ public:
   /* Pers: Does cleanups after the recovery routine has run */
   void cleanupRecoveryRoutine(int tid);
 
-  /* Information about threads as well as the currently executing thread */
-  std::vector<Thread> threads;
-  int currentThread = 0;
+  /* Creates a new thread and adds it to the thread list */
+  Thread &createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+			    const llvm::ExecutionContext &SF);
 
-  /* Creates an entry for the main() function. More information are
-   * filled from the execution engine when the exploration starts */
-  Thread createMainThread(llvm::Function *F);
+  /* Pers: Creates a thread for the recovery routine and adds it to
+   * the thread list */
+  Thread &createAddRecoveryThread(int tid);
 
-  /* Creates a new thread, but does _not_ add it to the thread list */
-  Thread createNewThread(llvm::Function *F, SVal arg, int tid, int pid,
-			 const llvm::ExecutionContext &SF);
-
-  /* Pers: Creates a thread for the recovery routine.
-   * It does _not_ add it to the thread list */
-  Thread createRecoveryThread(int tid);
+  /* Sets-up the specified thread for execution */
+  void scheduleThread(int tid) { currentThread = tid; }
 
   /* Returns the currently executing thread */
   Thread& getCurThr() { return threads[currentThread]; }
+  const Thread &getCurThr() const { return threads.at(currentThread); }
 
   /* Returns the thread with the specified ID (taken from the graph) */
   Thread& getThrById(int id) { return threads[id]; };
+
+  std::vector<Thread>::const_iterator threads_begin() const { return threads.begin(); }
+  std::vector<Thread>::const_iterator threads_end() const { return threads.end(); }
 
   /* Returns the stack frame of the currently executing thread */
   std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
@@ -791,6 +794,13 @@ private:  // Helper functions
 
   /* Pers: Sets up information about the modeled filesystem */
   void setupFsInfo(Module *M, const Config *userConf);
+
+  /* Adds the specified thread to the list */
+  Thread &addNewThread(Thread &&thread);
+
+  /* Creates an entry for the main() function. More information are
+   * filled from the execution engine when the exploration starts */
+  Thread &createAddMainThread(llvm::Function *F);
 
   /* Update naming information */
 

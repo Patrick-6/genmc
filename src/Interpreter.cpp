@@ -189,29 +189,40 @@ void Interpreter::cleanupRecoveryRoutine(int tid)
 	return;
 }
 
-/* Creates an entry for the main() function */
-Thread Interpreter::createMainThread(llvm::Function *F)
+Thread &Interpreter::addNewThread(Thread &&thread)
 {
-	Thread thr(F, 0);
-	thr.tls = threadLocalVars;
-	return thr;
+	if (thread.id == threads.size()) {
+	        threads.push_back(std::move(thread));
+		return threads.back();
+	}
+	BUG_ON(threads[thread.id].threadFun != thread.threadFun || threads[thread.id].id != thread.id);
+	return threads[thread.id] = std::move(thread);
+}
+
+/* Creates an entry for the main() function */
+Thread &Interpreter::createAddMainThread(llvm::Function *F)
+{
+	Thread main(F, 0);
+	main.tls = threadLocalVars;
+	threads.clear(); /* make sure its empty */
+	return addNewThread(std::move(main));
 }
 
 /* Creates an entry for another thread */
-Thread Interpreter::createNewThread(llvm::Function *F, SVal arg, int tid, int pid,
-				    const llvm::ExecutionContext &SF)
+Thread &Interpreter::createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+				       const llvm::ExecutionContext &SF)
 {
 	Thread thr(F, arg, tid, pid, SF);
 	thr.ECStack.push_back(SF);
 	thr.tls = threadLocalVars;
-	return thr;
+	return addNewThread(std::move(thr));
 }
 
-Thread Interpreter::createRecoveryThread(int tid)
+Thread &Interpreter::createAddRecoveryThread(int tid)
 {
 	Thread rec(recoveryRoutine, tid);
 	rec.tls = threadLocalVars;
-	return rec;
+	return addNewThread(std::move(rec));
 }
 
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
@@ -574,8 +585,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   auto mainFun = mod->getFunction(userConf->programEntryFun);
   ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
 
-  auto main = createMainThread(mainFun);
-  threads.push_back(main);
+  createAddMainThread(mainFun);
 }
 
 Interpreter::~Interpreter() {
