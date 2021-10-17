@@ -204,7 +204,7 @@ void RC11Driver::calcJoinViews(ThreadJoinLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void RC11Driver::updateLabelViews(EventLabel *lab)
+void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps ignored */
 {
 	const auto &g = getGraph();
 

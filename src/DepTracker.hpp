@@ -32,43 +32,11 @@
 
 /*
  * A class to be used from the Interpreter to track dependencies between
- * instructions. Dependencies have one of the following types:
- * addr, data, ctrl, addr;po, cas.
- * Models are free to ignore some of these if they are of no use.
+ * instructions.
  */
 class DepTracker {
 
 public:
-	/* Returns the current addr dependencies */
-	const DepInfo *getCurrentAddrDeps() const { return currentAddrDeps; };
-
-	/* Returns the current data dependencies */
-	const DepInfo *getCurrentDataDeps() const { return currentDataDeps; };
-
-	/* Returns the current control dependencies */
-	const DepInfo *getCurrentCtrlDeps() const { return currentCtrlDeps; };
-
-	/* Returns the current addr;po dependencies */
-	const DepInfo *getCurrentAddrPoDeps() const { return currentAddrPoDeps; };
-
-	/* Returns the current cas dependencies */
-	const DepInfo *getCurrentCasDeps() const { return currentCasDeps; };
-
-	/* Sets the current address dependencies */
-	void setCurrentAddrDeps(const DepInfo *di) { currentAddrDeps = di; };
-
-	/* Sets the current data dependencies */
-	void setCurrentDataDeps(const DepInfo *di) { currentDataDeps = di; };
-
-	/* Sets the current control dependencies */
-	void setCurrentCtrlDeps(const DepInfo *di) { currentCtrlDeps = di; };
-
-	/* Sets the current addr;po dependencies */
-	void setCurrentAddrPoDeps(const DepInfo *di) { currentAddrPoDeps = di; };
-
-	/* Sets the current cas dependencies */
-	void setCurrentCasDeps(const DepInfo *di) { currentCasDeps = di; };
-
 	/* Returns data dependencies for instruction i in thread tid */
 	const DepInfo *getDataDeps(unsigned int tid, llvm::Value *i) {
 		return &dataDeps[tid][i];
@@ -110,12 +78,6 @@ public:
 	};
 
 private:
-	const DepInfo *currentAddrDeps = nullptr;
-	const DepInfo *currentDataDeps = nullptr;
-	const DepInfo *currentCtrlDeps = nullptr;
-	const DepInfo *currentAddrPoDeps = nullptr;
-	const DepInfo *currentCasDeps = nullptr;
-
 	/* The data dependencies of each instruction are
 	 * stored in a map (per thread) */
 	std::unordered_map<unsigned int,

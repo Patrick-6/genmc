@@ -174,7 +174,7 @@ void Interpreter::setupRecoveryRoutine(int tid)
 
 	/* Only fill the stack if a recovery routine actually exists... */
 	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
-	callFunction(recoveryRoutine, {});
+	callFunction(recoveryRoutine, {}, nullptr);
 
 	/* Also set up initSF, if it is the first invocation */
 	if (!getThrById(tid).initSF.CurFunction)
@@ -383,72 +383,40 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 
 const DepInfo *Interpreter::getAddrPoDeps(unsigned int tid)
 {
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getAddrPoDeps(tid);
+	return depTracker ? depTracker->getAddrPoDeps(tid) : nullptr;
 }
 
 const DepInfo *Interpreter::getDataDeps(unsigned int tid, Value *i)
 {
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getDataDeps(tid, i);
+	return depTracker ? depTracker->getDataDeps(tid, i) : nullptr;
 }
 
 const DepInfo *Interpreter::getCtrlDeps(unsigned int tid)
 {
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCtrlDeps(tid);
+	return depTracker ? depTracker->getCtrlDeps(tid) : nullptr;
 }
 
-const DepInfo *Interpreter::getCurrentAddrDeps() const
+std::unique_ptr<EventDeps>
+Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
+			   const DepInfo *ctrl, const DepInfo *addrPo,
+			   const DepInfo *cas)
 {
 	if (!depTracker)
 		return nullptr;
-	return depTracker->getCurrentAddrDeps();
-}
 
-const DepInfo *Interpreter::getCurrentDataDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentDataDeps();
-}
+	auto result = LLVM_MAKE_UNIQUE<EventDeps>();
 
-const DepInfo *Interpreter::getCurrentCtrlDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentCtrlDeps();
-}
-
-const DepInfo *Interpreter::getCurrentAddrPoDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentAddrPoDeps();
-}
-
-const DepInfo *Interpreter::getCurrentCasDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentCasDeps();
-}
-
-void Interpreter::setCurrentDeps(const DepInfo *addr, const DepInfo *data,
-				 const DepInfo *ctrl, const DepInfo *addrPo,
-				 const DepInfo *cas)
-{
-	if (!depTracker)
-		return;
-
-	depTracker->setCurrentAddrDeps(addr);
-	depTracker->setCurrentDataDeps(data);
-	depTracker->setCurrentCtrlDeps(ctrl);
-	depTracker->setCurrentAddrPoDeps(addrPo);
-	depTracker->setCurrentCasDeps(cas);
+	if (addr)
+		result->addr = *addr;
+	if (data)
+		result->data = *data;
+	if (ctrl)
+		result->ctrl = *ctrl;
+	if (addrPo)
+		result->addrPo = *addrPo;
+	if (cas)
+		result->cas = *cas;
+	return result;
 }
 
 void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Value *src)
@@ -471,56 +439,52 @@ void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Event e)
 
 void Interpreter::updateAddrPoDeps(unsigned int tid, Value *src)
 {
-	if (!depTracker)
-		return;
-
-	depTracker->updateAddrPoDeps(tid, src);
-	depTracker->setCurrentAddrPoDeps(getAddrPoDeps(tid));
+	if (depTracker)
+		depTracker->updateAddrPoDeps(tid, src);
 }
 
 void Interpreter::updateCtrlDeps(unsigned int tid, Value *src)
 {
-	if (!depTracker)
-		return;
-
-	depTracker->updateCtrlDeps(tid, src);
-	depTracker->setCurrentCtrlDeps(getCtrlDeps(tid));
+	if (depTracker)
+		depTracker->updateCtrlDeps(tid, src);
 }
 
-void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
+std::unique_ptr<EventDeps>
+Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 {
 	if (!depTracker)
-		return;
+		return nullptr;
 
 	ExecutionContext &SF = ECStack().back();
 	auto name = fun->getName().str();
 
-	/* First handle special cases and then normal function calls */
+	/* Handling non-internals is straightforward: the parameters
+	 * of the function called get the data dependencies of the
+	 * actual arguments */
 	bool isInternal = internalFunNames.count(name);
-	if (isInternal) {
-		auto iFunCode = internalFunNames.at(name);
-		if (iFunCode == InternalFunctions::FN_Assume) {
-			/* We have ctrl dependency on the argument of an assume() */
-			for (auto i = SF.Caller.arg_begin(),
-				     e = SF.Caller.arg_end(); i != e; ++i) {
-				updateCtrlDeps(tid, *i);
-			}
-		} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
-			/* We have addr dependency on the argument of mutex/barrier calls */
-			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
-				       nullptr, getCtrlDeps(tid),
-				       getAddrPoDeps(tid), nullptr);
-		}
-	} else {
-		/* The parameters of the function called get the data
-		 * dependencies of the actual arguments */
+	if (!isInternal) {
 		auto ai = fun->arg_begin();
 		for (auto ci = SF.Caller.arg_begin(),
 			     ce = SF.Caller.arg_end(); ci != ce; ++ci, ++ai) {
 			updateDataDeps(tid, &*ai, &*ci->get());
 		}
+		return nullptr;
 	}
-	return;
+
+	auto iFunCode = internalFunNames.at(name);
+	if (iFunCode == InternalFunctions::FN_Assume) {
+		/* We have ctrl dependency on the argument of an assume() */
+		for (auto i = SF.Caller.arg_begin(),
+			     e = SF.Caller.arg_end(); i != e; ++i) {
+			updateCtrlDeps(tid, *i);
+		}
+	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
+		/* We have addr dependency on the argument of mutex/barrier calls */
+		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				     nullptr, getCtrlDeps(tid),
+				     getAddrPoDeps(tid), nullptr);
+	}
+	return nullptr;
 }
 
 void Interpreter::clearDeps(unsigned int tid)
@@ -594,7 +558,7 @@ Interpreter::~Interpreter() {
 
 void Interpreter::runAtExitHandlers () {
   while (!AtExitHandlers.empty()) {
-    callFunction(AtExitHandlers.back(), std::vector<GenericValue>());
+    callFunction(AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
     AtExitHandlers.pop_back();
     run();
   }
@@ -626,7 +590,7 @@ Interpreter::runFunction(Function *F,
     ActualArgs.push_back(ArgValues[i]);
 
   // Set up the function call.
-  callFunction(F, ActualArgs);
+  callFunction(F, ActualArgs, nullptr);
 
   // Start executing the function.
   run();

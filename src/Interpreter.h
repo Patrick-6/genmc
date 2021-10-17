@@ -455,31 +455,6 @@ public:
   void setProgramState(ProgramState s) { programState = s; }
   void setExecState(ExecutionState s) { execState = s; }
 
-  /* Dependency tracking */
-
-  const DepInfo *getAddrPoDeps(unsigned int tid);
-  const DepInfo *getDataDeps(unsigned int tid, Value *i);
-  const DepInfo *getCtrlDeps(unsigned int tid);
-
-  const DepInfo *getCurrentAddrDeps() const;
-  const DepInfo *getCurrentDataDeps() const;
-  const DepInfo *getCurrentCtrlDeps() const;
-  const DepInfo *getCurrentAddrPoDeps() const;
-  const DepInfo *getCurrentCasDeps() const;
-
-  void setCurrentDeps(const DepInfo *addrDeps, const DepInfo *dataDeps,
-		      const DepInfo *ctrlDeps, const DepInfo *addrPoDeps,
-		      const DepInfo *casDeps);
-
-  void updateDataDeps(unsigned int tid, Value *dst, Value *src);
-  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e);
-  void updateDataDeps(unsigned int tid, Value *dst, Event e);
-  void updateAddrPoDeps(unsigned int tid, Value *src);
-  void updateCtrlDeps(unsigned int tid, Value *src);
-  void updateFunArgDeps(unsigned int tid, Function *F);
-
-  void clearDeps(unsigned int tid);
-
   /* Annotation information */
 
   /* Returns annotation information for the instruction I */
@@ -566,7 +541,9 @@ public:
 
   // Methods used to execute code:
   // Place a call on the stack
-  void callFunction(Function *F, const std::vector<GenericValue> &ArgVals);
+  void callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
+		    const std::unique_ptr<EventDeps> &specialDeps);
+
   void run();                // Execute instructions until nothing left to do
 
   /* Pers: Run the specified recovery routine */
@@ -698,87 +675,99 @@ private:  // Helper functions
 
   SVal getInodeTransStatus(void *inode, Type *intTyp);
   void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
-  SVal readInodeSizeFS(void *inode, Type *intTyp);
-  void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize);
+  SVal readInodeSizeFS(void *inode, Type *intTyp,
+		       const std::unique_ptr<EventDeps> &deps);
+  void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
+			 const std::unique_ptr<EventDeps> &deps);
   void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize,
 			     SVal ordDataBegin, SVal ordDataEnd);
   void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
-		       int count, Type *dataTyp);
+		       int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
   void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
-			int count, Type *dataTyp);
+			int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
   void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
 
   SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
   SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
-  SVal executeInodeCreateFS(const std::string &name, Type *intTyp);
-  SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp);
-  SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp);
+  SVal executeInodeCreateFS(const std::string &name, Type *intTyp,
+			    const std::unique_ptr<EventDeps> &deps);
+  SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp,
+			   const std::unique_ptr<EventDeps> &deps);
+  SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
+		     const std::unique_ptr<EventDeps> &deps);
 
-  void executeReleaseFileFS(void *fileDesc, Type *intTyp);
-  SVal executeCloseFS(SVal fd, Type *intTyp);
+  void executeReleaseFileFS(void *fileDesc, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
+  SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
   SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
 		       SVal newInode, Type *intTyp);
   SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
   SVal executeUnlinkFS(const std::string &pathname, Type *intTyp);
 
 
-  SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp);
-  SVal executeReadFS(void *file, Type *intTyp, void *buf,
-		     Type *bufElemTyp, SVal offset, SVal count);
+  SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp,
+			 const std::unique_ptr<EventDeps> &deps);
+  SVal executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
+		     SVal count, const std::unique_ptr<EventDeps> &deps);
   void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
-  SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags,
-			    SVal offset, SVal count, SVal &wOffset);
+  SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
+			    SVal &wOffset, const std::unique_ptr<EventDeps> &deps);
   bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size,
 				   SVal offset, SVal count, SVal &dSize);
-  SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf,
-			      Type *bufElemTyp, SVal wOffset, SVal count);
-  SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp,
-		      SVal offset, SVal count);
-  SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence);
+  SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp, SVal wOffset,
+			      SVal count, const std::unique_ptr<EventDeps> &deps);
+  SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset, SVal count,
+		      const std::unique_ptr<EventDeps> &deps);
+  SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
+		      const std::unique_ptr<EventDeps> &deps);
   void executeFsyncFS(void *inode, Type *intTyp);
 
 
   /* Custom Opcode Implementations */
-  void callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callRecAssertFail(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPotentialSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callAssume(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMalloc(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMallocAligned(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callFree(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callThreadSelf(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callThreadCreate(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callThreadJoin(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callThreadExit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMutexInit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMutexLock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callBarrierDestroy(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callCreatFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callRenameFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callLinkFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callUnlinkFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callTruncateFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callReadFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callFsyncFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals);
-  void callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals);
+#define DECLARE_CUSTOM_OPCODE(_name)						  \
+	void call ## _name(Function *F, const std::vector<GenericValue> &ArgVals, \
+			   const std::unique_ptr<EventDeps> &specialDeps)
 
-  void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
+  DECLARE_CUSTOM_OPCODE(AssertFail);
+  DECLARE_CUSTOM_OPCODE(RecAssertFail);
+  DECLARE_CUSTOM_OPCODE(SpinStart);
+  DECLARE_CUSTOM_OPCODE(SpinEnd);
+  DECLARE_CUSTOM_OPCODE(PotentialSpinEnd);
+  DECLARE_CUSTOM_OPCODE(EndLoop);
+  DECLARE_CUSTOM_OPCODE(Assume);
+  DECLARE_CUSTOM_OPCODE(NondetInt);
+  DECLARE_CUSTOM_OPCODE(Malloc);
+  DECLARE_CUSTOM_OPCODE(MallocAligned);
+  DECLARE_CUSTOM_OPCODE(Free);
+  DECLARE_CUSTOM_OPCODE(ThreadSelf);
+  DECLARE_CUSTOM_OPCODE(ThreadCreate);
+  DECLARE_CUSTOM_OPCODE(ThreadJoin);
+  DECLARE_CUSTOM_OPCODE(ThreadExit);
+  DECLARE_CUSTOM_OPCODE(MutexInit);
+  DECLARE_CUSTOM_OPCODE(MutexLock);
+  DECLARE_CUSTOM_OPCODE(MutexUnlock);
+  DECLARE_CUSTOM_OPCODE(MutexTrylock);
+  DECLARE_CUSTOM_OPCODE(MutexDestroy);
+  DECLARE_CUSTOM_OPCODE(BarrierInit);
+  DECLARE_CUSTOM_OPCODE(BarrierWait);
+  DECLARE_CUSTOM_OPCODE(BarrierDestroy);
+  DECLARE_CUSTOM_OPCODE(OpenFS);
+  DECLARE_CUSTOM_OPCODE(CreatFS);
+  DECLARE_CUSTOM_OPCODE(CloseFS);
+  DECLARE_CUSTOM_OPCODE(RenameFS);
+  DECLARE_CUSTOM_OPCODE(LinkFS);
+  DECLARE_CUSTOM_OPCODE(UnlinkFS);
+  DECLARE_CUSTOM_OPCODE(TruncateFS);
+  DECLARE_CUSTOM_OPCODE(ReadFS);
+  DECLARE_CUSTOM_OPCODE(WriteFS);
+  DECLARE_CUSTOM_OPCODE(SyncFS);
+  DECLARE_CUSTOM_OPCODE(FsyncFS);
+  DECLARE_CUSTOM_OPCODE(PreadFS);
+  DECLARE_CUSTOM_OPCODE(PwriteFS);
+  DECLARE_CUSTOM_OPCODE(LseekFS);
+  DECLARE_CUSTOM_OPCODE(PersBarrierFS);
+
+  void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
+			    const std::unique_ptr<EventDeps> &deps);
 
   void freeAllocas(const AllocaHolder &allocas);
 
@@ -801,6 +790,27 @@ private:  // Helper functions
   /* Creates an entry for the main() function. More information are
    * filled from the execution engine when the exploration starts */
   Thread &createAddMainThread(llvm::Function *F);
+
+  /* Dependency tracking */
+
+  const DepInfo *getAddrPoDeps(unsigned int tid);
+  const DepInfo *getDataDeps(unsigned int tid, Value *i);
+  const DepInfo *getCtrlDeps(unsigned int tid);
+
+  std::unique_ptr<EventDeps>
+  makeEventDeps(const DepInfo *addr, const DepInfo *data,
+		const DepInfo *ctrl, const DepInfo *addrPo,
+		const DepInfo *cas);
+
+  void updateDataDeps(unsigned int tid, Value *dst, Value *src);
+  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e);
+  void updateDataDeps(unsigned int tid, Value *dst, Event e);
+  void updateAddrPoDeps(unsigned int tid, Value *src);
+  void updateCtrlDeps(unsigned int tid, Value *src);
+
+  std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
+
+  void clearDeps(unsigned int tid);
 
   /* Update naming information */
 

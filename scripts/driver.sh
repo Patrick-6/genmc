@@ -113,7 +113,7 @@ for model in rc11 imm
 do
     for coherence in wb mo
     do
-	for cat in infr litmus saver liveness synthetic data-structures # lapor fs
+	for cat in infr litmus saver liveness synthetic data-structures fs # lapor
 	do
 	    testdir="${correctdir}/${cat}"
 	    check_blocked="" && [[ "${cat}" == "saver" ]] &&

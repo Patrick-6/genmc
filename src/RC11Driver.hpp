@@ -29,7 +29,7 @@ public:
 	RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		   std::unique_ptr<ModuleInfo> MI);
 
-	void updateLabelViews(EventLabel *lab) override;
+	void updateLabelViews(EventLabel *lab, const EventDeps *deps) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	std::vector<Event> getStoresToLoc(SAddr addr) override;
 	std::vector<Event> getRevisitLoads(const WriteLabel *lab) override;

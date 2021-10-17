@@ -72,4 +72,25 @@ private:
 	Set set_;
 };
 
+
+/*******************************************************************************
+ **                             EventDeps Class
+ ******************************************************************************/
+
+/*
+ * Packs together all the dependencies of a given event.
+ *
+ * Dependencies have one of the following types:
+ *     addr, data, ctrl, addr;po, cas.
+ * Models are free to ignore some of these if they are of no use.
+ */
+struct EventDeps {
+
+	DepInfo addr;
+	DepInfo data;
+	DepInfo ctrl;
+	DepInfo addrPo;
+	DepInfo cas;
+};
+
 #endif /* __DEP_INFO_HPP__ */

@@ -22,7 +22,7 @@
 #define __GENMC_DRIVER_HPP__
 
 #include "Config.hpp"
-#include "Event.hpp"
+#include "DepInfo.hpp"
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
 #include "WorkSet.hpp"
@@ -181,7 +181,8 @@ public:
 
 	/* Returns the value this load reads */
 	SVal
-	visitLoad(InstAttr attr,
+	visitLoad(const EventDeps *deps,
+		  InstAttr attr,
 		  llvm::AtomicOrdering ord,
 		  SAddr addr,
 		  ASize size,
@@ -198,7 +199,8 @@ public:
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void
-	visitStore(InstAttr attr,
+	visitStore(const EventDeps *deps,
+		   InstAttr attr,
 		   llvm::AtomicOrdering ord,
 		   SAddr addr,
 		   ASize size,
@@ -218,10 +220,10 @@ public:
 		      void *transInode = nullptr);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(SAddr addr, ASize size);
+	void visitLock(const EventDeps *deps, SAddr addr, ASize size);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(SAddr addr, ASize size);
+	void visitUnlock(const EventDeps *deps, SAddr addr, ASize size);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
@@ -242,7 +244,7 @@ public:
 
 	/* A fence has been interpreted, nothing for the interpreter */
 	void
-	visitFence(llvm::AtomicOrdering ord);
+	visitFence(const EventDeps *deps, llvm::AtomicOrdering ord);
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void
@@ -254,15 +256,15 @@ public:
 
 	/* Returns an appropriate result for pthread_self() */
 	SVal
-	visitThreadSelf();
+	visitThreadSelf(const EventDeps *deps);
 
 	/* Returns the TID of the newly created thread */
 	int
-	visitThreadCreate(llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
+	visitThreadCreate(const EventDeps *deps, llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
 	SVal
-	visitThreadJoin(llvm::Function *F, SVal arg);
+	visitThreadJoin(const EventDeps *deps, llvm::Function *F, SVal arg);
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void
@@ -270,12 +272,12 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	SVal
-	visitMalloc(uint64_t allocSize, unsigned int alignment, Storage s, AddressSpace spc,
-		    NameInfo *nameInfo = nullptr, const std::string &name = {});
+	visitMalloc(const EventDeps *deps, uint64_t allocSize, unsigned int alignment, Storage s,
+		    AddressSpace spc, NameInfo *nameInfo = nullptr, const std::string &name = {});
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void
-	visitFree(SAddr ptr);
+	visitFree(const EventDeps *deps, SAddr ptr);
 
 	/* This method blocks the current thread  */
 	void visitBlock();
@@ -500,7 +502,8 @@ private:
 
 	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
 	const ReadLabel *
-	createAddReadLabel(InstAttr attr,
+	createAddReadLabel(const EventDeps *deps,
+			   InstAttr attr,
 			   llvm::AtomicOrdering ord,
 			   SAddr addr,
 			   ASize size,
@@ -517,7 +520,8 @@ private:
 
 	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
 	const WriteLabel *
-	createAddStoreLabel(InstAttr attr,
+	createAddStoreLabel(const EventDeps *deps,
+			    InstAttr attr,
 			    llvm::AtomicOrdering ord,
 			    SAddr addr,
 			    ASize size,
@@ -565,8 +569,8 @@ private:
 	void repairDanglingBarriers();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void visitLockLAPOR(SAddr addr);
-	void visitUnlockLAPOR(SAddr addr);
+	void visitLockLAPOR(const EventDeps *deps, SAddr addr);
+	void visitUnlockLAPOR(const EventDeps *deps, SAddr addr);
 
 	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
 	bool isSymmetricToSR(int candidate, int thread, Event parent,
@@ -619,7 +623,7 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab) = 0;
+	virtual void updateLabelViews(EventLabel *lab, const EventDeps *deps) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */
