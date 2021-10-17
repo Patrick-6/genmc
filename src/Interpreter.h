@@ -793,24 +793,48 @@ private:  // Helper functions
 
   /* Dependency tracking */
 
-  const DepInfo *getAddrPoDeps(unsigned int tid);
-  const DepInfo *getDataDeps(unsigned int tid, Value *i);
-  const DepInfo *getCtrlDeps(unsigned int tid);
-
   std::unique_ptr<EventDeps>
   makeEventDeps(const DepInfo *addr, const DepInfo *data,
 		const DepInfo *ctrl, const DepInfo *addrPo,
 		const DepInfo *cas);
 
-  void updateDataDeps(unsigned int tid, Value *dst, Value *src);
-  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e);
-  void updateDataDeps(unsigned int tid, Value *dst, Event e);
-  void updateAddrPoDeps(unsigned int tid, Value *src);
-  void updateCtrlDeps(unsigned int tid, Value *src);
+  const DepInfo *getDataDeps(unsigned int tid, Value *i) {
+    return depTracker ? depTracker->getDataDeps(tid, i) : nullptr;
+  }
+  const DepInfo *getAddrPoDeps(unsigned int tid) {
+    return depTracker ? depTracker->getAddrPoDeps(tid) : nullptr;
+  }
+  const DepInfo *getCtrlDeps(unsigned int tid) {
+    return depTracker ? depTracker->getCtrlDeps(tid) : nullptr;
+  }
+
+  void updateDataDeps(unsigned int tid, Value *dst, Value *src) {
+    if (depTracker)
+      depTracker->updateDataDeps(tid, dst, src);
+  }
+  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e) {
+    if (depTracker)
+      depTracker->updateDataDeps(tid, dst, *e);
+  }
+  void updateDataDeps(unsigned int tid, Value *dst, Event e) {
+    if (depTracker)
+      depTracker->updateDataDeps(tid, dst, e);
+  }
+  void updateAddrPoDeps(unsigned int tid, Value *src) {
+    if (depTracker)
+      depTracker->updateAddrPoDeps(tid, src);
+  }
+  void updateCtrlDeps(unsigned int tid, Value *src) {
+    if (depTracker)
+      depTracker->updateCtrlDeps(tid, src);
+  }
 
   std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
 
-  void clearDeps(unsigned int tid);
+  void clearDeps(unsigned int tid) {
+    if (depTracker)
+      depTracker->clearDeps(tid);
+  }
 
   /* Update naming information */
 

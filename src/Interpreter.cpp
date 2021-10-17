@@ -381,21 +381,6 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	return;
 }
 
-const DepInfo *Interpreter::getAddrPoDeps(unsigned int tid)
-{
-	return depTracker ? depTracker->getAddrPoDeps(tid) : nullptr;
-}
-
-const DepInfo *Interpreter::getDataDeps(unsigned int tid, Value *i)
-{
-	return depTracker ? depTracker->getDataDeps(tid, i) : nullptr;
-}
-
-const DepInfo *Interpreter::getCtrlDeps(unsigned int tid)
-{
-	return depTracker ? depTracker->getCtrlDeps(tid) : nullptr;
-}
-
 std::unique_ptr<EventDeps>
 Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 			   const DepInfo *ctrl, const DepInfo *addrPo,
@@ -417,36 +402,6 @@ Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 	if (cas)
 		result->cas = *cas;
 	return result;
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Value *src)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, src);
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, *e);
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Event e)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, e);
-}
-
-void Interpreter::updateAddrPoDeps(unsigned int tid, Value *src)
-{
-	if (depTracker)
-		depTracker->updateAddrPoDeps(tid, src);
-}
-
-void Interpreter::updateCtrlDeps(unsigned int tid, Value *src)
-{
-	if (depTracker)
-		depTracker->updateCtrlDeps(tid, src);
 }
 
 std::unique_ptr<EventDeps>
@@ -485,12 +440,6 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 				     getAddrPoDeps(tid), nullptr);
 	}
 	return nullptr;
-}
-
-void Interpreter::clearDeps(unsigned int tid)
-{
-	if (depTracker)
-		depTracker->clearDeps(tid);
 }
 
 std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
