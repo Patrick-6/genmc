@@ -444,9 +444,15 @@ public:
   std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
 
   /* Returns the current (global) position (thread, index) interpreted */
-  Event getCurrentPosition() {
-	  const Thread &thr = getCurThr();
-	  return Event(thr.id, thr.globalInstructions);
+  Event currPos() const { return Event(getCurThr().id, getCurThr().globalInstructions); };
+  Event nextPos() const { return currPos().next(); };
+  Event incPos() {
+	  auto &thr = getCurThr();
+	  return Event(thr.id, ++thr.globalInstructions);
+  };
+  Event decPos() {
+	  auto &thr = getCurThr();
+	  return Event(thr.id, --thr.globalInstructions);
   };
 
   /* Set and query interpreter's state */

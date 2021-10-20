@@ -425,16 +425,6 @@ Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	return Event::getInitializer();
 }
 
-std::vector<Event> IMMDriver::getStoresToLoc(SAddr addr)
-{
-	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
-}
-
-std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
-{
-	return getGraph().getCoherentRevisits(sLab);
-}
-
 void IMMDriver::changeRf(Event read, Event store)
 {
 	auto &g = getGraph();

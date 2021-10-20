@@ -26,10 +26,6 @@
 
 #include <cstdint>
 
-namespace llvm {
-	class Interpreter;
-};
-
 /*******************************************************************************
  **                             SAddr Class
  ******************************************************************************/
@@ -49,7 +45,6 @@ public:
 	using Width = uintptr_t;
 
 protected:
-	friend class llvm::Interpreter;
 
 	static constexpr Width staticMask = (Width) 1 << 63;
 	static constexpr Width automaticMask = (Width) 1 << 62;
@@ -58,9 +53,6 @@ protected:
 	static constexpr Width addressMask = internalMask - 1;
 
 	static constexpr Width limit = internalMask - 1;
-
-	SAddr(Width a) : addr(a) {}
-	SAddr(void *a) : addr((Width) a) {}
 
 	static SAddr create(Width storageMask, Width value, bool internal) {
 		BUG_ON(value >= SAddr::limit);
@@ -73,6 +65,8 @@ protected:
 
 public:
 	SAddr() : addr(0) {}
+	SAddr(Width a) : addr(a) {}
+	SAddr(void *a) : addr((Width) a) {}
 
 	/* Helper methods to create a new address */
 	template <typename... Ts>

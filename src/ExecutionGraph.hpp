@@ -153,7 +153,7 @@ public:
 	/* Event addition methods should be called from the managing objects,
 	 * so that the relation managing objects are also informed */
 	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-					     Event rf);
+					     Event rf = Event::getBottom());
 	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 					       unsigned int offsetMO);
 	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,

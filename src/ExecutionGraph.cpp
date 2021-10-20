@@ -162,6 +162,7 @@ Event ExecutionGraph::getMatchingLock(const Event unlock) const
 				if (locUnlocks.empty())
 					return lLab->getPos();
 				locUnlocks.pop_back();
+
 			}
 		}
 	}
@@ -353,7 +354,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
  ******************************************************************************/
 
 const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-						     Event rf)
+						     Event rf /* = BOTTOM */)
 {
 	if (!lab->getRf().isBottom()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf())))
@@ -388,6 +389,10 @@ const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<L
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	setFPStatus(FS_Stale);
+
+	/* Ensure the stamp is valid */
+	if (lab->getStamp() == 0 && !lab->getPos().isInitializer())
+		lab->setStamp(nextStamp());
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
