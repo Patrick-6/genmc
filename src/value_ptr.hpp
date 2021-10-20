@@ -177,6 +177,11 @@ public:
 		return *this;
 	}
 
+	value_ptr<T, Cloner, Deleter> &operator=(std::unique_ptr<T, Deleter> p) {
+		ptr() = std::move(p);
+		return *this;
+	}
+
 	operator bool() const noexcept { return !!ptr(); }
 	~value_ptr() = default;
 };
