@@ -159,18 +159,19 @@ public:
 	T const *operator->() const noexcept { return get(); }
 	T *operator->() noexcept { return get(); }
 
-	value_ptr<T> &operator=(value_ptr &&v) {
+	value_ptr<T, Cloner, Deleter> &operator=(value_ptr &&v) {
 		ptr() = std::move(v.ptr());
 		get_cloner() = std::move(v.get_cloner());
 		return *this;
 	}
 
-	value_ptr<T> &operator=(value_ptr const &v) {
+	value_ptr<T, Cloner, Deleter> &operator=(value_ptr const &v) {
 		ptr().reset(v.get_cloner()(*v));
 		get_cloner() = v.get_cloner();
 		return *this;
 	}
-	value_ptr<T> &operator=(std::nullptr_t) noexcept {
+
+	value_ptr<T, Cloner, Deleter> &operator=(std::nullptr_t) noexcept {
 		ptr().reset();
 		get_cloner() = nullptr;
 		return *this;
