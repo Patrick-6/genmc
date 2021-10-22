@@ -242,12 +242,13 @@ void *Interpreter::getStaticAddr(SAddr addr) const
 }
 
 /* Returns the initial value for the specified memory location */
-SVal Interpreter::getLocInitVal(SAddr addr, ASize size)
+SVal Interpreter::getLocInitVal(SAddr addr, AAccess access)
 {
 	GenericValue result;
+
 	LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
-			    IntegerType::get(Modules.back()->getContext(), size.get() * 8));
-	return SVal(result.IntVal.getLimitedValue());
+			    IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
+	return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
 }
 
 /* Returns the size (in bytes) for a given type */

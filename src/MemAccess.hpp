@@ -88,4 +88,26 @@ private:
 };
 
 
+/*******************************************************************************
+ **                             AAccess Class
+ ******************************************************************************/
+
+class AAccess {
+
+public:
+	AAccess() = delete;
+	AAccess(ASize s, AType t) : size(s), type(t) {}
+
+	ASize getSize() const { return size; }
+	AType getType() const { return type; }
+
+	bool isPointer() const { return getType() == AType::Pointer; }
+	bool isUnsigned() const { return getType() == AType::Unsigned; }
+	bool isSigned() const { return getType() == AType::Signed; }
+
+private:
+	ASize size;
+	AType type;
+};
+
 #endif /* __MEM_ACCESS_HPP__ */

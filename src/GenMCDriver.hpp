@@ -270,8 +270,26 @@ protected:
 	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(Event w, SAddr a, ASize s);
-	SVal getDskWriteValue(Event w, SAddr a, ASize s);
+	SVal getWriteValue(Event w, SAddr p, AAccess a);
+	SVal getWriteValue(const WriteLabel *wLab) {
+		return getWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+	}
+
+	/* Returns the value written by a disk write */
+	SVal getDskWriteValue(Event w, SAddr p, AAccess a);
+	SVal getDskWriteValue(const DskWriteLabel *wLab) {
+		return getDskWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+	}
+
+	/* Returns the value read by a read */
+	SVal getReadValue(const ReadLabel *rLab) {
+		return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	}
+
+	/* Returns the value read by a disk read */
+	SVal getDskReadValue(const DskReadLabel *rLab) {
+		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	}
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
@@ -281,7 +299,7 @@ protected:
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	SVal getBarrierInitValue(SAddr ptr, ASize s);
+	SVal getBarrierInitValue(SAddr ptr, AAccess a);
 
 	/* Returns the type of consistency types we need to perform at
 	 * P according to the configuration */

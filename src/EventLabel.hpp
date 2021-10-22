@@ -369,19 +369,29 @@ class MemAccessLabel : public EventLabel {
 protected:
 	MemAccessLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		       Event pos, SAddr loc, ASize size, AType type)
-		: EventLabel(k, st, ord, pos), addr(loc), size(size), type(type) {}
+		: EventLabel(k, st, ord, pos), addr(loc), access(size, type) {}
 	MemAccessLabel(EventLabelKind k, llvm::AtomicOrdering ord,
 		       Event pos, SAddr loc, ASize size, AType type)
-		: EventLabel(k, ord, pos), addr(loc), size(size), type(type) {}
+		: EventLabel(k, ord, pos), addr(loc), access(size, type) {}
+
+	MemAccessLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
+		       Event pos, SAddr loc, AAccess a)
+		: EventLabel(k, st, ord, pos), addr(loc), access(a) {}
+	MemAccessLabel(EventLabelKind k, llvm::AtomicOrdering ord,
+		       Event pos, SAddr loc, AAccess a)
+		: EventLabel(k, ord, pos), addr(loc), access(a) {}
 public:
 	/* Returns the address of this access */
 	SAddr getAddr() const { return addr; }
 
 	/* Returns the size (in bytes) of the access */
-	ASize getSize() const { return size; }
+	ASize getSize() const { return access.getSize(); }
 
 	/* Returns the type of the access */
-	AType getType() const { return type; }
+	AType getType() const { return access.getType(); }
+
+	/* Returns the packed access */
+	AAccess getAccess() const { return access; }
 
 	bool wasAddedMax() const { return maximal; }
 	void setAddedMax(bool status) { maximal = status; }
@@ -396,10 +406,7 @@ private:
 	SAddr addr;
 
 	/* The size of the access performed (in bytes) */
-	ASize size;
-
-	/* The type of the access */
-	AType type;
+	AAccess access;
 
 	/* Whether was mo-maximal when added */
 	bool maximal = true;
