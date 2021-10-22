@@ -1574,12 +1574,22 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, AtomicRMWInst
 		return oldVal + val;
 	case AtomicRMWInst::Sub:
 		return oldVal - val;
+	case AtomicRMWInst::And:
+		return oldVal & val;
+	case AtomicRMWInst::Nand:
+		return ~(oldVal & val);
 	case AtomicRMWInst::Or:
 		return oldVal | val;
 	case AtomicRMWInst::Xor:
 		return oldVal ^ val;
-	case AtomicRMWInst::And:
-		return oldVal & val;
+	case AtomicRMWInst::Max:
+		return oldVal.getSigned() > val.getSigned() ? oldVal : val;
+	case AtomicRMWInst::Min:
+		return oldVal.getSigned() < val.getSigned() ? oldVal : val;
+	case AtomicRMWInst::UMax:
+		return oldVal.get() > val.get() ? oldVal : val;
+	case AtomicRMWInst::UMin:
+		return oldVal.get() < val.get() ? oldVal : val;
 	default:
 		WARN_ONCE("invalid-rmw-op",
 			  "Unsupported operation in RMW instruction!\n");
