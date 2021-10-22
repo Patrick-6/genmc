@@ -1545,7 +1545,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 	/* It is always consistent to add the store at the end of MO */
 	updateLabelViews(wLab.get(), deps);
-	if (llvm::isa<BIncFaiWriteLabel>(wLab) && wLab->getVal() == SVal(0))
+	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
 		wLab->setVal(getBarrierInitValue(wLab->getAddr(), wLab->getAccess()));
 	auto *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
 
