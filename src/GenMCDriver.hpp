@@ -385,11 +385,11 @@ private:
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 
-	/* Returns whether ADDR a valid address or not.  */
-	bool isAccessValid(SAddr addr);
+	/* Returns whether LAB accesses a valid location.  */
+	bool isAccessValid(const MemAccessLabel *lab);
 
-	/* Checks for data races when a read/write is added.
-	 * Appropriately calls visitError() and terminates */
+	/* Checks for data races when a read/write is added, and calls
+	 * visitError() if a race is found. */
 	void checkForDataRaces(const MemAccessLabel *mlab);
 
 	/* Performs POSIX checks whenever a lock event is added.
@@ -411,14 +411,10 @@ private:
 	void checkBIncValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
 
 	/* Checks for memory races (e.g., double free, access freed memory, etc)
-	 * whenever a read/write/free is added.
-	 * Appropriately calls visitError() and terminates */
-	void checkForMemoryRaces(const MemAccessLabel *mLab);
-	void checkForMemoryRaces(const FreeLabel *lab);
-
-	/* Calls visitError() if a newly added read can read from an uninitialized
-	 * (dynamically allocated) memory location */
-	void checkForUninitializedMem(const ReadLabel *rLab, const std::vector<Event> &rfs);
+	 * whenever a read/write/free is added, and calls visitError() if a race is found.
+	 * Returns whether a race was found */
+	bool checkForMemoryRaces(const MemAccessLabel *mLab);
+	bool checkForMemoryRaces(const FreeLabel *lab);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();

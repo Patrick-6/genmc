@@ -802,19 +802,21 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */
 	return getGraph().isCoMaximal(addr, e, checkCache, getCheckConsType(p));
 }
 
-void GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
+bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 {
 	if (userConf->disableRaceDetection)
-		return;
+		return false;
 	if (!mLab->getAddr().isDynamic())
-		return;
+		return false;
 
 	const auto &g = getGraph();
 	const View &before = g.getEventLabel(mLab->getPos().prev())->getHbView();
 	for (const auto *oLab : labels(g)) {
 		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
-			if (fLab->getFreedAddr() == mLab->getAddr())
+			if (fLab->getFreedAddr() == mLab->getAddr()) {
 				visitError(mLab->getPos(), Status::VS_AccessFreed, "", oLab->getPos());
+				return true;
+			}
 		}
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
 			if (aLab->contains(mLab->getAddr()) && !before.contains(oLab->getPos())) {
@@ -822,22 +824,25 @@ void GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 					   "The allocating operation (malloc()) "
 					   "does not happen-before the memory access!",
 					   oLab->getPos());
+				return true;
 			}
 		}
 	}
 
 	/* Also make sure there is an allocating event; do this separately for better error message */
-	if (g.getPrecedingMalloc(mLab).isInitializer())
+	if (g.getPrecedingMalloc(mLab).isInitializer()) {
 		visitError(mLab->getPos(), Status::VS_AccessNonMalloc);
-	return;
+		return true;
+	}
+	return false;
 }
 
-void GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
+bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 {
 	if (userConf->disableRaceDetection)
-		return;
+		return false;
 	if (!fLab->getFreedAddr().isDynamic())
-		return;
+		return false;
 
 	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
 	const auto &g = getGraph();
@@ -854,29 +859,24 @@ void GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 			if (dLab->getFreedAddr() == ptr &&
 			    dLab->getPos() != fLab->getPos()) {
 				visitError(fLab->getPos(), Status::VS_DoubleFree, "", dLab->getPos());
+				return true;
 			}
 		}
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 			if (mLab->getAddr() == ptr &&
 			    !before.contains(mLab->getPos())) {
 				visitError(fLab->getPos(), Status::VS_AccessFreed, "", mLab->getPos());
+				return true;
 			}
 
 		}
 	}
 
-	if (!m)
+	if (!m) {
 		visitError(fLab->getPos(), Status::VS_FreeNonMalloc);
-	return;
-}
-
-void GenMCDriver::checkForUninitializedMem(const ReadLabel *rLab, const std::vector<Event> &rfs)
-{
-	auto *EE = getEE();
-	if (rLab->getAddr().isDynamic() && !rLab->getAddr().isInternal() &&
-	    std::any_of(rfs.begin(), rfs.end(), [](const Event &rf){ return rf.isInitializer(); }))
-		visitError(rLab->getPos(), Status::VS_UninitializedMem);
-	return;
+		return true;
+	}
+	return false;
 }
 
 /*
@@ -899,14 +899,14 @@ void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 	return;
 }
 
-bool GenMCDriver::isAccessValid(SAddr addr)
+bool GenMCDriver::isAccessValid(const MemAccessLabel *lab)
 {
-	/* Validity of dynamic accesses will be checked as part of the race detection mechanism */
-	if (addr.isDynamic())
-		return !addr.isNull();
-
 	/* Make sure that the interperter is aware of this static variable */
-	return getEE()->isStaticallyAllocated(addr);
+	if (!lab->getAddr().isDynamic())
+		return getEE()->isStaticallyAllocated(lab->getAddr());
+
+	/* Validity of dynamic accesses will be checked as part of the race detection mechanism */
+	return !lab->getAddr().isNull() && !checkForMemoryRaces(lab);
 }
 
 void GenMCDriver::checkLockValidity(const ReadLabel *rLab, const std::vector<Event> &rfs)
@@ -1470,7 +1470,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	updateLabelViews(rLab.get(), deps);
 	auto *lab = g.addReadLabelToGraph(std::move(rLab));
 
-	if (!isAccessValid(lab->getAddr())) {
+	if (!isAccessValid(lab)) {
 		visitError(lab->getPos(), Status::VS_AccessNonMalloc);
 		return SVal(0); /* Return some value; this execution will be blocked */
 	}
@@ -1505,8 +1505,6 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 
 	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces(lab);
-	checkForMemoryRaces(lab);
-	checkForUninitializedMem(lab, validStores);
 	if (llvm::isa<LockCasReadLabel>(lab))
 		checkLockValidity(lab, validStores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
@@ -1539,7 +1537,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 	/* If it's a valid access, track coherence for this location */
 	g.trackCoherenceAtLoc(wLab->getAddr());
-	if (!isAccessValid(wLab->getAddr())) {
+	if (!isAccessValid(&*wLab)) {
 		updateLabelViews(wLab.get(), deps);
 		auto *lab = g.addWriteLabelToGraph(std::move(wLab), 0);
 		visitError(lab->getPos(), Status::VS_AccessNonMalloc);
@@ -1589,7 +1587,6 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 	/* Check for races */
 	checkForDataRaces(lab);
-	checkForMemoryRaces(lab);
 	if (llvm::isa<UnlockWriteLabel>(lab))
 		checkUnlockValidity(lab);
 	if (llvm::isa<BInitWriteLabel>(lab))
