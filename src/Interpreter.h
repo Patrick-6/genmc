@@ -408,6 +408,11 @@ public:
 		  constructAddThreadFromInfo(ti);
   }
 
+  /* Blocks the current execution */
+  void block(Thread::BlockageType t = Thread::BlockageType::BT_Error ) {
+	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });
+  }
+
   /* Resets the interpreter at the beginning of a new execution */
   void reset();
 
@@ -439,6 +444,8 @@ public:
 
   std::vector<Thread>::const_iterator threads_begin() const { return threads.begin(); }
   std::vector<Thread>::const_iterator threads_end() const { return threads.end(); }
+  std::vector<Thread>::iterator threads_begin() { return threads.begin(); }
+  std::vector<Thread>::iterator threads_end() { return threads.end(); }
 
   /* Returns the stack frame of the currently executing thread */
   std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }

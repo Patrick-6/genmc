@@ -1195,8 +1195,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	}
 
 	if (!found) {
-		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
-			getEE()->getThrById(i).block(llvm::Thread::BlockageType::BT_Cons);
+		getEE()->block(llvm::Thread::BlockageType::BT_Cons);
 		return false;
 	}
 	return true;
@@ -1205,8 +1204,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
 	if (!isConsistent(ProgramPoint::step)) {
-		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
-			getEE()->getThrById(i).block(llvm::Thread::BlockageType::BT_Cons);
+		getEE()->block(llvm::Thread::BlockageType::BT_Cons);
 		return false;
 	}
 	return true;
