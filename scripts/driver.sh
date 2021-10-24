@@ -129,8 +129,7 @@ header_printed=""
 wrongdir="${DIR}/../tests/wrong"
 for model in rc11 # imm
 do
-
-    for cat in safety # liveness infr racy memory locking barriers fs
+    for cat in safety infr # liveness infr racy memory locking barriers fs
     do
 	# under IMM, only run safety and liveness tests
 	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"

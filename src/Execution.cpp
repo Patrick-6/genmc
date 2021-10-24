@@ -2776,8 +2776,10 @@ void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &Ar
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals,
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
-	if (!ArgVals[0].IntVal.isStrictlyPositive())
+	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
 		driver->visitError(currPos(), GenMCDriver::Status::VS_Allocation, "Invalid size in malloc()");
+		return;
+	}
 
 	auto size = ArgVals[0].IntVal.getLimitedValue();
 
@@ -2795,12 +2797,16 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto align = ArgVals[0].IntVal.getLimitedValue();
 	auto size = ArgVals[1].IntVal.getLimitedValue();
 
-	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1)))
+	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1))) {
 		driver->visitError(currPos(), GenMCDriver::Status::VS_Allocation,
 				   "Invalid alignment in aligned_alloc()");
-	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align))
+		return;
+	}
+	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align)) {
 		driver->visitError(currPos(), GenMCDriver::Status::VS_Allocation,
 				   "Invalid size in aligned_alloc()");
+		return;
+	}
 
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
