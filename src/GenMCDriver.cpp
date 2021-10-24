@@ -43,7 +43,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> MI)
-	: userConf(conf), isMootExecution(false), result()
+	: userConf(conf), isMootExecution(false), result(), shouldHalt(false)
 {
 	std::string buf;
 
@@ -457,6 +457,13 @@ void GenMCDriver::run()
 	return;
 }
 
+void GenMCDriver::halt(Status status)
+{
+	shouldHalt = true;
+	result.status = status;
+	workqueue.clear();
+}
+
 GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
 	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>(*mod);
@@ -608,7 +615,7 @@ void GenMCDriver::restorePrefix(const EventLabel *lab,
 
 bool GenMCDriver::scheduleNext()
 {
-	if (isMootExecution)
+	if (isMootExecution || isHalting())
 		return false;
 
 	const auto &g = getGraph();
@@ -1750,8 +1757,7 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 		g.changeRf(errLab->getPos(), Event::getBottom());
 
 	/* Print a basic error message and the graph */
-	std::string str;
-	llvm::raw_string_ostream out(str);
+	llvm::raw_string_ostream out(result.message);
 
 	out << "Error detected: " << s << "!\n";
 	out << "Event " << errLab->getPos() << " ";
@@ -1762,21 +1768,20 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 
 	/* Print error trace leading up to the violating event(s) */
 	if (userConf->printErrorTrace) {
-		printTraceBefore(errLab->getPos());
+		printTraceBefore(errLab->getPos(), out);
 		if (!confEvent.isInitializer())
-			printTraceBefore(confEvent);
+			printTraceBefore(confEvent, out);
 	}
 
 	/* Print the specific error message */
 	if (!err.empty())
 		out << err << "\n";
-	llvm::dbgs() << out.str() << "\n";
+
 	/* Dump the graph into a file (DOT format) */
 	if (userConf->dotFile != "")
 		dotPrintToFile(userConf->dotFile, errLab->getPos(), confEvent);
 
-	/* Set error status and abort */
-	exit(EVERIFY);
+	halt(s);
 }
 
 bool GenMCDriver::tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
@@ -2671,9 +2676,9 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 	return;
 }
 
-void GenMCDriver::printTraceBefore(Event e)
+void GenMCDriver::printTraceBefore(Event e, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
-	llvm::dbgs() << "Trace to " << e << ":\n";
+	s << "Trace to " << e << ":\n";
 
 	/* Replay the execution up to the error event (collects mdata).
 	 * Even if the prefix has holes, replaying will fill them up,
@@ -2683,5 +2688,5 @@ void GenMCDriver::printTraceBefore(Event e)
 
 	/* Linearize (po U rf) and print trace */
 	View a;
-	recPrintTraceBefore(e, a);
+	recPrintTraceBefore(e, a, s);
 }

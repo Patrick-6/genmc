@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 	if (res.status == GenMCDriver::Status::VS_OK)
 		llvm::outs() << "No errors were detected.\n";
 	else
-		llvm::outs() << res.message << "\n";
+		llvm::outs() << res.message;
 
 	std::string dups = " (" + std::to_string(res.duplicates) + " duplicates)";
 	llvm::outs() << "Number of complete executions explored: " << res.explored;
@@ -205,5 +205,5 @@ int main(int argc, char **argv)
 
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 
-	return 0;
+	return res.status == GenMCDriver::Status::VS_OK ? 0 : EVERIFY;
 }

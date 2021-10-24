@@ -167,6 +167,9 @@ public:
 	/* Starts the verification procedure for a driver */
 	void run();
 
+	/* Stops the verification procedure when an error is found */
+	void halt(Status status);
+
 	/* Returns the result of the verification procedure */
 	Result getResult() const { return result; }
 
@@ -349,6 +352,9 @@ private:
 	/* The workhorse for run().
 	 * Exhaustively explores all  consistent executions of a program */
 	void explore();
+
+	/* Returns true if this driver is shutting down */
+	bool isHalting() const { return shouldHalt; }
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -546,7 +552,7 @@ private:
 	void printResults();
 
 	/* Prints the source-code instructions leading to Event e */
-	void printTraceBefore(Event e);
+	void printTraceBefore(Event e, llvm::raw_ostream &ss = llvm::dbgs());
 
 	/* Helper for printTraceBefore() that prints events according to po U rf */
 	void recPrintTraceBefore(const Event &e, View &a,
@@ -633,6 +639,9 @@ private:
 
 	/* Verification result to be returned to caller */
 	Result result;
+
+	/* Whether we are stopping the exploration (e.g., due to an error found) */
+	bool shouldHalt;
 
 	/* Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng;
