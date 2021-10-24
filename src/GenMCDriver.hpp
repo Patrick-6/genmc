@@ -72,6 +72,7 @@ public:
 		VS_InvalidBInit,
 		VS_InvalidRecoveryCall,
 		VS_InvalidTruncate,
+		VS_MixedSize,
 		VS_SystemError,
 	};
 

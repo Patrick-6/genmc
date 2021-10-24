@@ -705,7 +705,10 @@ SVal GenMCDriver::getWriteValue(Event write, SAddr addr, AAccess access)
 	 * the one the write's (see troep.c).  In any case though, the
 	 * sizes should match */
 	if (wLab->getSize() != access.getSize())
-		ERROR("Mixed-size accesses detected! Please check the LLVM-IR.\n");
+		visitError(wLab->getPos(), Status::VS_MixedSize,
+			   "Mixed-size accesses detected: tried to read event with a " +
+			   std::to_string(access.getSize().get() * 8) + "access!\n" +
+			   "Please check the LLVM-IR.\n");
 
 	/* If the size of the R and the W are the same, we are done */
 	return wLab->getVal();
