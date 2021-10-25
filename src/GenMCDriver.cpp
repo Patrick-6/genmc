@@ -998,20 +998,20 @@ bool GenMCDriver::isRecoveryValid(ProgramPoint p)
 	return getGraph().isRecoveryValid();
 }
 
-Event GenMCDriver::threadReadsNonMaximal(int tid)
+bool GenMCDriver::threadReadsMaximal(int tid)
 {
 	auto &g = getGraph();
 
 	for (auto j = g.getThreadSize(tid) - 1; j > 0; j--) {
 		auto *lab = g.getEventLabel(Event(tid, j));
 		if (llvm::isa<SpinStartLabel>(lab))
-			return Event::getInitializer();
+			return true;
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			if (!isCoMaximal(rLab->getAddr(), rLab->getRf()))
-				return rLab->getPos();
+				return false;
 		}
 	}
-	return Event::getInitializer();
+	BUG();
 }
 
 void GenMCDriver::checkLiveness()
@@ -1019,7 +1019,7 @@ void GenMCDriver::checkLiveness()
 	auto &g = getGraph();
 	auto *EE = getEE();
 
-	if (!isConsistent(ProgramPoint::exec))
+	if (isHalting() || !isConsistent(ProgramPoint::exec))
 		return;
 
 	/* Collect all threads blocked at spinloops */
@@ -1030,15 +1030,13 @@ void GenMCDriver::checkLiveness()
 	}
 
 	/* And check whether all of them are live or not */
-	auto nonMaximal = Event::getInitializer();
+	auto nonTermTID = 0u;
 	if (!spinBlocked.empty() &&
-	    std::none_of(spinBlocked.begin(), spinBlocked.end(),
-			 [&](int tid){ return !((nonMaximal = threadReadsNonMaximal(tid)).isInitializer()); })) {
-		/* Print the name of one of the spinloop variables that are not live */
-		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(nonMaximal));
-		BUG_ON(!rLab);
-		visitError(nonMaximal, Status::VS_Liveness,
-			   "Non-terminating spinloop for variable " + getVarName(rLab));
+	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
+			[&](int tid){ return (nonTermTID = threadReadsMaximal(tid)); })) {
+		/* Print some TID blocked by a spinloop */
+		visitError(g.getLastThreadEvent(nonTermTID), Status::VS_Liveness,
+			   "Non-terminating spinloop: thread " + std::to_string(nonTermTID));
 	}
 	return;
 }
