@@ -49,6 +49,7 @@ libgenmc_a_SOURCES = \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MemAccess.hpp \
   MOCalculator.hpp MOCalculator.cpp \
+  ModuleID.hpp \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \
   Parser.cpp Parser.hpp \
@@ -59,8 +60,8 @@ libgenmc_a_SOURCES = \
   RevisitSet.cpp RevisitSet.hpp \
   SAddr.cpp SAddr.hpp \
   SAddrAllocator.hpp \
-  SExpr.cpp SExpr.hpp \
-  SExprVisitor.cpp SExprVisitor.hpp \
+  SExpr.tcc SExpr.hpp \
+  SExprVisitor.tcc SExprVisitor.hpp \
   SVal.cpp SVal.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBIterator.hpp \

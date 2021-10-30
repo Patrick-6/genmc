@@ -182,7 +182,7 @@ SAddr getStaticAllocBegin(const VSet<std::pair<SAddr, SAddr>> &allocMap, SAddr a
 }
 
 NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
-				      const VariableInfo::InternalKey &key /* = {} */)
+				      const VariableInfo<ModuleID::ID>::InternalKey &key /* = {} */)
 {
 	if (spc == AddressSpace::AS_Internal)
 		return &MI->varInfo.internalInfo[key];

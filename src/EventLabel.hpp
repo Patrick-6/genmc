@@ -25,6 +25,7 @@
 #include "value_ptr.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
+#include "ModuleID.hpp"
 #include "NameInfo.hpp"
 #include "MemAccess.hpp"
 #include "SAddr.hpp"
@@ -421,6 +422,10 @@ private:
  * from this class */
 class ReadLabel : public MemAccessLabel {
 
+public:
+	using AnnotT = SExpr<ModuleID::ID>;
+	using AnnotVP = value_ptr<AnnotT, SExprCloner<ModuleID::ID>>;
+
 protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
@@ -428,22 +433,22 @@ protected:
 protected:
 	ReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
 		  Event pos, SAddr loc, ASize size, AType type, Event rf,
-		  value_ptr<SExpr, SExprCloner> annot = nullptr)
+		  AnnotVP annot = nullptr)
 		: MemAccessLabel(k, st, ord, pos, loc, size, type),
 		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 	ReadLabel(EventLabelKind k, llvm::AtomicOrdering ord,
 		  Event pos, SAddr loc, ASize size, AType type, Event rf,
-		  value_ptr<SExpr, SExprCloner> annot = nullptr)
+		  AnnotVP annot = nullptr)
 		: MemAccessLabel(k, ord, pos, loc, size, type),
 		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
 
 public:
 	ReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr loc,
 		  ASize size, AType type, Event rf = Event::getBottom(),
-		  value_ptr<SExpr, SExprCloner> annot = nullptr)
+		  AnnotVP annot = nullptr)
 		: ReadLabel(EL_Read, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
 	ReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr loc, ASize size, AType type,
-		  Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		  Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(EL_Read, ord, pos, loc, size, type, rf, std::move(annot)) {}
 
 	template<typename... Ts>
@@ -462,8 +467,8 @@ public:
 	void setRevisitStatus(bool status) { revisitable = status; }
 
 	/* SAVer: Getter/setter for the annotation expression */
-	const SExpr *getAnnot() const { return annotExpr.get(); }
-	void setAnnot(std::unique_ptr<SExpr> annot) { annotExpr = std::move(annot); }
+	const AnnotT *getAnnot() const { return annotExpr.get(); }
+	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<ReadLabel>(*this);
@@ -488,7 +493,7 @@ private:
 
 	/* SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */
-	value_ptr<SExpr, SExprCloner> annotExpr;
+	AnnotVP annotExpr;
 };
 
 
@@ -506,10 +511,10 @@ protected:
 public:
 	BWaitReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		       SAddr loc, ASize size, AType type, Event rf = Event::getBottom(),
-		       value_ptr<SExpr, SExprCloner> annot = nullptr)
+		       AnnotVP annot = nullptr)
 		: ReadLabel(EL_BWaitRead, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
 	BWaitReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr loc, ASize size, AType type,
-		       Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		       Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(EL_BWaitRead, ord, pos, loc, size, type, rf, std::move(annot)) {}
 
 	template<typename... Ts>
@@ -540,24 +545,24 @@ protected:
 
 	FaiReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, llvm::AtomicRMWInst::BinOp op,
-		     SVal val, Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     SVal val, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
 		  binOp(op), opValue(val) {}
 	FaiReadLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
 		     AType type, llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-		     value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     AnnotVP annot = nullptr)
 		: ReadLabel(k, ord, pos, addr, size, type, rf, std::move(annot)),
 		  binOp(op), opValue(val) {}
 
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr,
 		     ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-		     Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_FaiRead, st, ord, pos, addr, size, type,
 			       op, val, rf, std::move(annot)) {}
 	FaiReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size, AType type,
 		     llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-		     value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_FaiRead, ord, pos, addr, size, type,
 			       op, val, rf, std::move(annot)) {}
 
@@ -602,12 +607,12 @@ protected:
 public:
 	BIncFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr,
 			 ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			 Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_BIncFaiRead, st, ord, pos, addr, size,
 			       type, op, val, rf, std::move(annot)) {}
 	BIncFaiReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size, AType type,
 			 llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-			 value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_BIncFaiRead, ord, pos, addr, size,
 			       type, op, val, rf, std::move(annot)) {}
 
@@ -638,24 +643,24 @@ protected:
 
 	CasReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
 		  expected(exp), swapValue(swap) {}
 	CasReadLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, ord, pos, addr, size, type, rf, std::move(annot)),
 		  expected(exp), swapValue(swap) {}
 
 public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_CasRead, st, ord, pos, addr, size, type,
 			       exp, swap, rf, std::move(annot)) {}
 	CasReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, Event rf = Event::getBottom(),
-		     value_ptr<SExpr, SExprCloner> annot = nullptr)
+		     AnnotVP annot = nullptr)
 		: CasReadLabel(EL_CasRead, ord, pos, addr, size, type,
 			       exp, swap, rf, std::move(annot)) {}
 
@@ -700,21 +705,21 @@ protected:
 public:
 	LockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			 SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			 Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_LockCasRead, st, ord, pos, addr, size,
 			       type, exp, swap, rf, std::move(annot)) {}
 	LockCasReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
 			 AType type, SVal exp, SVal swap, Event rf = Event::getBottom(),
-			 value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 AnnotVP annot = nullptr)
 		: CasReadLabel(EL_LockCasRead, ord, pos, addr, size,
 			       type, exp, swap, rf, std::move(annot)) {}
 
 	LockCasReadLabel(unsigned int st, Event pos, SAddr addr, ASize size,
-			 Event rf = Event::getBottom(), value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: LockCasReadLabel(st, llvm::AtomicOrdering::Acquire, pos, addr, size,
 				   AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, Event rf = Event::getBottom(),
-			 value_ptr<SExpr, SExprCloner> annot = nullptr)
+			 AnnotVP annot = nullptr)
 		: LockCasReadLabel(llvm::AtomicOrdering::Acquire, pos, addr, size,
 				   AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
 

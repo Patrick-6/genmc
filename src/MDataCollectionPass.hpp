@@ -21,6 +21,7 @@
 #ifndef __MDATA_COLLECTION_PASS_HPP__
 #define __MDATA_COLLECTION_PASS_HPP__
 
+#include "NameInfo.hpp"
 #include "ModuleInfo.hpp"
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Module.h>
@@ -36,17 +37,14 @@ class MDataCollectionPass : public llvm::ModulePass {
 public:
 	static char ID;
 
-	ModuleInfo &MI;
+	MDataCollectionPass() : llvm::ModulePass(ID) {}
 
-	MDataCollectionPass(ModuleInfo &MI)
-		: llvm::ModulePass(ID), MI(MI) {}
+	void setPassModuleInfo(PassModuleInfo *I) { PI = I; }
 
-	virtual bool runOnModule(llvm::Module &M);
+	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	virtual bool runOnModule(llvm::Module &M) override;
 
 protected:
-
-	/* Resets internal structures so the pass can run again */
-	void reset();
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	void collectVarName(llvm::Module &M, unsigned int ptr, llvm::Type *typ,
@@ -75,8 +73,26 @@ protected:
 	 */
 	void collectMemCpyInfo(llvm::MemCpyInst *MI, llvm::Module &M);
 
+	/* Marks V's name as used in the module.
+	 * Reports an error if the name is not a constant  */
+	void initializeFilenameEntry(llvm::Value *v);
+
+	/* Getters for collected naming info */
+	NameInfo &getGlobalInfo(llvm::Value *gv) { return PI->varInfo.globalInfo[gv]; }
+	NameInfo &getLocalInfo(llvm::Value *lv) { return PI->varInfo.localInfo[lv]; }
+	NameInfo &getInternalInfo(const std::string &key) { return PI->varInfo.internalInfo[key]; }
+
+	void collectFilename(const std::string &name) { PI->filenames.insert(name); }
+
+private:
 	/* Maps allocas to the metadata of the variable allocated */
 	std::unordered_map<llvm::AllocaInst *, llvm::DILocalVariable *> allocaMData;
+
+	/* We have to extract the necessary information out of this pass.
+	 * If we try to get them in another pass (e.g., w/ getAnalysis()),
+	 * then a new instance of this pass may be created (e.g., if the pass
+	 * gets invalidated), and we will lose all the data we have collected.  */
+	PassModuleInfo *PI = nullptr;
 };
 
 #endif /* __MDATA_COLLECTION_PASS_HPP__ */

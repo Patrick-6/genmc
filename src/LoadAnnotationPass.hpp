@@ -31,11 +31,10 @@ class LoadAnnotationPass : public FunctionPass {
 
 public:
 	static char ID;
-	const IDInfo &II;
-	AnnotationInfo &LAI;
+	AnnotationInfo<LoadInst *, Value *> &LAI;
 
-	LoadAnnotationPass(const IDInfo &II, AnnotationInfo &LAI)
-		: FunctionPass(ID), II(II), LAI(LAI) {};
+	LoadAnnotationPass(AnnotationInfo<LoadInst *, Value *> &LAI)
+		: FunctionPass(ID), LAI(LAI) {};
 
 	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 	virtual bool runOnFunction(Function &F);

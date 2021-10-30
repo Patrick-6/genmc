@@ -427,21 +427,22 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 	return nullptr;
 }
 
-std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
+std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
 {
 	auto *a = getAnnotation(ECStack().back().CurInst->getPrevNode());
 	if (!a)
 		return nullptr;
 
+	using Concretizer = SExprConcretizer<AnnotID>;
 	auto &stackVals = ECStack().back().Values;
-	SExprConcretizer::ReplaceMap vMap;
+	Concretizer::ReplaceMap vMap;
 
 	for (auto &kv : stackVals)
-		vMap.insert({((void *) (intptr_t) MI->idInfo.VID.at(kv.first)),
-			    std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
-					   ASize(getTypeSize(kv.first->getType()) * 8))});
+		vMap.insert({(MI->idInfo.VID.at(kv.first)),
+				std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
+					       ASize(getTypeSize(kv.first->getType()) * 8))});
 
-	return SExprConcretizer().concretize(a, vMap);
+	return Concretizer().concretize(a, vMap);
 }
 
 

@@ -23,6 +23,7 @@
 #include "LLVMModule.hpp"
 #include "Error.hpp"
 #include "Passes.hpp"
+#include "SExprVisitor.hpp"
 #include <llvm/InitializePasses.h>
 #if defined(HAVE_LLVM_BITCODE_READERWRITER_H)
 # include <llvm/Bitcode/ReaderWriter.h>
@@ -94,10 +95,49 @@ namespace LLVMModule {
 		return std::move(llvm::parseBitcodeFile(buf->getMemBufferRef(), *ctx).get());
 	}
 
+	void initializeVariableInfo(ModuleInfo &MI, PassModuleInfo &PI)
+	{
+		for (auto &kv : PI.varInfo.globalInfo)
+			MI.varInfo.globalInfo[MI.idInfo.VID.at(kv.first)] = kv.second;
+		for (auto &kv : PI.varInfo.localInfo) {
+			if (MI.idInfo.VID.count(kv.first))
+				MI.varInfo.localInfo[MI.idInfo.VID.at(kv.first)] = kv.second;
+		}
+		MI.varInfo.internalInfo = PI.varInfo.internalInfo;
+		return;
+	}
+
+	void initializeAnnotationInfo(ModuleInfo &MI, PassModuleInfo &PI)
+	{
+		using Transformer = SExprTransformer<llvm::Value *>;
+		Transformer tr;
+
+		for (auto &kv : PI.annotInfo.annotMap) {
+			MI.annotInfo.annotMap[MI.idInfo.VID.at(kv.first)] =
+				tr.transform(&*kv.second, [&](llvm::Value *v){ return MI.idInfo.VID.at(v); });
+		}
+	}
+
+	void initializeFsInfo(ModuleInfo &MI, PassModuleInfo &PI)
+	{
+		MI.fsInfo.filenames.insert(PI.filenames.begin(), PI.filenames.end());
+		return;
+	}
+
+	void initializeModuleInfo(ModuleInfo &MI, PassModuleInfo &PI)
+	{
+		MI.collectIDs();
+		initializeVariableInfo(MI, PI);
+		initializeAnnotationInfo(MI, PI);
+		initializeFsInfo(MI, PI);
+		return;
+	}
+
 	bool transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
 				 const std::shared_ptr<const Config> &conf)
 	{
 		llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
+		PassModuleInfo PI;
 		PassManager OptPM, BndPM;
 		bool modified;
 
@@ -117,6 +157,7 @@ namespace LLVMModule {
 
 		OptPM.add(createDeclareInternalsPass());
 		OptPM.add(createDefineLibcFunsPass());
+		OptPM.add(createMDataCollectionPass(&PI));
 		OptPM.add(createPromoteMemIntrinsicPass());
 		OptPM.add(createIntrinsicLoweringPass(mod));
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
@@ -137,14 +178,12 @@ namespace LLVMModule {
 
 		modified |= BndPM.run(mod);
 
-		/* Run passes with shareable info last: this is done so that
-		 * the info we collect at MDataCollection is about the most
-		 * "recent" version of the LLVM module, that will not change again.
-		 * (MDataCollection will also update the IDs of the module.) */
-		OptPM.add(createMDataCollectionPass(MI));
+		/* Run load-annotation last so that the module is stable */
 		if (conf->loadAnnot)
-			OptPM.add(createLoadAnnotationPass(MI.idInfo, MI.annotInfo));
+			OptPM.add(createLoadAnnotationPass(PI.annotInfo));
 		modified |= OptPM.run(mod);
+
+		initializeModuleInfo(MI, PI);
 
 		assert(!llvm::verifyModule(mod, &llvm::dbgs()));
 		return modified;

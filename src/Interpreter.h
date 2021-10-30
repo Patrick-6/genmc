@@ -291,6 +291,10 @@ struct EESharedState {
 //
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
+public:
+  using AnnotID = ModuleID::ID;
+  using AnnotT = SExpr<AnnotID>;
+
 protected:
 
   /*** Static components (once set, do not change) ***/
@@ -466,14 +470,14 @@ public:
   /* Annotation information */
 
   /* Returns annotation information for the instruction I */
-  const SExpr *getAnnotation(Instruction *I) const {
+  const AnnotT *getAnnotation(Instruction *I) const {
 	  auto id = MI->idInfo.VID[I];
-	  return annotMap.count(id) ? annotMap.at(id).get() : nullptr;
+	  return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get() : nullptr;
   }
 
   /* Returns (concretized) annotation information for the
    * current instruction (assuming we're executing it) */
-  std::unique_ptr<SExpr> getCurrentAnnotConcretized();
+  std::unique_ptr<AnnotT> getCurrentAnnotConcretized();
 
   /* Memory pools checks */
 
@@ -856,7 +860,7 @@ private:  // Helper functions
   /* Gets naming information for value V (or value with key KEY), if it is
    * an internal variable with no value correspondence */
   NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
-			   const VariableInfo::InternalKey &key = {});
+			   const VariableInfo<ModuleID::ID>::InternalKey &key = {});
 
   /* Pers: Returns the address of the file description referenced by FD */
   void *getFileFromFd(int fd) const;

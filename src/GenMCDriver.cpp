@@ -1185,6 +1185,8 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 	if (!rLab->getAnnot())
 		return false;
 
+	using Evaluator = SExprEvaluator<ModuleID::ID>;
+
 	auto &g = getGraph();
 
 	/* For WB, there might be many maximal ones */
@@ -1192,11 +1194,11 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 		std::any_of(validStores.begin(), validStores.end(), [&](const Event &s){
 			auto val = getWriteValue(s, rLab->getAddr(), rLab->getAccess());
 			return isCoMaximal(rLab->getAddr(), s, true) &&
-				!SExprEvaluator().evaluate(rLab->getAnnot(), val); });
+				!Evaluator().evaluate(rLab->getAnnot(), val); });
 	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
 		auto val = getWriteValue(w, rLab->getAddr(), rLab->getAccess());
 		return !isCoMaximal(rLab->getAddr(), w, true) &&
-			!SExprEvaluator().evaluate(rLab->getAnnot(), val); }),
+			!Evaluator().evaluate(rLab->getAnnot(), val); }),
 		validStores.end());
 	BUG_ON(validStores.empty());
 
