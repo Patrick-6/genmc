@@ -161,11 +161,6 @@ runvariants() {
     do
 	vars=$((vars+1))
 	output=`"${GenMC}" "-${model}" "-${coherence}" "${unroll}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} ${t} 2>&1`
-	if test "$?" -eq 0
-	then
-	    failure_status="$?"
-	    outcome_failure=1
-	fi
 	trace=`echo "${output}" | awk '!/status|Total wall-clock time/ {print $0 }' > tmp.trace`
 	diff_file="${t%.*}.${model}.${coherence}.trace" &&
 	    [[ -f "${t%.*}.${model}.${coherence}.trace-${LLVM_VERSION}" ]] &&
@@ -173,6 +168,11 @@ runvariants() {
 	diff=`diff tmp.trace "${diff_file}"`
 	if test -n "${diff}" -a -z "${suppress_diff}"
 	then
+	    if test "$?" -ne 42
+	    then
+		failure_status="$?"
+		outcome_failure=1
+	    fi
 	    echo "${diff}"
 	    failure=1
 	fi
