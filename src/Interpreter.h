@@ -260,7 +260,6 @@ struct EELocalState {
 	ExecutionState execState;
 	ProgramState programState;
 	llvm::BitVector fds;
-	std::unordered_map<unsigned int, std::unique_ptr<SExpr> > annotMap;
 	llvm::IndexedMap<void *> fdToFile;
 	std::unordered_map<std::string, void *> nameToInodeAddr;
 	std::vector<Thread> threads;
@@ -271,7 +270,6 @@ struct EELocalState {
 		     const std::unique_ptr<DepTracker> &depTracker,
 		     const ExecutionState &execState,
 		     const ProgramState &programState,
-		     const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
 		     const llvm::BitVector &fds,
 		     const llvm::IndexedMap<void *> &fdToFile,
 		     const std::unordered_map<std::string, void *> &nameToInodeAddr,
@@ -345,9 +343,6 @@ protected:
   /* Information about the interpreter's state */
   ExecutionState execState = ExecutionState::Normal;
   ProgramState programState = ProgramState::Main; /* Pers */
-
-  /* SAVer: (Mutable) allocation map */
-  std::unordered_map<unsigned int, std::unique_ptr<SExpr> > annotMap;
 
   /* Pers: A bitvector of available file descriptors */
   llvm::BitVector fds;
@@ -787,9 +782,6 @@ private:  // Helper functions
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */
   void collectStaticAddresses(Module *M);
-
-  /* Set up annotation-related data-structures */
-  void setupAnnotationInfo(Module *M, const Config *userConf);
 
   /* Sets up how some errors will be reported to the user */
   void setupErrorPolicy(Module *M, const Config *userConf);

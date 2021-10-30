@@ -112,7 +112,6 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 			   const std::unique_ptr<DepTracker> &depTr,
 			   const ExecutionState &execState,
 			   const ProgramState &programState,
-			   const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
 			   const llvm::BitVector &fds,
 			   const llvm::IndexedMap<void *> &fdToFile,
 			   const std::unordered_map<std::string, void *> &nameToInodeAddr,
@@ -122,16 +121,12 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 	  depTracker(depTr ? LLVM_MAKE_UNIQUE<DepTracker>(*depTr) : nullptr),
 	  execState(execState),
 	  programState(programState), fds(fds), fdToFile(fdToFile),
-	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current)
-{
-	for (auto &kv : annots)
-		annotMap[kv.first] = kv.second->clone();
-}
+	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current) {}
 
 std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState, annotMap, fds,
-					      fdToFile, nameToInodeAddr, threads, currentThread);
+	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState,
+					      fds, fdToFile, nameToInodeAddr, threads, currentThread);
 }
 
 void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
@@ -140,7 +135,6 @@ void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
 	depTracker = std::move(state->depTracker);
 	execState = state->execState;
 	programState = state->programState;
-	annotMap = std::move(state->annotMap);
 	fds = std::move(state->fds);
 	fdToFile = std::move(state->fdToFile);
 	nameToInodeAddr = std::move(state->nameToInodeAddr);
@@ -329,15 +323,6 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 	return;
 }
 
-void Interpreter::setupAnnotationInfo(Module *M, const Config *userConf)
-{
-	auto &AI = MI->annotInfo;
-
-	for (auto &kv : AI.annotMap)
-		annotMap[kv.first] = kv.second->clone();
-	return;
-}
-
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
 	auto &FI = MI->fsInfo;
@@ -485,9 +470,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
-
-  /* Set up annotation information */
-  setupAnnotationInfo(mod, userConf);
 
   /* Also run a recovery routine if it is required to do so */
   checkPersistency = userConf->persevere;
