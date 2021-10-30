@@ -365,15 +365,16 @@ const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> 
 }
 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						     unsigned int offsetMO)
+						       int offsetMO /* = -1 */)
 {
 	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
-	getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
+	if (offsetMO >= 0)
+		getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
 	return wLab;
 }
 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						     Event pred)
+						       Event pred)
 {
 	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 	getCoherenceCalculator()->addStoreToLocAfter(wLab->getAddr(), wLab->getPos(), pred);
@@ -1207,11 +1208,8 @@ void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
 	setFPStatus(FS_Stale);
 
-	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
-	auto *cohTracker = static_cast<MOCalculator *>(
-		getCoherenceCalculator());
-
-	cohTracker->changeStoreOffset(addr, s, newOffset);
+	if (auto *cohTracker = llvm::dyn_cast<MOCalculator>(getCoherenceCalculator()))
+		cohTracker->changeStoreOffset(addr, s, newOffset);
 }
 
 std::vector<std::pair<Event, Event> >

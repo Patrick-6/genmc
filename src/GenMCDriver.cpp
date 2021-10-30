@@ -459,6 +459,7 @@ void GenMCDriver::run()
 
 void GenMCDriver::halt(Status status)
 {
+	getEE()->block(llvm::Thread::BlockageType::BT_Error);
 	shouldHalt = true;
 	result.status = status;
 	workqueue.clear();
@@ -811,6 +812,8 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 
 	const auto &g = getGraph();
 	const View &before = g.getEventLabel(mLab->getPos().prev())->getHbView();
+	const MallocLabel *allocLab = nullptr;
+	const WriteLabel *initLab = nullptr;
 	for (const auto *oLab : labels(g)) {
 		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 			if (fLab->getFreedAddr() == mLab->getAddr()) {
@@ -819,19 +822,32 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 			}
 		}
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
-			if (aLab->contains(mLab->getAddr()) && !before.contains(oLab->getPos())) {
-				visitError(mLab->getPos(), Status::VS_AccessNonMalloc,
-					   "The allocating operation (malloc()) "
-					   "does not happen-before the memory access!",
-					   oLab->getPos());
-				return true;
+			if (aLab->contains(mLab->getAddr())) {
+				if (!before.contains(aLab->getPos())) {
+					visitError(mLab->getPos(), Status::VS_AccessNonMalloc,
+						   "The allocating operation (malloc()) "
+						   "does not happen-before the memory access!",
+						   oLab->getPos());
+					return true;
+				} else {
+					allocLab = aLab;
+				}
 			}
+		}
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(oLab)) {
+			if (wLab->getAddr() == mLab->getAddr() && before.contains(wLab->getPos()))
+				initLab = wLab;
 		}
 	}
 
-	/* Also make sure there is an allocating event; do this separately for better error message */
-	if (g.getPrecedingMalloc(mLab).isInitializer()) {
+	/* Also make sure there is an allocating event and some initializer store.
+	 * We do this separately for better error messages */
+	if (!allocLab) {
 		visitError(mLab->getPos(), Status::VS_AccessNonMalloc);
+		return true;
+	}
+	if (llvm::isa<ReadLabel>(mLab) && !initLab) {
+		visitError(mLab->getPos(), Status::VS_UninitializedMem);
 		return true;
 	}
 	return false;
@@ -1535,23 +1551,23 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 	/* If it's a valid access, track coherence for this location */
 	g.trackCoherenceAtLoc(wLab->getAddr());
-	if (!isAccessValid(&*wLab)) {
-		updateLabelViews(wLab.get(), deps);
-		auto *lab = g.addWriteLabelToGraph(std::move(wLab), 0);
+	updateLabelViews(wLab.get(), deps);
+	auto *lab = g.addWriteLabelToGraph(std::move(wLab));
+
+	if (!isAccessValid(lab)) {
 		visitError(lab->getPos(), Status::VS_AccessNonMalloc);
 		return;
 	}
 
 	/* Find all possible placings in coherence for this store */
-	auto placesRange = g.getCoherentPlacings(wLab->getAddr(), wLab->getPos(), g.isRMWStore(&*wLab));
+	auto placesRange = g.getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 
 	/* It is always consistent to add the store at the end of MO */
-	updateLabelViews(wLab.get(), deps);
-	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
-		wLab->setVal(getBarrierInitValue(wLab->getAddr(), wLab->getAccess()));
-	auto *lab = g.addWriteLabelToGraph(std::move(wLab), endO);
+	if (llvm::isa<BIncFaiWriteLabel>(lab) && lab->getVal() == SVal(0))
+		const_cast<WriteLabel*>(lab)->setVal(getBarrierInitValue(lab->getAddr(), lab->getAccess()));
+	g.getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), endO);
 
 	auto &locMO = g.getStoresToLoc(lab->getAddr());
 	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
@@ -1728,6 +1744,10 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 
+	/* If we have already detected an error, no need to report another */
+	if (isHalting())
+		return;
+
 	/* If we this is a replay (might happen if one LLVM instruction
 	 * maps to many MC events), do not get into an infinite loop... */
 	if (getEE()->getExecState() == llvm::ExecutionState::Replay)
@@ -1751,7 +1771,13 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	if (isInvalidAccessError(s) && llvm::isa<ReadLabel>(errLab))
 		g.changeRf(errLab->getPos(), Event::getBottom());
 
-	/* Print a basic error message and the graph */
+	/* Print a basic error message and the graph.
+	 * We have to save the interpreter state as replaying will
+	 * destroy the current execution stack */
+	auto oldState = getEE()->releaseLocalState();
+
+	getEE()->replayExecutionBefore(g.getViewFromStamp(g.nextStamp()));
+
 	llvm::raw_string_ostream out(result.message);
 
 	out << "Error detected: " << s << "!\n";
@@ -1775,6 +1801,8 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	/* Dump the graph into a file (DOT format) */
 	if (userConf->dotFile != "")
 		dotPrintToFile(userConf->dotFile, errLab->getPos(), confEvent);
+
+	getEE()->restoreLocalState(std::move(oldState));
 
 	halt(s);
 }
@@ -2463,12 +2491,9 @@ std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
 	return "";
 }
 
-void GenMCDriver::printGraph(bool getMetadata /* false */, llvm::raw_ostream &s /* = llvm::dbgs() */)
+void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	auto &g = getGraph();
-
-	if (getMetadata)
-		EE->replayExecutionBefore(g.getViewFromStamp(g.nextStamp()));
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
@@ -2498,7 +2523,7 @@ void GenMCDriver::printGraph(bool getMetadata /* false */, llvm::raw_ostream &s 
 				if (getConf()->vLevel >= VerbosityLevel::V1)
 					s << " @ " << lab->getStamp();
 			);
-			if (getMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
+			if (printMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, s);
 			}
 			s << "\n";
@@ -2558,8 +2583,6 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	auto *before = g.getPrefixView(errorEvent).clone();
 	if (!confEvent.isInitializer())
 		before->update(g.getPrefixView(confEvent));
-
-	EE->replayExecutionBefore(*before);
 
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";
@@ -2674,12 +2697,6 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 void GenMCDriver::printTraceBefore(Event e, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	s << "Trace to " << e << ":\n";
-
-	/* Replay the execution up to the error event (collects mdata).
-	 * Even if the prefix has holes, replaying will fill them up,
-	 * so we end up with a (po U rf) view of the offending execution */
-	const VectorClock &before = getGraph().getPrefixView(e);
-	getEE()->replayExecutionBefore(before);
 
 	/* Linearize (po U rf) and print trace */
 	View a;

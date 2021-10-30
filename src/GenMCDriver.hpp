@@ -546,7 +546,8 @@ private:
 	/* Prints statistics when the verification is over */
 	void printResults();
 
-	/* Prints the source-code instructions leading to Event e */
+	/* Prints the source-code instructions leading to Event e.
+	 * Assumes that debugging information have already been collected */
 	void printTraceBefore(Event e, llvm::raw_ostream &ss = llvm::dbgs());
 
 	/* Helper for printTraceBefore() that prints events according to po U rf */
@@ -557,14 +558,16 @@ private:
 	std::string getVarName(const MemAccessLabel *mLab) const;
 
 	/* Outputs the full graph.
-	 * If getMetadata is set, it outputs more debugging information */
-	void printGraph(bool getMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
+	 * If printMetadata is set, it outputs debugging information
+	 * (these should have been collected beforehand) */
+	void printGraph(bool printMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the graph in a condensed form */
 	void prettyPrintGraph(llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the current graph into a file (DOT format),
-	 * and visually marks events e and c (conflicting)  */
+	 * and visually marks events e and c (conflicting).
+	 * Assumes debugging information have already been collected  */
 	void dotPrintToFile(const std::string &filename, Event e, Event c);
 
 

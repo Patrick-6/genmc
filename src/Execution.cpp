@@ -235,6 +235,8 @@ SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, Storage s, Add
 
 void *Interpreter::getStaticAddr(SAddr addr) const
 {
+	/* If the address is not statically allocated, something went
+	* wrong with the access validity checks; don't bother recovering */
 	BUG_ON(!isStaticallyAllocated(addr));
 	auto sBeg = getStaticAllocBegin(staticAllocas, addr);
 	BUG_ON(!staticValueMap.count(sBeg));
@@ -1371,7 +1373,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 			    getAddrPoDeps(getCurThr().id), nullptr);
 
   NameInfo *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
-  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info), &*deps,
+  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName()), &*deps,
 				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
 
   ECStack().back().Allocas.add((void *) result.get());
@@ -1440,8 +1442,7 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 void Interpreter::visitLoadInst(LoadInst &I)
 {
 	Thread &thr = getCurThr();
-	ExecutionContext &SF = ECStack().back();
-	GenericValue src = getOperandValue(I.getPointerOperand(), SF);
+	GenericValue src = getOperandValue(I.getPointerOperand(), ECStack().back());
 	GenericValue *ptr = (GenericValue *) GVTOP(src);
 	Type *typ = I.getType();
 	auto size = getTypeSize(typ);
@@ -1450,7 +1451,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	/* If this is a thread-local access it is not recorded in the graph,
 	 * so just perform the load. */
 	if (thr.tls.count(ptr)) {
-		SetValue(&I, thr.tls[ptr], SF);
+		SetValue(&I, thr.tls[ptr], ECStack().back());
 		return;
 	}
 
@@ -1465,7 +1466,7 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
 
 	/* Last, set the return value for this instruction */
-	SetValue(&I, SVAL_TO_GV(val, typ), SF);
+	SetValue(&I, SVAL_TO_GV(val, typ), ECStack().back());
 	return;
 }
 
@@ -1540,10 +1541,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 				     GV_TO_SVAL(newVal, typ)), &*lDeps);
 
 	auto cmpRes = compareValues(getTypeSize(typ), ret, cmpVal.IntVal.getLimitedValue());
-	if (!thr.isBlocked() && cmpRes) {
-		auto sDeps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()),
-					   getDataDeps(thr.id, I.getNewValOperand()),
-					   getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+	if (!getCurThr().isBlocked() && cmpRes) {
+		auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()),
+					   getDataDeps(getCurThr().id, I.getNewValOperand()),
+					   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr);
 		driver->visitStore(CasWriteLabel::create(I.getSuccessOrdering(), nextPos(), ptr, size,
 							 atyp, GV_TO_SVAL(newVal, typ)), &*sDeps);
 	}
@@ -3024,7 +3025,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 					 SVal(1)), &*specialDeps);
 
 	/* If the barrier was uninitialized and we blocked, abort */
-	if (oldVal.getSigned() < 0 || getCurThr().isBlocked())
+	if (oldVal.getSigned() <= 0 || getCurThr().isBlocked())
 		return;
 
 	auto newVal = executeAtomicRMWOperation(oldVal, SVal(1), AtomicRMWInst::BinOp::Sub);

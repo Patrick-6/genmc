@@ -94,7 +94,7 @@ llvm::Value *LoopUnrollPass::createBoundAlloca(llvm::Loop *l)
 	llvm::Value *loopBound = llvm::ConstantInt::get(llvm::Type::getInt32Ty(parentFun->getContext()),
 							unrollDepth);
 	llvm::Value *alloca = new llvm::AllocaInst(llvm::Type::getInt32Ty(parentFun->getContext()),
-						   0, NULL, LOOP_NAME(l) + ".max", &*entryInst);
+						   0, NULL, 4, LOOP_NAME(l) + ".max", &*entryInst);
 	llvm::StoreInst *ptr = new llvm::StoreInst(loopBound, alloca, &*entryInst);
 	return alloca;
 }
