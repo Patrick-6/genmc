@@ -32,4 +32,5 @@ Trace to (1, 1):
 [main] destroyed-mutex0.c: 35: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_1] destroyed-mutex0.c: 14: pthread_mutex_destroy(&l);
 Called lock() on destroyed mutex!
-Number of complete executions explored: 1
+Number of complete executions explored: 0
+Number of blocked executions seen: 1

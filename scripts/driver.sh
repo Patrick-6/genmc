@@ -129,7 +129,7 @@ header_printed=""
 wrongdir="${DIR}/../tests/wrong"
 for model in rc11 # imm
 do
-    for cat in safety liveness infr # racy memory locking barriers fs
+    for cat in safety liveness infr racy memory locking barriers fs
     do
 	# under IMM, only run safety and liveness tests
 	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
@@ -139,10 +139,10 @@ do
 	testdir="${wrongdir}/${cat}"
 	coherence="wb"
 	suppress_diff=""
-	if test "${cat}" = "memory" -o "${cat}" = "fs"
-	then
-	    suppress_diff=1
-	fi
+	# if test "${cat}" = "memory" -o "${cat}" = "fs"
+	# then
+	#     suppress_diff=1
+	# fi
 	source "${DIR}/runwrong.sh"
 	increase_total_time
     done
