@@ -106,14 +106,13 @@ public:
 		RevisitSetT revset;
 		LocalQueueT workqueue;
 		std::unique_ptr<llvm::EELocalState> interpState;
-		bool isMootExecution;
 		std::vector<Event> threadPrios;
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
 		LocalState() = delete;
 		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
 			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
-			   bool isMootExecution, const std::vector<Event> &threadPrios);
+			   const std::vector<Event> &threadPrios);
 
 		~LocalState();
 	};
@@ -503,12 +502,6 @@ private:
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
 
-	/* Opt: Tries to in-place revisit a read that is part of a lock.
-	 * Returns true if the optimization succeeded */
-	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
-			      const std::vector<Event> &writePrefixPos,
-			      const std::vector<std::pair<Event, Event> > &moPlacings);
-
 	/* Opt: Repairs the reads-from edge of a dangling lock */
 	void repairLock(LockCasReadLabel *lab);
 
@@ -627,9 +620,6 @@ private:
 
 	/* The revisit sets used during the exploration map[stamp->revisit set] */
 	RevisitSetT revisitSet;
-
-	/* Opt: Whether this execution is moot (locking) */
-	bool isMootExecution;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

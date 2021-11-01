@@ -43,7 +43,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> MI)
-	: userConf(conf), isMootExecution(false), result(), shouldHalt(false)
+	: userConf(conf), result(), shouldHalt(false)
 {
 	std::string buf;
 
@@ -82,16 +82,16 @@ GenMCDriver::~GenMCDriver() = default;
 GenMCDriver::LocalState::~LocalState() = default;
 
 GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
-				    std::unique_ptr<llvm::EELocalState> interpState, bool isMootExecution,
+				    std::unique_ptr<llvm::EELocalState> interpState,
 				    const std::vector<Event> &threadPrios)
 	: graph(std::move(g)), revset(std::move(r)), workqueue(std::move(w)),
-	  interpState(std::move(interpState)), isMootExecution(isMootExecution), threadPrios(threadPrios) {}
+	  interpState(std::move(interpState)), threadPrios(threadPrios) {}
 
 std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
 	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
 		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
-		getEE()->releaseLocalState(), isMootExecution, threadPrios);
+		getEE()->releaseLocalState(), threadPrios);
 }
 
 void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
@@ -100,7 +100,6 @@ void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> sta
 	revisitSet = std::move(state->revset);
 	workqueue = std::move(state->workqueue);
 	getEE()->restoreLocalState(std::move(state->interpState));
-	isMootExecution = state->isMootExecution;
 	threadPrios = std::move(state->threadPrios);
 	return;
 }
@@ -309,7 +308,6 @@ void GenMCDriver::deprioritizeThread(const UnlockLabelLAPOR *uLab)
 
 void GenMCDriver::resetExplorationOptions()
 {
-	isMootExecution = false;
 	resetThreadPrioritization();
 }
 
@@ -621,7 +619,7 @@ void GenMCDriver::restorePrefix(const EventLabel *lab,
 
 bool GenMCDriver::scheduleNext()
 {
-	if (isMootExecution || isHalting())
+	if (isHalting())
 		return false;
 
 	const auto &g = getGraph();
@@ -1814,34 +1812,6 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	halt(s);
 }
 
-bool GenMCDriver::tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab,
-				   const std::vector<Event> &writePrefixPos,
-				   const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	auto &g = getGraph();
-	auto *EE = getEE();
-
-	if (!g.revisitModifiesGraph(rLab, sLab) // &&
-	    // !revisitSetContains(rLab, writePrefixPos, moPlacings)
-		) {
-		EE->getThrById(rLab->getThread()).unblock();
-		// llvm::dbgs() << "REVISITING LOCK IN PLACE " << rLab->getPos() << " TO RF " << sLab->getPos() << "\n";
-		// printGraph();
-		changeRf(rLab->getPos(), sLab->getPos());
-		rLab->setAddedMax(true); // isCoMaximal(rLab->getAddr(), rLab->getRf()));
-
-		completeRevisitedRMW(rLab);
-
-		threadPrios = {rLab->getPos()};
-		if (EE->getThrById(rLab->getThread()).globalInstructions != 0)
-			++EE->getThrById(rLab->getThread()).globalInstructions;
-
-		// addToRevisitSet(rLab, writePrefixPos, moPlacings);
-		return true;
-	}
-	return false;
-}
-
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -1896,16 +1866,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto writePrefixPos = g.extractRfs(writePrefix);
 		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
 
-		/* Optimize handling of lock operations */
-		// if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
-		// 	if (getEE()->getThrById(lLab->getThread()).isBlocked() &&
-		// 	    (int) g.getThreadSize(lLab->getThread()) == lLab->getIndex() + 1) {
-		// 		if (tryToRevisitLock(lLab, sLab, writePrefixPos, moPlacings))
-		// 			continue;
-		// 		isMootExecution = true;
-		// 	}
-		// }
-
 		/* If this prefix has revisited the read before, skip */
 		if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
 			// llvm::dbgs() << "duplicate execution found in\n";
@@ -1935,7 +1895,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		// 		      std::move(writePrefix), std::move(moPlacings)));
 
 		auto og = g.getCopyUpTo(*g.getRevisitView(rLab, sLab));
-		// llvm::dbgs() << "CUT GRAPH " << *og << "\n";
 
 		// save these because we are gonna change state
 		auto read = rLab->getPos();
@@ -1945,7 +1904,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto localState = releaseLocalState();
 		auto newState = LLVM_MAKE_UNIQUE<SharedState>(std::move(og), getEE()->getSharedState());
 
-		// IMM: DO WE NEED TO ALSO SAVE DEPTRACKER's STATE?
 		setSharedState(std::move(newState));
 
 		auto &ng = getGraph();
@@ -1981,11 +1939,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		restoreLocalState(std::move(localState));
 	}
-	bool consG = !g.isRMWStore(sLab) || g.getPendingRMWs(sLab).empty();
-	// if (!isMootExecution  && consG) {
-	// 	llvm::dbgs() << "CONTINUING WITH \n"; printGraph();
-	// }
-	return !isMootExecution && consG;
+	return !g.isRMWStore(sLab) || g.getPendingRMWs(sLab).empty();
 }
 
 void GenMCDriver::repairLock(LockCasReadLabel *lab)
