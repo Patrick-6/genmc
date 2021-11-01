@@ -482,11 +482,8 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 
 	std::vector<std::future<GenMCDriver::Result>> futures;
 	{
-		/* Then, fire up drivers */
+		/* Then, fire up the drivers */
 		ThreadPool tp(conf, mod, MI);
-
-		// std::this_thread::sleep_for(std::chrono::milliseconds(30 * 1000));
-
 		futures = tp.waitForTasks();
 	}
 
