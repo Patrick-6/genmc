@@ -1373,7 +1373,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 			    getAddrPoDeps(getCurThr().id), nullptr);
 
   NameInfo *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
-  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName()), &*deps,
+  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
 				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
 
   ECStack().back().Allocas.add((void *) result.get());
