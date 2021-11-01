@@ -22,7 +22,7 @@
 #define __GENMC_DRIVER_HPP__
 
 #include "Config.hpp"
-#include "Event.hpp"
+#include "DepInfo.hpp"
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
 #include "WorkSet.hpp"
@@ -72,6 +72,7 @@ public:
 		VS_InvalidBInit,
 		VS_InvalidRecoveryCall,
 		VS_InvalidTruncate,
+		VS_MixedSize,
 		VS_SystemError,
 	};
 
@@ -166,6 +167,9 @@ public:
 	/* Starts the verification procedure for a driver */
 	void run();
 
+	/* Stops the verification procedure when an error is found */
+	void halt(Status status);
+
 	/* Returns the result of the verification procedure */
 	Result getResult() const { return result; }
 
@@ -180,111 +184,73 @@ public:
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
-	SVal
-	visitLoad(InstAttr attr,
-		  llvm::AtomicOrdering ord,
-		  SAddr addr,
-		  ASize size,
-		  AType type,
-		  SVal cmpVal = SVal(),
-		  SVal rmwVal = SVal(),
-		  llvm::AtomicRMWInst::BinOp op =
-		  llvm::AtomicRMWInst::BinOp::BAD_BINOP);
+	SVal visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
-	SVal
-	visitDskRead(SAddr readAddr, ASize size, AType type);
+	SVal visitDskRead(std::unique_ptr<DskReadLabel> rLab);
 
 	/* A store has been interpreted, nothing for the interpreter */
-	void
-	visitStore(InstAttr attr,
-		   llvm::AtomicOrdering ord,
-		   SAddr addr,
-		   ASize size,
-		   AType type,
-		   SVal val);
+	void visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps);
 
 	/* A function modeling a write to disk has been interpreted */
-	void
-	visitDskWrite(SAddr addr,
-		      ASize size,
-		      AType type,
-		      SVal val,
-		      void *mapping,
-		      InstAttr attr = InstAttr::IA_None,
-		      std::pair<void *, void *> ordDataRange =
-		        std::pair<void *, void *>{(void *) nullptr, (void *) nullptr},
-		      void *transInode = nullptr);
+	void visitDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(SAddr addr, ASize size);
+	void visitLock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(SAddr addr, ASize size);
+	void visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
-	SVal
-	visitDskOpen(const std::string &fileName, ASize intSize);
+	SVal visitDskOpen(std::unique_ptr<DskOpenLabel> oLab);
 
 	/* An fsync() operation has been interpreted */
-	void
-	visitDskFsync(void *inodeData, unsigned int size);
+	void visitDskFsync(std::unique_ptr<DskFsyncLabel> fLab);
 
 	/* A sync() operation has been interpreted */
-	void
-	visitDskSync();
+	void visitDskSync(std::unique_ptr<DskSyncLabel> fLab);
 
 	/* A call to __VERIFIER_pbarrier() has been interpreted */
-	void
-	visitDskPbarrier();
+	void visitDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
 
 	/* A fence has been interpreted, nothing for the interpreter */
-	void
-	visitFence(llvm::AtomicOrdering ord);
+	void visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
-	void
-	visitSpinStart();
+	void visitSpinStart(std::unique_ptr<SpinStartLabel> lab);
 
 	/* A call to __VERIFIER_potential_spin_end() has been interpreted */
-	void
-	visitPotentialSpinEnd();
+	void visitPotentialSpinEnd(std::unique_ptr<PotentialSpinEndLabel> lab);
 
 	/* Returns an appropriate result for pthread_self() */
-	SVal
-	visitThreadSelf();
+	SVal visitThreadSelf(const EventDeps *deps);
 
 	/* Returns the TID of the newly created thread */
-	int
-	visitThreadCreate(llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
+	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps,
+			      llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
-	SVal
-	visitThreadJoin(llvm::Function *F, SVal arg);
+	SVal visitThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
 
 	/* A thread has just finished execution, nothing for the interpreter */
-	void
-	visitThreadFinish();
+	void visitThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 
 	/* Returns an appropriate result for malloc() */
-	SVal
-	visitMalloc(uint64_t allocSize, unsigned int alignment, Storage s, AddressSpace spc,
-		    NameInfo *nameInfo = nullptr, const std::string &name = {});
+	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
+			 unsigned int alignment, Storage s, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
-	void
-	visitFree(SAddr ptr);
+	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
 
 	/* This method blocks the current thread  */
-	void visitBlock();
+	void visitBlock(Event pos);
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
-	void
-	visitError(Status r, const std::string &err = std::string(),
-		   Event confEvent = Event::getInitializer());
+	void visitError(Event pos, Status r, const std::string &err = std::string(),
+			Event confEvent = Event::getInitializer());
 
 	virtual ~GenMCDriver();
 
@@ -308,18 +274,36 @@ protected:
 	ExecutionGraph &getGraph() const { return *execGraph; };
 
 	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(Event w, SAddr a, ASize s);
-	SVal getDskWriteValue(Event w, SAddr a, ASize s);
+	SVal getWriteValue(Event w, SAddr p, AAccess a);
+	SVal getWriteValue(const WriteLabel *wLab) {
+		return getWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+	}
+
+	/* Returns the value written by a disk write */
+	SVal getDskWriteValue(Event w, SAddr p, AAccess a);
+	SVal getDskWriteValue(const DskWriteLabel *wLab) {
+		return getDskWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+	}
+
+	/* Returns the value read by a read */
+	SVal getReadValue(const ReadLabel *rLab) {
+		return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	}
+
+	/* Returns the value read by a disk read */
+	SVal getDskReadValue(const DskReadLabel *rLab) {
+		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	}
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place
 	 * (e.g., bottom) also blocks the currently running thread. */
-	SVal getReadRetValueAndMaybeBlock(Event r, SAddr addr, ASize s);
-	SVal getRecReadRetValue(SAddr addr, ASize s);
+	SVal getReadRetValueAndMaybeBlock(const ReadLabel *rLab);
+	SVal getRecReadRetValue(const ReadLabel *rLab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	SVal getBarrierInitValue(SAddr ptr, ASize s);
+	SVal getBarrierInitValue(SAddr ptr, AAccess a);
 
 	/* Returns the type of consistency types we need to perform at
 	 * P according to the configuration */
@@ -369,6 +353,9 @@ private:
 	 * Exhaustively explores all  consistent executions of a program */
 	void explore();
 
+	/* Returns true if this driver is shutting down */
+	bool isHalting() const;
+
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
@@ -376,7 +363,7 @@ private:
 	void prioritizeThreads();
 
 	/* Deprioritizes the current thread */
-	void deprioritizeThread();
+	void deprioritizeThread(const UnlockLabelLAPOR *uLab);
 
 	/* Returns true if THREAD is schedulable (i.e., there are more
 	 * instructions to run and it is not blocked) */
@@ -398,45 +385,36 @@ private:
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 
-	/* Returns whether ADDR a valid address or not.  */
-	bool isAccessValid(SAddr addr);
+	/* Returns whether LAB accesses a valid location.  */
+	bool isAccessValid(const MemAccessLabel *lab);
 
-	/* Checks for data races when a read/write is added.
-	 * Appropriately calls visitError() and terminates */
-	void checkForDataRaces();
+	/* Checks for data races when a read/write is added, and calls
+	 * visitError() if a race is found. */
+	void checkForDataRaces(const MemAccessLabel *mlab);
 
 	/* Performs POSIX checks whenever a lock event is added.
 	 * Given its list of possible rfs, makes sure it cannot read
 	 * from a destroyed lock.
 	 * Appropriately calls visitErro() and terminates */
-	void checkLockValidity(const std::vector<Event> &rfs);
+	void checkLockValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
 
 	/* Performs POSIX checks whenever an unlock event is added.
 	 * Appropriately calls visitError() and terminates */
-	void checkUnlockValidity();
+	void checkUnlockValidity(const WriteLabel *wLab);
 
 	/* Perfoms POSIX checks whenever a barrier_init event is added.
 	 Appropriately calls visitError() and terminates */
-	void checkBInitValidity();
+	void checkBInitValidity(const WriteLabel *wLab);
 
 	/* Perfoms POSIX checks whenever a barrier_wait event is added.
 	 Appropriately calls visitError() and terminates */
-	void checkBIncValidity(const std::vector<Event> &rfs);
-
-	/* Checks whether there is some race when allocating/deallocating
-	 * memory and reports an error as necessary.
-	 * Helpers for checkForMemoryRaces() */
-	void findMemoryRaceForMemAccess(const MemAccessLabel *mLab);
-	void findMemoryRaceForAllocAccess(const FreeLabel *fLab);
+	void checkBIncValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
 
 	/* Checks for memory races (e.g., double free, access freed memory, etc)
-	 * whenever a read/write/free is added.
-	 * Appropriately calls visitError() and terminates */
-	void checkForMemoryRaces(SAddr addr);
-
-	/* Calls visitError() if a newly added read can read from an uninitialized
-	 * (dynamically allocated) memory location */
-	void checkForUninitializedMem(const std::vector<Event> &rfs);
+	 * whenever a read/write/free is added, and calls visitError() if a race is found.
+	 * Returns whether a race was found */
+	bool checkForMemoryRaces(const MemAccessLabel *mLab);
+	bool checkForMemoryRaces(const FreeLabel *lab);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
@@ -496,34 +474,11 @@ private:
 	 * removes options that violate atomicity, and determines the
 	 * order in which these options should be explored */
 	std::vector<Event>
-	properlyOrderStores(InstAttr attr, const ReadLabel *lab, const std::vector<Event> &stores);
-
-	/* Helper for visitLoad() that creates a ReadLabel and adds it to the graph */
-	const ReadLabel *
-	createAddReadLabel(InstAttr attr,
-			   llvm::AtomicOrdering ord,
-			   SAddr addr,
-			   ASize size,
-			   AType type,
-			   std::unique_ptr<SExpr> annot,
-			   SVal cmpVal,
-			   SVal rmwVal,
-			   llvm::AtomicRMWInst::BinOp op,
-			   Event store);
+	properlyOrderStores(const ReadLabel *lab, const std::vector<Event> &stores);
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
 	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
-
-	/* Helper for visitStore() that creates a WriteLabel and adds it to the graph */
-	const WriteLabel *
-	createAddStoreLabel(InstAttr attr,
-			    llvm::AtomicOrdering ord,
-			    SAddr addr,
-			    ASize size,
-			    AType type,
-			    SVal val,
-			    int moPos);
 
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores
@@ -565,8 +520,8 @@ private:
 	void repairDanglingBarriers();
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void visitLockLAPOR(SAddr addr);
-	void visitUnlockLAPOR(SAddr addr);
+	void visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
+	void visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
 
 	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
 	bool isSymmetricToSR(int candidate, int thread, Event parent,
@@ -580,12 +535,10 @@ private:
 	bool sharePrefixSR(int tid, Event pos) const;
 
 	/* SR: Filter stores that will lead to a symmetric execution */
-	void filterSymmetricStoresSR(SAddr addr, ASize size,
-				     std::vector<Event> &stores) const;
+	void filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterValuesFromAnnotSAVER(SAddr addr, ASize size,
-					const SExpr *annot, std::vector<Event> &stores);
+	bool filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
 
 
 	/*** Output-related ***/
@@ -593,8 +546,9 @@ private:
 	/* Prints statistics when the verification is over */
 	void printResults();
 
-	/* Prints the source-code instructions leading to Event e */
-	void printTraceBefore(Event e);
+	/* Prints the source-code instructions leading to Event e.
+	 * Assumes that debugging information have already been collected */
+	void printTraceBefore(Event e, llvm::raw_ostream &ss = llvm::dbgs());
 
 	/* Helper for printTraceBefore() that prints events according to po U rf */
 	void recPrintTraceBefore(const Event &e, View &a,
@@ -604,14 +558,16 @@ private:
 	std::string getVarName(const MemAccessLabel *mLab) const;
 
 	/* Outputs the full graph.
-	 * If getMetadata is set, it outputs more debugging information */
-	void printGraph(bool getMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
+	 * If printMetadata is set, it outputs debugging information
+	 * (these should have been collected beforehand) */
+	void printGraph(bool printMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the graph in a condensed form */
 	void prettyPrintGraph(llvm::raw_ostream &s = llvm::dbgs());
 
 	/* Outputs the current graph into a file (DOT format),
-	 * and visually marks events e and c (conflicting)  */
+	 * and visually marks events e and c (conflicting).
+	 * Assumes debugging information have already been collected  */
 	void dotPrintToFile(const std::string &filename, Event e, Event c);
 
 
@@ -619,20 +575,17 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab) = 0;
+	virtual void updateLabelViews(EventLabel *lab, const EventDeps *deps) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */
 	virtual Event findDataRaceForMemAccess(const MemAccessLabel *mLab) = 0;
 
-	/* Should return the set of stores that it is consistent for current
-	 * load to read-from  (excluding atomicity violations) */
-	virtual std::vector<Event>
-	getStoresToLoc(SAddr addr) = 0;
+	/* Returns an approximation of consistent rfs for RLAB */
+	virtual std::vector<Event> getRfsApproximation(const ReadLabel *rLab);
 
-	/* Should return the set of reads that lab can revisit */
-	virtual std::vector<Event>
-	getRevisitLoads(const WriteLabel *lab) = 0;
+	/* Returns an approximation of the reads that SLAB can revisit */
+	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
 
 	/* Changes the reads-from edge for the specified label.
 	 * This effectively changes the label, hence this method is virtual */
@@ -684,6 +637,9 @@ private:
 
 	/* Verification result to be returned to caller */
 	Result result;
+
+	/* Whether we are stopping the exploration (e.g., due to an error found) */
+	bool shouldHalt;
 
 	/* Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng;

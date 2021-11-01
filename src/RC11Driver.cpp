@@ -204,7 +204,7 @@ void RC11Driver::calcJoinViews(ThreadJoinLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void RC11Driver::updateLabelViews(EventLabel *lab)
+void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps ignored */
 {
 	const auto &g = getGraph();
 
@@ -351,16 +351,6 @@ Event RC11Driver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 		return findRaceForNewStore(wLab);
 	BUG();
 	return Event::getInitializer();
-}
-
-std::vector<Event> RC11Driver::getStoresToLoc(SAddr addr)
-{
-	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
-}
-
-std::vector<Event> RC11Driver::getRevisitLoads(const WriteLabel *sLab)
-{
-	return getGraph().getCoherentRevisits(sLab);
 }
 
 void RC11Driver::changeRf(Event read, Event store)

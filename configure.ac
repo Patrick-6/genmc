@@ -244,6 +244,38 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([no])],
         [AC_MSG_RESULT([yes])])
 
+## Check whether llvm::AllocaInst constructor takes an AddressSpace argument (> 4)
+AC_MSG_CHECKING([whether llvm::AllocaInst constructor takes an AddressSpace argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instructions.h>
+]],[[
+  llvm::Type *type = nullptr;
+  llvm::Value *size = nullptr;
+  llvm::BasicBlock *bb = nullptr;
+  llvm::AllocaInst a(type, 0, size, "value", bb);
+]])],
+        [AC_DEFINE([LLVM_ALLOCAINST_TAKES_ADDRSPACE],[1],
+         [Define if llvm::AllocaInst constructor takes an address space argument.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether llvm::AllocaInst constructor takes an Align argument (>= 11?)
+AC_MSG_CHECKING([whether llvm::AllocaInst constructor takes an Align argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/Alignment.h>
+#include <llvm/IR/Instructions.h>
+]],[[
+  llvm::Type *type = nullptr;
+  llvm::Value *size = nullptr;
+  llvm::Align align;
+  llvm::BasicBlock *bb = nullptr;
+  llvm::AllocaInst a(type, 0, size, align, "value", bb);
+]])],
+        [AC_DEFINE([LLVM_ALLOCAINST_TAKES_ALIGN],[1],
+         [Define if llvm::AllocaInst constructor takes an Align argument.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::SwitchInst::CaseIt needs dereference (>= 4.0)
 AC_MSG_CHECKING([whether llvm::SwitchInst::CaseIt needs dereference])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

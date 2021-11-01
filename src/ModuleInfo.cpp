@@ -23,16 +23,6 @@
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Module.h>
 
-AnnotationInfo::AnnotationInfo() = default;
-AnnotationInfo::~AnnotationInfo() = default;
-AnnotationInfo::AnnotationInfo(AnnotationInfo &&other) = default;
-AnnotationInfo& AnnotationInfo::operator=(AnnotationInfo &&other) = default;
-
-void AnnotationInfo::clear()
-{
-	annotMap.clear();
-}
-
 void ModuleInfo::clear()
 {
 	idInfo.clear();

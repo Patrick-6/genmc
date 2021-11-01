@@ -112,7 +112,6 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 			   const std::unique_ptr<DepTracker> &depTr,
 			   const ExecutionState &execState,
 			   const ProgramState &programState,
-			   const std::unordered_map<unsigned int, std::unique_ptr<SExpr> > &annots,
 			   const llvm::BitVector &fds,
 			   const llvm::IndexedMap<void *> &fdToFile,
 			   const std::unordered_map<std::string, void *> &nameToInodeAddr,
@@ -122,16 +121,12 @@ EELocalState::EELocalState(const SAddrAllocator &alloctor,
 	  depTracker(depTr ? LLVM_MAKE_UNIQUE<DepTracker>(*depTr) : nullptr),
 	  execState(execState),
 	  programState(programState), fds(fds), fdToFile(fdToFile),
-	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current)
-{
-	for (auto &kv : annots)
-		annotMap[kv.first] = kv.second->clone();
-}
+	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current) {}
 
 std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState, annotMap, fds,
-					      fdToFile, nameToInodeAddr, threads, currentThread);
+	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState,
+					      fds, fdToFile, nameToInodeAddr, threads, currentThread);
 }
 
 void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
@@ -140,7 +135,6 @@ void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
 	depTracker = std::move(state->depTracker);
 	execState = state->execState;
 	programState = state->programState;
-	annotMap = std::move(state->annotMap);
 	fds = std::move(state->fds);
 	fdToFile = std::move(state->fdToFile);
 	nameToInodeAddr = std::move(state->nameToInodeAddr);
@@ -174,7 +168,7 @@ void Interpreter::setupRecoveryRoutine(int tid)
 
 	/* Only fill the stack if a recovery routine actually exists... */
 	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
-	callFunction(recoveryRoutine, {});
+	callFunction(recoveryRoutine, {}, nullptr);
 
 	/* Also set up initSF, if it is the first invocation */
 	if (!getThrById(tid).initSF.CurFunction)
@@ -189,29 +183,40 @@ void Interpreter::cleanupRecoveryRoutine(int tid)
 	return;
 }
 
-/* Creates an entry for the main() function */
-Thread Interpreter::createMainThread(llvm::Function *F)
+Thread &Interpreter::addNewThread(Thread &&thread)
 {
-	Thread thr(F, 0);
-	thr.tls = threadLocalVars;
-	return thr;
+	if (thread.id == threads.size()) {
+	        threads.push_back(std::move(thread));
+		return threads.back();
+	}
+	BUG_ON(threads[thread.id].threadFun != thread.threadFun || threads[thread.id].id != thread.id);
+	return threads[thread.id] = std::move(thread);
+}
+
+/* Creates an entry for the main() function */
+Thread &Interpreter::createAddMainThread(llvm::Function *F)
+{
+	Thread main(F, 0);
+	main.tls = threadLocalVars;
+	threads.clear(); /* make sure its empty */
+	return addNewThread(std::move(main));
 }
 
 /* Creates an entry for another thread */
-Thread Interpreter::createNewThread(llvm::Function *F, SVal arg, int tid, int pid,
-				    const llvm::ExecutionContext &SF)
+Thread &Interpreter::createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+				       const llvm::ExecutionContext &SF)
 {
 	Thread thr(F, arg, tid, pid, SF);
 	thr.ECStack.push_back(SF);
 	thr.tls = threadLocalVars;
-	return thr;
+	return addNewThread(std::move(thr));
 }
 
-Thread Interpreter::createRecoveryThread(int tid)
+Thread &Interpreter::createAddRecoveryThread(int tid)
 {
 	Thread rec(recoveryRoutine, tid);
 	rec.tls = threadLocalVars;
-	return rec;
+	return addNewThread(std::move(rec));
 }
 
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
@@ -318,15 +323,6 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 	return;
 }
 
-void Interpreter::setupAnnotationInfo(Module *M, const Config *userConf)
-{
-	auto &AI = MI->annotInfo;
-
-	for (auto &kv : AI.annotMap)
-		annotMap[kv.first] = kv.second->clone();
-	return;
-}
-
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
 	auto &FI = MI->fsInfo;
@@ -370,169 +366,83 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	return;
 }
 
-const DepInfo *Interpreter::getAddrPoDeps(unsigned int tid)
+std::unique_ptr<EventDeps>
+Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
+			   const DepInfo *ctrl, const DepInfo *addrPo,
+			   const DepInfo *cas)
 {
 	if (!depTracker)
 		return nullptr;
-	return depTracker->getAddrPoDeps(tid);
+
+	auto result = LLVM_MAKE_UNIQUE<EventDeps>();
+
+	if (addr)
+		result->addr = *addr;
+	if (data)
+		result->data = *data;
+	if (ctrl)
+		result->ctrl = *ctrl;
+	if (addrPo)
+		result->addrPo = *addrPo;
+	if (cas)
+		result->cas = *cas;
+	return result;
 }
 
-const DepInfo *Interpreter::getDataDeps(unsigned int tid, Value *i)
+std::unique_ptr<EventDeps>
+Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 {
 	if (!depTracker)
 		return nullptr;
-	return depTracker->getDataDeps(tid, i);
-}
-
-const DepInfo *Interpreter::getCtrlDeps(unsigned int tid)
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCtrlDeps(tid);
-}
-
-const DepInfo *Interpreter::getCurrentAddrDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentAddrDeps();
-}
-
-const DepInfo *Interpreter::getCurrentDataDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentDataDeps();
-}
-
-const DepInfo *Interpreter::getCurrentCtrlDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentCtrlDeps();
-}
-
-const DepInfo *Interpreter::getCurrentAddrPoDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentAddrPoDeps();
-}
-
-const DepInfo *Interpreter::getCurrentCasDeps() const
-{
-	if (!depTracker)
-		return nullptr;
-	return depTracker->getCurrentCasDeps();
-}
-
-void Interpreter::setCurrentDeps(const DepInfo *addr, const DepInfo *data,
-				 const DepInfo *ctrl, const DepInfo *addrPo,
-				 const DepInfo *cas)
-{
-	if (!depTracker)
-		return;
-
-	depTracker->setCurrentAddrDeps(addr);
-	depTracker->setCurrentDataDeps(data);
-	depTracker->setCurrentCtrlDeps(ctrl);
-	depTracker->setCurrentAddrPoDeps(addrPo);
-	depTracker->setCurrentCasDeps(cas);
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Value *src)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, src);
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, *e);
-}
-
-void Interpreter::updateDataDeps(unsigned int tid, Value *dst, Event e)
-{
-	if (depTracker)
-		depTracker->updateDataDeps(tid, dst, e);
-}
-
-void Interpreter::updateAddrPoDeps(unsigned int tid, Value *src)
-{
-	if (!depTracker)
-		return;
-
-	depTracker->updateAddrPoDeps(tid, src);
-	depTracker->setCurrentAddrPoDeps(getAddrPoDeps(tid));
-}
-
-void Interpreter::updateCtrlDeps(unsigned int tid, Value *src)
-{
-	if (!depTracker)
-		return;
-
-	depTracker->updateCtrlDeps(tid, src);
-	depTracker->setCurrentCtrlDeps(getCtrlDeps(tid));
-}
-
-void Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
-{
-	if (!depTracker)
-		return;
 
 	ExecutionContext &SF = ECStack().back();
 	auto name = fun->getName().str();
 
-	/* First handle special cases and then normal function calls */
+	/* Handling non-internals is straightforward: the parameters
+	 * of the function called get the data dependencies of the
+	 * actual arguments */
 	bool isInternal = internalFunNames.count(name);
-	if (isInternal) {
-		auto iFunCode = internalFunNames.at(name);
-		if (iFunCode == InternalFunctions::FN_Assume) {
-			/* We have ctrl dependency on the argument of an assume() */
-			for (auto i = SF.Caller.arg_begin(),
-				     e = SF.Caller.arg_end(); i != e; ++i) {
-				updateCtrlDeps(tid, *i);
-			}
-		} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
-			/* We have addr dependency on the argument of mutex/barrier calls */
-			setCurrentDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
-				       nullptr, getCtrlDeps(tid),
-				       getAddrPoDeps(tid), nullptr);
-		}
-	} else {
-		/* The parameters of the function called get the data
-		 * dependencies of the actual arguments */
+	if (!isInternal) {
 		auto ai = fun->arg_begin();
 		for (auto ci = SF.Caller.arg_begin(),
 			     ce = SF.Caller.arg_end(); ci != ce; ++ci, ++ai) {
 			updateDataDeps(tid, &*ai, &*ci->get());
 		}
+		return nullptr;
 	}
-	return;
+
+	auto iFunCode = internalFunNames.at(name);
+	if (iFunCode == InternalFunctions::FN_Assume) {
+		/* We have ctrl dependency on the argument of an assume() */
+		for (auto i = SF.Caller.arg_begin(),
+			     e = SF.Caller.arg_end(); i != e; ++i) {
+			updateCtrlDeps(tid, *i);
+		}
+	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
+		/* We have addr dependency on the argument of mutex/barrier calls */
+		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
+				     nullptr, getCtrlDeps(tid),
+				     getAddrPoDeps(tid), nullptr);
+	}
+	return nullptr;
 }
 
-void Interpreter::clearDeps(unsigned int tid)
-{
-	if (depTracker)
-		depTracker->clearDeps(tid);
-}
-
-std::unique_ptr<SExpr> Interpreter::getCurrentAnnotConcretized()
+std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
 {
 	auto *a = getAnnotation(ECStack().back().CurInst->getPrevNode());
 	if (!a)
 		return nullptr;
 
+	using Concretizer = SExprConcretizer<AnnotID>;
 	auto &stackVals = ECStack().back().Values;
-	SExprConcretizer::ReplaceMap vMap;
+	Concretizer::ReplaceMap vMap;
 
 	for (auto &kv : stackVals)
-		vMap.insert({((void *) (intptr_t) MI->idInfo.VID.at(kv.first)),
-			    std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
-					   ASize(getTypeSize(kv.first->getType()) * 8))});
+		vMap.insert({(MI->idInfo.VID.at(kv.first)),
+				std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
+					       ASize(getTypeSize(kv.first->getType()) * 8))});
 
-	return SExprConcretizer().concretize(a, vMap);
+	return Concretizer().concretize(a, vMap);
 }
 
 
@@ -562,9 +472,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
 
-  /* Set up annotation information */
-  setupAnnotationInfo(mod, userConf);
-
   /* Also run a recovery routine if it is required to do so */
   checkPersistency = userConf->persevere;
   recoveryRoutine = mod->getFunction("__VERIFIER_recovery_routine");
@@ -574,8 +481,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   auto mainFun = mod->getFunction(userConf->programEntryFun);
   ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
 
-  auto main = createMainThread(mainFun);
-  threads.push_back(main);
+  createAddMainThread(mainFun);
 }
 
 Interpreter::~Interpreter() {
@@ -584,7 +490,7 @@ Interpreter::~Interpreter() {
 
 void Interpreter::runAtExitHandlers () {
   while (!AtExitHandlers.empty()) {
-    callFunction(AtExitHandlers.back(), std::vector<GenericValue>());
+    callFunction(AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
     AtExitHandlers.pop_back();
     run();
   }
@@ -616,7 +522,7 @@ Interpreter::runFunction(Function *F,
     ActualArgs.push_back(ArgValues[i]);
 
   // Set up the function call.
-  callFunction(F, ActualArgs);
+  callFunction(F, ActualArgs, nullptr);
 
   // Start executing the function.
   run();

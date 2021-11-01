@@ -12,6 +12,6 @@ Event (1, 2) in graph:
 Trace to (1, 2):
 [main] spinloop0.c: 19: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_1] spinloop0.c: 9: while (!x)
-Non-terminating spinloop
+Non-terminating spinloop: thread 1
 Number of complete executions explored: 0
 Number of blocked executions seen: 1

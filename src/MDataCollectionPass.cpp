@@ -46,11 +46,9 @@ using namespace llvm;
 	(M).getDataLayout().getTypeAllocSize((x))
 #endif
 
-void MDataCollectionPass::reset()
+void MDataCollectionPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
-	allocaMData.clear();
-	MI.clear();
-	MI.collectIDs();
+	au.setPreservesAll();
 }
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
@@ -139,6 +137,11 @@ void MDataCollectionPass::collectVarName(unsigned int ptr, unsigned int typeSize
 
 void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 {
+	/* If we already have data for the variable, skip */
+	auto &info = getGlobalInfo(&v);
+	if (!info.empty())
+		return;
+
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	if (!v.getMetadata("dbg"))
 		return;
@@ -148,37 +151,40 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 	auto dit = dive->getVariable()->getType();
 
 	/* Check whether it is a global pointer */
-	if (auto ditc = dyn_cast<DIType>(dit)) {
-		collectVarName(M, 0, v.getType()->getElementType(),
-			       ditc, "", MI.varInfo.globalInfo[MI.idInfo.VID.at(&v)]);
-	}
+	if (auto ditc = dyn_cast<DIType>(dit))
+		collectVarName(M, 0, v.getType()->getElementType(), ditc, "", info);
 #else
 	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
-	collectVarName(0, typeSize, v.getType()->getElementType(),
-		       "", MI.varInfo.globalInfo[MI.idInfo.VID.at(&v)]);
+	collectVarName(0, typeSize, v.getType()->getElementType(), "", info);
 #endif
 	return;
 }
 
 void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 {
-	auto *v = DD->getAddress();
-	BUG_ON(!isa<PointerType>(v->getType()));
-	auto *vt = static_cast<PointerType *>(v->getType());
+	/* Skip if it's not an alloca or we don't have data */
+	auto *v = dyn_cast<AllocaInst>(DD->getAddress());
+	if (!v)
+		return;
+
+	auto &info = getLocalInfo(v);
+	if (!info.empty())
+		return;
+
+	auto *vt = dyn_cast<PointerType>(v->getType());
+	BUG_ON(!vt);
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	/* Store alloca's metadata, in case it's used in memcpy */
-	allocaMData[dyn_cast<AllocaInst>(v)] = DD->getVariable();
+	allocaMData[v] = DD->getVariable();
 
 	auto dit = DD->getVariable()->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, vt->getElementType(),
-			       ditc, "", MI.varInfo.localInfo[MI.idInfo.VID.at(v)]);
+		collectVarName(M, 0, vt->getElementType(), ditc, "", info);
 #else
 	unsigned int typeSize =
 		GET_TYPE_ALLOC_SIZE(M, vt->getElementType());
-	collectVarName(0, typeSize, vt->getElementType(),
-		       "", MI.varInfo.localInfo[MI.idInfo.VID.at(v)]);
+	collectVarName(0, typeSize, vt->getElementType(), "", info);
 #endif
 	return;
 }
@@ -190,7 +196,10 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 	 * otherwise go undetected by this pass
 	 */
 	auto *src = dyn_cast<GlobalVariable>(mi->getSource());
-	if (!src || MI.varInfo.globalInfo[MI.idInfo.VID.at(src)].size())
+	if (!src)
+		return;
+	auto &info = getGlobalInfo(src);
+	if (!info.empty())
 		return;
 
 	/*
@@ -208,12 +217,10 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 		return; /* We did our best, but couldn't get a name for it... */
 	auto dit = allocaMData[dst]->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, dstTyp->getElementType(),
-			       ditc, "", MI.varInfo.globalInfo[MI.idInfo.VID.at(src)]);
+		collectVarName(M, 0, dstTyp->getElementType(), ditc, "", info);
 #else
 	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, dstTyp->getElementType());
-	collectVarName(0, typeSize, dstTyp->getElementType(),
-		       "", MI.varInfo.globalInfo[MI.idInfo.VID.at(src)]);
+	collectVarName(0, typeSize, dstTyp->getElementType(), "", info);
 #endif
 	return;
 }
@@ -245,19 +252,19 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 
 	/* struct file */
 	unsigned int offset = 0;
-	MI.varInfo.internalInfo["file"].addOffsetInfo(offset, ".inode");
-	MI.varInfo.internalInfo["file"].addOffsetInfo((offset += voidPtrByteWidth), ".count");
-	MI.varInfo.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".flags");
-	MI.varInfo.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".pos_lock");
-	MI.varInfo.internalInfo["file"].addOffsetInfo((offset += intByteWidth), ".pos");
+	getInternalInfo("file").addOffsetInfo(offset, ".inode");
+	getInternalInfo("file").addOffsetInfo((offset += voidPtrByteWidth), ".count");
+	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".flags");
+	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos_lock");
+	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos");
 
 	/* struct inode */
 	offset = 0;
-	MI.varInfo.internalInfo["inode"].addOffsetInfo(offset, ".lock");
-	MI.varInfo.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_size");
-	MI.varInfo.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_transaction");
-	MI.varInfo.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".i_disksize");
-	MI.varInfo.internalInfo["inode"].addOffsetInfo((offset += intByteWidth), ".data");
+	getInternalInfo("inode").addOffsetInfo(offset, ".lock");
+	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_size");
+	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_transaction");
+	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_disksize");
+	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".data");
 	return;
 }
 
@@ -272,13 +279,13 @@ bool isSyscallWPathname(CallInst *CI)
 	return isFsInodeCode(icode);
 }
 
-void initializeFilenameEntry(ModuleInfo &MI, Value *v)
+void MDataCollectionPass::initializeFilenameEntry(Value *v)
 {
 	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
 		auto filename = dyn_cast<ConstantDataArray>(
 			dyn_cast<GlobalVariable>(CE->getOperand(0))->
 			getInitializer())->getAsCString().str();
-		MI.fsInfo.filenames.insert(filename);
+		collectFilename(filename);
 	} else
 		ERROR("Non-constant expression in filename\n");
 	return;
@@ -292,21 +299,21 @@ void MDataCollectionPass::collectFilenameInfo(CallInst *CI, Module &M)
 	/* Fetch the first argument of the syscall as a string.
 	 * We simply initialize the entries in the map; they will be
 	 * populated with actual addresses from the EE */
-	initializeFilenameEntry(MI, CI->getArgOperand(0));
+	initializeFilenameEntry(CI->getArgOperand(0));
 
 	/* For some syscalls we capture the second argument as well */
 	auto fCode = internalFunNames.at(F->getName().str());
 	if (fCode == InternalFunctions::FN_RenameFS ||
 	    fCode == InternalFunctions::FN_LinkFS) {
-		initializeFilenameEntry(MI, CI->getArgOperand(1));
+		initializeFilenameEntry(CI->getArgOperand(1));
 	}
 	return;
 }
 
 bool MDataCollectionPass::runOnModule(Module &M)
 {
-	/* Reset previously collected data; module might have changed */
-	reset();
+	if (!PI)
+		return false;
 
 	/* First, get type information for user's global variables */
 	for (auto &v : M.getGlobalList())
@@ -331,9 +338,13 @@ bool MDataCollectionPass::runOnModule(Module &M)
 	return false;
 }
 
-ModulePass *createMDataCollectionPass(ModuleInfo &MI)
+ModulePass *createMDataCollectionPass(PassModuleInfo *PI)
 {
-	return new MDataCollectionPass(MI);
+	auto *P = new MDataCollectionPass();
+	P->setPassModuleInfo(PI);
+	return P;
 }
 
 char MDataCollectionPass::ID = 42;
+static llvm::RegisterPass<MDataCollectionPass> P("mdata-collection",
+						 "Collections various metadata of a module.");

@@ -298,19 +298,19 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	if (!tryGetCASResultExtracts(cass, extracts))
 		return false;
 
-	std::vector<std::unique_ptr<SExpr> > casConditions;
+	std::vector<std::unique_ptr<SExpr<Value *>> > casConditions;
 	for (auto *cas : cass)
 		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l));
 
-	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
+	auto backedgeCondition = ConjunctionExpr<Value *>::create(std::move(casConditions));
 	for (auto i = 1u; i < (1 << extracts.size()); i++) {
 
-		std::unordered_map<SExprEvaluator::RegID, SVal> valueMap;
+		std::unordered_map<Value *, SVal> valueMap;
 		for (auto j = 0u; j < extracts.size(); j++)
 			valueMap[extracts[j]] = (i & (1 << j)) ? SVal(1) : SVal(0);
 
 		size_t unknowns;
-		auto res = SExprEvaluator().evaluate(backedgeCondition.get(), valueMap, &unknowns);
+		auto res = SExprEvaluator<Value *>().evaluate(backedgeCondition.get(), valueMap, &unknowns);
 		if (unknowns > 0 || res.getBool())
 			return false;
 	}

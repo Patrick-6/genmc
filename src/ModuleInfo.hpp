@@ -23,49 +23,38 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "ModuleID.hpp"
 #include "NameInfo.hpp"
+#include "SExpr.hpp"
 #include "VSet.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/IndexedMap.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 
+namespace llvm {
+	class Value;
+};
+
 /*
  * Information kept about the module under test by the interpreter.
  */
-
-class SExpr;
-
-/*
- * IDInfo struct -- Contains (unique) identification information for
- * some of the module's crucial components (e.g., GVs, functions, etc)
- */
-struct IDInfo {
-	using ID = unsigned int;
-
-	std::unordered_map<ID, const llvm::Value *> IDV;
-	std::unordered_map<const llvm::Value *, ID> VID;
-
-	void clear() {
-		IDV.clear();
-		VID.clear();
-	}
-};
 
 
 /*
  * VariableInfo struct -- This struct contains source-code level (naming)
  * information for variables.
  */
+template<typename Key>
 struct VariableInfo {
 
 	/* Internal types (not exposed to user programs) for which we might
 	 * want to collect naming information */
-	using ID = IDInfo::ID;
+	using ID = Key;
 	using InternalKey = std::string;
 
 	std::unordered_map<ID, NameInfo> globalInfo;
@@ -82,21 +71,16 @@ struct VariableInfo {
 /*
  * SAVer: AnnotationInfo struct -- Contains annotations for loads used by assume()s
  */
+template<typename K, typename V>
 struct AnnotationInfo {
 
-	using ID = IDInfo::ID;
-	using AnnotUM = std::unordered_map<ID, std::unique_ptr<SExpr> >;
+	using AnnotUM = std::unordered_map<K, std::unique_ptr<SExpr<V>>>;
 
-	/* Forward declarations (pimpl-style) */
-	AnnotationInfo();
-	AnnotationInfo(AnnotationInfo &&other);
-	~AnnotationInfo();
-	AnnotationInfo &operator=(AnnotationInfo &&other);
+	void clear() { annotMap.clear(); }
 
 	AnnotUM annotMap;
-
-	void clear();
 };
+
 
 /*
  * Pers: FsInfo struct -- Maintains some information regarding the
@@ -139,6 +123,20 @@ struct FsInfo {
 };
 
 /*
+ * PassModuleInfo -- A struct to be used from LLVM passes where
+ * different kinds of data can be stored. It is different from
+ * ModuleInfo as it does not require the module to have assigned IDs.
+ */
+struct PassModuleInfo {
+
+	PassModuleInfo() = default;
+
+	VariableInfo<llvm::Value *> varInfo;
+	AnnotationInfo<llvm::LoadInst *, llvm::Value *> annotInfo;
+	VSet<std::string> filenames;
+};
+
+/*
  * ModuleInfo -- A struct to pack together all useful information like
  * VariableInfo and FsInfo for a given module
  */
@@ -156,9 +154,9 @@ struct ModuleInfo {
 	/* Assumes only statis information have been collected */
 	std::unique_ptr<ModuleInfo> clone(const llvm::Module &mod) const;
 
-	IDInfo idInfo;
-	VariableInfo varInfo;
-	AnnotationInfo annotInfo;
+	ModuleID idInfo;
+	VariableInfo<ModuleID::ID> varInfo;
+	AnnotationInfo<ModuleID::ID, ModuleID::ID> annotInfo;
 	FsInfo fsInfo;
 
 private:

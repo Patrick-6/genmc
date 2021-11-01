@@ -43,6 +43,12 @@ public:
 	/* Returns the number of different offset information registered */
 	size_t size() const { return info.size(); }
 
+	/* Whether we have any information stored */
+	bool empty() const { return info.empty(); }
+
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+					     const NameInfo &info);
+
 private:
 	/*
 	 * We keep a map (Values -> (offset, name_at_offset)), and after

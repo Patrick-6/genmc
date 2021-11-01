@@ -46,3 +46,10 @@ std::string NameInfo::getNameAtOffset(unsigned int o) const
 	}
 	return info.back().second;
 }
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const NameInfo &info)
+{
+	for (const auto &kv : info.info)
+		rhs << "" << kv.first << ": " << kv.second << "\n";
+	return rhs;
+}

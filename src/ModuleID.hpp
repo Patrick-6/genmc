@@ -3,7 +3,7 @@
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
+ * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
@@ -18,7 +18,25 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "SExpr.hpp"
-#include "Error.hpp"
+#ifndef __MODULE_ID_HPP__
+#define __MODULE_ID_HPP__
 
-unsigned RegisterExpr::regCount = 0;
+#include <llvm/IR/Value.h>
+
+/*
+ * IDInfo struct -- Contains (unique) identification information for
+ * some of the module's crucial components (e.g., GVs, functions, etc)
+ */
+struct ModuleID {
+	using ID = unsigned int;
+
+	std::unordered_map<ID, const llvm::Value *> IDV;
+	std::unordered_map<const llvm::Value *, ID> VID;
+
+	void clear() {
+		IDV.clear();
+		VID.clear();
+	}
+};
+
+#endif /* __MODULE_ID_HPP__ */

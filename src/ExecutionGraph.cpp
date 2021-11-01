@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "ExecutionGraph.hpp"
+#include "LabelIterator.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
@@ -161,6 +162,7 @@ Event ExecutionGraph::getMatchingLock(const Event unlock) const
 				if (locUnlocks.empty())
 					return lLab->getPos();
 				locUnlocks.pop_back();
+
 			}
 		}
 	}
@@ -338,14 +340,10 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 {
 	std::vector<Event> result;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1u; j < getThreadSize(i); j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-				if (rLab->getRf().isInitializer() &&
-				    rLab->getAddr() == addr)
-					result.push_back(rLab->getPos());
-		}
+	for (const auto *lab : labels(*this)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+				result.push_back(rLab->getPos());
 	}
 	return result;
 }
@@ -356,7 +354,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
  ******************************************************************************/
 
 const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-						     Event rf)
+						     Event rf /* = BOTTOM */)
 {
 	if (!lab->getRf().isBottom()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf())))
@@ -367,15 +365,16 @@ const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> 
 }
 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						     unsigned int offsetMO)
+						       int offsetMO /* = -1 */)
 {
 	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
-	getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
+	if (offsetMO >= 0)
+		getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
 	return wLab;
 }
 
 const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						     Event pred)
+						       Event pred)
 {
 	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 	getCoherenceCalculator()->addStoreToLocAfter(wLab->getAddr(), wLab->getPos(), pred);
@@ -391,6 +390,10 @@ const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<L
 const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	setFPStatus(FS_Stale);
+
+	/* Ensure the stamp is valid */
+	if (lab->getStamp() == 0 && !lab->getPos().isInitializer())
+		lab->setStamp(nextStamp());
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
@@ -1007,37 +1010,31 @@ bool ExecutionGraph::isWriteRfBefore(Event a, Event b) const
 
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!isRMWLoad(lab))
-				continue;
+	for (const auto *lab : labels(*this)) {
+		if (!isRMWLoad(lab))
+			continue;
 
-			auto *rLab = static_cast<const ReadLabel *>(lab);
-			if (rLab->getRf() == store && rLab->getAddr() == ptr)
-				return true;
-		}
+		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		if (rLab->getRf() == store && rLab->getAddr() == ptr)
+			return true;
 	}
 	return false;
 }
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const VectorClock &prefix) const
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!isRMWLoad(lab))
-				continue;
+	for (const auto *lab : labels(*this)) {
+		if (!isRMWLoad(lab))
+			continue;
 
-			auto *rLab = static_cast<const ReadLabel *>(lab);
-			if (rLab->getRf() != store || rLab->getAddr() != ptr)
-				continue;
+		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		if (rLab->getRf() != store || rLab->getAddr() != ptr)
+			continue;
 
-			if (!rLab->isRevisitable())
-				return true;
-			if (prefix.contains(rLab->getPos()))
-				return true;
-		}
+		if (!rLab->isRevisitable())
+			return true;
+		if (prefix.contains(rLab->getPos()))
+			return true;
 	}
 	return false;
 }
@@ -1211,11 +1208,8 @@ void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
 	setFPStatus(FS_Stale);
 
-	BUG_ON(!llvm::isa<MOCalculator>(getCoherenceCalculator()));
-	auto *cohTracker = static_cast<MOCalculator *>(
-		getCoherenceCalculator());
-
-	cohTracker->changeStoreOffset(addr, s, newOffset);
+	if (auto *cohTracker = llvm::dyn_cast<MOCalculator>(getCoherenceCalculator()))
+		cohTracker->changeStoreOffset(addr, s, newOffset);
 }
 
 std::vector<std::pair<Event, Event> >
@@ -1420,14 +1414,11 @@ ExecutionGraph::getSCs() const
 {
 	std::vector<Event> scs, fcs;
 
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->isSC() && !isRMWLoad(lab))
-				scs.push_back(lab->getPos());
-			if (lab->isSC() && llvm::isa<FenceLabel>(lab))
-				fcs.push_back(lab->getPos());
-		}
+	for (const auto *lab : labels(*this)) {
+		if (lab->isSC() && !isRMWLoad(lab))
+			scs.push_back(lab->getPos());
+		if (lab->isSC() && llvm::isa<FenceLabel>(lab))
+			fcs.push_back(lab->getPos());
 	}
 	return std::make_pair(scs,fcs);
 }
