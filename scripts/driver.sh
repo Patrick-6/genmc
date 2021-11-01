@@ -139,7 +139,7 @@ do
 	testdir="${wrongdir}/${cat}"
 	coherence="wb"
 	suppress_diff=""
-	if test "${cat}" = "fs"
+	if test "${cat}" = "memory" -o "${cat}" = "fs"
 	then
 	    suppress_diff=1
 	fi
