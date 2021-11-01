@@ -171,11 +171,19 @@ runvariants() {
 	then
 	    if test "$status" -ne 42
 	    then
-		failure_status="$?"
+		failure_status="$status"
 		outcome_failure=1
 	    fi
 	    echo "${diff}"
 	    failure=1
+	else
+	    # if no diff was found (or the diff is suppressed), check non-zero status
+	    if test "$status" -eq 0
+	    then
+		failure_status="$status"
+		outcome_failure=1
+		failure=1
+	    fi
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	time=`echo "${output}" | awk '/wall-clock/ { print substr($4, 1, length($4)-1) }'`
