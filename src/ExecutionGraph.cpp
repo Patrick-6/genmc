@@ -1057,8 +1057,9 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 		return false;
 
 	auto *rfLab = getEventLabel(lab->getRf());
-	return rfLab->getStamp() > lab->getStamp() && rfLab->getStamp() > rLab->getStamp() &&
-		!getPrefixView(sLab->getPos()).contains(rfLab->getPos()) &&
+	auto v = getRevisitView(rLab, sLab);
+	return !v->contains(rfLab->getPos()) &&
+		rfLab->getStamp() > lab->getStamp() &&
 		!prefixContainsSameLoc(rLab, sLab, rfLab) &&
 		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
 }

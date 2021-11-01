@@ -19,6 +19,7 @@
  */
 
 #include "WBCalculator.hpp"
+#include "LabelIterator.hpp"
 #include "WBIterator.hpp"
 
 bool WBCalculator::isLocOrderedRestricted(SAddr addr, const VectorClock &v) const
@@ -486,11 +487,11 @@ bool WBCalculator::hasPredHbOptRfAfterRestricted(SAddr addr, Event a, Event b,
 
 	if (orderedInView)
 		return std::any_of(wb_to_pred_begin(stores, a), wb_to_pred_end(stores, a),
-				   [&](const Event &s){ return v.contains(s) && g.isHbOptRfBefore(b, s); });
+				   [&](const Event &s){ return v.contains(s) && g.isHbOptRfBeforeInView(b, s, v); });
 
 	auto &wb = calcCacheWbRestricted(addr, v);
 	return std::any_of(wb_po_pred_begin(stores, a), wb_po_pred_end(stores, a),
-			   [&](const Event &s){ return g.isHbOptRfBefore(b, s); });
+			   [&](const Event &s){ return g.isHbOptRfBeforeInView(b, s, v); });
 }
 
 bool WBCalculator::isCoherentRf(SAddr addr, Event read, Event store)
@@ -613,7 +614,7 @@ bool WBCalculator::isCoherentRevisit(const WriteLabel *sLab, Event read)
 	auto &g = getGraph();
 	auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(read));
 	BUG_ON(!rLab);
-	auto v = g.getRevisitView(static_cast<const ReadLabel *>(rLab), sLab);
+	auto v = g.getRevisitView(rLab, sLab);
 
 	auto ordered = isLocOrderedRestricted(sLab->getAddr(), *v);
 	if (hasSuccRfBeforeRestricted(sLab->getAddr(), sLab->getPos(),
@@ -678,7 +679,7 @@ WBCalculator::getCoherentRevisits(const WriteLabel *sLab)
 }
 
 const Calculator::GlobalRelation &
-WBCalculator::getOrInsertWbCalc(SAddr addr, const View &v, Calculator::PerLocRelation &cache)
+WBCalculator::getOrInsertWbCalc(SAddr addr, const VectorClock &v, Calculator::PerLocRelation &cache)
 {
 	if (!cache.count(addr))
 		cache[addr] = calcWbRestricted(addr, v);
@@ -696,7 +697,10 @@ bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 	BUG_ON(!wLab);
 
 	auto p = g.getPredsView(sLab->getPos());
-	--(*p)[sLab->getThread()];
+	if (auto *dv = llvm::dyn_cast<DepView>(&*p))
+		dv->addHole(sLab->getPos());
+	else
+		--(*p)[sLab->getThread()];
 
 	if (isLocOrderedRestricted(wLab->getAddr(), *p)) {
 		auto &stores = getStoresToLoc(wLab->getAddr());
@@ -704,16 +708,18 @@ bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 				   wb_to_pred_end(stores, wLab->getPos()), [&](const Event &s){
 					   auto *slab = g.getEventLabel(s);
 					   return g.revisitDeletesEvent(rLab, sLab, slab) &&
+						   !wLab->getPorfView().contains(slab->getPos()) &&
 						   slab->getStamp() < wLab->getStamp() &&
 						   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
 				   });
 	}
 
-	auto &wb = getOrInsertWbCalc(wLab->getAddr(), *llvm::dyn_cast<View>(&*p), wbs);
+	auto &wb = getOrInsertWbCalc(wLab->getAddr(), *p, wbs);
 	return std::any_of(wb_po_pred_begin(wb, wLab->getPos()),
 			   wb_po_pred_end(wb, wLab->getPos()), [&](const Event &s){
 				   auto *slab = g.getEventLabel(s);
 				   return g.revisitDeletesEvent(rLab, sLab, slab) &&
+					   !wLab->getPorfView().contains(slab->getPos()) &&
 					   slab->getStamp() < wLab->getStamp() &&
 					   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
 			   });
@@ -729,23 +735,31 @@ bool WBCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLab
 	auto &g = getGraph();
         auto &v = g.getPrefixView(wLab->getPos());
 	auto p = g.getPredsView(wLab->getPos());
-	--(*p)[wLab->getThread()];
+
+	if (auto *dv = llvm::dyn_cast<DepView>(&*p))
+		dv->addHole(wLab->getPos());
+	else
+		--(*p)[wLab->getThread()];
 
 	if (isLocOrderedRestricted(rLab->getAddr(), *p)) {
 		auto &stores = getStoresToLoc(rLab->getAddr());
 		return std::any_of(wb_to_succ_begin(stores, rLab->getRf()),
 				   wb_to_succ_end(stores, rLab->getRf()), [&](const Event &s){
 					   auto *sLab = g.getEventLabel(s);
-					   return v.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
+					   return v.contains(sLab->getPos()) &&
+						   !sLab->getPorfView().contains(rLab->getPos()) &&
+						   sLab->getPos() != wLab->getPos() &&
 						   sLab->getStamp() > revLab->getStamp();
 				   });
 	}
 
-	auto &wb = getOrInsertWbCalc(rLab->getAddr(), *llvm::dyn_cast<View>(&*p), wbs);
+	auto &wb = getOrInsertWbCalc(rLab->getAddr(), *p, wbs);
 	return std::any_of(wb_po_succ_begin(wb, rLab->getRf()),
 			   wb_po_succ_end(wb, rLab->getRf()), [&](const Event &s){
 				   auto *sLab = g.getEventLabel(s);
-				   return v.contains(sLab->getPos()) && sLab->getPos() != wLab->getPos() &&
+				   return v.contains(sLab->getPos()) &&
+					   !sLab->getPorfView().contains(rLab->getPos()) &&
+					   sLab->getPos() != wLab->getPos() &&
 					   sLab->getStamp() > revLab->getStamp();
 			   });
 }
@@ -777,24 +791,26 @@ bool WBCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const Write
 	return sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
 }
 
-Event WBCalculator::getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map<SAddr, Event> &cache)
+Event WBCalculator::getOrInsertWbMaximal(const ReadLabel *lab, const VectorClock &v,
+					 std::unordered_map<SAddr, Event> &cache)
 {
-	if (cache.count(addr))
-		return cache.at(addr);
+	if (cache.count(lab->getAddr()))
+		return cache.at(lab->getAddr());
 
-	if (isLocOrderedRestricted(addr, v)) {
-		auto &stores = getStoresToLoc(addr);
+	auto &g = getGraph();
+	if (isLocOrderedRestricted(lab->getAddr(), v)) {
+		auto &stores = getStoresToLoc(lab->getAddr());
 		auto maxIt = std::find_if(stores.rbegin(), stores.rend(), [&](const Event &s){
 			return v.contains(s);
 		});
-		return cache[addr] = (maxIt == stores.rend() ? Event::getInitializer() : *maxIt);
+		return cache[lab->getAddr()] = (maxIt == stores.rend() ? Event::getInitializer() : *maxIt);
 	}
 
-	auto wb = calcWbRestricted(addr, v);
+	auto wb = calcWbRestricted(lab->getAddr(), v);
 	auto &stores = wb.getElems();
 
 	if (stores.empty())
-		return cache[addr] = Event::getInitializer();
+		return cache[lab->getAddr()] = Event::getInitializer();
 
 	std::vector<Event> maximals;
 	for (auto &s : stores) {
@@ -802,10 +818,10 @@ Event WBCalculator::getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map
 			maximals.push_back(s);
 	}
 
-	auto &g = getGraph();
-	std::sort(maximals.begin(), maximals.end(), [&g](const Event &a, const Event &b)
+	std::sort(maximals.begin(), maximals.end(), [&g, &v](const Event &a, const Event &b)
 		{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
-	return cache[addr] = maximals.back();
+
+	return cache[lab->getAddr()] = maximals.back();
 }
 
 Event WBCalculator::getTiebraker(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab) const
@@ -836,34 +852,104 @@ bool WBCalculator::ignoresDeletedStore(const ReadLabel *rLab, const WriteLabel *
 	});
 }
 
+Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab)
+{
+	auto &g = getGraph();
+
+	/* It is very important to call getRevisitView(): that way we
+	 * take into account some internal rfis that are forced and
+	 * that are crucial when calculating wb.
+	 *
+	 * Take viktor-relseq as an example and the (3,1) <-- (1,4) revisit:
+	 *
+	 * Rx3   Rx0   Rx4   Rx1
+	 * Wx4   Wx1   Wx5   Wx2
+	 * Rx4   Rx2
+	 * Wx5   Wx3
+	 *
+	 * Here, the first thread is solely composed of rlx accesses,
+	 * and thus the Rx3 Wx4 sequence is not a part of (1,4)'s pporf
+	 * view. This creates an issue when trying to revisit (3,1),
+	 * as the wb calculation is different. */
+	auto p = g.getRevisitView(lab, wLab); /* as if wLab revisits lab */
+	if (auto *dv = llvm::dyn_cast<DepView>(&*p)) {
+		dv->addHole(lab->getPos());
+		dv->addHole(wLab->getPos());
+	} else
+		BUG();
+
+	/* A store is "maximal" if
+	 *     (1) it is contained in V
+	 *     (2) it is not porf-after LAB, and
+	 *     (3) all of its wb-successors are porf-after LAB */
+	if (isLocOrderedRestricted(lab->getAddr(), *p)) {
+		auto &stores = getStoresToLoc(lab->getAddr());
+		auto maxIt = std::find_if(stores.rbegin(), stores.rend(), [&](const Event &s){
+			if (!p->contains(s) || g.getEventLabel(s)->getPorfView().contains(lab->getPos()))
+				return false;
+			return std::all_of(wb_to_succ_begin(stores, s), wb_to_succ_end(stores, s),
+					   [&](const Event &ss){
+						   auto *ssLab = g.getEventLabel(ss);
+						   return ssLab->getPorfView().contains(lab->getPos());
+					   });
+		});
+	}
+
+	auto wb = calcWbRestricted(lab->getAddr(), *p);
+	auto &stores = wb.getElems();
+
+	std::vector<Event> maximals;
+	for (auto &s : stores) {
+		if (g.getEventLabel(s)->getPorfView().contains(lab->getPos()))
+			continue;
+		if (std::all_of(wb_po_succ_begin(wb, s), wb_po_succ_end(wb, s), [&](const Event &ss){
+			return g.getEventLabel(ss)->getPorfView().contains(lab->getPos());
+		}))
+			maximals.push_back(s);
+	}
+	auto v = g.getRevisitView(rLab, wLab);
+	std::sort(maximals.begin(), maximals.end(), [&g, &v](const Event &a, const Event &b){
+		return (v->contains(a) && !v->contains(b)) ||
+			(!(v->contains(b) && !v->contains(a)) &&
+			 g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp());
+	});
+	return (maximals.empty() ? Event::getInitializer() : maximals.back());
+}
+
 bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
 				     const EventLabel *eLab, std::unordered_map<SAddr, Event> &cache)
 {
+	auto &g = getGraph();
 	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
-	if (!lab)
+	if (!lab || (g.hasBAM() && llvm::isa<BWaitReadLabel>(eLab)))
 		return true;
 
-	auto &g = getGraph();
+	/* Handle the OOO case specially... */
+	if (supportsOutOfOrder())
+		return lab->getRf() == getMaximalOOO(rLab, wLab, lab);
+
 	auto p = g.getRevisitView(rLab, wLab);
 
-	/* If it reads from the deleted events, it must be reading from the deleted event added latest before it */
+	/* If it reads from the deleted events, it must be reading
+	 * from the deleted event added latest before it */
 	if (!p->contains(lab->getRf()))
 		return lab->getRf() == getTiebraker(rLab, wLab, lab);
 
-	/* If there is a store that will not remain in the graph (but added after RLAB),
-	 * LAB should be reading from there */
-	auto &locMO = getStoresToLoc(lab->getAddr());
+	/* If there is a store that will not remain in the graph (but
+	 * added after RLAB), LAB should be reading from there */
 	if (ignoresDeletedStore(rLab, wLab, lab))
 		return false;
 
-	/* Otherwise, it needs to be reading from the maximal write in the remaining graph */
-	auto v = g.getRevisitView(rLab, wLab);
-	BUG_ON(llvm::isa<DepView>(&*v));
-
-	--(*v)[rLab->getThread()];
-	--(*v)[wLab->getThread()];
-
-	return lab->getRf() == getOrInsertWbMaximal(lab->getAddr(), *llvm::dyn_cast<View>(&*v), cache);
+	/* Otherwise, it needs to be reading from the maximal write in
+	 * the remaining graph */
+	if (auto *dv = llvm::dyn_cast<DepView>(&*p)) {
+		dv->addHole(rLab->getPos());
+		dv->addHole(wLab->getPos());
+	} else {
+		--(*p)[rLab->getThread()];
+		--(*p)[wLab->getThread()];
+	}
+	return lab->getRf() == getOrInsertWbMaximal(lab, *p, cache);
 }
 
 bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
@@ -876,37 +962,20 @@ bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 	Calculator::PerLocRelation wbs;
 	std::unordered_map<SAddr, Event> initMaximals;
 
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = g.getThreadSize(i) - 1; j != 0u; j--) {
-			auto *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() < rLab->getStamp())
-				break;
-			if (v.contains(lab->getPos())) {
-				if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab, wbs))
-					return false;
-				continue;
-			}
+	for (const auto *lab : labels(g)) {
+		if (lab->getStamp() < rLab->getStamp())
+			continue;
+		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab))
+			continue;
 
-			if (isRbBeforeSavedPrefix(rLab, wLab, lab, wbs)) {
-				// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
-				return false;
-			}
+		if (isRbBeforeSavedPrefix(rLab, wLab, lab, wbs))
+			return false;
 
-			if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab)) {
-				// llvm::dbgs() << "RF WILL BE DELETED\n";
-				return false;
-			}
+		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))
+			return false;
 
-			if (!wasAddedMaximally(rLab, wLab, lab, initMaximals)) {
-				// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
-				// if (lab == rLab  && rfFromPrefix)
-				// 	continue;
-				// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
-				// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
-				// printGraph();
-				return false;
-			}
-		}
+		if (!wasAddedMaximally(rLab, wLab, lab, initMaximals))
+			return false;
 	}
 	return true;
 }

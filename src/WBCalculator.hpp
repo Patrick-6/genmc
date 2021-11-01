@@ -235,12 +235,14 @@ private:
 	bool isCoherentRevisit(const WriteLabel *sLab, Event read);
 
 	const Calculator::GlobalRelation &
-	getOrInsertWbCalc(SAddr addr, const View &v, Calculator::PerLocRelation &cache);
+	getOrInsertWbCalc(SAddr addr, const VectorClock &v, Calculator::PerLocRelation &cache);
 
-	Event getOrInsertWbMaximal(SAddr addr, View &v, std::unordered_map<SAddr, Event> &cache);
+	Event getOrInsertWbMaximal(const ReadLabel *lab, const VectorClock &v,
+				   std::unordered_map<SAddr, Event> &cache);
 
 	bool coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab);
 
+	Event getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab);
 	bool wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
 			       const EventLabel *lab, std::unordered_map<SAddr, Event> &cache);
 

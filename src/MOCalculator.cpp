@@ -474,26 +474,12 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 				return false;
 			continue;
 		}
-
-		if (isRbBeforeSavedPrefix(rLab, wLab, lab)) {
-			// llvm::dbgs() << "FR: invalid revisit " << rLab->getPos() << " from " << wLab->getPos();
+		if (isRbBeforeSavedPrefix(rLab, wLab, lab))
 			return false;
-		}
-
-		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab)) {
-			// llvm::dbgs() << "RF WILL BE DELETED\n";
+		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))
 			return false;
-		}
-
-		if (!wasAddedMaximally(lab)) {
-			// llvm::dbgs() << "INVALIDUE TO NON MAXIMALITY\n";
-			// if (lab == rLab  && rfFromPrefix)
-			// 	continue;
-			// llvm::dbgs() << "cannot revisit " << rLab->getPos() << " from " << wLab->getPos();
-			// llvm::dbgs() << " due to " << lab->getPos() << " in\n";
-			// printGraph();
+		if (!wasAddedMaximally(lab))
 			return false;
-		}
 	}
 	return true;
 }

@@ -263,6 +263,9 @@ public:
 	 * be _at most_ one other RMW reading from the same write (see [Rex] set) */
 	std::vector<Event> getPendingRMWs(const WriteLabel *sLab) const;
 
+	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
+	 * (This function can be abused and also be utilized for returning the view
+	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const EventLabel *wLab) const;
 
@@ -420,8 +423,8 @@ public:
 	/* Returnes true if the revisit SLAB->RLAB will delete LAB from the graph */
 	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab,
 				 const EventLabel *lab) const {
-		auto &v = getPrefixView(sLab->getPos());
-		return lab->getStamp() > rLab->getStamp() && !v.contains(lab->getPos());
+		auto v = getRevisitView(rLab, sLab);
+		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(rLab, sLab, lab);
 	}
 	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab, Event e) const {
 		return revisitDeletesEvent(rLab, sLab, getEventLabel(e));

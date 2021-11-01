@@ -61,9 +61,8 @@ DepExecutionGraph::getRevisitView(const ReadLabel *rLab,
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (preds->contains(rLab->getPos()) && !preds->contains(rLab->getRf())) {
-					BUG_ON(rLab->getRf().thread != rLab->getThread() &&
-					       !rLab->getRf().isInitializer());
-					preds->removeHole(rLab->getRf());
+					if (rLab->getRf().thread == rLab->getThread())
+						preds->removeHole(rLab->getRf());
 				}
 			}
 		}

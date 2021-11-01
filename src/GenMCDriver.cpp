@@ -1977,7 +1977,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	}
 
 	std::vector<Event> loads = getRevisitLoads(sLab);
-
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});
@@ -2001,12 +2000,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			}
 		}
 
-		if (!g.isMaximalExtension(rLab, sLab)) {
-			// llvm::dbgs() << "NOT REVISITING " << rLab->getPos() << " from " << sLab->getPos() << " in ";
-			// printGraph();
-			// prettyPrintGraph();
+		if (!g.isMaximalExtension(rLab, sLab))
 			break;
-		}
 
 		/* Get the prefix of the write to save */
 		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);

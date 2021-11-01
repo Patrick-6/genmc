@@ -109,9 +109,9 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in imm # rc11 imm
+for model in rc11 imm
 do
-    for coherence in mo # wb mo
+    for coherence in wb mo
     do
 	for cat in infr litmus saver liveness synthetic data-structures # lapor fs
 	do
