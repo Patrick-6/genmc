@@ -28,6 +28,9 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
+#ifdef LLVM_ALLOCAINST_TAKES_ALIGN
+# include <llvm/Support/Alignment.h>
+#endif
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #ifdef LLVM_HAS_TERMINATORINST
@@ -46,6 +49,18 @@
 # define GET_LOADINST_ARG(val)
 #else
 # define GET_LOADINST_ARG(val) (val)->getType()->getPointerElementType(),
+#endif
+
+#ifdef LLVM_ALLOCAINST_TAKES_ADDRSPACE
+# define GET_BOUND_ALLOCA_DUMMY_ARGS() 0, NULL
+#else
+# define GET_BOUND_ALLOCA_DUMMY_ARGS() NULL
+#endif
+
+#ifdef LLVM_ALLOCAINST_TAKES_ALIGN
+# define GET_BOUND_ALLOCA_ALIGN_ARG(val) llvm::Align(val)
+#else
+# define GET_BOUND_ALLOCA_ALIGN_ARG(val) val
 #endif
 
 void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
@@ -94,7 +109,9 @@ llvm::Value *LoopUnrollPass::createBoundAlloca(llvm::Loop *l)
 	llvm::Value *loopBound = llvm::ConstantInt::get(llvm::Type::getInt32Ty(parentFun->getContext()),
 							unrollDepth);
 	llvm::Value *alloca = new llvm::AllocaInst(llvm::Type::getInt32Ty(parentFun->getContext()),
-						   0, NULL, 4, LOOP_NAME(l) + ".max", &*entryInst);
+						   GET_BOUND_ALLOCA_DUMMY_ARGS(),
+						   GET_BOUND_ALLOCA_ALIGN_ARG(4),
+						   LOOP_NAME(l) + ".max", &*entryInst);
 	llvm::StoreInst *ptr = new llvm::StoreInst(loopBound, alloca, &*entryInst);
 	return alloca;
 }
