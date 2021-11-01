@@ -354,7 +354,7 @@ private:
 	void explore();
 
 	/* Returns true if this driver is shutting down */
-	bool isHalting() const { return shouldHalt; }
+	bool isHalting() const;
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();

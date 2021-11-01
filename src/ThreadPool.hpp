@@ -181,6 +181,13 @@ public:
 
 	bool shouldHalt() const { return shouldHalt_.load(); }
 
+	/* Stops all threads */
+	void halt() {
+		std::lock_guard<std::mutex> lock(stateMtx_);
+		shouldHalt_.store(true);
+		stateCV_.notify_all();
+	}
+
 	/* Waits for all tasks to complete */
 	std::vector<std::future<GenMCDriver::Result>> waitForTasks();
 
@@ -191,13 +198,6 @@ public:
 private:
 	/* Adds a worker thread to the pool */
 	void addWorker(unsigned int index, std::unique_ptr<GenMCDriver> driver);
-
-	/* Stops all threads */
-	void halt() {
-		std::lock_guard<std::mutex> lock(stateMtx_);
-		shouldHalt_.store(true);
-		stateCV_.notify_all();
-	}
 
 	/* Tries to pop a task from the global queue */
 	std::unique_ptr<TaskT> tryPopPoolQueue();

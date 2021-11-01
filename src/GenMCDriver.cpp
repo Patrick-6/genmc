@@ -457,12 +457,20 @@ void GenMCDriver::run()
 	return;
 }
 
+bool GenMCDriver::isHalting() const
+{
+	auto *tp = getThreadPool();
+	return shouldHalt || (tp && tp->shouldHalt());
+}
+
 void GenMCDriver::halt(Status status)
 {
 	getEE()->block(llvm::Thread::BlockageType::BT_Error);
 	shouldHalt = true;
 	result.status = status;
 	workqueue.clear();
+	if (getThreadPool())
+		getThreadPool()->halt();
 }
 
 GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
