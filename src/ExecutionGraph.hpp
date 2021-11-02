@@ -268,6 +268,11 @@ public:
 	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
 	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
 							    const EventLabel *wLab) const;
+	std::unique_ptr<VectorClock> getRevisitView(Event read, Event write) const {
+		auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
+		auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(write));
+		return getRevisitView(rLab, wLab);
+	}
 
 	/* Returns a list of loads that can be revisited */
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
@@ -482,6 +487,7 @@ public:
 	/* Returns a vector clock representing the events added before e */
 	virtual std::unique_ptr<VectorClock> getPredsView(Event e) const;
 
+#ifdef ENABLE_GENMC_DEBUG
 	/* Saves the prefix of sLab that is not before rLab. */
 	virtual std::vector<std::unique_ptr<EventLabel> >
 	getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab) const;
@@ -495,12 +501,7 @@ public:
 	std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const;
-
-	/* Restores the prefix stored in storePrefix (for revisiting rLab) and
-	 * also the moPlacings of the above prefix */
-	void restoreStorePrefix(const ReadLabel *rLab,
-				std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-				std::vector<std::pair<Event, Event> > &moPlacings);
+#endif
 
 	/* Graph cutting */
 

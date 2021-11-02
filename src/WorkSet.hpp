@@ -169,6 +169,8 @@ public:
 		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
 		 std::vector<std::pair<Event, Event> > &&moPlacings)
 		: BRevItem(WI_BRev, p, r, std::move(prefix), std::move(moPlacings)) {}
+	BRevItem(Event p, Event r)
+		: BRevItem(p, r, {}, {}) {}
 
 	/* Returns (releases) the prefix of the revisiting event */
 	std::vector<std::unique_ptr<EventLabel> > &&getPrefixRel() {

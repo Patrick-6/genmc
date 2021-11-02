@@ -885,6 +885,7 @@ std::unique_ptr<VectorClock> ExecutionGraph::getPredsView(Event e) const
 	return LLVM_MAKE_UNIQUE<View>(getViewFromStamp(stamp));
 }
 
+#ifdef ENABLE_GENMC_DEBUG
 std::vector<std::unique_ptr<EventLabel> >
 ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 					 const ReadLabel *rLab) const
@@ -930,6 +931,13 @@ ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs
 	return rfs;
 }
 
+std::vector<std::pair<Event, Event> >
+ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+				    const ReadLabel *rLab) const
+{
+	return getCoherenceCalculator()->saveCoherenceStatus(prefix, rLab);
+}
+#endif
 
 /************************************************************
  ** Calculation of writes a read can read from
@@ -1212,13 +1220,6 @@ void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 		cohTracker->changeStoreOffset(addr, s, newOffset);
 }
 
-std::vector<std::pair<Event, Event> >
-ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-				    const ReadLabel *rLab) const
-{
-	return getCoherenceCalculator()->saveCoherenceStatus(prefix, rLab);
-}
-
 void ExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	setFPStatus(FS_Stale);
@@ -1258,51 +1259,6 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 		}
 	}
 	return;
-}
-
-void ExecutionGraph::restoreStorePrefix(const ReadLabel *rLab,
-					std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-					std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	auto &calcs = consistencyCalculators;
-	for (auto i = 0u; i < calcs.size() ; i++)
-		calcs[i]->restorePrefix(rLab, storePrefix, moPlacings);
-
-	std::vector<Event> inserted;
-
-	for (auto &lab : storePrefix) {
-		inserted.push_back(lab->getPos());
-		if (events[lab->getThread()].size() <= lab->getIndex()) {
-			events[lab->getThread()].resize(lab->getIndex());
-			events[lab->getThread()].push_back(std::move(lab));
-		} else { /* size() > index */
-			events[lab->getThread()][lab->getIndex()] = std::move(lab);
-		}
-	}
-
-	for (const auto &e : inserted) {
-		EventLabel *curLab = events[e.thread][e.index].get();
-		if (auto *curRLab = llvm::dyn_cast<ReadLabel>(curLab)) {
-			curRLab->setRevisitStatus(false);
-			Event curRf = curRLab->getRf();
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(
-				    events[curRf.thread][curRf.index].get())) {
-				wLab->addReader(curRLab->getPos());
-			}
-		} else if (auto *curWLab = llvm::dyn_cast<WriteLabel>(curLab)) {
-			curWLab->removeReader([&](Event r){ return r == rLab->getPos(); });
-		}
-	}
-
-	/* Do not keep any nullptrs in the graph */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			if (events[i][j])
-				continue;
-			events[i][j] = std::unique_ptr<EmptyLabel>(
-				new EmptyLabel(nextStamp(), Event(i, j)));
-		}
-	}
 }
 
 void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const

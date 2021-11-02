@@ -126,25 +126,10 @@ bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const Write
 				   [&v](const Event &r){ return v.contains(r); });
 
 	}
-	// auto &locMO = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())->getModOrderAtLoc(rLabB->getAddr());
-	// auto it = locMO.begin();
-
-	// if (!rLabB->getRf().isInitializer()) {
-	// 	for (; *it != rLabB->getRf(); ++it)
-	// 		;
-	// 	++it;
-	// }
-
-	// for (; it != locMO.end(); ++it) {
-	// 	auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(*it));
-	// 	if (!v.contains(sLab->getPos()) &&
-	// 	    !sLab->getPPoRfView().contains(rLab->getPos()))
-	// 		return false;
-	// }
-	// return true;
 	return false;
 }
 
+#ifdef ENABLE_GENMC_DEBUG
 std::vector<std::unique_ptr<EventLabel> >
 DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 					    const ReadLabel *rLab) const
@@ -199,6 +184,7 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 	}
 	return result;
 }
+#endif
 
 void DepExecutionGraph::cutToStamp(unsigned int stamp)
 {

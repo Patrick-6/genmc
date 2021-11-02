@@ -980,6 +980,7 @@ bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 	return true;
 }
 
+#ifdef ENABLE_GENMC_DEBUG
 std::vector<std::pair<Event, Event> >
 WBCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
 				  const ReadLabel *rLab) const
@@ -1001,6 +1002,7 @@ WBCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 	}
 	return pairs;
 }
+#endif
 
 void WBCalculator::initCalc()
 {
@@ -1077,21 +1079,6 @@ Calculator::CalculationResult WBCalculator::doCalc()
 
 	}
 	return CalculationResult(changed, true);
-}
-
-void
-WBCalculator::restorePrefix(const ReadLabel *rLab,
-			    const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-			    const std::vector<std::pair<Event, Event> > &status)
-{
-	auto &g = getGraph();
-	for (const auto &lab : storePrefix) {
-		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab.get())) {
-			trackCoherenceAtLoc(mLab->getAddr());
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(mLab))
-				addStoreToLoc(wLab->getAddr(), wLab->getPos(), 0);
-		}
-	}
 }
 
 void WBCalculator::removeAfter(const VectorClock &preds)

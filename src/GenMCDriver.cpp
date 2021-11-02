@@ -388,18 +388,6 @@ void GenMCDriver::handleFinishedExecution()
 		printGraph(); /* Delay printing if persevere is enabled */
 	if (userConf->prettyPrintExecGraphs)
 		prettyPrintGraph();
-	GENMC_DEBUG(
-		if (userConf->countDuplicateExecs) {
-			std::string exec;
-			llvm::raw_string_ostream buf(exec);
-			buf << g;
-			BUG(); // FIXME: Count duplicates
-			// if (uniqueExecs.find(buf.str()) != uniqueExecs.end())
-			// 	++duplicates;
-			// else
-			// 	uniqueExecs.insert(buf.str());
-		}
-	);
 	++result.explored;
 	return;
 }
@@ -451,7 +439,6 @@ void GenMCDriver::run()
 {
 	/* Explore all graphs and print the results */
 	explore();
-	// printResults();
 	return;
 }
 
@@ -559,19 +546,16 @@ void GenMCDriver::restrictRevisitSet(const EventLabel *rLab)
 		revisitSet.erase(i);
 }
 
-void GenMCDriver::notifyEERemoved(unsigned int cutStamp)
+void GenMCDriver::notifyEERemoved(const VectorClock &v)
 {
 	const auto &g = getGraph();
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = 1; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (lab->getStamp() <= cutStamp)
-				continue;
+	for (auto *lab : labels(g)) {
+		if (v.contains(lab->getPos()))
+			continue;
 
-			/* For persistency, reclaim fds */
-			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
-				getEE()->reclaimUnusedFd(oLab->getFd().get());
-		}
+		/* For persistency, reclaim fds */
+		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
+			getEE()->reclaimUnusedFd(oLab->getFd().get());
 	}
 }
 
@@ -581,35 +565,9 @@ void GenMCDriver::restrictGraph(const EventLabel *rLab)
 
 	/* Inform the interpreter about deleted events, and then
 	 * restrict the graph (and relations) */
-	notifyEERemoved(stamp);
+	notifyEERemoved(*getGraph().getPredsView(rLab->getPos()));
 	getGraph().cutToStamp(stamp);
 	return;
-}
-
-void GenMCDriver::notifyEERestored(const std::vector<std::unique_ptr<EventLabel> > &prefix)
-{
-	for (auto &lab : prefix) {
-		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(&*lab))
-			getEE()->markFdAsUsed(oLab->getFd().get());
-	}
-}
-
-/*
- * Restore the part of the SBRF-prefix of the store that revisits a load,
- * that is not already present in the graph, the MO edges between that
- * part and the previous MO, and make that part non-revisitable
- */
-void GenMCDriver::restorePrefix(const EventLabel *lab,
-				std::vector<std::unique_ptr<EventLabel> > &&prefix,
-				std::vector<std::pair<Event, Event> > &&moPlacings)
-{
-	const auto &g = getGraph();
-	BUG_ON(!llvm::isa<ReadLabel>(lab));
-	auto *rLab = static_cast<const ReadLabel *>(lab);
-
-	/* Inform the interpreter about events being restored, and then restore them */
-	notifyEERestored(prefix);
-	getGraph().restoreStorePrefix(rLab, prefix, moPlacings);
 }
 
 
@@ -658,7 +616,7 @@ void GenMCDriver::explore()
 		auto validExecution = true;
 		do {
 			/*
-			 * revisitEvent() might deem some execution infeasible,
+			 * restrictAndRevisit() might deem some execution infeasible,
 			 * so we have to reset all exploration options before
 			 * calling it again
 			 */
@@ -669,7 +627,7 @@ void GenMCDriver::explore()
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = revisitEvent(std::move(item)) && isConsistent(ProgramPoint::step);
+			validExecution = restrictAndRevisit(std::move(item)) && isConsistent(ProgramPoint::step);
 		} while (!validExecution);
 	}
 }
@@ -1812,6 +1770,30 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	halt(s);
 }
 
+#ifdef ENABLE_GENMC_DEBUG
+void GenMCDriver::checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
+{
+	if (!userConf->countDuplicateExecs)
+		return;
+
+	/* Get the prefix of the write to save */
+	auto &g = getGraph();
+	auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
+	auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
+
+	auto writePrefixPos = g.extractRfs(writePrefix);
+	writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
+
+	/* If this prefix has revisited the read before, skip */
+	if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
+		++result.duplicates;
+	} else {
+		addToRevisitSet(rLab, writePrefixPos, moPlacings);
+	}
+	return;
+}
+#endif
+
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -1837,12 +1819,9 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});
 
-	// llvm::dbgs() << "OLD GRPAH \n"; printGraph();
 	for (auto &l : loads) {
-		auto *lab = g.getEventLabel(l);
-		BUG_ON(!llvm::isa<ReadLabel>(lab));
-
-		auto *rLab = static_cast<ReadLabel *>(lab);
+		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
+		BUG_ON(!rLab);
 
 		/* Optimize barrier revisits */
 		if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
@@ -1859,64 +1838,20 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		if (!g.isMaximalExtension(rLab, sLab))
 			break;
 
-		/* Get the prefix of the write to save */
-		auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
-		auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
+		GENMC_DEBUG(checkForDuplicateRevisit(rLab, sLab););
 
-		auto writePrefixPos = g.extractRfs(writePrefix);
-		writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
-
-		/* If this prefix has revisited the read before, skip */
-		if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
-			// llvm::dbgs() << "duplicate execution found in\n";
-			// prettyPrintGraph();
-			// printGraph();
-			// llvm::dbgs() << sLab->getPos() << " --> " << rLab->getPos() << "\n\n";
-			// llvm::dbgs() << llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())->
-			// 	calcWb(rLab->getAddr()) << "\n";
-			;
-		} else {
-			// addToRevisitSet(rLab, writePrefixPos, moPlacings);
-			// if (rLab->getPos() == Event(2, 2) && sLab->getPos() == Event(4, 3) &&
-			//     llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(4, 2)))->getRf() == Event(3, 2) // &&
-			//     // llvm::dyn_cast<ReadLabel>(g.getEventLabel(Event(2, 2)))->getRf() == Event(3, 2)
-			// 	) {
-			// 	prettyPrintGraph();
-			// 	printGraph();
-			// 	llvm::dbgs() << sLab->getPos() << " --> " << rLab->getPos() << "\n\n";
-			// 	llvm::dbgs() << llvm::dyn_cast<WBCalculator>(g.getCoherenceCalculator())->
-			// 		calcWb(rLab->getAddr()) << "\n";
-			// }
-		}
-
-		/* Otherwise, add the prefix to the revisit set and the worklist */
-		// addToWorklist(LLVM_MAKE_UNIQUE<BRevItem>(
-		// 		      rLab->getPos(), sLab->getPos(),
-		// 		      std::move(writePrefix), std::move(moPlacings)));
-
-		auto og = g.getCopyUpTo(*g.getRevisitView(rLab, sLab));
-
-		// save these because we are gonna change state
 		auto read = rLab->getPos();
-		auto readRf = rLab->getRf();
-		auto write = sLab->getPos();
+		auto write = sLab->getPos(); /* prefetch since we are gonna change state */
+		auto v = g.getRevisitView(rLab, sLab);
+		auto og = g.getCopyUpTo(*v);
 
 		auto localState = releaseLocalState();
 		auto newState = LLVM_MAKE_UNIQUE<SharedState>(std::move(og), getEE()->getSharedState());
 
 		setSharedState(std::move(newState));
 
-		auto &ng = getGraph();
-		auto &prefix = ng.getPrefixView(write);
-		for (auto i = 0u; i < ng.getNumThreads(); i++) {
-			for (auto j = 1; j < ng.getThreadSize(i); j++) {
-				auto *lab = llvm::dyn_cast<ReadLabel>(ng.getEventLabel(Event(i, j)));
-				if (lab && prefix.contains(lab->getPos()))
-					lab->setRevisitStatus(false);
-			}
-		}
-
-		revisitRead(BRevItem(read, write, {}, {}));
+		notifyEERemoved(*v);
+		revisitRead(BRevItem(read, write));
 
 		GENMC_DEBUG(
 			if (getConf()->vLevel >= VerbosityLevel::V2) {
@@ -1931,52 +1866,13 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
 			tp->submit(getSharedState());
 		} else {
-			// llvm::dbgs() << "NEW GRAPH \n";  printGraph();
 			if (isConsistent(ProgramPoint::step))
 				explore();
-			// llvm::dbgs() << "----- RESTORING" << "\n";
 		}
 
 		restoreLocalState(std::move(localState));
 	}
 	return !g.isRMWStore(sLab) || g.getPendingRMWs(sLab).empty();
-}
-
-void GenMCDriver::repairLock(LockCasReadLabel *lab)
-{
-	auto &g = getGraph();
-	auto &stores = g.getStoresToLoc(lab->getAddr());
-
-	BUG_ON(stores.empty());
-	for (auto rit = stores.rbegin(), re = stores.rend(); rit != re; ++rit) {
-		auto *posRf = llvm::dyn_cast<WriteLabel>(g.getEventLabel(*rit));
-		if (llvm::isa<LockCasWriteLabel>(posRf)) {
-			auto prev = posRf->getPos().prev();
-			if (g.getMatchingUnlock(prev).isInitializer()) {
-				changeRf(lab->getPos(), posRf->getPos());
-				lab->setAddedMax(true); // isCoMaximal(lab->getAddr(), lab->getRf()));
-				threadPrios = { posRf->getPos() };
-				return;
-			}
-		}
-	}
-	BUG();
-}
-
-void GenMCDriver::repairDanglingLocks()
-{
-	auto &g = getGraph();
-
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto *lLab = llvm::dyn_cast<LockCasReadLabel>(g.getEventLabel(g.getLastThreadEvent(i)));
-		if (!lLab)
-			continue;
-		if (!g.contains(lLab->getRf())) {
-			repairLock(lLab);
-			break; /* Only one such lock may exist at all times */
-		}
-	}
-	return;
 }
 
 void GenMCDriver::repairDanglingBarriers()
@@ -2067,8 +1963,17 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	BUG_ON(!rLab);
 
 	changeRf(rLab->getPos(), ri.getRev());
-
 	rLab->setAddedMax(llvm::isa<BRevItem>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
+
+	if (llvm::isa<BRevItem>(ri)) {
+		auto &prefix = g.getPrefixView(ri.getRev());
+		for (auto *lab : labels(g)) {
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (rLab && prefix.contains(rLab->getPos()))
+					rLab->setRevisitStatus(false);
+			}
+		}
+	}
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
@@ -2078,7 +1983,6 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 		return calcRevisits(sLab);
 
 	/* Blocked lock -> prioritize locking thread */
-	repairDanglingLocks();
 	if (llvm::isa<LockCasReadLabel>(rLab)) {
 		threadPrios = {rLab->getRf()};
 		EE->getThrById(rLab->getThread()).block(llvm::Thread::BlockageType::BT_LockAcq);
@@ -2086,7 +1990,7 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	return true;
 }
 
-bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
+bool GenMCDriver::restrictAndRevisit(std::unique_ptr<WorkItem> item)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -2103,7 +2007,6 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
 		wLab->setAddedMax(false);
-		repairDanglingLocks();
 		repairDanglingBarriers();
 		return calcRevisits(wLab);
 	}
@@ -2112,11 +2015,6 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 	auto *ri = llvm::dyn_cast<RevItem>(item.get());
 	BUG_ON(!ri);
 
-	/* Restore the prefix, if this is a backward revisit */
-	if (auto *bri = llvm::dyn_cast<BRevItem>(ri)) {
-		restorePrefix(lab, bri->getPrefixRel(), bri->getMOPlacingsRel());
-	}
-
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V2) {
 			llvm::dbgs() << "--- Forward revisiting " << lab->getPos()
@@ -2124,7 +2022,6 @@ bool GenMCDriver::revisitEvent(std::unique_ptr<WorkItem> item)
 			printGraph();
 		}
 	);
-
 	return revisitRead(*ri);
 }
 

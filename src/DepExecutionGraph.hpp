@@ -57,9 +57,11 @@ public:
 	bool prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
 				   const EventLabel *lab) const override;
 
+#ifdef ENABLE_GENMC_DEBUG
 	std::vector<std::unique_ptr<EventLabel> >
 	getPrefixLabelsNotBefore(const WriteLabel *sLab,
 				 const ReadLabel *rLab) const override;
+#endif
 
 	void cutToStamp(unsigned int st) override;
 

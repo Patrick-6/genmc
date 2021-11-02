@@ -81,11 +81,16 @@ public:
 		Status status;            /* Verification status */
 		unsigned explored;        /* Number of complete executions explored */
 		unsigned exploredBlocked; /* Number of blocked executions explored */
+#ifdef ENABLE_GENMC_DEBUG
 		unsigned duplicates;      /* Number of duplicate executions explored */
+#endif
 		std::string message;      /* A message to be printed */
 
 		Result() : status(Status::VS_OK), explored(0), exploredBlocked(0),
-			   duplicates(0), message() {}
+#ifdef ENABLE_GENMC_DEBUG
+			   duplicates(0),
+#endif
+			   message() {}
 
 		Result &operator+=(const Result &other) {
 			/* Propagate latest error */
@@ -95,7 +100,9 @@ public:
 			}
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
+#ifdef ENABLE_GENMC_DEBUG
 			duplicates += other.duplicates;
+#endif
 			return *this;
 		}
 	};
@@ -441,13 +448,17 @@ private:
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
 
-	/* Adjusts the graph only when we are revisiting a read.
+	/* Modifies (but not restricts) the graph when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
 	bool revisitRead(const RevItem &s);
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool revisitEvent(std::unique_ptr<WorkItem> s);
+	bool restrictAndRevisit(std::unique_ptr<WorkItem> s);
+
+	/* Copies the graph and executes the revisit specified by S.
+	 * Returns the newly created graph */
+	std::unique_ptr<ExecutionGraph> revisitInCopy(const RevItem &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -455,19 +466,12 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* Informs the interpreter about events being deleted before restriction */
-	void notifyEERemoved(unsigned int cutStamp);
+	/* Informs the interpreter that the events *not* contained in V
+	 * are being deleted from the execution graph */
+	void notifyEERemoved(const VectorClock &v);
 
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
-
-	/* Informs the interpreter about events being restored before restoration */
-	void notifyEERestored(const std::vector<std::unique_ptr<EventLabel> > &prefix);
-
-	/* Restores the previously saved prefix and coherence status */
-	void restorePrefix(const EventLabel *lab,
-			   std::vector<std::unique_ptr<EventLabel> > &&prefix,
-			   std::vector<std::pair<Event, Event> > &&moPlacings);
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * removes options that violate atomicity, and determines the
@@ -501,13 +505,6 @@ private:
 	std::vector<Event> filterAcquiredLocks(SAddr ptr,
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
-
-	/* Opt: Repairs the reads-from edge of a dangling lock */
-	void repairLock(LockCasReadLabel *lab);
-
-	/* Opt: Repairs some locks that may be "dangling", as part of the
-	 * in-place revisiting of locks */
-	void repairDanglingLocks();
 
 	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
 	void repairDanglingBarriers();
@@ -595,6 +592,10 @@ private:
 	/* Performs the necessary initializations for the
 	 * consistency calculation */
 	virtual void initConsCalculation() = 0;
+
+#ifdef ENABLE_GENMC_DEBUG
+	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
+#endif
 
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;

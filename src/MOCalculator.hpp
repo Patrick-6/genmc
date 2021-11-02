@@ -98,13 +98,6 @@ public:
 	std::vector<Event>
 	getCoherentRevisits(const WriteLabel *wLab) override;
 
-	/* Saves the coherence status for all write labels in prefix.
-	 * This means that for each write we save a predecessor in preds (or within
-	 * the prefix itself), which will be present when the prefix is restored. */
-	std::vector<std::pair<Event, Event> >
-	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-			    const ReadLabel *rLab) const override;
-
 	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) override;
 
 	/* Changes the offset of "store" to "newOffset" */
@@ -126,14 +119,17 @@ public:
 
 	Calculator::CalculationResult doCalc() override;
 
-	/* Restores a previously saved coherence status */
-	void
-	restorePrefix(const ReadLabel *rLab,
-		      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-		      const std::vector<std::pair<Event, Event> > &status) override;
-
 	/* Stops tracking all stores not included in "preds" in the graph */
 	void removeAfter(const VectorClock &preds) override;
+
+#ifdef ENABLE_GENMC_DEBUG
+	/* Saves the coherence status for all write labels in prefix.
+	 * This means that for each write we save a predecessor in preds (or within
+	 * the prefix itself), which will be present when the prefix is restored. */
+	std::vector<std::pair<Event, Event> >
+	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
+			    const ReadLabel *rLab) const override;
+#endif
 
 	/* FIXME: When copying coherence calcs, OOO should be decided based on G */
 	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {

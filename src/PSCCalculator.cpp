@@ -417,11 +417,3 @@ void PSCCalculator::removeAfter(const VectorClock &preds)
 	/* We do not track anything specific for PSC */
 	return;
 }
-
-void PSCCalculator::restorePrefix(const ReadLabel *rLab,
-				  const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-				  const std::vector<std::pair<Event, Event> > &status)
-{
-	/* We do not track anything specific for PSC */
-	return;
-}

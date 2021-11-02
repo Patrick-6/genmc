@@ -279,11 +279,12 @@ struct EELocalState {
 
 struct EESharedState {
 	SAddrAllocator alloctor;
+	llvm::BitVector fds;
 	std::vector<ThreadInfo> threadInfos;
 
 	EESharedState() = default;
-	EESharedState(SAddrAllocator alloctor, std::vector<ThreadInfo> tis)
-		: alloctor(alloctor), threadInfos(tis) {}
+	EESharedState(SAddrAllocator alloctor, const llvm::BitVector &fds, std::vector<ThreadInfo> tis)
+		: alloctor(alloctor), fds(fds), threadInfos(tis) {}
 };
 
 
@@ -382,6 +383,7 @@ public:
 	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
 
 	  shared->alloctor = alloctor;
+	  shared->fds = fds;
 	  for (auto &thr : threads) {
 		  shared->threadInfos.emplace_back(
 			  thr.id, thr.parentId, MI->idInfo.VID.at(thr.threadFun), thr.threadArg);
@@ -402,6 +404,7 @@ public:
   }
   void setSharedState(std::unique_ptr<EESharedState> state) {
 	  alloctor = std::move(state->alloctor);
+	  fds = std::move(state->fds);
 	  threads.clear();
 	  for (auto &ti : state->threadInfos)
 		  constructAddThreadFromInfo(ti);

@@ -353,6 +353,7 @@ MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 	return ls;
 }
 
+#ifdef ENABLE_GENMC_DEBUG
 std::vector<std::pair<Event, Event> >
 MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &labs,
 				  const ReadLabel *rLab) const
@@ -395,6 +396,7 @@ MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 	}
 	return pairs;
 }
+#endif
 
 bool MOCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
 				    const EventLabel *lab)
@@ -511,37 +513,6 @@ Calculator::CalculationResult MOCalculator::doCalc()
 			return Calculator::CalculationResult(false, false);
 	}
 	return Calculator::CalculationResult(false, true);
-}
-
-void MOCalculator::restorePrefix(const ReadLabel *rLab,
-				 const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-				 const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	const auto &g = getGraph();
-
-	for (const auto &lab : storePrefix) {
-		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab.get())) {
-			trackCoherenceAtLoc(mLab->getAddr());
-		}
-	}
-
-	auto insertedMO = 0u;
-	while (insertedMO < moPlacings.size()) {
-		for (auto it = moPlacings.begin(); it != moPlacings.end(); ++it) {
-			/* it->first is a WriteLabel by construction */
-			auto labIt = std::find_if(storePrefix.begin(), storePrefix.end(),
-						  [&](const std::unique_ptr<EventLabel> &lab)
-						  { return lab->getPos() == it->first; });
-			BUG_ON(labIt == storePrefix.end());
-			auto *lab = static_cast<const WriteLabel *>(labIt->get());
-			if (locContains(lab->getAddr(), it->second) &&
-			    !locContains(lab->getAddr(), it->first)) {
-				int offset = getStoreOffset(lab->getAddr(), it->second);
-				addStoreToLoc(lab->getAddr(), it->first, offset + 1);
-				++insertedMO;
-			}
-		}
-	}
 }
 
 void MOCalculator::removeAfter(const VectorClock &preds)

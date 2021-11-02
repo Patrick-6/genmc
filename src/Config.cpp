@@ -95,7 +95,7 @@ static llvm::cl::opt<CheckConsType>
 clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::slow), llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Type of (configurable) consistency checks"),
 		llvm::cl::values(
-			clEnumValN(CheckConsType::slow, "slow", "Approximatition check"),
+			clEnumValN(CheckConsType::slow, "slow", "Approximation check"),
 			clEnumValN(CheckConsType::full, "full", "Full checks")
 #ifdef LLVM_CL_VALUES_NEED_SENTINEL
 		    , NULL

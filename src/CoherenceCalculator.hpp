@@ -65,7 +65,6 @@ public:
 
 	virtual ~CoherenceCalculator() = default;
 
-	/* FIXME: Properize these */
 	using StoresList = std::unordered_map<SAddr, std::vector<Event>>;
 
 	using iterator = StoresList::iterator;
@@ -113,17 +112,19 @@ public:
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *wLab) = 0;
 
+	/* Returns whether the path from RLAB to WLAB is maximal */
+	virtual bool
+	inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) = 0;
+
+#ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.
 	 * This means that for each write we save a predecessor in preds (or within
 	 * the prefix itself), which will be present when the prefix is restored. */
 	virtual std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
 			    const ReadLabel *rLab) const = 0;
+#endif
 
-	virtual bool
-	inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) = 0;
-
-	/* FIXME: Revert to public */
 protected:
 
 	/* Discriminator enum for LLVM-style RTTI */

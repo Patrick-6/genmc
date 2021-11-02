@@ -280,13 +280,3 @@ void LBCalculatorLAPOR::addLockToList(SAddr addr, const Event lock)
 {
 	locks[addr].push_back(lock);
 }
-
-void LBCalculatorLAPOR::restorePrefix(const ReadLabel *rLab,
-				      const std::vector<std::unique_ptr<EventLabel> > &storePrefix,
-				      const std::vector<std::pair<Event, Event> > &status)
-{
-	for (const auto &lab : storePrefix) {
-		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab.get()))
-			addLockToList(lLab->getLockAddr(), lLab->getPos());
-	}
-}
