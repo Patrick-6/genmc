@@ -26,8 +26,9 @@
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
-IMMDriver::IMMDriver(std::unique_ptr<Config> conf, std::unique_ptr<llvm::Module> mod, clock_t start)
-	: GenMCDriver(std::move(conf), std::move(mod), start)
+IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+		     std::unique_ptr<ModuleInfo> MI)
+	: GenMCDriver(conf, std::move(mod), std::move(MI))
 {
 	auto &g = getGraph();
 
@@ -48,48 +49,48 @@ View IMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-DepView IMMDriver::calcPPoView(Event e) /* not const */
+View IMMDriver::calcBasicPorfView(Event e) const
 {
-	auto &g = getGraph();
-	auto *EE = getEE();
+	View v(getGraph().getPreviousLabel(e)->getPorfView());
+
+	++v[e.thread];
+	return v;
+}
+
+DepView IMMDriver::getDepsAsView(const EventDeps *deps)
+{
 	DepView v;
 
+	if (!deps)
+		return v;
+
+	auto &g = getGraph();
+	for (auto &adep : deps->addr)
+		v.update(g.getPPoRfBefore(adep));
+	for (auto &ddep : deps->data)
+		v.update(g.getPPoRfBefore(ddep));
+	for (auto &cdep : deps->ctrl)
+		v.update(g.getPPoRfBefore(cdep));
+	for (auto &apdep : deps->addrPo)
+		v.update(g.getPPoRfBefore(apdep));
+	for (auto &csdep : deps->cas)
+		v.update(g.getPPoRfBefore(csdep));
+	return v;
+}
+
+DepView IMMDriver::calcPPoView(Event e, const EventDeps *deps) /* not const */
+{
 	/* Update ppo based on dependencies (addr, data, ctrl, addr;po, cas) */
-	auto *addr = EE->getCurrentAddrDeps();
-	if (addr) {
-		for (auto &adep : *addr)
-			v.update(g.getPPoRfBefore(adep));
-	}
-	auto *data = EE->getCurrentDataDeps();
-	if (data) {
-		for (auto &ddep : *data)
-			v.update(g.getPPoRfBefore(ddep));
-	}
-	auto *ctrl = EE->getCurrentCtrlDeps();
-	if (ctrl) {
-		for (auto &cdep : *ctrl)
-			v.update(g.getPPoRfBefore(cdep));
-	}
-	auto *addrPo = EE->getCurrentAddrPoDeps();
-	if (addrPo) {
-		for (auto &apdep : *addrPo)
-			v.update(g.getPPoRfBefore(apdep));
-	}
-	auto *cas = EE->getCurrentCasDeps();
-	if (cas) {
-		for (auto &csdep : *cas)
-			v.update(g.getPPoRfBefore(csdep));
-	}
+	auto v = getDepsAsView(deps);
 
 	/* This event does not depend on anything else */
 	int oldIdx = v[e.thread];
 	v[e.thread] = e.index;
-	for (auto i = oldIdx + 1; i < e.index; i++)
-		v.addHole(Event(e.thread, i));
+	v.addHolesInRange(Event(e.thread, oldIdx + 1), e.index);
 
 	/* Update based on the views of the acquires of the thread */
-	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
-	for (auto &ev : acqs)
+	auto &g = getGraph();
+	for (auto &ev : g.getThreadAcquiresAndFences(e))
 		v.update(g.getPPoRfBefore(ev));
 	return v;
 }
@@ -118,23 +119,29 @@ void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	return;
 }
 
-void IMMDriver::calcBasicViews(EventLabel *lab)
+void IMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
 {
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos(), deps);
 
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab)
+void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, const ReadLabel *lab)
 {
+	if (lab->getRf().isBottom())
+		return;
+
 	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 
+	porf.update(rfLab->getPorfView());
 	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
 		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
 		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
@@ -155,32 +162,36 @@ void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel 
 	return;
 }
 
-void IMMDriver::calcReadViews(ReadLabel *lab)
+void IMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos(), deps);
 	DepView pporf(ppo);
 
-	updateReadViewsFromRf(pporf, hb, lab);
+	updateReadViewsFromRf(pporf, porf, hb, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcWriteViews(WriteLabel *lab)
+void IMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
-	/* First, we calculate the hb view */
+	/* First, we calculate the hb and porf view */
 	View hb = calcBasicHbView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 
 	/* Then, we calculate the ppo and (ppo U rf) views.
 	 * The first is important because we have to take dep;rfi
 	 * dependencies into account for subsequent reads. */
-	DepView ppo = calcPPoView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos(), deps);
 	DepView pporf(ppo);
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab)) {
@@ -213,8 +224,8 @@ void IMMDriver::calcWriteMsgView(WriteLabel *lab)
 		msg = lab->getHbView();
 	else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
 		 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
-		msg = g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								lab->getAddr()));
+		msg = g.getEventLabel(
+			g.getLastThreadReleaseAtLoc(lab->getPos(), lab->getAddr()))->getHbView();
 	lab->setMsgView(std::move(msg));
 }
 
@@ -238,8 +249,8 @@ void IMMDriver::calcRMWWriteMsgView(WriteLabel *lab)
 	if (rLab->isAtLeastRelease())
 		msg.update(lab->getHbView());
 	else
-		msg.update(g.getHbBefore(g.getLastThreadReleaseAtLoc(lab->getPos(),
-								     lab->getAddr())));
+		msg.update(g.getEventLabel(g.getLastThreadReleaseAtLoc(lab->getPos(),
+								       lab->getAddr()))->getHbView());
 
 	lab->setMsgView(std::move(msg));
 }
@@ -264,11 +275,12 @@ void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 }
 
 
-void IMMDriver::calcFenceViews(FenceLabel *lab)
+void IMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView pporf = calcPPoView(lab->getPos(), deps);
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
@@ -276,10 +288,11 @@ void IMMDriver::calcFenceViews(FenceLabel *lab)
 		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcJoinViews(ThreadJoinLabel *lab)
+void IMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	auto *fLab = g.getLastThreadLabel(lab->getChildId());
@@ -289,15 +302,18 @@ void IMMDriver::calcJoinViews(ThreadJoinLabel *lab)
 	* in previous explorations, we have to reset it to the ppo one,
 	* and then update it */
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos());
+	View porf = calcBasicPorfView(lab->getPos());
+	DepView ppo = calcPPoView(lab->getPos(), deps);
 	DepView pporf(ppo);
 
 	if (llvm::isa<ThreadFinishLabel>(fLab)) {
 		hb.update(fLab->getHbView());
+		porf.update(fLab->getPorfView());
 		pporf.update(fLab->getPPoRfView());
 	}
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 	return;
@@ -309,45 +325,49 @@ void IMMDriver::calcStartViews(ThreadStartLabel *lab)
 
 	/* Thread start has Acquire semantics */
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
+	View porf(g.getEventLabel(lab->getParentCreate())->getPorfView());
 	DepView pporf(g.getEventLabel(lab->getParentCreate())->getPPoRfView());
 
 	hb[lab->getThread()] = lab->getIndex();
+	porf[lab->getThread()] = lab->getIndex();
 	pporf[lab->getThread()] = lab->getIndex();
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return;
 }
 
-void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab)
+void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	auto hb = calcBasicHbView(lab->getPos());
-	auto pporf = calcPPoView(lab->getPos());
+	auto porf = calcBasicPorfView(lab->getPos());
+	auto pporf = calcPPoView(lab->getPos(), deps);
 
 	auto prevUnlock = g.getLastThreadUnlockAtLocLAPOR(lab->getPos().prev(), lab->getLockAddr());
 	if (!prevUnlock.isInitializer())
 		pporf.update(g.getPPoRfBefore(prevUnlock));
 
 	lab->setHbView(std::move(hb));
+	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return;
 }
 
-void IMMDriver::updateLabelViews(EventLabel *lab)
+void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
-	case EventLabel::EL_LibRead:
 	case EventLabel::EL_DskRead:
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_BIncFaiRead:
-		calcReadViews(llvm::dyn_cast<ReadLabel>(lab));
+		calcReadViews(llvm::dyn_cast<ReadLabel>(lab), deps);
 		if (getConf()->persevere && llvm::isa<DskReadLabel>(lab))
 			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskReadLabel>(lab));
 		break;
@@ -355,7 +375,6 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_BInitWrite:
 	case EventLabel::EL_BDestroyWrite:
 	case EventLabel::EL_UnlockWrite:
-	case EventLabel::EL_LibWrite:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_FaiWrite:
@@ -364,7 +383,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_DskMdWrite:
 	case EventLabel::EL_DskDirWrite:
 	case EventLabel::EL_DskJnlWrite:
-		calcWriteViews(llvm::dyn_cast<WriteLabel>(lab));
+		calcWriteViews(llvm::dyn_cast<WriteLabel>(lab), deps);
 		if (getConf()->persevere && llvm::isa<DskWriteLabel>(lab))
 			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskWriteLabel>(lab));
 		break;
@@ -372,7 +391,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_DskFsync:
 	case EventLabel::EL_DskSync:
 	case EventLabel::EL_DskPbarrier:
-		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab));
+		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab), deps);
 		if (getConf()->persevere && llvm::isa<DskAccessLabel>(lab))
 			g.getPersChecker()->calcDskFencePbView(llvm::dyn_cast<FenceLabel>(lab));
 		break;
@@ -380,7 +399,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 		calcStartViews(llvm::dyn_cast<ThreadStartLabel>(lab));
 		break;
 	case EventLabel::EL_ThreadJoin:
-		calcJoinViews(llvm::dyn_cast<ThreadJoinLabel>(lab));
+		calcJoinViews(llvm::dyn_cast<ThreadJoinLabel>(lab), deps);
 		break;
 	case EventLabel::EL_ThreadCreate:
 	case EventLabel::EL_ThreadFinish:
@@ -392,10 +411,10 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_Free:
 	case EventLabel::EL_UnlockLabelLAPOR:
 	case EventLabel::EL_DskOpen:
-		calcBasicViews(lab);
+		calcBasicViews(lab, deps);
 		break;
 	case EventLabel::EL_LockLabelLAPOR: /* special case */
-		calcLockLAPORViews(llvm::dyn_cast<LockLabelLAPOR>(lab));
+		calcLockLAPORViews(llvm::dyn_cast<LockLabelLAPOR>(lab), deps);
 		break;
 	case EventLabel::EL_RCULockLKMM:
 	case EventLabel::EL_RCUUnlockLKMM:
@@ -413,16 +432,6 @@ Event IMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	return Event::getInitializer();
 }
 
-std::vector<Event> IMMDriver::getStoresToLoc(const llvm::GenericValue *addr)
-{
-	return getGraph().getCoherentStores(addr, getEE()->getCurrentPosition());
-}
-
-std::vector<Event> IMMDriver::getRevisitLoads(const WriteLabel *sLab)
-{
-	return getGraph().getCoherentRevisits(sLab);
-}
-
 void IMMDriver::changeRf(Event read, Event store)
 {
 	auto &g = getGraph();
@@ -433,11 +442,13 @@ void IMMDriver::changeRf(Event read, Event store)
 	/* And update the views of the load */
 	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	View hb = calcBasicHbView(rLab->getPos());
+	View porf = calcBasicPorfView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	updateReadViewsFromRf(pporf, hb, rLab);
+	updateReadViewsFromRf(pporf, porf, hb, rLab);
 
 	rLab->setHbView(std::move(hb));
+	rLab->setPorfView(std::move(porf));
 	rLab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
@@ -450,13 +461,16 @@ void IMMDriver::updateStart(Event create, Event start)
 	auto *bLab = g.getEventLabel(start);
 
 	/* Re-synchronize views */
-	View hb(g.getHbBefore(create));
-	DepView pporf(g.getPPoRfBefore(create));
+	View hb(g.getEventLabel(create)->getHbView());
+	View porf(g.getEventLabel(create)->getPorfView());
+	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
 	hb[start.thread] = 0;
+	porf[start.thread] = 0;
 	pporf[start.thread] = 0;
 
 	bLab->setHbView(std::move(hb));
+	bLab->setPorfView(std::move(porf));
 	bLab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -476,11 +490,14 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 	* and then update it */
 	DepView pporf(jLab->getPPoView());
 	View hb = calcBasicHbView(jLab->getPos());
+	View porf = calcBasicPorfView(jLab->getPos());
 
 	hb.update(fLab->getHbView());
+	porf.update(fLab->getPorfView());
 	pporf.update(fLab->getPPoRfView());
 
         jLab->setHbView(std::move(hb));
+        jLab->setPorfView(std::move(porf));
 	jLab->setPPoRfView(std::move(pporf));
 	return true;
 }

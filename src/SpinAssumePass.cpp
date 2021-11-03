@@ -299,20 +299,20 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 
 	BUG_ON(!tryGetCASResultExtracts(cass, extracts));
 
-	std::vector<std::unique_ptr<SExpr> > casConditions;
+	std::vector<std::unique_ptr<SExpr<Value *>> > casConditions;
 	for (auto *cas : cass)
 		casConditions.push_back(InstAnnotator().annotateCASWithBackedgeCond(cas, latch, l, &cleanSet));
 
-	auto backedgeCondition = ConjunctionExpr::create(std::move(casConditions));
+	auto backedgeCondition = ConjunctionExpr<Value *>::create(std::move(casConditions));
 	for (auto i = 1u; i < (1 << extracts.size()); i++) {
 
-		std::unordered_map<Value *, llvm::APInt> valueMap;
+		std::unordered_map<Value *, SVal> valueMap;
 		for (auto j = 0u; j < extracts.size(); j++)
-			valueMap[extracts[j]] = (i & (1 << j)) ? APInt(1, 1) : APInt(1, 0);
+			valueMap[extracts[j]] = (i & (1 << j)) ? SVal(1) : SVal(0);
 
 		size_t unknowns;
-		auto res = SExprEvaluator().evaluate(backedgeCondition.get(), valueMap, &unknowns);
-		if (unknowns > 0 || res.getBoolValue())
+		auto res = SExprEvaluator<Value *>().evaluate(backedgeCondition.get(), valueMap, &unknowns);
+		if (unknowns > 0 || res.getBool())
 			return false;
 	}
 	return true;
@@ -653,5 +653,5 @@ Pass *createSpinAssumePass(bool markStarts /* = false */)
 }
 
 char SpinAssumePass::ID = 42;
-// static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
-// 					    "Replaces spin-loops with __VERIFIER_assume().");
+static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
+					    "Performs GenMC's spin-assume transformation.");
