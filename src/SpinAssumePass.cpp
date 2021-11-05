@@ -598,11 +598,13 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	llvm::Instruction *lastZNEEffect = nullptr;
 	for (auto &latch : latches) {
 		if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
+			spinloop = false;
 			modified = true;
 			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
 		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
 			/* Check for lockZNE before effect-free paths,
 			 * as locks are function calls too...  */
+			spinloop = false;
 			modified = true;
 			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
 		} else if (isPathToHeaderEffectFree(latch, l, checkDynamically)) {
