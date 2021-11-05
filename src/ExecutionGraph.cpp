@@ -32,8 +32,8 @@
  ** Class constructors/destructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph(unsigned warnOnGraphSize /* UINT_MAX */)
-	: timestamp(1), persChecker(nullptr), relations(), relsCache()
+ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
+	: timestamp(1), persChecker(nullptr), relations(), relsCache(), warnOnGraphSize(maxSize)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
