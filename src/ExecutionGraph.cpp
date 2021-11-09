@@ -1400,9 +1400,7 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 		return false;
 	auto *mLab = static_cast<const MemAccessLabel *>(nLab);
 
-	if (isRMWStore(mLab) && mLab->getAddr() == rLab->getAddr())
-		return true;
-	return false;
+	return isRMWStore(mLab) && mLab->getAddr() == rLab->getAddr();
 }
 
 std::pair<std::vector<Event>, std::vector<Event> >
