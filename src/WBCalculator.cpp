@@ -980,7 +980,7 @@ bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 		if (lab->getStamp() < rLab->getStamp())
 			continue;
 		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
-		    g.isBlockedOptLock(lab))
+		    g.isOptBlockedLock(lab))
 			continue;
 
 		if (isRbBeforeSavedPrefix(rLab, wLab, lab, wbs))

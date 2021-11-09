@@ -1093,7 +1093,7 @@ Event LKMMDriver::findDataRaceForMemAccess(const MemAccessLabel *mLab)
 	 * assumes (among others) that xb is already calculated */
 	if (!isConsistent(ProgramPoint::error)) {
 		for (auto i = 0u; i < getGraph().getNumThreads(); i++)
-			getEE()->getThrById(i).block(llvm::Thread::BlockageType::BT_Cons);
+			getEE()->getThrById(i).block(BlockageType::Cons);
 		return Event::getInitializer();
 	}
 

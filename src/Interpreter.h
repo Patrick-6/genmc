@@ -43,7 +43,6 @@
 #include "Config.hpp"
 #include "DepTracker.hpp"
 #include "MemAccess.hpp"
-#include "EventLabel.hpp"
 #include "ModuleInfo.hpp"
 #include "SAddr.hpp"
 #include "SAddrAllocator.hpp"
@@ -171,7 +170,6 @@ struct ExecutionContext {
 class Thread {
 
 public:
-	using BlockageType = BlockLabel::Type;
 	using MyRNG  = std::minstd_rand;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 	static constexpr int seed = 1995;
@@ -190,8 +188,8 @@ public:
 	std::vector<std::pair<int, std::string> > prefixLOC;
 
 	void block(BlockageType t) { blocked = t; }
-	void unblock() { blocked = BlockageType::BT_NotBlocked; }
-	bool isBlocked() const { return blocked != BlockageType::BT_NotBlocked; }
+	void unblock() { blocked = BlockageType::NotBlocked; }
+	bool isBlocked() const { return blocked != BlockageType::NotBlocked; }
 	BlockageType getBlockageType() const { return blocked; }
 
 	/* Useful for one-to-many instr->events correspondence */
@@ -208,11 +206,11 @@ protected:
 
 	Thread(llvm::Function *F, int id)
 		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
-		  blocked(BlockageType::BT_NotBlocked), rng(seed) {}
+		  blocked(BlockageType::NotBlocked), rng(seed) {}
 
 	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), threadArg(arg),
-		  initSF(SF), globalInstructions(0), blocked(BlockageType::BT_NotBlocked), rng(seed) {}
+		  initSF(SF), globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed) {}
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
@@ -398,7 +396,7 @@ public:
   }
 
   /* Blocks the current execution */
-  void block(Thread::BlockageType t = Thread::BlockageType::BT_Error ) {
+  void block(BlockageType t = BlockageType::Error ) {
 	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });
   }
 

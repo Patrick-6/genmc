@@ -142,7 +142,7 @@ void GenMCDriver::resetThreadPrioritization()
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		Event last = g.getLastThreadEvent(i);
 		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer())
-			EE->getThrById(i).block(BlockLabel::Type::BT_LockRel);
+			EE->getThrById(i).block(BlockageType::LockNotRel);
 	}
 
 	/* Clear all prioritization */
@@ -164,7 +164,7 @@ bool GenMCDriver::isLockWellFormedLAPOR() const
 		Event last = g.getLastThreadEvent(i);
 		if (!g.getLastThreadUnmatchedLockLAPOR(last).isInitializer() &&
 		    std::none_of(EE->threads_begin(), EE->threads_end(), [](const llvm::Thread &thr){
-				    return thr.getBlockageType() == BlockLabel::Type::BT_Cons; }))
+				    return thr.getBlockageType() == BlockageType::Cons; }))
 			return false;
 	}
 	return true;
@@ -476,7 +476,7 @@ bool GenMCDriver::isHalting() const
 
 void GenMCDriver::halt(Status status)
 {
-	getEE()->block(BlockLabel::Type::BT_Error);
+	getEE()->block(BlockageType::Error);
 	shouldHalt = true;
 	result.status = status;
 	workqueue.clear();
@@ -623,9 +623,7 @@ bool GenMCDriver::rescheduleLocks()
 
 	for (auto i = 0u; i < g.getNumThreads(); ++i) {
 		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
-		if (!bLab)
-			continue;
-		if (bLab->getType() != BlockLabel::Type::BT_LockAcq)
+		if (!bLab || bLab->getType() != BlockageType::LockOptBlock)
 			continue;
 		auto *pLab = llvm::dyn_cast<LockCasReadLabel>(g.getPreviousLabel(bLab));
 		BUG_ON(!pLab);
@@ -780,12 +778,12 @@ SVal GenMCDriver::getReadRetValueAndMaybeBlock(const ReadLabel *rLab)
 	if (rLab->getRf().isBottom()) {
 		/* Bottom is an acceptable re-option only @ replay; block anyway */
 		BUG_ON(getEE()->getExecState() != llvm::ExecutionState::Replay);
-		thr.block(BlockLabel::Type::BT_Error);
+		thr.block(BlockageType::Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
 		   !getEE()->compareValues(rLab->getSize(), res,
 					   getBarrierInitValue(rLab->getAddr(), rLab->getAccess()))) {
 		/* Reading a non-init barrier value means that the thread should block */
-		thr.block(BlockLabel::Type::BT_Barrier);
+		thr.block(BlockageType::Barrier);
 	}
 	return res;
 }
@@ -1071,7 +1069,7 @@ void GenMCDriver::checkLiveness()
 	/* Collect all threads blocked at spinloops */
 	std::vector<int> spinBlocked;
 	for (auto thrIt = EE->threads_begin(), thrE = EE->threads_end(); thrIt != thrE; ++thrIt) {
-		if (thrIt->getBlockageType() == BlockLabel::Type::BT_Spinloop)
+		if (thrIt->getBlockageType() == BlockageType::Spinloop)
 			spinBlocked.push_back(thrIt->id);
 	}
 	/* And check whether all of them are live or not */
@@ -1242,7 +1240,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	}
 
 	if (!found) {
-		getEE()->block(BlockLabel::Type::BT_Cons);
+		getEE()->block(BlockageType::Cons);
 		return false;
 	}
 	return true;
@@ -1251,7 +1249,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
 	if (!isConsistent(ProgramPoint::step)) {
-		getEE()->block(BlockLabel::Type::BT_Cons);
+		getEE()->block(BlockageType::Cons);
 		return false;
 	}
 	return true;
@@ -1380,7 +1378,7 @@ SVal GenMCDriver::visitThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const Ev
 
 	/* If the update failed (child has not terminated yet) block this thread */
 	if (!updateJoin(jLab->getPos(), g.getLastThreadEvent(cid)))
-		thr.block(BlockLabel::Type::BT_ThreadJoin);
+		thr.block(BlockageType::ThreadJoin);
 
 	/*
 	 * We always return a success value, so as not to have to update it
@@ -1454,7 +1452,7 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 
 		/* Is there any thread blocked on a potential spinloop? */
 		auto *eLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
-		if (!eLab || eLab->getType() != BlockLabel::Type::BT_FaiZNESpinloop)
+		if (!eLab || eLab->getType() != BlockageType::FaiZNESpinloop)
 			continue;
 
 		/* Check whether this access affects the spinloop variable */
@@ -1550,7 +1548,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	auto retVal = getWriteValue(validStores.back(), lab->getAddr(), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) &&
 	    !EE->compareValues(lab->getSize(), retVal, getBarrierInitValue(lab->getAddr(), lab->getAccess())))
-		visitBlock(BlockLabel::create(lab->getPos().next(), BlockLabel::Type::BT_Barrier));
+		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Barrier));
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
@@ -1664,8 +1662,8 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 		visitStore(LockCasWriteLabel::create(pos.next(), addr, size), deps);
 	else
 		visitBlock(BlockLabel::create(pos.next(),
-					      isRescheduledLock(pos) ? BlockLabel::Type::BT_LockRel :
-					      BlockLabel::Type::BT_LockAcq));
+					      isRescheduledLock(pos) ? BlockageType::LockNotAcq :
+					      BlockageType::LockOptBlock));
 	if (isRescheduledLock(pos))
 		setRescheduledLock(Event::getInitializer());
 }
@@ -1783,7 +1781,7 @@ void GenMCDriver::visitRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab)
 
 void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 {
-	getEE()->getCurThr().block(BlockLabel::Type::BT_User);
+	getEE()->getCurThr().block(BlockageType::User);
 
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1802,7 +1800,7 @@ void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 	}
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = getEE()->getThrById(i);
-		if (!thr.isBlocked()) thr.block(BlockLabel::Type::BT_User);
+		if (!thr.isBlocked()) thr.block(BlockageType::User);
 	}
 }
 
@@ -1823,11 +1821,11 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 
 	/* If the execution that led to the error is not consistent, block */
 	if (!isConsistent(ProgramPoint::error)) {
-		thr.block(BlockLabel::Type::BT_Error);
+		thr.block(BlockageType::Error);
 		return;
 	}
 	if (inRecoveryMode() && !isRecoveryValid(ProgramPoint::error)) {
-		thr.block(BlockLabel::Type::BT_Error);
+		thr.block(BlockageType::Error);
 		return;
 	}
 
@@ -1985,13 +1983,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
 		BUG_ON(!rLab);
 
-		if (auto *lLab = llvm::dyn_cast<LockCasReadLabel>(rLab)) {
-			if (lLab->getPos() == g.getLastThreadEvent(lLab->getThread()).prev()) {
-				if (auto *bLab = llvm::dyn_cast<BlockLabel>(g.getEventLabel(lLab->getPos().next())))
-					if (bLab->getType() == BlockLabel::Type::BT_LockAcq)
-						continue;
-			}
-		}
+		if (g.isOptBlockedLock(rLab))
+			continue;
 
 		if (!g.isMaximalExtension(rLab, sLab))
 			break;
@@ -2049,7 +2042,8 @@ void GenMCDriver::repairLock(LockCasReadLabel *lab)
 			if (g.getMatchingUnlock(prev).isInitializer()) {
 				changeRf(lab->getPos(), posRf->getPos());
 				threadPrios = { posRf->getPos() };
-				g.addOtherLabelToGraph(BlockLabel::create(lab->getPos().next(), BlockLabel::Type::BT_LockRel));
+				g.addOtherLabelToGraph(BlockLabel::create(lab->getPos().next(),
+									  BlockageType::LockNotAcq));
 				return;
 			}
 		}
@@ -2095,7 +2089,7 @@ void GenMCDriver::repairDanglingBarriers()
 		changeRf(bLab->getPos(), bLab->getPos().prev());
 		bLab->setAddedMax(true);
 		g.addOtherLabelToGraph(BlockLabel::create(bLab->getPos().next(),
-							  BlockLabel::Type::BT_Barrier));
+							  BlockageType::Barrier));
 	}
 	return;
 }
@@ -2213,7 +2207,7 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	/* Blocked lock -> prioritize locking thread */
 	repairDanglingLocks();
 	if (llvm::isa<LockCasReadLabel>(rLab)) {
-		g.addOtherLabelToGraph(BlockLabel::create(rLab->getPos().next(), BlockLabel::Type::BT_LockRel));
+		g.addOtherLabelToGraph(BlockLabel::create(rLab->getPos().next(), BlockageType::LockNotAcq));
 		threadPrios = {rLab->getRf()};
 	}
 	return true;
@@ -2421,7 +2415,7 @@ void GenMCDriver::visitSpinStart(std::unique_ptr<SpinStartLabel> lab)
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */
-	visitBlock(BlockLabel::create(stLab->getPos().next(), BlockLabel::Type::BT_Spinloop));
+	visitBlock(BlockLabel::create(stLab->getPos().next(), BlockageType::Spinloop));
 	return;
 }
 
@@ -2461,7 +2455,7 @@ void GenMCDriver::visitFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 	updateLabelViews(lab.get(), nullptr);
 	auto *eLab = g.addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
 	if (areFaiZNEConstraintsSat(llvm::dyn_cast<FaiZNESpinEndLabel>(eLab)))
-		visitBlock(BlockLabel::create(eLab->getPos().next(), BlockLabel::Type::BT_FaiZNESpinloop));
+		visitBlock(BlockLabel::create(eLab->getPos().next(), BlockageType::FaiZNESpinloop));
 	return;
 }
 
@@ -2473,7 +2467,7 @@ void GenMCDriver::visitLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
 	updateLabelViews(lab.get(), nullptr);
 	auto *eLab = getGraph().addOtherLabelToGraph(std::move(lab));
 
-	visitBlock(BlockLabel::create(eLab->getPos().next(), BlockLabel::Type::BT_LockZNESpinloop));
+	visitBlock(BlockLabel::create(eLab->getPos().next(), BlockageType::LockZNESpinloop));
 	return;
 }
 

@@ -432,19 +432,19 @@ public:
 	}
 	bool isRMWStore(const Event e) const { return isRMWStore(getEventLabel(e)); }
 
-	bool isBlockedOptLock(const EventLabel *lab) const {
+	/* Opt: Returns whether a lock is optimization-blocked */
+	bool isOptBlockedLock(const EventLabel *lab) const {
 		if (llvm::isa<LockCasReadLabel>(lab) &&
 		    getLastThreadEvent(lab->getThread()) == lab->getPos().next()) {
 			auto *bLab = llvm::dyn_cast<BlockLabel>(getNextLabel(lab));
-			return bLab && bLab->getType() == BlockLabel::Type::BT_LockAcq;
+			return bLab && bLab->getType() == BlockageType::LockOptBlock;
 		}
 		return false;
 	}
 
 	/* Returns true if e is hb-before w, or any of the reads that read from w */
 	bool isHbOptRfBefore(const Event e, const Event write) const;
-	bool isHbOptRfBeforeInView(const Event e, const Event write,
-				   const VectorClock &v) const;
+	bool isHbOptRfBeforeInView(const Event e, const Event write, const VectorClock &v) const;
 
 	/* Returns true if e is rel-before w, or any of the reads that read from w
 	 * in the relation "rel".

@@ -25,6 +25,23 @@
 #include <string>
 #include <unordered_map>
 
+/* The different reasons a thread might block */
+enum class BlockageType {
+	NotBlocked,
+	ThreadJoin,
+	Spinloop,
+	SpinloopEnd,
+	FaiZNESpinloop,
+	LockZNESpinloop,
+	LockOptBlock,
+	LockNotAcq,
+	LockNotRel,
+	Barrier,
+	Cons,
+	Error,
+	User,
+};
+
 /* Pers: Journaling mount options */
 enum class JournalDataFS { writeback, ordered, journal };
 

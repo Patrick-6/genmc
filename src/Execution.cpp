@@ -2752,7 +2752,7 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
-		getCurThr().block(Thread::BlockageType::BT_Spinloop);
+		getCurThr().block(BlockageType::Spinloop);
 }
 
 void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -2777,7 +2777,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
-		driver->visitBlock(BlockLabel::create(nextPos(), BlockLabel::Type::BT_User));
+		driver->visitBlock(BlockLabel::create(nextPos(), BlockageType::User));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3290,7 +3290,7 @@ SVal Interpreter::executeInodeLookupFS(const std::string &filename, Type *intTyp
 	auto inTrans = getInodeTransStatus(getDirInode(), intTyp);
 	if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
 		getCurThr().rollToSnapshot();
-		getCurThr().block(llvm::Thread::BlockageType::BT_Cons);
+		getCurThr().block(BlockageType::Cons);
 		return SVal(42); /* propagate block */
 	}
 
@@ -3855,7 +3855,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 		auto inTrans = getInodeTransStatus(inode, intTyp);
 		if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
 			getCurThr().rollToSnapshot();
-			getCurThr().block(llvm::Thread::BlockageType::BT_Cons);
+			getCurThr().block(BlockageType::Cons);
 			return SVal(42); /* propagate block */
 		}
 	}

@@ -320,27 +320,12 @@ public:
 class BlockLabel : public EventLabel {
 
 public:
-	enum Type {
-		BT_NotBlocked,
-		BT_ThreadJoin,
-		BT_Spinloop,
-		BT_SpinloopEnd,
-		BT_FaiZNESpinloop,
-		BT_LockZNESpinloop,
-		BT_LockAcq,
-		BT_LockRel,
-		BT_Barrier,
-		BT_Cons,
-		BT_Error,
-		BT_User,
-	};
-
-	BlockLabel(unsigned int st, Event pos, Type t)
+	BlockLabel(unsigned int st, Event pos, BlockageType t)
 		: EventLabel(EL_Block, st, llvm::AtomicOrdering::NotAtomic, pos), type(t) {}
-	BlockLabel(Event pos, Type t)
+	BlockLabel(Event pos, BlockageType t)
 		: EventLabel(EL_Block, llvm::AtomicOrdering::NotAtomic, pos), type(t) {}
 
-	Type getType() const { return type; }
+	BlockageType getType() const { return type; }
 
 	template<typename... Ts>
 	static std::unique_ptr<BlockLabel> create(Ts&&... params) {
@@ -355,7 +340,7 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_Block; }
 
 private:
-	Type type;
+	BlockageType type;
 };
 
 

@@ -471,7 +471,7 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 		if (lab->getStamp() < rLab->getStamp())
 			continue;
 		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
-		    g.isBlockedOptLock(lab)) {
+		    g.isOptBlockedLock(lab)) {
 			if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
 				return false;
 			continue;

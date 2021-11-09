@@ -147,7 +147,7 @@ void Interpreter::resetThread(unsigned int id)
 	auto &thr = getThrById(id);
 	thr.ECStack = {};
 	thr.tls = threadLocalVars;
-	thr.blocked = Thread::BlockageType::BT_NotBlocked;
+	thr.blocked = BlockageType::NotBlocked;
 	thr.globalInstructions = 0;
 	thr.rng.seed(Thread::seed);
 	clearDeps(id);
