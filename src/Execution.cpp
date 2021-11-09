@@ -2777,7 +2777,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
-		driver->visitBlock(currPos());
+		driver->visitBlock(BlockLabel::create(nextPos(), BlockLabel::Type::BT_User));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,

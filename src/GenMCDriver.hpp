@@ -113,13 +113,15 @@ public:
 		RevisitSetT revset;
 		LocalQueueT workqueue;
 		std::unique_ptr<llvm::EELocalState> interpState;
+		bool isMootExecution;
+		Event lockToReschedule;
 		std::vector<Event> threadPrios;
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
 		LocalState() = delete;
 		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
 			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
-			   const std::vector<Event> &threadPrios);
+			   bool isMootExecution, Event lockToReschedule, const std::vector<Event> &threadPrios);
 
 		~LocalState();
 	};
@@ -260,7 +262,7 @@ public:
 	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
 
 	/* This method blocks the current thread  */
-	void visitBlock(Event pos);
+	void visitBlock(std::unique_ptr<BlockLabel> bLab);
 
 	/* LKMM: Visit RCU functions */
 	void
@@ -391,6 +393,19 @@ private:
 	/* Returns true if this driver is shutting down */
 	bool isHalting() const;
 
+	/* Returns true if this execution is moot */
+	bool isMoot() const { return isMootExecution; }
+
+	/* Opt: Mark current execution as moot/normal */
+	void moot() { isMootExecution = true; }
+	void unmoot() { isMootExecution = false; }
+
+	/* Opt: Whether the exploration should try to repair L */
+	bool isRescheduledLock(Event l) const { return lockToReschedule == l; }
+
+	/* Opt: Sets L as a lock to be repaired */
+	void setRescheduledLock(Event l) { lockToReschedule = l; }
+
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
@@ -411,11 +426,17 @@ private:
 	 * Note: assumes there is a next instruction in TID*/
 	bool isNextThreadInstLoad(int tid);
 
-	/* Helpers that try to schedule the next thread according to
-	 * the chosen policy */
+	/* Helpers for schedule according to a policy */
 	bool scheduleNextLTR();
 	bool scheduleNextWF();
 	bool scheduleNextRandom();
+
+	/* Tries to schedule the next instruction according to the
+	 * chosen policy */
+	bool scheduleNormal();
+
+	/* Opt: Tries to reschedule any locks that were added blocked */
+	bool rescheduleLocks();
 
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
@@ -460,6 +481,9 @@ private:
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
+
+	/* BAM: Tries to optimize barrier-related revisits */
+	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -522,9 +546,20 @@ private:
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op. Returns the filtered set of RFs  */
-	std::vector<Event> filterAcquiredLocks(SAddr ptr,
+	std::vector<Event> filterAcquiredLocks(const ReadLabel *rLab,
 					       const std::vector<Event> &stores,
 					       const VectorClock &before);
+
+	/* Opt: Tries to in-place revisit a read that is part of a lock.
+	 * Returns true if the optimization succeeded */
+	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab);
+
+	/* Opt: Repairs the reads-from edge of a dangling lock */
+	void repairLock(LockCasReadLabel *lab);
+
+	/* Opt: Repairs some locks that may be "dangling", as part of the
+	 * in-place revisiting of locks */
+	void repairDanglingLocks();
 
 	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
 	void repairDanglingBarriers();
@@ -651,6 +686,12 @@ private:
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */
 	std::vector<Event> threadPrios;
+
+	/* Opt: Whether this execution is moot (locking) */
+	bool isMootExecution;
+
+	/* Opt: Whether a particular lock needs to be repaired during rescheduling */
+	Event lockToReschedule;
 
 	/* Verification result to be returned to caller */
 	Result result;

@@ -82,12 +82,13 @@ bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	auto v = getRevisitView(rLab, sLab);
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		if ((*v)[i] + 1 != (long) getThreadSize(i))
+		if ((*v)[i] + 1 != (long) getThreadSize(i) &&
+		    !llvm::isa<BlockLabel>(getEventLabel(Event(i, (*v)[i] + 1))))
 			return true;
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!v->contains(lab->getPos()) &&
-			    !llvm::isa<EmptyLabel>(lab))
+			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
+			    !llvm::isa<BlockLabel>(lab))
 				return true;
 		}
 	}

@@ -1,9 +1,6 @@
 int x = -1;
 int y = 42;
 
-unsigned xu;
-unsigned yu;
-
 void *thread_1(void *unused)
 {
 	int r_y = y;

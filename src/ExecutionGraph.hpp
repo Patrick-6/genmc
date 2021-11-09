@@ -432,6 +432,15 @@ public:
 	}
 	bool isRMWStore(const Event e) const { return isRMWStore(getEventLabel(e)); }
 
+	bool isBlockedOptLock(const EventLabel *lab) const {
+		if (llvm::isa<LockCasReadLabel>(lab) &&
+		    getLastThreadEvent(lab->getThread()) == lab->getPos().next()) {
+			auto *bLab = llvm::dyn_cast<BlockLabel>(getNextLabel(lab));
+			return bLab && bLab->getType() == BlockLabel::Type::BT_LockAcq;
+		}
+		return false;
+	}
+
 	/* Returns true if e is hb-before w, or any of the reads that read from w */
 	bool isHbOptRfBefore(const Event e, const Event write) const;
 	bool isHbOptRfBeforeInView(const Event e, const Event write,
@@ -479,6 +488,18 @@ public:
 	bool hasBeenRevisitedByDeleted(const ReadLabel *rLab, const WriteLabel *sLab,
 				       const EventLabel *eLab) const;
 
+	/* Returns whether the prefix of SLAB contains LAB's matching lock */
+	bool prefixContainsMatchingLock(const EventLabel *lab, const WriteLabel *sLab) const {
+		if (!llvm::isa<UnlockWriteLabel>(lab))
+			return false;
+		auto l = getMatchingLock(lab->getPos());
+		return !l.isInitializer() && getPrefixView(sLab->getPos()).contains(l);
+	}
+
+	/* Returns true if all events to be removed by the revisit
+	 * RLAB <- SLAB form a maximal extension */
+	bool isMaximalExtension(const ReadLabel *rLab, const WriteLabel *sLab) const;
+
 	/* Returns true if the graph that will be created when sLab revisits rLab
 	 * will be the same as the current one */
 	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
@@ -486,9 +507,6 @@ public:
 
 	virtual bool prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
 					   const EventLabel *lab) const;
-
-	bool isMaximalExtension(const ReadLabel *rLab,
-				const WriteLabel *sLab) const;
 
 
 	/* Debugging methods */

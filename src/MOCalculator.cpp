@@ -470,11 +470,13 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 	for (const auto *lab : labels(g)) {
 		if (lab->getStamp() < rLab->getStamp())
 			continue;
-		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab)) {
+		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
+		    g.isBlockedOptLock(lab)) {
 			if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
 				return false;
 			continue;
 		}
+
 		if (isRbBeforeSavedPrefix(rLab, wLab, lab))
 			return false;
 		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))

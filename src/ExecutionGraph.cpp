@@ -1118,6 +1118,7 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 	return !v->contains(rfLab->getPos()) &&
 		rfLab->getStamp() > lab->getStamp() &&
 		!prefixContainsSameLoc(rLab, sLab, rfLab) &&
+		!prefixContainsMatchingLock(rfLab, sLab) &&
 		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
 }
 
@@ -1129,7 +1130,8 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 
 	v.update(pfx);
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (v[i] + 1 != (int) getThreadSize(i))
+		if (v[i] + 1 != (int) getThreadSize(i) &&
+		    !llvm::isa<BlockLabel>(getEventLabel(Event(i, v[i] + 1))))
 			return true;
 	}
 	return false;

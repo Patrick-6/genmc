@@ -551,11 +551,11 @@ WBCalculator::getCoherentStores(SAddr addr, Event read)
 	 *
 	 * Check whether calculating WB is necessary. As a byproduct, if the
 	 * initializer is a valid RF, it is pushed into result */
+	getCache().invalidate();
 	if (!supportsOutOfOrder() && tryOptimizeWBCalculation(addr, read, result))
 		return result;
 
 	/* Find the stores from which we can read-from */
-	getCache().invalidate();
 	for (auto i = 0u; i < stores.size(); i++) {
 		if (isCoherentRf(addr, read, stores[i]))
 			result.push_back(stores[i]);
@@ -820,7 +820,6 @@ Event WBCalculator::getOrInsertWbMaximal(const ReadLabel *lab, const VectorClock
 
 	std::sort(maximals.begin(), maximals.end(), [&g, &v](const Event &a, const Event &b)
 		{ return g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp(); });
-
 	return cache[lab->getAddr()] = maximals.back();
 }
 
@@ -852,6 +851,12 @@ bool WBCalculator::ignoresDeletedStore(const ReadLabel *rLab, const WriteLabel *
 	});
 }
 
+/*
+ * A store is deemed "maximal" if
+ *     (1) it is contained in V
+ *     (2) it is not porf-after LAB, and
+ *     (3) all of its wb-successors are porf-after LAB
+ */
 Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab)
 {
 	auto &g = getGraph();
@@ -878,21 +883,30 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 	} else
 		BUG();
 
-	/* A store is "maximal" if
-	 *     (1) it is contained in V
-	 *     (2) it is not porf-after LAB, and
-	 *     (3) all of its wb-successors are porf-after LAB */
+	/* CAUTION: In the case where the location is ordered, we take
+	 * special care for locks: it may well be the case that a lock
+	 * reads from an unlock that will be deleted and not part of
+	 * WLAB's prefix. In this case, we _want_ the revisit to happen
+	 * even though ULAB is not in the cut graph, because the execution
+	 * where the lock reads from the cut graph will be deemed moot. */
 	if (isLocOrderedRestricted(lab->getAddr(), *p)) {
 		auto &stores = getStoresToLoc(lab->getAddr());
 		auto maxIt = std::find_if(stores.rbegin(), stores.rend(), [&](const Event &s){
-			if (!p->contains(s) || g.getEventLabel(s)->getPorfView().contains(lab->getPos()))
+			auto *sLab = g.getEventLabel(s);
+			if (s == wLab->getPos() || /* separate case due to matching locks */
+			    !(p->contains(s) || g.prefixContainsMatchingLock(sLab, wLab)) ||
+			    sLab->getPorfView().contains(lab->getPos()))
 				return false;
 			return std::all_of(wb_to_succ_begin(stores, s), wb_to_succ_end(stores, s),
 					   [&](const Event &ss){
 						   auto *ssLab = g.getEventLabel(ss);
-						   return ssLab->getPorfView().contains(lab->getPos());
+						   return ss == wLab->getPos() ||
+							   !(p->contains(ss) ||
+							     g.prefixContainsMatchingLock(ssLab, wLab)) ||
+							   ssLab->getPorfView().contains(lab->getPos());
 					   });
 		});
+		return maxIt == stores.rend() ? Event::getInitializer() : *maxIt;
 	}
 
 	auto wb = calcWbRestricted(lab->getAddr(), *p);
@@ -907,10 +921,10 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 		}))
 			maximals.push_back(s);
 	}
-	auto v = g.getRevisitView(rLab, wLab);
-	std::sort(maximals.begin(), maximals.end(), [&g, &v](const Event &a, const Event &b){
-		return (v->contains(a) && !v->contains(b)) ||
-			(!(v->contains(b) && !v->contains(a)) &&
+
+	std::sort(maximals.begin(), maximals.end(), [&g, &p](const Event &a, const Event &b){
+		return (p->contains(a) && !p->contains(b)) ||
+			(!(p->contains(b) && !p->contains(a)) &&
 			 g.getEventLabel(a)->getStamp() < g.getEventLabel(b)->getStamp());
 	});
 	return (maximals.empty() ? Event::getInitializer() : maximals.back());
@@ -965,15 +979,14 @@ bool WBCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 	for (const auto *lab : labels(g)) {
 		if (lab->getStamp() < rLab->getStamp())
 			continue;
-		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab))
+		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
+		    g.isBlockedOptLock(lab))
 			continue;
 
 		if (isRbBeforeSavedPrefix(rLab, wLab, lab, wbs))
 			return false;
-
 		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))
 			return false;
-
 		if (!wasAddedMaximally(rLab, wLab, lab, initMaximals))
 			return false;
 	}

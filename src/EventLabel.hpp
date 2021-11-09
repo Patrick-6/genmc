@@ -57,6 +57,7 @@ public:
 	 * It is public to allow clients perform a switch() on it */
 	enum EventLabelKind {
 		EL_Empty,
+		EL_Block,
 		EL_ThreadStart,
 		EL_ThreadFinish,
 		EL_ThreadCreate,
@@ -308,6 +309,53 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Empty; }
+};
+
+
+/*******************************************************************************
+ **                            BlockLabel Class
+ ******************************************************************************/
+
+/* A label that represents a blockage event */
+class BlockLabel : public EventLabel {
+
+public:
+	enum Type {
+		BT_NotBlocked,
+		BT_ThreadJoin,
+		BT_Spinloop,
+		BT_SpinloopEnd,
+		BT_FaiZNESpinloop,
+		BT_LockZNESpinloop,
+		BT_LockAcq,
+		BT_LockRel,
+		BT_Barrier,
+		BT_Cons,
+		BT_Error,
+		BT_User,
+	};
+
+	BlockLabel(unsigned int st, Event pos, Type t)
+		: EventLabel(EL_Block, st, llvm::AtomicOrdering::NotAtomic, pos), type(t) {}
+	BlockLabel(Event pos, Type t)
+		: EventLabel(EL_Block, llvm::AtomicOrdering::NotAtomic, pos), type(t) {}
+
+	Type getType() const { return type; }
+
+	template<typename... Ts>
+	static std::unique_ptr<BlockLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<BlockLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<BlockLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Block; }
+
+private:
+	Type type;
 };
 
 
