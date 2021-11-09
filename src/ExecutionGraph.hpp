@@ -147,7 +147,7 @@ public:
 	inline bool isThreadEmpty(int tid) const { return getThreadSize(tid) == 0; };
 
 
-	/* Event addition methods */
+	/* Event addition/removal methods */
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp() { return timestamp++; }
@@ -162,6 +162,12 @@ public:
 					       Event pred);
 	const LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
 	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
+
+	/* Removes an event from the execution graph. If the event is
+	 * not the last of a thread, it replaces it with an empty label.
+	 * (Updates reader lists appropriately.) */
+	void remove(const Event &e) { return remove(getEventLabel(e)); }
+	void remove(const EventLabel *lab);
 
 
 	/* Event getter methods */
@@ -179,6 +185,13 @@ public:
 	const EventLabel *getPreviousLabel(Event e) const { return getEventLabel(e.prev()); }
 	const EventLabel *getPreviousLabel(const EventLabel *lab) const {
 		return getPreviousLabel(lab->getPos());
+	}
+
+	/* Returns the label in the next position of e.
+	 * Does _not_ perform any out-of-bounds checks */
+	const EventLabel *getNextLabel(Event e) const { return getEventLabel(e.next()); }
+	const EventLabel *getNextLabel(const EventLabel *lab) const {
+		return getNextLabel(lab->getPos());
 	}
 
 	/* Returns the previous non-empty label of e. Since all threads
@@ -208,6 +221,10 @@ public:
 	}
 	const EventLabel *getLastThreadLabel(int thread) const {
 		return getEventLabel(getLastThreadEvent(thread));
+	}
+	EventLabel *getLastThreadLabel(int thread) {
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph&>(*this).getLastThreadLabel(thread));
 	}
 
 	/* Returns the last store at ADDR that is before UPPERLIMIT in
@@ -552,6 +569,7 @@ protected:
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
+	void resizeThread(Event pos) { resizeThread(pos.thread, pos.index); }
 
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);

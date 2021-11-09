@@ -415,6 +415,9 @@ public:
 	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });
   }
 
+   /* Resets all thread info to their initial values */
+  void resetThread(unsigned int id);
+
   /* Resets the interpreter at the beginning of a new execution */
   void reset();
 

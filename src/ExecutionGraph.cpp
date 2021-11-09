@@ -983,6 +983,18 @@ ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel
  ** Calculation of writes a read can read from
  ***********************************************************/
 
+void ExecutionGraph::remove(const EventLabel *lab)
+{
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
+			wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
+	}
+	if (lab != getLastThreadLabel(lab->getThread()))
+		events[lab->getThread()][lab->getIndex()] = EmptyLabel::create(lab->getPos());
+	BUG_ON(lab->getIndex() >= getThreadSize(lab->getThread()));
+	resizeThread(lab->getPos());
+}
+
 bool ExecutionGraph::isNonTrivial(const Event e) const
 {
 	return isNonTrivial(getEventLabel(e));

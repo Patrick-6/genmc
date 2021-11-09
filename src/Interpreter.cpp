@@ -142,7 +142,17 @@ void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
 	currentThread = state->currentThread;
 }
 
-/* Resets the interpreter for a new exploration */
+void Interpreter::resetThread(unsigned int id)
+{
+	auto &thr = getThrById(id);
+	thr.ECStack = {};
+	thr.tls = threadLocalVars;
+	thr.blocked = Thread::BlockageType::BT_NotBlocked;
+	thr.globalInstructions = 0;
+	thr.rng.seed(Thread::seed);
+	clearDeps(id);
+}
+
 void Interpreter::reset()
 {
 	/*
@@ -151,14 +161,7 @@ void Interpreter::reset()
 	 * that thread (joins do not empty ECStacks)
 	 */
 	currentThread = 0;
-	for (auto i = 0u; i < threads.size(); i++) {
-		threads[i].ECStack = {};
-		threads[i].tls = threadLocalVars;
-		threads[i].blocked = Thread::BlockageType::BT_NotBlocked;
-		threads[i].globalInstructions = 0;
-		threads[i].rng.seed(Thread::seed);
-		clearDeps(i);
-	}
+	std::for_each(threads_begin(), threads_end(), [this](Thread &thr){ resetThread(thr.id); });
 }
 
 void Interpreter::setupRecoveryRoutine(int tid)
