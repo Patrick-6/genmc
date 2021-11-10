@@ -2097,74 +2097,52 @@ void GenMCDriver::repairDanglingBarriers()
 
 const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
-	auto &g = getGraph();
-	auto *EE = getEE();
+	/* Handle non-RMW cases first */
+	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
+		return nullptr;
+	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
+		if (getReadValue(rLab) != casLab->getExpected())
+			return nullptr;
+	}
 
-	const WriteLabel *sLab = nullptr;
-	std::unique_ptr<WriteLabel> wLab = nullptr;
+	SVal result;
 	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
-		auto isBarrier = false;
-
 		/* Need to get the rf value within the if, as rLab might be a disk op,
 		 * and we cannot get the value in that case (but it will also not be an RMW)  */
 		auto rfVal = getReadValue(rLab);
-		auto result = EE->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(), faiLab->getOp());
-		if (llvm::isa<BIncFaiReadLabel>(faiLab)) {
-			isBarrier = true;
-			if (result == SVal(0))
-			    result =  getBarrierInitValue(rLab->getAddr(), rLab->getAccess());
-		}
-		wLab = isBarrier ?
-			BIncFaiWriteLabel::create(g.nextStamp(),
-						  faiLab->getOrdering(),
-						  Event(faiLab->getThread(), faiLab->getIndex() + 1),
-						  faiLab->getAddr(),
-						  faiLab->getSize(),
-						  faiLab->getType(), result) :
-			(llvm::isa<NoRetFaiReadLabel>(faiLab) ?
-			 NoRetFaiWriteLabel::create(g.nextStamp(),
-						    faiLab->getOrdering(),
-						    Event(faiLab->getThread(), faiLab->getIndex() + 1),
-						    faiLab->getAddr(),
-						    faiLab->getSize(), faiLab->getType(), result) :
-			 FaiWriteLabel::create(g.nextStamp(),
-					       faiLab->getOrdering(),
-					       Event(faiLab->getThread(), faiLab->getIndex() + 1),
-					       faiLab->getAddr(),
-					       faiLab->getSize(), faiLab->getType(), result));
+		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(), faiLab->getOp());
+		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
+			    result = getBarrierInitValue(rLab->getAddr(), rLab->getAccess());
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
-		auto isLock = llvm::isa<LockCasReadLabel>(casLab);
-		if (getReadValue(rLab) == casLab->getExpected()) {
-			wLab = isLock ?
-				LockCasWriteLabel::create(g.nextStamp(),
-							  casLab->getOrdering(),
-							  Event(casLab->getThread(), casLab->getIndex() + 1),
-							  casLab->getAddr(),
-							  casLab->getSize(),
-							  casLab->getType(),
-							  casLab->getSwapVal()) :
-				(llvm::isa<TrylockCasReadLabel>(casLab) ?
-				 TrylockCasWriteLabel::create(g.nextStamp(),
-							      casLab->getOrdering(),
-							      Event(casLab->getThread(), casLab->getIndex() + 1),
-							      casLab->getAddr(),
-							      casLab->getSize(),
-							      casLab->getType(),
-							      casLab->getSwapVal()) :
-				 CasWriteLabel::create(g.nextStamp(),
-						       casLab->getOrdering(),
-						       Event(casLab->getThread(), casLab->getIndex() + 1),
-						       casLab->getAddr(),
-						       casLab->getSize(),
-						       casLab->getType(),
-						       casLab->getSwapVal()));
-		}
+		result = casLab->getSwapVal();
+	} else
+		BUG();
+
+	auto &g = getGraph();
+	std::unique_ptr<WriteLabel> wLab = nullptr;
+
+#define CREATE_COUNTERPART(name)					\
+	case EventLabel::EL_## name ## Read:				\
+		wLab = name##WriteLabel::create(g.nextStamp(), rLab->getOrdering(), \
+						rLab->getPos().next(),	\
+						rLab->getAddr(),	\
+						rLab->getSize(),	\
+						rLab->getType(), result); \
+		break;
+
+	switch (rLab->getKind()) {
+		CREATE_COUNTERPART(BIncFai);
+		CREATE_COUNTERPART(NoRetFai);
+		CREATE_COUNTERPART(Fai);
+		CREATE_COUNTERPART(LockCas);
+		CREATE_COUNTERPART(TrylockCas);
+		CREATE_COUNTERPART(Cas);
+	default:
+		BUG();
 	}
-	if (wLab) {
-		updateLabelViews(wLab.get(), nullptr);
-		return g.addWriteLabelToGraph(std::move(wLab), rLab->getRf());
-	}
-	return nullptr;
+	BUG_ON(!wLab);
+	updateLabelViews(wLab.get(), nullptr);
+	return g.addWriteLabelToGraph(std::move(wLab), rLab->getRf());
 }
 
 bool GenMCDriver::revisitRead(const RevItem &ri)
