@@ -780,8 +780,7 @@ SVal GenMCDriver::getReadRetValueAndMaybeBlock(const ReadLabel *rLab)
 		BUG_ON(getEE()->getExecState() != llvm::ExecutionState::Replay);
 		thr.block(BlockageType::Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
-		   !getEE()->compareValues(rLab->getSize(), res,
-					   getBarrierInitValue(rLab->getAddr(), rLab->getAccess()))) {
+		   res != getBarrierInitValue(rLab->getAddr(), rLab->getAccess())) {
 		/* Reading a non-init barrier value means that the thread should block */
 		thr.block(BlockageType::Barrier);
 	}
@@ -954,7 +953,7 @@ void GenMCDriver::checkLockValidity(const ReadLabel *rLab, const std::vector<Eve
 	/* Should not read from destroyed mutex */
 	auto rfIt = std::find_if(rfs.cbegin(), rfs.cend(), [this, lLab](const Event &rf){
 		auto rfVal = getWriteValue(rf, lLab->getAddr(), lLab->getAccess());
-		return getEE()->compareValues(lLab->getSize(), rfVal, SVal(-1));
+		return rfVal == SVal(-1);
 	});
 	if (rfIt != rfs.cend())
 		visitError(rLab->getPos(), Status::VS_UninitializedMem,
@@ -992,7 +991,7 @@ void GenMCDriver::checkBInitValidity(const WriteLabel *lab)
 
 	if (sIt != stores.end())
 		visitError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
-	else if (getEE()->compareValues(wLab->getSize(), wLab->getVal(), SVal(0)))
+	else if (wLab->getVal() == SVal(0))
 		visitError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() with 0!");
 	return;
 }
@@ -1008,7 +1007,7 @@ void GenMCDriver::checkBIncValidity(const ReadLabel *rLab, const std::vector<Eve
 			   "Called barrier_wait() on uninitialized barrier!");
 	else if (std::any_of(rfs.cbegin(), rfs.cend(), [this, bLab](const Event &rf){
 		auto rfVal = getWriteValue(rf, bLab->getAddr(), bLab->getAccess());
-		return getEE()->compareValues(bLab->getSize(), rfVal, SVal(0));
+		return rfVal == SVal(0);
 	}))
 		visitError(rLab->getPos(), Status::VS_AccessFreed,
 			   "Called barrier_wait() on destroyed barrier!", bLab->getRf());
@@ -1128,7 +1127,7 @@ GenMCDriver::properlyOrderStores(const ReadLabel *lab, const std::vector<Event> 
 		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
 			continue;
 		if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
-			if (EE->compareValues(rLab->getSize(), oldVal, rLab->getExpected()) &&
+			if (oldVal == rLab->getExpected() &&
 			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
 				continue;
 		}
@@ -1549,7 +1548,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(validStores.back(), lab->getAddr(), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) &&
-	    !EE->compareValues(lab->getSize(), retVal, getBarrierInitValue(lab->getAddr(), lab->getAccess())))
+	   retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess()))
 		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Barrier));
 
 	/* Push all the other alternatives choices to the Stack */
@@ -1660,7 +1659,7 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 	auto ret = visitLoad(LockCasReadLabel::create(pos, addr, size), deps);
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getGraph().getEventLabel(pos));
-	if (!rLab->getRf().isBottom() && EE->compareValues(size, SVal(0), ret))
+	if (!rLab->getRf().isBottom() && ret == SVal(0))
 		visitStore(LockCasWriteLabel::create(pos.next(), addr, size), deps);
 	else
 		visitBlock(BlockLabel::create(pos.next(),
@@ -1906,7 +1905,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab)
 
 	/* If the barrier_wait() does not write the initial value, nothing to do */
 	auto iVal = getBarrierInitValue(sLab->getAddr(), sLab->getAccess());
-	if (!getEE()->compareValues(sLab->getSize(), sLab->getVal(), iVal))
+	if (sLab->getVal() != iVal)
 		return true;
 
 	/* Otherwise, revisit in place */
@@ -2135,8 +2134,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 					       faiLab->getSize(), faiLab->getType(), result));
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		auto isLock = llvm::isa<LockCasReadLabel>(casLab);
-		auto rfVal = getReadValue(rLab);
-		if (EE->compareValues(casLab->getSize(), casLab->getExpected(), rfVal)) {
+		if (getReadValue(rLab) == casLab->getExpected()) {
 			wLab = isLock ?
 				LockCasWriteLabel::create(g.nextStamp(),
 							  casLab->getOrdering(),

@@ -536,7 +536,6 @@ public:
 
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
-  bool compareValues(ASize size, SVal val1, SVal val2);
   SVal getLocInitVal(SAddr addr, AAccess access);
   unsigned int getTypeSize(Type *typ) const;
   SVal executeAtomicRMWOperation(SVal val1, SVal val2, AtomicRMWInst::BinOp op);

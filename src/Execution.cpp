@@ -162,11 +162,6 @@ static void SetValue(Value *V, GenericValue Val, ExecutionContext &SF) {
   SF.Values[V] = Val;
 }
 
-bool Interpreter::compareValues(ASize size, SVal val1, SVal val2)
-{
-	return val1 == val2;
-}
-
 bool Interpreter::isStaticallyAllocated(SAddr addr) const
 {
 	auto p = std::make_pair(addr, addr);
@@ -1547,7 +1542,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		CasReadLabel::create(I.getSuccessOrdering(), nextPos(), ptr, size, atyp, GV_TO_SVAL(cmpVal, typ),
 				     GV_TO_SVAL(newVal, typ)), &*lDeps);
 
-	auto cmpRes = compareValues(getTypeSize(typ), ret, cmpVal.IntVal.getLimitedValue());
+	auto cmpRes = ret == GV_TO_SVAL(cmpVal, typ);
 	if (!getCurThr().isBlocked() && cmpRes) {
 		auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()),
 					   getDataDeps(getCurThr().id, I.getNewValOperand()),
@@ -2971,7 +2966,7 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 	/* Dependencies already set by the EE */
 	auto ret = driver->visitLoad(TrylockCasReadLabel::create(nextPos(), ptr, size), &*specialDeps);
 
-	auto cmpRes = compareValues(size, ret, SVal(0));
+	auto cmpRes = ret == SVal(0);
 	if (cmpRes)
 		driver->visitStore(TrylockCasWriteLabel::create(nextPos(), ptr, size), &*specialDeps);
 
@@ -3288,7 +3283,7 @@ SVal Interpreter::checkOpenFlagsFS(SVal &flags, Type *intTyp)
 SVal Interpreter::executeInodeLookupFS(const std::string &filename, Type *intTyp)
 {
 	auto inTrans = getInodeTransStatus(getDirInode(), intTyp);
-	if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
+	if (inTrans == SVal(1)) {
 		getCurThr().rollToSnapshot();
 		getCurThr().block(BlockageType::Cons);
 		return SVal(42); /* propagate block */
@@ -3853,7 +3848,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 
 	if (MI->fsInfo.journalData == JournalDataFS::journal) {
 		auto inTrans = getInodeTransStatus(inode, intTyp);
-		if (compareValues(getTypeSize(intTyp), SVal(1), inTrans)) {
+		if (inTrans == SVal(1)) {
 			getCurThr().rollToSnapshot();
 			getCurThr().block(BlockageType::Cons);
 			return SVal(42); /* propagate block */
