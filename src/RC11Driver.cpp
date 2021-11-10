@@ -263,6 +263,9 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_DskOpen:
 		calcBasicViews(lab);
 		break;
+	case EventLabel::EL_SmpFenceLKMM:
+		ERROR("LKMM fences can only be used with -lkmm!\n");
+		break;
 	case EventLabel::EL_RCULockLKMM:
 	case EventLabel::EL_RCUUnlockLKMM:
 	case EventLabel::EL_RCUSyncLKMM:

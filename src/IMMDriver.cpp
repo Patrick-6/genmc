@@ -416,6 +416,9 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_LockLabelLAPOR: /* special case */
 		calcLockLAPORViews(llvm::dyn_cast<LockLabelLAPOR>(lab), deps);
 		break;
+	case EventLabel::EL_SmpFenceLKMM:
+		ERROR("LKMM fences can only be used with -lkmm!\n");
+		break;
 	case EventLabel::EL_RCULockLKMM:
 	case EventLabel::EL_RCUUnlockLKMM:
 	case EventLabel::EL_RCUSyncLKMM:
