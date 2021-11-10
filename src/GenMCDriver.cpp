@@ -1090,14 +1090,16 @@ std::vector<Event> GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab,
 {
 	const auto &g = getGraph();
 
-	if (llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) &&
+	if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) ||
+	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
 	    !isRescheduledLock(rLab->getPos()))
 		return {stores.back()};
 
 	std::vector<Event> result;
 
 	for (auto &s : stores) {
-		if (llvm::isa<LockCasWriteLabel>(g.getEventLabel(s)) && s != stores.back())
+		if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(s)) ||
+		     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(s))) && s != stores.back())
 			continue;
 
 		if (g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
