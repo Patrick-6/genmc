@@ -199,6 +199,23 @@ bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU /* = nullptr */
 
 #ifndef LLVM_HAVE_REPLACE_USES_WITH_IF
 
+#ifdef LLVM_HANDLE_OPERAND_CHANGE_NEEDS_USE
+void replaceUsesWithIf(Value *New,
+                         llvm::function_ref<bool(Use &U)> ShouldReplace)
+{
+    // assert(New && "Value::replaceUsesWithIf(<null>) is invalid!");
+    // assert(New->getType() == getType() &&
+    //        "replaceUses of value with new value of different type!");
+
+	for (auto UI = use_begin(), E = use_end(); UI != E;) {
+		Use &U = *UI;
+		++UI;
+		if (!ShouldReplace(U))
+			continue;
+		U.set(New);
+	}
+}
+#else
 void replaceUsesWithIf(Value *Old, Value *New,
 		       llvm::function_ref<bool(Use &U)> ShouldReplace)
 {
@@ -232,5 +249,6 @@ void replaceUsesWithIf(Value *Old, Value *New,
 		Consts.pop_back_val()->handleOperandChange(Old, New);
 	}
 }
+#endif /* !LLVM_HANDLE_OPERAND_CHANGE_NEEDS_USE */
 
 #endif /* !LLVM_HAVE_REPLACE_USES_WITH_IF */

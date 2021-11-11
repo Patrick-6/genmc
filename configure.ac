@@ -814,6 +814,33 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
    [Define if llvm::EliminateUnreachableBlocks exists])],
   [AC_MSG_RESULT([no])])
 
+## Check whether llvm::replaceUsesWithIf exists
+AC_MSG_CHECKING([for llvm::replaceUsesWithIf])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Value.h>
+]],[[
+  llvm::Value *V = nullptr;
+  V->replaceUsesWithIf(nullptr, nullptr, nullptr);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HAVE_REPLACE_USES_WITH_IF],[1],
+   [Define if llvm::replaceUsesWithIf exists])],
+  [AC_MSG_RESULT([no])])
+
+## Check if llvm::handleOperandChange needs a Use argument
+AC_MSG_CHECKING([whether llvm::handleOperandChange needs a Use argument])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Constant.h>
+]],[[
+  llvm::Constant *C = nullptr;
+  C->handleOperandChange(nullptr, nullptr, nullptr);
+]])],
+  [AC_MSG_RESULT([yes])
+   AC_DEFINE([LLVM_HANDLE_OPERAND_CHANGE_NEEDS_USE],[1],
+   [Define if llvm::handleOperandChange needs a Use argument])],
+  [AC_MSG_RESULT([no])])
+
 
 ## Check if initializeIPA exists
 AC_MSG_CHECKING([for llvm::initializeIPA])
