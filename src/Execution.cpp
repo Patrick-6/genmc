@@ -2830,8 +2830,9 @@ void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &Ar
 void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
+	/* XXX: If we ever remove EE blocking, account for blocked events in liveness */
 	if (!ArgVals[0].IntVal.getBoolValue())
-		getCurThr().block(BlockageType::Spinloop);
+		driver->visitBlock(BlockLabel::create(nextPos(), BlockageType::Spinloop));
 }
 
 void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,

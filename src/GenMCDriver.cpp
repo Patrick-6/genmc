@@ -1098,7 +1098,8 @@ bool GenMCDriver::threadReadsMaximal(int tid)
 	 * adjust the detection starting point: DSA-blocked threads
 	 * will have a SpinStart as their last event.
 	 */
-	auto *lastLab = g.getLastThreadLabel(tid);
+	BUG_ON(!llvm::isa<BlockLabel>(g.getLastThreadLabel(tid)));
+	auto *lastLab = g.getPreviousLabel(g.getLastThreadLabel(tid));
 	auto start = llvm::isa<SpinStartLabel>(lastLab) ? lastLab->getPos().prev() : lastLab->getPos();
 	for (auto j = start.index; j > 0; j--) {
 		auto *lab = g.getEventLabel(Event(tid, j));
@@ -1124,9 +1125,12 @@ void GenMCDriver::checkLiveness()
 	/* Collect all threads blocked at spinloops */
 	std::vector<int> spinBlocked;
 	for (auto thrIt = EE->threads_begin(), thrE = EE->threads_end(); thrIt != thrE; ++thrIt) {
-		if (thrIt->getBlockageType() == BlockageType::Spinloop)
+		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(thrIt->id));
+		if (thrIt->getBlockageType() == BlockageType::Spinloop ||
+		    (bLab && bLab->getType() == BlockageType::Spinloop))
 			spinBlocked.push_back(thrIt->id);
 	}
+
 	/* And check whether all of them are live or not */
 	auto nonTermTID = 0u;
 	if (!spinBlocked.empty() &&
@@ -1914,6 +1918,21 @@ void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 	}
 }
 
+View GenMCDriver::getReplayView() const
+{
+	auto &g = getGraph();
+	auto v = g.getViewFromStamp(g.nextStamp());
+
+	/* visitBlock() is usually only called during normal execution
+	 * and hence not reproduced during replays.
+	 * We have to remove BlockLabels so that these will not lead
+	 * to the execution of extraneous instructions */
+	for (auto i = 0u; i < g.getNumThreads(); i++)
+		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(i)))
+			--v[i];
+	return v;
+}
+
 void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = "" */,
 			     Event confEvent /* = INIT */)
 {
@@ -1952,7 +1971,7 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	 * destroy the current execution stack */
 	auto oldState = getEE()->releaseLocalState();
 
-	getEE()->replayExecutionBefore(g.getViewFromStamp(g.nextStamp()));
+	getEE()->replayExecutionBefore(getReplayView());
 
 	llvm::raw_string_ostream out(result.message);
 
@@ -2492,11 +2511,8 @@ void GenMCDriver::visitSpinStart(std::unique_ptr<SpinStartLabel> lab)
 	auto &g = getGraph();
 
 	/* If it has not been added to the graph, do so */
-	if (isExecutionDrivenByGraph()) {
-		BUG_ON(lab->getPos().next() == g.getLastThreadEvent(lab->getThread()) &&
-		       llvm::isa<BlockLabel>(g.getEventLabel(lab->getPos().next())));
+	if (isExecutionDrivenByGraph())
 		return;
-	}
 
 	updateLabelViews(lab.get(), nullptr);
 	auto *stLab = g.addOtherLabelToGraph(std::move(lab));

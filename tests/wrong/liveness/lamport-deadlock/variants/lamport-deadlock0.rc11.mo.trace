@@ -1,5 +1,5 @@
 Error detected: Liveness violation!
-Event (1, 21) in graph:
+Event (1, 22) in graph:
 <-1, 0> main:
 	(0, 0): B
 	(0, 1): TC [forks 1] L.45
@@ -28,6 +28,7 @@ Event (1, 21) in graph:
 	(1, 19): LOOP_BEGIN
 	(1, 20): SPIN_START
 	(1, 21): Rsc (p2, 1) [(2, 4)] L.16
+	(1, 22): BLOCK
 <0, 2> thread_2:
 	(2, 0): B
 	(2, 1): Wsc (p2, 0) L.28
@@ -37,8 +38,9 @@ Event (1, 21) in graph:
 	(2, 5): LOOP_BEGIN
 	(2, 6): SPIN_START
 	(2, 7): Rsc (p1, 1) [(1, 18)] L.31
+	(2, 8): BLOCK
 
-Trace to (1, 21):
+Trace to (1, 22):
 [main] lamport-deadlock0.c: 45: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_1] lamport-deadlock0.c: 13: p1 = false;
 [thread_1] lamport-deadlock0.c: 15: p1 = true;

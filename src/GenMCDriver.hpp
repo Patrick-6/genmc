@@ -608,8 +608,8 @@ private:
 
 	/*** Output-related ***/
 
-	/* Prints statistics when the verification is over */
-	void printResults();
+	/* Returns a view to be used when replaying */
+	View getReplayView() const;
 
 	/* Prints the source-code instructions leading to Event e.
 	 * Assumes that debugging information have already been collected */
