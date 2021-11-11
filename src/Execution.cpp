@@ -1510,14 +1510,14 @@ void Interpreter::visitFenceInst(FenceInst &I)
 	return;
 }
 
-constexpr unsigned int switchPair(std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> p)
-{
-	return (unsigned(p.first) << 16) + p.second;
-}
-
 constexpr unsigned int switchPair(EventLabel::EventLabelKind a, EventLabel::EventLabelKind b)
 {
-	return switchPair(std::make_pair(a, b));
+	return (unsigned(a) << 16) + b;
+}
+
+constexpr unsigned int switchPair(std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> p)
+{
+	return switchPair(p.first, p.second);
 }
 
 std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
