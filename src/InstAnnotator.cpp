@@ -86,8 +86,12 @@ InstAnnotator::IRExprUP InstAnnotator::generateOperandExpr(Value *op)
 		}
 		ERROR("Only integer and null constants currently allowed in assume() expressions.\n");
 	}
-	BUG_ON(!isa<Instruction>(op));
-	auto *mod = dyn_cast<Instruction>(op)->getParent()->getParent()->getParent();
+	BUG_ON(!isa<Instruction>(op) && !isa<Argument>(op));
+	Module *mod = nullptr;
+	if (auto *i = dyn_cast<Instruction>(op))
+		mod = i->getParent()->getParent()->getParent();
+	else if (auto *a = dyn_cast<Argument>(op))
+		mod = a->getParent()->getParent();
 	return RegisterExpr<Value *>::create(GET_TYPE_ALLOC_SIZE(*mod, op->getType()) * 8, getAnnotMapKey(op));
 }
 
