@@ -152,8 +152,6 @@ bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU = nullptr,
 
 #endif /* !LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS */
 
-#ifndef LLVM_HAVE_REPLACE_USES_WITH_IF
 void replaceUsesWithIf(llvm::Value *Old, llvm::Value *New, llvm::function_ref<bool(llvm::Use &U)> ShouldReplace);
-#endif /* !LLVM_HAVE_REPLACE_USES_WITH_IF */
 
 #endif /* __LLVM_UTILS_HPP__ */
