@@ -708,7 +708,7 @@ bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 				   wb_to_pred_end(stores, wLab->getPos()), [&](const Event &s){
 					   auto *slab = g.getEventLabel(s);
 					   return g.revisitDeletesEvent(rLab, sLab, slab) &&
-						   !wLab->getPorfView().contains(slab->getPos()) &&
+						   s.index > wLab->getPPoRfView()[s.thread] && /* no holes */
 						   slab->getStamp() < wLab->getStamp() &&
 						   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
 				   });
@@ -719,7 +719,7 @@ bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLa
 			   wb_po_pred_end(wb, wLab->getPos()), [&](const Event &s){
 				   auto *slab = g.getEventLabel(s);
 				   return g.revisitDeletesEvent(rLab, sLab, slab) &&
-					   !wLab->getPorfView().contains(slab->getPos()) &&
+					   s.index > wLab->getPPoRfView()[s.thread] && /* no holes */
 					   slab->getStamp() < wLab->getStamp() &&
 					   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
 			   });
@@ -747,7 +747,7 @@ bool WBCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLab
 				   wb_to_succ_end(stores, rLab->getRf()), [&](const Event &s){
 					   auto *sLab = g.getEventLabel(s);
 					   return v.contains(sLab->getPos()) &&
-						   !sLab->getPorfView().contains(rLab->getPos()) &&
+						   rLab->getIndex() > sLab->getPPoRfView()[rLab->getThread()] &&
 						   sLab->getPos() != wLab->getPos() &&
 						   sLab->getStamp() > revLab->getStamp();
 				   });
@@ -758,7 +758,7 @@ bool WBCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLab
 			   wb_po_succ_end(wb, rLab->getRf()), [&](const Event &s){
 				   auto *sLab = g.getEventLabel(s);
 				   return v.contains(sLab->getPos()) &&
-					   !sLab->getPorfView().contains(rLab->getPos()) &&
+					   rLab->getIndex() > sLab->getPPoRfView()[rLab->getThread()] &&
 					   sLab->getPos() != wLab->getPos() &&
 					   sLab->getStamp() > revLab->getStamp();
 			   });
@@ -895,7 +895,7 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 			auto *sLab = g.getEventLabel(s);
 			if (s == wLab->getPos() || /* separate case due to matching locks */
 			    !(p->contains(s) || g.prefixContainsMatchingLock(sLab, wLab)) ||
-			    sLab->getPorfView().contains(lab->getPos()))
+			    lab->getIndex() <= sLab->getPPoRfView()[lab->getThread()])
 				return false;
 			return std::all_of(wb_to_succ_begin(stores, s), wb_to_succ_end(stores, s),
 					   [&](const Event &ss){
@@ -903,7 +903,7 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 						   return ss == wLab->getPos() ||
 							   !(p->contains(ss) ||
 							     g.prefixContainsMatchingLock(ssLab, wLab)) ||
-							   ssLab->getPorfView().contains(lab->getPos());
+							   lab->getIndex() <= ssLab->getPPoRfView()[lab->getThread()];
 					   });
 		});
 		return maxIt == stores.rend() ? Event::getInitializer() : *maxIt;
@@ -914,10 +914,10 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 
 	std::vector<Event> maximals;
 	for (auto &s : stores) {
-		if (g.getEventLabel(s)->getPorfView().contains(lab->getPos()))
+		if (lab->getIndex() <= g.getEventLabel(s)->getPPoRfView()[lab->getThread()])
 			continue;
 		if (std::all_of(wb_po_succ_begin(wb, s), wb_po_succ_end(wb, s), [&](const Event &ss){
-			return g.getEventLabel(ss)->getPorfView().contains(lab->getPos());
+			return lab->getIndex() <= g.getEventLabel(ss)->getPPoRfView()[lab->getThread()];
 		}))
 			maximals.push_back(s);
 	}

@@ -39,11 +39,10 @@ public:
 private:
 	DepView getDepsAsView(EventLabel *lab, const EventDeps *deps);
 	View calcBasicHbView(Event e) const;
-	View calcBasicPorfView(Event e) const;
 	DepView calcFenceView(const MemAccessLabel *lab) const;
 	DepView calcPPoView(EventLabel *lab, const EventDeps *deps); /* not const */
 	void updateRelView(DepView &pporf, const EventLabel *lab);
-	void updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, ReadLabel *lab);
+	void updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab);
 	void updateLockViews(DepView &pporf, DepView &ppo, ReadLabel *lab);
 
 	void calcBasicViews(EventLabel *lab, const EventDeps *deps);

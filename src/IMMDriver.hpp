@@ -40,11 +40,10 @@ private:
 
 	DepView getDepsAsView(const EventDeps *deps);
 	View calcBasicHbView(Event e) const;
-	View calcBasicPorfView(Event e) const;
 	DepView calcPPoView(Event e, const EventDeps *deps); /* not const */
 	void updateRelView(DepView &pporf, EventLabel *lab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
-	void updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, const ReadLabel *lab);
+	void updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab);
 
 	void calcBasicViews(EventLabel *lab, const EventDeps *deps);
 	void calcReadViews(ReadLabel *lab, const EventDeps *deps);

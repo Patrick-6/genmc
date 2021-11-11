@@ -65,14 +65,6 @@ View LKMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-View LKMMDriver::calcBasicPorfView(Event e) const
-{
-	View v(getGraph().getPreviousLabel(e)->getPorfView());
-
-	++v[e.thread];
-	return v;
-}
-
 DepView LKMMDriver::calcFenceView(const MemAccessLabel *lab) const
 {
 	auto &g = getGraph();
@@ -176,18 +168,16 @@ void LKMMDriver::updateRelView(DepView &pporf, const EventLabel *lab)
 void LKMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
 {
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab, deps);
 
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, ReadLabel *lab)
+void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab)
 {
 	if (lab->getRf().isBottom())
 		return;
@@ -195,7 +185,6 @@ void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &porf, View &hb, Rea
 	auto &g = getGraph();
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 
-	porf.update(rfLab->getPorfView());
 	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
 		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
 		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
@@ -235,16 +224,14 @@ void LKMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView fence = calcFenceView(lab);
 	DepView ppo = calcPPoView(lab, deps);
 	DepView pporf(ppo);
 
-	updateReadViewsFromRf(pporf, porf, hb, lab);
+	updateReadViewsFromRf(pporf, hb, lab);
 	updateLockViews(pporf, ppo, lab);
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setFenceView(std::move(fence));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
@@ -256,9 +243,7 @@ void LKMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
 
 	/* First, we calculate the hb and porf views */
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 
 	/* Then, we calculate the ppo, (ppo U rf), and fence views
 	 * The first is important because we have to take dep;rfi
@@ -389,7 +374,6 @@ void LKMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView pporf = calcPPoView(lab, deps);
 
 	if (lab->isAtLeastAcquire())
@@ -418,7 +402,6 @@ void LKMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 	}
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 }
 
@@ -432,18 +415,15 @@ void LKMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
 	* in previous explorations, we have to reset it to the ppo one,
 	* and then update it */
 	View hb = calcBasicHbView(lab->getPos());
-	View porf = calcBasicPorfView(lab->getPos());
 	DepView ppo = calcPPoView(lab, deps);
 	DepView pporf(ppo);
 
 	if (llvm::isa<ThreadFinishLabel>(fLab)) {
 		hb.update(fLab->getHbView());
-		porf.update(fLab->getPorfView());
 		pporf.update(fLab->getPPoRfView());
 	}
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoView(std::move(ppo));
 	lab->setPPoRfView(std::move(pporf));
 	return;
@@ -455,15 +435,12 @@ void LKMMDriver::calcStartViews(ThreadStartLabel *lab)
 
 	/* Thread start has Acquire semantics */
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
-	View porf(g.getEventLabel(lab->getParentCreate())->getPorfView());
 	DepView pporf(g.getEventLabel(lab->getParentCreate())->getPPoRfView());
 
 	hb[lab->getThread()] = lab->getIndex();
-	porf[lab->getThread()] = lab->getIndex();
 	pporf[lab->getThread()] = lab->getIndex();
 
 	lab->setHbView(std::move(hb));
-	lab->setPorfView(std::move(porf));
 	lab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -1113,14 +1090,12 @@ void LKMMDriver::changeRf(Event read, Event store)
 	/* And update the views of the load */
 	auto *rLab = static_cast<ReadLabel *>(g.getEventLabel(read));
 	View hb = calcBasicHbView(rLab->getPos());
-	View porf = calcBasicPorfView(rLab->getPos());
 	DepView pporf(rLab->getPPoView());
 
-	updateReadViewsFromRf(pporf, porf, hb, rLab);
+	updateReadViewsFromRf(pporf, hb, rLab);
 	updateLockViews(pporf, pporf, rLab); /* Don't bother for ppo */
 
 	rLab->setHbView(std::move(hb));
-	rLab->setPorfView(std::move(porf));
 	rLab->setPPoRfView(std::move(pporf));
 
 	if (getConf()->persevere && llvm::isa<DskReadLabel>(rLab))
@@ -1134,15 +1109,12 @@ void LKMMDriver::updateStart(Event create, Event start)
 
 	/* Re-synchronize views */
 	View hb(g.getEventLabel(create)->getHbView());
-	View porf(g.getEventLabel(create)->getPorfView());
 	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
 	hb[start.thread] = 0;
-	porf[start.thread] = 0;
 	pporf[start.thread] = 0;
 
 	bLab->setHbView(std::move(hb));
-	bLab->setPorfView(std::move(porf));
 	bLab->setPPoRfView(std::move(pporf));
 	return;
 }
@@ -1162,14 +1134,11 @@ bool LKMMDriver::updateJoin(Event join, Event childLast)
        	* and then update it */
        	DepView pporf(jLab->getPPoView());
        	View hb = calcBasicHbView(jLab->getPos());
-	View porf = calcBasicPorfView(jLab->getPos());
 
        	hb.update(fLab->getHbView());
-	porf.update(fLab->getPorfView());
        	pporf.update(fLab->getPPoRfView());
 
         jLab->setHbView(std::move(hb));
-        jLab->setPorfView(std::move(porf));
        	jLab->setPPoRfView(std::move(pporf));
        	return true;
 }

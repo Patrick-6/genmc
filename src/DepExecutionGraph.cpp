@@ -98,8 +98,12 @@ bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
 					      const EventLabel *lab) const
 {
+	/* Some holes need to be treated specially. However, it is _wrong_ to keep
+	 * porf views around. What we should do instead is simply check whether
+	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
+	 * Similar actions are taken in {WB,MO}Calculator */
 	auto &v = getPrefixView(wLab->getPos());
-	if (!wLab->getPorfView().contains(lab->getPos()))
+	if (lab->getIndex() > wLab->getPPoRfView()[lab->getThread()])
 		return false;
 
 	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
