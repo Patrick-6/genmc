@@ -24,6 +24,7 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
 #include <llvm/IR/ValueHandle.h>
+#include <llvm/IR/Value.h>
 
 #include <unordered_set>
 
