@@ -536,6 +536,9 @@ private:
 	 * Sets the rf of rLab to the first valid option in rfs */
 	void filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs);
 
+	/* SAVer: Checks whether a write has any actual memory effects */
+	bool isWriteEffectful(const WriteLabel *wLab);
+
 	/* SAVer: Checks whether the effects of a write are observable */
 	bool isWriteObservable(const WriteLabel *lab);
 

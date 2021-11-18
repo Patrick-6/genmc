@@ -2484,6 +2484,17 @@ void GenMCDriver::visitLoopBegin(std::unique_ptr<LoopBeginLabel> lab)
 	return;
 }
 
+bool GenMCDriver::isWriteEffectful(const WriteLabel *wLab)
+{
+	auto &g = getGraph();
+	auto *xLab = llvm::dyn_cast<FaiWriteLabel>(wLab);
+	auto *rLab = llvm::dyn_cast<FaiReadLabel>(g.getPreviousLabel(wLab));
+	if (!xLab || rLab->getOp() != llvm::AtomicRMWInst::BinOp::Xchg)
+		return true;
+
+	return getReadValue(rLab) != xLab->getVal();
+}
+
 bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
 {
 	if (wLab->isAtLeastRelease() || !wLab->getAddr().isDynamic())
@@ -2532,7 +2543,7 @@ void GenMCDriver::visitSpinStart(std::unique_ptr<SpinStartLabel> lab)
 
 	for (auto i = pLab->getIndex() + 1; i < stLab->getIndex(); i++) {
 		auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(Event(stLab->getThread(), i)));
-		if (wLab && isWriteObservable(wLab))
+		if (wLab && isWriteEffectful(wLab) && isWriteObservable(wLab))
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */
