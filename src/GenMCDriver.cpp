@@ -568,7 +568,7 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 	return res;
 }
 
-void GenMCDriver::addToWorklist(std::unique_ptr<WorkItem> item)
+void GenMCDriver::addToWorklist(WorkSet::ItemT item)
 
 {
 	const auto &g = getGraph();
@@ -578,7 +578,7 @@ void GenMCDriver::addToWorklist(std::unique_ptr<WorkItem> item)
 	return;
 }
 
-std::unique_ptr<WorkItem> GenMCDriver::getNextItem()
+WorkSet::ItemT GenMCDriver::getNextItem()
 {
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
 		if (rit->second.empty())
@@ -1666,7 +1666,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
+		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), *it));
 	return retVal;
 }
 
@@ -1712,7 +1712,8 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 		/* Push the stack item */
 		if (!inRecoveryMode())
-			addToWorklist(LLVM_MAKE_UNIQUE<MOItem>(lab->getPos(), std::distance(locMO.begin(), it)));
+			addToWorklist(LLVM_MAKE_UNIQUE<WriteRevisit>(
+					      lab->getPos(), std::distance(locMO.begin(), it)));
 	}
 
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
@@ -2141,7 +2142,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		setSharedState(std::move(newState));
 
 		notifyEERemoved(*v);
-		revisitRead(BRevItem(read, write));
+		revisitRead(BackwardRevisit(read, write));
 
 		/* If there are idle workers in the thread pool,
 		 * try submitting the job instead */
@@ -2273,7 +2274,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	return g.addWriteLabelToGraph(std::move(wLab), rLab->getRf());
 }
 
-bool GenMCDriver::revisitRead(const RevItem &ri)
+bool GenMCDriver::revisitRead(const ReadRevisit &ri)
 {
 	/* We are dealing with a read: change its reads-from and also check
 	 * whether a part of an RMW should be added */
@@ -2282,18 +2283,18 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	BUG_ON(!rLab);
 
 	changeRf(rLab->getPos(), ri.getRev());
-	rLab->setAddedMax(llvm::isa<BRevItem>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
+	rLab->setAddedMax(llvm::isa<BackwardRevisit>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
 
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V2) {
-			llvm::dbgs() << "--- " << (llvm::isa<BRevItem>(ri) ? "Backward" : "Forward")
+			llvm::dbgs() << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")
 			<< " revisiting " << ri.getPos()
 			<< " <-- " << ri.getRev() << "\n";
 			printGraph();
 		}
 	);
 
-	if (llvm::isa<BRevItem>(ri)) {
+	if (llvm::isa<BackwardRevisit>(ri)) {
 		auto &prefix = g.getPrefixView(ri.getRev());
 		for (auto *lab : labels(g)) {
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
@@ -2319,7 +2320,7 @@ bool GenMCDriver::revisitRead(const RevItem &ri)
 	return true;
 }
 
-bool GenMCDriver::restrictAndRevisit(std::unique_ptr<WorkItem> item)
+bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -2330,8 +2331,8 @@ bool GenMCDriver::restrictAndRevisit(std::unique_ptr<WorkItem> item)
 	restrictRevisitSet(lab);
 	restrictGraph(lab);
 
-	/* Handle the MO case first: if we are restricting to a write, change its MO position */
-	if (auto *mi = llvm::dyn_cast<MOItem>(item.get())) {
+	/* Handle special cases first: if we are restricting to a write, change its MO position */
+	if (auto *mi = llvm::dyn_cast<WriteRevisit>(item.get())) {
 		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
@@ -2341,8 +2342,8 @@ bool GenMCDriver::restrictAndRevisit(std::unique_ptr<WorkItem> item)
 		return calcRevisits(wLab);
 	}
 
-	/* Otherwise, handle the revisit case */
-	auto *ri = llvm::dyn_cast<RevItem>(item.get());
+	/* Otherwise, handle the read case */
+	auto *ri = llvm::dyn_cast<ReadRevisit>(item.get());
 	BUG_ON(!ri);
 	return revisitRead(*ri);
 }
@@ -2376,7 +2377,7 @@ SVal GenMCDriver::visitDskRead(std::unique_ptr<DskReadLabel> drLab)
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<FRevItem>(lab->getPos(), *it));
+		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), *it));
 	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getAccess());
 }
 

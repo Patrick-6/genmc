@@ -61,6 +61,7 @@ libgenmc_a_SOURCES = \
   RCUCalculator.cpp RCUCalculator.hpp \
   RCULinkCalculator.cpp RCULinkCalculator.hpp \
   RCUFenceCalculator.cpp RCUFenceCalculator.hpp \
+  Revisit.cpp Revisit.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SAddr.cpp SAddr.hpp \
   SAddrAllocator.hpp \

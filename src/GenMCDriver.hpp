@@ -363,11 +363,11 @@ private:
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(std::unique_ptr<WorkItem> item);
+	void addToWorklist(WorkSet::ItemT item);
 
 	/* Fetches the next backtrack option.
 	 * A default-constructed item means that the list is empty */
-	std::unique_ptr<WorkItem> getNextItem();
+	WorkSet::ItemT getNextItem();
 
 	/* Restricts the worklist only to entries that were added before lab */
 	void restrictWorklist(const EventLabel *lab);
@@ -494,15 +494,15 @@ private:
 
 	/* Modifies (but not restricts) the graph when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
-	bool revisitRead(const RevItem &s);
+	bool revisitRead(const ReadRevisit &s);
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(std::unique_ptr<WorkItem> s);
+	bool restrictAndRevisit(WorkSet::ItemT s);
 
 	/* Copies the graph and executes the revisit specified by S.
 	 * Returns the newly created graph */
-	std::unique_ptr<ExecutionGraph> revisitInCopy(const RevItem &s);
+	std::unique_ptr<ExecutionGraph> revisitInCopy(const ReadRevisit &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
