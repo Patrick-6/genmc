@@ -103,7 +103,7 @@ BinaryOperator *createBoundDecrement(Loop *l, PHINode *boundVal)
 void addBoundCmpAndSpinEndBefore(Loop *l, PHINode *val, BinaryOperator *decVal)
 {
 	Function *parentFun = (*l->block_begin())->getParent();
-	Function *endLoopFun = parentFun->getParent()->getFunction("__VERIFIER_end_loop");
+	Function *endLoopFun = parentFun->getParent()->getFunction("__VERIFIER_kill_thread");
 	Type *int32Typ = Type::getInt32Ty(parentFun->getContext());
 
 

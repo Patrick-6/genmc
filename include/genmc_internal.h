@@ -163,8 +163,8 @@ extern void __VERIFIER_atomiccas_noret(int attr);
  * Attribute: 0 -> normal */
 extern void __VERIFIER_atomicrmw_noret(int attr);
 
-/* Kills a loop */
-extern void __VERIFIER_end_loop(int);
+/* Kills the calling thread if the condition is satisfied */
+extern void __VERIFIER_kill_thread(int cond);
 
 /* Marks the beginning of an optional block. */
 extern int __VERIFIER_opt_begin(void);

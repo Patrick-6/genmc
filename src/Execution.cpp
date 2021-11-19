@@ -68,7 +68,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
 	{"__VERIFIER_faiZNE_spin_end", InternalFunctions::FN_FaiZNESpinEnd},
 	{"__VERIFIER_lockZNE_spin_end", InternalFunctions::FN_LockZNESpinEnd},
-	{"__VERIFIER_end_loop", InternalFunctions::FN_EndLoop},
+	{"__VERIFIER_kill_thread", InternalFunctions::FN_KillThread},
 	{"__VERIFIER_assume", InternalFunctions::FN_Assume},
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
 	{"__VERIFIER_malloc", InternalFunctions::FN_Malloc},
@@ -2859,8 +2859,8 @@ void Interpreter::callLockZNESpinEnd(Function *F, const std::vector<GenericValue
 	driver->visitLockZNESpinEnd(LockZNESpinEndLabel::create(nextPos()));
 }
 
-void Interpreter::callEndLoop(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+void Interpreter::callKillThread(Function *F, const std::vector<GenericValue> &ArgVals,
+				 const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (ArgVals[0].IntVal.getBoolValue())
 		ECStack().clear();
@@ -4436,7 +4436,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(SpinEnd);
 		CALL_INTERNAL_FUNCTION(FaiZNESpinEnd);
 		CALL_INTERNAL_FUNCTION(LockZNESpinEnd);
-		CALL_INTERNAL_FUNCTION(EndLoop);
+		CALL_INTERNAL_FUNCTION(KillThread);
 		CALL_INTERNAL_FUNCTION(Assume);
 		CALL_INTERNAL_FUNCTION(NondetInt);
 		CALL_INTERNAL_FUNCTION(Malloc);

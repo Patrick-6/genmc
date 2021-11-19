@@ -76,7 +76,7 @@ do {							\
 do {							\
 	if (__VERIFIER_opt_begin()) {			\
 		x;					\
-		__VERIFIER_end_loop(1);			\
+		__VERIFIER_kill_thread(1);		\
 	}						\
 } while (0)
 

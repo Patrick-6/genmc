@@ -64,7 +64,7 @@ enum class InternalFunctions {
 	FN_LockZNESpinEnd,
 	FN_Assume,
 	/* Assume calls */
-	FN_EndLoop,
+	FN_KillThread,
 	FN_NondetInt,
 	FN_ThreadSelf,
 	FN_AtomicCasNoRet,
