@@ -729,6 +729,7 @@ private:  // Helper functions
 			   const std::unique_ptr<EventDeps> &specialDeps)
 
   DECLARE_CUSTOM_OPCODE(AssertFail);
+  DECLARE_CUSTOM_OPCODE(OptBegin);
   DECLARE_CUSTOM_OPCODE(LoopBegin);
   DECLARE_CUSTOM_OPCODE(RecAssertFail);
   DECLARE_CUSTOM_OPCODE(SpinStart);

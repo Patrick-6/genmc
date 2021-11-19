@@ -163,9 +163,15 @@ extern void __VERIFIER_atomiccas_noret(int attr);
  * Attribute: 0 -> normal */
 extern void __VERIFIER_atomicrmw_noret(int attr);
 
-extern void __VERIFIER_rcu_read_lock();
-extern void __VERIFIER_rcu_read_unlock();
-extern void __VERIFIER_synchronize_rcu();
+/* Kills a loop */
+extern void __VERIFIER_end_loop(int);
+
+/* Marks the beginning of an optional block. */
+extern int __VERIFIER_opt_begin(void);
+
+extern void __VERIFIER_rcu_read_lock(void);
+extern void __VERIFIER_rcu_read_unlock(void);
+extern void __VERIFIER_synchronize_rcu(void);
 
 #ifdef __cplusplus
 }

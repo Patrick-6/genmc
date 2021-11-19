@@ -63,6 +63,24 @@ do {							\
 } while (0)
 
 /*
+ * A block of code enclosed in __VERIFIER_optional() is a hint to
+ * GenMC that the contents of the block are not crucial for verifying
+ * safety properties of the program (e.g., sleep-waiting, no-op
+ * functions used when spinning, etc). Using __VERIFIER_optional()
+ * should lead to a reduced state space.
+ *
+ * NOTE: The contents of the optional block should _not_ write to
+ * memory or modify variables that are live after the block.
+ */
+#define __VERIFIER_optional(x)				\
+do {							\
+	if (__VERIFIER_opt_begin()) {			\
+		x;					\
+		__VERIFIER_end_loop(1);			\
+	}						\
+} while (0)
+
+/*
  * The signature of a recovery routine to be specified
  * by the user. This routine will run after each execution,
  * if the checker is run with the respective flags enabled

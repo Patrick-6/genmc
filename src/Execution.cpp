@@ -62,6 +62,7 @@ using namespace llvm;
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
+	{"__VERIFIER_opt_begin", InternalFunctions::FN_OptBegin},
 	{"__VERIFIER_loop_begin", InternalFunctions::FN_LoopBegin},
 	{"__VERIFIER_spin_start", InternalFunctions::FN_SpinStart},
 	{"__VERIFIER_spin_end", InternalFunctions::FN_SpinEnd},
@@ -2815,6 +2816,17 @@ void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &A
 	driver->visitError(currPos(), errT, err);
 }
 
+void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &ArgVals,
+			       const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto expand = driver->visitOptional(OptionalLabel::create(nextPos()));
+
+	GenericValue result;
+	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), expand, true); // signed
+	returnValueToCaller(F->getReturnType(), result);
+	return;
+}
+
 void Interpreter::callLoopBegin(Function *F, const std::vector<GenericValue> &ArgVals,
 				const std::unique_ptr<EventDeps> &specialDeps)
 {
@@ -4418,6 +4430,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	switch (fCode) {
 		CALL_INTERNAL_FUNCTION(AssertFail);
+		CALL_INTERNAL_FUNCTION(OptBegin);
 		CALL_INTERNAL_FUNCTION(LoopBegin);
 		CALL_INTERNAL_FUNCTION(SpinStart);
 		CALL_INTERNAL_FUNCTION(SpinEnd);

@@ -503,6 +503,7 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 		break;
 	case EventLabel::EL_ThreadCreate:
 	case EventLabel::EL_ThreadFinish:
+	case EventLabel::EL_Optional:
 	case EventLabel::EL_LoopBegin:
 	case EventLabel::EL_SpinStart:
 	case EventLabel::EL_FaiZNESpinEnd:

@@ -933,6 +933,9 @@ Event WBCalculator::getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab,
 bool WBCalculator::wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
 				     const EventLabel *eLab, std::unordered_map<SAddr, Event> &cache)
 {
+	if (auto *oLab = llvm::dyn_cast<OptionalLabel>(eLab))
+		return !oLab->isExpanded();
+
 	auto &g = getGraph();
 	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
 	if (!lab || (g.hasBAM() && llvm::isa<BWaitReadLabel>(eLab)))

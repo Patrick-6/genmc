@@ -58,6 +58,7 @@ public:
 	enum EventLabelKind {
 		EL_Empty,
 		EL_Block,
+		EL_Optional,
 		EL_ThreadStart,
 		EL_ThreadFinish,
 		EL_ThreadCreate,
@@ -344,6 +345,45 @@ public:
 
 private:
 	BlockageType type;
+};
+
+
+/*******************************************************************************
+ **                            OptionalLabel Class
+ ******************************************************************************/
+
+/* A label that represents the beginning of an optional block */
+class OptionalLabel : public EventLabel {
+
+public:
+	OptionalLabel(unsigned int st, Event pos)
+		: EventLabel(EL_Optional, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+	OptionalLabel(Event pos)
+		: EventLabel(EL_Optional, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	/* Whether this block is expandable */
+	bool isExpandable() const { return expandable; }
+	void setExpandable(bool exp) { expandable = exp; }
+
+	/* Whether this block has been expanded */
+	bool isExpanded() const { return expanded; }
+	void setExpanded(bool exp) { expanded = exp; }
+
+	template<typename... Ts>
+	static std::unique_ptr<OptionalLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<OptionalLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<OptionalLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Optional; }
+
+private:
+	bool expandable = true;
+	bool expanded = false;
 };
 
 

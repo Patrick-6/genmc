@@ -2340,6 +2340,12 @@ bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 		repairDanglingLocks();
 		repairDanglingBarriers();
 		return calcRevisits(wLab);
+	} else if (auto *oi = llvm::dyn_cast<OptionalRevisit>(item.get())) {
+		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
+		BUG_ON(!oLab);
+		oLab->setExpandable(false);
+		oLab->setExpanded(true);
+		return true;
 	}
 
 	/* Otherwise, handle the read case */
@@ -2473,6 +2479,26 @@ void GenMCDriver::visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const E
 	updateLabelViews(hLab.get(), deps);
 	getGraph().addOtherLabelToGraph(std::move(hLab));
 	return;
+}
+
+bool GenMCDriver::visitOptional(std::unique_ptr<OptionalLabel> lab)
+{
+	if (isExecutionDrivenByGraph())
+		return llvm::dyn_cast<OptionalLabel>(getCurrentLabel())->isExpanded();
+
+	auto &g = getGraph();
+	if (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *lab){
+		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
+		return oLab && !oLab->isExpandable();
+	}))
+		lab->setExpandable(false);
+
+	updateLabelViews(lab.get(), nullptr);
+	auto *oLab = llvm::dyn_cast<OptionalLabel>(g.addOtherLabelToGraph(std::move(lab)));
+
+	if (oLab->isExpandable())
+		addToWorklist(LLVM_MAKE_UNIQUE<OptionalRevisit>(oLab->getPos()));
+	return false; /* should not be expanded yet */
 }
 
 void GenMCDriver::visitLoopBegin(std::unique_ptr<LoopBeginLabel> lab)

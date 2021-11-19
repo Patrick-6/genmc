@@ -456,6 +456,8 @@ bool MOCalculator::wasAddedMaximally(const EventLabel *lab)
 {
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
 		return mLab->wasAddedMax();
+	if (auto *oLab = llvm::dyn_cast<OptionalLabel>(lab))
+		return !oLab->isExpanded();
 	return true;
 }
 

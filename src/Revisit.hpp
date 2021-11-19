@@ -37,8 +37,8 @@ public:
 		RV_BRev,
 		RV_BRevLast,
 		RV_ReadLast,
-		RV_Opt,
 		RV_MO,
+		RV_Opt,
 	};
 
 protected:
@@ -171,6 +171,20 @@ public:
 
 private:
 	int moPos;
+};
+
+
+/*
+ * OptionalRevisit class - Represents the revisit of an optional block
+ */
+class OptionalRevisit : public Revisit {
+
+public:
+	OptionalRevisit(Event p) : Revisit(RV_Opt, p) {}
+
+	static bool classof(const Revisit *item) {
+		return item->getKind() == RV_Opt;
+	}
 };
 
 #endif /* __REVISIT_HPP__ */

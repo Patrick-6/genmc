@@ -229,6 +229,11 @@ public:
 	/* A fence has been interpreted, nothing for the interpreter */
 	void visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
 
+	/* A call to __VERIFIER_opt_begin() has been interpreted.
+	 * Returns whether the block should expand */
+	bool
+	visitOptional(std::unique_ptr<OptionalLabel> lab);
+
 	/* A call to __VERIFIER_loop_begin() has been interpreted */
 	void
 	visitLoopBegin(std::unique_ptr<LoopBeginLabel> lab);

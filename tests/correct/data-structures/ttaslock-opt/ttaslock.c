@@ -20,7 +20,7 @@ static inline int try_acquire(struct ttaslock_s *l)
 static inline void ttaslock_acquire(struct ttaslock_s *l)
 {
 	while (1) {
-		/* await_for_lock(l); */
+		__VERIFIER_optional(await_for_lock(l););
 		if (!try_acquire(l))
 			return;
 	}
