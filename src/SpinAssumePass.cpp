@@ -48,8 +48,10 @@ using namespace llvm;
 
 #ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
 # define POSTDOM_PASS PostDominatorTreeWrapperPass
+# define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 #else
 # define POSTDOM_PASS PostDominatorTree
+# define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>();
 #endif
 
 #ifdef LLVM_INSERT_PREHEADER_FOR_LOOP_NEEDS_UPDATER
@@ -396,7 +398,7 @@ bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instructio
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
 	auto effects = false;
-	VSet<PHINode *> phis;
+	VSet<AtomicCmpXchgInst *> cass;
 	VSet<AtomicRMWInst *> fais;
 
 	foreachInBackPathTo(latch, l->getHeader(), [&](Instruction &i){
@@ -404,29 +406,42 @@ bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instructio
 			fais.insert(faii);
 			return;
 		}
-		if (auto *phi = dyn_cast<PHINode>(&i)) {
-			phis.insert(phi);
+		/* CASes are OK as long as they are before the decrement */
+		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
+			cass.insert(casi);
 			return;
 		}
 		effects |= hasSideEffects(&i, &cleanSet);
 	});
 
-	if (effects || fais.size() != 2 || !phis.empty())
+	if (effects || fais.size() != 2)
 		return false;
 
+	/* Check domination conditions; we need more checks here due to the (unordered) VSet */
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
-	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
-#else
-	auto &PDT = getAnalysis<POSTDOM_PASS>();
-#endif
+	auto &PDT = GET_POSTDOM_PASS();
 
-	auto aDomB = dominatesAndPostdominates(fais[0], fais[1], DT, PDT);
-	auto bDomA = dominatesAndPostdominates(fais[1], fais[0], DT, PDT);
-	if (!areCancelingBinops(fais[0], fais[1]) || (!aDomB && !bDomA)) /* due to VSet */
+	AtomicRMWInst *inci = nullptr;
+	AtomicRMWInst *deci = nullptr;
+	if (DT.dominates(fais[0], fais[1]) && PDT.dominates(l->getHeader(), fais[1]->getParent())) {
+		inci = fais[0];
+		deci = fais[1];
+	} else if (DT.dominates(fais[1], fais[0]) && PDT.dominates(l->getHeader(), fais[0]->getParent())) {
+		inci = fais[1];
+		deci = fais[0];
+	}
+	if (!inci || !deci)
+		return false;
+	if (std::any_of(cass.begin(), cass.end(), [&](AtomicCmpXchgInst *casi){
+		return !DT.dominates(casi, deci);
+	}))
 		return false;
 
-	lastEffect = (aDomB) ? fais[1] : fais[0];
+	/* Check cancelation */
+	if (!areCancelingBinops(inci, deci))
+		return false;
+
+	lastEffect = deci;
 	return true;
 }
 
@@ -464,11 +479,7 @@ bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instructi
 		return false;
 
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
-	auto &PDT = getAnalysis<POSTDOM_PASS>().getPostDomTree();
-#else
-	auto &PDT = getAnalysis<POSTDOM_PASS>();
-#endif
+	auto &PDT = GET_POSTDOM_PASS();
 	auto lDomU = dominatesAndPostdominates(locks[0], unlocks[0], DT, PDT);
 	if (!lDomU || !accessSameVariable(*locks[0]->arg_begin(), *unlocks[0]->arg_begin()))
 		return false;
@@ -602,13 +613,13 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	llvm::Instruction *lastZNEEffect = nullptr;
 	for (auto &latch : latches) {
 		if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
-			spinloop = false;
+			checkDynamically = true;
 			modified = true;
 			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
 		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
 			/* Check for lockZNE before effect-free paths,
 			 * as locks are function calls too...  */
-			spinloop = false;
+			checkDynamically = true;
 			modified = true;
 			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
 		} else if (isPathToHeaderEffectFree(latch, l, checkDynamically)) {

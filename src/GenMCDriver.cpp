@@ -2555,6 +2555,19 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 {
 	auto &g = getGraph();
 
+	/* Check that there are no other side-effects since the previous iteration.
+	 * We don't have to look for a BEGIN label since ZNE labels are always
+	 * preceded by a spin-start */
+	auto *ssLab = g.getPreviousLabelST(lab, [](const EventLabel *lab){
+		return llvm::isa<SpinStartLabel>(lab);
+	});
+	BUG_ON(!ssLab);
+	for (auto i = ssLab->getIndex() + 1; i < lab->getIndex(); ++i) {
+		auto *oLab = g.getEventLabel(Event(ssLab->getThread(), i));
+		if (llvm::isa<WriteLabel>(oLab) && !llvm::isa<FaiWriteLabel>(oLab))
+			return false;
+	}
+
 	auto *wLab = llvm::dyn_cast<FaiWriteLabel>(
 		g.getPreviousLabelST(lab, [](const EventLabel *lab){ return llvm::isa<FaiWriteLabel>(lab); }));
 	BUG_ON(!wLab);
