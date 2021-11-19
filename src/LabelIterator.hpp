@@ -53,6 +53,14 @@ public:
 	/*** Constructors/destructor ***/
 	LabelIterator() = default;
 
+	template<typename A, typename B, typename C, typename D>
+	LabelIterator(const LabelIterator<A,B,C,D> &LI)
+		: threads(LI.threads), thread(LI.thread), label(LI.label) {}
+
+	template<typename A, typename B, typename C, typename D>
+	LabelIterator(LabelIterator<A,B,C,D> &LI)
+		: threads(LI.threads), thread(LI.thread), label(LI.label) {}
+
 	/* begin() constructor */
 	template<typename G>
 	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.begin()) {
