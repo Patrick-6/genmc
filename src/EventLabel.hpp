@@ -63,6 +63,7 @@ public:
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
+		EL_ThreadKill,
 		EL_LoopBegin,
 		EL_SpinStart,
 		EL_FaiZNESpinEnd,
@@ -2105,6 +2106,37 @@ private:
 
 	/* Position of the last event of the thread the join() is waiting on */
 	Event childLast;
+};
+
+
+/*******************************************************************************
+ **                     ThreadKillLabel Class
+ ******************************************************************************/
+
+/* Represents the abnormal termination of a thread */
+class ThreadKillLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	ThreadKillLabel(unsigned int st, Event pos)
+		: EventLabel(EL_ThreadKill, st, llvm::AtomicOrdering::NotAtomic, pos) {}
+	ThreadKillLabel(Event pos)
+		: EventLabel(EL_ThreadKill, llvm::AtomicOrdering::NotAtomic, pos) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<ThreadKillLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<ThreadKillLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<ThreadKillLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ThreadKill; }
 };
 
 

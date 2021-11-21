@@ -249,6 +249,10 @@ public:
 	void
 	visitLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab);
 
+	/* A thread has terminated abnormally */
+	void
+	visitThreadKill(std::unique_ptr<ThreadKillLabel> lab);
+
 	/* Returns an appropriate result for pthread_self() */
 	SVal visitThreadSelf(const EventDeps *deps);
 

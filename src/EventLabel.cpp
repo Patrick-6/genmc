@@ -80,6 +80,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_Block:
 		s << "BLOCK";
 		break;
+	case EventLabel::EL_ThreadKill:
+		s << "KILL";
+		break;
 	case EventLabel::EL_Optional:
 		s << "OPTIONAL";
 		break;

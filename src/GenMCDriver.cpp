@@ -190,9 +190,9 @@ void GenMCDriver::prioritizeThreads()
 bool GenMCDriver::isSchedulable(int thread) const
 {
 	auto &thr = getEE()->getThrById(thread);
-	return !thr.ECStack.empty() && !thr.isBlocked() &&
-		!llvm::isa<BlockLabel>(getGraph().getLastThreadLabel(thread)) &&
-		!llvm::isa<ThreadFinishLabel>(getGraph().getLastThreadLabel(thread));
+	auto *lab = getGraph().getLastThreadLabel(thread);
+	return !thr.ECStack.empty() && !thr.isBlocked() && !llvm::isa<BlockLabel>(lab) &&
+		!llvm::isa<ThreadKillLabel>(lab) && !llvm::isa<ThreadFinishLabel>(lab);
 }
 
 bool GenMCDriver::schedulePrioritized()
@@ -1381,6 +1381,14 @@ void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> 
 SVal GenMCDriver::visitThreadSelf(const EventDeps *deps)
 {
 	return SVal(getEE()->getCurThr().id);
+}
+
+void GenMCDriver::visitThreadKill(std::unique_ptr<ThreadKillLabel> lab)
+{
+	BUG_ON(isExecutionDrivenByGraph());
+	updateLabelViews(lab.get(), nullptr);
+	getGraph().addOtherLabelToGraph(std::move(lab));
+	return;
 }
 
 bool GenMCDriver::isSymmetricToSR(int candidate, int thread, Event parent,
