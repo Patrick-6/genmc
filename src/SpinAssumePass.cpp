@@ -249,13 +249,18 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 }
 
 /*
- * Returns whether extract extracts from a CAS. If a second argument is provided, it is ensured
+ * Returns whether INST extracts from a CAS. If a second argument is provided, it is ensured
  * that the extract extracts from this particular CAS.
  */
-bool isCASExtract(ExtractValueInst *extract, AtomicCmpXchgInst *cas = nullptr)
+bool isCASExtract(Instruction *inst, AtomicCmpXchgInst *cas = nullptr)
 {
+	auto *extract = llvm::dyn_cast_or_null<ExtractValueInst>(inst);
+	if (!extract)
+		return false;
+
 	if (!extract->getType()->isIntegerTy() ||
-	    extract->getNumIndices() > 1)
+	    extract->getNumIndices() > 1 ||
+	    *extract->idx_begin() != 1)
 		return false;
 
 	auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
@@ -272,16 +277,15 @@ bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
 			     std::vector<ExtractValueInst *> &extracts)
 {
 	for (auto &cas : cass) {
-		auto *candidateExtract = cas->getNextNode()->getNextNode();
-		auto *extract = dyn_cast<ExtractValueInst>(candidateExtract);
-		if (!candidateExtract || !extract)
+		/* Try both subsequent instructions as we might have
+		 * eliminated one of them */
+		if (isCASExtract(cas->getNextNode()->getNextNode(), cas)) {
+			extracts.push_back(llvm::dyn_cast<ExtractValueInst>(cas->getNextNode()->getNextNode()));
+		} else if (isCASExtract(cas->getNextNode(), cas)) {
+			extracts.push_back(llvm::dyn_cast<ExtractValueInst>(cas->getNextNode()));
+		} else {
 			return false;
-
-		if (!isCASExtract(extract, cas))
-			return false;
-		if (*extract->idx_begin() != 1)
-			return false;
-		extracts.push_back(extract);
+		}
 	}
 	return true;
 }
