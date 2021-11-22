@@ -495,7 +495,11 @@ private:
 	const EventLabel *getCurrentLabel() const;
 
 	/* BAM: Tries to optimize barrier-related revisits */
-	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab);
+	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
+
+	/* Opt: Tries to optimize revisiting from LAB. It may modify
+	 * LOADS, and returns whether we can skip revisiting altogether */
+	bool tryOptimizeRevisits(const WriteLabel *lab, std::vector<Event> &loads);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -567,7 +571,7 @@ private:
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
-	bool tryToRevisitLock(CasReadLabel *rLab, const WriteLabel *sLab);
+	bool tryRevisitLockInPlace(ReadLabel *rLab, const WriteLabel *sLab);
 
 	/* Opt: Repairs the reads-from edge of a dangling lock */
 	void repairLock(LockCasReadLabel *lab);
@@ -658,10 +662,12 @@ private:
 	 * Should return the racy event, or INIT if no such event exists */
 	virtual Event findDataRaceForMemAccess(const MemAccessLabel *mLab) = 0;
 
-	/* Returns an approximation of consistent rfs for RLAB */
+	/* Returns an approximation of consistent rfs for RLAB.
+	 * The rfs are ordered according to CO */
 	virtual std::vector<Event> getRfsApproximation(const ReadLabel *rLab);
 
-	/* Returns an approximation of the reads that SLAB can revisit */
+	/* Returns an approximation of the reads that SLAB can revisit.
+	 * The reads are ordered in reverse-addition order */
 	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
 
 	/* Changes the reads-from edge for the specified label.
