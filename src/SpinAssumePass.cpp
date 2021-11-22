@@ -640,7 +640,7 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 		spinloop = false;
 
 	/* Mark spinloop start if we have to */
-	if (checkDynamically || (spinloop && markStarts)) {
+	if (checkDynamically || (modified && markStarts)) {
 		addSpinStartCall(l);
 		/* DSA also requires us to know when we actually enter the loop;
 		 * mark the beginning anyway to compose with liveness checks and nested loops */
