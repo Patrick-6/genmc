@@ -211,8 +211,8 @@ public:
 	}
 
 	/* Returns the first label in the thread tid */
-	const EventLabel *getFirstThreadLabel(int tid) const {
-		return getEventLabel(getFirstThreadEvent(tid));
+	const ThreadStartLabel *getFirstThreadLabel(int tid) const {
+		return llvm::dyn_cast<ThreadStartLabel>(getEventLabel(getFirstThreadEvent(tid)));
 	}
 
 	/* Returns the last event/label in the thread tid */
