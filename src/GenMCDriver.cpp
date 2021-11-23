@@ -440,6 +440,14 @@ void GenMCDriver::checkHelpingCasAnnotation()
 	return;
 }
 
+bool GenMCDriver::isExecutionBlocked() const
+{
+	return std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
+			   [this](const llvm::Thread &thr){
+				   auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(thr.id));
+				   return bLab || thr.isBlocked(); });
+}
+
 void GenMCDriver::handleFinishedExecution()
 {
 	/* First, reset all exploration options */
@@ -453,10 +461,7 @@ void GenMCDriver::handleFinishedExecution()
 	checkHelpingCasAnnotation();
 
 	/* Ignore the execution if some assume has failed */
-	if (std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
-			[this](const llvm::Thread &thr){
-				auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(thr.id));
-				return bLab || thr.isBlocked(); })) {
+	if (isExecutionBlocked()) {
 		++result.exploredBlocked;
 		if (userConf->checkLiveness)
 			checkLiveness();
@@ -476,6 +481,9 @@ void GenMCDriver::handleFinishedExecution()
 
 void GenMCDriver::handleRecoveryStart()
 {
+	if (isExecutionBlocked())
+		return;
+
 	auto &g = getGraph();
 	auto *EE = getEE();
 
@@ -1912,6 +1920,28 @@ void GenMCDriver::visitRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab)
 	return;
 }
 
+void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
+{
+	auto &g = getGraph();
+
+	/* Enable optimization only under MO */
+	if (!llvm::isa<MOCalculator>(g.getCoherenceCalculator()))
+		return;
+
+	auto pos = bLab->getPos();
+	while (pos.index > 0) {
+		auto *lab = g.getEventLabel(pos);
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (!rLab->isRevisitable() || !rLab->wasAddedMax())
+				moot();
+			return;
+		}
+		if (llvm::isa<WriteLabel>(lab))
+			return;
+		--pos.index;
+	}
+}
+
 void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 {
 	getEE()->getCurThr().block(BlockageType::User);
@@ -1919,22 +1949,9 @@ void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 	if (isExecutionDrivenByGraph())
 		return;
 
-	auto *bLab = getGraph().addOtherLabelToGraph(std::move(lab));
-
-	const auto &g = getGraph();
-	auto pos = bLab->getPos();
-	while (pos.index > 0) {
-		const auto &lab = g.getEventLabel(pos);
-		if (llvm::isa<SpinStartLabel>(lab) || llvm::isa<FenceLabel>(lab)) continue;
-		if (const auto *lLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (!lLab->isRevisitable()) break;
-		return;
-		pos.index--;
-	}
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = getEE()->getThrById(i);
-		if (!thr.isBlocked()) thr.block(BlockageType::User);
-	}
+	auto &g = getGraph();
+	auto *bLab = llvm::dyn_cast<BlockLabel>(g.addOtherLabelToGraph(std::move(lab)));
+	mootExecutionIfFullyBlocked(bLab);
 }
 
 View GenMCDriver::getReplayView() const

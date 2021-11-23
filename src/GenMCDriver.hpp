@@ -447,6 +447,9 @@ private:
 	 * chosen policy */
 	bool scheduleNormal();
 
+	/* Returns whether the current execution is blocked */
+	bool isExecutionBlocked() const;
+
 	/* Opt: Tries to reschedule any locks that were added blocked */
 	bool rescheduleLocks();
 
@@ -582,6 +585,11 @@ private:
 
 	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
 	void repairDanglingBarriers();
+
+	/* Opt: Checks whether there is no need to explore the other threads
+	 * (e.g., bLab will not be removed in all subsequent subexplorations),
+	 * and moots the current execution */
+	void mootExecutionIfFullyBlocked(const BlockLabel *bLab);
 
 	/* LKMM: Helper for visiting LKMM fences */
 	void visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
