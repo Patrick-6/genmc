@@ -178,6 +178,8 @@ runvariants() {
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	blocked=`echo "${output}" | awk '/blocked/ { print $6 }'`
+	explored_failed=""
+	blocked_failed=""
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
 	time="${time}" && [[ -z "${time}" ]] && time=0 # if pattern was NOT found
 	test_time=`echo "${test_time}+${time}" | bc -l`
