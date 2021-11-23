@@ -286,10 +286,11 @@ public:
 	/* Returns pair with all SC accesses and all SC fences */
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
 
-	/* Given an write label sLab that is part of an RMW, return all
-	 * other RMWs that read from the same write. Of course, there must
-	 * be _at most_ one other RMW reading from the same write (see [Rex] set) */
-	std::vector<Event> getPendingRMWs(const WriteLabel *sLab) const;
+	/* Given an write label sLab that is part of an RMW, returns
+	 * another RMW that reads from the same write. If no such event
+	 * exists, it returns INIT. If there are multiple such events,
+	 * returns the one with the smallest stamp */
+	Event getPendingRMW(const WriteLabel *sLab) const;
 
 	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
 	 * (This function can be abused and also be utilized for returning the view
@@ -431,6 +432,11 @@ public:
 		return llvm::isa<FaiWriteLabel>(lab) || llvm::isa<CasWriteLabel>(lab);
 	}
 	bool isRMWStore(const Event e) const { return isRMWStore(getEventLabel(e)); }
+
+	/* Returns true if the addition of SLAB violates atomicity in the graph */
+	bool violatesAtomicity(const WriteLabel *sLab){
+		return !getPendingRMW(sLab).isInitializer();
+	}
 
 	/* Opt: Returns whether a lock is optimization-blocked */
 	bool isOptBlockedLock(const EventLabel *lab) const {
@@ -592,6 +598,10 @@ protected:
 	void setEventLabel(Event e, std::unique_ptr<EventLabel> lab) {
 		events[e.thread][e.index] = std::move(lab);
 	};
+
+	/* Returns the event with the minimum stamp in ES.
+	 * If ES is empty, returns INIT */
+	Event getMinimumStampEvent(const std::vector<Event> &es) const;
 
 	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 

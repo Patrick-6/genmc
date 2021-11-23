@@ -323,36 +323,51 @@ Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const
 	return Event::getInitializer();
 }
 
-std::vector<Event> ExecutionGraph::getPendingRMWs(const WriteLabel *sLab) const
+Event ExecutionGraph::getMinimumStampEvent(const std::vector<Event> &es) const
 {
-	std::vector<Event> pending;
+	if (es.empty())
+		return Event::getInitializer();
+	return *std::min_element(es.begin(), es.end(), [&](const Event &e1, const Event &e2){
+		return getEventLabel(e1)->getStamp() < getEventLabel(e2)->getStamp();
+	});
+}
 
+Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
+{
 	/* If this is _not_ an RMW event, return an empty vector */
 	if (!isRMWStore(sLab))
-		return pending;
+		return Event::getInitializer();
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
-	const auto *pLab = static_cast<const ReadLabel *>(getPreviousLabel(sLab));
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1u; j < getThreadSize(i); j++) { /* Skip thread start */
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!isRMWLoad(lab))
-				continue;
-			const auto *rLab = static_cast<const ReadLabel *>(lab);
-			if (rLab->getRf() == pLab->getRf() &&
-			    rLab->getAddr() == pLab->getAddr() &&
-			    rLab->getPos() != pLab->getPos())
-				pending.push_back(lab->getPos());
-		}
+	auto *pLab = llvm::dyn_cast<ReadLabel>(getPreviousLabel(sLab));
+	std::vector<Event> pending;
+
+	/* Fastpath: non-init rf */
+	if (!pLab->getRf().isInitializer()) {
+		auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(pLab->getRf()));
+		BUG_ON(!wLab);
+		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](const Event &r){
+				if (isRMWLoad(r) && r != pLab->getPos())
+					pending.push_back(r);
+			});
+		return getMinimumStampEvent(pending);
 	}
-	BUG_ON(pending.size() > 1);
-	return pending;
+
+	/* Slowpath: scan the graph */
+	std::for_each(label_begin(*this), label_end(*this), [&](const EventLabel *lab){
+			     auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+			     if (rLab && rLab->getRf() == pLab->getRf() &&
+				 rLab->getAddr() == pLab->getAddr() &&
+				 rLab->getPos() != pLab->getPos() && isRMWLoad(rLab))
+				     pending.push_back(rLab->getPos());
+		     });
+	return getMinimumStampEvent(pending);
 }
 
 std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
 	auto &before = getPorfBefore(sLab->getPos());
-	auto pendingRMWs = getPendingRMWs(sLab); /* empty or singleton */
+	auto pendingRMW = getPendingRMW(sLab);
 	std::vector<Event> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
@@ -365,9 +380,9 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 			}
 		}
 	}
-	if (pendingRMWs.size() > 0)
+	if (!pendingRMW.isInitializer())
 		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](Event &e){
-			auto *confLab = getEventLabel(pendingRMWs.back());
+			auto *confLab = getEventLabel(pendingRMW);
 			return getEventLabel(e)->getStamp() > confLab->getStamp();
 		}), loads.end());
 	return loads;
