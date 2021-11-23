@@ -531,10 +531,9 @@ private:
 	void restrictGraph(const EventLabel *lab);
 
 	/* Given a list of stores that it is consistent to read-from,
-	 * removes options that violate atomicity, and determines the
-	 * order in which these options should be explored */
-	std::vector<Event>
-	properlyOrderStores(const ReadLabel *lab, const std::vector<Event> &stores);
+	 * filters out options that can be skipped (according to the conf),
+	 * and determines the order in which these options should be explored */
+	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
@@ -563,11 +562,12 @@ private:
 	 * returns true if it is indeed a spinloop */
 	bool areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab);
 
+	/* BAM: Filters out unnecessary rfs for LAB when BAM is enabled */
+	void filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores);
+
 	/* Opt: Futher reduces the set of available read-from options for a
-	 * read that is part of a lock() op. Returns the filtered set of RFs  */
-	std::vector<Event> filterAcquiredLocks(const ReadLabel *rLab,
-					       const std::vector<Event> &stores,
-					       const VectorClock &before);
+	 * read that is part of a lock() op  */
+	void filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */

@@ -1143,66 +1143,38 @@ void GenMCDriver::checkLiveness()
 	return;
 }
 
-std::vector<Event> GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab,
-						    const std::vector<Event> &stores,
-						    const VectorClock &before)
+void GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores)
+
 {
 	const auto &g = getGraph();
 
+	/* The course of action depends on whether we are in repair mode or not */
 	if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) ||
 	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
-	    !isRescheduledLock(rLab->getPos()))
-		return {stores.back()};
-
-	std::vector<Event> result;
-
-	for (auto &s : stores) {
-		if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(s)) ||
-		     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(s))) && s != stores.back())
-			continue;
-
-		if (g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
-			continue;
-
-		result.push_back(s);
+	    !isRescheduledLock(rLab->getPos())) {
+		stores = {stores.back()};
+		return;
 	}
-	return result;
+
+	auto max = stores.back();
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
+		return (llvm::isa<LockCasWriteLabel>(g.getEventLabel(s)) ||
+			llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(s))) && s != max;
+	}), stores.end());
+	return;
 }
 
-std::vector<Event>
-GenMCDriver::properlyOrderStores(const ReadLabel *lab, const std::vector<Event> &stores)
+void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores)
 {
-	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
-		return stores;
-
-	const auto &g = getGraph();
-	auto &before = g.getPrefixView(lab->getPos());
-
-	if (llvm::isa<LockCasReadLabel>(lab))
-		return filterAcquiredLocks(lab, stores, before);
-
-	std::vector<Event> valid, conflicting;
-	for (auto &s : stores) {
-		auto oldVal = getWriteValue(s, lab->getAddr(), lab->getAccess());
-		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
-			continue;
-		if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
-			if (oldVal == rLab->getExpected() &&
-			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
-				continue;
-		}
-
-		if (g.isStoreReadByExclusiveRead(s, lab->getAddr()))
-			conflicting.push_back(s);
-		else
-			valid.push_back(s);
-	}
+	if (getConf()->disableBAM || !llvm::isa<BIncFaiReadLabel>(lab))
+		return;
 
 	/* barrier_wait()'s FAI loads should not read from conflicting stores */
-	if (llvm::isa<BIncFaiReadLabel>(lab) && !getConf()->disableBAM)
-		return valid;
-	conflicting.insert(conflicting.end(), valid.begin(), valid.end());
-	return conflicting;
+	auto &g = getGraph();
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
+		return g.isStoreReadByExclusiveRead(s, lab->getAddr());
+	}), stores.end());
+	return;
 }
 
 bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
@@ -1596,9 +1568,46 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 	return;
 }
 
-std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *rLab)
+std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 {
-	return getGraph().getCoherentStores(rLab->getAddr(), rLab->getPos());
+	auto rfs = getGraph().getCoherentStores(lab->getAddr(), lab->getPos());
+	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
+		return rfs;
+
+	/* Remove atomicity violations */
+	auto &g = getGraph();
+	auto &before = g.getPrefixView(lab->getPos());
+	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](const Event &s){
+		auto oldVal = getWriteValue(s, lab->getAddr(), lab->getAccess());
+		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
+			return true;
+		if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
+			if (oldVal == rLab->getExpected() &&
+			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
+				return true;
+		}
+		return false;
+	}), rfs.end());
+	return rfs;
+}
+
+void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
+{
+	/* Symmetry reduction */
+	if (getConf()->symmetryReduction)
+		filterSymmetricStoresSR(lab, stores);
+
+	/* BAM */
+	if (!getConf()->disableBAM)
+		filterConflictingBarriers(lab, stores);
+
+	/* Locking */
+	if (llvm::isa<LockCasReadLabel>(lab))
+		filterAcquiredLocks(lab, stores);
+
+	/* If this load is annotatable, keep values that will not leed to blocking */
+	if (lab->getAnnot())
+		filterValuesFromAnnotSAVER(lab, stores);
 }
 
 SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
@@ -1632,21 +1641,15 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
 	BUG_ON(stores.empty());
-	auto validStores = properlyOrderStores(lab, stores);
-	if (getConf()->symmetryReduction)
-		filterSymmetricStoresSR(lab, validStores);
-	if (llvm::isa<HelpedCasReadLabel>(lab))
-		unblockWaitingHelping();
 
-	/* If this load is annotatable, keep values that will not leed to blocking */
-	if (lab->getAnnot())
-		filterValuesFromAnnotSAVER(lab, validStores);
+	/* Try to minimize the number of rfs */
+	filterOptimizeRfs(lab, stores);
 
 	/* ... add an appropriate label with a random rf */
-	changeRf(lab->getPos(), validStores.back());
+	changeRf(lab->getPos(), stores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
-	if (!ensureConsistentRf(lab, validStores))
+	if (!ensureConsistentRf(lab, stores))
 		return SVal(0);
 
 	GENMC_DEBUG(
@@ -1656,24 +1659,26 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 		}
 	);
 
-	/* Check whether the load forces us to reconsider some potential spinloop */
+	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
+	if (llvm::isa<HelpedCasReadLabel>(lab))
+		unblockWaitingHelping();
 
 	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces(lab);
 	if (llvm::isa<LockCasReadLabel>(lab))
-		checkLockValidity(lab, validStores);
+		checkLockValidity(lab, stores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
-		checkBIncValidity(lab, validStores);
+		checkBIncValidity(lab, stores);
 
 	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = getWriteValue(validStores.back(), lab->getAddr(), lab->getAccess());
+	auto retVal = getWriteValue(stores.back(), lab->getAddr(), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) &&
 	   retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess()))
 		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Barrier));
 
 	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin(); it != validStores.end() - 1; ++it)
+	for (auto it = stores.begin(); it != stores.end() - 1; ++it)
 		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), *it));
 	return retVal;
 }
