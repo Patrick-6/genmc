@@ -92,14 +92,20 @@ private:
 class ForwardRevisit : public ReadRevisit {
 
 protected:
-	ForwardRevisit(Kind k, Event p, Event r) : ReadRevisit(k, p, r) {}
+	ForwardRevisit(Kind k, Event p, Event r, bool maximal = false)
+		: ReadRevisit(k, p, r), maximal(maximal) {}
 
 public:
-	ForwardRevisit(Event p, Event r) : ReadRevisit(RV_FRev, p, r) {}
+	ForwardRevisit(Event p, Event r, bool maximal = false) : ForwardRevisit(RV_FRev, p, r, maximal) {}
+
+	bool isMaximal() const { return maximal; }
 
 	static bool classof(const Revisit *item) {
 		return item->getKind() >= RV_FRev && item->getKind() <= RV_FRevLast;
 	}
+
+private:
+	bool maximal;
 };
 
 

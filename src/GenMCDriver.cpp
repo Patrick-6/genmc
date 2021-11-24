@@ -1687,9 +1687,11 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	   retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess()))
 		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Barrier));
 
-	/* Push all the other alternatives choices to the Stack */
-	for (auto it = stores.begin(); it != stores.end() - 1; ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), *it));
+	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
+	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
+		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(
+				      lab->getPos(), s, isCoMaximal(lab->getAddr(), s, true)));
+	});
 	return retVal;
 }
 
@@ -1929,10 +1931,6 @@ void GenMCDriver::visitRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab)
 void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
 {
 	auto &g = getGraph();
-
-	/* Enable optimization only under MO */
-	if (!llvm::isa<MOCalculator>(g.getCoherenceCalculator()))
-		return;
 
 	auto pos = bLab->getPos();
 	while (pos.index > 0) {
@@ -2205,7 +2203,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		restoreLocalState(std::move(localState));
 	}
-	return !isMootExecution && (!g.isRMWStore(sLab) || !g.violatesAtomicity(sLab));
+	return !isMoot() && (!g.isRMWStore(sLab) || !g.violatesAtomicity(sLab));
 }
 
 void GenMCDriver::repairLock(LockCasReadLabel *lab)
@@ -2332,7 +2330,8 @@ bool GenMCDriver::revisitRead(const ReadRevisit &ri)
 	BUG_ON(!rLab);
 
 	changeRf(rLab->getPos(), ri.getRev());
-	rLab->setAddedMax(llvm::isa<BackwardRevisit>(ri) ? isCoMaximal(rLab->getAddr(), ri.getRev()) : false);
+	auto *fri = llvm::dyn_cast<ForwardRevisit>(&ri);
+	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), ri.getRev()));
 
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V2) {
