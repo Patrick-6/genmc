@@ -435,7 +435,7 @@ public:
 
 	/* Returns true if the addition of SLAB violates atomicity in the graph */
 	bool violatesAtomicity(const WriteLabel *sLab){
-		return !getPendingRMW(sLab).isInitializer();
+		return isRMWStore(sLab) && !getPendingRMW(sLab).isInitializer();
 	}
 
 	/* Opt: Returns whether a lock is optimization-blocked */

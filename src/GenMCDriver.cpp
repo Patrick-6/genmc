@@ -2203,7 +2203,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		restoreLocalState(std::move(localState));
 	}
-	return !isMoot() && (!g.isRMWStore(sLab) || !g.violatesAtomicity(sLab));
+	return !isMoot() && !g.violatesAtomicity(sLab);
 }
 
 void GenMCDriver::repairLock(LockCasReadLabel *lab)
