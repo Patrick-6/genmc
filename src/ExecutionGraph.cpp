@@ -375,7 +375,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
-				    rLab->isRevisitable())
+				    rLab->isRevisitable() && rLab->wasAddedMax())
 					loads.push_back(rLab->getPos());
 			}
 		}

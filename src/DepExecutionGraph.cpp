@@ -34,7 +34,7 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) con
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
 				    !sLab->getPPoRfView().contains(rLab->getPos()) &&
-				    rLab->isRevisitable())
+				    rLab->isRevisitable() && rLab->wasAddedMax())
 					loads.push_back(rLab->getPos());
 			}
 		}
