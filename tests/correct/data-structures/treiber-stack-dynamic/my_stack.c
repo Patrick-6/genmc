@@ -27,7 +27,7 @@ static node_t *new_node()
 
 static void reclaim(node_t *node)
 {
-	free(node);
+	/* free(node); */
 }
 
 void init_stack(mystack_t *s, int num_threads)
