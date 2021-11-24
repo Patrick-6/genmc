@@ -1342,7 +1342,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (!isConsistent(ProgramPoint::step)) {
+	if (getGraph().violatesAtomicity(wLab) || !isConsistent(ProgramPoint::step)) {
 		getEE()->block(BlockageType::Cons);
 		return false;
 	}
@@ -1601,6 +1601,32 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	return rfs;
 }
 
+void GenMCDriver::reorderHelpPossibleRfs(const ReadLabel *lab, std::vector<Event> &stores)
+{
+	auto &g = getGraph();
+	if (!llvm::isa<CasReadLabel>(lab) || !llvm::isa<MOCalculator>(g.getCoherenceCalculator()))
+		return;
+
+	auto *pLab = g.getPreviousLabelST(lab, [&](const EventLabel *eLab){
+		auto *rLab = llvm::dyn_cast<ReadLabel>(eLab);
+		return rLab && !g.isRMWLoad(rLab) && rLab->getAddr() == lab->getAddr();
+	});
+	if (!pLab)
+		return;
+
+	auto *rLab = llvm::dyn_cast<ReadLabel>(pLab);
+	for (auto i = rLab->getIndex(); i < lab->getIndex(); i++) {
+		if (g.getEventLabel(Event(rLab->getThread(), i))->isSC())
+			return;
+	}
+
+	BUG_ON(stores.empty());
+	auto rfIt = std::find(stores.begin(), stores.end(), rLab->getRf());
+	if (rfIt != stores.end())
+		std::swap(*rfIt, stores.back());
+	return;
+}
+
 void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	/* Symmetry reduction */
@@ -1618,6 +1644,10 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 	/* If this load is annotatable, keep values that will not leed to blocking */
 	if (lab->getAnnot())
 		filterValuesFromAnnotSAVER(lab, stores);
+
+	/* Helper: Affect maximality status if possible */
+	if (llvm::isa<CasReadLabel>(lab))
+		reorderHelpPossibleRfs(lab, stores);
 }
 
 SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
@@ -1689,8 +1719,9 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 
 	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
-		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(
-				      lab->getPos(), s, isCoMaximal(lab->getAddr(), s, true)));
+		auto status = llvm::isa<MOCalculator>(g.getCoherenceCalculator()) ? false :
+			isCoMaximal(lab->getAddr(), s, true); /* MO messes with the status */
+		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), s, status));
 	});
 	return retVal;
 }

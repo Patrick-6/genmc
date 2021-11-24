@@ -572,6 +572,9 @@ private:
 	 * read that is part of a lock() op  */
 	void filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
+	/* Helper: Reorders a list of rfs so that it affects their maximality status */
+	void reorderHelpPossibleRfs(const ReadLabel *lab, std::vector<Event> &stores);
+
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
 	bool tryRevisitLockInPlace(ReadLabel *rLab, const WriteLabel *sLab);
