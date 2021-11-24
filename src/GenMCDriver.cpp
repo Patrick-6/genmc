@@ -728,6 +728,8 @@ void GenMCDriver::explore()
 {
 	auto *EE = getEE();
 
+	unmoot(); /* recursive calls */
+	BUG_ON(!lockToReschedule.isInitializer());
 	while (true) {
 		EE->reset();
 
@@ -1798,15 +1800,19 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 
 	auto ret = visitLoad(LockCasReadLabel::create(pos, addr, size), deps);
 
+	/* Check if that was a rescheduled lock; do that here so that
+	 * recursive calls always have no locks to be rescheduled */
+	auto rescheduled = isRescheduledLock(pos);
+	if (isRescheduledLock(pos))
+		setRescheduledLock(Event::getInitializer());
+
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getGraph().getEventLabel(pos));
 	if (!rLab->getRf().isBottom() && ret == SVal(0))
 		visitStore(LockCasWriteLabel::create(pos.next(), addr, size), deps);
 	else
 		visitBlock(BlockLabel::create(pos.next(),
-					      isRescheduledLock(pos) ? BlockageType::LockNotAcq :
+					      rescheduled ? BlockageType::LockNotAcq :
 					      BlockageType::LockOptBlock));
-	if (isRescheduledLock(pos))
-		setRescheduledLock(Event::getInitializer());
 }
 
 void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps)
