@@ -82,6 +82,7 @@ public:
 	std::string programEntryFun;
 	unsigned int warnOnGraphSize;
 #ifdef ENABLE_GENMC_DEBUG
+	bool printBlockedExecs;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
 	VerbosityLevel vLevel;

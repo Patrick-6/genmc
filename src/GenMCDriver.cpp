@@ -462,6 +462,10 @@ void GenMCDriver::handleFinishedExecution()
 
 	/* Ignore the execution if some assume has failed */
 	if (isExecutionBlocked()) {
+		GENMC_DEBUG(
+			if (userConf->printBlockedExecs)
+				printGraph();
+		);
 		++result.exploredBlocked;
 		if (userConf->checkLiveness)
 			checkLiveness();
