@@ -255,6 +255,12 @@ public:
 	 * it returns the (non-existing event) at thread size */
 	Event getMatchingRCUUnlockLKMM(Event lock) const;
 
+	/* Helper: Returns the last speculative read in CONF's location that
+	 * is not matched. If no such event exists, returns INIT.
+	 * (If SC is non-null and an SC event is in-between the confirmation,
+	 * SC is set to that event) */
+	Event getMatchingSpeculativeRead(Event conf, Event *sc = nullptr) const;
+
 	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
 	 * If no such event exists, returns INIT */
 	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;
@@ -438,6 +444,11 @@ public:
 		return isRMWStore(sLab) && !getPendingRMW(sLab).isInitializer();
 	}
 
+	/* Helper: Returns true if RLAB is a confirming operation */
+	bool isConfirming(const ReadLabel *rLab) const {
+		return llvm::isa<ConfirmingReadLabel>(rLab) || llvm::isa<ConfirmingCasReadLabel>(rLab);
+	}
+
 	/* Opt: Returns whether a lock is optimization-blocked */
 	bool isOptBlockedLock(const EventLabel *lab) const {
 		if (llvm::isa<LockCasReadLabel>(lab) &&
@@ -446,6 +457,22 @@ public:
 			return bLab && bLab->getType() == BlockageType::LockOptBlock;
 		}
 		return false;
+	}
+
+	/* Opt: Returns whether a speculative read is optimization-blocked */
+	bool isOptBlockedSpecRead(const EventLabel *lab) const {
+		if (llvm::isa<SpeculativeReadLabel>(lab) &&
+		    getLastThreadEvent(lab->getThread()) == lab->getPos().next()) {
+			auto *bLab = llvm::dyn_cast<BlockLabel>(getNextLabel(lab));
+			return bLab && bLab->getType() == BlockageType::SpecOptBlock;
+		}
+		return false;
+	}
+
+	/* Opt: Returns true if LAB is causing the respective thread
+	 * to block due to some optimization */
+	bool isOptBlockedRead(const EventLabel *lab) const {
+		return isOptBlockedLock(lab) || isOptBlockedSpecRead(lab);
 	}
 
 	/* Returns true if e is hb-before w, or any of the reads that read from w */

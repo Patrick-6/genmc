@@ -98,6 +98,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
+	case EventLabel::EL_SpeculativeRead:
+	case EventLabel::EL_ConfirmingRead:
 		s << "R";
 		break;
 	case EventLabel::EL_FaiRead:
@@ -112,10 +114,12 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
 	case EventLabel::EL_HelpedCasRead:
+	case EventLabel::EL_ConfirmingCasRead:
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
 	case EventLabel::EL_HelpedCasWrite:
+	case EventLabel::EL_ConfirmingCasWrite:
 		s << "C";
 		break;
 	case EventLabel::EL_HelpingCas:

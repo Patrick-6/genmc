@@ -192,16 +192,18 @@ typedef atomic64_t  atomic_long_t;
 /* Not using __atomic in all definitions below (but rather _atomic) so
  * as to not clash with the compiler builtins */
 
+#define __VERIFIER_atomicrmw_noret() __VERIFIER_annotate_FAI(0)
+
 /* Non-value-returning atomics */
 #define __VERIFIER_fetch_add_noret(v, i, m) 	\
 do {						\
-	__VERIFIER_atomicrmw_noret(0);		\
+	__VERIFIER_atomicrmw_noret();		\
 	atomic_fetch_add_explicit(v, i, m);	\
 } while(0)
 
 #define __VERIFIER_fetch_sub_noret(v, i, m) 	\
 do {						\
-	__VERIFIER_atomicrmw_noret(0);		\
+	__VERIFIER_atomicrmw_noret();		\
 	atomic_fetch_sub_explicit(v, i, m);	\
 } while(0)
 

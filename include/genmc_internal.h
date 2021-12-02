@@ -154,14 +154,29 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
 /* Custom opcode implementations */
 
 /*
- * Marks a subsequent non-value-returning CAS instruction.
- * Attribute: 0 -> normal, 1-> helped, 2 -> helping */
-extern void __VERIFIER_atomiccas_noret(int attr);
+ * Annotates a subsequent CAS instruction.
+ * Attributes:
+ *    0 -> non-value-returning
+ *    1 -> helped,
+ *    2 -> helping
+ *    3 -> confirming
+ */
+extern void __VERIFIER_annotate_CAS(int attr);
 
+/*
+ * Annotates a subsequent read instruction.
+ * Attributes:
+ *    0 -> speculative
+ *    1 -> confirming
+ */
+extern void __VERIFIER_annotate_read(int attr);
 
-/* A non-value-returning FAI instruction.
- * Attribute: 0 -> normal */
-extern void __VERIFIER_atomicrmw_noret(int attr);
+/*
+ * Annotates a subsequent FAI.
+ * Attributes:
+ * 0 -> non-value-returning
+ */
+extern void __VERIFIER_annotate_FAI(int attr);
 
 /* Marks the beginning of an optional block. */
 extern int __VERIFIER_opt_begin(void);

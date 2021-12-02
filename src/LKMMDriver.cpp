@@ -452,11 +452,14 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
+	case EventLabel::EL_SpeculativeRead:
+	case EventLabel::EL_ConfirmingRead:
 	case EventLabel::EL_DskRead:
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
 	case EventLabel::EL_HelpedCasRead:
+	case EventLabel::EL_ConfirmingCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_NoRetFaiRead:
 	case EventLabel::EL_BIncFaiRead:
@@ -472,6 +475,7 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
 	case EventLabel::EL_HelpedCasWrite:
+	case EventLabel::EL_ConfirmingCasWrite:
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_NoRetFaiWrite:
 	case EventLabel::EL_BIncFaiWrite:

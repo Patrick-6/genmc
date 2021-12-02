@@ -45,7 +45,22 @@ bool isCASAnnotation(Instruction *i)
 		return false;
 
 	auto name = getCalledFunOrStripValName(*ci);
-	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AtomicCasNoRet;
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AnnotateCas;
+}
+
+std::string getCasTypeFromAnnotValue(const llvm::APInt &value)
+{
+	switch (value.getLimitedValue()) {
+	case 1:
+		return "helped";
+	case 2:
+		return "helping";
+	case 3:
+		return "confirming";
+	default:
+		BUG();
+	}
+	BUG();
 }
 
 bool eliminateCASAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
@@ -62,16 +77,13 @@ bool eliminateCASAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Gather annotation info */
 	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
 	BUG_ON(!funArg);
-	auto casType = funArg->getValue();
+	auto casType = getCasTypeFromAnnotValue(funArg->getValue());
 
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);
 
 	/* Annotate the CAS */
-	auto &ctx = casi->getContext();
-	auto *node = MDNode::get(ctx, MDString::get(ctx,
-				      (casType.getLimitedValue() == 1) ? "helped" : "helping"));
-	casi->setMetadata("cas.attr", node);
+	annotateInstruction(casi, "cas.attr", casType);
 	return true;
 }
 
@@ -82,8 +94,7 @@ bool isFAIAnnotation(Instruction *i)
 		return false;
 
 	auto name = getCalledFunOrStripValName(*ci);
-	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AtomicRmwNoRet;
-	return false;
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AnnotateFai;
 }
 
 bool eliminateFAIAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
@@ -106,10 +117,55 @@ bool eliminateFAIAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);
 
-	/* Annotate the CAS */
-	auto &ctx = faii->getContext();
-	auto *node = MDNode::get(ctx, MDString::get(ctx, "noret"));
-	faii->setMetadata("fai.attr", node);
+	/* Annotate the FAI */
+	annotateInstruction(faii, "fai.attr", "noret");
+	return false;
+}
+
+bool isReadAnnotation(Instruction *i)
+{
+	auto *ci = llvm::dyn_cast<CallInst>(i);
+	if (!ci)
+		return false;
+
+	auto name = getCalledFunOrStripValName(*ci);
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AnnotateRead;
+}
+
+std::string getReadTypeFromAnnotValue(const llvm::APInt &value)
+{
+	switch (value.getLimitedValue()) {
+	case 0:
+		return "speculative";
+	case 1:
+		return "confirming";
+	default:
+		BUG();
+	}
+	BUG();
+}
+
+bool eliminateReadAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
+{
+	if (!ci)
+		return false;
+
+	/* Get the instruction we will be annotating */
+	Instruction *li = ci;
+	while (li && (!isa<LoadInst>(li) || !li->isAtomic()))
+		li = li->getNextNode();
+	ERROR_ON(!llvm::isa<LoadInst>(li), "Badly annotated read!\n");
+
+	/* Gather annotation info */
+	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
+	BUG_ON(!funArg);
+	auto readType = getReadTypeFromAnnotValue(funArg->getValue());
+
+	/* Mark the instruction as "to be deleted" */
+	toDelete.insert(ci);
+
+	/* Annotate the read */
+	annotateInstruction(li, "read.attr", readType);
 	return false;
 }
 
@@ -123,10 +179,14 @@ bool EliminateAnnotationsPass::runOnFunction(Function &F)
 			changed |= eliminateCASAnnotation(llvm::dyn_cast<CallInst>(&*I), toDelete);
 		else if (isFAIAnnotation(&*I))
 			changed |= eliminateFAIAnnotation(llvm::dyn_cast<CallInst>(&*I), toDelete);
+		else if (isReadAnnotation(&*I))
+			changed |= eliminateReadAnnotation(llvm::dyn_cast<CallInst>(&*I), toDelete);
 	}
 
-	for (auto *i : toDelete)
+	for (auto *i : toDelete) {
 		i->eraseFromParent();
+		changed = true;
+	}
 	return changed;
 }
 

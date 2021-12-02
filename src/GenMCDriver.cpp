@@ -43,7 +43,8 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> MI)
-	: userConf(conf), result(), isMootExecution(false), lockToReschedule(Event::getInitializer()), shouldHalt(false)
+	: userConf(conf), result(), isMootExecution(false), lockToReschedule(Event::getInitializer()),
+	  readToReschedule(Event::getInitializer()), shouldHalt(false)
 {
 	std::string buf;
 
@@ -83,16 +84,16 @@ GenMCDriver::LocalState::~LocalState() = default;
 
 GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
 				    std::unique_ptr<llvm::EELocalState> interpState, bool isMootExecution,
-				    Event lockToReschedule, const std::vector<Event> &threadPrios)
+				    Event lockToReschedule, Event readToReschedule, const std::vector<Event> &threadPrios)
 	: graph(std::move(g)), revset(std::move(r)), workqueue(std::move(w)),
-	  interpState(std::move(interpState)), isMootExecution(isMootExecution), lockToReschedule(lockToReschedule),
+	  interpState(std::move(interpState)), isMootExecution(isMootExecution), lockToReschedule(lockToReschedule), readToReschedule(readToReschedule),
 	  threadPrios(threadPrios) {}
 
 std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
 	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
 		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
-		getEE()->releaseLocalState(), isMootExecution, lockToReschedule, threadPrios);
+		getEE()->releaseLocalState(), isMootExecution, lockToReschedule, readToReschedule, threadPrios);
 }
 
 void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
@@ -103,6 +104,7 @@ void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> sta
 	getEE()->restoreLocalState(std::move(state->interpState));
 	isMootExecution = state->isMootExecution;
 	lockToReschedule = state->lockToReschedule;
+	readToReschedule = state->readToReschedule;
 	threadPrios = std::move(state->threadPrios);
 	return;
 }
@@ -708,6 +710,30 @@ bool GenMCDriver::rescheduleLocks()
 	return false;
 }
 
+bool GenMCDriver::rescheduleReads()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	for (auto i = 0u; i < g.getNumThreads(); ++i) {
+		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
+		if (!bLab || bLab->getType() != BlockageType::SpecOptBlock)
+			continue;
+		auto *pLab = llvm::dyn_cast<SpeculativeReadLabel>(g.getPreviousLabel(bLab));
+		BUG_ON(!pLab);
+
+		setRescheduledRead(pLab->getPos());
+		g.remove(bLab);
+		g.remove(pLab);
+
+		EE->resetThread(i);
+		EE->getThrById(i).ECStack = { EE->getThrById(i).initSF };
+		EE->scheduleThread(i);
+		return true;
+	}
+	return false;
+}
+
 bool GenMCDriver::scheduleNext()
 {
 	if (isMoot() || isHalting())
@@ -725,7 +751,7 @@ bool GenMCDriver::scheduleNext()
 		return true;
 
 	/* Finally, check if any locks needs to be rescheduled */
-	return rescheduleLocks();
+	return rescheduleLocks() || rescheduleReads();
 }
 
 void GenMCDriver::explore()
@@ -734,6 +760,7 @@ void GenMCDriver::explore()
 
 	unmoot(); /* recursive calls */
 	BUG_ON(!lockToReschedule.isInitializer());
+	BUG_ON(!readToReschedule.isInitializer());
 	while (true) {
 		EE->reset();
 
@@ -1605,30 +1632,68 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	return rfs;
 }
 
-void GenMCDriver::reorderHelpPossibleRfs(const ReadLabel *lab, std::vector<Event> &stores)
+void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	auto &g = getGraph();
-	if (!llvm::isa<CasReadLabel>(lab) || !llvm::isa<MOCalculator>(g.getCoherenceCalculator()))
+	if (getConf()->coherence != CoherenceType::mo || !g.isConfirming(lab))
 		return;
 
-	auto *pLab = g.getPreviousLabelST(lab, [&](const EventLabel *eLab){
-		auto *rLab = llvm::dyn_cast<ReadLabel>(eLab);
-		return rLab && !g.isRMWLoad(rLab) && rLab->getAddr() == lab->getAddr();
-	});
-	if (!pLab)
-		return;
+	auto sc = Event::getInitializer();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(
+		g.getEventLabel(g.getMatchingSpeculativeRead(lab->getPos(), &sc)));
+	ERROR_ON(!rLab, "Confirming annotation error! Does the speculative "
+		 "read always precede the confirming operation?\n");
 
-	auto *rLab = llvm::dyn_cast<ReadLabel>(pLab);
-	for (auto i = rLab->getIndex(); i < lab->getIndex(); i++) {
-		if (g.getEventLabel(Event(rLab->getThread(), i))->isSC())
-			return;
-	}
+	if (!sc.isInitializer())
+		return;
 
 	BUG_ON(stores.empty());
-	auto rfIt = std::find(stores.begin(), stores.end(), rLab->getRf());
-	if (rfIt != stores.end())
-		std::swap(*rfIt, stores.back());
+
+	auto specVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	auto maximal = stores.back();
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
+		return getWriteValue(s, rLab->getAddr(), rLab->getAccess()) != specVal;
+	}), stores.end());
+
+	if (stores.empty())
+		stores.push_back(maximal);
 	return;
+}
+
+bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores)
+{
+	auto &g = getGraph();
+	return (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *oLab){
+		auto *orLab = llvm::dyn_cast<SpeculativeReadLabel>(oLab);
+		return orLab && orLab->getAddr() == lab->getAddr()
+			&& orLab->getPos() != lab->getPos();
+	}) &&
+		std::find_if(stores.begin(), stores.end(), [&](const Event &s){
+			return llvm::isa<ConfirmingCasWriteLabel>(g.getEventLabel(s)) &&
+				s.index > lab->getIndex() && s.thread == lab->getThread();
+		}) == stores.end());
+}
+
+void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
+{
+	if (!llvm::isa<SpeculativeReadLabel>(lab) || getConf()->coherence != CoherenceType::mo)
+		return;
+
+	if (isRescheduledRead(lab->getPos())) {
+		setRescheduledRead(Event::getInitializer());
+		return;
+	}
+
+	/* If there exist any speculative reads the confirming read of which has not been added,
+	 * prioritize those and discard current rfs; otherwise, prioritize ourselves */
+	if (existsPendingSpeculation(lab, stores)) {
+		std::swap(stores[0], stores.back());
+		stores.resize(1);
+		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::SpecOptBlock));
+		return;
+	}
+
+	threadPrios = { lab->getPos() };
 }
 
 void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
@@ -1650,8 +1715,11 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 		filterValuesFromAnnotSAVER(lab, stores);
 
 	/* Helper: Affect maximality status if possible */
-	if (llvm::isa<CasReadLabel>(lab))
-		reorderHelpPossibleRfs(lab, stores);
+	if (getGraph().isConfirming(lab))
+		filterConfirmingRfs(lab, stores);
+
+	if (llvm::isa<SpeculativeReadLabel>(lab))
+		filterUnconfirmedReads(lab, stores);
 }
 
 SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
@@ -1798,6 +1866,11 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		return;
 
 	checkReconsiderFaiSpinloop(lab);
+
+	/* Helper: deprioritize thread upon confirmation */
+	if (llvm::isa<ConfirmingCasWriteLabel>(lab) && !threadPrios.empty() &&
+	    llvm::isa<SpeculativeReadLabel>(getGraph().getEventLabel(threadPrios[0])))
+		threadPrios.clear();
 
 	/* Check for races */
 	checkForDataRaces(lab);
@@ -1971,7 +2044,7 @@ void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
 	while (pos.index > 0) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (!rLab->isRevisitable() || !rLab->wasAddedMax())
+			if (!rLab->isRevisitable() || !rLab->wasAddedMax() || g.isConfirming(rLab))
 				moot();
 			return;
 		}
@@ -2131,6 +2204,29 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 	return true;
 }
 
+void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
+{
+	auto &g = getGraph();
+
+	loads.erase(std::remove_if(loads.begin(), loads.end(), [&](const Event &l){
+		auto *lab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
+		if (!g.isConfirming(lab))
+			return false;
+
+		auto sc = Event::getInitializer();
+		auto *pLab = llvm::dyn_cast<ReadLabel>(
+			g.getEventLabel(g.getMatchingSpeculativeRead(lab->getPos(), &sc)));
+		ERROR_ON(!pLab, "Confirming CAS annotation error! "
+			 "Does a speculative read precede the confirming operation?\n");
+
+		if (!sc.isInitializer())
+			return false;
+
+		auto specVal = getReadValue(pLab);
+		return sLab->getVal() != specVal;
+	}), loads.end());
+}
+
 bool GenMCDriver::tryRevisitLockInPlace(ReadLabel *rLab, const WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -2181,9 +2277,13 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 		}
 	}
 
-	/* Locking */
+	/* Helper */
+	if (getConf()->coherence == CoherenceType::mo)
+		optimizeUnconfirmedRevisits(sLab, loads);
+
+	/* Optimization-blocked (locking + helper) */
 	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g](const Event &l){
-		return g.isOptBlockedLock(g.getEventLabel(l));
+		return g.isOptBlockedRead(g.getEventLabel(l));
 	}), loads.end());
 
 	return false;
@@ -2348,6 +2448,8 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		CREATE_COUNTERPART(LockCas);
 		CREATE_COUNTERPART(TrylockCas);
 		CREATE_COUNTERPART(Cas);
+		CREATE_COUNTERPART(HelpedCas);
+		CREATE_COUNTERPART(ConfirmingCas);
 	default:
 		BUG();
 	}
@@ -2400,6 +2502,12 @@ bool GenMCDriver::revisitRead(const ReadRevisit &ri)
 		g.addOtherLabelToGraph(BlockLabel::create(rLab->getPos().next(), BlockageType::LockNotAcq));
 		threadPrios = {rLab->getRf()};
 	}
+	auto *oLab = g.getPreviousLabelST(rLab, [&](const EventLabel *oLab){
+		return llvm::isa<SpeculativeReadLabel>(oLab);
+	});
+
+	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLab)
+		threadPrios = {rLab->getPos()};
 	return true;
 }
 

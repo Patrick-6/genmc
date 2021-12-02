@@ -217,6 +217,34 @@ Event ExecutionGraph::getMatchingRCUUnlockLKMM(Event lock) const
 	return getLastThreadEvent(lock.thread).next();
 }
 
+Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = nullptr */) const
+{
+	std::vector<Event> locConfs;
+
+	auto *cLab = llvm::dyn_cast<ReadLabel>(getEventLabel(conf));
+	BUG_ON(!cLab);
+
+	for (auto j = conf.index - 1; j > 0; j--) {
+		const EventLabel *lab = getEventLabel(Event(conf.thread, j));
+
+		if (sc && lab->isSC())
+			*sc = lab->getPos();
+
+		if (auto *ocLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (isConfirming(ocLab) && ocLab->getAddr() == cLab->getAddr())
+				locConfs.push_back(ocLab->getPos());
+		}
+		if (auto *rLab = llvm::dyn_cast<SpeculativeReadLabel>(lab)) {
+			if (rLab->getAddr() == cLab->getAddr()) {
+				if (locConfs.empty())
+					return rLab->getPos();
+				locConfs.pop_back();
+			}
+		}
+	}
+	return Event::getInitializer();
+}
+
 Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
 {
 	std::vector<SAddr > unlocks;

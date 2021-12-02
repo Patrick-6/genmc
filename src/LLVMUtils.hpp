@@ -74,6 +74,17 @@ bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2);
  */
 bool hasSideEffects(const llvm::Instruction *i, const VSet<llvm::Function *> *cleanFuns = nullptr);
 
+/*
+ * Returns true if I allocates memory.
+ * If a list of allocFuns is provided, then these are also considered as allocating instructions.
+ */
+bool isAlloc(const llvm::Instruction *i, const VSet<llvm::Function *> *allocFuns = nullptr);
+
+/*
+ * Annotates I by setting the metadata TYPE to VALUE
+ */
+void annotateInstruction(llvm::Instruction *i, const std::string &type, const std::string &value);
+
 namespace details {
 	template<typename F>
 	void foreachInBackPathTo(llvm::BasicBlock *curr,

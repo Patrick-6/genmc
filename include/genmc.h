@@ -46,21 +46,61 @@ void __VERIFIER_spin_start(void);
 void __VERIFIER_spin_end(int);
 
 /*
- * GenMC-specific CAS instructions. They take as argument a CAS instruction
- * that has a "helping" role (e.g., tail advancement in Michael-Scott queue),
- * and can aid in state-space reduction. They do not return any value
+ * Helping instructions. They take as argument a CAS instruction that
+ * has a "helping" role (e.g., tail advancement in Michael-Scott
+ * queue), and can aid in state-space reduction. They do not return
+ * any value.
  * See the manual for a lengthier explanation.
  */
 #define __VERIFIER_helped_CAS(c)			\
 do {							\
-	__VERIFIER_atomiccas_noret(1);			\
-	c						\
+	__VERIFIER_annotate_CAS(1);			\
+	c;						\
 } while (0)
 #define __VERIFIER_helping_CAS(c)			\
 do {							\
-	__VERIFIER_atomiccas_noret(2);			\
-	c						\
+	__VERIFIER_annotate_CAS(2);			\
+	c;						\
 } while (0)
+
+
+/*
+ * Marker instructions. They take as an argument a read and
+ * a CAS instruction (respectively), that mark the beginning/end
+ * of a large atomic operation (loop). For example:
+ *
+ * int old, new;
+ * do {
+ *     old = __VERIFIER_speculative_read(
+ *         atomic_load_explicit(&x, ...);
+ *     );
+ *     new = old * 42;
+ * while (!__VERIFIER_confirming_CAS(
+ *            atomic_compare_exchange_strong_explicit(&x, &old, new, ...);
+ *       ))
+ *
+ * NOTE: These should _not_ be used on top of the automatic
+ * automatic loop marking transformation.
+ */
+#define __VERIFIER_speculative_read(c)			\
+({							\
+	__VERIFIER_annotate_read(0);			\
+	int __ret = c;					\
+	__ret;						\
+})
+#define __VERIFIER_confirming_read(c)			\
+({							\
+	__VERIFIER_annotate_read(1);			\
+	int __ret = c;					\
+	__ret;						\
+})
+#define __VERIFIER_confirming_CAS(c)			\
+({							\
+	__VERIFIER_annotate_CAS(3);			\
+	int __ret = c;					\
+	__ret;						\
+})
+
 
 /*
  * A block of code enclosed in __VERIFIER_optional() is a hint to

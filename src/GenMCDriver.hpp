@@ -115,13 +115,14 @@ public:
 		std::unique_ptr<llvm::EELocalState> interpState;
 		bool isMootExecution;
 		Event lockToReschedule;
+		Event readToReschedule;
 		std::vector<Event> threadPrios;
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
 		LocalState() = delete;
 		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
 			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
-			   bool isMootExecution, Event lockToReschedule, const std::vector<Event> &threadPrios);
+			   bool isMootExecution, Event lockToReschedule, Event readToReschedule, const std::vector<Event> &threadPrios);
 
 		~LocalState();
 	};
@@ -418,6 +419,12 @@ private:
 	/* Opt: Sets L as a lock to be repaired */
 	void setRescheduledLock(Event l) { lockToReschedule = l; }
 
+	/* Opt: Whether the exploration should try to repair L */
+	bool isRescheduledRead(Event l) const { return readToReschedule == l; }
+
+	/* Opt: Sets L as a lock to be repaired */
+	void setRescheduledRead(Event l) { readToReschedule = l; }
+
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
@@ -452,6 +459,9 @@ private:
 
 	/* Opt: Tries to reschedule any locks that were added blocked */
 	bool rescheduleLocks();
+
+	/* Opt: Tries to reschedule any locks that were added blocked */
+	bool rescheduleReads();
 
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
@@ -499,6 +509,9 @@ private:
 
 	/* BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
+
+	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
+	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
 
 	/* Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
@@ -572,8 +585,15 @@ private:
 	 * read that is part of a lock() op  */
 	void filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
-	/* Helper: Reorders a list of rfs so that it affects their maximality status */
-	void reorderHelpPossibleRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	/* Helper: Filters out RFs that will make the CAS fail */
+	void filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores);
+
+	/* Helper: Returns true if there is a speculative read that hasn't been confirmed */
+	bool existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores);
+
+	/* Helper: Ensures a speculative read will not be added if
+	 * there are other speculative (unconfirmed) reads */
+	void filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
@@ -735,6 +755,7 @@ private:
 
 	/* Opt: Whether a particular lock needs to be repaired during rescheduling */
 	Event lockToReschedule;
+	Event readToReschedule;
 
 	/* Verification result to be returned to caller */
 	Result result;

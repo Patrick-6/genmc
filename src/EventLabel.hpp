@@ -71,6 +71,8 @@ public:
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_BWaitRead,
+		EL_SpeculativeRead,
+		EL_ConfirmingRead,
 		EL_FaiRead,
 		EL_NoRetFaiRead,
 		EL_BIncFaiRead,
@@ -79,6 +81,7 @@ public:
 		EL_LockCasRead,
 		EL_TrylockCasRead,
 		EL_HelpedCasRead,
+		EL_ConfirmingCasRead,
 		EL_CasReadLast,
 		EL_DskRead,
 		EL_LastRead,
@@ -94,6 +97,7 @@ public:
 		EL_LockCasWrite,
 		EL_TrylockCasWrite,
 		EL_HelpedCasWrite,
+		EL_ConfirmingCasWrite,
 		EL_CasWriteLast,
 		EL_DskWrite,
 		EL_DskMdWrite,
@@ -682,6 +686,74 @@ public:
 
 
 /*******************************************************************************
+ **                         SpeculativeReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of ReadLabel for speculative reads (Helper) */
+class SpeculativeReadLabel : public ReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	SpeculativeReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     SAddr loc, ASize size, AType type, Event rf = Event::getBottom(),
+			     AnnotVP annot = nullptr)
+		: ReadLabel(EL_SpeculativeRead, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
+	SpeculativeReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr loc, ASize size, AType type,
+			     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		: ReadLabel(EL_SpeculativeRead, ord, pos, loc, size, type, rf, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<SpeculativeReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<SpeculativeReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<SpeculativeReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_SpeculativeRead; }
+};
+
+
+/*******************************************************************************
+ **                         ConfirmingReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of ReadLabel for plain confirming reads (Helper) */
+class ConfirmingReadLabel : public ReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	ConfirmingReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     SAddr loc, ASize size, AType type, Event rf = Event::getBottom(),
+			     AnnotVP annot = nullptr)
+		: ReadLabel(EL_ConfirmingRead, st, ord, pos, loc, size, type, rf, std::move(annot)) {}
+	ConfirmingReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr loc, ASize size, AType type,
+			     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		: ReadLabel(EL_ConfirmingRead, ord, pos, loc, size, type, rf, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<ConfirmingReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<ConfirmingReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<ConfirmingReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ConfirmingRead; }
+};
+
+
+/*******************************************************************************
  **                         FaiReadLabel Class
  ******************************************************************************/
 
@@ -1006,6 +1078,44 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_HelpedCasRead; }
+};
+
+
+/*******************************************************************************
+ **                         ConfirmingCasReadLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasReadLabel for helped CASes */
+class ConfirmingCasReadLabel : public CasReadLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	ConfirmingCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			   Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		: CasReadLabel(EL_ConfirmingCasRead, st, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+	ConfirmingCasReadLabel(llvm::AtomicOrdering ord, Event pos,
+			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			   Event rf = Event::getBottom(),
+			   AnnotVP annot = nullptr)
+		: CasReadLabel(EL_ConfirmingCasRead, ord, pos, addr, size, type,
+			       exp, swap, rf, std::move(annot)) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<ConfirmingCasReadLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<ConfirmingCasReadLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<ConfirmingCasReadLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ConfirmingCasRead; }
 };
 
 
@@ -1471,6 +1581,7 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasWrite; }
 };
 
+
 /*******************************************************************************
  **                         HelpedCasWriteLabel Class
  ******************************************************************************/
@@ -1502,6 +1613,40 @@ public:
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_HelpedCasWrite; }
+};
+
+
+/*******************************************************************************
+ **                         ConfirmingCasWriteLabel Class
+ ******************************************************************************/
+
+/* Specialization of CasWriteLabel for trylock CASes */
+class ConfirmingCasWriteLabel : public CasWriteLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	ConfirmingCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+			     SAddr addr, ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_ConfirmingCasWrite, st, ord, pos, addr, size, type, val) {}
+	ConfirmingCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
+			     ASize size, AType type, SVal val)
+		: CasWriteLabel(EL_ConfirmingCasWrite, ord, pos, addr, size, type, val) {}
+
+
+	template<typename... Ts>
+	static std::unique_ptr<ConfirmingCasWriteLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<ConfirmingCasWriteLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<ConfirmingCasWriteLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_ConfirmingCasWrite; }
 };
 
 

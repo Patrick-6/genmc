@@ -101,8 +101,9 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_syncFS", InternalFunctions::FN_SyncFS},
 	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
-	{"__VERIFIER_atomiccas_noret", InternalFunctions::FN_AtomicCasNoRet},
-	{"__VERIFIER_atomicrmw_noret", InternalFunctions::FN_AtomicRmwNoRet},
+	{"__VERIFIER_annotate_read", InternalFunctions::FN_AnnotateRead},
+	{"__VERIFIER_annotate_CAS", InternalFunctions::FN_AnnotateCas},
+	{"__VERIFIER_annotate_FAI", InternalFunctions::FN_AnnotateFai},
 	{"__VERIFIER_lkmm_fence", InternalFunctions::FN_SmpFenceLKMM},
 	{"__VERIFIER_rcu_read_lock", InternalFunctions::FN_RCUReadLockLKMM},
 	{"__VERIFIER_rcu_read_unlock", InternalFunctions::FN_RCUReadUnlockLKMM},
@@ -1443,6 +1444,25 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 				    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
 
+EventLabel::EventLabelKind
+getReadKind(LoadInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("read.attr");
+	if (!md)
+		return Kind::EL_Read;
+
+	auto &op = md->getOperand(0);
+	BUG_ON(!llvm::isa<llvm::MDString>(op));
+
+	if (llvm::dyn_cast<MDString>(op)->getString() == "speculative")
+		return Kind::EL_SpeculativeRead;
+	else if (llvm::dyn_cast<MDString>(op)->getString() == "confirming")
+		return Kind::EL_ConfirmingRead;
+	BUG();
+}
+
 void Interpreter::visitLoadInst(LoadInst &I)
 {
 	Thread &thr = getCurThr();
@@ -1463,8 +1483,24 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	auto deps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
 				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
+
 	/* ... and then the driver will provide the appropriate value */
-	auto val = driver->visitLoad(ReadLabel::create(I.getOrdering(), nextPos(), ptr, size, atyp), &*deps);
+#define IMPLEMENT_READ_VISIT(__kind)					\
+	case EventLabel::EventLabelKind::EL_ ## __kind: {		\
+		val = driver->visitLoad(__kind ## Label::create(	\
+					I.getOrdering(), nextPos(), ptr,\
+					size, atyp), &*deps);		\
+		break;							\
+	}
+
+	SVal val;
+	switch (getReadKind(I)) {
+		IMPLEMENT_READ_VISIT(Read);
+		IMPLEMENT_READ_VISIT(SpeculativeRead);
+		IMPLEMENT_READ_VISIT(ConfirmingRead);
+	default:
+		BUG();
+	}
 
 	updateDataDeps(thr.id, &I, currPos());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
@@ -1535,7 +1571,9 @@ getCasKinds(AtomicCmpXchgInst &I)
 
 	if (llvm::dyn_cast<MDString>(op)->getString() == "helped")
 		return std::make_pair(Kind::EL_HelpedCasRead, Kind::EL_HelpedCasWrite);
-	return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
+	else if (llvm::dyn_cast<MDString>(op)->getString() == "helping")
+		return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
+	return std::make_pair(Kind::EL_ConfirmingCasRead, Kind::EL_ConfirmingCasWrite);
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
@@ -1591,6 +1629,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	switch (switchPair(getCasKinds(I))) {
 		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
 		IMPLEMENT_CAS_VISIT(HelpedCasRead, HelpedCasWrite);
+		IMPLEMENT_CAS_VISIT(ConfirmingCasRead, ConfirmingCasWrite);
 		case switchPair(EventLabel::EL_HelpingCas, EventLabel::EL_HelpingCas):
 			driver->visitHelpingCas(HelpingCasLabel::create(
 							I.getSuccessOrdering(), nextPos(), ptr,

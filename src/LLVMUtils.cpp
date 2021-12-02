@@ -103,6 +103,13 @@ bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* =
 	return false;
 }
 
+void annotateInstruction(llvm::Instruction *i, const std::string &type, const std::string &value)
+{
+	auto &ctx = i->getContext();
+	auto *node = MDNode::get(ctx, MDString::get(ctx, value));
+	i->setMetadata(type, node);
+}
+
 #ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS
 
 void DetatchDeadBlocks(
