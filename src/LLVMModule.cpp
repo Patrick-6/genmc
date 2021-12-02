@@ -178,6 +178,7 @@ namespace LLVMModule {
 		if (conf->loopJumpThreading)
 			BndPM.add(createLoopJumpThreadingPass());
 		BndPM.add(createCallInfoCollectionPass());
+		BndPM.add(createEscapeCheckerPass());
 		if (conf->spinAssume)
 			BndPM.add(createSpinAssumePass(conf->checkLiveness));
 		if (conf->unroll >= 0)

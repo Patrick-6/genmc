@@ -25,6 +25,7 @@
 #include "SpinAssumePass.hpp"
 #include "DeclareInternalsPass.hpp"
 #include "CallInfoCollectionPass.hpp"
+#include "EscapeCheckerPass.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "InstAnnotator.hpp"
 #include "LLVMUtils.hpp"
@@ -68,6 +69,7 @@ void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 	au.addRequired<POSTDOM_PASS>();
 	au.addRequired<DeclareInternalsPass>();
 	au.addRequired<CallInfoCollectionPass>();
+	au.addRequired<EscapeCheckerPass>();
 	au.setPreservesAll();
 }
 
@@ -325,9 +327,17 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	return true;
 }
 
+bool isStoreLocal(StoreInst *si, EscapeInfo &EI, DominatorTree &DT)
+{
+	auto *alloc = EI.writesDynamicMemory(si->getPointerOperand());
+	return alloc && EI.escapesAfter(alloc, si, DT);
+}
+
 bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &checkDynamically)
 {
 	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto &EI = getAnalysis<EscapeCheckerPass>().getEscapeInfo();
+	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	auto effects = false;
 	std::vector<AtomicCmpXchgInst *> cass;
 
@@ -336,6 +346,11 @@ bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &
 		if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&i)) {
 			cass.push_back(casi);
 			return;
+		}
+		/* Local stores are allowed */
+		if (auto *si = dyn_cast<StoreInst>(&i)) {
+			if (isStoreLocal(si, EI, DT))
+				return;
 		}
 		effects |= hasSideEffects(&i, &cleanSet);
 	});

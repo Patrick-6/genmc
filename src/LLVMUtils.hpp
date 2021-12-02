@@ -50,6 +50,11 @@ bool areSameLoadOrdering(llvm::AtomicOrdering o1, llvm::AtomicOrdering o2);
 llvm::Value *stripCasts(llvm::Value *val);
 
 /*
+ * Strips all casts and GEPs from val
+ */
+llvm::Value *stripCastsGEPs(llvm::Value *val);
+
+/*
  * Returns the name of the function ci calls
  */
 std::string getCalledFunOrStripValName(const llvm::CallInst &ci);

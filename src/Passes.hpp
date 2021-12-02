@@ -111,4 +111,9 @@ llvm::Pass *createEliminateAnnotationsPass();
  */
 llvm::Pass *createEliminateUnusedCodePass();
 
+/*
+ * Collects possible escape points for a given function
+ */
+llvm::Pass *createEscapeCheckerPass();
+
 #endif /* __PASSES_HPP__ */

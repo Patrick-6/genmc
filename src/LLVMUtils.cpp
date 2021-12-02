@@ -43,6 +43,19 @@ Value *stripCasts(Value *val)
 	return val;
 }
 
+Value *stripCastsGEPs(Value *val)
+{
+	while (true) {
+		if (auto *ci = dyn_cast<CastInst>(val))
+			val = ci->getOperand(0);
+		else if (auto *gepi = dyn_cast<GetElementPtrInst>(val))
+			val = gepi->getPointerOperand();
+		else
+			break;
+	}
+	return val;
+}
+
 std::string getCalledFunOrStripValName(const CallInst &ci)
 {
 	if (auto *fun = ci.getCalledFunction())

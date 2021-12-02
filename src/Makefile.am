@@ -25,6 +25,7 @@ libgenmc_a_SOURCES = \
   DriverGraphEnumAPI.hpp \
   DriverFactory.hpp \
   Error.cpp Error.hpp \
+  EscapeCheckerPass.cpp EscapeCheckerPass.hpp \
   Event.cpp Event.hpp \
   EventLabel.cpp EventLabel.hpp \
   Execution.cpp \
