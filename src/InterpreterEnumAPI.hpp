@@ -147,6 +147,15 @@ inline bool isAssumeFunction(const std::string &name)
 	return code >= InternalFunctions::FN_SpinEnd && code <= InternalFunctions::FN_Assume;
 }
 
+inline bool isAllocFunction(const std::string &name)
+{
+	if (!isInternalFunction(name))
+		return false;
+
+	auto &code = internalFunNames.at(name);
+	return code >= InternalFunctions::FN_Malloc && code <= InternalFunctions::FN_MallocAligned;
+}
+
 inline bool isMutexCode(InternalFunctions code)
 {
 	return (code >= InternalFunctions::FN_MutexInit && code <= InternalFunctions::FN_MutexDestroy);

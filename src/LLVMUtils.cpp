@@ -103,6 +103,24 @@ bool hasSideEffects(const Instruction *i, const VSet<Function *> *cleanFuns /* =
 	return false;
 }
 
+bool isAlloc(const Instruction *i, const VSet<Function *> *allocFuns /* = nullptr */)
+{
+	auto *si = i->stripPointerCasts();
+	if (isa<AllocaInst>(si))
+		return true;
+
+	auto *ci = dyn_cast<CallInst>(si);
+	if (!ci)
+		return false;
+
+	if (isAllocFunction(getCalledFunOrStripValName(*ci)))
+		return true;
+
+	CallInstWrapper CW(const_cast<CallInst *>(ci));
+	const auto *fun = dyn_cast<Function>(CW.getCalledOperand()->stripPointerCasts());
+	return allocFuns && allocFuns->count(const_cast<Function *>(fun));
+}
+
 void annotateInstruction(llvm::Instruction *i, const std::string &type, const std::string &value)
 {
 	auto &ctx = i->getContext();
