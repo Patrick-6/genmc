@@ -134,13 +134,8 @@ bool isPHIRelatedToCASCmp(const PHINode *curr, const SmallVector<const AtomicCmp
 			}))
 				return false;
 		} else if (auto *extract = dyn_cast<ExtractValueInst>(val)) {
-			if (!extract->getType()->isIntegerTy() ||
-			    extract->getNumIndices() > 1 ||
-			    *extract->idx_begin() != 0)
-				return false;
-
-			auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
-			if (!ecasi)
+			auto *ecasi = extractsFromCAS(extract);
+			if (!ecasi || *extract->idx_begin() != 0)
 				return false;
 			if (std::all_of(cass.begin(), cass.end(), [&](const AtomicCmpXchgInst *casi){
 				return !accessSameVariable(ecasi->getPointerOperand(), casi->getPointerOperand()) ||
@@ -178,13 +173,8 @@ bool isPHIRelatedToCASRes(const PHINode *curr, const SmallVector<const AtomicCmp
 				return false;
 			}
 		} else if (auto *extract = dyn_cast<ExtractValueInst>(val)) {
-			if (!extract->getType()->isIntegerTy() ||
-			    extract->getNumIndices() > 1 ||
-			    *extract->idx_begin() != 1)
-				return false;
-
-			auto *ecasi = dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
-			if (!ecasi)
+			auto *ecasi = extractsFromCAS(extract);
+			if (!ecasi || *extract->idx_begin() != 1)
 				return false;
 			if (std::all_of(cass.begin(), cass.end(), [&](const AtomicCmpXchgInst *casi){
 				return !accessSameVariable(ecasi->getPointerOperand(), casi->getPointerOperand()) ||

@@ -72,6 +72,13 @@ bool isIntrinsicCallNoSideEffects(const Instruction &i)
 	return isCleanInternalFunction(getCalledFunOrStripValName(*ci));
 }
 
+AtomicCmpXchgInst *extractsFromCAS(ExtractValueInst *extract)
+{
+	if (!extract->getType()->isIntegerTy() || extract->getNumIndices() > 1)
+		return nullptr;
+	return dyn_cast<AtomicCmpXchgInst>(extract->getAggregateOperand());
+}
+
 bool isDependentOn(const Instruction *i1, const Instruction *i2, VSet<const Instruction *> chain)
 {
 	if (!i1 || !i2 || chain.find(i1) != chain.end())

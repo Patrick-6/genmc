@@ -72,6 +72,12 @@ bool isIntrinsicCallNoSideEffects(const llvm::Instruction &i);
 bool isDependentOn(const llvm::Instruction *i1, const llvm::Instruction *i2);
 
 /*
+ * If EI extracts its value from an integer CAS instruction, returns said CAS;
+ * otherwise returns nullptr.
+ */
+llvm::AtomicCmpXchgInst *extractsFromCAS(llvm::ExtractValueInst *ei);
+
+/*
  * Returns true if its argument has side-effects.
  * Clean intrinsic functions (e.g., assert, assume) are considered side-effect-free.
  * Calls to non-intrinsic functions are considered to produce side-effects
