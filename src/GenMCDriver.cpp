@@ -2263,8 +2263,7 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 
 	/* Symmetry reduction */
 	if (getConf()->symmetryReduction) {
-		auto *bLab = g.getFirstThreadLabel(sLab->getThread());
-		auto tid = bLab->getSymmetricTid();
+		auto tid = g.getFirstThreadLabel(sLab->getThread())->getSymmetricTid();
 		if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
 			return true;
 	}
