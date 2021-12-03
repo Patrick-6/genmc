@@ -116,4 +116,9 @@ llvm::Pass *createEliminateUnusedCodePass();
  */
 llvm::Pass *createEscapeCheckerPass();
 
+/*
+ * Annotates confirming reads
+ */
+llvm::FunctionPass *createConfirmationAnnotationPass();
+
 #endif /* __PASSES_HPP__ */

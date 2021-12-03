@@ -15,6 +15,7 @@ libgenmc_a_SOURCES = \
   Calculator.hpp \
   CallInstWrapper.hpp \
   CoherenceCalculator.hpp \
+  ConfirmationAnnotationPass.cpp ConfirmationAnnotationPass.hpp \
   Config.cpp Config.hpp \
   DeclareInternalsPass.cpp DeclareInternalsPass.hpp \
   DefineLibcFunsPass.cpp DefineLibcFunsPass.hpp \

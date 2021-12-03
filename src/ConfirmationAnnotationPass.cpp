@@ -1,0 +1,241 @@
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
+#include "config.h"
+#include "Error.hpp"
+#include "ConfirmationAnnotationPass.hpp"
+#include "InterpreterEnumAPI.hpp"
+#include "LLVMUtils.hpp"
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/PostDominators.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/InstIterator.h>
+#include <llvm/IR/Function.h>
+
+using namespace llvm;
+
+void ConfirmationAnnotationPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
+{
+	au.addRequired<DominatorTreeWrapperPass>();
+	au.addRequired<LoopInfoWrapperPass>();
+	au.setPreservesAll();
+}
+
+bool isSpinEndCall(Instruction *i)
+{
+	auto *ci = llvm::dyn_cast<CallInst>(i);
+	if (!ci)
+		return false;
+
+	auto name = getCalledFunOrStripValName(*ci);
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_SpinEnd;
+}
+
+Value *getNonConstantOp(const Instruction *i)
+{
+	if (isa<Constant>(i->getOperand(1)))
+		return i->getOperand(0);
+	if (isa<Constant>(i->getOperand(0)))
+		return i->getOperand(1);
+	return nullptr;
+}
+
+/*
+ * If V is a binop/cmpop, and one of the operators of V is a constant,
+ * returns the other operator of V.
+ * If both operators of V are non-const, returns nullptr.
+ */
+Value *getNonConstOpFromBinopOrCmp(const Value *v)
+{
+	if (auto *bop = dyn_cast<BinaryOperator>(v)) {
+		return getNonConstantOp(bop);
+	} else if (auto *cop = dyn_cast<CmpInst>(v)) {
+		return getNonConstantOp(cop);
+	}
+	return nullptr;
+}
+
+/*
+ * Strips all casts and constant operations from val.
+ */
+Value *stripCastsConstOps(Value *val)
+{
+	while (true) {
+		if (auto *ci = dyn_cast<CastInst>(val)) {
+			val = ci->getOperand(0);
+		} else if (auto *v = getNonConstOpFromBinopOrCmp(val)) {
+			val = v;
+		} else {
+			break;
+		}
+	}
+	return val;
+}
+
+/*
+ * Given the instruction on which a __VERIFIER_spin_end() depends,
+ * returns a candidate confirmation instruction: either a CAS or a CMP
+ * between two loads.
+ */
+Instruction *getConfirmationCandidate(Instruction *i)
+{
+	auto *si = stripCastsConstOps(i);
+	if (auto *ei = dyn_cast<ExtractValueInst>(si))
+		return extractsFromCAS(ei);
+	if (auto *ci = dyn_cast<CmpInst>(si)) {
+		auto *op1 = dyn_cast<LoadInst>(stripCastsConstOps(ci->getOperand(0)));
+		auto *op2 = dyn_cast<LoadInst>(stripCastsConstOps(ci->getOperand(1)));
+		if (!op1 || !op2)
+			return nullptr;
+		return isa<LoadInst>(op1->stripPointerCasts()) &&
+			isa<LoadInst>(op2->stripPointerCasts()) ? ci : nullptr;
+	}
+	return nullptr;
+}
+
+/*
+ * Given a basic block containing a __VERIFIER_spin_end(0),
+ * returns the common candidate confirmation instruction among
+ * the block's predecessors.
+ */
+Instruction *getCommonConfirmationFromPreds(BasicBlock *bb)
+{
+	Instruction *conf = nullptr;
+	if (std::all_of(pred_begin(bb), pred_end(bb), [&conf](const BasicBlock *pred){
+		auto *ji = dyn_cast<BranchInst>(pred->getTerminator());
+		if (!ji || !ji->isConditional() || !isa<Instruction>(ji->getCondition()))
+			return false;
+		auto *res = getConfirmationCandidate(dyn_cast<Instruction>(ji->getCondition()));
+		if (!res)
+			return false;
+		if (conf == nullptr)
+			conf = res;
+		return conf == res;
+	}))
+		return conf;
+	return nullptr;
+}
+
+/*
+ * Returns a confirmation-like instruction on which a __VERIFIER_spin_end() depends.
+ * This instruction is going to be either a CAS or a CMP between two loads.
+ * NOTE: The function does not check that the instruction is actually a confirmation
+ * (e.g., by checking that the loads read from the same place).
+ * This should be done separately later.
+ */
+Instruction *spinEndsOnConfirmation(CallInst *ci)
+{
+	auto *endValue = ci->getArgOperand(0);
+	if (auto *i = dyn_cast<Instruction>(endValue)) {
+		return getConfirmationCandidate(i);
+	} else if (auto *c = dyn_cast<Constant>(endValue)) {
+		if (c->getType()->isIntegerTy() && c->isZeroValue())
+			return getCommonConfirmationFromPreds(ci->getParent());
+	}
+	return nullptr;
+}
+
+std::pair<LoadInst *, Instruction *>
+getConfirmationPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
+{
+	LoadInst *spec = nullptr;
+	Instruction *conf = nullptr;
+	Value *specPtr = nullptr;
+	Value *confPtr = nullptr;
+	if (auto *casi = dyn_cast<AtomicCmpXchgInst>(i)) {
+		conf = casi;
+		spec = dyn_cast<LoadInst>(casi->getCompareOperand()->stripPointerCasts());
+		if (!spec)
+			return std::make_pair(nullptr, nullptr);
+		specPtr = spec->getPointerOperand()->stripPointerCasts();
+		confPtr = casi->getPointerOperand()->stripPointerCasts();
+	} else if (auto *ci = dyn_cast<CmpInst>(i)) {
+		auto *l1 = dyn_cast<LoadInst>(ci->getOperand(0)->stripPointerCasts());
+		auto *l2 = dyn_cast<LoadInst>(ci->getOperand(1)->stripPointerCasts());
+		BUG_ON(!l1 || !l2);
+		if (!DT.dominates(l1, l2) && !DT.dominates(l2, l1))
+			return std::make_pair(nullptr, nullptr);
+		if (DT.dominates(l1, l2)) {
+			conf = l2;
+			spec = l1;
+			confPtr = l2->getPointerOperand()->stripPointerCasts();
+			specPtr = spec->getPointerOperand()->stripPointerCasts();
+		} else {
+			conf = l1;
+			spec = l2;
+			confPtr = l1->getPointerOperand()->stripPointerCasts();
+			specPtr = spec->getPointerOperand()->stripPointerCasts();
+		}
+	} else
+		BUG();
+
+	auto *l = LI.getLoopFor(conf->getParent());
+	if (!l || !l->contains(spec))
+		return std::make_pair(nullptr, nullptr);
+
+	if (confPtr == specPtr)
+		return std::make_pair(spec, conf);
+
+	auto *specI = dyn_cast<Instruction>(specPtr);
+	auto *confI = dyn_cast<Instruction>(confPtr);
+	return (specI && confI && confI->isIdenticalTo(specI)) ?
+		std::make_pair(spec, conf) : std::make_pair(nullptr, nullptr);
+}
+
+void annotateConfPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
+{
+	auto pair = getConfirmationPair(i, LI, DT);
+	auto spec = pair.first;
+	auto conf = pair.second;
+	if (!spec || !conf)
+		return;
+
+	annotateInstruction(spec, "read.attr", "speculative");
+	annotateInstruction(conf, isa<LoadInst>(conf) ? "read.attr" : "cas.attr", "confirming");
+}
+
+void annotate(Function &F, LoopInfo &LI, DominatorTree &DT)
+{
+	for (auto it = inst_begin(F), ie = inst_end(F); it != ie; ++it) {
+		auto *i = &*it;
+
+		if (!isSpinEndCall(i))
+			continue;
+
+		if (auto *conf = spinEndsOnConfirmation(dyn_cast<CallInst>(i)))
+			annotateConfPair(conf, LI, DT);
+	}
+}
+
+bool ConfirmationAnnotationPass::runOnFunction(llvm::Function &F)
+{
+	annotate(F, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
+		 getAnalysis<DominatorTreeWrapperPass>().getDomTree());
+	return false;
+}
+
+FunctionPass *createConfirmationAnnotationPass()
+{
+	return new ConfirmationAnnotationPass();
+}
+
+char ConfirmationAnnotationPass::ID = 42;
+static llvm::RegisterPass<ConfirmationAnnotationPass> P("annotate-confirmation",
+							"Annotates loads used in confirmation patterns.");
