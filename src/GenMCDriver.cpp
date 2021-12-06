@@ -1649,14 +1649,21 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 
 	BUG_ON(stores.empty());
 
-	auto specVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
 	auto maximal = stores.back();
 	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
-		return getWriteValue(s, rLab->getAddr(), rLab->getAccess()) != specVal;
+		return s != rLab->getRf();
 	}), stores.end());
 
-	if (stores.empty())
+	if (stores.empty()) {
 		stores.push_back(maximal);
+		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::User));
+		return;
+	}
+
+	/* deprioritize thread upon confirmation */
+	if (!threadPrios.empty() &&
+	    llvm::isa<SpeculativeReadLabel>(getGraph().getEventLabel(threadPrios[0])))
+		threadPrios.clear();
 	return;
 }
 
@@ -1866,11 +1873,6 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		return;
 
 	checkReconsiderFaiSpinloop(lab);
-
-	/* Helper: deprioritize thread upon confirmation */
-	if (llvm::isa<ConfirmingCasWriteLabel>(lab) && !threadPrios.empty() &&
-	    llvm::isa<SpeculativeReadLabel>(getGraph().getEventLabel(threadPrios[0])))
-		threadPrios.clear();
 
 	/* Check for races */
 	checkForDataRaces(lab);
@@ -2219,11 +2221,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 		ERROR_ON(!pLab, "Confirming CAS annotation error! "
 			 "Does a speculative read precede the confirming operation?\n");
 
-		if (!sc.isInitializer())
-			return false;
-
-		auto specVal = getReadValue(pLab);
-		return sLab->getVal() != specVal;
+		return sc.isInitializer();
 	}), loads.end());
 }
 
