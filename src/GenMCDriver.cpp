@@ -1657,7 +1657,7 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 
 	if (stores.empty()) {
 		stores.push_back(maximal);
-		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::User));
+		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Confirmation));
 		return;
 	}
 

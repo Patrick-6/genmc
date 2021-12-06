@@ -35,6 +35,7 @@ enum class BlockageType {
 	LockZNESpinloop,
 	HelpedCas,
 	SpecOptBlock,
+	Confirmation,
 	LockOptBlock,
 	LockNotAcq,
 	LockNotRel,
