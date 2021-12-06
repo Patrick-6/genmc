@@ -2060,7 +2060,9 @@ void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
 	while (pos.index > 0) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (!rLab->isRevisitable() || !rLab->wasAddedMax() || g.isConfirming(rLab))
+			if (!rLab->isRevisitable() || !rLab->wasAddedMax() ||
+			    (getConf()->helpConfirmations && getConf()->coherence == CoherenceType::mo &&
+			     g.isConfirming(rLab)))
 				moot();
 			return;
 		}
