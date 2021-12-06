@@ -83,6 +83,10 @@ llvm::cl::opt<bool>
 clSymmetryReduction("sr", llvm::cl::cat(clGeneral),
 		    llvm::cl::desc("Enable Symmetry Reduction"));
 
+llvm::cl::opt<bool>
+clHelpConfirmations("help-confirmations", llvm::cl::cat(clGeneral),
+		    llvm::cl::desc("Help confirmation operations (Helper)"));
+
 static llvm::cl::opt<bool>
 clPrintErrorTrace("print-error-trace", llvm::cl::cat(clGeneral),
 		  llvm::cl::desc("Print error trace"));
@@ -339,6 +343,7 @@ void Config::saveConfigOptions()
 	threads = clThreads;
 	LAPOR = clLAPOR;
 	symmetryReduction = clSymmetryReduction;
+	helpConfirmations = clHelpConfirmations;
 	printErrorTrace = clPrintErrorTrace;
 	checkConsType = clCheckConsType;
 	checkConsPoint = (LAPOR ? ProgramPoint::step : clCheckConsPoint);

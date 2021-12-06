@@ -46,6 +46,7 @@ public:
 	unsigned int threads;
 	bool LAPOR;
 	bool symmetryReduction;
+	bool helpConfirmations;
 	CheckConsType checkConsType;
 	ProgramPoint checkConsPoint;
 	bool checkLiveness;

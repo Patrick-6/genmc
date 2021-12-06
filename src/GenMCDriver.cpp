@@ -1635,7 +1635,8 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	auto &g = getGraph();
-	if (getConf()->coherence != CoherenceType::mo || !g.isConfirming(lab))
+	if (!getConf()->helpConfirmations || getConf()->coherence != CoherenceType::mo ||
+	    !g.isConfirming(lab))
 		return;
 
 	auto sc = Event::getInitializer();
@@ -1683,7 +1684,8 @@ bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vect
 
 void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
 {
-	if (!llvm::isa<SpeculativeReadLabel>(lab) || getConf()->coherence != CoherenceType::mo)
+	if (!getConf()->helpConfirmations || !llvm::isa<SpeculativeReadLabel>(lab) ||
+	    getConf()->coherence != CoherenceType::mo)
 		return;
 
 	if (isRescheduledRead(lab->getPos())) {
@@ -1722,10 +1724,10 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 		filterValuesFromAnnotSAVER(lab, stores);
 
 	/* Helper: Affect maximality status if possible */
-	if (getGraph().isConfirming(lab))
+	if (getConf()->helpConfirmations && getGraph().isConfirming(lab))
 		filterConfirmingRfs(lab, stores);
 
-	if (llvm::isa<SpeculativeReadLabel>(lab))
+	if (getConf()->helpConfirmations && llvm::isa<SpeculativeReadLabel>(lab))
 		filterUnconfirmedReads(lab, stores);
 }
 
@@ -2275,7 +2277,7 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 	}
 
 	/* Helper */
-	if (getConf()->coherence == CoherenceType::mo)
+	if (getConf()->helpConfirmations && getConf()->coherence == CoherenceType::mo)
 		optimizeUnconfirmedRevisits(sLab, loads);
 
 	/* Optimization-blocked (locking + helper) */
