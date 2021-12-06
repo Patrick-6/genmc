@@ -1645,16 +1645,28 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 	ERROR_ON(!rLab, "Confirming annotation error! Does the speculative "
 		 "read always precede the confirming operation?\n");
 
+	/* Print a warning if there are ABAs */
+	auto specVal = getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+	auto valid = std::count_if(stores.begin(), stores.end(), [&](const Event &s){
+		return getWriteValue(s, rLab->getAddr(), rLab->getAccess()) == specVal;
+	});
+	WARN_ON_ONCE(valid > 1, "helper-aba-found",
+		     "Possible ABA pattern on variable " + getVarName(rLab) +
+		     "! Consider running without -help-confirmations.\n");
+
+	/* Do not optimize if there are intervening SC accesses */
 	if (!sc.isInitializer())
 		return;
 
 	BUG_ON(stores.empty());
 
+	/* Demand that the confirming read reads the speculated value (exact rf) */
 	auto maximal = stores.back();
 	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
 		return s != rLab->getRf();
 	}), stores.end());
 
+	/* ... and if no such value exists, block indefinitely */
 	if (stores.empty()) {
 		stores.push_back(maximal);
 		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Confirmation));
@@ -2210,8 +2222,24 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
 {
-	auto &g = getGraph();
+	if (!getConf()->helpConfirmations || getConf()->coherence != CoherenceType::mo)
+		return;
 
+	auto &g = getGraph();
+	auto &locMO = g.getStoresToLoc(sLab->getAddr());
+
+	/* If there is already a write with the same value, report a possible ABA */
+	auto valid = std::count_if(locMO.begin(), locMO.end(), [&](const Event &w){
+		auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(w));
+		return wLab->getPos() != sLab->getPos() && wLab->getVal() == sLab->getVal();
+	});
+	if (sLab->getAddr().isStatic() &&
+	    getWriteValue(Event::getInitializer(), sLab->getAddr(), sLab->getAccess()) == sLab->getVal())
+		++valid;
+	WARN_ON_ONCE(valid > 0, "helper-aba-found",
+		     "Possible ABA pattern! Consider running without -help-confirmations.\n");
+
+	/* Do not bother with revisits that will be unconfirmed/lead to ABAs */
 	loads.erase(std::remove_if(loads.begin(), loads.end(), [&](const Event &l){
 		auto *lab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
 		if (!g.isConfirming(lab))
