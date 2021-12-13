@@ -54,9 +54,10 @@ libgenmc_a_SOURCES = \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \
   Parser.cpp Parser.hpp \
+  PBCalculator.cpp PBCalculator.hpp \
   PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
-  PBCalculator.cpp PBCalculator.hpp \
+  PropagateAssumesPass.cpp PropagateAssumesPass.hpp \
   PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
   RC11Driver.cpp RC11Driver.hpp \

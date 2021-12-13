@@ -121,4 +121,9 @@ llvm::Pass *createEscapeCheckerPass();
  */
 llvm::FunctionPass *createConfirmationAnnotationPass();
 
+/*
+ * Propagates assume(0)s upwards.
+ */
+llvm::Pass *createPropagateAssumesPass();
+
 #endif /* __PASSES_HPP__ */
