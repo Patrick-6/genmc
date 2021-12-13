@@ -219,8 +219,6 @@ Event ExecutionGraph::getMatchingRCUUnlockLKMM(Event lock) const
 
 Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = nullptr */) const
 {
-	std::vector<Event> locConfs;
-
 	auto *cLab = llvm::dyn_cast<ReadLabel>(getEventLabel(conf));
 	BUG_ON(!cLab);
 
@@ -230,16 +228,11 @@ Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = null
 		if (sc && lab->isSC())
 			*sc = lab->getPos();
 
-		if (auto *ocLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (isConfirming(ocLab) && ocLab->getAddr() == cLab->getAddr())
-				locConfs.push_back(ocLab->getPos());
-		}
+		/* We don't care whether all previous confirmations are matched;
+		 * the same speculation maybe confirmed multiple times (e.g., baskets) */
 		if (auto *rLab = llvm::dyn_cast<SpeculativeReadLabel>(lab)) {
-			if (rLab->getAddr() == cLab->getAddr()) {
-				if (locConfs.empty())
-					return rLab->getPos();
-				locConfs.pop_back();
-			}
+			if (rLab->getAddr() == cLab->getAddr())
+				return rLab->getPos();
 		}
 	}
 	return Event::getInitializer();
