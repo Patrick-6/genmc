@@ -56,6 +56,44 @@ Value *stripCastsGEPs(Value *val)
 	return val;
 }
 
+Value *getNonConstantOp(const Instruction *i)
+{
+	if (isa<Constant>(i->getOperand(1)))
+		return i->getOperand(0);
+	if (isa<Constant>(i->getOperand(0)))
+		return i->getOperand(1);
+	return nullptr;
+}
+
+/*
+ * If V is a binop/cmpop, and one of the operators of V is a constant,
+ * returns the other operator of V.
+ * If both operators of V are non-const, returns nullptr.
+ */
+Value *getNonConstOpFromBinopOrCmp(const Value *v)
+{
+	if (auto *bop = dyn_cast<BinaryOperator>(v)) {
+		return getNonConstantOp(bop);
+	} else if (auto *cop = dyn_cast<CmpInst>(v)) {
+		return getNonConstantOp(cop);
+	}
+	return nullptr;
+}
+
+Value *stripCastsConstOps(Value *val)
+{
+	while (true) {
+		if (auto *ci = dyn_cast<CastInst>(val)) {
+			val = ci->getOperand(0);
+		} else if (auto *v = getNonConstOpFromBinopOrCmp(val)) {
+			val = v;
+		} else {
+			break;
+		}
+	}
+	return val;
+}
+
 std::string getCalledFunOrStripValName(const CallInst &ci)
 {
 	if (auto *fun = ci.getCalledFunction())

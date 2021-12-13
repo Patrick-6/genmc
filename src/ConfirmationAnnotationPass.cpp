@@ -48,47 +48,6 @@ bool isSpinEndCall(Instruction *i)
 	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_SpinEnd;
 }
 
-Value *getNonConstantOp(const Instruction *i)
-{
-	if (isa<Constant>(i->getOperand(1)))
-		return i->getOperand(0);
-	if (isa<Constant>(i->getOperand(0)))
-		return i->getOperand(1);
-	return nullptr;
-}
-
-/*
- * If V is a binop/cmpop, and one of the operators of V is a constant,
- * returns the other operator of V.
- * If both operators of V are non-const, returns nullptr.
- */
-Value *getNonConstOpFromBinopOrCmp(const Value *v)
-{
-	if (auto *bop = dyn_cast<BinaryOperator>(v)) {
-		return getNonConstantOp(bop);
-	} else if (auto *cop = dyn_cast<CmpInst>(v)) {
-		return getNonConstantOp(cop);
-	}
-	return nullptr;
-}
-
-/*
- * Strips all casts and constant operations from val.
- */
-Value *stripCastsConstOps(Value *val)
-{
-	while (true) {
-		if (auto *ci = dyn_cast<CastInst>(val)) {
-			val = ci->getOperand(0);
-		} else if (auto *v = getNonConstOpFromBinopOrCmp(val)) {
-			val = v;
-		} else {
-			break;
-		}
-	}
-	return val;
-}
-
 /*
  * Given the instruction on which a __VERIFIER_spin_end() depends,
  * returns a candidate confirmation instruction: either a CAS or a CMP
