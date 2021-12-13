@@ -70,6 +70,7 @@ enum class InternalFunctions {
 	FN_NondetInt,
 	FN_ThreadSelf,
 	FN_AnnotateRead,
+	FN_AnnotateWrite,
 	FN_AnnotateCas,
 	FN_AnnotateFai,
 	FN_NoSideEffectsLast,

@@ -154,6 +154,21 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
 /* Custom opcode implementations */
 
 /*
+ * Annotates a subsequent read instruction.
+ * Attributes:
+ *    0 -> speculative
+ *    1 -> confirming
+ */
+extern void __VERIFIER_annotate_read(int attr);
+
+/*
+ * Annotates a subsequent read instruction.
+ * Attributes:
+ *    0 -> local
+ */
+extern void __VERIFIER_annotate_write(int attr);
+
+/*
  * Annotates a subsequent CAS instruction.
  * Attributes:
  *    0 -> non-value-returning
@@ -162,14 +177,6 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
  *    3 -> confirming
  */
 extern void __VERIFIER_annotate_CAS(int attr);
-
-/*
- * Annotates a subsequent read instruction.
- * Attributes:
- *    0 -> speculative
- *    1 -> confirming
- */
-extern void __VERIFIER_annotate_read(int attr);
 
 /*
  * Annotates a subsequent FAI.

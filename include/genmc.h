@@ -46,6 +46,17 @@ void __VERIFIER_spin_start(void);
 void __VERIFIER_spin_end(int);
 
 /*
+ * Marker function that denotes that a store is local.
+ * Since non-local stores may preclude the spin-assume transformation,
+ * this marker serves as a hint to GenMC.
+ */
+#define __VERIFIER_local_write(s)		\
+do {						\
+	__VERIFIER_annotate_write(0);		\
+	s;					\
+} while (0)
+
+/*
  * Helping instructions. They take as argument a CAS instruction that
  * has a "helping" role (e.g., tail advancement in Michael-Scott
  * queue), and can aid in state-space reduction. They do not return

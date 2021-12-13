@@ -102,6 +102,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_lseekFS", InternalFunctions::FN_LseekFS},
 	{"__VERIFIER_pbarrier", InternalFunctions::FN_PersBarrierFS},
 	{"__VERIFIER_annotate_read", InternalFunctions::FN_AnnotateRead},
+	{"__VERIFIER_annotate_write", InternalFunctions::FN_AnnotateWrite},
 	{"__VERIFIER_annotate_CAS", InternalFunctions::FN_AnnotateCas},
 	{"__VERIFIER_annotate_FAI", InternalFunctions::FN_AnnotateFai},
 	{"__VERIFIER_lkmm_fence", InternalFunctions::FN_SmpFenceLKMM},
