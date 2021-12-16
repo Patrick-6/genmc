@@ -132,7 +132,7 @@ struct PassModuleInfo {
 	PassModuleInfo() = default;
 
 	VariableInfo<llvm::Value *> varInfo;
-	AnnotationInfo<llvm::LoadInst *, llvm::Value *> annotInfo;
+	AnnotationInfo<llvm::Instruction *, llvm::Value *> annotInfo;
 	VSet<std::string> filenames;
 };
 

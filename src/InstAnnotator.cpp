@@ -156,6 +156,19 @@ InstAnnotator::IRExprUP InstAnnotator::generateInstExpr(Instruction *curr)
 			    generateOperandExpr(curr->getOperand(0)),
 			    generateOperandExpr(curr->getOperand(1)));
 
+	/* Special case for extracts --- only CAS extracts allowed; */
+	case Instruction::ExtractValue: {
+		auto *extract = dyn_cast<ExtractValueInst>(curr);
+		auto *cas = extractsFromCAS(extract);
+		if (!cas)
+			break;
+		/* Hack: If it extracts the value read, just return the same expression */
+		if (*extract->idx_begin() == 0)
+			return generateOperandExpr(curr);
+		return EqExpr<Value *>::create(generateOperandExpr(extract),
+					       generateOperandExpr(cas->getCompareOperand()));
+	}
+
 	case Instruction::ICmp: {
 		llvm::CmpInst *cmpi = llvm::dyn_cast<llvm::CmpInst>(curr);
 		switch(cmpi->getPredicate()) {
@@ -293,13 +306,15 @@ void InstAnnotator::annotateDFS(Instruction *curr)
 	return;
 }
 
-InstAnnotator::IRExprUP InstAnnotator::annotate(LoadInst *curr)
+InstAnnotator::IRExprUP InstAnnotator::annotate(Instruction *curr)
 {
-	/* Reset DFS data */
+	/* Reset DFS data + prepare new exploration */
 	reset();
-
 	for (auto &i : instructions(curr->getParent()->getParent()))
 		statusMap[&i] = InstAnnotator::unseen;
+
+	/* The load annotation will be the expression from its successor to the assume */
+	BUG_ON(!isa<LoadInst>(curr) && !isa<AtomicCmpXchgInst>(curr));
 	annotateDFS(curr->getNextNode());
 	return releaseAnnot(curr->getNextNode());
 }

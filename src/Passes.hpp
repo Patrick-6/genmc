@@ -63,7 +63,7 @@ llvm::ModulePass *createIntrinsicLoweringPass(llvm::Module &M);
 /*
  * Collects annotation information for a function's load instructions.
  */
-llvm::FunctionPass *createLoadAnnotationPass(AnnotationInfo<llvm::LoadInst *, llvm::Value *> &AI);
+llvm::FunctionPass *createLoadAnnotationPass(AnnotationInfo<llvm::Instruction *, llvm::Value *> &AI);
 
 /*
  * Unrolls a loop N times.

@@ -440,10 +440,13 @@ std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
 	auto &stackVals = ECStack().back().Values;
 	Concretizer::ReplaceMap vMap;
 
-	for (auto &kv : stackVals)
-		vMap.insert({(MI->idInfo.VID.at(kv.first)),
-				std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
-					       ASize(getTypeSize(kv.first->getType()) * 8))});
+	for (auto &kv : stackVals) {
+		if (kv.first) { // necessary if-stmt due to empty thread parameter list
+			vMap.insert({(MI->idInfo.VID.at(kv.first)),
+					std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
+						       ASize(getTypeSize(kv.first->getType()) * 8))});
+		}
+	}
 
 	return Concretizer().concretize(a, vMap);
 }
