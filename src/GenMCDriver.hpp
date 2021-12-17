@@ -267,6 +267,9 @@ public:
 	/* A thread has just finished execution, nothing for the interpreter */
 	void visitThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 
+	/* __VERIFIER_hp_protect() has been called */
+	void visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
+
 	/* Returns an appropriate result for malloc() */
 	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
 			 unsigned int alignment, Storage s, AddressSpace spc);
@@ -490,6 +493,9 @@ private:
 	/* Perfoms POSIX checks whenever a barrier_wait event is added.
 	 Appropriately calls visitError() and terminates */
 	void checkBIncValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
+
+	/* Returns true if MLAB (allocated @ ALAB) is protected by a hazptr */
+	bool isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const;
 
 	/* Checks for memory races (e.g., double free, access freed memory, etc)
 	 * whenever a read/write/free is added, and calls visitError() if a race is found.

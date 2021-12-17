@@ -73,6 +73,8 @@ enum class InternalFunctions {
 	FN_AnnotateWrite,
 	FN_AnnotateCas,
 	FN_AnnotateFai,
+	FN_HazptrProtect,
+	FN_HazptrClear,
 	FN_NoSideEffectsLast,
 	/* No side effects */
 	FN_ThreadCreate,
@@ -80,7 +82,11 @@ enum class InternalFunctions {
 	FN_ThreadExit,
 	FN_Malloc,
 	FN_MallocAligned,
+	FN_HazptrAlloc,
+	FN_MallocLast,
 	FN_Free,
+	FN_HazptrFree,
+	FN_HazptrRetire,
 	FN_MutexInit,
 	FN_MutexLock,
 	FN_MutexUnlock,
@@ -155,7 +161,7 @@ inline bool isAllocFunction(const std::string &name)
 		return false;
 
 	auto &code = internalFunNames.at(name);
-	return code >= InternalFunctions::FN_Malloc && code <= InternalFunctions::FN_MallocAligned;
+	return code >= InternalFunctions::FN_Malloc && code <= InternalFunctions::FN_MallocLast;
 }
 
 inline bool isMutexCode(InternalFunctions code)

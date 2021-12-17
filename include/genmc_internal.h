@@ -25,6 +25,8 @@ typedef long __VERIFIER_mutexattr_t;
 
 #define __VERIFIER_MUTEX_INITIALIZER { 0 }
 
+typedef struct { void *__dummy; } __VERIFIER_hazptr_t;
+
 #ifndef __cplusplus
 
 #ifndef __CONFIG_GENMC_INODE_DATA_SIZE
@@ -188,6 +190,14 @@ extern void __VERIFIER_annotate_FAI(int attr);
 /* Marks the beginning of an optional block. */
 extern int __VERIFIER_opt_begin(void);
 
+/* Hazard pointer functions */
+extern __VERIFIER_hazptr_t *__VERIFIER_hazptr_alloc(void);
+extern void *__VERIFIER_hazptr_protect(__VERIFIER_hazptr_t *hp, void *p);
+extern void __VERIFIER_hazptr_clear(__VERIFIER_hazptr_t *hp);
+extern void __VERIFIER_hazptr_free(__VERIFIER_hazptr_t *hp);
+extern void __VERIFIER_hazptr_retire(void *p);
+
+/* RCU functions */
 extern void __VERIFIER_rcu_read_lock(void);
 extern void __VERIFIER_rcu_read_unlock(void);
 extern void __VERIFIER_synchronize_rcu(void);

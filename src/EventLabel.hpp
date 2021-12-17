@@ -115,6 +115,9 @@ public:
 		EL_LastFence,
 		EL_Malloc,
 		EL_Free,
+		EL_HpRetire,
+		EL_FreeLast,
+		EL_HpProtect,
 		EL_LockLabelLAPOR,
 		EL_UnlockLabelLAPOR,
 		EL_HelpingCas,
@@ -2482,17 +2485,28 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	FreeLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		  SAddr addr, unsigned int size = 0)
+		: EventLabel(k, st, ord, pos), freeAddr(addr), freedSize(size) {}
+	FreeLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos, SAddr addr,
+		  unsigned int size = 0)
+		: EventLabel(k, ord, pos), freeAddr(addr), freedSize(size) {}
+
+	FreeLabel(EventLabelKind k, unsigned int st, Event pos, SAddr addr, unsigned int size = 0)
+		: FreeLabel(k, st, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
+	FreeLabel(EventLabelKind k, Event pos, SAddr addr, unsigned int size = 0)
+		: FreeLabel(k, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
 public:
 	FreeLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		  SAddr addr, unsigned int size = 0)
-		: EventLabel(EL_Free, st, ord, pos), freeAddr(addr), freedSize(size) {}
+		: FreeLabel(EL_Free, st, ord, pos, addr, size) {}
 	FreeLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, unsigned int size = 0)
-		: EventLabel(EL_Free, ord, pos), freeAddr(addr), freedSize(size) {}
+		: FreeLabel(EL_Free, ord, pos, addr, size) {}
 
 	FreeLabel(unsigned int st, Event pos, SAddr addr, unsigned int size = 0)
-		: FreeLabel(st, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
+		: FreeLabel(EL_Free, st, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
 	FreeLabel(Event pos, SAddr addr, unsigned int size = 0)
-		: FreeLabel(llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
+		: FreeLabel(EL_Free, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
 
 
 	template<typename... Ts>
@@ -2517,7 +2531,7 @@ public:
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_Free; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_Free && k <= EL_FreeLast; }
 
 private:
 	/* The address of the memory freed */
@@ -2525,6 +2539,91 @@ private:
 
 	/* The size of the memory freed */
 	unsigned int freedSize;
+};
+
+
+/*******************************************************************************
+ **                         HpRetireLabel Class
+ ******************************************************************************/
+
+/* Corresponds to a hazptr retire operation */
+class HpRetireLabel : public FreeLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HpRetireLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		      SAddr addr, unsigned int size = 0)
+		: FreeLabel(EL_HpRetire, st, ord, pos, addr, size) {}
+	HpRetireLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, unsigned int size = 0)
+		: FreeLabel(EL_HpRetire, ord, pos, addr, size) {}
+
+	HpRetireLabel(unsigned int st, Event pos, SAddr addr, unsigned int size = 0)
+		: FreeLabel(EL_HpRetire, st, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
+	HpRetireLabel(Event pos, SAddr addr, unsigned int size = 0)
+		: FreeLabel(EL_HpRetire, llvm::AtomicOrdering::NotAtomic, pos, addr, size) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<HpRetireLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HpRetireLabel>(std::forward<Ts>(params)...);
+	}
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HpRetireLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HpRetire; }
+};
+
+
+/*******************************************************************************
+ **                         HpProtectLabel Class
+ ******************************************************************************/
+
+/* Specialization of writes for hazptr protect events */
+class HpProtectLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	HpProtectLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
+		       SAddr hpAddr, SAddr protAddr)
+		: EventLabel(EL_HpProtect, st, ord, pos), hpAddr(hpAddr), protAddr(protAddr) {}
+	HpProtectLabel(llvm::AtomicOrdering ord, Event pos, SAddr hpAddr, SAddr protAddr)
+		: EventLabel(EL_HpProtect, ord, pos), hpAddr(hpAddr), protAddr(protAddr) {}
+
+	HpProtectLabel(unsigned int st, Event pos, SAddr hpAddr, SAddr protAddr)
+		: HpProtectLabel(st, llvm::AtomicOrdering::Release, pos, hpAddr, protAddr) {}
+	HpProtectLabel(Event pos, SAddr hpAddr, SAddr protAddr)
+		: HpProtectLabel(llvm::AtomicOrdering::Release, pos, hpAddr, protAddr) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<HpProtectLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<HpProtectLabel>(std::forward<Ts>(params)...);
+	}
+
+	/* Getters for HP/protected address */
+	SAddr getHpAddr() const { return hpAddr; }
+	SAddr getProtectedAddr() const { return protAddr; }
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<HpProtectLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_HpProtect; }
+
+private:
+	/* HP address */
+	SAddr hpAddr;
+
+	/* Protected address */
+	SAddr protAddr;
 };
 
 

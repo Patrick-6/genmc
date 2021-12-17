@@ -22,6 +22,7 @@
 #include "config.h"
 #include "Error.hpp"
 #include "CallInfoCollectionPass.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
@@ -101,6 +102,13 @@ void EscapeInfo::calculate(llvm::Function &F, const VSet<Function *> &allocFuns,
 				if (auto *inst = dyn_cast<Instruction>(u))
 					worklist.push_back(inst);
 
+				/* Some special function calls first */
+				if (auto *ci = dyn_cast<CallInst>(u)) {
+					auto name = getCalledFunOrStripValName(*ci);
+					if (isCleanInternalFunction(name))
+						continue;
+				}
+
 				/* return/call/invoke are escape points */
 				if (isa<ReturnInst>(u) || isa<CallInst>(u) || isa<InvokeInst>(u)) {
 					escapePoints[i].push_back(dyn_cast<Instruction>(u));
@@ -123,14 +131,24 @@ void EscapeInfo::calculate(llvm::Function &F, const VSet<Function *> &allocFuns,
 				}
 			}
 		}
-	};
+	}
+
+	/* Remove duplicates */
+	for (auto &kv : escapePoints) {
+		std::sort(kv.second.begin(), kv.second.end());
+		auto last = std::unique(kv.second.begin(), kv.second.end());
+		kv.second.erase(last, kv.second.end());
+	}
 }
 
 void EscapeInfo::print(llvm::raw_ostream &s) const
 {
 	for (auto P : escapePoints) {
 		s << P.first->getName() << " has " << P.second.size()
-		  << " escape point(s).\n";
+		  << " escape point(s): [";
+		for (auto &p : P.second)
+			s << " " << *p << " ";
+		s << "]\n";
 	}
 }
 

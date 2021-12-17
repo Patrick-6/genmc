@@ -151,7 +151,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "M";
 		break;
 	case EventLabel::EL_Free:
+	case EventLabel::EL_HpRetire:
 		s << "D";
+		break;
+	case EventLabel::EL_HpProtect:
+		s << "HP";
 		break;
 	case EventLabel::EL_LockLabelLAPOR:
 		s << "LL";
@@ -299,6 +303,13 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << bLab.getKind() << " (";
 		s << bLab.getFileName() << ", ";
 		s << bLab.getFd() << ")";
+		break;
+	}
+	case EventLabel::EL_HpProtect: {
+		auto &hpLab = static_cast<const HpProtectLabel&>(lab);
+		s << hpLab.getKind() << " (";
+		s << hpLab.getHpAddr() << ", ";
+		s << hpLab.getProtectedAddr().get() << ")";
 		break;
 	}
 	default:

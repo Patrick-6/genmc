@@ -86,6 +86,11 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_barrier_init", InternalFunctions::FN_BarrierInit},
 	{"__VERIFIER_barrier_wait", InternalFunctions::FN_BarrierWait},
 	{"__VERIFIER_barrier_destroy", InternalFunctions::FN_BarrierDestroy},
+	{"__VERIFIER_hazptr_alloc", InternalFunctions::FN_HazptrAlloc},
+	{"__VERIFIER_hazptr_protect", InternalFunctions::FN_HazptrProtect},
+	{"__VERIFIER_hazptr_clear", InternalFunctions::FN_HazptrClear},
+	{"__VERIFIER_hazptr_free", InternalFunctions::FN_HazptrFree},
+	{"__VERIFIER_hazptr_retire", InternalFunctions::FN_HazptrRetire},
 	{"__VERIFIER_openFS", InternalFunctions::FN_OpenFS},
 	{"__VERIFIER_closeFS", InternalFunctions::FN_CloseFS},
 	{"__VERIFIER_creatFS", InternalFunctions::FN_CreatFS},
@@ -3202,6 +3207,60 @@ void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue
 	return;
 }
 
+void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &ArgVals,
+				  const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), getTypeSize(F->getReturnType())), &*deps,
+					   alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_Internal);
+	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
+	return;
+}
+
+void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue> &ArgVals,
+				    const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto *typ = Type::getVoidTy(F->getParent()->getContext())->getPointerTo();
+	auto asize = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+	auto *ptr = GVTOP(ArgVals[1]);
+	auto *hp = GVTOP(ArgVals[0]);
+
+	driver->visitHpProtect(HpProtectLabel::create(nextPos(), hp, ptr), nullptr);
+	return;
+}
+
+void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &ArgVals,
+				  const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto *typ = Type::getVoidTy(F->getParent()->getContext())->getPointerTo();
+	auto asize = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+	auto *hp = GVTOP(ArgVals[0]);
+
+	/* FIXME: Should this be an internal null? */
+	driver->visitStore(WriteLabel::create(AtomicOrdering::Release, nextPos(), hp, asize, atyp, SVal()),
+			   nullptr);
+	return;
+}
+
+void Interpreter::callHazptrFree(Function *F, const std::vector<GenericValue> &ArgVals,
+				 const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				  getAddrPoDeps(getCurThr().id), nullptr);
+	driver->visitFree(FreeLabel::create(nextPos(), GVTOP(ArgVals[0])), &*deps);
+}
+
+void Interpreter::callHazptrRetire(Function *F, const std::vector<GenericValue> &ArgVals,
+				   const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				  getAddrPoDeps(getCurThr().id), nullptr);
+	driver->visitFree(HpRetireLabel::create(nextPos(), GVTOP(ArgVals[0])), &*deps);
+}
+
 static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
 	{"mb", SmpFenceType::MB},
 	{"rmb", SmpFenceType::RMB},
@@ -4494,6 +4553,11 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(BarrierInit);
 		CALL_INTERNAL_FUNCTION(BarrierWait);
 		CALL_INTERNAL_FUNCTION(BarrierDestroy);
+		CALL_INTERNAL_FUNCTION(HazptrAlloc);
+		CALL_INTERNAL_FUNCTION(HazptrProtect);
+		CALL_INTERNAL_FUNCTION(HazptrClear);
+		CALL_INTERNAL_FUNCTION(HazptrFree);
+		CALL_INTERNAL_FUNCTION(HazptrRetire);
 		CALL_INTERNAL_FUNCTION(OpenFS);
 		CALL_INTERNAL_FUNCTION(CreatFS);
 		CALL_INTERNAL_FUNCTION(CloseFS);

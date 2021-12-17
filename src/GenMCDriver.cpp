@@ -919,6 +919,28 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */
 	return getGraph().isCoMaximal(addr, e, checkCache, getCheckConsType(p));
 }
 
+bool GenMCDriver::isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const
+{
+	auto &g = getGraph();
+	BUG_ON(!mLab->getAddr().isDynamic());
+
+	auto *pLab = llvm::dyn_cast_or_null<HpProtectLabel>(
+		g.getPreviousLabelST(mLab, [&](const EventLabel *lab){
+			auto *pLab = llvm::dyn_cast<HpProtectLabel>(lab);
+			return pLab && aLab->contains(pLab->getProtectedAddr());
+	}));
+	if (!pLab)
+		return false;
+
+	for (auto j = pLab->getIndex() + 1; j < mLab->getIndex(); j++) {
+		auto *lab = g.getEventLabel(Event(mLab->getThread(), j));
+		if (auto *oLab = dyn_cast<HpProtectLabel>(lab))
+			if (oLab->getHpAddr() == pLab->getHpAddr())
+				return false;
+	}
+	return true;
+}
+
 bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 {
 	if (userConf->disableRaceDetection)
@@ -930,11 +952,16 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 	const View &before = g.getEventLabel(mLab->getPos().prev())->getHbView();
 	const MallocLabel *allocLab = nullptr;
 	const WriteLabel *initLab = nullptr;
+	const FreeLabel *potHazLab = nullptr;
+
 	for (const auto *oLab : labels(g)) {
 		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 			if (fLab->contains(mLab->getAddr())) {
-				visitError(mLab->getPos(), Status::VS_AccessFreed, "", oLab->getPos());
-				return true;
+				if (!llvm::isa<HpRetireLabel>(fLab)) {
+					visitError(mLab->getPos(), Status::VS_AccessFreed, "", oLab->getPos());
+					return true;
+				}
+				potHazLab = fLab;
 			}
 		}
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
@@ -966,6 +993,12 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 		visitError(mLab->getPos(), Status::VS_UninitializedMem);
 		return true;
 	}
+	/* If this access is a potential hazard, make sure it is properly protected */
+	if (potHazLab && !isHazptrProtected(allocLab, mLab)) {
+		visitError(mLab->getPos(), Status::VS_AccessFreed,
+			   "Access not properly protected by hazard pointer!", potHazLab->getPos());
+		return true;
+	}
 	return false;
 }
 
@@ -976,10 +1009,12 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 	if (!fLab->getFreedAddr().isDynamic())
 		return false;
 
-	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
 	const auto &g = getGraph();
 	auto ptr = fLab->getFreedAddr();
 	auto &before = g.getEventLabel(fLab->getPos())->getHbView();
+	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
+	const MemAccessLabel *potHazLab = nullptr;
+
 	for (const auto *lab : labels(g)) {
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
 			if (aLab->getAllocAddr() == ptr &&
@@ -995,10 +1030,12 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 			}
 		}
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
-			if (mLab->getAddr() == ptr &&
-			    !before.contains(mLab->getPos())) {
-				visitError(fLab->getPos(), Status::VS_AccessFreed, "", mLab->getPos());
-				return true;
+			if (mLab->getAddr() == ptr && !before.contains(mLab->getPos())) {
+				if (!llvm::isa<HpRetireLabel>(fLab)) {
+					visitError(fLab->getPos(), Status::VS_AccessFreed, "", mLab->getPos());
+					return true;
+				}
+				potHazLab = mLab;
 			}
 
 		}
@@ -1006,6 +1043,11 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 
 	if (!m) {
 		visitError(fLab->getPos(), Status::VS_FreeNonMalloc);
+		return true;
+	}
+	if (potHazLab && !isHazptrProtected(m, potHazLab)) {
+		visitError(fLab->getPos(), Status::VS_AccessFreed,
+			   "Access not properly protected by hazard pointer!", potHazLab->getPos());
 		return true;
 	}
 	return false;
@@ -1970,6 +2012,16 @@ void GenMCDriver::visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps
 	}
 
 	visitStore(UnlockWriteLabel::create(pos, addr, size), deps);
+	return;
+}
+
+void GenMCDriver::visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	updateLabelViews(hpLab.get(), deps);
+	getGraph().addOtherLabelToGraph(std::move(hpLab));
 	return;
 }
 

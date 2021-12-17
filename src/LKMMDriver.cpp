@@ -514,11 +514,13 @@ void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_LockZNESpinEnd:
 	case EventLabel::EL_Malloc:
 	case EventLabel::EL_Free:
+	case EventLabel::EL_HpRetire:
 	case EventLabel::EL_UnlockLabelLAPOR:
 	case EventLabel::EL_RCULockLKMM:
 	case EventLabel::EL_RCUUnlockLKMM:
 	case EventLabel::EL_DskOpen:
 	case EventLabel::EL_HelpingCas:
+	case EventLabel::EL_HpProtect:
 		calcBasicViews(lab, deps);
 		break;
 	case EventLabel::EL_LockLabelLAPOR: /* special case */

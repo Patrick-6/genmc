@@ -131,6 +131,55 @@ do {							\
 	}						\
 } while (0)
 
+
+/*
+ * An opaque type for hazard pointers.
+ * The interface is similar to the one for atomic variables
+ * (i.e., all operations on hazard pointers take the address
+ * of a hazard pointer object as a parameter, etc)
+ */
+typedef __VERIFIER_hazptr_t __VERIFIER_hp_t;
+
+/*
+ * Allocates a hazard pointer (and links it to the global list of hazard pointers).
+ * Returns an (opaque) __VERIFIER_hp_t.
+ */
+#define __VERIFIER_hp_alloc()						\
+	__VERIFIER_hazptr_alloc()					\
+
+/*
+ * Protects P using HP; returns the value protected.
+ * (HP needs to be the address of a hazard pointer, while
+ * p needs to be the address of an (atomic) variable.)
+ */
+#define __VERIFIER_hp_protect(hp, p)					\
+({									\
+	void *_p_ = __atomic_load_n((void **) p, __ATOMIC_ACQUIRE);	\
+	__VERIFIER_hazptr_protect(hp, _p_);				\
+	_p_;								\
+})
+
+/*
+ * Clears HP's protection
+ */
+#define __VERIFIER_hp_clear(hp)			\
+	__VERIFIER_hazptr_clear(hp);
+
+/*
+ * Deallocates HP (and removes it from the global list).
+ * (HP needs to be the address of a hazard pointer.)
+ */
+#define __VERIFIER_hp_free(hp)			\
+	__VERIFIER_hazptr_free(hp)
+
+/*
+ * Deallocates P after it ensures that it is no longer protected.
+ * This is equivalent to adding P to a list of items that will
+ * eventually be freed.
+ */
+#define __VERIFIER_hp_retire(p)			\
+	__VERIFIER_hazptr_retire(p)
+
 /*
  * The signature of a recovery routine to be specified
  * by the user. This routine will run after each execution,
