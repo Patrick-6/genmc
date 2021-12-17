@@ -2614,6 +2614,7 @@ bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 		return calcRevisits(wLab);
 	} else if (auto *oi = llvm::dyn_cast<OptionalRevisit>(item.get())) {
 		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
+		--result.exploredBlocked;
 		BUG_ON(!oLab);
 		oLab->setExpandable(false);
 		oLab->setExpanded(true);
