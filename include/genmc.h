@@ -9,7 +9,7 @@ extern "C"
 #endif
 
 /*
- * If the argument is not true, blocks the execution
+ * Blocks the current execution if the argument is false
  */
 void __VERIFIER_assume(int);
 
