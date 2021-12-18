@@ -71,6 +71,8 @@ public:
 	bool spinAssume;
 	bool codeCondenser;
 	bool loadAnnot;
+	bool assumePropagation;
+	bool confirmAnnot;
 
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;

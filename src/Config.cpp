@@ -204,6 +204,14 @@ static llvm::cl::opt<bool>
 clDisableLoadAnnot("disable-load-annotation", llvm::cl::cat(clTransformation),
 		   llvm::cl::desc("Disable load-annotation transformation"));
 
+static llvm::cl::opt<bool>
+clDisableAssumePropagation("disable-assume-propagation", llvm::cl::cat(clTransformation),
+			   llvm::cl::desc("Disable assume-propagation transformation"));
+
+static llvm::cl::opt<bool>
+clDisableConfirmAnnot("disable-confirmation-annotation", llvm::cl::cat(clTransformation),
+		      llvm::cl::desc("Disable confirmation-annotation transformation"));
+
 
 /*** Debugging options ***/
 
@@ -367,6 +375,8 @@ void Config::saveConfigOptions()
 	spinAssume = !clDisableSpinAssume;
 	codeCondenser = !clDisableCodeCondenser;
 	loadAnnot = !clDisableLoadAnnot;
+	assumePropagation = !clDisableAssumePropagation;
+	confirmAnnot = !clDisableConfirmAnnot;
 
 	/* Save debugging options */
 	programEntryFun = clProgramEntryFunction;

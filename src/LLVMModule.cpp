@@ -187,8 +187,10 @@ namespace LLVMModule {
 		modified |= BndPM.run(mod);
 
 		/* Run annotation passes last so that the module is stable */
-		OptPM.add(createPropagateAssumesPass());
-		OptPM.add(createConfirmationAnnotationPass());
+		if (conf->assumePropagation)
+			OptPM.add(createPropagateAssumesPass());
+		if (conf->confirmAnnot)
+			OptPM.add(createConfirmationAnnotationPass());
 		if (conf->loadAnnot)
 			OptPM.add(createLoadAnnotationPass(PI.annotInfo));
 		modified |= OptPM.run(mod);
