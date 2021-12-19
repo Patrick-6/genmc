@@ -162,10 +162,12 @@ InstAnnotator::IRExprUP InstAnnotator::generateInstExpr(Instruction *curr)
 		auto *cas = extractsFromCAS(extract);
 		if (!cas)
 			break;
-		/* Hack: If it extracts the value read, just return the same expression */
+		/* Hack: If it extracts the value read, just return a register expr;
+		 * the types won't match but we don't care about that since we won't
+		 * annotate above the CAS anyway */
 		if (*extract->idx_begin() == 0)
-			return generateOperandExpr(curr);
-		return EqExpr<Value *>::create(generateOperandExpr(extract),
+			return generateOperandExpr(cas);
+		return EqExpr<Value *>::create(generateOperandExpr(cas),
 					       generateOperandExpr(cas->getCompareOperand()));
 	}
 
