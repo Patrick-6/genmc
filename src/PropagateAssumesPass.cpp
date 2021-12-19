@@ -67,33 +67,42 @@ bool jumpsOnLoadResult(Value *cond)
 
 Value *getOtherSuccCondition(BranchInst *bi, BasicBlock *succ)
 {
-	auto *intTy = Type::getInt32Ty(succ->getParent()->getParent()->getContext());
-	auto *ci = CastInst::CreateZExtOrBitCast(bi->getCondition(), intTy, "", bi);
 	if (bi->getSuccessor(0) != succ)
-		return ci;
-	return BinaryOperator::CreateNot(ci, "", bi);
+		return bi->getCondition();
+	return BinaryOperator::CreateNot(bi->getCondition(), "", bi);
 }
 
-bool propagateAssumeToPred(BasicBlock *bb, BasicBlock *pred)
+bool propagateAssumeToPred(CallInst *assume, BasicBlock *pred)
 {
 	auto *bi = dyn_cast<BranchInst>(pred->getTerminator());
 	if (!bi || bi->isUnconditional())
 		return false;
 
-        auto *endFun = bb->getParent()->getParent()->getFunction("__VERIFIER_assume");
+	auto *bb = assume->getParent();
+	auto assumeName = getCalledFunOrStripValName(*assume);
+        auto *endFun = bb->getParent()->getParent()->getFunction(assumeName);
 	BUG_ON(!endFun);
 
+	/* Get the condition that we need to ensure; if it is a user
+	 * assumption cast to the exposed type too */
 	auto *cond = getOtherSuccCondition(bi, bb);
+	if (assumeName == "__VERIFIER_assume") {
+		auto *int32Ty = Type::getInt32Ty(bb->getParent()->getParent()->getContext());
+		cond = CastInst::CreateZExtOrBitCast(cond, int32Ty, "", bi);
+	}
+
+	/* Ensure the condition */
         auto *ci = CallInst::Create(endFun, {cond}, "", bi);
         ci->setMetadata("dbg", bi->getMetadata("dbg"));
 	return true;
 }
 
-bool propagateAssume(BasicBlock *bb)
+bool propagateAssume(CallInst *assume)
 {
+	auto *bb = assume->getParent();
 	return std::accumulate(pred_begin(bb), pred_end(bb), false,
 			       [&](const bool &accum, BasicBlock *p){
-				       return accum || propagateAssumeToPred(bb, p);
+				       return accum || propagateAssumeToPred(assume, p);
 			       });
 }
 
@@ -103,7 +112,7 @@ bool PropagateAssumesPass::runOnFunction(llvm::Function &F)
 
 	for (auto &bb : F)
 		if (isAssumeFalse(&*bb.begin()))
-			modified |= propagateAssume(&bb);
+			modified |= propagateAssume(dyn_cast<CallInst>(&*bb.begin()));
 	return modified;
 }
 
