@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdatomic.h>
+#include <genmc.h>
 
 #include "my_stack.h"
 
@@ -27,7 +28,7 @@ static node_t *new_node()
 
 static void reclaim(node_t *node)
 {
-	/* free(node); */
+	__VERIFIER_hp_retire(node);
 }
 
 void init_stack(mystack_t *s, int num_threads)
@@ -40,46 +41,32 @@ void push(mystack_t *s, unsigned int val)
 {
 	node_t *node = new_node();
 	node->value = val;
-	pointer oldTop, newTop;
-	bool success;
-	while (true) {
-		// acquire
-		oldTop = atomic_load_explicit(&s->top, acquire);
-		newTop = (pointer) node;
-		// relaxed
-		atomic_store_explicit(&node->next, oldTop, relaxed);
 
-		// release & relaxed
-		success = atomic_compare_exchange_strong_explicit(&s->top, &oldTop,
-			newTop, release, relaxed);
-		if (success)
+	while (true) {
+		node_t *top = atomic_load_explicit(&s->top, acquire);
+		atomic_store_explicit(&node->next, top, relaxed);
+		if (atomic_compare_exchange_strong_explicit(&s->top, &top, node, release, relaxed))
 			break;
 	}
 }
 
 unsigned int pop(mystack_t *s)
 {
-	pointer oldTop, newTop, next;
-	node_t *node;
-	bool success;
+	node_t *top;
 	int val;
+
+	__VERIFIER_hp_t *hp = __VERIFIER_hp_alloc();
 	while (true) {
-		// acquire
-		oldTop = atomic_load_explicit(&s->top, acquire);
-		if (oldTop == NULL)
+		top = __VERIFIER_hp_protect(hp, &s->top);
+		if (top == NULL)
 			return 0;
-		node = oldTop;
-		// relaxed
-		next = atomic_load_explicit(&node->next, relaxed);
-		newTop = (pointer) next;
-		// release & relaxed
-		success = atomic_compare_exchange_strong_explicit(&s->top, &oldTop,
-			newTop, release, relaxed);
-		if (success)
+
+		node_t *next = atomic_load_explicit(&top->next, relaxed);
+		if(atomic_compare_exchange_strong_explicit(&s->top, &top, next, release, relaxed))
 			break;
 	}
-	val = node->value;
+	val = top->value;
 	/* Reclaim the used slot */
-	reclaim(oldTop);
+	reclaim(top);
 	return val;
 }

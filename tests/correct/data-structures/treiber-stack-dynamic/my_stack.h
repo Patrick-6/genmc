@@ -1,16 +1,13 @@
 #define MAX_NODES			0xff
 
-typedef unsigned long long pointer;
-typedef atomic_ullong pointer_t;
-
 typedef struct node {
 	unsigned int value;
-	pointer_t next;
+	_Atomic(struct node *) next;
 
 } node_t;
 
 typedef struct {
-	pointer_t top;
+	_Atomic(node_t *) top;
 	node_t nodes[MAX_NODES + 1];
 } mystack_t;
 
