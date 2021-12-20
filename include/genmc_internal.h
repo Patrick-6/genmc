@@ -155,37 +155,22 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
 
 /* Custom opcode implementations */
 
-/*
- * Annotates a subsequent read instruction.
- * Attributes:
- *    0 -> speculative
- *    1 -> confirming
- */
-extern void __VERIFIER_annotate_read(int attr);
+#define GENMC_ATTR_LOCAL   0x00000001
+#define GENMC_ATTR_FINAL   0x00000002
+
+#define GENMC_KIND_NONVR   0x00010000
+#define GENMC_KIND_HELPED  0x00020000
+#define GENMC_KIND_HELPING 0x00030000
+#define GENMC_KIND_SPECUL  0x00040000
+#define GENMC_KIND_CONFIRM 0x00050000
 
 /*
- * Annotates a subsequent read instruction.
- * Attributes:
- *    0 -> local
+ * Annotate a subsequent instruction with the given mask.
  */
-extern void __VERIFIER_annotate_write(int attr);
-
-/*
- * Annotates a subsequent CAS instruction.
- * Attributes:
- *    0 -> non-value-returning
- *    1 -> helped,
- *    2 -> helping
- *    3 -> confirming
- */
-extern void __VERIFIER_annotate_CAS(int attr);
-
-/*
- * Annotates a subsequent FAI.
- * Attributes:
- * 0 -> non-value-returning
- */
-extern void __VERIFIER_annotate_FAI(int attr);
+extern void __VERIFIER_annotate_read(int mask);
+extern void __VERIFIER_annotate_write(int mask);
+extern void __VERIFIER_annotate_CAS(int mask);
+extern void __VERIFIER_annotate_FAI(int mask);
 
 /* Marks the beginning of an optional block. */
 extern int __VERIFIER_opt_begin(void);

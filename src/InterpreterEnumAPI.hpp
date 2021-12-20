@@ -205,6 +205,20 @@ enum class SystemError {
 	SE_ESPIPE  = 29,
 };
 
+/* Should match our internal definitions */
+
+#define GENMC_ATTR_LOCAL   0x00000001
+#define GENMC_ATTR_FINAL   0x00000002
+
+#define GENMC_KIND_NONVR   0x00010000
+#define GENMC_KIND_HELPED  0x00020000
+#define GENMC_KIND_HELPING 0x00030000
+#define GENMC_KIND_SPECUL  0x00040000
+#define GENMC_KIND_CONFIRM 0x00050000
+
+#define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
+#define GENMC_KIND(flags) ((flags) & (0xffff0000))
+
 /* For compilers that do not have a recent enough lib{std}c++ */
 #ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
 struct EnumClassHash {

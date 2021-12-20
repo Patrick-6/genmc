@@ -770,26 +770,26 @@ protected:
 
 	FaiReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, llvm::AtomicRMWInst::BinOp op,
-		     SVal val, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		     SVal val, bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
-		  binOp(op), opValue(val) {}
+		  binOp(op), opValue(val), fnal(isFinal) {}
 	FaiReadLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
-		     AType type, llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-		     AnnotVP annot = nullptr)
+		     AType type, llvm::AtomicRMWInst::BinOp op, SVal val, bool isFinal = false,
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, ord, pos, addr, size, type, rf, std::move(annot)),
-		  binOp(op), opValue(val) {}
+		  binOp(op), opValue(val), fnal(isFinal) {}
 
 public:
 	FaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr,
 		     ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		     bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_FaiRead, st, ord, pos, addr, size, type,
-			       op, val, rf, std::move(annot)) {}
+			       op, val, isFinal, rf, std::move(annot)) {}
 	FaiReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-		     AnnotVP annot = nullptr)
+		     llvm::AtomicRMWInst::BinOp op, SVal val, bool isFinal = false,
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_FaiRead, ord, pos, addr, size, type,
-			       op, val, rf, std::move(annot)) {}
+			       op, val, isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<FaiReadLabel> create(Ts&&... params) {
@@ -801,6 +801,9 @@ public:
 
 	/* Returns the other operand's value */
 	SVal getOpVal() const { return opValue; }
+
+	bool isFinal() const { return fnal; }
+	void setFinal(bool status) { fnal = status; }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<FaiReadLabel>(*this);
@@ -815,6 +818,8 @@ private:
 
 	/* The other operand's value for the operation */
 	SVal opValue;
+
+	bool fnal = false;
 };
 
 
@@ -832,14 +837,14 @@ protected:
 public:
 	NoRetFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr,
 			  ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			  Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			  bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_NoRetFaiRead, st, ord, pos, addr, size, type,
-			       op, val, rf, std::move(annot)) {}
+			       op, val, isFinal, rf, std::move(annot)) {}
 	NoRetFaiReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
 			  AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			  Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			  bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_NoRetFaiRead, ord, pos, addr, size, type, op, val,
-			       rf, std::move(annot)) {}
+			       isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<NoRetFaiReadLabel> create(Ts&&... params) {
@@ -869,14 +874,14 @@ protected:
 public:
 	BIncFaiReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr,
 			 ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			 bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_BIncFaiRead, st, ord, pos, addr, size,
-			       type, op, val, rf, std::move(annot)) {}
+			       type, op, val, isFinal, rf, std::move(annot)) {}
 	BIncFaiReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size, AType type,
-			 llvm::AtomicRMWInst::BinOp op, SVal val, Event rf = Event::getBottom(),
-			 AnnotVP annot = nullptr)
+			 llvm::AtomicRMWInst::BinOp op, SVal val, bool isFinal = false,
+			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: FaiReadLabel(EL_BIncFaiRead, ord, pos, addr, size,
-			       type, op, val, rf, std::move(annot)) {}
+			       type, op, val, isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<BIncFaiReadLabel> create(Ts&&... params) {
@@ -905,26 +910,26 @@ protected:
 
 	CasReadLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		     bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, st, ord, pos, addr, size, type, rf, std::move(annot)),
-		  expected(exp), swapValue(swap) {}
+		  fnal(isFinal), expected(exp), swapValue(swap) {}
 	CasReadLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		     bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: ReadLabel(k, ord, pos, addr, size, type, rf, std::move(annot)),
-		  expected(exp), swapValue(swap) {}
+		  fnal(isFinal), expected(exp), swapValue(swap) {}
 
 public:
 	CasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+		     bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_CasRead, st, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 	CasReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
-		     AType type, SVal exp, SVal swap, Event rf = Event::getBottom(),
-		     AnnotVP annot = nullptr)
+		     AType type, SVal exp, SVal swap, bool isFinal = false,
+		     Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_CasRead, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<CasReadLabel> create(Ts&&... params) {
@@ -936,6 +941,9 @@ public:
 
 	/* Returns the value that will be written is the CAS succeeds */
 	SVal getSwapVal() const { return swapValue; }
+
+	bool isFinal() const { return fnal; }
+	void setFinal(bool status) { fnal = status; }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<CasReadLabel>(*this);
@@ -950,6 +958,8 @@ private:
 
 	/* The value that will be written if the CAS succeeds */
 	const SVal swapValue;
+
+	bool fnal = false;
 };
 
 
@@ -967,23 +977,23 @@ protected:
 public:
 	LockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			 SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			 bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_LockCasRead, st, ord, pos, addr, size,
-			       type, exp, swap, rf, std::move(annot)) {}
+			       type, exp, swap, isFinal, rf, std::move(annot)) {}
 	LockCasReadLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, ASize size,
-			 AType type, SVal exp, SVal swap, Event rf = Event::getBottom(),
-			 AnnotVP annot = nullptr)
+			 AType type, SVal exp, SVal swap, bool isFinal = false,
+			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_LockCasRead, ord, pos, addr, size,
-			       type, exp, swap, rf, std::move(annot)) {}
+			       type, exp, swap, isFinal, rf, std::move(annot)) {}
 
 	LockCasReadLabel(unsigned int st, Event pos, SAddr addr, ASize size,
 			 Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: LockCasReadLabel(st, llvm::AtomicOrdering::Acquire, pos, addr, size,
-				   AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
+				   AType::Signed, SVal(0), SVal(1), false, rf, std::move(annot)) {}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, Event rf = Event::getBottom(),
 			 AnnotVP annot = nullptr)
 		: LockCasReadLabel(llvm::AtomicOrdering::Acquire, pos, addr, size,
-				   AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
+				   AType::Signed, SVal(0), SVal(1), false, rf, std::move(annot)) {}
 
 
 	template<typename... Ts>
@@ -1014,24 +1024,24 @@ protected:
 public:
 	TrylockCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			    SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			    Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			    bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_TrylockCasRead, st, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 	TrylockCasReadLabel(llvm::AtomicOrdering ord, Event pos,
 			    SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			    Event rf = Event::getBottom(),
+			    bool isFinal = false, Event rf = Event::getBottom(),
 			    AnnotVP annot = nullptr)
 		: CasReadLabel(EL_TrylockCasRead, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 
 	TrylockCasReadLabel(unsigned int st, Event pos, SAddr addr, ASize size,
 			    Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: TrylockCasReadLabel(st, llvm::AtomicOrdering::Acquire, pos, addr, size,
-				      AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
+				      AType::Signed, SVal(0), SVal(1), false, rf, std::move(annot)) {}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, Event rf = Event::getBottom(),
 			    AnnotVP annot = nullptr)
 		: TrylockCasReadLabel(llvm::AtomicOrdering::Acquire, pos, addr, size,
-				      AType::Signed, SVal(0), SVal(1), rf, std::move(annot)) {}
+				      AType::Signed, SVal(0), SVal(1), false, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<TrylockCasReadLabel> create(Ts&&... params) {
@@ -1060,15 +1070,15 @@ protected:
 public:
 	HelpedCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
 			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			   Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			   bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_HelpedCasRead, st, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 	HelpedCasReadLabel(llvm::AtomicOrdering ord, Event pos,
 			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			   Event rf = Event::getBottom(),
+			   bool isFinal = false, Event rf = Event::getBottom(),
 			   AnnotVP annot = nullptr)
 		: CasReadLabel(EL_HelpedCasRead, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<HelpedCasReadLabel> create(Ts&&... params) {
@@ -1097,16 +1107,16 @@ protected:
 
 public:
 	ConfirmingCasReadLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			   Event rf = Event::getBottom(), AnnotVP annot = nullptr)
+			       SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			       bool isFinal = false, Event rf = Event::getBottom(), AnnotVP annot = nullptr)
 		: CasReadLabel(EL_ConfirmingCasRead, st, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 	ConfirmingCasReadLabel(llvm::AtomicOrdering ord, Event pos,
-			   SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-			   Event rf = Event::getBottom(),
-			   AnnotVP annot = nullptr)
+			       SAddr addr, ASize size, AType type, SVal exp, SVal swap,
+			       bool isFinal = false, Event rf = Event::getBottom(),
+			       AnnotVP annot = nullptr)
 		: CasReadLabel(EL_ConfirmingCasRead, ord, pos, addr, size, type,
-			       exp, swap, rf, std::move(annot)) {}
+			       exp, swap, isFinal, rf, std::move(annot)) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<ConfirmingCasReadLabel> create(Ts&&... params) {
@@ -1181,19 +1191,19 @@ protected:
 	friend class DepExecutionGraph;
 
 	WriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord,
-		   Event pos, SAddr addr, ASize size, AType type, SVal val)
-		: MemAccessLabel(k, st, ord, pos, addr, size, type), value(val) {}
+		   Event pos, SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: MemAccessLabel(k, st, ord, pos, addr, size, type), value(val), fnal(isFinal) {}
 	WriteLabel(EventLabelKind k, llvm::AtomicOrdering ord,
-		   Event pos, SAddr addr, ASize size, AType type, SVal val)
-		: MemAccessLabel(k, ord, pos, addr, size, type), value(val) {}
+		   Event pos, SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: MemAccessLabel(k, ord, pos, addr, size, type), value(val), fnal(isFinal) {}
 
 public:
 	WriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		   SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(EL_Write, st, ord, pos, addr, size, type, val) {}
+		   SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(EL_Write, st, ord, pos, addr, size, type, val, isFinal) {}
 	WriteLabel(llvm::AtomicOrdering ord, Event pos,
-		   SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(EL_Write, ord, pos, addr, size, type, val) {}
+		   SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(EL_Write, ord, pos, addr, size, type, val, isFinal) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<WriteLabel> create(Ts&&... params) {
@@ -1203,6 +1213,8 @@ public:
 	/* Getter/setter for the write value */
 	SVal getVal() const { return value; }
 	void setVal(SVal v) { value = v; }
+
+	bool isFinal() const { return fnal; }
 
 	/* Returns a list of the reads reading from this write */
 	const std::vector<Event>& getReadersList() const { return readerList; }
@@ -1251,6 +1263,8 @@ private:
 
 	/* List of reads reading from the write */
 	std::vector<Event> readerList;
+
+	bool fnal;
 };
 
 
@@ -1370,19 +1384,19 @@ protected:
 	friend class DepExecutionGraph;
 
 	FaiWriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(k, st, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(k, st, ord, pos, addr, size, type, val, isFinal) {}
 	FaiWriteLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(k, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(k, ord, pos, addr, size, type, val, isFinal) {}
 
 public:
 	FaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_FaiWrite, st, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_FaiWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	FaiWriteLabel(llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_FaiWrite, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_FaiWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<FaiWriteLabel> create(Ts&&... params) {
@@ -1411,11 +1425,11 @@ protected:
 
 public:
 	NoRetFaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			   SAddr addr, ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_NoRetFaiWrite, st, ord, pos, addr, size, type, val) {}
+			   SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_NoRetFaiWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	NoRetFaiWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			   ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_NoRetFaiWrite, ord, pos, addr, size, type, val) {}
+			   ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_NoRetFaiWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<NoRetFaiWriteLabel> create(Ts&&... params) {
@@ -1444,11 +1458,11 @@ protected:
 
 public:
 	BIncFaiWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			  SAddr addr, ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_BIncFaiWrite, st, ord, pos, addr, size, type, val) {}
+			  SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_BIncFaiWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	BIncFaiWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			  ASize size, AType type, SVal val)
-		: FaiWriteLabel(EL_BIncFaiWrite, ord, pos, addr, size, type, val) {}
+			  ASize size, AType type, SVal val, bool isFinal = false)
+		: FaiWriteLabel(EL_BIncFaiWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<BIncFaiWriteLabel> create(Ts&&... params) {
@@ -1476,19 +1490,19 @@ protected:
 	friend class DepExecutionGraph;
 
 	CasWriteLabel(EventLabelKind k, unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(k, st, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(k, st, ord, pos, addr, size, type, val, isFinal) {}
 	CasWriteLabel(EventLabelKind k, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: WriteLabel(k, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: WriteLabel(k, ord, pos, addr, size, type, val, isFinal) {}
 
 public:
 	CasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		      SAddr addr, ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_CasWrite, st, ord, pos, addr, size, type, val) {}
+		      SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_CasWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	CasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-		      ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_CasWrite, ord, pos, addr, size, type, val) {}
+		      ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_CasWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<CasWriteLabel> create(Ts&&... params) {
@@ -1517,11 +1531,11 @@ protected:
 
 public:
 	LockCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			  SAddr addr, ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_LockCasWrite, st, ord, pos, addr, size, type, val) {}
+			  SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_LockCasWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	LockCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			  ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_LockCasWrite, ord, pos, addr, size, type, val) {}
+			  ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_LockCasWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	LockCasWriteLabel(unsigned int st, Event pos, SAddr addr, ASize size)
 		: LockCasWriteLabel(st, llvm::AtomicOrdering::Acquire,
@@ -1557,11 +1571,11 @@ protected:
 
 public:
 	TrylockCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			     SAddr addr, ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_TrylockCasWrite, st, ord, pos, addr, size, type, val) {}
+			     SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_TrylockCasWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	TrylockCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			     ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_TrylockCasWrite, ord, pos, addr, size, type, val) {}
+			     ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_TrylockCasWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 	TrylockCasWriteLabel(unsigned int st, Event pos, SAddr addr, ASize size)
 		: TrylockCasWriteLabel(st, llvm::AtomicOrdering::Acquire,
@@ -1598,11 +1612,11 @@ protected:
 
 public:
 	HelpedCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			     SAddr addr, ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_HelpedCasWrite, st, ord, pos, addr, size, type, val) {}
+			    SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_HelpedCasWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	HelpedCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			     ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_HelpedCasWrite, ord, pos, addr, size, type, val) {}
+			    ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_HelpedCasWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 
 	template<typename... Ts>
@@ -1632,11 +1646,11 @@ protected:
 
 public:
 	ConfirmingCasWriteLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-			     SAddr addr, ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_ConfirmingCasWrite, st, ord, pos, addr, size, type, val) {}
+				SAddr addr, ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_ConfirmingCasWrite, st, ord, pos, addr, size, type, val, isFinal) {}
 	ConfirmingCasWriteLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr,
-			     ASize size, AType type, SVal val)
-		: CasWriteLabel(EL_ConfirmingCasWrite, ord, pos, addr, size, type, val) {}
+				ASize size, AType type, SVal val, bool isFinal = false)
+		: CasWriteLabel(EL_ConfirmingCasWrite, ord, pos, addr, size, type, val, isFinal) {}
 
 
 	template<typename... Ts>

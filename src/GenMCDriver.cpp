@@ -2108,19 +2108,25 @@ void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
 {
 	auto &g = getGraph();
 
-	auto pos = bLab->getPos();
-	while (pos.index > 0) {
+	for (auto pos = bLab->getPos(); true; --pos) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (!rLab->isRevisitable() || !rLab->wasAddedMax() ||
-			    (getConf()->helpConfirmations && getConf()->coherence == CoherenceType::mo &&
-			     g.isConfirming(rLab)))
+			if (getConf()->helpConfirmations &&
+			    getConf()->coherence == CoherenceType::mo &&
+			    g.isConfirming(rLab))
+				continue;
+			if (!rLab->getRf().isBottom()) {
+				auto *rfLab = g.getEventLabel(rLab->getRf());
+				auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab);
+				if (wLab && wLab->isFinal())
+					continue;
+			}
+			if (!rLab->isRevisitable() || !rLab->wasAddedMax())
 				moot();
 			return;
 		}
 		if (llvm::isa<WriteLabel>(lab))
 			return;
-		--pos.index;
 	}
 }
 
@@ -2498,6 +2504,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	}
 
 	SVal result;
+	bool fnal = false;
 	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
 		/* Need to get the rf value within the if, as rLab might be a disk op,
 		 * and we cannot get the value in that case (but it will also not be an RMW)  */
@@ -2505,8 +2512,10 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(), faiLab->getOp());
 		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
 			    result = getBarrierInitValue(rLab->getAddr(), rLab->getAccess());
+		fnal = faiLab->isFinal();
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		result = casLab->getSwapVal();
+		fnal = casLab->isFinal();
 	} else
 		BUG();
 
@@ -2519,7 +2528,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						rLab->getPos().next(),	\
 						rLab->getAddr(),	\
 						rLab->getSize(),	\
-						rLab->getType(), result); \
+						rLab->getType(), result, fnal); \
 		break;
 
 	switch (rLab->getKind()) {

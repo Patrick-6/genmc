@@ -99,7 +99,7 @@ bool isAlloc(const llvm::Instruction *i, const VSet<llvm::Function *> *allocFuns
 /*
  * Annotates I by setting the metadata TYPE to VALUE
  */
-void annotateInstruction(llvm::Instruction *i, const std::string &type, const std::string &value);
+void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t value);
 
 namespace details {
 	template<typename F>

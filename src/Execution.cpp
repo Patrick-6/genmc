@@ -1459,12 +1459,13 @@ getReadKind(LoadInst &I)
 	if (!md)
 		return Kind::EL_Read;
 
-	auto &op = md->getOperand(0);
-	BUG_ON(!llvm::isa<llvm::MDString>(op));
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
 
-	if (llvm::dyn_cast<MDString>(op)->getString() == "speculative")
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (GENMC_KIND(flags) == GENMC_KIND_SPECUL)
 		return Kind::EL_SpeculativeRead;
-	else if (llvm::dyn_cast<MDString>(op)->getString() == "confirming")
+	else if (GENMC_KIND(flags) == GENMC_KIND_CONFIRM)
 		return Kind::EL_ConfirmingRead;
 	BUG();
 }
@@ -1516,6 +1517,23 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	return;
 }
 
+bool isWriteFinal(StoreInst &I)
+{
+	auto *md = I.getMetadata("write.attr");
+	if (!md)
+		return false;
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (GENMC_ATTR(flags) == GENMC_ATTR_FINAL)
+		return true;
+	else
+		return false;
+	BUG();
+}
+
 void Interpreter::visitStoreInst(StoreInst &I)
 {
 	Thread &thr = getCurThr();
@@ -1540,7 +1558,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 	/* Inform the Driver about the newly interpreter store */
 	driver->visitStore(WriteLabel::create(I.getOrdering(), nextPos(), ptr, asize, atyp,
-					      GV_TO_SVAL(val, typ)), &*deps);
+					      GV_TO_SVAL(val, typ), isWriteFinal(I)), &*deps);
 
 	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 	return;
@@ -1572,14 +1590,34 @@ getCasKinds(AtomicCmpXchgInst &I)
 	if (!md)
 		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
 
-	auto &op = md->getOperand(0);
-	BUG_ON(!llvm::isa<llvm::MDString>(op));
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
 
-	if (llvm::dyn_cast<MDString>(op)->getString() == "helped")
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (!GENMC_KIND(flags))
+		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
+
+	if (GENMC_KIND(flags) == GENMC_KIND_HELPED)
 		return std::make_pair(Kind::EL_HelpedCasRead, Kind::EL_HelpedCasWrite);
-	else if (llvm::dyn_cast<MDString>(op)->getString() == "helping")
+	else if (GENMC_KIND(flags) == GENMC_KIND_HELPING)
 		return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
+	BUG_ON(GENMC_KIND(flags) != GENMC_KIND_CONFIRM);
 	return std::make_pair(Kind::EL_ConfirmingCasRead, Kind::EL_ConfirmingCasWrite);
+}
+
+bool isCasWriteFinal(AtomicCmpXchgInst &I)
+{
+	auto *md = I.getMetadata("cas.attr");
+	if (!md)
+		return false;
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (!GENMC_ATTR(flags))
+		return false;
+	return (GENMC_ATTR(flags) == GENMC_ATTR_FINAL);
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
@@ -1616,7 +1654,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		ret = driver->visitLoad(nameR ## Label::create(	\
 			I.getSuccessOrdering(), nextPos(), ptr,		\
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
-			GV_TO_SVAL(newVal, typ)), &*lDeps);		\
+			GV_TO_SVAL(newVal, typ), isCasWriteFinal(I)), &*lDeps);		\
 		cmpRes = ret == GV_TO_SVAL(cmpVal, typ);		\
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
@@ -1624,7 +1662,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
 			driver->visitStore(nameW ## Label::create(	\
 				I.getSuccessOrdering(), nextPos(), ptr, size, \
-				atyp, GV_TO_SVAL(newVal, typ)), &*sDeps); \
+				atyp, GV_TO_SVAL(newVal, typ), isCasWriteFinal(I)), &*sDeps); \
 		}							\
 		break;							\
 	}
@@ -1671,10 +1709,13 @@ getFaiKinds(AtomicRMWInst &I)
 	if (!md)
 		return std::make_pair(Kind::EL_FaiRead, Kind::EL_FaiWrite);
 
-	auto &op = md->getOperand(0);
-	BUG_ON(!llvm::isa<llvm::MDString>(op));
 
-	if (llvm::dyn_cast<MDString>(op)->getString() == "noret")
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (flags & GENMC_KIND_NONVR)
 		return std::make_pair(Kind::EL_NoRetFaiRead, Kind::EL_NoRetFaiWrite);
 	BUG();
 }

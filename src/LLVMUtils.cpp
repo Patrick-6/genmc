@@ -179,11 +179,23 @@ bool isAlloc(const Instruction *i, const VSet<Function *> *allocFuns /* = nullpt
 	return allocFuns && allocFuns->count(const_cast<Function *>(fun));
 }
 
-void annotateInstruction(llvm::Instruction *i, const std::string &type, const std::string &value)
+void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t value)
 {
 	auto &ctx = i->getContext();
-	auto *node = MDNode::get(ctx, MDString::get(ctx, value));
+	auto *md = i->getMetadata(type);
+
+	/* If there are already metadata, accumulate */
+	uint64_t mValue = value;
+	if (md) {
+		auto old = dyn_cast<ConstantInt>(
+			dyn_cast<ConstantAsMetadata>(md->getOperand(0))->getValue())->getZExtValue();
+		mValue |= old;
+	}
+
+	auto *node = MDNode::get(ctx,
+				 ConstantAsMetadata::get(ConstantInt::get(ctx, APInt(64, mValue))));
 	i->setMetadata(type, node);
+	return;
 }
 
 #ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS

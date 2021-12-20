@@ -50,10 +50,20 @@ void __VERIFIER_spin_end(int);
  * Since non-local stores may preclude the spin-assume transformation,
  * this marker serves as a hint to GenMC.
  */
-#define __VERIFIER_local_write(s)		\
-do {						\
-	__VERIFIER_annotate_write(0);		\
-	s;					\
+#define __VERIFIER_local_write(s)			\
+do {							\
+	__VERIFIER_annotate_write(GENMC_ATTR_LOCAL);	\
+	s;						\
+} while (0)
+
+/*
+ * Marker function that denotes that a store is final, that is,
+ * that the location of the store will not be assigned again.
+ */
+#define __VERIFIER_final_write(s)			\
+do {							\
+	__VERIFIER_annotate_write(GENMC_ATTR_FINAL);	\
+	s;						\
 } while (0)
 
 /*
@@ -65,12 +75,12 @@ do {						\
  */
 #define __VERIFIER_helped_CAS(c)			\
 do {							\
-	__VERIFIER_annotate_CAS(1);			\
+	__VERIFIER_annotate_CAS(GENMC_KIND_HELPED);	\
 	c;						\
 } while (0)
 #define __VERIFIER_helping_CAS(c)			\
 do {							\
-	__VERIFIER_annotate_CAS(2);			\
+	__VERIFIER_annotate_CAS(GENMC_KIND_HELPING);	\
 	c;						\
 } while (0)
 
@@ -95,19 +105,26 @@ do {							\
  */
 #define __VERIFIER_speculative_read(c)			\
 ({							\
-	__VERIFIER_annotate_read(0);			\
+	__VERIFIER_annotate_read(GENMC_KIND_SPECUL);	\
 	int __ret = c;					\
 	__ret;						\
 })
 #define __VERIFIER_confirming_read(c)			\
 ({							\
-	__VERIFIER_annotate_read(1);			\
+	__VERIFIER_annotate_read(GENMC_KIND_CONFIRM);	\
 	int __ret = c;					\
 	__ret;						\
 })
 #define __VERIFIER_confirming_CAS(c)			\
 ({							\
-	__VERIFIER_annotate_CAS(3);			\
+	__VERIFIER_annotate_CAS(GENMC_KIND_CONFIRM);	\
+	int __ret = c;					\
+	__ret;						\
+})
+
+#define __VERIFIER_final_CAS(c)				\
+({							\
+	__VERIFIER_annotate_CAS(GENMC_ATTR_FINAL);	\
 	int __ret = c;					\
 	__ret;						\
 })

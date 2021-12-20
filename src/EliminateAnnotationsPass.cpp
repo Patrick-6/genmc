@@ -55,21 +55,6 @@ DEFINE_IS_ANNOTATION_FUNCTION(Write);
 DEFINE_IS_ANNOTATION_FUNCTION(Cas);
 DEFINE_IS_ANNOTATION_FUNCTION(Fai);
 
-std::string getCasTypeFromAnnotValue(const llvm::APInt &value)
-{
-	switch (value.getLimitedValue()) {
-	case 1:
-		return "helped";
-	case 2:
-		return "helping";
-	case 3:
-		return "confirming";
-	default:
-		BUG();
-	}
-	BUG();
-}
-
 bool eliminateCASAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 {
 	if (!ci)
@@ -84,7 +69,7 @@ bool eliminateCASAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Gather annotation info */
 	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
 	BUG_ON(!funArg);
-	auto casType = getCasTypeFromAnnotValue(funArg->getValue());
+	auto casType = funArg->getValue().getLimitedValue();
 
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);
@@ -108,28 +93,14 @@ bool eliminateFAIAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Gather annotation info */
 	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
 	BUG_ON(!funArg);
-	auto faiType = funArg->getValue();
-	BUG_ON(faiType.getLimitedValue() != 0); /* Only plain non-ret FAIs for now */
+	auto faiType = funArg->getValue().getLimitedValue();
 
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);
 
 	/* Annotate the FAI */
-	annotateInstruction(faii, "fai.attr", "noret");
+	annotateInstruction(faii, "fai.attr", faiType);
 	return false;
-}
-
-std::string getReadTypeFromAnnotValue(const llvm::APInt &value)
-{
-	switch (value.getLimitedValue()) {
-	case 0:
-		return "speculative";
-	case 1:
-		return "confirming";
-	default:
-		BUG();
-	}
-	BUG();
 }
 
 bool eliminateReadAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
@@ -146,7 +117,7 @@ bool eliminateReadAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Gather annotation info */
 	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
 	BUG_ON(!funArg);
-	auto readType = getReadTypeFromAnnotValue(funArg->getValue());
+	auto readType = funArg->getValue().getLimitedValue();
 
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);
@@ -154,17 +125,6 @@ bool eliminateReadAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	/* Annotate the read */
 	annotateInstruction(li, "read.attr", readType);
 	return false;
-}
-
-std::string getWriteTypeFromAnnotValue(const llvm::APInt &value)
-{
-	switch (value.getLimitedValue()) {
-	case 0:
-		return "local";
-	default:
-		BUG();
-	}
-	BUG();
 }
 
 bool eliminateWriteAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
@@ -176,12 +136,12 @@ bool eliminateWriteAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	Instruction *li = ci;
 	while (li && (!isa<StoreInst>(li) || !li->isAtomic()))
 		li = li->getNextNode();
-	ERROR_ON(!llvm::isa<StoreInst>(li), "Badly annotated store!\n");
+	ERROR_ON(!li || !llvm::isa<StoreInst>(li), "Badly annotated store!\n");
 
 	/* Gather annotation info */
 	auto *funArg = llvm::dyn_cast<ConstantInt>(&*ci->getOperand(0));
 	BUG_ON(!funArg);
-	auto writeType = getWriteTypeFromAnnotValue(funArg->getValue());
+	auto writeType = funArg->getValue().getLimitedValue();
 
 	/* Mark the instruction as "to be deleted" */
 	toDelete.insert(ci);

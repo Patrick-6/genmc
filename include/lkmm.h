@@ -192,7 +192,7 @@ typedef atomic64_t  atomic_long_t;
 /* Not using __atomic in all definitions below (but rather _atomic) so
  * as to not clash with the compiler builtins */
 
-#define __VERIFIER_atomicrmw_noret() __VERIFIER_annotate_FAI(0)
+#define __VERIFIER_atomicrmw_noret() __VERIFIER_annotate_FAI(GENMC_KIND_NONVR)
 
 /* Non-value-returning atomics */
 #define __VERIFIER_fetch_add_noret(v, i, m) 	\
