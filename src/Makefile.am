@@ -3,13 +3,10 @@ AUTOMAKE_OPTIONS = -Wno-override
 
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
-  EliminateAnnotationsPass.cpp EliminateAnnotationsPass.hpp \
-  EliminateCASPHIsPass.cpp EliminateCASPHIsPass.hpp \
-  EliminateCastsPass.cpp EliminateCastsPass.hpp \
-  EliminateUnusedCodePass.cpp EliminateUnusedCodePass.hpp \
   ARCalculator.cpp ARCalculator.hpp \
   ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
+  Bitmask.hpp \
   CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
@@ -25,9 +22,14 @@ libgenmc_a_SOURCES = \
   DepView.cpp DepView.hpp \
   DriverGraphEnumAPI.hpp \
   DriverFactory.hpp \
+  EliminateAnnotationsPass.cpp EliminateAnnotationsPass.hpp \
+  EliminateCASPHIsPass.cpp EliminateCASPHIsPass.hpp \
+  EliminateCastsPass.cpp EliminateCastsPass.hpp \
+  EliminateUnusedCodePass.cpp EliminateUnusedCodePass.hpp \
   Error.cpp Error.hpp \
   EscapeCheckerPass.cpp EscapeCheckerPass.hpp \
   Event.cpp Event.hpp \
+  EventAttr.hpp \
   EventLabel.cpp EventLabel.hpp \
   Execution.cpp \
   ExecutionGraph.cpp ExecutionGraph.hpp \

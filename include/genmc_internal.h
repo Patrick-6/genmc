@@ -160,9 +160,9 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
 
 #define GENMC_KIND_NONVR   0x00010000
 #define GENMC_KIND_HELPED  0x00020000
-#define GENMC_KIND_HELPING 0x00030000
-#define GENMC_KIND_SPECUL  0x00040000
-#define GENMC_KIND_CONFIRM 0x00050000
+#define GENMC_KIND_HELPING 0x00040000
+#define GENMC_KIND_SPECUL  0x00080000
+#define GENMC_KIND_CONFIRM 0x00100000
 
 /*
  * Annotate a subsequent instruction with the given mask.

@@ -75,7 +75,7 @@ bool eliminateCASAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	toDelete.insert(ci);
 
 	/* Annotate the CAS */
-	annotateInstruction(casi, "cas.attr", casType);
+	annotateInstruction(casi, "genmc.attr", casType);
 	return true;
 }
 
@@ -99,7 +99,7 @@ bool eliminateFAIAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	toDelete.insert(ci);
 
 	/* Annotate the FAI */
-	annotateInstruction(faii, "fai.attr", faiType);
+	annotateInstruction(faii, "genmc.attr", faiType);
 	return false;
 }
 
@@ -123,7 +123,7 @@ bool eliminateReadAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	toDelete.insert(ci);
 
 	/* Annotate the read */
-	annotateInstruction(li, "read.attr", readType);
+	annotateInstruction(li, "genmc.attr", readType);
 	return false;
 }
 
@@ -147,7 +147,7 @@ bool eliminateWriteAnnotation(CallInst *ci, VSet<Instruction *> &toDelete)
 	toDelete.insert(ci);
 
 	/* Annotate the write */
-	annotateInstruction(li, "write.attr", writeType);
+	annotateInstruction(li, "genmc.attr", writeType);
 	return false;
 }
 

@@ -22,6 +22,8 @@
 #define __LLVM_UTILS_HPP__
 
 #include "config.h"
+#include "Error.hpp"
+#include "EventAttr.hpp"
 #include "VSet.hpp"
 #ifdef LLVM_HAVE_ELIMINATE_UNCREACHABLE_BLOCKS
 #include <llvm/Analysis/DomTreeUpdater.h>
@@ -100,6 +102,23 @@ bool isAlloc(const llvm::Instruction *i, const VSet<llvm::Function *> *allocFuns
  * Annotates I by setting the metadata TYPE to VALUE
  */
 void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t value);
+
+/*
+ * Extracts the write attribute from an (annotated) instruction.
+ * Returns NONE if the instruction is not annotated.
+ */
+inline WriteAttr getWriteAttr(llvm::Instruction &I)
+{
+	auto *md = I.getMetadata("genmc.attr");
+	if (!md)
+		return WriteAttr::None;
+
+	auto *op = llvm::dyn_cast<llvm::ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = llvm::dyn_cast<llvm::ConstantInt>(op->getValue())->getZExtValue();
+	return static_cast<WriteAttr>(flags);
+}
 
 namespace details {
 	template<typename F>

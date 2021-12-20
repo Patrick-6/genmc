@@ -38,6 +38,7 @@
 #include "Event.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
+#include "LLVMUtils.hpp"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
@@ -262,6 +263,78 @@ SVal Interpreter::getLocInitVal(SAddr addr, AAccess access)
 	LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
 			    IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
 	return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
+}
+
+EventLabel::EventLabelKind
+getReadKind(LoadInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("genmc.attr");
+	if (!md)
+		return Kind::EL_Read;
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (GENMC_KIND(flags) == GENMC_KIND_SPECUL)
+		return Kind::EL_SpeculativeRead;
+	else if (GENMC_KIND(flags) == GENMC_KIND_CONFIRM)
+		return Kind::EL_ConfirmingRead;
+	BUG();
+}
+
+constexpr unsigned int switchPair(EventLabel::EventLabelKind a, EventLabel::EventLabelKind b)
+{
+	return (unsigned(a) << 16) + b;
+}
+
+constexpr unsigned int switchPair(std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> p)
+{
+	return switchPair(p.first, p.second);
+}
+
+std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
+getCasKinds(AtomicCmpXchgInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("genmc.attr");
+	if (!md)
+		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (!GENMC_KIND(flags))
+		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
+
+	if (GENMC_KIND(flags) == GENMC_KIND_HELPED)
+		return std::make_pair(Kind::EL_HelpedCasRead, Kind::EL_HelpedCasWrite);
+	else if (GENMC_KIND(flags) == GENMC_KIND_HELPING)
+		return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
+	BUG_ON(GENMC_KIND(flags) != GENMC_KIND_CONFIRM);
+	return std::make_pair(Kind::EL_ConfirmingCasRead, Kind::EL_ConfirmingCasWrite);
+}
+
+std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
+getFaiKinds(AtomicRMWInst &I)
+{
+	using Kind = EventLabel::EventLabelKind;
+
+	auto *md = I.getMetadata("genmc.attr");
+	if (!md)
+		return std::make_pair(Kind::EL_FaiRead, Kind::EL_FaiWrite);
+
+	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
+	BUG_ON(!op);
+
+	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
+	if (flags & GENMC_KIND_NONVR)
+		return std::make_pair(Kind::EL_NoRetFaiRead, Kind::EL_NoRetFaiWrite);
+	BUG();
 }
 
 /* Returns the size (in bytes) for a given type */
@@ -1450,26 +1523,6 @@ void Interpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
 				    gep_type_begin(I), gep_type_end(I), SF), SF);
 }
 
-EventLabel::EventLabelKind
-getReadKind(LoadInst &I)
-{
-	using Kind = EventLabel::EventLabelKind;
-
-	auto *md = I.getMetadata("read.attr");
-	if (!md)
-		return Kind::EL_Read;
-
-	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
-	BUG_ON(!op);
-
-	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (GENMC_KIND(flags) == GENMC_KIND_SPECUL)
-		return Kind::EL_SpeculativeRead;
-	else if (GENMC_KIND(flags) == GENMC_KIND_CONFIRM)
-		return Kind::EL_ConfirmingRead;
-	BUG();
-}
-
 void Interpreter::visitLoadInst(LoadInst &I)
 {
 	Thread &thr = getCurThr();
@@ -1517,23 +1570,6 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	return;
 }
 
-bool isWriteFinal(StoreInst &I)
-{
-	auto *md = I.getMetadata("write.attr");
-	if (!md)
-		return false;
-
-	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
-	BUG_ON(!op);
-
-	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (GENMC_ATTR(flags) == GENMC_ATTR_FINAL)
-		return true;
-	else
-		return false;
-	BUG();
-}
-
 void Interpreter::visitStoreInst(StoreInst &I)
 {
 	Thread &thr = getCurThr();
@@ -1558,7 +1594,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 	/* Inform the Driver about the newly interpreter store */
 	driver->visitStore(WriteLabel::create(I.getOrdering(), nextPos(), ptr, asize, atyp,
-					      GV_TO_SVAL(val, typ), isWriteFinal(I)), &*deps);
+					      GV_TO_SVAL(val, typ), getWriteAttr(I)), &*deps);
 
 	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 	return;
@@ -1569,55 +1605,6 @@ void Interpreter::visitFenceInst(FenceInst &I)
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitFence(FenceLabel::create(I.getOrdering(), nextPos()), &*deps);
 	return;
-}
-
-constexpr unsigned int switchPair(EventLabel::EventLabelKind a, EventLabel::EventLabelKind b)
-{
-	return (unsigned(a) << 16) + b;
-}
-
-constexpr unsigned int switchPair(std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind> p)
-{
-	return switchPair(p.first, p.second);
-}
-
-std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
-getCasKinds(AtomicCmpXchgInst &I)
-{
-	using Kind = EventLabel::EventLabelKind;
-
-	auto *md = I.getMetadata("cas.attr");
-	if (!md)
-		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
-
-	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
-	BUG_ON(!op);
-
-	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (!GENMC_KIND(flags))
-		return std::make_pair(Kind::EL_CasRead, Kind::EL_CasWrite);
-
-	if (GENMC_KIND(flags) == GENMC_KIND_HELPED)
-		return std::make_pair(Kind::EL_HelpedCasRead, Kind::EL_HelpedCasWrite);
-	else if (GENMC_KIND(flags) == GENMC_KIND_HELPING)
-		return std::make_pair(Kind::EL_HelpingCas, Kind::EL_HelpingCas);
-	BUG_ON(GENMC_KIND(flags) != GENMC_KIND_CONFIRM);
-	return std::make_pair(Kind::EL_ConfirmingCasRead, Kind::EL_ConfirmingCasWrite);
-}
-
-bool isCasWriteFinal(AtomicCmpXchgInst &I)
-{
-	auto *md = I.getMetadata("cas.attr");
-	if (!md)
-		return false;
-
-	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
-	BUG_ON(!op);
-
-	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (!GENMC_ATTR(flags))
-		return false;
-	return (GENMC_ATTR(flags) == GENMC_ATTR_FINAL);
 }
 
 void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
@@ -1654,7 +1641,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		ret = driver->visitLoad(nameR ## Label::create(	\
 			I.getSuccessOrdering(), nextPos(), ptr,		\
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
-			GV_TO_SVAL(newVal, typ), isCasWriteFinal(I)), &*lDeps);		\
+			GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*lDeps); \
 		cmpRes = ret == GV_TO_SVAL(cmpVal, typ);		\
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
@@ -1662,7 +1649,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
 			driver->visitStore(nameW ## Label::create(	\
 				I.getSuccessOrdering(), nextPos(), ptr, size, \
-				atyp, GV_TO_SVAL(newVal, typ), isCasWriteFinal(I)), &*sDeps); \
+				atyp, GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*sDeps); \
 		}							\
 		break;							\
 	}
@@ -1698,26 +1685,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	result.AggregateVal.push_back(INT_TO_GV(Type::getInt1Ty(I.getContext()), cmpRes));
 	SetValue(&I, result, ECStack().back());
 	return;
-}
-
-std::pair<EventLabel::EventLabelKind, EventLabel::EventLabelKind>
-getFaiKinds(AtomicRMWInst &I)
-{
-	using Kind = EventLabel::EventLabelKind;
-
-	auto *md = I.getMetadata("fai.attr");
-	if (!md)
-		return std::make_pair(Kind::EL_FaiRead, Kind::EL_FaiWrite);
-
-
-
-	auto *op = dyn_cast<ConstantAsMetadata>(md->getOperand(0));
-	BUG_ON(!op);
-
-	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (flags & GENMC_KIND_NONVR)
-		return std::make_pair(Kind::EL_NoRetFaiRead, Kind::EL_NoRetFaiWrite);
-	BUG();
 }
 
 SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, AtomicRMWInst::BinOp op)
@@ -1783,13 +1750,13 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 #define IMPLEMENT_FAI_VISIT(nameR, nameW)				\
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
 		ret = driver->visitLoad(nameR ## Label::create(		\
-			I.getOrdering(), nextPos(), ptr,		\
-			size, atyp, I.getOperation(), val), &*deps);	\
+			I.getOrdering(), nextPos(), ptr, size, atyp, 	\
+			I.getOperation(), val, getWriteAttr(I)), &*deps); \
 		auto newVal = executeAtomicRMWOperation(ret, val, I.getOperation()); \
 		if (!thr.isBlocked())					\
 			driver->visitStore(				\
 				nameW ## Label::create(I.getOrdering(), nextPos(), ptr, size, \
-						       atyp, newVal), &*deps); \
+						       atyp, newVal, getWriteAttr(I)), &*deps); \
 		break;							\
 	}
 

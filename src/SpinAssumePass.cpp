@@ -320,10 +320,10 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 bool isStoreLocal(StoreInst *si, EscapeInfo &EI, DominatorTree &DT)
 {
 	/* A store is local if it is either marked or writes to dynamic memory */
-	auto *md = si->getMetadata("write.attr");
+	auto attr = getWriteAttr(*si);
 	auto *alloc = EI.writesDynamicMemory(si->getPointerOperand());
 	return (alloc && EI.escapesAfter(alloc, si, DT)) ||
-	       (md && dyn_cast<MDString>(md->getOperand(0))->getString() == "local");
+		!!(attr & WriteAttr::Local);
 }
 
 bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &checkDynamically)

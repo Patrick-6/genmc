@@ -166,8 +166,8 @@ void annotateConfPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
 	if (!spec || !conf)
 		return;
 
-	annotateInstruction(spec, "read.attr", GENMC_KIND_SPECUL);
-	annotateInstruction(conf, isa<LoadInst>(conf) ? "read.attr" : "cas.attr", GENMC_KIND_CONFIRM);
+	annotateInstruction(spec, "genmc.attr", GENMC_KIND_SPECUL);
+	annotateInstruction(conf, "genmc.attr", GENMC_KIND_CONFIRM);
 }
 
 void annotate(Function &F, LoopInfo &LI, DominatorTree &DT)

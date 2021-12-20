@@ -2504,7 +2504,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	}
 
 	SVal result;
-	bool fnal = false;
+	WriteAttr wattr = WriteAttr::None;
 	if (auto *faiLab = llvm::dyn_cast<FaiReadLabel>(rLab)) {
 		/* Need to get the rf value within the if, as rLab might be a disk op,
 		 * and we cannot get the value in that case (but it will also not be an RMW)  */
@@ -2512,10 +2512,10 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		result = getEE()->executeAtomicRMWOperation(rfVal, faiLab->getOpVal(), faiLab->getOp());
 		if (llvm::isa<BIncFaiReadLabel>(faiLab) && result == SVal(0))
 			    result = getBarrierInitValue(rLab->getAddr(), rLab->getAccess());
-		fnal = faiLab->isFinal();
+		wattr = faiLab->getAttr();
 	} else if (auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab)) {
 		result = casLab->getSwapVal();
-		fnal = casLab->isFinal();
+		wattr = casLab->getAttr();
 	} else
 		BUG();
 
@@ -2528,7 +2528,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						rLab->getPos().next(),	\
 						rLab->getAddr(),	\
 						rLab->getSize(),	\
-						rLab->getType(), result, fnal); \
+						rLab->getType(), result, wattr); \
 		break;
 
 	switch (rLab->getKind()) {
