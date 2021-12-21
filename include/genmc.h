@@ -106,27 +106,23 @@ do {							\
 #define __VERIFIER_speculative_read(c)			\
 ({							\
 	__VERIFIER_annotate_read(GENMC_KIND_SPECUL);	\
-	int __ret = c;					\
-	__ret;						\
+	c;						\
 })
 #define __VERIFIER_confirming_read(c)			\
 ({							\
 	__VERIFIER_annotate_read(GENMC_KIND_CONFIRM);	\
-	int __ret = c;					\
-	__ret;						\
+	c;						\
 })
 #define __VERIFIER_confirming_CAS(c)			\
 ({							\
 	__VERIFIER_annotate_CAS(GENMC_KIND_CONFIRM);	\
-	int __ret = c;					\
-	__ret;						\
+	c;						\
 })
 
 #define __VERIFIER_final_CAS(c)				\
 ({							\
 	__VERIFIER_annotate_CAS(GENMC_ATTR_FINAL);	\
-	int __ret = c;					\
-	__ret;						\
+	c;						\
 })
 
 
