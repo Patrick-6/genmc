@@ -120,27 +120,27 @@ getConfirmationPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
 	Value *confPtr = nullptr;
 	if (auto *casi = dyn_cast<AtomicCmpXchgInst>(i)) {
 		conf = casi;
-		spec = dyn_cast<LoadInst>(casi->getCompareOperand()->stripPointerCasts());
+		spec = dyn_cast<LoadInst>(stripCasts(casi->getCompareOperand()));
 		if (!spec)
 			return std::make_pair(nullptr, nullptr);
-		specPtr = spec->getPointerOperand()->stripPointerCasts();
-		confPtr = casi->getPointerOperand()->stripPointerCasts();
+		specPtr = stripCasts(spec->getPointerOperand());
+		confPtr = stripCasts(casi->getPointerOperand());
 	} else if (auto *ci = dyn_cast<CmpInst>(i)) {
-		auto *l1 = dyn_cast<LoadInst>(ci->getOperand(0)->stripPointerCasts());
-		auto *l2 = dyn_cast<LoadInst>(ci->getOperand(1)->stripPointerCasts());
+		auto *l1 = dyn_cast<LoadInst>(stripCasts(ci->getOperand(0)));
+		auto *l2 = dyn_cast<LoadInst>(stripCasts(ci->getOperand(1)));
 		BUG_ON(!l1 || !l2);
 		if (!DT.dominates(l1, l2) && !DT.dominates(l2, l1))
 			return std::make_pair(nullptr, nullptr);
 		if (DT.dominates(l1, l2)) {
 			conf = l2;
 			spec = l1;
-			confPtr = l2->getPointerOperand()->stripPointerCasts();
-			specPtr = spec->getPointerOperand()->stripPointerCasts();
+			confPtr = stripCasts(l2->getPointerOperand());
+			specPtr = stripCasts(spec->getPointerOperand());
 		} else {
 			conf = l1;
 			spec = l2;
-			confPtr = l1->getPointerOperand()->stripPointerCasts();
-			specPtr = spec->getPointerOperand()->stripPointerCasts();
+			confPtr = stripCasts(l1->getPointerOperand());
+			specPtr = stripCasts(spec->getPointerOperand());
 		}
 	} else
 		BUG();
@@ -173,12 +173,10 @@ void annotateConfPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
 void annotate(Function &F, LoopInfo &LI, DominatorTree &DT)
 {
 	for (auto it = inst_begin(F), ie = inst_end(F); it != ie; ++it) {
-		auto *i = &*it;
-
-		if (!isSpinEndCall(i))
+		if (!isSpinEndCall(&*it))
 			continue;
 
-		if (auto *conf = spinEndsOnConfirmation(dyn_cast<CallInst>(i)))
+		if (auto *conf = spinEndsOnConfirmation(dyn_cast<CallInst>(&*it)))
 			annotateConfPair(conf, LI, DT);
 	}
 }
