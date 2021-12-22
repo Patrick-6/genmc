@@ -42,6 +42,7 @@ libgenmc_a_SOURCES = \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   LabelIterator.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
+  LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
   LKMMDriver.cpp LKMMDriver.hpp \
   LLVMModule.cpp LLVMModule.hpp \

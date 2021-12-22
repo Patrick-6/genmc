@@ -166,6 +166,7 @@ namespace LLVMModule {
 		OptPM.add(createEliminateAnnotationsPass());
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
 		OptPM.add(llvm::createDeadArgEliminationPass());
+		OptPM.add(createLocalSimplifyCFGPass());
 
 		modified = OptPM.run(mod);
 

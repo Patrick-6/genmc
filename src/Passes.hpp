@@ -126,4 +126,9 @@ llvm::FunctionPass *createConfirmationAnnotationPass();
  */
 llvm::Pass *createPropagateAssumesPass();
 
+/*
+ * Performs some minor simplifications to the CFG
+ */
+llvm::Pass *createLocalSimplifyCFGPass();
+
 #endif /* __PASSES_HPP__ */

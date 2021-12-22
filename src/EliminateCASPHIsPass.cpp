@@ -90,20 +90,24 @@ bool tryEliminateCASPHI(llvm::PHINode *phi, DominatorTree &DT, std::vector<Instr
 	phi->replaceAllUsesWith(extract);
 	toDelete.push_back(phi);
 
-	auto *term = llvm::dyn_cast<BranchInst>(cas->getParent()->getTerminator());
-	if (!term)
-		return true;
+	/*
+	 * The following should be sound for ARMv8 but let's be conservative
+	 */
 
-	/* Try to replace replace the jump from the CAS block with an unconditional one */
-	tryThreadSuccessor(term, phi->getIncomingBlock(extractId));
-	if (term->isConditional() && term->getSuccessor(0) == term->getSuccessor(1)) {
-		BranchInst::Create(term->getSuccessor(0), cas->getParent());
-		/* Since we are gonna remove the whole PHI-predecessor, do not
-		 * remove the PHI as this will be taken care of when we eliminate
-		 * the unreachable block. Instead, kill the old branch instruction */
-		toDelete.pop_back();
-		toDelete.push_back(term);
-	}
+	// auto *term = llvm::dyn_cast<BranchInst>(cas->getParent()->getTerminator());
+	// if (!term)
+	// 	return true;
+
+	// /* Try to replace replace the jump from the CAS block with an unconditional one */
+	// tryThreadSuccessor(term, phi->getIncomingBlock(extractId));
+	// if (term->isConditional() && term->getSuccessor(0) == term->getSuccessor(1)) {
+	// 	BranchInst::Create(term->getSuccessor(0), cas->getParent());
+	// 	/* Since we are gonna remove the whole PHI-predecessor, do not
+	// 	 * remove the PHI as this will be taken care of when we eliminate
+	// 	 * the unreachable block. Instead, kill the old branch instruction */
+	// 	toDelete.pop_back();
+	// 	toDelete.push_back(term);
+	// }
 	return true;
 }
 
