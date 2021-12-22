@@ -37,12 +37,12 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
-	events[0].push_back( std::unique_ptr<ThreadStartLabel>(
+	addOtherLabelToGraph( std::unique_ptr<ThreadStartLabel>(
 				     new ThreadStartLabel(
 					     0, llvm::AtomicOrdering::Acquire,
 					     Event(0, 0),
 					     Event::getInitializer() )
-				     ) );
+				      ) );
 
 	relations.global.push_back(Calculator::GlobalRelation());
 	relsCache.global.push_back(Calculator::GlobalRelation());
@@ -1021,12 +1021,13 @@ ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel
 
 void ExecutionGraph::remove(const EventLabel *lab)
 {
+	setFPStatus(FS_Stale);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
 			wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
 	}
 	if (lab != getLastThreadLabel(lab->getThread()))
-		events[lab->getThread()][lab->getIndex()] = EmptyLabel::create(lab->getPos());
+		addOtherLabelToGraph(EmptyLabel::create(lab->getPos()));
 	BUG_ON(lab->getIndex() >= getThreadSize(lab->getThread()));
 	resizeThread(lab->getPos());
 }
@@ -1194,11 +1195,9 @@ void ExecutionGraph::changeRf(Event read, Event store)
 {
 	setFPStatus(FS_Stale);
 
-	EventLabel *lab = events[read.thread][read.index].get();
-	BUG_ON(!llvm::isa<ReadLabel>(lab));
-
 	/* First, we set the new reads-from edge */
-	ReadLabel *rLab = static_cast<ReadLabel *>(lab);
+	ReadLabel *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
+	BUG_ON(!rLab);
 	Event oldRf = rLab->getRf();
 	rLab->setRf(store);
 
@@ -1211,7 +1210,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	 *        during a revisit)
 	 *     3) That oldRf is not the initializer */
 	if (oldRf.index > 0 && oldRf.index < (int) getThreadSize(oldRf.thread)) {
-		EventLabel *labRef = events[oldRf.thread][oldRf.index].get();
+		auto *labRef = getEventLabel(oldRf);
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(labRef))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
 	}
@@ -1221,7 +1220,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 		return;
 
 	/* Otherwise, add it to the write's reader list */
-	EventLabel *rfLab = events[store.thread][store.index].get();
+	auto *rfLab = getEventLabel(store);
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 		wLab->addReader(rLab->getPos());
 }
@@ -1230,17 +1229,13 @@ bool ExecutionGraph::updateJoin(Event join, Event childLast)
 {
 	setFPStatus(FS_Stale);
 
-	EventLabel *lab = events[join.thread][join.index].get();
-	BUG_ON(!llvm::isa<ThreadJoinLabel>(lab));
-
-	auto *jLab = static_cast<ThreadJoinLabel *>(lab);
-	EventLabel *cLastLab = events[childLast.thread][childLast.index].get();
+	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(getEventLabel(join));
+	BUG_ON(!jLab);
 
 	/* If the child thread has not terminated, do not update anything */
-	if (!llvm::isa<ThreadFinishLabel>(cLastLab))
+	auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(getEventLabel(childLast));
+	if (!fLab)
 		return false;
-
-	auto *fLab = static_cast<ThreadFinishLabel *>(cLastLab);
 
 	jLab->setChildLast(childLast);
 	fLab->setParentJoin(jLab->getPos());
@@ -1252,12 +1247,11 @@ void ExecutionGraph::resetJoin(Event join)
 	setFPStatus(FS_Stale);
 
 	/* If there is no parent join label, return */
-	EventLabel *lab = events[join.thread][join.index].get();
-	if (!llvm::isa<ThreadJoinLabel>(lab))
+	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(getEventLabel(join));
+	if (!jLab)
 		return;
 
 	/* Otherwise, reset parent join */
-	auto *jLab = static_cast<ThreadJoinLabel *>(lab);
 	jLab->setChildLast(Event::getInitializer());
 	return;
 }
@@ -1329,7 +1323,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	/* Remove any 'pointers' to events that have been removed */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
-			EventLabel *lab = events[i][j].get();
+			auto *lab = getEventLabel(Event(i, j));
 			/*
 			 * If it is a join and the respective Finish has been
 			 * removed, renew the Views of this label and continue
@@ -1560,7 +1554,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	}
 	s << "Thread sizes:\n\t";
 	for (auto i = 0u; i < g.getNumThreads(); i++)
-		s << g.events[i].size() << " ";
+		s << g.getThreadSize(i) << " ";
 	s << "\n";
 
 	auto *cc = g.getCoherenceCalculator();
