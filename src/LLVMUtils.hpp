@@ -104,6 +104,14 @@ bool isAlloc(const llvm::Instruction *i, const VSet<llvm::Function *> *allocFuns
 void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t value);
 
 /*
+ * Given the terminator TERM of a block B and a successor SUCC of B,
+ * tries to make B directly jump to SUCC's successor, if SUCC is an
+ * empty block with an unconditional jump.
+ * Returns the destination block if it succeeded, and null otherwise.
+ */
+llvm::BasicBlock *tryThreadSuccessor(llvm::BranchInst *term, llvm::BasicBlock *succ);
+
+/*
  * Extracts the write attribute from an (annotated) instruction.
  * Returns NONE if the instruction is not annotated.
  */

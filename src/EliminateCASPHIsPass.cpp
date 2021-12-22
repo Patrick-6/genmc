@@ -48,27 +48,6 @@ ExtractValueInst *hasPHIIncomingExtract(llvm::PHINode *phi)
 }
 
 /*
- * Given the terminator TERM of a block B and a successor of B called
- * BB, tries to make B directly jump to BB's successor, if BB is
- * an empty block with an unconditional jump.
- * Returns whether it succeeded.
- */
-bool tryThreadSuccessor(BranchInst *term, BasicBlock *bb)
-{
-	auto *bbTerm = dyn_cast<BranchInst>(bb->getTerminator());
-	if (!bbTerm || bbTerm != &*bb->begin() || bbTerm->isConditional())
-		return false;
-
-	for (auto i = 0u; i < term->getNumSuccessors(); i++) {
-		if (term->getSuccessor(i) == bb) {
-			term->setSuccessor(i, bbTerm->getSuccessor(0));
-			break;
-		}
-	}
-	return true;
-}
-
-/*
  * Tries to eliminate PHI and returns whether it succeeded. In the process of
  * doing so, also tries to simplify the CFG resulting from the CAS.
  * Populates TODELETE with the instructions that need to be erased.

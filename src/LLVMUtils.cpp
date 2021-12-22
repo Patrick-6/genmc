@@ -198,6 +198,27 @@ void annotateInstruction(llvm::Instruction *i, const std::string &type, uint64_t
 	return;
 }
 
+BasicBlock *tryThreadSuccessor(BranchInst *term, BasicBlock *succ)
+{
+	auto *succTerm = dyn_cast<BranchInst>(succ->getTerminator());
+	if (!succTerm || succTerm != &*succ->begin() || succTerm->isConditional())
+		return nullptr;
+
+	/* If there are PHIs that depend on SUCC be conservative and
+	 * do not transform, as B might jump to DESTBB too */
+	auto *destBB = succTerm->getSuccessor(0);
+	if (isa<PHINode>(&*destBB->begin()))
+		return nullptr;
+
+	for (auto i = 0u; i < term->getNumSuccessors(); i++) {
+		if (term->getSuccessor(i) == succ) {
+			term->setSuccessor(i, destBB);
+			return destBB;
+		}
+	}
+	return nullptr;
+}
+
 #ifndef LLVM_HAVE_ELIMINATE_UNREACHABLE_BLOCKS
 
 void DetatchDeadBlocks(
