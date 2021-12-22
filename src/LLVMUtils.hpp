@@ -28,6 +28,7 @@
 #ifdef LLVM_HAVE_ELIMINATE_UNCREACHABLE_BLOCKS
 #include <llvm/Analysis/DomTreeUpdater.h>
 #endif
+#include <llvm/IR/Constants.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/CFG.h>
