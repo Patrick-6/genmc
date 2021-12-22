@@ -131,4 +131,9 @@ llvm::Pass *createPropagateAssumesPass();
  */
 llvm::Pass *createLocalSimplifyCFGPass();
 
+/*
+ * Eliminates redundant instructions
+ */
+llvm::Pass *createEliminateRedundantInstPass();
+
 #endif /* __PASSES_HPP__ */

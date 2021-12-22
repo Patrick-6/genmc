@@ -25,6 +25,7 @@ libgenmc_a_SOURCES = \
   EliminateAnnotationsPass.cpp EliminateAnnotationsPass.hpp \
   EliminateCASPHIsPass.cpp EliminateCASPHIsPass.hpp \
   EliminateCastsPass.cpp EliminateCastsPass.hpp \
+  EliminateRedundantInstPass.cpp EliminateRedundantInstPass.hpp \
   EliminateUnusedCodePass.cpp EliminateUnusedCodePass.hpp \
   Error.cpp Error.hpp \
   EscapeCheckerPass.cpp EscapeCheckerPass.hpp \
