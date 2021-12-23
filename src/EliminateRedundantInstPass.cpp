@@ -23,9 +23,11 @@
 #include "Error.hpp"
 #include "LLVMUtils.hpp"
 
+#include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
+#include <llvm/IR/Module.h>
 
 using namespace llvm;
 
@@ -33,13 +35,15 @@ void EliminateRedundantInstPass::getAnalysisUsage(AnalysisUsage &au) const
 {
 }
 
-static bool isRedundantCastPair(const CastInst *ci1, const CastInst *ci2)
+static bool isRedundantCastPair(const CastInst *ci1, const CastInst *ci2, const DataLayout &DL)
 {
-	return ci1->getSrcTy() == ci2->getDestTy();
+	return ci1->getSrcTy() == ci2->getDestTy() && DL.getTypeAllocSize(ci1->getDestTy()) >=
+		DL.getTypeAllocSize(ci1->getSrcTy());
 }
 
 static bool eliminateRedundantInst(Function &F)
 {
+	const DataLayout &DL = F.getParent()->getDataLayout();
 	auto modified = false;
 
 	VSet<Instruction *> deleted;
@@ -48,7 +52,7 @@ static bool eliminateRedundantInst(Function &F)
 			continue;
 		if (auto *ci = dyn_cast<CastInst>(&*it)) {
 			if (auto *csrc = dyn_cast<CastInst>(ci->getOperand(0))) {
-				if (isRedundantCastPair(csrc, ci)) { /* A->B->A cast */
+				if (isRedundantCastPair(csrc, ci, DL)) { /* A->B->A cast */
 					deleted.insert(ci);
 					ci->replaceAllUsesWith(csrc->getOperand(0));
 					modified = true;
