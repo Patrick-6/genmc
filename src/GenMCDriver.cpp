@@ -43,8 +43,8 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> MI)
-	: userConf(conf), result(), isMootExecution(false), lockToReschedule(Event::getInitializer()),
-	  readToReschedule(Event::getInitializer()), shouldHalt(false)
+	: userConf(conf), result(), isMootExecution(false), readToReschedule(Event::getInitializer()),
+	  shouldHalt(false)
 {
 	std::string buf;
 
@@ -84,16 +84,16 @@ GenMCDriver::LocalState::~LocalState() = default;
 
 GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
 				    std::unique_ptr<llvm::EELocalState> interpState, bool isMootExecution,
-				    Event lockToReschedule, Event readToReschedule, const std::vector<Event> &threadPrios)
+				    Event readToReschedule, const std::vector<Event> &threadPrios)
 	: graph(std::move(g)), revset(std::move(r)), workqueue(std::move(w)),
-	  interpState(std::move(interpState)), isMootExecution(isMootExecution), lockToReschedule(lockToReschedule), readToReschedule(readToReschedule),
-	  threadPrios(threadPrios) {}
+	  interpState(std::move(interpState)), isMootExecution(isMootExecution),
+	  readToReschedule(readToReschedule), threadPrios(threadPrios) {}
 
 std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
 	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
 		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
-		getEE()->releaseLocalState(), isMootExecution, lockToReschedule, readToReschedule, threadPrios);
+		getEE()->releaseLocalState(), isMootExecution, readToReschedule, threadPrios);
 }
 
 void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
@@ -103,7 +103,6 @@ void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> sta
 	workqueue = std::move(state->workqueue);
 	getEE()->restoreLocalState(std::move(state->interpState));
 	isMootExecution = state->isMootExecution;
-	lockToReschedule = state->lockToReschedule;
 	readToReschedule = state->readToReschedule;
 	threadPrios = std::move(state->threadPrios);
 	return;
@@ -334,7 +333,7 @@ void GenMCDriver::deprioritizeThread(const UnlockLabelLAPOR *uLab)
 void GenMCDriver::resetExplorationOptions()
 {
 	unmoot();
-	setRescheduledLock(Event::getInitializer());
+	setRescheduledRead(Event::getInitializer());
 	resetThreadPrioritization();
 }
 
@@ -686,30 +685,6 @@ bool GenMCDriver::scheduleNormal()
 	BUG();
 }
 
-bool GenMCDriver::rescheduleLocks()
-{
-	auto &g = getGraph();
-	auto *EE = getEE();
-
-	for (auto i = 0u; i < g.getNumThreads(); ++i) {
-		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
-		if (!bLab || bLab->getType() != BlockageType::LockOptBlock)
-			continue;
-		auto *pLab = llvm::dyn_cast<LockCasReadLabel>(g.getPreviousLabel(bLab));
-		BUG_ON(!pLab);
-
-		setRescheduledLock(pLab->getPos());
-		g.remove(bLab);
-		g.remove(pLab);
-
-		EE->resetThread(i);
-		EE->getThrById(i).ECStack = { EE->getThrById(i).initSF };
-		EE->scheduleThread(i);
-		return true;
-	}
-	return false;
-}
-
 bool GenMCDriver::rescheduleReads()
 {
 	auto &g = getGraph();
@@ -717,9 +692,9 @@ bool GenMCDriver::rescheduleReads()
 
 	for (auto i = 0u; i < g.getNumThreads(); ++i) {
 		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
-		if (!bLab || bLab->getType() != BlockageType::SpecOptBlock)
+		if (!bLab || bLab->getType() != BlockageType::ReadOptBlock)
 			continue;
-		auto *pLab = llvm::dyn_cast<SpeculativeReadLabel>(g.getPreviousLabel(bLab));
+		auto *pLab = llvm::dyn_cast<ReadLabel>(g.getPreviousLabel(bLab));
 		BUG_ON(!pLab);
 
 		setRescheduledRead(pLab->getPos());
@@ -750,8 +725,8 @@ bool GenMCDriver::scheduleNext()
 	if (scheduleNormal())
 		return true;
 
-	/* Finally, check if any locks needs to be rescheduled */
-	return rescheduleLocks() || rescheduleReads();
+	/* Finally, check if any reads needs to be rescheduled */
+	return rescheduleReads();
 }
 
 void GenMCDriver::explore()
@@ -759,7 +734,6 @@ void GenMCDriver::explore()
 	auto *EE = getEE();
 
 	unmoot(); /* recursive calls */
-	BUG_ON(!lockToReschedule.isInitializer());
 	BUG_ON(!readToReschedule.isInitializer());
 	while (true) {
 		EE->reset();
@@ -1234,7 +1208,7 @@ void GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> 
 	/* The course of action depends on whether we are in repair mode or not */
 	if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) ||
 	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
-	    !isRescheduledLock(rLab->getPos())) {
+	    !isRescheduledRead(rLab->getPos())) {
 		stores = {stores.back()};
 		return;
 	}
@@ -1752,7 +1726,7 @@ void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event
 	if (existsPendingSpeculation(lab, stores)) {
 		std::swap(stores[0], stores.back());
 		stores.resize(1);
-		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::SpecOptBlock));
+		visitBlock(BlockLabel::create(lab->getPos().next(), BlockageType::ReadOptBlock));
 		return;
 	}
 
@@ -1845,6 +1819,9 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 		checkLockValidity(lab, stores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
 		checkBIncValidity(lab, stores);
+
+	if (isRescheduledRead(lab->getPos()) && !llvm::isa<LockCasReadLabel>(lab))
+		setRescheduledRead(Event::getInitializer());
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(stores.back(), lab->getAddr(), lab->getAccess());
@@ -1970,9 +1947,9 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 
 	/* Check if that was a rescheduled lock; do that here so that
 	 * recursive calls always have no locks to be rescheduled */
-	auto rescheduled = isRescheduledLock(pos);
-	if (isRescheduledLock(pos))
-		setRescheduledLock(Event::getInitializer());
+	auto rescheduled = isRescheduledRead(pos);
+	if (isRescheduledRead(pos))
+		setRescheduledRead(Event::getInitializer());
 
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getGraph().getEventLabel(pos));
 	if (!rLab->getRf().isBottom() && ret == SVal(0))
@@ -1980,7 +1957,7 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 	else
 		visitBlock(BlockLabel::create(pos.next(),
 					      rescheduled ? BlockageType::LockNotAcq :
-					      BlockageType::LockOptBlock));
+					      BlockageType::ReadOptBlock));
 }
 
 void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps)

@@ -114,7 +114,6 @@ public:
 		LocalQueueT workqueue;
 		std::unique_ptr<llvm::EELocalState> interpState;
 		bool isMootExecution;
-		Event lockToReschedule;
 		Event readToReschedule;
 		std::vector<Event> threadPrios;
 
@@ -122,7 +121,8 @@ public:
 		LocalState() = delete;
 		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
 			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
-			   bool isMootExecution, Event lockToReschedule, Event readToReschedule, const std::vector<Event> &threadPrios);
+			   bool isMootExecution, Event readToReschedule,
+			   const std::vector<Event> &threadPrios);
 
 		~LocalState();
 	};
@@ -416,17 +416,11 @@ private:
 	void moot() { isMootExecution = true; }
 	void unmoot() { isMootExecution = false; }
 
-	/* Opt: Whether the exploration should try to repair L */
-	bool isRescheduledLock(Event l) const { return lockToReschedule == l; }
+	/* Opt: Whether the exploration should try to repair R */
+	bool isRescheduledRead(Event r) const { return readToReschedule == r; }
 
-	/* Opt: Sets L as a lock to be repaired */
-	void setRescheduledLock(Event l) { lockToReschedule = l; }
-
-	/* Opt: Whether the exploration should try to repair L */
-	bool isRescheduledRead(Event l) const { return readToReschedule == l; }
-
-	/* Opt: Sets L as a lock to be repaired */
-	void setRescheduledRead(Event l) { readToReschedule = l; }
+	/* Opt: Sets R as a read to be repaired */
+	void setRescheduledRead(Event r) { readToReschedule = r; }
 
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
@@ -460,10 +454,7 @@ private:
 	/* Returns whether the current execution is blocked */
 	bool isExecutionBlocked() const;
 
-	/* Opt: Tries to reschedule any locks that were added blocked */
-	bool rescheduleLocks();
-
-	/* Opt: Tries to reschedule any locks that were added blocked */
+	/* Opt: Tries to reschedule any reads that were added blocked */
 	bool rescheduleReads();
 
 	/* Resets the prioritization scheme */
@@ -759,8 +750,7 @@ private:
 	/* Opt: Whether this execution is moot (locking) */
 	bool isMootExecution;
 
-	/* Opt: Whether a particular lock needs to be repaired during rescheduling */
-	Event lockToReschedule;
+	/* Opt: Whether a particular read needs to be repaired during rescheduling */
 	Event readToReschedule;
 
 	/* Verification result to be returned to caller */
