@@ -46,7 +46,7 @@ class PersistencyChecker;
  ******************************************************************************/
 
 /*
- * An class representing plain execution graphs. This class offers
+ * A class representing plain execution graphs. This class offers
  * the basic infrastructure all types of graphs should provide (e.g.,
  * calculation of hb-predecessors, psc, etc). More specialized types
  * of graphs can provide extra functionality (e.g., take dependencies
@@ -327,7 +327,7 @@ public:
 	/* Returns pair with all SC accesses and all SC fences */
 	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
 
-	/* Given an write label sLab that is part of an RMW, returns
+	/* Given a write label sLab that is part of an RMW, returns
 	 * another RMW that reads from the same write. If no such event
 	 * exists, it returns INIT. If there are multiple such events,
 	 * returns the one with the smallest stamp */
