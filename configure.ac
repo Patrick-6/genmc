@@ -312,6 +312,33 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Case labels depending on whether VectorTyID exists.])
          AC_MSG_RESULT([{llvm::Type::FixedVectorTyID, llvm::Type::ScalableVectorTyID}])])
 
+## Check whether Instruction::isLifetimeStartOrEnd() exists (LLVM > 12)
+AC_MSG_CHECKING([for Instruction::isLifetimeStartOrEnd])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instruction.h>
+]],[[
+  llvm::Instruction *i = nullptr;
+  auto res = i->isLifetimeStartOrEnd();
+]])],
+        [AC_DEFINE([LLVM_HAS_IS_LIFETIME_START_OR_END],[1],
+         [Define if the function Instruction::isLifetimeStartOrEnd() exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+## Check whether Instruction::isDroppable() exists (LLVM > 12)
+AC_MSG_CHECKING([for Instruction::isDroppable])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instruction.h>
+]],[[
+  llvm::Instruction *i = nullptr;
+  auto res = i->isDroppable()
+]])],
+        [AC_DEFINE([LLVM_HAS_IS_DROPPABLE],[1],
+         [Define if the function Instruction::isDroppable() exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
+
 ## Check whether the function llvm::onlyUsedByLifetimeMarkersOrDroppableInsts() exists (LLVM >= 12)
 AC_MSG_CHECKING([for llvm::onlyUsedByLifetimeMarkersOrDroppableInsts])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -466,16 +493,27 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            [AC_MSG_RESULT([() -> llvm::error_code])])
 ])])
 
-## Check if the value F_None in llvm::sys::fs::OpenFlags exists
-AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags (F_None)])
+## Check if llvm::sys::fs::OpenFlags exists
+AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Support/FileSystem.h>
+]],[[
+  llvm::sys::fs::OpenFlags f;
+]])],
+           [AC_DEFINE([HAVE_LLVM_SYS_FS_OPENFLAGS],[1],
+            [Define if the type llvm::sys::fs::OpenFlags exists.])
+            AC_MSG_RESULT([yes])],
+           [AC_MSG_RESULT([no])])
+
+## Check if llvm::sys::fs::OpenFlags::F_None exists
+AC_MSG_CHECKING([for llvm::sys::fs::OpenFlags::F_None])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/FileSystem.h>
 ]],[[
   llvm::sys::fs::OpenFlags f = llvm::sys::fs::F_None;
-  return f;
 ]])],
-           [AC_DEFINE([HAVE_LLVM_SYS_FS_OPENFLAGS],[1],
-            [Define if the type llvm::sys::fs::OpenFlags exists.])
+           [AC_DEFINE([HAVE_LLVM_SYS_FS_OPENFLAGS_FNONE],[1],
+            [Define if the type llvm::sys::fs::OpenFlags::F_None exists.])
             AC_MSG_RESULT([yes])],
            [AC_MSG_RESULT([no])])
 
