@@ -199,9 +199,15 @@ namespace LLVMModule {
 #else
 		std::error_code errs;
 #endif
+		auto flags =
+#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS_FNONE
+			llvm::sys::fs::F_None;
+#else
+			llvm::sys::fs::OF_None;
+#endif
+
 #ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
-		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs,
-								 llvm::sys::fs::F_None);
+		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, flags);
 #else
 		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, 0);
 #endif

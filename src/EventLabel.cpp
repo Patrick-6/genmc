@@ -200,6 +200,10 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t)
 	case SmpFenceType::MB : return s << "mb";
 	case SmpFenceType::WMB : return s << "wmb";
 	case SmpFenceType::RMB : return s << "rmb";
+	case SmpFenceType::MBBA: return s << "ba";
+	case SmpFenceType::MBAA: return s << "aa";
+	case SmpFenceType::MBAS: return s << "as";
+	case SmpFenceType::MBAUL: return s << "aul";
 	default : BUG();
 	}
 	return s;
