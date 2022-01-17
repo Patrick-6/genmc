@@ -2081,11 +2081,12 @@ void GenMCDriver::visitRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab)
 	return;
 }
 
-void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
+const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) const
 {
 	auto &g = getGraph();
+	std::vector<Event> finalReads;
 
-	for (auto pos = bLab->getPos(); true; --pos) {
+	for (auto pos = start.prev(); pos.index > 0; --pos) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			if (getConf()->helpConfirmations &&
@@ -2095,16 +2096,37 @@ void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
 			if (!rLab->getRf().isBottom()) {
 				auto *rfLab = g.getEventLabel(rLab->getRf());
 				auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab);
-				if (wLab && wLab->isFinal())
+				if (wLab && wLab->isLocal())
+					continue;
+				if (wLab && wLab->isFinal()) {
+					finalReads.push_back(rLab->getPos());
+					continue;
+				}
+				if (std::any_of(finalReads.begin(), finalReads.end(), [&](const Event &l){
+					auto *lLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
+					return lLab->getAddr() == rLab->getAddr() &&
+					       lLab->getSize() == rLab->getSize();
+				}))
 					continue;
 			}
-			if (!rLab->isRevisitable() || !rLab->wasAddedMax())
-				moot();
-			return;
+			return rLab;
 		}
-		if (llvm::isa<WriteLabel>(lab))
-			return;
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab))
+			if (!wLab->isFinal() && !wLab->isLocal())
+				return wLab;
 	}
+	return nullptr; /* none found */
+}
+
+void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
+{
+	auto &g = getGraph();
+
+	auto *lab = getPreviousVisibleAccessLabel(bLab->getPos());
+	if (auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(lab))
+		if (!rLab->isRevisitable() || !rLab->wasAddedMax())
+			moot();
+	return;
 }
 
 void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
