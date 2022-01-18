@@ -1701,8 +1701,9 @@ bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vect
 	auto &g = getGraph();
 	return (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *oLab){
 		auto *orLab = llvm::dyn_cast<SpeculativeReadLabel>(oLab);
-		return orLab && orLab->getAddr() == lab->getAddr()
-			&& orLab->getPos() != lab->getPos();
+		return orLab && orLab->getAddr() == lab->getAddr() &&
+		       !g.getPreviousLabel(lab->getPos())->getHbView().contains(orLab->getPos()) &&
+			orLab->getPos() != lab->getPos();
 	}) &&
 		std::find_if(stores.begin(), stores.end(), [&](const Event &s){
 			return llvm::isa<ConfirmingCasWriteLabel>(g.getEventLabel(s)) &&
