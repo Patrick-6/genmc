@@ -1298,20 +1298,18 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 
 	auto &g = getGraph();
 
-	/* For WB, there might be many maximal ones */
-	auto shouldBlock =
-		std::any_of(validStores.begin(), validStores.end(), [&](const Event &s){
-			auto val = getWriteValue(s, rLab->getAddr(), rLab->getAccess());
-			return isCoMaximal(rLab->getAddr(), s, true) &&
-				!Evaluator().evaluate(rLab->getAnnot(), val); });
-	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w) {
+	/* Ensure we keep the maximal store around even if Helper messed with it */
+	BUG_ON(validStores.empty());
+	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w){
 		auto val = getWriteValue(w, rLab->getAddr(), rLab->getAccess());
-		return !isCoMaximal(rLab->getAddr(), w, true) &&
-			!Evaluator().evaluate(rLab->getAnnot(), val); }),
-		validStores.end());
+		return w != validStores.back() && !isCoMaximal(rLab->getAddr(), w, true) &&
+			!Evaluator().evaluate(rLab->getAnnot(), val);
+	}), validStores.end());
 	BUG_ON(validStores.empty());
 
-	return shouldBlock;
+	/* Return whether we should block */
+	auto maximalVal = getWriteValue(validStores.back(), rLab->getAddr(), rLab->getAccess());
+	return !Evaluator().evaluate(rLab->getAnnot(), maximalVal);
 }
 
 void GenMCDriver::unblockWaitingHelping()
@@ -1746,16 +1744,17 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 	if (llvm::isa<LockCasReadLabel>(lab))
 		filterAcquiredLocks(lab, stores);
 
-	/* If this load is annotatable, keep values that will not leed to blocking */
-	if (lab->getAnnot())
-		filterValuesFromAnnotSAVER(lab, stores);
-
-	/* Helper: Affect maximality status if possible */
+	/* Helper: Try to read speculated value (affects maximality status) */
 	if (getConf()->helper && getGraph().isConfirming(lab))
 		filterConfirmingRfs(lab, stores);
 
+	/* Helper: If there are pending confirmations, prioritize those */
 	if (getConf()->helper && llvm::isa<SpeculativeReadLabel>(lab))
 		filterUnconfirmedReads(lab, stores);
+
+	/* If this load is annotatable, keep values that will not leed to blocking */
+	if (lab->getAnnot())
+		filterValuesFromAnnotSAVER(lab, stores);
 }
 
 SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
