@@ -451,23 +451,23 @@ bool GenMCDriver::isExecutionBlocked() const
 
 void GenMCDriver::handleFinishedExecution()
 {
-	/* First, reset all exploration options */
-	resetExplorationOptions();
-
 	/* LAPOR: Check lock-well-formedness */
 	if (userConf->LAPOR && !isLockWellFormedLAPOR())
 		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 
 	/* Helper: Check helping CAS annotation */
-	checkHelpingCasAnnotation();
+	if (!isMoot())
+		checkHelpingCasAnnotation();
 
 	/* Ignore the execution if some assume has failed */
-	if (isExecutionBlocked()) {
+	if (isExecutionBlocked() || isMoot()) {
 		GENMC_DEBUG(
 			if (userConf->printBlockedExecs)
 				printGraph();
 		);
 		++result.exploredBlocked;
+		if (isMoot())
+			++result.exploredMoot;
 		if (userConf->checkLiveness)
 			checkLiveness();
 		return;
@@ -1188,10 +1188,12 @@ void GenMCDriver::checkLiveness()
 			spinBlocked.push_back(thrIt->id);
 	}
 
+	if (spinBlocked.empty())
+		return;
+
 	/* And check whether all of them are live or not */
 	auto nonTermTID = 0u;
-	if (!spinBlocked.empty() &&
-	    std::all_of(spinBlocked.begin(), spinBlocked.end(),
+	if (std::all_of(spinBlocked.begin(), spinBlocked.end(),
 			[&](int tid){ return (nonTermTID = threadReadsMaximal(tid)); })) {
 		/* Print some TID blocked by a spinloop */
 		visitError(g.getLastThreadEvent(nonTermTID), Status::VS_Liveness,

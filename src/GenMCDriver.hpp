@@ -81,12 +81,13 @@ public:
 		Status status;            /* Verification status */
 		unsigned explored;        /* Number of complete executions explored */
 		unsigned exploredBlocked; /* Number of blocked executions explored */
+		unsigned exploredMoot;
 #ifdef ENABLE_GENMC_DEBUG
 		unsigned duplicates;      /* Number of duplicate executions explored */
 #endif
 		std::string message;      /* A message to be printed */
 
-		Result() : status(Status::VS_OK), explored(0), exploredBlocked(0),
+		Result() : status(Status::VS_OK), explored(0), exploredBlocked(0), exploredMoot(0),
 #ifdef ENABLE_GENMC_DEBUG
 			   duplicates(0),
 #endif
@@ -100,6 +101,7 @@ public:
 			}
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
+			exploredMoot += other.exploredMoot;
 #ifdef ENABLE_GENMC_DEBUG
 			duplicates += other.duplicates;
 #endif

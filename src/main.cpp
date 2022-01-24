@@ -196,12 +196,13 @@ int main(int argc, char **argv)
 		llvm::outs() << ((conf->countDuplicateExecs) ?
 				 " (" + std::to_string(res.duplicates) + " duplicates)" : "");
 	);
-	llvm::outs() << "\n";
 	if (res.exploredBlocked) {
-		llvm::outs() << "Number of blocked executions seen: " << res.exploredBlocked
-			     << "\n";
+		llvm::outs() << "\nNumber of blocked executions seen: " << res.exploredBlocked;
 	}
-	llvm::outs() << "Total wall-clock time: "
+	if (res.exploredMoot) {
+		llvm::outs() << " (" << res.exploredMoot << " mooted)";
+	}
+	llvm::outs() << "\nTotal wall-clock time: "
 		     << llvm::format("%.2f", elapsed.count() * 1e-3)
 		     << "s\n";
 
