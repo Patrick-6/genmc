@@ -3092,6 +3092,17 @@ std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
 	return "";
 }
 
+#ifdef ENABLE_GENMC_DEBUG
+llvm::raw_ostream::Colors getAccessColor(const MemAccessLabel *mLab)
+{
+	if (llvm::isa<ReadLabel>(mLab) && !llvm::dyn_cast<ReadLabel>(mLab)->isRevisitable())
+		return llvm::raw_ostream::Colors::RED;
+	if (mLab->wasAddedMax())
+		return llvm::raw_ostream::Colors::GREEN;
+	return llvm::raw_ostream::Colors::WHITE;
+}
+#endif
+
 void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	auto &g = getGraph();
@@ -3107,10 +3118,20 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 				auto val = llvm::isa<DskReadLabel>(rLab) ?
 					getDskReadValue(llvm::dyn_cast<DskReadLabel>(rLab)) :
 					getReadValue(rLab);
+				GENMC_DEBUG(
+					if (getConf()->colorAccesses)
+						s.changeColor(getAccessColor(rLab));
+				);
 				executeRLPrint(rLab, name, val, s);
+				GENMC_DEBUG(s.resetColor(););
 			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				auto name = getVarName(wLab);
+				GENMC_DEBUG(
+					if (getConf()->colorAccesses)
+						s.changeColor(getAccessColor(wLab));
+				);
 				executeWLPrint(wLab, name, s);
+				GENMC_DEBUG(s.resetColor(););
 			} else {
 				s << *lab;
 				if (getConf()->symmetryReduction) {
