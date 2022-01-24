@@ -1651,8 +1651,7 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	auto &g = getGraph();
-	if (!getConf()->helpConfirmations || getConf()->coherence != CoherenceType::mo ||
-	    !g.isConfirming(lab))
+	if (!getConf()->helper || !g.isConfirming(lab))
 		return;
 
 	auto sc = Event::getInitializer();
@@ -1668,7 +1667,7 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 	});
 	WARN_ON_ONCE(valid > 1, "helper-aba-found",
 		     "Possible ABA pattern on variable " + getVarName(rLab) +
-		     "! Consider running without -help-confirmations.\n");
+		     "! Consider running without -helper.\n");
 
 	/* Do not optimize if there are intervening SC accesses */
 	if (!sc.isInitializer())
@@ -1713,8 +1712,7 @@ bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vect
 
 void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
 {
-	if (!getConf()->helpConfirmations || !llvm::isa<SpeculativeReadLabel>(lab) ||
-	    getConf()->coherence != CoherenceType::mo)
+	if (!getConf()->helper || !llvm::isa<SpeculativeReadLabel>(lab))
 		return;
 
 	if (isRescheduledRead(lab->getPos())) {
@@ -1753,10 +1751,10 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 		filterValuesFromAnnotSAVER(lab, stores);
 
 	/* Helper: Affect maximality status if possible */
-	if (getConf()->helpConfirmations && getGraph().isConfirming(lab))
+	if (getConf()->helper && getGraph().isConfirming(lab))
 		filterConfirmingRfs(lab, stores);
 
-	if (getConf()->helpConfirmations && llvm::isa<SpeculativeReadLabel>(lab))
+	if (getConf()->helper && llvm::isa<SpeculativeReadLabel>(lab))
 		filterUnconfirmedReads(lab, stores);
 }
 
@@ -2090,9 +2088,7 @@ const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) co
 	for (auto pos = start.prev(); pos.index > 0; --pos) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (getConf()->helpConfirmations &&
-			    getConf()->coherence == CoherenceType::mo &&
-			    g.isConfirming(rLab))
+			if (getConf()->helper && g.isConfirming(rLab))
 				continue;
 			if (!rLab->getRf().isBottom()) {
 				auto *rfLab = g.getEventLabel(rLab->getRf());
@@ -2282,7 +2278,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
 {
-	if (!getConf()->helpConfirmations || getConf()->coherence != CoherenceType::mo)
+	if (!getConf()->helper)
 		return;
 
 	auto &g = getGraph();
@@ -2297,7 +2293,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 	    getWriteValue(Event::getInitializer(), sLab->getAddr(), sLab->getAccess()) == sLab->getVal())
 		++valid;
 	WARN_ON_ONCE(valid > 0, "helper-aba-found",
-		     "Possible ABA pattern! Consider running without -help-confirmations.\n");
+		     "Possible ABA pattern! Consider running without -helper.\n");
 
 	/* Do not bother with revisits that will be unconfirmed/lead to ABAs */
 	loads.erase(std::remove_if(loads.begin(), loads.end(), [&](const Event &l){
@@ -2365,7 +2361,7 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 	}
 
 	/* Helper */
-	if (getConf()->helpConfirmations && getConf()->coherence == CoherenceType::mo)
+	if (getConf()->helper)
 		optimizeUnconfirmedRevisits(sLab, loads);
 
 	/* Optimization-blocked (locking + helper) */
