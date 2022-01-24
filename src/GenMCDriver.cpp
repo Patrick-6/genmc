@@ -2114,11 +2114,11 @@ const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) co
 	return nullptr; /* none found */
 }
 
-void GenMCDriver::mootExecutionIfFullyBlocked(const BlockLabel *bLab)
+void GenMCDriver::mootExecutionIfFullyBlocked(Event pos)
 {
 	auto &g = getGraph();
 
-	auto *lab = getPreviousVisibleAccessLabel(bLab->getPos());
+	auto *lab = getPreviousVisibleAccessLabel(pos);
 	if (auto *rLab = llvm::dyn_cast_or_null<ReadLabel>(lab))
 		if (!rLab->isRevisitable() || !rLab->wasAddedMax())
 			moot();
@@ -2134,7 +2134,7 @@ void GenMCDriver::visitBlock(std::unique_ptr<BlockLabel> lab)
 
 	auto &g = getGraph();
 	auto *bLab = llvm::dyn_cast<BlockLabel>(g.addOtherLabelToGraph(std::move(lab)));
-	mootExecutionIfFullyBlocked(bLab);
+	mootExecutionIfFullyBlocked(bLab->getPos());
 }
 
 View GenMCDriver::getReplayView() const

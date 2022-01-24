@@ -611,9 +611,9 @@ private:
 	const MemAccessLabel *getPreviousVisibleAccessLabel(Event start) const;
 
 	/* Opt: Checks whether there is no need to explore the other threads
-	 * (e.g., bLab will not be removed in all subsequent subexplorations),
-	 * and moots the current execution */
-	void mootExecutionIfFullyBlocked(const BlockLabel *bLab);
+	 * (e.g., POS \in B and will not be removed in all subsequent subexplorations),
+	 * and if so moots the current execution */
+	void mootExecutionIfFullyBlocked(Event pos);
 
 	/* LKMM: Helper for visiting LKMM fences */
 	void visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
