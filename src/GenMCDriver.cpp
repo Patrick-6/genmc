@@ -1363,6 +1363,15 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 	return true;
 }
 
+bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
+{
+	if (getGraph().violatesAtomicity(wLab)) {
+		moot();
+		return false;
+	}
+	return true;
+}
+
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	bool found = false;
@@ -1387,7 +1396,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (getGraph().violatesAtomicity(wLab) || !isConsistent(ProgramPoint::step)) {
+	if (!checkAtomicity(wLab) || !isConsistent(ProgramPoint::step)) {
 		getEE()->block(BlockageType::Cons);
 		return false;
 	}
@@ -2420,7 +2429,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		restoreLocalState(std::move(localState));
 	}
-	return !isMoot() && !g.violatesAtomicity(sLab);
+	return checkAtomicity(sLab) && !isMoot();
 }
 
 void GenMCDriver::repairLock(LockCasReadLabel *lab)

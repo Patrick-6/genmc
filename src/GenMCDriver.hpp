@@ -552,6 +552,10 @@ private:
 	 * if that is dictated by the CLI options */
 	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
 
+	/* Checks whether the addition of WLAB creates an atomicity violation.
+	 * If so, returns false and moots the execution if possible. */
+	bool checkAtomicity(const WriteLabel *wLab);
+
 	/* Makes sure that the current graph is consistent, if that is dictated
 	 * by the CLI options. Since that is not always the case for stores
 	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
