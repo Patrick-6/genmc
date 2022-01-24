@@ -113,7 +113,7 @@ for model in rc11 imm lkmm
 do
     for coherence in wb mo
     do
-	for cat in infr litmus saver liveness synthetic data-structures fs lkmm # lapor
+	for cat in infr litmus saver helper liveness synthetic data-structures fs lkmm # lapor
 	do
 	    testdir="${correctdir}/${cat}"
 	    if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
@@ -122,6 +122,10 @@ do
 		continue
 	    fi
 	    if [[ "${cat}" == "liveness" && "${coherence}" != "mo" ]]
+	    then
+		continue
+	    fi
+	    if [[ "${cat}" == "helper" && ("${coherence}" != "mo" || "${GENMCFLAGS}" =~ "policy=random") ]]
 	    then
 		continue
 	    fi
