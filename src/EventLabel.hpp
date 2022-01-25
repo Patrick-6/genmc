@@ -771,8 +771,12 @@ public:
 	/* Returns the other operand's value */
 	SVal getOpVal() const { return opValue; }
 
-	/* Returns the attributes of the write part */
+	/* Returns/sets the attributes of the write part */
 	WriteAttr getAttr() const { return wattr; }
+	void setAttr(WriteAttr a) { wattr |= a; }
+
+	/* Checks whether the write part has the specified attributes */
+	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<FaiReadLabel>(*this);
@@ -918,8 +922,12 @@ public:
 	/* Returns the value that will be written is the CAS succeeds */
 	SVal getSwapVal() const { return swapValue; }
 
-	/* Returns the attributes of the write part */
+	/* Returns/sets the attributes of the write part */
 	WriteAttr getAttr() const { return wattr; }
+	void setAttr(WriteAttr a) { wattr |= a; }
+
+	/* Checks whether the write part has the specified attributes */
+	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<CasReadLabel>(*this);
@@ -1160,10 +1168,14 @@ public:
 
 	/* Returns the attributes of the write */
 	WriteAttr getAttr() const { return wattr; }
+	void setAttr(WriteAttr a) { wattr |= a; }
+
+	/* Checks whether the write has the specified attributes */
+	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
 	/* Helpers for various write attributes */
-	bool isFinal() const { return !!(wattr & WriteAttr::Final); }
-	bool isLocal() const { return !!(wattr & WriteAttr::Local); }
+	bool isFinal() const { return hasAttr(WriteAttr::Final); }
+	bool isLocal() const { return hasAttr(WriteAttr::Local); }
 
 	/* Returns a list of the reads reading from this write */
 	const std::vector<Event>& getReadersList() const { return readerList; }
