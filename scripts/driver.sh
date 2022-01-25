@@ -129,7 +129,7 @@ do
 	    then
 		continue
 	    fi
-	    check_blocked="" && [[ "${cat}" == "saver" ]] &&
+	    check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
 		[[ ! "${GENMCFLAGS}" =~ "policy=random" ]] && check_blocked="yes"
 	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
 	    increase_total_time
