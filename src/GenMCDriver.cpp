@@ -1819,8 +1819,6 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
-	if (llvm::isa<HelpedCasReadLabel>(lab))
-		unblockWaitingHelping();
 
 	/* Check for races and reading from uninitialized memory */
 	checkForDataRaces(lab);
@@ -1915,6 +1913,8 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		return;
 
 	checkReconsiderFaiSpinloop(lab);
+	if (llvm::isa<HelpedCasWriteLabel>(lab))
+		unblockWaitingHelping();
 
 	/* Check for races */
 	checkForDataRaces(lab);
