@@ -1168,7 +1168,7 @@ bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
 	v.update(pfx);
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if (v[i] + 1 != (int) getThreadSize(i) &&
-		    !llvm::isa<BlockLabel>(getEventLabel(Event(i, v[i] + 1))))
+		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v[i] + 1))))
 			return true;
 	}
 	return false;
