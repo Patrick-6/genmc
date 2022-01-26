@@ -686,45 +686,6 @@ WBCalculator::getOrInsertWbCalc(SAddr addr, const VectorClock &v, Calculator::Pe
 	return cache.at(addr);
 }
 
-bool WBCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
-				    const EventLabel *lab, Calculator::PerLocRelation &wbs)
-{
-	auto &g = getGraph();
-	if (!llvm::isa<WriteLabel>(lab) || g.isRMWStore(lab))
-		return false;
-
-	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
-	BUG_ON(!wLab);
-
-	auto p = g.getPredsView(sLab->getPos());
-	if (auto *dv = llvm::dyn_cast<DepView>(&*p))
-		dv->addHole(sLab->getPos());
-	else
-		--(*p)[sLab->getThread()];
-
-	if (isLocOrderedRestricted(wLab->getAddr(), *p)) {
-		auto &stores = getStoresToLoc(wLab->getAddr());
-		return std::any_of(wb_to_pred_begin(stores, wLab->getPos()),
-				   wb_to_pred_end(stores, wLab->getPos()), [&](const Event &s){
-					   auto *slab = g.getEventLabel(s);
-					   return g.revisitDeletesEvent(rLab, sLab, slab) &&
-						   s.index > wLab->getPPoRfView()[s.thread] && /* no holes */
-						   slab->getStamp() < wLab->getStamp() &&
-						   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
-				   });
-	}
-
-	auto &wb = getOrInsertWbCalc(wLab->getAddr(), *p, wbs);
-	return std::any_of(wb_po_pred_begin(wb, wLab->getPos()),
-			   wb_po_pred_end(wb, wLab->getPos()), [&](const Event &s){
-				   auto *slab = g.getEventLabel(s);
-				   return g.revisitDeletesEvent(rLab, sLab, slab) &&
-					   s.index > wLab->getPPoRfView()[s.thread] && /* no holes */
-					   slab->getStamp() < wLab->getStamp() &&
-					   !(g.isRMWStore(slab) && slab->getPos().prev() == rLab->getPos());
-			   });
-}
-
 bool WBCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
 					   const EventLabel *lab, Calculator::PerLocRelation &wbs)
 {

@@ -241,11 +241,6 @@ private:
 	bool wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
 			       const EventLabel *lab, std::unordered_map<SAddr, Event> &cache);
 
-	/* Returns true if LAB is co-after any event that would be
-	 * removed by the revisit SLAB->RLAB */
-	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
-			      const EventLabel *lab, Calculator::PerLocRelation &wbs);
-
 	/* Returns true if LAB is rb-before any event that would be part
 	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
 	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
