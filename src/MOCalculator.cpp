@@ -398,41 +398,21 @@ MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 }
 #endif
 
-bool MOCalculator::isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab,
-				    const EventLabel *lab)
-{
-	auto &g = getGraph();
-	if (!llvm::isa<WriteLabel>(lab) || g.isRMWStore(lab))
-		return false;
-
-
-	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
-	BUG_ON(!wLab);
-
-	return std::any_of(pred_begin(wLab->getAddr(), wLab->getPos()),
-			   pred_end(wLab->getAddr(), wLab->getPos()), [&](const Event &e){
-				   auto *eLab = g.getEventLabel(e);
-				   return g.revisitDeletesEvent(rLab, sLab, eLab) &&
-					   eLab->getStamp() < wLab->getStamp() &&
-					   eLab->getIndex() > wLab->getPPoRfView()[eLab->getThread()] &&
-					   !(g.isRMWStore(eLab) && eLab->getPos().prev() == rLab->getPos());
-			});
-}
-
-bool MOCalculator::isRbBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
+bool MOCalculator::isCoBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
 					 const EventLabel *lab)
 {
-	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-	if (!rLab)
+	auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab);
+	if (!mLab)
 		return false;
 
 	auto &g = getGraph();
         auto v = g.getRevisitView(revLab, wLab);
-	return any_of(succ_begin(rLab->getAddr(), rLab->getRf()),
-		      succ_end(rLab->getAddr(), rLab->getRf()), [&](const Event &s){
+	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf() : mLab->getPos();
+	return any_of(succ_begin(mLab->getAddr(), w),
+		      succ_end(mLab->getAddr(), w), [&](const Event &s){
 			      auto *sLab = g.getEventLabel(s);
 			      return (v->contains(sLab->getPos()) &&
-				      rLab->getIndex() > sLab->getPPoRfView()[rLab->getThread()] &&
+				      mLab->getIndex() > sLab->getPPoRfView()[mLab->getThread()] &&
 				      sLab->getPos() != wLab->getPos());
 		      });
 }
@@ -473,13 +453,10 @@ bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
 		if (lab->getStamp() < rLab->getStamp())
 			continue;
 		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
-		    g.isOptBlockedRead(lab)) {
-			if (lab->getPos() != wLab->getPos() && isCoAfterRemoved(rLab, wLab, lab))
-				return false;
+		    g.isOptBlockedRead(lab))
 			continue;
-		}
 
-		if (isRbBeforeSavedPrefix(rLab, wLab, lab))
+		if (isCoBeforeSavedPrefix(rLab, wLab, lab))
 			return false;
 		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))
 			return false;

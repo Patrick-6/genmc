@@ -175,13 +175,9 @@ private:
 
 	bool wasAddedMaximally(const EventLabel *lab);
 
-	/* Returns true if LAB is co-after any event that would be
-	 * removed by the revisit SLAB->RLAB */
-	bool isCoAfterRemoved(const ReadLabel *rLab, const WriteLabel *sLab, const EventLabel *lab);
-
-	/* Returns true if LAB is rb-before any event that would be part
+	/* Returns true if LAB is co-before any event that would be part
 	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
-	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab, const EventLabel *lab);
+	bool isCoBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab, const EventLabel *lab);
 
 	/* Returns true if the location "loc" contains the event "e" */
 	bool locContains(SAddr loc, Event e) const;
