@@ -398,28 +398,28 @@ MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 }
 #endif
 
-bool MOCalculator::isCoBeforeSavedPrefix(const ReadLabel *revLab, const WriteLabel *wLab,
-					 const EventLabel *lab)
+bool MOCalculator::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab)
 {
 	auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab);
 	if (!mLab)
 		return false;
 
 	auto &g = getGraph();
-        auto v = g.getRevisitView(revLab, wLab);
+        auto v = g.getRevisitView(r);
 	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf() : mLab->getPos();
 	return any_of(succ_begin(mLab->getAddr(), w),
 		      succ_end(mLab->getAddr(), w), [&](const Event &s){
 			      auto *sLab = g.getEventLabel(s);
-			      return (v->contains(sLab->getPos()) &&
-				      mLab->getIndex() > sLab->getPPoRfView()[mLab->getThread()] &&
-				      sLab->getPos() != wLab->getPos());
+			      return v->contains(sLab->getPos()) &&
+				     mLab->getIndex() > sLab->getPPoRfView()[mLab->getThread()] &&
+				     sLab->getPos() != r.getRev();
 		      });
 }
 
-bool MOCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab)
+bool MOCalculator::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 {
 	auto &g = getGraph();
+	auto *wLab = g.getWriteLabel(r.getRev());
 	if (g.isRMWStore(wLab))
 		return true;
 
@@ -428,8 +428,8 @@ bool MOCalculator::coherenceSuccRemainInGraph(const ReadLabel *rLab, const Write
 	if (succIt == succE)
 		return true;
 
-	auto *sLab = g.getEventLabel(*succIt);
-	return sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
+	return g.getRevisitView(r)->contains(*succIt);
+	// sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
 }
 
 bool MOCalculator::wasAddedMaximally(const EventLabel *lab)
@@ -441,24 +441,23 @@ bool MOCalculator::wasAddedMaximally(const EventLabel *lab)
 	return true;
 }
 
-bool MOCalculator::inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab)
+bool MOCalculator::inMaximalPath(const BackwardRevisit &r)
 {
-	if (!coherenceSuccRemainInGraph(rLab, wLab))
+	if (!coherenceSuccRemainInGraph(r))
 		return false;
 
 	auto &g = getGraph();
-        auto &v = g.getPrefixView(wLab->getPos());
+        auto v = g.getRevisitView(r);
 
 	for (const auto *lab : labels(g)) {
-		if (lab->getStamp() < rLab->getStamp())
-			continue;
-		if (v.contains(lab->getPos()) || g.prefixContainsSameLoc(rLab, wLab, lab) ||
+		if ((lab->getPos() != r.getPos() && v->contains(lab->getPos())) ||
+		    g.prefixContainsSameLoc(r, lab) ||
 		    g.isOptBlockedRead(lab))
 			continue;
 
-		if (isCoBeforeSavedPrefix(rLab, wLab, lab))
+		if (isCoBeforeSavedPrefix(r, lab))
 			return false;
-		if (g.hasBeenRevisitedByDeleted(rLab, wLab, lab))
+		if (g.hasBeenRevisitedByDeleted(r, lab))
 			return false;
 		if (!wasAddedMaximally(lab))
 			return false;

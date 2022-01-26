@@ -600,7 +600,7 @@ private:
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */
-	bool tryRevisitLockInPlace(ReadLabel *rLab, const WriteLabel *sLab);
+	bool tryRevisitLockInPlace(const BackwardRevisit &r);
 
 	/* Opt: Repairs the reads-from edge of a dangling lock */
 	void repairLock(LockCasReadLabel *lab);

@@ -850,11 +850,11 @@ ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab)
 }
 
 std::unique_ptr<VectorClock>
-ExecutionGraph::getRevisitView(const ReadLabel *rLab,
-			       const EventLabel *wLab) const
+ExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 {
+	auto *rLab = getReadLabel(r.getPos());
 	auto preds = LLVM_MAKE_UNIQUE<View>(getViewFromStamp(rLab->getStamp()));
-	preds->update(wLab->getPorfView());
+	preds->update(getWriteLabel(r.getRev())->getPorfView());
 	return std::move(preds);
 }
 
@@ -1143,7 +1143,7 @@ bool ExecutionGraph::isRecoveryValid() const
 	return pc->isRecAcyclic();
 }
 
-bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const WriteLabel *sLab,
+bool ExecutionGraph::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
 					       const EventLabel *eLab) const
 {
 	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
@@ -1151,39 +1151,28 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const ReadLabel *rLab, const Writ
 		return false;
 
 	auto *rfLab = getEventLabel(lab->getRf());
-	auto v = getRevisitView(rLab, sLab);
+	auto v = getRevisitView(r);
 	return !v->contains(rfLab->getPos()) &&
 		rfLab->getStamp() > lab->getStamp() &&
-		!prefixContainsSameLoc(rLab, sLab, rfLab) &&
-		!prefixContainsMatchingLock(rfLab, sLab) &&
+		!prefixContainsSameLoc(r, rfLab) &&
+		!prefixContainsMatchingLock(r, rfLab) &&
 		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
 }
 
-bool ExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
-					  const EventLabel *sLab) const
+bool ExecutionGraph::isMaximalExtension(const BackwardRevisit &r) const
 {
-	auto v = getViewFromStamp(rLab->getStamp());
-	auto &pfx = getPorfBefore(sLab->getPos());
+	return getCoherenceCalculator()->inMaximalPath(r);
+}
 
-	v.update(pfx);
+bool ExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
+{
+	auto v = getRevisitView(r);
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (v[i] + 1 != (int) getThreadSize(i) &&
-		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v[i] + 1))))
+		if ((*v)[i] + 1 != (int) getThreadSize(i) &&
+		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, (*v)[i] + 1))))
 			return true;
 	}
 	return false;
-}
-
-bool ExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
-					   const EventLabel *lab) const
-{
-	return false;
-}
-
-bool ExecutionGraph::isMaximalExtension(const ReadLabel *rLab,
-					const WriteLabel *sLab) const
-{
-	return getCoherenceCalculator()->inMaximalPath(rLab, sLab);
 }
 
 

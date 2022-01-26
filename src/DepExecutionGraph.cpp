@@ -48,11 +48,11 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) con
 }
 
 std::unique_ptr<VectorClock>
-DepExecutionGraph::getRevisitView(const ReadLabel *rLab,
-				  const EventLabel *wLab) const
+DepExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 {
+	auto *rLab = getReadLabel(r.getPos());
 	auto preds = LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(rLab->getStamp()));
-	auto &pporf = wLab->getPPoRfView();
+	auto &pporf = getWriteLabel(r.getRev())->getPPoRfView();
 
 	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
 	preds->update(pporf);
@@ -76,34 +76,33 @@ std::unique_ptr<VectorClock> DepExecutionGraph::getPredsView(Event e) const
 	return LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(stamp));
 }
 
-bool DepExecutionGraph::revisitModifiesGraph(const ReadLabel *rLab,
-					     const EventLabel *sLab) const
+bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 {
-	auto v = getRevisitView(rLab, sLab);
+	auto v = getRevisitView(r);
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if ((*v)[i] + 1 != (long) getThreadSize(i) &&
-		    !llvm::isa<BlockLabel>(getEventLabel(Event(i, (*v)[i] + 1))))
+		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, (*v)[i] + 1))))
 			return true;
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
-			    !llvm::isa<BlockLabel>(lab))
+			    !EventLabel::denotesThreadEnd(lab))
 				return true;
 		}
 	}
 	return false;
 }
 
-bool DepExecutionGraph::prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
+bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
 					      const EventLabel *lab) const
 {
 	/* Some holes need to be treated specially. However, it is _wrong_ to keep
 	 * porf views around. What we should do instead is simply check whether
 	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
 	 * Similar actions are taken in {WB,MO}Calculator */
-	auto &v = getPrefixView(wLab->getPos());
-	if (lab->getIndex() > wLab->getPPoRfView()[lab->getThread()])
+	auto &v = getWriteLabel(r.getRev())->getPPoRfView();
+	if (lab->getIndex() > v[lab->getThread()])
 		return false;
 
 	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))

@@ -129,6 +129,8 @@ public:
 		: BackwardRevisit(RV_BRev, p, r, std::move(prefix), std::move(moPlacings)) {}
 	BackwardRevisit(Event p, Event r)
 		: BackwardRevisit(p, r, {}, {}) {}
+	BackwardRevisit(const ReadLabel *rLab, const WriteLabel *wLab)
+		: BackwardRevisit(rLab->getPos(), wLab->getPos()) {}
 
 	/* Returns (releases) the prefix of the revisiting event */
 	std::vector<std::unique_ptr<EventLabel> > &&getPrefixRel() {

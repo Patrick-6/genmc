@@ -2320,14 +2320,17 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 	}), loads.end());
 }
 
-bool GenMCDriver::tryRevisitLockInPlace(ReadLabel *rLab, const WriteLabel *sLab)
+bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
 
-	if (g.getLastThreadEvent(rLab->getThread()).prev() != rLab->getPos() ||
-	    g.revisitModifiesGraph(rLab, sLab))
+	if (g.getLastThreadEvent(r.getPos().thread).prev() != r.getPos() ||
+	    g.revisitModifiesGraph(r))
 		return false;
+
+	auto *rLab = g.getReadLabel(r.getPos());
+	const auto *sLab = g.getWriteLabel(r.getRev());
 
 	BUG_ON(!llvm::isa<LockCasReadLabel>(rLab) || !llvm::isa<UnlockWriteLabel>(sLab));
 	BUG_ON(!llvm::isa<BlockLabel>(g.getEventLabel(rLab->getPos().next())));
@@ -2390,15 +2393,15 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		return true;
 
 	for (auto &l : loads) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
+		auto *rLab = g.getReadLabel(l);
 		BUG_ON(!rLab);
 
-		if (!g.isMaximalExtension(rLab, sLab))
+		if (!g.isMaximalExtension(BackwardRevisit(rLab, sLab)))
 			break;
 
 		/* Optimize handling of lock operations */
 		if (llvm::isa<LockCasReadLabel>(rLab) && llvm::isa<UnlockWriteLabel>(sLab)) {
-			if (tryRevisitLockInPlace(rLab, sLab))
+			if (tryRevisitLockInPlace(BackwardRevisit(rLab, sLab)))
 				break;
 			moot();
 		}
@@ -2407,7 +2410,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		auto read = rLab->getPos();
 		auto write = sLab->getPos(); /* prefetch since we are gonna change state */
-		auto v = g.getRevisitView(rLab, sLab);
+		auto v = g.getRevisitView(BackwardRevisit(rLab, sLab));
 		auto og = g.getCopyUpTo(*v);
 
 		auto localState = releaseLocalState();

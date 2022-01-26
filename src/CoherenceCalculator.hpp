@@ -27,6 +27,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <vector>
 
+class BackwardRevisit;
 class ExecutionGraph;
 
 /*******************************************************************************
@@ -114,7 +115,7 @@ public:
 
 	/* Returns whether the path from RLAB to WLAB is maximal */
 	virtual bool
-	inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) = 0;
+	inMaximalPath(const BackwardRevisit &r) = 0;
 
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.

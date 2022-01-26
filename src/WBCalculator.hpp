@@ -150,7 +150,7 @@ public:
 	std::vector<Event>
 	getCoherentRevisits(const WriteLabel *wLab) override;
 
-	bool inMaximalPath(const ReadLabel *rLab, const WriteLabel *wLab) override;
+	bool inMaximalPath(const BackwardRevisit &r) override;
 
 	/* Calculates WB */
 	GlobalRelation calcWb(SAddr addr) const;
@@ -227,7 +227,7 @@ private:
 	bool isCoherentRf(SAddr addr, Event read, Event store);
 	bool isInitCoherentRf(SAddr addr, Event read);
 
-	bool isCoherentRevisit(const WriteLabel *sLab, Event read);
+	bool isCoherentRevisit(const BackwardRevisit &r);
 
 	const Calculator::GlobalRelation &
 	getOrInsertWbCalc(SAddr addr, const VectorClock &v, Calculator::PerLocRelation &cache);
@@ -235,19 +235,21 @@ private:
 	Event getOrInsertWbMaximal(const ReadLabel *lab, const VectorClock &v,
 				   std::unordered_map<SAddr, Event> &cache);
 
-	bool coherenceSuccRemainInGraph(const ReadLabel *rLab, const WriteLabel *wLab);
+	bool coherenceSuccRemainInGraph(const BackwardRevisit &r);
 
-	Event getMaximalOOO(const ReadLabel *rLab, const WriteLabel *wLab, const ReadLabel *lab);
-	bool wasAddedMaximally(const ReadLabel *rLab, const WriteLabel *wLab,
-			       const EventLabel *lab, std::unordered_map<SAddr, Event> &cache);
+	Event getMaximalOOO(const BackwardRevisit &r, const ReadLabel *lab);
+	bool wasAddedMaximally(const BackwardRevisit &r,
+			       const EventLabel *lab,
+			       std::unordered_map<SAddr, Event> &cache);
 
 	/* Returns true if LAB is rb-before any event that would be part
-	 * of the saved prefix triggered by the revisit SLAB->RLAB  */
-	bool isRbBeforeSavedPrefix(const ReadLabel *rLab, const WriteLabel *sLab,
-				   const EventLabel *lab, Calculator::PerLocRelation &wbs);
+	 * of the saved prefix triggered by the revisit R  */
+	bool isRbBeforeSavedPrefix(const BackwardRevisit &r,
+				   const EventLabel *lab,
+				   Calculator::PerLocRelation &wbs);
 
-	Event getTiebraker(const ReadLabel *revLab, const WriteLabel *wLab, const ReadLabel *lab) const;
-	bool ignoresDeletedStore(const ReadLabel *revLab, const WriteLabel *wLab, const ReadLabel *lab) const;
+	Event getTiebraker(const BackwardRevisit &r, const ReadLabel *lab) const;
+	bool ignoresDeletedStore(const BackwardRevisit &r, const ReadLabel *lab) const;
 
 	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
 	StoresList stores_;

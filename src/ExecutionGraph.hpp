@@ -29,6 +29,7 @@
 #include "Error.hpp"
 #include "Event.hpp"
 #include "EventLabel.hpp"
+#include "Revisit.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -180,6 +181,24 @@ public:
 		return const_cast<EventLabel *>(static_cast<const ExecutionGraph&>(*this).getEventLabel(e));
 	}
 
+	/* Returns a label as a ReadLabel.
+	 * If the passed event is not a read, returns nullptr  */
+	const ReadLabel *getReadLabel(Event e) const {
+		return llvm::dyn_cast<ReadLabel>(getEventLabel(e));
+	}
+	ReadLabel *getReadLabel(Event e) {
+		return const_cast<ReadLabel *>(static_cast<const ExecutionGraph &>(*this).getReadLabel(e));
+	}
+
+	/* Returns a label as a WriteLabel.
+	 * If the passed event is not a write, returns nullptr  */
+	const WriteLabel *getWriteLabel(Event e) const {
+		return llvm::dyn_cast<WriteLabel>(getEventLabel(e));
+	}
+	WriteLabel *getWriteLabel(Event e) {
+		return const_cast<WriteLabel *>(static_cast<const ExecutionGraph &>(*this).getWriteLabel(e));
+	}
+
 	/* Returns the label in the previous position of e.
 	 * Does _not_ perform any out-of-bounds checks */
 	const EventLabel *getPreviousLabel(Event e) const { return getEventLabel(e.prev()); }
@@ -301,13 +320,8 @@ public:
 	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
 	 * (This function can be abused and also be utilized for returning the view
 	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
-	virtual std::unique_ptr<VectorClock> getRevisitView(const ReadLabel *rLab,
-							    const EventLabel *wLab) const;
-	std::unique_ptr<VectorClock> getRevisitView(Event read, Event write) const {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
-		auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(write));
-		return getRevisitView(rLab, wLab);
-	}
+	virtual std::unique_ptr<VectorClock>
+	getRevisitView(const BackwardRevisit &r) const;
 
 	/* Returns a list of loads that can be revisited */
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
@@ -491,40 +505,36 @@ public:
 	/* Pers: Returns true if the recovery routine is valid */
 	bool isRecoveryValid() const;
 
-	/* Returnes true if the revisit SLAB->RLAB will delete LAB from the graph */
-	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab,
-				 const EventLabel *lab) const {
-		auto v = getRevisitView(rLab, sLab);
-		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(rLab, sLab, lab);
-	}
-	bool revisitDeletesEvent(const ReadLabel *rLab, const WriteLabel *sLab, Event e) const {
-		return revisitDeletesEvent(rLab, sLab, getEventLabel(e));
+	/* Returnes true if the revisit R will delete LAB from the graph */
+	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const {
+		auto v = getRevisitView(r);
+		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
 	}
 
 	/* Returns true if ELAB has been revisited by some event that
-	 * will be deleted by the revisit RLAB->WLAB */
-	bool hasBeenRevisitedByDeleted(const ReadLabel *rLab, const WriteLabel *sLab,
-				       const EventLabel *eLab) const;
+	 * will be deleted by the revisit R */
+	bool hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab) const;
 
 	/* Returns whether the prefix of SLAB contains LAB's matching lock */
-	bool prefixContainsMatchingLock(const EventLabel *lab, const WriteLabel *sLab) const {
+	bool prefixContainsMatchingLock(const BackwardRevisit &r, const EventLabel *lab) const {
 		if (!llvm::isa<UnlockWriteLabel>(lab))
 			return false;
 		auto l = getMatchingLock(lab->getPos());
-		return !l.isInitializer() && getPrefixView(sLab->getPos()).contains(l);
+		return !l.isInitializer() && getPrefixView(r.getRev()).contains(l);
 	}
 
 	/* Returns true if all events to be removed by the revisit
 	 * RLAB <- SLAB form a maximal extension */
-	bool isMaximalExtension(const ReadLabel *rLab, const WriteLabel *sLab) const;
+	bool isMaximalExtension(const BackwardRevisit &r) const;
 
 	/* Returns true if the graph that will be created when sLab revisits rLab
 	 * will be the same as the current one */
-	virtual bool revisitModifiesGraph(const ReadLabel *rLab,
-					  const EventLabel *sLab) const;
+	virtual bool revisitModifiesGraph(const BackwardRevisit &r) const;
 
-	virtual bool prefixContainsSameLoc(const ReadLabel *rLab, const WriteLabel *wLab,
-					   const EventLabel *lab) const;
+	virtual bool prefixContainsSameLoc(const BackwardRevisit &r,
+					   const EventLabel *lab) const {
+		return false;
+	}
 
 
 	/* Debugging methods */
