@@ -20,56 +20,6 @@
 
 #include "EventLabel.hpp"
 
-EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
-{
-	EventLabel::EventLabelKind DK = D->getEventLabelKind();
-	switch (DK) {
-	case EventLabel::EventLabelKind::EL_DskRead:
-		return static_cast<DskReadLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskWrite:
-		return static_cast<DskWriteLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskMdWrite:
-		return static_cast<DskMdWriteLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskJnlWrite:
-		return static_cast<DskJnlWriteLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskDirWrite:
-		return static_cast<DskDirWriteLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskSync:
-		return static_cast<DskSyncLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskFsync:
-		return static_cast<DskFsyncLabel *>(const_cast<DskAccessLabel *>(D));
-	case EventLabel::EventLabelKind::EL_DskPbarrier:
-		return static_cast<DskPbarrierLabel *>(const_cast<DskAccessLabel *>(D));
-	default:
-		BUG();
-	}
-}
-
-DskAccessLabel *EventLabel::castToDskAccessLabel(const EventLabel *E)
-{
-	EventLabel::EventLabelKind EK = E->getKind();
-	switch (EK) {
-	case EventLabel::EventLabelKind::EL_DskRead:
-		return static_cast<DskReadLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskWrite:
-		return static_cast<DskWriteLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskMdWrite:
-		return static_cast<DskMdWriteLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskJnlWrite:
-		return static_cast<DskJnlWriteLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskDirWrite:
-		return static_cast<DskDirWriteLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskSync:
-		return static_cast<DskSyncLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskFsync:
-		return static_cast<DskFsyncLabel *>(const_cast<EventLabel *>(E));
-	case EventLabel::EventLabelKind::EL_DskPbarrier:
-		return static_cast<DskPbarrierLabel *>(const_cast<EventLabel *>(E));
-	default:
-		BUG();
-	}
-}
-
 llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 			      const EventLabel::EventLabelKind k)
 {
