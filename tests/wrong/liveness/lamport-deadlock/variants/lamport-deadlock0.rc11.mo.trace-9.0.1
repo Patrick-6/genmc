@@ -28,7 +28,7 @@ Event (1, 22) in graph:
 	(1, 19): LOOP_BEGIN L.16
 	(1, 20): SPIN_START
 	(1, 21): Rsc (p2, 1) [(2, 4)] L.16
-	(1, 22): BLOCK
+	(1, 22): BLOCK [spinloop]
 <0, 2> thread_2:
 	(2, 0): B
 	(2, 1): Wsc (p2, 0) L.28
@@ -38,7 +38,7 @@ Event (1, 22) in graph:
 	(2, 5): LOOP_BEGIN L.31
 	(2, 6): SPIN_START
 	(2, 7): Rsc (p1, 1) [(1, 18)] L.31
-	(2, 8): BLOCK
+	(2, 8): BLOCK [spinloop]
 
 Trace to (1, 22):
 [main] lamport-deadlock0.c: 45: if (pthread_create(&t1, NULL, thread_1, NULL))

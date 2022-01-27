@@ -40,6 +40,7 @@ libgenmc_a_SOURCES = \
   IMMDriver.cpp IMMDriver.hpp \
   InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
+  InterpreterEnumAPI.cpp InterpreterEnumAPI.hpp \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
   LabelIterator.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \

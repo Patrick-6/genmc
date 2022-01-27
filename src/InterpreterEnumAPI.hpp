@@ -21,6 +21,7 @@
 #ifndef __INTERPRETER_ENUM_API_HPP__
 #define __INTERPRETER_ENUM_API_HPP__
 
+#include <llvm/Support/raw_ostream.h>
 #include <config.h>
 #include <string>
 #include <unordered_map>
@@ -30,7 +31,6 @@ enum class BlockageType {
 	NotBlocked,
 	ThreadJoin,
 	Spinloop,
-	SpinloopEnd,
 	FaiZNESpinloop,
 	LockZNESpinloop,
 	HelpedCas,
@@ -233,5 +233,8 @@ struct EnumClassHash {
 
 extern SystemError systemErrorNumber; // just to inform the driver
 extern const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList;
+
+extern llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+				     const BlockageType &b);
 
 #endif /* __INTERPRETER_ENUM_API_HPP__ */

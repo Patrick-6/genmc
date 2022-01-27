@@ -262,6 +262,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 		s << hpLab.getProtectedAddr().get() << ")";
 		break;
 	}
+	case EventLabel::EL_Block: {
+		auto &bLab = static_cast<const BlockLabel&>(lab);
+		s << bLab.getKind() << " [" << bLab.getType() << "]";
+		break;
+	}
 	default:
 		s << lab.getKind();
 		break;
