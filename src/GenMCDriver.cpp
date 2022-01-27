@@ -805,7 +805,7 @@ SVal GenMCDriver::getWriteValue(Event write, SAddr addr, AAccess access)
 	if (wLab->getSize() != access.getSize())
 		visitError(wLab->getPos(), Status::VS_MixedSize,
 			   "Mixed-size accesses detected: tried to read event with a " +
-			   std::to_string(access.getSize().get() * 8) + "access!\n" +
+			   std::to_string(access.getSize().get() * 8) + "-bit access!\n" +
 			   "Please check the LLVM-IR.\n");
 
 	/* If the size of the R and the W are the same, we are done */
@@ -3106,6 +3106,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Invalid function call during recovery";
 	case Status::VS_InvalidTruncate:
 		return s << "Invalid file truncation";
+	case Status::VS_MixedSize:
+		return s << "Mixed-size accesses";
 	case Status::VS_SystemError:
 		return s << errorList.at(systemErrorNumber);
 	default:
