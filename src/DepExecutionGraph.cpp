@@ -47,26 +47,33 @@ std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) con
 	return loads;
 }
 
+void updatePredsWithPrefixView(const DepExecutionGraph &g, DepView &preds, const DepView &pporf)
+{
+	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
+	preds.update(pporf);
+	for (auto i = 0u; i < pporf.size(); i++) {
+		for (auto j = 1; j <= pporf[i]; j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (preds.contains(rLab->getPos()) && !preds.contains(rLab->getRf())) {
+					if (rLab->getRf().thread == rLab->getThread())
+						preds.removeHole(rLab->getRf());
+				}
+			}
+		}
+	}
+	return;
+}
+
 std::unique_ptr<VectorClock>
 DepExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 {
 	auto *rLab = getReadLabel(r.getPos());
 	auto preds = LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(rLab->getStamp()));
-	auto &pporf = getWriteLabel(r.getRev())->getPPoRfView();
 
-	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
-	preds->update(pporf);
-	for (auto i = 0u; i < pporf.size(); i++) {
-		for (auto j = 1; j <= pporf[i]; j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (preds->contains(rLab->getPos()) && !preds->contains(rLab->getRf())) {
-					if (rLab->getRf().thread == rLab->getThread())
-						preds->removeHole(rLab->getRf());
-				}
-			}
-		}
-	}
+	updatePredsWithPrefixView(*this, *preds, getWriteLabel(r.getRev())->getPPoRfView());
+	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
+		updatePredsWithPrefixView(*this, *preds, getWriteLabel(br->getMid())->getPPoRfView());
 	return std::move(preds);
 }
 
@@ -94,17 +101,8 @@ bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 	return false;
 }
 
-bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
-					      const EventLabel *lab) const
+bool isFixedHoleInView(const DepExecutionGraph &g, const EventLabel *lab, const DepView &v)
 {
-	/* Some holes need to be treated specially. However, it is _wrong_ to keep
-	 * porf views around. What we should do instead is simply check whether
-	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
-	 * Similar actions are taken in {WB,MO}Calculator */
-	auto &v = getWriteLabel(r.getRev())->getPPoRfView();
-	if (lab->getIndex() > v[lab->getThread()])
-		return false;
-
 	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
 		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
 				   [&v](const Event &r){ return v.contains(r); });
@@ -118,17 +116,33 @@ bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
 		for (auto j = 0u; j <= v[i]; j++) {
 			if (!v.contains(Event(i, j)))
 				continue;
-			if (auto *mLab = llvm::dyn_cast<ReadLabel>(getEventLabel(Event(i, j))))
+			if (auto *mLab = g.getReadLabel(Event(i, j)))
 				if (mLab->getAddr() == rLabB->getAddr() && mLab->getRf() == rLabB->getRf())
-						return true;
+					return true;
 		}
 	}
 
-	if (isRMWLoad(rLabB)) {
-		auto *wLabB = llvm::dyn_cast<WriteLabel>(getEventLabel(rLabB->getPos().next()));
+	if (g.isRMWLoad(rLabB)) {
+		auto *wLabB = g.getWriteLabel(rLabB->getPos().next());
 		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
 				   [&v](const Event &r){ return v.contains(r); });
+	}
+	return false;
+}
 
+bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
+					      const EventLabel *lab) const
+{
+	/* Some holes need to be treated specially. However, it is _wrong_ to keep
+	 * porf views around. What we should do instead is simply check whether
+	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
+	 * Similar actions are taken in {WB,MO}Calculator */
+	auto &v = getWriteLabel(r.getRev())->getPPoRfView();
+	if (lab->getIndex() <= v[lab->getThread()] && isFixedHoleInView(*this, lab, v))
+		return true;
+	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r)) {
+		auto &hv = getWriteLabel(br->getMid())->getPPoRfView();
+		return lab->getIndex() <= hv[lab->getThread()] && isFixedHoleInView(*this, lab, hv);
 	}
 	return false;
 }

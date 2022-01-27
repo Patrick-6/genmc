@@ -855,6 +855,8 @@ ExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 	auto *rLab = getReadLabel(r.getPos());
 	auto preds = LLVM_MAKE_UNIQUE<View>(getViewFromStamp(rLab->getStamp()));
 	preds->update(getWriteLabel(r.getRev())->getPorfView());
+	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
+		preds->update(getWriteLabel(br->getMid())->getPorfView());
 	return std::move(preds);
 }
 
@@ -1128,7 +1130,8 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const Vecto
 		if (rLab->getRf() != store || rLab->getAddr() != ptr)
 			continue;
 
-		if (!rLab->isRevisitable())
+		auto *wLab = llvm::dyn_cast<WriteLabel>(getNextLabel(rLab));
+		if (!rLab->isRevisitable() && !wLab->hasAttr(WriteAttr::RevBlocker))
 			return true;
 		if (prefix.contains(rLab->getPos()))
 			return true;

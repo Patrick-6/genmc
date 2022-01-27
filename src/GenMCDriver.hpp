@@ -512,9 +512,20 @@ private:
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
 
+	/* Helper: Optimize the revisit in case SLAB is a RevBlocker */
+	bool tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vector<Event> &loads);
+
 	/* Opt: Tries to optimize revisiting from LAB. It may modify
 	 * LOADS, and returns whether we can skip revisiting altogether */
 	bool tryOptimizeRevisits(const WriteLabel *lab, std::vector<Event> &loads);
+
+	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
+	std::unique_ptr<BackwardRevisit>
+	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
+
+	/* Helper: Checks whether the execution should continue upon SLAB revisited LOADS.
+	 * Returns true if yes, and false (+moot) otherwise  */
+	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads);
 
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
@@ -528,10 +539,6 @@ private:
 	 * Returns true if the resulting graph should be explored */
 	bool restrictAndRevisit(WorkSet::ItemT s);
 
-	/* Copies the graph and executes the revisit specified by S.
-	 * Returns the newly created graph */
-	std::unique_ptr<ExecutionGraph> revisitInCopy(const ReadRevisit &s);
-
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
 	 * Returns a pointer to the newly added event, or nullptr
@@ -544,6 +551,11 @@ private:
 
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
+
+	/* Copies the current EG according to BR's view V.
+	 * May modify V but will not execute BR in the copy. */
+	std::unique_ptr<ExecutionGraph>
+	copyGraph(const BackwardRevisit *br, VectorClock *v) const;
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
@@ -562,6 +574,9 @@ private:
 	 * by the CLI options. Since that is not always the case for stores
 	 * (e.g., w/ LAPOR), it returns whether it is the case or not */
 	bool ensureConsistentStore(const WriteLabel *wLab);
+
+	/* Helper: Annotates a store as RevBlocker, if possible */
+	void annotateStoreHELPER(WriteLabel *wLab) const;
 
 	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
 	 * Sets the rf of rLab to the first valid option in rfs */

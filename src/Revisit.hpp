@@ -35,6 +35,7 @@ public:
 		RV_FRev,
 		RV_FRevLast,
 		RV_BRev,
+		RV_BRevHelper,
 		RV_BRevLast,
 		RV_ReadLast,
 		RV_MO,
@@ -156,6 +157,28 @@ private:
 	std::vector<std::pair<Event, Event> >  moPlacings;
 };
 
+
+/*
+ * BackwardRevisitHELPER class - Represents an optimized BR performed by Helper
+ */
+class BackwardRevisitHELPER : public BackwardRevisit {
+
+public:
+	BackwardRevisitHELPER(Event p, Event r, Event m)
+		: BackwardRevisit(RV_BRevHelper, p, r, {}, {}), mid(m) {}
+	BackwardRevisitHELPER(const ReadLabel *rLab, const WriteLabel *wLab, const WriteLabel *mLab)
+		: BackwardRevisitHELPER(rLab->getPos(), wLab->getPos(), mLab->getPos()) {}
+
+	/* Returns the intermediate write participating in the revisit */
+	Event getMid() const { return mid; }
+
+	static bool classof(const Revisit *item) {
+		return item->getKind() == RV_BRevHelper;
+	}
+
+private:
+	Event mid;
+};
 
 /*
  * WriteRevisit class - Represents an alternative MO position for a store
