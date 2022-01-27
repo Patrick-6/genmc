@@ -5,6 +5,8 @@ m4_include([m4/ax_clang.m4])
 m4_include([m4/ax_git_commit.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
+AM_SILENT_RULES([yes])
+
 AC_PROG_CXX
 AC_PROG_RANLIB
 AM_PROG_AR
