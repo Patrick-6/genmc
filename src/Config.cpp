@@ -68,7 +68,7 @@ clCoherenceType(llvm::cl::values(
 #endif
 			),
 		llvm::cl::cat(clGeneral),
-		llvm::cl::init(CoherenceType::wb),
+		llvm::cl::init(CoherenceType::mo),
 		llvm::cl::desc("Choose coherence type:"));
 
 static llvm::cl::opt<unsigned int>
