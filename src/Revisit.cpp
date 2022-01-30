@@ -33,6 +33,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,  const Revisit::Kind k)
 		s << "MO";
 		break;
 	default:
+		PRINT_BUGREPORT_INFO_ONCE("print-revisit-type", "Cannot print revisit type");
 		s << "UNKNOWN";
 		break;
 	}
@@ -63,7 +64,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const Revisit &item)
 	}
 
 	default:
-		s << "UNKNOWN";
+		s << item.getKind();
 		break;
 	}
 	return s;

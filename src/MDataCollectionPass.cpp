@@ -92,10 +92,8 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 			else {
 				/* Take some precautions, in case we got this
 				 * metadata thing all wrong... */
-				WARN_ONCE("struct-mdata", "Could not get " \
-					  "naming info for variable!\n" \
-					  "Please submit a bug report to " \
-					  PACKAGE_BUGREPORT "\n");
+				PRINT_BUGREPORT_INFO_ONCE("struct-mdata",
+							  "Cannot get variable naming info");
 				return;
 			}
 		}

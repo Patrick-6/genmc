@@ -144,6 +144,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "GP";
 		break;
 	default:
+		PRINT_BUGREPORT_INFO_ONCE("print-label-type",
+					  "Cannot print label type");
 		s << "UNKNOWN";
 		break;
 	}
@@ -160,7 +162,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const llvm::AtomicOrdering o
 	case llvm::AtomicOrdering::Release   : return s << "rel";
 	case llvm::AtomicOrdering::AcquireRelease : return s << "ar";
 	case llvm::AtomicOrdering::SequentiallyConsistent : return s << "sc";
-	default : return s;
+	default:
+		PRINT_BUGREPORT_INFO_ONCE("print-ordering-type", "Cannot print ordering");
+		return s;
 	}
 	return s;
 }
@@ -175,7 +179,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t)
 	case SmpFenceType::MBAA: return s << "aa";
 	case SmpFenceType::MBAS: return s << "as";
 	case SmpFenceType::MBAUL: return s << "aul";
-	default : BUG();
+	default:
+		PRINT_BUGREPORT_INFO_ONCE("print-fence-type", "Cannot print fence type");
 	}
 	return s;
 }

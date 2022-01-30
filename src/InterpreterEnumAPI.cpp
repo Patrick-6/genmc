@@ -19,6 +19,7 @@
  */
 
 #include "InterpreterEnumAPI.hpp"
+#include "Error.hpp"
 
 const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_assert_fail", InternalFunctions::FN_AssertFail},
@@ -137,6 +138,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const BlockageType &b)
 		s <<  "user";
 		break;
 	default:
+		PRINT_BUGREPORT_INFO_ONCE("print-blockage-type",
+					  "Cannot print blockage type");
 		s << "???";
 	}
 	return s;
