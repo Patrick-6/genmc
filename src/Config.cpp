@@ -222,7 +222,7 @@ clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
 
 static llvm::cl::opt<bool>
 clInputFromBitcodeFile("input-from-bitcode-file", llvm::cl::cat(clDebugging),
-		       llvm::cl::desc("Read LLVM bitcode directly from file"));
+		       llvm::cl::desc("The input file contains LLVM bitcode"));
 
 static llvm::cl::opt<std::string>
 clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("file"),
