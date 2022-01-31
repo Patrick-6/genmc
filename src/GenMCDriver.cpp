@@ -1192,8 +1192,10 @@ void GenMCDriver::checkLiveness()
 
 	/* And check whether all of them are live or not */
 	auto nonTermTID = 0u;
-	if (std::all_of(spinBlocked.begin(), spinBlocked.end(),
-			[&](int tid){ return (nonTermTID = threadReadsMaximal(tid)); })) {
+	if (std::all_of(spinBlocked.begin(), spinBlocked.end(), [&](int tid){
+		nonTermTID = tid;
+		return threadReadsMaximal(tid);
+	})) {
 		/* Print some TID blocked by a spinloop */
 		visitError(g.getLastThreadEvent(nonTermTID), Status::VS_Liveness,
 			   "Non-terminating spinloop: thread " + std::to_string(nonTermTID));
