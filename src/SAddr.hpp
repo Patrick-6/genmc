@@ -46,6 +46,7 @@ public:
 	using Width = uintptr_t;
 
 protected:
+	static constexpr Width wordSize = 3;
 
 	static constexpr Width staticMask = (Width) 1 << 63;
 	static constexpr Width automaticMask = (Width) 1 << 62;
@@ -96,6 +97,16 @@ public:
 	bool isVolatile() const { return !isDurable(); }
 	bool isNull() const { return addr == 0; }
 
+	/* Whether two addresses are on the same storage */
+	bool sameStorageAs(const SAddr &a) const {
+		return (addr & storageMask) == (a.addr & storageMask);
+	}
+
+	/* Return an address aligned to the previous word boundary */
+	SAddr align() const {
+		return ((Width) (addr >> wordSize) << wordSize);
+	}
+
 	Width get() const { return addr; }
 
 	inline bool operator==(const SAddr &a) const {
@@ -129,6 +140,16 @@ public:
 	Width operator-(const SAddr &a) const {
 		return this->get() - a.get();
 	};
+	SAddr operator>>(unsigned int num) const {
+		SAddr s(*this);
+		s.addr >>= num;
+		return s;
+	}
+	SAddr operator<<(unsigned int num) const {
+		SAddr s(*this);
+		s.addr <<= num;
+		return s;
+	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 					     const SAddr &addr);

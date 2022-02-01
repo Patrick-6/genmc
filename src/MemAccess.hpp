@@ -81,7 +81,7 @@ public:
 	inline bool operator>(const ASize &s) const {
 		return !(*this <= s);
 	}
-	uint64_t operator()() const { return size; }
+	Size operator()() const { return size; }
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 					     const ASize &s);
@@ -112,6 +112,21 @@ public:
 	bool isPointer() const { return getType() == AType::Pointer; }
 	bool isUnsigned() const { return getType() == AType::Unsigned; }
 	bool isSigned() const { return getType() == AType::Signed; }
+
+	/* Whether the access contains a given address */
+	bool contains(SAddr a) const {
+		if (!getAddr().sameStorageAs(a))
+			return false;
+		return getAddr() <= a && a < getAddr() + getSize().get();
+	}
+
+	/* Whether the access overlaps with another access */
+	bool overlaps(const AAccess &other) const {
+		if (!getAddr().sameStorageAs(other.getAddr()))
+			return false;
+		return getAddr() + getSize().get() > other.getAddr() &&
+			getAddr() < other.getAddr() + other.getSize().get();
+	}
 
 private:
 	SAddr addr;
