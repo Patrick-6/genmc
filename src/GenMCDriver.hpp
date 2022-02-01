@@ -303,25 +303,25 @@ protected:
 	void markFdAsUsed(int fd);
 
 	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(const EventLabel *wLab, SAddr p, AAccess a);
+	SVal getWriteValue(const EventLabel *wLab, const AAccess &a);
 	SVal getWriteValue(const WriteLabel *wLab) {
-		return getWriteValue(wLab, wLab->getAddr(), wLab->getAccess());
+		return getWriteValue(wLab, wLab->getAccess());
 	}
 
 	/* Returns the value written by a disk write */
-	SVal getDskWriteValue(const EventLabel *wLab, SAddr p, AAccess a);
+	SVal getDskWriteValue(const EventLabel *wLab, const AAccess &a);
 	SVal getDskWriteValue(const DskWriteLabel *wLab) {
-		return getDskWriteValue(wLab, wLab->getAddr(), wLab->getAccess());
+		return getDskWriteValue(wLab, wLab->getAccess());
 	}
 
 	/* Returns the value read by a read */
 	SVal getReadValue(const ReadLabel *rLab) {
-		return getWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+		return getWriteValue(rLab->getRf(), rLab->getAccess());
 	}
 
 	/* Returns the value read by a disk read */
 	SVal getDskReadValue(const DskReadLabel *rLab) {
-		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
+		return getDskWriteValue(rLab->getRf(), rLab->getAccess());
 	}
 
 	/* Returns the value returned by the terminated thread */
@@ -342,7 +342,7 @@ protected:
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
-	SVal getBarrierInitValue(SAddr ptr, AAccess a);
+	SVal getBarrierInitValue(const AAccess &a);
 
 	/* Returns the type of consistency types we need to perform at
 	 * P according to the configuration */

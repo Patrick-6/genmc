@@ -581,13 +581,13 @@ protected:
 	MemAccessLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		       SAddr loc, ASize size, AType type,
 		       const EventDeps &deps = EventDeps())
-		: EventLabel(k, pos, ord, deps), addr(loc), access(size, type) {}
+		: EventLabel(k, pos, ord, deps), access(loc, size, type) {}
 	MemAccessLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
-		       SAddr loc, AAccess a, const EventDeps &deps = EventDeps())
-		: EventLabel(k, pos, ord, deps), addr(loc), access(a) {}
+		       AAccess a, const EventDeps &deps = EventDeps())
+		: EventLabel(k, pos, ord, deps), access(a) {}
 public:
 	/* Returns the address of this access */
-	SAddr getAddr() const { return addr; }
+	SAddr getAddr() const { return access.getAddr(); }
 
 	/* Returns the size (in bytes) of the access */
 	ASize getSize() const { return access.getSize(); }
@@ -596,7 +596,7 @@ public:
 	AType getType() const { return access.getType(); }
 
 	/* Returns the packed access */
-	AAccess getAccess() const { return access; }
+	const AAccess &getAccess() const { return access; }
 
 	/* Helper flag for maximality checks */
 	bool wasAddedMax() const { return maximal; }
@@ -620,10 +620,7 @@ public:
 	}
 
 private:
-	/* The address of the accessing */
-	SAddr addr;
-
-	/* The size of the access performed (in bytes) */
+	/* The access performed */
 	AAccess access;
 
 	/* Whether was mo-maximal when added */
@@ -2459,11 +2456,11 @@ protected:
 public:
 	HelpingCasLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 			AType type, SVal exp, SVal swap, const EventDeps &deps = EventDeps())
-		: EventLabel(EL_HelpingCas, pos, ord, deps), addr(addr),
-		  access(AAccess(size, type)), expected(exp), swapValue(swap) {}
+		: EventLabel(EL_HelpingCas, pos, ord, deps), access(AAccess(addr, size, type)),
+		  expected(exp), swapValue(swap) {}
 
 	/* Returns the address of this access */
-	SAddr getAddr() const { return addr; }
+	SAddr getAddr() const { return access.getAddr(); }
 
 	/* Returns the size (in bytes) of the access */
 	ASize getSize() const { return access.getSize(); }
@@ -2486,9 +2483,6 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_HelpingCas; }
 
 private:
-	/* The address of the accessing */
-	SAddr addr;
-
 	/* The size of the access performed (in bytes) */
 	AAccess access;
 

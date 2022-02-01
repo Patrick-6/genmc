@@ -504,10 +504,10 @@ public:
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
 
-  SVal getLocInitVal(SAddr addr, AAccess access) {
+  SVal getLocInitVal(const AAccess &access) {
     GenericValue result;
 
-    LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
+    LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(access.getAddr()),
 			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
     return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
   }

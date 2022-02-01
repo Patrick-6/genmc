@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "Error.hpp"
+#include "SAddr.hpp"
 
 #include <cstdint>
 
@@ -95,12 +96,16 @@ private:
  **                             AAccess Class
  ******************************************************************************/
 
+/*
+ * An AAccess comprises an address, a size and a type
+ */
 class AAccess {
 
 public:
 	AAccess() = delete;
-	AAccess(ASize s, AType t) : size(s), type(t) {}
+	AAccess(SAddr a, ASize s, AType t) : addr(a), size(s), type(t) {}
 
+	SAddr getAddr() const { return addr; }
 	ASize getSize() const { return size; }
 	AType getType() const { return type; }
 
@@ -109,6 +114,7 @@ public:
 	bool isSigned() const { return getType() == AType::Signed; }
 
 private:
+	SAddr addr;
 	ASize size;
 	AType type;
 };
