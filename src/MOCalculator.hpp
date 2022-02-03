@@ -103,14 +103,6 @@ public:
 	/* Changes the offset of "store" to "newOffset" */
 	void changeStoreOffset(SAddr addr, Event store, int newOffset);
 
-	/* Returns all stores in "addr" that are mo-before "e" */
-	std::vector<Event>
-	getMOBefore(SAddr addr, Event e) const;
-
-	/* Returns all stores in "addr" that are mo-after "e" */
-	std::vector<Event>
-	getMOAfter(SAddr addr, Event e) const;
-
 	const std::vector<Event> &getModOrderAtLoc(SAddr addr) const;
 
 	/* Overrided Calculator methods */
@@ -141,7 +133,6 @@ public:
 	}
 
 private:
-
 	/* Returns the offset for a particular store */
 	int getStoreOffset(SAddr addr, Event e) const;
 

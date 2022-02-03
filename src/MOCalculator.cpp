@@ -66,53 +66,9 @@ int MOCalculator::getStoreOffset(SAddr addr, Event e) const
 		return -1;
 
 	auto &locMO = mo_.at(addr);
-	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
-		if (*it == e)
-			return std::distance(locMO.begin(), it);
-	}
-	BUG();
-}
-
-std::vector<Event>
-MOCalculator::getMOBefore(SAddr addr, Event e) const
-{
-	BUG_ON(mo_.count(addr) == 0);
-
-	/* No store is mo-before the INIT */
-	if (e.isInitializer())
-		return std::vector<Event>();
-
-	std::vector<Event> res = { Event::getInitializer() };
-
-	auto &locMO = mo_.at(addr);
-	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
-		if (*it == e)
-			return res;
-		res.push_back(*it);
-	}
-	BUG();
-}
-
-std::vector<Event>
-MOCalculator::getMOAfter(SAddr addr, Event e) const
-{
-	std::vector<Event> res;
-
-	BUG_ON(mo_.count(addr) == 0);
-
-	/* All stores are mo-after INIT */
-	if (e.isInitializer())
-		return mo_.at(addr);
-
-	auto &locMO = mo_.at(addr);
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (*rit == e) {
-			std::reverse(res.begin(), res.end());
-			return res;
-		}
-		res.push_back(*rit);
-	}
-	BUG();
+	auto oIt = std::find(locMO.begin(), locMO.end(), e);
+	BUG_ON(oIt == locMO.end());
+	return std::distance(locMO.begin(), oIt);
 }
 
 const std::vector<Event>&
@@ -182,18 +138,14 @@ MOCalculator::getStoresToLoc(SAddr addr) const
 }
 
 int MOCalculator::splitLocMOBefore(SAddr addr, Event e)
-
 {
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
-	auto &before = g.getEventLabel(e.prev())->getHbView();
 
-	for (auto rit = locMO.rbegin(); rit != locMO.rend(); ++rit) {
-		if (before.empty() || !g.isWriteRfBefore(*rit, e.prev()))
-			continue;
-		return std::distance(rit, locMO.rend());
-	}
-	return 0;
+	auto rit = std::find_if(locMO.rbegin(), locMO.rend(), [&](const Event &s){
+		return g.isWriteRfBefore(s, e.prev());
+	});
+	return (rit == locMO.rend()) ? 0 : std::distance(rit, locMO.rend());
 }
 
 int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
@@ -202,20 +154,18 @@ int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
 	auto &locMO = getStoresToLoc(addr);
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
-	for (auto &rf : initRfs) {
-		if (g.getEventLabel(rf)->getHbView().contains(read))
-			return 0;
-	}
+	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
+		return g.getEventLabel(rf)->getHbView().contains(read);
+	}))
+		return 0;
 
-	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
-		if (g.isHbOptRfBefore(read, *it)) {
-			if (g.getEventLabel(*it)->getHbView().contains(read))
-				return std::distance(locMO.begin(), it);
-			else
-				return std::distance(locMO.begin(), it) + 1;
-		}
-	}
-	return locMO.size();
+	auto it = std::find_if(locMO.begin(), locMO.end(), [&](const Event &s){
+		return g.isHbOptRfBefore(read, s);
+	});
+	if (it == locMO.end())
+		return locMO.size();
+	return (g.getEventLabel(*it)->getHbView().contains(read)) ?
+		std::distance(locMO.begin(), it) : std::distance(locMO.begin(), it) + 1;
 }
 
 int MOCalculator::splitLocMOAfter(SAddr addr, const Event e)
@@ -223,11 +173,10 @@ int MOCalculator::splitLocMOAfter(SAddr addr, const Event e)
 	const auto &g = getGraph();
 	auto &locMO = getStoresToLoc(addr);
 
-	for (auto it = locMO.begin(); it != locMO.end(); ++it) {
-		if (g.isHbOptRfBefore(e, *it))
-			return std::distance(locMO.begin(), it);
-	}
-	return locMO.size();
+	auto it = std::find_if(locMO.begin(), locMO.end(), [&](const Event &s){
+		return g.isHbOptRfBefore(e, s);
+	});
+	return (it == locMO.end()) ? locMO.size() : std::distance(locMO.begin(), it);
 }
 
 std::vector<Event>
@@ -263,45 +212,34 @@ MOCalculator::getCoherentStores(SAddr addr, Event read)
 std::vector<Event>
 MOCalculator::getMOOptRfAfter(const WriteLabel *sLab)
 {
-	auto ls = getMOAfter(sLab->getAddr(), sLab->getPos());
-	std::vector<Event> rfs;
+	std::vector<Event> after;
 
-	/*
-	 * We push the RFs to a different vector in order
-	 * not to invalidate the iterator
-	 */
-	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getGraph().getEventLabel(*it);
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			for (auto &l : wLab->getReadersList())
-				rfs.push_back(l);
-		}
-	}
-	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
-	return ls;
+	std::for_each(succ_begin(sLab->getAddr(), sLab->getPos()),
+		      succ_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+			      auto *wLab = getGraph().getWriteLabel(w);
+			      after.push_back(wLab->getPos());
+			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	});
+	return after;
 }
 
 std::vector<Event>
 MOCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 {
-	auto ls = getMOBefore(sLab->getAddr(), sLab->getPos());
-	std::vector<Event> rfs;
+	std::vector<Event> after;
 
-	/* First, we add the rfs of all the mo-before events */
-	for (auto it = ls.begin(); it != ls.end(); ++it) {
-		const EventLabel *lab = getGraph().getEventLabel(*it);
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			for (auto &l : wLab->getReadersList())
-				rfs.push_back(l);
-		}
-	}
-	std::move(rfs.begin(), rfs.end(), std::back_inserter(ls));
+	/* First, add (mo;rf?)-before */
+	std::for_each(pred_begin(sLab->getAddr(), sLab->getPos()),
+		      pred_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+			      auto *wLab = getGraph().getWriteLabel(w);
+			      after.push_back(wLab->getPos());
+			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	});
 
 	/* Then, we add the reader list for the initializer */
 	auto initRfs = getGraph().getInitRfsAtLoc(sLab->getAddr());
-	std::move(initRfs.begin(), initRfs.end(), std::back_inserter(ls));
-
-	return ls;
+	after.insert(after.end(), initRfs.begin(), initRfs.end());
+	return after;
 }
 
 std::vector<Event>
@@ -309,10 +247,9 @@ MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 {
 	const auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab);
-	auto &locMO = getStoresToLoc(sLab->getAddr());
 
 	/* If this store is po- and mo-maximal then we are done */
-	if (!supportsOutOfOrder() && locMO.back() == sLab->getPos())
+	if (!supportsOutOfOrder() && isCoMaximal(sLab->getAddr(), sLab->getPos()))
 		return ls;
 
 	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */
@@ -429,7 +366,6 @@ bool MOCalculator::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 		return true;
 
 	return g.getRevisitView(r)->contains(*succIt);
-	// sLab->getStamp() <= rLab->getStamp() || g.getPrefixView(wLab->getPos()).contains(sLab->getPos());
 }
 
 bool MOCalculator::wasAddedMaximally(const EventLabel *lab)
@@ -487,7 +423,7 @@ Calculator::CalculationResult MOCalculator::doCalc()
 	auto &gm = getGraph();
 	auto &coRelation = gm.getPerLocRelation(ExecutionGraph::RelationId::co);
 
-	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
+	for (auto locIt = begin(); locIt != end(); locIt++) {
 		if (!coRelation[locIt->first].isIrreflexive())
 			return Calculator::CalculationResult(false, false);
 	}
@@ -508,7 +444,7 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 		}
 	}
 
-	for (auto it = mo_.begin(); it != mo_.end(); /* empty */) {
+	for (auto it = begin(); it != end(); /* empty */) {
 		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
 						[&](Event &e)
 						{ return !preds.contains(e); }),
