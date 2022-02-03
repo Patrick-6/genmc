@@ -477,8 +477,6 @@ void GenMCDriver::handleFinishedExecution()
 		return;
 	if (userConf->printExecGraphs && !userConf->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
-	if (userConf->prettyPrintExecGraphs)
-		prettyPrintGraph();
 	++result.explored;
 	return;
 }
@@ -3284,46 +3282,6 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 			}
 			s << "\n";
 		}
-	}
-	s << "\n";
-}
-
-void GenMCDriver::prettyPrintGraph(llvm::raw_ostream &s /* = llvm::dbgs() */)
-{
-	const auto &g = getGraph();
-	auto *EE = getEE();
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-		s << "<" << thr.parentId << "," << thr.id
-			     << "> " << thr.threadFun->getName() << ": ";
-		for (auto j = 0u; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->wasAddedMax())
-					s.changeColor(llvm::raw_ostream::Colors::GREEN);
-				auto val = llvm::isa<DskReadLabel>(rLab) ?
-					getDskReadValue(llvm::dyn_cast<DskReadLabel>(rLab)) :
-					getReadValue(rLab);
-				s << "R" << getVarName(rLab) << ",";
-				executeValPrint(val, rLab->getType(), s);
-				s.resetColor();
-				GENMC_DEBUG(
-					if (getConf()->vLevel >= VerbosityLevel::V1)
-						s << " @ " << lab->getStamp() << " ";
-				);
-			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				if (wLab->wasAddedMax())
-					s.changeColor(llvm::raw_ostream::Colors::GREEN);
-				s << "W" << getVarName(wLab) << ",";
-				executeValPrint(wLab->getVal(), wLab->getType(), s);
-				s.resetColor();
-				GENMC_DEBUG(
-					if (getConf()->vLevel >= VerbosityLevel::V1)
-						s << " @ " << lab->getStamp() << " ";
-				);
-			}
-		}
-		s << "\n";
 	}
 	s << "\n";
 }

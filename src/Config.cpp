@@ -256,10 +256,6 @@ static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
 
-static llvm::cl::opt<bool>
-clPrettyPrintExecGraphs("pretty-print-exec-graphs", llvm::cl::cat(clDebugging),
-			llvm::cl::desc("Pretty-print explored execution graphs"));
-
 
 #ifdef ENABLE_GENMC_DEBUG
 static llvm::cl::opt<bool>
@@ -395,7 +391,6 @@ void Config::saveConfigOptions()
 	printRandomScheduleSeed = clPrintRandomScheduleSeed;
 	randomScheduleSeed = clRandomScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
-	prettyPrintExecGraphs = clPrettyPrintExecGraphs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;
 #ifdef ENABLE_GENMC_DEBUG

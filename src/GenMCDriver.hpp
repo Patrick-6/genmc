@@ -696,9 +696,6 @@ private:
 	 * (these should have been collected beforehand) */
 	void printGraph(bool printMetadata = false, llvm::raw_ostream &s = llvm::dbgs());
 
-	/* Outputs the graph in a condensed form */
-	void prettyPrintGraph(llvm::raw_ostream &s = llvm::dbgs());
-
 	/* Outputs the current graph into a file (DOT format),
 	 * and visually marks events e and c (conflicting).
 	 * Assumes debugging information have already been collected  */

@@ -77,7 +77,6 @@ public:
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
-	bool prettyPrintExecGraphs;
 	SchedulePolicy schedulePolicy;
 	std::string randomScheduleSeed;
 	bool printRandomScheduleSeed;
