@@ -43,13 +43,18 @@ Event (2, 8) in graph:
 Trace to (2, 8):
 [main] lamport-deadlock0.c: 45: if (pthread_create(&t1, NULL, thread_1, NULL))
 [thread_2] lamport-deadlock0.c: 28: p2 = false;
+[thread_2] lamport-deadlock0.c: 29: while (true) {
 [thread_2] lamport-deadlock0.c: 30: p2 = true;
+[thread_2] lamport-deadlock0.c: 31: while (p1)
 [thread_1] lamport-deadlock0.c: 13: p1 = false;
+[thread_1] lamport-deadlock0.c: 14: while (true) {
 [thread_1] lamport-deadlock0.c: 15: p1 = true;
+[thread_1] lamport-deadlock0.c: 16: while (p2)
 [thread_1] lamport-deadlock0.c: 16: while (p2)
 [thread_1] lamport-deadlock0.c: 19: x = 1;
 [thread_1] lamport-deadlock0.c: 21: p1 = false;
 [thread_1] lamport-deadlock0.c: 15: p1 = true;
+[thread_1] lamport-deadlock0.c: 16: while (p2)
 [thread_1] lamport-deadlock0.c: 16: while (p2)
 [thread_1] lamport-deadlock0.c: 19: x = 1;
 [thread_1] lamport-deadlock0.c: 21: p1 = false;
