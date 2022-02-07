@@ -35,31 +35,28 @@
  */
 class MOCalculator : public CoherenceCalculator {
 
-private:
-	using LocStores = std::vector<Event>;
-	using ModifOrder = std::unordered_map<SAddr, LocStores>;
-
 public:
-
 	/* Constructor */
 	MOCalculator(ExecutionGraph &g, bool ooo)
 		: CoherenceCalculator(CC_ModificationOrder, g, ooo) {}
 
-	iterator begin() override { return mo_.begin(); };
-	iterator end() override { return mo_.end(); };
-	const_iterator cbegin() const override { return mo_.cbegin(); };
-	const_iterator cend() const override { return mo_.cend(); };
-
 	/* Iterates over the successors of STORE.
 	 * Pre: STORE needs to be in mo_ADDR */
-	LocStores::const_iterator succ_begin(SAddr addr, Event store) const;
-	LocStores::const_iterator succ_end(SAddr addr, Event store) const;
+	CoherenceCalculator::const_store_iterator
+	succ_begin(SAddr addr, Event store) const;
+	CoherenceCalculator::const_store_iterator
+	succ_end(SAddr addr, Event store) const;
 
 	/* Iterates over the predecessors of STORE, excluding the
 	 * initializer.
 	 * Pre: STORE needs to be in mo_ADDR */
-	LocStores::const_iterator pred_begin(SAddr addr, Event store) const;
-	LocStores::const_iterator pred_end(SAddr addr, Event store) const;
+	CoherenceCalculator::const_store_iterator
+	pred_begin(SAddr addr, Event store) const;
+	CoherenceCalculator::const_store_iterator
+	pred_end(SAddr addr, Event store) const;
+
+	/* Changes the offset of "store" to "newOffset" */
+	void changeStoreOffset(SAddr addr, Event store, int newOffset);
 
 	/* Track coherence at location addr */
 	void
@@ -84,10 +81,6 @@ public:
 	bool isCoMaximal(SAddr addr, Event store) override;
 	bool isCachedCoMaximal(SAddr addr, Event store) override;
 
-	/* Returns a list of stores to a particular memory location */
-	const std::vector<Event>&
-	getStoresToLoc(SAddr addr) const override;
-
 	/* Returns all the stores for which if "read" reads-from, coherence
 	 * is not violated */
 	std::vector<Event>
@@ -99,11 +92,6 @@ public:
 	getCoherentRevisits(const WriteLabel *wLab) override;
 
 	bool inMaximalPath(const BackwardRevisit &r) override;
-
-	/* Changes the offset of "store" to "newOffset" */
-	void changeStoreOffset(SAddr addr, Event store, int newOffset);
-
-	const std::vector<Event> &getModOrderAtLoc(SAddr addr) const;
 
 	/* Overrided Calculator methods */
 
@@ -172,8 +160,6 @@ private:
 
 	/* Returns true if the location "loc" contains the event "e" */
 	bool locContains(SAddr loc, Event e) const;
-
-	ModifOrder mo_;
 };
 
 #endif /* __MO_CALCULATOR_HPP__ */

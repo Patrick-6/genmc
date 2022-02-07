@@ -18,13 +18,18 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LABEL_ITERATOR_HPP__
-#define __LABEL_ITERATOR_HPP__
+#ifndef __GRAPH_ITERATORS_HPP__
+#define __GRAPH_ITERATORS_HPP__
 
 #include "config.h"
 #include "ExecutionGraph.hpp"
+#include "CoherenceCalculator.hpp"
 #include <iterator>
 #include <llvm/ADT/iterator_range.h>
+
+/*
+ * Helper iterators for ExecutionGraphs
+ */
 
 /*******************************************************************************
  **                         LabelIterator Class
@@ -122,6 +127,10 @@ private:
 
 };
 
+/*******************************************************************************
+ **                         label-iteration utilities
+ ******************************************************************************/
+
 using label_iterator = LabelIterator<ExecutionGraph::ThreadList,
 				     ExecutionGraph::iterator,
 				     EventLabel,
@@ -165,4 +174,55 @@ inline const_label_range labels(const ExecutionGraph &G) {
 	return const_label_range(label_begin(G), label_end(G));
 }
 
-#endif /* __LABEL_ITERATOR_HPP__ */
+
+/*******************************************************************************
+ **                         store-iteration utilities
+ ******************************************************************************/
+
+using const_store_iterator = CoherenceCalculator::const_store_iterator;
+using const_reverse_store_iterator = CoherenceCalculator::const_reverse_store_iterator;
+
+using store_range = llvm::iterator_range<const_store_iterator>;
+
+inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
+{
+	return G.getCoherenceCalculator()->store_begin(addr);
+}
+inline const_store_iterator store_begin(const ExecutionGraph *G, SAddr addr)
+{
+	return store_begin(*G, addr);
+}
+inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr addr)
+{
+	return G.getCoherenceCalculator()->store_rbegin(addr);
+}
+
+inline const_reverse_store_iterator store_rbegin(const ExecutionGraph *G, SAddr addr)
+{
+	return store_rbegin(*G, addr);
+}
+
+inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
+{
+	return G.getCoherenceCalculator()->store_end(addr);
+}
+inline const_store_iterator store_end(const ExecutionGraph *G, SAddr addr)
+{
+	return store_end(*G, addr);
+}
+inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
+{
+	return G.getCoherenceCalculator()->store_rend(addr);
+}
+inline const_reverse_store_iterator store_rend(const ExecutionGraph *G, SAddr addr)
+{
+	return store_rend(*G, addr);
+}
+
+inline store_range stores(const ExecutionGraph &G, SAddr addr)
+{
+	return store_range(store_begin(G, addr), store_end(G, addr));
+}
+inline store_range stores(const ExecutionGraph *G, SAddr addr) { return stores(*G, addr); }
+
+#endif /* __GRAPH_ITERATORS_HPP__ */

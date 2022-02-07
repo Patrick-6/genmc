@@ -25,7 +25,7 @@
 #include "LLVMModule.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
-#include "LabelIterator.hpp"
+#include "GraphIterators.hpp"
 #include "Parser.hpp"
 #include "SExprVisitor.hpp"
 #include "ThreadPool.hpp"
@@ -408,12 +408,12 @@ void GenMCDriver::checkHelpingCasAnnotation()
 	for (auto &h : hs) {
 		auto *hLab = llvm::dyn_cast<HelpingCasLabel>(g.getEventLabel(h));
 		BUG_ON(!hLab);
-		auto &stores = g.getStoresToLoc(hLab->getAddr());
 
 		/* Check that all stores that would make this helping
 		 * CAS succeed are read by a helped CAS.
 		 * We don't need to check the swap value of the helped CAS */
-		if (std::any_of(stores.begin(), stores.end(), [&](const Event &s){
+		if (std::any_of(store_begin(g, hLab->getAddr()), store_end(g, hLab->getAddr()),
+				[&](const Event &s){
 			auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
 			return hLab->getExpected() == sLab->getVal() &&
 				std::none_of(sLab->getReadersList().begin(), sLab->getReadersList().end(),
@@ -822,17 +822,15 @@ SVal GenMCDriver::getDskWriteValue(Event write, SAddr addr, AAccess access)
 
 SVal GenMCDriver::getBarrierInitValue(SAddr addr, AAccess access)
 {
-	auto &g = getGraph();
-	auto &stores = g.getStoresToLoc(addr);
-
-	auto sIt = std::find_if(stores.begin(), stores.end(), [&addr,&g](const Event &s){
+	const auto &g = getGraph();
+	auto sIt = std::find_if(store_begin(g, addr), store_end(g, addr), [&addr,&g](const Event &s){
 		auto *bLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
 		BUG_ON(!bLab);
 		return bLab->getAddr() == addr && bLab->isNotAtomic();
 	});
 
 	/* All errors pertinent to initialization should be captured elsewhere */
-	BUG_ON(sIt == stores.end());
+	BUG_ON(sIt == store_end(g, addr));
 	return getWriteValue(*sIt, addr, access);
 }
 
@@ -1092,14 +1090,14 @@ void GenMCDriver::checkBInitValidity(const WriteLabel *lab)
 	/* Make sure the barrier hasn't already been initialized, and
 	 * that the initializing value is greater than 0 */
 	auto &g = getGraph();
-	auto &stores = g.getStoresToLoc(wLab->getAddr());
-	auto sIt = std::find_if(stores.begin(), stores.end(), [&g, wLab](const Event &s){
+	auto sIt = std::find_if(store_begin(g, wLab->getAddr()), store_end(g, wLab->getAddr()),
+				[&g, wLab](const Event &s){
 		auto *sLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
 		return sLab != wLab && sLab->getAddr() == wLab->getAddr() &&
 			llvm::isa<BInitWriteLabel>(sLab);
 	});
 
-	if (sIt != stores.end())
+	if (sIt != store_end(g, wLab->getAddr()))
 		visitError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
 	else if (wLab->getVal() == SVal(0))
 		visitError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() with 0!");
@@ -1911,8 +1909,8 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		const_cast<WriteLabel*>(lab)->setVal(getBarrierInitValue(lab->getAddr(), lab->getAccess()));
 	g.getCoherenceCalculator()->addStoreToLoc(lab->getAddr(), lab->getPos(), endO);
 
-	auto &locMO = g.getStoresToLoc(lab->getAddr());
-	for (auto it = locMO.begin() + begO; it != locMO.begin() + endO; ++it) {
+	for (auto it = store_begin(g, lab->getAddr()) + begO,
+		  ie = store_begin(g, lab->getAddr()) + endO; it != ie; ++it) {
 
 		/* We cannot place the write just before the write of an RMW */
 		if (g.isRMWStore(*it))
@@ -1921,7 +1919,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		/* Push the stack item */
 		if (!inRecoveryMode())
 			addToWorklist(LLVM_MAKE_UNIQUE<WriteRevisit>(
-					      lab->getPos(), std::distance(locMO.begin(), it)));
+					      lab->getPos(), std::distance(store_begin(g, lab->getAddr()), it)));
 	}
 
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
@@ -2320,10 +2318,10 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 		return;
 
 	auto &g = getGraph();
-	auto &locMO = g.getStoresToLoc(sLab->getAddr());
 
 	/* If there is already a write with the same value, report a possible ABA */
-	auto valid = std::count_if(locMO.begin(), locMO.end(), [&](const Event &w){
+	auto valid = std::count_if(store_begin(g, sLab->getAddr()), store_end(g, sLab->getAddr()),
+				   [&](const Event &w){
 		auto *wLab = llvm::dyn_cast<WriteLabel>(g.getEventLabel(w));
 		return wLab->getPos() != sLab->getPos() && wLab->getVal() == sLab->getVal();
 	});
@@ -2372,11 +2370,11 @@ bool GenMCDriver::tryOptimizeRevBlockerAddition(const WriteLabel *sLab, std::vec
 		return false;
 
 	auto &g = getGraph();
-	auto &locMO = g.getStoresToLoc(sLab->getAddr());
 	auto *pLab = getPreviousVisibleAccessLabel(sLab->getPos().prev());
-	if (std::find_if(locMO.begin(), locMO.end(), [&g, pLab, sLab](const Event &s){
+	if (std::find_if(store_begin(g, sLab->getAddr()), store_end(g, sLab->getAddr()),
+			 [&g, pLab, sLab](const Event &s){
 		return isConflictingNonRevBlocker(g, pLab, sLab, s);
-	}) != locMO.end()) {
+	}) != store_end(g, sLab->getAddr())) {
 		moot();
 		loads.clear();
 		return true;
@@ -2567,10 +2565,8 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 void GenMCDriver::repairLock(LockCasReadLabel *lab)
 {
 	auto &g = getGraph();
-	auto &stores = g.getStoresToLoc(lab->getAddr());
 
-	BUG_ON(stores.empty());
-	for (auto rit = stores.rbegin(), re = stores.rend(); rit != re; ++rit) {
+	for (auto rit = store_rbegin(g, lab->getAddr()), re = store_rend(g, lab->getAddr()); rit != re; ++rit) {
 		auto *posRf = llvm::dyn_cast<WriteLabel>(g.getEventLabel(*rit));
 		if (llvm::isa<LockCasWriteLabel>(posRf) || llvm::isa<TrylockCasWriteLabel>(posRf)) {
 			auto prev = posRf->getPos().prev();
@@ -3016,9 +3012,6 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 	auto *wLab = llvm::dyn_cast<FaiWriteLabel>(
 		g.getPreviousLabelST(lab, [](const EventLabel *lab){ return llvm::isa<FaiWriteLabel>(lab); }));
 	BUG_ON(!wLab);
-
-	auto &stores = g.getStoresToLoc(wLab->getAddr());
-	BUG_ON(stores.empty());
 
 	/* All stores in the RMW chain need to be read from at most 1 read,
 	 * and there need to be no other stores that are not hb-before lab */

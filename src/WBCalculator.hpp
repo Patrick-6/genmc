@@ -110,11 +110,6 @@ public:
 	WBCalculator(ExecutionGraph &m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
-	iterator begin() override { return stores_.begin(); };
-	iterator end() override { return stores_.end(); };
-	const_iterator cbegin() const override { return stores_.cbegin(); };
-	const_iterator cend() const override { return stores_.cend(); };
-
 	/* Track coherence at location addr */
 	void
 	trackCoherenceAtLoc(SAddr addr) override;
@@ -134,10 +129,6 @@ public:
 	bool isCoMaximal(SAddr addr, Event store) override;
 	/* Returns whether STORE is maximal in LOC */
 	bool isCachedCoMaximal(SAddr addr, Event store) override;
-
-	/* Returns a list of stores to a particular memory location */
-	const std::vector<Event>&
-	getStoresToLoc(SAddr addr) const override;
 
 	/* Returns all the stores for which if "read" reads-from,
 	 * coherence is not violated.
@@ -207,10 +198,8 @@ private:
 
 	std::vector<unsigned int> calcRMWLimits(const GlobalRelation &wb) const;
 
-	View getRfOptHbBeforeStores(const std::vector<Event> &stores,
-				    const View &hbBefore);
-	void expandMaximalAndMarkOverwritten(const std::vector<Event> &stores,
-					     View &storeView);
+	View getRfOptHbBeforeStores(SAddr addr, Event e);
+	void expandMaximalAndMarkOverwritten(SAddr addr, View &storeView);
 
 	bool tryOptimizeWBCalculation(SAddr addr, Event read, std::vector<Event> &result);
 
@@ -251,9 +240,6 @@ private:
 	Event getTiebraker(const BackwardRevisit &r, const ReadLabel *lab) const;
 	bool ignoresDeletedStore(const BackwardRevisit &r, const ReadLabel *lab) const;
 
-	typedef std::unordered_map<SAddr, std::vector<Event> > StoresList;
-	StoresList stores_;
-
 	std::unordered_map<SAddr, bool> ordered_;
 
 	Cache cache_;
@@ -279,7 +265,7 @@ WBCalculator::calcWbRelation(SAddr addr, GlobalRelation &matrix,
 	auto &g = getGraph();
 
 	bool changed = false;
-	for (auto locIt = stores_.begin(); locIt != stores_.end(); ++locIt) {
+	for (auto locIt = begin(); locIt != end(); ++locIt) {
 		auto &stores = matrix.getElems();
 
 		/* If it is empty, nothing to do */

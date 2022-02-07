@@ -20,7 +20,7 @@
 
 #include "config.h"
 #include "ExecutionGraph.hpp"
-#include "LabelIterator.hpp"
+#include "GraphIterators.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
@@ -820,18 +820,6 @@ void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
 }
 
-const std::vector<Event>&
-ExecutionGraph::getStoresToLoc(SAddr addr) const
-{
-	return getCoherenceCalculator()->getStoresToLoc(addr);
-}
-
-const std::vector<Event>&
-ExecutionGraph::getStoresToLoc(SAddr addr)
-{
-	return getCoherenceCalculator()->getStoresToLoc(addr);
-}
-
 std::pair<int, int>
 ExecutionGraph::getCoherentPlacings(SAddr addr, Event pos, bool isRMW) {
 	return getCoherenceCalculator()->getPossiblePlacings(addr, pos, isRMW);
@@ -1401,7 +1389,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	for (auto it = cc->begin(); it != cc->end(); ++it) {
 		for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
 			if (v.contains(*sIt)) {
-				occ->addStoreToLoc(it->first, *sIt, occ->getStoresToLoc(it->first).size());
+				occ->addStoreToLoc(it->first, *sIt, -1);
 			}
 		}
 	}

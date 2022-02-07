@@ -23,7 +23,7 @@
 
 #include "config.h"
 #include "AdjList.hpp"
-#include "Calculator.hpp"
+#include "CoherenceCalculator.hpp"
 #include "DriverGraphEnumAPI.hpp"
 #include "DepInfo.hpp"
 #include "Error.hpp"
@@ -567,8 +567,6 @@ public:
 	/* Modification order methods */
 
 	void trackCoherenceAtLoc(SAddr addr);
-	const std::vector<Event>& getStoresToLoc(SAddr addr) const;
-	const std::vector<Event>& getStoresToLoc(SAddr addr);
 	std::vector<Event> getCoherentStores(SAddr addr, Event pos);
 	std::pair<int, int> getCoherentPlacings(SAddr addr, Event pos, bool isRMW);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);

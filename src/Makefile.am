@@ -37,12 +37,12 @@ libgenmc_a_SOURCES = \
   ExternalFunctions.cpp \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
+  GraphIterators.hpp \
   IMMDriver.cpp IMMDriver.hpp \
   InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
   InterpreterEnumAPI.cpp InterpreterEnumAPI.hpp \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
-  LabelIterator.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \
   LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \

@@ -22,6 +22,7 @@
 #include "RC11Driver.hpp"
 #include "Interpreter.h"
 #include "ExecutionGraph.hpp"
+#include "GraphIterators.hpp"
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
@@ -328,14 +329,13 @@ Event RC11Driver::findRaceForNewLoad(const ReadLabel *rLab)
 {
 	const auto &g = getGraph();
 	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = g.getStoresToLoc(rLab->getAddr());
 
 	/* If there are not any events hb-before the read, there is nothing to do */
 	if (before.empty())
 		return Event::getInitializer();
 
 	/* Check for events that race with the current load */
-	for (auto &s : stores) {
+	for (const auto &s : stores(g, rLab->getAddr())) {
 		if (before.contains(s))
 			continue;
 

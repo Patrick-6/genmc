@@ -29,6 +29,7 @@
 #include "RCUFenceCalculator.hpp"
 #include "XBCalculator.hpp"
 #include "PersistencyChecker.hpp"
+#include "GraphIterators.hpp"
 
 LKMMDriver::LKMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		       std::unique_ptr<ModuleInfo> MI)
@@ -571,7 +572,6 @@ std::vector<Event> LKMMDriver::findPotentialRacesForNewLoad(const ReadLabel *rLa
 {
 	const auto &g = getGraph();
 	const View &before = g.getPreviousNonEmptyLabel(rLab)->getHbView();
-	const auto &stores = g.getStoresToLoc(rLab->getAddr());
 	std::vector<Event> potential;
 
 	/* If there are not any events hb-before the read, there is nothing to do */
@@ -579,7 +579,7 @@ std::vector<Event> LKMMDriver::findPotentialRacesForNewLoad(const ReadLabel *rLa
 		return potential;
 
 	/* Check for events that race with the current load */
-	for (auto &s : stores) {
+	for (const auto &s : stores(g, rLab->getAddr())) {
 		if (before.contains(s))
 			continue;
 

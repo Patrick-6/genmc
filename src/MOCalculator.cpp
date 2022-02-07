@@ -20,61 +20,50 @@
 
 #include "MOCalculator.hpp"
 #include "ExecutionGraph.hpp"
-#include "LabelIterator.hpp"
+#include "GraphIterators.hpp"
 #include <vector>
 
-MOCalculator::LocStores::const_iterator
+CoherenceCalculator::const_store_iterator
 MOCalculator::succ_begin(SAddr addr, Event store) const
 {
-	auto &locMO = getModOrderAtLoc(addr);
 	auto offset = getStoreOffset(addr, store);
-	return locMO.begin() + (offset + 1);
+	return store_begin(addr) + (offset + 1);
 }
 
-MOCalculator::LocStores::const_iterator
+CoherenceCalculator::const_store_iterator
 MOCalculator::succ_end(SAddr addr, Event store) const
 {
-	auto &locMO = getModOrderAtLoc(addr);
-	return locMO.end();
+	return store_end(addr);
 }
 
-MOCalculator::LocStores::const_iterator
+CoherenceCalculator::const_store_iterator
 MOCalculator::pred_begin(SAddr addr, Event store) const
 {
-	auto &locMO = getModOrderAtLoc(addr);
-	return locMO.begin();
+	return store_begin(addr);
 }
 
-MOCalculator::LocStores::const_iterator
+CoherenceCalculator::const_store_iterator
 MOCalculator::pred_end(SAddr addr, Event store) const
 {
-	auto &locMO = getModOrderAtLoc(addr);
 	auto offset = getStoreOffset(addr, store);
-	return locMO.begin() + (offset >= 0 ? offset : 0);
+	return store_begin(addr) + (offset >= 0 ? offset : 0);
 }
 
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)
 {
-	mo_[addr];
+	stores[addr];
 }
 
 int MOCalculator::getStoreOffset(SAddr addr, Event e) const
 {
-	BUG_ON(mo_.count(addr) == 0);
+	BUG_ON(stores.count(addr) == 0);
 
 	if (e == Event::getInitializer())
 		return -1;
 
-	auto &locMO = mo_.at(addr);
-	auto oIt = std::find(locMO.begin(), locMO.end(), e);
-	BUG_ON(oIt == locMO.end());
-	return std::distance(locMO.begin(), oIt);
-}
-
-const std::vector<Event>&
-MOCalculator::getModOrderAtLoc(SAddr addr) const
-{
-	return getStoresToLoc(addr);
+	auto oIt = std::find(store_begin(addr), store_end(addr), e);
+	BUG_ON(oIt == store_end(addr));
+	return std::distance(store_begin(addr), oIt);
 }
 
 std::pair<int, int>
@@ -101,7 +90,10 @@ MOCalculator::getPossiblePlacings(SAddr addr, Event store, bool isRMW)
 
 void MOCalculator::addStoreToLoc(SAddr addr, Event store, int offset)
 {
-	mo_[addr].insert(mo_[addr].begin() + offset, store);
+	if (offset == -1)
+		stores[addr].push_back(store);
+	else
+		stores[addr].insert(store_begin(addr) + offset, store);
 }
 
 void MOCalculator::addStoreToLocAfter(SAddr addr, Event store, Event pred)
@@ -112,7 +104,7 @@ void MOCalculator::addStoreToLocAfter(SAddr addr, Event store, Event pred)
 
 bool MOCalculator::isCoMaximal(SAddr addr, Event store)
 {
-	auto &locMO = mo_[addr];
+	auto &locMO = stores[addr];
 	return (store.isInitializer() && locMO.empty()) ||
 	       (!store.isInitializer() && !locMO.empty() && store == locMO.back());
 }
@@ -124,34 +116,24 @@ bool MOCalculator::isCachedCoMaximal(SAddr addr, Event store)
 
 void MOCalculator::changeStoreOffset(SAddr addr, Event store, int newOffset)
 {
-	auto &locMO = mo_[addr];
+	auto &locMO = stores[addr];
 
-	locMO.erase(std::find(locMO.begin(), locMO.end(), store));
-	locMO.insert(locMO.begin() + newOffset, store);
-}
-
-const std::vector<Event>&
-MOCalculator::getStoresToLoc(SAddr addr) const
-{
-	BUG_ON(mo_.count(addr) == 0);
-	return mo_.at(addr);
+	locMO.erase(std::find(store_begin(addr), store_end(addr), store));
+	locMO.insert(store_begin(addr) + newOffset, store);
 }
 
 int MOCalculator::splitLocMOBefore(SAddr addr, Event e)
 {
 	const auto &g = getGraph();
-	auto &locMO = getStoresToLoc(addr);
-
-	auto rit = std::find_if(locMO.rbegin(), locMO.rend(), [&](const Event &s){
+	auto rit = std::find_if(store_rbegin(addr), store_rend(addr), [&](const Event &s){
 		return g.isWriteRfBefore(s, e.prev());
 	});
-	return (rit == locMO.rend()) ? 0 : std::distance(rit, locMO.rend());
+	return (rit == store_rend(addr)) ? 0 : std::distance(rit, store_rend(addr));
 }
 
 int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
 {
 	const auto &g = getGraph();
-	auto &locMO = getStoresToLoc(addr);
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
 	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
@@ -159,31 +141,29 @@ int MOCalculator::splitLocMOAfterHb(SAddr addr, const Event read)
 	}))
 		return 0;
 
-	auto it = std::find_if(locMO.begin(), locMO.end(), [&](const Event &s){
+	auto it = std::find_if(store_begin(addr), store_end(addr), [&](const Event &s){
 		return g.isHbOptRfBefore(read, s);
 	});
-	if (it == locMO.end())
-		return locMO.size();
+	if (it == store_end(addr))
+		return std::distance(store_begin(addr), store_end(addr));
 	return (g.getEventLabel(*it)->getHbView().contains(read)) ?
-		std::distance(locMO.begin(), it) : std::distance(locMO.begin(), it) + 1;
+		std::distance(store_begin(addr), it) : std::distance(store_begin(addr), it) + 1;
 }
 
 int MOCalculator::splitLocMOAfter(SAddr addr, const Event e)
 {
 	const auto &g = getGraph();
-	auto &locMO = getStoresToLoc(addr);
-
-	auto it = std::find_if(locMO.begin(), locMO.end(), [&](const Event &s){
+	auto it = std::find_if(store_begin(addr), store_end(addr), [&](const Event &s){
 		return g.isHbOptRfBefore(e, s);
 	});
-	return (it == locMO.end()) ? locMO.size() : std::distance(locMO.begin(), it);
+	return (it == store_end(addr)) ? std::distance(store_begin(addr), store_end(addr)) :
+		std::distance(store_begin(addr), it);
 }
 
 std::vector<Event>
 MOCalculator::getCoherentStores(SAddr addr, Event read)
 {
 	auto &g = getGraph();
-	auto &locMO = getStoresToLoc(addr);
 	std::vector<Event> stores;
 
 	/*
@@ -196,7 +176,7 @@ MOCalculator::getCoherentStores(SAddr addr, Event read)
 	if (begO == 0)
 		stores.push_back(Event::getInitializer());
 	else
-		stores.push_back(*(locMO.begin() + begO - 1));
+		stores.push_back(*(store_begin(addr) + begO - 1));
 
 	/*
 	 * If the model supports out-of-order execution we have to also
@@ -204,8 +184,8 @@ MOCalculator::getCoherentStores(SAddr addr, Event read)
 	 * store, or some read that reads from a store.
 	 */
 	auto endO = (supportsOutOfOrder()) ? splitLocMOAfterHb(addr, read) :
-		std::distance(locMO.begin(), locMO.end());
-	stores.insert(stores.end(), locMO.begin() + begO, locMO.begin() + endO);
+		std::distance(store_begin(addr), store_end(addr));
+	stores.insert(stores.end(), store_begin(addr) + begO, store_begin(addr) + endO);
 	return stores;
 }
 
@@ -305,17 +285,16 @@ MOCalculator::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> 
 
 		BUG_ON(before->contains(lab->getPos()));
 		auto *wLab = static_cast<const WriteLabel *>(lab.get());
-		auto &locMO = getStoresToLoc(wLab->getAddr());
-		auto moPos = std::find(locMO.begin(), locMO.end(), wLab->getPos());
+		auto moPos = std::find(store_begin(wLab->getAddr()), store_end(wLab->getAddr()), wLab->getPos());
 
 		/* This store must definitely be in this location's MO */
-		BUG_ON(moPos == locMO.end());
+		BUG_ON(moPos == store_end(wLab->getAddr()));
 
 		/* We need to find the previous MO store that is in before or
 		 * in the vector for which we are getting the predecessors */
-		decltype(locMO.crbegin()) predPos(moPos);
+		decltype(store_rbegin(wLab->getAddr())) predPos(moPos);
 		auto predFound = false;
-		for (auto rit = predPos; rit != locMO.rend(); ++rit) {
+		for (auto rit = predPos; rit != store_rend(wLab->getAddr()); ++rit) {
 			if (before->contains(*rit) ||
 			    std::find_if(labs.begin(), labs.end(),
 					 [&](const std::unique_ptr<EventLabel> &lab)
@@ -407,7 +386,7 @@ void MOCalculator::initCalc()
 	auto &coRelation = gm.getPerLocRelation(ExecutionGraph::RelationId::co);
 
 	coRelation.clear();
-	for (auto locIt = mo_.begin(); locIt != mo_.end(); locIt++) {
+	for (auto locIt = begin(); locIt != end(); locIt++) {
 		coRelation[locIt->first] = GlobalRelation(getStoresToLoc(locIt->first));
 		if (locIt->second.empty())
 			continue;
@@ -453,7 +432,7 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 		/* Should we keep this memory location lying around? */
 		if (!keep.count(it->first)) {
 			BUG_ON(!it->second.empty());
-			it = mo_.erase(it);
+			it = stores.erase(it);
 		} else {
 			++it;
 		}
@@ -462,8 +441,8 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 
 bool MOCalculator::locContains(SAddr addr, Event e) const
 {
-	BUG_ON(mo_.count(addr) == 0);
+	BUG_ON(stores.count(addr) == 0);
 	return e == Event::getInitializer() ||
-	       std::any_of(mo_.at(addr).begin(), mo_.at(addr).end(),
-			   [&e](Event s){ return s == e; });
+		std::any_of(store_begin(addr), store_end(addr),
+			    [&e](Event s){ return s == e; });
 }
