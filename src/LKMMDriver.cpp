@@ -283,8 +283,7 @@ void LKMMDriver::calcWriteMsgView(WriteLabel *lab)
 
 	if (lab->isAtLeastRelease())
 		msg = lab->getHbView();
-	else if (lab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
-		 lab->getOrdering() == llvm::AtomicOrdering::Acquire)
+	else if (lab->isAtMostAcquire())
 		msg = g.getEventLabel(
 			g.getLastThreadReleaseAtLoc(lab->getPos(), lab->getAddr()))->getHbView();
 	lab->setMsgView(std::move(msg));
@@ -328,9 +327,8 @@ void LKMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 		if (!llvm::isa<ReadLabel>(lab))
 			continue;
 		auto *rLab = static_cast<const ReadLabel *>(lab);
-		if (rLab->getOrdering() == llvm::AtomicOrdering::Monotonic ||
-		    rLab->getOrdering() == llvm::AtomicOrdering::Release) {
-			const EventLabel *rfLab = g.getEventLabel(rLab->getRf());
+		if (rLab->isAtMostRelease()) {
+			auto *rfLab = g.getEventLabel(rLab->getRf());
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
 				v.update(wLab->getMsgView());
 		}

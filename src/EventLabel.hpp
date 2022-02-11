@@ -187,11 +187,25 @@ public:
 		       ordering == llvm::AtomicOrdering::SequentiallyConsistent;
 	}
 
+	/* Returns true if the ordering of this access is acquire or weaker */
+	bool isAtMostAcquire() const {
+		return ordering == llvm::AtomicOrdering::NotAtomic ||
+		       ordering == llvm::AtomicOrdering::Monotonic ||
+		       ordering == llvm::AtomicOrdering::Acquire;
+	}
+
 	/* Returns true if the ordering of this access is release or stronger */
 	bool isAtLeastRelease() const {
 		return ordering == llvm::AtomicOrdering::Release ||
 		       ordering == llvm::AtomicOrdering::AcquireRelease ||
 		       ordering == llvm::AtomicOrdering::SequentiallyConsistent;
+	}
+
+	/* Returns true if the ordering of this access is release or weaker */
+	bool isAtMostRelease() const {
+		return ordering == llvm::AtomicOrdering::NotAtomic ||
+		       ordering == llvm::AtomicOrdering::Monotonic ||
+		       ordering == llvm::AtomicOrdering::Release;
 	}
 
 	/* Returns true if this is a sequentially consistent access */
