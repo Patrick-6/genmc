@@ -83,12 +83,17 @@ bool propagateAssumeToPred(CallInst *assume, BasicBlock *pred)
         auto *endFun = bb->getParent()->getParent()->getFunction(assumeName);
 	BUG_ON(!endFun);
 
-	/* Get the condition that we need to ensure; if it is a user
-	 * assumption cast to the exposed type too */
+	/* Get the condition that we need to ensure; if there's a type
+	 * mismatch, cast to the exposed type too */
 	auto *cond = getOtherSuccCondition(bi, bb);
-	if (assumeName == "__VERIFIER_assume") {
-		auto *int32Ty = Type::getInt32Ty(bb->getParent()->getParent()->getContext());
-		cond = CastInst::CreateZExtOrBitCast(cond, int32Ty, "", bi);
+	auto *M = endFun->getParent();
+	auto &DL = M->getDataLayout();
+	auto *arg = &*endFun->arg_begin();
+	if (DL.getTypeAllocSize(cond->getType()) != DL.getTypeAllocSize(arg->getType())) {
+		BUG_ON(DL.getTypeAllocSize(cond->getType()) > DL.getTypeAllocSize(arg->getType()));
+		auto bits = DL.getTypeAllocSizeInBits(arg->getType());
+		auto *intNTy = Type::getIntNTy(M->getContext(), bits);
+		cond = CastInst::CreateZExtOrBitCast(cond, intNTy, "", bi);
 	}
 
 	/* Ensure the condition */
