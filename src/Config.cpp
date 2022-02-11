@@ -37,7 +37,7 @@ static llvm::cl::OptionCategory clDebugging("Debugging Options");
 
 /*** General syntax ***/
 
-llvm::cl::list<std::string>
+static llvm::cl::list<std::string>
 clCFLAGS(llvm::cl::Positional, llvm::cl::ZeroOrMore, llvm::cl::desc("-- [CFLAGS]"));
 
 static llvm::cl::opt<std::string>
@@ -46,7 +46,7 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 
 /*** Exploration options ***/
 
-llvm::cl::opt<ModelType>
+static llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::rc11, "rc11", "RC11 memory model"),
 		    clEnumValN(ModelType::imm,  "imm",  "IMM memory model"),
@@ -59,7 +59,7 @@ clModelType(llvm::cl::values(
 	    llvm::cl::init(ModelType::rc11),
 	    llvm::cl::desc("Choose model type:"));
 
-llvm::cl::opt<CoherenceType>
+static llvm::cl::opt<CoherenceType>
 clCoherenceType(llvm::cl::values(
 			clEnumValN(CoherenceType::mo, "mo", "Track modification order"),
 			clEnumValN(CoherenceType::wb, "wb", "Calculate writes-before")
@@ -75,15 +75,15 @@ static llvm::cl::opt<unsigned int>
 clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
 	      llvm::cl::desc("Number of threads to be used in the exploration"));
 
-llvm::cl::opt<bool>
+static llvm::cl::opt<bool>
 clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
 
-llvm::cl::opt<bool>
+static llvm::cl::opt<bool>
 clSymmetryReduction("sr", llvm::cl::cat(clGeneral),
 		    llvm::cl::desc("Enable Symmetry Reduction"));
 
-llvm::cl::opt<bool>
+static llvm::cl::opt<bool>
 clHelper("helper", llvm::cl::cat(clGeneral),
 	 llvm::cl::desc("Enable Helper for CDs verification"));
 
@@ -119,7 +119,7 @@ clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error),
 #endif
 		    ));
 
-llvm::cl::opt<bool>
+static llvm::cl::opt<bool>
 clCheckLiveness("check-liveness", llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Check for liveness violations"));
 
