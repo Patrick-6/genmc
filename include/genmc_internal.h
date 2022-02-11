@@ -177,7 +177,7 @@ extern int __VERIFIER_opt_begin(void);
 
 /* Hazard pointer functions */
 extern __VERIFIER_hazptr_t *__VERIFIER_hazptr_alloc(void);
-extern void *__VERIFIER_hazptr_protect(__VERIFIER_hazptr_t *hp, void *p);
+extern void __VERIFIER_hazptr_protect(__VERIFIER_hazptr_t *hp, void *p);
 extern void __VERIFIER_hazptr_clear(__VERIFIER_hazptr_t *hp);
 extern void __VERIFIER_hazptr_free(__VERIFIER_hazptr_t *hp);
 extern void __VERIFIER_hazptr_retire(void *p);

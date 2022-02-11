@@ -662,6 +662,7 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	if (!spinloop)
 		return modified;
 
+	removeDisconnectedBlocks(l);
 #ifdef LLVM_HAVE_LOOPINFO_ERASE
 	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().erase(l);
 	lpm.markLoopAsDeleted(*l);
@@ -670,7 +671,6 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 #else
 	lpm.deleteLoopFromQueue(l);
 #endif
-	removeDisconnectedBlocks(l);
 	return modified;
 }
 

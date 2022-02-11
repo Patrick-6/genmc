@@ -121,11 +121,6 @@ bool invertLoop(Loop *l, PHINode *criticalPHI)
 	if (loopBodyUsesHeaderPHIsNonTrivially(l, criticalPHI))
 		return false;
 
-	/* Set preheader's successor to the loop body */
-	auto phJmpIdx = (phbi->getSuccessor(0) == h) ? 0 : 1;
-	auto *b = (inLoopBody(l, hbi->getSuccessor(0))) ? hbi->getSuccessor(0) : hbi->getSuccessor(1);
-	phbi->setSuccessor(phJmpIdx, b);
-
 	/*
 	 * In principle, we can invert the loop even if the body was using the header's
 	 * Φs (as in the comment below), but this does not buy us anything, as we would not get
@@ -152,11 +147,16 @@ bool invertLoop(Loop *l, PHINode *criticalPHI)
 	// criticalPHI->replaceAllUsesWith(newPHI);
 	// newPHI->insertBefore(&*b->begin());
 
-	/* Actually change the header */
-	l->moveToHeader(b);
-
 	/* Fix PHI in the old header */
 	h->removePredecessor(ph);
+
+	/* Set preheader's successor to the loop body */
+	auto phJmpIdx = (phbi->getSuccessor(0) == h) ? 0 : 1;
+	auto *b = (inLoopBody(l, hbi->getSuccessor(0))) ? hbi->getSuccessor(0) : hbi->getSuccessor(1);
+	phbi->setSuccessor(phJmpIdx, b);
+
+	/* Actually change the header */
+	l->moveToHeader(b);
 	return true;
 }
 

@@ -422,6 +422,7 @@ void Config::getConfigOptions(int argc, char **argv)
 	saveConfigOptions();
 
 #ifdef LLVM_HAS_RESET_COMMANDLINE_PARSER
-	llvm::cl::ResetCommandLineParser();
+	llvm::cl::ResetAllOptionOccurrences();
+	clInputFile.removeArgument();
 #endif
 }

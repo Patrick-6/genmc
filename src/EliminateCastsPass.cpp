@@ -204,7 +204,9 @@ static Value *isLoadCastedFromSameSrcType(const LoadInst *li, CastInst &ci)
 static void replaceAndMarkDelete(Instruction *toDel, Value *toRepl,
 			  VSet<Instruction *> *deleted = nullptr)
 {
-	toDel->replaceAllUsesWith(toRepl);
+	if (toRepl && toDel->hasNUsesOrMore(1))
+		toDel->replaceAllUsesWith(toRepl);
+	BUG_ON(toDel->hasNUsesOrMore(1));
 	toDel->eraseFromParent();
 	if (deleted)
 		deleted->insert(toDel);
@@ -236,6 +238,8 @@ static void transformStoredBitcast(CastInst &ci, StoreInst *si, VSet<Instruction
 			if (lci->hasNUses(0))
 				replaceAndMarkDelete(lci, nullptr);
 
+		if (auto *clsrc = dyn_cast<Constant>(lsrc)) /* ensure type-compatibility */
+			lsrc = ConstantExpr::getPointerCast(clsrc, origPTy);
 		auto *load = new LoadInst(origPTy->getElementType(), lsrc, li->getName(),
 					  li->isVolatile(), GET_INST_ALIGN(li), li->getOrdering(),
 					  GET_INST_SYNC_SCOPE(li), si);

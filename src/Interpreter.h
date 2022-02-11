@@ -670,7 +670,7 @@ private:  // Helper functions
   std::vector<GenericValue> translateExternalCallArgs(Function *F,
 						      const std::vector<GenericValue> &Args) const;
   void returnValueToCaller(Type *RetTy, GenericValue Result);
-  void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result);
+  void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result, ReturnInst *retI = nullptr);
 
   void handleSystemError(SystemError code, const std::string &msg);
 

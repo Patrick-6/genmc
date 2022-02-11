@@ -242,16 +242,16 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 		return;
 	}
 
-	auto *voidPtrTyp = Type::getVoidTy(M.getContext())->getPointerTo();
-	unsigned int voidPtrByteWidth = GET_TYPE_ALLOC_SIZE(M, voidPtrTyp);
-
 	auto *intTyp = main->getReturnType();
 	unsigned int intByteWidth = GET_TYPE_ALLOC_SIZE(M, intTyp);
+
+	auto *intPtrTyp = intTyp->getPointerTo();
+	unsigned int intPtrByteWidth = GET_TYPE_ALLOC_SIZE(M, intPtrTyp);
 
 	/* struct file */
 	unsigned int offset = 0;
 	getInternalInfo("file").addOffsetInfo(offset, ".inode");
-	getInternalInfo("file").addOffsetInfo((offset += voidPtrByteWidth), ".count");
+	getInternalInfo("file").addOffsetInfo((offset += intPtrByteWidth), ".count");
 	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".flags");
 	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos_lock");
 	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos");

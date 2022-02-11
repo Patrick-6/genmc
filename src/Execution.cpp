@@ -1205,13 +1205,12 @@ void Interpreter::exitCalled(GenericValue GV) {
 /// from an invoke.
 ///
 void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
-                                                 GenericValue Result) {
+                                                 GenericValue Result,
+						 ReturnInst *retI /* = nullptr */) {
   // Keep track of the ret inst to update deps if necessary:
   // We check whether there _was_ an instruction which caused the
   // stack frame to be popped, and that the instruction was a ret inst
-  ReturnInst *retI = nullptr;
-  if (!ECStack().back().CurFunction->isDeclaration())
-    retI = dyn_cast<ReturnInst>(ECStack().back().CurInst->getPrevNode());
+  // (That's why we have an extra parameter.)
 
   // Pop the current stack frame.
   freeAllocas(ECStack().back().Allocas);
@@ -1269,7 +1268,7 @@ void Interpreter::visitReturnInst(ReturnInst &I) {
     Result = getOperandValue(I.getReturnValue(), SF);
   }
 
-  popStackAndReturnValueToCaller(RetTy, Result);
+  popStackAndReturnValueToCaller(RetTy, Result, &I);
 }
 
 void Interpreter::visitUnreachableInst(UnreachableInst &I) {
@@ -3157,11 +3156,8 @@ void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &
 void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue> &ArgVals,
 				    const std::unique_ptr<EventDeps> &specialDeps)
 {
-	auto *typ = Type::getVoidTy(F->getParent()->getContext())->getPointerTo();
-	auto asize = getTypeSize(typ);
-	auto atyp = TYPE_TO_ATYPE(typ);
-	auto *ptr = GVTOP(ArgVals[1]);
 	auto *hp = GVTOP(ArgVals[0]);
+	auto *ptr = GVTOP(ArgVals[1]);
 
 	driver->visitHpProtect(HpProtectLabel::create(nextPos(), hp, ptr), nullptr);
 	return;
