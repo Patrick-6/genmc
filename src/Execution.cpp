@@ -4628,14 +4628,15 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		currentThread = i;
 		if (thr.threadFun == recoveryRoutine)
 			setProgramState(ProgramState::Recovery);
-		while ((int) thr.globalInstructions < before[i]) {
-			int snap = thr.globalInstructions;
-			ExecutionContext &SF = thr.ECStack.back();
+		/* Make sure to refetch references within the loop (invalidation danger) */
+		while ((int) getCurThr().globalInstructions < before[i]) {
+			int snap = getCurThr().globalInstructions;
+			ExecutionContext &SF = getCurThr().ECStack.back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 
 			/* Collect metadata only for global instructions */
-			if (thr.globalInstructions == snap)
+			if (getCurThr().globalInstructions == snap)
 				continue;
 			/* If there are no metadata for this instruction, skip */
 			if (!I.getMetadata("dbg"))
@@ -4644,11 +4645,11 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			/* Store relevant trace information in the appropriate spot */
 			int line = I.getDebugLoc().getLine();
 			std::string file = getFilenameFromMData(I.getMetadata("dbg"));
-			thr.prefixLOC[snap + 1] = std::make_pair(line, file);
+			getCurThr().prefixLOC[snap + 1] = std::make_pair(line, file);
 
 			/* If the instruction maps to more than one events, we have to fill more spots */
-			for (auto i = snap + 2; i <= thr.globalInstructions; i++)
-				thr.prefixLOC[i] = std::make_pair(line, file);
+			for (auto i = snap + 2; i <= getCurThr().globalInstructions; i++)
+				getCurThr().prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
 }
