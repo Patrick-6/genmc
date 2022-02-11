@@ -38,14 +38,6 @@
 
 using namespace llvm;
 
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout()->getTypeAllocSize((x))
-#else
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout().getTypeAllocSize((x))
-#endif
-
 void MDataCollectionPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	au.setPreservesAll();
@@ -67,7 +59,7 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 			newDit = (!dict->getBaseType()) ? dict :
 				llvm::dyn_cast<DIType>(dict->getBaseType());
 		}
-		unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, AT->getElementType());
+		auto elemSize = M.getDataLayout().getTypeAllocSize(AT->getElementType());
 		for (auto i = 0u; i < AT->getNumElements(); i++) {
 			collectVarName(M, ptr + offset, AT->getElementType(), newDit,
 				       nameBuilder + "[" + std::to_string(i) + "]", info);
@@ -102,7 +94,7 @@ void MDataCollectionPass::collectVarName(Module &M, unsigned int ptr, Type *typ,
 		auto i = 0u;
 		auto minSize = std::min(dictElems.size(), ST->getNumElements());
 		for (auto it = ST->element_begin(); i < minSize; ++it, ++i) {
-			unsigned int elemSize = GET_TYPE_ALLOC_SIZE(M, *it);
+			auto elemSize = M.getDataLayout().getTypeAllocSize(*it);
 			auto didt = dictElems[i];
 			if (auto *dit = dyn_cast<DIDerivedType>(didt)) {
 				if (auto ditb = dyn_cast<DIType>(dit->getBaseType()))
@@ -152,7 +144,7 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, v.getType()->getElementType(), ditc, "", info);
 #else
-	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, v.getType()->getElementType());
+	auto typeSize = M.getDataLayout().getTypeAllocSize(v.getType()->getElementType());
 	collectVarName(0, typeSize, v.getType()->getElementType(), "", info);
 #endif
 	return;
@@ -180,8 +172,7 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, vt->getElementType(), ditc, "", info);
 #else
-	unsigned int typeSize =
-		GET_TYPE_ALLOC_SIZE(M, vt->getElementType());
+	auto typeSize = M.getDataLayout().getTypeAllocSize(vt->getElementType());
 	collectVarName(0, typeSize, vt->getElementType(), "", info);
 #endif
 	return;
@@ -217,7 +208,7 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 	if (auto ditc = dyn_cast<DIType>(dit))
 		collectVarName(M, 0, dstTyp->getElementType(), ditc, "", info);
 #else
-	unsigned int typeSize = GET_TYPE_ALLOC_SIZE(M, dstTyp->getElementType());
+	auto typeSize = M.getDataLayout().getTypeAllocSize(dstTyp->getElementType());
 	collectVarName(0, typeSize, dstTyp->getElementType(), "", info);
 #endif
 	return;
@@ -242,11 +233,12 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 		return;
 	}
 
+	auto &DL = M.getDataLayout();
 	auto *intTyp = main->getReturnType();
-	unsigned int intByteWidth = GET_TYPE_ALLOC_SIZE(M, intTyp);
+	auto intByteWidth = DL.getTypeAllocSize(intTyp);
 
 	auto *intPtrTyp = intTyp->getPointerTo();
-	unsigned int intPtrByteWidth = GET_TYPE_ALLOC_SIZE(M, intPtrTyp);
+	auto intPtrByteWidth = DL.getTypeAllocSize(intPtrTyp);
 
 	/* struct file */
 	unsigned int offset = 0;

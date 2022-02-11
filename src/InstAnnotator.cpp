@@ -32,14 +32,6 @@
 
 using namespace llvm;
 
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout()->getTypeAllocSize((x))
-#else
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout().getTypeAllocSize((x))
-#endif
-
 void InstAnnotator::reset()
 {
 	statusMap.clear();
@@ -82,7 +74,8 @@ InstAnnotator::IRExprUP InstAnnotator::generateOperandExpr(Value *op)
 				});
 			BUG_ON(iIt == op->user_end());
 			auto *mod = dyn_cast<Instruction>(*iIt)->getParent()->getParent()->getParent();
-			return ConcreteExpr<Value *>::create(GET_TYPE_ALLOC_SIZE(*mod, op->getType()) * 8, 0);
+			auto &DL = mod->getDataLayout();
+			return ConcreteExpr<Value *>::create(DL.getTypeAllocSizeInBits(op->getType()), 0);
 		}
 		ERROR("Only integer and null constants currently allowed in assume() expressions.\n");
 	}
@@ -92,7 +85,8 @@ InstAnnotator::IRExprUP InstAnnotator::generateOperandExpr(Value *op)
 		mod = i->getParent()->getParent()->getParent();
 	else if (auto *a = dyn_cast<Argument>(op))
 		mod = a->getParent()->getParent();
-	return RegisterExpr<Value *>::create(GET_TYPE_ALLOC_SIZE(*mod, op->getType()) * 8, getAnnotMapKey(op));
+	auto &DL = mod->getDataLayout();
+	return RegisterExpr<Value *>::create(DL.getTypeAllocSizeInBits(op->getType()), getAnnotMapKey(op));
 }
 
 InstAnnotator::IRExprUP InstAnnotator::generateInstExpr(Instruction *curr)

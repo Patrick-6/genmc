@@ -74,14 +74,6 @@ using namespace llvm;
 # define GET_INST_SYNC_SCOPE(i) i->getSynchScope()
 #endif
 
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout()->getTypeAllocSize((x))
-#else
-# define GET_TYPE_ALLOC_SIZE(M, x)		\
-	(M).getDataLayout().getTypeAllocSize((x))
-#endif
-
 void EliminateCastsPass::getAnalysisUsage(AnalysisUsage &AU) const
 {
 	AU.addRequired<AssumptionCacheTracker>();
