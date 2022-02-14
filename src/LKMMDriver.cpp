@@ -118,10 +118,11 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab, const EventDeps *deps) /* not c
 	auto v = getDepsAsView(lab, deps);
 
 	/* This event does not depend on anything else */
+	DepView wv;
 	Event e = lab->getPos();
-	int oldIdx = v[e.thread];
-	v[e.thread] = e.index;
-	v.addHolesInRange(Event(e.thread, oldIdx + 1), e.index);
+	wv[e.thread] = e.index;
+	wv.addHolesInRange(Event(e.thread, 0), e.index);
+	v.update(wv);
 
 	/* Update based on the views of the acquires of the thread */
 	std::vector<Event> acqs = g.getThreadAcquiresAndFences(e);
@@ -139,6 +140,7 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab, const EventDeps *deps) /* not c
 		}
 		v.update(g.getPPoRfBefore(ev));
 	}
+	v.removeHolesInRange(e, g.getThreadSize(e.thread));
 	return v;
 }
 

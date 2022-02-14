@@ -76,9 +76,10 @@ DepView IMMDriver::calcPPoView(Event e, const EventDeps *deps) /* not const */
 	auto v = getDepsAsView(deps);
 
 	/* This event does not depend on anything else */
-	int oldIdx = v[e.thread];
-	v[e.thread] = e.index;
-	v.addHolesInRange(Event(e.thread, oldIdx + 1), e.index);
+	DepView wv;
+	wv[e.thread] = e.index;
+	wv.addHolesInRange(Event(e.thread, 0), e.index);
+	v.update(wv);
 
 	/* Update based on the views of the acquires of the thread */
 	auto &g = getGraph();
