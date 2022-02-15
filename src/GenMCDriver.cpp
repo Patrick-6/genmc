@@ -451,7 +451,7 @@ bool GenMCDriver::isExecutionBlocked() const
 void GenMCDriver::handleFinishedExecution()
 {
 	/* LAPOR: Check lock-well-formedness */
-	if (userConf->LAPOR && !isLockWellFormedLAPOR())
+	if (getConf()->LAPOR && !isLockWellFormedLAPOR())
 		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 
 	/* Helper: Check helping CAS annotation */
@@ -461,7 +461,7 @@ void GenMCDriver::handleFinishedExecution()
 	/* Ignore the execution if some assume has failed */
 	if (isExecutionBlocked() || isMoot()) {
 		GENMC_DEBUG(
-			if (userConf->printBlockedExecs)
+			if (getConf()->printBlockedExecs)
 				printGraph();
 		);
 		++result.exploredBlocked;
@@ -472,10 +472,10 @@ void GenMCDriver::handleFinishedExecution()
 		return;
 	}
 
-	if (userConf->checkConsPoint == ProgramPoint::exec &&
+	if (getConf()->checkConsPoint == ProgramPoint::exec &&
 	    !isConsistent(ProgramPoint::exec))
 		return;
-	if (userConf->printExecGraphs && !userConf->persevere)
+	if (getConf()->printExecGraphs && !getConf()->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
 	++result.explored;
 	return;
@@ -521,7 +521,7 @@ void GenMCDriver::handleRecoveryStart()
 void GenMCDriver::handleRecoveryEnd()
 {
 	/* Print the graph with the recovery routine */
-	if (userConf->printExecGraphs)
+	if (getConf()->printExecGraphs)
 		printGraph();
 	getEE()->cleanupRecoveryRoutine(getGraph().getRecoveryRoutineId());
 	return;
@@ -737,7 +737,7 @@ void GenMCDriver::explore()
 
 		/* Get main program function and run the program */
 		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(EE->FindFunctionNamed(userConf->programEntryFun.c_str()), {"prog"}, nullptr);
+		EE->runFunctionAsMain(EE->FindFunctionNamed(getConf()->programEntryFun.c_str()), {"prog"}, nullptr);
 		EE->runStaticConstructorsDestructors(true);
 
 		auto validExecution = true;
@@ -912,7 +912,7 @@ bool GenMCDriver::isHazptrProtected(const MallocLabel *aLab, const MemAccessLabe
 
 bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 {
-	if (userConf->disableRaceDetection)
+	if (getConf()->disableRaceDetection)
 		return false;
 	if (!mLab->getAddr().isDynamic())
 		return false;
@@ -973,7 +973,7 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 
 bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 {
-	if (userConf->disableRaceDetection)
+	if (getConf()->disableRaceDetection)
 		return false;
 	if (!fLab->getFreedAddr().isDynamic())
 		return false;
@@ -1031,7 +1031,7 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
  */
 void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 {
-	if (userConf->disableRaceDetection)
+	if (getConf()->disableRaceDetection)
 		return;
 
 	auto racy = findDataRaceForMemAccess(lab);
@@ -1380,7 +1380,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 		if (!isConsistent(ProgramPoint::step)) {
 			found = false;
 			rfs.erase(rfs.end() - 1);
-			BUG_ON(!userConf->LAPOR && rfs.empty());
+			BUG_ON(!getConf()->LAPOR && rfs.empty());
 			if (rfs.empty())
 				break;
 		}
@@ -1969,11 +1969,11 @@ void GenMCDriver::visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const Even
 void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
 {
 	/* No locking when running the recovery routine */
-	if (userConf->persevere && inRecoveryMode())
+	if (getConf()->persevere && inRecoveryMode())
 		return;
 
 	/* Treatment of locks based on whether LAPOR is enabled */
-	if (userConf->LAPOR) {
+	if (getConf()->LAPOR) {
 		visitLockLAPOR(LockLabelLAPOR::create(pos, addr), deps);
 		return;
 	}
@@ -2014,11 +2014,11 @@ void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const
 void GenMCDriver::visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
 {
 	/* No locking when running the recovery routine */
-	if (userConf->persevere && inRecoveryMode())
+	if (getConf()->persevere && inRecoveryMode())
 		return;
 
 	/* Treatment of unlocks based on whether LAPOR is enabled */
-	if (userConf->LAPOR) {
+	if (getConf()->LAPOR) {
 		visitUnlockLAPOR(UnlockLabelLAPOR::create(pos, addr), deps);
 		return;
 	}
@@ -2239,7 +2239,7 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 	printGraph(true, out);
 
 	/* Print error trace leading up to the violating event(s) */
-	if (userConf->printErrorTrace) {
+	if (getConf()->printErrorTrace) {
 		printTraceBefore(errLab->getPos(), out);
 		if (!confEvent.isInitializer())
 			printTraceBefore(confEvent, out);
@@ -2250,8 +2250,8 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 		out << err << "\n";
 
 	/* Dump the graph into a file (DOT format) */
-	if (userConf->dotFile != "")
-		dotPrintToFile(userConf->dotFile, errLab->getPos(), confEvent);
+	if (getConf()->dotFile != "")
+		dotPrintToFile(getConf()->dotFile, errLab->getPos(), confEvent);
 
 	getEE()->restoreLocalState(std::move(oldState));
 
@@ -2261,7 +2261,7 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 #ifdef ENABLE_GENMC_DEBUG
 void GenMCDriver::checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
 {
-	if (!userConf->countDuplicateExecs)
+	if (!getConf()->countDuplicateExecs)
 		return;
 
 	/* Get the prefix of the write to save */
