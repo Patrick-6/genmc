@@ -1680,7 +1680,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 			I.getOrdering(), nextPos(), ptr, size, atyp, 	\
 			I.getOperation(), val, getWriteAttr(I)), &*deps); \
 		auto newVal = executeAtomicRMWOperation(ret, val, I.getOperation()); \
-		if (!thr.isBlocked())					\
+		if (!getCurThr().isBlocked())				\
 			driver->visitStore(				\
 				nameW ## Label::create(I.getOrdering(), nextPos(), ptr, size, \
 						       atyp, newVal, getWriteAttr(I)), &*deps); \
@@ -4631,7 +4631,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		/* Make sure to refetch references within the loop (invalidation danger) */
 		while ((int) getCurThr().globalInstructions < before[i]) {
 			int snap = getCurThr().globalInstructions;
-			ExecutionContext &SF = getCurThr().ECStack.back();
+			ExecutionContext &SF = ECStack().back();
 			Instruction &I = *SF.CurInst++;
 			visit(I);
 
