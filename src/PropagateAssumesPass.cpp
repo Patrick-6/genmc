@@ -67,7 +67,7 @@ bool jumpsOnLoadResult(Value *cond)
 
 Value *getOtherSuccCondition(BranchInst *bi, BasicBlock *succ)
 {
-	if (bi->getSuccessor(0) != succ)
+	if (bi->getSuccessor(1) == succ)
 		return bi->getCondition();
 	return BinaryOperator::CreateNot(bi->getCondition(), "", bi);
 }
