@@ -185,6 +185,12 @@ clLoopUnroll("unroll", llvm::cl::init(-1), llvm::cl::value_desc("N"),
 	     llvm::cl::cat(clTransformation),
 	     llvm::cl::desc("Unroll loops N times"));
 
+static llvm::cl::list<std::string>
+clNoUnrollFuns("no-unroll", llvm::cl::value_desc("fun_name"),
+	       llvm::cl::cat(clTransformation),
+	       llvm::cl::desc("Do not unroll this function"));
+
+
 static llvm::cl::opt<bool>
 clDisableLoopJumpThreading("disable-loop-jump-threading", llvm::cl::cat(clTransformation),
 			   llvm::cl::desc("Disable loop-jump-threading transformation"));
@@ -376,6 +382,7 @@ void Config::saveConfigOptions()
 
 	/* Save transformation options */
 	unroll = clLoopUnroll;
+	noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
 	loopJumpThreading = !clDisableLoopJumpThreading;
 	castElimination = !clDisableCastElimination;
 	spinAssume = !clDisableSpinAssume;

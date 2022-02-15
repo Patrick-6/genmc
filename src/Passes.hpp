@@ -22,7 +22,9 @@
 #define __PASSES_HPP__
 
 #include "config.h"
+#include "VSet.hpp"
 #include <llvm/Pass.h>
+#include <string>
 
 template<typename K, typename V>
 struct AnnotationInfo;
@@ -66,9 +68,9 @@ llvm::ModulePass *createIntrinsicLoweringPass(llvm::Module &M);
 llvm::FunctionPass *createLoadAnnotationPass(AnnotationInfo<llvm::Instruction *, llvm::Value *> &AI);
 
 /*
- * Unrolls a loop N times.
+ * Unrolls a loop N times, unless the loop is in a function present in NOUNROLLFUNS
  */
-llvm::Pass *createLoopUnrollPass(int depth);
+llvm::Pass *createLoopUnrollPass(int n, const VSet<std::string> &noUnrollFuns = {});
 
 /*
  * Performs jump-threading for some simple classes of loops.

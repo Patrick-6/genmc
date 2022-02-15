@@ -118,6 +118,9 @@ void addBoundCmpAndSpinEndBefore(Loop *l, PHINode *val, BinaryOperator *decVal)
 
 bool LoopUnrollPass::runOnLoop(Loop *l, LPPassManager &lpm)
 {
+	if (!shouldUnroll(l))
+		return false;
+
 	PHINode *val = createBoundInit(l);
 	BinaryOperator *dec = createBoundDecrement(l, val);
 	Type *int32Typ = Type::getInt32Ty((*l->block_begin())->getParent()->getContext());
@@ -132,9 +135,9 @@ bool LoopUnrollPass::runOnLoop(Loop *l, LPPassManager &lpm)
 	return true;
 }
 
-Pass *createLoopUnrollPass(int depth)
+Pass *createLoopUnrollPass(int depth, const VSet<std::string> &noUnrollFuns /* = {} */)
 {
-	return new LoopUnrollPass(depth);
+	return new LoopUnrollPass(depth, noUnrollFuns);
 }
 
 char LoopUnrollPass::ID = 42;

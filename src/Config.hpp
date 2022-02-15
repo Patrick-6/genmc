@@ -22,9 +22,10 @@
 #define __CONFIG_HPP__
 
 #include "DriverGraphEnumAPI.hpp"
+#include "VSet.hpp"
 
 #include <string>
-#include <vector>
+
 
 enum class ModelType { rc11, imm, lkmm };
 enum class SchedulePolicy { ltr, wf, random };
@@ -66,6 +67,7 @@ public:
 
 	/*** Transformation options ***/
 	int unroll;
+	VSet<std::string> noUnrollFuns;
 	bool castElimination;
 	bool loopJumpThreading;
 	bool spinAssume;
