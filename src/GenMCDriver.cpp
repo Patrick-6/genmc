@@ -3228,6 +3228,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 {
 	auto &g = getGraph();
 
+	/* Print the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
 		s << thr << ":\n";
@@ -3271,6 +3272,25 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 			}
 			s << "\n";
 		}
+	}
+
+	/* MO: Print coherence information */
+	auto header = false;
+	if (auto *mm = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
+		for (auto locIt = mm->begin(), locE = mm->end(); locIt != locE; ++locIt)
+			/* Skip empty and single-store locations */
+			if (!mm->isLocEmpty(locIt->first) &&
+			    ++mm->store_begin(locIt->first) != mm->store_end(locIt->first)) {
+				if (!header) {
+					s << "Coherence:\n";
+					header = true;
+				}
+				auto *wLab = g.getWriteLabel(*mm->store_begin(locIt->first));
+				s << getVarName(wLab) << ": [ ";
+				for (const auto &w : stores(g, locIt->first))
+					s << w << " ";
+				s << "]\n";
+			}
 	}
 	s << "\n";
 }

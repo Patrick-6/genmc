@@ -39,6 +39,10 @@ Event (2, 8) in graph:
 	(2, 6): SPIN_START
 	(2, 7): Rsc (p1, 1) [(1, 18)] L.31
 	(2, 8): BLOCK [spinloop]
+Coherence:
+x: [ (1, 8) (1, 15) ]
+p1: [ (1, 1) (1, 4) (1, 9) (1, 11) (1, 16) (1, 18) ]
+p2: [ (2, 1) (2, 4) ]
 
 Trace to (2, 8):
 [main] lamport-deadlock0.c: 45: if (pthread_create(&t1, NULL, thread_1, NULL))
