@@ -260,7 +260,7 @@ getFaiKinds(AtomicRMWInst &I)
 	BUG_ON(!op);
 
 	auto flags = dyn_cast<ConstantInt>(op->getValue())->getZExtValue();
-	if (flags & GENMC_KIND_NONVR)
+	if (GENMC_KIND(flags) == GENMC_KIND_NONVR)
 		return std::make_pair(Kind::EL_NoRetFaiRead, Kind::EL_NoRetFaiWrite);
 	BUG();
 }
