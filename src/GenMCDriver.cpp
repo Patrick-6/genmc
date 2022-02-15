@@ -467,7 +467,7 @@ void GenMCDriver::handleFinishedExecution()
 		++result.exploredBlocked;
 		if (isMoot())
 			++result.exploredMoot;
-		if (userConf->checkLiveness)
+		if (getConf()->checkLiveness && !isMoot())
 			checkLiveness();
 		return;
 	}
