@@ -912,8 +912,6 @@ bool GenMCDriver::isHazptrProtected(const MallocLabel *aLab, const MemAccessLabe
 
 bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 {
-	if (getConf()->disableRaceDetection)
-		return false;
 	if (!mLab->getAddr().isDynamic())
 		return false;
 
@@ -973,8 +971,6 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 
 bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 {
-	if (getConf()->disableRaceDetection)
-		return false;
 	if (!fLab->getFreedAddr().isDynamic())
 		return false;
 
