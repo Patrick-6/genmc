@@ -99,7 +99,7 @@ DepView LKMMDriver::getDepsAsView(EventLabel *lab, const EventDeps *deps)
 	for (auto &ddep : deps->data)
 		v.update(g.getPPoRfBefore(ddep));
 	/* LKMM only keeps ctrl deps to writes */
-	if (llvm::isa<WriteLabel>(lab)) {
+	if (llvm::isa<CasReadLabel>(lab) || llvm::isa<FaiReadLabel>(lab) || llvm::isa<WriteLabel>(lab)) {
 		for (auto &cdep : deps->ctrl)
 			v.update(g.getPPoRfBefore(cdep));
 	}
