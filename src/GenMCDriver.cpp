@@ -1117,6 +1117,29 @@ void GenMCDriver::checkBIncValidity(const ReadLabel *rLab, const std::vector<Eve
 			   "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
+void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
+{
+	if (!getConf()->helper)
+		return;
+
+	auto &g = getGraph();
+	auto *cc = g.getCoherenceCalculator();
+
+	if (!cc->hasMoreThanOneStore(wLab->getAddr()))
+		return;
+	if ((wLab->isFinal() &&
+	     std::any_of(cc->store_begin(wLab->getAddr()), cc->store_end(wLab->getAddr()),
+			 [&](const Event &s){ return !wLab->getHbView().contains(s); })) ||
+	    (!wLab->isFinal() &&
+	     std::any_of(cc->store_begin(wLab->getAddr()), cc->store_end(wLab->getAddr()),
+			 [&](const Event &s){ return g.getWriteLabel(s)->isFinal(); }))) {
+		visitError(wLab->getPos(), Status::VS_Annotation,
+			   "Multiple stores at final location!");
+		return;
+	}
+	return;
+}
+
 bool GenMCDriver::isConsistent(ProgramPoint p)
 {
 	initConsCalculation();
@@ -1944,6 +1967,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		checkUnlockValidity(lab);
 	if (llvm::isa<BInitWriteLabel>(lab))
 		checkBInitValidity(lab);
+	checkFinalAnnotations(lab);
 	return;
 }
 
@@ -3095,6 +3119,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Invalid function call during recovery";
 	case Status::VS_InvalidTruncate:
 		return s << "Invalid file truncation";
+	case Status::VS_Annotation:
+		return s << "Annotation error";
 	case Status::VS_MixedSize:
 		return s << "Mixed-size accesses";
 	case Status::VS_SystemError:

@@ -72,6 +72,7 @@ public:
 		VS_InvalidBInit,
 		VS_InvalidRecoveryCall,
 		VS_InvalidTruncate,
+		VS_Annotation,
 		VS_MixedSize,
 		VS_SystemError,
 	};
@@ -486,6 +487,11 @@ private:
 	/* Perfoms POSIX checks whenever a barrier_wait event is added.
 	 Appropriately calls visitError() and terminates */
 	void checkBIncValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
+
+	/* Checks whether final annotations are used properly in a program:
+	 * if there are more than one stores annotated as final at the time WLAB
+	 * is added, visitError() is called */
+	void checkFinalAnnotations(const WriteLabel *wLab);
 
 	/* Returns true if MLAB (allocated @ ALAB) is protected by a hazptr */
 	bool isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const;
