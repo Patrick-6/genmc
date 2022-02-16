@@ -860,8 +860,8 @@ private:  // Helper functions
 
   /* Gets naming information for value V (or value with key KEY), if it is
    * an internal variable with no value correspondence */
-  NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
-			   const VariableInfo<ModuleID::ID>::InternalKey &key = {});
+  const NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
+				 const VariableInfo<ModuleID::ID>::InternalKey &key = {});
 
   /* Pers: Returns the address of the file description referenced by FD */
   void *getFileFromFd(int fd) const;

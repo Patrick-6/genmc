@@ -128,9 +128,11 @@ void MDataCollectionPass::collectVarName(unsigned int ptr, unsigned int typeSize
 void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 {
 	/* If we already have data for the variable, skip */
-	auto &info = getGlobalInfo(&v);
-	if (!info.empty())
+	if (hasGlobalInfo(&v))
 		return;
+
+	auto &info = getGlobalInfo(&v);
+	info = std::make_shared<NameInfo>();
 
 #ifdef LLVM_HAS_GLOBALOBJECT_GET_METADATA
 	if (!v.getMetadata("dbg"))
@@ -142,10 +144,10 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 
 	/* Check whether it is a global pointer */
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, v.getType()->getElementType(), ditc, "", info);
+		collectVarName(M, 0, v.getType()->getElementType(), ditc, "", *info);
 #else
 	auto typeSize = M.getDataLayout().getTypeAllocSize(v.getType()->getElementType());
-	collectVarName(0, typeSize, v.getType()->getElementType(), "", info);
+	collectVarName(0, typeSize, v.getType()->getElementType(), "", *info);
 #endif
 	return;
 }
@@ -157,9 +159,11 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	if (!v)
 		return;
 
-	auto &info = getLocalInfo(v);
-	if (!info.empty())
+	if (hasLocalInfo(v))
 		return;
+
+	auto &info = getLocalInfo(v);
+	info = std::make_shared<NameInfo>();
 
 	auto *vt = dyn_cast<PointerType>(v->getType());
 	BUG_ON(!vt);
@@ -170,10 +174,10 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 
 	auto dit = DD->getVariable()->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, vt->getElementType(), ditc, "", info);
+		collectVarName(M, 0, vt->getElementType(), ditc, "", *info);
 #else
 	auto typeSize = M.getDataLayout().getTypeAllocSize(vt->getElementType());
-	collectVarName(0, typeSize, vt->getElementType(), "", info);
+	collectVarName(0, typeSize, vt->getElementType(), "", *info);
 #endif
 	return;
 }
@@ -187,9 +191,12 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 	auto *src = dyn_cast<GlobalVariable>(mi->getSource());
 	if (!src)
 		return;
-	auto &info = getGlobalInfo(src);
-	if (!info.empty())
+
+	if (hasGlobalInfo(src))
 		return;
+
+	auto &info = getGlobalInfo(src);
+	info = std::make_shared<NameInfo>();
 
 	/*
 	 * Since there will be no metadata for variables with private linkage,
@@ -206,10 +213,10 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 		return; /* We did our best, but couldn't get a name for it... */
 	auto dit = allocaMData[dst]->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, dstTyp->getElementType(), ditc, "", info);
+		collectVarName(M, 0, dstTyp->getElementType(), ditc, "", *info);
 #else
 	auto typeSize = M.getDataLayout().getTypeAllocSize(dstTyp->getElementType());
-	collectVarName(0, typeSize, dstTyp->getElementType(), "", info);
+	collectVarName(0, typeSize, dstTyp->getElementType(), "", *info);
 #endif
 	return;
 }
@@ -241,20 +248,26 @@ void MDataCollectionPass::collectInternalInfo(Module &M)
 	auto intPtrByteWidth = DL.getTypeAllocSize(intPtrTyp);
 
 	/* struct file */
-	unsigned int offset = 0;
-	getInternalInfo("file").addOffsetInfo(offset, ".inode");
-	getInternalInfo("file").addOffsetInfo((offset += intPtrByteWidth), ".count");
-	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".flags");
-	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos_lock");
-	getInternalInfo("file").addOffsetInfo((offset += intByteWidth), ".pos");
+	auto offset = 0u;
+	auto &fileInfo = getInternalInfo("file");
+	fileInfo = std::make_shared<NameInfo>();
+
+	fileInfo->addOffsetInfo(offset, ".inode");
+	fileInfo->addOffsetInfo((offset += intPtrByteWidth), ".count");
+	fileInfo->addOffsetInfo((offset += intByteWidth), ".flags");
+	fileInfo->addOffsetInfo((offset += intByteWidth), ".pos_lock");
+	fileInfo->addOffsetInfo((offset += intByteWidth), ".pos");
 
 	/* struct inode */
 	offset = 0;
-	getInternalInfo("inode").addOffsetInfo(offset, ".lock");
-	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_size");
-	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_transaction");
-	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".i_disksize");
-	getInternalInfo("inode").addOffsetInfo((offset += intByteWidth), ".data");
+	auto &inodeInfo = getInternalInfo("inode");
+	inodeInfo = std::make_shared<NameInfo>();
+
+	inodeInfo->addOffsetInfo(offset, ".lock");
+	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_size");
+	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_transaction");
+	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_disksize");
+	inodeInfo->addOffsetInfo((offset += intByteWidth), ".data");
 	return;
 }
 

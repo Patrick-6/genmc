@@ -121,17 +121,17 @@ SAddr getStaticAllocBegin(const VSet<std::pair<SAddr, SAddr>> &allocMap, SAddr a
 	return it->first;
 }
 
-NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
-				      const VariableInfo<ModuleID::ID>::InternalKey &key /* = {} */)
+const NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
+					    const VariableInfo<ModuleID::ID>::InternalKey &key /* = {} */)
 {
 	if (spc == AddressSpace::AS_Internal)
-		return &MI->varInfo.internalInfo[key];
+		return MI->varInfo.internalInfo[key].get();
 
 	switch (s) {
 	case Storage::ST_Static:
-		return &MI->varInfo.globalInfo[MI->idInfo.VID[v]];
+		return MI->varInfo.globalInfo[MI->idInfo.VID[v]].get();
 	case Storage::ST_Automatic:
-		return &MI->varInfo.localInfo[MI->idInfo.VID[v]];
+		return MI->varInfo.localInfo[MI->idInfo.VID[v]].get();
 	case Storage::ST_Heap:
 		return nullptr;
 	default:
@@ -151,7 +151,7 @@ std::string Interpreter::getStaticName(SAddr addr) const
 	auto gv = staticNames.at(sBeg);
 	auto gvID = MI->idInfo.VID[gv];
 	BUG_ON(!MI->varInfo.globalInfo.count(gvID));
-	auto &gi = MI->varInfo.globalInfo.at(gvID);
+	auto &gi = *MI->varInfo.globalInfo.at(gvID);
 	return gv->getName().str() + gi.getNameAtOffset(addr - sBeg);
 }
 
@@ -1383,7 +1383,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 			    getAddrPoDeps(getCurThr().id), nullptr);
 
-  NameInfo *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
+  auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
 				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
 

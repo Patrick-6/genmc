@@ -2364,28 +2364,28 @@ protected:
 
 public:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		    SAddr addr, unsigned int size, NameInfo *info, const std::string &name)
+		    SAddr addr, unsigned int size, const NameInfo *info, const std::string &name)
 		: EventLabel(EL_Malloc, st, ord, pos),
 		  allocAddr(addr), allocSize(size), nameInfo(info), name(name) {}
 	MallocLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, unsigned int size,
-		    NameInfo *info, const std::string &name)
+		    const NameInfo *info, const std::string &name)
 		: EventLabel(EL_Malloc, ord, pos),
 		  allocAddr(addr), allocSize(size), nameInfo(info), name(name) {}
 
 	MallocLabel(unsigned int st, Event pos, SAddr addr, unsigned int size,
-		    NameInfo *info = nullptr, const std::string &name = {})
+		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(st, llvm::AtomicOrdering::NotAtomic, pos,
 			      addr, size, info, name) {}
 	MallocLabel(Event pos, SAddr addr, unsigned int size,
-		    NameInfo *info = nullptr, const std::string &name = {})
+		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(llvm::AtomicOrdering::NotAtomic, pos,
 			      addr, size, info, name) {}
 
 	MallocLabel(unsigned int st, Event pos, unsigned int size,
-		    NameInfo *info = nullptr, const std::string &name = {})
+		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(st, pos, SAddr(), size, info, name) {}
 	MallocLabel(Event pos, unsigned int size,
-		    NameInfo *info = nullptr, const std::string &name = {})
+		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(pos, SAddr(), size, info, name) {}
 
 	template<typename... Ts>
@@ -2430,7 +2430,7 @@ private:
 	std::string name;
 
 	/* Naming information for this allocation */
-	NameInfo *nameInfo;
+	const NameInfo *nameInfo;
 };
 
 

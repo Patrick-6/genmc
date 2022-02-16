@@ -57,9 +57,9 @@ struct VariableInfo {
 	using ID = Key;
 	using InternalKey = std::string;
 
-	std::unordered_map<ID, NameInfo> globalInfo;
-	std::unordered_map<ID, NameInfo> localInfo;
-	std::unordered_map<InternalKey, NameInfo> internalInfo;
+	std::unordered_map<ID, std::shared_ptr<NameInfo>> globalInfo;
+	std::unordered_map<ID, std::shared_ptr<NameInfo>> localInfo;
+	std::unordered_map<InternalKey, std::shared_ptr<NameInfo>> internalInfo;
 
 	void clear() {
 		globalInfo.clear();
