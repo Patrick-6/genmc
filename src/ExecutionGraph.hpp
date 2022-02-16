@@ -153,6 +153,9 @@ public:
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp() { return timestamp++; }
 
+	/* Resets the next available stamp to the specified value */
+	void resetStamp(unsigned int val) { timestamp = val; }
+
 	/* Event addition methods should be called from the managing objects,
 	 * so that the relation managing objects are also informed */
 	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,

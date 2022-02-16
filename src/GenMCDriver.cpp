@@ -653,12 +653,11 @@ void GenMCDriver::notifyEERemoved(const VectorClock &v)
 
 void GenMCDriver::restrictGraph(const EventLabel *rLab)
 {
-	unsigned int stamp = rLab->getStamp();
-
 	/* Inform the interpreter about deleted events, and then
 	 * restrict the graph (and relations) */
 	notifyEERemoved(*getGraph().getPredsView(rLab->getPos()));
-	getGraph().cutToStamp(stamp);
+	getGraph().cutToStamp(rLab->getStamp());
+	getGraph().resetStamp(rLab->getStamp() + 1);
 	return;
 }
 
@@ -2497,6 +2496,8 @@ std::unique_ptr<ExecutionGraph>
 GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 {
 	auto &g = getGraph();
+
+	/* Adjust the view that will be used for copying */
 	if (auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(br)) {
 		if (auto *dv = llvm::dyn_cast<DepView>(v)) {
 			dv->addHole(brh->getMid());
@@ -2506,7 +2507,24 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 			--(*v)[brh->getMid().thread];
 		}
 	}
-	return g.getCopyUpTo(*v);
+
+	auto og = g.getCopyUpTo(*v);
+
+	/* Adjust stamps in the copy, and ensure the prefix of the
+	 * write will not be revisitable */
+	auto *revLab = og->getReadLabel(br->getPos());
+	auto &prefix = og->getPrefixView(br->getRev());
+	og->resetStamp(revLab->getStamp() + 1);
+
+	for (auto *lab : labels(*og)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (rLab && prefix.contains(rLab->getPos()))
+				rLab->setRevisitStatus(false);
+		}
+		if (lab->getStamp() > revLab->getStamp())
+			lab->setStamp(og->nextStamp());
+	}
+	return og;
 }
 
 bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads)
@@ -2720,16 +2738,6 @@ bool GenMCDriver::revisitRead(const ReadRevisit &ri)
 			printGraph();
 		}
 	);
-
-	if (llvm::isa<BackwardRevisit>(ri)) {
-		auto &prefix = g.getPrefixView(ri.getRev());
-		for (auto *lab : labels(g)) {
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab && prefix.contains(rLab->getPos()))
-					rLab->setRevisitStatus(false);
-			}
-		}
-	}
 
 	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
 	repairDanglingBarriers();
