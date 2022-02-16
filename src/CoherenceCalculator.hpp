@@ -99,6 +99,11 @@ public:
 	/* Whether a location is empty */
 	bool isLocEmpty(SAddr addr) const { return store_begin(addr) == store_end(addr); }
 
+	/* Whether a location has more than one store */
+	bool hasMoreThanOneStore(SAddr addr) const {
+		return !isLocEmpty(addr) && ++store_begin(addr) != store_end(addr);
+	}
+
 	/* Track coherence at location addr */
 	virtual void
 	trackCoherenceAtLoc(SAddr addr) = 0;

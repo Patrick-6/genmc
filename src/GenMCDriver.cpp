@@ -3279,8 +3279,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 	if (auto *mm = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
 		for (auto locIt = mm->begin(), locE = mm->end(); locIt != locE; ++locIt)
 			/* Skip empty and single-store locations */
-			if (!mm->isLocEmpty(locIt->first) &&
-			    ++mm->store_begin(locIt->first) != mm->store_end(locIt->first)) {
+			if (mm->hasMoreThanOneStore(locIt->first)) {
 				if (!header) {
 					s << "Coherence:\n";
 					header = true;
