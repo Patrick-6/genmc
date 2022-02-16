@@ -156,11 +156,11 @@ do
 	else
 	    coherence="wb"
 	fi
-	suppress_diff=""
-	if test "${cat}" = "memory" -o "${cat}" = "fs"
-	then
-	    suppress_diff=1
-	fi
+	suppress_diff=1
+	# if test "${cat}" = "memory" -o "${cat}" = "fs"
+	# then
+	#     suppress_diff=1
+	# fi
 	source "${DIR}/runwrong.sh"
 	increase_total_time
     done
