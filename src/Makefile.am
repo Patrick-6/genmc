@@ -3,6 +3,7 @@ AUTOMAKE_OPTIONS = -Wno-override
 
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
+  ASize.cpp ASize.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
   Bitmask.hpp \
   CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \

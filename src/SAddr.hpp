@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "Error.hpp"
+#include "ASize.hpp"
 
 #include <cstdint>
 
@@ -127,14 +128,14 @@ public:
 	inline bool operator>(const SAddr &a) const {
 		return !(*this <= a);
 	}
-	SAddr operator+(unsigned int num) const {
+	SAddr operator+(const ASize &size) const {
 		SAddr s(*this);
-		s.addr += num;
+		s.addr += size.get();
 		return s;
 	};
-	SAddr operator-(unsigned int num) const {
+	SAddr operator-(const ASize &size) const {
 		SAddr s(*this);
-		s.addr -= num;
+		s.addr -= size.get();
 		return s;
 	};
 	Width operator-(const SAddr &a) const {

@@ -203,7 +203,7 @@ void Interpreter::collectStaticAddresses(SAddrAllocator &alloctor)
 		auto addr = alloctor.allocStatic(typeSize, v.getAlignment(),
 						 v.getSection() == "__genmc_persist",
 						 GET_GV_ADDRESS_SPACE(v) == 42);
-		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
+		staticAllocas.insert(std::make_pair(addr, addr + ASize(typeSize - 1)));
 		staticValueMap[addr] = ptr;
 
 		/* ... and use that in the EE instead. Make sure to re-initialize it too;
