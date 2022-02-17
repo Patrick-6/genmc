@@ -447,10 +447,18 @@ public:
 	/* Returns true if the graph contains e */
 	bool contains(const Event &e) const {
 		return e.thread >= 0 && e.thread < getNumThreads() &&
-			e.index >= 0 && e.index < getThreadSize(e.thread);
+		        e.index >= 0 && e.index < getThreadSize(e.thread);
 	}
 	bool contains(const EventLabel *lab) const {
 		return contains(lab->getPos());
+	}
+
+	/* Returns true if the graph contains e, and the label is not EMPTY */
+	bool containsNonEmpty(const Event &e) const {
+		return contains(e) && !llvm::isa<EmptyLabel>(getEventLabel(e));
+	}
+	bool containsNonEmpty(const EventLabel *lab) const {
+		return containsNonEmpty(lab->getPos());
 	}
 
 	/* Returns true if the event should be taken into account when

@@ -1446,72 +1446,58 @@ ExecutionGraph::getSCs() const
  ** Debugging methods
  ***********************************************************/
 
-static bool containsEvent(const std::vector<Event> &es, const Event e)
-{
-	return std::find(es.begin(), es.end(), e) != es.end();
-}
-
 void ExecutionGraph::validate(void)
 {
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (rLab->getRf().isInitializer())
-					continue;
+	for (auto *lab : labels(*this)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			if (rLab->getRf().isBottom())
+				continue;
 
-				auto *rfLab = static_cast<const WriteLabel *>(
-					getEventLabel(rLab->getRf()));
-				if (containsEvent(rfLab->getReadersList(), rLab->getPos()))
-					continue;
-				WARN("Read event is not the appropriate rf-1 list!\n");
-				llvm::errs() << rLab->getPos() << "\n";
+			if (!containsNonEmpty(rLab->getRf())) {
+				llvm::errs() << "Non-existent RF: " << rLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
-				exit(EGENMC);
+				BUG();
 			}
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				const std::vector<Event> &rs = wLab->getReadersList();
-				if (llvm::isa<FaiWriteLabel>(wLab) ||
-				    llvm::isa<CasWriteLabel>(wLab)) {
-					if (1 >= std::count_if(rs.begin(), rs.end(),
-							       [&](const Event &r) {
-								       return isRMWLoad(r);
-							       }))
-						continue;
-					WARN("RMW store is read from more than 1 load!\n");
-					llvm::errs() << "RMW store: " << wLab->getPos()
-						     << "\nReads:";
-					for (auto &r : rs)
-						llvm::errs() << r << " ";
-					llvm::errs() << "\n";
+
+			if (auto *rfLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf()))) {
+				if (std::find(rfLab->readers_begin(), rfLab->readers_end(), rLab->getPos()) ==
+				    rfLab->readers_end()) {
+					llvm::errs() << "Not in RF's readers list: " << rLab->getPos() << "\n";
 					llvm::errs() << *this << "\n";
-					exit(EGENMC);
+					BUG();
 				}
+			}
+		}
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (isRMWStore(wLab) &&
+			    std::count_if(wLab->readers_begin(), wLab->readers_end(),
+					  [&](const Event &r){ return isRMWLoad(r); }) > 1) {
+				llvm::errs() << "Atomicity violation: " << wLab->getPos() << "\n";
+				llvm::errs() << *this << "\n";
+				BUG();
+			}
 
-				if (std::any_of(rs.begin(), rs.end(), [&](Event r) {
-				        if (auto *rLab = llvm::dyn_cast<ReadLabel>(
-						    getEventLabel(r))) {
-						return rLab->getRf() != wLab->getPos();
-					} else {
-						WARN("Non-read event found in rf-1 list!\n");
-						exit(EGENMC);
-					}
-					})) {
-						WARN("Write event is not marked in the read event!\n");
-						llvm::errs() << wLab->getPos() << "\n";
-						llvm::errs() << *this << "\n";
-						exit(EGENMC);
-				}
-				for (auto &r : rs) {
-					if (r.thread > (int) getNumThreads() ||
-					    r.index >= (int) getThreadSize(r.thread)) {
-						WARN("Event in write's rf-list does not exist!\n");
-						llvm::errs() << r << "\n";
-						llvm::errs() << *this << "\n";
-						exit(EGENMC);
-					}
-				}
+			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
+					[&](const Event &r){ return !containsNonEmpty(r) ||
+							!llvm::isa<ReadLabel>(getEventLabel(r)); })) {
+				llvm::errs() << "Non-existent/non-read reader: " << wLab->getPos() << "\n";
+				llvm::errs() << "Readers: " << format(wLab->getReadersList()) << "\n";
+				llvm::errs() << *this << "\n";
+				BUG();
+			}
 
+			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
+					[&](const Event &r){ return getReadLabel(r)->getRf() != wLab->getPos(); })) {
+				llvm::errs() << "RF not properly set: " << wLab->getPos() << "\n";
+				llvm::errs() << *this << "\n";
+				BUG();
+			}
+			for (auto it = wLab->readers_begin(), ie = wLab->readers_end(); it != ie; ++it) {
+				if (!containsNonEmpty(*it)) {
+					llvm::errs() << "Readers list has garbage: " << *it << "\n";
+					llvm::errs() << *this << "\n";
+					BUG();
+				}
 			}
 		}
 	}
