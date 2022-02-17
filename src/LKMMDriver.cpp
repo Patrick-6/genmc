@@ -189,12 +189,14 @@ void LKMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab)
 	const EventLabel *rfLab = g.getEventLabel(lab->getRf());
 
 	if (rfLab->getThread() == lab->getThread() || rfLab->getPos().isInitializer()) {
+		auto rfiDepend = pporf.contains(rfLab->getPos());
 		pporf.update(rfLab->getPPoView()); /* Account for dep; rfi dependencies */
-		pporf.addHole(rfLab->getPos());    /* Make sure we don't depend on rfi */
+		if (!rfiDepend) /* Should we depend on rfi? */
+			pporf.addHole(rfLab->getPos());
 	} else {
 		pporf.update(rfLab->getPPoRfView());
 		for (auto i = 0u; i < lab->getIndex(); i++) {
-			const EventLabel *eLab = g.getEventLabel(Event(lab->getThread(), i));
+			auto *eLab = g.getEventLabel(Event(lab->getThread(), i));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(eLab)) {
 				if (wLab->getAddr() == lab->getAddr())
 					pporf.update(wLab->getPPoRfView());
