@@ -455,7 +455,7 @@ void GenMCDriver::handleFinishedExecution()
 		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 
 	/* Helper: Check helping CAS annotation */
-	if (!isMoot())
+	if (getConf()->helper && !isMoot())
 		checkHelpingCasAnnotation();
 
 	/* Ignore the execution if some assume has failed */
