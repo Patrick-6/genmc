@@ -25,6 +25,7 @@
 #include "Error.hpp"
 
 #include <cstdint>
+#include <climits>
 
 /*
  * Represents a value to be written to memory. All values are represented as
