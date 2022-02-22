@@ -1,19 +1,19 @@
 #include "my_queue.c"
 
-#define MAXREADERS 3
-#define MAXWRITERS 3
-#define MAXRDWR 3
+#ifndef MAX_THREADS
+# define MAX_THREADS 32
+#endif
 
 #ifdef CONFIG_QUEUE_READERS
 #define DEFAULT_READERS (CONFIG_QUEUE_READERS)
 #else
-#define DEFAULT_READERS 1
+#define DEFAULT_READERS 0
 #endif
 
 #ifdef CONFIG_QUEUE_WRITERS
 #define DEFAULT_WRITERS (CONFIG_QUEUE_WRITERS)
 #else
-#define DEFAULT_WRITERS 1
+#define DEFAULT_WRITERS 2
 #endif
 
 #ifdef CONFIG_QUEUE_RDWR
