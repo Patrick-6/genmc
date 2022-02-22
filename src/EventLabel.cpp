@@ -54,26 +54,30 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		break;
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_BIncFaiRead:
+	case EventLabel::EL_NoRetFaiRead:
+		s << "UR";
+		break;
 	case EventLabel::EL_FaiWrite:
 	case EventLabel::EL_BIncFaiWrite:
-	case EventLabel::EL_NoRetFaiRead:
 	case EventLabel::EL_NoRetFaiWrite:
-		s << "U";
+		s << "UW";
 		break;
 	case EventLabel::EL_CasRead:
 	case EventLabel::EL_LockCasRead:
 	case EventLabel::EL_TrylockCasRead:
 	case EventLabel::EL_HelpedCasRead:
 	case EventLabel::EL_ConfirmingCasRead:
+		s << "CR";
+		break;
 	case EventLabel::EL_CasWrite:
 	case EventLabel::EL_LockCasWrite:
 	case EventLabel::EL_TrylockCasWrite:
 	case EventLabel::EL_HelpedCasWrite:
 	case EventLabel::EL_ConfirmingCasWrite:
-		s << "C";
+		s << "CW";
 		break;
 	case EventLabel::EL_HelpingCas:
-		s << "HC";
+		s << "HELPING_CAS";
 		break;
 	case EventLabel::EL_Write:
 	case EventLabel::EL_BInitWrite:
@@ -86,35 +90,37 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "F";
 		break;
 	case EventLabel::EL_ThreadCreate:
-		s << "TC";
+		s << "THREAD_CREATE";
 		break;
 	case EventLabel::EL_ThreadJoin:
-		s << "TJ";
+		s << "THREAD_JOIN";
 		break;
 	case EventLabel::EL_ThreadStart:
-		s << "B";
+		s << "THREAD_START";
 		break;
 	case EventLabel::EL_ThreadFinish:
-		s << "E";
+		s << "THREAD_END";
 		break;
 	case EventLabel::EL_Malloc:
-		s << "M";
+		s << "MALLOC";
 		break;
 	case EventLabel::EL_Free:
+		s << "FREE";
+		break;
 	case EventLabel::EL_HpRetire:
-		s << "D";
+		s << "HP_RETIRE";
 		break;
 	case EventLabel::EL_HpProtect:
-		s << "HP";
+		s << "HP_PROTECT";
 		break;
 	case EventLabel::EL_LockLAPOR:
-		s << "LL";
+		s << "LAPOR_LOCK";
 		break;
 	case EventLabel::EL_UnlockLAPOR:
-		s << "LU";
+		s << "LAPOR_UNLOCK";
 		break;
 	case EventLabel::EL_DskOpen:
-		s << "FO";
+		s << "FOPEN";
 		break;
 	case EventLabel::EL_DskRead:
 		s << "DR";
@@ -126,22 +132,22 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "DW";
 		break;
 	case EventLabel::EL_DskFsync:
-		s << "DF";
+		s << "FSYNC";
 		break;
 	case EventLabel::EL_DskSync:
-		s << "DS";
+		s << "SYNC";
 		break;
 	case EventLabel::EL_DskPbarrier:
-		s << "PB";
+		s << "PERSISTENCY_BARRIER";
 		break;
 	case EventLabel::EL_RCULockLKMM:
-		s << "RL";
+		s << "RCU_LOCK";
 		break;
 	case EventLabel::EL_RCUUnlockLKMM:
-		s << "RU";
+		s << "RCU_UNLOCK";
 		break;
 	case EventLabel::EL_RCUSyncLKMM:
-		s << "GP";
+		s << "RCU_SYNC";
 		break;
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-label-type",
