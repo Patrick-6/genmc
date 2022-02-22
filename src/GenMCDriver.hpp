@@ -695,7 +695,7 @@ private:
 				 llvm::raw_ostream &ss = llvm::outs());
 
 	/* Returns the name of the variable residing in addr */
-	std::string getVarName(const MemAccessLabel *mLab) const;
+	std::string getVarName(const SAddr &addr) const;
 
 	/* Outputs the full graph.
 	 * If printMetadata is set, it outputs debugging information

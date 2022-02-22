@@ -255,12 +255,6 @@ private:
 	DepView pporfView;
 };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-			      const llvm::AtomicOrdering o);
-llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-			      const EventLabel::EventLabelKind k);
-
-
 
 /*******************************************************************************
  **                       DskAccessLabel Class
@@ -3021,5 +3015,13 @@ namespace llvm {
 	};
 
 } /* namespace llvm */
+
+
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+			      const llvm::AtomicOrdering o);
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
+			      const EventLabel::EventLabelKind k);
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t);
 
 #endif /* __EVENTLABEL_HPP__ */

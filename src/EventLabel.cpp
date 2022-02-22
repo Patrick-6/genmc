@@ -19,6 +19,7 @@
  */
 
 #include "EventLabel.hpp"
+#include "LabelVisitor.hpp"
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 			      const EventLabel::EventLabelKind k)
@@ -191,96 +192,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t)
 	return s;
 }
 
-#define PRINT_RF(s, e)				\
-do {					        \
-	if (e.isInitializer())			\
-		s << "INIT";			\
-	else					\
-		s << e;				\
-} while (0)
-
 llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
 {
-	s << lab.getPos() << ": ";
-
-	switch (lab.getKind()) {
-	case EventLabel::EL_Read:
-	case EventLabel::EL_FaiRead:
-	case EventLabel::EL_BIncFaiRead:
-	case EventLabel::EL_BWaitRead:
-	case EventLabel::EL_CasRead:
-	case EventLabel::EL_LockCasRead:
-	case EventLabel::EL_TrylockCasRead: {
-		auto &rLab = static_cast<const ReadLabel&>(lab);
-		s << rLab.getKind() << rLab.getOrdering() << " [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
-	case EventLabel::EL_DskRead: {
-		auto &rLab = static_cast<const DskReadLabel&>(lab);
-		s << rLab.getKind() << " [";
-		PRINT_RF(s, rLab.getRf());
-		s << "]";
-		break;
-	}
-
-	case EventLabel::EL_Write:
-	case EventLabel::EL_FaiWrite:
-	case EventLabel::EL_BIncFaiWrite:
-	case EventLabel::EL_NoRetFaiWrite:
-	case EventLabel::EL_CasWrite:
-	case EventLabel::EL_LockCasWrite:
-	case EventLabel::EL_TrylockCasWrite: {
-		auto &wLab = static_cast<const WriteLabel&>(lab);
-		s << wLab.getKind() << wLab.getOrdering() << " "
-		  << wLab.getVal();
-		break;
-	}
-	case EventLabel::EL_DskWrite: {
-		auto &wLab = static_cast<const DskWriteLabel&>(lab);
-		s << wLab.getKind() << " " << wLab.getVal();
-		break;
-	}
-
-	case EventLabel::EL_Fence: {
-		auto &fLab = static_cast<const FenceLabel&>(lab);
-		s << fLab.getKind() << fLab.getOrdering();
-		break;
-	}
-	case EventLabel::EL_SmpFenceLKMM: {
-		auto &fLab = static_cast<const SmpFenceLabelLKMM&>(lab);
-		s << fLab.getKind() << fLab.getType();
-		break;
-	}
-	case EventLabel::EL_ThreadCreate: {
-		auto &cLab = static_cast<const ThreadCreateLabel&>(lab);
-		s << cLab.getKind() << " [forks " << cLab.getChildId() << "]";
-		break;
-	}
-
-	case EventLabel::EL_DskOpen: {
-		auto &bLab = static_cast<const DskOpenLabel&>(lab);
-		s << bLab.getKind() << " (";
-		s << bLab.getFileName() << ", ";
-		s << bLab.getFd() << ")";
-		break;
-	}
-	case EventLabel::EL_HpProtect: {
-		auto &hpLab = static_cast<const HpProtectLabel&>(lab);
-		s << hpLab.getKind() << " (";
-		s << hpLab.getHpAddr() << ", ";
-		s << hpLab.getProtectedAddr().get() << ")";
-		break;
-	}
-	case EventLabel::EL_Block: {
-		auto &bLab = static_cast<const BlockLabel&>(lab);
-		s << bLab.getKind() << " [" << bLab.getType() << "]";
-		break;
-	}
-	default:
-		s << lab.getKind();
-		break;
-	}
+	s << LabelPrinter().toString(lab);
 	return s;
 }

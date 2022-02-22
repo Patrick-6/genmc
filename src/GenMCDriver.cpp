@@ -26,6 +26,7 @@
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "GraphIterators.hpp"
+#include "LabelVisitor.hpp"
 #include "Parser.hpp"
 #include "SExprVisitor.hpp"
 #include "ThreadPool.hpp"
@@ -1690,7 +1691,7 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 		return getWriteValue(s, rLab->getAddr(), rLab->getAccess()) == specVal;
 	});
 	WARN_ON_ONCE(valid > 1, "helper-aba-found",
-		     "Possible ABA pattern on variable " + getVarName(rLab) +
+		     "Possible ABA pattern on variable " + getVarName(rLab->getAddr()) +
 		     "! Consider running without -helper.\n");
 
 	/* Do not optimize if there are intervening SC accesses */
@@ -3138,68 +3139,6 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	}
 }
 
-#define IMPLEMENT_INTEGER_PRINT(OS, TY)			\
-	case AType::Signed:				\
-		OS << val.getSigned();			\
-		break;					\
-	case AType::Unsigned:				\
-		OS << val.get();			\
-		break;
-
-#define IMPLEMENT_POINTER_PRINT(OS, TY)			\
-	case AType::Pointer:				\
-		OS << val.getPointer();			\
-		break;
-
-static void executeValPrint(const SVal &val, AType atyp,
-			   llvm::raw_ostream &s = llvm::dbgs())
-{
-	switch (atyp) {
-		IMPLEMENT_INTEGER_PRINT(s, atyp);
-		IMPLEMENT_POINTER_PRINT(s, atyp);
-	default:
-		WARN("Unhandled type for GVPrint predicate!\n");
-		BUG();
-	}
-	return;
-}
-
-#define PRINT_AS_RF(s, e)			\
-do {					        \
-	if (e.isInitializer())			\
-		s << "INIT";			\
-	else if (e.isBottom())			\
-		s << "BOTTOM";			\
-	else					\
-		s << e ;			\
-} while (0)
-
-static void executeRLPrint(const ReadLabel *rLab,
-			   const std::string &varName,
-			   const SVal &val,
-			   llvm::raw_ostream &s = llvm::dbgs())
-{
-	s << rLab->getPos() << ": ";
-	s << rLab->getKind() << rLab->getOrdering()
-	  << " (" << varName << ", ";
-	executeValPrint(val, rLab->getType(), s);
-	s << ")";
-	s << " [";
-	PRINT_AS_RF(s, rLab->getRf());
-	s << "]";
-}
-
-static void executeWLPrint(const WriteLabel *wLab,
-			   const std::string &varName,
-			   llvm::raw_ostream &s = llvm::outs())
-{
-	s << wLab->getPos() << ": ";
-	s << wLab->getKind() << wLab->getOrdering()
-	  << " (" << varName << ", ";
-	executeValPrint(wLab->getVal(), wLab->getType(), s);
-	s << ")";
-}
-
 static void executeMDPrint(const EventLabel *lab,
 			   const std::pair<int, std::string> &locAndFile,
 			   std::string inputFile,
@@ -3232,13 +3171,13 @@ bool shouldPrintLOC(const EventLabel *lab)
 	return true;
 }
 
-std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
+std::string GenMCDriver::getVarName(const SAddr &addr) const
 {
-	if (mLab->getAddr().isStatic())
-		return getEE()->getStaticName(mLab->getAddr());
+	if (addr.isStatic())
+		return getEE()->getStaticName(addr);
 
 	const auto &g = getGraph();
-	auto a = g.getMalloc(mLab->getAddr());
+	auto a = g.getMalloc(addr);
 
 	if (a.isInitializer())
 		return "???";
@@ -3247,13 +3186,17 @@ std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
 	BUG_ON(!aLab);
 	if (aLab->getNameInfo())
 		return aLab->getName() +
-		       aLab->getNameInfo()->getNameAtOffset(mLab->getAddr() - aLab->getAllocAddr());
+		       aLab->getNameInfo()->getNameAtOffset(addr - aLab->getAllocAddr());
 	return "";
 }
 
 #ifdef ENABLE_GENMC_DEBUG
-llvm::raw_ostream::Colors getAccessColor(const MemAccessLabel *mLab)
+llvm::raw_ostream::Colors getLabelColor(const EventLabel *lab)
 {
+	auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab);
+	if (!mLab)
+		return llvm::raw_ostream::Colors::WHITE;
+
 	if (llvm::isa<ReadLabel>(mLab) && !llvm::dyn_cast<ReadLabel>(mLab)->isRevisitable())
 		return llvm::raw_ostream::Colors::RED;
 	if (mLab->wasAddedMax())
@@ -3265,42 +3208,33 @@ llvm::raw_ostream::Colors getAccessColor(const MemAccessLabel *mLab)
 void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
 	auto &g = getGraph();
+	LabelPrinter printer([this](const SAddr &saddr){ return getVarName(saddr); },
+			     [this](const ReadLabel &lab){
+				     return llvm::isa<DskReadLabel>(&lab) ?
+					     getDskReadValue(llvm::dyn_cast<DskReadLabel>(&lab)) :
+					     getReadValue(&lab);
+			     });
 
 	/* Print the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		auto &thr = EE->getThrById(i);
-		s << thr << ":\n";
-		for (auto j = 0u; j < g.getThreadSize(i); j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
-			s << "\t";
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				auto name = getVarName(rLab);
-				auto val = llvm::isa<DskReadLabel>(rLab) ?
-					getDskReadValue(llvm::dyn_cast<DskReadLabel>(rLab)) :
-					getReadValue(rLab);
-				GENMC_DEBUG(
-					if (getConf()->colorAccesses)
-						s.changeColor(getAccessColor(rLab));
-				);
-				executeRLPrint(rLab, name, val, s);
-				GENMC_DEBUG(s.resetColor(););
-			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				auto name = getVarName(wLab);
-				GENMC_DEBUG(
-					if (getConf()->colorAccesses)
-						s.changeColor(getAccessColor(wLab));
-				);
-				executeWLPrint(wLab, name, s);
-				GENMC_DEBUG(s.resetColor(););
-			} else {
-				s << *lab;
-				if (getConf()->symmetryReduction) {
-					if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
-						auto symm = bLab->getSymmetricTid();
-						if (symm != -1) s << " symmetric with " << symm;
-					}
-				}
+		s << thr;
+		if (getConf()->symmetryReduction) {
+			if (auto *bLab = g.getFirstThreadLabel(i)) {
+				auto symm = bLab->getSymmetricTid();
+				if (symm != -1) s << " symmetric with " << symm;
 			}
+		}
+		s << ":\n";
+		for (auto j = 1u; j < g.getThreadSize(i); j++) {
+			auto *lab = g.getEventLabel(Event(i, j));
+			s << "\t";
+			GENMC_DEBUG(
+				if (getConf()->colorAccesses)
+					s.changeColor(getLabelColor(lab));
+			);
+			s << printer.toString(*lab);
+			GENMC_DEBUG(s.resetColor(););
 			GENMC_DEBUG(
 				if (getConf()->vLevel >= VerbosityLevel::V1)
 					s << " @ " << lab->getStamp();
@@ -3323,7 +3257,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 					header = true;
 				}
 				auto *wLab = g.getWriteLabel(*mm->store_begin(locIt->first));
-				s << getVarName(wLab) << ": [ ";
+				s << getVarName(wLab->getAddr()) << ": [ ";
 				for (const auto &w : stores(g, locIt->first))
 					s << w << " ";
 				s << "]\n";
@@ -3335,10 +3269,16 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 void GenMCDriver::dotPrintToFile(const std::string &filename,
 				 Event errorEvent, Event confEvent)
 {
-	const ExecutionGraph &g = getGraph();
-	llvm::Interpreter *EE = getEE();
+	auto &g = getGraph();
+	auto *EE = getEE();
 	std::ofstream fout(filename);
 	llvm::raw_os_ostream ss(fout);
+	DotPrinter printer([this](const SAddr &saddr){ return getVarName(saddr); },
+			     [this](const ReadLabel &lab){
+				     return llvm::isa<DskReadLabel>(&lab) ?
+					     getDskReadValue(llvm::dyn_cast<DskReadLabel>(&lab)) :
+					     getReadValue(&lab);
+			     });
 
 	auto *before = g.getPrefixView(errorEvent).clone();
 	if (!confEvent.isInitializer())
@@ -3347,9 +3287,11 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";
 	/* Specify node shape */
-	ss << "\tnode [shape=box]\n";
+	ss << "node [shape=plaintext]\n";
 	/* Left-justify labels for clusters */
-	ss << "\tlabeljust=l\n";
+	ss << "labeljust=l\n";
+	/* Draw straight lines */
+	ss << "splines=false\n";
 
 	/* Print all nodes with each thread represented by a cluster */
 	for (auto i = 0u; i < before->size(); i++) {
@@ -3357,27 +3299,21 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 		ss << "subgraph cluster_" << thr.id << "{\n";
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
 		for (auto j = 1; j <= (*before)[i]; j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			auto *lab = g.getEventLabel(Event(i, j));
 
-			ss << "\t\"" << lab->getPos() << "\" [label=\"";
+			ss << "\t\"" << lab->getPos() << "\" [label=<";
 
 			/* First, print the graph label for this node */
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				auto name = getVarName(rLab);
-				auto val = getReadValue(rLab);
-				executeRLPrint(rLab, name, val, ss);
-			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				auto name = getVarName(wLab);
-				executeWLPrint(wLab, name, ss);
-			} else {
-				ss << *lab;
+			ss << printer.toString(*lab);
+
+			/* And then, print the corresponding line number */
+			if (thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
+				ss << " <FONT COLOR=\"gray\">";
+				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, ss);
+				ss << "</FONT>";
 			}
 
-			/* And then, print the corresponding source-code line */
-			ss << "\\n";
-			Parser::parseInstFromMData(thr.prefixLOC[j], "", ss);
-
-			ss << "\""
+			ss << ">"
 			   << (lab->getPos() == errorEvent  || lab->getPos() == confEvent ?
 			       ",style=filled,fillcolor=yellow" : "")
 			   << "]\n";
@@ -3389,7 +3325,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	for (auto i = 0u; i < before->size(); i++) {
 		auto &thr = EE->getThrById(i);
 		for (auto j = 0; j <= (*before)[i]; j++) {
-			const EventLabel *lab = g.getEventLabel(Event(i, j));
+			auto *lab = g.getEventLabel(Event(i, j));
 
 			/* Print a po-edge, but skip dummy start events for
 			 * all threads except for the first one */
@@ -3397,22 +3333,23 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 				ss << "\"" << lab->getPos() << "\" -> \""
 				   << lab->getPos().next() << "\"\n";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				/* Do not print RFs from the INIT/BOTTOM event */
+				/* Do not print RFs from INIT, BOTTOM, and same thread */
 				if (!rLab->getRf().isInitializer() &&
-				    !rLab->getRf().isBottom()) {
-					ss << "\t\"" << rLab->getRf() << "\" -> \""
-					   << rLab->getPos() << "\"[color=green]\n";
+				    !rLab->getRf().isBottom() &&
+				    rLab->getRf().thread != lab->getPos().thread) {
+					ss << "\"" << rLab->getRf() << "\" -> \""
+					   << rLab->getPos() << "\"[color=green, constraint=false]\n";
 				}
 			}
 			if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
 				if (thr.id == 0)
 					continue;
-				ss << "\t\"" << bLab->getParentCreate() << "\" -> \""
-				   << bLab->getPos().next() << "\"[color=blue]\n";
+				ss << "\"" << bLab->getParentCreate() << "\" -> \""
+				   << bLab->getPos().next() << "\"[color=blue, constraint=false]\n";
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-				ss << "\t\"" << jLab->getChildLast() << "\" -> \""
-				   << jLab->getPos() << "\"[color=blue]\n";
+				ss << "\"" << jLab->getChildLast() << "\" -> \""
+				   << jLab->getPos() << "\"[color=blue, constraint=false]\n";
 		}
 	}
 
