@@ -39,6 +39,7 @@
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "LLVMUtils.hpp"
+#include "SExprVisitor.hpp"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
@@ -191,6 +192,29 @@ SVal Interpreter::getLocInitVal(SAddr addr, AAccess access)
 	LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
 			    IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
 	return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
+}
+
+std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
+{
+	auto *l = ECStack().back().CurInst->getPrevNode();
+	auto *annot = getAnnotation(l);
+	if (!annot)
+		return nullptr;
+
+	using Concretizer = SExprConcretizer<AnnotID>;
+	auto &stackVals = ECStack().back().Values;
+	Concretizer::ReplaceMap vMap;
+
+	for (auto &kv : stackVals) {
+		/* (1) Check against NULL due to possibly empty thread parameter list
+		 * (2) Ensure that the load itself will not be concretized */
+		if (kv.first && kv.first != l) {
+			vMap.insert({(MI->idInfo.VID.at(kv.first)),
+					std::make_pair(GV_TO_SVAL(kv.second, kv.first->getType()),
+						       ASize(getTypeSize(kv.first->getType()) * 8))});
+		}
+	}
+	return Concretizer().concretize(annot, vMap);
 }
 
 EventLabel::EventLabelKind

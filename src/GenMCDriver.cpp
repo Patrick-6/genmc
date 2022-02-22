@@ -1318,9 +1318,10 @@ bool GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 
 	/* Ensure we keep the maximal store around even if Helper messed with it */
 	BUG_ON(validStores.empty());
+	auto maximal = validStores.back();
 	validStores.erase(std::remove_if(validStores.begin(), validStores.end(), [&](Event w){
 		auto val = getWriteValue(w, rLab->getAddr(), rLab->getAccess());
-		return w != validStores.back() && !isCoMaximal(rLab->getAddr(), w, true) &&
+		return w != maximal && !isCoMaximal(rLab->getAddr(), w, true) &&
 			!Evaluator().evaluate(rLab->getAnnot(), val);
 	}), validStores.end());
 	BUG_ON(validStores.empty());

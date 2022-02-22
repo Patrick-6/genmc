@@ -41,7 +41,6 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Interpreter.h"
-#include "SExprVisitor.hpp"
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
@@ -429,31 +428,6 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 	}
 	return nullptr;
 }
-
-std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
-{
-	auto *l = ECStack().back().CurInst->getPrevNode();
-	auto *annot = getAnnotation(l);
-	if (!annot)
-		return nullptr;
-
-	using Concretizer = SExprConcretizer<AnnotID>;
-	auto &stackVals = ECStack().back().Values;
-	Concretizer::ReplaceMap vMap;
-
-	for (auto &kv : stackVals) {
-		/* (1) Check against NULL due to possiblye empty thread parameter list
-		 * (2) Ensure that the load itself will not be concretized */
-		if (kv.first && kv.first != l) {
-			vMap.insert({(MI->idInfo.VID.at(kv.first)),
-					std::make_pair(SVal(kv.second.IntVal.getLimitedValue()),
-						       ASize(getTypeSize(kv.first->getType()) * 8))});
-		}
-	}
-
-	return Concretizer().concretize(annot, vMap);
-}
-
 
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
