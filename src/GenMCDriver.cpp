@@ -3234,7 +3234,7 @@ std::string GenMCDriver::getVarName(const MemAccessLabel *mLab) const
 		return getEE()->getStaticName(mLab->getAddr());
 
 	const auto &g = getGraph();
-	auto a = g.getPrecedingMalloc(mLab);
+	auto a = g.getMalloc(mLab->getAddr());
 
 	if (a.isInitializer())
 		return "???";

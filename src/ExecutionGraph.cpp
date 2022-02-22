@@ -313,20 +313,14 @@ Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAdd
 	return Event::getInitializer();
 }
 
-Event ExecutionGraph::getPrecedingMalloc(const MemAccessLabel *mLab) const
+Event ExecutionGraph::getMalloc(const SAddr &addr) const
 {
-	const auto &before = getEventLabel(mLab->getPos().prev())->getHbView();
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *oLab = getEventLabel(Event(i, j));
-			if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
-				if (aLab->contains(mLab->getAddr()) &&
-				    before.contains(oLab->getPos()))
-					return aLab->getPos();
-			}
-		}
-	}
-	return Event::getInitializer();
+	auto it = std::find_if(label_begin(*this), label_end(*this), [&](const EventLabel *lab){
+				       if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab))
+					       return aLab->contains(addr);
+				       return false;
+				});
+	return it != label_end(*this) ? it->getPos() : Event::getInitializer();
 }
 
 Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const

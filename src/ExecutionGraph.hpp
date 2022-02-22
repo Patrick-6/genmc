@@ -318,9 +318,9 @@ public:
 	/* LAPOR: Returns a linear extension of LB */
 	std::vector<Event> getLbOrderingLAPOR() const;
 
-	/* Returns the preceding allocating event for MLAB.
+	/* Returns the allocating event for ADDR.
 	 * Assumes that only one such event may exist */
-	Event getPrecedingMalloc(const MemAccessLabel *mLab) const;
+	Event getMalloc(const SAddr &addr) const;
 
 	/* Given a deallocating event FLAB, returns its allocating
 	 * counterpart (their addresses need to match exactly).
