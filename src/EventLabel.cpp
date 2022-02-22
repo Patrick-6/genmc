@@ -107,10 +107,10 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_HpProtect:
 		s << "HP";
 		break;
-	case EventLabel::EL_LockLabelLAPOR:
+	case EventLabel::EL_LockLAPOR:
 		s << "LL";
 		break;
-	case EventLabel::EL_UnlockLabelLAPOR:
+	case EventLabel::EL_UnlockLAPOR:
 		s << "LU";
 		break;
 	case EventLabel::EL_DskOpen:

@@ -267,8 +267,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 	case EventLabel::EL_Malloc:
 	case EventLabel::EL_Free:
 	case EventLabel::EL_HpRetire:
-	case EventLabel::EL_LockLabelLAPOR:
-	case EventLabel::EL_UnlockLabelLAPOR:
+	case EventLabel::EL_LockLAPOR:
+	case EventLabel::EL_UnlockLAPOR:
 	case EventLabel::EL_DskOpen:
 	case EventLabel::EL_HelpingCas:
 	case EventLabel::EL_HpProtect:

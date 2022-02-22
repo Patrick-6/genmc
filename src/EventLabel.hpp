@@ -119,8 +119,8 @@ public:
 		EL_HpRetire,
 		EL_FreeLast,
 		EL_HpProtect,
-		EL_LockLabelLAPOR,
-		EL_UnlockLabelLAPOR,
+		EL_LockLAPOR,
+		EL_UnlockLAPOR,
 		EL_HelpingCas,
 		EL_DskOpen,
 		EL_RCULockLKMM,
@@ -2600,9 +2600,9 @@ protected:
 
 public:
 	LockLabelLAPOR(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr)
-		: EventLabel(EL_LockLabelLAPOR, st, ord, pos), lockAddr(addr) {}
+		: EventLabel(EL_LockLAPOR, st, ord, pos), lockAddr(addr) {}
 	LockLabelLAPOR(llvm::AtomicOrdering ord, Event pos, SAddr addr)
-		: EventLabel(EL_LockLabelLAPOR, ord, pos), lockAddr(addr) {}
+		: EventLabel(EL_LockLAPOR, ord, pos), lockAddr(addr) {}
 
 	LockLabelLAPOR(unsigned int st, Event pos, SAddr addr)
 		: LockLabelLAPOR(st, llvm::AtomicOrdering::Acquire, pos, addr) {}
@@ -2622,7 +2622,7 @@ public:
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_LockLabelLAPOR; }
+	static bool classofKind(EventLabelKind k) { return k == EL_LockLAPOR; }
 
 private:
 	/* The address of the acquired lock */
@@ -2643,9 +2643,9 @@ protected:
 
 public:
 	UnlockLabelLAPOR(unsigned int st, llvm::AtomicOrdering ord, Event pos, SAddr addr)
-		: EventLabel(EL_UnlockLabelLAPOR, st, ord, pos), lockAddr(addr) {}
+		: EventLabel(EL_UnlockLAPOR, st, ord, pos), lockAddr(addr) {}
 	UnlockLabelLAPOR(llvm::AtomicOrdering ord, Event pos, SAddr addr)
-		: EventLabel(EL_UnlockLabelLAPOR, ord, pos), lockAddr(addr) {}
+		: EventLabel(EL_UnlockLAPOR, ord, pos), lockAddr(addr) {}
 
 	UnlockLabelLAPOR(unsigned int st, Event pos, SAddr addr)
 		: UnlockLabelLAPOR(st, llvm::AtomicOrdering::Release, pos, addr) {}
@@ -2665,7 +2665,7 @@ public:
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_UnlockLabelLAPOR; }
+	static bool classofKind(EventLabelKind k) { return k == EL_UnlockLAPOR; }
 
 private:
 	/* The address of the released lock */
