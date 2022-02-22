@@ -34,6 +34,7 @@
 #+MACRO: lapor @@html:<font style="font-variant: small-caps">LAPOR</font>@@@@latex:\textsc{LAPOR}\xspace@@
 #+MACRO: bam @@html:<font style="font-variant: small-caps">BAM</font>@@@@latex:\textsc{BAM}\xspace@@
 #+MACRO: persevere @@html:<font style="font-variant: small-caps">Persevere</font>@@@@latex:\textsc{Persevere}\xspace@@
+#+MACRO: helper @@html:<font style="font-variant: small-caps">helper</font>@@@@latex:\textsc{Helper}\xspace@@
 #+MACRO: po {{{colortt(808080,po)}}}
 #+MACRO: ppo {{{colortt(808080,ppo)}}}
 #+MACRO: rf {{{colortt(00ff00,rf)}}}
@@ -46,14 +47,14 @@
 
 * Introduction <<sec:intro>>
 
-{{{genmc}}} is a model checker that is an instantiation of the
-respective algorithm cite:kokologiannakis2019:genmc for programs
+{{{genmc}}} is an effective stateless model checker for programs
 written under the RC11 cite:lahav2017:repairing, IMM
 cite:podkopaev2019:imm, and LKMM cite:alglave2018:lkmm memory models.
-{{{genmc}}} works for C programs that use =C11= atomics and the
- =pthread= library for concurrency. It uses a very effective dynamic
- partial order reduction technique, and can verify safety properties
-in a sound, complete, and optimal fashion.
+{{{genmc}}} verifies safety properties of C programs that use =C11=
+atomics and the =pthread= library for concurrency. It employs a very
+effective dynamic partial order reduction technique
+cite:kokologiannakis2019:genmc,kokologiannakis2022:trust that is
+sound, complete and optimal.
 
 {{{genmc}}} works at the level of LLVM Intermediate Representation (LLVM-IR)
 and uses =clang= to translate C programs to LLVM-IR. This means it
@@ -67,7 +68,7 @@ dependencies are installed.
 
 * Basic Usage
 
-A generic invocation of {{{genmc}}} looks like the following:
+A generic invocation of {{{genmc}}} resembles the following:
 
 #+BEGIN_SRC sh
     genmc [OPTIONS] -- [CFLAGS] <file>
@@ -89,7 +90,7 @@ the code under test should be data-deterministic, i.e.,
 not perform actions like calling =rand()=, performing
 actions based on user input or the clock, etc. In other words,
 all non-determinism should originate either from the scheduler
-or the employed (weak) memory model.
+or the underlying (weak) memory model.
 
 As long as these requirements as satisfied, {{{genmc}}} will detect safety
 errors, races on non-atomic variables, as well as some memory errors
@@ -152,23 +153,22 @@ with which {{{genmc}}} will yield the following result:
 Number of complete executions explored: 2
 Total wall-clock time: 0.02s
 #+END_SRC
-As can be seen, {{{genmc}}} will explore two executions: one where
-$ready = data =0$, and one where $ready = data = 1$.
+{{{genmc}}} explores two executions: one where $ready = data =0$, and
+one where $ready = data = 1$.
 
 
 ** Reducing the State Space of a Program With =assume()= Statements <<sec:basic-assume>>
 
-In some programs, we only care about what happens when certain
-reads read certain values of interest. That said, {{{genmc}}}, being
-a model checker, will explore all the consistent values values
-for each read of interest, as well as all consistent options for
-all reads after the reads of interest, leading to the exploration
-of an exponential number of executions that are not of interest.
+In some programs, we only care about what happens when certain reads
+read certain values of interest. That said, by default, {{{genmc}}}
+will explore all possible values for all program loads, possibly
+leading to the exploration of an exponential number of executions.
 
-To alleviate this problem, {{{genmc}}} supports the =__VERIFIER_assume()=
-function (similar to the one specified in SV-COMP cite:www:svcomp). This
-function takes an integer argument (possibly the value read from
-a read), and only continues the execution if the argument is non-zero.
+To alleviate this problem, {{{genmc}}} supports the
+=__VERIFIER_assume()= function (similar to the one specified in
+SV-COMP cite:www:svcomp). This function takes an integer argument
+(e.g., the value read from a load), and only continues the execution
+if the argument is non-zero.
 
 For example, let us consider the MP program from the previous section,
 and suppose that we are only interested in verifying the assertion
@@ -219,7 +219,7 @@ int main()
 }
 #+END_SRC
 Note that the =__VERIFIER_assume()= function has to be declared. Alternatively,
-one can include the <genmc.h> header, that contains the declarations for all
+one can include the =<genmc.h>= header, that contains the declarations for all
 the special function that {{{genmc}}} offers (see Section [[sec:apis]]).
 
 If we run {{{genmc}}} on the =mp-assume.c= program above, we get the following
@@ -233,44 +233,55 @@ As can be seen, {{{genmc}}} only explored one full execution (the one
 where $r = 1$, while the execution where $r = 0$ was blocked, because
 of the =assume()= statement. Of course, while the usage of =assume()=
 does not make any practical difference in this small example, this is
-always the case: in programs where there are a lot of (global) accesses
-after an =assume()= statement, there can be a significant reduction in
-the {{{genmc}}}'s running time.
+not always the case: generally, using =assume()= might yield an
+exponential improvement in {{{genmc}}}'s running time.
 
 Finally, note that, when using {{{genmc}}} under memory models that
 track dependencies (see Section [[sec:features-mms]]), an =assume()=
-statement will introduce a control dependency in the program's code.
+statement will introduce a control dependency in the program code.
 
 
 ** Handling Infinite Loops <<sec:basic-loops>>
 
 As mentioned in the beginning of this section, all programs that
-{{{genmc}}} can handle need to have finite traces. That said, many programs
-of interest do not fulfill this requirement, because, for example,
-they have some infinite loop. {{{genmc}}} offers two solutions for such
-cases, depending on the type of the loop.
+{{{genmc}}} can handle need to have finite traces. That said, many
+programs of interest do not fulfill this requirement, because, for
+example, they have some infinite loop. {{{genmc}}} offers three
+solutions for such cases.
 
-For simple spin loops, like the one shown below, {{{genmc}}} automatically
-transforms them into =assume()= statements:
+First, {{{genmc}}} can automatically perform the "spin-assume"
+transformation for a large class of spinloops. Specifically, as long
+as a spinloop completes a full iteration with no visible side effects
+(e.g., stores to global variables), {{{genmc}}} will cut the respective
+execution. For instance, consider the following simple loop:
 #+BEGIN_SRC C
-while (!condition)
-        ;
+int r = 0;
+while (!atomic_compare_exchange_strong(&x, &r, 1))
+        r = 0;
 #+END_SRC
-The =condition= should be a simple condition (e.g., a load from
-a global variable), and the body of the loop should have no
-side-effects. In cases where =condition= is a complex expression,
-or has side-effects (e.g., if it is a compare-and-exchange instruction),
-{{{genmc}}} will /not/ transform the loop into an =assume()= statement.
+Since this loop has no visible side-effects whenever it completes
+a full iteration, {{{genmc}}} will not explore more than one
+execution where the loop fails (the execution where the loop fails
+will be reported as a blocked execution). The "spin-assume"
+transformation has proven to be very effective for a wide range of
+loops; for more details on whether it applies on a specific loop,
+please see cite:kokologiannakis2021:saver.
 
-For infinite loops with side effects, one has to use the =-unroll=N=
-command-line option (see Section [[sec:cli]]). This option
-bounds all loops so that they are executed at most =N= times.
-Naturally, in this case, any verification guarantees that {{{genmc}}}
-provides hold up to that bound.
 
-Finally, note that the loop-bounding happens at the LLVM-IR level,
-which means that the loops there may not directly correspond to loops
-in the C code (depending on the enabled compiled optimizations, etc).
+
+Finally, for infinite loops with side effects, we can use the
+=-unroll=N= command-line option (see Section [[sec:cli]]). This option
+bounds all loops so that they are executed at most =N= times.  In this
+case, any verification guarantees that {{{genmc}}} provides hold up to
+that bound.  If you are unsure whether you should use the =-unroll=N=
+switch, you can try to verify the program and check whether
+{{{genmc}}} complains about the graph size
+(=-warn-on-graph-size=<N>=). If it does, there is a good chance you
+need to use the =-unroll=N= switch.
+
+Note that the loop-bounding happens at the LLVM-IR level, which means
+that the loops there may not directly correspond to loops in the C
+code (depending on the enabled compiled optimizations, etc).
 
 
 ** Error Reporting <<sec:basic-error>>
@@ -539,7 +550,7 @@ certain programs.
 For programs that employ coarse-grained locking schemes {{{lapor}}}
 cite:kokologiannakis2019:lapor might greatly reduce the state space
 and thus the verification time.  For instance, consider the following
-program where a lock is used (overly conservative) to read a shared
+program where a lock is used (overly conservatively) to read a shared
 variable:
 
 #+BEGIN_SRC C
@@ -716,6 +727,64 @@ In order for symmetry reduction to actually take place, the spawned
 threads need to share exactly the same code, have exactly the same
 arguments, and also there must not be any memory access (at the
 LLVM-IR level) between the spawn instructions.
+
+
+** Checking Liveness <<sec:liveness>>
+
+{{{genmc}}} can also check for liveness violations in programs with
+spinloops. Consider the following simple program:
+
+#+begin_src C
+/* file: liveness.c */
+#include <stdlib.h>
+#include <pthread.h>
+#include <stdatomic.h>
+
+atomic_int x;
+
+void *thread_1(void *unused)
+{
+	while (!x)
+		;
+	return NULL;
+}
+
+int main()
+{
+	pthread_t t1;
+
+	if (pthread_create(&t1, NULL, thread_1, NULL))
+		abort();
+
+	return 0;
+}
+#+end_src
+Since there are no writes to $x$, the loop in =thread_1= above
+will never terminate. Indeed, running {{{genmc}}} with
+ =-check-liveness= produces a relevant error report:
+#+begin_src sh
+Error detected: Liveness violation!
+Event (1, 4) in graph:
+<-1, 0> main:
+	(0, 0): B
+	(0, 1): TC [forks 1] L.19
+	(0, 2): E
+<0, 1> thread_1:
+	(1, 0): B
+	(1, 1): LOOP_BEGIN
+	(1, 2): SPIN_START
+	(1, 3): Rsc (x, 0) [INIT] L.9
+	(1, 4): BLOCK [spinloop]
+
+Non-terminating spinloop: thread 1
+Number of complete executions explored: 0
+Number of blocked executions seen: 1
+Total wall-clock time: 0.07s
+#+end_src
+
+The =-check-liveness= switch will automatically check for liveness
+violations in all loops that have been captured by the spin-assume
+transformation (see [[sec:cli]]).
 
 
 ** System Calls and Persistency Checks ({{{persevere}}}) <<sec:pers>>
@@ -919,11 +988,12 @@ are most useful when verifying user programs.
 - =-imm= :: Perform the exploration under the IMM memory model
 - =-lkmm= :: Perform the exploration under the LKMM memory model (experimental)
 - =-wb= :: Perform the exploration based on the {{{po}}}{{{rf}}}
-     equivalence partitioning (default).
-- =-mo= :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
      equivalence partitioning.
+- =-mo= :: Perform the exploration based on the {{{po}}} $\cup$ {{{rf}}} $\cup$ {{{mo}}}
+     equivalence partitioning (default).
 - =-lapor= :: Enable Lock-Aware Partial Order Reduction ({{{lapor}}})
 - =-disable-bam= :: Disables Barrier-Aware Model-checking ({{{bam}}})
+- =-check-liveness= :: Check for liveness violations in spinloops
 - =-persevere= :: Enable =ext4= persistency checks ({{{persevere}}})
 - =-unroll=<N>= :: All loops will be executed at most $N$ times.
 - =-dump-error-graph=<file>= :: Outputs an erroneous graph to file
