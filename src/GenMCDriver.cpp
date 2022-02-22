@@ -3205,12 +3205,16 @@ static void executeMDPrint(const EventLabel *lab,
 			   std::string inputFile,
 			   llvm::raw_ostream &os = llvm::outs())
 {
-	os << " L." << locAndFile.first;
 	std::string errPath = locAndFile.second;
 	Parser::stripSlashes(errPath);
 	Parser::stripSlashes(inputFile);
+
+	os << " ";
 	if (errPath != inputFile)
-		os << ": " << errPath;
+		os << errPath << ":";
+	else
+		os << "L.";
+	os << locAndFile.first;
 }
 
 /* Returns true if the corresponding LOC should be printed for this label type */
