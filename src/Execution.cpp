@@ -1614,7 +1614,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	return;
 }
 
-SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, AtomicRMWInst::BinOp op)
+SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op)
 {
 	switch (op) {
 	case AtomicRMWInst::Xchg:
@@ -1622,9 +1622,9 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, AtomicRMWInst
 			     "Atomic xchg support is experimental under dependency-tracking models!\n");
 		return val;
 	case AtomicRMWInst::Add:
-		return oldVal + val;
+		return (oldVal + val).signExtendBottom(size.getBits());
 	case AtomicRMWInst::Sub:
-		return oldVal - val;
+		return (oldVal - val).signExtendBottom(size.getBits());
 	case AtomicRMWInst::And:
 		return oldVal & val;
 	case AtomicRMWInst::Nand:
@@ -1664,7 +1664,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	if (thr.tls.count(ptr)) {
 		GenericValue oldVal = thr.tls[ptr];
 		auto newVal = executeAtomicRMWOperation(GV_TO_SVAL(oldVal, typ),
-							val, I.getOperation());
+							val, size, I.getOperation());
 		thr.tls[ptr] = SVAL_TO_GV(newVal, typ);
 		SetValue(&I, oldVal, SF);
 		return;
@@ -1679,7 +1679,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		ret = driver->visitLoad(nameR ## Label::create(		\
 			I.getOrdering(), nextPos(), ptr, size, atyp, 	\
 			I.getOperation(), val, getWriteAttr(I)), &*deps); \
-		auto newVal = executeAtomicRMWOperation(ret, val, I.getOperation()); \
+		auto newVal = executeAtomicRMWOperation(ret, val, size, I.getOperation()); \
 		if (!getCurThr().isBlocked())				\
 			driver->visitStore(				\
 				nameW ## Label::create(I.getOrdering(), nextPos(), ptr, size, \
@@ -3110,7 +3110,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 	if (oldVal.getSigned() <= 0 || getCurThr().isBlocked())
 		return;
 
-	auto newVal = executeAtomicRMWOperation(oldVal, SVal(1), AtomicRMWInst::BinOp::Sub);
+	auto newVal = executeAtomicRMWOperation(oldVal, SVal(1), asize, AtomicRMWInst::BinOp::Sub);
 
 	driver->visitStore(BIncFaiWriteLabel::create(AtomicOrdering::AcquireRelease, nextPos(),
 						     barrier, asize, atyp, newVal), &*specialDeps);
@@ -3631,7 +3631,7 @@ SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<Ev
 		FaiReadLabel::create(AtomicOrdering::AcquireRelease, nextPos(),
 				     fileCount, asize, atyp, AtomicRMWInst::Sub, SVal(1)), &*deps);
 
-	auto newVal = executeAtomicRMWOperation(ret, SVal(1), AtomicRMWInst::Sub);
+	auto newVal = executeAtomicRMWOperation(ret, SVal(1), asize, AtomicRMWInst::Sub);
 
 	driver->visitStore(FaiWriteLabel::create(AtomicOrdering::AcquireRelease, nextPos(),
 						 fileCount, asize, atyp, newVal), &*deps);

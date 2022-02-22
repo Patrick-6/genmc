@@ -538,7 +538,7 @@ public:
   void replayExecutionBefore(const VectorClock &before);
   SVal getLocInitVal(SAddr addr, AAccess access);
   unsigned int getTypeSize(Type *typ) const;
-  SVal executeAtomicRMWOperation(SVal val1, SVal val2, AtomicRMWInst::BinOp op);
+  SVal executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op);
 
   // Methods used to execute code:
   // Place a call on the stack
