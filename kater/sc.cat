@@ -1,0 +1,6 @@
+let po = po_imm+
+let mo = mo_imm+
+let fr = rf_inv ; mo
+
+acyclic (po | rf | mo | fr)
+
