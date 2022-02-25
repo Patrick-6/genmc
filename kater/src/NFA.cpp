@@ -96,7 +96,7 @@ void NFA::remove_node (int n)
 
 void NFA::flip()
 {
-	std::swap(starting, accepting);	
+	std::swap(starting, accepting);
 	std::swap(trans, trans_inv);
 }
 
@@ -175,7 +175,7 @@ void NFA::simplify_basic ()
 				if (is_accepting(i) != is_accepting(j)) continue;
 				if (trans[i] != trans[j]) continue;
 				if (is_starting(j)) starting.insert(i);
-				add_incoming_edges (i, trans_inv[j]);	
+				add_incoming_edges (i, trans_inv[j]);
 				remove_node (j);
 				changed = true;
 			}
@@ -186,7 +186,7 @@ void NFA::simplify_basic ()
 				if (is_starting(i) != is_starting(j)) continue;
 				if (trans_inv[i] != trans_inv[j]) continue;
 				if (is_accepting(j)) accepting.insert(i);
-				add_outgoing_edges (i, trans[j]);	
+				add_outgoing_edges (i, trans[j]);
 				remove_node (j);
 				changed = true;
 			}
@@ -320,17 +320,17 @@ void NFA::simplify ()
 		int s = trans.size();
 		std::vector<bool> same (s * s);
 		same.flip();
-	
+
 		do {
 			changed = false;
 			for (int i = 0; i < s; ++i)
 				for (int j = 0; j < i; ++j) {
 					if (!same[i * s + j]) continue;
 					if (is_accepting(i) == is_accepting(j)
-					    && std::all_of (trans[i].begin(), trans[i].end(), [&](const std::pair<std::string, int> &n) { 
+					    && std::all_of (trans[i].begin(), trans[i].end(), [&](const std::pair<std::string, int> &n) {
 						return std::find_if(trans[j].begin(), trans[j].end(), [&](const std::pair<std::string, int> &m) {
 							return n.first == m.first && same[n.second * s + m.second]; }) != trans[j].end(); })
-					    && std::all_of (trans[j].begin(), trans[j].end(), [&](const std::pair<std::string, int> &n) { 
+					    && std::all_of (trans[j].begin(), trans[j].end(), [&](const std::pair<std::string, int> &n) {
 						return std::find_if(trans[i].begin(), trans[i].end(), [&](const std::pair<std::string, int> &m) {
 							return n.first == m.first && same[n.second * s + m.second]; }) != trans[i].end(); }))
 						continue;
@@ -340,7 +340,7 @@ void NFA::simplify ()
 				}
 		} while (changed);
 		changed = false;
-	
+
 		std::cout << "Current NFA: " << *this << std::endl;
 		for (int i = trans.size() - 1; i >= 0 ; --i)
 			for (int j = trans.size() - 1; j > i; --j)
@@ -390,12 +390,12 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 void NFA::print_visitors_header_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
-	
+
 	std::ofstream fout (className + ".hpp");
 	if (!fout.is_open()) {
 		return;
 	}
-	
+
 	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
 	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
 	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n";
@@ -406,12 +406,12 @@ void NFA::print_visitors_header_file (const std::string &name)
 	fout << "\tconst ExecutionGraph & graph;\n";
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tstd::vector<bool> visited" << i << ";\n";
-	} 
-	
+	}
+
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tbool visit" << i << "(const EventLabel &x);\n";
-	} 
-	
+	}
+
 	fout << "\npublic:\n";
 	fout << "\t" << className << "(const ExecutionGraph &G) : graph(G)";
 	for (int i = 0 ; i < trans.size(); i++) fout << ", visited" << i << "()";
@@ -424,12 +424,12 @@ void NFA::print_visitors_header_file (const std::string &name)
 void NFA::print_visitors_impl_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
-	
+
 	std::ofstream fout (className + ".cpp");
 	if (!fout.is_open()) {
 		return;
 	}
-	
+
 	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
 	fout << "#include <vector>\n";
 	fout << "#include \"" << className << ".hpp\"\n";
@@ -452,7 +452,7 @@ void NFA::print_visitors_impl_file (const std::string &name)
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tvisited" << i << ".clear();\n";
 		fout << "\tvisited" << i << ".resize(x.getStamp());\n";
-	} 
+	}
 	fout << "\treturn true ";
 	for (auto i : starting) fout << " && visit" << i << "(x)";
 	fout << ";\n}\n";
