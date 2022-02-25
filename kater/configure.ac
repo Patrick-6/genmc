@@ -10,6 +10,8 @@ AC_PROG_CXX
 AC_PROG_FLEX
 AC_PROG_BISON
 
+AM_CONDITIONAL([kater], [test "x$ax_build_kater" = "xyes"])
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
