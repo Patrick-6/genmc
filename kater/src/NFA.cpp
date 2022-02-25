@@ -441,8 +441,8 @@ void NFA::print_visitors_impl_file (const std::string &name)
 
 	printKaterNotice(name, fout);
 
-	fout << "#include <vector>\n";
 	fout << "#include \"" << className << ".hpp\"\n";
+	fout << "#include <vector>\n";
 
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\nbool " << className << "::visit" << i << "(const EventLabel &x)\n{\n";
