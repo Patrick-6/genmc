@@ -408,7 +408,7 @@ void NFA::print_visitors_header_file (const std::string &name)
 	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n\n";
 
 	fout << "#include \"ExecutionGraph.hpp\"\n";
-	fout << "#include \"EventLabels.hpp\"\n";
+	fout << "#include \"EventLabel.hpp\"\n";
 
 	fout << "\nclass " << className << " {\nprivate:\n";
 	fout << "\tconst ExecutionGraph & graph;\n";
