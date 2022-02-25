@@ -461,7 +461,7 @@ void NFA::print_visitors_impl_file (const std::string &name)
 	fout << "\nbool " << className << "::isConsistent(const EventLabel &x)\n{\n";
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tvisited" << i << ".clear();\n";
-		fout << "\tvisited" << i << ".resize(x.getStamp());\n";
+		fout << "\tvisited" << i << ".resize(x.getStamp() + 1);\n";
 	}
 	fout << "\treturn true ";
 	for (auto i : starting) fout << " && visit" << i << "(x)";
