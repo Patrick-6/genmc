@@ -11,14 +11,14 @@ genmc
 *.ll
 *.out
 
-kater/kater
+kater/src/kater
 
-kater/.deps
-kater/Lexer.hpp
-kater/Lexer.cpp
-kater/Parser.hpp
-kater/Parser.cpp
-kater/location.hh
+kater/src/.deps
+kater/src/Lexer.hpp
+kater/src/Lexer.cpp
+kater/src/Parser.hpp
+kater/src/Parser.cpp
+kater/src/location.hh
 
 Makefile
 Makefile.in
