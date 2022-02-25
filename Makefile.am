@@ -1,4 +1,4 @@
-SUBDIRS = src include
+SUBDIRS = src include kater
 
 .PHONY: test ftest
 test:
