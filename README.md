@@ -36,11 +36,13 @@ The LLVM versions currently supported are:
 
 ##### GNU/Linux
 
-In order to use the tool on a Debian-based installation, you will need the
+In order to use the tool on a Debian-based installation, you need the
 following packages:
 
 		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
 		zlib1g-dev libedit-dev
+
+To build [`kater`](kater/README.md) as well, you additionally need `flex` and `bison`.
 
 ##### Max OS X
 
