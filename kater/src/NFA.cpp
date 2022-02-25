@@ -463,7 +463,7 @@ void NFA::print_visitors_impl_file (const std::string &name)
 		fout << "\tvisited" << i << ".clear();\n";
 		fout << "\tvisited" << i << ".resize(x.getStamp() + 1);\n";
 	}
-	fout << "\treturn true ";
+	fout << "\treturn true";
 	for (auto i : starting) fout << " && visit" << i << "(x)";
 	fout << ";\n}\n";
 }
