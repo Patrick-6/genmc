@@ -16,9 +16,8 @@ AC_DEFUN([AC_PROG_FLEX],
 
   AC_PROG_LEX(noyywrap)
   if test "$LEX" != "flex"; then
-    AC_MSG_WARN([flex not found. kater cannot be built.])
+    AC_MSG_WARN([flex not found. kater will not be built.])
     AC_DEFINE(NOBUILD_KATER, [], [whether to build kater])
-    echo "SHOULD NOT BUILD"
     ax_build_kater='no'
   else
     AC_SUBST(FLEX,[flex],[location of flex])

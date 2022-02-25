@@ -16,7 +16,7 @@ AC_DEFUN([AC_PROG_BISON],
 
   AC_PROG_YACC
   if test "$YACC" != "bison -y"; then
-    AC_MSG_WARN([bison not found. kater cannot be built.])
+    AC_MSG_WARN([bison not found. kater will not be built.])
     AC_DEFINE(NOBUILD_KATER, [], [whether to build kater])
     ax_build_kater='no'
   else
