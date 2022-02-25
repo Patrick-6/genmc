@@ -387,6 +387,12 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	return ostr;
 }
 
+void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
+{
+	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
+	return;
+}
+
 void NFA::print_visitors_header_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
@@ -396,7 +402,8 @@ void NFA::print_visitors_header_file (const std::string &name)
 		return;
 	}
 
-	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
+	printKaterNotice(name, fout);
+
 	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
 	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n";
 	fout << "#include \"ExecutionGraph.hpp\"\n";
@@ -430,7 +437,8 @@ void NFA::print_visitors_impl_file (const std::string &name)
 		return;
 	}
 
-	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
+	printKaterNotice(name, fout);
+
 	fout << "#include <vector>\n";
 	fout << "#include \"" << className << ".hpp\"\n";
 
