@@ -1,15 +1,15 @@
 %skeleton "lalr1.cc" // -*- C++ -*-
-%require "3.2"
+%require "3.8.1"
+%header
 
-// %define api.token.raw
+%define api.token.raw
 %define api.token.constructor
 %define api.token.prefix {TOK_}
 %define api.value.type variant
 %define parse.assert
 %define parse.trace
-// %define parse.error detailed
-%define parse.error verbose
-// %define parse.lac full
+%define parse.error detailed
+%define parse.lac full
 %locations
 
 %code requires {
@@ -22,6 +22,7 @@
 
 %code {
   #include <iostream>
+  #include <memory>
   #include <unordered_map>
   #include <vector>
   #include "RegExp.hpp"
@@ -46,16 +47,14 @@
   RBRACK   "]"
 ;
 
-%token YYEOF 0
-
 %token <std::string> ID;
-%nterm <RegExp *> rel;
+%nterm <std::unique_ptr<RegExp>> rel;
 
 %left  "|"
 %left  ";"
 %precedence "+" "*" "?"
 
-%printer { yyo << *($$); } <RegExp *>;
+%printer { yyo << *($$); } <std::unique_ptr<RegExp>>;
 %printer { yyo << $$; } <*>;
 
 %start main
@@ -65,20 +64,20 @@ main:	  %empty		{ }
 	| main decl		{ }
         ;
 
-decl:	  "let" ID "=" rel		{ drv.variables[$2] = std::unique_ptr<RegExp>($4); }
-	| "property" rel "=" "0" 	{ drv.emptiness_assumptions.push_back(std::unique_ptr<RegExp>($2)); }
-	| "acyclic" rel 		{ drv.acyclicity_constraints.push_back(std::unique_ptr<RegExp>($2)); }
+decl:	  "let" ID "=" rel		{ drv.variables[$2] = std::move($4); }
+	| "property" rel "=" "0" 	{ drv.emptiness_assumptions.push_back(std::move($2)); }
+	| "acyclic" rel 		{ drv.acyclicity_constraints.push_back(std::move($2)); }
 	;
 
-rel:	  "(" rel ")"		{ $$ = $2; }
-	| "[" rel "]"		{ $$ = make_BracketRE($2); }
-	| rel "|" rel		{ $$ = new AltRE($1, $3); }
-	| rel ";" rel		{ $$ = new SeqRE($1, $3); }
-	| rel "*"		{ $$ = new StarRE($1, 0); }
-	| rel "+"		{ $$ = new PlusRE($1, 0); }
-	| rel "?"		{ $$ = new QMarkRE($1, 0); }
+rel:	  "(" rel ")"		{ $$ = std::move($2); }
+	| "[" rel "]"		{ $$ = make_BracketRE(std::move($2)); }
+	| rel "|" rel		{ $$ = make_AltRE(std::move($1), std::move($3)); }
+	| rel ";" rel		{ $$ = make_SeqRE(std::move($1), std::move($3)); }
+	| rel "*"		{ $$ = make_StarRE(std::move($1)); }
+	| rel "+"		{ $$ = make_PlusRE(std::move($1)); }
+	| rel "?"		{ $$ = make_QMarkRE(std::move($1)); }
    	| ID			{ auto it = drv.variables.find($1);
-				  $$ = (it == drv.variables.end()) ? new CharRE($1) : it->second->clone(); } 
+				  $$ = (it == drv.variables.end()) ? make_CharRE($1) : it->second->clone(); } 
 	; 
 
 %%

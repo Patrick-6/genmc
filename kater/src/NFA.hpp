@@ -1,5 +1,5 @@
-#ifndef _NFA_HPP_
-#define _NFA_HPP_
+#ifndef _KATER_NFA_HPP_
+#define _KATER_NFA_HPP_
 
 #include <functional>
 #include <memory>
@@ -7,24 +7,11 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "TransLabel.hpp"
 
-class Token {
+class NFA {
 public:
-	std::string trans;
-	std::set<std::string> checks {};
-	Token (const std::string &s) : trans(s) {}
-
-	bool is_empty_trans() const { return trans.empty(); }
-	void add_check(const std::string &s) { checks.insert(s); }
-};
-
-std::ostream& operator<< (std::ostream& ostr, const Token& t);
-
-// ============================================================================
-class NFA { 
-public:
-	using tok_t = std::string;
-	using tok_vector = std::vector< std::pair<tok_t, int> >;
+	using tok_vector = std::vector< std::pair<TransLabel, int> >;
 	using trans_t = std::vector<tok_vector>;
 
 private:
@@ -34,24 +21,19 @@ private:
 	std::set<int> accepting;
 
 	void remove_node (int n);
-	void add_edge (int n, tok_t t, int m);
-	void remove_edge (int n, tok_t t, int m);
+	void add_edge (int n, const TransLabel &t, int m);
+	void remove_edge (int n, const TransLabel &t, int m);
 	void add_outgoing_edges (int n, const tok_vector &v);
 	void add_incoming_edges (int n, const tok_vector &v);
 
-	bool clean_starting () const;
-	bool clean_accepting () const;
-	void ensure_clean_starting ();
-	void ensure_clean_accepting ();
-
 public:
-	bool contains_edge (int n, tok_t t, int m) const;
+	bool contains_edge (int n, const TransLabel &t, int m) const;
 
 	bool is_starting (int n) const;
 	bool is_accepting (int n) const;
-	
+
 	static NFA make_empty();
-	static NFA make_singleton(const tok_t &t);
+	static NFA make_singleton(const TransLabel &t);
 
 	void flip ();
 	void alt (const NFA &other);
@@ -71,4 +53,4 @@ public:
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
 };
 
-#endif /* _NFA_HPP_ */
+#endif /* _KATER_NFA_HPP_ */

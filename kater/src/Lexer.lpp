@@ -52,9 +52,6 @@ property		return yy::parser::make_PROPERTY (loc);
 
 %%
 
-//0			return yy::parser::make_EMPTY       (loc);
-//-1			return yy::parser::make_MINUSONE    (loc);
-
 void Driver::scan_begin ()
 {
 	if (file.empty () || file == "-")

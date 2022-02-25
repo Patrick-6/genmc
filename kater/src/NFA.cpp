@@ -3,6 +3,8 @@
 #include <iostream>
 #include "NFA.hpp"
 
+using my_pair = std::pair<TransLabel,int>;
+
 static bool has_only_self_loops(const NFA::trans_t &trans, int n)
 {
 	for (auto &it : trans[n])
@@ -38,24 +40,29 @@ bool NFA::is_accepting(int n) const
 	return std::find(accepting.cbegin(), accepting.cend(), n) != accepting.cend();
 }
 
-bool NFA::contains_edge (int n, NFA::tok_t tok, int m) const
+bool NFA::contains_edge (int n, const TransLabel &l, int m) const
 {
-	std::pair<tok_t, int>p {tok, m};
+	my_pair p {l, m};
 	return std::find(trans[n].cbegin(), trans[n].cend(), p) != trans[n].cend();
 }
 
-void NFA::add_edge (int n, tok_t tok, int m)
+void NFA::add_edge (int n, const TransLabel &l, int m)
 {
-	if (contains_edge (n, tok, m)) return;
-	trans[n].push_back({tok,m});
-	trans_inv[m].push_back({tok,n});
+	if (contains_edge (n, l, m)) return;
+	trans[n].push_back({l,m});
+	my_pair p {l,n};
+	p.first.flip();
+	trans_inv[m].push_back(p);
 }
 
-void NFA::remove_edge (int n, tok_t tok, int m)
+void NFA::remove_edge (int n, const TransLabel &l, int m)
 {
-	auto it = std::remove(trans[n].begin(), trans[n].end(), std::pair<tok_t,int>(tok,m));
+	my_pair p {l,m};
+	auto it = std::remove(trans[n].begin(), trans[n].end(), p);
 	trans[n].erase(it, trans[n].end());
-	it = std::remove(trans_inv[m].begin(), trans_inv[m].end(), std::pair<tok_t,int>(tok,n));
+	p.first.flip();
+	p.second = n;
+	it = std::remove(trans_inv[m].begin(), trans_inv[m].end(), p);
 	trans_inv[m].erase(it, trans_inv[m].end());
 }
 
@@ -98,56 +105,6 @@ void NFA::flip()
 {
 	std::swap(starting, accepting);
 	std::swap(trans, trans_inv);
-}
-
-// Check that starting nodes have no incoming edges
-bool NFA::clean_starting() const
-{
-	for (int i = 0; i < trans_inv.size(); ++i)
-		if (!trans_inv[i].empty() && is_starting(i))
-			return false;
-	return true;
-}
-
-// Ensure starting nodes have no incoming edges
-void NFA::ensure_clean_starting()
-{
-	if (clean_starting())
-		return;
-	// Find starting node with no incoming edges
-	int n = 0;
-	while (n < trans.size()) {
-		if (trans_inv[n].empty() && is_starting(n)) break;
-		++n;
-	}
-	// If no such node exists, create one
-	if (n == trans.size()) {
-		trans.push_back({});
-		trans_inv.push_back({});
-	}
-	// Add { (n,a,q) | (i,a,q) \in NFA, starting(i) \ {n} }
-	for (int i = 0; i < trans.size(); ++i) {
-		if (i == n || !is_starting(i)) continue;
-		add_outgoing_edges(n, trans[i]);
-	}
-	starting = { n };
-}
-
-// Check that accepting nodes have no outgoing edges
-bool NFA::clean_accepting() const
-{
-	for (int i = 0; i < trans.size(); ++i)
-		if (!trans[i].empty() && is_accepting(i))
-			return false;
-	return true;
-}
-
-// Ensure all accepting nodes have no outgoing edges
-void NFA::ensure_clean_accepting()
-{
-	flip();
-	ensure_clean_starting();
-	flip();
 }
 
 // Basic graph clean up
@@ -195,13 +152,14 @@ void NFA::simplify_basic ()
 		for(int i = trans.size() - 1; i >= 0; --i)
 			for (int j = trans[i].size() - 1; j >= 0; --j) {
 				auto p = trans[i][j];
-				if (p.first[0] != '[') continue;
+				if (!p.first.is_empty_trans()) continue;
 				if (is_accepting(p.second) && i != p.second) continue;
 				std::cout << "Compacting edge " << i << " --" << p.first << "--> " << p.second << " in " << *this << std::endl;
 				if (p.second != i) {
 					for (const auto &q : trans[p.second]) {
-						std::string g = "SEQ(" + p.first + "," + q.first + ")";
-						add_edge (i, g, q.second);
+						TransLabel l = p.first.seq(q.first);
+						if (l.is_valid())
+							add_edge (i, l, q.second);
 					}
 				}
 				remove_edge (i, p.first, p.second);
@@ -223,13 +181,15 @@ NFA NFA::make_empty()
 	return n;
 }
 
-NFA NFA::make_singleton(const tok_t &c)
+NFA NFA::make_singleton(const TransLabel &c)
 {
 	NFA n;
+	TransLabel flipc = c;
+	flipc.flip();
 	n.trans.push_back({{c, 1}});
 	n.trans.push_back({});
 	n.trans_inv.push_back({});
-	n.trans_inv.push_back({{c, 0}});
+	n.trans_inv.push_back({{flipc, 0}});
 	n.starting.insert(0);
 	n.accepting.insert(1);
 	return n;
@@ -327,11 +287,11 @@ void NFA::simplify ()
 				for (int j = 0; j < i; ++j) {
 					if (!same[i * s + j]) continue;
 					if (is_accepting(i) == is_accepting(j)
-					    && std::all_of (trans[i].begin(), trans[i].end(), [&](const std::pair<std::string, int> &n) {
-						return std::find_if(trans[j].begin(), trans[j].end(), [&](const std::pair<std::string, int> &m) {
+					    && std::all_of (trans[i].begin(), trans[i].end(), [&](const my_pair &n) {
+						return std::find_if(trans[j].begin(), trans[j].end(), [&](const my_pair &m) {
 							return n.first == m.first && same[n.second * s + m.second]; }) != trans[j].end(); })
-					    && std::all_of (trans[j].begin(), trans[j].end(), [&](const std::pair<std::string, int> &n) {
-						return std::find_if(trans[i].begin(), trans[i].end(), [&](const std::pair<std::string, int> &m) {
+					    && std::all_of (trans[j].begin(), trans[j].end(), [&](const my_pair &n) {
+						return std::find_if(trans[i].begin(), trans[i].end(), [&](const my_pair &m) {
 							return n.first == m.first && same[n.second * s + m.second]; }) != trans[i].end(); }))
 						continue;
 					same[i * s + j] = false;
@@ -368,14 +328,6 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 	return ostr;
 }
 
-std::ostream & operator<< (std::ostream& ostr, const Token &t)
-{
-	if (!t.checks.empty())
-		ostr << "[" << t.checks << "]";
-	ostr << t.trans;
-	return ostr;
-}
-
 std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 {
 	ostr << "[NFA with " << nfa.trans.size() << " states]" << std::endl;
@@ -387,12 +339,6 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	return ostr;
 }
 
-void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
-{
-	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
-	return;
-}
-
 void NFA::print_visitors_header_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
@@ -402,13 +348,11 @@ void NFA::print_visitors_header_file (const std::string &name)
 		return;
 	}
 
-	printKaterNotice(name, fout);
-
+	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
 	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
-	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n\n";
-
+	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n";
 	fout << "#include \"ExecutionGraph.hpp\"\n";
-	fout << "#include \"EventLabel.hpp\"\n";
+	fout << "#include \"EventLabels.hpp\"\n";
 
 	fout << "\nclass " << className << " {\nprivate:\n";
 	fout << "\tconst ExecutionGraph & graph;\n";
@@ -426,7 +370,6 @@ void NFA::print_visitors_header_file (const std::string &name)
 	fout << " {}\n";
 	fout << "\tbool isConsistent(const EventLabel &x);\n";
 	fout << "};\n\n";
-
 	fout << "#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */\n";
 }
 
@@ -439,10 +382,9 @@ void NFA::print_visitors_impl_file (const std::string &name)
 		return;
 	}
 
-	printKaterNotice(name, fout);
-
-	fout << "#include \"" << className << ".hpp\"\n";
+	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
 	fout << "#include <vector>\n";
+	fout << "#include \"" << className << ".hpp\"\n";
 
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\nbool " << className << "::visit" << i << "(const EventLabel &x)\n{\n";
@@ -461,9 +403,9 @@ void NFA::print_visitors_impl_file (const std::string &name)
 	fout << "\nbool " << className << "::isConsistent(const EventLabel &x)\n{\n";
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tvisited" << i << ".clear();\n";
-		fout << "\tvisited" << i << ".resize(x.getStamp() + 1);\n";
+		fout << "\tvisited" << i << ".resize(x.getStamp());\n";
 	}
-	fout << "\treturn true";
+	fout << "\treturn true ";
 	for (auto i : starting) fout << " && visit" << i << "(x)";
 	fout << ";\n}\n";
 }
