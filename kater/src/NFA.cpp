@@ -339,6 +339,12 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	return ostr;
 }
 
+void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
+{
+	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
+	return;
+}
+
 void NFA::print_visitors_header_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
@@ -348,11 +354,13 @@ void NFA::print_visitors_header_file (const std::string &name)
 		return;
 	}
 
-	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
+	printKaterNotice(name, fout);
+
 	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
-	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n";
+	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n\n";
+
 	fout << "#include \"ExecutionGraph.hpp\"\n";
-	fout << "#include \"EventLabels.hpp\"\n";
+	fout << "#include \"EventLabel.hpp\"\n";
 
 	fout << "\nclass " << className << " {\nprivate:\n";
 	fout << "\tconst ExecutionGraph & graph;\n";
@@ -370,6 +378,7 @@ void NFA::print_visitors_header_file (const std::string &name)
 	fout << " {}\n";
 	fout << "\tbool isConsistent(const EventLabel &x);\n";
 	fout << "};\n\n";
+
 	fout << "#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */\n";
 }
 
@@ -382,9 +391,10 @@ void NFA::print_visitors_impl_file (const std::string &name)
 		return;
 	}
 
-	fout << "/* This file is generated automatically by Kater -- do not edit. */\n";
-	fout << "#include <vector>\n";
+	printKaterNotice(name, fout);
+
 	fout << "#include \"" << className << ".hpp\"\n";
+	fout << "#include <vector>\n";
 
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\nbool " << className << "::visit" << i << "(const EventLabel &x)\n{\n";
@@ -403,9 +413,9 @@ void NFA::print_visitors_impl_file (const std::string &name)
 	fout << "\nbool " << className << "::isConsistent(const EventLabel &x)\n{\n";
 	for (int i = 0 ; i < trans.size(); i++) {
 		fout << "\tvisited" << i << ".clear();\n";
-		fout << "\tvisited" << i << ".resize(x.getStamp());\n";
+		fout << "\tvisited" << i << ".resize(x.getStamp() + 1);\n";
 	}
-	fout << "\treturn true ";
+	fout << "\treturn true";
 	for (auto i : starting) fout << " && visit" << i << "(x)";
 	fout << ";\n}\n";
 }

@@ -1,15 +1,15 @@
 %skeleton "lalr1.cc" // -*- C++ -*-
-%require "3.8.1"
-%header
+%require "3.2"
 
-%define api.token.raw
+// %define api.token.raw
 %define api.token.constructor
 %define api.token.prefix {TOK_}
 %define api.value.type variant
 %define parse.assert
 %define parse.trace
-%define parse.error detailed
-%define parse.lac full
+// %define parse.error detailed
+%define parse.error verbose
+// %define parse.lac full
 %locations
 
 %code requires {
@@ -46,6 +46,8 @@
   LBRACK   "["
   RBRACK   "]"
 ;
+
+%token YYEOF 0
 
 %token <std::string> ID;
 %nterm <std::unique_ptr<RegExp>> rel;
