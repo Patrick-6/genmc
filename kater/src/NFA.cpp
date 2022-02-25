@@ -405,7 +405,8 @@ void NFA::print_visitors_header_file (const std::string &name)
 	printKaterNotice(name, fout);
 
 	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
-	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n";
+	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n\n";
+
 	fout << "#include \"ExecutionGraph.hpp\"\n";
 	fout << "#include \"EventLabels.hpp\"\n";
 
@@ -425,6 +426,7 @@ void NFA::print_visitors_header_file (const std::string &name)
 	fout << " {}\n";
 	fout << "\tbool isConsistent(const EventLabel &x);\n";
 	fout << "};\n\n";
+
 	fout << "#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */\n";
 }
 
