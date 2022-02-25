@@ -6,6 +6,7 @@ genmc
 *.backup
 .*.sw[a-z]
 
+*.a
 *.o
 
 *.ll
