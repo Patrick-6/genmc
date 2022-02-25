@@ -1,5 +1,7 @@
 #include "Driver.hpp"
 
+#include <cstring>
+
 int Driver::parse (const std::string &f)
 {
 	file = f;
@@ -48,4 +50,3 @@ int main (int argc, const char *argv[])
 	f.print_visitors_impl_file("Demo");
 	return 0;
 }
-
