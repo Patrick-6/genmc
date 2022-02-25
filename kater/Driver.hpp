@@ -29,6 +29,4 @@ public:
   yy::location location;
 };
 
-int main(int argc, const char *argv[]);
-
 #endif /* DRIVER_HPP */
