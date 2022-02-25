@@ -6,28 +6,19 @@ genmc
 *.backup
 .*.sw[a-z]
 
-*.aux
-*.bbl
-*.blg
-*.fdb_latexmk
-*.fls
-*.log
-*.toc
-*.xdv
-*.tex
-*.out
+*.o
 
 *.ll
+*.out
 
-*.annot
-*.cmo
-*.cma
-*.cmi
-*.a
-*.o
-*.cmx
-*.cmxs
-*.cmxa
+kater/kater
+
+kater/.deps
+kater/Lexer.hpp
+kater/Lexer.cpp
+kater/Parser.hpp
+kater/Parser.cpp
+kater/location.hh
 
 Makefile
 Makefile.in
@@ -45,3 +36,4 @@ depcomp
 install-sh
 missing
 stamp-*
+ylwrap
