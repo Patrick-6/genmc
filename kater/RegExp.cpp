@@ -93,3 +93,36 @@ std::ostream & StarRE::print (std::ostream& ostr) const
 	return ostr;
 }
 
+RegExp *QMarkRE::clone () const
+{
+	return new QMarkRE(exp->clone(), 0);
+}
+
+NFA QMarkRE::toNFA() const
+{
+	NFA nfa = exp->toNFA();
+	nfa.or_empty();
+	return nfa;
+}
+
+std::ostream & QMarkRE::print (std::ostream& ostr) const
+{
+	ostr << *exp << "*";
+	return ostr;
+}
+
+
+RegExp *make_BracketRE(RegExp *exp)
+{
+	if (CharRE* e = dynamic_cast<CharRE*>(exp)) {
+		e->s = "[" + e->s + "]";
+		return e;
+	}
+	if (AltRE* e = dynamic_cast<AltRE*>(exp)) {
+		make_BracketRE(e->exp1.get());
+		make_BracketRE(e->exp2.get());
+   		return e;
+	}
+	std::cerr << "Error: Cannot process [" << *exp << "]." << std::endl;
+	return exp;
+}

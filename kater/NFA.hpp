@@ -8,6 +8,19 @@
 #include <utility>
 #include <vector>
 
+class Token {
+public:
+	std::string trans;
+	std::set<std::string> checks {};
+	Token (const std::string &s) : trans(s) {}
+
+	bool is_empty_trans() const { return trans.empty(); }
+	void add_check(const std::string &s) { checks.insert(s); }
+};
+
+std::ostream& operator<< (std::ostream& ostr, const Token& t);
+
+// ============================================================================
 class NFA { 
 public:
 	using tok_t = std::string;
@@ -22,6 +35,7 @@ private:
 
 	void remove_node (int n);
 	void add_edge (int n, tok_t t, int m);
+	void remove_edge (int n, tok_t t, int m);
 	void add_outgoing_edges (int n, const tok_vector &v);
 	void add_incoming_edges (int n, const tok_vector &v);
 

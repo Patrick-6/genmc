@@ -36,6 +36,9 @@ int main (int argc, const char *argv[])
 		std::cout << "Non-simplified generated NFA: " << n << std::endl;
 		// Simplify the NFA
 		n.simplify();
+		n.flip();
+		n.simplify();
+		n.flip();
 		std::cout << "Generated NFA: " << n << std::endl;
 		f.alt(n);
 	}

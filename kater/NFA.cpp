@@ -51,6 +51,14 @@ void NFA::add_edge (int n, tok_t tok, int m)
 	trans_inv[m].push_back({tok,n});
 }
 
+void NFA::remove_edge (int n, tok_t tok, int m)
+{
+	auto it = std::remove(trans[n].begin(), trans[n].end(), std::pair<tok_t,int>(tok,m));
+	trans[n].erase(it, trans[n].end());
+	it = std::remove(trans_inv[m].begin(), trans_inv[m].end(), std::pair<tok_t,int>(tok,n));
+	trans_inv[m].erase(it, trans_inv[m].end());
+}
+
 void NFA::add_outgoing_edges (int n, const tok_vector &edges)
 {
 	for (const auto &p : edges)
@@ -183,6 +191,23 @@ void NFA::simplify_basic ()
 				changed = true;
 			}
 
+		// Compress [..] edges
+		for(int i = trans.size() - 1; i >= 0; --i)
+			for (int j = trans[i].size() - 1; j >= 0; --j) {
+				auto p = trans[i][j];
+				if (p.first[0] != '[') continue;
+				if (is_accepting(p.second) && i != p.second) continue;
+				std::cout << "Compacting edge " << i << " --" << p.first << "--> " << p.second << " in " << *this << std::endl;
+				if (p.second != i) {
+					for (const auto &q : trans[p.second]) {
+						std::string g = "SEQ(" + p.first + "," + q.first + ")";
+						add_edge (i, g, q.second);
+					}
+				}
+				remove_edge (i, p.first, p.second);
+				std::cout << "Result: " << *this << std::endl;
+				changed = true;
+			}
 	} while (changed);
 }
 
@@ -331,7 +356,8 @@ void NFA::simplify ()
 }
 
 
-std::ostream & operator<< (std::ostream& ostr, const std::set<int> &s)
+template<typename T>
+static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 {
 	bool not_first = false;
 	for (auto i : s) {
@@ -339,6 +365,14 @@ std::ostream & operator<< (std::ostream& ostr, const std::set<int> &s)
 		else not_first = true;
 	 	ostr << i;
 	}
+	return ostr;
+}
+
+std::ostream & operator<< (std::ostream& ostr, const Token &t)
+{
+	if (!t.checks.empty())
+		ostr << "[" << t.checks << "]";
+	ostr << t.trans;
 	return ostr;
 }
 

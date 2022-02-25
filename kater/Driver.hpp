@@ -14,6 +14,7 @@ public:
 
   std::unordered_map<std::string, std::unique_ptr<RegExp> > variables {};
   std::vector<std::unique_ptr<RegExp> > acyclicity_constraints {};
+  std::vector<std::unique_ptr<RegExp> > emptiness_assumptions {};
 
   int result;
   bool debug;

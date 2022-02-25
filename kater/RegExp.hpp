@@ -28,10 +28,10 @@ public:
 
 class AltRE : public RegExp {
 public:
-	std::unique_ptr<const RegExp> exp1;
-	std::unique_ptr<const RegExp> exp2;
+	std::unique_ptr<RegExp> exp1;
+	std::unique_ptr<RegExp> exp2;
 
-	AltRE (const RegExp *r1, const RegExp *r2) : exp1(r1), exp2(r2) { }
+	AltRE (RegExp *r1, RegExp *r2) : exp1(r1), exp2(r2) { }
 	~AltRE() noexcept override = default;
 
 	RegExp * clone () const override;
@@ -75,6 +75,20 @@ public:
 	NFA toNFA () const override;
 	std::ostream & print (std::ostream& ostr) const override;
 };
+
+class QMarkRE : public RegExp {
+public:
+	std::unique_ptr<const RegExp> exp;
+
+	QMarkRE (const RegExp *r, int foo) : exp(r) { }
+	~QMarkRE() noexcept override = default;
+
+	RegExp * clone () const override;
+	NFA toNFA () const override;
+	std::ostream & print (std::ostream& ostr) const override;
+};
+
+RegExp *make_BracketRE(RegExp *exp);
 
 static inline std::ostream & operator<< (std::ostream& ostr, const RegExp& r) {
 	return r.print(ostr);
