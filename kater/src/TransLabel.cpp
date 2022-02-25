@@ -1,8 +1,9 @@
+#include "TransLabel.hpp"
+#include <cassert>
 #include <algorithm>
 #include <set>
 #include <unordered_map>
 #include <vector>
-#include "TransLabel.hpp"
 
 /*
 static std::unordered_map<std::string, int> string_to_id_map {};
