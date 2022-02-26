@@ -5,6 +5,31 @@
 #include <unordered_map>
 #include <vector>
 
+template<typename T>
+static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
+{
+	bool not_first = false;
+	for (auto &i : s) {
+		if (not_first) ostr << "&";
+		else not_first = true;
+		ostr << i;
+	}
+	return ostr;
+}
+
+std::ostream & operator<< (std::ostream& ostr, const TransLabel & t)
+{
+	if (!t.is_valid()) return ostr << "INVALID";
+	if (!t.pre_checks.empty()) {
+		ostr << "[" << t.pre_checks << "]";
+		if (!t.is_empty_trans()) ostr << ";";
+	}
+	if (!t.is_empty_trans()) ostr << t.trans;
+	if (!t.post_checks.empty())
+		ostr << ";[" << t.post_checks << "]";
+	return ostr;
+}
+
 /*
 static std::unordered_map<std::string, int> string_to_id_map {};
 static int string_to_id_map_count = 0;
@@ -20,12 +45,12 @@ static int string_to_id (const std::string & s)
 }
 */
 
-static std::vector<std::set<std::string> > invalids {};
+static std::vector<std::set<std::string> > invalids = {};
 
 void TransLabel::register_invalid (const TransLabel &l)
 {
 	assert (l.is_empty_trans() && l.pre_checks.size() > 1);
-	if (std::find (invalids.begin(), invalids.end(), l.pre_checks) != invalids.end())
+	if (std::find (invalids.begin(), invalids.end(), l.pre_checks) == invalids.end())
 		invalids.push_back(l.pre_checks);
 }
 
@@ -47,7 +72,7 @@ TransLabel::my_set TransLabel::merge_sets (const TransLabel::my_set &a,
 					   const TransLabel::my_set &b)
 {
 	/* `r = a \cup b` */
-	 auto r = a;
+	auto r = a;
 	for (const auto &e : b) r.insert(e);
 
 	/* `if (\exists s \in invalids. s \subseteq r) r = \emptyset` */
@@ -71,6 +96,8 @@ void TransLabel::flip ()
 TransLabel TransLabel::seq (const TransLabel &other) const
 {
 	TransLabel r;
+	if (!is_valid() || !other.is_valid())
+		return r;
 	if (is_empty_trans()) {
 		r.pre_checks = TransLabel::merge_sets (pre_checks, other.pre_checks);
 		if (!r.pre_checks.empty()) { /* is valid? */
@@ -83,33 +110,8 @@ TransLabel TransLabel::seq (const TransLabel &other) const
 		r.post_checks = TransLabel::merge_sets (post_checks, other.pre_checks);
 		if (!r.post_checks.empty()) { /* is valid? */
 			r.trans = trans;
-			r.pre_checks = other.pre_checks;
+			r.pre_checks = pre_checks;
 		}
 	}
 	return r;
-}
-
-template<typename T>
-static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
-{
-	bool not_first = false;
-	for (auto &i : s) {
-	 	if (not_first) ostr << "&";
-		else not_first = true;
- 		ostr << i;
-	}
-	return ostr;
-}
-
-std::ostream & operator<< (std::ostream& ostr, const TransLabel & t)
-{
-	if (!t.is_valid()) return ostr << "INVALID";
-	if (!t.pre_checks.empty()) {
-		ostr << "[" << t.pre_checks << "]";
-		if (!t.is_empty_trans()) ostr << ";";
-	}
-	if (!t.is_empty_trans()) ostr << t.trans;
-	if (!t.post_checks.empty())
-		ostr << ";[" << t.post_checks << "]";
-	return ostr;
 }
