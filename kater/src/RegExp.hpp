@@ -23,6 +23,8 @@ std::unique_ptr<RegExp> make_PlusRE(std::unique_ptr<RegExp> e);
 std::unique_ptr<RegExp> make_StarRE(std::unique_ptr<RegExp> e);
 std::unique_ptr<RegExp> make_QMarkRE(std::unique_ptr<RegExp> e);
 
+std::pair<TransLabel, bool> has_trans_label (const RegExp &e);
+
 static inline std::ostream & operator<< (std::ostream& ostr, const RegExp& r) {
 	return r.print(ostr);
 }

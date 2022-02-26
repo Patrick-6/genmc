@@ -81,7 +81,7 @@ public:
 
 	std::ostream & print (std::ostream& ostr) const override
 	{
-		return ostr << "(" << *exp1 << ";" << *exp2 << ")";
+		return ostr << "(" << *exp1 << " ; " << *exp2 << ")";
 	}
 };
 
@@ -175,6 +175,13 @@ std::unique_ptr<RegExp> make_AltRE(std::unique_ptr<RegExp> e1, std::unique_ptr<R
 
 std::unique_ptr<RegExp> make_SeqRE(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
 {
+	if (auto ee1 = dynamic_cast<CharRE*>(e1.get()))
+		if (auto ee2 = dynamic_cast<CharRE*>(e2.get()))
+			if (ee1->lab.is_empty_trans() ||
+			    ee2->lab.is_empty_trans()) {
+				ee1->lab = ee1->lab.seq(ee2->lab);
+				return std::move(e1);
+			}
 	return std::unique_ptr<RegExp>(new SeqRE(std::move(e1), std::move(e2)));
 }
 
@@ -193,33 +200,31 @@ std::unique_ptr<RegExp> make_QMarkRE(std::unique_ptr<RegExp> e)
 	return std::unique_ptr<RegExp>(new QMarkRE(std::move(e)));
 }
 
-
-static RegExp * make_BracketRE_recursive(RegExp *exp);
-
-static RegExp * make_BracketRE_recursive(RegExp *exp)
+std::unique_ptr<RegExp> make_BracketRE(std::unique_ptr<RegExp> exp)
 {
-	if (auto e = dynamic_cast<CharRE*>(exp)) {
+	if (auto e = dynamic_cast<CharRE*>(exp.get())) {
 		e->lab.make_bracket();
-		return e;
+		return std::move(exp);
 	}
-	if (auto e = dynamic_cast<AltRE*>(exp)) {
-		make_BracketRE_recursive(e->exp1.get());
-		make_BracketRE_recursive(e->exp2.get());
-   		return e;
+	if (auto e = dynamic_cast<AltRE*>(exp.get())) {
+		e->exp1 = std::move(make_BracketRE(std::move(e->exp1)));
+		e->exp2 = std::move(make_BracketRE(std::move(e->exp2)));
+		return std::move(exp);
 	}
-	if (auto e = dynamic_cast<SeqRE*>(exp)) {
-		auto e1 = make_BracketRE_recursive(e->exp1.get());
-		auto e2 = make_BracketRE_recursive(e->exp2.get());
-		return e;
+	if (auto e = dynamic_cast<SeqRE*>(exp.get())) {
+		return make_SeqRE(std::move(make_BracketRE(std::move(e->exp1))),
+				  std::move(make_BracketRE(std::move(e->exp2))));
 	}
 	std::cerr << "Error: Cannot process [" << *exp << "]." << std::endl;
-	return exp;
+	return std::move(exp);
 }
 
-
-std::unique_ptr<RegExp> make_BracketRE(std::unique_ptr<RegExp> e)
+std::pair<TransLabel, bool> has_trans_label (const RegExp &exp)
 {
-	make_BracketRE_recursive(e.get());
-	return e;
+	if (auto e = dynamic_cast<const CharRE*>(&exp))
+		return {e->lab, true};
+	else {
+		return {{}, false};
+	}
 }
 
