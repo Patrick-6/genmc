@@ -14,13 +14,14 @@ public:
 
   std::unordered_map<std::string, std::unique_ptr<RegExp> > variables;
   std::vector<std::unique_ptr<RegExp> > acyclicity_constraints;
-  std::vector<std::unique_ptr<RegExp> > emptiness_assumptions;
 
   int result;
   bool debug;
 
   // Run the parser on file F.  Return 0 on success.
   int parse (const std::string& f);
+
+  void register_emptiness_assumption(std::unique_ptr<RegExp> e);
 
   std::string file;
 
