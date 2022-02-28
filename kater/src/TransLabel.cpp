@@ -46,12 +46,20 @@ static int string_to_id (const std::string & s)
 */
 
 static std::vector<std::set<std::string> > invalids = {};
+static std::vector<TransLabel> invalids2 = {};
 
 void TransLabel::register_invalid (const TransLabel &l)
 {
-	assert (l.is_empty_trans() && l.pre_checks.size() > 1);
-	if (std::find (invalids.begin(), invalids.end(), l.pre_checks) == invalids.end())
-		invalids.push_back(l.pre_checks);
+	// Do not register already-invalid equations
+	if (!l.is_valid()) return;
+
+	if (l.is_empty_trans()) {
+		if (std::find (invalids.begin(), invalids.end(), l.pre_checks) == invalids.end())
+			invalids.push_back(l.pre_checks);
+	} else {
+		if (std::find (invalids2.begin(), invalids2.end(), l) == invalids2.end())
+			invalids2.push_back(l);
+	}
 }
 
 TransLabel TransLabel::make_trans_label (const std::string & s)
@@ -111,6 +119,25 @@ TransLabel TransLabel::seq (const TransLabel &other) const
 		if (!r.post_checks.empty()) { /* is valid? */
 			r.trans = trans;
 			r.pre_checks = pre_checks;
+		}
+	}
+	if (!r.is_empty_trans()) {
+		for (const auto &i : invalids2) {
+			if (i.trans != r.trans) continue;
+			if (std::any_of(i.pre_checks.begin(), i.pre_checks.end(),
+					[&](const std::string &s) {
+					return r.pre_checks.find(s) == r.pre_checks.end();
+					}))
+				continue;
+			if (std::any_of(i.post_checks.begin(), i.post_checks.end(),
+					[&](const std::string &s) {
+					return r.post_checks.find(s) == r.post_checks.end();
+					}))
+				continue;
+			r.pre_checks.clear();
+			r.trans.clear();
+			r.post_checks.clear();
+			return r;
 		}
 	}
 	return r;
