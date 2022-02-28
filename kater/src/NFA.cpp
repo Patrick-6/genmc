@@ -1,8 +1,8 @@
+#include "NFA.hpp"
 #include <algorithm>
 #include <map>
 #include <fstream>
 #include <iostream>
-#include "NFA.hpp"
 
 template<typename T>
 static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
