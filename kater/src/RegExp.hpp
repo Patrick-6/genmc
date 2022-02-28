@@ -19,9 +19,11 @@ std::unique_ptr<RegExp> make_CharRE(const std::string &s);
 std::unique_ptr<RegExp> make_BracketRE(std::unique_ptr<RegExp> e);
 std::unique_ptr<RegExp> make_AltRE(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
 std::unique_ptr<RegExp> make_SeqRE(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
+std::unique_ptr<RegExp> make_SeqRE_opt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
 std::unique_ptr<RegExp> make_PlusRE(std::unique_ptr<RegExp> e);
 std::unique_ptr<RegExp> make_StarRE(std::unique_ptr<RegExp> e);
 std::unique_ptr<RegExp> make_QMarkRE(std::unique_ptr<RegExp> e);
+std::unique_ptr<RegExp> optimizeRE(std::unique_ptr<RegExp> e);
 
 std::pair<TransLabel, bool> has_trans_label (const RegExp &e);
 

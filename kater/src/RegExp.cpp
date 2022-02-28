@@ -87,7 +87,7 @@ public:
 
 class PlusRE : public RegExp {
 public:
-	std::unique_ptr<const RegExp> exp;
+	std::unique_ptr<RegExp> exp;
 
 	PlusRE (std::unique_ptr<RegExp> r) : exp(std::move(r)) { }
 
@@ -113,7 +113,7 @@ public:
 
 class StarRE : public RegExp {
 public:
-	std::unique_ptr<const RegExp> exp;
+	std::unique_ptr<RegExp> exp;
 
 	StarRE (std::unique_ptr<RegExp> r) : exp(std::move(r)) { }
 
@@ -139,7 +139,7 @@ public:
 
 class QMarkRE : public RegExp {
 public:
-	std::unique_ptr<const RegExp> exp;
+	std::unique_ptr<RegExp> exp;
 
 	QMarkRE (std::unique_ptr<RegExp> r) : exp(std::move(r)) { }
 
@@ -174,6 +174,18 @@ std::unique_ptr<RegExp> make_AltRE(std::unique_ptr<RegExp> e1, std::unique_ptr<R
 }
 
 std::unique_ptr<RegExp> make_SeqRE(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
+{
+	if (auto ee1 = dynamic_cast<CharRE*>(e1.get()))
+		if (auto ee2 = dynamic_cast<CharRE*>(e2.get()))
+			if (ee1->lab.is_empty_trans() &&
+			    ee2->lab.is_empty_trans()) {
+				ee1->lab = ee1->lab.seq(ee2->lab);
+				return std::move(e1);
+			}
+	return std::unique_ptr<RegExp>(new SeqRE(std::move(e1), std::move(e2)));
+}
+
+std::unique_ptr<RegExp> make_SeqRE_opt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
 {
 	if (auto ee1 = dynamic_cast<CharRE*>(e1.get()))
 		if (auto ee2 = dynamic_cast<CharRE*>(e2.get()))
@@ -216,6 +228,30 @@ std::unique_ptr<RegExp> make_BracketRE(std::unique_ptr<RegExp> exp)
 				  std::move(make_BracketRE(std::move(e->exp2))));
 	}
 	std::cerr << "Error: Cannot process [" << *exp << "]." << std::endl;
+	return std::move(exp);
+}
+
+std::unique_ptr<RegExp> optimizeRE(std::unique_ptr<RegExp> exp)
+{
+	if (auto e = dynamic_cast<SeqRE*>(exp.get()))
+		return std::move(make_SeqRE_opt(std::move(e->exp1), std::move(e->exp2)));
+	if (auto e = dynamic_cast<AltRE*>(exp.get())) {
+		e->exp1 = std::move(optimizeRE(std::move(e->exp1)));
+		e->exp2 = std::move(optimizeRE(std::move(e->exp2)));
+		return std::move(exp);
+	}
+	if (auto e = dynamic_cast<PlusRE*>(exp.get())) {
+		e->exp = std::move(optimizeRE(std::move(e->exp)));
+		return std::move(exp);
+	}
+	if (auto e = dynamic_cast<StarRE*>(exp.get())) {
+		e->exp = std::move(optimizeRE(std::move(e->exp)));
+		return std::move(exp);
+	}
+	if (auto e = dynamic_cast<QMarkRE*>(exp.get())) {
+		e->exp = std::move(optimizeRE(std::move(e->exp)));
+		return std::move(exp);
+	}
 	return std::move(exp);
 }
 

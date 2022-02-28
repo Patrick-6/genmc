@@ -67,7 +67,7 @@ main:	  %empty		{ }
         ;
 
 decl:	  "let" ID "=" rel		{ drv.variables[$2] = std::move($4); }
-	| "property" rel "=" "0" 	{ drv.register_emptiness_assumption(std::move($2)); }
+	| "property" rel "=" "0" 	{ drv.register_emptiness_assumption(std::move(optimizeRE(std::move($2)))); }
 	| "acyclic" rel 		{ drv.acyclicity_constraints.push_back(std::move($2)); }
 	;
 
