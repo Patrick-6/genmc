@@ -152,6 +152,7 @@ public:
 
 	/* Returns the position in the execution graph (thread, index) */
 	Event getPos() const { return position; }
+	Event &getPos() { return position; }
 
 	/* Returns the index of this label within a thread */
 	int getIndex() const { return position.index; }
@@ -240,7 +241,7 @@ private:
 	llvm::AtomicOrdering ordering;
 
 	/* Position of this label within the execution graph (thread, index) */
-	const Event position;
+	Event position;
 
 	/* Events that are hb-before this label */
 	View hbView;
