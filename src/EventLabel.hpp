@@ -1193,9 +1193,14 @@ public:
 	const std::vector<Event>& getReadersList() const { return readerList; }
 
 	/* Iterators for readers */
-	using const_iterator = std::vector<Event>::const_iterator;
-	const_iterator readers_begin() const { return readerList.begin(); }
-	const_iterator readers_end() const { return readerList.end(); }
+	using const_rf_iterator = std::vector<Event>::const_iterator;
+	using const_rf_range = llvm::iterator_range<const_rf_iterator>;
+
+	const_rf_iterator readers_begin() const { return readerList.begin(); }
+	const_rf_iterator readers_end() const { return readerList.end(); }
+	const_rf_range readers() const {
+		return const_rf_range(readers_begin(), readers_end());
+	}
 
 	/* Getter/setter for a view representing the
 	 * release sequence of this write */
