@@ -20,15 +20,11 @@ int main (int argc, const char *argv[])
 		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
 		n.star();
-		// From any starting state
-		n.all_suffixes();
 		std::cout << "Non-simplified generated NFA: " << n << std::endl;
 		// Simplify the NFA
 		n.simplify();
-		n.flip();
-		n.simplify();
-		n.flip();
-		std::cout << "Generated NFA: " << n << std::endl;
+		if (d.acyclicity_constraints.size() > 1)
+			std::cout << "Generated NFA: " << n << std::endl;
 		f.alt(n);
 	}
 	std::cout << "Final generated NFA: " << f << std::endl;
