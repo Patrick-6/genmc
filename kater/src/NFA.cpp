@@ -498,13 +498,16 @@ void NFA::print_visitors_header_file (const std::string &name)
 
 	PRINT_LINE("");
 	PRINT_LINE("private:");
+
+	PRINT_LINE("\tenum class NodeStatus { unseen, entered, left };");
+
 	for (auto i = 0u ; i < trans.size(); i++)
 		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
 
 	PRINT_LINE("");
 	PRINT_LINE("\tconst ExecutionGraph &g;");
 	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tstd::vector<bool> visited" << i << ";");
+		PRINT_LINE("\tstd::vector<NodeStatus> visited" << i << ";");
 
 	PRINT_LINE("};");
 
@@ -517,9 +520,8 @@ void NFA::print_visitors_impl_file (const std::string &name)
 	std::string className = std::string("KaterConsChecker") + name;
 
 	std::ofstream fout (className + ".cpp");
-	if (!fout.is_open()) {
+	if (!fout.is_open())
 		return;
-	}
 
 	printKaterNotice(name, fout);
 
@@ -534,16 +536,20 @@ void NFA::print_visitors_impl_file (const std::string &name)
 		PRINT_LINE("\tauto *lab = g.getEventLabel(e);");
 		PRINT_LINE("");
 
-		PRINT_LINE("\tif (visited" << i << "[lab->getStamp()])");
-		PRINT_LINE("\t\treturn " << (is_accepting(i) ? "true" : "false") << ";");
-		PRINT_LINE("");
-
-		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = true;");
+		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = NodeStatus::entered;");
 		for (const auto &n : trans[i]) {
-			PRINT_LINE("\tfor (const auto &s : " << n.first << "_succs(g, e))");
-			PRINT_LINE("\t\tif (visit" << n.second << "(s)) return true;");
+			PRINT_LINE("\tfor (const auto &s : " << n.first << "_succs(g, e)) {");
+			PRINT_LINE("\t\tauto status = visited" << n.second
+				   << "[g.getEventLabel(s)->getStamp()];");
+			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !visit"
+				   << n.second << "(s))");
+			PRINT_LINE("\t\t\treturn false;");
+			PRINT_LINE("\t\telse if (status == NodeStatus::entered)");
+			PRINT_LINE("\t\t\treturn false;");
+			PRINT_LINE("\t}");
 		}
-		PRINT_LINE("\treturn false;");
+		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = NodeStatus::left;");
+		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");
 	}
 
@@ -559,7 +565,7 @@ void NFA::print_visitors_impl_file (const std::string &name)
 
 	for (auto i = 0u ; i < trans.size(); i++) {
 		PRINT_LINE("\tvisited" << i << ".clear();");
-		PRINT_LINE("\tvisited" << i << ".resize(lab->getStamp() + 1);");
+		PRINT_LINE("\tvisited" << i << ".resize(lab->getStamp() + 1, NodeStatus::unseen);");
 	}
 
 	std::string retStr = "";
