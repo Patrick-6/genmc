@@ -36,7 +36,7 @@ public:
 	bool updateJoin(Event join, Event childLast) override;
 	void initConsCalculation() override;
 
-	// bool isConsistent(const Event &e) override;
+	bool isConsistent(const Event &e);
 
 private:
 	View calcBasicHbView(Event e) const;
@@ -61,9 +61,9 @@ private:
 	/* Returns an event that is racy with wLab, or INIT if none is found */
 	Event findRaceForNewStore(const WriteLabel *wLab);
 
-	bool visit0(Event &e);
+	enum class NodeStatus { unseen, entered, left };
 
-	std::vector<bool> visited0;
+	std::vector<NodeStatus> visited0;
 	bool visit0(const Event &e);
 };
 

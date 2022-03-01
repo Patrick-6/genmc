@@ -743,6 +743,9 @@ private:
 	 * consistency calculation */
 	virtual void initConsCalculation() = 0;
 
+	/* Returns true if the current graph is consistent when E is added */
+	virtual bool isConsistent(const Event &e) { ERROR("Unimplemented cons\n"); };
+
 #ifdef ENABLE_GENMC_DEBUG
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
 #endif
