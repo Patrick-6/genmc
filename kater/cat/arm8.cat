@@ -1,0 +1,56 @@
+// Standard preamble: various combinations that are invalid
+
+property [W] ; [R] = 0
+property [F] ; [R] = 0
+property [F] ; [W] = 0
+property [F] ; mo_imm = 0
+property [F] ; rf = 0
+property [F] ; rf_inv = 0
+property mo_imm ; [F] = 0
+property rf ; [F] = 0
+property rf_inv ; [F] = 0
+property [REL] ; [SC] = 0
+property [ACQ] ; [SC] = 0
+
+
+// Definition of standard relations
+let po = po_imm+
+let co = mo_imm+
+let fr = rf_inv ; co
+let ctrl = ctrl_imm ; po_imm*
+
+// let dsb.full = DSB.ISH | DSB.OSH | DSB.SY
+// let dsb.ld = DSB.ISHLD | DSB.OSHLD | DSB.LD
+// let dsb.st = DSB.ISHST | DSB.OSHST | DSB.ST
+// let dmb.full = DMB.ISH | DMB.OSH | DMB.SY | dsb.full
+// let dmb.ld = DMB.ISHLD | DMB.OSHLD | DMB.LD | dsb.ld
+// let dmb.st = DMB.ISHST | DMB.OSHST | DMB.ST | dsb.st
+
+// Atomic RMW relation
+let rmw = lxsx | amo
+
+// Local read successor
+// let lrs = [W]; (po-loc \ (po-loc;[W];po-loc)) ; [R]
+
+// Dependency ordering
+let dob = addr | data
+	| ctrl; [W]
+	| (ctrl | (addr; po)); [ISB]; po //; [R]
+	| addr; po; [W]
+	| (addr | data); lrs
+
+// Atomic ordering
+let aob = rmw
+	| [range_rmw]; lrs; [A | Q]
+
+// Barrier ordering
+let bob = po; [dmb.full]; po
+        | po; ([A];amo;[L]); po
+	| [L]; po; [A]
+	| [R_ret]; po; [dmb.ld]; po
+	| [A | Q]; po
+	| [W]; po; [dmb.st]; po; [W]
+	| po; [L]
+
+acyclic (rfe | co | fr | dob | aob | bob)
+

@@ -1,0 +1,38 @@
+// Standard preamble: various combinations that are invalid
+
+property [W] ; [R] = 0
+property [F] ; [R] = 0
+property [F] ; [W] = 0
+property [F] ; mo_imm = 0
+property [F] ; rf = 0
+property [F] ; rf_inv = 0
+property mo_imm ; [F] = 0
+property rf ; [F] = 0
+property rf_inv ; [F] = 0
+property [REL] ; [SC] = 0
+property [ACQ] ; [SC] = 0
+
+// Definition of standard relations
+let po = po_imm+
+let mo = mo_imm+
+let fr = rf_inv ; mo
+
+// Synchronizes-with relation
+//let sw = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ|SC]
+
+// Happens-before
+let hb = (po | sw)+
+
+// Extended coherence order 
+let eco = (rf | mo | fr)+
+
+// Sequential consistency order 
+let FSC = [F] ; [SC]
+let fhb = [F] ; hb
+let hbf = hb ; [F]
+let scb = po | rf | mo | fr
+let psc = [SC] ; po ; hb ; po ; [SC]
+        | [SC] ; fhb? ; scb ; hbf? ; [SC]
+        | FSC ; hb ; FSC
+        | FSC ; hb ; eco ; hb ; FSC
+acyclic psc
