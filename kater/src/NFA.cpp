@@ -1,7 +1,11 @@
 #include <algorithm>
+#include <map>
 #include <fstream>
 #include <iostream>
 #include "NFA.hpp"
+
+template<typename T>
+static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
 
 using my_pair = std::pair<TransLabel,int>;
 
@@ -26,6 +30,25 @@ static void removal_remap (NFA::trans_t &trans, int n)
 		for (int j = it.size() - 1; j >= 0; --j)
 			if (it[j].second == n) it.erase(it.begin() + j);
 			else if (it[j].second >= n) it[j].second = it[j].second - 1;
+}
+
+static bool is_subset (const std::vector<char> &a, const std::vector<char> &b)
+{
+	for (int k = 0; k < a.size(); ++k)
+		if (a[k] && !b[k]) return false;
+	return true;
+}
+
+static void take_union (std::vector<char> &a, const std::vector<char> &b)
+{
+	for (int k = 0; k < a.size(); ++k)
+		a[k] |= b[k];
+}
+
+static std::ostream & operator<< (std::ostream& ostr, const std::vector<char> &s)
+{
+	for (int c : s) ostr << (c ? "1" : ".");
+	return ostr;
 }
 
 //-------------------------------------------------------------------
@@ -74,14 +97,15 @@ void NFA::add_outgoing_edges (int n, const tok_vector &edges)
 
 void NFA::add_incoming_edges (int n, const tok_vector &edges)
 {
-	for (const auto &p : edges)
+	for (auto p : edges) {
+		p.first.flip();
 		add_edge (p.second, p.first, n);
+	}
 }
 
 // Remove node n and all its incoming and outgoing edges
 void NFA::remove_node (int n)
 {
-//	std::cout << "Remove node " << n << " in " << *this;
 	removal_remap (trans, n);
 	removal_remap (trans_inv, n);
 	trans.erase(trans.begin() + n);
@@ -98,7 +122,6 @@ void NFA::remove_node (int n)
 		if (i > n) s.insert(i - 1);
 	}
 	std::swap (accepting, s);
-//	std::cout << "End remove node" << *this << std::endl;
 }
 
 void NFA::flip()
@@ -113,7 +136,7 @@ void NFA::simplify_basic ()
 	bool changed;
 	do {
 		changed = false;
-		// Remove duplicate edges
+		// Keep the edges sorted
 		sort_edges(trans);
 		sort_edges(trans_inv);
 
@@ -148,24 +171,6 @@ void NFA::simplify_basic ()
 				changed = true;
 			}
 
-		// Compress [..] edges
-		for(int i = trans.size() - 1; i >= 0; --i)
-			for (int j = trans[i].size() - 1; j >= 0; --j) {
-				auto p = trans[i][j];
-				if (!p.first.is_empty_trans()) continue;
-				if (is_accepting(p.second) && i != p.second) continue;
-				std::cout << "Compacting edge " << i << " --" << p.first << "--> " << p.second << " in " << *this << std::endl;
-				if (p.second != i) {
-					for (const auto &q : trans[p.second]) {
-						TransLabel l = p.first.seq(q.first);
-						if (l.is_valid())
-							add_edge (i, l, q.second);
-					}
-				}
-				remove_edge (i, p.first, p.second);
-				std::cout << "Result: " << *this << std::endl;
-				changed = true;
-			}
 	} while (changed);
 }
 
@@ -198,37 +203,49 @@ NFA NFA::make_singleton(const TransLabel &c)
 void NFA::alt (const NFA &other)
 {
 	int n = trans.size();
+
+	// Append states and transitions of `other`
 	trans.resize(n + other.trans.size());
 	trans_inv.resize(n + other.trans.size());
-	for (const auto &k : other.starting) starting.insert (n + k);
-	for (const auto &k : other.accepting) accepting.insert (n + k);
 	for (int i = 0; i < other.trans.size(); ++i) {
 		for (const auto &p : other.trans[i])
 			add_edge (n + i, p.first, n + p.second);
 	}
-	simplify_basic();
+
+	// Take the union of starting and accepting states
+	for (const auto &k : other.starting) starting.insert (n + k);
+	for (const auto &k : other.accepting) accepting.insert (n + k);
 }
 
 void NFA::seq (const NFA &other)
 {
 	int n = trans.size();
+
+	// Append states and transitions of `other`
 	trans.resize(n + other.trans.size());
 	trans_inv.resize(n + other.trans.size());
 	for (int i = 0; i < other.trans.size(); ++i) {
 		for (const auto &p : other.trans[i])
 			add_edge (n + i, p.first, n + p.second);
 	}
+
+	// Add transitions `this->accepting --> other.starting`
 	for (const auto &a : accepting)
 		for (const auto &b : other.starting)
 			for (const auto &p : other.trans[b])
 				add_edge(a, p.first, p.second + n);
-	accepting.clear();
+
+	// Calculate accepting states
+	if (std::none_of(other.starting.begin(), other.starting.end(),
+			 [&](int i) { return other.is_accepting(i); }))
+		accepting.clear();
 	for (const auto &k : other.accepting) accepting.insert (n + k);
-	simplify_basic();
 }
 
 void NFA::plus ()
 {
+	// Add a transition from every accepting states
+	// to every successor of a starting state
 	for (const auto &a : accepting)
 		for (const auto &s : starting)
 			add_outgoing_edges(a, trans[s]);
@@ -263,56 +280,156 @@ void NFA::star ()
 	or_empty();
 }
 
-void NFA::all_suffixes ()
+// Convert to a deterministic automaton using the subset construction
+std::pair<NFA, std::vector<std::set<int>>> NFA::to_DFA() const
 {
-	for (int i = 0; i < trans.size(); ++i)
-		starting.insert(i);
+	NFA res;
+	std::map<std::set<int>, int> m;
+	std::vector<std::set<int>> v;
+	// Starting state of subset automaton
+	v.push_back(starting);
+	m.insert({starting, 0});
+	res.trans.push_back({});
+	res.trans_inv.push_back({});
+	res.starting.insert(0);
+	/////////////////////////////////////////////////
+	for (int i = 0; i < v.size(); i++) {
+		// For all outgoing transitions from state v[i]
+		auto ss = v[i];
+		for (const auto &s : ss)
+			for (const auto &p : trans[s]) {
+				// Calculate next set
+				std::set<int> next;
+				for (const auto &s2 : v[i])
+					for (const auto &p2 : trans[s2])
+						if (p2.first == p.first) next.insert(p2.second);
+				// Find index of next set
+				auto it = m.find(next);
+				int n = (it == m.end())
+					  ? (m.insert({next, v.size()}),
+					     res.trans.push_back({}),
+					     res.trans_inv.push_back({}),
+					     v.push_back(next), v.size() - 1)
+					  : it->second;
+				// Add edge i --p.first--> n
+				res.add_edge(i, p.first, n);
+			}
+	}
+	// Calculate accepting states
+	for (int i = 0; i < v.size(); i++)
+		for (const auto &s : v[i])
+			if (is_accepting(s)) res.accepting.insert(i);
+	return {res, v};
 }
 
-//-------------------------------------------------------------------
+
+// Return the state composition matrix, which is useful for minimizing the
+// states of an NFA.  See Definition 3 of Kameda and Weiner: On the State
+// Minimization of Nondeterministic Finite Automata
+std::vector<std::vector<char>> NFA::get_state_composition_matrix ()
+{
+	flip();
+	auto p = to_DFA();
+	flip();
+	std::cout << "State composition matrix: " << std::endl;
+	std::vector<std::vector<char>> v;
+	int vsize = p.second.size();
+	for (int i = 0; i < trans.size(); ++i) {
+		auto bv = std::vector<char>(vsize);
+		for (int j = 0; j < vsize; ++j)
+			if (p.second[j].find(i) != p.second[j].end())
+				bv[j] = 1;
+		v.push_back(bv);
+		std::cout << bv << ": " << i << std::endl;
+	}
+	return v;
+}
+
+
+// Reduce the NFA using the state composition matrix (cf. Kameda and Weiner)
+void NFA::scm_reduce ()
+{
+	simplify_basic();
+	auto v = get_state_composition_matrix ();
+	int vsize = v[0].size();
+	for (int i = trans.size() - 1; i >= 0; --i) {
+		// Is v[i] the equal to the union of some other rows?
+		auto bv = std::vector<char>(vsize);
+		for (int j = 0; j < trans.size(); ++j) {
+			if (j == i) continue;
+			if (!is_subset(v[j], v[i])) continue;
+			take_union(bv, v[j]);
+		}
+		if (bv != v[i]) continue;
+		std::cout << "erase node " << i << " with";
+		// If so, we can remove v[i].
+		for (int j = 0; j < trans.size(); ++j) {
+			if (j == i) continue;
+			if (!is_subset(v[j], v[i])) continue;
+			std::cout << " " << j;
+			add_incoming_edges(j, trans_inv[i]);
+		}
+		std::cout << std::endl;
+		remove_node(i);
+		v.erase(v.begin() + i);
+	}
+}
+
+
+void NFA::compact_edges()
+{
+	// Join `[...]` edges with successor edges
+	for(int i = trans.size() - 1; i >= 0; --i)
+		for (int j = trans[i].size() - 1; j >= 0; --j) {
+			auto p = trans[i][j];
+			if (!p.first.is_empty_trans()) continue;
+			if (is_accepting(p.second) && i != p.second) continue;
+			std::cout << "Compacting edge " << i << " --" << p.first << "--> " << p.second << std::endl;
+			if (p.second != i) {
+				for (const auto &q : trans[p.second]) {
+					TransLabel l = p.first.seq(q.first);
+					if (l.is_valid())
+						add_edge (i, l, q.second);
+				}
+			}
+			remove_edge (i, p.first, p.second);
+		}
+	// Remove redundant self loops
+	for(int i = trans.size() - 1; i >= 0; --i)
+		for (int j = trans[i].size() - 1; j >= 0; --j) {
+			auto p = trans[i][j];
+			if (p.second == i) continue;
+			if (!std::all_of (trans[i].begin(), trans[i].end(), [&](const my_pair &q) {
+				return q.first == p.first && (q.second == i || std::find(trans[p.second].begin(), trans[p.second].end(), q) != trans[p.second].end()); }))
+				continue;
+			remove_edge (i, p.first, i);
+		}
+}
+
 
 void NFA::simplify ()
 {
-	bool changed;
-	do {
-		simplify_basic();
-
-		int s = trans.size();
-		std::vector<bool> same (s * s);
-		same.flip();
-
-		do {
-			changed = false;
-			for (int i = 0; i < s; ++i)
-				for (int j = 0; j < i; ++j) {
-					if (!same[i * s + j]) continue;
-					if (is_accepting(i) == is_accepting(j)
-					    && std::all_of (trans[i].begin(), trans[i].end(), [&](const my_pair &n) {
-						return std::find_if(trans[j].begin(), trans[j].end(), [&](const my_pair &m) {
-							return n.first == m.first && same[n.second * s + m.second]; }) != trans[j].end(); })
-					    && std::all_of (trans[j].begin(), trans[j].end(), [&](const my_pair &n) {
-						return std::find_if(trans[i].begin(), trans[i].end(), [&](const my_pair &m) {
-							return n.first == m.first && same[n.second * s + m.second]; }) != trans[i].end(); }))
-						continue;
-					same[i * s + j] = false;
-					same[j * s + i] = false;
-					changed = true;
-				}
-		} while (changed);
-		changed = false;
-
-		std::cout << "Current NFA: " << *this << std::endl;
-		for (int i = trans.size() - 1; i >= 0 ; --i)
-			for (int j = trans.size() - 1; j > i; --j)
-				if (same[i * s + j]) {
-					std::cout << "Nodes " << i << " and " << j << " are bisimilar." << std::endl;
-					if (is_starting(j)) starting.insert(i);
-					add_incoming_edges(i, trans_inv[j]);
-					remove_node(j);
-					changed = true;
-				}
-		std::cout << "Transformed NFA: " << *this << std::endl;
-	} while (changed);
+	simplify_basic();
+	//std::cout << "After basic simplification: " << *this;
+	scm_reduce();
+	//std::cout << "After 1st SCM reduction: " << *this;
+	flip();
+	scm_reduce();
+	flip();
+	//std::cout << "After 2nd SCM reduction: " << *this;
+	compact_edges();
+	flip();
+	compact_edges();
+	flip();
+	//std::cout << "After edge compaction: " << *this;
+	scm_reduce();
+	//std::cout << "After 3rd SCM reduction: " << *this;
+	flip();
+	scm_reduce();
+	//std::cout << "Flipped: " << *this;
+	flip();
+	//std::cout << "After 4th SCM reduction: " << *this;
+	simplify_basic();
 }
 
 
@@ -323,7 +440,7 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 	for (auto i : s) {
 		if (not_first) ostr << ", ";
 		else not_first = true;
-	 	ostr << i;
+		ostr << i;
 	}
 	return ostr;
 }

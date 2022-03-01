@@ -26,6 +26,11 @@ private:
 	void add_outgoing_edges (int n, const tok_vector &v);
 	void add_incoming_edges (int n, const tok_vector &v);
 
+	void simplify_basic ();
+	void compact_edges ();
+	void scm_reduce ();
+	std::vector<std::vector<char>> get_state_composition_matrix ();
+
 public:
 	bool contains_edge (int n, const TransLabel &t, int m) const;
 
@@ -42,9 +47,8 @@ public:
 	void star ();
 	void plus ();
 
-	void all_suffixes ();
+	std::pair<NFA, std::vector<std::set<int>>> to_DFA () const;
 
-	void simplify_basic ();
 	void simplify ();
 
 	void print_visitors_header_file (const std::string &name);
