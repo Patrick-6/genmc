@@ -79,8 +79,8 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "+"		{ $$ = make_PlusRE(std::move($1)); }
 	| rel "?"		{ $$ = make_QMarkRE(std::move($1)); }
    	| ID			{ auto it = drv.variables.find($1);
-				  $$ = (it == drv.variables.end()) ? make_CharRE($1) : it->second->clone(); } 
-	; 
+				  $$ = (it == drv.variables.end()) ? make_CharRE($1) : it->second->clone(); }
+	;
 
 %%
 
