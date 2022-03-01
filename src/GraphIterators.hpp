@@ -79,6 +79,17 @@ public:
 	template<typename G>
 	LabelIterator(G &g, bool) : threads(&g.getThreadList()), thread(g.end()) {}
 
+	/* iterator-from-label constructor */
+	template<typename G>
+	LabelIterator(G &g, pointer p)
+		: threads(&g.getThreadList()), thread(g.begin() + p->getThread()),
+		  label(thread->begin() + p->getIndex()) {}
+
+	template<typename G>
+	LabelIterator(G &g, Event e)
+		: threads(&g.getThreadList()), thread(g.begin() + e.thread),
+		  label(thread->begin() + e.index) { advanceThread(); }
+
 
 	/*** Operators ***/
 	inline pointer operator*() const { return &**label; }
