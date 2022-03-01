@@ -1,16 +1,22 @@
 #include "Driver.hpp"
-#include <cstring>
+#include "Config.hpp"
+#include "Error.hpp"
 
-int main (int argc, const char *argv[])
+#include <string.h>
+#include <memory>
+
+int main(int argc, char **argv)
 {
-	Driver d;
-	std::string s ("");
-	if (argc > 1)
-		s = argv[argc - 1];
-	d.debug = (argc > 1 && strcmp(argv[1], "-p") == 0);
-	std::cout << "Parsing file " << s << "..." << std::endl;
-	d.parse (s);
-	std::cout << "Parsed input file" << std::endl;
+	auto config = std::make_unique<Config>();
+
+	config->parseOptions(argc, argv);
+
+	Driver d(config->debug);
+
+	std::cout << "Parsing file " << config->inputFile << "...";
+	if (d.parse(config->inputFile))
+		exit(EPARSE);
+	std::cout << " Done.\n";
 
 	NFA f;
 	for (auto &r : d.acyclicity_constraints) {
