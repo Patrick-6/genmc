@@ -498,12 +498,13 @@ void NFA::print_visitors_header_file (const std::string &name)
 
 	PRINT_LINE("");
 	PRINT_LINE("private:");
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
+
+	PRINT_LINE("");
 	PRINT_LINE("\tconst ExecutionGraph &g;");
 	for (auto i = 0u ; i < trans.size(); i++)
 		PRINT_LINE("\tstd::vector<bool> visited" << i << ";");
-
-	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
 
 	PRINT_LINE("};");
 
