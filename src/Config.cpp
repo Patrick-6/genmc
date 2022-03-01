@@ -48,12 +48,12 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 
 static llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
-		    clEnumValN(ModelType::rc11, "rc11", "RC11 memory model"),
-		    clEnumValN(ModelType::imm,  "imm",  "IMM memory model"),
-		    clEnumValN(ModelType::lkmm, "lkmm", "LKMM memory model")
+		    clEnumValN(ModelType::RC11, "rc11", "RC11 memory model"),
+		    clEnumValN(ModelType::IMM,  "imm",  "IMM memory model"),
+		    clEnumValN(ModelType::LKMM, "lkmm", "LKMM memory model")
 		    ),
 	    llvm::cl::cat(clGeneral),
-	    llvm::cl::init(ModelType::rc11),
+	    llvm::cl::init(ModelType::RC11),
 	    llvm::cl::desc("Choose model type:"));
 
 static llvm::cl::opt<CoherenceType>
@@ -295,7 +295,7 @@ void Config::checkConfigOptions() const
 	if (clCheckLiveness && clCoherenceType != CoherenceType::mo) {
 		ERROR("-check-liveness can only be used with -mo.\n");
 	}
-	if (clLAPOR && clModelType == ModelType::lkmm) {
+	if (clLAPOR && clModelType == ModelType::LKMM) {
 		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
 	}
 	if (clLAPOR && clCheckConsPoint < ProgramPoint::step) {
@@ -333,7 +333,7 @@ void Config::saveConfigOptions()
 	/* Save exploration options */
 	dotFile = clDotGraphFile;
 	model = clModelType;
-	isDepTrackingModel = (model == ModelType::imm || model == ModelType::lkmm);
+	isDepTrackingModel = (model == ModelType::IMM || model == ModelType::LKMM);
 	coherence = clCoherenceType;
 	threads = clThreads;
 	LAPOR = clLAPOR;
