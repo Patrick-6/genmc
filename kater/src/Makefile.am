@@ -1,5 +1,5 @@
 AM_YFLAGS = -d
-AM_CXXFLAGS = -std=c++11
+AM_CXXFLAGS = -std=c++14
 
 if kater
   BUILT_SOURCES = Parser.hpp
