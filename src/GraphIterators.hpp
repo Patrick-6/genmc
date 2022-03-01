@@ -124,7 +124,7 @@ public:
 		auto tmp = *this; --*this; return tmp;
 	}
 
-private:
+protected:
 	/* Checks whether we have reached the end of a thread, and appropriately
 	 * advances the thread and label iterators. Does nothing if that is not the case. */
 	inline void advanceThread() {
@@ -138,10 +138,6 @@ private:
 
 };
 
-/*******************************************************************************
- **                         label-iteration utilities
- ******************************************************************************/
-
 using label_iterator = LabelIterator<ExecutionGraph::ThreadList,
 				     ExecutionGraph::iterator,
 				     EventLabel,
@@ -151,38 +147,97 @@ using const_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 					   const EventLabel,
 					   ExecutionGraph::Thread::const_iterator>;
 
+
+/*******************************************************************************
+ **                         EventIterator Class
+ ******************************************************************************/
+
+/*
+ * Helper that overrides LabelIterator to iterate over events
+ */
+template<typename ThreadT, typename ThreadItT, typename LabelT, typename LabelItT>
+class EventIterator : public LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT> {
+
+public:
+	using value_type = Event;
+	using pointer = Event *;
+	using reference = Event &;
+
+	EventIterator() = default;
+
+	/* begin() constructor */
+	template<typename G>
+	EventIterator(G &g) : LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g) {}
+
+	template<typename G>
+	EventIterator(G &g, bool) : LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g, true) {}
+
+	template<typename G>
+	EventIterator(G &g, value_type e)
+		: LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g, e) {}
+
+	/*** Operators ***/
+	inline reference operator*() const { return (*this->label)->getPos(); }
+	inline pointer operator->() const { return &operator*(); }
+};
+
+using event_iterator = EventIterator<ExecutionGraph::ThreadList,
+				     ExecutionGraph::iterator,
+				     EventLabel,
+				     ExecutionGraph::Thread::iterator>;
+using const_event_iterator = EventIterator<const ExecutionGraph::ThreadList,
+					   ExecutionGraph::const_iterator,
+					   const EventLabel,
+					   ExecutionGraph::Thread::const_iterator>;
+
+
+/*******************************************************************************
+ **                         label-iteration utilities
+ ******************************************************************************/
+
 using label_range = llvm::iterator_range<label_iterator>;
 using const_label_range = llvm::iterator_range<const_label_iterator>;
 
-inline label_iterator label_begin(ExecutionGraph *G) { return label_iterator(*G); }
 inline label_iterator label_begin(ExecutionGraph &G) { return label_iterator(G); }
-inline const_label_iterator label_begin(const ExecutionGraph *G)
-{
-	return const_label_iterator(*G);
-}
 inline const_label_iterator label_begin(const ExecutionGraph &G)
 {
 	return const_label_iterator(G);
 }
 
-inline label_iterator label_end(ExecutionGraph *G) { return label_iterator(*G, true); }
 inline label_iterator label_end(ExecutionGraph &G)   { return label_iterator(G, true); }
-inline const_label_iterator label_end(const ExecutionGraph *G)
-{
-	return const_label_iterator(*G, true);
-}
 inline const_label_iterator label_end(const ExecutionGraph &G)
 {
 	return const_label_iterator(G, true);
 }
 
-inline label_range labels(ExecutionGraph *G) { return label_range(label_begin(G), label_end(G)); }
 inline label_range labels(ExecutionGraph &G) { return label_range(label_begin(G), label_end(G)); }
-inline const_label_range labels(const ExecutionGraph *G) {
-	return const_label_range(label_begin(G), label_end(G));
-}
 inline const_label_range labels(const ExecutionGraph &G) {
 	return const_label_range(label_begin(G), label_end(G));
+}
+
+
+/*******************************************************************************
+ **                         event-iteration utilities
+ ******************************************************************************/
+
+using event_range = llvm::iterator_range<event_iterator>;
+using const_event_range = llvm::iterator_range<const_event_iterator>;
+
+inline event_iterator event_begin(ExecutionGraph &G) { return event_iterator(G); }
+inline const_event_iterator event_begin(const ExecutionGraph &G)
+{
+	return const_event_iterator(G);
+}
+
+inline event_iterator event_end(ExecutionGraph &G)   { return event_iterator(G, true); }
+inline const_event_iterator event_end(const ExecutionGraph &G)
+{
+	return const_event_iterator(G, true);
+}
+
+inline event_range events(ExecutionGraph &G) { return event_range(event_begin(G), event_end(G)); }
+inline const_event_range events(const ExecutionGraph &G) {
+	return const_event_range(event_begin(G), event_end(G));
 }
 
 
