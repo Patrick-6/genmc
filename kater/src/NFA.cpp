@@ -462,6 +462,8 @@ void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
 	return;
 }
 
+#define PRINT_LINE(line) fout << line << "\n"
+
 void NFA::print_visitors_header_file (const std::string &name)
 {
 	std::string className = std::string("KaterConsChecker") + name;
@@ -473,30 +475,39 @@ void NFA::print_visitors_header_file (const std::string &name)
 
 	printKaterNotice(name, fout);
 
-	fout << "#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__\n";
-	fout << "#define __KATER_CONS_CHECKER_" << name << "_HPP__\n\n";
+	PRINT_LINE("#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__");
+	PRINT_LINE("#define __KATER_CONS_CHECKER_" << name << "_HPP__");
 
-	fout << "#include \"ExecutionGraph.hpp\"\n";
-	fout << "#include \"EventLabel.hpp\"\n";
+	PRINT_LINE("");
+	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
+	PRINT_LINE("#include \"EventLabel.hpp\"");
 
-	fout << "\nclass " << className << " {\nprivate:\n";
-	fout << "\tconst ExecutionGraph & graph;\n";
-	for (int i = 0 ; i < trans.size(); i++) {
-		fout << "\tstd::vector<bool> visited" << i << ";\n";
-	}
+	PRINT_LINE("");
+	PRINT_LINE("class " << className << " {");
+	PRINT_LINE("private:");
+	PRINT_LINE("\tconst ExecutionGraph &g;");
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tstd::vector<bool> visited" << i << ";");
 
-	for (int i = 0 ; i < trans.size(); i++) {
-		fout << "\tbool visit" << i << "(const EventLabel &x);\n";
-	}
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
 
-	fout << "\npublic:\n";
-	fout << "\t" << className << "(const ExecutionGraph &G) : graph(G)";
-	for (int i = 0 ; i < trans.size(); i++) fout << ", visited" << i << "()";
-	fout << " {}\n";
-	fout << "\tbool isConsistent(const EventLabel &x);\n";
-	fout << "};\n\n";
+	PRINT_LINE("");
+	PRINT_LINE("public:");
 
-	fout << "#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */\n";
+	auto i = 0u;
+	std::string initStr = "";
+	std::for_each(trans.begin(), trans.end(), [&](decltype(*trans.begin()) dummy){
+		initStr +=", visited" + std::to_string(i++) + "()";
+	});
+	initStr += " {}";
+	PRINT_LINE("\t" << className << "(const ExecutionGraph &g) : g(g)" << initStr);
+
+	PRINT_LINE("\tbool isConsistent(const Event &e);");
+	PRINT_LINE("};");
+
+	PRINT_LINE("");
+	PRINT_LINE("#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */");
 }
 
 void NFA::print_visitors_impl_file (const std::string &name)
@@ -510,29 +521,50 @@ void NFA::print_visitors_impl_file (const std::string &name)
 
 	printKaterNotice(name, fout);
 
-	fout << "#include \"" << className << ".hpp\"\n";
-	fout << "#include <vector>\n";
+	PRINT_LINE("#include \"" << className << ".hpp\"");
+	PRINT_LINE("#include <vector>");
 
-	for (int i = 0 ; i < trans.size(); i++) {
-		fout << "\nbool " << className << "::visit" << i << "(const EventLabel &x)\n{\n";
-		fout << "\tif (visited" << i << "[x.getStamp()]) return " << (is_accepting(i) ? "true" : "false") << ";\n";
-		fout << "\tvisited[x.getStamp()] = true;\n";
+	PRINT_LINE("");
+	for (auto i = 0u ; i < trans.size(); i++) {
+		PRINT_LINE("bool " << className << "::visit" << i << "(const Event &e)");
+		PRINT_LINE("{");
+		PRINT_LINE("\tauto &g = getGraph();");
+		PRINT_LINE("\tauto *lab = g.getEventLabel(e);");
+		PRINT_LINE("");
+
+		PRINT_LINE("\tif (visited" << i << "[lab->getStamp()])");
+		PRINT_LINE("\t\treturn " << (is_accepting(i) ? "true" : "false") << ";");
+		PRINT_LINE("");
+
+		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = true;");
 		for (const auto &n : trans[i]) {
-			fout << "\tfor (const auto &s : " << n.first << "_succs(G, x))\n";
-			fout << "\t\tif(visit" << n.second << "(s)) return true;\n";
+			PRINT_LINE("\tfor (const auto &s : " << n.first << "_succs(g, e))");
+			PRINT_LINE("\t\tif (visit" << n.second << "(s)) return true;");
 		}
-		fout << "\treturn false;\n}\n";
+		PRINT_LINE("\treturn false;");
+		PRINT_LINE("}");
 	}
 
 	/* I'm assuming that x has the largest timestamp in the graph.
 	   If not, we have to read the largest timestamp from the graph
 	   initialize the visited bit-vectors. */
-	fout << "\nbool " << className << "::isConsistent(const EventLabel &x)\n{\n";
-	for (int i = 0 ; i < trans.size(); i++) {
-		fout << "\tvisited" << i << ".clear();\n";
-		fout << "\tvisited" << i << ".resize(x.getStamp() + 1);\n";
+	PRINT_LINE("");
+	PRINT_LINE("bool " << className << "::isConsistent(const Event &e)");
+	PRINT_LINE("{");
+	PRINT_LINE("\tauto &g = getGraph();");
+	PRINT_LINE("\tauto *lab = g.getEventLabel(e)");
+	PRINT_LINE("");
+
+	for (auto i = 0u ; i < trans.size(); i++) {
+		PRINT_LINE("\tvisited" << i << ".clear();");
+		PRINT_LINE("\tvisited" << i << ".resize(lab->getStamp() + 1);");
 	}
-	fout << "\treturn true";
-	for (auto i : starting) fout << " && visit" << i << "(x)";
-	fout << ";\n}\n";
+
+	std::string retStr = "";
+	for (auto &i : starting) {
+		retStr += (" && visit" + std::to_string(i));
+		retStr += "(e)";
+	}
+	PRINT_LINE("\treturn true" + retStr + ";");
+	PRINT_LINE("}");
 }
