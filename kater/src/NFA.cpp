@@ -562,7 +562,7 @@ void NFA::print_visitors_impl_file (const std::string &name)
 
 	std::string retStr = "";
 	for (auto &i : starting) {
-		retStr += (" && visit" + std::to_string(i));
+		retStr += (" && !visit" + std::to_string(i));
 		retStr += "(e)";
 	}
 	PRINT_LINE("\treturn true" + retStr + ";");
