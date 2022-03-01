@@ -484,15 +484,6 @@ void NFA::print_visitors_header_file (const std::string &name)
 
 	PRINT_LINE("");
 	PRINT_LINE("class " << className << " {");
-	PRINT_LINE("private:");
-	PRINT_LINE("\tconst ExecutionGraph &g;");
-	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tstd::vector<bool> visited" << i << ";");
-
-	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
-
-	PRINT_LINE("");
 	PRINT_LINE("public:");
 
 	auto i = 0u;
@@ -504,6 +495,16 @@ void NFA::print_visitors_header_file (const std::string &name)
 	PRINT_LINE("\t" << className << "(const ExecutionGraph &g) : g(g)" << initStr);
 
 	PRINT_LINE("\tbool isConsistent(const Event &e);");
+
+	PRINT_LINE("");
+	PRINT_LINE("private:");
+	PRINT_LINE("\tconst ExecutionGraph &g;");
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tstd::vector<bool> visited" << i << ";");
+
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
+
 	PRINT_LINE("};");
 
 	PRINT_LINE("");
