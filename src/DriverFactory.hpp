@@ -25,6 +25,7 @@
 #include "IMMDriver.hpp"
 #include "LKMMDriver.hpp"
 #include "RC11Driver.hpp"
+#include "SCDriver.hpp"
 #include <llvm/IR/Module.h>
 
 class DriverFactory {
@@ -47,6 +48,7 @@ class DriverFactory {
 
 		GenMCDriver *driver = nullptr;
 		switch (conf->model) {
+			CREATE_MODEL_DRIVER(SC);
 			CREATE_MODEL_DRIVER(RC11);
 			CREATE_MODEL_DRIVER(IMM);
 			CREATE_MODEL_DRIVER(LKMM);

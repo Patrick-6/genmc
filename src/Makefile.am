@@ -75,6 +75,7 @@ libgenmc_a_SOURCES = \
   RevisitSet.cpp RevisitSet.hpp \
   SAddr.cpp SAddr.hpp \
   SAddrAllocator.hpp \
+  SCDriver.cpp SCDriver.hpp \
   SExpr.tcc SExpr.hpp \
   SExprVisitor.tcc SExprVisitor.hpp \
   SVal.cpp SVal.hpp \
