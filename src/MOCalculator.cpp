@@ -24,29 +24,138 @@
 #include <vector>
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::succ_begin(SAddr addr, Event store) const
+MOCalculator::co_succ_begin(SAddr addr, Event store) const
 {
 	auto offset = getStoreOffset(addr, store);
 	return store_begin(addr) + (offset + 1);
 }
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::succ_end(SAddr addr, Event store) const
+MOCalculator::co_succ_end(SAddr addr, Event store) const
 {
 	return store_end(addr);
 }
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::pred_begin(SAddr addr, Event store) const
+MOCalculator::co_succ_begin(Event e) const
+{
+	/* If it's not a write, we're gonna return a dummy
+	 * sentinel.  This should not be dereferenced */
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_succ_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_succ_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_succ_end(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_imm_succ_begin(SAddr addr, Event store) const
+{
+	return co_succ_begin(addr, store);
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_imm_succ_end(SAddr addr, Event store) const
+{
+	auto succ = co_imm_succ_begin(addr, store);
+	return succ == store_end(addr) ? store_end(addr) : ++succ;
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_imm_succ_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_imm_succ_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_imm_succ_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_imm_succ_end(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_pred_begin(SAddr addr, Event store) const
 {
 	return store_begin(addr);
 }
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::pred_end(SAddr addr, Event store) const
+MOCalculator::co_pred_end(SAddr addr, Event store) const
 {
 	auto offset = getStoreOffset(addr, store);
 	return store_begin(addr) + (offset >= 0 ? offset : 0);
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_pred_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_pred_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::co_pred_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_pred_end(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_succ_begin(SAddr addr, Event load) const
+{
+	auto *rLab = getGraph().getReadLabel(load);
+	return co_succ_begin(addr, rLab->getRf());
+}
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_succ_end(SAddr addr, Event load) const
+{
+	auto *rLab = getGraph().getReadLabel(load);
+	return co_succ_end(addr, rLab->getRf());
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_succ_begin(Event e) const
+{
+	auto *rLab = getGraph().getReadLabel(e);
+	return rLab ? fr_succ_begin(rLab->getAddr(), e) : getSentinel();
+}
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_succ_end(Event e) const
+{
+	auto *rLab = getGraph().getReadLabel(e);
+	return rLab ? fr_succ_end(rLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_succ_begin(SAddr addr, Event load) const
+{
+	auto *rLab = getGraph().getReadLabel(load);
+	return co_imm_succ_begin(addr, rLab->getRf());
+}
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_succ_end(SAddr addr, Event load) const
+{
+	auto *rLab = getGraph().getReadLabel(load);
+	return co_imm_succ_end(addr, rLab->getRf());
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_succ_begin(Event e) const
+{
+	auto *rLab = getGraph().getReadLabel(e);
+	return rLab ? fr_imm_succ_begin(rLab->getAddr(), e) : getSentinel();
+}
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_succ_end(Event e) const
+{
+	auto *rLab = getGraph().getReadLabel(e);
+	return rLab ? fr_imm_succ_end(rLab->getAddr(), e) : getSentinel();
 }
 
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)
@@ -208,8 +317,8 @@ MOCalculator::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	std::vector<Event> after;
 
-	std::for_each(succ_begin(sLab->getAddr(), sLab->getPos()),
-		      succ_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+	std::for_each(co_succ_begin(sLab->getAddr(), sLab->getPos()),
+		      co_succ_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
 			      auto *wLab = getGraph().getWriteLabel(w);
 			      after.push_back(wLab->getPos());
 			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
@@ -223,8 +332,8 @@ MOCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 	std::vector<Event> after;
 
 	/* First, add (mo;rf?)-before */
-	std::for_each(pred_begin(sLab->getAddr(), sLab->getPos()),
-		      pred_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+	std::for_each(co_pred_begin(sLab->getAddr(), sLab->getPos()),
+		      co_pred_end(sLab->getAddr(), sLab->getPos()), [&](const Event &w){
 			      auto *wLab = getGraph().getWriteLabel(w);
 			      after.push_back(wLab->getPos());
 			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
@@ -337,8 +446,8 @@ bool MOCalculator::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLa
 	auto &g = getGraph();
         auto v = g.getRevisitView(r);
 	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf() : mLab->getPos();
-	return any_of(succ_begin(mLab->getAddr(), w),
-		      succ_end(mLab->getAddr(), w), [&](const Event &s){
+	return any_of(co_succ_begin(mLab->getAddr(), w),
+		      co_succ_end(mLab->getAddr(), w), [&](const Event &s){
 			      auto *sLab = g.getEventLabel(s);
 			      return v->contains(sLab->getPos()) &&
 				     mLab->getIndex() > sLab->getPPoRfView()[mLab->getThread()] &&
@@ -353,8 +462,8 @@ bool MOCalculator::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 	if (g.isRMWStore(wLab))
 		return true;
 
-	auto succIt = succ_begin(wLab->getAddr(), wLab->getPos());
-	auto succE = succ_end(wLab->getAddr(), wLab->getPos());
+	auto succIt = co_succ_begin(wLab->getAddr(), wLab->getPos());
+	auto succE = co_succ_end(wLab->getAddr(), wLab->getPos());
 	if (succIt == succE)
 		return true;
 

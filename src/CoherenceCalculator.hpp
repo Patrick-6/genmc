@@ -66,7 +66,7 @@ protected:
 
 	/* Constructor */
 	CoherenceCalculator(CoherenceCalculatorKind k, ExecutionGraph &m, bool ooo)
-		: Calculator(m), kind(k), outOfOrder(ooo) {}
+		: Calculator(m), kind(k), outOfOrder(ooo), sentinel() {}
 
 	/* Returns whether the model we are operating under supports
 	 * out-of-order execution */
@@ -107,6 +107,118 @@ public:
 	const_reverse_store_iterator init_rf_rbegin(SAddr addr) const { return initRfs.at(addr).rbegin(); };
 	reverse_store_iterator init_rf_rend(SAddr addr) { return initRfs[addr].rend(); }
 	const_reverse_store_iterator init_rf_rend(SAddr addr) const { return initRfs.at(addr).rend(); }
+
+	/*** co-iterators for known writes and locations ***/
+
+	virtual const_store_iterator co_succ_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator co_succ_end(SAddr addr, Event store) const = 0;
+
+	virtual const_store_iterator co_imm_succ_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator co_imm_succ_end(SAddr addr, Event store) const = 0;
+
+	virtual const_store_iterator co_pred_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator co_pred_end(SAddr addr, Event store) const = 0;
+
+	virtual const_store_iterator co_imm_pred_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator co_imm_pred_end(SAddr addr, Event store) const = 0;
+
+	/*** co-iterators that work for all kinds of events ***/
+
+	virtual const_store_iterator co_succ_begin(Event e) const = 0;
+	virtual const_store_iterator co_succ_end(Event e) const = 0;
+
+	const_store_iterator co_succ_begin(const EventLabel *lab) const {
+		return co_succ_begin(lab->getPos());
+	}
+	const_store_iterator co_succ_end(const EventLabel *lab) const {
+		return co_succ_end(lab->getPos());
+	}
+
+	virtual const_store_iterator co_imm_succ_begin(Event e) const = 0;
+	virtual const_store_iterator co_imm_succ_end(Event e) const = 0;
+
+	const_store_iterator co_imm_succ_begin(const EventLabel *lab) const {
+		return co_imm_succ_begin(lab->getPos());
+	}
+	const_store_iterator co_imm_succ_end(const EventLabel *lab) const {
+		return co_imm_succ_end(lab->getPos());
+	}
+
+	virtual const_store_iterator co_pred_begin(Event e) const = 0;
+	virtual const_store_iterator co_pred_end(Event e) const = 0;
+
+	const_store_iterator co_pred_begin(const EventLabel *lab) const {
+		return co_pred_begin(lab->getPos());
+	}
+	const_store_iterator co_pred_end(const EventLabel *lab) const {
+		return co_pred_end(lab->getPos());
+	}
+
+	virtual const_store_iterator co_imm_pred_begin(Event e) const = 0;
+	virtual const_store_iterator co_imm_pred_end(Event e) const = 0;
+
+	const_store_iterator co_imm_pred_begin(const EventLabel *lab) const {
+		return co_imm_pred_begin(lab->getPos());
+	}
+	virtual const_store_iterator co_imm_pred_end(const EventLabel *lab) const {
+		return co_imm_pred_end(lab->getPos());
+	}
+
+	/*** fr-iterators for known reads and locations ***/
+
+	virtual const_store_iterator fr_succ_begin(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator fr_succ_end(SAddr addr, Event load) const = 0;
+
+	virtual const_store_iterator fr_imm_succ_begin(SAddr addr, Event laod) const = 0;
+	virtual const_store_iterator fr_imm_succ_end(SAddr addr, Event load) const = 0;
+
+	virtual const_store_iterator fr_pred_begin(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator fr_pred_end(SAddr addr, Event load) const = 0;
+
+	virtual const_store_iterator fr_imm_pred_begin(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator fr_imm_pred_end(SAddr addr, Event load) const = 0;
+
+	/*** fr-iterators that work for all kinds of events ***/
+
+	virtual const_store_iterator fr_succ_begin(Event e) const = 0;
+	virtual const_store_iterator fr_succ_end(Event e) const = 0;
+
+	const_store_iterator fr_succ_begin(const EventLabel *lab) const {
+		return fr_succ_begin(lab->getPos());
+	}
+	const_store_iterator fr_succ_end(const EventLabel *lab) const {
+		return fr_succ_end(lab->getPos());
+	}
+
+	virtual const_store_iterator fr_imm_succ_begin(Event e) const = 0;
+	virtual const_store_iterator fr_imm_succ_end(Event e) const = 0;
+
+	const_store_iterator fr_imm_succ_begin(const EventLabel *lab) const {
+		return fr_imm_succ_begin(lab->getPos());
+	}
+	const_store_iterator fr_imm_succ_end(const EventLabel *lab) const {
+		return fr_imm_succ_end(lab->getPos());
+	}
+
+	virtual const_store_iterator fr_pred_begin(Event e) const = 0;
+	virtual const_store_iterator fr_pred_end(Event e) const = 0;
+
+	const_store_iterator fr_pred_begin(const EventLabel *lab) const {
+		return fr_pred_begin(lab->getPos());
+	}
+	const_store_iterator fr_pred_end(const EventLabel *lab) const {
+		return fr_pred_end(lab->getPos());
+	}
+
+	virtual const_store_iterator fr_imm_pred_begin(Event e) const = 0;
+	virtual const_store_iterator fr_imm_pred_end(Event e) const = 0;
+
+	const_store_iterator fr_imm_pred_begin(const EventLabel *lab) const {
+		return fr_imm_pred_begin(lab->getPos());
+	}
+	const_store_iterator fr_imm_pred_end(const EventLabel *lab) const {
+		return fr_imm_pred_end(lab->getPos());
+	}
 
 	/* Whether a location is tracked (i.e., we are aware of it) */
 	bool tracksLoc(SAddr addr) const { return stores.count(addr); }
@@ -183,6 +295,8 @@ protected:
 	const StoreList &getInitRfsToLoc(SAddr addr) const { return initRfs.at(addr); }
 	StoreList &getInitRfsToLoc(SAddr addr) { return initRfs[addr]; }
 
+	const const_store_iterator &getSentinel() const { return sentinel; }
+
 	/* Discriminator enum for LLVM-style RTTI */
 	const CoherenceCalculatorKind kind;
 
@@ -195,6 +309,9 @@ protected:
 
 	/* Maps loc -> init-rf list */
 	LocMap initRfs;
+
+	/* A dummy sentinel iterator */
+	const_store_iterator sentinel;
 };
 
 #endif /* __COHERENCE_CALCULATOR_HPP__ */

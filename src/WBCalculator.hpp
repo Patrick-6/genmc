@@ -110,6 +110,87 @@ public:
 	WBCalculator(ExecutionGraph &m, bool ooo)
 		: CoherenceCalculator(CC_WritesBefore, m, ooo) {}
 
+	CoherenceCalculator::const_store_iterator
+	co_succ_begin(SAddr addr, Event store) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_succ_end(SAddr addr, Event store) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_succ_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_succ_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_imm_succ_begin(SAddr addr, Event store) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_imm_succ_end(SAddr addr, Event store) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_imm_succ_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_imm_succ_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_pred_begin(SAddr addr, Event store) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_pred_end(SAddr addr, Event store) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_pred_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_pred_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_imm_pred_begin(SAddr addr, Event store) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_imm_pred_end(SAddr addr, Event store) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	co_imm_pred_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	co_imm_pred_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_succ_begin(SAddr addr, Event load) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_succ_end(SAddr addr, Event load) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_succ_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_succ_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_imm_succ_begin(SAddr addr, Event load) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_imm_succ_end(SAddr addr, Event load) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_imm_succ_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_imm_succ_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_pred_begin(SAddr addr, Event load) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_pred_end(SAddr addr, Event load) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_pred_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_pred_end(Event e) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_imm_pred_begin(SAddr addr, Event load) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_imm_pred_end(SAddr addr, Event load) const override { BUG(); }
+
+	CoherenceCalculator::const_store_iterator
+	fr_imm_pred_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_imm_pred_end(Event e) const override { BUG(); }
+
+
 	/* Track coherence at location addr */
 	void
 	trackCoherenceAtLoc(SAddr addr) override;

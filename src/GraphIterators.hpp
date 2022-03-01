@@ -248,47 +248,315 @@ inline const_event_range events(const ExecutionGraph &G) {
 using const_store_iterator = CoherenceCalculator::const_store_iterator;
 using const_reverse_store_iterator = CoherenceCalculator::const_reverse_store_iterator;
 
-using store_range = llvm::iterator_range<const_store_iterator>;
+using const_store_range = llvm::iterator_range<const_store_iterator>;
 
 inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
 {
 	return G.getCoherenceCalculator()->store_begin(addr);
 }
-inline const_store_iterator store_begin(const ExecutionGraph *G, SAddr addr)
+inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
 {
-	return store_begin(*G, addr);
+	return G.getCoherenceCalculator()->store_end(addr);
 }
+
 inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr addr)
 {
 	return G.getCoherenceCalculator()->store_rbegin(addr);
 }
 
-inline const_reverse_store_iterator store_rbegin(const ExecutionGraph *G, SAddr addr)
-{
-	return store_rbegin(*G, addr);
-}
-
-inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
-{
-	return G.getCoherenceCalculator()->store_end(addr);
-}
-inline const_store_iterator store_end(const ExecutionGraph *G, SAddr addr)
-{
-	return store_end(*G, addr);
-}
 inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
 {
 	return G.getCoherenceCalculator()->store_rend(addr);
 }
-inline const_reverse_store_iterator store_rend(const ExecutionGraph *G, SAddr addr)
+
+inline const_store_range stores(const ExecutionGraph &G, SAddr addr)
 {
-	return store_rend(*G, addr);
+	return const_store_range(store_begin(G, addr), store_end(G, addr));
 }
 
-inline store_range stores(const ExecutionGraph &G, SAddr addr)
+
+/*******************************************************************************
+ **                         co-iteration utilities
+ ******************************************************************************/
+
+inline const_store_iterator co_succ_begin(const ExecutionGraph &G, SAddr addr, Event store)
 {
-	return store_range(store_begin(G, addr), store_end(G, addr));
+	return G.getCoherenceCalculator()->co_succ_begin(addr, store);
 }
-inline store_range stores(const ExecutionGraph *G, SAddr addr) { return stores(*G, addr); }
+inline const_store_iterator co_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_succ_begin(e);
+}
+inline const_store_iterator co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_succ_begin(G, lab->getPos());
+}
+
+inline const_store_iterator co_succ_end(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_succ_end(addr, store);
+}
+inline const_store_iterator co_succ_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_succ_end(e);
+}
+inline const_store_iterator co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_succ_end(G, lab->getPos());
+}
+
+
+inline const_store_range co_succs(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return const_store_range(co_succ_begin(G, addr, store), co_succ_end(G, addr, store));
+}
+inline const_store_range co_succs(const ExecutionGraph &G, Event e)
+{
+	return const_store_range(co_succ_begin(G, e), co_succ_end(G, e));
+}
+inline const_store_range co_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_succs(G, lab->getPos());
+}
+
+
+inline const_store_iterator co_imm_succ_begin(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_imm_succ_begin(addr, store);
+}
+inline const_store_iterator co_imm_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_imm_succ_begin(e);
+}
+inline const_store_iterator co_imm_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_succ_begin(G, lab->getPos());
+}
+
+inline const_store_iterator co_imm_succ_end(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_imm_succ_end(addr, store);
+}
+inline const_store_iterator co_imm_succ_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_imm_succ_end(e);
+}
+inline const_store_iterator co_imm_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_succ_end(G, lab->getPos());
+}
+
+inline const_store_range co_imm_succs(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return const_store_range(co_imm_succ_begin(G, addr, store), co_imm_succ_end(G, addr, store));
+}
+inline const_store_range co_imm_succs(const ExecutionGraph &G, Event e)
+{
+	return const_store_range(co_imm_succ_begin(G, e), co_imm_succ_end(G, e));
+}
+inline const_store_range co_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_succs(G, lab->getPos());
+}
+
+
+/*******************************************************************************
+ **                         fr-iteration utilities
+ ******************************************************************************/
+
+using const_fr_iterator = CoherenceCalculator::const_store_iterator;
+using const_fr_range = llvm::iterator_range<const_fr_iterator>;
+
+
+inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_succ_begin(addr, load);
+}
+inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_succ_begin(e);
+}
+inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_succ_begin(G, lab->getPos());
+}
+
+inline const_fr_iterator fr_succ_end(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_succ_end(addr, load);
+}
+inline const_fr_iterator fr_succ_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_succ_end(e);
+}
+inline const_fr_iterator fr_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_succ_end(G, lab->getPos());
+}
+
+
+inline const_fr_range fr_succs(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return const_fr_range(fr_succ_begin(G, addr, load), fr_succ_end(G, addr, load));
+}
+inline const_fr_range fr_succs(const ExecutionGraph &G, Event e)
+{
+	return const_fr_range(fr_succ_begin(G, e), fr_succ_end(G, e));
+}
+inline const_fr_range fr_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_succs(G, lab->getPos());
+}
+
+
+inline const_fr_iterator fr_imm_succ_begin(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_imm_succ_begin(addr, load);
+}
+inline const_fr_iterator fr_imm_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_imm_succ_begin(e);
+}
+inline const_fr_iterator fr_imm_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_succ_begin(G, lab->getPos());
+}
+
+inline const_fr_iterator fr_imm_succ_end(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_imm_succ_end(addr, load);
+}
+inline const_fr_iterator fr_imm_succ_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_imm_succ_end(e);
+}
+inline const_fr_iterator fr_imm_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_succ_end(G, lab->getPos());
+}
+
+inline const_fr_range fr_imm_succs(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return const_fr_range(fr_imm_succ_begin(G, addr, load), fr_imm_succ_end(G, addr, load));
+}
+inline const_fr_range fr_imm_succs(const ExecutionGraph &G, Event e)
+{
+	return const_fr_range(fr_imm_succ_begin(G, e), fr_imm_succ_end(G, e));
+}
+inline const_fr_range fr_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_succs(G, lab->getPos());
+}
+
+
+/*******************************************************************************
+ **                         po-iteration utilities
+ ******************************************************************************/
+
+using const_po_iterator = const_event_iterator;
+using const_po_range = llvm::iterator_range<const_po_iterator>;
+
+inline const_po_iterator po_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return const_event_iterator(G, e.next());
+}
+
+inline const_po_iterator po_succ_end(const ExecutionGraph &G, Event e)
+{
+	return e == G.getLastThreadEvent(e.thread) ? po_succ_begin(G, e) :
+		const_event_iterator(G, G.getLastThreadEvent(e.thread).next());
+}
+
+inline const_po_range po_succs(const ExecutionGraph &G, Event e)
+{
+	return const_po_range(po_succ_begin(G, e), po_succ_end(G, e));
+}
+
+inline const_po_range po_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return po_succs(G, lab->getPos());
+}
+
+inline const_po_iterator po_imm_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return po_succ_begin(G, e);
+}
+
+inline const_po_iterator po_imm_succ_end(const ExecutionGraph &G, Event e)
+{
+	return e == G.getLastThreadEvent(e.thread) ? po_imm_succ_begin(G, e) :
+		const_event_iterator(G, e.next().next());
+}
+
+inline const_po_range po_imm_succs(const ExecutionGraph &G, Event e)
+{
+	return const_po_range(po_imm_succ_begin(G, e), po_imm_succ_end(G, e));
+}
+inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return po_imm_succs(G, lab->getPos());
+}
+
+
+
+/*******************************************************************************
+ **                         rf-iteration utilities
+ ******************************************************************************/
+
+using const_rf_iterator = WriteLabel::const_rf_iterator;
+using const_rf_range = llvm::iterator_range<const_rf_iterator>;
+
+namespace detail {
+	inline const_rf_iterator sentinel;
+};
+
+inline const_rf_iterator rf_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *wLab = G.getWriteLabel(e);
+	return wLab ? wLab->readers_begin() : ::detail::sentinel;
+}
+
+inline const_rf_iterator rf_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *wLab = G.getWriteLabel(e);
+	return wLab ? wLab->readers_end() : ::detail::sentinel;
+}
+
+
+inline const_rf_range rf_succs(const ExecutionGraph &G, Event e)
+{
+	return const_rf_range(rf_succ_begin(G, e), rf_succ_end(G, e));
+}
+inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return rf_succs(G, lab->getPos());
+}
+
+
+
+/*******************************************************************************
+ **                         rf-inv-iteration utilities
+ ******************************************************************************/
+
+using const_rf_inv_iterator = const_event_iterator;
+using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
+
+inline const_rf_inv_iterator rf_inv_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *rLab = G.getReadLabel(e);
+	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf());
+}
+
+inline const_rf_inv_iterator rf_inv_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *rLab = G.getReadLabel(e);
+	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf().next());
+}
+
+
+inline const_rf_inv_range rf_inv_succs(const ExecutionGraph &G, Event e)
+{
+	return const_rf_inv_range(rf_inv_succ_begin(G, e), rf_inv_succ_end(G, e));
+}
 
 #endif /* __GRAPH_ITERATORS_HPP__ */
