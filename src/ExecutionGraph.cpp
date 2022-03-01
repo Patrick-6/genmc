@@ -1170,9 +1170,9 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	setFPStatus(FS_Stale);
 
 	/* First, we set the new reads-from edge */
-	ReadLabel *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
+	auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
 	BUG_ON(!rLab);
-	Event oldRf = rLab->getRf();
+	auto oldRf = rLab->getRf();
 	rLab->setRf(store);
 
 	/*
@@ -1183,10 +1183,12 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	 *        now in its place, perhaps after the restoration of some prefix
 	 *        during a revisit)
 	 *     3) That oldRf is not the initializer */
-	if (oldRf.index > 0 && oldRf.index < (int) getThreadSize(oldRf.thread)) {
+	if (contains(oldRf)) {
 		auto *labRef = getEventLabel(oldRf);
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(labRef))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
+		else if (oldRf.isInitializer())
+			getCoherenceCalculator()->removeInitRfToLoc(rLab->getAddr(), rLab->getPos());
 	}
 
 	/* If this read is now reading from bottom, nothing else to do */
@@ -1195,8 +1197,12 @@ void ExecutionGraph::changeRf(Event read, Event store)
 
 	/* Otherwise, add it to the write's reader list */
 	auto *rfLab = getEventLabel(store);
-	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab))
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
 		wLab->addReader(rLab->getPos());
+	} else {
+		BUG_ON(!store.isInitializer());
+		getCoherenceCalculator()->addInitRfToLoc(rLab->getAddr(), rLab->getPos());
+	}
 }
 
 bool ExecutionGraph::updateJoin(Event join, Event childLast)
@@ -1384,6 +1390,11 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
 			if (v.contains(*sIt)) {
 				occ->addStoreToLoc(it->first, *sIt, -1);
+			}
+		}
+		for (auto rIt = it->second.begin(); rIt != it->second.end(); ++rIt) {
+			if (v.contains(*rIt)) {
+				occ->addInitRfToLoc(it->first, *rIt);
 			}
 		}
 	}

@@ -52,6 +52,20 @@ MOCalculator::pred_end(SAddr addr, Event store) const
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)
 {
 	stores[addr];
+	initRfs[addr];
+}
+
+void MOCalculator::addInitRfToLoc(SAddr addr, Event read)
+{
+	initRfs[addr].push_back(read);
+}
+
+void MOCalculator::removeInitRfToLoc(SAddr addr, Event read)
+{
+	auto &locInits = getInitRfsToLoc(addr);
+	auto it = std::find(locInits.begin(), locInits.end(), read);
+	if (it != locInits.end())
+		locInits.erase(it);
 }
 
 int MOCalculator::getStoreOffset(SAddr addr, Event e) const
@@ -423,18 +437,22 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 		}
 	}
 
-	for (auto it = begin(); it != end(); /* empty */) {
-		it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
-						[&](Event &e)
-						{ return !preds.contains(e); }),
-				 it->second.end());
-
+	for (auto sIt = begin(), rIt = init_rf_begin(); sIt != end(); /* empty */) {
 		/* Should we keep this memory location lying around? */
-		if (!keep.count(it->first)) {
-			BUG_ON(!it->second.empty());
-			it = stores.erase(it);
+		if (!keep.count(sIt->first)) {
+			sIt = stores.erase(sIt);
+			rIt = initRfs.erase(rIt);
 		} else {
-			++it;
+			sIt->second.erase(std::remove_if(sIt->second.begin(), sIt->second.end(),
+							[&](Event &e)
+							{ return !preds.contains(e); }),
+					 sIt->second.end());
+			rIt->second.erase(std::remove_if(rIt->second.begin(), rIt->second.end(),
+							[&](Event &e)
+							{ return !preds.contains(e); }),
+					 rIt->second.end());
+			++sIt;
+			++rIt;
 		}
 	}
 }

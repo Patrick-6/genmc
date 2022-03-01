@@ -93,10 +93,25 @@ public:
 	reverse_store_iterator store_rend(SAddr addr) { return stores[addr].rend(); }
 	const_reverse_store_iterator store_rend(SAddr addr) const { return stores.at(addr).rend(); }
 
+	iterator init_rf_begin() { return initRfs.begin(); }
+	const_iterator init_rf_begin() const { return initRfs.begin(); }
+	iterator init_rf_end() { return initRfs.end(); }
+	const_iterator init_rf_end() const { return initRfs.end(); }
+
+	store_iterator init_rf_begin(SAddr addr) { return initRfs[addr].begin(); }
+	const_store_iterator init_rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
+	store_iterator init_rf_end(SAddr addr) { return initRfs[addr].end(); }
+	const_store_iterator init_rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+
+	reverse_store_iterator init_rf_rbegin(SAddr addr) { return initRfs[addr].rbegin(); }
+	const_reverse_store_iterator init_rf_rbegin(SAddr addr) const { return initRfs.at(addr).rbegin(); };
+	reverse_store_iterator init_rf_rend(SAddr addr) { return initRfs[addr].rend(); }
+	const_reverse_store_iterator init_rf_rend(SAddr addr) const { return initRfs.at(addr).rend(); }
+
 	/* Whether a location is tracked (i.e., we are aware of it) */
 	bool tracksLoc(SAddr addr) const { return stores.count(addr); }
 
-	/* Whether a location is empty */
+	/* Whether a location has no stores */
 	bool isLocEmpty(SAddr addr) const { return store_begin(addr) == store_end(addr); }
 
 	/* Whether a location has more than one store */
@@ -107,6 +122,14 @@ public:
 	/* Track coherence at location addr */
 	virtual void
 	trackCoherenceAtLoc(SAddr addr) = 0;
+
+	/* Tracks that READ is reading INIT in ADDR */
+	virtual void
+	addInitRfToLoc(SAddr addr, Event read) = 0;
+
+	/* Shoud be called when READ is no longer reading INIT in ADDR*/
+	virtual void
+	removeInitRfToLoc(SAddr addr, Event read) = 0;
 
 	/* Returns the range of all the possible (i.e., not violating
 	 * coherence) offsets a store can be inserted */
@@ -157,6 +180,8 @@ public:
 
 protected:
 	const StoreList &getStoresToLoc(SAddr addr) const { return stores.at(addr); }
+	const StoreList &getInitRfsToLoc(SAddr addr) const { return initRfs.at(addr); }
+	StoreList &getInitRfsToLoc(SAddr addr) { return initRfs[addr]; }
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const CoherenceCalculatorKind kind;
@@ -167,6 +192,9 @@ protected:
 
 	/* Maps loc -> store list */
 	LocMap stores;
+
+	/* Maps loc -> init-rf list */
+	LocMap initRfs;
 };
 
 #endif /* __COHERENCE_CALCULATOR_HPP__ */

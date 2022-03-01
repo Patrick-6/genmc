@@ -114,6 +114,12 @@ public:
 	void
 	trackCoherenceAtLoc(SAddr addr) override;
 
+	void
+	addInitRfToLoc(SAddr addr, Event read) override { BUG(); }
+
+	void
+	removeInitRfToLoc(SAddr addr, Event read) override { BUG(); }
+
 	/* Returns the range of all the possible (i.e., not violating coherence
 	 * places a store can be inserted without inserting it */
 	std::pair<int, int>
