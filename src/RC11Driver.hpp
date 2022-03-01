@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __RC11_MO_DRIVER_HPP__
-#define __RC11_MO_DRIVER_HPP__
+#ifndef __RC11_DRIVER_HPP__
+#define __RC11_DRIVER_HPP__
 
 #include "GenMCDriver.hpp"
 
@@ -60,4 +60,4 @@ private:
 	Event findRaceForNewStore(const WriteLabel *wLab);
 };
 
-#endif /* __RC11_MO_DRIVER_HPP__ */
+#endif /* __RC11_DRIVER_HPP__ */
