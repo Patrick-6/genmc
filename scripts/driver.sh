@@ -111,7 +111,7 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 imm lkmm
 do
-    for coherence in wb mo
+    for coherence in mo # wb mo
     do
 	for cat in infr litmus saver helper liveness synthetic data-structures fs lkmm # lapor
 	do
@@ -137,34 +137,34 @@ do
     done
 done
 
-# Then, run the testcases in the wrong/ directory
-header_printed=""
-wrongdir="${DIR}/../tests/wrong"
-for model in rc11 imm
-do
-    for cat in safety liveness infr racy memory locking barriers helper fs
-    do
-	# under IMM, only run safety and liveness tests
-	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
-	then
-	    continue
-	fi
-	testdir="${wrongdir}/${cat}"
-	if [[ "${cat}" == "liveness" || "${cat}" == "helper" ]]
-	then
-	    coherence="mo"
-	else
-	    coherence="wb"
-	fi
-	suppress_diff=1
-	# if test "${cat}" = "memory" -o "${cat}" = "fs"
-	# then
-	#     suppress_diff=1
-	# fi
-	source "${DIR}/runwrong.sh"
-	increase_total_time
-    done
-done
+# # Then, run the testcases in the wrong/ directory
+# header_printed=""
+# wrongdir="${DIR}/../tests/wrong"
+# for model in rc11 imm
+# do
+#     for cat in safety liveness infr racy memory locking barriers helper fs
+#     do
+# 	# under IMM, only run safety and liveness tests
+# 	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
+# 	then
+# 	    continue
+# 	fi
+# 	testdir="${wrongdir}/${cat}"
+# 	if [[ "${cat}" == "liveness" || "${cat}" == "helper" ]]
+# 	then
+# 	    coherence="mo"
+# 	else
+# 	    coherence="wb"
+# 	fi
+# 	suppress_diff=1
+# 	# if test "${cat}" = "memory" -o "${cat}" = "fs"
+# 	# then
+# 	#     suppress_diff=1
+# 	# fi
+# 	source "${DIR}/runwrong.sh"
+# 	increase_total_time
+#     done
+# done
 
 # Print results
 print_results
