@@ -110,17 +110,25 @@ public:
 
 	/*** co-iterators for known writes and locations ***/
 
-	virtual const_store_iterator co_succ_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator co_succ_end(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator
+	co_succ_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator
+	co_succ_end(SAddr addr, Event store) const = 0;
 
-	virtual const_store_iterator co_imm_succ_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator co_imm_succ_end(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator
+	co_imm_succ_begin(SAddr addr, Event store) const = 0;
+	virtual const_store_iterator
+	co_imm_succ_end(SAddr addr, Event store) const = 0;
 
-	virtual const_store_iterator co_pred_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator co_pred_end(SAddr addr, Event store) const = 0;
+	virtual const_reverse_store_iterator
+	co_pred_begin(SAddr addr, Event store) const = 0;
+	virtual const_reverse_store_iterator
+	co_pred_end(SAddr addr, Event store) const = 0;
 
-	virtual const_store_iterator co_imm_pred_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator co_imm_pred_end(SAddr addr, Event store) const = 0;
+	virtual const_reverse_store_iterator
+	co_imm_pred_begin(SAddr addr, Event store) const = 0;
+	virtual const_reverse_store_iterator
+	co_imm_pred_end(SAddr addr, Event store) const = 0;
 
 	/*** co-iterators that work for all kinds of events ***/
 
@@ -144,23 +152,27 @@ public:
 		return co_imm_succ_end(lab->getPos());
 	}
 
-	virtual const_store_iterator co_pred_begin(Event e) const = 0;
-	virtual const_store_iterator co_pred_end(Event e) const = 0;
+	virtual const_reverse_store_iterator
+	co_pred_begin(Event e) const = 0;
+	virtual const_reverse_store_iterator
+	co_pred_end(Event e) const = 0;
 
-	const_store_iterator co_pred_begin(const EventLabel *lab) const {
+	const_reverse_store_iterator co_pred_begin(const EventLabel *lab) const {
 		return co_pred_begin(lab->getPos());
 	}
-	const_store_iterator co_pred_end(const EventLabel *lab) const {
+	const_reverse_store_iterator co_pred_end(const EventLabel *lab) const {
 		return co_pred_end(lab->getPos());
 	}
 
-	virtual const_store_iterator co_imm_pred_begin(Event e) const = 0;
-	virtual const_store_iterator co_imm_pred_end(Event e) const = 0;
+	virtual const_reverse_store_iterator
+	co_imm_pred_begin(Event e) const = 0;
+	virtual const_reverse_store_iterator
+	co_imm_pred_end(Event e) const = 0;
 
-	const_store_iterator co_imm_pred_begin(const EventLabel *lab) const {
+	const_reverse_store_iterator co_imm_pred_begin(const EventLabel *lab) const {
 		return co_imm_pred_begin(lab->getPos());
 	}
-	virtual const_store_iterator co_imm_pred_end(const EventLabel *lab) const {
+	virtual const_reverse_store_iterator co_imm_pred_end(const EventLabel *lab) const {
 		return co_imm_pred_end(lab->getPos());
 	}
 
@@ -172,11 +184,15 @@ public:
 	virtual const_store_iterator fr_imm_succ_begin(SAddr addr, Event laod) const = 0;
 	virtual const_store_iterator fr_imm_succ_end(SAddr addr, Event load) const = 0;
 
-	virtual const_store_iterator fr_pred_begin(SAddr addr, Event load) const = 0;
-	virtual const_store_iterator fr_pred_end(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator
+	fr_pred_begin(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator
+	fr_pred_end(SAddr addr, Event load) const = 0;
 
-	virtual const_store_iterator fr_imm_pred_begin(SAddr addr, Event load) const = 0;
-	virtual const_store_iterator fr_imm_pred_end(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator
+	fr_imm_pred_begin(SAddr addr, Event load) const = 0;
+	virtual const_store_iterator
+	fr_imm_pred_end(SAddr addr, Event load) const = 0;
 
 	/*** fr-iterators that work for all kinds of events ***/
 
@@ -200,8 +216,10 @@ public:
 		return fr_imm_succ_end(lab->getPos());
 	}
 
-	virtual const_store_iterator fr_pred_begin(Event e) const = 0;
-	virtual const_store_iterator fr_pred_end(Event e) const = 0;
+	virtual const_store_iterator
+	fr_pred_begin(Event e) const = 0;
+	virtual const_store_iterator
+	fr_pred_end(Event e) const = 0;
 
 	const_store_iterator fr_pred_begin(const EventLabel *lab) const {
 		return fr_pred_begin(lab->getPos());
@@ -210,8 +228,10 @@ public:
 		return fr_pred_end(lab->getPos());
 	}
 
-	virtual const_store_iterator fr_imm_pred_begin(Event e) const = 0;
-	virtual const_store_iterator fr_imm_pred_end(Event e) const = 0;
+	virtual const_store_iterator
+	fr_imm_pred_begin(Event e) const = 0;
+	virtual const_store_iterator
+	fr_imm_pred_end(Event e) const = 0;
 
 	const_store_iterator fr_imm_pred_begin(const EventLabel *lab) const {
 		return fr_imm_pred_begin(lab->getPos());
@@ -296,6 +316,9 @@ protected:
 	StoreList &getInitRfsToLoc(SAddr addr) { return initRfs[addr]; }
 
 	const const_store_iterator &getSentinel() const { return sentinel; }
+	const const_reverse_store_iterator &getRevSentinel() const {
+		return rsentinel;
+	}
 
 	/* Discriminator enum for LLVM-style RTTI */
 	const CoherenceCalculatorKind kind;
@@ -310,8 +333,9 @@ protected:
 	/* Maps loc -> init-rf list */
 	LocMap initRfs;
 
-	/* A dummy sentinel iterator */
+	/* Dummy sentinel iterators */
 	const_store_iterator sentinel;
+	const_reverse_store_iterator rsentinel;
 };
 
 #endif /* __COHERENCE_CALCULATOR_HPP__ */

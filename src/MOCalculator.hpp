@@ -68,34 +68,34 @@ public:
 	CoherenceCalculator::const_store_iterator
 	co_imm_succ_end(Event e) const override;
 
-	/* Iterates over the predecessors of STORE, excluding the
-	 * initializer.
+	/* Iterates over the predecessors of STORE in reverse
+	 * MO order, excluding the initializer.
 	 * Pre: STORE needs to be in mo_ADDR */
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_begin(SAddr addr, Event store) const override;
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_end(SAddr addr, Event store) const override;
 
-	/* Iterates over the predecessors of E.
+	/* Iterates over the predecessors of E in reverse MO order.
 	 * E does _not_ have to be a Write. */
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_begin(Event e) const override;
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_end(Event e) const override;
 
-	/* Iterates over the (sole) immediate predecessor of STORE
+	/* Iterates over the (sole) immediate predecessor of STORE.
 	 * Pre: STORE is in mo_ADDR */
-	CoherenceCalculator::const_store_iterator
-	co_imm_pred_begin(SAddr addr, Event store) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
-	co_imm_pred_end(SAddr addr, Event store) const override { BUG(); }
+	CoherenceCalculator::const_reverse_store_iterator
+	co_imm_pred_begin(SAddr addr, Event store) const override;
+	CoherenceCalculator::const_reverse_store_iterator
+	co_imm_pred_end(SAddr addr, Event store) const override;
 
 	/* Iterates over the (sole) immediate predecessor of E.
 	 * E does _not_ have to be a Write. */
-	CoherenceCalculator::const_store_iterator
-	co_imm_pred_begin(Event e) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
-	co_imm_pred_end(Event e) const override { BUG(); }
+	CoherenceCalculator::const_reverse_store_iterator
+	co_imm_pred_begin(Event e) const override;
+	CoherenceCalculator::const_reverse_store_iterator
+	co_imm_pred_end(Event e) const override;
 
 
 	/* Iterates over the fr-successors of LOAD.
@@ -126,33 +126,33 @@ public:
 	CoherenceCalculator::const_store_iterator
 	fr_imm_succ_end(Event e) const override;
 
-	/* Iterates over the fr-predecessors of LOAD
-	 * Pre: LOAD needs to be in mo_ADDR */
+	/* Iterates over the fr-predecessors of STORE (reverse mo order)
+	 * Pre: STORE needs to be in mo_ADDR */
 	CoherenceCalculator::const_store_iterator
-	fr_pred_begin(SAddr addr, Event load) const override { BUG(); }
+	fr_pred_begin(SAddr addr, Event store) const override;
 	CoherenceCalculator::const_store_iterator
-	fr_pred_end(SAddr addr, Event load) const override { BUG(); }
+	fr_pred_end(SAddr addr, Event store) const override;
 
-	/* Iterates over the fr-predecessors of E.
-	 * E does _not_ have to be a Read. */
+	/* Iterates over the fr-predecessors of E (reverse mo order)
+	 * E does _not_ have to be a Write. */
 	CoherenceCalculator::const_store_iterator
-	fr_pred_begin(Event e) const override { BUG(); }
+	fr_pred_begin(Event e) const override;
 	CoherenceCalculator::const_store_iterator
-	fr_pred_end(Event e) const override { BUG(); }
+	fr_pred_end(Event e) const override;
 
-	/* Iterates over the (sole) immediate fr-predecessor of LOAD
-	 * Pre: LOAD is in mo_ADDR */
+	/* Iterates over the (sole) immediate fr-predecessor of STORE
+	 * Pre: STORE is in mo_ADDR */
 	CoherenceCalculator::const_store_iterator
-	fr_imm_pred_begin(SAddr addr, Event load) const override { BUG(); }
+	fr_imm_pred_begin(SAddr addr, Event store) const override;
 	CoherenceCalculator::const_store_iterator
-	fr_imm_pred_end(SAddr addr, Event load) const override { BUG(); }
+	fr_imm_pred_end(SAddr addr, Event store) const override;
 
 	/* Iterates over the (sole) immediate fr-predecessor of E.
-	 * E does _not_ have to be a Read. */
+	 * E does _not_ have to be a Write. */
 	CoherenceCalculator::const_store_iterator
-	fr_imm_pred_begin(Event e) const override { BUG(); }
+	fr_imm_pred_begin(Event e) const override;
 	CoherenceCalculator::const_store_iterator
-	fr_imm_pred_end(Event e) const override { BUG(); }
+	fr_imm_pred_end(Event e) const override;
 
 	/* Changes the offset of "store" to "newOffset" */
 	void changeStoreOffset(SAddr addr, Event store, int newOffset);

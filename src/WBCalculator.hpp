@@ -130,24 +130,24 @@ public:
 	CoherenceCalculator::const_store_iterator
 	co_imm_succ_end(Event e) const override { BUG(); }
 
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_begin(SAddr addr, Event store) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_end(SAddr addr, Event store) const override { BUG(); }
 
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_begin(Event e) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_pred_end(Event e) const override { BUG(); }
 
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_imm_pred_begin(SAddr addr, Event store) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_imm_pred_end(SAddr addr, Event store) const override { BUG(); }
 
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_imm_pred_begin(Event e) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
+	CoherenceCalculator::const_reverse_store_iterator
 	co_imm_pred_end(Event e) const override { BUG(); }
 
 	CoherenceCalculator::const_store_iterator

@@ -79,31 +79,60 @@ MOCalculator::co_imm_succ_end(Event e) const
 	return wLab ? co_imm_succ_end(wLab->getAddr(), e) : getSentinel();
 }
 
-CoherenceCalculator::const_store_iterator
+CoherenceCalculator::const_reverse_store_iterator
 MOCalculator::co_pred_begin(SAddr addr, Event store) const
 {
-	return store_begin(addr);
+	auto offset = getStoreOffset(addr, store);
+	if (offset <= 0)
+		return store_rend(addr);
+	return const_reverse_store_iterator(store_begin(addr) + offset);
 }
 
-CoherenceCalculator::const_store_iterator
+CoherenceCalculator::const_reverse_store_iterator
 MOCalculator::co_pred_end(SAddr addr, Event store) const
 {
-	auto offset = getStoreOffset(addr, store);
-	return store_begin(addr) + (offset >= 0 ? offset : 0);
+	return store_rend(addr);
 }
 
-CoherenceCalculator::const_store_iterator
+CoherenceCalculator::const_reverse_store_iterator
 MOCalculator::co_pred_begin(Event e) const
 {
 	auto *wLab = getGraph().getWriteLabel(e);
-	return wLab ? co_pred_begin(wLab->getAddr(), e) : getSentinel();
+	return wLab ? co_pred_begin(wLab->getAddr(), e) : getRevSentinel();
 }
 
-CoherenceCalculator::const_store_iterator
+CoherenceCalculator::const_reverse_store_iterator
 MOCalculator::co_pred_end(Event e) const
 {
 	auto *wLab = getGraph().getWriteLabel(e);
-	return wLab ? co_pred_end(wLab->getAddr(), e) : getSentinel();
+	return wLab ? co_pred_end(wLab->getAddr(), e) : getRevSentinel();
+}
+
+CoherenceCalculator::const_reverse_store_iterator
+MOCalculator::co_imm_pred_begin(SAddr addr, Event store) const
+{
+	return co_pred_begin(addr, store);
+}
+
+CoherenceCalculator::const_reverse_store_iterator
+MOCalculator::co_imm_pred_end(SAddr addr, Event store) const
+{
+	auto pred = co_pred_begin(addr, store);
+	return pred == co_pred_end(addr, store) ? co_pred_end(addr, store) : ++pred;
+}
+
+CoherenceCalculator::const_reverse_store_iterator
+MOCalculator::co_imm_pred_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_imm_pred_begin(wLab->getAddr(), e) : getRevSentinel();
+}
+
+CoherenceCalculator::const_reverse_store_iterator
+MOCalculator::co_imm_pred_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? co_imm_pred_end(wLab->getAddr(), e) : getRevSentinel();
 }
 
 CoherenceCalculator::const_store_iterator
@@ -156,6 +185,63 @@ MOCalculator::fr_imm_succ_end(Event e) const
 {
 	auto *rLab = getGraph().getReadLabel(e);
 	return rLab ? fr_imm_succ_end(rLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_pred_begin(SAddr addr, Event store) const
+{
+	return co_pred_begin(addr, store) == co_pred_end(addr, store) ?
+		init_rf_begin(addr) :
+		getGraph().getWriteLabel(*co_pred_begin(addr, store))->readers_begin();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_pred_end(SAddr addr, Event store) const
+{
+	return co_pred_begin(addr, store) == co_pred_end(addr, store) ?
+		init_rf_end(addr) :
+		getGraph().getWriteLabel(*co_pred_begin(addr, store))->readers_end();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_pred_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? fr_pred_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_pred_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? fr_pred_end(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_pred_begin(SAddr addr, Event store) const
+{
+	return fr_pred_begin(addr, store);
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_pred_end(SAddr addr, Event store) const
+{
+	auto pred = fr_pred_begin(addr, store);
+	return pred == fr_pred_end(addr, store) ? fr_pred_end(addr, store) : ++pred;
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_pred_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? fr_imm_pred_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_imm_pred_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab ? fr_imm_pred_end(wLab->getAddr(), e) : getSentinel();
 }
 
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)

@@ -329,6 +329,9 @@ inline const_label_range labels(const ExecutionGraph &G) {
 using event_range = llvm::iterator_range<event_iterator>;
 using const_event_range = llvm::iterator_range<const_event_iterator>;
 
+using reverse_event_range = llvm::iterator_range<reverse_event_iterator>;
+using const_reverse_event_range = llvm::iterator_range<const_reverse_event_iterator>;
+
 inline event_iterator event_begin(ExecutionGraph &G) { return event_iterator(G); }
 inline const_event_iterator event_begin(const ExecutionGraph &G)
 {
@@ -346,6 +349,26 @@ inline const_event_range events(const ExecutionGraph &G) {
 	return const_event_range(event_begin(G), event_end(G));
 }
 
+inline reverse_event_iterator event_rbegin(ExecutionGraph &G) { return reverse_event_iterator(G); }
+inline const_reverse_event_iterator event_rbegin(const ExecutionGraph &G)
+{
+	return const_reverse_event_iterator(G);
+}
+
+inline reverse_event_iterator event_rend(ExecutionGraph &G) { return reverse_event_iterator(G, true); }
+inline const_reverse_event_iterator event_rend(const ExecutionGraph &G)
+{
+	return const_reverse_event_iterator(G, true);
+}
+
+inline reverse_event_range revents(ExecutionGraph &G)
+{
+	return reverse_event_range(event_rbegin(G), event_rend(G));
+}
+inline const_reverse_event_range revents(const ExecutionGraph &G) {
+	return const_reverse_event_range(event_rbegin(G), event_rend(G));
+}
+
 
 /*******************************************************************************
  **                         store-iteration utilities
@@ -355,6 +378,7 @@ using const_store_iterator = CoherenceCalculator::const_store_iterator;
 using const_reverse_store_iterator = CoherenceCalculator::const_reverse_store_iterator;
 
 using const_store_range = llvm::iterator_range<const_store_iterator>;
+using const_reverse_store_range = llvm::iterator_range<const_reverse_store_iterator>;
 
 inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
 {
@@ -369,7 +393,6 @@ inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr 
 {
 	return G.getCoherenceCalculator()->store_rbegin(addr);
 }
-
 inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
 {
 	return G.getCoherenceCalculator()->store_rend(addr);
@@ -378,6 +401,10 @@ inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr ad
 inline const_store_range stores(const ExecutionGraph &G, SAddr addr)
 {
 	return const_store_range(store_begin(G, addr), store_end(G, addr));
+}
+inline const_reverse_store_range rstores(const ExecutionGraph &G, SAddr addr)
+{
+	return const_reverse_store_range(store_rbegin(G, addr), store_rend(G, addr));
 }
 
 
@@ -466,12 +493,97 @@ inline const_store_range co_imm_succs(const ExecutionGraph &G, const EventLabel 
 }
 
 
+inline const_reverse_store_iterator co_pred_begin(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_pred_begin(addr, store);
+}
+inline const_reverse_store_iterator co_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_pred_begin(e);
+}
+inline const_reverse_store_iterator co_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_pred_begin(G, lab->getPos());
+}
+
+inline const_reverse_store_iterator co_pred_end(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_pred_end(addr, store);
+}
+inline const_reverse_store_iterator co_pred_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_pred_end(e);
+}
+inline const_reverse_store_iterator co_pred_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_pred_end(G, lab->getPos());
+}
+
+
+inline const_reverse_store_range co_preds(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return const_reverse_store_range(co_pred_begin(G, addr, store), co_pred_end(G, addr, store));
+}
+inline const_reverse_store_range co_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_store_range(co_pred_begin(G, e), co_pred_end(G, e));
+}
+inline const_reverse_store_range co_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_preds(G, lab->getPos());
+}
+
+
+inline const_reverse_store_iterator co_imm_pred_begin(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_imm_pred_begin(addr, store);
+}
+inline const_reverse_store_iterator co_imm_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_imm_pred_begin(e);
+}
+inline const_reverse_store_iterator co_imm_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_pred_begin(G, lab->getPos());
+}
+
+inline const_reverse_store_iterator co_imm_pred_end(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return G.getCoherenceCalculator()->co_imm_pred_end(addr, store);
+}
+inline const_reverse_store_iterator co_imm_pred_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->co_imm_pred_end(e);
+}
+inline const_reverse_store_iterator co_imm_pred_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_pred_end(G, lab->getPos());
+}
+
+inline const_reverse_store_range co_imm_preds(const ExecutionGraph &G, SAddr addr, Event store)
+{
+	return const_reverse_store_range(co_imm_pred_begin(G, addr, store),
+					 co_imm_pred_end(G, addr, store));
+}
+inline const_reverse_store_range co_imm_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_store_range(co_imm_pred_begin(G, e), co_imm_pred_end(G, e));
+}
+inline const_reverse_store_range co_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return co_imm_preds(G, lab->getPos());
+}
+
+
 /*******************************************************************************
  **                         fr-iteration utilities
  ******************************************************************************/
 
 using const_fr_iterator = CoherenceCalculator::const_store_iterator;
+using const_reverse_fr_iterator = CoherenceCalculator::const_reverse_store_iterator;
+
 using const_fr_range = llvm::iterator_range<const_fr_iterator>;
+using const_reverse_fr_range = llvm::iterator_range<const_reverse_fr_iterator>;
 
 
 inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, SAddr addr, Event load)
@@ -554,13 +666,96 @@ inline const_fr_range fr_imm_succs(const ExecutionGraph &G, const EventLabel *la
 	return fr_imm_succs(G, lab->getPos());
 }
 
+inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_pred_begin(addr, load);
+}
+inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_pred_begin(e);
+}
+inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_pred_begin(G, lab->getPos());
+}
+
+inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_pred_end(addr, load);
+}
+inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_pred_end(e);
+}
+inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_pred_end(G, lab->getPos());
+}
+
+inline const_fr_range fr_preds(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return const_fr_range(fr_pred_begin(G, addr, load), fr_pred_end(G, addr, load));
+}
+inline const_fr_range fr_preds(const ExecutionGraph &G, Event e)
+{
+	return const_fr_range(fr_pred_begin(G, e), fr_pred_end(G, e));
+}
+inline const_fr_range fr_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_preds(G, lab->getPos());
+}
+
+
+inline const_fr_iterator fr_imm_pred_begin(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_imm_pred_begin(addr, load);
+}
+inline const_fr_iterator fr_imm_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_imm_pred_begin(e);
+}
+inline const_fr_iterator fr_imm_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_pred_begin(G, lab->getPos());
+}
+
+inline const_fr_iterator fr_imm_pred_end(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return G.getCoherenceCalculator()->fr_imm_pred_end(addr, load);
+}
+inline const_fr_iterator fr_imm_pred_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_imm_pred_end(e);
+}
+inline const_fr_iterator fr_imm_pred_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_pred_end(G, lab->getPos());
+}
+
+inline const_fr_range fr_imm_preds(const ExecutionGraph &G, SAddr addr, Event load)
+{
+	return const_fr_range(fr_imm_pred_begin(G, addr, load),
+				      fr_imm_pred_end(G, addr, load));
+}
+inline const_fr_range fr_imm_preds(const ExecutionGraph &G, Event e)
+{
+	return const_fr_range(fr_imm_pred_begin(G, e), fr_imm_pred_end(G, e));
+}
+inline const_fr_range fr_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_imm_preds(G, lab->getPos());
+}
+
 
 /*******************************************************************************
  **                         po-iteration utilities
  ******************************************************************************/
 
 using const_po_iterator = const_event_iterator;
+using const_reverse_po_iterator = const_reverse_event_iterator;
+
 using const_po_range = llvm::iterator_range<const_po_iterator>;
+using const_reverse_po_range = llvm::iterator_range<const_reverse_po_iterator>;
 
 inline const_po_iterator po_succ_begin(const ExecutionGraph &G, Event e)
 {
@@ -601,6 +796,48 @@ inline const_po_range po_imm_succs(const ExecutionGraph &G, Event e)
 inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return po_imm_succs(G, lab->getPos());
+}
+
+
+inline const_reverse_po_iterator po_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_event_iterator(G, e.prev());
+}
+
+inline const_reverse_po_iterator po_pred_end(const ExecutionGraph &G, Event e)
+{
+	return e == G.getFirstThreadEvent(e.thread) ? po_pred_begin(G, e) :
+		const_reverse_event_iterator(G, G.getFirstThreadEvent(e.thread).prev());
+}
+
+inline const_reverse_po_range po_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_po_range(po_pred_begin(G, e), po_pred_end(G, e));
+}
+
+inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return po_preds(G, lab->getPos());
+}
+
+inline const_reverse_po_iterator po_imm_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return po_pred_begin(G, e);
+}
+
+inline const_reverse_po_iterator po_imm_pred_end(const ExecutionGraph &G, Event e)
+{
+	return e == G.getFirstThreadEvent(e.thread) ? po_imm_pred_begin(G, e) :
+		const_reverse_event_iterator(G, e.prev().prev());
+}
+
+inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_po_range(po_imm_pred_begin(G, e), po_imm_pred_end(G, e));
+}
+inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return po_imm_preds(G, lab->getPos());
 }
 
 
@@ -696,6 +933,30 @@ inline const_tc_range tc_succs(const ExecutionGraph &G, const EventLabel *lab)
 }
 
 
+inline const_tc_iterator tc_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
+	return tsLab ? const_event_iterator(G, tsLab->getParentCreate()) :
+		event_end(G);
+}
+
+inline const_tc_iterator tc_pred_end(const ExecutionGraph &G, Event e)
+{
+	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
+	return tsLab ? const_event_iterator(G, tsLab->getParentCreate().next()) :
+		event_end(G);
+}
+
+inline const_tc_range tc_preds(const ExecutionGraph &G, Event e)
+{
+	return const_tc_range(tc_pred_begin(G, e), tc_pred_end(G, e));
+}
+inline const_tc_range tc_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return tc_preds(G, lab->getPos());
+}
+
+
 /*******************************************************************************
  **                         tjoin-iteration utilities
  ******************************************************************************/
@@ -723,10 +984,35 @@ inline const_tj_range tj_succs(const ExecutionGraph &G, Event e)
 {
 	return const_tj_range(tj_succ_begin(G, e), tj_succ_end(G, e));
 }
-
 inline const_tj_range tj_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return tj_succs(G, lab->getPos());
+}
+
+
+inline const_tj_iterator tj_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
+	return (tjLab && !tjLab->getChildLast().isInitializer()) ?
+		const_tj_iterator(G, tjLab->getChildLast()) :
+		event_end(G);
+}
+
+inline const_tj_iterator tj_pred_end(const ExecutionGraph &G, Event e)
+{
+	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
+	return (tjLab && !tjLab->getChildLast().isInitializer()) ?
+		const_tj_iterator(G, tjLab->getChildLast().next()) :
+		event_end(G);
+}
+
+inline const_tj_range tj_preds(const ExecutionGraph &G, Event e)
+{
+	return const_tj_range(tj_pred_begin(G, e), tj_pred_end(G, e));
+}
+inline const_tj_range tj_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return tj_preds(G, lab->getPos());
 }
 
 #endif /* __GRAPH_ITERATORS_HPP__ */
