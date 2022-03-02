@@ -91,6 +91,7 @@ void Driver::output_genmc_header_file ()
 	PRINT_LINE("");
 	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
 	PRINT_LINE("#include \"EventLabel.hpp\"");
+	PRINT_LINE("#include \"VSet.hpp\"");
 	PRINT_LINE("#include <bitset>");
 	PRINT_LINE("#include <vector>");
 

@@ -471,13 +471,13 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 
 void NFA::print_calculator_header_public (std::ostream &fout, int whichCalc)
 {
-	PRINT_LINE("\tset<Event> calculate" << whichCalc << "(const Event &e);");
+	PRINT_LINE("\tVSet<Event> calculate" << whichCalc << "(const Event &e);");
 }
 
 void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
 {
 	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tvoid " << VISIT_PROC(i) << "(set<Event> &calcRes, const Event &e);");
+		PRINT_LINE("\tvoid " << VISIT_PROC(i) << "(VSet<Event> &calcRes, const Event &e);");
 
 	PRINT_LINE("\tstd::vector<std::bitset<" << trans.size() <<  "> > " << VISITED_ARR << ";");
 }
@@ -486,14 +486,14 @@ void NFA::print_calculator_impl (std::ostream &fout, const std::string &classNam
 {
 	for (auto i = 0u ; i < trans.size(); i++) {
 		PRINT_LINE("void " << className << "::" << VISIT_PROC(i)
-			   << "(set<Event> &calcRes, const Event &e)");
+			   << "(VSet<Event> &calcRes, const Event &e)");
 		PRINT_LINE("{");
 		PRINT_LINE("\tauto &g = getGraph();");
 		PRINT_LINE("");
 
 		PRINT_LINE("\t" << VISITED_IDX(i,"e") << " = true;");
-		if (is_accepting (i)) {
-			PRINT_LINE("\t calcRes.add(e);");
+		if (is_starting (i)) {
+			PRINT_LINE("\t calcRes.insert(e);");
 			if (reduce) {
 				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
 				PRINT_LINE("\t\t calcRes.erase(p);");
@@ -512,19 +512,16 @@ void NFA::print_calculator_impl (std::ostream &fout, const std::string &classNam
 		PRINT_LINE("");
 	}
 
-	PRINT_LINE("set<Event> " << className << "::calculate" << whichCalc << "(const Event &e)");
+	PRINT_LINE("VSet<Event> " << className << "::calculate" << whichCalc << "(const Event &e)");
 	PRINT_LINE("{");
 	PRINT_LINE("\tauto &g = getGraph();");
-	PRINT_LINE("\tauto *lab = g.getEventLabel(e)");
-	PRINT_LINE("\tset<Event> calcRes;");
+	PRINT_LINE("\tVSet<Event> calcRes;");
 	PRINT_LINE("");
 
-	for (auto i = 0u ; i < trans.size(); i++) {
-		PRINT_LINE("\tvisited" << i << ".clear();");
-		PRINT_LINE("\tvisited" << i << ".resize(g.getMaxStamp() + 1);");
-	}
+	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
+	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
 
-	for (auto &i : starting) {
+	for (auto &i : accepting) {
 		PRINT_LINE("\t" << VISIT_CALL(i, "e"));
 	}
 	PRINT_LINE("\treturn calcRes;");
