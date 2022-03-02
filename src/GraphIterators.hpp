@@ -158,6 +158,9 @@ using const_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 template<typename ThreadT, typename ThreadItT, typename LabelT, typename LabelItT>
 class EventIterator : public LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT> {
 
+protected:
+	using Base = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
+
 public:
 	using value_type = Event;
 	using pointer = Event *;
@@ -165,20 +168,39 @@ public:
 
 	EventIterator() = default;
 
+	template<typename A, typename B, typename C, typename D>
+	EventIterator(const EventIterator<A,B,C,D> &LI) : Base(LI) {}
+
+	template<typename A, typename B, typename C, typename D>
+	EventIterator(EventIterator<A,B,C,D> &LI) : Base (LI) {}
+
 	/* begin() constructor */
 	template<typename G>
-	EventIterator(G &g) : LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g) {}
+	EventIterator(G &g) : Base(g) {}
 
 	template<typename G>
-	EventIterator(G &g, bool) : LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g, true) {}
+	EventIterator(G &g, bool) : Base(g, true) {}
 
 	template<typename G>
-	EventIterator(G &g, value_type e)
-		: LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>(g, e) {}
+	EventIterator(G &g, value_type e) : Base(g, e) {}
 
 	/*** Operators ***/
 	inline reference operator*() const { return (*this->label)->getPos(); }
 	inline pointer operator->() const { return &operator*(); }
+
+	EventIterator& operator++() {
+		return static_cast<EventIterator&>(Base::operator++());
+	}
+	EventIterator operator++(int) {
+		auto tmp = *this; Base::operator++(); return tmp;
+	}
+
+	EventIterator& operator--() {
+		return static_cast<EventIterator&>(Base::operator--());
+	}
+	inline EventIterator operator--(int) {
+		auto tmp = *this; Base::operator--(); return tmp;
+	}
 };
 
 using event_iterator = EventIterator<ExecutionGraph::ThreadList,
