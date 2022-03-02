@@ -520,7 +520,6 @@ inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *la
 }
 
 
-
 /*******************************************************************************
  **                         rf-iteration utilities
  ******************************************************************************/
@@ -555,7 +554,6 @@ inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 }
 
 
-
 /*******************************************************************************
  **                         rf-inv-iteration utilities
  ******************************************************************************/
@@ -579,6 +577,71 @@ inline const_rf_inv_iterator rf_inv_succ_end(const ExecutionGraph &G, Event e)
 inline const_rf_inv_range rf_inv_succs(const ExecutionGraph &G, Event e)
 {
 	return const_rf_inv_range(rf_inv_succ_begin(G, e), rf_inv_succ_end(G, e));
+}
+
+
+/*******************************************************************************
+ **                         tcreate-iteration utilities
+ ******************************************************************************/
+
+using const_tc_iterator = const_event_iterator;
+using const_tc_range = llvm::iterator_range<const_tc_iterator>;
+
+inline const_tc_iterator tc_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
+	return tcLab ? const_event_iterator(G, Event(tcLab->getChildId(), 0)) :
+		event_end(G);
+}
+
+inline const_tc_iterator tc_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
+	return tcLab ? tc_succ_begin(G, e.next()) : event_end(G);
+}
+
+inline const_tc_range tc_succs(const ExecutionGraph &G, Event e)
+{
+	return const_tc_range(tc_succ_begin(G, e), tc_succ_end(G, e));
+}
+
+inline const_tc_range tc_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return tc_succs(G, lab->getPos());
+}
+
+
+/*******************************************************************************
+ **                         tjoin-iteration utilities
+ ******************************************************************************/
+
+using const_tj_iterator = const_event_iterator;
+using const_tj_range = llvm::iterator_range<const_tj_iterator>;
+
+inline const_tj_iterator tj_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
+	return (eLab && !eLab->getParentJoin().isInitializer()) ?
+		const_tj_iterator(G, eLab->getParentJoin()) :
+		event_end(G);
+}
+
+inline const_tj_iterator tj_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
+	return (eLab && !eLab->getParentJoin().isInitializer()) ?
+		tj_succ_begin(G, e.next()) :
+		event_end(G);
+}
+
+inline const_tj_range tj_succs(const ExecutionGraph &G, Event e)
+{
+	return const_tj_range(tj_succ_begin(G, e), tj_succ_end(G, e));
+}
+
+inline const_tj_range tj_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return tj_succs(G, lab->getPos());
 }
 
 #endif /* __GRAPH_ITERATORS_HPP__ */
