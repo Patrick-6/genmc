@@ -666,45 +666,6 @@ inline const_fr_range fr_imm_succs(const ExecutionGraph &G, const EventLabel *la
 	return fr_imm_succs(G, lab->getPos());
 }
 
-inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, SAddr addr, Event load)
-{
-	return G.getCoherenceCalculator()->fr_pred_begin(addr, load);
-}
-inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, Event e)
-{
-	return G.getCoherenceCalculator()->fr_pred_begin(e);
-}
-inline const_fr_iterator fr_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return fr_pred_begin(G, lab->getPos());
-}
-
-inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, SAddr addr, Event load)
-{
-	return G.getCoherenceCalculator()->fr_pred_end(addr, load);
-}
-inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, Event e)
-{
-	return G.getCoherenceCalculator()->fr_pred_end(e);
-}
-inline const_fr_iterator fr_pred_end(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return fr_pred_end(G, lab->getPos());
-}
-
-inline const_fr_range fr_preds(const ExecutionGraph &G, SAddr addr, Event load)
-{
-	return const_fr_range(fr_pred_begin(G, addr, load), fr_pred_end(G, addr, load));
-}
-inline const_fr_range fr_preds(const ExecutionGraph &G, Event e)
-{
-	return const_fr_range(fr_pred_begin(G, e), fr_pred_end(G, e));
-}
-inline const_fr_range fr_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return fr_preds(G, lab->getPos());
-}
-
 
 inline const_fr_iterator fr_imm_pred_begin(const ExecutionGraph &G, SAddr addr, Event load)
 {

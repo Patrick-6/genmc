@@ -171,16 +171,6 @@ public:
 	fr_imm_succ_end(Event e) const override { BUG(); }
 
 	CoherenceCalculator::const_store_iterator
-	fr_pred_begin(SAddr addr, Event load) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
-	fr_pred_end(SAddr addr, Event load) const override { BUG(); }
-
-	CoherenceCalculator::const_store_iterator
-	fr_pred_begin(Event e) const override { BUG(); }
-	CoherenceCalculator::const_store_iterator
-	fr_pred_end(Event e) const override { BUG(); }
-
-	CoherenceCalculator::const_store_iterator
 	fr_imm_pred_begin(SAddr addr, Event load) const override { BUG(); }
 	CoherenceCalculator::const_store_iterator
 	fr_imm_pred_end(SAddr addr, Event load) const override { BUG(); }

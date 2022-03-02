@@ -188,7 +188,7 @@ MOCalculator::fr_imm_succ_end(Event e) const
 }
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::fr_pred_begin(SAddr addr, Event store) const
+MOCalculator::fr_imm_pred_begin(SAddr addr, Event store) const
 {
 	return co_pred_begin(addr, store) == co_pred_end(addr, store) ?
 		init_rf_begin(addr) :
@@ -196,38 +196,11 @@ MOCalculator::fr_pred_begin(SAddr addr, Event store) const
 }
 
 CoherenceCalculator::const_store_iterator
-MOCalculator::fr_pred_end(SAddr addr, Event store) const
+MOCalculator::fr_imm_pred_end(SAddr addr, Event store) const
 {
 	return co_pred_begin(addr, store) == co_pred_end(addr, store) ?
 		init_rf_end(addr) :
 		getGraph().getWriteLabel(*co_pred_begin(addr, store))->readers_end();
-}
-
-CoherenceCalculator::const_store_iterator
-MOCalculator::fr_pred_begin(Event e) const
-{
-	auto *wLab = getGraph().getWriteLabel(e);
-	return wLab ? fr_pred_begin(wLab->getAddr(), e) : getSentinel();
-}
-
-CoherenceCalculator::const_store_iterator
-MOCalculator::fr_pred_end(Event e) const
-{
-	auto *wLab = getGraph().getWriteLabel(e);
-	return wLab ? fr_pred_end(wLab->getAddr(), e) : getSentinel();
-}
-
-CoherenceCalculator::const_store_iterator
-MOCalculator::fr_imm_pred_begin(SAddr addr, Event store) const
-{
-	return fr_pred_begin(addr, store);
-}
-
-CoherenceCalculator::const_store_iterator
-MOCalculator::fr_imm_pred_end(SAddr addr, Event store) const
-{
-	auto pred = fr_pred_begin(addr, store);
-	return pred == fr_pred_end(addr, store) ? fr_pred_end(addr, store) : ++pred;
 }
 
 CoherenceCalculator::const_store_iterator

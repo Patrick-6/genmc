@@ -185,11 +185,6 @@ public:
 	virtual const_store_iterator fr_imm_succ_end(SAddr addr, Event load) const = 0;
 
 	virtual const_store_iterator
-	fr_pred_begin(SAddr addr, Event load) const = 0;
-	virtual const_store_iterator
-	fr_pred_end(SAddr addr, Event load) const = 0;
-
-	virtual const_store_iterator
 	fr_imm_pred_begin(SAddr addr, Event load) const = 0;
 	virtual const_store_iterator
 	fr_imm_pred_end(SAddr addr, Event load) const = 0;
@@ -214,18 +209,6 @@ public:
 	}
 	const_store_iterator fr_imm_succ_end(const EventLabel *lab) const {
 		return fr_imm_succ_end(lab->getPos());
-	}
-
-	virtual const_store_iterator
-	fr_pred_begin(Event e) const = 0;
-	virtual const_store_iterator
-	fr_pred_end(Event e) const = 0;
-
-	const_store_iterator fr_pred_begin(const EventLabel *lab) const {
-		return fr_pred_begin(lab->getPos());
-	}
-	const_store_iterator fr_pred_end(const EventLabel *lab) const {
-		return fr_pred_end(lab->getPos());
 	}
 
 	virtual const_store_iterator
