@@ -25,6 +25,9 @@ public:
 	void flip();
 	void make_bracket();
 
+	void output_as_preds (std::ostream& ostr, const std::string &arg,
+			      const std::string &res) const;
+
 	friend std::ostream& operator<< (std::ostream& ostr, const TransLabel & t);
 
 	bool operator< (const TransLabel &other) const

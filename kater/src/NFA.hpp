@@ -51,8 +51,13 @@ public:
 
 	void simplify ();
 
-	void print_visitors_header_file (const std::string &name);
-	void print_visitors_impl_file (const std::string &name);
+	void print_calculator_header_public (std::ostream &ostr, int w);
+	void print_calculator_header_private (std::ostream &ostr, int w);
+	void print_calculator_impl (std::ostream &ostr, const std::string &name,
+				    int w, bool reduce);
+	void print_acyclic_header_public (std::ostream &ostr);
+	void print_acyclic_header_private (std::ostream &ostr);
+	void print_acyclic_impl (std::ostream &ostr, const std::string &name);
 
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
 };

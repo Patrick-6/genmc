@@ -456,123 +456,143 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	return ostr;
 }
 
-void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
-{
-	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
-	return;
-}
 
+// ------------------------------------------------------------
+// Generate C++ code for integration with GenMC
+// ------------------------------------------------------------
 #define PRINT_LINE(line) fout << line << "\n"
 
-void NFA::print_visitors_header_file (const std::string &name)
+// Macros for calculators
+#define VISIT_PROC(i)    "visit" << whichCalc << "_" << i
+#define VISIT_CALL(i,e)  VISIT_PROC(i) << "(calcRes, " << e << ");"
+#define VISITED_ARR	 "visitedCalc" << whichCalc
+#define VISITED_IDX(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
+			 << ")->getStamp()][" << i << "]"
+
+void NFA::print_calculator_header_public (std::ostream &fout, int whichCalc)
 {
-	std::string className = std::string("KaterConsChecker") + name;
-
-	std::ofstream fout (className + ".hpp");
-	if (!fout.is_open()) {
-		return;
-	}
-
-	printKaterNotice(name, fout);
-
-	PRINT_LINE("#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__");
-	PRINT_LINE("#define __KATER_CONS_CHECKER_" << name << "_HPP__");
-
-	PRINT_LINE("");
-	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
-	PRINT_LINE("#include \"EventLabel.hpp\"");
-
-	PRINT_LINE("");
-	PRINT_LINE("class " << className << " {");
-	PRINT_LINE("public:");
-
-	auto i = 0u;
-	std::string initStr = "";
-	std::for_each(trans.begin(), trans.end(), [&](decltype(*trans.begin()) dummy){
-		initStr +=", visited" + std::to_string(i++) + "()";
-	});
-	initStr += " {}";
-	PRINT_LINE("\t" << className << "(const ExecutionGraph &g) : g(g)" << initStr);
-
-	PRINT_LINE("\tbool isConsistent(const Event &e);");
-
-	PRINT_LINE("");
-	PRINT_LINE("private:");
-
-	PRINT_LINE("\tenum class NodeStatus { unseen, entered, left };");
-
-	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tbool visit" << i << "(const Event &e);");
-
-	PRINT_LINE("");
-	PRINT_LINE("\tconst ExecutionGraph &g;");
-	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tstd::vector<NodeStatus> visited" << i << ";");
-
-	PRINT_LINE("};");
-
-	PRINT_LINE("");
-	PRINT_LINE("#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */");
+	PRINT_LINE("\tset<Event> calculate" << whichCalc << "(const Event &e);");
 }
 
-void NFA::print_visitors_impl_file (const std::string &name)
+void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
 {
-	std::string className = std::string("KaterConsChecker") + name;
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tvoid " << VISIT_PROC(i) << "(set<Event> &calcRes, const Event &e);");
 
-	std::ofstream fout (className + ".cpp");
-	if (!fout.is_open())
-		return;
+	PRINT_LINE("\tstd::vector<std::bitset<" << trans.size() <<  "> > " << VISITED_ARR << ";");
+}
 
-	printKaterNotice(name, fout);
-
-	PRINT_LINE("#include \"" << className << ".hpp\"");
-	PRINT_LINE("#include <vector>");
-
-	PRINT_LINE("");
+void NFA::print_calculator_impl (std::ostream &fout, const std::string &className, int whichCalc, bool reduce)
+{
 	for (auto i = 0u ; i < trans.size(); i++) {
-		PRINT_LINE("bool " << className << "::visit" << i << "(const Event &e)");
+		PRINT_LINE("void " << className << "::" << VISIT_PROC(i)
+			   << "(set<Event> &calcRes, const Event &e)");
 		PRINT_LINE("{");
 		PRINT_LINE("\tauto &g = getGraph();");
-		PRINT_LINE("\tauto *lab = g.getEventLabel(e);");
 		PRINT_LINE("");
 
-		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = NodeStatus::entered;");
-		for (const auto &n : trans[i]) {
-			PRINT_LINE("\tfor (const auto &s : " << n.first << "_succs(g, e)) {");
-			PRINT_LINE("\t\tauto status = visited" << n.second
-				   << "[g.getEventLabel(s)->getStamp()];");
-			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !visit"
-				   << n.second << "(s))");
-			PRINT_LINE("\t\t\treturn false;");
-			PRINT_LINE("\t\telse if (status == NodeStatus::entered)");
-			PRINT_LINE("\t\t\treturn false;");
+		PRINT_LINE("\t" << VISITED_IDX(i,"e") << " = true;");
+		if (is_accepting (i)) {
+			PRINT_LINE("\t calcRes.add(e);");
+			if (reduce) {
+				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
+				PRINT_LINE("\t\t calcRes.erase(p);");
+				for (int j : accepting)
+					PRINT_LINE("\t\t" << VISITED_IDX(j, "p") << " = true;");
+				PRINT_LINE("\t}");
+			}
+		}
+		for (const auto &n : trans_inv[i]) {
+			n.first.output_as_preds(fout, "e", "p");
+			PRINT_LINE("\t\tif (" << VISITED_IDX(n.second, "p") << ") continue;");
+			PRINT_LINE("\t\t" << VISIT_CALL(n.second, "p"));
 			PRINT_LINE("\t}");
 		}
-		PRINT_LINE("\tvisited" << i << "[lab->getStamp()] = NodeStatus::left;");
-		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");
+		PRINT_LINE("");
 	}
 
-	/* I'm assuming that x has the largest timestamp in the graph.
-	   If not, we have to read the largest timestamp from the graph
-	   initialize the visited bit-vectors. */
-	PRINT_LINE("");
-	PRINT_LINE("bool " << className << "::isConsistent(const Event &e)");
+	PRINT_LINE("set<Event> " << className << "::calculate" << whichCalc << "(const Event &e)");
 	PRINT_LINE("{");
 	PRINT_LINE("\tauto &g = getGraph();");
 	PRINT_LINE("\tauto *lab = g.getEventLabel(e)");
+	PRINT_LINE("\tset<Event> calcRes;");
 	PRINT_LINE("");
 
 	for (auto i = 0u ; i < trans.size(); i++) {
 		PRINT_LINE("\tvisited" << i << ".clear();");
-		PRINT_LINE("\tvisited" << i << ".resize(lab->getStamp() + 1, NodeStatus::unseen);");
+		PRINT_LINE("\tvisited" << i << ".resize(g.getMaxStamp() + 1);");
 	}
 
-	std::string retStr = "";
 	for (auto &i : starting) {
-		retStr += (" && !visit" + std::to_string(i));
-		retStr += "(e)";
+		PRINT_LINE("\t" << VISIT_CALL(i, "e"));
 	}
-	PRINT_LINE("\treturn true" + retStr + ";");
+	PRINT_LINE("\treturn calcRes;");
 	PRINT_LINE("}");
+}
+
+#undef VISIT_PROC
+#undef VISIT_CALL
+#undef VISITED_ARR
+#undef VISITED_IDX
+
+// Macros for acyclicity checks
+#define VISIT_PROC(i)      "visitAcyclic" << i
+#define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
+#define VISITED_ARR	   "visitedAcyclic"
+#define VISITED_ACCEPTING  "visitedAccepting"
+#define VISITED_ENTER(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
+			   << ")->getStamp()][" << (2 * i) << "]"
+#define VISITED_EXIT(i,e)  VISITED_ARR << "[g.getEventLabel(" << e \
+			   << ")->getStamp()][" << (2 * i + 1) << "]"
+
+void NFA::print_acyclic_header_public (std::ostream &fout)
+{
+	PRINT_LINE("\tbool isConsistent(const Event &e);");
+}
+
+void NFA::print_acyclic_header_private (std::ostream &fout)
+{
+	for (auto i = 0u ; i < trans.size(); i++)
+		PRINT_LINE("\tbool " << VISIT_PROC(i) << "(const Event &e);");
+
+	PRINT_LINE("\tstd::vector<std::bitset< " << trans.size() <<  "> > " << VISITED_ARR << ";");
+	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << ";");
+}
+
+void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className)
+{
+	for (auto i = 0u ; i < trans.size(); i++) {
+		PRINT_LINE("bool " << className << "::" << VISIT_PROC(i) << "(const Event &e)");
+		PRINT_LINE("{");
+		PRINT_LINE("\tauto &g = getGraph();");
+		if (is_starting(i)) PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
+		PRINT_LINE("\t" << VISITED_ENTER(i, "e") << " = true;");
+		for (const auto &n : trans_inv[i]) {
+			n.first.output_as_preds(fout, "e", "p");
+			PRINT_LINE("\t\tif (" << VISITED_ENTER(i, "p") << ") {");
+			PRINT_LINE("\t\t\tif (" << VISITED_ACCEPTING << ") return false;");
+			PRINT_LINE("\t\t} else if (!" << VISIT_CALL(i, "p") << ") return false;");
+			PRINT_LINE("\t}");
+		}
+		PRINT_LINE("\t" << VISITED_EXIT(i, "e") << " = true;");
+		if (is_starting(i)) PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
+		PRINT_LINE("\treturn true;");
+		PRINT_LINE("}");
+		PRINT_LINE("");
+	}
+
+	PRINT_LINE("bool " << className << "::isConsistent(const Event &e)");
+	PRINT_LINE("{");
+	PRINT_LINE("\tauto &g = getGraph();");
+	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
+	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
+	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
+	PRINT_LINE("\treturn true");
+	for (auto i = 0u ; i < trans.size(); i++) {
+		PRINT_LINE ("\t\t&& " << VISIT_CALL(i, "e")
+			    << (i + 1 == trans.size() ? ";" : ""));
+	}
+	PRINT_LINE("}");
+	PRINT_LINE("");
 }

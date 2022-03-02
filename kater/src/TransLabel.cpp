@@ -1,6 +1,7 @@
 #include "TransLabel.hpp"
-#include <cassert>
 #include <algorithm>
+#include <cassert>
+#include <iostream>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -28,6 +29,17 @@ std::ostream & operator<< (std::ostream& ostr, const TransLabel & t)
 	if (!t.post_checks.empty())
 		ostr << ";[" << t.post_checks << "]";
 	return ostr;
+}
+
+void TransLabel::output_as_preds (std::ostream& ostr,
+				  const std::string &arg,
+				  const std::string &res) const
+{
+	for (const auto &c : pre_checks)
+		ostr << "\tif (" << c << "(g, " << arg << "))\n";
+	ostr << "\tfor (const auto &" << res << " : " << trans << "_preds(g, " << arg << ")) {\n";
+	for (const auto &c : post_checks)
+		ostr << "\t\tif (!" << c << "(g, " << arg << ")) continue;\n";
 }
 
 /*

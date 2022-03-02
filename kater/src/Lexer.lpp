@@ -27,6 +27,8 @@ BLANK	[ \t\r]
 let			return yy::parser::make_LET (loc);
 acyclic			return yy::parser::make_ACYCLIC (loc);
 property		return yy::parser::make_PROPERTY (loc);
+save			return yy::parser::make_SAVE (loc);
+reduce			return yy::parser::make_REDUCE (loc);
 
 {ALPHA}{EALPHA}*	return yy::parser::make_ID     (yytext, loc);
 
@@ -54,10 +56,11 @@ property		return yy::parser::make_PROPERTY (loc);
 
 void Driver::scan_begin ()
 {
-	if (file.empty () || file == "-")
-		yyin = stdin;
-	else if (!(yyin = fopen (file.c_str (), "r"))) {
-		std::cerr << "cannot open " << file << ": " << strerror (errno) << '\n';
+	if (config.inputFile.empty ()) {
+		std::cerr << "no input file provided" << std::endl;
+		exit (EXIT_FAILURE);
+	} else if (!(yyin = fopen (config.inputFile.c_str (), "r"))) {
+		std::cerr << "cannot open " << config.inputFile << ": " << strerror (errno) << std::endl;
 		exit (EXIT_FAILURE);
 	}
 }
