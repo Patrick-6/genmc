@@ -1,5 +1,5 @@
 let po = po_imm+
 let mo = mo_imm+
-let fr = fr_imm+
+let fr = fr_init ; mo* | rf_inv ; mo
 
 acyclic (po | rf | mo | fr)
