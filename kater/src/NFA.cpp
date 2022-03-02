@@ -463,21 +463,24 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 #define PRINT_LINE(line) fout << line << "\n"
 
 // Macros for calculators
+#define VSET             "VSet<Event>"
+#define CALC             "calculate" << whichCalc << "(const ExecutionGraph &g, const Event &e)"
 #define VISIT_PROC(i)    "visit" << whichCalc << "_" << i
 #define VISIT_CALL(i,e)  VISIT_PROC(i) << "(calcRes, " << e << ");"
+#define VISIT_PARAMS	 "(" << VSET << " &calcRes, const ExecutionGraph &g, const Event &e)"
 #define VISITED_ARR	 "visitedCalc" << whichCalc
 #define VISITED_IDX(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
 			 << ")->getStamp()][" << i << "]"
 
 void NFA::print_calculator_header_public (std::ostream &fout, int whichCalc)
 {
-	PRINT_LINE("\tVSet<Event> calculate" << whichCalc << "(const Event &e);");
+	PRINT_LINE("\t" << VSET << " " << CALC << ";");
 }
 
 void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
 {
 	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tvoid " << VISIT_PROC(i) << "(VSet<Event> &calcRes, const Event &e);");
+		PRINT_LINE("\tvoid " << VISIT_PROC(i) << VISIT_PARAMS);
 
 	PRINT_LINE("\tstd::vector<std::bitset<" << trans.size() <<  "> > " << VISITED_ARR << ";");
 }
@@ -485,18 +488,17 @@ void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
 void NFA::print_calculator_impl (std::ostream &fout, const std::string &className, int whichCalc, bool reduce)
 {
 	for (auto i = 0u ; i < trans.size(); i++) {
-		PRINT_LINE("void " << className << "::" << VISIT_PROC(i)
-			   << "(VSet<Event> &calcRes, const Event &e)");
+		PRINT_LINE("void " << className << "::" << VISIT_PROC(i) << VISIT_PARAMS);
 		PRINT_LINE("{");
 		PRINT_LINE("\tauto &g = getGraph();");
 		PRINT_LINE("");
 
 		PRINT_LINE("\t" << VISITED_IDX(i,"e") << " = true;");
 		if (is_starting (i)) {
-			PRINT_LINE("\t calcRes.insert(e);");
+			PRINT_LINE("\tcalcRes.insert(e);");
 			if (reduce) {
 				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
-				PRINT_LINE("\t\t calcRes.erase(p);");
+				PRINT_LINE("\t\tcalcRes.erase(p);");
 				for (int j : accepting)
 					PRINT_LINE("\t\t" << VISITED_IDX(j, "p") << " = true;");
 				PRINT_LINE("\t}");
@@ -512,46 +514,43 @@ void NFA::print_calculator_impl (std::ostream &fout, const std::string &classNam
 		PRINT_LINE("");
 	}
 
-	PRINT_LINE("VSet<Event> " << className << "::calculate" << whichCalc << "(const Event &e)");
+	PRINT_LINE(VSET << " " << className << "::" << CALC);
 	PRINT_LINE("{");
-	PRINT_LINE("\tauto &g = getGraph();");
-	PRINT_LINE("\tVSet<Event> calcRes;");
-	PRINT_LINE("");
-
+	PRINT_LINE("\t" << VSET << " calcRes;");
 	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
 	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
-
-	for (auto &i : accepting) {
+	for (auto &i : accepting)
 		PRINT_LINE("\t" << VISIT_CALL(i, "e"));
-	}
 	PRINT_LINE("\treturn calcRes;");
 	PRINT_LINE("}");
 }
 
+#undef VSET
+#undef CALC
 #undef VISIT_PROC
 #undef VISIT_CALL
+#undef VISIT_PARAMS
 #undef VISITED_ARR
 #undef VISITED_IDX
 
 // Macros for acyclicity checks
 #define VISIT_PROC(i)      "visitAcyclic" << i
 #define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
+#define VISIT_PARAMS	   "(const ExecutionGraph &g, const Event &e)"
+#define IS_CONS            "isConsistent" << VISIT_PARAMS
 #define VISITED_ARR	   "visitedAcyclic"
+#define VISITED_IDX(i,e)   VISITED_ARR << "[g.getEventLabel(" << e << ")->getStamp()][" << i << "]"
 #define VISITED_ACCEPTING  "visitedAccepting"
-#define VISITED_ENTER(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
-			   << ")->getStamp()][" << (2 * i) << "]"
-#define VISITED_EXIT(i,e)  VISITED_ARR << "[g.getEventLabel(" << e \
-			   << ")->getStamp()][" << (2 * i + 1) << "]"
 
 void NFA::print_acyclic_header_public (std::ostream &fout)
 {
-	PRINT_LINE("\tbool isConsistent(const Event &e);");
+	PRINT_LINE("\tbool " << IS_CONS << ";");
 }
 
 void NFA::print_acyclic_header_private (std::ostream &fout)
 {
 	for (auto i = 0u ; i < trans.size(); i++)
-		PRINT_LINE("\tbool " << VISIT_PROC(i) << "(const Event &e);");
+		PRINT_LINE("\tbool " << VISIT_PROC(i) << VISIT_PARAMS << ";");
 
 	PRINT_LINE("\tstd::vector<std::bitset< " << trans.size() <<  "> > " << VISITED_ARR << ";");
 	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << ";");
@@ -560,28 +559,25 @@ void NFA::print_acyclic_header_private (std::ostream &fout)
 void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className)
 {
 	for (auto i = 0u ; i < trans.size(); i++) {
-		PRINT_LINE("bool " << className << "::" << VISIT_PROC(i) << "(const Event &e)");
+		PRINT_LINE("bool " << className << "::" << VISIT_PROC(i) << VISIT_PARAMS);
 		PRINT_LINE("{");
-		PRINT_LINE("\tauto &g = getGraph();");
 		if (is_starting(i)) PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
-		PRINT_LINE("\t" << VISITED_ENTER(i, "e") << " = true;");
+		PRINT_LINE("\t" << VISITED_IDX(i, "e") << " = true;");
 		for (const auto &n : trans_inv[i]) {
 			n.first.output_as_preds(fout, "e", "p");
-			PRINT_LINE("\t\tif (" << VISITED_ENTER(i, "p") << ") {");
+			PRINT_LINE("\t\tif (" << VISITED_IDX(i, "p") << ") {");
 			PRINT_LINE("\t\t\tif (" << VISITED_ACCEPTING << ") return false;");
 			PRINT_LINE("\t\t} else if (!" << VISIT_CALL(i, "p") << ") return false;");
 			PRINT_LINE("\t}");
 		}
-		PRINT_LINE("\t" << VISITED_EXIT(i, "e") << " = true;");
 		if (is_starting(i)) PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
 		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");
 		PRINT_LINE("");
 	}
 
-	PRINT_LINE("bool " << className << "::isConsistent(const Event &e)");
+	PRINT_LINE("bool " << className << "::" << IS_CONS);
 	PRINT_LINE("{");
-	PRINT_LINE("\tauto &g = getGraph();");
 	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
 	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
 	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
