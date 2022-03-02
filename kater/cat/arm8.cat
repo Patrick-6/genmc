@@ -12,19 +12,15 @@ property rf_inv ; [F] = 0
 property [REL] ; [SC] = 0
 property [ACQ] ; [SC] = 0
 
+let dmb.full = DMB_SY
+let dmb.ld = DMB_LD
+let dmb.st = DMB_ST
 
 // Definition of standard relations
 let po = po_imm+
 let co = mo_imm+
-let fr = rf_inv ; co
+let fr = rf_inv ; co | fr_init ; co*
 let ctrl = ctrl_imm ; po_imm*
-
-// let dsb.full = DSB.ISH | DSB.OSH | DSB.SY
-// let dsb.ld = DSB.ISHLD | DSB.OSHLD | DSB.LD
-// let dsb.st = DSB.ISHST | DSB.OSHST | DSB.ST
-// let dmb.full = DMB.ISH | DMB.OSH | DMB.SY | dsb.full
-// let dmb.ld = DMB.ISHLD | DMB.OSHLD | DMB.LD | dsb.ld
-// let dmb.st = DMB.ISHST | DMB.OSHST | DMB.ST | dsb.st
 
 // Atomic RMW relation
 let rmw = lxsx | amo
@@ -35,7 +31,7 @@ let rmw = lxsx | amo
 // Dependency ordering
 let dob = addr | data
 	| ctrl; [W]
-	| (ctrl | (addr; po)); [ISB]; po //; [R]
+	| (ctrl | (addr; po)); [ISB] | [ISB]; po //; [R]
 	| addr; po; [W]
 	| (addr | data); lrs
 
@@ -52,5 +48,7 @@ let bob = po; [dmb.full]; po
 	| [W]; po; [dmb.st]; po; [W]
 	| po; [L]
 
-acyclic (rfe | co | fr | dob | aob | bob)
+save ppo = reduce (dob | aob | bob)+
+
+acyclic (rfe | co | fr | ppo)
 
