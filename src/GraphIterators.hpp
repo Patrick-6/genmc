@@ -597,7 +597,8 @@ inline const_tc_iterator tc_succ_begin(const ExecutionGraph &G, Event e)
 inline const_tc_iterator tc_succ_end(const ExecutionGraph &G, Event e)
 {
 	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
-	return tcLab ? tc_succ_begin(G, e.next()) : event_end(G);
+	return tcLab ? const_event_iterator(G, Event(tcLab->getChildId(), 1)) :
+		event_end(G);
 }
 
 inline const_tc_range tc_succs(const ExecutionGraph &G, Event e)
@@ -630,7 +631,7 @@ inline const_tj_iterator tj_succ_end(const ExecutionGraph &G, Event e)
 {
 	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
 	return (eLab && !eLab->getParentJoin().isInitializer()) ?
-		tj_succ_begin(G, e.next()) :
+		const_tj_iterator(G, eLab->getParentJoin().next()) :
 		event_end(G);
 }
 

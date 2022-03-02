@@ -62,7 +62,7 @@ CoherenceCalculator::const_store_iterator
 MOCalculator::co_imm_succ_end(SAddr addr, Event store) const
 {
 	auto succ = co_imm_succ_begin(addr, store);
-	return succ == store_end(addr) ? store_end(addr) : ++succ;
+	return succ == co_succ_end(addr, store) ? co_succ_end(addr, store) : ++succ;
 }
 
 CoherenceCalculator::const_store_iterator
@@ -135,14 +135,13 @@ MOCalculator::fr_succ_end(Event e) const
 CoherenceCalculator::const_store_iterator
 MOCalculator::fr_imm_succ_begin(SAddr addr, Event load) const
 {
-	auto *rLab = getGraph().getReadLabel(load);
-	return co_imm_succ_begin(addr, rLab->getRf());
+	return fr_succ_begin(addr, load);
 }
 CoherenceCalculator::const_store_iterator
 MOCalculator::fr_imm_succ_end(SAddr addr, Event load) const
 {
-	auto *rLab = getGraph().getReadLabel(load);
-	return co_imm_succ_end(addr, rLab->getRf());
+	auto succ = fr_succ_begin(addr, load);
+	return succ == fr_succ_end(addr, load) ? fr_succ_end(addr, load) : ++succ;
 }
 
 CoherenceCalculator::const_store_iterator
@@ -151,6 +150,7 @@ MOCalculator::fr_imm_succ_begin(Event e) const
 	auto *rLab = getGraph().getReadLabel(e);
 	return rLab ? fr_imm_succ_begin(rLab->getAddr(), e) : getSentinel();
 }
+
 CoherenceCalculator::const_store_iterator
 MOCalculator::fr_imm_succ_end(Event e) const
 {
