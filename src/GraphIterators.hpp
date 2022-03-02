@@ -24,8 +24,10 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "CoherenceCalculator.hpp"
-#include <iterator>
 #include <llvm/ADT/iterator_range.h>
+#include <iterator>
+#include <type_traits>
+#include <utility>
 
 /*
  * Helper iterators for ExecutionGraphs
@@ -66,39 +68,89 @@ public:
 	LabelIterator(LabelIterator<A,B,C,D> &LI)
 		: threads(LI.threads), thread(LI.thread), label(LI.label) {}
 
-	/* begin() constructor */
-	template<typename G>
+	/* begin()/end() constructor */
+	template<typename G, typename U = ThreadItT,
+		 std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.begin()) {
 		if (thread != threads->end()) {
 			label = thread->begin();
 			advanceThread();
 		}
 	}
-
-	/* end() constructor -- dummy parameter */
-	template<typename G>
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	LabelIterator(G &g, bool) : threads(&g.getThreadList()), thread(g.end()) {}
 
-	/* iterator-from-label constructor */
-	template<typename G>
+	/* rbegin()/rend() constructor */
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.rbegin()) {
+		if (thread != threads->rend()) {
+			label = thread->rbegin();
+			advanceThread();
+		}
+	}
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	LabelIterator(G &g, bool) : threads(&g.getThreadList()), thread(g.rend()) {}
+
+	/* iterator-from-label constructor (normal iterator) */
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	LabelIterator(G &g, pointer p)
 		: threads(&g.getThreadList()), thread(g.begin() + p->getThread()),
 		  label(thread->begin() + p->getIndex()) {}
 
-	template<typename G>
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	LabelIterator(G &g, Event e)
 		: threads(&g.getThreadList()), thread(g.begin() + e.thread),
 		  label(thread->begin() + e.index) { advanceThread(); }
+
+	/* iterator-from-label constructor (reverse iterator) */
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	LabelIterator(G &g, pointer p)
+		: threads(&g.getThreadList()), thread(g.rbegin() + threads->size() - p->getThread()-1),
+		  label(thread->rbegin() + g.getThreadSize(p->getThread()) - p->getIndex()-1) {}
+
+	template<typename G, typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	LabelIterator(G &g, Event e)
+		: threads(&g.getThreadList()), thread(g.rbegin() + g.getThreadList().size() - e.thread-1),
+		  label(thread->rbegin() + g.getThreadSize(e.thread) - e.index-1) {
+		advanceThread();
+	}
 
 
 	/*** Operators ***/
 	inline pointer operator*() const { return &**label; }
 	inline pointer operator->() const { return operator*(); }
 
+	template<typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	inline bool operator==(const LabelIterator &other) const {
 		return thread == other.thread &&
 		       (thread == threads->end() || label == other.label);
 	}
+
+	template<typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	inline bool operator==(const LabelIterator &other) const {
+		return thread == other.thread &&
+		       (thread == threads->rend() || label == other.label);
+	}
+
 	inline bool operator!=(const LabelIterator& other) const {
 		return !operator==(other);
 	}
@@ -127,6 +179,9 @@ public:
 protected:
 	/* Checks whether we have reached the end of a thread, and appropriately
 	 * advances the thread and label iterators. Does nothing if that is not the case. */
+	template<typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	inline void advanceThread() {
 		while (label == thread->end()) {
 			++thread;
@@ -136,6 +191,17 @@ protected:
 		}
 	}
 
+	template<typename U = ThreadItT,
+		 typename std::enable_if_t<std::is_same<U, decltype(
+		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
+	inline void advanceThread() {
+		while (label == thread->rend()) {
+			++thread;
+			if (thread == threads->rend())
+				break;
+			label = thread->rbegin();
+		}
+	}
 };
 
 using label_iterator = LabelIterator<ExecutionGraph::ThreadList,
@@ -146,6 +212,15 @@ using const_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 					   ExecutionGraph::const_iterator,
 					   const EventLabel,
 					   ExecutionGraph::Thread::const_iterator>;
+
+using reverse_label_iterator = LabelIterator<ExecutionGraph::ThreadList,
+					     ExecutionGraph::reverse_iterator,
+					     EventLabel,
+					     ExecutionGraph::Thread::reverse_iterator>;
+using const_reverse_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
+						   ExecutionGraph::const_reverse_iterator,
+						   const EventLabel,
+						   ExecutionGraph::Thread::const_reverse_iterator>;
 
 
 /*******************************************************************************
@@ -211,6 +286,15 @@ using const_event_iterator = EventIterator<const ExecutionGraph::ThreadList,
 					   ExecutionGraph::const_iterator,
 					   const EventLabel,
 					   ExecutionGraph::Thread::const_iterator>;
+
+using reverse_event_iterator = EventIterator<ExecutionGraph::ThreadList,
+					     ExecutionGraph::reverse_iterator,
+					     EventLabel,
+					     ExecutionGraph::Thread::reverse_iterator>;
+using const_reverse_event_iterator = EventIterator<const ExecutionGraph::ThreadList,
+						   ExecutionGraph::const_reverse_iterator,
+						   const EventLabel,
+						   ExecutionGraph::Thread::const_reverse_iterator>;
 
 
 /*******************************************************************************
