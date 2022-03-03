@@ -432,6 +432,34 @@ void NFA::simplify ()
 	simplify_basic();
 }
 
+void NFA::simplify_for_calculator (bool reduce)
+{
+	// If transitive reduction is disabled, just simplify the NFA and
+	// return.
+	if (!reduce) {
+		simplify();
+		return;
+	}
+	// If transitive reduction is enabled, then take the
+	// reflexive-transitive closure to consense the NFA
+	star();
+	simplify();
+	// and if the condensed NFA containg only one starting and only one
+	// accepting node (which ought to be identical to the starting node),
+	// then make sure no incoming edges to the starting node are used.
+	if (accepting.size() == 1 && starting == accepting) {
+		int n = *accepting.begin(); // the unique starting/accepting state
+		int m = trans.size();       // the new starting state
+		trans.push_back({});
+		trans_inv.push_back({});
+		starting.clear();
+		starting.insert(m);
+		add_outgoing_edges(m, trans[n]);
+		for (int j = trans[n].size(); j >= 0; --j)
+			remove_edge(n, trans[n][j].first, trans[n][j].second);
+		simplify();
+	}
+}
 
 template<typename T>
 static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)

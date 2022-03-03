@@ -50,6 +50,7 @@ public:
 	std::pair<NFA, std::vector<std::set<int>>> to_DFA () const;
 
 	void simplify ();
+	void simplify_for_calculator (bool reduce);
 
 	void print_calculator_header_public (std::ostream &ostr, int w);
 	void print_calculator_header_private (std::ostream &ostr, int w);
