@@ -1,8 +1,11 @@
 #include "Config.hpp"
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <getopt.h>
+
+Config config;
 
 void Config::reset()
 {
@@ -34,9 +37,12 @@ void Config::printUsage(const char *kater)
 		verbose);
 	exit(0);
 }
-#include <iostream>
+
 void Config::parseOptions(int argc, char **argv)
 {
+	/* Reset defaults before parsing the options */
+	reset();
+
 	const char *shortopts = "hdv:";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},

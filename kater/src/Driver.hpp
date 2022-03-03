@@ -16,8 +16,6 @@ using string_RE_map = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
 class Driver {
 
 public:
-	Config config;
-
 	// Location for lexing/parsing
 	yy::location location;
 

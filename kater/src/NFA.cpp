@@ -1,3 +1,4 @@
+#include "Config.hpp"
 #include "NFA.hpp"
 #include <algorithm>
 #include <map>
@@ -331,7 +332,7 @@ std::vector<std::vector<char>> NFA::get_state_composition_matrix ()
 	flip();
 	auto p = to_DFA();
 	flip();
-	std::cout << "State composition matrix: " << std::endl;
+	if (config.verbose > 1) std::cout << "State composition matrix: " << std::endl;
 	std::vector<std::vector<char>> v;
 	int vsize = p.second.size();
 	for (int i = 0; i < trans.size(); ++i) {
@@ -340,7 +341,7 @@ std::vector<std::vector<char>> NFA::get_state_composition_matrix ()
 			if (p.second[j].find(i) != p.second[j].end())
 				bv[j] = 1;
 		v.push_back(bv);
-		std::cout << bv << ": " << i << std::endl;
+		if (config.verbose > 1) std::cout << bv << ": " << i << std::endl;
 	}
 	return v;
 }
@@ -361,15 +362,15 @@ void NFA::scm_reduce ()
 			take_union(bv, v[j]);
 		}
 		if (bv != v[i]) continue;
-		std::cout << "erase node " << i << " with";
+		if (config.verbose > 1) std::cout << "erase node " << i << " with";
 		// If so, we can remove v[i].
 		for (int j = 0; j < trans.size(); ++j) {
 			if (j == i) continue;
 			if (!is_subset(v[j], v[i])) continue;
-			std::cout << " " << j;
+			if (config.verbose > 1) std::cout << " " << j;
 			add_incoming_edges(j, trans_inv[i]);
 		}
-		std::cout << std::endl;
+		if (config.verbose > 1) std::cout << std::endl;
 		remove_node(i);
 		v.erase(v.begin() + i);
 	}
@@ -384,7 +385,9 @@ void NFA::compact_edges()
 			auto p = trans[i][j];
 			if (!p.first.is_empty_trans()) continue;
 			if (is_accepting(p.second) && i != p.second) continue;
-			std::cout << "Compacting edge " << i << " --" << p.first << "--> " << p.second << std::endl;
+			if (config.verbose > 1)
+				std::cout << "Compacting edge " << i << " --"
+					  << p.first << "--> " << p.second << std::endl;
 			if (p.second != i) {
 				for (const auto &q : trans[p.second]) {
 					TransLabel l = p.first.seq(q.first);
@@ -410,25 +413,25 @@ void NFA::compact_edges()
 void NFA::simplify ()
 {
 	simplify_basic();
-	//std::cout << "After basic simplification: " << *this;
+	if (config.verbose > 1) std::cout << "After basic simplification: " << *this;
 	scm_reduce();
-	//std::cout << "After 1st SCM reduction: " << *this;
+	if (config.verbose > 1) std::cout << "After 1st SCM reduction: " << *this;
 	flip();
 	scm_reduce();
 	flip();
-	//std::cout << "After 2nd SCM reduction: " << *this;
+	if (config.verbose > 1) std::cout << "After 2nd SCM reduction: " << *this;
 	compact_edges();
 	flip();
 	compact_edges();
 	flip();
-	//std::cout << "After edge compaction: " << *this;
+	if (config.verbose > 1) std::cout << "After edge compaction: " << *this;
 	scm_reduce();
-	//std::cout << "After 3rd SCM reduction: " << *this;
+	if (config.verbose > 1) std::cout << "After 3rd SCM reduction: " << *this;
 	flip();
 	scm_reduce();
-	//std::cout << "Flipped: " << *this;
+	if (config.verbose > 2) std::cout << "Flipped: " << *this;
 	flip();
-	//std::cout << "After 4th SCM reduction: " << *this;
+	if (config.verbose > 1) std::cout << "After 4th SCM reduction: " << *this;
 	simplify_basic();
 }
 

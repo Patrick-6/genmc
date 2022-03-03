@@ -5,8 +5,6 @@
 
 struct Config {
 
-	Config() { reset(); }
-
 	/* Initializes the configuration based on the CLI arguments ARGC/ARGV */
 	void parseOptions(int argc, char **argv);
 
@@ -21,5 +19,7 @@ private:
 	/* Prints usage instructions if config parsing fails */
 	void printUsage(const char *kater);
 };
+
+extern Config config;
 
 #endif /* __CONFIG_HPP__ */

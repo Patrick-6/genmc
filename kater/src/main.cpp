@@ -7,8 +7,9 @@
 
 int main(int argc, char **argv)
 {
+	config.parseOptions(argc, argv);
+
 	Driver d;
-	d.config.parseOptions(argc, argv);
 
 	if (d.parse())
 		exit(EPARSE);
