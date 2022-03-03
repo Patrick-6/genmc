@@ -217,6 +217,22 @@ MOCalculator::fr_imm_pred_end(Event e) const
 	return wLab ? fr_imm_pred_end(wLab->getAddr(), e) : getSentinel();
 }
 
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_init_pred_begin(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab && co_pred_begin(wLab->getAddr(), e) == co_pred_end(wLab->getAddr(), e) ?
+		fr_imm_pred_begin(wLab->getAddr(), e) : getSentinel();
+}
+
+CoherenceCalculator::const_store_iterator
+MOCalculator::fr_init_pred_end(Event e) const
+{
+	auto *wLab = getGraph().getWriteLabel(e);
+	return wLab && co_pred_begin(wLab->getAddr(), e) == co_pred_end(wLab->getAddr(), e) ?
+		fr_imm_pred_end(wLab->getAddr(), e) : getSentinel();
+}
+
 void MOCalculator::trackCoherenceAtLoc(SAddr addr)
 {
 	stores[addr];

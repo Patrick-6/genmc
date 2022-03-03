@@ -140,6 +140,14 @@ public:
 	CoherenceCalculator::const_store_iterator
 	fr_imm_pred_end(Event e) const override;
 
+	/* Iterates over the immediate fr-predecessors of E,
+	 * only if E is the first store in CO.
+	 * E does _not_ have to be a Write. */
+	CoherenceCalculator::const_store_iterator
+	fr_init_pred_begin(Event e) const override;
+	CoherenceCalculator::const_store_iterator
+	fr_init_pred_end(Event e) const override;
+
 	/* Changes the offset of "store" to "newOffset" */
 	void changeStoreOffset(SAddr addr, Event store, int newOffset);
 

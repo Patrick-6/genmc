@@ -708,6 +708,34 @@ inline const_fr_range fr_imm_preds(const ExecutionGraph &G, const EventLabel *la
 }
 
 
+inline const_fr_iterator fr_init_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_init_pred_begin(e);
+}
+inline const_fr_iterator fr_init_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_init_pred_begin(G, lab->getPos());
+}
+
+inline const_fr_iterator fr_init_pred_end(const ExecutionGraph &G, Event e)
+{
+	return G.getCoherenceCalculator()->fr_init_pred_end(e);
+}
+inline const_fr_iterator fr_init_pred_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_init_pred_end(G, lab->getPos());
+}
+
+inline const_fr_range fr_init_preds(const ExecutionGraph &G, Event e)
+{
+	return const_fr_range(fr_init_pred_begin(G, e), fr_init_pred_end(G, e));
+}
+inline const_fr_range fr_init_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return fr_init_preds(G, lab->getPos());
+}
+
+
 /*******************************************************************************
  **                         po-iteration utilities
  ******************************************************************************/
@@ -854,7 +882,6 @@ inline const_rf_inv_iterator rf_inv_succ_end(const ExecutionGraph &G, Event e)
 	auto *rLab = G.getReadLabel(e);
 	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf().next());
 }
-
 
 inline const_rf_inv_range rf_inv_succs(const ExecutionGraph &G, Event e)
 {

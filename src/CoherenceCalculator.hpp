@@ -223,6 +223,12 @@ public:
 		return fr_imm_pred_end(lab->getPos());
 	}
 
+	virtual const_store_iterator
+	fr_init_pred_begin(Event e) const = 0;
+	virtual const_store_iterator
+	fr_init_pred_end(Event e) const = 0;
+
+
 	/* Whether a location is tracked (i.e., we are aware of it) */
 	bool tracksLoc(SAddr addr) const { return stores.count(addr); }
 

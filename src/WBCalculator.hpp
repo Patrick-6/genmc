@@ -180,6 +180,10 @@ public:
 	CoherenceCalculator::const_store_iterator
 	fr_imm_pred_end(Event e) const override { BUG(); }
 
+	CoherenceCalculator::const_store_iterator
+	fr_init_pred_begin(Event e) const override { BUG(); }
+	CoherenceCalculator::const_store_iterator
+	fr_init_pred_end(Event e) const override { BUG(); }
 
 	/* Track coherence at location addr */
 	void
