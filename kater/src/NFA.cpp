@@ -596,9 +596,9 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className)
 		PRINT_LINE("\t" << VISITED_IDX(i, "e") << " = true;");
 		for (const auto &n : trans_inv[i]) {
 			n.first.output_as_preds(fout, "e", "p");
-			PRINT_LINE("\t\tif (" << VISITED_IDX(i, "p") << ") {");
+			PRINT_LINE("\t\tif (" << VISITED_IDX(n.second, "p") << ") {");
 			PRINT_LINE("\t\t\tif (" << VISITED_ACCEPTING << ") return false;");
-			PRINT_LINE("\t\t} else if (!" << VISIT_CALL(i, "p") << ") return false;");
+			PRINT_LINE("\t\t} else if (!" << VISIT_CALL(n.second, "p") << ") return false;");
 			PRINT_LINE("\t}");
 		}
 		if (is_starting(i)) PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
