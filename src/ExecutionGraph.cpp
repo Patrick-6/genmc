@@ -1392,6 +1392,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				occ->addStoreToLoc(it->first, *sIt, -1);
 			}
 		}
+	}
+	for (auto it = cc->init_rf_begin(); it != cc->init_rf_end(); ++it) {
 		for (auto rIt = it->second.begin(); rIt != it->second.end(); ++rIt) {
 			if (v.contains(*rIt)) {
 				occ->addInitRfToLoc(it->first, *rIt);
