@@ -458,7 +458,7 @@ void NFA::simplify_for_calculator (bool reduce)
 		starting.clear();
 		starting.insert(m);
 		add_outgoing_edges(m, trans[n]);
-		for (int j = trans[n].size(); j >= 0; --j)
+		for (int j = trans[n].size() - 1; j >= 0; --j)
 			remove_edge(n, trans[n][j].first, trans[n][j].second);
 		simplify();
 	}
