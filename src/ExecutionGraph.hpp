@@ -151,7 +151,7 @@ public:
 	/* Event addition/removal methods */
 
 	/* Returns the maximum stamp used */
-	unsigned int getMaxStamp() { return timestamp; }
+	unsigned int getStamp() const { return timestamp; }
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp() { return timestamp++; }
