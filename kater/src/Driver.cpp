@@ -34,7 +34,7 @@ void Driver::generate_NFAs ()
 	for (int i = 0; i < saved_variables.size(); ++i) {
 		if (config.verbose > 0)
 			std::cout << "Generating NFA for save[" << i << "] = "
-				  << saved_variables[i].first << std::endl;
+				  << *saved_variables[i].first << std::endl;
 		NFA n = saved_variables[i].first->toNFA();
 		n.simplify_for_calculator(saved_variables[i].second);
 		if (config.verbose > 0)
