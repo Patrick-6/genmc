@@ -20,7 +20,9 @@ n * You should have received a copy of the GNU General Public License
 
 #include "DepInfo.hpp"
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const DepInfo &dep)
+llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Deps &dep)
 {
 	return s << dep.set_;
 }
+
+Deps::const_iterator DepInfo::sentinel;

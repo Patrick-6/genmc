@@ -305,30 +305,30 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	return;
 }
 
-std::unique_ptr<EventDeps>
-Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
-			   const DepInfo *ctrl, const DepInfo *addrPo,
-			   const DepInfo *cas)
+std::unique_ptr<DepInfo>
+Interpreter::makeDepInfo(const Deps *addr, const Deps *data,
+			 const Deps *ctrl, const Deps *addrPo,
+			 const Deps *cas)
 {
 	if (!getDepTracker())
 		return nullptr;
 
-	auto result = LLVM_MAKE_UNIQUE<EventDeps>();
+	auto result = LLVM_MAKE_UNIQUE<DepInfo>();
 
 	if (addr)
-		result->addr = *addr;
+		result->addr = {addr->begin(), addr->end()};
 	if (data)
-		result->data = *data;
+		result->data = {data->begin(), data->end()};
 	if (ctrl)
-		result->ctrl = *ctrl;
+		result->ctrl = {ctrl->begin(), ctrl->end()};
 	if (addrPo)
-		result->addrPo = *addrPo;
+		result->addrPo = {addrPo->begin(), addrPo->end()};
 	if (cas)
-		result->cas = *cas;
+		result->cas = {cas->begin(), cas->end()};
 	return result;
 }
 
-std::unique_ptr<EventDeps>
+std::unique_ptr<DepInfo>
 Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 {
 	if (!getDepTracker())
@@ -359,9 +359,9 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 		}
 	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
 		/* We have addr dependency on the argument of mutex/barrier calls */
-		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()),
-				     nullptr, getCtrlDeps(tid),
-				     getAddrPoDeps(tid), nullptr);
+		return makeDepInfo(getDataDeps(tid, *SF.Caller.arg_begin()),
+				   nullptr, getCtrlDeps(tid),
+				   getAddrPoDeps(tid), nullptr);
 	}
 	return nullptr;
 }

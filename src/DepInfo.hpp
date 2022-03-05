@@ -26,27 +26,37 @@ n * You should have received a copy of the GNU General Public License
 #include <llvm/Support/raw_ostream.h>
 
 /*******************************************************************************
- **                             DepInfo Class
+ **                               Deps Class
  ******************************************************************************/
 
 /*
- * A class to model the dependencies (of some kind) of an event. Each DepInfo
+ * A class to model the dependencies (of some kind) of an event. Each Deps
  * objects holds a collection of events on which some events depend on. In
  * principle, such an object should be used for each dependency kind of
  * a particular event.
  */
-class DepInfo {
+class Deps {
 
 protected:
 	using Set = VSet<Event>;
 
 public:
 	/* Constructors */
-	DepInfo() : set_() {}
-	DepInfo(Event e) : set_({ e }) {}
+	Deps() : set_() {}
+	Deps(Event e) : set_({ e }) {}
+
+	template<typename ITER>
+	Deps(ITER begin, ITER end) : set_(begin, end) {}
+
+	/* Iterators */
+	using const_iterator = typename Set::const_iterator;
+	using const_reverse_iterator = typename Set::const_reverse_iterator;
+
+	const_iterator begin() const { return set_.begin(); };
+	const_iterator end() const { return set_.end(); };
 
 	/* Updates this object based on the dependencies of dep (union) */
-	void update(const DepInfo& dep) { set_.insert(dep.set_); }
+	void update(const Deps& dep) { set_.insert(dep.set_); }
 
 	/* Clears all the stored dependencies */
 	void clear() { set_.clear(); }
@@ -57,19 +67,45 @@ public:
 	/* Returns true if there are no dependencies */
 	bool empty() const { return set_.empty(); }
 
-	/* Iterators */
-	using const_iterator = typename Set::const_iterator;
-	using const_reverse_iterator = typename Set::const_reverse_iterator;
-
-	const_iterator begin() const { return set_.begin(); };
-	const_iterator end() const { return set_.end(); };
-
 	/* Printing */
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const DepInfo &dep);
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Deps &dep);
 
 private:
-	/* The actual container for the dependencies */
 	Set set_;
+};
+
+
+/*******************************************************************************
+ **                             DepInfo Class
+ ******************************************************************************/
+
+/*
+ * Packs together some information for the dependencies of a given event in
+ * the form of ranges. Assuming that Deps objects are stored elsewhere, this
+ * class can be used to communicate the dependencies a given event has.
+ *
+ * Dependencies have one of the following types:
+ *     addr, data, ctrl, addr;po, cas.
+ * Models are free to ignore some of these if they are of no use.
+ */
+
+struct DepInfo {
+
+protected:
+	static Deps::const_iterator sentinel;
+
+public:
+	using dep_range = llvm::iterator_range<Deps::const_iterator>;
+
+	DepInfo() : addr(sentinel, sentinel), data(sentinel, sentinel),
+		 ctrl(sentinel, sentinel), addrPo(sentinel, sentinel),
+		 cas(sentinel, sentinel) {}
+
+	dep_range addr;
+	dep_range data;
+	dep_range ctrl;
+	dep_range addrPo;
+	dep_range cas;
 };
 
 
@@ -78,19 +114,15 @@ private:
  ******************************************************************************/
 
 /*
- * Packs together all the dependencies of a given event.
- *
- * Dependencies have one of the following types:
- *     addr, data, ctrl, addr;po, cas.
- * Models are free to ignore some of these if they are of no use.
+ * Packs together all ctrl,data, andaddr dependencies of a given event.
  */
 struct EventDeps {
 
-	DepInfo addr;
-	DepInfo data;
-	DepInfo ctrl;
-	DepInfo addrPo;
-	DepInfo cas;
+	Deps addr;
+	Deps data;
+	Deps ctrl;
+	Deps addrPo;
+	Deps cas;
 };
 
 #endif /* __DEP_INFO_HPP__ */

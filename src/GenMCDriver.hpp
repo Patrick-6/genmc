@@ -197,26 +197,26 @@ public:
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
-	SVal visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
+	SVal visitLoad(std::unique_ptr<ReadLabel> rLab, const DepInfo *deps);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	SVal visitDskRead(std::unique_ptr<DskReadLabel> rLab);
 
 	/* A store has been interpreted, nothing for the interpreter */
-	void visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps);
+	void visitStore(std::unique_ptr<WriteLabel> wLab, const DepInfo *deps);
 
 	/* A function modeling a write to disk has been interpreted */
 	void visitDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
+	void visitLock(Event pos, SAddr addr, ASize size, const DepInfo *deps);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
+	void visitUnlock(Event pos, SAddr addr, ASize size, const DepInfo *deps);
 
 	/* A helping CAS operation has been interpreter, the result is unobservable */
-	void visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
+	void visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const DepInfo *deps);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
@@ -232,7 +232,7 @@ public:
 	void visitDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
 
 	/* A fence has been interpreted, nothing for the interpreter */
-	void visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void visitFence(std::unique_ptr<FenceLabel> fLab, const DepInfo *deps);
 
 	/* A call to __VERIFIER_opt_begin() has been interpreted.
 	 * Returns whether the block should expand */
@@ -259,27 +259,27 @@ public:
 	visitThreadKill(std::unique_ptr<ThreadKillLabel> lab);
 
 	/* Returns an appropriate result for pthread_self() */
-	SVal visitThreadSelf(const EventDeps *deps);
+	SVal visitThreadSelf(const DepInfo *deps);
 
 	/* Returns the TID of the newly created thread */
-	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps,
+	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const DepInfo *deps,
 			      llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
 
 	/* Returns an appropriate result for pthread_join() */
-	SVal visitThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
+	SVal visitThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const DepInfo *deps);
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void visitThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 
 	/* __VERIFIER_hp_protect() has been called */
-	void visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
+	void visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const DepInfo *deps);
 
 	/* Returns an appropriate result for malloc() */
-	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
+	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const DepInfo *deps,
 			 unsigned int alignment, Storage s, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
-	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
+	void visitFree(std::unique_ptr<FreeLabel> dLab, const DepInfo *deps);
 
 	/* This method blocks the current thread  */
 	void visitBlock(std::unique_ptr<BlockLabel> bLab);
@@ -644,14 +644,14 @@ private:
 	void mootExecutionIfFullyBlocked(Event pos);
 
 	/* LKMM: Helper for visiting LKMM fences */
-	void visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const DepInfo *deps);
 
 	/* LAPOR: Returns whether the current execution is lock-well-formed */
 	bool isLockWellFormedLAPOR() const;
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
-	void visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
+	void visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const DepInfo *deps);
+	void visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const DepInfo *deps);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping();
@@ -713,7 +713,7 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab, const EventDeps *deps) = 0;
+	virtual void updateLabelViews(EventLabel *lab, const DepInfo *deps) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */

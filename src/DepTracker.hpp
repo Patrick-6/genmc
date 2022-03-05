@@ -38,17 +38,17 @@ class DepTracker {
 
 public:
 	/* Returns data dependencies for instruction i in thread tid */
-	const DepInfo *getDataDeps(unsigned int tid, llvm::Value *i) {
+	const Deps *getDataDeps(unsigned int tid, llvm::Value *i) {
 		return &dataDeps[tid][i];
 	};
 
 	/* Returns the address dependencies collected so far for tid */
-	const DepInfo *getAddrPoDeps(unsigned int tid) {
+	const Deps *getAddrPoDeps(unsigned int tid) {
 		return &addrPoDeps[tid];
 	};
 
 	/* Returns the control dependencies collected so far for tid */
-	const DepInfo *getCtrlDeps(unsigned int tid) {
+	const Deps *getCtrlDeps(unsigned int tid) {
 		return &ctrlDeps[tid];
 	};
 
@@ -56,7 +56,7 @@ public:
 	void updateDataDeps(unsigned int tid, llvm::Value *dst, llvm::Value *src) {
 		dataDeps[tid][dst].update(dataDeps[tid][src]);
 	};
-	void updateDataDeps(unsigned int tid, llvm::Value *dst, DepInfo e) {
+	void updateDataDeps(unsigned int tid, llvm::Value *dst, const Deps &e) {
 		dataDeps[tid][dst].update(e);
 	};
 
@@ -81,12 +81,12 @@ private:
 	/* The data dependencies of each instruction are
 	 * stored in a map (per thread) */
 	std::unordered_map<unsigned int,
-			   std::unordered_map<llvm::Value *, DepInfo>> dataDeps;
+			   std::unordered_map<llvm::Value *, Deps>> dataDeps;
 
 	/* Since {addr, ctrl} are forwards-closed under po, we just
-	 * keep a DepInfo item for these */
-	std::unordered_map<unsigned int, DepInfo> addrPoDeps;
-	std::unordered_map<unsigned int, DepInfo> ctrlDeps;
+	 * keep a Deps item for these */
+	std::unordered_map<unsigned int, Deps> addrPoDeps;
+	std::unordered_map<unsigned int, Deps> ctrlDeps;
 };
 
 struct DepTrackerCloner {

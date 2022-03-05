@@ -1201,8 +1201,8 @@ void Interpreter::visitSelectInst(SelectInst &I) {
 
 void Interpreter::freeAllocas(const AllocaHolder &allocas)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	for (auto it = allocas.get().begin(), ie = allocas.get().end(); it != ie; ++it)
 		driver->visitFree(FreeLabel::create(nextPos(), *it), &*deps);
 }
@@ -1402,8 +1402,8 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   unsigned MemToAlloc = std::max(1U, NumElements * TypeSize);
 
   /* The driver will provide the address this alloca returns */
-  auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-			    getAddrPoDeps(getCurThr().id), nullptr);
+  auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+			  getAddrPoDeps(getCurThr().id), nullptr);
 
   auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
@@ -1481,8 +1481,8 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	}
 
 	/* Otherwise, set the dependencies for this instruction.. */
-	auto deps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
-				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+	auto deps = makeDepInfo(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
+				getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 
 	/* ... and then the driver will provide the appropriate value */
@@ -1529,9 +1529,9 @@ void Interpreter::visitStoreInst(StoreInst &I)
 	}
 
 	/* First, record the dependencies for this instruction */
-	auto deps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()),
-				  getDataDeps(thr.id, I.getOperand(0)), getCtrlDeps(thr.id),
-				  getAddrPoDeps(thr.id), nullptr);
+	auto deps = makeDepInfo(getDataDeps(thr.id, I.getPointerOperand()),
+				getDataDeps(thr.id, I.getOperand(0)), getCtrlDeps(thr.id),
+				getAddrPoDeps(thr.id), nullptr);
 
 	/* Inform the Driver about the newly interpreter store */
 	driver->visitStore(WriteLabel::create(I.getOrdering(), nextPos(), ptr, asize, atyp,
@@ -1543,7 +1543,7 @@ void Interpreter::visitStoreInst(StoreInst &I)
 
 void Interpreter::visitFenceInst(FenceInst &I)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitFence(FenceLabel::create(I.getOrdering(), nextPos()), &*deps);
 	return;
 }
@@ -1572,10 +1572,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		return;
 	}
 
-	auto lDeps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()),
-				  getDataDeps(thr.id, I.getNewValOperand()),
-				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
-				  getDataDeps(thr.id, I.getCompareOperand()));
+	auto lDeps = makeDepInfo(getDataDeps(thr.id, I.getPointerOperand()),
+				 getDataDeps(thr.id, I.getNewValOperand()),
+				 getCtrlDeps(thr.id), getAddrPoDeps(thr.id),
+				 getDataDeps(thr.id, I.getCompareOperand()));
 
 #define IMPLEMENT_CAS_VISIT(nameR, nameW)				\
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
@@ -1585,9 +1585,9 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 			GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*lDeps); \
 		cmpRes = ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
 		if (!getCurThr().isBlocked() && cmpRes) {		\
-			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
-						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
-						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
+			auto sDeps = makeDepInfo(getDataDeps(getCurThr().id, I.getPointerOperand()), \
+						 getDataDeps(getCurThr().id, I.getNewValOperand()), \
+						 getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
 			driver->visitStore(nameW ## Label::create(	\
 				I.getSuccessOrdering(), nextPos(), ptr, size, \
 				atyp, GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*sDeps); \
@@ -1684,9 +1684,9 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		return;
 	}
 
-	auto deps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()),
-				  getDataDeps(thr.id, I.getValOperand()),
-				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
+	auto deps = makeDepInfo(getDataDeps(thr.id, I.getPointerOperand()),
+				getDataDeps(thr.id, I.getValOperand()),
+				getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
 #define IMPLEMENT_FAI_VISIT(nameR, nameW)				\
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
@@ -2800,7 +2800,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 }
 
 void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto errT = (getProgramState() == ProgramState::Recovery) ?
 		GenMCDriver::Status::VS_Recovery : GenMCDriver::Status::VS_Safety;
@@ -2811,7 +2811,7 @@ void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &A
 }
 
 void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &ArgVals,
-			       const std::unique_ptr<EventDeps> &specialDeps)
+			       const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto expand = driver->visitOptional(OptionalLabel::create(nextPos()));
 
@@ -2822,19 +2822,19 @@ void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &Arg
 }
 
 void Interpreter::callLoopBegin(Function *F, const std::vector<GenericValue> &ArgVals,
-				const std::unique_ptr<EventDeps> &specialDeps)
+				const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitLoopBegin(LoopBeginLabel::create(nextPos()));
 }
 
 void Interpreter::callSpinStart(Function *F, const std::vector<GenericValue> &ArgVals,
-				const std::unique_ptr<EventDeps> &specialDeps)
+				const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitSpinStart(SpinStartLabel::create(nextPos()));
 }
 
 void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	/* XXX: If we ever remove EE blocking, account for blocked events in liveness */
 	if (!ArgVals[0].IntVal.getBoolValue())
@@ -2842,33 +2842,33 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 }
 
 void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
-				    const std::unique_ptr<EventDeps> &specialDeps)
+				    const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitFaiZNESpinEnd(FaiZNESpinEndLabel::create(nextPos()));
 }
 
 void Interpreter::callLockZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
-				     const std::unique_ptr<EventDeps> &specialDeps)
+				     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitLockZNESpinEnd(LockZNESpinEndLabel::create(nextPos()));
 }
 
 void Interpreter::callKillThread(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	if (ArgVals[0].IntVal.getBoolValue())
 		ECStack().clear();
 }
 
 void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
 		driver->visitBlock(BlockLabel::create(nextPos(), BlockageType::User));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,
-				const std::unique_ptr<EventDeps> &specialDeps)
+				const std::unique_ptr<DepInfo> &specialDeps)
 {
 	Thread::MyDist dist(std::numeric_limits<int>::min(),
 			    std::numeric_limits<int>::max());
@@ -2881,7 +2881,7 @@ void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &Ar
 }
 
 void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
 		driver->visitError(currPos(), GenMCDriver::Status::VS_Allocation, "Invalid size in malloc()");
@@ -2890,8 +2890,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 
 	auto size = ArgVals[0].IntVal.getLimitedValue();
 
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size), &*deps,
 					   alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
@@ -2899,7 +2899,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 }
 
 void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue> &ArgVals,
-				    const std::unique_ptr<EventDeps> &specialDeps)
+				    const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto align = ArgVals[0].IntVal.getLimitedValue();
 	auto size = ArgVals[1].IntVal.getLimitedValue();
@@ -2915,8 +2915,8 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 		return;
 	}
 
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(
 		MallocLabel::create(nextPos(), size), &*deps, align, Storage::ST_Heap, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
@@ -2924,29 +2924,29 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 }
 
 void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals,
-			   const std::unique_ptr<EventDeps> &specialDeps)
+			   const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitFree(FreeLabel::create(nextPos(), ptr), &*deps);
 	return;
 }
 
 void Interpreter::callThreadSelf(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	llvm::Type *typ = F->getReturnType();
 
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	auto result = driver->visitThreadSelf(&*deps);
 	returnValueToCaller(typ, SVAL_TO_GV(result, typ));
 	return;
 }
 
 void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> &ArgVals,
-				   const std::unique_ptr<EventDeps> &specialDeps)
+				   const std::unique_ptr<DepInfo> &specialDeps)
 {
 	Function *calledFun = (Function*) GVTOP(ArgVals[1]);
 	ExecutionContext SF;
@@ -2961,8 +2961,8 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	SetValue(&*calledFun->arg_begin(), ArgVals[2], SF);
 
 	/* Then, inform the driver about the thread creation */
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	auto tid = driver->visitThreadCreate(ThreadCreateLabel::create(nextPos()), &*deps,
 					     calledFun, (uintptr_t) ArgVals[2].PointerVal, SF);
 
@@ -2973,17 +2973,17 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 
 /* callPthreadJoin - Call to pthread_join() function */
 void Interpreter::callThreadJoin(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	auto result = driver->visitThreadJoin(
 		ThreadJoinLabel::create(nextPos(), ArgVals[0].IntVal.getLimitedValue()), &*deps);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(result, F->getReturnType()));
 }
 
 void Interpreter::callThreadExit(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	while (ECStack().size() > 1) {
 		freeAllocas(ECStack().back().Allocas);
@@ -3000,7 +3000,7 @@ void Interpreter::callAtExit(Function *F, const std::vector<GenericValue> &ArgVa
 }
 
 void Interpreter::callMutexInit(Function *F, const std::vector<GenericValue> &ArgVals,
-				const std::unique_ptr<EventDeps> &specialDeps)
+				const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	GenericValue *attr = (GenericValue *) GVTOP(ArgVals[1]);
@@ -3021,7 +3021,7 @@ void Interpreter::callMutexInit(Function *F, const std::vector<GenericValue> &Ar
 }
 
 void Interpreter::callMutexLock(Function *F, const std::vector<GenericValue> &ArgVals,
-				const std::unique_ptr<EventDeps> &specialDeps)
+				const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
@@ -3040,7 +3040,7 @@ void Interpreter::callMutexLock(Function *F, const std::vector<GenericValue> &Ar
 }
 
 void Interpreter::callMutexUnlock(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+				  const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
@@ -3054,7 +3054,7 @@ void Interpreter::callMutexUnlock(Function *F, const std::vector<GenericValue> &
 }
 
 void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> &ArgVals,
-				   const std::unique_ptr<EventDeps> &specialDeps)
+				   const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *ptr = (GenericValue *) GVTOP(ArgVals[0]);
 	Type *typ = F->getReturnType();
@@ -3075,7 +3075,7 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 }
 
 void Interpreter::callMutexDestroy(Function *F, const std::vector<GenericValue> &ArgVals,
-				   const std::unique_ptr<EventDeps> &specialDeps)
+				   const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue *lock = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
@@ -3092,7 +3092,7 @@ void Interpreter::callMutexDestroy(Function *F, const std::vector<GenericValue> 
 }
 
 void Interpreter::callBarrierInit(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+				  const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *attr = (GenericValue *) GVTOP(ArgVals[1]);
@@ -3115,7 +3115,7 @@ void Interpreter::callBarrierInit(Function *F, const std::vector<GenericValue> &
 }
 
 void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+				  const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
@@ -3146,7 +3146,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 }
 
 void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue> &ArgVals,
-				     const std::unique_ptr<EventDeps> &specialDeps)
+				     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
@@ -3164,10 +3164,10 @@ void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue
 }
 
 void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+				  const std::unique_ptr<DepInfo> &specialDeps)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), getTypeSize(F->getReturnType())), &*deps,
 					   alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_Internal);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
@@ -3175,7 +3175,7 @@ void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &
 }
 
 void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue> &ArgVals,
-				    const std::unique_ptr<EventDeps> &specialDeps)
+				    const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto *hp = GVTOP(ArgVals[0]);
 	auto *ptr = GVTOP(ArgVals[1]);
@@ -3185,7 +3185,7 @@ void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue>
 }
 
 void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+				  const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto *typ = Type::getVoidTy(F->getParent()->getContext())->getPointerTo();
 	auto asize = getTypeSize(typ);
@@ -3199,18 +3199,18 @@ void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &
 }
 
 void Interpreter::callHazptrFree(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitFree(FreeLabel::create(nextPos(), GVTOP(ArgVals[0])), &*deps);
 }
 
 void Interpreter::callHazptrRetire(Function *F, const std::vector<GenericValue> &ArgVals,
-				   const std::unique_ptr<EventDeps> &specialDeps)
+				   const std::unique_ptr<DepInfo> &specialDeps)
 {
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 	driver->visitFree(HpRetireLabel::create(nextPos(), GVTOP(ArgVals[0])), &*deps);
 }
 
@@ -3225,30 +3225,30 @@ static const std::unordered_map<std::string, SmpFenceType> smpFenceTypes = {
 };
 
 void Interpreter::callSmpFenceLKMM(Function *F, const std::vector<GenericValue> &ArgVals,
-				   const std::unique_ptr<EventDeps> &specialDeps)
+				   const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto ft = smpFenceTypes.at((const char *) getStaticAddr(GVTOP(ArgVals[0])));
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id), nullptr, nullptr);
 	driver->visitFence(SmpFenceLabelLKMM::create(llvm::AtomicOrdering::Monotonic, ft, nextPos()), &*deps);
 	return;
 }
 
 void Interpreter::callRCUReadLockLKMM(Function *F, const std::vector<GenericValue> &ArgVals,
-				      const std::unique_ptr<EventDeps> &specialDeps)
+				      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitRCULockLKMM(RCULockLabelLKMM::create(nextPos()));
 	return;
 }
 
 void Interpreter::callRCUReadUnlockLKMM(Function *F, const std::vector<GenericValue> &ArgVals,
-					const std::unique_ptr<EventDeps> &specialDeps)
+					const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitRCUUnlockLKMM(RCUUnlockLabelLKMM::create(nextPos()));
 	return;
 }
 
 void Interpreter::callSynchronizeRCULKMM(Function *F, const std::vector<GenericValue> &ArgVals,
-					 const std::unique_ptr<EventDeps> &specialDeps)
+					 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitRCUSyncLKMM(RCUSyncLabelLKMM::create(nextPos()));
 	return;
@@ -3271,7 +3271,7 @@ void Interpreter::setInodeTransStatus(void *inode, Type *intTyp, SVal val)
 	return;
 }
 
-SVal Interpreter::readInodeSizeFS(void *inode, Type *intTyp, const std::unique_ptr<EventDeps> &deps)
+SVal Interpreter::readInodeSizeFS(void *inode, Type *intTyp, const std::unique_ptr<DepInfo> &deps)
 {
 	auto asize = getTypeSize(intTyp);
 	auto atyp = TYPE_TO_ATYPE(intTyp);
@@ -3287,7 +3287,7 @@ SVal Interpreter::readInodeSizeFS(void *inode, Type *intTyp, const std::unique_p
 }
 
 void Interpreter::updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
-				    const std::unique_ptr<EventDeps> &deps)
+				    const std::unique_ptr<DepInfo> &deps)
 {
 	auto inodeIsize = GET_INODE_ISIZE_ADDR(inode);
 	driver->visitStore(
@@ -3321,7 +3321,7 @@ void Interpreter::updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize,
 }
 
 void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset, int count,
-				  Type *dataTyp, const std::unique_ptr<EventDeps> &deps)
+				  Type *dataTyp, const std::unique_ptr<DepInfo> &deps)
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	auto size = getTypeSize(dataTyp);
@@ -3341,7 +3341,7 @@ void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int ino
 }
 
 void Interpreter::readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset, int count,
-				   Type *dataTyp, const std::unique_ptr<EventDeps> &deps)
+				   Type *dataTyp, const std::unique_ptr<DepInfo> &deps)
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 	auto asize = getTypeSize(dataTyp);
@@ -3403,7 +3403,7 @@ SVal Interpreter::executeInodeLookupFS(const std::string &filename, Type *intTyp
 }
 
 SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp,
-				       const std::unique_ptr<EventDeps> &deps)
+				       const std::unique_ptr<DepInfo> &deps)
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(MI->fsInfo.inodeTyp);
@@ -3437,7 +3437,7 @@ SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp
  * already created, or flags contain O_CREAT and the inode was
  * created. */
 SVal Interpreter::executeLookupOpenFS(const std::string &file, SVal &flags, Type *intTyp,
-				      const std::unique_ptr<EventDeps> &deps)
+				      const std::unique_ptr<DepInfo> &deps)
 {
 	/* If O_CREAT was not specified, just do the lookup */
 	if (!(flags.get() & GENMC_O_CREAT))
@@ -3473,7 +3473,7 @@ unlock:
 }
 
 SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
-				const std::unique_ptr<EventDeps> &deps)
+				const std::unique_ptr<DepInfo> &deps)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 
@@ -3517,7 +3517,7 @@ SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal in
 }
 
 SVal Interpreter::executeTruncateFS(SVal inode, SVal length, Type *intTyp,
-				    const std::unique_ptr<EventDeps> &deps)
+				    const std::unique_ptr<DepInfo> &deps)
 {
 	/* length is a signed integer -- careful because it's long */
 	if (length.getSigned() < 0) {
@@ -3563,15 +3563,15 @@ out:
 }
 
 void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	SVal flags = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Check the flags passed -- we ignore mode_t for the time being */
 	auto retO = checkOpenFlagsFS(flags, intTyp);
@@ -3617,7 +3617,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 }
 
 void Interpreter::callCreatFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	Type *intTyp = F->getReturnType();
 	auto flags = INT_TO_GV(intTyp, GENMC_O_CREAT|GENMC_O_WRONLY|GENMC_O_TRUNC);
@@ -3626,7 +3626,7 @@ void Interpreter::callCreatFS(Function *F, const std::vector<GenericValue> &ArgV
 }
 
 void Interpreter::executeReleaseFileFS(void *fileDesc, Type *intTyp,
-				       const std::unique_ptr<EventDeps> &deps)
+				       const std::unique_ptr<DepInfo> &deps)
 {
 	/* Nothing for auto_da_alloc_close */
 
@@ -3635,7 +3635,7 @@ void Interpreter::executeReleaseFileFS(void *fileDesc, Type *intTyp,
 	return;
 }
 
-SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps)
+SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<DepInfo> &deps)
 {
 	/* If it's not a valid open fd, report the error */
 	auto *fileDesc = getFileFromFd(fd.get());
@@ -3665,14 +3665,14 @@ SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<Ev
 }
 
 void Interpreter::callCloseFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	SVal fd = ArgVals[0].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Close the file and return result to user */
 	auto result = executeCloseFS(fd, intTyp, deps);
@@ -3687,7 +3687,7 @@ SVal Interpreter::executeLinkFS(const std::string &newpath, SVal oldInode, Type 
 }
 
 void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
@@ -3695,8 +3695,8 @@ void Interpreter::callLinkFS(Function *F, const std::vector<GenericValue> &ArgVa
 	GenericValue result;
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	SVal source, target;
@@ -3743,15 +3743,15 @@ SVal Interpreter::executeUnlinkFS(const std::string &pathname, Type *intTyp)
 }
 
 void Interpreter::callUnlinkFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			       const std::unique_ptr<EventDeps> &specialDeps)
+			       const std::unique_ptr<DepInfo> &specialDeps)
 {
 	std::string pathname = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	Type *intTyp = F->getReturnType();
 	GenericValue result;
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(nextPos(), dirLock, getTypeSize(intTyp), &*deps);
@@ -3808,7 +3808,7 @@ SVal Interpreter::executeRenameFS(const std::string &oldpath, SVal oldInode,
 }
 
 void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			       const std::unique_ptr<EventDeps> &specialDeps)
+			       const std::unique_ptr<DepInfo> &specialDeps)
 {
 	std::string oldpath = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	std::string newpath = (const char *) getStaticAddr(GVTOP(ArgVals[1]));
@@ -3816,8 +3816,8 @@ void Interpreter::callRenameFS(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue result;
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(nextPos(), dirLock, getTypeSize(intTyp), &*deps);
@@ -3852,15 +3852,15 @@ exit:
 }
 
 void Interpreter::callTruncateFS(Function *F, const std::vector<GenericValue> &ArgVals,
-				 const std::unique_ptr<EventDeps> &specialDeps)
+				 const std::unique_ptr<DepInfo> &specialDeps)
 {
 	std::string filename = (const char *) getStaticAddr(GVTOP(ArgVals[0]));
 	auto length  = ArgVals[1].IntVal.getLimitedValue();
 	Type *intTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto dirLock = GET_INODE_LOCK_ADDR(getDirInode());
 	driver->visitLock(nextPos(), dirLock, getTypeSize(intTyp), &*deps);
@@ -3915,7 +3915,7 @@ bool Interpreter::shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal iS
 }
 
 SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
-				SVal count, const std::unique_ptr<EventDeps> &deps)
+				SVal count, const std::unique_ptr<DepInfo> &deps)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 	auto asize = getTypeSize(intTyp);
@@ -3964,7 +3964,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 }
 
 void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -3976,8 +3976,8 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* We get the address of the file description, from which we will get
 	 * the reading offset, as well as the address of the inode. */
@@ -4035,7 +4035,7 @@ void Interpreter::zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeI
 }
 
 SVal Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
-				       SVal &wOffset, const std::unique_ptr<EventDeps> &deps)
+				       SVal &wOffset, const std::unique_ptr<DepInfo> &deps)
 {
 	if (count.getSigned() <= 0)
 		return count;
@@ -4054,7 +4054,7 @@ SVal Interpreter::executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SV
 }
 
 SVal Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp,
-					 SVal wOffset, SVal count, const std::unique_ptr<EventDeps> &deps)
+					 SVal wOffset, SVal count, const std::unique_ptr<DepInfo> &deps)
 {
 	auto *inodeData = GET_INODE_DATA_ADDR(inode);
 
@@ -4109,7 +4109,7 @@ SVal Interpreter::executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, T
 }
 
 SVal Interpreter::executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp,
-				 SVal offset, SVal count, const std::unique_ptr<EventDeps> &deps)
+				 SVal offset, SVal count, const std::unique_ptr<DepInfo> &deps)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 	auto asize = getTypeSize(intTyp);
@@ -4160,7 +4160,7 @@ out:
 }
 
 void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -4172,8 +4172,8 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* We get the address of the file description, from which we will get
 	 * the writing offset, as well as the address of the inode. */
@@ -4229,14 +4229,14 @@ void Interpreter::executeFsyncFS(void *inode, Type *intTyp)
 }
 
 void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	auto *file = getFileFromFd(fd.IntVal.getLimitedValue());
 	if (!file) {
@@ -4256,14 +4256,14 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 }
 
 void Interpreter::callSyncFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			     const std::unique_ptr<EventDeps> &specialDeps)
+			     const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitDskSync(DskSyncLabel::create(nextPos()));
 	return;
 }
 
 void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -4274,8 +4274,8 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Check if the given offset is valid */
 	if (offset.getSigned() < 0) {
@@ -4304,7 +4304,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 }
 
 void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			       const std::unique_ptr<EventDeps> &specialDeps)
+			       const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
@@ -4315,8 +4315,8 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* Check if the given offset is valid */
 	if (offset.getSigned() < 0) {
@@ -4343,7 +4343,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 }
 
 SVal Interpreter::executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
-				 const std::unique_ptr<EventDeps> &deps)
+				 const std::unique_ptr<DepInfo> &deps)
 {
 	Type *intPtrType = intTyp->getPointerTo();
 	auto asize = getTypeSize(intTyp);
@@ -4406,7 +4406,7 @@ SVal Interpreter::executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whe
 }
 
 void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgVals,
-			      const std::unique_ptr<EventDeps> &specialDeps)
+			      const std::unique_ptr<DepInfo> &specialDeps)
 {
 	GenericValue fd = ArgVals[0];
 	SVal offset = ArgVals[1].IntVal.getLimitedValue();
@@ -4415,8 +4415,8 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 	Type *retTyp = F->getReturnType();
 
 	getCurThr().takeSnapshot();
-	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
-				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto deps = makeDepInfo(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				getAddrPoDeps(getCurThr().id), nullptr);
 
 	/* We get the address of the file description, from which we will get
 	 * the offset to modify */
@@ -4445,7 +4445,7 @@ void Interpreter::callLseekFS(Function *F, const std::vector<GenericValue> &ArgV
 }
 
 void Interpreter::callPersBarrierFS(Function *F, const std::vector<GenericValue> &ArgVals,
-				    const std::unique_ptr<EventDeps> &specialDeps)
+				    const std::unique_ptr<DepInfo> &specialDeps)
 {
 	driver->visitDskPbarrier(DskPbarrierLabel::create(nextPos()));
 	return;
@@ -4469,7 +4469,7 @@ bool isInvalidRecCall(InternalFunctions fCode, const std::vector<GenericValue> &
 		break
 
 void Interpreter::callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
-				       const std::unique_ptr<EventDeps> &specialDeps)
+				       const std::unique_ptr<DepInfo> &specialDeps)
 {
 	auto fCode = internalFunNames.at(F->getName().str());
 
@@ -4562,7 +4562,7 @@ Interpreter::translateExternalCallArgs(Function *F, const std::vector<GenericVal
 // callFunction - Execute the specified function...
 //
 void Interpreter::callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
-			       const std::unique_ptr<EventDeps> &specialDeps)
+			       const std::unique_ptr<DepInfo> &specialDeps)
 {
   /* Special handling for internal calls */
   if (isInternalCall(F)) {

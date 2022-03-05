@@ -29,7 +29,7 @@ public:
 	LKMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		   std::unique_ptr<ModuleInfo> MI);
 
-	void updateLabelViews(EventLabel *lab, const EventDeps *deps) override;
+	void updateLabelViews(EventLabel *lab, const DepInfo *deps) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	void changeRf(Event read, Event store) override;
 	void updateStart(Event create, Event start) override;
@@ -37,25 +37,25 @@ public:
 	void initConsCalculation() override;
 
 private:
-	DepView getDepsAsView(EventLabel *lab, const EventDeps *deps);
+	DepView getDepsAsView(EventLabel *lab, const DepInfo *deps);
 	View calcBasicHbView(Event e) const;
 	DepView calcFenceView(const MemAccessLabel *lab) const;
-	DepView calcPPoView(EventLabel *lab, const EventDeps *deps); /* not const */
+	DepView calcPPoView(EventLabel *lab, const DepInfo *deps); /* not const */
 	void updateRelView(DepView &pporf, const EventLabel *lab);
 	void updateReadViewsFromRf(DepView &pporf, View &hb, ReadLabel *lab);
 	void updateLockViews(DepView &pporf, DepView &ppo, ReadLabel *lab);
 
-	void calcBasicViews(EventLabel *lab, const EventDeps *deps);
-	void calcReadViews(ReadLabel *lab, const EventDeps *deps);
-	void calcWriteViews(WriteLabel *lab, const EventDeps *deps);
+	void calcBasicViews(EventLabel *lab, const DepInfo *deps);
+	void calcReadViews(ReadLabel *lab, const DepInfo *deps);
+	void calcWriteViews(WriteLabel *lab, const DepInfo *deps);
 	void calcWriteMsgView(WriteLabel *lab);
 	void calcRMWWriteMsgView(WriteLabel *lab);
 	void updateRmbFenceView(DepView &pporf, SmpFenceLabelLKMM *lab);
 	void updateWmbFenceView(DepView &pporf, SmpFenceLabelLKMM *lab);
 	void updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab);
 	void calcFenceRelRfPoBefore(Event last, View &v);
-	void calcFenceViews(FenceLabel *lab, const EventDeps *deps);
-	void calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps);
+	void calcFenceViews(FenceLabel *lab, const DepInfo *deps);
+	void calcJoinViews(ThreadJoinLabel *lab, const DepInfo *deps);
 	void calcStartViews(ThreadStartLabel *lab);
 
 	bool areInPotentialRace(const MemAccessLabel *labA, const MemAccessLabel *labB);

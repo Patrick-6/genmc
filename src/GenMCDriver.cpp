@@ -1431,7 +1431,7 @@ void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> 
 	return;
 }
 
-SVal GenMCDriver::visitThreadSelf(const EventDeps *deps)
+SVal GenMCDriver::visitThreadSelf(const DepInfo *deps)
 {
 	return SVal(getEE()->getCurThr().id);
 }
@@ -1480,7 +1480,7 @@ int GenMCDriver::getSymmetricTidSR(int thread, Event parent, llvm::Function *thr
 	return -1;
 }
 
-int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps,
+int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const DepInfo *deps,
 				   llvm::Function *calledFun, SVal arg, const llvm::ExecutionContext &SF)
 {
 	auto &g = getGraph();
@@ -1526,7 +1526,7 @@ int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, con
 	return cid;
 }
 
-SVal GenMCDriver::visitThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const EventDeps *deps)
+SVal GenMCDriver::visitThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const DepInfo *deps)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
@@ -1590,7 +1590,7 @@ void GenMCDriver::visitThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 	  /* FIXME: Thread return values? */
 }
 
-void GenMCDriver::visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps)
+void GenMCDriver::visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1600,7 +1600,7 @@ void GenMCDriver::visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDe
 	return;
 }
 
-void GenMCDriver::visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps)
+void GenMCDriver::visitFence(std::unique_ptr<FenceLabel> fLab, const DepInfo *deps)
 {
 	if (llvm::isa<SmpFenceLabelLKMM>(&*fLab)) {
 		visitFenceLKMM(std::move(fLab), deps);
@@ -1783,7 +1783,7 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 		filterValuesFromAnnotSAVER(lab, stores);
 }
 
-SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
+SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const DepInfo *deps)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -1896,7 +1896,7 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 	return loads;
 }
 
-void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps)
+void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1970,7 +1970,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 	return;
 }
 
-void GenMCDriver::visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps)
+void GenMCDriver::visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -1985,7 +1985,7 @@ void GenMCDriver::visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const Even
 	return;
 }
 
-void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
+void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const DepInfo *deps)
 {
 	/* No locking when running the recovery routine */
 	if (getConf()->persevere && inRecoveryMode())
@@ -2014,7 +2014,7 @@ void GenMCDriver::visitLock(Event pos, SAddr addr, ASize size, const EventDeps *
 					      BlockageType::ReadOptBlock));
 }
 
-void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps)
+void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph()) {
 		deprioritizeThread(uLab.get());
@@ -2030,7 +2030,7 @@ void GenMCDriver::visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const
 	return;
 }
 
-void GenMCDriver::visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
+void GenMCDriver::visitUnlock(Event pos, SAddr addr, ASize size, const DepInfo *deps)
 {
 	/* No locking when running the recovery routine */
 	if (getConf()->persevere && inRecoveryMode())
@@ -2046,7 +2046,7 @@ void GenMCDriver::visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps
 	return;
 }
 
-void GenMCDriver::visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps)
+void GenMCDriver::visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph())
 		return;
@@ -2056,7 +2056,7 @@ void GenMCDriver::visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const Ev
 	return;
 }
 
-SVal GenMCDriver::visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
+SVal GenMCDriver::visitMalloc(std::unique_ptr<MallocLabel> aLab, const DepInfo *deps,
 			      unsigned int alignment, Storage s, AddressSpace spc)
 {
 	auto &g = getGraph();
@@ -2076,7 +2076,7 @@ SVal GenMCDriver::visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps
 	return SVal(lab->getAllocAddr().get());
 }
 
-void GenMCDriver::visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps)
+void GenMCDriver::visitFree(std::unique_ptr<FreeLabel> dLab, const DepInfo *deps)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -2906,7 +2906,7 @@ void GenMCDriver::visitDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab)
 	return;
 }
 
-void GenMCDriver::visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps)
+void GenMCDriver::visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const DepInfo *deps)
 {
 	if (isExecutionDrivenByGraph())
 		return;

@@ -23,6 +23,7 @@
 
 #include "Event.hpp"
 #include "EventAttr.hpp"
+#include "DepInfo.hpp"
 #include "value_ptr.hpp"
 #include "DepView.hpp"
 #include "InterpreterEnumAPI.hpp"
@@ -137,6 +138,8 @@ protected:
 	EventLabel(EventLabelKind k, llvm::AtomicOrdering o, Event p)
 		: kind(k), stamp(0), ordering(o), position(p) {}
 
+	using const_dep_iterator = Deps::const_iterator;
+	using const_dep_range = llvm::iterator_range<const_dep_iterator>;
 public:
 
 	/* Returns the discriminator of this object */
@@ -159,6 +162,36 @@ public:
 
 	/* Returns the thread of this label in the execution graph */
 	int getThread() const { return position.thread; }
+
+	/* Returns this label's dependencies */
+	const EventDeps &getDeps() const { return deps; }
+
+	/* Sets this label's dependencies */
+	void setDataDeps(const_dep_range r) { deps.data = Deps(r.begin(), r.end()); }
+	void setAddrDeps(const_dep_range r) { deps.addr = Deps(r.begin(), r.end()); }
+	void setCtrlDeps(const_dep_range r) { deps.ctrl = Deps(r.begin(), r.end()); }
+
+	void setDeps(const EventDeps &ds) { deps = ds; }
+	void setDeps(EventDeps &&ds) { deps = std::move(ds); }
+
+	/* Iterators for dependencies */
+	const_dep_iterator data_begin() const { return deps.data.begin(); }
+	const_dep_iterator data_end() const { return deps.data.end(); }
+	const_dep_range data() const {
+		return const_dep_range(deps.data.begin(), deps.data.end());
+	}
+
+	const_dep_iterator addr_begin() const { return deps.addr.begin(); }
+	const_dep_iterator addr_end() const { return deps.addr.end(); }
+	const_dep_range addr() const {
+		return const_dep_range(deps.addr.begin(), deps.addr.end());
+	}
+
+	const_dep_iterator ctrl_begin() const { return deps.ctrl.begin(); }
+	const_dep_iterator ctrl_end() const { return deps.ctrl.end(); }
+	const_dep_range ctrl() const {
+		return const_dep_range(deps.ctrl.begin(), deps.ctrl.end());
+	}
 
 	/* Methods that get/set the vector clocks for this label. */
 	const View& getHbView() const { return hbView; }
@@ -254,6 +287,9 @@ private:
 
 	/* Events that are (ppo U rf)*-before this label */
 	DepView pporfView;
+
+	/* Events on which this label depends */
+	EventDeps deps;
 };
 
 
