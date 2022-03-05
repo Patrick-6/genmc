@@ -19,15 +19,14 @@ int Driver::parse ()
 
 void Driver::register_emptiness_assumption (std::unique_ptr<RegExp> e)
 {
-	auto p = has_trans_label(*e);
-	if (!p.second) {
+	auto *charRE = dynamic_cast<const CharRE *>(&*e);
+	if (!charRE) {
 		std::cerr << "Warning: cannot use property " << *e << " = 0." << std::endl;
 		return;
 	}
 	std::cout << "Registering property " << *e << " = 0." << std::endl;
-	TransLabel::register_invalid(p.first);
+	TransLabel::register_invalid(charRE->getLabel());
 }
-
 
 void Driver::generate_NFAs ()
 {

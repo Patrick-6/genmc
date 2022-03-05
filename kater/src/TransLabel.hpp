@@ -14,6 +14,9 @@ class TransLabel {
 	static my_set merge_sets (const my_set &a, const my_set &b);
 
 public:
+	TransLabel() = default;
+	TransLabel(const std::string &s) : trans(s) {}
+
 	bool is_empty_trans() const { return trans.empty(); }
 	bool is_valid () const { return !trans.empty() || !pre_checks.empty(); }
 
@@ -28,8 +31,6 @@ public:
 	void output_as_preds (std::ostream& ostr, const std::string &arg,
 			      const std::string &res) const;
 
-	friend std::ostream& operator<< (std::ostream& ostr, const TransLabel & t);
-
 	bool operator< (const TransLabel &other) const
 	{
 		return trans < other.trans || (trans == other.trans &&
@@ -41,6 +42,8 @@ public:
 		return trans == other.trans && pre_checks == other.pre_checks
 			&& post_checks == other.post_checks;
 	}
+
+	friend std::ostream &operator<<(std::ostream &s, const TransLabel &t);
 };
 
 

@@ -18,17 +18,21 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 	return ostr;
 }
 
-std::ostream & operator<< (std::ostream& ostr, const TransLabel & t)
+std::ostream &operator<<(std::ostream &s, const TransLabel &t)
 {
-	if (!t.is_valid()) return ostr << "INVALID";
+	if (!t.is_valid())
+		return s << "INVALID";
+
 	if (!t.pre_checks.empty()) {
-		ostr << "[" << t.pre_checks << "]";
-		if (!t.is_empty_trans()) ostr << ";";
+		s << "[" << t.pre_checks << "]";
+		if (!t.is_empty_trans())
+			s << ";";
 	}
-	if (!t.is_empty_trans()) ostr << t.trans;
+	if (!t.is_empty_trans())
+		s << t.trans;
 	if (!t.post_checks.empty())
-		ostr << ";[" << t.post_checks << "]";
-	return ostr;
+		s << ";[" << t.post_checks << "]";
+	return s;
 }
 
 void TransLabel::output_as_preds (std::ostream& ostr,
@@ -72,13 +76,6 @@ void TransLabel::register_invalid (const TransLabel &l)
 		if (std::find (invalids2.begin(), invalids2.end(), l) == invalids2.end())
 			invalids2.push_back(l);
 	}
-}
-
-TransLabel TransLabel::make_trans_label (const std::string & s)
-{
-	TransLabel t;
-	t.trans = s;
-	return t;
 }
 
 void TransLabel::make_bracket ()
