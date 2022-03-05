@@ -19,7 +19,7 @@ BLANK	[ \t\r]
 
 %%
 %{
-	yy::location& loc = drv.location;
+	yy::location& loc = drv.getLocation();
 	loc.step ();
 %}
 

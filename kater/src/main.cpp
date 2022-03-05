@@ -18,5 +18,6 @@ int main(int argc, char **argv)
 
 	d.output_genmc_header_file();
 	d.output_genmc_impl_file();
+
 	return 0;
 }

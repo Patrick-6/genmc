@@ -49,18 +49,18 @@ void Driver::register_emptiness_assumption (std::unique_ptr<RegExp> e)
 
 void Driver::generate_NFAs ()
 {
-	for (int i = 0; i < saved_variables.size(); ++i) {
+	for (int i = 0; i < savedVariables.size(); ++i) {
 		if (config.verbose > 0)
 			std::cout << "Generating NFA for save[" << i << "] = "
-				  << *saved_variables[i].first << std::endl;
-		NFA n = saved_variables[i].first->toNFA();
-		n.simplify_for_calculator(saved_variables[i].second);
+				  << *savedVariables[i].first << std::endl;
+		NFA n = savedVariables[i].first->toNFA();
+		n.simplify_for_calculator(savedVariables[i].second);
 		if (config.verbose > 0)
 			std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
-		nsaved.push_back({n, saved_variables[i].second});
+		nsaved.push_back({n, savedVariables[i].second});
 	}
 
-        for (auto &r : acyclicity_constraints) {
+        for (auto &r : acyclicityConstraints) {
 		if (config.verbose > 0)
 			std::cout << "Generating NFA for acyclic " << *r << std::endl;
 		// Covert the regural expression to an NFA
@@ -72,7 +72,7 @@ void Driver::generate_NFAs ()
 			std::cout << "Non-simplified NFA: " << n << std::endl;
 		// Simplify the NFA
 		n.simplify();
-		if (config.verbose > 0 && acyclicity_constraints.size() > 1)
+		if (config.verbose > 0 && acyclicityConstraints.size() > 1)
 			std::cout << "Generated NFA: " << n << std::endl;
 		nfa_acyc.alt(n);
         }

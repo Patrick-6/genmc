@@ -68,15 +68,11 @@ main:	  %empty		{ }
 	| main decl		{ }
         ;
 
-decl:	  "let" ID "=" rel		{ drv.variables[$2] = std::move($4); }
+decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
 	| "property" rel "=" "0" 	{ drv.register_emptiness_assumption(RegExp::optimize(std::move($2))); }
-	| "acyclic" rel 		{ drv.acyclicity_constraints.push_back(std::move($2)); }
-	| "save" ID "=" "reduce" rel 	{ auto s = "calc" + std::to_string(drv.saved_variables.size());
-					  drv.saved_variables.push_back({std::move($5), true});
-					  drv.variables[$2] = CharRE::create(s); }
-	| "save" ID "=" rel 		{ auto s = "calc" + std::to_string(drv.saved_variables.size());
-					  drv.saved_variables.push_back({std::move($4), false});
-					  drv.variables[$2] = CharRE::create(s); }
+	| "acyclic" rel 		{ drv.addAcyclicityConstraint(std::move($2)); }
+	| "save" ID "=" "reduce" rel 	{ drv.registerSaveReducedID($2, std::move($5)); }
+	| "save" ID "=" rel 		{ drv.registerSaveID($2, std::move($4)); }
 	;
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }
@@ -86,8 +82,7 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "*"		{ $$ = StarRE::create(std::move($1)); }
 	| rel "+"		{ $$ = PlusRE::create(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::create(std::move($1)); }
-   	| ID			{ auto it = drv.variables.find($1);
-				  $$ = (it == drv.variables.end()) ? CharRE::create($1) : it->second->clone(); }
+	| ID			{ $$ = drv.createIDOrGetRegistered($1); }
 	;
 
 %%
