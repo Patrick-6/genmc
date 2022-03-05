@@ -1,5 +1,6 @@
 #ifndef KATER_DRIVER_HPP
 #define KATER_DRIVER_HPP
+
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -42,10 +43,6 @@ public:
 	// Output C++ files for GenMC
 	void output_genmc_header_file();
 	void output_genmc_impl_file();
-
-	// To be defined by the lexer
-	void scan_begin();
-	void scan_end();
 };
 
 #endif /* KATER_DRIVER_HPP */

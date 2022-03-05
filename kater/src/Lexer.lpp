@@ -2,7 +2,6 @@
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
-#include <cstring>
 #include <string>
 #include "Driver.hpp"
 #include "Parser.hpp"
@@ -53,19 +52,3 @@ reduce			return yy::parser::make_REDUCE (loc);
 <<EOF>>			return yy::parser::make_YYEOF (loc);
 
 %%
-
-void Driver::scan_begin ()
-{
-	if (config.inputFile.empty ()) {
-		std::cerr << "no input file provided" << std::endl;
-		exit (EXIT_FAILURE);
-	} else if (!(yyin = fopen (config.inputFile.c_str (), "r"))) {
-		std::cerr << "cannot open " << config.inputFile << ": " << strerror (errno) << std::endl;
-		exit (EXIT_FAILURE);
-	}
-}
-
-void Driver::scan_end ()
-{
-	fclose (yyin);
-}

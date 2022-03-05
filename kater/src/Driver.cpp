@@ -1,17 +1,36 @@
 #include "Driver.hpp"
+#include <cstring>
 #include <iostream>
 #include <fstream>
 
-int Driver::parse ()
+int Driver::parse()
 {
+	extern FILE* yyin;
+
 	if (config.verbose > 0)
 		std::cout << "Parsing file " << config.inputFile << "...";
-	location.initialize (&config.inputFile);
-	scan_begin ();
-	yy::parser parse (*this);
-	if (config.debug) parse.set_debug_level(2);
-	int res = parse ();
-	scan_end ();
+
+	if (config.inputFile.empty ()) {
+		std::cerr << "no input file provided" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	if (!(yyin = fopen(config.inputFile.c_str(), "r"))) {
+		std::cerr << "cannot open " << config.inputFile
+			  << ": " << strerror(errno) << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	location.initialize(&config.inputFile);
+
+	yy::parser parser(*this);
+	if (config.debug)
+		parser.set_debug_level(2);
+
+	auto res = parser.parse();
+
+	fclose(yyin);
+
 	if (config.verbose > 0)
 		std::cout << "Done." << std::endl;
 	return res;
