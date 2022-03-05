@@ -49,18 +49,28 @@ public:
 
 	std::pair<NFA, std::vector<std::set<int>>> to_DFA () const;
 
-	void simplify ();
-	void simplify_for_calculator (bool reduce);
+	void simplify();
+	void simplifyReduce();
 
 	void print_calculator_header_public (std::ostream &ostr, int w);
 	void print_calculator_header_private (std::ostream &ostr, int w);
-	void print_calculator_impl (std::ostream &ostr, const std::string &name,
-				    int w, bool reduce);
+
+	void printCalculatorImpl(std::ostream &ostr, const std::string &name, int w) {
+		printCalculatorImplHelper(ostr, name, w, false);
+	}
+	void printCalculatorImplReduce(std::ostream &ostr, const std::string &name, int w) {
+		printCalculatorImplHelper(ostr, name, w, true);
+	}
+
 	void print_acyclic_header_public (std::ostream &ostr);
 	void print_acyclic_header_private (std::ostream &ostr);
 	void print_acyclic_impl (std::ostream &ostr, const std::string &name);
 
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
+
+private:
+	void printCalculatorImplHelper(std::ostream &ostr, const std::string &name,
+				       int w, bool reduce);
 };
 
 #endif /* _KATER_NFA_HPP_ */

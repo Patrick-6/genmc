@@ -49,15 +49,19 @@ void Driver::register_emptiness_assumption (std::unique_ptr<RegExp> e)
 
 void Driver::generate_NFAs ()
 {
-	for (int i = 0; i < savedVariables.size(); ++i) {
+	for (auto i = 0u; i < savedVariables.size(); i++) {
+		auto &v = savedVariables[i];
 		if (config.verbose > 0)
 			std::cout << "Generating NFA for save[" << i << "] = "
-				  << *savedVariables[i].first << std::endl;
-		NFA n = savedVariables[i].first->toNFA();
-		n.simplify_for_calculator(savedVariables[i].second);
+				  << *v.first << std::endl;
+		NFA n = v.first->toNFA();
+		if (v.second == VarStatus::Reduce)
+			n.simplifyReduce();
+		else
+			n.simplify();
 		if (config.verbose > 0)
 			std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
-		nsaved.push_back({n, savedVariables[i].second});
+		nsaved.push_back({n, v.second});
 	}
 
         for (auto &r : acyclicityConstraints) {
@@ -148,8 +152,12 @@ void Driver::output_genmc_impl_file ()
 	PRINT_LINE("#include \"" << className << ".hpp\"");
 	PRINT_LINE("");
 
-	for (int i = 0; i < nsaved.size(); ++i)
-		nsaved[i].first.print_calculator_impl(fout, className, i, nsaved[i].second);
+	for (int i = 0; i < nsaved.size(); ++i) {
+		if (nsaved[i].second == VarStatus::Reduce)
+			nsaved[i].first.printCalculatorImplReduce(fout, className, i);
+		else
+			nsaved[i].first.printCalculatorImpl(fout, className, i);
+	}
 	nfa_acyc.print_acyclic_impl(fout, className);
 
 }

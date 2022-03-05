@@ -435,16 +435,10 @@ void NFA::simplify ()
 	simplify_basic();
 }
 
-void NFA::simplify_for_calculator (bool reduce)
+void NFA::simplifyReduce()
 {
-	// If transitive reduction is disabled, just simplify the NFA and
-	// return.
-	if (!reduce) {
-		simplify();
-		return;
-	}
-	// If transitive reduction is enabled, then take the
-	// reflexive-transitive closure to consense the NFA
+	// We have to find the transitive reduction, so take the
+	// reflexive-transitive closure to condense the NFA
 	star();
 	simplify();
 	// and if the condensed NFA containg only one starting and only one
@@ -516,7 +510,8 @@ void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
 	PRINT_LINE("\tstd::vector<std::bitset<" << trans.size() <<  "> > " << VISITED_ARR << ";");
 }
 
-void NFA::print_calculator_impl (std::ostream &fout, const std::string &className, int whichCalc, bool reduce)
+void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &className,
+				    int whichCalc, bool reduce)
 {
 	for (auto i = 0u ; i < trans.size(); i++) {
 		PRINT_LINE("void " << className << "::" << VISIT_PROC(i) << VISIT_PARAMS);

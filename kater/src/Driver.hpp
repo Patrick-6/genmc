@@ -14,6 +14,9 @@ YY_DECL;
 
 class Driver {
 
+private:
+	enum class VarStatus { Normal, Reduce };
+
 public:
 	yy::location &getLocation() { return location; }
 
@@ -26,12 +29,12 @@ public:
 	}
 
 	void registerSaveID(std::string id, std::unique_ptr<RegExp> re) {
-		savedVariables.push_back({std::move(re), false});
+		savedVariables.push_back({std::move(re), VarStatus::Normal});
 		registerID(std::move(id), CharRE::create(getFreshCalcID()));
 	}
 
 	void registerSaveReducedID(std::string id, std::unique_ptr<RegExp> re) {
-		savedVariables.push_back({std::move(re), true});
+		savedVariables.push_back({std::move(re), VarStatus::Reduce});
 		registerID(std::move(id), CharRE::create(getFreshCalcID()));
 	}
 
@@ -55,6 +58,7 @@ public:
 
 private:
 	using VarMap = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
+	using SavedVarSet = std::vector<std::pair<std::unique_ptr<RegExp>, VarStatus>>;
 
 	std::string getFreshCalcID() const {
 		return "calc" + std::to_string(savedVariables.size());
@@ -65,12 +69,18 @@ private:
 
 	// Results from parsing the input file
 	VarMap variables;
-	std::vector<std::pair<std::unique_ptr<RegExp>, bool>> savedVariables;
+
+	// XXX: Maybe it's better to even have two containers below
+	//      so that saved/reduced variables are treated differently,
+	//      but I've no idea how many variable categories we want to have.
+	//      If just two, I prefer separated. If more, polymorphism.
+	SavedVarSet savedVariables;
+
 	std::vector<std::unique_ptr<RegExp> > acyclicityConstraints;
 
 	// Results after conversion to NFA
 	NFA nfa_acyc;
-	std::vector<std::pair<NFA, bool>> nsaved;
+	std::vector<std::pair<NFA, VarStatus>> nsaved;
 };
 
 #endif /* KATER_DRIVER_HPP */
