@@ -99,7 +99,7 @@ public:
 
 	void bracket() override { getLabel().make_bracket(); }
 
-	NFA toNFA() const override { return NFA::make_singleton(lab); }
+	NFA toNFA() const override { return NFA(lab); }
 
 	std::unique_ptr<RegExp> clone() const override { return create(getLabel()); }
 

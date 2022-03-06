@@ -177,18 +177,17 @@ void NFA::simplify_basic ()
 
 //-------------------------------------------------------------------
 
-NFA NFA::make_singleton(const TransLabel &c)
+NFA::NFA(const TransLabel &c) : NFA()
 {
-	NFA n;
 	TransLabel flipc = c;
 	flipc.flip();
-	n.trans.push_back({{c, 1}});
-	n.trans.push_back({});
-	n.trans_inv.push_back({});
-	n.trans_inv.push_back({{flipc, 0}});
-	n.starting.insert(0);
-	n.accepting.insert(1);
-	return n;
+	trans.push_back({{c, 1}});
+	trans.push_back({});
+	trans_inv.push_back({});
+	trans_inv.push_back({{flipc, 0}});
+	starting.insert(0);
+	accepting.insert(1);
+	return;
 }
 
 void NFA::alt (const NFA &other)

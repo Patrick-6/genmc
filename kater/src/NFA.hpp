@@ -32,12 +32,13 @@ private:
 	std::vector<std::vector<char>> get_state_composition_matrix ();
 
 public:
+	NFA() = default;
+	NFA(const TransLabel &label);
+
 	bool contains_edge (int n, const TransLabel &t, int m) const;
 
 	bool is_starting (int n) const;
 	bool is_accepting (int n) const;
-
-	static NFA make_singleton(const TransLabel &t);
 
 	void flip ();
 	void alt (const NFA &other);
