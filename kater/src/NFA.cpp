@@ -177,16 +177,6 @@ void NFA::simplify_basic ()
 
 //-------------------------------------------------------------------
 
-NFA NFA::make_empty()
-{
-	NFA n;
-	n.trans.push_back({});
-	n.trans_inv.push_back({});
-	n.starting.insert(0);
-	n.accepting.insert(0);
-	return n;
-}
-
 NFA NFA::make_singleton(const TransLabel &c)
 {
 	NFA n;

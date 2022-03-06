@@ -37,7 +37,6 @@ public:
 	bool is_starting (int n) const;
 	bool is_accepting (int n) const;
 
-	static NFA make_empty();
 	static NFA make_singleton(const TransLabel &t);
 
 	void flip ();
