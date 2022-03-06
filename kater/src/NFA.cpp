@@ -125,10 +125,11 @@ void NFA::remove_node (int n)
 	std::swap (accepting, s);
 }
 
-void NFA::flip()
+NFA &NFA::flip()
 {
 	std::swap(starting, accepting);
 	std::swap(trans, trans_inv);
+	return *this;
 }
 
 // Basic graph clean up
@@ -190,7 +191,7 @@ NFA::NFA(const TransLabel &c) : NFA()
 	return;
 }
 
-void NFA::alt (const NFA &other)
+NFA &NFA::alt (const NFA &other)
 {
 	int n = trans.size();
 
@@ -205,9 +206,10 @@ void NFA::alt (const NFA &other)
 	// Take the union of starting and accepting states
 	for (const auto &k : other.starting) starting.insert (n + k);
 	for (const auto &k : other.accepting) accepting.insert (n + k);
+	return *this;
 }
 
-void NFA::seq (const NFA &other)
+NFA &NFA::seq (const NFA &other)
 {
 	int n = trans.size();
 
@@ -230,24 +232,26 @@ void NFA::seq (const NFA &other)
 			 [&](int i) { return other.is_accepting(i); }))
 		accepting.clear();
 	for (const auto &k : other.accepting) accepting.insert (n + k);
+	return *this;
 }
 
-void NFA::plus ()
+NFA &NFA::plus ()
 {
 	// Add a transition from every accepting states
 	// to every successor of a starting state
 	for (const auto &a : accepting)
 		for (const auto &s : starting)
 			add_outgoing_edges(a, trans[s]);
+	return *this;
 }
 
-void NFA::or_empty ()
+NFA &NFA::or_empty ()
 {
 	// Does the NFA already accept the empty string?
 	// If so, then exit.
 	for (const auto &s : starting)
 		if (is_accepting (s))
-			return;
+			return *this;
 	// Otherwise, find starting node with no incoming edges
 	int n = 0;
 	while (n < trans.size()) {
@@ -262,12 +266,12 @@ void NFA::or_empty ()
 	}
 	// Make that starting node accepting
 	accepting.insert(n);
+	return *this;
 }
 
-void NFA::star ()
+NFA &NFA::star ()
 {
-	plus();
-	or_empty();
+	return plus().or_empty();
 }
 
 // Convert to a deterministic automaton using the subset construction
@@ -399,7 +403,7 @@ void NFA::compact_edges()
 }
 
 
-void NFA::simplify ()
+NFA &NFA::simplify ()
 {
 	simplify_basic();
 	if (config.verbose > 1) std::cout << "After basic simplification: " << *this;
@@ -422,14 +426,14 @@ void NFA::simplify ()
 	flip();
 	if (config.verbose > 1) std::cout << "After 4th SCM reduction: " << *this;
 	simplify_basic();
+	return *this;
 }
 
-void NFA::simplifyReduce()
+NFA &NFA::simplifyReduce()
 {
 	// We have to find the transitive reduction, so take the
 	// reflexive-transitive closure to condense the NFA
-	star();
-	simplify();
+	star().simplify();
 	// and if the condensed NFA containg only one starting and only one
 	// accepting node (which ought to be identical to the starting node),
 	// then make sure no incoming edges to the starting node are used.
@@ -445,6 +449,7 @@ void NFA::simplifyReduce()
 			remove_edge(n, trans[n][j].first, trans[n][j].second);
 		simplify();
 	}
+	return *this;
 }
 
 template<typename T>

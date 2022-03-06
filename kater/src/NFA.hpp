@@ -40,17 +40,17 @@ public:
 	bool is_starting (int n) const;
 	bool is_accepting (int n) const;
 
-	void flip ();
-	void alt (const NFA &other);
-	void seq (const NFA &other);
-	void or_empty ();
-	void star ();
-	void plus ();
+	NFA &flip();
+	NFA &alt(const NFA &other);
+	NFA &seq(const NFA &other);
+	NFA &or_empty();
+	NFA &star();
+	NFA &plus();
+
+	NFA &simplify();
+	NFA &simplifyReduce();
 
 	std::pair<NFA, std::vector<std::set<int>>> to_DFA () const;
-
-	void simplify();
-	void simplifyReduce();
 
 	void print_calculator_header_public (std::ostream &ostr, int w);
 	void print_calculator_header_private (std::ostream &ostr, int w);
