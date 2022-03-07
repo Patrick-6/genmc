@@ -188,6 +188,10 @@ NFA::NFA(const TransLabel &c) : NFA()
 	trans_inv.push_back({{flipc, 0}});
 	starting.insert(0);
 	accepting.insert(1);
+
+	// auto *init = createStarting();
+	// auto *fnal = createAccepting();
+	// addTransition(init, Transition(c, fnal));
 	return;
 }
 
