@@ -17,6 +17,29 @@ public:
 private:
 	class State;
 
+	/* There are no heterogenous lookups before C++20,
+	 * so let's just use a UPs with a custom deleter  */
+	template<class T>
+	struct maybe_deleter{
+		bool _delete;
+		explicit maybe_deleter(bool doit = true) : _delete(doit) {}
+
+		void operator()(T* p) const{
+			if(_delete) delete p;
+		}
+	};
+
+	template<class T>
+	using set_unique_ptr = std::unique_ptr<T, maybe_deleter<T>>;
+
+	template<class T>
+	set_unique_ptr<T> make_find_ptr(T* raw){
+		return set_unique_ptr<T>(raw, maybe_deleter<T>(false));
+	}
+
+	using StateUPSetT = std::set<set_unique_ptr<State>>;
+	using StateSetT = std::set<State *>;
+
 	/*
 	 * A struct representing NFA transitions
 	 */
@@ -194,6 +217,25 @@ public:
 	NFA() = default;
 	NFA(const TransLabel &label);
 
+	using stateUP_iterator = StateUPSetT::iterator;
+	using stateUP_const_iterator = StateUPSetT::const_iterator;
+
+	stateUP_iterator states_begin() { return getStates().begin(); }
+	stateUP_iterator states_end() { return getStates().end(); }
+
+	using state_iterator = StateSetT::iterator;
+	using state_const_iterator = StateSetT::const_iterator;
+
+	state_iterator start_begin() { return getStarting().begin(); }
+	state_iterator start_end() { return getStarting().end(); }
+
+	state_iterator accept_begin() { return getAccepting().begin(); }
+	state_iterator accept_end() { return getAccepting().end(); }
+
+	bool isStarting(State *state) const { return getStarting().count(state); }
+
+	bool isAccepting(State *state) const { return getAccepting().count(state); }
+
 	bool contains_edge (int n, const TransLabel &t, int m) const;
 
 	bool is_starting (int n) const;
@@ -246,6 +288,103 @@ private:
 	trans_t trans_inv;
 	std::set<int> starting;
 	std::set<int> accepting;
+
+	const StateUPSetT &getStates() const { return nfa; }
+	StateUPSetT &getStates() { return nfa; }
+
+	const StateSetT &getStarting() const { return starting2; }
+	StateSetT &getStarting() { return starting2; }
+
+	const StateSetT &getAccepting() const { return accepting2; }
+	StateSetT &getAccepting() { return accepting2; }
+
+	/* Creates and adds a new (unreachable) state to the NFA and its inverse.
+	 * Returns the newly added state */
+	State *createState() {
+		static unsigned counter = 0;
+		set_unique_ptr<State> s(new State(counter++));
+
+		auto result = &*s;
+		getStates().insert(std::move(s));
+		return result;
+	}
+
+	State *createStarting() {
+		auto *s = createState();
+		getStarting().insert(s);
+		return s;
+	}
+
+	State *createAccepting() {
+		auto *s = createState();
+		getAccepting().insert(s);
+		return s;
+	}
+
+	void makeStarting(State *s) { getStarting().insert(s); }
+
+	void makeAccepting(State *s) { getAccepting().insert(s); }
+
+	/* Removes STATE from the NFA and its inverse */
+	void removeState(State *state) {
+		std::for_each(states_begin(), states_end(), [&](decltype(*states_begin()) &s){
+			s->removeOutgoingTo(state);
+			s->removeIncomingTo(state);
+		});
+		getStarting().erase(state);
+		getAccepting().erase(state);
+		getStates().erase(make_find_ptr(state));
+	}
+
+	stateUP_iterator removeState(stateUP_iterator &it) {
+		std::for_each(states_begin(), states_end(), [&](decltype(*states_begin()) &s){
+			s->removeOutgoingTo(it->get());
+			s->removeIncomingTo(it->get());
+		});
+		getStarting().erase(it->get());
+		getAccepting().erase(it->get());
+		return getStates().erase(it);
+	}
+
+	template<typename ITER>
+	void removeStates(ITER &&begin, ITER &&end) {
+		std::for_each(begin, end, [&](State *s){ removeState(s); });
+	}
+
+	/* Whether the (regular) NFA has a transition T from state SRC */
+	bool hasTransition(State *src, const Transition &t) const {
+		return src->hasOutgoing(t);
+	}
+
+	/* Adds a transition to the NFA and updates the inverse */
+	void addTransition(State *src, const Transition &t) {
+		src->addOutgoing(t);
+		t.dest->addIncoming(t.flipTo(src));
+	}
+
+	template<typename ITER>
+	void addTransitions(State *src, ITER &&begin, ITER &&end) {
+		std::for_each(begin, end, [&](const Transition &t){
+			addTransition(src, t);
+		});
+	}
+
+	template<typename ITER>
+	void addInvertedTransitions(State *src, ITER &&begin, ITER &&end) {
+		std::for_each(begin, end, [&](const Transition &t){
+			addTransition(t.dest, t.flipTo(src));
+		});
+	}
+
+	/* Removes a transition T from S and updates the inverse */
+	void removeTransition(State *src, const Transition &t) {
+		src->removeOutgoing(t);
+		t.dest->removeIncoming(t.flipTo(src));
+	}
+
+	StateUPSetT nfa;
+	StateSetT  starting2;
+	StateSetT accepting2;
 };
 
 #endif /* _KATER_NFA_HPP_ */

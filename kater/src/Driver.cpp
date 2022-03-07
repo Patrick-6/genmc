@@ -61,7 +61,7 @@ void Driver::generate_NFAs ()
 			n.simplify();
 		if (config.verbose > 0)
 			std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
-		nsaved.push_back({n, v.second});
+		nsaved.push_back({std::move(n), v.second});
 	}
 
         for (auto &r : acyclicityConstraints) {

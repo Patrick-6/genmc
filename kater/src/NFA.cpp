@@ -313,7 +313,7 @@ std::pair<NFA, std::vector<std::set<int>>> NFA::to_DFA() const
 	for (int i = 0; i < v.size(); i++)
 		for (const auto &s : v[i])
 			if (is_accepting(s)) res.accepting.insert(i);
-	return {res, v};
+	return {std::move(res), std::move(v)};
 }
 
 
