@@ -14,23 +14,6 @@ public:
 	using tok_vector = std::vector< std::pair<TransLabel, int> >;
 	using trans_t = std::vector<tok_vector>;
 
-private:
-	trans_t trans;
-	trans_t trans_inv;
-	std::set<int> starting;
-	std::set<int> accepting;
-
-	void remove_node (int n);
-	void add_edge (int n, const TransLabel &t, int m);
-	void remove_edge (int n, const TransLabel &t, int m);
-	void add_outgoing_edges (int n, const tok_vector &v);
-	void add_incoming_edges (int n, const tok_vector &v);
-
-	void simplify_basic ();
-	void compact_edges ();
-	void scm_reduce ();
-	std::vector<std::vector<char>> get_state_composition_matrix ();
-
 public:
 	NFA() = default;
 	NFA(const TransLabel &label);
@@ -71,6 +54,22 @@ public:
 private:
 	void printCalculatorImplHelper(std::ostream &ostr, const std::string &name,
 				       int w, bool reduce);
+
+	void remove_node (int n);
+	void add_edge (int n, const TransLabel &t, int m);
+	void remove_edge (int n, const TransLabel &t, int m);
+	void add_outgoing_edges (int n, const tok_vector &v);
+	void add_incoming_edges (int n, const tok_vector &v);
+
+	void simplify_basic ();
+	void compact_edges ();
+	void scm_reduce ();
+	std::vector<std::vector<char>> get_state_composition_matrix ();
+
+	trans_t trans;
+	trans_t trans_inv;
+	std::set<int> starting;
+	std::set<int> accepting;
 };
 
 #endif /* _KATER_NFA_HPP_ */
