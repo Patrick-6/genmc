@@ -14,6 +14,49 @@ public:
 	using tok_vector = std::vector< std::pair<TransLabel, int> >;
 	using trans_t = std::vector<tok_vector>;
 
+private:
+	class State;
+
+	/*
+	 * A struct representing NFA transitions
+	 */
+	struct Transition {
+		TransLabel label;
+		State *dest;
+
+		Transition() = delete;
+		Transition(const TransLabel &lab, State *dest)
+			: label(lab), dest(dest) {}
+
+		/* Flips the label of this transition and changes its
+		 * destination to DEST */
+		Transition &flipTo(State *s) {
+			label.flip();
+			dest = s;
+			return *this;
+		}
+
+		inline bool operator==(const Transition &t) const {
+			return dest == t.dest && label == t.label;
+		}
+		inline bool operator!=(const Transition &t) const {
+			return !(*this == t);
+		}
+
+		inline bool operator<(const Transition &t) const {
+			return (dest < t.dest) || (dest == t.dest && label < t.label);
+		}
+		inline bool operator>=(const Transition &t) const {
+			return !(*this < t);
+		}
+		inline bool operator>(const Transition &t) const {
+			return (*this >= t) && (*this != t);
+		}
+		inline bool operator<=(const Transition &t) const {
+			return !(*this > t);
+		}
+	};
+
 public:
 	NFA() = default;
 	NFA(const TransLabel &label);
