@@ -213,6 +213,28 @@ NFA &NFA::alt (const NFA &other)
 	return *this;
 }
 
+NFA &NFA::alt(NFA &&other)
+{
+	int n = trans.size();
+
+	// Append states and transitions of `other`
+	trans.resize(n + other.trans.size());
+	trans_inv.resize(n + other.trans.size());
+	for (int i = 0; i < other.trans.size(); ++i) {
+		for (const auto &p : other.trans[i])
+			add_edge (n + i, p.first, n + p.second);
+	}
+
+	// Take the union of starting and accepting states
+	for (const auto &k : other.starting) starting.insert (n + k);
+	for (const auto &k : other.accepting) accepting.insert (n + k);
+
+	getStates().merge(std::move(other.getStates()));
+	getStarting().merge(std::move(other.getStarting()));
+	getAccepting().merge(std::move(other.getAccepting()));
+	return *this;
+}
+
 NFA &NFA::seq (const NFA &other)
 {
 	int n = trans.size();

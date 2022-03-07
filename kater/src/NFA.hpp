@@ -236,6 +236,8 @@ public:
 
 	bool isAccepting(State *state) const { return getAccepting().count(state); }
 
+	NFA &alt(NFA &&other);
+
 	bool contains_edge (int n, const TransLabel &t, int m) const;
 
 	bool is_starting (int n) const;
