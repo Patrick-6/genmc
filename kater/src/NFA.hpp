@@ -1,13 +1,13 @@
 #ifndef _KATER_NFA_HPP_
 #define _KATER_NFA_HPP_
 
+#include "TransLabel.hpp"
 #include <functional>
 #include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
-#include "TransLabel.hpp"
 
 class NFA {
 public:
