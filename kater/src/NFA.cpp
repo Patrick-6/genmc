@@ -229,9 +229,9 @@ NFA &NFA::alt(NFA &&other)
 	for (const auto &k : other.starting) starting.insert (n + k);
 	for (const auto &k : other.accepting) accepting.insert (n + k);
 
-	getStates().merge(std::move(other.getStates()));
-	getStarting().merge(std::move(other.getStarting()));
-	getAccepting().merge(std::move(other.getAccepting()));
+	// getStates().merge(std::move(other.getStates()));
+	// getStarting().merge(std::move(other.getStarting()));
+	// getAccepting().merge(std::move(other.getAccepting()));
 	return *this;
 }
 
@@ -261,17 +261,62 @@ NFA &NFA::seq (const NFA &other)
 	return *this;
 }
 
-NFA &NFA::plus ()
+NFA &NFA::seq(NFA &&other)
+{
+	int n = trans.size();
+
+	// Append states and transitions of `other`
+	trans.resize(n + other.trans.size());
+	trans_inv.resize(n + other.trans.size());
+	for (int i = 0; i < other.trans.size(); ++i) {
+		for (const auto &p : other.trans[i])
+			add_edge (n + i, p.first, n + p.second);
+	}
+
+	// Add transitions `this->accepting --> other.starting`
+	for (const auto &a : accepting)
+		for (const auto &b : other.starting)
+			for (const auto &p : other.trans[b])
+				add_edge(a, p.first, p.second + n);
+
+	// Calculate accepting states
+	if (std::none_of(other.starting.begin(), other.starting.end(),
+			 [&](int i) { return other.is_accepting(i); }))
+		accepting.clear();
+	for (const auto &k : other.accepting) accepting.insert (n + k);
+
+	// getStates().merge(std::move(other.getStates()));
+	// std::for_each(accept_begin(), accept_end(), [&](State *a){
+	// 	std::for_each(other.start_begin(), other.start_end(), [&](State *s){
+	// 		addTransitions(a, s->out_begin(), s->out_end());
+	// 	});
+	// });
+
+	// // XXX: ?
+	// if (std::none_of(other.start_begin(), other.start_end(),
+	// 		 [&](State *s){	return other.isAccepting(s); }))
+	// 	getAccepting().clear();
+	// getAccepting().merge(std::move(other.getAccepting()));
+	return *this;
+}
+
+NFA &NFA::plus()
 {
 	// Add a transition from every accepting states
 	// to every successor of a starting state
 	for (const auto &a : accepting)
 		for (const auto &s : starting)
 			add_outgoing_edges(a, trans[s]);
+
+	// std::for_each(accept_begin(), accept_end(), [&](State *a){
+	// 	std::for_each(start_begin(), start_end(), [&](State *s){
+	// 		addTransitions(a, s->out_begin(), s->out_end());
+	// 	});
+	// });
 	return *this;
 }
 
-NFA &NFA::or_empty ()
+NFA &NFA::or_empty()
 {
 	// Does the NFA already accept the empty string?
 	// If so, then exit.
@@ -292,10 +337,21 @@ NFA &NFA::or_empty ()
 	}
 	// Make that starting node accepting
 	accepting.insert(n);
+
+	// if (std::any_of(start_begin(), start_end(), [&](State *s){ return isAccepting(s); }))
+	// 	return *this;
+
+	// // XXX: Why not search starting?
+	// auto it = std::find_if(states_begin(), states_end(), [&](decltype(*states_begin()) &s){
+	// 	return !s->hasIncoming() && isStarting(&*s);
+	// });
+
+	// auto *s = (it != states_end()) ? it->get() : createStarting();
+	// makeAccepting(s);
 	return *this;
 }
 
-NFA &NFA::star ()
+NFA &NFA::star()
 {
 	return plus().or_empty();
 }
