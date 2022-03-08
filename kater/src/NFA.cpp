@@ -138,7 +138,7 @@ NFA &NFA::flip()
 }
 
 // Basic graph clean up
-void NFA::simplify_basic ()
+void NFA::simplify_basic()
 {
 	bool changed;
 	do {
@@ -179,6 +179,56 @@ void NFA::simplify_basic ()
 			}
 
 	} while (changed);
+
+	// // XXX: Candidate for rewrite
+	// bool changed2;
+	// do {
+	// 	changed2 = false;
+
+	// 	for (auto it = states_begin(), ie = states_end(); it != ie; /* */ ) {
+	// 		if (((*it)->hasAllOutLoops() && !isAccepting(it->get())) ||
+	// 		    ((*it)->hasAllInLoops() && !isStarting(it->get()))) {
+	// 			it = removeState(it);
+	// 			changed2 = true;
+	// 		} else {
+	// 			++it;
+	// 		}
+	// 	}
+
+	// 	for (auto it = states_begin(), ie = states_end(); it != ie; ++it) {
+	// 		auto oit(it);
+	// 		++oit;
+	// 		for (auto oe = states_end(); oit != oe; /* */) {
+	// 			if (isAccepting(it->get()) == isAccepting(oit->get()) &&
+	// 			    (*it)->outgoingSameAs(oit->get())) {
+	// 				if (isStarting(oit->get()))
+	// 					makeStarting(it->get());
+	// 				addInvertedTransitions(it->get(), (*oit)->in_begin(), (*oit)->in_end());
+	// 				oit = removeState(oit);
+	// 				changed2 = true;
+	// 			} else {
+	// 				++oit;
+	// 			}
+	// 		}
+	// 	}
+
+	// 	for (auto it = states_begin(), ie = states_end(); it != ie; ++it) {
+	// 		auto oit(it);
+	// 		++oit;
+	// 		for (auto oe = states_end(); oit != oe; /* */) {
+	// 			if (isStarting(it->get()) == isStarting(oit->get()) &&
+	// 			    (*it)->incomingSameAs(oit->get())) {
+	// 				if (isAccepting(oit->get()))
+	// 					makeAccepting(it->get());
+	// 				addTransitions(it->get(), (*oit)->out_begin(), (*oit)->out_end());
+	// 				oit = removeState(oit);
+	// 				changed2 = true;
+	// 			} else {
+	// 				++oit;
+	// 			}
+	// 		}
+	// 	}
+	// } while (changed2);
 }
 
 //-------------------------------------------------------------------
