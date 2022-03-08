@@ -236,6 +236,8 @@ public:
 
 	bool isAccepting(State *state) const { return getAccepting().count(state); }
 
+	unsigned getNumAccepting() const { return getAccepting().size(); }
+
 	NFA &alt(NFA &&other);
 	NFA &seq(NFA &&other);
 
@@ -327,6 +329,10 @@ private:
 	void makeStarting(State *s) { getStarting().insert(s); }
 
 	void makeAccepting(State *s) { getAccepting().insert(s); }
+
+	void clearStarting() { getStarting().clear(); }
+
+	void clearAccepting() { getAccepting().clear(); }
 
 	/* Removes STATE from the NFA and its inverse */
 	void removeState(State *state) {

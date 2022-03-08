@@ -586,6 +586,21 @@ NFA &NFA::simplifyReduce()
 			remove_edge(n, trans[n][j].first, trans[n][j].second);
 		simplify();
 	}
+
+	// star().simplify();
+	// if (getNumAccepting() == 1 && getStarting() == getAccepting()) {
+	// 	auto *sold = *start_begin();
+	// 	clearStarting();
+	// 	auto *snew = createStarting();
+	// 	addTransitions(snew, sold->out_begin(), sold->out_end());
+
+	// 	std::vector<Transition> toRemove;
+	// 	std::copy(sold->out_begin(), sold->out_end(), std::back_inserter(toRemove));
+	// 	std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
+	// 		removeTransition(sold, t);
+	// 	});
+	// 	simplify();
+	// }
 	return *this;
 }
 
