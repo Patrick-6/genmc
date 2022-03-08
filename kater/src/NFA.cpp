@@ -129,6 +129,11 @@ NFA &NFA::flip()
 {
 	std::swap(starting, accepting);
 	std::swap(trans, trans_inv);
+
+	// std::for_each(states_begin(), states_end(), [](decltype(*states_begin()) &s){
+	// 	s->flip();
+	// });
+	// std::swap(getStarting(), getAccepting());
 	return *this;
 }
 
