@@ -229,6 +229,9 @@ public:
 	state_iterator start_begin() { return getStarting().begin(); }
 	state_iterator start_end() { return getStarting().end(); }
 
+	state_const_iterator start_begin() const { return getStarting().begin(); }
+	state_const_iterator start_end() const { return getStarting().end(); }
+
 	state_iterator accept_begin() { return getAccepting().begin(); }
 	state_iterator accept_end() { return getAccepting().end(); }
 

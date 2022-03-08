@@ -350,7 +350,7 @@ NFA &NFA::seq(NFA &&other)
 	// // XXX: ?
 	// if (std::none_of(other.start_begin(), other.start_end(),
 	// 		 [&](State *s){	return other.isAccepting(s); }))
-	// 	getAccepting().clear();
+	// 	clearAccepting();
 	// getAccepting().merge(std::move(other.getAccepting()));
 	return *this;
 }
@@ -451,6 +451,53 @@ std::pair<NFA, std::vector<std::set<int>>> NFA::to_DFA() const
 		for (const auto &s : v[i])
 			if (is_accepting(s)) res.accepting.insert(i);
 	return {std::move(res), std::move(v)};
+
+	// NFA dfa;
+	// std::map<std::set<State *>, State *> nfaToDfaMap; // m
+	// std::map<State *, std::set<State *>> dfaToNfaMap; // v
+
+	// auto *s = dfa.createStarting();
+	// auto ss = std::set<State *>(start_begin(), start_end());
+	// nfaToDfaMap.insert({ss, s});
+	// dfaToNfaMap.insert({s, ss});
+
+	// std::vector<std::set<State *>> worklist = {ss};
+	// while (!worklist.empty()) {
+	// 	auto sc = worklist.back();
+	// 	worklist.pop_back();
+
+	// 	// XXX: FIXME
+	// 	std::for_each(sc.begin(), sc.end(), [&](State *ns){
+	// 		std::for_each(ns->out_begin(), ns->out_end(), [&](const Transition &t){
+	// 			std::set<State *> next;
+	// 			std::for_each(sc.begin(), sc.end(), [&](State *ns2){
+	// 				std::for_each(ns2->out_begin(), ns2->out_end(), [&](const Transition &t2){
+	// 					if (t2.label == t.label)
+	// 						next.insert(t2.dest);
+	// 				});
+	// 			});
+	// 			auto it = nfaToDfaMap.find(next);
+	// 			State *ds = nullptr;
+	// 			if (it != nfaToDfaMap.end()) {
+	// 				ds = it->second;
+	// 			} else {
+	// 				ds = dfa.createState();
+	// 				nfaToDfaMap.insert({next, ds});
+	// 				dfaToNfaMap.insert({ds, next});
+	// 				worklist.push_back(std::move(next));
+	// 			}
+	// 			dfa.addTransition(nfaToDfaMap[sc], Transition(t.label, ds));
+	// 		});
+	// 	});
+	// }
+
+	// std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](decltype(*dfaToNfaMap.begin()) &kv){
+	// 	if (std::any_of(kv.second.begin(), kv.second.end(), [&](State *s){
+	// 		return isAccepting(s);
+	// 	}))
+	// 		dfa.makeAccepting(kv.first);
+	// });
+	// return std::make_pair(std::move(dfa), std::move(dfaToNfaMap));
 }
 
 
