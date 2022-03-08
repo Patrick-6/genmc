@@ -521,6 +521,26 @@ std::vector<std::vector<char>> NFA::get_state_composition_matrix ()
 		if (config.verbose > 1) std::cout << bv << ": " << i << std::endl;
 	}
 	return v;
+
+	// flip();
+	// auto &[dfa, dfaToNfaMap] = to_DFA();
+	// flip();
+
+	// std::unordered_map<State *, std::vector<char>> result;
+
+	// if (config.verbose > 1) std::cout << "State composition matrix: " << std::endl;
+	// std::for_each(states_begin(), states_end(), [&](decltype(*states_begin()) &si){
+	// 	std::vector<char> row(dfaToNfaMap.size(), 0);
+	// 	auto i = 0u;
+	// 	std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](decltype(*dfaToNfaMap.begin()) &kv){
+	// 		if (kv.second.find(&*si) != kv.second.end())
+	// 			row[i] = 1;
+	// 		++i;
+	// 	});
+	// 	result.insert({&*si, row});
+	// 	if (config.verbose > 1) std::cout << row << ": " << i << std::endl;
+	// });
+	// return result;
 }
 
 
