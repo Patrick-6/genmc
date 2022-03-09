@@ -1,13 +1,15 @@
 #ifndef KATER_DRIVER_HPP
 #define KATER_DRIVER_HPP
 
-#include <memory>
-#include <string>
-#include <unordered_map>
-#include <vector>
 #include "Config.hpp"
 #include "NFA.hpp"
 #include "Parser.hpp"
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #define YY_DECL yy::parser::symbol_type yylex (Driver& drv)
 YY_DECL;
@@ -18,6 +20,12 @@ private:
 	enum class VarStatus { Normal, Reduce };
 
 public:
+	Driver() {
+		std::for_each(builtinNames.begin(), builtinNames.end(), [&](auto &name){
+			registerID(name, CharRE::create(name));
+		});
+	}
+
 	yy::location &getLocation() { return location; }
 
 	void registerID(std::string id, std::unique_ptr<RegExp> re) {
@@ -34,9 +42,14 @@ public:
 		registerID(std::move(id), CharRE::create(getFreshCalcID()));
 	}
 
-	std::unique_ptr<RegExp> createIDOrGetRegistered(std::string id) {
+	std::unique_ptr<RegExp> getRegisteredID(std::string id, const yy::location &loc) {
 		auto it = variables.find(id);
-		return (it == variables.end()) ? CharRE::create(id) : it->second->clone();
+		if (it == variables.end()) {
+			std::cerr << loc << "\n";
+			std::cerr << "Uknown relation encountered (" << id << ")\n";
+			exit(EXIT_FAILURE);
+		}
+		return it->second->clone();
 	}
 
 	// Invoke the parser on the file `config->fileName`.  Return 0 on success.
@@ -58,6 +71,8 @@ public:
 private:
 	using VarMap = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
 	using SavedVarSet = std::vector<std::pair<std::unique_ptr<RegExp>, VarStatus>>;
+
+	static const std::unordered_set<std::string> builtinNames;
 
 	std::string getFreshCalcID() const {
 		return "calc" + std::to_string(savedVariables.size());

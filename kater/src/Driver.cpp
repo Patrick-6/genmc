@@ -3,6 +3,10 @@
 #include <iostream>
 #include <fstream>
 
+const std::unordered_set<std::string> Driver::builtinNames = {
+	"po_imm", "mo_imm", "fr_init", "rf", "rf_inv"
+};
+
 int Driver::parse()
 {
 	extern FILE* yyin;

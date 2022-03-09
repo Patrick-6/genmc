@@ -97,7 +97,7 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "*"		{ $$ = StarRE::create(std::move($1)); }
 	| rel "+"		{ $$ = PlusRE::create(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::create(std::move($1)); }
-	| ID			{ $$ = drv.createIDOrGetRegistered($1); }
+	| ID			{ $$ = drv.getRegisteredID($1, @$); }
 	;
 
 %%
