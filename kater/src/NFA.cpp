@@ -373,7 +373,7 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 }
 
 template<>
-std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
+static std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
 {
 	bool not_first = false;
 	for (auto i : s) {
