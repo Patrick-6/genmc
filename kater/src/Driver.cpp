@@ -44,13 +44,13 @@ int Driver::parse()
 void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
 	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
-		auto *charRE = dynamic_cast<const CharRE *>(empC->getExp());
+		auto *charRE = dynamic_cast<const CharRE *>(empC->getKid(0));
 		if (!charRE) {
 			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
-				  << *empC->getExp() << std::endl;
+				  << *empC->getKid(0) << std::endl;
 			return;
 		}
-		std::cout << "Registering assumption " << *empC->getExp() << "." << std::endl;
+		std::cout << "Registering assumption " << *empC->getKid(0) << "." << std::endl;
 		TransLabel::register_invalid(charRE->getLabel());
 	}
 }
@@ -58,7 +58,7 @@ void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &l
 void Driver::addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
 	if (auto *acycC = dynamic_cast<AcyclicConstraint *>(&*c)) {
-		acyclicityConstraints.push_back(acycC->getExp()->clone());
+		acyclicityConstraints.push_back(acycC->getKid(0)->clone());
 		return;
 	}
 	std::cerr << loc << ": [Warning] Ignoring the unsupported constraint " << *c << std::endl;

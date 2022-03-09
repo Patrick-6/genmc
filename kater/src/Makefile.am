@@ -7,6 +7,7 @@ if kater
   kater_SOURCES = \
 	main.cpp \
 	Config.cpp \
+	Constraint.cpp \
 	Driver.cpp \
 	Lexer.lpp \
 	NFA.cpp	\

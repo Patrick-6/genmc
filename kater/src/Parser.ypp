@@ -14,7 +14,7 @@
 
 %code requires {
   #include <string>
-  #include "RegExp.hpp"
+  #include "Constraint.hpp"
   class Driver;
 }
 
