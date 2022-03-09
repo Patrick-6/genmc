@@ -760,6 +760,18 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 	return ostr;
 }
 
+template<>
+std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
+{
+	bool not_first = false;
+	for (auto i : s) {
+		if (not_first) ostr << ", ";
+		else not_first = true;
+		ostr << i->getId();
+	}
+	return ostr;
+}
+
 std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 {
 	ostr << "[NFA with " << nfa.trans.size() << " states]" << std::endl;
@@ -769,6 +781,15 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 			ostr << "\t" << i << " --" << n.first << "--> " << n.second << std::endl;
 	}
 	return ostr;
+
+	// ostr << "[NFA with " << nfa.getNumStates() << " states]" << std::endl;
+	// ostr << "starting: {" << nfa.getStarting() << "} accepting: {" << nfa.getAccepting() << "}" << std::endl;
+	// std::for_each(nfa.states_begin(), nfa.states_end(), [&](decltype(*nfa.states_begin()) &s){
+	// 	std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
+	// 		ostr << "\t" << s->getId() << " --" << t.label << "--> " << t.dest->getId() << std::endl;
+	// 	});
+	// });
+	// return ostr;
 }
 
 

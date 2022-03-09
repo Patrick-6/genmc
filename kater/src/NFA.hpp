@@ -283,6 +283,8 @@ public:
 	void print_acyclic_impl (std::ostream &ostr, const std::string &name);
 
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
+	template<typename T>
+	friend std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
 
 private:
 	void printCalculatorImplHelper(std::ostream &ostr, const std::string &name,
