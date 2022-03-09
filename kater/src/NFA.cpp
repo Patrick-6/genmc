@@ -571,6 +571,45 @@ void NFA::scm_reduce ()
 		remove_node(i);
 		v.erase(v.begin() + i);
 	}
+
+	// simplify_basic();
+	// if (getNumStates() == 0)
+	// 	return;
+
+	// auto scm = get_state_composition_matrix();
+	// auto dfaSize = scm.begin()->second.size();
+	// std::vector<State *> toRemove;
+	// for (auto itI = states_begin(), itIe = states_end(); itI != itIe; /* ! */) {
+	// 	if (isStarting(itI->get())) {
+	// 		++itI;
+	// 		continue;
+	// 	}
+	// 	std::vector<char> newrow(dfaSize, 0);
+	// 	for (auto itJ = states_begin(), itJe = states_end(); itJ != itJe; ++itJ) {
+	// 		if (itI->get() != itJ->get() && is_subset(scm[itJ->get()], scm[itI->get()]))
+	// 			take_union(newrow, scm[itJ->get()]);
+	// 	}
+	// 	if (newrow != scm[itI->get()]) {
+	// 		++itI;
+	// 		continue;
+	// 	}
+	// 	if (config.verbose > 1)
+	// 		std::cout << "erase node " << (*itI)->getId() << " with";
+	// 	for (auto itJ = states_begin(), itJe = states_end(); itJ != itJe; ++itJ) {
+	// 		if (itI->get() != itJ->get() && is_subset(scm[itJ->get()], scm[itI->get()])) {
+	// 			if (config.verbose > 1)
+	// 				std::cout << " " << (*itJ)->getId();
+	// 			addInvertedTransitions(itJ->get(), (*itI)->in_begin(), (*itI)->in_end());
+	// 		}
+	// 	}
+	// 	if (config.verbose > 1) std::cout << std::endl;
+	// 	scm.erase(itI->get());
+	// 	itI = removeState(itI);
+	// 	// toRemove.push_back(itI->get());
+	// 	// ++itI;
+	// }
+	// // removeStates(toRemove.begin(), toRemove.end());
+	// // std::for_each(toRemove.begin(), toRemove.end(), [&](State *s){ removeS
 }
 
 
@@ -604,6 +643,44 @@ void NFA::compact_edges()
 				continue;
 			remove_edge (i, p.first, i);
 		}
+
+	// std::for_each(states_begin(), states_end(), [&](auto &s){
+	// 	std::vector<Transition> toRemove;
+	// 	std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
+	// 		if (!t.label.is_empty_trans())
+	// 			return false;;
+	// 		if (isAccepting(t.dest) && t.dest != &*s)
+	// 			return false;
+	// 		if (config.verbose > 1) {
+	// 			std::cout << "Compacting edge " << s->getId() << " --"
+	// 				  << t.label << "--> " << t.dest->getId() << std::endl;
+	// 		}
+	// 		if (t.dest != &*s) {
+	// 			std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
+	// 				auto l = t.label.seq(q.label);
+	// 				if (l.is_valid())
+	// 					addTransition(&*s, Transition(l, q.dest));
+	// 			});
+	// 		}
+	// 		return true;
+	// 	});
+	// 	removeTransitions(&*s, toRemove.begin(), toRemove.end());
+	// });
+
+	// std::for_each(states_begin(), states_end(), [&](auto &s){
+	// 	std::vector<Transition> toRemove;
+	// 	std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t1){
+	// 		return (t1.dest != &*s &&
+	// 		    std::all_of(s->out_begin(), s->out_end(), [&](const Transition &t2){
+	// 				    return t2.label == t1.label &&
+	// 					    (t2.dest == &*s || std::find(t1.dest->out_begin(),
+	// 									 t1.dest->out_end(), t2) != t1.dest->out_end());
+	// 			    }));
+	// 	});
+	// 	std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
+	// 		removeTransition(&*s, Transition(t.label, &*s));
+	// 	});
+	// });
 }
 
 
