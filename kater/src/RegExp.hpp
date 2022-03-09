@@ -151,7 +151,7 @@ public:
 	NFA toNFA() const override {
 		NFA nfa1 = getKid(0)->toNFA();
 		NFA nfa2 = getKid(1)->toNFA();
-		nfa1.alt(nfa2);
+		nfa1.alt(std::move(nfa2));
 		return nfa1;
 	}
 
@@ -210,7 +210,7 @@ public:
 	NFA toNFA() const override {
 		NFA nfa1 = getKid(0)->toNFA();
 		NFA nfa2 = getKid(1)->toNFA();
-		nfa1.seq(nfa2);
+		nfa1.seq(std::move(nfa2));
 		return nfa1;
 	}
 

@@ -78,7 +78,7 @@ void Driver::generate_NFAs ()
 		n.simplify();
 		if (config.verbose > 0 && acyclicityConstraints.size() > 1)
 			std::cout << "Generated NFA: " << n << std::endl;
-		nfa_acyc.alt(n);
+		nfa_acyc.alt(std::move(n));
         }
 	if (config.verbose > 0)
 		std::cout << "Generated NFA: " << nfa_acyc << std::endl;

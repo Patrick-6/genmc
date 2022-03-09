@@ -3,6 +3,7 @@
 
 #include "TransLabel.hpp"
 #include <algorithm>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -248,17 +249,9 @@ public:
 
 	bool isAccepting(State *state) const { return getAccepting().count(state); }
 
+	NFA &flip();
 	NFA &alt(NFA &&other);
 	NFA &seq(NFA &&other);
-
-	bool contains_edge (int n, const TransLabel &t, int m) const;
-
-	bool is_starting (int n) const;
-	bool is_accepting (int n) const;
-
-	NFA &flip();
-	NFA &alt(const NFA &other);
-	NFA &seq(const NFA &other);
 	NFA &or_empty();
 	NFA &star();
 	NFA &plus();
@@ -266,7 +259,7 @@ public:
 	NFA &simplify();
 	NFA &simplifyReduce();
 
-	std::pair<NFA, std::vector<std::set<int>>> to_DFA () const;
+	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 
 	void print_calculator_header_public (std::ostream &ostr, int w);
 	void print_calculator_header_private (std::ostream &ostr, int w);
@@ -290,30 +283,19 @@ private:
 	void printCalculatorImplHelper(std::ostream &ostr, const std::string &name,
 				       int w, bool reduce);
 
-	void remove_node (int n);
-	void add_edge (int n, const TransLabel &t, int m);
-	void remove_edge (int n, const TransLabel &t, int m);
-	void add_outgoing_edges (int n, const tok_vector &v);
-	void add_incoming_edges (int n, const tok_vector &v);
-
 	void simplify_basic ();
 	void compact_edges ();
 	void scm_reduce ();
-	std::vector<std::vector<char>> get_state_composition_matrix ();
-
-	trans_t trans;
-	trans_t trans_inv;
-	std::set<int> starting;
-	std::set<int> accepting;
+	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 
 	const StateUPSetT &getStates() const { return nfa; }
 	StateUPSetT &getStates() { return nfa; }
 
-	const StateSetT &getStarting() const { return starting2; }
-	StateSetT &getStarting() { return starting2; }
+	const StateSetT &getStarting() const { return starting; }
+	StateSetT &getStarting() { return starting; }
 
-	const StateSetT &getAccepting() const { return accepting2; }
-	StateSetT &getAccepting() { return accepting2; }
+	const StateSetT &getAccepting() const { return accepting; }
+	StateSetT &getAccepting() { return accepting; }
 
 	/* Creates and adds a new (unreachable) state to the NFA and its inverse.
 	 * Returns the newly added state */
@@ -411,8 +393,8 @@ private:
 	}
 
 	StateUPSetT nfa;
-	StateSetT  starting2;
-	StateSetT accepting2;
+	StateSetT  starting;
+	StateSetT accepting;
 };
 
 #endif /* _KATER_NFA_HPP_ */
