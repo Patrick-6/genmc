@@ -7,13 +7,11 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 class NFA {
-public:
-	using tok_vector = std::vector< std::pair<TransLabel, int> >;
-	using trans_t = std::vector<tok_vector>;
 
 private:
 	class State;
