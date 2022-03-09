@@ -361,7 +361,7 @@ NFA &NFA::simplifyReduce()
 }
 
 template<typename T>
-static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
+std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 {
 	bool not_first = false;
 	for (auto i : s) {
@@ -373,7 +373,7 @@ static std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 }
 
 template<>
-static std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
+std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
 {
 	bool not_first = false;
 	for (auto i : s) {
