@@ -36,15 +36,28 @@ int Driver::parse()
 	return res;
 }
 
-void Driver::register_emptiness_assumption (std::unique_ptr<RegExp> e)
+
+void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
-	auto *charRE = dynamic_cast<const CharRE *>(&*e);
-	if (!charRE) {
-		std::cerr << "Warning: cannot use property " << *e << " = 0." << std::endl;
+	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
+		auto *charRE = dynamic_cast<const CharRE *>(empC->getExp());
+		if (!charRE) {
+			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
+				  << *empC->getExp() << std::endl;
+			return;
+		}
+		std::cout << "Registering assumption " << *empC->getExp() << "." << std::endl;
+		TransLabel::register_invalid(charRE->getLabel());
+	}
+}
+
+void Driver::addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc)
+{
+	if (auto *acycC = dynamic_cast<AcyclicConstraint *>(&*c)) {
+		acyclicityConstraints.push_back(acycC->getExp()->clone());
 		return;
 	}
-	std::cout << "Registering property " << *e << " = 0." << std::endl;
-	TransLabel::register_invalid(charRE->getLabel());
+	std::cerr << loc << ": [Warning] Ignoring the unsupported constraint " << *c << std::endl;
 }
 
 void Driver::generate_NFAs ()

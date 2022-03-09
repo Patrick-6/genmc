@@ -23,11 +23,12 @@ BLANK	[ \t\r]
 	loc.step ();
 %}
 
-let			return yy::parser::make_LET (loc);
 acyclic			return yy::parser::make_ACYCLIC (loc);
-property		return yy::parser::make_PROPERTY (loc);
-save			return yy::parser::make_SAVE (loc);
+assume			return yy::parser::make_ASSUME (loc);
+empty			return yy::parser::make_EMPTY (loc);
+let			return yy::parser::make_LET (loc);
 reduce			return yy::parser::make_REDUCE (loc);
+save			return yy::parser::make_SAVE (loc);
 
 {ALPHA}{EALPHA}*	return yy::parser::make_ID     (yytext, loc);
 
@@ -41,7 +42,9 @@ reduce			return yy::parser::make_REDUCE (loc);
 "["			return yy::parser::make_LBRACK (loc);
 "]"			return yy::parser::make_RBRACK (loc);
 "="			return yy::parser::make_EQ     (loc);
+"<="			return yy::parser::make_LEQ    (loc);
 "0"			return yy::parser::make_ZERO   (loc);
+"\\"			return yy::parser::make_BSLASH (loc);
 {BLANK}+		loc.step ();
 \n+			loc.lines (yyleng); loc.step ();
 "//"[^\n]*\n		loc.lines (yyleng); loc.step ();

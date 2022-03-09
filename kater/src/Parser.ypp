@@ -21,25 +21,28 @@
 %param { Driver& drv }
 
 %code {
+  #include "RegExp.hpp"
+  #include "Driver.hpp"
   #include <iostream>
   #include <memory>
   #include <unordered_map>
   #include <vector>
-  #include "RegExp.hpp"
-  #include "Driver.hpp"
 }
 
 
 %token
   ACYCLIC  "acyclic"
+  ASSUME   "assume"
+  EMPTY	   "empty"
   LET	   "let"
-  PROPERTY "property"
   REDUCE   "reduce"
   SAVE     "save"
   ZERO     "0"
   EQ       "="
+  LEQ      "<="
   SEMI     ";"
   ALT      "|"
+  BSLASH   "\\"
   PLUS     "+"
   STAR     "*"
   QMARK    "?"
@@ -53,12 +56,16 @@
 
 %token <std::string> ID;
 %nterm <std::unique_ptr<RegExp>> rel;
+%nterm <std::unique_ptr<Constraint>> constraint;
 
+%precedence "=" "<="
 %left  "|"
+%left  "\\"
 %left  ";"
 %precedence "+" "*" "?"
 
 %printer { yyo << *($$); } <std::unique_ptr<RegExp>>;
+%printer { yyo << *($$); } <std::unique_ptr<Constraint>>;
 %printer { yyo << $$; } <*>;
 
 %start main
@@ -69,16 +76,24 @@ main:	  %empty		{ }
         ;
 
 decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
-	| "property" rel "=" "0" 	{ drv.register_emptiness_assumption(RegExp::optimize(std::move($2))); }
-	| "acyclic" rel 		{ drv.addAcyclicityConstraint(std::move($2)); }
 	| "save" ID "=" "reduce" rel 	{ drv.registerSaveReducedID($2, std::move($5)); }
 	| "save" ID "=" rel 		{ drv.registerSaveID($2, std::move($4)); }
+	| "assume" constraint		{ drv.registerAssume(std::move($2), @$); }
+	| constraint			{ drv.addConstraint(std::move($1), @$); }
+	;
+
+constraint:
+	  rel "=" "0"		{ $$ = EmptyConstraint::create(std::move($1)); }
+	| "empty" rel		{ $$ = EmptyConstraint::create(std::move($2)); }
+	| rel "<=" rel		{ $$ = SubsetConstraint::create(std::move($1), std::move($3)); }
+	| "acyclic" rel		{ $$ = AcyclicConstraint::create(std::move($2)); }
 	;
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| "[" rel "]"		{ $2->bracket(); $$ = std::move($2); }
 	| rel "|" rel		{ $$ = AltRE::create(std::move($1), std::move($3)); }
 	| rel ";" rel		{ $$ = SeqRE::createOrChar(std::move($1), std::move($3)); }
+	| rel "\\" rel		{ $$ = MinusRE::create(std::move($1), std::move($3)); }
 	| rel "*"		{ $$ = StarRE::create(std::move($1)); }
 	| rel "+"		{ $$ = PlusRE::create(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::create(std::move($1)); }

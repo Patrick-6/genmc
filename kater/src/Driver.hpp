@@ -20,10 +20,6 @@ private:
 public:
 	yy::location &getLocation() { return location; }
 
-	void addAcyclicityConstraint(std::unique_ptr<RegExp> re) {
-		acyclicityConstraints.push_back(std::move(re));
-	}
-
 	void registerID(std::string id, std::unique_ptr<RegExp> re) {
 		variables.insert({id, std::move(re)});
 	}
@@ -49,8 +45,11 @@ public:
 	// Generate the NFAs for the regular expressions.
 	void generate_NFAs ();
 
-	// Handle "property e = 0" declaration in the input file
-	void register_emptiness_assumption(std::unique_ptr<RegExp> e);
+	// Handle "assume c" declaration in the input file
+	void registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc);
+
+	// Handle consistency constraint in the input file
+	void addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc);
 
 	// Output C++ files for GenMC
 	void output_genmc_header_file();

@@ -1,16 +1,16 @@
 // Standard preamble: various combinations that are invalid
 
-property [W] ; [R] = 0
-property [F] ; [R] = 0
-property [F] ; [W] = 0
-property [F] ; mo_imm = 0
-property [F] ; rf = 0
-property [F] ; rf_inv = 0
-property mo_imm ; [F] = 0
-property rf ; [F] = 0
-property rf_inv ; [F] = 0
-property [REL] ; [SC] = 0
-property [ACQ] ; [SC] = 0
+assume [W] ; [R] = 0
+assume [F] ; [R] = 0
+assume [F] ; [W] = 0
+assume [F] ; mo_imm = 0
+assume [F] ; rf = 0
+assume [F] ; rf_inv = 0
+assume mo_imm ; [F] = 0
+assume rf ; [F] = 0
+assume rf_inv ; [F] = 0
+assume [REL] ; [SC] = 0
+assume [ACQ] ; [SC] = 0
 
 let dmb.full = DMB_SY
 let dmb.ld = DMB_LD

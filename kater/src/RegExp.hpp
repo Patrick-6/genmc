@@ -56,7 +56,9 @@ public:
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
-	friend std::ostream &operator<<(std::ostream &s, const RegExp& r);
+	friend class EmptyConstraint;
+	friend class AcyclicConstraint;
+	friend class SubsetConstraint;
 
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
@@ -73,6 +75,10 @@ private:
 	KidsC kids;
 };
 
+inline std::ostream &operator<<(std::ostream &s, const RegExp& re)
+{
+	return re.dump(s);
+}
 
 /*******************************************************************************
  **                               CharRE Class
@@ -159,6 +165,39 @@ public:
 		return s << "(" << *getKid(0) << "|" << *getKid(1) << ")";
 	}
 };
+
+
+/*
+ * RE_1 \ RE_2
+ */
+class MinusRE : public BinaryRE {
+
+protected:
+	MinusRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+		: BinaryRE(std::move(r1), std::move(r2)) {}
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<MinusRE> create(Ts&&... params) {
+		return std::unique_ptr<MinusRE>(
+			new MinusRE(std::forward<Ts>(params)...));
+	}
+
+	std::unique_ptr<RegExp> clone () const override	{
+		return create(getKid(0)->clone(), getKid(1)->clone());
+	}
+
+	NFA toNFA() const override {
+		std::cerr << "[Error] NFA conversion of minus(\\) expressions is not supported." << std::endl;
+		NFA nfa1 = getKid(0)->toNFA();
+		return nfa1;
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << "(" << *getKid(0) << "|" << *getKid(1) << ")";
+	}
+};
+
 
 
 /*
@@ -263,9 +302,112 @@ UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
 
-inline std::ostream &operator<<(std::ostream &s, const RegExp& re)
+
+/*******************************************************************************
+ **                           Constraint Class (Abstract)
+ ******************************************************************************/
+
+class Constraint {
+public:
+	virtual ~Constraint() = default;
+
+	/* Dumpts the Constraint */
+	virtual std::ostream &dump(std::ostream &s) const = 0;
+
+};
+
+inline std::ostream &operator<<(std::ostream &s, const Constraint& re)
 {
 	return re.dump(s);
 }
+
+/*******************************************************************************
+ **                           Acyclicity Constraints
+ ******************************************************************************/
+
+class AcyclicConstraint : public Constraint {
+
+protected:
+	AcyclicConstraint(std::unique_ptr<RegExp> e) : exp(std::move(e)) {}
+public:
+	static std::unique_ptr<Constraint> create(std::unique_ptr<RegExp> e);
+
+	/* Returns the expression */
+	const RegExp *getExp() const { return &*exp; }
+	RegExp *getExp() { return &*exp; }
+
+	/* Sets the expression */
+	void setExp(std::unique_ptr<RegExp> e) { exp = std::move(e); }
+
+	std::ostream &dump(std::ostream &s) const override { return s << "acyclic" << *getExp(); }
+
+protected:
+	std::unique_ptr<RegExp> exp;
+};
+
+
+/*******************************************************************************
+ **                           Subset Constraints
+ ******************************************************************************/
+
+class SubsetConstraint : public Constraint {
+
+protected:
+	SubsetConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
+		: lhs(std::move(e1)), rhs(std::move(e1)) {}
+public:
+	static std::unique_ptr<Constraint>
+	create(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
+
+	/* Returns the LHS expression */
+	const RegExp *getLHS() const { return &*lhs; }
+	RegExp *getLHS() { return &*lhs; }
+
+	/* Sets the LHS expression */
+	void setLHS(std::unique_ptr<RegExp> e) { lhs = std::move(e); }
+
+	/* Returns the RHS expression */
+	const RegExp *getRHS() const { return &*rhs; }
+	RegExp *getRHS() { return &*rhs; }
+
+	/* Sets the RHS expression */
+	void setRHS(std::unique_ptr<RegExp> e) { rhs = std::move(e); }
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << *getLHS() << " <= " << *getRHS();
+	}
+
+protected:
+	std::unique_ptr<RegExp> lhs;
+	std::unique_ptr<RegExp> rhs;
+};
+
+
+/*******************************************************************************
+ **                           Empty Constraints
+ ******************************************************************************/
+
+class EmptyConstraint : public Constraint {
+
+protected:
+	EmptyConstraint(std::unique_ptr<RegExp> e) : exp(std::move(e)) {}
+public:
+	static std::unique_ptr<Constraint> create(std::unique_ptr<RegExp> e);
+
+	/* Returns the expression */
+	const RegExp *getExp() const { return &*exp; }
+	RegExp *getExp() { return &*exp; }
+
+	/* Sets the expression */
+	void setExp(std::unique_ptr<RegExp> e) { exp = std::move(e); }
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << *getExp() << " = 0";
+	}
+
+protected:
+	std::unique_ptr<RegExp> exp;
+};
+
 
 #endif /* _REGEXP_HPP_ */

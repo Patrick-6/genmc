@@ -1,4 +1,4 @@
-AM_YFLAGS = -d
+AM_YFLAGS = -d -Wno-yacc
 AM_CXXFLAGS = -std=c++17
 
 if kater
