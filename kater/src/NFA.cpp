@@ -415,58 +415,74 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 #define VISITED_IDX(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
 			 << ")->getStamp()][" << i << "]"
 
-void NFA::print_calculator_header_public (std::ostream &fout, int whichCalc)
+void NFA::print_calculator_header_public (std::ostream &fout, int whichCalc) const
 {
 	PRINT_LINE("\t" << VSET << " " << CALC << ";");
 }
 
-void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc)
+template<typename ITER>
+std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end)
 {
-	// for (auto i = 0u ; i < trans.size(); i++)
-	// 	PRINT_LINE("\tvoid " << VISIT_PROC(i) << VISIT_PARAMS);
+	std::unordered_map<NFA::State *, unsigned> result;
 
-	// PRINT_LINE("\tstd::vector<std::bitset<" << trans.size() <<  "> > " << VISITED_ARR << ";");
+	auto i = 0u;
+	std::for_each(begin, end, [&](auto &s){ result[&*s] = i++; });
+	return result;
+}
+
+void NFA::print_calculator_header_private (std::ostream &fout, int whichCalc) const
+{
+	auto ids = assignStateIDs(states_begin(), states_end());
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("\tvoid " << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+	});
+
+	PRINT_LINE("\tstd::vector<std::bitset<" << getNumStates() <<  "> > " << VISITED_ARR << ";");
 }
 
 void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &className,
-				    int whichCalc, bool reduce)
+				    int whichCalc, bool reduce) const
 {
-	// for (auto i = 0u ; i < trans.size(); i++) {
-	// 	PRINT_LINE("void " << className << "::" << VISIT_PROC(i) << VISIT_PARAMS);
-	// 	PRINT_LINE("{");
-	// 	PRINT_LINE("\tauto &g = getGraph();");
-	// 	PRINT_LINE("");
+	auto ids = assignStateIDs(states_begin(), states_end());
 
-	// 	PRINT_LINE("\t" << VISITED_IDX(i,"e") << " = true;");
-	// 	if (is_starting (i)) {
-	// 		PRINT_LINE("\tcalcRes.insert(e);");
-	// 		if (reduce) {
-	// 			PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
-	// 			PRINT_LINE("\t\tcalcRes.erase(p);");
-	// 			for (int j : accepting)
-	// 				PRINT_LINE("\t\t" << VISITED_IDX(j, "p") << " = true;");
-	// 			PRINT_LINE("\t}");
-	// 		}
-	// 	}
-	// 	for (const auto &n : trans_inv[i]) {
-	// 		n.first.output_as_preds(fout, "e", "p");
-	// 		PRINT_LINE("\t\tif (" << VISITED_IDX(n.second, "p") << ") continue;");
-	// 		PRINT_LINE("\t\t" << VISIT_CALL(n.second, "p"));
-	// 		PRINT_LINE("\t}");
-	// 	}
-	// 	PRINT_LINE("}");
-	// 	PRINT_LINE("");
-	// }
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("void " << className << "::" << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+		PRINT_LINE("{");
+		PRINT_LINE("\tauto &g = getGraph();");
+		PRINT_LINE("");
 
-	// PRINT_LINE(VSET << " " << className << "::" << CALC);
-	// PRINT_LINE("{");
-	// PRINT_LINE("\t" << VSET << " calcRes;");
-	// PRINT_LINE("\t" << VISITED_ARR << ".clear();");
-	// PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
-	// for (auto &i : accepting)
-	// 	PRINT_LINE("\t" << VISIT_CALL(i, "e"));
-	// PRINT_LINE("\treturn calcRes;");
-	// PRINT_LINE("}");
+		PRINT_LINE("\t" << VISITED_IDX(ids[&*s],"e") << " = true;");
+		if (isStarting(&*s)) {
+			PRINT_LINE("\tcalcRes.insert(e);");
+			if (reduce) {
+				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
+				PRINT_LINE("\t\tcalcRes.erase(p);");
+				std::for_each(accept_begin(), accept_end(), [&](auto *a){
+					PRINT_LINE("\t\t" << VISITED_IDX(ids[a], "p") << " = true;");
+				});
+				PRINT_LINE("\t}");
+			}
+		}
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			t.label.output_as_preds(fout, "e", "p");
+			PRINT_LINE("\t\tif (" << VISITED_IDX(ids[t.dest], "p") << ") continue;");
+			PRINT_LINE("\t\t" << VISIT_CALL(ids[t.dest], "p"));
+			PRINT_LINE("\t}");
+		});
+		PRINT_LINE("}");
+		PRINT_LINE("");
+	});
+
+	PRINT_LINE(VSET << " " << className << "::" << CALC);
+	PRINT_LINE("{");
+	PRINT_LINE("\t" << VSET << " calcRes;");
+	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
+	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
+	std::for_each(accept_begin(), accept_end(), [&](auto *a){
+		PRINT_LINE("\t" << VISIT_CALL(ids[a], "e"));
+	});
+	PRINT_LINE("\treturn calcRes;");
+	PRINT_LINE("}");
 }
 
 #undef VSET
@@ -480,56 +496,79 @@ void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &class
 // Macros for acyclicity checks
 #define VISIT_PROC(i)      "visitAcyclic" << i
 #define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
-#define VISIT_PARAMS	   "(const ExecutionGraph &g, const Event &e)"
+#define VISIT_PARAMS	   "(const Event &e)"
 #define IS_CONS            "isConsistent" << VISIT_PARAMS
 #define VISITED_ARR	   "visitedAcyclic"
-#define VISITED_IDX(i,e)   VISITED_ARR << "[g.getEventLabel(" << e << ")->getStamp()][" << i << "]"
+#define VISITED_IDX(i,e)   VISITED_ARR << i << "[g.getEventLabel(" << e << ")->getStamp()]"
 #define VISITED_ACCEPTING  "visitedAccepting"
 
-void NFA::print_acyclic_header_public (std::ostream &fout)
+void NFA::print_acyclic_header_public (std::ostream &fout) const
 {
 	PRINT_LINE("\tbool " << IS_CONS << ";");
 }
 
-void NFA::print_acyclic_header_private (std::ostream &fout)
+void NFA::print_acyclic_header_private (std::ostream &fout) const
 {
-	// for (auto i = 0u ; i < trans.size(); i++)
-	// 	PRINT_LINE("\tbool " << VISIT_PROC(i) << VISIT_PARAMS << ";");
+	auto ids = assignStateIDs(states_begin(), states_end());
 
-	// PRINT_LINE("\tstd::vector<std::bitset< " << trans.size() <<  "> > " << VISITED_ARR << ";");
-	// PRINT_LINE("\tint " <<  VISITED_ACCEPTING << ";");
+	/* visit procedures */
+	PRINT_LINE("");
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("\tbool " << VISIT_PROC(ids[&*s]) << VISIT_PARAMS << ";");
+	});
+
+	/* status arrays */
+	PRINT_LINE("");
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR << ids[&*s] << ";");
+	});
+
+	/* accepting counter */
+	PRINT_LINE("");
+	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << ";");
 }
 
-void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className)
+void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) const
 {
-	// for (auto i = 0u ; i < trans.size(); i++) {
-	// 	PRINT_LINE("bool " << className << "::" << VISIT_PROC(i) << VISIT_PARAMS);
-	// 	PRINT_LINE("{");
-	// 	if (is_starting(i)) PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
-	// 	PRINT_LINE("\t" << VISITED_IDX(i, "e") << " = true;");
-	// 	for (const auto &n : trans_inv[i]) {
-	// 		n.first.output_as_preds(fout, "e", "p");
-	// 		PRINT_LINE("\t\tif (" << VISITED_IDX(n.second, "p") << ") {");
-	// 		PRINT_LINE("\t\t\tif (" << VISITED_ACCEPTING << ") return false;");
-	// 		PRINT_LINE("\t\t} else if (!" << VISIT_CALL(n.second, "p") << ") return false;");
-	// 		PRINT_LINE("\t}");
-	// 	}
-	// 	if (is_starting(i)) PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
-	// 	PRINT_LINE("\treturn true;");
-	// 	PRINT_LINE("}");
-	// 	PRINT_LINE("");
-	// }
+	auto ids = assignStateIDs(states_begin(), states_end());
 
-	// PRINT_LINE("bool " << className << "::" << IS_CONS);
-	// PRINT_LINE("{");
-	// PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
-	// PRINT_LINE("\t" << VISITED_ARR << ".clear();");
-	// PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
-	// PRINT_LINE("\treturn true");
-	// for (auto i = 0u ; i < trans.size(); i++) {
-	// 	PRINT_LINE ("\t\t&& " << VISIT_CALL(i, "e")
-	// 		    << (i + 1 == trans.size() ? ";" : ""));
-	// }
-	// PRINT_LINE("}");
-	// PRINT_LINE("");
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("bool " << className << "::" << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+		PRINT_LINE("{");
+
+		PRINT_LINE("\tauto &g = getGraph();");
+		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
+
+		PRINT_LINE("");
+		if (isStarting(&*s))
+			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
+		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			t.label.output_as_preds(fout, "e", "p");
+			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
+			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(ids[t.dest], "p") << ")");
+			PRINT_LINE("\t\t\treturn false;");
+			PRINT_LINE("\t\telse if (status == NodeStatus::entered)");
+			PRINT_LINE("\t\t\treturn false;");
+			PRINT_LINE("\t}");
+		});
+		if (isStarting(&*s))
+			PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
+		PRINT_LINE("\treturn true;");
+		PRINT_LINE("}");
+		PRINT_LINE("");
+	});
+
+	PRINT_LINE("bool " << className << "::" << IS_CONS);
+	PRINT_LINE("{");
+	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
+	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
+	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
+	PRINT_LINE("\treturn true");
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE ("\t\t&& " << VISIT_CALL(ids[&*s], "e")
+			    << (&*s == (--states_end())->get() ? ";" : ""));
+	});
+	PRINT_LINE("}");
+	PRINT_LINE("");
 }

@@ -239,6 +239,9 @@ public:
 	state_iterator accept_begin() { return getAccepting().begin(); }
 	state_iterator accept_end() { return getAccepting().end(); }
 
+	state_const_iterator accept_begin() const { return getAccepting().begin(); }
+	state_const_iterator accept_end() const { return getAccepting().end(); }
+
 	unsigned getNumStates() const { return getStates().size(); }
 
 	unsigned getNumStarting() const { return getStarting().size(); }
@@ -261,8 +264,8 @@ public:
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 
-	void print_calculator_header_public (std::ostream &ostr, int w);
-	void print_calculator_header_private (std::ostream &ostr, int w);
+	void print_calculator_header_public (std::ostream &ostr, int w) const;
+	void print_calculator_header_private (std::ostream &ostr, int w) const;
 
 	void printCalculatorImpl(std::ostream &ostr, const std::string &name, int w) {
 		printCalculatorImplHelper(ostr, name, w, false);
@@ -271,17 +274,19 @@ public:
 		printCalculatorImplHelper(ostr, name, w, true);
 	}
 
-	void print_acyclic_header_public (std::ostream &ostr);
-	void print_acyclic_header_private (std::ostream &ostr);
-	void print_acyclic_impl (std::ostream &ostr, const std::string &name);
+	void print_acyclic_header_public (std::ostream &ostr) const;
+	void print_acyclic_header_private (std::ostream &ostr) const;
+	void print_acyclic_impl (std::ostream &ostr, const std::string &name) const;
 
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
 	template<typename T>
 	friend std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
+	template<typename ITER>
+	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
 
 private:
 	void printCalculatorImplHelper(std::ostream &ostr, const std::string &name,
-				       int w, bool reduce);
+				       int w, bool reduce) const;
 
 	void simplify_basic ();
 	void compact_edges ();

@@ -113,7 +113,6 @@ void Driver::output_genmc_header_file ()
 	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
 	PRINT_LINE("#include \"EventLabel.hpp\"");
 	PRINT_LINE("#include \"VSet.hpp\"");
-	PRINT_LINE("#include <bitset>");
 	PRINT_LINE("#include <vector>");
 
 	PRINT_LINE("");
@@ -126,7 +125,7 @@ void Driver::output_genmc_header_file ()
 
 	PRINT_LINE("");
 	PRINT_LINE("private:");
-	PRINT_LINE("\tconst ExecutionGraph *g;");
+	PRINT_LINE("\tconst ExecutionGraph &g;");
 
 	for (int i = 0; i < nsaved.size(); ++i)
 		nsaved[i].first.print_calculator_header_private(fout, i);
