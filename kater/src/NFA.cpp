@@ -24,7 +24,7 @@ static std::ostream & operator<< (std::ostream& ostr, const std::vector<char> &s
 
 NFA &NFA::flip()
 {
-	std::for_each(states_begin(), states_end(), [](decltype(*states_begin()) &s){
+	std::for_each(states_begin(), states_end(), [](auto &s){
 		s->flip();
 	});
 	std::swap(getStarting(), getAccepting());
@@ -141,7 +141,7 @@ NFA &NFA::or_empty()
 
 	// Otherwise, find starting node with no incoming edges
 	// XXX: Why not search starting?
-	auto it = std::find_if(states_begin(), states_end(), [&](decltype(*states_begin()) &s){
+	auto it = std::find_if(states_begin(), states_end(), [&](auto &s){
 		return !s->hasIncoming() && isStarting(&*s);
 	});
 
@@ -197,7 +197,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 		});
 	}
 
-	std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](decltype(*dfaToNfaMap.begin()) &kv){
+	std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](auto &kv){
 		if (std::any_of(kv.second.begin(), kv.second.end(), [&](State *s){
 			return isAccepting(s);
 		}))
@@ -220,10 +220,10 @@ std::unordered_map<NFA::State *, std::vector<char>> NFA::get_state_composition_m
 
 	if (config.verbose > 1)
 		std::cout << "State composition matrix: " << std::endl;
-	std::for_each(states_begin(), states_end(), [&](decltype(*states_begin()) &si){
+	std::for_each(states_begin(), states_end(), [&](auto &si){
 		std::vector<char> row(dfaToNfaMap.size(), 0);
 		auto i = 0u;
-		std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](decltype(*dfaToNfaMap.begin()) &kv){
+		std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](auto &kv){
 			if (kv.second.find(&*si) != kv.second.end())
 				row[i] = 1;
 			++i;
@@ -391,7 +391,7 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 {
 	ostr << "[NFA with " << nfa.getNumStates() << " states]" << std::endl;
 	ostr << "starting: {" << nfa.getStarting() << "} accepting: {" << nfa.getAccepting() << "}" << std::endl;
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](decltype(*nfa.states_begin()) &s){
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
 			ostr << "\t" << s->getId() << " --" << t.label << "--> " << t.dest->getId() << std::endl;
 		});
