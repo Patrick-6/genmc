@@ -350,19 +350,16 @@ NFA &NFA::simplify ()
 NFA &NFA::simplifyReduce()
 {
 	star().simplify();
-	if (getNumAccepting() == 1 && getStarting() == getAccepting()) {
-		auto *sold = *start_begin();
-		clearStarting();
-		auto *snew = createStarting();
-		addTransitions(snew, sold->out_begin(), sold->out_end());
+	if (getNumAccepting() != 1 || getStarting() != getAccepting())
+		return *this;
 
-		std::vector<Transition> toRemove;
-		std::copy(sold->out_begin(), sold->out_end(), std::back_inserter(toRemove));
-		std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
-			removeTransition(sold, t);
-		});
-		simplify();
-	}
+	auto *sold = *start_begin();
+	clearStarting();
+	auto *snew = createStarting();
+	addTransitions(snew, sold->out_begin(), sold->out_end());
+
+	removeAllTransitions(sold);
+	simplify();
 	return *this;
 }
 

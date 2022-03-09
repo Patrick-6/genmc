@@ -392,6 +392,19 @@ private:
 		});
 	}
 
+	/* Remove all of SRC's transitions that satisfy PRED */
+	template<typename F>
+	void removeTransitionsIf(State *src, F&& pred) {
+		std::vector<Transition> toRemove;
+		std::copy_if(src->out_begin(), src->out_end(), std::back_inserter(toRemove),
+			     [&](const Transition &t){ return pred(t); });
+		removeTransitions(src, toRemove.begin(), toRemove.end());
+	}
+
+	void removeAllTransitions(State *src) {
+		removeTransitionsIf(src, [&](const Transition &t){ return true; });
+	}
+
 	StateUPSetT nfa;
 	StateSetT  starting;
 	StateSetT accepting;
