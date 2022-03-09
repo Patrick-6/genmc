@@ -140,12 +140,9 @@ NFA &NFA::or_empty()
 		return *this;
 
 	// Otherwise, find starting node with no incoming edges
-	// XXX: Why not search starting?
-	auto it = std::find_if(states_begin(), states_end(), [&](auto &s){
-		return !s->hasIncoming() && isStarting(&*s);
-	});
+	auto it = std::find_if(start_begin(), start_end(), [&](auto *s){ return !s->hasIncoming();});
 
-	auto *s = (it != states_end()) ? it->get() : createStarting();
+	auto *s = (it != start_end()) ? *it : createStarting();
 	makeAccepting(s);
 	return *this;
 }
