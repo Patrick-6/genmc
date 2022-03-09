@@ -120,7 +120,7 @@ private:
 		}
 
 		/* Whether this state has any outgoing transitions */
-		bool hasOutgoing() const { return out_begin() == out_end(); }
+		bool hasOutgoing() const { return out_begin() != out_end(); }
 
 		/* Whether this state has an inverse transition T */
 		bool hasIncoming(const Transition &t) const {
@@ -128,7 +128,7 @@ private:
 		}
 
 		/* Whether this state has any incoming transitions */
-		bool hasIncoming() const { return in_begin() == in_end(); }
+		bool hasIncoming() const { return in_begin() != in_end(); }
 
 		/* Adds an outgoing transition T (if it doesn't exist) */
 		void addOutgoing(const Transition &t) {
@@ -223,6 +223,9 @@ public:
 	stateUP_iterator states_begin() { return getStates().begin(); }
 	stateUP_iterator states_end() { return getStates().end(); }
 
+	stateUP_const_iterator states_begin() const { return getStates().begin(); }
+	stateUP_const_iterator states_end() const { return getStates().end(); }
+
 	using state_iterator = StateSetT::iterator;
 	using state_const_iterator = StateSetT::const_iterator;
 
@@ -235,11 +238,15 @@ public:
 	state_iterator accept_begin() { return getAccepting().begin(); }
 	state_iterator accept_end() { return getAccepting().end(); }
 
+	unsigned getNumStates() const { return getStates().size(); }
+
+	unsigned getNumStarting() const { return getStarting().size(); }
+
+	unsigned getNumAccepting() const { return getAccepting().size(); }
+
 	bool isStarting(State *state) const { return getStarting().count(state); }
 
 	bool isAccepting(State *state) const { return getAccepting().count(state); }
-
-	unsigned getNumAccepting() const { return getAccepting().size(); }
 
 	NFA &alt(NFA &&other);
 	NFA &seq(NFA &&other);
@@ -392,6 +399,13 @@ private:
 	void removeTransition(State *src, const Transition &t) {
 		src->removeOutgoing(t);
 		t.dest->removeIncoming(t.flipTo(src));
+	}
+
+	template<typename ITER>
+	void removeTransitions(State *src, ITER &&begin, ITER &&end){
+		std::for_each(begin, end, [&](const Transition &t){
+			removeTransition(src, t);
+		});
 	}
 
 	StateUPSetT nfa;
