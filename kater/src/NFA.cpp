@@ -210,7 +210,9 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 std::unordered_map<NFA::State *, std::vector<char>> NFA::get_state_composition_matrix ()
 {
 	flip();
-	auto [dfa, dfaToNfaMap] = to_DFA();
+	auto p = to_DFA();
+	auto &dfa = p.first;
+	auto &dfaToNfaMap = p.second;
 	flip();
 
 	std::unordered_map<State *, std::vector<char>> result;
