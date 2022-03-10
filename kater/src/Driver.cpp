@@ -4,7 +4,15 @@
 #include <fstream>
 
 const std::unordered_set<std::string> Driver::builtinNames = {
-	"po_imm", "mo_imm", "fr_init", "rf", "rf_inv"
+	"po_imm",
+	"mo_imm", "mo_imm_int", "mo_imm_ext",
+	"fr_init", "fr_init_int", "fr_init_ext",
+	"rf", "rf_int", "rf_ext",
+	"rf_inv", "rf_inv_int", "rf_inv_ext",
+	"rmw",
+	"ctrl_imm", "addr_imm", "data_imm",
+	"W", "R", "F",
+	"RLX", "ACQ", "REL", "SC",
 };
 
 int Driver::parse()
