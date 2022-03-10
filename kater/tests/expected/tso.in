@@ -1,0 +1,28 @@
+Parsing file cat/tso.cat...Done.
+Generating NFA for save[0] = ((((([R];(po_imm) +)|((po_imm) +;[F]))|([F];(po_imm) +))|((po_imm) +;[W]))) +
+Generated NFA for save[0]: [NFA with 4 states]
+starting: {37} accepting: {0}
+	37 --po_imm;[F]--> 0
+	37 --po_imm;[W]--> 0
+	37 --[F];po_imm--> 0
+	37 --[R];po_imm--> 0
+	37 --[F];po_imm--> 9
+	37 --[R];po_imm--> 9
+	37 --po_imm--> 13
+	9 --po_imm--> 0
+	9 --po_imm--> 9
+	13 --po_imm;[F]--> 0
+	13 --po_imm;[W]--> 0
+	13 --po_imm--> 13
+
+Generating NFA for acyclic (((calc1|rf_ext)|(mo_imm) +)|((rf_inv;(mo_imm) +)|(fr_init;((mo_imm) +) *)))
+Generated NFA: [NFA with 2 states]
+starting: {60} accepting: {60}
+	60 --calc1--> 60
+	60 --fr_init--> 60
+	60 --mo_imm--> 60
+	60 --rf_ext--> 60
+	60 --fr_init--> 61
+	60 --rf_inv--> 61
+	61 --mo_imm--> 60
+

@@ -1,0 +1,12 @@
+Parsing file cat/sc.cat...Done.
+Generating NFA for acyclic ((((po_imm) +|rf)|(mo_imm) +)|((fr_init;((mo_imm) +) *)|(rf_inv;(mo_imm) +)))
+Generated NFA: [NFA with 2 states]
+starting: {0} accepting: {0}
+	0 --fr_init--> 0
+	0 --mo_imm--> 0
+	0 --po_imm--> 0
+	0 --rf--> 0
+	0 --fr_init--> 11
+	0 --rf_inv--> 11
+	11 --mo_imm--> 0
+
