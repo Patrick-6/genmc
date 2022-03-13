@@ -206,6 +206,7 @@ private:
 
 		State &flip() {
 			std::swap(getOutgoing(), getIncoming());
+			std::swap(starting, accepting);
 			return *this;
 		}
 

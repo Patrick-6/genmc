@@ -83,8 +83,12 @@ std::ostream &operator<<(std::ostream &s, const TransLabel &t)
 	if (t.isPredicate())
 		return s << builtinPredicates[t.trans].name;
 	if (t.isBuiltin())
-		return s << builtinRelations[t.trans - builtinPredicates.size()].name;
-	return s << "$" <<  (t.trans - builtinPredicates.size() - builtinRelations.size());
+		s << builtinRelations[t.trans - builtinPredicates.size()].name;
+	else
+		s << "$" <<  (t.trans - builtinPredicates.size() - builtinRelations.size());
+	if (t.flipped)
+		s << "^-1";
+	return s;
 }
 
 void TransLabel::output_for_genmc (std::ostream& ostr,
