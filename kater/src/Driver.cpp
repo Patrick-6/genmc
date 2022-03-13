@@ -3,17 +3,15 @@
 #include <iostream>
 #include <fstream>
 
-const std::unordered_set<std::string> Driver::builtinNames = {
-	"po_imm",
-	"mo_imm", "mo_imm_int", "mo_imm_ext",
-	"fr_init", "fr_init_int", "fr_init_ext",
-	"rf", "rf_int", "rf_ext",
-	"rf_inv", "rf_inv_int", "rf_inv_ext",
-	"rmw",
-	"ctrl_imm", "addr_imm", "data_imm",
-	"W", "R", "F",
-	"RLX", "ACQ", "REL", "SC",
-};
+Driver::Driver() {
+	int preds = builtinPredicates.size();
+	int rels = builtinRelations.size();
+	for (int i = 0; i < preds; i++)
+		registerID(builtinPredicates[i].name, PredRE::create(i));
+	for (int i = 0; i < rels; i++)
+		registerID(builtinRelations[i].name, RelRE::create(preds + i));
+}
+
 
 int Driver::parse()
 {
@@ -51,16 +49,16 @@ int Driver::parse()
 
 void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
-	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
-		auto *charRE = dynamic_cast<const CharRE *>(empC->getKid(0));
-		if (!charRE) {
-			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
-				  << *empC->getKid(0) << std::endl;
-			return;
-		}
-		std::cout << "Registering assumption " << *empC->getKid(0) << "." << std::endl;
-		TransLabel::register_invalid(charRE->getLabel());
-	}
+//	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
+//		auto *charRE = dynamic_cast<const CharRE *>(empC->getKid(0));
+//		if (!charRE) {
+//			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
+//				  << *empC->getKid(0) << std::endl;
+//			return;
+//		}
+//		std::cout << "Registering assumption " << *empC->getKid(0) << "." << std::endl;
+//		TransLabel::register_invalid(charRE->getLabel());
+//	}
 }
 
 void Driver::addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc)

@@ -2,49 +2,54 @@
 #define _KATER_TRANS_LABEL_HPP_
 
 #include <iostream>
-#include <set>
 #include <string>
+#include <vector>
 
-class TransLabel {
-	using my_set = std::set<std::string>;
-	std::string trans;
-	my_set pre_checks;
-	my_set post_checks;
+enum class RelType  { OneOne, ManyOne, UnsuppMany, Conj, Final };
 
-	static my_set merge_sets (const my_set &a, const my_set &b);
-
-public:
-	TransLabel() = default;
-	TransLabel(const std::string &s) : trans(s) {}
-
-	bool is_empty_trans() const { return trans.empty(); }
-	bool is_valid () const { return !trans.empty() || !pre_checks.empty(); }
-
-	static TransLabel make_trans_label (const std::string &s);
-
-	static void register_invalid (const TransLabel &t);
-
-	TransLabel seq (const TransLabel &other) const;
-	void flip();
-	void make_bracket();
-
-	void output_as_preds (std::ostream& ostr, const std::string &arg,
-			      const std::string &res) const;
-
-	bool operator< (const TransLabel &other) const
-	{
-		return trans < other.trans || (trans == other.trans &&
-			(pre_checks < other.pre_checks ||
-			(pre_checks == other.pre_checks && post_checks < other.post_checks)));
-	}
-	bool operator== (const TransLabel &other) const
-	{
-		return trans == other.trans && pre_checks == other.pre_checks
-			&& post_checks == other.post_checks;
-	}
-
-	friend std::ostream &operator<<(std::ostream &s, const TransLabel &t);
+struct PredicateInfo {
+	std::string  name;
+	std::string  genmcString;
 };
 
+struct RelationInfo {
+	std::string  name;
+	RelType      type;
+	std::string  succString;
+	std::string  predString;
+};	
+
+extern const std::vector<PredicateInfo> builtinPredicates;
+extern const std::vector<RelationInfo> builtinRelations;
+
+class TransLabel {
+public:
+	TransLabel() = default;
+	TransLabel(int s) : trans(s), flipped(false) {}
+
+	bool isPredicate () const { return trans < builtinPredicates.size(); }
+	bool isRelation () const { return trans >= builtinPredicates.size(); }
+	bool isBuiltin () const { return trans < builtinPredicates.size() + builtinRelations.size(); }
+
+	static TransLabel getFreshCalcLabel() {
+		return TransLabel(builtinPredicates.size() + builtinRelations.size() + calcNum++);
+	}
+
+	TransLabel &flip() { flipped = !flipped; return *this; }
+
+	void output_for_genmc (std::ostream& ostr, const std::string &arg,
+			      const std::string &res) const;
+
+	bool operator< (const TransLabel &other) const { return trans < other.trans; }
+
+	bool operator== (const TransLabel &other) const { return trans == other.trans; }
+
+	friend std::ostream &operator<<(std::ostream &s, const TransLabel &t);
+
+private:
+	int trans;
+	bool flipped;
+	static int calcNum;
+};
 
 #endif /* _KATER_TRANS_LABEL_HPP_ */

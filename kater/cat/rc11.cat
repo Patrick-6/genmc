@@ -3,28 +3,71 @@
 assume [W] ; [R] = 0
 assume [F] ; [R] = 0
 assume [F] ; [W] = 0
-assume [F] ; mo_imm = 0
+assume [F] ; mo-imm = 0
 assume [F] ; rf = 0
-assume [F] ; rf_inv = 0
-assume mo_imm ; [F] = 0
+assume mo-imm ; [F] = 0
 assume rf ; [F] = 0
-assume rf_inv ; [F] = 0
 assume [REL] ; [SC] = 0
 assume [ACQ] ; [SC] = 0
 
+
+// ---------------------------------------------------------------------
 // Definition of standard relations
-let po = po_imm+
-let mo = mo_imm+
-let fr = rf_inv ; mo
+// ---------------------------------------------------------------------
 
-// Synchronizes-with relation
-//let sw = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ|SC]
+// Program order
+let po = po-imm+
 
-// Happens-before
-let hb = (po | sw)+
+// Modification order
+let mo = mo-imm+
+
+// From-reads
+let fr = fr-init ; mo* | rf^-1 ; mo
 
 // Extended coherence order 
 let eco = (rf | mo | fr)+
+
+// Atomic RMW instruction
+let rmw = [UR]; po-imm ; [UW]
+
+// Same location
+let loc = loc-overlap ^=
+
+// ---------------------------------------------------------------------
+// RC11 Happens-before
+// ---------------------------------------------------------------------
+
+// Optimized calculation of synchronizes-with
+// Save the view of write messages
+
+save relseq = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)*
+let sw_to_r = relseq ; rf ; [ACQ|SC]
+let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ|SC]
+let sw = sw_to_r | sw_to_f
+
+//assert sw = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ|SC]
+
+// Optimized calculation of happens-before.
+// Save the part of `hb` that does not finish with a reads-from edge
+
+save hb_stable = (po | sw_to_r ; po | sw_to_f)+
+let hb = hb_stable | hb_stable ; sw_to_r
+
+//assert hb = (po | sw)+
+
+// ---------------------------------------------------------------------
+// RC11 Consistency axioms
+// ---------------------------------------------------------------------
+
+// No load buffering
+acyclic (po | rf)
+
+// Coherence : Optimize the checking of irreflexive (hb ; eco)
+coherence (hb_stable)
+
+// RMW atomicity
+// check  mo-imm ; [U] ; [W] <= rf ; po-imm
+
 
 // Sequential consistency order 
 let FSC = [F] ; [SC]
@@ -36,3 +79,24 @@ let psc = [SC] ; po ; hb ; po ; [SC]
         | FSC ; hb ; FSC
         | FSC ; hb ; eco ; hb ; FSC
 acyclic psc
+
+// ---------------------------------------------------------------------
+// RC11 error detection
+// ---------------------------------------------------------------------
+
+let ww_conflict = [W] ; loc-overlap ; [W]
+let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
+let conflicting = ww_conflict | wr_conflict
+let na_conflict = [NA] ; conflicting | conflicting ; [NA]
+
+error UninitializedRead unless  [INIT] ; rf ; [IsDynamicLoc] = 0
+
+error AccessNonAlloc    unless  alloc <= hb_stable
+error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
+error UseAfterFree      unless  loc ; [Free] <= hb_stable
+error UseAfterFree      unless  [NotHpProtected] ; loc ; [HpRetire] <= hb_stable
+
+error NotAtomicRace     unless  na_conflict <= hb_stable
+
+warning WWRace          unless  ww_conflict <= hb_stable
+

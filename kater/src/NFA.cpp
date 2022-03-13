@@ -27,7 +27,6 @@ NFA &NFA::flip()
 	std::for_each(states_begin(), states_end(), [](auto &s){
 		s->flip();
 	});
-	std::swap(getStarting(), getAccepting());
 	return *this;
 }
 
@@ -39,9 +38,9 @@ void NFA::simplify_basic()
 	do {
 		changed = false;
 
-		for (auto it = states_begin(), ie = states_end(); it != ie; /* */ ) {
-			if (((*it)->hasAllOutLoops() && !isAccepting(it->get())) ||
-			    ((*it)->hasAllInLoops() && !isStarting(it->get()))) {
+		for (auto it = states_begin(); it != states_end(); /* */ ) {
+			if (((*it)->hasAllOutLoops() && !(*it)->isAccepting()) ||
+			    ((*it)->hasAllInLoops() && !(*it)->isStarting())) {
 				it = removeState(it);
 				changed = true;
 			} else {
@@ -49,14 +48,14 @@ void NFA::simplify_basic()
 			}
 		}
 
-		for (auto it = states_begin(), ie = states_end(); it != ie; ++it) {
+		for (auto it = states_begin(); it != states_end(); ++it) {
 			auto oit(it);
 			++oit;
-			for (auto oe = states_end(); oit != oe; /* */) {
-				if (isAccepting(it->get()) == isAccepting(oit->get()) &&
+			while (oit != states_end()) {
+				if ((*it)->isAccepting() == (*oit)->isAccepting() &&
 				    (*it)->outgoingSameAs(oit->get())) {
-					if (isStarting(oit->get()))
-						makeStarting(it->get());
+					if ((*oit)->isStarting())
+						(*it)->setStarting(true);
 					addInvertedTransitions(it->get(), (*oit)->in_begin(), (*oit)->in_end());
 					oit = removeState(oit);
 					changed = true;
@@ -66,14 +65,14 @@ void NFA::simplify_basic()
 			}
 		}
 
-		for (auto it = states_begin(), ie = states_end(); it != ie; ++it) {
+		for (auto it = states_begin(); it != states_end(); ++it) {
 			auto oit(it);
 			++oit;
-			for (auto oe = states_end(); oit != oe; /* */) {
-				if (isStarting(it->get()) == isStarting(oit->get()) &&
+			while (oit != states_end()) {
+				if ((*it)->isStarting() == (*oit)->isStarting() &&
 				    (*it)->incomingSameAs(oit->get())) {
-					if (isAccepting(oit->get()))
-						makeAccepting(it->get());
+					if ((*oit)->isAccepting())
+						(*it)->setAccepting(true);
 					addTransitions(it->get(), (*oit)->out_begin(), (*oit)->out_end());
 					oit = removeState(oit);
 					changed = true;
@@ -87,6 +86,13 @@ void NFA::simplify_basic()
 
 //-------------------------------------------------------------------
 
+bool NFA::acceptsEmptyString() const
+{
+	return std::any_of(states_begin(), states_end(), [](auto &s){
+		return s->isStarting() && s->isAccepting();
+	});
+}
+
 NFA::NFA(const TransLabel &c) : NFA()
 {
 	auto *init = createStarting();
@@ -97,38 +103,43 @@ NFA::NFA(const TransLabel &c) : NFA()
 
 NFA &NFA::alt(NFA &&other)
 {
-	getStates().merge(std::move(other.getStates()));
-	getStarting().merge(std::move(other.getStarting()));
-	getAccepting().merge(std::move(other.getAccepting()));
+	/* Move the states of the `other` NFA into our NFA */
+	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));
 	return *this;
 }
 
 NFA &NFA::seq(NFA &&other)
 {
-	getStates().merge(std::move(other.getStates()));
-
-	/* Add transitions `this->accepting --> other.starting`	 */
-	std::for_each(accept_begin(), accept_end(), [&](State *a){
-		std::for_each(other.start_begin(), other.start_end(), [&](State *s){
-			addTransitions(a, s->out_begin(), s->out_end());
-		});
+	/* Add transitions `this->accepting --> other.starting.outgoing` */
+	std::for_each(states_begin(), states_end(), [&](auto &a){
+		if (a->isAccepting())
+			std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
+				if (s->isStarting())
+					addTransitions(a.get(), s->out_begin(), s->out_end());
+			});
 	});
 
-	/* Calculate accepting states */
-	// XXX: ?
-	if (std::none_of(other.start_begin(), other.start_end(),
-			 [&](State *s){	return other.isAccepting(s); }))
-		clearAccepting();
-	getAccepting().merge(std::move(other.getAccepting()));
+	/* Clear accepting states if necessary */
+	if (!other.acceptsEmptyString())
+		std::for_each(states_begin(), states_end(), [&](auto &s){ s->setAccepting(false); });
+
+	/* Clear starting states of `other` */
+	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){ s->setStarting(false); });
+
+	/* Move the states of the `other` NFA into our NFA */
+	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));
 	return *this;
 }
 
 NFA &NFA::plus()
 {
-	std::for_each(accept_begin(), accept_end(), [&](State *a){
-		std::for_each(start_begin(), start_end(), [&](State *s){
-			addTransitions(a, s->out_begin(), s->out_end());
-		});
+	/* Add transitions `this->accepting --> other.starting.outgoing` */
+	std::for_each(states_begin(), states_end(), [&](auto &a){
+		if (a->isAccepting())
+			std::for_each(states_begin(), states_end(), [&](auto &s){
+				if (s->isStarting())
+					addTransitions(a.get(), s->out_begin(), s->out_end());
+			});
 	});
 	return *this;
 }
@@ -136,14 +147,15 @@ NFA &NFA::plus()
 NFA &NFA::or_empty()
 {
 	// Does the NFA already accept the empty string?
-	if (std::any_of(start_begin(), start_end(), [&](State *s){ return isAccepting(s); }))
+	if (acceptsEmptyString())
 		return *this;
 
 	// Otherwise, find starting node with no incoming edges
-	auto it = std::find_if(start_begin(), start_end(), [&](auto *s){ return !s->hasIncoming();});
+	auto it = std::find_if(states_begin(), states_end(), [](auto &s){
+			return s->isStarting() && !s->hasIncoming();});
 
-	auto *s = (it != start_end()) ? *it : createStarting();
-	makeAccepting(s);
+	auto *s = (it != states_end()) ? it->get() : createStarting();
+	s->setAccepting(true);
 	return *this;
 }
 
@@ -160,7 +172,9 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 	std::map<State *, std::set<State *>> dfaToNfaMap; // v
 
 	auto *s = dfa.createStarting();
-	auto ss = std::set<State *>(start_begin(), start_end());
+	std::set<State *> ss;
+	std::for_each(states_begin(), states_end(), [&](const auto &a){
+			if (a->isStarting()) ss.insert(a.get()); });
 	nfaToDfaMap.insert({ss, s});
 	dfaToNfaMap.insert({s, ss});
 
@@ -196,9 +210,9 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 
 	std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](auto &kv){
 		if (std::any_of(kv.second.begin(), kv.second.end(), [&](State *s){
-			return isAccepting(s);
+			return s->isAccepting();
 		}))
-			dfa.makeAccepting(kv.first);
+			kv.first->setAccepting(true);
 	});
 	return std::make_pair(std::move(dfa), std::move(dfaToNfaMap));
 }
@@ -245,14 +259,14 @@ void NFA::scm_reduce ()
 	auto scm = get_state_composition_matrix();
 	auto dfaSize = scm.begin()->second.size();
 	std::vector<State *> toRemove;
-	for (auto itI = states_begin(), itIe = states_end(); itI != itIe; /* ! */) {
-		if (isStarting(itI->get())) {
+	for (auto itI = states_begin(); itI != states_end(); /* ! */) {
+		if ((*itI)->isStarting()) {
 			++itI;
 			continue;
 		}
 		/* Is I equal to the union of some other rows? */
 		std::vector<char> newrow(dfaSize, 0);
-		for (auto itJ = states_begin(), itJe = states_end(); itJ != itJe; ++itJ) {
+		for (auto itJ = states_begin(); itJ != states_end(); ++itJ) {
 			if (itI->get() != itJ->get() && is_subset(scm[itJ->get()], scm[itI->get()]))
 				take_union(newrow, scm[itJ->get()]);
 		}
@@ -263,7 +277,7 @@ void NFA::scm_reduce ()
 		}
 		if (config.verbose > 1)
 			std::cout << "erase node " << (*itI)->getId() << " with";
-		for (auto itJ = states_begin(), itJe = states_end(); itJ != itJe; ++itJ) {
+		for (auto itJ = states_begin(); itJ != states_end(); ++itJ) {
 			if (itI->get() != itJ->get() && is_subset(scm[itJ->get()], scm[itI->get()])) {
 				if (config.verbose > 1)
 					std::cout << " " << (*itJ)->getId();
@@ -279,28 +293,28 @@ void NFA::scm_reduce ()
 void NFA::compact_edges()
 {
 	/* Join `[...]` edges with successor edges */
-	std::for_each(states_begin(), states_end(), [&](auto &s){
-		std::vector<Transition> toRemove;
-		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
-			if (!t.label.is_empty_trans())
-				return false;
-			if (isAccepting(t.dest) && t.dest != &*s)
-				return false;
-			if (config.verbose > 1) {
-				std::cout << "Compacting edge " << s->getId() << " --"
-					  << t.label << "--> " << t.dest->getId() << std::endl;
-			}
-			if (t.dest != &*s) {
-				std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
-					auto l = t.label.seq(q.label);
-					if (l.is_valid())
-						addTransition(&*s, Transition(l, q.dest));
-				});
-			}
-			return true;
-		});
-		removeTransitions(&*s, toRemove.begin(), toRemove.end());
-	});
+//	std::for_each(states_begin(), states_end(), [&](auto &s){
+//		std::vector<Transition> toRemove;
+//		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
+//			if (!t.label.is_empty_trans())
+//				return false;
+//			if (isAccepting(t.dest) && t.dest != &*s)
+//				return false;
+//			if (config.verbose > 1) {
+//				std::cout << "Compacting edge " << s->getId() << " --"
+//					  << t.label << "--> " << t.dest->getId() << std::endl;
+//			}
+//			if (t.dest != &*s) {
+//				std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
+//					auto l = t.label.seq(q.label);
+//					if (l.is_valid())
+//						addTransition(&*s, Transition(l, q.dest));
+//				});
+//			}
+//			return true;
+//		});
+//		removeTransitions(&*s, toRemove.begin(), toRemove.end());
+//	});
 
 	/* Remove redundant self loops */
 	std::for_each(states_begin(), states_end(), [&](auto &s){
@@ -349,11 +363,13 @@ NFA &NFA::simplify ()
 NFA &NFA::simplifyReduce()
 {
 	star().simplify();
-	if (getNumAccepting() != 1 || getStarting() != getAccepting())
+	if (std::count_if(states_begin(), states_end(), [](auto &s){
+			return s->isStarting() || s->isAccepting();}) != 1)
 		return *this;
 
-	auto *sold = *start_begin();
-	clearStarting();
+	auto *sold = std::find_if(states_begin(), states_end(), [](auto &s){
+			return s->isStarting();})->get();
+	sold->setStarting(false);
 	auto *snew = createStarting();
 	addTransitions(snew, sold->out_begin(), sold->out_end());
 
@@ -389,7 +405,13 @@ std::ostream & operator<< (std::ostream& ostr, const std::set<NFA::State *> &s)
 std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 {
 	ostr << "[NFA with " << nfa.getNumStates() << " states]" << std::endl;
-	ostr << "starting: {" << nfa.getStarting() << "} accepting: {" << nfa.getAccepting() << "}" << std::endl;
+	ostr << "starting:";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		if (s->isStarting()) ostr << " " << s->getId(); });
+	ostr << " accepting:";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		if (s->isAccepting()) ostr << " " << s->getId(); });
+	ostr << std::endl;
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
 			ostr << "\t" << s->getId() << " --" << t.label << "--> " << t.dest->getId() << std::endl;
@@ -451,19 +473,20 @@ void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &class
 		PRINT_LINE("");
 
 		PRINT_LINE("\t" << VISITED_IDX(ids[&*s],"e") << " = true;");
-		if (isStarting(&*s)) {
+		if (s->isStarting()) {
 			PRINT_LINE("\tcalcRes.insert(e);");
 			if (reduce) {
 				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
 				PRINT_LINE("\t\tcalcRes.erase(p);");
-				std::for_each(accept_begin(), accept_end(), [&](auto *a){
-					PRINT_LINE("\t\t" << VISITED_IDX(ids[a], "p") << " = true;");
+				std::for_each(states_begin(), states_end(), [&](auto &a){
+					if (a->isAccepting())
+						PRINT_LINE("\t\t" << VISITED_IDX(ids[&*a], "p") << " = true;");
 				});
 				PRINT_LINE("\t}");
 			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label.output_as_preds(fout, "e", "p");
+			t.label.output_for_genmc(fout, "e", "p");
 			PRINT_LINE("\t\tif (" << VISITED_IDX(ids[t.dest], "p") << ") continue;");
 			PRINT_LINE("\t\t" << VISIT_CALL(ids[t.dest], "p"));
 			PRINT_LINE("\t}");
@@ -477,8 +500,9 @@ void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &class
 	PRINT_LINE("\t" << VSET << " calcRes;");
 	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
 	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
-	std::for_each(accept_begin(), accept_end(), [&](auto *a){
-		PRINT_LINE("\t" << VISIT_CALL(ids[a], "e"));
+	std::for_each(states_begin(), states_end(), [&](auto &a){
+		if (a->isAccepting())
+			PRINT_LINE("\t" << VISIT_CALL(ids[&*a], "e"));
 	});
 	PRINT_LINE("\treturn calcRes;");
 	PRINT_LINE("}");
@@ -539,11 +563,11 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) 
 		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
 
 		PRINT_LINE("");
-		if (isStarting(&*s))
+		if (s->isStarting())
 			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
 		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label.output_as_preds(fout, "e", "p");
+			t.label.output_for_genmc(fout, "e", "p");
 			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
 			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(ids[t.dest], "p") << ")");
 			PRINT_LINE("\t\t\treturn false;");
@@ -551,7 +575,7 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) 
 			PRINT_LINE("\t\t\treturn false;");
 			PRINT_LINE("\t}");
 		});
-		if (isStarting(&*s))
+		if (s->isStarting())
 			PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
 		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");

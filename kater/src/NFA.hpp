@@ -36,8 +36,7 @@ private:
 		return set_unique_ptr<T>(raw, maybe_deleter<T>(false));
 	}
 
-	using StateUPSetT = std::set<set_unique_ptr<State>>;
-	using StateSetT = std::set<State *>;
+	using StateUPVectorT = std::vector<set_unique_ptr<State>>;
 
 	/*
 	 * A struct representing NFA transitions
@@ -93,7 +92,8 @@ private:
 
 	public:
 		State() = delete;
-		State(unsigned id) : id(id) {}
+		State(unsigned id) : id(id), starting(false), accepting(false),
+				     transitions(), inverse() {}
 
 		using trans_iterator = TransitionsC::iterator;
 		using trans_const_iterator = TransitionsC::const_iterator;
@@ -112,6 +112,15 @@ private:
 
 		/* Returns this state's ID */
 		unsigned getId() const { return id; }
+
+		/* Whether this state is a starting state of the NFA */
+		bool isStarting() const { return starting; }
+
+		/* Whether this state is an accepting state of the NFA */
+		bool isAccepting() const { return accepting; }
+
+		void setStarting(bool b) { starting = b; }
+		void setAccepting(bool b) { accepting = b; }
 
 		/* Whether this state has an outgoing transition T */
 		bool hasOutgoing(const Transition &t) const {
@@ -208,6 +217,8 @@ private:
 		TransitionsC &getIncoming() { return inverse; }
 
 		unsigned id;
+		bool starting;
+		bool accepting;
 		TransitionsC transitions;
 		TransitionsC inverse;
 	};
@@ -216,8 +227,8 @@ public:
 	NFA() = default;
 	NFA(const TransLabel &label);
 
-	using stateUP_iterator = StateUPSetT::iterator;
-	using stateUP_const_iterator = StateUPSetT::const_iterator;
+	using stateUP_iterator = StateUPVectorT::iterator;
+	using stateUP_const_iterator = StateUPVectorT::const_iterator;
 
 	stateUP_iterator states_begin() { return getStates().begin(); }
 	stateUP_iterator states_end() { return getStates().end(); }
@@ -225,30 +236,7 @@ public:
 	stateUP_const_iterator states_begin() const { return getStates().begin(); }
 	stateUP_const_iterator states_end() const { return getStates().end(); }
 
-	using state_iterator = StateSetT::iterator;
-	using state_const_iterator = StateSetT::const_iterator;
-
-	state_iterator start_begin() { return getStarting().begin(); }
-	state_iterator start_end() { return getStarting().end(); }
-
-	state_const_iterator start_begin() const { return getStarting().begin(); }
-	state_const_iterator start_end() const { return getStarting().end(); }
-
-	state_iterator accept_begin() { return getAccepting().begin(); }
-	state_iterator accept_end() { return getAccepting().end(); }
-
-	state_const_iterator accept_begin() const { return getAccepting().begin(); }
-	state_const_iterator accept_end() const { return getAccepting().end(); }
-
 	unsigned getNumStates() const { return getStates().size(); }
-
-	unsigned getNumStarting() const { return getStarting().size(); }
-
-	unsigned getNumAccepting() const { return getAccepting().size(); }
-
-	bool isStarting(State *state) const { return getStarting().count(state); }
-
-	bool isAccepting(State *state) const { return getAccepting().count(state); }
 
 	NFA &flip();
 	NFA &alt(NFA &&other);
@@ -259,6 +247,8 @@ public:
 
 	NFA &simplify();
 	NFA &simplifyReduce();
+
+	bool acceptsEmptyString() const;
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 
@@ -291,55 +281,28 @@ private:
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 
-	const StateUPSetT &getStates() const { return nfa; }
-	StateUPSetT &getStates() { return nfa; }
-
-	const StateSetT &getStarting() const { return starting; }
-	StateSetT &getStarting() { return starting; }
-
-	const StateSetT &getAccepting() const { return accepting; }
-	StateSetT &getAccepting() { return accepting; }
+	const StateUPVectorT &getStates() const { return nfa; }
+	StateUPVectorT &getStates() { return nfa; }
 
 	/* Creates and adds a new (unreachable) state to the NFA and its inverse.
 	 * Returns the newly added state */
 	State *createState() {
 		static unsigned counter = 0;
-		set_unique_ptr<State> s(new State(counter++));
 
-		auto result = &*s;
-		getStates().insert(std::move(s));
-		return result;
+		getStates().emplace_back(new State(counter++));
+		return getStates().back().get();
 	}
 
 	State *createStarting() {
 		auto *s = createState();
-		getStarting().insert(s);
+		s->setStarting(true);
 		return s;
 	}
 
 	State *createAccepting() {
 		auto *s = createState();
-		getAccepting().insert(s);
+		s->setAccepting(true);
 		return s;
-	}
-
-	void makeStarting(State *s) { getStarting().insert(s); }
-
-	void makeAccepting(State *s) { getAccepting().insert(s); }
-
-	void clearStarting() { getStarting().clear(); }
-
-	void clearAccepting() { getAccepting().clear(); }
-
-	/* Removes STATE from the NFA and its inverse */
-	void removeState(State *state) {
-		std::for_each(states_begin(), states_end(), [&](decltype(*states_begin()) &s){
-			s->removeOutgoingTo(state);
-			s->removeIncomingTo(state);
-		});
-		getStarting().erase(state);
-		getAccepting().erase(state);
-		getStates().erase(make_find_ptr(state));
 	}
 
 	stateUP_iterator removeState(stateUP_iterator &it) {
@@ -347,9 +310,14 @@ private:
 			s->removeOutgoingTo(it->get());
 			s->removeIncomingTo(it->get());
 		});
-		getStarting().erase(it->get());
-		getAccepting().erase(it->get());
 		return getStates().erase(it);
+	}
+
+	/* Removes STATE from the NFA and its inverse */
+	void removeState(State *state) {
+		auto it = std::find(states_begin(), states_end(), make_find_ptr(state));
+		if (it != states_end())
+			removeState(it);
 	}
 
 	template<typename ITER>
@@ -408,9 +376,7 @@ private:
 		removeTransitionsIf(src, [&](const Transition &t){ return true; });
 	}
 
-	StateUPSetT nfa;
-	StateSetT  starting;
-	StateSetT accepting;
+	StateUPVectorT nfa;
 };
 
 #endif /* _KATER_NFA_HPP_ */

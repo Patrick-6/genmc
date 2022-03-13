@@ -23,12 +23,18 @@ BLANK	[ \t\r]
 	loc.step ();
 %}
 
-acyclic			return yy::parser::make_ACYCLIC (loc);
-assume			return yy::parser::make_ASSUME (loc);
-empty			return yy::parser::make_EMPTY (loc);
-let			return yy::parser::make_LET (loc);
-reduce			return yy::parser::make_REDUCE (loc);
-save			return yy::parser::make_SAVE (loc);
+acyclic			return yy::parser::make_ACYCLIC	(loc);
+assume			return yy::parser::make_ASSUME	(loc);
+assert			return yy::parser::make_ASSERT	(loc);
+check			return yy::parser::make_CHECK	(loc);
+coherence		return yy::parser::make_COHERENCE (loc);
+empty			return yy::parser::make_EMPTY	(loc);
+error			return yy::parser::make_ERROR	(loc);
+let			return yy::parser::make_LET	(loc);
+reduce			return yy::parser::make_REDUCE	(loc);
+save			return yy::parser::make_SAVE	(loc);
+unless			return yy::parser::make_UNLESS	(loc);
+warning			return yy::parser::make_WARNING	(loc);
 
 {ALPHA}{EALPHA}*	return yy::parser::make_ID     (yytext, loc);
 
@@ -44,6 +50,8 @@ save			return yy::parser::make_SAVE (loc);
 "="			return yy::parser::make_EQ     (loc);
 "<="			return yy::parser::make_LEQ    (loc);
 "0"			return yy::parser::make_ZERO   (loc);
+"-1"			return yy::parser::make_MONE   (loc);
+"^"			return yy::parser::make_SUPER  (loc);
 "\\"			return yy::parser::make_BSLASH (loc);
 {BLANK}+		loc.step ();
 \n+			loc.lines (yyleng); loc.step ();

@@ -4,6 +4,7 @@
 #include "Config.hpp"
 #include "NFA.hpp"
 #include "Parser.hpp"
+#include "TransLabel.hpp"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -20,11 +21,7 @@ private:
 	enum class VarStatus { Normal, Reduce };
 
 public:
-	Driver() {
-		std::for_each(builtinNames.begin(), builtinNames.end(), [&](auto &name){
-			registerID(name, CharRE::create(name));
-		});
-	}
+	Driver();
 
 	yy::location &getLocation() { return location; }
 
@@ -34,19 +31,19 @@ public:
 
 	void registerSaveID(std::string id, std::unique_ptr<RegExp> re) {
 		savedVariables.push_back({std::move(re), VarStatus::Normal});
-		registerID(std::move(id), CharRE::create(getFreshCalcID()));
+		registerID(std::move(id), RelRE::create(TransLabel::getFreshCalcLabel()));
 	}
 
 	void registerSaveReducedID(std::string id, std::unique_ptr<RegExp> re) {
 		savedVariables.push_back({std::move(re), VarStatus::Reduce});
-		registerID(std::move(id), CharRE::create(getFreshCalcID()));
+		registerID(std::move(id), RelRE::create(TransLabel::getFreshCalcLabel()));
 	}
 
 	std::unique_ptr<RegExp> getRegisteredID(std::string id, const yy::location &loc) {
 		auto it = variables.find(id);
 		if (it == variables.end()) {
 			std::cerr << loc << "\n";
-			std::cerr << "Uknown relation encountered (" << id << ")\n";
+			std::cerr << "Unknown relation encountered (" << id << ")\n";
 			exit(EXIT_FAILURE);
 		}
 		return it->second->clone();
@@ -71,8 +68,6 @@ public:
 private:
 	using VarMap = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
 	using SavedVarSet = std::vector<std::pair<std::unique_ptr<RegExp>, VarStatus>>;
-
-	static const std::unordered_set<std::string> builtinNames;
 
 	std::string getFreshCalcID() const {
 		return "calc" + std::to_string(savedVariables.size());

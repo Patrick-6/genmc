@@ -50,9 +50,6 @@ public:
 	/* Optimizes RE, but in-place */
 	static std::unique_ptr<RegExp> optimize(std::unique_ptr<RegExp> re);
 
-	/* RE -> [RE] */
-	virtual void bracket() = 0;
-
 	/* Convert the RE to an NFA */
 	virtual NFA toNFA() const = 0;
 
@@ -62,6 +59,7 @@ public:
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
+	bool isFalse () const;
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
 
@@ -83,19 +81,18 @@ inline std::ostream &operator<<(std::ostream &s, const RegExp& re)
 }
 
 /*******************************************************************************
- **                               CharRE Class
+ **                               Singleton 
  ******************************************************************************/
 
-class CharRE : public RegExp {
-
+class PredRE : public RegExp {
 protected:
-	CharRE(const TransLabel &l) : RegExp(), lab(l) {}
+	PredRE(const TransLabel &l) : RegExp(), lab(l) {}
 
 public:
 	template<typename... Ts>
-	static std::unique_ptr<CharRE> create(Ts&&... params) {
-		return std::unique_ptr<CharRE>(
-			new CharRE(std::forward<Ts>(params)...));
+	static std::unique_ptr<PredRE> create(Ts&&... params) {
+		return std::unique_ptr<PredRE>(
+			new PredRE(std::forward<Ts>(params)...));
 	}
 
 	/* Returns the transition label */
@@ -105,7 +102,34 @@ public:
 	/* Sets the transition label */
 	void setLabel(const TransLabel &l) { lab = l; }
 
-	void bracket() override { getLabel().make_bracket(); }
+	NFA toNFA() const override { return NFA(lab); }
+
+	std::unique_ptr<RegExp> clone() const override { return create(getLabel()); }
+
+	std::ostream &dump(std::ostream &s) const override { return s << getLabel(); }
+
+protected:
+	TransLabel lab;
+};
+
+class RelRE : public RegExp {
+
+protected:
+	RelRE(const TransLabel &l) : RegExp(), lab(l) {}
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<RelRE> create(Ts&&... params) {
+		return std::unique_ptr<RelRE>(
+			new RelRE(std::forward<Ts>(params)...));
+	}
+
+	/* Returns the transition label */
+	const TransLabel &getLabel() const { return lab; }
+	TransLabel &getLabel() { return lab; }
+
+	/* Sets the transition label */
+	void setLabel(const TransLabel &l) { lab = l; }
 
 	NFA toNFA() const override { return NFA(lab); }
 
@@ -118,6 +142,126 @@ protected:
 };
 
 
+/*
+ * RE_1 | RE_2
+ */
+class AltRE : public RegExp {
+
+protected:
+	AltRE(std::vector<std::unique_ptr<RegExp> > &&kids = {})
+                : RegExp(std::move(kids)) {}
+	AltRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+		: RegExp() { addKid(std::move(r1)); addKid(std::move(r2)); }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<AltRE> create(Ts&&... params) {
+		return std::unique_ptr<AltRE>(
+			new AltRE(std::forward<Ts>(params)...));
+	}
+
+	static std::unique_ptr<RegExp>
+	createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2);
+
+	std::unique_ptr<RegExp> clone () const override	{
+		std::vector<std::unique_ptr<RegExp> > nk;
+		for (auto &k : getKids())
+			nk.push_back(std::move(k->clone()));
+		return create(std::move(nk));
+	}
+
+	NFA toNFA() const override {
+		NFA nfa;
+		for (const auto &k : getKids())
+			 nfa.alt(std::move(k->toNFA()));
+		return nfa;
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		if (getNumKids() == 0)
+			return s << "0";
+		s << "(" << *getKid(0);
+		for (int i = 1; i < getNumKids(); i++)
+			s << " | " << *getKid(i);
+		return s << ")";
+	}
+};
+
+
+
+/*
+ * RE_1 ; RE_2
+ */
+class SeqRE : public RegExp {
+
+protected:
+	SeqRE(std::vector<std::unique_ptr<RegExp> > &&kids = {})
+                : RegExp(std::move(kids)) {}
+	SeqRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+		: RegExp() { addKid(std::move(r1)); addKid(std::move(r2)); }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<SeqRE> create(Ts&&... params) {
+		return std::unique_ptr<SeqRE>(
+			new SeqRE(std::forward<Ts>(params)...));
+	}
+
+	static std::unique_ptr<RegExp>
+	createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2);
+
+	/*
+	static std::unique_ptr<RegExp>
+	createOrChar(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2) {
+		if (auto *charRE1 = dynamic_cast<CharRE *>(&*e1)) {
+			if (auto *charRE2 = dynamic_cast<CharRE *>(&*e2)) {
+				if (charRE1->getLabel().is_empty_trans() &&
+				    charRE2->getLabel().is_empty_trans()) {
+					charRE1->setLabel(charRE1->getLabel().seq(charRE2->getLabel()));
+					return std::move(e1);
+				}
+			}
+		}
+		return create(std::move(e1), std::move(e2));
+	} */
+
+	/* Tries to avoid creating an SeqRE if two CharREs are passed,
+	 * one of which has an empty transition label. */
+	/* static std::unique_ptr<RegExp>
+	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2) {
+		auto *charRE1 = dynamic_cast<const CharRE *>(&*e1);
+		auto *charRE2 = dynamic_cast<const CharRE *>(&*e2);
+		if (charRE1 && charRE2 && (charRE1->getLabel().is_empty_trans() ||
+					   charRE2->getLabel().is_empty_trans()))
+			return CharRE::create(charRE1->getLabel().seq(charRE2->getLabel()));
+		return create(std::move(e1), std::move(e2));
+	} */
+
+	std::unique_ptr<RegExp> clone () const override	{
+		std::vector<std::unique_ptr<RegExp> > nk;
+		for (auto &k : getKids())
+			nk.push_back(std::move(k->clone()));
+		return create(std::move(nk));
+	}
+
+	NFA toNFA() const override {
+		NFA nfa;
+		nfa.or_empty();
+		for (const auto &k : getKids())
+			 nfa.seq(std::move(k->toNFA()));
+		return nfa;
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		if (getNumKids() == 0)
+			return s << "<empty>";
+		s << "(" << *getKid(0);
+		for (int i = 1; i < getNumKids(); i++)
+			s << " ; " << *getKid(i);
+		return s << ")";
+	}
+};
+
 /*******************************************************************************
  **                           Binary REs
  ******************************************************************************/
@@ -128,46 +272,7 @@ protected:
 	BinaryRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 		: RegExp() { addKid(std::move(r1)); addKid(std::move(r2)); }
 
-public:
-	virtual void bracket() override {
-		getKid(0)->bracket();
-		getKid(1)->bracket();
-	}
 };
-
-
-/*
- * RE_1 | RE_2
- */
-class AltRE : public BinaryRE {
-
-protected:
-	AltRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
-		: BinaryRE(std::move(r1), std::move(r2)) {}
-
-public:
-	template<typename... Ts>
-	static std::unique_ptr<AltRE> create(Ts&&... params) {
-		return std::unique_ptr<AltRE>(
-			new AltRE(std::forward<Ts>(params)...));
-	}
-
-	std::unique_ptr<RegExp> clone () const override	{
-		return create(getKid(0)->clone(), getKid(1)->clone());
-	}
-
-	NFA toNFA() const override {
-		NFA nfa1 = getKid(0)->toNFA();
-		NFA nfa2 = getKid(1)->toNFA();
-		nfa1.alt(std::move(nfa2));
-		return nfa1;
-	}
-
-	std::ostream &dump(std::ostream &s) const override {
-		return s << "(" << *getKid(0) << "|" << *getKid(1) << ")";
-	}
-};
-
 
 /*
  * RE_1 \ RE_2
@@ -196,69 +301,10 @@ public:
 	}
 
 	std::ostream &dump(std::ostream &s) const override {
-		return s << "(" << *getKid(0) << "|" << *getKid(1) << ")";
+		return s << "(" << *getKid(0) << " \\ " << *getKid(1) << ")";
 	}
 };
 
-
-
-/*
- * RE_1 ; RE_2
- */
-class SeqRE : public BinaryRE {
-
-protected:
-	SeqRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
-		: BinaryRE(std::move(r1), std::move(r2)) {}
-
-public:
-	template<typename... Ts>
-	static std::unique_ptr<SeqRE> create(Ts&&... params) {
-		return std::unique_ptr<SeqRE>(
-			new SeqRE(std::forward<Ts>(params)...));
-	}
-
-	static std::unique_ptr<RegExp>
-	createOrChar(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2) {
-		if (auto *charRE1 = dynamic_cast<CharRE *>(&*e1)) {
-			if (auto *charRE2 = dynamic_cast<CharRE *>(&*e2)) {
-				if (charRE1->getLabel().is_empty_trans() &&
-				    charRE2->getLabel().is_empty_trans()) {
-					charRE1->setLabel(charRE1->getLabel().seq(charRE2->getLabel()));
-					return std::move(e1);
-				}
-			}
-		}
-		return create(std::move(e1), std::move(e2));
-	}
-
-	/* Tries to avoid creating an SeqRE if two CharREs are passed,
-	 * one of which has an empty transition label. */
-	static std::unique_ptr<RegExp>
-	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2) {
-		auto *charRE1 = dynamic_cast<const CharRE *>(&*e1);
-		auto *charRE2 = dynamic_cast<const CharRE *>(&*e2);
-		if (charRE1 && charRE2 && (charRE1->getLabel().is_empty_trans() ||
-					   charRE2->getLabel().is_empty_trans()))
-			return CharRE::create(charRE1->getLabel().seq(charRE2->getLabel()));
-		return create(std::move(e1), std::move(e2));
-	}
-
-	std::unique_ptr<RegExp> clone() const override	{
-		return create(getKid(0)->clone(), getKid(1)->clone());
-	}
-
-	NFA toNFA() const override {
-		NFA nfa1 = getKid(0)->toNFA();
-		NFA nfa2 = getKid(1)->toNFA();
-		nfa1.seq(std::move(nfa2));
-		return nfa1;
-	}
-
-	std::ostream &dump(std::ostream &s) const override {
-		return s << "(" << *getKid(0) << ";" << *getKid(1) << ")";
-	}
-};
 
 
 /*******************************************************************************
@@ -279,12 +325,6 @@ public:										\
 			new _class##RE(std::forward<Ts>(params)...));		\
 	}									\
 										\
-	void bracket() override	{						\
-		std::cerr << "Error: Cannot process [" << *getKid(0)		\
-			<< "]." << std::endl;					\
-		return;								\
-	}									\
-										\
 	std::unique_ptr<RegExp> clone () const override	{			\
 		return create(getKid(0)->clone());				\
 	}									\
@@ -296,12 +336,15 @@ public:										\
 	}									\
 										\
 	std::ostream &dump(std::ostream &s) const override {			\
-		return s << "(" << *getKid(0) << ") " << _str;			\
+		return s << *getKid(0) <<  _str;				\
 	}									\
 };
 
 UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
+UNARY_RE(Inv, flip, "^-1");
+
+std::unique_ptr<RegExp> SymRE_create(std::unique_ptr<RegExp> r);
 
 #endif /* _REGEXP_HPP_ */

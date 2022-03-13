@@ -126,6 +126,42 @@ public:
 
 
 /*******************************************************************************
+ **                           Equality Constraints
+ ******************************************************************************/
+
+class EqualityConstraint : public Constraint {
+
+protected:
+	EqualityConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
+		: Constraint() { addKid(std::move(e1)); addKid(std::move(e2)); }
+public:
+	template<typename... Ts>
+	static std::unique_ptr<EqualityConstraint> create(Ts&&... params) {
+		return std::unique_ptr<EqualityConstraint>(
+			new EqualityConstraint(std::forward<Ts>(params)...));
+	}
+
+	/* NOTE: Might not return EqualityConstraint */
+	static std::unique_ptr<Constraint>
+	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
+
+	const RegExp *getLHS() const { return getKid(0); }
+	RegExp *getLHS() { return getKid(0); }
+
+	const RegExp *getRHS() const { return getKid(1); }
+	RegExp *getRHS() { return getKid(1); }
+
+	std::unique_ptr<Constraint> clone() const override {
+		return create(getKid(0)->clone(), getKid(1)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << *getKid(0) << " <= " << *getKid(1);
+	}
+};
+
+
+/*******************************************************************************
  **                           Empty Constraints
  ******************************************************************************/
 
