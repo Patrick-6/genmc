@@ -40,20 +40,20 @@ let loc = loc-overlap ^=
 // Optimized calculation of synchronizes-with
 // Save the view of write messages
 
-save relseq = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)*
-let sw_to_r = relseq ; rf ; [ACQ|SC]
-let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ|SC]
+save relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
+let sw_to_r = relseq ; rf ; [ACQ]
+let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ]
 let sw = sw_to_r | sw_to_f
 
-//assert sw = [REL|SC] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ|SC]
+assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
 
 // Optimized calculation of happens-before.
 // Save the part of `hb` that does not finish with a reads-from edge
 
 save hb_stable = (po | sw_to_r ; po | sw_to_f)+
-let hb = hb_stable | hb_stable ; sw_to_r
+let hb = hb_stable | hb_stable? ; sw_to_r
 
-//assert hb = (po | sw)+
+assert hb = (po | sw)+
 
 // ---------------------------------------------------------------------
 // RC11 Consistency axioms
@@ -66,7 +66,7 @@ acyclic (po | rf)
 coherence (hb_stable)
 
 // RMW atomicity
-// check  mo-imm ; [U] ; [W] <= rf ; po-imm
+check  mo-imm ; [UW] <= rf ; po-imm
 
 
 // Sequential consistency order 
