@@ -40,3 +40,11 @@ AcyclicConstraint::createOpt(std::unique_ptr<RegExp> exp)
 
 	return create(std::move(re));
 }
+
+std::unique_ptr<Constraint>
+CoherenceConstraint::createOpt(std::unique_ptr<RegExp> exp)
+{
+	auto re = RegExp::optimize(std::move(exp));
+
+	return create(std::move(re));
+}

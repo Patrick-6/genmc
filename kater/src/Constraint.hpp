@@ -90,6 +90,31 @@ public:
 
 
 /*******************************************************************************
+ **                           Coherence Constraints
+ ******************************************************************************/
+
+class CoherenceConstraint : public Constraint {
+
+protected:
+	CoherenceConstraint(std::unique_ptr<RegExp> e) : Constraint() { addKid(std::move(e)); }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<CoherenceConstraint> create(Ts&&... params) {
+		return std::unique_ptr<CoherenceConstraint>(
+			new CoherenceConstraint(std::forward<Ts>(params)...));
+	}
+
+	/* NOTE: Might not return AcyclicConstraint */
+	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> re);
+
+	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
+
+	std::ostream &dump(std::ostream &s) const override { return s << "coherence" << *getKid(0); }
+};
+
+
+/*******************************************************************************
  **                           Subset Constraints
  ******************************************************************************/
 

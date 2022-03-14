@@ -47,6 +47,21 @@ int Driver::parse()
 }
 
 
+void Driver::registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
+{
+// TODO
+}
+
+void Driver::registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
+{
+// TODO
+}
+
+void Driver::registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc)
+{
+// TODO
+}
+
 void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
 //	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {

@@ -55,8 +55,17 @@ public:
 	// Generate the NFAs for the regular expressions.
 	void generate_NFAs ();
 
+	// Handle "assert c" declaration in the input file
+	void registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc);
+
 	// Handle "assume c" declaration in the input file
 	void registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc);
+
+	// Handle "error s unless c" declaration in the input file
+	void registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc);
+
+	// Handle "warning s unless c" declaration in the input file
+	void registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc);
 
 	// Handle consistency constraint in the input file
 	void addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc);

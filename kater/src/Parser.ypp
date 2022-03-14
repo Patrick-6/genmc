@@ -87,11 +87,11 @@ decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
 	| "save" ID "=" "reduce" rel 	{ drv.registerSaveReducedID($2, std::move($5)); }
 	| "save" ID "=" rel 		{ drv.registerSaveID($2, std::move($4)); }
 	| "assume" constraint		{ drv.registerAssume(std::move($2), @$); }
-	| "assert" constraint		{ /* TODO */ }
+	| "assert" constraint		{ drv.registerAssert(std::move($2), @$); }
 	| "check" constraint		{ drv.addConstraint(std::move($2), @$); }
 	| constraint			{ drv.addConstraint(std::move($1), @$); }
-	| "error" ID "unless" constraint	{ /* TODO */ }
-	| "warning" ID "unless" constraint	{ /* TODO */ }
+	| "error" ID "unless" constraint	{ drv.registerErrorUnless($2, std::move($4), @$); }
+	| "warning" ID "unless" constraint	{ drv.registerWarningUnless($2, std::move($4), @$); }
 	;
 
 constraint:
@@ -99,7 +99,7 @@ constraint:
 	| rel "<=" rel		{ $$ = SubsetConstraint::create(std::move($1), std::move($3)); }
 	| "empty" rel		{ $$ = EmptyConstraint::create(std::move($2)); }
 	| "acyclic" rel		{ $$ = AcyclicConstraint::create(std::move($2)); }
-	| "coherence" rel	{ $$ = AcyclicConstraint::create(std::move($2)); }
+	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
 	;
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }
