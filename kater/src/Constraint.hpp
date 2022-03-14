@@ -116,7 +116,7 @@ public:
 
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
-	std::ostream &dump(std::ostream &s) const override { return s << "coherence" << *getKid(0); }
+	std::ostream &dump(std::ostream &s) const override { return s << "coherence " << *getKid(0); }
 
 	bool checkStatically(std::string &cex) const override { return false; }
 };
@@ -191,7 +191,7 @@ public:
 	}
 
 	std::ostream &dump(std::ostream &s) const override {
-		return s << *getKid(0) << " <= " << *getKid(1);
+		return s << *getKid(0) << " = " << *getKid(1);
 	}
 
 	bool checkStatically(std::string &cex) const override;
