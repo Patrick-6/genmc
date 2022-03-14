@@ -21,8 +21,9 @@ public:
 		assert(i < kids.size() && "Index out of bounds!");
 		return kids[i].get();
 	}
-	RegExp *getKid(unsigned i) {
-		return const_cast<RegExp *>(static_cast<const Constraint &>(*this).getKid(i));
+	std::unique_ptr<RegExp> &getKid(unsigned i) {
+		assert(i < kids.size() && "Index out of bounds!");
+		return kids[i];
 	}
 
 	/* Sets the i-th kid to e */
@@ -44,7 +45,7 @@ public:
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
 	/* Does the Constraint hold statically */
-	virtual bool checkStatically() const = 0;
+	virtual bool checkStatically(std::string &cex) const = 0;
 
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
@@ -90,7 +91,7 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override { return s << "acyclic" << *getKid(0); }
 
-	bool checkStatically() const override { return false; }
+	bool checkStatically(std::string &cex) const override { return false; }
 };
 
 
@@ -117,7 +118,7 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override { return s << "coherence" << *getKid(0); }
 
-	bool checkStatically() const override { return false; }
+	bool checkStatically(std::string &cex) const override { return false; }
 };
 
 
@@ -142,10 +143,10 @@ public:
 	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
 
 	const RegExp *getLHS() const { return getKid(0); }
-	RegExp *getLHS() { return getKid(0); }
+	RegExp *getLHS() { return getKid(0).get(); }
 
 	const RegExp *getRHS() const { return getKid(1); }
-	RegExp *getRHS() { return getKid(1); }
+	RegExp *getRHS() { return getKid(1).get(); }
 
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
@@ -155,7 +156,7 @@ public:
 		return s << *getKid(0) << " <= " << *getKid(1);
 	}
 
-	bool checkStatically() const override;
+	bool checkStatically(std::string &cex) const override;
 };
 
 
@@ -180,10 +181,10 @@ public:
 	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
 
 	const RegExp *getLHS() const { return getKid(0); }
-	RegExp *getLHS() { return getKid(0); }
+	RegExp *getLHS() { return getKid(0).get(); }
 
 	const RegExp *getRHS() const { return getKid(1); }
-	RegExp *getRHS() { return getKid(1); }
+	RegExp *getRHS() { return getKid(1).get(); }
 
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
@@ -193,7 +194,7 @@ public:
 		return s << *getKid(0) << " <= " << *getKid(1);
 	}
 
-	bool checkStatically() const override;
+	bool checkStatically(std::string &cex) const override;
 };
 
 
@@ -225,7 +226,7 @@ public:
 		return s << *getKid(0) << " = 0";
 	}
 
-	bool checkStatically() const override;
+	bool checkStatically(std::string &cex) const override;
 };
 
 #endif /* __CONSTRAINT_HPP__ */

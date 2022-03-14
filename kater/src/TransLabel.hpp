@@ -30,10 +30,13 @@ public:
 	bool isPredicate () const { return trans < builtinPredicates.size(); }
 	bool isRelation () const { return trans >= builtinPredicates.size(); }
 	bool isBuiltin () const { return trans < builtinPredicates.size() + builtinRelations.size(); }
+	int getCalcIndex () const { return trans - builtinPredicates.size() - builtinRelations.size(); }
 
 	static TransLabel getFreshCalcLabel() {
 		return TransLabel(builtinPredicates.size() + builtinRelations.size() + calcNum++);
 	}
+
+	std::string toString() const;
 
 	TransLabel &flip() { flipped = !flipped; return *this; }
 

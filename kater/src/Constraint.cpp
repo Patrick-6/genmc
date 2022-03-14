@@ -11,9 +11,9 @@ EmptyConstraint::createOpt(std::unique_ptr<RegExp> re)
 	return create(std::move(re));
 }
 
-bool EmptyConstraint::checkStatically() const
+bool EmptyConstraint::checkStatically(std::string &cex) const
 {
-	return getKid(0)->toNFA().acceptsNoString();
+	return getKid(0)->toNFA().acceptsNoString(cex);
 }
 
 std::unique_ptr<Constraint>
@@ -29,11 +29,11 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-bool SubsetConstraint::checkStatically() const
+bool SubsetConstraint::checkStatically(std::string &cex) const
 {
 	auto lhs = getKid(0)->toNFA().to_DFA().first;
 	auto rhs = getKid(1)->toNFA().to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs);
+	return lhs.isSubLanguageOfDFA(rhs, cex);
 }
 
 std::unique_ptr<Constraint>
@@ -48,12 +48,12 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-bool EqualityConstraint::checkStatically() const
+bool EqualityConstraint::checkStatically(std::string &cex) const
 {
 	auto lhs = getKid(0)->toNFA().to_DFA().first;
 	auto rhs = getKid(1)->toNFA().to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs) &&
-	       rhs.isSubLanguageOfDFA(lhs);
+	return lhs.isSubLanguageOfDFA(rhs, cex) &&
+	       rhs.isSubLanguageOfDFA(lhs, cex);
 }
 
 std::unique_ptr<Constraint>

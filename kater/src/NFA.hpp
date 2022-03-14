@@ -251,8 +251,8 @@ public:
 	NFA &simplifyReduce();
 
 	bool acceptsEmptyString() const;
-	bool acceptsNoString() const;
-	bool isSubLanguageOfDFA(const NFA &other) const;
+	bool acceptsNoString(std::string &cex) const;
+	bool isSubLanguageOfDFA(const NFA &other, std::string &cex) const;
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 

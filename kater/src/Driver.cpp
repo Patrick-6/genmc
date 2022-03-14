@@ -46,6 +46,18 @@ int Driver::parse()
 	return res;
 }
 
+void Driver::expandSavedVars(std::unique_ptr<RegExp> &r)
+{
+	for (int i = 0; i < r->getNumKids(); i++)
+		expandSavedVars(r->getKid(i));
+	if (auto *re = dynamic_cast<RelRE *>(&*r)) {
+		auto &lab = re->getLabel();
+		if (lab.isBuiltin())
+			return;
+		r = std::move(savedVariables[lab.getCalcIndex()].first->clone());
+		expandSavedVars(r);
+	}
+}
 
 void Driver::registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
 {
@@ -59,7 +71,16 @@ void Driver::registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c
 
 void Driver::registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc)
 {
-// TODO
+	if (config.verbose > 0)
+		std::cout << "Checking assertion " << *c << std::endl;
+	for (int i = 0; i < c->getNumKids(); i++)
+		expandSavedVars(c->getKid(i));
+	std::string cex;
+	if (!c->checkStatically(cex)) {
+		std::cerr << loc << ": [Error] Assertion does not hold." << std::endl;
+		if (!cex.empty()) std::cerr << "Counterexample: " << cex << std::endl;
+
+	}
 }
 
 void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)

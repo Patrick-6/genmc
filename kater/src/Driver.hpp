@@ -78,9 +78,7 @@ private:
 	using VarMap = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
 	using SavedVarSet = std::vector<std::pair<std::unique_ptr<RegExp>, VarStatus>>;
 
-	std::string getFreshCalcID() const {
-		return "calc" + std::to_string(savedVariables.size());
-	}
+	void expandSavedVars(std::unique_ptr<RegExp> &r);
 
 	// Location for lexing/parsing
 	yy::location location;

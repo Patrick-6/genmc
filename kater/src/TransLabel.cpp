@@ -78,16 +78,17 @@ const std::vector<RelationInfo> builtinRelations = {
         {"mo-imm",      RelType::OneOne,     "mo_succ",      "mo_pred"},
         {"fr-init",     RelType::OneOne,     "fr_init_succ", "fr_init_pred"}};
 
-std::ostream &operator<<(std::ostream &s, const TransLabel &t)
+
+std::string TransLabel::toString() const
 {
-	if (t.isPredicate())
-		return s << builtinPredicates[t.trans].name;
-	if (t.isBuiltin())
-		s << builtinRelations[t.trans - builtinPredicates.size()].name;
-	else
-		s << "$" <<  (t.trans - builtinPredicates.size() - builtinRelations.size());
-	if (t.flipped)
-		s << "^-1";
+	std::string s =
+		isPredicate() ?
+			builtinPredicates[trans].name :
+		isBuiltin() ?
+			builtinRelations[trans - builtinPredicates.size()].name :
+		std::string("$") + std::to_string(trans - builtinPredicates.size() - builtinRelations.size());
+	if (flipped)
+		s += "^-1";
 	return s;
 }
 
@@ -113,6 +114,11 @@ void TransLabel::output_for_genmc (std::ostream& ostr,
 	}
 	int k = trans - builtinPredicates.size() - builtinRelations.size();
 	ostr << "\tfor (auto &" << res << " : calculator" << k << "(" << arg << "))\n";
+}
+
+std::ostream &operator<<(std::ostream &s, const TransLabel &t)
+{
+	return s << t.toString();
 }
 
 //static std::vector<std::set<std::string> > invalids = {};

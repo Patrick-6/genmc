@@ -25,8 +25,9 @@ public:
 		assert(i < getNumKids() && "Index out of bounds!");
 		return kids[i].get();
 	}
-	RegExp *getKid(unsigned i) {
-		return const_cast<RegExp *>(static_cast<const RegExp &>(*this).getKid(i));
+	std::unique_ptr<RegExp> &getKid(unsigned i) {
+		assert(i < getNumKids() && "Index out of bounds!");
+		return kids[i];
 	}
 
 	/* Sets the i-th kid to e */

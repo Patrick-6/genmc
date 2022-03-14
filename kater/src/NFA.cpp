@@ -93,31 +93,34 @@ bool NFA::acceptsEmptyString() const
 	});
 }
 
-bool NFA::acceptsNoString() const
+bool NFA::acceptsNoString(std::string &cex) const
 {
 	std::unordered_set<const State *> visited;
-	std::vector<const State *> workList;
+	std::vector<std::pair<const State *, std::string>> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
 		if (!it->get()->isStarting()) continue;
 		visited.insert(it->get());
-		workList.push_back(it->get());
+		workList.push_back({it->get(), ""});
 	}
 	while (!workList.empty()) {
-		auto *s = workList.back();
+		auto &p = workList.back();
+		auto s = p.first;
 		workList.pop_back();
-		if (s->isAccepting())
+		if (s->isAccepting()) {
+			cex = p.second;
 			return false;
+		}
 		for (auto it = s->out_begin(); it != s->out_end(); it++) {
 			if (visited.count(it->dest)) continue;
 			visited.insert(it->dest);
-			workList.push_back(it->dest);
+			workList.push_back({it->dest, p.second + " " + it->label.toString()});
 		}
 	}
 	return true;
 }
 
-bool NFA::isSubLanguageOfDFA(const NFA &other) const
+bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 {
 	using SPair = std::pair<const State *, const State *>;
 	struct SPairHasher {
@@ -133,7 +136,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other) const
 	};
 
 	std::unordered_set<SPair, SPairHasher> visited;
-	std::vector<SPair> workList;
+	std::vector<std::pair<SPair, std::string>> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
 		if (!it->get()->isStarting())
@@ -142,21 +145,23 @@ bool NFA::isSubLanguageOfDFA(const NFA &other) const
 			if (!oit->get()->isStarting())
 				continue;
 			visited.insert({it->get(), oit->get()});
-			workList.push_back({it->get(), oit->get()});
+			workList.push_back({{it->get(), oit->get()}, ""});
 		}
 	}
 	while (!workList.empty()) {
-		auto p = workList.back();
+		auto [p,str] = workList.back();
 		workList.pop_back();
-		if (p.first->isAccepting() && !p.second->isAccepting())
+		if (p.first->isAccepting() && !p.second->isAccepting()) {
+			cex = str;
 			return false;
+		}
 
 		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++)
 			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
 				if (it->label != oit->label) continue;
 				if (visited.count({it->dest, oit->dest})) continue;
 				visited.insert({it->dest, oit->dest});
-				workList.push_back({it->dest, oit->dest});
+				workList.push_back({{it->dest, oit->dest}, str + " " + it->label.toString()});
 			}
 	}
 	return true;
