@@ -5,19 +5,11 @@ bool RegExp::isFalse() const
 	return getNumKids() == 0 && dynamic_cast<const AltRE *>(this);
 }
 
-std::unique_ptr<RegExp>
-RegExp::optimize(std::unique_ptr<RegExp> re)
+RegExp &RegExp::flip()
 {
-	if (!re->hasKids())
-		return re;
-
-	for (auto i = 0u; i < re->getNumKids(); i++)
-		re->setKid(i, optimize(std::move(re->kids[i])));
-
-	/* The only expression we actually optimize is SeqRE */
-	if (auto *seqRE = dynamic_cast<const SeqRE *>(&*re))
-		return SeqRE::createOpt(std::move(re->kids[0]), std::move(re->kids[1]));
-	return re;
+	for (auto &r : getKids())
+		r->flip();
+	return *this;
 }
 
 #define ADD_CHILD(_res, _arg, _type)					\
@@ -36,17 +28,18 @@ RegExp::optimize(std::unique_ptr<RegExp> re)
 	} while (false)
 
 std::unique_ptr<RegExp>
-AltRE::createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+AltRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 {
 	std::vector<std::unique_ptr<RegExp> > r;
 
         ADD_CHILD(r, r1, AltRE);
         ADD_CHILD(r, r2, AltRE);
+	std::sort(r.begin(), r.end());
 	RETURN_OBJ(r, AltRE);
 }
 
 std::unique_ptr<RegExp>
-SeqRE::createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+SeqRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 {
 	std::vector<std::unique_ptr<RegExp>> r;
 
@@ -58,9 +51,47 @@ SeqRE::createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 	RETURN_OBJ(r, SeqRE);
 }
 
+RegExp &SeqRE::flip()
+{
+	for (auto &r : getKids()) r->flip();
+	std::reverse(kids.begin(), kids.end());
+	return *this;
+}
+
+std::unique_ptr<RegExp>
+PlusRE::createOpt(std::unique_ptr<RegExp> r)
+{
+	if (dynamic_cast<PlusRE *>(&*r) || dynamic_cast<StarRE *>(&*r))
+		return std::move(r);
+	if (dynamic_cast<QMarkRE *>(&*r))
+		return StarRE::createOpt(r->releaseKid(0));
+	return create(std::move(r));
+}
+
+std::unique_ptr<RegExp>
+StarRE::createOpt(std::unique_ptr<RegExp> r)
+{
+	if (dynamic_cast<StarRE *>(&*r))
+		return std::move(r);
+	if (dynamic_cast<PlusRE *>(&*r) || dynamic_cast<QMarkRE *>(&*r))
+		return create(r->releaseKid(0));
+	return create(std::move(r));
+}
+
+std::unique_ptr<RegExp>
+QMarkRE::createOpt(std::unique_ptr<RegExp> r)
+{
+	if (dynamic_cast<QMarkRE *>(&*r) || dynamic_cast<StarRE *>(&*r))
+		return std::move(r);
+	if (dynamic_cast<PlusRE *>(&*r))
+		return StarRE::createOpt(r->releaseKid(0));
+	return create(std::move(r));
+}
+
 std::unique_ptr<RegExp>
 SymRE_create(std::unique_ptr<RegExp> re)
 {
 	auto re1 = re->clone();
-	return AltRE::create(std::move(re), InvRE::create(std::move(re1)));
+	re1->flip();
+	return AltRE::create(std::move(re), std::move(re1));
 }

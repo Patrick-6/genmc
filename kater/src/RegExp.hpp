@@ -47,9 +47,6 @@ public:
 	/* The kids of this RE */
 	size_t getNumKids() const { return kids.size(); }
 
-	/* Optimizes RE, but in-place */
-	static std::unique_ptr<RegExp> optimize(std::unique_ptr<RegExp> re);
-
 	/* Convert the RE to an NFA */
 	virtual NFA toNFA() const = 0;
 
@@ -58,6 +55,8 @@ public:
 
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
+
+	virtual RegExp &flip();
 
 	bool isFalse () const;
 protected:
@@ -71,7 +70,6 @@ protected:
 		kids.push_back(std::move(k));
 	}
 
-private:
 	KidsC kids;
 };
 
@@ -108,6 +106,7 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override { return s << getLabel(); }
 
+	RegExp &flip() override { return *this; }
 protected:
 	TransLabel lab;
 };
@@ -137,6 +136,7 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override { return s << getLabel(); }
 
+	RegExp &flip() override { lab.flip(); return *this; }
 protected:
 	TransLabel lab;
 };
@@ -260,6 +260,8 @@ public:
 			s << " ; " << *getKid(i);
 		return s << ")";
 	}
+
+	RegExp &flip() override;
 };
 
 /*******************************************************************************
@@ -325,6 +327,8 @@ public:										\
 			new _class##RE(std::forward<Ts>(params)...));		\
 	}									\
 										\
+	static std::unique_ptr<RegExp> createOpt (std::unique_ptr<RegExp> r); 	\
+										\
 	std::unique_ptr<RegExp> clone () const override	{			\
 		return create(getKid(0)->clone());				\
 	}									\
@@ -343,7 +347,6 @@ public:										\
 UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
-UNARY_RE(Inv, flip, "^-1");
 
 std::unique_ptr<RegExp> SymRE_create(std::unique_ptr<RegExp> r);
 

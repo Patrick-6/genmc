@@ -43,6 +43,9 @@ public:
 	/* Dumps the Constraint */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
+	/* Does the Constraint hold statically */
+	virtual bool checkStatically() const = 0;
+
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
 
@@ -86,6 +89,8 @@ public:
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
 	std::ostream &dump(std::ostream &s) const override { return s << "acyclic" << *getKid(0); }
+
+	bool checkStatically() const override { return false; }
 };
 
 
@@ -111,6 +116,8 @@ public:
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
 	std::ostream &dump(std::ostream &s) const override { return s << "coherence" << *getKid(0); }
+
+	bool checkStatically() const override { return false; }
 };
 
 
@@ -147,6 +154,8 @@ public:
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " <= " << *getKid(1);
 	}
+
+	bool checkStatically() const override;
 };
 
 
@@ -183,6 +192,8 @@ public:
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " <= " << *getKid(1);
 	}
+
+	bool checkStatically() const override;
 };
 
 
@@ -213,6 +224,8 @@ public:
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " = 0";
 	}
+
+	bool checkStatically() const override;
 };
 
 #endif /* __CONSTRAINT_HPP__ */

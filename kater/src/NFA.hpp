@@ -8,6 +8,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -250,6 +251,8 @@ public:
 	NFA &simplifyReduce();
 
 	bool acceptsEmptyString() const;
+	bool acceptsNoString() const;
+	bool isSubLanguageOfDFA(const NFA &other) const;
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 

@@ -93,6 +93,75 @@ bool NFA::acceptsEmptyString() const
 	});
 }
 
+bool NFA::acceptsNoString() const
+{
+	std::unordered_set<const State *> visited;
+	std::vector<const State *> workList;
+
+	for (auto it = states_begin(); it != states_end(); it++) {
+		if (!it->get()->isStarting()) continue;
+		visited.insert(it->get());
+		workList.push_back(it->get());
+	}
+	while (!workList.empty()) {
+		auto *s = workList.back();
+		workList.pop_back();
+		if (s->isAccepting())
+			return false;
+		for (auto it = s->out_begin(); it != s->out_end(); it++) {
+			if (visited.count(it->dest)) continue;
+			visited.insert(it->dest);
+			workList.push_back(it->dest);
+		}
+	}
+	return true;
+}
+
+bool NFA::isSubLanguageOfDFA(const NFA &other) const
+{
+	using SPair = std::pair<const State *, const State *>;
+	struct SPairHasher {
+		inline void hash_combine(std::size_t& seed, std::size_t v) const {
+			seed ^= v + 0x9e3779b9 + (seed<<6) + (seed>>2);
+		}
+		std::size_t operator()(SPair p) const {
+			std::size_t hash = 0;
+			hash_combine(hash, p.first->getId());
+			hash_combine(hash, p.second->getId());
+			return hash;
+		}
+	};
+
+	std::unordered_set<SPair, SPairHasher> visited;
+	std::vector<SPair> workList;
+
+	for (auto it = states_begin(); it != states_end(); it++) {
+		if (!it->get()->isStarting())
+			continue;
+		for (auto oit = other.states_begin(); oit != other.states_end(); oit++) {
+			if (!oit->get()->isStarting())
+				continue;
+			visited.insert({it->get(), oit->get()});
+			workList.push_back({it->get(), oit->get()});
+		}
+	}
+	while (!workList.empty()) {
+		auto p = workList.back();
+		workList.pop_back();
+		if (p.first->isAccepting() && !p.second->isAccepting())
+			return false;
+
+		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++)
+			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
+				if (it->label != oit->label) continue;
+				if (visited.count({it->dest, oit->dest})) continue;
+				visited.insert({it->dest, oit->dest});
+				workList.push_back({it->dest, oit->dest});
+			}
+	}
+	return true;
+}
+
 NFA::NFA(const TransLabel &c) : NFA()
 {
 	auto *init = createStarting();

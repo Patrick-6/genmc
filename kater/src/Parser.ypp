@@ -108,10 +108,10 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "|" rel		{ $$ = AltRE::createOpt(std::move($1), std::move($3)); }
 	| rel ";" rel		{ $$ = SeqRE::createOpt(std::move($1), std::move($3)); }
 	| rel "\\" rel		{ $$ = MinusRE::create(std::move($1), std::move($3)); }
-	| rel "*"		{ $$ = StarRE::create(std::move($1)); }
-	| rel "+"		{ $$ = PlusRE::create(std::move($1)); }
-	| rel "?"		{ $$ = QMarkRE::create(std::move($1)); }
-	| rel "^" "-1" 		{ $$ = InvRE::create(std::move($1)); }
+	| rel "*"		{ $$ = StarRE::createOpt(std::move($1)); }
+	| rel "+"		{ $$ = PlusRE::createOpt(std::move($1)); }
+	| rel "?"		{ $$ = QMarkRE::createOpt(std::move($1)); }
+	| rel "^" "-1" 		{ $1->flip(); $$ = std::move($1); }
 	| rel "^" "=" 		{ $$ = SymRE_create(std::move($1)); }
 	| ID			{ $$ = drv.getRegisteredID($1, @$); }
 	;

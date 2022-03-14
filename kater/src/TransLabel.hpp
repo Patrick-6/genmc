@@ -44,6 +44,8 @@ public:
 
 	bool operator== (const TransLabel &other) const { return trans == other.trans; }
 
+	bool operator!= (const TransLabel &other) const { return trans != other.trans; }
+
 	friend std::ostream &operator<<(std::ostream &s, const TransLabel &t);
 
 private:
