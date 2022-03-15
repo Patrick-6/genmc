@@ -35,6 +35,8 @@ AltRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
         ADD_CHILD(r, r1, AltRE);
         ADD_CHILD(r, r2, AltRE);
 	std::sort(r.begin(), r.end());
+	auto last = std::unique(r.begin(), r.end());
+	r.erase(last, r.end());
 	RETURN_OBJ(r, AltRE);
 }
 
@@ -47,6 +49,16 @@ SeqRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
         ADD_CHILD(r, r2, SeqRE);
 	for (auto it = r.begin(); it != r.end(); it++) {
 		if ((*it)->isFalse()) return std::move(*it);
+	}
+	for (auto it = r.begin(); it != r.end() && it + 1 != r.end(); /* */) {
+		if (auto p = dynamic_cast<PredRE *>(it->get()))
+			if (auto q = dynamic_cast<PredRE *>((it + 1)->get())) {
+				bool b = p->getLabel().merge (q->getLabel());
+				if (!b) return FalseRE();
+				it = r.erase(it + 1);
+				continue;
+			}
+		++it;
 	}
 	RETURN_OBJ(r, SeqRE);
 }
@@ -88,10 +100,14 @@ QMarkRE::createOpt(std::unique_ptr<RegExp> r)
 	return create(std::move(r));
 }
 
-std::unique_ptr<RegExp>
-SymRE_create(std::unique_ptr<RegExp> re)
+std::unique_ptr<RegExp> FalseRE()
+{
+	return AltRE::create();
+}
+
+std::unique_ptr<RegExp> SymRE(std::unique_ptr<RegExp> re)
 {
 	auto re1 = re->clone();
 	re1->flip();
-	return AltRE::create(std::move(re), std::move(re1));
+	return AltRE::createOpt(std::move(re), std::move(re1));
 }

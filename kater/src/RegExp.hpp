@@ -349,6 +349,7 @@ UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
 
-std::unique_ptr<RegExp> SymRE_create(std::unique_ptr<RegExp> r);
+std::unique_ptr<RegExp> SymRE(std::unique_ptr<RegExp> r);
+std::unique_ptr<RegExp> FalseRE();
 
 #endif /* _REGEXP_HPP_ */

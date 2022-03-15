@@ -104,7 +104,7 @@ constraint:
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| "[" rel "]"		{ $$ = std::move($2); /* bracket is a NOP for now */ }
-	| "0"			{ $$ = AltRE::create(); }
+	| "0"			{ $$ = FalseRE(); }
 	| rel "|" rel		{ $$ = AltRE::createOpt(std::move($1), std::move($3)); }
 	| rel ";" rel		{ $$ = SeqRE::createOpt(std::move($1), std::move($3)); }
 	| rel "\\" rel		{ $$ = MinusRE::create(std::move($1), std::move($3)); }
@@ -112,7 +112,7 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "+"		{ $$ = PlusRE::createOpt(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::createOpt(std::move($1)); }
 	| rel "^" "-1" 		{ $1->flip(); $$ = std::move($1); }
-	| rel "^" "=" 		{ $$ = SymRE_create(std::move($1)); }
+	| rel "^" "=" 		{ $$ = SymRE(std::move($1)); }
 	| ID			{ $$ = drv.getRegisteredID($1, @$); }
 	;
 
