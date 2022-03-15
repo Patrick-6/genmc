@@ -10,6 +10,7 @@ struct Config {
 
 	bool debug;
         int verbose;
+	std::string outPrefix;
 	std::string inputFile;
 
 private:

@@ -152,22 +152,34 @@ static void printKaterNotice(const std::string &name, std::ostream &out = std::c
 }
 
 
-#define PRINT_LINE(line) fout << line << "\n"
+#define PRINT_LINE(line) (*out) << line << "\n"
 
 void Driver::output_genmc_header_file ()
 {
-	std::string name = "Demo";
-	std::string className = std::string("KaterConsChecker") + name;
+	auto name = config.outPrefix != "" ? config.outPrefix :
+		config.inputFile.substr(0, config.inputFile.find_last_of("."));
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
 
-	std::ofstream fout (className + ".hpp");
-	if (!fout.is_open()) {
-		return;
+	auto className = name;
+	className += "Checker";
+
+	std::string guardName = "__";
+	guardName += name;
+	guardName += "_CHECKER_HPP__";
+
+	std::ostream* out = &std::cout;
+	std::ofstream fout;
+	if (config.outPrefix != "") {
+		fout.open(className + ".hpp");
+		if (!fout.is_open())
+			return;
+		out = &fout;
 	}
 
-	printKaterNotice(name, fout);
+	printKaterNotice(name, *out);
 
-	PRINT_LINE("#ifndef __KATER_CONS_CHECKER_" << name << "_HPP__");
-	PRINT_LINE("#define __KATER_CONS_CHECKER_" << name << "_HPP__");
+	PRINT_LINE("#ifndef " << guardName);
+	PRINT_LINE("#define " << guardName);
 
 	PRINT_LINE("");
 	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
@@ -186,44 +198,53 @@ void Driver::output_genmc_header_file ()
 	PRINT_LINE("public:");
 
 	for (int i = 0; i < nsaved.size(); ++i)
-		nsaved[i].first.print_calculator_header_public(fout, i);
-	nfa_acyc.print_acyclic_header_public(fout, className);
+		nsaved[i].first.print_calculator_header_public(*out, i);
+	nfa_acyc.print_acyclic_header_public(*out, className);
 
 	PRINT_LINE("");
 	PRINT_LINE("private:");
 
 	for (int i = 0; i < nsaved.size(); ++i)
-		nsaved[i].first.print_calculator_header_private(fout, i);
-	nfa_acyc.print_acyclic_header_private(fout);
+		nsaved[i].first.print_calculator_header_private(*out, i);
+	nfa_acyc.print_acyclic_header_private(*out);
 
 	PRINT_LINE("\tExecutionGraph &g;");
 
 	PRINT_LINE("};");
 
 	PRINT_LINE("");
-	PRINT_LINE("#endif /* __KATER_CONS_CHECKER_" << className << "_HPP__ */");
+	PRINT_LINE("#endif /* " << guardName << " */");
 }
 
 void Driver::output_genmc_impl_file ()
 {
-	std::string name = "Demo";
-	std::string className = std::string("KaterConsChecker") + name;
+	auto name = config.outPrefix != "" ? config.outPrefix :
+		config.inputFile.substr(0, config.inputFile.find_last_of("."));
+	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
 
-	std::ofstream fout (className + ".cpp");
-	if (!fout.is_open())
-		return;
+	auto className = name;
+	className += "Checker";
 
-	printKaterNotice(name, fout);
+	std::ostream* out = &std::cout;
+	std::ofstream fout;
+	if (config.outPrefix != "") {
+		fout.open(className + ".cpp");
+		if (!fout.is_open())
+			return;
+		out = &fout;
+	}
+
+	printKaterNotice(name, *out);
 
 	PRINT_LINE("#include \"" << className << ".hpp\"");
 	PRINT_LINE("");
 
 	for (int i = 0; i < nsaved.size(); ++i) {
 		if (nsaved[i].second == VarStatus::Reduce)
-			nsaved[i].first.printCalculatorImplReduce(fout, className, i);
+			nsaved[i].first.printCalculatorImplReduce(*out, className, i);
 		else
-			nsaved[i].first.printCalculatorImpl(fout, className, i);
+			nsaved[i].first.printCalculatorImpl(*out, className, i);
 	}
-	nfa_acyc.print_acyclic_impl(fout, className);
+	nfa_acyc.print_acyclic_impl(*out, className);
 
 }

@@ -11,6 +11,7 @@ void Config::reset()
 {
 	verbose = 0;
 	debug = false;
+	outPrefix = "";
 	inputFile = "";
 }
 
@@ -28,12 +29,15 @@ void Config::printUsage(const char *kater)
 "-h, --help                  Display this help message and exit\n"
 "-d, --debug                 Print debugging information.\n"
 "                            Default: %d\n"
+"-p, --prefix                Prefix to be used for the resulting files.\n"
+"                            Default: \"%s\" (prints to stdout)\n"
 "-v[NUM], --verbose[=NUM]    Print verbose execution information. NUM is optional:\n"
 "                              0 is quiet; 1 prints status; 2 is noisy;\n"
 "                              3 is noisier.\n"
 "                              Default: %d\n",
 		kater,
 		debug,
+		outPrefix.c_str(),
 		verbose);
 	exit(0);
 }
@@ -43,10 +47,11 @@ void Config::parseOptions(int argc, char **argv)
 	/* Reset defaults before parsing the options */
 	reset();
 
-	const char *shortopts = "hdv:";
+	const char *shortopts = "hdo:v:";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
 		{"debug", no_argument, NULL, 'd'},
+		{"output", required_argument, NULL, 'o'},
 		{"verbose", optional_argument, NULL, 'v'},
 		{0, 0, 0, 0} /* Terminator */
 	};
@@ -60,6 +65,9 @@ void Config::parseOptions(int argc, char **argv)
 			break;
 		case 'd':
 			debug = true;
+			break;
+		case 'o':
+			outPrefix = optarg;
 			break;
 		case 'v':
 			verbose = optarg ? atoi(optarg) : 1;
