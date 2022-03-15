@@ -68,6 +68,8 @@ public:
 
 	std::string toString() const override;
 
+	bool merge (const PredLabel &other);
+
 	void output_for_genmc (std::ostream& ostr, const std::string &arg,
 			      const std::string &res) const override;
 

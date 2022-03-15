@@ -89,7 +89,7 @@ let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
 let conflicting = ww_conflict | wr_conflict
 let na_conflict = [NA] ; conflicting | conflicting ; [NA]
 
-error UninitializedRead unless  [INIT] ; rf ; [IsDynamicLoc] = 0
+error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
 
 error AccessNonAlloc    unless  alloc <= hb_stable
 error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0

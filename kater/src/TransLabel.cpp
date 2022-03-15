@@ -8,59 +8,62 @@
 
 int RelLabel::calcNum = 0;
 
-/* meaning of the bitmask:
+/* Meaning of the bitmask:
+	| other
         | sc, relacq, rel, acq, na
-        | other, Fwmb, F\Fwmb, UW, W\UW, UR, R\UR
-        | static-loc, dynamic-loc, hpProtected, !hpProtected */
+        | Fwmb, F\Fwmb, UW, W\UW, UR, R\UR
+        | RfInit, !RfInit
+        | static-loc, dynamic-loc
+	| hpProtected, !hpProtected */
+static const unsigned other_event_bitmask =  0b1'00000'000000'00'00'00;
 
 const std::vector<PredicateInfo> builtinPredicates = {
-	/* Memory accesses */
-	{"MemAccess",      0b11111'0001111'1111, "llvm::isa<MemAccessLabel>(#)"},
-	{"W",              0b11111'0001100'1111, "llvm::isa<WriteLabel>(#)"},
-	{"UW",             0b11111'0001000'1111, "g.isRMWStore(#)"},
-	{"R",              0b11111'0000011'1111, "llvm::isa<ReadLabel>(#)"},
-	{"UR",             0b11111'0000010'1111, "g.isRMWLoad(#)"},
-//	{"HelpingCas",     0b11111'0000000'1111, "llvm::isa<HelpingCasLabel>(#)"},
-	/* Fences */
-        {"F",              0b11111'0110000'0000, "llvm::isa<FenceLabel>(#)"},
-//	{"Fwmb",           0b11111'0100000'0000, "llvm::isa<SmpFenceLabel>(#)"},
-	/* Thread events */
-	{"ThreadCreate",   0b00000'1000000'0000, "llvm::isa<ThreadCreateLabel>(#)"},
-	{"ThreadJoin",     0b00000'1000000'0000, "llvm::isa<ThreadJoinLabel>(#)"},
-	{"ThreadKill",     0b00000'1000000'0000, "llvm::isa<ThreadKillLabel>(#)"},
-	{"ThreadStart",    0b00000'1000000'0000, "llvm::isa<ThreadStartLabel>(#)"},
-	{"ThreadFinish",   0b00000'1000000'0000, "llvm::isa<ThreadFinishLabel>(#)"},
-	/* Allocation */
-	{"Alloc",          0b00000'1000000'0000, "llvm::isa<MallocLabel>(#)"},
-	{"Free",           0b00000'1000000'0000, "llvm::isa<FreeLabel>(#)"},
-	{"HpRetire",       0b00000'1000000'0000, "llvm::isa<HpRetireLabel>(#)"},
-	{"HpProtect",      0b00000'1000000'0000, "llvm::isa<HpProtectLabel>(#)"},
-	/* Mutexes */
-	{"Lock",           0b00000'1000000'0000, "llvm::isa<LockLabel>(#)"},
-	{"Unlock",         0b00000'1000000'0000, "llvm::isa<UnlockLabel>(#)"},
-	/* RCU */
-	{"RCUSync",        0b00000'1000000'0000, "llvm::isa<RCUSyncLabel>(#)"},
-	{"RCULock",        0b00000'1000000'0000, "llvm::isa<RCULockLabel>(#)"},
-	{"RCUUnlock",      0b00000'1000000'0000, "llvm::isa<RCUUnlockLabel>(#)"},
-	/* File ops */
-//	{"DskWrite",       0b11111'1000000'0000, "llvm::isa<DskWriteLabel>(#)"},
-//	{"DskMdWrite",     0b11111'1000000'0000, "llvm::isa<DskMdWriteLabel>(#)"},
-//	{"DskDirWrite",    0b11111'1000000'0000, "llvm::isa<DskDirWriteLabel>(#)"},
-//	{"DskJnlWrite",    0b11111'1000000'0000, "llvm::isa<DskJnlWriteLabel>(#)"},
-	{"DskOpen",        0b00000'1000000'0000, "llvm::isa<DskOpenLabel>(#)"},
-	{"DskFsync",       0b00000'1000000'0000, "llvm::isa<DskFsyncLabel>(#)"},
-	{"DskSync",        0b00000'1000000'0000, "llvm::isa<DskSyncLabel>(#)"},
-	{"DskPbarrier",    0b00000'1000000'0000, "llvm::isa<DskPbarrierLabel>(#)"},
 	/* Access modes */
-	{"NA",             0b00001'0001111'1111, "#.isNotAtomic()"},
-	{"ACQ",            0b11010'0111111'1111, "#.isAtLeastAcquire()"},
-	{"REL",            0b11100'0111111'1111, "#.isAtLeastRelease()"},
-	{"SC",             0b10000'0111111'1111, "#.isSC()"},
+	{"NA",             0b0'00001'001111'11'11'11, "#.isNotAtomic()"},
+	{"ACQ",            0b0'11010'111111'11'11'11, "#.isAtLeastAcquire()"},
+	{"REL",            0b0'11100'111111'11'11'11, "#.isAtLeastRelease()"},
+	{"SC",             0b0'10000'111111'11'11'11, "#.isSC()"},
 	/* Random stuff */
-	{"IsDynamicLoc",   0b11111'0001111'0111, "g.is_dynamic_loc(#)"},
-	{"NotHpProtected", 0b11111'0001111'1101, "g.notHpProtected(#)"},
-	/* Initializer */
-	{"INIT",           0b00001'0000100'0000, "#.isInitializer()"}};
+	{"IsDynamicLoc",   0b0'11111'001111'11'01'11, "g.is_dynamic_loc(#)"},
+	{"NotHpProtected", 0b0'11111'001111'11'11'01, "g.notHpProtected(#)"},
+	{"RfInit",         0b0'11111'000011'10'11'11, "llvm::isa<ReadLabel>(#) && static_cast<ReadLabel>(#).getRf().isInitializer()"},
+	/* Memory accesses */
+	{"MemAccess",      0b0'11111'001111'11'11'11, "llvm::isa<MemAccessLabel>(#)"},
+	{"W",              0b0'11111'001100'00'11'11, "llvm::isa<WriteLabel>(#)"},
+	{"UW",             0b0'11111'001000'00'11'11, "g.isRMWStore(#)"},
+	{"R",              0b0'11111'000011'11'11'11, "llvm::isa<ReadLabel>(#)"},
+	{"UR",             0b0'11111'000010'11'11'11, "g.isRMWLoad(#)"},
+//	{"HelpingCas",     0b0'11111'000000'11'11'11, "llvm::isa<HelpingCasLabel>(#)"},
+	/* Fences */
+        {"F",              0b0'11111'110000'00'00'00, "llvm::isa<FenceLabel>(#)"},
+//	{"Fwmb",           0b0'11111'100000'00'00'00, "llvm::isa<SmpFenceLabel>(#)"},
+	/* Thread events */
+	{"ThreadCreate",   other_event_bitmask, "llvm::isa<ThreadCreateLabel>(#)"},
+	{"ThreadJoin",     other_event_bitmask, "llvm::isa<ThreadJoinLabel>(#)"},
+	{"ThreadKill",     other_event_bitmask, "llvm::isa<ThreadKillLabel>(#)"},
+	{"ThreadStart",    other_event_bitmask, "llvm::isa<ThreadStartLabel>(#)"},
+	{"ThreadFinish",   other_event_bitmask, "llvm::isa<ThreadFinishLabel>(#)"},
+	/* Allocation */
+	{"Alloc",          other_event_bitmask, "llvm::isa<MallocLabel>(#)"},
+	{"Free",           other_event_bitmask, "llvm::isa<FreeLabel>(#)"},
+	{"HpRetire",       other_event_bitmask, "llvm::isa<HpRetireLabel>(#)"},
+	{"HpProtect",      other_event_bitmask, "llvm::isa<HpProtectLabel>(#)"},
+	/* Mutexes */
+	{"Lock",           other_event_bitmask, "llvm::isa<LockLabel>(#)"},
+	{"Unlock",         other_event_bitmask, "llvm::isa<UnlockLabel>(#)"},
+	/* RCU */
+	{"RCUSync",        other_event_bitmask, "llvm::isa<RCUSyncLabel>(#)"},
+	{"RCULock",        other_event_bitmask, "llvm::isa<RCULockLabel>(#)"},
+	{"RCUUnlock",      other_event_bitmask, "llvm::isa<RCUUnlockLabel>(#)"},
+	/* File ops */
+//	{"DskWrite",       other_event_bitmask, "llvm::isa<DskWriteLabel>(#)"},
+//	{"DskMdWrite",     other_event_bitmask, "llvm::isa<DskMdWriteLabel>(#)"},
+//	{"DskDirWrite",    other_event_bitmask, "llvm::isa<DskDirWriteLabel>(#)"},
+//	{"DskJnlWrite",    other_event_bitmask, "llvm::isa<DskJnlWriteLabel>(#)"},
+	{"DskOpen",        other_event_bitmask, "llvm::isa<DskOpenLabel>(#)"},
+	{"DskFsync",       other_event_bitmask, "llvm::isa<DskFsyncLabel>(#)"},
+	{"DskSync",        other_event_bitmask, "llvm::isa<DskSyncLabel>(#)"},
+	{"DskPbarrier",    other_event_bitmask, "llvm::isa<DskPbarrierLabel>(#)"}};
 
 const std::vector<RelationInfo> builtinRelations = {
         /* program order */
@@ -82,6 +85,24 @@ const std::vector<RelationInfo> builtinRelations = {
         {"mo-imm",      RelType::OneOne,     false, "mo_succ",      "mo_pred"},
         {"fr-init",     RelType::OneOne,     false, "fr_init_succ", "fr_init_pred"}};
 
+static bool is_sub_predicate(int i, int j)
+{
+	auto bi = builtinPredicates[i].bitmask;
+	auto bj = builtinPredicates[j].bitmask;
+	return bi != other_event_bitmask && (bi & bj) == bi;
+}
+
+static void simplify_preds(std::set<int> &s)
+{
+	for (auto it = s.begin(); it != s.end(); /* */) {
+		/* remove (*it) if there exists a more specific predicate in the set */
+		if (std::any_of (s.begin(), s.end(), [&](auto i) {
+				return i != *it && is_sub_predicate (i, *it); }))
+			it = s.erase(it);
+		else
+			it++;
+	}
+}
 
 std::string PredLabel::toString() const
 {
@@ -142,93 +163,15 @@ void RelLabel::output_for_genmc (std::ostream& ostr,
 	ostr << "\tfor (auto &" << res << " : calculator" << getCalcIndex() << "(" << arg << "))\n";
 }
 
-//static std::vector<std::set<std::string> > invalids = {};
-//static std::vector<TransLabel> invalids2 = {};
-//
-//void TransLabel::register_invalid (const TransLabel &l)
-//{
-//	// Do not register already-invalid equations
-//	if (!l.is_valid()) return;
-//
-//	if (l.is_empty_trans()) {
-//		if (std::find (invalids.begin(), invalids.end(), l.pre_checks) == invalids.end())
-//			invalids.push_back(l.pre_checks);
-//	} else {
-//		if (std::find (invalids2.begin(), invalids2.end(), l) == invalids2.end())
-//			invalids2.push_back(l);
-//	}
-//}
-//
-//void TransLabel::make_bracket ()
-//{
-//	assert (pre_checks.empty() && post_checks.empty());
-//	pre_checks.insert (trans);
-//	trans.clear();
-//}
-//
-//TransLabel::my_set TransLabel::merge_sets (const TransLabel::my_set &a,
-//					   const TransLabel::my_set &b)
-//{
-//	/* `r = a \cup b` */
-//	auto r = a;
-//	for (const auto &e : b) r.insert(e);
-//
-//	/* `if (\exists s \in invalids. s \subseteq r) r = \emptyset` */
-//	auto is_in_r = [&](const std::string &s) {
-//		return r.find(s) != r.end();
-//	};
-//	auto subset_of_r = [&](const TransLabel::my_set &s) {
-//		return std::all_of (s.begin(), s.end(), is_in_r);
-//	};
-//	if (std::any_of (invalids.begin(), invalids.end(), subset_of_r))
-//		r.clear();
-//	return r;
-//}
-//
-//void TransLabel::flip ()
-//{
-//	if (is_empty_trans()) return;
-//	std::swap (pre_checks, post_checks);
-//}
-//
-//TransLabel TransLabel::seq (const TransLabel &other) const
-//{
-//	TransLabel r;
-//	if (!is_valid() || !other.is_valid())
-//		return r;
-//	if (is_empty_trans()) {
-//		r.pre_checks = TransLabel::merge_sets (pre_checks, other.pre_checks);
-//		if (!r.pre_checks.empty()) { /* is valid? */
-//			r.trans = other.trans;
-//			r.post_checks = other.post_checks;
-//		}
-//	}
-//	else {
-//		assert (other.is_empty_trans());
-//		r.post_checks = TransLabel::merge_sets (post_checks, other.pre_checks);
-//		if (!r.post_checks.empty()) { /* is valid? */
-//			r.trans = trans;
-//			r.pre_checks = pre_checks;
-//		}
-//	}
-//	if (!r.is_empty_trans()) {
-//		for (const auto &i : invalids2) {
-//			if (i.trans != r.trans) continue;
-//			if (std::any_of(i.pre_checks.begin(), i.pre_checks.end(),
-//					[&](const std::string &s) {
-//					return r.pre_checks.find(s) == r.pre_checks.end();
-//					}))
-//				continue;
-//			if (std::any_of(i.post_checks.begin(), i.post_checks.end(),
-//					[&](const std::string &s) {
-//					return r.post_checks.find(s) == r.post_checks.end();
-//					}))
-//				continue;
-//			r.pre_checks.clear();
-//			r.trans.clear();
-//			r.post_checks.clear();
-//			return r;
-//		}
-//	}
-//	return r;
-//}
+bool PredLabel::merge (const PredLabel &other)
+{
+	unsigned mask = ~0;
+	for (auto i : preds) mask &= builtinPredicates[i].bitmask;
+	for (auto i : other.preds) mask &= builtinPredicates[i].bitmask;
+	if (mask == 0 ||
+	    (mask == other_event_bitmask && preds != other.preds))
+		return false;
+	for (auto i : other.preds) preds.insert(i);
+	simplify_preds(preds);
+	return true;
+}
