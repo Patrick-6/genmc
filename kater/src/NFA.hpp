@@ -267,7 +267,7 @@ public:
 		printCalculatorImplHelper(ostr, name, w, true);
 	}
 
-	void print_acyclic_header_public (std::ostream &ostr) const;
+	void print_acyclic_header_public (std::ostream &ostr, const std::string &name) const;
 	void print_acyclic_header_private (std::ostream &ostr) const;
 	void print_acyclic_impl (std::ostream &ostr, const std::string &name) const;
 

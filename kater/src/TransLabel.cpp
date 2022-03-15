@@ -67,23 +67,23 @@ const std::vector<PredicateInfo> builtinPredicates = {
 
 const std::vector<RelationInfo> builtinRelations = {
         /* program order */
-        {"po-imm",      RelType::OneOne,     true,  "po_succ",      "po_pred"},
-        {"po-loc",      RelType::OneOne,     true,  "po_loc_succ",  "po_loc_pred"},
+        {"po-imm",      RelType::OneOne,     true,  "po_imm_succs",     "po_imm_preds"},
+        {"po-loc",      RelType::OneOne,     true,  "po_loc_imm_succs", "po_loc_imm_preds"},
 	/* intra-thread dependencies */
-        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",            "ctrl_preds"},
-        {"addr-imm",    RelType::UnsuppMany, true,  "?",            "addr_preds"},
-        {"data-imm",    RelType::UnsuppMany, true,  "?",            "data_preds"},
+        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",                "ctrl"},
+        {"addr-imm",    RelType::UnsuppMany, true,  "?",                "addr"},
+        {"data-imm",    RelType::UnsuppMany, true,  "?",                "data"},
 	/* same thread */
-	{"same-thread", RelType::Conj,	     false, "same_thread",  "same_thread"},
+	{"same-thread", RelType::Conj,	     false, "same_thread",      "same_thread"},
 	/* same location */
-        {"alloc",       RelType::ManyOne,    false, "alloc_succs",  "alloc"},
-        {"frees",       RelType::OneOne,     false, "frees",        "alloc"},
-        {"loc-overlap", RelType::Final,      false, "?",            "loc_preds"},
+        {"alloc",       RelType::ManyOne,    false, "alloc_succs",      "alloc"},
+        {"frees",       RelType::OneOne,     false, "frees",            "alloc"},
+        {"loc-overlap", RelType::Final,      false, "?",                "loc_preds"},
 	/* reads-from, coherence, from-read */
-        {"rf",          RelType::ManyOne,    false, "rf_succs",     "rf_pred"},
-        {"rfe",         RelType::ManyOne,    false, "rfe_succs",    "rfe_pred"},
-        {"mo-imm",      RelType::OneOne,     false, "mo_succ",      "mo_pred"},
-        {"fr-init",     RelType::OneOne,     false, "fr_init_succ", "fr_init_pred"}};
+        {"rf",          RelType::ManyOne,    false, "rf_succs",          "rf_preds"},
+        {"rfe",         RelType::ManyOne,    false, "rfe_succs",         "rfe_preds"},
+        {"mo-imm",      RelType::OneOne,     false, "co_succs",          "co_preds"},
+        {"fr-init",     RelType::OneOne,     false, "fr_init_succs",     "fr_init_preds"}};
 
 static bool is_sub_predicate(int i, int j)
 {
@@ -154,10 +154,10 @@ void RelLabel::output_for_genmc (std::ostream& ostr,
 	if (isBuiltin()) {
 		const auto &n = builtinRelations[trans];
 		const auto &s = flipped ? n.predString : n.succString;
-		if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
-			ostr << "\tif (auto " << res << " = " << s << ") {\n";
-		else
-			ostr << "\tfor (auto &" << res << " : " << s << ") {\n";
+		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
+		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
+		// else
+		ostr << "\tfor (auto &" << res << " : " << s << "(g, " << arg << ")) {\n";
 		return;
 	}
 	ostr << "\tfor (auto &" << res << " : calculator" << getCalcIndex() << "(" << arg << "))\n";

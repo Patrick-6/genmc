@@ -621,8 +621,12 @@ void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &class
 #define VISITED_IDX(i,e)   VISITED_ARR << i << "[g.getEventLabel(" << e << ")->getStamp()]"
 #define VISITED_ACCEPTING  "visitedAccepting"
 
-void NFA::print_acyclic_header_public (std::ostream &fout) const
+void NFA::print_acyclic_header_public (std::ostream &fout, const std::string &className) const
 {
+	PRINT_LINE("");
+	PRINT_LINE("\t" << className << "(ExecutionGraph &g) : g(g) {}");
+
+	PRINT_LINE("");
 	PRINT_LINE("\tbool " << IS_CONS << ";");
 }
 
@@ -642,9 +646,13 @@ void NFA::print_acyclic_header_private (std::ostream &fout) const
 		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR << ids[&*s] << ";");
 	});
 
+	/* graph getter */
+	PRINT_LINE("");
+	PRINT_LINE("\tExecutionGraph &getGraph() { return g; }");
+
 	/* accepting counter */
 	PRINT_LINE("");
-	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << ";");
+	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << " = 0;");
 }
 
 void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) const
@@ -659,20 +667,21 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) 
 		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
 
 		PRINT_LINE("");
+		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		if (s->isStarting())
 			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			t.label->output_for_genmc(fout, "e", "p");
 			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
 			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(ids[t.dest], "p") << ")");
 			PRINT_LINE("\t\t\treturn false;");
-			PRINT_LINE("\t\telse if (status == NodeStatus::entered)");
+			PRINT_LINE("\t\telse if (status == NodeStatus::entered && visitedAccepting)");
 			PRINT_LINE("\t\t\treturn false;");
 			PRINT_LINE("\t}");
 		});
 		if (s->isStarting())
 			PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
+		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::left;");
 		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");
 		PRINT_LINE("");
@@ -681,8 +690,10 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) 
 	PRINT_LINE("bool " << className << "::" << IS_CONS);
 	PRINT_LINE("{");
 	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
-	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
-	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1);");
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << ".clear();");
+		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+	});
 	PRINT_LINE("\treturn true");
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		PRINT_LINE ("\t\t&& " << VISIT_CALL(ids[&*s], "e")

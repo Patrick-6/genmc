@@ -171,25 +171,32 @@ void Driver::output_genmc_header_file ()
 
 	PRINT_LINE("");
 	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
-	PRINT_LINE("#include \"EventLabel.hpp\"");
+	PRINT_LINE("#include \"GraphIterators.hpp\"");
+	PRINT_LINE("#include \"PersistencyChecker.hpp\"");
 	PRINT_LINE("#include \"VSet.hpp\"");
 	PRINT_LINE("#include <vector>");
 
 	PRINT_LINE("");
 	PRINT_LINE("class " << className << " {");
+
+	PRINT_LINE("");
+	PRINT_LINE("private:");
+	PRINT_LINE("\tenum class NodeStatus { unseen, entered, left };");
+
 	PRINT_LINE("public:");
 
 	for (int i = 0; i < nsaved.size(); ++i)
 		nsaved[i].first.print_calculator_header_public(fout, i);
-	nfa_acyc.print_acyclic_header_public(fout);
+	nfa_acyc.print_acyclic_header_public(fout, className);
 
 	PRINT_LINE("");
 	PRINT_LINE("private:");
-	PRINT_LINE("\tconst ExecutionGraph &g;");
 
 	for (int i = 0; i < nsaved.size(); ++i)
 		nsaved[i].first.print_calculator_header_private(fout, i);
 	nfa_acyc.print_acyclic_header_private(fout);
+
+	PRINT_LINE("\tExecutionGraph &g;");
 
 	PRINT_LINE("};");
 
