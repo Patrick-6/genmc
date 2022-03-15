@@ -1,7 +1,9 @@
 #ifndef _KATER_TRANS_LABEL_HPP_
 #define _KATER_TRANS_LABEL_HPP_
 
+#include <cassert>
 #include <iostream>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
