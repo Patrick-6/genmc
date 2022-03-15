@@ -31,12 +31,12 @@ public:
 
 	void registerSaveID(std::string id, std::unique_ptr<RegExp> re) {
 		savedVariables.push_back({std::move(re), VarStatus::Normal});
-		registerID(std::move(id), RelRE::create(TransLabel::getFreshCalcLabel()));
+		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
 	}
 
 	void registerSaveReducedID(std::string id, std::unique_ptr<RegExp> re) {
 		savedVariables.push_back({std::move(re), VarStatus::Reduce});
-		registerID(std::move(id), RelRE::create(TransLabel::getFreshCalcLabel()));
+		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
 	}
 
 	std::unique_ptr<RegExp> getRegisteredID(std::string id, const yy::location &loc) {

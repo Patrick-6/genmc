@@ -114,7 +114,7 @@ bool NFA::acceptsNoString(std::string &cex) const
 		for (auto it = s->out_begin(); it != s->out_end(); it++) {
 			if (visited.count(it->dest)) continue;
 			visited.insert(it->dest);
-			workList.push_back({it->dest, p.second + " " + it->label.toString()});
+			workList.push_back({it->dest, p.second + " " + it->label->toString()});
 		}
 	}
 	return true;
@@ -122,6 +122,16 @@ bool NFA::acceptsNoString(std::string &cex) const
 
 bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 {
+	if (config.verbose > 0) {
+		std::cout << "Checking inclusion between automata:" << std::endl;
+		std::cout << *this << "and " << other << std::endl;
+	}
+
+	// If the second automaton has no starting states...
+	if (std::none_of (other.states_begin(), other.states_end(),
+			 [](auto &s) { return s->isStarting(); }))
+		return acceptsNoString(cex);
+
 	using SPair = std::pair<const State *, const State *>;
 	struct SPairHasher {
 		inline void hash_combine(std::size_t& seed, std::size_t v) const {
@@ -156,13 +166,25 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 			return false;
 		}
 
-		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++)
+		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++) {
+			std::string new_str = str + " ";
+			if (config.verbose > 0)
+				new_str += std::to_string(p.first->getId()) + "/" +
+					   std::to_string(p.second->getId()) + " ";
+			new_str += it->label->toString();
+			bool found_edge = false;
 			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
-				if (it->label != oit->label) continue;
+				if (*it->label != *oit->label) continue;
+				found_edge = true;
 				if (visited.count({it->dest, oit->dest})) continue;
 				visited.insert({it->dest, oit->dest});
-				workList.push_back({{it->dest, oit->dest}, str + " " + it->label.toString()});
+				workList.push_back({{it->dest, oit->dest}, new_str});
 			}
+			if (!found_edge) {
+				cex = new_str;
+				return false;
+			}
+		}
 	}
 	return true;
 }
@@ -171,7 +193,7 @@ NFA::NFA(const TransLabel &c) : NFA()
 {
 	auto *init = createStarting();
 	auto *fnal = createAccepting();
-	addTransition(init, Transition(c, fnal));
+	addTransition(init, Transition(c.clone(), fnal));
 	return;
 }
 
@@ -263,7 +285,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 				std::set<State *> next;
 				std::for_each(sc.begin(), sc.end(), [&](State *ns2){
 					std::for_each(ns2->out_begin(), ns2->out_end(), [&](const Transition &t2){
-						if (t2.label == t.label)
+						if (*t2.label == *t.label)
 							next.insert(t2.dest);
 					});
 				});
@@ -277,7 +299,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 					dfaToNfaMap.insert({ds, next});
 					worklist.push_back(std::move(next));
 				}
-				dfa.addTransition(nfaToDfaMap[sc], Transition(t.label, ds));
+				dfa.addTransition(nfaToDfaMap[sc], Transition(t.label->clone(), ds));
 			});
 		});
 	}
@@ -396,13 +418,13 @@ void NFA::compact_edges()
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t1){
 			return (t1.dest != &*s &&
 			    std::all_of(s->out_begin(), s->out_end(), [&](const Transition &t2){
-					    return t2.label == t1.label &&
+					    return *t2.label == *t1.label &&
 						    (t2.dest == &*s || std::find(t1.dest->out_begin(),
 										 t1.dest->out_end(), t2) != t1.dest->out_end());
 				    }));
 		});
 		std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
-			removeTransition(&*s, Transition(t.label, &*s));
+			removeTransition(&*s, Transition(t.label->clone(), &*s));
 		});
 	});
 }
@@ -488,7 +510,7 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	ostr << std::endl;
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
-			ostr << "\t" << s->getId() << " --" << t.label << "--> " << t.dest->getId() << std::endl;
+			ostr << "\t" << s->getId() << " --" << *t.label << "--> " << t.dest->getId() << std::endl;
 		});
 	});
 	return ostr;
@@ -560,7 +582,7 @@ void NFA::printCalculatorImplHelper(std::ostream &fout, const std::string &class
 			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label.output_for_genmc(fout, "e", "p");
+			t.label->output_for_genmc(fout, "e", "p");
 			PRINT_LINE("\t\tif (" << VISITED_IDX(ids[t.dest], "p") << ") continue;");
 			PRINT_LINE("\t\t" << VISIT_CALL(ids[t.dest], "p"));
 			PRINT_LINE("\t}");
@@ -641,7 +663,7 @@ void NFA::print_acyclic_impl (std::ostream &fout, const std::string &className) 
 			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
 		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label.output_for_genmc(fout, "e", "p");
+			t.label->output_for_genmc(fout, "e", "p");
 			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
 			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(ids[t.dest], "p") << ")");
 			PRINT_LINE("\t\t\treturn false;");

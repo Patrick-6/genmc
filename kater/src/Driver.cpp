@@ -9,7 +9,7 @@ Driver::Driver() {
 	for (int i = 0; i < preds; i++)
 		registerID(builtinPredicates[i].name, PredRE::create(i));
 	for (int i = 0; i < rels; i++)
-		registerID(builtinRelations[i].name, RelRE::create(preds + i));
+		registerID(builtinRelations[i].name, RelRE::create(i));
 }
 
 
@@ -51,10 +51,9 @@ void Driver::expandSavedVars(std::unique_ptr<RegExp> &r)
 	for (int i = 0; i < r->getNumKids(); i++)
 		expandSavedVars(r->getKid(i));
 	if (auto *re = dynamic_cast<RelRE *>(&*r)) {
-		auto &lab = re->getLabel();
-		if (lab.isBuiltin())
+		if (re->getLabel().isBuiltin())
 			return;
-		r = std::move(savedVariables[lab.getCalcIndex()].first->clone());
+		r = std::move(savedVariables[re->getLabel().getCalcIndex()].first->clone());
 		expandSavedVars(r);
 	}
 }
@@ -62,11 +61,13 @@ void Driver::expandSavedVars(std::unique_ptr<RegExp> &r)
 void Driver::registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
 {
 // TODO
+	std::cerr << loc << ": [Warning] Ignoring unsupported error constraint " << *c << std::endl;
 }
 
 void Driver::registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
 {
 // TODO
+	std::cerr << loc << ": [Warning] Ignoring unsupported warning constraint " << *c << std::endl;
 }
 
 void Driver::registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc)

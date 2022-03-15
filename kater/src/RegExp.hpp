@@ -85,7 +85,7 @@ inline std::ostream &operator<<(std::ostream &s, const RegExp& re)
 
 class PredRE : public RegExp {
 protected:
-	PredRE(const TransLabel &l) : RegExp(), lab(l) {}
+	PredRE(const PredLabel &l) : RegExp(), lab(l) {}
 
 public:
 	template<typename... Ts>
@@ -95,11 +95,11 @@ public:
 	}
 
 	/* Returns the transition label */
-	const TransLabel &getLabel() const { return lab; }
-	TransLabel &getLabel() { return lab; }
+	const PredLabel &getLabel() const { return lab; }
+	PredLabel &getLabel() { return lab; }
 
 	/* Sets the transition label */
-	void setLabel(const TransLabel &l) { lab = l; }
+	void setLabel(const PredLabel &l) { lab = l; }
 
 	NFA toNFA() const override { return NFA(lab); }
 
@@ -109,13 +109,13 @@ public:
 
 	RegExp &flip() override { return *this; }
 protected:
-	TransLabel lab;
+	PredLabel lab;
 };
 
 class RelRE : public RegExp {
 
 protected:
-	RelRE(const TransLabel &l) : RegExp(), lab(l) {}
+	RelRE(const RelLabel &l) : RegExp(), lab(l) {}
 
 public:
 	template<typename... Ts>
@@ -125,11 +125,11 @@ public:
 	}
 
 	/* Returns the transition label */
-	const TransLabel &getLabel() const { return lab; }
-	TransLabel &getLabel() { return lab; }
+	const RelLabel &getLabel() const { return lab; }
+	RelLabel &getLabel() { return lab; }
 
 	/* Sets the transition label */
-	void setLabel(const TransLabel &l) { lab = l; }
+	void setLabel(const RelLabel &l) { lab = l; }
 
 	NFA toNFA() const override { return NFA(lab); }
 
@@ -139,7 +139,7 @@ public:
 
 	RegExp &flip() override { lab.flip(); return *this; }
 protected:
-	TransLabel lab;
+	RelLabel lab;
 };
 
 

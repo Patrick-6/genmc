@@ -6,105 +6,132 @@
 #include <unordered_map>
 #include <vector>
 
-int TransLabel::calcNum = 0;
+int RelLabel::calcNum = 0;
+
+/* meaning of the bitmask:
+        | sc, relacq, rel, acq, na
+        | other, Fwmb, F\Fwmb, UW, W\UW, UR, R\UR
+        | static-loc, dynamic-loc, hpProtected, !hpProtected */
 
 const std::vector<PredicateInfo> builtinPredicates = {
 	/* Memory accesses */
-	{"MemAccess",      "llvm::isa<MemAccessLabel>(#)"},
-	{"W",              "llvm::isa<WriteLabel>(#)"},
-	{"UW",             "G.isRMWStore(#)"},
-	{"R",              "llvm::isa<ReadLabel>(#)"},
-	{"UR",             "G.isRMWLoad(#)"},
-//	{"HelpingCas",     "llvm::isa<HelpingCasLabel>(#)"},
+	{"MemAccess",      0b11111'0001111'1111, "llvm::isa<MemAccessLabel>(#)"},
+	{"W",              0b11111'0001100'1111, "llvm::isa<WriteLabel>(#)"},
+	{"UW",             0b11111'0001000'1111, "g.isRMWStore(#)"},
+	{"R",              0b11111'0000011'1111, "llvm::isa<ReadLabel>(#)"},
+	{"UR",             0b11111'0000010'1111, "g.isRMWLoad(#)"},
+//	{"HelpingCas",     0b11111'0000000'1111, "llvm::isa<HelpingCasLabel>(#)"},
 	/* Fences */
-        {"F",              "llvm::isa<FenceLabel>(#)"},
-//	{"SmpFence",       "llvm::isa<SmpFenceLabel>(#)"},
+        {"F",              0b11111'0110000'0000, "llvm::isa<FenceLabel>(#)"},
+//	{"Fwmb",           0b11111'0100000'0000, "llvm::isa<SmpFenceLabel>(#)"},
 	/* Thread events */
-	{"ThreadCreate",   "llvm::isa<ThreadCreateLabel>(#)"},
-	{"ThreadJoin",     "llvm::isa<ThreadJoinLabel>(#)"},
-	{"ThreadKill",     "llvm::isa<ThreadKillLabel>(#)"},
-	{"ThreadStart",    "llvm::isa<ThreadStartLabel>(#)"},
-	{"ThreadFinish",   "llvm::isa<ThreadFinishLabel>(#)"},
-	/* Allocation & deallocation */
-	{"Alloc",          "llvm::isa<MallocLabel>(#)"},
-	{"Free",           "llvm::isa<FreeLabel>(#)"},
-	{"HpRetire",       "llvm::isa<HpRetireLabel>(#)"},
-	{"HpProtect",      "llvm::isa<HpProtectLabel>(#)"},
+	{"ThreadCreate",   0b00000'1000000'0000, "llvm::isa<ThreadCreateLabel>(#)"},
+	{"ThreadJoin",     0b00000'1000000'0000, "llvm::isa<ThreadJoinLabel>(#)"},
+	{"ThreadKill",     0b00000'1000000'0000, "llvm::isa<ThreadKillLabel>(#)"},
+	{"ThreadStart",    0b00000'1000000'0000, "llvm::isa<ThreadStartLabel>(#)"},
+	{"ThreadFinish",   0b00000'1000000'0000, "llvm::isa<ThreadFinishLabel>(#)"},
+	/* Allocation */
+	{"Alloc",          0b00000'1000000'0000, "llvm::isa<MallocLabel>(#)"},
+	{"Free",           0b00000'1000000'0000, "llvm::isa<FreeLabel>(#)"},
+	{"HpRetire",       0b00000'1000000'0000, "llvm::isa<HpRetireLabel>(#)"},
+	{"HpProtect",      0b00000'1000000'0000, "llvm::isa<HpProtectLabel>(#)"},
 	/* Mutexes */
-	{"Lock",           "llvm::isa<LockLabel>(#)"},
-	{"Unlock",         "llvm::isa<UnlockLabel>(#)"},
+	{"Lock",           0b00000'1000000'0000, "llvm::isa<LockLabel>(#)"},
+	{"Unlock",         0b00000'1000000'0000, "llvm::isa<UnlockLabel>(#)"},
 	/* RCU */
-	{"RCUSync",        "llvm::isa<RCUSyncLabel>(#)"},
-	{"RCULock",        "llvm::isa<RCULockLabel>(#)"},
-	{"RCUUnlock",      "llvm::isa<RCUUnlockLabel>(#)"},
-	/* File system operations */
-//	{"DskWrite",       "llvm::isa<DskWriteLabel>(#)"},
-//	{"DskMdWrite",     "llvm::isa<DskMdWriteLabel>(#)"},
-//	{"DskDirWrite",    "llvm::isa<DskDirWriteLabel>(#)"},
-//	{"DskJnlWrite",    "llvm::isa<DskJnlWriteLabel>(#)"},
-	{"DskOpen",        "llvm::isa<DskOpenLabel>(#)"},
-	{"DskFsync",       "llvm::isa<DskFsyncLabel>(#)"},
-	{"DskSync",        "llvm::isa<DskSyncLabel>(#)"},
-	{"DskPbarrier",    "llvm::isa<DskPbarrierLabel>(#)"},
+	{"RCUSync",        0b00000'1000000'0000, "llvm::isa<RCUSyncLabel>(#)"},
+	{"RCULock",        0b00000'1000000'0000, "llvm::isa<RCULockLabel>(#)"},
+	{"RCUUnlock",      0b00000'1000000'0000, "llvm::isa<RCUUnlockLabel>(#)"},
+	/* File ops */
+//	{"DskWrite",       0b11111'1000000'0000, "llvm::isa<DskWriteLabel>(#)"},
+//	{"DskMdWrite",     0b11111'1000000'0000, "llvm::isa<DskMdWriteLabel>(#)"},
+//	{"DskDirWrite",    0b11111'1000000'0000, "llvm::isa<DskDirWriteLabel>(#)"},
+//	{"DskJnlWrite",    0b11111'1000000'0000, "llvm::isa<DskJnlWriteLabel>(#)"},
+	{"DskOpen",        0b00000'1000000'0000, "llvm::isa<DskOpenLabel>(#)"},
+	{"DskFsync",       0b00000'1000000'0000, "llvm::isa<DskFsyncLabel>(#)"},
+	{"DskSync",        0b00000'1000000'0000, "llvm::isa<DskSyncLabel>(#)"},
+	{"DskPbarrier",    0b00000'1000000'0000, "llvm::isa<DskPbarrierLabel>(#)"},
 	/* Access modes */
-	{"NA",             "#.isNotAtomic()"},
-//	{"RLX",            "(#.getOrdering() == llvm::AtomicOrdering::Monotonic)"},
-	{"ACQ",            "#.isAtLeastAcquire()"},
-	{"REL",            "#.isAtLeastRelease()"},
-	{"SC",             "#.isSC()"},
+	{"NA",             0b00001'0001111'1111, "#.isNotAtomic()"},
+	{"ACQ",            0b11010'0111111'1111, "#.isAtLeastAcquire()"},
+	{"REL",            0b11100'0111111'1111, "#.isAtLeastRelease()"},
+	{"SC",             0b10000'0111111'1111, "#.isSC()"},
 	/* Random stuff */
-	{"IsDynamicLoc",   "G.is_dynamic_loc(#)"},
-	{"NotHpProtected", "G.notHpProtected(#)"},
+	{"IsDynamicLoc",   0b11111'0001111'0111, "g.is_dynamic_loc(#)"},
+	{"NotHpProtected", 0b11111'0001111'1101, "g.notHpProtected(#)"},
 	/* Initializer */
-	{"INIT",           "#.isInitializer()"}};
+	{"INIT",           0b00001'0000100'0000, "#.isInitializer()"}};
 
 const std::vector<RelationInfo> builtinRelations = {
         /* program order */
-        {"po-imm",      RelType::OneOne,     "po_succ",      "po_pred"},
-        {"po-loc",      RelType::OneOne,     "po_loc_succ",  "po_loc_pred"},
+        {"po-imm",      RelType::OneOne,     true,  "po_succ",      "po_pred"},
+        {"po-loc",      RelType::OneOne,     true,  "po_loc_succ",  "po_loc_pred"},
 	/* intra-thread dependencies */
-        {"ctrl-imm",    RelType::UnsuppMany, "?",            "ctrl_preds"},
-        {"addr-imm",    RelType::UnsuppMany, "?",            "addr_preds"},
-        {"data-imm",    RelType::UnsuppMany, "?",            "data_preds"},
+        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",            "ctrl_preds"},
+        {"addr-imm",    RelType::UnsuppMany, true,  "?",            "addr_preds"},
+        {"data-imm",    RelType::UnsuppMany, true,  "?",            "data_preds"},
 	/* same thread */
-	{"same-thread", RelType::Conj,	     "same_thread",  "same_thread"},
+	{"same-thread", RelType::Conj,	     false, "same_thread",  "same_thread"},
 	/* same location */
-        {"alloc",       RelType::ManyOne,    "alloc_succs",  "alloc"},
-        {"frees",       RelType::OneOne,     "frees",        "alloc"},
-        {"loc-overlap", RelType::Final,      "?",            "loc_preds"},
+        {"alloc",       RelType::ManyOne,    false, "alloc_succs",  "alloc"},
+        {"frees",       RelType::OneOne,     false, "frees",        "alloc"},
+        {"loc-overlap", RelType::Final,      false, "?",            "loc_preds"},
 	/* reads-from, coherence, from-read */
-        {"rf",          RelType::ManyOne,    "rf_succs",     "rf_pred"},
-        {"rfe",         RelType::ManyOne,    "rfe_succs",    "rfe_pred"},
-        {"mo-imm",      RelType::OneOne,     "mo_succ",      "mo_pred"},
-        {"fr-init",     RelType::OneOne,     "fr_init_succ", "fr_init_pred"}};
+        {"rf",          RelType::ManyOne,    false, "rf_succs",     "rf_pred"},
+        {"rfe",         RelType::ManyOne,    false, "rfe_succs",    "rfe_pred"},
+        {"mo-imm",      RelType::OneOne,     false, "mo_succ",      "mo_pred"},
+        {"fr-init",     RelType::OneOne,     false, "fr_init_succ", "fr_init_pred"}};
 
 
-std::string TransLabel::toString() const
+std::string PredLabel::toString() const
 {
-	std::string s =
-		isPredicate() ?
-			builtinPredicates[trans].name :
-		isBuiltin() ?
-			builtinRelations[trans - builtinPredicates.size()].name :
-		std::string("$") + std::to_string(trans - builtinPredicates.size() - builtinRelations.size());
+	std::string s;
+	bool not_first = false;
+	for (auto &i : preds)
+		s += (not_first ? ";" : (not_first = true, "["))
+		     + builtinPredicates[i].name;
+	return s + "]";
+}
+
+std::string RelLabel::toString() const
+{
+	std::string s =	isBuiltin() ?  builtinRelations[trans].name :
+		std::string("$") + std::to_string(getCalcIndex());
 	if (flipped)
 		s += "^-1";
 	return s;
 }
 
-void TransLabel::output_for_genmc (std::ostream& ostr,
+void PredLabel::output_for_genmc (std::ostream& ostr,
 				  const std::string &arg,
 				  const std::string &res) const
 {
-	if (isPredicate()) {
-		auto s = builtinPredicates[trans].genmcString;
-		s.replace(s.find_first_of('#'), 1, arg);
-		ostr << "\tif (" << s << ") {\n";
-		ostr << "\t\tauto " << res << " = " << arg << ";\n";
-		return;
+	bool not_first = false;
+	if (preds.empty())
+		ostr << "\t{\n";
+	else {
+		for (auto &i : preds) {
+			if (not_first) {
+				ostr << "\n\t   && ";
+			} else {
+				ostr << "\tif (";
+				not_first = true;
+			}
+			auto s = builtinPredicates[i].genmcString;
+			s.replace(s.find_first_of('#'), 1, arg);
+			ostr << s;
+		}
+		ostr << ") {\n";
 	}
+	ostr << "\t\tauto " << res << " = " << arg << ";\n";
+}
+
+void RelLabel::output_for_genmc (std::ostream& ostr,
+				  const std::string &arg,
+				  const std::string &res) const
+{
 	if (isBuiltin()) {
-		const auto &n = builtinRelations[trans - builtinPredicates.size()];
+		const auto &n = builtinRelations[trans];
 		const auto &s = flipped ? n.predString : n.succString;
 		if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 			ostr << "\tif (auto " << res << " = " << s << ") {\n";
@@ -112,13 +139,7 @@ void TransLabel::output_for_genmc (std::ostream& ostr,
 			ostr << "\tfor (auto &" << res << " : " << s << ") {\n";
 		return;
 	}
-	int k = trans - builtinPredicates.size() - builtinRelations.size();
-	ostr << "\tfor (auto &" << res << " : calculator" << k << "(" << arg << "))\n";
-}
-
-std::ostream &operator<<(std::ostream &s, const TransLabel &t)
-{
-	return s << t.toString();
+	ostr << "\tfor (auto &" << res << " : calculator" << getCalcIndex() << "(" << arg << "))\n";
 }
 
 //static std::vector<std::set<std::string> > invalids = {};
