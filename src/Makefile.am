@@ -44,6 +44,7 @@ libgenmc_a_SOURCES = \
   Interpreter.cpp Interpreter.h \
   InterpreterEnumAPI.cpp InterpreterEnumAPI.hpp \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
+  SCChecker.cpp SCChecker.hpp \
   LabelVisitor.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \

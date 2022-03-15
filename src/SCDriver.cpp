@@ -21,18 +21,11 @@
 #include "config.h"
 #include "SCDriver.hpp"
 #include "Interpreter.h"
-#include "ExecutionGraph.hpp"
-#include "GraphIterators.hpp"
-#include "PSCCalculator.hpp"
-#include "PersistencyChecker.hpp"
+#include "SCChecker.hpp"
 
 SCDriver::SCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		   std::unique_ptr<ModuleInfo> MI)
-	: GenMCDriver(conf, std::move(mod), std::move(MI)), visited0()
-{
-	auto &g = getGraph();
-	return;
-}
+	: GenMCDriver(conf, std::move(mod), std::move(MI)) {}
 
 /* Calculates a minimal hb vector clock based on po for a given label */
 View SCDriver::calcBasicHbView(Event e) const
@@ -428,50 +421,7 @@ void SCDriver::initConsCalculation()
 	return;
 }
 
-bool SCDriver::visit0(const Event &e)
-{
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-
-	visited0[lab->getStamp()] = NodeStatus::entered;
-	for (const auto &s : fr_imm_preds(g, e)) {
-		auto status = visited0[g.getEventLabel(s)->getStamp()];
-		if (status == NodeStatus::unseen && !visit0(s))
-			return false;
-		else if (status == NodeStatus::entered)
-			return false;
-	}
-	for (const auto &s : co_imm_preds(g, e)) {
-		auto status = visited0[g.getEventLabel(s)->getStamp()];
-		if (status == NodeStatus::unseen && !visit0(s))
-			return false;
-		else if (status == NodeStatus::entered)
-			return false;
-	}
-	for (const auto &s : po_imm_preds(g, e)) {
-		auto status = visited0[g.getEventLabel(s)->getStamp()];
-		if (status == NodeStatus::unseen && !visit0(s))
-			return false;
-		else if (status == NodeStatus::entered)
-			return false;
-	}
-	for (const auto &s : rf_inv_succs(g, e)) {
-		auto status = visited0[g.getEventLabel(s)->getStamp()];
-		if (status == NodeStatus::unseen && !visit0(s))
-			return false;
-		else if (status == NodeStatus::entered)
-			return false;
-	}
-	visited0[lab->getStamp()] = NodeStatus::left;
-	return true;
-}
-
 bool SCDriver::isConsistent(const Event &e)
 {
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-
-	visited0.clear();
-	visited0.resize(lab->getStamp() + 1, NodeStatus::unseen);
-	return true && visit0(e);
+	return SCChecker(getGraph()).isConsistent(e);
 }

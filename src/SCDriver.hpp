@@ -60,11 +60,6 @@ private:
 
 	/* Returns an event that is racy with wLab, or INIT if none is found */
 	Event findRaceForNewStore(const WriteLabel *wLab);
-
-	enum class NodeStatus { unseen, entered, left };
-
-	std::vector<NodeStatus> visited0;
-	bool visit0(const Event &e);
 };
 
 #endif /* __SC_DRIVER_HPP__ */
