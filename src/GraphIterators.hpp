@@ -896,28 +896,24 @@ inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 }
 
 
-/*******************************************************************************
- **                         rf-inv-iteration utilities
- ******************************************************************************/
-
 using const_rf_inv_iterator = const_event_iterator;
 using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
 
-inline const_rf_inv_iterator rf_inv_succ_begin(const ExecutionGraph &G, Event e)
+inline const_rf_inv_iterator rf_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
 	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf());
 }
 
-inline const_rf_inv_iterator rf_inv_succ_end(const ExecutionGraph &G, Event e)
+inline const_rf_inv_iterator rf_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
 	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf().next());
 }
 
-inline const_rf_inv_range rf_inv_succs(const ExecutionGraph &G, Event e)
+inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
 {
-	return const_rf_inv_range(rf_inv_succ_begin(G, e), rf_inv_succ_end(G, e));
+	return const_rf_inv_range(rf_pred_begin(G, e), rf_pred_end(G, e));
 }
 
 
