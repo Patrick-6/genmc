@@ -19,14 +19,14 @@ static const unsigned other_event_bitmask =  0b1'00000'000000'00'00'00;
 
 const std::vector<PredicateInfo> builtinPredicates = {
 	/* Access modes */
-	{"NA",             0b0'00001'001111'11'11'11, "#.isNotAtomic()"},
-	{"ACQ",            0b0'11010'111111'11'11'11, "#.isAtLeastAcquire()"},
-	{"REL",            0b0'11100'111111'11'11'11, "#.isAtLeastRelease()"},
-	{"SC",             0b0'10000'111111'11'11'11, "#.isSC()"},
+	{"NA",             0b0'00001'001111'11'11'11, "#->isNotAtomic()"},
+	{"ACQ",            0b0'11010'111111'11'11'11, "#->isAtLeastAcquire()"},
+	{"REL",            0b0'11100'111111'11'11'11, "#->isAtLeastRelease()"},
+	{"SC",             0b0'10000'111111'11'11'11, "#->isSC()"},
 	/* Random stuff */
 	{"IsDynamicLoc",   0b0'11111'001111'11'01'11, "g.is_dynamic_loc(#)"},
 	{"NotHpProtected", 0b0'11111'001111'11'11'01, "g.notHpProtected(#)"},
-	{"RfInit",         0b0'11111'000011'10'11'11, "llvm::isa<ReadLabel>(#) && static_cast<ReadLabel>(#).getRf().isInitializer()"},
+	{"RfInit",         0b0'11111'000011'10'11'11, "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
 	/* Memory accesses */
 	{"MemAccess",      0b0'11111'001111'11'11'11, "llvm::isa<MemAccessLabel>(#)"},
 	{"W",              0b0'11111'001100'00'11'11, "llvm::isa<WriteLabel>(#)"},
@@ -138,8 +138,13 @@ void PredLabel::output_for_genmc (std::ostream& ostr,
 				ostr << "\tif (";
 				not_first = true;
 			}
+			// FIXME: Remove hardcoding of LAB.
+			//        This is easier to remove after
+			//        the printing infra is refactored.
+			//        TransLabel should not know anything
+			//        about tabs, spacing, names, etc.
 			auto s = builtinPredicates[i].genmcString;
-			s.replace(s.find_first_of('#'), 1, arg);
+			s.replace(s.find_first_of('#'), 1, "lab");
 			ostr << s;
 		}
 		ostr << ") {\n";
@@ -160,7 +165,7 @@ void RelLabel::output_for_genmc (std::ostream& ostr,
 		ostr << "\tfor (auto &" << res << " : " << s << "(g, " << arg << ")) {\n";
 		return;
 	}
-	ostr << "\tfor (auto &" << res << " : calculator" << getCalcIndex() << "(" << arg << "))\n";
+	ostr << "\tfor (auto &" << res << " : calculated" << getCalcIndex() << "(" << arg << ")) {\n";
 }
 
 bool PredLabel::merge (const PredLabel &other)
