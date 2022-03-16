@@ -37,12 +37,12 @@ const std::vector<PredicateInfo> builtinPredicates = {
 //	{"HelpingCas",     0b0'11111'0000000'0000'11'11'11, "llvm::isa<HelpingCasLabel>(#)"},
 	/* Fences */
         {"F",              0b0'11111'1111111'0000'00'00'00, "llvm::isa<FenceLabel>(#)"},
-	{"Fwmb",           0b0'00000'0000010'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::WMB)"},
-	{"Frmb",           0b0'00000'0000100'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::RMB)"},
-	{"Fba",            0b0'00000'0001000'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::MBBA)"},
-	{"Faa",            0b0'00000'0010000'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::MBAA)"},
-	{"Fas",            0b0'00000'0100000'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::MBAS)"},
-	{"Faul",           0b0'00000'1000000'0000'00'00'00, "SmpFenceLabelLKMM::isType(SmpFenceType::MBAUL)"},
+	{"Fwmb",           0b0'00000'0000010'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"},
+	{"Frmb",           0b0'00000'0000100'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"},
+	{"Fba",            0b0'00000'0001000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBBA)"},
+	{"Faa",            0b0'00000'0010000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAA)"},
+	{"Fas",            0b0'00000'0100000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
+	{"Faul",           0b0'00000'1000000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
 	/* Thread events */
 	{"ThreadCreate",   other_event_bitmask, "llvm::isa<ThreadCreateLabel>(#)"},
 	{"ThreadJoin",     other_event_bitmask, "llvm::isa<ThreadJoinLabel>(#)"},
