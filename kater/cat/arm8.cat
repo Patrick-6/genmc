@@ -1,32 +1,37 @@
 // Standard preamble: various combinations that are invalid
 
-assume [W] ; [R] = 0
-assume [F] ; [R] = 0
-assume [F] ; [W] = 0
-assume [F] ; mo_imm = 0
+assume [F] ; mo-imm = 0
 assume [F] ; rf = 0
-assume [F] ; rf_inv = 0
-assume mo_imm ; [F] = 0
+assume mo-imm ; [F] = 0
 assume rf ; [F] = 0
-assume rf_inv ; [F] = 0
-assume [REL] ; [SC] = 0
-assume [ACQ] ; [SC] = 0
+
+let DMB_SY = [F ; SC]
+let DMB_LD = [F ; ACQ]
+let DMB_ST = [Fwmb]
+let ISB    = [Frmb]   // hack
+let A      = [R ; SC]
+let Q      = [R ; ACQ]
+let L      = [W ; SC]
+let R_ret  = [R]      // hack
 
 let dmb.full = DMB_SY
 let dmb.ld = DMB_LD
 let dmb.st = DMB_ST
 
 // Definition of standard relations
-let po = po_imm+
-let co = mo_imm+
-let fr = rf_inv ; co | fr_init ; co*
-let ctrl = ctrl_imm ; po_imm*
+let po = po-imm+
+let co = mo-imm+
+let fr = rf^-1 ; co | fr-init ; co*
+let ctrl = ctrl-imm ; po-imm*
+let addr = addr-imm+
+let data = data-imm+
 
 // Atomic RMW relation
-let rmw = lxsx | amo
+let amo = [UR] ; po-imm ; [UW]
+let rmw = amo // | lxsx
 
 // Local read successor
-// let lrs = [W]; (po-loc \ (po-loc;[W];po-loc)) ; [R]
+let lrs = [W]; po-loc ; ([R] ; po-loc)* ; [R]
 
 // Dependency ordering
 let dob = addr | data
@@ -37,7 +42,7 @@ let dob = addr | data
 
 // Atomic ordering
 let aob = rmw
-	| [range_rmw]; lrs; [A | Q]
+	| [UW]; lrs; [A | Q]
 
 // Barrier ordering
 let bob = po; [dmb.full]; po
