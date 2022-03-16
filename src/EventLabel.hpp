@@ -2091,6 +2091,12 @@ public:
 		return LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(std::forward<Ts>(params)...);
 	}
 
+	static bool isType(const EventLabel *lab, SmpFenceType type) {
+		if (auto *fLab = llvm::dyn_cast<SmpFenceLabelLKMM>(lab))
+			return fLab->getType() == type;
+		return false;
+	}
+
 	/* Returns the type of this fence */
 	SmpFenceType getType() const { return type; }
 
