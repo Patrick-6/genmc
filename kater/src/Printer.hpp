@@ -1,5 +1,5 @@
-#ifndef _KATER_PRINTER_HPP_
-#define _KATER_PRINTER_HPP_
+#ifndef __KATER_PRINTER_HPP__
+#define __KATER_PRINTER_HPP__
 
 #include "Driver.hpp"
 #include "NFA.hpp"
@@ -52,4 +52,4 @@ private:
 	const NFAs *res;
 };
 
-#endif /* _KATER_PRINTER_HPP_ */
+#endif /* __KATER_PRINTER_HPP__ */
