@@ -15,31 +15,38 @@
 #define YY_DECL yy::parser::symbol_type yylex (Driver& drv)
 YY_DECL;
 
+enum class VarStatus { Normal, Reduce };
+
+// Results after conversion to NFA
+struct NFAs {
+	NFA nfa_acyc;
+	std::vector<std::pair<NFA, VarStatus>> nsaved;
+	std::vector<std::pair<NFA, NFA>>       nincl;
+};
+
 class Driver {
-
-private:
-	enum class VarStatus { Normal, Reduce };
-
 public:
+	using URE = std::unique_ptr<RegExp>;
+
 	Driver();
 
 	yy::location &getLocation() { return location; }
 
-	void registerID(std::string id, std::unique_ptr<RegExp> re) {
+	void registerID(std::string id, URE re) {
 		variables.insert({id, std::move(re)});
 	}
 
-	void registerSaveID(std::string id, std::unique_ptr<RegExp> re) {
+	void registerSaveID(std::string id, URE re) {
 		savedVariables.push_back({std::move(re), VarStatus::Normal});
 		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
 	}
 
-	void registerSaveReducedID(std::string id, std::unique_ptr<RegExp> re) {
+	void registerSaveReducedID(std::string id, URE re) {
 		savedVariables.push_back({std::move(re), VarStatus::Reduce});
 		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
 	}
 
-	std::unique_ptr<RegExp> getRegisteredID(std::string id, const yy::location &loc) {
+	URE getRegisteredID(std::string id, const yy::location &loc) {
 		auto it = variables.find(id);
 		if (it == variables.end()) {
 			std::cerr << loc << "\n";
@@ -53,7 +60,7 @@ public:
 	int parse ();
 
 	// Generate the NFAs for the regular expressions.
-	void generate_NFAs ();
+	void generate_NFAs (NFAs &res);
 
 	// Handle "assert c" declaration in the input file
 	void registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc);
@@ -70,15 +77,11 @@ public:
 	// Handle consistency constraint in the input file
 	void addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc);
 
-	// Output C++ files for GenMC
-	void output_genmc_header_file();
-	void output_genmc_impl_file();
-
 private:
-	using VarMap = std::unordered_map<std::string, std::unique_ptr<RegExp>>;
-	using SavedVarSet = std::vector<std::pair<std::unique_ptr<RegExp>, VarStatus>>;
+	using VarMap = std::unordered_map<std::string, URE>;
+	using SavedVarSet = std::vector<std::pair<URE, VarStatus>>;
 
-	void expandSavedVars(std::unique_ptr<RegExp> &r);
+	void expandSavedVars(URE &r);
 
 	// Location for lexing/parsing
 	yy::location location;
@@ -92,11 +95,8 @@ private:
 	//      If just two, I prefer separated. If more, polymorphism.
 	SavedVarSet savedVariables;
 
-	std::vector<std::unique_ptr<RegExp> > acyclicityConstraints;
-
-	// Results after conversion to NFA
-	NFA nfa_acyc;
-	std::vector<std::pair<NFA, VarStatus>> nsaved;
+	std::vector<URE> acyclicityConstraints;
+	std::vector<std::pair<URE, URE>> inclusionConstraints;
 };
 
 #endif /* KATER_DRIVER_HPP */

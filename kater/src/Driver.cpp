@@ -107,7 +107,7 @@ void Driver::addConstraint(std::unique_ptr<Constraint> c, const yy::location &lo
 	std::cerr << loc << ": [Warning] Ignoring the unsupported constraint " << *c << std::endl;
 }
 
-void Driver::generate_NFAs ()
+void Driver::generate_NFAs (NFAs &res)
 {
 	for (auto i = 0u; i < savedVariables.size(); i++) {
 		auto &v = savedVariables[i];
@@ -121,7 +121,7 @@ void Driver::generate_NFAs ()
 			n.simplify();
 		if (config.verbose > 0)
 			std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
-		nsaved.push_back({std::move(n), v.second});
+		res.nsaved.push_back({std::move(n), v.second});
 	}
 
         for (auto &r : acyclicityConstraints) {
@@ -138,113 +138,8 @@ void Driver::generate_NFAs ()
 		n.simplify();
 		if (config.verbose > 0 && acyclicityConstraints.size() > 1)
 			std::cout << "Generated NFA: " << n << std::endl;
-		nfa_acyc.alt(std::move(n));
+		res.nfa_acyc.alt(std::move(n));
         }
 	if (config.verbose > 0)
-		std::cout << "Generated NFA: " << nfa_acyc << std::endl;
-}
-
-
-static void printKaterNotice(const std::string &name, std::ostream &out = std::cout)
-{
-	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
-	return;
-}
-
-
-#define PRINT_LINE(line) (*out) << line << "\n"
-
-void Driver::output_genmc_header_file ()
-{
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-
-	auto className = name;
-	className += "Checker";
-
-	std::string guardName = "__";
-	guardName += name;
-	guardName += "_CHECKER_HPP__";
-
-	std::ostream* out = &std::cout;
-	std::ofstream fout;
-	if (config.outPrefix != "") {
-		fout.open(className + ".hpp");
-		if (!fout.is_open())
-			return;
-		out = &fout;
-	}
-
-	printKaterNotice(name, *out);
-
-	PRINT_LINE("#ifndef " << guardName);
-	PRINT_LINE("#define " << guardName);
-
-	PRINT_LINE("");
-	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
-	PRINT_LINE("#include \"GraphIterators.hpp\"");
-	PRINT_LINE("#include \"PersistencyChecker.hpp\"");
-	PRINT_LINE("#include \"VSet.hpp\"");
-	PRINT_LINE("#include <vector>");
-
-	PRINT_LINE("");
-	PRINT_LINE("class " << className << " {");
-
-	PRINT_LINE("");
-	PRINT_LINE("private:");
-	PRINT_LINE("\tenum class NodeStatus { unseen, entered, left };");
-
-	PRINT_LINE("public:");
-
-	for (int i = 0; i < nsaved.size(); ++i)
-		nsaved[i].first.print_calculator_header_public(*out, i);
-	nfa_acyc.print_acyclic_header_public(*out, className);
-
-	PRINT_LINE("");
-	PRINT_LINE("private:");
-
-	for (int i = 0; i < nsaved.size(); ++i)
-		nsaved[i].first.print_calculator_header_private(*out, i);
-	nfa_acyc.print_acyclic_header_private(*out);
-
-	PRINT_LINE("\tExecutionGraph &g;");
-
-	PRINT_LINE("};");
-
-	PRINT_LINE("");
-	PRINT_LINE("#endif /* " << guardName << " */");
-}
-
-void Driver::output_genmc_impl_file ()
-{
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-
-	auto className = name;
-	className += "Checker";
-
-	std::ostream* out = &std::cout;
-	std::ofstream fout;
-	if (config.outPrefix != "") {
-		fout.open(className + ".cpp");
-		if (!fout.is_open())
-			return;
-		out = &fout;
-	}
-
-	printKaterNotice(name, *out);
-
-	PRINT_LINE("#include \"" << className << ".hpp\"");
-	PRINT_LINE("");
-
-	for (int i = 0; i < nsaved.size(); ++i) {
-		if (nsaved[i].second == VarStatus::Reduce)
-			nsaved[i].first.printCalculatorImplReduce(*out, className, i);
-		else
-			nsaved[i].first.printCalculatorImpl(*out, className, i);
-	}
-	nfa_acyc.print_acyclic_impl(*out, className);
-
+		std::cout << "Generated NFA: " << res.nfa_acyc << std::endl;
 }

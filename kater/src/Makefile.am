@@ -12,6 +12,7 @@ if kater
 	Lexer.lpp \
 	NFA.cpp	\
 	Parser.ypp \
+	Printer.cpp \
 	RegExp.cpp \
 	TransLabel.cpp
 endif

@@ -1,6 +1,7 @@
-#include "Driver.hpp"
 #include "Config.hpp"
+#include "Driver.hpp"
 #include "Error.hpp"
+#include "Printer.hpp"
 
 #include <string.h>
 #include <memory>
@@ -14,10 +15,11 @@ int main(int argc, char **argv)
 	if (d.parse())
 		exit(EPARSE);
 
-	d.generate_NFAs();
+	NFAs res;
+	d.generate_NFAs(res);
 
-	d.output_genmc_header_file();
-	d.output_genmc_impl_file();
+	Printer p (&res);
+	p.output();
 
 	return 0;
 }
