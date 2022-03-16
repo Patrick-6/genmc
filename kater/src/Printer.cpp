@@ -141,35 +141,31 @@ void Printer::outputImpl()
 /*                          Calculators                                  */
 /* --------------------------------------------------------------------- */
 
-#define VSET             "VSet<Event>"
-#define CALC             "calculate" << whichCalc << "(const ExecutionGraph &g, const Event &e)"
-#define VISIT_PROC(i)    "visit" << whichCalc << "_" << i
+#define CALC             "calculate" << whichCalc << "(const Event &e)"
+#define VISIT_PROC(i)    "visit" << whichCalc << "_" << ids[i]
+#define VISIT_DECL(i)    VISIT_PROC(i) << "(VSet<Event> &calcRes, const Event &e)"
 #define VISIT_CALL(i,e)  VISIT_PROC(i) << "(calcRes, " << e << ");"
-#define VISIT_PARAMS	 "(" << VSET << " &calcRes, const ExecutionGraph &g, const Event &e)"
-#define VISITED_ARR	 "visitedCalc" << whichCalc
-#define VISITED_IDX(i,e) VISITED_ARR << "[g.getEventLabel(" << e \
-			 << ")->getStamp()][" << i << "]"
+#define VISITED_ARR(i)	 "visitedCalc" << whichCalc << "_" << ids[i]
+#define VISITED_IDX(i,e) VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
 
 void Printer::printCalculatorHeader(std::ostream &fout, const NFA &nfa, int whichCalc)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
-	PRINT_LINE("\t" << VSET << " " << CALC << ";");
+	/* entry point */
+	PRINT_LINE("\tVSet<Event> " << CALC << ";");
+	PRINT_LINE("");
 
 	/* visit procedures */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tvoid " << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+		PRINT_LINE("\tvoid " << VISIT_DECL(&*s));
 	});
 	PRINT_LINE("");
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR << ids[&*s] << ";");
+		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR(&*s) << ";");
 	});
-	PRINT_LINE("");
-
-	/* calculated relation */
-	PRINT_LINE("\tVSet<Event> calculated" << whichCalc << ";");
 	PRINT_LINE("");
 }
 
@@ -178,13 +174,13 @@ void Printer::printCalculatorImpl(std::ostream &fout, const NFA &nfa, int whichC
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("void " << className << "::" << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+		PRINT_LINE("void " << className << "::" << VISIT_DECL(&*s));
 		PRINT_LINE("{");
 		PRINT_LINE("\tauto &g = getGraph();");
 		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
 
 		PRINT_LINE("");
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		if (s->isStarting()) {
 			PRINT_LINE("\tcalcRes.insert(e);");
 			if (reduce == VarStatus::Reduce) {
@@ -192,41 +188,42 @@ void Printer::printCalculatorImpl(std::ostream &fout, const NFA &nfa, int whichC
 				PRINT_LINE("\t\tcalcRes.erase(p);");
 				std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 					if (a->isAccepting())
-						PRINT_LINE("\t\t" << VISITED_IDX(ids[&*a], "p") << " = true;");
+						PRINT_LINE("\t\t" << VISITED_IDX(&*a, "p") << " = true;");
 				});
 				PRINT_LINE("\t}");
 			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			t.label->output_for_genmc(fout, "e", "p");
-			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
+			PRINT_LINE("\t\tauto status = " << VISITED_IDX(t.dest, "p") << ";");
 			PRINT_LINE("\t\tif (status == NodeStatus::unseen)");
-			PRINT_LINE("\t\t\t" << VISIT_CALL(ids[t.dest], "p"));
+			PRINT_LINE("\t\t\t" << VISIT_CALL(t.dest, "p"));
 			PRINT_LINE("\t}");
 		});
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::left;");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::left;");
 		PRINT_LINE("}");
 		PRINT_LINE("");
 	});
 
-	PRINT_LINE(VSET << " " << className << "::" << CALC);
+	PRINT_LINE("VSet<Event> " << className << "::" << CALC);
 	PRINT_LINE("{");
-	PRINT_LINE("\t" << VSET << " calcRes;");
-	PRINT_LINE("\t" << VISITED_ARR << ".clear();");
-	PRINT_LINE("\t" << VISITED_ARR << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+	PRINT_LINE("\tVSet<Event> calcRes;");
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".clear();");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+	});
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 		if (a->isAccepting())
-			PRINT_LINE("\t" << VISIT_CALL(ids[&*a], "e"));
+			PRINT_LINE("\t" << VISIT_CALL(&*a, "e"));
 	});
 	PRINT_LINE("\treturn calcRes;");
 	PRINT_LINE("}");
 }
 
-#undef VSET
 #undef CALC
 #undef VISIT_PROC
+#undef VISIT_DECL
 #undef VISIT_CALL
-#undef VISIT_PARAMS
 #undef VISITED_ARR
 #undef VISITED_IDX
 
@@ -234,13 +231,13 @@ void Printer::printCalculatorImpl(std::ostream &fout, const NFA &nfa, int whichC
 /*                      Acyclicity checker                               */
 /* --------------------------------------------------------------------- */
 
-#define VISIT_PROC(i)      "visitAcyclic" << i
+#define VISIT_PROC(i)      "visitAcyclic" << ids[i]
+#define VISIT_DECL(i)      VISIT_PROC(i) << "(const Event &e)"
 #define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
-#define VISIT_PARAMS	   "(const Event &e)"
-#define VISITED_ARR	   "visitedAcyclic"
-#define VISITED_IDX(i,e)   VISITED_ARR << i << "[g.getEventLabel(" << e << ")->getStamp()]"
+#define VISITED_ARR(i)	   "visitedAcyclic" << ids[i]
+#define VISITED_IDX(i,e)   VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
 #define VISITED_ACCEPTING  "visitedAccepting"
-#define TOPLEVEL           "isAcyclic" << VISIT_PARAMS
+#define TOPLEVEL           "isAcyclic (const Event &e)"
 
 void Printer::printAcyclicHeader(std::ostream &fout, const NFA &nfa)
 {
@@ -253,18 +250,18 @@ void Printer::printAcyclicHeader(std::ostream &fout, const NFA &nfa)
 	/* visit procedures */
 	PRINT_LINE("");
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tbool " << VISIT_PROC(ids[&*s]) << VISIT_PARAMS << ";");
+		PRINT_LINE("\tbool " << VISIT_DECL(&*s) << ";");
 	});
 
 	/* status arrays */
 	PRINT_LINE("");
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR << ids[&*s] << ";");
+		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR(&*s) << ";");
 	});
 
 	/* accepting counter */
 	PRINT_LINE("");
-	PRINT_LINE("\tint " <<  VISITED_ACCEPTING << " = 0;");
+	PRINT_LINE("\tint " << VISITED_ACCEPTING << ";");
 }
 
 void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
@@ -272,20 +269,20 @@ void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("bool " << className << "::" << VISIT_PROC(ids[&*s]) << VISIT_PARAMS);
+		PRINT_LINE("bool " << className << "::" << VISIT_DECL(&*s));
 		PRINT_LINE("{");
 
 		PRINT_LINE("\tauto &g = getGraph();");
 		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
 
 		PRINT_LINE("");
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::entered;");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::entered;");
 		if (s->isStarting())
 			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			t.label->output_for_genmc(fout, "e", "p");
-			PRINT_LINE("\t\tauto status = " << VISITED_IDX(ids[t.dest], "p") << ";");
-			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(ids[t.dest], "p") << ")");
+			PRINT_LINE("\t\tauto status = " << VISITED_IDX(t.dest, "p") << ";");
+			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(t.dest, "p") << ")");
 			PRINT_LINE("\t\t\treturn false;");
 			PRINT_LINE("\t\telse if (status == NodeStatus::entered && visitedAccepting)");
 			PRINT_LINE("\t\t\treturn false;");
@@ -293,7 +290,7 @@ void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
 		});
 		if (s->isStarting())
 			PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << "[lab->getStamp()]" << " = NodeStatus::left;");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::left;");
 		PRINT_LINE("\treturn true;");
 		PRINT_LINE("}");
 		PRINT_LINE("");
@@ -303,12 +300,12 @@ void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
 	PRINT_LINE("{");
 	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << ".clear();");
-		PRINT_LINE("\t" << VISITED_ARR << ids[&*s] << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".clear();");
+		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
 	});
 	PRINT_LINE("\treturn true");
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE ("\t\t&& " << VISIT_CALL(ids[&*s], "e")
+		PRINT_LINE ("\t\t&& " << VISIT_CALL(&*s, "e")
 			    << (&*s == (--nfa.states_end())->get() ? ";" : ""));
 	});
 	PRINT_LINE("}");
@@ -317,8 +314,8 @@ void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
 
 
 #undef VISIT_PROC
+#undef VISIT_DECL
 #undef VISIT_CALL
-#undef VISIT_PARAMS
 #undef VISITED_ARR
 #undef VISITED_IDX
 #undef VISITED_ACCEPTING
@@ -329,11 +326,11 @@ void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
 /* --------------------------------------------------------------------- */
 
 #define VISIT_PROC(i)      "visitInclusion" << whichInclusion << "_" << ids[i]
+#define VISIT_DECL(i)	   VISIT_PROC(i) << "(const Event &e)"
 #define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
-#define VISIT_PARAMS	   "(const Event &e)"
 #define VISITED_ARR(i)	   "visitedInclusion" << whichInclusion << "_" << ids[i]
 #define VISITED_IDX(i,e)   VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
-#define TOPLEVEL           "checkInclusion" << whichInclusion << VISIT_PARAMS
+#define TOPLEVEL           "checkInclusion" << whichInclusion << "(const Event &e)"
 
 void Printer::printInclusionHeader(std::ostream &fout, const NFA &lhs, const NFA &rhs,
 				   int whichInclusion)
@@ -347,7 +344,7 @@ void Printer::printInclusionHeader(std::ostream &fout, const NFA &lhs, const NFA
 	/* visit procedures */
 	PRINT_LINE("");
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("\tvoid " << VISIT_PROC(&*s) << VISIT_PARAMS << ";");
+		PRINT_LINE("\tvoid " << VISIT_DECL(&*s) << ";");
 	});
 
 	/* status arrays */
@@ -363,7 +360,7 @@ void Printer::printInclusionImpl(std::ostream &fout, const NFA &lhs, const NFA &
 	auto ids = assignStateIDs(rhs.states_begin(), rhs.states_end());
 
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("void " << className << "::" << VISIT_PROC(&*s) << VISIT_PARAMS);
+		PRINT_LINE("void " << className << "::" << VISIT_DECL(&*s));
 		PRINT_LINE("{");
 
 		PRINT_LINE("\tauto &g = getGraph();");
@@ -401,8 +398,8 @@ void Printer::printInclusionImpl(std::ostream &fout, const NFA &lhs, const NFA &
 }
 
 #undef VISIT_PROC
+#undef VISIT_DECL
 #undef VISIT_CALL
-#undef VISIT_PARAMS
 #undef VISITED_ARR
 #undef VISITED_IDX
 #undef TOPLEVEL
