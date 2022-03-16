@@ -202,31 +202,6 @@ public:
  **                           Empty Constraints
  ******************************************************************************/
 
-class EmptyConstraint : public Constraint {
-
-protected:
-	EmptyConstraint(std::unique_ptr<RegExp> e) : Constraint() {
-		addKid(std::move(e));
-	}
-public:
-	template<typename... Ts>
-	static std::unique_ptr<EmptyConstraint> create(Ts&&... params) {
-		return std::unique_ptr<EmptyConstraint>(
-			new EmptyConstraint(std::forward<Ts>(params)...));
-	}
-
-	/* NOTE: Might not return EmptyConstraint */
-	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> e);
-
-	std::unique_ptr<Constraint> clone() const override {
-		return create(getKid(0)->clone());
-	}
-
-	std::ostream &dump(std::ostream &s) const override {
-		return s << *getKid(0) << " = 0";
-	}
-
-	bool checkStatically(std::string &cex) const override;
-};
+std::unique_ptr<Constraint> EmptyConstraint(std::unique_ptr<RegExp> e);
 
 #endif /* __CONSTRAINT_HPP__ */

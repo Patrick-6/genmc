@@ -97,7 +97,7 @@ decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
 constraint:
 	  rel "=" rel		{ $$ = EqualityConstraint::create(std::move($1), std::move($3)); }
 	| rel "<=" rel		{ $$ = SubsetConstraint::create(std::move($1), std::move($3)); }
-	| "empty" rel		{ $$ = EmptyConstraint::create(std::move($2)); }
+	| "empty" rel		{ $$ = EmptyConstraint(std::move($2)); }
 	| "acyclic" rel		{ $$ = AcyclicConstraint::create(std::move($2)); }
 	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
 	;

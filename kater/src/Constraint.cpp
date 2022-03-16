@@ -1,19 +1,8 @@
 #include "Constraint.hpp"
 
-std::unique_ptr<Constraint>
-EmptyConstraint::createOpt(std::unique_ptr<RegExp> re)
+std::unique_ptr<Constraint> EmptyConstraint(std::unique_ptr<RegExp> re)
 {
-	/* Convert `A \ B = 0` to `A <= B` */
-	if (auto *minusRE = dynamic_cast<MinusRE *>(&*re))
-		return SubsetConstraint::createOpt(minusRE->releaseKid(0),
-						   minusRE->releaseKid(1));
-
-	return create(std::move(re));
-}
-
-bool EmptyConstraint::checkStatically(std::string &cex) const
-{
-	return getKid(0)->toNFA().acceptsNoString(cex);
+	return SubsetConstraint::createOpt(std::move(re), FalseRE());
 }
 
 std::unique_ptr<Constraint>
@@ -41,9 +30,9 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 			      std::unique_ptr<RegExp> rhs)
 {
 	if (lhs->isFalse())
-		return EmptyConstraint::createOpt(std::move(rhs));
+		return EmptyConstraint(std::move(rhs));
 	if (rhs->isFalse())
-		return EmptyConstraint::createOpt(std::move(lhs));
+		return EmptyConstraint(std::move(lhs));
 
 	return create(std::move(lhs), std::move(rhs));
 }
