@@ -1,7 +1,6 @@
 #include "Config.hpp"
+#include "Error.hpp"
 #include "Printer.hpp"
-#include <iostream>
-#include <fstream>
 
 template<typename ITER>
 std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end)
@@ -13,21 +12,37 @@ std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&e
 	return result;
 }
 
-Printer::Printer(const NFAs *arg) {
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-	className = name + "Checker";
-	guardName = std::string("__") + name + "_CHECKER_HPP__";
-	res = arg;
+void openFileForWriting(const std::string &filename, std::ofstream &fout)
+{
+	fout.open(filename, std::ios_base::out);
+	if (!fout.is_open()) {
+		std::cerr << "Could not open file for writing: " << filename << "\n";
+		exit(EPRINT);
+	}
 }
 
-void Printer::output()
+Printer::Printer(std::string name)
 {
+	/* Construct all the names to be used */
+	std::transform(name.begin(), name.end(), std::back_inserter(prefix), ::toupper);
+	className = prefix + "Checker";
+	guardName = std::string("__") + prefix + "_CHECKER_HPP__";
+
+	/* Open required streams */
+	if (name != "") {
+		openFileForWriting(className + ".hpp", foutHpp);
+		outHpp = &foutHpp;
+		openFileForWriting(className + ".cpp", foutCpp);
+		outCpp = &foutCpp;
+	}
+}
+
+void Printer::output(const NFAs *s)
+{
+	res = s;
 	outputHeader();
 	outputImpl();
 }
-
 
 static void printKaterNotice(std::ostream &out)
 {
@@ -35,31 +50,11 @@ static void printKaterNotice(std::ostream &out)
 	return;
 }
 
-#define PRINT_LINE(line) (*out) << line << "\n"
+#define PRINT_LINE(line) (*outHpp) << line << "\n"
 
 void Printer::outputHeader()
 {
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-
-	auto className = name;
-	className += "Checker";
-
-	std::string guardName = "__";
-	guardName += name;
-	guardName += "_CHECKER_HPP__";
-
-	std::ostream* out = &std::cout;
-	std::ofstream fout;
-	if (config.outPrefix != "") {
-		fout.open(className + ".hpp");
-		if (!fout.is_open())
-			return;
-		out = &fout;
-	}
-
-	printKaterNotice(*out);
+	printKaterNotice(*outHpp);
 
 	PRINT_LINE("#ifndef " << guardName);
 	PRINT_LINE("#define " << guardName);
@@ -88,10 +83,10 @@ void Printer::outputHeader()
 	PRINT_LINE("private:");
 
 	for (int i = 0; i < res->nsaved.size(); ++i)
-		printCalculatorHeader(*out, res->nsaved[i].first, i);
+		printCalculatorHeader(*outHpp, res->nsaved[i].first, i);
 	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionHeader(*out, res->nincl[i].lhs, res->nincl[i].rhs, i);
-	printAcyclicHeader(*out, res->nfa_acyc);
+		printInclusionHeader(*outHpp, res->nincl[i].lhs, res->nincl[i].rhs, i);
+	printAcyclicHeader(*outHpp, res->nfa_acyc);
 
 	PRINT_LINE("\tExecutionGraph &g;");
 
@@ -104,34 +99,21 @@ void Printer::outputHeader()
 	PRINT_LINE("#endif /* " << guardName << " */");
 }
 
+#undef PRINT_LINE
+#define PRINT_LINE(line) (*outCpp) << line << "\n"
+
 void Printer::outputImpl()
 {
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-	std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-
-	auto className = name;
-	className += "Checker";
-
-	std::ostream* out = &std::cout;
-	std::ofstream fout;
-	if (config.outPrefix != "") {
-		fout.open(className + ".cpp");
-		if (!fout.is_open())
-			return;
-		out = &fout;
-	}
-
-	printKaterNotice(*out);
+	printKaterNotice(*outCpp);
 
 	PRINT_LINE("#include \"" << className << ".hpp\"");
 	PRINT_LINE("");
 
 	for (int i = 0; i < res->nsaved.size(); ++i)
-		printCalculatorImpl(*out, res->nsaved[i].first, i, res->nsaved[i].second);
+		printCalculatorImpl(*outCpp, res->nsaved[i].first, i, res->nsaved[i].second);
 	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionImpl(*out, res->nincl[i].lhs, res->nincl[i].rhs, i);
-	printAcyclicImpl(*out, res->nfa_acyc);
+		printInclusionImpl(*outCpp, res->nincl[i].lhs, res->nincl[i].rhs, i);
+	printAcyclicImpl(*outCpp, res->nfa_acyc);
 }
 
 #undef PRINT_LINE

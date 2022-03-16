@@ -20,8 +20,11 @@ int main(int argc, char **argv)
 	NFAs res;
 	d.generate_NFAs(res);
 
-	Printer p (&res);
-	p.output();
+	auto name = config.outPrefix != "" ? config.outPrefix :
+		config.inputFile.substr(0, config.inputFile.find_last_of("."));
+
+	Printer p(name);
+	p.output(&res);
 
 	return 0;
 }
