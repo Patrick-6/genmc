@@ -88,10 +88,10 @@ decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
 	| "save" ID "=" rel 		{ drv.registerSaveID($2, std::move($4)); }
 	| "assume" constraint		{ drv.registerAssume(std::move($2), @$); }
 	| "assert" constraint		{ drv.registerAssert(std::move($2), @$); }
-	| "check" constraint		{ drv.addConstraint(std::move($2), @$); }
-	| constraint			{ drv.addConstraint(std::move($1), @$); }
-	| "error" ID "unless" constraint	{ drv.registerErrorUnless($2, std::move($4), @$); }
-	| "warning" ID "unless" constraint	{ drv.registerWarningUnless($2, std::move($4), @$); }
+	| "check" constraint		{ drv.addConstraint(std::move($2), ConstraintType::Consistency, "", @$); }
+	| constraint			{ drv.addConstraint(std::move($1), ConstraintType::Consistency, "", @$); }
+	| "error" ID "unless" constraint	{ drv.addConstraint(std::move($4), ConstraintType::Error, $2, @$); }
+	| "warning" ID "unless" constraint	{ drv.addConstraint(std::move($4), ConstraintType::Warning, $2, @$); }
 	;
 
 constraint:

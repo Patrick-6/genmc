@@ -16,17 +16,27 @@
 YY_DECL;
 
 enum class VarStatus { Normal, Reduce };
+enum class ConstraintType { Consistency, Error, Warning };
+
+template<typename T>
+struct Inclusion {
+	T lhs;
+	T rhs;
+	ConstraintType type;
+	const std::string   s;
+};
 
 // Results after conversion to NFA
 struct NFAs {
 	NFA nfa_acyc;
 	std::vector<std::pair<NFA, VarStatus>> nsaved;
-	std::vector<std::pair<NFA, NFA>>       nincl;
+	std::vector<Inclusion<NFA>>            nincl;
 };
 
 class Driver {
 public:
 	using URE = std::unique_ptr<RegExp>;
+	using UCO = std::unique_ptr<Constraint>;
 
 	Driver();
 
@@ -59,23 +69,22 @@ public:
 	// Invoke the parser on the file `config->fileName`.  Return 0 on success.
 	int parse ();
 
+	// Check any user assertions and report errors.
+	void checkAssertions();
+
 	// Generate the NFAs for the regular expressions.
-	void generate_NFAs (NFAs &res);
+	void generate_NFAs(NFAs &res);
 
 	// Handle "assert c" declaration in the input file
-	void registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc);
+	void registerAssert(UCO c, const yy::location &loc) {
+		asserts.push_back({std::move(c), loc});
+	}
 
 	// Handle "assume c" declaration in the input file
-	void registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc);
-
-	// Handle "error s unless c" declaration in the input file
-	void registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc);
-
-	// Handle "warning s unless c" declaration in the input file
-	void registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc);
+	void registerAssume(UCO c, const yy::location &loc);
 
 	// Handle consistency constraint in the input file
-	void addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc);
+	void addConstraint(UCO c, ConstraintType type, const std::string &s, const yy::location &loc);
 
 private:
 	using VarMap = std::unordered_map<std::string, URE>;
@@ -95,8 +104,10 @@ private:
 	//      If just two, I prefer separated. If more, polymorphism.
 	SavedVarSet savedVariables;
 
-	std::vector<URE> acyclicityConstraints;
-	std::vector<std::pair<URE, URE>> inclusionConstraints;
+	std::vector<std::pair<UCO, yy::location>> asserts;
+
+	std::vector<URE>            acyclicityConstraints;
+	std::vector<Inclusion<URE>> inclusionConstraints;
 };
 
 #endif /* KATER_DRIVER_HPP */

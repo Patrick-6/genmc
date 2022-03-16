@@ -90,7 +90,7 @@ void Printer::outputHeader()
 	for (int i = 0; i < res->nsaved.size(); ++i)
 		printCalculatorHeader(*out, res->nsaved[i].first, i);
 	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionHeader(*out, res->nincl[i].first, res->nincl[i].second, i);
+		printInclusionHeader(*out, res->nincl[i].lhs, res->nincl[i].rhs, i);
 	printAcyclicHeader(*out, res->nfa_acyc);
 
 	PRINT_LINE("\tExecutionGraph &g;");
@@ -130,7 +130,7 @@ void Printer::outputImpl()
 	for (int i = 0; i < res->nsaved.size(); ++i)
 		printCalculatorImpl(*out, res->nsaved[i].first, i, res->nsaved[i].second);
 	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionImpl(*out, res->nincl[i].first, res->nincl[i].second, i);
+		printInclusionImpl(*out, res->nincl[i].lhs, res->nincl[i].rhs, i);
 	printAcyclicImpl(*out, res->nfa_acyc);
 }
 

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 
+const std::vector<std::string> stringOfConstraintType = { "consistency", "error", "warning" };
+
 Driver::Driver() {
 	int preds = builtinPredicates.size();
 	int rels = builtinRelations.size();
@@ -46,7 +48,7 @@ int Driver::parse()
 	return res;
 }
 
-void Driver::expandSavedVars(std::unique_ptr<RegExp> &r)
+void Driver::expandSavedVars(URE &r)
 {
 	for (int i = 0; i < r->getNumKids(); i++)
 		expandSavedVars(r->getKid(i));
@@ -58,33 +60,23 @@ void Driver::expandSavedVars(std::unique_ptr<RegExp> &r)
 	}
 }
 
-void Driver::registerErrorUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
+void Driver::checkAssertions()
 {
-// TODO
-	std::cerr << loc << ": [Warning] Ignoring unsupported error constraint " << *c << std::endl;
-}
+ 	for (auto &p : asserts) {
+		if (config.verbose > 0)
+			std::cout << "Checking assertion " << *p.first << std::endl;
+		for (int i = 0; i < p.first->getNumKids(); i++)
+			expandSavedVars(p.first->getKid(i));
+		std::string cex;
+		if (!p.first->checkStatically(cex)) {
+			std::cerr << p.second << ": [Error] Assertion does not hold." << std::endl;
+			if (!cex.empty()) std::cerr << "Counterexample: " << cex << std::endl;
 
-void Driver::registerWarningUnless(std::string &s, std::unique_ptr<Constraint> c, const yy::location &loc)
-{
-// TODO
-	std::cerr << loc << ": [Warning] Ignoring unsupported warning constraint " << *c << std::endl;
-}
-
-void Driver::registerAssert(std::unique_ptr<Constraint> c, const yy::location &loc)
-{
-	if (config.verbose > 0)
-		std::cout << "Checking assertion " << *c << std::endl;
-	for (int i = 0; i < c->getNumKids(); i++)
-		expandSavedVars(c->getKid(i));
-	std::string cex;
-	if (!c->checkStatically(cex)) {
-		std::cerr << loc << ": [Error] Assertion does not hold." << std::endl;
-		if (!cex.empty()) std::cerr << "Counterexample: " << cex << std::endl;
-
+		}
 	}
 }
 
-void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &loc)
+void Driver::registerAssume(UCO c, const yy::location &loc)
 {
 //	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
 //		auto *charRE = dynamic_cast<const CharRE *>(empC->getKid(0));
@@ -98,13 +90,22 @@ void Driver::registerAssume(std::unique_ptr<Constraint> c, const yy::location &l
 //	}
 }
 
-void Driver::addConstraint(std::unique_ptr<Constraint> c, const yy::location &loc)
+void Driver::addConstraint(UCO c, ConstraintType type, const std::string &s, const yy::location &loc)
 {
-	if (auto *acycC = dynamic_cast<AcyclicConstraint *>(&*c)) {
-		acyclicityConstraints.push_back(acycC->getKid(0)->clone());
-		return;
-	}
-	std::cerr << loc << ": [Warning] Ignoring the unsupported constraint " << *c << std::endl;
+
+	if (dynamic_cast<AcyclicConstraint *>(&*c) && type == ConstraintType::Consistency)
+		acyclicityConstraints.push_back(c->getKid(0)->clone());
+	else if (dynamic_cast<SubsetConstraint *>(&*c))
+		inclusionConstraints.push_back({c->getKid(0)->clone(),
+					        c->getKid(1)->clone(), type, s});
+	else if (dynamic_cast<EqualityConstraint *>(&*c)) {
+		inclusionConstraints.push_back({c->getKid(0)->clone(),
+					        c->getKid(1)->clone(), type, s});
+		inclusionConstraints.push_back({c->getKid(1)->clone(),
+					        c->getKid(0)->clone(), type, s});
+	} else
+		std::cerr << loc << ": [Warning] Ignoring the unsupported "
+			  << stringOfConstraintType[(int)type] << " constraint " << *c << std::endl;
 }
 
 void Driver::generate_NFAs (NFAs &res)

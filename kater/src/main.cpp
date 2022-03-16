@@ -15,6 +15,8 @@ int main(int argc, char **argv)
 	if (d.parse())
 		exit(EPARSE);
 
+	d.checkAssertions();
+
 	NFAs res;
 	d.generate_NFAs(res);
 
