@@ -1,15 +1,9 @@
 // Standard preamble: various combinations that are invalid
 
-assume [W] ; [R] = 0
-assume [F] ; [R] = 0
-assume [F] ; [W] = 0
 assume [F] ; mo-imm = 0
 assume [F] ; rf = 0
 assume mo-imm ; [F] = 0
 assume rf ; [F] = 0
-assume [REL] ; [SC] = 0
-assume [ACQ] ; [SC] = 0
-
 
 // ---------------------------------------------------------------------
 // Definition of standard relations
@@ -93,8 +87,10 @@ error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
 
 error AccessNonAlloc    unless  alloc <= hb_stable
 error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
-error UseAfterFree      unless  loc ; [Free] <= hb_stable
-error UseAfterFree      unless  [NotHpProtected] ; loc ; [HpRetire] <= hb_stable
+error UseAfterFree      unless  loc-overlap ; [Free] <= hb_stable
+error UseAfterFree      unless  [Free] ; loc-overlap = 0
+error UseAfterFree      unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
+error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
 
 error NotAtomicRace     unless  na_conflict <= hb_stable
 
