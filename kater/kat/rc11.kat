@@ -18,7 +18,7 @@ let mo = mo-imm+
 // From-reads
 let fr = fr-init ; mo* | rf^-1 ; mo
 
-// Extended coherence order 
+// Extended coherence order
 let eco = (rf | mo | fr)+
 
 // Atomic RMW instruction
@@ -63,7 +63,7 @@ coherence (hb_stable)
 check  mo-imm ; [UW] <= rf ; po-imm
 
 
-// Sequential consistency order 
+// Sequential consistency order
 let FSC = [F] ; [SC]
 let fhb = [F] ; hb
 let hbf = hb ; [F]
@@ -95,4 +95,3 @@ error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
 error NotAtomicRace     unless  na_conflict <= hb_stable
 
 warning WWRace          unless  ww_conflict <= hb_stable
-
