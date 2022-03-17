@@ -83,28 +83,31 @@ main:	  %empty		{ }
 	| main decl		{ }
         ;
 
-decl:	  "let" ID "=" rel		{ drv.registerID($2, std::move($4)); }
-	| "save" ID "=" "reduce" rel 	{ drv.registerSaveReducedID($2, std::move($5)); }
-	| "save" ID "=" rel 		{ drv.registerSaveID($2, std::move($4)); }
-	| "assume" constraint		{ drv.registerAssume(std::move($2), @$); }
-	| "assert" constraint		{ drv.registerAssert(std::move($2), @$); }
-	| "check" constraint		{ drv.addConstraint(std::move($2), ConstraintType::Consistency, "", @$); }
-	| constraint			{ drv.addConstraint(std::move($1), ConstraintType::Consistency, "", @$); }
-	| "error" ID "unless" constraint	{ drv.addConstraint(std::move($4), ConstraintType::Error, $2, @$); }
-	| "warning" ID "unless" constraint	{ drv.addConstraint(std::move($4), ConstraintType::Warning, $2, @$); }
+decl:	  "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
+	| "save" ID "=" "reduce" rel 	   { drv.registerSaveReducedID($2, std::move($5)); }
+	| "save" ID "=" rel 		   { drv.registerSaveID($2, std::move($4)); }
+	| "assume" constraint		   { drv.registerAssume(std::move($2), @$); }
+	| "assert" constraint		   { drv.registerAssert(std::move($2), @$); }
+	| "check" constraint		   { $2->setType(Constraint::Type::Consistency);
+	 				     drv.addConstraint(std::move($2), "", @$); }
+	| constraint			   { drv.addConstraint(std::move($1), "", @$); }
+	| "error" ID "unless" constraint   { $4->setType(Constraint::Type::Error);
+	 				     drv.addConstraint(std::move($4), $2, @$); }
+	| "warning" ID "unless" constraint { $4->setType(Constraint::Type::Warning);
+					      drv.addConstraint(std::move($4), $2, @$); }
 	;
 
 constraint:
 	  rel "=" rel		{ $$ = EqualityConstraint::create(std::move($1), std::move($3)); }
 	| rel "<=" rel		{ $$ = SubsetConstraint::create(std::move($1), std::move($3)); }
-	| "empty" rel		{ $$ = EmptyConstraint(std::move($2)); }
+	| "empty" rel		{ $$ = Constraint::createEmpty(std::move($2)); }
 	| "acyclic" rel		{ $$ = AcyclicConstraint::create(std::move($2)); }
 	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
 	;
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| "[" rel "]"		{ $$ = std::move($2); /* bracket is a NOP for now */ }
-	| "0"			{ $$ = FalseRE(); }
+	| "0"			{ $$ = RegExp::createFalse(); }
 	| rel "|" rel		{ $$ = AltRE::createOpt(std::move($1), std::move($3)); }
 	| rel ";" rel		{ $$ = SeqRE::createOpt(std::move($1), std::move($3)); }
 	| rel "\\" rel		{ $$ = MinusRE::create(std::move($1), std::move($3)); }
@@ -112,7 +115,7 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "+"		{ $$ = PlusRE::createOpt(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::createOpt(std::move($1)); }
 	| rel "^" "-1" 		{ $1->flip(); $$ = std::move($1); }
-	| rel "^" "=" 		{ $$ = SymRE(std::move($1)); }
+	| rel "^" "=" 		{ $$ = RegExp::createSym(std::move($1)); }
 	| ID			{ $$ = drv.getRegisteredID($1, @$); }
 	;
 

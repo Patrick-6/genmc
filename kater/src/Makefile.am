@@ -9,6 +9,8 @@ if kater
 	Config.cpp \
 	Constraint.cpp \
 	Driver.cpp \
+	Kater.cpp \
+	KatModule.cpp \
 	Lexer.lpp \
 	NFA.cpp	\
 	Parser.ypp \

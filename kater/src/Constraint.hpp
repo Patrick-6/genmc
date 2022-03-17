@@ -9,12 +9,23 @@
 
 class Constraint {
 
+public:
+	enum class Type { Consistency, Error, Warning };
+
 protected:
 	Constraint(std::vector<std::unique_ptr<RegExp> > &&kids = {})
 		: kids(std::move(kids)) {}
 
 public:
 	virtual ~Constraint() = default;
+
+	static std::unique_ptr<Constraint> createEmpty(std::unique_ptr<RegExp> e);
+
+	/* Returns the constraint type */
+	Type getType() const { return type; }
+
+	/* Sets the constraint type to T */
+	void setType(Type t) { type = t; }
 
 	/* Fetches the i-th kid */
 	const RegExp *getKid(unsigned i) const {
@@ -38,14 +49,14 @@ public:
 	/* The kids of this RE */
 	size_t getNumKids() const { return kids.size(); }
 
+	/* Does the Constraint hold statically */
+	virtual bool checkStatically(std::string &cex) const = 0;
+
 	/* Returns a clone of the Constraint */
 	virtual std::unique_ptr<Constraint> clone() const = 0;
 
 	/* Dumps the Constraint */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
-
-	/* Does the Constraint hold statically */
-	virtual bool checkStatically(std::string &cex) const = 0;
 
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
@@ -59,11 +70,28 @@ protected:
 	}
 
 private:
+	Type type = Type::Consistency;
 	KidsC kids;
 };
 
+inline std::ostream &operator<<(std::ostream &s, Constraint::Type t)
+{
+	switch (t) {
+	case Constraint::Type::Consistency:
+		return s << "consistency";
+	case Constraint::Type::Error:
+		return s << "error";
+	case Constraint::Type::Warning:
+		return s << "warning";
+	default:
+		return s << "UKNOWN";
+	}
+	return s;
+}
+
 inline std::ostream &operator<<(std::ostream &s, const Constraint& re)
 {
+	s << "[" <<re.getType() << "] ";
 	return re.dump(s);
 }
 
@@ -87,11 +115,11 @@ public:
 	/* NOTE: Might not return AcyclicConstraint */
 	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> re);
 
+	bool checkStatically(std::string &cex) const override { return false; }
+
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
 	std::ostream &dump(std::ostream &s) const override { return s << "acyclic" << *getKid(0); }
-
-	bool checkStatically(std::string &cex) const override { return false; }
 };
 
 
@@ -114,11 +142,11 @@ public:
 	/* NOTE: Might not return AcyclicConstraint */
 	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> re);
 
+	bool checkStatically(std::string &cex) const override { return false; }
+
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
 	std::ostream &dump(std::ostream &s) const override { return s << "coherence " << *getKid(0); }
-
-	bool checkStatically(std::string &cex) const override { return false; }
 };
 
 
@@ -148,6 +176,8 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
+	bool checkStatically(std::string &cex) const override;
+
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
 	}
@@ -155,8 +185,6 @@ public:
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " <= " << *getKid(1);
 	}
-
-	bool checkStatically(std::string &cex) const override;
 };
 
 
@@ -186,6 +214,8 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
+	bool checkStatically(std::string &cex) const override;
+
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
 	}
@@ -193,15 +223,6 @@ public:
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " = " << *getKid(1);
 	}
-
-	bool checkStatically(std::string &cex) const override;
 };
-
-
-/*******************************************************************************
- **                           Empty Constraints
- ******************************************************************************/
-
-std::unique_ptr<Constraint> EmptyConstraint(std::unique_ptr<RegExp> e);
 
 #endif /* __CONSTRAINT_HPP__ */

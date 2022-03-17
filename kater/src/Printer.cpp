@@ -2,6 +2,8 @@
 #include "Error.hpp"
 #include "Printer.hpp"
 
+std::string katerNotice = "/* This file is generated automatically by Kater -- do not edit. */";
+
 template<typename ITER>
 std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end)
 {
@@ -21,15 +23,17 @@ void openFileForWriting(const std::string &filename, std::ofstream &fout)
 	}
 }
 
-Printer::Printer(std::string name)
+Printer::Printer(const std::string &outPrefix)
 {
+	auto name = outPrefix != "" ? outPrefix : "Demo";
+
 	/* Construct all the names to be used */
 	std::transform(name.begin(), name.end(), std::back_inserter(prefix), ::toupper);
 	className = prefix + "Checker";
 	guardName = std::string("__") + prefix + "_CHECKER_HPP__";
 
 	/* Open required streams */
-	if (name != "") {
+	if (outPrefix != "") {
 		openFileForWriting(className + ".hpp", foutHpp);
 		outHpp = &foutHpp;
 		openFileForWriting(className + ".cpp", foutCpp);
@@ -37,351 +41,304 @@ Printer::Printer(std::string name)
 	}
 }
 
-void Printer::output(const NFAs *s)
+void Printer::printHppHeader()
 {
-	res = s;
-	outputHeader();
-	outputImpl();
+	*outHpp << katerNotice << "\n"
+		<< "\n";
+
+	*outHpp	<< "#ifndef " << guardName << "\n"
+		<< "#define " << guardName << "\n"
+		<< "\n"
+		<< "#include \"ExecutionGraph.hpp\"\n"
+		<< "#include \"GraphIterators.hpp\"\n"
+		<< "#include \"PersistencyChecker.hpp\"\n"
+		<< "#include \"VSet.hpp\"\n"
+		<< "#include <vector>\n"
+		<< "\n"
+		<< "class " << className << " {\n"
+		<< "\n"
+		<< "private:\n"
+		<< "\tenum class NodeStatus { unseen, entered, left };\n"
+		<< "public:\n"
+		<< "\tvoid computeCalcs(const Event &e);\n"
+		<< "\tvoid isConsistent(const Event &e);\n"
+		<< "\n"
+		<< "private:\n";
 }
 
-static void printKaterNotice(std::ostream &out)
+void Printer::printCppHeader()
 {
-	out << "/* This file is generated automatically by Kater -- do not edit. */\n\n";
-	return;
+	*outCpp << katerNotice << "\n"
+		<< "\n";
+
+	*outCpp <<  "#include \"" << className << ".hpp\"\n"
+		<< "\n";
 }
 
-#define PRINT_LINE(line) (*outHpp) << line << "\n"
-
-void Printer::outputHeader()
+void Printer::printHppFooter()
 {
-	printKaterNotice(*outHpp);
-
-	PRINT_LINE("#ifndef " << guardName);
-	PRINT_LINE("#define " << guardName);
-
-	PRINT_LINE("");
-	PRINT_LINE("#include \"ExecutionGraph.hpp\"");
-	PRINT_LINE("#include \"GraphIterators.hpp\"");
-	PRINT_LINE("#include \"PersistencyChecker.hpp\"");
-	PRINT_LINE("#include \"VSet.hpp\"");
-	PRINT_LINE("#include <vector>");
-
-	PRINT_LINE("");
-	PRINT_LINE("class " << className << " {");
-
-	PRINT_LINE("");
-	PRINT_LINE("private:");
-	PRINT_LINE("\tenum class NodeStatus { unseen, entered, left };");
-
-	PRINT_LINE("public:");
-
-	PRINT_LINE("\tvoid computeCalcs(const Event &e);");
-	PRINT_LINE("\tvoid isConsistent(const Event &e);");
-	PRINT_LINE("");
-
-	PRINT_LINE("");
-	PRINT_LINE("private:");
-
-	for (int i = 0; i < res->nsaved.size(); ++i)
-		printCalculatorHeader(*outHpp, res->nsaved[i].first, i);
-	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionHeader(*outHpp, res->nincl[i].lhs, res->nincl[i].rhs, i);
-	printAcyclicHeader(*outHpp, res->nfa_acyc);
-
-	PRINT_LINE("\tExecutionGraph &g;");
-
-	PRINT_LINE("");
-	PRINT_LINE("\tExecutionGraph &getGraph() { return g; }");
-
-	PRINT_LINE("};");
-
-	PRINT_LINE("");
-	PRINT_LINE("#endif /* " << guardName << " */");
+	*outHpp << "\tExecutionGraph &g;\n"
+		<< "\n"
+		<< "\tExecutionGraph &getGraph() { return g; }\n"
+		<< "};\n"
+		<< "\n"
+		<< "#endif /* " << guardName << " */\n";
 }
 
-#undef PRINT_LINE
-#define PRINT_LINE(line) (*outCpp) << line << "\n"
-
-void Printer::outputImpl()
+void Printer::printCppFooter()
 {
-	printKaterNotice(*outCpp);
-
-	PRINT_LINE("#include \"" << className << ".hpp\"");
-	PRINT_LINE("");
-
-	for (int i = 0; i < res->nsaved.size(); ++i)
-		printCalculatorImpl(*outCpp, res->nsaved[i].first, i, res->nsaved[i].second);
-	for (int i = 0; i < res->nincl.size(); ++i)
-		printInclusionImpl(*outCpp, res->nincl[i].lhs, res->nincl[i].rhs, i);
-	printAcyclicImpl(*outCpp, res->nfa_acyc);
 }
 
-#undef PRINT_LINE
-#define PRINT_LINE(line) fout << line << "\n"
+void Printer::outputHpp(const CNFAs &cnfas)
+{
+	printHppHeader();
 
-/* --------------------------------------------------------------------- */
-/*                          Calculators                                  */
-/* --------------------------------------------------------------------- */
+	auto i = 0u;
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
+		printCalculatorHpp(nfa, i++);
+	});
 
-#define CALC             "calculate" << whichCalc << "(const Event &e)"
-#define VISIT_PROC(i)    "visit" << whichCalc << "_" << ids[i]
-#define VISIT_DECL(i)    VISIT_PROC(i) << "(VSet<Event> &calcRes, const Event &e)"
-#define VISIT_CALL(i,e)  VISIT_PROC(i) << "(calcRes, " << e << ");"
-#define VISITED_ARR(i)	 "visitedCalc" << whichCalc << "_" << ids[i]
-#define VISITED_IDX(i,e) VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
+	i = 0u;
+	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
+		printInclusionHpp(nfaPair.lhs, nfaPair.rhs, i++);
+	});
 
-void Printer::printCalculatorHeader(std::ostream &fout, const NFA &nfa, int whichCalc)
+	printAcyclicHpp(cnfas.getAcyclic(), 0);
+
+	printHppFooter();
+}
+
+void Printer::outputCpp(const CNFAs &cnfas)
+{
+	printCppHeader();
+
+	auto i = 0u;
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
+		printCalculatorCpp(nfa, i++, VarStatus::Normal);
+	});
+
+	i = 0u;
+	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
+		printInclusionCpp(nfaPair.lhs, nfaPair.rhs, i++);
+	});
+
+	printAcyclicCpp(cnfas.getAcyclic(), 0);
+
+	printCppFooter();
+}
+
+void Printer::output(const CNFAs &cnfas)
+{
+	outputHpp(cnfas);
+	outputCpp(cnfas);
+}
+
+#define GET_ID(nfa_id, state_id) nfa_id << "_" << state_id
+
+void Printer::printAcyclicHpp(const NFA &nfa, unsigned id)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
-	/* entry point */
-	PRINT_LINE("\tVSet<Event> " << CALC << ";");
-	PRINT_LINE("");
-
-	/* visit procedures */
+	/* visitAcyclicXX for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tvoid " << VISIT_DECL(&*s));
+		*outHpp << "\tbool visitAcyclic" << GET_ID(id, ids[&*s]) << "(const Event &e)" << ";\n";
 	});
-	PRINT_LINE("");
+	*outHpp << "\n";
+
+	/* isAcyclicX for the automaton */
+	*outHpp << "\tbool isAcyclic" << id << "(const Event &e)" << ";\n"
+		<< "\n";
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR(&*s) << ";");
+		*outHpp << "\tstd::vector<NodeStatus> visitedAcyclic" << GET_ID(id, ids[&*s]) << ";\n";
 	});
-	PRINT_LINE("");
+	*outHpp << "\n";
+
+	/* accepting counter */
+	*outHpp << "\tint visitedAccepting = 0;\n";
 }
 
-void Printer::printCalculatorImpl(std::ostream &fout, const NFA &nfa, int whichCalc, VarStatus reduce)
+void Printer::printAcyclicCpp(const NFA &nfa, unsigned id)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	/* Print a "visitAcyclicXX" for each state */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		*outCpp << "bool " << className << "::visitAcyclic" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+			<< "{\n"
+			<< "\tauto &g = getGraph();\n"
+			<< "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
+			<< "\n"
+			<< "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
+		if (s->isStarting())
+			*outCpp << "\t++visitedAccepting;\n";
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			t.label->output_for_genmc(*outCpp, "e", "p");
+			*outCpp << "\t\tauto status = visitedAcyclic" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
+				<< "\t\tif (status == NodeStatus::unseen && !visitAcyclic" << GET_ID(id, ids[t.dest]) << "(p))\n"
+				<< "\t\t\treturn false;\n"
+				<< "\t\telse if (status == NodeStatus::entered && visitedAccepting)\n"
+				<< "\t\t\treturn false;\n"
+				<<"\t}\n";
+		});
+		if (s->isStarting())
+			*outCpp << "\t--visitedAccepting;";
+		*outCpp << "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
+			<< "\treturn true;\n"
+			<< "}\n"
+			<< "\n";
+	});
+
+	/* Print a "isAcyclicX" for the automaton */
+	*outCpp << "bool " << className << "::isAcyclic(const Event &e)\n"
+		<< "{\n"
+		<< "\tvisitedAccepting = 0;\n";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		*outCpp << "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << ".clear();\n"
+			<< "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
+	});
+	*outCpp << "\treturn true\n";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		*outCpp << "\t\t&& visitAcyclic" << GET_ID(id, ids[&*s]) << "(e)"
+			<< (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
+	});
+	*outCpp << "}\n"
+		<< "\n";
+}
+
+void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	/* visitCalcXX for each state */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		*outHpp << "\tvoid visitCalc" << GET_ID(id, ids[&*s]) << "(constEvent &e);\n";
+	});
+	*outHpp << "\n";
+
+	/* calculateX for the automaton */
+	*outHpp << "\tVSet<Event> calculate" << id << "(const Event &e);\n";
+	*outHpp << "\n";
+
+	/* status arrays */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		*outHpp << "\tstd::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
+	});
+	*outHpp << "\n";
+}
+
+void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("void " << className << "::" << VISIT_DECL(&*s));
-		PRINT_LINE("{");
-		PRINT_LINE("\tauto &g = getGraph();");
-		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
-
-		PRINT_LINE("");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::entered;");
+		*outCpp << "void " << className << "::visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+			<< "{\n"
+			<< "\tauto &g = getGraph();\n"
+			<< "\tauto *lab = g.getEventLabel(e);\n"
+			<< "\n"
+			<< "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		if (s->isStarting()) {
-			PRINT_LINE("\tcalcRes.insert(e);");
-			if (reduce == VarStatus::Reduce) {
-				PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
-				PRINT_LINE("\t\tcalcRes.erase(p);");
-				std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
-					if (a->isAccepting())
-						PRINT_LINE("\t\t" << VISITED_IDX(&*a, "p") << " = true;");
-				});
-				PRINT_LINE("\t}");
-			}
+			*outCpp << "\tcalcRes.insert(e);\n";
+			//
+			// FIXME
+			//
+			// if (reduce == VarStatus::Reduce) {
+			// 	PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
+			// 	PRINT_LINE("\t\tcalcRes.erase(p);");
+			// 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
+			// 		if (a->isAccepting())
+			// 			PRINT_LINE("\t\t" << VISITED_IDX(&*a, "p") << " = true;");
+			// 	});
+			// 	PRINT_LINE("\t}");
+			// }
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(fout, "e", "p");
-			PRINT_LINE("\t\tauto status = " << VISITED_IDX(t.dest, "p") << ";");
-			PRINT_LINE("\t\tif (status == NodeStatus::unseen)");
-			PRINT_LINE("\t\t\t" << VISIT_CALL(t.dest, "p"));
-			PRINT_LINE("\t}");
+			t.label->output_for_genmc(*outCpp, "e", "p");
+			*outCpp << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
+				<< "\t\tif (status == NodeStatus::unseen)\n"
+				<< "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p)\n"
+				<<"\t}\n";
 		});
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::left;");
-		PRINT_LINE("}");
-		PRINT_LINE("");
+		*outCpp << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
+			<< "}\n"
+			<< "\n";
 	});
 
-	PRINT_LINE("VSet<Event> " << className << "::" << CALC);
-	PRINT_LINE("{");
-	PRINT_LINE("\tVSet<Event> calcRes;");
+	*outCpp << "VSet<Event> " << className << "::calculate(const Event &e)\n"
+		<< "{\n"
+		<< "\tVSet<Event> calcRes;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".clear();");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+		*outCpp << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".clear();\n"
+			<< "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 		if (a->isAccepting())
-			PRINT_LINE("\t" << VISIT_CALL(&*a, "e"));
+			*outCpp << "\tvisitCalc" << GET_ID(id, ids[&*a]) << "(e);\n";
 	});
-	PRINT_LINE("\treturn calcRes;");
-	PRINT_LINE("}");
+	*outCpp << "\treturn calcRes;\n"
+		<< "}\n";
 }
 
-#undef CALC
-#undef VISIT_PROC
-#undef VISIT_DECL
-#undef VISIT_CALL
-#undef VISITED_ARR
-#undef VISITED_IDX
-
-/* --------------------------------------------------------------------- */
-/*                      Acyclicity checker                               */
-/* --------------------------------------------------------------------- */
-
-#define VISIT_PROC(i)      "visitAcyclic" << ids[i]
-#define VISIT_DECL(i)      VISIT_PROC(i) << "(const Event &e)"
-#define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
-#define VISITED_ARR(i)	   "visitedAcyclic" << ids[i]
-#define VISITED_IDX(i,e)   VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
-#define VISITED_ACCEPTING  "visitedAccepting"
-#define TOPLEVEL           "isAcyclic (const Event &e)"
-
-void Printer::printAcyclicHeader(std::ostream &fout, const NFA &nfa)
-{
-	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
-
-	/* entry point */
-	PRINT_LINE("");
-	PRINT_LINE("\tbool " << TOPLEVEL << ";");
-
-	/* visit procedures */
-	PRINT_LINE("");
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tbool " << VISIT_DECL(&*s) << ";");
-	});
-
-	/* status arrays */
-	PRINT_LINE("");
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR(&*s) << ";");
-	});
-
-	/* accepting counter */
-	PRINT_LINE("");
-	PRINT_LINE("\tint " << VISITED_ACCEPTING << ";");
-}
-
-void Printer::printAcyclicImpl(std::ostream &fout, const NFA &nfa)
-{
-	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
-
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("bool " << className << "::" << VISIT_DECL(&*s));
-		PRINT_LINE("{");
-
-		PRINT_LINE("\tauto &g = getGraph();");
-		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
-
-		PRINT_LINE("");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::entered;");
-		if (s->isStarting())
-			PRINT_LINE("\t++" << VISITED_ACCEPTING << ";");
-		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(fout, "e", "p");
-			PRINT_LINE("\t\tauto status = " << VISITED_IDX(t.dest, "p") << ";");
-			PRINT_LINE("\t\tif (status == NodeStatus::unseen && !" << VISIT_CALL(t.dest, "p") << ")");
-			PRINT_LINE("\t\t\treturn false;");
-			PRINT_LINE("\t\telse if (status == NodeStatus::entered && visitedAccepting)");
-			PRINT_LINE("\t\t\treturn false;");
-			PRINT_LINE("\t}");
-		});
-		if (s->isStarting())
-			PRINT_LINE("\t--" << VISITED_ACCEPTING << ";");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::left;");
-		PRINT_LINE("\treturn true;");
-		PRINT_LINE("}");
-		PRINT_LINE("");
-	});
-
-	PRINT_LINE("bool " << className << "::" << TOPLEVEL);
-	PRINT_LINE("{");
-	PRINT_LINE("\t" << VISITED_ACCEPTING << " = 0;");
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".clear();");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
-	});
-	PRINT_LINE("\treturn true");
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		PRINT_LINE ("\t\t&& " << VISIT_CALL(&*s, "e")
-			    << (&*s == (--nfa.states_end())->get() ? ";" : ""));
-	});
-	PRINT_LINE("}");
-	PRINT_LINE("");
-}
-
-
-#undef VISIT_PROC
-#undef VISIT_DECL
-#undef VISIT_CALL
-#undef VISITED_ARR
-#undef VISITED_IDX
-#undef VISITED_ACCEPTING
-#undef TOPLEVEL
-
-/* --------------------------------------------------------------------- */
-/*                      Inclusion checkers                               */
-/* --------------------------------------------------------------------- */
-
-#define VISIT_PROC(i)      "visitInclusion" << whichInclusion << "_" << ids[i]
-#define VISIT_DECL(i)	   VISIT_PROC(i) << "(const Event &e)"
-#define VISIT_CALL(i,e)    VISIT_PROC(i) << "(" << e << ")"
-#define VISITED_ARR(i)	   "visitedInclusion" << whichInclusion << "_" << ids[i]
-#define VISITED_IDX(i,e)   VISITED_ARR(i) << "[g.getEventLabel(" << e << ")->getStamp()]"
-#define TOPLEVEL           "checkInclusion" << whichInclusion << "(const Event &e)"
-
-void Printer::printInclusionHeader(std::ostream &fout, const NFA &lhs, const NFA &rhs,
-				   int whichInclusion)
+void Printer::printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id)
 {
 	auto ids = assignStateIDs(rhs.states_begin(), rhs.states_end());
 
-	/* entry point */
-	PRINT_LINE("");
-	PRINT_LINE("\tbool " << TOPLEVEL << ";");
-
-	/* visit procedures */
-	PRINT_LINE("");
+	/* visitInclusionXX for each state */
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("\tvoid " << VISIT_DECL(&*s) << ";");
+		*outHpp << "\tvoid visitInclusion" << GET_ID(id, ids[&*s]) << "(const Event &e)" << ";\n";
 	});
+	*outHpp << "\n";
+
+	/* checkInclusionX for the automaton */
+	*outHpp << "\tbool checkInclusion" << id << "(const Event &e)" << ";\n"
+		<< "\n";
 
 	/* status arrays */
-	PRINT_LINE("");
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("\tstd::vector<NodeStatus> " << VISITED_ARR(&*s) << ";");
+		*outHpp << "\tstd::vector<NodeStatus> visitedInclusion" << GET_ID(id, ids[&*s]) << ";\n";
 	});
+	*outHpp << "\n";
 }
 
-void Printer::printInclusionImpl(std::ostream &fout, const NFA &lhs, const NFA &rhs,
-				 int whichInclusion)
+void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 {
 	auto ids = assignStateIDs(rhs.states_begin(), rhs.states_end());
 
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("void " << className << "::" << VISIT_DECL(&*s));
-		PRINT_LINE("{");
-
-		PRINT_LINE("\tauto &g = getGraph();");
-		PRINT_LINE("\tauto *lab = g.getEventLabel(" << "e" << ");");
-
-		PRINT_LINE("");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::entered;");
+		*outCpp << "void " << className << "::visitInclusion" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+			<< "{\n"
+			<< "\tauto &g = getGraph();\n"
+			<< "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
+			<< "\n"
+			<< "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(fout, "e", "p");
-			PRINT_LINE("\t\tauto status = " << VISITED_IDX(t.dest, "p") << ";");
-			PRINT_LINE("\t\tif (status == NodeStatus::unseen)");
-			PRINT_LINE("\t\t\t" << VISIT_CALL(t.dest, "p") << ";");
-			PRINT_LINE("\t}");
+			t.label->output_for_genmc(*outCpp, "e", "p");
+			*outCpp << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
+				<< "\t\tif (status == NodeStatus::unseen)\n"
+				<< "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
+				<< "\t}\n";
 		});
 		if (s->isStarting())
-			PRINT_LINE("\t" << VISITED_ARR(&*s) << "[lab->getStamp()]" << " = NodeStatus::left;");
-		PRINT_LINE("}");
-		PRINT_LINE("");
+			*outCpp << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
+				<< "}\n"
+				<< "\n";
 	});
 
-	PRINT_LINE("bool " << className << "::" << TOPLEVEL);
-	PRINT_LINE("{");
+	*outCpp << "bool " << className << "::checkInclusion(const Event &e)\n"
+		<< "{\n";
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".clear();");
-		PRINT_LINE("\t" << VISITED_ARR(&*s) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);");
+		*outCpp << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".clear();\n"
+			<< "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
 		if (s->isStarting())
-			PRINT_LINE ("\t\t" << VISIT_CALL(&*s, "e") << ";");
+			*outCpp << "\t\tvisitInclusion" << GET_ID(id, ids[&*s]) << "(e);\n";
 	});
+
 	/* TODO */
-	PRINT_LINE("\treturn true;");
-	PRINT_LINE("}");
-	PRINT_LINE("");
+	*outCpp << "\treturn true;\n"
+		<< "}\n"
+		<< "\n";
 }
-
-#undef VISIT_PROC
-#undef VISIT_DECL
-#undef VISIT_CALL
-#undef VISITED_ARR
-#undef VISITED_IDX
-#undef TOPLEVEL

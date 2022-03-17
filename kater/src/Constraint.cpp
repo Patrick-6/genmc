@@ -1,8 +1,8 @@
 #include "Constraint.hpp"
 
-std::unique_ptr<Constraint> EmptyConstraint(std::unique_ptr<RegExp> re)
+std::unique_ptr<Constraint> Constraint::createEmpty(std::unique_ptr<RegExp> re)
 {
-	return SubsetConstraint::createOpt(std::move(re), FalseRE());
+	return SubsetConstraint::createOpt(std::move(re), RegExp::createFalse());
 }
 
 std::unique_ptr<Constraint>
@@ -30,9 +30,9 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 			      std::unique_ptr<RegExp> rhs)
 {
 	if (lhs->isFalse())
-		return EmptyConstraint(std::move(rhs));
+		return Constraint::createEmpty(std::move(rhs));
 	if (rhs->isFalse())
-		return EmptyConstraint(std::move(lhs));
+		return Constraint::createEmpty(std::move(lhs));
 
 	return create(std::move(lhs), std::move(rhs));
 }

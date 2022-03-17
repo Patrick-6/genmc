@@ -12,6 +12,8 @@
  **                           RegExp Class (Abstract)
  ******************************************************************************/
 
+class AltRE;
+
 class RegExp {
 
 protected:
@@ -19,6 +21,10 @@ protected:
 		: kids(std::move(kids)) {}
 public:
 	virtual ~RegExp() = default;
+
+	static std::unique_ptr<RegExp> createFalse();
+
+	static std::unique_ptr<RegExp> createSym(std::unique_ptr<RegExp> re);
 
 	/* Fetches the i-th kid */
 	const RegExp *getKid(unsigned i) const {
@@ -48,6 +54,14 @@ public:
 	/* The kids of this RE */
 	size_t getNumKids() const { return kids.size(); }
 
+	bool isFalse() const;
+
+	virtual RegExp &flip() {
+		for (auto &r : getKids())
+			r->flip();
+		return *this;
+	}
+
 	/* Convert the RE to an NFA */
 	virtual NFA toNFA() const = 0;
 
@@ -57,9 +71,6 @@ public:
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
-	virtual RegExp &flip();
-
-	bool isFalse () const;
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
 
@@ -80,7 +91,7 @@ inline std::ostream &operator<<(std::ostream &s, const RegExp& re)
 }
 
 /*******************************************************************************
- **                               Singleton 
+ **                               Singleton
  ******************************************************************************/
 
 class PredRE : public RegExp {
@@ -348,8 +359,5 @@ public:										\
 UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
-
-std::unique_ptr<RegExp> SymRE(std::unique_ptr<RegExp> r);
-std::unique_ptr<RegExp> FalseRE();
 
 #endif /* _REGEXP_HPP_ */

@@ -1,5 +1,6 @@
 #include "Config.hpp"
 #include "Driver.hpp"
+#include "Kater.hpp"
 #include "Error.hpp"
 #include "Printer.hpp"
 
@@ -17,14 +18,10 @@ int main(int argc, char **argv)
 
 	d.checkAssertions();
 
-	NFAs res;
-	d.generate_NFAs(res);
+	Kater kater(d.takeModule());
 
-	auto name = config.outPrefix != "" ? config.outPrefix :
-		config.inputFile.substr(0, config.inputFile.find_last_of("."));
-
-	Printer p(name);
-	p.output(&res);
+	kater.generateNFAs();
+	kater.exportCode(config.outPrefix);
 
 	return 0;
 }
