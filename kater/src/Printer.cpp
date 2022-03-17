@@ -103,7 +103,7 @@ void Printer::outputHpp(const CNFAs &cnfas)
 		printInclusionHpp(nfaPair.lhs, nfaPair.rhs, i++);
 	});
 
-	printAcyclicHpp(cnfas.getAcyclic(), 0);
+	printAcyclicHpp(cnfas.getAcyclic());
 
 	printHppFooter();
 }
@@ -122,7 +122,13 @@ void Printer::outputCpp(const CNFAs &cnfas)
 		printInclusionCpp(nfaPair.lhs, nfaPair.rhs, i++);
 	});
 
-	printAcyclicCpp(cnfas.getAcyclic(), 0);
+	/* Print acyclicity routines + isConsistent() */
+	printAcyclicCpp(cnfas.getAcyclic());
+	*outCpp << "bool " << className << "::isConsistent(const Event &e)\n"
+		<< "{\n"
+		<< "\treturn isAcyclic(e);\n"
+		<< "}\n"
+		<< "\n";
 
 	printCppFooter();
 }
@@ -135,23 +141,23 @@ void Printer::output(const CNFAs &cnfas)
 
 #define GET_ID(nfa_id, state_id) nfa_id << "_" << state_id
 
-void Printer::printAcyclicHpp(const NFA &nfa, unsigned id)
+void Printer::printAcyclicHpp(const NFA &nfa)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
-	/* visitAcyclicXX for each state */
+	/* visitAcyclicX for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tbool visitAcyclic" << GET_ID(id, ids[&*s]) << "(const Event &e)" << ";\n";
+		*outHpp << "\tbool visitAcyclic" << ids[&*s] << "(const Event &e)" << ";\n";
 	});
 	*outHpp << "\n";
 
-	/* isAcyclicX for the automaton */
-	*outHpp << "\tbool isAcyclic" << id << "(const Event &e)" << ";\n"
+	/* isAcyclic for the automaton */
+	*outHpp << "\tbool isAcyclic(const Event &e)" << ";\n"
 		<< "\n";
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tstd::vector<NodeStatus> visitedAcyclic" << GET_ID(id, ids[&*s]) << ";\n";
+		*outHpp << "\tstd::vector<NodeStatus> visitedAcyclic" << ids[&*s] << ";\n";
 	});
 	*outHpp << "\n";
 
@@ -159,24 +165,24 @@ void Printer::printAcyclicHpp(const NFA &nfa, unsigned id)
 	*outHpp << "\tint visitedAccepting = 0;\n";
 }
 
-void Printer::printAcyclicCpp(const NFA &nfa, unsigned id)
+void Printer::printAcyclicCpp(const NFA &nfa)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	/* Print a "visitAcyclicXX" for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outCpp << "bool " << className << "::visitAcyclic" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+		*outCpp << "bool " << className << "::visitAcyclic" << ids[&*s] << "(const Event &e)\n"
 			<< "{\n"
 			<< "\tauto &g = getGraph();\n"
 			<< "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
 			<< "\n"
-			<< "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
+			<< "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = NodeStatus::entered;\n";
 		if (s->isStarting())
 			*outCpp << "\t++visitedAccepting;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			t.label->output_for_genmc(*outCpp, "e", "p");
-			*outCpp << "\t\tauto status = visitedAcyclic" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
-				<< "\t\tif (status == NodeStatus::unseen && !visitAcyclic" << GET_ID(id, ids[t.dest]) << "(p))\n"
+			*outCpp << "\t\tauto status = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+				<< "\t\tif (status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
 				<< "\t\t\treturn false;\n"
 				<< "\t\telse if (status == NodeStatus::entered && visitedAccepting)\n"
 				<< "\t\t\treturn false;\n"
@@ -184,7 +190,7 @@ void Printer::printAcyclicCpp(const NFA &nfa, unsigned id)
 		});
 		if (s->isStarting())
 			*outCpp << "\t--visitedAccepting;";
-		*outCpp << "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
+		*outCpp << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = NodeStatus::left;\n"
 			<< "\treturn true;\n"
 			<< "}\n"
 			<< "\n";
@@ -195,12 +201,12 @@ void Printer::printAcyclicCpp(const NFA &nfa, unsigned id)
 		<< "{\n"
 		<< "\tvisitedAccepting = 0;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outCpp << "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << ".clear();\n"
-			<< "\tvisitedAcyclic" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
+		*outCpp << "\tvisitedAcyclic" << ids[&*s] << ".clear();\n"
+			<< "\tvisitedAcyclic" << ids[&*s] << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
 	*outCpp << "\treturn true\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outCpp << "\t\t&& visitAcyclic" << GET_ID(id, ids[&*s]) << "(e)"
+		*outCpp << "\t\t&& visitAcyclic" << ids[&*s] << "(e)"
 			<< (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
 	});
 	*outCpp << "}\n"

@@ -22,11 +22,11 @@ private:
 	void printCalculatorHpp(const NFA &nfa, unsigned id);
 	void printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce);
 
-	void printAcyclicHpp(const NFA &nfa, unsigned id);
-	void printAcyclicCpp(const NFA &nfa, unsigned id);
-
 	void printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id);
 	void printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id);
+
+	void printAcyclicHpp(const NFA &nfa);
+	void printAcyclicCpp(const NFA &nfa);
 
 	void printHppHeader();
 	void printCppHeader();
