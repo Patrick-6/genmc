@@ -68,7 +68,12 @@ void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, std::string r
 		ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
 		return;
 	}
-	ostr << "for (auto &" << res << " : calculated" << r->getCalcIndex() << "(" << arg << "->getPos()))";
+	ostr << "for (auto &" << res << " : ";
+	if (getState() == State::Acyclic)
+		ostr << arg << "->calculated(" << r->getCalcIndex() << "))";
+	else
+		ostr << "calculated[" << r->getCalcIndex() << "])";
+	return;
 }
 
 void Printer::printTransLabel(const TransLabel *t, std::string res, std::string arg)
@@ -131,38 +136,48 @@ void Printer::printCppFooter()
 
 void Printer::outputHpp(const CNFAs &cnfas)
 {
+	setState(State::Header);
 	printHppHeader();
 
+	setState(State::Calculator);
 	auto i = 0u;
 	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
 		printCalculatorHpp(nfa, i++);
 	});
 
+	setState(State::Inclusion);
 	i = 0u;
 	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
 		printInclusionHpp(nfaPair.lhs, nfaPair.rhs, i++);
 	});
 
+	setState(State::Acyclic);
 	printAcyclicHpp(cnfas.getAcyclic());
 
+	setState(State::Footer);
 	printHppFooter();
 }
 
 void Printer::outputCpp(const CNFAs &cnfas)
 {
+	setState(State::Header);
 	printCppHeader();
 
+	/* Print calculators + calculateAll() */
+	setState(State::Calculator);
 	auto i = 0u;
 	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
 		printCalculatorCpp(nfa, i++, VarStatus::Normal);
 	});
 
+	setState(State::Inclusion);
 	i = 0u;
 	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
 		printInclusionCpp(nfaPair.lhs, nfaPair.rhs, i++);
 	});
 
 	/* Print acyclicity routines + isConsistent() */
+	setState(State::Acyclic);
 	printAcyclicCpp(cnfas.getAcyclic());
 	*outCpp << "bool " << className << "::isConsistent(const Event &e)\n"
 		<< "{\n"
@@ -170,6 +185,7 @@ void Printer::outputCpp(const CNFAs &cnfas)
 		<< "}\n"
 		<< "\n";
 
+	setState(State::Footer);
 	printCppFooter();
 }
 
