@@ -45,8 +45,7 @@ public:
 	virtual std::unique_ptr<TransLabel> clone() const = 0;
 
 	virtual std::string toString() const = 0;
-	virtual void output_for_genmc (std::ostream& ostr, const std::string &arg,
-			      const std::string &res) const = 0;
+
 	virtual bool operator< (const TransLabel &other) const = 0;
 	virtual bool operator== (const TransLabel &other) const = 0;
 };
@@ -125,9 +124,6 @@ public:
 	void flip() override { flipped = !flipped; }
 
 	std::string toString() const override;
-
-	void output_for_genmc (std::ostream& ostr, const std::string &arg,
-			      const std::string &res) const override;
 
 	bool operator< (const TransLabel &other) const override {
 		if (auto *o = dynamic_cast<const RelLabel *>(&other))

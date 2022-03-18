@@ -129,51 +129,6 @@ std::string RelLabel::toString() const
 	return s;
 }
 
-void PredLabel::output_for_genmc (std::ostream& ostr,
-				  const std::string &arg,
-				  const std::string &res) const
-{
-	bool not_first = false;
-	if (preds.empty())
-		ostr << "\t{\n";
-	else {
-		for (auto &i : preds) {
-			if (not_first) {
-				ostr << "\n\t   && ";
-			} else {
-				ostr << "\tif (";
-				not_first = true;
-			}
-			// FIXME: Remove hardcoding of LAB.
-			//        This is easier to remove after
-			//        the printing infra is refactored.
-			//        TransLabel should not know anything
-			//        about tabs, spacing, names, etc.
-			auto s = builtinPredicates[i].genmcString;
-			s.replace(s.find_first_of('#'), 1, "lab");
-			ostr << s;
-		}
-		ostr << ") {\n";
-	}
-	ostr << "\t\tauto " << res << " = " << arg << ";\n";
-}
-
-void RelLabel::output_for_genmc (std::ostream& ostr,
-				  const std::string &arg,
-				  const std::string &res) const
-{
-	if (isBuiltin()) {
-		const auto &n = builtinRelations[trans];
-		const auto &s = flipped ? n.predString : n.succString;
-		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
-		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
-		// else
-		ostr << "\tfor (auto &" << res << " : " << s << "(g, " << arg << ")) {\n";
-		return;
-	}
-	ostr << "\tfor (auto &" << res << " : calculated" << getCalcIndex() << "(" << arg << ")) {\n";
-}
-
 bool PredLabel::merge (const PredLabel &other)
 {
 	unsigned mask = ~0;

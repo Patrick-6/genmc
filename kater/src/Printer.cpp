@@ -31,6 +31,56 @@ Printer::Printer(const std::string &outPrefix)
 	}
 }
 
+void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, std::string res, std::string arg)
+{
+	ostr << "if (auto " << res << " = " << arg << "->getPos()";
+
+	auto first = true;
+	if (!p->hasPreds()) {
+		ostr << ")";
+		return;
+	}
+
+	ostr << ";";
+	for (auto it = p->pred_begin(), ie = p->pred_end(); it != ie; ++it) {
+		if (first) {
+			ostr << " ";
+			first = false;
+		} else {
+			ostr << " && ";
+		}
+
+		auto s = builtinPredicates[*it].genmcString;
+		s.replace(s.find_first_of('#'), 1, arg);
+		ostr << s;
+	}
+	ostr << ")";
+}
+
+void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, std::string res, std::string arg)
+{
+	if (r->isBuiltin()) {
+		const auto &n = builtinRelations[r->getTrans()];
+		const auto &s = r->isFlipped() ? n.predString : n.succString;
+		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
+		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
+		// else
+		ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
+		return;
+	}
+	ostr << "for (auto &" << res << " : calculated" << r->getCalcIndex() << "(" << arg << "->getPos()))";
+}
+
+void Printer::printTransLabel(const TransLabel *t, std::string res, std::string arg)
+{
+	if (auto *p = dynamic_cast<const PredLabel *>(t))
+		printPredLabel(*outCpp, p, res, arg);
+	else if (auto *r = dynamic_cast<const RelLabel *>(t))
+		printRelLabel(*outCpp, r, res, arg);
+	else
+		assert(0);
+}
+
 void Printer::printHppHeader()
 {
 	*outHpp << katerNotice << "\n"
@@ -180,8 +230,10 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		if (s->isStarting())
 			*outCpp << "\t++visitedAccepting;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(*outCpp, "e", "p");
-			*outCpp << "\t\tauto status = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+			*outCpp << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			*outCpp << " {\n"
+				<< "\t\tauto status = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
 				<< "\t\tif (status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
 				<< "\t\t\treturn false;\n"
 				<< "\t\telse if (status == NodeStatus::entered && visitedAccepting)\n"
@@ -261,8 +313,10 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 			// }
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(*outCpp, "e", "p");
-			*outCpp << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
+			*outCpp << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			*outCpp << " {\n"
+				<< "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
 				<< "\t\tif (status == NodeStatus::unseen)\n"
 				<< "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p)\n"
 				<<"\t}\n";
@@ -320,8 +374,10 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 			<< "\n"
 			<< "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			t.label->output_for_genmc(*outCpp, "e", "p");
-			*outCpp << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
+			*outCpp << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			*outCpp << " {\n"
+				<< "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
 				<< "\t\tif (status == NodeStatus::unseen)\n"
 				<< "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
 				<< "\t}\n";
