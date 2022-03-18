@@ -64,16 +64,24 @@ public:
 	PredLabel() = default;
 	PredLabel(int s) : preds({s}) {}
 
-	std::unique_ptr<TransLabel> clone() const override {
-		return std::unique_ptr<PredLabel>(new PredLabel(*this));
-	}
+	using pred_iter = std::set<int>::iterator;
+	using pred_const_iter = std::set<int>::const_iterator;
 
-	std::string toString() const override;
+	pred_iter pred_begin() { return preds.begin(); }
+	pred_iter pred_end() { return preds.end(); }
+
+	pred_const_iter pred_begin() const { return preds.begin(); }
+	pred_const_iter pred_end() const { return preds.end(); }
+
+	bool hasPreds() const { return !preds.empty(); }
 
 	bool merge (const PredLabel &other);
 
-	void output_for_genmc (std::ostream& ostr, const std::string &arg,
-			      const std::string &res) const override;
+	std::string toString() const override;
+
+	std::unique_ptr<TransLabel> clone() const override {
+		return std::unique_ptr<PredLabel>(new PredLabel(*this));
+	}
 
 	bool operator< (const TransLabel &other) const override {
 		if (auto *o = dynamic_cast<const PredLabel *>(&other))
