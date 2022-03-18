@@ -107,6 +107,10 @@ class RelLabel : public TransLabel {
 public:
 	RelLabel(int s) : trans(s), flipped(false) {}
 
+	int getTrans() const { return trans; }
+
+	bool isFlipped() const { return flipped; }
+
 	bool isBuiltin () const { return trans >= 0; }
 	int getCalcIndex () const { assert(!isBuiltin()); return -trans-1; }
 
