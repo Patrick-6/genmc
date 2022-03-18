@@ -241,7 +241,7 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 				<<"\t}\n";
 		});
 		if (s->isStarting())
-			*outCpp << "\t--visitedAccepting;";
+			*outCpp << "\t--visitedAccepting;\n";
 		*outCpp << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = NodeStatus::left;\n"
 			<< "\treturn true;\n"
 			<< "}\n"
@@ -271,7 +271,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
 
 	/* visitCalcXX for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tvoid visitCalc" << GET_ID(id, ids[&*s]) << "(constEvent &e);\n";
+		*outHpp << "\tvoid visitCalc" << ids[&*s] << "(constEvent &e);\n";
 	});
 	*outHpp << "\n";
 
@@ -281,7 +281,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tstd::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
+		*outHpp << "\tstd::vector<NodeStatus> visitedCalc" << ids[&*s] << ";\n";
 	});
 	*outHpp << "\n";
 }
@@ -326,7 +326,7 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 			<< "\n";
 	});
 
-	*outCpp << "VSet<Event> " << className << "::calculate(const Event &e)\n"
+	*outCpp << "VSet<Event> " << className << "::calculate" << id << "(const Event &e)\n"
 		<< "{\n"
 		<< "\tVSet<Event> calcRes;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
