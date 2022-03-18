@@ -4,16 +4,6 @@
 
 std::string katerNotice = "/* This file is generated automatically by Kater -- do not edit. */";
 
-template<typename ITER>
-std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end)
-{
-	std::unordered_map<NFA::State *, unsigned> result;
-
-	auto i = 0u;
-	std::for_each(begin, end, [&](auto &s){ result[&*s] = i++; });
-	return result;
-}
-
 void openFileForWriting(const std::string &filename, std::ofstream &fout)
 {
 	fout.open(filename, std::ios_base::out);
@@ -137,6 +127,16 @@ void Printer::output(const CNFAs &cnfas)
 {
 	outputHpp(cnfas);
 	outputCpp(cnfas);
+}
+
+template<typename ITER>
+std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end)
+{
+	std::unordered_map<NFA::State *, unsigned> result;
+
+	auto i = 0u;
+	std::for_each(begin, end, [&](auto &s){ result[&*s] = i++; });
+	return result;
 }
 
 #define GET_ID(nfa_id, state_id) nfa_id << "_" << state_id
