@@ -62,7 +62,7 @@ AC_DEFUN([AX_LLVM],
       fi
     fi
 
-    CXXFLAGS="$CXXFLAGS `$LLVMCONFIG --cxxflags`"
+    CXXFLAGS="`$LLVMCONFIG --cxxflags` $CXXFLAGS"
     LLVMLDFLAGS=`$LLVMCONFIG --ldflags`
     LLVMLIBS=`$LLVMCONFIG --libs`
     SYSLIBS=`$LLVMCONFIG --system-libs 2>/dev/null`
