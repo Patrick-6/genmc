@@ -421,41 +421,41 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
  **                       Label addition methods
  ******************************************************************************/
 
-const ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-						     Event rf /* = BOTTOM */)
+ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+					       Event rf /* = BOTTOM */)
 {
 	if (!lab->getRf().isBottom()) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf())))
 			wLab->addReader(lab->getPos());
 	}
 
-	return static_cast<const ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
+	return static_cast<ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
 }
 
-const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						       int offsetMO /* = -1 */)
+WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+						 int offsetMO /* = -1 */)
 {
-	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	auto *wLab = static_cast<WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 	if (offsetMO >= 0)
 		getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
 	return wLab;
 }
 
-const WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
 						       Event pred)
 {
-	auto *wLab = static_cast<const WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
+	auto *wLab = static_cast<WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
 	getCoherenceCalculator()->addStoreToLocAfter(wLab->getAddr(), wLab->getPos(), pred);
 	return wLab;
 }
 
-const LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
+LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
 {
 	getLbCalculatorLAPOR()->addLockToList(lab->getLockAddr(), lab->getPos());
-	return static_cast<const LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
+	return static_cast<LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
 }
 
-const EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
+EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	setFPStatus(FS_Stale);
 

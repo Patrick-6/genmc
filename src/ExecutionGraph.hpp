@@ -161,14 +161,14 @@ public:
 
 	/* Event addition methods should be called from the managing objects,
 	 * so that the relation managing objects are also informed */
-	const ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-					     Event rf = Event::getBottom());
-	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-					       int offsetMO = -1);
-	const WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-					       Event pred);
-	const LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
-	const EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
+	ReadLabel *addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
+				       Event rf = Event::getBottom());
+	WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					 int offsetMO = -1);
+	WriteLabel *addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
+					 Event pred);
+	LockLabelLAPOR *addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
+	EventLabel *addOtherLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* Removes an event from the execution graph. If the event is
 	 * not the last of a thread, it replaces it with an empty label.
