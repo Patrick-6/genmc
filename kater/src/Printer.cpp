@@ -105,8 +105,10 @@ void Printer::printHppHeader()
 		<< "private:\n"
 		<< "\tenum class NodeStatus { unseen, entered, left };\n"
 		<< "public:\n"
-		<< "\tvoid computeCalcs(const Event &e);\n"
-		<< "\tvoid isConsistent(const Event &e);\n"
+		<< "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
+		<< "\n"
+		<< "\tstd::vector<VSet<Event>> calculateAll(const Event &e);\n"
+		<< "\tbool isConsistent(const Event &e);\n"
 		<< "\n"
 		<< "private:\n";
 }
@@ -122,7 +124,9 @@ void Printer::printCppHeader()
 
 void Printer::printHppFooter()
 {
-	*outHpp << "\tExecutionGraph &g;\n"
+	*outHpp << "\tstd::vector<VSet<Event>> calculated;\n"
+		<< "\n"
+		<< "\tExecutionGraph &g;\n"
 		<< "\n"
 		<< "\tExecutionGraph &getGraph() { return g; }\n"
 		<< "};\n"
@@ -169,6 +173,15 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
 		printCalculatorCpp(nfa, i++, VarStatus::Normal);
 	});
+	*outCpp << "std::vector<VSet<Event>> " << className << "::calculateAll(const Event &e)\n"
+		<< "{\n";
+	i = 0u;
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
+		*outCpp << "\tcalculated.push_back(calculate" << i++ << "(e));\n";
+	});
+	*outCpp << "\treturn std::move(calculated);\n"
+		<< "}\n"
+		<< "\n";
 
 	setState(State::Inclusion);
 	i = 0u;
@@ -287,7 +300,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
 
 	/* visitCalcXX for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tvoid visitCalc" << ids[&*s] << "(constEvent &e);\n";
+		*outHpp << "\tvoid visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, VSet<Event> &calcRes);\n";
 	});
 	*outHpp << "\n";
 
@@ -297,7 +310,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tstd::vector<NodeStatus> visitedCalc" << ids[&*s] << ";\n";
+		*outHpp << "\tstd::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
 	});
 	*outHpp << "\n";
 }
@@ -307,7 +320,7 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outCpp << "void " << className << "::visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+		*outCpp << "void " << className << "::visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, VSet<Event> &calcRes)\n"
 			<< "{\n"
 			<< "\tauto &g = getGraph();\n"
 			<< "\tauto *lab = g.getEventLabel(e);\n"
@@ -334,7 +347,7 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 			*outCpp << " {\n"
 				<< "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
 				<< "\t\tif (status == NodeStatus::unseen)\n"
-				<< "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p)\n"
+				<< "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p, calcRes);\n"
 				<<"\t}\n";
 		});
 		*outCpp << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
@@ -351,7 +364,7 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 	});
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 		if (a->isAccepting())
-			*outCpp << "\tvisitCalc" << GET_ID(id, ids[&*a]) << "(e);\n";
+			*outCpp << "\tvisitCalc" << GET_ID(id, ids[&*a]) << "(e, calcRes);\n";
 	});
 	*outCpp << "\treturn calcRes;\n"
 		<< "}\n";
