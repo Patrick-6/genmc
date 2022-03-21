@@ -49,7 +49,7 @@ View IMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-DepView IMMDriver::getDepsAsView(const DepInfo *deps)
+DepView IMMDriver::getDepsAsView(const EventDeps *deps)
 {
 	DepView v;
 
@@ -70,7 +70,7 @@ DepView IMMDriver::getDepsAsView(const DepInfo *deps)
 	return v;
 }
 
-DepView IMMDriver::calcPPoView(Event e, const DepInfo *deps) /* not const */
+DepView IMMDriver::calcPPoView(Event e, const EventDeps *deps) /* not const */
 {
 	/* Update ppo based on dependencies (addr, data, ctrl, addr;po, cas) */
 	auto v = getDepsAsView(deps);
@@ -112,7 +112,7 @@ void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	return;
 }
 
-void IMMDriver::calcBasicViews(EventLabel *lab, const DepInfo *deps)
+void IMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
 {
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab->getPos(), deps);
@@ -154,7 +154,7 @@ void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel 
 	return;
 }
 
-void IMMDriver::calcReadViews(ReadLabel *lab, const DepInfo *deps)
+void IMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -168,7 +168,7 @@ void IMMDriver::calcReadViews(ReadLabel *lab, const DepInfo *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcWriteViews(WriteLabel *lab, const DepInfo *deps)
+void IMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
@@ -261,7 +261,7 @@ void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 }
 
 
-void IMMDriver::calcFenceViews(FenceLabel *lab, const DepInfo *deps)
+void IMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -276,7 +276,7 @@ void IMMDriver::calcFenceViews(FenceLabel *lab, const DepInfo *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcJoinViews(ThreadJoinLabel *lab, const DepInfo *deps)
+void IMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	auto *fLab = g.getLastThreadLabel(lab->getChildId());
@@ -316,7 +316,7 @@ void IMMDriver::calcStartViews(ThreadStartLabel *lab)
 	return;
 }
 
-void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const DepInfo *deps)
+void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	auto hb = calcBasicHbView(lab->getPos());
@@ -331,7 +331,7 @@ void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const DepInfo *deps)
 	return;
 }
 
-void IMMDriver::updateLabelViews(EventLabel *lab, const DepInfo *deps)
+void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 

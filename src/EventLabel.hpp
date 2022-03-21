@@ -138,7 +138,7 @@ protected:
 	EventLabel(EventLabelKind k, llvm::AtomicOrdering o, Event p)
 		: kind(k), stamp(0), ordering(o), position(p) {}
 
-	using const_dep_iterator = Deps::const_iterator;
+	using const_dep_iterator = DepInfo::const_iterator;
 	using const_dep_range = llvm::iterator_range<const_dep_iterator>;
 public:
 
@@ -167,11 +167,8 @@ public:
 	const EventDeps &getDeps() const { return deps; }
 
 	/* Sets this label's dependencies */
-	void setDataDeps(const_dep_range r) { deps.data = Deps(r.begin(), r.end()); }
-	void setAddrDeps(const_dep_range r) { deps.addr = Deps(r.begin(), r.end()); }
-	void setCtrlDeps(const_dep_range r) { deps.ctrl = Deps(r.begin(), r.end()); }
-
 	void setDeps(const EventDeps &ds) { deps = ds; }
+	void setDeps(const EventDeps *ds) { deps = *ds; }
 	void setDeps(EventDeps &&ds) { deps = std::move(ds); }
 
 	/* Iterators for dependencies */

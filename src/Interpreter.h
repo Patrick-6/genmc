@@ -523,7 +523,7 @@ public:
   // Methods used to execute code:
   // Place a call on the stack
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
-		    const std::unique_ptr<DepInfo> &specialDeps);
+		    const std::unique_ptr<EventDeps> &specialDeps);
 
   /* callFunction() wrappers to be called before running a function */
   void setupFunctionCall(Function *F, ArrayRef<GenericValue> ArgValues);
@@ -666,28 +666,28 @@ private:  // Helper functions
   SVal getInodeTransStatus(void *inode, Type *intTyp);
   void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
   SVal readInodeSizeFS(void *inode, Type *intTyp,
-		       const std::unique_ptr<DepInfo> &deps);
+		       const std::unique_ptr<EventDeps> &deps);
   void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
-			 const std::unique_ptr<DepInfo> &deps);
+			 const std::unique_ptr<EventDeps> &deps);
   void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize,
 			     SVal ordDataBegin, SVal ordDataEnd);
   void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
-		       int count, Type *dataTyp, const std::unique_ptr<DepInfo> &deps);
+		       int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
   void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
-			int count, Type *dataTyp, const std::unique_ptr<DepInfo> &deps);
+			int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
   void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
 
   SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
   SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
   SVal executeInodeCreateFS(const std::string &name, Type *intTyp,
-			    const std::unique_ptr<DepInfo> &deps);
+			    const std::unique_ptr<EventDeps> &deps);
   SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp,
-			   const std::unique_ptr<DepInfo> &deps);
+			   const std::unique_ptr<EventDeps> &deps);
   SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
-		     const std::unique_ptr<DepInfo> &deps);
+		     const std::unique_ptr<EventDeps> &deps);
 
-  void executeReleaseFileFS(void *fileDesc, Type *intTyp, const std::unique_ptr<DepInfo> &deps);
-  SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<DepInfo> &deps);
+  void executeReleaseFileFS(void *fileDesc, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
+  SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
   SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
 		       SVal newInode, Type *intTyp);
   SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
@@ -695,20 +695,20 @@ private:  // Helper functions
 
 
   SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp,
-			 const std::unique_ptr<DepInfo> &deps);
+			 const std::unique_ptr<EventDeps> &deps);
   SVal executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
-		     SVal count, const std::unique_ptr<DepInfo> &deps);
+		     SVal count, const std::unique_ptr<EventDeps> &deps);
   void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
   SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
-			    SVal &wOffset, const std::unique_ptr<DepInfo> &deps);
+			    SVal &wOffset, const std::unique_ptr<EventDeps> &deps);
   bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size,
 				   SVal offset, SVal count, SVal &dSize);
   SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp, SVal wOffset,
-			      SVal count, const std::unique_ptr<DepInfo> &deps);
+			      SVal count, const std::unique_ptr<EventDeps> &deps);
   SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset, SVal count,
-		      const std::unique_ptr<DepInfo> &deps);
+		      const std::unique_ptr<EventDeps> &deps);
   SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
-		      const std::unique_ptr<DepInfo> &deps);
+		      const std::unique_ptr<EventDeps> &deps);
   void executeFsyncFS(void *inode, Type *intTyp);
 
   void setProgramState(ProgramState s) { dynState.programState = s; }
@@ -717,7 +717,7 @@ private:  // Helper functions
   /* Custom Opcode Implementations */
 #define DECLARE_CUSTOM_OPCODE(_name)						  \
 	void call ## _name(Function *F, const std::vector<GenericValue> &ArgVals, \
-			   const std::unique_ptr<DepInfo> &specialDeps)
+			   const std::unique_ptr<EventDeps> &specialDeps)
 
   DECLARE_CUSTOM_OPCODE(AssertFail);
   DECLARE_CUSTOM_OPCODE(OptBegin);
@@ -772,7 +772,7 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(SynchronizeRCULKMM);
 
   void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
-			    const std::unique_ptr<DepInfo> &deps);
+			    const std::unique_ptr<EventDeps> &deps);
 
   void freeAllocas(const AllocaHolder &allocas);
 
@@ -798,18 +798,18 @@ private:  // Helper functions
   DepTracker *getDepTracker() { return &*dynState.depTracker; }
   const DepTracker *getDepTracker() const { return &*dynState.depTracker; }
 
-  std::unique_ptr<DepInfo>
-  makeDepInfo(const Deps *addr, const Deps *data,
-	      const Deps *ctrl, const Deps *addrPo,
-	      const Deps *cas);
+  std::unique_ptr<EventDeps>
+  makeEventDeps(const DepInfo *addr, const DepInfo *data,
+		const DepInfo *ctrl, const DepInfo *addrPo,
+		const DepInfo *cas);
 
-  const Deps *getDataDeps(unsigned int tid, Value *i) {
+  const DepInfo *getDataDeps(unsigned int tid, Value *i) {
     return getDepTracker() ? getDepTracker()->getDataDeps(tid, i) : nullptr;
   }
-  const Deps *getAddrPoDeps(unsigned int tid) {
+  const DepInfo *getAddrPoDeps(unsigned int tid) {
     return getDepTracker() ? getDepTracker()->getAddrPoDeps(tid) : nullptr;
   }
-  const Deps *getCtrlDeps(unsigned int tid) {
+  const DepInfo *getCtrlDeps(unsigned int tid) {
     return getDepTracker() ? getDepTracker()->getCtrlDeps(tid) : nullptr;
   }
 
@@ -817,7 +817,7 @@ private:  // Helper functions
     if (getDepTracker())
       getDepTracker()->updateDataDeps(tid, dst, src);
   }
-  void updateDataDeps(unsigned int tid, Value *dst, const Deps *e) {
+  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e) {
     if (getDepTracker())
       getDepTracker()->updateDataDeps(tid, dst, *e);
   }
@@ -834,8 +834,7 @@ private:  // Helper functions
       getDepTracker()->updateCtrlDeps(tid, src);
   }
 
-  std::unique_ptr<DepInfo>
-  updateFunArgDeps(unsigned int tid, Function *F);
+  std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
 
   void clearDeps(unsigned int tid) {
     if (getDepTracker())

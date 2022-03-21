@@ -834,7 +834,7 @@ inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const EventL
  **                         ppo-iteration utilities
  ******************************************************************************/
 
-using const_ppo_iterator = Deps::const_iterator;
+using const_ppo_iterator = DepInfo::const_iterator;
 using const_ppo_range = llvm::iterator_range<const_ppo_iterator>;
 
 #define PPO_ITERATOR(name)						\

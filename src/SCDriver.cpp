@@ -192,7 +192,7 @@ void SCDriver::calcJoinViews(ThreadJoinLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void SCDriver::updateLabelViews(EventLabel *lab, const DepInfo *deps) /* deps ignored */
+void SCDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps ignored */
 {
 	const auto &g = getGraph();
 

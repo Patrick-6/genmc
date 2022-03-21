@@ -86,7 +86,7 @@ DepView LKMMDriver::calcFenceView(const MemAccessLabel *lab) const
 	return fence;
 }
 
-DepView LKMMDriver::getDepsAsView(EventLabel *lab, const DepInfo *deps)
+DepView LKMMDriver::getDepsAsView(EventLabel *lab, const EventDeps *deps)
 {
 	DepView v;
 
@@ -109,7 +109,7 @@ DepView LKMMDriver::getDepsAsView(EventLabel *lab, const DepInfo *deps)
 	return v;
 }
 
-DepView LKMMDriver::calcPPoView(EventLabel *lab, const DepInfo *deps) /* not const */
+DepView LKMMDriver::calcPPoView(EventLabel *lab, const EventDeps *deps) /* not const */
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -168,7 +168,7 @@ void LKMMDriver::updateRelView(DepView &pporf, const EventLabel *lab)
 	return;
 }
 
-void LKMMDriver::calcBasicViews(EventLabel *lab, const DepInfo *deps)
+void LKMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
 {
 	View hb = calcBasicHbView(lab->getPos());
 	DepView pporf = calcPPoView(lab, deps);
@@ -225,7 +225,7 @@ void LKMMDriver::updateLockViews(DepView &pporf, DepView &ppo, ReadLabel *lab)
 	return;
 }
 
-void LKMMDriver::calcReadViews(ReadLabel *lab, const DepInfo *deps)
+void LKMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -242,7 +242,7 @@ void LKMMDriver::calcReadViews(ReadLabel *lab, const DepInfo *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void LKMMDriver::calcWriteViews(WriteLabel *lab, const DepInfo *deps)
+void LKMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
@@ -373,7 +373,7 @@ void LKMMDriver::updateMbFenceView(DepView &pporf, SmpFenceLabelLKMM *fLab)
 	}
 }
 
-void LKMMDriver::calcFenceViews(FenceLabel *lab, const DepInfo *deps)
+void LKMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
@@ -408,7 +408,7 @@ void LKMMDriver::calcFenceViews(FenceLabel *lab, const DepInfo *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void LKMMDriver::calcJoinViews(ThreadJoinLabel *lab, const DepInfo *deps)
+void LKMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 	auto *fLab = g.getLastThreadLabel(lab->getChildId());
@@ -448,7 +448,7 @@ void LKMMDriver::calcStartViews(ThreadStartLabel *lab)
 	return;
 }
 
-void LKMMDriver::updateLabelViews(EventLabel *lab, const DepInfo *deps)
+void LKMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
