@@ -902,13 +902,15 @@ using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
 inline const_rf_inv_iterator rf_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf());
+	return (!rLab || rLab->getRf().isBottom()) ? event_end(G) :
+		const_event_iterator(G, rLab->getRf());
 }
 
 inline const_rf_inv_iterator rf_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return !rLab ? event_end(G) : const_event_iterator(G, rLab->getRf().next());
+	return (!rLab || rLab->getRf().isBottom()) ? event_end(G) :
+		const_event_iterator(G, rLab->getRf().next());
 }
 
 inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
