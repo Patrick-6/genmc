@@ -10,10 +10,6 @@
 
 class Printer {
 
-private:
-	/* Printing might differ depending on the state we are in */
-	enum class State { Idle, Header, Calculator, Inclusion, Acyclic, Footer };
-
 public:
 	Printer(const std::string &prefix);
 
@@ -21,9 +17,6 @@ public:
 	void output(const CNFAs &cnfas);
 
 private:
-	State getState() const { return state; }
-	void setState(State s) { state = s; }
-
 //	void printInclusionError(const std::string &s, const NFA &lhs, const NFA &rhs);
 //	void printInclusionWarning(const std::string &s, const NFA &lhs, const NFA &rhs);
 
@@ -48,9 +41,6 @@ private:
 
 	void outputHpp(const CNFAs &nfas);
 	void outputCpp(const CNFAs &cnfas);
-
-	/* Printing state */
-	State state = State::Idle;
 
 	/* Prefix for the names to be printed (class name, filenames, etc) */
 	std::string prefix;
