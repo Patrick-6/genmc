@@ -1730,9 +1730,9 @@ bool Interpreter::isInlineAsm(CallInstWrapper CIW, std::string *asmStr)
 	llvm::InlineAsm *IA = llvm::dyn_cast<llvm::InlineAsm>(CIW.getCalledOperand());
 	*asmStr = IA->getAsmString();
 	asmStr->erase(asmStr->begin(), std::find_if(asmStr->begin(), asmStr->end(),
-	        std::not1(std::ptr_fun<int, int>(std::isspace))));
+						    [](int c){ return !std::isspace(c); }));
 	asmStr->erase(std::find_if(asmStr->rbegin(), asmStr->rend(),
-		std::not1(std::ptr_fun<int, int>(std::isspace))).base(), asmStr->end());
+				   [](int c){ return !std::isspace(c); }).base(), asmStr->end());
 	return true;
 }
 
