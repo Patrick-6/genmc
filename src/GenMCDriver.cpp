@@ -759,7 +759,8 @@ void GenMCDriver::explore()
 				EE->reset();  /* To free memory */
 				return;
 			}
-			validExecution = restrictAndRevisit(std::move(item)) && isConsistent(ProgramPoint::step);
+			auto pos = item->getPos();
+			validExecution = restrictAndRevisit(std::move(item)) && isConsistent(pos);
 		} while (!validExecution);
 	}
 }
@@ -1402,7 +1403,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	while (!found) {
 		found = true;
 		changeRf(rLab->getPos(), rfs.back());
-		if (!isConsistent(ProgramPoint::step)) {
+		if (!isConsistent(rLab->getPos())) {
 			found = false;
 			rfs.erase(rfs.end() - 1);
 			BUG_ON(!getConf()->LAPOR && rfs.empty());
@@ -1420,7 +1421,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (!checkAtomicity(wLab) || !isConsistent(ProgramPoint::step)) {
+	if (!checkAtomicity(wLab) || !isConsistent(wLab->getPos())) {
 		getEE()->block(BlockageType::Cons);
 		return false;
 	}
@@ -2594,9 +2595,10 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		 * try submitting the job instead */
 		auto *tp = getThreadPool();
 		if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
-			tp->submit(getSharedState());
+			if (isConsistent(rLab->getPos()))
+				tp->submit(getSharedState());
 		} else {
-			if (isConsistent(ProgramPoint::step))
+			if (isConsistent(read))
 				explore();
 		}
 

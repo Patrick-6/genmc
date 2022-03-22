@@ -37,12 +37,13 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
-	addOtherLabelToGraph( std::unique_ptr<ThreadStartLabel>(
-				     new ThreadStartLabel(
-					     0, llvm::AtomicOrdering::Acquire,
-					     Event(0, 0),
-					     Event::getInitializer() )
-				      ) );
+	auto *iLab = addOtherLabelToGraph( std::unique_ptr<ThreadStartLabel>(
+						   new ThreadStartLabel(
+							   0, llvm::AtomicOrdering::Acquire,
+							   Event(0, 0),
+							   Event::getInitializer() )
+						   ) );
+	iLab->setCalculated({{}});
 
 	relations.global.push_back(Calculator::GlobalRelation());
 	relsCache.global.push_back(Calculator::GlobalRelation());

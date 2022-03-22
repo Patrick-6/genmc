@@ -36,6 +36,8 @@ public:
 	bool updateJoin(Event join, Event childLast) override;
 	void initConsCalculation() override;
 
+	bool isConsistent(const Event &e) override;
+
 private:
 	View calcBasicHbView(Event e) const;
 	View calcBasicPorfView(Event e) const;

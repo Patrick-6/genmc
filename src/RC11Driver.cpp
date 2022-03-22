@@ -25,6 +25,7 @@
 #include "GraphIterators.hpp"
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
+#include "RC11Checker.hpp"
 
 RC11Driver::RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		       std::unique_ptr<ModuleInfo> MI)
@@ -206,6 +207,8 @@ void RC11Driver::calcJoinViews(ThreadJoinLabel *lab)
 void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps ignored */
 {
 	const auto &g = getGraph();
+
+	lab->setCalculated(RC11Checker(getGraph()).calculateAll(lab->getPos()));
 
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:
@@ -430,4 +433,9 @@ bool RC11Driver::updateJoin(Event join, Event childLast)
 void RC11Driver::initConsCalculation()
 {
 	return;
+}
+
+bool RC11Driver::isConsistent(const Event &e)
+{
+	return RC11Checker(getGraph()).isConsistent(e);
 }

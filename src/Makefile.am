@@ -68,6 +68,7 @@ libgenmc_a_SOURCES = \
   PropagateAssumesPass.cpp PropagateAssumesPass.hpp \
   PROPCalculator.cpp PROPCalculator.hpp \
   PSCCalculator.cpp PSCCalculator.hpp \
+  RC11Checker.cpp RC11Checker.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RCUCalculator.cpp RCUCalculator.hpp \
   RCULinkCalculator.cpp RCULinkCalculator.hpp \
