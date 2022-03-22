@@ -2,6 +2,7 @@
 #define __CNFAS_HPP__
 
 #include "Inclusion.hpp"
+#include "KatModuleAPI.hpp"
 #include "NFA.hpp"
 
 /*
@@ -13,8 +14,8 @@ class CNFAs {
 public:
 	CNFAs() = default;
 
-	using save_iter = std::vector<NFA>::iterator;
-	using save_const_iter = std::vector<NFA>::const_iterator;
+	using save_iter = std::vector<std::pair<NFA, VarStatus>>::iterator;
+	using save_const_iter = std::vector<std::pair<NFA, VarStatus>>::const_iterator;
 	using redc_iter = save_iter;
 	using redc_const_iter = save_const_iter;
 	using incl_iter = std::vector<Inclusion<NFA>>::iterator;
@@ -27,10 +28,10 @@ public:
 	save_const_iter save_begin() const { return nsave.begin(); }
 	save_const_iter save_end() const { return nsave.end(); }
 
-	redc_iter redc_begin() { return nredc.begin(); }
-	redc_iter redc_end() { return nredc.end(); }
-	redc_const_iter redc_begin() const { return nredc.begin(); }
-	redc_const_iter redc_end() const { return nredc.end(); }
+	// redc_iter redc_begin() { return nredc.begin(); }
+	// redc_iter redc_end() { return nredc.end(); }
+	// redc_const_iter redc_begin() const { return nredc.begin(); }
+	// redc_const_iter redc_end() const { return nredc.end(); }
 
 	incl_iter incl_begin() { return nincl.begin(); }
 	incl_iter incl_end() { return nincl.end(); }
@@ -39,16 +40,16 @@ public:
 
 	void addAcyclic(NFA &&a) { acyc.alt(std::move(a)); }
 
-	void addSaved(NFA &&save) { nsave.push_back(std::move(save)); }
+	void addSaved(NFA &&save) { nsave.push_back({std::move(save), VarStatus::Normal}); }
 
-	void addReduced(NFA &&redc) { nredc.push_back(std::move(redc)); }
+	void addReduced(NFA &&redc) { nsave.push_back({std::move(redc), VarStatus::Reduce}); }
 
 	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
 
 private:
 	NFA acyc;
-	std::vector<NFA> nsave;
-	std::vector<NFA> nredc;
+	std::vector<std::pair<NFA, VarStatus>> nsave;
+	// std::vector<NFA> nredc;
 	std::vector<Inclusion<NFA>> nincl;
 };
 

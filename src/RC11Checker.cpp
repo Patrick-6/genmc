@@ -9,6 +9,17 @@ void RC11Checker::visitCalc0_0(const Event &e, VSet<Event> &calcRes)
 
 	visitedCalc0_0[lab->getStamp()] = NodeStatus::entered;
 	calcRes.insert(e);
+	for (const auto &p : lab->calculated(0)) {
+		calcRes.erase(p);
+		visitedCalc0_0[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
+		visitedCalc0_1[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
+		visitedCalc0_6[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
 	visitedCalc0_0[lab->getStamp()] = NodeStatus::left;
 }
 
@@ -22,6 +33,16 @@ void RC11Checker::visitCalc0_1(const Event &e, VSet<Event> &calcRes)
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
+	}
+	if (auto p = lab->getPos(); lab->isAtLeastRelease()) {
+		auto status = visitedCalc0_1[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_1(p, calcRes);
+	}
+	if (auto p = lab->getPos(); lab->isAtLeastRelease()) {
+		auto status = visitedCalc0_6[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_6(p, calcRes);
 	}
 	visitedCalc0_1[lab->getStamp()] = NodeStatus::left;
 }
@@ -128,6 +149,9 @@ VSet<Event> RC11Checker::calculate0(const Event &e)
 	visitedCalc0_5.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
 	visitedCalc0_6.clear();
 	visitedCalc0_6.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
+
+	getGraph().getEventLabel(e)->setCalculated({{}, {}, {}, });
+	visitCalc0_0(e, calcRes);
 	visitCalc0_1(e, calcRes);
 	visitCalc0_6(e, calcRes);
 	return calcRes;
@@ -138,21 +162,20 @@ void RC11Checker::visitCalc1_0(const Event &e, VSet<Event> &calcRes)
 	auto *lab = g.getEventLabel(e);
 
 	visitedCalc1_0[lab->getStamp()] = NodeStatus::entered;
-	calcRes.insert(e);
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_0[g.getEventLabel(p)->getStamp()];
+		auto status = visitedCalc1_3[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc1_0(p, calcRes);
+			visitCalc1_3(p, calcRes);
 	}
 	if (auto p = lab->getPos(); lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab)) {
-		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_5(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedCalc1_4[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc1_4(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_5(p, calcRes);
 	}
 	visitedCalc1_0[lab->getStamp()] = NodeStatus::left;
 }
@@ -164,14 +187,9 @@ void RC11Checker::visitCalc1_1(const Event &e, VSet<Event> &calcRes)
 
 	visitedCalc1_1[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedCalc1_0[g.getEventLabel(p)->getStamp()];
+		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc1_0(p, calcRes);
-	}
-	for (auto &p : lab->calculated(0)) {
-		auto status = visitedCalc1_4[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_4(p, calcRes);
+			visitCalc1_5(p, calcRes);
 	}
 	visitedCalc1_1[lab->getStamp()] = NodeStatus::left;
 }
@@ -196,21 +214,6 @@ void RC11Checker::visitCalc1_3(const Event &e, VSet<Event> &calcRes)
 	auto *lab = g.getEventLabel(e);
 
 	visitedCalc1_3[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(p, calcRes);
-	}
-	if (auto p = lab->getPos(); lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab)) {
-		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_5(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_4[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_4(p, calcRes);
-	}
 	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
 		auto status = visitedCalc1_2[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
@@ -226,24 +229,14 @@ void RC11Checker::visitCalc1_4(const Event &e, VSet<Event> &calcRes)
 
 	visitedCalc1_4[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_3[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_3(p, calcRes);
-	}
-	if (auto p = lab->getPos(); lab->isAtLeastAcquire() && llvm::isa<FenceLabel>(lab)) {
-		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_5(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedCalc1_4[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc1_4(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc1_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_2(p, calcRes);
 	}
 	visitedCalc1_4[lab->getStamp()] = NodeStatus::left;
 }
@@ -254,15 +247,10 @@ void RC11Checker::visitCalc1_5(const Event &e, VSet<Event> &calcRes)
 	auto *lab = g.getEventLabel(e);
 
 	visitedCalc1_5[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_5[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_5(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc1_2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_2(p, calcRes);
+	calcRes.insert(e);
+	for (const auto &p : lab->calculated(1)) {
+		calcRes.erase(p);
+		visitedCalc1_0[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
 	}
 	visitedCalc1_5[lab->getStamp()] = NodeStatus::left;
 }
@@ -282,7 +270,9 @@ VSet<Event> RC11Checker::calculate1(const Event &e)
 	visitedCalc1_4.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
 	visitedCalc1_5.clear();
 	visitedCalc1_5.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
-	visitCalc1_4(e, calcRes);
+
+	getGraph().getEventLabel(e)->setCalculated({{}, });
+	visitCalc1_0(e, calcRes);
 	return calcRes;
 }
 std::vector<VSet<Event>> RC11Checker::calculateAll(const Event &e)
@@ -382,15 +372,15 @@ bool RC11Checker::visitAcyclic3(const Event &e)
 
 	visitedAcyclic3[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+		auto status = visitedAcyclic3[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic3(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic3[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic3(p))
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -412,16 +402,16 @@ bool RC11Checker::visitAcyclic4(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
-		auto status = visitedAcyclic7[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic7(p))
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic4[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic4(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic4[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic4(p))
+	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
+		auto status = visitedAcyclic7[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic7(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -454,15 +444,15 @@ bool RC11Checker::visitAcyclic6(const Event &e)
 
 	visitedAcyclic6[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic5[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic5(p))
+		auto status = visitedAcyclic3[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic3(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic3[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic3(p))
+		auto status = visitedAcyclic5[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic5(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -594,13 +584,6 @@ bool RC11Checker::visitAcyclic13(const Event &e)
 
 	visitedAcyclic13[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic9(p))
 			return false;
@@ -610,6 +593,13 @@ bool RC11Checker::visitAcyclic13(const Event &e)
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic13[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -625,27 +615,6 @@ bool RC11Checker::visitAcyclic14(const Event &e)
 
 	visitedAcyclic14[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic9(p))
 			return false;
@@ -669,6 +638,27 @@ bool RC11Checker::visitAcyclic14(const Event &e)
 	for (auto &p : co_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic15[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic15(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -684,27 +674,6 @@ bool RC11Checker::visitAcyclic15(const Event &e)
 
 	visitedAcyclic15[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : rf_succs(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : rf_succs(g, lab->getPos())) {
 		auto status = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic9(p))
 			return false;
@@ -728,6 +697,27 @@ bool RC11Checker::visitAcyclic15(const Event &e)
 	for (auto &p : co_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic15[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic15(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : rf_succs(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -774,20 +764,6 @@ bool RC11Checker::visitAcyclic17(const Event &e)
 
 	visitedAcyclic17[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic9(p))
 			return false;
@@ -818,6 +794,20 @@ bool RC11Checker::visitAcyclic17(const Event &e)
 	for (auto &p : lab->calculated(1)) {
 		auto status = visitedAcyclic14[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic14(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -887,16 +877,9 @@ bool RC11Checker::visitAcyclic20(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic4[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic4(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -922,9 +905,16 @@ bool RC11Checker::visitAcyclic20(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic4[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic4(p))
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic2(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -957,13 +947,6 @@ bool RC11Checker::visitAcyclic22(const Event &e)
 
 	visitedAcyclic22[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : lab->calculated(1)) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : lab->calculated(1)) {
 		auto status = visitedAcyclic21[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic21(p))
 			return false;
@@ -973,6 +956,13 @@ bool RC11Checker::visitAcyclic22(const Event &e)
 	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
 		auto status = visitedAcyclic25[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic25(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : lab->calculated(1)) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -1005,15 +995,15 @@ bool RC11Checker::visitAcyclic24(const Event &e)
 
 	visitedAcyclic24[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic21[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic21(p))
+		auto status = visitedAcyclic23[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic23(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic23[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic23(p))
+		auto status = visitedAcyclic21[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic21(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -1052,27 +1042,6 @@ bool RC11Checker::visitAcyclic26(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic26[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
 	for (auto &p : lab->calculated(1)) {
 		auto status = visitedAcyclic21[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic21(p))
@@ -1080,6 +1049,13 @@ bool RC11Checker::visitAcyclic26(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
+	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
+		auto status = visitedAcyclic27[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic27(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic26(p))
@@ -1101,9 +1077,23 @@ bool RC11Checker::visitAcyclic26(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	if (auto p = lab->getPos(); lab->isAtLeastAcquire()) {
-		auto status = visitedAcyclic27[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic27(p))
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -1136,57 +1126,57 @@ bool RC11Checker::visitAcyclic28(const Event &e)
 
 	visitedAcyclic28[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : rf_succs(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : rf_succs(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
@@ -1201,27 +1191,6 @@ bool RC11Checker::visitAcyclic29(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic29[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
 	for (auto &p : co_preds(g, lab->getPos())) {
 		auto status = visitedAcyclic28[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic28(p))
@@ -1250,6 +1219,27 @@ bool RC11Checker::visitAcyclic29(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
 	visitedAcyclic29[lab->getStamp()] = NodeStatus::left;
 	return true;
 }
@@ -1260,6 +1250,27 @@ bool RC11Checker::visitAcyclic30(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic30[lab->getStamp()] = NodeStatus::entered;
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : co_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
+	for (auto &p : fr_init_preds(g, lab->getPos())) {
+		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic26(p))
+			return false;
+		else if (status == NodeStatus::entered && visitedAccepting)
+			return false;
+	}
 	for (auto &p : lab->calculated(1)) {
 		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen && !visitAcyclic29(p))
@@ -1288,27 +1299,6 @@ bool RC11Checker::visitAcyclic30(const Event &e)
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : co_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
-	for (auto &p : fr_init_preds(g, lab->getPos())) {
-		auto status = visitedAcyclic26[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic26(p))
-			return false;
-		else if (status == NodeStatus::entered && visitedAccepting)
-			return false;
-	}
 	visitedAcyclic30[lab->getStamp()] = NodeStatus::left;
 	return true;
 }
@@ -1320,15 +1310,15 @@ bool RC11Checker::visitAcyclic31(const Event &e)
 
 	visitedAcyclic31[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic29(p))
+		auto status = visitedAcyclic30[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic30(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;
 	}
 	for (auto &p : lab->calculated(0)) {
-		auto status = visitedAcyclic30[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen && !visitAcyclic30(p))
+		auto status = visitedAcyclic29[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen && !visitAcyclic29(p))
 			return false;
 		else if (status == NodeStatus::entered && visitedAccepting)
 			return false;

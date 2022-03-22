@@ -139,8 +139,8 @@ void Printer::outputHpp(const CNFAs &cnfas)
 	printHppHeader();
 
 	auto i = 0u;
-	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
-		printCalculatorHpp(nfa, i++);
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
+		printCalculatorHpp(nfaStatus.first, i++);
 	});
 
 	i = 0u;
@@ -159,8 +159,8 @@ void Printer::outputCpp(const CNFAs &cnfas)
 
 	/* Print calculators + calculateAll() */
 	auto i = 0u;
-	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
-		printCalculatorCpp(nfa, i++, VarStatus::Normal);
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
+		printCalculatorCpp(nfaStatus.first, i++, nfaStatus.second);
 	});
 	*outCpp << "std::vector<VSet<Event>> " << className << "::calculateAll(const Event &e)\n"
 		<< "{\n";
@@ -314,18 +314,15 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 			<< "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		if (s->isStarting()) {
 			*outCpp << "\tcalcRes.insert(e);\n";
-			//
-			// FIXME
-			//
-			// if (reduce == VarStatus::Reduce) {
-			// 	PRINT_LINE("\tfor (const auto &p : calc" << whichCalc << "_preds(g, e)) {");
-			// 	PRINT_LINE("\t\tcalcRes.erase(p);");
-			// 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
-			// 		if (a->isAccepting())
-			// 			PRINT_LINE("\t\t" << VISITED_IDX(&*a, "p") << " = true;");
-			// 	});
-			// 	PRINT_LINE("\t}");
-			// }
+			if (reduce == VarStatus::Reduce) {
+				*outCpp << "\tfor (const auto &p : lab->calculated(" << id << ")) {\n"
+					<< "\t\tcalcRes.erase(p);\n";
+				std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
+					if (a->isAccepting())
+						*outCpp << "\t\tvisitedCalc" << GET_ID(id, ids[&*a]) << "[g.getEventLabel(p)->getStamp()] = NodeStatus::left;\n";
+				});
+				*outCpp << "\t}\n";
+			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			*outCpp << "\t";
@@ -348,6 +345,13 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 		*outCpp << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".clear();\n"
 			<< "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
+	*outCpp << "\n"
+		<< "\tgetGraph().getEventLabel(e)->setCalculated({";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
+		if (a->isAccepting())
+			*outCpp << "{}, ";
+	});
+	*outCpp << "});\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 		if (a->isAccepting())
 			*outCpp << "\tvisitCalc" << GET_ID(id, ids[&*a]) << "(e, calcRes);\n";

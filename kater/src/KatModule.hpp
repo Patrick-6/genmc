@@ -2,9 +2,8 @@
 #define __KAT_MODULE_HPP__
 
 #include "Inclusion.hpp"
+#include "KatModuleAPI.hpp"
 #include "Parser.hpp"
-
-enum class VarStatus { Normal, Reduce };
 
 class KatModule {
 
