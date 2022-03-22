@@ -16,7 +16,7 @@ public:
 	const KatModule &getModule() const { return *module; }
 
 	void generateNFAs();
-	void exportCode(std::string &prefix);
+	void exportCode(std::string &dirPrefix, std::string &outPrefix);
 
 private:
 	CNFAs &getCNFAs() { return cnfas; }

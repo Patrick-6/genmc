@@ -13,7 +13,7 @@ void openFileForWriting(const std::string &filename, std::ofstream &fout)
 	}
 }
 
-Printer::Printer(const std::string &outPrefix)
+Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 {
 	auto name = outPrefix != "" ? outPrefix : "Demo";
 
@@ -24,9 +24,9 @@ Printer::Printer(const std::string &outPrefix)
 
 	/* Open required streams */
 	if (outPrefix != "") {
-		openFileForWriting(className + ".hpp", foutHpp);
+		openFileForWriting(dirPrefix + "/" + className + ".hpp", foutHpp);
 		outHpp = &foutHpp;
-		openFileForWriting(className + ".cpp", foutCpp);
+		openFileForWriting(dirPrefix + "/" + className + ".cpp", foutCpp);
 		outCpp = &foutCpp;
 	}
 }

@@ -11,7 +11,7 @@
 class Printer {
 
 public:
-	Printer(const std::string &prefix);
+	Printer(const std::string &dirPrefix, const std::string &outPrefix);
 
 	/* Outputs RES */
 	void output(const CNFAs &cnfas);

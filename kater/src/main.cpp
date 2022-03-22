@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 	Kater kater(d.takeModule());
 
 	kater.generateNFAs();
-	kater.exportCode(config.outPrefix);
+	kater.exportCode(config.dirPrefix, config.outPrefix);
 
 	return 0;
 }

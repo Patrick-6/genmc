@@ -45,8 +45,8 @@ void Kater::generateNFAs()
 		std::cout << "Generated NFA: " << cnfas.getAcyclic() << std::endl;
 }
 
-void Kater::exportCode(std::string &prefix)
+void Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)
 {
-	Printer p(config.outPrefix);
+	Printer p(dirPrefix, outPrefix);
 	p.output(getCNFAs());
 }

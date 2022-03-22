@@ -1,5 +1,6 @@
 #include "Config.hpp"
 #include <iostream>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,6 +13,7 @@ void Config::reset()
 	verbose = 0;
 	debug = false;
 	outPrefix = "";
+	dirPrefix = "/tmp";
 	inputFile = "";
 }
 
@@ -29,8 +31,11 @@ void Config::printUsage(const char *kater)
 "-h, --help                  Display this help message and exit\n"
 "-d, --debug                 Print debugging information.\n"
 "                            Default: %d\n"
-"-p, --prefix                Prefix to be used for the resulting files.\n"
+"-o, --output                Name prefix to be used for the resulting files.\n"
 "                            Default: \"%s\" (prints to stdout)\n"
+"-p, --prefix                Directory where the resulting files will be stored.\n"
+"                            Has no effect without -o.\n"
+"                            Default: \"%s\"\n"
 "-v[NUM], --verbose[=NUM]    Print verbose execution information. NUM is optional:\n"
 "                              0 is quiet; 1 prints status; 2 is noisy;\n"
 "                              3 is noisier.\n"
@@ -38,6 +43,7 @@ void Config::printUsage(const char *kater)
 		kater,
 		debug,
 		outPrefix.c_str(),
+		dirPrefix.c_str(),
 		verbose);
 	exit(0);
 }
@@ -47,11 +53,12 @@ void Config::parseOptions(int argc, char **argv)
 	/* Reset defaults before parsing the options */
 	reset();
 
-	const char *shortopts = "hdo:v:";
+	const char *shortopts = "hdp:o:v:";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
 		{"debug", no_argument, NULL, 'd'},
 		{"output", required_argument, NULL, 'o'},
+		{"prefix", required_argument, NULL, 'p'},
 		{"verbose", optional_argument, NULL, 'v'},
 		{0, 0, 0, 0} /* Terminator */
 	};
@@ -68,6 +75,9 @@ void Config::parseOptions(int argc, char **argv)
 			break;
 		case 'o':
 			outPrefix = optarg;
+			break;
+		case 'p':
+			dirPrefix = optarg;
 			break;
 		case 'v':
 			verbose = optarg ? atoi(optarg) : 1;
