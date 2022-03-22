@@ -1,0 +1,55 @@
+#ifndef __CNFAS_HPP__
+#define __CNFAS_HPP__
+
+#include "Inclusion.hpp"
+#include "NFA.hpp"
+
+/*
+ * Constrained NFAs class
+ * A collection of NFAs representing different constraint types
+ */
+class CNFAs {
+
+public:
+	CNFAs() = default;
+
+	using save_iter = std::vector<NFA>::iterator;
+	using save_const_iter = std::vector<NFA>::const_iterator;
+	using redc_iter = save_iter;
+	using redc_const_iter = save_const_iter;
+	using incl_iter = std::vector<Inclusion<NFA>>::iterator;
+	using incl_const_iter = std::vector<Inclusion<NFA>>::const_iterator;
+
+	const NFA &getAcyclic() const { return acyc; }
+
+	save_iter save_begin() { return nsave.begin(); }
+	save_iter save_end() { return nsave.end(); }
+	save_const_iter save_begin() const { return nsave.begin(); }
+	save_const_iter save_end() const { return nsave.end(); }
+
+	redc_iter redc_begin() { return nredc.begin(); }
+	redc_iter redc_end() { return nredc.end(); }
+	redc_const_iter redc_begin() const { return nredc.begin(); }
+	redc_const_iter redc_end() const { return nredc.end(); }
+
+	incl_iter incl_begin() { return nincl.begin(); }
+	incl_iter incl_end() { return nincl.end(); }
+	incl_const_iter incl_begin() const { return nincl.begin(); }
+	incl_const_iter incl_end() const { return nincl.end(); }
+
+	void addAcyclic(NFA &&a) { acyc.alt(std::move(a)); }
+
+	void addSaved(NFA &&save) { nsave.push_back(std::move(save)); }
+
+	void addReduced(NFA &&redc) { nredc.push_back(std::move(redc)); }
+
+	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
+
+private:
+	NFA acyc;
+	std::vector<NFA> nsave;
+	std::vector<NFA> nredc;
+	std::vector<Inclusion<NFA>> nincl;
+};
+
+#endif /* __CNFAS_HPP__ */
