@@ -71,7 +71,7 @@ anchor_macos() {
     version=$1
     anchor_shared $version
     echo "  before_script:"
-    echo "    - export PATH=\"/usr/local/opt/llvm@${version%%.*}/bin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/bison/bin:"'$PATH''"'
+    echo "    - export PATH=/usr/local/opt/llvm@${version%%.*}/bin:/usr/local/opt/gnu-getopt/bin:/usr/local/opt/bison/bin:$PATH"
     echo ""
 }
 
