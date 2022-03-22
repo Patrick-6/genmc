@@ -34,6 +34,7 @@
 #include "SExpr.hpp"
 #include "SVal.hpp"
 #include "View.hpp"
+#include "VSet.hpp"
 #include <llvm/IR/Instructions.h> /* For AtomicOrdering in older LLVMs */
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
@@ -140,6 +141,9 @@ protected:
 
 	using const_dep_iterator = DepInfo::const_iterator;
 	using const_dep_range = llvm::iterator_range<const_dep_iterator>;
+
+	using calc_const_iterator = VSet<Event>::const_iterator;
+	using calc_const_range = llvm::iterator_range<calc_const_iterator>;
 public:
 
 	/* Returns the discriminator of this object */
@@ -188,6 +192,15 @@ public:
 	const_dep_iterator ctrl_end() const { return deps.ctrl.end(); }
 	const_dep_range ctrl() const {
 		return const_dep_range(deps.ctrl.begin(), deps.ctrl.end());
+	}
+
+	void setCalculated(std::vector<VSet<Event>> &&calc) {
+		calculatedRels = std::move(calc);
+	}
+
+	/* Iterators for calculated relations */
+	calc_const_range calculated(size_t i) const {
+		return getPos().isInitializer() ? calculatedRels[0] : calculatedRels[i];
 	}
 
 	/* Methods that get/set the vector clocks for this label. */
@@ -287,6 +300,9 @@ private:
 
 	/* Events on which this label depends */
 	EventDeps deps;
+
+	/* Saved calculations */
+	std::vector<VSet<Event>> calculatedRels;
 };
 
 
