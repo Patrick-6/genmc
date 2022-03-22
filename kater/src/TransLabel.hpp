@@ -38,9 +38,9 @@ public:
 	bool operator>  (const TransLabel &other) const { return other < *this; }
 	bool operator>= (const TransLabel &other) const { return other <= *this; }
 
-	virtual ~TransLabel() = default;
+	virtual ~TransLabel() {}
 
-	virtual void flip() { }
+	virtual void flip() {}
 
 	virtual std::unique_ptr<TransLabel> clone() const = 0;
 
