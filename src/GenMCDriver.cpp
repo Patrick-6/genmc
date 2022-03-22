@@ -656,7 +656,14 @@ void GenMCDriver::restrictGraph(const EventLabel *rLab)
 	 * restrict the graph (and relations) */
 	notifyEERemoved(*getGraph().getPredsView(rLab->getPos()));
 	getGraph().cutToStamp(rLab->getStamp());
+
+	/* It can be the case that events with larger stamp remain
+	 * in the graph (e.g., BEGINs). Fix their stamps too. */
 	getGraph().resetStamp(rLab->getStamp() + 1);
+	for (auto *lab : labels(getGraph())) {
+		if (lab->getStamp() > rLab->getStamp())
+			lab->setStamp(getGraph().nextStamp());
+	}
 	return;
 }
 
