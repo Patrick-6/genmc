@@ -54,7 +54,7 @@ assert hb = (po | sw)+
 // ---------------------------------------------------------------------
 
 // No load buffering
-acyclic (po | rf)
+// acyclic (po | rf)
 
 // Coherence : Optimize the checking of irreflexive (hb ; eco)
 coherence (hb_stable)
