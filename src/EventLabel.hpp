@@ -1266,6 +1266,8 @@ public:
 	}
 
 private:
+	friend class MOCalculator;
+
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(Event r) {
 		if (std::find(readerList.begin(), readerList.end(), r) ==
@@ -1282,6 +1284,12 @@ private:
 				 readerList.end());
 	}
 
+	/* Returns the stored hint re. this label's position in MO */
+	int getMOIdxHint() const { return moIndex; }
+
+	/* Sets a hint re. this label's position in MO */
+	void setMOIdxHint(int hint) { moIndex = hint; }
+
 	/* The value written by this label */
 	SVal value;
 
@@ -1290,6 +1298,10 @@ private:
 
 	/* List of reads reading from the write */
 	std::vector<Event> readerList;
+
+	/* A hint containing the index of this write in MO (-1 for unused).
+	 * (This should not be part of the public interface.) */
+	int moIndex = -1;
 
 	/* Attributes of the write */
 	WriteAttr wattr;

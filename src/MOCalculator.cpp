@@ -259,9 +259,9 @@ int MOCalculator::getStoreOffset(SAddr addr, Event e) const
 	if (e == Event::getInitializer())
 		return -1;
 
-	auto oIt = std::find(store_begin(addr), store_end(addr), e);
-	BUG_ON(oIt == store_end(addr));
-	return std::distance(store_begin(addr), oIt);
+	auto *wLab = getGraph().getWriteLabel(e);
+	BUG_ON(!wLab || wLab->getMOIdxHint() == -1);
+	return wLab->getMOIdxHint();
 }
 
 std::pair<int, int>
@@ -288,10 +288,13 @@ MOCalculator::getPossiblePlacings(SAddr addr, Event store, bool isRMW)
 
 void MOCalculator::addStoreToLoc(SAddr addr, Event store, int offset)
 {
-	if (offset == -1)
+	if (offset == -1) {
+		getGraph().getWriteLabel(store)->setMOIdxHint(stores[addr].size());
 		stores[addr].push_back(store);
-	else
+	} else {
 		stores[addr].insert(store_begin(addr) + offset, store);
+		cacheMOIdxHints(addr, offset);
+	}
 }
 
 void MOCalculator::addStoreToLocAfter(SAddr addr, Event store, Event pred)
@@ -318,6 +321,7 @@ void MOCalculator::changeStoreOffset(SAddr addr, Event store, int newOffset)
 
 	locMO.erase(std::find(store_begin(addr), store_end(addr), store));
 	locMO.insert(store_begin(addr) + newOffset, store);
+	cacheMOIdxHints(addr, newOffset);
 }
 
 int MOCalculator::splitLocMOBefore(SAddr addr, Event e)
@@ -635,6 +639,8 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 							[&](Event &e)
 							{ return !preds.contains(e); }),
 					 rIt->second.end());
+			/* Repair label hints */
+			cacheMOIdxHints(sIt->first);
 			++sIt;
 			++rIt;
 		}
@@ -647,4 +653,11 @@ bool MOCalculator::locContains(SAddr addr, Event e) const
 	return e == Event::getInitializer() ||
 		std::any_of(store_begin(addr), store_end(addr),
 			    [&e](Event s){ return s == e; });
+}
+
+void MOCalculator::cacheMOIdxHints(SAddr addr, int start /* = -1 */) const
+{
+	auto &bucket = getStoresToLoc(addr);
+	for (auto i = (start == -1) ? 0u : unsigned(start); i < bucket.size(); i++)
+		getGraph().getWriteLabel(bucket[i])->setMOIdxHint(i);
 }

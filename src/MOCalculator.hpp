@@ -259,6 +259,10 @@ private:
 
 	/* Returns true if the location "loc" contains the event "e" */
 	bool locContains(SAddr loc, Event e) const;
+
+	/* Caches MO-idx hints for all stores in ADDR for faster reverse lookup.
+	 * If START != -1, it only does so starting from the START-th store */
+	void cacheMOIdxHints(SAddr addr, int start = -1) const;
 };
 
 #endif /* __MO_CALCULATOR_HPP__ */
