@@ -11,6 +11,7 @@ assume rf ; [F] = 0
 
 // Program order
 let po = po-imm+
+let po-loc = po-loc-imm+
 
 // Modification order
 let mo = mo-imm+
@@ -27,6 +28,7 @@ let rmw = [UR]; po-imm ; [UW]
 // Same location
 let loc = loc-overlap ^=
 
+// Dependencies
 let ctrl = ctrl-imm ; po-imm*
 let addr = addr-imm+
 let data = data-imm+

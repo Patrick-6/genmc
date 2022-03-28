@@ -75,22 +75,24 @@ const std::vector<PredicateInfo> builtinPredicates = {
 const std::vector<RelationInfo> builtinRelations = {
         /* program order */
         {"po-imm",      RelType::OneOne,     true,  "po_imm_succs",     "po_imm_preds"},
-        {"po-loc",      RelType::OneOne,     true,  "po_loc_imm_succs", "po_loc_imm_preds"},
+        {"po-loc-imm",  RelType::OneOne,     true,  "poloc_imm_succs",  "poloc_imm_preds"},
 	/* intra-thread dependencies */
-        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",                "ctrl"},
-        {"addr-imm",    RelType::UnsuppMany, true,  "?",                "addr"},
-        {"data-imm",    RelType::UnsuppMany, true,  "?",                "data"},
+        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",                "ctrl_preds"},
+        {"addr-imm",    RelType::UnsuppMany, true,  "?",                "addr_preds"},
+        {"data-imm",    RelType::UnsuppMany, true,  "?",                "data_preds"},
 	/* same thread */
 	{"same-thread", RelType::Conj,	     false, "same_thread",      "same_thread"},
 	/* same location */
         {"alloc",       RelType::ManyOne,    false, "alloc_succs",      "alloc"},
         {"frees",       RelType::OneOne,     false, "frees",            "alloc"},
         {"loc-overlap", RelType::Final,      false, "?",                "loc_preds"},
-	/* reads-from, coherence, from-read */
+	/* reads-from, coherence, from-read, detour */
         {"rf",          RelType::ManyOne,    false, "rf_succs",          "rf_preds"},
         {"rfe",         RelType::ManyOne,    false, "rfe_succs",         "rfe_preds"},
+        {"rfi",         RelType::ManyOne,    false, "rfi_succs",         "rfi_preds"},
         {"mo-imm",      RelType::OneOne,     false, "co_succs",          "co_preds"},
         {"fr-init",     RelType::OneOne,     false, "fr_init_succs",     "fr_init_preds"},
+        {"detour",      RelType::OneOne,     false, "detour_succs",      "detour_preds"},
 };
 
 static bool is_sub_predicate(int i, int j)
