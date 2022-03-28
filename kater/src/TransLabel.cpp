@@ -69,7 +69,8 @@ const std::vector<PredicateInfo> builtinPredicates = {
 	{"DskOpen",        other_event_bitmask, "llvm::isa<DskOpenLabel>(#)"},
 	{"DskFsync",       other_event_bitmask, "llvm::isa<DskFsyncLabel>(#)"},
 	{"DskSync",        other_event_bitmask, "llvm::isa<DskSyncLabel>(#)"},
-	{"DskPbarrier",    other_event_bitmask, "llvm::isa<DskPbarrierLabel>(#)"}};
+	{"DskPbarrier",    other_event_bitmask, "llvm::isa<DskPbarrierLabel>(#)"},
+};
 
 const std::vector<RelationInfo> builtinRelations = {
         /* program order */
@@ -89,7 +90,8 @@ const std::vector<RelationInfo> builtinRelations = {
         {"rf",          RelType::ManyOne,    false, "rf_succs",          "rf_preds"},
         {"rfe",         RelType::ManyOne,    false, "rfe_succs",         "rfe_preds"},
         {"mo-imm",      RelType::OneOne,     false, "co_succs",          "co_preds"},
-        {"fr-init",     RelType::OneOne,     false, "fr_init_succs",     "fr_init_preds"}};
+        {"fr-init",     RelType::OneOne,     false, "fr_init_succs",     "fr_init_preds"},
+};
 
 static bool is_sub_predicate(int i, int j)
 {
