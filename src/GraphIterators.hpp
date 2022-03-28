@@ -1161,6 +1161,171 @@ inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
 
 
 /*******************************************************************************
+ **                         rfe-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	struct DiffThreadFilter {
+		DiffThreadFilter() = delete;
+		DiffThreadFilter(const ExecutionGraph &g, int t)
+			: graph(g), thread(t) {}
+
+		bool operator()(const Event &e) const {
+			return !e.isInitializer() && !e.isBottom() && e.thread != thread;
+		}
+	private:
+		const ExecutionGraph &graph;
+		const int thread;
+	};
+
+	template<typename IterT>
+	struct rfe_filter_iterator : public llvm::filter_iterator<IterT, DiffThreadFilter> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, DiffThreadFilter>;
+
+		rfe_filter_iterator(IterT it, IterT end, DiffThreadFilter filter)
+			: BaseT(it, end, filter) {}
+
+		rfe_filter_iterator& operator++() {
+			return static_cast<rfe_filter_iterator&>(BaseT::operator++());
+		}
+		rfe_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_rfe_iterator = ::detail::rfe_filter_iterator<const_rf_iterator>;
+using const_rfe_range = llvm::iterator_range<const_rfe_iterator>;
+
+inline const_rfe_iterator rfe_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return const_rfe_iterator(rf_succ_begin(G, e), rf_succ_end(G, e),
+				  ::detail::DiffThreadFilter(G, e.thread));
+}
+
+inline const_rfe_iterator rfe_succ_end(const ExecutionGraph &G, Event e)
+{
+	return const_rfe_iterator(rf_succ_end(G, e), rf_succ_end(G, e),
+				  ::detail::DiffThreadFilter(G, e.thread));
+}
+
+
+inline const_rfe_range rfe_succs(const ExecutionGraph &G, Event e)
+{
+	return const_rfe_range(rfe_succ_begin(G, e), rfe_succ_end(G, e));
+}
+inline const_rfe_range rfe_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return rfe_succs(G, lab->getPos());
+}
+
+using const_rfe_inv_iterator = const_rf_inv_iterator;
+using const_rfe_inv_range = llvm::iterator_range<const_rfe_inv_iterator>;
+
+inline const_rfe_inv_iterator rfe_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *rLab = G.getReadLabel(e);
+	return (rLab && rLab->readsExt()) ? rf_pred_begin(G, e) : rf_pred_end(G, e);
+}
+
+inline const_rfe_inv_iterator rfe_pred_end(const ExecutionGraph &G, Event e)
+{
+	return rf_pred_end(G, e);
+}
+
+inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, Event e)
+{
+	return const_rfe_inv_range(rfe_pred_begin(G, e), rfe_pred_end(G, e));
+}
+
+inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return const_rfe_inv_range(rfe_pred_begin(G, lab->getPos()), rfe_pred_end(G, lab->getPos()));
+}
+
+
+/*******************************************************************************
+ **                         rfi-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	struct SameThreadFilter {
+		SameThreadFilter() = delete;
+		SameThreadFilter(const ExecutionGraph &g, int t)
+			: graph(g), thread(t) {}
+
+		bool operator()(const Event &e) const {
+			return !e.isBottom() && (e.isInitializer() || e.thread == thread);
+		}
+	private:
+		const ExecutionGraph &graph;
+		const int thread;
+	};
+
+	template<typename IterT>
+	struct rfi_filter_iterator : public llvm::filter_iterator<IterT, SameThreadFilter> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, SameThreadFilter>;
+
+		rfi_filter_iterator(IterT it, IterT end, SameThreadFilter filter)
+			: BaseT(it, end, filter) {}
+
+		rfi_filter_iterator& operator++() {
+			return static_cast<rfi_filter_iterator&>(BaseT::operator++());
+		}
+		rfi_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_rfi_iterator = ::detail::rfi_filter_iterator<const_rf_iterator>;
+using const_rfi_range = llvm::iterator_range<const_rfi_iterator>;
+
+inline const_rfi_iterator rfi_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return const_rfi_iterator(rf_succ_begin(G, e), rf_succ_end(G, e),
+				  ::detail::SameThreadFilter(G, e.thread));
+}
+
+inline const_rfi_iterator rfi_succ_end(const ExecutionGraph &G, Event e)
+{
+	return const_rfi_iterator(rf_succ_end(G, e), rf_succ_end(G, e),
+				  ::detail::SameThreadFilter(G, e.thread));
+}
+
+
+inline const_rfi_range rfi_succs(const ExecutionGraph &G, Event e)
+{
+	return const_rfi_range(rfi_succ_begin(G, e), rfi_succ_end(G, e));
+}
+inline const_rfi_range rfi_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return rfi_succs(G, lab->getPos());
+}
+
+using const_rfi_inv_iterator = const_rf_inv_iterator;
+using const_rfi_inv_range = llvm::iterator_range<const_rfi_inv_iterator>;
+
+inline const_rfi_inv_iterator rfi_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *rLab = G.getReadLabel(e);
+	return (rLab && rLab->readsInt()) ? rf_pred_begin(G, e) : rf_pred_end(G, e);
+}
+
+inline const_rfi_inv_iterator rfi_pred_end(const ExecutionGraph &G, Event e)
+{
+	return rf_pred_end(G, e);
+}
+
+inline const_rfi_inv_range rfi_preds(const ExecutionGraph &G, Event e)
+{
+	return const_rfi_inv_range(rfi_pred_begin(G, e), rfi_pred_end(G, e));
+}
+
+
+/*******************************************************************************
  **                         tcreate-iteration utilities
  ******************************************************************************/
 
