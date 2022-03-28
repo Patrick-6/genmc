@@ -678,6 +678,18 @@ public:
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
 
+	/* Whether this read has a set RF and reads externally */
+	bool readsExt() const {
+		return !getRf().isInitializer() && !getRf().isBottom() &&
+			getRf().thread != getThread();
+	}
+
+	/* Whether this read has a set RF and reads internally */
+	bool readsInt() const {
+		return !getRf().isBottom() &&
+			(getRf().isInitializer() || getRf().thread == getThread());
+	}
+
 	/* Returns true if this read can be revisited */
 	bool isRevisitable() const { return revisitable; }
 
