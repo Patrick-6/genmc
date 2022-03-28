@@ -56,20 +56,14 @@ public:
 	using pointer = LabelT *;
 	using reference = LabelT &;
 
+	using BaseT = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
 
-	/*** Constructors/destructor ***/
+	/*** Constructor ***/
 	LabelIterator() = default;
-
-	template<typename A, typename B, typename C, typename D>
-	LabelIterator(const LabelIterator<A,B,C,D> &LI)
-		: threads(LI.threads), thread(LI.thread), label(LI.label) {}
-
-	template<typename A, typename B, typename C, typename D>
-	LabelIterator(LabelIterator<A,B,C,D> &LI)
-		: threads(LI.threads), thread(LI.thread), label(LI.label) {}
 
 	/* begin()/end() constructor */
 	template<typename G, typename U = ThreadItT,
+		 std::enable_if_t<!std::is_base_of_v<BaseT, std::decay_t<G>>, bool> = true,
 		 std::enable_if_t<std::is_same<U, decltype(
 		std::declval<ThreadT>().begin())>::value> * = nullptr>
 	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.begin()) {
@@ -85,6 +79,7 @@ public:
 
 	/* rbegin()/rend() constructor */
 	template<typename G, typename U = ThreadItT,
+		 std::enable_if_t<!std::is_base_of_v<BaseT, std::decay_t<G>>, bool> = true,
 		 typename std::enable_if_t<std::is_same<U, decltype(
 		std::declval<ThreadT>().rbegin())>::value> * = nullptr>
 	LabelIterator(G &g) : threads(&g.getThreadList()), thread(g.rbegin()) {
@@ -242,12 +237,6 @@ public:
 	using reference = Event &;
 
 	EventIterator() = default;
-
-	template<typename A, typename B, typename C, typename D>
-	EventIterator(const EventIterator<A,B,C,D> &LI) : Base(LI) {}
-
-	template<typename A, typename B, typename C, typename D>
-	EventIterator(EventIterator<A,B,C,D> &LI) : Base (LI) {}
 
 	/* begin() constructor */
 	template<typename G>
