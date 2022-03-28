@@ -852,6 +852,144 @@ PPO_ITERATOR(ctrl);
 
 
 /*******************************************************************************
+ **                         poloc-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	struct LocationFilter {
+		LocationFilter() = delete;
+		LocationFilter(const ExecutionGraph &g, const SAddr &a)
+			: graph(g), addr(a) {}
+
+		bool operator()(const Event &s) const {
+			auto *lab = llvm::dyn_cast<MemAccessLabel>(graph.getEventLabel(s));
+			return lab && lab->getAddr() == addr;
+		}
+	private:
+		const ExecutionGraph &graph;
+		const SAddr &addr;
+	};
+
+	template<typename IterT>
+	struct poloc_filter_iterator : public llvm::filter_iterator<IterT, LocationFilter> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, LocationFilter>;
+
+		poloc_filter_iterator(IterT it, IterT end, LocationFilter filter)
+			: BaseT(it, end, filter) {}
+
+		poloc_filter_iterator& operator++() {
+			return static_cast<poloc_filter_iterator&>(BaseT::operator++());
+		}
+		poloc_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_poloc_iterator = ::detail::poloc_filter_iterator<const_event_iterator>;
+using const_reverse_poloc_iterator = ::detail::poloc_filter_iterator<const_reverse_event_iterator>;
+
+using const_poloc_range = llvm::iterator_range<const_poloc_iterator>;
+using const_reverse_poloc_range = llvm::iterator_range<const_reverse_poloc_iterator>;
+
+inline const_poloc_iterator poloc_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
+	return lab ? const_poloc_iterator(po_succ_begin(G, e), po_succ_end(G, e),
+					  ::detail::LocationFilter(G, lab->getAddr())) :
+		const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e),
+				     ::detail::LocationFilter(G, SAddr()));
+}
+
+inline const_poloc_iterator poloc_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
+	auto addr = lab ? lab->getAddr() : SAddr();
+	return const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e),
+				    ::detail::LocationFilter(G, addr));
+}
+
+inline const_poloc_range poloc_succs(const ExecutionGraph &G, Event e)
+{
+	return const_poloc_range(poloc_succ_begin(G, e), poloc_succ_end(G, e));
+}
+
+inline const_poloc_range poloc_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return poloc_succs(G, lab->getPos());
+}
+
+inline const_poloc_iterator poloc_imm_succ_begin(const ExecutionGraph &G, Event e)
+{
+	return poloc_succ_begin(G, e);
+}
+
+inline const_poloc_iterator poloc_imm_succ_end(const ExecutionGraph &G, Event e)
+{
+	return poloc_succ_begin(G, e) == poloc_succ_end(G, e) ? poloc_imm_succ_begin(G, e) :
+		++poloc_imm_succ_begin(G, e);
+}
+
+inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, Event e)
+{
+	return const_poloc_range(poloc_imm_succ_begin(G, e), poloc_imm_succ_end(G, e));
+}
+inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return poloc_imm_succs(G, lab->getPos());
+}
+
+
+inline const_reverse_poloc_iterator poloc_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
+	return lab ? const_reverse_poloc_iterator(po_pred_begin(G, e), po_pred_end(G, e),
+						  ::detail::LocationFilter(G, lab->getAddr())) :
+		const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
+					     ::detail::LocationFilter(G, SAddr()));
+}
+
+inline const_reverse_poloc_iterator poloc_pred_end(const ExecutionGraph &G, Event e)
+{
+	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
+	auto addr = lab ? lab->getAddr() : SAddr();
+	return const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
+					    ::detail::LocationFilter(G, SAddr()));
+}
+
+inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_poloc_range(poloc_pred_begin(G, e), poloc_pred_end(G, e));
+}
+
+inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return poloc_preds(G, lab->getPos());
+}
+
+inline const_reverse_poloc_iterator poloc_imm_pred_begin(const ExecutionGraph &G, Event e)
+{
+	return poloc_pred_begin(G, e);
+}
+
+inline const_reverse_poloc_iterator poloc_imm_pred_end(const ExecutionGraph &G, Event e)
+{
+	return poloc_pred_begin(G, e) == poloc_pred_end(G, e) ? poloc_imm_pred_begin(G, e) :
+		++poloc_imm_pred_begin(G, e);
+}
+
+inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_poloc_range(poloc_imm_pred_begin(G, e), poloc_imm_pred_end(G, e));
+}
+inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return poloc_imm_preds(G, lab->getPos());
+}
+
+
+/*******************************************************************************
  **                         rf-iteration utilities
  ******************************************************************************/
 
