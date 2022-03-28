@@ -990,6 +990,120 @@ inline const_reverse_poloc_range poloc_imm_preds(const ExecutionGraph &G, const 
 
 
 /*******************************************************************************
+ **                         detour-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	/* Filters out an event only --- assumes poloc iteration */
+	struct RfIntFilter {
+		RfIntFilter() = delete;
+		RfIntFilter(const ExecutionGraph &g, const Event &w)
+			: graph(g), write(w) {}
+
+		bool operator()(const Event &s) const {
+			auto *lab = graph.getReadLabel(s);
+			return lab && lab->getRf() != write;
+		}
+	private:
+		const ExecutionGraph &graph;
+		const Event write;
+	};
+
+	struct RfInvIntFilter {
+		RfInvIntFilter() = delete;
+		RfInvIntFilter(const ExecutionGraph &g, const Event &w)
+			: graph(g), write(w) {}
+
+		bool operator()(const Event &s) const {
+			auto *lab = graph.getWriteLabel(s);
+			return lab && lab->getPos() != write;
+		}
+	private:
+		const ExecutionGraph &graph;
+		const Event write;
+	};
+
+	template<typename IterT, typename FilterT>
+	struct detour_filter_iterator : public llvm::filter_iterator<IterT, FilterT> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, FilterT>;
+
+		detour_filter_iterator(IterT it, IterT end, FilterT filter)
+			: BaseT(it, end, filter) {}
+
+		detour_filter_iterator& operator++() {
+			return static_cast<detour_filter_iterator&>(BaseT::operator++());
+		}
+		detour_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_detour_iterator =
+	::detail::detour_filter_iterator<const_poloc_iterator, ::detail::RfIntFilter>;
+using const_detour_range = llvm::iterator_range<const_detour_iterator>;
+
+using const_reverse_detour_iterator =
+	::detail::detour_filter_iterator<const_reverse_poloc_iterator, ::detail::RfInvIntFilter>;
+using const_reverse_detour_range = llvm::iterator_range<const_reverse_detour_iterator>;
+
+inline const_detour_iterator detour_succ_begin(const ExecutionGraph &G, Event e)
+{
+	auto *lab = G.getWriteLabel(e);
+	return lab ? const_detour_iterator(poloc_succ_begin(G, e), poloc_succ_end(G, e),
+					   ::detail::RfIntFilter(G, e)) :
+		const_detour_iterator(poloc_succ_end(G, e), poloc_succ_end(G, e),
+				      ::detail::RfIntFilter(G, e));
+}
+
+inline const_detour_iterator detour_succ_end(const ExecutionGraph &G, Event e)
+{
+	auto *lab = G.getWriteLabel(e);
+	return const_detour_iterator(poloc_succ_end(G, e), poloc_succ_end(G, e),
+				     ::detail::RfIntFilter(G, e));
+}
+
+inline const_detour_range detour_succs(const ExecutionGraph &G, Event e)
+{
+	return const_detour_range(detour_succ_begin(G, e), detour_succ_end(G, e));
+}
+
+inline const_detour_range detour_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return detour_succs(G, lab->getPos());
+}
+
+
+inline const_reverse_detour_iterator detour_pred_begin(const ExecutionGraph &G, Event e)
+{
+	auto *lab = G.getReadLabel(e);
+	return lab ? const_reverse_detour_iterator(poloc_pred_begin(G, e), poloc_pred_end(G, e),
+						   ::detail::RfInvIntFilter(G, lab->getRf())) :
+		const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
+					      ::detail::RfInvIntFilter(G, Event::getInitializer()));
+}
+
+inline const_reverse_detour_iterator detour_pred_end(const ExecutionGraph &G, Event e)
+{
+	auto *lab = G.getReadLabel(e);
+	auto pos = lab && !lab->getRf().isBottom() ? lab->getRf() : Event::getInitializer();
+	return const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
+					    ::detail::RfInvIntFilter(G, pos));
+}
+
+inline const_reverse_detour_range detour_preds(const ExecutionGraph &G, Event e)
+{
+	return const_reverse_detour_range(detour_pred_begin(G, e), detour_pred_end(G, e));
+}
+
+inline const_reverse_detour_range detour_preds(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return detour_preds(G, lab->getPos());
+}
+
+
+/*******************************************************************************
  **                         rf-iteration utilities
  ******************************************************************************/
 
