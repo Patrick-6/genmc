@@ -867,7 +867,7 @@ namespace detail {
 		}
 	private:
 		const ExecutionGraph &graph;
-		const SAddr &addr;
+		const SAddr addr;
 	};
 
 	template<typename IterT>
@@ -955,7 +955,7 @@ inline const_reverse_poloc_iterator poloc_pred_end(const ExecutionGraph &G, Even
 	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
 	auto addr = lab ? lab->getAddr() : SAddr();
 	return const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
-					    ::detail::LocationFilter(G, SAddr()));
+					    ::detail::LocationFilter(G, addr));
 }
 
 inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, Event e)
