@@ -1,4 +1,26 @@
-/* This file is generated automatically by Kater -- do not edit. */
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
+/*******************************************************************************
+ * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
+ *******************************************************************************/
 
 #ifndef __IMM_CHECKER_HPP__
 #define __IMM_CHECKER_HPP__
@@ -13,6 +35,14 @@ class IMMChecker {
 
 private:
 	enum class NodeStatus { unseen, entered, left };
+
+	struct NodeCountStatus {
+		NodeCountStatus() = default;
+		NodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}
+		unsigned count = 0;
+		NodeStatus status = NodeStatus::unseen;
+	};
+
 public:
 	IMMChecker(ExecutionGraph &g) : g(g) {}
 
@@ -72,29 +102,31 @@ private:
 	bool visitAcyclic15(const Event &e);
 	bool visitAcyclic16(const Event &e);
 	bool visitAcyclic17(const Event &e);
+	bool visitAcyclic18(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
-	std::vector<NodeStatus> visitedAcyclic0;
-	std::vector<NodeStatus> visitedAcyclic1;
-	std::vector<NodeStatus> visitedAcyclic2;
-	std::vector<NodeStatus> visitedAcyclic3;
-	std::vector<NodeStatus> visitedAcyclic4;
-	std::vector<NodeStatus> visitedAcyclic5;
-	std::vector<NodeStatus> visitedAcyclic6;
-	std::vector<NodeStatus> visitedAcyclic7;
-	std::vector<NodeStatus> visitedAcyclic8;
-	std::vector<NodeStatus> visitedAcyclic9;
-	std::vector<NodeStatus> visitedAcyclic10;
-	std::vector<NodeStatus> visitedAcyclic11;
-	std::vector<NodeStatus> visitedAcyclic12;
-	std::vector<NodeStatus> visitedAcyclic13;
-	std::vector<NodeStatus> visitedAcyclic14;
-	std::vector<NodeStatus> visitedAcyclic15;
-	std::vector<NodeStatus> visitedAcyclic16;
-	std::vector<NodeStatus> visitedAcyclic17;
+	std::vector<NodeCountStatus> visitedAcyclic0;
+	std::vector<NodeCountStatus> visitedAcyclic1;
+	std::vector<NodeCountStatus> visitedAcyclic2;
+	std::vector<NodeCountStatus> visitedAcyclic3;
+	std::vector<NodeCountStatus> visitedAcyclic4;
+	std::vector<NodeCountStatus> visitedAcyclic5;
+	std::vector<NodeCountStatus> visitedAcyclic6;
+	std::vector<NodeCountStatus> visitedAcyclic7;
+	std::vector<NodeCountStatus> visitedAcyclic8;
+	std::vector<NodeCountStatus> visitedAcyclic9;
+	std::vector<NodeCountStatus> visitedAcyclic10;
+	std::vector<NodeCountStatus> visitedAcyclic11;
+	std::vector<NodeCountStatus> visitedAcyclic12;
+	std::vector<NodeCountStatus> visitedAcyclic13;
+	std::vector<NodeCountStatus> visitedAcyclic14;
+	std::vector<NodeCountStatus> visitedAcyclic15;
+	std::vector<NodeCountStatus> visitedAcyclic16;
+	std::vector<NodeCountStatus> visitedAcyclic17;
+	std::vector<NodeCountStatus> visitedAcyclic18;
 
-	int visitedAccepting = 0;
+	unsigned visitedAccepting = 0;
 	std::vector<VSet<Event>> calculated;
 
 	ExecutionGraph &g;

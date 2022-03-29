@@ -109,7 +109,7 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in imm # rc11 imm lkmm
+for model in rc11 imm # rc11 imm lkmm
 do
     for coherence in mo # wb mo
     do

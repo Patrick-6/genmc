@@ -126,6 +126,14 @@ void Printer::printHppHeader()
 		<< "\n"
 		<< "private:\n"
 		<< "\tenum class NodeStatus { unseen, entered, left };\n"
+		<< "\n"
+		<< "\tstruct NodeCountStatus {\n"
+		<< "\t\tNodeCountStatus() = default;\n"
+		<< "\t\tNodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}\n"
+		<< "\t\tunsigned count = 0;\n"
+		<< "\t\tNodeStatus status = NodeStatus::unseen;\n"
+		<< "\t};\n"
+		<< "\n"
 		<< "public:\n"
 		<< "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
 		<< "\n"
@@ -248,12 +256,12 @@ void Printer::printAcyclicHpp(const NFA &nfa)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		*outHpp << "\tstd::vector<NodeStatus> visitedAcyclic" << ids[&*s] << ";\n";
+		*outHpp << "\tstd::vector<NodeCountStatus> visitedAcyclic" << ids[&*s] << ";\n";
 	});
 	*outHpp << "\n";
 
 	/* accepting counter */
-	*outHpp << "\tint visitedAccepting = 0;\n";
+	*outHpp << "\tunsigned visitedAccepting = 0;\n";
 }
 
 void Printer::printAcyclicCpp(const NFA &nfa)
@@ -266,24 +274,27 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 			<< "{\n"
 			<< "\tauto &g = getGraph();\n"
 			<< "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
-			<< "\n"
-			<< "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = NodeStatus::entered;\n";
+			<< "\n";
+
 		if (s->isStarting())
 			*outCpp << "\t++visitedAccepting;\n";
+		*outCpp << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
+								"{ visitedAccepting, NodeStatus::entered };\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			*outCpp << "\t";
 			printTransLabel(&*t.label, "p", "lab");
 			*outCpp << " {\n"
-				<< "\t\tauto status = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
-				<< "\t\tif (status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
+				<< "\t\tauto &node = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+				<< "\t\tif (node.status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
 				<< "\t\t\treturn false;\n"
-				<< "\t\telse if (status == NodeStatus::entered && visitedAccepting)\n"
+				<< "\t\telse if (node.status == NodeStatus::entered && visitedAccepting > node.count)\n"
 				<< "\t\t\treturn false;\n"
 				<<"\t}\n";
 		});
 		if (s->isStarting())
 			*outCpp << "\t--visitedAccepting;\n";
-		*outCpp << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = NodeStatus::left;\n"
+		*outCpp << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
+								"{ visitedAccepting, NodeStatus::left };\n"
 			<< "\treturn true;\n"
 			<< "}\n"
 			<< "\n";
@@ -295,7 +306,7 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		<< "\tvisitedAccepting = 0;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		*outCpp << "\tvisitedAcyclic" << ids[&*s] << ".clear();\n"
-			<< "\tvisitedAcyclic" << ids[&*s] << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
+			<< "\tvisitedAcyclic" << ids[&*s] << ".resize(g.getMaxStamp() + 1);\n";
 	});
 	*outCpp << "\treturn true\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
