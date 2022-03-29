@@ -25,6 +25,7 @@
 #include "ARCalculator.hpp"
 #include "PSCCalculator.hpp"
 #include "PersistencyChecker.hpp"
+#include "IMMChecker.hpp"
 
 IMMDriver::IMMDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		     std::unique_ptr<ModuleInfo> MI)
@@ -335,6 +336,9 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 {
 	const auto &g = getGraph();
 
+	lab->setDeps(!deps ? EventDeps() : *deps);
+	lab->setCalculated(IMMChecker(getGraph()).calculateAll(lab->getPos()));
+
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
@@ -488,4 +492,9 @@ bool IMMDriver::updateJoin(Event join, Event childLast)
 void IMMDriver::initConsCalculation()
 {
 	return;
+}
+
+bool IMMDriver::isConsistent(const Event &e)
+{
+	return IMMChecker(getGraph()).isConsistent(e);
 }

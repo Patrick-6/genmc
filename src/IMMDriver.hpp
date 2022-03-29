@@ -36,6 +36,8 @@ public:
 	bool updateJoin(Event join, Event childLast) override;
 	void initConsCalculation() override;
 
+	bool isConsistent(const Event &e) override;
+
 private:
 
 	DepView getDepsAsView(const EventDeps *deps);
