@@ -42,6 +42,9 @@ private:
 	void outputHpp(const CNFAs &nfas);
 	void outputCpp(const CNFAs &cnfas);
 
+	std::ostream &hpp() { return *outHpp; }
+	std::ostream &cpp() { return *outCpp; }
+
 	/* Prefix for the names to be printed (class name, filenames, etc) */
 	std::string prefix;
 
