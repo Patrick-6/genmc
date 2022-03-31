@@ -90,7 +90,7 @@ const std::vector<RelationInfo> builtinRelations = {
         {"rf",          RelType::ManyOne,    false, "rf_succs",          "rf_preds"},
         {"rfe",         RelType::ManyOne,    false, "rfe_succs",         "rfe_preds"},
         {"rfi",         RelType::ManyOne,    false, "rfi_succs",         "rfi_preds"},
-        {"mo-imm",      RelType::OneOne,     false, "co_succs",          "co_preds"},
+        {"mo-imm",      RelType::OneOne,     false, "co_imm_succs",      "co_imm_preds"},
         {"fr-init",     RelType::OneOne,     false, "fr_init_succs",     "fr_init_preds"},
         {"detour",      RelType::OneOne,     false, "detour_succs",      "detour_preds"},
 };
