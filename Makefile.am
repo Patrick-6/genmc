@@ -16,3 +16,6 @@ ctest:
 rtest:
 	$(MAKE) -C src
 	cd $(top_builddir)/scripts && ./randomize-driver.sh
+
+kat:
+	$(MAKE) -C kater
