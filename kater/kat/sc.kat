@@ -1,5 +1,5 @@
 let po = po-imm+
 let mo = mo-imm+
-let fr = fr-init ; mo* | rf^-1 ; mo
+let fr = fr-imm+
 
 acyclic (po | rf | mo | fr)

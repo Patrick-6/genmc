@@ -21,7 +21,7 @@ let dmb.st = DMB_ST
 // Definition of standard relations
 let po = po-imm+
 let co = mo-imm+
-let fr = rf^-1 ; co | fr-init ; co*
+let fr = fr-imm+
 let ctrl = ctrl-imm ; po-imm*
 let addr = addr-imm+
 let data = data-imm+
@@ -56,4 +56,3 @@ let bob = po; [dmb.full]; po
 save ppo = reduce (dob | aob | bob)+
 
 acyclic (rfe | co | fr | ppo)
-

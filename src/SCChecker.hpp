@@ -1,4 +1,26 @@
-/* This file is generated automatically by Kater -- do not edit. */
+/*
+ * GenMC -- Generic Model Checking.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-3.0.html.
+ *
+ * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
+ */
+
+/*******************************************************************************
+ * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
+ *******************************************************************************/
 
 #ifndef __SC_CHECKER_HPP__
 #define __SC_CHECKER_HPP__
@@ -13,24 +35,33 @@ class SCChecker {
 
 private:
 	enum class NodeStatus { unseen, entered, left };
-public:
 
+	struct NodeCountStatus {
+		NodeCountStatus() = default;
+		NodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}
+		unsigned count = 0;
+		NodeStatus status = NodeStatus::unseen;
+	};
+
+public:
 	SCChecker(ExecutionGraph &g) : g(g) {}
 
+	std::vector<VSet<Event>> calculateAll(const Event &e);
 	bool isConsistent(const Event &e);
 
 private:
-
 	bool visitAcyclic0(const Event &e);
-	bool visitAcyclic1(const Event &e);
 
-	std::vector<NodeStatus> visitedAcyclic0;
-	std::vector<NodeStatus> visitedAcyclic1;
+	bool isAcyclic(const Event &e);
+
+	std::vector<NodeCountStatus> visitedAcyclic0;
+
+	unsigned visitedAccepting = 0;
+	std::vector<VSet<Event>> calculated;
+
+	ExecutionGraph &g;
 
 	ExecutionGraph &getGraph() { return g; }
-
-	int visitedAccepting = 0;
-	ExecutionGraph &g;
 };
 
 #endif /* __SC_CHECKER_HPP__ */
