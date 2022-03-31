@@ -21,7 +21,7 @@ let dmb.st = DMB_ST
 // Definition of standard relations
 let po = po-imm+
 let co = mo-imm+
-let fr = fr-imm+
+let fr = fr-imm; mo*
 let ctrl = ctrl-imm ; po-imm*
 let addr = addr-imm+
 let data = data-imm+

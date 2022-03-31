@@ -17,7 +17,7 @@ let po-loc = po-loc-imm+
 let mo = mo-imm+
 
 // From-reads
-let fr = fr-imm+
+let fr = fr-imm; mo*
 
 // Extended coherence order
 let eco = (rf | mo | fr)+
