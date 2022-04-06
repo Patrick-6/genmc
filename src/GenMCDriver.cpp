@@ -27,6 +27,7 @@
 #include "Interpreter.h"
 #include "GraphIterators.hpp"
 #include "LabelVisitor.hpp"
+#include "MaximalIterator.hpp"
 #include "Parser.hpp"
 #include "SExprVisitor.hpp"
 #include "ThreadPool.hpp"

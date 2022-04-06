@@ -20,9 +20,11 @@ private:
 //	void printInclusionError(const std::string &s, const NFA &lhs, const NFA &rhs);
 //	void printInclusionWarning(const std::string &s, const NFA &lhs, const NFA &rhs);
 
-	void printPredLabel(std::ostream &ostr, const PredLabel *p, const std::string &res, const std::string &arg, const std::string &ident);
-	void printRelLabel(std::ostream &ostr, const RelLabel *p, const std::string &res, const std::string &arg, const std::string &ident);
-	void printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg, const std::string &ident);
+	void printPredLabel(std::ostream &ostr, const PredLabel *p,
+			    const std::string &res, const std::string &arg);
+	void printRelLabel(std::ostream &ostr, const RelLabel *p,
+			   const std::string &res, const std::string &arg);
+	void printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg);
 
 	unsigned getCalcIdx(unsigned id) const { return calcToIdxMap[id]; }
 

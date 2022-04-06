@@ -144,6 +144,7 @@ protected:
 
 	using calc_const_iterator = VSet<Event>::const_iterator;
 	using calc_const_range = llvm::iterator_range<calc_const_iterator>;
+
 public:
 
 	/* Returns the discriminator of this object */

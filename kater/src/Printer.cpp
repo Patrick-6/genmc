@@ -59,13 +59,14 @@ Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 	}
 }
 
-void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, const std::string &res, const std::string &arg, const std::string &ident)
+void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p,
+			     const std::string &res, const std::string &arg)
 {
-	ostr << ident << "if (auto " << res << " = " << arg << "->getPos()";
+	ostr << "if (auto " << res << " = " << arg << "->getPos()";
 
 	auto first = true;
 	if (!p->hasPreds()) {
-		ostr << ") {\n";
+		ostr << ")";
 		return;
 	}
 
@@ -82,10 +83,11 @@ void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, const std::
 		s.replace(s.find_first_of('#'), 1, arg);
 		ostr << s;
 	}
-	ostr << ") {\n";
+	ostr << ")";
 }
 
-void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, const std::string &res, const std::string &arg, const std::string &ident)
+void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r,
+			    const std::string &res, const std::string &arg)
 {
 	if (r->isBuiltin()) {
 		const auto &n = builtinRelations[r->getTrans()];
@@ -93,23 +95,25 @@ void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, const std::st
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
-		ostr << ident << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos())) {\n";
+		ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
 		return;
 	}
-	auto isView = viewCalcs.count(r->getCalcIndex());
-	auto form = isView ? "view" : "calculated";
-	ostr << (isView ? ident + "t = 0u;\n" : "");
-	ostr << ident << "for (auto &" << "i" << " : " << arg << "->" << form << "(" << getCalcIdx(r->getCalcIndex()) << ")) {\n"
-	     << ident << "\tauto p = " << (isView ? "Event(t++, i)" : "i") << ";\n";
+
+	auto index = getCalcIdx(r->getCalcIndex());
+	if (viewCalcs.count(r->getCalcIndex())) {
+		ostr << "for (auto &" << res << " : maximals(" << arg << "->view(" << index << ")))";
+		return;
+	}
+	ostr << "for (auto &" << res << " : " << arg << "->calculated(" << index << "))";
 	return;
 }
 
-void Printer::printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg, const std::string &ident)
+void Printer::printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg)
 {
 	if (auto *p = dynamic_cast<const PredLabel *>(t))
-		printPredLabel(cpp(), p, res, arg, ident);
+		printPredLabel(cpp(), p, res, arg);
 	else if (auto *r = dynamic_cast<const RelLabel *>(t))
-		printRelLabel(cpp(), r, res, arg, ident);
+		printRelLabel(cpp(), r, res, arg);
 	else
 		assert(0);
 }
@@ -124,6 +128,7 @@ void Printer::printHppHeader()
 	      << "\n"
 	      << "#include \"ExecutionGraph.hpp\"\n"
 	      << "#include \"GraphIterators.hpp\"\n"
+	      << "#include \"MaximalIterator.hpp\"\n"
 	      << "#include \"PersistencyChecker.hpp\"\n"
 	      << "#include \"VSet.hpp\"\n"
 	      << "#include <vector>\n"
@@ -308,8 +313,10 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
 								"{ visitedAccepting, NodeStatus::entered };\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			printTransLabel(&*t.label, "p", "lab", "\t");
-			cpp() << "\t\tauto &node = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+			cpp () << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto &node = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
 			      << "\t\tif (node.status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
 			      << "\t\t\treturn false;\n"
 			      << "\t\telse if (node.status == NodeStatus::entered && visitedAccepting > node.count)\n"
@@ -394,8 +401,10 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			printTransLabel(&*t.label, "p", "lab", "\t");
-			cpp() << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
+			cpp () << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
 			      << "\t\tif (status == NodeStatus::unseen)\n"
 			      << "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p, calcRes);\n"
 			      <<"\t}\n";
@@ -462,8 +471,10 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 		      << "\n"
 		      << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			printTransLabel(&*t.label, "p", "lab", "\t");
-			cpp() << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
+			cpp () << "\t";
+			printTransLabel(&*t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
 			      << "\t\tif (status == NodeStatus::unseen)\n"
 			      << "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
 			      << "\t}\n";
