@@ -27,6 +27,7 @@
 
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
+#include "MaximalIterator.hpp"
 #include "PersistencyChecker.hpp"
 #include "VSet.hpp"
 #include <vector>

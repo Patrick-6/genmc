@@ -56,6 +56,7 @@ libgenmc_a_SOURCES = \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
   LoopJumpThreadingPass.cpp LoopJumpThreadingPass.hpp \
   Matrix2D.hpp Matrix2D.tcc \
+  MaximalIterator.hpp \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MemAccess.hpp \
   MOCalculator.hpp MOCalculator.cpp \

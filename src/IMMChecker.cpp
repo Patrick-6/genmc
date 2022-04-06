@@ -37,8 +37,7 @@ void IMMChecker::visitCalc0_0(const Event &e, VSet<Event> &calcRes)
 		visitedCalc0_1[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
 		visitedCalc0_6[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
 	}
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
@@ -208,14 +207,12 @@ void IMMChecker::visitCalc1_1(const Event &e, View &calcRes)
 	auto t = 0u;
 
 	visitedCalc1_1[lab->getStamp()] = NodeStatus::entered;
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto status = visitedCalc1_4[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc1_4(p, calcRes);
 	}
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto status = visitedCalc1_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc1_0(p, calcRes);
@@ -739,9 +736,7 @@ bool IMMChecker::visitAcyclic9(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	t = 0u;
-	for (auto &i : lab->view(0)) {
-		auto p = Event(t++, i);
+	for (auto &p : maximals(lab->view(0))) {
 		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
 			return false;
@@ -780,9 +775,7 @@ bool IMMChecker::visitAcyclic10(const Event &e)
 	auto t = 0u;
 
 	visitedAcyclic10[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	t = 0u;
-	for (auto &i : lab->view(0)) {
-		auto p = Event(t++, i);
+	for (auto &p : maximals(lab->view(0))) {
 		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
 			return false;
@@ -800,16 +793,14 @@ bool IMMChecker::visitAcyclic11(const Event &e)
 	auto t = 0u;
 
 	visitedAcyclic11[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto &node = visitedAcyclic10[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic10(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
 			return false;
@@ -905,9 +896,7 @@ bool IMMChecker::visitAcyclic14(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	t = 0u;
-	for (auto &i : lab->view(0)) {
-		auto p = Event(t++, i);
+	for (auto &p : maximals(lab->view(0))) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
@@ -925,9 +914,7 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 	auto t = 0u;
 
 	visitedAcyclic15[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	t = 0u;
-	for (auto &i : lab->view(0)) {
-		auto p = Event(t++, i);
+	for (auto &p : maximals(lab->view(0))) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
@@ -973,16 +960,14 @@ bool IMMChecker::visitAcyclic16(const Event &e)
 	auto t = 0u;
 
 	visitedAcyclic16[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &i : lab->calculated(0)) {
-		auto p = i;
+	for (auto &p : lab->calculated(0)) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
