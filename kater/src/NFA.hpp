@@ -140,6 +140,18 @@ private:
 		/* Whether this state has any incoming transitions */
 		bool hasIncoming() const { return in_begin() != in_end(); }
 
+		bool hasOutgoingTo(State *s) const {
+			return std::any_of(out_begin(), out_end(), [&](const Transition &t){
+					return t.dest == s;
+				});
+		}
+
+		bool hasIncomingTo(State *s) const {
+			return std::any_of(in_begin(), in_end(), [&](const Transition &t){
+					return t.dest == s;
+				});
+		}
+
 		/* Adds an outgoing transition T (if it doesn't exist) */
 		void addOutgoing(const Transition &t) {
 			getOutgoing().insert(t);
