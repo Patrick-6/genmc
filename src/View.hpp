@@ -49,8 +49,9 @@ public:
 		 view_(EventView(0)) {}
 
 	/* Iterators */
-	typedef int *iterator;
-	typedef const int *const_iterator;
+	using iterator = int *;
+	using const_iterator = const int *;
+
 	iterator begin() { return &((*this)[0]); };
 	iterator end()   { return &((*this)[0]) + size(); }
 	const_iterator begin() const { return empty() ? nullptr : &view_[0]; }
