@@ -53,8 +53,8 @@ public:
 	typedef const int *const_iterator;
 	iterator begin() { return &((*this)[0]); };
 	iterator end()   { return &((*this)[0]) + size(); }
-	const_iterator cbegin() { return &((*this)[0]); }
-	const_iterator cend()	{ return &((*this)[0]) + size(); }
+	const_iterator begin() const { return empty() ? nullptr : &view_[0]; }
+	const_iterator end() const { return empty() ? nullptr :  &view_[0] + size(); }
 
 	/* Returns the size of this view (i.e., number of threads seen) */
 	unsigned int size() const { return view_.size(); }
