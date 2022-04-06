@@ -337,7 +337,8 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	const auto &g = getGraph();
 
 	lab->setDeps(!deps ? EventDeps() : *deps);
-	lab->setCalculated(IMMChecker(getGraph()).calculateAll(lab->getPos()));
+	lab->setCalculated(IMMChecker(getGraph()).calculateSaved(lab->getPos()));
+	lab->setViews(IMMChecker(getGraph()).calculateViews(lab->getPos()));
 
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:

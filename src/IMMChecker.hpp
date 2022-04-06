@@ -46,7 +46,8 @@ private:
 public:
 	IMMChecker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateAll(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const Event &e);
+	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
 
 private:
@@ -68,14 +69,14 @@ private:
 	std::vector<NodeStatus> visitedCalc0_5;
 	std::vector<NodeStatus> visitedCalc0_6;
 
-	void visitCalc1_0(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_1(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_2(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_3(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_4(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_5(const Event &e, VSet<Event> &calcRes);
+	void visitCalc1_0(const Event &e, View &calcRes);
+	void visitCalc1_1(const Event &e, View &calcRes);
+	void visitCalc1_2(const Event &e, View &calcRes);
+	void visitCalc1_3(const Event &e, View &calcRes);
+	void visitCalc1_4(const Event &e, View &calcRes);
+	void visitCalc1_5(const Event &e, View &calcRes);
 
-	VSet<Event> calculate1(const Event &e);
+	View calculate1(const Event &e);
 
 	std::vector<NodeStatus> visitedCalc1_0;
 	std::vector<NodeStatus> visitedCalc1_1;
@@ -125,7 +126,8 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic17;
 
 	unsigned visitedAccepting = 0;
-	std::vector<VSet<Event>> calculated;
+	std::vector<VSet<Event>> saved;
+	std::vector<View> views;
 
 	ExecutionGraph &g;
 

@@ -208,7 +208,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* dep
 {
 	const auto &g = getGraph();
 
-	lab->setCalculated(RC11Checker(getGraph()).calculateAll(lab->getPos()));
+	lab->setCalculated(RC11Checker(getGraph()).calculateSaved(lab->getPos()));
+	lab->setViews(RC11Checker(getGraph()).calculateViews(lab->getPos()));
 
 	switch (lab->getKind()) {
 	case EventLabel::EL_Read:
