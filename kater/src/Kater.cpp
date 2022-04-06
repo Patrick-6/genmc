@@ -47,6 +47,8 @@ void Kater::generateNFAs()
 
 void Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)
 {
+	generateNFAs();
+
 	Printer p(dirPrefix, outPrefix);
 	p.output(getCNFAs());
 }
