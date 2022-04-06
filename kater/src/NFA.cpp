@@ -456,20 +456,25 @@ NFA &NFA::simplify ()
 	return *this;
 }
 
-NFA &NFA::simplifyReduce()
+bool isPoTransition(const RelLabel *lab)
 {
-	star().simplify();
-	if (std::count_if(states_begin(), states_end(), [](auto &s){
-			return s->isStarting() || s->isAccepting();}) != 1)
-		return *this;
+	if (!lab || !lab->isBuiltin())
+		return false;
 
-	auto *sold = std::find_if(states_begin(), states_end(), [](auto &s){
-			return s->isStarting();})->get();
-	sold->setStarting(false);
-	auto *snew = createStarting();
-	addTransitions(snew, sold->out_begin(), sold->out_end());
+	auto &name = builtinRelations[lab->getTrans()].name;
+	return name == "po" || name == "po-imm" || name == "po-loc";
+}
 
-	removeAllTransitions(sold);
+NFA &NFA::reduce(ReductionType t)
+{
+	simplify();
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		if (s->isAccepting())
+			removeTransitionsIf(&*s, [&](const Transition &t){
+				return std::any_of(states_begin(), states_end(), [&](auto &q) {
+					return q->isStarting() && q->hasOutgoingTo(t.dest); });
+			});
+	});
 	simplify();
 	return *this;
 }

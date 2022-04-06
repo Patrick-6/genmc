@@ -198,9 +198,18 @@ public:
 		calculatedRels = std::move(calc);
 	}
 
+	void setViews(std::vector<View> &&views) {
+		calculatedViews = std::move(views);
+	}
+
 	/* Iterators for calculated relations */
 	calc_const_range calculated(size_t i) const {
 		return getPos().isInitializer() ? calculatedRels[0] : calculatedRels[i];
+	}
+
+	/* Getters for calculated views */
+	const View &view(size_t i) const {
+		return getPos().isInitializer() ? calculatedViews[0] : calculatedViews[i];
 	}
 
 	/* Methods that get/set the vector clocks for this label. */
@@ -303,6 +312,9 @@ private:
 
 	/* Saved calculations */
 	std::vector<VSet<Event>> calculatedRels;
+
+	/* Saved views */
+	std::vector<View> calculatedViews;
 };
 
 

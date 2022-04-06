@@ -39,8 +39,8 @@
   EMPTY	    "empty"
   ERROR	    "error"
   LET	    "let"
-  REDUCE    "reduce"
   SAVE      "save"
+  VIEW      "view"
   UNLESS    "unless"
   WARNING   "warning"
   ZERO      "0"
@@ -65,6 +65,7 @@
 %token <std::string> ID;
 %nterm <std::unique_ptr<RegExp>> rel;
 %nterm <std::unique_ptr<Constraint>> constraint;
+%nterm <std::string> reduce_opt;
 
 %precedence "=" "<="
 %left  "|"
@@ -84,8 +85,8 @@ main:	  %empty		{ }
         ;
 
 decl:	  "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
-	| "save" ID "=" "reduce" rel 	   { drv.registerSaveReducedID($2, std::move($5)); }
-	| "save" ID "=" rel 		   { drv.registerSaveID($2, std::move($4)); }
+	| "save" reduce_opt ID "=" rel	   { drv.registerSaveID($3, $2, std::move($5), @$); }
+	| "view" ID "=" rel 		   { drv.registerViewID($2, std::move($4)); }
 	| "assume" constraint		   { drv.registerAssume(std::move($2), @$); }
 	| "assert" constraint		   { drv.registerAssert(std::move($2), @$); }
 	| "check" constraint		   { $2->setType(Constraint::Type::Consistency);
@@ -95,6 +96,10 @@ decl:	  "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
 	 				     drv.addConstraint(std::move($4), $2, @$); }
 	| "warning" ID "unless" constraint { $4->setType(Constraint::Type::Warning);
 					      drv.addConstraint(std::move($4), $2, @$); }
+	;
+
+reduce_opt: %empty	{ $$ = ""; }
+	| "[" ID "]"	{ $$ = $2; }
 	;
 
 constraint:

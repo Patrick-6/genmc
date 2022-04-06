@@ -40,7 +40,7 @@ let data = data-imm+
 // Optimized calculation of synchronizes-with
 // Save the view of write messages
 
-save relseq = reduce [REL] ; ([F] ; po)? ; (rf ; rmw)*
+save[relseq] relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
 let sw_to_r = relseq ; rf ; [ACQ]
 let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ]
 let sw = sw_to_r | sw_to_f
@@ -50,7 +50,7 @@ assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
 // Optimized calculation of happens-before.
 // Save the part of `hb` that does not finish with a reads-from edge
 
-save hb_stable = reduce (po | sw_to_r ; po | sw_to_f)+
+view hb_stable = (po | sw_to_r ; po | sw_to_f)+
 let hb = hb_stable | hb_stable? ; sw_to_r
 
 assert hb = (po | sw)+

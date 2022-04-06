@@ -8,12 +8,11 @@
 class KatModule {
 
 public:
-	using URE = std::unique_ptr<RegExp>;
 	using UCO = std::unique_ptr<Constraint>;
 
 private:
 	using VarMap = std::unordered_map<std::string, URE>;
-	using SavedVarSet = std::vector<std::pair<URE, VarStatus>>;
+	using SavedVarSet = std::vector<SavedVar>;
 
 public:
 
@@ -67,16 +66,22 @@ public:
 
 	void registerID(std::string id, URE re) {
 		variables.insert({id, std::move(re)});
-	};
-
-	void registerSaveID(std::string id, URE re) {
-		savedVariables.push_back({std::move(re), VarStatus::Normal});
-		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
 	}
 
-	void registerSaveReducedID(std::string id, URE re) {
-		savedVariables.push_back({std::move(re), VarStatus::Reduce});
+	void registerSaveID(std::string id, URE re) {
 		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
+		savedVariables.push_back({std::move(re)});
+	}
+
+	void registerSaveReducedID(std::string idSave, std::string idRed, URE re) {
+		registerID(idSave, RelRE::create(RelLabel::getFreshCalcLabel()));
+		savedVariables.push_back({std::move(re), idRed == idSave ? NFA::ReductionType::Self :
+					  NFA::ReductionType::Po, getRegisteredID(idRed)});
+	}
+
+	void registerViewID(std::string id, URE re) {
+		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
+		savedVariables.push_back({std::move(re), VarStatus::View});
 	}
 
 	void registerAssert(UCO c, const yy::location &loc) {
@@ -89,13 +94,13 @@ public:
 	// Handle consistency constraint in the input file
 	void addConstraint(UCO c, const std::string &s, const yy::location &loc);
 
-	URE getRegisteredID(const std::string &id, const yy::location &loc) {
+	URE getRegisteredID(const std::string &id) {
 		auto it = variables.find(id);
 		return (it == variables.end()) ? nullptr : it->second->clone();
 	}
 
 	URE getSavedID(const RelRE *re) const {
-		return savedVariables[re->getLabel().getCalcIndex()].first->clone();
+		return savedVariables[re->getLabel().getCalcIndex()].exp->clone();
 	}
 
 private:

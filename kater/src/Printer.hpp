@@ -20,12 +20,14 @@ private:
 //	void printInclusionError(const std::string &s, const NFA &lhs, const NFA &rhs);
 //	void printInclusionWarning(const std::string &s, const NFA &lhs, const NFA &rhs);
 
-	void printPredLabel(std::ostream &ostr, const PredLabel *p, std::string res, std::string arg);
-	void printRelLabel(std::ostream &ostr, const RelLabel *p, std::string res, std::string arg);
-	void printTransLabel(const TransLabel *t, std::string res, std::string arg);
+	void printPredLabel(std::ostream &ostr, const PredLabel *p, const std::string &res, const std::string &arg, const std::string &ident);
+	void printRelLabel(std::ostream &ostr, const RelLabel *p, const std::string &res, const std::string &arg, const std::string &ident);
+	void printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg, const std::string &ident);
 
-	void printCalculatorHpp(const NFA &nfa, unsigned id);
-	void printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce);
+	unsigned getCalcIdx(unsigned id) const { return calcToIdxMap[id]; }
+
+	void printCalculatorHpp(const NFA &nfa, unsigned id, VarStatus status);
+	void printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status);
 
 	void printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id);
 	void printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id);
@@ -61,6 +63,9 @@ private:
 	/* Streams for the implementation file */
 	std::ofstream foutCpp; /* only set if we're writing to a file */
 	std::ostream* outCpp = &std::cout;
+
+	static std::vector<unsigned> calcToIdxMap;
+	std::unordered_set<unsigned> viewCalcs;
 };
 
 #endif /* __KATER_PRINTER_HPP__ */

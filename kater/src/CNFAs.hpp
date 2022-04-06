@@ -44,6 +44,8 @@ public:
 
 	void addReduced(NFA &&redc) { nsave.push_back({std::move(redc), VarStatus::Reduce}); }
 
+	void addView(NFA &&view) { nsave.push_back({std::move(view), VarStatus::View}); }
+
 	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
 
 private:

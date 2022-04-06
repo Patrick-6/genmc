@@ -8,20 +8,39 @@ void Kater::generateNFAs()
 
 	auto i = 0u;
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &v){
-		if (config.verbose > 0)
-			std::cout << "Generating NFA for save[" << i << "] = "
-				  << *v.first << std::endl;
-		NFA n = v.first->toNFA();
-		if (v.second == VarStatus::Reduce)
-			n.simplifyReduce();
-		else
+		NFA n = v.exp->toNFA();
+		// FIXME: Use polymorphism
+		if (v.status == VarStatus::Reduce) {
+			if (config.verbose > 0)
+				std::cout << "Generating NFA for reduce[" << i << "] = "
+					  << *v.exp << std::endl;
+
+			assert(v.red);
+			n.simplify().reduce(v.redT);
+
+			NFA rn = v.red->toNFA();
+			rn.star().simplify().seq(std::move(n)).simplify();
+
+			if (config.verbose > 0)
+				std::cout << "Generated NFA for reduce[" << i << "]: " << rn << std::endl;
+			cnfas.addReduced(std::move(rn));
+		} else if (v.status == VarStatus::View) {
+			if (config.verbose > 0)
+				std::cout << "Generating NFA for view[" << i << "] = " << *v.exp << std::endl;
 			n.simplify();
-		if (config.verbose > 0)
-			std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
-		if (v.second == VarStatus::Reduce)
-			cnfas.addReduced(std::move(n));
-		else
+
+			if (config.verbose > 0)
+				std::cout << "Generated NFA for view[" << i << "]: " << n << std::endl;
+			cnfas.addView(std::move(n));
+		} else {
+			if (config.verbose > 0)
+				std::cout << "Generating NFA for save[" << i << "] = "
+					  << *v.exp << std::endl;
+			n.simplify();
+			if (config.verbose > 0)
+				std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
 			cnfas.addSaved(std::move(n));
+		}
 		++i;
 	});
 

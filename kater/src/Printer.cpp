@@ -2,6 +2,8 @@
 #include "Error.hpp"
 #include "Printer.hpp"
 
+std::vector<unsigned> Printer::calcToIdxMap;
+
 const char *genmcCopyright =
 R"(/*
  * GenMC -- Generic Model Checking.
@@ -57,13 +59,13 @@ Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 	}
 }
 
-void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, std::string res, std::string arg)
+void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, const std::string &res, const std::string &arg, const std::string &ident)
 {
-	ostr << "if (auto " << res << " = " << arg << "->getPos()";
+	ostr << ident << "if (auto " << res << " = " << arg << "->getPos()";
 
 	auto first = true;
 	if (!p->hasPreds()) {
-		ostr << ")";
+		ostr << ") {\n";
 		return;
 	}
 
@@ -80,10 +82,10 @@ void Printer::printPredLabel(std::ostream &ostr, const PredLabel *p, std::string
 		s.replace(s.find_first_of('#'), 1, arg);
 		ostr << s;
 	}
-	ostr << ")";
+	ostr << ") {\n";
 }
 
-void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, std::string res, std::string arg)
+void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, const std::string &res, const std::string &arg, const std::string &ident)
 {
 	if (r->isBuiltin()) {
 		const auto &n = builtinRelations[r->getTrans()];
@@ -91,19 +93,23 @@ void Printer::printRelLabel(std::ostream& ostr, const RelLabel *r, std::string r
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
-		ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
+		ostr << ident << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos())) {\n";
 		return;
 	}
-	ostr << "for (auto &" << res << " : " << arg << "->calculated(" << r->getCalcIndex() << "))";
+	auto isView = viewCalcs.count(r->getCalcIndex());
+	auto form = isView ? "view" : "calculated";
+	ostr << (isView ? ident + "t = 0u;\n" : "");
+	ostr << ident << "for (auto &" << "i" << " : " << arg << "->" << form << "(" << getCalcIdx(r->getCalcIndex()) << ")) {\n"
+	     << ident << "\tauto p = " << (isView ? "Event(t++, i)" : "i") << ";\n";
 	return;
 }
 
-void Printer::printTransLabel(const TransLabel *t, std::string res, std::string arg)
+void Printer::printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg, const std::string &ident)
 {
 	if (auto *p = dynamic_cast<const PredLabel *>(t))
-		printPredLabel(cpp(), p, res, arg);
+		printPredLabel(cpp(), p, res, arg, ident);
 	else if (auto *r = dynamic_cast<const RelLabel *>(t))
-		printRelLabel(cpp(), r, res, arg);
+		printRelLabel(cpp(), r, res, arg, ident);
 	else
 		assert(0);
 }
@@ -137,7 +143,8 @@ void Printer::printHppHeader()
 	      << "public:\n"
 	      << "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
 	      << "\n"
-	      << "\tstd::vector<VSet<Event>> calculateAll(const Event &e);\n"
+	      << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
+	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
 	      << "\tbool isConsistent(const Event &e);\n"
 	      << "\n"
 	      << "private:\n";
@@ -154,7 +161,8 @@ void Printer::printCppHeader()
 
 void Printer::printHppFooter()
 {
-	hpp() << "\tstd::vector<VSet<Event>> calculated;\n"
+	hpp() << "\tstd::vector<VSet<Event>> saved;\n"
+	      << "\tstd::vector<View> views;\n"
 	      << "\n"
 	      << "\tExecutionGraph &g;\n"
 	      << "\n"
@@ -174,7 +182,7 @@ void Printer::outputHpp(const CNFAs &cnfas)
 
 	auto i = 0u;
 	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
-		printCalculatorHpp(nfaStatus.first, i++);
+		printCalculatorHpp(nfaStatus.first, i++, nfaStatus.second);
 	});
 
 	i = 0u;
@@ -191,18 +199,36 @@ void Printer::outputCpp(const CNFAs &cnfas)
 {
 	printCppHeader();
 
-	/* Print calculators + calculateAll() */
+	/* Print calculators + calculateSaved() + calculateViews()*/
 	auto i = 0u;
+	auto vc = 0u;
+	auto sc = 0u;
 	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
+		calcToIdxMap.push_back((nfaStatus.second == VarStatus::View) ? vc++ : sc++);
+		if (nfaStatus.second == VarStatus::View)
+			viewCalcs.insert(i);
 		printCalculatorCpp(nfaStatus.first, i++, nfaStatus.second);
 	});
-	cpp() << "std::vector<VSet<Event>> " << className << "::calculateAll(const Event &e)\n"
+	cpp() << "std::vector<VSet<Event>> " << className << "::calculateSaved(const Event &e)\n"
 	      << "{\n";
 	i = 0u;
-	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfa){
-		cpp() << "\tcalculated.push_back(calculate" << i++ << "(e));\n";
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
+		if (nfaStatus.second != VarStatus::View)
+			cpp() << "\tsaved.push_back(calculate" << i << "(e));\n";
+		++i;
 	});
-	cpp() << "\treturn std::move(calculated);\n"
+	cpp() << "\treturn std::move(saved);\n"
+	      << "}\n"
+	      << "\n";
+	cpp() << "std::vector<View> " << className << "::calculateViews(const Event &e)\n"
+	      << "{\n";
+	i = 0u;
+	std::for_each(cnfas.save_begin(), cnfas.save_end(), [&](auto &nfaStatus){
+		if (nfaStatus.second == VarStatus::View)
+			cpp() << "\tviews.push_back(calculate" << i << "(e));\n";
+		++i;
+	});
+	cpp() << "\treturn std::move(views);\n"
 	      << "}\n"
 	      << "\n";
 
@@ -274,6 +300,7 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
 		      << "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
+		      << "\tauto t = 0u;\n"
 		      << "\n";
 
 		if (s->isStarting())
@@ -281,10 +308,8 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
 								"{ visitedAccepting, NodeStatus::entered };\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			cpp() << "\t";
-			printTransLabel(&*t.label, "p", "lab");
-			cpp() << " {\n"
-			      << "\t\tauto &node = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+			printTransLabel(&*t.label, "p", "lab", "\t");
+			cpp() << "\t\tauto &node = visitedAcyclic" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
 			      << "\t\tif (node.status == NodeStatus::unseen && !visitAcyclic" << ids[t.dest] << "(p))\n"
 			      << "\t\t\treturn false;\n"
 			      << "\t\telse if (node.status == NodeStatus::entered && visitedAccepting > node.count)\n"
@@ -317,18 +342,19 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 	      << "\n";
 }
 
-void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
+void Printer::printCalculatorHpp(const NFA &nfa, unsigned id, VarStatus status)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	/* visitCalcXX for each state */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tvoid visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, VSet<Event> &calcRes);\n";
+		hpp() << "\tvoid visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, "
+		      << ((status == VarStatus::View) ? "View &" : "VSet<Event> &") << "calcRes);\n";
 	});
 	hpp() << "\n";
 
 	/* calculateX for the automaton */
-	hpp() << "\tVSet<Event> calculate" << id << "(const Event &e);\n";
+	hpp() << "\t" << ((status == VarStatus::View) ? "View" : "VSet<Event>") << " calculate" << id << "(const Event &e);\n";
 	hpp() << "\n";
 
 	/* status arrays */
@@ -338,34 +364,38 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id)
 	hpp() << "\n";
 }
 
-void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
+void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 {
 	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		cpp() << "void " << className << "::visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, VSet<Event> &calcRes)\n"
-			<< "{\n"
-			<< "\tauto &g = getGraph();\n"
-			<< "\tauto *lab = g.getEventLabel(e);\n"
-			<< "\n"
-			<< "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
+		cpp() << "void " << className << "::visitCalc" << GET_ID(id, ids[&*s]) << "(const Event &e, "
+		      << ((status == VarStatus::View) ? "View &" : "VSet<Event> &") << "calcRes)\n"
+		      << "{\n"
+		      << "\tauto &g = getGraph();\n"
+		      << "\tauto *lab = g.getEventLabel(e);\n"
+		      << "\tauto t = 0u;\n"
+		      << "\n"
+		      << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		if (s->isStarting()) {
-			cpp() << "\tcalcRes.insert(e);\n";
-			if (reduce == VarStatus::Reduce) {
-				cpp() << "\tfor (const auto &p : lab->calculated(" << id << ")) {\n"
+			if (status != VarStatus::View)
+				cpp() << "\tcalcRes.insert(e);\n";
+			if (status == VarStatus::Reduce) {
+				cpp() << "\tfor (const auto &p : lab->calculated(" << getCalcIdx(id) << ")) {\n"
 				      << "\t\tcalcRes.erase(p);\n";
 				std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 					if (a->isAccepting())
 						cpp() << "\t\tvisitedCalc" << GET_ID(id, ids[&*a]) << "[g.getEventLabel(p)->getStamp()] = NodeStatus::left;\n";
 				});
 				cpp() << "\t}\n";
+			} else if (status == VarStatus::View) {
+				cpp() << "\tcalcRes.update(lab->view(" << getCalcIdx(id) << "));\n"
+				      << "\tcalcRes.updateIdx(lab->getPos());\n";
 			}
 		}
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			cpp() << "\t";
-			printTransLabel(&*t.label, "p", "lab");
-			cpp() << " {\n"
-			      << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
+			printTransLabel(&*t.label, "p", "lab", "\t");
+			cpp() << "\t\tauto status = visitedCalc" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()];\n"
 			      << "\t\tif (status == NodeStatus::unseen)\n"
 			      << "\t\t\tvisitCalc" << GET_ID(id, ids[t.dest]) << "(p, calcRes);\n"
 			      <<"\t}\n";
@@ -375,15 +405,17 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus reduce)
 		      << "\n";
 	});
 
-	cpp() << "VSet<Event> " << className << "::calculate" << id << "(const Event &e)\n"
+	cpp() << ((status == VarStatus::View) ? "View " : "VSet<Event> ") << className << "::calculate" << id << "(const Event &e)\n"
 	      << "{\n"
-	      << "\tVSet<Event> calcRes;\n";
+	      << "\t" << ((status == VarStatus::View) ? "View" : "VSet<Event>") << " calcRes;\n";
+	if (status == VarStatus::View)
+		cpp() << "calcRes.updateIdx(e.prev());\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		cpp() << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".clear();\n"
 		      << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
 	cpp() << "\n"
-	      << "\tgetGraph().getEventLabel(e)->setCalculated({";
+	      << "\tgetGraph().getEventLabel(e)->set" << ((status == VarStatus::View) ? "Views" : "Calculated") << "({";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
 		if (a->isAccepting())
 			cpp() << "{}, ";
@@ -430,10 +462,8 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 		      << "\n"
 		      << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-			cpp() << "\t";
-			printTransLabel(&*t.label, "p", "lab");
-			cpp() << " {\n"
-			      << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
+			printTransLabel(&*t.label, "p", "lab", "\t");
+			cpp() << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp()]\n;"
 			      << "\t\tif (status == NodeStatus::unseen)\n"
 			      << "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
 			      << "\t}\n";

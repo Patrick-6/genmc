@@ -17,7 +17,6 @@ YY_DECL;
 
 class Driver {
 public:
-	using URE = KatModule::URE;
 	using UCO = KatModule::UCO;
 
 	Driver();
@@ -28,12 +27,26 @@ public:
 		module->registerID(std::move(id), std::move(re));
 	}
 
-	void registerSaveID(std::string id, URE re) {
-		module->registerSaveID(std::move(id), std::move(re));
+	void registerSaveID(std::string idSave, std::string idRed, URE re, const yy::location &loc) {
+		if (idRed != "" && idRed != idSave && !isAllowedReduction(idRed)) {
+			std::cerr << loc << ": ";
+			std::cerr << "Forbidden reduction encountered \"" << idRed << "\"\n";
+			exit(EXIT_FAILURE);
+		}
+		if (idRed != "") {
+			module->registerSaveReducedID(idSave, idRed, std::move(re));
+			auto redExp = module->getRegisteredID(idRed);
+			auto saveExp = module->getRegisteredID(idSave);
+			assert(&*redExp && &*saveExp);
+			auto seqExp = SeqRE::createOpt(std::move(redExp), saveExp->clone());
+			module->registerAssert(SubsetConstraint::createOpt(std::move(seqExp),
+									   std::move(saveExp)), loc);
+		} else
+			module->registerSaveID(std::move(idSave), std::move(re));
 	}
 
-	void registerSaveReducedID(std::string id, URE re) {
-		module->registerSaveReducedID(std::move(id), std::move(re));
+	void registerViewID(std::string id, URE re) {
+		module->registerViewID(std::move(id), std::move(re));
 	}
 
 	// Handle "assert c" declaration in the input file
@@ -52,7 +65,7 @@ public:
 	}
 
 	URE getRegisteredID(std::string id, const yy::location &loc) {
-		auto e = module->getRegisteredID(id, loc);
+		auto e = module->getRegisteredID(id);
 		if (!e) {
 			std::cerr << loc << "\n";
 			std::cerr << "Unknown relation encountered (" << id << ")\n";
@@ -71,6 +84,10 @@ public:
 
 private:
 	void expandSavedVars(URE &r);
+
+	bool isAllowedReduction(const std::string &idRed) {
+		return idRed == "po" || idRed == "po-loc" || idRed == "po-imm";
+	}
 
 	// Location for lexing/parsing
 	yy::location location;

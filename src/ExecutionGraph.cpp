@@ -44,6 +44,7 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 							   Event::getInitializer() )
 						   ) );
 	iLab->setCalculated({{}});
+	iLab->setViews({{}});
 
 	relations.global.push_back(Calculator::GlobalRelation());
 	relsCache.global.push_back(Calculator::GlobalRelation());

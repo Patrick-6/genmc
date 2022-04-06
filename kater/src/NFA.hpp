@@ -14,6 +14,9 @@
 
 class NFA {
 
+public:
+	enum class ReductionType { Po, Self };
+
 private:
 	class State;
 
@@ -261,7 +264,7 @@ public:
 	NFA &plus();
 
 	NFA &simplify();
-	NFA &simplifyReduce();
+	NFA &reduce(ReductionType t);
 
 	bool acceptsEmptyString() const;
 	bool acceptsNoString(std::string &cex) const;
