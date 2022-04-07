@@ -31,6 +31,8 @@ let loc = loc-overlap ^=
 // RC11 Happens-before
 // ---------------------------------------------------------------------
 
+let ppo = po
+
 // Optimized calculation of synchronizes-with
 // Save the view of write messages
 

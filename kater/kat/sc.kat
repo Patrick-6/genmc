@@ -2,4 +2,6 @@ let po = po-imm+
 let mo = mo-imm+
 let fr = fr-imm; mo*
 
+let ppo = po
+
 acyclic (po | rf | mo | fr)

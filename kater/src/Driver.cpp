@@ -1,4 +1,5 @@
 #include "Driver.hpp"
+#include <numeric>
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -59,6 +60,19 @@ void Driver::expandSavedVars(URE &r)
 
 void Driver::checkAssertions()
 {
+	/* Ensure that ppo is implied by the acyclicity constraints */
+	auto ppo = module->getRegisteredID("ppo");
+	if (!ppo) {
+		std::cerr << "[Error] No ppo definition provided!\n";
+		exit(EXIT_FAILURE);
+	}
+	auto pporf = PlusRE::createOpt(AltRE::createOpt(std::move(ppo), module->getRegisteredID("rfe")));
+	auto acycDisj = std::accumulate(module->acyc_begin(), module->acyc_end(),
+					RegExp::createFalse(), [&](URE &re1, URE &re2){
+						return AltRE::createOpt(re1->clone(), re2->clone());
+					});
+	module->registerAssert(SubsetConstraint::create(std::move(pporf), std::move(acycDisj)), yy::location());
+
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
 		if (config.verbose > 0)
 			std::cout << "Checking assertion " << *p.first << std::endl;
