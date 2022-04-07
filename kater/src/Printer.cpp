@@ -308,7 +308,7 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		      << "\tauto t = 0u;\n"
 		      << "\n";
 
-		if (s->isStarting())
+		if (nfa.isStarting(&*s))
 			cpp() << "\t++visitedAccepting;\n";
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
 								"{ visitedAccepting, NodeStatus::entered };\n";
@@ -323,7 +323,7 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 			      << "\t\t\treturn false;\n"
 			      <<"\t}\n";
 		});
-		if (s->isStarting())
+		if (nfa.isStarting(&*s))
 			cpp() << "\t--visitedAccepting;\n";
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << "[lab->getStamp()] = "
 			"{ visitedAccepting, NodeStatus::left };\n"
@@ -384,15 +384,14 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 		      << "\tauto t = 0u;\n"
 		      << "\n"
 		      << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::entered;\n";
-		if (s->isStarting()) {
+		if (nfa.isStarting(&*s)) {
 			if (status != VarStatus::View)
 				cpp() << "\tcalcRes.insert(e);\n";
 			if (status == VarStatus::Reduce) {
 				cpp() << "\tfor (const auto &p : lab->calculated(" << getCalcIdx(id) << ")) {\n"
 				      << "\t\tcalcRes.erase(p);\n";
-				std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
-					if (a->isAccepting())
-						cpp() << "\t\tvisitedCalc" << GET_ID(id, ids[&*a]) << "[g.getEventLabel(p)->getStamp()] = NodeStatus::left;\n";
+				std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
+					cpp() << "\t\tvisitedCalc" << GET_ID(id, ids[a]) << "[g.getEventLabel(p)->getStamp()] = NodeStatus::left;\n";
 				});
 				cpp() << "\t}\n";
 			} else if (status == VarStatus::View) {
@@ -425,14 +424,12 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 	});
 	cpp() << "\n"
 	      << "\tgetGraph().getEventLabel(e)->set" << ((status == VarStatus::View) ? "Views" : "Calculated") << "({";
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
-		if (a->isAccepting())
-			cpp() << "{}, ";
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
+		cpp() << "{}, ";
 	});
 	cpp() << "});\n";
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &a){
-		if (a->isAccepting())
-			cpp() << "\tvisitCalc" << GET_ID(id, ids[&*a]) << "(e, calcRes);\n";
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
+		cpp() << "\tvisitCalc" << GET_ID(id, ids[a]) << "(e, calcRes);\n";
 	});
 	cpp() << "\treturn calcRes;\n"
 	      << "}\n";
@@ -479,7 +476,7 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 			      << "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
 			      << "\t}\n";
 		});
-		if (s->isStarting())
+		if (rhs.isStarting(&*s))
 			cpp() << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp()] = NodeStatus::left;\n"
 			      << "}\n"
 			      << "\n";
@@ -491,9 +488,8 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 		cpp() << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".clear();\n"
 		      << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
 	});
-	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		if (s->isStarting())
-			cpp() << "\t\tvisitInclusion" << GET_ID(id, ids[&*s]) << "(e);\n";
+	std::for_each(rhs.start_begin(), rhs.start_end(), [&](auto &s){
+		cpp() << "\t\tvisitInclusion" << GET_ID(id, ids[s]) << "(e);\n";
 	});
 
 	/* TODO */

@@ -41,6 +41,7 @@ private:
 	}
 
 	using StateUPVectorT = std::vector<set_unique_ptr<State>>;
+	using StateVectorT = std::vector<State *>;
 
 	/*
 	 * A struct representing NFA transitions
@@ -254,7 +255,30 @@ public:
 	stateUP_const_iterator states_begin() const { return getStates().begin(); }
 	stateUP_const_iterator states_end() const { return getStates().end(); }
 
+	using state_iterator = StateVectorT::iterator;
+	using state_const_iterator = StateVectorT::const_iterator;
+
+	state_iterator start_begin() { return getStarting().begin(); }
+	state_iterator start_end() { return getStarting().end(); }
+
+	state_const_iterator start_begin() const { return getStarting().begin(); }
+	state_const_iterator start_end() const { return getStarting().end(); }
+
+	state_iterator accept_begin() { return getAccepting().begin(); }
+	state_iterator accept_end() { return getAccepting().end(); }
+
+	state_const_iterator accept_begin() const { return getAccepting().begin(); }
+	state_const_iterator accept_end() const { return getAccepting().end(); }
+
 	unsigned getNumStates() const { return getStates().size(); }
+
+	unsigned getNumStarting() const { return getStarting().size(); }
+
+	unsigned getNumAccepting() const { return getAccepting().size(); }
+
+	bool isStarting(State *state) const { return state->isStarting(); }
+
+	bool isAccepting(State *state) const { return state->isAccepting(); }
 
 	NFA &flip();
 	NFA &alt(NFA &&other);
@@ -287,25 +311,59 @@ private:
 	const StateUPVectorT &getStates() const { return nfa; }
 	StateUPVectorT &getStates() { return nfa; }
 
+	const StateVectorT &getAccepting() const { return accepting; }
+	StateVectorT &getAccepting() { return accepting; }
+
+	const StateVectorT &getStarting() const { return starting; }
+	StateVectorT &getStarting() { return starting; }
+
 	/* Creates and adds a new (unreachable) state to the NFA and its inverse.
 	 * Returns the newly added state */
 	State *createState() {
 		static unsigned counter = 0;
-
-		getStates().emplace_back(new State(counter++));
-		return getStates().back().get();
+		return getStates().emplace_back(new State(counter++)).get();
 	}
 
 	State *createStarting() {
 		auto *s = createState();
 		s->setStarting(true);
+		getStarting().push_back(s);
 		return s;
 	}
 
 	State *createAccepting() {
 		auto *s = createState();
 		s->setAccepting(true);
+		getAccepting().push_back(s);
 		return s;
+	}
+
+	void makeStarting(State *s) {
+		if (!isStarting(s)) {
+			s->setStarting(true);
+			getStarting().push_back(s);
+		}
+	}
+
+	void makeAccepting(State *s) {
+		if (!isAccepting(s)) {
+			s->setAccepting(true);
+			getAccepting().push_back(s);
+		}
+	}
+
+	void clearStarting() {
+		std::for_each(start_begin(), start_end(), [&](auto &s){
+			s->setStarting(false);
+		});
+		getStarting().clear();
+	}
+
+	void clearAccepting() {
+		std::for_each(accept_begin(), accept_end(), [&](auto &s){
+			s->setAccepting(false);
+		});
+		getAccepting().clear();
 	}
 
 	stateUP_iterator removeState(stateUP_iterator &it) {
@@ -313,6 +371,12 @@ private:
 			s->removeOutgoingTo(it->get());
 			s->removeIncomingTo(it->get());
 		});
+		auto sit = std::find(getStarting().begin(), getStarting().end(), it->get());
+		if (sit != getStarting().end())
+			getStarting().erase(sit);
+		auto ait = std::find(getAccepting().begin(), getAccepting().end(), it->get());
+		if (ait != getAccepting().end())
+			getAccepting().erase(ait);
 		return getStates().erase(it);
 	}
 
@@ -380,6 +444,8 @@ private:
 	}
 
 	StateUPVectorT nfa;
+	StateVectorT starting;
+	StateVectorT accepting;
 };
 
 #endif /* _KATER_NFA_HPP_ */

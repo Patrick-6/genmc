@@ -27,6 +27,7 @@ NFA &NFA::flip()
 	std::for_each(states_begin(), states_end(), [](auto &s){
 		s->flip();
 	});
+	std::swap(getStarting(), getAccepting());
 	return *this;
 }
 
@@ -39,8 +40,8 @@ void NFA::simplify_basic()
 		changed = false;
 
 		for (auto it = states_begin(); it != states_end(); /* */ ) {
-			if (((*it)->hasAllOutLoops() && !(*it)->isAccepting()) ||
-			    ((*it)->hasAllInLoops() && !(*it)->isStarting())) {
+			if (((*it)->hasAllOutLoops() && !isAccepting(it->get())) ||
+			    ((*it)->hasAllInLoops() && !isStarting(it->get()))) {
 				it = removeState(it);
 				changed = true;
 			} else {
@@ -52,10 +53,10 @@ void NFA::simplify_basic()
 			auto oit(it);
 			++oit;
 			while (oit != states_end()) {
-				if ((*it)->isAccepting() == (*oit)->isAccepting() &&
+				if (isAccepting(it->get()) == isAccepting(oit->get()) &&
 				    (*it)->outgoingSameAs(oit->get())) {
-					if ((*oit)->isStarting())
-						(*it)->setStarting(true);
+					if (isStarting(oit->get()))
+						makeStarting(it->get());
 					addInvertedTransitions(it->get(), (*oit)->in_begin(), (*oit)->in_end());
 					oit = removeState(oit);
 					changed = true;
@@ -69,10 +70,10 @@ void NFA::simplify_basic()
 			auto oit(it);
 			++oit;
 			while (oit != states_end()) {
-				if ((*it)->isStarting() == (*oit)->isStarting() &&
+				if (isStarting(it->get()) == isStarting(oit->get()) &&
 				    (*it)->incomingSameAs(oit->get())) {
-					if ((*oit)->isAccepting())
-						(*it)->setAccepting(true);
+					if (isAccepting(oit->get()))
+						makeAccepting(it->get());
 					addTransitions(it->get(), (*oit)->out_begin(), (*oit)->out_end());
 					oit = removeState(oit);
 					changed = true;
@@ -88,18 +89,19 @@ void NFA::simplify_basic()
 
 bool NFA::acceptsEmptyString() const
 {
-	return std::any_of(states_begin(), states_end(), [](auto &s){
-		return s->isStarting() && s->isAccepting();
+	return std::any_of(start_begin(), start_end(), [this](auto &s){
+		return isAccepting(s);
 	});
 }
 
 bool NFA::acceptsNoString(std::string &cex) const
 {
-	std::unordered_set<const State *> visited;
-	std::vector<std::pair<const State *, std::string>> workList;
+	std::unordered_set<State *> visited;
+	std::vector<std::pair<State *, std::string>> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
-		if (!it->get()->isStarting()) continue;
+		if (!isStarting(it->get()))
+			continue;
 		visited.insert(it->get());
 		workList.push_back({it->get(), ""});
 	}
@@ -107,12 +109,13 @@ bool NFA::acceptsNoString(std::string &cex) const
 		auto &p = workList.back();
 		auto s = p.first;
 		workList.pop_back();
-		if (s->isAccepting()) {
+		if (isAccepting(s)) {
 			cex = p.second;
 			return false;
 		}
 		for (auto it = s->out_begin(); it != s->out_end(); it++) {
-			if (visited.count(it->dest)) continue;
+			if (visited.count(it->dest))
+				continue;
 			visited.insert(it->dest);
 			workList.push_back({it->dest, p.second + " " + it->label->toString()});
 		}
@@ -127,12 +130,10 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 		std::cout << *this << "and " << other << std::endl;
 	}
 
-	// If the second automaton has no starting states...
-	if (std::none_of (other.states_begin(), other.states_end(),
-			 [](auto &s) { return s->isStarting(); }))
+	if (other.getNumStarting() == 0)
 		return acceptsNoString(cex);
 
-	using SPair = std::pair<const State *, const State *>;
+	using SPair = std::pair<State *, State *>;
 	struct SPairHasher {
 		inline void hash_combine(std::size_t& seed, std::size_t v) const {
 			seed ^= v + 0x9e3779b9 + (seed<<6) + (seed>>2);
@@ -149,10 +150,10 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 	std::vector<std::pair<SPair, std::string>> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
-		if (!it->get()->isStarting())
+		if (!isStarting(it->get()))
 			continue;
 		for (auto oit = other.states_begin(); oit != other.states_end(); oit++) {
-			if (!oit->get()->isStarting())
+			if (!isStarting(oit->get()))
 				continue;
 			visited.insert({it->get(), oit->get()});
 			workList.push_back({{it->get(), oit->get()}, ""});
@@ -161,7 +162,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 	while (!workList.empty()) {
 		auto [p,str] = workList.back();
 		workList.pop_back();
-		if (p.first->isAccepting() && !p.second->isAccepting()) {
+		if (isAccepting(p.first) && !isAccepting(p.second)) {
 			cex = str;
 			return false;
 		}
@@ -199,43 +200,41 @@ NFA::NFA(const TransLabel &c) : NFA()
 
 NFA &NFA::alt(NFA &&other)
 {
-	/* Move the states of the `other` NFA into our NFA */
 	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));
+	getStarting().insert(getStarting().end(), other.getStarting().begin(), other.getStarting().end());
+	getAccepting().insert(getAccepting().end(), other.getAccepting().begin(), other.getAccepting().end());
 	return *this;
 }
 
 NFA &NFA::seq(NFA &&other)
 {
 	/* Add transitions `this->accepting --> other.starting.outgoing` */
-	std::for_each(states_begin(), states_end(), [&](auto &a){
-		if (a->isAccepting())
-			std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
-				if (s->isStarting())
-					addTransitions(a.get(), s->out_begin(), s->out_end());
-			});
+	std::for_each(accept_begin(), accept_end(), [&](auto &a){
+		std::for_each(other.start_begin(), other.start_end(), [&](auto &s){
+			addTransitions(a, s->out_begin(), s->out_end());
+		});
 	});
 
 	/* Clear accepting states if necessary */
 	if (!other.acceptsEmptyString())
-		std::for_each(states_begin(), states_end(), [&](auto &s){ s->setAccepting(false); });
+		clearAccepting();
 
 	/* Clear starting states of `other` */
-	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){ s->setStarting(false); });
+	other.clearStarting();
 
-	/* Move the states of the `other` NFA into our NFA */
+	/* Move the states of the `other` NFA into our NFA and append accepting states */
 	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));
+	getAccepting().insert(getAccepting().end(), other.getAccepting().begin(), other.getAccepting().end());
 	return *this;
 }
 
 NFA &NFA::plus()
 {
 	/* Add transitions `this->accepting --> other.starting.outgoing` */
-	std::for_each(states_begin(), states_end(), [&](auto &a){
-		if (a->isAccepting())
-			std::for_each(states_begin(), states_end(), [&](auto &s){
-				if (s->isStarting())
-					addTransitions(a.get(), s->out_begin(), s->out_end());
-			});
+	std::for_each(accept_begin(), accept_end(), [&](auto &a){
+		std::for_each(start_begin(), start_end(), [&](auto &s){
+			addTransitions(a, s->out_begin(), s->out_end());
+		});
 	});
 	return *this;
 }
@@ -247,11 +246,10 @@ NFA &NFA::or_empty()
 		return *this;
 
 	// Otherwise, find starting node with no incoming edges
-	auto it = std::find_if(states_begin(), states_end(), [](auto &s){
-			return s->isStarting() && !s->hasIncoming();});
+	auto it = std::find_if(start_begin(), start_end(), [](auto &s){ return !s->hasIncoming(); });
 
-	auto *s = (it != states_end()) ? it->get() : createStarting();
-	s->setAccepting(true);
+	auto *s = (it != start_end()) ? *it : createStarting();
+	makeAccepting(s);
 	return *this;
 }
 
@@ -268,9 +266,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 	std::map<State *, std::set<State *>> dfaToNfaMap; // v
 
 	auto *s = dfa.createStarting();
-	std::set<State *> ss;
-	std::for_each(states_begin(), states_end(), [&](const auto &a){
-			if (a->isStarting()) ss.insert(a.get()); });
+	auto ss = std::set<State *>(start_begin(), start_end());
 	nfaToDfaMap.insert({ss, s});
 	dfaToNfaMap.insert({s, ss});
 
@@ -306,9 +302,9 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 
 	std::for_each(dfaToNfaMap.begin(), dfaToNfaMap.end(), [&](auto &kv){
 		if (std::any_of(kv.second.begin(), kv.second.end(), [&](State *s){
-			return s->isAccepting();
+			return isAccepting(s);
 		}))
-			kv.first->setAccepting(true);
+			dfa.makeAccepting(kv.first);
 	});
 	return std::make_pair(std::move(dfa), std::move(dfaToNfaMap));
 }
@@ -356,7 +352,7 @@ void NFA::scm_reduce ()
 	auto dfaSize = scm.begin()->second.size();
 	std::vector<State *> toRemove;
 	for (auto itI = states_begin(); itI != states_end(); /* ! */) {
-		if ((*itI)->isStarting()) {
+		if (isStarting(itI->get())) {
 			++itI;
 			continue;
 		}
@@ -468,12 +464,11 @@ bool isPoTransition(const RelLabel *lab)
 NFA &NFA::reduce(ReductionType t)
 {
 	simplify();
-	std::for_each(states_begin(), states_end(), [&](auto &s){
-		if (s->isAccepting())
-			removeTransitionsIf(&*s, [&](const Transition &t){
-				return std::any_of(states_begin(), states_end(), [&](auto &q) {
-					return q->isStarting() && q->hasOutgoingTo(t.dest); });
-			});
+	std::for_each(accept_begin(), accept_end(), [&](auto &s){
+		removeTransitionsIf(&*s, [&](const Transition &t){
+			return std::any_of(start_begin(), start_end(), [&](auto &q) {
+				return q->hasOutgoingTo(t.dest); });
+		});
 	});
 	simplify();
 	return *this;
@@ -507,11 +502,13 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 {
 	ostr << "[NFA with " << nfa.getNumStates() << " states]" << std::endl;
 	ostr << "starting:";
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		if (s->isStarting()) ostr << " " << s->getId(); });
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto &s){
+		ostr << " " << s->getId();
+	});
 	ostr << " accepting:";
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		if (s->isAccepting()) ostr << " " << s->getId(); });
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &s){
+		ostr << " " << s->getId();
+	});
 	ostr << std::endl;
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
