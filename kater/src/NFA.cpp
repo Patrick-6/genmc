@@ -452,15 +452,6 @@ NFA &NFA::simplify ()
 	return *this;
 }
 
-bool isPoTransition(const RelLabel *lab)
-{
-	if (!lab || !lab->isBuiltin())
-		return false;
-
-	auto &name = builtinRelations[lab->getTrans()].name;
-	return name == "po" || name == "po-imm" || name == "po-loc";
-}
-
 NFA &NFA::reduce(ReductionType t)
 {
 	simplify();
