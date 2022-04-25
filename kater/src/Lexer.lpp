@@ -7,6 +7,42 @@
 #include "Parser.hpp"
 
 #define YY_USER_ACTION  loc.columns (yyleng);
+
+char* current_line = NULL;
+size_t current_line_alloc = 0;
+ssize_t current_line_sent = 0;
+ssize_t current_line_len = 0;
+
+void reset_current_line()
+{
+	free(current_line);
+	current_line = NULL;
+	current_line_alloc = current_line_sent = current_line_len = 0;
+}
+
+ssize_t refill_flex_buffer(char* buf, size_t max_size)
+{
+	ssize_t avail = current_line_len - current_line_sent;
+	if (!avail) {
+		current_line_sent = 0;
+		avail = getline(&current_line, &current_line_alloc, yyin);
+		if (avail < 0) {
+			if (ferror(yyin)) { perror("Could not read input: "); }
+			avail = 0;
+		}
+		current_line_len = avail;
+	}
+	if (avail > max_size)
+		avail = max_size;
+	memcpy(buf, current_line + current_line_sent, avail);
+	current_line_sent += avail;
+	if (!avail)
+		reset_current_line();
+	return avail;
+}
+
+#define YY_INPUT(buf, result, max_size) \
+	result = refill_flex_buffer(buf, max_size);
 %}
 
 %option nodefault

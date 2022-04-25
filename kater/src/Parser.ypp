@@ -8,7 +8,7 @@
 %define parse.assert
 %define parse.trace
 // %define parse.error detailed
-%define parse.error verbose
+%define parse.error custom
 // %define parse.lac full
 %locations
 
@@ -16,6 +16,8 @@
   #include <string>
   #include "Constraint.hpp"
   class Driver;
+  extern char *current_line;
+  extern void reset_current_line();
 }
 
 %param { Driver& drv }
@@ -126,7 +128,46 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 
 %%
 
-void yy::parser::error (const location_type& l, const std::string& m)
+void yy::parser::error(const location_type &l, const std::string &m)
 {
 	std::cerr << "\n" << l << ": " << m << "\n";
+}
+
+void yy::parser::report_syntax_error(const yy::parser::context &ctx) const
+{
+	std::cerr << ctx.location() << ": error";
+
+	/* Report expected tokens */
+	{
+		enum { TOKENMAX = 5 };
+		symbol_kind_type expected[TOKENMAX];
+
+		auto n = ctx.expected_tokens(expected, TOKENMAX);
+		for (auto i = 0; i < n; i++)
+			std::cerr << (i == 0 ? ": expected \'" : "\' or \'") << symbol_name(expected[i]);
+		if (n > 0)
+			std::cerr << "\'";
+	}
+
+	/* Report the unexpected token */
+	{
+		auto lookahead = ctx.token();
+		if (lookahead != symbol_kind::S_YYEMPTY)
+			std::cerr << " before \'" << symbol_name (lookahead) << "\'";
+	}
+
+	std::cerr << '\n';
+
+	/* Quote the source line */
+	{
+		auto &loc = ctx.location();
+		std::cerr << current_line;
+		for (auto i = 0; i < loc.begin.column-1; i++)
+			std::cerr << " ";
+		std::cerr << "^";
+		for (auto i = loc.begin.column+1; i < loc.end.column; i++)
+			std::cerr << "~";
+		std::cerr << "\n";
+		reset_current_line();
+	}
 }

@@ -30,7 +30,7 @@ public:
 	void registerSaveID(std::string idSave, std::string idRed, URE re, const yy::location &loc) {
 		if (idRed != "" && idRed != idSave && !isAllowedReduction(idRed)) {
 			std::cerr << loc << ": ";
-			std::cerr << "Forbidden reduction encountered \"" << idRed << "\"\n";
+			std::cerr << "forbidden reduction encountered \"" << idRed << "\"\n";
 			exit(EXIT_FAILURE);
 		}
 		if (idRed != "") {
@@ -67,8 +67,8 @@ public:
 	URE getRegisteredID(std::string id, const yy::location &loc) {
 		auto e = module->getRegisteredID(id);
 		if (!e) {
-			std::cerr << loc << "\n";
-			std::cerr << "Unknown relation encountered (" << id << ")\n";
+			std::cerr << loc << ": ";
+			std::cerr << "unknown relation encountered (" << id << ")\n";
 			exit(EXIT_FAILURE);
 		}
 		return std::move(e);
