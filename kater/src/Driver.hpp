@@ -77,14 +77,9 @@ public:
 	// Invoke the parser on the file `config->fileName`.  Return 0 on success.
 	int parse();
 
-	// Check any user assertions and report errors.
-	void checkAssertions();
-
 	std::unique_ptr<KatModule> takeModule() { return std::move(module); }
 
 private:
-	void expandSavedVars(URE &r);
-
 	bool isAllowedReduction(const std::string &idRed) {
 		return idRed == "po" || idRed == "po-loc" || idRed == "po-imm";
 	}

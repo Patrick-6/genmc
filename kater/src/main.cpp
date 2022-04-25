@@ -16,10 +16,9 @@ int main(int argc, char **argv)
 	if (d.parse())
 		exit(EPARSE);
 
-	d.checkAssertions();
-
 	Kater kater(d.takeModule());
 
+	kater.checkAssertions();
 	kater.exportCode(config.dirPrefix, config.outPrefix);
 
 	return 0;

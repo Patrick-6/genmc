@@ -15,11 +15,16 @@ public:
 
 	const KatModule &getModule() const { return *module; }
 
+	/* Check any user assertions and report errors */
+	void checkAssertions();
+
 	void generateNFAs();
 	void exportCode(std::string &dirPrefix, std::string &outPrefix);
 
 private:
 	CNFAs &getCNFAs() { return cnfas; }
+
+	void expandSavedVars(URE &r);
 
 	std::unique_ptr<KatModule> module;
 
