@@ -66,11 +66,21 @@ public:
 	using pred_iter = std::set<int>::iterator;
 	using pred_const_iter = std::set<int>::const_iterator;
 
+	using builtin_iterator = std::vector<PredicateInfo>::iterator;
+	using builtin_const_iterator = std::vector<PredicateInfo>::const_iterator;
+
 	pred_iter pred_begin() { return preds.begin(); }
 	pred_iter pred_end() { return preds.end(); }
 
 	pred_const_iter pred_begin() const { return preds.begin(); }
 	pred_const_iter pred_end() const { return preds.end(); }
+
+	static builtin_const_iterator builtin_begin() {
+		return builtinPredicates.begin();
+	}
+	static builtin_const_iterator builtin_end() {
+		return builtinPredicates.end();
+	}
 
 	bool hasPreds() const { return !preds.empty(); }
 
@@ -105,6 +115,16 @@ private:
 class RelLabel : public TransLabel {
 public:
 	RelLabel(int s) : trans(s), flipped(false) {}
+
+	using builtin_iterator = std::vector<RelationInfo>::iterator;
+	using builtin_const_iterator = std::vector<RelationInfo>::const_iterator;
+
+	static builtin_const_iterator builtin_begin() {
+		return builtinRelations.begin();
+	}
+	static builtin_const_iterator builtin_end() {
+		return builtinRelations.end();
+	}
 
 	int getTrans() const { return trans; }
 

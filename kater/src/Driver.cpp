@@ -6,12 +6,16 @@
 
 Driver::Driver() : module(new KatModule)
 {
-	for (auto i = 0u; i < builtinPredicates.size(); i++)
-		registerID(builtinPredicates[i].name, PredRE::create(i));
-	for (auto i = 0u; i < builtinRelations.size(); i++)
-		registerID(builtinRelations[i].name, RelRE::create(i));
-}
+	auto i = 0u;
+	std::for_each(PredLabel::builtin_begin(), PredLabel::builtin_end(), [&i,this](auto &pi){
+		registerID(pi.name, PredRE::create(i));
+	});
 
+	i = 0u;
+	std::for_each(RelLabel::builtin_begin(), RelLabel::builtin_end(), [&i,this](auto &ri){
+		registerID(ri.name, RelRE::create(i));
+	});
+}
 
 int Driver::parse()
 {
