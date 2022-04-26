@@ -88,6 +88,8 @@ libgenmc_a_SOURCES = \
   WBCalculator.cpp WBCalculator.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
+  TSOChecker.cpp TSOChecker.hpp \
+  TSODriver.cpp TSODriver.hpp \
   WorkSet.hpp WorkSet.cpp \
   value_ptr.hpp \
   VectorClock.hpp VectorClock.cpp \
