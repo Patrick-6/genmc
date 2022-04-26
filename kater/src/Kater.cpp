@@ -15,7 +15,7 @@ void Kater::expandSavedVars(URE &r)
 	}
 }
 
-void Kater::checkAssertions()
+bool Kater::checkAssertions()
 {
 	/* Ensure that ppo is implied by the acyclicity constraints */
 	auto ppo = module->getRegisteredID("ppo");
@@ -30,6 +30,7 @@ void Kater::checkAssertions()
 					});
 	module->registerAssert(SubsetConstraint::create(std::move(pporf), std::move(acycDisj)), yy::location());
 
+	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
 		if (config.verbose > 0)
 			std::cout << "Checking assertion " << *p.first << std::endl;
@@ -40,9 +41,10 @@ void Kater::checkAssertions()
 			std::cerr << p.second << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
 				std::cerr << "Counterexample: " << cex << std::endl;
-
+			status = false;
 		}
 	});
+	return status;
 }
 
 void Kater::generateNFAs()

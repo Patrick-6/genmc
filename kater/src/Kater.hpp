@@ -15,8 +15,9 @@ public:
 
 	const KatModule &getModule() const { return *module; }
 
-	/* Check any user assertions and report errors */
-	void checkAssertions();
+	/* Check any user assertions and report errors.
+	 * Returns whether any assertion was violated */
+	bool checkAssertions();
 
 	void generateNFAs();
 	void exportCode(std::string &dirPrefix, std::string &outPrefix);
