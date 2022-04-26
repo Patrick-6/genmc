@@ -13,13 +13,26 @@ int main(int argc, char **argv)
 
 	ParsingDriver d;
 
+	if (config.verbose >= 1)
+		std::cout << "Parsing file " << config.inputFile << "... ";
 	if (d.parse())
 		exit(EPARSE);
+	if (config.verbose >= 1)
+		std::cout << "Done.\n";
 
 	Kater kater(d.takeModule());
 
-	kater.checkAssertions();
+	if (config.verbose >= 1)
+		std::cout << "Checking assertions... ";
+	if (kater.checkAssertions())
+		if (config.verbose >= 1)
+			std::cout << "Done.\n";
+
+	if (config.verbose >= 1)
+		std::cout << "Exporting code... ";
 	kater.exportCode(config.dirPrefix, config.outPrefix);
+	if (config.verbose >= 1)
+		std::cout << "Done.\n";
 
 	return 0;
 }

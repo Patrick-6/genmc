@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 
+#define DEBUG_TYPE "parser"
+
 ParsingDriver::ParsingDriver() : module(new KatModule)
 {
 	auto i = 0u;
@@ -20,9 +22,6 @@ int ParsingDriver::parse()
 {
 	extern FILE* yyin;
 
-	if (config.verbose > 0)
-		std::cout << "Parsing file " << config.inputFile << "...";
-
 	if (config.inputFile.empty ()) {
 		std::cerr << "no input file provided" << std::endl;
 		exit(EXIT_FAILURE);
@@ -37,14 +36,15 @@ int ParsingDriver::parse()
 	location.initialize(&config.inputFile);
 
 	yy::parser parser(*this);
-	if (config.debug)
-		parser.set_debug_level(2);
+
+	// KATER_DEBUG(
+	// 	if (config.debug)
+	// 		parser.set_debug_level(2);
+	// );
 
 	auto res = parser.parse();
 
 	fclose(yyin);
 
-	if (config.verbose > 0)
-		std::cout << "Done." << std::endl;
 	return res;
 }

@@ -1,7 +1,10 @@
 #include "Config.hpp"
+#include "Error.hpp"
 #include "NFA.hpp"
 #include <fstream>
 #include <iostream>
+
+#define DEBUG_TYPE "nfa"
 
 static bool is_subset (const std::vector<char> &a, const std::vector<char> &b)
 {
@@ -125,10 +128,10 @@ bool NFA::acceptsNoString(std::string &cex) const
 
 bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 {
-	if (config.verbose > 0) {
+	KATER_DEBUG(
 		std::cout << "Checking inclusion between automata:" << std::endl;
 		std::cout << *this << "and " << other << std::endl;
-	}
+	);
 
 	if (other.getNumStarting() == 0)
 		return acceptsNoString(cex);
@@ -169,9 +172,10 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 
 		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++) {
 			std::string new_str = str + " ";
-			if (config.verbose > 0)
+			KATER_DEBUG(
 				new_str += std::to_string(p.first->getId()) + "/" +
 					   std::to_string(p.second->getId()) + " ";
+			);
 			new_str += it->label->toString();
 			bool found_edge = false;
 			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
@@ -323,8 +327,10 @@ std::unordered_map<NFA::State *, std::vector<char>> NFA::get_state_composition_m
 
 	std::unordered_map<State *, std::vector<char>> result;
 
-	if (config.verbose > 1)
+
+	KATER_DEBUG(
 		std::cout << "State composition matrix: " << std::endl;
+	);
 	std::for_each(states_begin(), states_end(), [&](auto &si){
 		std::vector<char> row(dfaToNfaMap.size(), 0);
 		auto i = 0u;
@@ -334,8 +340,9 @@ std::unordered_map<NFA::State *, std::vector<char>> NFA::get_state_composition_m
 			++i;
 		});
 		result.insert({&*si, row});
-		if (config.verbose > 1)
+		KATER_DEBUG(
 			std::cout << row << ": " << si->getId() << std::endl;
+		);
 	});
 	return result;
 }
@@ -367,16 +374,20 @@ void NFA::scm_reduce ()
 			++itI;
 			continue;
 		}
-		if (config.verbose > 1)
+		KATER_DEBUG(
 			std::cout << "erase node " << (*itI)->getId() << " with";
+		);
 		for (auto itJ = states_begin(); itJ != states_end(); ++itJ) {
 			if (itI->get() != itJ->get() && is_subset(scm[itJ->get()], scm[itI->get()])) {
-				if (config.verbose > 1)
+				KATER_DEBUG(
 					std::cout << " " << (*itJ)->getId();
+				);
 				addInvertedTransitions(itJ->get(), (*itI)->in_begin(), (*itI)->in_end());
 			}
 		}
-		if (config.verbose > 1) std::cout << std::endl;
+		KATER_DEBUG(
+			std::cout << std::endl;
+		);
 		scm.erase(itI->get());
 		itI = removeState(itI);
 	}
@@ -429,25 +440,25 @@ void NFA::compact_edges()
 NFA &NFA::simplify ()
 {
 	simplify_basic();
-	if (config.verbose > 1) std::cout << "After basic simplification: " << *this;
+	KATER_DEBUG(std::cout << "After basic simplification: " << *this;);
 	scm_reduce();
-	if (config.verbose > 1) std::cout << "After 1st SCM reduction: " << *this;
+	KATER_DEBUG(std::cout << "After 1st SCM reduction: " << *this;);
 	flip();
 	scm_reduce();
 	flip();
-	if (config.verbose > 1) std::cout << "After 2nd SCM reduction: " << *this;
+	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
 	compact_edges();
 	flip();
 	compact_edges();
 	flip();
-	if (config.verbose > 1) std::cout << "After edge compaction: " << *this;
+	KATER_DEBUG(std::cout << "After edge compaction: " << *this;);
 	scm_reduce();
-	if (config.verbose > 1) std::cout << "After 3rd SCM reduction: " << *this;
+	KATER_DEBUG(std::cout << "After 3rd SCM reduction: " << *this;);
 	flip();
 	scm_reduce();
-	if (config.verbose > 2) std::cout << "Flipped: " << *this;
+	KATER_DEBUG(std::cout << "Flipped: " << *this;);
 	flip();
-	if (config.verbose > 1) std::cout << "After 4th SCM reduction: " << *this;
+	KATER_DEBUG(std::cout << "After 4th SCM reduction: " << *this;);
 	simplify_basic();
 	return *this;
 }
