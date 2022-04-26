@@ -9,18 +9,20 @@
 
 int main(int argc, char **argv)
 {
-	config.parseOptions(argc, argv);
+	Config config;
 
-	ParsingDriver d;
+	config.parseOptions(argc, argv);
 
 	if (config.verbose >= 1)
 		std::cout << "Parsing file " << config.inputFile << "... ";
+
+	ParsingDriver d(config.inputFile);
 	if (d.parse())
 		exit(EPARSE);
 	if (config.verbose >= 1)
 		std::cout << "Done.\n";
 
-	Kater kater(d.takeModule());
+	Kater kater(config, d.takeModule());
 
 	if (config.verbose >= 1)
 		std::cout << "Checking assertions... ";

@@ -23,6 +23,4 @@ private:
 	void printUsage(const char *kater);
 };
 
-extern Config config;
-
 #endif /* __CONFIG_HPP__ */

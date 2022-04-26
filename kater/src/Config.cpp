@@ -8,8 +8,6 @@
 #include <unistd.h>
 #include <getopt.h>
 
-Config config;
-
 void Config::reset()
 {
 	verbose = 0;

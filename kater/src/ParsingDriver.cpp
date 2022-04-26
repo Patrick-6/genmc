@@ -5,7 +5,8 @@
 
 #define DEBUG_TYPE "parser"
 
-ParsingDriver::ParsingDriver() : module(new KatModule)
+ParsingDriver::ParsingDriver(const std::string &input)
+	: file(input), module(new KatModule)
 {
 	auto i = 0u;
 	std::for_each(PredLabel::builtin_begin(), PredLabel::builtin_end(), [&i,this](auto &pi){
@@ -22,18 +23,18 @@ int ParsingDriver::parse()
 {
 	extern FILE* yyin;
 
-	if (config.inputFile.empty ()) {
+	if (getFile().empty()) {
 		std::cerr << "no input file provided" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	if (!(yyin = fopen(config.inputFile.c_str(), "r"))) {
-		std::cerr << "cannot open " << config.inputFile
+	if (!(yyin = fopen(getFile().c_str(), "r"))) {
+		std::cerr << "cannot open " << getFile()
 			  << ": " << strerror(errno) << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	location.initialize(&config.inputFile);
+	location.initialize(&getFile());
 
 	yy::parser parser(*this);
 

@@ -32,7 +32,7 @@ bool Kater::checkAssertions()
 
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
-		if (config.verbose >= 2)
+		if (getConf().verbose >= 2)
 			std::cout << "Checking assertion " << *p.first << std::endl;
 		for (int i = 0; i < p.first->getNumKids(); i++)
 			expandSavedVars(p.first->getKid(i));
@@ -57,7 +57,7 @@ void Kater::generateNFAs()
 		NFA n = v.exp->toNFA();
 		// FIXME: Use polymorphism
 		if (v.status == VarStatus::Reduce) {
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for reduce[" << i << "] = "
 					  << *v.exp << std::endl;
 
@@ -67,23 +67,23 @@ void Kater::generateNFAs()
 			NFA rn = v.red->toNFA();
 			rn.star().simplify().seq(std::move(n)).simplify();
 
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for reduce[" << i << "]: " << rn << std::endl;
 			cnfas.addReduced(std::move(rn));
 		} else if (v.status == VarStatus::View) {
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for view[" << i << "] = " << *v.exp << std::endl;
 			n.simplify();
 
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for view[" << i << "]: " << n << std::endl;
 			cnfas.addView(std::move(n));
 		} else {
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for save[" << i << "] = "
 					  << *v.exp << std::endl;
 			n.simplify();
-			if (config.verbose >= 3)
+			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
 			cnfas.addSaved(std::move(n));
 		}
@@ -91,22 +91,22 @@ void Kater::generateNFAs()
 	});
 
 	std::for_each(module.acyc_begin(), module.acyc_end(), [&](auto &r){
-		if (config.verbose >= 3)
+		if (getConf().verbose >= 3)
 			std::cout << "Generating NFA for acyclic " << *r << std::endl;
 		// Covert the regural expression to an NFA
 		NFA n = r->toNFA();
 		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
 		n.star();
-		if (config.verbose >= 4)
+		if (getConf().verbose >= 4)
 			std::cout << "Non-simplified NFA: " << n << std::endl;
 		// Simplify the NFA
 		n.simplify();
-		if (config.verbose >= 3 && module.getAcyclicNum() > 1)
+		if (getConf().verbose >= 3 && module.getAcyclicNum() > 1)
 			std::cout << "Generated NFA: " << n << std::endl;
 		cnfas.addAcyclic(std::move(n));
 	});
-	if (config.verbose >= 3)
+	if (getConf().verbose >= 3)
 		std::cout << "Generated NFA: " << cnfas.getAcyclic() << std::endl;
 }
 

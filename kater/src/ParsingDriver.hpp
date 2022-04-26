@@ -19,7 +19,7 @@ class ParsingDriver {
 public:
 	using UCO = KatModule::UCO;
 
-	ParsingDriver();
+	ParsingDriver(const std::string &input);
 
 	yy::location &getLocation() { return location; }
 
@@ -80,9 +80,13 @@ public:
 	std::unique_ptr<KatModule> takeModule() { return std::move(module); }
 
 private:
+	const std::string &getFile() const { return file; }
+
 	bool isAllowedReduction(const std::string &idRed) {
 		return idRed == "po" || idRed == "po-loc" || idRed == "po-imm";
 	}
+
+	const std::string &file;
 
 	// Location for lexing/parsing
 	yy::location location;

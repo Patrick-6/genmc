@@ -1,6 +1,7 @@
 #ifndef __KATER_HPP__
 #define __KATER_HPP__
 
+#include "Config.hpp"
 #include "CNFAs.hpp"
 #include "KatModule.hpp"
 
@@ -11,7 +12,9 @@
 class Kater {
 
 public:
-	Kater(std::unique_ptr<KatModule> mod) : module(std::move(mod)) {}
+	Kater() = delete;
+	Kater(const Config &conf, std::unique_ptr<KatModule> mod)
+		: config(conf), module(std::move(mod)) {}
 
 	const KatModule &getModule() const { return *module; }
 
@@ -23,10 +26,12 @@ public:
 	void exportCode(std::string &dirPrefix, std::string &outPrefix);
 
 private:
+	const Config &getConf() const { return config; }
 	CNFAs &getCNFAs() { return cnfas; }
 
 	void expandSavedVars(URE &r);
 
+	const Config &config;
 	std::unique_ptr<KatModule> module;
 
 	CNFAs cnfas;
