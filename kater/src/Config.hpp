@@ -9,6 +9,7 @@ struct Config {
 	void parseOptions(int argc, char **argv);
 
 	bool debug;
+	std::string debugOnly;
         int verbose;
 	std::string dirPrefix;
 	std::string outPrefix;

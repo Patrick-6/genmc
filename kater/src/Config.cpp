@@ -1,4 +1,6 @@
+#include <config.h>
 #include "Config.hpp"
+#include "Error.hpp"
 #include <iostream>
 #include <limits.h>
 #include <stdio.h>
@@ -12,6 +14,7 @@ void Config::reset()
 {
 	verbose = 0;
 	debug = false;
+	debugOnly = "";
 	outPrefix = "";
 	dirPrefix = "/tmp";
 	inputFile = "";
@@ -29,8 +32,12 @@ void Config::printUsage(const char *kater)
 "OPTIONS:\n"
 "\n"
 "-h, --help                  Display this help message and exit\n"
-"-d, --debug                 Print debugging information.\n"
+#ifdef ENABLE_KATER_DEBUG
+"-d, --debug                 Print all debugging information.\n"
 "                            Default: %d\n"
+"--debug-only                Print debugging information of the specified type(s).\n"
+"                            Default: \"%s\"\n"
+#endif
 "-o, --output                Name prefix to be used for the resulting files.\n"
 "                            Default: \"%s\" (prints to stdout)\n"
 "-p, --prefix                Directory where the resulting files will be stored.\n"
@@ -41,7 +48,10 @@ void Config::printUsage(const char *kater)
 "                              3 is noisier.\n"
 "                              Default: %d\n",
 		kater,
+#ifdef ENABLE_KATER_DEBUG
 		debug,
+		debugOnly.c_str(),
+#endif
 		outPrefix.c_str(),
 		dirPrefix.c_str(),
 		verbose);
@@ -53,10 +63,17 @@ void Config::parseOptions(int argc, char **argv)
 	/* Reset defaults before parsing the options */
 	reset();
 
+#ifdef ENABLE_KATER_DEBUG
+#define DEBUG_ONLY_OPT 4242
+#endif
+
 	const char *shortopts = "hdp:o:v:";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
+#ifdef ENABLE_KATER_DEBUG
 		{"debug", no_argument, NULL, 'd'},
+		{"debug-only", required_argument, NULL, DEBUG_ONLY_OPT},
+#endif
 		{"output", required_argument, NULL, 'o'},
 		{"prefix", required_argument, NULL, 'p'},
 		{"verbose", optional_argument, NULL, 'v'},
@@ -70,9 +87,6 @@ void Config::parseOptions(int argc, char **argv)
 		case 'h':
 			printUsage(argv[0]);
 			break;
-		case 'd':
-			debug = true;
-			break;
 		case 'o':
 			outPrefix = optarg;
 			break;
@@ -82,6 +96,16 @@ void Config::parseOptions(int argc, char **argv)
 		case 'v':
 			verbose = optarg ? atoi(optarg) : 1;
 			break;
+#ifdef ENABLE_KATER_DEBUG
+		case 'd':
+			debug = true;
+			katerDebug = true;
+			break;
+		case DEBUG_ONLY_OPT:
+			debugOnly = debugOnly.empty() ? optarg : (debugOnly + optarg);
+			addDebugType(optarg);
+			break;
+#endif
 		default: /* '?' */
 			error = true;
 			break;
