@@ -1,7 +1,7 @@
 let po = po-imm+
 let mo = mo-imm+
-let fr = rf^-1 ; mo | fr-init ; mo*
+let fr = fr-imm; mo*
 
-save ppo = reduce ([R]; po | po ; [F] | [F] ; po  | po ; [W])+
+save[ppo] ppo = ([R]; po | po ; [F] | [F] ; po  | po ; [W])+
 
 acyclic (ppo | rfe | mo | fr)
