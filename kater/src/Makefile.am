@@ -8,12 +8,12 @@ if kater
 	main.cpp \
 	Config.cpp \
 	Constraint.cpp \
-	Driver.cpp \
 	Kater.cpp \
 	KatModule.cpp \
 	Lexer.lpp \
 	NFA.cpp	\
 	Parser.ypp \
+	ParsingDriver.cpp \
 	Printer.cpp \
 	RegExp.cpp \
 	TransLabel.cpp

@@ -1,9 +1,9 @@
-#include "Driver.hpp"
+#include "ParsingDriver.hpp"
 #include <cstring>
 #include <iostream>
 #include <fstream>
 
-Driver::Driver() : module(new KatModule)
+ParsingDriver::ParsingDriver() : module(new KatModule)
 {
 	auto i = 0u;
 	std::for_each(PredLabel::builtin_begin(), PredLabel::builtin_end(), [&i,this](auto &pi){
@@ -16,7 +16,7 @@ Driver::Driver() : module(new KatModule)
 	});
 }
 
-int Driver::parse()
+int ParsingDriver::parse()
 {
 	extern FILE* yyin;
 

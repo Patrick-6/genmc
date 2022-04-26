@@ -1,5 +1,5 @@
 #include "Config.hpp"
-#include "Driver.hpp"
+#include "ParsingDriver.hpp"
 #include "Kater.hpp"
 #include "Error.hpp"
 #include "Printer.hpp"
@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 {
 	config.parseOptions(argc, argv);
 
-	Driver d;
+	ParsingDriver d;
 
 	if (d.parse())
 		exit(EPARSE);

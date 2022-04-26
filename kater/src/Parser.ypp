@@ -15,16 +15,16 @@
 %code requires {
   #include <string>
   #include "Constraint.hpp"
-  class Driver;
+  class ParsingDriver;
   extern char *current_line;
   extern void reset_current_line();
 }
 
-%param { Driver& drv }
+%param { ParsingDriver& drv }
 
 %code {
   #include "RegExp.hpp"
-  #include "Driver.hpp"
+  #include "ParsingDriver.hpp"
   #include <iostream>
   #include <memory>
   #include <unordered_map>

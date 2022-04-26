@@ -1,4 +1,5 @@
 #include "Kater.hpp"
+#include "Config.hpp"
 #include "Printer.hpp"
 #include <numeric>
 

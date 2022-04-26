@@ -1,7 +1,6 @@
 #ifndef __KATER_PRINTER_HPP__
 #define __KATER_PRINTER_HPP__
 
-#include "Driver.hpp"
 #include "CNFAs.hpp"
 #include <fstream>
 #include <iostream>

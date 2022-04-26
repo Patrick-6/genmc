@@ -1,5 +1,5 @@
-#ifndef KATER_DRIVER_HPP
-#define KATER_DRIVER_HPP
+#ifndef __PARSING_DRIVER_HPP__
+#define __PARSING_DRIVER_HPP__
 
 #include "Config.hpp"
 #include "KatModule.hpp"
@@ -12,14 +12,14 @@
 #include <unordered_set>
 #include <vector>
 
-#define YY_DECL yy::parser::symbol_type yylex (Driver& drv)
+#define YY_DECL yy::parser::symbol_type yylex (ParsingDriver& drv)
 YY_DECL;
 
-class Driver {
+class ParsingDriver {
 public:
 	using UCO = KatModule::UCO;
 
-	Driver();
+	ParsingDriver();
 
 	yy::location &getLocation() { return location; }
 
@@ -90,4 +90,4 @@ private:
 	std::unique_ptr<KatModule> module;
 };
 
-#endif /* KATER_DRIVER_HPP */
+#endif /* __PARSING_DRIVER_HPP__ */
