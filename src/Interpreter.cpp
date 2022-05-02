@@ -42,16 +42,8 @@
 #include "Error.hpp"
 #include "Interpreter.h"
 #include <llvm/CodeGen/IntrinsicLowering.h>
-#if defined(HAVE_LLVM_IR_DERIVEDTYPES_H)
 #include <llvm/IR/DerivedTypes.h>
-#elif defined(HAVE_LLVM_DERIVEDTYPES_H)
-#include <llvm/DerivedTypes.h>
-#endif
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 #include <cstring>
 
 using namespace llvm;

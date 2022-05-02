@@ -65,17 +65,7 @@ AC_DEFUN([AC_CHECK_HEADERS_ALT],
   fi
 ])
 
-AC_CHECK_HEADERS_ALT([llvm/Bitcode/ReaderWriter.h llvm/Bitcode/BitcodeReader.h llvm/Bitcode/BitcodeWriter.h], [], [AC_MSG_FAILURE([Could not find necessary headers.])], [AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DataLayout.h llvm/IR/DataLayout.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DebugInfo.h llvm/Analysis/DebugInfo.h llvm/IR/DebugInfo.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/DerivedTypes.h llvm/IR/DerivedTypes.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Function.h llvm/IR/Function.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/InstVisitor.h llvm/IR/InstVisitor.h llvm/Support/InstVisitor.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/Module.h llvm/IR/Module.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/LLVMContext.h llvm/IR/LLVMContext.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-AC_CHECK_HEADERS_ALT([llvm/PassManager.h llvm/IR/PassManager.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
 AC_CHECK_HEADERS_ALT([llvm/Transforms/Utils.h llvm/Transforms/Scalar.h],[],[AC_MSG_FAILURE([Could not find necessary headers.])],[AC_INCLUDES_DEFAULT])
-
 AC_CHECK_HEADERS([ffi/ffi.h],[],[
   AC_CHECK_HEADERS([ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
 ],[AC_INCLUDES_DEFAULT])
@@ -217,11 +207,7 @@ AC_MSG_CHECKING([whether llvm::WriteBitcodeToFile takes a pointer])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <string>
 #include <llvm/Support/raw_ostream.h>
-#ifdef HAVE_LLVM_BITCODE_BITCODEWRITER_H
-# include <llvm/Bitcode/BitcodeWriter.h>
-#else
-# include <llvm/Bitcode/ReaderWriter.h>
-#endif
+#include <llvm/Bitcode/BitcodeWriter.h>
 ]],[[
 	std::string str;
 	llvm::raw_string_ostream  stream(str);
@@ -380,11 +366,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if AttributeSet is renamed to AttributeList
 AC_MSG_CHECKING([whether llvm::AttributeSet is renamed to llvm::AttributeList])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 ]],[[
   llvm::Module *M = nullptr;
   llvm::AttributeList assumeAttrs =
@@ -399,11 +381,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::Module::getOrInsertFunction returns a Constant (LLVM >= 9)
 AC_MSG_CHECKING([whether llvm::Module::getOrInsertFunction returns a Constant])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#elif defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#endif
 ]],[[
   llvm::Module *M = nullptr;
   llvm::Constant *F = M->getOrInsertFunction("foo", nullptr, {});
@@ -416,16 +394,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check which method in llvm::Module returns the data layout string
 AC_MSG_CHECKING([for llvm::Module::getDataLayoutStr])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
 ]],[[
           llvm::Module *M = 0;
           std::string s = M->getDataLayoutStr();
@@ -442,16 +412,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check the signature of llvm::Module::materializeAllPermanently
 AC_MSG_CHECKING([for llvm::Module::MaterializeAllPermanently])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   std::error_code ec = M->materializeAllPermanently();
@@ -462,11 +424,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
            ],
            [
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   std::string *s = 0;
@@ -480,11 +438,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	    AC_MSG_CHECKING([the signature of llvm::Module::materializeAll])
    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/Support/Error.h>
-#if defined(HAVE_LLVM_MODULE_H)
-#include <llvm/Module.h>
-#elif defined(HAVE_LLVM_IR_MODULE_H)
 #include <llvm/IR/Module.h>
-#endif
 ]],[[
   llvm::Module *M = 0;
   llvm::Error Err = M->materializeAll();
@@ -562,11 +516,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <llvm/IRReader/IRReader.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
-#if defined(HAVE_LLVM_LLVMCONTEXT_H)
-#include <llvm/LLVMContext.h>
-#elif defined(HAVE_LLVM_IR_LLVMCONTEXT_H)
 #include <llvm/IR/LLVMContext.h>
-#endif
 ]],[[
   llvm::SMDiagnostic err;
   llvm::LLVMContext ctx;
@@ -717,11 +667,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if llvm::PassManager requires a template argument
 AC_MSG_CHECKING([if llvm::PassManager requires a template argument])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
 ]],[[
   llvm::PassManager PM;
 ]])],
@@ -761,13 +707,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Checking if an llvm::DILocation is an llvm::MDNode
 AC_MSG_CHECKING([if an llvm::DILocation is an llvm::MDNode])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_DEBUGINFO_H)
-#include <llvm/DebugInfo.h>
-#elif defined(HAVE_LLVM_IR_DEBUGINFO_H)
 #include <llvm/IR/DebugInfo.h>
-#elif defined(HAVE_LLVM_ANALYSIS_DEBUGINFO_H)
-#include <llvm/Analysis/DebugInfo.h>
-#endif
 ]],[[
   llvm::MDNode *m = 0;
   llvm::DILocation *l = static_cast<llvm::DILocation*>(m);
@@ -834,19 +774,8 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## Check if initializeIPA exists
 AC_MSG_CHECKING([for llvm::initializeIPA])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#if defined(HAVE_LLVM_ANALYSIS_VERIFIER_H)
-#include <llvm/Analysis/Verifier.h>
-#elif defined(HAVE_LLVM_IR_VERIFIER_H)
 #include <llvm/IR/Verifier.h>
-#endif
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 #include <llvm/IR/PassManager.h>
-#endif
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
-#include <llvm/IR/LegacyPassManager.h>
-#endif
 ]],[[
   void (*f)(llvm::PassRegistry&) = llvm::initializeIPA;
 ]])],

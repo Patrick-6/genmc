@@ -55,23 +55,9 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DebugInfo.h>
-#if defined(HAVE_LLVM_IR_DATALAYOUT_H)
 #include <llvm/IR/DataLayout.h>
-#elif defined(HAVE_LLVM_DATALAYOUT_H)
-#include <llvm/DataLayout.h>
-#endif
-#if defined(HAVE_LLVM_IR_FUNCTION_H)
 #include <llvm/IR/Function.h>
-#elif defined(HAVE_LLVM_FUNCTION_H)
-#include <llvm/Function.h>
-#endif
-#if defined(HAVE_LLVM_INSTVISITOR_H)
-#include <llvm/InstVisitor.h>
-#elif defined(HAVE_LLVM_IR_INSTVISITOR_H)
 #include <llvm/IR/InstVisitor.h>
-#elif defined(HAVE_LLVM_SUPPORT_INSTVISITOR_H)
-#include <llvm/Support/InstVisitor.h>
-#endif
 #include <llvm/Support/DataTypes.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
