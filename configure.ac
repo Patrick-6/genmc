@@ -148,6 +148,21 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
 
+## Check whether llvm::InlineFunction needs dereference (>= 11)
+AC_MSG_CHECKING([whether llvm::InlineFunction needs dereference])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/IR/Instructions.h>
+#include <llvm/Transforms/Utils/Cloning.h>
+]],[[
+  llvm::CallInst *ci = nullptr;
+  llvm::InlineFunctionInfo ifi;
+  llvm::InlineFunction(*ci, ifi);
+]])],
+        [AC_DEFINE([LLVM_INLINE_FUNCTION_NEEDS_DEREF],[1],
+         [Define if the argument to llvm::InlineFunction should be dereferenced.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether VectorTyID exists (< 11)
 AC_MSG_CHECKING([for llvm::Type::VectorTyID])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

@@ -18,38 +18,24 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __PROMOTE_MEMINTRINSIC_PASS_HPP__
-#define __PROMOTE_MEMINTRINSIC_PASS_HPP__
+#ifndef __FUNCTION_INLINER_PASS_HPP__
+#define __FUNCTION_INLINER_PASS_HPP__
 
-#include <llvm/Pass.h>
-#include <llvm/ADT/SmallVector.h>
-#include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Pass.h>
 
-class PromoteMemIntrinsicPass : public llvm::ModulePass {
+class FunctionInlinerPass : public llvm::ModulePass {
 
 public:
-	static char ID;
-
-	PromoteMemIntrinsicPass() : llvm::ModulePass(ID), hasPromoted(false) {}
+	FunctionInlinerPass() : llvm::ModulePass(ID) {}
 
 	virtual bool runOnModule(llvm::Module &M);
-
 	void getAnalysisUsage(llvm::AnalysisUsage &au) const;
 
-protected:
-	/* Promoters for specific intrinsics */
-	bool tryPromoteMemCpy(llvm::MemCpyInst *MI, llvm::Module &M);
-	bool tryPromoteMemSet(llvm::MemSetInst *MS, llvm::Module &M);
+	static char ID;
 
-	/* Called to remove promoted intrinsics from the code */
-	void removePromoted();
+private:
 
-	/* Intrinsics we need to promote to load/store pairs */
-	llvm::SmallVector<llvm::MemIntrinsic *, 8> promoted;
-
-	/* Whether we have promoted all intrinsics */
-	bool hasPromoted;
 };
 
-#endif /* __PROMOTE_MEMINTRINSIC_PASS_HPP__ */
+#endif /* __FUNCTION_INLINER_PASS_HPP__ */
