@@ -27,6 +27,7 @@
 
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
+#include "MaximalIterator.hpp"
 #include "PersistencyChecker.hpp"
 #include "VSet.hpp"
 #include <vector>
@@ -46,7 +47,8 @@ private:
 public:
 	SCChecker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateAll(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const Event &e);
+	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
 
 private:
@@ -57,7 +59,8 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic0;
 
 	unsigned visitedAccepting = 0;
-	std::vector<VSet<Event>> calculated;
+	std::vector<VSet<Event>> saved;
+	std::vector<View> views;
 
 	ExecutionGraph &g;
 

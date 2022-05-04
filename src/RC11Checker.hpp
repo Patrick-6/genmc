@@ -57,8 +57,6 @@ private:
 	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_5(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_6(const Event &e, VSet<Event> &calcRes);
 
 	VSet<Event> calculate0(const Event &e);
 
@@ -67,8 +65,6 @@ private:
 	std::vector<NodeStatus> visitedCalc0_2;
 	std::vector<NodeStatus> visitedCalc0_3;
 	std::vector<NodeStatus> visitedCalc0_4;
-	std::vector<NodeStatus> visitedCalc0_5;
-	std::vector<NodeStatus> visitedCalc0_6;
 
 	void visitCalc1_0(const Event &e, View &calcRes);
 	void visitCalc1_1(const Event &e, View &calcRes);
@@ -111,11 +107,6 @@ private:
 	bool visitAcyclic22(const Event &e);
 	bool visitAcyclic23(const Event &e);
 	bool visitAcyclic24(const Event &e);
-	bool visitAcyclic25(const Event &e);
-	bool visitAcyclic26(const Event &e);
-	bool visitAcyclic27(const Event &e);
-	bool visitAcyclic28(const Event &e);
-	bool visitAcyclic29(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
@@ -144,11 +135,6 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic22;
 	std::vector<NodeCountStatus> visitedAcyclic23;
 	std::vector<NodeCountStatus> visitedAcyclic24;
-	std::vector<NodeCountStatus> visitedAcyclic25;
-	std::vector<NodeCountStatus> visitedAcyclic26;
-	std::vector<NodeCountStatus> visitedAcyclic27;
-	std::vector<NodeCountStatus> visitedAcyclic28;
-	std::vector<NodeCountStatus> visitedAcyclic29;
 
 	unsigned visitedAccepting = 0;
 	std::vector<VSet<Event>> saved;

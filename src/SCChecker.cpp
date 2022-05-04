@@ -24,15 +24,21 @@
 
 #include "SCChecker.hpp"
 
-std::vector<VSet<Event>> SCChecker::calculateAll(const Event &e)
+std::vector<VSet<Event>> SCChecker::calculateSaved(const Event &e)
 {
-	return std::move(calculated);
+	return std::move(saved);
+}
+
+std::vector<View> SCChecker::calculateViews(const Event &e)
+{
+	return std::move(views);
 }
 
 bool SCChecker::visitAcyclic0(const Event &e)
 {
 	auto &g = getGraph();
 	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
 
 	++visitedAccepting;
 	visitedAcyclic0[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };

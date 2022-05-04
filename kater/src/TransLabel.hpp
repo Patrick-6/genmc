@@ -1,11 +1,10 @@
-#ifndef _KATER_TRANS_LABEL_HPP_
-#define _KATER_TRANS_LABEL_HPP_
+#ifndef __TRANS_LABEL_HPP__
+#define __TRANS_LABEL_HPP__
 
 #include <cassert>
 #include <iostream>
-#include <memory>
+#include <optional>
 #include <set>
-#include <string>
 #include <vector>
 
 enum class RelType  { OneOne, ManyOne, UnsuppMany, Conj, Final };
@@ -27,142 +26,132 @@ struct RelationInfo {
 extern const std::vector<PredicateInfo> builtinPredicates;
 extern const std::vector<RelationInfo> builtinRelations;
 
-/* ------------------------------------------------------------------ */
-/*                     Abstract class for labels                      */
-/* ------------------------------------------------------------------ */
+/*******************************************************************************
+ *                           TransLabel class
+ ******************************************************************************/
 
+/*
+ * Represents the label of an NFA transition
+ */
 class TransLabel {
+
 public:
-	bool operator<= (const TransLabel &other) const { return other < *this || *this == other; }
-	bool operator!= (const TransLabel &other) const { return !(*this == other); }
-	bool operator>  (const TransLabel &other) const { return other < *this; }
-	bool operator>= (const TransLabel &other) const { return other <= *this; }
+	using RelID = int;
+	using PredID = int;
+	using PredSet = std::set<PredID>;
 
-	virtual ~TransLabel() {}
+	/* Costructors/destructor */
+	TransLabel() = delete;
+	TransLabel(std::optional<RelID> id, const PredSet &preG = {}, const PredSet &postG = {})
+		: id(id), preChecks(preG), postChecks(postG) {}
 
-	virtual void flip() {}
-
-	virtual std::unique_ptr<TransLabel> clone() const = 0;
-
-	virtual std::string toString() const = 0;
-
-	virtual bool operator< (const TransLabel &other) const = 0;
-	virtual bool operator== (const TransLabel &other) const = 0;
-};
-
-static inline std::ostream &operator<<(std::ostream &s, const TransLabel &t) {
-	return s << t.toString();
-}
-
-/* ------------------------------------------------------------------ */
-/*                     Predicate labels                               */
-/* ------------------------------------------------------------------ */
-
-class PredLabel : public TransLabel {
-public:
-	PredLabel() = default;
-	PredLabel(int s) : preds({s}) {}
-
-	using pred_iter = std::set<int>::iterator;
-	using pred_const_iter = std::set<int>::const_iterator;
-
-	using builtin_iterator = std::vector<PredicateInfo>::iterator;
-	using builtin_const_iterator = std::vector<PredicateInfo>::const_iterator;
-
-	pred_iter pred_begin() { return preds.begin(); }
-	pred_iter pred_end() { return preds.end(); }
-
-	pred_const_iter pred_begin() const { return preds.begin(); }
-	pred_const_iter pred_end() const { return preds.end(); }
-
-	static builtin_const_iterator builtin_begin() {
-		return builtinPredicates.begin();
-	}
-	static builtin_const_iterator builtin_end() {
-		return builtinPredicates.end();
+	static TransLabel getFreshCalcLabel() {
+		return TransLabel(--calcNum);
 	}
 
-	bool hasPreds() const { return !preds.empty(); }
+	using pred_iter = PredSet::iterator;
+	using pred_const_iter = PredSet::const_iterator;
 
-	bool merge (const PredLabel &other);
+	using builtin_pred_iterator = std::vector<PredicateInfo>::iterator;
+	using builtin_pred_const_iterator = std::vector<PredicateInfo>::const_iterator;
 
-	std::string toString() const override;
+	using builtin_rel_iterator = std::vector<RelationInfo>::iterator;
+	using builtin_rel_const_iterator = std::vector<RelationInfo>::const_iterator;
 
-	std::unique_ptr<TransLabel> clone() const override {
-		return std::unique_ptr<PredLabel>(new PredLabel(*this));
-	}
+	pred_iter pre_begin() { return getPreChecks().begin(); }
+	pred_iter pre_end() { return getPreChecks().end(); }
 
-	bool operator< (const TransLabel &other) const override {
-		if (auto *o = dynamic_cast<const PredLabel *>(&other))
-			return preds < o->preds;
-		return false;
-	}
+	pred_const_iter pre_begin() const { return getPreChecks().begin(); }
+	pred_const_iter pre_end() const { return getPreChecks().end(); }
 
-	bool operator== (const TransLabel &other) const override {
-		if (auto *o = dynamic_cast<const PredLabel *>(&other))
-			return preds == o->preds;
-		return false;
-	}
+	pred_iter post_begin() { return getPostChecks().begin(); }
+	pred_iter post_end() { return getPostChecks().end(); }
 
-private:
-	std::set<int> preds;
-};
+	pred_const_iter post_begin() const { return getPostChecks().begin(); }
+	pred_const_iter post_end() const { return getPostChecks().end(); }
 
-/* ------------------------------------------------------------------ */
-/*                     Relation labels                                */
-/* ------------------------------------------------------------------ */
-
-class RelLabel : public TransLabel {
-public:
-	RelLabel(int s) : trans(s), flipped(false) {}
-
-	using builtin_iterator = std::vector<RelationInfo>::iterator;
-	using builtin_const_iterator = std::vector<RelationInfo>::const_iterator;
-
-	static builtin_const_iterator builtin_begin() {
+	static builtin_rel_const_iterator builtin_rel_begin() {
 		return builtinRelations.begin();
 	}
-	static builtin_const_iterator builtin_end() {
+	static builtin_rel_const_iterator builtin_rel_end() {
 		return builtinRelations.end();
 	}
 
-	int getTrans() const { return trans; }
+	static builtin_pred_const_iterator builtin_pred_begin() {
+		return builtinPredicates.begin();
+	}
+	static builtin_pred_const_iterator builtin_pred_end() {
+		return builtinPredicates.end();
+	}
+
+	const std::optional<RelID> &getId() const { return id; }
+	std::optional<RelID> &getId() { return id; }
+
+	bool isEpsilon() const { return !getId(); }
+
+	bool isBuiltin() const { return getId().value_or(42) >= 0; }
+
+	int getCalcIndex() const { assert(!isBuiltin()); return -(*getId() + 1); }
 
 	bool isFlipped() const { return flipped; }
 
-	bool isBuiltin () const { return trans >= 0; }
-	int getCalcIndex () const { assert(!isBuiltin()); return -trans-1; }
-
-	static RelLabel getFreshCalcLabel() {
-		return RelLabel(--calcNum);
+	void flip() {
+		flipped = !flipped;
+		std::swap(getPreChecks(), getPostChecks());
 	}
 
-	std::unique_ptr<TransLabel> clone() const override {
-		return std::unique_ptr<RelLabel>(new RelLabel(*this));
+	/* Attemps to merge OTHER into THIS and returns whether it
+	 * succeeded.  Two transitions can be merged if at least one
+	 * of them is an epsilon transition */
+	bool merge(const TransLabel &other);
+
+	std::string toString() const;
+
+	bool operator==(const TransLabel &other) const {
+		return getId() == other.getId() &&
+			isFlipped() == other.isFlipped() &&
+			getPreChecks() == other.getPreChecks() &&
+			getPostChecks() == other.getPostChecks();
+	}
+	bool operator!=(const TransLabel &other) const {
+		return !operator==(other);
 	}
 
-	void flip() override { flipped = !flipped; }
-
-	std::string toString() const override;
-
-	bool operator< (const TransLabel &other) const override {
-		if (auto *o = dynamic_cast<const RelLabel *>(&other))
-			return trans < o->trans
-				|| (trans == o->trans && !flipped && o->flipped);
-		return true;
+	bool operator<(const TransLabel &other) const {
+		return getId() < other.getId() ||
+			(getId() == other.getId() && isFlipped() < other.isFlipped()) ||
+			(getId() == other.getId() && isFlipped() == other.isFlipped() &&
+				(getPreChecks() < other.getPreChecks() ||
+				 (getPreChecks() == other.getPreChecks() &&
+				  getPostChecks() < other.getPostChecks())));
+	}
+	bool operator<=(const TransLabel &other) const {
+		return operator==(other) || operator<(other);
+	}
+	bool operator>=(const TransLabel &other) const {
+		return !operator<(other);
+	}
+	bool operator>(const TransLabel &other) const {
+		return !operator<(other) && !operator==(other);
 	}
 
-	bool operator== (const TransLabel &other) const override {
-		if (auto *o = dynamic_cast<const RelLabel *>(&other))
-			return trans == o->trans && flipped == o->flipped;
-		return false;
+	friend std::ostream &operator<<(std::ostream &s, const TransLabel &t) {
+		return s << t.toString();
 	}
 
 private:
-	int trans;
-	bool flipped;
+	const PredSet &getPreChecks() const { return preChecks; }
+	PredSet &getPreChecks() { return preChecks; }
+
+	const PredSet &getPostChecks() const { return postChecks; }
+	PredSet &getPostChecks() { return postChecks; }
+
+	std::optional<RelID> id;
+	bool flipped = false;
 	static int calcNum;
+
+	PredSet preChecks;
+	PredSet postChecks;
 };
 
-
-#endif /* _KATER_TRANS_LABEL_HPP_ */
+#endif /* __TRANS_LABEL_HPP__ */

@@ -3,10 +3,11 @@
 #include <cassert>
 #include <iostream>
 #include <set>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
-int RelLabel::calcNum = 0;
+int TransLabel::calcNum = 0;
 
 /* Meaning of the bitmask:
 	| other
@@ -95,53 +96,109 @@ const std::vector<RelationInfo> builtinRelations = {
         {"detour",      RelType::OneOne,     false, "detour_succs",      "detour_preds"},
 };
 
-static bool is_sub_predicate(int i, int j)
+bool isSubPredicate(int i, int j)
 {
 	auto bi = builtinPredicates[i].bitmask;
 	auto bj = builtinPredicates[j].bitmask;
 	return bi != other_event_bitmask && (bi & bj) == bi;
 }
 
-static void simplify_preds(std::set<int> &s)
+template<typename Container>
+void simplifyChecks(Container &checks)
 {
-	for (auto it = s.begin(); it != s.end(); /* */) {
-		/* remove (*it) if there exists a more specific predicate in the set */
-		if (std::any_of (s.begin(), s.end(), [&](auto i) {
-				return i != *it && is_sub_predicate (i, *it); }))
-			it = s.erase(it);
+	/* No erase_if for sets and the like ... */
+	for (auto it = checks.begin(); it != checks.end(); /* */) {
+		if (std::any_of(checks.begin(), checks.end(), [&](auto id2) {
+				return *it != id2 && isSubPredicate(id2, *it); }))
+			it = checks.erase(it);
 		else
 			it++;
 	}
 }
 
-std::string PredLabel::toString() const
-{
-	std::string s;
-	bool not_first = false;
-	for (auto &i : preds)
-		s += (not_first ? ";" : (not_first = true, "["))
-		     + builtinPredicates[i].name;
-	return s + "]";
-}
-
-std::string RelLabel::toString() const
-{
-	std::string s =	isBuiltin() ?  builtinRelations[trans].name :
-		std::string("$") + std::to_string(getCalcIndex());
-	if (flipped)
-		s += "^-1";
-	return s;
-}
-
-bool PredLabel::merge (const PredLabel &other)
+template<typename Container>
+bool checksCompose(const Container &checks1, const Container &checks2)
 {
 	unsigned mask = ~0;
-	for (auto i : preds) mask &= builtinPredicates[i].bitmask;
-	for (auto i : other.preds) mask &= builtinPredicates[i].bitmask;
-	if (mask == 0 ||
-	    (mask == other_event_bitmask && preds != other.preds))
+	std::for_each(checks1.begin(), checks1.end(), [&mask](auto &id){
+		mask &= builtinPredicates[id].bitmask;
+	});
+	std::for_each(checks2.begin(), checks2.end(), [&mask](auto &id){
+		mask &= builtinPredicates[id].bitmask;
+	});
+	return mask != 0 && (mask != other_event_bitmask || checks1 == checks2);
+}
+
+template<typename T>
+static std::ostream &operator<<(std::ostream& ostr, const std::set<T> &s)
+{
+	auto first = true;
+	for (auto &i : s) {
+		if (!first) ostr << "&";
+		else first = false;
+		ostr << builtinPredicates[i].name;
+	}
+	return ostr;
+}
+
+bool TransLabel::merge(const TransLabel &other)
+{
+	// TransLabel r;
+	// if (!is_valid() || !other.is_valid())
+	// 	return r;
+
+	if (!isEpsilon() && !other.isEpsilon())
 		return false;
-	for (auto i : other.preds) preds.insert(i);
-	simplify_preds(preds);
-	return true;
+
+	if (isEpsilon() && checksCompose(getPreChecks(), other.getPreChecks())) {
+		getId() = other.getId();
+		getPreChecks().insert(other.pre_begin(), other.pre_end());
+		simplifyChecks(getPreChecks());
+		assert(getPostChecks().empty());
+		getPostChecks() = other.getPostChecks();
+		return true;
+	} else if (other.isEpsilon() && checksCompose(getPostChecks(), other.getPreChecks())) {
+		getPostChecks().insert(other.pre_begin(), other.pre_end());
+		return true;
+	}
+	return false;
+	// if (!r.is_empty_trans()) {
+	// 	for (const auto &i : invalids2) {
+	// 		if (i.trans != r.trans) continue;
+	// 		if (std::any_of(i.pre_checks.begin(), i.pre_checks.end(),
+	// 				[&](const std::string &s) {
+	// 				return r.pre_checks.find(s) == r.pre_checks.end();
+	// 				}))
+	// 			continue;
+	// 		if (std::any_of(i.post_checks.begin(), i.post_checks.end(),
+	// 				[&](const std::string &s) {
+	// 				return r.post_checks.find(s) == r.post_checks.end();
+	// 				}))
+	// 			continue;
+	// 		r.pre_checks.clear();
+	// 		r.trans.clear();
+	// 		r.post_checks.clear();
+	// 		return r;
+	// 	}
+	// }
+	// return r;
+}
+
+std::string TransLabel::toString() const
+{
+	std::stringstream ss;
+
+	if (pre_begin() != pre_end()) {
+		ss << "[" << getPreChecks() << "]";
+		if (!isEpsilon())
+			ss << ";";
+	}
+	if (!isEpsilon()) {
+		ss << (isBuiltin() ? builtinRelations[*getId()].name : ("$" + std::to_string(getCalcIndex())));
+		if (isFlipped())
+			ss << "^-1";
+	}
+	if (post_begin() != post_end())
+		ss << ";[" << getPostChecks() << "]";
+	return ss.str();
 }

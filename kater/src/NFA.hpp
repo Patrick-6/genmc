@@ -47,32 +47,30 @@ private:
 	 * A struct representing NFA transitions
 	 */
 	struct Transition {
-		std::unique_ptr<const TransLabel> label;
+		TransLabel label;
 		State *dest;
 
 		Transition() = delete;
-		Transition(std::unique_ptr<TransLabel> lab, State *dest)
-			: label(std::move(lab)), dest(dest) {}
-
-		Transition(const Transition &t) : label(t.label->clone()), dest(t.dest) {}
+		Transition(const TransLabel &lab, State *dest)
+			: label(lab), dest(dest) {}
 
 		/* Returns a transition with the label flipped,
 		 * and the destination changed to DEST */
 		Transition flipTo(State *s) const {
-			auto up = label->clone();
-			up->flip();
-			return Transition(std::move(up), s);
+			auto l = label;
+			l.flip();
+			return Transition(l, s);
 		}
 
 		inline bool operator==(const Transition &t) const {
-			return dest == t.dest && *label == *t.label;
+			return dest == t.dest && label == t.label;
 		}
 		inline bool operator!=(const Transition &t) const {
 			return !(*this == t);
 		}
 
 		inline bool operator<(const Transition &t) const {
-			return (dest < t.dest) || (dest == t.dest && *label < *t.label);
+			return (dest < t.dest) || (dest == t.dest && label < t.label);
 		}
 		inline bool operator>=(const Transition &t) const {
 			return !(*this < t);

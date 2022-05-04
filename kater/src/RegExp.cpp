@@ -55,25 +55,18 @@ SeqRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 	if (it != r.end())
 		return std::move(*it);
 
-	for (auto it = r.begin(); it != r.end() && it + 1 != r.end(); /* */) {
-		if (auto p = dynamic_cast<PredRE *>(it->get()))
-			if (auto q = dynamic_cast<PredRE *>((it + 1)->get())) {
-				if (!p->getLabel().merge(q->getLabel()))
-					return RegExp::createFalse();
-				it = r.erase(it + 1);
-				continue;
-			}
+	for (auto it = r.begin(); it != r.end() && it+1 != r.end(); /* */) {
+		auto *p = dynamic_cast<CharRE *>(it->get());
+		auto *q = dynamic_cast<CharRE *>((it+1)->get());
+		if (p && q && (p->getLabel().isEpsilon() || q->getLabel().isEpsilon())) {
+			if (!p->getLabel().merge(q->getLabel()))
+				return RegExp::createFalse();
+			it = r.erase(it + 1);
+			continue;
+		}
 		++it;
 	}
 	return r.size() == 1 ? std::move(*r.begin()) : SeqRE::create(std::move(r));
-}
-
-RegExp &SeqRE::flip()
-{
-	for (auto &r : getKids())
-		r->flip();
-	std::reverse(kids.begin(), kids.end());
-	return *this;
 }
 
 std::unique_ptr<RegExp>

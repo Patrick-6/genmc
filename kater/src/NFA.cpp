@@ -120,7 +120,7 @@ bool NFA::acceptsNoString(std::string &cex) const
 			if (visited.count(it->dest))
 				continue;
 			visited.insert(it->dest);
-			workList.push_back({it->dest, p.second + " " + it->label->toString()});
+			workList.push_back({it->dest, p.second + " " + it->label.toString()});
 		}
 	}
 	return true;
@@ -176,10 +176,10 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 				new_str += std::to_string(p.first->getId()) + "/" +
 					   std::to_string(p.second->getId()) + " ";
 			);
-			new_str += it->label->toString();
+			new_str += it->label.toString();
 			bool found_edge = false;
 			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
-				if (*it->label != *oit->label) continue;
+				if (it->label != oit->label) continue;
 				found_edge = true;
 				if (visited.count({it->dest, oit->dest})) continue;
 				visited.insert({it->dest, oit->dest});
@@ -198,7 +198,7 @@ NFA::NFA(const TransLabel &c) : NFA()
 {
 	auto *init = createStarting();
 	auto *fnal = createAccepting();
-	addTransition(init, Transition(c.clone(), fnal));
+	addTransition(init, Transition(c, fnal));
 	return;
 }
 
@@ -285,7 +285,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 				std::set<State *> next;
 				std::for_each(sc.begin(), sc.end(), [&](State *ns2){
 					std::for_each(ns2->out_begin(), ns2->out_end(), [&](const Transition &t2){
-						if (*t2.label == *t.label)
+						if (t2.label == t.label)
 							next.insert(t2.dest);
 					});
 				});
@@ -299,7 +299,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 					dfaToNfaMap.insert({ds, next});
 					worklist.push_back(std::move(next));
 				}
-				dfa.addTransition(nfaToDfaMap[sc], Transition(t.label->clone(), ds));
+				dfa.addTransition(nfaToDfaMap[sc], Transition(t.label, ds));
 			});
 		});
 	}
@@ -425,13 +425,13 @@ void NFA::compact_edges()
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t1){
 			return (t1.dest != &*s &&
 			    std::all_of(s->out_begin(), s->out_end(), [&](const Transition &t2){
-					    return *t2.label == *t1.label &&
+					    return t2.label == t1.label &&
 						    (t2.dest == &*s || std::find(t1.dest->out_begin(),
 										 t1.dest->out_end(), t2) != t1.dest->out_end());
 				    }));
 		});
 		std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
-			removeTransition(&*s, Transition(t.label->clone(), &*s));
+			removeTransition(&*s, Transition(t.label, &*s));
 		});
 	});
 }
@@ -514,7 +514,7 @@ std::ostream & operator<< (std::ostream& ostr, const NFA& nfa)
 	ostr << std::endl;
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](const NFA::Transition &t){
-			ostr << "\t" << s->getId() << " --" << *t.label << "--> " << t.dest->getId() << std::endl;
+			ostr << "\t" << s->getId() << " --" << t.label << "--> " << t.dest->getId() << std::endl;
 		});
 	});
 	return ostr;

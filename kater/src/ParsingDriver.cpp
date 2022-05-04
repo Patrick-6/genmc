@@ -8,14 +8,14 @@
 ParsingDriver::ParsingDriver(const std::string &input)
 	: file(input), module(new KatModule)
 {
-	auto i = 0u;
-	std::for_each(PredLabel::builtin_begin(), PredLabel::builtin_end(), [&i,this](auto &pi){
-		registerID(pi.name, PredRE::create(i++));
+	auto i = 0;
+	std::for_each(TransLabel::builtin_pred_begin(), TransLabel::builtin_pred_end(), [&i,this](auto &pi){
+		registerID(pi.name, CharRE::create(TransLabel(std::nullopt, {i++})));
 	});
 
-	i = 0u;
-	std::for_each(RelLabel::builtin_begin(), RelLabel::builtin_end(), [&i,this](auto &ri){
-		registerID(ri.name, RelRE::create(i++));
+	i = 0;
+	std::for_each(TransLabel::builtin_rel_begin(), TransLabel::builtin_rel_end(), [&i,this](auto &ri){
+		registerID(ri.name, CharRE::create(TransLabel(i++)));
 	});
 }
 

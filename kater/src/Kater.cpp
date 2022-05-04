@@ -7,7 +7,7 @@ void Kater::expandSavedVars(URE &r)
 {
 	for (int i = 0; i < r->getNumKids(); i++)
 		expandSavedVars(r->getKid(i));
-	if (auto *re = dynamic_cast<RelRE *>(&*r)) {
+	if (auto *re = dynamic_cast<CharRE *>(&*r)) {
 		if (re->getLabel().isBuiltin())
 			return;
 		r = module->getSavedID(re);

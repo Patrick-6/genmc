@@ -69,18 +69,18 @@ public:
 	}
 
 	void registerSaveID(std::string id, URE re) {
-		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
+		registerID(std::move(id), CharRE::create(TransLabel::getFreshCalcLabel()));
 		savedVariables.push_back({std::move(re)});
 	}
 
 	void registerSaveReducedID(std::string idSave, std::string idRed, URE re) {
-		registerID(idSave, RelRE::create(RelLabel::getFreshCalcLabel()));
+		registerID(idSave, CharRE::create(TransLabel::getFreshCalcLabel()));
 		savedVariables.push_back({std::move(re), idRed == idSave ? NFA::ReductionType::Self :
 					  NFA::ReductionType::Po, getRegisteredID(idRed)});
 	}
 
 	void registerViewID(std::string id, URE re) {
-		registerID(std::move(id), RelRE::create(RelLabel::getFreshCalcLabel()));
+		registerID(std::move(id), CharRE::create(TransLabel::getFreshCalcLabel()));
 		savedVariables.push_back({std::move(re), VarStatus::View});
 	}
 
@@ -99,7 +99,7 @@ public:
 		return (it == variables.end()) ? nullptr : it->second->clone();
 	}
 
-	URE getSavedID(const RelRE *re) const {
+	URE getSavedID(const CharRE *re) const {
 		return savedVariables[re->getLabel().getCalcIndex()].exp->clone();
 	}
 
