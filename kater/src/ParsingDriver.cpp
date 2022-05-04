@@ -10,12 +10,12 @@ ParsingDriver::ParsingDriver(const std::string &input)
 {
 	auto i = 0u;
 	std::for_each(PredLabel::builtin_begin(), PredLabel::builtin_end(), [&i,this](auto &pi){
-		registerID(pi.name, PredRE::create(i));
+		registerID(pi.name, PredRE::create(i++));
 	});
 
 	i = 0u;
 	std::for_each(RelLabel::builtin_begin(), RelLabel::builtin_end(), [&i,this](auto &ri){
-		registerID(ri.name, RelRE::create(i));
+		registerID(ri.name, RelRE::create(i++));
 	});
 }
 
