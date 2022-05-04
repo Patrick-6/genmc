@@ -42,9 +42,9 @@ void Config::printUsage(const char *kater)
 "                            Has no effect without -o.\n"
 "                            Default: \"%s\"\n"
 "-v[NUM], --verbose[=NUM]    Print verbose execution information. NUM is optional:\n"
-"                              0 is quiet; 1 prints status; 2 is noisy;\n"
-"                              3 is noisier.\n"
-"                              Default: %d\n",
+"                            0 is quiet; 1 prints status; 2 is noisy;\n"
+"                            3 is noisier.\n"
+"                            Default: %d\n",
 		kater,
 #ifdef ENABLE_KATER_DEBUG
 		debug,
@@ -65,7 +65,7 @@ void Config::parseOptions(int argc, char **argv)
 #define DEBUG_ONLY_OPT 4242
 #endif
 
-	const char *shortopts = "hdp:o:v:";
+	const char *shortopts = "hdp:o:v::";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
 #ifdef ENABLE_KATER_DEBUG
