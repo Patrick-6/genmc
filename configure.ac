@@ -646,24 +646,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [Define if llvm::cl::getRegisteredOptions takes an argument.])],
         [AC_MSG_RESULT([no])])
 
-## Check the parameter type for ExecutionEngine::runFunction
-AC_MSG_CHECKING([for parameter type for ExecutionEngine::runFunction])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
-]],[[
-  class EE : public llvm::ExecutionEngine{
-  public:
-    virtual llvm::GenericValue runFunction(llvm::Function*, const std::vector<llvm::GenericValue>&) override {
-      return llvm::GenericValue();
-    };
-  };
-]])],
-        [AC_MSG_RESULT([std::vector<llvm::GenericValue>])
-         AC_DEFINE([LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR],[1],
-         [Define if ExecutionEngine::runFunction takes a std::vector<llvm::GenericValue> argument.])],
-        [AC_MSG_RESULT([llvm::ArrayRef<llvm::GenericValue>])])
-
 ## Check if llvm::PassManager requires a template argument
 AC_MSG_CHECKING([if llvm::PassManager requires a template argument])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[

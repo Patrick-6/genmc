@@ -473,15 +473,9 @@ void Interpreter::runAtExitHandlers () {
 
 /// run - Start execution with the specified function and arguments.
 ///
-#ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-GenericValue
-Interpreter::runFunction(Function *F,
-                         const std::vector<GenericValue> &ArgValues) {
-#else
 GenericValue
 Interpreter::runFunction(Function *F,
                          ArrayRef<GenericValue> ArgValues) {
-#endif
   assert (F && "Function *F was null at entry to run()");
 
   // Try extra hard not to pass extra args to a function that isn't
