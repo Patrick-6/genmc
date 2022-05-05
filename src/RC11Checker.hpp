@@ -96,17 +96,6 @@ private:
 	bool visitAcyclic11(const Event &e);
 	bool visitAcyclic12(const Event &e);
 	bool visitAcyclic13(const Event &e);
-	bool visitAcyclic14(const Event &e);
-	bool visitAcyclic15(const Event &e);
-	bool visitAcyclic16(const Event &e);
-	bool visitAcyclic17(const Event &e);
-	bool visitAcyclic18(const Event &e);
-	bool visitAcyclic19(const Event &e);
-	bool visitAcyclic20(const Event &e);
-	bool visitAcyclic21(const Event &e);
-	bool visitAcyclic22(const Event &e);
-	bool visitAcyclic23(const Event &e);
-	bool visitAcyclic24(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
@@ -124,17 +113,6 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic11;
 	std::vector<NodeCountStatus> visitedAcyclic12;
 	std::vector<NodeCountStatus> visitedAcyclic13;
-	std::vector<NodeCountStatus> visitedAcyclic14;
-	std::vector<NodeCountStatus> visitedAcyclic15;
-	std::vector<NodeCountStatus> visitedAcyclic16;
-	std::vector<NodeCountStatus> visitedAcyclic17;
-	std::vector<NodeCountStatus> visitedAcyclic18;
-	std::vector<NodeCountStatus> visitedAcyclic19;
-	std::vector<NodeCountStatus> visitedAcyclic20;
-	std::vector<NodeCountStatus> visitedAcyclic21;
-	std::vector<NodeCountStatus> visitedAcyclic22;
-	std::vector<NodeCountStatus> visitedAcyclic23;
-	std::vector<NodeCountStatus> visitedAcyclic24;
 
 	unsigned visitedAccepting = 0;
 	std::vector<VSet<Event>> saved;

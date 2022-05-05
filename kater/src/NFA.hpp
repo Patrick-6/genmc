@@ -301,8 +301,8 @@ public:
 	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
 
 private:
-	void simplify_basic ();
-	void compact_edges ();
+	void simplify_basic();
+	void compactEdges();
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 

@@ -393,31 +393,31 @@ void NFA::scm_reduce ()
 	}
 }
 
-void NFA::compact_edges()
+void NFA::compactEdges()
 {
 	/* Join `[...]` edges with successor edges */
-//	std::for_each(states_begin(), states_end(), [&](auto &s){
-//		std::vector<Transition> toRemove;
-//		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
-//			if (!t.label.is_empty_trans())
-//				return false;
-//			if (isAccepting(t.dest) && t.dest != &*s)
-//				return false;
-//			if (config.verbose > 1) {
-//				std::cout << "Compacting edge " << s->getId() << " --"
-//					  << t.label << "--> " << t.dest->getId() << std::endl;
-//			}
-//			if (t.dest != &*s) {
-//				std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
-//					auto l = t.label.seq(q.label);
-//					if (l.is_valid())
-//						addTransition(&*s, Transition(l, q.dest));
-//				});
-//			}
-//			return true;
-//		});
-//		removeTransitions(&*s, toRemove.begin(), toRemove.end());
-//	});
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		std::vector<Transition> toRemove;
+		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
+			if (!t.label.isEpsilon())
+				return false;
+			if (isAccepting(t.dest) && t.dest != &*s)
+				return false;
+			KATER_DEBUG(
+				std::cout << "Compacting edge " << s->getId() << " --"
+					  << t.label << "--> " << t.dest->getId() << std::endl;
+			);
+			if (t.dest != &*s) {
+				std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
+					auto l = t.label;
+					if (l.merge(q.label))
+						addTransition(&*s, Transition(l, q.dest));
+				});
+			}
+			return true;
+		});
+		removeTransitions(&*s, toRemove.begin(), toRemove.end());
+	});
 
 	/* Remove redundant self loops */
 	std::for_each(states_begin(), states_end(), [&](auto &s){
@@ -447,9 +447,9 @@ NFA &NFA::simplify ()
 	scm_reduce();
 	flip();
 	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
-	compact_edges();
+	compactEdges();
 	flip();
-	compact_edges();
+	compactEdges();
 	flip();
 	KATER_DEBUG(std::cout << "After edge compaction: " << *this;);
 	scm_reduce();
