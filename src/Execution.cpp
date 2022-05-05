@@ -1593,7 +1593,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 			I.getSuccessOrdering(), nextPos(), ptr,		\
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
 			GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*lDeps); \
-		cmpRes = ret == GV_TO_SVAL(cmpVal, typ);		\
+		cmpRes = ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
 						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
