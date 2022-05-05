@@ -1,6 +1,11 @@
 #ifndef __STDLIB_H__
 #define __STDLIB_H__
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <stddef.h>
 #include <genmc_internal.h>
 
@@ -16,5 +21,9 @@ char *getenv(const char *);
 #define malloc(size) __VERIFIER_malloc(size)
 
 #define aligned_alloc(align, size) __VERIFIER_malloc_aligned(align, size)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __STDLIB_H__ */
