@@ -97,6 +97,9 @@ public:
 
 	void flip() {
 		flipped = !flipped;
+		/* Do not flip ε transitions; maintain unique representation */
+		if (isEpsilon())
+			return;
 		std::swap(getPreChecks(), getPostChecks());
 	}
 
