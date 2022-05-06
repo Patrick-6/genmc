@@ -99,38 +99,16 @@ llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 		 << " " << thr.threadFun->getName().str();
 }
 
-EELocalState::EELocalState(const SAddrAllocator &alloctor,
-			   const std::unique_ptr<DepTracker> &depTr,
-			   const ExecutionState &execState,
-			   const ProgramState &programState,
-			   const llvm::BitVector &fds,
-			   const llvm::IndexedMap<void *> &fdToFile,
-			   const std::unordered_map<std::string, void *> &nameToInodeAddr,
-			   const std::vector<Thread> &ts,
-			   int current)
-	: alloctor(alloctor),
-	  depTracker(depTr ? LLVM_MAKE_UNIQUE<DepTracker>(*depTr) : nullptr),
-	  execState(execState),
-	  programState(programState), fds(fds), fdToFile(fdToFile),
-	  nameToInodeAddr(nameToInodeAddr), threads(ts), currentThread(current) {}
+// EELocalState::EELocalState(const DynamicComponents &dynState) : state(dynState) {}
 
 std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(alloctor, depTracker, execState, programState,
-					      fds, fdToFile, nameToInodeAddr, threads, currentThread);
+	return LLVM_MAKE_UNIQUE<EELocalState>(dynState);
 }
 
-void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> state)
+void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> s)
 {
-	alloctor = std::move(state->alloctor);
-	depTracker = std::move(state->depTracker);
-	execState = state->execState;
-	programState = state->programState;
-	fds = std::move(state->fds);
-	fdToFile = std::move(state->fdToFile);
-	nameToInodeAddr = std::move(state->nameToInodeAddr);
-	threads = std::move(state->threads);
-	currentThread = state->currentThread;
+	dynState = std::move(*s);
 }
 
 void Interpreter::resetThread(unsigned int id)
@@ -151,14 +129,15 @@ void Interpreter::reset()
 	 * have been a failed assume on some thread and a join waiting on
 	 * that thread (joins do not empty ECStacks)
 	 */
-	currentThread = 0;
+	dynState.currentThread = 0;
+	dynState.AtExitHandlers.clear();
 	std::for_each(threads_begin(), threads_end(), [this](Thread &thr){ resetThread(thr.id); });
 }
 
 void Interpreter::setupRecoveryRoutine(int tid)
 {
-	BUG_ON(tid >= threads.size());
-	currentThread = tid;
+	BUG_ON(tid >= getNumThreads());
+	dynState.currentThread = tid;
 
 	/* Only fill the stack if a recovery routine actually exists... */
 	ERROR_ON(!recoveryRoutine, "No recovery routine specified!\n");
@@ -173,18 +152,20 @@ void Interpreter::setupRecoveryRoutine(int tid)
 void Interpreter::cleanupRecoveryRoutine(int tid)
 {
 	/* Nothing to do -- yet */
-	currentThread = 0;
+	dynState.currentThread = 0;
 	return;
 }
 
 Thread &Interpreter::addNewThread(Thread &&thread)
 {
-	if (thread.id == threads.size()) {
-	        threads.push_back(std::move(thread));
-		return threads.back();
+	if (thread.id == getNumThreads()) {
+	        dynState.threads.push_back(std::move(thread));
+		return dynState.threads.back();
 	}
-	BUG_ON(threads[thread.id].threadFun != thread.threadFun || threads[thread.id].id != thread.id);
-	return threads[thread.id] = std::move(thread);
+
+	BUG_ON(dynState.threads[thread.id].threadFun != thread.threadFun ||
+	       dynState.threads[thread.id].id != thread.id);
+	return dynState.threads[thread.id] = std::move(thread);
 }
 
 /* Creates an entry for the main() function */
@@ -192,7 +173,7 @@ Thread &Interpreter::createAddMainThread(llvm::Function *F)
 {
 	Thread main(F, 0);
 	main.tls = threadLocalVars;
-	threads.clear(); /* make sure its empty */
+	dynState.threads.clear(); /* make sure its empty */
 	return addNewThread(std::move(main));
 }
 
@@ -226,15 +207,15 @@ int my_find_first_unset(const llvm::BitVector &bv)
 int Interpreter::getFreshFd()
 {
 #ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(fds);
+	int fd = my_find_first_unset(dynState.fds);
 #else
-	int fd = fds.find_first_unset();
+	int fd = dynState.fds.find_first_unset();
 #endif
 
 	/* If no available descriptor found, grow fds and try again */
 	if (fd == -1) {
-		fds.resize(2 * fds.size() + 1);
-		fdToFile.grow(fds.size());
+		dynState.fds.resize(2 * dynState.fds.size() + 1);
+		dynState.fdToFile.grow(dynState.fds.size());
 		return getFreshFd();
 	}
 
@@ -245,12 +226,12 @@ int Interpreter::getFreshFd()
 
 void Interpreter::markFdAsUsed(int fd)
 {
-	fds.set(fd);
+	dynState.fds.set(fd);
 }
 
 void Interpreter::reclaimUnusedFd(int fd)
 {
-	fds.reset(fd);
+	dynState.fds.reset(fd);
 }
 
 #ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
@@ -280,8 +261,8 @@ void Interpreter::collectStaticAddresses(Module *M)
 		}
 
 		/* "Allocate" an address for this global variable... */
-		auto addr = alloctor.allocStatic(typeSize, v.getAlignment(),
-						 GET_GV_ADDRESS_SPACE(v) == 42);
+		auto addr = dynState.alloctor.allocStatic(typeSize, v.getAlignment(),
+							  GET_GV_ADDRESS_SPACE(v) == 42);
 		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;
 
@@ -334,8 +315,8 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	if (!inodeVar || !fileVar)
 		return;
 
-	fds = llvm::BitVector(20);
-	fdToFile.grow(fds.size());
+	dynState.fds = llvm::BitVector(20);
+	dynState.fdToFile.grow(dynState.fds.size());
 
 	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
 	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
@@ -354,7 +335,7 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	auto *SL = getDataLayout().getStructLayout(FI.inodeTyp);
 	for (auto &fname : FI.filenames) {
 		auto *addr = (char *) FI.dirInode + SL->getElementOffset(4) + count * intPtrSize;
-		nameToInodeAddr[fname] = addr;
+		dynState.nameToInodeAddr[fname] = addr;
 		++count;
 	}
 	return;
@@ -365,7 +346,7 @@ Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 			   const DepInfo *ctrl, const DepInfo *addrPo,
 			   const DepInfo *cas)
 {
-	if (!depTracker)
+	if (!getDepTracker())
 		return nullptr;
 
 	auto result = LLVM_MAKE_UNIQUE<EventDeps>();
@@ -386,7 +367,7 @@ Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 std::unique_ptr<EventDeps>
 Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 {
-	if (!depTracker)
+	if (!getDepTracker())
 		return nullptr;
 
 	ExecutionContext &SF = ECStack().back();
@@ -428,7 +409,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 			 GenMCDriver *driver, const Config *userConf)
 	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver) {
 
-  memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
+  memset(&dynState.ExitValue.Untyped, 0, sizeof(dynState.ExitValue.Untyped));
 
   // Initialize the "backend"
   initializeExecutionEngine();
@@ -442,7 +423,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
-	  depTracker = LLVM_MAKE_UNIQUE<DepTracker>();
+	  dynState.depTracker = LLVM_MAKE_UNIQUE<DepTracker>();
 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
@@ -464,9 +445,9 @@ Interpreter::~Interpreter() {
 }
 
 void Interpreter::runAtExitHandlers () {
-  while (!AtExitHandlers.empty()) {
-    callFunction(AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
-    AtExitHandlers.pop_back();
+  while (!dynState.AtExitHandlers.empty()) {
+    callFunction(dynState.AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
+    dynState.AtExitHandlers.pop_back();
     run();
   }
 }
@@ -496,5 +477,5 @@ Interpreter::runFunction(Function *F,
   // Start executing the function.
   run();
 
-  return ExitValue;
+  return dynState.ExitValue;
 }

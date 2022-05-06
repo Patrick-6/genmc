@@ -164,9 +164,9 @@ SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, Storage s, Add
 	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
 	switch (s) {
 	case Storage::ST_Automatic:
-		return alloctor.allocAutomatic(size, alignment, spc == AddressSpace::AS_Internal);
+		return dynState.alloctor.allocAutomatic(size, alignment, spc == AddressSpace::AS_Internal);
 	case Storage::ST_Heap:
-		return alloctor.allocHeap(size, alignment, spc == AddressSpace::AS_Internal);
+		return dynState.alloctor.allocHeap(size, alignment, spc == AddressSpace::AS_Internal);
 	case Storage::ST_Static: /* Cannot ask for fresh static addresses */
 	default:
 		BUG();
@@ -297,14 +297,14 @@ unsigned int Interpreter::getTypeSize(Type *typ) const
 
 void *Interpreter::getFileFromFd(int fd) const
 {
-	if (!fdToFile.inBounds(fd))
+	if (!dynState.fdToFile.inBounds(fd))
 		return nullptr;
-	return fdToFile[fd];
+	return dynState.fdToFile[fd];
 }
 
 void Interpreter::setFdToFile(int fd, void *fileAddr)
 {
-	fdToFile[fd] = fileAddr;
+	dynState.fdToFile[fd] = fileAddr;
 }
 
 void *Interpreter::getDirInode() const
@@ -314,7 +314,7 @@ void *Interpreter::getDirInode() const
 
 void *Interpreter::getInodeAddrFromName(const std::string &filename) const
 {
-	return nameToInodeAddr.at(filename);
+	return dynState.nameToInodeAddr.at(filename);
 }
 
 /* Should match include/pthread.h (or barrier/mutex/thread decls) */
@@ -1642,7 +1642,7 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, A
 {
 	switch (op) {
 	case AtomicRMWInst::Xchg:
-		WARN_ON_ONCE(depTracker != nullptr, "unsupported-xchg-deps",
+		WARN_ON_ONCE(getDepTracker(), "unsupported-xchg-deps",
 			     "Atomic xchg support is experimental under dependency-tracking models!\n");
 		return val;
 	case AtomicRMWInst::Add:
@@ -4642,14 +4642,14 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 	setProgramState(ProgramState::Main);
 
 	/* We have to replay all threads in order to get debug metadata */
-	threads[0].initSF = mainECStack.back();
+	dynState.threads[0].initSF = mainECStack.back();
 	for (auto i = 0u; i < before.size(); i++) {
 		auto &thr = getThrById(i);
 		thr.ECStack.clear();
 		thr.ECStack.push_back(thr.initSF);
 		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
-		currentThread = i;
+		scheduleThread(i);
 		if (thr.threadFun == recoveryRoutine)
 			setProgramState(ProgramState::Recovery);
 		/* Make sure to refetch references within the loop (invalidation danger) */

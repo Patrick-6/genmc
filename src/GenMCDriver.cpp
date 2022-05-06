@@ -1514,7 +1514,7 @@ int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, con
 	/* If the thread does not exist in the graph, make an entry for it */
 	if (cid == (long) g.getNumThreads()) {
 		g.addNewThread();
-		BUG_ON(std::distance(EE->threads_begin(), EE->threads_end()) != g.getNumThreads());
+		BUG_ON(EE->getNumThreads() != g.getNumThreads());
 		auto symm = getConf()->symmetryReduction ?
 			getSymmetricTidSR(cid, lab->getPos(), calledFun, arg) : -1;
 		auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), symm);
