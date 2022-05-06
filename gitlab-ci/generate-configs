@@ -79,7 +79,7 @@ LINUX_ANCHOR_FUN=anchor_linux
 MACOS_ANCHOR_FUN=anchor_macos
 
 ## pipeline stages -- we assume the first stage is a build stage
-LINUX_STAGES="build ftest rtest test"
+LINUX_STAGES="build ftest rtest test regression"
 MACOS_STAGES="build ftest" ## only run quick stages for macos
 
 LINUX_CONFIG_CMD='./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)'
@@ -119,6 +119,16 @@ test_stage() {
     echo "    - schedules "
     echo "  script:"
     echo "    - make test"
+    echo ""
+}
+
+regression_stage() {
+    echo ".test:llvm_job: &regression"
+    echo "  stage: regression"
+    echo "  only:"
+    echo "    - merge_requests"
+    echo "  script:"
+    echo "    - cd scripts && ./check-regression.sh $CI_MERGE_REQUEST_TARGET_BRANCH_NAME $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
     echo ""
 }
 
