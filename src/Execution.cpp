@@ -1325,14 +1325,9 @@ void Interpreter::visitSwitchInst(SwitchInst &I) {
   // Check to see if any of the cases match...
   BasicBlock *Dest = nullptr;
   for (SwitchInst::CaseIt i = I.case_begin(), e = I.case_end(); i != e; ++i) {
-#ifdef LLVM_SWITCHINST_CASEIT_NEEDS_DEREF
-    auto &it = *i;
-#else
-    auto &it = i;
-#endif
-    GenericValue CaseVal = getOperandValue(it.getCaseValue(), SF);
+    GenericValue CaseVal = getOperandValue(i->getCaseValue(), SF);
     if (executeICMP_EQ(CondVal, CaseVal, ElTy).IntVal != 0) {
-      Dest = cast<BasicBlock>(it.getCaseSuccessor());
+      Dest = cast<BasicBlock>(i->getCaseSuccessor());
       break;
     }
   }
@@ -1433,11 +1428,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
   uint64_t Total = 0;
   for (; I != E; ++I) {
     updateDataDeps(getCurThr().id, SF.CurInst->getPrevNode(), I.getOperand());
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
     if (StructType *STy = I.getStructTypeOrNull()) {
-#else
-    if (StructType *STy = dyn_cast<StructType>(*I)) {
-#endif
       const StructLayout *SLO = getDataLayout().getStructLayout(STy);
 
       const ConstantInt *CPU = cast<ConstantInt>(I.getOperand());
@@ -1457,11 +1448,7 @@ GenericValue Interpreter::executeGEPOperation(Value *Ptr, gep_type_iterator I,
         assert(BitWidth == 64 && "Invalid index type for getelementptr");
         Idx = (int64_t)IdxGV.IntVal.getZExtValue();
       }
-#ifdef LLVM_NEW_GEP_TYPE_ITERATOR_API
       Total += getDataLayout().getTypeAllocSize(I.getIndexedType()) * Idx;
-#else
-      Total += getDataLayout().getTypeAllocSize(cast<SequentialType>(*I)->getElementType()) * Idx;
-#endif
     }
   }
 
@@ -4623,11 +4610,7 @@ void Interpreter::callFunction(Function *F, const std::vector<GenericValue> &Arg
 
 std::string getFilenameFromMData(MDNode *node)
 {
-#ifdef LLVM_DILOCATION_IS_MDNODE
 	const llvm::DILocation &loc = static_cast<const llvm::DILocation&>(*node);
-#else
-	llvm::DILocation loc(node);
-#endif
 	llvm::StringRef file = loc.getFilename();
 	llvm::StringRef dir = loc.getDirectory();
 

@@ -68,11 +68,7 @@ using namespace llvm;
 # define GET_INST_ALIGN(i) i->getAlignment()
 #endif
 
-#ifdef LLVM_HAS_GET_SYNC_SCOPE_ID
-# define GET_INST_SYNC_SCOPE(i) i->getSyncScopeID()
-#else
-# define GET_INST_SYNC_SCOPE(i) i->getSynchScope()
-#endif
+#define GET_INST_SYNC_SCOPE(i) i->getSyncScopeID()
 
 void EliminateCastsPass::getAnalysisUsage(AnalysisUsage &AU) const
 {

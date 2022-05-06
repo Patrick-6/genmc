@@ -55,19 +55,6 @@ extern "C" void LLVMLinkInInterpreter() { }
 ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 				     GenMCDriver *driver, const Config *userConf, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
-#ifdef LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_ERRORCODE_BOOL
-  if (std::error_code EC = M->materializeAllPermanently()) {
-    if (ErrStr)
-      *ErrStr = EC.message();
-    // We got an error, just return 0
-    return nullptr;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_PERMANENTLY_BOOL_STRPTR
-  if (M->MaterializeAllPermanently(ErrStr)){
-    // We got an error, just return 0
-    return nullptr;
-  }
-#elif defined LLVM_MODULE_MATERIALIZE_ALL_LLVM_ERROR
   if (Error Err = M->materializeAll()) {
     std::string Msg;
     handleAllErrors(std::move(Err), [&](ErrorInfoBase &EIB) {
@@ -78,15 +65,6 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<
     // We got an error, just return 0
     return nullptr;
   }
-#else
-  if(std::error_code EC = M->materializeAll()){
-    if(ErrStr)
-      *ErrStr = EC.message();
-    // We got an error, just return 0
-    return nullptr;
-  }
-#endif
-
   return new Interpreter(std::move(M), std::move(MI), driver, userConf);
 }
 
@@ -194,23 +172,9 @@ Thread &Interpreter::createAddRecoveryThread(int tid)
 	return addNewThread(std::move(rec));
 }
 
-#ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-int my_find_first_unset(const llvm::BitVector &bv)
-{
-	for (auto i = 0u; i < bv.size(); i++)
-		if (bv[i] == 0)
-			return i;
-	return -1;
-}
-#endif /* LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET */
-
 int Interpreter::getFreshFd()
 {
-#ifndef LLVM_BITVECTOR_HAS_FIND_FIRST_UNSET
-	int fd = my_find_first_unset(dynState.fds);
-#else
 	int fd = dynState.fds.find_first_unset();
-#endif
 
 	/* If no available descriptor found, grow fds and try again */
 	if (fd == -1) {
