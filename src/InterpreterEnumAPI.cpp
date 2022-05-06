@@ -39,6 +39,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_thread_create", InternalFunctions::FN_ThreadCreate},
 	{"__VERIFIER_thread_join", InternalFunctions::FN_ThreadJoin},
 	{"__VERIFIER_thread_exit", InternalFunctions::FN_ThreadExit},
+	{"__VERIFIER_atexit", InternalFunctions::FN_AtExit},
 	{"__VERIFIER_mutex_init", InternalFunctions::FN_MutexInit},
 	{"__VERIFIER_mutex_lock", InternalFunctions::FN_MutexLock},
 	{"__VERIFIER_mutex_unlock", InternalFunctions::FN_MutexUnlock},

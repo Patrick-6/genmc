@@ -429,7 +429,6 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   setupErrorPolicy(mod, userConf);
 
   /* Also run a recovery routine if it is required to do so */
-  checkPersistency = userConf->persevere;
   recoveryRoutine = mod->getFunction("__VERIFIER_recovery_routine");
   setupFsInfo(mod, userConf);
 
@@ -445,11 +444,76 @@ Interpreter::~Interpreter() {
 }
 
 void Interpreter::runAtExitHandlers () {
+  auto oldState = getProgramState();
+  setProgramState(ProgramState::Dtors);
   while (!dynState.AtExitHandlers.empty()) {
+    scheduleThread(0);
     callFunction(dynState.AtExitHandlers.back(), std::vector<GenericValue>(), nullptr);
     dynState.AtExitHandlers.pop_back();
     run();
   }
+  setProgramState(oldState);
+}
+
+namespace {
+ class ArgvArray {
+   std::unique_ptr<char[]> Array;
+   std::vector<std::unique_ptr<char[]>> Values;
+ public:
+   /// Turn a vector of strings into a nice argv style array of pointers to null
+   /// terminated strings.
+   void *reset(LLVMContext &C, ExecutionEngine *EE,
+               const std::vector<std::string> &InputArgv);
+ };
+ }  // anonymous namespace
+ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
+                        const std::vector<std::string> &InputArgv) {
+   Values.clear();  // Free the old contents.
+   Values.reserve(InputArgv.size());
+   unsigned PtrSize = EE->getDataLayout().getPointerSize();
+   Array = LLVM_MAKE_UNIQUE<char[]>((InputArgv.size()+1)*PtrSize);
+
+   // LLVM_DEBUG(dbgs() << "JIT: ARGV = " << (void *)Array.get() << "\n");
+   Type *SBytePtr = Type::getInt8PtrTy(C);
+
+   for (unsigned i = 0; i != InputArgv.size(); ++i) {
+     unsigned Size = InputArgv[i].size()+1;
+     auto Dest = LLVM_MAKE_UNIQUE<char[]>(Size);
+     // LLVM_DEBUG(dbgs() << "JIT: ARGV[" << i << "] = " << (void *)Dest.get()
+     //                   << "\n");
+
+     std::copy(InputArgv[i].begin(), InputArgv[i].end(), Dest.get());
+     Dest[Size-1] = 0;
+
+     // Endian safe: Array[i] = (PointerTy)Dest;
+     EE->StoreValueToMemory(PTOGV(Dest.get()),
+                            (GenericValue*)(&Array[i*PtrSize]), SBytePtr);
+     Values.push_back(std::move(Dest));
+   }
+
+   // Null terminate it
+   EE->StoreValueToMemory(PTOGV(nullptr),
+                          (GenericValue*)(&Array[InputArgv.size()*PtrSize]),
+                          SBytePtr);
+   return Array.get();
+ }
+
+void
+Interpreter::setupFunctionCall(Function *F, ArrayRef<GenericValue> ArgValues)
+{
+	// Try extra hard not to pass extra args to a function that isn't
+	// expecting them.  C programmers frequently bend the rules and
+	// declare main() with fewer parameters than it actually gets
+	// passed, and the interpreter barfs if you pass a function more
+	// parameters than it is declared to take. This does not attempt to
+	// take into account gratuitous differences in declared types,
+	// though.
+	std::vector<GenericValue> ActualArgs;
+	const unsigned ArgCount = F->getFunctionType()->getNumParams();
+	for (unsigned i = 0; i < ArgCount; ++i)
+		ActualArgs.push_back(ArgValues[i]);
+
+	callFunction(F, ActualArgs, nullptr);
 }
 
 /// run - Start execution with the specified function and arguments.
@@ -459,23 +523,117 @@ Interpreter::runFunction(Function *F,
                          ArrayRef<GenericValue> ArgValues) {
   assert (F && "Function *F was null at entry to run()");
 
-  // Try extra hard not to pass extra args to a function that isn't
-  // expecting them.  C programmers frequently bend the rules and
-  // declare main() with fewer parameters than it actually gets
-  // passed, and the interpreter barfs if you pass a function more
-  // parameters than it is declared to take. This does not attempt to
-  // take into account gratuitous differences in declared types,
-  // though.
-  std::vector<GenericValue> ActualArgs;
-  const unsigned ArgCount = F->getFunctionType()->getNumParams();
-  for (unsigned i = 0; i < ArgCount; ++i)
-    ActualArgs.push_back(ArgValues[i]);
-
   // Set up the function call.
-  callFunction(F, ActualArgs, nullptr);
+  setupFunctionCall(F, ArgValues);
 
   // Start executing the function.
   run();
 
   return dynState.ExitValue;
+}
+
+void Interpreter::setupStaticCtorsDtors(Module &module, bool isDtors)
+{
+	StringRef Name(isDtors ? "llvm.global_dtors" : "llvm.global_ctors");
+	GlobalVariable *GV = module.getNamedGlobal(Name);
+
+	// If this global has internal linkage, or if it has a use, then it must be
+	// an old-style (llvmgcc3) static ctor with __main linked in and in use.  If
+	// this is the case, don't execute any of the global ctors, __main will do
+	// it.
+	if (!GV || GV->isDeclaration() || GV->hasLocalLinkage()) return;
+
+	// Should be an array of '{ i32, void ()* }' structs.  The first value is
+	// the init priority, which we ignore.
+	ConstantArray *InitList = dyn_cast<ConstantArray>(GV->getInitializer());
+	if (!InitList)
+		return;
+	for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
+		ConstantStruct *CS = dyn_cast<ConstantStruct>(InitList->getOperand(i));
+		if (!CS) continue;
+
+		Constant *FP = CS->getOperand(1);
+		if (FP->isNullValue())
+			continue;  // Found a sentinal value, ignore.
+
+		// Strip off constant expression casts.
+		if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
+			if (CE->isCast())
+				FP = CE->getOperand(0);
+
+		// Setup the ctor/dtor SF and quit
+		if (Function *F = dyn_cast<Function>(FP))
+			setupFunctionCall(F, None);
+
+		// FIXME: It is marginally lame that we just do nothing here if we see an
+		// entry we don't recognize. It might not be unreasonable for the verifier
+		// to not even allow this and just assert here.
+	}
+ }
+
+void Interpreter::setupStaticCtorsDtors(bool isDtors)
+{
+	// Execute global ctors/dtors for each module in the program.
+	for (std::unique_ptr<Module> &M : Modules)
+		setupStaticCtorsDtors(*M, isDtors);
+}
+
+#ifndef NDEBUG
+/// isTargetNullPtr - Return whether the target pointer stored at Loc is null.
+static bool isTargetNullPtr(ExecutionEngine *EE, void *Loc)
+{
+	unsigned PtrSize = EE->getDataLayout().getPointerSize();
+	for (unsigned i = 0; i < PtrSize; ++i)
+		if (*(i + (uint8_t*)Loc))
+			return false;
+	return true;
+}
+#endif
+
+void Interpreter::setupMain(Function *Fn,
+			    const std::vector<std::string> &argv,
+			    const char * const * envp)
+{
+	std::vector<GenericValue> GVArgs;
+	GenericValue GVArgc;
+	GVArgc.IntVal = APInt(32, argv.size());
+
+	// Check main() type
+	unsigned NumArgs = Fn->getFunctionType()->getNumParams();
+	FunctionType *FTy = Fn->getFunctionType();
+	Type* PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
+
+	// Check the argument types.
+	if (NumArgs > 3)
+		report_fatal_error("Invalid number of arguments of main() supplied");
+	if (NumArgs >= 3 && FTy->getParamType(2) != PPInt8Ty)
+		report_fatal_error("Invalid type for third argument of main() supplied");
+	if (NumArgs >= 2 && FTy->getParamType(1) != PPInt8Ty)
+		report_fatal_error("Invalid type for second argument of main() supplied");
+	if (NumArgs >= 1 && !FTy->getParamType(0)->isIntegerTy(32))
+		report_fatal_error("Invalid type for first argument of main() supplied");
+	if (!FTy->getReturnType()->isIntegerTy() &&
+	    !FTy->getReturnType()->isVoidTy())
+		report_fatal_error("Invalid return type of main() supplied");
+
+	ArgvArray CArgv;
+	ArgvArray CEnv;
+	if (NumArgs) {
+		GVArgs.push_back(GVArgc); // Arg #0 = argc.
+		if (NumArgs > 1) {
+			// Arg #1 = argv.
+			GVArgs.push_back(PTOGV(CArgv.reset(Fn->getContext(), this, argv)));
+			assert(!isTargetNullPtr(this, GVTOP(GVArgs[1])) &&
+			       "argv[0] was null after CreateArgv");
+			if (NumArgs > 2) {
+				std::vector<std::string> EnvVars;
+				for (unsigned i = 0; envp[i]; ++i)
+					EnvVars.emplace_back(envp[i]);
+				// Arg #2 = envp.
+				GVArgs.push_back(PTOGV(CEnv.reset(Fn->getContext(), this, EnvVars)));
+			}
+		}
+	}
+
+	setupFunctionCall(Fn, GVArgs);
 }

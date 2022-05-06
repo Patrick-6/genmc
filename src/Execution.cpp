@@ -1217,7 +1217,7 @@ void Interpreter::exitCalled(GenericValue GV) {
     ECStack().pop_back(); /* FIXME: Now assumes the user has properly used it */
   }
   runAtExitHandlers();
-  exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
+  // exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
 }
 
 /// Pop the last stack frame off of ECStack and then copy the result
@@ -1247,7 +1247,10 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
   //     memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
   //   }
   if (ECStack().empty()) {
-    driver->visitThreadFinish(ThreadFinishLabel::create(nextPos()));
+    if (getCurThr().isMain() && getProgramState() == ProgramState::Main)
+	    runAtExitHandlers();
+    if (getProgramState() != ProgramState::Dtors)
+      driver->visitThreadFinish(ThreadFinishLabel::create(nextPos()));
   } else {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
@@ -3002,6 +3005,13 @@ void Interpreter::callThreadExit(Function *F, const std::vector<GenericValue> &A
 	popStackAndReturnValueToCaller(Type::getInt8PtrTy(F->getContext()), ArgVals[0]);
 }
 
+void Interpreter::callAtExit(Function *F, const std::vector<GenericValue> &ArgVals,
+			     const std::unique_ptr<EventDeps> &specialDeps)
+{
+	addAtExitHandler((Function*)GVTOP(ArgVals[0]));
+	returnValueToCaller(F->getReturnType(), INT_TO_GV(F->getReturnType(), 0));
+}
+
 void Interpreter::callMutexInit(Function *F, const std::vector<GenericValue> &ArgVals,
 				const std::unique_ptr<EventDeps> &specialDeps)
 {
@@ -4501,6 +4511,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(ThreadCreate);
 		CALL_INTERNAL_FUNCTION(ThreadJoin);
 		CALL_INTERNAL_FUNCTION(ThreadExit);
+		CALL_INTERNAL_FUNCTION(AtExit);
 		CALL_INTERNAL_FUNCTION(MutexInit);
 		CALL_INTERNAL_FUNCTION(MutexLock);
 		CALL_INTERNAL_FUNCTION(MutexUnlock);
@@ -4642,11 +4653,12 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 	setProgramState(ProgramState::Main);
 
 	/* We have to replay all threads in order to get debug metadata */
-	dynState.threads[0].initSF = mainECStack.back();
 	for (auto i = 0u; i < before.size(); i++) {
 		auto &thr = getThrById(i);
-		thr.ECStack.clear();
-		thr.ECStack.push_back(thr.initSF);
+		if (thr.isMain())
+			thr.ECStack = mainECStack;
+		else
+			thr.ECStack = {thr.initSF};
 		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
 		scheduleThread(i);
@@ -4672,38 +4684,41 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			getCurThr().prefixLOC[snap + 1] = std::make_pair(line, file);
 
 			/* If the instruction maps to more than one events, we have to fill more spots */
-			for (auto i = snap + 2; i <= getCurThr().globalInstructions; i++)
+			for (auto i = snap + 2; i <= std::min((int) getCurThr().globalInstructions, before[i]); i++)
 				getCurThr().prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
 }
 
-void Interpreter::runRecoveryRoutine()
-{
-	driver->handleRecoveryStart();
-	while (driver->scheduleNext()) {
-		ExecutionContext &SF = ECStack().back();
-		Instruction &I = *SF.CurInst++;
-		visit(I);
-	}
-	driver->handleRecoveryEnd();
-	return;
-}
-
 void Interpreter::run()
 {
-	mainECStack = ECStack();
-
-	driver->handleExecutionBeginning();
 	while (driver->scheduleNext()) {
 		driver->handleExecutionInProgress();
 		llvm::ExecutionContext &SF = ECStack().back();
 		llvm::Instruction &I = *SF.CurInst++;
 		visit(I);
 	}
-	driver->handleFinishedExecution();
-
-	if (checkPersistency)
-		runRecoveryRoutine();
 	return;
+}
+
+int Interpreter::runAsMain(const std::string &main)
+{
+	setupStaticCtorsDtors(true);
+	setupMain(FindFunctionNamed(main), {"prog"}, nullptr);
+	setupStaticCtorsDtors(false);
+
+	mainECStack = ECStack();
+	setProgramState(llvm::ProgramState::Main);
+	driver->handleExecutionBeginning();
+	run();
+	driver->handleFinishedExecution();
+	return dynState.ExitValue.IntVal.getZExtValue();
+}
+
+void Interpreter::runRecovery()
+{
+	setProgramState(llvm::ProgramState::Recovery);
+	driver->handleRecoveryStart();
+	run();
+	driver->handleRecoveryEnd();
 }

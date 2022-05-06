@@ -10,6 +10,7 @@ extern "C"
 #include <genmc_internal.h>
 
 void exit(int);
+int atexit(void (*func)(void)) { return __VERIFIER_atexit(func); }
 
 void abort(void);
 int abs(int);

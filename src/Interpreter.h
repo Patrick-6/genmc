@@ -218,7 +218,9 @@ struct ThreadInfo {
 
 /* Pers: The state of the program -- i.e., part of the program being interpreted */
 enum class ProgramState {
+	Ctors,
 	Main,
+	Dtors,
 	Recovery
 };
 
@@ -312,9 +314,6 @@ protected:
   /* Where system errors return values should be stored (if required) */
   SAddr errnoAddr;
   Type *errnoTyp;
-
-  /* Pers: Whether we should run a recovery procedure after the execution finishes */
-  bool checkPersistency;
 
   /* Pers: The recovery routine to run */
   Function *recoveryRoutine = nullptr;
@@ -435,11 +434,9 @@ public:
 	  return Event(thr.id, --thr.globalInstructions);
   };
 
-  /* Set and query interpreter's state */
+  /* Query interpreter's state */
   ProgramState getProgramState() const { return dynState.programState; }
   ExecutionState getExecState() const { return dynState.execState; }
-  void setProgramState(ProgramState s) { dynState.programState = s; }
-  void setExecState(ExecutionState s) { dynState.execState = s; }
 
   /* Annotation information */
 
@@ -528,10 +525,19 @@ public:
   void callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
 		    const std::unique_ptr<EventDeps> &specialDeps);
 
+  /* callFunction() wrappers to be called before running a function */
+  void setupFunctionCall(Function *F, ArrayRef<GenericValue> ArgValues);
+  void setupStaticCtorsDtors(Module &M, bool isDtors);
+  void setupStaticCtorsDtors(bool isDtors);
+  void setupMain(Function *Fn,
+		 const std::vector<std::string> &argv,
+		 const char * const * envp);
+
   void run();                // Execute instructions until nothing left to do
 
-  /* Pers: Run the specified recovery routine */
-  void runRecoveryRoutine();
+  /* run() wrappers */
+  int runAsMain(const std::string &main);
+  void runRecovery();
 
   // Opcode Implementations
   void visitReturnInst(ReturnInst &I);
@@ -705,6 +711,8 @@ private:  // Helper functions
 		      const std::unique_ptr<EventDeps> &deps);
   void executeFsyncFS(void *inode, Type *intTyp);
 
+  void setProgramState(ProgramState s) { dynState.programState = s; }
+  void setExecState(ExecutionState s) { dynState.execState = s; }
 
   /* Custom Opcode Implementations */
 #define DECLARE_CUSTOM_OPCODE(_name)						  \
@@ -729,6 +737,7 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(ThreadCreate);
   DECLARE_CUSTOM_OPCODE(ThreadJoin);
   DECLARE_CUSTOM_OPCODE(ThreadExit);
+  DECLARE_CUSTOM_OPCODE(AtExit);
   DECLARE_CUSTOM_OPCODE(MutexInit);
   DECLARE_CUSTOM_OPCODE(MutexLock);
   DECLARE_CUSTOM_OPCODE(MutexUnlock);

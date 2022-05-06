@@ -375,7 +375,6 @@ void GenMCDriver::handleExecutionBeginning()
 
 	/* Then, set up thread prioritization and interpreter's state */
 	prioritizeThreads();
-	getEE()->setProgramState(llvm::ProgramState::Main);
 }
 
 void GenMCDriver::handleExecutionInProgress()
@@ -514,7 +513,6 @@ void GenMCDriver::handleRecoveryStart()
 	EE->createAddRecoveryThread(tid);
 
 	/* Finally, do all necessary preparations in the interpreter */
-	getEE()->setProgramState(llvm::ProgramState::Recovery);
 	getEE()->setupRecoveryRoutine(tid);
 	return;
 }
@@ -736,9 +734,9 @@ void GenMCDriver::explore()
 		EE->reset();
 
 		/* Get main program function and run the program */
-		EE->runStaticConstructorsDestructors(false);
-		EE->runFunctionAsMain(EE->FindFunctionNamed(getConf()->programEntryFun.c_str()), {"prog"}, nullptr);
-		EE->runStaticConstructorsDestructors(true);
+		EE->runAsMain(getConf()->programEntryFun);
+		if (getConf()->persevere)
+			EE->runRecovery();
 
 		auto validExecution = true;
 		do {
