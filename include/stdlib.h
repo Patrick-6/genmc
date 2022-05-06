@@ -10,18 +10,19 @@ extern "C"
 #include <genmc_internal.h>
 
 void exit(int);
-int atexit(void (*func)(void)) { return __VERIFIER_atexit(func); }
+inline int atexit(void (*func)(void)) { return __VERIFIER_atexit(func); }
 
 void abort(void);
 int abs(int);
 int atoi(const char *);
 char *getenv(const char *);
 
-#define free(ptr) __VERIFIER_free(ptr)
-
-#define malloc(size) __VERIFIER_malloc(size)
-
-#define aligned_alloc(align, size) __VERIFIER_malloc_aligned(align, size)
+inline void free(void *ptr) { return __VERIFIER_free(ptr); }
+inline void *malloc(size_t size) { return __VERIFIER_malloc(size); }
+inline void *aligned_alloc(size_t align, size_t size)
+{
+	return __VERIFIER_malloc_aligned(align, size);
+}
 
 #ifdef __cplusplus
 }
