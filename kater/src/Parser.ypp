@@ -105,10 +105,10 @@ reduce_opt: %empty	{ $$ = ""; }
 	;
 
 constraint:
-	  rel "=" rel		{ $$ = EqualityConstraint::create(std::move($1), std::move($3)); }
-	| rel "<=" rel		{ $$ = SubsetConstraint::create(std::move($1), std::move($3)); }
+	  rel "=" rel		{ $$ = EqualityConstraint::createOpt(std::move($1), std::move($3)); }
+	| rel "<=" rel		{ $$ = SubsetConstraint::createOpt(std::move($1), std::move($3)); }
 	| "empty" rel		{ $$ = Constraint::createEmpty(std::move($2)); }
-	| "acyclic" rel		{ $$ = AcyclicConstraint::create(std::move($2)); }
+	| "acyclic" rel		{ $$ = AcyclicConstraint::createOpt(std::move($2)); }
 	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
 	;
 
