@@ -303,7 +303,13 @@ public:
 
 private:
 	void simplify_basic();
+
+	bool joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition);
+
+	void removeRedundantSelfLoops();
+
 	void compactEdges(std::function<bool(const TransLabel &)> isValidTransition);
+
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 

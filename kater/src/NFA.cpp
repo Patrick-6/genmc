@@ -393,9 +393,10 @@ void NFA::scm_reduce ()
 	}
 }
 
-void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition)
+/* Join `[...]` edges with successor edges */
+bool NFA::joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition)
 {
-	/* Join `[...]` edges with successor edges */
+	bool changed = false;
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		std::vector<Transition> toRemove;
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
@@ -416,26 +417,37 @@ void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition
 			}
 			return true;
 		});
+		changed |= !toRemove.empty();
 		removeTransitions(&*s, toRemove.begin(), toRemove.end());
 	});
+	return changed;
+}
 
-	/* Remove redundant self loops */
+void NFA::removeRedundantSelfLoops()
+{
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		std::vector<Transition> toRemove;
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t1){
 			return (t1.dest != &*s &&
 			    std::all_of(s->out_begin(), s->out_end(), [&](const Transition &t2){
 					    return t2.label == t1.label &&
-						    (t2.dest == &*s || std::find(t1.dest->out_begin(),
-										 t1.dest->out_end(), t2) != t1.dest->out_end());
+						    (t2.dest == &*s ||
+						     std::find(t1.dest->out_begin(),
+							       t1.dest->out_end(), t2) != t1.dest->out_end());
 				    }));
 		});
-		std::for_each(toRemove.begin(), toRemove.end(), [&](const Transition &t){
-			removeTransition(&*s, Transition(t.label, &*s));
-		});
+		std::transform(toRemove.begin(), toRemove.end(), toRemove.begin(),
+			       [&](auto &t){ return Transition(t.label, &*s); });
+		removeTransitions(&*s, toRemove.begin(), toRemove.end());
 	});
 }
 
+void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition)
+{
+	while (joinPredicateEdges(isValidTransition))
+		;
+	removeRedundantSelfLoops();
+}
 
 NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 {
