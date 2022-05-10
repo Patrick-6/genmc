@@ -1,17 +1,10 @@
 #include "KatModule.hpp"
 
-void KatModule::registerAssume(UCO c, const yy::location &loc)
+void KatModule::registerAssume(UCO c)
 {
-//	if (auto *empC = dynamic_cast<EmptyConstraint *>(&*c)) {
-//		auto *charRE = dynamic_cast<const CharRE *>(empC->getKid(0));
-//		if (!charRE) {
-//			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
-//				  << *empC->getKid(0) << std::endl;
-//			return;
-//		}
-//		std::cout << "Registering assumption " << *empC->getKid(0) << "." << std::endl;
-//		TransLabel::register_invalid(charRE->getLabel());
-//	}
+	// assert(c->isEmpty() && dynamic_cast<CharRE *>(&*c->getKid(0)));
+	// auto *charRE = dynamic_cast<CharRE *>(&*c->getKid(0));
+	// assumes.push_back(charRE->getLabel());
 }
 
 void KatModule::addConstraint(UCO c, const std::string &s, const yy::location &loc)

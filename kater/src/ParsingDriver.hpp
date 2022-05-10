@@ -56,7 +56,12 @@ public:
 
 	// Handle "assume c" declaration in the input file
 	void registerAssume(UCO c, const yy::location &loc) {
-		module->registerAssume(std::move(c), loc);
+		if (!c->isEmpty() || !dynamic_cast<const CharRE *>(&*c->getKid(0))) {
+			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
+				  << *c->getKid(0) << std::endl;
+			return;
+		}
+		module->registerAssume(std::move(c));
 	}
 
 	// Handle consistency constraint in the input file

@@ -28,6 +28,8 @@ public:
 	using incl_const_iter = std::vector<Inclusion<URE>>::const_iterator;
 	using assr_iter = std::vector<std::pair<UCO, yy::location>>::iterator;
 	using assr_const_iter = std::vector<std::pair<UCO, yy::location>>::const_iterator;
+	using assm_iter = std::vector<TransLabel>::iterator;
+	using assm_const_iter = std::vector<TransLabel>::const_iterator;
 
 	var_iter var_begin() { return variables.begin(); }
 	var_iter var_end() { return variables.end(); }
@@ -54,11 +56,18 @@ public:
 	assr_const_iter assert_begin() const { return asserts.begin(); }
 	assr_const_iter assert_end() const { return asserts.end(); }
 
+	assm_iter assume_begin() { return assumes.begin(); }
+	assm_iter assume_end() { return assumes.end(); }
+	assm_const_iter assume_begin() const { return assumes.begin(); }
+	assm_const_iter assume_end() const { return assumes.end(); }
+
 	size_t getRegisteredNum() const { return variables.size(); }
 
 	size_t getSavedNum() const { return savedVariables.size(); }
 
 	size_t getAssertNum() const { return asserts.size(); }
+
+	size_t getAssumeNum() const { return assumes.size(); }
 
 	size_t getAcyclicNum() const { return acyclicityConstraints.size(); }
 
@@ -89,7 +98,7 @@ public:
 	}
 
 	// Handle "assume c" declaration in the input file
-	void registerAssume(UCO c, const yy::location &loc);
+	void registerAssume(UCO c);
 
 	// Handle consistency constraint in the input file
 	void addConstraint(UCO c, const std::string &s, const yy::location &loc);
@@ -115,6 +124,7 @@ private:
 	SavedVarSet savedVariables;
 
 	std::vector<std::pair<UCO, yy::location>> asserts;
+	std::vector<TransLabel> assumes;
 
 	std::vector<URE>            acyclicityConstraints;
 	std::vector<Inclusion<URE>> inclusionConstraints;
