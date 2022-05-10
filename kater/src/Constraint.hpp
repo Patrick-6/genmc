@@ -21,6 +21,8 @@ public:
 
 	static std::unique_ptr<Constraint> createEmpty(std::unique_ptr<RegExp> e);
 
+	bool isEmpty() const;
+
 	/* Returns the constraint type */
 	Type getType() const { return type; }
 

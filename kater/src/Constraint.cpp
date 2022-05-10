@@ -5,6 +5,13 @@ std::unique_ptr<Constraint> Constraint::createEmpty(std::unique_ptr<RegExp> re)
 	return SubsetConstraint::createOpt(std::move(re), RegExp::createFalse());
 }
 
+bool Constraint::isEmpty() const
+{
+	auto *sc = dynamic_cast<const SubsetConstraint *>(this);
+	auto *ec = dynamic_cast<const EqualityConstraint *>(this);
+	return (sc || ec) && getNumKids() == 2 && getKid(1)->isFalse();
+}
+
 std::unique_ptr<Constraint>
 SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 			    std::unique_ptr<RegExp> rhs)
