@@ -92,8 +92,6 @@ private:
 	bool visitAcyclic7(const Event &e);
 	bool visitAcyclic8(const Event &e);
 	bool visitAcyclic9(const Event &e);
-	bool visitAcyclic10(const Event &e);
-	bool visitAcyclic11(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
@@ -107,8 +105,6 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic7;
 	std::vector<NodeCountStatus> visitedAcyclic8;
 	std::vector<NodeCountStatus> visitedAcyclic9;
-	std::vector<NodeCountStatus> visitedAcyclic10;
-	std::vector<NodeCountStatus> visitedAcyclic11;
 
 	unsigned visitedAccepting = 0;
 	std::vector<VSet<Event>> saved;

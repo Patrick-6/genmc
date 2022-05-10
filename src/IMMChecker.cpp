@@ -433,13 +433,6 @@ bool IMMChecker::visitAcyclic0(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (true && lab->isSC() && llvm::isa<FenceLabel>(lab))for (auto &p : maximals(lab->view(0))) {
 		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
@@ -894,77 +887,6 @@ bool IMMChecker::visitAcyclic9(const Event &e)
 	return true;
 }
 
-bool IMMChecker::visitAcyclic10(const Event &e)
-{
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-	auto t = 0u;
-
-	visitedAcyclic10[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : maximals(lab->view(0))) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	visitedAcyclic10[lab->getStamp()] = { visitedAccepting, NodeStatus::left };
-	return true;
-}
-
-bool IMMChecker::visitAcyclic11(const Event &e)
-{
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-	auto t = 0u;
-
-	visitedAcyclic11[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : lab->calculated(0)) {
-		auto &node = visitedAcyclic10[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic10(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : lab->calculated(0)) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	visitedAcyclic11[lab->getStamp()] = { visitedAccepting, NodeStatus::left };
-	return true;
-}
-
 bool IMMChecker::isAcyclic(const Event &e)
 {
 	visitedAccepting = 0;
@@ -988,10 +910,6 @@ bool IMMChecker::isAcyclic(const Event &e)
 	visitedAcyclic8.resize(g.getMaxStamp() + 1);
 	visitedAcyclic9.clear();
 	visitedAcyclic9.resize(g.getMaxStamp() + 1);
-	visitedAcyclic10.clear();
-	visitedAcyclic10.resize(g.getMaxStamp() + 1);
-	visitedAcyclic11.clear();
-	visitedAcyclic11.resize(g.getMaxStamp() + 1);
 	return true
 		&& visitAcyclic0(e)
 		&& visitAcyclic1(e)
@@ -1002,9 +920,7 @@ bool IMMChecker::isAcyclic(const Event &e)
 		&& visitAcyclic6(e)
 		&& visitAcyclic7(e)
 		&& visitAcyclic8(e)
-		&& visitAcyclic9(e)
-		&& visitAcyclic10(e)
-		&& visitAcyclic11(e);
+		&& visitAcyclic9(e);
 }
 
 bool IMMChecker::isConsistent(const Event &e)
