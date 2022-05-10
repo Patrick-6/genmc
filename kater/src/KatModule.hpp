@@ -73,6 +73,26 @@ public:
 
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
 
+	bool isAssumedEmpty(const TransLabel &lab) const {
+		if (std::find(assume_begin(), assume_end(), lab) != assume_end())
+			return true;
+		return std::any_of(assume_begin(), assume_end(), [&lab](auto &invalid){
+			 if (lab.getId() != invalid.getId())
+				 return false;
+			 if (std::any_of(invalid.pre_begin(), invalid.pre_end(), [&](auto &c) {
+						return std::find(lab.pre_begin(), lab.pre_end(), c) ==
+							lab.pre_end();
+					}))
+				 return false;
+			 if (std::any_of(invalid.post_begin(), invalid.post_end(), [&](auto &c){
+						return std::find(lab.post_begin(), lab.post_end(), c) ==
+							lab.post_end();
+					}))
+				 return false;
+			 return true;
+			});
+	}
+
 	void registerID(std::string id, URE re) {
 		variables.insert({id, std::move(re)});
 	}

@@ -285,7 +285,8 @@ public:
 	NFA &star();
 	NFA &plus();
 
-	NFA &simplify();
+	NFA &simplify(std::function<bool(const TransLabel &)> isValidTransition =
+		      [](const TransLabel &lab){ return true; });
 	NFA &reduce(ReductionType t);
 
 	bool acceptsEmptyString() const;
@@ -302,7 +303,7 @@ public:
 
 private:
 	void simplify_basic();
-	void compactEdges();
+	void compactEdges(std::function<bool(const TransLabel &)> isValidTransition);
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 

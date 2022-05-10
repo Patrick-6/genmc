@@ -393,7 +393,7 @@ void NFA::scm_reduce ()
 	}
 }
 
-void NFA::compactEdges()
+void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition)
 {
 	/* Join `[...]` edges with successor edges */
 	std::for_each(states_begin(), states_end(), [&](auto &s){
@@ -410,7 +410,7 @@ void NFA::compactEdges()
 			if (t.dest != &*s) {
 				std::for_each(t.dest->out_begin(), t.dest->out_end(), [&](const Transition &q){
 					auto l = t.label;
-					if (l.merge(q.label))
+					if (l.merge(q.label, isValidTransition))
 						addTransition(&*s, Transition(l, q.dest));
 				});
 			}
@@ -437,7 +437,7 @@ void NFA::compactEdges()
 }
 
 
-NFA &NFA::simplify ()
+NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 {
 	simplify_basic();
 	KATER_DEBUG(std::cout << "After basic simplification: " << *this;);
@@ -447,9 +447,9 @@ NFA &NFA::simplify ()
 	scm_reduce();
 	flip();
 	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
-	compactEdges();
+	compactEdges(isValidTransition);
 	flip();
-	compactEdges();
+	compactEdges(isValidTransition);
 	flip();
 	KATER_DEBUG(std::cout << "After edge compaction: " << *this;);
 	scm_reduce();

@@ -52,6 +52,8 @@ void Kater::generateNFAs()
 	auto &module = getModule();
 	auto &cnfas = getCNFAs();
 
+	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
+
 	auto i = 0u;
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &v){
 		NFA n = v.exp->toNFA();
@@ -62,10 +64,10 @@ void Kater::generateNFAs()
 					  << *v.exp << std::endl;
 
 			assert(v.red);
-			n.simplify().reduce(v.redT);
+			n.simplify(isValidLabel).reduce(v.redT);
 
 			NFA rn = v.red->toNFA();
-			rn.star().simplify().seq(std::move(n)).simplify();
+			rn.star().simplify(isValidLabel).seq(std::move(n)).simplify(isValidLabel);
 
 			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for reduce[" << i << "]: " << rn << std::endl;
@@ -73,7 +75,7 @@ void Kater::generateNFAs()
 		} else if (v.status == VarStatus::View) {
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for view[" << i << "] = " << *v.exp << std::endl;
-			n.simplify();
+			n.simplify(isValidLabel);
 
 			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for view[" << i << "]: " << n << std::endl;
@@ -82,7 +84,7 @@ void Kater::generateNFAs()
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for save[" << i << "] = "
 					  << *v.exp << std::endl;
-			n.simplify();
+			n.simplify(isValidLabel);
 			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for save[" << i << "]: " << n << std::endl;
 			cnfas.addSaved(std::move(n));
@@ -101,7 +103,7 @@ void Kater::generateNFAs()
 		if (getConf().verbose >= 4)
 			std::cout << "Non-simplified NFA: " << n << std::endl;
 		// Simplify the NFA
-		n.simplify();
+		n.simplify(isValidLabel);
 		if (getConf().verbose >= 3 && module.getAcyclicNum() > 1)
 			std::cout << "Generated NFA: " << n << std::endl;
 		cnfas.addAcyclic(std::move(n));

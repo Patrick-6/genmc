@@ -2,6 +2,7 @@
 #define __TRANS_LABEL_HPP__
 
 #include <cassert>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -106,7 +107,8 @@ public:
 	/* Attemps to merge OTHER into THIS and returns whether it
 	 * succeeded.  Two transitions can be merged if at least one
 	 * of them is an epsilon transition */
-	bool merge(const TransLabel &other);
+	bool merge(const TransLabel &other,
+		   std::function<bool(const TransLabel &)> isValid = [](auto &lab){ return true; });
 
 	std::string toString() const;
 

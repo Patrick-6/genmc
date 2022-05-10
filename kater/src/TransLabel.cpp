@@ -141,47 +141,33 @@ static std::ostream &operator<<(std::ostream& ostr, const std::set<T> &s)
 	return ostr;
 }
 
-bool TransLabel::merge(const TransLabel &other)
+bool TransLabel::merge(const TransLabel &other,
+		       std::function<bool(const TransLabel &)> isValid)
 {
-	// TransLabel r;
-	// if (!is_valid() || !other.is_valid())
-	// 	return r;
-
+	if (!isValid(*this) || !isValid(other))
+		return false;
 	if (!isEpsilon() && !other.isEpsilon())
 		return false;
 
 	if (isEpsilon() && checksCompose(getPreChecks(), other.getPreChecks())) {
-		getId() = other.getId();
-		getPreChecks().insert(other.pre_begin(), other.pre_end());
-		simplifyChecks(getPreChecks());
-		assert(getPostChecks().empty());
-		getPostChecks() = other.getPostChecks();
-		return true;
+		/* Do not merge into THIS before ensuring combo is valid */
+		TransLabel t(*this);
+		t.getId() = other.getId();
+		t.getPreChecks().insert(other.pre_begin(), other.pre_end());
+		simplifyChecks(t.getPreChecks());
+		assert(t.getPostChecks().empty());
+		t.getPostChecks() = other.getPostChecks();
+		if (isValid(t))
+			*this = t;
+		return isValid(t);
 	} else if (other.isEpsilon() && checksCompose(getPostChecks(), other.getPreChecks())) {
-		getPostChecks().insert(other.pre_begin(), other.pre_end());
-		return true;
+		TransLabel t(*this);
+		t.getPostChecks().insert(other.pre_begin(), other.pre_end());
+		if (isValid(t))
+			*this = t;
+		return isValid(t);
 	}
 	return false;
-	// if (!r.is_empty_trans()) {
-	// 	for (const auto &i : invalids2) {
-	// 		if (i.trans != r.trans) continue;
-	// 		if (std::any_of(i.pre_checks.begin(), i.pre_checks.end(),
-	// 				[&](const std::string &s) {
-	// 				return r.pre_checks.find(s) == r.pre_checks.end();
-	// 				}))
-	// 			continue;
-	// 		if (std::any_of(i.post_checks.begin(), i.post_checks.end(),
-	// 				[&](const std::string &s) {
-	// 				return r.post_checks.find(s) == r.post_checks.end();
-	// 				}))
-	// 			continue;
-	// 		r.pre_checks.clear();
-	// 		r.trans.clear();
-	// 		r.post_checks.clear();
-	// 		return r;
-	// 	}
-	// }
-	// return r;
 }
 
 std::string TransLabel::toString() const
