@@ -313,6 +313,33 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 	return std::make_pair(std::move(dfa), std::move(dfaToNfaMap));
 }
 
+void NFA::breakIntoMultiple(State *s, const Transition &t)
+{
+	auto *curr = s;
+	if (t.label.pre_begin() != t.label.pre_end()) {
+		TransLabel::PredSet preds(t.label.pre_begin(), t.label.pre_end());
+		auto *p = addTransitionToFresh(s, TransLabel(std::nullopt, preds));
+		curr = p;
+	}
+	if (!t.label.isPredicate()) {
+		auto *r = addTransitionToFresh(s, TransLabel(t.label.getId()));
+		curr = r;
+	}
+	if (t.label.post_begin() != t.label.post_end()) {
+		TransLabel::PredSet preds(t.label.post_begin(), t.label.post_end());
+		addTransition(curr, Transition(TransLabel(std::nullopt, preds), t.dest));
+	}
+	removeTransition(s, t);
+}
+
+void NFA::breakToParts()
+{
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		std::for_each(s->out_begin(), s->out_begin(), [&](auto &t){
+			breakIntoMultiple(&*s, t);
+		});
+	});
+}
 
 // Return the state composition matrix, which is useful for minimizing the
 // states of an NFA.  See Definition 3 of Kameda and Weiner: On the State

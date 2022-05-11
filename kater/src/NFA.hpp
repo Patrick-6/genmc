@@ -442,6 +442,10 @@ public:
 	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
 
 private:
+	void breakIntoMultiple(State *s, const Transition &t);
+
+	void breakToParts();
+
 	void simplify_basic();
 
 	bool joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition);
