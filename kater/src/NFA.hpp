@@ -278,50 +278,6 @@ public:
 
 	bool isAccepting(State *state) const { return state->isAccepting(); }
 
-	NFA &flip();
-	NFA &alt(NFA &&other);
-	NFA &seq(NFA &&other);
-	NFA &or_empty();
-	NFA &star();
-	NFA &plus();
-
-	NFA &simplify(std::function<bool(const TransLabel &)> isValidTransition =
-		      [](const TransLabel &lab){ return true; });
-	NFA &reduce(ReductionType t);
-
-	bool acceptsEmptyString() const;
-	bool acceptsNoString(std::string &cex) const;
-	bool isSubLanguageOfDFA(const NFA &other, std::string &cex) const;
-
-	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
-
-	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
-	template<typename T>
-	friend std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
-	template<typename ITER>
-	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
-
-private:
-	void simplify_basic();
-
-	bool joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition);
-
-	void removeRedundantSelfLoops();
-
-	void compactEdges(std::function<bool(const TransLabel &)> isValidTransition);
-
-	void scm_reduce ();
-	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
-
-	const StateUPVectorT &getStates() const { return nfa; }
-	StateUPVectorT &getStates() { return nfa; }
-
-	const StateVectorT &getAccepting() const { return accepting; }
-	StateVectorT &getAccepting() { return accepting; }
-
-	const StateVectorT &getStarting() const { return starting; }
-	StateVectorT &getStarting() { return starting; }
-
 	/* Creates and adds a new (unreachable) state to the NFA and its inverse.
 	 * Returns the newly added state */
 	State *createState() {
@@ -455,6 +411,50 @@ private:
 	void removeAllTransitions(State *src) {
 		removeTransitionsIf(src, [&](const Transition &t){ return true; });
 	}
+
+	NFA &flip();
+	NFA &alt(NFA &&other);
+	NFA &seq(NFA &&other);
+	NFA &or_empty();
+	NFA &star();
+	NFA &plus();
+
+	NFA &simplify(std::function<bool(const TransLabel &)> isValidTransition =
+		      [](const TransLabel &lab){ return true; });
+	NFA &reduce(ReductionType t);
+
+	bool acceptsEmptyString() const;
+	bool acceptsNoString(std::string &cex) const;
+	bool isSubLanguageOfDFA(const NFA &other, std::string &cex) const;
+
+	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
+
+	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
+	template<typename T>
+	friend std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);
+	template<typename ITER>
+	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
+
+private:
+	void simplify_basic();
+
+	bool joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition);
+
+	void removeRedundantSelfLoops();
+
+	void compactEdges(std::function<bool(const TransLabel &)> isValidTransition);
+
+	void scm_reduce ();
+	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
+
+	const StateUPVectorT &getStates() const { return nfa; }
+	StateUPVectorT &getStates() { return nfa; }
+
+	const StateVectorT &getAccepting() const { return accepting; }
+	StateVectorT &getAccepting() { return accepting; }
+
+	const StateVectorT &getStarting() const { return starting; }
+	StateVectorT &getStarting() { return starting; }
 
 	StateUPVectorT nfa;
 	StateVectorT starting;
