@@ -58,7 +58,7 @@ SeqRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 	for (auto it = r.begin(); it != r.end() && it+1 != r.end(); /* */) {
 		auto *p = dynamic_cast<CharRE *>(it->get());
 		auto *q = dynamic_cast<CharRE *>((it+1)->get());
-		if (p && q && (p->getLabel().isEpsilon() || q->getLabel().isEpsilon())) {
+		if (p && q && (p->getLabel().isPredicate() || q->getLabel().isPredicate())) {
 			if (!p->getLabel().merge(q->getLabel()))
 				return RegExp::createFalse();
 			it = r.erase(it + 1);

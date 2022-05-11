@@ -146,10 +146,10 @@ bool TransLabel::merge(const TransLabel &other,
 {
 	if (!isValid(*this) || !isValid(other))
 		return false;
-	if (!isEpsilon() && !other.isEpsilon())
+	if (!isPredicate() && !other.isPredicate())
 		return false;
 
-	if (isEpsilon() && checksCompose(getPreChecks(), other.getPreChecks())) {
+	if (isPredicate() && checksCompose(getPreChecks(), other.getPreChecks())) {
 		/* Do not merge into THIS before ensuring combo is valid */
 		TransLabel t(*this);
 		t.getId() = other.getId();
@@ -160,7 +160,7 @@ bool TransLabel::merge(const TransLabel &other,
 		if (isValid(t))
 			*this = t;
 		return isValid(t);
-	} else if (other.isEpsilon() && checksCompose(getPostChecks(), other.getPreChecks())) {
+	} else if (other.isPredicate() && checksCompose(getPostChecks(), other.getPreChecks())) {
 		TransLabel t(*this);
 		t.getPostChecks().insert(other.pre_begin(), other.pre_end());
 		if (isValid(t))
@@ -176,10 +176,10 @@ std::string TransLabel::toString() const
 
 	if (pre_begin() != pre_end()) {
 		ss << "[" << getPreChecks() << "]";
-		if (!isEpsilon())
+		if (!isPredicate())
 			ss << ";";
 	}
-	if (!isEpsilon()) {
+	if (!isPredicate()) {
 		ss << (isBuiltin() ? builtinRelations[*getId()].name : ("$" + std::to_string(getCalcIndex())));
 		if (isFlipped())
 			ss << "^-1";

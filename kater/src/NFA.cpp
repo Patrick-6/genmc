@@ -400,7 +400,7 @@ bool NFA::joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTran
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		std::vector<Transition> toRemove;
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t){
-			if (!t.label.isEpsilon())
+			if (!t.label.isPredicate())
 				return false;
 			if (isAccepting(t.dest) && t.dest != &*s)
 				return false;

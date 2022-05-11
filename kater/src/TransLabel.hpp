@@ -88,7 +88,7 @@ public:
 	const std::optional<RelID> &getId() const { return id; }
 	std::optional<RelID> &getId() { return id; }
 
-	bool isEpsilon() const { return !getId(); }
+	bool isPredicate() const { return !getId(); }
 
 	bool isBuiltin() const { return getId().value_or(42) >= 0; }
 
@@ -99,7 +99,7 @@ public:
 	void flip() {
 		flipped = !flipped;
 		/* Do not flip ε transitions; maintain unique representation */
-		if (isEpsilon())
+		if (isPredicate())
 			return;
 		std::swap(getPreChecks(), getPostChecks());
 	}

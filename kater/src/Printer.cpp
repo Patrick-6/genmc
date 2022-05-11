@@ -79,7 +79,7 @@ void printPreds(std::ostream &ostr, const std::string &arg, ITER &&begin, ITER &
 void Printer::printLabelRel(std::ostream& ostr, const std::string &res,
 			    const std::string &arg, const TransLabel *r)
 {
-	if (r->isEpsilon()) {
+	if (r->isPredicate()) {
 		ostr << "if (auto " << res << " = " << arg << "->getPos(); true)";
 		return;
 	}
