@@ -426,6 +426,10 @@ private:
 		addTransition(src, Transition(lab, src));
 	}
 
+	void addEpsilonTransition(State *src, State *dst) {
+		addTransitions(src, dst->out_begin(), dst->out_end());
+	}
+
 	/* Removes a transition T from S and updates the inverse */
 	void removeTransition(State *src, const Transition &t) {
 		src->removeOutgoing(t);
