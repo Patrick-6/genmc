@@ -422,6 +422,10 @@ private:
 		});
 	}
 
+	void addSelfTransition(State *src, const TransLabel &lab) {
+		addTransition(src, Transition(lab, src));
+	}
+
 	/* Removes a transition T from S and updates the inverse */
 	void removeTransition(State *src, const Transition &t) {
 		src->removeOutgoing(t);
