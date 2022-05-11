@@ -386,6 +386,12 @@ public:
 		addTransitions(src, dst->out_begin(), dst->out_end());
 	}
 
+	State *addTransitionToFresh(State *src, const TransLabel &lab) {
+		auto *dst = createState();
+		addTransition(src, Transition(lab, dst));
+		return dst;
+	}
+
 	/* Removes a transition T from S and updates the inverse */
 	void removeTransition(State *src, const Transition &t) {
 		src->removeOutgoing(t);
