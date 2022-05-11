@@ -17,5 +17,6 @@ if kater
 	ParsingDriver.cpp \
 	Printer.cpp \
 	RegExp.cpp \
+	Saturation.cpp \
 	TransLabel.cpp
 endif
