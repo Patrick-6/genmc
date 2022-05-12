@@ -90,6 +90,10 @@ public:
 
 	bool isPredicate() const { return !getId(); }
 
+	bool hasPreChecks() const { return pre_begin() != pre_end(); }
+
+	bool hasPostChecks() const { return post_begin() != post_end(); }
+
 	bool isBuiltin() const { return getId().value_or(42) >= 0; }
 
 	int getCalcIndex() const { assert(!isBuiltin()); return -(*getId() + 1); }
