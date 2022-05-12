@@ -215,7 +215,7 @@ NFA &NFA::seq(NFA &&other)
 	/* Add transitions `this->accepting --> other.starting.outgoing` */
 	std::for_each(accept_begin(), accept_end(), [&](auto &a){
 		std::for_each(other.start_begin(), other.start_end(), [&](auto &s){
-			addEpsilonTransition(a, s);
+			addTransitions(a, s->out_begin(), s->out_end());
 		});
 	});
 
@@ -237,7 +237,7 @@ NFA &NFA::plus()
 	/* Add transitions `this->accepting --> other.starting.outgoing` */
 	std::for_each(accept_begin(), accept_end(), [&](auto &a){
 		std::for_each(start_begin(), start_end(), [&](auto &s){
-			addEpsilonTransition(a, s);
+			addTransitions(a, s->out_begin(), s->out_end());
 		});
 	});
 	return *this;

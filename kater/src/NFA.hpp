@@ -384,6 +384,10 @@ public:
 
 	void addEpsilonTransition(State *src, State *dst) {
 		addTransitions(src, dst->out_begin(), dst->out_end());
+		if (isAccepting(dst))
+			makeAccepting(src);
+		if (isStarting(src))
+			makeStarting(dst);
 	}
 
 	State *addTransitionToFresh(State *src, const TransLabel &lab) {
