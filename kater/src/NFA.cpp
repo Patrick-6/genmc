@@ -316,7 +316,7 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 void NFA::breakIntoMultiple(State *s, const Transition &t)
 {
 	auto *curr = s;
-	if (t.label.pre_begin() != t.label.pre_end()) {
+	if (t.label.hasPreChecks()) {
 		TransLabel::PredSet preds(t.label.pre_begin(), t.label.pre_end());
 		auto *p = addTransitionToFresh(s, TransLabel(std::nullopt, preds));
 		curr = p;
@@ -325,20 +325,30 @@ void NFA::breakIntoMultiple(State *s, const Transition &t)
 		auto *r = addTransitionToFresh(s, TransLabel(t.label.getId()));
 		curr = r;
 	}
-	if (t.label.post_begin() != t.label.post_end()) {
+	if (t.label.hasPostChecks()) {
 		TransLabel::PredSet preds(t.label.post_begin(), t.label.post_end());
 		addTransition(curr, Transition(TransLabel(std::nullopt, preds), t.dest));
 	}
-	removeTransition(s, t);
 }
 
-void NFA::breakToParts()
+NFA &NFA::breakToParts()
 {
+	std::vector<std::pair<State *, Transition>> toBreak;
 	std::for_each(states_begin(), states_end(), [&](auto &s){
-		std::for_each(s->out_begin(), s->out_begin(), [&](auto &t){
-			breakIntoMultiple(&*s, t);
+		std::vector<Transition> toRemove;
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (!t.label.isPredicate() && (t.label.hasPreChecks() ||
+						       t.label.hasPostChecks())) {
+				toBreak.push_back({&*s, t});
+				toRemove.push_back(t);
+			}
 		});
+		removeTransitions(&*s, toRemove.begin(), toRemove.end());
 	});
+	std::for_each(toBreak.begin(), toBreak.end(), [&](auto &p){
+		breakIntoMultiple(p.first, p.second);
+	});
+	return *this;
 }
 
 // Return the state composition matrix, which is useful for minimizing the

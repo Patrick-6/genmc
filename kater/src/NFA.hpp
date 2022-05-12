@@ -433,6 +433,8 @@ public:
 		      [](const TransLabel &lab){ return true; });
 	NFA &reduce(ReductionType t);
 
+	NFA &breakToParts();
+
 	bool acceptsEmptyString() const;
 	bool acceptsNoString(std::string &cex) const;
 	bool isSubLanguageOfDFA(const NFA &other, std::string &cex) const;
@@ -446,9 +448,8 @@ public:
 	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
 
 private:
-	void breakIntoMultiple(State *s, const Transition &t);
 
-	void breakToParts();
+	void breakIntoMultiple(State *s, const Transition &t);
 
 	void simplify_basic();
 
