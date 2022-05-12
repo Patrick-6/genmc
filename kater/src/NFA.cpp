@@ -489,25 +489,18 @@ void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition
 NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 {
 	simplify_basic();
-	KATER_DEBUG(std::cout << "After basic simplification: " << *this;);
-	scm_reduce();
+	KATER_DEBUG(std::cout << "After first simplification: " << *this;);
+
+	applyBidirectionally([&](){ scm_reduce(); });
 	KATER_DEBUG(std::cout << "After 1st SCM reduction: " << *this;);
-	flip();
-	scm_reduce();
-	flip();
-	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
-	compactEdges(isValidTransition);
-	flip();
-	compactEdges(isValidTransition);
-	flip();
+
+	applyBidirectionally([&](){ compactEdges(isValidTransition); });
 	KATER_DEBUG(std::cout << "After edge compaction: " << *this;);
-	scm_reduce();
-	KATER_DEBUG(std::cout << "After 3rd SCM reduction: " << *this;);
-	flip();
-	scm_reduce();
-	KATER_DEBUG(std::cout << "Flipped: " << *this;);
-	flip();
-	KATER_DEBUG(std::cout << "After 4th SCM reduction: " << *this;);
+
+	applyBidirectionally([&](){ scm_reduce(); });
+	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
+
+	KATER_DEBUG(std::cout << "After last simplification: " << *this;);
 	simplify_basic();
 	return *this;
 }

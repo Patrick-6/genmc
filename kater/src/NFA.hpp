@@ -448,6 +448,13 @@ public:
 	friend std::unordered_map<NFA::State *, unsigned> assignStateIDs(ITER &&begin, ITER &&end);
 
 private:
+	template<typename F>
+	void applyBidirectionally(F &&fun) {
+		fun();
+		flip();
+		fun();
+		flip();
+	}
 
 	void breakIntoMultiple(State *s, const Transition &t);
 
