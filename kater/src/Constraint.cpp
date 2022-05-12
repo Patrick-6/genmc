@@ -1,4 +1,5 @@
 #include "Constraint.hpp"
+#include "Saturation.hpp"
 
 std::unique_ptr<Constraint> Constraint::createEmpty(std::unique_ptr<RegExp> re)
 {
@@ -25,11 +26,30 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
+void saturateNFA(NFA &nfa)
+{
+	auto i = 0; // FIXME: Implicit idx-based ID is horrible.
+	std::for_each(TransLabel::builtin_pred_begin(), TransLabel::builtin_pred_end(), [&](auto &pi){
+		saturateIDs(nfa, TransLabel(std::nullopt, {i++}));
+	});
+}
+
+bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex)
+{
+	auto nfa1 = re1->toNFA();
+	nfa1.breakToParts();
+	auto lhs = nfa1.to_DFA().first;
+
+	auto nfa2 = re2->toNFA();
+	nfa2.breakToParts();
+	saturateNFA(nfa2);
+	auto rhs = nfa2.to_DFA().first;
+	return lhs.isSubLanguageOfDFA(rhs, cex);
+}
+
 bool SubsetConstraint::checkStatically(std::string &cex) const
 {
-	auto lhs = getKid(0)->toNFA().to_DFA().first;
-	auto rhs = getKid(1)->toNFA().to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs, cex);
+	return checkStaticInclusion(getKid(0), getKid(1), cex);
 }
 
 std::unique_ptr<Constraint>
@@ -40,16 +60,13 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 		return Constraint::createEmpty(std::move(rhs));
 	if (rhs->isFalse())
 		return Constraint::createEmpty(std::move(lhs));
-
 	return create(std::move(lhs), std::move(rhs));
 }
 
 bool EqualityConstraint::checkStatically(std::string &cex) const
 {
-	auto lhs = getKid(0)->toNFA().to_DFA().first;
-	auto rhs = getKid(1)->toNFA().to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs, cex) &&
-	       rhs.isSubLanguageOfDFA(lhs, cex);
+	return checkStaticInclusion(getKid(0), getKid(1), cex) &&
+		checkStaticInclusion(getKid(1), getKid(0), cex);
 }
 
 std::unique_ptr<Constraint>
