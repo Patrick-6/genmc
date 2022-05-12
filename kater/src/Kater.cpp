@@ -21,7 +21,7 @@ bool Kater::checkAssertions()
 	auto ppo = module->getRegisteredID("ppo");
 	if (!ppo) {
 		std::cerr << "[Error] No ppo definition provided!\n";
-		exit(EXIT_FAILURE);
+		return false;
 	}
 	auto pporf = PlusRE::createOpt(AltRE::createOpt(std::move(ppo), module->getRegisteredID("rfe")));
 	auto acycDisj = std::accumulate(module->acyc_begin(), module->acyc_end(),
