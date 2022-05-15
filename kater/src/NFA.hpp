@@ -214,6 +214,18 @@ private:
 			});
 		}
 
+		bool hasAllOutPredicates() const {
+			return std::all_of(out_begin(), out_end(), [](auto &t){
+				return t.label.isPredicate();
+			});
+		}
+
+		bool hasAllInPredicates() const {
+			return std::all_of(in_begin(), in_end(), [](auto &t){
+				return t.label.isPredicate();
+			});
+		}
+
 		/* Whether all outgoing transitions are the same as the ones of S */
 		bool outgoingSameAs(State *s) const {
 			return getOutgoing() == s->getOutgoing();
