@@ -134,6 +134,8 @@ private:
 		/* Whether this state has any outgoing transitions */
 		bool hasOutgoing() const { return out_begin() != out_end(); }
 
+		size_t getNumOutgoing() const { return getOutgoing().size(); }
+
 		/* Whether this state has an inverse transition T */
 		bool hasIncoming(const Transition &t) const {
 			return getIncoming().count(t);
@@ -141,6 +143,8 @@ private:
 
 		/* Whether this state has any incoming transitions */
 		bool hasIncoming() const { return in_begin() != in_end(); }
+
+		size_t getNumIncoming() const { return getIncoming().size(); }
 
 		bool hasOutgoingTo(State *s) const {
 			return std::any_of(out_begin(), out_end(), [&](const Transition &t){
