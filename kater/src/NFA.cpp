@@ -458,12 +458,13 @@ NFA &NFA::composePredicateEdges()
 	for (auto it = states_begin(); it != states_end(); ++it) {
 		auto &s = *it;
 
-		if (s->getNumIncoming() == 1 &&
-		    s->hasAllOutPredicates() && s->hasAllInPredicates()) {
-			toRemove.push_back({s->in_begin()->dest, Transition(s->in_begin()->label, &*s)});
-			std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-					toRemove.push_back({&*s, t});
-				});
+		if (!s->hasAllInPredicates())
+			continue;
+
+		if (s->hasAllOutPredicates()) {
+			std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+				toRemove.push_back({t.dest, t.flipTo(&*s)});
+			});
 		}
 
 		for (auto inIt = s->in_begin(); inIt != s->in_end(); ++inIt) {
@@ -474,6 +475,8 @@ NFA &NFA::composePredicateEdges()
 				auto l = inIt->label; // no need to flip
 				if (l.merge(outIt->label))
 					addTransition(inIt->dest, Transition(l, outIt->dest));
+
+				toRemove.push_back({&*s, *outIt});
 			}
 		}
 	}
