@@ -451,6 +451,8 @@ public:
 
 	NFA &removeDeadStates();
 
+	NFA &composePredicateEdges();
+
 	NFA &breakToParts();
 
 	bool acceptsEmptyString() const;

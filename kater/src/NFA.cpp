@@ -451,6 +451,38 @@ void NFA::scm_reduce ()
 	}
 }
 
+NFA &NFA::composePredicateEdges()
+{
+	std::vector<std::pair<State *, Transition>> toRemove;
+
+	for (auto it = states_begin(); it != states_end(); ++it) {
+		auto &s = *it;
+
+		if (s->getNumIncoming() == 1 &&
+		    s->hasAllOutPredicates() && s->hasAllInPredicates()) {
+			toRemove.push_back({s->in_begin()->dest, Transition(s->in_begin()->label, &*s)});
+			std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+					toRemove.push_back({&*s, t});
+				});
+		}
+
+		for (auto inIt = s->in_begin(); inIt != s->in_end(); ++inIt) {
+			for (auto outIt = s->out_begin(); outIt != s->out_end(); ++outIt) {
+				if (!inIt->label.isPredicate() || !outIt->label.isPredicate())
+					continue;
+
+				auto l = inIt->label; // no need to flip
+				if (l.merge(outIt->label))
+					addTransition(inIt->dest, Transition(l, outIt->dest));
+			}
+		}
+	}
+	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
+		removeTransition(p.first, p.second);
+	});
+	return *this;
+}
+
 /* Join `[...]` edges with successor edges */
 bool NFA::joinPredicateEdges(std::function<bool(const TransLabel &)> isValidTransition)
 {
