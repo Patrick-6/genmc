@@ -101,10 +101,12 @@ public:
 	bool isFlipped() const { return flipped; }
 
 	void flip() {
-		flipped = !flipped;
 		/* Do not flip ε transitions; maintain unique representation */
-		if (isPredicate())
+		if (isPredicate()) {
+			assert(!hasPostChecks());
 			return;
+		}
+		flipped = !flipped;
 		std::swap(getPreChecks(), getPostChecks());
 	}
 
