@@ -518,6 +518,55 @@ NFA &NFA::reduce(ReductionType t)
 	return *this;
 }
 
+std::unordered_set<NFA::State *>
+NFA::calculateUsefulStates()
+{
+	flip();
+
+	std::unordered_set<State *> visited;
+	std::vector<State *> workList;
+
+	for (auto it = start_begin(); it != start_end(); it++) {
+		visited.insert(*it);
+		workList.push_back(*it);
+	}
+	while (!workList.empty()) {
+		auto *s = workList.back();
+		workList.pop_back();
+		for (auto it = s->out_begin(); it != s->out_end(); it++) {
+			if (visited.count(it->dest))
+				continue;
+			visited.insert(it->dest);
+			workList.push_back(it->dest);
+		}
+	}
+
+	flip();
+	return visited;
+}
+
+void NFA::removeDeadStatesDFS()
+{
+	auto useful = calculateUsefulStates();
+
+	std::vector<State *> toRemove;
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		if (!useful.count(&*s))
+			toRemove.push_back(&*s);
+	});
+	removeStates(toRemove.begin(), toRemove.end());
+
+	if (getNumStarting() == 0)
+		createStarting();
+	return;
+}
+
+NFA &NFA::removeDeadStates()
+{
+	applyBidirectionally([this](){ removeDeadStatesDFS(); });
+	return *this;
+}
+
 template<typename T>
 std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s)
 {

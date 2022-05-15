@@ -437,6 +437,8 @@ public:
 		      [](const TransLabel &lab){ return true; });
 	NFA &reduce(ReductionType t);
 
+	NFA &removeDeadStates();
+
 	NFA &breakToParts();
 
 	bool acceptsEmptyString() const;
@@ -469,6 +471,10 @@ private:
 	void removeRedundantSelfLoops();
 
 	void compactEdges(std::function<bool(const TransLabel &)> isValidTransition);
+
+	void removeDeadStatesDFS();
+
+	std::unordered_set<State *> calculateUsefulStates();
 
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
