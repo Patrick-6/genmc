@@ -160,7 +160,8 @@ bool TransLabel::merge(const TransLabel &other,
 		if (isValid(t))
 			*this = t;
 		return isValid(t);
-	} else if (other.isPredicate() && checksCompose(getPostChecks(), other.getPreChecks())) {
+	} else if (!isPredicate() && other.isPredicate() &&
+		   checksCompose(getPostChecks(), other.getPreChecks())) {
 		TransLabel t(*this);
 		t.getPostChecks().insert(other.pre_begin(), other.pre_end());
 		if (isValid(t))
