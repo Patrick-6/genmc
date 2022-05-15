@@ -126,6 +126,20 @@ bool NFA::acceptsNoString(std::string &cex) const
 	return true;
 }
 
+template<typename ITER>
+bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
+{
+	unsigned mask1 = ~0;
+	std::for_each(b1, e1, [&mask1](auto &id){
+		mask1 &= builtinPredicates[id].bitmask;
+	});
+	unsigned mask2 = ~0;
+	std::for_each(b2, e2, [&mask2](auto &id){
+		mask2 &= builtinPredicates[id].bitmask;
+	});
+	return (mask1 | mask2) == mask1;
+}
+
 bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 {
 	KATER_DEBUG(
@@ -179,9 +193,16 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 			new_str += it->label.toString();
 			bool found_edge = false;
 			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
-				if (it->label != oit->label) continue;
+				if (it->label != oit->label && !(it->label.isPredicate() &&
+								 oit->label.isPredicate() &&
+								 checksInclude(oit->label.pre_begin(),
+									       oit->label.pre_end(),
+									       it->label.pre_begin(),
+									       it->label.pre_end())))
+					continue;
 				found_edge = true;
-				if (visited.count({it->dest, oit->dest})) continue;
+				if (visited.count({it->dest, oit->dest}))
+					continue;
 				visited.insert({it->dest, oit->dest});
 				workList.push_back({{it->dest, oit->dest}, new_str});
 			}
