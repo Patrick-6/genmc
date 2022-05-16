@@ -54,3 +54,31 @@ void saturateTotal(NFA &nfa, const TransLabel &lab)
 		});
 	});
 }
+
+void saturateRotate(NFA &nfa)
+{
+	NFA result;
+
+	for (auto it = nfa.states_begin(); it != nfa.states_end(); ++it) {
+		auto &s = *it;
+		if (nfa.isStarting(&*s) ||
+		    (nfa.isAccepting(&*s) && s->getNumOutgoing()))
+		    continue;
+
+		std::unordered_map<NFA::State *, NFA::State *> m1, m2;
+
+		auto rot1 = nfa.copy(&m1);
+		auto rot2 = nfa.copy(&m2);
+
+		rot1.clearStarting();
+		rot1.makeStarting(m1[&*s]);
+
+		rot2.clearAccepting();
+		rot2.makeAccepting(m2[&*s]);
+
+		rot1.seq(std::move(rot2));
+		result.alt(std::move(rot1));
+	}
+	nfa.alt(std::move(result));
+	nfa.removeDeadStates();
+}

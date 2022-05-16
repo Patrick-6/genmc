@@ -19,4 +19,9 @@ void saturateEmpty(NFA &nfa, NFA &&empty);
  */
 void saturateTotal(NFA &nfa, const TransLabel &lab);
 
+/*
+ * Saturates the NFA by rotating it.
+ */
+void saturateRotate(NFA &nfa);
+
 #endif /* __SATURATION_HPP__ */
