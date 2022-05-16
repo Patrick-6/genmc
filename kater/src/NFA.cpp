@@ -6,6 +6,14 @@
 
 #define DEBUG_TYPE "nfa"
 
+NFA::NFA(const TransLabel &c) : NFA()
+{
+	auto *init = createStarting();
+	auto *fnal = createAccepting();
+	addTransition(init, Transition(c, fnal));
+	return;
+}
+
 static bool is_subset (const std::vector<char> &a, const std::vector<char> &b)
 {
 	for (int k = 0; k < a.size(); ++k)
@@ -213,14 +221,6 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 		}
 	}
 	return true;
-}
-
-NFA::NFA(const TransLabel &c) : NFA()
-{
-	auto *init = createStarting();
-	auto *fnal = createAccepting();
-	addTransition(init, Transition(c, fnal));
-	return;
 }
 
 NFA &NFA::alt(NFA &&other)
