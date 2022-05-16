@@ -17,7 +17,7 @@ class NFA {
 public:
 	enum class ReductionType { Po, Self };
 
-private:
+public:
 	class State;
 
 	/* There are no heterogenous lookups before C++20,
@@ -53,6 +53,11 @@ private:
 		Transition() = delete;
 		Transition(const TransLabel &lab, State *dest)
 			: label(lab), dest(dest) {}
+
+		Transition copyTo(State *s) const {
+			auto l = label;
+			return Transition(l, s);
+		}
 
 		/* Returns a transition with the label flipped,
 		 * and the destination changed to DEST */
