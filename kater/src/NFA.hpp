@@ -466,6 +466,8 @@ public:
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 
+	NFA copy(std::unordered_map<State *, State *> *mapping = nullptr) const;
+
 	friend std::ostream& operator<< (std::ostream& ostr, const NFA& nfa);
 	template<typename T>
 	friend std::ostream & operator<< (std::ostream& ostr, const std::set<T> &s);

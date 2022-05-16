@@ -334,6 +334,30 @@ std::pair<NFA, std::map<NFA::State *, std::set<NFA::State *>>> NFA::to_DFA() con
 	return std::make_pair(std::move(dfa), std::move(dfaToNfaMap));
 }
 
+NFA NFA::copy(std::unordered_map<State *, State *> *uMap /* = nullptr */) const
+{
+	NFA result;
+	std::unordered_map<State *, State *> mapping;
+
+	std::for_each(states_begin(), states_end(), [&](auto &s1){
+		auto *s2 = result.createState();
+		mapping[&*s1] = s2;
+		if (s1->isStarting())
+			result.makeStarting(s2);
+		if (s1->isAccepting())
+			result.makeAccepting(s2);
+	});
+
+	std::for_each(states_begin(), states_end(), [&](auto &s1){
+		std::for_each(s1->out_begin(), s1->out_end(), [&](auto &t){
+			result.addTransition(mapping[&*s1], t.copyTo(mapping[t.dest]));
+		});
+	});
+	if (uMap)
+		*uMap = std::move(mapping);
+	return result;
+}
+
 void NFA::breakIntoMultiple(State *s, const Transition &t)
 {
 	auto *curr = s;
