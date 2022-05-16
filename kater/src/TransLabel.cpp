@@ -16,34 +16,39 @@ int TransLabel::calcNum = 0;
 	| UW, W\UW, UR, R\UR
 	| RfInit, !RfInit
 	| static-loc, dynamic-loc
-	| hpProtected, !hpProtected */
-static const unsigned other_event_bitmask =  0b1'00000'0000000'0000'00'00'00;
+	| hpProtected, !hpProtected
+ 	| REC, !REC
+	| D, !D */
+static const unsigned other_event_bitmask =  0b1'00000'0000000'0000'00'00'00'00'00;
+static const unsigned track_event_bitmask =  0b0'00000'1111111'1111'00'00'00'00'00;
 
 const std::vector<PredicateInfo> builtinPredicates = {
 	/* Access modes */
-	{"NA",             0b0'00001'0000000'1111'11'11'11, "#->isNotAtomic()"},
-	{"ACQ",            0b0'11010'0000011'1111'11'11'11, "#->isAtLeastAcquire()"},
-	{"REL",            0b0'11100'0000011'1111'11'11'11, "#->isAtLeastRelease()"},
-	{"SC",             0b0'10000'0000011'1111'11'11'11, "#->isSC()"},
+	{"NA",             0b0'00001'0000000'1111'11'11'11'11'11, "#->isNotAtomic()"},
+	{"ACQ",            0b0'11010'0000011'1111'11'11'11'11'11, "#->isAtLeastAcquire()"},
+	{"REL",            0b0'11100'0000011'1111'11'11'11'11'11, "#->isAtLeastRelease()"},
+	{"SC",             0b0'10000'0000011'1111'11'11'11'11'11, "#->isSC()"},
 	/* Random stuff */
-	{"IsDynamicLoc",   0b0'11111'0000000'1111'11'01'11, "g.is_dynamic_loc(#)"},
-	{"NotHpProtected", 0b0'11111'0000000'1111'11'11'01, "g.notHpProtected(#)"},
-	{"RfInit",         0b0'11111'0000000'0011'10'11'11, "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
+	{"IsDynamicLoc",   0b0'11111'0000000'1111'11'01'11'11'11, "g.is_dynamic_loc(#)"},
+	{"NotHpProtected", 0b0'11111'0000000'1111'11'11'01'11'11, "g.notHpProtected(#)"},
+	{"RfInit",         0b0'11111'0000000'0011'10'11'11'11'11, "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
+	{"REC",            0b0'11111'0000000'0011'11'11'11'10'11, "#->getThread() == g.getRecoveryRoutineId()"},
+	{"D",              0b0'11111'0000000'1111'11'11'11'11'10, "llvm::isa<MemAccessLabel>(#) && llvm::dyn_cast<MemAccessLabel>(#)->getAddr().isDurable()"},
 	/* Memory accesses */
-	{"MemAccess",      0b0'11111'0000000'1111'11'11'11, "llvm::isa<MemAccessLabel>(#)"},
-	{"W",              0b0'11111'0000000'1100'00'11'11, "llvm::isa<WriteLabel>(#)"},
-	{"UW",             0b0'11111'0000000'1000'00'11'11, "g.isRMWStore(#)"},
-	{"R",              0b0'11111'0000000'0011'11'11'11, "llvm::isa<ReadLabel>(#)"},
-	{"UR",             0b0'11111'0000000'0010'11'11'11, "g.isRMWLoad(#)"},
-//	{"HelpingCas",     0b0'11111'0000000'0000'11'11'11, "llvm::isa<HelpingCasLabel>(#)"},
+	{"MemAccess",      0b0'11111'0000000'1111'11'11'11'11'11, "llvm::isa<MemAccessLabel>(#)"},
+	{"W",              0b0'11111'0000000'1100'00'11'11'01'11, "llvm::isa<WriteLabel>(#)"},
+	{"UW",             0b0'11111'0000000'1000'00'11'11'01'11, "g.isRMWStore(#)"},
+	{"R",              0b0'11111'0000000'0011'11'11'11'11'11, "llvm::isa<ReadLabel>(#)"},
+	{"UR",             0b0'11111'0000000'0010'11'11'11'11'11, "g.isRMWLoad(#)"},
+//	{"HelpingCas",     0b0'11111'0000000'0000'11'11'11'11'11, "llvm::isa<HelpingCasLabel>(#)"},
 	/* Fences */
-        {"F",              0b0'11111'1111111'0000'00'00'00, "llvm::isa<FenceLabel>(#)"},
-	{"Fwmb",           0b0'00000'0000010'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"},
-	{"Frmb",           0b0'00000'0000100'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"},
-	{"Fba",            0b0'00000'0001000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBBA)"},
-	{"Faa",            0b0'00000'0010000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAA)"},
-	{"Fas",            0b0'00000'0100000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
-	{"Faul",           0b0'00000'1000000'0000'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
+        {"F",              0b0'11111'1111111'0000'00'00'00'00'00, "llvm::isa<FenceLabel>(#)"},
+	{"Fwmb",           0b0'00000'0000010'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"},
+	{"Frmb",           0b0'00000'0000100'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"},
+	{"Fba",            0b0'00000'0001000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBBA)"},
+	{"Faa",            0b0'00000'0010000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAA)"},
+	{"Fas",            0b0'00000'0100000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
+	{"Faul",           0b0'00000'1000000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
 	/* Thread events */
 	{"ThreadCreate",   other_event_bitmask, "llvm::isa<ThreadCreateLabel>(#)"},
 	{"ThreadJoin",     other_event_bitmask, "llvm::isa<ThreadJoinLabel>(#)"},
@@ -119,7 +124,7 @@ void simplifyChecks(Container &checks)
 template<typename Container>
 bool checksCompose(const Container &checks1, const Container &checks2)
 {
-	unsigned mask = ~0;
+	unsigned mask = track_event_bitmask | other_event_bitmask;
 	std::for_each(checks1.begin(), checks1.end(), [&mask](auto &id){
 		mask &= builtinPredicates[id].bitmask;
 	});
