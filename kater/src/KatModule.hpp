@@ -123,7 +123,7 @@ public:
 	// Handle consistency constraint in the input file
 	void addConstraint(UCO c, const std::string &s, const yy::location &loc);
 
-	URE getRegisteredID(const std::string &id) {
+	URE getRegisteredID(const std::string &id) const {
 		auto it = variables.find(id);
 		return (it == variables.end()) ? nullptr : it->second->clone();
 	}
