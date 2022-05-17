@@ -59,6 +59,17 @@ Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 	}
 }
 
+std::size_t replaceAll(std::string& inout, const std::string &what, const std::string &with)
+{
+	std::size_t count{};
+	for (std::string::size_type pos{};
+	     inout.npos != (pos = inout.find(what.data(), pos, what.length()));
+	     pos += with.length(), ++count) {
+		inout.replace(pos, what.length(), with.data(), with.length());
+	}
+	return count;
+}
+
 template<typename ITER>
 void printPreds(std::ostream &ostr, const std::string &arg, ITER &&begin, ITER &&end)
 {
@@ -70,7 +81,7 @@ void printPreds(std::ostream &ostr, const std::string &arg, ITER &&begin, ITER &
 		ostr << " && ";
 
 		auto s = builtinPredicates[*it].genmcString;
-		s.replace(s.find_first_of('#'), 1, arg);
+		replaceAll(s, "#", arg);
 		ostr << s;
 	}
 	ostr << ")";
