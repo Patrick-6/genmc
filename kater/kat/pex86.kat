@@ -1,0 +1,17 @@
+let po = po-imm+
+let po-loc = po-loc-imm+
+
+let mo = mo-imm+
+let fr = fr-imm; mo*
+
+let DW = [W]; [D]
+let DR = [R]; [D]
+
+save[ppo] ppo = ([R]; po | po ; [F] | [F] ; po  | po ; [W])+
+
+// FIXME: save should not work
+let pb = [DW]; mo; [DW]
+
+acyclic (ppo | rfe | mo | fr)
+
+recovery (pb)
