@@ -67,6 +67,7 @@ coherence		return yy::parser::make_COHERENCE (loc);
 empty			return yy::parser::make_EMPTY	(loc);
 error			return yy::parser::make_ERROR	(loc);
 let			return yy::parser::make_LET	(loc);
+recovery		return yy::parser::make_RECOVERY (loc);
 save			return yy::parser::make_SAVE	(loc);
 view			return yy::parser::make_VIEW	(loc);
 unless			return yy::parser::make_UNLESS	(loc);

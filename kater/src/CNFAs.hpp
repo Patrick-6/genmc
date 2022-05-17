@@ -23,6 +23,8 @@ public:
 
 	const NFA &getAcyclic() const { return acyc; }
 
+	const NFA &getRecovery() const { return rec; }
+
 	save_iter save_begin() { return nsave.begin(); }
 	save_iter save_end() { return nsave.end(); }
 	save_const_iter save_begin() const { return nsave.begin(); }
@@ -40,6 +42,8 @@ public:
 
 	void addAcyclic(NFA &&a) { acyc.alt(std::move(a)); }
 
+	void addRecovery(NFA &&a) { rec.alt(std::move(a)); }
+
 	void addSaved(NFA &&save) { nsave.push_back({std::move(save), VarStatus::Normal}); }
 
 	void addReduced(NFA &&redc) { nsave.push_back({std::move(redc), VarStatus::Reduce}); }
@@ -50,6 +54,7 @@ public:
 
 private:
 	NFA acyc;
+	NFA rec;
 	std::vector<std::pair<NFA, VarStatus>> nsave;
 	// std::vector<NFA> nredc;
 	std::vector<Inclusion<NFA>> nincl;

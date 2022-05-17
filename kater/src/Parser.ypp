@@ -41,6 +41,7 @@
   EMPTY	    "empty"
   ERROR	    "error"
   LET	    "let"
+  RECOVERY  "recovery"
   SAVE      "save"
   VIEW      "view"
   UNLESS    "unless"
@@ -109,6 +110,7 @@ constraint:
 	| rel "<=" rel		{ $$ = SubsetConstraint::createOpt(std::move($1), std::move($3)); }
 	| "empty" rel		{ $$ = Constraint::createEmpty(std::move($2)); }
 	| "acyclic" rel		{ $$ = AcyclicConstraint::createOpt(std::move($2)); }
+	| "recovery" rel	{ $$ = RecoveryConstraint::create(std::move($2)); }
 	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
 	;
 

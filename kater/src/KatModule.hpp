@@ -24,6 +24,8 @@ public:
 	using svar_const_iter = SavedVarSet::const_iterator;
 	using acyc_iter = std::vector<URE>::iterator;
 	using acyc_const_iter = std::vector<URE>::const_iterator;
+	using rec_iter = std::vector<URE>::iterator;
+	using rec_const_iter = std::vector<URE>::const_iterator;
 	using incl_iter = std::vector<Inclusion<URE>>::iterator;
 	using incl_const_iter = std::vector<Inclusion<URE>>::const_iterator;
 	using assr_iter = std::vector<std::pair<UCO, yy::location>>::iterator;
@@ -45,6 +47,11 @@ public:
 	acyc_iter acyc_end() { return acyclicityConstraints.end(); }
 	acyc_const_iter acyc_begin() const { return acyclicityConstraints.begin(); }
 	acyc_const_iter acyc_end() const { return acyclicityConstraints.end(); }
+
+	rec_iter rec_begin() { return recoveryConstraints.begin(); }
+	rec_iter rec_end() { return recoveryConstraints.end(); }
+	rec_const_iter rec_begin() const { return recoveryConstraints.begin(); }
+	rec_const_iter rec_end() const { return recoveryConstraints.end(); }
 
 	incl_iter incl_begin() { return inclusionConstraints.begin(); }
 	incl_iter incl_end() { return inclusionConstraints.end(); }
@@ -70,6 +77,8 @@ public:
 	size_t getAssumeNum() const { return assumes.size(); }
 
 	size_t getAcyclicNum() const { return acyclicityConstraints.size(); }
+
+	size_t getRecoveryNum() const { return acyclicityConstraints.size(); }
 
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
 
@@ -147,6 +156,7 @@ private:
 	std::vector<TransLabel> assumes;
 
 	std::vector<URE>            acyclicityConstraints;
+	std::vector<URE>            recoveryConstraints;
 	std::vector<Inclusion<URE>> inclusionConstraints;
 };
 

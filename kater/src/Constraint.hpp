@@ -126,6 +126,30 @@ public:
 
 
 /*******************************************************************************
+ **                           Recovery Constraints
+ ******************************************************************************/
+
+class RecoveryConstraint : public Constraint {
+
+protected:
+	RecoveryConstraint(std::unique_ptr<RegExp> e) : Constraint() { addKid(std::move(e)); }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<RecoveryConstraint> create(Ts&&... params) {
+		return std::unique_ptr<RecoveryConstraint>(
+			new RecoveryConstraint(std::forward<Ts>(params)...));
+	}
+
+	bool checkStatically(std::string &cex) const override { return false; }
+
+	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
+
+	std::ostream &dump(std::ostream &s) const override { return s << "recovery" << *getKid(0); }
+};
+
+
+/*******************************************************************************
  **                           Coherence Constraints
  ******************************************************************************/
 
