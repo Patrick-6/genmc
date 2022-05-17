@@ -37,7 +37,8 @@
  *     B64: 1 -> static, 0 -> dynamic
  *     B63: 1 -> automatic, 0 -> heap
  *     B62: 1 -> internal, 0 -> user
- *     B0-B61: address
+ *     B61: 1 -> durable, 0 -> volatile
+ *     B0-B60: address
  */
 class SAddr {
 
@@ -49,15 +50,17 @@ protected:
 	static constexpr Width staticMask = (Width) 1 << 63;
 	static constexpr Width automaticMask = (Width) 1 << 62;
 	static constexpr Width internalMask = (Width) 1 << 61;
-	static constexpr Width storageMask = staticMask | automaticMask | internalMask;
-	static constexpr Width addressMask = internalMask - 1;
+	static constexpr Width durableMask = (Width) 1 << 60;
+	static constexpr Width storageMask = staticMask | automaticMask | internalMask | durableMask;
+	static constexpr Width addressMask = durableMask - 1;
 
-	static constexpr Width limit = internalMask - 1;
+	static constexpr Width limit = addressMask;
 
-	static SAddr create(Width storageMask, Width value, bool internal) {
+	static SAddr create(Width storageMask, Width value, bool durable, bool internal) {
 		BUG_ON(value >= SAddr::limit);
 		Width fresh = 0;
 		fresh |= storageMask;
+		fresh ^= (-(unsigned long)(!!durable) ^ fresh) & durableMask;
 		fresh ^= (-(unsigned long)(!!internal) ^ fresh) & internalMask;
 		fresh |= value;
 		return SAddr(fresh);
@@ -89,6 +92,8 @@ public:
 	bool isHeap() const { return !isAutomatic(); }
 	bool isInternal() const { return addr & internalMask; }
 	bool isUser() const { return !isInternal(); }
+	bool isDurable() const { return addr & durableMask; }
+	bool isVolatile() const { return !isDurable(); }
 	bool isNull() const { return addr == 0; }
 
 	Width get() const { return addr; }

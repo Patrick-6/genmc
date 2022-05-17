@@ -276,7 +276,7 @@ public:
 
 	/* Returns an appropriate result for malloc() */
 	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
-			 unsigned int alignment, Storage s, AddressSpace spc);
+			 unsigned alignment, StorageDuration sd, StorageType st, AddressSpace spc);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);

@@ -34,6 +34,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_nondet_int", InternalFunctions::FN_NondetInt},
 	{"__VERIFIER_malloc", InternalFunctions::FN_Malloc},
 	{"__VERIFIER_malloc_aligned", InternalFunctions::FN_MallocAligned},
+	{"__VERIFIER_palloc", InternalFunctions::FN_PMalloc},
 	{"__VERIFIER_free", InternalFunctions::FN_Free},
 	{"__VERIFIER_thread_self", InternalFunctions::FN_ThreadSelf},
 	{"__VERIFIER_thread_create", InternalFunctions::FN_ThreadCreate},

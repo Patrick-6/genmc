@@ -122,18 +122,18 @@ SAddr getStaticAllocBegin(const VSet<std::pair<SAddr, SAddr>> &allocMap, SAddr a
 	return it->first;
 }
 
-const NameInfo *Interpreter::getVarNameInfo(Value *v, Storage s, AddressSpace spc,
+const NameInfo *Interpreter::getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
 					    const VariableInfo<ModuleID::ID>::InternalKey &key /* = {} */)
 {
 	if (spc == AddressSpace::AS_Internal)
 		return MI->varInfo.internalInfo[key].get();
 
-	switch (s) {
-	case Storage::ST_Static:
+	switch (sd) {
+	case StorageDuration::SD_Static:
 		return MI->varInfo.globalInfo[MI->idInfo.VID[v]].get();
-	case Storage::ST_Automatic:
+	case StorageDuration::SD_Automatic:
 		return MI->varInfo.localInfo[MI->idInfo.VID[v]].get();
-	case Storage::ST_Heap:
+	case StorageDuration::SD_Heap:
 		return nullptr;
 	default:
 		BUG();
@@ -157,17 +157,20 @@ std::string Interpreter::getStaticName(SAddr addr) const
 }
 
 /* Returns a fresh address to be used from the interpreter */
-SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, Storage s, AddressSpace spc)
+SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, StorageDuration sd,
+				StorageType st, AddressSpace spc)
 {
 	/* The arguments to getFreshAddr() need to be well-formed;
 	 * make sure the alignment is positive and a power of 2 */
 	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
-	switch (s) {
-	case Storage::ST_Automatic:
-		return dynState.alloctor.allocAutomatic(size, alignment, spc == AddressSpace::AS_Internal);
-	case Storage::ST_Heap:
-		return dynState.alloctor.allocHeap(size, alignment, spc == AddressSpace::AS_Internal);
-	case Storage::ST_Static: /* Cannot ask for fresh static addresses */
+	switch (sd) {
+	case StorageDuration::SD_Automatic:
+		return dynState.alloctor.allocAutomatic(size, alignment, st == StorageType::ST_Durable,
+							spc == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Heap:
+		return dynState.alloctor.allocHeap(size, alignment, st == StorageType::ST_Durable,
+						   spc == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
 	default:
 		BUG();
 	}
@@ -1405,9 +1408,10 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
   auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 			    getAddrPoDeps(getCurThr().id), nullptr);
 
-  auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
+  auto *info = getVarNameInfo(&I, StorageDuration::SD_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
-				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
+				    I.getAlignment(), StorageDuration::SD_Automatic,
+				    StorageType::ST_Volatile, AddressSpace::AS_User);
 
   ECStack().back().Allocas.add((void *) result.get());
 
@@ -2893,7 +2897,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size), &*deps,
-					   alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_User);
+					   alignof(std::max_align_t), StorageDuration::SD_Heap,
+					   StorageType::ST_Volatile, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -2918,7 +2923,27 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(
-		MallocLabel::create(nextPos(), size), &*deps, align, Storage::ST_Heap, AddressSpace::AS_User);
+		MallocLabel::create(nextPos(), size), &*deps, align, StorageDuration::SD_Heap,
+		StorageType::ST_Volatile, AddressSpace::AS_User);
+	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
+	return;
+}
+
+void Interpreter::callPMalloc(Function *F, const std::vector<GenericValue> &ArgVals,
+			      const std::unique_ptr<EventDeps> &specialDeps)
+{
+	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
+		driver->visitError(currPos(), GenMCDriver::Status::VS_Allocation, "Invalid size in malloc()");
+		return;
+	}
+
+	auto size = ArgVals[0].IntVal.getLimitedValue();
+
+	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				  getAddrPoDeps(getCurThr().id), nullptr);
+	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size), &*deps,
+					   alignof(std::max_align_t), StorageDuration::SD_Heap,
+					   StorageType::ST_Durable, AddressSpace::AS_User);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -3169,7 +3194,8 @@ void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), getTypeSize(F->getReturnType())), &*deps,
-					   alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_Internal);
+					   alignof(std::max_align_t), StorageDuration::SD_Heap,
+					   StorageType::ST_Volatile, AddressSpace::AS_Internal);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -3407,10 +3433,11 @@ SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp
 {
 	/* Allocate enough space for the inode... */
 	unsigned int inodeSize = getTypeSize(MI->fsInfo.inodeTyp);
-	auto *info = getVarNameInfo(nullptr, Storage::ST_Heap, AddressSpace::AS_Internal, "inode");
+	auto *info = getVarNameInfo(nullptr, StorageDuration::SD_Heap, AddressSpace::AS_Internal, "inode");
 	auto *inode = (void *) driver->visitMalloc(
 		MallocLabel::create(nextPos(), inodeSize, info, std::string("__inode_") + filename),
-		&*deps, alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_Internal).get();
+		&*deps, alignof(std::max_align_t), StorageDuration::SD_Heap,
+		StorageType::ST_Durable, AddressSpace::AS_Internal).get();
 
 	/* ... properly initialize its fields... */
 	auto inodeLock = GET_INODE_LOCK_ADDR(inode);
@@ -3487,10 +3514,11 @@ SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal in
 
 	/* We allocate space for the file description... */
 	auto fileSize = getTypeSize(MI->fsInfo.fileTyp);
-	auto *info = getVarNameInfo(nullptr, Storage::ST_Heap, AddressSpace::AS_Internal, "file");
+	auto *info = getVarNameInfo(nullptr, StorageDuration::SD_Heap, AddressSpace::AS_Internal, "file");
 	auto *file = (void *) driver->visitMalloc(
-		MallocLabel::create(nextPos(), fileSize, info, sname.str()),
-		&*deps,alignof(std::max_align_t), Storage::ST_Heap, AddressSpace::AS_Internal).get();
+		MallocLabel::create(nextPos(), fileSize, info, sname.str()), &*deps,
+		alignof(std::max_align_t), StorageDuration::SD_Heap, StorageType::ST_Volatile,
+		AddressSpace::AS_Internal).get();
 
 	/* ... and initialize its fields */
 	auto fileInode = GET_FILE_INODE_ADDR(file);
@@ -4493,6 +4521,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(NondetInt);
 		CALL_INTERNAL_FUNCTION(Malloc);
 		CALL_INTERNAL_FUNCTION(MallocAligned);
+		CALL_INTERNAL_FUNCTION(PMalloc);
 		CALL_INTERNAL_FUNCTION(Free);
 		CALL_INTERNAL_FUNCTION(ThreadSelf);
 		CALL_INTERNAL_FUNCTION(ThreadCreate);

@@ -50,8 +50,11 @@ enum class JournalDataFS { writeback, ordered, journal };
 /* Types of allocations in the interpreter */
 enum class AddressSpace { AS_User, AS_Internal };
 
+/* Storage duration */
+enum class StorageDuration { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
+
 /* Storage types */
-enum class Storage { ST_Static, ST_Automatic, ST_Heap, ST_StorageLast };
+enum class StorageType { ST_Volatile, ST_Durable, ST_StorageLast };
 
 /* Modeled functions -- (CAUTION: Order matters) */
 enum class InternalFunctions {
@@ -82,6 +85,7 @@ enum class InternalFunctions {
 	FN_AtExit,
 	FN_Malloc,
 	FN_MallocAligned,
+	FN_PMalloc,
 	FN_HazptrAlloc,
 	FN_MallocLast,
 	FN_Free,

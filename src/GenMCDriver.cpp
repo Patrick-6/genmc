@@ -1797,7 +1797,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	auto *EE = getEE();
 	auto &thr = EE->getCurThr();
 
-	if (inRecoveryMode())
+	if (inRecoveryMode() && rLab->getAddr().isVolatile())
 		return getRecReadRetValue(rLab.get());
 
 	if (isExecutionDrivenByGraph())
@@ -2065,7 +2065,7 @@ void GenMCDriver::visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const Ev
 }
 
 SVal GenMCDriver::visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
-			      unsigned int alignment, Storage s, AddressSpace spc)
+			      unsigned alignment, StorageDuration sd, StorageType st, AddressSpace spc)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -2078,7 +2078,7 @@ SVal GenMCDriver::visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps
 	}
 
 	/* Fix and add label to the graph; return the new address */
-	aLab->setAllocAddr(EE->getFreshAddr(aLab->getAllocSize(), alignment, s, spc));
+	aLab->setAllocAddr(EE->getFreshAddr(aLab->getAllocSize(), alignment, sd, st, spc));
 	auto *lab = llvm::dyn_cast<MallocLabel>(g.addOtherLabelToGraph(std::move(aLab)));
 	updateLabelViews(lab, deps);
 	return SVal(lab->getAllocAddr().get());

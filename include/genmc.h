@@ -194,9 +194,21 @@ typedef __VERIFIER_hazptr_t __VERIFIER_hp_t;
 	__VERIFIER_hazptr_retire(p)
 
 /*
+ * Specifies that D is going to be allocated in persistent storage
+ * (i.e., the respective variable is going to be durable).
+ */
+#define __VERIFIER_persistent_storage(d)		\
+	__attribute__ ((section ("__genmc_persist"))) d
+
+/*
+ * Dynamically allocates a new variable with durable storage.
+ */
+void *__VERIFIER_palloc(size_t);
+
+/*
  * The signature of a recovery routine to be specified
  * by the user. This routine will run after each execution,
- * if the checker is run with the respective flags enabled
+ * if the checker is run with the respective flags enabled.
  */
 void __VERIFIER_recovery_routine(void);
 

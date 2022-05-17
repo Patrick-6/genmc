@@ -226,6 +226,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 
 		/* "Allocate" an address for this global variable... */
 		auto addr = dynState.alloctor.allocStatic(typeSize, v.getAlignment(),
+							  v.getSection() == "__genmc_persist",
 							  GET_GV_ADDRESS_SPACE(v) == 42);
 		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;

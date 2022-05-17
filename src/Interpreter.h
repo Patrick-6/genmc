@@ -458,7 +458,8 @@ public:
   std::string getStaticName(SAddr addr) const;
 
   /* Returns a fresh address for a new allocation */
-  SAddr getFreshAddr(unsigned int size, int alignment, Storage s, AddressSpace spc);
+  SAddr getFreshAddr(unsigned int size, int alignment, StorageDuration sd,
+		     StorageType st, AddressSpace spc);
 
   /* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
   int getFreshFd();
@@ -732,6 +733,7 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(NondetInt);
   DECLARE_CUSTOM_OPCODE(Malloc);
   DECLARE_CUSTOM_OPCODE(MallocAligned);
+  DECLARE_CUSTOM_OPCODE(PMalloc);
   DECLARE_CUSTOM_OPCODE(Free);
   DECLARE_CUSTOM_OPCODE(ThreadSelf);
   DECLARE_CUSTOM_OPCODE(ThreadCreate);
@@ -843,7 +845,7 @@ private:  // Helper functions
 
   /* Gets naming information for value V (or value with key KEY), if it is
    * an internal variable with no value correspondence */
-  const NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
+  const NameInfo *getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
 				 const VariableInfo<ModuleID::ID>::InternalKey &key = {});
 
   /* Pers: Returns the address of the file description referenced by FD */

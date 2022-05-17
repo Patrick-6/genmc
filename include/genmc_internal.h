@@ -178,6 +178,7 @@ extern void __VERIFIER_annotate_FAI(int mask);
 extern int __VERIFIER_opt_begin(void);
 
 /* Hazard pointer functions */
+
 extern __VERIFIER_hazptr_t *__VERIFIER_hazptr_alloc(void);
 extern void __VERIFIER_hazptr_protect(__VERIFIER_hazptr_t *hp, void *p);
 extern void __VERIFIER_hazptr_clear(__VERIFIER_hazptr_t *hp);
