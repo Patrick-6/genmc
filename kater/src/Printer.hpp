@@ -34,6 +34,9 @@ private:
 	void printAcyclicHpp(const NFA &nfa);
 	void printAcyclicCpp(const NFA &nfa);
 
+	void printRecoveryHpp(const NFA &nfa);
+	void printRecoveryCpp(const NFA &nfa);
+
 	void printHppHeader();
 	void printCppHeader();
 

@@ -360,6 +360,9 @@ protected:
 	/* Returns true if the current graph is consistent */
 	bool isConsistent(ProgramPoint p);
 
+	/* Pers: Returns true if we are currently running the recovery routine */
+	bool inRecoveryMode() const;
+
 	/* Pers: Returns true if current recovery routine is valid */
 	bool isRecoveryValid(ProgramPoint p);
 
@@ -505,9 +508,6 @@ private:
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
-
-	/* Pers: Returns true if we are currently running the recovery routine */
-	bool inRecoveryMode() const;
 
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
@@ -745,6 +745,8 @@ private:
 
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const Event &e) { ERROR("Unimplemented cons\n"); };
+
+	virtual bool isRecoveryValid(const Event &e) { ERROR("Unimplemented pers\n"); };
 
 #ifdef ENABLE_GENMC_DEBUG
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);

@@ -200,6 +200,8 @@ void Printer::outputHpp(const CNFAs &cnfas)
 
 	printAcyclicHpp(cnfas.getAcyclic());
 
+	printRecoveryHpp(cnfas.getRecovery());
+
 	printHppFooter();
 }
 
@@ -252,6 +254,8 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	      << "\treturn isAcyclic(e);\n"
 	      << "}\n"
 	      << "\n";
+
+	printRecoveryCpp(cnfas.getRecovery());
 
 	printCppFooter();
 }
@@ -346,6 +350,84 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 	cpp() << "\treturn true\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		cpp() << "\t\t&& visitAcyclic" << ids[&*s] << "(e)"
+		      << (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
+	});
+	cpp() << "}\n"
+	      << "\n";
+}
+
+void Printer::printRecoveryHpp(const NFA &nfa)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	/* visitRecoveryX() for each state */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		hpp() << "\tbool visitRecovery" << ids[&*s] << "(const Event &e)" << ";\n";
+	});
+	hpp() << "\n";
+
+	/* isRecoveryValid() for the automaton */
+	hpp() << "\tbool isRecoveryValid(const Event &e)" << ";\n"
+	      << "\n";
+
+	/* status arrays */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		hpp() << "\tstd::vector<NodeCountStatus> visitedRecovery" << ids[&*s] << ";\n";
+	});
+	hpp() << "\n";
+
+	/* accepting counter */
+	hpp() << "\tunsigned visitedRecAccepting = 0;\n";
+}
+
+void Printer::printRecoveryCpp(const NFA &nfa)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	/* Print a "visitRecoveryXX" for each state */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		cpp() << "bool " << className << "::visitRecovery" << ids[&*s] << "(const Event &e)\n"
+		      << "{\n"
+		      << "\tauto &g = getGraph();\n"
+		      << "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
+		      << "\tauto t = 0u;\n"
+		      << "\n";
+
+		if (nfa.isStarting(&*s))
+			cpp() << "\t++visitedRecAccepting;\n";
+		cpp() << "\tvisitedRecovery" << ids[&*s] << "[lab->getStamp()] = "
+								"{ visitedRecAccepting, NodeStatus::entered };\n";
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			cpp () << "\t";
+			printTransLabel(&t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto &node = visitedRecovery" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+			      << "\t\tif (node.status == NodeStatus::unseen && !visitRecovery" << ids[t.dest] << "(p))\n"
+			      << "\t\t\treturn false;\n"
+			      << "\t\telse if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)\n"
+			      << "\t\t\treturn false;\n"
+			      <<"\t}\n";
+		});
+		if (nfa.isStarting(&*s))
+			cpp() << "\t--visitedRecAccepting;\n";
+		cpp() << "\tvisitedRecovery" << ids[&*s] << "[lab->getStamp()] = "
+			"{ visitedRecAccepting, NodeStatus::left };\n"
+		      << "\treturn true;\n"
+		      << "}\n"
+		      << "\n";
+	});
+
+	/* Print a "isRecoveryX" for the automaton */
+	cpp() << "bool " << className << "::isRecoveryValid(const Event &e)\n"
+	      << "{\n"
+	      << "\tvisitedRecAccepting = 0;\n";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		cpp() << "\tvisitedRecovery" << ids[&*s] << ".clear();\n"
+		      << "\tvisitedRecovery" << ids[&*s] << ".resize(g.getMaxStamp() + 1);\n";
+	});
+	cpp() << "\treturn true\n";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		cpp() << "\t\t&& visitRecovery" << ids[&*s] << "(e)"
 		      << (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
 	});
 	cpp() << "}\n"

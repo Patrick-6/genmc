@@ -50,13 +50,13 @@ public:
 	std::vector<VSet<Event>> calculateSaved(const Event &e);
 	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
+	bool isRecoveryValid(const Event &e);
 
 private:
 	void visitCalc0_0(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_1(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
 
 	VSet<Event> calculate0(const Event &e);
 
@@ -64,7 +64,6 @@ private:
 	std::vector<NodeStatus> visitedCalc0_1;
 	std::vector<NodeStatus> visitedCalc0_2;
 	std::vector<NodeStatus> visitedCalc0_3;
-	std::vector<NodeStatus> visitedCalc0_4;
 
 	bool visitAcyclic0(const Event &e);
 
@@ -73,6 +72,21 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic0;
 
 	unsigned visitedAccepting = 0;
+	bool visitRecovery0(const Event &e);
+	bool visitRecovery1(const Event &e);
+	bool visitRecovery2(const Event &e);
+	bool visitRecovery3(const Event &e);
+	bool visitRecovery4(const Event &e);
+	bool visitRecovery5(const Event &e);
+
+	std::vector<NodeCountStatus> visitedRecovery0;
+	std::vector<NodeCountStatus> visitedRecovery1;
+	std::vector<NodeCountStatus> visitedRecovery2;
+	std::vector<NodeCountStatus> visitedRecovery3;
+	std::vector<NodeCountStatus> visitedRecovery4;
+	std::vector<NodeCountStatus> visitedRecovery5;
+
+	unsigned visitedRecAccepting = 0;
 	std::vector<VSet<Event>> saved;
 	std::vector<View> views;
 

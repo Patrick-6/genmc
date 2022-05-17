@@ -345,5 +345,13 @@ void TSODriver::initConsCalculation()
 
 bool TSODriver::isConsistent(const Event &e)
 {
+	if (inRecoveryMode())
+		return TSOChecker(getGraph()).isRecoveryValid(e);
 	return TSOChecker(getGraph()).isConsistent(e);
+}
+
+
+bool TSODriver::isRecoveryValid(const Event &e)
+{
+	return TSOChecker(getGraph()).isRecoveryValid(e);
 }
