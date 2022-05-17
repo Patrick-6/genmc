@@ -841,18 +841,6 @@ private:  // Helper functions
       getDepTracker()->clearDeps(tid);
   }
 
-  /* Update naming information */
-
-  void updateUserTypedVarName(char *ptr, unsigned int typeSize, Storage s,
-			      Value *v, const std::string &prefix,
-			      const std::string &internal);
-  void updateUserUntypedVarName(char *ptr, unsigned int typeSize, Storage s,
-				Value *v, const std::string &prefix,
-				const std::string &internal);
-  void updateInternalVarName(char *ptr, unsigned int typeSize, Storage s,
-			     Value *v, const std::string &prefix,
-			     const std::string &internal);
-
   /* Gets naming information for value V (or value with key KEY), if it is
    * an internal variable with no value correspondence */
   const NameInfo *getVarNameInfo(Value *v, Storage s, AddressSpace spc,
