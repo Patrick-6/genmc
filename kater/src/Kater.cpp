@@ -110,6 +110,48 @@ void Kater::generateNFAs()
 	});
 	if (getConf().verbose >= 3)
 		std::cout << "Generated NFA: " << cnfas.getAcyclic() << std::endl;
+
+	NFA rec;
+	std::for_each(module.rec_begin(), module.rec_end(), [&](auto &r){
+		if (getConf().verbose >= 3)
+			std::cout << "Generating NFA for recovery " << *r << std::endl;
+		// Covert the regural expression to an NFA
+		NFA n = r->toNFA();
+		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
+		// Doing so is alright because the generated DFS code discounts empty paths anyway.
+		n.star();
+		if (getConf().verbose >= 4)
+			std::cout << "Non-simplified NFA: " << n << std::endl;
+		// Simplify the NFA
+		n.simplify(isValidLabel);
+		if (getConf().verbose >= 3 && module.getRecoveryNum() > 1)
+			std::cout << "Generated NFA: " << n << std::endl;
+		rec.alt(std::move(n));
+	});
+	if (module.getRecoveryNum()) {
+		auto rf = module.getRegisteredID("rf");
+		auto recov = module.getRegisteredID("REC");
+		auto po = module.getRegisteredID("po");
+		auto fr = module.getRegisteredID("fr");
+		auto poInv = module.getRegisteredID("po");
+		poInv->flip();
+
+		auto rfRecov = SeqRE::createOpt(rf->clone(), recov->clone());
+		auto poFr = SeqRE::createOpt(po->clone(), fr->clone());
+		auto rfRecovPoFr = SeqRE::createOpt(rfRecov->clone(), poFr->clone());
+
+		auto poInvFr = SeqRE::createOpt(poInv->clone(), fr->clone());
+		auto rfRecovPoInvFr = SeqRE::createOpt(rfRecov->clone(), poInvFr->clone());
+
+		rec.alt(rfRecovPoFr->toNFA());
+		rec.alt(rfRecovPoInvFr->toNFA());
+
+		rec.star().simplify(isValidLabel);
+
+		cnfas.addRecovery(std::move(rec));
+		if (getConf().verbose >= 3)
+			std::cout << "Generated NFA: " << cnfas.getRecovery() << std::endl;
+	}
 }
 
 void Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)
