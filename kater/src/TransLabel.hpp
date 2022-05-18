@@ -120,6 +120,7 @@ public:
 
 	bool operator==(const TransLabel &other) const {
 		return getId() == other.getId() &&
+			isFlipped() == other.isFlipped() &&
 			getPreChecks() == other.getPreChecks() &&
 			getPostChecks() == other.getPostChecks();
 	}
@@ -129,9 +130,11 @@ public:
 
 	bool operator<(const TransLabel &other) const {
 		return getId() < other.getId() ||
-			(getId() == other.getId() && (getPreChecks() < other.getPreChecks() ||
-						      (getPreChecks() == other.getPreChecks() &&
-						       getPostChecks() < other.getPostChecks())));
+			(getId() == other.getId() && isFlipped() < other.isFlipped()) ||
+			(getId() == other.getId() && isFlipped() == other.isFlipped() &&
+				(getPreChecks() < other.getPreChecks() ||
+				 (getPreChecks() == other.getPreChecks() &&
+				  getPostChecks() < other.getPostChecks())));
 	}
 	bool operator<=(const TransLabel &other) const {
 		return operator==(other) || operator<(other);
