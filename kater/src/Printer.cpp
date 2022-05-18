@@ -154,6 +154,7 @@ void Printer::printHppHeader()
 	      << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
 	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
 	      << "\tbool isConsistent(const Event &e);\n"
+	      << "\tbool isRecoveryValid(const Event &e);\n"
 	      << "\n"
 	      << "private:\n";
 }
@@ -256,6 +257,11 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	      << "\n";
 
 	printRecoveryCpp(cnfas.getRecovery());
+	cpp() << "bool " << className << "::isRecoveryValid(const Event &e)\n"
+	      << "{\n"
+	      << "\treturn isRecAcyclic(e);\n"
+	      << "}\n"
+	      << "\n";
 
 	printCppFooter();
 }
@@ -366,8 +372,8 @@ void Printer::printRecoveryHpp(const NFA &nfa)
 	});
 	hpp() << "\n";
 
-	/* isRecoveryValid() for the automaton */
-	hpp() << "\tbool isRecoveryValid(const Event &e)" << ";\n"
+	/* isRecAcyclic() for the automaton */
+	hpp() << "\tbool isRecAcyclic(const Event &e)" << ";\n"
 	      << "\n";
 
 	/* status arrays */
@@ -417,8 +423,8 @@ void Printer::printRecoveryCpp(const NFA &nfa)
 		      << "\n";
 	});
 
-	/* Print a "isRecoveryX" for the automaton */
-	cpp() << "bool " << className << "::isRecoveryValid(const Event &e)\n"
+	/* Print a "isRecAcyclicX" for the automaton */
+	cpp() << "bool " << className << "::isRecAcyclic(const Event &e)\n"
 	      << "{\n"
 	      << "\tvisitedRecAccepting = 0;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
