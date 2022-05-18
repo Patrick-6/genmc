@@ -280,7 +280,30 @@ NFA &NFA::or_empty()
 
 NFA &NFA::star()
 {
-	return plus().or_empty();
+	std::vector<State *> exStarting;
+	std::vector<State *> exAccepting;
+	std::copy(start_begin(), start_end(), std::back_inserter(exStarting));
+	std::copy(accept_begin(), accept_end(), std::back_inserter(exAccepting));
+
+	clearAllStarting();
+	clearAllAccepting();
+
+	/* Create a state that will be the new starting/accepting; do
+	 * not change its status yet so that addEpsilon does not add
+	 * starting/accepting states */
+	auto *i = createState();
+
+	std::for_each(exStarting.begin(), exStarting.end(), [&](auto *es){
+		addEpsilonTransitionSucc(i, es);
+	});
+	std::for_each(exAccepting.begin(), exAccepting.end(), [&](auto *ea){
+		addEpsilonTransitionPred(ea, i);
+	});
+
+	makeStarting(i);
+	makeAccepting(i);
+	assert(getNumAccepting() == getNumStarting() && getNumStarting() == 1);
+	return *this;
 }
 
 // Convert to a deterministic automaton using the subset construction
