@@ -415,6 +415,18 @@ public:
 			makeStarting(dst);
 	}
 
+	/*
+	 * Adds an ε transition from SRC to DST by connecting all
+	 * of SRC's predecessors to DST (using the respective labels).
+	 */
+	void addEpsilonTransitionPred(State *src, State *dst) {
+		addInvertedTransitions(dst, src->in_begin(), src->in_end());
+		if (isAccepting(dst))
+			makeAccepting(src);
+		if (isStarting(src))
+			makeStarting(dst);
+	}
+
 	State *addTransitionToFresh(State *src, const TransLabel &lab) {
 		auto *dst = createState();
 		addTransition(src, Transition(lab, dst));
