@@ -119,6 +119,8 @@ void Kater::generateNFAs()
 		NFA n = r->toNFA();
 		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
+		if (getConf().verbose >= 4)
+			std::cout << "Non-star, non-simplified rec NFA: " << n << std::endl;
 		n.star();
 		if (getConf().verbose >= 4)
 			std::cout << "Non-simplified rec NFA: " << n << std::endl;
