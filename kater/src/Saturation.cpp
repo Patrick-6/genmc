@@ -50,7 +50,7 @@ void saturateTotal(NFA &nfa, const TransLabel &lab)
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
 			if (t.label == lab)
-				nfa.addEpsilonTransition(t.dest, &*s);
+				nfa.addEpsilonTransitionSucc(t.dest, &*s);
 		});
 	});
 }

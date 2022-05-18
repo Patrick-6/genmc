@@ -403,7 +403,11 @@ public:
 		addTransition(src, Transition(lab, src));
 	}
 
-	void addEpsilonTransition(State *src, State *dst) {
+	/*
+	 * Adds an ε transition from SRC to DST by connecting SRC to
+	 * all of DST's successors (using the respective labels).
+	 */
+	void addEpsilonTransitionSucc(State *src, State *dst) {
 		addTransitions(src, dst->out_begin(), dst->out_end());
 		if (isAccepting(dst))
 			makeAccepting(src);

@@ -258,7 +258,7 @@ NFA &NFA::plus()
 	/* Add transitions `accepting --> starting` */
 	std::for_each(accept_begin(), accept_end(), [&](auto &a){
 		std::for_each(start_begin(), start_end(), [&](auto &s){
-			addEpsilonTransition(a, s);
+			addEpsilonTransitionSucc(a, s);
 		});
 	});
 	return *this;
