@@ -121,11 +121,11 @@ void Kater::generateNFAs()
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
 		n.star();
 		if (getConf().verbose >= 4)
-			std::cout << "Non-simplified NFA: " << n << std::endl;
+			std::cout << "Non-simplified rec NFA: " << n << std::endl;
 		// Simplify the NFA
 		n.simplify(isValidLabel);
-		if (getConf().verbose >= 3 && module.getRecoveryNum() > 1)
-			std::cout << "Generated NFA: " << n << std::endl;
+		if (getConf().verbose >= 3)
+			std::cout << "Generated rec NFA: " << n << std::endl;
 		rec.alt(std::move(n));
 	});
 	if (module.getRecoveryNum()) {
@@ -146,11 +146,16 @@ void Kater::generateNFAs()
 		rec.alt(rfRecovPoFr->toNFA());
 		rec.alt(rfRecovPoInvFr->toNFA());
 
-		rec.star().simplify(isValidLabel);
+		rec.star();
+
+		if (getConf().verbose >= 3)
+			std::cout << "Generated full rec NFA: " << rec << std::endl;
+
+		rec.simplify(isValidLabel);
 
 		cnfas.addRecovery(std::move(rec));
 		if (getConf().verbose >= 3)
-			std::cout << "Generated NFA: " << cnfas.getRecovery() << std::endl;
+			std::cout << "Generated full rec NFA simplified: " << cnfas.getRecovery() << std::endl;
 	}
 }
 
