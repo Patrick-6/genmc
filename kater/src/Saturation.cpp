@@ -70,10 +70,10 @@ void saturateRotate(NFA &nfa)
 		auto rot1 = nfa.copy(&m1);
 		auto rot2 = nfa.copy(&m2);
 
-		rot1.clearStarting();
+		rot1.clearAllStarting();
 		rot1.makeStarting(m1[&*s]);
 
-		rot2.clearAccepting();
+		rot2.clearAllAccepting();
 		rot2.makeAccepting(m2[&*s]);
 
 		rot1.seq(std::move(rot2));

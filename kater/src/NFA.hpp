@@ -334,14 +334,30 @@ public:
 		}
 	}
 
-	void clearStarting() {
+	void clearStarting(State *s) {
+		s->setStarting(false);
+		auto &starting = getStarting();
+		starting.erase(std::remove_if(starting.begin(), starting.end(),
+					      [s](auto &si){ return &*si == s; }),
+			       starting.end());
+	}
+
+	void clearAllStarting() {
 		std::for_each(start_begin(), start_end(), [&](auto &s){
 			s->setStarting(false);
 		});
 		getStarting().clear();
 	}
 
-	void clearAccepting() {
+	void clearAccepting(State *s) {
+		s->setAccepting(false);
+		auto &accept = getAccepting();
+		accept.erase(std::remove_if(accept.begin(), accept.end(),
+					    [s](auto &si){ return &*si == s; }),
+			     accept.end());
+	}
+
+	void clearAllAccepting() {
 		std::for_each(accept_begin(), accept_end(), [&](auto &s){
 			s->setAccepting(false);
 		});

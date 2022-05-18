@@ -242,10 +242,10 @@ NFA &NFA::seq(NFA &&other)
 
 	/* Clear accepting states if necessary */
 	if (!other.acceptsEmptyString())
-		clearAccepting();
+		clearAllAccepting();
 
 	/* Clear starting states of `other` */
-	other.clearStarting();
+	other.clearAllStarting();
 
 	/* Move the states of the `other` NFA into our NFA and append accepting states */
 	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));
