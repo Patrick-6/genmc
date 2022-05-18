@@ -255,10 +255,10 @@ NFA &NFA::seq(NFA &&other)
 
 NFA &NFA::plus()
 {
-	/* Add transitions `this->accepting --> other.starting.outgoing` */
+	/* Add transitions `accepting --> starting` */
 	std::for_each(accept_begin(), accept_end(), [&](auto &a){
 		std::for_each(start_begin(), start_end(), [&](auto &s){
-			addTransitions(a, s->out_begin(), s->out_end());
+			addEpsilonTransition(a, s);
 		});
 	});
 	return *this;
