@@ -124,6 +124,9 @@ void simplifyChecks(Container &checks)
 template<typename Container>
 bool checksCompose(const Container &checks1, const Container &checks2)
 {
+	if (checks1.empty() || checks2.empty())
+		return true;
+
 	unsigned mask = track_event_bitmask | other_event_bitmask;
 	std::for_each(checks1.begin(), checks1.end(), [&mask](auto &id){
 		mask &= builtinPredicates[id].bitmask;
