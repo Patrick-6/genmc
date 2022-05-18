@@ -353,12 +353,12 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << ".clear();\n"
 		      << "\tvisitedAcyclic" << ids[&*s] << ".resize(g.getMaxStamp() + 1);\n";
 	});
-	cpp() << "\treturn true\n";
+	cpp() << "\treturn true";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		cpp() << "\t\t&& visitAcyclic" << ids[&*s] << "(e)"
-		      << (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
+		cpp() << "\n\t\t&& visitAcyclic" << ids[&*s] << "(e)";
 	});
-	cpp() << "}\n"
+	cpp() << ";\n"
+	      << "}\n"
 	      << "\n";
 }
 
@@ -431,12 +431,12 @@ void Printer::printRecoveryCpp(const NFA &nfa)
 		cpp() << "\tvisitedRecovery" << ids[&*s] << ".clear();\n"
 		      << "\tvisitedRecovery" << ids[&*s] << ".resize(g.getMaxStamp() + 1);\n";
 	});
-	cpp() << "\treturn true\n";
+	cpp() << "\treturn true";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		cpp() << "\t\t&& visitRecovery" << ids[&*s] << "(e)"
-		      << (&*s == (--nfa.states_end())->get() ? ";\n" : "\n");
+		cpp() << "\n\t\t&& visitRecovery" << ids[&*s] << "(e)";
 	});
-	cpp() << "}\n"
+	cpp() << ";\n"
+	      << "}\n"
 	      << "\n";
 }
 
