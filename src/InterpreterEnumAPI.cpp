@@ -77,6 +77,7 @@ const std::unordered_map<std::string, InternalFunctions> internalFunNames = {
 	{"__VERIFIER_rcu_read_lock", InternalFunctions::FN_RCUReadLockLKMM},
 	{"__VERIFIER_rcu_read_unlock", InternalFunctions::FN_RCUReadUnlockLKMM},
 	{"__VERIFIER_synchronize_rcu", InternalFunctions::FN_SynchronizeRCULKMM},
+	{"__VERIFIER_clflush", InternalFunctions::FN_CLFlush},
 	/* Some C++ calls */
 	{"_Znwm", InternalFunctions::FN_Malloc},
 	{"_ZdlPv", InternalFunctions::FN_Free},

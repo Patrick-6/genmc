@@ -106,6 +106,7 @@ public:
 			VISIT_LABEL(DskOpen);
 			VISIT_LABEL(RCULock, LKMM);
 			VISIT_LABEL(RCUUnlock, LKMM);
+			VISIT_LABEL(CLFlush);
 		default:
 			BUG();
 		}
@@ -182,6 +183,7 @@ public:
 	void visitDskOpenLabel(const DskOpenLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitRCULockLabelLKMM(const RCULockLabelLKMM &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitRCUUnlockLabelLKMM(const RCUUnlockLabelLKMM &lab) { return DELEGATE_LABEL(EventLabel); }
+	void visitCLFlushLabel(const CLFlushLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 
 	/*
 	 * If none of the above matched, propagate to the next level.
@@ -278,6 +280,11 @@ public:
 	void visitSmpFenceLabelLKMM(const SmpFenceLabelLKMM &lab) {
 		DELEGATE_LABEL(EventLabel);
 		out << lab.getType();
+	}
+
+	void visitCLFlushLabel(const CLFlushLabel &lab) {
+		DELEGATE_LABEL(EventLabel);
+		out << " " << fmtFun(lab.getAddr());
 	}
 
 	void visitThreadCreateLabel(const ThreadCreateLabel &lab) {

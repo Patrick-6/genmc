@@ -772,6 +772,7 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(RCUReadLockLKMM);
   DECLARE_CUSTOM_OPCODE(RCUReadUnlockLKMM);
   DECLARE_CUSTOM_OPCODE(SynchronizeRCULKMM);
+  DECLARE_CUSTOM_OPCODE(CLFlush);
 
   void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
 			    const std::unique_ptr<EventDeps> &deps);

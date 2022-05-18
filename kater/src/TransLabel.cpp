@@ -76,6 +76,7 @@ const std::vector<PredicateInfo> builtinPredicates = {
 	{"DskFsync",       other_event_bitmask, "llvm::isa<DskFsyncLabel>(#)"},
 	{"DskSync",        other_event_bitmask, "llvm::isa<DskSyncLabel>(#)"},
 	{"DskPbarrier",    other_event_bitmask, "llvm::isa<DskPbarrierLabel>(#)"},
+	{"CLF",            other_event_bitmask, "llvm::isa<CLFlushLabel>(#)"},
 };
 
 const std::vector<RelationInfo> builtinRelations = {

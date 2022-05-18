@@ -1623,6 +1623,16 @@ void GenMCDriver::visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *
 	return;
 }
 
+void GenMCDriver::visitCLFlush(std::unique_ptr<CLFlushLabel> fLab, const EventDeps *deps)
+{
+	if (isExecutionDrivenByGraph())
+		return;
+
+	auto *lab = getGraph().addOtherLabelToGraph(std::move(fLab));
+	updateLabelViews(lab, deps);
+	return;
+}
+
 void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 {
 	auto &g = getGraph();

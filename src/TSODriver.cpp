@@ -264,6 +264,7 @@ void TSODriver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps
 	case EventLabel::EL_DskOpen:
 	case EventLabel::EL_HelpingCas:
 	case EventLabel::EL_HpProtect:
+	case EventLabel::EL_CLFlush:
 		calcBasicViews(lab);
 		break;
 	case EventLabel::EL_SmpFenceLKMM:

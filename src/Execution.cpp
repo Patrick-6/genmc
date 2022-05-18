@@ -3280,6 +3280,15 @@ void Interpreter::callSynchronizeRCULKMM(Function *F, const std::vector<GenericV
 	return;
 }
 
+void Interpreter::callCLFlush(Function *F, const std::vector<GenericValue> &ArgVals,
+			      const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
+				  getAddrPoDeps(getCurThr().id), nullptr);
+	driver->visitCLFlush(CLFlushLabel::create(nextPos(), GVTOP(ArgVals[0])), &*deps);
+	return;
+}
+
 SVal Interpreter::getInodeTransStatus(void *inode, Type *intTyp)
 {
 	auto inodeItrans = GET_INODE_ITRANSACTION_ADDR(inode);
@@ -4560,6 +4569,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(RCUReadLockLKMM);
 		CALL_INTERNAL_FUNCTION(RCUReadUnlockLKMM);
 		CALL_INTERNAL_FUNCTION(SynchronizeRCULKMM);
+		CALL_INTERNAL_FUNCTION(CLFlush);
 	default:
 		BUG();
 		break;

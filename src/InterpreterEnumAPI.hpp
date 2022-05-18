@@ -112,7 +112,7 @@ enum class InternalFunctions {
 	FN_PwriteFS,
 	FN_PersBarrierFS,
 	FN_LastInvRecFS,
-	/* Invalid rec ops */
+	/* Invalid FS rec ops */
 	FN_ReadFS,
 	FN_PreadFS,
 	FN_FsyncFS,
@@ -127,6 +127,9 @@ enum class InternalFunctions {
 	FN_RCUReadUnlockLKMM,
 	FN_SynchronizeRCULKMM,
 	/* LKMM ops */
+
+	FN_CLFlush,
+	/* Pers ops */
 };
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;

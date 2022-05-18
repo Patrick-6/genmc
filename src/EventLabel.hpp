@@ -127,6 +127,7 @@ public:
 		EL_DskOpen,
 		EL_RCULockLKMM,
 		EL_RCUUnlockLKMM,
+		EL_CLFlush,
 	};
 
 protected:
@@ -2948,6 +2949,49 @@ public:
 
 private:
 	/* The discriminator suffices */
+};
+
+
+/*******************************************************************************
+ **                         CLFlushLabel Class
+ ******************************************************************************/
+
+/* Represents a cache line flush */
+class CLFlushLabel : public EventLabel {
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	CLFlushLabel(unsigned int st, llvm::AtomicOrdering ord,
+		      Event pos, SAddr addr)
+		: EventLabel(EL_CLFlush, st, ord, pos), addr(addr) {}
+	CLFlushLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr)
+		: EventLabel(EL_CLFlush, ord, pos), addr(addr) {}
+
+	CLFlushLabel(unsigned int st, Event pos, SAddr addr)
+		: CLFlushLabel(st, llvm::AtomicOrdering::Monotonic, pos, addr) {}
+	CLFlushLabel(Event pos, SAddr addr)
+		: CLFlushLabel(llvm::AtomicOrdering::Monotonic, pos, addr) {}
+
+	template<typename... Ts>
+	static std::unique_ptr<CLFlushLabel> create(Ts&&... params) {
+		return LLVM_MAKE_UNIQUE<CLFlushLabel>(std::forward<Ts>(params)...);
+	}
+
+	/* Returns a pointer to the addr on which the flush takes place */
+	SAddr getAddr() const { return addr; }
+
+	std::unique_ptr<EventLabel> clone() const override {
+		return LLVM_MAKE_UNIQUE<CLFlushLabel>(*this);
+	}
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_CLFlush; }
+
+private:
+	SAddr addr;
 };
 
 

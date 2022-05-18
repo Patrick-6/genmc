@@ -885,6 +885,20 @@ namespace detail {
 			auto tmp = *this; BaseT::operator++(); return tmp;
 		}
 	};
+
+	static inline bool hasLocation(const EventLabel *lab)
+	{
+		return llvm::isa<MemAccessLabel>(lab) || llvm::isa<CLFlushLabel>(lab);
+	}
+
+	static inline SAddr getLocation(const EventLabel *lab)
+	{
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+			return mLab->getAddr();
+		if (auto *fLab = llvm::dyn_cast<CLFlushLabel>(lab))
+			return fLab->getAddr();
+		return SAddr();
+	}
 } /* namespace detail */
 
 using const_poloc_iterator = ::detail::poloc_filter_iterator<const_event_iterator>;
@@ -895,19 +909,21 @@ using const_reverse_poloc_range = llvm::iterator_range<const_reverse_poloc_itera
 
 inline const_poloc_iterator poloc_succ_begin(const ExecutionGraph &G, Event e)
 {
-	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
-	return lab ? const_poloc_iterator(po_succ_begin(G, e), po_succ_end(G, e),
-					  ::detail::LocationFilter(G, lab->getAddr())) :
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	return hasLocation(lab) ? const_poloc_iterator(po_succ_begin(G, e), po_succ_end(G, e),
+						       LocationFilter(G, getLocation(lab))) :
 		const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e),
-				     ::detail::LocationFilter(G, SAddr()));
+				     LocationFilter(G, SAddr()));
 }
 
 inline const_poloc_iterator poloc_succ_end(const ExecutionGraph &G, Event e)
 {
-	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
-	auto addr = lab ? lab->getAddr() : SAddr();
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
 	return const_poloc_iterator(po_succ_end(G, e), po_succ_end(G, e),
-				    ::detail::LocationFilter(G, addr));
+				    LocationFilter(G, addr));
 }
 
 inline const_poloc_range poloc_succs(const ExecutionGraph &G, Event e)
@@ -943,19 +959,21 @@ inline const_poloc_range poloc_imm_succs(const ExecutionGraph &G, const EventLab
 
 inline const_reverse_poloc_iterator poloc_pred_begin(const ExecutionGraph &G, Event e)
 {
-	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
-	return lab ? const_reverse_poloc_iterator(po_pred_begin(G, e), po_pred_end(G, e),
-						  ::detail::LocationFilter(G, lab->getAddr())) :
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	return hasLocation(lab) ? const_reverse_poloc_iterator(po_pred_begin(G, e), po_pred_end(G, e),
+							       LocationFilter(G, getLocation(lab))) :
 		const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
-					     ::detail::LocationFilter(G, SAddr()));
+					     LocationFilter(G, SAddr()));
 }
 
 inline const_reverse_poloc_iterator poloc_pred_end(const ExecutionGraph &G, Event e)
 {
-	auto *lab = llvm::dyn_cast<MemAccessLabel>(G.getEventLabel(e));
-	auto addr = lab ? lab->getAddr() : SAddr();
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
 	return const_reverse_poloc_iterator(po_pred_end(G, e), po_pred_end(G, e),
-					    ::detail::LocationFilter(G, addr));
+					    LocationFilter(G, addr));
 }
 
 inline const_reverse_poloc_range poloc_preds(const ExecutionGraph &G, Event e)
