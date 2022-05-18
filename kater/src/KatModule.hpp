@@ -78,7 +78,7 @@ public:
 
 	size_t getAcyclicNum() const { return acyclicityConstraints.size(); }
 
-	size_t getRecoveryNum() const { return acyclicityConstraints.size(); }
+	size_t getRecoveryNum() const { return recoveryConstraints.size(); }
 
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
 
