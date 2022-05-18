@@ -66,10 +66,12 @@ private:
 	std::vector<NodeStatus> visitedCalc0_3;
 
 	bool visitAcyclic0(const Event &e);
+	bool visitAcyclic1(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
 	std::vector<NodeCountStatus> visitedAcyclic0;
+	std::vector<NodeCountStatus> visitedAcyclic1;
 
 	unsigned visitedAccepting = 0;
 	bool visitRecovery0(const Event &e);
@@ -78,6 +80,10 @@ private:
 	bool visitRecovery3(const Event &e);
 	bool visitRecovery4(const Event &e);
 	bool visitRecovery5(const Event &e);
+	bool visitRecovery6(const Event &e);
+	bool visitRecovery7(const Event &e);
+
+	bool isRecAcyclic(const Event &e);
 
 	std::vector<NodeCountStatus> visitedRecovery0;
 	std::vector<NodeCountStatus> visitedRecovery1;
@@ -85,6 +91,8 @@ private:
 	std::vector<NodeCountStatus> visitedRecovery3;
 	std::vector<NodeCountStatus> visitedRecovery4;
 	std::vector<NodeCountStatus> visitedRecovery5;
+	std::vector<NodeCountStatus> visitedRecovery6;
+	std::vector<NodeCountStatus> visitedRecovery7;
 
 	unsigned visitedRecAccepting = 0;
 	std::vector<VSet<Event>> saved;

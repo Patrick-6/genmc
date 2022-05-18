@@ -50,6 +50,7 @@ public:
 	std::vector<VSet<Event>> calculateSaved(const Event &e);
 	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
+	bool isRecoveryValid(const Event &e);
 
 private:
 	void visitCalc0_0(const Event &e, VSet<Event> &calcRes);
@@ -107,6 +108,11 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic9;
 
 	unsigned visitedAccepting = 0;
+
+	bool isRecAcyclic(const Event &e);
+
+
+	unsigned visitedRecAccepting = 0;
 	std::vector<VSet<Event>> saved;
 	std::vector<View> views;
 
