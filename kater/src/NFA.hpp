@@ -393,9 +393,9 @@ public:
 	}
 
 	template<typename ITER>
-	void addInvertedTransitions(State *src, ITER &&begin, ITER &&end) {
+	void addInvertedTransitions(State *dst, ITER &&begin, ITER &&end) {
 		std::for_each(begin, end, [&](const Transition &t){
-			addTransition(t.dest, t.flipTo(src));
+			addTransition(t.dest, t.flipTo(dst));
 		});
 	}
 
