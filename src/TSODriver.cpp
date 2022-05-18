@@ -346,7 +346,7 @@ void TSODriver::initConsCalculation()
 
 bool TSODriver::isConsistent(const Event &e)
 {
-	if (e.thread == getGraph().getRecoveryRoutineId)
+	if (e.thread == getGraph().getRecoveryRoutineId())
 		return TSOChecker(getGraph()).isRecoveryValid(e);
 	return TSOChecker(getGraph()).isConsistent(e);
 }
