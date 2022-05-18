@@ -162,6 +162,7 @@ bool TransLabel::merge(const TransLabel &other,
 		TransLabel t(*this);
 		t.getId() = other.getId();
 		t.getPreChecks().insert(other.pre_begin(), other.pre_end());
+		t.flipped = other.isFlipped();
 		simplifyChecks(t.getPreChecks());
 		assert(t.getPostChecks().empty());
 		t.getPostChecks() = other.getPostChecks();
