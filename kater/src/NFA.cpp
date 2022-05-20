@@ -148,6 +148,13 @@ bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
 	return (mask1 | mask2) == mask1;
 }
 
+template<typename T>
+inline void hash_combine(std::size_t& seed, std::size_t v)
+{
+	std::hash<T> hasher;
+	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
+
 bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 {
 	KATER_DEBUG(
@@ -158,21 +165,38 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 	if (other.getNumStarting() == 0)
 		return acceptsNoString(cex);
 
-	using SPair = std::pair<State *, State *>;
-	struct SPairHasher {
-		inline void hash_combine(std::size_t& seed, std::size_t v) const {
-			seed ^= v + 0x9e3779b9 + (seed<<6) + (seed>>2);
+	struct SPair {
+		State *s1;
+		State *s2;
+		TransLabel l1;
+
+		bool operator==(const SPair &other) const {
+			return s1 == other.s1 && s2 == other.s2 && l1 == other.l1;
 		}
+	};
+	// XXX: FIXME
+	struct SPairHasher {
 		std::size_t operator()(SPair p) const {
 			std::size_t hash = 0;
-			hash_combine(hash, p.first->getId());
-			hash_combine(hash, p.second->getId());
+			hash_combine<unsigned>(hash, p.s1->getId());
+			hash_combine<unsigned>(hash, p.s2->getId());
+			if (!p.l1.isPredicate())
+				hash_combine<unsigned>(hash, *p.l1.getId());
+			else
+				hash_combine<unsigned>(hash, 0);
 			return hash;
 		}
 	};
 
+	struct SimState {
+		State *s1;
+		State *s2;
+		TransLabel l1;
+		std::string cex;
+	};
+
 	std::unordered_set<SPair, SPairHasher> visited;
-	std::vector<std::pair<SPair, std::string>> workList;
+	std::vector<SimState> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
 		if (!isStarting(it->get()))
@@ -180,41 +204,42 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 		for (auto oit = other.states_begin(); oit != other.states_end(); oit++) {
 			if (!isStarting(oit->get()))
 				continue;
-			visited.insert({it->get(), oit->get()});
-			workList.push_back({{it->get(), oit->get()}, ""});
+			visited.insert({it->get(), oit->get(), TransLabel(std::nullopt)});
+			workList.push_back({it->get(), oit->get(), TransLabel(std::nullopt), ""});
 		}
 	}
 	while (!workList.empty()) {
-		auto [p,str] = workList.back();
+		auto [s1, s2, l1, str] = workList.back();
 		workList.pop_back();
-		if (isAccepting(p.first) && !isAccepting(p.second)) {
+		if (isAccepting(s1) && !isAccepting(s2)) {
 			cex = str;
 			return false;
 		}
 
-		for (auto it = p.first->out_begin(); it != p.first->out_end(); it++) {
+		for (auto it = s1->out_begin(); it != s1->out_end(); it++) {
 			std::string new_str = str + " ";
 			KATER_DEBUG(
-				new_str += std::to_string(p.first->getId()) + "/" +
-					   std::to_string(p.second->getId()) + " ";
+				new_str += std::to_string(s1->getId()) + "/" +
+					   std::to_string(s2->getId()) + " ";
 			);
 			new_str += it->label.toString();
-			bool found_edge = false;
-			for (auto oit = p.second->out_begin(); oit != p.second->out_end(); oit++) {
-				if (it->label != oit->label && !(it->label.isPredicate() &&
-								 oit->label.isPredicate() &&
-								 checksInclude(oit->label.pre_begin(),
-									       oit->label.pre_end(),
-									       it->label.pre_begin(),
-									       it->label.pre_end())))
+
+			auto nl1 = it->label;
+			if (l1.isPredicate() && it->label.isPredicate() && !nl1.merge(l1))
+				continue;
+
+			bool canTakeEdge = false;
+			for (auto oit = s2->out_begin(); oit != s2->out_end(); oit++) {
+				if (it->label != oit->label)
 					continue;
-				found_edge = true;
-				if (visited.count({it->dest, oit->dest}))
+
+				canTakeEdge = true;
+				if (visited.count({it->dest, oit->dest, nl1}))
 					continue;
-				visited.insert({it->dest, oit->dest});
-				workList.push_back({{it->dest, oit->dest}, new_str});
+				visited.insert({it->dest, oit->dest, nl1});
+				workList.push_back({it->dest, oit->dest, nl1, new_str});
 			}
-			if (!found_edge) {
+			if (!canTakeEdge) {
 				cex = new_str;
 				return false;
 			}
