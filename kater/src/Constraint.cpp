@@ -26,11 +26,45 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-void saturateNFA(NFA &nfa)
+template<typename ITER>
+bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
 {
-	auto i = 0; // FIXME: Implicit idx-based ID is horrible.
-	std::for_each(TransLabel::builtin_pred_begin(), TransLabel::builtin_pred_end(), [&](auto &pi){
-		saturateIDs(nfa, TransLabel(std::nullopt, {i++}));
+	unsigned mask1 = ~0;
+	std::for_each(b1, e1, [&mask1](auto &id){
+		mask1 &= builtinPredicates[id].bitmask;
+	});
+	unsigned mask2 = ~0;
+	std::for_each(b2, e2, [&mask2](auto &id){
+		mask2 &= builtinPredicates[id].bitmask;
+	});
+	return (mask1 | mask2) == mask1;
+}
+
+void saturateNFA(NFA &nfa, const NFA &other)
+{
+	std::vector<TransLabel> opreds;
+	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (t.label.isPredicate())
+				opreds.push_back(t.label);
+		});
+	});
+
+	saturateID(nfa, opreds);
+
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		std::vector<NFA::Transition> toAdd;
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (!t.label.isPredicate())
+				return;
+			std::for_each(opreds.begin(), opreds.end(), [&](auto &lab){
+				if (checksInclude(lab.pre_begin(), lab.pre_end(),
+						  t.label.pre_begin(),t.label.pre_end())) {
+					toAdd.push_back(NFA::Transition(lab, t.dest));
+				}
+			});
+		});
+		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
 }
 
