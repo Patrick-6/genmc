@@ -71,24 +71,17 @@ void saturateNFA(NFA &nfa, const NFA &other)
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex)
 {
 	auto nfa1 = re1->toNFA();
-	// nfa1.simplify();
-	// std::cerr << "1: before breaking " << nfa1 << "\n";
+	nfa1.simplify();
 	nfa1.breakToParts();
-	// std::cerr << "1: after breaking " << nfa1 << "\n";
 	nfa1.removeDeadStates();
-	// std::cerr << "1: after removing dead " << nfa1 << "\n";
-	nfa1.composePredicateEdges();
-	// std::cerr << "1: after joining " << nfa1 << "\n";
 	auto lhs = nfa1.to_DFA().first;
 
 	auto nfa2 = re2->toNFA();
-	// nfa2.simplify();
+	nfa2.simplify();
 	nfa2.breakToParts();
 	nfa2.removeDeadStates();
-	// std::cerr << "2: before joining " << nfa2 << "\n";
-	nfa2.composePredicateEdges();
-	// saturateNFA(nfa2);
-	// std::cerr << "2: after joining " << nfa2 << "\n";
+	saturateNFA(nfa2, nfa1);
+	nfa2.addTransitivePredicateEdges();
 	auto rhs = nfa2.to_DFA().first;
 	return lhs.isSubLanguageOfDFA(rhs, cex);
 }
