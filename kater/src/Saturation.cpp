@@ -1,11 +1,11 @@
 #include "Saturation.hpp"
 
-void saturateIDs(NFA &nfa, const TransLabel &lab)
+void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
 {
-	assert(lab.isPredicate());
+	assert(std::all_of(labs.begin(), labs.end(), [&](auto &lab){ return lab.isPredicate(); }));
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		std::for_each(lab.pre_begin(), lab.pre_end(), [&](auto &p){
-			nfa.addSelfTransition(&*s, TransLabel(std::nullopt, {p}));
+		std::for_each(labs.begin(), labs.end(), [&](auto &lab){
+			nfa.addSelfTransition(&*s, lab);
 		});
 	});
 }
