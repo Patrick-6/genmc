@@ -488,7 +488,7 @@ public:
 
 	NFA &removeDeadStates();
 
-	NFA &composePredicateEdges();
+	NFA &addTransitivePredicateEdges();
 
 	NFA &breakToParts();
 

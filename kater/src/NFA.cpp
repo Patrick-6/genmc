@@ -508,21 +508,12 @@ void NFA::scm_reduce ()
 	}
 }
 
-NFA &NFA::composePredicateEdges()
+NFA &NFA::addTransitivePredicateEdges()
 {
 	std::vector<std::pair<State *, Transition>> toRemove;
 
 	for (auto it = states_begin(); it != states_end(); ++it) {
 		auto &s = *it;
-
-		if (!s->hasAllInPredicates())
-			continue;
-
-		if (s->hasAllOutPredicates()) {
-			std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
-				toRemove.push_back({t.dest, t.flipTo(&*s)});
-			});
-		}
 
 		for (auto inIt = s->in_begin(); inIt != s->in_end(); ++inIt) {
 			for (auto outIt = s->out_begin(); outIt != s->out_end(); ++outIt) {
@@ -532,14 +523,9 @@ NFA &NFA::composePredicateEdges()
 				auto l = inIt->label; // no need to flip
 				if (l.merge(outIt->label))
 					addTransition(inIt->dest, Transition(l, outIt->dest));
-
-				toRemove.push_back({&*s, *outIt});
 			}
 		}
 	}
-	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
-		removeTransition(p.first, p.second);
-	});
 	return *this;
 }
 
