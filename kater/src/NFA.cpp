@@ -410,19 +410,21 @@ void NFA::breakIntoMultiple(State *s, const Transition &t)
 NFA &NFA::breakToParts()
 {
 	std::vector<std::pair<State *, Transition>> toBreak;
+	std::vector<std::pair<State *, Transition>> toRemove;
 	std::for_each(states_begin(), states_end(), [&](auto &s){
-		std::vector<Transition> toRemove;
 		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
 			if (!t.label.isPredicate() && (t.label.hasPreChecks() ||
 						       t.label.hasPostChecks())) {
 				toBreak.push_back({&*s, t});
-				toRemove.push_back(t);
+				toRemove.push_back({&*s, t});
 			}
 		});
-		removeTransitions(&*s, toRemove.begin(), toRemove.end());
 	});
 	std::for_each(toBreak.begin(), toBreak.end(), [&](auto &p){
 		breakIntoMultiple(p.first, p.second);
+	});
+	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
+		removeTransition(p.first, p.second);
 	});
 	return *this;
 }
