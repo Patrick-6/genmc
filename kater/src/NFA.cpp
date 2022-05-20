@@ -383,15 +383,23 @@ NFA NFA::copy(std::unordered_map<State *, State *> *uMap /* = nullptr */) const
 
 void NFA::breakIntoMultiple(State *s, const Transition &t)
 {
+	if (t.label.isPredicate() ||
+	    (!t.label.hasPreChecks() && !t.label.hasPostChecks()))
+		return;
+
 	auto *curr = s;
 	if (t.label.hasPreChecks()) {
 		TransLabel::PredSet preds(t.label.pre_begin(), t.label.pre_end());
-		auto *p = addTransitionToFresh(s, TransLabel(std::nullopt, preds));
+		auto *p = addTransitionToFresh(curr, TransLabel(std::nullopt, preds));
 		curr = p;
 	}
-	if (!t.label.isPredicate()) {
-		auto *r = addTransitionToFresh(s, TransLabel(t.label.getId()));
-		curr = r;
+	if (t.label.getId()) {
+		if (t.label.hasPostChecks()) {
+			curr = addTransitionToFresh(curr, TransLabel(t.label.getId()));
+		} else {
+			addTransition(curr, Transition(TransLabel(t.label.getId()), t.dest));
+			curr = t.dest;
+		}
 	}
 	if (t.label.hasPostChecks()) {
 		TransLabel::PredSet preds(t.label.post_begin(), t.label.post_end());
