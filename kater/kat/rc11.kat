@@ -4,6 +4,8 @@ assume [F] ; mo-imm = 0
 assume [F] ; rf = 0
 assume mo-imm ; [F] = 0
 assume rf ; [F] = 0
+assume rf ; [REL] = 0
+assume [REL] ; rf = 0
 
 // ---------------------------------------------------------------------
 // Definition of standard relations
