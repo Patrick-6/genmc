@@ -28,7 +28,18 @@ bool Kater::checkAssertions()
 					RegExp::createFalse(), [&](URE &re1, URE &re2){
 						return AltRE::createOpt(re1->clone(), re2->clone());
 					});
-	module->registerAssert(SubsetConstraint::create(std::move(pporf), std::move(acycDisj)), yy::location());
+	module->registerAssert(SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj))),
+			       yy::location());
+
+	/* Ensure that all saved relations are included in pporf */
+	std::for_each(module->svar_begin(), module->svar_end(), [&](auto &sv){
+			module->registerAssert(
+				SubsetConstraint::create(
+					sv.exp->clone(),
+					StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
+									   ppo->clone()))),
+				yy::location());
+	});
 
 	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
 
