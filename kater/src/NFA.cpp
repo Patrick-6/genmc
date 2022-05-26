@@ -591,7 +591,7 @@ void NFA::removeRedundantSelfLoops()
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		std::vector<Transition> toRemove;
 		std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(toRemove), [&](const Transition &t1){
-			return (t1.dest != &*s &&
+			return (t1.dest != &*s && !isAccepting(&*s) &&
 			    std::all_of(s->out_begin(), s->out_end(), [&](const Transition &t2){
 					    return t2.label == t1.label &&
 						    (t2.dest == &*s ||
