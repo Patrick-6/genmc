@@ -535,6 +535,11 @@ private:
 	void scm_reduce ();
 	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
 
+	std::unordered_map<State *, std::unordered_map<State *, bool>>
+	findSimilarStates() const;
+
+	void removeSimilarTransitions();
+
 	const StateUPVectorT &getStates() const { return nfa; }
 	StateUPVectorT &getStates() { return nfa; }
 

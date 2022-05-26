@@ -612,6 +612,86 @@ void NFA::compactEdges(std::function<bool(const TransLabel &)> isValidTransition
 	removeRedundantSelfLoops();
 }
 
+bool isSimilarTo(const NFA &nfa, const NFA::Transition &t1, const NFA::Transition &t2,
+		 const std::unordered_map<NFA::State *, std::unordered_map<NFA::State *, bool>> &similar)
+{
+	return t1.label == t2.label &&
+		similar.at(t1.dest).at(t2.dest) &&
+		(!nfa.isAccepting(t1.dest) || nfa.isAccepting(t2.dest));
+}
+
+bool hasSimilarTransition(const NFA &nfa, NFA::State *s, const NFA::Transition &t1,
+			  const std::unordered_map<NFA::State *, std::unordered_map<NFA::State *, bool>> &similar)
+{
+	return std::any_of(s->out_begin(), s->out_end(), [&](auto &t2){
+			return isSimilarTo(nfa, t1, t2, similar);
+		});
+}
+
+bool isSimilarTo(const NFA &nfa, NFA::State *s1, NFA::State *s2,
+		 const std::unordered_map<NFA::State *, std::unordered_map<NFA::State *, bool>> &similar)
+{
+	return std::all_of(s1->out_begin(), s1->out_end(), [&](auto &t1){
+			return nfa.hasTransition(s2, t1) || hasSimilarTransition(nfa, s2, t1, similar);
+		});
+}
+
+std::unordered_map<NFA::State *, std::unordered_map<NFA::State *, bool>>
+NFA::findSimilarStates() const
+{
+	std::unordered_map<State *, std::unordered_map<State *, bool>> similar;
+
+	std::unordered_map<State *, bool> initV;
+	std::generate_n(std::inserter(initV, initV.begin()), getNumStates(),
+			[sIt = states_begin()] () mutable { return std::make_pair(&**sIt++, true); });
+
+	std::generate_n(std::inserter(similar, similar.begin()), getNumStates(),
+			[sIt = states_begin(), v = initV] () mutable { return std::make_pair(&**sIt++, v); });
+
+
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		std::for_each(states_begin(), states_end(), [&](auto &s1){
+			std::for_each(states_begin(), states_end(), [&](auto &s2){
+				if (similar[&*s1][&*s2] && !isSimilarTo(*this, &*s1, &*s2, similar)) {
+					similar[&*s1][&*s2] = false;
+					changed = true;
+				}
+			});
+		});
+	}
+	return similar;
+}
+
+void NFA::removeSimilarTransitions()
+{
+	auto similar = findSimilarStates();
+
+	/* Bisimilar states */
+	std::vector<State *> toRemove;
+	std::for_each(states_begin(), states_end(), [&](auto &s1){
+		std::for_each(states_begin(), states_end(), [&](auto &s2){
+			if (&*s1 != &*s2 && similar[&*s1][&*s2] && similar[&*s2][&*s1] &&
+			    (isAccepting(&*s1) == isAccepting(&*s2))) {
+				addInvertedTransitions(&*s1, s2->in_begin(), s2->in_end());
+				toRemove.push_back(&*s2);
+			}
+		});
+	});
+	removeStates(toRemove.begin(), toRemove.end());
+
+	/* Transitions to similar states */
+	std::for_each(states_begin(), states_end(), [&](auto &s){
+		removeTransitionsIf(&*s, [&](auto &t1){
+			return std::any_of(s->out_begin(), s->out_end(), [&](auto &t2){
+					return t1 != t2 && isSimilarTo(*this, t1, t2, similar);
+				});
+		});
+	});
+	removeDeadStates();
+}
+
 NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 {
 	simplify_basic();
@@ -625,6 +705,12 @@ NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 
 	applyBidirectionally([&](){ scm_reduce(); });
 	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
+
+	applyBidirectionally([&](){ removeSimilarTransitions(); });
+	KATER_DEBUG(std::cout << "After similar-transition removal: " << *this;);
+
+	applyBidirectionally([&](){ removeDeadStates(); });
+	KATER_DEBUG(std::cout << "After dead-state removal: " << *this;);
 
 	KATER_DEBUG(std::cout << "After last simplification: " << *this;);
 	simplify_basic();
