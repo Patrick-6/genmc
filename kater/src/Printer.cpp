@@ -134,17 +134,18 @@ void Printer::printHppHeader()
 	      << "#include \"MaximalIterator.hpp\"\n"
 	      << "#include \"PersistencyChecker.hpp\"\n"
 	      << "#include \"VSet.hpp\"\n"
+	      << "#include <cstdint>\n"
 	      << "#include <vector>\n"
 	      << "\n"
 	      << "class " << className << " {\n"
 	      << "\n"
 	      << "private:\n"
-	      << "\tenum class NodeStatus { unseen, entered, left };\n"
+	      << "\tenum class NodeStatus : unsigned char { unseen, entered, left };\n"
 	      << "\n"
 	      << "\tstruct NodeCountStatus {\n"
 	      << "\t\tNodeCountStatus() = default;\n"
-	      << "\t\tNodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}\n"
-	      << "\t\tunsigned count = 0;\n"
+	      << "\t\tNodeCountStatus(uint16_t c, NodeStatus s) : count(c), status(s) {}\n"
+	      << "\t\tuint16_t count = 0;\n"
 	      << "\t\tNodeStatus status = NodeStatus::unseen;\n"
 	      << "\t};\n"
 	      << "\n"
@@ -305,7 +306,7 @@ void Printer::printAcyclicHpp(const NFA &nfa)
 	hpp() << "\n";
 
 	/* accepting counter */
-	hpp() << "\tunsigned visitedAccepting = 0;\n";
+	hpp() << "\tuint16_t visitedAccepting = 0;\n";
 }
 
 void Printer::printAcyclicCpp(const NFA &nfa)

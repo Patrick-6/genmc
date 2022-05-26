@@ -30,17 +30,18 @@
 #include "MaximalIterator.hpp"
 #include "PersistencyChecker.hpp"
 #include "VSet.hpp"
+#include <cstdint>
 #include <vector>
 
 class RC11Checker {
 
 private:
-	enum class NodeStatus { unseen, entered, left };
+	enum class NodeStatus : unsigned char { unseen, entered, left };
 
 	struct NodeCountStatus {
 		NodeCountStatus() = default;
-		NodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}
-		unsigned count = 0;
+		NodeCountStatus(uint16_t c, NodeStatus s) : count(c), status(s) {}
+		uint16_t count = 0;
 		NodeStatus status = NodeStatus::unseen;
 	};
 
@@ -111,7 +112,7 @@ private:
 	std::vector<NodeCountStatus> visitedAcyclic10;
 	std::vector<NodeCountStatus> visitedAcyclic11;
 
-	unsigned visitedAccepting = 0;
+	uint16_t visitedAccepting = 0;
 
 	bool isRecAcyclic(const Event &e);
 
