@@ -30,6 +30,7 @@ private:
 	CNFAs &getCNFAs() { return cnfas; }
 
 	void expandSavedVars(URE &r);
+	void expandRfs(URE &r);
 
 	const Config &config;
 	std::unique_ptr<KatModule> module;

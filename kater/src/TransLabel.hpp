@@ -88,6 +88,9 @@ public:
 	const std::optional<RelID> &getId() const { return id; }
 	std::optional<RelID> &getId() { return id; }
 
+	const PredSet &getPreChecks() const { return preChecks; }
+	const PredSet &getPostChecks() const { return postChecks; }
+
 	bool isPredicate() const { return !getId(); }
 
 	bool hasPreChecks() const { return pre_begin() != pre_end(); }
@@ -151,10 +154,7 @@ public:
 	}
 
 private:
-	const PredSet &getPreChecks() const { return preChecks; }
 	PredSet &getPreChecks() { return preChecks; }
-
-	const PredSet &getPostChecks() const { return postChecks; }
 	PredSet &getPostChecks() { return postChecks; }
 
 	std::optional<RelID> id;

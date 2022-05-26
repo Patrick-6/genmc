@@ -15,6 +15,33 @@ void Kater::expandSavedVars(URE &r)
 	}
 }
 
+void Kater::expandRfs(URE &r)
+{
+	for (int i = 0; i < r->getNumKids(); i++)
+		expandRfs(r->getKid(i));
+
+	auto rf = module->getRegisteredID("rf");
+	auto *re = dynamic_cast<const CharRE *>(&*r);
+	if (!re || re->getLabel().getId() != static_cast<const CharRE *>(&*rf)->getLabel().getId())
+		return;
+
+	auto rfe = module->getRegisteredID("rfe");
+	auto rfi = module->getRegisteredID("rfi");
+
+	auto re1 = re->clone();
+	auto re2 = re->clone();
+	auto l1 = TransLabel(static_cast<CharRE *>(&*rfe)->getLabel().getId(),
+			     re->getLabel().getPreChecks(),
+			     re->getLabel().getPostChecks());
+	auto l2 = TransLabel(static_cast<CharRE *>(&*rfi)->getLabel().getId(),
+			     re->getLabel().getPreChecks(),
+			     re->getLabel().getPostChecks());
+	static_cast<CharRE *>(&*re1)->setLabel(l1);
+	static_cast<CharRE *>(&*re2)->setLabel(l2);
+
+	r = AltRE::createOpt(std::move(re1), std::move(re2));
+}
+
 bool Kater::checkAssertions()
 {
 	/* Ensure that ppo is implied by the acyclicity constraints */
@@ -23,7 +50,7 @@ bool Kater::checkAssertions()
 		std::cerr << "[Error] No ppo definition provided!\n";
 		return false;
 	}
-	auto pporf = PlusRE::createOpt(AltRE::createOpt(std::move(ppo), module->getRegisteredID("rfe")));
+	auto pporf = PlusRE::createOpt(AltRE::createOpt(ppo->clone(), module->getRegisteredID("rf")));
 	auto acycDisj = std::accumulate(module->acyc_begin(), module->acyc_end(),
 					RegExp::createFalse(), [&](URE &re1, URE &re2){
 						return AltRE::createOpt(re1->clone(), re2->clone());
@@ -47,8 +74,11 @@ bool Kater::checkAssertions()
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
 		if (getConf().verbose >= 2)
 			std::cout << "Checking assertion " << *p.first << std::endl;
-		for (int i = 0; i < p.first->getNumKids(); i++)
+		for (int i = 0; i < p.first->getNumKids(); i++) {
 			expandSavedVars(p.first->getKid(i));
+			expandRfs(p.first->getKid(i));
+		}
+
 		std::string cex;
 		if (!p.first->checkStatically(cex, isValidLabel)) {
 			std::cerr << p.second << ": [Error] Assertion does not hold." << std::endl;

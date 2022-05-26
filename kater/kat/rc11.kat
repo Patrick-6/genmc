@@ -2,10 +2,18 @@
 
 assume [F] ; mo-imm = 0
 assume [F] ; rf = 0
+assume [F] ; rfi = 0
+assume [F] ; rfe = 0
 assume mo-imm ; [F] = 0
 assume rf ; [F] = 0
+assume rfe ; [F] = 0
+assume rfi ; [F] = 0
 assume rf ; [REL] = 0
+assume rfe ; [REL] = 0
+assume rfi ; [REL] = 0
 assume [REL] ; rf = 0
+assume [REL] ; rfi = 0
+assume [REL] ; rfe = 0
 
 // ---------------------------------------------------------------------
 // Definition of standard relations
