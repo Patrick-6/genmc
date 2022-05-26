@@ -155,7 +155,8 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
+bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
+			     std::function<bool(const TransLabel &)> isValidTransition) const
 {
 	KATER_DEBUG(
 		std::cout << "Checking inclusion between automata:" << std::endl;
@@ -225,7 +226,8 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex) const
 			new_str += it->label.toString();
 
 			auto nl1 = it->label;
-			if (l1.isPredicate() && it->label.isPredicate() && !nl1.merge(l1))
+			if ((l1.isPredicate() || nl1.isPredicate()) &&
+			    !nl1.merge(l1, isValidTransition))
 				continue;
 
 			bool canTakeEdge = false;

@@ -68,7 +68,7 @@ void saturateNFA(NFA &nfa, const NFA &other)
 	});
 }
 
-bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex)
+bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex, Constraint::ValidFunT vfun)
 {
 	auto nfa1 = re1->toNFA();
 	nfa1.simplify();
@@ -83,12 +83,12 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex
 	saturateNFA(nfa2, nfa1);
 	nfa2.addTransitivePredicateEdges();
 	auto rhs = nfa2.to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs, cex);
+	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
-bool SubsetConstraint::checkStatically(std::string &cex) const
+bool SubsetConstraint::checkStatically(std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), cex);
+	return checkStaticInclusion(getKid(0), getKid(1), cex, vfun);
 }
 
 std::unique_ptr<Constraint>
@@ -102,10 +102,10 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-bool EqualityConstraint::checkStatically(std::string &cex) const
+bool EqualityConstraint::checkStatically(std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), cex) &&
-		checkStaticInclusion(getKid(1), getKid(0), cex);
+	return checkStaticInclusion(getKid(0), getKid(1), cex, vfun) &&
+		checkStaticInclusion(getKid(1), getKid(0), cex, vfun);
 }
 
 std::unique_ptr<Constraint>

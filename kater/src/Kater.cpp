@@ -30,6 +30,8 @@ bool Kater::checkAssertions()
 					});
 	module->registerAssert(SubsetConstraint::create(std::move(pporf), std::move(acycDisj)), yy::location());
 
+	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
+
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
 		if (getConf().verbose >= 2)
@@ -37,7 +39,7 @@ bool Kater::checkAssertions()
 		for (int i = 0; i < p.first->getNumKids(); i++)
 			expandSavedVars(p.first->getKid(i));
 		std::string cex;
-		if (!p.first->checkStatically(cex)) {
+		if (!p.first->checkStatically(cex, isValidLabel)) {
 			std::cerr << p.second << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
 				std::cerr << "Counterexample: " << cex << std::endl;

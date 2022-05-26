@@ -12,6 +12,8 @@ class Constraint {
 public:
 	enum class Type { Consistency, Error, Warning };
 
+	using ValidFunT = std::function<bool(const TransLabel &)>;
+
 protected:
 	Constraint(std::vector<std::unique_ptr<RegExp> > &&kids = {})
 		: kids(std::move(kids)) {}
@@ -52,7 +54,8 @@ public:
 	size_t getNumKids() const { return kids.size(); }
 
 	/* Does the Constraint hold statically */
-	virtual bool checkStatically(std::string &cex) const = 0;
+	virtual bool checkStatically(std::string &cex,
+				     ValidFunT vfun = [](auto &t){ return true; }) const = 0;
 
 	/* Returns a clone of the Constraint */
 	virtual std::unique_ptr<Constraint> clone() const = 0;
@@ -117,7 +120,10 @@ public:
 	/* NOTE: Might not return AcyclicConstraint */
 	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> re);
 
-	bool checkStatically(std::string &cex) const override { return false; }
+	bool checkStatically(std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const {
+		return false;
+	}
 
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
@@ -141,7 +147,10 @@ public:
 			new RecoveryConstraint(std::forward<Ts>(params)...));
 	}
 
-	bool checkStatically(std::string &cex) const override { return false; }
+	bool checkStatically(std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const {
+		return false;
+	}
 
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
@@ -168,7 +177,10 @@ public:
 	/* NOTE: Might not return AcyclicConstraint */
 	static std::unique_ptr<Constraint> createOpt(std::unique_ptr<RegExp> re);
 
-	bool checkStatically(std::string &cex) const override { return false; }
+	bool checkStatically(std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const {
+		return false;
+	}
 
 	std::unique_ptr<Constraint> clone() const override { return create(getKid(0)->clone()); }
 
@@ -202,7 +214,8 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
-	bool checkStatically(std::string &cex) const override;
+	bool checkStatically(std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
@@ -240,7 +253,8 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
-	bool checkStatically(std::string &cex) const override;
+	bool checkStatically(std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());

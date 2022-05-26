@@ -494,7 +494,10 @@ public:
 
 	bool acceptsEmptyString() const;
 	bool acceptsNoString(std::string &cex) const;
-	bool isSubLanguageOfDFA(const NFA &other, std::string &cex) const;
+
+	bool isSubLanguageOfDFA(const NFA &other, std::string &cex,
+				std::function<bool(const TransLabel &)> isValidTransition =
+				[](const TransLabel &lab){ return true; }) const;
 
 	std::pair<NFA, std::map<State *, std::set<State *>>> to_DFA () const;
 
