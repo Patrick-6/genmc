@@ -28,13 +28,13 @@ bool VectorClock::contains(const EventLabel *lab) const
 	return contains(lab->getPos());
 }
 
-VectorClock *VectorClock::clone() const
+std::unique_ptr<VectorClock> VectorClock::clone() const
 {
 	switch (getKind()) {
 	case VC_View:
-                return new View(*static_cast<const View *>(this));
+                return LLVM_MAKE_UNIQUE<View>(*static_cast<const View *>(this));
 	case VC_DepView:
-                return new DepView(*static_cast<const DepView *>(this));
+                return LLVM_MAKE_UNIQUE<DepView>(*static_cast<const DepView *>(this));
 	}
 	BUG();
 }

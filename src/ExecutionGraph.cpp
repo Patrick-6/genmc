@@ -388,7 +388,7 @@ std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 	std::vector<Event> loads;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before[i] + 1u; j < getThreadSize(i); j++) {
+		for (auto j = before.getMax(i) + 1u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
@@ -918,9 +918,9 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 					auto &predV = getEventLabel(pred)->getHbView();
 					for (auto k = 0u; k < v.size(); k++) {
 						if (k != rLab->getThread() &&
-						    v[k] > 0 &&
-						    !predV.contains(Event(k, v[k]))) {
-							auto cndt = getPreviousNonTrivial(Event(k, v[k]).next());
+						    v.getMax(k) > 0 &&
+						    !predV.contains(Event(k, v.getMax(k)))) {
+							auto cndt = getPreviousNonTrivial(Event(k, v.getMax(k)).next());
 							if (cndt.isInitializer())
 								continue;
 							edges.push_back(std::make_pair(cndt, rLab->getPos()));
@@ -957,7 +957,7 @@ ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 	auto &prefix = sLab->getPorfView();
 	auto before = getViewFromStamp(rLab->getStamp());
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before[i] + 1; j <= prefix[i]; j++) {
+		for (auto j = before.getMax(i) + 1; j <= prefix.getMax(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			result.push_back(lab->clone());
 
@@ -1155,8 +1155,8 @@ bool ExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 {
 	auto v = getRevisitView(r);
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		if ((*v)[i] + 1 != (int) getThreadSize(i) &&
-		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, (*v)[i] + 1))))
+		if (v->getMax(i) + 1 != (int) getThreadSize(i) &&
+		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v->getMax(i) + 1))))
 			return true;
 	}
 	return false;
@@ -1252,7 +1252,7 @@ View ExecutionGraph::getViewFromStamp(unsigned int stamp) const
 		for (auto j = (int) getThreadSize(i) - 1; j >= 0; j--) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (lab->getStamp() <= stamp) {
-				preds[i] = j;
+				preds.setMax(Event(i, j));
 				break;
 			}
 		}
@@ -1265,14 +1265,10 @@ DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
 	DepView preds;
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		int prevPos = 0; /* Position of last concrent event in view */
 		for (auto j = 1u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->getStamp() <= stamp) {
-				preds[i] = j;
-				preds.addHolesInRange(Event(i, prevPos + 1), j);
-				prevPos = j;
-			}
+			if (lab->getStamp() <= stamp)
+				preds.setMax(Event(i, j));
 		}
 	}
 	return preds;
@@ -1299,7 +1295,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	/* Restrict the graph according to the view (keep begins around) */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
-		thr.erase(thr.begin() + preds[i] + 1, thr.end());
+		thr.erase(thr.begin() + preds.getMax(i) + 1, thr.end());
 	}
 
 	/* Remove any 'pointers' to events that have been removed */
@@ -1363,7 +1359,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	other.events.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		other.addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
-		for (auto j = 1; j <= v[i]; j++) {
+		for (auto j = 1; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j))) {
 				other.addOtherLabelToGraph(
 					EmptyLabel::create(other.nextStamp(), Event(i, j)));

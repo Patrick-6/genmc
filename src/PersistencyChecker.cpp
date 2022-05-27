@@ -82,7 +82,7 @@ void PersistencyChecker::calcDskMemAccessPbView(MemAccessLabel *mLab)
 	BUG_ON(prefix.empty()); /* Must run after plain views calc */
 	BUG_ON(!llvm::isa<DskAccessLabel>(mLab));
 	for (auto i = 0u; i < prefix.size(); i++) {
-		auto lim = (i == mLab->getThread()) ? prefix[i] - 1 : prefix[i];
+		auto lim = (i == mLab->getThread()) ? prefix.getMax(i) - 1 : prefix.getMax(i);
 		for (auto j = 1u; j <= lim; j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (llvm::isa<FenceLabel>(lab)) {
@@ -107,9 +107,7 @@ void PersistencyChecker::calcDskMemAccessPbView(MemAccessLabel *mLab)
 		}
 	}
 
-	auto prevIdx = pb[mLab->getThread()];
-	pb[mLab->getThread()] = mLab->getIndex();
-	pb.addHolesInRange(Event(mLab->getThread(), prevIdx + 1), mLab->getIndex());
+	pb.setMax(mLab->getPos());
 	llvm::dyn_cast<DskAccessLabel>(mLab)->setPbView(std::move(pb));
 	return;
 }
@@ -125,7 +123,7 @@ void PersistencyChecker::calcFsyncPbView(DskFsyncLabel *fLab)
 
 	BUG_ON(hb.empty()); /* Must run after plain views calc */
 	for (auto i = 0u; i < hb.size(); i++) {
-		auto lim = (i == fLab->getThread()) ? hb[i] - 1 : hb[i];
+		auto lim = (i == fLab->getThread()) ? hb.getMax(i) - 1 : hb.getMax(i);
 		for (auto j = 1u; j <= lim; j++) {
 			const EventLabel *lab = g.getEventLabel(Event(i, j));
 			if (auto *dLab = llvm::dyn_cast<DskAccessLabel>(lab)) {
@@ -134,9 +132,7 @@ void PersistencyChecker::calcFsyncPbView(DskFsyncLabel *fLab)
 			}
 		}
 	}
-	auto prevIdx = pb[fLab->getThread()];
-	pb[fLab->getThread()] = fLab->getIndex();
-	pb.addHolesInRange(Event(fLab->getThread(), prevIdx + 1), fLab->getIndex());
+	pb.setMax(fLab->getPos());
 	fLab->setPbView(std::move(pb));
 	return;
 }
@@ -148,7 +144,7 @@ void PersistencyChecker::calcSyncPbView(DskSyncLabel *fLab)
 
 	BUG_ON(hb.empty()); /* Must run after plain views calc */
 	for (auto i = 0u; i < hb.size(); i++)
-		pb[i] = hb[i];
+		pb.setMax(Event(i, hb.getMax(i)));
 	fLab->setPbView(std::move(pb));
 	return;
 }
@@ -160,7 +156,7 @@ void PersistencyChecker::calcPbarrierPbView(DskPbarrierLabel *fLab)
 
 	BUG_ON(hb.empty()); /* Must run after plain views calc */
 	for (auto i = 0u; i < hb.size(); i++)
-		pb[i] = hb[i];
+		pb.setMax(Event(i, hb.getMax(i)));
 	fLab->setPbView(std::move(pb));
 	return;
 }

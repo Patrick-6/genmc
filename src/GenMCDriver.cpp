@@ -1353,7 +1353,7 @@ bool writesBeforeHelpedContainedInView(const ExecutionGraph &g, const HelpedCasR
 	auto &hb = lab->getHbView();
 
 	for (auto i = 0u; i < hb.size(); i++) {
-		auto j = hb[i];
+		auto j = hb.getMax(i);
 		while (!llvm::isa<WriteLabel>(g.getEventLabel(Event(i, j))) && j > 0)
 			--j;
 		if (j > 0 && !view.contains(Event(i, j)))
@@ -2222,7 +2222,7 @@ View GenMCDriver::getReplayView() const
 	 * to the execution of extraneous instructions */
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(i)))
-			--v[i];
+			v.setMax(Event(i, v.getMax(i)-1));
 	return v;
 }
 
@@ -2521,8 +2521,8 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 			dv->addHole(brh->getMid());
 			dv->addHole(brh->getMid().prev());
 		} else {
-			--(*v)[brh->getMid().thread];
-			--(*v)[brh->getMid().thread];
+			auto prev = v->getMax(brh->getMid().thread);
+			v->setMax(Event(brh->getMid().thread, prev-2));
 		}
 	}
 
@@ -3299,7 +3299,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 					     getReadValue(&lab);
 			     });
 
-	auto *before = g.getPrefixView(errorEvent).clone();
+	auto before = g.getPrefixView(errorEvent).clone();
 	if (!confEvent.isInitializer())
 		before->update(g.getPrefixView(confEvent));
 
@@ -3317,7 +3317,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 		auto &thr = EE->getThrById(i);
 		ss << "subgraph cluster_" << thr.id << "{\n";
 		ss << "\tlabel=\"" << thr.threadFun->getName().str() << "()\"\n";
-		for (auto j = 1; j <= (*before)[i]; j++) {
+		for (auto j = 1; j <= before->getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 
 			ss << "\t\"" << lab->getPos() << "\" [label=<";
@@ -3343,12 +3343,12 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 	/* Print relations between events (po U rf) */
 	for (auto i = 0u; i < before->size(); i++) {
 		auto &thr = EE->getThrById(i);
-		for (auto j = 0; j <= (*before)[i]; j++) {
+		for (auto j = 0; j <= before->getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 
 			/* Print a po-edge, but skip dummy start events for
 			 * all threads except for the first one */
-			if (j < (*before)[i] && !llvm::isa<ThreadStartLabel>(lab))
+			if (j < before->getMax(i) && !llvm::isa<ThreadStartLabel>(lab))
 				ss << "\"" << lab->getPos() << "\" -> \""
 				   << lab->getPos().next() << "\"\n";
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
@@ -3383,8 +3383,8 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 	if (a.contains(e))
 		return;
 
-	auto ai = a[e.thread];
-	a[e.thread] = e.index;
+	auto ai = a.getMax(e.thread);
+	a.setMax(e);
 	auto &thr = getEE()->getThrById(e.thread);
 	for (int i = ai; i <= e.index; i++) {
 		const EventLabel *lab = g.getEventLabel(Event(e.thread, i));

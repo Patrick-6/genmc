@@ -859,4 +859,3 @@ bool IMMChecker::isRecoveryValid(const Event &e)
 {
 	return isRecAcyclic(e);
 }
-

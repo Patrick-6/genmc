@@ -32,7 +32,7 @@ View SCDriver::calcBasicHbView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getHbView());
 
-	++v[e.thread];
+	v.setMax(e);
 	return v;
 }
 
@@ -41,7 +41,7 @@ View SCDriver::calcBasicPorfView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getPorfView());
 
-	++v[e.thread];
+	v.setMax(e);
 	return v;
 }
 
@@ -166,8 +166,8 @@ void SCDriver::calcStartViews(ThreadStartLabel *lab)
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
 	View porf(g.getEventLabel(lab->getParentCreate())->getPorfView());
 
-	hb[lab->getThread()] = lab->getIndex();
-	porf[lab->getThread()] = lab->getIndex();
+	hb.setMax(lab->getPos());
+	porf.setMax(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPorfView(std::move(porf));
@@ -339,7 +339,7 @@ Event SCDriver::findRaceForNewStore(const WriteLabel *wLab)
 	auto &before = g.getPreviousNonEmptyLabel(wLab)->getHbView();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
+		for (auto j = before.getMax(i) + 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
 			if (!llvm::isa<MemAccessLabel>(oLab))
 				continue;
@@ -385,8 +385,8 @@ void SCDriver::updateStart(Event create, Event start)
 	View hb(g.getEventLabel(create)->getHbView());
 	View porf(g.getEventLabel(create)->getPorfView());
 
-	hb[start.thread] = 0;
-	porf[start.thread] = 0;
+	hb.setMax(start);
+	porf.setMax(start);
 
 	bLab->setHbView(std::move(hb));
 	bLab->setPorfView(std::move(porf));

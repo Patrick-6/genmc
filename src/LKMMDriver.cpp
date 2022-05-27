@@ -62,7 +62,7 @@ View LKMMDriver::calcBasicHbView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getHbView());
 
-	++v[e.thread];
+	v.setMax(e);
 	return v;
 }
 
@@ -120,8 +120,7 @@ DepView LKMMDriver::calcPPoView(EventLabel *lab, const EventDeps *deps) /* not c
 	/* This event does not depend on anything else */
 	DepView wv;
 	Event e = lab->getPos();
-	wv[e.thread] = e.index;
-	wv.addHolesInRange(Event(e.thread, 0), e.index);
+	wv.setMax(e);
 	v.update(wv);
 
 	/* Update based on the views of the acquires of the thread */
@@ -440,8 +439,8 @@ void LKMMDriver::calcStartViews(ThreadStartLabel *lab)
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
 	DepView pporf(g.getEventLabel(lab->getParentCreate())->getPPoRfView());
 
-	hb[lab->getThread()] = lab->getIndex();
-	pporf[lab->getThread()] = lab->getIndex();
+	hb.setMax(lab->getPos());
+	pporf.setMax(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
@@ -599,7 +598,7 @@ std::vector<Event> LKMMDriver::findPotentialRacesForNewStore(const WriteLabel *w
 	std::vector<Event> potential;
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		for (auto j = before[i] + 1u; j < g.getThreadSize(i); j++) {
+		for (auto j = before.getMax(i) + 1u; j < g.getThreadSize(i); j++) {
 			const EventLabel *oLab = g.getEventLabel(Event(i, j));
 			if (!llvm::isa<MemAccessLabel>(oLab))
 				continue;
@@ -1123,8 +1122,8 @@ void LKMMDriver::updateStart(Event create, Event start)
 	View hb(g.getEventLabel(create)->getHbView());
 	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
-	hb[start.thread] = 0;
-	pporf[start.thread] = 0;
+	hb.setMax(start);
+	pporf.setMax(start);
 
 	bLab->setHbView(std::move(hb));
 	bLab->setPPoRfView(std::move(pporf));

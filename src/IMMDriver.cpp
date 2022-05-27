@@ -46,7 +46,7 @@ View IMMDriver::calcBasicHbView(Event e) const
 {
 	View v(getGraph().getPreviousLabel(e)->getHbView());
 
-	++v[e.thread];
+	v.setMax(e);
 	return v;
 }
 
@@ -78,8 +78,7 @@ DepView IMMDriver::calcPPoView(Event e, const EventDeps *deps) /* not const */
 
 	/* This event does not depend on anything else */
 	DepView wv;
-	wv[e.thread] = e.index;
-	wv.addHolesInRange(Event(e.thread, 0), e.index);
+	wv.setMax(e);
 	v.update(wv);
 
 	/* Update based on the views of the acquires of the thread */
@@ -309,8 +308,8 @@ void IMMDriver::calcStartViews(ThreadStartLabel *lab)
 	View hb(g.getEventLabel(lab->getParentCreate())->getHbView());
 	DepView pporf(g.getEventLabel(lab->getParentCreate())->getPPoRfView());
 
-	hb[lab->getThread()] = lab->getIndex();
-	pporf[lab->getThread()] = lab->getIndex();
+	hb.setMax(lab->getPos());
+	pporf.setMax(lab->getPos());
 
 	lab->setHbView(std::move(hb));
 	lab->setPPoRfView(std::move(pporf));
@@ -458,8 +457,8 @@ void IMMDriver::updateStart(Event create, Event start)
 	View hb(g.getEventLabel(create)->getHbView());
 	DepView pporf(g.getEventLabel(create)->getPPoRfView());
 
-	hb[start.thread] = 0;
-	pporf[start.thread] = 0;
+	hb.setMax(start);
+	pporf.setMax(start);
 
 	bLab->setHbView(std::move(hb));
 	bLab->setPPoRfView(std::move(pporf));

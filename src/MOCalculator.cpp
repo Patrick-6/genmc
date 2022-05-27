@@ -529,7 +529,7 @@ bool MOCalculator::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLa
 		      co_succ_end(mLab->getAddr(), w), [&](const Event &s){
 			      auto *sLab = g.getEventLabel(s);
 			      return v->contains(sLab->getPos()) &&
-				     mLab->getIndex() > sLab->getPPoRfView()[mLab->getThread()] &&
+				     mLab->getIndex() > sLab->getPPoRfView().getMax(mLab->getThread()) &&
 				     sLab->getPos() != r.getRev();
 		      });
 }
@@ -618,7 +618,7 @@ void MOCalculator::removeAfter(const VectorClock &preds)
 
 	/* Check which locations should be kept */
 	for (auto i = 0u; i < preds.size(); i++) {
-		for (auto j = 0u; j <= preds[i]; j++) {
+		for (auto j = 0u; j <= preds.getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
 				keep.insert(mLab->getAddr());

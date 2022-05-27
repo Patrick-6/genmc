@@ -52,7 +52,7 @@ void updatePredsWithPrefixView(const DepExecutionGraph &g, DepView &preds, const
 	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
 	preds.update(pporf);
 	for (auto i = 0u; i < pporf.size(); i++) {
-		for (auto j = 1; j <= pporf[i]; j++) {
+		for (auto j = 1; j <= pporf.getMax(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (preds.contains(rLab->getPos()) && !preds.contains(rLab->getRf())) {
@@ -88,8 +88,8 @@ bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 	auto v = getRevisitView(r);
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		if ((*v)[i] + 1 != (long) getThreadSize(i) &&
-		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, (*v)[i] + 1))))
+		if (v->getMax(i) + 1 != (long) getThreadSize(i) &&
+		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v->getMax(i) + 1))))
 			return true;
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
@@ -113,7 +113,7 @@ bool isFixedHoleInView(const DepExecutionGraph &g, const EventLabel *lab, const 
 
 	/* If prefix has same address load, we must read from the same write */
 	for (auto i = 0u; i < v.size(); i++) {
-		for (auto j = 0u; j <= v[i]; j++) {
+		for (auto j = 0u; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j)))
 				continue;
 			if (auto *mLab = g.getReadLabel(Event(i, j)))
@@ -138,11 +138,11 @@ bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
 	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
 	 * Similar actions are taken in {WB,MO}Calculator */
 	auto &v = getWriteLabel(r.getRev())->getPPoRfView();
-	if (lab->getIndex() <= v[lab->getThread()] && isFixedHoleInView(*this, lab, v))
+	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(*this, lab, v))
 		return true;
 	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r)) {
 		auto &hv = getWriteLabel(br->getMid())->getPPoRfView();
-		return lab->getIndex() <= hv[lab->getThread()] && isFixedHoleInView(*this, lab, hv);
+		return lab->getIndex() <= hv.getMax(lab->getThread()) && isFixedHoleInView(*this, lab, hv);
 	}
 	return false;
 }
@@ -156,7 +156,7 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 
 	auto pporf(sLab->getPPoRfView());
 	for (auto i = 0u; i < pporf.size(); i++) {
-		for (auto j = 1; j <= pporf[i]; j++) {
+		for (auto j = 1; j <= pporf.getMax(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 
 			/* If not part of pporf, skip */

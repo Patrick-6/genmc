@@ -4682,12 +4682,12 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		else
 			thr.ECStack = {thr.initSF};
 		thr.prefixLOC.clear();
-		thr.prefixLOC.resize(before[i] + 2); /* Grow since it can be accessed */
+		thr.prefixLOC.resize(before.getMax(i) + 2); /* Grow since it can be accessed */
 		scheduleThread(i);
 		if (thr.threadFun == recoveryRoutine)
 			setProgramState(ProgramState::Recovery);
 		/* Make sure to refetch references within the loop (invalidation danger) */
-		while ((int) getCurThr().globalInstructions < before[i]) {
+		while ((int) getCurThr().globalInstructions < before.getMax(i)) {
 			int snap = getCurThr().globalInstructions;
 			ExecutionContext &SF = ECStack().back();
 			Instruction &I = *SF.CurInst++;
