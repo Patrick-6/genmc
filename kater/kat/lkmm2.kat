@@ -75,6 +75,12 @@ let hb = [Marked] ; (ppo | rfe | (fre | coe) ; rfe | prop ; strong-sync) ; [Mark
 //let hb = [Marked] ; (ppo | rfe | (prop & int) | prop ; strong-sync) ; [Marked]
 
 
+let hb-orig = [Marked] ; (ppo | rfe | (fre | coe) ; rfe) ; [Marked]
+
+let pb-orig = prop ; strong-sync ; hb-orig* 
+
+// assert: irreflexive hb+ <-> irreflexive (hb-orig+ | pb-orig+)
+
 
 let hb-base = [Marked] ; (ppo | rfe) ; [Marked]
 let overwrite = [Marked] ; (coe | fre) ; [Marked]
