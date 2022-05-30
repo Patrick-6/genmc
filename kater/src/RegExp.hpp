@@ -5,6 +5,7 @@
 #include "NFA.hpp"
 #include <cassert>
 #include <memory>
+#include <typeinfo>
 #include <string>
 #include <utility>
 
@@ -77,10 +78,16 @@ public:
 	/* Returns a clone of the RE */
 	virtual std::unique_ptr<RegExp> clone() const = 0;
 
+	bool operator==(const RegExp &other) const {
+		return typeid(*this) == typeid(other) && isEqual(other);
+	}
+
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
 
 protected:
+	virtual bool isEqual(const RegExp &other) const = 0;
+
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
 
 	const KidsC &getKids() const { return kids; }
@@ -132,6 +139,10 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override { return s << getLabel(); }
 protected:
+	bool isEqual(const RegExp &other) const override {
+		return getLabel() == static_cast<const CharRE &>(other).getLabel();
+	}
+
 	TransLabel lab;
 };
 
@@ -181,6 +192,18 @@ public:
 		for (int i = 1; i < getNumKids(); i++)
 			s << " | " << *getKid(i);
 		return s << ")";
+	}
+
+protected:
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const AltRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
 	}
 };
 
@@ -242,6 +265,18 @@ public:
 			s << " ; " << *getKid(i);
 		return s << ")";
 	}
+
+protected:
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const SeqRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
+	}
 };
 
 /*******************************************************************************
@@ -254,6 +289,16 @@ protected:
 	BinaryRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
 		: RegExp() { addKid(std::move(r1)); addKid(std::move(r2)); }
 
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const BinaryRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
+	}
 };
 
 /*
@@ -284,6 +329,18 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override {
 		return s << "(" << *getKid(0) << " \\ " << *getKid(1) << ")";
+	}
+
+protected:
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const MinusRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
 	}
 };
 
@@ -320,6 +377,18 @@ public:										\
 										\
 	std::ostream &dump(std::ostream &s) const override {			\
 		return s << *getKid(0) <<  _str;				\
+	}									\
+										\
+protected:									\
+	bool isEqual(const RegExp &other) const override {			\
+		auto &o = static_cast<const _class##RE &>(other);		\
+		auto i = 0u;							\
+		return getNumKids() == other.getNumKids() &&			\
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){ 	\
+				auto res = (*getKid(i) == *o.getKid(i));	\
+				++i;						\
+				return res;					\
+			});							\
 	}									\
 };
 
