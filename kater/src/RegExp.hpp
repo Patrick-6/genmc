@@ -26,6 +26,15 @@ public:
 
 	static std::unique_ptr<RegExp> createSym(std::unique_ptr<RegExp> re);
 
+	using kid_iterator = std::vector<std::unique_ptr<RegExp>>::iterator;
+	using kid_const_iterator = std::vector<std::unique_ptr<RegExp>>::const_iterator;
+
+	kid_iterator kid_begin() { return getKids().begin(); }
+	kid_iterator kid_end() { return getKids().end(); }
+
+	kid_const_iterator kid_begin() const { return getKids().begin(); }
+	kid_const_iterator kid_end() const { return getKids().end(); }
+
 	/* Fetches the i-th kid */
 	const RegExp *getKid(unsigned i) const {
 		assert(i < getNumKids() && "Index out of bounds!");
@@ -74,9 +83,8 @@ public:
 protected:
 	using KidsC = std::vector<std::unique_ptr<RegExp>>;
 
-	const KidsC &getKids() const {
-		return kids;
-	}
+	const KidsC &getKids() const { return kids; }
+	KidsC &getKids() { return kids;	}
 
 	void addKid(std::unique_ptr<RegExp> k) {
 		kids.push_back(std::move(k));
