@@ -17,58 +17,6 @@ bool RegExp::isFalse() const
 	return getNumKids() == 0 && dynamic_cast<const AltRE *>(this);
 }
 
-template<typename OptT>
-void addChildToVector(std::unique_ptr<RegExp> arg, std::vector<std::unique_ptr<RegExp>> &res)
-{
-	if (auto *re = dynamic_cast<const OptT *>(&*arg)) {
-		for (auto i = 0u; i < arg->getNumKids(); i++)
-			res.emplace_back(arg->releaseKid(i));
-	} else {
-		res.emplace_back(std::move(arg));
-	}
-}
-
-template<typename OptT, typename... Ts>
-std::vector<std::unique_ptr<RegExp>>
-createOptChildVector(Ts... args)
-{
-	std::vector<std::unique_ptr<RegExp>> res;
-	(addChildToVector<OptT>(std::move(args), res), ...);
-	return res;
-}
-
-std::unique_ptr<RegExp>
-AltRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
-{
-	auto r = createOptChildVector<AltRE>(std::move(r1), std::move(r2));
-	std::sort(r.begin(), r.end());
-	r.erase(std::unique(r.begin(), r.end()), r.end());
-	return r.size() == 1 ? std::move(*r.begin()) : AltRE::create(std::move(r));
-}
-
-std::unique_ptr<RegExp>
-SeqRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
-{
-	auto r = createOptChildVector<SeqRE>(std::move(r1), std::move(r2));
-
-	auto it = std::find_if(r.begin(), r.end(), [&](auto &re){ return re->isFalse(); });
-	if (it != r.end())
-		return std::move(*it);
-
-	for (auto it = r.begin(); it != r.end() && it+1 != r.end(); /* */) {
-		auto *p = dynamic_cast<CharRE *>(it->get());
-		auto *q = dynamic_cast<CharRE *>((it+1)->get());
-		if (p && q && (p->getLabel().isPredicate() || q->getLabel().isPredicate())) {
-			if (!p->getLabel().merge(q->getLabel()))
-				return RegExp::createFalse();
-			it = r.erase(it + 1);
-			continue;
-		}
-		++it;
-	}
-	return r.size() == 1 ? std::move(*r.begin()) : SeqRE::create(std::move(r));
-}
-
 std::unique_ptr<RegExp>
 PlusRE::createOpt(std::unique_ptr<RegExp> r)
 {

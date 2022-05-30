@@ -181,12 +181,11 @@ void Kater::generateNFAs()
 		auto poInv = module.getRegisteredID("po");
 		poInv->flip();
 
-		auto rfRecov = SeqRE::createOpt(rf->clone(), recov->clone());
-		auto poFr = SeqRE::createOpt(po->clone(), fr->clone());
-		auto rfRecovPoFr = SeqRE::createOpt(rfRecov->clone(), poFr->clone());
+		auto rfRecovPoFr = SeqRE::createOpt(rf->clone(), recov->clone(),
+						    po->clone(), fr->clone());
 
-		auto poInvFr = SeqRE::createOpt(poInv->clone(), fr->clone());
-		auto rfRecovPoInvFr = SeqRE::createOpt(rfRecov->clone(), poInvFr->clone());
+		auto rfRecovPoInvFr = SeqRE::createOpt(rf->clone(), recov->clone(),
+						       poInv->clone(), fr->clone());
 
 		rec.alt(rfRecovPoFr->toNFA());
 		rec.alt(rfRecovPoInvFr->toNFA());

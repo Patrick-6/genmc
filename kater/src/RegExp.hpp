@@ -134,6 +134,9 @@ protected:
 class AltRE : public RegExp {
 
 protected:
+	template<typename... Ts>
+	AltRE(Ts&&... args)
+		: RegExp() { (addKid(std::move(args)), ...); }
 	AltRE(std::vector<std::unique_ptr<RegExp> > &&kids = {})
                 : RegExp(std::move(kids)) {}
 	AltRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
@@ -146,8 +149,8 @@ public:
 			new AltRE(std::forward<Ts>(params)...));
 	}
 
-	static std::unique_ptr<RegExp>
-	createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2);
+	template<typename... Ts>
+	static std::unique_ptr<RegExp> createOpt(Ts&&... params);
 
 	std::unique_ptr<RegExp> clone () const override	{
 		std::vector<std::unique_ptr<RegExp> > nk;
@@ -181,6 +184,9 @@ public:
 class SeqRE : public RegExp {
 
 protected:
+	template<typename... Ts>
+	SeqRE(Ts&&... args)
+		: RegExp() { (addKid(std::move(args)), ...); }
 	SeqRE(std::vector<std::unique_ptr<RegExp> > &&kids = {})
                 : RegExp(std::move(kids)) {}
 	SeqRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
@@ -195,8 +201,8 @@ public:
 
 	/* Tries to avoid creating an SeqRE if (at least) an epsilon
 	 * CharRE is passed */
-	static std::unique_ptr<RegExp>
-	createOpt (std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2);
+	template<typename... Ts>
+	static std::unique_ptr<RegExp> createOpt(Ts&&... args);
 
 	RegExp &flip() override {
 		for (auto &r : getKids())
@@ -274,7 +280,6 @@ public:
 };
 
 
-
 /*******************************************************************************
  **                         Unary operations on REs
  ******************************************************************************/
@@ -313,5 +318,64 @@ public:										\
 UNARY_RE(Plus, plus, "+");
 UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
+
+
+/*******************************************************************************
+ **                         Helper functions
+ ******************************************************************************/
+
+template<typename OptT>
+void addChildToVector(std::unique_ptr<RegExp> arg, std::vector<std::unique_ptr<RegExp>> &res)
+{
+	if (auto *re = dynamic_cast<const OptT *>(&*arg)) {
+		for (auto i = 0u; i < arg->getNumKids(); i++)
+			res.emplace_back(arg->releaseKid(i));
+	} else {
+		res.emplace_back(std::move(arg));
+	}
+}
+
+template<typename OptT, typename... Ts>
+std::vector<std::unique_ptr<RegExp>>
+createOptChildVector(Ts... args)
+{
+	std::vector<std::unique_ptr<RegExp>> res;
+	(addChildToVector<OptT>(std::move(args), res), ...);
+	return res;
+}
+
+template<typename... Ts>
+std::unique_ptr<RegExp>
+AltRE::createOpt(Ts&&... args)
+{
+	auto r = createOptChildVector<AltRE>(std::forward<Ts>(args)...);
+	std::sort(r.begin(), r.end());
+	r.erase(std::unique(r.begin(), r.end()), r.end());
+	return r.size() == 1 ? std::move(*r.begin()) : AltRE::create(std::move(r));
+}
+
+template<typename... Ts>
+std::unique_ptr<RegExp>
+SeqRE::createOpt(Ts&&... args)
+{
+	auto r = createOptChildVector<SeqRE>(std::forward<Ts>(args)...);
+
+	auto it = std::find_if(r.begin(), r.end(), [&](auto &re){ return re->isFalse(); });
+	if (it != r.end())
+		return std::move(*it);
+
+	for (auto it = r.begin(); it != r.end() && it+1 != r.end(); /* */) {
+		auto *p = dynamic_cast<CharRE *>(it->get());
+		auto *q = dynamic_cast<CharRE *>((it+1)->get());
+		if (p && q && (p->getLabel().isPredicate() || q->getLabel().isPredicate())) {
+			if (!p->getLabel().merge(q->getLabel()))
+				return RegExp::createFalse();
+			it = r.erase(it + 1);
+			continue;
+		}
+		++it;
+	}
+	return r.size() == 1 ? std::move(*r.begin()) : SeqRE::create(std::move(r));
+}
 
 #endif /* _REGEXP_HPP_ */
