@@ -384,7 +384,7 @@ void Printer::printRecoveryHpp(const NFA &nfa)
 	hpp() << "\n";
 
 	/* accepting counter */
-	hpp() << "\tunsigned visitedRecAccepting = 0;\n";
+	hpp() << "\tuint16_t visitedRecAccepting = 0;\n";
 }
 
 void Printer::printRecoveryCpp(const NFA &nfa)
