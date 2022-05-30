@@ -37,6 +37,9 @@ private:
 	void printRecoveryHpp(const NFA &nfa);
 	void printRecoveryCpp(const NFA &nfa);
 
+	void printPPoRfHpp(const NFA &nfa, bool deps);
+	void printPPoRfCpp(const NFA &nfa, bool deps);
+
 	void printHppHeader();
 	void printCppHeader();
 

@@ -129,6 +129,7 @@ void Printer::printHppHeader()
 	hpp() << "#ifndef " << guardName << "\n"
 	      << "#define " << guardName << "\n"
 	      << "\n"
+	      << "#include \"config.h\"\n"
 	      << "#include \"ExecutionGraph.hpp\"\n"
 	      << "#include \"GraphIterators.hpp\"\n"
 	      << "#include \"MaximalIterator.hpp\"\n"
@@ -156,6 +157,7 @@ void Printer::printHppHeader()
 	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
 	      << "\tbool isConsistent(const Event &e);\n"
 	      << "\tbool isRecoveryValid(const Event &e);\n"
+	      << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);\n"
 	      << "\n"
 	      << "private:\n";
 }
@@ -203,6 +205,8 @@ void Printer::outputHpp(const CNFAs &cnfas)
 	printAcyclicHpp(cnfas.getAcyclic());
 
 	printRecoveryHpp(cnfas.getRecovery());
+
+	printPPoRfHpp(cnfas.getPPoRf().first, cnfas.getPPoRf().second);
 
 	printHppFooter();
 }
@@ -261,6 +265,15 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	cpp() << "bool " << className << "::isRecoveryValid(const Event &e)\n"
 	      << "{\n"
 	      << "\treturn isRecAcyclic(e);\n"
+	      << "}\n"
+	      << "\n";
+
+	/* pporf-before getter */
+	printPPoRfCpp(cnfas.getPPoRf().first, cnfas.getPPoRf().second);
+	cpp() << "std::unique_ptr<VectorClock> " << className << "::getPPoRfBefore(const Event &e)\n"
+	      << "{\n"
+	      << "\treturn LLVM_MAKE_UNIQUE<" << (cnfas.getPPoRf().second ? "DepView" : "View")
+	      				      << ">(calcPPoRfBefore(e));\n"
 	      << "}\n"
 	      << "\n";
 
@@ -524,6 +537,73 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 		cpp() << "\tvisitCalc" << GET_ID(id, ids[a]) << "(e, calcRes);\n";
 	});
 	cpp() << "\treturn calcRes;\n"
+	      << "}\n";
+}
+
+void Printer::printPPoRfHpp(const NFA &nfa, bool deps)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	/* visitPPoRfXX for each state */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		hpp() << "\tvoid visitPPoRf" << ids[&*s] << "(const Event &e, "
+		      			     << (deps ? "DepView" : "View") << " &pporf);\n";
+	});
+	hpp() << "\n";
+
+	/* calcPPoRfBefore for the automaton */
+	hpp() << "\t" << (deps ? "DepView" : "View") << " calcPPoRfBefore(const Event &e);\n";
+	hpp() << "\n";
+
+	/* status arrays */
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		hpp() << "\tstd::vector<NodeStatus> visitedPPoRf" << ids[&*s] << ";\n";
+	});
+	hpp() << "\n";
+}
+
+void Printer::printPPoRfCpp(const NFA &nfa, bool deps)
+{
+	auto ids = assignStateIDs(nfa.states_begin(), nfa.states_end());
+
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		cpp() << "void " << className << "::visitPPoRf" << ids[&*s] << "(const Event &e, "
+		      					        << (deps ? "DepView" : "View") << " &pporf)\n"
+		      << "{\n"
+		      << "\tauto &g = getGraph();\n"
+		      << "\tauto *lab = g.getEventLabel(e);\n"
+		      << "\tauto t = 0u;\n"
+		      << "\n"
+		      << "\tvisitedPPoRf" << ids[&*s] << "[lab->getStamp()] = NodeStatus::entered;\n";
+		if (nfa.isStarting(&*s))
+			cpp() << "\tpporf.updateIdx(e);\n";
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			cpp () << "\t";
+			printTransLabel(&t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto status = visitedPPoRf" << ids[t.dest] << "[g.getEventLabel(p)->getStamp()];\n"
+			      << "\t\tif (status == NodeStatus::unseen)\n"
+			      << "\t\t\tvisitPPoRf" << ids[t.dest] << "(p, pporf);\n"
+			      <<"\t}\n";
+		});
+		cpp() << "\tvisitedPPoRf" << ids[&*s] << "[lab->getStamp()] = NodeStatus::left;\n"
+		      << "}\n"
+		      << "\n";
+	});
+
+	cpp() << (deps ? "DepView " : "View ") << className << "::calcPPoRfBefore(const Event &e)\n"
+	      << "{\n"
+	      << "\t" << (deps ? "DepView" : "View") << " pporf;\n"
+	      << "\tpporf.updateIdx(e);\n";
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		cpp() << "\tvisitedPPoRf" << ids[&*s] << ".clear();\n"
+		      << "\tvisitedPPoRf" << ids[&*s] << ".resize(g.getMaxStamp() + 1, NodeStatus::unseen);\n";
+	});
+	cpp() << "\n";
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
+		cpp() << "\tvisitPPoRf" << ids[a] << "(e, pporf);\n";
+	});
+	cpp() << "\treturn pporf;\n"
 	      << "}\n";
 }
 

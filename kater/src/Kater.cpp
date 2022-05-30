@@ -201,6 +201,17 @@ void Kater::generateNFAs()
 		if (getConf().verbose >= 3)
 			std::cout << "Generated full rec NFA simplified: " << cnfas.getRecovery() << std::endl;
 	}
+
+	auto ppo = module.getRegisteredID("ppo");
+	auto rf = module.getRegisteredID("rf");
+	auto tc = module.getRegisteredID("tc");
+	auto tj = module.getRegisteredID("tj");
+	auto pporfNFA = StarRE::createOpt(AltRE::createOpt(std::move(ppo), std::move(rf),
+							   std::move(tc), std::move(tj)))->toNFA();
+	pporfNFA.simplify(isValidLabel);
+	cnfas.addPPoRf(std::move(pporfNFA), *module.getRegisteredID("ppo") != *module.getRegisteredID("po"));
+	if (getConf().verbose >= 3)
+		std::cout << "Generated pporf NFA simplified: " << cnfas.getPPoRf().first << std::endl;
 }
 
 void Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)

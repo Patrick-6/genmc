@@ -25,6 +25,8 @@ public:
 
 	const NFA &getRecovery() const { return rec; }
 
+	const std::pair<NFA, bool> &getPPoRf() const { return pporf; }
+
 	save_iter save_begin() { return nsave.begin(); }
 	save_iter save_end() { return nsave.end(); }
 	save_const_iter save_begin() const { return nsave.begin(); }
@@ -44,6 +46,8 @@ public:
 
 	void addRecovery(NFA &&a) { rec.alt(std::move(a)); }
 
+	void addPPoRf(NFA &&ppo, bool deps = false) { pporf = std::make_pair(std::move(ppo), deps); }
+
 	void addSaved(NFA &&save) { nsave.push_back({std::move(save), VarStatus::Normal}); }
 
 	void addReduced(NFA &&redc) { nsave.push_back({std::move(redc), VarStatus::Reduce}); }
@@ -55,6 +59,7 @@ public:
 private:
 	NFA acyc;
 	NFA rec;
+	std::pair<NFA, bool> pporf; // 1 -> deps
 	std::vector<std::pair<NFA, VarStatus>> nsave;
 	// std::vector<NFA> nredc;
 	std::vector<Inclusion<NFA>> nincl;
