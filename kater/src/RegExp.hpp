@@ -81,6 +81,9 @@ public:
 	bool operator==(const RegExp &other) const {
 		return typeid(*this) == typeid(other) && isEqual(other);
 	}
+	bool operator!=(const RegExp &other) const {
+		return !(*this == other);
+	}
 
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
