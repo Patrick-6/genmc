@@ -71,7 +71,9 @@ let po-unlock-lock-po = po ; [UL] ; (po|rf) ; [LKR] ; po
 
 let cumul-fence = [Marked] ; (rfe? ; po-rel | wmb | po-unlock-lock-po) ; [Marked]
 let prop = [Marked] ; (coe | fre) ; cumul-fence* ; [Marked] ; rfe? ; [Marked]
-let hb = [Marked] ; (ppo | rfe | (prop & int) | prop ; strong-sync) ; [Marked]
+let hb = [Marked] ; (ppo | rfe | (fre | coe) ; rfe | prop ; strong-sync) ; [Marked]
+//let hb = [Marked] ; (ppo | rfe | (prop & int) | prop ; strong-sync) ; [Marked]
+
 
 
 let hb-base = [Marked] ; (ppo | rfe) ; [Marked]
@@ -97,3 +99,5 @@ check  mo-imm ; [UW] <= rf ; po-imm
 // Global ordering constraint
 acyclic hb
 
+// Work-around prop&int
+acyclic prop ; ppo*
