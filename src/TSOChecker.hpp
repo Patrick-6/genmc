@@ -30,17 +30,18 @@
 #include "MaximalIterator.hpp"
 #include "PersistencyChecker.hpp"
 #include "VSet.hpp"
+#include <cstdint>
 #include <vector>
 
 class TSOChecker {
 
 private:
-	enum class NodeStatus { unseen, entered, left };
+	enum class NodeStatus : unsigned char { unseen, entered, left };
 
 	struct NodeCountStatus {
 		NodeCountStatus() = default;
-		NodeCountStatus(unsigned c, NodeStatus s) : count(c), status(s) {}
-		unsigned count = 0;
+		NodeCountStatus(uint16_t c, NodeStatus s) : count(c), status(s) {}
+		uint16_t count = 0;
 		NodeStatus status = NodeStatus::unseen;
 	};
 
@@ -66,14 +67,12 @@ private:
 	std::vector<NodeStatus> visitedCalc0_3;
 
 	bool visitAcyclic0(const Event &e);
-	bool visitAcyclic1(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
 	std::vector<NodeCountStatus> visitedAcyclic0;
-	std::vector<NodeCountStatus> visitedAcyclic1;
 
-	unsigned visitedAccepting = 0;
+	uint16_t visitedAccepting = 0;
 	bool visitRecovery0(const Event &e);
 	bool visitRecovery1(const Event &e);
 	bool visitRecovery2(const Event &e);
@@ -94,7 +93,7 @@ private:
 	std::vector<NodeCountStatus> visitedRecovery6;
 	std::vector<NodeCountStatus> visitedRecovery7;
 
-	unsigned visitedRecAccepting = 0;
+	uint16_t visitedRecAccepting = 0;
 	std::vector<VSet<Event>> saved;
 	std::vector<View> views;
 

@@ -9,9 +9,11 @@ let DR = [R]; [D]
 
 save[ppo] ppo = ([R]; po | po ; [F] | [F] ; po  | po ; [W])+
 
-// FIXME: save should not work
-let pb = ([DW]; mo) | ([DW]; po-loc; [CLF]; po)
+let tso = (ppo | rfe | mo | fr)+
 
-acyclic (ppo | rfe | mo | fr)
+acyclic (tso)
+
+// FIXME: save should not work
+let pb = ([DW]; mo) | ([DW]; po-loc; [CLF]; po? | [CLF]; tso; [DW])
 
 recovery (pb)
