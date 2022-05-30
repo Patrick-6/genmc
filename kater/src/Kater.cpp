@@ -203,7 +203,7 @@ void Kater::generateNFAs()
 	}
 
 	auto ppo = module.getRegisteredID("ppo");
-	auto rf = module.getRegisteredID("rf");
+	auto rf = module.getRegisteredID("rfe");
 	auto tc = module.getRegisteredID("tc");
 	auto tj = module.getRegisteredID("tj");
 	auto pporfNFA = StarRE::createOpt(AltRE::createOpt(std::move(ppo), std::move(rf),
