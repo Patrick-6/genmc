@@ -56,7 +56,6 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel, userConf->warnOnGraphSize)
-		.withCoherenceType(userConf->coherence)
 		.withEnabledLAPOR(userConf->LAPOR)
 		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
 		.withEnabledBAM(!userConf->disableBAM).build();

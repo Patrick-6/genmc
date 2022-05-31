@@ -58,15 +58,6 @@ clModelType(llvm::cl::values(
 	    llvm::cl::init(ModelType::RC11),
 	    llvm::cl::desc("Choose model type:"));
 
-static llvm::cl::opt<CoherenceType>
-clCoherenceType(llvm::cl::values(
-			clEnumValN(CoherenceType::mo, "mo", "Track modification order"),
-			clEnumValN(CoherenceType::wb, "wb", "Calculate writes-before")
-			),
-		llvm::cl::cat(clGeneral),
-		llvm::cl::init(CoherenceType::mo),
-		llvm::cl::desc("Choose coherence type:"));
-
 static llvm::cl::opt<unsigned int>
 clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
 	      llvm::cl::desc("Number of threads to be used in the exploration"));
@@ -291,12 +282,6 @@ void printVersion(llvm::raw_ostream &s)
 void Config::checkConfigOptions() const
 {
 	/* Check exploration options */
-	if (clLAPOR && clCoherenceType == CoherenceType::mo) {
-		WARN("LAPOR usage with -mo is experimental.\n");
-	}
-	if (clCheckLiveness && clCoherenceType != CoherenceType::mo) {
-		ERROR("-check-liveness can only be used with -mo.\n");
-	}
 	if (clLAPOR && clModelType == ModelType::LKMM) {
 		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
 	}
@@ -308,9 +293,6 @@ void Config::checkConfigOptions() const
 	}
 	if (clHelper && clSchedulePolicy == SchedulePolicy::random) {
 		ERROR("Helper cannot be used with -schedule-policy=random.\n");
-	}
-	if (clHelper && clCoherenceType != CoherenceType::mo) {
-		ERROR("Helper can only be used with -mo.\n");
 	}
 
 	/* Check debugging options */
@@ -336,7 +318,6 @@ void Config::saveConfigOptions()
 	dotFile = clDotGraphFile;
 	model = clModelType;
 	isDepTrackingModel = (model == ModelType::IMM || model == ModelType::LKMM);
-	coherence = clCoherenceType;
 	threads = clThreads;
 	LAPOR = clLAPOR;
 	symmetryReduction = clSymmetryReduction;

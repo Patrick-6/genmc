@@ -43,7 +43,6 @@ public:
 	/*** Exploration options ***/
 	ModelType model;
 	bool isDepTrackingModel;
-	CoherenceType coherence;
 	unsigned int threads;
 	bool LAPOR;
 	bool symmetryReduction;

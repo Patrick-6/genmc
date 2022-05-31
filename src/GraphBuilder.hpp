@@ -25,7 +25,6 @@
 #include "DepExecutionGraph.hpp"
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
-#include "WBCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
 /*******************************************************************************
@@ -49,26 +48,10 @@ public:
 			graph = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph(warnOnGraphSize));
 		else
 			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(warnOnGraphSize));
+		graph->addCalculator(
+			LLVM_MAKE_UNIQUE<MOCalculator>(*graph, tracksDeps),
+			ExecutionGraph::RelationId::co, true, true);
 	};
-
-	GraphBuilder &withCoherenceType(CoherenceType co) {
-		switch (co) {
-		case CoherenceType::mo:
-			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<MOCalculator>(*graph, tracksDeps),
-				ExecutionGraph::RelationId::co, true, true);
-			break;
-		case CoherenceType::wb:
-			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<WBCalculator>(*graph, tracksDeps),
-				ExecutionGraph::RelationId::co, true, true);
-			break;
-		default:
-			WARN("Unhandled coherence type!\n");
-			BUG();
-		}
-		return *this;
-	}
 
 	GraphBuilder &withEnabledLAPOR(bool lapor) {
 		if (lapor) {

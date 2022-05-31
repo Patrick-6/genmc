@@ -22,7 +22,6 @@
 #include "Error.hpp"
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
-#include "WBCalculator.hpp"
 
 std::vector<SAddr> PSCCalculator::getDoubleLocs() const
 {
@@ -361,14 +360,6 @@ Calculator::CalculationResult PSCCalculator::addPscConstraints()
 	auto &pscRelation = g.getGlobalRelation(ExecutionGraph::RelationId::psc);
 	Calculator::CalculationResult result;
 
-	if (auto *wbCoh = llvm::dyn_cast<WBCalculator>(
-		    g.getCoherenceCalculator())) {
-		for (auto &coLoc : coRelation)
-			result |= wbCoh->calcWbRelation(coLoc.first, coLoc.second,
-							pscRelation, [&](Event e)
-							{ return g.getEventLabel(e)->isSC() &&
-								 !g.isRMWLoad(e); });
-	}
 	return result;
 }
 

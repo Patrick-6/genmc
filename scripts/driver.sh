@@ -111,29 +111,22 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 imm # rc11 imm lkmm
 do
-    for coherence in mo # wb mo
+    for cat in infr litmus saver helper liveness synthetic data-structures fs lkmm # lapor
     do
-	for cat in infr litmus saver helper liveness synthetic data-structures fs lkmm # lapor
-	do
-	    testdir="${correctdir}/${cat}"
-	    if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
+	testdir="${correctdir}/${cat}"
+	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
 		  ("${model}" != "lkmm" && "${cat}" == "lkmm") ]]
-	    then
-		continue
-	    fi
-	    if [[ "${cat}" == "liveness" && "${coherence}" != "mo" ]]
-	    then
-		continue
-	    fi
-	    if [[ "${cat}" == "helper" && ("${coherence}" != "mo" || "${GENMCFLAGS}" =~ "policy=random") ]]
-	    then
-		continue
-	    fi
-	    check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
-		[[ ! "${GENMCFLAGS}" =~ "policy=random" ]] && check_blocked="yes"
-	    source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
-	    increase_total_time
-	done
+	then
+	    continue
+	fi
+	if [[ "${cat}" == "helper" && "${GENMCFLAGS}" =~ "policy=random" ]]
+	then
+	    continue
+	fi
+	check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
+	    [[ ! "${GENMCFLAGS}" =~ "policy=random" ]] && check_blocked="yes"
+	source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
+	increase_total_time
     done
 done
 

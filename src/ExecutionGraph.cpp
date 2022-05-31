@@ -24,7 +24,6 @@
 #include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
-#include "WBCalculator.hpp"
 #include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
 
@@ -728,8 +727,7 @@ bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
 		return true;
 
 	bool hasLB = hasCalculator(RelationId::lb);
-	bool hasWB = llvm::isa<WBCalculator>(getCoherenceCalculator());
-	if (!hasLB && !hasWB)
+	if (!hasLB)
 		return true;
 
 	/* Cache all relations because we will need to restore them
@@ -753,11 +751,6 @@ bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
 	auto lbSize = 0u;
 	std::vector<Calculator::GlobalRelation *> toExtend;
 	std::vector<SAddr> extOrder;
-	if (hasWB) {
-		addPerLocRelationToExtend(getCachedPerLocRelation(ExecutionGraph::RelationId::co),
-					  toExtend, extOrder);
-		coSize = getCachedPerLocRelation(ExecutionGraph::RelationId::co).size();
-	}
 	if (hasLB) {
 		addPerLocRelationToExtend(getCachedPerLocRelation(ExecutionGraph::RelationId::lb),
 					  toExtend, extOrder);
@@ -768,11 +761,6 @@ bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
 		combineAllTopoSort(toExtend, [&](std::vector<std::vector<Event>> &sortings){
 			restoreCached();
 			auto count = 0u;
-			if (hasWB) {
-				extendPerLocRelation(getPerLocRelation(ExecutionGraph::RelationId::co),
-						     sortings.begin(), sortings.begin() + coSize,
-						     extOrder.begin(), extOrder.begin() + coSize);
-			}
 			count += coSize;
 			if (hasLB && count >= coSize) {
 				extendPerLocRelation(getPerLocRelation(ExecutionGraph::RelationId::lb),

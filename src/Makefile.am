@@ -85,7 +85,6 @@ libgenmc_a_SOURCES = \
   SVal.cpp SVal.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBIterator.hpp \
-  WBCalculator.cpp WBCalculator.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
   TSOChecker.cpp TSOChecker.hpp \
