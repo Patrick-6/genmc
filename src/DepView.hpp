@@ -78,7 +78,8 @@ public:
 	DepView &updateIdx(Event e) override {
 		auto old = view_.getMax(e.thread);
 		if (e.index > old) {
-			view_.setMax(e); // will grow holes
+			view_.setMax(e);
+			holes_[e.thread];
 			addHolesInRange(Event(e.thread, old+1), e.index);
 		} else
 			removeHole(e);
