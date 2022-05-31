@@ -50,11 +50,11 @@ const std::vector<PredicateInfo> builtinPredicates = {
 	{"Fas",            0b0'00000'0100000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
 	{"Faul",           0b0'00000'1000000'0000'00'00'00'00'00, "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
 	/* Thread events */
-	{"ThreadCreate",   other_event_bitmask, "llvm::isa<ThreadCreateLabel>(#)"},
-	{"ThreadJoin",     other_event_bitmask, "llvm::isa<ThreadJoinLabel>(#)"},
-	{"ThreadKill",     other_event_bitmask, "llvm::isa<ThreadKillLabel>(#)"},
-	{"ThreadStart",    other_event_bitmask, "llvm::isa<ThreadStartLabel>(#)"},
-	{"ThreadFinish",   other_event_bitmask, "llvm::isa<ThreadFinishLabel>(#)"},
+	{"TC",             other_event_bitmask, "llvm::isa<ThreadCreateLabel>(#)"},
+	{"TJ",             other_event_bitmask, "llvm::isa<ThreadJoinLabel>(#)"},
+	{"TK",             other_event_bitmask, "llvm::isa<ThreadKillLabel>(#)"},
+	{"TB",             other_event_bitmask, "llvm::isa<ThreadStartLabel>(#)"},
+	{"TE",             other_event_bitmask, "llvm::isa<ThreadFinishLabel>(#)"},
 	/* Allocation */
 	{"Alloc",          other_event_bitmask, "llvm::isa<MallocLabel>(#)"},
 	{"Free",           other_event_bitmask, "llvm::isa<FreeLabel>(#)"},
