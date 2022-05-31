@@ -44,6 +44,7 @@
   RECOVERY  "recovery"
   SAVE      "save"
   VIEW      "view"
+  ROT       "rot"
   UNLESS    "unless"
   WARNING   "warning"
   ZERO      "0"
@@ -123,6 +124,7 @@ rel:	  "(" rel ")"		{ $$ = std::move($2); }
 	| rel "*"		{ $$ = StarRE::createOpt(std::move($1)); }
 	| rel "+"		{ $$ = PlusRE::createOpt(std::move($1)); }
 	| rel "?"		{ $$ = QMarkRE::createOpt(std::move($1)); }
+	| "rot" rel		{ $$ = RotRE::createOpt(std::move($2)); }
 	| rel "^" "-1" 		{ $1->flip(); $$ = std::move($1); }
 	| rel "^" "=" 		{ $$ = RegExp::createSym(std::move($1)); }
 	| ID			{ $$ = drv.getRegisteredID($1, @$); }

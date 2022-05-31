@@ -70,6 +70,7 @@ let			return yy::parser::make_LET	(loc);
 recovery		return yy::parser::make_RECOVERY (loc);
 save			return yy::parser::make_SAVE	(loc);
 view			return yy::parser::make_VIEW	(loc);
+rot			return yy::parser::make_ROT     (loc);
 unless			return yy::parser::make_UNLESS	(loc);
 warning			return yy::parser::make_WARNING	(loc);
 

@@ -400,6 +400,45 @@ UNARY_RE(Star, star, "*");
 UNARY_RE(QMark, or_empty, "?");
 
 
+class RotRE : public RegExp {
+
+protected:
+	RotRE(std::unique_ptr<RegExp> r)
+		: RegExp() { addKid(std::move(r)); }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<RotRE> create(Ts&&... params) {
+		return std::unique_ptr<RotRE>(
+			new RotRE(std::forward<Ts>(params)...));
+	}
+
+	static std::unique_ptr<RegExp> createOpt(std::unique_ptr<RegExp> r);
+
+	NFA toNFA() const override;
+
+	std::unique_ptr<RegExp> clone() const override	{
+		return create(getKid(0)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << "rot(" << *getKid(0) << ")";
+	}
+
+protected:
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const RotRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
+	}
+};
+
+
 /*******************************************************************************
  **                         Helper functions
  ******************************************************************************/

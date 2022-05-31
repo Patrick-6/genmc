@@ -1,4 +1,5 @@
 #include "RegExp.hpp"
+#include "Saturation.hpp"
 
 std::unique_ptr<RegExp> RegExp::createFalse()
 {
@@ -45,4 +46,19 @@ QMarkRE::createOpt(std::unique_ptr<RegExp> r)
 	if (dynamic_cast<PlusRE *>(&*r))
 		return StarRE::createOpt(r->releaseKid(0));
 	return create(std::move(r));
+}
+
+std::unique_ptr<RegExp>
+RotRE::createOpt(std::unique_ptr<RegExp> r)
+{
+	if (dynamic_cast<RotRE *>(&*r))
+		return std::move(r);
+	return create(std::move(r));
+}
+
+NFA RotRE::toNFA() const
+{
+	auto nfa = getKid(0)->toNFA();
+	saturateRotate(nfa);
+	return nfa;
 }
