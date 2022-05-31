@@ -43,7 +43,7 @@ let po-rel = po ; [Release]
 let rmb = [R \ Noreturn] ; po ; [Rmb] ; po ; [R \ Noreturn]
 let wmb = [W] ; po ; [Fwmb] ; po ; [W]
 
-let strong-fence = 
+let strong-fence =
          po ; [Fmb] ; po
        | po ; [F-Before-atomic] ; po ; [RMW] ; po?
        | po? ; [RMW] ; po ; [F-After-atomic] ; po
@@ -77,10 +77,9 @@ let hb = [Marked] ; (ppo | rfe | (fre | coe) ; rfe | prop ; strong-sync) ; [Mark
 
 let hb-orig = [Marked] ; (ppo | rfe | (fre | coe) ; rfe) ; [Marked]
 
-let pb-orig = prop ; strong-sync ; hb-orig* 
+let pb-orig = prop ; strong-sync ; hb-orig*
 
 // assert: irreflexive hb+ <-> irreflexive (hb-orig+ | pb-orig+)
-
 
 let hb-base = [Marked] ; (ppo | rfe) ; [Marked]
 let overwrite = [Marked] ; (coe | fre) ; [Marked]
@@ -89,7 +88,7 @@ let prop2 = (rfe? ; po-rel | wmb) ; [Marked] ; hb-base*
 
 let hb-alt =
          hb-base
-       | (overwrite ; prop2) & int 
+       | (overwrite ; prop2) & int
        | (overwrite ; prop2 ; strong-sync) ; [Marked]
 
 // ---------------------------------------------------------------------
