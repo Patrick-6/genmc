@@ -14,6 +14,12 @@ private:
 	using VarMap = std::unordered_map<std::string, URE>;
 	using SavedVarSet = std::vector<SavedVar>;
 
+	using Assert = struct {
+		UCO co;
+		yy::location loc;
+		UCO assm = nullptr;
+	};
+
 public:
 
 	KatModule() = default;
@@ -28,8 +34,8 @@ public:
 	using rec_const_iter = std::vector<URE>::const_iterator;
 	using incl_iter = std::vector<Inclusion<URE>>::iterator;
 	using incl_const_iter = std::vector<Inclusion<URE>>::const_iterator;
-	using assr_iter = std::vector<std::pair<UCO, yy::location>>::iterator;
-	using assr_const_iter = std::vector<std::pair<UCO, yy::location>>::const_iterator;
+	using assr_iter = std::vector<Assert>::iterator;
+	using assr_const_iter = std::vector<Assert>::const_iterator;
 	using assm_iter = std::vector<TransLabel>::iterator;
 	using assm_const_iter = std::vector<TransLabel>::const_iterator;
 
@@ -122,8 +128,8 @@ public:
 		savedVariables.push_back({std::move(re), VarStatus::View});
 	}
 
-	void registerAssert(UCO c, const yy::location &loc) {
-		asserts.push_back({std::move(c), loc});
+	void registerAssert(UCO c, const yy::location &loc, UCO assm = nullptr) {
+		asserts.push_back({std::move(c), loc, std::move(assm)});
 	}
 
 	// Handle "assume c" declaration in the input file
@@ -152,7 +158,7 @@ private:
 	//      If just two, I prefer separated. If more, polymorphism.
 	SavedVarSet savedVariables;
 
-	std::vector<std::pair<UCO, yy::location>> asserts;
+	std::vector<Assert> asserts;
 	std::vector<TransLabel> assumes;
 
 	std::vector<URE>            acyclicityConstraints;

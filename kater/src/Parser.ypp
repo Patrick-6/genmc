@@ -45,6 +45,7 @@
   SAVE      "save"
   VIEW      "view"
   ROT       "rot"
+  IF        "if"
   UNLESS    "unless"
   WARNING   "warning"
   ZERO      "0"
@@ -70,6 +71,7 @@
 %nterm <std::unique_ptr<RegExp>> rel;
 %nterm <std::unique_ptr<Constraint>> constraint;
 %nterm <std::string> reduce_opt;
+%nterm <std::unique_ptr<Constraint>> if_opt;
 
 %precedence "=" "<="
 %left  "|"
@@ -90,20 +92,24 @@ main:	  %empty		{ }
 
 decl:	  "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
 	| "save" reduce_opt ID "=" rel	   { drv.registerSaveID($3, $2, std::move($5), @$); }
-	| "view" ID "=" rel 		   { drv.registerViewID($2, std::move($4)); }
-	| "assume" constraint		   { drv.registerAssume(std::move($2), @$); }
-	| "assert" constraint		   { drv.registerAssert(std::move($2), @$); }
+	| "view" ID "=" rel		   { drv.registerViewID($2, std::move($4)); }
+	| "assume" constraint  		   { drv.registerAssume(std::move($2), @$); }
+	| "assert" constraint if_opt	   { drv.registerAssert(std::move($2), @$, std::move($3)); }
 	| "check" constraint		   { $2->setType(Constraint::Type::Consistency);
 	 				     drv.addConstraint(std::move($2), "", @$); }
 	| constraint			   { drv.addConstraint(std::move($1), "", @$); }
 	| "error" ID "unless" constraint   { $4->setType(Constraint::Type::Error);
 	 				     drv.addConstraint(std::move($4), $2, @$); }
 	| "warning" ID "unless" constraint { $4->setType(Constraint::Type::Warning);
-					      drv.addConstraint(std::move($4), $2, @$); }
+					     drv.addConstraint(std::move($4), $2, @$); }
 	;
 
 reduce_opt: %empty	{ $$ = ""; }
 	| "[" ID "]"	{ $$ = $2; }
+	;
+
+if_opt: %empty 		  { $$ = nullptr; }
+	| "if" constraint { $$ = std::move($2); }
 	;
 
 constraint:

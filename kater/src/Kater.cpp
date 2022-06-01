@@ -42,6 +42,25 @@ void Kater::expandRfs(URE &r)
 	r = AltRE::createOpt(std::move(re1), std::move(re2));
 }
 
+void Kater::expandAssumptions(URE &r, UCO &assm)
+{
+	assert(&*assm);
+	auto *ec = dynamic_cast<SubsetConstraint *>(&*assm);
+	if (!ec) {
+		std::cout << "Ignoring unsupported local assumption " << *assm << "\n";
+		return;
+	}
+
+	for (auto i = 0u; i < r->getNumKids(); i++)
+		expandAssumptions(r->getKid(i), assm);
+
+	auto *lRE = dynamic_cast<CharRE *>(&*ec->getKid(0));
+	assert(lRE);
+
+	if (*r == *lRE)
+		r = ec->getKid(1)->clone();
+}
+
 bool Kater::checkAssertions()
 {
 	/* Ensure that ppo is implied by the acyclicity constraints */
@@ -73,15 +92,20 @@ bool Kater::checkAssertions()
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
 		if (getConf().verbose >= 2)
-			std::cout << "Checking assertion " << *p.first << std::endl;
-		for (int i = 0; i < p.first->getNumKids(); i++) {
-			expandSavedVars(p.first->getKid(i));
-			expandRfs(p.first->getKid(i));
+			std::cout << "Checking assertion " << *p.co << std::endl;
+		for (int i = 0; i < p.co->getNumKids(); i++) {
+			expandSavedVars(p.co->getKid(i));
+			expandRfs(p.co->getKid(i));
+			if (&*p.assm) {
+				// std::cerr << "expanding assumptions for " << *p.co->getKid(i) << "\n";
+				expandAssumptions(p.co->getKid(i), p.assm);
+				// std::cerr << "expanded to " << *p.co->getKid(i) << "\n";
+			}
 		}
 
 		std::string cex;
-		if (!p.first->checkStatically(cex, isValidLabel)) {
-			std::cerr << p.second << ": [Error] Assertion does not hold." << std::endl;
+		if (!p.co->checkStatically(cex, isValidLabel)) {
+			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
 				std::cerr << "Counterexample: " << cex << std::endl;
 			status = false;

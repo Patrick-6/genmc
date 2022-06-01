@@ -71,6 +71,7 @@ recovery		return yy::parser::make_RECOVERY (loc);
 save			return yy::parser::make_SAVE	(loc);
 view			return yy::parser::make_VIEW	(loc);
 rot			return yy::parser::make_ROT     (loc);
+if			return yy::parser::make_IF	(loc);
 unless			return yy::parser::make_UNLESS	(loc);
 warning			return yy::parser::make_WARNING	(loc);
 

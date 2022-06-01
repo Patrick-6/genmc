@@ -31,6 +31,7 @@ private:
 
 	void expandSavedVars(URE &r);
 	void expandRfs(URE &r);
+	void expandAssumptions(URE &r, UCO &assm);
 
 	const Config &config;
 	std::unique_ptr<KatModule> module;

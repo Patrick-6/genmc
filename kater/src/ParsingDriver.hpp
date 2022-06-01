@@ -50,8 +50,8 @@ public:
 	}
 
 	// Handle "assert c" declaration in the input file
-	void registerAssert(UCO c, const yy::location &loc) {
-		module->registerAssert(std::move(c), loc);
+	void registerAssert(UCO c, const yy::location &loc, UCO assm = nullptr) {
+		module->registerAssert(std::move(c), loc, std::move(assm));
 	}
 
 	// Handle "assume c" declaration in the input file

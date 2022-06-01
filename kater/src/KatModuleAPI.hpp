@@ -4,6 +4,7 @@
 #include "RegExp.hpp"
 
 using URE = std::unique_ptr<RegExp>;
+using UCO = std::unique_ptr<Constraint>;
 
 enum class VarStatus { Normal, Reduce, View };
 
