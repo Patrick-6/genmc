@@ -40,6 +40,50 @@ bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
 	return (mask1 | mask2) == mask1;
 }
 
+void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
+{
+	assert(&*assm);
+	auto *ec = dynamic_cast<SubsetConstraint *>(&*assm);
+	if (!ec) {
+		std::cout << "Ignoring unsupported local assumption " << *assm << "\n";
+		return;
+	}
+
+	auto *lRE = dynamic_cast<CharRE *>(&*ec->getKid(0));
+	assert(lRE);
+
+	auto rNFA = ec->getKid(1)->toNFA();
+	rNFA.simplify();
+
+	std::vector<NFA::State *> inits(rNFA.start_begin(), rNFA.start_end());
+	std::vector<NFA::State *> finals(rNFA.accept_begin(), rNFA.accept_end());
+
+	rNFA.clearAllAccepting();
+	rNFA.clearAllStarting();
+
+	std::vector<std::pair<NFA::State *, NFA::Transition>> toAdd;
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		std::vector<NFA::Transition> toRemove;
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (t.label == lRE->getLabel()) {
+				toAdd.push_back({&*s, t});
+				toRemove.push_back(t);
+			}
+		});
+		nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
+	});
+
+	nfa.alt(std::move(rNFA));
+	std::for_each(toAdd.begin(), toAdd.end(), [&](auto &p){
+		std::for_each(inits.begin(), inits.end(), [&](auto *i){
+			nfa.addEpsilonTransitionSucc(p.first, i);
+		});
+		std::for_each(finals.begin(), finals.end(), [&](auto *f){
+			nfa.addEpsilonTransitionSucc(f, p.second.dest);
+		});
+	});
+}
+
 void saturateNFA(NFA &nfa, const NFA &other)
 {
 	std::vector<TransLabel> opreds;
@@ -68,12 +112,19 @@ void saturateNFA(NFA &nfa, const NFA &other)
 	});
 }
 
-bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex, Constraint::ValidFunT vfun)
+bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
+			  const std::unique_ptr<Constraint> &assm,
+			  std::string &cex, Constraint::ValidFunT vfun)
 {
 	auto nfa1 = re1->toNFA();
 	nfa1.simplify();
 	nfa1.breakToParts();
 	nfa1.removeDeadStates();
+	if (&*assm) {
+		// std::cerr << "BEFORE ASSM EXPANSION " << nfa1  << "\n";
+		expandAssumption(nfa1, assm);
+		// std::cerr << "AFTER ASSM EXPANSION " << nfa1  << "\n";;
+	}
 	auto lhs = nfa1.to_DFA().first;
 
 	auto nfa2 = re2->toNFA();
@@ -82,13 +133,15 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2, std::string &cex
 	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
 	nfa2.addTransitivePredicateEdges();
+
 	auto rhs = nfa2.to_DFA().first;
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
-bool SubsetConstraint::checkStatically(std::string &cex, Constraint::ValidFunT vfun) const
+bool SubsetConstraint::checkStatically(const std::unique_ptr<Constraint> &assm,
+				       std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), cex, vfun);
+	return checkStaticInclusion(getKid(0), getKid(1), assm, cex, vfun);
 }
 
 std::unique_ptr<Constraint>
@@ -102,10 +155,11 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-bool EqualityConstraint::checkStatically(std::string &cex, Constraint::ValidFunT vfun) const
+bool EqualityConstraint::checkStatically(const std::unique_ptr<Constraint> &assm,
+					 std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), cex, vfun) &&
-		checkStaticInclusion(getKid(1), getKid(0), cex, vfun);
+	return checkStaticInclusion(getKid(0), getKid(1), assm, cex, vfun) &&
+		checkStaticInclusion(getKid(1), getKid(0), assm, cex, vfun);
 }
 
 std::unique_ptr<Constraint>
