@@ -16,8 +16,8 @@ int main(int argc, char **argv)
 	if (config.verbose >= 1)
 		std::cout << "Parsing file " << config.inputFile << "... ";
 
-	ParsingDriver d(config.inputFile);
-	if (d.parse())
+	ParsingDriver d;
+	if (d.parse(config.inputFile))
 		exit(EPARSE);
 	if (config.verbose >= 1)
 		std::cout << "Done.\n";
