@@ -76,6 +76,10 @@ let bob = po ; WREL | RACQ ; po | po ; [F] | [F] ; po | WREL ; po-loc ; [W]
 let deps = data | ctrl | addr ; po? | rmw
 let ppo = [R] ; (deps | rfi)+ ; [W] | bob
 
+// assert rmw <= ppo
+// assert detour <= ppo
+// assert [R]; po; [W&REL] <= ppo
+
 // No OOTA
 // acyclic (ppo | rf)
 
