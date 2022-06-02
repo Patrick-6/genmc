@@ -10,14 +10,22 @@ class KatModule {
 public:
 	using UCO = std::unique_ptr<Constraint>;
 
+	struct DbgInfo {
+		DbgInfo(const std::string *name, int l) : filename(name != nullptr ? *name : ""), line(l) {}
+		std::string filename;
+		int line;
+
+		friend std::ostream &operator<<(std::ostream &s, const DbgInfo &dbg);
+	};
+
 private:
 	using VarMap = std::unordered_map<std::string, URE>;
 	using SavedVarSet = std::vector<SavedVar>;
 
 	using Assert = struct {
 		UCO co;
-		yy::location loc;
 		UCO assm = nullptr;
+		DbgInfo loc;
 	};
 
 public:
@@ -129,7 +137,8 @@ public:
 	}
 
 	void registerAssert(UCO c, const yy::location &loc, UCO assm = nullptr) {
-		asserts.push_back({std::move(c), loc, std::move(assm)});
+		asserts.push_back({std::move(c), std::move(assm),
+				DbgInfo(loc.begin.filename, loc.begin.line)});
 	}
 
 	// Handle "assume c" declaration in the input file

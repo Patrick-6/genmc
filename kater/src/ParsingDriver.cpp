@@ -5,8 +5,9 @@
 
 #define DEBUG_TYPE "parser"
 
-ParsingDriver::ParsingDriver(const std::string &input)
-	: file(input), module(new KatModule)
+extern FILE* yyin;
+
+ParsingDriver::ParsingDriver() : module(new KatModule)
 {
 	auto i = 0;
 	std::for_each(TransLabel::builtin_pred_begin(), TransLabel::builtin_pred_end(), [&i,this](auto &pi){
@@ -19,22 +20,41 @@ ParsingDriver::ParsingDriver(const std::string &input)
 	});
 }
 
-int ParsingDriver::parse()
+void ParsingDriver::saveState()
 {
-	extern FILE* yyin;
+	states.push_back(State(getLocation(), yyin, dir));
+}
 
-	if (getFile().empty()) {
+void ParsingDriver::restoreState()
+{
+	if (!states.empty()) {
+		auto &s = states.back();
+		yyin = s.in;
+		location = s.loc;
+		dir = s.dir;
+		states.pop_back();
+	}
+}
+
+int ParsingDriver::parse(const std::string &input)
+{
+	saveState();
+
+	if (input.empty()) {
 		std::cerr << "no input file provided" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	if (!(yyin = fopen(getFile().c_str(), "r"))) {
-		std::cerr << "cannot open " << getFile()
+	if (!(yyin = fopen((dir + input).c_str(), "r"))) {
+		std::cerr << "cannot open " << input
 			  << ": " << strerror(errno) << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	location.initialize(&getFile());
+	auto s = input.find_last_of("/");
+	dir = input.substr(0, s != std::string::npos ? s+1 : std::string::npos);
+
+	location.initialize(&input);
 
 	yy::parser parser(*this);
 
@@ -46,6 +66,8 @@ int ParsingDriver::parse()
 	auto res = parser.parse();
 
 	fclose(yyin);
+
+	restoreState();
 
 	return res;
 }

@@ -1,5 +1,10 @@
 #include "KatModule.hpp"
 
+std::ostream &operator<<(std::ostream &s, const KatModule::DbgInfo &dbg)
+{
+	return s << dbg.filename << ":" << dbg.line;
+}
+
 void KatModule::registerAssume(UCO c)
 {
 	assert(c->isEmpty() && dynamic_cast<CharRE *>(&*c->getKid(0)));

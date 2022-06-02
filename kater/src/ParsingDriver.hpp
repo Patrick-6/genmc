@@ -16,10 +16,21 @@
 YY_DECL;
 
 class ParsingDriver {
+
+private:
+	struct State {
+		State(yy::location loc, FILE* in, std::string dir)
+			: loc(loc), in(in), dir(dir) {}
+
+		yy::location loc;
+		FILE* in;
+		std::string dir;
+	};
+
 public:
 	using UCO = KatModule::UCO;
 
-	ParsingDriver(const std::string &input);
+	ParsingDriver();
 
 	yy::location &getLocation() { return location; }
 
@@ -79,24 +90,28 @@ public:
 		return std::move(e);
 	}
 
-	// Invoke the parser on the file `config->fileName`.  Return 0 on success.
-	int parse();
+	/* Invoke the parser on INPUT. Return 0 on success. */
+	int parse(const std::string &input);
 
 	std::unique_ptr<KatModule> takeModule() { return std::move(module); }
 
 private:
-	const std::string &getFile() const { return file; }
-
 	bool isAllowedReduction(const std::string &idRed) {
 		return idRed == "po" || idRed == "po-loc" || idRed == "po-imm";
 	}
 
-	const std::string &file;
+	void saveState();
+	void restoreState();
 
-	// Location for lexing/parsing
+	/* Location for lexing/parsing */
 	yy::location location;
 
+	/* Current source file directory (used for includes) */
+	std::string dir;
+
 	std::unique_ptr<KatModule> module;
+
+	std::vector<State> states;
 };
 
 #endif /* __PARSING_DRIVER_HPP__ */

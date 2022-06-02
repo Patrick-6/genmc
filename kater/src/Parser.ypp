@@ -40,12 +40,13 @@
   COHERENCE "coherence"
   EMPTY	    "empty"
   ERROR	    "error"
+  IF        "if"
+  INCLUDE   "include"
   LET	    "let"
   RECOVERY  "recovery"
+  ROT       "rot"
   SAVE      "save"
   VIEW      "view"
-  ROT       "rot"
-  IF        "if"
   UNLESS    "unless"
   WARNING   "warning"
   ZERO      "0"
@@ -68,6 +69,7 @@
 %token YYEOF 0
 
 %token <std::string> ID;
+%token <std::string> QPATH;
 %nterm <std::unique_ptr<RegExp>> rel;
 %nterm <std::unique_ptr<Constraint>> constraint;
 %nterm <std::string> reduce_opt;
@@ -90,7 +92,8 @@ main:	  %empty		{ }
 	| main decl		{ }
         ;
 
-decl:	  "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
+decl:     "include" QPATH                  { drv.parse($2.substr(1, $2.size()-2)); }
+	| "let" ID "=" rel		   { drv.registerID($2, std::move($4)); }
 	| "save" reduce_opt ID "=" rel	   { drv.registerSaveID($3, $2, std::move($5), @$); }
 	| "view" ID "=" rel		   { drv.registerViewID($2, std::move($4)); }
 	| "assume" constraint  		   { drv.registerAssume(std::move($2), @$); }
