@@ -117,7 +117,7 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			  std::string &cex, Constraint::ValidFunT vfun)
 {
 	auto nfa1 = re1->toNFA();
-	nfa1.simplify();
+	nfa1.simplify(vfun);
 	nfa1.breakToParts();
 	nfa1.removeDeadStates();
 	if (&*assm) {
@@ -128,7 +128,7 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	auto lhs = nfa1.to_DFA().first;
 
 	auto nfa2 = re2->toNFA();
-	nfa2.simplify();
+	nfa2.simplify(vfun);
 	nfa2.breakToParts();
 	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
