@@ -24,7 +24,7 @@ private:
 
 	using Assert = struct {
 		UCO co;
-		UCO assm = nullptr;
+		std::vector<UCO> assms;
 		DbgInfo loc;
 	};
 
@@ -136,8 +136,8 @@ public:
 		savedVariables.push_back({std::move(re), VarStatus::View});
 	}
 
-	void registerAssert(UCO c, const yy::location &loc, UCO assm = nullptr) {
-		asserts.push_back({std::move(c), std::move(assm),
+	void registerAssert(UCO c, const yy::location &loc, std::vector<UCO> assms = {}) {
+		asserts.push_back({std::move(c), std::move(assms),
 				DbgInfo(loc.begin.filename, loc.begin.line)});
 	}
 

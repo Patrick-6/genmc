@@ -80,7 +80,7 @@ bool Kater::checkAssertions()
 		}
 
 		std::string cex;
-		if (!p.co->checkStatically(p.assm, cex, isValidLabel)) {
+		if (!p.co->checkStatically(p.assms, cex, isValidLabel)) {
 			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
 				std::cerr << "Counterexample: " << cex << std::endl;

@@ -113,16 +113,18 @@ void saturateNFA(NFA &nfa, const NFA &other)
 }
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
-			  const std::unique_ptr<Constraint> &assm,
+			  const std::vector<std::unique_ptr<Constraint>> &assms,
 			  std::string &cex, Constraint::ValidFunT vfun)
 {
 	auto nfa1 = re1->toNFA();
 	nfa1.simplify(vfun);
 	nfa1.breakToParts();
 	nfa1.removeDeadStates();
-	if (&*assm) {
+	if (!assms.empty()) {
 		// std::cerr << "BEFORE ASSM EXPANSION " << nfa1  << "\n";
-		expandAssumption(nfa1, assm);
+		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
+			expandAssumption(nfa1, assm);
+		});
 		// std::cerr << "AFTER ASSM EXPANSION " << nfa1  << "\n";;
 	}
 	auto lhs = nfa1.to_DFA().first;
@@ -132,16 +134,17 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	nfa2.breakToParts();
 	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
+	// std::cerr << "SAT RHS " << nfa2 << "\n";
 	nfa2.addTransitivePredicateEdges();
 
 	auto rhs = nfa2.to_DFA().first;
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
-bool SubsetConstraint::checkStatically(const std::unique_ptr<Constraint> &assm,
+bool SubsetConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
 				       std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), assm, cex, vfun);
+	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun);
 }
 
 std::unique_ptr<Constraint>
@@ -155,11 +158,11 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-bool EqualityConstraint::checkStatically(const std::unique_ptr<Constraint> &assm,
+bool EqualityConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
 					 std::string &cex, Constraint::ValidFunT vfun) const
 {
-	return checkStaticInclusion(getKid(0), getKid(1), assm, cex, vfun) &&
-		checkStaticInclusion(getKid(1), getKid(0), assm, cex, vfun);
+	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun) &&
+		checkStaticInclusion(getKid(1), getKid(0), assms, cex, vfun);
 }
 
 std::unique_ptr<Constraint>

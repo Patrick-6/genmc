@@ -54,7 +54,7 @@ public:
 	size_t getNumKids() const { return kids.size(); }
 
 	/* Does the Constraint hold statically */
-	virtual bool checkStatically(const std::unique_ptr<Constraint> &assm,
+	virtual bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
 				     std::string &cex,
 				     ValidFunT vfun = [](auto &t){ return true; }) const {
 		return false;
@@ -202,7 +202,7 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
-	bool checkStatically(const std::unique_ptr<Constraint> &assm,
+	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
 			     std::string &cex,
 			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
@@ -242,7 +242,7 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
-	bool checkStatically(const std::unique_ptr<Constraint> &assm,
+	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
 			     std::string &cex,
 			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
