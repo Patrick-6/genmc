@@ -6,6 +6,7 @@
 #define DEBUG_TYPE "parser"
 
 extern FILE* yyin;
+extern void yyrestart(FILE *);
 
 ParsingDriver::ParsingDriver() : module(new KatModule)
 {
@@ -29,32 +30,34 @@ void ParsingDriver::restoreState()
 {
 	if (!states.empty()) {
 		auto &s = states.back();
-		yyin = s.in;
+		yyrestart(s.in);
 		location = s.loc;
 		dir = s.dir;
 		states.pop_back();
 	}
 }
 
-int ParsingDriver::parse(const std::string &input)
+int ParsingDriver::parse(const std::string &name)
 {
 	saveState();
 
-	if (input.empty()) {
+	if (name.empty()) {
 		std::cerr << "no input file provided" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	if (!(yyin = fopen((dir + input).c_str(), "r"))) {
-		std::cerr << "cannot open " << input
+	auto path = dir + name;
+	if (!(yyin = fopen(path.c_str(), "r"))) {
+		std::cerr << "cannot open " << path
 			  << ": " << strerror(errno) << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	auto s = input.find_last_of("/");
-	dir = input.substr(0, s != std::string::npos ? s+1 : std::string::npos);
+	auto s = path.find_last_of("/");
+	dir = path.substr(0, s != std::string::npos ? s+1 : std::string::npos);
 
-	location.initialize(&input);
+	yyrestart(yyin);
+	location.initialize(&path);
 
 	yy::parser parser(*this);
 
