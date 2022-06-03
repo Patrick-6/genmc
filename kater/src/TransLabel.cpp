@@ -61,8 +61,9 @@ const std::vector<PredicateInfo> builtinPredicates = {
 	{"HpRetire",       other_event_bitmask, "llvm::isa<HpRetireLabel>(#)"},
 	{"HpProtect",      other_event_bitmask, "llvm::isa<HpProtectLabel>(#)"},
 	/* Mutexes */
-	{"Lock",           other_event_bitmask, "llvm::isa<LockLabel>(#)"},
-	{"Unlock",         other_event_bitmask, "llvm::isa<UnlockLabel>(#)"},
+	{"LR",             other_event_bitmask, "llvm::isa<LockCasReadLabel>(#)"},
+	{"LW",             other_event_bitmask, "llvm::isa<LockCasWriteLabel>(#)"},
+	{"UL",             other_event_bitmask, "llvm::isa<UnlockWriteLabel>(#)"},
 	/* RCU */
 	{"RCUSync",        other_event_bitmask, "llvm::isa<RCUSyncLabel>(#)"},
 	{"RCULock",        other_event_bitmask, "llvm::isa<RCULockLabel>(#)"},
