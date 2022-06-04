@@ -24,6 +24,7 @@ static const unsigned track_event_bitmask =  0b0'00000'1111111'1111'00'00'00'00'
 
 const std::vector<PredicateInfo> builtinPredicates = {
 	/* Access modes */
+	{"Marked",         0b0'11110'0000000'1111'11'11'11'11'11, "!#->isNotAtomic()"},
 	{"NA",             0b0'00001'0000000'1111'11'11'11'11'11, "#->isNotAtomic()"},
 	{"ACQ",            0b0'11010'0000011'1111'11'11'11'11'11, "#->isAtLeastAcquire()"},
 	{"REL",            0b0'11100'0000011'1111'11'11'11'11'11, "#->isAtLeastRelease()"},
