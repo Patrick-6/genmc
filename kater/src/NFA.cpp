@@ -226,13 +226,17 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			new_str += it->label.toString();
 
 			auto nl1 = it->label;
-			if ((l1.isPredicate() || nl1.isPredicate()) &&
-			    !nl1.merge(l1, isValidTransition))
+			if (!l1.composesWith(nl1))
 				continue;
+			if ((l1.isPredicate() || nl1.isPredicate())) {
+				if (!l1.merge(nl1, isValidTransition))
+					continue;
+				nl1 = l1;
+			}
 
 			bool canTakeEdge = false;
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); oit++) {
-				if (it->label != oit->label)
+				if (it->label != oit->label && nl1 != oit->label)
 					continue;
 
 				canTakeEdge = true;
