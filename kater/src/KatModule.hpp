@@ -138,7 +138,7 @@ public:
 
 	void registerAssert(UCO c, const yy::location &loc, std::vector<UCO> assms = {}) {
 		asserts.push_back({std::move(c), std::move(assms),
-				DbgInfo(loc.begin.filename, loc.begin.line)});
+				DbgInfo(loc.end.filename, loc.end.line)});
 	}
 
 	// Handle "assume c" declaration in the input file
