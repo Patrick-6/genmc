@@ -203,7 +203,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 		if (!isStarting(it->get()))
 			continue;
 		for (auto oit = other.states_begin(); oit != other.states_end(); oit++) {
-			if (!isStarting(oit->get()))
+			if (!other.isStarting(oit->get()))
 				continue;
 			visited.insert({it->get(), oit->get(), TransLabel(std::nullopt)});
 			workList.push_back({it->get(), oit->get(), TransLabel(std::nullopt), ""});
@@ -212,7 +212,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	while (!workList.empty()) {
 		auto [s1, s2, l1, str] = workList.back();
 		workList.pop_back();
-		if (isAccepting(s1) && !isAccepting(s2)) {
+		if (isAccepting(s1) && !other.isAccepting(s2)) {
 			cex = str;
 			return false;
 		}
