@@ -40,6 +40,44 @@ bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
 	return (mask1 | mask2) == mask1;
 }
 
+struct Path {
+	Path(NFA::State *s) : s(s), ts() {}
+
+	NFA::State *s;
+	std::vector<NFA::Transition> ts;
+};
+
+void dfsFindPathsFrom(NFA::State *s, Path p,
+		      const NFA &pattern, NFA::State *ps,
+		      std::vector<Path> &collected)
+{
+	if (pattern.isAccepting(ps)) {
+		if (!p.ts.empty())
+			collected.push_back(std::move(p));
+		return;
+	}
+
+	std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+		std::for_each(ps->out_begin(), ps->out_end(), [&](auto &pt){
+			if (t.label == pt.label) {
+				Path p1(p);
+				p1.ts.push_back(t);
+				dfsFindPathsFrom(t.dest, p1, pattern, pt.dest, collected);
+			}
+		});
+	});
+}
+
+std::vector<Path>
+findAllMatchingPaths(const NFA &nfa, const NFA &pattern)
+{
+	std::vector<Path> result;
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		dfsFindPathsFrom(&*s, Path(&*s), pattern, *pattern.start_begin(), result);
+	});
+	return result;
+}
+
 void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
 	assert(&*assm);
@@ -49,8 +87,15 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 		return;
 	}
 
-	auto *lRE = dynamic_cast<CharRE *>(&*ec->getKid(0));
-	assert(lRE);
+	auto *lRE = &*ec->getKid(0);
+	assert(typeid(*lRE) == typeid(CharRE) ||
+	       (typeid(*lRE) == typeid(SeqRE) &&
+		std::all_of(lRE->kid_begin(), lRE->kid_end(), [&](auto &k){
+				return typeid(*k) == typeid(CharRE);
+			})));
+	auto lNFA = lRE->toNFA();
+	// lNFA.simplify();
+	lNFA.breakToParts();
 
 	auto rNFA = ec->getKid(1)->toNFA();
 	rNFA.simplify();
@@ -58,28 +103,46 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	std::vector<NFA::State *> inits(rNFA.start_begin(), rNFA.start_end());
 	std::vector<NFA::State *> finals(rNFA.accept_begin(), rNFA.accept_end());
 
+	// std::cerr << "looking for pattern " << lNFA << "\n\t\tin\n" << nfa << "\n";
+
+	auto paths = findAllMatchingPaths(nfa, lNFA);
+
+	// std::cerr << "paths found:\n";
+	// std::for_each(paths.begin(), paths.end(), [&](auto &p){
+	// 	std::cerr << "\t" << p.s->getId();
+	// 	std::for_each(p.ts.begin(), p.ts.end(), [&](auto &t){
+	// 		std::cerr << " -> " << t.dest->getId();
+	// 	});
+	// 	std::cerr << "\n";
+	// });
+
 	rNFA.clearAllAccepting();
 	rNFA.clearAllStarting();
 
-	std::vector<std::pair<NFA::State *, NFA::Transition>> toAdd;
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		std::vector<NFA::Transition> toRemove;
-		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-			if (t.label == lRE->getLabel()) {
-				toAdd.push_back({&*s, t});
-				toRemove.push_back(t);
-			}
-		});
-		nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
+	// std::vector<std::pair<NFA::State *, NFA::Transition>> toAdd;
+	// std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+	// 	std::vector<NFA::Transition> toRemove;
+	// 	std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+	// 		if (t.label == lRE->getLabel()) {
+	// 			toAdd.push_back({&*s, t});
+	// 			toRemove.push_back(t);
+	// 		}
+	// 	});
+	// 	nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
+	// });
+
+	std::for_each(paths.begin(), paths.end(), [&](auto &p){
+		for (auto i = 0u; i < p.ts.size(); i++)
+			nfa.removeTransition(i == 0 ? p.s : p.ts[i-1].dest, p.ts[i]);
 	});
 
 	nfa.alt(std::move(rNFA));
-	std::for_each(toAdd.begin(), toAdd.end(), [&](auto &p){
+	std::for_each(paths.begin(), paths.end(), [&](auto &p){
 		std::for_each(inits.begin(), inits.end(), [&](auto *i){
-			nfa.addEpsilonTransitionSucc(p.first, i);
+			nfa.addEpsilonTransitionSucc(p.s, i);
 		});
 		std::for_each(finals.begin(), finals.end(), [&](auto *f){
-			nfa.addEpsilonTransitionSucc(f, p.second.dest);
+			nfa.addEpsilonTransitionSucc(f, p.ts.back().dest);
 		});
 	});
 }
@@ -124,6 +187,8 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 		// std::cerr << "BEFORE ASSM EXPANSION " << nfa1  << "\n";
 		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
 			expandAssumption(nfa1, assm);
+			nfa1.breakToParts();
+			nfa1.removeDeadStates();
 		});
 		// std::cerr << "AFTER ASSM EXPANSION " << nfa1  << "\n";;
 	}
