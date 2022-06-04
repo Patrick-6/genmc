@@ -11,9 +11,9 @@ assume rfi ; [F] = 0
 assume rf ; [REL] = 0
 assume rfe ; [REL] = 0
 assume rfi ; [REL] = 0
-assume [REL] ; rf = 0
-assume [REL] ; rfi = 0
-assume [REL] ; rfe = 0
+assume [ACQ] ; rf = 0
+assume [ACQ] ; rfi = 0
+assume [ACQ] ; rfe = 0
 
 // ---------------------------------------------------------------------
 // Definition of standard relations
