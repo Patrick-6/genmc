@@ -117,7 +117,7 @@ reduce_opt: %empty	{ $$ = ""; }
 	;
 
 if_opt: %empty 		        { $$ = std::vector<std::unique_ptr<Constraint>>(); }
-	| "if" constraint_list  { $$ = std::move($2); }
+	| "if" constraint_list  { std::reverse($2.begin(), $2.end()); $$ = std::move($2); }
 	;
 
 constraint_list: constraint                { std::vector<std::unique_ptr<Constraint>> r; r.push_back(std::move($1)); $$ = std::move(r); }
