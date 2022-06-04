@@ -189,6 +189,26 @@ bool TransLabel::merge(const TransLabel &other,
 	return false;
 }
 
+bool TransLabel::composesWith(const TransLabel &other) const
+{
+	if (isPredicate() && other.isPredicate())
+		return checksCompose(getPreChecks(), other.getPreChecks());
+
+	if (!isPredicate() && other.isPredicate())
+		return checksCompose(getPostChecks(), other.getPreChecks()) &&
+			(!isBuiltin() || checksCompose(builtinRelations[*getId()].codom, other.getPreChecks()));
+
+	if (isPredicate() && !other.isPredicate())
+		return checksCompose(getPreChecks(), other.getPreChecks()) &&
+			(!other.isBuiltin() || checksCompose(getPreChecks(), builtinRelations[*other.getId()].dom));
+
+	return checksCompose(getPostChecks(), other.getPreChecks()) &&
+		(!isBuiltin() || (checksCompose(builtinRelations[*getId()].codom, other.getPreChecks()) &&
+				  (!other.isBuiltin() || checksCompose(builtinRelations[*getId()].codom,
+								       builtinRelations[*other.getId()].dom)))) &&
+		(!other.isBuiltin() || checksCompose(getPostChecks(), builtinRelations[*other.getId()].dom));
+}
+
 std::string TransLabel::toString() const
 {
 	std::stringstream ss;

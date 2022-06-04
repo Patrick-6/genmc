@@ -121,6 +121,8 @@ public:
 	bool merge(const TransLabel &other,
 		   std::function<bool(const TransLabel &)> isValid = [](auto &lab){ return true; });
 
+	bool composesWith(const TransLabel &other) const;
+
 	std::string toString() const;
 
 	bool operator==(const TransLabel &other) const {
