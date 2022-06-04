@@ -17,11 +17,13 @@ struct PredicateInfo {
 };
 
 struct RelationInfo {
-	std::string  name;
-	RelType      type;
-	bool         insidePo;
-	std::string  succString;
-	std::string  predString;
+	std::string   name;
+	RelType       type;
+	std::set<int> dom;
+	std::set<int> codom;
+	bool          insidePo;
+	std::string   succString;
+	std::string   predString;
 };
 
 extern const std::vector<PredicateInfo> builtinPredicates;

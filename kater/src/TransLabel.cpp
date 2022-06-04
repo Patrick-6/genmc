@@ -82,28 +82,32 @@ const std::vector<PredicateInfo> builtinPredicates = {
 };
 
 const std::vector<RelationInfo> builtinRelations = {
-        /* program order */
-        {"po-imm",      RelType::OneOne,     true,  "po_imm_succs",     "po_imm_preds"},
-        {"po-loc-imm",  RelType::OneOne,     true,  "poloc_imm_succs",  "poloc_imm_preds"},
-	/* intra-thread dependencies */
-        {"ctrl-imm",    RelType::UnsuppMany, true,  "?",                "ctrl_preds"},
-        {"addr-imm",    RelType::UnsuppMany, true,  "?",                "addr_preds"},
-        {"data-imm",    RelType::UnsuppMany, true,  "?",                "data_preds"},
+        /* po */
+        {"po-imm",      RelType::OneOne,     {},   {},   true,  "po_imm_succs",     "po_imm_preds"},
+        {"po-loc-imm",  RelType::OneOne,     {},   {},   true,  "poloc_imm_succs",  "poloc_imm_preds"},
+	/* deps */
+        {"ctrl-imm",    RelType::UnsuppMany, {13}, {},   true,  "?",                "ctrl_preds"},
+        {"addr-imm",    RelType::UnsuppMany, {13}, {},   true,  "?",                "addr_preds"},
+        {"data-imm",    RelType::UnsuppMany, {13}, {},   true,  "?",                "data_preds"},
 	/* same thread */
-	{"same-thread", RelType::Conj,	     false, "same_thread",      "same_thread"},
+	{"same-thread", RelType::Conj,	     {},   {},   false, "same_thread",      "same_thread"},
 	/* same location */
-        {"alloc",       RelType::ManyOne,    false, "alloc_succs",      "alloc"},
-        {"frees",       RelType::OneOne,     false, "frees",            "alloc"},
-        {"loc-overlap", RelType::Final,      false, "?",                "loc_preds"},
-	/* reads-from, coherence, from-read, detour */
-        {"rf",          RelType::ManyOne,    false, "rf_succs",          "rf_preds"},
-        {"rfe",         RelType::ManyOne,    false, "rfe_succs",         "rfe_preds"},
-        {"rfi",         RelType::ManyOne,    false, "rfi_succs",         "rfi_preds"},
-        {"tc",          RelType::OneOne,     false, "tc_succs",          "tc_preds"},
-        {"tj",          RelType::OneOne,     false, "tj_succs",          "tj_preds"},
-        {"mo-imm",      RelType::OneOne,     false, "co_imm_succs",      "co_imm_preds"},
-        {"fr-imm",      RelType::ManyOne,    false, "fr_imm_succs",      "fr_imm_preds"},
-        {"detour",      RelType::OneOne,     false, "detour_succs",      "detour_preds"},
+        {"alloc",       RelType::ManyOne,    {},   {},   false, "alloc_succs",      "alloc"},
+        {"frees",       RelType::OneOne,     {},   {},   false, "frees",            "alloc"},
+        {"loc-overlap", RelType::Final,      {},   {},   false, "?",                "loc_preds"},
+	/* rf, co, fr, detour */
+        {"rf",          RelType::ManyOne,    {11}, {13}, false, "rf_succs",          "rf_preds"},
+        {"rfe",         RelType::ManyOne,    {11}, {13}, false, "rfe_succs",         "rfe_preds"},
+        {"rfi",         RelType::ManyOne,    {11}, {13}, false, "rfi_succs",         "rfi_preds"},
+        {"tc",          RelType::OneOne,     {22}, {25}, false, "tc_succs",          "tc_preds"},
+        {"tj",          RelType::OneOne,     {26}, {23}, false, "tj_succs",          "tj_preds"},
+        {"mo-imm",      RelType::OneOne,     {11}, {11}, false, "co_imm_succs",      "co_imm_preds"},
+        {"moe",         RelType::UnsuppMany, {11}, {11}, false, "co_imm_succs",      "co_imm_preds"},
+        {"moi",         RelType::UnsuppMany, {11}, {11}, false, "co_imm_succs",      "co_imm_preds"},
+        {"fr-imm",      RelType::ManyOne,    {13}, {11}, false, "fr_imm_succs",      "fr_imm_preds"},
+        {"fre",         RelType::ManyOne,    {13}, {11}, false, "fr_imm_succs",      "fr_imm_preds"},
+        {"fri",         RelType::ManyOne,    {13}, {11}, false, "fr_imm_succs",      "fr_imm_preds"},
+        {"detour",      RelType::OneOne,     {11}, {13}, false, "detour_succs",      "detour_preds"},
 };
 
 bool isSubPredicate(int i, int j)
