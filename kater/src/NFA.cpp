@@ -134,20 +134,6 @@ bool NFA::acceptsNoString(std::string &cex) const
 	return true;
 }
 
-template<typename ITER>
-bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
-{
-	unsigned mask1 = ~0;
-	std::for_each(b1, e1, [&mask1](auto &id){
-		mask1 &= builtinPredicates[id].bitmask;
-	});
-	unsigned mask2 = ~0;
-	std::for_each(b2, e2, [&mask2](auto &id){
-		mask2 &= builtinPredicates[id].bitmask;
-	});
-	return (mask1 | mask2) == mask1;
-}
-
 template<typename T>
 inline void hash_combine(std::size_t& seed, std::size_t v)
 {
@@ -182,7 +168,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			hash_combine<unsigned>(hash, p.s1->getId());
 			hash_combine<unsigned>(hash, p.s2->getId());
 			if (!p.l1.isPredicate())
-				hash_combine<unsigned>(hash, *p.l1.getId());
+				hash_combine<unsigned>(hash, RelationHasher()(*p.l1.getRelation()));
 			else
 				hash_combine<unsigned>(hash, 0);
 			return hash;
@@ -420,21 +406,19 @@ void NFA::breakIntoMultiple(State *s, const Transition &t)
 
 	auto *curr = s;
 	if (t.label.hasPreChecks()) {
-		TransLabel::PredSet preds(t.label.pre_begin(), t.label.pre_end());
-		auto *p = addTransitionToFresh(curr, TransLabel(std::nullopt, preds));
+		auto *p = addTransitionToFresh(curr, TransLabel(std::nullopt, t.label.getPreChecks()));
 		curr = p;
 	}
-	if (t.label.getId()) {
+	if (t.label.getRelation()) {
 		if (t.label.hasPostChecks()) {
-			curr = addTransitionToFresh(curr, TransLabel(t.label.getId()));
+			curr = addTransitionToFresh(curr, TransLabel(t.label.getRelation()));
 		} else {
-			addTransition(curr, Transition(TransLabel(t.label.getId()), t.dest));
+			addTransition(curr, Transition(TransLabel(t.label.getRelation()), t.dest));
 			curr = t.dest;
 		}
 	}
 	if (t.label.hasPostChecks()) {
-		TransLabel::PredSet preds(t.label.post_begin(), t.label.post_end());
-		addTransition(curr, Transition(TransLabel(std::nullopt, preds), t.dest));
+		addTransition(curr, Transition(TransLabel(std::nullopt, t.label.getPostChecks()), t.dest));
 	}
 }
 

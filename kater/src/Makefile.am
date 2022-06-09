@@ -15,7 +15,9 @@ if kater
 	NFA.cpp	\
 	Parser.ypp \
 	ParsingDriver.cpp \
+	Predicate.cpp \
 	Printer.cpp \
+	Relation.cpp \
 	RegExp.cpp \
 	Saturation.cpp \
 	TransLabel.cpp

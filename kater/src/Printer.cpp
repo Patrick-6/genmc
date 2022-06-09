@@ -32,6 +32,94 @@ R"(/****************************************************************************
  *******************************************************************************/
 )";
 
+const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relationNames = {
+        /* po */
+        {Relation::po_imm,	{"po_imm_succs",     "po_imm_preds"}},
+        {Relation::po_loc_imm,	{"poloc_imm_succs",  "poloc_imm_preds"}},
+	/* deps */
+        {Relation::ctrl_imm,	{"?",                "ctrl_preds"}},
+        {Relation::addr_imm,	{"?",                "addr_preds"}},
+        {Relation::data_imm,	{"?",                "data_preds"}},
+	/* same thread */
+	{Relation::same_thread,	{ "same_thread",     "same_thread"}},
+	/* same location */
+        {Relation::alloc,		{ "alloc_succs",     "alloc"}},
+        {Relation::frees,		{ "frees",           "alloc"}},
+        {Relation::loc_overlap,	{ "?",               "loc_preds"}},
+	/* rf, co, fr, detour */
+        {Relation::rf,		{ "rf_succs",        "rf_preds"}},
+        {Relation::rfe,		{ "rfe_succs",       "rfe_preds"}},
+        {Relation::rfi,		{ "rfi_succs",       "rfi_preds"}},
+        {Relation::tc,		{ "tc_succs",        "tc_preds"}},
+        {Relation::tj,		{ "tj_succs",        "tj_preds"}},
+        {Relation::mo_imm,	{ "co_imm_succs",    "co_imm_preds"}},
+        {Relation::moe,		{ "co_imm_succs",    "co_imm_preds"}},
+        {Relation::moi,		{ "co_imm_succs",    "co_imm_preds"}},
+        {Relation::fr_imm,	{ "fr_imm_succs",    "fr_imm_preds"}},
+        {Relation::fre,		{ "fr_imm_succs",    "fr_imm_preds"}},
+        {Relation::fri,		{ "fr_imm_succs",    "fr_imm_preds"}},
+        {Relation::detour,	{ "detour_succs",    "detour_preds"}},
+};
+
+const std::unordered_map<Predicate::Builtin, std::string> Printer::predicateNames = {
+	/* Access modes */
+	{Predicate::Marked,	 "!#->isNotAtomic()"},
+	{Predicate::NA,		 "#->isNotAtomic()"},
+	{Predicate::ACQ,	 "#->isAtLeastAcquire()"},
+	{Predicate::REL,	 "#->isAtLeastRelease()"},
+	{Predicate::SC,		 "#->isSC()"},
+	/* Random stuff */
+	{Predicate::IsDynamicLoc, "g.is_dynamic_loc(#)"},
+	{Predicate::NotHpProtected, "g.notHpProtected(#)"},
+	{Predicate::RfInit,	 "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
+	{Predicate::REC,	 "#->getThread() == g.getRecoveryRoutineId()"},
+	{Predicate::D,		 "llvm::isa<MemAccessLabel>(#) && llvm::dyn_cast<MemAccessLabel>(#)->getAddr().isDurable()"},
+	/* Memory accesses */
+	{Predicate::MemAccess,	 "llvm::isa<MemAccessLabel>(#)"},
+	{Predicate::W,		 "llvm::isa<WriteLabel>(#)"},
+	{Predicate::UW,		 "g.isRMWStore(#)"},
+	{Predicate::R,		 "llvm::isa<ReadLabel>(#)"},
+	{Predicate::UR,		 "g.isRMWLoad(#)"},
+//	{Predicate::HelpingCas,	 "llvm::isa<HelpingCasLabel>(#)"},
+	/* Fences */
+        {Predicate::F,		 "llvm::isa<FenceLabel>(#)"},
+	{Predicate::Fwmb,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"},
+	{Predicate::Frmb,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"},
+	{Predicate::Fba,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBBA)"},
+	{Predicate::Faa,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAA)"},
+	{Predicate::Fas,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
+	{Predicate::Faul,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
+	/* Thread events */
+	{Predicate::TC,		 "llvm::isa<ThreadCreateLabel>(#)"},
+	{Predicate::TJ,		 "llvm::isa<ThreadJoinLabel>(#)"},
+	{Predicate::TK,		 "llvm::isa<ThreadKillLabel>(#)"},
+	{Predicate::TB,		 "llvm::isa<ThreadStartLabel>(#)"},
+	{Predicate::TE,		 "llvm::isa<ThreadFinishLabel>(#)"},
+	/* Allocation */
+	{Predicate::Alloc,	 "llvm::isa<MallocLabel>(#)"},
+	{Predicate::Free,	 "llvm::isa<FreeLabel>(#)"},
+	{Predicate::HpRetire,	 "llvm::isa<HpRetireLabel>(#)"},
+	{Predicate::HpProtect,	 "llvm::isa<HpProtectLabel>(#)"},
+	/* Mutexes */
+	{Predicate::LR,		 "llvm::isa<LockCasReadLabel>(#)"},
+	{Predicate::LW,		 "llvm::isa<LockCasWriteLabel>(#)"},
+	{Predicate::UL,		 "llvm::isa<UnlockWriteLabel>(#)"},
+	/* RCU */
+	{Predicate::RCUSync,	 "llvm::isa<RCUSyncLabel>(#)"},
+	{Predicate::RCULock,	 "llvm::isa<RCULockLabel>(#)"},
+	{Predicate::RCUUnlock,	 "llvm::isa<RCUUnlockLabel>(#)"},
+	/* File ops */
+//	{Predicate::DskWrite,	 "llvm::isa<DskWriteLabel>(#)"},
+//	{Predicate::DskMdWrite,	 "llvm::isa<DskMdWriteLabel>(#)"},
+//	{Predicate::DskDirWrite, "llvm::isa<DskDirWriteLabel>(#)"},
+//	{Predicate::DskJnlWrite, "llvm::isa<DskJnlWriteLabel>(#)"},
+	{Predicate::DskOpen,	 "llvm::isa<DskOpenLabel>(#)"},
+	{Predicate::DskFsync,	 "llvm::isa<DskFsyncLabel>(#)"},
+	{Predicate::DskSync,	 "llvm::isa<DskSyncLabel>(#)"},
+	{Predicate::DskPbarrier, "llvm::isa<DskPbarrierLabel>(#)"},
+	{Predicate::CLF,	 "llvm::isa<CLFlushLabel>(#)"},
+};
+
 void openFileForWriting(const std::string &filename, std::ofstream &fout)
 {
 	fout.open(filename, std::ios_base::out);
@@ -70,24 +158,24 @@ std::size_t replaceAll(std::string& inout, const std::string &what, const std::s
 	return count;
 }
 
-template<typename ITER>
-void printPreds(std::ostream &ostr, const std::string &arg, ITER &&begin, ITER &&end)
+void Printer::printPredSet(std::ostream &ostr, const std::string &arg, const PredicateSet &preds)
 {
-	if (begin == end)
+	if (preds.begin() == preds.end())
 		return;
 
 	ostr << "if (true";
-	for (auto it = begin, ie = end; it != ie; ++it) {
+	for (auto it = preds.begin(), ie = preds.end(); it != ie; ++it) {
 		ostr << " && ";
 
-		auto s = builtinPredicates[*it].genmcString;
+		assert(it->isBuiltin());
+		auto s = predicateNames.find(it->toBuiltin())->second;
 		replaceAll(s, "#", arg);
 		ostr << s;
 	}
 	ostr << ")";
 }
 
-void Printer::printLabelRel(std::ostream& ostr, const std::string &res,
+void Printer::printRelation(std::ostream& ostr, const std::string &res,
 			    const std::string &arg, const TransLabel *r)
 {
 	if (r->isPredicate()) {
@@ -96,8 +184,8 @@ void Printer::printLabelRel(std::ostream& ostr, const std::string &res,
 	}
 
 	if (r->isBuiltin()) {
-		const auto &n = builtinRelations[*r->getId()];
-		const auto &s = r->isFlipped() ? n.predString : n.succString;
+		const auto &outs = relationNames.find(r->getRelation()->toBuiltin())->second;
+		const auto &s = r->isFlipped() ? outs.pred : outs.succ;
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
@@ -116,9 +204,9 @@ void Printer::printLabelRel(std::ostream& ostr, const std::string &res,
 
 void Printer::printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg)
 {
-	printPreds(cpp(), arg, t->pre_begin(), t->pre_end());
-	printLabelRel(cpp(), res, arg, t);
-	printPreds(cpp(), "g.getEventLabel(" + res + ")", t->post_begin(), t->post_end());
+	printPredSet(cpp(), arg, t->getPreChecks());
+	printRelation(cpp(), res, arg, t);
+	printPredSet(cpp(), "g.getEventLabel(" + res + ")", t->getPostChecks());
 }
 
 void Printer::printHppHeader()

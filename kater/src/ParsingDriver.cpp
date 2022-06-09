@@ -10,14 +10,13 @@ extern void yyrestart(FILE *);
 
 ParsingDriver::ParsingDriver() : module(new KatModule)
 {
-	auto i = 0;
-	std::for_each(TransLabel::builtin_pred_begin(), TransLabel::builtin_pred_end(), [&i,this](auto &pi){
-		registerID(pi.name, CharRE::create(TransLabel(std::nullopt, {i++})));
+	std::for_each(Predicate::builtin_begin(), Predicate::builtin_end(), [this](auto &pi){
+		registerID(pi.second.name, CharRE::create(
+				   TransLabel(std::nullopt, Predicate::createBuiltin(pi.first))));
 	});
-
-	i = 0;
-	std::for_each(TransLabel::builtin_rel_begin(), TransLabel::builtin_rel_end(), [&i,this](auto &ri){
-		registerID(ri.name, CharRE::create(TransLabel(i++)));
+	std::for_each(Relation::builtin_begin(), Relation::builtin_end(), [this](auto &ri){
+		registerID(ri.second.name, CharRE::create(
+				   TransLabel(Relation::createBuiltin(ri.first))));
 	});
 }
 

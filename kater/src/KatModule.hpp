@@ -20,7 +20,7 @@ public:
 
 private:
 	using VarMap = std::unordered_map<std::string, URE>;
-	using SavedVarSet = std::vector<SavedVar>;
+	using SavedVarMap = std::unordered_map<Relation, SavedVar, RelationHasher>;
 
 	using Assert = struct {
 		UCO co;
@@ -34,8 +34,8 @@ public:
 
 	using var_iter = VarMap::iterator;
 	using var_const_iter = VarMap::const_iterator;
-	using svar_iter = SavedVarSet::iterator;
-	using svar_const_iter = SavedVarSet::const_iterator;
+	using svar_iter = SavedVarMap::iterator;
+	using svar_const_iter = SavedVarMap::const_iterator;
 	using acyc_iter = std::vector<URE>::iterator;
 	using acyc_const_iter = std::vector<URE>::const_iterator;
 	using rec_iter = std::vector<URE>::iterator;
@@ -100,7 +100,7 @@ public:
 		if (std::find(assume_begin(), assume_end(), lab) != assume_end())
 			return true;
 		return std::any_of(assume_begin(), assume_end(), [&lab](auto &invalid){
-			 if (lab.getId() != invalid.getId())
+			 if (lab.getRelation() != invalid.getRelation())
 				 return false;
 			 if (!lab.isFlipped()) {
 				 if (std::any_of(invalid.pre_begin(), invalid.pre_end(), [&](auto &c) {
@@ -135,24 +135,27 @@ public:
 	}
 
 	void registerSaveID(std::string id, URE re) {
-		registerID(std::move(id), CharRE::create(TransLabel::getFreshCalcLabel()));
-		savedVariables.push_back({std::move(re)});
+		auto r = Relation::createUser();
+		registerID(std::move(id), CharRE::create(TransLabel(r)));
+		savedVariables.insert({r, SavedVar(std::move(re))});
 	}
 
 	void registerSaveReducedID(std::string idSave, std::string idRed, URE re) {
-		registerID(idSave, CharRE::create(TransLabel::getFreshCalcLabel()));
-		savedVariables.push_back({std::move(re), idRed == idSave ? NFA::ReductionType::Self :
-					  NFA::ReductionType::Po, getRegisteredID(idRed)});
+		auto r = Relation::createUser();
+		registerID(idSave, CharRE::create(TransLabel(r)));
+		savedVariables.insert({r, SavedVar(std::move(re), idRed == idSave ? NFA::ReductionType::Self :
+						   NFA::ReductionType::Po, getRegisteredID(idRed))});
 	}
 
 	void registerViewID(std::string id, URE re) {
-		registerID(std::move(id), CharRE::create(TransLabel::getFreshCalcLabel()));
-		savedVariables.push_back({std::move(re), VarStatus::View});
+		auto r = Relation::createUser();
+		registerID(std::move(id), CharRE::create(TransLabel(r)));
+		savedVariables.insert({r, SavedVar(std::move(re), VarStatus::View)});
 	}
 
 	void registerAssert(UCO c, const yy::location &loc, std::vector<UCO> assms = {}) {
 		asserts.push_back({std::move(c), std::move(assms),
-				DbgInfo(loc.end.filename, loc.end.line)});
+				   DbgInfo(loc.end.filename, loc.end.line)});
 	}
 
 	// Handle "assume c" declaration in the input file
@@ -167,7 +170,9 @@ public:
 	}
 
 	URE getSavedID(const CharRE *re) const {
-		return savedVariables[re->getLabel().getCalcIndex()].exp->clone();
+		auto ro = re->getLabel().getRelation();
+		assert(ro.has_value() && savedVariables.count(*ro));
+		return savedVariables.find(*ro)->second.exp->clone();
 	}
 
 private:
@@ -179,7 +184,7 @@ private:
 	//      so that saved/reduced variables are treated differently,
 	//      but I've no idea how many variable categories we want to have.
 	//      If just two, I prefer separated. If more, polymorphism.
-	SavedVarSet savedVariables;
+	SavedVarMap savedVariables;
 
 	std::vector<Assert> asserts;
 	std::vector<TransLabel> assumes;

@@ -26,20 +26,6 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
-template<typename ITER>
-bool checksInclude(ITER &&b1, ITER &&e1, ITER &&b2, ITER &&e2)
-{
-	unsigned mask1 = ~0;
-	std::for_each(b1, e1, [&mask1](auto &id){
-		mask1 &= builtinPredicates[id].bitmask;
-	});
-	unsigned mask2 = ~0;
-	std::for_each(b2, e2, [&mask2](auto &id){
-		mask2 &= builtinPredicates[id].bitmask;
-	});
-	return (mask1 | mask2) == mask1;
-}
-
 struct Path {
 	Path(NFA::State *s) : s(s), ts() {}
 
@@ -161,14 +147,12 @@ void saturateNFA(NFA &nfa, const NFA &other)
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::vector<NFA::Transition> toAdd;
-		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+		std::for_each(s->out_begin(), s->out_end(), [&](const auto &t){
 			if (!t.label.isPredicate())
 				return;
-			std::for_each(opreds.begin(), opreds.end(), [&](auto &lab){
-				if (checksInclude(lab.pre_begin(), lab.pre_end(),
-						  t.label.pre_begin(),t.label.pre_end())) {
+			std::for_each(opreds.begin(), opreds.end(), [&](const auto &lab){
+				if (lab.getPreChecks().includes(t.label.getPreChecks()))
 					toAdd.push_back(NFA::Transition(lab, t.dest));
-				}
 			});
 		});
 		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());

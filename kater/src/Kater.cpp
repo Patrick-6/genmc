@@ -22,7 +22,7 @@ void Kater::expandRfs(URE &r)
 
 	auto rf = module->getRegisteredID("rf");
 	auto *re = dynamic_cast<const CharRE *>(&*r);
-	if (!re || re->getLabel().getId() != static_cast<const CharRE *>(&*rf)->getLabel().getId())
+	if (!re || re->getLabel().getRelation() != static_cast<const CharRE *>(&*rf)->getLabel().getRelation())
 		return;
 
 	auto rfe = module->getRegisteredID("rfe");
@@ -30,10 +30,10 @@ void Kater::expandRfs(URE &r)
 
 	auto re1 = re->clone();
 	auto re2 = re->clone();
-	auto l1 = TransLabel(static_cast<CharRE *>(&*rfe)->getLabel().getId(),
+	auto l1 = TransLabel(static_cast<CharRE *>(&*rfe)->getLabel().getRelation(),
 			     re->getLabel().getPreChecks(),
 			     re->getLabel().getPostChecks());
-	auto l2 = TransLabel(static_cast<CharRE *>(&*rfi)->getLabel().getId(),
+	auto l2 = TransLabel(static_cast<CharRE *>(&*rfi)->getLabel().getRelation(),
 			     re->getLabel().getPreChecks(),
 			     re->getLabel().getPostChecks());
 	static_cast<CharRE *>(&*re1)->setLabel(l1);
@@ -86,13 +86,14 @@ bool Kater::checkAssertions()
 			       yy::location());
 
 	/* Ensure that all saved relations are included in pporf */
-	std::for_each(module->svar_begin(), module->svar_end(), [&](auto &sv){
-			module->registerAssert(
-				SubsetConstraint::create(
-					sv.exp->clone(),
-					StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
-									   ppo->clone()))),
-				yy::location());
+	std::for_each(module->svar_begin(), module->svar_end(), [&](auto &kv){
+		auto &sv = kv.second;
+		module->registerAssert(
+			SubsetConstraint::create(
+				sv.exp->clone(),
+				StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
+								   ppo->clone()))),
+			yy::location());
 	});
 
 	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
@@ -126,7 +127,8 @@ void Kater::generateNFAs()
 	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
 
 	auto i = 0u;
-	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &v){
+	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
+		auto &v = kv.second;
 		NFA n = v.exp->toNFA();
 		// FIXME: Use polymorphism
 		if (v.status == VarStatus::Reduce) {

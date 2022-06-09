@@ -1,33 +1,14 @@
 #ifndef __TRANS_LABEL_HPP__
 #define __TRANS_LABEL_HPP__
 
+#include "Predicate.hpp"
+#include "Relation.hpp"
 #include <cassert>
 #include <functional>
 #include <iostream>
 #include <optional>
 #include <set>
 #include <vector>
-
-enum class RelType  { OneOne, ManyOne, UnsuppMany, Conj, Final };
-
-struct PredicateInfo {
-	std::string  name;
-	unsigned     bitmask;
-	std::string  genmcString;
-};
-
-struct RelationInfo {
-	std::string   name;
-	RelType       type;
-	std::set<int> dom;
-	std::set<int> codom;
-	bool          insidePo;
-	std::string   succString;
-	std::string   predString;
-};
-
-extern const std::vector<PredicateInfo> builtinPredicates;
-extern const std::vector<RelationInfo> builtinRelations;
 
 /*******************************************************************************
  *                           TransLabel class
@@ -39,27 +20,14 @@ extern const std::vector<RelationInfo> builtinRelations;
 class TransLabel {
 
 public:
-	using RelID = int;
-	using PredID = int;
-	using PredSet = std::set<PredID>;
-
 	/* Costructors/destructor */
 	TransLabel() = delete;
-	TransLabel(std::optional<RelID> id, const PredSet &preG = {}, const PredSet &postG = {})
+	TransLabel(std::optional<Relation> id, const PredicateSet &preG = {},
+		   const PredicateSet &postG = {})
 		: id(id), preChecks(preG), postChecks(postG) {}
 
-	static TransLabel getFreshCalcLabel() {
-		return TransLabel(--calcNum);
-	}
-
-	using pred_iter = PredSet::iterator;
-	using pred_const_iter = PredSet::const_iterator;
-
-	using builtin_pred_iterator = std::vector<PredicateInfo>::iterator;
-	using builtin_pred_const_iterator = std::vector<PredicateInfo>::const_iterator;
-
-	using builtin_rel_iterator = std::vector<RelationInfo>::iterator;
-	using builtin_rel_const_iterator = std::vector<RelationInfo>::const_iterator;
+	using pred_iter = PredicateSet::iterator;
+	using pred_const_iter = PredicateSet::const_iterator;
 
 	pred_iter pre_begin() { return getPreChecks().begin(); }
 	pred_iter pre_end() { return getPreChecks().end(); }
@@ -73,35 +41,21 @@ public:
 	pred_const_iter post_begin() const { return getPostChecks().begin(); }
 	pred_const_iter post_end() const { return getPostChecks().end(); }
 
-	static builtin_rel_const_iterator builtin_rel_begin() {
-		return builtinRelations.begin();
-	}
-	static builtin_rel_const_iterator builtin_rel_end() {
-		return builtinRelations.end();
-	}
+	const std::optional<Relation> &getRelation() const { return id; }
+	std::optional<Relation> &getRelation() { return id; }
 
-	static builtin_pred_const_iterator builtin_pred_begin() {
-		return builtinPredicates.begin();
-	}
-	static builtin_pred_const_iterator builtin_pred_end() {
-		return builtinPredicates.end();
-	}
+	const PredicateSet &getPreChecks() const { return preChecks; }
+	const PredicateSet &getPostChecks() const { return postChecks; }
 
-	const std::optional<RelID> &getId() const { return id; }
-	std::optional<RelID> &getId() { return id; }
+	bool isPredicate() const { return !getRelation(); }
 
-	const PredSet &getPreChecks() const { return preChecks; }
-	const PredSet &getPostChecks() const { return postChecks; }
+	bool hasPreChecks() const { return !getPreChecks().empty(); }
 
-	bool isPredicate() const { return !getId(); }
+	bool hasPostChecks() const { return !getPostChecks().empty(); }
 
-	bool hasPreChecks() const { return pre_begin() != pre_end(); }
+	bool isBuiltin() const { return !getRelation().has_value() || getRelation()->isBuiltin(); }
 
-	bool hasPostChecks() const { return post_begin() != post_end(); }
-
-	bool isBuiltin() const { return getId().value_or(42) >= 0; }
-
-	int getCalcIndex() const { assert(!isBuiltin()); return -(*getId() + 1); }
+	int getCalcIndex() const { assert(!isBuiltin()); return -(getRelation()->getID() + 1); }
 
 	bool isFlipped() const { return flipped; }
 
@@ -126,7 +80,7 @@ public:
 	std::string toString() const;
 
 	bool operator==(const TransLabel &other) const {
-		return getId() == other.getId() &&
+		return getRelation() == other.getRelation() &&
 			isFlipped() == other.isFlipped() &&
 			getPreChecks() == other.getPreChecks() &&
 			getPostChecks() == other.getPostChecks();
@@ -136,9 +90,9 @@ public:
 	}
 
 	bool operator<(const TransLabel &other) const {
-		return getId() < other.getId() ||
-			(getId() == other.getId() && isFlipped() < other.isFlipped()) ||
-			(getId() == other.getId() && isFlipped() == other.isFlipped() &&
+		return getRelation() < other.getRelation() ||
+			(getRelation() == other.getRelation() && isFlipped() < other.isFlipped()) ||
+			(getRelation() == other.getRelation() && isFlipped() == other.isFlipped() &&
 				(getPreChecks() < other.getPreChecks() ||
 				 (getPreChecks() == other.getPreChecks() &&
 				  getPostChecks() < other.getPostChecks())));
@@ -158,15 +112,15 @@ public:
 	}
 
 private:
-	PredSet &getPreChecks() { return preChecks; }
-	PredSet &getPostChecks() { return postChecks; }
+	PredicateSet &getPreChecks() { return preChecks; }
+	PredicateSet &getPostChecks() { return postChecks; }
 
-	std::optional<RelID> id;
+	std::optional<Relation> id;
 	bool flipped = false;
 	static int calcNum;
 
-	PredSet preChecks;
-	PredSet postChecks;
+	PredicateSet preChecks;
+	PredicateSet postChecks;
 };
 
 #endif /* __TRANS_LABEL_HPP__ */

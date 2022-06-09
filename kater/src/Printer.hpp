@@ -9,6 +9,12 @@
 
 class Printer {
 
+private:
+	struct RelationOut {
+		std::string succ;
+		std::string pred;
+	};
+
 public:
 	Printer(const std::string &dirPrefix, const std::string &outPrefix);
 
@@ -19,7 +25,10 @@ private:
 //	void printInclusionError(const std::string &s, const NFA &lhs, const NFA &rhs);
 //	void printInclusionWarning(const std::string &s, const NFA &lhs, const NFA &rhs);
 
-	void printLabelRel(std::ostream& ostr, const std::string &res,
+	void printPredSet(std::ostream &ostr, const std::string &arg,
+			  const PredicateSet &ps);
+
+	void printRelation(std::ostream& ostr, const std::string &res,
 			   const std::string &arg, const TransLabel *r);
 	void printTransLabel(const TransLabel *t, const std::string &res, const std::string &arg);
 
@@ -68,6 +77,9 @@ private:
 	/* Streams for the implementation file */
 	std::ofstream foutCpp; /* only set if we're writing to a file */
 	std::ostream* outCpp = &std::cout;
+
+	static const std::unordered_map<Relation::Builtin, RelationOut> relationNames;
+	static const std::unordered_map<Predicate::Builtin, std::string> predicateNames;
 
 	static std::vector<unsigned> calcToIdxMap;
 	std::unordered_set<unsigned> viewCalcs;
