@@ -203,7 +203,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			return false;
 		}
 
-		for (auto it = s1->out_begin(); it != s1->out_end(); it++) {
+		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			std::string new_str = str + " ";
 			KATER_DEBUG(
 				new_str += std::to_string(s1->getId()) + "/" +
@@ -221,7 +221,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			}
 
 			bool canTakeEdge = false;
-			for (auto oit = s2->out_begin(); oit != s2->out_end(); oit++) {
+			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
 				if (it->label != oit->label && nl1 != oit->label)
 					continue;
 
