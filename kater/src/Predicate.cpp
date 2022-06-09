@@ -149,7 +149,7 @@ std::ostream &operator<<(std::ostream& ostr, const PredicateSet &s)
 
 	auto first = true;
 	for (auto &p : s) {
-		ostr << p;
+		ostr << (!first ? "&" : "") << p;
 		first = false;
 	}
 
