@@ -14,7 +14,6 @@
 struct PredicateInfo {
 	std::string  name;
 	unsigned     bitmask;
-	std::string  genmcString;
 };
 
 

@@ -12,8 +12,6 @@ struct RelationInfo {
 	PredicateSet dom;
 	PredicateSet codom;
 	bool         insidePo;
-	std::string  succString;
-	std::string  predString;
 };
 
 
