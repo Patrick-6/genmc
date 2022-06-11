@@ -600,8 +600,7 @@ bool isSimilarTo(const NFA &nfa, const NFA::Transition &t1, const NFA::Transitio
 		 const std::unordered_map<NFA::State *, std::unordered_map<NFA::State *, bool>> &similar)
 {
 	return t1.label == t2.label &&
-		similar.at(t1.dest).at(t2.dest) &&
-		(!nfa.isAccepting(t1.dest) || nfa.isAccepting(t2.dest));
+		similar.at(t1.dest).at(t2.dest);
 }
 
 bool hasSimilarTransition(const NFA &nfa, NFA::State *s, const NFA::Transition &t1,
@@ -628,10 +627,16 @@ NFA::findSimilarStates() const
 	std::unordered_map<State *, bool> initV;
 	std::generate_n(std::inserter(initV, initV.begin()), getNumStates(),
 			[sIt = states_begin()] () mutable { return std::make_pair(&**sIt++, true); });
-
 	std::generate_n(std::inserter(similar, similar.begin()), getNumStates(),
 			[sIt = states_begin(), v = initV] () mutable { return std::make_pair(&**sIt++, v); });
 
+	/* Remove accepting/non-accepting pairs */
+	std::for_each(accept_begin(), accept_end(), [&](auto &a){
+			std::for_each(states_begin(), states_end(), [&](auto &s){
+			if (!isAccepting(&*s))
+				similar[a][&*s] = false;
+		});
+	});
 
 	bool changed = true;
 	while (changed) {
