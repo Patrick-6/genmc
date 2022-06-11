@@ -185,16 +185,12 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	std::unordered_set<SPair, SPairHasher> visited;
 	std::vector<SimState> workList;
 
-	for (auto it = states_begin(); it != states_end(); it++) {
-		if (!isStarting(it->get()))
-			continue;
-		for (auto oit = other.states_begin(); oit != other.states_end(); oit++) {
-			if (!other.isStarting(oit->get()))
-				continue;
-			visited.insert({it->get(), oit->get(), TransLabel(std::nullopt)});
-			workList.push_back({it->get(), oit->get(), TransLabel(std::nullopt), ""});
-		}
-	}
+	std::for_each(start_begin(), start_end(), [&](auto *s1){
+		std::for_each(other.start_begin(), other.start_end(), [&](auto *s2){
+			visited.insert({s1, s2, TransLabel(std::nullopt)});
+			workList.push_back({s1, s2, TransLabel(std::nullopt), ""});
+		});
+	});
 	while (!workList.empty()) {
 		auto [s1, s2, l1, str] = workList.back();
 		workList.pop_back();
