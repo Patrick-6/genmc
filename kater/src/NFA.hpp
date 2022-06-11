@@ -308,15 +308,13 @@ public:
 
 	State *createStarting() {
 		auto *s = createState();
-		s->setStarting(true);
-		getStarting().push_back(s);
+		makeStarting(s);
 		return s;
 	}
 
 	State *createAccepting() {
 		auto *s = createState();
-		s->setAccepting(true);
-		getAccepting().push_back(s);
+		makeAccepting(s);
 		return s;
 	}
 
