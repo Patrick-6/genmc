@@ -169,7 +169,8 @@ void saturateNFA(NFA &nfa, const NFA &other)
 		});
 	});
 
-	saturateID(nfa, opreds);
+	std::sort(opreds.begin(), opreds.end());
+	opreds.erase(std::unique(opreds.begin(), opreds.end()), opreds.end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::vector<NFA::Transition> toAdd;
@@ -177,12 +178,14 @@ void saturateNFA(NFA &nfa, const NFA &other)
 			if (!t.label.isPredicate())
 				return;
 			std::for_each(opreds.begin(), opreds.end(), [&](const auto &lab){
-				if (lab.getPreChecks().includes(t.label.getPreChecks()))
+				if (t.label.getPreChecks().includes(lab.getPreChecks()))
 					toAdd.push_back(NFA::Transition(lab, t.dest));
 			});
 		});
 		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
+
+	saturateID(nfa, opreds);
 }
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
