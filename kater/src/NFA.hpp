@@ -501,7 +501,7 @@ public:
 
 	NFA &removeDeadStates();
 
-	NFA &addTransitivePredicateEdges();
+	NFA &addTransitivePredicateEdges(bool removeOld = true);
 
 	NFA &breakToParts();
 

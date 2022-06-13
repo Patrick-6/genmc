@@ -504,24 +504,32 @@ void NFA::scm_reduce ()
 	}
 }
 
-NFA &NFA::addTransitivePredicateEdges()
+NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 {
 	std::vector<std::pair<State *, Transition>> toRemove;
 
 	for (auto it = states_begin(); it != states_end(); ++it) {
 		auto &s = *it;
+		std::vector<Transition> toAdd;
+		for (auto outIt = s->out_begin(); outIt != s->out_end(); ++outIt) {
+			if (!outIt->label.isPredicate())
+				continue;
 
-		for (auto inIt = s->in_begin(); inIt != s->in_end(); ++inIt) {
-			for (auto outIt = s->out_begin(); outIt != s->out_end(); ++outIt) {
-				if (!inIt->label.isPredicate() || !outIt->label.isPredicate())
+			for (auto outIt2 = outIt->dest->out_begin(); outIt2 != outIt->dest->out_end(); ++outIt2) {
+				if (!outIt2->label.isPredicate())
 					continue;
 
-				auto l = inIt->label; // no need to flip
-				if (l.merge(outIt->label))
-					addTransition(inIt->dest, Transition(l, outIt->dest));
+				auto l = outIt->label;
+				if (l.merge(outIt2->label))
+					toAdd.push_back(Transition(l, outIt2->dest));
+				toRemove.push_back({outIt->dest, *outIt2});
 			}
 		}
+		addTransitions(&*s, toAdd.begin(), toAdd.end());
 	}
+	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
+		removeTransition(p.first, p.second);
+	});
 	return *this;
 }
 
