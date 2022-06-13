@@ -155,10 +155,9 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	struct SPair {
 		State *s1;
 		State *s2;
-		TransLabel l1;
 
 		bool operator==(const SPair &other) const {
-			return s1 == other.s1 && s2 == other.s2 && l1 == other.l1;
+			return s1 == other.s1 && s2 == other.s2;
 		}
 	};
 	// XXX: FIXME
@@ -167,10 +166,6 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			std::size_t hash = 0;
 			hash_combine<unsigned>(hash, p.s1->getId());
 			hash_combine<unsigned>(hash, p.s2->getId());
-			if (!p.l1.isPredicate())
-				hash_combine<unsigned>(hash, RelationHasher()(*p.l1.getRelation()));
-			else
-				hash_combine<unsigned>(hash, 0);
 			return hash;
 		}
 	};
@@ -178,7 +173,6 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	struct SimState {
 		State *s1;
 		State *s2;
-		TransLabel l1;
 		std::string cex;
 	};
 
@@ -187,12 +181,12 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 
 	std::for_each(start_begin(), start_end(), [&](auto *s1){
 		std::for_each(other.start_begin(), other.start_end(), [&](auto *s2){
-			visited.insert({s1, s2, TransLabel(std::nullopt)});
-			workList.push_back({s1, s2, TransLabel(std::nullopt), ""});
+			visited.insert({s1, s2});
+			workList.push_back({s1, s2, ""});
 		});
 	});
 	while (!workList.empty()) {
-		auto [s1, s2, l1, str] = workList.back();
+		auto [s1, s2, str] = workList.back();
 		workList.pop_back();
 		if (isAccepting(s1) && !other.isAccepting(s2)) {
 			cex = str;
@@ -207,25 +201,16 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 			);
 			new_str += it->label.toString();
 
-			auto nl1 = it->label;
-			if (!l1.composesWith(nl1))
-				continue;
-			if ((l1.isPredicate() || nl1.isPredicate())) {
-				if (!l1.merge(nl1, isValidTransition))
-					continue;
-				nl1 = l1;
-			}
-
 			bool canTakeEdge = false;
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-				if (it->label != oit->label && nl1 != oit->label)
+				if (it->label != oit->label)
 					continue;
 
 				canTakeEdge = true;
-				if (visited.count({it->dest, oit->dest, nl1}))
+				if (visited.count({it->dest, oit->dest}))
 					continue;
-				visited.insert({it->dest, oit->dest, nl1});
-				workList.push_back({it->dest, oit->dest, nl1, new_str});
+				visited.insert({it->dest, oit->dest});
+				workList.push_back({it->dest, oit->dest, new_str});
 			}
 			if (!canTakeEdge) {
 				cex = new_str;
