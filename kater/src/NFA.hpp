@@ -469,6 +469,21 @@ public:
 		removeTransitions(src, toRemove.begin(), toRemove.end());
 	}
 
+	template<typename ITER>
+	void removeInvertedTransitions(State *dst, ITER &&begin, ITER &&end){
+		std::for_each(begin, end, [&](const Transition &t){
+			removeTransition(t.dest, t.flipTo(dst));
+		});
+	}
+
+	template<typename F>
+	void removeInvertedTransitionsIf(State *dst, F&& pred) {
+		std::vector<Transition> toRemove;
+		std::copy_if(dst->out_begin(), dst->out_end(), std::back_inserter(toRemove),
+			     [&](const auto &t){ return pred(t); });
+		removeInvertedTransitions(dst, toRemove.begin(), toRemove.end());
+	}
+
 	void removeAllTransitions(State *src) {
 		removeTransitionsIf(src, [&](const Transition &t){ return true; });
 	}
