@@ -188,6 +188,46 @@ void saturateNFA(NFA &nfa, const NFA &other)
 	saturateID(nfa, opreds);
 }
 
+void removeConsecutivePredicates(NFA &nfa)
+{
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		nfa.removeTransitionsIf(&*s, [&](auto &t){
+			return t.dest == &*s && t.label.isPredicate();
+		});
+	});
+
+	/* Collect states w/ incoming both preds + rels */
+	std::vector<NFA::State *> toDuplicate;
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		if (std::any_of(s->in_begin(), s->in_end(), [&](auto &t){
+					return t.label.isPredicate();
+				}) &&
+			std::any_of(s->in_begin(), s->in_end(), [&](auto &t){
+					return !t.label.isPredicate();
+				}))
+			toDuplicate.push_back(&*s);
+	});
+
+	std::for_each(toDuplicate.begin(), toDuplicate.end(), [&](auto &s){
+		auto *d = nfa.createState();
+		if (nfa.isAccepting(s))
+			nfa.makeAccepting(d);
+		nfa.addTransitions(d, s->out_begin(), s->out_end());
+		nfa.addInvertedTransitions(d, s->in_begin(), s->in_end());
+		nfa.removeInvertedTransitionsIf(d, [&](auto &t){ return t.label.isPredicate(); });
+		nfa.removeInvertedTransitionsIf(s, [&](auto &t){ return !t.label.isPredicate(); });
+	});
+
+	nfa.addTransitivePredicateEdges();
+
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		nfa.removeTransitionsIf(&*s, [&](auto &t){
+			return t.dest == &*s && t.label.isPredicate();
+		});
+	});
+	return;
+}
+
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			  const std::vector<std::unique_ptr<Constraint>> &assms,
 			  std::string &cex, Constraint::ValidFunT vfun)
