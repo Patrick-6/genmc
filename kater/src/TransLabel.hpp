@@ -45,7 +45,10 @@ public:
 	std::optional<Relation> &getRelation() { return id; }
 
 	const PredicateSet &getPreChecks() const { return preChecks; }
+	PredicateSet &getPreChecks() { return preChecks; }
+
 	const PredicateSet &getPostChecks() const { return postChecks; }
+	PredicateSet &getPostChecks() { return postChecks; }
 
 	bool isPredicate() const { return !getRelation(); }
 
@@ -112,9 +115,6 @@ public:
 	}
 
 private:
-	PredicateSet &getPreChecks() { return preChecks; }
-	PredicateSet &getPostChecks() { return postChecks; }
-
 	std::optional<Relation> id;
 	bool flipped = false;
 	static int calcNum;
