@@ -206,28 +206,34 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 {
 	auto nfa1 = re1->toNFA();
 	nfa1.simplify(vfun);
+	saturateDomains(nfa1);
 	nfa1.breakToParts();
 	nfa1.removeDeadStates();
-	if (!assms.empty()) {
-		// std::cerr << "BEFORE ASSM EXPANSION " << nfa1  << "\n";
-		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
-			expandAssumption(nfa1, assm);
-			nfa1.breakToParts();
-			nfa1.removeDeadStates();
-		});
-		// std::cerr << "AFTER ASSM EXPANSION " << nfa1  << "\n";;
-	}
+	removeConsecutivePredicates(nfa1);
+	nfa1.removeDeadStates();
+
 	auto lhs = nfa1.to_DFA().first;
+	// std::cerr << "LHS " << lhs << "\n";
 
 	auto nfa2 = re2->toNFA();
+	if (!assms.empty()) {
+		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
+			expandAssumption(nfa2, assm);
+			nfa2.breakToParts();
+			nfa2.removeDeadStates();
+		});
+	}
 	nfa2.simplify(vfun);
 	nfa2.breakToParts();
 	nfa2.removeDeadStates();
+	removeConsecutivePredicates(nfa2);
+	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
-	// std::cerr << "SAT RHS " << nfa2 << "\n";
-	nfa2.addTransitivePredicateEdges();
+	pruneNFA(nfa2, nfa1);
 
+	// std::cerr << "RHS/sat" << nfa2 << "\n";
 	auto rhs = nfa2.to_DFA().first;
+	// std::cerr << "RHS " << rhs << "\n";
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
