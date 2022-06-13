@@ -86,43 +86,15 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	auto rNFA = ec->getKid(1)->toNFA();
 	rNFA.simplify();
 
-	std::vector<NFA::State *> inits(rNFA.start_begin(), rNFA.start_end());
-	std::vector<NFA::State *> finals(rNFA.accept_begin(), rNFA.accept_end());
+	std::vector<NFA::State *> inits(lNFA.start_begin(), lNFA.start_end());
+	std::vector<NFA::State *> finals(lNFA.accept_begin(), lNFA.accept_end());
 
-	// std::cerr << "looking for pattern " << lNFA << "\n\t\tin\n" << nfa << "\n";
+	auto paths = findAllMatchingPaths(nfa, rNFA);
 
-	auto paths = findAllMatchingPaths(nfa, lNFA);
+	lNFA.clearAllAccepting();
+	lNFA.clearAllStarting();
 
-	// std::cerr << "paths found:\n";
-	// std::for_each(paths.begin(), paths.end(), [&](auto &p){
-	// 	std::cerr << "\t" << p.s->getId();
-	// 	std::for_each(p.ts.begin(), p.ts.end(), [&](auto &t){
-	// 		std::cerr << " -> " << t.dest->getId();
-	// 	});
-	// 	std::cerr << "\n";
-	// });
-
-	rNFA.clearAllAccepting();
-	rNFA.clearAllStarting();
-
-	// std::vector<std::pair<NFA::State *, NFA::Transition>> toAdd;
-	// std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-	// 	std::vector<NFA::Transition> toRemove;
-	// 	std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-	// 		if (t.label == lRE->getLabel()) {
-	// 			toAdd.push_back({&*s, t});
-	// 			toRemove.push_back(t);
-	// 		}
-	// 	});
-	// 	nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
-	// });
-
-	std::for_each(paths.begin(), paths.end(), [&](auto &p){
-		for (auto i = 0u; i < p.ts.size(); i++)
-			nfa.removeTransition(i == 0 ? p.s : p.ts[i-1].dest, p.ts[i]);
-	});
-
-	nfa.alt(std::move(rNFA));
+	nfa.alt(std::move(lNFA));
 	std::for_each(paths.begin(), paths.end(), [&](auto &p){
 		std::for_each(inits.begin(), inits.end(), [&](auto *i){
 			nfa.addEpsilonTransitionSucc(p.s, i);
