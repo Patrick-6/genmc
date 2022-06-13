@@ -1,13 +1,63 @@
 #include "Saturation.hpp"
 
+bool shouldSaturateStateID(NFA &nfa, NFA::State *s)
+{
+	return nfa.isStarting(s) || nfa.isAccepting(s) ||
+		(std::any_of(s->in_begin(), s->in_end(), [&](auto &t){
+			return nfa.isStarting(t.dest) || !t.label.isPredicate();
+		}) &&
+		std::any_of(s->out_begin(), s->out_end(), [&](auto &t){
+			return nfa.isAccepting(t.dest) || !t.label.isPredicate();
+		}));
+}
+
+bool isComposablePredicate(const TransLabel &lab, const TransLabel &pred)
+{
+	assert(pred.isPredicate());
+	return lab.isPredicate() &&
+		lab.getPreChecks().composes(pred.getPreChecks());
+}
+
+bool isComposableRelation(const TransLabel &lab, const TransLabel &pred)
+{
+	assert(pred.isPredicate());
+	return !lab.isPredicate() && lab.isBuiltin() &&
+		((lab.isFlipped() && pred.getPreChecks().composes(lab.getRelation()->getCodomain())) ||
+		 (!lab.isFlipped() && pred.getPreChecks().composes(lab.getRelation()->getDomain())));
+}
+
+bool canSaturateStateWithID(NFA &nfa, NFA::State *s, const TransLabel &lab)
+{
+	return nfa.isStarting(s) || nfa.isAccepting(s) ||
+		(std::any_of(s->out_begin(), s->out_end(), [&](auto &t){
+			return isComposablePredicate(t.label, lab) ||
+				isComposableRelation(t.label, lab);
+		}) &&
+		std::any_of(s->in_begin(), s->in_end(), [&](auto &t){
+			return isComposablePredicate(t.label, lab) ||
+				isComposableRelation(t.label, lab);
+		}));
+}
+
 void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
 {
 	assert(std::all_of(labs.begin(), labs.end(), [&](auto &lab){ return lab.isPredicate(); }));
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+
+	for (auto it = nfa.states_begin(), ie = nfa.states_end(); it != ie; ++it) {
+		auto &s = *it;
+
+		if (!shouldSaturateStateID(nfa, &*s))
+			continue;
+
+		std::vector<TransLabel> toAdd;
 		std::for_each(labs.begin(), labs.end(), [&](auto &lab){
-			nfa.addSelfTransition(&*s, lab);
+			if (canSaturateStateWithID(nfa, &*s, lab))
+				toAdd.push_back(lab);
 		});
-	});
+		std::for_each(toAdd.begin(), toAdd.end(), [&](auto &t){
+			nfa.addSelfTransition(&*s, t);
+		});
+	}
 }
 
 std::vector<TransLabel> collectLabels(const NFA &nfa)
