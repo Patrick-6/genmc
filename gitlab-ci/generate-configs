@@ -25,7 +25,7 @@ MACOS_HEADER="default:
 "
 
 ## supported versions
-LINUX_LLVM_VERSIONS="6.0 7 11 12 13"
+LINUX_LLVM_VERSIONS="7 11 12 13"
 MACOS_LLVM_VERSIONS="7 8 9 11"
 
 declare -A LINUX_IMAGES
@@ -33,7 +33,7 @@ declare -A LINUX_IMAGES_VERSIONS
 
 LINUX_IMAGES["imageA"]="registry.mpi-sws.org/genmc-tool-buster-test"
 LINUX_IMAGES["imageB"]="localhost:5000/genmc-tool-bookworm"
-LINUX_IMAGES_VERSIONS["imageA"]=" 6.0 7 " # spaces --> hack to match regex
+LINUX_IMAGES_VERSIONS["imageA"]=" 7 " # spaces --> hack to match regex
 LINUX_IMAGES_VERSIONS["imageB"]=" 11 12 13 "
 
 find_image_name() {
