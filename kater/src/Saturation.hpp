@@ -21,6 +21,14 @@ void saturateEmpty(NFA &nfa, NFA &&empty);
 void saturateTotal(NFA &nfa, const TransLabel &lab);
 
 /*
+ * Saturates by adding domains/codomains for all builtins.
+ * (If a dom/codom does not compose with the existing
+ * pre/post-checks of a label, the label is removed.)
+ *
+ */
+void saturateDomains(NFA &nfa);
+
+/*
  * Saturates the NFA by rotating it.
  */
 void saturateRotate(NFA &nfa);

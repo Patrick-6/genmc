@@ -55,6 +55,32 @@ void saturateTotal(NFA &nfa, const TransLabel &lab)
 	});
 }
 
+void saturateDomains(NFA &nfa)
+{
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		/* toAdd: temp workaround due to std::set exposing const_iters only */
+		std::vector<NFA::Transition> toAdd;
+		std::vector<NFA::Transition> toRemove;
+		for (auto it = s->out_begin(), ie = s->out_end(); it != ie; ++it) {
+			auto lab = it->label;
+			if (lab.isPredicate() || !lab.getRelation()->isBuiltin())
+				continue;
+
+			if (lab.isFlipped())
+				lab.flip();
+			if (lab.getPreChecks().merge(lab.getRelation()->getDomain()) &&
+			    lab.getPostChecks().merge(lab.getRelation()->getCodomain())) {
+				if (lab.isFlipped())
+					lab.flip();
+				toAdd.push_back(NFA::Transition(lab, it->dest));
+			}
+			toRemove.push_back(*it);
+		}
+		nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
+		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
+	});
+}
+
 void saturateRotate(NFA &nfa)
 {
 	NFA result;
