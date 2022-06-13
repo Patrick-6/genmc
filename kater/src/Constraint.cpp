@@ -133,6 +133,32 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	});
 }
 
+void pruneNFA(NFA &nfa, const NFA &other)
+{
+	std::unordered_set<Relation, RelationHasher> orels;
+	std::vector<PredicateSet> opreds;
+	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (!t.label.isPredicate())
+				orels.insert(*t.label.getRelation());
+			else
+				opreds.push_back(t.label.getPreChecks());
+		});
+	});
+
+	std::sort(opreds.begin(), opreds.end());
+	opreds.erase(std::unique(opreds.begin(), opreds.end()), opreds.end());
+
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		nfa.removeTransitionsIf(&*s, [&](auto &t){
+			return (!t.label.isPredicate() &&
+				!orels.count(*t.label.getRelation())) ||
+				(t.label.isPredicate() &&
+				 !std::binary_search(opreds.begin(), opreds.end(), t.label.getPreChecks()));
+		});
+	});
+}
+
 void saturateNFA(NFA &nfa, const NFA &other)
 {
 	std::vector<TransLabel> opreds;
