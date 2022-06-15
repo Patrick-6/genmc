@@ -4,45 +4,46 @@
 
 /* Meaning of the bitmask:
 	| other
-	| sc, relacq, rel, acq, na
-	| Faul, Fas, Faa, Fba, Frmb, Fwmb, F-other
-	| UW, W\UW, UR, R\UR
+	| sc, relacq, rel, acq, rlx, na
+	| Faul, Fas, Faa, Fba, Frmb, Fwmb
+	| F, UW, W\UW, UR, R\UR
 	| RfInit, !RfInit
 	| static-loc, dynamic-loc
 	| hpProtected, !hpProtected
  	| REC, !REC
 	| D, !D */
-static const unsigned other_event_bitmask =  0b1'00000'0000000'0000'00'00'00'00'00;
-static const unsigned track_event_bitmask =  0b0'00000'1111111'1111'00'00'00'00'00;
+static const unsigned other_event_bitmask =  0b1'000000'000000'00000'00'00'00'00'00;
+static const unsigned track_event_bitmask =  0b0'000000'000000'11111'00'00'00'00'00;
+static const unsigned access_mode_bitmask =  0b0'111111'111111'00000'00'00'00'00'00;
 
 const std::unordered_map<Predicate::Builtin, PredicateInfo> Predicate::builtins = {
 	/* Access modes */
-	{Marked,	{"Marked",         0b0'11110'0000000'1111'11'11'11'11'11}},
-	{NA,		{"NA",             0b0'00001'0000000'0101'11'11'11'11'11}},
-	{ACQ,		{"ACQ",            0b0'11010'0000001'0011'11'11'11'11'11}},
-	{REL,		{"REL",            0b0'11100'0000001'1100'11'11'11'11'11}},
-	{SC,		{"SC",             0b0'10000'0000001'1111'11'11'11'11'11}},
+	{Marked,	{"Marked",         0b0'111110'000000'01111'11'11'11'11'11}},
+	{NA,		{"NA",             0b0'000001'000000'00101'11'11'11'11'11}},
+	{ACQ,		{"ACQ",            0b0'110100'000000'10011'11'11'11'11'11}},
+	{REL,		{"REL",            0b0'111000'000000'11100'11'11'11'11'11}},
+	{SC,		{"SC",             0b0'100000'000000'11111'11'11'11'11'11}},
 	/* Random stuff */
-	{IsDynamicLoc,	{"IsDynamicLoc",   0b0'11111'0000000'1111'11'01'11'11'11}},
-	{NotHpProtected,{"NotHpProtected", 0b0'11111'0000000'1111'11'11'01'11'11}},
-	{RfInit,	{"RfInit",         0b0'11111'0000000'0011'10'11'11'11'11}},
-	{REC,		{"REC",            0b0'11111'0000000'0011'11'11'11'10'11}},
-	{D,		{"D",              0b0'11111'0000000'1111'11'11'11'11'10}},
+	{IsDynamicLoc,	{"IsDynamicLoc",   0b0'111111'000000'01111'11'01'11'11'11}},
+	{NotHpProtected,{"NotHpProtected", 0b0'111111'000000'01111'11'11'01'11'11}},
+	{RfInit,	{"RfInit",         0b0'111111'000000'00011'10'11'11'11'11}},
+	{REC,		{"REC",            0b0'111111'000000'00011'11'11'11'10'11}},
+	{D,		{"D",              0b0'111111'000000'01111'11'11'11'11'10}},
 	/* Memory accesses */
-	{MemAccess,	{"MemAccess",      0b0'11111'0000000'1111'11'11'11'11'11}},
-	{W,		{"W",              0b0'11111'0000000'1100'00'11'11'01'11}},
-	{UW,		{"UW",             0b0'11111'0000000'1000'00'11'11'01'11}},
-	{R,		{"R",              0b0'11111'0000000'0011'11'11'11'11'11}},
-	{UR,		{"UR",             0b0'11111'0000000'0010'11'11'11'11'11}},
-//	{HelpingCas,	{"HelpingCas",     0b0'11111'0000000'0000'11'11'11'11'11}},
+	{MemAccess,	{"MemAccess",      0b0'111111'000000'01111'11'11'11'11'11}},
+	{W,		{"W",              0b0'111111'000000'01100'00'11'11'01'11}},
+	{UW,		{"UW",             0b0'111111'000000'01000'00'11'11'01'11}},
+	{R,		{"R",              0b0'111111'000000'00011'11'11'11'11'11}},
+	{UR,		{"UR",             0b0'111111'000000'00010'11'11'11'11'11}},
+//	{HelpingCas,	{"HelpingCas",     0b0'111111'000000'00000'11'11'11'11'11}},
 	/* Fences */
-        {F,		{"F",              0b0'11111'1111111'0000'00'00'00'00'00}},
-	{Fwmb,		{"Fwmb",           0b0'00000'0000010'0000'00'00'00'00'00}},
-	{Frmb,		{"Frmb",           0b0'00000'0000100'0000'00'00'00'00'00}},
-	{Fba,		{"Fba",            0b0'00000'0001000'0000'00'00'00'00'00}},
-	{Faa,		{"Faa",            0b0'00000'0010000'0000'00'00'00'00'00}},
-	{Fas,		{"Fas",            0b0'00000'0100000'0000'00'00'00'00'00}},
-	{Faul,		{"Faul",           0b0'00000'1000000'0000'00'00'00'00'00}},
+        {F,		{"F",              0b0'111110'000000'10000'00'00'00'00'00}},
+	{Fwmb,		{"Fwmb",           0b0'000000'000001'10000'00'00'00'00'00}},
+	{Frmb,		{"Frmb",           0b0'000000'000010'10000'00'00'00'00'00}},
+	{Fba,		{"Fba",            0b0'000000'000100'10000'00'00'00'00'00}},
+	{Faa,		{"Faa",            0b0'000000'001000'10000'00'00'00'00'00}},
+	{Fas,		{"Fas",            0b0'000000'010000'10000'00'00'00'00'00}},
+	{Faul,		{"Faul",           0b0'000000'100000'10000'00'00'00'00'00}},
 	/* Thread events */
 	{TC,		{"TC",             other_event_bitmask}},
 	{TJ,		{"TJ",             other_event_bitmask}},
@@ -108,7 +109,7 @@ bool PredicateSet::composes(const PredicateSet &other) const
 	if (empty() || other.empty())
 		return true; /* class invariant */
 
-	unsigned mask = track_event_bitmask | other_event_bitmask;
+	unsigned mask = ~0;
 	std::for_each(begin(), end(), [&mask](auto &p){
 		assert(p.isBuiltin());
 		mask &= Predicate::builtins.find(p.toBuiltin())->second.bitmask;
@@ -117,7 +118,9 @@ bool PredicateSet::composes(const PredicateSet &other) const
 		assert(p.isBuiltin());
 		mask &= Predicate::builtins.find(p.toBuiltin())->second.bitmask;
 	});
-	return mask != 0 && (mask != other_event_bitmask || *this == other);
+	return (mask & (track_event_bitmask | other_event_bitmask)) != 0 &&
+		(mask & (access_mode_bitmask | other_event_bitmask)) != 0 &&
+		(mask != other_event_bitmask || *this == other);
 }
 
 void PredicateSet::simplify()
