@@ -213,7 +213,6 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	nfa1.removeDeadStates();
 
 	auto lhs = nfa1.to_DFA().first;
-	// std::cerr << "LHS " << lhs << "\n";
 
 	auto nfa2 = re2->toNFA();
 	if (!assms.empty()) {
@@ -224,16 +223,16 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 		});
 	}
 	nfa2.simplify(vfun);
+	saturateDomains(nfa2);
 	nfa2.breakToParts();
 	nfa2.removeDeadStates();
 	removeConsecutivePredicates(nfa2);
 	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
+	nfa2.removeDeadStates();
 
-	// std::cerr << "RHS/sat" << nfa2 << "\n";
 	auto rhs = nfa2.to_DFA().first;
-	// std::cerr << "RHS " << rhs << "\n";
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
