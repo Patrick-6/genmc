@@ -507,6 +507,7 @@ void NFA::scm_reduce ()
 NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 {
 	std::vector<std::pair<State *, Transition>> toRemove;
+	std::vector<Transition> toCreate;
 
 	for (auto it = states_begin(); it != states_end(); ++it) {
 		auto &s = *it;
@@ -522,10 +523,16 @@ NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 				auto l = outIt->label;
 				if (l.merge(outIt2->label))
 					toAdd.push_back(Transition(l, outIt2->dest));
+				if (isStarting(outIt->dest))
+					toCreate.push_back(*outIt2);
 				toRemove.push_back({outIt->dest, *outIt2});
 			}
 		}
 		addTransitions(&*s, toAdd.begin(), toAdd.end());
+	}
+	if (!toCreate.empty()) {
+		auto *n = createStarting();
+		addTransitions(n, toCreate.begin(), toCreate.end());
 	}
 	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
 		removeTransition(p.first, p.second);
