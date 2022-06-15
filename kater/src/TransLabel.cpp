@@ -14,10 +14,10 @@ bool TransLabel::merge(const TransLabel &other,
 		return false;
 	if (!isPredicate() && !other.isPredicate())
 		return false;
+	if (!composesWith(other))
+		return false;
 
-	if (isPredicate() && getPreChecks().composes(other.getPreChecks()) &&
-	    (other.isPredicate() || !other.isBuiltin() ||
-	     other.getRelation()->getDomain().composes(getPreChecks()))) {
+	if (isPredicate()) {
 		/* Do not merge into THIS before ensuring combo is valid */
 		TransLabel t(*this);
 		t.getRelation() = other.getRelation();
@@ -27,16 +27,15 @@ bool TransLabel::merge(const TransLabel &other,
 		if (isValid(t))
 			*this = t;
 		return isValid(t);
-	} else if (!isPredicate() && other.isPredicate() &&
-		   getPostChecks().composes(other.getPreChecks()) &&
-		   (!isBuiltin() || getRelation()->getCodomain().composes(other.getPreChecks()))) {
-		TransLabel t(*this);
-		t.getPostChecks().merge(other.getPreChecks());
-		if (isValid(t))
-			*this = t;
-		return isValid(t);
 	}
-	return false;
+
+	assert(other.isPredicate());
+
+	TransLabel t(*this);
+	t.getPostChecks().merge(other.getPreChecks());
+	if (isValid(t))
+		*this = t;
+	return isValid(t);
 }
 
 bool TransLabel::composesWith(const TransLabel &other) const
