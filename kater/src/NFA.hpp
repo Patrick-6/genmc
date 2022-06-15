@@ -479,7 +479,7 @@ public:
 	template<typename F>
 	void removeInvertedTransitionsIf(State *dst, F&& pred) {
 		std::vector<Transition> toRemove;
-		std::copy_if(dst->out_begin(), dst->out_end(), std::back_inserter(toRemove),
+		std::copy_if(dst->in_begin(), dst->in_end(), std::back_inserter(toRemove),
 			     [&](const auto &t){ return pred(t); });
 		removeInvertedTransitions(dst, toRemove.begin(), toRemove.end());
 	}
