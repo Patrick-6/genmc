@@ -74,16 +74,17 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	}
 
 	auto *lRE = &*ec->getKid(0);
-	assert(typeid(*lRE) == typeid(CharRE) ||
-	       (typeid(*lRE) == typeid(SeqRE) &&
-		std::all_of(lRE->kid_begin(), lRE->kid_end(), [&](auto &k){
+	auto *rRE = &*ec->getKid(1);
+	assert(typeid(*rRE) == typeid(CharRE) ||
+	       (typeid(*rRE) == typeid(SeqRE) &&
+		std::all_of(rRE->kid_begin(), rRE->kid_end(), [&](auto &k){
 				return typeid(*k) == typeid(CharRE);
 			})));
 	auto lNFA = lRE->toNFA();
 	// lNFA.simplify();
 	lNFA.breakToParts();
 
-	auto rNFA = ec->getKid(1)->toNFA();
+	auto rNFA = rRE->toNFA();
 	rNFA.simplify();
 
 	std::vector<NFA::State *> inits(lNFA.start_begin(), lNFA.start_end());
