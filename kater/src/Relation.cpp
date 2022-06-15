@@ -33,17 +33,20 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
 const PredicateSet &Relation::getDomain() const
 {
 	assert(isBuiltin());
-	return builtins.find(toBuiltin())->second.dom;
+	return isInverse() ? builtins.find(toBuiltin())->second.codom :
+		builtins.find(toBuiltin())->second.dom;
 }
 
 const PredicateSet &Relation::getCodomain() const
 {
 	assert(isBuiltin());
-	return builtins.find(toBuiltin())->second.codom;
+	return isInverse() ? builtins.find(toBuiltin())->second.dom :
+		builtins.find(toBuiltin())->second.codom;
 }
 
 std::string Relation::getName() const
 {
 	return (isBuiltin() ? Relation::builtins.find(toBuiltin())->second.name :
-		("$" + std::to_string(getID())));
+		("$" + std::to_string(getID()))) +
+		(isInverse() ? "-1" : "");
 }

@@ -61,7 +61,7 @@ public:
 
 protected:
 	Relation() = delete;
-	Relation(ID id) : id(id) {}
+	Relation(ID id, bool inverse = false) : id(id), inverse(inverse) {}
 
 public:
 	static Relation createBuiltin(Builtin b) { return Relation(getBuiltinID(b)); }
@@ -81,6 +81,12 @@ public:
 		return static_cast<Builtin>(getID());
 	}
 
+	/* Inverses this relation */
+	void invert() { inverse = !inverse; }
+
+	/* Whether this relation is inversed */
+	constexpr bool isInverse() const { return inverse; }
+
 	/* ***builtins only*** returns the domain of the relation */
 	const PredicateSet &getDomain() const;
 
@@ -90,21 +96,23 @@ public:
 	std::string getName() const;
 
 	bool operator==(const Relation &other) const {
-		return getID() == other.getID();
+		return getID() == other.getID() && isInverse() == other.isInverse();
 	}
 	bool operator!=(const Relation &other) const {
 		return !(*this == other);
 	}
 
 	bool operator<(const Relation &other) const {
-		return getID() < other.getID();
+		return getID() < other.getID() ||
+		       (getID() == other.getID() && isInverse() < other.isInverse());
 	}
 	bool operator>=(const Relation &other) const {
 		return !(*this < other);
 	}
 
 	bool operator>(const Relation &other) const {
-		return getID() > other.getID();
+		return getID() > other.getID() ||
+		       (getID() == other.getID() && isInverse() > other.isInverse());
 	}
 	bool operator<=(const Relation &other) const {
 		return !(*this > other);
@@ -114,6 +122,7 @@ private:
 	static ID getFreshID() { return --dispenser; }
 
 	ID id;
+	bool inverse = false;
 
 	static inline ID dispenser = 0;
 	static const std::unordered_map<Relation::Builtin, RelationInfo> builtins;

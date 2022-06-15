@@ -15,19 +15,21 @@ bool TransLabel::merge(const TransLabel &other,
 	if (!isPredicate() && !other.isPredicate())
 		return false;
 
-	if (isPredicate() && getPreChecks().composes(other.getPreChecks())) {
+	if (isPredicate() && getPreChecks().composes(other.getPreChecks()) &&
+	    (other.isPredicate() || !other.isBuiltin() ||
+	     other.getRelation()->getDomain().composes(getPreChecks()))) {
 		/* Do not merge into THIS before ensuring combo is valid */
 		TransLabel t(*this);
 		t.getRelation() = other.getRelation();
 		t.getPreChecks().merge(other.getPreChecks());
-		t.flipped = other.isFlipped();
 		assert(t.getPostChecks().empty());
 		t.getPostChecks() = other.getPostChecks();
 		if (isValid(t))
 			*this = t;
 		return isValid(t);
 	} else if (!isPredicate() && other.isPredicate() &&
-		   getPostChecks().composes(other.getPreChecks())) {
+		   getPostChecks().composes(other.getPreChecks()) &&
+		   (!isBuiltin() || getRelation()->getCodomain().composes(other.getPreChecks()))) {
 		TransLabel t(*this);
 		t.getPostChecks().merge(other.getPreChecks());
 		if (isValid(t))
@@ -65,11 +67,8 @@ std::string TransLabel::toString() const
 
 	if (!getPreChecks().empty())
 		ss << getPreChecks() << (!isPredicate() ? ";" : "");
-	if (!isPredicate()) {
+	if (!isPredicate())
 		ss << getRelation()->getName();
-		if (isFlipped())
-			ss << "^-1";
-	}
 	if (!getPostChecks().empty())
 		ss << ";" << getPostChecks();
 	return ss.str();

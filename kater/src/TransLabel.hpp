@@ -60,15 +60,13 @@ public:
 
 	int getCalcIndex() const { assert(!isBuiltin()); return -(getRelation()->getID() + 1); }
 
-	bool isFlipped() const { return flipped; }
-
 	void flip() {
 		/* Do not flip ε transitions; maintain unique representation */
 		if (isPredicate()) {
 			assert(!hasPostChecks());
 			return;
 		}
-		flipped = !flipped;
+		getRelation()->invert();
 		std::swap(getPreChecks(), getPostChecks());
 	}
 
@@ -84,7 +82,6 @@ public:
 
 	bool operator==(const TransLabel &other) const {
 		return getRelation() == other.getRelation() &&
-			isFlipped() == other.isFlipped() &&
 			getPreChecks() == other.getPreChecks() &&
 			getPostChecks() == other.getPostChecks();
 	}
@@ -94,8 +91,7 @@ public:
 
 	bool operator<(const TransLabel &other) const {
 		return getRelation() < other.getRelation() ||
-			(getRelation() == other.getRelation() && isFlipped() < other.isFlipped()) ||
-			(getRelation() == other.getRelation() && isFlipped() == other.isFlipped() &&
+			(getRelation() == other.getRelation() &&
 				(getPreChecks() < other.getPreChecks() ||
 				 (getPreChecks() == other.getPreChecks() &&
 				  getPostChecks() < other.getPostChecks())));
@@ -116,7 +112,6 @@ public:
 
 private:
 	std::optional<Relation> id;
-	bool flipped = false;
 	static int calcNum;
 
 	PredicateSet preChecks;

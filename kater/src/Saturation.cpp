@@ -22,8 +22,7 @@ bool isComposableRelation(const TransLabel &lab, const TransLabel &pred)
 {
 	assert(pred.isPredicate());
 	return !lab.isPredicate() && lab.isBuiltin() &&
-		((lab.isFlipped() && pred.getPreChecks().composes(lab.getRelation()->getCodomain())) ||
-		 (!lab.isFlipped() && pred.getPreChecks().composes(lab.getRelation()->getDomain())));
+		pred.getPreChecks().composes(lab.getRelation()->getDomain());
 }
 
 bool canSaturateStateWithID(NFA &nfa, NFA::State *s, const TransLabel &lab)
@@ -116,14 +115,9 @@ void saturateDomains(NFA &nfa)
 			if (lab.isPredicate() || !lab.getRelation()->isBuiltin())
 				continue;
 
-			if (lab.isFlipped())
-				lab.flip();
 			if (lab.getPreChecks().merge(lab.getRelation()->getDomain()) &&
-			    lab.getPostChecks().merge(lab.getRelation()->getCodomain())) {
-				if (lab.isFlipped())
-					lab.flip();
+			    lab.getPostChecks().merge(lab.getRelation()->getCodomain()))
 				toAdd.push_back(NFA::Transition(lab, it->dest));
-			}
 			toRemove.push_back(*it);
 		}
 		nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());

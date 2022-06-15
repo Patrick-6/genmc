@@ -185,7 +185,7 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 
 	if (r->isBuiltin()) {
 		const auto &outs = relationNames.find(r->getRelation()->toBuiltin())->second;
-		const auto &s = r->isFlipped() ? outs.pred : outs.succ;
+		const auto &s = r->getRelation()->isInverse() ? outs.pred : outs.succ;
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
