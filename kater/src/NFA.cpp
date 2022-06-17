@@ -186,8 +186,8 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 		});
 	});
 	while (!workList.empty()) {
-		auto [s1, s2, str] = workList.back();
-		workList.pop_back();
+		auto [s1, s2, str] = workList[0];
+		workList.erase(workList.begin());
 		if (isAccepting(s1) && !other.isAccepting(s2)) {
 			cex = str;
 			return false;
