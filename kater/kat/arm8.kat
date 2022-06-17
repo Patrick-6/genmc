@@ -1,33 +1,18 @@
-// Standard preamble: various combinations that are invalid
-
-assume [F] ; mo-imm = 0
-assume [F] ; rf = 0
-assume mo-imm ; [F] = 0
-assume rf ; [F] = 0
-
-let DMB_SY = [F ; SC]
-let DMB_LD = [F ; ACQ]
+let DMB_SY = [F ; SC] | [F ; REL]
+let DMB_LD = [F ; ACQ] | [F ; SC]
 let DMB_ST = [Fwmb]
 let ISB    = [Frmb]   // hack
-let A      = [R ; SC]
-let Q      = [R ; ACQ]
-let L      = [W ; SC]
+let A      = [R ; SC] | [R ; ACQ]
+let Q      = [R ; ACQ] | [R ; SC]
+let L      = [W ; SC] | [W ; REL]
 let R_ret  = [R]      // hack
 
 let dmb.full = DMB_SY
 let dmb.ld = DMB_LD
 let dmb.st = DMB_ST
 
-// Definition of standard relations
-let po = po-imm+
-let co = mo-imm+
-let fr = fr-imm; mo*
-let ctrl = ctrl-imm ; po-imm*
-let addr = addr-imm+
-let data = data-imm+
-
 // Atomic RMW relation
-let amo = [UR] ; po-imm ; [UW]
+let amo = rmw
 let rmw = amo // | lxsx
 
 // Local read successor
@@ -45,7 +30,8 @@ let aob = rmw
 	| [UW]; lrs; [A | Q]
 
 // Barrier ordering
-let bob = po; [dmb.full]; po
+let bob = po; [dmb.full]
+        | [dmb.full]; po
         | po; ([A];amo;[L]); po
 	| [L]; po; [A]
 	| [R_ret]; po; [dmb.ld]; po
@@ -53,6 +39,8 @@ let bob = po; [dmb.full]; po
 	| [W]; po; [dmb.st]; po; [W]
 	| po; [L]
 
-save ppo = reduce (dob | aob | bob)+
+save[ppo] ppo = (dob | aob | bob)+
 
-acyclic (rfe | co | fr | ppo)
+let ob = (rfe | mo | fr | ppo)
+
+// acyclic ob
