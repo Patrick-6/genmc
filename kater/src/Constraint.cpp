@@ -27,42 +27,116 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 }
 
 struct Path {
-	Path(NFA::State *s) : s(s), ts() {}
+	Path(NFA::State *s, NFA::State *e) : start(s), end(e) {}
 
-	NFA::State *s;
-	std::vector<NFA::Transition> ts;
-};
-
-void dfsFindPathsFrom(NFA::State *s, Path p,
-		      const NFA &pattern, NFA::State *ps,
-		      std::vector<Path> &collected)
-{
-	if (pattern.isAccepting(ps)) {
-		if (!p.ts.empty())
-			collected.push_back(std::move(p));
-		return;
+	bool operator==(const Path &other) {
+		return start == other.start && end == other.end;
+	}
+	bool operator<(const Path &other) {
+		return start < other.start ||
+		       (start == other.start && end < other.end);
 	}
 
-	std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-		std::for_each(ps->out_begin(), ps->out_end(), [&](auto &pt){
-			if (t.label == pt.label) {
-				Path p1(p);
-				p1.ts.push_back(t);
-				dfsFindPathsFrom(t.dest, p1, pattern, pt.dest, collected);
-			}
-		});
-	});
+	NFA::State *start;
+	NFA::State *end;
+};
+
+template<typename T>
+inline void hash_combine(std::size_t& seed, std::size_t v)
+{
+	std::hash<T> hasher;
+	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
 std::vector<Path>
-findAllMatchingPaths(const NFA &nfa, const NFA &pattern)
+findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 {
+	struct SPair {
+		NFA::State *s1;
+		NFA::State *s2;
+
+		bool operator==(const SPair &other) const {
+			return s1 == other.s1 && s2 == other.s2;
+		}
+	};
+	// XXX: FIXME
+	struct SPairHasher {
+		std::size_t operator()(SPair p) const {
+			std::size_t hash = 0;
+			hash_combine<unsigned>(hash, p.s1->getId());
+			hash_combine<unsigned>(hash, p.s2->getId());
+			return hash;
+		}
+	};
+
+	std::unordered_set<SPair, SPairHasher> visited;
+	std::vector<SPair> workList;
 	std::vector<Path> result;
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		dfsFindPathsFrom(&*s, Path(&*s), pattern, *pattern.start_begin(), result);
+
+	assert(nfa2.getNumStarting() == 1);
+	std::for_each(nfa1.start_begin(), nfa1.start_end(), [&](auto *s1){
+		std::for_each(nfa2.start_begin(), nfa2.start_end(), [&](auto *s2){
+			visited.insert({s1, s2});
+			workList.push_back({s1, s2});
+		});
+	});
+	while (!workList.empty()) {
+		auto [s1, s2] = workList.back();
+		workList.pop_back();
+
+		if (nfa1.isAccepting(s1))
+			result.push_back({*nfa2.start_begin(), s2});
+
+		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
+			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
+				if (!it->label.composesWith(oit->label))
+					continue;
+				if (visited.count({it->dest, oit->dest}))
+					continue;
+				visited.insert({it->dest, oit->dest});
+				workList.push_back({it->dest, oit->dest});
+			}
+		}
+	}
+	return result;
+}
+
+std::vector<std::vector<Path>>
+findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
+{
+	std::vector<std::vector<Path>> result;
+	std::unordered_map<NFA::State *, NFA::State *> m, rm;
+
+	auto nfac = nfa.copy(&m);
+	std::for_each(m.begin(), m.end(), [&](auto &kv){
+		rm[kv.second] = kv.first;
+	});
+
+	std::vector<NFA::State *> worklist;
+	std::transform(nfac.states_begin(), nfac.states_end(), std::back_inserter(worklist),
+		       [&](auto &s){ return s.get(); });
+	while (!worklist.empty()) {
+		auto *s = worklist.back();
+		worklist.pop_back();
+
+		nfac.clearAllStarting();
+		nfac.makeStarting(s);
+
+		auto ps = findAllMatchingPathsDFS(pattern, nfac);
+		std::sort(ps.begin(), ps.end());
+		ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
+		if (!ps.empty())
+			result.push_back(ps);
+	}
+	std::for_each(result.begin(), result.end(), [&](auto &ps){
+		std::for_each(ps.begin(), ps.end(), [&](auto &p){
+			p = Path(rm[p.start], rm[p.end]);
+		});
 	});
 	return result;
 }
+
+void normalize(NFA &nfa, Constraint::ValidFunT vfun);
 
 void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
@@ -75,33 +149,33 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 
 	auto *lRE = &*ec->getKid(0);
 	auto *rRE = &*ec->getKid(1);
-	assert(typeid(*rRE) == typeid(CharRE) ||
-	       (typeid(*rRE) == typeid(SeqRE) &&
-		std::all_of(rRE->kid_begin(), rRE->kid_end(), [&](auto &k){
-				return typeid(*k) == typeid(CharRE);
-			})));
 	auto lNFA = lRE->toNFA();
-	// lNFA.simplify();
-	lNFA.breakToParts();
+	normalize(lNFA, [](auto &t){ return true; });
 
 	auto rNFA = rRE->toNFA();
-	rNFA.simplify();
+	normalize(rNFA, [](auto &t){ return true; });
+
+	auto paths = findAllMatchingPaths(rNFA, nfa);
 
 	std::vector<NFA::State *> inits(lNFA.start_begin(), lNFA.start_end());
 	std::vector<NFA::State *> finals(lNFA.accept_begin(), lNFA.accept_end());
 
-	auto paths = findAllMatchingPaths(nfa, rNFA);
-
 	lNFA.clearAllAccepting();
 	lNFA.clearAllStarting();
 
-	nfa.alt(std::move(lNFA));
-	std::for_each(paths.begin(), paths.end(), [&](auto &p){
-		std::for_each(inits.begin(), inits.end(), [&](auto *i){
-			nfa.addEpsilonTransitionSucc(p.s, i);
-		});
-		std::for_each(finals.begin(), finals.end(), [&](auto *f){
-			nfa.addEpsilonTransitionSucc(f, p.ts.back().dest);
+	std::for_each(paths.begin(), paths.end(), [&](auto &ps){
+		std::unordered_map<NFA::State *, NFA::State *> m;
+
+		auto lcopy = lNFA.copy(&m);
+		nfa.alt(std::move(lcopy));
+
+		std::for_each(ps.begin(), ps.end(), [&](auto &p){
+			std::for_each(inits.begin(), inits.end(), [&](auto *i){
+				nfa.addEpsilonTransitionSucc(p.start, m[i]);
+			});
+			std::for_each(finals.begin(), finals.end(), [&](auto *f){
+				nfa.addEpsilonTransitionPred(m[f], p.end);
+			});
 		});
 	});
 }
@@ -201,39 +275,38 @@ void removeConsecutivePredicates(NFA &nfa)
 	return;
 }
 
+void normalize(NFA &nfa, Constraint::ValidFunT vfun)
+{
+	nfa.simplify(vfun);
+	saturateDomains(nfa);
+	nfa.breakToParts();
+	nfa.removeDeadStates();
+	removeConsecutivePredicates(nfa);
+	nfa.removeDeadStates();
+}
+
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			  const std::vector<std::unique_ptr<Constraint>> &assms,
 			  std::string &cex, Constraint::ValidFunT vfun)
 {
 	auto nfa1 = re1->toNFA();
-	nfa1.simplify(vfun);
-	saturateDomains(nfa1);
-	nfa1.breakToParts();
-	nfa1.removeDeadStates();
-	removeConsecutivePredicates(nfa1);
-	nfa1.removeDeadStates();
-
+	normalize(nfa1, vfun);
 	auto lhs = nfa1.to_DFA().first;
 
 	auto nfa2 = re2->toNFA();
+	normalize(nfa2, vfun);
 	if (!assms.empty()) {
 		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
 			expandAssumption(nfa2, assm);
-			nfa2.breakToParts();
-			nfa2.removeDeadStates();
+			normalize(nfa2, vfun);
 		});
 	}
-	nfa2.simplify(vfun);
-	saturateDomains(nfa2);
-	nfa2.breakToParts();
-	nfa2.removeDeadStates();
-	removeConsecutivePredicates(nfa2);
-	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
 
 	auto rhs = nfa2.to_DFA().first;
+	nfa2.simplify(vfun);
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
