@@ -10,11 +10,12 @@
 
 void Config::reset()
 {
-	verbose = 0;
 	debug = false;
 	debugOnly = "";
-	outPrefix = "";
-	dirPrefix = "/tmp";
+	verbose = 0;
+	generate = false;
+	name = "";
+	dir = "/tmp";
 	inputFile = "";
 }
 
@@ -36,10 +37,12 @@ void Config::printUsage(const char *kater)
 "--debug-only                Print debugging information of the specified type(s).\n"
 "                            Default: \"%s\"\n"
 #endif
-"-o, --output                Name prefix to be used for the resulting files.\n"
+"-e, --export                Whether code for dynamic checks will be exported.\n"
+"                            Default: %d\n"
+"-n, --name                  Name to be used for the resulting files.\n"
 "                            Default: \"%s\" (prints to stdout)\n"
 "-p, --prefix                Directory where the resulting files will be stored.\n"
-"                            Has no effect without -o.\n"
+"                            Has no effect without -n.\n"
 "                            Default: \"%s\"\n"
 "-v[NUM], --verbose[=NUM]    Print verbose execution information. NUM is optional:\n"
 "                            0 is quiet; 1 prints status; 2 is noisy;\n"
@@ -50,8 +53,9 @@ void Config::printUsage(const char *kater)
 		debug,
 		debugOnly.c_str(),
 #endif
-		outPrefix.c_str(),
-		dirPrefix.c_str(),
+		generate,
+		name.c_str(),
+		dir.c_str(),
 		verbose);
 	exit(0);
 }
@@ -65,14 +69,15 @@ void Config::parseOptions(int argc, char **argv)
 #define DEBUG_ONLY_OPT 4242
 #endif
 
-	const char *shortopts = "hdp:o:v::";
+	const char *shortopts = "hdn:p:e:v::";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
 #ifdef ENABLE_KATER_DEBUG
 		{"debug", no_argument, NULL, 'd'},
 		{"debug-only", required_argument, NULL, DEBUG_ONLY_OPT},
 #endif
-		{"output", required_argument, NULL, 'o'},
+		{"export", no_argument, NULL, 'e'},
+		{"name", required_argument, NULL, 'n'},
 		{"prefix", required_argument, NULL, 'p'},
 		{"verbose", optional_argument, NULL, 'v'},
 		{0, 0, 0, 0} /* Terminator */
@@ -85,11 +90,14 @@ void Config::parseOptions(int argc, char **argv)
 		case 'h':
 			printUsage(argv[0]);
 			break;
-		case 'o':
-			outPrefix = optarg;
+		case 'e':
+			generate = true;
+			break;
+		case 'n':
+			name = optarg;
 			break;
 		case 'p':
-			dirPrefix = optarg;
+			dir = optarg;
 			break;
 		case 'v':
 			verbose = optarg ? atoi(optarg) : 1;

@@ -71,31 +71,6 @@ void Kater::expandRfs(URE &r)
 
 bool Kater::checkAssertions()
 {
-	/* Ensure that ppo is implied by the acyclicity constraints */
-	auto ppo = module->getRegisteredID("ppo");
-	if (!ppo) {
-		std::cerr << "[Error] No ppo definition provided!\n";
-		return false;
-	}
-	auto pporf = PlusRE::createOpt(AltRE::createOpt(ppo->clone(), module->getRegisteredID("rf")));
-	auto acycDisj = std::accumulate(module->acyc_begin(), module->acyc_end(),
-					RegExp::createFalse(), [&](URE &re1, URE &re2){
-						return AltRE::createOpt(re1->clone(), re2->clone());
-					});
-	module->registerAssert(SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj))),
-			       yy::location());
-
-	/* Ensure that all saved relations are included in pporf */
-	std::for_each(module->svar_begin(), module->svar_end(), [&](auto &kv){
-		auto &sv = kv.second;
-		module->registerAssert(
-			SubsetConstraint::create(
-				sv.exp->clone(),
-				StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
-								   ppo->clone()))),
-			yy::location());
-	});
-
 	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
 
 	bool status = true;
@@ -123,6 +98,37 @@ void Kater::generateNFAs()
 {
 	auto &module = getModule();
 	auto &cnfas = getCNFAs();
+
+	/* Ensure that ppo is implied by the acyclicity constraints */
+	auto ppo = module.getPPO();
+	if (!ppo) {
+		std::cerr << "[Error] No top-level ppo definition provided!\n";
+		exit(EXIT_FAILURE);
+	}
+	auto pporf = PlusRE::createOpt(AltRE::createOpt(ppo->clone(), module.getRegisteredID("rf")));
+	auto acycDisj = std::accumulate(module.acyc_begin(), module.acyc_end(),
+					RegExp::createFalse(), [&](URE &re1, URE &re2){
+						return AltRE::createOpt(re1->clone(), re2->clone());
+					});
+	module.registerAssert(SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj))),
+			       yy::location());
+
+	/* Ensure that all saved relations are included in pporf and are transitive */
+	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
+			auto &sv = kv.second;
+			module.registerAssert(
+				SubsetConstraint::create(
+					sv.exp->clone(),
+					StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
+									   ppo->clone()))),
+				yy::location());
+
+			if (sv.red) {
+				auto seqExp = SeqRE::createOpt(sv.red->clone(), sv.exp->clone());
+				module.registerAssert(SubsetConstraint::createOpt(std::move(seqExp),
+										  sv.exp->clone()), yy::location());
+			}
+	});
 
 	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
 
@@ -232,14 +238,13 @@ void Kater::generateNFAs()
 			std::cout << "Generated full rec NFA simplified: " << cnfas.getRecovery() << std::endl;
 	}
 
-	auto ppo = module.getRegisteredID("ppo");
 	auto rf = module.getRegisteredID("rfe");
 	auto tc = module.getRegisteredID("tc");
 	auto tj = module.getRegisteredID("tj");
-	auto pporfNFA = StarRE::createOpt(AltRE::createOpt(std::move(ppo), std::move(rf),
+	auto pporfNFA = StarRE::createOpt(AltRE::createOpt(ppo->clone(), std::move(rf),
 							   std::move(tc), std::move(tj)))->toNFA();
 	pporfNFA.simplify(isValidLabel);
-	cnfas.addPPoRf(std::move(pporfNFA), *module.getRegisteredID("ppo") != *module.getRegisteredID("po"));
+	cnfas.addPPoRf(std::move(pporfNFA), *ppo != *module.getRegisteredID("po"));
 	if (getConf().verbose >= 3)
 		std::cout << "Generated pporf NFA simplified: " << cnfas.getPPoRf().first << std::endl;
 }

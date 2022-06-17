@@ -79,6 +79,7 @@ warning			return yy::parser::make_WARNING	(loc);
 ["][^\n]*["]		return yy::parser::make_QPATH  (yytext, loc);
 {ALPHA}{EALPHA}*	return yy::parser::make_ID     (yytext, loc);
 
+"::"			return yy::parser::make_DCOLON (loc);
 ","			return yy::parser::make_COMMA  (loc);
 "+"			return yy::parser::make_PLUS   (loc);
 "*"			return yy::parser::make_STAR   (loc);

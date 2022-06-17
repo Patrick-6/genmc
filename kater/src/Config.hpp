@@ -11,8 +11,9 @@ struct Config {
 	bool debug;
 	std::string debugOnly;
         int verbose;
-	std::string dirPrefix;
-	std::string outPrefix;
+	bool generate;
+	std::string name;
+	std::string dir;
 	std::string inputFile;
 
 private:

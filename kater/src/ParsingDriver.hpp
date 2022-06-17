@@ -19,12 +19,14 @@ class ParsingDriver {
 
 private:
 	struct State {
-		State(yy::location loc, FILE* in, std::string dir)
-			: loc(loc), in(in), dir(dir) {}
+		State(yy::location loc, FILE* in,
+		      const std::string &dir, const std::string &prefix)
+			: loc(loc), in(in), dir(dir), prefix(prefix) {}
 
 		yy::location loc;
 		FILE* in;
 		std::string dir;
+		std::string prefix;
 	};
 
 public:
@@ -34,8 +36,22 @@ public:
 
 	yy::location &getLocation() { return location; }
 
+	const std::string &getPrefix() const { return prefix; }
+
+	std::string getQualifiedName(const std::string &id) const {
+		return getPrefix() + "::" + id;
+	}
+	std::string getUnqualifiedName(const std::string &id) const {
+		auto c = id.find_last_of(":");
+		return id.substr(c != std::string::npos ? c+1 : c, std::string::npos);
+	}
+
+	void registerBuiltinID(std::string id, URE re) {
+		module->registerID(id, std::move(re));
+	}
+
 	void registerID(std::string id, URE re) {
-		module->registerID(std::move(id), std::move(re));
+		module->registerID(getQualifiedName(id), std::move(re));
 	}
 
 	void registerSaveID(std::string idSave, std::string idRed, URE re, const yy::location &loc) {
@@ -45,19 +61,22 @@ public:
 			exit(EXIT_FAILURE);
 		}
 		if (idRed != "") {
-			module->registerSaveReducedID(idSave, idRed, std::move(re));
-			auto redExp = module->getRegisteredID(idRed);
-			auto saveExp = module->getRegisteredID(idSave);
-			assert(&*redExp && &*saveExp);
-			auto seqExp = SeqRE::createOpt(std::move(redExp), saveExp->clone());
-			module->registerAssert(SubsetConstraint::createOpt(std::move(seqExp),
-									   std::move(saveExp)), loc);
-		} else
-			module->registerSaveID(std::move(idSave), std::move(re));
+			std::string rname;
+			if (idRed == idSave || module->getRegisteredID(getQualifiedName(idRed)))
+				rname = getQualifiedName(idRed);
+			else
+				rname = idRed;
+			if (idRed != idSave)
+				getRegisteredID(rname, loc); // ensure exists
+
+			module->registerSaveReducedID(getQualifiedName(idSave), rname, std::move(re));
+		} else {
+			module->registerSaveID(getQualifiedName(idSave), std::move(re));
+		}
 	}
 
 	void registerViewID(std::string id, URE re) {
-		module->registerViewID(std::move(id), std::move(re));
+		module->registerViewID(getQualifiedName(id), std::move(re));
 	}
 
 	// Handle "assert c" declaration in the input file
@@ -81,11 +100,15 @@ public:
 	}
 
 	URE getRegisteredID(std::string id, const yy::location &loc) {
-		auto e = module->getRegisteredID(id);
+		auto e = module->getRegisteredID(getQualifiedName(id));
 		if (!e) {
-			std::cerr << loc << ": ";
-			std::cerr << "unknown relation encountered (" << id << ")\n";
-			exit(EXIT_FAILURE);
+			auto f = module->getRegisteredID(id);
+			if (!f) {
+				std::cerr << loc << ": ";
+				std::cerr << "unknown relation encountered (" << id << ")\n";
+				exit(EXIT_FAILURE);
+			}
+			e = std::move(f);
 		}
 		return std::move(e);
 	}
@@ -97,7 +120,8 @@ public:
 
 private:
 	bool isAllowedReduction(const std::string &idRed) {
-		return idRed == "po" || idRed == "po-loc" || idRed == "po-imm";
+		auto id = getUnqualifiedName(idRed);
+		return id == "po" || id == "po-loc" || id == "po-imm";
 	}
 
 	void saveState();
@@ -108,6 +132,9 @@ private:
 
 	/* Current source file directory (used for includes) */
 	std::string dir;
+
+	/* Current name prefix */
+	std::string prefix;
 
 	std::unique_ptr<KatModule> module;
 

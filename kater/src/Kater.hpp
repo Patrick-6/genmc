@@ -17,6 +17,7 @@ public:
 		: config(conf), module(std::move(mod)) {}
 
 	const KatModule &getModule() const { return *module; }
+	KatModule &getModule() { return *module; }
 
 	/* Check any user assertions and report errors.
 	 * Returns whether any assertion was violated */

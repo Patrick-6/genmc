@@ -96,6 +96,8 @@ public:
 
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
 
+	URE getPPO() const { return ppo->clone(); }
+
 	bool isAssumedEmpty(const TransLabel &lab) const {
 		if (std::find(assume_begin(), assume_end(), lab) != assume_end())
 			return true;
@@ -147,6 +149,8 @@ public:
 	// Handle "assume c" declaration in the input file
 	void registerAssume(UCO c);
 
+	void registerPPO(URE r) { ppo = std::move(r); }
+
 	// Handle consistency constraint in the input file
 	void addConstraint(UCO c, const std::string &s, const yy::location &loc);
 
@@ -178,6 +182,7 @@ private:
 	std::vector<URE>            acyclicityConstraints;
 	std::vector<URE>            recoveryConstraints;
 	std::vector<Inclusion<URE>> inclusionConstraints;
+	URE ppo = nullptr;
 };
 
 #endif /* __KAT_MODULE_HPP__ */
