@@ -84,6 +84,7 @@
 %left  "\\"
 %left  ";"
 %precedence "+" "*" "?" "^"
+%precedence "rot"
 
 %printer { yyo << *($$); } <std::unique_ptr<RegExp>>;
 %printer { yyo << *($$); } <std::unique_ptr<Constraint>>;
