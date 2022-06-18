@@ -1,23 +1,22 @@
 include "tso.kat"
+include "tso-fm.kat"
 include "rc11.kat"
 include "arm8.kat"
 
 // --- ARM8 --- OK?
 
-if
-  rfi <= po,
-  // [UR];po <= (ctrl | data),
-  rfi;[UR];po-imm;[UW] <= mo-imm
-  // rfi <= po-loc
-assert rc11::psc <= arm8::ob*
+// if
+//   rfi <= po,
+//   // [UR];po <= (ctrl | data),
+//   rfi;[UR];po-imm;[UW] <= mo-imm
+//   // rfi <= po-loc
+// assert rc11::psc <= arm8::ob*
 
 // if
 //   rfi;po-loc-imm <= mo-imm
 // assert mo| (rf;(po-loc-imm;rf)*;[ACQ]) <= ( (po-loc-imm|rfi)+;[ACQ] | mo-imm | rfe | po-loc-imm)+
 
 // ---- TSO ---- OK
-
-let tso = (tso::ppo | rfe | mo | fr)
 
 // if
 //   // po?;[R] <= [F];po;[R],
@@ -32,7 +31,8 @@ let tso = (tso::ppo | rfe | mo | fr)
 
 // --- TSO vs FM-TSO ---
 
-// assume mo <= tso-mo assert tso+ <= rot(po|rf)+ | rot (mo;(po|rf)+) | rot (fr;(po|rf))+ | rot (fr;mo;rfe;po) | rot (fr;mo;[UW];po);
+if mo <= tso-fm::to
+assert tso::tso+ <= tso-fm::tso+
 
 
 // --- SCFIX: SB+rfis --- OK

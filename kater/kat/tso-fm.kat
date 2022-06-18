@@ -1,0 +1,5 @@
+declare to
+
+let hb = (po | rf)+
+
+let tso = hb | (to;hb)+ | (fr;hb)+ | (fr;to)+ | (fr;to;rfe;po)+ | (fr;to;[UW|F];po)+

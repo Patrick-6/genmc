@@ -159,9 +159,15 @@ public:
 		return (it == variables.end()) ? nullptr : it->second->clone();
 	}
 
-	URE getSavedID(const CharRE *re) const {
+	bool isSavedID(const CharRE *re) const {
 		auto ro = re->getLabel().getRelation();
-		assert(ro.has_value() && savedVariables.count(*ro));
+		assert(ro.has_value());
+		return savedVariables.count(*ro);
+	}
+
+	URE getSavedID(const CharRE *re) const {
+		assert(isSavedID(re));
+		auto ro = re->getLabel().getRelation();
 		return savedVariables.find(*ro)->second.exp->clone();
 	}
 

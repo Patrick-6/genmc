@@ -38,6 +38,7 @@
   ASSERT    "assert"
   CHECK     "check"
   COHERENCE "coherence"
+  DECLARE   "declare"
   EMPTY	    "empty"
   ERROR	    "error"
   IF        "if"
@@ -102,6 +103,8 @@ main:	  %empty		{ }
 
 decl:     "include" QPATH                  { drv.parse($2.substr(1, $2.size()-2)); }
 	| "let" ID "=" rel                 { drv.registerID($2, std::move($4)); }
+	| "declare" ID                     { drv.registerID($2, CharRE::create(
+								    TransLabel(Relation::createUser()))); }
 	| "save" reduce_opt ID "=" rel     { drv.registerSaveID($3, $2, std::move($5), @$); }
 	| "view" ID "=" rel		   { drv.registerViewID($2, std::move($4)); }
 	| "assume" constraint  		   { drv.registerAssume(std::move($2), @$); }
