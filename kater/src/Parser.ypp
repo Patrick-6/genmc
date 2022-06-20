@@ -76,9 +76,7 @@
 %nterm <std::string> qualified_ID;
 %nterm <std::unique_ptr<RegExp>> rel;
 %nterm <std::unique_ptr<Constraint>> constraint;
-%nterm <std::vector<std::unique_ptr<Constraint>>> constraint_list;
 %nterm <std::string> reduce_opt;
-%nterm <std::vector<std::unique_ptr<Constraint>>> if_opt;
 
 %precedence "=" "<="
 %left  "|"
@@ -89,9 +87,6 @@
 
 %printer { yyo << *($$); } <std::unique_ptr<RegExp>>;
 %printer { yyo << *($$); } <std::unique_ptr<Constraint>>;
-%printer { std::for_each($$.begin(), $$.end(), [&](auto &c){
-		yyo << *c << " ";
-	 }); } <std::vector<std::unique_ptr<Constraint>>>;
 %printer { yyo << $$; } <*>;
 
 %start main
@@ -108,7 +103,7 @@ decl:     "include" QPATH                  { drv.parse($2.substr(1, $2.size()-2)
 	| "save" reduce_opt ID "=" rel     { drv.registerSaveID($3, $2, std::move($5), @$); }
 	| "view" ID "=" rel		   { drv.registerViewID($2, std::move($4)); }
 	| "assume" constraint  		   { drv.registerAssume(std::move($2), @$); }
-	| if_opt "assert" constraint 	   { drv.registerAssert(std::move($3), @$, std::move($1)); }
+	| "assert" constraint 	           { drv.registerAssert(std::move($2), @$); }
 	| "check" constraint		   { $2->setType(Constraint::Type::Consistency);
 	 				     drv.addConstraint(std::move($2), "", @$); }
 	| constraint			   { drv.addConstraint(std::move($1), "", @$); }
@@ -124,14 +119,6 @@ qualified_ID: ID        { $$ = $1; }
 
 reduce_opt: %empty	        { $$ = ""; }
 	| "[" qualified_ID "]"	{ $$ = $2; }
-	;
-
-if_opt: %empty 		        { $$ = std::vector<std::unique_ptr<Constraint>>(); }
-	| "if" constraint_list  { std::reverse($2.begin(), $2.end()); $$ = std::move($2); }
-	;
-
-constraint_list: constraint                { std::vector<std::unique_ptr<Constraint>> r; r.push_back(std::move($1)); $$ = std::move(r); }
-	| constraint "," constraint_list   { $3.push_back(std::move($1)); $$ = std::move($3); }
 	;
 
 constraint:

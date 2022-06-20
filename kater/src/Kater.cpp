@@ -71,7 +71,7 @@ void Kater::expandRfs(URE &r)
 
 bool Kater::checkAssertions()
 {
-	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
+	auto isValidLabel = [&](auto &lab){ return true; };
 
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
@@ -84,7 +84,7 @@ bool Kater::checkAssertions()
 		}
 
 		std::string cex;
-		if (!p.co->checkStatically(p.assms, cex, isValidLabel)) {
+		if (!p.co->checkStatically(module->getAssumes(), cex, isValidLabel)) {
 			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
 				std::cerr << "Counterexample: " << cex << std::endl;
@@ -130,7 +130,7 @@ void Kater::generateNFAs()
 			}
 	});
 
-	auto isValidLabel = [&](auto &lab){ return !getModule().isAssumedEmpty(lab); };
+	auto isValidLabel = [&](auto &lab){ return true; };
 
 	auto i = 0u;
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){

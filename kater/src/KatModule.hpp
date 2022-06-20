@@ -24,7 +24,6 @@ private:
 
 	using Assert = struct {
 		UCO co;
-		std::vector<UCO> assms;
 		DbgInfo loc;
 	};
 
@@ -44,8 +43,8 @@ public:
 	using incl_const_iter = std::vector<Inclusion<URE>>::const_iterator;
 	using assr_iter = std::vector<Assert>::iterator;
 	using assr_const_iter = std::vector<Assert>::const_iterator;
-	using assm_iter = std::vector<TransLabel>::iterator;
-	using assm_const_iter = std::vector<TransLabel>::const_iterator;
+	using assm_iter = std::vector<UCO>::iterator;
+	using assm_const_iter = std::vector<UCO>::const_iterator;
 
 	var_iter var_begin() { return variables.begin(); }
 	var_iter var_end() { return variables.end(); }
@@ -98,25 +97,7 @@ public:
 
 	URE getPPO() const { return ppo->clone(); }
 
-	bool isAssumedEmpty(const TransLabel &lab) const {
-		if (std::find(assume_begin(), assume_end(), lab) != assume_end())
-			return true;
-		return std::any_of(assume_begin(), assume_end(), [&lab](auto &invalid){
-			 if (lab.getRelation() != invalid.getRelation())
-				 return false;
-			 if (std::any_of(invalid.pre_begin(), invalid.pre_end(), [&](auto &c) {
-				 return std::find(lab.pre_begin(), lab.pre_end(), c) ==
-					 lab.pre_end();
-			 }))
-				 return false;
-			 if (std::any_of(invalid.post_begin(), invalid.post_end(), [&](auto &c){
-				 return std::find(lab.post_begin(), lab.post_end(), c) ==
-					 lab.post_end();
-			 }))
-				 return false;
-			 return true;
-		});
-	}
+	const std::vector<UCO> &getAssumes() const { return assumes; }
 
 	void registerID(std::string id, URE re) {
 		variables.insert({id, std::move(re)});
@@ -141,13 +122,14 @@ public:
 		savedVariables.insert({r, SavedVar(std::move(re), VarStatus::View)});
 	}
 
-	void registerAssert(UCO c, const yy::location &loc, std::vector<UCO> assms = {}) {
-		asserts.push_back({std::move(c), std::move(assms),
-				   DbgInfo(loc.end.filename, loc.end.line)});
+	void registerAssert(UCO c, const yy::location &loc) {
+		asserts.push_back({std::move(c), DbgInfo(loc.end.filename, loc.end.line)});
 	}
 
 	// Handle "assume c" declaration in the input file
-	void registerAssume(UCO c);
+	void registerAssume(UCO c) {
+		assumes.push_back(std::move(c));
+	}
 
 	void registerPPO(URE r) { ppo = std::move(r); }
 
@@ -183,7 +165,7 @@ private:
 	SavedVarMap savedVariables;
 
 	std::vector<Assert> asserts;
-	std::vector<TransLabel> assumes;
+	std::vector<UCO> assumes;
 
 	std::vector<URE>            acyclicityConstraints;
 	std::vector<URE>            recoveryConstraints;

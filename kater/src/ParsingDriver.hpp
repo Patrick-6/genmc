@@ -80,17 +80,12 @@ public:
 	}
 
 	// Handle "assert c" declaration in the input file
-	void registerAssert(UCO c, const yy::location &loc, std::vector<UCO> assms) {
-		module->registerAssert(std::move(c), loc, std::move(assms));
+	void registerAssert(UCO c, const yy::location &loc) {
+		module->registerAssert(std::move(c), loc);
 	}
 
 	// Handle "assume c" declaration in the input file
 	void registerAssume(UCO c, const yy::location &loc) {
-		if (!c->isEmpty() || !dynamic_cast<const CharRE *>(&*c->getKid(0))) {
-			std::cerr << loc << ": [Warning] Ignoring the unsupported assumption "
-				  << *c->getKid(0) << std::endl;
-			return;
-		}
 		module->registerAssume(std::move(c));
 	}
 

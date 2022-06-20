@@ -5,13 +5,6 @@ std::ostream &operator<<(std::ostream &s, const KatModule::DbgInfo &dbg)
 	return s << dbg.filename << ":" << dbg.line;
 }
 
-void KatModule::registerAssume(UCO c)
-{
-	assert(c->isEmpty() && dynamic_cast<CharRE *>(&*c->getKid(0)));
-	auto *charRE = dynamic_cast<CharRE *>(&*c->getKid(0));
-	assumes.push_back(charRE->getLabel());
-}
-
 void KatModule::addConstraint(UCO c, const std::string &s, const yy::location &loc)
 {
 
