@@ -1,0 +1,5 @@
+let eco1 = (rf | mo | fr)+
+let eco2 = (rf | mo;rf? | fr;rf?)
+
+if rfi;fr <= mo, rfe;fr <= mo
+assert eco1 = eco2
