@@ -1,0 +1,7 @@
+include "../kat/tso.kat"
+include "../kat/rc11.kat"
+
+assume [W];po-imm <= [W];po-imm;[F],
+assume rfi <= po
+  // [SC];[W];po;[SC;R] <= [SC;W];po;[F];po;[SC;R]
+assert rc11::psc+ <= tso::tso+
