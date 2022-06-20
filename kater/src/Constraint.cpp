@@ -84,12 +84,14 @@ findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 		auto [s1, s2] = workList.back();
 		workList.pop_back();
 
-		if (nfa1.isAccepting(s1))
+		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2))
 			result.push_back({*nfa2.start_begin(), s2});
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-				if (!it->label.composesWith(oit->label))
+				if (it->label != oit->label &&
+				    !(it->label.isPredicate() && oit->label.isPredicate() &&
+				      it->label.getPreChecks().includes(oit->label.getPreChecks())))
 					continue;
 				if (visited.count({it->dest, oit->dest}))
 					continue;
@@ -99,6 +101,33 @@ findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 		}
 	}
 	return result;
+}
+
+void ignoreInitAndFinalPreds(NFA &nfa)
+{
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto &pi){
+		if (std::any_of(pi->out_begin(), pi->out_end(),
+				[&](auto &t){ return t.label.isPredicate(); })) {
+			/* assume normal form */
+			assert(std::any_of(pi->out_begin(), pi->out_end(),
+					   [&](auto &t){ return t.label.isPredicate(); }));
+			nfa.clearAllStarting();
+			std::for_each(pi->out_begin(), pi->out_end(), [&](auto &t){
+				return nfa.makeStarting(t.dest);
+			});
+		}
+	});
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &pf){
+		if (std::any_of(pf->in_begin(), pf->in_end(),
+				[&](auto &t){ return t.label.isPredicate(); })) {
+			assert(std::any_of(pf->in_begin(), pf->in_end(),
+					   [&](auto &t){ return t.label.isPredicate(); }));
+			nfa.clearAllAccepting();
+			std::for_each(pf->in_begin(), pf->in_end(), [&](auto &t){
+				return nfa.makeAccepting(t.dest);
+			});
+		}
+	});
 }
 
 std::vector<std::vector<Path>>
@@ -112,22 +141,24 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 		rm[kv.second] = kv.first;
 	});
 
-	std::vector<NFA::State *> worklist;
-	std::transform(nfac.states_begin(), nfac.states_end(), std::back_inserter(worklist),
-		       [&](auto &s){ return s.get(); });
-	while (!worklist.empty()) {
-		auto *s = worklist.back();
-		worklist.pop_back();
+	auto patc = pattern.copy();
+	ignoreInitAndFinalPreds(patc);
 
+	std::for_each(nfac.states_begin(), nfac.states_end(), [&](auto &is){
 		nfac.clearAllStarting();
-		nfac.makeStarting(s);
+		nfac.makeStarting(&*is);
 
-		auto ps = findAllMatchingPathsDFS(pattern, nfac);
-		std::sort(ps.begin(), ps.end());
-		ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
-		if (!ps.empty())
-			result.push_back(ps);
-	}
+		std::for_each(nfac.states_begin(), nfac.states_end(), [&](auto &fs){
+			nfac.clearAllAccepting();
+			nfac.makeAccepting(&*fs);
+
+			auto ps = findAllMatchingPathsDFS(patc, nfac);
+			std::sort(ps.begin(), ps.end());
+			ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
+			if (!ps.empty())
+				result.push_back(ps);
+		});
+	});
 	std::for_each(result.begin(), result.end(), [&](auto &ps){
 		std::for_each(ps.begin(), ps.end(), [&](auto &p){
 			p = Path(rm[p.start], rm[p.end]);
