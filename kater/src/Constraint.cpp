@@ -48,8 +48,7 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-std::vector<Path>
-findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
+bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 {
 	struct SPair {
 		NFA::State *s1;
@@ -73,7 +72,7 @@ findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 	std::vector<SPair> workList;
 	std::vector<Path> result;
 
-	assert(nfa2.getNumStarting() == 1);
+	assert(nfa2.getNumStarting() == 1 && nfa2.getNumAccepting() == 1);
 	std::for_each(nfa1.start_begin(), nfa1.start_end(), [&](auto *s1){
 		std::for_each(nfa2.start_begin(), nfa2.start_end(), [&](auto *s2){
 			visited.insert({s1, s2});
@@ -85,7 +84,7 @@ findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 		workList.pop_back();
 
 		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2))
-			result.push_back({*nfa2.start_begin(), s2});
+			return true;
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
@@ -100,7 +99,7 @@ findAllMatchingPathsDFS(const NFA &nfa1, const NFA &nfa2)
 			}
 		}
 	}
-	return result;
+	return false;
 }
 
 void ignoreInitAndFinalPreds(NFA &nfa)
@@ -109,7 +108,7 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 		if (std::any_of(pi->out_begin(), pi->out_end(),
 				[&](auto &t){ return t.label.isPredicate(); })) {
 			/* assume normal form */
-			assert(std::any_of(pi->out_begin(), pi->out_end(),
+			assert(std::all_of(pi->out_begin(), pi->out_end(),
 					   [&](auto &t){ return t.label.isPredicate(); }));
 			nfa.clearAllStarting();
 			std::for_each(pi->out_begin(), pi->out_end(), [&](auto &t){
@@ -120,7 +119,7 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &pf){
 		if (std::any_of(pf->in_begin(), pf->in_end(),
 				[&](auto &t){ return t.label.isPredicate(); })) {
-			assert(std::any_of(pf->in_begin(), pf->in_end(),
+			assert(std::all_of(pf->in_begin(), pf->in_end(),
 					   [&](auto &t){ return t.label.isPredicate(); }));
 			nfa.clearAllAccepting();
 			std::for_each(pf->in_begin(), pf->in_end(), [&](auto &t){
@@ -128,6 +127,7 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 			});
 		}
 	});
+	nfa.removeDeadStates();
 }
 
 std::vector<std::vector<Path>>
@@ -148,21 +148,15 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 		nfac.clearAllStarting();
 		nfac.makeStarting(&*is);
 
+		std::vector<Path> ps;
 		std::for_each(nfac.states_begin(), nfac.states_end(), [&](auto &fs){
 			nfac.clearAllAccepting();
 			nfac.makeAccepting(&*fs);
 
-			auto ps = findAllMatchingPathsDFS(patc, nfac);
-			std::sort(ps.begin(), ps.end());
-			ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
-			if (!ps.empty())
-				result.push_back(ps);
+			if (hasMatchingPathDFS(patc, nfac))
+				ps.push_back({rm[&*is], rm[&*fs]});
 		});
-	});
-	std::for_each(result.begin(), result.end(), [&](auto &ps){
-		std::for_each(ps.begin(), ps.end(), [&](auto &p){
-			p = Path(rm[p.start], rm[p.end]);
-		});
+		result.push_back(ps);
 	});
 	return result;
 }
