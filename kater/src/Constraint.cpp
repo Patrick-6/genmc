@@ -102,6 +102,8 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 	return false;
 }
 
+void normalize(NFA &nfa, Constraint::ValidFunT vfun);
+
 void ignoreInitAndFinalPreds(NFA &nfa)
 {
 	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto &pi){
@@ -128,6 +130,7 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 		}
 	});
 	nfa.removeDeadStates();
+	normalize(nfa, [](auto &t){ return true; });
 }
 
 std::vector<std::vector<Path>>
@@ -160,8 +163,6 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 	});
 	return result;
 }
-
-void normalize(NFA &nfa, Constraint::ValidFunT vfun);
 
 void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
