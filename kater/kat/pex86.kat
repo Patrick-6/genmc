@@ -14,6 +14,6 @@ let tso = (ppo | rfe | mo | fr)+
 acyclic (tso)
 
 // FIXME: save should not work
-let pb = ([DW]; mo) | ([DW]; po-loc; [CLF]; po? | [CLF]; tso; [DW])
+let pb = ([DW]; mo) | ([DW]; po-loc; [CLF]; po? | [CLF]; tso; [DW] | [TC]; tso; [TJ])
 
 recovery (pb)

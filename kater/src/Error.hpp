@@ -4,7 +4,8 @@
 #define __ERROR_HPP__
 
 #define EPARSE 5
-#define EPRINT 6
+#define ECHECK 6
+#define EPRINT 7
 
 /* Provide LLVM-style DEBUG_WITH_TYPE utilities */
 #ifdef ENABLE_KATER_DEBUG

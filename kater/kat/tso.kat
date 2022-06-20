@@ -1,9 +1,5 @@
-let po = po-imm+
-let mo = mo-imm+
-let fr = fr-imm; mo*
-
 save[ppo] ppo = ([R]; po | [R|W|F]; po ; [F] | [F] ; po ; [R|W|F]  | po ; [W])+
 
 let tso = (ppo | rfe | mo | fr)
 
-// acyclic tso
+acyclic tso

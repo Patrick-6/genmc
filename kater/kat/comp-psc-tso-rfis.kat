@@ -1,7 +1,0 @@
-include "tso.kat"
-include "rc11.kat"
-
-if
-  po?;[R] <= [F];po;[R],
-  rfi <= po
-assert rc11::psc_strong+ <= tso::tso+

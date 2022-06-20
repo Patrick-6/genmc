@@ -26,9 +26,10 @@ int main(int argc, char **argv)
 
 	if (config.verbose >= 1)
 		std::cout << "Checking assertions... ";
-	if (kater.checkAssertions())
-		if (config.verbose >= 1)
-			std::cout << "Done.\n";
+	if (!kater.checkAssertions())
+		exit(ECHECK);
+	if (config.verbose >= 1)
+		std::cout << "Done.\n";
 
 	if (config.generate) {
 		if (config.verbose >= 1)

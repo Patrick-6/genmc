@@ -1,7 +1,0 @@
-include "tso.kat"
-include "tso-fm.kat"
-
-// --- TSO vs FM-TSO ---
-
-if mo <= tso-fm::to
-assert tso::tso+ = tso-fm::tso+
