@@ -1,0 +1,10 @@
+include "rc11.kat"
+include "arm8.kat"
+
+if
+  rfi <= po,
+  // [UR];po <= (ctrl | data),
+  rfi;[UR];po-imm;[UW] <= mo-imm,
+  rfi;fr-imm <= mo-imm,
+  rfi <= po-loc
+assert rc11::psc <= arm8::ob*

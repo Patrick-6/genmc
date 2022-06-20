@@ -1,0 +1,12 @@
+include "tso.kat"
+include "rc11.kat"
+
+if
+  // po?;[R] <= [F];po;[R],
+  // [W];po;[R] = 0
+  [W];po;[R] <= [W];po;[F];po;[R],
+  rfi <= po
+  // [W];po <= [W];po;[F]
+  // [W];po-imm <= [W];po-imm;[F],
+  // [SC];[W];po;[SC;R] <= [SC;W];po;[F];po;[SC;R]
+assert rc11::psc+ <= tso::tso+
