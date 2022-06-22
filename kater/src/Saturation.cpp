@@ -93,13 +93,34 @@ void saturateEmpty(NFA &start, NFA &&empty)
 	start.alt(std::move(empty));
 }
 
-void saturateTotal(NFA &nfa, const TransLabel &lab)
+void saturateTotal(NFA &nfa, const Relation &rel)
 {
-	assert(!lab.isPredicate());
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-			if (t.label == lab)
-				nfa.addEpsilonTransitionSucc(t.dest, &*s);
+	TransLabel lab(rel);
+	std::vector<NFA::State *> toDuplicate;
+
+	lab.flip();
+	for (auto it = nfa.states_begin(); it != nfa.states_end(); ++it) {
+		auto *s = it->get();
+		if (std::any_of(s->in_begin(), s->in_end(),
+				[&](auto &t){ return t.label == lab; }))
+			toDuplicate.push_back(s);
+	}
+
+	std::for_each(toDuplicate.begin(), toDuplicate.end(), [&](auto *s) {
+		if (std::any_of(s->in_begin(), s->in_end(),
+				[&](auto &t){ return t.label != lab; })) {
+			auto *d = nfa.createState();
+			if (nfa.isAccepting(s))
+				nfa.makeAccepting(d);
+			nfa.addTransitions(d, s->out_begin(), s->out_end());
+			nfa.addInvertedTransitions(d, s->in_begin(), s->in_end());
+			nfa.removeInvertedTransitionsIf(d, [&](auto &t){ return t.label == lab; });
+			nfa.removeInvertedTransitionsIf(s, [&](auto &t){ return t.label != lab; });
+		}
+		std::vector<NFA::Transition> ins(s->in_begin(), s->in_end());
+		std::for_each(ins.begin(), ins.end(), [&](auto &t){
+			assert(t.label == lab);
+			nfa.addEpsilonTransitionPred(s, t.dest);
 		});
 	});
 }

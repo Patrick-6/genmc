@@ -47,6 +47,7 @@
   RECOVERY  "recovery"
   ROT       "rot"
   SAVE      "save"
+  TOTAL     "total"
   VIEW      "view"
   UNLESS    "unless"
   WARNING   "warning"
@@ -128,6 +129,7 @@ constraint:
 	| "acyclic" rel		{ $$ = AcyclicConstraint::createOpt(std::move($2)); }
 	| "recovery" rel	{ $$ = RecoveryConstraint::create(std::move($2)); }
 	| "coherence" rel	{ $$ = CoherenceConstraint::create(std::move($2)); }
+	| "total" rel		{ $$ = TotalityConstraint::createOpt(std::move($2)); }
 	;
 
 rel:	  "(" rel ")"		{ $$ = std::move($2); }

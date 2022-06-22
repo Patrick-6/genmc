@@ -16,9 +16,9 @@ void saturateID(NFA &nfa, const std::vector<TransLabel> &labs);
 void saturateEmpty(NFA &nfa, NFA &&empty);
 
 /*
- * Saturates the NFA given a relation label LAB. total(LAB)
+ * Saturates the NFA given a relation REL. total(REL)
  */
-void saturateTotal(NFA &nfa, const TransLabel &lab);
+void saturateTotal(NFA &nfa, const Relation &rel);
 
 /*
  * Saturates by adding domains/codomains for all builtins.

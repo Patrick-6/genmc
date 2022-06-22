@@ -167,6 +167,13 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
 	assert(&*assm);
+	if (auto *tc = dynamic_cast<TotalityConstraint *>(&*assm)) {
+		std::cerr << "BEFORE " << nfa << "\n";
+		saturateTotal(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
+		std::cerr << "AGTER " << nfa << "\n";
+		return;
+	}
+
 	auto *ec = dynamic_cast<SubsetConstraint *>(&*assm);
 	if (!ec) {
 		std::cout << "Ignoring unsupported local assumption " << *assm << "\n";
