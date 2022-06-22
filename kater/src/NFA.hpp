@@ -505,6 +505,11 @@ public:
 
 	NFA &breakToParts();
 
+	std::unordered_set<State *>
+	calculateReachableFrom(const std::vector<State *> &ss) const;
+	std::unordered_set<State *>
+	calculateReachingTo(const std::vector<State *> &ss);
+
 	bool acceptsEmptyString() const;
 	bool acceptsNoString(std::string &cex) const;
 
@@ -543,10 +548,13 @@ private:
 
 	void removeDeadStatesDFS();
 
-	std::unordered_set<State *> calculateUsefulStates();
+	std::unordered_set<State *>
+	calculateUsefulStates();
 
 	void scm_reduce ();
-	std::unordered_map<State *, std::vector<char>> get_state_composition_matrix ();
+
+	std::unordered_map<State *, std::vector<char>>
+	get_state_composition_matrix ();
 
 	std::unordered_map<State *, std::unordered_map<State *, bool>>
 	findSimilarStates() const;

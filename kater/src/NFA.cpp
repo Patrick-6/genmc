@@ -720,16 +720,14 @@ NFA &NFA::reduce(ReductionType t)
 }
 
 std::unordered_set<NFA::State *>
-NFA::calculateUsefulStates()
+NFA::calculateReachableFrom(const std::vector<State *> &ss) const
 {
-	flip();
-
 	std::unordered_set<State *> visited;
 	std::vector<State *> workList;
 
-	for (auto it = start_begin(); it != start_end(); it++) {
-		visited.insert(*it);
-		workList.push_back(*it);
+	for (auto *s : ss) {
+		visited.insert(s);
+		workList.push_back(s);
 	}
 	while (!workList.empty()) {
 		auto *s = workList.back();
@@ -741,9 +739,22 @@ NFA::calculateUsefulStates()
 			workList.push_back(it->dest);
 		}
 	}
+	return visited;
+}
 
+std::unordered_set<NFA::State *>
+NFA::calculateReachingTo(const std::vector<State *> &ss)
+{
+	flip();
+	auto visited = calculateReachableFrom(ss);
 	flip();
 	return visited;
+}
+
+std::unordered_set<NFA::State *>
+NFA::calculateUsefulStates()
+{
+	return calculateReachingTo(std::vector<State *>(getAccepting()));
 }
 
 void NFA::removeDeadStatesDFS()
