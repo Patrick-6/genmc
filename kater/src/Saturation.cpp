@@ -59,6 +59,37 @@ void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
 	}
 }
 
+void saturateInitFinalPreds(NFA &nfa)
+{
+	std::vector<NFA::Transition> ipreds;
+
+	/* Collect predicates */
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
+		 std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(ipreds),
+			      [&](auto &t){ return t.label.isPredicate(); });
+	});
+
+	if (ipreds.empty())
+		return;
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto *s){
+		std::vector<NFA::Transition> toAdd, toRemove;
+		for (auto tIt = s->in_begin(), tE = s->in_end(); tIt != tE; ++tIt){
+			if (!tIt->label.isPredicate())
+				continue;
+
+			toRemove.push_back(*tIt);
+			auto reaching = nfa.calculateReachingTo({tIt->dest});
+			auto t = *tIt;
+			std::for_each(ipreds.begin(), ipreds.end(), [&](auto &ip){
+				if (reaching.count(ip.dest) && t.label.merge(ip.label))
+					toAdd.push_back(t);
+			});
+		}
+		nfa.removeInvertedTransitions(s, toRemove.begin(), toRemove.end());
+		nfa.addInvertedTransitions(s, toAdd.begin(), toAdd.end());
+	});
+}
+
 std::vector<TransLabel> collectLabels(const NFA &nfa)
 {
 	std::vector<TransLabel> labels;

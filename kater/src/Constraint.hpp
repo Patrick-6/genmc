@@ -217,6 +217,46 @@ public:
 
 
 /*******************************************************************************
+ **                           SubsetID Constraint
+ ******************************************************************************/
+
+class SubsetIDConstraint : public Constraint {
+
+protected:
+	SubsetIDConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
+		: Constraint() { addKid(std::move(e1)); addKid(std::move(e2)); }
+public:
+	template<typename... Ts>
+	static std::unique_ptr<SubsetIDConstraint> create(Ts&&... params) {
+		return std::unique_ptr<SubsetIDConstraint>(
+			new SubsetIDConstraint(std::forward<Ts>(params)...));
+	}
+
+	/* NOTE: Might not return SubsetIDConstraint */
+	static std::unique_ptr<Constraint>
+	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
+
+	const RegExp *getLHS() const { return getKid(0); }
+	RegExp *getLHS() { return getKid(0).get(); }
+
+	const RegExp *getRHS() const { return getKid(1); }
+	RegExp *getRHS() { return getKid(1).get(); }
+
+	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
+			     std::string &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const override;
+
+	std::unique_ptr<Constraint> clone() const override {
+		return create(getKid(0)->clone(), getKid(1)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << *getKid(0) << " <=&id " << *getKid(1);
+	}
+};
+
+
+/*******************************************************************************
  **                           Equality Constraints
  ******************************************************************************/
 

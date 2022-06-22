@@ -26,6 +26,20 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 	return create(std::move(lhs), std::move(rhs));
 }
 
+std::unique_ptr<Constraint>
+SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> lhs,
+			      std::unique_ptr<RegExp> rhs)
+{
+	/* Convert `A \ B <= C` to `A <= B | C` */
+	if (auto *minusRE = dynamic_cast<MinusRE *>(&*lhs)) {
+		return SubsetIDConstraint::createOpt(minusRE->releaseKid(0),
+						     AltRE::create(std::move(rhs), minusRE->releaseKid(1)));
+	}
+
+	return create(std::move(lhs), std::move(rhs));
+}
+
+
 struct Path {
 	Path(NFA::State *s, NFA::State *e) : start(s), end(e) {}
 
@@ -320,10 +334,13 @@ void normalize(NFA &nfa, Constraint::ValidFunT vfun)
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			  const std::vector<std::unique_ptr<Constraint>> &assms,
-			  std::string &cex, Constraint::ValidFunT vfun)
+			  std::string &cex, Constraint::ValidFunT vfun,
+			  bool satInitFinalPreds = false)
 {
 	auto nfa1 = re1->toNFA();
 	normalize(nfa1, vfun);
+	if (satInitFinalPreds)
+		saturateInitFinalPreds(nfa1);
 	auto lhs = nfa1.to_DFA().first;
 
 	auto nfa2 = re2->toNFA();
@@ -365,6 +382,12 @@ bool EqualityConstraint::checkStatically(const std::vector<std::unique_ptr<Const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun) &&
 		checkStaticInclusion(getKid(1), getKid(0), assms, cex, vfun);
+}
+
+bool SubsetIDConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
+					 std::string &cex, Constraint::ValidFunT vfun) const
+{
+	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun, true);
 }
 
 std::unique_ptr<Constraint>

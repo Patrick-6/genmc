@@ -10,6 +10,18 @@
 void saturateID(NFA &nfa, const std::vector<TransLabel> &labs);
 
 /*
+ * Saturates the NFA by (1) conjuncting all outgoing
+ * predicates from the initial states with Q (where Q is
+ * the disjunction of all incoming predicates to final states),
+ * and (2) conjuncting all incoming predicates to final
+ * states with P (where P is the disjunction of all outgoing
+ * predicates from initial states).
+ *
+ * Pre: NFA is in normal form
+ */
+void saturateInitFinalPreds(NFA &nfa);
+
+/*
  * Saturates the NFA given an NFA EMPTY that corresponds
  * to a relation R = 0
  */

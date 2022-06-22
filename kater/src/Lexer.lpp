@@ -94,6 +94,7 @@ warning			return yy::parser::make_WARNING	(loc);
 "]"			return yy::parser::make_RBRACK (loc);
 "="			return yy::parser::make_EQ     (loc);
 "<="			return yy::parser::make_LEQ    (loc);
+"<=&id"			return yy::parser::make_LEQID  (loc);
 "0"			return yy::parser::make_ZERO   (loc);
 "-1"			return yy::parser::make_MONE   (loc);
 "^"			return yy::parser::make_SUPER  (loc);
