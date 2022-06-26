@@ -76,6 +76,8 @@ extern void *__VERIFIER_malloc(size_t);
 
 extern void *__VERIFIER_malloc_aligned(size_t, size_t);
 
+extern int __VERIFIER_atexit(void (*func)(void));
+
 
 /* fcntl */
 

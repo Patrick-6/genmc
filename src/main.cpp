@@ -157,19 +157,10 @@ int main(int argc, char **argv)
 		return ECOMPILE;
 
 	const driver::JobList &Jobs = C->getJobs();
-#ifdef CLANG_LIST_TYPE_JOB_PTR
-	const driver::Command &Cmd = *cast<driver::Command>(*Jobs.begin());
-#else
 	const driver::Command &Cmd = (*Jobs.begin());
-#endif
 	const llvm::opt::ArgStringList &CCArgs = Cmd.getArguments();
 	const llvm::opt::ArgStringList FCCArgs = filterCC1Args(CCArgs);
-#ifdef CLANG_COMPILER_INVOCATION_PTR
-	CompilerInvocation *CI
-#else
-	std::shared_ptr<CompilerInvocation> CI
-#endif
-		(new CompilerInvocation);
+	std::shared_ptr<CompilerInvocation> CI(new CompilerInvocation);
 
 #ifdef CLANG_CREATE_FROM_ARGS_ARRAY_REF
 	CompilerInvocation::CreateFromArgs(*CI, FCCArgs, Diags);

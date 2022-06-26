@@ -45,11 +45,7 @@ public:
 		return !noUnroll.count((*l->block_begin())->getParent()->getName().str());
 	}
 
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-	virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; } ;
-#else
-	virtual const char *getPassName() const { return "LoopUnrollPass"; } ;
-#endif
+	virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; }
 	virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
 	virtual bool runOnLoop(llvm::Loop *l, llvm::LPPassManager &LPM);
 

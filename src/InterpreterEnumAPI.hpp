@@ -79,6 +79,7 @@ enum class InternalFunctions {
 	FN_ThreadCreate,
 	FN_ThreadJoin,
 	FN_ThreadExit,
+	FN_AtExit,
 	FN_Malloc,
 	FN_MallocAligned,
 	FN_HazptrAlloc,

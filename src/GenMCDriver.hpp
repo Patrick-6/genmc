@@ -36,7 +36,8 @@
 namespace llvm {
 	struct ExecutionContext;
 	class Interpreter;
-	class EELocalState;
+	struct DynamicComponents;
+	using EELocalState = DynamicComponents;
 	class EESharedState;
 }
 class ModuleInfo;

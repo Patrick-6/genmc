@@ -47,13 +47,8 @@
 
 using namespace llvm;
 
-#ifdef LLVM_HAVE_POST_DOMINATOR_TREE_WRAPPER_PASS
-# define POSTDOM_PASS PostDominatorTreeWrapperPass
-# define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
-#else
-# define POSTDOM_PASS PostDominatorTree
-# define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>();
-#endif
+#define POSTDOM_PASS PostDominatorTreeWrapperPass
+#define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
 #ifdef LLVM_INSERT_PREHEADER_FOR_LOOP_NEEDS_UPDATER
 # define INSERT_PREHEADER_FOR_LOOP(L, DT, LI)			\

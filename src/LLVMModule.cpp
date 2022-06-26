@@ -36,7 +36,7 @@
 #elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
 # include <llvm/IR/PassManager.h>
 #endif
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H) && defined(LLVM_PASSMANAGER_TEMPLATE)
+#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H)
 # include <llvm/IR/LegacyPassManager.h>
 #endif
 #include <llvm/IR/LLVMContext.h>
@@ -55,11 +55,7 @@
 #include <llvm/Transforms/Utils.h>
 #endif
 
-#ifdef LLVM_PASSMANAGER_TEMPLATE
-# define PassManager llvm::legacy::PassManager
-#else
-# define PassManager llvm::PassManager
-#endif
+#define PassManager llvm::legacy::PassManager
 
 namespace LLVMModule {
 
@@ -206,11 +202,8 @@ namespace LLVMModule {
 	void printLLVMModule(llvm::Module &mod, const std::string &out)
 	{
 		PassManager PM;
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
-		std::string errs;
-#else
 		std::error_code errs;
-#endif
+
 		auto flags =
 #ifdef HAVE_LLVM_SYS_FS_OPENFLAGS_FNONE
 			llvm::sys::fs::F_None;
@@ -218,26 +211,15 @@ namespace LLVMModule {
 			llvm::sys::fs::OF_None;
 #endif
 
-#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS
 		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, flags);
-#else
-		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, 0);
-#endif
 
 		/* TODO: Do we need an exception? If yes, properly handle it */
-#ifdef LLVM_RAW_FD_OSTREAM_ERR_STR
-		if (errs.size()) {
-			WARN("Failed to write transformed module to file "
-			     + out + ": " + errs);
-			return;
-		}
-#else
 		if (errs) {
 			WARN("Failed to write transformed module to file "
 			     + out + ": " + errs.message());
 			return;
 		}
-#endif
+
 		PM.add(llvm::createPrintModulePass(*os));
 		PM.run(mod);
 		return;
