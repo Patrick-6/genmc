@@ -92,11 +92,11 @@ int ParsingDriver::parse(const std::string &name)
 
 	fclose(yyin);
 
-	restoreState();
-
 	/* If @ top-level, save ppo */
-	if (states.empty())
+	if (states.size() == 1)
 		module->registerPPO(module->getRegisteredID(getQualifiedName("ppo")));
+
+	restoreState();
 
 	return res;
 }
