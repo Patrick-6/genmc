@@ -4706,7 +4706,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 			getCurThr().prefixLOC[snap + 1] = std::make_pair(line, file);
 
 			/* If the instruction maps to more than one events, we have to fill more spots */
-			for (auto i = snap + 2; i <= std::min((int) getCurThr().globalInstructions, before[i]); i++)
+			for (auto i = snap + 2; i <= std::min((int) getCurThr().globalInstructions, before.getMax(i)); i++)
 				getCurThr().prefixLOC[i] = std::make_pair(line, file);
 		}
 	}
