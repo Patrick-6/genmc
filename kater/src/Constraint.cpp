@@ -41,18 +41,23 @@ SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 
 
 struct Path {
-	Path(NFA::State *s, NFA::State *e) : start(s), end(e) {}
+	Path(NFA::State *s, NFA::State *e,
+	     const PredicateSet &f, const PredicateSet &l) : start(s), end(e), fst(f), lst(l) {}
 
 	bool operator==(const Path &other) {
-		return start == other.start && end == other.end;
+		return start == other.start && end == other.end && fst == other.fst && lst == other.lst;
 	}
 	bool operator<(const Path &other) {
 		return start < other.start ||
-		       (start == other.start && end < other.end);
+		       (start == other.start && end < other.end) ||
+			(start == other.start && end == other.end && fst < other.fst) ||
+			(start == other.start && end == other.end && fst == other.fst && lst < other.lst);
 	}
 
 	NFA::State *start;
 	NFA::State *end;
+	PredicateSet fst;
+	PredicateSet lst;
 };
 
 template<typename T>
@@ -62,7 +67,7 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
+bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, PredicateSet &lst)
 {
 	struct SPair {
 		NFA::State *s1;
@@ -82,34 +87,57 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 		}
 	};
 
-	std::unordered_set<SPair, SPairHasher> visited;
-	std::vector<SPair> workList;
-	std::vector<Path> result;
+	struct SimState {
+		NFA::State *s1;
+		NFA::State *s2;
+		std::optional<PredicateSet> first;
+		std::optional<PredicateSet> last;
+	};
 
-	assert(nfa2.getNumStarting() == 1 && nfa2.getNumAccepting() == 1);
+	std::unordered_set<SPair, SPairHasher> visited;
+	std::vector<SimState> workList;
+
+	assert(nfa2.getNumStarting() == 1);
 	std::for_each(nfa1.start_begin(), nfa1.start_end(), [&](auto *s1){
 		std::for_each(nfa2.start_begin(), nfa2.start_end(), [&](auto *s2){
 			visited.insert({s1, s2});
-			workList.push_back({s1, s2});
+			workList.push_back({s1, s2, std::nullopt, std::nullopt});
 		});
 	});
+
 	while (!workList.empty()) {
-		auto [s1, s2] = workList.back();
+		auto [s1, s2, f, l] = workList.back();
 		workList.pop_back();
 
-		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2))
+		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2)) {
+			fst = f.value_or(PredicateSet());
+			lst = l.value_or(PredicateSet());
 			return true;
+		}
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
 				if (it->label != oit->label &&
 				    !(it->label.isPredicate() && oit->label.isPredicate() &&
-				      it->label.getPreChecks().includes(oit->label.getPreChecks())))
+				      oit->label.getPreChecks().includes(it->label.getPreChecks())) &&
+				    !(!f.has_value() && it->label.isPredicate() && oit->label.isPredicate() &&
+				      it->label.composesWith(oit->label)) &&
+				    !(nfa1.isAccepting(it->dest) && nfa2.isAccepting(oit->dest) &&
+				      it->label.isPredicate() && oit->label.isPredicate() &&
+				      it->label.composesWith(oit->label))
+					)
 					continue;
 				if (visited.count({it->dest, oit->dest}))
 					continue;
+
+				auto lab = oit->label.getPreChecks();
+				lab.minus(it->label.getPreChecks());
+				if (!f.has_value())
+					f = oit->label.isPredicate() ? lab : PredicateSet();
+				l = oit->label.isPredicate() ? lab : PredicateSet();
+
 				visited.insert({it->dest, oit->dest});
-				workList.push_back({it->dest, oit->dest});
+				workList.push_back({it->dest, oit->dest, f, l});
 			}
 		}
 	}
@@ -117,35 +145,6 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 }
 
 void normalize(NFA &nfa, Constraint::ValidFunT vfun);
-
-void ignoreInitAndFinalPreds(NFA &nfa)
-{
-	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto &pi){
-		if (std::any_of(pi->out_begin(), pi->out_end(),
-				[&](auto &t){ return t.label.isPredicate(); })) {
-			/* assume normal form */
-			assert(std::all_of(pi->out_begin(), pi->out_end(),
-					   [&](auto &t){ return t.label.isPredicate(); }));
-			nfa.clearAllStarting();
-			std::for_each(pi->out_begin(), pi->out_end(), [&](auto &t){
-				return nfa.makeStarting(t.dest);
-			});
-		}
-	});
-	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &pf){
-		if (std::any_of(pf->in_begin(), pf->in_end(),
-				[&](auto &t){ return t.label.isPredicate(); })) {
-			assert(std::all_of(pf->in_begin(), pf->in_end(),
-					   [&](auto &t){ return t.label.isPredicate(); }));
-			nfa.clearAllAccepting();
-			std::for_each(pf->in_begin(), pf->in_end(), [&](auto &t){
-				return nfa.makeAccepting(t.dest);
-			});
-		}
-	});
-	nfa.removeDeadStates();
-	normalize(nfa, [](auto &t){ return true; });
-}
 
 std::vector<std::vector<Path>>
 findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
@@ -159,7 +158,6 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 	});
 
 	auto patc = pattern.copy();
-	ignoreInitAndFinalPreds(patc);
 
 	std::for_each(nfac.states_begin(), nfac.states_end(), [&](auto &is){
 		nfac.clearAllStarting();
@@ -170,8 +168,9 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 			nfac.clearAllAccepting();
 			nfac.makeAccepting(&*fs);
 
-			if (hasMatchingPathDFS(patc, nfac))
-				ps.push_back({rm[&*is], rm[&*fs]});
+			PredicateSet f, l;
+			if (hasMatchingPathDFS(patc, nfac, f, l))
+				ps.push_back({rm[&*is], rm[&*fs], f, l});
 		});
 		result.push_back(ps);
 	});
@@ -216,10 +215,18 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 
 		std::for_each(ps.begin(), ps.end(), [&](auto &p){
 			std::for_each(inits.begin(), inits.end(), [&](auto *i){
-				nfa.addEpsilonTransitionSucc(p.start, m[i]);
+				if (!p.fst.empty())
+					nfa.addTransition(p.start, NFA::Transition(
+								  TransLabel(std::nullopt, p.fst), m[i]));
+				else
+					nfa.addEpsilonTransitionSucc(p.start, m[i]);
 			});
 			std::for_each(finals.begin(), finals.end(), [&](auto *f){
-				nfa.addEpsilonTransitionPred(m[f], p.end);
+				if (!p.lst.empty())
+					nfa.addTransition(m[f], NFA::Transition(
+								  TransLabel(std::nullopt, p.lst), p.end));
+				else
+					nfa.addEpsilonTransitionPred(m[f], p.end);
 			});
 		});
 	});
