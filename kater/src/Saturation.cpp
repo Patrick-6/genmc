@@ -59,11 +59,46 @@ void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
 	}
 }
 
+/*
+ * Duplicate the automaton for each of the initial state(s)' different
+ * outgoing predicate transitions. By doing so, we can later restrict
+ * incoming transitions to final states.
+ */
+void duplicateStatesForInitPreds(NFA &nfa)
+{
+	std::set<PredicateSet> preds;
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (t.label.isPredicate())
+				preds.insert(t.label.getPreChecks());
+		});
+	});
+
+	NFA result;
+	std::for_each(preds.begin(), preds.end(), [&](auto &p){
+		std::unordered_map<NFA::State *, NFA::State *> m;
+		auto nfac = nfa.copy(&m);
+
+		std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
+			nfac.removeTransitionsIf(m[s], [&](auto &t){ return t.label.getPreChecks() != p; });
+			nfa.removeTransitionsIf(s, [&](auto &t){ return t.label.getPreChecks() == p; });
+		});
+		if (result.getNumStates() == 0)
+			result = std::move(nfac);
+		else
+			result.alt(std::move(nfac));
+	});
+
+	nfa.alt(std::move(result));
+	nfa.removeDeadStates();
+}
+
 void saturateInitFinalPreds(NFA &nfa)
 {
-	std::vector<NFA::Transition> ipreds;
+	duplicateStatesForInitPreds(nfa);
 
 	/* Collect predicates */
+	std::vector<NFA::Transition> ipreds;
 	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
 		 std::copy_if(s->out_begin(), s->out_end(), std::back_inserter(ipreds),
 			      [&](auto &t){ return t.label.isPredicate(); });
@@ -88,6 +123,7 @@ void saturateInitFinalPreds(NFA &nfa)
 		nfa.removeInvertedTransitions(s, toRemove.begin(), toRemove.end());
 		nfa.addInvertedTransitions(s, toAdd.begin(), toAdd.end());
 	});
+	nfa.removeDeadStates();
 }
 
 std::vector<TransLabel> collectLabels(const NFA &nfa)
