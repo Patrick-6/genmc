@@ -182,9 +182,7 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
 	assert(&*assm);
 	if (auto *tc = dynamic_cast<TotalityConstraint *>(&*assm)) {
-		std::cerr << "BEFORE " << nfa << "\n";
 		saturateTotal(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
-		std::cerr << "AGTER " << nfa << "\n";
 		return;
 	}
 
