@@ -6,6 +6,8 @@
 /*
  * Saturates the NFA given a collection of predicate labels LABS s.t.
  * for all LAB \in LABS. LAB <= ID
+ *
+ * Pre: NFA is in normal form
  */
 void saturateID(NFA &nfa, const std::vector<TransLabel> &labs);
 
