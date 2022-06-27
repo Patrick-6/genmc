@@ -146,6 +146,14 @@ bool PredicateSet::merge(const PredicateSet &other)
 	return true;
 }
 
+void PredicateSet::minus(const PredicateSet &other)
+{
+	std::for_each(other.begin(), other.end(), [this](auto &p){
+		preds_.erase(p);
+	});
+	return;
+}
+
 std::ostream &operator<<(std::ostream& ostr, const PredicateSet &s)
 {
 	ostr << "[";

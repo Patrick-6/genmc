@@ -187,6 +187,9 @@ public:
 	 * Returns whether the merge was successful */
 	bool merge(const PredicateSet &other);
 
+	/* Removes all predicates appearing in OTHER from THIS */
+	void minus(const PredicateSet &other);
+
 	bool operator==(const PredicateSet &other) const {
 		return preds_ == other.preds_;
 	}
