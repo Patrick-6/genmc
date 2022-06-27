@@ -1,7 +1,29 @@
-include "tso.kat"
-include "tso-fm.kat"
+include "../kat/tso.kat"
+include "../kat/tso-fm.kat"
 
-// --- TSO vs FM-TSO ---
+// WTP: tso == fm-tso
 
-if mo <= tso-fm::to
-assert tso::tso+ = tso-fm::tso+
+// Subgoal 1: tso+ <= rot fm-tso
+
+// assume [W];po;[W] <= tso-fm::to
+// assume mo <= tso-fm::to
+// assume rfe;fr-imm <= mo-imm
+// assume total tso-fm::to
+
+// assert tso::tso+ <=&id rot tso-fm::tso
+
+
+// Subgoal 2: fm-tso <= tso+
+//
+//    Since total(TO), irr(TO), irr(fr;TO), irr(TO;hb), ...
+//    STP ([W|F];hb;[W|F] | fr | rfe;po;fr | [UW|F];po;fr)+ <= tso
+
+let hb = tso-fm::hb
+let fm-tso = ([W|F];hb;[W|F] | fr | rfe;po;fr | [UW|F];po;fr)+
+
+assume rfi;fr-imm <= mo-imm
+assume rfi <= po
+
+assert fm-tso <=&id tso::tso+
+assert hb <=&id tso::tso+
+assert fr;hb <=&id tso::tso+ | fr;po
