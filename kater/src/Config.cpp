@@ -69,7 +69,7 @@ void Config::parseOptions(int argc, char **argv)
 #define DEBUG_ONLY_OPT 4242
 #endif
 
-	const char *shortopts = "hdn:p:e:v::";
+	const char *shortopts = "hden:p:v::";
 	const struct option longopts[] = {
 		{"help", no_argument, NULL, 'h'},
 #ifdef ENABLE_KATER_DEBUG
