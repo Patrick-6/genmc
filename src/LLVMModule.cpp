@@ -159,7 +159,8 @@ namespace LLVMModule {
 		OptPM.add(createIntrinsicLoweringPass(mod));
 		if (conf->castElimination)
 			OptPM.add(createEliminateCastsPass());
-		OptPM.add(createFunctionInlinerPass());
+		if (conf->inlineFunctions)
+			OptPM.add(createFunctionInlinerPass());
 		OptPM.add(llvm::createPromoteMemoryToRegisterPass());
 		OptPM.add(llvm::createDeadArgEliminationPass());
 		OptPM.add(createLocalSimplifyCFGPass());
