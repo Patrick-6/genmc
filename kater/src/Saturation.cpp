@@ -25,7 +25,7 @@ bool isComposableRelation(const TransLabel &lab, const TransLabel &pred)
 		pred.getPreChecks().composes(lab.getRelation()->getDomain());
 }
 
-bool canSaturateStateWithID(NFA &nfa, NFA::State *s, const TransLabel &lab)
+bool canSaturateStateWithPred(NFA &nfa, NFA::State *s, const TransLabel &lab)
 {
 	return nfa.isStarting(s) || nfa.isAccepting(s) ||
 		(std::any_of(s->out_begin(), s->out_end(), [&](auto &t){
@@ -38,7 +38,7 @@ bool canSaturateStateWithID(NFA &nfa, NFA::State *s, const TransLabel &lab)
 		}));
 }
 
-void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
+void saturatePreds(NFA &nfa, const std::vector<TransLabel> &labs)
 {
 	assert(std::all_of(labs.begin(), labs.end(), [&](auto &lab){ return lab.isPredicate(); }));
 
@@ -50,7 +50,7 @@ void saturateID(NFA &nfa, const std::vector<TransLabel> &labs)
 
 		std::vector<TransLabel> toAdd;
 		std::for_each(labs.begin(), labs.end(), [&](auto &lab){
-			if (canSaturateStateWithID(nfa, &*s, lab))
+			if (canSaturateStateWithPred(nfa, &*s, lab))
 				toAdd.push_back(lab);
 		});
 		std::for_each(toAdd.begin(), toAdd.end(), [&](auto &t){

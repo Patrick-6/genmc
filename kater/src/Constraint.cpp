@@ -284,7 +284,7 @@ void saturateNFA(NFA &nfa, const NFA &other)
 		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
 
-	saturateID(nfa, opreds);
+	saturatePreds(nfa, opreds);
 }
 
 void removeConsecutivePredicates(NFA &nfa)

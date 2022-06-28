@@ -9,7 +9,7 @@
  *
  * Pre: NFA is in normal form
  */
-void saturateID(NFA &nfa, const std::vector<TransLabel> &labs);
+void saturatePreds(NFA &nfa, const std::vector<TransLabel> &labs);
 
 /*
  * Saturates the NFA by (1) conjuncting all outgoing
