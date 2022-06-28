@@ -138,4 +138,9 @@ llvm::Pass *createLocalSimplifyCFGPass();
  */
 llvm::Pass *createEliminateRedundantInstPass();
 
+/*
+ * Inlines all functions of a module
+ */
+llvm::ModulePass *createFunctionInlinerPass();
+
 #endif /* __PASSES_HPP__ */

@@ -476,7 +476,8 @@ bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instructi
 			}
 		}
 		if (auto *phi = dyn_cast<PHINode>(&i)) {
-			phis.insert(phi);
+			if (phi->getParent() == l->getHeader()) /* PHIs in the body are OK */
+				phis.insert(phi);
 			return;
 		}
 		effects |= hasSideEffects(&i, &cleanSet);

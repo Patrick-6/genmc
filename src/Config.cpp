@@ -180,6 +180,11 @@ clDisableLoopJumpThreading("disable-loop-jump-threading", llvm::cl::cat(clTransf
 static llvm::cl::opt<bool>
 clDisableCastElimination("disable-cast-elimination", llvm::cl::cat(clTransformation),
 			   llvm::cl::desc("Disable cast-elimination transformation"));
+
+static llvm::cl::opt<bool>
+clDisableFunctionInliner("disable-function-inliner", llvm::cl::cat(clTransformation),
+			   llvm::cl::desc("Disable function-inlining transformation"));
+
 static llvm::cl::opt<bool>
 clDisableSpinAssume("disable-spin-assume", llvm::cl::cat(clTransformation),
 		    llvm::cl::desc("Disable spin-assume transformation"));
@@ -355,6 +360,7 @@ void Config::saveConfigOptions()
 	noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
 	loopJumpThreading = !clDisableLoopJumpThreading;
 	castElimination = !clDisableCastElimination;
+	inlineFunctions = !clDisableFunctionInliner;
 	spinAssume = !clDisableSpinAssume;
 	codeCondenser = !clDisableCodeCondenser;
 	loadAnnot = !clDisableLoadAnnot;

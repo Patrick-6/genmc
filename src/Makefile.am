@@ -35,6 +35,7 @@ libgenmc_a_SOURCES = \
   Execution.cpp \
   ExecutionGraph.cpp ExecutionGraph.hpp \
   ExternalFunctions.cpp \
+  FunctionInlinerPass.cpp FunctionInlinerPass.hpp \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
   GraphIterators.hpp \

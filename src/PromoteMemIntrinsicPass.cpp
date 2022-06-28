@@ -20,6 +20,7 @@
 
 #include "PromoteMemIntrinsicPass.hpp"
 #include "Error.hpp"
+#include "FunctionInlinerPass.hpp"
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DebugInfo.h>
@@ -33,6 +34,12 @@
 #include <llvm/IR/Type.h>
 
 using namespace llvm;
+
+void PromoteMemIntrinsicPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
+{
+	/* Run after the inliner because it might generate new memcpys */
+	au.addRequired<FunctionInlinerPass>();
+}
 
 void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src,
 		   const std::vector<Value *> &args, Type *typ)
