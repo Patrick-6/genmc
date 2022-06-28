@@ -74,6 +74,9 @@ void duplicateStatesForInitPreds(NFA &nfa)
 		});
 	});
 
+	if (preds.size() <= 1)
+		return;
+
 	NFA result;
 	std::for_each(preds.begin(), preds.end(), [&](auto &p){
 		std::unordered_map<NFA::State *, NFA::State *> m;
