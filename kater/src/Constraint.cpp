@@ -236,10 +236,12 @@ findAllMatchingPathsOpt(const NFA &pattern, const NFA &nfa)
 	auto patc = pattern.copy();
 	ignoreInitAndFinalPreds(patc);
 
-	assert(patc.getNumStarting() == 1);
+	// assert(patc.getNumStarting() == 1);
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::vector<Path> ps;
-		findPathsFrom(patc, *patc.start_begin(), nfa, &*s, Path(&*s, nullptr), ps);
+		std::for_each(patc.start_begin(), patc.start_end(), [&](auto *i){
+			findPathsFrom(patc, i, nfa, &*s, Path(&*s, nullptr), ps);
+		});
 		std::sort(ps.begin(), ps.end());
 		ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
 		if (!ps.empty())
