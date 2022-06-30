@@ -493,6 +493,7 @@ NFA &NFA::breakToParts()
 	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
 		removeTransition(p.first, p.second);
 	});
+	removeDeadStates();
 	return *this;
 }
 

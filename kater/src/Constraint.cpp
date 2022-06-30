@@ -403,7 +403,6 @@ void normalize(NFA &nfa, Constraint::ValidFunT vfun)
 	nfa.simplify(vfun);
 	saturateDomains(nfa);
 	nfa.breakToParts();
-	nfa.removeDeadStates();
 	removeConsecutivePredicates(nfa);
 	nfa.removeDeadStates();
 }
