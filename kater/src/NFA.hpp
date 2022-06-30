@@ -406,10 +406,14 @@ public:
 		});
 	}
 
+	void addInvertedTransition(State *dst, const Transition &t) {
+		addTransition(t.dest, t.flipTo(dst));
+	}
+
 	template<typename ITER>
 	void addInvertedTransitions(State *dst, ITER &&begin, ITER &&end) {
 		std::for_each(begin, end, [&](const Transition &t){
-			addTransition(t.dest, t.flipTo(dst));
+			addInvertedTransition(dst, t);
 		});
 	}
 
