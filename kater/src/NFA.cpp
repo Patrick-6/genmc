@@ -467,26 +467,14 @@ NFA NFA::copy(std::unordered_map<State *, State *> *uMap /* = nullptr */) const
 
 void NFA::breakIntoMultiple(State *s, const Transition &t)
 {
-	if (t.label.isPredicate() ||
-	    (!t.label.hasPreChecks() && !t.label.hasPostChecks()))
+	if (t.label.isPredicate())
 		return;
 
 	auto *curr = s;
-	if (t.label.hasPreChecks()) {
-		auto *p = addTransitionToFresh(curr, TransLabel(std::nullopt, t.label.getPreChecks()));
-		curr = p;
-	}
-	if (t.label.getRelation()) {
-		if (t.label.hasPostChecks()) {
-			curr = addTransitionToFresh(curr, TransLabel(t.label.getRelation()));
-		} else {
-			addTransition(curr, Transition(TransLabel(t.label.getRelation()), t.dest));
-			curr = t.dest;
-		}
-	}
-	if (t.label.hasPostChecks()) {
-		addTransition(curr, Transition(TransLabel(std::nullopt, t.label.getPostChecks()), t.dest));
-	}
+
+	curr = addTransitionToFresh(curr, TransLabel(std::nullopt, t.label.getPreChecks()));
+	curr = addTransitionToFresh(curr, TransLabel(t.label.getRelation()));
+	addTransition(curr, Transition(TransLabel(std::nullopt, t.label.getPostChecks()), t.dest));
 }
 
 NFA &NFA::breakToParts()
@@ -495,8 +483,7 @@ NFA &NFA::breakToParts()
 	std::vector<std::pair<State *, Transition>> toRemove;
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-			if (!t.label.isPredicate() && (t.label.hasPreChecks() ||
-						       t.label.hasPostChecks())) {
+			if (!t.label.isPredicate()) {
 				toBreak.push_back({&*s, t});
 				toRemove.push_back({&*s, t});
 			}

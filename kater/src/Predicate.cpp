@@ -93,6 +93,11 @@ std::ostream &operator<<(std::ostream& ostr, const Predicate &p)
 
 bool PredicateSet::includes(const PredicateSet &other) const
 {
+	if (empty())
+		return true;
+	if (other.empty())
+		return false;
+
        unsigned mask1 = ~0;
        std::for_each(begin(), end(), [&mask1](auto &p){
 		mask1 &= Predicate::builtins.find(p.toBuiltin())->second.bitmask;

@@ -40,6 +40,35 @@ SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 }
 
 
+void ignoreInitAndFinalPreds(NFA &nfa)
+{
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto &pi){
+		if (std::any_of(pi->out_begin(), pi->out_end(),
+				[&](auto &t){ return t.label.isPredicate(); })) {
+			/* assume normal form */
+			assert(std::all_of(pi->out_begin(), pi->out_end(),
+					   [&](auto &t){ return t.label.isPredicate(); }));
+			nfa.clearAllStarting();
+			std::for_each(pi->out_begin(), pi->out_end(), [&](auto &t){
+					return nfa.makeStarting(t.dest);
+			});
+		}
+	});
+	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &pf){
+		if (std::any_of(pf->in_begin(), pf->in_end(),
+				[&](auto &t){ return t.label.isPredicate(); })) {
+			assert(std::all_of(pf->in_begin(), pf->in_end(),
+					   [&](auto &t){ return t.label.isPredicate(); }));
+			nfa.clearAllAccepting();
+			std::for_each(pf->in_begin(), pf->in_end(), [&](auto &t){
+					return nfa.makeAccepting(t.dest);
+				});
+		}
+	});
+	nfa.removeDeadStates();
+	// normalize(nfa, [](auto &t){ return true; });
+}
+
 struct Path {
 	Path(NFA::State *s, NFA::State *e,
 	     const PredicateSet &f = {}, const PredicateSet &l = {}) : start(s), end(e), fst(f), lst(l) {}
@@ -198,7 +227,8 @@ void findPathsFrom(const NFA &pattern, NFA::State *p,
 	for (auto it = p->out_begin(); it != p->out_end(); ++it ) {
 		auto &tp = *it;
 		/* skip self loops */
-		if (tp.dest == p)
+		if (std::any_of(tp.dest->out_begin(), tp.dest->out_end(), [&](auto &t){
+					return tp.dest->hasIncomingTo(t.dest); }))
 			continue;
 		for (auto oit = s->out_begin(); oit != s->out_end(); ++oit) {
 			auto &ts = *oit;
@@ -234,10 +264,13 @@ findAllMatchingPathsOpt(const NFA &pattern, const NFA &nfa)
 {
 	std::vector<std::vector<Path>> result;
 
-	assert(pattern.getNumStarting() == 1);
+	auto patc = pattern.copy();
+	ignoreInitAndFinalPreds(patc);
+
+	assert(patc.getNumStarting() == 1);
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		std::vector<Path> ps;
-		findPathsFrom(pattern, *pattern.start_begin(), nfa, &*s, Path(&*s, nullptr), ps);
+		findPathsFrom(patc, *patc.start_begin(), nfa, &*s, Path(&*s, nullptr), ps);
 		std::sort(ps.begin(), ps.end());
 		ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
 		if (!ps.empty())
@@ -287,26 +320,17 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	lNFA.clearAllStarting();
 
 	std::for_each(paths.begin(), paths.end(), [&](auto &ps){
+		std::unordered_map<NFA::State *, NFA::State *> m;
+
+		auto lcopy = lNFA.copy(&m);
+		nfa.alt(std::move(lcopy));
+
 		std::for_each(ps.begin(), ps.end(), [&](auto &p){
-
-			std::unordered_map<NFA::State *, NFA::State *> m;
-
-			auto lcopy = lNFA.copy(&m);
-			nfa.alt(std::move(lcopy));
-
 			std::for_each(inits.begin(), inits.end(), [&](auto *i){
-				if (!p.fst.empty())
-					nfa.addTransition(p.start, NFA::Transition(
-								  TransLabel(std::nullopt, p.fst), m[i]));
-				else
-					nfa.addEpsilonTransitionSucc(p.start, m[i]);
+				nfa.addEpsilonTransitionSucc(p.start, m[i]);
 			});
 			std::for_each(finals.begin(), finals.end(), [&](auto *f){
-				if (!p.lst.empty())
-					nfa.addTransition(m[f], NFA::Transition(
-								  TransLabel(std::nullopt, p.lst), p.end));
-				else
-					nfa.addEpsilonTransitionSucc(m[f], p.end);
+				nfa.addEpsilonTransitionPred(m[f], p.end);
 			});
 		});
 	});
@@ -363,8 +387,6 @@ void saturateNFA(NFA &nfa, const NFA &other)
 		});
 		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
-
-	saturatePreds(nfa, opreds);
 }
 
 void removeConsecutivePredicates(NFA &nfa)
@@ -413,8 +435,8 @@ void normalize(NFA &nfa, Constraint::ValidFunT vfun)
 	saturateDomains(nfa);
 	nfa.breakToParts();
 	nfa.removeDeadStates();
-	// removeConsecutivePredicates(nfa);
-	// nfa.removeDeadStates();
+	removeConsecutivePredicates(nfa);
+	nfa.removeDeadStates();
 }
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
@@ -424,8 +446,8 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 {
 	auto nfa1 = re1->toNFA();
 	normalize(nfa1, vfun);
-	removeConsecutivePredicates(nfa1);
-	nfa1.removeDeadStates();
+	// removeConsecutivePredicates(nfa1);
+	// nfa1.removeDeadStates();
 	if (satInitFinalPreds)
 		saturateInitFinalPreds(nfa1);
 	auto lhs = nfa1.to_DFA().first;
@@ -438,8 +460,8 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			normalize(nfa2, vfun);
 		});
 	}
-	removeConsecutivePredicates(nfa2);
-	nfa2.removeDeadStates();
+	// removeConsecutivePredicates(nfa2);
+	// nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
