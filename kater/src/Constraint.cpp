@@ -96,8 +96,7 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-bool transitionsMatchInPath(const NFA::Transition &l, const NFA::Transition &r,
-			    bool isFirst, bool isLast)
+bool transitionsMatchInPath(const NFA::Transition &l, const NFA::Transition &r)
 {
 	if (l.label == r.label)
 		return true;
@@ -107,11 +106,10 @@ bool transitionsMatchInPath(const NFA::Transition &l, const NFA::Transition &r,
 		return false;
 
 	assert(l.label.isPredicate() && r.label.isPredicate());
-	return (r.label.getPreChecks().includes(l.label.getPreChecks())) ||
-		((isFirst || isLast) && l.label.composesWith(r.label));
+	return r.label.getPreChecks().includes(l.label.getPreChecks());
 }
 
-bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, PredicateSet &lst)
+bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 {
 	struct SPair {
 		NFA::State *s1;
@@ -134,8 +132,6 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, Pre
 	struct SimState {
 		NFA::State *s1;
 		NFA::State *s2;
-		std::optional<PredicateSet> first;
-		std::optional<PredicateSet> last;
 	};
 
 	std::unordered_set<SPair, SPairHasher> visited;
@@ -145,36 +141,29 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, Pre
 	std::for_each(nfa1.start_begin(), nfa1.start_end(), [&](auto *s1){
 		std::for_each(nfa2.start_begin(), nfa2.start_end(), [&](auto *s2){
 			visited.insert({s1, s2});
-			workList.push_back({s1, s2, std::nullopt, std::nullopt});
+			workList.push_back({s1, s2});
 		});
 	});
 
 	while (!workList.empty()) {
-		auto [s1, s2, f, l] = workList.back();
+		auto [s1, s2] = workList.back();
 		workList.pop_back();
 
-		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2)) {
-			fst = f.value_or(PredicateSet());
-			lst = l.value_or(PredicateSet());
+		if (nfa1.isAccepting(s1) && nfa2.isAccepting(s2))
 			return true;
-		}
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-				if (!transitionsMatchInPath(*it, *oit, !f.has_value(),
-							    it->dest->isAccepting() && oit->dest->isAccepting()))
+				if (!transitionsMatchInPath(*it, *oit))
 					continue;
 				if (visited.count({it->dest, oit->dest}))
 					continue;
 
 				auto lab = oit->label.getPreChecks();
 				lab.minus(it->label.getPreChecks());
-				if (!f.has_value())
-					f = oit->label.isPredicate() ? lab : PredicateSet();
-				l = oit->label.isPredicate() ? lab : PredicateSet();
 
 				visited.insert({it->dest, oit->dest});
-				workList.push_back({it->dest, oit->dest, f, l});
+				workList.push_back({it->dest, oit->dest});
 			}
 		}
 	}
@@ -205,9 +194,8 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 			nfac.clearAllAccepting();
 			nfac.makeAccepting(&*fs);
 
-			PredicateSet f, l;
-			if (hasMatchingPathDFS(patc, nfac, f, l))
-				ps.push_back({rm[&*is], rm[&*fs], f, l});
+			if (hasMatchingPathDFS(patc, nfac))
+				ps.push_back({rm[&*is], rm[&*fs]});
 		});
 		result.push_back(ps);
 	});
@@ -235,7 +223,7 @@ void findPathsFrom(const NFA &pattern, NFA::State *p,
 			/* skip self loops */
 			// if (ts.dest == s)
 			// 	continue;
-			if (!transitionsMatchInPath(tp, ts, p->isStarting(), tp.dest->isAccepting()))
+			if (!transitionsMatchInPath(tp, ts))
 				continue;
 			/* Ensure self loops @ dest match */
 			// if (std::any_of(tp.dest->out_begin(), tp.dest->out_end(), [&](auto &tpp){
@@ -248,11 +236,6 @@ void findPathsFrom(const NFA &pattern, NFA::State *p,
 			// 		}))
 			// 	continue;
 
-			auto lab = ts.label.getPreChecks();
-			lab.minus(tp.label.getPreChecks());
-			if (p->isStarting())
-				current.fst = tp.label.isPredicate() ? lab : PredicateSet();
-			current.lst = tp.label.isPredicate() ? lab : PredicateSet();
 			findPathsFrom(pattern, tp.dest, nfa, ts.dest, current, collected);
 		}
 	}
