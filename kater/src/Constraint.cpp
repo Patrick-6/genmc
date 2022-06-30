@@ -465,8 +465,8 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
-	auto rhs = nfa2.to_DFA().first;
-	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
+	// auto rhs = nfa2.to_DFA().first;
+	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 
 bool SubsetConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
