@@ -78,6 +78,11 @@ public:
 
 	bool composesWith(const TransLabel &other) const;
 
+	bool matches(const TransLabel &other) const {
+		return *this == other ||
+			(isPredicate() && other.isPredicate() && getPreChecks().includes(other.getPreChecks()));
+	}
+
 	std::string toString() const;
 
 	bool operator==(const TransLabel &other) const {

@@ -286,7 +286,7 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 			SPair next({it->dest, {}});
 			std::for_each(sp.ss2.begin(), sp.ss2.end(), [&](auto *s2) {
 				for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-					if (it->label != oit->label)
+					if (!oit->label.matches(it->label))
 						continue;
 					next.ss2.insert(oit->dest);
 				}

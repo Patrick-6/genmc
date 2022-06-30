@@ -95,19 +95,6 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-bool transitionsMatchInPath(const NFA::Transition &l, const NFA::Transition &r)
-{
-	if (l.label == r.label)
-		return true;
-
-	/* If not equal and non-predicates, exit */
-	if (!l.label.isPredicate() || !r.label.isPredicate())
-		return false;
-
-	assert(l.label.isPredicate() && r.label.isPredicate());
-	return r.label.getPreChecks().includes(l.label.getPreChecks());
-}
-
 bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 {
 	struct SPair {
@@ -153,7 +140,7 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2)
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-				if (!transitionsMatchInPath(*it, *oit))
+				if (!oit->label.matches(it->label))
 					continue;
 				if (visited.count({it->dest, oit->dest}))
 					continue;
@@ -215,14 +202,14 @@ void findPathsFrom(const NFA &pattern, NFA::State *p,
 		auto &tp = *it;
 		/* skip self loops */
 		if (std::any_of(tp.dest->out_begin(), tp.dest->out_end(), [&](auto &t){
-					return tp.dest->hasIncomingTo(t.dest); }))
+					return tp.dest->hasIncoming(tp.flipTo(t.dest)); }))
 			continue;
 		for (auto oit = s->out_begin(); oit != s->out_end(); ++oit) {
 			auto &ts = *oit;
 			/* skip self loops */
 			// if (ts.dest == s)
 			// 	continue;
-			if (!transitionsMatchInPath(tp, ts))
+			if (!ts.label.matches(tp.label))
 				continue;
 			/* Ensure self loops @ dest match */
 			// if (std::any_of(tp.dest->out_begin(), tp.dest->out_end(), [&](auto &tpp){
