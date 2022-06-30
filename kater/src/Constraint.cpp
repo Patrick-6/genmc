@@ -67,6 +67,21 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
+bool transitionsMatchInPath(const NFA::Transition &l, const NFA::Transition &r,
+			    bool isFirst, bool isLast)
+{
+	if (l.label == r.label)
+		return true;
+
+	/* If not equal and non-predicates, exit */
+	if (!l.label.isPredicate() || !r.label.isPredicate())
+		return false;
+
+	assert(l.label.isPredicate() && r.label.isPredicate());
+	return (r.label.getPreChecks().includes(l.label.getPreChecks())) ||
+		((isFirst || isLast) && l.label.composesWith(r.label));
+}
+
 bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, PredicateSet &lst)
 {
 	struct SPair {
@@ -117,15 +132,8 @@ bool hasMatchingPathDFS(const NFA &nfa1, const NFA &nfa2, PredicateSet &fst, Pre
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
-				if (it->label != oit->label &&
-				    !(it->label.isPredicate() && oit->label.isPredicate() &&
-				      oit->label.getPreChecks().includes(it->label.getPreChecks())) &&
-				    !(!f.has_value() && it->label.isPredicate() && oit->label.isPredicate() &&
-				      it->label.composesWith(oit->label)) &&
-				    !(nfa1.isAccepting(it->dest) && nfa2.isAccepting(oit->dest) &&
-				      it->label.isPredicate() && oit->label.isPredicate() &&
-				      it->label.composesWith(oit->label))
-					)
+				if (!transitionsMatchInPath(*it, *oit, !f.has_value(),
+							    it->dest->isAccepting() && oit->dest->isAccepting()))
 					continue;
 				if (visited.count({it->dest, oit->dest}))
 					continue;
