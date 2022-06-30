@@ -221,6 +221,92 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	return true;
 }
 
+bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
+			     std::function<bool(const TransLabel &)> isValidTransition) const
+{
+//	KATER_DEBUG(
+//		std::cout << "Checking inclusion between automata:" << std::endl;
+//		std::cout << *this << "and " << other << std::endl;
+//	);
+//
+//	if (other.getNumStarting() == 0)
+//		return acceptsNoString(cex);
+//
+//	struct SPair {
+//		State *s1;
+//		std::set<State *> ss2;
+//
+//		bool operator==(const SPair &other) const {
+//			return s1 == other.s1 && ss2 == other.ss2;
+//		}
+//	};
+//
+//	// XXX: FIXME
+//	struct SPairHasher {
+//		std::size_t operator()(SPair p) const {
+//			std::size_t hash = 0;
+//			hash_combine<unsigned>(hash, p.s1->getId());
+//		    std::for_each(ss2.begin(), ss2.end(), [&](auto *s2){
+//				hash_combine<unsigned>(hash, p.s2->getId());
+//			});
+//			return hash;
+//		}
+//	};
+//
+//	struct SimState {
+//		SPair cur;
+//		std::string cex;
+//	};
+//
+//	std::unordered_set<SPair, SPairHasher> visited;
+//	std::vector<SimState> workList;
+//
+//	std::for_each(start_begin(), start_end(), [&](auto *s1){
+//		std::set<State *> ss;
+//		std::for_each(other.start_begin(), other.start_end(), [&](auto *s2){
+//			ss.insert(s2);
+//		});
+//		visited.insert({s1, ss});
+//		workList.push_back({{s1, ss}, ""});
+//	});
+//	while (!workList.empty()) {
+//		auto [sp, str] = workList[0];
+//		workList.erase(workList.begin());
+//		if (isAccepting(sp.s1) &&
+//			!std::none_of (sp.ss2.begin(), sp.ss2.end(), [&](auto *s2) { return other.isAccepting(s2); })) {
+//			cex = str;
+//			return false;
+//		}
+//
+//		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
+//			std::string new_str = str + " ";
+//			KATER_DEBUG(
+//				new_str += std::to_string(s1->getId()) + " ";
+//			);
+//			new_str += it->label.toString();
+//
+//			SPair next {it->dest, {}};
+//			std::for_each (sp.ss2.begin(), sp.ss2.end(), [&](auto *s2) {
+//				for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
+//					if (it->label != oit->label)
+//						continue;
+//					next.ss2.insert(oit->dest);
+//				}
+//			});
+//			if (next.ss2.empty()) {
+//				cex = new_str;
+//				return false;
+//			}
+//
+//			if (visited.count(next))
+//				continue;
+//			visited.insert(next);
+//			workList.push_back({next, new_str});
+//		}
+//	}
+	return true;
+}
+
 NFA &NFA::alt(NFA &&other)
 {
 	std::move(other.states_begin(), other.states_end(), std::back_inserter(nfa));

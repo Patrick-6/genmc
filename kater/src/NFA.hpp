@@ -513,6 +513,10 @@ public:
 	bool acceptsEmptyString() const;
 	bool acceptsNoString(std::string &cex) const;
 
+	bool isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
+				std::function<bool(const TransLabel &)> isValidTransition =
+				[](const TransLabel &lab){ return true; }) const;
+
 	bool isSubLanguageOfDFA(const NFA &other, std::string &cex,
 				std::function<bool(const TransLabel &)> isValidTransition =
 				[](const TransLabel &lab){ return true; }) const;
