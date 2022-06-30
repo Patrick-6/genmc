@@ -50,7 +50,7 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 					   [&](auto &t){ return t.label.isPredicate(); }));
 			nfa.clearAllStarting();
 			std::for_each(pi->out_begin(), pi->out_end(), [&](auto &t){
-					return nfa.makeStarting(t.dest);
+					nfa.makeStarting(t.dest);
 			});
 		}
 	});
@@ -61,11 +61,17 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 					   [&](auto &t){ return t.label.isPredicate(); }));
 			nfa.clearAllAccepting();
 			std::for_each(pf->in_begin(), pf->in_end(), [&](auto &t){
-					return nfa.makeAccepting(t.dest);
+					nfa.makeAccepting(t.dest);
 				});
 		}
 	});
 	nfa.removeDeadStates();
+	assert(std::all_of(nfa.start_begin(), nfa.start_end(), [&](auto *s){
+		return std::all_of(s->out_begin(), s->out_end(), [&](auto &t){ return !t.label.isPredicate(); });
+	}));
+	assert(std::all_of(nfa.accept_begin(), nfa.accept_end(), [&](auto *s){
+		return std::all_of(s->in_begin(), s->in_end(), [&](auto &t){ return !t.label.isPredicate(); });
+	}));
 }
 
 struct Path {
