@@ -326,13 +326,9 @@ void pruneNFA(NFA &nfa, const NFA &other)
 			return (!t.label.isPredicate() &&
 				!orels.count(*t.label.getRelation())) ||
 				(t.label.isPredicate() &&
-				 !std::binary_search(opreds.begin(), opreds.end(), t.label.getPreChecks()));
+				 std::none_of(opreds.begin(), opreds.end(),
+					      [&](auto &p){ return t.label.getPreChecks().includes(p); }));
 		});
-	});
-}
-
-		});
-		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
 }
 
