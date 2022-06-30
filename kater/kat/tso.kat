@@ -1,4 +1,4 @@
-save[ppo] ppo = ([R]; po; [W|F|R] | [R|W|F]; po ; [F] | [UW|F] ; po ; [R|W|F]  | [W|R|F]; po ; [W])+
+save[ppo] ppo = ([R]; po | po ; [F] | [UW|F] ; po | po ; [W])+
 
 let tso = (ppo | rfe | mo | fr)
 
