@@ -66,7 +66,6 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 		}
 	});
 	nfa.removeDeadStates();
-	// normalize(nfa, [](auto &t){ return true; });
 }
 
 struct Path {
