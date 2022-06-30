@@ -384,8 +384,6 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 {
 	auto nfa1 = re1->toNFA();
 	normalize(nfa1, vfun);
-	// removeConsecutivePredicates(nfa1);
-	// nfa1.removeDeadStates();
 	if (satInitFinalPreds)
 		saturateInitFinalPreds(nfa1);
 	auto lhs = nfa1.to_DFA().first;
