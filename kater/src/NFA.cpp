@@ -272,7 +272,7 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 		if (isAccepting(sp.s1) &&
 			std::none_of(sp.ss2.begin(), sp.ss2.end(),
 				     [&](auto *s2) { return other.isAccepting(s2); })) {
-			cex = str;
+			cex = str + " (A/NA)";
 			return false;
 		}
 
