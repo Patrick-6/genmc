@@ -593,7 +593,8 @@ void NFA::scm_reduce ()
 NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 {
 	std::vector<std::pair<State *, Transition>> toRemove;
-	std::vector<Transition> toCreate;
+	std::vector<Transition> toCreateStarting;
+	std::unordered_map<State *, std::vector<Transition>> toDuplicateAccepting;
 
 	for (auto it = states_begin(); it != states_end(); ++it) {
 		auto &s = *it;
@@ -607,21 +608,42 @@ NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 					continue;
 
 				auto l = outIt->label;
-				if (l.merge(outIt2->label))
-					toAdd.push_back(Transition(l, outIt2->dest));
+				if (l.merge(outIt2->label)) {
+					auto trans = Transition(l, outIt2->dest);
+					toAdd.push_back(trans);
+					if (isAccepting(outIt->dest)) {
+						toDuplicateAccepting[outIt2->dest].push_back(
+							trans.flipTo(&*s));
+					}
+				}
 				if (isStarting(outIt->dest))
-					toCreate.push_back(*outIt2);
+					toCreateStarting.push_back(*outIt2);
 				toRemove.push_back({outIt->dest, *outIt2});
 			}
 		}
 		addTransitions(&*s, toAdd.begin(), toAdd.end());
 	}
-	if (!toCreate.empty()) {
+	if (!toCreateStarting.empty()) {
 		auto *n = createStarting();
-		addTransitions(n, toCreate.begin(), toCreate.end());
+		addTransitions(n, toCreateStarting.begin(), toCreateStarting.end());
 	}
 	std::for_each(toRemove.begin(), toRemove.end(), [&](auto &p){
 		removeTransition(p.first, p.second);
+	});
+	std::for_each(toDuplicateAccepting.begin(), toDuplicateAccepting.end(), [&](auto &kv){
+		if (std::all_of(kv.first->in_begin(), kv.first->in_end(), [&](auto &t){
+					return std::find(kv.second.begin(), kv.second.end(), t) != kv.second.end(); }))
+			makeAccepting(kv.first);
+		else {
+			auto shouldAcceptTrans = [&](auto &t){
+				return std::find(kv.second.begin(), kv.second.end(), t) != kv.second.end();
+			};
+			auto *d = createAccepting();
+			addTransitions(d, kv.first->out_begin(), kv.first->out_end());
+			addInvertedTransitions(d, kv.first->in_begin(), kv.first->in_end());
+			removeInvertedTransitionsIf(d, [&](auto &t){ return !shouldAcceptTrans(t); });
+			removeInvertedTransitionsIf(kv.first, [&](auto &t){ return shouldAcceptTrans(t); });
+		}
 	});
 	return *this;
 }
