@@ -69,23 +69,17 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 }
 
 struct Path {
-	Path(NFA::State *s, NFA::State *e,
-	     const PredicateSet &f = {}, const PredicateSet &l = {}) : start(s), end(e), fst(f), lst(l) {}
+	Path(NFA::State *s, NFA::State *e) : start(s), end(e) {}
 
 	bool operator==(const Path &other) {
-		return start == other.start && end == other.end && fst == other.fst && lst == other.lst;
+		return start == other.start && end == other.end;
 	}
 	bool operator<(const Path &other) {
-		return start < other.start ||
-		       (start == other.start && end < other.end) ||
-			(start == other.start && end == other.end && fst < other.fst) ||
-			(start == other.start && end == other.end && fst == other.fst && lst < other.lst);
+		return start < other.start || (start == other.start && end < other.end);
 	}
 
 	NFA::State *start;
 	NFA::State *end;
-	PredicateSet fst;
-	PredicateSet lst;
 };
 
 template<typename T>
