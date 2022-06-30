@@ -42,7 +42,7 @@ SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 
 struct Path {
 	Path(NFA::State *s, NFA::State *e,
-	     const PredicateSet &f, const PredicateSet &l) : start(s), end(e), fst(f), lst(l) {}
+	     const PredicateSet &f = {}, const PredicateSet &l = {}) : start(s), end(e), fst(f), lst(l) {}
 
 	bool operator==(const Path &other) {
 		return start == other.start && end == other.end && fst == other.fst && lst == other.lst;
@@ -185,6 +185,67 @@ findAllMatchingPaths(const NFA &pattern, const NFA &nfa)
 	return result;
 }
 
+void findPathsFrom(const NFA &pattern, NFA::State *p,
+		   const NFA &nfa, NFA::State *s,
+		   Path current, std::vector<Path> &collected)
+{
+	if (pattern.isAccepting(p)) {
+		current.end = s;
+		collected.push_back(std::move(current));
+		return;
+	}
+
+	for (auto it = p->out_begin(); it != p->out_end(); ++it ) {
+		auto &tp = *it;
+		/* skip self loops */
+		if (tp.dest == p)
+			continue;
+		for (auto oit = s->out_begin(); oit != s->out_end(); ++oit) {
+			auto &ts = *oit;
+			/* skip self loops */
+			// if (ts.dest == s)
+			// 	continue;
+			if (!transitionsMatchInPath(tp, ts, p->isStarting(), tp.dest->isAccepting()))
+				continue;
+			/* Ensure self loops @ dest match */
+			// if (std::any_of(tp.dest->out_begin(), tp.dest->out_end(), [&](auto &tpp){
+			// 			return tpp.dest == tp.dest &&
+			// 				!nfa.hasTransition(ts.dest,
+			// 						   NFA::Transition(tpp.label, ts.dest)) &&
+			// 				!nfa.hasTransition(s,
+			// 						   NFA::Transition(tpp.label, s));
+
+			// 		}))
+			// 	continue;
+
+			auto lab = ts.label.getPreChecks();
+			lab.minus(tp.label.getPreChecks());
+			if (p->isStarting())
+				current.fst = tp.label.isPredicate() ? lab : PredicateSet();
+			current.lst = tp.label.isPredicate() ? lab : PredicateSet();
+			findPathsFrom(pattern, tp.dest, nfa, ts.dest, current, collected);
+		}
+	}
+}
+
+std::vector<std::vector<Path>>
+findAllMatchingPathsOpt(const NFA &pattern, const NFA &nfa)
+
+{
+	std::vector<std::vector<Path>> result;
+
+	assert(pattern.getNumStarting() == 1);
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		std::vector<Path> ps;
+		findPathsFrom(pattern, *pattern.start_begin(), nfa, &*s, Path(&*s, nullptr), ps);
+		std::sort(ps.begin(), ps.end());
+		ps.erase(std::unique(ps.begin(), ps.end()), ps.end());
+		if (!ps.empty())
+			result.push_back(std::move(ps));
+	});
+	return result;
+}
+
 void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 {
 	assert(&*assm);
@@ -207,7 +268,17 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	auto rNFA = rRE->toNFA();
 	normalize(rNFA, [](auto &t){ return true; });
 
-	auto paths = findAllMatchingPaths(rNFA, nfa);
+	std::vector<std::vector<Path>> paths;
+	auto *seqRE = dynamic_cast<SeqRE *>(lRE);
+	// if (seqRE &&
+	//     std::all_of(seqRE->kid_begin(), seqRE->kid_end(), [&](auto &k){
+	// 		    return dynamic_cast<CharRE *>(k.get()) ||
+	// 			    (dynamic_cast<PlusRE *>(k.get()) &&
+	// 			     dynamic_cast<const CharRE *>(dynamic_cast<PlusRE *>(k.get())->getKid(0).get()));
+	// 	    }))
+		paths = findAllMatchingPathsOpt(rNFA, nfa);
+	// else
+		// paths = findAllMatchingPaths(rNFA, nfa);
 
 	std::vector<NFA::State *> inits(lNFA.start_begin(), lNFA.start_end());
 	std::vector<NFA::State *> finals(lNFA.accept_begin(), lNFA.accept_end());
@@ -216,12 +287,13 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	lNFA.clearAllStarting();
 
 	std::for_each(paths.begin(), paths.end(), [&](auto &ps){
-		std::unordered_map<NFA::State *, NFA::State *> m;
-
-		auto lcopy = lNFA.copy(&m);
-		nfa.alt(std::move(lcopy));
-
 		std::for_each(ps.begin(), ps.end(), [&](auto &p){
+
+			std::unordered_map<NFA::State *, NFA::State *> m;
+
+			auto lcopy = lNFA.copy(&m);
+			nfa.alt(std::move(lcopy));
+
 			std::for_each(inits.begin(), inits.end(), [&](auto *i){
 				if (!p.fst.empty())
 					nfa.addTransition(p.start, NFA::Transition(
@@ -234,7 +306,7 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 					nfa.addTransition(m[f], NFA::Transition(
 								  TransLabel(std::nullopt, p.lst), p.end));
 				else
-					nfa.addEpsilonTransitionPred(m[f], p.end);
+					nfa.addEpsilonTransitionSucc(m[f], p.end);
 			});
 		});
 	});
@@ -341,8 +413,8 @@ void normalize(NFA &nfa, Constraint::ValidFunT vfun)
 	saturateDomains(nfa);
 	nfa.breakToParts();
 	nfa.removeDeadStates();
-	removeConsecutivePredicates(nfa);
-	nfa.removeDeadStates();
+	// removeConsecutivePredicates(nfa);
+	// nfa.removeDeadStates();
 }
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
@@ -352,6 +424,8 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 {
 	auto nfa1 = re1->toNFA();
 	normalize(nfa1, vfun);
+	removeConsecutivePredicates(nfa1);
+	nfa1.removeDeadStates();
 	if (satInitFinalPreds)
 		saturateInitFinalPreds(nfa1);
 	auto lhs = nfa1.to_DFA().first;
@@ -364,12 +438,12 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			normalize(nfa2, vfun);
 		});
 	}
+	removeConsecutivePredicates(nfa2);
+	nfa2.removeDeadStates();
 	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
-
 	auto rhs = nfa2.to_DFA().first;
-	nfa2.simplify(vfun);
 	return lhs.isSubLanguageOfDFA(rhs, cex, vfun);
 }
 
