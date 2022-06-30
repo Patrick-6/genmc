@@ -331,28 +331,6 @@ void pruneNFA(NFA &nfa, const NFA &other)
 	});
 }
 
-void saturateNFA(NFA &nfa, const NFA &other)
-{
-	std::vector<TransLabel> opreds;
-	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
-		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-			if (t.label.isPredicate())
-				opreds.push_back(t.label);
-		});
-	});
-
-	std::sort(opreds.begin(), opreds.end());
-	opreds.erase(std::unique(opreds.begin(), opreds.end()), opreds.end());
-
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		std::vector<NFA::Transition> toAdd;
-		std::for_each(s->out_begin(), s->out_end(), [&](const auto &t){
-			if (!t.label.isPredicate())
-				return;
-			std::for_each(opreds.begin(), opreds.end(), [&](const auto &lab){
-				if (t.label.getPreChecks().includes(lab.getPreChecks()))
-					toAdd.push_back(NFA::Transition(lab, t.dest));
-			});
 		});
 		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
 	});
@@ -428,12 +406,9 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			normalize(nfa2, vfun);
 		});
 	}
-	// removeConsecutivePredicates(nfa2);
-	// nfa2.removeDeadStates();
-	saturateNFA(nfa2, nfa1);
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
-	// auto rhs = nfa2.to_DFA().first;
+	normalize(nfa2, vfun);
 	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 
