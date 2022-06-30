@@ -1,7 +1,8 @@
 let eco1 = (rf | mo | fr)+
 let eco2 = (rf | mo;rf? | fr;rf?)
 
-assume rfi;fr <= mo
-assume rfe;fr <= mo
+assume rfi;fr-imm <= mo-imm
+assume rfe;fr-imm <= mo-imm
 
-assert eco1 = eco2
+assert eco1 <= eco2
+assert eco2 <= eco1
