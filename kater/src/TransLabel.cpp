@@ -64,7 +64,7 @@ std::string TransLabel::toString() const
 {
 	std::stringstream ss;
 
-	if (!getPreChecks().empty())
+	if (isPredicate())
 		ss << getPreChecks() << (!isPredicate() ? ";" : "");
 	if (!isPredicate())
 		ss << getRelation()->getName();
