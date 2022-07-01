@@ -3,6 +3,7 @@
 #include "NFA.hpp"
 #include <fstream>
 #include <iostream>
+#include <deque>
 
 #define DEBUG_TYPE "nfa"
 
@@ -259,7 +260,7 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 	};
 
 	std::unordered_set<SPair, SPairHasher> visited;
-	std::vector<SimState> workList;
+	std::deque<SimState> workList;
 
 	std::for_each(start_begin(), start_end(), [&](auto *s1){
 		std::set<State *> ss(other.start_begin(), other.start_end());
@@ -267,8 +268,9 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 		workList.push_back({{s1, ss}, ""});
 	});
 	while (!workList.empty()) {
-		auto [sp, str] = workList[0];
-		workList.erase(workList.begin());
+		auto [sp, str] = workList.front();
+		workList.pop_front();
+
 		if (isAccepting(sp.s1) &&
 			std::none_of(sp.ss2.begin(), sp.ss2.end(),
 				     [&](auto *s2) { return other.isAccepting(s2); })) {
