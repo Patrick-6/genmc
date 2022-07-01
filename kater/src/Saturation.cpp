@@ -129,6 +129,63 @@ void saturateInitFinalPreds(NFA &nfa)
 	nfa.removeDeadStates();
 }
 
+bool hasPerLocCounterpart(const TransLabel &label)
+{
+	return !label.isPredicate() &&
+		label.getRelation()->hasPerLoc();
+}
+
+Relation getPerLocCounterpart(const TransLabel &label)
+{
+	assert(!label.isPredicate() && label.getRelation()->hasPerLoc());
+	return label.getRelation()->getPerLoc();
+}
+
+bool isEco(const TransLabel &label)
+{
+	assert(!label.isPredicate());
+	auto rf = Relation::createBuiltin(Relation::Builtin::rf).getID();
+	auto rfe = Relation::createBuiltin(Relation::Builtin::rfe).getID();
+	auto rfi = Relation::createBuiltin(Relation::Builtin::rfi).getID();
+	auto mo = Relation::createBuiltin(Relation::Builtin::mo_imm).getID();
+	auto moe = Relation::createBuiltin(Relation::Builtin::moe).getID();
+	auto moi = Relation::createBuiltin(Relation::Builtin::moi).getID();
+	auto fr = Relation::createBuiltin(Relation::Builtin::fr_imm).getID();
+	auto fre = Relation::createBuiltin(Relation::Builtin::fre).getID();
+	auto fri = Relation::createBuiltin(Relation::Builtin::fri).getID();
+
+	auto id = label.getRelation()->getID();
+	return id == rf || id == rfe || id == rfi ||
+		id == mo || id == moe || id == moi ||
+		id == fr || id == fre || id == fri;
+}
+
+void saturateLoc(NFA &nfa)
+{
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		std::vector<NFA::Transition> toAdd, toRemove;
+		for (auto it = s->out_begin(); it != s->out_end(); ++it) {
+			auto &t = *it;
+			if (!hasPerLocCounterpart(t.label))
+				continue;
+
+			auto perloc = true;
+			nfa.foreachPathReachableFrom({t.dest}, [&](std::pair<NFA::State *, NFA::Transition> p){
+				perloc &= (p.second.label.isPredicate() || isEco(p.second.label));
+			});
+			nfa.foreachPathReachingTo({&*s}, [&](std::pair<NFA::State *, NFA::Transition> p){
+				perloc &= (p.second.label.isPredicate() || isEco(p.second.label));
+			});
+			if (!perloc)
+				continue;
+			toRemove.push_back(t);
+			toAdd.push_back(NFA::Transition(TransLabel(getPerLocCounterpart(t.label)), t.dest));
+		}
+		nfa.removeTransitions(&*s, toRemove.begin(), toRemove.end());
+		nfa.addTransitions(&*s, toAdd.begin(), toAdd.end());
+	});
+}
+
 std::vector<TransLabel> collectLabels(const NFA &nfa)
 {
 	std::vector<TransLabel> labels;

@@ -65,6 +65,7 @@ assert			return yy::parser::make_ASSERT	(loc);
 check			return yy::parser::make_CHECK	(loc);
 coherence		return yy::parser::make_COHERENCE (loc);
 declare			return yy::parser::make_DECLARE	(loc);
+declare-loc		return yy::parser::make_DECLARE_LOC (loc);
 empty			return yy::parser::make_EMPTY	(loc);
 error			return yy::parser::make_ERROR	(loc);
 if			return yy::parser::make_IF	(loc);

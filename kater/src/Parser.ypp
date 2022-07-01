@@ -39,6 +39,7 @@
   CHECK     "check"
   COHERENCE "coherence"
   DECLARE   "declare"
+  DECLARE_LOC "declare-loc"
   EMPTY	    "empty"
   ERROR	    "error"
   IF        "if"
@@ -102,6 +103,11 @@ decl:     "include" QPATH                  { drv.parse($2.substr(1, $2.size()-2)
 	| "let" ID "=" rel                 { drv.registerID($2, std::move($4)); }
 	| "declare" ID                     { drv.registerID($2, CharRE::create(
 								    TransLabel(Relation::createUser()))); }
+	| "declare-loc" ID                 { auto r = Relation::createUser();
+	                      		     auto rloc = Relation::createUser();
+					     rloc.markAsPerLocOf(r);
+					     drv.registerID($2, CharRE::create(TransLabel(r)));
+					     drv.registerID($2 + "-loc", CharRE::create(TransLabel(rloc))); }
 	| "save" reduce_opt ID "=" rel     { drv.registerSaveID($3, $2, std::move($5), @$); }
 	| "view" ID "=" rel		   { drv.registerViewID($2, std::move($4)); }
 	| "assume" constraint  		   { drv.registerAssume(std::move($2), @$); }

@@ -509,6 +509,41 @@ public:
 
 	NFA &breakToParts();
 
+	template<typename F>
+	void foreachPathReachableFrom(const std::vector<State *> &ss, F &&fun) const {
+		std::unordered_set<State *> visited;
+		std::vector<State *> workList;
+
+		for (auto *s : ss) {
+			visited.insert(s);
+			workList.push_back(s);
+		}
+		while (!workList.empty()) {
+			auto *s = workList.back();
+			workList.pop_back();
+			for (auto it = s->out_begin(); it != s->out_end(); it++) {
+				fun({s, *it});
+				if (visited.count(it->dest))
+					continue;
+				visited.insert(it->dest);
+				workList.push_back(it->dest);
+			}
+		}
+		return;
+	}
+
+	template<typename F>
+	void foreachPathReachingTo(const std::vector<State *> &ss, F &&fun) {
+		flip();
+		foreachPathReachableFrom(ss, [&](std::pair<State *, Transition> p){
+			/* Interpret the results of foreach as pairs, invert,
+			 * and then feed them to whatever FUN expects */
+			return fun({p.second.dest, p.second.flipTo(p.first)});
+		});
+		flip();
+	}
+
+
 	std::unordered_set<State *>
 	calculateReachableFrom(const std::vector<State *> &ss) const;
 	std::unordered_set<State *>

@@ -81,6 +81,17 @@ public:
 		return static_cast<Builtin>(getID());
 	}
 
+	void markAsPerLocOf(const Relation &other) const {
+		perlocs.insert({other.getID(), *this});
+	}
+
+	Relation getPerLoc() const {
+		assert(perlocs.count(this->getID()));
+		return perlocs.find(this->getID())->second;
+	}
+
+	bool hasPerLoc() const { return perlocs.count(this->getID()); }
+
 	/* Inverses this relation */
 	void invert() { inverse = !inverse; }
 
@@ -126,6 +137,7 @@ private:
 
 	static inline ID dispenser = 0;
 	static const std::unordered_map<Relation::Builtin, RelationInfo> builtins;
+	static std::unordered_map<Relation::ID, Relation> perlocs;
 };
 
 struct RelationHasher {

@@ -30,6 +30,10 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
         {detour,	{"detour",      RelType::OneOne,     {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
 };
 
+std::unordered_map<Relation::ID, Relation> Relation::perlocs = {
+	{po_imm, po_loc_imm},
+};
+
 const PredicateSet &Relation::getDomain() const
 {
 	assert(isBuiltin());
