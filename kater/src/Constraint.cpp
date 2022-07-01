@@ -254,7 +254,7 @@ findAllMatchingPathsOpt(const NFA &pattern, const NFA &nfa)
 	return result;
 }
 
-void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
+void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const NFA &other)
 {
 	assert(&*assm);
 	if (auto *tc = dynamic_cast<TotalityConstraint *>(&*assm)) {
@@ -278,6 +278,11 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 	auto *rRE = &*ec->getKid(1);
 	auto lNFA = lRE->toNFA();
 	normalize(lNFA, [](auto &t){ return true; });
+
+	if (ec->getKid(1)->isFalse()) {
+		saturateEmpty(nfa, std::move(lNFA), other);
+		return;
+	}
 
 	auto rNFA = rRE->toNFA();
 	normalize(rNFA, [](auto &t){ return true; });
@@ -410,13 +415,14 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	normalize(nfa2, vfun);
 	if (!assms.empty()) {
 		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
-			expandAssumption(nfa2, assm);
+			expandAssumption(nfa2, assm, nfa1);
 			normalize(nfa2, vfun);
 		});
 	}
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
 	normalize(nfa2, vfun);
+
 	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 

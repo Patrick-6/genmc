@@ -222,12 +222,10 @@ std::vector<TransLabel> collectLabels(const NFA &nfa)
 	return labels;
 }
 
-void saturateEmpty(NFA &start, NFA &&empty)
+void saturateEmpty(NFA &start, NFA &&empty, const NFA &alphabet)
 {
-	auto labels = collectLabels(start);
-	auto eLabs = collectLabels(empty);
+	auto labels = collectLabels(alphabet);
 
-	labels.insert(labels.end(), eLabs.begin(), eLabs.end());
 	std::sort(labels.begin(), labels.end());
 	labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
 

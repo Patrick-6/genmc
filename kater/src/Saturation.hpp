@@ -24,10 +24,21 @@ void saturatePreds(NFA &nfa, const std::vector<TransLabel> &labs);
 void saturateInitFinalPreds(NFA &nfa);
 
 /*
+ * If all the preds/successors of a given relation R relation are
+ * restricted to a single memory location, it replaces R with its
+ * per-loc counterpart
+ *
+ * Pre: NFA is in normal form
+ */
+void saturateLoc(NFA &nfa);
+
+void saturateID(NFA &nfa, NFA &&id);
+
+/*
  * Saturates the NFA given an NFA EMPTY that corresponds
  * to a relation R = 0
  */
-void saturateEmpty(NFA &nfa, NFA &&empty);
+void saturateEmpty(NFA &nfa, NFA &&empty, const NFA &other);
 
 /*
  * Saturates the NFA given a relation REL. total(REL)
