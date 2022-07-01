@@ -217,22 +217,22 @@ public:
 
 
 /*******************************************************************************
- **                           SubsetID Constraint
+ **                           SubsetSameEnds Constraint
  ******************************************************************************/
 
-class SubsetIDConstraint : public Constraint {
+class SubsetSameEndsConstraint : public Constraint {
 
 protected:
-	SubsetIDConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
+	SubsetSameEndsConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
 		: Constraint() { addKid(std::move(e1)); addKid(std::move(e2)); }
 public:
 	template<typename... Ts>
-	static std::unique_ptr<SubsetIDConstraint> create(Ts&&... params) {
-		return std::unique_ptr<SubsetIDConstraint>(
-			new SubsetIDConstraint(std::forward<Ts>(params)...));
+	static std::unique_ptr<SubsetSameEndsConstraint> create(Ts&&... params) {
+		return std::unique_ptr<SubsetSameEndsConstraint>(
+			new SubsetSameEndsConstraint(std::forward<Ts>(params)...));
 	}
 
-	/* NOTE: Might not return SubsetIDConstraint */
+	/* NOTE: Might not return SubsetSameEndsConstraint */
 	static std::unique_ptr<Constraint>
 	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
 
@@ -292,6 +292,39 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " = " << *getKid(1);
+	}
+};
+
+
+/*******************************************************************************
+ **                           SubsetID Constraint
+ ******************************************************************************/
+
+class SubsetIDConstraint : public Constraint {
+
+protected:
+	SubsetIDConstraint(std::unique_ptr<RegExp> e1)
+		: Constraint() { addKid(std::move(e1)); }
+public:
+	template<typename... Ts>
+	static std::unique_ptr<SubsetIDConstraint> create(Ts&&... params) {
+		return std::unique_ptr<SubsetIDConstraint>(
+			new SubsetIDConstraint(std::forward<Ts>(params)...));
+	}
+
+	/* NOTE: Might not return SubsetIDConstraint */
+	static std::unique_ptr<Constraint>
+	createOpt(std::unique_ptr<RegExp> e1);
+
+	const RegExp *getRelation() const { return getKid(0); }
+	RegExp *getRelation() { return getKid(0).get(); }
+
+	std::unique_ptr<Constraint> clone() const override {
+		return create(getKid(0)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << *getKid(0) << " <= id";
 	}
 };
 

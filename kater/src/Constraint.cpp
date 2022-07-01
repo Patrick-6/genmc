@@ -27,18 +27,22 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 }
 
 std::unique_ptr<Constraint>
-SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> lhs,
-			      std::unique_ptr<RegExp> rhs)
+SubsetSameEndsConstraint::createOpt(std::unique_ptr<RegExp> lhs,
+				    std::unique_ptr<RegExp> rhs)
 {
 	/* Convert `A \ B <= C` to `A <= B | C` */
 	if (auto *minusRE = dynamic_cast<MinusRE *>(&*lhs)) {
-		return SubsetIDConstraint::createOpt(minusRE->releaseKid(0),
-						     AltRE::create(std::move(rhs), minusRE->releaseKid(1)));
+		return SubsetSameEndsConstraint::createOpt(
+			minusRE->releaseKid(0), AltRE::create(std::move(rhs), minusRE->releaseKid(1)));
 	}
-
 	return create(std::move(lhs), std::move(rhs));
 }
 
+std::unique_ptr<Constraint>
+SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> re)
+{
+	return create(std::move(re));
+}
 
 void ignoreInitAndFinalPreds(NFA &nfa)
 {
@@ -257,6 +261,12 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm)
 		saturateTotal(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
 		return;
 	}
+	if (auto *tc = dynamic_cast<SubsetIDConstraint *>(&*assm)) {
+		auto id = tc->getRelation()->toNFA();
+		normalize(id, [](auto &t){ return true; });
+		saturateID(nfa, std::move(id));
+		return;
+	}
 
 	auto *ec = dynamic_cast<SubsetConstraint *>(&*assm);
 	if (!ec) {
@@ -434,8 +444,8 @@ bool EqualityConstraint::checkStatically(const std::vector<std::unique_ptr<Const
 		checkStaticInclusion(getKid(1), getKid(0), assms, cex, vfun);
 }
 
-bool SubsetIDConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
-					 std::string &cex, Constraint::ValidFunT vfun) const
+bool SubsetSameEndsConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
+					       std::string &cex, Constraint::ValidFunT vfun) const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun, true);
 }

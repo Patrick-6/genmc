@@ -68,7 +68,7 @@ declare			return yy::parser::make_DECLARE	(loc);
 declare-loc		return yy::parser::make_DECLARE_LOC (loc);
 empty			return yy::parser::make_EMPTY	(loc);
 error			return yy::parser::make_ERROR	(loc);
-if			return yy::parser::make_IF	(loc);
+id			return yy::parser::make_ID_REL	(loc);
 include			return yy::parser::make_INCLUDE	(loc);
 let			return yy::parser::make_LET	(loc);
 recovery		return yy::parser::make_RECOVERY (loc);

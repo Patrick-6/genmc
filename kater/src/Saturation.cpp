@@ -186,6 +186,31 @@ void saturateLoc(NFA &nfa)
 	});
 }
 
+void saturateID(NFA &nfa, NFA &&id)
+{
+	std::vector<NFA::State *> inits(id.start_begin(), id.start_end());
+	std::vector<NFA::State *> fnals(id.accept_begin(), id.accept_end());
+
+	id.clearAllStarting();
+	id.clearAllAccepting();
+
+	std::vector<NFA::State *> states;
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){ states.push_back(&*s); });
+
+	std::for_each(states.begin(), states.end(), [&](auto *s){
+		std::unordered_map<NFA::State *, NFA::State *> m;
+		auto c = id.copy(&m);
+
+		nfa.alt(std::move(c));
+		std::for_each(inits.begin(), inits.end(), [&](auto *i){
+			nfa.addEpsilonTransitionSucc(s, m[i]);
+		});
+		std::for_each(fnals.begin(), fnals.end(), [&](auto *f){
+			nfa.addEpsilonTransitionSucc(m[f], s);
+		});
+	});
+}
+
 std::vector<TransLabel> collectLabels(const NFA &nfa)
 {
 	std::vector<TransLabel> labels;
