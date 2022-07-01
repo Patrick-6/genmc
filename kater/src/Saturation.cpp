@@ -300,6 +300,7 @@ void saturateRotate(NFA &nfa)
 {
 	NFA result;
 
+	nfa.simplify();
 	for (auto it = nfa.states_begin(); it != nfa.states_end(); ++it) {
 		auto &s = *it;
 		if (nfa.isStarting(&*s) ||
