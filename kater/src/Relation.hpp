@@ -26,32 +26,45 @@ public:
 	using ID = int;
 
         enum Builtin {
-		/* po */
-		po_imm = 0,
-		po_loc_imm,
-		/* deps */
-		ctrl_imm,
-		addr_imm,
-		data_imm,
+		/*** CAUTION: The dummy IDs should not be a part of the builtin map */
+
 		/* same thread */
 		same_thread,
 		/* same location */
 		alloc,
 		frees,
 		loc_overlap,
-		/* rf, co, fr, detour */
-		rf,
-		rfe,
-		rfi,
+		/* tc, tj */
 		tc,
 		tj,
+		/* rf, co, fr */
+		PerLocBegin,
+		rf,
 		mo_imm,
-		moe,
-		moi,
 		fr_imm,
+		/* rfe, coe, fre */
+		rfe,
+		moe,
 		fre,
+		/* deps */
+		WithinPoBegin,
+		ctrl_imm,
+		addr_imm,
+		data_imm,
+		/* rfi, coi, fri*/
+		rfi,
+		moi,
 		fri,
+		/* detour */
 		detour,
+		/* po-loc */
+		po_loc_imm,
+		WithinPoLast,
+		PerLocLast,
+		/* po */
+		po_imm,
+		/* any */
+		any,
 	};
 
 	using builtin_iterator = std::unordered_map<Relation::Builtin,

@@ -28,6 +28,8 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
         {fre,		{"fre",         RelType::ManyOne,    {Predicate::createBuiltin(PB::R)},  {Predicate::createBuiltin(PB::W)}, false}},
         {fri,		{"fri",         RelType::ManyOne,    {Predicate::createBuiltin(PB::R)},  {Predicate::createBuiltin(PB::W)}, false}},
         {detour,	{"detour",      RelType::OneOne,     {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
+	/* any */
+        {any,		{"any",         RelType::OneOne,     {},  {}, false}},
 };
 
 std::unordered_map<Relation::ID, Relation> Relation::perlocs = {
