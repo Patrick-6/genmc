@@ -224,20 +224,11 @@ std::vector<TransLabel> collectLabels(const NFA &nfa)
 
 void saturateEmpty(NFA &start, NFA &&empty, const NFA &alphabet)
 {
-	auto labels = collectLabels(alphabet);
-
-	std::sort(labels.begin(), labels.end());
-	labels.erase(std::unique(labels.begin(), labels.end()), labels.end());
-
 	std::for_each(empty.start_begin(), empty.start_end(), [&](auto &s){
-		std::for_each(labels.begin(), labels.end(), [&](auto &lab){
-			empty.addSelfTransition(s, lab);
-		});
+		empty.addSelfTransition(s, TransLabel(Relation::createBuiltin(Relation::Builtin::any)));
 	});
 	std::for_each(empty.accept_begin(), empty.accept_end(), [&](auto &a){
-		std::for_each(labels.begin(), labels.end(), [&](auto &lab){
-			empty.addSelfTransition(a, lab);
-		});
+		empty.addSelfTransition(a, TransLabel(Relation::createBuiltin(Relation::Builtin::any)));
 	});
 
 	start.alt(std::move(empty));
