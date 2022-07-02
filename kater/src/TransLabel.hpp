@@ -81,8 +81,9 @@ public:
 	bool composesWith(const TransLabel &other) const;
 
 	bool matches(const TransLabel &other) const {
-		return *this == other ||
-			(isPredicate() && other.isPredicate() && getPreChecks().includes(other.getPreChecks()));
+		return getPreChecks().includes(other.getPreChecks()) &&
+			(!isRelation() || (other.isRelation() && getRelation()->includes(*other.getRelation()))) &&
+			getPostChecks().includes(other.getPostChecks());
 	}
 
 	std::string toString() const;

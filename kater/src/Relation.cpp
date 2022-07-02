@@ -50,6 +50,44 @@ const PredicateSet &Relation::getCodomain() const
 		builtins.find(toBuiltin())->second.codom;
 }
 
+bool Relation::includes(const Relation &other) const
+{
+	if (*this == other)
+		return true;
+
+	/* r <= any */
+	if (isBuiltin() && toBuiltin() == Builtin::any)
+		return true;
+	if (other.isBuiltin() && other.toBuiltin() == Builtin::any)
+		return false;
+
+	/* flipped? */
+	if (isInverse() != other.isInverse())
+		return false;
+
+	/* r&loc <= r */
+	if (hasPerLoc() && getPerLoc() == other)
+		return true;
+
+	/* special cases for builtins */
+	if (!isBuiltin() || !other.isBuiltin())
+		return false;
+
+	auto lb = toBuiltin();
+	auto rb = other.toBuiltin();
+
+	/* rfe, rfi <= rf */
+	if (lb == Builtin::rf && (rb == Builtin::rfi || rb == Builtin::rfe))
+		return true;
+
+	/* moi, rfi, fri <= po,po-loc */
+	if ((lb == Builtin::po_imm || lb == Builtin::po_loc_imm) &&
+	    Builtin::WithinPoBegin <= rb && rb <= Builtin::WithinPoLast)
+		return true;
+
+	return false;
+}
+
 std::string Relation::getName() const
 {
 	return (isBuiltin() ? Relation::builtins.find(toBuiltin())->second.name :

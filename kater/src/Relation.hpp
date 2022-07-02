@@ -117,6 +117,9 @@ public:
 	/* ***builtins only*** returns the codomain of the relation */
 	const PredicateSet &getCodomain() const;
 
+	/* Returns true if OTHER is included in THIS */
+	bool includes(const Relation &other) const;
+
 	std::string getName() const;
 
 	bool operator==(const Relation &other) const {
