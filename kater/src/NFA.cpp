@@ -791,8 +791,8 @@ NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 	applyBidirectionally([&](){ scm_reduce(); });
 	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
 
-	applyBidirectionally([&](){ removeSimilarTransitions(); });
-	KATER_DEBUG(std::cout << "After similar-transition removal: " << *this;);
+	// applyBidirectionally([&](){ removeSimilarTransitions(); });
+	// KATER_DEBUG(std::cout << "After similar-transition removal: " << *this;);
 
 	applyBidirectionally([&](){ removeDeadStates(); });
 	KATER_DEBUG(std::cout << "After dead-state removal: " << *this;);
