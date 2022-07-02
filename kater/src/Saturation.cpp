@@ -261,7 +261,8 @@ void saturateTotal(NFA &nfa, const Relation &rel)
 		std::vector<NFA::Transition> ins(s->in_begin(), s->in_end());
 		std::for_each(ins.begin(), ins.end(), [&](auto &t){
 			assert(t.label == lab);
-			nfa.addEpsilonTransitionPred(s, t.dest);
+			nfa.addEpsilonTransitionPred(s, t.dest); /* rel+ */
+			nfa.addEpsilonTransitionSucc(t.dest, s); /* rel? */
 		});
 	});
 }
