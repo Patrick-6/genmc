@@ -52,6 +52,8 @@ public:
 
 	bool isPredicate() const { return !getRelation(); }
 
+	bool isRelation() const { return !isPredicate(); }
+
 	bool hasPreChecks() const { return !getPreChecks().empty(); }
 
 	bool hasPostChecks() const { return !getPostChecks().empty(); }
