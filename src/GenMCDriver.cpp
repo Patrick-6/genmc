@@ -425,7 +425,8 @@ void GenMCDriver::checkHelpingCasAnnotation()
 			      "Unordered store to helping CAS location!\n");
 
 		/* Special case for the initializer (as above) */
-		if (hLab->getExpected() == EE->getLocInitVal(hLab->getAddr(), hLab->getAccess())) {
+		if (hLab->getAddr().isStatic() &&
+		    hLab->getExpected() == EE->getLocInitVal(hLab->getAddr(), hLab->getAccess())) {
 			auto rs = g.collectAllEvents([&](const EventLabel *lab){
 				auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 				return rLab && rLab->getAddr() == hLab->getAddr();
