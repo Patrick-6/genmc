@@ -11,14 +11,14 @@ extern "C"
 /*
  * Blocks the current execution if the argument is false
  */
-void __VERIFIER_assume(int);
+void __VERIFIER_assume(int) __attribute__ ((__nothrow__));
 
 /*
  * Models a limited amount of non-determinism by returning
  * a pseudo-random sequence of integers. This sequence
  * is always the same per execution for each thread
  */
-int __VERIFIER_nondet_int(void);
+int __VERIFIER_nondet_int(void) __attribute__ ((__nothrow__));
 
 /*
  * Marker functions that can be used to mark the
@@ -41,9 +41,9 @@ int __VERIFIER_nondet_int(void);
  * NOTE: These should _not_ be used on top of the
  * automatic spin-assume transformation.
  */
-void __VERIFIER_loop_begin(void);
-void __VERIFIER_spin_start(void);
-void __VERIFIER_spin_end(int);
+void __VERIFIER_loop_begin(void) __attribute__ ((__nothrow__));
+void __VERIFIER_spin_start(void) __attribute__ ((__nothrow__));
+void __VERIFIER_spin_end(int) __attribute__ ((__nothrow__));
 
 /*
  * Marker function that denotes that a store is local.
@@ -210,14 +210,14 @@ typedef __VERIFIER_hazptr_t __VERIFIER_hp_t;
  * by the user. This routine will run after each execution,
  * if the checker is run with the respective flags enabled
  */
-void __VERIFIER_recovery_routine(void);
+void __VERIFIER_recovery_routine(void) __attribute__ ((__nothrow__));
 
 /*
  * All the file opeartions before this barrier will
  * have persisted to memory when the recovery routine runs.
  * Should be used only once.
  */
-void __VERIFIER_pbarrier(void);
+void __VERIFIER_pbarrier(void) __attribute__ ((__nothrow__));
 
 #ifdef __cplusplus
 }
