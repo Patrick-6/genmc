@@ -169,10 +169,8 @@ extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier);
 /*
  * Annotate a subsequent instruction with the given mask.
  */
-extern void __VERIFIER_annotate_read(int mask);
-extern void __VERIFIER_annotate_write(int mask);
-extern void __VERIFIER_annotate_CAS(int mask);
-extern void __VERIFIER_annotate_FAI(int mask);
+extern void __VERIFIER_annotate_begin(int mask) __attribute__ ((__nothrow__));
+extern void __VERIFIER_annotate_end(int mask) __attribute__ ((__nothrow__));
 
 /* Marks the beginning of an optional block. */
 extern int __VERIFIER_opt_begin(void);

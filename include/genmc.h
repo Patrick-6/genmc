@@ -52,8 +52,9 @@ void __VERIFIER_spin_end(int);
  */
 #define __VERIFIER_local_write(s)			\
 do {							\
-	__VERIFIER_annotate_write(GENMC_ATTR_LOCAL);	\
+	__VERIFIER_annotate_begin(GENMC_ATTR_LOCAL);	\
 	s;						\
+	__VERIFIER_annotate_end(GENMC_ATTR_LOCAL);	\
 } while (0)
 
 /*
@@ -62,8 +63,9 @@ do {							\
  */
 #define __VERIFIER_final_write(s)			\
 do {							\
-	__VERIFIER_annotate_write(GENMC_ATTR_FINAL);	\
+	__VERIFIER_annotate_begin(GENMC_ATTR_FINAL);	\
 	s;						\
+	__VERIFIER_annotate_end(GENMC_ATTR_FINAL);	\
 } while (0)
 
 /*
@@ -75,13 +77,15 @@ do {							\
  */
 #define __VERIFIER_helped_CAS(c)			\
 do {							\
-	__VERIFIER_annotate_CAS(GENMC_KIND_HELPED);	\
+	__VERIFIER_annotate_begin(GENMC_KIND_HELPED);	\
 	c;						\
+	__VERIFIER_annotate_end(GENMC_KIND_HELPED);	\
 } while (0)
 #define __VERIFIER_helping_CAS(c)			\
 do {							\
-	__VERIFIER_annotate_CAS(GENMC_KIND_HELPING);	\
+	__VERIFIER_annotate_begin(GENMC_KIND_HELPING);	\
 	c;						\
+	__VERIFIER_annotate_end(GENMC_KIND_HELPING);	\
 } while (0)
 
 
@@ -105,24 +109,32 @@ do {							\
  */
 #define __VERIFIER_speculative_read(c)			\
 ({							\
-	__VERIFIER_annotate_read(GENMC_KIND_SPECUL);	\
-	c;						\
+	__VERIFIER_annotate_begin(GENMC_KIND_SPECUL);	\
+	__auto_type __ret = c;				\
+	__VERIFIER_annotate_end(GENMC_KIND_SPECUL);	\
+	__ret;						\
 })
 #define __VERIFIER_confirming_read(c)			\
 ({							\
-	__VERIFIER_annotate_read(GENMC_KIND_CONFIRM);	\
-	c;						\
+	__VERIFIER_annotate_begin(GENMC_KIND_CONFIRM);	\
+	__auto_type __ret = c;				\
+	__VERIFIER_annotate_end(GENMC_KIND_CONFIRM);	\
+	__ret;						\
 })
 #define __VERIFIER_confirming_CAS(c)			\
 ({							\
-	__VERIFIER_annotate_CAS(GENMC_KIND_CONFIRM);	\
-	c;						\
+	__VERIFIER_annotate_begin(GENMC_KIND_CONFIRM);	\
+	__auto_type __ret = c;				\
+	__VERIFIER_annotate_end(GENMC_KIND_CONFIRM);	\
+	__ret;						\
 })
 
 #define __VERIFIER_final_CAS(c)				\
 ({							\
-	__VERIFIER_annotate_CAS(GENMC_ATTR_FINAL);	\
-	c;						\
+	__VERIFIER_annotate_begin(GENMC_ATTR_FINAL);	\
+	__auto_type __ret = c;				\
+	__VERIFIER_annotate_end(GENMC_ATTR_FINAL);	\
+	__ret;						\
 })
 
 
