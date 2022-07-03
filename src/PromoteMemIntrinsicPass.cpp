@@ -38,7 +38,7 @@ using namespace llvm;
 void PromoteMemIntrinsicPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
 {
 	/* Run after the inliner because it might generate new memcpys */
-	au.addRequired<FunctionInlinerPass>();
+	// au.addRequired<FunctionInlinerPass>();
 }
 
 void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src,
