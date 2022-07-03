@@ -362,4 +362,38 @@ public:
 	}
 };
 
+
+/*******************************************************************************
+ **                           Transitivity Constraint
+ ******************************************************************************/
+
+class TransitivityConstraint : public Constraint {
+
+protected:
+	TransitivityConstraint(std::unique_ptr<RegExp> e)
+		: Constraint() { addKid(std::move(e)); }
+public:
+	template<typename... Ts>
+	static std::unique_ptr<TransitivityConstraint> create(Ts&&... params) {
+		return std::unique_ptr<TransitivityConstraint>(
+			new TransitivityConstraint(std::forward<Ts>(params)...));
+	}
+
+	static std::unique_ptr<Constraint>
+	createOpt(std::unique_ptr<RegExp> e) {
+		return create(std::move(e));
+	}
+
+	const RegExp *getRelation() const { return getKid(0); }
+	RegExp *getRelation() { return getKid(0).get(); }
+
+	std::unique_ptr<Constraint> clone() const override {
+		return create(getKid(0)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << "transitive " << *getKid(0);
+	}
+};
+
 #endif /* __CONSTRAINT_HPP__ */

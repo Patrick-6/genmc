@@ -34,6 +34,8 @@ void saturateLoc(NFA &nfa);
 
 void saturateID(NFA &nfa, NFA &&id);
 
+void saturateTransitive(NFA &nfa, const Relation &rel);
+
 /*
  * Saturates the NFA given an NFA EMPTY that corresponds
  * to a relation R = 0

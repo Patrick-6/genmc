@@ -211,6 +211,21 @@ void saturateID(NFA &nfa, NFA &&id)
 	});
 }
 
+void saturateTransitive(NFA &nfa, const Relation &rel)
+{
+	TransLabel lab(rel);
+	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
+		std::vector<NFA::State *> toAdd;
+		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
+			if (t.label == lab)
+				toAdd.push_back(t.dest);
+		});
+		std::for_each(toAdd.begin(), toAdd.end(), [&](auto *sp){
+			nfa.addSelfTransition(sp, lab);
+		});
+	});
+}
+
 std::vector<TransLabel> collectLabels(const NFA &nfa)
 {
 	std::vector<TransLabel> labels;

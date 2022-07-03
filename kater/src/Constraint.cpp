@@ -261,6 +261,10 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const N
 		saturateTotal(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
 		return;
 	}
+	if (auto *tc = dynamic_cast<TransitivityConstraint *>(&*assm)) {
+		saturateTransitive(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
+		return;
+	}
 	if (auto *tc = dynamic_cast<SubsetIDConstraint *>(&*assm)) {
 		auto id = tc->getRelation()->toNFA();
 		normalize(id, [](auto &t){ return true; });
@@ -425,7 +429,6 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	pruneNFA(nfa2, nfa1);
 	nfa2.removeDeadStates();
 	normalize(nfa2, vfun);
-
 	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 
