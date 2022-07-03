@@ -4,7 +4,7 @@ include "../kat/rc11.kat"
   // po?;[R] <= [F];po;[R],
   // [W];po;[R] = 0
 assume [W];po;[R] <= [W];po;[F];po;[R]
-assume rfi <= po
+// assume rfi <= po
   // [W];po <= [W];po;[F]
   // [W];po-imm <= [W];po-imm;[F],
   // [SC];[W];po;[SC;R] <= [SC;W];po;[F];po;[SC;R]
