@@ -324,12 +324,12 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const N
 
 void pruneNFA(NFA &nfa, const NFA &other)
 {
-	std::unordered_set<Relation, RelationHasher> orels;
+	std::vector<Relation> orels;
 	std::vector<PredicateSet> opreds;
 	std::for_each(other.states_begin(), other.states_end(), [&](auto &s){
 		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
 			if (!t.label.isPredicate())
-				orels.insert(*t.label.getRelation());
+				orels.push_back(*t.label.getRelation());
 			else
 				opreds.push_back(t.label.getPreChecks());
 		});
@@ -337,11 +337,14 @@ void pruneNFA(NFA &nfa, const NFA &other)
 
 	std::sort(opreds.begin(), opreds.end());
 	opreds.erase(std::unique(opreds.begin(), opreds.end()), opreds.end());
+	std::sort(orels.begin(), orels.end());
+	orels.erase(std::unique(orels.begin(), orels.end()), orels.end());
 
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		nfa.removeTransitionsIf(&*s, [&](auto &t){
-			return (!t.label.isPredicate() &&
-				!orels.count(*t.label.getRelation())) ||
+			return (t.label.isRelation() &&
+				std::none_of(orels.begin(), orels.end(),
+					     [&](auto &r){ return t.label.getRelation()->includes(r); })) ||
 				(t.label.isPredicate() &&
 				 std::none_of(opreds.begin(), opreds.end(),
 					      [&](auto &p){ return t.label.getPreChecks().includes(p); }));
