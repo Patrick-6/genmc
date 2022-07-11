@@ -560,9 +560,101 @@ bool TSOChecker::visitRecovery7(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
+	if (!visitHbloc(lab->getPos()))
+		return false;
 	--visitedRecAccepting;
 	visitedRecovery7[lab->getStamp()] = { visitedRecAccepting, NodeStatus::left };
 	return true;
+}
+
+bool isPbValid(const EventLabel *lab)
+{
+	return llvm::isa<CLFlushLabel>(lab) ||
+		(llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() &&
+		 llvm::isa<WriteLabel>(lab));
+}
+
+SAddr getLoc(const EventLabel *lab)
+{
+	if (auto *fLab = llvm::dyn_cast<CLFlushLabel>(lab))
+		return fLab->getAddr();
+	if (auto *wLab = llvm::dyn_cast<MemAccessLabel>(lab))
+		if (wLab->getAddr().isDurable())
+			return wLab->getAddr();
+	BUG();
+	return SAddr();
+}
+
+bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event> &visited)
+{
+	if (visited.count(lab->getPos()))
+		return true;
+
+	auto &g = getGraph();
+	visited.insert(lab->getPos());
+
+	for (auto &p : lab->calculated(0)) {
+		auto *pLab = g.getEventLabel(p);
+		if (isPbValid(pLab) && getLoc(pLab) == loc) {
+			auto &node = visitedRecovery7[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+				return false;
+			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+				return false;
+		}
+		if (!visitHbloc(pLab, loc, visited))
+			return false;
+	}
+	for (auto &p : rfe_preds(g, lab->getPos())) {
+		auto *pLab = g.getEventLabel(p);
+		if (isPbValid(pLab) && getLoc(pLab) == loc) {
+			auto &node = visitedRecovery7[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+				return false;
+			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+				return false;
+		}
+		if (!visitHbloc(pLab, loc, visited))
+			return false;
+	}
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto *pLab = g.getEventLabel(p);
+		if (isPbValid(pLab) && getLoc(pLab) == loc) {
+			auto &node = visitedRecovery7[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+				return false;
+			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+				return false;
+		}
+		if (!visitHbloc(pLab, loc, visited))
+			return false;
+	}
+	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto *pLab = g.getEventLabel(p);
+		if (isPbValid(pLab) && getLoc(pLab) == loc) {
+			auto &node = visitedRecovery7[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+				return false;
+			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+				return false;
+		}
+		if (!visitHbloc(pLab, loc, visited))
+			return false;
+	}
+	visited.erase(lab->getPos());
+	return true;
+}
+
+bool TSOChecker::visitHbloc(const Event &e)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	if (!isPbValid(lab))
+		return true;
+
+	auto loc = getLoc(lab);
+	VSet<Event> visited;
+	return visitHbloc(lab, loc, visited);
 }
 
 bool TSOChecker::isRecAcyclic(const Event &e)
@@ -599,4 +691,3 @@ bool TSOChecker::isRecoveryValid(const Event &e)
 {
 	return isRecAcyclic(e);
 }
-

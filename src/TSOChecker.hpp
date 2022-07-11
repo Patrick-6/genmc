@@ -82,6 +82,9 @@ private:
 	bool visitRecovery6(const Event &e);
 	bool visitRecovery7(const Event &e);
 
+	bool visitHbloc(const Event &e);
+	bool visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event> &visited);
+
 	bool isRecAcyclic(const Event &e);
 
 	std::vector<NodeCountStatus> visitedRecovery0;
