@@ -641,7 +641,7 @@ bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event>
 		if (!visitHbloc(pLab, loc, visited))
 			return false;
 	}
-	visited.erase(lab->getPos());
+	// visited.erase(lab->getPos());
 	return true;
 }
 
