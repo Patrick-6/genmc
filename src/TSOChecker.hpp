@@ -25,6 +25,7 @@
 #ifndef __TSO_CHECKER_HPP__
 #define __TSO_CHECKER_HPP__
 
+#include "config.h"
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
 #include "MaximalIterator.hpp"
@@ -52,25 +53,30 @@ public:
 	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
 	bool isRecoveryValid(const Event &e);
+	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
 
 private:
 	void visitCalc0_0(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_1(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
+	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
+	void visitCalc0_5(const Event &e, VSet<Event> &calcRes);
 
 	VSet<Event> calculate0(const Event &e);
 
-	std::vector<NodeStatus> visitedCalc0_0;
-	std::vector<NodeStatus> visitedCalc0_1;
-	std::vector<NodeStatus> visitedCalc0_2;
-	std::vector<NodeStatus> visitedCalc0_3;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_0;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_2;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_3;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_4;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_5;
 
 	bool visitAcyclic0(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
-	std::vector<NodeCountStatus> visitedAcyclic0;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic0;
 
 	uint16_t visitedAccepting = 0;
 	bool visitRecovery0(const Event &e);
@@ -81,10 +87,10 @@ private:
 	bool visitRecovery5(const Event &e);
 	bool visitRecovery6(const Event &e);
 	bool visitRecovery7(const Event &e);
+	bool visitRecovery8(const Event &e);
 
 	bool visitHbloc(const Event &e);
 	bool visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event> &visited);
-
 	bool isRecAcyclic(const Event &e);
 
 	std::vector<NodeCountStatus> visitedRecovery0;
@@ -95,8 +101,15 @@ private:
 	std::vector<NodeCountStatus> visitedRecovery5;
 	std::vector<NodeCountStatus> visitedRecovery6;
 	std::vector<NodeCountStatus> visitedRecovery7;
+	std::vector<NodeCountStatus> visitedRecovery8;
 
 	uint16_t visitedRecAccepting = 0;
+	void visitPPoRf0(const Event &e, DepView &pporf);
+
+	DepView calcPPoRfBefore(const Event &e);
+
+	std::vector<NodeStatus> visitedPPoRf0;
+
 	std::vector<VSet<Event>> saved;
 	std::vector<View> views;
 

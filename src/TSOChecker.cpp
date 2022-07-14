@@ -34,7 +34,7 @@ void TSOChecker::visitCalc0_0(const Event &e, VSet<Event> &calcRes)
 	calcRes.insert(e);
 	for (const auto &p : lab->calculated(0)) {
 		calcRes.erase(p);
-		visitedCalc0_1[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
+		visitedCalc0_3[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
 	}
 	for (auto &p : lab->calculated(0)) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
@@ -51,15 +51,15 @@ void TSOChecker::visitCalc0_1(const Event &e, VSet<Event> &calcRes)
 	auto t = 0u;
 
 	visitedCalc0_1[lab->getStamp()] = NodeStatus::entered;
-	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_1[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
+			visitCalc0_1(p, calcRes);
 	}
-	if (true && llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && g.isRMWStore(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
+			visitCalc0_0(p, calcRes);
 	}
 	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<ReadLabel>(g.getEventLabel(p))) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
@@ -70,21 +70,6 @@ void TSOChecker::visitCalc0_1(const Event &e, VSet<Event> &calcRes)
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
-	}
-	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
-	if (true && llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_2(p, calcRes);
 	}
 	visitedCalc0_1[lab->getStamp()] = NodeStatus::left;
 }
@@ -96,12 +81,7 @@ void TSOChecker::visitCalc0_2(const Event &e, VSet<Event> &calcRes)
 	auto t = 0u;
 
 	visitedCalc0_2[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<ReadLabel>(g.getEventLabel(p))) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<FenceLabel>(g.getEventLabel(p))) {
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
@@ -122,16 +102,116 @@ void TSOChecker::visitCalc0_3(const Event &e, VSet<Event> &calcRes)
 
 	visitedCalc0_3[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
+		auto status = visitedCalc0_1[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
+			visitCalc0_1(p, calcRes);
 	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && g.isRMWStore(g.getEventLabel(p))) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
 	}
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<ReadLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<FenceLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
+	if (true && llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
+	}
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_5(p, calcRes);
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_5(p, calcRes);
+	}
 	visitedCalc0_3[lab->getStamp()] = NodeStatus::left;
+}
+
+void TSOChecker::visitCalc0_4(const Event &e, VSet<Event> &calcRes)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
+
+	visitedCalc0_4[lab->getStamp()] = NodeStatus::entered;
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
+	}
+	visitedCalc0_4[lab->getStamp()] = NodeStatus::left;
+}
+
+void TSOChecker::visitCalc0_5(const Event &e, VSet<Event> &calcRes)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
+
+	visitedCalc0_5[lab->getStamp()] = NodeStatus::entered;
+	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_5(p, calcRes);
+	}
+	visitedCalc0_5[lab->getStamp()] = NodeStatus::left;
 }
 
 VSet<Event> TSOChecker::calculate0(const Event &e)
@@ -145,9 +225,13 @@ VSet<Event> TSOChecker::calculate0(const Event &e)
 	visitedCalc0_2.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
 	visitedCalc0_3.clear();
 	visitedCalc0_3.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
+	visitedCalc0_4.clear();
+	visitedCalc0_4.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
+	visitedCalc0_5.clear();
+	visitedCalc0_5.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
 
 	getGraph().getEventLabel(e)->setCalculated({{}, });
-	visitCalc0_1(e, calcRes);
+	visitCalc0_3(e, calcRes);
 	return calcRes;
 }
 std::vector<VSet<Event>> TSOChecker::calculateSaved(const Event &e)
@@ -176,13 +260,6 @@ bool TSOChecker::visitAcyclic0(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : rfe_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : co_imm_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
@@ -191,6 +268,13 @@ bool TSOChecker::visitAcyclic0(const Event &e)
 			return false;
 	}
 	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rfe_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
@@ -224,8 +308,8 @@ bool TSOChecker::visitRecovery0(const Event &e)
 
 	visitedRecovery0[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
 	for (auto &p : poloc_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
@@ -273,56 +357,35 @@ bool TSOChecker::visitRecovery2(const Event &e)
 	auto t = 0u;
 
 	visitedRecovery2[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
+	for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rfe_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
 	for (auto &p : lab->calculated(0))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	for (auto &p : rfe_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : lab->calculated(0)) {
+	for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
 		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	for (auto &p : rfe_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+	for (auto &p : rfe_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
 		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
 			return false;
@@ -340,9 +403,37 @@ bool TSOChecker::visitRecovery3(const Event &e)
 	auto t = 0u;
 
 	visitedRecovery3[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
-	if (true && lab->getThread() == g.getRecoveryRoutineId())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
@@ -358,16 +449,9 @@ bool TSOChecker::visitRecovery4(const Event &e)
 	auto t = 0u;
 
 	visitedRecovery4[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery4[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery4(p))
+	if (true && lab->getThread() == g.getRecoveryRoutineId())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
@@ -383,14 +467,14 @@ bool TSOChecker::visitRecovery5(const Event &e)
 	auto t = 0u;
 
 	visitedRecovery5[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
-	for (auto &p : po_imm_succs(g, lab->getPos())) {
-		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery4[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery4(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	for (auto &p : po_imm_succs(g, lab->getPos())) {
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto &node = visitedRecovery5[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery5(p))
 			return false;
@@ -408,28 +492,14 @@ bool TSOChecker::visitRecovery6(const Event &e)
 	auto t = 0u;
 
 	visitedRecovery6[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
-	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery5[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+	for (auto &p : po_imm_succs(g, lab->getPos())) {
 		auto &node = visitedRecovery4[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery4(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	for (auto &p : po_imm_succs(g, lab->getPos())) {
 		auto &node = visitedRecovery6[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery6(p))
 			return false;
@@ -446,30 +516,8 @@ bool TSOChecker::visitRecovery7(const Event &e)
 	auto *lab = g.getEventLabel(e);
 	auto t = 0u;
 
-	++visitedRecAccepting;
 	visitedRecovery7[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery1[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery1(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : lab->calculated(0))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<CLFlushLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : rfe_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
 		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
 			return false;
@@ -477,50 +525,15 @@ bool TSOChecker::visitRecovery7(const Event &e)
 			return false;
 	}
 	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : co_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
-		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : lab->calculated(0)) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : rfe_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery6[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery6(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
@@ -532,6 +545,130 @@ bool TSOChecker::visitRecovery7(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
+	visitedRecovery7[lab->getStamp()] = { visitedRecAccepting, NodeStatus::left };
+	return true;
+}
+
+bool TSOChecker::visitRecovery8(const Event &e)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
+
+	++visitedRecAccepting;
+	visitedRecovery8[lab->getStamp()] = { visitedRecAccepting, NodeStatus::entered };
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery7[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : co_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery3[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : lab->calculated(0))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : lab->calculated(0))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : co_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : poloc_imm_preds(g, lab->getPos()))if (true && llvm::isa<MemAccessLabel>(g.getEventLabel(p)) && llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(p))->getAddr().isDurable() && llvm::isa<WriteLabel>(g.getEventLabel(p))) {
+		auto &node = visitedRecovery8[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery1[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery1(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : lab->calculated(0))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : co_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDurable() && llvm::isa<WriteLabel>(lab))for (auto &p : fr_imm_preds(g, lab->getPos()))if (true && g.getEventLabel(p)->getThread() != g.getRecoveryRoutineId()) {
+		auto &node = visitedRecovery2[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
+	if (true && SmpFenceLabelLKMM::isType(lab, SmpFenceType::MBAUL))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery0[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery0(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
+			return false;
+	}
 	for (auto &p : po_imm_preds(g, lab->getPos()))if (true && llvm::isa<CLFlushLabel>(g.getEventLabel(p))) {
 		auto &node = visitedRecovery0[g.getEventLabel(p)->getStamp()];
 		if (node.status == NodeStatus::unseen && !visitRecovery0(p))
@@ -539,23 +676,16 @@ bool TSOChecker::visitRecovery7(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
-	if (true && llvm::isa<CLFlushLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery0[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery0(p))
+	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedRecovery6[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery6(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
 	}
 	for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery4[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery4(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedRecovery6[g.getEventLabel(p)->getStamp()];
-		if (node.status == NodeStatus::unseen && !visitRecovery6(p))
+		auto &node = visitedRecovery5[g.getEventLabel(p)->getStamp()];
+		if (node.status == NodeStatus::unseen && !visitRecovery5(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 			return false;
@@ -563,7 +693,7 @@ bool TSOChecker::visitRecovery7(const Event &e)
 	if (!visitHbloc(lab->getPos()))
 		return false;
 	--visitedRecAccepting;
-	visitedRecovery7[lab->getStamp()] = { visitedRecAccepting, NodeStatus::left };
+	visitedRecovery8[lab->getStamp()] = { visitedRecAccepting, NodeStatus::left };
 	return true;
 }
 
@@ -596,8 +726,8 @@ bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event>
 	for (auto &p : lab->calculated(0)) {
 		auto *pLab = g.getEventLabel(p);
 		if (isPbValid(pLab) && getLoc(pLab) == loc) {
-			auto &node = visitedRecovery7[pLab->getStamp()];
-			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+			auto &node = visitedRecovery8[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 				return false;
 			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 				return false;
@@ -608,8 +738,8 @@ bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event>
 	for (auto &p : rfe_preds(g, lab->getPos())) {
 		auto *pLab = g.getEventLabel(p);
 		if (isPbValid(pLab) && getLoc(pLab) == loc) {
-			auto &node = visitedRecovery7[pLab->getStamp()];
-			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+			auto &node = visitedRecovery8[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 				return false;
 			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 				return false;
@@ -620,8 +750,8 @@ bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event>
 	for (auto &p : co_imm_preds(g, lab->getPos())) {
 		auto *pLab = g.getEventLabel(p);
 		if (isPbValid(pLab) && getLoc(pLab) == loc) {
-			auto &node = visitedRecovery7[pLab->getStamp()];
-			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+			auto &node = visitedRecovery8[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 				return false;
 			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 				return false;
@@ -632,8 +762,8 @@ bool TSOChecker::visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event>
 	for (auto &p : fr_imm_preds(g, lab->getPos())) {
 		auto *pLab = g.getEventLabel(p);
 		if (isPbValid(pLab) && getLoc(pLab) == loc) {
-			auto &node = visitedRecovery7[pLab->getStamp()];
-			if (node.status == NodeStatus::unseen && !visitRecovery7(p))
+			auto &node = visitedRecovery8[pLab->getStamp()];
+			if (node.status == NodeStatus::unseen && !visitRecovery8(p))
 				return false;
 			else if (node.status == NodeStatus::entered && visitedRecAccepting > node.count)
 				return false;
@@ -676,6 +806,8 @@ bool TSOChecker::isRecAcyclic(const Event &e)
 	visitedRecovery6.resize(g.getMaxStamp() + 1);
 	visitedRecovery7.clear();
 	visitedRecovery7.resize(g.getMaxStamp() + 1);
+	visitedRecovery8.clear();
+	visitedRecovery8.resize(g.getMaxStamp() + 1);
 	return true
 		&& visitRecovery0(e)
 		&& visitRecovery1(e)
@@ -684,10 +816,57 @@ bool TSOChecker::isRecAcyclic(const Event &e)
 		&& visitRecovery4(e)
 		&& visitRecovery5(e)
 		&& visitRecovery6(e)
-		&& visitRecovery7(e);
+		&& visitRecovery7(e)
+		&& visitRecovery8(e);
 }
 
 bool TSOChecker::isRecoveryValid(const Event &e)
 {
 	return isRecAcyclic(e);
+}
+
+void TSOChecker::visitPPoRf0(const Event &e, DepView &pporf)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
+
+	visitedPPoRf0[lab->getStamp()] = NodeStatus::entered;
+	pporf.updateIdx(e);
+	for (auto &p : lab->calculated(0)) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(p, pporf);
+	}
+	for (auto &p : tc_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(p, pporf);
+	}
+	for (auto &p : tj_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(p, pporf);
+	}
+	for (auto &p : rfe_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf0(p, pporf);
+	}
+	visitedPPoRf0[lab->getStamp()] = NodeStatus::left;
+}
+
+DepView TSOChecker::calcPPoRfBefore(const Event &e)
+{
+	DepView pporf;
+	pporf.updateIdx(e);
+	visitedPPoRf0.clear();
+	visitedPPoRf0.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
+
+	visitPPoRf0(e, pporf);
+	return pporf;
+}
+std::unique_ptr<VectorClock> TSOChecker::getPPoRfBefore(const Event &e)
+{
+	return LLVM_MAKE_UNIQUE<DepView>(calcPPoRfBefore(e));
 }
