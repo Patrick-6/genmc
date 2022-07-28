@@ -81,10 +81,10 @@ void ignoreInitAndFinalPreds(NFA &nfa)
 struct Path {
 	Path(NFA::State *s, NFA::State *e) : start(s), end(e) {}
 
-	bool operator==(const Path &other) {
+	bool operator==(const Path &other) const {
 		return start == other.start && end == other.end;
 	}
-	bool operator<(const Path &other) {
+	bool operator<(const Path &other) const {
 		return start < other.start || (start == other.start && end < other.end);
 	}
 
