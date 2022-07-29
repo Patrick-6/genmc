@@ -1,47 +1,5 @@
-// Standard preamble: various combinations that are invalid
-
-assume [F] ; mo-imm = 0
-assume [F] ; rf = 0
-assume [F] ; rfi = 0
-assume [F] ; rfe = 0
-assume mo-imm ; [F] = 0
-assume rf ; [F] = 0
-assume rfe ; [F] = 0
-assume rfi ; [F] = 0
-assume rf ; [REL] = 0
-assume rfe ; [REL] = 0
-assume rfi ; [REL] = 0
-assume [REL] ; rf = 0
-assume [REL] ; rfi = 0
-assume [REL] ; rfe = 0
-
-// ---------------------------------------------------------------------
-// Definition of standard relations
-// ---------------------------------------------------------------------
-
-// Program order
-let po = po-imm+
-let po-loc = po-loc-imm+
-
-// Modification order
-let mo = mo-imm+
-
-// From-reads
-let fr = fr-imm; mo*
-
 // Extended coherence order
 let eco = (rf | mo | fr)+
-
-// Atomic RMW instruction
-let rmw = [UR]; po-imm ; [UW]
-
-// Same location
-let loc = loc-overlap ^=
-
-// Dependencies
-let ctrl = ctrl-imm ; po-imm*
-let addr = addr-imm+
-let data = data-imm+
 
 // ---------------------------------------------------------------------
 // RC11 Happens-before
