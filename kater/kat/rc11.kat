@@ -1,53 +1,9 @@
-// ---------------------------------------------------------------------
-// Definition of standard relations
-// ---------------------------------------------------------------------
-
 // Extended coherence order
 let eco = (rf | mo | fr)+
 
-// Same location
-let loc = loc-overlap ^=
-
-// ---------------------------------------------------------------------
-// RC11 Happens-before
-// ---------------------------------------------------------------------
-
-let ppo = po
-
-// Optimized calculation of synchronizes-with
-// Save the view of write messages
-
-save[relseq] relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
-let sw_to_r = relseq ; rf ; [ACQ]
-let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ]
-let sw = sw_to_r | sw_to_f
-let asw = tc | tj
-
-assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
-
-// Optimized calculation of happens-before.
-// Save the part of `hb` that does not finish with a reads-from edge
-
-view hb_stable = (po | sw_to_r ; po | sw_to_f // | asw
-	)+
-let hb = hb_stable | hb_stable? ; sw_to_r
-
-assert hb+ = (po | sw // | asw
-	)+
-
-// ---------------------------------------------------------------------
-// RC11 Consistency axioms
-// ---------------------------------------------------------------------
-
-// No load buffering
-acyclic (po | rf)
-
-// Coherence : Optimize the checking of irreflexive (hb ; eco)
-coherence (hb_stable)
-
-// RMW atomicity
-check  mo-imm ; [UW] <= rf ; po-imm
-
+// Happens-before
+let sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
+let hb = (po | sw)+
 
 // Sequential consistency order
 let SC' = ([F] | [R] | [W]) ; SC
@@ -60,28 +16,6 @@ let psc = [SC'] ; po ; hb ; po ; [SC']
         | [SC'] ; fhb? ; scb ; hbf? ; [SC']
         | FSC ; hb ; FSC
         | FSC ; hb ; eco ; hb ; FSC
-acyclic psc
+        | SC' ; po ; SC'
 
 let psc_strong = ([SC'] | [F];[SC]; hb?); (hb | eco); ([SC'] | hb?; [F];[SC])
-
-// ---------------------------------------------------------------------
-// RC11 error detection
-// ---------------------------------------------------------------------
-
-let ww_conflict = [W] ; loc-overlap ; [W]
-let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
-let conflicting = ww_conflict | wr_conflict
-let na_conflict = [NA] ; conflicting | conflicting ; [NA]
-
-error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
-
-error AccessNonAlloc    unless  alloc <= hb_stable
-error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
-error UseAfterFree      unless  loc-overlap ; [Free] <= hb_stable
-error UseAfterFree      unless  [Free] ; loc-overlap = 0
-error UseAfterFree      unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
-error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
-
-error NotAtomicRace     unless  na_conflict <= hb_stable
-
-warning WWRace          unless  ww_conflict <= hb_stable
