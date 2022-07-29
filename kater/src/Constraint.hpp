@@ -20,6 +20,7 @@
 #define KATER_CONSTRAINT_HPP
 
 #include "RegExp.hpp"
+#include "Counterexample.hpp"
 
 /*******************************************************************************
  **                           Constraint Class (Abstract)
@@ -73,7 +74,7 @@ public:
 
 	/* Does the Constraint hold statically */
 	virtual bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-				     std::string &cex,
+				     Counterexample &cex,
 				     ValidFunT vfun = [](auto &t){ return true; }) const {
 		return false;
 	}
@@ -221,7 +222,7 @@ public:
 	RegExp *getRHS() { return getKid(1).get(); }
 
 	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     std::string &cex,
+			     Counterexample &cex,
 			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {
@@ -261,7 +262,7 @@ public:
 	RegExp *getRHS() { return getKid(1).get(); }
 
 	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     std::string &cex,
+			     Counterexample &cex,
 			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {
@@ -301,7 +302,7 @@ public:
 	RegExp *getRHS() { return getKid(1).get(); }
 
 	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     std::string &cex,
+			     Counterexample &cex,
 			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {

@@ -124,30 +124,33 @@ bool NFA::acceptsEmptyString() const
 	});
 }
 
-bool NFA::acceptsNoString(std::string &cex) const
+bool NFA::acceptsNoString(Counterexample &cex) const
 {
 	std::unordered_set<State *> visited;
-	std::vector<std::pair<State *, std::string>> workList;
+	std::vector<std::pair<State *, Counterexample>> workList;
 
 	for (auto it = states_begin(); it != states_end(); it++) {
 		if (!isStarting(it->get()))
 			continue;
 		visited.insert(it->get());
-		workList.push_back({it->get(), ""});
+		workList.push_back({it->get(), Counterexample()});
 	}
 	while (!workList.empty()) {
-		auto &p = workList.back();
-		auto s = p.first;
+		auto [s, c] = workList.back();
 		workList.pop_back();
 		if (isAccepting(s)) {
-			cex = p.second;
+			cex = c;
 			return false;
 		}
+
 		for (auto it = s->out_begin(); it != s->out_end(); it++) {
 			if (visited.count(it->dest))
 				continue;
 			visited.insert(it->dest);
-			workList.push_back({it->dest, p.second + " " + it->label.toString()});
+
+			auto nc(c);
+			nc.extend(it->label);
+			workList.push_back({it->dest, nc});
 		}
 	}
 	return true;
@@ -160,7 +163,7 @@ inline void hash_combine(std::size_t& seed, std::size_t v)
 	seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
+bool NFA::isSubLanguageOfDFA(const NFA &other, Counterexample &cex,
 			     std::function<bool(const TransLabel &)> isValidTransition) const
 {
 	KATER_DEBUG(
@@ -192,7 +195,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	struct SimState {
 		State *s1;
 		State *s2;
-		std::string cex;
+		Counterexample cex;
 	};
 
 	std::unordered_set<SPair, SPairHasher> visited;
@@ -201,26 +204,22 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	std::for_each(start_begin(), start_end(), [&](auto *s1){
 		std::for_each(other.start_begin(), other.start_end(), [&](auto *s2){
 			visited.insert({s1, s2});
-			workList.push_back({s1, s2, ""});
+			workList.push_back({s1, s2, Counterexample()});
 		});
 	});
 	while (!workList.empty()) {
-		auto [s1, s2, str] = workList[0];
+		auto [s1, s2, c] = workList[0];
 		workList.erase(workList.begin());
 		if (isAccepting(s1) && !other.isAccepting(s2)) {
-			cex = str;
+			cex = c;
 			return false;
 		}
 
 		for (auto it = s1->out_begin(); it != s1->out_end(); ++it) {
-			std::string new_str = str + " ";
-			KATER_DEBUG(
-				new_str += std::to_string(s1->getId()) + "/" +
-					   std::to_string(s2->getId()) + " ";
-			);
-			new_str += it->label.toString();
+			auto nc(c);
+			nc.extend(it->label);
 
-			bool canTakeEdge = false;
+			auto canTakeEdge = false;
 			for (auto oit = s2->out_begin(); oit != s2->out_end(); ++oit) {
 				if (it->label != oit->label)
 					continue;
@@ -229,10 +228,10 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 				if (visited.count({it->dest, oit->dest}))
 					continue;
 				visited.insert({it->dest, oit->dest});
-				workList.push_back({it->dest, oit->dest, new_str});
+				workList.push_back({it->dest, oit->dest, nc});
 			}
 			if (!canTakeEdge) {
-				cex = new_str;
+				cex = nc;
 				return false;
 			}
 		}
@@ -240,7 +239,7 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, std::string &cex,
 	return true;
 }
 
-bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
+bool NFA::isDFASubLanguageOfNFA(const NFA &other, Counterexample &cex,
 				std::function<bool(const TransLabel &)> isValidTransition) const
 {
 	KATER_DEBUG(
@@ -274,7 +273,7 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 
 	struct SimState {
 		SPair cur;
-		std::string cex;
+		Counterexample cex;
 	};
 
 	std::unordered_set<SPair, SPairHasher> visited;
@@ -283,25 +282,23 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 	std::for_each(start_begin(), start_end(), [&](auto *s1){
 		std::set<State *> ss(other.start_begin(), other.start_end());
 		visited.insert({s1, ss});
-		workList.push_back({{s1, ss}, ""});
+		workList.push_back({{s1, ss}, Counterexample()});
 	});
 	while (!workList.empty()) {
-		auto [sp, str] = workList.front();
+		auto [sp, c] = workList.front();
 		workList.pop_front();
 
 		if (isAccepting(sp.s1) &&
 			std::none_of(sp.ss2.begin(), sp.ss2.end(),
 				     [&](auto *s2) { return other.isAccepting(s2); })) {
-			cex = str + " (A/NA)";
+			c.setType(Counterexample::Type::ANA);
+			cex = c;
 			return false;
 		}
 
 		for (auto it = sp.s1->out_begin(); it != sp.s1->out_end(); ++it) {
-			auto new_str = str + " ";
-			KATER_DEBUG(
-				new_str += std::to_string(sp.s1->getId()) + " ";
-			);
-			new_str += it->label.toString();
+			auto nc(c);
+			nc.extend(it->label);
 
 			SPair next({it->dest, {}});
 			std::for_each(sp.ss2.begin(), sp.ss2.end(), [&](auto *s2) {
@@ -312,14 +309,14 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
 				}
 			});
 			if (next.ss2.empty()) {
-				cex = new_str;
+				cex = nc;
 				return false;
 			}
 
 			if (visited.count(next))
 				continue;
 			visited.insert(next);
-			workList.push_back({next, new_str});
+			workList.push_back({next, nc});
 		}
 	}
 	return true;

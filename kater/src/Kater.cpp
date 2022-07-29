@@ -69,6 +69,18 @@ void Kater::expandRfs(URE &r)
 // 	r = AltRE::createOpt(std::move(re1), std::move(re2));
 // }
 
+void Kater::printCounterexample(const Counterexample &cex) const
+{
+	std::cerr << "Counterexample: ";
+	std::for_each(cex.begin(), cex.end(), [&](auto &lab){
+		std::cerr << ((!lab.isRelation() || lab.isBuiltin()) ? lab.toString() :
+			      getModule().getRelationName(*lab.getRelation())) << " ";
+	});
+	if (cex.getType() == Counterexample::Type::ANA)
+		std::cerr << "(A/NA)";
+	std::cerr << "\n";
+}
+
 bool Kater::checkAssertions()
 {
 	auto isValidLabel = [&](auto &lab){ return true; };
@@ -83,11 +95,11 @@ bool Kater::checkAssertions()
 			// expandMos(&*module, p.co->getKid(i));
 		}
 
-		std::string cex;
+		Counterexample cex;
 		if (!p.co->checkStatically(module->getAssumes(), cex, isValidLabel)) {
 			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;
 			if (!cex.empty())
-				std::cerr << "Counterexample: " << cex << std::endl;
+				printCounterexample(cex);
 			status = false;
 		}
 	});

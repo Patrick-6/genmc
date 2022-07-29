@@ -8,6 +8,7 @@ if kater
 	main.cpp \
 	Config.cpp \
 	Constraint.cpp \
+	Counterexample.cpp \
 	Error.cpp \
 	Kater.cpp \
 	KatModule.cpp \

@@ -407,7 +407,7 @@ void normalize(NFA &nfa, Constraint::ValidFunT vfun)
 
 bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 			  const std::vector<std::unique_ptr<Constraint>> &assms,
-			  std::string &cex, Constraint::ValidFunT vfun,
+			  Counterexample &cex, Constraint::ValidFunT vfun,
 			  bool satInitFinalPreds = false)
 {
 	auto nfa1 = re1->toNFA();
@@ -433,7 +433,7 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 }
 
 bool SubsetConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
-				       std::string &cex, Constraint::ValidFunT vfun) const
+				       Counterexample &cex, Constraint::ValidFunT vfun) const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun);
 }
@@ -450,14 +450,14 @@ EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 }
 
 bool EqualityConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
-					 std::string &cex, Constraint::ValidFunT vfun) const
+					 Counterexample &cex, Constraint::ValidFunT vfun) const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun) &&
 		checkStaticInclusion(getKid(1), getKid(0), assms, cex, vfun);
 }
 
 bool SubsetSameEndsConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
-					       std::string &cex, Constraint::ValidFunT vfun) const
+					       Counterexample &cex, Constraint::ValidFunT vfun) const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun, true);
 }

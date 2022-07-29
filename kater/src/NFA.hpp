@@ -20,6 +20,7 @@
 #define KATER_NFA_HPP
 
 #include "TransLabel.hpp"
+#include "Counterexample.hpp"
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -568,13 +569,13 @@ public:
 	calculateReachingTo(const std::vector<State *> &ss);
 
 	bool acceptsEmptyString() const;
-	bool acceptsNoString(std::string &cex) const;
+	bool acceptsNoString(Counterexample &cex) const;
 
-	bool isDFASubLanguageOfNFA(const NFA &other, std::string &cex,
+	bool isDFASubLanguageOfNFA(const NFA &other, Counterexample &cex,
 				std::function<bool(const TransLabel &)> isValidTransition =
 				[](const TransLabel &lab){ return true; }) const;
 
-	bool isSubLanguageOfDFA(const NFA &other, std::string &cex,
+	bool isSubLanguageOfDFA(const NFA &other, Counterexample &cex,
 				std::function<bool(const TransLabel &)> isValidTransition =
 				[](const TransLabel &lab){ return true; }) const;
 
