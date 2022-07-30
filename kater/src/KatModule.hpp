@@ -171,6 +171,14 @@ public:
 		return savedVariables.find(*ro)->second.exp->clone();
 	}
 
+	const std::string &getRelationName(const Relation &r) const {
+		auto rIt = std::find_if(variables.begin(), variables.end(), [&](auto &nre){
+			return *dynamic_cast<const CharRE *>(&*nre.second)->getLabel().getRelation() == r;
+		});
+		assert(rIt != variables.end());
+		return rIt->first;
+	}
+
 private:
 
 	// Results from parsing the input file
