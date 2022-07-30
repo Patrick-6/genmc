@@ -638,14 +638,11 @@ NFA &NFA::addTransitivePredicateEdges(bool removeOld /* = true */)
 					return std::find(kv.second.begin(), kv.second.end(), t) != kv.second.end(); }))
 			makeAccepting(kv.first);
 		else {
-			auto shouldAcceptTrans = [&](auto &t){
-				return std::find(kv.second.begin(), kv.second.end(), t) != kv.second.end();
+			auto shouldNotAcceptTrans = [&](auto &t){
+				return std::find(kv.second.begin(), kv.second.end(), t) == kv.second.end();
 			};
-			auto *d = createAccepting();
-			addTransitions(d, kv.first->out_begin(), kv.first->out_end());
-			addInvertedTransitions(d, kv.first->in_begin(), kv.first->in_end());
-			removeInvertedTransitionsIf(d, [&](auto &t){ return !shouldAcceptTrans(t); });
-			removeInvertedTransitionsIf(kv.first, [&](auto &t){ return shouldAcceptTrans(t); });
+			auto *d = splitState(kv.first, shouldNotAcceptTrans);
+			makeAccepting(d);
 		}
 	});
 	return *this;

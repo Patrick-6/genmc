@@ -407,6 +407,20 @@ public:
 		std::for_each(begin, end, [&](State *s){ removeState(s); });
 	}
 
+	/* Creates a copy D of S such that S only keeps (incoming)
+	 * transitions that satisfy FUN (and D the rest) */
+	template<typename F>
+	State *splitState(State *s, F&& fun) {
+		auto *d = createState();
+		if (isAccepting(s))
+			makeAccepting(d);
+		addTransitions(d, s->out_begin(), s->out_end());
+		addInvertedTransitions(d, s->in_begin(), s->in_end());
+		removeInvertedTransitionsIf(d, [&](auto &t){ return fun(t); });
+		removeInvertedTransitionsIf(s, [&](auto &t){ return !fun(t); });
+		return d;
+	}
+
 	/* Whether the (regular) NFA has a transition T from state SRC */
 	bool hasTransition(State *src, const Transition &t) const {
 		return src->hasOutgoing(t);

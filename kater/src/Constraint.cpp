@@ -377,13 +377,7 @@ void removeConsecutivePredicates(NFA &nfa)
 	});
 
 	std::for_each(toDuplicate.begin(), toDuplicate.end(), [&](auto &s){
-		auto *d = nfa.createState();
-		if (nfa.isAccepting(s))
-			nfa.makeAccepting(d);
-		nfa.addTransitions(d, s->out_begin(), s->out_end());
-		nfa.addInvertedTransitions(d, s->in_begin(), s->in_end());
-		nfa.removeInvertedTransitionsIf(d, [&](auto &t){ return t.label.isPredicate(); });
-		nfa.removeInvertedTransitionsIf(s, [&](auto &t){ return !t.label.isPredicate(); });
+		nfa.splitState(s, [&](auto &t){ return t.label.isPredicate(); });
 	});
 
 	nfa.addTransitivePredicateEdges();
