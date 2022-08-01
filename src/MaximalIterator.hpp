@@ -48,13 +48,13 @@ public:
 	/*** begin()/end() ctors ***/
 	MaximalIterator() = delete;
 
-	MaximalIterator(const View &v) {
-		curr = v.begin();
-		if (v.begin() != v.end())
+	MaximalIterator(const View &v) : view(v) {
+		curr = view.begin();
+		if (view.begin() != view.end())
 			e = Event(0, *curr);
 	}
 
-	MaximalIterator(const View &v, bool) { curr = v.end(); }
+	MaximalIterator(const View &v, bool) : view(v) { curr = v.end(); }
 
 	/*** Operators ***/
 	inline reference operator*() const { return e; }
@@ -69,7 +69,8 @@ public:
 	}
 
 	MaximalIterator& operator++() {
-		e = Event(++thread, *++curr);
+		if (++curr != view.end())
+			e = Event(curr - view.begin(), *curr);
 		return *this;
 	}
 	inline MaximalIterator operator++(int) {
@@ -77,7 +78,8 @@ public:
 	}
 
 	MaximalIterator& operator--() {
-		e = Event(--thread, *--curr);
+		if (--curr != view.end())
+			e = Event(curr - view.begin(), *curr);
 		return *this;
 	}
 	inline MaximalIterator operator--(int) {
@@ -85,7 +87,7 @@ public:
 	}
 
 protected:
-	unsigned thread = 0u;
+	const View &view;
 	View::const_iterator curr;
 	Event e = Event::getInitializer();
 };
