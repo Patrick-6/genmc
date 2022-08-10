@@ -761,28 +761,45 @@ NFA::findSimilarStates() const
 	return similar;
 }
 
+namespace {
+	using SPair = std::pair<NFA::State *, NFA::State *>;
+
+	struct SPairHasher {
+		std::size_t operator()(SPair p) const {
+			std::size_t hash = 0;
+			hash_combine<unsigned>(hash, p.first->getId());
+			hash_combine<unsigned>(hash, p.first->getId());
+			return hash;
+		}
+	};
+};
+
 void NFA::removeSimilarTransitions()
 {
-	auto similar = findSimilarStates();
+	auto simMatrix = findSimilarStates();
 
-	/* Bisimilar states */
-	std::vector<State *> toRemove;
+	/* Similar states */
+	std::unordered_set<::SPair, ::SPairHasher> similar;
 	std::for_each(states_begin(), states_end(), [&](auto &s1){
 		std::for_each(states_begin(), states_end(), [&](auto &s2){
-			if (&*s1 != &*s2 && similar[&*s1][&*s2] && similar[&*s2][&*s1] &&
-			    (isAccepting(&*s1) == isAccepting(&*s2))) {
-				addInvertedTransitions(&*s1, s2->in_begin(), s2->in_end());
-				toRemove.push_back(&*s2);
-			}
+			if (&*s1 != &*s2 && simMatrix[&*s1][&*s2] && simMatrix[&*s2][&*s1] &&
+			    !similar.count({&*s2, &*s1}))
+				similar.insert({&*s1, &*s2});
 		});
 	});
-	removeStates(toRemove.begin(), toRemove.end());
+	std::for_each(similar.begin(), similar.end(), [&](auto &p){
+		if (isStarting(p.second))
+			makeStarting(p.first);
+		addInvertedTransitions(p.first, p.second->in_begin(), p.second->in_end());
+		removeState(p.second);
+	});
 
-	/* Transitions to similar states */
+	/* Transitions to similar states (has to happen after similar removal) */
 	std::for_each(states_begin(), states_end(), [&](auto &s){
 		removeTransitionsIf(&*s, [&](auto &t1){
 			return std::any_of(s->out_begin(), s->out_end(), [&](auto &t2){
-					return t1 != t2 && isSimilarTo(*this, t1, t2, similar);
+					return t1 != t2 &&
+					       isSimilarTo(*this, t1, t2, simMatrix);
 				});
 		});
 	});
@@ -803,8 +820,8 @@ NFA &NFA::simplify(std::function<bool(const TransLabel &)> isValidTransition)
 	applyBidirectionally([&](){ scm_reduce(); });
 	KATER_DEBUG(std::cout << "After 2nd SCM reduction: " << *this;);
 
-	// applyBidirectionally([&](){ removeSimilarTransitions(); });
-	// KATER_DEBUG(std::cout << "After similar-transition removal: " << *this;);
+	applyBidirectionally([&](){ removeSimilarTransitions(); });
+	KATER_DEBUG(std::cout << "After similar-transition removal: " << *this;);
 
 	applyBidirectionally([&](){ removeDeadStates(); });
 	KATER_DEBUG(std::cout << "After dead-state removal: " << *this;);
