@@ -309,9 +309,8 @@ void saturateRotate(NFA &nfa)
 	nfa.simplify();
 	for (auto it = nfa.states_begin(); it != nfa.states_end(); ++it) {
 		auto &s = *it;
-		if (nfa.isStarting(&*s) ||
-		    (nfa.isAccepting(&*s) && s->getNumOutgoing()))
-		    continue;
+		if (nfa.isStarting(&*s))
+			continue;
 
 		std::unordered_map<NFA::State *, NFA::State *> m1, m2;
 
