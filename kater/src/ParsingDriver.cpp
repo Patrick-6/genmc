@@ -93,8 +93,9 @@ int ParsingDriver::parse(const std::string &name)
 	dir = path.substr(0, s != std::string::npos ? s+1 : std::string::npos);
 
 	auto d = path.find_last_of(".");
-	prefix = path.substr(s != std::string::npos ? s+1 : std::string::npos,
-			     d != std::string::npos ? d-s-1 : std::string::npos);
+	prefix = path.substr(s != std::string::npos ? s+1 : 0,
+			     d == std::string::npos ? std::string::npos :
+			     (s != std::string::npos ? d-s-1 : d-1));
 
 	yyrestart(yyin);
 	location.initialize(&path);
