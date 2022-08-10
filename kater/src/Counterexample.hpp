@@ -29,7 +29,7 @@ private:
 	using ContainerT = std::vector<TransLabel>;
 
 public:
-	enum Type { TUT, ANA, };
+	enum Type { NONE, TUT, ANA, };
 
 	using iterator = ContainerT::iterator;
 	using const_iterator = ContainerT::const_iterator;
@@ -46,15 +46,24 @@ public:
 
 	void extend(const TransLabel &lab) { cex.push_back(lab); }
 
+	unsigned int getMismatch() const { return index; }
+
 	Type getType() const { return typ; }
 
-	void setType(Type t) { typ = t; }
+	void setType(Type t) {
+		typ = t;
+		if (t == TUT) {
+			assert(!cex.empty());
+			index = cex.size()-1;
+		}
+	}
 
 	friend std::ostream &operator<<(std::ostream& ostr,
 					const Counterexample &c);
 
 private:
 	ContainerT cex;
+	unsigned int index;
 	Type typ;
 };
 

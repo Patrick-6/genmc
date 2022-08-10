@@ -239,6 +239,35 @@ bool NFA::isSubLanguageOfDFA(const NFA &other, Counterexample &cex,
 	return true;
 }
 
+void completeCounterexample(const NFA &nfa, NFA::State *s, Counterexample &cex)
+{
+	if (nfa.isAccepting(s))
+		return;
+
+	std::deque<std::pair<NFA::State *, Counterexample>> worklist(1, {s, cex});
+	std::unordered_set<NFA::State *> visited({s});
+
+	while (!worklist.empty()) {
+		auto [s, c] = worklist.front();
+		worklist.pop_front();
+
+		if (nfa.isAccepting(s)) {
+			cex = c;
+			break;
+		}
+
+		for (auto it = s->out_begin(); it != s->out_end(); ++it) {
+			auto nc(c);
+			nc.extend(it->label);
+
+			if (visited.count(it->dest))
+				continue;
+			visited.insert(it->dest);
+			worklist.push_back({it->dest, nc});
+		}
+	}
+}
+
 bool NFA::isDFASubLanguageOfNFA(const NFA &other, Counterexample &cex,
 				std::function<bool(const TransLabel &)> isValidTransition) const
 {
@@ -309,6 +338,8 @@ bool NFA::isDFASubLanguageOfNFA(const NFA &other, Counterexample &cex,
 				}
 			});
 			if (next.ss2.empty()) {
+				nc.setType(Counterexample::Type::TUT);
+				completeCounterexample(*this, it->dest, nc);
 				cex = nc;
 				return false;
 			}

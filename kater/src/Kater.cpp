@@ -72,9 +72,12 @@ void Kater::expandRfs(URE &r)
 void Kater::printCounterexample(const Counterexample &cex) const
 {
 	std::cerr << "Counterexample: ";
+	auto i = 0u;
 	std::for_each(cex.begin(), cex.end(), [&](auto &lab){
 		std::cerr << ((!lab.isRelation() || lab.isBuiltin()) ? lab.toString() :
 			      getModule().getRelationName(*lab.getRelation())) << " ";
+		if (cex.getType() == Counterexample::Type::TUT && i++ == cex.getMismatch())
+			std::cerr << "===> ";
 	});
 	if (cex.getType() == Counterexample::Type::ANA)
 		std::cerr << "(A/NA)";
