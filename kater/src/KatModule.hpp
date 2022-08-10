@@ -38,7 +38,7 @@ public:
 
 private:
 	using VarMap = std::unordered_map<std::string, URE>;
-	using SavedVarMap = std::unordered_map<Relation, SavedVar, RelationHasher>;
+	using SavedVarMap = std::vector<std::pair<Relation, SavedVar>>;
 
 	using Assert = struct {
 		UCO co;
@@ -124,20 +124,20 @@ public:
 	void registerSaveID(std::string id, URE re) {
 		auto r = Relation::createUser();
 		registerID(std::move(id), CharRE::create(TransLabel(r)));
-		savedVariables.insert({r, SavedVar(std::move(re))});
+		savedVariables.push_back({r, SavedVar(std::move(re))});
 	}
 
 	void registerSaveReducedID(std::string idSave, std::string idRed, URE re) {
 		auto r = Relation::createUser();
 		registerID(idSave, CharRE::create(TransLabel(r)));
-		savedVariables.insert({r, SavedVar(std::move(re), idRed == idSave ? NFA::ReductionType::Self :
-						   NFA::ReductionType::Po, getRegisteredID(idRed))});
+		savedVariables.push_back({r, SavedVar(std::move(re), idRed == idSave ? NFA::ReductionType::Self :
+						      NFA::ReductionType::Po, getRegisteredID(idRed))});
 	}
 
 	void registerViewID(std::string id, URE re) {
 		auto r = Relation::createUser();
 		registerID(std::move(id), CharRE::create(TransLabel(r)));
-		savedVariables.insert({r, SavedVar(std::move(re), VarStatus::View)});
+		savedVariables.push_back({r, SavedVar(std::move(re), VarStatus::View)});
 	}
 
 	void registerAssert(UCO c, const yy::location &loc) {
@@ -162,13 +162,15 @@ public:
 	bool isSavedID(const CharRE *re) const {
 		auto ro = re->getLabel().getRelation();
 		assert(ro.has_value());
-		return savedVariables.count(*ro);
+		return std::find_if(savedVariables.begin(), savedVariables.end(),
+				    [&](auto &p){ return p.first == *ro; }) != savedVariables.end();
 	}
 
 	URE getSavedID(const CharRE *re) const {
 		assert(isSavedID(re));
 		auto ro = re->getLabel().getRelation();
-		return savedVariables.find(*ro)->second.exp->clone();
+		return std::find_if(savedVariables.begin(), savedVariables.end(),
+				    [&](auto &p){ return p.first == *ro; })->second.exp->clone();
 	}
 
 	const std::string &getRelationName(const Relation &r) const {
