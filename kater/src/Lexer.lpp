@@ -106,6 +106,7 @@ warning			return yy::parser::make_WARNING	(loc);
 "*"			return yy::parser::make_STAR   (loc);
 "?"			return yy::parser::make_QMARK  (loc);
 ";"			return yy::parser::make_SEMI   (loc);
+"&"			return yy::parser::make_AND    (loc);
 "|"			return yy::parser::make_ALT    (loc);
 "("			return yy::parser::make_LPAREN (loc);
 ")"			return yy::parser::make_RPAREN (loc);

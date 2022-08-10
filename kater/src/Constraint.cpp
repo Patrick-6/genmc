@@ -22,6 +22,19 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 		return SubsetConstraint::createOpt(minusRE->releaseKid(0),
 						   AltRE::create(std::move(rhs), minusRE->releaseKid(1)));
 	}
+	/* Convert `A ; A <= A` to `transitive A` */
+	if (auto *seqRE = dynamic_cast<SeqRE *>(&*lhs)) {
+		if (*rhs == *seqRE->getKid(0) && *rhs == *seqRE->getKid(1))
+			return TransitivityConstraint::createOpt(std::move(rhs));
+	}
+	/* Convert `A & id <= B` to `SubsetSameEnds(A,B)` */
+	if (auto *andRE = dynamic_cast<AndRE *>(&*lhs)) {
+		if (*andRE->getKid(1) == *RegExp::createId())
+			return SubsetSameEndsConstraint::createOpt(andRE->releaseKid(0), std::move(rhs));
+	}
+	/* Convert `A <= id` to `SubsetID` constraint */
+	if (*rhs == *RegExp::createId())
+		return SubsetIDConstraint::createOpt(std::move(lhs));
 
 	return create(std::move(lhs), std::move(rhs));
 }
@@ -30,10 +43,15 @@ std::unique_ptr<Constraint>
 SubsetSameEndsConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 				    std::unique_ptr<RegExp> rhs)
 {
-	/* Convert `A \ B <= C` to `A <= B | C` */
+	/* Convert `A \ B <=&id C` to `A <=&id B | C` */
 	if (auto *minusRE = dynamic_cast<MinusRE *>(&*lhs)) {
 		return SubsetSameEndsConstraint::createOpt(
 			minusRE->releaseKid(0), AltRE::create(std::move(rhs), minusRE->releaseKid(1)));
+	}
+	/* Convert `A <=&id B & id` to `A <=&id B` */
+	if (auto *andRE = dynamic_cast<AndRE *>(&*rhs)) {
+		if (*andRE->getKid(1) == *RegExp::createId())
+			return SubsetSameEndsConstraint::createOpt(std::move(lhs), andRE->releaseKid(0));
 	}
 	return create(std::move(lhs), std::move(rhs));
 }

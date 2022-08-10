@@ -78,6 +78,7 @@
   LEQ       "<="
   LEQID     "<=&id"
   SEMI      ";"
+  AND       "&"
   ALT       "|"
   BSLASH    "\\"
   PLUS      "+"
@@ -101,7 +102,7 @@
 
 %precedence "=" "<="
 %left  "|"
-%left  "\\"
+%left  "\\" "&"
 %left  ";"
 %precedence "+" "*" "?" "^"
 %precedence "rot"
@@ -148,14 +149,8 @@ reduce_opt: %empty	        { $$ = ""; }
 	;
 
 constraint:
-	  rel "<=" "id"         { $$ = SubsetIDConstraint::createOpt(std::move($1)); }
-	| rel "=" rel		{ $$ = EqualityConstraint::createOpt(std::move($1), std::move($3)); }
-	| rel "<=" rel		{ if (typeid(*$1) == typeid(SeqRE) && $1->getNumKids() == 2 &&
-				      *$1->getKid(0) == *$1->getKid(1) && *$1->getKid(0) == *$3)
-					  $$ = TransitivityConstraint::createOpt(std::move($3));
-				  else
-					  $$ = SubsetConstraint::createOpt(std::move($1), std::move($3));
-	  			}
+	  rel "=" rel		{ $$ = EqualityConstraint::createOpt(std::move($1), std::move($3)); }
+	| rel "<=" rel		{ $$ = SubsetConstraint::createOpt(std::move($1), std::move($3)); }
 	| rel "<=&id" rel	{ $$ = SubsetSameEndsConstraint::createOpt(std::move($1), std::move($3)); }
 	| "empty" rel		{ $$ = Constraint::createEmpty(std::move($2)); }
 	| "acyclic" rel		{ $$ = AcyclicConstraint::createOpt(std::move($2)); }
@@ -164,13 +159,15 @@ constraint:
 	| "total" rel		{ $$ = TotalityConstraint::createOpt(std::move($2)); }
 	;
 
-rel: 	 "0"			{ $$ = RegExp::createFalse(); }
+rel:	  "0"			{ $$ = RegExp::createFalse(); }
+	| "id"			{ $$ = RegExp::createId(); }
 	| qualified_ID		{ $$ = drv.getRegisteredID($1, @$); }
 	| "(" rel ")"		{ $$ = std::move($2); }
 	| "[" rel "]"		{ $$ = std::move($2); /* bracket is a NOP for now */ }
-
+	| "[" "]"		{ $$ = RegExp::createId(); }
 	| rel "|" rel		{ $$ = AltRE::createOpt(std::move($1), std::move($3)); }
 	| rel ";" rel		{ $$ = SeqRE::createOpt(std::move($1), std::move($3)); }
+	| rel "&" rel		{ $$ = AndRE::createOpt(std::move($1), std::move($3)); }
 	| rel "\\" rel		{ $$ = MinusRE::create(std::move($1), std::move($3)); }
 	| rel "*"		{ $$ = StarRE::createOpt(std::move($1)); }
 	| rel "+"		{ $$ = PlusRE::createOpt(std::move($1)); }

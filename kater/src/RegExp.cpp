@@ -24,6 +24,12 @@ std::unique_ptr<RegExp> RegExp::createFalse()
 	return AltRE::create();
 }
 
+std::unique_ptr<RegExp> RegExp::createId()
+{
+	TransLabel t (std::nullopt);
+	return CharRE::create(t);
+}
+
 std::unique_ptr<RegExp> RegExp::createSym(std::unique_ptr<RegExp> re)
 {
 	auto re1 = re->clone();
@@ -34,6 +40,24 @@ std::unique_ptr<RegExp> RegExp::createSym(std::unique_ptr<RegExp> re)
 bool RegExp::isFalse() const
 {
 	return getNumKids() == 0 && dynamic_cast<const AltRE *>(this);
+}
+
+std::unique_ptr<RegExp> RegExp::getDomain() const
+{
+	if (auto charRE = dynamic_cast<const CharRE *>(&*this)) {
+		TransLabel p (std::nullopt, charRE->getLabel().getPreChecks(), {});
+		return CharRE::create(p);
+	}
+	return createId();
+}
+
+std::unique_ptr<RegExp> RegExp::getCodomain() const
+{
+	if (auto charRE = dynamic_cast<const CharRE *>(&*this)) {
+		TransLabel p (std::nullopt, charRE->getLabel().getPostChecks(), {});
+		return CharRE::create(p);
+	}
+	return createId();
 }
 
 std::unique_ptr<RegExp>
@@ -64,6 +88,39 @@ QMarkRE::createOpt(std::unique_ptr<RegExp> r)
 	if (dynamic_cast<PlusRE *>(&*r))
 		return StarRE::createOpt(r->releaseKid(0));
 	return create(std::move(r));
+}
+
+static bool isPredicate (const RegExp &r)
+{
+	if (auto charRE = dynamic_cast<const CharRE *>(&r))
+		return charRE->getLabel().isPredicate();
+	return false;
+}
+
+static bool isAnyRel (const RegExp &r)
+{
+	if (auto charRE = dynamic_cast<const CharRE *>(&r))
+		if (auto rel = charRE->getLabel().getRelation())
+			return (rel->isBuiltin() && rel->toBuiltin() == Relation::any);
+	return false;
+}
+
+std::unique_ptr<RegExp>
+AndRE::createOpt(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+{
+	// `r & r = r`
+	if (*r1 == *r2)
+		return std::move(r1);
+	// `pred & pred2 =  pred1 ; pred2`
+	if (isPredicate(*r1) && isPredicate(*r2))
+		return SeqRE::createOpt(std::move(r1), std::move(r2));
+	// `([pred] ; any ; [pred2]) & r = [pred1] ; r ; [pred2]`
+	if (isAnyRel(*r1))
+		return SeqRE::createOpt(r1->getDomain(), std::move(r2), r1->getCodomain());
+	// `r & ([pred] ; any ; [pred2]) = [pred1] ; r ; [pred2]`
+	if (isAnyRel(*r2))
+		return SeqRE::createOpt(r2->getDomain(), std::move(r1), r2->getCodomain());
+	return create(std::move(r1), std::move(r2));
 }
 
 std::unique_ptr<RegExp>

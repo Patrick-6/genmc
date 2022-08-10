@@ -42,6 +42,7 @@ public:
 	virtual ~RegExp() = default;
 
 	static std::unique_ptr<RegExp> createFalse();
+	static std::unique_ptr<RegExp> createId();
 
 	static std::unique_ptr<RegExp> createSym(std::unique_ptr<RegExp> re);
 
@@ -102,6 +103,9 @@ public:
 	bool operator!=(const RegExp &other) const {
 		return !(*this == other);
 	}
+
+	std::unique_ptr<RegExp> getDomain() const;
+	std::unique_ptr<RegExp> getCodomain() const;
 
 	/* Dumpts the RE */
 	virtual std::ostream &dump(std::ostream &s) const = 0;
@@ -312,6 +316,52 @@ protected:
 
 	bool isEqual(const RegExp &other) const override {
 		auto &o = static_cast<const BinaryRE &>(other);
+		auto i = 0u;
+		return getNumKids() == other.getNumKids() &&
+			std::all_of(kid_begin(), kid_end(), [&](auto &k){
+				auto res = (*getKid(i) == *o.getKid(i));
+				++i;
+				return res;
+			});
+	}
+};
+
+/*
+ * RE_1 & RE_2
+ */
+class AndRE : public BinaryRE {
+
+protected:
+	AndRE(std::unique_ptr<RegExp> r1, std::unique_ptr<RegExp> r2)
+		: BinaryRE(std::move(r1), std::move(r2)) {}
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<AndRE> create(Ts&&... params) {
+		return std::unique_ptr<AndRE>(
+			new AndRE(std::forward<Ts>(params)...));
+	}
+
+	static std::unique_ptr<RegExp> createOpt(std::unique_ptr<RegExp> r1,
+						 std::unique_ptr<RegExp> r2);
+
+	NFA toNFA() const override {
+		std::cerr << "[Error] NFA conversion of and(&) expressions is not supported." << std::endl;
+		NFA nfa1 = getKid(0)->toNFA();
+		return nfa1;
+	}
+
+	std::unique_ptr<RegExp> clone () const override	{
+		return create(getKid(0)->clone(), getKid(1)->clone());
+	}
+
+	std::ostream &dump(std::ostream &s) const override {
+		return s << "(" << *getKid(0) << " & " << *getKid(1) << ")";
+	}
+
+protected:
+	bool isEqual(const RegExp &other) const override {
+		auto &o = static_cast<const AndRE &>(other);
 		auto i = 0u;
 		return getNumKids() == other.getNumKids() &&
 			std::all_of(kid_begin(), kid_end(), [&](auto &k){
