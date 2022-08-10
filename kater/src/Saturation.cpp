@@ -214,15 +214,20 @@ void saturateID(NFA &nfa, NFA &&id)
 void saturateTransitive(NFA &nfa, const Relation &rel)
 {
 	TransLabel lab(rel);
+	std::vector<NFA::State *> toDuplicate;
+
+	lab.flip();
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		std::vector<NFA::State *> toAdd;
-		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
-			if (t.label == lab)
-				toAdd.push_back(t.dest);
-		});
-		std::for_each(toAdd.begin(), toAdd.end(), [&](auto *sp){
-			nfa.addSelfTransition(sp, lab);
-		});
+		if (std::any_of(s->in_begin(), s->in_end(),
+				[&](auto &t){ return t.label == lab; }))
+			toDuplicate.push_back(&*s);
+	});
+
+	std::for_each(toDuplicate.begin(), toDuplicate.end(), [&](auto *s){
+		if (std::any_of(s->in_begin(), s->in_end(),
+				[&](auto &t){ return t.label != lab; }))
+			nfa.splitState(s, [&](auto &t){ return t.label == lab; });
+		nfa.addSelfTransition(s, TransLabel(rel));
 	});
 }
 
