@@ -173,7 +173,8 @@ public:
 
 	const std::string &getRelationName(const Relation &r) const {
 		auto rIt = std::find_if(variables.begin(), variables.end(), [&](auto &nre){
-			return *dynamic_cast<const CharRE *>(&*nre.second)->getLabel().getRelation() == r;
+			auto *cRE = dynamic_cast<const CharRE *>(&*nre.second);
+			return cRE && *cRE->getLabel().getRelation() == r;
 		});
 		assert(rIt != variables.end());
 		return rIt->first;
