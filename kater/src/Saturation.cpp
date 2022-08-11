@@ -66,6 +66,14 @@ void saturatePreds(NFA &nfa, const std::vector<TransLabel> &labs)
  */
 void duplicateStatesForInitPreds(NFA &nfa)
 {
+	/* Ensure accepting states have no outgoing transitions */
+	nfa.flip();
+	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
+		if (s->hasIncoming())
+			nfa.splitState(s, [](auto &t){ return false; });
+	});
+	nfa.flip();
+
 	std::set<PredicateSet> preds;
 	std::for_each(nfa.start_begin(), nfa.start_end(), [&](auto *s){
 		std::for_each(s->out_begin(), s->out_end(), [&](auto &t){
@@ -117,8 +125,8 @@ void saturateInitFinalPreds(NFA &nfa)
 
 			toRemove.push_back(*tIt);
 			auto reaching = nfa.calculateReachingTo({tIt->dest});
-			auto t = *tIt;
 			std::for_each(ipreds.begin(), ipreds.end(), [&](auto &ip){
+				auto t = *tIt;
 				if (reaching.count(ip.dest) && t.label.merge(ip.label))
 					toAdd.push_back(t);
 			});
