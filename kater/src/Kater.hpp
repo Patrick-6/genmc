@@ -50,6 +50,7 @@ private:
 
 	void expandSavedVars(URE &r);
 	void expandRfs(URE &r);
+	void registerDefaultAssumptions();
 
 	void printCounterexample(const Counterexample &cex) const;
 

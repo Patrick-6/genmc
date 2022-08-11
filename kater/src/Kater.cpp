@@ -84,9 +84,21 @@ void Kater::printCounterexample(const Counterexample &cex) const
 	std::cerr << "\n";
 }
 
+void Kater::registerDefaultAssumptions()
+{
+	auto rf = module->getRegisteredID("rf");
+	auto fr = module->getRegisteredID("fr-imm");
+	auto mo = module->getRegisteredID("mo-imm");
+	auto seq = SeqRE::createOpt(std::move(rf), std::move(fr));
+	auto cons = SubsetConstraint::createOpt(std::move(seq), std::move(mo));
+	module->registerAssume(std::move(cons));
+}
+
 bool Kater::checkAssertions()
 {
 	auto isValidLabel = [&](auto &lab){ return true; };
+
+	registerDefaultAssumptions();
 
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
