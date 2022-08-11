@@ -42,6 +42,9 @@ public:
 
 	static std::unique_ptr<Constraint> createEmpty(std::unique_ptr<RegExp> e);
 
+	static std::unique_ptr<Constraint>
+	createEquality(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
+
 	bool isEmpty() const;
 
 	/* Returns the constraint type */
@@ -121,6 +124,42 @@ inline std::ostream &operator<<(std::ostream &s, const Constraint& re)
 	s << "[" <<re.getType() << "] ";
 	return re.dump(s);
 }
+
+/*******************************************************************************
+ **                           Conjunctive Constraints
+ ******************************************************************************/
+
+class ConjunctiveConstraint : public Constraint {
+
+protected:
+	ConjunctiveConstraint(std::unique_ptr<Constraint> c1,
+			      std::unique_ptr<Constraint> c2)
+		: Constraint(), constraint1(std::move(c1)), constraint2(std::move(c2)) {  }
+
+public:
+	template<typename... Ts>
+	static std::unique_ptr<ConjunctiveConstraint> create(Ts&&... params) {
+		return std::unique_ptr<ConjunctiveConstraint>(
+			new ConjunctiveConstraint(std::forward<Ts>(params)...));
+	}
+
+	std::unique_ptr<Constraint> clone() const override
+	{ return create(constraint1->clone(), constraint2->clone()); }
+
+	std::ostream &dump(std::ostream &s) const override
+	{ return s << "(" << *constraint1 << " && " << *constraint2 << ")"; }
+
+	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
+			     Counterexample &cex,
+			     ValidFunT vfun = [](auto &t){ return true; }) const override;
+
+	const Constraint *getConstraint1() const { return constraint1.get(); }
+	const Constraint *getConstraint2() const { return constraint2.get(); }
+
+private:
+	std::unique_ptr<Constraint> constraint1;
+	std::unique_ptr<Constraint> constraint2;
+};
 
 
 /*******************************************************************************
@@ -271,79 +310,6 @@ public:
 
 	std::ostream &dump(std::ostream &s) const override {
 		return s << *getKid(0) << " <=&id " << *getKid(1);
-	}
-};
-
-
-/*******************************************************************************
- **                           Equality Constraints
- ******************************************************************************/
-
-class EqualityConstraint : public Constraint {
-
-protected:
-	EqualityConstraint(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2)
-		: Constraint() { addKid(std::move(e1)); addKid(std::move(e2)); }
-public:
-	template<typename... Ts>
-	static std::unique_ptr<EqualityConstraint> create(Ts&&... params) {
-		return std::unique_ptr<EqualityConstraint>(
-			new EqualityConstraint(std::forward<Ts>(params)...));
-	}
-
-	/* NOTE: Might not return EqualityConstraint */
-	static std::unique_ptr<Constraint>
-	createOpt(std::unique_ptr<RegExp> e1, std::unique_ptr<RegExp> e2);
-
-	const RegExp *getLHS() const { return getKid(0); }
-	RegExp *getLHS() { return getKid(0).get(); }
-
-	const RegExp *getRHS() const { return getKid(1); }
-	RegExp *getRHS() { return getKid(1).get(); }
-
-	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     Counterexample &cex,
-			     ValidFunT vfun = [](auto &t){ return true; }) const override;
-
-	std::unique_ptr<Constraint> clone() const override {
-		return create(getKid(0)->clone(), getKid(1)->clone());
-	}
-
-	std::ostream &dump(std::ostream &s) const override {
-		return s << *getKid(0) << " = " << *getKid(1);
-	}
-};
-
-
-/*******************************************************************************
- **                           SubsetID Constraint
- ******************************************************************************/
-
-class SubsetIDConstraint : public Constraint {
-
-protected:
-	SubsetIDConstraint(std::unique_ptr<RegExp> e1)
-		: Constraint() { addKid(std::move(e1)); }
-public:
-	template<typename... Ts>
-	static std::unique_ptr<SubsetIDConstraint> create(Ts&&... params) {
-		return std::unique_ptr<SubsetIDConstraint>(
-			new SubsetIDConstraint(std::forward<Ts>(params)...));
-	}
-
-	/* NOTE: Might not return SubsetIDConstraint */
-	static std::unique_ptr<Constraint>
-	createOpt(std::unique_ptr<RegExp> e1);
-
-	const RegExp *getRelation() const { return getKid(0); }
-	RegExp *getRelation() { return getKid(0).get(); }
-
-	std::unique_ptr<Constraint> clone() const override {
-		return create(getKid(0)->clone());
-	}
-
-	std::ostream &dump(std::ostream &s) const override {
-		return s << *getKid(0) << " <= id";
 	}
 };
 

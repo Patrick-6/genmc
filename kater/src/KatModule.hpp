@@ -141,6 +141,11 @@ public:
 	}
 
 	void registerAssert(UCO c, const yy::location &loc) {
+		if (auto *cc = dynamic_cast<ConjunctiveConstraint *>(&*c)) {
+			registerAssert(cc->getConstraint1()->clone(), loc);
+			registerAssert(cc->getConstraint2()->clone(), loc);
+			return;
+		}
 		asserts.push_back({std::move(c), DbgInfo(loc.end.filename, loc.end.line)});
 	}
 
@@ -152,7 +157,7 @@ public:
 	void registerPPO(URE r) { ppo = std::move(r); }
 
 	// Handle consistency constraint in the input file
-	void addConstraint(UCO c, const std::string &s, const yy::location &loc);
+	void addConstraint(const Constraint *c, const std::string &s, const yy::location &loc);
 
 	URE getRegisteredID(const std::string &id) const {
 		auto it = variables.find(id);

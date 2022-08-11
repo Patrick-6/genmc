@@ -109,7 +109,7 @@ public:
 
 	// Handle consistency constraint in the input file
 	void addConstraint(UCO c, const std::string &s, const yy::location &loc) {
-		module->addConstraint(std::move(c), s, loc);
+		module->addConstraint(&*c, s, loc);
 	}
 
 	URE getRegisteredID(std::string id, const yy::location &loc) {

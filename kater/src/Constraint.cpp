@@ -8,9 +8,20 @@ std::unique_ptr<Constraint> Constraint::createEmpty(std::unique_ptr<RegExp> re)
 
 bool Constraint::isEmpty() const
 {
-	auto *sc = dynamic_cast<const SubsetConstraint *>(this);
-	auto *ec = dynamic_cast<const EqualityConstraint *>(this);
-	return (sc || ec) && getNumKids() == 2 && getKid(1)->isFalse();
+	return dynamic_cast<const SubsetConstraint *>(this) && getNumKids() == 2 && getKid(1)->isFalse();
+}
+
+std::unique_ptr<Constraint>
+Constraint::createEquality(std::unique_ptr<RegExp> lhs,
+			   std::unique_ptr<RegExp> rhs)
+{
+	if (lhs->isFalse())
+		return createEmpty(std::move(rhs));
+	if (rhs->isFalse())
+		return createEmpty(std::move(lhs));
+	auto c1 = SubsetConstraint::createOpt(lhs->clone(), rhs->clone());
+	auto c2 = SubsetConstraint::createOpt(std::move(rhs), std::move(lhs));
+	return ConjunctiveConstraint::create(std::move(c1), std::move(c2));
 }
 
 std::unique_ptr<Constraint>
@@ -27,14 +38,16 @@ SubsetConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 		if (*rhs == *seqRE->getKid(0) && *rhs == *seqRE->getKid(1))
 			return TransitivityConstraint::createOpt(std::move(rhs));
 	}
+	/* Convert `A+ <= A` to `transitive A` */
+	if (auto *plusRE = dynamic_cast<PlusRE *>(&*lhs)) {
+		if (*rhs == *plusRE->getKid(0))
+			return TransitivityConstraint::createOpt(std::move(rhs));
+	}
 	/* Convert `A & id <= B` to `SubsetSameEnds(A,B)` */
 	if (auto *andRE = dynamic_cast<AndRE *>(&*lhs)) {
 		if (*andRE->getKid(1) == *RegExp::createId())
 			return SubsetSameEndsConstraint::createOpt(andRE->releaseKid(0), std::move(rhs));
 	}
-	/* Convert `A <= id` to `SubsetID` constraint */
-	if (*rhs == *RegExp::createId())
-		return SubsetIDConstraint::createOpt(std::move(lhs));
 
 	return create(std::move(lhs), std::move(rhs));
 }
@@ -54,12 +67,6 @@ SubsetSameEndsConstraint::createOpt(std::unique_ptr<RegExp> lhs,
 			return SubsetSameEndsConstraint::createOpt(std::move(lhs), andRE->releaseKid(0));
 	}
 	return create(std::move(lhs), std::move(rhs));
-}
-
-std::unique_ptr<Constraint>
-SubsetIDConstraint::createOpt(std::unique_ptr<RegExp> re)
-{
-	return create(std::move(re));
 }
 
 void ignoreInitAndFinalPreds(NFA &nfa)
@@ -272,25 +279,24 @@ findAllMatchingPathsOpt(const NFA &pattern, const NFA &nfa)
 	return result;
 }
 
-void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const NFA &other)
+void expandAssumption(NFA &nfa, const Constraint *assm, const NFA &other)
 {
-	assert(&*assm);
-	if (auto *tc = dynamic_cast<TotalityConstraint *>(&*assm)) {
-		saturateTotal(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
+	assert(assm);
+	if (auto *cc = dynamic_cast<const ConjunctiveConstraint *>(assm)) {
+		expandAssumption(nfa, cc->getConstraint1(), other);
+		expandAssumption(nfa, cc->getConstraint2(), other);
 		return;
 	}
-	if (auto *tc = dynamic_cast<TransitivityConstraint *>(&*assm)) {
-		saturateTransitive(nfa, *static_cast<CharRE *>(tc->getRelation())->getLabel().getRelation());
+	if (auto *tc = dynamic_cast<const TotalityConstraint *>(assm)) {
+		saturateTotal(nfa, *static_cast<const CharRE *>(tc->getRelation())->getLabel().getRelation());
 		return;
 	}
-	if (auto *tc = dynamic_cast<SubsetIDConstraint *>(&*assm)) {
-		auto id = tc->getRelation()->toNFA();
-		normalize(id, [](auto &t){ return true; });
-		saturateID(nfa, std::move(id));
+	if (auto *tc = dynamic_cast<const TransitivityConstraint *>(assm)) {
+		saturateTransitive(nfa, *static_cast<const CharRE *>(tc->getRelation())->getLabel().getRelation());
 		return;
 	}
 
-	auto *ec = dynamic_cast<SubsetConstraint *>(&*assm);
+	auto *ec = dynamic_cast<const SubsetConstraint *>(assm);
 	if (!ec) {
 		std::cout << "Ignoring unsupported local assumption " << *assm << "\n";
 		return;
@@ -301,8 +307,15 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const N
 	auto lNFA = lRE->toNFA();
 	normalize(lNFA, [](auto &t){ return true; });
 
+	/* Handle `A <= 0` assumption */
 	if (ec->getKid(1)->isFalse()) {
 		saturateEmpty(nfa, std::move(lNFA), other);
+		return;
+	}
+
+	/* Handle `A <= id` assumption */
+	if (*rRE == *RegExp::createId()) {
+		saturateID(nfa, std::move(lNFA));
 		return;
 	}
 
@@ -310,7 +323,7 @@ void expandAssumption(NFA &nfa, const std::unique_ptr<Constraint> &assm, const N
 	normalize(rNFA, [](auto &t){ return true; });
 
 	std::vector<std::vector<Path>> paths;
-	auto *seqRE = dynamic_cast<SeqRE *>(lRE);
+	// auto *seqRE = dynamic_cast<SeqRE *>(lRE);
 	// if (seqRE &&
 	//     std::all_of(seqRE->kid_begin(), seqRE->kid_end(), [&](auto &k){
 	// 		    return dynamic_cast<CharRE *>(k.get()) ||
@@ -434,7 +447,7 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	normalize(nfa2, vfun);
 	if (!assms.empty()) {
 		std::for_each(assms.begin(), assms.end(), [&](auto &assm){
-			expandAssumption(nfa2, assm, nfa1);
+			expandAssumption(nfa2, &*assm, nfa1);
 			normalize(nfa2, vfun);
 		});
 	}
@@ -444,28 +457,17 @@ bool checkStaticInclusion(const RegExp *re1, const RegExp *re2,
 	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 
+bool ConjunctiveConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
+					   Counterexample &cex, Constraint::ValidFunT vfun) const
+{
+	return constraint1->checkStatically(assms, cex, vfun)
+	       && constraint2->checkStatically(assms, cex, vfun);
+}
+
 bool SubsetConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
 				       Counterexample &cex, Constraint::ValidFunT vfun) const
 {
 	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun);
-}
-
-std::unique_ptr<Constraint>
-EqualityConstraint::createOpt(std::unique_ptr<RegExp> lhs,
-			      std::unique_ptr<RegExp> rhs)
-{
-	if (lhs->isFalse())
-		return Constraint::createEmpty(std::move(rhs));
-	if (rhs->isFalse())
-		return Constraint::createEmpty(std::move(lhs));
-	return create(std::move(lhs), std::move(rhs));
-}
-
-bool EqualityConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
-					 Counterexample &cex, Constraint::ValidFunT vfun) const
-{
-	return checkStaticInclusion(getKid(0), getKid(1), assms, cex, vfun) &&
-		checkStaticInclusion(getKid(1), getKid(0), assms, cex, vfun);
 }
 
 bool SubsetSameEndsConstraint::checkStatically(const std::vector<std::unique_ptr<Constraint>> &assms,
