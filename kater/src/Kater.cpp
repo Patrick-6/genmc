@@ -46,6 +46,9 @@ void Kater::expandRfs(URE &r)
 
 void Kater::printCounterexample(const Counterexample &cex) const
 {
+	if (cex.empty())
+		return;
+
 	std::cerr << "Counterexample: ";
 	auto i = 0u;
 	std::for_each(cex.begin(), cex.end(), [&](auto &lab){
@@ -494,8 +497,7 @@ bool Kater::checkAssertions()
 		Counterexample cex;
 		if (!checkAssertion(&*p.co, cex)) {
 			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;
-			if (!cex.empty())
-				printCounterexample(cex);
+			printCounterexample(cex);
 			status = false;
 		}
 	});
