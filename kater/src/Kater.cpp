@@ -523,7 +523,7 @@ void Kater::generateNFAs()
 	module.registerAssert(SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj))),
 			       yy::location());
 
-	/* Ensure that all saved relations are included in pporf and are transitive */
+	/* Ensure that all saved relations are included in pporf;ppo and are transitive */
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
 			auto &sv = kv.second;
 			module.registerAssert(
