@@ -21,12 +21,13 @@
 
 #include "RegExp.hpp"
 #include "Counterexample.hpp"
+#include "Visitor.hpp"
 
 /*******************************************************************************
  **                           Constraint Class (Abstract)
  ******************************************************************************/
 
-class Constraint {
+class Constraint : public VisitableContainer {
 
 public:
 	enum class Type { Consistency, Error, Warning };
@@ -75,13 +76,6 @@ public:
 	/* The kids of this RE */
 	size_t getNumKids() const { return kids.size(); }
 
-	/* Does the Constraint hold statically */
-	virtual bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-				     Counterexample &cex,
-				     ValidFunT vfun = [](auto &t){ return true; }) const {
-		return false;
-	}
-
 	/* Returns a clone of the Constraint */
 	virtual std::unique_ptr<Constraint> clone() const = 0;
 
@@ -98,6 +92,10 @@ protected:
 	void addKid(std::unique_ptr<RegExp> k) {
 		kids.push_back(std::move(k));
 	}
+
+	bool isContainer() const override { return false; }
+
+	void visitChildren(BaseVisitor &visitor) const override {}
 
 private:
 	Type type = Type::Consistency;
@@ -143,20 +141,25 @@ public:
 			new ConjunctiveConstraint(std::forward<Ts>(params)...));
 	}
 
-	std::unique_ptr<Constraint> clone() const override
-	{ return create(constraint1->clone(), constraint2->clone()); }
+	std::unique_ptr<Constraint> clone() const override {
+		return create(constraint1->clone(), constraint2->clone());
+	}
 
-	std::ostream &dump(std::ostream &s) const override
-	{ return s << "(" << *constraint1 << " && " << *constraint2 << ")"; }
-
-	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     Counterexample &cex,
-			     ValidFunT vfun = [](auto &t){ return true; }) const override;
+	std::ostream &dump(std::ostream &s) const override {
+		return s << "(" << *constraint1 << " && " << *constraint2 << ")";
+	}
 
 	const Constraint *getConstraint1() const { return constraint1.get(); }
 	const Constraint *getConstraint2() const { return constraint2.get(); }
 
 private:
+	bool isContainer() const override { return true; }
+
+	void visitChildren(BaseVisitor &visitor) const override {
+		visitor(*getConstraint1());
+		visitor(*getConstraint2());
+	}
+
 	std::unique_ptr<Constraint> constraint1;
 	std::unique_ptr<Constraint> constraint2;
 };
@@ -260,10 +263,6 @@ public:
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
 
-	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     Counterexample &cex,
-			     ValidFunT vfun = [](auto &t){ return true; }) const override;
-
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
 	}
@@ -299,10 +298,6 @@ public:
 
 	const RegExp *getRHS() const { return getKid(1); }
 	RegExp *getRHS() { return getKid(1).get(); }
-
-	bool checkStatically(const std::vector<std::unique_ptr<Constraint>> &assm,
-			     Counterexample &cex,
-			     ValidFunT vfun = [](auto &t){ return true; }) const override;
 
 	std::unique_ptr<Constraint> clone() const override {
 		return create(getKid(0)->clone(), getKid(1)->clone());
