@@ -132,7 +132,7 @@ class ConjunctiveConstraint : public Constraint {
 protected:
 	ConjunctiveConstraint(std::unique_ptr<Constraint> c1,
 			      std::unique_ptr<Constraint> c2)
-		: Constraint(), constraint1(std::move(c1)), constraint2(std::move(c2)) {  }
+		: Constraint(), constraint1(std::move(c1)), constraint2(std::move(c2)) {}
 
 public:
 	template<typename... Ts>
