@@ -44,33 +44,6 @@ void Kater::expandRfs(URE &r)
 	r = AltRE::createOpt(std::move(re1), std::move(re2));
 }
 
-// void expandMos(KatModule *module, URE &r)
-// {
-// 	for (int i = 0; i < r->getNumKids(); i++)
-// 		expandMos(module, r->getKid(i));
-
-// 	auto rf = module->getRegisteredID("mo-imm");
-// 	auto *re = dynamic_cast<const CharRE *>(&*r);
-// 	if (!re || re->getLabel().getId() != static_cast<const CharRE *>(&*rf)->getLabel().getId())
-// 		return;
-
-// 	auto rfe = module->getRegisteredID("moe");
-// 	auto rfi = module->getRegisteredID("moi");
-
-// 	auto re1 = re->clone();
-// 	auto re2 = re->clone();
-// 	auto l1 = TransLabel(static_cast<CharRE *>(&*rfe)->getLabel().getId(),
-// 			     re->getLabel().getPreChecks(),
-// 			     re->getLabel().getPostChecks());
-// 	auto l2 = TransLabel(static_cast<CharRE *>(&*rfi)->getLabel().getId(),
-// 			     re->getLabel().getPreChecks(),
-// 			     re->getLabel().getPostChecks());
-// 	static_cast<CharRE *>(&*re1)->setLabel(l1);
-// 	static_cast<CharRE *>(&*re2)->setLabel(l2);
-
-// 	r = AltRE::createOpt(std::move(re1), std::move(re2));
-// }
-
 void Kater::printCounterexample(const Counterexample &cex) const
 {
 	std::cerr << "Counterexample: ";
@@ -516,7 +489,6 @@ bool Kater::checkAssertions()
 		for (int i = 0; i < p.co->getNumKids(); i++) {
 			expandSavedVars(p.co->getKid(i));
 			expandRfs(p.co->getKid(i));
-			// expandMos(&*module, p.co->getKid(i));
 		}
 
 		Counterexample cex;
