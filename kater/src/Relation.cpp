@@ -17,16 +17,17 @@
  */
 
 #include "Relation.hpp"
+#include "BasicPredicates.hpp"
 
-using PB = Predicate::Builtin;
+using PB = PredicateMask;
 const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
         /* po */
         {po_imm,	{"po-imm",      RelType::OneOne,     {},   {},   true}},
         {po_loc_imm,	{"po-loc-imm",  RelType::OneOne,     {},   {},   true}},
 	/* deps */
-        {ctrl_imm,	{"ctrl-imm",    RelType::UnsuppMany, {Predicate::createBuiltin(PB::R)}, {},   true}},
-        {addr_imm,	{"addr-imm",    RelType::UnsuppMany, {Predicate::createBuiltin(PB::R)}, {},   true}},
-        {data_imm,	{"data-imm",    RelType::UnsuppMany, {Predicate::createBuiltin(PB::R)}, {},   true}},
+        {ctrl_imm,	{"ctrl-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
+        {addr_imm,	{"addr-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
+        {data_imm,	{"data-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
 	/* same thread */
 	{same_thread,	{"same-thread", RelType::Conj,	     {},   {},   false}},
 	/* same location */
@@ -34,18 +35,18 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
         {frees,		{"frees",       RelType::OneOne,     {},   {},   false}},
         {loc_overlap,	{"loc-overlap", RelType::Final,      {},   {},   false}},
 	/* rf, co, fr, detour */
-        {rf,		{"rf",          RelType::ManyOne,    {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
-        {rfe,		{"rfe",         RelType::ManyOne,    {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
-        {rfi,		{"rfi",         RelType::ManyOne,    {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
-        {tc,		{"tc",          RelType::OneOne,     {Predicate::createBuiltin(PB::TC)}, {Predicate::createBuiltin(PB::TB)}, false}},
-        {tj,		{"tj",          RelType::OneOne,     {Predicate::createBuiltin(PB::TE)}, {Predicate::createBuiltin(PB::TJ)}, false}},
-        {mo_imm,	{"mo-imm",      RelType::OneOne,     {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {moe,		{"moe",         RelType::UnsuppMany, {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {moi,		{"moi",         RelType::UnsuppMany, {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {fr_imm,	{"fr-imm",      RelType::ManyOne,    {Predicate::createBuiltin(PB::R)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {fre,		{"fre",         RelType::ManyOne,    {Predicate::createBuiltin(PB::R)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {fri,		{"fri",         RelType::ManyOne,    {Predicate::createBuiltin(PB::R)},  {Predicate::createBuiltin(PB::W)}, false}},
-        {detour,	{"detour",      RelType::OneOne,     {Predicate::createBuiltin(PB::W)},  {Predicate::createBuiltin(PB::R)}, false}},
+        {rf,		{"rf",          RelType::ManyOne,    {(PB::W)},  {(PB::R)}, false}},
+        {rfe,		{"rfe",         RelType::ManyOne,    {(PB::W)},  {(PB::R)}, false}},
+        {rfi,		{"rfi",         RelType::ManyOne,    {(PB::W)},  {(PB::R)}, false}},
+        {tc,		{"tc",          RelType::OneOne,     {(PB::TC)}, {(PB::TB)}, false}},
+        {tj,		{"tj",          RelType::OneOne,     {(PB::TE)}, {(PB::TJ)}, false}},
+        {mo_imm,	{"mo-imm",      RelType::OneOne,     {(PB::W)},  {(PB::W)}, false}},
+        {moe,		{"moe",         RelType::UnsuppMany, {(PB::W)},  {(PB::W)}, false}},
+        {moi,		{"moi",         RelType::UnsuppMany, {(PB::W)},  {(PB::W)}, false}},
+        {fr_imm,	{"fr-imm",      RelType::ManyOne,    {(PB::R)},  {(PB::W)}, false}},
+        {fre,		{"fre",         RelType::ManyOne,    {(PB::R)},  {(PB::W)}, false}},
+        {fri,		{"fri",         RelType::ManyOne,    {(PB::R)},  {(PB::W)}, false}},
+        {detour,	{"detour",      RelType::OneOne,     {(PB::W)},  {(PB::R)}, false}},
 	/* any */
         {any,		{"any",         RelType::OneOne,     {},  {}, false}},
 };

@@ -97,7 +97,7 @@ private:
 	std::ostream* outCpp = &std::cout;
 
 	static const std::unordered_map<Relation::Builtin, RelationOut> relationNames;
-	static const std::unordered_map<Predicate::Builtin, std::string> predicateNames;
+	static const std::unordered_map<PredicateMask, std::string> predicateNames;
 
 	static std::vector<unsigned> calcToIdxMap;
 	std::unordered_set<unsigned> viewCalcs;

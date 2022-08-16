@@ -29,10 +29,10 @@ extern void yyrestart(FILE *);
 ParsingDriver::ParsingDriver() : module(new KatModule)
 {
 	/* Basic predicates */
-	std::for_each(Predicate::builtin_begin(), Predicate::builtin_end(), [this](auto &pi){
+	std::for_each(PredicateSet::builtin_begin(), PredicateSet::builtin_end(), [this](auto &pi){
 		registerBuiltinID(pi.second.name, CharRE::create(
 					  TransLabel(std::nullopt,
-						     Predicate::createBuiltin(pi.first))));
+						     PredicateSet(pi.first))));
 	});
 
 	/* Basic relations */

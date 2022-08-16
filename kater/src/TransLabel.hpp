@@ -44,21 +44,6 @@ public:
 		   const PredicateSet &postG = {})
 		: id(id), preChecks(preG), postChecks(postG) {}
 
-	using pred_iter = PredicateSet::iterator;
-	using pred_const_iter = PredicateSet::const_iterator;
-
-	pred_iter pre_begin() { return getPreChecks().begin(); }
-	pred_iter pre_end() { return getPreChecks().end(); }
-
-	pred_const_iter pre_begin() const { return getPreChecks().begin(); }
-	pred_const_iter pre_end() const { return getPreChecks().end(); }
-
-	pred_iter post_begin() { return getPostChecks().begin(); }
-	pred_iter post_end() { return getPostChecks().end(); }
-
-	pred_const_iter post_begin() const { return getPostChecks().begin(); }
-	pred_const_iter post_end() const { return getPostChecks().end(); }
-
 	const std::optional<Relation> &getRelation() const { return id; }
 	std::optional<Relation> &getRelation() { return id; }
 

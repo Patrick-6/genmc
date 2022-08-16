@@ -63,12 +63,14 @@ bool TransLabel::composesWith(const TransLabel &other) const
 std::string TransLabel::toString() const
 {
 	std::stringstream ss;
-
 	if (isPredicate())
-		ss << getPreChecks() << (!isPredicate() ? ";" : "");
-	if (!isPredicate())
+		ss << getPreChecks();
+	else {
+		if (!getPreChecks().empty())
+			ss << getPreChecks() << ";";
 		ss << getRelation()->getName();
-	if (!getPostChecks().empty())
-		ss << ";" << getPostChecks();
+		if (!getPostChecks().empty())
+			ss << ";" << getPostChecks();
+	}
 	return ss.str();
 }

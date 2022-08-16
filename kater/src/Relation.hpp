@@ -20,6 +20,7 @@
 #define KATER_RELATION_HPP
 
 #include "Predicate.hpp"
+#include <unordered_map>
 
 /*******************************************************************************
  **                           RelationInfo Class

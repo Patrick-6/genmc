@@ -79,65 +79,6 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
         {Relation::detour,	{ "detour_succs",    "detour_preds"}},
 };
 
-const std::unordered_map<Predicate::Builtin, std::string> Printer::predicateNames = {
-	/* Access modes */
-	{Predicate::Marked,	 "!#->isNotAtomic()"},
-	{Predicate::NA,		 "#->isNotAtomic()"},
-	{Predicate::ACQ,	 "#->isAtLeastAcquire()"},
-	{Predicate::REL,	 "#->isAtLeastRelease()"},
-	{Predicate::SC,		 "#->isSC()"},
-	/* Random stuff */
-	{Predicate::IsDynamicLoc, "g.is_dynamic_loc(#)"},
-	{Predicate::NotHpProtected, "g.notHpProtected(#)"},
-	{Predicate::RfInit,	 "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
-	{Predicate::REC,	 "#->getThread() == g.getRecoveryRoutineId()"},
-	{Predicate::D,		 "llvm::isa<MemAccessLabel>(#) && llvm::dyn_cast<MemAccessLabel>(#)->getAddr().isDurable()"},
-	/* Memory accesses */
-	{Predicate::MemAccess,	 "llvm::isa<MemAccessLabel>(#)"},
-	{Predicate::W,		 "llvm::isa<WriteLabel>(#)"},
-	{Predicate::UW,		 "g.isRMWStore(#)"},
-	{Predicate::R,		 "llvm::isa<ReadLabel>(#)"},
-	{Predicate::UR,		 "g.isRMWLoad(#)"},
-//	{Predicate::HelpingCas,	 "llvm::isa<HelpingCasLabel>(#)"},
-	/* Fences */
-        {Predicate::F,		 "llvm::isa<FenceLabel>(#)"},
-	{Predicate::Fwmb,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"},
-	{Predicate::Frmb,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"},
-	{Predicate::Fba,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBBA)"},
-	{Predicate::Faa,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAA)"},
-	{Predicate::Fas,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"},
-	{Predicate::Faul,	 "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"},
-	/* Thread events */
-	{Predicate::TC,		 "llvm::isa<ThreadCreateLabel>(#)"},
-	{Predicate::TJ,		 "llvm::isa<ThreadJoinLabel>(#)"},
-	{Predicate::TK,		 "llvm::isa<ThreadKillLabel>(#)"},
-	{Predicate::TB,		 "llvm::isa<ThreadStartLabel>(#)"},
-	{Predicate::TE,		 "llvm::isa<ThreadFinishLabel>(#)"},
-	/* Allocation */
-	{Predicate::Alloc,	 "llvm::isa<MallocLabel>(#)"},
-	{Predicate::Free,	 "llvm::isa<FreeLabel>(#)"},
-	{Predicate::HpRetire,	 "llvm::isa<HpRetireLabel>(#)"},
-	{Predicate::HpProtect,	 "llvm::isa<HpProtectLabel>(#)"},
-	/* Mutexes */
-	{Predicate::LR,		 "llvm::isa<LockCasReadLabel>(#)"},
-	{Predicate::LW,		 "llvm::isa<LockCasWriteLabel>(#)"},
-	{Predicate::UL,		 "llvm::isa<UnlockWriteLabel>(#)"},
-	/* RCU */
-	{Predicate::RCUSync,	 "llvm::isa<RCUSyncLabel>(#)"},
-	{Predicate::RCULock,	 "llvm::isa<RCULockLabel>(#)"},
-	{Predicate::RCUUnlock,	 "llvm::isa<RCUUnlockLabel>(#)"},
-	/* File ops */
-//	{Predicate::DskWrite,	 "llvm::isa<DskWriteLabel>(#)"},
-//	{Predicate::DskMdWrite,	 "llvm::isa<DskMdWriteLabel>(#)"},
-//	{Predicate::DskDirWrite, "llvm::isa<DskDirWriteLabel>(#)"},
-//	{Predicate::DskJnlWrite, "llvm::isa<DskJnlWriteLabel>(#)"},
-	{Predicate::DskOpen,	 "llvm::isa<DskOpenLabel>(#)"},
-	{Predicate::DskFsync,	 "llvm::isa<DskFsyncLabel>(#)"},
-	{Predicate::DskSync,	 "llvm::isa<DskSyncLabel>(#)"},
-	{Predicate::DskPbarrier, "llvm::isa<DskPbarrierLabel>(#)"},
-	{Predicate::CLF,	 "llvm::isa<CLFlushLabel>(#)"},
-};
-
 void openFileForWriting(const std::string &filename, std::ofstream &fout)
 {
 	fout.open(filename, std::ios_base::out);
@@ -178,19 +119,11 @@ std::size_t replaceAll(std::string& inout, const std::string &what, const std::s
 
 void Printer::printPredSet(std::ostream &ostr, const std::string &arg, const PredicateSet &preds)
 {
-	if (preds.begin() == preds.end())
+	auto s = preds.toGenmcString();
+	if (s == "")
 		return;
-
-	ostr << "if (true";
-	for (auto it = preds.begin(), ie = preds.end(); it != ie; ++it) {
-		ostr << " && ";
-
-		assert(it->isBuiltin());
-		auto s = predicateNames.find(it->toBuiltin())->second;
-		replaceAll(s, "#", arg);
-		ostr << s;
-	}
-	ostr << ")";
+	replaceAll(s, "#", arg);
+	ostr << "if (" << s << ")";
 }
 
 void Printer::printRelation(std::ostream& ostr, const std::string &res,
