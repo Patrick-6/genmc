@@ -5,6 +5,6 @@ let hb2 = (po;[W] | [R];po | rfe)+
 let ra2 = (hb2;fr | hb2;mo | hb2 | po;fr)
 
 // assume rfi <= po
-// assert ra1 <=&id ra2
+assert [R|W];ra1;[R|W] <=&id ra2
 
 assert ra2 <=&id ra1
