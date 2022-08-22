@@ -34,7 +34,7 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::MemAccess,  {"MEM"      , "llvm::isa<MemAccessLabel>(#)"}},
 	{ PredicateMask::R,          {"R"        , "llvm::isa<ReadLabel>(#)"}},
 	{ PredicateMask::W,          {"W"        , "llvm::isa<WriteLabel>(#)"}},
-	{ PredicateMask::F,          {"F"        , "isa<FenceLabel>(#)"}},
+	{ PredicateMask::F,          {"F"        , "llvm::isa<FenceLabel>(#)"}},
 	{ PredicateMask::NA,         {"NA"       , "#->isNotAtomic()"}},
 	{ PredicateMask::Marked,     {"Marked"   , "!#->isNotAtomic()"}},
 	{ PredicateMask::Acq,        {"ACQ"      , "#->isAtLeastAcquire()"}},
