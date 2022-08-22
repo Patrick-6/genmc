@@ -407,9 +407,17 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		      << "\tvisitedAcyclic" << ids[&*s] << ".resize(g.getMaxStamp() + 1);\n";
 	});
 	cpp() << "\treturn true";
-	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		cpp() << "\n\t\t&& visitAcyclic" << ids[&*s] << "(e)";
-	});
+	for (auto sIt = nfa.states_begin(), sE = nfa.states_end(); sIt != sE; ++sIt) {
+		if (std::all_of(sIt->out_begin(), sIt->out_end(), [&](auto &t){
+			auto rOpt = t.label.getRelation();
+			return rOpt.has_value() && !rOpt->isInverse() &&
+				(Relation::createBuiltin(Relation::Builtin::po_imm).includes(*rOpt) ||
+				 Relation::createBuiltin(Relation::Builtin::rf).includes(*rOpt) ||
+				 !rOpt->isBuiltin());
+				}))
+			continue;
+		cpp() << "\n\t\t&& visitAcyclic" << ids[&**sIt] << "(e)";
+	}
 	cpp() << ";\n"
 	      << "}\n"
 	      << "\n";
