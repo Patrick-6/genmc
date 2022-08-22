@@ -353,7 +353,7 @@ void Printer::printAcyclicHpp(const NFA &nfa)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstd::vector<NodeCountStatus> visitedAcyclic" << ids[&*s] << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeCountStatus> visitedAcyclic" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 
@@ -431,7 +431,7 @@ void Printer::printRecoveryHpp(const NFA &nfa)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstd::vector<NodeCountStatus> visitedRecovery" << ids[&*s] << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeCountStatus> visitedRecovery" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 
@@ -510,7 +510,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id, VarStatus status)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstd::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
 	});
 	hpp() << "\n";
 }
@@ -596,7 +596,7 @@ void Printer::printPPoRfHpp(const NFA &nfa, bool deps)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstd::vector<NodeStatus> visitedPPoRf" << ids[&*s] << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedPPoRf" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 }
@@ -662,7 +662,7 @@ void Printer::printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id)
 
 	/* status arrays */
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		hpp() << "\tstd::vector<NodeStatus> visitedInclusion" << GET_ID(id, ids[&*s]) << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusion" << GET_ID(id, ids[&*s]) << ";\n";
 	});
 	hpp() << "\n";
 }
