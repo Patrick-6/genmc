@@ -4,6 +4,13 @@
 OUT_PREFIX="gitlab-ci-"
 OUT_SUFFIX=".yml"
 
+## workflow
+WORKFLOW="workflow:
+  rules:
+    - if: \$CI
+    - if: \$CI_MERGE_REQUEST_ID
+"
+
 ## headers
 LINUX_HEADER="default:
   artifacts:
@@ -125,15 +132,21 @@ test_stage() {
 regression_stage() {
     echo ".test:llvm_job: &regression"
     echo "  stage: regression"
-    echo "  only:"
-    echo "    - merge_requests"
+    echo "  variables:"
+    echo "    GIT_STRATEGY: clone"
+    echo "  rules:"
+    echo "    - if: \$CI_MERGE_REQUEST_ID"
     echo "  script:"
-    echo "    - cd scripts && ./check-regression.sh $CI_MERGE_REQUEST_TARGET_BRANCH_NAME $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    echo "    - ./scripts/check-regression.sh \$CI_MERGE_REQUEST_TARGET_BRANCH_NAME \$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
     echo ""
 }
 
 for os in LINUX MACOS; do
     {
+	# print workflow
+	echo "### WORKFLOW"
+	echo "${WORKFLOW}"
+
 	# print header
 	echo "### DEFAULT PARAMETERS"
 	header=${os}_HEADER
