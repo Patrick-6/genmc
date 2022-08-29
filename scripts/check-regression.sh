@@ -50,20 +50,20 @@ NEW_COMMIT=$2
 THRESHOLD="${THRESHOLD:-0.10}"
 
 out_dir="/tmp"
-res_prefix="__check_regression"
+res_prefix="__check_regression_$RANDOM"
 out_old="${out_dir}/${res_prefix}_${OLD_COMMIT}.out"
 out_new="${out_dir}/${res_prefix}_${NEW_COMMIT}.out"
 
-# # run tests w/ OLD and NEW
-# make clean
-# git checkout "${OLD_COMMIT}"
-# make -j `nproc`
-# TERM=xterm-mono make ftest > "${out_old}"
+# run tests w/ OLD and NEW
+make clean
+git checkout "${OLD_COMMIT}"
+make -j `nproc`
+TERM=xterm-mono make ftest > "${out_old}"
 
-# make clean
-# git checkout "${NEW_COMMIT}"
-# make -j `nproc`
-# TERM=xterm-mono make ftest > "${out_new}"
+make clean
+git checkout "${NEW_COMMIT}"
+make -j `nproc`
+TERM=xterm-mono make ftest > "${out_new}"
 
 # keep only name/model/co + time for tests
 out_old_filtered="${out_dir}/${res_prefix}_${OLD_COMMIT}_filtered.out"
