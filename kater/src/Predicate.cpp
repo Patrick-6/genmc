@@ -29,7 +29,9 @@
 //	{Predicate::RfInit,	 "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
 //	{Predicate::REC,	 "#->getThread() == g.getRecoveryRoutineId()"},
 
-
+//
+// FIXME: Name printing need fixing
+//
 const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtins = {
 	{ PredicateMask::MemAccess,  {"MEM"      , "llvm::isa<MemAccessLabel>(#)"}},
 	{ PredicateMask::R,          {"R"        , "llvm::isa<ReadLabel>(#)"}},
@@ -69,9 +71,9 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::UWrel,      {"UWrel"    , "llvm::isa<StoreLabel>(#) && g.isRMWStore(#) && #->isRelease()"}},
 	{ PredicateMask::UWsc,       {"UWsc"     , "llvm::isa<StoreLabel>(#) && g.isRMWStore(#) && #->isSC()"}},
 	{ PredicateMask::DW,         {"DW"       , "??"}},
-	{ PredicateMask::Facq,       {"Facq"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastAcquire(#) && !#->isAtLeastRelease()"}},
-	{ PredicateMask::Frel,       {"Frel"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastRelease(#) && !#->isAtLeastAcquire()" }},
-	{ PredicateMask::Facqrel,    {"Facqrel"  , "llvm::isa<FenceLabel>(#) && #=>isAtLeastAcquire() && #->isAtLeastRelease()"}},
+	{ PredicateMask::Facq,       {"Facq"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastAcquire() && !#->isAtLeastRelease()"}},
+	{ PredicateMask::Frel,       {"Frel"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastRelease() && !#->isAtLeastAcquire()" }},
+	{ PredicateMask::Facqrel,    {"Facqrel"  , "llvm::isa<FenceLabel>(#) && #->isAtLeastAcquire() && #->isAtLeastRelease()"}},
 	{ PredicateMask::Fsc,        {"Fsc"      , "llvm::isa<FenceLabel>(#) && #->isSC()"}},
 	{ PredicateMask::Fwmb,       {"Fwmb"     , "SmpFenceLabelLKMM::isType(#, SmpFenceType::WMB)"}},
 	{ PredicateMask::Frmb,       {"Frmb"     , "SmpFenceLabelLKMM::isType(#, SmpFenceType::RMB)"}},
@@ -179,4 +181,3 @@ void PredicateSet::minus(const PredicateSet &other)
 {
 	mask = mask | ~other.mask;
 }
-
