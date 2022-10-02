@@ -2,28 +2,10 @@ include "../kat/tso.kat"
 include "../kat/tso-fm.kat"
 
 // WTP: tso == fm-tso
+// From Lemma 2.1, STP that
+//     irreflexive(tso+ | po;eco) <=> irreflexive(hb;fr? | tso-fm+)
 
-// Subgoal 1: tso+ <= rot fm-tso
+let eco = (mo | rf | fr)+
 
-// assume [W];po;[W] <= tso-fm::to
-// assume mo <= tso-fm::to
-// assume rfe;fr-imm <= mo-imm
-// assume total tso-fm::to
-
-// assert tso::tso+ <=&id rot tso-fm::tso
-
-
-// Subgoal 2: fm-tso <= tso+
-//
-//    Since total(TO), irr(TO), irr(fr;TO), irr(TO;hb), ...
-//    STP ([W|F];hb;[W|F] | fr | rfe;po;fr | [UW|F];po;fr)+ <= tso
-
-let hb = tso-fm::hb
-let fm-tso = ([W|F];hb;[W|F] | fr | rfe;po;fr | [UW|F];po;fr)+
-
-assume rfi;fr-imm <= mo-imm
-assume rfi <= po
-
-assert fm-tso <=&id tso::tso+
-assert hb <=&id tso::tso+
-assert fr;hb <=&id tso::tso+ | fr;po
+assert (tso-fm::tso+ | tso-fm::hb;fr?) <=&id rot (tso::tso+ | po;eco)
+// assert [R|W|F];(tso::tso+ | po;eco);[R|W|F] <=&id rot (tso-fm::tso+ | tso-fm::hb;fr?)

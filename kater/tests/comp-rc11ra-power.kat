@@ -1,4 +1,6 @@
 include "../kat/rc11.kat"
+
+// Define a simplified version of POWER in-place
 // include "../kat/power-fm-simpl.kat"
 
 let sync = [R|W]; po; [F;SC]; po; [R|W]
@@ -7,7 +9,7 @@ let fence = sync | [R]; lwsync; [W|R] | [R|W]; lwsync; [W]
 
 let ppo = // [R]; po-loc; [W] |
 [R];(rmw|rfi)+;[W|R]
-let hb = ppo | fence | rfe // assume empty ppo
+let hb = ppo | fence | rfe // assume almost empty ppo
 
 let prop1 = [W]; rfe?; fence; hb*; [W]
 let prop2 = fr?; rfe?; (fence; hb*)?; sync; hb*
@@ -17,14 +19,12 @@ let obs = fr; prop1; hb*
 
 let ar = obs | (mo | prop)+
 
+// Compilation proof
 
 assume [R;ACQ];po <= [R;ACQ];po;[F];po
 assume po;[REL;W] <= po;[F];po;[REL;W]
-// assume rfi <= po-imm
 assume rfe;rmw <= mo-imm
 assume rfi;rmw <= mo-imm
-
-// assume po-loc-imm <= po-imm
 
 assert (fr;rf?) ; rc11::hb;[R|W] <=&id obs | (rc11::eco)+;po?;(rc11::eco)*
 assert (mo;rfe?) ; rc11::hb;[W] <=&id (mo |prop)+ | (rc11::eco)+;po?;(rc11::eco)*

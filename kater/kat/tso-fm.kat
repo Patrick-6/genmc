@@ -2,4 +2,4 @@ declare to
 
 let hb = ([R|W|F]; po; [R|W|F] | rf)+
 
-let tso = hb | (to;hb) | (fr;hb) | (fr;to) | (fr;to;rfe;po) | (fr;to;[UW|F];po) | to
+let tso = mo | [F|W]; hb; [F|W] | ([UW|F] | rfe); po; fr
