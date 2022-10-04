@@ -30,7 +30,7 @@
 //	{Predicate::REC,	 "#->getThread() == g.getRecoveryRoutineId()"},
 
 //
-// FIXME: Name printing need fixing
+// FIXME: Name printing need fixing (+ remove redundancy)
 //
 const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtins = {
 	{ PredicateMask::MemAccess,  {"MEM"      , "llvm::isa<MemAccessLabel>(#)"}},
@@ -50,13 +50,13 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::Rmarked,    {"R&Marked" , "llvm::isa<ReadLabel>(#) && !#->isNotAtomic()"}},
 	{ PredicateMask::Rna,        {"Rna"      , "llvm::isa<ReadLabel>(#) && #->isNotAtomic()"}},
 	{ PredicateMask::Rrlx,       {"Rrlx"     , "llvm::isa<ReadLabel>(#) && !#->isNotAtomic() && !#->isAtLeastAcquire()"}},
-	{ PredicateMask::Racq,       {"Racq"     , "llvm::isa<ReadLabel>(#) && #->isAtLeastAcquire() && !#isSC()"}},
+	{ PredicateMask::Racq,       {"Racq"     , "llvm::isa<ReadLabel>(#) && #->isAtLeastAcquire() && !#->isSC()"}},
 	{ PredicateMask::Rsc,        {"Rsc"      , "llvm::isa<ReadLabel>(#) && #->isSC()"}},
 	{ PredicateMask::Wmarked,    {"W&Marked" , "llvm::isa<WriteLabel>(#) && !#->isNotAtomic()"}},
 	{ PredicateMask::Wna,        {"Wna"      , "llvm::isa<WriteLabel>(#) && #->isNotAtomic()"}},
-	{ PredicateMask::Wrlx,       {"Wrlx"     , "llvm::isa<StoreLabel>(#) && !#->isNotAtomic() && !#->isAtLeastRelease()"}},
-	{ PredicateMask::Wrel,       {"Wrel"     , "llvm::isa<StoreLabel>(#) && !#->isAtLeastRelease() && !#->isSC()"}},
-	{ PredicateMask::Wsc,        {"Wsc"      , "llvm::isa<StoreLabel>(#) && #->isSC()"}},
+	{ PredicateMask::Wrlx,       {"Wrlx"     , "llvm::isa<WriteLabel>(#) && !#->isNotAtomic() && !#->isAtLeastRelease()"}},
+	{ PredicateMask::Wrel,       {"Wrel"     , "llvm::isa<WriteLabel>(#) && #->isAtLeastRelease() && !#->isSC()"}},
+	{ PredicateMask::Wsc,        {"Wsc"      , "llvm::isa<WriteLabel>(#) && #->isSC()"}},
 	{ PredicateMask::NRrlx,      {"NRrlx"    , "llvm::isa<ReadLabel>(#) && !g.isRMWLoad(#) && ???"}},
 	{ PredicateMask::NRacq,      {"NRacq"    , "llvm::isa<ReadLabel>(#) && !g.isRMWLoad(#) && ???"}},
 	{ PredicateMask::NRsc,       {"NRsc"     , "llvm::isa<ReadLabel>(#) && !g.isRMWLoad(#) && #->isSC()"}},
@@ -64,12 +64,12 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::URacq,      {"URacq"    , "llvm::isa<ReadLabel>(#) && g.isRMWLoad(#) && ???"}},
 	{ PredicateMask::URsc,       {"URsc"     , "llvm::isa<ReadLabel>(#) && g.isRMWLoad(#) && #->isSC()"}},
 	{ PredicateMask::DR,         {"DR"       , "??"}},
-	{ PredicateMask::NWrlx,      {"NWrlx"    , "llvm::isa<StoreLabel>(#) && !g.isRMWStore(#) && #->isRelaxed()"}},
-	{ PredicateMask::NWrel,      {"NWrel"    , "llvm::isa<StoreLabel>(#) && !g.isRMWStore(#) && #->isAcquire()"}},
-	{ PredicateMask::NWsc,       {"NWsc"     , "llvm::isa<StoreLabel>(#) && !g.isRMWStore(#) && #->isSC()"}},
-	{ PredicateMask::UWrlx,      {"UWrlx"    , "llvm::isa<StoreLabel>(#) && g.isRMWStore(#) && #->isRelaxed()"}},
-	{ PredicateMask::UWrel,      {"UWrel"    , "llvm::isa<StoreLabel>(#) && g.isRMWStore(#) && #->isRelease()"}},
-	{ PredicateMask::UWsc,       {"UWsc"     , "llvm::isa<StoreLabel>(#) && g.isRMWStore(#) && #->isSC()"}},
+	{ PredicateMask::NWrlx,      {"NWrlx"    , "llvm::isa<WriteLabel>(#) && !g.isRMWStore(#) && #->isRelaxed()"}},
+	{ PredicateMask::NWrel,      {"NWrel"    , "llvm::isa<WriteLabel>(#) && !g.isRMWStore(#) && #->isAcquire()"}},
+	{ PredicateMask::NWsc,       {"NWsc"     , "llvm::isa<WriteLabel>(#) && !g.isRMWStore(#) && #->isSC()"}},
+	{ PredicateMask::UWrlx,      {"UWrlx"    , "llvm::isa<WriteLabel>(#) && g.isRMWStore(#) && #->isRelaxed()"}},
+	{ PredicateMask::UWrel,      {"UWrel"    , "llvm::isa<WriteLabel>(#) && g.isRMWStore(#) && #->isRelease()"}},
+	{ PredicateMask::UWsc,       {"UWsc"     , "llvm::isa<WriteLabel>(#) && g.isRMWStore(#) && #->isSC()"}},
 	{ PredicateMask::DW,         {"DW"       , "??"}},
 	{ PredicateMask::Facq,       {"Facq"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastAcquire() && !#->isAtLeastRelease()"}},
 	{ PredicateMask::Frel,       {"Frel"     , "llvm::isa<FenceLabel>(#) && #->isAtLeastRelease() && !#->isAtLeastAcquire()" }},
