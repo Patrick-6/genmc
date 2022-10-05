@@ -60,8 +60,6 @@ private:
 	void visitCalc0_1(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_5(const Event &e, VSet<Event> &calcRes);
 
 	VSet<Event> calculate0(const Event &e);
 
@@ -69,8 +67,6 @@ private:
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_2;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_3;
-	static inline thread_local std::vector<NodeStatus> visitedCalc0_4;
-	static inline thread_local std::vector<NodeStatus> visitedCalc0_5;
 
 	bool visitAcyclic0(const Event &e);
 
@@ -79,36 +75,16 @@ private:
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic0;
 
 	uint16_t visitedAccepting = 0;
-	bool visitRecovery0(const Event &e);
-	bool visitRecovery1(const Event &e);
-	bool visitRecovery2(const Event &e);
-	bool visitRecovery3(const Event &e);
-	bool visitRecovery4(const Event &e);
-	bool visitRecovery5(const Event &e);
-	bool visitRecovery6(const Event &e);
-	bool visitRecovery7(const Event &e);
-	bool visitRecovery8(const Event &e);
 
-	bool visitHbloc(const Event &e);
-	bool visitHbloc(const EventLabel *lab, const SAddr &loc, VSet<Event> &visited);
 	bool isRecAcyclic(const Event &e);
 
-	std::vector<NodeCountStatus> visitedRecovery0;
-	std::vector<NodeCountStatus> visitedRecovery1;
-	std::vector<NodeCountStatus> visitedRecovery2;
-	std::vector<NodeCountStatus> visitedRecovery3;
-	std::vector<NodeCountStatus> visitedRecovery4;
-	std::vector<NodeCountStatus> visitedRecovery5;
-	std::vector<NodeCountStatus> visitedRecovery6;
-	std::vector<NodeCountStatus> visitedRecovery7;
-	std::vector<NodeCountStatus> visitedRecovery8;
 
 	uint16_t visitedRecAccepting = 0;
 	void visitPPoRf0(const Event &e, DepView &pporf);
 
 	DepView calcPPoRfBefore(const Event &e);
 
-	std::vector<NodeStatus> visitedPPoRf0;
+	static inline thread_local std::vector<NodeStatus> visitedPPoRf0;
 
 	std::vector<VSet<Event>> saved;
 	std::vector<View> views;
