@@ -34,7 +34,6 @@ void TSOChecker::visitCalc0_0(const Event &e, VSet<Event> &calcRes)
 	calcRes.insert(e);
 	for (const auto &p : lab->calculated(0)) {
 		calcRes.erase(p);
-		visitedCalc0_1[g.getEventLabel(p)->getStamp()] = NodeStatus::left;
 	}
 	for (auto &p : lab->calculated(0)) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
@@ -51,11 +50,6 @@ void TSOChecker::visitCalc0_1(const Event &e, VSet<Event> &calcRes)
 	auto t = 0u;
 
 	visitedCalc0_1[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_2(p, calcRes);
-	}
 	for (auto &p : po_imm_preds(g, lab->getPos()))if (llvm::isa<FenceLabel>(g.getEventLabel(p))) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
@@ -71,25 +65,10 @@ void TSOChecker::visitCalc0_1(const Event &e, VSet<Event> &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
 	}
-	if (llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_1[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
-	if (llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
+			visitCalc0_1(p, calcRes);
 	}
 	visitedCalc0_1[lab->getStamp()] = NodeStatus::left;
 }
@@ -102,10 +81,25 @@ void TSOChecker::visitCalc0_2(const Event &e, VSet<Event> &calcRes)
 
 	visitedCalc0_2[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_2(p, calcRes);
 	}
+	visitedCalc0_2[lab->getStamp()] = NodeStatus::left;
+}
+
+void TSOChecker::visitCalc0_3(const Event &e, VSet<Event> &calcRes)
+{
+	auto &g = getGraph();
+	auto *lab = g.getEventLabel(e);
+	auto t = 0u;
+
+	visitedCalc0_3[lab->getStamp()] = NodeStatus::entered;
 	for (auto &p : po_imm_preds(g, lab->getPos()))if (llvm::isa<FenceLabel>(g.getEventLabel(p))) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
@@ -121,25 +115,40 @@ void TSOChecker::visitCalc0_2(const Event &e, VSet<Event> &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
 	}
-	visitedCalc0_2[lab->getStamp()] = NodeStatus::left;
-}
-
-void TSOChecker::visitCalc0_3(const Event &e, VSet<Event> &calcRes)
-{
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-	auto t = 0u;
-
-	visitedCalc0_3[lab->getStamp()] = NodeStatus::entered;
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
+	if (llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
 	}
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp()];
+	if (lab->isSC())for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
 		if (status == NodeStatus::unseen)
-			visitCalc0_3(p, calcRes);
+			visitCalc0_0(p, calcRes);
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
+	}
+	if (llvm::isa<FenceLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
+	if (lab->isSC())for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_2[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(p, calcRes);
+	}
+	for (auto &p : po_imm_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_1[g.getEventLabel(p)->getStamp()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_1(p, calcRes);
 	}
 	visitedCalc0_3[lab->getStamp()] = NodeStatus::left;
 }
@@ -157,7 +166,7 @@ VSet<Event> TSOChecker::calculate0(const Event &e)
 	visitedCalc0_3.resize(g.getMaxStamp() + 1, NodeStatus::unseen);
 
 	getGraph().getEventLabel(e)->setCalculated({{}, });
-	visitCalc0_1(e, calcRes);
+	visitCalc0_3(e, calcRes);
 	return calcRes;
 }
 std::vector<VSet<Event>> TSOChecker::calculateSaved(const Event &e)
