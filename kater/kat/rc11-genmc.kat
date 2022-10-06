@@ -61,24 +61,24 @@ let psc = [SC] ; po ; hb ; po ; [SC]
         | SC ; po ; SC
 acyclic psc
 
-// ---------------------------------------------------------------------
-// RC11 error detection
-// ---------------------------------------------------------------------
+// // ---------------------------------------------------------------------
+// // RC11 error detection
+// // ---------------------------------------------------------------------
 
-let ww_conflict = [W] ; loc-overlap ; [W]
-let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
-let conflicting = ww_conflict | wr_conflict
-let na_conflict = [NA] ; conflicting | conflicting ; [NA]
+// let ww_conflict = [W] ; loc-overlap ; [W]
+// let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
+// let conflicting = ww_conflict | wr_conflict
+// let na_conflict = [NA] ; conflicting | conflicting ; [NA]
 
-error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
+// error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
 
-error AccessNonAlloc    unless  alloc <= hb_stable
-error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
-error UseAfterFree      unless  loc-overlap ; [Free] <= hb_stable
-error UseAfterFree      unless  [Free] ; loc-overlap = 0
-error UseAfterFree      unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
-error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
+// error AccessNonAlloc    unless  alloc <= hb_stable
+// error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
+// error UseAfterFree      unless  loc-overlap ; [Free] <= hb_stable
+// error UseAfterFree      unless  [Free] ; loc-overlap = 0
+// error UseAfterFree      unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
+// error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
 
-error NotAtomicRace     unless  na_conflict <= hb_stable
+// error NotAtomicRace     unless  na_conflict <= hb_stable
 
-warning WWRace          unless  ww_conflict <= hb_stable
+// warning WWRace          unless  ww_conflict <= hb_stable
