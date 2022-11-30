@@ -2457,29 +2457,38 @@ protected:
 
 public:
 	MallocLabel(unsigned int st, llvm::AtomicOrdering ord, Event pos,
-		    SAddr addr, unsigned int size, const NameInfo *info, const std::string &name)
+		    SAddr addr, unsigned int size, unsigned alignment,
+		    StorageDuration sd, StorageType stype, AddressSpace spc,
+		    const NameInfo *info, const std::string &name)
 		: EventLabel(EL_Malloc, st, ord, pos),
-		  allocAddr(addr), allocSize(size), nameInfo(info), name(name) {}
+		  allocAddr(addr), allocSize(size), alignment(alignment),
+		  sdur(sd), stype(stype), spc(spc), nameInfo(info), name(name) {}
 	MallocLabel(llvm::AtomicOrdering ord, Event pos, SAddr addr, unsigned int size,
+		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info, const std::string &name)
 		: EventLabel(EL_Malloc, ord, pos),
-		  allocAddr(addr), allocSize(size), nameInfo(info), name(name) {}
+		  allocAddr(addr), allocSize(size), alignment(alignment),
+		  sdur(sd), stype(stype), spc(spc), nameInfo(info), name(name) {}
 
 	MallocLabel(unsigned int st, Event pos, SAddr addr, unsigned int size,
+		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(st, llvm::AtomicOrdering::NotAtomic, pos,
-			      addr, size, info, name) {}
+			      addr, size, alignment, sd, stype, spc, info, name) {}
 	MallocLabel(Event pos, SAddr addr, unsigned int size,
+		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info = nullptr, const std::string &name = {})
 		: MallocLabel(llvm::AtomicOrdering::NotAtomic, pos,
-			      addr, size, info, name) {}
+			      addr, size, alignment, sd, stype, spc, info, name) {}
 
 	MallocLabel(unsigned int st, Event pos, unsigned int size,
+		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info = nullptr, const std::string &name = {})
-		: MallocLabel(st, pos, SAddr(), size, info, name) {}
+		: MallocLabel(st, pos, SAddr(), size, alignment, sd, stype, spc, info, name) {}
 	MallocLabel(Event pos, unsigned int size,
+		    unsigned alignment, StorageDuration sd, StorageType stype, AddressSpace spc,
 		    const NameInfo *info = nullptr, const std::string &name = {})
-		: MallocLabel(pos, SAddr(), size, info, name) {}
+		: MallocLabel(pos, SAddr(), size, alignment, sd, stype, spc, info, name) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<MallocLabel> create(Ts&&... params) {
@@ -2497,6 +2506,18 @@ public:
 	bool contains(SAddr addr) const {
 		return getAllocAddr() <= addr && addr < getAllocAddr() + getAllocSize();
 	}
+
+	/* Returns the alignment of this allocation */
+	unsigned int getAlignment() const { return alignment; }
+
+	/* Returns the storage duration of this allocation */
+	StorageDuration getStorageDuration() const { return sdur; }
+
+	/* Returns the storage type of this allocation */
+	StorageType getStorageType() const { return stype; }
+
+	/* Returns the address space of this allocation */
+	AddressSpace getAddressSpace() const { return spc; }
 
 	/* Returns the name of the variable allocated */
 	const std::string &getName() const { return name; }
@@ -2518,6 +2539,18 @@ private:
 
 	/* The size of the requested allocation */
 	unsigned int allocSize;
+
+	/* Allocation alignment */
+	unsigned int alignment;
+
+	/* Storage duration */
+	StorageDuration sdur;
+
+	/* Storage type */
+	StorageType stype;
+
+	/* Address space */
+	AddressSpace spc;
 
 	/* Name of the variable allocated */
 	std::string name;

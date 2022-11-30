@@ -278,8 +278,7 @@ public:
 	void visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
 
 	/* Returns an appropriate result for malloc() */
-	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps,
-			 unsigned alignment, StorageDuration sd, StorageType st, AddressSpace spc);
+	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
 	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);

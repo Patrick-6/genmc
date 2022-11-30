@@ -1409,9 +1409,10 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 			    getAddrPoDeps(getCurThr().id), nullptr);
 
   auto *info = getVarNameInfo(&I, StorageDuration::SD_Automatic, AddressSpace::AS_User);
-  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
-				    I.getAlignment(), StorageDuration::SD_Automatic,
-				    StorageType::ST_Volatile, AddressSpace::AS_User);
+  SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, I.getAlignment(),
+							StorageDuration::SD_Automatic,
+							StorageType::ST_Volatile, AddressSpace::AS_User,
+							info, I.getName().str()), &*deps);
 
   ECStack().back().Allocas.add((void *) result.get());
 
@@ -2896,9 +2897,11 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size), &*deps,
-					   alignof(std::max_align_t), StorageDuration::SD_Heap,
-					   StorageType::ST_Volatile, AddressSpace::AS_User);
+	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size,
+							       alignof(std::max_align_t),
+							       StorageDuration::SD_Heap,
+							       StorageType::ST_Volatile, AddressSpace::AS_User),
+					   &*deps);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -2923,8 +2926,8 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
 	auto address = driver->visitMalloc(
-		MallocLabel::create(nextPos(), size), &*deps, align, StorageDuration::SD_Heap,
-		StorageType::ST_Volatile, AddressSpace::AS_User);
+		MallocLabel::create(nextPos(), size, align, StorageDuration::SD_Heap,
+		StorageType::ST_Volatile, AddressSpace::AS_User), &*deps);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -2941,9 +2944,10 @@ void Interpreter::callPMalloc(Function *F, const std::vector<GenericValue> &ArgV
 
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size), &*deps,
-					   alignof(std::max_align_t), StorageDuration::SD_Heap,
-					   StorageType::ST_Durable, AddressSpace::AS_User);
+	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), size, alignof(std::max_align_t),
+							       StorageDuration::SD_Heap,
+							       StorageType::ST_Durable, AddressSpace::AS_User),
+					   &*deps);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -3193,9 +3197,10 @@ void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &
 {
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), getTypeSize(F->getReturnType())), &*deps,
-					   alignof(std::max_align_t), StorageDuration::SD_Heap,
-					   StorageType::ST_Volatile, AddressSpace::AS_Internal);
+	auto address = driver->visitMalloc(MallocLabel::create(nextPos(), getTypeSize(F->getReturnType()),
+							       alignof(std::max_align_t), StorageDuration::SD_Heap,
+							       StorageType::ST_Volatile, AddressSpace::AS_Internal),
+					   &*deps);
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
 	return;
 }
@@ -3444,9 +3449,9 @@ SVal Interpreter::executeInodeCreateFS(const std::string &filename, Type *intTyp
 	unsigned int inodeSize = getTypeSize(MI->fsInfo.inodeTyp);
 	auto *info = getVarNameInfo(nullptr, StorageDuration::SD_Heap, AddressSpace::AS_Internal, "inode");
 	auto *inode = (void *) driver->visitMalloc(
-		MallocLabel::create(nextPos(), inodeSize, info, std::string("__inode_") + filename),
-		&*deps, alignof(std::max_align_t), StorageDuration::SD_Heap,
-		StorageType::ST_Durable, AddressSpace::AS_Internal).get();
+		MallocLabel::create(nextPos(), inodeSize, alignof(std::max_align_t), StorageDuration::SD_Heap,
+				    StorageType::ST_Durable, AddressSpace::AS_Internal, info, std::string("__inode_") + filename),
+		&*deps).get();
 
 	/* ... properly initialize its fields... */
 	auto inodeLock = GET_INODE_LOCK_ADDR(inode);
@@ -3525,9 +3530,10 @@ SVal Interpreter::executeOpenFS(const std::string &filename, SVal flags, SVal in
 	auto fileSize = getTypeSize(MI->fsInfo.fileTyp);
 	auto *info = getVarNameInfo(nullptr, StorageDuration::SD_Heap, AddressSpace::AS_Internal, "file");
 	auto *file = (void *) driver->visitMalloc(
-		MallocLabel::create(nextPos(), fileSize, info, sname.str()), &*deps,
-		alignof(std::max_align_t), StorageDuration::SD_Heap, StorageType::ST_Volatile,
-		AddressSpace::AS_Internal).get();
+		MallocLabel::create(nextPos(), fileSize, alignof(std::max_align_t),
+				    StorageDuration::SD_Heap, StorageType::ST_Volatile,
+				    AddressSpace::AS_Internal, info, sname.str()), &*deps
+		).get();
 
 	/* ... and initialize its fields */
 	auto fileInode = GET_FILE_INODE_ADDR(file);
