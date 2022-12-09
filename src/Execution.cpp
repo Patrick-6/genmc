@@ -1820,6 +1820,7 @@ void Interpreter::visitCallInstWrapper(CallInstWrapper CS) {
   GenericValue SRC = getOperandValue(SF.Caller.getCalledOperand(), SF);
   auto specialDeps = updateFunArgDeps(getCurThr().id, (Function *) GVTOP(SRC));
   callFunction((Function*)GVTOP(SRC), ArgVals, specialDeps);
+  updateInternalFunRetDeps(getCurThr().id, (Function *) GVTOP(SRC), &CS);
 }
 
 // auxiliary function for shift operations

@@ -835,6 +835,7 @@ private:  // Helper functions
   }
 
   std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
+  void updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS);
 
   void clearDeps(unsigned int tid) {
     if (getDepTracker())

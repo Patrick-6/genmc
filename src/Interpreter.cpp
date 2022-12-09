@@ -366,6 +366,18 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 	return nullptr;
 }
 
+void Interpreter::updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS)
+{
+	auto name = F->getName().str();
+	if (!internalFunNames.count(name))
+		return;
+
+	auto iFunCode = internalFunNames.at(name);
+	if (isAllocFunction(name))
+		updateDataDeps(tid, CS, Event(tid, getThrById(tid).globalInstructions));
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
