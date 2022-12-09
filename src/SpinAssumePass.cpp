@@ -210,11 +210,56 @@ bool isPHIRelatedToCASRes(const PHINode *phi, const SmallVector<const AtomicCmpX
 	return isPHIRelatedToCASRes(phi, cass, phiChain, related);
 }
 
+bool isPHIRelatedToLoad(const PHINode *curr,
+			Value *&loadPtr,
+			Optional<AtomicOrdering> &loadOrd,
+			SmallVector<const PHINode *, 4> &phiChain,
+			VSet<const PHINode *> &related)
+{
+	/* Check if we have already decided (or assumed) this phi is good */
+	if (related.count(curr) ||
+	    std::find(phiChain.begin(), phiChain.end(), curr) != phiChain.end())
+		return true;
+
+	for (Value *val : curr->incoming_values()) {
+		val = stripCasts(val);
+		if (auto *li = dyn_cast_or_null<LoadInst>(val)) {
+			if (loadPtr && !accessSameVariable(li->getPointerOperand(), loadPtr))
+				return false;
+			if (loadOrd.hasValue() &&
+			    !areSameLoadOrdering(li->getOrdering(), *loadOrd))
+				return false;
+			loadPtr = li->getPointerOperand();
+			loadOrd = li->getOrdering();
+		} else {
+			auto *phi = dyn_cast<PHINode>(val);
+			if (!phi)
+				return false;
+
+			phiChain.push_back(curr);
+			if(!isPHIRelatedToLoad(phi, loadPtr, loadOrd, phiChain, related))
+				return false;
+			phiChain.pop_back();
+		}
+	}
+	return true;
+}
+
+bool isPHIRelatedToLoad(const PHINode *phi)
+{
+	Value *loadPtr = nullptr;
+	Optional<AtomicOrdering> loadOrd;
+	VSet<const PHINode *> related;
+	SmallVector<const PHINode *, 4> phiChain;
+
+	return isPHIRelatedToLoad(phi, loadPtr, loadOrd, phiChain, related);
+}
+
 /*
- * This function checks whether a PHI node is tied to some CAS operation ('good' PHI).
+ * This function checks whether a PHI node is tied to some load or CAS ('good' PHI).
  * A 'good' PHI node has incoming values that are either 1) PHI nodes that have been
- * deemed 'good', 2) constants and results of CASes, or 3) loads at the same location
- * as some CAS and the compare operands of some CAS.
+ * deemed 'good', 2) constants and results of loads/CASes, or 3) loads at the same
+ * location as some CAS and the compare operands of some CAS.
  * To avoid circles between PHIs, whenever we try to see whether a PHI is good,
  * we keep the current path in <phiChain>; if a node is deemed good and the chain
  * is empty (i.e., it does not depend on another node being deemed good), it is
@@ -225,14 +270,16 @@ bool areBlockPHIsRelatedToLoopCASs(const BasicBlock *bb, Loop *l)
 	SmallVector<const AtomicCmpXchgInst *, 4> cass;
 
 	getLoopCASs(l, cass);
-	if (cass.empty())
-		return false;
-
-	for (auto iit = bb->begin(); auto phi = llvm::dyn_cast<llvm::PHINode>(iit); ++iit) {
-		if (!isPHIRelatedToCASCmp(phi, cass) && !isPHIRelatedToCASRes(phi, cass))
-			return false;
+	if (cass.empty()) {
+		return std::all_of(bb->phis().begin(), bb->phis().end(),
+				   [&](auto &phi){ return isPHIRelatedToLoad(&phi); });
 	}
-	return true;
+
+	return std::all_of(bb->phis().begin(), bb->phis().end(), [&](auto &phi){
+			return isPHIRelatedToCASCmp(&phi, cass) ||
+			       isPHIRelatedToCASRes(&phi, cass) ||
+			       isPHIRelatedToLoad(&phi);
+	});
 }
 
 /*
