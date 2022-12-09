@@ -2987,9 +2987,15 @@ bool GenMCDriver::isWriteObservable(const WriteLabel *wLab)
 	if (mLab == nullptr)
 		return true;
 
-	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++)
-		if (g.getEventLabel(Event(wLab->getThread(), j))->isAtLeastRelease())
+	for (auto j = mLab->getIndex() + 1; j < wLab->getIndex(); j++) {
+		auto *lab = g.getEventLabel(Event(wLab->getThread(), j));
+		if (lab->isAtLeastRelease())
 			return true;
+		/* The location must not be read (loop counter) */
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (rLab->getAddr() == wLab->getAddr())
+				return true;
+	}
 	return false;
 }
 
