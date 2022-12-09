@@ -771,6 +771,11 @@ bool GenMCDriver::inRecoveryMode() const
 	return getEE()->getProgramState() == llvm::ProgramState::Recovery;
 }
 
+bool GenMCDriver::inReplay() const
+{
+	return getEE()->getExecState() == llvm::ExecutionState::Replay;
+}
+
 const EventLabel *GenMCDriver::getCurrentLabel() const
 {
 	const auto &g = getGraph();
@@ -842,7 +847,7 @@ SVal GenMCDriver::getReadRetValueAndMaybeBlock(const ReadLabel *rLab)
 	auto res = getReadValue(rLab);
 	if (rLab->getRf().isBottom()) {
 		/* Bottom is an acceptable re-option only @ replay; block anyway */
-		BUG_ON(getEE()->getExecState() != llvm::ExecutionState::Replay);
+		BUG_ON(!inReplay());
 		thr.block(BlockageType::Error);
 	} else if (llvm::isa<BWaitReadLabel>(rLab) &&
 		   res != getBarrierInitValue(rLab->getAddr(), rLab->getAccess())) {
@@ -1951,7 +1956,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 		}
 	);
 
-	if (!inRecoveryMode())
+	if (!inRecoveryMode() && !inReplay())
 		calcRevisits(lab);
 
 	if (!cons)
@@ -2221,7 +2226,7 @@ void GenMCDriver::visitError(Event pos, Status s, const std::string &err /* = ""
 
 	/* If we this is a replay (might happen if one LLVM instruction
 	 * maps to many MC events), do not get into an infinite loop... */
-	if (getEE()->getExecState() == llvm::ExecutionState::Replay)
+	if (inReplay())
 		return;
 
 	/* If the execution that led to the error is not consistent, block */
