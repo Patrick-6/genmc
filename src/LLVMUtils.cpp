@@ -33,7 +33,9 @@ bool areSameLoadOrdering(AtomicOrdering o1, AtomicOrdering o2)
 {
 	return o1 == o2 ||
 	       (o1 == AtomicOrdering::Acquire && o2 == AtomicOrdering::AcquireRelease) ||
-	       (o1 == AtomicOrdering::AcquireRelease && o2 == AtomicOrdering::Acquire);
+	       (o1 == AtomicOrdering::AcquireRelease && o2 == AtomicOrdering::Acquire) ||
+	       (o1 == AtomicOrdering::Monotonic && o2 == AtomicOrdering::Release) ||
+	       (o1 == AtomicOrdering::Release && o2 == AtomicOrdering::Monotonic);
 }
 
 Value *stripCasts(Value *val)
