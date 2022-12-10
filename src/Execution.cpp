@@ -1390,7 +1390,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 void Interpreter::visitAllocaInst(AllocaInst &I) {
   ExecutionContext &SF = ECStack().back();
 
-  Type *Ty = I.getType()->getElementType();  // Type to be allocated
+  Type *Ty = I.getAllocatedType();  // Type to be allocated
 
   // Get the number of elements being allocated by the array...
   unsigned NumElements =
@@ -1407,7 +1407,12 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 
   auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
-				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
+#ifdef LLVM_HAS_ALIGN
+				    I.getAlign().value(),
+#else
+				    I.getAlignment(),
+#endif
+				    Storage::ST_Automatic, AddressSpace::AS_User);
 
   ECStack().back().Allocas.add((void *) result.get());
 

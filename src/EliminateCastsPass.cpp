@@ -77,6 +77,9 @@ void EliminateCastsPass::getAnalysisUsage(AnalysisUsage &AU) const
 	AU.setPreservesCFG();
 }
 
+/* Opaque pointers should render this pass obsolete */
+#ifdef LLVM_HAS_POINTER_GET_ELEMENT_TYPE
+
 static bool haveSameSizePointees(const Type *p1, const Type *p2, const DataLayout &DL)
 {
 	auto *pTy1 = dyn_cast<PointerType>(p1);
@@ -374,12 +377,17 @@ static bool eliminateCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
 	}
 	return changed;
 }
+#endif /* LLVM_HAS_POINTER_GET_ELEMENT_TYPE */
 
 bool EliminateCastsPass::runOnFunction(Function &F)
 {
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+#ifdef LLVM_HAS_POINTER_GET_ELEMENT_TYPE
 	return eliminateCasts(F, DT, AC);
+#else
+	return false;
+#endif
 }
 
 Pass *createEliminateCastsPass()

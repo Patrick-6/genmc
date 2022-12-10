@@ -215,7 +215,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize =
-		        getDataLayout().getTypeAllocSize(v.getType()->getElementType());
+		        getDataLayout().getTypeAllocSize(v.getValueType());
 
 		/* Record whether this is a thread local variable or not */
 		if (v.isThreadLocal()) {
@@ -258,7 +258,7 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 		return;
 
 	errnoAddr = GVTOP(getConstantValue(errnoVar));
-	errnoTyp = errnoVar->getType()->getElementType();
+	errnoTyp = errnoVar->getValueType();
 	return;
 }
 
@@ -282,8 +282,8 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	dynState.fds = llvm::BitVector(20);
 	dynState.fdToFile.grow(dynState.fds.size());
 
-	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
-	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
+	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getValueType());
+	FI.fileTyp = dyn_cast<StructType>(fileVar->getValueType());
 	BUG_ON(!FI.inodeTyp || !FI.fileTyp);
 
 	/* Initialize the directory's inode -- assume that the first field is int

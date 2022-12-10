@@ -127,7 +127,7 @@ void MDataCollectionPass::collectGlobalInfo(GlobalVariable &v, Module &M)
 
 	/* Check whether it is a global pointer */
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, v.getType()->getElementType(), ditc, "", *info);
+		collectVarName(M, 0, v.getValueType(), ditc, "", *info);
 	return;
 }
 
@@ -144,15 +144,12 @@ void MDataCollectionPass::collectLocalInfo(DbgDeclareInst *DD, Module &M)
 	auto &info = getLocalInfo(v);
 	info = std::make_shared<NameInfo>();
 
-	auto *vt = dyn_cast<PointerType>(v->getType());
-	BUG_ON(!vt);
-
 	/* Store alloca's metadata, in case it's used in memcpy */
 	allocaMData[v] = DD->getVariable();
 
 	auto dit = DD->getVariable()->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, vt->getElementType(), ditc, "", *info);
+		collectVarName(M, 0, v->getAllocatedType(), ditc, "", *info);
 	return;
 }
 
@@ -180,13 +177,12 @@ void MDataCollectionPass::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 	 */
 	auto *dst = dyn_cast<AllocaInst>(mi->getDest());
 	BUG_ON(!dst);
-	auto *dstTyp = dyn_cast<PointerType>(dst->getType());
 
 	if (allocaMData.count(dst) == 0)
 		return; /* We did our best, but couldn't get a name for it... */
 	auto dit = allocaMData[dst]->getType();
 	if (auto ditc = dyn_cast<DIType>(dit))
-		collectVarName(M, 0, dstTyp->getElementType(), ditc, "", *info);
+		collectVarName(M, 0, dst->getAllocatedType(), ditc, "", *info);
 	return;
 }
 

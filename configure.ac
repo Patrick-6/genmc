@@ -106,6 +106,20 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	AC_MSG_RESULT([std::make_unique<>])
 	])
 
+## Check whether llvm::mayBeMemoryDependent() exists (< 15)
+AC_MSG_CHECKING([whether llvm::mayBeMemoryDependent() exists])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <llvm/Analysis/ValueTracking.h>
+#include <llvm/IR/Instruction.h>
+]],[[
+	llvm::Instruction *i = nullptr;
+	llvm::mayBeMemoryDependent(*i);
+]])],
+        [AC_DEFINE([LLVM_HAS_MAY_BE_MEMORY_DEPENDENT],[1],
+         [Define if llvm::mayBeMemoryDependent() exists.])
+         AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])])
+
 ## Check whether llvm::WriteBitcodeToFile takes a pointer (>= 7)
 AC_MSG_CHECKING([whether llvm::WriteBitcodeToFile takes a pointer])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -285,18 +299,18 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check how to call getAnalysis to get LoopInfo
-AC_MSG_CHECKING([how to get LoopInfo analysis])
+## Check whether llvm::PointerType::getElementType() exists (LLVM <= 14)
+AC_MSG_CHECKING([whether PointerType::getElementType() exists])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopPass.h>
+#include <llvm/IR/DerivedTypes.h>
 ]],[[
-  llvm::LPPassManager *LPM = 0;
-  LPM->getAnalysis<llvm::LoopInfo>();
+  llvm::PointerType *t = nullptr;
+  t->getElementType();
 ]])],
-        [AC_MSG_RESULT([llvm::LoopInfo])
-         AC_DEFINE([LLVM_GET_ANALYSIS_LOOP_INFO],[1],
-         [Define if LPPassManager::getAnalysis<LoopInfo> can be called.])],
-        [AC_MSG_RESULT([llvm::LoopInfoWrapperPass])])
+        [AC_MSG_RESULT([yes])
+         AC_DEFINE([LLVM_HAS_POINTER_GET_ELEMENT_TYPE],[1],
+         [Define if llvm::PointerType::getElementType() exists.])],
+        [AC_MSG_RESULT([no])])
 
 ## Check if llvm::InsertPreheadersForLoop() takes MemorySSAUpdater
 AC_MSG_CHECKING([if llvm::InsertPreheaderForLoop takes MemorySSAUpdater])

@@ -21,7 +21,6 @@
 #include "config.h"
 #include "IntrinsicLoweringPass.hpp"
 #include <llvm/ADT/Twine.h>
-#include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/InstrTypes.h>

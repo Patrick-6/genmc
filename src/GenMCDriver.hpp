@@ -29,6 +29,7 @@
 #include <llvm/IR/Module.h>
 
 #include <ctime>
+#include <map>
 #include <memory>
 #include <random>
 #include <unordered_set>
