@@ -285,20 +285,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
          [The name of the unlocking method of llvm::sys::mutex.])
          AC_MSG_RESULT([acquire])])
 
-## Check whether llvm::LoopInfo::erase exists (> llvm 4)
-AC_MSG_CHECKING([whether llvm::LoopInfo::erase exists])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::Loop * L = 0;
-  llvm::LoopInfo *LI = 0;
-  LI->erase(L);
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([LLVM_HAVE_LOOPINFO_ERASE],[1],
-   [Define if llvm::LoopInfo::erase exists])],
-  [AC_MSG_RESULT([no])])
-
 ## Check how to call getAnalysis to get LoopInfo
 AC_MSG_CHECKING([how to get LoopInfo analysis])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -349,20 +335,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
             [Define if we can get the address space from a GlobalValue.])
          AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])])
-
-## Check if llvm::LoopInfo::markAsRemoved exists
-AC_MSG_CHECKING([for llvm::LoopInfo::markAsRemoved])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <llvm/Analysis/LoopPass.h>
-]],[[
-  llvm::Loop * L = 0;
-  llvm::LoopInfo *LI = 0;
-  LI->markAsRemoved(L);
-]])],
-  [AC_MSG_RESULT([yes])
-   AC_DEFINE([LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED],[1],
-   [Define if llvm::LoopInfo::markAsRemoved exists])],
-  [AC_MSG_RESULT([no])])
 
 ## Check whether llvm::df_iterator_default_set exists
 AC_MSG_CHECKING([for llvm::df_iterator_default_set])

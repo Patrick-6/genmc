@@ -609,49 +609,6 @@ void addSpinStartCall(Loop *l)
         auto *ci = CallInst::Create(startFun, {}, "", i);
 }
 
-void removeDisconnectedBlocks(Loop *l)
-{
-	bool done;
-
-	while (l) {
-		done = false;
-		while (!done) {
-			done = true;
-			VSet<BasicBlock*> hasPredecessor;
-
-			/*
-			 * We collect blocks with predecessors in l, and we also
-			 * search for BBs without successors in l
-			 */
-			for (auto it = l->block_begin(); done && it != l->block_end(); ++it) {
-				TerminatorInst *T = (*it)->getTerminator();
-				bool hasLoopSuccessor = false;
-
-				for(auto i = 0u; i < T->getNumSuccessors(); ++i) {
-					if(l->contains(T->getSuccessor(i))){
-						hasLoopSuccessor = true;
-						hasPredecessor.insert(T->getSuccessor(i));
-					}
-				}
-
-				if (!hasLoopSuccessor) {
-					done = false;
-					l->removeBlockFromLoop(*it);
-				}
-			}
-
-			/* Find BBs without predecessors in l */
-			for(auto it = l->block_begin(); done && it != l->block_end(); ++it){
-				if(hasPredecessor.count(*it) == 0) {
-					done = false;
-					l->removeBlockFromLoop(*it);
-				}
-			}
-		}
-		l = l->getParentLoop();
-	}
-}
-
 bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 {
 	auto *header = l->getHeader();
@@ -704,16 +661,7 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	/* If the transformation applied did not apply in all backedges, this is indeed a loop */
 	if (!spinloop)
 		return modified;
-
-	removeDisconnectedBlocks(l);
-#ifdef LLVM_HAVE_LOOPINFO_ERASE
-	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().erase(l);
-	lpm.markLoopAsDeleted(*l);
-#elif  LLVM_HAVE_LOOPINFO_MARK_AS_REMOVED
-	lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo().markAsRemoved(l);
-#else
-	lpm.deleteLoopFromQueue(l);
-#endif
+	/* An actual spinloop: we used to remove it from the loop list but let's keep it */
 	return modified;
 }
 
