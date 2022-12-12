@@ -197,106 +197,106 @@ public:
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
-	SVal visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
+	SVal handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
-	SVal visitDskRead(std::unique_ptr<DskReadLabel> rLab);
+	SVal handleDskRead(std::unique_ptr<DskReadLabel> rLab);
 
 	/* A store has been interpreted, nothing for the interpreter */
-	void visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps);
+	void handleStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps);
 
 	/* A function modeling a write to disk has been interpreted */
-	void visitDskWrite(std::unique_ptr<DskWriteLabel> wLab);
+	void handleDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
 	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void visitLock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
+	void handleLock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
 
 	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void visitUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
+	void handleUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
 
 	/* A helping CAS operation has been interpreter, the result is unobservable */
-	void visitHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
+	void handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
-	SVal visitDskOpen(std::unique_ptr<DskOpenLabel> oLab);
+	SVal handleDskOpen(std::unique_ptr<DskOpenLabel> oLab);
 
 	/* An fsync() operation has been interpreted */
-	void visitDskFsync(std::unique_ptr<DskFsyncLabel> fLab);
+	void handleDskFsync(std::unique_ptr<DskFsyncLabel> fLab);
 
 	/* A sync() operation has been interpreted */
-	void visitDskSync(std::unique_ptr<DskSyncLabel> fLab);
+	void handleDskSync(std::unique_ptr<DskSyncLabel> fLab);
 
 	/* A call to __VERIFIER_pbarrier() has been interpreted */
-	void visitDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
+	void handleDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
 
 	/* A fence has been interpreted, nothing for the interpreter */
-	void visitFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void handleFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
 
 	/* A cache line flush has been interpreted, nothing for the interpreter */
-	void visitCLFlush(std::unique_ptr<CLFlushLabel> fLab, const EventDeps *deps);
+	void handleCLFlush(std::unique_ptr<CLFlushLabel> fLab, const EventDeps *deps);
 
 	/* A call to __VERIFIER_opt_begin() has been interpreted.
 	 * Returns whether the block should expand */
 	bool
-	visitOptional(std::unique_ptr<OptionalLabel> lab);
+	handleOptional(std::unique_ptr<OptionalLabel> lab);
 
 	/* A call to __VERIFIER_loop_begin() has been interpreted */
 	void
-	visitLoopBegin(std::unique_ptr<LoopBeginLabel> lab);
+	handleLoopBegin(std::unique_ptr<LoopBeginLabel> lab);
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
-	void visitSpinStart(std::unique_ptr<SpinStartLabel> lab);
+	void handleSpinStart(std::unique_ptr<SpinStartLabel> lab);
 
 	/* A call to __VERIFIER_faiZNE_spin_end() has been interpreted */
 	void
-	visitFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab);
+	handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab);
 
 	/* A call to __VERIFIER_lockZNE_spin_end() has been interpreted */
 	void
-	visitLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab);
+	handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab);
 
 	/* A thread has terminated abnormally */
 	void
-	visitThreadKill(std::unique_ptr<ThreadKillLabel> lab);
+	handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
 
 	/* Returns an appropriate result for pthread_self() */
-	SVal visitThreadSelf(const EventDeps *deps);
+	SVal handleThreadSelf(const EventDeps *deps);
 
 	/* Returns the TID of the newly created thread */
-	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
+	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
 
 	/* Returns an appropriate result for pthread_join() */
-	SVal visitThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
+	SVal handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
 
 	/* A thread has just finished execution, nothing for the interpreter */
-	void visitThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
+	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 
 	/* __VERIFIER_hp_protect() has been called */
-	void visitHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
+	void handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
 
 	/* Returns an appropriate result for malloc() */
-	SVal visitMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps);
+	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
-	void visitFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
+	void handleFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
 
 	/* This method blocks the current thread  */
-	void visitBlock(std::unique_ptr<BlockLabel> bLab);
+	void handleBlock(std::unique_ptr<BlockLabel> bLab);
 
-	/* LKMM: Visit RCU functions */
+	/* LKMM: Handle RCU functions */
 	void
-	visitRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lab);
+	handleRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lab);
 	void
-	visitRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> lab);
+	handleRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> lab);
 	void
-	visitRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab);
+	handleRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab);
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
-	void visitError(Event pos, Status r, const std::string &err = std::string(),
-			Event confEvent = Event::getInitializer());
+	void reportError(Event pos, Status r, const std::string &err = std::string(),
+			 Event confEvent = Event::getInitializer());
 
 	virtual ~GenMCDriver();
 
@@ -645,14 +645,14 @@ private:
 	void mootExecutionIfFullyBlocked(Event pos);
 
 	/* LKMM: Helper for visiting LKMM fences */
-	void visitFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
 
 	/* LAPOR: Returns whether the current execution is lock-well-formed */
 	bool isLockWellFormedLAPOR() const;
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void visitLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
-	void visitUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
+	void handleLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
+	void handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping();
