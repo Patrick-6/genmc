@@ -3,11 +3,15 @@ AC_INIT([GenMC], [0.8], [michalis@mpi-sws.org], [genmc], [https://plv.mpi-sws.or
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_clang.m4])
 m4_include([m4/ax_git_commit.m4])
+m4_include([m4/ax_cxx_compile_stdcxx.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AM_SILENT_RULES([yes])
 
+: ${CXXFLAGS="-g -O2 -std=c++14"} dnl because llvm overrides -std
 AC_PROG_CXX
+AX_CXX_COMPILE_STDCXX([14], [noext], [mandatory])
+
 AC_PROG_RANLIB
 AM_PROG_AR
 
