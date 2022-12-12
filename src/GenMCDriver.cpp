@@ -1452,18 +1452,17 @@ void GenMCDriver::visitThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
 	return;
 }
 
-bool GenMCDriver::isSymmetricToSR(int candidate, int thread, Event parent,
-				  llvm::Function *threadFun, SVal threadArg) const
+bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo &info) const
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
-	auto &cThr = EE->getThrById(candidate);
 	auto cParent = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(candidate, 0)))->getParentCreate();
+	auto &cInfo = llvm::dyn_cast<ThreadCreateLabel>(g.getEventLabel(cParent))->getChildInfo();
 
 	/* First, check that the two threads are actually similar */
-	if (cThr.id == thread || cThr.threadFun != threadFun ||
-	    cThr.threadArg != threadArg ||
-	    cParent.thread != parent.thread)
+	if (cInfo.id == info.id ||
+	    cInfo.parentId != info.parentId ||
+	    cInfo.funId != info.funId ||
+	    cInfo.arg != info.arg)
 		return false;
 
 	/* Then make sure that there is no memory access in between the spawn events */
@@ -1476,20 +1475,18 @@ bool GenMCDriver::isSymmetricToSR(int candidate, int thread, Event parent,
 	return true;
 }
 
-int GenMCDriver::getSymmetricTidSR(int thread, Event parent, llvm::Function *threadFun,
-				   SVal threadArg) const
+int GenMCDriver::getSymmetricTidSR(Event parent, const ThreadInfo &childInfo) const
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
 
 	for (auto i = g.getNumThreads() - 1; i > 0; i--)
-		if (i != thread && isSymmetricToSR(i, thread, parent, threadFun, threadArg))
+		if (i != childInfo.id && isSymmetricToSR(i, parent, childInfo))
 			return i;
 	return -1;
 }
 
-int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps,
-				   llvm::Function *calledFun, SVal arg, const llvm::ExecutionContext &SF)
+int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -1511,18 +1508,18 @@ int GenMCDriver::visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, con
 
 	/* Add an event for the thread creation */
 	tcLab->setChildId(cid);
-	auto *lab = g.addOtherLabelToGraph(std::move(tcLab));
+	auto *lab = llvm::dyn_cast<ThreadCreateLabel>(g.addOtherLabelToGraph(std::move(tcLab)));
 	updateLabelViews(lab, deps);
 
 	/* Prepare the execution context for the new thread */
-	EE->createAddNewThread(calledFun, arg, cid, lab->getThread(), SF);
+	EE->constructAddThreadFromInfo(lab->getChildInfo());
 
 	/* If the thread does not exist in the graph, make an entry for it */
 	if (cid == (long) g.getNumThreads()) {
 		g.addNewThread();
 		BUG_ON(EE->getNumThreads() != g.getNumThreads());
 		auto symm = getConf()->symmetryReduction ?
-			getSymmetricTidSR(cid, lab->getPos(), calledFun, arg) : -1;
+			getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
 		auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), symm);
 		auto *ss = g.addOtherLabelToGraph(std::move(tsLab));
 		updateLabelViews(ss, nullptr);

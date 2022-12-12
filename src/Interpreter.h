@@ -44,6 +44,7 @@
 #include "DepTracker.hpp"
 #include "MemAccess.hpp"
 #include "ModuleInfo.hpp"
+#include "ThreadInfo.hpp"
 #include "SAddr.hpp"
 #include "SAddrAllocator.hpp"
 #include "SVal.hpp"
@@ -203,18 +204,6 @@ protected:
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
-
-struct ThreadInfo {
-	int id;
-	int parentId;
-	unsigned int funId;
-	SVal arg;
-
-	ThreadInfo() = default;
-	ThreadInfo(int id, int parentId, unsigned funId, SVal arg)
-		: id(id), parentId(parentId), funId(funId), arg(arg) {}
-};
-
 
 /* Pers: The state of the program -- i.e., part of the program being interpreted */
 enum class ProgramState {

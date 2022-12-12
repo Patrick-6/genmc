@@ -30,6 +30,7 @@
 #include "ModuleID.hpp"
 #include "NameInfo.hpp"
 #include "MemAccess.hpp"
+#include "ThreadInfo.hpp"
 #include "SAddr.hpp"
 #include "SExpr.hpp"
 #include "SVal.hpp"
@@ -2217,30 +2218,28 @@ protected:
 
 public:
 	ThreadCreateLabel(unsigned int st, llvm::AtomicOrdering ord,
-			  Event pos, unsigned int cid)
-		: EventLabel(EL_ThreadCreate, st, ord, pos), childId(cid) {}
-	ThreadCreateLabel(llvm::AtomicOrdering ord, Event pos, unsigned int cid)
-		: EventLabel(EL_ThreadCreate, ord, pos), childId(cid) {}
+			  Event pos, ThreadInfo childInfo)
+		: EventLabel(EL_ThreadCreate, st, ord, pos), childInfo(childInfo) {}
+	ThreadCreateLabel(llvm::AtomicOrdering ord, Event pos, ThreadInfo childInfo)
+		: EventLabel(EL_ThreadCreate, ord, pos), childInfo(childInfo) {}
 
-	ThreadCreateLabel(unsigned int st, Event pos, unsigned int cid)
-		: ThreadCreateLabel(st, llvm::AtomicOrdering::Release, pos, cid) {}
-	ThreadCreateLabel(Event pos, unsigned int cid)
-		: ThreadCreateLabel(llvm::AtomicOrdering::Release, pos, cid) {}
-
-	ThreadCreateLabel(unsigned int st, Event pos)
-		: ThreadCreateLabel(st, pos, -1) {}
-	ThreadCreateLabel(Event pos)
-		: ThreadCreateLabel(pos, -1) {}
-
+	ThreadCreateLabel(unsigned int st, Event pos, ThreadInfo childInfo)
+		: ThreadCreateLabel(st, llvm::AtomicOrdering::Release, pos, childInfo) {}
+	ThreadCreateLabel(Event pos, ThreadInfo childInfo)
+		: ThreadCreateLabel(llvm::AtomicOrdering::Release, pos, childInfo) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<ThreadCreateLabel> create(Ts&&... params) {
 		return LLVM_MAKE_UNIQUE<ThreadCreateLabel>(std::forward<Ts>(params)...);
 	}
 
-	/* Getter/setter for the created thread's identifier */
-	unsigned int getChildId() const { return childId; }
-	void setChildId(unsigned int cid)  { childId = cid; }
+	/* Getters for the created thread's info */
+	const ThreadInfo &getChildInfo() const { return childInfo; }
+	ThreadInfo &getChildInfo() { return childInfo; }
+
+	/* Getter/setter for the identifier of the created thread */
+	unsigned int getChildId() const { return getChildInfo().id; }
+	void setChildId(unsigned int tid) { getChildInfo().id = tid; }
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<ThreadCreateLabel>(*this);
@@ -2250,8 +2249,8 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadCreate; }
 
 private:
-	/* The identifier of the child thread */
-	unsigned int childId;
+	/* Information about the child thread */
+	ThreadInfo childInfo;
 };
 
 

@@ -265,8 +265,7 @@ public:
 	SVal visitThreadSelf(const EventDeps *deps);
 
 	/* Returns the TID of the newly created thread */
-	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps,
-			      llvm::Function *F, SVal arg, const llvm::ExecutionContext &SF);
+	int visitThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
 
 	/* Returns an appropriate result for pthread_join() */
 	SVal visitThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
@@ -666,13 +665,11 @@ private:
 	/* Helper: Checks whether the user annotation about helped/helping CASes seems OK */
 	void checkHelpingCasAnnotation();
 
-	/* SR: Checks whether CANDIDATE is symmetric to THREAD */
-	bool isSymmetricToSR(int candidate, int thread, Event parent,
-			     llvm::Function *threadFun, SVal threadArg) const;
+	/* SR: Checks whether CANDIDATE is symmetric to PARENT/INFO */
+	bool isSymmetricToSR(int candidate, Event parent, const ThreadInfo &info) const;
 
-	/* SR: Returns the (greatest) ID of a thread that is symmetric to THREAD */
-	int getSymmetricTidSR(int thread, Event parent, llvm::Function *threadFun,
-			      SVal threadArg) const;
+	/* SR: Returns the (greatest) ID of a thread that is symmetric to PARENT/INFO */
+	int getSymmetricTidSR(Event parent, const ThreadInfo &info) const;
 
 	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
 	bool sharePrefixSR(int tid, Event pos) const;

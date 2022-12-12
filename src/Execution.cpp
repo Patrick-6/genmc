@@ -2992,8 +2992,9 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	/* Then, inform the driver about the thread creation */
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto tid = driver->visitThreadCreate(ThreadCreateLabel::create(nextPos()), &*deps,
-					     calledFun, (uintptr_t) ArgVals[2].PointerVal, SF);
+	auto info = ThreadInfo(-1, currPos().thread, MI->idInfo.VID.at(calledFun),
+			       (uintptr_t) ArgVals[2].PointerVal);
+	auto tid = driver->visitThreadCreate(ThreadCreateLabel::create(nextPos(), info), &*deps);
 
 	/* ... and return the TID of the created thread to the caller */
 	Type *typ = F->getReturnType();
