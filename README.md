@@ -31,7 +31,7 @@ please issue the following command:
 
 #### Dependencies
 
-You will need a C++ compiler with C++17 support and an LLVM installation.
+You will need a C++14-compliant compiler and an LLVM installation.
 The LLVM versions currently supported are:
 7.0.1, 8.0.1, 9.0.1, 10.0.1, 11.0.0, 12.0.1, 13.0.0, 14.0.0, 15.0.0.
 
