@@ -356,6 +356,12 @@ public:
 		  constructAddThreadFromInfo(ti);
   }
 
+  template<typename M, typename... Args1, typename... Args2>
+  M callDriver(M (GenMCDriver::*mf)(Args1...), Args2&& ...args) {
+	  incPos();
+	  return (driver->*mf)(std::forward<Args2>(args)...);
+  }
+
   /* Blocks the current execution */
   void block(BlockageType t = BlockageType::Error ) {
 	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });
@@ -703,6 +709,9 @@ private:  // Helper functions
 
   void setProgramState(ProgramState s) { dynState.programState = s; }
   void setExecState(ExecutionState s) { dynState.execState = s; }
+
+  void handleLock(SAddr addr, ASize size, const EventDeps *deps);
+  void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
 
   /* Custom Opcode Implementations */
 #define DECLARE_CUSTOM_OPCODE(_name)						  \

@@ -261,9 +261,6 @@ public:
 	void
 	handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
 
-	/* Returns an appropriate result for pthread_self() */
-	SVal handleThreadSelf(const EventDeps *deps);
-
 	/* Returns the TID of the newly created thread */
 	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
 
@@ -508,7 +505,7 @@ private:
 	bool checkForMemoryRaces(const FreeLabel *lab);
 
 	/* Returns true if the exploration is guided by a graph */
-	bool isExecutionDrivenByGraph();
+	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
