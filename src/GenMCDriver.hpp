@@ -197,7 +197,8 @@ public:
 	/*** Instruction-related actions ***/
 
 	/* Returns the value this load reads */
-	SVal handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
+	std::optional<SVal>
+	handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
@@ -565,7 +566,7 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
-	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
@@ -606,7 +607,7 @@ private:
 
 	/* Opt: Futher reduces the set of available read-from options for a
 	 * read that is part of a lock() op  */
-	void filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
+	bool filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
 	/* Helper: Filters out RFs that will make the CAS fail */
 	void filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores);
@@ -616,7 +617,7 @@ private:
 
 	/* Helper: Ensures a speculative read will not be added if
 	 * there are other speculative (unconfirmed) reads */
-	void filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
+	bool filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
 
 	/* Opt: Tries to in-place revisit a read that is part of a lock.
 	 * Returns true if the optimization succeeded */

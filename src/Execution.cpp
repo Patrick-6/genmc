@@ -1491,19 +1491,18 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	auto deps = makeEventDeps(getDataDeps(thr.id, I.getPointerOperand()), nullptr,
 				  getCtrlDeps(thr.id), getAddrPoDeps(thr.id), nullptr);
 
-
 	/* ... and then the driver will provide the appropriate value */
 #define IMPLEMENT_READ_VISIT(__kind)					\
 	case EventLabel::EventLabelKind::EL_ ## __kind: {		\
-		val = callDriver(&GenMCDriver::handleLoad,		\
+		val = CALL_DRIVER_RESET_IF_NONE(handleLoad,		\
 				 __kind ## Label::create(		\
-					 I.getOrdering(), nextPos(), ptr, \
+					 I.getOrdering(), currPos(), ptr, \
 					 size, atyp),			\
-				 &*deps);				\
+				 &*deps);			\
 		break;							\
 	}
 
-	SVal val;
+	std::optional<SVal> val;
 	switch (getReadKind(I)) {
 		IMPLEMENT_READ_VISIT(Read);
 		IMPLEMENT_READ_VISIT(SpeculativeRead);
@@ -1511,12 +1510,14 @@ void Interpreter::visitLoadInst(LoadInst &I)
 	default:
 		BUG();
 	}
+	if (!val.has_value())
+		return;
 
 	updateDataDeps(thr.id, &I, currPos());
 	updateAddrPoDeps(thr.id, I.getPointerOperand());
 
 	/* Last, set the return value for this instruction */
-	SetValue(&I, SVAL_TO_GV(val, typ), ECStack().back());
+	SetValue(&I, SVAL_TO_GV(val.value(), typ), ECStack().back());
 	return;
 }
 
@@ -1592,7 +1593,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		ret = callDriver(&GenMCDriver::handleLoad, nameR ## Label::create( \
 			I.getSuccessOrdering(), nextPos(), ptr,		\
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
-			GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*lDeps); \
+			GV_TO_SVAL(newVal, typ), getWriteAttr(I)), &*lDeps).value(); \
 		cmpRes = ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
@@ -1702,7 +1703,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
 		ret = callDriver(&GenMCDriver::handleLoad, nameR ## Label::create( \
 					 I.getOrdering(), nextPos(), ptr, size, atyp, \
-					 I.getOperation(), val, getWriteAttr(I)), &*deps); \
+					 I.getOperation(), val, getWriteAttr(I)), &*deps).value(); \
 		auto newVal = executeAtomicRMWOperation(ret, val, size, I.getOperation()); \
 		if (!getCurThr().isBlocked())	{			\
 			callDriver(&GenMCDriver::handleStore, 		\
@@ -2823,32 +2824,35 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 	// 	return;
 	// }
 
-	auto ret = callDriver(&GenMCDriver::handleLoad,
-			      LockCasReadLabel::create(pos, addr, size),
-			      deps);
+	auto ret = CALL_DRIVER_RESET_IF_NONE(handleLoad,
+					     LockCasReadLabel::create(currPos(), addr, size),
+					     deps);
+	if (!ret.has_value())
+		return;
 
-	auto *rLab = llvm::dyn_cast<ReadLabel>(getGraph().getEventLabel(pos));
-	if (!rLab->getRf().isBottom() && ret == SVal(0))
-		handleStore(LockCasWriteLabel::create(pos.next(), addr, size), deps);
-	else
-		handleBlock(BlockLabel::create(pos.next(),
-					      rescheduled ? BlockageType::LockNotAcq :
-					      BlockageType::ReadOptBlock));
+	if (!getCurThr().isBlocked()) {
+		if (ret == SVal(0))
+			callDriver(&GenMCDriver::handleStore,
+				   LockCasWriteLabel::create(nextPos(), addr, size), deps);
+		else
+			callDriver(&GenMCDriver::handleBlock,
+				   BlockLabel::create(nextPos(), BlockageType::LockNotAcq));
+	}
 }
 
 void Interpreter::handleUnlock(SAddr addr, ASize size, const EventDeps *deps)
 {
 	/* No locking when running the recovery routine */
-	if (getConf()->persevere && inRecoveryMode())
+	if (getProgramState() == ProgramState::Recovery)
 		return;
 
-	/* Treatment of unlocks based on whether LAPOR is enabled */
-	if (getConf()->LAPOR) {
-		handleUnlockLAPOR(UnlockLabelLAPOR::create(pos, addr), deps);
-		return;
-	}
+	// /* Treatment of unlocks based on whether LAPOR is enabled */
+	// if (getConf()->LAPOR) {
+	// 	handleUnlockLAPOR(UnlockLabelLAPOR::create(pos, addr), deps);
+	// 	return;
+	// }
 
-	handleStore(UnlockWriteLabel::create(pos, addr, size), deps);
+	callDriver(&GenMCDriver::handleStore, UnlockWriteLabel::create(nextPos(), addr, size), deps);
 	return;
 }
 
@@ -3114,7 +3118,7 @@ void Interpreter::callMutexLock(Function *F, const std::vector<GenericValue> &Ar
 	Type *typ = F->getReturnType();
 	GenericValue result;
 
-	callDriver(&GenMCDriver::handleLock, nextPos(), ptr, getTypeSize(typ), &*specialDeps);
+	handleLock(ptr, getTypeSize(typ), &*specialDeps);
 
 	/*
 	 * We need to return a result anyway, because even if the current thread
@@ -3152,7 +3156,7 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 	/* Dependencies already set by the EE */
 	auto ret = callDriver(&GenMCDriver::handleLoad,
 			      TrylockCasReadLabel::create(nextPos(), ptr, size),
-			      &*specialDeps);
+			      &*specialDeps).value();
 
 	auto cmpRes = ret == SVal(0);
 	if (cmpRes)
@@ -3221,7 +3225,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 				 BIncFaiReadLabel::create(AtomicOrdering::AcquireRelease, nextPos(),
 							  barrier, asize, atyp, AtomicRMWInst::BinOp::Sub,
 							  SVal(1)),
-				 &*specialDeps);
+				 &*specialDeps).value();
 
 	/* If the barrier was uninitialized and we blocked, abort */
 	if (oldVal.getSigned() <= 0 || getCurThr().isBlocked())
@@ -3237,7 +3241,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 	callDriver(&GenMCDriver::handleLoad,
 		   BWaitReadLabel::create(AtomicOrdering::Acquire, nextPos(),
 					  barrier, asize, atyp),
-		   &*specialDeps);
+		   &*specialDeps).value();
 
 	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
 		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
@@ -3408,7 +3412,7 @@ SVal Interpreter::readInodeSizeFS(void *inode, Type *intTyp, const std::unique_p
 	auto inodeIsize = GET_INODE_ISIZE_ADDR(inode);
 	return callDriver(&GenMCDriver::handleLoad,
 			  ReadLabel::create(AtomicOrdering::Acquire, nextPos(), inodeIsize, asize, atyp),
-			  &*deps);
+			  &*deps).value();
 }
 
 void Interpreter::updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
@@ -3459,7 +3463,7 @@ void Interpreter::writeDataToDisk(void *buf, int bufOffset, void *inode, int ino
 		auto val = callDriver(&GenMCDriver::handleLoad,
 				      ReadLabel::create(AtomicOrdering::NotAtomic, nextPos(),
 							loadAddr, size, atyp),
-				      &*deps);
+				      &*deps).value();
 
 		auto writeAddr = (char *) inodeData + inodeOffset + i;
 		callDriver(&GenMCDriver::handleDskWrite,
@@ -3800,7 +3804,7 @@ SVal Interpreter::executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<Ev
 	auto ret = callDriver(&GenMCDriver::handleLoad,
 			      FaiReadLabel::create(AtomicOrdering::AcquireRelease, nextPos(),
 						   fileCount, asize, atyp, AtomicRMWInst::Sub, SVal(1)),
-			      &*deps);
+			      &*deps).value();
 
 	auto newVal = executeAtomicRMWOperation(ret, SVal(1), asize, AtomicRMWInst::Sub);
 
@@ -4079,7 +4083,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 	auto flags = callDriver(&GenMCDriver::handleLoad,
 				ReadLabel::create(AtomicOrdering::NotAtomic, nextPos(),
 						  flagsOffset, asize, atyp),
-				&*deps);
+				&*deps).value();
 	if (!(GENMC_OPEN_FMODE(flags.get()) & GENMC_FMODE_READ)) {
 		handleSystemError(SystemError::SE_EBADF, "File not opened for reading in read()");
 		return nr;
@@ -4090,7 +4094,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 	auto *inode = (void *) callDriver(&GenMCDriver::handleLoad,
 					  ReadLabel::create(llvm::AtomicOrdering::Monotonic, nextPos(),
 							    fileInode, getTypeSize(intPtrType), AType::Pointer),
-					  &*deps).get();
+					  &*deps).value().get();
 
 	/* Read the inode size and check whether we are reading past EOF */
 	auto iSize = readInodeSizeFS(inode, intTyp, deps);
@@ -4157,7 +4161,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	auto offset = callDriver(&GenMCDriver::handleLoad,
 				 ReadLabel::create(llvm::AtomicOrdering::NotAtomic, nextPos(),
 						   fileOffset, asize, atyp),
-				 &*deps);
+				 &*deps).value();
 
 	auto nr = executeReadFS(file, intTyp, buf, bufElemTyp, offset, count, deps);
 	if (getCurThr().isBlocked())
@@ -4280,7 +4284,7 @@ SVal Interpreter::executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufE
 	auto flags = callDriver(&GenMCDriver::handleLoad,
 				ReadLabel::create(AtomicOrdering::NotAtomic, nextPos(),
 						  flagsOffset, asize, atyp),
-				&*deps);
+				&*deps).value();
 	if (!(GENMC_OPEN_FMODE(flags.get()) & GENMC_FMODE_WRITE)) {
 		handleSystemError(SystemError::SE_EBADF, "File not open for writing in write()");
 		return SVal(-1);
@@ -4291,7 +4295,7 @@ SVal Interpreter::executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufE
 	auto *inode = (void *) callDriver(&GenMCDriver::handleLoad,
 					  ReadLabel::create(llvm::AtomicOrdering::Monotonic, nextPos(),
 							    fileInode, getTypeSize(intPtrType), AType::Pointer),
-					  &*deps).get();
+					  &*deps).value().get();
 
 	/* Since we are writing, we need to lock of the inode */
 	auto inodeLock = GET_INODE_LOCK_ADDR(inode);
@@ -4361,7 +4365,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	auto offset = callDriver(&GenMCDriver::handleLoad,
 				 ReadLabel::create(llvm::AtomicOrdering::NotAtomic, nextPos(),
 						   fileOffset, asize, atyp),
-				 &*deps);
+				 &*deps).value();
 
 	/* Perform the disk write operation -- may not succeed
 	 * (If we failed to acquire the node's lock, block without returning anything) */
@@ -4416,7 +4420,7 @@ void Interpreter::callFsyncFS(Function *F, const std::vector<GenericValue> &ArgV
 	auto *inode = (void *) callDriver(&GenMCDriver::handleLoad,
 					  ReadLabel::create(llvm::AtomicOrdering::Monotonic, nextPos(), fileInode,
 							    getTypeSize(retTyp->getPointerTo()), AType::Pointer),
-					  &*deps).get();
+					  &*deps).value().get();
 	executeFsyncFS(inode, retTyp);
 
 	returnValueToCaller(retTyp, INT_TO_GV(retTyp, 0));
@@ -4522,7 +4526,7 @@ SVal Interpreter::executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whe
 	auto *inode = (void*) callDriver(&GenMCDriver::handleLoad,
 					 ReadLabel::create(llvm::AtomicOrdering::Monotonic, nextPos(), fileInode,
 							   getTypeSize(intPtrType), AType::Pointer),
-					 &*deps).get();
+					 &*deps).value().get();
 
 	/* We read the inode size before switching on WHENCE */
 	auto fileSize = readInodeSizeFS(inode, intTyp, deps);
@@ -4544,7 +4548,7 @@ SVal Interpreter::executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whe
 			return callDriver(&GenMCDriver::handleLoad,
 					  ReadLabel::create(llvm::AtomicOrdering::NotAtomic, nextPos(),
 							    fileOffset, asize, atyp),
-					  &*deps);
+					  &*deps).value();
 		}
 
 		/* This case is weird in the kernel: The offset is updated while holding
@@ -4558,7 +4562,7 @@ SVal Interpreter::executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whe
 		newOffset = callDriver(&GenMCDriver::handleLoad,
 				       ReadLabel::create(llvm::AtomicOrdering::NotAtomic, nextPos(),
 							 fileOffset, asize, atyp),
-				       &*deps);
+				       &*deps).value();
 		newOffset += offset;
 		callDriver(&GenMCDriver::handleStore,
 			   WriteLabel::create(llvm::AtomicOrdering::NotAtomic, nextPos(), fileOffset,

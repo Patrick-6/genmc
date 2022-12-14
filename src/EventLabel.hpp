@@ -534,7 +534,7 @@ public:
  ******************************************************************************/
 
 /* A label that marks the end of a potential FaiZNE spinloop. If the loop turns out to be not
- * a spinloop, this is meaningless; otherwise, it indicates that the thread should block */
+ * a spinloop, it is added to the graph; otherwise, it should be replaced by a BlockLabel */
 class FaiZNESpinEndLabel : public EventLabel {
 
 public:

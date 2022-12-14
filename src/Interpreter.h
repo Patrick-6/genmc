@@ -64,6 +64,7 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <optional>
 #include <random>
 #include <unordered_map>
 #include <unordered_set>
@@ -361,6 +362,18 @@ public:
 	  incPos();
 	  return (driver->*mf)(std::forward<Args2>(args)...);
   }
+
+#define CALL_DRIVER_RESET_IF_NONE(method, ...)			\
+	({							\
+		std::optional<SVal> ret;			\
+		incPos();					\
+		ret = driver->method(__VA_ARGS__);		\
+		if (!ret.has_value()) {				\
+			decPos();				\
+			--ECStack().back().CurInst;		\
+		}						\
+		ret;						\
+	}) // while (true)
 
   /* Blocks the current execution */
   void block(BlockageType t = BlockageType::Error ) {

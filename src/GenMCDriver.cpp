@@ -696,15 +696,14 @@ bool GenMCDriver::rescheduleReads()
 		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
 		if (!bLab || bLab->getType() != BlockageType::ReadOptBlock)
 			continue;
-		auto *pLab = llvm::dyn_cast<ReadLabel>(g.getPreviousLabel(bLab));
-		BUG_ON(!pLab);
+		// auto *pLab = llvm::dyn_cast<ReadLabel>(g.getPreviousLabel(bLab));
+		// BUG_ON(!pLab);
 
-		setRescheduledRead(pLab->getPos());
+		setRescheduledRead(bLab->getPos());
 		g.remove(bLab);
-		g.remove(pLab);
 
-		EE->resetThread(i);
-		EE->getThrById(i).ECStack = { EE->getThrById(i).initSF };
+		// EE->resetThread(i);
+		// EE->getThrById(i).ECStack = { EE->getThrById(i).initSF };
 		EE->scheduleThread(i);
 		return true;
 	}
@@ -1225,17 +1224,17 @@ void GenMCDriver::checkLiveness()
 	return;
 }
 
-void GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores)
+bool GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores)
 
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 
 	/* The course of action depends on whether we are in repair mode or not */
 	if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) ||
 	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
 	    !isRescheduledRead(rLab->getPos())) {
-		stores = {stores.back()};
-		return;
+		g.addOtherLabelToGraph(BlockLabel::create(rLab->getPos(), BlockageType::ReadOptBlock));
+		return false;
 	}
 
 	auto max = stores.back();
@@ -1243,7 +1242,7 @@ void GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> 
 		return (llvm::isa<LockCasWriteLabel>(g.getEventLabel(s)) ||
 			llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(s))) && s != max;
 	}), stores.end());
-	return;
+	return true;
 }
 
 void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores)
@@ -1639,7 +1638,6 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 			continue;
 
 		/* Check whether this access affects the spinloop variable */
-		BUG_ON(!llvm::isa<FaiZNESpinEndLabel>(g.getPreviousLabel(eLab)));
 		auto *faiLab = llvm::dyn_cast<FaiWriteLabel>(g.getPreviousLabelST(eLab,
 			        [](const EventLabel *lab){ return llvm::isa<FaiWriteLabel>(lab); }));
 		if (faiLab->getAddr() != lab->getAddr())
@@ -1650,10 +1648,8 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 
 		/* If it does, and also breaks the assumptions, unblock thread */
 		if (!isHbBefore(lab->getPos(), faiLab->getPos())) {
-			if (getEE()->getThrById(eLab->getThread()).globalInstructions != 0)
-				--getEE()->getThrById(eLab->getThread()).globalInstructions;
-			g.remove(eLab->getPos());
-			thr.unblock();
+			auto *lab = g.addOtherLabelToGraph(FaiZNESpinEndLabel::create(eLab->getPos()));
+			updateLabelViews(lab, nullptr);
 		}
 	}
 	return;
@@ -1744,14 +1740,14 @@ bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vect
 		}) == stores.end());
 }
 
-void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
+bool GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	if (!getConf()->helper || !llvm::isa<SpeculativeReadLabel>(lab))
-		return;
+		return true;
 
 	if (isRescheduledRead(lab->getPos())) {
 		setRescheduledRead(Event::getInitializer());
-		return;
+		return true;
 	}
 
 	/* If there exist any speculative reads the confirming read of which has not been added,
@@ -1759,14 +1755,15 @@ void GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event
 	if (existsPendingSpeculation(lab, stores)) {
 		std::swap(stores[0], stores.back());
 		stores.resize(1);
-		handleBlock(BlockLabel::create(lab->getPos().next(), BlockageType::ReadOptBlock));
-		return;
+		getGraph().addOtherLabelToGraph(BlockLabel::create(lab->getPos(), BlockageType::ReadOptBlock));
+		return false;
 	}
 
 	threadPrios = { lab->getPos() };
+	return true;
 }
 
-void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
+bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	/* Symmetry reduction */
 	if (getConf()->symmetryReduction)
@@ -1778,7 +1775,8 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 
 	/* Locking */
 	if (llvm::isa<LockCasReadLabel>(lab))
-		filterAcquiredLocks(lab, stores);
+		if (!filterAcquiredLocks(lab, stores))
+			return false;
 
 	/* Helper: Try to read speculated value (affects maximality status) */
 	if (getConf()->helper && getGraph().isConfirming(lab))
@@ -1786,24 +1784,27 @@ void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 
 	/* Helper: If there are pending confirmations, prioritize those */
 	if (getConf()->helper && llvm::isa<SpeculativeReadLabel>(lab))
-		filterUnconfirmedReads(lab, stores);
+		if (!filterUnconfirmedReads(lab, stores))
+			return false;
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
 	if (lab->getAnnot())
 		filterValuesFromAnnotSAVER(lab, stores);
+	return true;
 }
 
-SVal GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
+std::optional<SVal>
+GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
 	auto &thr = EE->getCurThr();
 
 	if (inRecoveryMode() && rLab->getAddr().isVolatile())
-		return getRecReadRetValue(rLab.get());
+		return {getRecReadRetValue(rLab.get())};
 
 	if (isExecutionDrivenByGraph(&*rLab))
-		return getReadRetValueAndMaybeBlock(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
+		return {getReadRetValueAndMaybeBlock(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())))};
 
 	/* First, we have to check whether the access is valid. This has to
 	 * happen here because we may query the interpreter for this location's
@@ -1818,7 +1819,7 @@ SVal GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *d
 
 	if (!isAccessValid(lab)) {
 		reportError(lab->getPos(), Status::VS_AccessNonMalloc);
-		return SVal(0); /* Return some value; this execution will be blocked */
+		return std::nullopt; /* This execution will be blocked */
 	}
 
 	/* Get an approximation of the stores we can read from */
@@ -1826,14 +1827,15 @@ SVal GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *d
 	BUG_ON(stores.empty());
 
 	/* Try to minimize the number of rfs */
-	filterOptimizeRfs(lab, stores);
+	if (!filterOptimizeRfs(lab, stores))
+		return std::nullopt;
 
 	/* ... add an appropriate label with a random rf */
 	changeRf(lab->getPos(), stores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, stores))
-		return SVal(0);
+		return std::nullopt;
 
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V3) {
@@ -1867,7 +1869,7 @@ SVal GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *d
 			isCoMaximal(lab->getAddr(), s, true); /* MO messes with the status */
 		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), s, status));
 	});
-	return retVal;
+	return {retVal};
 }
 
 void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab) const
@@ -3072,15 +3074,16 @@ void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 	auto &g = getGraph();
 	auto *EE = getEE();
 
-	/* If there are more events after this one, it is not a spin loop*/
-	if (isExecutionDrivenByGraph(&*lab) &&
-	    lab->getIndex() < g.getLastThreadEvent(lab->getThread()).index)
+	/* If we are actually replaying this one, it is not a spin loop*/
+	if (isExecutionDrivenByGraph(&*lab))
 		return;
 
-	auto *eLab = g.addOtherLabelToGraph(std::move(lab)); /* might overwrite but that's ok */
-	updateLabelViews(eLab, nullptr);
-	if (areFaiZNEConstraintsSat(llvm::dyn_cast<FaiZNESpinEndLabel>(eLab)))
-		handleBlock(BlockLabel::create(eLab->getPos().next(), BlockageType::FaiZNESpinloop));
+	if (areFaiZNEConstraintsSat(&*lab)) {
+		g.addOtherLabelToGraph(BlockLabel::create(lab->getPos(), BlockageType::FaiZNESpinloop));
+	} else {
+		auto *eLab = llvm::dyn_cast<FaiZNESpinEndLabel>(g.addOtherLabelToGraph(std::move(lab)));
+		updateLabelViews(eLab, nullptr);
+	}
 	return;
 }
 
