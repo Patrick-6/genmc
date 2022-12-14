@@ -80,11 +80,7 @@ namespace LLVMModule {
 		std::string str;
 		llvm::raw_string_ostream  stream(str);
 
-#ifdef LLVM_WRITE_BITCODE_TO_FILE_PTR
-		llvm::WriteBitcodeToFile(&*mod, stream);
-#else
 		llvm::WriteBitcodeToFile(*mod, stream);
-#endif
 
 		llvm::StringRef ref(stream.str());
 		std::unique_ptr<llvm::MemoryBuffer> buf(llvm::MemoryBuffer::getMemBuffer(ref));
@@ -207,13 +203,13 @@ namespace LLVMModule {
 		std::error_code errs;
 
 		auto flags =
-#ifdef HAVE_LLVM_SYS_FS_OPENFLAGS_FNONE
+#if LLVM_VERSION_MAJOR < 13
 			llvm::sys::fs::F_None;
 #else
 			llvm::sys::fs::OF_None;
 #endif
 
-		auto os = LLVM_MAKE_UNIQUE<llvm::raw_fd_ostream>(out.c_str(), errs, flags);
+		auto os = std::make_unique<llvm::raw_fd_ostream>(out.c_str(), errs, flags);
 
 		/* TODO: Do we need an exception? If yes, properly handle it */
 		if (errs) {

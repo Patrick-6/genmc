@@ -59,6 +59,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
 
+#if LLVM_VERSION_MAJOR < 11
+# define LLVM_VECTOR_TYPEID_CASES case llvm::Type::VectorTyID:
+# else
+# define LLVM_VECTOR_TYPEID_CASES case llvm::Type::FixedVectorTyID: case llvm::Type::ScalableVectorTyID:
+#endif
+
 // static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 //           cl::desc("make the interpreter print every volatile load and store"));
 
@@ -1407,7 +1413,7 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 
   auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
-#ifdef LLVM_HAS_ALIGN
+#if LLVM_VERSION_MAJOR >= 11
 				    I.getAlign().value(),
 #else
 				    I.getAlignment(),

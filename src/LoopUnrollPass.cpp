@@ -32,19 +32,19 @@
 #endif
 #include <llvm/Transforms/Utils/Cloning.h>
 
-#ifdef LLVM_HAS_TERMINATORINST
+#if LLVM_VERSION_MAJOR < 8
  typedef llvm::TerminatorInst TerminatorInst;
 #else
  typedef llvm::Instruction TerminatorInst;
 #endif
 
-#ifdef LLVM_LOADINST_VALUE_ONLY
+#if LLVM_VERSION_MAJOR >= 11
 # define GET_LOADINST_ARG(val)
 #else
 # define GET_LOADINST_ARG(val) (val)->getType()->getPointerElementType(),
 #endif
 
-#ifdef LLVM_HAS_ALIGN
+#if LLVM_VERSION_MAJOR >= 11
 # define GET_BOUND_ALLOCA_ALIGN_ARG(val) llvm::Align(val)
 #else
 # define GET_BOUND_ALLOCA_ALIGN_ARG(val) val

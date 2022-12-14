@@ -104,7 +104,7 @@ void printResults(const std::shared_ptr<const Config> &conf,
 int main(int argc, char **argv)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
-	auto ctx = LLVM_MAKE_UNIQUE<llvm::LLVMContext>();
+	auto ctx = std::make_unique<llvm::LLVMContext>();
 	auto conf = std::make_shared<Config>();
 
 	conf->getConfigOptions(argc, argv);

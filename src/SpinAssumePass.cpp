@@ -50,7 +50,7 @@ using namespace llvm;
 #define POSTDOM_PASS PostDominatorTreeWrapperPass
 #define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
-#ifdef LLVM_INSERT_PREHEADER_FOR_LOOP_NEEDS_UPDATER
+#if LLVM_VERSION_MAJOR >= 9
 # define INSERT_PREHEADER_FOR_LOOP(L, DT, LI)			\
 	llvm::InsertPreheaderForLoop(L, DT, LI, nullptr, false)
 #else

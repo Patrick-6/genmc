@@ -92,7 +92,7 @@ GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSe
 
 std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
+	return std::make_unique<GenMCDriver::LocalState>(
 		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
 		getEE()->releaseLocalState(), isMootExecution, readToReschedule, threadPrios);
 }
@@ -117,7 +117,7 @@ GenMCDriver::SharedState::SharedState(std::unique_ptr<ExecutionGraph> g,
 
 std::unique_ptr<GenMCDriver::SharedState> GenMCDriver::getSharedState()
 {
-	return LLVM_MAKE_UNIQUE<GenMCDriver::SharedState>(
+	return std::make_unique<GenMCDriver::SharedState>(
 		std::move(execGraph), getEE()->getSharedState());
 }
 
@@ -552,7 +552,7 @@ void GenMCDriver::halt(Status status)
 
 GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod)
 {
-	auto MI = LLVM_MAKE_UNIQUE<ModuleInfo>(*mod);
+	auto MI = std::make_unique<ModuleInfo>(*mod);
 
 	/* Prepare the module for verification */
 	LLVMModule::transformLLVMModule(*mod, *MI, conf);
@@ -1861,7 +1861,7 @@ SVal GenMCDriver::visitLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *de
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
 		auto status = llvm::isa<MOCalculator>(g.getCoherenceCalculator()) ? false :
 			isCoMaximal(lab->getAddr(), s, true); /* MO messes with the status */
-		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), s, status));
+		addToWorklist(std::make_unique<ForwardRevisit>(lab->getPos(), s, status));
 	});
 	return retVal;
 }
@@ -1942,7 +1942,7 @@ void GenMCDriver::visitStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *
 
 		/* Push the stack item */
 		if (!inRecoveryMode())
-			addToWorklist(LLVM_MAKE_UNIQUE<WriteRevisit>(
+			addToWorklist(std::make_unique<WriteRevisit>(
 					      lab->getPos(), std::distance(store_begin(g, lab->getAddr()), it)));
 	}
 
@@ -2479,7 +2479,7 @@ std::unique_ptr<BackwardRevisit>
 GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
 {
 	if (!getConf()->helper)
-		return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab);
+		return std::make_unique<BackwardRevisit>(rLab, sLab);
 
 	auto &g = getGraph();
 
@@ -2494,8 +2494,8 @@ GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *s
 	    !g.getPrefixView(pending).contains(rLab->getPos()) &&
 	    rLab->getStamp() < g.getEventLabel(pending)->getStamp() &&
 	    !g.getPrefixView(sLab->getPos()).contains(pending))
-		return LLVM_MAKE_UNIQUE<BackwardRevisitHELPER>(rLab->getPos(), sLab->getPos(), pending);
-	return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab);
+		return std::make_unique<BackwardRevisitHELPER>(rLab->getPos(), sLab->getPos(), pending);
+	return std::make_unique<BackwardRevisit>(rLab, sLab);
 }
 
 std::unique_ptr<ExecutionGraph>
@@ -2583,7 +2583,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		auto write = sLab->getPos(); /* prefetch since we are gonna change state */
 
 		auto localState = releaseLocalState();
-		auto newState = LLVM_MAKE_UNIQUE<SharedState>(std::move(og), getEE()->getSharedState());
+		auto newState = std::make_unique<SharedState>(std::move(og), getEE()->getSharedState());
 
 		setSharedState(std::move(newState));
 
@@ -2832,7 +2832,7 @@ SVal GenMCDriver::visitDskRead(std::unique_ptr<DskReadLabel> drLab)
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<ForwardRevisit>(lab->getPos(), *it));
+		addToWorklist(std::make_unique<ForwardRevisit>(lab->getPos(), *it));
 	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getAccess());
 }
 
@@ -2946,7 +2946,7 @@ bool GenMCDriver::visitOptional(std::unique_ptr<OptionalLabel> lab)
 	auto *oLab = llvm::dyn_cast<OptionalLabel>(g.addOtherLabelToGraph(std::move(lab)));
 
 	if (oLab->isExpandable())
-		addToWorklist(LLVM_MAKE_UNIQUE<OptionalRevisit>(oLab->getPos()));
+		addToWorklist(std::make_unique<OptionalRevisit>(oLab->getPos()));
 	return false; /* should not be expanded yet */
 }
 

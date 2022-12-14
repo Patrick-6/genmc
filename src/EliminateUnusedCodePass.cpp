@@ -30,7 +30,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/Transforms/Utils/Local.h>
 
-#ifdef LLVM_HAS_MAY_BE_MEMORY_DEPENDENT
+#if LLVM_VERSION_MAJOR < 15
 #define MAY_BE_MEM_DEPENDENT(i) mayBeMemoryDependent(i)
 #else
 #define MAY_BE_MEM_DEPENDENT(i) mayHaveNonDefUseDependency(i)

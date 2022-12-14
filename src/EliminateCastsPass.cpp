@@ -42,13 +42,13 @@
 
 using namespace llvm;
 
-#ifdef LLVM_HAS_ONLYUSEDBYLIFETIMEMARKERSORDROPPABLEINSTS
-# ifdef LLVM_HAS_IS_LIFETIME_START_OR_END
+#if LLVM_VERSION_MAJOR >= 12
+# if LLVM_VERSION_MAJOR > 7
 #  define IS_LIFETIME_START_OR_END(i) (i)->isLifetimeStartOrEnd()
 # else
 #  define IS_LIFETIME_START_OR_END(i) isLifetimeStartOrEnd(i)
 # endif
-# ifdef LLVM_HAS_IS_DROPPABLE
+# if LLVM_VERSION_MAJOR >= 11
 #  define IS_DROPPABLE(i) (i)->isDroppable()
 # else
 #  define IS_DROPPABLE(i) isDroppable(i)
@@ -62,7 +62,7 @@ using namespace llvm;
 # define ONLY_USED_BY_MARKERS_OR_DROPPABLE(i) onlyUsedByLifetimeMarkers(i)
 #endif
 
-#ifdef LLVM_HAS_ALIGN
+#if LLVM_VERSION_MAJOR >= 11
 # define GET_INST_ALIGN(i) i->getAlign()
 #else
 # define GET_INST_ALIGN(i) i->getAlignment()
@@ -78,7 +78,7 @@ void EliminateCastsPass::getAnalysisUsage(AnalysisUsage &AU) const
 }
 
 /* Opaque pointers should render this pass obsolete */
-#ifdef LLVM_HAS_POINTER_GET_ELEMENT_TYPE
+#if LLVM_VERSION_MAJOR <= 14
 
 static bool haveSameSizePointees(const Type *p1, const Type *p2, const DataLayout &DL)
 {
@@ -377,13 +377,13 @@ static bool eliminateCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
 	}
 	return changed;
 }
-#endif /* LLVM_HAS_POINTER_GET_ELEMENT_TYPE */
+#endif /* LLVM_VERSION_MAJOR <= 14 */
 
 bool EliminateCastsPass::runOnFunction(Function &F)
 {
 	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 	auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
-#ifdef LLVM_HAS_POINTER_GET_ELEMENT_TYPE
+#if LLVM_VERSION_MAJOR <= 14
 	return eliminateCasts(F, DT, AC);
 #else
 	return false;
