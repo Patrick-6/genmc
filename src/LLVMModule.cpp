@@ -60,7 +60,7 @@
 namespace LLVMModule {
 
 	std::unique_ptr<llvm::Module>
-	parseLLVMModule(std::string &filename, const std::unique_ptr<llvm::LLVMContext> &ctx)
+	parseLLVMModule(const std::string &filename, const std::unique_ptr<llvm::LLVMContext> &ctx)
 	{
 		llvm::SMDiagnostic err;
 
