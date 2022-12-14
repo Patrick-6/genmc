@@ -40,7 +40,7 @@ The LLVM versions currently supported are:
 In order to use the tool on a Debian-based installation, you will need the
 following packages:
 
-		autoconf  automake  clang  libclang-dev  llvm  llvm-dev  libffi-dev
+		autoconf  automake  clang  llvm  llvm-dev  libffi-dev
 		zlib1g-dev libedit-dev
 
 ##### Max OS X

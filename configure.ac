@@ -47,7 +47,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 ## XXX: List below is currently INCOMPLETE
 AC_CHECK_HEADERS([\
   stdlib.h \
-  clang/Driver/Job.h \
   llvm/ExecutionEngine/ExecutionEngine.h \
   llvm/ExecutionEngine/GenericValue.h \
   llvm/Pass.h \
@@ -73,24 +72,6 @@ AC_CHECK_HEADERS_ALT([llvm/Transforms/Utils.h llvm/Transforms/Scalar.h],[],[AC_M
 AC_CHECK_HEADERS([ffi/ffi.h],[],[
   AC_CHECK_HEADERS([ffi.h],[],[AC_MSG_FAILURE([Could not find header ffi.h.])],[AC_INCLUDES_DEFAULT])
 ],[AC_INCLUDES_DEFAULT])
-
-# Check various clang functions
-
-## Check how to set a compiler invocation
-AC_MSG_CHECKING([how to set a CompilerInvocation])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#include <clang/Basic/Diagnostic.h>
-#include <clang/Frontend/CompilerInvocation.h>
-#include <clang/Frontend/CompilerInstance.h>
-]],[[
-	clang::CompilerInvocation *inv = nullptr;
-	clang::DiagnosticsEngine *diag = nullptr;
-	clang::CompilerInvocation::CreateFromArgs(*inv, {}, *diag);
- ]])],
-        [AC_DEFINE([CLANG_CREATE_FROM_ARGS_ARRAY_REF],[1],
-         [Define if CreateFromArgs takes an ArrayRef to CommandLineArgs.])
-         AC_MSG_RESULT([ArrayRef])],
-        [AC_MSG_RESULT([pointers to arguments])])
 
 # Check various functions in LLVM
 
