@@ -447,7 +447,7 @@ static bool introduceAllocaCasts(AllocaInst *ai)
 static bool introduceCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
 {
 	auto &eBB = F.getEntryBlock();
-	auto modified = true;
+	auto modified = false;
 
 	auto changed = true;
 	while (changed) {
