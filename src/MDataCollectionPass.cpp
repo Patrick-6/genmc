@@ -249,10 +249,16 @@ bool isSyscallWPathname(CallInst *CI)
 
 void MDataCollectionPass::initializeFilenameEntry(Value *v)
 {
-	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
-		auto filename = dyn_cast<ConstantDataArray>(
-			dyn_cast<GlobalVariable>(CE->getOperand(0))->
-			getInitializer())->getAsCString().str();
+#if LLVM_VERSION_MAJOR < 15
+       if (auto *CE = dyn_cast<ConstantExpr>(v)) {
+               auto filename = dyn_cast<ConstantDataArray>(
+                       dyn_cast<GlobalVariable>(CE->getOperand(0))->
+                       getInitializer())->getAsCString().str();
+#else
+	if (auto *CE = dyn_cast<Constant>(v)) {
+		auto filename = dyn_cast<ConstantDataArray>(CE->getOperand(0))->
+			getAsCString().str();
+#endif
 		collectFilename(filename);
 	} else
 		ERROR("Non-constant expression in filename\n");
