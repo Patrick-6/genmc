@@ -3981,7 +3981,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	auto asize = getTypeSize(intTyp);
 	auto atyp = TYPE_TO_ATYPE(intTyp);
@@ -4177,7 +4177,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	auto asize = getTypeSize(intTyp);
 	auto atyp = TYPE_TO_ATYPE(intTyp);
@@ -4281,7 +4281,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
 	SVal offset = ArgVals[3].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
@@ -4322,7 +4322,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
 	SVal offset = ArgVals[3].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
