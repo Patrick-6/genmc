@@ -81,7 +81,7 @@ llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 
 std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(dynState);
+	return std::make_unique<EELocalState>(dynState);
 }
 
 void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> s)
@@ -198,7 +198,7 @@ void Interpreter::reclaimUnusedFd(int fd)
 	dynState.fds.reset(fd);
 }
 
-#ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
+#if LLVM_VERSION_MAJOR >= 8
 # define GET_GV_ADDRESS_SPACE(v) (v).getAddressSpace()
 #else
 # define GET_GV_ADDRESS_SPACE(v)			\
@@ -215,7 +215,7 @@ void Interpreter::collectStaticAddresses(Module *M)
 	for (auto &v : M->getGlobalList()) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize =
-		        getDataLayout().getTypeAllocSize(v.getType()->getElementType());
+		        getDataLayout().getTypeAllocSize(v.getValueType());
 
 		/* Record whether this is a thread local variable or not */
 		if (v.isThreadLocal()) {
@@ -258,7 +258,7 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 		return;
 
 	errnoAddr = GVTOP(getConstantValue(errnoVar));
-	errnoTyp = errnoVar->getType()->getElementType();
+	errnoTyp = errnoVar->getValueType();
 	return;
 }
 
@@ -282,8 +282,8 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	dynState.fds = llvm::BitVector(20);
 	dynState.fdToFile.grow(dynState.fds.size());
 
-	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
-	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
+	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getValueType());
+	FI.fileTyp = dyn_cast<StructType>(fileVar->getValueType());
 	BUG_ON(!FI.inodeTyp || !FI.fileTyp);
 
 	/* Initialize the directory's inode -- assume that the first field is int
@@ -313,7 +313,7 @@ Interpreter::makeEventDeps(const DepInfo *addr, const DepInfo *data,
 	if (!getDepTracker())
 		return nullptr;
 
-	auto result = LLVM_MAKE_UNIQUE<EventDeps>();
+	auto result = std::make_unique<EventDeps>();
 
 	if (addr)
 		result->addr = *addr;
@@ -366,6 +366,18 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 	return nullptr;
 }
 
+void Interpreter::updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS)
+{
+	auto name = F->getName().str();
+	if (!internalFunNames.count(name))
+		return;
+
+	auto iFunCode = internalFunNames.at(name);
+	if (isAllocFunction(name))
+		updateDataDeps(tid, CS, Event(tid, getThrById(tid).globalInstructions));
+	return;
+}
+
 //===----------------------------------------------------------------------===//
 // Interpreter ctor - Initialize stuff
 //
@@ -387,7 +399,7 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
-	  dynState.depTracker = LLVM_MAKE_UNIQUE<DepTracker>();
+	  dynState.depTracker = std::make_unique<DepTracker>();
 
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
@@ -435,14 +447,14 @@ namespace {
    Values.clear();  // Free the old contents.
    Values.reserve(InputArgv.size());
    unsigned PtrSize = EE->getDataLayout().getPointerSize();
-   Array = LLVM_MAKE_UNIQUE<char[]>((InputArgv.size()+1)*PtrSize);
+   Array = std::make_unique<char[]>((InputArgv.size()+1)*PtrSize);
 
    // LLVM_DEBUG(dbgs() << "JIT: ARGV = " << (void *)Array.get() << "\n");
    Type *SBytePtr = Type::getInt8PtrTy(C);
 
    for (unsigned i = 0; i != InputArgv.size(); ++i) {
      unsigned Size = InputArgv[i].size()+1;
-     auto Dest = LLVM_MAKE_UNIQUE<char[]>(Size);
+     auto Dest = std::make_unique<char[]>(Size);
      // LLVM_DEBUG(dbgs() << "JIT: ARGV[" << i << "] = " << (void *)Dest.get()
      //                   << "\n");
 

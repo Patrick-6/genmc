@@ -27,6 +27,7 @@
 #ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
 #include <llvm/ADT/StringRef.h>
 #endif
+#include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 

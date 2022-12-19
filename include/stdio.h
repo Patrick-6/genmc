@@ -12,9 +12,9 @@ extern "C"
 struct _IO_FILE;
 typedef struct _IO_FILE FILE;
 
-extern struct _IO_FILE *stdin;
-extern struct _IO_FILE *stdout;
-extern struct _IO_FILE *stderr;
+struct _IO_FILE *stdin;
+struct _IO_FILE *stdout;
+struct _IO_FILE *stderr;
 
 extern int fclose(FILE *);
 extern int fflush(FILE *);

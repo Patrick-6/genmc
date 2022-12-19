@@ -116,7 +116,7 @@ llvm::Pass *createEliminateUnusedCodePass();
 /*
  * Collects possible escape points for a given function
  */
-llvm::Pass *createEscapeCheckerPass();
+llvm::Pass *createEscapeCheckerPass(bool loadsEscape = true);
 
 /*
  * Annotates confirming reads

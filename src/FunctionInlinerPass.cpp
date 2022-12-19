@@ -70,7 +70,7 @@ bool inlineCall(CallInst *ci)
 {
 	llvm::InlineFunctionInfo ifi;
 
-#if LLVM_INLINE_FUNCTION_NEEDS_DEREF
+#if LLVM_VERSION_MAJOR >= 11
 	BUG_ON(!InlineFunction(*ci, ifi).isSuccess());
 #else
 	BUG_ON(!InlineFunction(ci, ifi));

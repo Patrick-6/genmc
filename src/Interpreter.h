@@ -337,7 +337,7 @@ public:
   void restoreLocalState(std::unique_ptr<EELocalState> state);
 
   std::unique_ptr<EESharedState> getSharedState() const {
-	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
+	  auto shared = std::make_unique<EESharedState>();
 
 	  shared->alloctor = dynState.alloctor;
 	  shared->fds = dynState.fds;
@@ -570,7 +570,7 @@ public:
   void visitSelectInst(SelectInst &I);
 
   void visitCallInstWrapper(CallInstWrapper CIW);
-#ifdef LLVM_HAS_CALLSITE
+#if LLVM_VERSION_MAJOR < 11
   void visitCallSite(CallSite  CS) { visitCallInstWrapper(CallInstWrapper(CS)); }
 #else
   void visitCallBase(CallBase &CB) { visitCallInstWrapper(CallInstWrapper(CB)); }
@@ -835,6 +835,7 @@ private:  // Helper functions
   }
 
   std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
+  void updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS);
 
   void clearDeps(unsigned int tid) {
     if (getDepTracker())

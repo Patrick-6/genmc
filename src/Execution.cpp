@@ -59,6 +59,12 @@ using namespace llvm;
 
 #define DEBUG_TYPE "interpreter"
 
+#if LLVM_VERSION_MAJOR < 11
+# define LLVM_VECTOR_TYPEID_CASES case llvm::Type::VectorTyID:
+# else
+# define LLVM_VECTOR_TYPEID_CASES case llvm::Type::FixedVectorTyID: case llvm::Type::ScalableVectorTyID:
+#endif
+
 // static cl::opt<bool> PrintVolatile("interpreter-print-volatile", cl::Hidden,
 //           cl::desc("make the interpreter print every volatile load and store"));
 
@@ -1390,7 +1396,7 @@ void Interpreter::SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF){
 void Interpreter::visitAllocaInst(AllocaInst &I) {
   ExecutionContext &SF = ECStack().back();
 
-  Type *Ty = I.getType()->getElementType();  // Type to be allocated
+  Type *Ty = I.getAllocatedType();  // Type to be allocated
 
   // Get the number of elements being allocated by the array...
   unsigned NumElements =
@@ -1407,7 +1413,12 @@ void Interpreter::visitAllocaInst(AllocaInst &I) {
 
   auto *info = getVarNameInfo(&I, Storage::ST_Automatic, AddressSpace::AS_User);
   SVal result = driver->visitMalloc(MallocLabel::create(nextPos(), MemToAlloc, info, I.getName().str()), &*deps,
-				    I.getAlignment(), Storage::ST_Automatic, AddressSpace::AS_User);
+#if LLVM_VERSION_MAJOR >= 11
+				    I.getAlign().value(),
+#else
+				    I.getAlignment(),
+#endif
+				    Storage::ST_Automatic, AddressSpace::AS_User);
 
   ECStack().back().Allocas.add((void *) result.get());
 
@@ -1820,6 +1831,7 @@ void Interpreter::visitCallInstWrapper(CallInstWrapper CS) {
   GenericValue SRC = getOperandValue(SF.Caller.getCalledOperand(), SF);
   auto specialDeps = updateFunArgDeps(getCurThr().id, (Function *) GVTOP(SRC));
   callFunction((Function*)GVTOP(SRC), ArgVals, specialDeps);
+  updateInternalFunRetDeps(getCurThr().id, (Function *) GVTOP(SRC), &CS);
 }
 
 // auxiliary function for shift operations
@@ -3969,7 +3981,7 @@ void Interpreter::callReadFS(Function *F, const std::vector<GenericValue> &ArgVa
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	auto asize = getTypeSize(intTyp);
 	auto atyp = TYPE_TO_ATYPE(intTyp);
@@ -4165,7 +4177,7 @@ void Interpreter::callWriteFS(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue fd = ArgVals[0];
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	auto asize = getTypeSize(intTyp);
 	auto atyp = TYPE_TO_ATYPE(intTyp);
@@ -4269,7 +4281,7 @@ void Interpreter::callPreadFS(Function *F, const std::vector<GenericValue> &ArgV
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
 	SVal offset = ArgVals[3].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 
@@ -4310,7 +4322,7 @@ void Interpreter::callPwriteFS(Function *F, const std::vector<GenericValue> &Arg
 	GenericValue *buf = (GenericValue *) GVTOP(ArgVals[1]);
 	SVal count = ArgVals[2].IntVal.getLimitedValue();
 	SVal offset = ArgVals[3].IntVal.getLimitedValue();
-	Type *bufElemTyp = F->getFunctionType()->getParamType(1)->getPointerElementType();
+	Type *bufElemTyp = Type::getInt8Ty(F->getContext());
 	Type *intTyp = F->getFunctionType()->getParamType(0);
 	Type *retTyp = F->getReturnType();
 

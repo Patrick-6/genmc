@@ -29,6 +29,7 @@
 #include <llvm/IR/Module.h>
 
 #include <ctime>
+#include <map>
 #include <memory>
 #include <random>
 #include <unordered_set>
@@ -505,6 +506,9 @@ private:
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph();
+
+	/* Returns true if we are currently replaying a graph */
+	bool inReplay() const;
 
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;

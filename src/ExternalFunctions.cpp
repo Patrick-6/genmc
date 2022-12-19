@@ -81,6 +81,9 @@
 #endif
 #endif
 
+#define LLVM_SYS_MUTEX_LOCK_FN lock
+#define LLVM_SYS_MUTEX_UNLOCK_FN unlock
+
 using namespace llvm;
 
 static ManagedStatic<sys::Mutex> FunctionsLock;
