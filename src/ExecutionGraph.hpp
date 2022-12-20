@@ -493,17 +493,6 @@ public:
 		return llvm::isa<ConfirmingReadLabel>(rLab) || llvm::isa<ConfirmingCasReadLabel>(rLab);
 	}
 
-	/* Opt: Returns true if LAB is causing the respective thread
-	 * to block due to some optimization */
-	bool isOptBlockedRead(const EventLabel *lab) const {
-		if (llvm::isa<ReadLabel>(lab) &&
-		    getLastThreadEvent(lab->getThread()) == lab->getPos().next()) {
-			auto *bLab = llvm::dyn_cast<BlockLabel>(getNextLabel(lab));
-			return bLab && bLab->getType() == BlockageType::ReadOptBlock;
-		}
-		return false;
-	}
-
 	/* Returns true if e is hb-before w, or any of the reads that read from w */
 	bool isHbOptRfBefore(const Event e, const Event write) const;
 	bool isHbOptRfBeforeInView(const Event e, const Event write, const VectorClock &v) const;

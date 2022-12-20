@@ -1130,8 +1130,7 @@ bool ExecutionGraph::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
 	return !v->contains(rfLab->getPos()) &&
 		rfLab->getStamp() > lab->getStamp() &&
 		!prefixContainsSameLoc(r, rfLab) &&
-		!prefixContainsMatchingLock(r, rfLab) &&
-		(!hasBAM() || !llvm::isa<BIncFaiWriteLabel>(getEventLabel(rfLab->getPos())));
+		!prefixContainsMatchingLock(r, rfLab);
 }
 
 bool ExecutionGraph::isMaximalExtension(const BackwardRevisit &r) const

@@ -568,8 +568,7 @@ bool MOCalculator::inMaximalPath(const BackwardRevisit &r)
 
 	for (const auto *lab : labels(g)) {
 		if ((lab->getPos() != r.getPos() && v->contains(lab->getPos())) ||
-		    g.prefixContainsSameLoc(r, lab) ||
-		    g.isOptBlockedRead(lab))
+		    g.prefixContainsSameLoc(r, lab))
 			continue;
 
 		if (isCoBeforeSavedPrefix(r, lab))
