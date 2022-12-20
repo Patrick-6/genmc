@@ -696,14 +696,10 @@ bool GenMCDriver::rescheduleReads()
 		auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
 		if (!bLab || bLab->getType() != BlockageType::ReadOptBlock)
 			continue;
-		// auto *pLab = llvm::dyn_cast<ReadLabel>(g.getPreviousLabel(bLab));
-		// BUG_ON(!pLab);
 
 		setRescheduledRead(bLab->getPos());
 		g.remove(bLab);
 
-		// EE->resetThread(i);
-		// EE->getThrById(i).ECStack = { EE->getThrById(i).initSF };
 		EE->scheduleThread(i);
 		return true;
 	}
@@ -842,7 +838,6 @@ SVal GenMCDriver::getBarrierInitValue(SAddr addr, AAccess access)
 
 SVal GenMCDriver::getReadRetValueAndMaybeBlock(const ReadLabel *rLab)
 {
-	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 
 	/* Fetch appropriate return value and check whether we should block */
@@ -1854,14 +1849,21 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps)
 	if (llvm::isa<BIncFaiReadLabel>(lab))
 		checkBIncValidity(lab, stores);
 
-	if (isRescheduledRead(lab->getPos()) && !llvm::isa<LockCasReadLabel>(lab))
+	if (isRescheduledRead(lab->getPos()))
 		setRescheduledRead(Event::getInitializer());
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(stores.back(), lab->getAddr(), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) &&
-	   retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess()))
-		handleBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Barrier));
+	    retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess())) {
+		if (!getConf()->disableBAM) {
+			auto pos = lab->getPos();
+			g.remove(pos);
+			auto *blab = g.addOtherLabelToGraph(BlockLabel::create(pos, BlockageType::Barrier));
+			return {retVal};
+		}
+		getEE()->getCurThr().block(BlockageType::Barrier);
+	}
 
 	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
@@ -2326,20 +2328,26 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 
 	/* Otherwise, revisit in place */
 	auto &g = getGraph();
-	if (loads.size() > iVal.get() ||
-	    std::any_of(loads.begin(), loads.end(), [&g](const Event &l){
-		    return !llvm::isa<BWaitReadLabel>(g.getEventLabel(l)) ||
-			    l != g.getLastThreadEvent(l.thread).prev(); }))
+	auto bs = g.collectAllEvents([&](const EventLabel *lab){
+					     auto *bLab = llvm::dyn_cast<BlockLabel>(lab);
+					     if (!bLab || bLab->getType() != BlockageType::Barrier)
+						     return false;
+					     auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
+						     g.getPreviousLabel(lab));
+					     return pLab->getAddr() == sLab->getAddr();
+	});
+	if (bs.size() > iVal.get() || loads.size() > 0)
 		WARN_ONCE("bam-well-formed", "Execution not barrier-well-formed!\n");
 
-	std::for_each(loads.begin(), loads.end(), [&](const Event &l){
-		auto *rLab = llvm::dyn_cast<BWaitReadLabel>(g.getEventLabel(l));
+	std::for_each(bs.begin(), bs.end(), [&](const Event &b){
+		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b));
+		BUG_ON(!pLab);
+		auto *rLab = g.addReadLabelToGraph(
+			BWaitReadLabel::create(pLab->getOrdering(), b, pLab->getAddr(),
+					       pLab->getSize(), pLab->getType()));
+		updateLabelViews(rLab, &pLab->getDeps());
 		changeRf(rLab->getPos(), sLab->getPos());
 		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()));
-		g.remove(g.getLastThreadLabel(l.thread));
-		if (getEE()->getThrById(rLab->getThread()).globalInstructions != 0)
-			--getEE()->getThrById(rLab->getThread()).globalInstructions;
-		getEE()->getThrById(rLab->getThread()).unblock();
 	});
 	return true;
 }
@@ -2440,12 +2448,6 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 		if (sLab->hasAttr(WriteAttr::RevBlocker) && tryOptimizeRevBlockerAddition(sLab, loads))
 			return true;
 	}
-
-	/* Optimization-blocked (locking + helper) */
-	loads.erase(std::remove_if(loads.begin(), loads.end(), [&g](const Event &l){
-		return g.isOptBlockedRead(g.getEventLabel(l));
-	}), loads.end());
-
 	return false;
 }
 
