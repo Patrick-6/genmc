@@ -728,9 +728,6 @@ private:
 	 * This effectively changes the label, hence this method is virtual */
 	virtual void changeRf(Event read, Event store) = 0;
 
-	/* Synchronizes thread begins with thread create events. */
-	virtual void updateStart(Event create, Event begin) = 0;
-
 	/* Used to make a join label synchronize with a finished thread.
 	 * Returns true if the child thread has finished and updates the
 	 * views of the join, or false otherwise */

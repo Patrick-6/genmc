@@ -1508,16 +1508,12 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, co
 	if (cid == (long) g.getNumThreads()) {
 		g.addNewThread();
 		BUG_ON(EE->getNumThreads() != g.getNumThreads());
-		auto symm = getConf()->symmetryReduction ?
-			getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
-		auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), symm);
-		auto *ss = g.addOtherLabelToGraph(std::move(tsLab));
-		updateLabelViews(ss, nullptr);
-	} else {
-		/* Otherwise, update the existing entry */
-		updateStart(lab->getPos(), g.getFirstThreadEvent(cid));
 	}
-
+	auto symm = getConf()->symmetryReduction ?
+		getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
+	auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), symm);
+	auto *ss = g.addOtherLabelToGraph(std::move(tsLab));
+	updateLabelViews(ss, nullptr);
 	return cid;
 }
 

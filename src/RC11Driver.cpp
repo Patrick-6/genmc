@@ -392,22 +392,6 @@ void RC11Driver::changeRf(Event read, Event store)
 	return;
 }
 
-void RC11Driver::updateStart(Event create, Event start)
-{
-	auto &g = getGraph();
-	auto *bLab = g.getEventLabel(start);
-
-	View hb(g.getEventLabel(create)->getHbView());
-	View porf(g.getEventLabel(create)->getPorfView());
-
-	hb.setMax(start);
-	porf.setMax(start);
-
-	bLab->setHbView(std::move(hb));
-	bLab->setPorfView(std::move(porf));
-	return;
-}
-
 bool RC11Driver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();

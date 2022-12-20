@@ -300,22 +300,6 @@ void TSODriver::changeRf(Event read, Event store)
 	return;
 }
 
-void TSODriver::updateStart(Event create, Event start)
-{
-	auto &g = getGraph();
-	auto *bLab = g.getEventLabel(start);
-
-	View hb(g.getEventLabel(create)->getHbView());
-	View porf(g.getEventLabel(create)->getPorfView());
-
-	hb.setMax(start);
-	porf.setMax(start);
-
-	bLab->setHbView(std::move(hb));
-	bLab->setPorfView(std::move(porf));
-	return;
-}
-
 bool TSODriver::updateJoin(Event join, Event childLast)
 {
 	auto &g = getGraph();
