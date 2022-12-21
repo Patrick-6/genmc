@@ -3065,10 +3065,13 @@ void Interpreter::callThreadJoin(Function *F, const std::vector<GenericValue> &A
 {
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	auto result = callDriver(&GenMCDriver::handleThreadJoin,
-				 ThreadJoinLabel::create(nextPos(), ArgVals[0].IntVal.getLimitedValue()),
-				 &*deps);
-	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(result, F->getReturnType()));
+	auto result = CALL_DRIVER_RESET_IF_NONE(
+		handleThreadJoin,
+		ThreadJoinLabel::create(currPos(), ArgVals[0].IntVal.getLimitedValue()),
+		&*deps);
+	if (!result.has_value())
+		return;
+	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(result.value(), F->getReturnType()));
 }
 
 void Interpreter::callThreadExit(Function *F, const std::vector<GenericValue> &ArgVals,

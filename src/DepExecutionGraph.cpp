@@ -242,10 +242,6 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 							});
 					}
 				}
-			} else if (auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
-				Event pj = fLab->getParentJoin();
-				if (getEventLabel(pj)) /* Make sure the parent exists */
-					resetJoin(pj);
 			}
 			setEventLabel(Event(i, j), nullptr);
 		}

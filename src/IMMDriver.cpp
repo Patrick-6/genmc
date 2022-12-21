@@ -448,30 +448,6 @@ void IMMDriver::changeRf(Event read, Event store)
 		g.getPersChecker()->calcDskMemAccessPbView(rLab);
 }
 
-bool IMMDriver::updateJoin(Event join, Event childLast)
-{
-	auto &g = getGraph();
-
-	if (!g.updateJoin(join, childLast))
-		return false;
-
-	EventLabel *jLab = g.getEventLabel(join);
-	EventLabel *fLab = g.getEventLabel(childLast);
-
-       /* Since the pporf view may contain elements from threads joined
-	* in previous explorations, we have to reset it to the ppo one,
-	* and then update it */
-	DepView pporf(jLab->getPPoView());
-	View hb = calcBasicHbView(jLab->getPos());
-
-	hb.update(fLab->getHbView());
-	pporf.update(fLab->getPPoRfView());
-
-        jLab->setHbView(std::move(hb));
-	jLab->setPPoRfView(std::move(pporf));
-	return true;
-}
-
 void IMMDriver::initConsCalculation()
 {
 	return;

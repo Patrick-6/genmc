@@ -1194,7 +1194,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	}
 }
 
-bool ExecutionGraph::updateJoin(Event join, Event childLast)
+bool ExecutionGraph::updateJoin(Event join)
 {
 	setFPStatus(FS_Stale);
 
@@ -1202,27 +1202,13 @@ bool ExecutionGraph::updateJoin(Event join, Event childLast)
 	BUG_ON(!jLab);
 
 	/* If the child thread has not terminated, do not update anything */
-	auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(getEventLabel(childLast));
+	auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(getLastThreadLabel(jLab->getChildId()));
 	if (!fLab)
 		return false;
 
-	jLab->setChildLast(childLast);
+	jLab->setChildLast(fLab->getPos());
 	fLab->setParentJoin(jLab->getPos());
 	return true;
-}
-
-void ExecutionGraph::resetJoin(Event join)
-{
-	setFPStatus(FS_Stale);
-
-	/* If there is no parent join label, return */
-	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(getEventLabel(join));
-	if (!jLab)
-		return;
-
-	/* Otherwise, reset parent join */
-	jLab->setChildLast(Event::getInitializer());
-	return;
 }
 
 /*
@@ -1289,18 +1275,10 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			auto *lab = getEventLabel(Event(i, j));
-			/*
-			 * If it is a join and the respective Finish has been
-			 * removed, renew the Views of this label and continue
-			 */
-			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
-				Event cl = jLab->getChildLast();
-				if (cl.index >= (int) getThreadSize(cl.thread))
-					resetJoin(jLab->getPos());
-			} else if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				wLab->removeReader([&](Event r){
-						return !preds.contains(r);
-					});
+							   return !preds.contains(r);
+						   });
 			}
 			/* No special action for CreateLabels; we can
 			 * keep the begin event of the child the since

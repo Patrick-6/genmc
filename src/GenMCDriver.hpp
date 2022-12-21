@@ -266,7 +266,8 @@ public:
 	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
 
 	/* Returns an appropriate result for pthread_join() */
-	SVal handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
+	std::optional<SVal>
+	handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
@@ -727,11 +728,6 @@ private:
 	/* Changes the reads-from edge for the specified label.
 	 * This effectively changes the label, hence this method is virtual */
 	virtual void changeRf(Event read, Event store) = 0;
-
-	/* Used to make a join label synchronize with a finished thread.
-	 * Returns true if the child thread has finished and updates the
-	 * views of the join, or false otherwise */
-	virtual bool updateJoin(Event join, Event childLast) = 0;
 
 	/* Performs the necessary initializations for the
 	 * consistency calculation */

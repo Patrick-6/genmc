@@ -1517,19 +1517,22 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, co
 	return cid;
 }
 
-SVal GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const EventDeps *deps)
+std::optional<SVal>
+GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const EventDeps *deps)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
 
-	/* If necessary, add a relevant event to the graph */
-	ThreadJoinLabel *jLab = nullptr;
-	if (!isExecutionDrivenByGraph(&*lab)) {
-		jLab = llvm::dyn_cast<ThreadJoinLabel>(g.addOtherLabelToGraph(std::move(lab)));
-		updateLabelViews(jLab, deps);
-	} else {
-		jLab = llvm::dyn_cast<ThreadJoinLabel>(g.getEventLabel(lab->getPos()));
+	if (isExecutionDrivenByGraph(&*lab))
+		return {SVal(0)};
+
+	if (!llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
+		g.addOtherLabelToGraph(BlockLabel::create(lab->getPos(), BlockageType::ThreadJoin));
+		return std::nullopt;
 	}
+
+	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(g.addOtherLabelToGraph(std::move(lab)));
+	updateLabelViews(jLab, deps);
 
 	auto cid = jLab->getChildId();
 	if (cid < 0 || long (g.getNumThreads()) <= cid || cid == thr.id) {
@@ -1537,18 +1540,14 @@ SVal GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab, const E
 		if (cid == thr.id)
 			err += " (TID cannot be the same as the calling thread)";
 		reportError(jLab->getPos(), Status::VS_InvalidJoin, err);
-		return SVal(0);
+		return {SVal(0)};
 	}
-
-	/* If the update failed (child has not terminated yet) block this thread */
-	if (!updateJoin(jLab->getPos(), g.getLastThreadEvent(cid)))
-		thr.block(BlockageType::ThreadJoin);
 
 	/*
 	 * We always return a success value, so as not to have to update it
 	 * when the thread unblocks.
 	 */
-	return SVal(0);
+	return {SVal(0)};
 }
 
 void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
@@ -1566,18 +1565,15 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 			return;
 
 		for (auto i = 0u; i < g.getNumThreads(); i++) {
-			const EventLabel *pLastLab = g.getLastThreadLabel(i);
-			if (auto *pLab = llvm::dyn_cast<ThreadJoinLabel>(pLastLab)) {
-				if (pLab->getChildId() != thr.id)
-					continue;
-
-				/* If parent thread is waiting for me, relieve it */
-				EE->getThrById(i).unblock();
-				updateJoin(pLab->getPos(), lab->getPos());
+			auto *pLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(i));
+			if (pLab && pLab->getType() == BlockageType::ThreadJoin) {
+				/* If parent thread is waiting for me, relieve it.
+				 * We do not keep track of who is waiting for whom now,
+				 * so just unblock everyone. */
+				g.remove(pLab);
 			}
 		}
-	} /* FIXME: Maybe move view update into thread finish creation? */
-	  /* FIXME: Thread return values? */
+	} /* FIXME: Thread return values? */
 }
 
 void GenMCDriver::handleFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps)

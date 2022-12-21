@@ -377,29 +377,6 @@ void SCDriver::changeRf(Event read, Event store)
 	return;
 }
 
-bool SCDriver::updateJoin(Event join, Event childLast)
-{
-	auto &g = getGraph();
-
-	if (!g.updateJoin(join, childLast))
-		return false;
-
-	EventLabel *jLab = g.getEventLabel(join);
-	EventLabel *fLab = g.getEventLabel(childLast);
-
-       /* Since the pporf view may contain elements from threads joined
-	* in previous explorations, we have to reset it to a po-local one */
-	View porf = calcBasicPorfView(jLab->getPos());
-	View hb = calcBasicHbView(jLab->getPos());
-
-	hb.update(fLab->getHbView());
-	porf.update(fLab->getPorfView());
-
-        jLab->setHbView(std::move(hb));
-	jLab->setPorfView(std::move(porf));
-	return true;
-}
-
 void SCDriver::initConsCalculation()
 {
 	return;

@@ -579,8 +579,7 @@ public:
 
 	void changeRf(Event read, Event store);
 	void changeStoreOffset(SAddr addr, Event s, int newOffset);
-	void resetJoin(Event join);
-	bool updateJoin(Event join, Event childLast);
+	bool updateJoin(Event join);
 
 
 	/* Prefix saving and restoring */

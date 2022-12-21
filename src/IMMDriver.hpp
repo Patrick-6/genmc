@@ -32,7 +32,6 @@ public:
 	void updateLabelViews(EventLabel *lab, const EventDeps *deps) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	void changeRf(Event read, Event store) override;
-	bool updateJoin(Event join, Event childLast) override;
 	void initConsCalculation() override;
 
 	bool isConsistent(const Event &e) override;
