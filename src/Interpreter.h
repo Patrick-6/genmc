@@ -172,6 +172,7 @@ public:
 	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	unsigned int globalInstSnap;
+	BasicBlock::iterator curInstSnap;
 	BlockageType blocked;
 	MyRNG rng;
 	std::vector<std::pair<int, std::string> > prefixLOC;
@@ -186,10 +187,12 @@ public:
 	/* Useful for one-to-many instr->events correspondence */
 	void takeSnapshot()   {
 		globalInstSnap = globalInstructions;
+		curInstSnap = --ECStack.back().CurInst;
+		++ECStack.back().CurInst;
 	}
 	void rollToSnapshot() {
 		globalInstructions = globalInstSnap;
-		--ECStack.back().CurInst;
+		ECStack.back().CurInst = curInstSnap;
 	}
 
 protected:
@@ -357,23 +360,28 @@ public:
 		  constructAddThreadFromInfo(ti);
   }
 
-  template<typename M, typename... Args1, typename... Args2>
-  M callDriver(M (GenMCDriver::*mf)(Args1...), Args2&& ...args) {
-	  incPos();
-	  return (driver->*mf)(std::forward<Args2>(args)...);
-  }
+#define CALL_DRIVER(method, ...)					\
+	({								\
+		if (getProgramState() != ProgramState::Recovery ||	\
+		    #method != "handleLoad") {				\
+			incPos();					\
+		}							\
+		driver->method(__VA_ARGS__);				\
+	})
 
 #define CALL_DRIVER_RESET_IF_NONE(method, ...)			\
 	({							\
-		std::optional<SVal> ret;			\
 		incPos();					\
-		ret = driver->method(__VA_ARGS__);		\
+		auto ret = driver->method(__VA_ARGS__);		\
 		if (!ret.has_value()) {				\
 			decPos();				\
 			--ECStack().back().CurInst;		\
+		} else if (getProgramState() == ProgramState::Recovery && \
+			   #method == "handleLoad") { \
+			decPos();					\
 		}						\
 		ret;						\
-	}) // while (true)
+	})
 
   /* Blocks the current execution */
   void block(BlockageType t = BlockageType::Error ) {

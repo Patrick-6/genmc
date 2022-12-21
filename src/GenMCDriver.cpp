@@ -700,6 +700,7 @@ bool GenMCDriver::rescheduleReads()
 		setRescheduledRead(bLab->getPos());
 		g.remove(bLab);
 
+		EE->getThrById(i).unblock();
 		EE->scheduleThread(i);
 		return true;
 	}
@@ -1229,6 +1230,7 @@ bool GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> 
 	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
 	    !isRescheduledRead(rLab->getPos())) {
 		g.addOtherLabelToGraph(BlockLabel::create(rLab->getPos(), BlockageType::ReadOptBlock));
+		getEE()->getCurThr().block(BlockageType::ReadOptBlock);
 		return false;
 	}
 
@@ -1991,35 +1993,6 @@ void GenMCDriver::handleLockLAPOR(std::unique_ptr<LockLabelLAPOR> lLab, const Ev
 	return;
 }
 
-void GenMCDriver::handleLock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
-{
-	/* No locking when running the recovery routine */
-	if (getConf()->persevere && inRecoveryMode())
-		return;
-
-	/* Treatment of locks based on whether LAPOR is enabled */
-	if (getConf()->LAPOR) {
-		handleLockLAPOR(LockLabelLAPOR::create(pos, addr), deps);
-		return;
-	}
-
-	auto ret = handleLoad(LockCasReadLabel::create(pos, addr, size), deps);
-
-	/* Check if that was a rescheduled lock; do that here so that
-	 * recursive calls always have no locks to be rescheduled */
-	auto rescheduled = isRescheduledRead(pos);
-	if (isRescheduledRead(pos))
-		setRescheduledRead(Event::getInitializer());
-
-	auto *rLab = llvm::dyn_cast<ReadLabel>(getGraph().getEventLabel(pos));
-	if (!rLab->getRf().isBottom() && ret == SVal(0))
-		handleStore(LockCasWriteLabel::create(pos.next(), addr, size), deps);
-	else
-		handleBlock(BlockLabel::create(pos.next(),
-					      rescheduled ? BlockageType::LockNotAcq :
-					      BlockageType::ReadOptBlock));
-}
-
 void GenMCDriver::handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps)
 {
 	if (isExecutionDrivenByGraph(&*uLab)) {
@@ -2033,22 +2006,6 @@ void GenMCDriver::handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, cons
 	/* Ensure we deprioritize also when adding an event, as a
 	 * revisit may leave a critical section open */
 	deprioritizeThread(lab);
-	return;
-}
-
-void GenMCDriver::handleUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps)
-{
-	/* No locking when running the recovery routine */
-	if (getConf()->persevere && inRecoveryMode())
-		return;
-
-	/* Treatment of unlocks based on whether LAPOR is enabled */
-	if (getConf()->LAPOR) {
-		handleUnlockLAPOR(UnlockLabelLAPOR::create(pos, addr), deps);
-		return;
-	}
-
-	handleStore(UnlockWriteLabel::create(pos, addr, size), deps);
 	return;
 }
 

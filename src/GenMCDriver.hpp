@@ -210,12 +210,6 @@ public:
 	/* A function modeling a write to disk has been interpreted */
 	void handleDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
-	/* A lock() operation has been interpreted, nothing for the interpreter */
-	void handleLock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
-
-	/* An unlock() operation has been interpreted, nothing for the interpreter */
-	void handleUnlock(Event pos, SAddr addr, ASize size, const EventDeps *deps);
-
 	/* A helping CAS operation has been interpreter, the result is unobservable */
 	void handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
 
