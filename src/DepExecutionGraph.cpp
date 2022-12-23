@@ -253,8 +253,7 @@ void DepExecutionGraph::cutToStamp(unsigned int stamp)
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			if (getEventLabel(Event(i, j)))
 				continue;
-			setEventLabel(Event(i, j), std::unique_ptr<EmptyLabel>(
-				      new EmptyLabel(nextStamp(), Event(i, j))));
+			setEventLabel(Event(i, j), EmptyLabel::create(Event(i, j), nextStamp()));
 		}
 	}
 }

@@ -36,12 +36,8 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
-	auto *iLab = addOtherLabelToGraph( std::unique_ptr<ThreadStartLabel>(
-						   new ThreadStartLabel(
-							   0, llvm::AtomicOrdering::Acquire,
-							   Event(0, 0),
-							   Event::getInitializer() )
-						   ) );
+	auto *iLab = addOtherLabelToGraph(
+		ThreadStartLabel::create(Event(0, 0), Event::getInitializer(), 0));
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
 
@@ -1327,7 +1323,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		for (auto j = 1; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j))) {
 				other.addOtherLabelToGraph(
-					EmptyLabel::create(other.nextStamp(), Event(i, j)));
+					EmptyLabel::create(Event(i, j), other.nextStamp()));
 				continue;
 			}
 			auto *nLab = other.addOtherLabelToGraph(getEventLabel(Event(i, j))->clone());

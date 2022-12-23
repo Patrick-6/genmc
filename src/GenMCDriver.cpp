@@ -504,7 +504,7 @@ void GenMCDriver::handleRecoveryStart()
 		psb.push_back(Event::getInitializer());
 	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
-	auto tsLab = ThreadStartLabel::create(g.nextStamp(), Event(tid, 0), psb.back());
+	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(), g.nextStamp());
 	auto *lab = g.addOtherLabelToGraph(std::move(tsLab));
 	updateLabelViews(lab, nullptr);
 
@@ -2292,7 +2292,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b));
 		BUG_ON(!pLab);
 		auto *rLab = g.addReadLabelToGraph(
-			BWaitReadLabel::create(pLab->getOrdering(), b, pLab->getAddr(),
+			BWaitReadLabel::create(b, pLab->getOrdering(), pLab->getAddr(),
 					       pLab->getSize(), pLab->getType()));
 		updateLabelViews(rLab, &pLab->getDeps());
 		changeRf(rLab->getPos(), sLab->getPos());
@@ -2660,11 +2660,15 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 
 #define CREATE_COUNTERPART(name)					\
 	case EventLabel::EL_## name ## Read:				\
-		wLab = name##WriteLabel::create(g.nextStamp(), rLab->getOrdering(), \
-						rLab->getPos().next(),	\
+		wLab = name##WriteLabel::create(rLab->getPos().next(),	\
+						rLab->getOrdering(),	\
 						rLab->getAddr(),	\
 						rLab->getSize(),	\
-						rLab->getType(), result, wattr); \
+						rLab->getType(),	\
+						result,			\
+						wattr,			\
+						EventDeps(),		\
+						g.nextStamp());		\
 		break;
 
 	switch (rLab->getKind()) {
