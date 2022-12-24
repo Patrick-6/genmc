@@ -2601,33 +2601,6 @@ void GenMCDriver::repairDanglingLocks()
 	return;
 }
 
-void GenMCDriver::repairDanglingBarriers()
-{
-	if (getConf()->disableBAM)
-		return;
-
-	/* The wait-load of a barrier may lose its rf after cutting the graph.
-	 * If this happens, fix the problem by making it read from the barrier's
-	 * increment operation, and add a corresponding block event */
-	auto &g = getGraph();
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto *bLab = llvm::dyn_cast<BWaitReadLabel>(g.getLastThreadLabel(i));
-		if (!bLab)
-			continue;
-		auto iVal = getBarrierInitValue(bLab->getAddr(), bLab->getAccess());
-		if (g.contains(bLab->getRf()) && getReadValue(bLab) == iVal)
-			continue;
-
-		BUG_ON(!llvm::isa<BIncFaiWriteLabel>(g.getPreviousLabel(bLab)));
-		BUG_ON(!g.contains(bLab->getPos()));
-		changeRf(bLab->getPos(), bLab->getPos().prev());
-		bLab->setAddedMax(true);
-		g.addOtherLabelToGraph(BlockLabel::create(bLab->getPos().next(),
-							  BlockageType::Barrier));
-	}
-	return;
-}
-
 const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	/* Handle non-RMW cases first */
@@ -2710,9 +2683,6 @@ bool GenMCDriver::revisitRead(const ReadRevisit &ri)
 		}
 	);
 
-	/* Repair barriers here, as dangling wait-reads may be part of the prefix */
-	repairDanglingBarriers();
-
 	/* If the revisited label became an RMW, add the store part and revisit */
 	if (auto *sLab = completeRevisitedRMW(rLab))
 		return calcRevisits(sLab);
@@ -2750,7 +2720,6 @@ bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
 		wLab->setAddedMax(false);
 		repairDanglingLocks();
-		repairDanglingBarriers();
 		return calcRevisits(wLab);
 	} else if (auto *oi = llvm::dyn_cast<OptionalRevisit>(item.get())) {
 		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);

@@ -625,9 +625,6 @@ private:
 	 * in-place revisiting of locks */
 	void repairDanglingLocks();
 
-	/* Opt: Repairs barriers that may be "dangling" after cutting the graph. */
-	void repairDanglingBarriers();
-
 	/* Opt: Finds the last memory access that is visible to other threads;
 	 * return nullptr if no such access is found */
 	const MemAccessLabel *getPreviousVisibleAccessLabel(Event start) const;
