@@ -50,45 +50,42 @@ View IMMDriver::calcBasicHbView(Event e) const
 	return v;
 }
 
-DepView IMMDriver::getDepsAsView(const EventDeps *deps)
+DepView IMMDriver::getDepsAsView(const EventDeps &deps) const
 {
+	auto &g = getGraph();
 	DepView v;
 
-	if (!deps)
-		return v;
-
-	auto &g = getGraph();
-	for (auto &adep : deps->addr)
+	for (auto &adep : deps.addr)
 		v.update(g.getPPoRfBefore(adep));
-	for (auto &ddep : deps->data)
+	for (auto &ddep : deps.data)
 		v.update(g.getPPoRfBefore(ddep));
-	for (auto &cdep : deps->ctrl)
+	for (auto &cdep : deps.ctrl)
 		v.update(g.getPPoRfBefore(cdep));
-	for (auto &apdep : deps->addrPo)
+	for (auto &apdep : deps.addrPo)
 		v.update(g.getPPoRfBefore(apdep));
-	for (auto &csdep : deps->cas)
+	for (auto &csdep : deps.cas)
 		v.update(g.getPPoRfBefore(csdep));
 	return v;
 }
 
-DepView IMMDriver::calcPPoView(Event e, const EventDeps *deps) /* not const */
+DepView IMMDriver::calcPPoView(const EventLabel *lab) const
 {
 	/* Update ppo based on dependencies (addr, data, ctrl, addr;po, cas) */
-	auto v = getDepsAsView(deps);
+	auto v = getDepsAsView(lab->getDeps());
 
 	/* This event does not depend on anything else */
 	DepView wv;
-	wv.setMax(e);
+	wv.setMax(lab->getPos());
 	v.update(wv);
 
 	/* Update based on the views of the acquires of the thread */
 	auto &g = getGraph();
-	for (auto &ev : g.getThreadAcquiresAndFences(e))
+	for (auto &ev : g.getThreadAcquiresAndFences(lab->getPos()))
 		v.update(g.getPPoRfBefore(ev));
 	return v;
 }
 
-void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
+void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab) const
 {
 	if (!lab->isAtLeastRelease())
 		return;
@@ -112,10 +109,10 @@ void IMMDriver::updateRelView(DepView &pporf, EventLabel *lab)
 	return;
 }
 
-void IMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
+void IMMDriver::calcBasicViews(EventLabel *lab)
 {
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos(), deps);
+	DepView pporf = calcPPoView(lab);
 
 	if (lab->isAtLeastRelease())
 		updateRelView(pporf, lab);
@@ -124,7 +121,7 @@ void IMMDriver::calcBasicViews(EventLabel *lab, const EventDeps *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab)
+void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab) const
 {
 	if (lab->getRf().isBottom())
 		return;
@@ -154,11 +151,11 @@ void IMMDriver::updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel 
 	return;
 }
 
-void IMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
+void IMMDriver::calcReadViews(ReadLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos(), deps);
+	DepView ppo = calcPPoView(lab);
 	DepView pporf(ppo);
 
 	updateReadViewsFromRf(pporf, hb, lab);
@@ -168,7 +165,7 @@ void IMMDriver::calcReadViews(ReadLabel *lab, const EventDeps *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
+void IMMDriver::calcWriteViews(WriteLabel *lab)
 {
 	const auto &g = getGraph();
 
@@ -179,7 +176,7 @@ void IMMDriver::calcWriteViews(WriteLabel *lab, const EventDeps *deps)
 	/* Then, we calculate the ppo and (ppo U rf) views.
 	 * The first is important because we have to take dep;rfi
 	 * dependencies into account for subsequent reads. */
-	DepView ppo = calcPPoView(lab->getPos(), deps);
+	DepView ppo = calcPPoView(lab);
 	DepView pporf(ppo);
 
 	if (llvm::isa<CasWriteLabel>(lab) || llvm::isa<FaiWriteLabel>(lab)) {
@@ -242,7 +239,7 @@ void IMMDriver::calcRMWWriteMsgView(WriteLabel *lab)
 	lab->setMsgView(std::move(msg));
 }
 
-void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
+void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v) const
 {
 	const auto &g = getGraph();
 	for (auto i = last.index; i > 0; i--) {
@@ -261,11 +258,11 @@ void IMMDriver::calcFenceRelRfPoBefore(Event last, View &v)
 }
 
 
-void IMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
+void IMMDriver::calcFenceViews(FenceLabel *lab)
 {
 	const auto &g = getGraph();
 	View hb = calcBasicHbView(lab->getPos());
-	DepView pporf = calcPPoView(lab->getPos(), deps);
+	DepView pporf = calcPPoView(lab);
 
 	if (lab->isAtLeastAcquire())
 		calcFenceRelRfPoBefore(lab->getPos().prev(), hb);
@@ -276,7 +273,7 @@ void IMMDriver::calcFenceViews(FenceLabel *lab, const EventDeps *deps)
 	lab->setPPoRfView(std::move(pporf));
 }
 
-void IMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
+void IMMDriver::calcJoinViews(ThreadJoinLabel *lab)
 {
 	const auto &g = getGraph();
 	auto *fLab = g.getLastThreadLabel(lab->getChildId());
@@ -286,7 +283,7 @@ void IMMDriver::calcJoinViews(ThreadJoinLabel *lab, const EventDeps *deps)
 	* in previous explorations, we have to reset it to the ppo one,
 	* and then update it */
 	View hb = calcBasicHbView(lab->getPos());
-	DepView ppo = calcPPoView(lab->getPos(), deps);
+	DepView ppo = calcPPoView(lab);
 	DepView pporf(ppo);
 
 	if (llvm::isa<ThreadFinishLabel>(fLab)) {
@@ -316,11 +313,11 @@ void IMMDriver::calcStartViews(ThreadStartLabel *lab)
 	return;
 }
 
-void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const EventDeps *deps)
+void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab)
 {
 	const auto &g = getGraph();
 	auto hb = calcBasicHbView(lab->getPos());
-	auto pporf = calcPPoView(lab->getPos(), deps);
+	auto pporf = calcPPoView(lab);
 
 	auto prevUnlock = g.getLastThreadUnlockAtLocLAPOR(lab->getPos().prev(), lab->getLockAddr());
 	if (!prevUnlock.isInitializer())
@@ -331,11 +328,10 @@ void IMMDriver::calcLockLAPORViews(LockLabelLAPOR *lab, const EventDeps *deps)
 	return;
 }
 
-void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
+void IMMDriver::updateLabelViews(EventLabel *lab)
 {
 	const auto &g = getGraph();
 
-	lab->setDeps(!deps ? EventDeps() : *deps);
 	lab->setCalculated(IMMChecker(getGraph()).calculateSaved(lab->getPos()));
 	lab->setViews(IMMChecker(getGraph()).calculateViews(lab->getPos()));
 
@@ -352,7 +348,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_ConfirmingCasRead:
 	case EventLabel::EL_FaiRead:
 	case EventLabel::EL_BIncFaiRead:
-		calcReadViews(llvm::dyn_cast<ReadLabel>(lab), deps);
+		calcReadViews(llvm::dyn_cast<ReadLabel>(lab));
 		if (getConf()->persevere && llvm::isa<DskReadLabel>(lab))
 			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskReadLabel>(lab));
 		break;
@@ -371,7 +367,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_DskMdWrite:
 	case EventLabel::EL_DskDirWrite:
 	case EventLabel::EL_DskJnlWrite:
-		calcWriteViews(llvm::dyn_cast<WriteLabel>(lab), deps);
+		calcWriteViews(llvm::dyn_cast<WriteLabel>(lab));
 		if (getConf()->persevere && llvm::isa<DskWriteLabel>(lab))
 			g.getPersChecker()->calcDskMemAccessPbView(llvm::dyn_cast<DskWriteLabel>(lab));
 		break;
@@ -379,7 +375,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_DskFsync:
 	case EventLabel::EL_DskSync:
 	case EventLabel::EL_DskPbarrier:
-		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab), deps);
+		calcFenceViews(llvm::dyn_cast<FenceLabel>(lab));
 		if (getConf()->persevere && llvm::isa<DskAccessLabel>(lab))
 			g.getPersChecker()->calcDskFencePbView(llvm::dyn_cast<FenceLabel>(lab));
 		break;
@@ -387,7 +383,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 		calcStartViews(llvm::dyn_cast<ThreadStartLabel>(lab));
 		break;
 	case EventLabel::EL_ThreadJoin:
-		calcJoinViews(llvm::dyn_cast<ThreadJoinLabel>(lab), deps);
+		calcJoinViews(llvm::dyn_cast<ThreadJoinLabel>(lab));
 		break;
 	case EventLabel::EL_ThreadCreate:
 	case EventLabel::EL_ThreadFinish:
@@ -403,10 +399,10 @@ void IMMDriver::updateLabelViews(EventLabel *lab, const EventDeps *deps)
 	case EventLabel::EL_DskOpen:
 	case EventLabel::EL_HelpingCas:
 	case EventLabel::EL_HpProtect:
-		calcBasicViews(lab, deps);
+		calcBasicViews(lab);
 		break;
 	case EventLabel::EL_LockLAPOR: /* special case */
-		calcLockLAPORViews(llvm::dyn_cast<LockLabelLAPOR>(lab), deps);
+		calcLockLAPORViews(llvm::dyn_cast<LockLabelLAPOR>(lab));
 		break;
 	case EventLabel::EL_SmpFenceLKMM:
 		ERROR("LKMM fences can only be used with -lkmm!\n");

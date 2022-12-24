@@ -198,20 +198,20 @@ public:
 
 	/* Returns the value this load reads */
 	std::optional<SVal>
-	handleLoad(std::unique_ptr<ReadLabel> rLab, const EventDeps *deps);
+	handleLoad(std::unique_ptr<ReadLabel> rLab);
 
 	/* A function modeling a write to disk has been interpreted.
 	 * Returns the value read */
 	SVal handleDskRead(std::unique_ptr<DskReadLabel> rLab);
 
 	/* A store has been interpreted, nothing for the interpreter */
-	void handleStore(std::unique_ptr<WriteLabel> wLab, const EventDeps *deps);
+	void handleStore(std::unique_ptr<WriteLabel> wLab);
 
 	/* A function modeling a write to disk has been interpreted */
 	void handleDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
 	/* A helping CAS operation has been interpreter, the result is unobservable */
-	void handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab, const EventDeps *deps);
+	void handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
@@ -227,10 +227,10 @@ public:
 	void handleDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
 
 	/* A fence has been interpreted, nothing for the interpreter */
-	void handleFence(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void handleFence(std::unique_ptr<FenceLabel> fLab);
 
 	/* A cache line flush has been interpreted, nothing for the interpreter */
-	void handleCLFlush(std::unique_ptr<CLFlushLabel> fLab, const EventDeps *deps);
+	void handleCLFlush(std::unique_ptr<CLFlushLabel> fLab);
 
 	/* A call to __VERIFIER_opt_begin() has been interpreted.
 	 * Returns whether the block should expand */
@@ -257,23 +257,23 @@ public:
 	handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
 
 	/* Returns the TID of the newly created thread */
-	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab, const EventDeps *deps);
+	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab);
 
 	/* Returns an appropriate result for pthread_join() */
 	std::optional<SVal>
-	handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab, const EventDeps *deps);
+	handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab);
 
 	/* A thread has just finished execution, nothing for the interpreter */
 	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
 
 	/* __VERIFIER_hp_protect() has been called */
-	void handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab, const EventDeps *deps);
+	void handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab);
 
 	/* Returns an appropriate result for malloc() */
-	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab, const EventDeps *deps);
+	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab);
 
 	/* A call to free() has been interpreted, nothing for the intepreter */
-	void handleFree(std::unique_ptr<FreeLabel> dLab, const EventDeps *deps);
+	void handleFree(std::unique_ptr<FreeLabel> dLab);
 
 	/* This method blocks the current thread  */
 	void handleBlock(std::unique_ptr<BlockLabel> bLab);
@@ -638,14 +638,14 @@ private:
 	void mootExecutionIfFullyBlocked(Event pos);
 
 	/* LKMM: Helper for visiting LKMM fences */
-	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab, const EventDeps *deps);
+	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab);
 
 	/* LAPOR: Returns whether the current execution is lock-well-formed */
 	bool isLockWellFormedLAPOR() const;
 
 	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void handleLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab, const EventDeps *deps);
-	void handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab, const EventDeps *deps);
+	void handleLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
+	void handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping();
@@ -705,7 +705,7 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab, const EventDeps *deps) = 0;
+	virtual void updateLabelViews(EventLabel *lab) = 0;
 
 	/* Checks for races after a load/store is added to the graph.
 	 * Should return the racy event, or INIT if no such event exists */

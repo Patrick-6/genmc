@@ -192,7 +192,7 @@ void TSODriver::calcJoinViews(ThreadJoinLabel *lab)
 	lab->setPorfView(std::move(porf));
 }
 
-void TSODriver::updateLabelViews(EventLabel *lab, const EventDeps *deps) /* deps ignored */
+void TSODriver::updateLabelViews(EventLabel *lab)
 {
 	lab->setCalculated(TSOChecker(getGraph()).calculateSaved(lab->getPos()));
 	lab->setViews(TSOChecker(getGraph()).calculateViews(lab->getPos()));

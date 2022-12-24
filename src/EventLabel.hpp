@@ -726,12 +726,24 @@ protected:						\
 	friend class DepExecutionGraph;			\
 							\
 public:									\
-	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord, \
+	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
 				 SAddr loc, ASize size, AType type,	\
-				 Event rf = Event::getBottom(),	AnnotVP annot = nullptr, \
+				 Event rf, AnnotVP annot,		\
 				 const EventDeps &deps = EventDeps(), unsigned int st = 0) \
 	: ReadLabel(EL_ ## _class_kind ## Read, pos, ord, loc, size,	\
 		    type, rf, std::move(annot), deps, st) {}		\
+	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
+				 SAddr loc, ASize size, AType type,	\
+				 Event rf, const EventDeps &deps = EventDeps(),	\
+				 unsigned int st = 0)			\
+	: _class_kind ## ReadLabel(pos, ord, loc, size, type, rf,	\
+				   nullptr, deps, st) {}		\
+	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
+				 SAddr loc, ASize size, AType type,	\
+				 const EventDeps &deps = EventDeps(),	\
+				 unsigned int st = 0)			\
+	: _class_kind ## ReadLabel(pos, ord, loc, size,	type,		\
+				   Event::getBottom(), nullptr, deps, st) {}		\
 									\
 	template<typename... Ts>					\
 	static std::unique_ptr<_class_kind ## ReadLabel> create(Ts&&... params) { \
@@ -763,9 +775,16 @@ protected:
 
 public:
 	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		       AType type, Event rf = Event::getBottom(), AnnotVP annot = nullptr,
-		       const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		       AType type, Event rf, AnnotVP annot, const EventDeps &deps = EventDeps(),
+		       unsigned int st = 0)
 		: ReadLabel(EL_BWaitRead, pos, ord, loc, size, type, rf, std::move(annot), deps, st) {}
+	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
+		       AType type, Event rf, const EventDeps &deps = EventDeps(),
+		       unsigned int st = 0)
+		: BWaitReadLabel(pos, ord, loc, size, type, rf, nullptr, deps, st) {}
+	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
+		       AType type, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: BWaitReadLabel(pos, ord, loc, size, type, Event::getBottom(), nullptr, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<BWaitReadLabel> create(Ts&&... params) {
@@ -795,18 +814,30 @@ protected:
 
 	FaiReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		     SAddr addr, ASize size, AType type, llvm::AtomicRMWInst::BinOp op,
-		     SVal val, WriteAttr wattr = WriteAttr::None, Event rf = Event::getBottom(),
-		     AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		     SVal val, WriteAttr wattr, Event rf, AnnotVP annot,
+		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: ReadLabel(k, pos, ord, addr, size, type, rf, std::move(annot), deps, st),
 		  binOp(op), opValue(val), wattr(wattr) {}
 
 public:
 	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr = WriteAttr::None,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr,
-		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
+		     Event rf, AnnotVP annot, const EventDeps &deps = EventDeps(),
+		     unsigned int st = 0)
 		: FaiReadLabel(EL_FaiRead, pos, ord, addr, size, type, op, val,
 			       wattr, rf, std::move(annot), deps, st) {}
+	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
+		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
+		     Event rf, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rf, nullptr, deps, st) {}
+	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
+		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
+		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, Event::getBottom(), deps, st) {}
+	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
+		     llvm::AtomicRMWInst::BinOp op, SVal val, const EventDeps &deps = EventDeps(),
+		     unsigned int st = 0)
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<FaiReadLabel> create(Ts&&... params) {
@@ -844,73 +875,62 @@ private:
 	WriteAttr wattr;
 };
 
-
-/*******************************************************************************
- **                         BIncFaiReadLabel Class
- ******************************************************************************/
-
-/* Specialization of FaiReadLabel for FAI reads that do not return a value */
-class NoRetFaiReadLabel : public FaiReadLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
-public:
-	NoRetFaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,
-			  ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			  WriteAttr wattr = WriteAttr::None, Event rf = Event::getBottom(),
-			  AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(),
-			  unsigned int st = 0)
-		: FaiReadLabel(EL_NoRetFaiRead, pos, ord, addr, size, type, op, val,
-			       wattr, rf, std::move(annot), deps, st) {}
-
-	template<typename... Ts>
-	static std::unique_ptr<NoRetFaiReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<NoRetFaiReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<NoRetFaiReadLabel>(*this);
-	}
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_NoRetFaiRead; }
+#define FAIREAD_PURE_SUBCLASS(_class_kind)			\
+class _class_kind ## FaiReadLabel : public FaiReadLabel {	\
+								\
+protected:							\
+	friend class ExecutionGraph;				\
+	friend class DepExecutionGraph;				\
+								\
+public:								\
+	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type, \
+				    llvm::AtomicRMWInst::BinOp op, SVal val, \
+				    WriteAttr wattr, Event rf, AnnotVP annot, \
+				    const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+	: FaiReadLabel(EL_ ## _class_kind ## FaiRead, pos, ord, addr, size, \
+		       type, op, val, wattr, rf, std::move(annot), deps, st) {} \
+	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type, \
+				    llvm::AtomicRMWInst::BinOp op, SVal val, \
+				    WriteAttr wattr, Event rf,		\
+				    const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+	: _class_kind ## FaiReadLabel(pos, ord, addr, size, type, op, \
+				      val, wattr, rf, nullptr, deps, st) {} \
+	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type,	\
+				    llvm::AtomicRMWInst::BinOp op, SVal val, \
+				    WriteAttr wattr,			\
+				    const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+	: _class_kind ## FaiReadLabel(pos, ord, addr, size, type, op, \
+				      val, wattr, Event::getBottom(), deps, st) {} \
+	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type,	\
+				    llvm::AtomicRMWInst::BinOp op, SVal val, \
+				    const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+	: _class_kind ## FaiReadLabel(pos, ord, addr, size, type, op,	\
+				      val, WriteAttr::None, deps, st) {} \
+									\
+									\
+	template<typename... Ts>					\
+	static std::unique_ptr<_class_kind ## FaiReadLabel> create(Ts&&... params) { \
+		return LLVM_MAKE_UNIQUE<_class_kind ## FaiReadLabel>(std::forward<Ts>(params)...); \
+	}								\
+									\
+	std::unique_ptr<EventLabel> clone() const override {		\
+		return LLVM_MAKE_UNIQUE<_class_kind ## FaiReadLabel>(*this); \
+	}								\
+									\
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
+	static bool classofKind(EventLabelKind k) { return k == EL_  ## _class_kind ## FaiRead; } \
 };
 
-
-/*******************************************************************************
- **                         BIncFaiReadLabel Class
- ******************************************************************************/
-
-/* Specialization of FaiReadLabel for barrier FAIs */
-class BIncFaiReadLabel : public FaiReadLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
-public:
-	BIncFaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,
-			 ASize size, AType type, llvm::AtomicRMWInst::BinOp op, SVal val,
-			 WriteAttr wattr = WriteAttr::None, Event rf = Event::getBottom(),
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(),
-			 unsigned int st = 0)
-		: FaiReadLabel(EL_BIncFaiRead, pos, ord, addr, size, type, op, val,
-			       wattr, rf, std::move(annot), deps, st) {}
-
-	template<typename... Ts>
-	static std::unique_ptr<BIncFaiReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BIncFaiReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BIncFaiReadLabel>(*this);
-	}
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_BIncFaiRead; }
-};
+FAIREAD_PURE_SUBCLASS(NoRet);
+FAIREAD_PURE_SUBCLASS(BInc);
 
 
 /*******************************************************************************
@@ -926,19 +946,34 @@ protected:
 
 	CasReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     WriteAttr wattr = WriteAttr::None, Event rf = Event::getBottom(),
-		     AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(),
-		     unsigned int st = 0)
+		     WriteAttr wattr, Event rf, AnnotVP annot,
+		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: ReadLabel(k, pos, ord, addr, size, type, rf, std::move(annot), deps, st),
 		  wattr(wattr), expected(exp), swapValue(swap) {}
 
 public:
 	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		     AType type, SVal exp, SVal swap, WriteAttr wattr = WriteAttr::None,
-		     Event rf = Event::getBottom(), AnnotVP annot = nullptr,
-		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		     AType type, SVal exp, SVal swap, WriteAttr wattr,
+		     Event rf, AnnotVP annot, const EventDeps &deps = EventDeps(),
+		     unsigned int st = 0)
 		: CasReadLabel(EL_CasRead, pos, ord, addr, size, type, exp,
 			       swap, wattr, rf, std::move(annot), deps, st) {}
+	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+		     AType type, SVal exp, SVal swap, WriteAttr wattr,
+		     Event rf, const EventDeps &deps = EventDeps(),
+		     unsigned int st = 0)
+		: CasReadLabel(pos, ord, addr, size, type, exp,
+			       swap, wattr, rf, nullptr, deps, st) {}
+	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+		     AType type, SVal exp, SVal swap, WriteAttr wattr,
+		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: CasReadLabel(pos, ord, addr, size, type, exp,
+			       swap, wattr, Event::getBottom(), deps, st) {}
+	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+		     AType type, SVal exp, SVal swap,
+		     const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: CasReadLabel(pos, ord, addr, size, type, exp,
+			       swap, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<CasReadLabel> create(Ts&&... params) {
@@ -986,11 +1021,31 @@ protected:							\
 public:								\
 	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
-				    WriteAttr wattr = WriteAttr::None, Event rf = Event::getBottom(), \
-				    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(), \
+				    WriteAttr wattr, Event rf, AnnotVP annot, \
+				    const EventDeps &deps = EventDeps(), \
 				    unsigned int st = 0)		\
 	: CasReadLabel(EL_ ## _class_kind ## CasRead, pos, ord, addr, size, \
 		       type, exp, swap, wattr, rf, std::move(annot), deps, st) {} \
+	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
+				    WriteAttr wattr, Event rf,		\
+				    const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+		: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp, \
+					      swap, wattr, rf, nullptr, deps, st) {} \
+	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
+				    WriteAttr wattr, const EventDeps &deps = EventDeps(), \
+				    unsigned int st = 0)		\
+	: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp,	\
+				      swap, wattr, Event::getBottom(), deps, st) {} \
+	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
+				    SAddr addr, ASize size, AType type, \
+				    SVal exp, SVal swap,		\
+				    const EventDeps &deps = EventDeps(),\
+				    unsigned int st = 0)		\
+	: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp,	\
+				      swap, WriteAttr::None, deps, st) {} \
 									\
 									\
 	template<typename... Ts>					\
@@ -1022,18 +1077,22 @@ protected:
 
 public:
 	LockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-			 AType type, SVal exp, SVal swap, WriteAttr wattr = WriteAttr::None,
-			 Event rf = Event::getBottom(), AnnotVP annot = nullptr,
-			 const EventDeps &deps = EventDeps(), unsigned int st = 0)
+			 AType type, SVal exp, SVal swap, WriteAttr wattr,
+			 Event rf, const EventDeps &deps = EventDeps(),
+			 unsigned int st = 0)
 		: CasReadLabel(EL_LockCasRead, pos, ord, addr, size, type, exp,
-			       swap, wattr, rf, std::move(annot), deps, st) {}
-
-	LockCasReadLabel(Event pos, SAddr addr, ASize size, Event rf = Event::getBottom(),
-			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(),
-			 unsigned st = 0)
+			       swap, wattr, rf, nullptr, deps, st) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, Event rf,
+			 const EventDeps &deps = EventDeps(), unsigned st = 0)
 		: LockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
-				   AType::Signed, SVal(0), SVal(1), WriteAttr::None,
-				   rf, std::move(annot), deps, st) {}
+				   AType::Signed, SVal(0), SVal(1), wattr,
+				   rf, deps, st) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
+			 const EventDeps &deps = EventDeps(), unsigned st = 0)
+		: LockCasReadLabel(pos, addr, size, wattr, Event::getBottom(), deps, st) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size,
+			 const EventDeps &deps = EventDeps(), unsigned st = 0)
+		: LockCasReadLabel(pos, addr, size, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<LockCasReadLabel> create(Ts&&... params) {
@@ -1062,18 +1121,22 @@ protected:
 
 public:
 	TrylockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-			    AType type, SVal exp, SVal swap, WriteAttr wattr = WriteAttr::None,
-			    Event rf = Event::getBottom(), AnnotVP annot = nullptr,
-			    const EventDeps &deps = EventDeps(), unsigned int st = 0)
+			    AType type, SVal exp, SVal swap, WriteAttr wattr,
+			    Event rf, const EventDeps &deps = EventDeps(),
+			    unsigned int st = 0)
 		: CasReadLabel(EL_TrylockCasRead, pos, ord, addr, size, type,
-			       exp, swap, wattr, rf, std::move(annot), deps, st) {}
-
-	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, Event rf = Event::getBottom(),
-			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps(),
-			    unsigned st = 0)
+			       exp, swap, wattr, rf, nullptr, deps, st) {}
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, Event rf,
+			    const EventDeps &deps = EventDeps(), unsigned st = 0)
 		: TrylockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
-				      AType::Signed, SVal(0), SVal(1), WriteAttr::None,
-				      rf, std::move(annot), deps, st) {}
+				      AType::Signed, SVal(0), SVal(1), wattr,
+				      rf, deps, st) {}
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
+			    const EventDeps &deps = EventDeps(), unsigned st = 0)
+		: TrylockCasReadLabel(pos, addr, size, wattr, Event::getBottom(), deps, st) {}
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size,
+			    const EventDeps &deps = EventDeps(), unsigned st = 0)
+		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<TrylockCasReadLabel> create(Ts&&... params) {
@@ -1145,9 +1208,8 @@ protected:
 	friend class DepExecutionGraph;
 
 	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
-		   SAddr addr, ASize size, AType type, SVal val,
-		   WriteAttr wattr = WriteAttr::None, const EventDeps &deps = EventDeps(),
-		   unsigned int st = 0)
+		   SAddr addr, ASize size, AType type, SVal val, WriteAttr wattr,
+		   const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: MemAccessLabel(k, pos, ord, addr, size, type, deps, st), value(val), wattr(wattr) {}
 	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		   SAddr addr, ASize size, AType type, SVal val, const EventDeps &deps = EventDeps(),
@@ -1156,9 +1218,12 @@ protected:
 
 public:
 	WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		   AType type, SVal val, WriteAttr wattr = WriteAttr::None,
-		   const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		   AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps(),
+		   unsigned int st = 0)
 		: WriteLabel(EL_Write, pos, ord, addr, size, type, val, wattr, deps, st) {}
+	WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+		   AType type, SVal val, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: WriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<WriteLabel> create(Ts&&... params) {
@@ -1360,15 +1425,18 @@ protected:
 	friend class DepExecutionGraph;
 
 	FaiWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		      AType type, SVal val, WriteAttr wattr = WriteAttr::None,
-		      const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		      AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps(),
+		      unsigned int st = 0)
 		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps, st) {}
 
 public:
 	FaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
-		      AType type, SVal val, WriteAttr wattr = WriteAttr::None,
-		      const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		      AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps(),
+		      unsigned int st = 0)
 		: FaiWriteLabel(EL_FaiWrite, pos, ord, addr, size, type, val, wattr, deps, st) {}
+	FaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
+		      AType type, SVal val, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: FaiWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<FaiWriteLabel> create(Ts&&... params) {
@@ -2312,6 +2380,10 @@ public:
 		    StorageType stype, AddressSpace spc, const NameInfo *info = nullptr,
 		    const std::string &name = {}, const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: MallocLabel(pos, SAddr(), size, alignment, sd, stype, spc, info, name, deps, st) {}
+	MallocLabel(Event pos, unsigned int size, unsigned alignment, StorageDuration sd,
+		    StorageType stype, AddressSpace spc, const EventDeps &deps = EventDeps(),
+		    unsigned int st = 0)
+		: MallocLabel(pos, size, alignment, sd, stype, spc, nullptr, {}, deps, st) {}
 
 	/* Getter/setter for the (fresh) address returned by the allocation */
 	SAddr getAllocAddr() const { return allocAddr; }
@@ -2395,18 +2467,20 @@ protected:
 	friend class DepExecutionGraph;
 
 	FreeLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr,
-		  unsigned int size = 0, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		  unsigned int size, const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: EventLabel(k, pos, ord, deps, st), freeAddr(addr), freedSize(size) {}
-	FreeLabel(EventLabelKind k, Event pos, SAddr addr, unsigned int size = 0,
+	FreeLabel(EventLabelKind k, Event pos, SAddr addr, unsigned int size,
 		  const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: FreeLabel(k, pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps, st) {}
 public:
-	FreeLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size = 0,
+	FreeLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
 		  const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: FreeLabel(EL_Free, pos, ord, addr, size, deps, st) {}
-	FreeLabel(Event pos, SAddr addr, unsigned int size = 0, const EventDeps &deps = EventDeps(),
+	FreeLabel(Event pos, SAddr addr, unsigned int size, const EventDeps &deps = EventDeps(),
 		  unsigned int st = 0)
-		: FreeLabel(EL_Free, pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps, st) {}
+		: FreeLabel(pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps, st) {}
+	FreeLabel(Event pos, SAddr addr, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: FreeLabel(pos, addr, 0, deps, st) {}
 
 	/* Returns the address being freed */
 	SAddr getFreedAddr() const { return freeAddr; }
@@ -2453,12 +2527,14 @@ protected:
 	friend class DepExecutionGraph;
 
 public:
-	HpRetireLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size = 0,
+	HpRetireLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
 		      const EventDeps &deps = EventDeps(), unsigned int st = 0)
 		: FreeLabel(EL_HpRetire, pos, ord, addr, size, deps, st) {}
-	HpRetireLabel(Event pos, SAddr addr, unsigned int size = 0,
+	HpRetireLabel(Event pos, SAddr addr, unsigned int size,
 		      const EventDeps &deps = EventDeps(), unsigned int st = 0)
-		: FreeLabel(EL_HpRetire, pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps, st) {}
+		: HpRetireLabel(pos, llvm::AtomicOrdering::NotAtomic, addr, size, deps, st) {}
+	HpRetireLabel(Event pos, SAddr addr, const EventDeps &deps = EventDeps(), unsigned int st = 0)
+		: HpRetireLabel(pos, addr, 0, deps, st) {}
 
 	template<typename... Ts>
 	static std::unique_ptr<HpRetireLabel> create(Ts&&... params) {

@@ -29,7 +29,7 @@ public:
 	TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		 std::unique_ptr<ModuleInfo> MI);
 
-	void updateLabelViews(EventLabel *lab, const EventDeps *deps) override;
+	void updateLabelViews(EventLabel *lab) override;
 	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
