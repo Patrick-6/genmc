@@ -334,6 +334,9 @@ protected:
 		return getDskWriteValue(rLab->getRf(), rLab->getAddr(), rLab->getAccess());
 	}
 
+	/* Returns the value returned by the terminated thread */
+	SVal getJoinValue(const ThreadJoinLabel *jLab);
+
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place

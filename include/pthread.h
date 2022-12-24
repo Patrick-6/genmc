@@ -150,9 +150,13 @@ enum
 /* Make calling thread wait for termination of the thread TH.  The
    exit status of the thread is stored in *THREAD_RETURN, if THREAD_RETURN
    is not NULL. */
-/* extern int pthread_join (pthread_t __th, void **__thread_return); */
-#define pthread_join __VERIFIER_thread_join
-
+static inline int pthread_join(pthread_t __th, void **__thread_return)
+{
+	void *__retval = __VERIFIER_thread_join(__th);
+	if (__thread_return != NULL)
+		*(__thread_return) = __retval;
+	return 0;
+}
 
 /* #ifdef __USE_GNU */
 /* /\* Check whether thread TH has terminated.  If yes return the status of */

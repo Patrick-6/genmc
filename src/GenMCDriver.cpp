@@ -823,6 +823,14 @@ SVal GenMCDriver::getDskWriteValue(Event write, SAddr addr, AAccess access)
 	return getWriteValue(write, addr, access);
 }
 
+SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab)
+{
+	auto &g = getGraph();
+	auto *lLab = llvm::dyn_cast<ThreadFinishLabel>(g.getLastThreadLabel(jLab->getChildId()));
+	BUG_ON(!lLab);
+	return lLab->getRetVal();
+}
+
 SVal GenMCDriver::getBarrierInitValue(SAddr addr, AAccess access)
 {
 	const auto &g = getGraph();
@@ -1526,7 +1534,7 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 	auto &thr = getEE()->getCurThr();
 
 	if (isExecutionDrivenByGraph(&*lab))
-		return {SVal(0)};
+		return {getJoinValue(llvm::dyn_cast<ThreadJoinLabel>(g.getEventLabel(lab->getPos())))};
 
 	if (!llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
 		g.addOtherLabelToGraph(BlockLabel::create(lab->getPos(), BlockageType::ThreadJoin));
@@ -1544,12 +1552,7 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 		reportError(jLab->getPos(), Status::VS_InvalidJoin, err);
 		return {SVal(0)};
 	}
-
-	/*
-	 * We always return a success value, so as not to have to update it
-	 * when the thread unblocks.
-	 */
-	return {SVal(0)};
+	return {getJoinValue(jLab)};
 }
 
 void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)

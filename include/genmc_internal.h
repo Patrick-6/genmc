@@ -123,7 +123,7 @@ extern int __VERIFIER_thread_create (const __VERIFIER_attr_t *__restrict __attr,
 
 extern void __VERIFIER_thread_exit (void *__retval) __attribute__ ((__noreturn__));
 
-extern int __VERIFIER_thread_join (__VERIFIER_thread_t __th, void **__thread_return);
+extern void *__VERIFIER_thread_join (__VERIFIER_thread_t __th);
 
 extern __VERIFIER_thread_t __VERIFIER_thread_self (void);
 

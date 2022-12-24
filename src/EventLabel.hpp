@@ -2318,16 +2318,19 @@ class ThreadFinishLabel : public EventLabel {
 	friend class DepExecutionGraph;
 
 public:
-	ThreadFinishLabel(Event pos, llvm::AtomicOrdering ord, unsigned int st = 0)
+	ThreadFinishLabel(Event pos, llvm::AtomicOrdering ord, SVal retVal, unsigned int st = 0)
 		: EventLabel(EL_ThreadFinish, pos, ord, EventDeps(), st),
-		  parentJoin(Event::getInitializer()) {}
+		  parentJoin(Event::getInitializer()), retVal(retVal) {}
 
-	ThreadFinishLabel(Event pos, unsigned int st = 0)
-		: ThreadFinishLabel(pos, llvm::AtomicOrdering::Release, st) {}
+	ThreadFinishLabel(Event pos, SVal retVal, unsigned int st = 0)
+		: ThreadFinishLabel(pos, llvm::AtomicOrdering::Release, retVal, st) {}
 
 	/* Returns the join() operation waiting on this thread (or the
 	 * initializer event, if no such operation exists) */
 	Event getParentJoin() const { return parentJoin; }
+
+	/* Returns the return value of this thread */
+	SVal getRetVal() const { return retVal; }
 
 	template<typename... Ts>
 	static std::unique_ptr<ThreadFinishLabel> create(Ts&&... params) {
@@ -2348,6 +2351,9 @@ private:
 	/* Position of corresponding join() event in the graph
 	 * (INIT if such event does not exist) */
 	Event parentJoin;
+
+	/* Return value of the thread */
+	SVal retVal;
 };
 
 

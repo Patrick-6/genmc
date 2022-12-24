@@ -1255,7 +1255,8 @@ void Interpreter::popStackAndReturnValueToCaller(Type *RetTy,
     if (getCurThr().isMain() && getProgramState() == ProgramState::Main)
 	    runAtExitHandlers();
     if (getProgramState() != ProgramState::Dtors)
-	    CALL_DRIVER(handleThreadFinish, ThreadFinishLabel::create(currPos()));
+	    CALL_DRIVER(handleThreadFinish, ThreadFinishLabel::create(
+				currPos(), GV_TO_SVAL(Result, RetTy)));
   } else {
     // If we have a previous stack frame, and we have a previous call,
     // fill in the return value...
