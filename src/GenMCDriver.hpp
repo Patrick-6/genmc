@@ -455,6 +455,15 @@ private:
 	 * chosen policy */
 	bool scheduleNormal();
 
+	/* Blocks thread at POS with type T */
+	void blockThread(Event pos, BlockageType t);
+
+	/* Blocks thread at POS with type T. Tries to moot afterward */
+	void blockThreadTryMoot(Event pos, BlockageType t);
+
+	/* Unblocks thread at POS */
+	void unblockThread(Event pos);
+
 	/* Returns whether the current execution is blocked */
 	bool isExecutionBlocked() const;
 
@@ -509,6 +518,10 @@ private:
 	/* If the execution is guided, returns the corresponding label for
 	 * this instruction. Reports an error if the execution is not guided */
 	const EventLabel *getCurrentLabel() const;
+
+	/* Adds LAB to graph (maintains well-formedness).
+	 * If another label exists in the specified position, it is replaced. */
+	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);

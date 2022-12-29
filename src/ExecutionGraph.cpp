@@ -36,7 +36,7 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
-	auto *iLab = addOtherLabelToGraph(
+	auto *iLab = addLabelToGraph(
 		ThreadStartLabel::create(Event(0, 0), Event::getInitializer(), 0));
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
@@ -418,43 +418,12 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
  **                       Label addition methods
  ******************************************************************************/
 
-ReadLabel *ExecutionGraph::addReadLabelToGraph(std::unique_ptr<ReadLabel> lab,
-					       Event rf /* = BOTTOM */)
-{
-	if (!lab->getRf().isBottom()) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(lab->getRf())))
-			wLab->addReader(lab->getPos());
-	}
-
-	return static_cast<ReadLabel *>(addOtherLabelToGraph(std::move(lab)));
-}
-
-WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						 int offsetMO /* = -1 */)
-{
-	auto *wLab = static_cast<WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
-	if (offsetMO >= 0)
-		getCoherenceCalculator()->addStoreToLoc(wLab->getAddr(), wLab->getPos(), offsetMO);
-	return wLab;
-}
-
-WriteLabel *ExecutionGraph::addWriteLabelToGraph(std::unique_ptr<WriteLabel> lab,
-						       Event pred)
-{
-	auto *wLab = static_cast<WriteLabel *>(addOtherLabelToGraph(std::move(lab)));
-	getCoherenceCalculator()->addStoreToLocAfter(wLab->getAddr(), wLab->getPos(), pred);
-	return wLab;
-}
-
-LockLabelLAPOR *ExecutionGraph::addLockLabelToGraphLAPOR(std::unique_ptr<LockLabelLAPOR> lab)
-{
-	getLbCalculatorLAPOR()->addLockToList(lab->getLockAddr(), lab->getPos());
-	return static_cast<LockLabelLAPOR *>(addOtherLabelToGraph(std::move(lab)));
-}
-
-EventLabel *ExecutionGraph::addOtherLabelToGraph(std::unique_ptr<EventLabel> lab)
+EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	setFPStatus(FS_Stale);
+
+	if (contains(lab->getPos()))
+		remove(lab->getPos());
 
 	/* Ensure the stamp is valid */
 	if (lab->getStamp() == 0 && !lab->getPos().isInitializer())
@@ -991,15 +960,19 @@ ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel
 
 void ExecutionGraph::remove(const EventLabel *lab)
 {
+	if (!contains(lab))
+		return;
+
 	setFPStatus(FS_Stale);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
 			wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
 	}
-	if (lab != getLastThreadLabel(lab->getThread()))
-		addOtherLabelToGraph(EmptyLabel::create(lab->getPos()));
 	BUG_ON(lab->getIndex() >= getThreadSize(lab->getThread()));
-	resizeThread(lab->getPos());
+	if (lab != getLastThreadLabel(lab->getThread()))
+		addLabelToGraph(EmptyLabel::create(lab->getPos()));
+	else
+		resizeThread(lab->getPos());
 }
 
 bool ExecutionGraph::isNonTrivial(const Event e) const
@@ -1319,14 +1292,14 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	// to keep the same size as the interpreter threads.
 	other.events.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		other.addOtherLabelToGraph(std::move(getEventLabel(Event(i, 0))->clone()));
+		other.addLabelToGraph(getEventLabel(Event(i, 0))->clone());
 		for (auto j = 1; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j))) {
-				other.addOtherLabelToGraph(
+				other.addLabelToGraph(
 					EmptyLabel::create(Event(i, j), other.nextStamp()));
 				continue;
 			}
-			auto *nLab = other.addOtherLabelToGraph(getEventLabel(Event(i, j))->clone());
+			auto *nLab = other.addLabelToGraph(getEventLabel(Event(i, j))->clone());
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(nLab)) {
 				const_cast<WriteLabel *>(wLab)->removeReader([&v](const Event &r){
 					return !v.contains(r);
