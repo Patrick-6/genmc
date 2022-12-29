@@ -335,7 +335,7 @@ protected:
 	}
 
 	/* Returns the value returned by the terminated thread */
-	SVal getJoinValue(const ThreadJoinLabel *jLab);
+	SVal getJoinValue(const ThreadJoinLabel *jLab) const;
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the

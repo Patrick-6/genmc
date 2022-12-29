@@ -855,7 +855,7 @@ SVal GenMCDriver::getDskWriteValue(Event write, SAddr addr, AAccess access)
 	return getWriteValue(write, addr, access);
 }
 
-SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab)
+SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab) const
 {
 	auto &g = getGraph();
 	auto *lLab = llvm::dyn_cast<ThreadFinishLabel>(g.getLastThreadLabel(jLab->getChildId()));
