@@ -1601,7 +1601,7 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 				/* If parent thread is waiting for me, relieve it.
 				 * We do not keep track of who is waiting for whom now,
 				 * so just unblock everyone. */
-				g.remove(pLab);
+				unblockThread(pLab->getPos());
 			}
 		}
 	} /* FIXME: Thread return values? */
