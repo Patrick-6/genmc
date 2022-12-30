@@ -19,6 +19,7 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Printer.hpp"
+#include "Utils.hpp"
 
 std::vector<unsigned> Printer::calcToIdxMap;
 
@@ -79,15 +80,6 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
         {Relation::detour,	{ "detour_succs",    "detour_preds"}},
 };
 
-void openFileForWriting(const std::string &filename, std::ofstream &fout)
-{
-	fout.open(filename, std::ios_base::out);
-	if (!fout.is_open()) {
-		std::cerr << "Could not open file for writing: " << filename << "\n";
-		exit(EPRINT);
-	}
-}
-
 Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 {
 	auto name = outPrefix != "" ? outPrefix : "Demo";
@@ -99,9 +91,9 @@ Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 
 	/* Open required streams */
 	if (outPrefix != "") {
-		openFileForWriting(dirPrefix + "/" + className + ".hpp", foutHpp);
+		foutHpp = openFileForWriting(dirPrefix + "/" + className + ".hpp");
 		outHpp = &foutHpp;
-		openFileForWriting(dirPrefix + "/" + className + ".cpp", foutCpp);
+		foutCpp = openFileForWriting(dirPrefix + "/" + className + ".cpp");
 		outCpp = &foutCpp;
 	}
 }

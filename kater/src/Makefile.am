@@ -21,5 +21,6 @@ if kater
 	Relation.cpp \
 	RegExp.cpp \
 	Saturation.cpp \
-	TransLabel.cpp
+	TransLabel.cpp \
+	Utils.cpp
 endif

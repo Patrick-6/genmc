@@ -2,6 +2,7 @@
 #include "Config.hpp"
 #include "Printer.hpp"
 #include "Saturation.hpp"
+#include "Utils.hpp"
 #include "Visitor.hpp"
 #include <numeric>
 
