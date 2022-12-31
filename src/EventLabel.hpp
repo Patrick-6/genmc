@@ -147,6 +147,8 @@ protected:
 	using calc_const_range = llvm::iterator_range<calc_const_iterator>;
 
 public:
+	virtual ~EventLabel() = default;
+
 	/* Iterators for dependencies */
 	const_dep_iterator data_begin() const { return deps.data.begin(); }
 	const_dep_iterator data_end() const { return deps.data.end(); }
@@ -275,10 +277,19 @@ public:
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
 	static EventLabel *castFromDskAccessLabel(const DskAccessLabel *);
 
-	virtual ~EventLabel() = default;
-
 	/* Returns a clone object (virtual to allow deep copying from base) */
 	virtual std::unique_ptr<EventLabel> clone() const = 0;
+
+	/* Resets all graph-related info on a label to their default values */
+	virtual void reset() {
+		stamp = 0;
+		hbView.clear();
+		porfView.clear();
+		ppoView.clear();
+		pporfView.clear();
+		calculatedRels.clear();
+		calculatedViews.clear();
+	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 					     const EventLabel &lab);
@@ -348,6 +359,10 @@ public:
 
 	EventLabel::EventLabelKind getEventLabelKind() const {
 		return eventLabelKind;
+	}
+
+	virtual void reset() {
+		pbView.clear();
 	}
 
 	static bool classof(const EventLabel *lab) {
@@ -605,6 +620,12 @@ public:
 	const DepView& getFenceView() const { return fenceView; }
 	void setFenceView(DepView &&v) { fenceView = std::move(v); }
 
+	virtual void reset() override {
+		EventLabel::reset();
+		fenceView.clear();
+		maximal = true;
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
 		return k >= EL_MemAccessBegin && k <= EL_MemAccessEnd;
@@ -694,6 +715,12 @@ public:
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<ReadLabel>(*this);
+	}
+
+	virtual void reset() {
+		MemAccessLabel::reset();
+		setRf(Event::getBottom());
+		revisitable = true;
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -1184,6 +1211,11 @@ public:
 		return LLVM_MAKE_UNIQUE<DskReadLabel>(*this);
 	}
 
+	virtual void reset() override {
+		ReadLabel::reset();
+		DskAccessLabel::reset();
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskRead; }
 	static DskAccessLabel *castToDskAccessLabel(const DskReadLabel *D) {
@@ -1265,6 +1297,13 @@ public:
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<WriteLabel>(*this);
+	}
+
+	virtual void reset() override {
+		MemAccessLabel::reset();
+		msgView.clear();
+		readerList.clear();
+		moIndex = -1;
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -1708,6 +1747,11 @@ public:
 		return LLVM_MAKE_UNIQUE<DskWriteLabel>(*this);
 	}
 
+	virtual void reset() override {
+		WriteLabel::reset();
+		DskAccessLabel::reset();
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
 		return k >= EL_DskWrite && k <= EL_LastDskWrite;
@@ -1942,6 +1986,11 @@ public:
 		return LLVM_MAKE_UNIQUE<DskFsyncLabel>(*this);
 	}
 
+	virtual void reset() override {
+		FenceLabel::reset();
+		DskAccessLabel::reset();
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskFsync; }
 	static DskAccessLabel *castToDskAccessLabel(const DskFsyncLabel *D) {
@@ -1987,6 +2036,11 @@ public:
 		return LLVM_MAKE_UNIQUE<DskSyncLabel>(*this);
 	}
 
+	virtual void reset() override {
+		FenceLabel::reset();
+		DskAccessLabel::reset();
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskSync; }
 	static DskAccessLabel *castToDskAccessLabel(const DskSyncLabel *D) {
@@ -2026,6 +2080,11 @@ public:
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<DskPbarrierLabel>(*this);
+	}
+
+	virtual void reset() override {
+		FenceLabel::reset();
+		DskAccessLabel::reset();
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -2339,6 +2398,11 @@ public:
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<ThreadFinishLabel>(*this);
+	}
+
+	virtual void reset() override {
+		EventLabel::reset();
+		parentJoin = Event::getInitializer();
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
