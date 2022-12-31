@@ -63,6 +63,8 @@ public:
 	/* Returns true if this vector clock is empty */
 	bool empty() const { return size() == 0; }
 
+	virtual void clear() = 0;
+
 	/* Returns true if this clock contains e */
 	virtual bool contains(const Event e) const = 0;
 	bool contains(const EventLabel *lab) const;

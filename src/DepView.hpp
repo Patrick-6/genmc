@@ -49,6 +49,8 @@ private:
 
 		unsigned int size() const { return hs_.size(); }
 
+		void clear() { hs_.clear(); }
+
 		inline const Holes& operator[](int idx) const {
 			if (idx < hs_.size())
 				return hs_[idx];
@@ -71,6 +73,8 @@ public:
 
 	/* Returns true if the clock is empty */
 	bool empty() const { return size() == 0; }
+
+	void clear() override { view_.clear(); holes_.clear(); }
 
 	/* Returns true if the clock contains e */
 	bool contains(const Event e) const;

@@ -63,6 +63,8 @@ public:
 	/* Returns true if this view is empty */
 	bool empty() const { return size() == 0; }
 
+	void clear() override { view_.clear(); }
+
 	/* Returns true if e is contained in the clock */
 	bool contains(const Event e) const {
 		return e.index <= getMax(e.thread);
