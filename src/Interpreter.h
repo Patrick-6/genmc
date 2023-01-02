@@ -229,18 +229,12 @@ struct DynamicComponents {
 	std::vector<Thread> threads;
 	int currentThread = 0;
 
-	/* A tracker for dynamic allocations */
-	SAddrAllocator alloctor;
-
 	/* Pointer to the dependency tracker */
 	value_ptr<DepTracker, DepTrackerCloner> depTracker = nullptr;
 
 	/* Information about the interpreter's state */
 	ExecutionState execState = ExecutionState::Normal;
 	ProgramState programState = ProgramState::Main; /* Pers */
-
-	/* Pers: A bitvector of available file descriptors */
-	llvm::BitVector fds;
 
 	/* Pers: A map from file descriptors to file descriptions */
 	llvm::IndexedMap<void *> fdToFile;
@@ -260,11 +254,8 @@ using EELocalState = DynamicComponents;
 
 struct EESharedState {
 	EESharedState() = default;
-	EESharedState(SAddrAllocator alloctor, const llvm::BitVector &fds, std::vector<ThreadInfo> tis)
-		: alloctor(alloctor), fds(fds), threadInfos(tis) {}
+	EESharedState(std::vector<ThreadInfo> tis) : threadInfos(tis) {}
 
-	SAddrAllocator alloctor;
-	llvm::BitVector fds;
 	std::vector<ThreadInfo> threadInfos;
 };
 
@@ -322,7 +313,7 @@ protected:
 
 public:
   explicit Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-		       GenMCDriver *driver, const Config *userConf);
+		       GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor);
   virtual ~Interpreter();
 
   /* FIXME: Document and move to .cpp */
@@ -332,8 +323,6 @@ public:
   std::unique_ptr<EESharedState> getSharedState() const {
 	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
 
-	  shared->alloctor = dynState.alloctor;
-	  shared->fds = dynState.fds;
 	  for (auto &thr : threads()) {
 		  shared->threadInfos.emplace_back(
 			  thr.id, thr.parentId, MI->idInfo.VID.at(thr.threadFun), thr.threadArg);
@@ -353,8 +342,6 @@ public:
 	  return createAddNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
   }
   void setSharedState(std::unique_ptr<EESharedState> state) {
-	  dynState.alloctor = std::move(state->alloctor);
-	  dynState.fds = std::move(state->fds);
 	  dynState.threads.clear();
 	  for (auto &ti : state->threadInfos)
 		  constructAddThreadFromInfo(ti);
@@ -473,19 +460,6 @@ public:
   void *getStaticAddr(SAddr addr) const;
   std::string getStaticName(SAddr addr) const;
 
-  /* Returns a fresh address for a new allocation */
-  SAddr getFreshAddr(unsigned int size, int alignment, StorageDuration sd,
-		     StorageType st, AddressSpace spc);
-
-  /* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
-  int getFreshFd();
-
-  /* Pers: Marks that the file descriptor fd is in use */
-  void markFdAsUsed(int fd);
-
-  /* Pers: The interpreter reclaims a file descriptor that is no longer in use */
-  void reclaimUnusedFd(int fd);
-
   /// runAtExitHandlers - Run any functions registered by the program's calls to
   /// atexit(3), which we intercept and store in AtExitHandlers.
   ///
@@ -495,7 +469,7 @@ public:
   ///
   static ExecutionEngine *create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
 				 GenMCDriver *driver, const Config *userConf,
-				 std::string *ErrorStr = nullptr);
+				 SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
   ///
@@ -800,7 +774,7 @@ private:  // Helper functions
 
   /* Collects the addresses (and some naming information) for all variables with
    * static storage. Also calculates the starting address of the allocation pool */
-  void collectStaticAddresses(Module *M);
+  void collectStaticAddresses(SAddrAllocator &alloctor);
 
   /* Sets up how some errors will be reported to the user */
   void setupErrorPolicy(Module *M, const Config *userConf);

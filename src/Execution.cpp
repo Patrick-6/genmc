@@ -158,27 +158,6 @@ std::string Interpreter::getStaticName(SAddr addr) const
 	return gv->getName().str() + gi.getNameAtOffset(addr - sBeg);
 }
 
-/* Returns a fresh address to be used from the interpreter */
-SAddr Interpreter::getFreshAddr(unsigned int size, int alignment, StorageDuration sd,
-				StorageType st, AddressSpace spc)
-{
-	/* The arguments to getFreshAddr() need to be well-formed;
-	 * make sure the alignment is positive and a power of 2 */
-	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
-	switch (sd) {
-	case StorageDuration::SD_Automatic:
-		return dynState.alloctor.allocAutomatic(size, alignment, st == StorageType::ST_Durable,
-							spc == AddressSpace::AS_Internal);
-	case StorageDuration::SD_Heap:
-		return dynState.alloctor.allocHeap(size, alignment, st == StorageType::ST_Durable,
-						   spc == AddressSpace::AS_Internal);
-	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
-	default:
-		BUG();
-	}
-	BUG();
-}
-
 void *Interpreter::getStaticAddr(SAddr addr) const
 {
 	/* If the address is not statically allocated, something went
@@ -309,6 +288,8 @@ void *Interpreter::getFileFromFd(int fd) const
 
 void Interpreter::setFdToFile(int fd, void *fileAddr)
 {
+	if (fd >= dynState.fdToFile.size())
+		dynState.fdToFile.grow(fd);
 	dynState.fdToFile[fd] = fileAddr;
 }
 

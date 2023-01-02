@@ -45,6 +45,7 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 	relsCache.global.push_back(Calculator::GlobalRelation());
 	relationIndex[RelationId::hb] = 0;
 	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
+	fds = llvm::BitVector(20);
 	return;
 }
 
@@ -53,6 +54,59 @@ ExecutionGraph::~ExecutionGraph() = default;
 /************************************************************
  ** Basic getter methods
  ***********************************************************/
+
+/* Returns a fresh address to be used from the interpreter */
+SAddr ExecutionGraph::getFreshAddr(const MallocLabel *aLab)
+{
+	/* The arguments to getFreshAddr() need to be well-formed;
+	 * make sure the alignment is positive and a power of 2 */
+	auto alignment = aLab->getAlignment();
+	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
+	switch (aLab->getStorageDuration()) {
+	case StorageDuration::SD_Automatic:
+		return alloctor.allocAutomatic(aLab->getAllocSize(),
+					       alignment,
+					       aLab->getStorageType() == StorageType::ST_Durable,
+					       aLab->getAddressSpace() == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Heap:
+		return alloctor.allocHeap(aLab->getAllocSize(),
+					  alignment,
+					  aLab->getStorageType() == StorageType::ST_Durable,
+					  aLab->getAddressSpace() == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
+	default:
+		BUG();
+	}
+	BUG();
+	return SAddr();
+}
+
+int ExecutionGraph::getFreshFd()
+{
+	int fd = fds.find_first_unset();
+
+	/* If no available descriptor found, grow fds and try again */
+	if (fd == -1) {
+		fds.resize(2 * fds.size() + 1);
+		return getFreshFd();
+	}
+
+	/* Otherwise, mark the file descriptor as used */
+	markFdAsUsed(fd);
+	return fd;
+}
+
+void ExecutionGraph::markFdAsUsed(int fd)
+{
+	if (fd > fds.size())
+		fds.resize(fd);
+	fds.set(fd);
+}
+
+void ExecutionGraph::reclaimUnusedFd(int fd)
+{
+	fds.reset(fd);
+}
 
 const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(Event e) const
 {
@@ -1234,6 +1288,14 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	for (auto i = 0u; i < calcs.size(); i++)
 		calcs[i]->removeAfter(preds);
 
+	/* For persistency, reclaim fds */
+	for (auto *lab : labels(*this)) {
+		if (preds.contains(lab->getPos()))
+			continue;
+		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
+			reclaimUnusedFd(oLab->getFd().get());
+	}
+
 	/* Restrict the graph according to the view (keep begins around) */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
@@ -1261,6 +1323,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 {
 	/* First, populate calculators, etc */
 	other.timestamp = timestamp;
+
+	other.alloctor = alloctor;
 
 	other.relations = relations;
 	other.relsCache = relsCache;
@@ -1313,6 +1377,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				;
 			if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(nLab))
 				other.getLbCalculatorLAPOR()->addLockToList(lLab->getLockAddr(), lLab->getPos());
+			if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(nLab))
+				other.markFdAsUsed(oLab->getFd().get());
 		}
 	}
 

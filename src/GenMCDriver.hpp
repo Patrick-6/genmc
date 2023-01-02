@@ -562,10 +562,6 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* Informs the interpreter that the events *not* contained in V
-	 * are being deleted from the execution graph */
-	void notifyEERemoved(const VectorClock &v);
-
 	/* Removes all labels with stamp >= st from the graph */
 	void restrictGraph(const EventLabel *lab);
 

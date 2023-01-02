@@ -48,17 +48,17 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	: userConf(conf), result(), isMootExecution(false), readToReschedule(Event::getInitializer()),
 	  shouldHalt(false)
 {
-	std::string buf;
-
-	/* Create an interpreter for the program's instructions */
-	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(), &buf));
-
 	/* Set up an suitable execution graph with appropriate relations */
 	execGraph = GraphBuilder(userConf->isDepTrackingModel, userConf->warnOnGraphSize)
 		.withEnabledLAPOR(userConf->LAPOR)
 		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
 		.withEnabledBAM(!userConf->disableBAM).build();
+
+	/* Create an interpreter for the program's instructions */
+	std::string buf;
+	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
+		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(),
+					  execGraph->getAddrAllocator(), &buf));
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -636,24 +636,8 @@ void GenMCDriver::restrictRevisitSet(const EventLabel *rLab)
 		revisitSet.erase(i);
 }
 
-void GenMCDriver::notifyEERemoved(const VectorClock &v)
-{
-	const auto &g = getGraph();
-	for (auto *lab : labels(g)) {
-		if (v.contains(lab->getPos()))
-			continue;
-
-		/* For persistency, reclaim fds */
-		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
-			getEE()->reclaimUnusedFd(oLab->getFd().get());
-	}
-}
-
 void GenMCDriver::restrictGraph(const EventLabel *rLab)
 {
-	/* Inform the interpreter about deleted events, and then
-	 * restrict the graph (and relations) */
-	notifyEERemoved(*getGraph().getPredsView(rLab->getPos()));
 	getGraph().cutToStamp(rLab->getStamp());
 
 	/* It can be the case that events with larger stamp remain
@@ -2052,9 +2036,7 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	}
 
 	/* Fix and add label to the graph; return the new address */
-	aLab->setAllocAddr(EE->getFreshAddr(aLab->getAllocSize(), aLab->getAlignment(),
-					    aLab->getStorageDuration(), aLab->getStorageType(),
-					    aLab->getAddressSpace()));
+	aLab->setAllocAddr(g.getFreshAddr(&*aLab));
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
@@ -2559,7 +2541,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 
 		setSharedState(std::move(newState));
 
-		notifyEERemoved(*v);
 		revisitRead(BackwardRevisit(read, write));
 
 		/* If there are idle workers in the thread pool,
@@ -2816,7 +2797,7 @@ SVal GenMCDriver::handleDskOpen(std::unique_ptr<DskOpenLabel> oLab)
 	}
 
 	/* We get a fresh file descriptor for this open() */
-	auto fd = EE->getFreshFd();
+	auto fd = g.getFreshFd();
 	ERROR_ON(fd == -1, "Too many calls to open()!\n");
 
 	/* We add a relevant label to the graph... */

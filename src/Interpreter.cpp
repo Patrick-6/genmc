@@ -53,7 +53,8 @@ extern "C" void LLVMLinkInInterpreter() { }
 /// create - Create a new interpreter object.  This can never fail.
 ///
 ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-				     GenMCDriver *driver, const Config *userConf, std::string* ErrStr) {
+				     GenMCDriver *driver, const Config *userConf,
+				     SAddrAllocator &alloctor, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
   if (Error Err = M->materializeAll()) {
     std::string Msg;
@@ -65,7 +66,7 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<
     // We got an error, just return 0
     return nullptr;
   }
-  return new Interpreter(std::move(M), std::move(MI), driver, userConf);
+  return new Interpreter(std::move(M), std::move(MI), driver, userConf, alloctor);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */
@@ -172,32 +173,6 @@ Thread &Interpreter::createAddRecoveryThread(int tid)
 	return addNewThread(std::move(rec));
 }
 
-int Interpreter::getFreshFd()
-{
-	int fd = dynState.fds.find_first_unset();
-
-	/* If no available descriptor found, grow fds and try again */
-	if (fd == -1) {
-		dynState.fds.resize(2 * dynState.fds.size() + 1);
-		dynState.fdToFile.grow(dynState.fds.size());
-		return getFreshFd();
-	}
-
-	/* Otherwise, mark the file descriptor as used */
-	markFdAsUsed(fd);
-	return fd;
-}
-
-void Interpreter::markFdAsUsed(int fd)
-{
-	dynState.fds.set(fd);
-}
-
-void Interpreter::reclaimUnusedFd(int fd)
-{
-	dynState.fds.reset(fd);
-}
-
 #ifdef LLVM_GLOBALVALUE_HAS_GET_ADDRESS_SPACE
 # define GET_GV_ADDRESS_SPACE(v) (v).getAddressSpace()
 #else
@@ -208,8 +183,9 @@ void Interpreter::reclaimUnusedFd(int fd)
 })
 #endif
 
-void Interpreter::collectStaticAddresses(Module *M)
+void Interpreter::collectStaticAddresses(SAddrAllocator &alloctor)
 {
+	auto *M = Modules.back().get();
 	std::vector<std::pair<const GlobalVariable *, void *> > toReinitialize;
 
 	for (auto &v : M->getGlobalList()) {
@@ -225,9 +201,9 @@ void Interpreter::collectStaticAddresses(Module *M)
 		}
 
 		/* "Allocate" an address for this global variable... */
-		auto addr = dynState.alloctor.allocStatic(typeSize, v.getAlignment(),
-							  v.getSection() == "__genmc_persist",
-							  GET_GV_ADDRESS_SPACE(v) == 42);
+		auto addr = alloctor.allocStatic(typeSize, v.getAlignment(),
+						 v.getSection() == "__genmc_persist",
+						 GET_GV_ADDRESS_SPACE(v) == 42);
 		staticAllocas.insert(std::make_pair(addr, addr + typeSize - 1));
 		staticValueMap[addr] = ptr;
 
@@ -265,9 +241,10 @@ void Interpreter::setupErrorPolicy(Module *M, const Config *userConf)
 
 void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 {
-	auto &FI = MI->fsInfo;
+	recoveryRoutine = M->getFunction("__VERIFIER_recovery_routine");
 
 	/* Setup config options first */
+	auto &FI = MI->fsInfo;
 	FI.blockSize = userConf->blockSize;
 	FI.maxFileSize = userConf->maxFileSize;
 	FI.journalData = userConf->journalData;
@@ -279,9 +256,6 @@ void Interpreter::setupFsInfo(Module *M, const Config *userConf)
 	/* unistd.h not included -- not dealing with fs stuff */
 	if (!inodeVar || !fileVar)
 		return;
-
-	dynState.fds = llvm::BitVector(20);
-	dynState.fdToFile.grow(dynState.fds.size());
 
 	FI.inodeTyp = dyn_cast<StructType>(inodeVar->getType()->getElementType());
 	FI.fileTyp = dyn_cast<StructType>(fileVar->getType()->getElementType());
@@ -371,7 +345,7 @@ Interpreter::updateFunArgDeps(unsigned int tid, Function *fun)
 // Interpreter ctor - Initialize stuff
 //
 Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-			 GenMCDriver *driver, const Config *userConf)
+			 GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor)
 	: ExecutionEngine(std::move(M)), MI(std::move(MI)), driver(driver) {
 
   memset(&dynState.ExitValue.Untyped, 0, sizeof(dynState.ExitValue.Untyped));
@@ -384,17 +358,17 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   IL = new IntrinsicLowering(getDataLayout());
 
   auto mod = Modules.back().get();
-  collectStaticAddresses(mod);
 
   /* Set up a dependency tracker if the model requires it */
   if (userConf->isDepTrackingModel)
 	  dynState.depTracker = LLVM_MAKE_UNIQUE<DepTracker>();
 
+  collectStaticAddresses(alloctor);
+
   /* Set up the system error policy */
   setupErrorPolicy(mod, userConf);
 
   /* Also run a recovery routine if it is required to do so */
-  recoveryRoutine = mod->getFunction("__VERIFIER_recovery_routine");
   setupFsInfo(mod, userConf);
 
   /* Setup the interpreter for the exploration */

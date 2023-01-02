@@ -30,6 +30,7 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Revisit.hpp"
+#include "SAddrAllocator.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -155,6 +156,13 @@ public:
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp() { return timestamp++; }
+
+	/* Returns the address allocator */
+	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
+	SAddrAllocator &getAddrAllocator() { return alloctor; }
+
+	/* Returns a fresh address for a new allocation */
+	SAddr getFreshAddr(const MallocLabel *aLab);
 
 	/* Resets the next available stamp to the specified value */
 	void resetStamp(unsigned int val) { timestamp = val; }
@@ -418,6 +426,15 @@ public:
 		return persChecker.get();
 	}
 
+	/* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
+	int getFreshFd();
+
+	/* Pers: Marks that the file descriptor fd is in use */
+	void markFdAsUsed(int fd);
+
+	/* Pers: The interpreter reclaims a file descriptor that is no longer in use */
+	void reclaimUnusedFd(int fd);
+
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
 	const View &getHbPoBefore(Event e) const;
@@ -668,6 +685,12 @@ private:
 
 	/* The next available timestamp */
 	unsigned int timestamp;
+
+	/* An allocator for fresh addresses */
+	SAddrAllocator alloctor;
+
+	/* Pers: A bitvector of available file descriptors */
+	llvm::BitVector fds;
 
 	/* Relations and calculation status/result */
 	Relations relations;
