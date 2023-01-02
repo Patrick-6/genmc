@@ -27,14 +27,14 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 
 	ThreadT t([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){
 		while (true) {
-			auto state = popTask();
+			auto graphUP = popTask();
 
 			/* If the state is empty, nothing left to do */
-			if (!state)
+			if (!graphUP)
 				break;
 
 			/* Prepare the driver and start the exploration */
-			driver->setSharedState(std::move(state));
+			driver->initState(std::move(graphUP));
 			driver->run();
 
 			/* If that was the last task, notify everyone */
@@ -53,7 +53,7 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 	return;
 }
 
-void ThreadPool::submit(std::unique_ptr<TaskT> t)
+void ThreadPool::submit(ThreadPool::TaskT t)
 {
 	std::lock_guard<std::mutex> lock(stateMtx_);
 	incRemainingTasks();
@@ -62,18 +62,18 @@ void ThreadPool::submit(std::unique_ptr<TaskT> t)
 	return;
 }
 
-std::unique_ptr<ThreadPool::TaskT> ThreadPool::tryPopPoolQueue()
+ThreadPool::TaskT ThreadPool::tryPopPoolQueue()
 {
 	return queue_.tryPop();
 }
 
-std::unique_ptr<ThreadPool::TaskT> ThreadPool::tryStealOtherQueue()
+ThreadPool::TaskT ThreadPool::tryStealOtherQueue()
 {
 	/* TODO: Implement work-stealing */
 	return nullptr;
 }
 
-std::unique_ptr<ThreadPool::TaskT> ThreadPool::popTask()
+ThreadPool::TaskT ThreadPool::popTask()
 {
 	while (true) {
 		if (auto t = tryPopPoolQueue())

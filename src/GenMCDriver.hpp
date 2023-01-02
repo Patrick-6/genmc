@@ -34,11 +34,7 @@
 #include <unordered_set>
 
 namespace llvm {
-	struct ExecutionContext;
 	class Interpreter;
-	struct DynamicComponents;
-	using EELocalState = DynamicComponents;
-	class EESharedState;
 }
 class ModuleInfo;
 class ExecutionGraph;
@@ -111,36 +107,16 @@ public:
 		}
 	};
 
-	/* Represents the exploration state at any given point */
-	struct LocalState {
+	/* Represents the exploration state at a given point */
+	struct State {
 		std::unique_ptr<ExecutionGraph> graph;
 		LocalQueueT workqueue;
-		std::unique_ptr<llvm::EELocalState> interpState;
-		bool isMootExecution;
-		Event readToReschedule;
-		std::vector<Event> threadPrios;
 
-		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
-		LocalState() = delete;
-		LocalState(std::unique_ptr<ExecutionGraph> g,
-			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
-			   bool isMootExecution, Event readToReschedule,
-			   const std::vector<Event> &threadPrios);
-
-		~LocalState();
+		State() = delete;
+		State(State &&) = default;
+		State(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
+		~State();
 	};
-	struct SharedState {
-		std::unique_ptr<ExecutionGraph> graph;
-		std::unique_ptr<llvm::EESharedState> interpState;
-
-		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
-		SharedState() = delete;
-		SharedState(std::unique_ptr<ExecutionGraph> g,
-			    std::unique_ptr<llvm::EESharedState> state);
-
-		~SharedState();
-	};
-
 
 private:
 	static bool isInvalidAccessError(Status s) {
@@ -149,15 +125,6 @@ private:
 	};
 
 public:
-	/*** State-related ***/
-
-	/* FIXME: Document */
-	std::unique_ptr<LocalState> releaseLocalState();
-	void restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state);
-
-	std::unique_ptr<SharedState> getSharedState();
-	void setSharedState(std::unique_ptr<GenMCDriver::SharedState> state);
-
 	/**** Generic actions ***/
 
 	/* Sets up the next thread to run in the interpreter */
@@ -189,9 +156,14 @@ public:
 	static Result verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod);
 
 	/* Gets/sets the thread pool this driver should account to */
-	ThreadPool *getThfreadPool() { return pool; }
+	ThreadPool *getThreadPool() { return pool; }
 	ThreadPool *getThreadPool() const { return pool; }
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
+
+	/* Initializes the exploration state */
+	void initState(std::unique_ptr<ExecutionGraph> g);
+
+	std::unique_ptr<ExecutionGraph> releaseGraph();
 
 	/*** Instruction-related actions ***/
 
@@ -308,8 +280,15 @@ protected:
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
 	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return *execGraph; };
-	ExecutionGraph &getGraph() const { return *execGraph; };
+	ExecutionGraph &getGraph() { return *stateStack.back().graph; }
+	const ExecutionGraph &getGraph() const { return *stateStack.back().graph; }
+
+	/* Pushes S to the stack. */
+	void pushState(State &&s);
+
+	/* Pops the top stack entry.
+	 * Returns false if the stack is empty or this was the last entry. */
+	bool popState();
 
 	/* Given a write event from the graph, returns the value it writes */
 	SVal getWriteValue(Event w, SAddr p, AAccess a);
@@ -382,14 +361,15 @@ private:
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(WorkSet::ItemT item);
+	void addToWorklist(unsigned int stamp, WorkSet::ItemT item);
 
 	/* Fetches the next backtrack option.
 	 * A default-constructed item means that the list is empty */
-	WorkSet::ItemT getNextItem();
+	std::pair<unsigned int, WorkSet::ItemT>
+	getNextItem();
 
-	/* Restricts the worklist only to entries that were added before lab */
-	void restrictWorklist(const EventLabel *lab);
+	/* Restricts the worklist only to entries that were added before STAMP */
+	void restrictWorklist(unsigned int stamp);
 
 
 	/*** Exploration-related ***/
@@ -540,9 +520,12 @@ private:
 	 * Returns true if the resulting graph should be explored. */
 	bool revisitRead(const Revisit &s);
 
+	bool forwardRevisit(const ForwardRevisit &fr);
+	bool backwardRevisit(const BackwardRevisit &fr);
+
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(WorkSet::ItemT s);
+	bool restrictAndRevisit(unsigned int stamp, WorkSet::ItemT s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -550,8 +533,8 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* Removes all labels with stamp >= st from the graph */
-	void restrictGraph(const EventLabel *lab);
+	/* Removes all labels with stamp >= ST from the graph */
+	void restrictGraph(unsigned int st);
 
 	/* Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */
@@ -577,7 +560,7 @@ private:
 	bool ensureConsistentStore(const WriteLabel *wLab);
 
 	/* Helper: Annotates a store as RevBlocker, if possible */
-	void annotateStoreHELPER(WriteLabel *wLab) const;
+	void annotateStoreHELPER(WriteLabel *wLab);
 
 	/* Pers: removes _all_ options from "rfs" that make the recovery invalid.
 	 * Sets the rf of rLab to the first valid option in rfs */
@@ -750,12 +733,8 @@ private:
 	/* The interpreter used by the driver */
 	std::unique_ptr<llvm::Interpreter> EE;
 
-	/* The graph managing object */
-	std::unique_ptr<ExecutionGraph> execGraph;
-
-	/* The worklist for backtracking. map[stamp->work set] */
-	LocalQueueT workqueue;
-
+	/* Execution state stack */
+	std::vector<State> stateStack;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

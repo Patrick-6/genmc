@@ -49,16 +49,17 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	  shouldHalt(false)
 {
 	/* Set up an suitable execution graph with appropriate relations */
-	execGraph = GraphBuilder(userConf->isDepTrackingModel, userConf->warnOnGraphSize)
+	auto execGraph = GraphBuilder(userConf->isDepTrackingModel, userConf->warnOnGraphSize)
 		.withEnabledLAPOR(userConf->LAPOR)
 		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
 		.withEnabledBAM(!userConf->disableBAM).build();
+	stateStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
 
 	/* Create an interpreter for the program's instructions */
 	std::string buf;
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
 		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(),
-					  execGraph->getAddrAllocator(), &buf));
+					  getGraph().getAddrAllocator(), &buf));
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -81,50 +82,32 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 GenMCDriver::~GenMCDriver() = default;
 
-GenMCDriver::LocalState::~LocalState() = default;
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w)
+	: graph(std::move(g)), workqueue(std::move(w)) {}
+GenMCDriver::State::~State() = default;
 
-GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w,
-				    std::unique_ptr<llvm::EELocalState> interpState, bool isMootExecution,
-				    Event readToReschedule, const std::vector<Event> &threadPrios)
-	: graph(std::move(g)), workqueue(std::move(w)),
-	  interpState(std::move(interpState)), isMootExecution(isMootExecution),
-	  readToReschedule(readToReschedule), threadPrios(threadPrios) {}
-
-std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
+void GenMCDriver::initState(std::unique_ptr<ExecutionGraph> g)
 {
-	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
-		std::move(execGraph), std::move(workqueue),
-		getEE()->releaseLocalState(), isMootExecution, readToReschedule, threadPrios);
+	stateStack.clear();
+	stateStack.emplace_back(std::move(g), LocalQueueT());
 }
 
-void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
+void GenMCDriver::pushState(State &&s)
 {
-	execGraph = std::move(state->graph);
-	workqueue = std::move(state->workqueue);
-	getEE()->restoreLocalState(std::move(state->interpState));
-	isMootExecution = state->isMootExecution;
-	readToReschedule = state->readToReschedule;
-	threadPrios = std::move(state->threadPrios);
-	return;
+	stateStack.push_back(std::move(s));
 }
 
-GenMCDriver::SharedState::~SharedState() = default;
-
-GenMCDriver::SharedState::SharedState(std::unique_ptr<ExecutionGraph> g,
-				      std::unique_ptr<llvm::EESharedState> interpState)
-	: graph(std::move(g)), interpState(std::move(interpState)) {}
-
-std::unique_ptr<GenMCDriver::SharedState> GenMCDriver::getSharedState()
+bool GenMCDriver::popState()
 {
-	return LLVM_MAKE_UNIQUE<GenMCDriver::SharedState>(
-		std::move(execGraph), getEE()->getSharedState());
+	if (stateStack.empty())
+		return false;
+	stateStack.pop_back();
+	return !stateStack.empty();
 }
 
-void GenMCDriver::setSharedState(std::unique_ptr<GenMCDriver::SharedState> state)
+std::unique_ptr<ExecutionGraph> GenMCDriver::releaseGraph()
 {
-	execGraph = std::move(state->graph);
-	getEE()->setSharedState(std::move(state->interpState));
-	return;
+	return std::move(stateStack.back().graph);
 }
 
 void GenMCDriver::resetThreadPrioritization()
@@ -346,18 +329,15 @@ void GenMCDriver::handleExecutionBeginning()
 		/* Skip not-yet-created threads */
 		BUG_ON(g.isThreadEmpty(i));
 
-		const EventLabel *lab = g.getEventLabel(Event(i, 0));
-		BUG_ON(!llvm::isa<ThreadStartLabel>(lab));
-
-		auto *labFst = static_cast<const ThreadStartLabel *>(lab);
-		Event parent = labFst->getParentCreate();
+		auto *labFst = g.getFirstThreadLabel(i);
+		auto parent = labFst->getParentCreate();
 
 		/* Skip if parent create does not exist yet (or anymore) */
 		if (!g.contains(parent) || !llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)))
 			continue;
 
 		/* Skip finished threads */
-		const EventLabel *labLast = g.getLastThreadLabel(i);
+		auto *labLast = g.getLastThreadLabel(i);
 		if (llvm::isa<ThreadFinishLabel>(labLast))
 			continue;
 
@@ -542,7 +522,6 @@ void GenMCDriver::halt(Status status)
 	getEE()->block(BlockageType::Error);
 	shouldHalt = true;
 	result.status = status;
-	workqueue.clear();
 	if (getThreadPool())
 		getThreadPool()->halt();
 }
@@ -575,32 +554,31 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 	return res;
 }
 
-void GenMCDriver::addToWorklist(WorkSet::ItemT item)
+void GenMCDriver::addToWorklist(unsigned int stamp, WorkSet::ItemT item)
 
 {
-	const auto &g = getGraph();
-	const EventLabel *lab = g.getEventLabel(item->getPos());
-
-	workqueue[lab->getStamp()].add(std::move(item));
+	stateStack.back().workqueue[stamp].add(std::move(item));
 	return;
 }
 
-WorkSet::ItemT GenMCDriver::getNextItem()
+std::pair<unsigned int, WorkSet::ItemT>
+GenMCDriver::getNextItem()
 {
+	auto &workqueue = stateStack.back().workqueue;
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
 		if (rit->second.empty())
 			continue;
 
-		return rit->second.getNext();
+		return {rit->first, rit->second.getNext()};
 	}
-	return nullptr;
+	return {0, nullptr};
 }
 
-void GenMCDriver::restrictWorklist(const EventLabel *rLab)
+void GenMCDriver::restrictWorklist(unsigned int stamp)
 {
-	auto stamp = rLab->getStamp();
 	std::vector<int> idxsToRemove;
 
+	auto &workqueue = stateStack.back().workqueue;
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
 		if (rit->first > stamp && rit->second.empty())
 			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
@@ -609,15 +587,17 @@ void GenMCDriver::restrictWorklist(const EventLabel *rLab)
 		workqueue.erase(i);
 }
 
-void GenMCDriver::restrictGraph(const EventLabel *rLab)
+void GenMCDriver::restrictGraph(unsigned int stamp)
 {
-	getGraph().cutToStamp(rLab->getStamp());
+	/* Inform the interpreter about deleted events, and then
+	 * restrict the graph (and relations) */
+	getGraph().cutToStamp(stamp);
 
 	/* It can be the case that events with larger stamp remain
 	 * in the graph (e.g., BEGINs). Fix their stamps too. */
-	getGraph().resetStamp(rLab->getStamp() + 1);
+	getGraph().resetStamp(stamp + 1);
 	for (auto *lab : labels(getGraph())) {
-		if (lab->getStamp() > rLab->getStamp())
+		if (lab->getStamp() > stamp)
 			lab->setStamp(getGraph().nextStamp());
 	}
 	return;
@@ -708,13 +688,25 @@ bool GenMCDriver::scheduleNext()
 	return rescheduleReads();
 }
 
+std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
+{
+	std::vector<ThreadInfo> tis;
+	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
+		auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(
+			g.getEventLabel(g.getFirstThreadLabel(i)->getParentCreate()));
+		BUG_ON(!tcLab);
+		tis.push_back(tcLab->getChildInfo());
+	}
+	return tis;
+}
+
 void GenMCDriver::explore()
 {
 	auto *EE = getEE();
 
-	unmoot(); /* recursive calls */
-	BUG_ON(!readToReschedule.isInitializer());
-	while (true) {
+	resetExplorationOptions();
+	EE->setExecutionContext(createExecutionContext(getGraph()));
+	while (!isHalting()) {
 		EE->reset();
 
 		/* Get main program function and run the program */
@@ -722,8 +714,8 @@ void GenMCDriver::explore()
 		if (getConf()->persevere)
 			EE->runRecovery();
 
-		auto validExecution = true;
-		do {
+		auto validExecution = false;
+		while (!validExecution) {
 			/*
 			 * restrictAndRevisit() might deem some execution infeasible,
 			 * so we have to reset all exploration options before
@@ -731,14 +723,15 @@ void GenMCDriver::explore()
 			 */
 			resetExplorationOptions();
 
-			auto item = getNextItem();
+			auto [stamp, item] = getNextItem();
 			if (!item) {
-				EE->reset();  /* To free memory */
+				if (popState())
+					continue;
 				return;
 			}
 			auto pos = item->getPos();
-			validExecution = restrictAndRevisit(std::move(item)) && isConsistent(pos);
-		} while (!validExecution);
+			validExecution = restrictAndRevisit(stamp, std::move(item)) && isConsistent(pos);
+		}
 	}
 }
 
@@ -1853,12 +1846,12 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
 		auto status = llvm::isa<MOCalculator>(g.getCoherenceCalculator()) ? false :
 			isCoMaximal(lab->getAddr(), s, true); /* MO messes with the status */
-		addToWorklist(LLVM_MAKE_UNIQUE<ReadForwardRevisit>(lab->getPos(), s, status));
+		addToWorklist(lab->getStamp(), LLVM_MAKE_UNIQUE<ReadForwardRevisit>(lab->getPos(), s, status));
 	});
 	return {retVal};
 }
 
-void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab) const
+void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 {
 	auto &g = getGraph();
 
@@ -1934,7 +1927,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 		/* Push the stack item */
 		if (!inRecoveryMode())
-			addToWorklist(LLVM_MAKE_UNIQUE<WriteForwardRevisit>(
+			addToWorklist(lab->getStamp(), LLVM_MAKE_UNIQUE<WriteForwardRevisit>(
 					      lab->getPos(), std::distance(store_begin(g, lab->getAddr()), it)));
 	}
 
@@ -2141,7 +2134,7 @@ std::unique_ptr<VectorClock>
 GenMCDriver::getReplayView() const
 {
 	auto &g = getGraph();
-	auto v = g.getViewFromStamp(g.nextStamp());
+	auto v = g.getViewFromStamp(g.getMaxStamp());
 
 	/* handleBlock() is usually only called during normal execution
 	 * and hence not reproduced during replays.
@@ -2189,7 +2182,7 @@ void GenMCDriver::reportError(Event pos, Status s, const std::string &err /* = "
 	/* Print a basic error message and the graph.
 	 * We have to save the interpreter state as replaying will
 	 * destroy the current execution stack */
-	auto oldState = getEE()->releaseLocalState();
+	auto iState = getEE()->saveState();
 
 	getEE()->replayExecutionBefore(*getReplayView());
 
@@ -2217,7 +2210,7 @@ void GenMCDriver::reportError(Event pos, Status s, const std::string &err /* = "
 	if (getConf()->dotFile != "")
 		dotPrintToFile(getConf()->dotFile, errLab->getPos(), confEvent);
 
-	getEE()->restoreLocalState(std::move(oldState));
+	getEE()->restoreState(std::move(iState));
 
 	halt(s);
 }
@@ -2490,31 +2483,7 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			moot();
 		}
 
-
-		auto v = g.getRevisitView(*br);
-		auto og = copyGraph(&*br, &*v);
-		auto read = rLab->getPos();
-		auto write = sLab->getPos(); /* prefetch since we are gonna change state */
-
-		auto localState = releaseLocalState();
-		auto newState = LLVM_MAKE_UNIQUE<SharedState>(std::move(og), getEE()->getSharedState());
-
-		setSharedState(std::move(newState));
-
-		revisitRead(BackwardRevisit(read, write));
-
-		/* If there are idle workers in the thread pool,
-		 * try submitting the job instead */
-		auto *tp = getThreadPool();
-		if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
-			if (isConsistent(rLab->getPos()))
-				tp->submit(getSharedState());
-		} else {
-			if (isConsistent(read))
-				explore();
-		}
-
-		restoreLocalState(std::move(localState));
+		addToWorklist(sLab->getStamp(), std::move(br));
 	}
 
 	return checkAtomicity(sLab) && checkRevBlockHELPER(sLab, loads) && !isMoot();
@@ -2659,25 +2628,18 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	return true;
 }
 
-bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
+bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 {
-	auto &g = getGraph();
-	auto *EE = getEE();
-	EventLabel *lab = g.getEventLabel(item->getPos());
-
-	/* First, appropriately restrict the worklist, the revisit set, and the graph */
-	restrictWorklist(lab);
-	restrictGraph(lab);
-
-	/* Handle special cases first: if we are restricting to a write, change its MO position */
-	if (auto *mi = llvm::dyn_cast<WriteForwardRevisit>(&*item)) {
+	auto &g =getGraph();
+	auto *lab = g.getEventLabel(fr.getPos());
+	if (auto *mi = llvm::dyn_cast<WriteForwardRevisit>(&fr)) {
 		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 		BUG_ON(!wLab);
 		g.changeStoreOffset(wLab->getAddr(), wLab->getPos(), mi->getMOPos());
 		wLab->setAddedMax(false);
 		repairDanglingLocks();
 		return calcRevisits(wLab);
-	} else if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&*item)) {
+	} else if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&fr)) {
 		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
 		--result.exploredBlocked;
 		BUG_ON(!oLab);
@@ -2685,9 +2647,50 @@ bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 		oLab->setExpanded(true);
 		return true;
 	}
-	auto *ri = llvm::dyn_cast<ReadForwardRevisit>(item.get());
+	auto *ri = llvm::dyn_cast<ReadForwardRevisit>(&fr);
 	BUG_ON(!ri);
 	return revisitRead(*ri);
+}
+
+bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
+{
+	auto &g = getGraph();
+	auto v = g.getRevisitView(br);
+	auto og = copyGraph(&br, &*v);
+	auto read = br.getPos();
+	auto write = br.getRev(); /* prefetch since we are gonna change state */
+
+	pushState({std::move(og), LocalQueueT()});
+
+	auto ok = revisitRead(BackwardRevisit(read, write));
+	BUG_ON(!ok);
+
+	/* If there are idle workers in the thread pool,
+	 * try submitting the job instead */
+	auto *tp = getThreadPool();
+	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
+		if (isConsistent(read))
+			tp->submit(releaseGraph());
+		popState();
+		return false;
+	}
+	return true;
+}
+
+bool GenMCDriver::restrictAndRevisit(unsigned int stamp, WorkSet::ItemT item)
+{
+	/* First, appropriately restrict the worklist and the graph */
+	restrictWorklist(stamp);
+	restrictGraph(stamp);
+
+	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item)) {
+		return forwardRevisit(*fr);
+	} else if (auto *br = llvm::dyn_cast<BackwardRevisit>(&*item)) {
+		return backwardRevisit(*br);
+	} else {
+		BUG();
+		return false;
+	}
 }
 
 SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
@@ -2719,7 +2722,7 @@ SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
 
 	/* Push all the other alternatives choices to the Stack */
 	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(LLVM_MAKE_UNIQUE<ReadForwardRevisit>(lab->getPos(), *it));
+		addToWorklist(lab->getStamp(), LLVM_MAKE_UNIQUE<ReadForwardRevisit>(lab->getPos(), *it));
 	return getDskWriteValue(validStores[0], lab->getAddr(), lab->getAccess());
 }
 
@@ -2826,7 +2829,7 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 	auto *oLab = llvm::dyn_cast<OptionalLabel>(addLabelToGraph(std::move(lab)));
 
 	if (oLab->isExpandable())
-		addToWorklist(LLVM_MAKE_UNIQUE<OptionalForwardRevisit>(oLab->getPos()));
+		addToWorklist(oLab->getStamp(), LLVM_MAKE_UNIQUE<OptionalForwardRevisit>(oLab->getPos()));
 	return false; /* should not be expanded yet */
 }
 

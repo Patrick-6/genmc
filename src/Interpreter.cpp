@@ -78,14 +78,13 @@ llvm::raw_ostream& llvm::operator<<(llvm::raw_ostream &s, const Thread &thr)
 		 << " " << thr.threadFun->getName().str();
 }
 
-// EELocalState::EELocalState(const DynamicComponents &dynState) : state(dynState) {}
-
-std::unique_ptr<EELocalState> Interpreter::releaseLocalState()
+std::unique_ptr<InterpreterState>
+Interpreter::saveState()
 {
-	return LLVM_MAKE_UNIQUE<EELocalState>(dynState);
+	return LLVM_MAKE_UNIQUE<InterpreterState>(dynState);
 }
 
-void Interpreter::restoreLocalState(std::unique_ptr<EELocalState> s)
+void Interpreter::restoreState(std::unique_ptr<InterpreterState> s)
 {
 	dynState = std::move(*s);
 }
@@ -148,9 +147,9 @@ Thread &Interpreter::addNewThread(Thread &&thread)
 }
 
 /* Creates an entry for the main() function */
-Thread &Interpreter::createAddMainThread(llvm::Function *F)
+Thread &Interpreter::createAddMainThread()
 {
-	Thread main(F, 0);
+	Thread main(mainFun, 0);
 	main.tls = threadLocalVars;
 	dynState.threads.clear(); /* make sure its empty */
 	return addNewThread(std::move(main));
@@ -372,10 +371,10 @@ Interpreter::Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> 
   setupFsInfo(mod, userConf);
 
   /* Setup the interpreter for the exploration */
-  auto mainFun = mod->getFunction(userConf->programEntryFun);
+  mainFun = mod->getFunction(userConf->programEntryFun);
   ERROR_ON(!mainFun, "Could not find program's entry point function!\n");
 
-  createAddMainThread(mainFun);
+  createAddMainThread();
 }
 
 Interpreter::~Interpreter() {

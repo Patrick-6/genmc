@@ -250,15 +250,7 @@ struct DynamicComponents {
 	std::vector<Function*> AtExitHandlers;
 };
 
-using EELocalState = DynamicComponents;
-
-struct EESharedState {
-	EESharedState() = default;
-	EESharedState(std::vector<ThreadInfo> tis) : threadInfos(tis) {}
-
-	std::vector<ThreadInfo> threadInfos;
-};
-
+using InterpreterState = DynamicComponents;
 
 // Interpreter - This class represents the entirety of the interpreter.
 //
@@ -292,6 +284,8 @@ protected:
   /* (Composition) pointer to the driver */
   GenMCDriver *driver;
 
+  Function *mainFun = nullptr;
+
   /* Whether the driver should be called on system errors */
   bool stopOnSystemErrors;
 
@@ -316,19 +310,9 @@ public:
 		       GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor);
   virtual ~Interpreter();
 
-  /* FIXME: Document and move to .cpp */
-  std::unique_ptr<EELocalState> releaseLocalState();
-  void restoreLocalState(std::unique_ptr<EELocalState> state);
+  std::unique_ptr<InterpreterState> saveState();
+  void restoreState(std::unique_ptr<InterpreterState>);
 
-  std::unique_ptr<EESharedState> getSharedState() const {
-	  auto shared = LLVM_MAKE_UNIQUE<EESharedState>();
-
-	  for (auto &thr : threads()) {
-		  shared->threadInfos.emplace_back(
-			  thr.id, thr.parentId, MI->idInfo.VID.at(thr.threadFun), thr.threadArg);
-	  }
-	  return shared;
-  }
   Thread &constructAddThreadFromInfo(const ThreadInfo &ti) {
 	  auto *calledFun = dyn_cast<Function>(const_cast<Value *>(MI->idInfo.IDV.at(ti.funId)));
 	  BUG_ON(!calledFun);
@@ -341,9 +325,10 @@ public:
 	  SF.Values[&*calledFun->arg_begin()] = PTR_TO_GV(ti.arg.get());
 	  return createAddNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
   }
-  void setSharedState(std::unique_ptr<EESharedState> state) {
+  void setExecutionContext(const std::vector<ThreadInfo> &tis) {
 	  dynState.threads.clear();
-	  for (auto &ti : state->threadInfos)
+	  createAddMainThread();
+	  for (auto &ti : tis)
 		  constructAddThreadFromInfo(ti);
   }
 
@@ -787,7 +772,7 @@ private:  // Helper functions
 
   /* Creates an entry for the main() function. More information are
    * filled from the execution engine when the exploration starts */
-  Thread &createAddMainThread(llvm::Function *F);
+  Thread &createAddMainThread();
 
   /* Dependency tracking */
 
