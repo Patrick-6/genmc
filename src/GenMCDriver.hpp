@@ -114,7 +114,6 @@ public:
 	/* Represents the exploration state at any given point */
 	struct LocalState {
 		std::unique_ptr<ExecutionGraph> graph;
-		RevisitSetT revset;
 		LocalQueueT workqueue;
 		std::unique_ptr<llvm::EELocalState> interpState;
 		bool isMootExecution;
@@ -123,7 +122,7 @@ public:
 
 		/* FIXME: Ensure that move semantics work properly for std::unordered_map<> */
 		LocalState() = delete;
-		LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r,
+		LocalState(std::unique_ptr<ExecutionGraph> g,
 			   LocalQueueT &&w, std::unique_ptr<llvm::EELocalState> state,
 			   bool isMootExecution, Event readToReschedule,
 			   const std::vector<Event> &threadPrios);
@@ -388,20 +387,6 @@ private:
 
 	/* Restricts the worklist only to entries that were added before lab */
 	void restrictWorklist(const EventLabel *lab);
-
-
-	/*** Revisit-related ***/
-
-	/* Returns true if the current revisit set for rLab contains
-	 * the pair (writePrefix, moPlacings) */
-	bool revisitSetContains(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-				const std::vector<std::pair<Event, Event> > &moPlacings);
-
-	/* Adds to the revisit set of rLab the pair (writePrefix, moPlacings) */
-	void addToRevisitSet(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-			     const std::vector<std::pair<Event, Event> > &moPlacings);
-
-	void restrictRevisitSet(const EventLabel *lab);
 
 
 	/*** Exploration-related ***/
@@ -768,8 +753,6 @@ private:
 	/* The worklist for backtracking. map[stamp->work set] */
 	LocalQueueT workqueue;
 
-	/* The revisit sets used during the exploration map[stamp->revisit set] */
-	RevisitSetT revisitSet;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

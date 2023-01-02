@@ -83,24 +83,23 @@ GenMCDriver::~GenMCDriver() = default;
 
 GenMCDriver::LocalState::~LocalState() = default;
 
-GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, RevisitSetT &&r, LocalQueueT &&w,
+GenMCDriver::LocalState::LocalState(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w,
 				    std::unique_ptr<llvm::EELocalState> interpState, bool isMootExecution,
 				    Event readToReschedule, const std::vector<Event> &threadPrios)
-	: graph(std::move(g)), revset(std::move(r)), workqueue(std::move(w)),
+	: graph(std::move(g)), workqueue(std::move(w)),
 	  interpState(std::move(interpState)), isMootExecution(isMootExecution),
 	  readToReschedule(readToReschedule), threadPrios(threadPrios) {}
 
 std::unique_ptr<GenMCDriver::LocalState> GenMCDriver::releaseLocalState()
 {
 	return LLVM_MAKE_UNIQUE<GenMCDriver::LocalState>(
-		std::move(execGraph), std::move(revisitSet), std::move(workqueue),
+		std::move(execGraph), std::move(workqueue),
 		getEE()->releaseLocalState(), isMootExecution, readToReschedule, threadPrios);
 }
 
 void GenMCDriver::restoreLocalState(std::unique_ptr<GenMCDriver::LocalState> state)
 {
 	execGraph = std::move(state->graph);
-	revisitSet = std::move(state->revset);
 	workqueue = std::move(state->workqueue);
 	getEE()->restoreLocalState(std::move(state->interpState));
 	isMootExecution = state->isMootExecution;
@@ -608,32 +607,6 @@ void GenMCDriver::restrictWorklist(const EventLabel *rLab)
 
 	for (auto &i : idxsToRemove)
 		workqueue.erase(i);
-}
-
-bool GenMCDriver::revisitSetContains(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-				     const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	return revisitSet[rLab->getStamp()].contains(writePrefix, moPlacings);
-}
-
-void GenMCDriver::addToRevisitSet(const ReadLabel *rLab, const std::vector<Event> &writePrefix,
-				  const std::vector<std::pair<Event, Event> > &moPlacings)
-{
-	revisitSet[rLab->getStamp()].add(writePrefix, moPlacings);
-	return;
-}
-
-void GenMCDriver::restrictRevisitSet(const EventLabel *rLab)
-{
-	auto stamp = rLab->getStamp();
-	std::vector<int> idxsToRemove;
-
-	for (auto rit = revisitSet.rbegin(); rit != revisitSet.rend(); ++rit)
-		if (rit->first > stamp)
-			idxsToRemove.push_back(rit->first);
-
-	for (auto &i : idxsToRemove)
-		revisitSet.erase(i);
 }
 
 void GenMCDriver::restrictGraph(const EventLabel *rLab)
@@ -2238,30 +2211,6 @@ void GenMCDriver::reportError(Event pos, Status s, const std::string &err /* = "
 	halt(s);
 }
 
-#ifdef ENABLE_GENMC_DEBUG
-void GenMCDriver::checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
-{
-	if (!getConf()->countDuplicateExecs)
-		return;
-
-	/* Get the prefix of the write to save */
-	auto &g = getGraph();
-	auto writePrefix = g.getPrefixLabelsNotBefore(sLab, rLab);
-	auto moPlacings = g.saveCoherenceStatus(writePrefix, rLab);
-
-	auto writePrefixPos = g.extractRfs(writePrefix);
-	writePrefixPos.insert(writePrefixPos.begin(), sLab->getPos());
-
-	/* If this prefix has revisited the read before, skip */
-	if (revisitSetContains(rLab, writePrefixPos, moPlacings)) {
-		++result.duplicates;
-	} else {
-		addToRevisitSet(rLab, writePrefixPos, moPlacings);
-	}
-	return;
-}
-#endif
-
 bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads)
 {
 	if (getConf()->disableBAM)
@@ -2530,7 +2479,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 			moot();
 		}
 
-		GENMC_DEBUG(checkForDuplicateRevisit(rLab, sLab););
 
 		auto v = g.getRevisitView(*br);
 		auto og = copyGraph(&*br, &*v);
@@ -2705,7 +2653,6 @@ bool GenMCDriver::restrictAndRevisit(WorkSet::ItemT item)
 
 	/* First, appropriately restrict the worklist, the revisit set, and the graph */
 	restrictWorklist(lab);
-	restrictRevisitSet(lab);
 	restrictGraph(lab);
 
 	/* Handle special cases first: if we are restricting to a write, change its MO position */
