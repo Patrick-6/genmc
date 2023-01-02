@@ -538,7 +538,7 @@ private:
 
 	/* Modifies (but not restricts) the graph when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
-	bool revisitRead(const ReadRevisit &s);
+	bool revisitRead(const Revisit &s);
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
