@@ -459,12 +459,12 @@ MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ auto *eLab = g.getEventLabel(e);
-				  auto v = g.getDepViewFromStamp(eLab->getStamp());
-				  v.update(before);
+				  auto v = g.getViewFromStamp(eLab->getStamp());
+				  v->update(before);
 				  return std::any_of(moInvOptRfs.begin(),
 						     moInvOptRfs.end(),
 						     [&](Event ev)
-						     { return v.contains(ev) &&
+						     { return v->contains(ev) &&
 						       g.getHbPoBefore(ev).contains(e); });
 				}),
 		 ls.end());

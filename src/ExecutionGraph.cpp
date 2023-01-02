@@ -844,7 +844,7 @@ std::unique_ptr<VectorClock>
 ExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 {
 	auto *rLab = getReadLabel(r.getPos());
-	auto preds = LLVM_MAKE_UNIQUE<View>(getViewFromStamp(rLab->getStamp()));
+	auto preds = getViewFromStamp(rLab->getStamp());
 	preds->update(getWriteLabel(r.getRev())->getPorfView());
 	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
 		preds->update(getWriteLabel(br->getMid())->getPorfView());
@@ -948,12 +948,6 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
  ** Calculation of particular sets of events/event labels
  ***********************************************************/
 
-std::unique_ptr<VectorClock> ExecutionGraph::getPredsView(Event e) const
-{
-	auto stamp = getEventLabel(e)->getStamp();
-	return LLVM_MAKE_UNIQUE<View>(getViewFromStamp(stamp));
-}
-
 #ifdef ENABLE_GENMC_DEBUG
 std::vector<std::unique_ptr<EventLabel> >
 ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
@@ -964,7 +958,7 @@ ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 	auto &prefix = sLab->getPorfView();
 	auto before = getViewFromStamp(rLab->getStamp());
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before.getMax(i) + 1; j <= prefix.getMax(i); j++) {
+		for (auto j = before->getMax(i) + 1; j <= prefix.getMax(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			result.push_back(lab->clone());
 
@@ -972,11 +966,11 @@ ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
 				wLab->removeReader([&](Event r) {
 						return !prefix.contains(r) &&
-						       !before.contains(r);
+						       !before->contains(r);
 					});
 			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
 				if (!prefix.contains(eLab->getParentJoin()) &&
-				    !before.contains(eLab->getParentJoin()))
+				    !before->contains(eLab->getParentJoin()))
 					eLab->setParentJoin(Event::getInitializer());
 			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
 				/* We can keep the begin event of the child
@@ -1240,31 +1234,18 @@ bool ExecutionGraph::updateJoin(Event join)
  * we can obtain a view of the graph, given a timestamp. This function
  * returns such a view.
  */
-View ExecutionGraph::getViewFromStamp(unsigned int stamp) const
+std::unique_ptr<VectorClock>
+ExecutionGraph::getViewFromStamp(unsigned int stamp) const
 {
-	View preds;
+	auto preds = std::make_unique<View>();
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = (int) getThreadSize(i) - 1; j >= 0; j--) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
+			auto *lab = getEventLabel(Event(i, j));
 			if (lab->getStamp() <= stamp) {
-				preds.setMax(Event(i, j));
+				preds->setMax(Event(i, j));
 				break;
 			}
-		}
-	}
-	return preds;
-}
-
-DepView ExecutionGraph::getDepViewFromStamp(unsigned int stamp) const
-{
-	DepView preds;
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 1u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (lab->getStamp() <= stamp)
-				preds.setMax(Event(i, j));
 		}
 	}
 	return preds;
@@ -1286,11 +1267,11 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	/* Inform all calculators about the events cutted */
 	auto &calcs = consistencyCalculators;
 	for (auto i = 0u; i < calcs.size(); i++)
-		calcs[i]->removeAfter(preds);
+		calcs[i]->removeAfter(*preds);
 
 	/* For persistency, reclaim fds */
 	for (auto *lab : labels(*this)) {
-		if (preds.contains(lab->getPos()))
+		if (preds->contains(lab->getPos()))
 			continue;
 		if (auto *oLab = llvm::dyn_cast<DskOpenLabel>(lab))
 			reclaimUnusedFd(oLab->getFd().get());
@@ -1299,7 +1280,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 	/* Restrict the graph according to the view (keep begins around) */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		auto &thr = events[i];
-		thr.erase(thr.begin() + preds.getMax(i) + 1, thr.end());
+		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
 	}
 
 	/* Remove any 'pointers' to events that have been removed */
@@ -1308,7 +1289,7 @@ void ExecutionGraph::cutToStamp(unsigned int stamp)
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				wLab->removeReader([&](Event r){
-							   return !preds.contains(r);
+							   return !preds->contains(r);
 						   });
 			}
 			/* No special action for CreateLabels; we can

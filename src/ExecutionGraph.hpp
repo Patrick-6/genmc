@@ -603,7 +603,10 @@ public:
 	}
 
 	/* Returns a vector clock representing the events added before e */
-	virtual std::unique_ptr<VectorClock> getPredsView(Event e) const;
+	std::unique_ptr<VectorClock> getPredsView(Event e) const {
+		auto stamp = getEventLabel(e)->getStamp();
+		return getViewFromStamp(stamp);
+	}
 
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the prefix of sLab that is not before rLab. */
@@ -624,10 +627,8 @@ public:
 	/* Graph cutting */
 
 	/* Returns a view of the graph representing events with stamp <= st */
-	View getViewFromStamp(unsigned int st) const;
-
-	/* Simmilar to getViewFromStamp() but returns a DepView */
-	DepView getDepViewFromStamp(unsigned int st) const;
+	virtual std::unique_ptr<VectorClock>
+	getViewFromStamp(unsigned int st) const;
 
 	/* Cuts a graph so that it only contains events with stamp <= st */
 	virtual void cutToStamp(unsigned int st);
@@ -637,7 +638,8 @@ public:
 	 * 1) Copy graph structure (calculators, constant members, etc)
 	 * 2) Copy events => these should notify calculators so that calcs populate their structures
 	 */
-	virtual std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const;
+	virtual std::unique_ptr<ExecutionGraph>
+	getCopyUpTo(const VectorClock &v) const;
 
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);

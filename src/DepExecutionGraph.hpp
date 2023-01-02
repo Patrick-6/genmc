@@ -43,13 +43,14 @@ public:
 	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
 
 	std::unique_ptr<VectorClock>
+	getViewFromStamp(unsigned int stamp) const override;
+
+	std::unique_ptr<VectorClock>
 	getRevisitView(const BackwardRevisit &r) const override;
 
 	const VectorClock& getPrefixView(Event e) const override {
 		return getEventLabel(e)->getPPoRfView();
 	}
-
-	std::unique_ptr<VectorClock> getPredsView(Event e) const override;
 
 	bool revisitModifiesGraph(const BackwardRevisit &r) const override;
 

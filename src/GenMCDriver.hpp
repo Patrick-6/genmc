@@ -686,7 +686,8 @@ private:
 	/*** Output-related ***/
 
 	/* Returns a view to be used when replaying */
-	View getReplayView() const;
+	std::unique_ptr<VectorClock>
+	getReplayView() const;
 
 	/* Prints the source-code instructions leading to Event e.
 	 * Assumes that debugging information have already been collected */

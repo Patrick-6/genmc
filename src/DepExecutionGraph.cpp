@@ -21,7 +21,8 @@
 #include "config.h"
 #include "DepExecutionGraph.hpp"
 
-std::vector<Event> DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
+std::vector<Event>
+DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 {
 	auto pendingRMW = getPendingRMW(sLab);
 	std::vector<Event> loads;
@@ -69,18 +70,29 @@ std::unique_ptr<VectorClock>
 DepExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 {
 	auto *rLab = getReadLabel(r.getPos());
-	auto preds = LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(rLab->getStamp()));
+	auto preds = getViewFromStamp(rLab->getStamp());
 
-	updatePredsWithPrefixView(*this, *preds, getWriteLabel(r.getRev())->getPPoRfView());
+	updatePredsWithPrefixView(*this, *llvm::dyn_cast<DepView>(&*preds),
+				  getWriteLabel(r.getRev())->getPPoRfView());
 	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-		updatePredsWithPrefixView(*this, *preds, getWriteLabel(br->getMid())->getPPoRfView());
+		updatePredsWithPrefixView(*this, *llvm::dyn_cast<DepView>(&*preds),
+					  getWriteLabel(br->getMid())->getPPoRfView());
 	return std::move(preds);
 }
 
-std::unique_ptr<VectorClock> DepExecutionGraph::getPredsView(Event e) const
+std::unique_ptr<VectorClock>
+DepExecutionGraph::getViewFromStamp(unsigned int stamp) const
 {
-	auto stamp = getEventLabel(e)->getStamp();
-	return LLVM_MAKE_UNIQUE<DepView>(getDepViewFromStamp(stamp));
+	auto preds = std::make_unique<DepView>();
+
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		for (auto j = 1u; j < getThreadSize(i); j++) {
+			const EventLabel *lab = getEventLabel(Event(i, j));
+			if (lab->getStamp() <= stamp)
+				preds->setMax(Event(i, j));
+		}
+	}
+	return preds;
 }
 
 bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
@@ -207,12 +219,12 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 void DepExecutionGraph::cutToStamp(unsigned int stamp)
 {
 	/* First remove events from the modification order */
-	auto preds = getDepViewFromStamp(stamp);
+	auto preds = getViewFromStamp(stamp);
 
 	/* Inform all calculators about the events cutted */
 	auto &calcs = getCalcs();
 	for (auto i = 0u; i < calcs.size(); i++)
-		calcs[i]->removeAfter(preds);
+		calcs[i]->removeAfter(*preds);
 
 	/* Then, restrict the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {

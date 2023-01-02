@@ -2153,7 +2153,8 @@ void GenMCDriver::handleBlock(std::unique_ptr<BlockLabel> lab)
 	return;
 }
 
-View GenMCDriver::getReplayView() const
+std::unique_ptr<VectorClock>
+GenMCDriver::getReplayView() const
 {
 	auto &g = getGraph();
 	auto v = g.getViewFromStamp(g.nextStamp());
@@ -2164,7 +2165,7 @@ View GenMCDriver::getReplayView() const
 	 * to the execution of extraneous instructions */
 	for (auto i = 0u; i < g.getNumThreads(); i++)
 		if (llvm::isa<BlockLabel>(g.getLastThreadLabel(i)))
-			v.setMax(Event(i, v.getMax(i)-1));
+			v->setMax(Event(i, v->getMax(i)-1));
 	return v;
 }
 
@@ -2206,7 +2207,7 @@ void GenMCDriver::reportError(Event pos, Status s, const std::string &err /* = "
 	 * destroy the current execution stack */
 	auto oldState = getEE()->releaseLocalState();
 
-	getEE()->replayExecutionBefore(getReplayView());
+	getEE()->replayExecutionBefore(*getReplayView());
 
 	llvm::raw_string_ostream out(result.message);
 
