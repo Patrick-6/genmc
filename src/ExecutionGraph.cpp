@@ -1013,12 +1013,14 @@ void ExecutionGraph::remove(const EventLabel *lab)
 
 	setFPStatus(FS_Stale);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
-			wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
+		if (!rLab->getRf().isBottom()) {
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
+				wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
+		}
 	}
 	BUG_ON(lab->getIndex() >= getThreadSize(lab->getThread()));
 	if (lab != getLastThreadLabel(lab->getThread()))
-		addLabelToGraph(EmptyLabel::create(lab->getPos()));
+		events[lab->getThread()][lab->getIndex()] = EmptyLabel::create(lab->getPos());
 	else
 		resizeThread(lab->getPos());
 }
