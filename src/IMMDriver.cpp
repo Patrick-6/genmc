@@ -399,6 +399,7 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	case EventLabel::EL_DskOpen:
 	case EventLabel::EL_HelpingCas:
 	case EventLabel::EL_HpProtect:
+	case EventLabel::EL_Block:
 		calcBasicViews(lab);
 		break;
 	case EventLabel::EL_LockLAPOR: /* special case */
