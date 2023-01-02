@@ -820,6 +820,17 @@ SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab) const
 	return lLab->getRetVal();
 }
 
+SVal GenMCDriver::getStartValue(const ThreadStartLabel *bLab) const
+{
+	if (bLab->getPos().isInitializer())
+		return SVal();
+
+	auto &g = getGraph();
+	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(g.getEventLabel(bLab->getParentCreate()));
+	BUG_ON(!tcLab);
+	return tcLab->getChildInfo().arg;
+}
+
 SVal GenMCDriver::getBarrierInitValue(SAddr addr, AAccess access)
 {
 	const auto &g = getGraph();
