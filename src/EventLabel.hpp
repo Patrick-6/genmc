@@ -884,6 +884,11 @@ public:
 	/* Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
+	virtual void reset() {
+		ReadLabel::reset();
+		wattr &= ~(WriteAttr::RevBlocker);
+	}
+
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<FaiReadLabel>(*this);
 	}
@@ -1019,6 +1024,11 @@ public:
 
 	/* Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
+
+	virtual void reset() {
+		ReadLabel::reset();
+		wattr &= ~(WriteAttr::RevBlocker);
+	}
 
 	std::unique_ptr<EventLabel> clone() const override {
 		return LLVM_MAKE_UNIQUE<CasReadLabel>(*this);
@@ -1304,6 +1314,7 @@ public:
 		msgView.clear();
 		readerList.clear();
 		moIndex = -1;
+		wattr &= ~(WriteAttr::RevBlocker);
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
