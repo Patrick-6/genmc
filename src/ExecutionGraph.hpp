@@ -30,7 +30,6 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Revisit.hpp"
-#include "SAddrAllocator.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -156,13 +155,6 @@ public:
 
 	/* Returns the next available stamp (and increases the counter) */
 	unsigned int nextStamp() { return timestamp++; }
-
-	/* Returns the address allocator */
-	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
-	SAddrAllocator &getAddrAllocator() { return alloctor; }
-
-	/* Returns a fresh address for a new allocation */
-	SAddr getFreshAddr(const MallocLabel *aLab);
 
 	/* Resets the next available stamp to the specified value */
 	void resetStamp(unsigned int val) { timestamp = val; }
@@ -687,9 +679,6 @@ private:
 
 	/* The next available timestamp */
 	unsigned int timestamp;
-
-	/* An allocator for fresh addresses */
-	SAddrAllocator alloctor;
 
 	/* Pers: A bitvector of available file descriptors */
 	llvm::BitVector fds;

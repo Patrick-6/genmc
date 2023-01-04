@@ -59,7 +59,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	std::string buf;
 	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
 		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(),
-					  getGraph().getAddrAllocator(), &buf));
+					  getAddrAllocator(), &buf));
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
@@ -108,6 +108,32 @@ bool GenMCDriver::popState()
 std::unique_ptr<ExecutionGraph> GenMCDriver::releaseGraph()
 {
 	return std::move(stateStack.back().graph);
+}
+
+/* Returns a fresh address to be used from the interpreter */
+SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
+{
+	/* The arguments to getFreshAddr() need to be well-formed;
+	 * make sure the alignment is positive and a power of 2 */
+	auto alignment = aLab->getAlignment();
+	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
+	switch (aLab->getStorageDuration()) {
+	case StorageDuration::SD_Automatic:
+		return getAddrAllocator().allocAutomatic(aLab->getAllocSize(),
+							 alignment,
+							 aLab->getStorageType() == StorageType::ST_Durable,
+							 aLab->getAddressSpace() == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Heap:
+		return getAddrAllocator().allocHeap(aLab->getAllocSize(),
+						    alignment,
+						    aLab->getStorageType() == StorageType::ST_Durable,
+						    aLab->getAddressSpace() == AddressSpace::AS_Internal);
+	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
+	default:
+		BUG();
+	}
+	BUG();
+	return SAddr();
 }
 
 void GenMCDriver::resetThreadPrioritization()
@@ -2018,7 +2044,7 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	}
 
 	/* Fix and add label to the graph; return the new address */
-	aLab->setAllocAddr(g.getFreshAddr(&*aLab));
+	aLab->setAllocAddr(getFreshAddr(&*aLab));
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }

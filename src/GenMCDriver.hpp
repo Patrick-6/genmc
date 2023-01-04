@@ -25,6 +25,7 @@
 #include "DepInfo.hpp"
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
+#include "SAddrAllocator.hpp"
 #include "WorkSet.hpp"
 #include <llvm/IR/Module.h>
 
@@ -290,6 +291,13 @@ protected:
 	/* Pops the top stack entry.
 	 * Returns false if the stack is empty or this was the last entry. */
 	bool popState();
+
+	/* Returns the address allocator */
+	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
+	SAddrAllocator &getAddrAllocator() { return alloctor; }
+
+	/* Returns a fresh address for a new allocation */
+	SAddr getFreshAddr(const MallocLabel *aLab);
 
 	/* Given a write event from the graph, returns the value it writes */
 	SVal getWriteValue(Event w, SAddr p, AAccess a);
@@ -736,6 +744,9 @@ private:
 
 	/* Execution state stack */
 	std::vector<State> stateStack;
+
+	/* An allocator for fresh addresses */
+	SAddrAllocator alloctor;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

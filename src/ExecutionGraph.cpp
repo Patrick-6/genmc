@@ -55,32 +55,6 @@ ExecutionGraph::~ExecutionGraph() = default;
  ** Basic getter methods
  ***********************************************************/
 
-/* Returns a fresh address to be used from the interpreter */
-SAddr ExecutionGraph::getFreshAddr(const MallocLabel *aLab)
-{
-	/* The arguments to getFreshAddr() need to be well-formed;
-	 * make sure the alignment is positive and a power of 2 */
-	auto alignment = aLab->getAlignment();
-	BUG_ON(alignment <= 0 || (alignment & (alignment - 1)) != 0);
-	switch (aLab->getStorageDuration()) {
-	case StorageDuration::SD_Automatic:
-		return alloctor.allocAutomatic(aLab->getAllocSize(),
-					       alignment,
-					       aLab->getStorageType() == StorageType::ST_Durable,
-					       aLab->getAddressSpace() == AddressSpace::AS_Internal);
-	case StorageDuration::SD_Heap:
-		return alloctor.allocHeap(aLab->getAllocSize(),
-					  alignment,
-					  aLab->getStorageType() == StorageType::ST_Durable,
-					  aLab->getAddressSpace() == AddressSpace::AS_Internal);
-	case StorageDuration::SD_Static: /* Cannot ask for fresh static addresses */
-	default:
-		BUG();
-	}
-	BUG();
-	return SAddr();
-}
-
 int ExecutionGraph::getFreshFd()
 {
 	int fd = fds.find_first_unset();
@@ -1306,8 +1280,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 {
 	/* First, populate calculators, etc */
 	other.timestamp = timestamp;
-
-	other.alloctor = alloctor;
 
 	other.relations = relations;
 	other.relsCache = relsCache;
