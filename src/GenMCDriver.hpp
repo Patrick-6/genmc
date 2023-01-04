@@ -508,9 +508,6 @@ private:
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
-	/* If the execution is guided, returns the corresponding label for
-	 * this instruction. Reports an error if the execution is not guided */
-	const EventLabel *getCurrentLabel() const;
 
 	/* Adds LAB to graph (maintains well-formedness).
 	 * If another label exists in the specified position, it is replaced. */

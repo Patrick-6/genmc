@@ -782,15 +782,6 @@ bool GenMCDriver::inRecoveryMode() const
 	return getEE()->getProgramState() == llvm::ProgramState::Recovery;
 }
 
-const EventLabel *GenMCDriver::getCurrentLabel() const
-{
-	const auto &g = getGraph();
-	auto pos = getEE()->currPos();
-
-	BUG_ON(!g.contains(pos));
-	return g.getEventLabel(pos);
-}
-
 EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto &g = getGraph();
@@ -2856,10 +2847,11 @@ bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 
 bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 {
-	if (isExecutionDrivenByGraph(&*lab))
-		return llvm::dyn_cast<OptionalLabel>(getCurrentLabel())->isExpanded();
-
 	auto &g = getGraph();
+
+	if (isExecutionDrivenByGraph(&*lab))
+		return llvm::dyn_cast<OptionalLabel>(g.getEventLabel(lab->getPos()))->isExpanded();
+
 	if (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *lab){
 		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
 		return oLab && !oLab->isExpandable();
