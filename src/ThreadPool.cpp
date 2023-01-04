@@ -27,14 +27,14 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 
 	ThreadT t([this](unsigned int i, std::unique_ptr<GenMCDriver> driver){
 		while (true) {
-			auto graphUP = popTask();
+			auto taskUP = popTask();
 
 			/* If the state is empty, nothing left to do */
-			if (!graphUP)
+			if (!taskUP)
 				break;
 
 			/* Prepare the driver and start the exploration */
-			driver->initState(std::move(graphUP));
+			driver->initFromState(std::move(taskUP));
 			driver->run();
 
 			/* If that was the last task, notify everyone */

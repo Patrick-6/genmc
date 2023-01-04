@@ -53,7 +53,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 		.withEnabledLAPOR(userConf->LAPOR)
 		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
 		.withEnabledBAM(!userConf->disableBAM).build();
-	stateStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
+	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
 
 	/* Create an interpreter for the program's instructions */
 	std::string buf;
@@ -82,32 +82,39 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 GenMCDriver::~GenMCDriver() = default;
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w)
+GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w)
 	: graph(std::move(g)), workqueue(std::move(w)) {}
+GenMCDriver::Execution::~Execution() = default;
+
+void GenMCDriver::pushExecution(Execution &&e)
+{
+	execStack.push_back(std::move(e));
+}
+
+bool GenMCDriver::popExecution()
+{
+	if (execStack.empty())
+		return false;
+	execStack.pop_back();
+	return !execStack.empty();
+}
+
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a)
+	: graph(std::move(g)), alloctor(std::move(a)) {}
 GenMCDriver::State::~State() = default;
 
-void GenMCDriver::initState(std::unique_ptr<ExecutionGraph> g)
+void GenMCDriver::initFromState(std::unique_ptr<State> s)
 {
-	stateStack.clear();
-	stateStack.emplace_back(std::move(g), LocalQueueT());
+	execStack.clear();
+	execStack.emplace_back(std::move(s->graph), LocalQueueT());
+	alloctor = std::move(s->alloctor);
 }
 
-void GenMCDriver::pushState(State &&s)
+std::unique_ptr<GenMCDriver::State>
+GenMCDriver::extractState()
 {
-	stateStack.push_back(std::move(s));
-}
-
-bool GenMCDriver::popState()
-{
-	if (stateStack.empty())
-		return false;
-	stateStack.pop_back();
-	return !stateStack.empty();
-}
-
-std::unique_ptr<ExecutionGraph> GenMCDriver::releaseGraph()
-{
-	return std::move(stateStack.back().graph);
+	return std::make_unique<State>(
+		std::move(execStack.back().graph), std::move(alloctor));
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -583,14 +590,14 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 void GenMCDriver::addToWorklist(unsigned int stamp, WorkSet::ItemT item)
 
 {
-	stateStack.back().workqueue[stamp].add(std::move(item));
+	getWorkqueue()[stamp].add(std::move(item));
 	return;
 }
 
 std::pair<unsigned int, WorkSet::ItemT>
 GenMCDriver::getNextItem()
 {
-	auto &workqueue = stateStack.back().workqueue;
+	auto &workqueue = getWorkqueue();
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
 		if (rit->second.empty())
 			continue;
@@ -604,7 +611,7 @@ void GenMCDriver::restrictWorklist(unsigned int stamp)
 {
 	std::vector<int> idxsToRemove;
 
-	auto &workqueue = stateStack.back().workqueue;
+	auto &workqueue = getWorkqueue();
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
 		if (rit->first > stamp && rit->second.empty())
 			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
@@ -751,7 +758,7 @@ void GenMCDriver::explore()
 
 			auto [stamp, item] = getNextItem();
 			if (!item) {
-				if (popState())
+				if (popExecution())
 					continue;
 				return;
 			}
@@ -2694,7 +2701,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	auto read = br.getPos();
 	auto write = br.getRev(); /* prefetch since we are gonna change state */
 
-	pushState({std::move(og), LocalQueueT()});
+	pushExecution({std::move(og), LocalQueueT()});
 
 	auto ok = revisitRead(BackwardRevisit(read, write));
 	BUG_ON(!ok);
@@ -2704,8 +2711,8 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	auto *tp = getThreadPool();
 	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
 		if (isConsistent(read))
-			tp->submit(releaseGraph());
-		popState();
+			tp->submit(extractState());
+		popExecution();
 		return false;
 	}
 	return true;

@@ -108,14 +108,25 @@ public:
 		}
 	};
 
-	/* Represents the exploration state at a given point */
-	struct State {
+	/* Represents the execution at a given point */
+	struct Execution {
 		std::unique_ptr<ExecutionGraph> graph;
 		LocalQueueT workqueue;
 
+		Execution() = delete;
+		Execution(Execution &&) = default;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
+		~Execution();
+	};
+
+	/* Driver (global) state */
+	struct State {
+		std::unique_ptr<ExecutionGraph> graph;
+		SAddrAllocator alloctor;
+
 		State() = delete;
 		State(State &&) = default;
-		State(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
+		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor);
 		~State();
 	};
 
@@ -161,10 +172,12 @@ public:
 	ThreadPool *getThreadPool() const { return pool; }
 	void setThreadPool(ThreadPool *tp) { pool = tp; }
 
-	/* Initializes the exploration state */
-	void initState(std::unique_ptr<ExecutionGraph> g);
+	/* Initializes the exploration from a given state */
+	void initFromState(std::unique_ptr<State> s);
 
-	std::unique_ptr<ExecutionGraph> releaseGraph();
+	/* Extracts the current driver state.
+	 * The driver is left in an inconsistent form */
+	std::unique_ptr<State> extractState();
 
 	/*** Instruction-related actions ***/
 
@@ -282,15 +295,18 @@ protected:
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
 	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return *stateStack.back().graph; }
-	const ExecutionGraph &getGraph() const { return *stateStack.back().graph; }
+	ExecutionGraph &getGraph() { return *execStack.back().graph; }
+	const ExecutionGraph &getGraph() const { return *execStack.back().graph; }
 
-	/* Pushes S to the stack. */
-	void pushState(State &&s);
+	LocalQueueT &getWorkqueue() { return execStack.back().workqueue; }
+	const LocalQueueT &getWorkqueue() const { return execStack.back().workqueue; }
+
+	/* Pushes E to the execution stack. */
+	void pushExecution(Execution &&e);
 
 	/* Pops the top stack entry.
 	 * Returns false if the stack is empty or this was the last entry. */
-	bool popState();
+	bool popExecution();
 
 	/* Returns the address allocator */
 	const SAddrAllocator &getAddrAllocator() const { return alloctor; }
@@ -742,8 +758,8 @@ private:
 	/* The interpreter used by the driver */
 	std::unique_ptr<llvm::Interpreter> EE;
 
-	/* Execution state stack */
-	std::vector<State> stateStack;
+	/* Execution stack */
+	std::vector<Execution> execStack;
 
 	/* An allocator for fresh addresses */
 	SAddrAllocator alloctor;

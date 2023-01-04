@@ -44,7 +44,7 @@
 class GlobalWorkQueue {
 
 public:
-	using ItemT = std::unique_ptr<ExecutionGraph>;
+	using ItemT = std::unique_ptr<GenMCDriver::State>;
 	using QueueT = std::vector<ItemT>;
 
 	/*** Constructors ***/
@@ -147,7 +147,7 @@ public:
 
 			auto dw = DriverFactory::create(this, conf, std::move(newmod), std::move(newMI));
 			if (i == 0)
-				submit(std::move(dw->releaseGraph()));
+				submit(std::move(dw->extractState()));
 			addWorker(i, std::move(dw));
 		}
 	}
