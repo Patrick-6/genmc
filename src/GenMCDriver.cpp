@@ -1342,6 +1342,11 @@ void GenMCDriver::unblockWaitingHelping()
 			if (thr.isBlocked() && thr.getBlockageType() == BlockageType::HelpedCas)
 				thr.unblock();
 		});
+	for (auto i = 0u; i < getGraph().getNumThreads(); i++) {
+		auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(i));
+		if (bLab && bLab->getType() == BlockageType::HelpedCas)
+			getGraph().remove(bLab->getPos());
+	}
 }
 
 bool writesBeforeHelpedContainedInView(const ExecutionGraph &g, const HelpedCasReadLabel *lab, const View &view)
@@ -2798,20 +2803,19 @@ void GenMCDriver::handleDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab)
 	return;
 }
 
-void GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
+bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 {
 	if (isExecutionDrivenByGraph(&*hLab))
-		return;
+		return true;
 
 	/* Before adding it to the graph, ensure that the helped CAS exists */
 	auto &thr = getEE()->getCurThr();
 	if (!checkHelpingCasCondition(&*hLab)) {
 		blockThread(hLab->getPos(), BlockageType::HelpedCas);
-		thr.rollToSnapshot();
-		return;
+		return false;
 	}
 	addLabelToGraph(std::move(hLab));
-	return;
+	return true;
 }
 
 bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)

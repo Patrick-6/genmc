@@ -1589,16 +1589,16 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 
 	/* Check whether this is some special CAS; in such cases we also need a snapshot */
 	SVal ret, cmpRes;
-	thr.takeSnapshot();
 	switch (switchPair(getCasKinds(I))) {
 		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
 		IMPLEMENT_CAS_VISIT(HelpedCasRead, HelpedCasWrite);
 		IMPLEMENT_CAS_VISIT(ConfirmingCasRead, ConfirmingCasWrite);
 		case switchPair(EventLabel::EL_HelpingCas, EventLabel::EL_HelpingCas):
-			CALL_DRIVER(handleHelpingCas, HelpingCasLabel::create(
-					    currPos(), I.getSuccessOrdering(), ptr,
-					    size, atyp, GV_TO_SVAL(cmpVal, typ),
-					    GV_TO_SVAL(newVal, typ), GET_DEPS(lDeps)));
+			if (!CALL_DRIVER_RESET_IF_FALSE(handleHelpingCas, HelpingCasLabel::create(
+								currPos(), I.getSuccessOrdering(), ptr,
+								size, atyp, GV_TO_SVAL(cmpVal, typ),
+								GV_TO_SVAL(newVal, typ), GET_DEPS(lDeps))))
+				return;
 			break;
 	default:
 		BUG();

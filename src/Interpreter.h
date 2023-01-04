@@ -355,6 +355,17 @@ public:
 		ret;						\
 	})
 
+#define CALL_DRIVER_RESET_IF_FALSE(method, ...)			\
+	({							\
+		incPos();					\
+		auto ret = driver->method(__VA_ARGS__);		\
+		if (!ret) {					\
+			decPos();				\
+			--ECStack().back().CurInst;		\
+		}						\
+		ret;						\
+	})
+
   /* Blocks the current execution */
   void block(BlockageType t = BlockageType::Error ) {
 	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });

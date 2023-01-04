@@ -181,8 +181,9 @@ public:
 	/* A function modeling a write to disk has been interpreted */
 	void handleDskWrite(std::unique_ptr<DskWriteLabel> wLab);
 
-	/* A helping CAS operation has been interpreter, the result is unobservable */
-	void handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab);
+	/* A helping CAS operation has been interpreter.
+	 * Returns whether the helped CAS is present. */
+	bool handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab);
 
 	/* A function modeling the beginning of the opening of a file.
 	 * The interpreter will get back the file descriptor */
