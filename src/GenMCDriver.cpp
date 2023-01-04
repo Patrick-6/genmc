@@ -1655,7 +1655,9 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 
 		/* If it does, and also breaks the assumptions, unblock thread */
 		if (!isHbBefore(lab->getPos(), faiLab->getPos())) {
-			addLabelToGraph(FaiZNESpinEndLabel::create(eLab->getPos()));
+			auto pos = eLab->getPos();
+			unblockThread(pos);
+			addLabelToGraph(FaiZNESpinEndLabel::create(pos));
 		}
 	}
 	return;
@@ -1720,7 +1722,7 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 	/* ... and if no such value exists, block indefinitely */
 	if (stores.empty()) {
 		stores.push_back(maximal);
-		handleBlock(BlockLabel::create(lab->getPos().next(), BlockageType::Confirmation));
+		blockThreadTryMoot(lab->getPos().next(), BlockageType::Confirmation);
 		return;
 	}
 
@@ -2272,6 +2274,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 	std::for_each(bs.begin(), bs.end(), [&](const Event &b){
 		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b));
 		BUG_ON(!pLab);
+		unblockThread(b);
 		auto *rLab = llvm::dyn_cast<ReadLabel>(
 			addLabelToGraph(BWaitReadLabel::create(b, pLab->getOrdering(), pLab->getAddr(),
 							       pLab->getSize(), pLab->getType(),
@@ -2980,8 +2983,8 @@ void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return;
 
-	auto *zLab = addLabelToGraph(std::move(lab));
-	if (areFaiZNEConstraintsSat(&*lab))
+	auto *zLab = llvm::dyn_cast<FaiZNESpinEndLabel>(addLabelToGraph(std::move(lab)));
+	if (areFaiZNEConstraintsSat(&*zLab))
 		blockThreadTryMoot(zLab->getPos(), BlockageType::FaiZNESpinloop);
 	return;
 }
