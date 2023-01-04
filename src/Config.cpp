@@ -105,6 +105,10 @@ clCheckLiveness("check-liveness", llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Check for liveness violations"));
 
 static llvm::cl::opt<bool>
+clDisableInstructionCaching("disable-instruction-caching", llvm::cl::cat(clGeneral),
+			    llvm::cl::desc("Disable instruction caching (pure stateless exploration)"));
+
+static llvm::cl::opt<bool>
 clDisableRaceDetection("disable-race-detection", llvm::cl::cat(clGeneral),
 		     llvm::cl::desc("Disable race detection"));
 
@@ -326,6 +330,7 @@ void Config::saveConfigOptions()
 	checkConsType = clCheckConsType;
 	checkConsPoint = (LAPOR ? ProgramPoint::step : clCheckConsPoint);
 	checkLiveness = clCheckLiveness;
+	instructionCaching = !clDisableInstructionCaching;
 	disableRaceDetection = clDisableRaceDetection;
 	disableBAM = clDisableBAM;
 	disableStopOnSystemError = clDisableStopOnSystemError;

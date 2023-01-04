@@ -52,6 +52,7 @@ public:
 	bool checkLiveness;
 	bool printErrorTrace;
 	std::string dotFile;
+	bool instructionCaching;
 	bool disableRaceDetection;
 	bool disableBAM;
 	bool disableStopOnSystemError;

@@ -4807,7 +4807,8 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 void Interpreter::run()
 {
 	while (driver->scheduleNext()) {
-		driver->handleExecutionInProgress();
+		if (driver->tryOptimizeScheduling(currPos()))
+			continue;
 		llvm::ExecutionContext &SF = ECStack().back();
 		llvm::Instruction &I = *SF.CurInst++;
 		visit(I);
@@ -4823,9 +4824,9 @@ int Interpreter::runAsMain(const std::string &main)
 
 	mainECStack = ECStack();
 	setProgramState(llvm::ProgramState::Main);
-	driver->handleExecutionBeginning();
+	driver->handleExecutionStart();
 	run();
-	driver->handleFinishedExecution();
+	driver->handleExecutionEnd();
 	return dynState.ExitValue.IntVal.getZExtValue();
 }
 

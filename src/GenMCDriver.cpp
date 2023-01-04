@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "DriverHandlerDispatcher.hpp"
 #include "Error.hpp"
 #include "GraphBuilder.hpp"
 #include "LLVMModule.hpp"
@@ -99,8 +100,8 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a)
-	: graph(std::move(g)), alloctor(std::move(a)) {}
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a, ValuePrefixT &&c)
+	: graph(std::move(g)), alloctor(std::move(a)), cache(std::move(c)) {}
 GenMCDriver::State::~State() = default;
 
 void GenMCDriver::initFromState(std::unique_ptr<State> s)
@@ -108,13 +109,14 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 	execStack.clear();
 	execStack.emplace_back(std::move(s->graph), LocalQueueT());
 	alloctor = std::move(s->alloctor);
+	seenPrefixes = std::move(s->cache);
 }
 
 std::unique_ptr<GenMCDriver::State>
 GenMCDriver::extractState()
 {
 	return std::make_unique<State>(
-		std::move(execStack.back().graph), std::move(alloctor));
+		std::move(execStack.back().graph), std::move(alloctor), std::move(seenPrefixes));
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -263,6 +265,18 @@ bool GenMCDriver::scheduleNextWF()
 	auto &g = getGraph();
 	auto *EE = getEE();
 
+	/* First, schedule based on the EG */
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		if (!isSchedulable(i))
+			continue;
+
+		if (EE->getThrById(i).globalInstructions != 0 &&
+		    g.contains(Event(i, EE->getThrById(i).globalInstructions))) {
+			EE->scheduleThread(i);
+			return true;
+		}
+	}
+
 	/* Try and find a thread that satisfies the policy.
 	 * Keep an LTR fallback option in case this fails */
 	long fallback = -1;
@@ -352,7 +366,7 @@ void GenMCDriver::resetExplorationOptions()
 	resetThreadPrioritization();
 }
 
-void GenMCDriver::handleExecutionBeginning()
+void GenMCDriver::handleExecutionStart()
 {
 	const auto &g = getGraph();
 
@@ -389,14 +403,57 @@ void GenMCDriver::handleExecutionBeginning()
 	prioritizeThreads();
 }
 
-void GenMCDriver::handleExecutionInProgress()
+std::pair<std::vector<SVal>, Event>
+GenMCDriver::extractValPrefix(Event pos)
 {
-	/* Check if there are checks to be done while running */
-	GENMC_DEBUG(
-		if (userConf->validateExecGraphs)
-			getGraph().validate();
-	);
-	return;
+	auto &g = getGraph();
+	std::vector<SVal> vals;
+	Event last;
+
+	for (auto i = 0u; i < pos.index; i++) {
+		auto *lab = g.getEventLabel(Event(pos.thread, i));
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			vals.push_back(getReadValue(rLab));
+			last = lab->getPos();
+		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
+			vals.push_back(getJoinValue(jLab));
+			last = lab->getPos();
+		} else if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab)) {
+			vals.push_back(getStartValue(bLab));
+			last = lab->getPos();
+		} else if (auto *oLab = llvm::dyn_cast<OptionalLabel>(lab)) {
+			vals.push_back(SVal(oLab->isExpanded()));
+			last = lab->getPos();
+		}
+	}
+	return {vals, last};
+}
+
+Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
+{
+	auto first = Event(pos.thread, 0);
+	auto it = std::find_if(po_succ_begin(g, first), po_succ_end(g, first),
+			    [&](auto &e){ return llvm::isa<EmptyLabel>(g.getEventLabel(e)); });
+	return it == po_succ_end(g, first) ? g.getLastThreadEvent(pos.thread).next() : *it;
+}
+
+bool GenMCDriver::tryOptimizeScheduling(Event pos)
+{
+	auto next = findNextLabelToAdd(getGraph(), pos);
+	auto [vals, last] = extractValPrefix(next);
+	auto *res = retrieveCachedSuccessors(pos.thread, vals);
+	if (res == nullptr || res->empty() || res->back()->getIndex() < next.index)
+		return false;
+
+	for (auto &vlab : *res) {
+		BUG_ON(vlab->getStamp());
+
+		DriverHandlerDispatcher dispatcher(this);
+		dispatcher.visit(vlab);
+		if (llvm::isa<BlockLabel>(getGraph().getEventLabel(vlab->getPos())) || isMoot())
+			return true;
+	}
+	return true;
 }
 
 void GenMCDriver::checkHelpingCasAnnotation()
@@ -460,7 +517,7 @@ bool GenMCDriver::isExecutionBlocked() const
 				   return bLab || thr.isBlocked(); });
 }
 
-void GenMCDriver::handleFinishedExecution()
+void GenMCDriver::handleExecutionEnd()
 {
 	/* LAPOR: Check lock-well-formedness */
 	if (getConf()->LAPOR && !isLockWellFormedLAPOR())
@@ -666,6 +723,22 @@ void GenMCDriver::unblockThread(Event pos)
 	getEE()->getThrById(pos.thread).unblock();
 }
 
+bool GenMCDriver::scheduleAtomicity()
+{
+	auto *lastLab = getGraph().getEventLabel(lastAdded);
+	if (llvm::isa<FaiReadLabel>(lastLab)) {
+		getEE()->scheduleThread(lastAdded.thread);
+		return true;
+	}
+	if (auto *casLab = llvm::dyn_cast<CasReadLabel>(lastLab)) {
+		if (getReadValue(casLab) == casLab->getExpected()) {
+			getEE()->scheduleThread(lastAdded.thread);
+			return true;
+		}
+	}
+	return false;
+}
+
 bool GenMCDriver::scheduleNormal()
 {
 	switch (getConf()->schedulePolicy) {
@@ -709,11 +782,18 @@ bool GenMCDriver::scheduleNext()
 	auto &g = getGraph();
 	auto *EE = getEE();
 
-	/* First, check if we should prioritize some thread */
+	/* 1. Ensure atomicity. This needs to here because of weird interactions with in-place
+	 * revisiting and thread priotitization. For example, consider the following scenario:
+	 *     - restore @ T2, in-place rev @ T1, prioritize rev @ T1,
+	 *       restore FAIR @ T2, schedule T1, atomicity violation */
+	if (scheduleAtomicity())
+		return true;
+
+	/* Check if we should prioritize some thread */
 	if (schedulePrioritized())
 		return true;
 
-	/* Then, schedule the next thread according to the chosen policy */
+	/* Schedule the next thread according to the chosen policy */
 	if (scheduleNormal())
 		return true;
 
@@ -774,6 +854,8 @@ bool GenMCDriver::isExecutionDrivenByGraph(const EventLabel *lab)
 	auto curr = lab->getPos();
 	auto replay =  (curr.index < g.getThreadSize(curr.thread)) &&
 		!llvm::isa<EmptyLabel>(g.getEventLabel(curr));
+	if (!replay && !llvm::isa<MallocLabel>(lab) && !llvm::isa<ReadLabel>(lab))
+		cacheEventLabel(lab);
 	return replay;
 }
 
@@ -787,7 +869,40 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	auto &g = getGraph();
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
 	updateLabelViews(addedLab);
+	lastAdded = addedLab->getPos();
 	return addedLab;
+}
+
+void GenMCDriver::cacheEventLabel(const EventLabel *lab)
+{
+	if (!getConf()->instructionCaching)
+		return;
+
+	auto &g = getGraph();
+
+	auto [vals, last] = extractValPrefix(lab->getPos());
+	auto *data = retrieveCachedSuccessors(lab->getThread(), vals);
+	if (data) {
+		if (data->empty() || data->back()->getIndex() < lab->getIndex()) {
+			BUG_ON(data->empty() && last.index + 1 != lab->getIndex());
+			BUG_ON(!data->empty() && data->back()->getIndex() + 1 != lab->getIndex());
+			auto cLab = lab->clone();
+			cLab->reset();
+			(*data).push_back(std::move(cLab));
+		}
+	} else {
+		std::vector<std::unique_ptr<EventLabel>> labs;
+		for (auto i = last.index + 1; i < lab->getIndex(); i++) {
+			auto cLab = g.getEventLabel(Event(lab->getThread(), i))->clone();
+			cLab->reset();
+			labs.push_back(std::move(cLab));
+		}
+		auto cLab = lab->clone();
+		cLab->reset();
+		labs.push_back(std::move(cLab));
+		auto res = seenPrefixes[lab->getThread()].addSeq(vals, std::move(labs));
+		BUG_ON(!res);
+	}
 }
 
 /* Given an event in the graph, returns the value of it */
@@ -1820,6 +1935,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	g.trackCoherenceAtLoc(rLab->getAddr());
 
 	rLab->setAnnot(EE->getCurrentAnnotConcretized());
+	cacheEventLabel(&*rLab);
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
 	if (!isAccessValid(lab)) {
@@ -2044,7 +2160,9 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	}
 
 	/* Fix and add label to the graph; return the new address */
-	aLab->setAllocAddr(getFreshAddr(&*aLab));
+	if (aLab->getAllocAddr() == SAddr())
+		aLab->setAllocAddr(getFreshAddr(&*aLab));
+	cacheEventLabel(&*aLab);
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
@@ -2594,9 +2712,7 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 						rLab->getSize(),	\
 						rLab->getType(),	\
 						result,			\
-						wattr,			\
-						EventDeps(),		\
-						g.nextStamp());		\
+						wattr);			\
 		break;
 
 	switch (rLab->getKind()) {
@@ -2612,6 +2728,8 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		BUG();
 	}
 	BUG_ON(!wLab);
+	cacheEventLabel(&*wLab);
+	wLab->setStamp(g.nextStamp());
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	g.getCoherenceCalculator()->addStoreToLocAfter(lab->getAddr(), lab->getPos(), rLab->getRf());
 	return lab;
@@ -2715,6 +2833,7 @@ bool GenMCDriver::restrictAndRevisit(unsigned int stamp, WorkSet::ItemT item)
 	restrictWorklist(stamp);
 	restrictGraph(stamp);
 
+	lastAdded = item->getPos();
 	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item)) {
 		return forwardRevisit(*fr);
 	} else if (auto *br = llvm::dyn_cast<BackwardRevisit>(&*item)) {

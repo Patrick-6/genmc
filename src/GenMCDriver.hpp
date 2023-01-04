@@ -26,6 +26,7 @@
 #include "EventLabel.hpp"
 #include "RevisitSet.hpp"
 #include "SAddrAllocator.hpp"
+#include "Trie.hpp"
 #include "WorkSet.hpp"
 #include <llvm/IR/Module.h>
 
@@ -45,7 +46,10 @@ class GenMCDriver {
 
 protected:
 	using LocalQueueT = std::map<unsigned int, WorkSet>;
-	using RevisitSetT = std::map<unsigned int, RevisitSet>;
+	using ValuePrefixT = std::unordered_map<unsigned int,
+						Trie<std::vector<SVal>,
+						     std::vector<std::unique_ptr<EventLabel>>>
+						>;
 
 public:
 	/* Verification status.
@@ -123,10 +127,11 @@ public:
 	struct State {
 		std::unique_ptr<ExecutionGraph> graph;
 		SAddrAllocator alloctor;
+		ValuePrefixT cache;
 
 		State() = delete;
 		State(State &&) = default;
-		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor);
+		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor, ValuePrefixT &&cache);
 		~State();
 	};
 
@@ -142,14 +147,12 @@ public:
 	/* Sets up the next thread to run in the interpreter */
 	bool scheduleNext();
 
-	/* Things need to be done before a particular execution starts */
-	void handleExecutionBeginning();
+	/* Opt: Tries to optimize the scheduling of next instruction by checking the cache */
+	bool tryOptimizeScheduling(Event pos);
 
-	/* Things to do at each step of an execution */
-	void handleExecutionInProgress();
-
-	/* Things to do when an execution ends */
-	void handleFinishedExecution();
+	/* Things to do when an execution starts/ends */
+	void handleExecutionStart();
+	void handleExecutionEnd();
 
 	/* Pers: Functions that run at the start/end of the recovery routine */
 	void handleRecoveryStart();
@@ -343,6 +346,10 @@ protected:
 	/* Returns the value passed to the spawned thread */
 	SVal getStartValue(const ThreadStartLabel *bLab) const;
 
+	/* Returns all values read leading up to POS */
+	std::pair<std::vector<SVal>, Event>
+	extractValPrefix(Event pos);
+
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
 	 * interpreter; if the read is reading from an invalid place
@@ -432,6 +439,9 @@ private:
 	 * instructions to run and it is not blocked) */
 	bool isSchedulable(int thread) const;
 
+	/* Ensures the scheduler respects atomicity */
+	bool scheduleAtomicity();
+
 	/* Tries to schedule according to the current prioritization scheme */
 	bool schedulePrioritized();
 
@@ -508,6 +518,15 @@ private:
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
+	/* Opt: Caches LAB to optimize scheduling next time */
+	void cacheEventLabel(const EventLabel *lab);
+
+	/* Opt: Checks whether SEQ has been seen before for THREAD and
+	 * if so returns its successors. Returns nullptr otherwise. */
+	std::vector<std::unique_ptr<EventLabel>> *
+	retrieveCachedSuccessors(unsigned int thread, const std::vector<SVal> &seq) {
+		return seenPrefixes[thread].lookup(seq);
+	}
 
 	/* Adds LAB to graph (maintains well-formedness).
 	 * If another label exists in the specified position, it is replaced. */
@@ -761,6 +780,9 @@ private:
 	/* An allocator for fresh addresses */
 	SAddrAllocator alloctor;
 
+	/* Opt: Cached labels for optimized scheduling */
+	ValuePrefixT seenPrefixes;
+
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */
 	std::vector<Event> threadPrios;
@@ -770,6 +792,9 @@ private:
 
 	/* Opt: Whether a particular read needs to be repaired during rescheduling */
 	Event readToReschedule;
+
+	/* Opt: Keeps track of the last event added for scheduling opt */
+	Event lastAdded = Event::getInitializer();
 
 	/* Verification result to be returned to caller */
 	Result result;
