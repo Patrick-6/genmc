@@ -32,12 +32,12 @@
  ***********************************************************/
 
 ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
-	: timestamp(1), persChecker(nullptr), relations(), relsCache(), warnOnGraphSize(maxSize)
+	: persChecker(nullptr), warnOnGraphSize(maxSize)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
 	auto *iLab = addLabelToGraph(
-		ThreadStartLabel::create(Event(0, 0), Event::getInitializer(), 0));
+		ThreadStartLabel::create(Event::getInitializer(), Event::getInitializer()));
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
 
@@ -453,8 +453,8 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	if (contains(lab->getPos()))
 		remove(lab->getPos());
 
-	/* Ensure the stamp is valid */
-	if (lab->getStamp() == 0 && !lab->getPos().isInitializer())
+	/* Assign stamp if necessary */
+	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());
 
 	auto pos = lab->getPos();
@@ -1323,8 +1323,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		other.addLabelToGraph(getEventLabel(Event(i, 0))->clone());
 		for (auto j = 1; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j))) {
-				other.addLabelToGraph(
-					EmptyLabel::create(Event(i, j), other.nextStamp()));
+				other.addLabelToGraph(EmptyLabel::create(Event(i, j)));
 				continue;
 			}
 			auto *nLab = other.addLabelToGraph(getEventLabel(Event(i, j))->clone());

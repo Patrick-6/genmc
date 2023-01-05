@@ -154,12 +154,6 @@ public:
 	/* Returns the maximum stamp used */
 	Stamp getMaxStamp() const { return timestamp; }
 
-	/* Returns the next available stamp (and increases the counter) */
-	Stamp nextStamp() { return timestamp++; }
-
-	/* Resets the next available stamp to the specified value */
-	void resetStamp(Stamp val) { timestamp = val; }
-
 	/* Adds LAB to the graph. If a label exists in the respective
 	 * position, it is replaced.
 	 * (Maintains well-formedness for read removals.) */
@@ -652,6 +646,12 @@ protected:
 		events[e.thread][e.index] = std::move(lab);
 	};
 
+	/* Returns the next available stamp (and increases the counter) */
+	Stamp nextStamp() { return timestamp++; }
+
+	/* Resets the next available stamp to the specified value */
+	void resetStamp(Stamp val) { timestamp = val; }
+
 	/* Returns the event with the minimum stamp in ES.
 	 * If ES is empty, returns INIT */
 	Event getMinimumStampEvent(const std::vector<Event> &es) const;
@@ -682,7 +682,7 @@ private:
 	ThreadList events;
 
 	/* The next available timestamp */
-	Stamp timestamp;
+	Stamp timestamp = 0;
 
 	/* Pers: A bitvector of available file descriptors */
 	llvm::BitVector fds;

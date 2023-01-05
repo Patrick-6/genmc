@@ -265,7 +265,8 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			if (getEventLabel(Event(i, j)))
 				continue;
-			setEventLabel(Event(i, j), EmptyLabel::create(Event(i, j), nextStamp()));
+			setEventLabel(Event(i, j), EmptyLabel::create(Event(i, j)));
+			getEventLabel(Event(i, j))->setStamp(nextStamp());
 		}
 	}
 }

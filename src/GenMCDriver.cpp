@@ -446,7 +446,7 @@ bool GenMCDriver::tryOptimizeScheduling(Event pos)
 		return false;
 
 	for (auto &vlab : *res) {
-		BUG_ON(vlab->getStamp().get());
+		BUG_ON(vlab->hasStamp());
 
 		DriverHandlerDispatcher dispatcher(this);
 		dispatcher.visit(vlab);
@@ -573,7 +573,7 @@ void GenMCDriver::handleRecoveryStart()
 		psb.push_back(Event::getInitializer());
 	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
-	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(), g.nextStamp());
+	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back());
 	auto *lab = addLabelToGraph(std::move(tsLab));
 
 	/* Create a thread for the interpreter, and appropriately
@@ -2720,7 +2720,6 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	}
 	BUG_ON(!wLab);
 	cacheEventLabel(&*wLab);
-	wLab->setStamp(g.nextStamp());
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	g.getCoherenceCalculator()->addStoreToLocAfter(lab->getAddr(), lab->getPos(), rLab->getRf());
 	return lab;
