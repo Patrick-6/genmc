@@ -1276,6 +1276,15 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 	return;
 }
 
+void ExecutionGraph::compressStampsAfter(Stamp st)
+{
+	resetStamp(st + 1);
+	for (auto *lab : labels(*this)) {
+		if (lab->getStamp() > st)
+			lab->setStamp(nextStamp());
+	}
+}
+
 void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const
 {
 	/* First, populate calculators, etc */

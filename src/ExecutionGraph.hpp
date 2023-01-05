@@ -626,6 +626,9 @@ public:
 	/* Cuts a graph so that it only contains events with stamp <= st */
 	virtual void cutToStamp(Stamp st);
 
+	/* Tries to recompress all stamps after ST */
+	void compressStampsAfter(Stamp st);
+
 	/* FIXME: Use value ptrs? (less error-prone than using explicit copy fun) */
 	/* Or maybe simply consolidate the copying procedure:
 	 * 1) Copy graph structure (calculators, constant members, etc)

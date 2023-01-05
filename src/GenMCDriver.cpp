@@ -679,17 +679,11 @@ void GenMCDriver::restrictWorklist(Stamp stamp)
 
 void GenMCDriver::restrictGraph(Stamp stamp)
 {
-	/* Inform the interpreter about deleted events, and then
-	 * restrict the graph (and relations) */
+	/* Restrict the graph (and relations). It can be the case that
+	 * events with larger stamp remain in the graph (e.g.,
+	 * BEGINs). Fix their stamps too. */
 	getGraph().cutToStamp(stamp);
-
-	/* It can be the case that events with larger stamp remain
-	 * in the graph (e.g., BEGINs). Fix their stamps too. */
-	getGraph().resetStamp(stamp + 1);
-	for (auto *lab : labels(getGraph())) {
-		if (lab->getStamp() > stamp)
-			lab->setStamp(getGraph().nextStamp());
-	}
+	getGraph().compressStampsAfter(stamp);
 	return;
 }
 
@@ -2574,19 +2568,16 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 
 	auto og = g.getCopyUpTo(*v);
 
-	/* Adjust stamps in the copy, and ensure the prefix of the
-	 * write will not be revisitable */
+	/* Ensure the prefix of the write will not be revisitable */
 	auto *revLab = og->getReadLabel(br->getPos());
 	auto &prefix = og->getPrefixView(br->getRev());
-	og->resetStamp(revLab->getStamp() + 1);
 
+	og->compressStampsAfter(revLab->getStamp());
 	for (auto *lab : labels(*og)) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 			if (rLab && prefix.contains(rLab->getPos()))
 				rLab->setRevisitStatus(false);
 		}
-		if (lab->getStamp() > revLab->getStamp())
-			lab->setStamp(og->nextStamp());
 	}
 	return og;
 }
