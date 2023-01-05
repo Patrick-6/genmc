@@ -30,6 +30,7 @@
 #include "Event.hpp"
 #include "EventLabel.hpp"
 #include "Revisit.hpp"
+#include "Stamp.hpp"
 #include "VectorClock.hpp"
 #include <llvm/ADT/StringMap.h>
 
@@ -151,13 +152,13 @@ public:
 	/* Event addition/removal methods */
 
 	/* Returns the maximum stamp used */
-	unsigned int getMaxStamp() const { return timestamp; }
+	Stamp getMaxStamp() const { return timestamp; }
 
 	/* Returns the next available stamp (and increases the counter) */
-	unsigned int nextStamp() { return timestamp++; }
+	Stamp nextStamp() { return timestamp++; }
 
 	/* Resets the next available stamp to the specified value */
-	void resetStamp(unsigned int val) { timestamp = val; }
+	void resetStamp(Stamp val) { timestamp = val; }
 
 	/* Adds LAB to the graph. If a label exists in the respective
 	 * position, it is replaced.
@@ -620,10 +621,10 @@ public:
 
 	/* Returns a view of the graph representing events with stamp <= st */
 	virtual std::unique_ptr<VectorClock>
-	getViewFromStamp(unsigned int st) const;
+	getViewFromStamp(Stamp st) const;
 
 	/* Cuts a graph so that it only contains events with stamp <= st */
-	virtual void cutToStamp(unsigned int st);
+	virtual void cutToStamp(Stamp st);
 
 	/* FIXME: Use value ptrs? (less error-prone than using explicit copy fun) */
 	/* Or maybe simply consolidate the copying procedure:
@@ -678,7 +679,7 @@ private:
 	ThreadList events;
 
 	/* The next available timestamp */
-	unsigned int timestamp;
+	Stamp timestamp;
 
 	/* Pers: A bitvector of available file descriptors */
 	llvm::BitVector fds;

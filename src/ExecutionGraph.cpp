@@ -1211,7 +1211,7 @@ bool ExecutionGraph::updateJoin(Event join)
  * returns such a view.
  */
 std::unique_ptr<VectorClock>
-ExecutionGraph::getViewFromStamp(unsigned int stamp) const
+ExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
 	auto preds = std::make_unique<View>();
 
@@ -1235,7 +1235,7 @@ void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 		cohTracker->changeStoreOffset(addr, s, newOffset);
 }
 
-void ExecutionGraph::cutToStamp(unsigned int stamp)
+void ExecutionGraph::cutToStamp(Stamp stamp)
 {
 	setFPStatus(FS_Stale);
 	auto preds = getViewFromStamp(stamp);

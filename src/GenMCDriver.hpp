@@ -30,6 +30,7 @@
 #include "WorkSet.hpp"
 #include <llvm/IR/Module.h>
 
+#include <cstdint>
 #include <ctime>
 #include <memory>
 #include <random>
@@ -45,7 +46,7 @@ class ThreadPool;
 class GenMCDriver {
 
 protected:
-	using LocalQueueT = std::map<unsigned int, WorkSet>;
+	using LocalQueueT = std::map<uint32_t, WorkSet>;
 	using ValuePrefixT = std::unordered_map<unsigned int,
 						Trie<std::vector<SVal>,
 						     std::vector<std::unique_ptr<EventLabel>>>
@@ -393,15 +394,15 @@ private:
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
-	void addToWorklist(unsigned int stamp, WorkSet::ItemT item);
+	void addToWorklist(Stamp stamp, WorkSet::ItemT item);
 
 	/* Fetches the next backtrack option.
 	 * A default-constructed item means that the list is empty */
-	std::pair<unsigned int, WorkSet::ItemT>
+	std::pair<Stamp, WorkSet::ItemT>
 	getNextItem();
 
 	/* Restricts the worklist only to entries that were added before STAMP */
-	void restrictWorklist(unsigned int stamp);
+	void restrictWorklist(Stamp stamp);
 
 
 	/*** Exploration-related ***/
@@ -566,7 +567,7 @@ private:
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(unsigned int stamp, WorkSet::ItemT s);
+	bool restrictAndRevisit(Stamp st, WorkSet::ItemT s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -575,7 +576,7 @@ private:
 	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
 	/* Removes all labels with stamp >= ST from the graph */
-	void restrictGraph(unsigned int st);
+	void restrictGraph(Stamp st);
 
 	/* Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */

@@ -41,37 +41,37 @@ bool SCChecker::visitAcyclic0(const Event &e)
 	auto t = 0u;
 
 	++visitedAccepting;
-	visitedAcyclic0[lab->getStamp()] = { visitedAccepting, NodeStatus::entered };
+	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
 	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp()];
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	--visitedAccepting;
-	visitedAcyclic0[lab->getStamp()] = { visitedAccepting, NodeStatus::left };
+	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
 
@@ -79,7 +79,7 @@ bool SCChecker::isAcyclic(const Event &e)
 {
 	visitedAccepting = 0;
 	visitedAcyclic0.clear();
-	visitedAcyclic0.resize(g.getMaxStamp() + 1);
+	visitedAcyclic0.resize(g.getMaxStamp().get() + 1);
 	return true
 		&& visitAcyclic0(e);
 }
@@ -88,4 +88,3 @@ bool SCChecker::isConsistent(const Event &e)
 {
 	return isAcyclic(e);
 }
-

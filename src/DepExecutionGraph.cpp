@@ -81,7 +81,7 @@ DepExecutionGraph::getRevisitView(const BackwardRevisit &r) const
 }
 
 std::unique_ptr<VectorClock>
-DepExecutionGraph::getViewFromStamp(unsigned int stamp) const
+DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
 	auto preds = std::make_unique<DepView>();
 
@@ -216,7 +216,7 @@ DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
 }
 #endif
 
-void DepExecutionGraph::cutToStamp(unsigned int stamp)
+void DepExecutionGraph::cutToStamp(Stamp stamp)
 {
 	/* First remove events from the modification order */
 	auto preds = getViewFromStamp(stamp);

@@ -82,6 +82,7 @@ libgenmc_a_SOURCES = \
   SCDriver.cpp SCDriver.hpp \
   SExpr.tcc SExpr.hpp \
   SExprVisitor.tcc SExprVisitor.hpp \
+  Stamp.cpp Stamp.hpp \
   SVal.cpp SVal.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBIterator.hpp \

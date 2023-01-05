@@ -43,7 +43,7 @@ public:
 	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
 
 	std::unique_ptr<VectorClock>
-	getViewFromStamp(unsigned int stamp) const override;
+	getViewFromStamp(Stamp) const override;
 
 	std::unique_ptr<VectorClock>
 	getRevisitView(const BackwardRevisit &r) const override;
@@ -63,7 +63,7 @@ public:
 				 const ReadLabel *rLab) const override;
 #endif
 
-	void cutToStamp(unsigned int st) override;
+	void cutToStamp(Stamp st) override;
 
 	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override;
 };

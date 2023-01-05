@@ -446,7 +446,7 @@ bool GenMCDriver::tryOptimizeScheduling(Event pos)
 		return false;
 
 	for (auto &vlab : *res) {
-		BUG_ON(vlab->getStamp());
+		BUG_ON(vlab->getStamp().get());
 
 		DriverHandlerDispatcher dispatcher(this);
 		dispatcher.visit(vlab);
@@ -644,14 +644,14 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std:
 	return res;
 }
 
-void GenMCDriver::addToWorklist(unsigned int stamp, WorkSet::ItemT item)
+void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
 
 {
-	getWorkqueue()[stamp].add(std::move(item));
+	getWorkqueue()[stamp.get()].add(std::move(item));
 	return;
 }
 
-std::pair<unsigned int, WorkSet::ItemT>
+std::pair<Stamp, WorkSet::ItemT>
 GenMCDriver::getNextItem()
 {
 	auto &workqueue = getWorkqueue();
@@ -664,20 +664,20 @@ GenMCDriver::getNextItem()
 	return {0, nullptr};
 }
 
-void GenMCDriver::restrictWorklist(unsigned int stamp)
+void GenMCDriver::restrictWorklist(Stamp stamp)
 {
 	std::vector<int> idxsToRemove;
 
 	auto &workqueue = getWorkqueue();
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
-		if (rit->first > stamp && rit->second.empty())
+		if (rit->first > stamp.get() && rit->second.empty())
 			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
 
 	for (auto &i : idxsToRemove)
 		workqueue.erase(i);
 }
 
-void GenMCDriver::restrictGraph(unsigned int stamp)
+void GenMCDriver::restrictGraph(Stamp stamp)
 {
 	/* Inform the interpreter about deleted events, and then
 	 * restrict the graph (and relations) */
@@ -2827,7 +2827,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	return true;
 }
 
-bool GenMCDriver::restrictAndRevisit(unsigned int stamp, WorkSet::ItemT item)
+bool GenMCDriver::restrictAndRevisit(Stamp stamp, WorkSet::ItemT item)
 {
 	/* First, appropriately restrict the worklist and the graph */
 	restrictWorklist(stamp);
