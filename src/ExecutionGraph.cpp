@@ -1136,7 +1136,7 @@ bool ExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 	auto v = getRevisitView(r);
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if (v->getMax(i) + 1 != (int) getThreadSize(i) &&
-		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v->getMax(i) + 1))))
+		    !getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
 			return true;
 	}
 	return false;

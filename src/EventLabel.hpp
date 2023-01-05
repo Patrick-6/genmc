@@ -273,8 +273,10 @@ public:
 		return ordering == llvm::AtomicOrdering::SequentiallyConsistent;
 	}
 
-	/* Whether a label denotes the end of some thread */
-	static bool denotesThreadEnd(const EventLabel *lab);
+	/* Whether this label denotes the end of a thread */
+	bool isTerminator() const {
+		return isTerminator(getKind());
+	}
 
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
@@ -299,6 +301,10 @@ public:
 					     const EventLabel &lab);
 
 private:
+	static inline bool isTerminator(EventLabelKind k) {
+		return k == EL_Block || k == EL_ThreadKill || k == EL_ThreadFinish;
+	}
+
 	void setStamp(Stamp s) { stamp = s; }
 
 	/* Discriminator enum for LLVM-style RTTI */
@@ -2915,13 +2921,6 @@ private:
 /*******************************************************************************
  **                             Static methods
  *******************************************************************************/
-
-inline bool EventLabel::denotesThreadEnd(const EventLabel *lab)
-{
-	return llvm::isa<BlockLabel>(lab) ||
-	       llvm::isa<ThreadKillLabel>(lab) ||
-	       llvm::isa<ThreadFinishLabel>(lab);
-}
 
 inline EventLabel *EventLabel::castFromDskAccessLabel (const DskAccessLabel *D)
 {

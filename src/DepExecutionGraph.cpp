@@ -101,12 +101,12 @@ bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
 
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		if (v->getMax(i) + 1 != (long) getThreadSize(i) &&
-		    !EventLabel::denotesThreadEnd(getEventLabel(Event(i, v->getMax(i) + 1))))
+		    !getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
 			return true;
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
-			    !EventLabel::denotesThreadEnd(lab))
+			    !lab->isTerminator())
 				return true;
 		}
 	}

@@ -210,7 +210,7 @@ bool GenMCDriver::isSchedulable(int thread) const
 {
 	auto &thr = getEE()->getThrById(thread);
 	auto *lab = getGraph().getLastThreadLabel(thread);
-	return !thr.ECStack.empty() && !thr.isBlocked() && !EventLabel::denotesThreadEnd(lab);
+	return !thr.ECStack.empty() && !thr.isBlocked() && !lab->isTerminator();
 }
 
 bool GenMCDriver::schedulePrioritized()
