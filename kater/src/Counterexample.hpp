@@ -46,6 +46,8 @@ public:
 
 	void extend(const TransLabel &lab) { cex.push_back(lab); }
 
+	void clear() { cex.clear(); typ = Type::NONE; index = 0; }
+
 	unsigned int getMismatch() const { return index; }
 
 	Type getType() const { return typ; }
@@ -63,8 +65,8 @@ public:
 
 private:
 	ContainerT cex;
-	unsigned int index;
-	Type typ;
+	unsigned int index = 0;
+	Type typ = Type::NONE;
 };
 
 #endif /* KATER_COUNTEREXAMPLE_HPP */
