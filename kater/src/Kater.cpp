@@ -505,41 +505,62 @@ bool Kater::checkAssertions()
 	return status;
 }
 
-void Kater::generateNFAs()
+bool Kater::checkExportRequirements()
 {
 	auto &module = getModule();
-	auto &cnfas = getCNFAs();
 
 	/* Ensure that ppo is implied by the acyclicity constraints */
 	auto ppo = module.getPPO();
 	if (!ppo) {
 		std::cerr << "[Error] No top-level ppo definition provided!\n";
-		exit(EXIT_FAILURE);
+		return false;
 	}
 	auto pporf = PlusRE::createOpt(AltRE::createOpt(ppo->clone(), module.getRegisteredID("rf")));
 	auto acycDisj = std::accumulate(module.acyc_begin(), module.acyc_end(),
 					RegExp::createFalse(), [&](URE &re1, URE &re2){
 						return AltRE::createOpt(re1->clone(), re2->clone());
 					});
-	module.registerAssert(SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj))),
-			       yy::location());
+	bool status = true;
+	Counterexample cex;
+	auto noOOTA = SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj)));
+	if (!checkAssertion(&*noOOTA, cex)) {
+		std::cerr << "[Error] Acyclicity constraints do not preclude OOTA!\n";
+		printCounterexample(cex);
+		status = false;
+	}
 
 	/* Ensure that all saved relations are included in pporf;ppo and are transitive */
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
 			auto &sv = kv.second;
-			module.registerAssert(
-				SubsetConstraint::create(
-					sv.exp->clone(),
-					StarRE::createOpt(SeqRE::createOpt(StarRE::createOpt(pporf->clone()),
-									   ppo->clone()))),
-				yy::location());
+			Counterexample cex;
+			auto savedInPO = SubsetConstraint::create(
+				sv.exp->clone(), StarRE::createOpt(
+					SeqRE::createOpt(StarRE::createOpt(pporf->clone()), ppo->clone())));
+			if (!checkAssertion(&*savedInPO, cex)) {
+				std::cerr << "[Error] Saved relation not included in pporf;ppo: " << *sv.exp << "\n";
+				printCounterexample(cex);
+				status = false;
+			}
 
-			if (sv.red) {
+			if (sv.status != VarStatus::Normal) {
+				cex.clear();
 				auto seqExp = SeqRE::createOpt(sv.red->clone(), sv.exp->clone());
-				module.registerAssert(SubsetConstraint::createOpt(std::move(seqExp),
-										  sv.exp->clone()), yy::location());
+				auto savedTrans = SubsetConstraint::createOpt(std::move(seqExp), sv.exp->clone());
+				if (!checkAssertion(&*savedTrans, cex)) {
+					std::cerr << "[Error] Reduced relation not transitive: " << *sv.exp << "\n";
+					printCounterexample(cex);
+					status = false;
+				}
 			}
 	});
+	return status;
+}
+
+void Kater::generateNFAs()
+{
+	auto &module = getModule();
+	auto &cnfas = getCNFAs();
+	auto ppo = module.getPPO();
 
 	auto isValidLabel = [&](auto &lab){ return true; };
 
@@ -660,10 +681,14 @@ void Kater::generateNFAs()
 		std::cout << "Generated pporf NFA simplified: " << cnfas.getPPoRf().first << std::endl;
 }
 
-void Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)
+bool Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)
 {
+	if (!checkExportRequirements())
+		return false;
+
 	generateNFAs();
 
 	Printer p(dirPrefix, outPrefix);
 	p.output(getCNFAs());
+	return true;
 }

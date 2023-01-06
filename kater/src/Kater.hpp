@@ -41,8 +41,7 @@ public:
 	 * Returns whether any assertion was violated */
 	bool checkAssertions();
 
-	void generateNFAs();
-	void exportCode(std::string &dirPrefix, std::string &outPrefix);
+	bool exportCode(std::string &dirPrefix, std::string &outPrefix);
 
 private:
 	const Config &getConf() const { return config; }
@@ -52,6 +51,9 @@ private:
 	void expandRfs(URE &r);
 	void registerDefaultAssumptions();
 	bool checkAssertion(Constraint *c, Counterexample &cex);
+
+	void generateNFAs();
+	bool checkExportRequirements();
 
 	void printCounterexample(const Counterexample &cex) const;
 

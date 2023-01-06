@@ -52,7 +52,8 @@ int main(int argc, char **argv)
 	if (config.generate) {
 		if (config.verbose >= 1)
 			std::cout << "Exporting code... ";
-		kater.exportCode(config.dir, config.name);
+		if (!kater.exportCode(config.dir, config.name))
+			exit(EPRINT);
 		if (config.verbose >= 1)
 			std::cout << "Done.\n";
 	}
