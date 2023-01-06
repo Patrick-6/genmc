@@ -30,7 +30,7 @@ assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
 
 save[hb_stable] hb_stable = (po | sw_to_r ; po | sw_to_f // | asw
 	)+
-let hb = (hb_stable | hb_stable? ; sw_to_r)+ // TEMP FIX
+let hb = (hb_stable | hb_stable? ; sw_to_r)
 
 assert hb = (po | sw // | asw
 	)+

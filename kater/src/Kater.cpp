@@ -556,6 +556,21 @@ bool Kater::checkExportRequirements()
 	return status;
 }
 
+void transitivizeSaved(KatModule &module, URE &r)
+{
+	for (int i = 0; i < r->getNumKids(); i++)
+		transitivizeSaved(module, r->getKid(i));
+	if (auto *re = dynamic_cast<CharRE *>(&*r)) {
+		if (re->getLabel().isBuiltin())
+			return;
+		auto sIt = std::find_if(module.svar_begin(), module.svar_end(),
+					[&](auto &p){ return p.first == *re->getLabel().getRelation(); });
+		if (sIt == module.svar_end() || sIt->second.status == VarStatus::Normal)
+			return;
+		r = PlusRE::createOpt(re->clone());
+	}
+}
+
 void Kater::generateNFAs()
 {
 	auto &module = getModule();
@@ -607,7 +622,9 @@ void Kater::generateNFAs()
 		if (getConf().verbose >= 3)
 			std::cout << "Generating NFA for acyclic " << *r << std::endl;
 		// Covert the regural expression to an NFA
-		NFA n = r->toNFA();
+		auto tr = r->clone();
+		transitivizeSaved(module, tr);
+		NFA n = tr->toNFA();
 		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
 		n.star();
@@ -627,7 +644,9 @@ void Kater::generateNFAs()
 		if (getConf().verbose >= 3)
 			std::cout << "Generating NFA for recovery " << *r << std::endl;
 		// Covert the regural expression to an NFA
-		NFA n = r->toNFA();
+		auto tr = r->clone();
+		transitivizeSaved(module, tr);
+		NFA n = tr->toNFA();
 		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
 		// Doing so is alright because the generated DFS code discounts empty paths anyway.
 		if (getConf().verbose >= 4)
