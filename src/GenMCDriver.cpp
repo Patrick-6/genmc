@@ -838,6 +838,9 @@ void GenMCDriver::explore()
 			}
 			auto pos = item->getPos();
 			validExecution = restrictAndRevisit(stamp, std::move(item)) && isConsistent(pos);
+			/* If an extra event is added, re-check consistency */
+			if (validExecution && getGraph().isRMWLoad(pos))
+				validExecution = isConsistent(pos.next());
 		}
 	}
 }
