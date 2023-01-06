@@ -178,6 +178,9 @@ runvariants() {
 	fi
 	explored=`echo "${output}" | awk '/explored/ { print $6 }'`
 	blocked=`echo "${output}" | awk '/blocked/ { print $6 }'`
+	moot=`echo "${output}" | awk '/moot/ { print substr($7, 2) }'`
+	moot="${moot}" && [[ -z "${moot}" ]] && moot=0
+	blocked_nonmoot="" && [[ -n "${blocked}" ]] && blocked_nonmoot=`echo "scale=2; ${blocked}-${moot}" | bc -l`
 	explored_failed=""
 	blocked_failed=""
 	time=`echo "${output}" | awk '/time/ { print substr($4, 1, length($4)-1) }'`
@@ -192,9 +195,9 @@ runvariants() {
 	    failure=1
 	fi
     done
-    if test -n "${check_blocked}" -a "${blocked}" != "${expected_blocked}"
+    if test -n "${check_blocked}" -a "${blocked_nonmoot}" != "${expected_blocked}"
     then
-	blocked_failed="${blocked}"
+	blocked_failed="${blocked_nonmoot}"
 	if [[ -z "${failure_output}" ]]
 	then
 	    failure_output="${output}"
