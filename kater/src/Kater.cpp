@@ -461,21 +461,26 @@ bool checkInclusion(const RegExp *re1, const RegExp *re2,
 	return lhs.isDFASubLanguageOfNFA(nfa2, cex, vfun);
 }
 
-bool Kater::checkAssertion(const Constraint *c, Counterexample &cex)
+bool Kater::checkAssertion(Constraint *c, Counterexample &cex)
 {
 	if (getConf().verbose >= 2)
 		std::cout << "Checking assertion " << *c << std::endl;
+
+	for (int i = 0; i < c->getNumKids(); i++) {
+		expandSavedVars(c->getKid(i));
+		expandRfs(c->getKid(i));
+	}
 
 	auto result = true;
 	auto visitor = make_visitor(
 		type_list<SubsetConstraint, SubsetSameEndsConstraint>{},
 		[&](const SubsetConstraint &sc){
-			result = checkInclusion(c->getKid(0), c->getKid(1),
+			result = checkInclusion(&*c->getKid(0), &*c->getKid(1),
 						module->getAssumes(), cex,
 						[&](auto &t){ return true; });
 		},
 		[&](const SubsetSameEndsConstraint &sc){
-			result = checkInclusion(c->getKid(0), c->getKid(1),
+			result = checkInclusion(&*c->getKid(0), &*c->getKid(1),
 						module->getAssumes(), cex,
 						[&](auto &t){ return true; }, true);
 
@@ -490,11 +495,6 @@ bool Kater::checkAssertions()
 
 	bool status = true;
 	std::for_each(module->assert_begin(), module->assert_end(), [&](auto &p){
-		for (int i = 0; i < p.co->getNumKids(); i++) {
-			expandSavedVars(p.co->getKid(i));
-			expandRfs(p.co->getKid(i));
-		}
-
 		Counterexample cex;
 		if (!checkAssertion(&*p.co, cex)) {
 			std::cerr << p.loc << ": [Error] Assertion does not hold." << std::endl;

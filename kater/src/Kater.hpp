@@ -51,7 +51,7 @@ private:
 	void expandSavedVars(URE &r);
 	void expandRfs(URE &r);
 	void registerDefaultAssumptions();
-	bool checkAssertion(const Constraint *c, Counterexample &cex);
+	bool checkAssertion(Constraint *c, Counterexample &cex);
 
 	void printCounterexample(const Counterexample &cex) const;
 
