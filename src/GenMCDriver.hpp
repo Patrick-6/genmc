@@ -28,6 +28,7 @@
 #include "SAddrAllocator.hpp"
 #include "Trie.hpp"
 #include "WorkSet.hpp"
+#include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
 
 #include <cstdint>
@@ -128,11 +129,13 @@ public:
 	struct State {
 		std::unique_ptr<ExecutionGraph> graph;
 		SAddrAllocator alloctor;
+		llvm::BitVector fds;
 		ValuePrefixT cache;
 
 		State() = delete;
 		State(State &&) = default;
-		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor, ValuePrefixT &&cache);
+		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor,
+		      llvm::BitVector &&fds, ValuePrefixT &&cache);
 		~State();
 	};
 
@@ -318,6 +321,12 @@ protected:
 
 	/* Returns a fresh address for a new allocation */
 	SAddr getFreshAddr(const MallocLabel *aLab);
+
+	/* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
+	int getFreshFd();
+
+	/* Pers: Marks that the file descriptor fd is in use */
+	void markFdAsUsed(int fd);
 
 	/* Given a write event from the graph, returns the value it writes */
 	SVal getWriteValue(Event w, SAddr p, AAccess a);
@@ -780,6 +789,9 @@ private:
 
 	/* An allocator for fresh addresses */
 	SAddrAllocator alloctor;
+
+	/* Pers: A bitvector of available file descriptors */
+	llvm::BitVector fds;
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;

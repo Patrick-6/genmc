@@ -52,7 +52,6 @@
 #include "CallInstWrapper.hpp"
 #include "value_ptr.hpp"
 
-#include <llvm/ADT/BitVector.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/IR/Instructions.h>

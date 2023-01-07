@@ -46,7 +46,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> MI)
-	: userConf(conf), result(), isMootExecution(false), readToReschedule(Event::getInitializer()),
+	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInitializer()),
 	  shouldHalt(false)
 {
 	/* Set up an suitable execution graph with appropriate relations */
@@ -100,8 +100,9 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a, ValuePrefixT &&c)
-	: graph(std::move(g)), alloctor(std::move(a)), cache(std::move(c)) {}
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a,
+			  llvm::BitVector &&fds, ValuePrefixT &&c)
+	: graph(std::move(g)), alloctor(std::move(a)), fds(std::move(fds)), cache(std::move(c)) {}
 GenMCDriver::State::~State() = default;
 
 void GenMCDriver::initFromState(std::unique_ptr<State> s)
@@ -109,6 +110,7 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 	execStack.clear();
 	execStack.emplace_back(std::move(s->graph), LocalQueueT());
 	alloctor = std::move(s->alloctor);
+	fds = std::move(s->fds);
 	seenPrefixes = std::move(s->cache);
 }
 
@@ -116,7 +118,8 @@ std::unique_ptr<GenMCDriver::State>
 GenMCDriver::extractState()
 {
 	return std::make_unique<State>(
-		std::move(execStack.back().graph), std::move(alloctor), std::move(seenPrefixes));
+		std::move(execStack.back().graph), std::move(alloctor),
+		std::move(fds), std::move(seenPrefixes));
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -143,6 +146,28 @@ SAddr GenMCDriver::getFreshAddr(const MallocLabel *aLab)
 	}
 	BUG();
 	return SAddr();
+}
+
+int GenMCDriver::getFreshFd()
+{
+	int fd = fds.find_first_unset();
+
+	/* If no available descriptor found, grow fds and try again */
+	if (fd == -1) {
+		fds.resize(2 * fds.size() + 1);
+		return getFreshFd();
+	}
+
+	/* Otherwise, mark the file descriptor as used */
+	markFdAsUsed(fd);
+	return fd;
+}
+
+void GenMCDriver::markFdAsUsed(int fd)
+{
+	if (fd > fds.size())
+		fds.resize(fd);
+	fds.set(fd);
 }
 
 void GenMCDriver::resetThreadPrioritization()
@@ -413,7 +438,8 @@ GenMCDriver::extractValPrefix(Event pos)
 	for (auto i = 0u; i < pos.index; i++) {
 		auto *lab = g.getEventLabel(Event(pos.thread, i));
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			vals.push_back(getReadValue(rLab));
+			auto *drLab = llvm::dyn_cast<DskReadLabel>(rLab);
+			vals.push_back(drLab ? getDskReadValue(drLab) : getReadValue(rLab));
 			last = lab->getPos();
 		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
 			vals.push_back(getJoinValue(jLab));
@@ -450,7 +476,8 @@ bool GenMCDriver::tryOptimizeScheduling(Event pos)
 
 		DriverHandlerDispatcher dispatcher(this);
 		dispatcher.visit(vlab);
-		if (llvm::isa<BlockLabel>(getGraph().getEventLabel(vlab->getPos())) || isMoot())
+		if (llvm::isa<BlockLabel>(getGraph().getLastThreadLabel(vlab->getThread())) ||
+		    isMoot() || getEE()->getCurThr().isBlocked() || isHalting())
 			return true;
 	}
 	return true;
@@ -513,7 +540,11 @@ bool GenMCDriver::isExecutionBlocked() const
 {
 	return std::any_of(getEE()->threads_begin(), getEE()->threads_end(),
 			   [this](const llvm::Thread &thr){
-				   auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(thr.id));
+				   // FIXME: was thr.isBlocked()
+				   auto &g = getGraph();
+				   if (thr.id >= g.getNumThreads() || g.isThreadEmpty(thr.id)) // think rec
+					   return false;
+				   auto *bLab = llvm::dyn_cast<BlockLabel>(g.getLastThreadLabel(thr.id));
 				   return bLab || thr.isBlocked(); });
 }
 
@@ -2904,15 +2935,12 @@ SVal GenMCDriver::handleDskOpen(std::unique_ptr<DskOpenLabel> oLab)
 	}
 
 	/* We get a fresh file descriptor for this open() */
-	auto fd = g.getFreshFd();
+	auto fd = getFreshFd();
 	ERROR_ON(fd == -1, "Too many calls to open()!\n");
 
-	/* We add a relevant label to the graph... */
 	oLab->setFd(SVal(fd));
-	addLabelToGraph(std::move(oLab));
-
-	/* Return the freshly allocated fd */
-	return SVal(fd);
+	auto *lab = llvm::dyn_cast<DskOpenLabel>(addLabelToGraph(std::move(oLab)));
+	return lab->getFd();
 }
 
 void GenMCDriver::handleDskFsync(std::unique_ptr<DskFsyncLabel> fLab)

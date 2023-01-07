@@ -413,15 +413,6 @@ public:
 		return persChecker.get();
 	}
 
-	/* Pers: Returns a fresh file descriptor for a new open() call (marks it as in use) */
-	int getFreshFd();
-
-	/* Pers: Marks that the file descriptor fd is in use */
-	void markFdAsUsed(int fd);
-
-	/* Pers: The interpreter reclaims a file descriptor that is no longer in use */
-	void reclaimUnusedFd(int fd);
-
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
 	const View &getHbPoBefore(Event e) const;
@@ -667,9 +658,6 @@ private:
 
 	/* The next available timestamp */
 	Stamp timestamp = 0;
-
-	/* Pers: A bitvector of available file descriptors */
-	llvm::BitVector fds;
 
 	/* Relations and calculation status/result */
 	Relations relations;
