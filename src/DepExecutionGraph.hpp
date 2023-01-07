@@ -57,12 +57,6 @@ public:
 	bool prefixContainsSameLoc(const BackwardRevisit &r,
 				   const EventLabel *lab) const override;
 
-#ifdef ENABLE_GENMC_DEBUG
-	std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBefore(const WriteLabel *sLab,
-				 const ReadLabel *rLab) const override;
-#endif
-
 	void cutToStamp(Stamp st) override;
 
 	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override;

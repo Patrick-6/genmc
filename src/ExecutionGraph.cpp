@@ -917,65 +917,6 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
 	return;
 }
 
-
-/************************************************************
- ** Calculation of particular sets of events/event labels
- ***********************************************************/
-
-#ifdef ENABLE_GENMC_DEBUG
-std::vector<std::unique_ptr<EventLabel> >
-ExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
-					 const ReadLabel *rLab) const
-{
-	std::vector<std::unique_ptr<EventLabel> > result;
-
-	auto &prefix = sLab->getPorfView();
-	auto before = getViewFromStamp(rLab->getStamp());
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = before->getMax(i) + 1; j <= prefix.getMax(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			result.push_back(lab->clone());
-
-			auto &curLab = result.back();
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
-				wLab->removeReader([&](Event r) {
-						return !prefix.contains(r) &&
-						       !before->contains(r);
-					});
-			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
-				if (!prefix.contains(eLab->getParentJoin()) &&
-				    !before->contains(eLab->getParentJoin()))
-					eLab->setParentJoin(Event::getInitializer());
-			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
-				/* We can keep the begin event of the child
-				 * the since it will not be deleted */
-				;
-			}
-		}
-	}
-	return result;
-}
-
-std::vector<Event>
-ExecutionGraph::extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs) const
-{
-	std::vector<Event> rfs;
-
-	for (auto const &lab : labs) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab.get()))
-			rfs.push_back(rLab->getRf());
-	}
-	return rfs;
-}
-
-std::vector<std::pair<Event, Event> >
-ExecutionGraph::saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-				    const ReadLabel *rLab) const
-{
-	return getCoherenceCalculator()->saveCoherenceStatus(prefix, rLab);
-}
-#endif
-
 /************************************************************
  ** Calculation of writes a read can read from
  ***********************************************************/

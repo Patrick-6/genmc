@@ -595,22 +595,6 @@ public:
 		return getViewFromStamp(stamp);
 	}
 
-#ifdef ENABLE_GENMC_DEBUG
-	/* Saves the prefix of sLab that is not before rLab. */
-	virtual std::vector<std::unique_ptr<EventLabel> >
-	getPrefixLabelsNotBefore(const WriteLabel *sLab, const ReadLabel *rLab) const;
-
-	/* Returns a list of the rfs of the reads in labs */
-	std::vector<Event>
-	extractRfs(const std::vector<std::unique_ptr<EventLabel> > &labs) const;
-
-	/* Returns pairs of the form <store, pred> where store is a write from labs,
-	 * and pred is an mo-before store that was added before rLab */
-	std::vector<std::pair<Event, Event> >
-	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-			    const ReadLabel *rLab) const;
-#endif
-
 	/* Graph cutting */
 
 	/* Returns a view of the graph representing events with stamp <= st */

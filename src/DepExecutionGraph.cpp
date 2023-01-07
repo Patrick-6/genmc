@@ -159,63 +159,6 @@ bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
 	return false;
 }
 
-#ifdef ENABLE_GENMC_DEBUG
-std::vector<std::unique_ptr<EventLabel> >
-DepExecutionGraph::getPrefixLabelsNotBefore(const WriteLabel *sLab,
-					    const ReadLabel *rLab) const
-{
-	std::vector<std::unique_ptr<EventLabel> > result;
-
-	auto pporf(sLab->getPPoRfView());
-	for (auto i = 0u; i < pporf.size(); i++) {
-		for (auto j = 1; j <= pporf.getMax(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-
-			/* If not part of pporf, skip */
-			if (lab->getStamp() <= rLab->getStamp() ||
-			    !pporf.contains(lab->getPos()))
-				continue;
-
-			/* Handle the case where an rfi is not in pporf (and won't be in the graph) */
-			if (auto *rdLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rdLab->getRf()));
-				if (wLab && !pporf.contains(wLab->getPos()) &&
-				    wLab->getStamp() > rLab->getStamp()) {
-					/* Make sure we will not store twice and clone */
-					pporf.removeHole(wLab->getPos());
-					result.push_back(wLab->clone());
-					auto &curLab = result.back();
-					auto curWLab = llvm::dyn_cast<WriteLabel>(curLab.get());
-					curWLab->removeReader([&](Event r) {
-						return getEventLabel(r)->getStamp() > rLab->getStamp() &&
-							!pporf.contains(r);
-					});
-				}
-			}
-
-			result.push_back(lab->clone());
-
-			auto &curLab = result.back();
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(curLab.get())) {
-				wLab->removeReader([&](Event r) {
-						return getEventLabel(r)->getStamp() > rLab->getStamp() &&
-						       !pporf.contains(r);
-					});
-			} else if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(curLab.get())) {
-				if (getEventLabel(eLab->getParentJoin())->getStamp() > rLab->getStamp() &&
-				    !pporf.contains(eLab->getPos()))
-					eLab->setParentJoin(Event::getInitializer());
-			} else if (auto *cLab = llvm::dyn_cast<ThreadCreateLabel>(curLab.get())) {
-				/* We can keep the begin event of the child
-				 * the since it will not be deleted */
-				;
-			}
-		}
-	}
-	return result;
-}
-#endif
-
 void DepExecutionGraph::cutToStamp(Stamp stamp)
 {
 	/* First remove events from the modification order */
