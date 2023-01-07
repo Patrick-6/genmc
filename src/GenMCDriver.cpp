@@ -951,10 +951,10 @@ SVal GenMCDriver::getJoinValue(const ThreadJoinLabel *jLab) const
 
 SVal GenMCDriver::getStartValue(const ThreadStartLabel *bLab) const
 {
-	if (bLab->getPos().isInitializer())
+	auto &g = getGraph();
+	if (bLab->getPos().isInitializer() || bLab->getThread() == g.getRecoveryRoutineId())
 		return SVal();
 
-	auto &g = getGraph();
 	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(g.getEventLabel(bLab->getParentCreate()));
 	BUG_ON(!tcLab);
 	return tcLab->getChildInfo().arg;
