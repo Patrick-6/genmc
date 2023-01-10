@@ -465,6 +465,9 @@ Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
 
 bool GenMCDriver::tryOptimizeScheduling(Event pos)
 {
+	if (!getConf()->instructionCaching)
+		return false;
+
 	auto next = findNextLabelToAdd(getGraph(), pos);
 	auto [vals, last] = extractValPrefix(next);
 	auto *res = retrieveCachedSuccessors(pos.thread, vals);
