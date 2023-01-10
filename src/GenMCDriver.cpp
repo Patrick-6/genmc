@@ -2834,19 +2834,17 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	auto &g = getGraph();
 	auto v = g.getRevisitView(br);
 	auto og = copyGraph(&br, &*v);
-	auto read = br.getPos();
-	auto write = br.getRev(); /* prefetch since we are gonna change state */
 
 	pushExecution({std::move(og), LocalQueueT()});
 
-	auto ok = revisitRead(BackwardRevisit(read, write));
+	auto ok = revisitRead(br);
 	BUG_ON(!ok);
 
 	/* If there are idle workers in the thread pool,
 	 * try submitting the job instead */
 	auto *tp = getThreadPool();
 	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
-		if (isConsistent(read))
+		if (isConsistent(br.getPos()))
 			tp->submit(extractState());
 		popExecution();
 		return false;
