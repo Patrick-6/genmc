@@ -2204,10 +2204,6 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	auto *EE = getEE();
 	auto &thr = EE->getCurThr();
 
-	/* Attempt to free a NULL pointer; don't increase counters */
-	if (dLab->getFreedAddr().isNull())
-		return;
-
 	if (isExecutionDrivenByGraph(&*dLab))
 		return;
 

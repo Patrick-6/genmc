@@ -2995,7 +2995,10 @@ void Interpreter::callFree(Function *F, const std::vector<GenericValue> &ArgVals
 
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
-	CALL_DRIVER(handleFree, FreeLabel::create(currPos(), ptr, GET_DEPS(deps)));
+
+	/* When attempting to free a NULL pointer, don't increase counters */
+	if (ptr)
+		CALL_DRIVER(handleFree, FreeLabel::create(currPos(), ptr, GET_DEPS(deps)));
 	return;
 }
 
