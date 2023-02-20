@@ -117,7 +117,7 @@ extern int __VERIFIER_truncateFS (const char *__file, __off_t __length);
 
 /* Thread functions */
 
-extern int __VERIFIER_thread_create (const __VERIFIER_attr_t *__restrict __attr,
+extern int __VERIFIER_thread_create (const __VERIFIER_attr_t * __attr,
 				     void *(*__start_routine) (void *),
 				     void *__restrict __arg);
 
