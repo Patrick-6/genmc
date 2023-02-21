@@ -341,6 +341,16 @@ private:
 	std::vector<View> calculatedViews;
 };
 
+#define DEFINE_CREATE_CLONE(name)					\
+	template<typename... Ts>					\
+	static std::unique_ptr<name> create(Ts&&... params) {		\
+		return LLVM_MAKE_UNIQUE<name>(std::forward<Ts>(params)...); \
+	}								\
+									\
+	std::unique_ptr<EventLabel> clone() const override {		\
+		return LLVM_MAKE_UNIQUE<name>(*this);			\
+	}
+
 
 /*******************************************************************************
  **                       DskAccessLabel Class
@@ -410,14 +420,7 @@ public:
 	EmptyLabel(Event pos)
 		: EventLabel(EL_Empty, pos, llvm::AtomicOrdering::NotAtomic, EventDeps()) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<EmptyLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<EmptyLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<EmptyLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(EmptyLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Empty; }
@@ -438,14 +441,7 @@ public:
 
 	BlockageType getType() const { return type; }
 
-	template<typename... Ts>
-	static std::unique_ptr<BlockLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BlockLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BlockLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(BlockLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Block; }
@@ -474,14 +470,7 @@ public:
 	bool isExpanded() const { return expanded; }
 	void setExpanded(bool exp) { expanded = exp; }
 
-	template<typename... Ts>
-	static std::unique_ptr<OptionalLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<OptionalLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<OptionalLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(OptionalLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Optional; }
@@ -503,14 +492,7 @@ public:
 	LoopBeginLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_LoopBegin, pos, llvm::AtomicOrdering::NotAtomic, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<LoopBeginLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LoopBeginLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(LoopBeginLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LoopBegin; }
@@ -529,14 +511,7 @@ public:
 	SpinStartLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_SpinStart, pos, llvm::AtomicOrdering::NotAtomic, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<SpinStartLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<SpinStartLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<SpinStartLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(SpinStartLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_SpinStart; }
@@ -555,14 +530,7 @@ public:
 	FaiZNESpinEndLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_FaiZNESpinEnd, pos, llvm::AtomicOrdering::NotAtomic, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<FaiZNESpinEndLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<FaiZNESpinEndLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<FaiZNESpinEndLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(FaiZNESpinEndLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_FaiZNESpinEnd; }
@@ -580,14 +548,7 @@ public:
 	LockZNESpinEndLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_LockZNESpinEnd, pos, llvm::AtomicOrdering::NotAtomic, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<LockZNESpinEndLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LockZNESpinEndLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LockZNESpinEndLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(LockZNESpinEndLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockZNESpinEnd; }
@@ -689,10 +650,7 @@ public:
 		: ReadLabel(pos, ord, loc, size, type, Event::getBottom(),
 			    nullptr, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<ReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ReadLabel>(std::forward<Ts>(params)...);
-	}
+	DEFINE_CREATE_CLONE(ReadLabel)
 
 	/* Returns the position of the write this read is readinf-from */
 	Event getRf() const { return readsFrom; }
@@ -719,10 +677,6 @@ public:
 	/* SAVer: Getter/setter for the annotation expression */
 	const AnnotT *getAnnot() const { return annotExpr.get(); }
 	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ReadLabel>(*this);
-	}
 
 	virtual void reset() {
 		MemAccessLabel::reset();
@@ -777,14 +731,7 @@ public:									\
 	: _class_kind ## ReadLabel(pos, ord, loc, size,	type,		\
 				   Event::getBottom(), nullptr, deps) {}		\
 									\
-	template<typename... Ts>					\
-	static std::unique_ptr<_class_kind ## ReadLabel> create(Ts&&... params) { \
-		return LLVM_MAKE_UNIQUE<_class_kind ## ReadLabel>(std::forward<Ts>(params)...); \
-	}								\
-									\
-	std::unique_ptr<EventLabel> clone() const override {		\
-		return LLVM_MAKE_UNIQUE<_class_kind ## ReadLabel>(*this); \
-	}								\
+	DEFINE_CREATE_CLONE(_class_kind ## ReadLabel)			\
 									\
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
 	static bool classofKind(EventLabelKind k) { return k == EL_ ## _class_kind ## Read; } \
@@ -816,14 +763,7 @@ public:
 		       AType type, const EventDeps &deps = EventDeps())
 		: BWaitReadLabel(pos, ord, loc, size, type, Event::getBottom(), nullptr, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<BWaitReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BWaitReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BWaitReadLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(BWaitReadLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_BWaitRead; }
@@ -867,10 +807,7 @@ public:
 		     llvm::AtomicRMWInst::BinOp op, SVal val, const EventDeps &deps = EventDeps())
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<FaiReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<FaiReadLabel>(std::forward<Ts>(params)...);
-	}
+	DEFINE_CREATE_CLONE(FaiReadLabel)
 
 	/* Returns the type of this RMW operation (e.g., add, sub) */
 	llvm::AtomicRMWInst::BinOp getOp() const { return binOp; }
@@ -888,10 +825,6 @@ public:
 	virtual void reset() {
 		ReadLabel::reset();
 		wattr &= ~(WriteAttr::RevBlocker);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<FaiReadLabel>(*this);
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -945,14 +878,7 @@ public:								\
 				      val, WriteAttr::None, deps) {} \
 									\
 									\
-	template<typename... Ts>					\
-	static std::unique_ptr<_class_kind ## FaiReadLabel> create(Ts&&... params) { \
-		return LLVM_MAKE_UNIQUE<_class_kind ## FaiReadLabel>(std::forward<Ts>(params)...); \
-	}								\
-									\
-	std::unique_ptr<EventLabel> clone() const override {		\
-		return LLVM_MAKE_UNIQUE<_class_kind ## FaiReadLabel>(*this); \
-	}								\
+	DEFINE_CREATE_CLONE(_class_kind ## FaiReadLabel)		\
 									\
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
 	static bool classofKind(EventLabelKind k) { return k == EL_  ## _class_kind ## FaiRead; } \
@@ -1002,10 +928,7 @@ public:
 		: CasReadLabel(pos, ord, addr, size, type, exp,
 			       swap, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<CasReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<CasReadLabel>(std::forward<Ts>(params)...);
-	}
+	DEFINE_CREATE_CLONE(CasReadLabel)
 
 	/* Returns the value that will make this CAS succeed */
 	SVal getExpected() const { return expected; }
@@ -1023,10 +946,6 @@ public:
 	virtual void reset() {
 		ReadLabel::reset();
 		wattr &= ~(WriteAttr::RevBlocker);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<CasReadLabel>(*this);
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -1076,14 +995,7 @@ public:								\
 				      swap, WriteAttr::None, deps) {} \
 									\
 									\
-	template<typename... Ts>					\
-	static std::unique_ptr<_class_kind ## CasReadLabel> create(Ts&&... params) { \
-		return LLVM_MAKE_UNIQUE<_class_kind ## CasReadLabel>(std::forward<Ts>(params)...); \
-	}								\
-									\
-	std::unique_ptr<EventLabel> clone() const override {		\
-		return LLVM_MAKE_UNIQUE<_class_kind ## CasReadLabel>(*this); \
-	}								\
+	DEFINE_CREATE_CLONE(_class_kind ## CasReadLabel)		\
 									\
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
 	static bool classofKind(EventLabelKind k) { return k == EL_  ## _class_kind ## CasRead; } \
@@ -1121,14 +1033,7 @@ public:
 			 const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<LockCasReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LockCasReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LockCasReadLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(LockCasReadLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockCasRead; }
@@ -1164,14 +1069,7 @@ public:
 			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<TrylockCasReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<TrylockCasReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<TrylockCasReadLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(TrylockCasReadLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasRead; }
@@ -1200,14 +1098,7 @@ public:
 		     Event rf = Event::getBottom(), const EventDeps &deps = EventDeps())
 		: DskReadLabel(pos, llvm::AtomicOrdering::Acquire, loc, size, type, rf, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<DskReadLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskReadLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskReadLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskReadLabel)
 
 	virtual void reset() override {
 		ReadLabel::reset();
@@ -1253,10 +1144,7 @@ public:
 		   AType type, SVal val, const EventDeps &deps = EventDeps())
 		: WriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<WriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<WriteLabel>(std::forward<Ts>(params)...);
-	}
+	DEFINE_CREATE_CLONE(WriteLabel)
 
 	/* Getter/setter for the write value */
 	SVal getVal() const { return value; }
@@ -1290,10 +1178,6 @@ public:
 	 * release sequence of this write */
 	const View& getMsgView() const { return msgView; }
 	void setMsgView(View &&v) { msgView = std::move(v); }
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<WriteLabel>(*this);
-	}
 
 	virtual void reset() override {
 		MemAccessLabel::reset();
@@ -1370,14 +1254,7 @@ public:
 		: UnlockWriteLabel(pos, llvm::AtomicOrdering::Release, addr, size,
 				   AType::Signed, SVal(0), deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<UnlockWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<UnlockWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<UnlockWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(UnlockWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_UnlockWrite; }
@@ -1400,14 +1277,7 @@ public:
 			AType type, SVal val, const EventDeps &deps = EventDeps())
 		: WriteLabel(EL_BInitWrite, pos, ord, addr, size, type, val, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<BInitWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BInitWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BInitWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(BInitWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_BInitWrite; }
@@ -1430,14 +1300,7 @@ public:
 			   AType type, SVal val, const EventDeps &deps = EventDeps())
 		: WriteLabel(EL_BDestroyWrite, pos, ord, addr, size, type, val, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<BDestroyWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BDestroyWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BDestroyWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(BDestroyWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_BDestroyWrite; }
@@ -1468,14 +1331,7 @@ public:
 		      AType type, SVal val, const EventDeps &deps = EventDeps())
 		: FaiWriteLabel(pos, ord, addr, size, type, val, WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<FaiWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<FaiWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<FaiWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(FaiWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k >= EL_FaiWrite && k <= EL_FaiWriteLast; }
@@ -1500,14 +1356,7 @@ public:
 		: FaiWriteLabel(EL_NoRetFaiWrite, pos, ord, addr, size, type,
 				val, wattr, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<NoRetFaiWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<NoRetFaiWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<NoRetFaiWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(NoRetFaiWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_NoRetFaiWrite; }
@@ -1536,14 +1385,7 @@ public:
 		: FaiWriteLabel(EL_BIncFaiWrite, pos, ord, addr, size, type, val,
 				WriteAttr::None, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<BIncFaiWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<BIncFaiWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<BIncFaiWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(BIncFaiWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_BIncFaiWrite; }
@@ -1572,14 +1414,7 @@ public:
 		      const EventDeps &deps = EventDeps())
 		: CasWriteLabel(EL_CasWrite, pos, ord, addr, size, type, val, wattr, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<CasWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<CasWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<CasWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(CasWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k >= EL_CasWrite && k <= EL_CasWriteLast; }
@@ -1600,14 +1435,7 @@ public:								\
 	: CasWriteLabel(EL_ ## _class_kind ## CasWrite, pos, ord, addr,	\
 			size, type, val, wattr, deps) {}		\
 									\
-	template<typename... Ts>					\
-	static std::unique_ptr<_class_kind ## CasWriteLabel> create(Ts&&... params) {	\
-		return LLVM_MAKE_UNIQUE<_class_kind ## CasWriteLabel>(std::forward<Ts>(params)...); \
-	}								\
-									\
-	std::unique_ptr<EventLabel> clone() const override {		\
-		return LLVM_MAKE_UNIQUE<_class_kind ## CasWriteLabel>(*this); \
-	}								\
+	DEFINE_CREATE_CLONE(_class_kind ## CasWriteLabel)		\
 									\
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
 	static bool classofKind(EventLabelKind k) {			\
@@ -1641,14 +1469,7 @@ public:
 		: LockCasWriteLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				    AType::Signed, SVal(1), deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<LockCasWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LockCasWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LockCasWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(LockCasWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockCasWrite; }
@@ -1678,14 +1499,7 @@ public:
 		: TrylockCasWriteLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				       AType::Signed, SVal(1), deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<TrylockCasWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<TrylockCasWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<TrylockCasWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(TrylockCasWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_TrylockCasWrite; }
@@ -1722,14 +1536,7 @@ public:
 	/* Returns the starting offset for this write's disk mapping */
 	const void *getMapping() const { return mapping; }
 
-	template<typename... Ts>
-	static std::unique_ptr<DskWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskWriteLabel)
 
 	virtual void reset() override {
 		WriteLabel::reset();
@@ -1783,14 +1590,7 @@ public:
 	const std::pair<void *, void *>
 	getOrdDataRange() const { return ordDataRange; }
 
-	template<typename... Ts>
-	static std::unique_ptr<DskMdWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskMdWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskMdWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskMdWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskMdWrite; }
@@ -1828,14 +1628,7 @@ public:
 		: DskWriteLabel(EL_DskDirWrite, pos, llvm::AtomicOrdering::Release, addr, size,
 				type, val, mapping, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<DskDirWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskDirWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskDirWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskDirWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskDirWrite; }
@@ -1874,14 +1667,7 @@ public:
 	/* Returns the inode on which the transaction takes place */
 	const void *getTransInode() const { return inode; }
 
-	template<typename... Ts>
-	static std::unique_ptr<DskJnlWriteLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskJnlWriteLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskJnlWriteLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskJnlWriteLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskJnlWrite; }
@@ -1916,14 +1702,7 @@ public:
 	FenceLabel(Event pos, llvm::AtomicOrdering ord, const EventDeps &deps = EventDeps())
 		: FenceLabel(EL_Fence, pos, ord, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<FenceLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<FenceLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<FenceLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(FenceLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) {
@@ -1958,14 +1737,7 @@ public:
 	/* Returns the "size" of this fsync()'s range */
 	unsigned int getSize() const { return size; }
 
-	template<typename... Ts>
-	static std::unique_ptr<DskFsyncLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskFsyncLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskFsyncLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskFsyncLabel)
 
 	virtual void reset() override {
 		FenceLabel::reset();
@@ -2007,14 +1779,7 @@ public:
 	DskSyncLabel(Event pos, const EventDeps &deps = EventDeps())
 		: DskSyncLabel(pos, llvm::AtomicOrdering::Release, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<DskSyncLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskSyncLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskSyncLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskSyncLabel)
 
 	virtual void reset() override {
 		FenceLabel::reset();
@@ -2052,14 +1817,7 @@ public:
 	DskPbarrierLabel(Event pos, const EventDeps &deps = EventDeps())
 		: DskPbarrierLabel(pos, llvm::AtomicOrdering::Release, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<DskPbarrierLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskPbarrierLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskPbarrierLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskPbarrierLabel)
 
 	virtual void reset() override {
 		FenceLabel::reset();
@@ -2116,14 +1874,7 @@ public:
 	/* Returns true if this fence is a strong fence */
 	bool isStrong() const { return ::isStrong(getType()); }
 
-	template<typename... Ts>
-	static std::unique_ptr<SmpFenceLabelLKMM> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<SmpFenceLabelLKMM>(*this);
-	}
+	DEFINE_CREATE_CLONE(SmpFenceLabelLKMM)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_SmpFenceLKMM; }
@@ -2150,14 +1901,7 @@ public:
 		: FenceLabel(EL_RCUSyncLKMM, pos, llvm::AtomicOrdering::SequentiallyConsistent,
 			     deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<RCUSyncLabelLKMM> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<RCUSyncLabelLKMM>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<RCUSyncLabelLKMM>(*this);
-	}
+	DEFINE_CREATE_CLONE(RCUSyncLabelLKMM)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_RCUSyncLKMM; }
@@ -2193,14 +1937,7 @@ public:
 	unsigned int getChildId() const { return getChildInfo().id; }
 	void setChildId(unsigned int tid) { getChildInfo().id = tid; }
 
-	template<typename... Ts>
-	static std::unique_ptr<ThreadCreateLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ThreadCreateLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ThreadCreateLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(ThreadCreateLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadCreate; }
@@ -2237,14 +1974,7 @@ public:
 	/* Returns the last event of the thread the join() is waiting on */
 	Event getChildLast() const { return childLast; }
 
-	template<typename... Ts>
-	static std::unique_ptr<ThreadJoinLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ThreadJoinLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ThreadJoinLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(ThreadJoinLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadJoin; }
@@ -2276,14 +2006,7 @@ public:
 	ThreadKillLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_ThreadKill, pos, llvm::AtomicOrdering::NotAtomic, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<ThreadKillLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ThreadKillLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ThreadKillLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(ThreadKillLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadKill; }
@@ -2315,14 +2038,7 @@ public:
 	/* SR: Returns the id of a symmetric thread, or -1 if no symmetric thread exists  */
 	int getSymmetricTid() const { return symmetricTid; }
 
-	template<typename... Ts>
-	static std::unique_ptr<ThreadStartLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ThreadStartLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ThreadStartLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(ThreadStartLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadStart; }
@@ -2365,14 +2081,7 @@ public:
 	/* Returns the return value of this thread */
 	SVal getRetVal() const { return retVal; }
 
-	template<typename... Ts>
-	static std::unique_ptr<ThreadFinishLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<ThreadFinishLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<ThreadFinishLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(ThreadFinishLabel)
 
 	virtual void reset() override {
 		EventLabel::reset();
@@ -2427,6 +2136,8 @@ public:
 		    StorageType stype, AddressSpace spc, const EventDeps &deps = EventDeps())
 		: MallocLabel(pos, size, alignment, sd, stype, spc, nullptr, {}, deps) {}
 
+	DEFINE_CREATE_CLONE(MallocLabel)
+
 	/* Getter/setter for the (fresh) address returned by the allocation */
 	SAddr getAllocAddr() const { return allocAddr; }
 	void setAllocAddr(SAddr addr) { allocAddr = addr; }
@@ -2457,15 +2168,6 @@ public:
 	/* Returns the naming info associated with this allocation.
 	 * Returns null if no such info is found. */
 	const NameInfo *getNameInfo() const { return nameInfo; }
-
-	template<typename... Ts>
-	static std::unique_ptr<MallocLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<MallocLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<MallocLabel>(*this);
-	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Malloc; }
@@ -2535,14 +2237,7 @@ public:
 		return getFreedAddr() <= addr && addr < getFreedAddr() + getFreedSize();
 	}
 
-	template<typename... Ts>
-	static std::unique_ptr<FreeLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<FreeLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<FreeLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(FreeLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k >= EL_Free && k <= EL_FreeLast; }
@@ -2577,14 +2272,7 @@ public:
 	HpRetireLabel(Event pos, SAddr addr, const EventDeps &deps = EventDeps())
 		: HpRetireLabel(pos, addr, 0, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<HpRetireLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<HpRetireLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<HpRetireLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(HpRetireLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_HpRetire; }
@@ -2614,14 +2302,7 @@ public:
 	SAddr getHpAddr() const { return hpAddr; }
 	SAddr getProtectedAddr() const { return protAddr; }
 
-	template<typename... Ts>
-	static std::unique_ptr<HpProtectLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<HpProtectLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<HpProtectLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(HpProtectLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_HpProtect; }
@@ -2656,14 +2337,7 @@ public:
 	/* Returns the address of the acquired lock */
 	SAddr getLockAddr() const { return lockAddr; }
 
-	template<typename... Ts>
-	static std::unique_ptr<LockLabelLAPOR> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<LockLabelLAPOR>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<LockLabelLAPOR>(*this);
-	}
+	DEFINE_CREATE_CLONE(LockLabelLAPOR)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_LockLAPOR; }
@@ -2695,14 +2369,7 @@ public:
 	/* Returns the address of the released lock */
 	SAddr getLockAddr() const { return lockAddr; }
 
-	template<typename... Ts>
-	static std::unique_ptr<UnlockLabelLAPOR> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<UnlockLabelLAPOR>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<UnlockLabelLAPOR>(*this);
-	}
+	DEFINE_CREATE_CLONE(UnlockLabelLAPOR)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_UnlockLAPOR; }
@@ -2748,14 +2415,7 @@ public:
 	/* Returns the value that the supposed CAS writes */
 	SVal getSwapVal() const { return swapValue; }
 
-	template<typename... Ts>
-	static std::unique_ptr<HelpingCasLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<HelpingCasLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<HelpingCasLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(HelpingCasLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_HelpingCas; }
@@ -2801,14 +2461,7 @@ public:
 	SVal getFd() const { return fd; }
 	void setFd(SVal d) { fd = d; }
 
-	template<typename... Ts>
-	static std::unique_ptr<DskOpenLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<DskOpenLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<DskOpenLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(DskOpenLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_DskOpen; }
@@ -2837,14 +2490,7 @@ public:
 	RCULockLabelLKMM(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_RCULockLKMM, pos, llvm::AtomicOrdering::Acquire, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<RCULockLabelLKMM> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<RCULockLabelLKMM>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<RCULockLabelLKMM>(*this);
-	}
+	DEFINE_CREATE_CLONE(RCULockLabelLKMM)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_RCULockLKMM; }
@@ -2866,14 +2512,7 @@ public:
 	RCUUnlockLabelLKMM(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_RCUUnlockLKMM, pos, llvm::AtomicOrdering::Release, deps) {}
 
-	template<typename... Ts>
-	static std::unique_ptr<RCUUnlockLabelLKMM> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<RCUUnlockLabelLKMM>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<RCUUnlockLabelLKMM>(*this);
-	}
+	DEFINE_CREATE_CLONE(RCUUnlockLabelLKMM)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_RCUUnlockLKMM; }
@@ -2901,14 +2540,7 @@ public:
 	/* Returns a pointer to the addr on which the flush takes place */
 	SAddr getAddr() const { return addr; }
 
-	template<typename... Ts>
-	static std::unique_ptr<CLFlushLabel> create(Ts&&... params) {
-		return LLVM_MAKE_UNIQUE<CLFlushLabel>(std::forward<Ts>(params)...);
-	}
-
-	std::unique_ptr<EventLabel> clone() const override {
-		return LLVM_MAKE_UNIQUE<CLFlushLabel>(*this);
-	}
+	DEFINE_CREATE_CLONE(CLFlushLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_CLFlush; }
