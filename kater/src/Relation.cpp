@@ -25,9 +25,9 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
         {po_imm,	{"po-imm",      RelType::OneOne,     {},   {},   true}},
         {po_loc_imm,	{"po-loc-imm",  RelType::OneOne,     {},   {},   true}},
 	/* deps */
-        {ctrl_imm,	{"ctrl-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
-        {addr_imm,	{"addr-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
-        {data_imm,	{"data-imm",    RelType::UnsuppMany, {(PB::R)}, {},   true}},
+        {ctrl_imm,	{"ctrl-imm",    RelType::UnsuppMany, {(PB::Dep)}, {},   true}},
+        {addr_imm,	{"addr-imm",    RelType::UnsuppMany, {(PB::Dep)}, {},   true}},
+        {data_imm,	{"data-imm",    RelType::UnsuppMany, {(PB::Dep)}, {},   true}},
 	/* same thread */
 	{same_thread,	{"same-thread", RelType::Conj,	     {},   {},   false}},
 	/* same location */

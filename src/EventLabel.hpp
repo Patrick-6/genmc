@@ -278,6 +278,11 @@ public:
 		return isTerminator(getKind());
 	}
 
+	/* Whether this label can have outgoing dep edges */
+	bool isDependable() const {
+		return isDependable(getKind());
+	}
+
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
@@ -303,6 +308,10 @@ public:
 private:
 	static inline bool isTerminator(EventLabelKind k) {
 		return k == EL_Block || k == EL_ThreadKill || k == EL_ThreadFinish;
+	}
+
+	static inline bool isDependable(EventLabelKind k) {
+		return k == EL_Read || k == EL_Malloc;
 	}
 
 	void setStamp(Stamp s) { stamp = s; }

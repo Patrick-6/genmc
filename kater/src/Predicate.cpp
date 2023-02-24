@@ -43,6 +43,7 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::Rel,        {"REL"      , "#->isAtLeastRelease()"}},
 	{ PredicateMask::SC,         {"SC"       , "#->isSC()"}},
 	{ PredicateMask::D,          {"D"        , "llvm::isa<MemAccessLabel>(#) && llvm::dyn_cast<MemAccessLabel>(#)->getAddr().isDurable()"}},
+	{ PredicateMask::Dep,        {"Dep"      , "#->isDependable()"}},
 	{ PredicateMask::UR,         {"UR"       , "g.isRMWLoad(#)"}},
 	{ PredicateMask::UW,         {"UW"       , "g.isRMWStore(#)"}},
 	{ PredicateMask::NR,         {"R\\U"     , "llvm::isa<ReadLabel>(#) && !g.isRMWLoad(#)"}},

@@ -100,6 +100,7 @@ enum PredicateMask : unsigned long long {
 	SC          = Rsc  & Wsc  & Fsc,
 	D           = DR & DW,
 	U           = UR & UW,
+	Dep         = R & Alloc,
 };
 
 #endif /* KATER_BASIC_PREDICATES_HPP */
