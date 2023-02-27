@@ -48,38 +48,6 @@ DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 	return loads;
 }
 
-void updatePredsWithPrefixView(const DepExecutionGraph &g, DepView &preds, const DepView &pporf)
-{
-	/* In addition to taking (preds U pporf), make sure pporf includes rfis */
-	preds.update(pporf);
-	for (auto i = 0u; i < pporf.size(); i++) {
-		for (auto j = 1; j <= pporf.getMax(i); j++) {
-			auto *lab = g.getEventLabel(Event(i, j));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (preds.contains(rLab->getPos()) && !preds.contains(rLab->getRf())) {
-					if (rLab->getRf().thread == rLab->getThread())
-						preds.removeHole(rLab->getRf());
-				}
-			}
-		}
-	}
-	return;
-}
-
-std::unique_ptr<VectorClock>
-DepExecutionGraph::getRevisitView(const BackwardRevisit &r) const
-{
-	auto *rLab = getReadLabel(r.getPos());
-	auto preds = getViewFromStamp(rLab->getStamp());
-
-	updatePredsWithPrefixView(*this, *llvm::dyn_cast<DepView>(&*preds),
-				  getWriteLabel(r.getRev())->getPPoRfView());
-	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-		updatePredsWithPrefixView(*this, *llvm::dyn_cast<DepView>(&*preds),
-					  getWriteLabel(br->getMid())->getPPoRfView());
-	return std::move(preds);
-}
-
 std::unique_ptr<VectorClock>
 DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 {
@@ -93,70 +61,6 @@ DepExecutionGraph::getViewFromStamp(Stamp stamp) const
 		}
 	}
 	return preds;
-}
-
-bool DepExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
-{
-	auto v = getRevisitView(r);
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (v->getMax(i) + 1 != (long) getThreadSize(i) &&
-		    !getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
-			return true;
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			const EventLabel *lab = getEventLabel(Event(i, j));
-			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
-			    !lab->isTerminator())
-				return true;
-		}
-	}
-	return false;
-}
-
-bool isFixedHoleInView(const DepExecutionGraph &g, const EventLabel *lab, const DepView &v)
-{
-	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
-		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
-				   [&v](const Event &r){ return v.contains(r); });
-
-	auto *rLabB = llvm::dyn_cast<ReadLabel>(lab);
-	if (!rLabB)
-		return false;
-
-	/* If prefix has same address load, we must read from the same write */
-	for (auto i = 0u; i < v.size(); i++) {
-		for (auto j = 0u; j <= v.getMax(i); j++) {
-			if (!v.contains(Event(i, j)))
-				continue;
-			if (auto *mLab = g.getReadLabel(Event(i, j)))
-				if (mLab->getAddr() == rLabB->getAddr() && mLab->getRf() == rLabB->getRf())
-					return true;
-		}
-	}
-
-	if (g.isRMWLoad(rLabB)) {
-		auto *wLabB = g.getWriteLabel(rLabB->getPos().next());
-		return std::any_of(wLabB->getReadersList().begin(), wLabB->getReadersList().end(),
-				   [&v](const Event &r){ return v.contains(r); });
-	}
-	return false;
-}
-
-bool DepExecutionGraph::prefixContainsSameLoc(const BackwardRevisit &r,
-					      const EventLabel *lab) const
-{
-	/* Some holes need to be treated specially. However, it is _wrong_ to keep
-	 * porf views around. What we should do instead is simply check whether
-	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
-	 * Similar actions are taken in {WB,MO}Calculator */
-	auto &v = getWriteLabel(r.getRev())->getPPoRfView();
-	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(*this, lab, v))
-		return true;
-	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r)) {
-		auto &hv = getWriteLabel(br->getMid())->getPPoRfView();
-		return lab->getIndex() <= hv.getMax(lab->getThread()) && isFixedHoleInView(*this, lab, hv);
-	}
-	return false;
 }
 
 void DepExecutionGraph::cutToStamp(Stamp stamp)

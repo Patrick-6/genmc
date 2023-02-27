@@ -190,8 +190,6 @@ public:
 	std::vector<Event>
 	getCoherentRevisits(const WriteLabel *wLab) override;
 
-	bool inMaximalPath(const BackwardRevisit &r) override;
-
 	/* Overrided Calculator methods */
 
 	void initCalc() override;

@@ -559,6 +559,41 @@ private:
 	std::unique_ptr<BackwardRevisit>
 	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
 
+	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
+	 * (This function can be abused and also be utilized for returning the view
+	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
+	std::unique_ptr<VectorClock>
+	getRevisitView(const BackwardRevisit &r) const;
+
+	/* Returnes true if the revisit R will delete LAB from the graph */
+	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const {
+		auto v = getRevisitView(r);
+		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
+	}
+
+	/* Returns true if ELAB has been revisited by some event that
+	 * will be deleted by the revisit R */
+	bool hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab);
+
+	/* Returns whether the prefix of SLAB contains LAB's matching lock */
+	bool prefixContainsMatchingLock(const BackwardRevisit &r, const EventLabel *lab);
+
+	bool isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab);
+
+	bool coherenceSuccRemainInGraph(const BackwardRevisit &r);
+
+	/* Returns true if all events to be removed by the revisit
+	 * RLAB <- SLAB form a maximal extension */
+	bool isMaximalExtension(const BackwardRevisit &r);
+
+	/* Returns true if the graph that will be created when sLab revisits rLab
+	 * will be the same as the current one */
+	bool revisitModifiesGraph(const BackwardRevisit &r) const;
+
+	bool prefixContainsSameLoc(const BackwardRevisit &r, const EventLabel *lab) const;
+
+	bool isConflictingNonRevBlocker(const EventLabel *pLab, const WriteLabel *sLab, const Event &s);
+
 	/* Helper: Checks whether the execution should continue upon SLAB revisited LOADS.
 	 * Returns true if yes, and false (+moot) otherwise  */
 	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads);
@@ -763,6 +798,11 @@ private:
 	virtual bool isConsistent(const Event &e) { ERROR("Unimplemented cons\n"); };
 
 	virtual bool isRecoveryValid(const Event &e) { ERROR("Unimplemented pers\n"); };
+
+	/* Returns a vector clock representing the prefix of e.
+	 * Depending on whether dependencies are tracked, the prefix can be
+	 * either (po U rf) or (AR U rf) */
+	virtual const VectorClock& getPrefixView(Event e) const;
 
 #ifdef ENABLE_GENMC_DEBUG
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);

@@ -328,12 +328,6 @@ public:
 	 * returns the one with the smallest stamp */
 	Event getPendingRMW(const WriteLabel *sLab) const;
 
-	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
-	 * (This function can be abused and also be utilized for returning the view
-	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
-	virtual std::unique_ptr<VectorClock>
-	getRevisitView(const BackwardRevisit &r) const;
-
 	/* Returns a list of loads that can be revisited */
 	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
 
@@ -513,44 +507,6 @@ public:
 	/* Pers: Returns true if the recovery routine is valid */
 	bool isRecoveryValid() const;
 
-	/* Returnes true if the revisit R will delete LAB from the graph */
-	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const {
-		auto v = getRevisitView(r);
-		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
-	}
-
-	/* Returns true if ELAB has been revisited by some event that
-	 * will be deleted by the revisit R */
-	bool hasBeenRevisitedByDeleted(const BackwardRevisit &r, const EventLabel *eLab) const;
-
-	/* Returns whether the prefix of SLAB contains LAB's matching lock */
-	bool prefixContainsMatchingLock(const BackwardRevisit &r, const EventLabel *lab) const {
-		if (!llvm::isa<UnlockWriteLabel>(lab))
-			return false;
-		auto l = getMatchingLock(lab->getPos());
-		if (l.isInitializer())
-			return false;
-		if (getPrefixView(r.getRev()).contains(l))
-			return true;
-		if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-			return getPrefixView(br->getMid()).contains(l);
-		return false;
-	}
-
-	/* Returns true if all events to be removed by the revisit
-	 * RLAB <- SLAB form a maximal extension */
-	bool isMaximalExtension(const BackwardRevisit &r) const;
-
-	/* Returns true if the graph that will be created when sLab revisits rLab
-	 * will be the same as the current one */
-	virtual bool revisitModifiesGraph(const BackwardRevisit &r) const;
-
-	virtual bool prefixContainsSameLoc(const BackwardRevisit &r,
-					   const EventLabel *lab) const {
-		return false;
-	}
-
-
 	/* Debugging methods */
 
 	void validate(void);
@@ -572,13 +528,6 @@ public:
 
 
 	/* Prefix saving and restoring */
-
-	/* Returns a vector clock representing the prefix of e.
-	 * Depending on whether dependencies are tracked, the prefix can be
-	 * either (po U rf) or (AR U rf) */
-	virtual const VectorClock& getPrefixView(Event e) const {
-		return getEventLabel(e)->getPorfView();
-	}
 
 	/* Returns a vector clock representing the events added before e */
 	std::unique_ptr<VectorClock> getPredsView(Event e) const {

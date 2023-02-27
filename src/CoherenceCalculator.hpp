@@ -286,10 +286,6 @@ public:
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *wLab) = 0;
 
-	/* Returns whether the path from RLAB to WLAB is maximal */
-	virtual bool
-	inMaximalPath(const BackwardRevisit &r) = 0;
-
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.
 	 * This means that for each write we save a predecessor in preds (or within

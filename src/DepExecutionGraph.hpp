@@ -45,18 +45,6 @@ public:
 	std::unique_ptr<VectorClock>
 	getViewFromStamp(Stamp) const override;
 
-	std::unique_ptr<VectorClock>
-	getRevisitView(const BackwardRevisit &r) const override;
-
-	const VectorClock& getPrefixView(Event e) const override {
-		return getEventLabel(e)->getPPoRfView();
-	}
-
-	bool revisitModifiesGraph(const BackwardRevisit &r) const override;
-
-	bool prefixContainsSameLoc(const BackwardRevisit &r,
-				   const EventLabel *lab) const override;
-
 	void cutToStamp(Stamp st) override;
 
 	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override;

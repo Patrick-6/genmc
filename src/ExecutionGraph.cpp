@@ -786,17 +786,6 @@ ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab)
 	return getCoherenceCalculator()->getCoherentRevisits(wLab);
 }
 
-std::unique_ptr<VectorClock>
-ExecutionGraph::getRevisitView(const BackwardRevisit &r) const
-{
-	auto *rLab = getReadLabel(r.getPos());
-	auto preds = getViewFromStamp(rLab->getStamp());
-	preds->update(getWriteLabel(r.getRev())->getPorfView());
-	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-		preds->update(getWriteLabel(br->getMid())->getPorfView());
-	return std::move(preds);
-}
-
 const DepView &ExecutionGraph::getPPoRfBefore(Event e) const
 {
 	return getEventLabel(e)->getPPoRfView();
@@ -1022,37 +1011,6 @@ bool ExecutionGraph::isRecoveryValid() const
 	PersistencyChecker *pc = getPersChecker();
 	BUG_ON(!pc);
 	return pc->isRecAcyclic();
-}
-
-bool ExecutionGraph::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
-					       const EventLabel *eLab) const
-{
-	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
-	if (!lab)
-		return false;
-
-	auto *rfLab = getEventLabel(lab->getRf());
-	auto v = getRevisitView(r);
-	return !v->contains(rfLab->getPos()) &&
-		rfLab->getStamp() > lab->getStamp() &&
-		!prefixContainsSameLoc(r, rfLab) &&
-		!prefixContainsMatchingLock(r, rfLab);
-}
-
-bool ExecutionGraph::isMaximalExtension(const BackwardRevisit &r) const
-{
-	return getCoherenceCalculator()->inMaximalPath(r);
-}
-
-bool ExecutionGraph::revisitModifiesGraph(const BackwardRevisit &r) const
-{
-	auto v = getRevisitView(r);
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		if (v->getMax(i) + 1 != (int) getThreadSize(i) &&
-		    !getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
-			return true;
-	}
-	return false;
 }
 
 
