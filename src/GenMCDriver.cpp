@@ -2301,8 +2301,8 @@ void GenMCDriver::handleBlock(std::unique_ptr<BlockLabel> lab)
 		return;
 
 	auto &g = getGraph();
-	auto *bLab = addLabelToGraph(std::move(lab));
-	blockThreadTryMoot(bLab->getPos(), BlockageType::User);
+	auto *bLab = llvm::dyn_cast<BlockLabel>(addLabelToGraph(std::move(lab)));
+	blockThreadTryMoot(bLab->getPos(), bLab->getType());
 	return;
 }
 
