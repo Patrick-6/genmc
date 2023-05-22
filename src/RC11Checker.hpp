@@ -30,6 +30,7 @@
 #include "GraphIterators.hpp"
 #include "MaximalIterator.hpp"
 #include "PersistencyChecker.hpp"
+#include "VerificationError.hpp"
 #include "VSet.hpp"
 #include <cstdint>
 #include <vector>
@@ -52,6 +53,7 @@ public:
 	std::vector<VSet<Event>> calculateSaved(const Event &e);
 	std::vector<View> calculateViews(const Event &e);
 	bool isConsistent(const Event &e);
+	VerificationError checkErrors(const Event &e);
 	bool isRecoveryValid(const Event &e);
 	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
 
@@ -61,6 +63,8 @@ private:
 	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
 	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
+	void visitCalc0_5(const Event &e, VSet<Event> &calcRes);
+	void visitCalc0_6(const Event &e, VSet<Event> &calcRes);
 
 	VSet<Event> calculate0(const Event &e);
 
@@ -69,20 +73,86 @@ private:
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_2;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_3;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_4;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_5;
+	static inline thread_local std::vector<NodeStatus> visitedCalc0_6;
 
-	void visitCalc1_0(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_1(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_2(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_3(const Event &e, VSet<Event> &calcRes);
-	void visitCalc1_4(const Event &e, VSet<Event> &calcRes);
+	void visitInclusionLHS0_0(const Event &e);
+	void visitInclusionLHS0_1(const Event &e);
 
-	VSet<Event> calculate1(const Event &e);
+	bool checkInclusion0(const Event &e);
 
-	static inline thread_local std::vector<NodeStatus> visitedCalc1_0;
-	static inline thread_local std::vector<NodeStatus> visitedCalc1_1;
-	static inline thread_local std::vector<NodeStatus> visitedCalc1_2;
-	static inline thread_local std::vector<NodeStatus> visitedCalc1_3;
-	static inline thread_local std::vector<NodeStatus> visitedCalc1_4;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS0_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS0_1;
+
+	static inline thread_local std::vector<bool> lhsAccept0;
+	static inline thread_local std::vector<bool> rhsAccept0;
+
+	void visitInclusionLHS1_0(const Event &e);
+	void visitInclusionLHS1_1(const Event &e);
+	void visitInclusionRHS1_0(const Event &e);
+	void visitInclusionRHS1_1(const Event &e);
+
+	bool checkInclusion1(const Event &e);
+
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS1_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS1_1;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS1_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS1_1;
+
+	static inline thread_local std::vector<bool> lhsAccept1;
+	static inline thread_local std::vector<bool> rhsAccept1;
+
+	void visitInclusionLHS2_0(const Event &e);
+	void visitInclusionLHS2_1(const Event &e);
+
+	bool checkInclusion2(const Event &e);
+
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS2_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS2_1;
+
+	static inline thread_local std::vector<bool> lhsAccept2;
+	static inline thread_local std::vector<bool> rhsAccept2;
+
+	void visitInclusionLHS3_0(const Event &e);
+	void visitInclusionLHS3_1(const Event &e);
+	void visitInclusionRHS3_0(const Event &e);
+	void visitInclusionRHS3_1(const Event &e);
+
+	bool checkInclusion3(const Event &e);
+
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS3_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS3_1;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS3_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS3_1;
+
+	static inline thread_local std::vector<bool> lhsAccept3;
+	static inline thread_local std::vector<bool> rhsAccept3;
+
+	void visitInclusionLHS4_0(const Event &e);
+	void visitInclusionLHS4_1(const Event &e);
+
+	bool checkInclusion4(const Event &e);
+
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS4_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS4_1;
+
+	static inline thread_local std::vector<bool> lhsAccept4;
+	static inline thread_local std::vector<bool> rhsAccept4;
+
+	void visitInclusionLHS5_0(const Event &e);
+	void visitInclusionLHS5_1(const Event &e);
+	void visitInclusionRHS5_0(const Event &e);
+	void visitInclusionRHS5_1(const Event &e);
+
+	bool checkInclusion5(const Event &e);
+
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS5_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS5_1;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS5_0;
+	static inline thread_local std::vector<NodeStatus> visitedInclusionRHS5_1;
+
+	static inline thread_local std::vector<bool> lhsAccept5;
+	static inline thread_local std::vector<bool> rhsAccept5;
 
 	bool visitAcyclic0(const Event &e);
 	bool visitAcyclic1(const Event &e);
@@ -96,6 +166,10 @@ private:
 	bool visitAcyclic9(const Event &e);
 	bool visitAcyclic10(const Event &e);
 	bool visitAcyclic11(const Event &e);
+	bool visitAcyclic12(const Event &e);
+	bool visitAcyclic13(const Event &e);
+	bool visitAcyclic14(const Event &e);
+	bool visitAcyclic15(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
@@ -111,6 +185,10 @@ private:
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic9;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic10;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic11;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic12;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic13;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic14;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic15;
 
 	uint16_t visitedAccepting = 0;
 

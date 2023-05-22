@@ -1211,14 +1211,26 @@ void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 	return;
 }
 
+const MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
+{
+	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto *lab){
+		auto *mLab = llvm::dyn_cast<MallocLabel>(lab);
+		return mLab && mLab->contains(addr);
+	});
+	if (labIt != label_end(g))
+		return llvm::dyn_cast<MallocLabel>(*labIt);
+	return nullptr;
+}
+
 bool GenMCDriver::isAccessValid(const MemAccessLabel *lab)
 {
 	/* Make sure that the interperter is aware of this static variable */
 	if (!lab->getAddr().isDynamic())
 		return getEE()->isStaticallyAllocated(lab->getAddr());
 
-	/* Validity of dynamic accesses will be checked as part of the race detection mechanism */
-	return !lab->getAddr().isNull() && !checkForMemoryRaces(lab);
+	/* Dynamic accesses are valid if they access allocated memory */
+	auto &g = getGraph();
+	return !lab->getAddr().isNull() && findAllocatingLabel(g, lab->getAddr());
 }
 
 void GenMCDriver::checkLockValidity(const ReadLabel *rLab, const std::vector<Event> &rfs)
@@ -1974,6 +1986,12 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		return std::nullopt; /* This execution will be blocked */
 	}
 
+	VerificationError err;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab->getPos())) != VerificationError::VE_OK) {
+		reportError(lab->getPos(), err);
+		return std::nullopt;
+	}
+
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
 	BUG_ON(stores.empty());
@@ -2000,7 +2018,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	checkReconsiderFaiSpinloop(lab);
 
 	/* Check for races and reading from uninitialized memory */
-	checkForDataRaces(lab);
+	// checkForDataRaces(lab);
 	if (llvm::isa<LockCasReadLabel>(lab))
 		checkLockValidity(lab, stores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
@@ -2086,6 +2104,12 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 	}
 
+	VerificationError err;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab->getPos())) != VerificationError::VE_OK) {
+		reportError(lab->getPos(), err);
+		return;
+	}
+
 	/* Find all possible placings in coherence for this store */
 	auto placesRange = g.getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
 	auto &begO = placesRange.first;
@@ -2130,7 +2154,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		unblockWaitingHelping();
 
 	/* Check for races */
-	checkForDataRaces(lab);
+	// checkForDataRaces(lab);
 	if (llvm::isa<UnlockWriteLabel>(lab))
 		checkUnlockValidity(lab);
 	if (llvm::isa<BInitWriteLabel>(lab))
@@ -2218,7 +2242,10 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	auto *lab = addLabelToGraph(std::move(dLab));
 
 	/* Check whether there is any memory race */
-	checkForMemoryRaces(llvm::dyn_cast<FreeLabel>(lab));
+	// checkForMemoryRaces(llvm::dyn_cast<FreeLabel>(lab));
+	VerificationError err;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab->getPos())) != VerificationError::VE_OK)
+		reportError(lab->getPos(), err);
 	return;
 }
 

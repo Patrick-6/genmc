@@ -402,3 +402,8 @@ bool RC11Driver::isConsistent(const Event &e)
 {
 	return RC11Checker(getGraph()).isConsistent(e);
 }
+
+VerificationError RC11Driver::checkErrors(const Event &e)
+{
+	return RC11Checker(getGraph()).checkErrors(e);
+}

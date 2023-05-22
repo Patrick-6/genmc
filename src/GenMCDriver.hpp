@@ -770,8 +770,8 @@ private:
 
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const Event &e) { ERROR("Unimplemented cons\n"); };
-
 	virtual bool isRecoveryValid(const Event &e) { ERROR("Unimplemented pers\n"); };
+	virtual VerificationError checkErrors(const Event &e) { ERROR("Unimplemented error\n"); };
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be

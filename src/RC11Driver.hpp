@@ -35,6 +35,7 @@ public:
 	void initConsCalculation() override;
 
 	bool isConsistent(const Event &e) override;
+	VerificationError checkErrors(const Event &e) override;
 
 private:
 	View calcBasicHbView(Event e) const;
