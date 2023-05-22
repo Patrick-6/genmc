@@ -1526,4 +1526,76 @@ inline const_sameloc_range samelocs(const ExecutionGraph &G, Event e)
 	return const_sameloc_range(sameloc_begin(G, e), sameloc_end(G, e));
 }
 
+
+/*******************************************************************************
+ **                         alloc-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	struct AllocFilter {
+		AllocFilter() = delete;
+		AllocFilter(const ExecutionGraph &g, const SAddr &a)
+			: graph(g), addr(a) {}
+
+		bool operator()(const Event &s) const {
+			auto *lab = llvm::dyn_cast<MallocLabel>(graph.getEventLabel(s));
+			return lab && lab->contains(addr);
+		}
+	private:
+		const ExecutionGraph &graph;
+		const SAddr addr;
+	};
+
+	template<typename IterT>
+	struct alloc_filter_iterator : public llvm::filter_iterator<IterT, AllocFilter> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, AllocFilter>;
+
+		alloc_filter_iterator(IterT it, IterT end, AllocFilter filter)
+			: BaseT(it, end, filter) {}
+
+		alloc_filter_iterator& operator++() {
+			return static_cast<alloc_filter_iterator&>(BaseT::operator++());
+		}
+		alloc_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_alloc_iterator = ::detail::alloc_filter_iterator<const_event_iterator>;
+using const_reverse_alloc_iterator = ::detail::alloc_filter_iterator<const_reverse_event_iterator>;
+
+using const_alloc_range = llvm::iterator_range<const_alloc_iterator>;
+using const_reverse_alloc_range = llvm::iterator_range<const_reverse_alloc_iterator>;
+
+inline const_alloc_iterator alloc_begin(const ExecutionGraph &G, Event e)
+{
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	return hasLocation(lab) ? const_alloc_iterator(event_begin(G), event_end(G),
+						       AllocFilter(G, getLocation(lab))) :
+		const_alloc_iterator(event_end(G), event_end(G),
+				     AllocFilter(G, SAddr()));
+}
+
+inline const_alloc_iterator alloc_end(const ExecutionGraph &G, Event e)
+{
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
+	return const_alloc_iterator(event_end(G), event_end(G),
+				    AllocFilter(G, addr));
+}
+
+inline const_alloc_range allocs(const ExecutionGraph &G, Event e)
+{
+	return const_alloc_range(alloc_begin(G, e), alloc_end(G, e));
+}
+
+inline const_alloc_range allocs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return allocs(G, lab->getPos());
+}
+
 #endif /* __GRAPH_ITERATORS_HPP__ */
