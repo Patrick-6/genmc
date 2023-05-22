@@ -1457,4 +1457,73 @@ inline const_tj_range tj_preds(const ExecutionGraph &G, const EventLabel *lab)
 	return tj_preds(G, lab->getPos());
 }
 
+
+/*******************************************************************************
+ **                         sameloc-iteration utilities
+ ******************************************************************************/
+
+namespace detail {
+	struct IDAndLocFilter {
+		IDAndLocFilter() = delete;
+		IDAndLocFilter(const ExecutionGraph &g, const SAddr &a, Event e)
+			: graph(g), addr(a), pos(e) {}
+
+		bool operator()(const Event &s) const {
+			if (auto *lab = llvm::dyn_cast<MemAccessLabel>(graph.getEventLabel(s)))
+				return lab->getPos() != pos && lab->getAddr() == addr;
+			if (auto *lab = llvm::dyn_cast<MallocLabel>(graph.getEventLabel(s)))
+				return lab->getPos() != pos && lab->contains(addr);
+			if (auto *lab = llvm::dyn_cast<FreeLabel>(graph.getEventLabel(s)))
+				return lab->getPos() != pos && lab->contains(addr);
+			return false;
+		}
+	private:
+		const ExecutionGraph &graph;
+		const SAddr addr;
+		const Event pos;
+	};
+
+	template<typename IterT>
+	struct sameloc_filter_iterator : public llvm::filter_iterator<IterT, IDAndLocFilter> {
+	public:
+		using BaseT = llvm::filter_iterator<IterT, IDAndLocFilter>;
+
+		sameloc_filter_iterator(IterT it, IterT end, IDAndLocFilter filter)
+			: BaseT(it, end, filter) {}
+
+		sameloc_filter_iterator& operator++() {
+			return static_cast<sameloc_filter_iterator&>(BaseT::operator++());
+		}
+		sameloc_filter_iterator operator++(int) {
+			auto tmp = *this; BaseT::operator++(); return tmp;
+		}
+	};
+} /* namespace detail */
+
+using const_sameloc_iterator = ::detail::sameloc_filter_iterator<const_event_iterator>;
+using const_sameloc_range = llvm::iterator_range<const_sameloc_iterator>;
+
+inline const_sameloc_iterator sameloc_begin(const ExecutionGraph &G, Event e)
+{
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	return hasLocation(lab) ? const_sameloc_iterator(event_begin(G), event_end(G),
+							 IDAndLocFilter(G, getLocation(lab), lab->getPos())) :
+		const_sameloc_iterator(event_end(G), event_end(G),
+				       IDAndLocFilter(G, SAddr(), lab->getPos()));
+}
+
+inline const_sameloc_iterator sameloc_end(const ExecutionGraph &G, Event e)
+{
+	using namespace ::detail;
+	auto *lab = G.getEventLabel(e);
+	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
+	return const_sameloc_iterator(event_end(G), event_end(G), IDAndLocFilter(G, addr, lab->getPos()));
+}
+
+inline const_sameloc_range samelocs(const ExecutionGraph &G, Event e)
+{
+	return const_sameloc_range(sameloc_begin(G, e), sameloc_end(G, e));
+}
+
 #endif /* __GRAPH_ITERATORS_HPP__ */
