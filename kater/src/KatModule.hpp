@@ -114,6 +114,7 @@ public:
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
 
 	URE getPPO() const { return ppo->clone(); }
+	URE getPPORF() const { return pporf->clone(); }
 
 	const std::vector<UCO> &getAssumes() const { return assumes; }
 
@@ -154,7 +155,17 @@ public:
 		assumes.push_back(std::move(c));
 	}
 
-	void registerPPO(URE r) { ppo = std::move(r); }
+	void registerPPO(URE r) {
+		ppo = std::move(r);
+
+		/* Also create pporf since we are at it */
+		auto rf = getRegisteredID("rfe");
+		auto tc = getRegisteredID("tc");
+		auto tj = getRegisteredID("tj");
+		auto porf = StarRE::createOpt(AltRE::createOpt(ppo->clone(), std::move(rf),
+							       std::move(tc), std::move(tj)));
+		pporf = std::move(porf);
+	}
 
 	// Handle consistency constraint in the input file
 	void addConstraint(const Constraint *c, const std::string &s, const yy::location &loc);
@@ -205,6 +216,7 @@ private:
 	std::vector<URE>            recoveryConstraints;
 	std::vector<Inclusion<URE>> inclusionConstraints;
 	URE ppo = nullptr;
+	URE pporf = nullptr;
 };
 
 #endif /* KATER_KAT_MODULE_HPP */

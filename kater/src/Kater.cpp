@@ -509,13 +509,13 @@ bool Kater::checkExportRequirements()
 {
 	auto &module = getModule();
 
-	/* Ensure that ppo is implied by the acyclicity constraints */
+	/* Ensure that pporf is implied by the acyclicity constraints */
 	auto ppo = module.getPPO();
 	if (!ppo) {
 		std::cerr << "[Error] No top-level ppo definition provided!\n";
 		return false;
 	}
-	auto pporf = PlusRE::createOpt(AltRE::createOpt(ppo->clone(), module.getRegisteredID("rf")));
+	auto pporf = module.getPPORF();
 	auto acycDisj = std::accumulate(module.acyc_begin(), module.acyc_end(),
 					RegExp::createFalse(), [&](URE &re1, URE &re2){
 						return AltRE::createOpt(re1->clone(), re2->clone());
@@ -597,6 +597,7 @@ void Kater::generateNFAs()
 
 			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for reduce[" << i << "]: " << rn << std::endl;
+
 			cnfas.addReduced(std::move(rn));
 		} else if (v.status == VarStatus::View) {
 			if (getConf().verbose >= 3)
@@ -689,11 +690,7 @@ void Kater::generateNFAs()
 			std::cout << "Generated full rec NFA simplified: " << cnfas.getRecovery() << std::endl;
 	}
 
-	auto rf = module.getRegisteredID("rfe");
-	auto tc = module.getRegisteredID("tc");
-	auto tj = module.getRegisteredID("tj");
-	auto pporfNFA = StarRE::createOpt(AltRE::createOpt(ppo->clone(), std::move(rf),
-							   std::move(tc), std::move(tj)))->toNFA();
+	auto pporfNFA = module.getPPORF()->toNFA();
 	pporfNFA.simplify(isValidLabel);
 	cnfas.addPPoRf(std::move(pporfNFA), *ppo != *module.getRegisteredID("po"));
 	if (getConf().verbose >= 3)
