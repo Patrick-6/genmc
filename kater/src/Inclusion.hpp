@@ -25,6 +25,9 @@
 
 template<typename T>
 struct Inclusion {
+	Inclusion(T &&lhs, T &&rhs, Constraint::Type t, std::string s) :
+		lhs(std::move(lhs)), rhs(std::move(rhs)), type(t), s(s) {}
+
 	T lhs;
 	T rhs;
 	Constraint::Type type;

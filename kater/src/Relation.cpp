@@ -33,7 +33,7 @@ const std::unordered_map<Relation::Builtin, RelationInfo> Relation::builtins = {
 	/* same location */
         {alloc,		{"alloc",       RelType::ManyOne,    {},   {},   false}},
         {frees,		{"frees",       RelType::OneOne,     {},   {},   false}},
-        {loc_overlap,	{"loc-overlap", RelType::Final,      {},   {},   false}},
+        {loc_overlap,	{"loc-overlap", RelType::Final,      {(PB::Loc)},   {(PB::Loc)},   false}},
 	/* rf, co, fr, detour */
         {rf,		{"rf",          RelType::ManyOne,    {(PB::W)},  {(PB::R)}, false}},
         {rfe,		{"rfe",         RelType::ManyOne,    {(PB::W)},  {(PB::R)}, false}},

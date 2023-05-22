@@ -25,7 +25,7 @@
 #include <utility>
 
 //	{Predicate::IsDynamicLoc, "g.is_dynamic_loc(#)"},
-//	{Predicate::NotHpProtected, "g.notHpProtected(#)"},
+	// { PredicateMask::NotHpProtected, {"NotHpProtected", "llvm::isa<MemAccessLabel>(#) && !g.isHazptrProtected(#)"}},
 //	{Predicate::RfInit,	 "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer()"},
 //	{Predicate::REC,	 "#->getThread() == g.getRecoveryRoutineId()"},
 
@@ -87,7 +87,7 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::TK,         {"TK"       , "llvm::isa<ThreadKillLabel>(#)"}},
 	{ PredicateMask::TE,         {"TE"       , "llvm::isa<ThreadFinishLabel>(#)"}},
 	{ PredicateMask::Alloc,      {"Alloc"    , "llvm::isa<MallocLabel>(#)"}},
-	{ PredicateMask::Free,       {"Free"     , "llvm::isa<FreeLabel>(#)"}},
+	{ PredicateMask::Free,       {"Free"     , "llvm::isa<FreeLabel>(#) && !llvm::isa<HpRetireLabel>(#)"}},
 	{ PredicateMask::HpRetire,   {"HpRetire" , "llvm::isa<HpRetireLabel>(#)"}},
 	{ PredicateMask::HpProtect,  {"HpProtect", "llvm::isa<HpProtectLabel>(#)"}},
 	{ PredicateMask::LR,         {"LR"       , "llvm::isa<LockCasReadLabel>(#)"}},
@@ -101,7 +101,8 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::DskSync,    {"DskSync"  , "llvm::isa<DskSyncLabel>(#)"}},
 	{ PredicateMask::DskPbarrier,{"DskPbarrier", "llvm::isa<DskPbarrierLabel>(#)"}},
 	{ PredicateMask::CLFlush,    {"CLFlush"    , "llvm::isa<CLFlushLabel>(#)"}},
-	{ PredicateMask::CLFlushOpt, {"CLFlushOpt" , "llvm::isa<CLFlushOptLabel>(#)"}}};
+	{ PredicateMask::CLFlushOpt, {"CLFlushOpt" , "llvm::isa<CLFlushOptLabel>(#)"}},
+	{ PredicateMask::IR,         {"IR"       , "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer() && llvm::dyn_cast<ReadLabel>(#)->getAddr().isDynamic()"}}};
 
 static inline PredicateMask operator|(PredicateMask m1, PredicateMask m2)
 {

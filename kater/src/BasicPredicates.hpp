@@ -26,6 +26,7 @@
 #include <utility>
 
 // Stored as reversed bitmap
+// FIXME: many masks do not compose; representation does not scale
 enum PredicateMask : unsigned long long {
 	True        = 0ull,
 	False       = ~0ull,
@@ -76,10 +77,11 @@ enum PredicateMask : unsigned long long {
 	DskPbarrier = ~(1ull << 44),
 	CLFlush     = ~(1ull << 45),
 	CLFlushOpt  = ~(1ull << 46),
+	IR          = ~(1ull << 47),
 	NA          = Rna   & Wna,
 	NR          = Rna   & NRrlx & NRacq & NRsc,
 	UR          = URrlx & URacq & URsc,
-	R           = NR    & UR    & DR,
+	R           = NR    & UR    & DR    & IR,
 	Rrlx        = NRrlx & URrlx,
 	Racq        = NRacq & URacq,
 	Rsc         = NRsc  & URsc,
@@ -91,16 +93,17 @@ enum PredicateMask : unsigned long long {
 	Wsc         = NWsc  & UWsc,
 	Wmarked     = Wrlx  & Wrel & Wsc,
 	Marked      = Rmarked & Wmarked,
-	W           = NW   & UW   & DW,
-	MemAccess   = R    & W,
-	F           = Frel & Facq & Facqrel & Fsc,
-	Flkmm       = Fwmb & Frmb & Fba  & Faa & Fas & Faul,
-	Acq         = Racq & Rsc  & Facq & Facqrel & Fsc,
-	Rel         = Wrel & Wsc  & Frel & Facqrel & Fsc,
-	SC          = Rsc  & Wsc  & Fsc,
-	D           = DR & DW,
-	U           = UR & UW,
-	Dep         = R & Alloc,
+	W           = NW    & UW   & DW,
+	MemAccess   = R     & W,
+	F           = Frel  & Facq & Facqrel & Fsc,
+	Flkmm       = Fwmb  & Frmb & Fba  & Faa & Fas & Faul,
+	Acq         = Racq  & Rsc  & Facq & Facqrel & Fsc,
+	Rel         = Wrel  & Wsc  & Frel & Facqrel & Fsc,
+	SC          = Rsc   & Wsc  & Fsc,
+	D           = DR    & DW,
+	U           = UR    & UW,
+	Dep         = R     & Alloc,
+	Loc         = Alloc & Free & HpRetire & MemAccess,
 };
 
 #endif /* KATER_BASIC_PREDICATES_HPP */

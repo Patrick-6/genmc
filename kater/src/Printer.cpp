@@ -62,9 +62,9 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
 	/* same thread */
 	{Relation::same_thread,	{ "same_thread",     "same_thread"}},
 	/* same location */
-        {Relation::alloc,		{ "alloc_succs",     "alloc"}},
-        {Relation::frees,		{ "frees",           "alloc"}},
-        {Relation::loc_overlap,	{ "?",               "loc_preds"}},
+        {Relation::alloc,	{ "?",               "allocs"}},
+        {Relation::frees,	{ "?",               "frees"}},
+        {Relation::loc_overlap,	{ "?",               "samelocs"}},
 	/* rf, co, fr, detour */
         {Relation::rf,		{ "rf_succs",        "rf_preds"}},
         {Relation::rfe,		{ "rfe_succs",       "rfe_preds"}},
@@ -165,6 +165,7 @@ void Printer::printHppHeader()
 	      << "#include \"GraphIterators.hpp\"\n"
 	      << "#include \"MaximalIterator.hpp\"\n"
 	      << "#include \"PersistencyChecker.hpp\"\n"
+	      << "#include \"VerificationError.hpp\"\n"
 	      << "#include \"VSet.hpp\"\n"
 	      << "#include <cstdint>\n"
 	      << "#include <vector>\n"
@@ -187,6 +188,7 @@ void Printer::printHppHeader()
 	      << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
 	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
 	      << "\tbool isConsistent(const Event &e);\n"
+	      << "\tVerificationError checkErrors(const Event &e);\n"
 	      << "\tbool isRecoveryValid(const Event &e);\n"
 	      << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);\n"
 	      << "\n"
@@ -283,6 +285,17 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
 		printInclusionCpp(nfaPair.lhs, nfaPair.rhs, i++);
 	});
+	cpp() << "VerificationError " << className << "::checkErrors(const Event &e)\n"
+	      << "{";
+	i = 0u;
+	std::for_each(cnfas.incl_begin(), cnfas.incl_end(), [&](auto &nfaPair){
+		cpp() << "\n\tif (!checkInclusion" << i << "(e))\n"
+		      << "\n\t\t return VerificationError::" <<nfaPair.s << ";";
+		++i;
+	});
+	cpp() << "\n\treturn VerificationError::VE_OK;\n"
+	      << "}\n"
+	      << "\n";
 
 	/* Print acyclicity routines + isConsistent() */
 	printAcyclicCpp(cnfas.getAcyclic());
@@ -648,11 +661,15 @@ void Printer::printPPoRfCpp(const NFA &nfa, bool deps)
 
 void Printer::printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id)
 {
-	auto ids = assignStateIDs(rhs.states_begin(), rhs.states_end());
+	auto idsLHS = assignStateIDs(lhs.states_begin(), lhs.states_end());
+	auto idsRHS = assignStateIDs(rhs.states_begin(), rhs.states_end());
 
 	/* visitInclusionXX for each state */
+	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
+		hpp() << "\tvoid visitInclusionLHS" << GET_ID(id, idsLHS[&*s]) << "(const Event &e)" << ";\n";
+	});
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		hpp() << "\tvoid visitInclusion" << GET_ID(id, ids[&*s]) << "(const Event &e)" << ";\n";
+		hpp() << "\tvoid visitInclusionRHS" << GET_ID(id, idsRHS[&*s]) << "(const Event &e)" << ";\n";
 	});
 	hpp() << "\n";
 
@@ -661,50 +678,98 @@ void Printer::printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id)
 	      << "\n";
 
 	/* status arrays */
+	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
+		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ";\n";
+	});
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusion" << GET_ID(id, ids[&*s]) << ";\n";
+		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << ";\n";
 	});
 	hpp() << "\n";
+
+	/* caches for inclusion checks */
+	hpp() << "\tstatic inline thread_local std::vector<bool> lhsAccept" << id << ";\n"
+	      << "\tstatic inline thread_local std::vector<bool> rhsAccept" << id << ";\n"
+	      << "\n";
 }
 
 void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id)
 {
-	auto ids = assignStateIDs(rhs.states_begin(), rhs.states_end());
-
-	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		cpp() << "void " << className << "::visitInclusion" << GET_ID(id, ids[&*s]) << "(const Event &e)\n"
+	auto idsLHS = assignStateIDs(lhs.states_begin(), lhs.states_end());
+	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
+		cpp() << "void " << className << "::visitInclusionLHS" << GET_ID(id, idsLHS[&*s]) << "(const Event &e)\n"
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
-		      << "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
+		      << "\tauto *lab = g.getEventLabel(e);\n"
 		      << "\n"
-		      << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp().get()] = NodeStatus::entered;\n";
+		      << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << "[lab->getStamp().get()] = NodeStatus::entered;\n";
+		if (lhs.isStarting(&*s))
+			cpp() << "\tlhsAccept" << id << "[lab->getStamp().get()] = true;\n";
 		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
 			cpp () << "\t";
 			printTransLabel(&t.label, "p", "lab");
 			cpp() << " {\n"
-			      << "\t\tauto status = visitedInclusion" << GET_ID(id, ids[t.dest]) << "[g.getEventLabel(p)->getStamp().get()]\n;"
+			      << "\t\tauto status = visitedInclusionLHS" << GET_ID(id, idsLHS[t.dest]) << "[g.getEventLabel(p)->getStamp().get()];\n"
 			      << "\t\tif (status == NodeStatus::unseen)\n"
-			      << "\t\t\tvisitInclusion" << GET_ID(id, ids[t.dest]) << "(p);\n"
+			      << "\t\t\tvisitInclusionLHS" << GET_ID(id, idsLHS[t.dest]) << "(p);\n"
 			      << "\t}\n";
 		});
-		if (rhs.isStarting(&*s))
-			cpp() << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << "[lab->getStamp().get()] = NodeStatus::left;\n"
-			      << "}\n"
-			      << "\n";
+		cpp() << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << "[lab->getStamp().get()] = NodeStatus::left;\n"
+		      << "}\n"
+		      << "\n";
 	});
 
-	cpp() << "bool " << className << "::checkInclusion(const Event &e)\n"
-	      << "{\n";
+	auto idsRHS = assignStateIDs(rhs.states_begin(), rhs.states_end());
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		cpp() << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".clear();\n"
-		      << "\tvisitedInclusion" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);\n";
-	});
-	std::for_each(rhs.start_begin(), rhs.start_end(), [&](auto &s){
-		cpp() << "\t\tvisitInclusion" << GET_ID(id, ids[s]) << "(e);\n";
+		cpp() << "void " << className << "::visitInclusionRHS" << GET_ID(id, idsRHS[&*s]) << "(const Event &e)\n"
+		      << "{\n"
+		      << "\tauto &g = getGraph();\n"
+		      << "\tauto *lab = g.getEventLabel(e);\n"
+		      << "\n"
+		      << "\tvisitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << "[lab->getStamp().get()] = NodeStatus::entered;\n";
+		if (rhs.isStarting(&*s))
+			cpp() << "\trhsAccept" << id << "[lab->getStamp().get()] = true;\n";
+		std::for_each(s->in_begin(), s->in_end(), [&](auto &t){
+			cpp () << "\t";
+			printTransLabel(&t.label, "p", "lab");
+			cpp() << " {\n"
+			      << "\t\tauto status = visitedInclusionRHS" << GET_ID(id, idsRHS[t.dest]) << "[g.getEventLabel(p)->getStamp().get()];\n"
+			      << "\t\tif (status == NodeStatus::unseen)\n"
+			      << "\t\t\tvisitInclusionRHS" << GET_ID(id, idsRHS[t.dest]) << "(p);\n"
+			      << "\t}\n";
+		});
+		cpp() << "\tvisitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << "[lab->getStamp().get()] = NodeStatus::left;\n"
+		      << "}\n"
+		      << "\n";
 	});
 
-	/* TODO */
-	cpp() << "\treturn true;\n"
+	cpp() << "bool " << className << "::checkInclusion" << id << "(const Event &e)\n"
+	      << "{\n";
+	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
+		cpp() << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ".clear();\n"
+		      << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ".resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);\n";
+	});
+	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
+		cpp() << "\tvisitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << ".clear();\n"
+		      << "\tvisitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << ".resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);\n";
+	});
+	cpp() << "\tlhsAccept" << id << ".clear();\n"
+	      << "\tlhsAccept" << id << ".resize(g.getMaxStamp().get() + 1, false);\n"
+	      << "\trhsAccept" << id << ".clear();\n"
+	      << "\trhsAccept" << id << ".resize(g.getMaxStamp().get() + 1, false);\n"
+	      << "\n";
+
+	std::for_each(lhs.accept_begin(), lhs.accept_end(), [&](auto &s){
+		cpp() << "\tvisitInclusionLHS" << GET_ID(id, idsLHS[s]) << "(e);\n";
+	});
+	std::for_each(rhs.accept_begin(), rhs.accept_end(), [&](auto &s){
+		cpp() << "\tvisitInclusionRHS" << GET_ID(id, idsRHS[s]) << "(e);\n";
+	});
+
+	cpp() << "\tfor (auto i = 0u; i < lhsAccept" << id <<".size(); i++) {\n"
+	      << "\t\tif (lhsAccept" << id << "[i] && !rhsAccept" << id << "[i])\n"
+	      << "\t\t\treturn false;\n"
+	      << "\t}\n"
+	      << "\treturn true;\n"
 	      << "}\n"
 	      << "\n";
 }

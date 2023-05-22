@@ -641,6 +641,41 @@ void Kater::generateNFAs()
 	if (getConf().verbose >= 3)
 		std::cout << "Generated NFA: " << cnfas.getAcyclic() << std::endl;
 
+	std::for_each(module.incl_begin(), module.incl_end(), [&](auto &r){
+		if (getConf().verbose >= 3)
+			std::cout << "Generating NFA for inclusion " << *r.lhs << " <= " << *r.rhs << std::endl;
+
+		// Covert the regural expression to an NFA
+		auto tl = r.lhs->clone();
+		transitivizeSaved(module, tl);
+		auto lhs = tl->toNFA();
+		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
+		// Doing so is alright because the generated DFS code discounts empty paths anyway.
+		// lhs.star();
+		if (getConf().verbose >= 4)
+			std::cout << "Non-simplified NFA (LHS): " << lhs << std::endl;
+		// Simplify the NFA
+		lhs.simplify(isValidLabel);
+		if (getConf().verbose >= 3)
+			std::cout << "Generated NFA (LHS): " << lhs << std::endl;
+
+		// Covert the regural expression to an NFA
+		auto tr = r.rhs->clone();
+		transitivizeSaved(module, tr);
+		auto rhs = tr->toNFA();
+		// Take the reflexive-transitive closure, which typically helps minizing the NFA.
+		// Doing so is alright because the generated DFS code discounts empty paths anyway.
+		// rhs.star();
+		if (getConf().verbose >= 4)
+			std::cout << "Non-simplified NFA (RHS): " << rhs << std::endl;
+		// Simplify the NFA
+		rhs.simplify(isValidLabel);
+		if (getConf().verbose >= 3)
+			std::cout << "Generated NFA (RHS): " << rhs << std::endl;
+
+		cnfas.addInclusion(Inclusion<NFA>(std::move(lhs), std::move(rhs), r.type, r.s));
+	});
+
 	NFA rec;
 	std::for_each(module.rec_begin(), module.rec_end(), [&](auto &r){
 		if (getConf().verbose >= 3)

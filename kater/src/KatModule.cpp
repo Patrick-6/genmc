@@ -25,7 +25,6 @@ std::ostream &operator<<(std::ostream &s, const KatModule::DbgInfo &dbg)
 
 void KatModule::addConstraint(const Constraint *c, const std::string &s, const yy::location &loc)
 {
-
 	if (dynamic_cast<const AcyclicConstraint *>(c) && c->getType() == Constraint::Type::Consistency)
 		acyclicityConstraints.push_back(c->getKid(0)->clone());
 	if (dynamic_cast<const RecoveryConstraint *>(c) && c->getType() == Constraint::Type::Consistency)
