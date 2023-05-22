@@ -641,7 +641,7 @@ bool GenMCDriver::isHalting() const
 	return shouldHalt || (tp && tp->shouldHalt());
 }
 
-void GenMCDriver::halt(Status status)
+void GenMCDriver::halt(VerificationError status)
 {
 	getEE()->block(BlockageType::Error);
 	shouldHalt = true;
@@ -956,7 +956,7 @@ SVal GenMCDriver::getWriteValue(Event write, SAddr addr, AAccess access)
 	 * the one the write's (see troep.c).  In any case though, the
 	 * sizes should match */
 	if (wLab->getSize() != access.getSize())
-		reportError(wLab->getPos(), Status::VS_MixedSize,
+		reportError(wLab->getPos(), VerificationError::VE_MixedSize,
 			   "Mixed-size accesses detected: tried to read event with a " +
 			   std::to_string(access.getSize().get() * 8) + "-bit access!\n" +
 			   "Please check the LLVM-IR.\n");
@@ -1098,7 +1098,7 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
 			if (fLab->contains(mLab->getAddr())) {
 				if (!llvm::isa<HpRetireLabel>(fLab)) {
-					reportError(mLab->getPos(), Status::VS_AccessFreed, "", oLab->getPos());
+					reportError(mLab->getPos(), VerificationError::VE_AccessFreed, "", oLab->getPos());
 					return true;
 				}
 				potHazLab = fLab;
@@ -1107,7 +1107,7 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
 			if (aLab->contains(mLab->getAddr())) {
 				if (!before.contains(aLab->getPos())) {
-					reportError(mLab->getPos(), Status::VS_AccessNonMalloc,
+					reportError(mLab->getPos(), VerificationError::VE_AccessNonMalloc,
 						   "The allocating operation (malloc()) "
 						   "does not happen-before the memory access!",
 						   oLab->getPos());
@@ -1126,16 +1126,16 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 	/* Also make sure there is an allocating event and some initializer store.
 	 * We do this separately for better error messages */
 	if (!allocLab) {
-		reportError(mLab->getPos(), Status::VS_AccessNonMalloc);
+		reportError(mLab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return true;
 	}
 	if (llvm::isa<ReadLabel>(mLab) && !initLab) {
-		reportError(mLab->getPos(), Status::VS_UninitializedMem);
+		reportError(mLab->getPos(), VerificationError::VE_UninitializedMem);
 		return true;
 	}
 	/* If this access is a potential hazard, make sure it is properly protected */
 	if (potHazLab && !isHazptrProtected(allocLab, mLab)) {
-		reportError(mLab->getPos(), Status::VS_AccessFreed,
+		reportError(mLab->getPos(), VerificationError::VE_AccessFreed,
 			   "Access not properly protected by hazard pointer!", potHazLab->getPos());
 		return true;
 	}
@@ -1163,14 +1163,14 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 		if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
 			if (dLab->getFreedAddr() == ptr &&
 			    dLab->getPos() != fLab->getPos()) {
-				reportError(fLab->getPos(), Status::VS_DoubleFree, "", dLab->getPos());
+				reportError(fLab->getPos(), VerificationError::VE_DoubleFree, "", dLab->getPos());
 				return true;
 			}
 		}
 		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
 			if (mLab->getAddr() == ptr && !before.contains(mLab->getPos())) {
 				if (!llvm::isa<HpRetireLabel>(fLab)) {
-					reportError(fLab->getPos(), Status::VS_AccessFreed, "", mLab->getPos());
+					reportError(fLab->getPos(), VerificationError::VE_AccessFreed, "", mLab->getPos());
 					return true;
 				}
 				potHazLab = mLab;
@@ -1180,11 +1180,11 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 	}
 
 	if (!m) {
-		reportError(fLab->getPos(), Status::VS_FreeNonMalloc);
+		reportError(fLab->getPos(), VerificationError::VE_FreeNonMalloc);
 		return true;
 	}
 	if (potHazLab && !isHazptrProtected(m, potHazLab)) {
-		reportError(fLab->getPos(), Status::VS_AccessFreed,
+		reportError(fLab->getPos(), VerificationError::VE_AccessFreed,
 			   "Access not properly protected by hazard pointer!", potHazLab->getPos());
 		return true;
 	}
@@ -1207,7 +1207,7 @@ void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 
 	/* If a race is found and the execution is consistent, return it */
 	if (!racy.isInitializer())
-		reportError(lab->getPos(), Status::VS_RaceNotAtomic, "", racy);
+		reportError(lab->getPos(), VerificationError::VE_RaceNotAtomic, "", racy);
 	return;
 }
 
@@ -1233,7 +1233,7 @@ void GenMCDriver::checkLockValidity(const ReadLabel *rLab, const std::vector<Eve
 		return rfVal == SVal(-1);
 	});
 	if (rfIt != rfs.cend())
-		reportError(rLab->getPos(), Status::VS_UninitializedMem,
+		reportError(rLab->getPos(), VerificationError::VE_UninitializedMem,
 			   "Called lock() on destroyed mutex!", *rfIt);
 }
 
@@ -1245,7 +1245,7 @@ void GenMCDriver::checkUnlockValidity(const WriteLabel *wLab)
 
 	/* Unlocks should unlock mutexes locked by the same thread */
 	if (getGraph().getMatchingLock(uLab->getPos()).isInitializer()) {
-		reportError(uLab->getPos(), Status::VS_InvalidUnlock,
+		reportError(uLab->getPos(), VerificationError::VE_InvalidUnlock,
 			   "Called unlock() on mutex not locked by the same thread!");
 	}
 }
@@ -1267,9 +1267,9 @@ void GenMCDriver::checkBInitValidity(const WriteLabel *lab)
 	});
 
 	if (sIt != store_end(g, wLab->getAddr()))
-		reportError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
+		reportError(wLab->getPos(), VerificationError::VE_InvalidBInit, "Called barrier_init() multiple times!", *sIt);
 	else if (wLab->getVal() == SVal(0))
-		reportError(wLab->getPos(), Status::VS_InvalidBInit, "Called barrier_init() with 0!");
+		reportError(wLab->getPos(), VerificationError::VE_InvalidBInit, "Called barrier_init() with 0!");
 	return;
 }
 
@@ -1280,13 +1280,13 @@ void GenMCDriver::checkBIncValidity(const ReadLabel *rLab, const std::vector<Eve
 		return;
 
 	if (std::any_of(rfs.cbegin(), rfs.cend(), [](const Event &rf){ return rf.isInitializer(); }))
-		reportError(rLab->getPos(), Status::VS_UninitializedMem,
+		reportError(rLab->getPos(), VerificationError::VE_UninitializedMem,
 			   "Called barrier_wait() on uninitialized barrier!");
 	else if (std::any_of(rfs.cbegin(), rfs.cend(), [this, bLab](const Event &rf){
 		auto rfVal = getWriteValue(rf, bLab->getAddr(), bLab->getAccess());
 		return rfVal == SVal(0);
 	}))
-		reportError(rLab->getPos(), Status::VS_AccessFreed,
+		reportError(rLab->getPos(), VerificationError::VE_AccessFreed,
 			   "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
@@ -1306,7 +1306,7 @@ void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 	    (!wLab->isFinal() &&
 	     std::any_of(cc->store_begin(wLab->getAddr()), cc->store_end(wLab->getAddr()),
 			 [&](const Event &s){ return g.getWriteLabel(s)->isFinal(); }))) {
-		reportError(wLab->getPos(), Status::VS_Annotation,
+		reportError(wLab->getPos(), VerificationError::VE_Annotation,
 			   "Multiple stores at final location!");
 		return;
 	}
@@ -1385,7 +1385,7 @@ void GenMCDriver::checkLiveness()
 		return threadReadsMaximal(tid);
 	})) {
 		/* Print some TID blocked by a spinloop */
-		reportError(g.getLastThreadEvent(nonTermTID), Status::VS_Liveness,
+		reportError(g.getLastThreadEvent(nonTermTID), VerificationError::VE_Liveness,
 			   "Non-terminating spinloop: thread " + std::to_string(nonTermTID));
 	}
 	return;
@@ -1712,7 +1712,7 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
 		if (cid == thr.id)
 			err += " (TID cannot be the same as the calling thread)";
-		reportError(jLab->getPos(), Status::VS_InvalidJoin, err);
+		reportError(jLab->getPos(), VerificationError::VE_InvalidJoin, err);
 		return {SVal(0)};
 	}
 	return {getJoinValue(jLab)};
@@ -1970,7 +1970,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
 	if (!isAccessValid(lab)) {
-		reportError(lab->getPos(), Status::VS_AccessNonMalloc);
+		reportError(lab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return std::nullopt; /* This execution will be blocked */
 	}
 
@@ -2082,7 +2082,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
 	if (!isAccessValid(lab)) {
-		reportError(lab->getPos(), Status::VS_AccessNonMalloc);
+		reportError(lab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return;
 	}
 
@@ -2322,7 +2322,7 @@ GenMCDriver::getReplayView() const
 	return v;
 }
 
-void GenMCDriver::reportError(Event pos, Status s, const std::string &err /* = "" */,
+void GenMCDriver::reportError(Event pos, VerificationError s, const std::string &err /* = "" */,
 			      Event confEvent /* = INIT */)
 {
 	auto &g = getGraph();
@@ -3346,57 +3346,6 @@ void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
 /************************************************************
  ** Printing facilities
  ***********************************************************/
-
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
-			      const GenMCDriver::Status &st)
-{
-	using Status = GenMCDriver::Status;
-
-	switch (st) {
-	case Status::VS_OK:
-		return s << "OK";
-	case Status::VS_Safety:
-		return s << "Safety violation";
-	case Status::VS_Recovery:
-		return s << "Recovery error";
-	case Status::VS_Liveness:
-		return s << "Liveness violation";
-	case Status::VS_RaceNotAtomic:
-		return s << "Non-Atomic race";
-	case Status::VS_RaceFreeMalloc:
-		return s << "Malloc-Free race";
-	case Status::VS_FreeNonMalloc:
-		return s << "Attempt to free non-allocated memory";
-	case Status::VS_DoubleFree:
-		return s << "Double-free error";
-	case Status::VS_Allocation:
-		return s << "Allocation error";
-	case Status::VS_UninitializedMem:
-		return s << "Attempt to read from uninitialized memory";
-	case Status::VS_AccessNonMalloc:
-		return s << "Attempt to access non-allocated memory";
-	case Status::VS_AccessFreed:
-		return s << "Attempt to access freed memory";
-	case Status::VS_InvalidJoin:
-		return s << "Invalid join() operation";
-	case Status::VS_InvalidUnlock:
-		return s << "Invalid unlock() operation";
-	case Status::VS_InvalidBInit:
-		return s << "Invalid barrier_init() operation";
-	case Status::VS_InvalidRecoveryCall:
-		return s << "Invalid function call during recovery";
-	case Status::VS_InvalidTruncate:
-		return s << "Invalid file truncation";
-	case Status::VS_Annotation:
-		return s << "Annotation error";
-	case Status::VS_MixedSize:
-		return s << "Mixed-size accesses";
-	case Status::VS_SystemError:
-		return s << errorList.at(systemErrorNumber);
-	default:
-		return s << "Uknown status";
-	}
-}
 
 static void executeMDPrint(const EventLabel *lab,
 			   const std::pair<int, std::string> &locAndFile,

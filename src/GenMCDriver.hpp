@@ -27,6 +27,7 @@
 #include "RevisitSet.hpp"
 #include "SAddrAllocator.hpp"
 #include "Trie.hpp"
+#include "VerificationError.hpp"
 #include "WorkSet.hpp"
 #include <llvm/ADT/BitVector.h>
 #include <llvm/IR/Module.h>
@@ -54,36 +55,9 @@ protected:
 						>;
 
 public:
-	/* Verification status.
-	 * Public to enable the interpreter utilize it */
-	enum class Status {
-		VS_OK,
-		VS_Safety,
-		VS_Recovery,
-		VS_Liveness,
-		VS_RaceNotAtomic,
-		VS_RaceFreeMalloc,
-		VS_FreeNonMalloc,
-		VS_DoubleFree,
-		VS_Allocation,
-		VS_InvalidAccessBegin,
-		VS_UninitializedMem,
-		VS_AccessNonMalloc,
-		VS_AccessFreed,
-		VS_InvalidAccessEnd,
-		VS_InvalidJoin,
-		VS_InvalidUnlock,
-		VS_InvalidBInit,
-		VS_InvalidRecoveryCall,
-		VS_InvalidTruncate,
-		VS_Annotation,
-		VS_MixedSize,
-		VS_SystemError,
-	};
-
 	/* Verification result */
 	struct Result {
-		Status status;            /* Verification status */
+		VerificationError status; /* Whether the verification completed successfully */
 		unsigned explored;        /* Number of complete executions explored */
 		unsigned exploredBlocked; /* Number of blocked executions explored */
 		unsigned exploredMoot;
@@ -92,7 +66,7 @@ public:
 #endif
 		std::string message;      /* A message to be printed */
 
-		Result() : status(Status::VS_OK), explored(0), exploredBlocked(0), exploredMoot(0),
+		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0), exploredMoot(0),
 #ifdef ENABLE_GENMC_DEBUG
 			   duplicates(0),
 #endif
@@ -100,7 +74,7 @@ public:
 
 		Result &operator+=(const Result &other) {
 			/* Propagate latest error */
-			if (other.status != Status::VS_OK) {
+			if (other.status != VerificationError::VE_OK) {
 				status = other.status;
 				message = other.message;
 			}
@@ -140,9 +114,9 @@ public:
 	};
 
 private:
-	static bool isInvalidAccessError(Status s) {
-		return Status::VS_InvalidAccessBegin <= s &&
-			s <= Status::VS_InvalidAccessEnd;
+	static bool isInvalidAccessError(VerificationError s) {
+		return VerificationError::VE_InvalidAccessBegin <= s &&
+			s <= VerificationError::VE_InvalidAccessEnd;
 	};
 
 public:
@@ -166,7 +140,7 @@ public:
 	void run();
 
 	/* Stops the verification procedure when an error is found */
-	void halt(Status status);
+	void halt(VerificationError status);
 
 	/* Returns the result of the verification procedure */
 	Result getResult() const { return result; }
@@ -281,7 +255,7 @@ public:
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
-	void reportError(Event pos, Status r, const std::string &err = std::string(),
+	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
 			 Event confEvent = Event::getInitializer());
 
 	virtual ~GenMCDriver();
@@ -859,7 +833,7 @@ private:
 	MyRNG rng;
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
-					     const Status &r);
+					     const VerificationError &r);
 };
 
 #endif /* __GENMC_DRIVER_HPP__ */

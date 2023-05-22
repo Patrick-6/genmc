@@ -94,6 +94,7 @@ libgenmc_a_SOURCES = \
   WorkSet.hpp WorkSet.cpp \
   value_ptr.hpp \
   VectorClock.hpp VectorClock.cpp \
+  VerificationError.hpp VerificationError.cpp \
   View.hpp View.cpp \
   VSet.hpp VSet.tcc \
   XBCalculator.hpp XBCalculator.cpp

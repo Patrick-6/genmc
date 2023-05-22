@@ -620,11 +620,11 @@ private:
 	std::vector<int> partialConsCalculators;
 
 	/* Keeps track of calculator indices */
-	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > calculatorIndex;
+	std::unordered_map<RelationId, unsigned int, std::hash<RelationId> > calculatorIndex;
 
 	/* Keeps track of relation indices. Note that an index might
 	 * refer to either relations.global or relations.perLoc */
-	std::unordered_map<RelationId, unsigned int, ENUM_HASH(RelationId) > relationIndex;
+	std::unordered_map<RelationId, unsigned int, std::hash<RelationId> > relationIndex;
 
 	/* Pers: An object calculating persistency relations */
 	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */

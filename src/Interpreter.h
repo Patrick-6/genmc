@@ -50,6 +50,7 @@
 #include "SVal.hpp"
 #include "View.hpp"
 #include "CallInstWrapper.hpp"
+#include "VerificationError.hpp"
 #include "value_ptr.hpp"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>

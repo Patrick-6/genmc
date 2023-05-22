@@ -2782,7 +2782,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 {
 	if (stopOnSystemErrors) {
 		systemErrorNumber = code;
-		driver->reportError(currPos(), GenMCDriver::Status::VS_SystemError, msg);
+		driver->reportError(currPos(), VerificationError::VE_SystemError, msg);
 	} else {
 		WARN_ONCE(errorList.at(code), msg + "\n");
 		CALL_DRIVER(handleStore,
@@ -2839,7 +2839,7 @@ void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &A
 				 const std::unique_ptr<EventDeps> &specialDeps)
 {
 	auto errT = (getProgramState() == ProgramState::Recovery) ?
-		GenMCDriver::Status::VS_Recovery : GenMCDriver::Status::VS_Safety;
+		VerificationError::VE_Recovery : VerificationError::VE_Safety;
 	std::string err = (ArgVals.size()) ? std::string("Assertion violation: ") +
 		std::string((char *) getStaticAddr(GVTOP(ArgVals[0])))	: "Unknown";
 
@@ -2921,7 +2921,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
 		driver->reportError(currPos(),
-			   GenMCDriver::Status::VS_Allocation, "Invalid size in malloc()");
+			   VerificationError::VE_Allocaiton, "Invalid size in malloc()");
 		return;
 	}
 
@@ -2946,12 +2946,12 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto size = ArgVals[1].IntVal.getLimitedValue();
 
 	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1))) {
-		driver->reportError(currPos(), GenMCDriver::Status::VS_Allocation,
+		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
 				    "Invalid alignment in aligned_alloc()");
 		return;
 	}
 	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align)) {
-		driver->reportError(currPos(), GenMCDriver::Status::VS_Allocation,
+		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
 				    "Invalid size in aligned_alloc()");
 		return;
 	}
@@ -2970,7 +2970,7 @@ void Interpreter::callPMalloc(Function *F, const std::vector<GenericValue> &ArgV
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
-		driver->reportError(currPos(), GenMCDriver::Status::VS_Allocation,
+		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
 			   "Invalid size in malloc()");
 		return;
 	}
@@ -3716,7 +3716,7 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 	/* ... and truncate if necessary */
 	if (flags.get() & GENMC_O_TRUNC) {
 		if (!(GENMC_OPEN_FMODE(flags.get()) & GENMC_FMODE_WRITE)) {
-			driver->reportError(currPos(), GenMCDriver::Status::VS_InvalidTruncate,
+			driver->reportError(currPos(), VerificationError::VE_InvalidTruncate,
 					   "File is not open for writing");
 			returnValueToCaller(F->getReturnType(), INT_TO_GV(F->getReturnType(), -1));
 			return;
@@ -4607,7 +4607,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	/* Make sure we are not trying to make an invalid call during recovery */
 	if (getProgramState() == ProgramState::Recovery && isInvalidRecCall(fCode, ArgVals)) {
-		driver->reportError(currPos(), GenMCDriver::Status::VS_InvalidRecoveryCall,
+		driver->reportError(currPos(), VerificationError::VE_InvalidRecoveryCall,
 				    F->getName().str() + "() cannot be called during recovery");
 		return;
 	}
