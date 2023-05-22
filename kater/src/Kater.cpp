@@ -544,7 +544,8 @@ bool Kater::checkExportRequirements()
 
 			if (sv.status != VarStatus::Normal) {
 				cex.clear();
-				auto seqExp = SeqRE::createOpt(sv.red->clone(), sv.exp->clone());
+				auto prefix = (sv.status == VarStatus::Reduce) ? sv.red->clone() : ppo->clone();
+				auto seqExp = SeqRE::createOpt(std::move(prefix), sv.exp->clone());
 				auto savedTrans = SubsetConstraint::createOpt(std::move(seqExp), sv.exp->clone());
 				if (!checkAssertion(&*savedTrans, cex)) {
 					std::cerr << "[Error] Reduced relation not transitive: " << *sv.exp << "\n";
