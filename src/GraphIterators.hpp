@@ -1435,16 +1435,16 @@ inline const_tj_range tj_succs(const ExecutionGraph &G, const EventLabel *lab)
 inline const_tj_iterator tj_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
-	return (tjLab && !tjLab->getChildLast().isInitializer()) ?
-		const_tj_iterator(G, tjLab->getChildLast()) :
+	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
+		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId())) :
 		event_end(G);
 }
 
 inline const_tj_iterator tj_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
-	return (tjLab && !tjLab->getChildLast().isInitializer()) ?
-		const_tj_iterator(G, tjLab->getChildLast().next()) :
+	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
+		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId()).next()) :
 		event_end(G);
 }
 

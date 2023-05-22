@@ -1058,23 +1058,6 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	}
 }
 
-bool ExecutionGraph::updateJoin(Event join)
-{
-	setFPStatus(FS_Stale);
-
-	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(getEventLabel(join));
-	BUG_ON(!jLab);
-
-	/* If the child thread has not terminated, do not update anything */
-	auto *fLab = llvm::dyn_cast<ThreadFinishLabel>(getLastThreadLabel(jLab->getChildId()));
-	if (!fLab)
-		return false;
-
-	jLab->setChildLast(fLab->getPos());
-	fLab->setParentJoin(jLab->getPos());
-	return true;
-}
-
 /*
  * In the case where the events are not added out-of-order in the graph
  * (i.e., an event has a larger timestamp than all its po-predecessors)

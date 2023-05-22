@@ -1971,8 +1971,7 @@ protected:
 public:
 	ThreadJoinLabel(Event pos, llvm::AtomicOrdering ord, unsigned int childId,
 			const EventDeps &deps = EventDeps())
-		: EventLabel(EL_ThreadJoin, pos, ord, deps),
-		  childId(childId), childLast(Event::getInitializer()) {}
+		: EventLabel(EL_ThreadJoin, pos, ord, deps), childId(childId) {}
 	ThreadJoinLabel(Event pos, unsigned int childId, const EventDeps &deps = EventDeps())
 		: ThreadJoinLabel(pos, llvm::AtomicOrdering::Acquire, childId, deps) {}
 
@@ -1980,23 +1979,14 @@ public:
 	/* Returns the identifier of the thread this join() is waiting on */
 	unsigned int getChildId() const { return childId; }
 
-	/* Returns the last event of the thread the join() is waiting on */
-	Event getChildLast() const { return childLast; }
-
 	DEFINE_CREATE_CLONE(ThreadJoinLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadJoin; }
 
 private:
-	/* Sets the last event of the thread the join() is waiting on */
-	void setChildLast(Event e) { childLast = e; }
-
 	/* The identifier of the child */
 	const unsigned int childId;
-
-	/* Position of the last event of the thread the join() is waiting on */
-	Event childLast;
 };
 
 

@@ -3607,7 +3607,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 				   << bLab->getPos().next() << "\"[color=blue, constraint=false]\n";
 			}
 			if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-				ss << "\"" << jLab->getChildLast() << "\" -> \""
+				ss << "\"" << g.getLastThreadEvent(jLab->getChildId()) << "\" -> \""
 				   << jLab->getPos() << "\"[color=blue, constraint=false]\n";
 		}
 	}
@@ -3632,7 +3632,7 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 			if (!rLab->getRf().isBottom())
 				recPrintTraceBefore(rLab->getRf(), a, ss);
 		if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab))
-			recPrintTraceBefore(jLab->getChildLast(), a, ss);
+			recPrintTraceBefore(g.getLastThreadEvent(jLab->getChildId()), a, ss);
 		if (auto *bLab = llvm::dyn_cast<ThreadStartLabel>(lab))
 			if (!bLab->getParentCreate().isInitializer())
 				recPrintTraceBefore(bLab->getParentCreate(), a, ss);
