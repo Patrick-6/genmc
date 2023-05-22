@@ -17,7 +17,7 @@ let ppo = po
 // Optimized calculation of synchronizes-with
 // Save the view of write messages
 
-save[relseq] relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
+let relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
 let sw_to_r = relseq ; rf ; [ACQ]
 let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ]
 let sw = sw_to_r | sw_to_f
@@ -28,12 +28,10 @@ assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
 // Optimized calculation of happens-before.
 // Save the part of `hb` that does not finish with a reads-from edge
 
-save[hb_stable] hb_stable = (po | sw_to_r ; po | sw_to_f // | asw
-	)+
-let hb = (hb_stable | hb_stable? ; sw_to_r)
+save[hb_stable] hb_stable = (po | sw_to_r ; po | sw_to_f | asw ; po)+
+let hb = (hb_stable | hb_stable? ; (sw_to_r | asw))
 
-assert hb = (po | sw // | asw
-	)+
+assert hb = (po | sw | asw)+
 
 // ---------------------------------------------------------------------
 // RC11 Consistency axioms
@@ -46,7 +44,7 @@ assert hb = (po | sw // | asw
 coherence (hb_stable)
 
 // RMW atomicity
-check  mo-imm ; [UW] <= rf ; po-imm
+// check  mo-imm ; [UW] <= rf ; po-imm
 
 
 // Sequential consistency order
@@ -61,24 +59,27 @@ let psc = [SC] ; po ; hb ; po ; [SC]
         | SC ; po ; SC
 acyclic psc
 
-// // ---------------------------------------------------------------------
-// // RC11 error detection
-// // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// RC11 error detection
+// ---------------------------------------------------------------------
 
-// let ww_conflict = [W] ; loc-overlap ; [W]
-// let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
-// let conflicting = ww_conflict | wr_conflict
-// let na_conflict = [NA] ; conflicting | conflicting ; [NA]
+let ww_conflict = [W] ; loc-overlap ; [W]
+let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
+let conflicting = ww_conflict | wr_conflict
+let na_conflict = [NA] ; conflicting | conflicting ; [NA]
 
-// error UninitializedRead unless  [RfInit] ; [IsDynamicLoc] = 0
+// GenMC needs to handle the no-alloc case (access validity)
+error VE_UninitializedMem unless  [IR] = 0 // necessary for the case where there is no initializing write; fixme as IR & Dynamic?
+// perhaps [W]; loc-overlap; [DynR] <= hb_stable is better because it can be checked only once?
 
-// error AccessNonAlloc    unless  alloc <= hb_stable
-// error DoubleFree        unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
-// error UseAfterFree      unless  loc-overlap ; [Free] <= hb_stable
-// error UseAfterFree      unless  [Free] ; loc-overlap = 0
-// error UseAfterFree      unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
-// error UseAfterFree      unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
+// can all these be performed at event addition?
 
-// error NotAtomicRace     unless  na_conflict <= hb_stable
+error VE_AccessNonMalloc unless  alloc <= hb_stable
+error VE_DoubleFree      unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
+error VE_AccessFreed     unless  loc-overlap ; [Free] <= hb_stable
+error VE_AccessFreed     unless  [Free] ; loc-overlap = 0
+// error VE_AccessFreed     unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
+// error VE_AccessFreed     unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
 
+error VE_RaceNotAtomic     unless  na_conflict <= hb_stable
 // warning WWRace          unless  ww_conflict <= hb_stable
