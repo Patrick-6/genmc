@@ -35,6 +35,9 @@ public:
 	void initConsCalculation() override;
 
 	bool isConsistent(const Event &e) override;
+	VerificationError checkErrors(const Event &e) override {
+		return VerificationError::VE_OK;
+	}
 
 private:
 
