@@ -211,12 +211,14 @@ public:
 
 	/* Iterators for calculated relations */
 	calc_const_range calculated(size_t i) const {
-		return getPos().isInitializer() ? calculatedRels[0] : calculatedRels[i];
+		return (getPos().isInitializer() || getKind() == EL_Empty) ?
+			calculatedRels[0] : calculatedRels[i];
 	}
 
 	/* Getters for calculated views */
 	const View &view(size_t i) const {
-		return getPos().isInitializer() ? calculatedViews[0] : calculatedViews[i];
+		return (getPos().isInitializer() || getKind() == EL_Empty) ?
+			calculatedViews[0] : calculatedViews[i];
 	}
 
 	/* Methods that get/set the vector clocks for this label. */
