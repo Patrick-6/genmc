@@ -601,6 +601,13 @@ protected:
 	bool doFinalConsChecks(bool checkFull = false);
 
 private:
+	static std::unique_ptr<EmptyLabel> createHoleLabel(Event pos) {
+		auto lab = EmptyLabel::create(pos);
+		lab->setViews({{}});
+		lab->setCalculated({{}});
+		return lab;
+	}
+
 	/* A collection of threads and the events for each threads */
 	ThreadList events;
 
