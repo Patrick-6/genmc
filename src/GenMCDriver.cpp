@@ -2611,6 +2611,8 @@ void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds, cons
 						predsD.removeHole(rLab->getRf());
 				}
 			}
+			if (g.isRMWStore(lab) && pporf.contains(lab->getPos().prev()))
+				predsD.removeHole(lab->getPos());
 		}
 	}
 	return;
