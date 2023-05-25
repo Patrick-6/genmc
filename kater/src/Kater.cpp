@@ -512,7 +512,7 @@ bool Kater::checkExportRequirements()
 	/* Ensure that pporf is implied by the acyclicity constraints */
 	auto ppo = module.getPPO();
 	if (!ppo) {
-		std::cerr << "[Error] No top-level ppo definition provided!\n";
+		std::cerr << "[Error] No top-level ppo definition provided\n";
 		return false;
 	}
 	auto pporf = module.getPPORF();
