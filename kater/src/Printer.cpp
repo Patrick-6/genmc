@@ -187,6 +187,7 @@ void Printer::printHppHeader()
 	      << "\n"
 	      << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
 	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
+	      << "\tbool isDepTracking();\n"
 	      << "\tbool isConsistent(const Event &e);\n"
 	      << "\tVerificationError checkErrors(const Event &e);\n"
 	      << "\tbool isRecoveryValid(const Event &e);\n"
@@ -278,6 +279,12 @@ void Printer::outputCpp(const CNFAs &cnfas)
 		++i;
 	});
 	cpp() << "\treturn std::move(views);\n"
+	      << "}\n"
+	      << "\n";
+
+	cpp() << "bool " << className << "::isDepTracking()\n"
+	      << "{\n"
+	      << "\treturn " << cnfas.isDepTracking() << ";\n"
 	      << "}\n"
 	      << "\n";
 

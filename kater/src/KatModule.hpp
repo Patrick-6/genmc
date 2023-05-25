@@ -158,6 +158,8 @@ public:
 	void registerPPO(URE r) {
 		ppo = std::move(r);
 
+		depTracking = (*ppo != *getRegisteredID("po"));
+
 		/* Also create pporf since we are at it */
 		auto rf = getRegisteredID("rfe");
 		auto tc = getRegisteredID("tc");
@@ -198,6 +200,11 @@ public:
 		return rIt->first;
 	}
 
+	bool isDepTracking() const {
+		assert(depTracking.has_value());
+		return *depTracking;
+	}
+
 private:
 
 	// Results from parsing the input file
@@ -217,6 +224,8 @@ private:
 	std::vector<Inclusion<URE>> inclusionConstraints;
 	URE ppo = nullptr;
 	URE pporf = nullptr;
+
+	std::optional<bool> depTracking;
 };
 
 #endif /* KATER_KAT_MODULE_HPP */

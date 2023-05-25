@@ -728,9 +728,11 @@ void Kater::generateNFAs()
 
 	auto pporfNFA = module.getPPORF()->toNFA();
 	pporfNFA.simplify(isValidLabel);
-	cnfas.addPPoRf(std::move(pporfNFA), *ppo != *module.getRegisteredID("po"));
+	cnfas.addPPoRf(std::move(pporfNFA), module.isDepTracking());
 	if (getConf().verbose >= 3)
 		std::cout << "Generated pporf NFA simplified: " << cnfas.getPPoRf().first << std::endl;
+
+	cnfas.setDepTracking(module.isDepTracking());
 }
 
 bool Kater::exportCode(std::string &dirPrefix, std::string &outPrefix)

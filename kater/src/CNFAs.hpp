@@ -74,6 +74,9 @@ public:
 
 	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
 
+	bool isDepTracking() const { return depTracking; }
+	void setDepTracking(bool dt) { depTracking = dt; }
+
 private:
 	NFA acyc;
 	NFA rec;
@@ -81,6 +84,8 @@ private:
 	std::vector<std::pair<NFA, VarStatus>> nsave;
 	// std::vector<NFA> nredc;
 	std::vector<Inclusion<NFA>> nincl;
+
+	bool depTracking = false;
 };
 
 #endif /* KATER_CNFAS_HPP */
