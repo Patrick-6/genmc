@@ -554,6 +554,24 @@ bool Kater::checkExportRequirements()
 				}
 			}
 	});
+
+	/* Ensure that only one coherence constraint has been given, and that it involves a view */
+	if (module.getCohNum() != 1) {
+		std::cerr << "[Error] Only one coherence constraint is supported\n";
+		return false;
+	}
+	auto *coh = dynamic_cast<CharRE *>(&**module.coh_begin());
+	if (!coh || !coh->getLabel().getRelation()) {
+		std::cerr << "[Error] Coherence constraint needs to take a view argument\n";
+		return false; /* skip the rest of the checks */
+	}
+	auto vIt = std::find_if(module.svar_begin(), module.svar_end(), [&](auto &kv){
+		return kv.first == *coh->getLabel().getRelation() && kv.second.status == VarStatus::View;
+	});
+	if (vIt == module.svar_end()) {
+		std::cerr << "[Error] Coherence constraint needs to take a view argument\n";
+		status = false;
+	}
 	return status;
 }
 
@@ -608,6 +626,9 @@ void Kater::generateNFAs()
 			if (getConf().verbose >= 3)
 				std::cout << "Generated NFA for view[" << i << "]: " << n << std::endl;
 			cnfas.addView(std::move(n));
+
+			if (kv.first == dynamic_cast<CharRE *>(&**module.coh_begin())->getLabel().getRelation())
+				cnfas.setCohIndex(i);
 		} else {
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for save[" << i << "] = "

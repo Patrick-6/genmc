@@ -27,6 +27,7 @@
  * Constrained NFAs class
  * A collection of NFAs representing different constraint types
  */
+// TODO: Delete class altogether
 class CNFAs {
 
 public:
@@ -74,6 +75,9 @@ public:
 
 	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
 
+	void setCohIndex(int idx) { cohIndex = idx; }
+	int getCohIndex() const { return cohIndex; }
+
 	bool isDepTracking() const { return depTracking; }
 	void setDepTracking(bool dt) { depTracking = dt; }
 
@@ -85,6 +89,7 @@ private:
 	// std::vector<NFA> nredc;
 	std::vector<Inclusion<NFA>> nincl;
 
+	int cohIndex = -1;
 	bool depTracking = false;
 };
 

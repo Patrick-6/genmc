@@ -51,6 +51,205 @@ R"(/****************************************************************************
  *******************************************************************************/
 )";
 
+const char *coherenceFuns =
+R"(
+bool #CLASS#::isWriteRfBefore(Event a, Event b)
+{
+	auto &g = getGraph();
+	auto &before = g.getEventLabel(b)->view(#HB#);
+	if (before.contains(a))
+		return true;
+
+	const EventLabel *lab = g.getEventLabel(a);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *wLab = static_cast<const WriteLabel *>(lab);
+	for (auto &r : wLab->getReadersList())
+		if (before.contains(r))
+			return true;
+	return false;
+}
+
+std::vector<Event>
+#CLASS#::getInitRfsAtLoc(SAddr addr)
+{
+	std::vector<Event> result;
+
+	for (const auto *lab : labels(getGraph())) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+				result.push_back(rLab->getPos());
+	}
+	return result;
+}
+
+bool #CLASS#::isHbOptRfBefore(const Event e, const Event write)
+{
+	auto &g = getGraph();
+	const EventLabel *lab = g.getEventLabel(write);
+
+	BUG_ON(!llvm::isa<WriteLabel>(lab));
+	auto *sLab = static_cast<const WriteLabel *>(lab);
+	if (sLab->view(#HB#).contains(e))
+		return true;
+
+	for (auto &r : sLab->getReadersList()) {
+		if (g.getEventLabel(r)->view(#HB#).contains(e))
+			return true;
+	}
+	return false;
+}
+
+int #CLASS#::splitLocMOBefore(SAddr addr, Event e)
+{
+	const auto &g = getGraph();
+	auto rit = std::find_if(store_rbegin(g, addr), store_rend(g, addr), [&](const Event &s){
+		return g.isWriteRfBefore(s, e);
+	});
+	return (rit == store_rend(g, addr)) ? 0 : std::distance(rit, store_rend(g, addr));
+}
+
+int #CLASS#::splitLocMOAfterHb(SAddr addr, const Event read)
+{
+	const auto &g = getGraph();
+
+	auto initRfs = g.getInitRfsAtLoc(addr);
+	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
+		return g.getEventLabel(rf)->view(#HB#).contains(read);
+	}))
+		return 0;
+
+	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
+		return isHbOptRfBefore(read, s);
+	});
+	if (it == store_end(g, addr))
+		return std::distance(store_begin(g, addr), store_end(g, addr));
+	return (g.getEventLabel(*it)->view(#HB#).contains(read)) ?
+		std::distance(store_begin(g, addr), it) : std::distance(store_begin(g, addr), it) + 1;
+}
+
+int #CLASS#::splitLocMOAfter(SAddr addr, const Event e)
+{
+	const auto &g = getGraph();
+	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
+		return isHbOptRfBefore(e, s);
+	});
+	return (it == store_end(g, addr)) ? std::distance(store_begin(g, addr), store_end(g, addr)) :
+		std::distance(store_begin(g, addr), it);
+}
+
+std::vector<Event>
+#CLASS#::getCoherentStores(SAddr addr, Event read)
+{
+	auto &g = getGraph();
+	std::vector<Event> stores;
+
+	/*
+	 * If there are no stores (rf?;hb)-before the current event
+	 * then we can read read from all concurrent stores and the
+	 * initializer store. Otherwise, we can read from all concurrent
+	 * stores and the mo-latest of the (rf?;hb)-before stores.
+	 */
+	auto begO = splitLocMOBefore(addr, read);
+	if (begO == 0)
+		stores.push_back(Event::getInitializer());
+	else
+		stores.push_back(*(store_begin(g, addr) + begO - 1));
+
+	/*
+	 * If the model supports out-of-order execution we have to also
+	 * account for the possibility the read is hb-before some other
+	 * store, or some read that reads from a store.
+	 */
+	auto endO = (isDepTracking()) ? splitLocMOAfterHb(addr, read) :
+		std::distance(store_begin(g, addr), store_end(g, addr));
+	stores.insert(stores.end(), store_begin(g, addr) + begO, store_begin(g, addr) + endO);
+	return stores;
+}
+
+std::vector<Event>
+#CLASS#::getMOOptRfAfter(const WriteLabel *sLab)
+{
+	std::vector<Event> after;
+
+	auto &g = getGraph();
+	std::for_each(co_succ_begin(g, sLab->getAddr(), sLab->getPos()),
+		      co_succ_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+			      auto *wLab = g.getWriteLabel(w);
+			      after.push_back(wLab->getPos());
+			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	});
+	return after;
+}
+
+std::vector<Event>
+#CLASS#::getMOInvOptRfAfter(const WriteLabel *sLab)
+{
+	auto &g = getGraph();
+	std::vector<Event> after;
+
+	/* First, add (mo;rf?)-before */
+	std::for_each(co_pred_begin(g, sLab->getAddr(), sLab->getPos()),
+		      co_pred_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
+			      auto *wLab = g.getWriteLabel(w);
+			      after.push_back(wLab->getPos());
+			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	});
+
+	/* Then, we add the reader list for the initializer */
+	auto initRfs = g.getInitRfsAtLoc(sLab->getAddr());
+	after.insert(after.end(), initRfs.begin(), initRfs.end());
+	return after;
+}
+
+std::vector<Event>
+#CLASS#::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
+{
+	auto &g = getGraph();
+	auto ls = g.getRevisitable(sLab, pporf);
+
+	/* If this store is po- and mo-maximal then we are done */
+	if (!isDepTracking() && g.isCoMaximal(sLab->getAddr(), sLab->getPos()))
+		return ls;
+
+	/* First, we have to exclude (mo;rf?;hb?;sb)-after reads */
+	auto optRfs = getMOOptRfAfter(sLab);
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ const View &before = g.getEventLabel(e)->view(#HB#);
+				  return std::any_of(optRfs.begin(), optRfs.end(),
+					 [&](Event ev)
+					 { return before.contains(ev); });
+				}), ls.end());
+
+	/* If out-of-order event addition is not supported, then we are done
+	 * due to po-maximality */
+	if (!isDepTracking())
+		return ls;
+
+	/* Otherwise, we also have to exclude hb-before loads */
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+		{ return g.getEventLabel(sLab->getPos())->view(#HB#).contains(e); }),
+		ls.end());
+
+	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
+	 * the resulting graph */
+	auto &before = pporf;
+	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
+	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
+				{ auto *eLab = g.getEventLabel(e);
+				  auto v = g.getViewFromStamp(eLab->getStamp());
+				  v->update(before);
+				  return std::any_of(moInvOptRfs.begin(),
+						     moInvOptRfs.end(),
+						     [&](Event ev)
+						     { return v->contains(ev) &&
+						       g.getEventLabel(ev)->view(#HB#).contains(e); });
+				}),
+		 ls.end());
+
+	return ls;
+})";
+
 const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relationNames = {
         /* po */
         {Relation::po_imm,	{"po_imm_succs",     "po_imm_preds"}},
@@ -157,7 +356,7 @@ void Printer::printHppHeader()
 	hpp() << genmcCopyright << "\n"
 	      << katerNotice << "\n";
 
-	hpp() << "#ifndef " << guardName << "\n"
+        hpp() << "#ifndef " << guardName << "\n"
 	      << "#define " << guardName << "\n"
 	      << "\n"
 	      << "#include \"config.h\"\n"
@@ -192,8 +391,19 @@ void Printer::printHppHeader()
 	      << "\tVerificationError checkErrors(const Event &e);\n"
 	      << "\tbool isRecoveryValid(const Event &e);\n"
 	      << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);\n"
+	      << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read);\n"
+	      << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);\n"
 	      << "\n"
-	      << "private:\n";
+	      << "private:\n"
+	      << "\tbool isWriteRfBefore(Event a, Event b);\n"
+	      << "\tstd::vector<Event> getInitRfsAtLoc(SAddr addr);\n"
+	      << "\tbool isHbOptRfBefore(const Event e, const Event write);\n"
+	      << "\tint splitLocMOBefore(SAddr addr, Event e);\n"
+	      << "\tint splitLocMOAfterHb(SAddr addr, const Event read);\n"
+	      << "\tint splitLocMOAfter(SAddr addr, const Event e);\n"
+	      << "\tstd::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);\n"
+	      << "\tstd::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);\n"
+	      << "\n";
 }
 
 void Printer::printCppHeader()
@@ -328,6 +538,12 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	      				      << ">(calcPPoRfBefore(e));\n"
 	      << "}\n"
 	      << "\n";
+
+	/* coherence utils */
+	auto s = std::string(coherenceFuns);
+	replaceAll(s, "#CLASS#", className);
+	replaceAll(s, "#HB#", std::to_string(getCalcIdx(cnfas.getCohIndex())));
+	cpp() << s << "\n";
 
 	printCppFooter();
 }

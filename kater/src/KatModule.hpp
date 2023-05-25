@@ -57,6 +57,8 @@ public:
 	using acyc_const_iter = std::vector<URE>::const_iterator;
 	using rec_iter = std::vector<URE>::iterator;
 	using rec_const_iter = std::vector<URE>::const_iterator;
+	using coh_iter = std::vector<URE>::iterator;
+	using coh_const_iter = std::vector<URE>::const_iterator;
 	using incl_iter = std::vector<Inclusion<URE>>::iterator;
 	using incl_const_iter = std::vector<Inclusion<URE>>::const_iterator;
 	using assr_iter = std::vector<Assert>::iterator;
@@ -83,6 +85,11 @@ public:
 	rec_iter rec_end() { return recoveryConstraints.end(); }
 	rec_const_iter rec_begin() const { return recoveryConstraints.begin(); }
 	rec_const_iter rec_end() const { return recoveryConstraints.end(); }
+
+	coh_iter coh_begin() { return coherenceConstraints.begin(); }
+	coh_iter coh_end() { return coherenceConstraints.end(); }
+	coh_const_iter coh_begin() const { return coherenceConstraints.begin(); }
+	coh_const_iter coh_end() const { return coherenceConstraints.end(); }
 
 	incl_iter incl_begin() { return inclusionConstraints.begin(); }
 	incl_iter incl_end() { return inclusionConstraints.end(); }
@@ -112,6 +119,8 @@ public:
 	size_t getRecoveryNum() const { return recoveryConstraints.size(); }
 
 	size_t getInclusionNum() const { return inclusionConstraints.size(); }
+
+	size_t getCohNum() const { return coherenceConstraints.size(); }
 
 	URE getPPO() const { return ppo->clone(); }
 	URE getPPORF() const { return pporf->clone(); }
@@ -222,6 +231,7 @@ private:
 	std::vector<URE>            acyclicityConstraints;
 	std::vector<URE>            recoveryConstraints;
 	std::vector<Inclusion<URE>> inclusionConstraints;
+	std::vector<URE> coherenceConstraints;
 	URE ppo = nullptr;
 	URE pporf = nullptr;
 
