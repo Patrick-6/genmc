@@ -63,8 +63,8 @@ acyclic psc
 // RC11 error detection
 // ---------------------------------------------------------------------
 
-let ww_conflict = [W] ; loc-overlap ; [W]
-let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W]
+let ww_conflict = [W] ; loc-overlap ; [W] // co
+let wr_conflict = [W] ; loc-overlap ; [R] | [R] ; loc-overlap ; [W] //co?;rf | fr
 let conflicting = ww_conflict | wr_conflict
 let na_conflict = [NA] ; conflicting | conflicting ; [NA]
 
@@ -77,7 +77,7 @@ error VE_UninitializedMem unless  [IR] = 0 // necessary for the case where there
 error VE_AccessNonMalloc unless  alloc <= hb_stable
 error VE_DoubleFree      unless  [Free|HpRetire] ; loc-overlap ; [Free|HpRetire] = 0
 error VE_AccessFreed     unless  loc-overlap ; [Free] <= hb_stable
-error VE_AccessFreed     unless  [Free] ; loc-overlap = 0
+error VE_AccessFreed     unless  [Free] ; loc-overlap = 0 // new rels: free; alloc
 // error VE_AccessFreed     unless  [NotHpProtected] ; loc-overlap ; [HpRetire] <= hb_stable
 // error VE_AccessFreed     unless  [HpRetire] ; loc-overlap ; [NotHpProtected] = 0
 
