@@ -1576,6 +1576,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
 			GV_TO_SVAL(newVal, typ), getWriteAttr(I), GET_DEPS(lDeps))).value(); \
 		cmpRes = ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
+		updateDataDeps(getCurThr().id, &I, currPos());		\
+		updateAddrPoDeps(getCurThr().id, I.getPointerOperand()); \
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
 						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
@@ -1603,15 +1605,6 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	default:
 		BUG();
 	}
-
-	/* After the RMW operation is done, update dependencies and return value.
-	 *
-	 * NOTE: If visitStore initiates a recursive exploration, all previous
-	 * references might be invalidated, due to the changing interpreter state.
-	 * Thus, we have to reacquire these references to not ride the train to UB
-	 */
-	updateDataDeps(getCurThr().id, &I, currPos());
-	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 
 	result.AggregateVal.push_back(SVAL_TO_GV(ret, typ));
 	result.AggregateVal.push_back(INT_TO_GV(Type::getInt1Ty(I.getContext()), cmpRes));
@@ -1684,6 +1677,8 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		ret = CALL_DRIVER(handleLoad, nameR ## Label::create( \
 					  currPos(), I.getOrdering(), ptr, size, atyp, \
 					  I.getOperation(), val, getWriteAttr(I), GET_DEPS(deps))).value(); \
+		updateDataDeps(getCurThr().id, &I, currPos());		\
+		updateAddrPoDeps(getCurThr().id, I.getPointerOperand()); \
 		auto newVal = executeAtomicRMWOperation(ret, val, size, I.getOperation()); \
 		if (!getCurThr().isBlocked())	{			\
 			CALL_DRIVER(handleStore, 		\
@@ -1701,13 +1696,6 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	default:
 		BUG();
 	}
-
-
-
-	/* After the RMW operation is done, update dependencies.
-	 * (See comment for CASes to see why we re-acquire refs.) */
-	updateDataDeps(getCurThr().id, &I, currPos());
-	updateAddrPoDeps(getCurThr().id, I.getPointerOperand());
 
 	SetValue(&I, SVAL_TO_GV(ret, typ), ECStack().back());
 	return;

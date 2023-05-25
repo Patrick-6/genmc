@@ -37,6 +37,9 @@ public:
 	bool isConsistent(const Event &e) override;
 	VerificationError checkErrors(const Event &e) override;
 
+	std::unique_ptr<VectorClock>
+	getPrefixView(Event e) override;
+
 private:
 	View calcBasicHbView(Event e) const;
 	View calcBasicPorfView(Event e) const;

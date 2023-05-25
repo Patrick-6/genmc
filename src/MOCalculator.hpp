@@ -188,7 +188,7 @@ public:
 	/* Returns all the reads that "wLab" can revisit without violating
 	 * coherence */
 	std::vector<Event>
-	getCoherentRevisits(const WriteLabel *wLab) override;
+	getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf) override;
 
 	/* Overrided Calculator methods */
 

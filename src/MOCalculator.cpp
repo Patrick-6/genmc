@@ -425,10 +425,10 @@ MOCalculator::getMOInvOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
+MOCalculator::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 {
 	const auto &g = getGraph();
-	auto ls = g.getRevisitable(sLab);
+	auto ls = g.getRevisitable(sLab, pporf);
 
 	/* If this store is po- and mo-maximal then we are done */
 	if (!supportsOutOfOrder() && isCoMaximal(sLab->getAddr(), sLab->getPos()))
@@ -455,7 +455,7 @@ MOCalculator::getCoherentRevisits(const WriteLabel *sLab)
 
 	/* ...and also exclude (mo^-1; rf?; (hb^-1)?; sb^-1)-after reads in
 	 * the resulting graph */
-	auto &before = g.getPPoRfBefore(sLab->getPos());
+	auto &before = pporf;
 	auto moInvOptRfs = getMOInvOptRfAfter(sLab);
 	ls.erase(std::remove_if(ls.begin(), ls.end(), [&](Event e)
 				{ auto *eLab = g.getEventLabel(e);

@@ -284,7 +284,7 @@ public:
 	/* Returns all the reads that "wLab" can revisit without violating
 	 * coherence */
 	virtual std::vector<Event>
-	getCoherentRevisits(const WriteLabel *wLab) = 0;
+	getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf) = 0;
 
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.

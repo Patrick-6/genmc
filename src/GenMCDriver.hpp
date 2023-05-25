@@ -776,7 +776,7 @@ private:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	virtual const VectorClock& getPrefixView(Event e) const;
+	virtual std::unique_ptr<VectorClock> getPrefixView(Event e);
 
 #ifdef ENABLE_GENMC_DEBUG
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);

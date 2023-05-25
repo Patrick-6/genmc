@@ -454,3 +454,9 @@ bool IMMDriver::isConsistent(const Event &e)
 {
 	return IMMChecker(getGraph()).isConsistent(e);
 }
+
+std::unique_ptr<VectorClock>
+IMMDriver::getPrefixView(Event e)
+{
+	return IMMChecker(getGraph()).getPPoRfBefore(e);
+}

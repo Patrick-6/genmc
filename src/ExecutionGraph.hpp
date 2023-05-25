@@ -327,7 +327,7 @@ public:
 	Event getPendingRMW(const WriteLabel *sLab) const;
 
 	/* Returns a list of loads that can be revisited */
-	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab) const;
+	virtual std::vector<Event> getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const;
 
 	/* Returns the first po-predecessor satisfying F */
 	template <typename F>
@@ -515,7 +515,7 @@ public:
 	void trackCoherenceAtLoc(SAddr addr);
 	std::vector<Event> getCoherentStores(SAddr addr, Event pos);
 	std::pair<int, int> getCoherentPlacings(SAddr addr, Event pos, bool isRMW);
-	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab);
+	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf);
 
 
 	/* Graph modification methods */

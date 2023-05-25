@@ -190,37 +190,25 @@ public:
 class BackwardRevisit : public Revisit, public ReadRevisit {
 
 protected:
-	BackwardRevisit(Kind k, Event p, Event r,
-		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
-		 std::vector<std::pair<Event, Event> > &&moPlacings)
+	BackwardRevisit(Kind k, Event p, Event r, std::unique_ptr<VectorClock> prefix)
 		: Revisit(k, p),
 		  prefix(std::move(prefix)),
-		  moPlacings(std::move(moPlacings)),
 		  ReadRevisit(k, r) {}
 
 public:
-	BackwardRevisit(Event p, Event r,
-		 std::vector<std::unique_ptr<EventLabel> > &&prefix,
-		 std::vector<std::pair<Event, Event> > &&moPlacings)
-		: BackwardRevisit(RV_BRev, p, r, std::move(prefix), std::move(moPlacings)) {}
-	BackwardRevisit(Event p, Event r)
-		: BackwardRevisit(p, r, {}, {}) {}
-	BackwardRevisit(const ReadLabel *rLab, const WriteLabel *wLab)
-		: BackwardRevisit(rLab->getPos(), wLab->getPos()) {}
+	BackwardRevisit(Event p, Event r, std::unique_ptr<VectorClock> prefix)
+		: BackwardRevisit(RV_BRev, p, r, std::move(prefix)) {}
+	BackwardRevisit(const ReadLabel *rLab, const WriteLabel *wLab, std::unique_ptr<VectorClock> prefix)
+		: BackwardRevisit(rLab->getPos(), wLab->getPos(), std::move(prefix)) {}
 
 	/* Returns (releases) the prefix of the revisiting event */
-	std::vector<std::unique_ptr<EventLabel> > &&getPrefixRel() {
+	std::unique_ptr<VectorClock> getPrefixRel() {
 		return std::move(prefix);
 	}
 
 	/* Returns (but does not release) the prefix of the revisiting event */
-	const std::vector<std::unique_ptr<EventLabel> > &getPrefixNoRel() const {
+	const std::unique_ptr<VectorClock> &getPrefixNoRel() const {
 		return prefix;
-	}
-
-	/* Returns (releases) the coherence placing in the prefix */
-	std::vector<std::pair<Event, Event> > &&getMOPlacingsRel() {
-		return std::move(moPlacings);
 	}
 
 	static bool classof(const Revisit *item) {
@@ -234,8 +222,7 @@ public:
 	}
 
 private:
-	std::vector<std::unique_ptr<EventLabel> >  prefix;
-	std::vector<std::pair<Event, Event> >  moPlacings;
+	std::unique_ptr<VectorClock>  prefix;
 };
 
 
@@ -245,13 +232,26 @@ private:
 class BackwardRevisitHELPER : public BackwardRevisit {
 
 public:
-	BackwardRevisitHELPER(Event p, Event r, Event m)
-		: BackwardRevisit(RV_BRevHelper, p, r, {}, {}), mid(m) {}
-	BackwardRevisitHELPER(const ReadLabel *rLab, const WriteLabel *wLab, const WriteLabel *mLab)
-		: BackwardRevisitHELPER(rLab->getPos(), wLab->getPos(), mLab->getPos()) {}
+	BackwardRevisitHELPER(Event p, Event r, std::unique_ptr<VectorClock> prefix, Event m,
+			      std::unique_ptr<VectorClock> midPrefix)
+		: BackwardRevisit(RV_BRevHelper, p, r, std::move(prefix)),
+		  mid(m), midPrefix(std::move(midPrefix)) {}
+	BackwardRevisitHELPER(const ReadLabel *rLab, const WriteLabel *wLab, std::unique_ptr<VectorClock> prefix,
+			      const WriteLabel *mLab, std::unique_ptr<VectorClock>(mPrefix))
+		: BackwardRevisitHELPER(rLab->getPos(), wLab->getPos(), std::move(prefix),
+					mLab->getPos(), std::move(mPrefix)) {}
 
 	/* Returns the intermediate write participating in the revisit */
 	Event getMid() const { return mid; }
+
+	std::unique_ptr<VectorClock> getMidPrefixRel() {
+		return std::move(midPrefix);
+	}
+
+	/* Returns (but does not release) the prefix of the revisiting event */
+	const std::unique_ptr<VectorClock> &getMidPrefixNoRel() const {
+		return midPrefix;
+	}
 
 	static bool classof(const Revisit *item) {
 		return item->getKind() == RV_BRevHelper;
@@ -265,6 +265,7 @@ public:
 
 private:
 	Event mid;
+	std::unique_ptr<VectorClock> midPrefix;
 };
 
 

@@ -40,7 +40,7 @@ protected:
 	DepExecutionGraph(unsigned int warnOnGraphSize = UINT_MAX) : ExecutionGraph(warnOnGraphSize) {}
 
 public:
-	std::vector<Event> getRevisitable(const WriteLabel *sLab) const override;
+	std::vector<Event> getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const override;
 
 	std::unique_ptr<VectorClock>
 	getViewFromStamp(Stamp) const override;

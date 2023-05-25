@@ -407,3 +407,9 @@ VerificationError RC11Driver::checkErrors(const Event &e)
 {
 	return RC11Checker(getGraph()).checkErrors(e);
 }
+
+std::unique_ptr<VectorClock>
+RC11Driver::getPrefixView(Event e)
+{
+	return RC11Checker(getGraph()).getPPoRfBefore(e);
+}

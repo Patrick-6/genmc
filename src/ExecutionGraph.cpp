@@ -376,9 +376,8 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 	return getMinimumStampEvent(pending);
 }
 
-std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab) const
+std::vector<Event> ExecutionGraph::getRevisitable(const WriteLabel *sLab, const VectorClock &before) const
 {
-	auto &before = getPorfBefore(sLab->getPos());
 	auto pendingRMW = getPendingRMW(sLab);
 	std::vector<Event> loads;
 
@@ -780,9 +779,9 @@ ExecutionGraph::getCoherentStores(SAddr addr, Event pos)
 }
 
 std::vector<Event>
-ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab)
+ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf)
 {
-	return getCoherenceCalculator()->getCoherentRevisits(wLab);
+	return getCoherenceCalculator()->getCoherentRevisits(wLab, pporf);
 }
 
 const DepView &ExecutionGraph::getPPoRfBefore(Event e) const

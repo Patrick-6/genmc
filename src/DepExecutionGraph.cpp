@@ -22,7 +22,7 @@
 #include "DepExecutionGraph.hpp"
 
 std::vector<Event>
-DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
+DepExecutionGraph::getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const
 {
 	auto pendingRMW = getPendingRMW(sLab);
 	std::vector<Event> loads;
@@ -34,7 +34,7 @@ DepExecutionGraph::getRevisitable(const WriteLabel *sLab) const
 			const EventLabel *lab = getEventLabel(Event(i, j));
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (rLab->getAddr() == sLab->getAddr() &&
-				    !sLab->getPPoRfView().contains(rLab->getPos()) &&
+				    !pporf.contains(rLab->getPos()) &&
 				    rLab->isRevisitable() && rLab->wasAddedMax())
 					loads.push_back(rLab->getPos());
 			}

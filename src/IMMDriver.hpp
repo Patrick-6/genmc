@@ -38,6 +38,8 @@ public:
 	VerificationError checkErrors(const Event &e) override {
 		return VerificationError::VE_OK;
 	}
+	std::unique_ptr<VectorClock>
+	getPrefixView(Event e) override;
 
 private:
 
