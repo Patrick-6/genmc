@@ -524,9 +524,9 @@ bool Kater::checkExportRequirements()
 	Counterexample cex;
 	auto noOOTA = SubsetConstraint::create(pporf->clone(), StarRE::createOpt(std::move(acycDisj)));
 	if (!checkAssertion(&*noOOTA, cex)) {
-		std::cerr << "[Error] Acyclicity constraints do not preclude OOTA!\n";
+		std::cerr << "[Warning] Acyclicity constraints do not preclude OOTA.\n";
+		std::cerr << "OOTA needs to be enforced by the model checker\n";
 		printCounterexample(cex);
-		status = false;
 	}
 
 	/* Ensure that all saved relations are included in pporf;ppo and are transitive */
