@@ -428,7 +428,6 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
-		BUG_ON(getEventLabel(pos) && !llvm::isa<EmptyLabel>(getEventLabel(pos)));
 		events[pos.thread][pos.index] = std::move(lab);
 	} else {
 		events[pos.thread].push_back(std::move(lab));
