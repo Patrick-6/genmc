@@ -27,7 +27,7 @@ void KatModule::addConstraint(const Constraint *c, const std::string &s, const y
 {
 	if (dynamic_cast<const AcyclicConstraint *>(c) && c->getType() == Constraint::Type::Consistency)
 		acyclicityConstraints.push_back(c->getKid(0)->clone());
-	if (dynamic_cast<const RecoveryConstraint *>(c) && c->getType() == Constraint::Type::Consistency)
+	else if (dynamic_cast<const RecoveryConstraint *>(c) && c->getType() == Constraint::Type::Consistency)
 		recoveryConstraints.push_back(c->getKid(0)->clone());
 	else if (dynamic_cast<const SubsetConstraint *>(c))
 		inclusionConstraints.push_back({c->getKid(0)->clone(),
