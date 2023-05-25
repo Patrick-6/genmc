@@ -422,15 +422,13 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	setFPStatus(FS_Stale);
 
-	if (contains(lab->getPos()))
-		remove(lab->getPos());
-
 	/* Assign stamp if necessary */
 	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
+		BUG_ON(!llvm::isa<EmptyLabel>(getEventLabel(pos)));
 		events[pos.thread][pos.index] = std::move(lab);
 	} else {
 		events[pos.thread].push_back(std::move(lab));
