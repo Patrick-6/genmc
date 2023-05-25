@@ -159,12 +159,10 @@ public:
 	 * (Maintains well-formedness for read removals.) */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
-	/* Removes an event from the execution graph. If the event is
-	 * not the last of a thread, it replaces it with an empty label.
-	 * (Updates reader lists appropriately.) */
-	void remove(const Event &e) { return remove(getEventLabel(e)); }
-	void remove(const EventLabel *lab);
-
+	/* Removes the last event from THREAD.
+	 * If it is a read, updates the rf-lists.
+	 * If it is a write, makes all readers read BOT. */
+	void removeLast(unsigned int thread);
 
 	/* Event getter methods */
 
@@ -600,13 +598,14 @@ protected:
 	 * and returns the final decision re. consistency */
 	bool doFinalConsChecks(bool checkFull = false);
 
-private:
 	static std::unique_ptr<EmptyLabel> createHoleLabel(Event pos) {
 		auto lab = EmptyLabel::create(pos);
 		lab->setViews({{}});
 		lab->setCalculated({{}});
 		return lab;
 	}
+
+private:
 
 	/* A collection of threads and the events for each threads */
 	ThreadList events;

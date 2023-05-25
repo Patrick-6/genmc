@@ -747,7 +747,7 @@ void GenMCDriver::unblockThread(Event pos)
 {
 	auto *bLab = getGraph().getLastThreadLabel(pos.thread);
 	BUG_ON(!llvm::isa<BlockLabel>(bLab));
-	getGraph().remove(bLab);
+	getGraph().removeLast(pos.thread);
 	getEE()->getThrById(pos.thread).unblock();
 }
 
@@ -793,9 +793,7 @@ bool GenMCDriver::rescheduleReads()
 			continue;
 
 		setRescheduledRead(bLab->getPos());
-		g.remove(bLab);
-
-		EE->getThrById(i).unblock();
+		unblockThread(bLab->getPos());
 		EE->scheduleThread(i);
 		return true;
 	}
@@ -1412,7 +1410,9 @@ bool GenMCDriver::filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> 
 	if ((llvm::isa<LockCasWriteLabel>(g.getEventLabel(stores.back())) ||
 	     llvm::isa<TrylockCasWriteLabel>(g.getEventLabel(stores.back()))) &&
 	    !isRescheduledRead(rLab->getPos())) {
-		blockThread(rLab->getPos(), BlockageType::ReadOptBlock);
+		auto pos = rLab->getPos();
+		g.removeLast(pos.thread);
+		blockThread(pos, BlockageType::ReadOptBlock);
 		return false;
 	}
 
@@ -1527,7 +1527,7 @@ void GenMCDriver::unblockWaitingHelping()
 	for (auto i = 0u; i < getGraph().getNumThreads(); i++) {
 		auto *bLab = llvm::dyn_cast<BlockLabel>(getGraph().getLastThreadLabel(i));
 		if (bLab && bLab->getType() == BlockageType::HelpedCas)
-			getGraph().remove(bLab->getPos());
+			getGraph().removeLast(bLab->getThread());
 	}
 }
 
@@ -1695,6 +1695,9 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 	if (cid == (long) g.getNumThreads()) {
 		g.addNewThread();
 		BUG_ON(EE->getNumThreads() != g.getNumThreads());
+	} else {
+		BUG_ON(g.getThreadSize(cid) != 1);
+		g.removeLast(cid);
 	}
 	auto symm = getConf()->symmetryReduction ?
 		getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
@@ -1919,7 +1922,9 @@ bool GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event
 	if (existsPendingSpeculation(lab, stores)) {
 		std::swap(stores[0], stores.back());
 		stores.resize(1);
-		blockThread(lab->getPos(), BlockageType::ReadOptBlock);
+		auto pos = lab->getPos();
+		getGraph().removeLast(pos.thread);
+		blockThread(pos, BlockageType::ReadOptBlock);
 		return false;
 	}
 
@@ -2032,7 +2037,9 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (llvm::isa<BWaitReadLabel>(lab) &&
 	    retVal != getBarrierInitValue(lab->getAddr(), lab->getAccess())) {
 		if (!getConf()->disableBAM) {
-			blockThread(lab->getPos(), BlockageType::Barrier);
+			auto pos = lab->getPos();
+			g.removeLast(pos.thread);
+			blockThread(pos, BlockageType::Barrier);
 			return {retVal};
 		}
 		getEE()->getCurThr().block(BlockageType::Barrier);
@@ -2328,8 +2335,7 @@ void GenMCDriver::handleBlock(std::unique_ptr<BlockLabel> lab)
 		return;
 
 	auto &g = getGraph();
-	auto *bLab = llvm::dyn_cast<BlockLabel>(addLabelToGraph(std::move(lab)));
-	blockThreadTryMoot(bLab->getPos(), bLab->getType());
+	blockThreadTryMoot(lab->getPos(), lab->getType());
 	return;
 }
 
@@ -2568,7 +2574,7 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 
 	BUG_ON(!llvm::isa<LockCasReadLabel>(rLab) || !llvm::isa<UnlockWriteLabel>(sLab));
 	BUG_ON(!llvm::isa<BlockLabel>(g.getEventLabel(rLab->getPos().next())));
-	g.remove(rLab->getPos().next());
+	g.removeLast(rLab->getThread());
 	changeRf(rLab->getPos(), sLab->getPos());
 	rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()));
 
@@ -3309,7 +3315,9 @@ void GenMCDriver::handleSpinStart(std::unique_ptr<SpinStartLabel> lab)
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */
-	blockThreadTryMoot(stLab->getPos(), BlockageType::Spinloop);
+	auto stPos = stLab->getPos();
+	g.removeLast(stPos.thread);
+	blockThreadTryMoot(stPos, BlockageType::Spinloop);
 	return;
 }
 
@@ -3356,8 +3364,11 @@ void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 		return;
 
 	auto *zLab = llvm::dyn_cast<FaiZNESpinEndLabel>(addLabelToGraph(std::move(lab)));
-	if (areFaiZNEConstraintsSat(&*zLab))
-		blockThreadTryMoot(zLab->getPos(), BlockageType::FaiZNESpinloop);
+	if (areFaiZNEConstraintsSat(&*zLab)) {
+		auto pos = zLab->getPos();
+		g.removeLast(pos.thread);
+		blockThreadTryMoot(pos, BlockageType::FaiZNESpinloop);
+	}
 	return;
 }
 
@@ -3366,8 +3377,7 @@ void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return;
 
-	auto *zLab = addLabelToGraph(std::move(lab));
-	blockThreadTryMoot(zLab->getPos(), BlockageType::LockZNESpinloop);
+	blockThreadTryMoot(lab->getPos(), BlockageType::LockZNESpinloop);
 	return;
 }
 

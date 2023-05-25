@@ -428,6 +428,8 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
+		auto eLab = getEventLabel(pos);
+		BUG_ON(eLab && !llvm::isa<EmptyLabel>(eLab));
 		events[pos.thread][pos.index] = std::move(lab);
 	} else {
 		events[pos.thread].push_back(std::move(lab));
@@ -879,23 +881,23 @@ void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) co
  ** Calculation of writes a read can read from
  ***********************************************************/
 
-void ExecutionGraph::remove(const EventLabel *lab)
+void ExecutionGraph::removeLast(unsigned int thread)
 {
-	if (!contains(lab))
-		return;
-
 	setFPStatus(FS_Stale);
+
+	auto *lab = getLastThreadLabel(thread);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		if (!rLab->getRf().isBottom()) {
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
 				wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
 		}
 	}
-	BUG_ON(lab->getIndex() >= getThreadSize(lab->getThread()));
-	if (lab != getLastThreadLabel(lab->getThread()))
-		events[lab->getThread()][lab->getIndex()] = EmptyLabel::create(lab->getPos());
-	else
-		resizeThread(lab->getPos());
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+		for (auto &r : wLab->readers()) {
+			llvm::dyn_cast<ReadLabel>(getEventLabel(r))->setRf(Event::getBottom());
+		}
+	}
+	resizeThread(lab->getPos());
 }
 
 bool ExecutionGraph::isNonTrivial(const Event e) const
@@ -1163,10 +1165,12 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	// to keep the same size as the interpreter threads.
 	other.events.resize(getNumThreads());
 	for (auto i = 0u; i < getNumThreads(); i++) {
-		other.addLabelToGraph(getEventLabel(Event(i, 0))->clone());
+		/* Skip the initializer */
+		if (i != 0)
+			other.addLabelToGraph(getEventLabel(Event(i, 0))->clone());
 		for (auto j = 1; j <= v.getMax(i); j++) {
 			if (!v.contains(Event(i, j))) {
-				other.addLabelToGraph(EmptyLabel::create(Event(i, j)));
+				other.addLabelToGraph(createHoleLabel(Event(i, j)));
 				continue;
 			}
 			auto *nLab = other.addLabelToGraph(getEventLabel(Event(i, j))->clone());
