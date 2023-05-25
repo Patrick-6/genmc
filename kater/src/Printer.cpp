@@ -213,6 +213,7 @@ void Printer::printHppFooter()
 	      << "\tExecutionGraph &g;\n"
 	      << "\n"
 	      << "\tExecutionGraph &getGraph() { return g; }\n"
+	      << "\tconst ExecutionGraph &getGraph() const { return g; }\n"
 	      << "};\n"
 	      << "\n"
 	      << "#endif /* " << guardName << " */\n";
