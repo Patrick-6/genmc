@@ -1824,7 +1824,7 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 
 std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 {
-	auto rfs = getGraph().getCoherentStores(lab->getAddr(), lab->getPos());
+	auto rfs = getCoherentStores(lab->getAddr(), lab->getPos());
 	if (!llvm::isa<CasReadLabel>(lab) && !llvm::isa<FaiReadLabel>(lab))
 		return rfs;
 
@@ -2084,7 +2084,7 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 {
 	auto &g = getGraph();
 	auto prefix = getPrefixView(sLab->getPos());
-	auto loads = g.getCoherentRevisits(sLab, *prefix);
+	auto loads = getCoherentRevisits(sLab, *prefix);
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});

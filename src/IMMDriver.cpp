@@ -460,3 +460,16 @@ IMMDriver::getPrefixView(Event e)
 {
 	return IMMChecker(getGraph()).getPPoRfBefore(e);
 }
+
+std::vector<Event>
+IMMDriver::getCoherentStores(SAddr addr, Event read)
+{
+	return IMMChecker(getGraph()).getCoherentStores(addr, read);
+}
+
+std::vector<Event>
+IMMDriver::getCoherentRevisits(const WriteLabel *sLab,
+				const VectorClock &pporf)
+{
+	return IMMChecker(getGraph()).getCoherentRevisits(sLab, pporf);
+}

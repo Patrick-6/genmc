@@ -52,12 +52,24 @@ public:
 
 	std::vector<VSet<Event>> calculateSaved(const Event &e);
 	std::vector<View> calculateViews(const Event &e);
+	bool isDepTracking();
 	bool isConsistent(const Event &e);
 	VerificationError checkErrors(const Event &e);
 	bool isRecoveryValid(const Event &e);
 	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
+	std::vector<Event> getCoherentStores(SAddr addr, Event read);
+	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
 
 private:
+	bool isWriteRfBefore(Event a, Event b);
+	std::vector<Event> getInitRfsAtLoc(SAddr addr);
+	bool isHbOptRfBefore(const Event e, const Event write);
+	int splitLocMOBefore(SAddr addr, Event e);
+	int splitLocMOAfterHb(SAddr addr, const Event read);
+	int splitLocMOAfter(SAddr addr, const Event e);
+	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
+	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
+
 	void visitCalc0_0(const Event &e, View &calcRes);
 	void visitCalc0_1(const Event &e, View &calcRes);
 	void visitCalc0_2(const Event &e, View &calcRes);
@@ -136,6 +148,7 @@ private:
 	ExecutionGraph &g;
 
 	ExecutionGraph &getGraph() { return g; }
+	const ExecutionGraph &getGraph() const { return g; }
 };
 
 #endif /* __IMM_CHECKER_HPP__ */

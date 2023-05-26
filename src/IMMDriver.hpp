@@ -41,6 +41,11 @@ public:
 	std::unique_ptr<VectorClock>
 	getPrefixView(Event e) override;
 
+	std::vector<Event>
+	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
+	std::vector<Event>
+	getCoherentStores(SAddr addr, Event read) override;
+
 private:
 
 	DepView getDepsAsView(const EventDeps &deps) const;

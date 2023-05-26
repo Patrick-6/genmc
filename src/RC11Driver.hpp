@@ -37,6 +37,11 @@ public:
 	bool isConsistent(const Event &e) override;
 	VerificationError checkErrors(const Event &e) override;
 
+	std::vector<Event>
+	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
+	std::vector<Event>
+	getCoherentStores(SAddr addr, Event read) override;
+
 	std::unique_ptr<VectorClock>
 	getPrefixView(Event e) override;
 

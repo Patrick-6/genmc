@@ -52,21 +52,33 @@ public:
 
 	std::vector<VSet<Event>> calculateSaved(const Event &e);
 	std::vector<View> calculateViews(const Event &e);
+	bool isDepTracking();
 	bool isConsistent(const Event &e);
 	VerificationError checkErrors(const Event &e);
 	bool isRecoveryValid(const Event &e);
 	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
+	std::vector<Event> getCoherentStores(SAddr addr, Event read);
+	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
 
 private:
-	void visitCalc0_0(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_1(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_4(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_5(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_6(const Event &e, VSet<Event> &calcRes);
+	bool isWriteRfBefore(Event a, Event b);
+	std::vector<Event> getInitRfsAtLoc(SAddr addr);
+	bool isHbOptRfBefore(const Event e, const Event write);
+	int splitLocMOBefore(SAddr addr, Event e);
+	int splitLocMOAfterHb(SAddr addr, const Event read);
+	int splitLocMOAfter(SAddr addr, const Event e);
+	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
+	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
 
-	VSet<Event> calculate0(const Event &e);
+	void visitCalc0_0(const Event &e, View &calcRes);
+	void visitCalc0_1(const Event &e, View &calcRes);
+	void visitCalc0_2(const Event &e, View &calcRes);
+	void visitCalc0_3(const Event &e, View &calcRes);
+	void visitCalc0_4(const Event &e, View &calcRes);
+	void visitCalc0_5(const Event &e, View &calcRes);
+	void visitCalc0_6(const Event &e, View &calcRes);
+
+	View calculate0(const Event &e);
 
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_0;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
@@ -208,6 +220,7 @@ private:
 	ExecutionGraph &g;
 
 	ExecutionGraph &getGraph() { return g; }
+	const ExecutionGraph &getGraph() const { return g; }
 };
 
 #endif /* __RC11_CHECKER_HPP__ */

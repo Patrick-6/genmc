@@ -772,6 +772,13 @@ private:
 	virtual bool isConsistent(const Event &e) { ERROR("Unimplemented cons\n"); };
 	virtual bool isRecoveryValid(const Event &e) { ERROR("Unimplemented pers\n"); };
 	virtual VerificationError checkErrors(const Event &e) { ERROR("Unimplemented error\n"); };
+	virtual std::vector<Event>
+	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) {
+		ERROR("Unimplemented cohrev\n");
+	}
+	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) {
+		ERROR("Unimplemented cohst\n");
+	}
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be

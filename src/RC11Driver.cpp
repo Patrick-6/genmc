@@ -408,6 +408,19 @@ VerificationError RC11Driver::checkErrors(const Event &e)
 	return RC11Checker(getGraph()).checkErrors(e);
 }
 
+std::vector<Event>
+RC11Driver::getCoherentRevisits(const WriteLabel *sLab,
+				const VectorClock &pporf)
+{
+	return RC11Checker(getGraph()).getCoherentRevisits(sLab, pporf);
+}
+
+std::vector<Event>
+RC11Driver::getCoherentStores(SAddr addr, Event read)
+{
+	return RC11Checker(getGraph()).getCoherentStores(addr, read);
+}
+
 std::unique_ptr<VectorClock>
 RC11Driver::getPrefixView(Event e)
 {
