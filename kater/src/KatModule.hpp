@@ -165,8 +165,10 @@ public:
 	}
 
 	void registerPPO(URE r) {
-		ppo = std::move(r);
+		if (!r)
+			return;
 
+		ppo = std::move(r);
 		depTracking = (*ppo != *getRegisteredID("po"));
 
 		/* Also create pporf since we are at it */
