@@ -694,7 +694,16 @@ void Kater::generateNFAs()
 		if (getConf().verbose >= 3)
 			std::cout << "Generated NFA (RHS): " << rhs << std::endl;
 
-		cnfas.addInclusion(Inclusion<NFA>(std::move(lhs), std::move(rhs), r.type, r.s));
+		auto j = -1;
+		auto *rhsRE = dynamic_cast<CharRE *>(&*r.rhs);
+		if (rhsRE && rhsRE->getLabel().getRelation()) {
+			for (auto sIt = module.svar_begin(), sE = module.svar_end(); sIt != sE; ++sIt) {
+				if (sIt->second.status == VarStatus::View && sIt->first == rhsRE->getLabel().getRelation()) {
+					j = std::distance(module.svar_begin(), sIt);
+				}
+			}
+		}
+		cnfas.addInclusion({Inclusion<NFA>(std::move(lhs), std::move(rhs), r.type, r.s), j});
 	});
 
 	NFA rec;

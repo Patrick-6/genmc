@@ -22,6 +22,7 @@
 #include "CNFAs.hpp"
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,8 +56,10 @@ private:
 	void printCalculatorHpp(const NFA &nfa, unsigned id, VarStatus status);
 	void printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status);
 
-	void printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id);
-	void printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id);
+	void printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id,
+			       std::optional<unsigned> rhsViewIdx);
+	void printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id,
+			       std::optional<unsigned> rhsViewIdx);
 
 	void printAcyclicHpp(const NFA &nfa);
 	void printAcyclicCpp(const NFA &nfa);

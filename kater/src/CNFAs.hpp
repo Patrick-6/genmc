@@ -37,8 +37,8 @@ public:
 	using save_const_iter = std::vector<std::pair<NFA, VarStatus>>::const_iterator;
 	using redc_iter = save_iter;
 	using redc_const_iter = save_const_iter;
-	using incl_iter = std::vector<Inclusion<NFA>>::iterator;
-	using incl_const_iter = std::vector<Inclusion<NFA>>::const_iterator;
+	using incl_iter = std::vector<std::pair<Inclusion<NFA>,int>>::iterator;
+	using incl_const_iter = std::vector<std::pair<Inclusion<NFA>,int>>::const_iterator;
 
 	const NFA &getAcyclic() const { return acyc; }
 
@@ -73,7 +73,7 @@ public:
 
 	void addView(NFA &&view) { nsave.push_back({std::move(view), VarStatus::View}); }
 
-	void addInclusion(Inclusion<NFA> &&incl) { nincl.push_back(std::move(incl)); }
+	void addInclusion(std::pair<Inclusion<NFA>, int> &&incl) { nincl.push_back(std::move(incl)); }
 
 	void setCohIndex(int idx) { cohIndex = idx; }
 	int getCohIndex() const { return cohIndex; }
@@ -87,7 +87,7 @@ private:
 	std::pair<NFA, bool> pporf; // 1 -> deps
 	std::vector<std::pair<NFA, VarStatus>> nsave;
 	// std::vector<NFA> nredc;
-	std::vector<Inclusion<NFA>> nincl;
+	std::vector<std::pair<Inclusion<NFA>, int>> nincl; // index of rhs view; -1 if none ** FIXME **
 
 	int cohIndex = -1;
 	bool depTracking = false;

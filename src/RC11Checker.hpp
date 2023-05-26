@@ -99,10 +99,8 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept0;
 	static inline thread_local std::vector<bool> rhsAccept0;
 
-	void visitInclusionLHS1_0(const Event &e);
-	void visitInclusionLHS1_1(const Event &e);
-	void visitInclusionRHS1_0(const Event &e);
-	void visitInclusionRHS1_1(const Event &e);
+	bool visitInclusionLHS1_0(const Event &e, const View &v);
+	bool visitInclusionLHS1_1(const Event &e, const View &v);
 
 	bool checkInclusion1(const Event &e);
 
@@ -125,10 +123,8 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept2;
 	static inline thread_local std::vector<bool> rhsAccept2;
 
-	void visitInclusionLHS3_0(const Event &e);
-	void visitInclusionLHS3_1(const Event &e);
-	void visitInclusionRHS3_0(const Event &e);
-	void visitInclusionRHS3_1(const Event &e);
+	bool visitInclusionLHS3_0(const Event &e, const View &v);
+	bool visitInclusionLHS3_1(const Event &e, const View &v);
 
 	bool checkInclusion3(const Event &e);
 
@@ -151,10 +147,8 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept4;
 	static inline thread_local std::vector<bool> rhsAccept4;
 
-	void visitInclusionLHS5_0(const Event &e);
-	void visitInclusionLHS5_1(const Event &e);
-	void visitInclusionRHS5_0(const Event &e);
-	void visitInclusionRHS5_1(const Event &e);
+	bool visitInclusionLHS5_0(const Event &e, const View &v);
+	bool visitInclusionLHS5_1(const Event &e, const View &v);
 
 	bool checkInclusion5(const Event &e);
 
