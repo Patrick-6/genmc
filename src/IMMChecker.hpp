@@ -103,6 +103,22 @@ private:
 	bool visitAcyclic10(const Event &e);
 	bool visitAcyclic11(const Event &e);
 	bool visitAcyclic12(const Event &e);
+	bool visitAcyclic13(const Event &e);
+	bool visitAcyclic14(const Event &e);
+	bool visitAcyclic15(const Event &e);
+	bool visitAcyclic16(const Event &e);
+	bool visitAcyclic17(const Event &e);
+	bool visitAcyclic18(const Event &e);
+	bool visitAcyclic19(const Event &e);
+	bool visitAcyclic20(const Event &e);
+	bool visitAcyclic21(const Event &e);
+	bool visitAcyclic22(const Event &e);
+	bool visitAcyclic23(const Event &e);
+	bool visitAcyclic24(const Event &e);
+	bool visitAcyclic25(const Event &e);
+	bool visitAcyclic26(const Event &e);
+	bool visitAcyclic27(const Event &e);
+	bool visitAcyclic28(const Event &e);
 
 	bool isAcyclic(const Event &e);
 
@@ -119,6 +135,22 @@ private:
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic10;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic11;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic12;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic13;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic14;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic15;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic16;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic17;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic18;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic19;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic20;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic21;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic22;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic23;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic24;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic25;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic26;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic27;
+	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic28;
 
 	uint16_t visitedAccepting = 0;
 

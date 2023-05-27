@@ -47,7 +47,16 @@ coherence (hb_stable)
 // check  mo-imm ; [UW] <= rf ; po-imm
 
 // global ordering constraint
-let FSC = [F]; [SC]
-let psc = FSC ; hb ; eco ; hb ; FSC
-let ar = rfe | ppo | psc
+let FSC = [F] ; [SC]
+let fhb = [F] ; hb
+let hbf = hb ; [F]
+let scb = po | rf | mo | fr
+let psc = [SC] ; po ; hb ; po ; [SC]
+        | [SC] ; fhb? ; scb ; hbf? ; [SC]
+        | FSC ; hb ; FSC
+        | FSC ; hb ; eco ; hb ; FSC
+        | SC ; po ; SC
+acyclic psc
+
+let ar = rfe | ppo | FSC ; hb ; eco ; hb ; FSC
 acyclic ar
