@@ -17,13 +17,13 @@ let ppo = po
 // Optimized calculation of synchronizes-with
 // Save the view of write messages
 
-let relseq = [REL] ; ([F] ; po)? ; (rf ; rmw)*
+let relseq = [REL] ; ([F|TC|TE] ; po)? ; (rf ; rmw)*
 let sw_to_r = relseq ; rf ; [ACQ]
-let sw_to_f = relseq ; rf ; po ; [F] ; [ACQ]
+let sw_to_f = relseq ; rf ; po ; [F|TJ|TB] ; [ACQ]
 let sw = sw_to_r | sw_to_f
 let asw = tc | tj
 
-assert sw = [REL] ; ([F] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F])? ; [ACQ]
+assert sw = [REL] ; ([F|TC|TE] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F|TJ|TB])? ; [ACQ]
 
 // Optimized calculation of happens-before.
 // Save the part of `hb` that does not finish with a reads-from edge

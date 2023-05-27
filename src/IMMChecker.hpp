@@ -57,6 +57,7 @@ public:
 	VerificationError checkErrors(const Event &e);
 	bool isRecoveryValid(const Event &e);
 	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
+	const View &getHbView(const Event &e);
 	std::vector<Event> getCoherentStores(SAddr addr, Event read);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
 
