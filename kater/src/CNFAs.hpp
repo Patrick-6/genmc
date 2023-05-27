@@ -78,6 +78,9 @@ public:
 	void setCohIndex(int idx) { cohIndex = idx; }
 	int getCohIndex() const { return cohIndex; }
 
+	void setHbIndex(int idx) { hbIndex = idx; }
+	int getHbIndex() const { return hbIndex; }
+
 	bool isDepTracking() const { return depTracking; }
 	void setDepTracking(bool dt) { depTracking = dt; }
 
@@ -90,6 +93,7 @@ private:
 	std::vector<std::pair<Inclusion<NFA>, int>> nincl; // index of rhs view; -1 if none ** FIXME **
 
 	int cohIndex = -1;
+	int hbIndex = -1;
 	bool depTracking = false;
 };
 

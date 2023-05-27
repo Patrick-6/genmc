@@ -124,6 +124,7 @@ public:
 
 	URE getPPO() const { return (ppo) ? ppo->clone() : nullptr; }
 	URE getPPORF() const { return (pporf) ? pporf->clone() : nullptr; }
+	URE getHB() const { return (hb) ? hb->clone() : nullptr; }
 
 	const std::vector<UCO> &getAssumes() const { return assumes; }
 
@@ -178,6 +179,13 @@ public:
 		auto porf = StarRE::createOpt(AltRE::createOpt(ppo->clone(), std::move(rf),
 							       std::move(tc), std::move(tj)));
 		pporf = std::move(porf);
+	}
+
+	void registerHB(URE r) {
+		if (!r)
+			return;
+
+		hb = std::move(r);
 	}
 
 	// Handle consistency constraint in the input file
@@ -236,6 +244,7 @@ private:
 	std::vector<URE> coherenceConstraints;
 	URE ppo = nullptr;
 	URE pporf = nullptr;
+	URE hb = nullptr;
 
 	std::optional<bool> depTracking;
 };

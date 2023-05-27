@@ -515,6 +515,24 @@ bool Kater::checkExportRequirements()
 		std::cerr << "[Error] No top-level ppo definition provided\n";
 		return false;
 	}
+	auto hb = module.getHB();
+	if (!hb) {
+		std::cerr << "[Error] No top-level hb_stable definition provided\n";
+		return false;
+	}
+	auto *hbRE = dynamic_cast<CharRE *>(&*hb);
+	if (!hbRE || !hbRE->getLabel().getRelation()) {
+		std::cerr << "[Error] hb_stable needs to be stored in a view\n";
+		return false;
+	}
+	auto hbIt = std::find_if(module.svar_begin(), module.svar_end(), [&](auto &kv){
+		return kv.first == *hbRE->getLabel().getRelation() && kv.second.status == VarStatus::View;
+	});
+	if (hbIt == module.svar_end()) {
+		std::cerr << "[Error] hb_stable needs to be stored in a view\n";
+		return false;
+	}
+
 	auto pporf = module.getPPORF();
 	auto acycDisj = std::accumulate(module.acyc_begin(), module.acyc_end(),
 					RegExp::createFalse(), [&](URE &re1, URE &re2){
@@ -629,6 +647,8 @@ void Kater::generateNFAs()
 
 			if (kv.first == dynamic_cast<CharRE *>(&**module.coh_begin())->getLabel().getRelation())
 				cnfas.setCohIndex(i);
+			if (kv.first == dynamic_cast<CharRE *>(&*module.getHB())->getLabel().getRelation())
+				cnfas.setHbIndex(i);
 		} else {
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for save[" << i << "] = "

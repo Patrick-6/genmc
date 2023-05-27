@@ -391,6 +391,7 @@ void Printer::printHppHeader()
 	      << "\tVerificationError checkErrors(const Event &e);\n"
 	      << "\tbool isRecoveryValid(const Event &e);\n"
 	      << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);\n"
+	      << "\tconst View &getHbView(const Event &e);\n"
 	      << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read);\n"
 	      << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);\n"
 	      << "\n"
@@ -539,6 +540,13 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	      << "{\n"
 	      << "\treturn LLVM_MAKE_UNIQUE<" << (cnfas.getPPoRf().second ? "DepView" : "View")
 	      				      << ">(calcPPoRfBefore(e));\n"
+	      << "}\n"
+	      << "\n";
+
+	/* hb-view getter */
+	cpp() << "const View &" << className << "::getHbView(const Event &e)\n"
+	      << "{\n"
+	      << "\treturn getGraph().getEventLabel(e)->view(" << getCalcIdx(cnfas.getHbIndex()) << ");\n"
 	      << "}\n"
 	      << "\n";
 

@@ -111,9 +111,11 @@ int ParsingDriver::parse(const std::string &name)
 
 	fclose(yyin);
 
-	/* If @ top-level, save ppo */
-	if (states.size() == 1)
+	/* If @ top-level, save ppo, hb_stable */
+	if (states.size() == 1) {
 		module->registerPPO(module->getRegisteredID(getQualifiedName("ppo")));
+		module->registerHB(module->getRegisteredID(getQualifiedName("hb_stable")));
+	}
 
 	restoreState();
 
