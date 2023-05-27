@@ -60,6 +60,7 @@ public:
 	const View &getHbView(const Event &e);
 	std::vector<Event> getCoherentStores(SAddr addr, Event read);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
+	std::pair<int, int> getCoherentPlacings(SAddr addr, Event store, bool isRMW);
 
 private:
 	bool isWriteRfBefore(Event a, Event b);

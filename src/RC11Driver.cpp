@@ -421,6 +421,12 @@ RC11Driver::getCoherentStores(SAddr addr, Event read)
 	return RC11Checker(getGraph()).getCoherentStores(addr, read);
 }
 
+std::pair<int, int>
+RC11Driver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
+{
+	return RC11Checker(getGraph()).getCoherentPlacings(addr, read, isRMW);
+}
+
 std::unique_ptr<VectorClock>
 RC11Driver::getPrefixView(Event e)
 {

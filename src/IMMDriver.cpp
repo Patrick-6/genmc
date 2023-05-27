@@ -473,3 +473,9 @@ IMMDriver::getCoherentRevisits(const WriteLabel *sLab,
 {
 	return IMMChecker(getGraph()).getCoherentRevisits(sLab, pporf);
 }
+
+std::pair<int, int>
+IMMDriver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
+{
+	return IMMChecker(getGraph()).getCoherentPlacings(addr, read, isRMW);
+}

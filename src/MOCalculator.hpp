@@ -208,6 +208,9 @@ public:
 			    const ReadLabel *rLab) const override;
 #endif
 
+	/* Returns the offset for a particular store */
+	int getStoreOffset(SAddr addr, Event e) const;
+
 	/* FIXME: When copying coherence calcs, OOO should be decided based on G */
 	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
 		return LLVM_MAKE_UNIQUE<MOCalculator>(g, outOfOrder);
@@ -218,8 +221,7 @@ public:
 	}
 
 private:
-	/* Returns the offset for a particular store */
-	int getStoreOffset(SAddr addr, Event e) const;
+
 
 	/* Returns the index of the first store that is _not_ (rf?;hb)-before
 	 * the event "read". If no such stores exist (i.e., all stores are

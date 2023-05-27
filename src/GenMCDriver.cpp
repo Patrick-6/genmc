@@ -2119,7 +2119,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	}
 
 	/* Find all possible placings in coherence for this store */
-	auto placesRange = g.getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
 	auto &begO = placesRange.first;
 	auto &endO = placesRange.second;
 

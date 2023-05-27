@@ -23,6 +23,7 @@
  *******************************************************************************/
 
 #include "IMMChecker.hpp"
+#include "MOCalculator.hpp"
 
 void IMMChecker::visitCalc0_0(const Event &e, View &calcRes)
 {
@@ -1625,4 +1626,27 @@ IMMChecker::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf
 		 ls.end());
 
 	return ls;
+}
+
+std::pair<int, int>
+IMMChecker::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+{
+	const auto &g = getGraph();
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+
+	/* If it is an RMW store, there is only one possible position in MO */
+	if (isRMW) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
+			auto offset = cc->getStoreOffset(addr, rLab->getRf()) + 1;
+			return std::make_pair(offset, offset);
+		}
+		BUG();
+	}
+
+	/* Otherwise, we calculate the full range and add the store */
+	auto rangeBegin = splitLocMOBefore(addr, store);
+	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) :
+		cc->getStoresToLoc(addr).size();
+	return std::make_pair(rangeBegin, rangeEnd);
+
 }

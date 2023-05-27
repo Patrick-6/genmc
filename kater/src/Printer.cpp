@@ -248,6 +248,29 @@ std::vector<Event>
 		 ls.end());
 
 	return ls;
+}
+
+std::pair<int, int>
+#CLASS#::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+{
+	const auto &g = getGraph();
+	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+
+	/* If it is an RMW store, there is only one possible position in MO */
+	if (isRMW) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
+			auto offset = cc->getStoreOffset(addr, rLab->getRf()) + 1;
+			return std::make_pair(offset, offset);
+		}
+		BUG();
+	}
+
+	/* Otherwise, we calculate the full range and add the store */
+	auto rangeBegin = splitLocMOBefore(addr, store);
+	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) :
+		cc->getStoresToLoc(addr).size();
+	return std::make_pair(rangeBegin, rangeEnd);
+
 })";
 
 const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relationNames = {
@@ -394,6 +417,7 @@ void Printer::printHppHeader()
 	      << "\tconst View &getHbView(const Event &e);\n"
 	      << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read);\n"
 	      << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);\n"
+	      << "\tstd::pair<int, int> getCoherentPlacings(SAddr addr, Event store, bool isRMW);\n"
 	      << "\n"
 	      << "private:\n"
 	      << "\tbool isWriteRfBefore(Event a, Event b);\n"
@@ -412,7 +436,8 @@ void Printer::printCppHeader()
 	cpp() << genmcCopyright << "\n"
 	      << katerNotice << "\n";
 
-	cpp() <<  "#include \"" << className << ".hpp\"\n"
+	cpp() << "#include \"" << className << ".hpp\"\n"
+	      << "#include \"MOCalculator.hpp\"\n"
 	      << "\n";
 }
 

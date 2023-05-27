@@ -779,6 +779,9 @@ private:
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) {
 		ERROR("Unimplemented cohst\n");
 	}
+	virtual std::pair<int, int> getCoherentPlacings(SAddr addr, Event read, bool isRMW) {
+		ERROR("Unimplemented cohpl\n");
+	}
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be

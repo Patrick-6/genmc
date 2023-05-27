@@ -295,8 +295,9 @@ public:
 			    const ReadLabel *rLab) const = 0;
 #endif
 
-protected:
 	const StoreList &getStoresToLoc(SAddr addr) const { return stores.at(addr); }
+
+protected:
 	const StoreList &getInitRfsToLoc(SAddr addr) const { return initRfs.at(addr); }
 	StoreList &getInitRfsToLoc(SAddr addr) { return initRfs[addr]; }
 
