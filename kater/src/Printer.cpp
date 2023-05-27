@@ -104,7 +104,7 @@ int #CLASS#::splitLocMOBefore(SAddr addr, Event e)
 {
 	const auto &g = getGraph();
 	auto rit = std::find_if(store_rbegin(g, addr), store_rend(g, addr), [&](const Event &s){
-		return g.isWriteRfBefore(s, e);
+		return isWriteRfBefore(s, e);
 	});
 	return (rit == store_rend(g, addr)) ? 0 : std::distance(rit, store_rend(g, addr));
 }
