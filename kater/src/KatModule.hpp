@@ -122,8 +122,8 @@ public:
 
 	size_t getCohNum() const { return coherenceConstraints.size(); }
 
-	URE getPPO() const { return ppo->clone(); }
-	URE getPPORF() const { return pporf->clone(); }
+	URE getPPO() const { return (ppo) ? ppo->clone() : nullptr; }
+	URE getPPORF() const { return (pporf) ? pporf->clone() : nullptr; }
 
 	const std::vector<UCO> &getAssumes() const { return assumes; }
 
