@@ -83,6 +83,7 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::Fas,        {"Fas"      , "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAS)"}},
 	{ PredicateMask::Faul,       {"Faul"     , "SmpFenceLabelLKMM::isType(#, SmpFenceType::MBAUL)"}},
 	{ PredicateMask::TC,         {"TC"       , "llvm::isa<ThreadCreateLabel>(#)"}},
+	{ PredicateMask::TB,         {"TB"       , "llvm::isa<ThreadStartLabel>(#)"}},
 	{ PredicateMask::TJ,         {"TJ"       , "llvm::isa<ThreadJoinLabel>(#)"}},
 	{ PredicateMask::TK,         {"TK"       , "llvm::isa<ThreadKillLabel>(#)"}},
 	{ PredicateMask::TE,         {"TE"       , "llvm::isa<ThreadFinishLabel>(#)"}},
