@@ -199,7 +199,13 @@ public:
 	bool hasStamp() const { return stamp.has_value(); }
 
 	/* Returns the stamp of the label in a graph */
-	Stamp getStamp() const { return stamp.value(); }
+	Stamp getStamp() const {
+#ifdef ENABLE_GENMC_DEBUG
+		return stamp.value();
+#else
+		return *stamp;
+#endif
+	}
 
 	void setCalculated(std::vector<VSet<Event>> &&calc) {
 		calculatedRels = std::move(calc);
