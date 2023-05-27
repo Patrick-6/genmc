@@ -252,11 +252,6 @@ public:
 	virtual void
 	removeInitRfToLoc(SAddr addr, Event read) = 0;
 
-	/* Returns the range of all the possible (i.e., not violating
-	 * coherence) offsets a store can be inserted */
-	virtual std::pair<int, int>
-	getPossiblePlacings(SAddr addr, Event store, bool isRMW) = 0;
-
 	/* Adds STORE to ADDR at the offset specified by OFFSET.
 	 * (Use -1 to insert it maximally.) */
 	virtual void
@@ -276,15 +271,6 @@ public:
 	virtual bool
 	isCachedCoMaximal(SAddr addr, Event store) = 0;
 
-	/* Returns all the stores for which if "read" reads-from, coherence
-	 * is not violated */
-	virtual std::vector<Event>
-	getCoherentStores(SAddr addr, Event read) = 0;
-
-	/* Returns all the reads that "wLab" can revisit without violating
-	 * coherence */
-	virtual std::vector<Event>
-	getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf) = 0;
 
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.

@@ -21,7 +21,6 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
-#include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "Parser.hpp"
 #include "PersistencyChecker.hpp"
@@ -322,7 +321,6 @@ Event ExecutionGraph::getMalloc(const SAddr &addr) const
 
 Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const
 {
-	const auto &before = getEventLabel(fLab->getPos().prev())->getHbView();
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
 			const EventLabel *oLab = getEventLabel(Event(i, j));
@@ -537,23 +535,6 @@ CoherenceCalculator *ExecutionGraph::getCoherenceCalculator() const
 		consistencyCalculators.at(relationIndex.at(RelationId::co)).get());
 }
 
-LBCalculatorLAPOR *ExecutionGraph::getLbCalculatorLAPOR()
-{
-	return static_cast<LBCalculatorLAPOR *>(
-		consistencyCalculators[relationIndex[RelationId::lb]].get());
-}
-
-LBCalculatorLAPOR *ExecutionGraph::getLbCalculatorLAPOR() const
-{
-	return static_cast<LBCalculatorLAPOR *>(
-		consistencyCalculators.at(relationIndex.at(RelationId::lb)).get());
-}
-
-std::vector<Event> ExecutionGraph::getLbOrderingLAPOR() const
-{
-	return getLbCalculatorLAPOR()->getLbOrdering();
-}
-
 const std::vector<Calculator *> ExecutionGraph::getCalcs() const
 {
 	std::vector<Calculator *> result;
@@ -576,18 +557,6 @@ void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> p
 {
 	persChecker = std::move(pc);
 	return;
-}
-
-bool ExecutionGraph::isHbBefore(Event a, Event b, CheckConsType t /* = fast */)
-{
-	if (getFPStatus() == FS_Done && getFPType() == t)
-		return getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
-	if (t == CheckConsType::fast)
-		return getEventLabel(b)->getHbView().contains(a);
-
-	/* We have to trigger a calculation */
-	isConsistent(t);
-	return getGlobalRelation(ExecutionGraph::RelationId::hb)(a, b);
 }
 
 bool isCoMaximalInRel(const Calculator::PerLocRelation &co, SAddr addr, const Event &e)
@@ -615,8 +584,9 @@ bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false
 
 void ExecutionGraph::doInits(bool full /* = false */)
 {
+	BUG();
 	auto &hb = relations.global[relationIndex[RelationId::hb]];
-	populateHbEntries(hb);
+	// populateHbEntries(hb);
 	hb.transClosure();
 
 	/* Clear out unused locations */
@@ -767,115 +737,6 @@ void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
 }
 
-std::pair<int, int>
-ExecutionGraph::getCoherentPlacings(SAddr addr, Event pos, bool isRMW) {
-	return getCoherenceCalculator()->getPossiblePlacings(addr, pos, isRMW);
-};
-
-std::vector<Event>
-ExecutionGraph::getCoherentStores(SAddr addr, Event pos)
-{
-	return getCoherenceCalculator()->getCoherentStores(addr, pos);
-}
-
-std::vector<Event>
-ExecutionGraph::getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf)
-{
-	return getCoherenceCalculator()->getCoherentRevisits(wLab, pporf);
-}
-
-const DepView &ExecutionGraph::getPPoRfBefore(Event e) const
-{
-	return getEventLabel(e)->getPPoRfView();
-}
-
-const View &ExecutionGraph::getPorfBefore(Event e) const
-{
-	return getEventLabel(e)->getPorfView();
-}
-
-const View &ExecutionGraph::getHbPoBefore(Event e) const
-{
-	return getPreviousNonEmptyLabel(e)->getHbView();
-}
-
-#define IMPLEMENT_POPULATE_ENTRIES(MATRIX, GET_VIEW)			\
-do {								        \
-									\
-        const std::vector<Event> &es = MATRIX.getElems();		\
-        auto len = es.size();						\
-									\
-        for (auto i = 0u; i < len; i++) {				\
-		for (auto j = 0u; j < len; j++) {			\
-			if (es[i] != es[j] &&				\
-			    GET_VIEW(es[j]).contains(es[i]))		\
-				MATRIX.addEdge(i, j);			\
-		}							\
-        }								\
-} while (0)
-
-void ExecutionGraph::populatePorfEntries(AdjList<Event, EventHasher> &relation) const
-{
-	IMPLEMENT_POPULATE_ENTRIES(relation, getPorfBefore);
-}
-
-void ExecutionGraph::populatePPoRfEntries(AdjList<Event, EventHasher> &relation) const
-{
-	IMPLEMENT_POPULATE_ENTRIES(relation, getPPoRfBefore);
-}
-
-void ExecutionGraph::populateHbEntries(AdjList<Event, EventHasher> &relation) const
-{
-	std::vector<Event> elems;
-	std::vector<std::pair<Event, Event> > edges;
-
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		auto thrIdx = elems.size();
-		for (auto j = 0u; j < getThreadSize(i); j++) {
-			auto *lab = getEventLabel(Event(i, j));
-			if (!isNonTrivial(lab))
-				continue;
-
-			auto labIdx = elems.size();
-			elems.push_back(Event(i, j));
-
-			if (labIdx == thrIdx) {
-				auto *bLab = getEventLabel(Event(i, 0));
-				BUG_ON(!llvm::isa<ThreadStartLabel>(bLab));
-
-				auto parentLast = getPreviousNonTrivial(
-					llvm::dyn_cast<ThreadStartLabel>(bLab)->getParentCreate());
-				if (!parentLast.isInitializer())
-					edges.push_back(std::make_pair(parentLast, elems[labIdx]));
-			}
-			if (labIdx > thrIdx)
-				edges.push_back(std::make_pair(elems[labIdx - 1], elems[labIdx]));
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (!rLab->getRf().isInitializer()) {
-					auto pred = (labIdx > thrIdx) ?
-						elems[labIdx - 1] : Event::getInitializer();
-					auto &v = rLab->getHbView();
-					auto &predV = getEventLabel(pred)->getHbView();
-					for (auto k = 0u; k < v.size(); k++) {
-						if (k != rLab->getThread() &&
-						    v.getMax(k) > 0 &&
-						    !predV.contains(Event(k, v.getMax(k)))) {
-							auto cndt = getPreviousNonTrivial(Event(k, v.getMax(k)).next());
-							if (cndt.isInitializer())
-								continue;
-							edges.push_back(std::make_pair(cndt, rLab->getPos()));
-						}
-					}
-				}
-			}
-		}
-	}
-	relation = AdjList<Event, EventHasher>(std::move(elems));
-	for (auto &e : edges)
-		relation.addEdge(e.first, e.second);
-	return;
-}
-
 /************************************************************
  ** Calculation of writes a read can read from
  ***********************************************************/
@@ -923,55 +784,6 @@ bool ExecutionGraph::isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const
 	return false;
 }
 
-bool ExecutionGraph::isHbOptRfBefore(const Event e, const Event write) const
-{
-	const EventLabel *lab = getEventLabel(write);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *sLab = static_cast<const WriteLabel *>(lab);
-	if (sLab->getHbView().contains(e))
-		return true;
-
-	for (auto &r : sLab->getReadersList()) {
-		if (getEventLabel(r)->getHbView().contains(e))
-			return true;
-	}
-	return false;
-}
-
-bool ExecutionGraph::isHbOptRfBeforeInView(const Event e, const Event write,
-					   const VectorClock &v) const
-{
-	const EventLabel *lab = getEventLabel(write);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *sLab = static_cast<const WriteLabel *>(lab);
-	if (sLab->getHbView().contains(e))
-		return true;
-
-	for (auto &r : sLab->getReadersList()) {
-		if (v.contains(r) && r != e && getEventLabel(r)->getHbView().contains(e))
-			return true;
-	}
-	return false;
-}
-
-bool ExecutionGraph::isWriteRfBefore(Event a, Event b) const
-{
-	auto &before = getEventLabel(b)->getHbView();
-	if (before.contains(a))
-		return true;
-
-	const EventLabel *lab = getEventLabel(a);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto &r : wLab->getReadersList())
-		if (before.contains(r))
-			return true;
-	return false;
-}
-
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
 	for (const auto *lab : labels(*this)) {
@@ -1006,9 +818,10 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const Vecto
 
 bool ExecutionGraph::isRecoveryValid() const
 {
-	PersistencyChecker *pc = getPersChecker();
-	BUG_ON(!pc);
-	return pc->isRecAcyclic();
+	BUG();
+	// PersistencyChecker *pc = getPersChecker();
+	// BUG_ON(!pc);
+	// return pc->isRecAcyclic();
 }
 
 
@@ -1184,8 +997,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				;
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
 				;
-			if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(nLab))
-				other.getLbCalculatorLAPOR()->addLockToList(lLab->getLockAddr(), lLab->getPos());
 		}
 	}
 

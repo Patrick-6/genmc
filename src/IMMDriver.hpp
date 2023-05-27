@@ -30,7 +30,6 @@ public:
 		  std::unique_ptr<ModuleInfo> MI);
 
 	void updateLabelViews(EventLabel *lab) override;
-	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
 
@@ -48,24 +47,8 @@ public:
 	std::pair<int, int>
 	getCoherentPlacings(SAddr addr, Event read, bool isRMW)	override;
 
-private:
-
-	DepView getDepsAsView(const EventDeps &deps) const;
-	View calcBasicHbView(Event e) const;
-	DepView calcPPoView(const EventLabel *lab) const;
-	void updateRelView(DepView &pporf, EventLabel *lab) const;
-	void calcFenceRelRfPoBefore(Event last, View &v) const;
-	void updateReadViewsFromRf(DepView &pporf, View &hb, const ReadLabel *lab) const;
-
-	void calcBasicViews(EventLabel *lab);
-	void calcReadViews(ReadLabel *lab);
-	void calcWriteViews(WriteLabel *lab);
-	void calcWriteMsgView(WriteLabel *lab);
-	void calcRMWWriteMsgView(WriteLabel *lab);
-	void calcFenceViews(FenceLabel *lab);
-	void calcJoinViews(ThreadJoinLabel *lab);
-	void calcStartViews(ThreadStartLabel *lab);
-	void calcLockLAPORViews(LockLabelLAPOR *lab);
+	const View &
+	getHbView(const Event &e) override;
 };
 
 #endif /* __IMM_WB_DRIVER_HPP__ */

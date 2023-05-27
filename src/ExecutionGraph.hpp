@@ -38,7 +38,6 @@
 #include <unordered_map>
 
 class CoherenceCalculator;
-class LBCalculatorLAPOR;
 class PSCCalculator;
 class PersistencyChecker;
 
@@ -391,8 +390,6 @@ public:
 	/* Commonly queried calculator getters */
 	CoherenceCalculator *getCoherenceCalculator();
 	CoherenceCalculator *getCoherenceCalculator() const;
-	LBCalculatorLAPOR *getLbCalculatorLAPOR();
-	LBCalculatorLAPOR *getLbCalculatorLAPOR() const;
 
 	/* Pers: Adds a persistency checker to the graph */
 	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc);
@@ -407,11 +404,7 @@ public:
 
 	const DepView &getPPoRfBefore(Event e) const;
 	const View &getPorfBefore(Event e) const;
-	const View &getHbPoBefore(Event e) const;
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
-
-	/* Returns true if a is hb-before b */
-	bool isHbBefore(Event a, Event b, CheckConsType t = CheckConsType::fast);
 
 	/* Returns true if e is maximal in addr */
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
@@ -423,7 +416,6 @@ public:
 	/* Matrix filling for external relation calculation */
 	void populatePorfEntries(AdjList<Event, EventHasher> &relation) const;
 	void populatePPoRfEntries(AdjList<Event, EventHasher> &relation) const;
-	void populateHbEntries(AdjList<Event, EventHasher> &relation) const;
 
 
 	/* Boolean helper functions */
@@ -473,20 +465,6 @@ public:
 	bool isConfirming(const ReadLabel *rLab) const {
 		return llvm::isa<ConfirmingReadLabel>(rLab) || llvm::isa<ConfirmingCasReadLabel>(rLab);
 	}
-
-	/* Returns true if e is hb-before w, or any of the reads that read from w */
-	bool isHbOptRfBefore(const Event e, const Event write) const;
-	bool isHbOptRfBeforeInView(const Event e, const Event write, const VectorClock &v) const;
-
-	/* Returns true if e is rel-before w, or any of the reads that read from w
-	 * in the relation "rel".
-	 * Pre: all examined events need to be a part of rel */
-	template <typename F = bool (*)(Event)>
-	bool isHbOptRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
-				F prop = [](Event e){ return true; }) const;
-
-	/* Returns true if a (or any of the reads reading from a) is hb-before b */
-	bool isWriteRfBefore(Event a, Event b) const;
 
 	/* Returns true if a (or any of the reads reading from a) is before b in
 	 * the relation "rel".
@@ -646,24 +624,6 @@ private:
 	/* Dbg: Size of graphs which triggers a warning */
 	unsigned int warnOnGraphSize = UINT_MAX;
 };
-
-template <typename F>
-bool ExecutionGraph::isHbOptRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
-					F prop /* = [](Event e){ return true; } */) const
-{
-	if (rel(a, b))
-		return true;
-
-	const EventLabel *lab = getEventLabel(b);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto &r : wLab->getReadersList()) {
-		if (prop(r) && rel(a, r))
-			return true;
-	}
-	return false;
-}
 
 template <typename F>
 bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,

@@ -161,11 +161,6 @@ public:
 	void
 	removeInitRfToLoc(SAddr addr, Event read) override;
 
-	/* Returns the range of all the possible (i.e., not violating coherence
-	 * places a store can be inserted without inserting it */
-	std::pair<int, int>
-	getPossiblePlacings(SAddr addr, Event store, bool isRMW) override;
-
 	/* Inserts a store in the appropriate offset in coherence.
 	 * The offset should have been a valid (non-RMW) placing returned
 	 * from getPossiblePlacings() */
@@ -179,16 +174,6 @@ public:
 	/* Returns whether STORE is maximal in LOC */
 	bool isCoMaximal(SAddr addr, Event store) override;
 	bool isCachedCoMaximal(SAddr addr, Event store) override;
-
-	/* Returns all the stores for which if "read" reads-from, coherence
-	 * is not violated */
-	std::vector<Event>
-	getCoherentStores(SAddr addr, Event read) override;
-
-	/* Returns all the reads that "wLab" can revisit without violating
-	 * coherence */
-	std::vector<Event>
-	getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf) override;
 
 	/* Overrided Calculator methods */
 

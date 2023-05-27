@@ -30,7 +30,6 @@ public:
 		   std::unique_ptr<ModuleInfo> MI);
 
 	void updateLabelViews(EventLabel *lab) override;
-	Event findDataRaceForMemAccess(const MemAccessLabel *mLab) override;
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
 
@@ -47,28 +46,8 @@ public:
 	std::unique_ptr<VectorClock>
 	getPrefixView(Event e) override;
 
-private:
-	View calcBasicHbView(Event e) const;
-	View calcBasicPorfView(Event e) const;
-	void calcWriteMsgView(WriteLabel *lab);
-	void calcRMWWriteMsgView(WriteLabel *lab);
-
-	void calcBasicViews(EventLabel *lab);
-	void calcReadViews(ReadLabel *lab);
-	void calcWriteViews(WriteLabel *lab);
-	void calcFenceViews(FenceLabel *lab);
-	void calcStartViews(ThreadStartLabel *lab);
-	void calcJoinViews(ThreadJoinLabel *lab);
-	void calcFenceRelRfPoBefore(Event last, View &v);
-
-	/* Returns true if aLab and bLab are in an RC11 data race*/
-	bool areInDataRace(const MemAccessLabel *aLab, const MemAccessLabel *bLab);
-
-	/* Returns an event that is racy with rLab, or INIT if none is found */
-	Event findRaceForNewLoad(const ReadLabel *rLab);
-
-	/* Returns an event that is racy with wLab, or INIT if none is found */
-	Event findRaceForNewStore(const WriteLabel *wLab);
+	const View &
+	getHbView(const Event &e) override;
 };
 
 #endif /* __RC11_DRIVER_HPP__ */

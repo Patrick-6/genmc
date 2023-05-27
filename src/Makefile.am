@@ -3,8 +3,6 @@ AUTOMAKE_OPTIONS = -Wno-override
 
 noinst_LIBRARIES = libgenmc.a
 libgenmc_a_SOURCES = \
-  ARCalculator.cpp ARCalculator.hpp \
-  ARCalculatorLKMM.cpp ARCalculatorLKMM.hpp \
   BisimilarityCheckerPass.cpp BisimilarityCheckerPass.hpp \
   Bitmask.hpp \
   CallInfoCollectionPass.cpp CallInfoCollectionPass.hpp \
@@ -49,8 +47,6 @@ libgenmc_a_SOURCES = \
   LabelVisitor.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \
-  LBCalculatorLAPOR.hpp LBCalculatorLAPOR.cpp \
-  LKMMDriver.cpp LKMMDriver.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
@@ -65,11 +61,8 @@ libgenmc_a_SOURCES = \
   NameInfo.cpp NameInfo.hpp \
   Parser.cpp Parser.hpp \
   PBCalculator.cpp PBCalculator.hpp \
-  PersistencyChecker.cpp PersistencyChecker.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
   PropagateAssumesPass.cpp PropagateAssumesPass.hpp \
-  PROPCalculator.cpp PROPCalculator.hpp \
-  PSCCalculator.cpp PSCCalculator.hpp \
   RC11Checker.cpp RC11Checker.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   RCUCalculator.cpp RCUCalculator.hpp \

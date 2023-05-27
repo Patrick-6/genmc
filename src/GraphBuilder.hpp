@@ -23,7 +23,6 @@
 
 #include "config.h"
 #include "DepExecutionGraph.hpp"
-#include "LBCalculatorLAPOR.hpp"
 #include "MOCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
@@ -52,15 +51,6 @@ public:
 			LLVM_MAKE_UNIQUE<MOCalculator>(*graph, tracksDeps),
 			ExecutionGraph::RelationId::co, true, true);
 	};
-
-	GraphBuilder &withEnabledLAPOR(bool lapor) {
-		if (lapor) {
-			graph->addCalculator(
-				LLVM_MAKE_UNIQUE<LBCalculatorLAPOR>(*graph),
-				ExecutionGraph::RelationId::lb, true, true);
-		}
-		return *this;
-	}
 
 	GraphBuilder &withEnabledPersevere(bool pers, unsigned int blockSize) {
 		if (pers) {

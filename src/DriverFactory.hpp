@@ -23,7 +23,6 @@
 
 #include "Config.hpp"
 #include "IMMDriver.hpp"
-#include "LKMMDriver.hpp"
 #include "RC11Driver.hpp"
 #include "SCDriver.hpp"
 #include "TSODriver.hpp"
@@ -53,7 +52,6 @@ class DriverFactory {
 			CREATE_MODEL_DRIVER(TSO);
 			CREATE_MODEL_DRIVER(RC11);
 			CREATE_MODEL_DRIVER(IMM);
-			CREATE_MODEL_DRIVER(LKMM);
 		default:
 			BUG();
 		}

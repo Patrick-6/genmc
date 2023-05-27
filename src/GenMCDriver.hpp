@@ -351,9 +351,6 @@ protected:
 	/* Returns true if we should check persistency at p */
 	bool shouldCheckPers(ProgramPoint p);
 
-	/* Returns true if the current graph is consistent */
-	bool isConsistent(ProgramPoint p);
-
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
 
@@ -365,9 +362,6 @@ protected:
 
 	/* Liveness: Calls visitError() if there is a liveness violation */
 	void checkLiveness();
-
-	/* Returns true if A is hb-before B at P */
-	bool isHbBefore(Event a, Event b, ProgramPoint p = ProgramPoint::step);
 
 	/* Returns true if E is maximal in ADDR at P*/
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
@@ -690,6 +684,8 @@ private:
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping();
 
+	bool writesBeforeHelpedContainedInView(const HelpedCasReadLabel *lab, const View &view);
+
 	/* Helper: Returns whether there is a valid helped-CAS which the helping-CAS
 	 * to be added will be helping. (If an invalid helped-CAS exists, this
 	 * method raises an error.) */
@@ -748,10 +744,6 @@ private:
 	 * Needs to be called every time a new label is added to the graph */
 	virtual void updateLabelViews(EventLabel *lab) = 0;
 
-	/* Checks for races after a load/store is added to the graph.
-	 * Should return the racy event, or INIT if no such event exists */
-	virtual Event findDataRaceForMemAccess(const MemAccessLabel *mLab) = 0;
-
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
 	virtual std::vector<Event> getRfsApproximation(const ReadLabel *rLab);
@@ -787,6 +779,10 @@ private:
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
 	virtual std::unique_ptr<VectorClock> getPrefixView(Event e);
+
+	virtual const View &getHbView(const Event &e) {
+		ERROR("Unimplemented hbview\n");
+	}
 
 #ifdef ENABLE_GENMC_DEBUG
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
