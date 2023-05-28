@@ -124,6 +124,7 @@ public:
 
 	URE getPPO() const { return (ppo) ? ppo->clone() : nullptr; }
 	URE getPPORF() const { return (pporf) ? pporf->clone() : nullptr; }
+	URE getPORF() const { return (porf_) ? porf_->clone() : nullptr; }
 	URE getHB() const { return (hb) ? hb->clone() : nullptr; }
 
 	const std::vector<UCO> &getAssumes() const { return assumes; }
@@ -169,16 +170,20 @@ public:
 		if (!r)
 			return;
 
+		// FIXME: Move porf registration to parsing ctor?
+		auto po = getRegisteredID("po");
 		ppo = std::move(r);
-		depTracking = (*ppo != *getRegisteredID("po"));
+
+		depTracking = (*ppo != *po);
 
 		/* Also create pporf since we are at it */
 		auto rf = getRegisteredID("rfe");
 		auto tc = getRegisteredID("tc");
 		auto tj = getRegisteredID("tj");
-		auto porf = StarRE::createOpt(AltRE::createOpt(ppo->clone(), std::move(rf),
-							       std::move(tc), std::move(tj)));
-		pporf = std::move(porf);
+		pporf = StarRE::createOpt(AltRE::createOpt(ppo->clone(), rf->clone(),
+							   tc->clone(), tj->clone()));
+		porf_ = StarRE::createOpt(AltRE::createOpt(po->clone(), std::move(rf),
+							   std::move(tc), std::move(tj)));
 	}
 
 	void registerHB(URE r) {
@@ -244,6 +249,7 @@ private:
 	std::vector<URE> coherenceConstraints;
 	URE ppo = nullptr;
 	URE pporf = nullptr;
+	URE porf_ = nullptr;
 	URE hb = nullptr;
 
 	std::optional<bool> depTracking;
