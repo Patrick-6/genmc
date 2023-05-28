@@ -551,13 +551,25 @@ bool Kater::checkExportRequirements()
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
 			auto &sv = kv.second;
 			Counterexample cex;
-			auto savedInPO = SubsetConstraint::create(
-				sv.exp->clone(), StarRE::createOpt(
-					SeqRE::createOpt(StarRE::createOpt(pporf->clone()), ppo->clone())));
-			if (!checkAssertion(&*savedInPO, cex)) {
-				std::cerr << "[Error] Saved relation not included in pporf;ppo: " << *sv.exp << "\n";
-				printCounterexample(cex);
-				status = false;
+			if (sv.status != VarStatus::View) {
+				auto savedInPO = SubsetConstraint::create(
+					sv.exp->clone(), StarRE::createOpt(
+						SeqRE::createOpt(StarRE::createOpt(pporf->clone()), ppo->clone())));
+				if (!checkAssertion(&*savedInPO, cex)) {
+					std::cerr << "[Error] Saved relation not included in pporf;ppo: " << *sv.exp << "\n";
+					printCounterexample(cex);
+					status = false;
+				}
+			} else {
+				auto savedInPO = SubsetConstraint::create(
+					sv.exp->clone(), StarRE::createOpt(
+						SeqRE::createOpt(StarRE::createOpt(module.getPORF()->clone()),
+								 module.getRegisteredID("po"))));
+				if (!checkAssertion(&*savedInPO, cex)) {
+					std::cerr << "[Error] View not included in porf;po: " << *sv.exp << "\n";
+					printCounterexample(cex);
+					status = false;
+				}
 			}
 
 			if (sv.status != VarStatus::Normal) {
