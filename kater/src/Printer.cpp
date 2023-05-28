@@ -636,7 +636,6 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
 		      << "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
-		      << "\tauto t = 0u;\n"
 		      << "\n";
 
 		if (nfa.isStarting(&*s))
@@ -722,7 +721,6 @@ void Printer::printRecoveryCpp(const NFA &nfa)
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
 		      << "\tauto *lab = g.getEventLabel(" << "e" << ");\n"
-		      << "\tauto t = 0u;\n"
 		      << "\n";
 
 		if (nfa.isStarting(&*s))
@@ -798,7 +796,6 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
 		      << "\tauto *lab = g.getEventLabel(e);\n"
-		      << "\tauto t = 0u;\n"
 		      << "\n"
 		      << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << "[lab->getStamp().get()] = NodeStatus::entered;\n";
 		if (nfa.isStarting(&*s)) {
@@ -834,17 +831,12 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 	      << "{\n"
 	      << "\t" << ((status == VarStatus::View) ? "View" : "VSet<Event>") << " calcRes;\n";
 	if (status == VarStatus::View)
-		cpp() << "calcRes.updateIdx(e.prev());\n";
+		cpp() << "\tcalcRes.updateIdx(e.prev());\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		cpp() << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".clear();\n"
 		      << "\tvisitedCalc" << GET_ID(id, ids[&*s]) << ".resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);\n";
 	});
-	cpp() << "\n"
-	      << "\tgetGraph().getEventLabel(e)->set" << ((status == VarStatus::View) ? "Views" : "Calculated") << "({";
-	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
-		cpp() << "{}, ";
-	});
-	cpp() << "});\n";
+	cpp() << "\n";
 	std::for_each(nfa.accept_begin(), nfa.accept_end(), [&](auto &a){
 		cpp() << "\tvisitCalc" << GET_ID(id, ids[a]) << "(e, calcRes);\n";
 	});
@@ -884,7 +876,6 @@ void Printer::printPPoRfCpp(const NFA &nfa, bool deps)
 		      << "{\n"
 		      << "\tauto &g = getGraph();\n"
 		      << "\tauto *lab = g.getEventLabel(e);\n"
-		      << "\tauto t = 0u;\n"
 		      << "\n"
 		      << "\tvisitedPPoRf" << ids[&*s] << "[lab->getStamp().get()] = NodeStatus::entered;\n";
 		if (nfa.isStarting(&*s))
