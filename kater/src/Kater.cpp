@@ -632,13 +632,19 @@ void Kater::generateNFAs()
 	std::for_each(module.svar_begin(), module.svar_end(), [&](auto &kv){
 		auto &v = kv.second;
 		NFA n = v.exp->toNFA();
+
 		// FIXME: Use polymorphism
 		if (v.status == VarStatus::Reduce) {
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for reduce[" << i << "] = "
 					  << *v.exp << std::endl;
 
+			auto *pRE = dynamic_cast<PlusRE *>(&*v.exp);
+			assert(pRE); // FIXME: currently we implicitly assume this (see transitivize); maybe tip?
 			assert(v.red);
+
+			n = pRE->getKid(0)->toNFA();
+
 			n.simplify(isValidLabel).reduce(v.redT);
 
 			NFA rn = v.red->toNFA();
@@ -651,6 +657,11 @@ void Kater::generateNFAs()
 		} else if (v.status == VarStatus::View) {
 			if (getConf().verbose >= 3)
 				std::cout << "Generating NFA for view[" << i << "] = " << *v.exp << std::endl;
+
+			auto *pRE = dynamic_cast<PlusRE *>(&*v.exp);
+			assert(pRE); // FIXME: currently we implicitly assume this (see transitivize); maybe tip?
+
+			n = pRE->getKid(0)->toNFA();
 			n.simplify(isValidLabel);
 
 			if (getConf().verbose >= 3)

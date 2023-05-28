@@ -19,7 +19,7 @@ assert sw = [REL] ; ([F|TC|TE] ; po)? ; (rf ; rmw)* ; rf ; (po ; [F|TJ|TB])? ; [
 // Optimized calculation of happens-before.
 // Save the part of `hb` that does not finish with a reads-from edge
 
-view hb_stable = (po | sw_to_r ; po | sw_to_f | asw ; po)+
+view hb_stable = (po-imm | (sw_to_r | asw) ; po-imm | sw_to_f)+
 let hb = hb_stable | hb_stable? ; (sw_to_r | asw)
 
 assert hb = (po | sw | asw)+
