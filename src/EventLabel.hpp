@@ -1119,7 +1119,7 @@ protected:
 		: MemAccessLabel(k, pos, ord, addr, size, type, deps), value(val), wattr(wattr) {}
 	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		   SAddr addr, ASize size, AType type, SVal val, const EventDeps &deps = EventDeps())
-		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps) {}
+		: WriteLabel(k, pos, ord, addr, size, type, val, WriteAttr::None, deps) {}
 
 public:
 	WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
