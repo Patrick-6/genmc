@@ -756,24 +756,18 @@ inline const_po_range po_succs(const ExecutionGraph &G, const EventLabel *lab)
 	return po_succs(G, lab->getPos());
 }
 
-inline const_po_iterator po_imm_succ_begin(const ExecutionGraph &G, Event e)
+inline Event po_imm_succ(const ExecutionGraph &G, Event e)
 {
-	return po_succ_begin(G, e);
-}
-
-inline const_po_iterator po_imm_succ_end(const ExecutionGraph &G, Event e)
-{
-	return e == G.getLastThreadEvent(e.thread) ? po_imm_succ_begin(G, e) :
-		const_event_iterator(G, e.next().next());
+	return e == G.getLastThreadEvent(e.thread) ? Event::getInitializer() : e.next();
 }
 
 inline const_po_range po_imm_succs(const ExecutionGraph &G, Event e)
 {
-	return const_po_range(po_imm_succ_begin(G, e), po_imm_succ_end(G, e));
+	BUG(); // FIXME: Delete
 }
 inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return po_imm_succs(G, lab->getPos());
+	BUG(); // FIXME: Delete
 }
 
 

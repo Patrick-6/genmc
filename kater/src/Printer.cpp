@@ -275,7 +275,7 @@ std::pair<int, int>
 
 const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relationNames = {
         /* po */
-        {Relation::po_imm,	{"po_imm_succs",     "po_imm_pred"}},
+        {Relation::po_imm,	{"po_imm_succ",      "po_imm_pred"}},
         {Relation::po_loc_imm,	{"poloc_imm_succs",  "poloc_imm_preds"}},
 	/* deps */
         {Relation::ctrl_imm,	{"?",                "ctrl_preds"}},
