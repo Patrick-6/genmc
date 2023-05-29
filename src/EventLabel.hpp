@@ -619,37 +619,37 @@ protected:
 	friend class DepExecutionGraph;
 
 	ReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
-		  SAddr loc, ASize size, AType type, Event rf = Event::getBottom(),
+		  SAddr loc, ASize size, AType type, EventLabel *rfLab = nullptr,
 		  AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, loc, size, type, deps),
-		  readsFrom(rf), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rfLab), revisitable(true), annotExpr(std::move(annot)) {}
 public:
 	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		  AType type, Event rf, AnnotVP annot, const EventDeps &deps = EventDeps())
-		: ReadLabel(EL_Read, pos, ord, loc, size, type, rf, annot, deps) {}
+		  AType type, EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
+		: ReadLabel(EL_Read, pos, ord, loc, size, type, rfLab, annot, deps) {}
 	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		  AType type, Event rf, const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, rf, nullptr, deps) {}
+		  AType type, EventLabel *rfLab, const EventDeps &deps = EventDeps())
+		: ReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps) {}
 	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
 		  AType type, const EventDeps &deps = EventDeps())
-		: ReadLabel(pos, ord, loc, size, type, Event::getBottom(),
-			    nullptr, deps) {}
+		: ReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps) {}
 
 	DEFINE_CREATE_CLONE(ReadLabel)
 
 	/* Returns the position of the write this read is readinf-from */
-	Event getRf() const { return readsFrom; }
+	const EventLabel *getRf() const { return readsFrom; }
+	EventLabel *getRf() { return readsFrom; }
 
 	/* Whether this read has a set RF and reads externally */
 	bool readsExt() const {
-		return !getRf().isInitializer() && !getRf().isBottom() &&
-			getRf().thread != getThread();
+		return getRf() && !getRf()->getPos().isInitializer() &&
+			getRf()->getThread() != getThread();
 	}
 
 	/* Whether this read has a set RF and reads internally */
 	bool readsInt() const {
-		return !getRf().isBottom() &&
-			(getRf().isInitializer() || getRf().thread == getThread());
+		return getRf() && (getRf()->getPos().isInitializer() ||
+				   getRf()->getThread() == getThread());
 	}
 
 	/* Returns true if this read can be revisited */
@@ -665,7 +665,7 @@ public:
 
 	virtual void reset() override {
 		MemAccessLabel::reset();
-		setRf(Event::getBottom());
+		setRf(nullptr);
 		revisitable = true;
 	}
 
@@ -678,10 +678,10 @@ private:
 	/* Changes the reads-from edge for this label. This should only
 	 * be called from the execution graph to update other relevant
 	 * information as well */
-	void setRf(Event rf) { readsFrom = rf; }
+	void setRf(EventLabel *rfLab) { readsFrom = rfLab; }
 
 	/* Position of the write it is reading from in the graph */
-	Event readsFrom;
+	EventLabel *readsFrom;
 
 	/* Revisitability status */
 	bool revisitable;
@@ -701,20 +701,20 @@ protected:						\
 public:									\
 	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
 				 SAddr loc, ASize size, AType type,	\
-				 Event rf, AnnotVP annot,		\
+				 EventLabel *rfLab, AnnotVP annot,	\
 				 const EventDeps &deps = EventDeps()) \
 	: ReadLabel(EL_ ## _class_kind ## Read, pos, ord, loc, size,	\
-		    type, rf, std::move(annot), deps) {}		\
+		    type, rfLab, std::move(annot), deps) {}		\
 	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
 				 SAddr loc, ASize size, AType type,	\
-				 Event rf, const EventDeps &deps = EventDeps())	\
-	: _class_kind ## ReadLabel(pos, ord, loc, size, type, rf,	\
+				 EventLabel *rfLab, const EventDeps &deps = EventDeps())	\
+	: _class_kind ## ReadLabel(pos, ord, loc, size, type, rfLab,	\
 				   nullptr, deps) {}		\
 	_class_kind ## ReadLabel(Event pos, llvm::AtomicOrdering ord,	\
 				 SAddr loc, ASize size, AType type,	\
 				 const EventDeps &deps = EventDeps())	\
 	: _class_kind ## ReadLabel(pos, ord, loc, size,	type,		\
-				   Event::getBottom(), nullptr, deps) {}		\
+				   nullptr, nullptr, deps) {}		\
 									\
 	DEFINE_CREATE_CLONE(_class_kind ## ReadLabel)			\
 									\
@@ -739,14 +739,14 @@ protected:
 
 public:
 	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		       AType type, Event rf, AnnotVP annot, const EventDeps &deps = EventDeps())
-		: ReadLabel(EL_BWaitRead, pos, ord, loc, size, type, rf, std::move(annot), deps) {}
+		       AType type, EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
+		: ReadLabel(EL_BWaitRead, pos, ord, loc, size, type, rfLab, std::move(annot), deps) {}
 	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		       AType type, Event rf, const EventDeps &deps = EventDeps())
-		: BWaitReadLabel(pos, ord, loc, size, type, rf, nullptr, deps) {}
+		       AType type, EventLabel *rfLab, const EventDeps &deps = EventDeps())
+		: BWaitReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps) {}
 	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
 		       AType type, const EventDeps &deps = EventDeps())
-		: BWaitReadLabel(pos, ord, loc, size, type, Event::getBottom(), nullptr, deps) {}
+		: BWaitReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps) {}
 
 	DEFINE_CREATE_CLONE(BWaitReadLabel)
 
@@ -769,25 +769,25 @@ protected:
 
 	FaiReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		     SAddr addr, ASize size, AType type, llvm::AtomicRMWInst::BinOp op,
-		     SVal val, WriteAttr wattr, Event rf, AnnotVP annot,
+		     SVal val, WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
 		     const EventDeps &deps = EventDeps())
-		: ReadLabel(k, pos, ord, addr, size, type, rf, std::move(annot), deps),
+		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  binOp(op), opValue(val), wattr(wattr) {}
 
 public:
 	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
-		     Event rf, AnnotVP annot, const EventDeps &deps = EventDeps())
+		     EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
 		: FaiReadLabel(EL_FaiRead, pos, ord, addr, size, type, op, val,
-			       wattr, rf, std::move(annot), deps) {}
+			       wattr, rfLab, std::move(annot), deps) {}
 	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
-		     Event rf, const EventDeps &deps = EventDeps())
-		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rf, nullptr, deps) {}
+		     EventLabel *rfLab, const EventDeps &deps = EventDeps())
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, rfLab, nullptr, deps) {}
 	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 		     llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
 		     const EventDeps &deps = EventDeps())
-		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, Event::getBottom(), deps) {}
+		: FaiReadLabel(pos, ord, addr, size, type, op, val, wattr, nullptr, deps) {}
 	FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 		     llvm::AtomicRMWInst::BinOp op, SVal val, const EventDeps &deps = EventDeps())
 		: FaiReadLabel(pos, ord, addr, size, type, op, val, WriteAttr::None, deps) {}
@@ -837,24 +837,24 @@ public:								\
 	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, \
 				    llvm::AtomicRMWInst::BinOp op, SVal val, \
-				    WriteAttr wattr, Event rf, AnnotVP annot, \
+				    WriteAttr wattr, EventLabel *rfLab, AnnotVP annot, \
 				    const EventDeps &deps = EventDeps())		\
 	: FaiReadLabel(EL_ ## _class_kind ## FaiRead, pos, ord, addr, size, \
-		       type, op, val, wattr, rf, std::move(annot), deps) {} \
+		       type, op, val, wattr, rfLab, std::move(annot), deps) {} \
 	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, \
 				    llvm::AtomicRMWInst::BinOp op, SVal val, \
-				    WriteAttr wattr, Event rf,		\
+				    WriteAttr wattr, EventLabel *rfLab,		\
 				    const EventDeps &deps = EventDeps())		\
 	: _class_kind ## FaiReadLabel(pos, ord, addr, size, type, op, \
-				      val, wattr, rf, nullptr, deps) {} \
+				      val, wattr, rfLab, nullptr, deps) {} \
 	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type,	\
 				    llvm::AtomicRMWInst::BinOp op, SVal val, \
 				    WriteAttr wattr,			\
 				    const EventDeps &deps = EventDeps())		\
 	: _class_kind ## FaiReadLabel(pos, ord, addr, size, type, op, \
-				      val, wattr, Event::getBottom(), deps) {} \
+				      val, wattr, nullptr, deps) {} \
 	_class_kind ## FaiReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type,	\
 				    llvm::AtomicRMWInst::BinOp op, SVal val, \
@@ -886,27 +886,27 @@ protected:
 
 	CasReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		     SAddr addr, ASize size, AType type, SVal exp, SVal swap,
-		     WriteAttr wattr, Event rf, AnnotVP annot,
+		     WriteAttr wattr, EventLabel *rfLab, AnnotVP annot,
 		     const EventDeps &deps = EventDeps())
-		: ReadLabel(k, pos, ord, addr, size, type, rf, std::move(annot), deps),
+		: ReadLabel(k, pos, ord, addr, size, type, rfLab, std::move(annot), deps),
 		  wattr(wattr), expected(exp), swapValue(swap) {}
 
 public:
 	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr,
-		     Event rf, AnnotVP annot, const EventDeps &deps = EventDeps())
+		     EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
 		: CasReadLabel(EL_CasRead, pos, ord, addr, size, type, exp,
-			       swap, wattr, rf, std::move(annot), deps) {}
+			       swap, wattr, rfLab, std::move(annot), deps) {}
 	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr,
-		     Event rf, const EventDeps &deps = EventDeps())
+		     EventLabel *rfLab, const EventDeps &deps = EventDeps())
 		: CasReadLabel(pos, ord, addr, size, type, exp,
-			       swap, wattr, rf, nullptr, deps) {}
+			       swap, wattr, rfLab, nullptr, deps) {}
 	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr,
 		     const EventDeps &deps = EventDeps())
 		: CasReadLabel(pos, ord, addr, size, type, exp,
-			       swap, wattr, Event::getBottom(), deps) {}
+			       swap, wattr, nullptr, deps) {}
 	CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap,
 		     const EventDeps &deps = EventDeps())
@@ -957,27 +957,27 @@ protected:							\
 public:								\
 	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
-				    WriteAttr wattr, Event rf, AnnotVP annot, \
-				    const EventDeps &deps = EventDeps())		\
+				    WriteAttr wattr, EventLabel *rfLab, AnnotVP annot, \
+				    const EventDeps &deps = EventDeps()) \
 	: CasReadLabel(EL_ ## _class_kind ## CasRead, pos, ord, addr, size, \
-		       type, exp, swap, wattr, rf, std::move(annot), deps) {} \
+		       type, exp, swap, wattr, rfLab, std::move(annot), deps) {} \
 	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
-				    WriteAttr wattr, Event rf,		\
-				    const EventDeps &deps = EventDeps())		\
+				    WriteAttr wattr, EventLabel *rfLab,	\
+				    const EventDeps &deps = EventDeps()) \
 		: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp, \
-					      swap, wattr, rf, nullptr, deps) {} \
+					      swap, wattr, rfLab, nullptr, deps) {} \
 	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, SVal exp, SVal swap, \
 				    WriteAttr wattr, const EventDeps &deps = EventDeps())		\
 	: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp,	\
-				      swap, wattr, Event::getBottom(), deps) {} \
+				      swap, wattr, nullptr, deps) {}	\
 	_class_kind ## CasReadLabel(Event pos, llvm::AtomicOrdering ord,\
 				    SAddr addr, ASize size, AType type, \
 				    SVal exp, SVal swap,		\
-				    const EventDeps &deps = EventDeps())		\
+				    const EventDeps &deps = EventDeps()) \
 	: _class_kind ## CasReadLabel(pos, ord, addr, size, type, exp,	\
-				      swap, WriteAttr::None, deps) {} \
+				      swap, WriteAttr::None, deps) {}	\
 									\
 									\
 	DEFINE_CREATE_CLONE(_class_kind ## CasReadLabel)		\
@@ -1003,17 +1003,17 @@ protected:
 public:
 	LockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 			 AType type, SVal exp, SVal swap, WriteAttr wattr,
-			 Event rf, const EventDeps &deps = EventDeps())
+			 EventLabel *rfLab, const EventDeps &deps = EventDeps())
 		: CasReadLabel(EL_LockCasRead, pos, ord, addr, size, type, exp,
-			       swap, wattr, rf, nullptr, deps) {}
-	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, Event rf,
+			       swap, wattr, rfLab, nullptr, deps) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
 			 const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				   AType::Signed, SVal(0), SVal(1), wattr,
-				   rf, deps) {}
+				   rfLab, deps) {}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
 			 const EventDeps &deps = EventDeps())
-		: LockCasReadLabel(pos, addr, size, wattr, Event::getBottom(), deps) {}
+		: LockCasReadLabel(pos, addr, size, wattr, nullptr, deps) {}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size,
 			 const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
@@ -1039,17 +1039,17 @@ protected:
 public:
 	TrylockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 			    AType type, SVal exp, SVal swap, WriteAttr wattr,
-			    Event rf, const EventDeps &deps = EventDeps())
+			    EventLabel *rfLab, const EventDeps &deps = EventDeps())
 		: CasReadLabel(EL_TrylockCasRead, pos, ord, addr, size, type,
-			       exp, swap, wattr, rf, nullptr, deps) {}
-	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, Event rf,
+			       exp, swap, wattr, rfLab, nullptr, deps) {}
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
 			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				      AType::Signed, SVal(0), SVal(1), wattr,
-				      rf, deps) {}
+				      rfLab, deps) {}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
 			    const EventDeps &deps = EventDeps())
-		: TrylockCasReadLabel(pos, addr, size, wattr, Event::getBottom(), deps) {}
+		: TrylockCasReadLabel(pos, addr, size, wattr, nullptr, deps) {}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size,
 			    const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
@@ -1074,14 +1074,14 @@ protected:
 
 public:
 	DskReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
-		     AType type, Event rf = Event::getBottom(),
+		     AType type, EventLabel *rfLab = nullptr,
 		     const EventDeps &deps = EventDeps())
-		: ReadLabel(EL_DskRead, pos, ord, loc, size, type, rf, nullptr, deps),
+		: ReadLabel(EL_DskRead, pos, ord, loc, size, type, rfLab, nullptr, deps),
 		  DskAccessLabel(EL_DskRead) {}
 
 	DskReadLabel(Event pos, SAddr loc, ASize size, AType type,
-		     Event rf = Event::getBottom(), const EventDeps &deps = EventDeps())
-		: DskReadLabel(pos, llvm::AtomicOrdering::Acquire, loc, size, type, rf, deps) {}
+		     EventLabel *rfLab = nullptr, const EventDeps &deps = EventDeps())
+		: DskReadLabel(pos, llvm::AtomicOrdering::Acquire, loc, size, type, rfLab, deps) {}
 
 	DEFINE_CREATE_CLONE(DskReadLabel)
 

@@ -77,7 +77,7 @@ std::vector<Event>
 
 	for (const auto *lab : labels(getGraph())) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+			if (rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
 	}
 	return result;
@@ -259,7 +259,7 @@ std::pair<int, int>
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
-			auto offset = cc->getStoreOffset(addr, rLab->getRf()) + 1;
+			auto offset = cc->getStoreOffset(addr, rLab->getRf()->getPos()) + 1;
 			return std::make_pair(offset, offset);
 		}
 		BUG();

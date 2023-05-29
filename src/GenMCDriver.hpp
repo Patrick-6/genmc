@@ -303,15 +303,15 @@ protected:
 	void markFdAsUsed(int fd);
 
 	/* Given a write event from the graph, returns the value it writes */
-	SVal getWriteValue(Event w, SAddr p, AAccess a);
+	SVal getWriteValue(const EventLabel *wLab, SAddr p, AAccess a);
 	SVal getWriteValue(const WriteLabel *wLab) {
-		return getWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+		return getWriteValue(wLab, wLab->getAddr(), wLab->getAccess());
 	}
 
 	/* Returns the value written by a disk write */
-	SVal getDskWriteValue(Event w, SAddr p, AAccess a);
+	SVal getDskWriteValue(const EventLabel *wLab, SAddr p, AAccess a);
 	SVal getDskWriteValue(const DskWriteLabel *wLab) {
-		return getDskWriteValue(wLab->getPos(), wLab->getAddr(), wLab->getAccess());
+		return getDskWriteValue(wLab, wLab->getAddr(), wLab->getAccess());
 	}
 
 	/* Returns the value read by a read */

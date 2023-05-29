@@ -139,13 +139,13 @@ CoherenceCalculator::const_store_iterator
 CoherenceCalculator::fr_succ_begin(SAddr addr, Event load) const
 {
 	auto *rLab = getGraph().getReadLabel(load);
-	return co_succ_begin(addr, rLab->getRf());
+	return co_succ_begin(addr, rLab->getRf()->getPos());
 }
 CoherenceCalculator::const_store_iterator
 CoherenceCalculator::fr_succ_end(SAddr addr, Event load) const
 {
 	auto *rLab = getGraph().getReadLabel(load);
-	return co_succ_end(addr, rLab->getRf());
+	return co_succ_end(addr, rLab->getRf()->getPos());
 }
 
 CoherenceCalculator::const_store_iterator

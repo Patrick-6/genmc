@@ -349,12 +349,11 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
 	auto *pLab = llvm::dyn_cast<ReadLabel>(getPreviousLabel(sLab));
+	BUG_ON(!pLab->getRf());
 	std::vector<Event> pending;
 
 	/* Fastpath: non-init rf */
-	if (!pLab->getRf().isInitializer()) {
-		auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(pLab->getRf()));
-		BUG_ON(!wLab);
+	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
 		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](const Event &r){
 				if (isRMWLoad(r) && r != pLab->getPos())
 					pending.push_back(r);
@@ -403,7 +402,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 
 	for (const auto *lab : labels(*this)) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+			if (llvm::isa<WriteLabel>(rLab->getRf()) && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
 	}
 	return result;
@@ -746,14 +745,13 @@ void ExecutionGraph::removeLast(unsigned int thread)
 
 	auto *lab = getLastThreadLabel(thread);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-		if (!rLab->getRf().isBottom()) {
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf())))
-				wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
+		if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
+			wLab->removeReader([&](const Event &r){ return r == rLab->getPos(); });
 		}
 	}
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 		for (auto &r : wLab->readers()) {
-			llvm::dyn_cast<ReadLabel>(getEventLabel(r))->setRf(Event::getBottom());
+			llvm::dyn_cast<ReadLabel>(getEventLabel(r))->setRf(nullptr);
 		}
 	}
 	resizeThread(lab->getPos());
@@ -790,7 +788,7 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 			continue;
 
 		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-		if (rLab->getRf() == store && rLab->getAddr() == ptr)
+		if (rLab->getRf()->getPos() == store && rLab->getAddr() == ptr)
 			return true;
 	}
 	return false;
@@ -803,7 +801,7 @@ bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const Vecto
 			continue;
 
 		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-		if (rLab->getRf() != store || rLab->getAddr() != ptr)
+		if (rLab->getRf()->getPos() != store || rLab->getAddr() != ptr)
 			continue;
 
 		auto *wLab = llvm::dyn_cast<WriteLabel>(getNextLabel(rLab));
@@ -835,8 +833,8 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	/* First, we set the new reads-from edge */
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
 	BUG_ON(!rLab);
-	auto oldRf = rLab->getRf();
-	rLab->setRf(store);
+	auto oldRfLab = rLab->getRf();
+	rLab->setRf(store.isBottom() ? nullptr : getEventLabel(store));
 
 	/*
 	 * Now, we need to delete the read from the readers list of oldRf.
@@ -846,11 +844,11 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	 *        now in its place, perhaps after the restoration of some prefix
 	 *        during a revisit)
 	 *     3) That oldRf is not the initializer */
-	if (containsPos(oldRf)) {
-		auto *labRef = getEventLabel(oldRf);
-		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(labRef))
+	if (oldRfLab && containsPos(oldRfLab->getPos())) {
+		BUG_ON(!containsLab(oldRfLab));
+		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
-		else if (oldRf.isInitializer())
+		else if (oldRfLab->getPos().isInitializer())
 			getCoherenceCalculator()->removeInitRfToLoc(rLab->getAddr(), rLab->getPos());
 	}
 
@@ -908,26 +906,31 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 	for (auto i = 0u; i < calcs.size(); i++)
 		calcs[i]->removeAfter(*preds);
 
-	/* Restrict the graph according to the view (keep begins around) */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		auto &thr = events[i];
-		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
-	}
-
-	/* Remove any 'pointers' to events that have been removed */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		for (auto j = 0u; j < getThreadSize(i); j++) {
+	/* Remove any 'pointers' to events that will be removed */
+	for (auto i = 0u; i < preds->size(); i++) {
+		for (auto j = 0u; j <= preds->getMax(i); j++) {
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 				wLab->removeReader([&](Event r){
 							   return !preds->contains(r);
 						   });
 			}
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (!preds->contains(rLab->getRf()->getPos()))
+					rLab->setRf(nullptr);
+			}
 			/* No special action for CreateLabels; we can
 			 * keep the begin event of the child the since
 			 * it will not be deleted */
 		}
 	}
+
+	/* Restrict the graph according to the view (keep begins around) */
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		auto &thr = events[i];
+		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
+	}
+
 	return;
 }
 
@@ -995,6 +998,17 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				;
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
 				;
+		}
+	}
+
+	for (auto *lab : labels(other)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+			BUG_ON(!rLab->getRf());
+			if (!other.containsPos(rLab->getRf()->getPos()))
+				rLab->setRf(nullptr);
+			else
+				rLab->setRf(other.getEventLabel(
+						    rLab->getRf()->getPos()));
 		}
 	}
 
@@ -1071,16 +1085,16 @@ void ExecutionGraph::validate(void)
 {
 	for (auto *lab : labels(*this)) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (rLab->getRf().isBottom())
+			if (!rLab->getRf())
 				continue;
 
-			if (!containsPosNonEmpty(rLab->getRf())) {
+			if (!containsLab(rLab->getRf())) {
 				llvm::errs() << "Non-existent RF: " << rLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();
 			}
 
-			if (auto *rfLab = llvm::dyn_cast<WriteLabel>(getEventLabel(rLab->getRf()))) {
+			if (auto *rfLab = llvm::dyn_cast<WriteLabel>(rLab->getRf())) {
 				if (std::find(rfLab->readers_begin(), rfLab->readers_end(), rLab->getPos()) ==
 				    rfLab->readers_end()) {
 					llvm::errs() << "Not in RF's readers list: " << rLab->getPos() << "\n";
@@ -1108,7 +1122,7 @@ void ExecutionGraph::validate(void)
 			}
 
 			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
-					[&](const Event &r){ return getReadLabel(r)->getRf() != wLab->getPos(); })) {
+					[&](const Event &r){ return getReadLabel(r)->getRf()->getPos() != wLab->getPos(); })) {
 				llvm::errs() << "RF not properly set: " << wLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();

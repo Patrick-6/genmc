@@ -1014,7 +1014,7 @@ namespace detail {
 
 		bool operator()(const Event &s) const {
 			auto *lab = graph.getReadLabel(s);
-			return lab && lab->getRf() != write;
+			return lab && lab->getRf()->getPos() != write;
 		}
 	private:
 		const ExecutionGraph &graph;
@@ -1091,7 +1091,7 @@ inline const_reverse_detour_iterator detour_pred_begin(const ExecutionGraph &G, 
 {
 	auto *lab = G.getReadLabel(e);
 	return lab ? const_reverse_detour_iterator(poloc_pred_begin(G, e), poloc_pred_end(G, e),
-						   ::detail::RfInvIntFilter(G, lab->getRf())) :
+						   ::detail::RfInvIntFilter(G, lab->getRf()->getPos())) :
 		const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
 					      ::detail::RfInvIntFilter(G, Event::getInitializer()));
 }
@@ -1099,7 +1099,7 @@ inline const_reverse_detour_iterator detour_pred_begin(const ExecutionGraph &G, 
 inline const_reverse_detour_iterator detour_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *lab = G.getReadLabel(e);
-	auto pos = lab && !lab->getRf().isBottom() ? lab->getRf() : Event::getInitializer();
+	auto pos = lab && lab->getRf() ? lab->getRf()->getPos() : Event::getInitializer();
 	return const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
 					    ::detail::RfInvIntFilter(G, pos));
 }
@@ -1155,15 +1155,15 @@ using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
 inline const_rf_inv_iterator rf_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return (!rLab || rLab->getRf().isBottom()) ? event_end(G) :
-		const_event_iterator(G, rLab->getRf());
+	return (!rLab || !rLab->getRf()) ? event_end(G) :
+		const_event_iterator(G, rLab->getRf()->getPos());
 }
 
 inline const_rf_inv_iterator rf_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return (!rLab || rLab->getRf().isBottom()) ? event_end(G) :
-		const_event_iterator(G, rLab->getRf().next());
+	return (!rLab || !rLab->getRf()) ? event_end(G) :
+		const_event_iterator(G, rLab->getRf()->getPos().next());
 }
 
 inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)

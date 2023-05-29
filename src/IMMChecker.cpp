@@ -42,21 +42,6 @@ void IMMChecker::visitCalc0_1(const Event &e, View &calcRes)
 
 	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::entered;
 	if (llvm::isa<ThreadStartLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(p, calcRes);
-	}
-	if (llvm::isa<ThreadJoinLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(p, calcRes);
-	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && !lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(p, calcRes);
-	}
-	if (llvm::isa<ThreadStartLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto status = visitedCalc0_6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_6(p, calcRes);
@@ -81,6 +66,21 @@ void IMMChecker::visitCalc0_1(const Event &e, View &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_2(p, calcRes);
 	}
+	if (llvm::isa<ThreadStartLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
+	}
+	if (llvm::isa<ThreadJoinLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
+	}
+	if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && !lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
+	}
 	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -90,6 +90,11 @@ void IMMChecker::visitCalc0_2(const Event &e, View &calcRes)
 	auto *lab = g.getEventLabel(e);
 
 	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::entered;
+	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_5(p, calcRes);
+	}
 	for (auto &p : tc_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
@@ -104,11 +109,6 @@ void IMMChecker::visitCalc0_2(const Event &e, View &calcRes)
 		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(p, calcRes);
-	}
-	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_5(p, calcRes);
 	}
 	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp().get()];
@@ -153,15 +153,15 @@ void IMMChecker::visitCalc0_4(const Event &e, View &calcRes)
 	auto *lab = g.getEventLabel(e);
 
 	visitedCalc0_4[lab->getStamp().get()] = NodeStatus::entered;
-	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
-		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(p, calcRes);
-	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_5[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_5(p, calcRes);
+	}
+	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
+		auto status = visitedCalc0_0[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(p, calcRes);
 	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto status = visitedCalc0_3[g.getEventLabel(p)->getStamp().get()];
@@ -192,14 +192,14 @@ void IMMChecker::visitCalc0_6(const Event &e, View &calcRes)
 
 	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::entered;
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(p, calcRes);
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto status = visitedCalc0_6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_6(p, calcRes);
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedCalc0_4[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_4(p, calcRes);
 	}
 	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::left;
 }
@@ -278,27 +278,6 @@ bool IMMChecker::visitAcyclic1(const Event &e)
 
 	visitedAcyclic1[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadCreateLabel>(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
@@ -322,6 +301,27 @@ bool IMMChecker::visitAcyclic1(const Event &e)
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto &node = visitedAcyclic1[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic1(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadCreateLabel>(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -337,13 +337,6 @@ bool IMMChecker::visitAcyclic2(const Event &e)
 
 	visitedAcyclic2[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
 	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
 		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
@@ -353,6 +346,13 @@ bool IMMChecker::visitAcyclic2(const Event &e)
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic3[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -367,34 +367,6 @@ bool IMMChecker::visitAcyclic3(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadCreateLabel>(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic2[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic2(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
@@ -423,6 +395,34 @@ bool IMMChecker::visitAcyclic3(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic2[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic2(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadCreateLabel>(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -433,6 +433,34 @@ bool IMMChecker::visitAcyclic4(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic4[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	for (auto &p : tc_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : tj_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic3[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	for (auto &p : tc_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
@@ -468,34 +496,6 @@ bool IMMChecker::visitAcyclic4(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : tc_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : tj_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic3[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	visitedAcyclic4[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -507,15 +507,15 @@ bool IMMChecker::visitAcyclic5(const Event &e)
 
 	visitedAcyclic5[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
 	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
+		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
+		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -530,13 +530,6 @@ bool IMMChecker::visitAcyclic6(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic6[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : tc_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
@@ -558,6 +551,13 @@ bool IMMChecker::visitAcyclic6(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic6[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -568,6 +568,13 @@ bool IMMChecker::visitAcyclic7(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic7[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
@@ -585,13 +592,6 @@ bool IMMChecker::visitAcyclic7(const Event &e)
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -634,6 +634,13 @@ bool IMMChecker::visitAcyclic8(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	for (auto &p : co_imm_preds(g, lab->getPos()))if (g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
@@ -648,13 +655,6 @@ bool IMMChecker::visitAcyclic8(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	visitedAcyclic8[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -665,6 +665,13 @@ bool IMMChecker::visitAcyclic9(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic9[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
@@ -693,13 +700,6 @@ bool IMMChecker::visitAcyclic9(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	visitedAcyclic9[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -710,16 +710,16 @@ bool IMMChecker::visitAcyclic10(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic10[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
+	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isAtLeastRelease()) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -734,6 +734,13 @@ bool IMMChecker::visitAcyclic11(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic11[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
@@ -769,13 +776,6 @@ bool IMMChecker::visitAcyclic11(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic9[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic9(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	visitedAcyclic11[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -786,34 +786,6 @@ bool IMMChecker::visitAcyclic12(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic12[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : tc_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
@@ -856,6 +828,34 @@ bool IMMChecker::visitAcyclic12(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	if (lab->isAtLeastAcquire())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic11[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic11(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic12[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -890,6 +890,48 @@ bool IMMChecker::visitAcyclic14(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic14[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	FOREACH_MAXIMAL(p, lab->view(0))if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
+		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isSC()) {
+		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic14[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic14(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
@@ -911,48 +953,6 @@ bool IMMChecker::visitAcyclic14(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic14[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic14(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	FOREACH_MAXIMAL(p, lab->view(0))if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
-		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos()))if (g.getEventLabel(p)->isSC()) {
-		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	visitedAcyclic14[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -964,6 +964,90 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 
 	++visitedAccepting;
 	visitedAcyclic15[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : rf_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : fr_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto &node = visitedAcyclic5[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic5(p))
@@ -971,72 +1055,9 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic14[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic14(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto &node = visitedAcyclic4[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic4(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1077,29 +1098,8 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 			return false;
 	}
 	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic7[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic7(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
+		auto &node = visitedAcyclic14[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic14(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1146,13 +1146,6 @@ bool IMMChecker::visitAcyclic17(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic17[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic17(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
@@ -1170,6 +1163,13 @@ bool IMMChecker::visitAcyclic17(const Event &e)
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic17[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic17(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1222,13 +1222,6 @@ bool IMMChecker::visitAcyclic19(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic17[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic17(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<ThreadFinishLabel>(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
@@ -1246,6 +1239,13 @@ bool IMMChecker::visitAcyclic19(const Event &e)
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isAtLeastAcquire() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastAcquire() && g.getEventLabel(p)->isAtLeastRelease() || llvm::isa<FenceLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic17[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic17(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1385,13 +1385,6 @@ bool IMMChecker::visitAcyclic22(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic22[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic22(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : rf_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
@@ -1413,6 +1406,13 @@ bool IMMChecker::visitAcyclic22(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic22[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic22(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic22[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -1423,27 +1423,6 @@ bool IMMChecker::visitAcyclic23(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic23[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : rfi_preds(g, lab->getPos()))if (g.isRMWStore(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic24[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic24(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : data_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rfi_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : data_preds(g, lab->getPos()))if (llvm::isa<ReadLabel>(g.getEventLabel(p)) || g.getEventLabel(p)->isDependable()) {
 		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
@@ -1465,6 +1444,27 @@ bool IMMChecker::visitAcyclic23(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	for (auto &p : data_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rfi_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : rfi_preds(g, lab->getPos()))if (g.isRMWStore(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic24[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic24(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic23[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -1475,13 +1475,6 @@ bool IMMChecker::visitAcyclic24(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic24[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
 		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
@@ -1496,6 +1489,13 @@ bool IMMChecker::visitAcyclic24(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
 	visitedAcyclic24[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
 	return true;
 }
@@ -1506,20 +1506,6 @@ bool IMMChecker::visitAcyclic25(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic25[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : ctrl_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : addr_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : ctrl_preds(g, lab->getPos()))if (llvm::isa<ReadLabel>(g.getEventLabel(p)) || g.getEventLabel(p)->isDependable()) {
 		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
@@ -1551,6 +1537,20 @@ bool IMMChecker::visitAcyclic25(const Event &e)
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
 		auto &node = visitedAcyclic25[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic25(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : ctrl_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &p : addr_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1597,15 +1597,15 @@ bool IMMChecker::visitAcyclic27(const Event &e)
 
 	visitedAcyclic27[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
+		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
+		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1621,48 +1621,6 @@ bool IMMChecker::visitAcyclic28(const Event &e)
 
 	++visitedAccepting;
 	visitedAcyclic28[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (lab->isAtLeastRelease())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<FenceLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
-		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
 	for (auto &p : rfe_preds(g, lab->getPos())) {
 		auto &node = visitedAcyclic28[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic28(p))
@@ -1740,9 +1698,16 @@ bool IMMChecker::visitAcyclic28(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
-		auto &node = visitedAcyclic22[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic22(p))
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic26[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic26(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic16[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic16(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1782,16 +1747,51 @@ bool IMMChecker::visitAcyclic28(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto &node = visitedAcyclic26[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic26(p))
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic16[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic16(p))
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab->getPos())) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
+		auto &node = visitedAcyclic23[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic23(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<FenceLabel>(lab) && lab->isSC())FOREACH_MAXIMAL(p, lab->view(0)) {
+		auto &node = visitedAcyclic22[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic22(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (lab->isAtLeastRelease())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<FenceLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto &node = visitedAcyclic27[g.getEventLabel(p)->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic27(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
@@ -1915,35 +1915,35 @@ void IMMChecker::visitPPoRf1(const Event &e, DepView &pporf)
 	auto *lab = g.getEventLabel(e);
 
 	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::entered;
+	for (auto &p : data_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf3[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(p, pporf);
+	}
+	for (auto &p : rfi_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf3[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf3(p, pporf);
+	}
 	for (auto &p : rfi_preds(g, lab->getPos()))if (g.isRMWStore(g.getEventLabel(p))) {
 		auto status = visitedPPoRf2[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf2(p, pporf);
 	}
-	for (auto &p : data_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf3[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf3(p, pporf);
-	}
-	for (auto &p : rfi_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf3[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf3(p, pporf);
-	}
-	for (auto &p : data_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
-	for (auto &p : rfi_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
 	for (auto &p : data_preds(g, lab->getPos()))if (llvm::isa<ReadLabel>(g.getEventLabel(p)) || g.getEventLabel(p)->isDependable()) {
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(p, pporf);
+	}
+	for (auto &p : data_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
+	for (auto &p : rfi_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
 	}
 	visitedPPoRf1[lab->getStamp().get()] = NodeStatus::left;
 }
@@ -1960,14 +1960,14 @@ void IMMChecker::visitPPoRf2(const Event &e, DepView &pporf)
 			visitPPoRf3(p, pporf);
 	}
 	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(p, pporf);
+	}
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
 	}
 	visitedPPoRf2[lab->getStamp().get()] = NodeStatus::left;
 }
@@ -1993,16 +1993,6 @@ void IMMChecker::visitPPoRf3(const Event &e, DepView &pporf)
 		if (status == NodeStatus::unseen)
 			visitPPoRf3(p, pporf);
 	}
-	for (auto &p : ctrl_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
-	for (auto &p : addr_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
 	for (auto &p : ctrl_preds(g, lab->getPos()))if (llvm::isa<ReadLabel>(g.getEventLabel(p)) || g.getEventLabel(p)->isDependable()) {
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
@@ -2012,6 +2002,16 @@ void IMMChecker::visitPPoRf3(const Event &e, DepView &pporf)
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(p, pporf);
+	}
+	for (auto &p : ctrl_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
+	for (auto &p : addr_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
 	}
 	visitedPPoRf3[lab->getStamp().get()] = NodeStatus::left;
 }
@@ -2046,15 +2046,15 @@ void IMMChecker::visitPPoRf5(const Event &e, DepView &pporf)
 	auto *lab = g.getEventLabel(e);
 
 	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::entered;
-	for (auto &p : poloc_imm_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf5[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf5(p, pporf);
-	}
 	for (auto &p : poloc_imm_preds(g, lab->getPos()))if (llvm::isa<WriteLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isAtLeastRelease() && !g.getEventLabel(p)->isSC() || llvm::isa<WriteLabel>(g.getEventLabel(p)) && g.getEventLabel(p)->isSC()) {
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(p, pporf);
+	}
+	for (auto &p : poloc_imm_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf5[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf5(p, pporf);
 	}
 	visitedPPoRf5[lab->getStamp().get()] = NodeStatus::left;
 }
@@ -2066,26 +2066,6 @@ void IMMChecker::visitPPoRf6(const Event &e, DepView &pporf)
 
 	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::entered;
 	pporf.updateIdx(e);
-	if (lab->isAtLeastRelease())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(p, pporf);
-	}
-	if (llvm::isa<FenceLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(p, pporf);
-	}
-	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
-		auto status = visitedPPoRf4[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf4(p, pporf);
-	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf5[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf5(p, pporf);
-	}
 	if (llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab->getPos())) {
 		auto status = visitedPPoRf3[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
@@ -2111,25 +2091,20 @@ void IMMChecker::visitPPoRf6(const Event &e, DepView &pporf)
 		if (status == NodeStatus::unseen)
 			visitPPoRf3(p, pporf);
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+	if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedPPoRf4[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
+			visitPPoRf4(p, pporf);
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+	if (lab->isAtLeastRelease())if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
+			visitPPoRf0(p, pporf);
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab->getPos())) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+	if (llvm::isa<FenceLabel>(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer()) {
+		auto status = visitedPPoRf0[g.getEventLabel(p)->getStamp().get()];
 		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
-	}
-	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
-		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf1(p, pporf);
+			visitPPoRf0(p, pporf);
 	}
 	for (auto &p : tc_preds(g, lab->getPos())) {
 		auto status = visitedPPoRf6[g.getEventLabel(p)->getStamp().get()];
@@ -2196,6 +2171,31 @@ void IMMChecker::visitPPoRf6(const Event &e, DepView &pporf)
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(p, pporf);
 	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : poloc_imm_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf5[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf5(p, pporf);
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : ctrl_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : addr_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
+	if (llvm::isa<WriteLabel>(lab))for (auto &p : data_preds(g, lab->getPos())) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
+	if (g.isRMWStore(lab))if (auto p = po_imm_pred(g, lab->getPos()); !p.isInitializer())if (g.isRMWLoad(g.getEventLabel(p))) {
+		auto status = visitedPPoRf1[g.getEventLabel(p)->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitPPoRf1(p, pporf);
+	}
 	visitedPPoRf6[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -2256,7 +2256,7 @@ IMMChecker::getInitRfsAtLoc(SAddr addr)
 
 	for (const auto *lab : labels(getGraph())) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (rLab->getRf().isInitializer() && rLab->getAddr() == addr)
+			if (rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
 	}
 	return result;
@@ -2438,7 +2438,7 @@ IMMChecker::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
-			auto offset = cc->getStoreOffset(addr, rLab->getRf()) + 1;
+			auto offset = cc->getStoreOffset(addr, rLab->getRf()->getPos()) + 1;
 			return std::make_pair(offset, offset);
 		}
 		BUG();

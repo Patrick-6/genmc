@@ -103,7 +103,7 @@ const std::vector<std::pair<PredicateMask, PredicateInfo>> PredicateSet::builtin
 	{ PredicateMask::DskPbarrier,{"DskPbarrier", "llvm::isa<DskPbarrierLabel>(#)"}},
 	{ PredicateMask::CLFlush,    {"CLFlush"    , "llvm::isa<CLFlushLabel>(#)"}},
 	{ PredicateMask::CLFlushOpt, {"CLFlushOpt" , "llvm::isa<CLFlushOptLabel>(#)"}},
-	{ PredicateMask::IR,         {"IR"       , "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf().isInitializer() && llvm::dyn_cast<ReadLabel>(#)->getAddr().isDynamic()"}}};
+	{ PredicateMask::IR,         {"IR"       , "llvm::isa<ReadLabel>(#) && llvm::dyn_cast<ReadLabel>(#)->getRf() && llvm::dyn_cast<ReadLabel>(#)->getRf()->getPos().isInitializer() && llvm::dyn_cast<ReadLabel>(#)->getAddr().isDynamic()"}}};
 
 static inline PredicateMask operator|(PredicateMask m1, PredicateMask m2)
 {

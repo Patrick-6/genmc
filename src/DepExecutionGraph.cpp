@@ -79,7 +79,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 		 * do not know the order in which events were added */
 		auto newMax = 1u;
 		for (auto j = 1u; j < getThreadSize(i); j++) { /* Keeps begins */
-			const EventLabel *lab = getEventLabel(Event(i, j));
+			auto *lab = getEventLabel(Event(i, j));
 			/* If this label should not be deleted, check if it
 			 * is gonna be the new maximum, and then skip */
 			if (lab->getStamp() <= stamp) {
@@ -91,15 +91,11 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 			/* Otherwise, remove 'pointers' to it, in an
 			 * analogous manner cutToView(). */
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				Event rf = rLab->getRf();
 				/* Make sure RF label exists */
-				EventLabel *rfLab = getEventLabel(rf);
-				if (rfLab) {
-					if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
-						wLab->removeReader([&](Event r){
-								return r == rLab->getPos();
-							});
-					}
+				if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
+					wLab->removeReader([&](Event r){
+						return r == rLab->getPos();
+					});
 				}
 			}
 			setEventLabel(Event(i, j), nullptr);

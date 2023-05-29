@@ -343,12 +343,12 @@ public:
 
 	/* Helper to print read RFs */
 	void printRf(const ReadLabel &lab) {
-		if (lab.getRf().isInitializer())
-			out << "[INIT]";
-		else if (lab.getRf().isBottom())
+		if (!lab.getRf())
 			out << "[BOTTOM]";
+		else if (lab.getRf()->getPos().isInitializer())
+			out << "[INIT]";
 		else
-			out << "[" << lab.getRf() << "]";
+			out << "[" << lab.getRf()->getPos() << "]";
 	}
 
 	void visitReadLabel(const ReadLabel &lab) {
