@@ -846,7 +846,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	 *        now in its place, perhaps after the restoration of some prefix
 	 *        during a revisit)
 	 *     3) That oldRf is not the initializer */
-	if (contains(oldRf)) {
+	if (containsPos(oldRf)) {
 		auto *labRef = getEventLabel(oldRf);
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(labRef))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
@@ -1074,7 +1074,7 @@ void ExecutionGraph::validate(void)
 			if (rLab->getRf().isBottom())
 				continue;
 
-			if (!containsNonEmpty(rLab->getRf())) {
+			if (!containsPosNonEmpty(rLab->getRf())) {
 				llvm::errs() << "Non-existent RF: " << rLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();
@@ -1099,7 +1099,7 @@ void ExecutionGraph::validate(void)
 			}
 
 			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
-					[&](const Event &r){ return !containsNonEmpty(r) ||
+					[&](const Event &r){ return !containsPosNonEmpty(r) ||
 							!llvm::isa<ReadLabel>(getEventLabel(r)); })) {
 				llvm::errs() << "Non-existent/non-read reader: " << wLab->getPos() << "\n";
 				llvm::errs() << "Readers: " << format(wLab->getReadersList()) << "\n";
@@ -1114,7 +1114,7 @@ void ExecutionGraph::validate(void)
 				BUG();
 			}
 			for (auto it = wLab->readers_begin(), ie = wLab->readers_end(); it != ie; ++it) {
-				if (!containsNonEmpty(*it)) {
+				if (!containsPosNonEmpty(*it)) {
 					llvm::errs() << "Readers list has garbage: " << *it << "\n";
 					llvm::errs() << *this << "\n";
 					BUG();

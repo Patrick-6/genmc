@@ -296,7 +296,7 @@ bool GenMCDriver::scheduleNextWF()
 			continue;
 
 		if (EE->getThrById(i).globalInstructions != 0 &&
-		    g.contains(Event(i, EE->getThrById(i).globalInstructions))) {
+		    g.containsPos(Event(i, EE->getThrById(i).globalInstructions))) {
 			EE->scheduleThread(i);
 			return true;
 		}
@@ -405,7 +405,7 @@ void GenMCDriver::handleExecutionStart()
 		auto parent = labFst->getParentCreate();
 
 		/* Skip if parent create does not exist yet (or anymore) */
-		if (!g.contains(parent) || !llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)))
+		if (!g.containsPos(parent) || !llvm::isa<ThreadCreateLabel>(g.getEventLabel(parent)))
 			continue;
 
 		/* Skip finished threads */
@@ -2899,7 +2899,7 @@ void GenMCDriver::repairDanglingLocks()
 		auto *lLab = llvm::dyn_cast<LockCasReadLabel>(g.getEventLabel(g.getLastThreadEvent(i)));
 		if (!lLab)
 			continue;
-		if (!g.contains(lLab->getRf())) {
+		if (!g.containsPos(lLab->getRf())) {
 			repairLock(lLab);
 			break; /* Only one such lock may exist at all times */
 		}
