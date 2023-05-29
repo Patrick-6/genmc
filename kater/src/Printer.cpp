@@ -363,7 +363,7 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 
 	auto index = getCalcIdx(r->getCalcIndex());
 	if (viewCalcs.count(r->getCalcIndex())) {
-		ostr << "for (auto &" << res << " : maximals(" << arg << "->view(" << index << ")))";
+		ostr << "FOREACH_MAXIMAL(" << res << ", " << arg << "->view(" << index << "))";
 		return;
 	}
 	ostr << "for (auto &" << res << " : " << arg << "->calculated(" << index << "))";
