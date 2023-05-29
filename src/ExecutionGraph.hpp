@@ -580,7 +580,7 @@ protected:
 		return lab;
 	}
 
-private:
+protected:
 
 	/* A collection of threads and the events for each threads */
 	ThreadList events;

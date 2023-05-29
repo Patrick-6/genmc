@@ -402,7 +402,7 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 
 	for (const auto *lab : labels(*this)) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
-			if (llvm::isa<WriteLabel>(rLab->getRf()) && rLab->getAddr() == addr)
+			if (rLab->getRf() && rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
 	}
 	return result;
@@ -930,7 +930,6 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 		auto &thr = events[i];
 		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
 	}
-
 	return;
 }
 

@@ -74,39 +74,36 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 		calcs[i]->removeAfter(*preds);
 
 	/* Then, restrict the graph */
-	for (auto i = 0u; i < getNumThreads(); i++) {
-		/* We reset the maximum index for this thread, as we
-		 * do not know the order in which events were added */
-		auto newMax = 1u;
-		for (auto j = 1u; j < getThreadSize(i); j++) { /* Keeps begins */
+	for (auto i = 0u; i < preds->size(); i++) {
+		for (auto j = 1u; j <= preds->getMax(i); j++) { /* Keeps begins */
 			auto *lab = getEventLabel(Event(i, j));
-			/* If this label should not be deleted, check if it
-			 * is gonna be the new maximum, and then skip */
-			if (lab->getStamp() <= stamp) {
-				if (lab->getIndex() >= newMax)
-					newMax = lab->getIndex() + 1;
+			if (!preds->contains(lab->getPos()))
 				continue;
-			}
 
 			/* Otherwise, remove 'pointers' to it, in an
 			 * analogous manner cutToView(). */
-			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				/* Make sure RF label exists */
-				if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
-					wLab->removeReader([&](Event r){
-						return r == rLab->getPos();
-					});
-				}
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+				wLab->removeReader([&](Event r){
+							   return !preds->contains(r);
+						   });
 			}
-			setEventLabel(Event(i, j), nullptr);
+			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+				if (!preds->contains(rLab->getRf()->getPos()))
+					rLab->setRf(nullptr);
+			}
 		}
-		resizeThread(i, newMax);
+	}
+
+	/* Restrict the graph according to the view (keep begins around) */
+	for (auto i = 0u; i < getNumThreads(); i++) {
+		auto &thr = events[i];
+		thr.erase(thr.begin() + preds->getMax(i) + 1, thr.end());
 	}
 
 	/* Finally, do not keep any nullptrs in the graph */
 	for (auto i = 0u; i < getNumThreads(); i++) {
 		for (auto j = 0u; j < getThreadSize(i); j++) {
-			if (getEventLabel(Event(i, j)))
+			if (preds->contains(Event(i, j)))
 				continue;
 			setEventLabel(Event(i, j), createHoleLabel(Event(i, j)));
 			getEventLabel(Event(i, j))->setStamp(nextStamp());

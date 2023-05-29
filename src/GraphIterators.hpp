@@ -1090,7 +1090,7 @@ inline const_detour_range detour_succs(const ExecutionGraph &G, const EventLabel
 inline const_reverse_detour_iterator detour_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *lab = G.getReadLabel(e);
-	return lab ? const_reverse_detour_iterator(poloc_pred_begin(G, e), poloc_pred_end(G, e),
+	return lab && lab->getRf() ? const_reverse_detour_iterator(poloc_pred_begin(G, e), poloc_pred_end(G, e),
 						   ::detail::RfInvIntFilter(G, lab->getRf()->getPos())) :
 		const_reverse_detour_iterator(poloc_pred_end(G, e), poloc_pred_end(G, e),
 					      ::detail::RfInvIntFilter(G, Event::getInitializer()));
