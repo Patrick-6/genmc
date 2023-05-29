@@ -288,9 +288,9 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
         {Relation::frees,	{ "?",               "frees"}},
         {Relation::loc_overlap,	{ "?",               "samelocs"}},
 	/* rf, co, fr, detour */
-        {Relation::rf,		{ "rf_succs",        "rf_preds"}},
-        {Relation::rfe,		{ "rfe_succs",       "rfe_preds"}},
-        {Relation::rfi,		{ "rfi_succs",       "rfi_preds"}},
+        {Relation::rf,		{ "rf_succs",        "rf_pred"}},
+        {Relation::rfe,		{ "rfe_succs",       "rfe_pred"}},
+        {Relation::rfi,		{ "rfi_succs",       "rfi_pred"}},
         {Relation::tc,		{ "tc_succs",        "tc_preds"}},
         {Relation::tj,		{ "tj_succs",        "tj_preds"}},
         {Relation::mo_imm,	{ "co_imm_succs",    "co_imm_preds"}},
@@ -354,8 +354,11 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
-		if (r->getRelation()->toBuiltin() == Relation::Builtin::po_imm)
-			ostr << "if (auto " << res << " = " << s << "(g, " << arg << "->getPos()); !" << res << ".isInitializer())";
+		if (r->getRelation()->toBuiltin() == Relation::Builtin::po_imm ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::rf ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::rfe ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::rfi)
+			ostr << "if (auto " << res << " = " << s << "(g, " << arg << "->getPos()); !" << res << ".isBottom())";
 		else
 			ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
 		return;

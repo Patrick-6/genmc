@@ -794,7 +794,7 @@ inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel
 
 inline Event po_imm_pred(const ExecutionGraph &G, Event e)
 {
-	return e.index > 0 ? e.prev() : Event::getInitializer();
+	return e.index > 0 ? e.prev() : Event::getBottom();
 }
 
 inline Event po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
@@ -1152,23 +1152,16 @@ inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 using const_rf_inv_iterator = const_event_iterator;
 using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
 
-inline const_rf_inv_iterator rf_pred_begin(const ExecutionGraph &G, Event e)
+inline Event rf_pred(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return (!rLab || !rLab->getRf()) ? event_end(G) :
-		const_event_iterator(G, rLab->getRf()->getPos());
-}
-
-inline const_rf_inv_iterator rf_pred_end(const ExecutionGraph &G, Event e)
-{
-	auto *rLab = G.getReadLabel(e);
-	return (!rLab || !rLab->getRf()) ? event_end(G) :
-		const_event_iterator(G, rLab->getRf()->getPos().next());
+	return (!rLab || !rLab->getRf()) ?
+		Event::getBottom() : rLab->getRf()->getPos();
 }
 
 inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
 {
-	return const_rf_inv_range(rf_pred_begin(G, e), rf_pred_end(G, e));
+	BUG(); // FIXME: Compatibility remnant; remove
 }
 
 
@@ -1235,25 +1228,20 @@ inline const_rfe_range rfe_succs(const ExecutionGraph &G, const EventLabel *lab)
 using const_rfe_inv_iterator = const_rf_inv_iterator;
 using const_rfe_inv_range = llvm::iterator_range<const_rfe_inv_iterator>;
 
-inline const_rfe_inv_iterator rfe_pred_begin(const ExecutionGraph &G, Event e)
+inline Event rfe_pred(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return (rLab && rLab->readsExt()) ? rf_pred_begin(G, e) : rf_pred_end(G, e);
-}
-
-inline const_rfe_inv_iterator rfe_pred_end(const ExecutionGraph &G, Event e)
-{
-	return rf_pred_end(G, e);
+	return (rLab && rLab->readsExt()) ? rLab->getRf()->getPos() : Event::getBottom();
 }
 
 inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, Event e)
 {
-	return const_rfe_inv_range(rfe_pred_begin(G, e), rfe_pred_end(G, e));
+	BUG(); // FIXME: remove
 }
 
 inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_rfe_inv_range(rfe_pred_begin(G, lab->getPos()), rfe_pred_end(G, lab->getPos()));
+	BUG(); // FIXME: remove
 }
 
 
@@ -1320,20 +1308,15 @@ inline const_rfi_range rfi_succs(const ExecutionGraph &G, const EventLabel *lab)
 using const_rfi_inv_iterator = const_rf_inv_iterator;
 using const_rfi_inv_range = llvm::iterator_range<const_rfi_inv_iterator>;
 
-inline const_rfi_inv_iterator rfi_pred_begin(const ExecutionGraph &G, Event e)
+inline Event rfi_pred(const ExecutionGraph &G, Event e)
 {
 	auto *rLab = G.getReadLabel(e);
-	return (rLab && rLab->readsInt()) ? rf_pred_begin(G, e) : rf_pred_end(G, e);
-}
-
-inline const_rfi_inv_iterator rfi_pred_end(const ExecutionGraph &G, Event e)
-{
-	return rf_pred_end(G, e);
+	return (rLab && rLab->readsInt()) ? rLab->getRf()->getPos() : Event::getBottom();
 }
 
 inline const_rfi_inv_range rfi_preds(const ExecutionGraph &G, Event e)
 {
-	return const_rfi_inv_range(rfi_pred_begin(G, e), rfi_pred_end(G, e));
+	BUG(); // FIXME: remove
 }
 
 
