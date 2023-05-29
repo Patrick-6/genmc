@@ -275,7 +275,7 @@ std::pair<int, int>
 
 const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relationNames = {
         /* po */
-        {Relation::po_imm,	{"po_imm_succs",     "po_imm_preds"}},
+        {Relation::po_imm,	{"po_imm_succs",     "po_imm_pred"}},
         {Relation::po_loc_imm,	{"poloc_imm_succs",  "poloc_imm_preds"}},
 	/* deps */
         {Relation::ctrl_imm,	{"?",                "ctrl_preds"}},
@@ -354,7 +354,10 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 		// if ((n.type == RelType::OneOne) || (flipped && n.type == RelType::ManyOne))
 		// 	ostr << "\tif (auto " << res << " = " << s << ") {\n";
 		// else
-		ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
+		if (r->getRelation()->toBuiltin() == Relation::Builtin::po_imm)
+			ostr << "if (auto " << res << " = " << s << "(g, " << arg << "->getPos()); !" << res << ".isInitializer())";
+		else
+			ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
 		return;
 	}
 

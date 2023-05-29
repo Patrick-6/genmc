@@ -798,24 +798,24 @@ inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel
 	return po_preds(G, lab->getPos());
 }
 
-inline const_reverse_po_iterator po_imm_pred_begin(const ExecutionGraph &G, Event e)
+inline Event po_imm_pred(const ExecutionGraph &G, Event e)
 {
-	return po_pred_begin(G, e);
+	return e.index > 0 ? e.prev() : Event::getInitializer();
 }
 
-inline const_reverse_po_iterator po_imm_pred_end(const ExecutionGraph &G, Event e)
+inline Event po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return e == G.getFirstThreadEvent(e.thread) ? po_imm_pred_begin(G, e) :
-		const_reverse_event_iterator(G, e.prev().prev());
+	return po_imm_pred(G, lab->getPos());
 }
 
-inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_po_range(po_imm_pred_begin(G, e), po_imm_pred_end(G, e));
-}
 inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return po_imm_preds(G, lab->getPos());
+	BUG();
+}
+
+inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const Event &e)
+{
+	BUG();
 }
 
 
