@@ -663,7 +663,7 @@ public:
 	const AnnotT *getAnnot() const { return annotExpr.get(); }
 	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
 
-	virtual void reset() {
+	virtual void reset() override {
 		MemAccessLabel::reset();
 		setRf(Event::getBottom());
 		revisitable = true;
@@ -807,7 +807,7 @@ public:
 	/* Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
-	virtual void reset() {
+	virtual void reset() override {
 		ReadLabel::reset();
 		wattr &= ~(WriteAttr::RevBlocker);
 	}
@@ -928,7 +928,7 @@ public:
 	/* Checks whether the write part has the specified attributes */
 	bool hasAttr(WriteAttr a) const { return !!(wattr & a); }
 
-	virtual void reset() {
+	virtual void reset() override {
 		ReadLabel::reset();
 		wattr &= ~(WriteAttr::RevBlocker);
 	}
