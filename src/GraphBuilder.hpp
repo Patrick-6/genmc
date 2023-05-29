@@ -23,7 +23,6 @@
 
 #include "config.h"
 #include "DepExecutionGraph.hpp"
-#include "MOCalculator.hpp"
 #include "PersistencyChecker.hpp"
 
 /*******************************************************************************
@@ -48,7 +47,7 @@ public:
 		else
 			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(warnOnGraphSize));
 		graph->addCalculator(
-			LLVM_MAKE_UNIQUE<MOCalculator>(*graph, tracksDeps),
+			LLVM_MAKE_UNIQUE<CoherenceCalculator>(*graph, tracksDeps),
 			ExecutionGraph::RelationId::co, true, true);
 	};
 

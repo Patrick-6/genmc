@@ -23,7 +23,6 @@
  *******************************************************************************/
 
 #include "IMMChecker.hpp"
-#include "MOCalculator.hpp"
 
 void IMMChecker::visitCalc0_0(const Event &e, View &calcRes)
 {
@@ -2434,7 +2433,7 @@ std::pair<int, int>
 IMMChecker::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
 	const auto &g = getGraph();
-	auto *cc = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator());
+	auto *cc = g.getCoherenceCalculator();
 
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {

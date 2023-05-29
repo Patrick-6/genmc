@@ -21,7 +21,6 @@
 #include "config.h"
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
-#include "MOCalculator.hpp"
 #include "Parser.hpp"
 #include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
@@ -896,8 +895,7 @@ void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
 {
 	setFPStatus(FS_Stale);
 
-	if (auto *cohTracker = llvm::dyn_cast<MOCalculator>(getCoherenceCalculator()))
-		cohTracker->changeStoreOffset(addr, s, newOffset);
+	getCoherenceCalculator()->changeStoreOffset(addr, s, newOffset);
 }
 
 void ExecutionGraph::cutToStamp(Stamp stamp)

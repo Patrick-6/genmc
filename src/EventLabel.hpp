@@ -1178,7 +1178,7 @@ public:
 	}
 
 private:
-	friend class MOCalculator;
+	friend class CoherenceCalculator;
 
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(Event r) {

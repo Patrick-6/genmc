@@ -2035,8 +2035,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
-		auto status = llvm::isa<MOCalculator>(g.getCoherenceCalculator()) ? false :
-			isCoMaximal(lab->getAddr(), s, true); /* MO messes with the status */
+		auto status = false; /* MO messes with the status */
 		addToWorklist(lab->getStamp(), LLVM_MAKE_UNIQUE<ReadForwardRevisit>(lab->getPos(), s, status));
 	});
 	return {retVal};
@@ -3463,20 +3462,20 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 
 	/* MO: Print coherence information */
 	auto header = false;
-	if (auto *mm = llvm::dyn_cast<MOCalculator>(g.getCoherenceCalculator())) {
-		for (auto locIt = mm->begin(), locE = mm->end(); locIt != locE; ++locIt)
-			/* Skip empty and single-store locations */
-			if (mm->hasMoreThanOneStore(locIt->first)) {
-				if (!header) {
-					s << "Coherence:\n";
-					header = true;
-				}
-				auto *wLab = g.getWriteLabel(*mm->store_begin(locIt->first));
-				s << getVarName(wLab->getAddr()) << ": [ ";
-				for (const auto &w : stores(g, locIt->first))
-					s << w << " ";
-				s << "]\n";
+	auto *mm = g.getCoherenceCalculator();
+	for (auto locIt = mm->begin(), locE = mm->end(); locIt != locE; ++locIt) {
+		/* Skip empty and single-store locations */
+		if (mm->hasMoreThanOneStore(locIt->first)) {
+			if (!header) {
+				s << "Coherence:\n";
+				header = true;
 			}
+			auto *wLab = g.getWriteLabel(*mm->store_begin(locIt->first));
+			s << getVarName(wLab->getAddr()) << ": [ ";
+			for (const auto &w : stores(g, locIt->first))
+				s << w << " ";
+			s << "]\n";
+		}
 	}
 	s << "\n";
 }

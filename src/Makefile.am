@@ -9,7 +9,7 @@ libgenmc_a_SOURCES = \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \
-  CoherenceCalculator.hpp \
+  CoherenceCalculator.hpp CoherenceCalculator.cpp \
   ConfirmationAnnotationPass.cpp ConfirmationAnnotationPass.hpp \
   Config.cpp Config.hpp \
   DeclareInternalsPass.cpp DeclareInternalsPass.hpp \
@@ -55,7 +55,6 @@ libgenmc_a_SOURCES = \
   MaximalIterator.hpp \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MemAccess.hpp \
-  MOCalculator.hpp MOCalculator.cpp \
   ModuleID.hpp \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \

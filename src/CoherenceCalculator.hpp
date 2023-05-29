@@ -42,14 +42,6 @@ class ExecutionGraph;
 class CoherenceCalculator : public Calculator {
 
 public:
-	/* Discriminator for LLVM-style RTTI (dyn_cast<> et al).
-	 * Used to enable the Driver to perform calculator-specific
-	 * actions in the algorithm if necessary. */
-	enum CoherenceCalculatorKind {
-		CC_ModificationOrder,
-		CC_WritesBefore
-	};
-
 	using StoreList = std::vector<Event>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
 
@@ -62,21 +54,17 @@ public:
 	using reverse_store_iterator = StoreList::reverse_iterator;
 	using const_reverse_store_iterator = StoreList::const_reverse_iterator;
 
-protected:
+public:
 
 	/* Constructor */
-	CoherenceCalculator(CoherenceCalculatorKind k, ExecutionGraph &m, bool ooo)
-		: Calculator(m), kind(k), outOfOrder(ooo), sentinel() {}
+	CoherenceCalculator(ExecutionGraph &m, bool ooo)
+		: Calculator(m), outOfOrder(ooo), sentinel() {}
 
 	/* Returns whether the model we are operating under supports
 	 * out-of-order execution */
 	bool supportsOutOfOrder() const { return outOfOrder; };
 
-public:
-	/* Returns the discriminator of this object */
-	CoherenceCalculatorKind getKind() const { return kind; }
-
-	virtual ~CoherenceCalculator() = default;
+	~CoherenceCalculator() = default;
 
 	iterator begin() { return stores.begin(); }
 	const_iterator begin() const { return stores.begin(); };
@@ -110,30 +98,30 @@ public:
 
 	/*** co-iterators for known writes and locations ***/
 
-	virtual const_store_iterator
-	co_succ_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator
-	co_succ_end(SAddr addr, Event store) const = 0;
+	const_store_iterator
+	co_succ_begin(SAddr addr, Event store) const;
+	const_store_iterator
+	co_succ_end(SAddr addr, Event store) const;
 
-	virtual const_store_iterator
-	co_imm_succ_begin(SAddr addr, Event store) const = 0;
-	virtual const_store_iterator
-	co_imm_succ_end(SAddr addr, Event store) const = 0;
+	const_store_iterator
+	co_imm_succ_begin(SAddr addr, Event store) const;
+	const_store_iterator
+	co_imm_succ_end(SAddr addr, Event store) const;
 
-	virtual const_reverse_store_iterator
-	co_pred_begin(SAddr addr, Event store) const = 0;
-	virtual const_reverse_store_iterator
-	co_pred_end(SAddr addr, Event store) const = 0;
+	const_reverse_store_iterator
+	co_pred_begin(SAddr addr, Event store) const;
+	const_reverse_store_iterator
+	co_pred_end(SAddr addr, Event store) const;
 
-	virtual const_reverse_store_iterator
-	co_imm_pred_begin(SAddr addr, Event store) const = 0;
-	virtual const_reverse_store_iterator
-	co_imm_pred_end(SAddr addr, Event store) const = 0;
+	const_reverse_store_iterator
+	co_imm_pred_begin(SAddr addr, Event store) const;
+	const_reverse_store_iterator
+	co_imm_pred_end(SAddr addr, Event store) const;
 
 	/*** co-iterators that work for all kinds of events ***/
 
-	virtual const_store_iterator co_succ_begin(Event e) const = 0;
-	virtual const_store_iterator co_succ_end(Event e) const = 0;
+	const_store_iterator co_succ_begin(Event e) const;
+	const_store_iterator co_succ_end(Event e) const;
 
 	const_store_iterator co_succ_begin(const EventLabel *lab) const {
 		return co_succ_begin(lab->getPos());
@@ -142,8 +130,8 @@ public:
 		return co_succ_end(lab->getPos());
 	}
 
-	virtual const_store_iterator co_imm_succ_begin(Event e) const = 0;
-	virtual const_store_iterator co_imm_succ_end(Event e) const = 0;
+	const_store_iterator co_imm_succ_begin(Event e) const;
+	const_store_iterator co_imm_succ_end(Event e) const;
 
 	const_store_iterator co_imm_succ_begin(const EventLabel *lab) const {
 		return co_imm_succ_begin(lab->getPos());
@@ -152,10 +140,10 @@ public:
 		return co_imm_succ_end(lab->getPos());
 	}
 
-	virtual const_reverse_store_iterator
-	co_pred_begin(Event e) const = 0;
-	virtual const_reverse_store_iterator
-	co_pred_end(Event e) const = 0;
+	const_reverse_store_iterator
+	co_pred_begin(Event e) const;
+	const_reverse_store_iterator
+	co_pred_end(Event e) const;
 
 	const_reverse_store_iterator co_pred_begin(const EventLabel *lab) const {
 		return co_pred_begin(lab->getPos());
@@ -164,35 +152,35 @@ public:
 		return co_pred_end(lab->getPos());
 	}
 
-	virtual const_reverse_store_iterator
-	co_imm_pred_begin(Event e) const = 0;
-	virtual const_reverse_store_iterator
-	co_imm_pred_end(Event e) const = 0;
+	const_reverse_store_iterator
+	co_imm_pred_begin(Event e) const;
+	const_reverse_store_iterator
+	co_imm_pred_end(Event e) const;
 
 	const_reverse_store_iterator co_imm_pred_begin(const EventLabel *lab) const {
 		return co_imm_pred_begin(lab->getPos());
 	}
-	virtual const_reverse_store_iterator co_imm_pred_end(const EventLabel *lab) const {
+	const_reverse_store_iterator co_imm_pred_end(const EventLabel *lab) const {
 		return co_imm_pred_end(lab->getPos());
 	}
 
 	/*** fr-iterators for known reads and locations ***/
 
-	virtual const_store_iterator fr_succ_begin(SAddr addr, Event load) const = 0;
-	virtual const_store_iterator fr_succ_end(SAddr addr, Event load) const = 0;
+	const_store_iterator fr_succ_begin(SAddr addr, Event load) const;
+	const_store_iterator fr_succ_end(SAddr addr, Event load) const;
 
-	virtual const_store_iterator fr_imm_succ_begin(SAddr addr, Event laod) const = 0;
-	virtual const_store_iterator fr_imm_succ_end(SAddr addr, Event load) const = 0;
+	const_store_iterator fr_imm_succ_begin(SAddr addr, Event laod) const;
+	const_store_iterator fr_imm_succ_end(SAddr addr, Event load) const;
 
-	virtual const_store_iterator
-	fr_imm_pred_begin(SAddr addr, Event load) const = 0;
-	virtual const_store_iterator
-	fr_imm_pred_end(SAddr addr, Event load) const = 0;
+	const_store_iterator
+	fr_imm_pred_begin(SAddr addr, Event load) const;
+	const_store_iterator
+	fr_imm_pred_end(SAddr addr, Event load) const;
 
 	/*** fr-iterators that work for all kinds of events ***/
 
-	virtual const_store_iterator fr_succ_begin(Event e) const = 0;
-	virtual const_store_iterator fr_succ_end(Event e) const = 0;
+	const_store_iterator fr_succ_begin(Event e) const;
+	const_store_iterator fr_succ_end(Event e) const;
 
 	const_store_iterator fr_succ_begin(const EventLabel *lab) const {
 		return fr_succ_begin(lab->getPos());
@@ -201,8 +189,8 @@ public:
 		return fr_succ_end(lab->getPos());
 	}
 
-	virtual const_store_iterator fr_imm_succ_begin(Event e) const = 0;
-	virtual const_store_iterator fr_imm_succ_end(Event e) const = 0;
+	const_store_iterator fr_imm_succ_begin(Event e) const;
+	const_store_iterator fr_imm_succ_end(Event e) const;
 
 	const_store_iterator fr_imm_succ_begin(const EventLabel *lab) const {
 		return fr_imm_succ_begin(lab->getPos());
@@ -211,10 +199,10 @@ public:
 		return fr_imm_succ_end(lab->getPos());
 	}
 
-	virtual const_store_iterator
-	fr_imm_pred_begin(Event e) const = 0;
-	virtual const_store_iterator
-	fr_imm_pred_end(Event e) const = 0;
+	const_store_iterator
+	fr_imm_pred_begin(Event e) const;
+	const_store_iterator
+	fr_imm_pred_end(Event e) const;
 
 	const_store_iterator fr_imm_pred_begin(const EventLabel *lab) const {
 		return fr_imm_pred_begin(lab->getPos());
@@ -223,10 +211,10 @@ public:
 		return fr_imm_pred_end(lab->getPos());
 	}
 
-	virtual const_store_iterator
-	fr_init_pred_begin(Event e) const = 0;
-	virtual const_store_iterator
-	fr_init_pred_end(Event e) const = 0;
+	const_store_iterator
+	fr_init_pred_begin(Event e) const;
+	const_store_iterator
+	fr_init_pred_end(Event e) const;
 
 
 	/* Whether a location is tracked (i.e., we are aware of it) */
@@ -241,47 +229,66 @@ public:
 	}
 
 	/* Track coherence at location addr */
-	virtual void
-	trackCoherenceAtLoc(SAddr addr) = 0;
+	void
+	trackCoherenceAtLoc(SAddr addr);
 
 	/* Tracks that READ is reading INIT in ADDR */
-	virtual void
-	addInitRfToLoc(SAddr addr, Event read) = 0;
+	void
+	addInitRfToLoc(SAddr addr, Event read);
 
 	/* Shoud be called when READ is no longer reading INIT in ADDR*/
-	virtual void
-	removeInitRfToLoc(SAddr addr, Event read) = 0;
+	void
+	removeInitRfToLoc(SAddr addr, Event read);
 
 	/* Adds STORE to ADDR at the offset specified by OFFSET.
 	 * (Use -1 to insert it maximally.) */
-	virtual void
-	addStoreToLoc(SAddr addr, Event store, int offset) = 0;
+	void
+	addStoreToLoc(SAddr addr, Event store, int offset);
 
 	/* Adds STORE to ATTR and ensures it will be co-after PRED.
 	 * (Use INIT to insert it minimally.) */
-	virtual void
-	addStoreToLocAfter(SAddr addr, Event store, Event pred) = 0;
+	void
+	addStoreToLocAfter(SAddr addr, Event store, Event pred);
 
 	/* Returns whether STORE is maximal in LOC */
-	virtual bool
-	isCoMaximal(SAddr addr, Event store) = 0;
+	bool
+	isCoMaximal(SAddr addr, Event store);
 
 	/* Returns whether STORE is maximal in LOC.
 	 * Pre: Cached information for this location exist. */
-	virtual bool
-	isCachedCoMaximal(SAddr addr, Event store) = 0;
+	bool
+	isCachedCoMaximal(SAddr addr, Event store);
 
 
 #ifdef ENABLE_GENMC_DEBUG
 	/* Saves the coherence status for all write labels in prefix.
 	 * This means that for each write we save a predecessor in preds (or within
 	 * the prefix itself), which will be present when the prefix is restored. */
-	virtual std::vector<std::pair<Event, Event> >
+	std::vector<std::pair<Event, Event> >
 	saveCoherenceStatus(const std::vector<std::unique_ptr<EventLabel> > &prefix,
-			    const ReadLabel *rLab) const = 0;
+			    const ReadLabel *rLab) const;
 #endif
 
 	const StoreList &getStoresToLoc(SAddr addr) const { return stores.at(addr); }
+
+	/* Returns the offset for a particular store */
+	int getStoreOffset(SAddr addr, Event e) const;
+
+	/* Calculator overrides */
+
+	/* Changes the offset of "store" to "newOffset" */
+	void changeStoreOffset(SAddr addr, Event store, int newOffset);
+
+	void initCalc() override;
+
+	Calculator::CalculationResult doCalc() override;
+
+	/* Stops tracking all stores not included in "preds" in the graph */
+	void removeAfter(const VectorClock &preds) override;
+
+	std::unique_ptr<Calculator> clone(ExecutionGraph &g) const override {
+		return LLVM_MAKE_UNIQUE<CoherenceCalculator>(g, outOfOrder);
+	}
 
 protected:
 	const StoreList &getInitRfsToLoc(SAddr addr) const { return initRfs.at(addr); }
@@ -291,9 +298,12 @@ protected:
 	const const_reverse_store_iterator &getRevSentinel() const {
 		return rsentinel;
 	}
+	/* Returns true if the location "loc" contains the event "e" */
+	bool locContains(SAddr loc, Event e) const;
 
-	/* Discriminator enum for LLVM-style RTTI */
-	const CoherenceCalculatorKind kind;
+	/* Caches MO-idx hints for all stores in ADDR for faster reverse lookup.
+	 * If START != -1, it only does so starting from the START-th store */
+	void cacheMOIdxHints(SAddr addr, int start = -1) const;
 
 	/* Whether the model which we are operating under supports out-of-order
 	 * execution. This enables some extra optimizations, in certain cases. */
