@@ -139,6 +139,12 @@ public:
 	/* ***builtins only*** returns the codomain of the relation */
 	const PredicateSet &getCodomain() const;
 
+	/* ***builtins only*** returns the type of the relation */
+	RelType getType() const {
+		assert(isBuiltin());
+		return builtins.find(toBuiltin())->second.type;
+	}
+
 	/* Returns true if OTHER is included in THIS */
 	bool includes(const Relation &other) const;
 
