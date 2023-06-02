@@ -46,9 +46,9 @@ public:
 			graph = std::unique_ptr<DepExecutionGraph>(new DepExecutionGraph(warnOnGraphSize));
 		else
 			graph = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(warnOnGraphSize));
-		graph->addCalculator(
-			LLVM_MAKE_UNIQUE<CoherenceCalculator>(*graph, tracksDeps),
-			ExecutionGraph::RelationId::co, true, true);
+		// graph->addCalculator(
+		// 	LLVM_MAKE_UNIQUE<CoherenceCalculator>(*graph, tracksDeps),
+		// 	ExecutionGraph::RelationId::co, true, true);
 	};
 
 	GraphBuilder &withEnabledPersevere(bool pers, unsigned int blockSize) {
@@ -66,7 +66,7 @@ public:
 	}
 
 	std::unique_ptr<ExecutionGraph> build() {
-		BUG_ON(!graph->getCoherenceCalculator());
+		// BUG_ON(!graph->getCoherenceCalculator());
 		return std::move(graph);
 	};
 

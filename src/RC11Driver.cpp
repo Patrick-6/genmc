@@ -75,7 +75,7 @@ RC11Driver::getCoherentStores(SAddr addr, Event read)
 	return RC11Checker(getGraph()).getCoherentStores(addr, read);
 }
 
-std::pair<int, int>
+llvm::iterator_range<ExecutionGraph::co_iterator>
 RC11Driver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
 {
 	return RC11Checker(getGraph()).getCoherentPlacings(addr, read, isRMW);

@@ -73,7 +73,7 @@ IMMDriver::getCoherentRevisits(const WriteLabel *sLab,
 	return IMMChecker(getGraph()).getCoherentRevisits(sLab, pporf);
 }
 
-std::pair<int, int>
+llvm::iterator_range<ExecutionGraph::co_iterator>
 IMMDriver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
 {
 	return IMMChecker(getGraph()).getCoherentPlacings(addr, read, isRMW);

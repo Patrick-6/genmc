@@ -606,7 +606,7 @@ bool IMMChecker::visitAcyclic8(const Event &e)
 	auto *lab = g.getEventLabel(e);
 
 	visitedAcyclic8[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
@@ -620,7 +620,7 @@ bool IMMChecker::visitAcyclic8(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
 			return false;
@@ -634,14 +634,14 @@ bool IMMChecker::visitAcyclic8(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos()))if (g.getEventLabel(p)->isSC()) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom())if (g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
 			return false;
@@ -814,7 +814,7 @@ bool IMMChecker::visitAcyclic12(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
@@ -842,7 +842,7 @@ bool IMMChecker::visitAcyclic12(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
 			return false;
@@ -939,7 +939,7 @@ bool IMMChecker::visitAcyclic14(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic12[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic12(p))
 			return false;
@@ -985,7 +985,7 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (lab->isSC())if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic13[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(p))
 			return false;
@@ -1013,7 +1013,7 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (lab->isSC())if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic6[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic6(p))
 			return false;
@@ -1041,7 +1041,7 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (lab->isSC())if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic8[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(p))
 			return false;
@@ -1076,7 +1076,7 @@ bool IMMChecker::visitAcyclic15(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto &p : co_imm_preds(g, lab->getPos()))if (g.getEventLabel(p)->isSC()) {
+	if (lab->isSC())if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom())if (g.getEventLabel(p)->isSC()) {
 		auto &node = visitedAcyclic15[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(p))
 			return false;
@@ -1267,7 +1267,7 @@ bool IMMChecker::visitAcyclic20(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic20[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic20(p))
 			return false;
@@ -1309,7 +1309,7 @@ bool IMMChecker::visitAcyclic20(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
 			return false;
@@ -1371,7 +1371,7 @@ bool IMMChecker::visitAcyclic22(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic20[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic20(p))
 			return false;
@@ -1392,7 +1392,7 @@ bool IMMChecker::visitAcyclic22(const Event &e)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
+	if (auto p = co_imm_pred(g, lab->getPos()); !p.isBottom()) {
 		auto &node = visitedAcyclic21[g.getEventLabel(p)->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(p))
 			return false;
@@ -2279,42 +2279,45 @@ bool IMMChecker::isHbOptRfBefore(const Event e, const Event write)
 	return false;
 }
 
-int IMMChecker::splitLocMOBefore(SAddr addr, Event e)
+ExecutionGraph::co_iterator
+IMMChecker::splitLocMOBefore(SAddr addr, Event e)
 {
-	const auto &g = getGraph();
-	auto rit = std::find_if(store_rbegin(g, addr), store_rend(g, addr), [&](const Event &s){
-		return isWriteRfBefore(s, e);
+	auto &g = getGraph();
+	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr), [&](auto &lab){
+		return isWriteRfBefore(lab.getPos(), e);
 	});
-	return (rit == store_rend(g, addr)) ? 0 : std::distance(rit, store_rend(g, addr));
+	/* Convert to forward iterator, but be _really_ careful */
+	if (rit == g.co_rend(addr))
+		return g.co_begin(addr);
+	return ++ExecutionGraph::co_iterator(*rit);
 }
 
-int IMMChecker::splitLocMOAfterHb(SAddr addr, const Event read)
+ExecutionGraph::co_iterator
+IMMChecker::splitLocMOAfterHb(SAddr addr, const Event read)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
 	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
 		return g.getEventLabel(rf)->view(0).contains(read);
 	}))
-		return 0;
+		return g.co_begin(addr);
 
-	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
-		return isHbOptRfBefore(read, s);
+	auto it = std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(read, lab.getPos());
 	});
-	if (it == store_end(g, addr))
-		return std::distance(store_begin(g, addr), store_end(g, addr));
-	return (g.getEventLabel(*it)->view(0).contains(read)) ?
-		std::distance(store_begin(g, addr), it) : std::distance(store_begin(g, addr), it) + 1;
+	if (it == g.co_end(addr) || it->view(0).contains(read))
+		return it;
+	return ++it;
 }
 
-int IMMChecker::splitLocMOAfter(SAddr addr, const Event e)
+ExecutionGraph::co_iterator
+IMMChecker::splitLocMOAfter(SAddr addr, const Event e)
 {
-	const auto &g = getGraph();
-	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
-		return isHbOptRfBefore(e, s);
+	auto &g = getGraph();
+	return std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(e, lab.getPos());
 	});
-	return (it == store_end(g, addr)) ? std::distance(store_begin(g, addr), store_end(g, addr)) :
-		std::distance(store_begin(g, addr), it);
 }
 
 std::vector<Event>
@@ -2329,20 +2332,23 @@ IMMChecker::getCoherentStores(SAddr addr, Event read)
 	 * initializer store. Otherwise, we can read from all concurrent
 	 * stores and the mo-latest of the (rf?;hb)-before stores.
 	 */
-	auto begO = splitLocMOBefore(addr, read);
-	if (begO == 0)
+	auto begIt = splitLocMOBefore(addr, read);
+	if (begIt == g.co_begin(addr))
 		stores.push_back(Event::getInitializer());
-	else
-		stores.push_back(*(store_begin(g, addr) + begO - 1));
+	else {
+		stores.push_back((--begIt)->getPos());
+		++begIt;
+	}
 
 	/*
 	 * If the model supports out-of-order execution we have to also
 	 * account for the possibility the read is hb-before some other
 	 * store, or some read that reads from a store.
 	 */
-	auto endO = (isDepTracking()) ? splitLocMOAfterHb(addr, read) :
-		std::distance(store_begin(g, addr), store_end(g, addr));
-	stores.insert(stores.end(), store_begin(g, addr) + begO, store_begin(g, addr) + endO);
+	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(addr, read) : g.co_end(addr);
+	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab){
+		return lab.getPos();
+	});
 	return stores;
 }
 
@@ -2351,12 +2357,11 @@ IMMChecker::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	std::vector<Event> after;
 
-	auto &g = getGraph();
-	std::for_each(co_succ_begin(g, sLab->getAddr(), sLab->getPos()),
-		      co_succ_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
-			      auto *wLab = g.getWriteLabel(w);
-			      after.push_back(wLab->getPos());
-			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	const auto &g = getGraph();
+	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab),
+		      [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      after.insert(after.end(), wLab.readers_begin(), wLab.readers_end());
 	});
 	return after;
 }
@@ -2368,11 +2373,10 @@ IMMChecker::getMOInvOptRfAfter(const WriteLabel *sLab)
 	std::vector<Event> after;
 
 	/* First, add (mo;rf?)-before */
-	std::for_each(co_pred_begin(g, sLab->getAddr(), sLab->getPos()),
-		      co_pred_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
-			      auto *wLab = g.getWriteLabel(w);
-			      after.push_back(wLab->getPos());
-			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	std::for_each(g.co_pred_begin(sLab),
+		      g.co_pred_end(sLab), [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      after.insert(after.end(), wLab.readers_begin(), wLab.readers_end());
 	});
 
 	/* Then, we add the reader list for the initializer */
@@ -2429,25 +2433,29 @@ IMMChecker::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf
 	return ls;
 }
 
-std::pair<int, int>
+llvm::iterator_range<ExecutionGraph::co_iterator>
 IMMChecker::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
-	const auto &g = getGraph();
-	auto *cc = g.getCoherenceCalculator();
+	auto &g = getGraph();
 
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
-			auto offset = cc->getStoreOffset(addr, rLab->getRf()->getPos()) + 1;
-			return std::make_pair(offset, offset);
+			auto *rfLab = rLab->getRf();
+			BUG_ON(!rfLab);
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
+				auto wIt = g.co_succ_begin(wLab);
+				return llvm::iterator_range<ExecutionGraph::co_iterator>(wIt, wIt);
+			}
+			return llvm::iterator_range<ExecutionGraph::co_iterator>(g.co_begin(addr),
+										 g.co_begin(addr));
 		}
 		BUG();
 	}
 
 	/* Otherwise, we calculate the full range and add the store */
 	auto rangeBegin = splitLocMOBefore(addr, store);
-	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) :
-		cc->getStoresToLoc(addr).size();
-	return std::make_pair(rangeBegin, rangeEnd);
+	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) : g.co_end(addr);
+	return llvm::iterator_range(rangeBegin, rangeEnd);
 
 }

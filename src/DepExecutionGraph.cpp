@@ -69,9 +69,7 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 	auto preds = getViewFromStamp(stamp);
 
 	/* Inform all calculators about the events cutted */
-	auto &calcs = getCalcs();
-	for (auto i = 0u; i < calcs.size(); i++)
-		calcs[i]->removeAfter(*preds);
+	removeAfter(*preds);
 
 	/* Then, restrict the graph */
 	for (auto i = 0u; i < preds->size(); i++) {

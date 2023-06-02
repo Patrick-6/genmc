@@ -1107,7 +1107,7 @@ public:
 
 /* Represents a write operation. All special types of writes (e.g., FAI, CAS)
  * should inherit from this class */
-class WriteLabel : public MemAccessLabel {
+class WriteLabel : public MemAccessLabel, public llvm::ilist_node<WriteLabel> {
 
 protected:
 	friend class ExecutionGraph;
@@ -1150,9 +1150,12 @@ public:
 	const std::vector<Event>& getReadersList() const { return readerList; }
 
 	/* Iterators for readers */
+	using rf_iterator = std::vector<Event>::iterator;
 	using const_rf_iterator = std::vector<Event>::const_iterator;
 	using const_rf_range = llvm::iterator_range<const_rf_iterator>;
 
+	rf_iterator readers_begin() { return readerList.begin(); }
+	rf_iterator readers_end() { return readerList.end(); }
 	const_rf_iterator readers_begin() const { return readerList.begin(); }
 	const_rf_iterator readers_end() const { return readerList.end(); }
 	const_rf_range readers() const {

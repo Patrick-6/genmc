@@ -23,7 +23,7 @@
 
 #include "config.h"
 #include "AdjList.hpp"
-#include "CoherenceCalculator.hpp"
+#include "Calculator.hpp"
 #include "DriverGraphEnumAPI.hpp"
 #include "DepInfo.hpp"
 #include "Error.hpp"
@@ -37,7 +37,6 @@
 #include <memory>
 #include <unordered_map>
 
-class CoherenceCalculator;
 class PSCCalculator;
 class PersistencyChecker;
 
@@ -57,33 +56,11 @@ class ExecutionGraph {
 public:
 	using Thread = std::vector<std::unique_ptr<EventLabel> >;
 	using ThreadList = std::vector<Thread>;
+	using StoreList = llvm::simple_ilist<WriteLabel>;
+	using LocMap = std::unordered_map<SAddr, StoreList>;
 
-private:
-	using FixpointResult = Calculator::CalculationResult;
-
-	enum FixpointStatus { FS_Stale, FS_InProgress, FS_Done };
-
-	/* Packs together structures useful for calculations on relations */
-	struct Relations {
-
-		Relations() = default;
-
-		std::vector<Calculator::GlobalRelation> global;
-		std::vector<Calculator::PerLocRelation> perLoc;
-
-		FixpointStatus fixStatus;
-		FixpointResult fixResult;
-		CheckConsType fixType;
-	};
-
-public:
 	/* Should be used for the contruction of execution graphs */
 	class Builder;
-
-	/* Different relations that might exist in the graph */
-	enum class RelationId {
-		hb, co, lb, psc, ar, prop, ar_lkmm, pb, rcu_link, rcu, rcu_fence, xb
-	};
 
 protected:
 	/* Constructor should only be called from the builder */
@@ -100,6 +77,17 @@ public:
 	using reverse_iterator = ThreadList::reverse_iterator;
 	using const_reverse_iterator = ThreadList::const_reverse_iterator;
 
+	using loc_iterator = LocMap::iterator;
+	using const_loc_iterator = LocMap::const_iterator;
+
+	using co_iterator = StoreList::iterator;
+	using const_co_iterator = StoreList::const_iterator;
+	using reverse_co_iterator = StoreList::reverse_iterator;
+	using const_reverse_co_iterator = StoreList::const_reverse_iterator;
+
+	using initrf_iterator = std::vector<Event>::iterator;
+	using const_initrf_iterator = std::vector<Event>::const_iterator;
+
 	iterator begin() { return events.begin(); };
 	iterator end() { return events.end(); };
 	const_iterator begin() const { return events.begin(); };
@@ -110,6 +98,87 @@ public:
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend()   const { return events.rend(); };
 
+	loc_iterator loc_begin() { return coherence.begin(); }
+	const_loc_iterator loc_begin() const { return coherence.begin(); };
+	loc_iterator loc_end() { return coherence.end(); }
+	const_loc_iterator loc_end() const { return coherence.end(); }
+
+	co_iterator co_begin(SAddr addr) { return coherence[addr].begin(); }
+	const_co_iterator co_begin(SAddr addr) const { return coherence.at(addr).begin(); };
+	co_iterator co_end(SAddr addr) { return coherence[addr].end(); }
+	const_co_iterator co_end(SAddr addr) const { return coherence.at(addr).end(); }
+
+	reverse_co_iterator co_rbegin(SAddr addr) { return coherence[addr].rbegin(); }
+	const_reverse_co_iterator co_rbegin(SAddr addr) const { return coherence.at(addr).rbegin(); };
+	reverse_co_iterator co_rend(SAddr addr) { return coherence[addr].rend(); }
+	const_reverse_co_iterator co_rend(SAddr addr) const { return coherence.at(addr).rend(); }
+
+	initrf_iterator init_rf_begin(SAddr addr) { return initRfs[addr].begin(); }
+	const_initrf_iterator init_rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
+	initrf_iterator init_rf_end(SAddr addr) { return initRfs[addr].end(); }
+	const_initrf_iterator init_rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+
+	co_iterator co_succ_begin(WriteLabel *lab) {
+		return ++co_iterator(lab);
+	}
+	const_co_iterator co_succ_begin(const WriteLabel *lab) const {
+		return ++const_co_iterator(lab);
+	}
+	co_iterator co_succ_end(WriteLabel *lab) {
+		return co_end(lab->getAddr());
+	}
+	const_co_iterator co_succ_end(const WriteLabel *lab) const {
+		return co_end(lab->getAddr());
+	}
+
+	reverse_co_iterator co_pred_begin(WriteLabel *lab) {
+		return ++reverse_co_iterator(lab);
+	}
+	const_reverse_co_iterator co_pred_begin(const WriteLabel *lab) const {
+		return ++const_reverse_co_iterator(lab);
+	}
+	const_reverse_co_iterator co_pred_end(WriteLabel *lab) {
+		return co_rend(lab->getAddr());
+	}
+	const_reverse_co_iterator co_pred_end(const WriteLabel *lab) const {
+		return co_rend(lab->getAddr());
+	}
+
+	co_iterator fr_succ_begin(ReadLabel *rLab) {
+		auto *wLab = llvm::dyn_cast<WriteLabel>(rLab->getRf());
+		return wLab ? co_succ_begin(wLab) : co_begin(rLab->getAddr());
+	}
+	const_co_iterator fr_succ_begin(const ReadLabel *rLab) const {
+		auto *wLab = llvm::dyn_cast<WriteLabel>(rLab->getRf());
+		return wLab ? co_succ_begin(wLab) : co_begin(rLab->getAddr());
+	}
+	co_iterator fr_succ_end(ReadLabel *rLab) {
+		return co_end(rLab->getAddr());
+	}
+	const_co_iterator fr_succ_end(const ReadLabel *rLab) const {
+		return co_end(rLab->getAddr());
+	}
+
+	WriteLabel::rf_iterator fr_imm_pred_begin(WriteLabel *wLab) {
+	return co_pred_begin(wLab) == co_pred_end(wLab) ?
+		init_rf_begin(wLab->getAddr()) :
+		(*co_pred_begin(wLab)).readers_begin();
+	}
+	WriteLabel::const_rf_iterator fr_imm_pred_begin(const WriteLabel *wLab) const {
+	return co_pred_begin(wLab) == co_pred_end(wLab) ?
+		init_rf_begin(wLab->getAddr()) :
+		(*co_pred_begin(wLab)).readers_begin();
+	}
+	WriteLabel::rf_iterator fr_imm_pred_end(WriteLabel *wLab) {
+		return co_pred_begin(wLab) == co_pred_end(wLab) ?
+			init_rf_end(wLab->getAddr()) :
+			(*co_pred_begin(wLab)).readers_end();
+	}
+	WriteLabel::const_rf_iterator fr_imm_pred_end(const WriteLabel *wLab) const {
+		return co_pred_begin(wLab) == co_pred_end(wLab) ?
+			init_rf_end(wLab->getAddr()) :
+			(*co_pred_begin(wLab)).readers_end();
+	}
 
 	/* Thread-related methods */
 
@@ -157,6 +226,16 @@ public:
 	 * position, it is replaced.
 	 * (Maintains well-formedness for read removals.) */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
+
+	void addStoreToCO(WriteLabel *wLab, WriteLabel *succLab = nullptr) {
+		if (succLab)
+			coherence[wLab->getAddr()].insert(co_iterator(*succLab), *wLab);
+		else
+			coherence[wLab->getAddr()].push_back(*wLab);
+	}
+	void removeStoreFromCO(WriteLabel *wLab) {
+		coherence[wLab->getAddr()].remove(*wLab);
+	}
 
 	/* Removes the last event from THREAD.
 	 * If it is a read, updates the rf-lists.
@@ -316,9 +395,6 @@ public:
 	 * Assumes that only one such event may exist */
 	Event getMallocCounterpart(const FreeLabel *fLab) const;
 
-	/* Returns pair with all SC accesses and all SC fences */
-	std::pair<std::vector<Event>, std::vector<Event> > getSCs() const;
-
 	/* Given a write label sLab that is part of an RMW, returns
 	 * another RMW that reads from the same write. If no such event
 	 * exists, it returns INIT. If there are multiple such events,
@@ -354,43 +430,6 @@ public:
 
 	/* Calculation of relations in the graph */
 
-	/* Adds the specified calculator to the list */
-	void addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
-			   bool perLoc, bool partial = false);
-
-	/* Returns the list of the calculators */
-	const std::vector<Calculator *> getCalcs() const;
-
-	/* Returns the list of the partial calculators */
-	const std::vector<Calculator *> getPartialCalcs() const;
-
-	/* Returns a reference to the specified relation matrix */
-	Calculator::GlobalRelation& getGlobalRelation(RelationId id);
-	Calculator::PerLocRelation& getPerLocRelation(RelationId id);
-
-	/* Returns a reference to the cached version of the
-	 * specified relation matrix */
-	Calculator::GlobalRelation& getCachedGlobalRelation(RelationId id);
-	Calculator::PerLocRelation& getCachedPerLocRelation(RelationId id);
-
-	/* Caches all calculated relations. If "copy" is true then a
-	 * copy of each relation is cached */
-	void cacheRelations(bool copy = true);
-
-	/* Restores all relations to their most recently cached versions.
-	 * If "move" is true then the cache is cleared as well */
-	void restoreCached(bool move = false);
-
-	/* Returns a pointer if the graph has a calculator for the specified relation */
-	bool hasCalculator(RelationId id) const;
-
-	/* Returns a pointer to the specified relation's calculator */
-	Calculator *getCalculator(RelationId id);
-
-	/* Commonly queried calculator getters */
-	CoherenceCalculator *getCoherenceCalculator();
-	CoherenceCalculator *getCoherenceCalculator() const;
-
 	/* Pers: Adds a persistency checker to the graph */
 	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc);
 
@@ -402,23 +441,21 @@ public:
 		return persChecker.get();
 	}
 
-	const DepView &getPPoRfBefore(Event e) const;
-	const View &getPorfBefore(Event e) const;
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
 	/* Returns true if e is maximal in addr */
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
 			 CheckConsType t = CheckConsType::fast);
 
-	/* Returns true if the current graph is consistent */
-	bool isConsistent(CheckConsType t = CheckConsType::fast);
-
-	/* Matrix filling for external relation calculation */
-	void populatePorfEntries(AdjList<Event, EventHasher> &relation) const;
-	void populatePPoRfEntries(AdjList<Event, EventHasher> &relation) const;
-
 
 	/* Boolean helper functions */
+
+	bool isLocEmpty(SAddr addr) const { return co_begin(addr) == co_end(addr); }
+
+	/* Whether a location has more than one store */
+	bool hasLocMoreThanOneStore(SAddr addr) const {
+		return !isLocEmpty(addr) && ++co_begin(addr) != co_end(addr);
+	}
 
 	/* Returns true if the graph contains e */
 	bool containsPos(const Event &e) const {
@@ -442,9 +479,6 @@ public:
 	/* LAPOR: Returns true if the critical section started by lLab is empty */
 	bool isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const;
 
-	/* BAM: Returns true if BAM is enabled for this graph */
-	bool hasBAM() const { return bam; }
-
 	/* Return true if its argument is the load/store part of a successful RMW */
 	bool isRMWLoad(const EventLabel *lab) const;
 	bool isRMWLoad(const Event e) const { return isRMWLoad(getEventLabel(e)); }
@@ -462,13 +496,6 @@ public:
 	bool isConfirming(const ReadLabel *rLab) const {
 		return llvm::isa<ConfirmingReadLabel>(rLab) || llvm::isa<ConfirmingCasReadLabel>(rLab);
 	}
-
-	/* Returns true if a (or any of the reads reading from a) is before b in
-	 * the relation "rel".
-	 * Pre: all examined events need to be a part of rel */
-	template <typename F = bool (*)(Event)>
-	bool isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
-				F prop = [](Event e){ return true; }) const;
 
 	/* Returns true if store is read a successful RMW in the location ptr */
 	bool isStoreReadByExclusiveRead(Event store, SAddr addr) const;
@@ -488,16 +515,10 @@ public:
 	/* Modification order methods */
 
 	void trackCoherenceAtLoc(SAddr addr);
-	std::vector<Event> getCoherentStores(SAddr addr, Event pos);
-	std::pair<int, int> getCoherentPlacings(SAddr addr, Event pos, bool isRMW);
-	std::vector<Event> getCoherentRevisits(const WriteLabel *wLab, const VectorClock &pporf);
-
 
 	/* Graph modification methods */
 
 	void changeRf(Event read, Event store);
-	void changeStoreOffset(SAddr addr, Event s, int newOffset);
-
 
 	/* Prefix saving and restoring */
 
@@ -531,8 +552,6 @@ public:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
 protected:
-	void enableBAM() { bam = true; }
-
 	void resizeThread(unsigned int tid, unsigned int size) {
 		events[tid].resize(size);
 	};
@@ -554,24 +573,18 @@ protected:
 
 	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 
-	FixpointStatus getFPStatus() const { return relations.fixStatus; }
-	void setFPStatus(FixpointStatus s) { relations.fixStatus = s; }
+	void addInitRfToLoc(SAddr addr, Event read) {
+		initRfs[addr].push_back(read);
+	}
 
-	CheckConsType getFPType() const { return relations.fixType; }
-	void setFPType(CheckConsType t) { relations.fixType = t; }
+	void removeInitRfToLoc(SAddr addr, Event read) {
+		auto &locInits = initRfs[addr];
+		auto it = std::find(locInits.begin(), locInits.end(), read);
+		if (it != locInits.end())
+			locInits.erase(it);
+	}
 
-	FixpointResult getFPResult() const { return relations.fixResult; }
-	void setFPResult(FixpointResult r) { relations.fixResult = r; }
-
-	void doInits(bool fullCalc = false);
-
-	/* Performs a step of all the specified calculations. Takes as
-	 * a parameter whether a full calculation needs to be performed */
-	FixpointResult doCalcs(bool fullCalc = false);
-
-	/* Does some final consistency checks after the fixpoint is over,
-	 * and returns the final decision re. consistency */
-	bool doFinalConsChecks(bool checkFull = false);
+	void removeAfter(const VectorClock &preds);
 
 	static std::unique_ptr<EmptyLabel> createHoleLabel(Event pos) {
 		auto lab = EmptyLabel::create(pos);
@@ -588,24 +601,8 @@ protected:
 	/* The next available timestamp */
 	Stamp timestamp = 0;
 
-	/* Relations and calculation status/result */
-	Relations relations;
-	Relations relsCache;
-
-	/* A list of all the calculations that need to be performed
-	 * when checking for full consistency*/
-	std::vector<std::unique_ptr<Calculator> > consistencyCalculators;
-
-	/* The indices of all the calculations that need to be performed
-	 * at each step of the algorithm (partial consistency check) */
-	std::vector<int> partialConsCalculators;
-
-	/* Keeps track of calculator indices */
-	std::unordered_map<RelationId, unsigned int, std::hash<RelationId> > calculatorIndex;
-
-	/* Keeps track of relation indices. Note that an index might
-	 * refer to either relations.global or relations.perLoc */
-	std::unordered_map<RelationId, unsigned int, std::hash<RelationId> > relationIndex;
+	std::unordered_map<SAddr, llvm::simple_ilist<WriteLabel>> coherence;
+	std::unordered_map<SAddr, std::vector<Event>> initRfs;
 
 	/* Pers: An object calculating persistency relations */
 	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */
@@ -621,22 +618,5 @@ protected:
 	/* Dbg: Size of graphs which triggers a warning */
 	unsigned int warnOnGraphSize = UINT_MAX;
 };
-
-template <typename F>
-bool ExecutionGraph::isWriteRfBeforeRel(const AdjList<Event, EventHasher> &rel, Event a, Event b,
-					F prop /* = [&](Event e){ return true; } */) const
-{
-	if (rel(a, b))
-		return true;
-
-	const EventLabel *lab = getEventLabel(a);
-
-	BUG_ON(!llvm::isa<WriteLabel>(lab));
-	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto &r : wLab->getReadersList())
-		if (prop(r) && rel(r, b))
-			return true;
-	return false;
-}
 
 #endif /* __EXECUTION_GRAPH_HPP__ */

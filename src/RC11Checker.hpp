@@ -60,15 +60,16 @@ public:
 	const View &getHbView(const Event &e);
 	std::vector<Event> getCoherentStores(SAddr addr, Event read);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
-	std::pair<int, int> getCoherentPlacings(SAddr addr, Event store, bool isRMW);
+	llvm::iterator_range<ExecutionGraph::co_iterator>
+	getCoherentPlacings(SAddr addr, Event store, bool isRMW);
 
 private:
 	bool isWriteRfBefore(Event a, Event b);
 	std::vector<Event> getInitRfsAtLoc(SAddr addr);
 	bool isHbOptRfBefore(const Event e, const Event write);
-	int splitLocMOBefore(SAddr addr, Event e);
-	int splitLocMOAfterHb(SAddr addr, const Event read);
-	int splitLocMOAfter(SAddr addr, const Event e);
+	ExecutionGraph::co_iterator splitLocMOBefore(SAddr addr, Event e);
+	ExecutionGraph::co_iterator splitLocMOAfterHb(SAddr addr, const Event read);
+	ExecutionGraph::co_iterator splitLocMOAfter(SAddr addr, const Event e);
 	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
 	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
 

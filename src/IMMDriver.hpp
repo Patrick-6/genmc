@@ -44,7 +44,7 @@ public:
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
 	std::vector<Event>
 	getCoherentStores(SAddr addr, Event read) override;
-	std::pair<int, int>
+	llvm::iterator_range<ExecutionGraph::co_iterator>
 	getCoherentPlacings(SAddr addr, Event read, bool isRMW)	override;
 
 	const View &

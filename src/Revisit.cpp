@@ -56,7 +56,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const Revisit &item)
 	}
 	case Revisit::RV_FRevMO: {
 		auto &mi = static_cast<const WriteForwardRevisit &>(item);
-		s << mi.getKind() << "(" << mi.getPos() << ": " << mi.getMOPos() << ")";
+		s << mi.getKind() << "(" << mi.getPos() << ": " << mi.getSucc() << ")";
 		break;
 	}
 	case Revisit::RV_FRevOpt: {

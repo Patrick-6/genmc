@@ -24,6 +24,7 @@
 #include "Config.hpp"
 #include "DepInfo.hpp"
 #include "EventLabel.hpp"
+#include "ExecutionGraph.hpp"
 #include "RevisitSet.hpp"
 #include "SAddrAllocator.hpp"
 #include "Trie.hpp"
@@ -42,7 +43,6 @@ namespace llvm {
 	class Interpreter;
 }
 class ModuleInfo;
-class ExecutionGraph;
 class ThreadPool;
 
 class GenMCDriver {
@@ -771,7 +771,8 @@ private:
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) {
 		ERROR("Unimplemented cohst\n");
 	}
-	virtual std::pair<int, int> getCoherentPlacings(SAddr addr, Event read, bool isRMW) {
+	virtual llvm::iterator_range<ExecutionGraph::co_iterator>
+	getCoherentPlacings(SAddr addr, Event read, bool isRMW) {
 		ERROR("Unimplemented cohpl\n");
 	}
 

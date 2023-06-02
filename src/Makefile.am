@@ -9,7 +9,6 @@ libgenmc_a_SOURCES = \
   CodeCondenserPass.cpp CodeCondenserPass.hpp \
   Calculator.hpp \
   CallInstWrapper.hpp \
-  CoherenceCalculator.hpp CoherenceCalculator.cpp \
   ConfirmationAnnotationPass.cpp ConfirmationAnnotationPass.hpp \
   Config.cpp Config.hpp \
   DeclareInternalsPass.cpp DeclareInternalsPass.hpp \
@@ -59,14 +58,10 @@ libgenmc_a_SOURCES = \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \
   Parser.cpp Parser.hpp \
-  PBCalculator.cpp PBCalculator.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
   PropagateAssumesPass.cpp PropagateAssumesPass.hpp \
   RC11Checker.cpp RC11Checker.hpp \
   RC11Driver.cpp RC11Driver.hpp \
-  RCUCalculator.cpp RCUCalculator.hpp \
-  RCULinkCalculator.cpp RCULinkCalculator.hpp \
-  RCUFenceCalculator.cpp RCUFenceCalculator.hpp \
   Revisit.cpp Revisit.hpp \
   RevisitSet.cpp RevisitSet.hpp \
   SAddr.cpp SAddr.hpp \
@@ -88,8 +83,7 @@ libgenmc_a_SOURCES = \
   VectorClock.hpp VectorClock.cpp \
   VerificationError.hpp VerificationError.cpp \
   View.hpp View.cpp \
-  VSet.hpp VSet.tcc \
-  XBCalculator.hpp XBCalculator.cpp
+  VSet.hpp VSet.tcc
 
 
 AM_CXXFLAGS = -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"

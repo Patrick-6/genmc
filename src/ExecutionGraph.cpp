@@ -38,11 +38,6 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 		ThreadStartLabel::create(Event::getInitializer(), Event::getInitializer()));
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
-
-	relations.global.push_back(Calculator::GlobalRelation());
-	relsCache.global.push_back(Calculator::GlobalRelation());
-	relationIndex[RelationId::hb] = 0;
-	calculatorIndex[RelationId::hb] = -42; /* no calculator for hb */
 	return;
 }
 
@@ -415,8 +410,6 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 
 EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
-	setFPStatus(FS_Stale);
-
 	/* Assign stamp if necessary */
 	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());
@@ -440,299 +433,40 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
 
-void ExecutionGraph::addCalculator(std::unique_ptr<Calculator> cc, RelationId r,
-				 bool perLoc, bool partial /* = false */)
-{
-	/* Add a calculator for this relation */
-	auto calcSize = getCalcs().size();
-	consistencyCalculators.push_back(std::move(cc));
-	if (partial)
-		partialConsCalculators.push_back(calcSize);
-
-	/* Add a matrix for this relation */
-	auto relSize = 0u;
-	if (perLoc) {
-		relSize = relations.perLoc.size();
-		relations.perLoc.push_back(Calculator::PerLocRelation());
-		relsCache.perLoc.push_back(Calculator::PerLocRelation());
-	} else {
-		relSize = relations.global.size();
-		relations.global.push_back(Calculator::GlobalRelation());
-		relsCache.global.push_back(Calculator::GlobalRelation());
-	}
-
-	/* Update indices trackers */
-	calculatorIndex[r] = calcSize;
-	relationIndex[r] = relSize;
-}
-
-Calculator::GlobalRelation& ExecutionGraph::getGlobalRelation(RelationId id)
-{
-	BUG_ON(relationIndex.count(id) == 0);
-	return relations.global[relationIndex[id]];
-}
-
-Calculator::PerLocRelation& ExecutionGraph::getPerLocRelation(RelationId id)
-{
-	BUG_ON(relationIndex.count(id) == 0);
-	return relations.perLoc[relationIndex[id]];
-}
-
-Calculator::GlobalRelation& ExecutionGraph::getCachedGlobalRelation(RelationId id)
-{
-	BUG_ON(relationIndex.count(id) == 0);
-	return relsCache.global[relationIndex[id]];
-}
-
-Calculator::PerLocRelation& ExecutionGraph::getCachedPerLocRelation(RelationId id)
-{
-	BUG_ON(relationIndex.count(id) == 0);
-	return relsCache.perLoc[relationIndex[id]];
-}
-
-void ExecutionGraph::cacheRelations(bool copy /* = true */)
-{
-	if (copy)
-		relsCache = relations;
-	else
-		relsCache = std::move(relations);
-	return;
-}
-
-void ExecutionGraph::restoreCached(bool move /* = false */)
-{
-	if (!move)
-		relations = relsCache;
-	else
-		relations = std::move(relsCache);
-	return;
-}
-
-bool ExecutionGraph::hasCalculator(RelationId id) const
-{
-	if (!relationIndex.count(id))
-		return false;
-	auto idx = relationIndex.at(id);
-	return 0 <= idx && idx < consistencyCalculators.size();
-}
-
-Calculator *ExecutionGraph::getCalculator(RelationId id)
-{
-	return consistencyCalculators[calculatorIndex[id]].get();
-}
-
-CoherenceCalculator *ExecutionGraph::getCoherenceCalculator()
-{
-	return static_cast<CoherenceCalculator *>(
-		consistencyCalculators[relationIndex[RelationId::co]].get());
-}
-
-CoherenceCalculator *ExecutionGraph::getCoherenceCalculator() const
-{
-	return static_cast<CoherenceCalculator *>(
-		consistencyCalculators.at(relationIndex.at(RelationId::co)).get());
-}
-
-const std::vector<Calculator *> ExecutionGraph::getCalcs() const
-{
-	std::vector<Calculator *> result;
-
-	for (auto i = 0u; i < consistencyCalculators.size(); i++)
-		result.push_back(consistencyCalculators[i].get());
-	return result;
-}
-
-const std::vector<Calculator *> ExecutionGraph::getPartialCalcs() const
-{
-	std::vector<Calculator *> result;
-
-	for (auto i = 0u; i < partialConsCalculators.size(); i++)
-		result.push_back(consistencyCalculators[partialConsCalculators[i]].get());
-	return result;
-}
-
 void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc)
 {
 	persChecker = std::move(pc);
 	return;
 }
 
-bool isCoMaximalInRel(const Calculator::PerLocRelation &co, SAddr addr, const Event &e)
-{
-	auto &coLoc = co.at(addr);
-	return (e.isInitializer() && coLoc.empty()) ||
-		(!e.isInitializer() && coLoc.adj_begin(e) == coLoc.adj_end(e));
-}
-
 bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */,
 				 CheckConsType t /* = fast */)
 {
-	auto *cc = getCoherenceCalculator();
+	// auto *cc = getCoherenceCalculator();
 
-	if (checkCache)
-		return cc->isCachedCoMaximal(addr, e);
-	if (getFPStatus() == FS_Done && getFPType() == t)
-		return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
-	if (t == CheckConsType::fast)
-		return cc->isCoMaximal(addr, e);
+	if (e.isInitializer())
+		return co_begin(addr) == co_end(addr);
+	return co_begin(addr) != co_end(addr) && e == co_rbegin(addr)->getPos();
 
-	isConsistent(t);
-	return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
-}
+	// if (checkCache)
+	// 	// return cc->isCachedCoMaximal(addr, e);
+	// 	return e.isInitializer() ? co_begin(addr) == co_end(addr) :
+	// 		++co_iterator(*getWriteLabel(e)) == co_end(addr);
+	// if (getFPStatus() == FS_Done && getFPType() == t)
+	// 	return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
+	// if (t == CheckConsType::fast)
+	// 	// return cc->isCoMaximal(addr, e);
+	// 	return e.isInitializer() ? co_begin(addr) == co_end(addr) :
+	// 		++co_iterator(*getWriteLabel(e)) == co_end(addr);
 
-void ExecutionGraph::doInits(bool full /* = false */)
-{
-	BUG();
-	auto &hb = relations.global[relationIndex[RelationId::hb]];
-	// populateHbEntries(hb);
-	hb.transClosure();
-
-	/* Clear out unused locations */
-	for (auto i = 0u; i < relations.perLoc.size(); i++) {
-		relations.perLoc[i].clear();
-		relsCache.perLoc[i].clear();
-       }
-
-	auto &calcs = consistencyCalculators;
-	auto &partial = partialConsCalculators;
-	for (auto i = 0u; i < calcs.size(); i++) {
-		if (!full && std::find(partial.begin(), partial.end(), i) == partial.end())
-			continue;
-
-		calcs[i]->initCalc();
-	}
-	return;
-}
-
-Calculator::CalculationResult ExecutionGraph::doCalcs(bool full /* = false */)
-{
-	Calculator::CalculationResult result;
-
-	auto &calcs = consistencyCalculators;
-	auto &partial = partialConsCalculators;
-	for (auto i = 0u; i < calcs.size(); i++) {
-		if (!full && std::find(partial.begin(), partial.end(), i) == partial.end())
-			continue;
-
-		result |= calcs[i]->doCalc();
-
-		/* If an inconsistency was spotted, no reason to call
-		 * the other calculators */
-		if (!result.cons)
-			return result;
-	}
-	return result;
-}
-
-
-void addPerLocRelationToExtend(Calculator::PerLocRelation &rel,
-			       std::vector<Calculator::GlobalRelation *> &toExtend,
-			       std::vector<SAddr > &extOrder)
-
-{
-	for (auto &loc : rel) {
-		toExtend.push_back(&loc.second);
-		extOrder.push_back(loc.first);
-	}
-}
-
-void extendPerLocRelation(Calculator::PerLocRelation &rel,
-			  std::vector<std::vector<Event> >::iterator extsBegin,
-			  std::vector<std::vector<Event> >::iterator extsEnd,
-			  std::vector<SAddr >::iterator locsBegin,
-			  std::vector<SAddr >::iterator locsEnd)
-
-{
-	BUG_ON(std::distance(extsBegin, extsEnd) != std::distance(locsBegin, locsEnd));
-	auto locIt = locsBegin;
-	for (auto extIt = extsBegin; extIt != extsEnd; ++extIt, ++locIt) {
-		rel[*locIt] = Calculator::GlobalRelation(*extIt);
-		for (auto j = 1; j < extIt->size(); j++)
-			rel[*locIt].addEdge((*extIt)[j - 1], (*extIt)[j]);
-	}
-}
-
-bool ExecutionGraph::doFinalConsChecks(bool checkFull /* = false */)
-{
-	if (!checkFull)
-		return true;
-
-	bool hasLB = hasCalculator(RelationId::lb);
-	if (!hasLB)
-		return true;
-
-	/* Cache all relations because we will need to restore them
-	 * after possible extensions were tried*/
-	cacheRelations();
-
-	/* We flatten all per-location relations that need to be
-	 * extended.  However, we need to ensure that, for each
-	 * per-location relation, the order in which the locations of
-	 * the relation are added to the extension list is the same as
-	 * the order in which the extensions of said locations are
-	 * restored.
-	 *
-	 * This is not the case in all platforms if we are simply
-	 * iterating over unordered_maps<> (e.g. macΟS). The iteration
-	 * order may differ if, e.g., when saving an extension we
-	 * iterate over a relation's cache, while when restoring we
-	 * iterate over the relation itself, even though the relation
-	 * is the same as its cache just before restoring. */
-	auto coSize = 0u;
-	auto lbSize = 0u;
-	std::vector<Calculator::GlobalRelation *> toExtend;
-	std::vector<SAddr> extOrder;
-	if (hasLB) {
-		addPerLocRelationToExtend(getCachedPerLocRelation(ExecutionGraph::RelationId::lb),
-					  toExtend, extOrder);
-		lbSize = getCachedPerLocRelation(ExecutionGraph::RelationId::lb).size();
-	}
-
-	auto res = Calculator::GlobalRelation::
-		combineAllTopoSort(toExtend, [&](std::vector<std::vector<Event>> &sortings){
-			restoreCached();
-			auto count = 0u;
-			count += coSize;
-			if (hasLB && count >= coSize) {
-				extendPerLocRelation(getPerLocRelation(ExecutionGraph::RelationId::lb),
-						     sortings.begin() + count,
-						     sortings.begin() + count + lbSize,
-						     extOrder.begin() + count,
-						     extOrder.begin() + count + lbSize);
-			}
-			count += lbSize;
-			return doCalcs(true).cons;
-		});
-	return res;
-}
-
-bool ExecutionGraph::isConsistent(CheckConsType checkT)
-{
-	/* Fastpath: We have cached info or no fixpoint is required */
-	if (getFPStatus() == FS_Done && getFPType() == checkT)
-		return getFPResult().cons;
-	if (checkT == CheckConsType::fast)
-		return true;
-
-	/* Slowpath: Go calculate fixpoint */
-	setFPStatus(FS_InProgress);
-	doInits(checkT == CheckConsType::full);
-	do {
-		setFPResult(doCalcs(checkT == CheckConsType::full));
-		if (!getFPResult().cons)
-			return false;
-	} while (getFPResult().changed);
-
-	/* Do final checks, after the fixpoint is over */
-	setFPResult(FixpointResult(false, doFinalConsChecks(checkT == CheckConsType::full)));
-	setFPStatus(FS_Done);
-	setFPType(checkT);
-	return getFPResult().cons;
+	// isConsistent(t);
+	// return isCoMaximalInRel(getPerLocRelation(RelationId::co), addr, e);
 }
 
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 {
-	return getCoherenceCalculator()->trackCoherenceAtLoc(addr);
+	coherence[addr];
+	initRfs[addr];
 }
 
 /************************************************************
@@ -741,8 +475,6 @@ void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 
 void ExecutionGraph::removeLast(unsigned int thread)
 {
-	setFPStatus(FS_Stale);
-
 	auto *lab = getLastThreadLabel(thread);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
@@ -828,8 +560,6 @@ bool ExecutionGraph::isRecoveryValid() const
 
 void ExecutionGraph::changeRf(Event read, Event store)
 {
-	setFPStatus(FS_Stale);
-
 	/* First, we set the new reads-from edge */
 	auto *rLab = llvm::dyn_cast<ReadLabel>(getEventLabel(read));
 	BUG_ON(!rLab);
@@ -849,7 +579,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
 			oldLab->removeReader([&](Event r){ return r == rLab->getPos(); });
 		else if (oldRfLab->getPos().isInitializer())
-			getCoherenceCalculator()->removeInitRfToLoc(rLab->getAddr(), rLab->getPos());
+			removeInitRfToLoc(rLab->getAddr(), rLab->getPos());
 	}
 
 	/* If this read is now reading from bottom, nothing else to do */
@@ -862,7 +592,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 		wLab->addReader(rLab->getPos());
 	} else {
 		BUG_ON(!store.isInitializer());
-		getCoherenceCalculator()->addInitRfToLoc(rLab->getAddr(), rLab->getPos());
+		addInitRfToLoc(rLab->getAddr(), rLab->getPos());
 	}
 }
 
@@ -889,22 +619,53 @@ ExecutionGraph::getViewFromStamp(Stamp stamp) const
 	return preds;
 }
 
-void ExecutionGraph::changeStoreOffset(SAddr addr, Event s, int newOffset)
+void ExecutionGraph::removeAfter(const VectorClock &preds)
 {
-	setFPStatus(FS_Stale);
+	VSet<SAddr> keep;
 
-	getCoherenceCalculator()->changeStoreOffset(addr, s, newOffset);
+	/* Check which locations should be kept */
+	for (auto i = 0u; i < preds.size(); i++) {
+		for (auto j = 0u; j <= preds.getMax(i); j++) {
+			auto *lab = getEventLabel(Event(i, j));
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
+				keep.insert(mLab->getAddr());
+		}
+	}
+
+	auto rIt = initRfs.begin();
+	for (auto lIt = coherence.begin(); lIt != coherence.end(); /* empty */) {
+		/* Should we keep this memory location lying around? */
+		if (!keep.count(lIt->first)) {
+			lIt = coherence.erase(lIt);
+			rIt = initRfs.erase(rIt);
+		} else {
+			for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ) {
+				if (!preds.contains(sIt->getPos()))
+					lIt->second.erase(sIt++);
+				else
+					++sIt;
+			}
+			// lIt->second.erase(std::remove_if(lIt->second.begin(), lIt->second.end(),
+			// 				[&](auto &lab)
+			// 					{ return !preds.contains(lab.getPos()); }),
+			// 		 lIt->second.end());
+			rIt->second.erase(std::remove_if(rIt->second.begin(), rIt->second.end(),
+							[&](Event &e)
+							{ return !preds.contains(e); }),
+					 rIt->second.end());
+			++lIt;
+			++rIt;
+		}
+	}
 }
+
 
 void ExecutionGraph::cutToStamp(Stamp stamp)
 {
-	setFPStatus(FS_Stale);
 	auto preds = getViewFromStamp(stamp);
 
 	/* Inform all calculators about the events cutted */
-	auto &calcs = consistencyCalculators;
-	for (auto i = 0u; i < calcs.size(); i++)
-		calcs[i]->removeAfter(*preds);
+	removeAfter(*preds);
 
 	/* Remove any 'pointers' to events that will be removed */
 	for (auto i = 0u; i < preds->size(); i++) {
@@ -947,20 +708,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	/* First, populate calculators, etc */
 	other.timestamp = timestamp;
 
-	other.relations = relations;
-	other.relsCache = relsCache;
-
-	other.relations.fixStatus = FS_Stale;
-	other.relsCache.fixStatus = FS_Stale;
-
-	for (const auto &cc : consistencyCalculators)
-		other.consistencyCalculators.push_back(cc->clone(other));
-
-	other.partialConsCalculators = partialConsCalculators;
-
-	other.calculatorIndex = calculatorIndex;
-	other.relationIndex = relationIndex;
-
 	if (persChecker.get())
 		other.persChecker = persChecker->clone(other);
 	other.recoveryTID = recoveryTID;
@@ -968,11 +715,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	other.bam = bam;
 
 	/* Then, copy the appropriate events */
-	/* FIXME: Fix LAPOR (use addLockLabelToGraphLAPOR??) */
-	auto *cc = getCoherenceCalculator();
-	auto *occ = other.getCoherenceCalculator();
-	BUG_ON(!cc || !occ);
-
 	// FIXME: The reason why we resize to num of threads instead of v.size() is
 	// to keep the same size as the interpreter threads.
 	other.events.resize(getNumThreads());
@@ -992,7 +734,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				});
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(nLab))
-				occ->trackCoherenceAtLoc(mLab->getAddr());
+				other.trackCoherenceAtLoc(mLab->getAddr());
 			if (auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(nLab))
 				;
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
@@ -1013,17 +755,23 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 
 	/* Finally, copy coherence info */
 	/* FIXME: Temporary ugly hack */
-	for (auto it = cc->begin(); it != cc->end(); ++it) {
-		for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
-			if (v.contains(*sIt)) {
-				occ->addStoreToLoc(it->first, *sIt, -1);
+	// for (auto it = cc->begin(); it != cc->end(); ++it) {
+	// 	for (auto sIt = it->second.begin(); sIt != it->second.end(); ++sIt) {
+	// 		if (v.contains(*sIt)) {
+	// 			occ->addStoreToLoc(it->first, *sIt, -1);
+	// 		}
+	// 	}
+	// }
+	for (auto lIt = loc_begin(), lE = loc_end(); lIt != lE; ++lIt) {
+		for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ++sIt)
+			if (v.contains(sIt->getPos())) {
+				other.addStoreToCO(other.getWriteLabel(sIt->getPos()));
 			}
-		}
 	}
-	for (auto it = cc->init_rf_begin(); it != cc->init_rf_end(); ++it) {
-		for (auto rIt = it->second.begin(); rIt != it->second.end(); ++rIt) {
+	for (auto it = loc_begin(); it != loc_end(); ++it) {
+		for (auto rIt = initRfs.at(it->first).begin(); rIt != initRfs.at(it->first).end(); ++rIt) {
 			if (v.contains(*rIt)) {
-				occ->addInitRfToLoc(it->first, *rIt);
+				other.addInitRfToLoc(it->first, *rIt);
 			}
 		}
 	}
@@ -1059,20 +807,6 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 	auto *mLab = static_cast<const MemAccessLabel *>(nLab);
 
 	return isRMWStore(mLab) && mLab->getAddr() == rLab->getAddr();
-}
-
-std::pair<std::vector<Event>, std::vector<Event> >
-ExecutionGraph::getSCs() const
-{
-	std::vector<Event> scs, fcs;
-
-	for (const auto *lab : labels(*this)) {
-		if (lab->isSC() && !isRMWLoad(lab))
-			scs.push_back(lab->getPos());
-		if (lab->isSC() && llvm::isa<FenceLabel>(lab))
-			fcs.push_back(lab->getPos());
-	}
-	return std::make_pair(scs,fcs);
 }
 
 
@@ -1157,11 +891,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 		s << g.getThreadSize(i) << " ";
 	s << "\n";
 
-	auto *cc = g.getCoherenceCalculator();
-	BUG_ON(!cc);
-	for (auto it = cc->begin(); it != cc->end(); ++it) {
-		s << it->first << ": ";
-		s << format(it->second) << "\n";
+	for (auto lIt = g.loc_begin(), lE = g.loc_end(); lIt != lE; ++lIt) {
+		llvm::dbgs() << lIt->first << ": ";
+		for (auto sIt = g.co_begin(lIt->first); sIt != g.co_end(lIt->first); ++sIt)
+			llvm::dbgs() << sIt->getPos() << " ";
+		llvm::dbgs() << "\n";
 	}
 	return s;
 }

@@ -100,42 +100,45 @@ bool #CLASS#::isHbOptRfBefore(const Event e, const Event write)
 	return false;
 }
 
-int #CLASS#::splitLocMOBefore(SAddr addr, Event e)
+ExecutionGraph::co_iterator
+#CLASS#::splitLocMOBefore(SAddr addr, Event e)
 {
-	const auto &g = getGraph();
-	auto rit = std::find_if(store_rbegin(g, addr), store_rend(g, addr), [&](const Event &s){
-		return isWriteRfBefore(s, e);
+	auto &g = getGraph();
+	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr), [&](auto &lab){
+		return isWriteRfBefore(lab.getPos(), e);
 	});
-	return (rit == store_rend(g, addr)) ? 0 : std::distance(rit, store_rend(g, addr));
+	/* Convert to forward iterator, but be _really_ careful */
+	if (rit == g.co_rend(addr))
+		return g.co_begin(addr);
+	return ++ExecutionGraph::co_iterator(*rit);
 }
 
-int #CLASS#::splitLocMOAfterHb(SAddr addr, const Event read)
+ExecutionGraph::co_iterator
+#CLASS#::splitLocMOAfterHb(SAddr addr, const Event read)
 {
-	const auto &g = getGraph();
+	auto &g = getGraph();
 
 	auto initRfs = g.getInitRfsAtLoc(addr);
 	if (std::any_of(initRfs.begin(), initRfs.end(), [&read,&g](const Event &rf){
 		return g.getEventLabel(rf)->view(#HB#).contains(read);
 	}))
-		return 0;
+		return g.co_begin(addr);
 
-	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
-		return isHbOptRfBefore(read, s);
+	auto it = std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(read, lab.getPos());
 	});
-	if (it == store_end(g, addr))
-		return std::distance(store_begin(g, addr), store_end(g, addr));
-	return (g.getEventLabel(*it)->view(#HB#).contains(read)) ?
-		std::distance(store_begin(g, addr), it) : std::distance(store_begin(g, addr), it) + 1;
+	if (it == g.co_end(addr) || it->view(0).contains(read))
+		return it;
+	return ++it;
 }
 
-int #CLASS#::splitLocMOAfter(SAddr addr, const Event e)
+ExecutionGraph::co_iterator
+#CLASS#::splitLocMOAfter(SAddr addr, const Event e)
 {
-	const auto &g = getGraph();
-	auto it = std::find_if(store_begin(g, addr), store_end(g, addr), [&](const Event &s){
-		return isHbOptRfBefore(e, s);
+	auto &g = getGraph();
+	return std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
+		return isHbOptRfBefore(e, lab.getPos());
 	});
-	return (it == store_end(g, addr)) ? std::distance(store_begin(g, addr), store_end(g, addr)) :
-		std::distance(store_begin(g, addr), it);
 }
 
 std::vector<Event>
@@ -150,20 +153,23 @@ std::vector<Event>
 	 * initializer store. Otherwise, we can read from all concurrent
 	 * stores and the mo-latest of the (rf?;hb)-before stores.
 	 */
-	auto begO = splitLocMOBefore(addr, read);
-	if (begO == 0)
+	auto begIt = splitLocMOBefore(addr, read);
+	if (begIt == g.co_begin(addr))
 		stores.push_back(Event::getInitializer());
-	else
-		stores.push_back(*(store_begin(g, addr) + begO - 1));
+	else {
+		stores.push_back((--begIt)->getPos());
+		++begIt;
+	}
 
 	/*
 	 * If the model supports out-of-order execution we have to also
 	 * account for the possibility the read is hb-before some other
 	 * store, or some read that reads from a store.
 	 */
-	auto endO = (isDepTracking()) ? splitLocMOAfterHb(addr, read) :
-		std::distance(store_begin(g, addr), store_end(g, addr));
-	stores.insert(stores.end(), store_begin(g, addr) + begO, store_begin(g, addr) + endO);
+	auto endIt = (isDepTracking()) ? splitLocMOAfterHb(addr, read) : g.co_end(addr);
+	std::transform(begIt, endIt, std::back_inserter(stores), [&](auto &lab){
+		return lab.getPos();
+	});
 	return stores;
 }
 
@@ -172,12 +178,11 @@ std::vector<Event>
 {
 	std::vector<Event> after;
 
-	auto &g = getGraph();
-	std::for_each(co_succ_begin(g, sLab->getAddr(), sLab->getPos()),
-		      co_succ_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
-			      auto *wLab = g.getWriteLabel(w);
-			      after.push_back(wLab->getPos());
-			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	const auto &g = getGraph();
+	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab),
+		      [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      after.insert(after.end(), wLab.readers_begin(), wLab.readers_end());
 	});
 	return after;
 }
@@ -189,11 +194,10 @@ std::vector<Event>
 	std::vector<Event> after;
 
 	/* First, add (mo;rf?)-before */
-	std::for_each(co_pred_begin(g, sLab->getAddr(), sLab->getPos()),
-		      co_pred_end(g, sLab->getAddr(), sLab->getPos()), [&](const Event &w){
-			      auto *wLab = g.getWriteLabel(w);
-			      after.push_back(wLab->getPos());
-			      after.insert(after.end(), wLab->readers_begin(), wLab->readers_end());
+	std::for_each(g.co_pred_begin(sLab),
+		      g.co_pred_end(sLab), [&](auto &wLab){
+			      after.push_back(wLab.getPos());
+			      after.insert(after.end(), wLab.readers_begin(), wLab.readers_end());
 	});
 
 	/* Then, we add the reader list for the initializer */
@@ -250,26 +254,30 @@ std::vector<Event>
 	return ls;
 }
 
-std::pair<int, int>
+llvm::iterator_range<ExecutionGraph::co_iterator>
 #CLASS#::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
-	const auto &g = getGraph();
-	auto *cc = g.getCoherenceCalculator();
+	auto &g = getGraph();
 
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
-			auto offset = cc->getStoreOffset(addr, rLab->getRf()->getPos()) + 1;
-			return std::make_pair(offset, offset);
+			auto *rfLab = rLab->getRf();
+			BUG_ON(!rfLab);
+			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
+				auto wIt = g.co_succ_begin(wLab);
+				return llvm::iterator_range<ExecutionGraph::co_iterator>(wIt, wIt);
+			}
+			return llvm::iterator_range<ExecutionGraph::co_iterator>(g.co_begin(addr),
+										 g.co_begin(addr));
 		}
 		BUG();
 	}
 
 	/* Otherwise, we calculate the full range and add the store */
 	auto rangeBegin = splitLocMOBefore(addr, store);
-	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) :
-		cc->getStoresToLoc(addr).size();
-	return std::make_pair(rangeBegin, rangeEnd);
+	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) : g.co_end(addr);
+	return llvm::iterator_range(rangeBegin, rangeEnd);
 
 })";
 
@@ -293,12 +301,12 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
         {Relation::rfi,		{ "rfi_succs",       "rfi_pred"}},
         {Relation::tc,		{ "tc_succs",        "tc_preds"}},
         {Relation::tj,		{ "tj_succs",        "tj_preds"}},
-        {Relation::mo_imm,	{ "co_imm_succs",    "co_imm_preds"}},
-        {Relation::moe,		{ "co_imm_succs",    "co_imm_preds"}},
-        {Relation::moi,		{ "co_imm_succs",    "co_imm_preds"}},
+        {Relation::mo_imm,	{ "co_imm_succs",    "co_imm_pred"}},
+        {Relation::moe,		{ "co_imm_succs",    "?"}},
+        {Relation::moi,		{ "co_imm_succs",    "?"}},
         {Relation::fr_imm,	{ "fr_imm_succs",    "fr_imm_preds"}},
-        {Relation::fre,		{ "fr_imm_succs",    "fr_imm_preds"}},
-        {Relation::fri,		{ "fr_imm_succs",    "fr_imm_preds"}},
+        {Relation::fre,		{ "?",               "?"}},
+        {Relation::fri,		{ "?",               "?"}},
         {Relation::detour,	{ "detour_succs",    "detour_preds"}},
 };
 
@@ -357,7 +365,10 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 		if (r->getRelation()->toBuiltin() == Relation::Builtin::po_imm ||
 		    r->getRelation()->toBuiltin() == Relation::Builtin::rf ||
 		    r->getRelation()->toBuiltin() == Relation::Builtin::rfe ||
-		    r->getRelation()->toBuiltin() == Relation::Builtin::rfi)
+		    r->getRelation()->toBuiltin() == Relation::Builtin::rfi ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::mo_imm ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::moe ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::moi)
 			ostr << "if (auto " << res << " = " << s << "(g, " << arg << "->getPos()); !" << res << ".isBottom())";
 		else
 			ostr << "for (auto &" << res << " : " << s << "(g, " << arg << "->getPos()))";
@@ -386,52 +397,58 @@ void Printer::printHppHeader()
 	      << katerNotice << "\n";
 
         hpp() << "#ifndef " << guardName << "\n"
-	      << "#define " << guardName << "\n"
-	      << "\n"
-	      << "#include \"config.h\"\n"
-	      << "#include \"ExecutionGraph.hpp\"\n"
-	      << "#include \"GraphIterators.hpp\"\n"
-	      << "#include \"MaximalIterator.hpp\"\n"
-	      << "#include \"PersistencyChecker.hpp\"\n"
-	      << "#include \"VerificationError.hpp\"\n"
-	      << "#include \"VSet.hpp\"\n"
-	      << "#include <cstdint>\n"
-	      << "#include <vector>\n"
-	      << "\n"
-	      << "class " << className << " {\n"
-	      << "\n"
-	      << "private:\n"
-	      << "\tenum class NodeStatus : unsigned char { unseen, entered, left };\n"
-	      << "\n"
-	      << "\tstruct NodeCountStatus {\n"
-	      << "\t\tNodeCountStatus() = default;\n"
-	      << "\t\tNodeCountStatus(uint16_t c, NodeStatus s) : count(c), status(s) {}\n"
-	      << "\t\tuint16_t count = 0;\n"
-	      << "\t\tNodeStatus status = NodeStatus::unseen;\n"
-	      << "\t};\n"
-	      << "\n"
-	      << "public:\n"
-	      << "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
-	      << "\n"
-	      << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
-	      << "\tstd::vector<View> calculateViews(const Event &e);\n"
-	      << "\tbool isDepTracking();\n"
-	      << "\tbool isConsistent(const Event &e);\n"
-	      << "\tVerificationError checkErrors(const Event &e);\n"
-	      << "\tbool isRecoveryValid(const Event &e);\n"
-	      << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);\n"
-	      << "\tconst View &getHbView(const Event &e);\n"
-	      << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read);\n"
-	      << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);\n"
-	      << "\tstd::pair<int, int> getCoherentPlacings(SAddr addr, Event store, bool isRMW);\n"
+              << "#define " << guardName << "\n"
+              << "\n"
+              << "#include \"config.h\"\n"
+              << "#include \"ExecutionGraph.hpp\"\n"
+              << "#include \"GraphIterators.hpp\"\n"
+              << "#include \"MaximalIterator.hpp\"\n"
+              << "#include \"PersistencyChecker.hpp\"\n"
+              << "#include \"VerificationError.hpp\"\n"
+              << "#include \"VSet.hpp\"\n"
+              << "#include <cstdint>\n"
+              << "#include <vector>\n"
+              << "\n"
+              << "class " << className << " {\n"
+              << "\n"
+              << "private:\n"
+              << "\tenum class NodeStatus : unsigned char { unseen, entered, "
+                 "left };\n"
+              << "\n"
+              << "\tstruct NodeCountStatus {\n"
+              << "\t\tNodeCountStatus() = default;\n"
+              << "\t\tNodeCountStatus(uint16_t c, NodeStatus s) : count(c), "
+                 "status(s) {}\n"
+              << "\t\tuint16_t count = 0;\n"
+              << "\t\tNodeStatus status = NodeStatus::unseen;\n"
+              << "\t};\n"
+              << "\n"
+              << "public:\n"
+              << "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
+              << "\n"
+              << "\tstd::vector<VSet<Event>> calculateSaved(const Event &e);\n"
+              << "\tstd::vector<View> calculateViews(const Event &e);\n"
+              << "\tbool isDepTracking();\n"
+              << "\tbool isConsistent(const Event &e);\n"
+              << "\tVerificationError checkErrors(const Event &e);\n"
+              << "\tbool isRecoveryValid(const Event &e);\n"
+              << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const Event "
+                 "&e);\n"
+              << "\tconst View &getHbView(const Event &e);\n"
+              << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event "
+                 "read);\n"
+              << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel "
+                 "*sLab, const VectorClock &pporf);\n"
+              << "\tllvm::iterator_range<ExecutionGraph::co_iterator>\n"
+	      << "\tgetCoherentPlacings(SAddr addr, Event store, bool isRMW);\n"
 	      << "\n"
 	      << "private:\n"
 	      << "\tbool isWriteRfBefore(Event a, Event b);\n"
 	      << "\tstd::vector<Event> getInitRfsAtLoc(SAddr addr);\n"
 	      << "\tbool isHbOptRfBefore(const Event e, const Event write);\n"
-	      << "\tint splitLocMOBefore(SAddr addr, Event e);\n"
-	      << "\tint splitLocMOAfterHb(SAddr addr, const Event read);\n"
-	      << "\tint splitLocMOAfter(SAddr addr, const Event e);\n"
+	      << "\tExecutionGraph::co_iterator splitLocMOBefore(SAddr addr, Event e);\n"
+	      << "\tExecutionGraph::co_iterator splitLocMOAfterHb(SAddr addr, const Event read);\n"
+	      << "\tExecutionGraph::co_iterator splitLocMOAfter(SAddr addr, const Event e);\n"
 	      << "\tstd::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);\n"
 	      << "\tstd::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);\n"
 	      << "\n";
