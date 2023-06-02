@@ -637,7 +637,7 @@ public:
 	DEFINE_CREATE_CLONE(ReadLabel)
 
 	/* Returns the position of the write this read is readinf-from */
-	const EventLabel *getRf() const { return readsFrom; }
+	EventLabel *getRf() const { return readsFrom; }
 	EventLabel *getRf() { return readsFrom; }
 
 	/* Whether this read has a set RF and reads externally */

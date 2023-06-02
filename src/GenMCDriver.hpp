@@ -585,7 +585,7 @@ private:
 	 * successful, this function adds the corresponding write part.
 	 * Returns a pointer to the newly added event, or nullptr
 	 * if the event was not an RMW, or was an unsuccessful one */
-	const WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
+	WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
 	/* Removes all labels with stamp >= ST from the graph */
 	void restrictGraph(Stamp st);

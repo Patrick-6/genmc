@@ -2119,7 +2119,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 			addToWorklist(lab->getStamp(),
 				      LLVM_MAKE_UNIQUE<WriteForwardRevisit>(lab->getPos(), it->getPos()));
 	}
-	g.addStoreToCO(lab);
+	g.addStoreToCO(lab, placesRange.end());
 
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
 	bool cons = ensureConsistentStore(lab);
@@ -2898,7 +2898,7 @@ void GenMCDriver::repairDanglingLocks()
 	return;
 }
 
-const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
+WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	/* Handle non-RMW cases first */
 	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
@@ -2956,13 +2956,9 @@ const WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	BUG_ON(!rLab->getRf());
 	if (auto *rfLab = llvm::dyn_cast<WriteLabel>(rLab->getRf())) {
-		auto succIt = g.co_succ_begin(rfLab);
-		g.addStoreToCO(lab, succIt == g.co_succ_end(rfLab) ? nullptr : const_cast<WriteLabel*>(&*succIt));
+		g.addStoreToCO(lab, ExecutionGraph::co_iterator(g.co_succ_begin(rfLab)));
 	} else {
-		if (g.co_begin(lab->getAddr()) != g.co_end(lab->getAddr()))
-			g.addStoreToCO(lab, &*g.co_begin(lab->getAddr()));
-		else
-			g.addStoreToCO(lab);
+		g.addStoreToCO(lab, g.co_begin(lab->getAddr()));
 	}
 	return lab;
 }
@@ -3018,7 +3014,7 @@ bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 		BUG_ON(!wLab);
 		g.removeStoreFromCO(wLab);
-		g.addStoreToCO(wLab, g.getWriteLabel(mi->getSucc()));
+		g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(mi->getSucc())));
 		wLab->setAddedMax(false);
 		repairDanglingLocks();
 		return calcRevisits(wLab);
@@ -3123,7 +3119,7 @@ void GenMCDriver::handleDskWrite(std::unique_ptr<DskWriteLabel> wLab)
 
 	/* Safe to _only_ add it at the end of MO */
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
-	g.addStoreToCO(lab);
+	g.addStoreToCO(lab, placesRange.end());
 
 	calcRevisits(lab);
 	return;

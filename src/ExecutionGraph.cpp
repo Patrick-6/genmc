@@ -765,7 +765,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	for (auto lIt = loc_begin(), lE = loc_end(); lIt != lE; ++lIt) {
 		for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ++sIt)
 			if (v.contains(sIt->getPos())) {
-				other.addStoreToCO(other.getWriteLabel(sIt->getPos()));
+				other.addStoreToCO(other.getWriteLabel(sIt->getPos()), other.co_end(lIt->first));
 			}
 	}
 	for (auto it = loc_begin(); it != loc_end(); ++it) {

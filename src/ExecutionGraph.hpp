@@ -227,11 +227,8 @@ public:
 	 * (Maintains well-formedness for read removals.) */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
-	void addStoreToCO(WriteLabel *wLab, WriteLabel *succLab = nullptr) {
-		if (succLab)
-			coherence[wLab->getAddr()].insert(co_iterator(*succLab), *wLab);
-		else
-			coherence[wLab->getAddr()].push_back(*wLab);
+	void addStoreToCO(WriteLabel *wLab, co_iterator it) {
+		coherence[wLab->getAddr()].insert(it, *wLab);
 	}
 	void removeStoreFromCO(WriteLabel *wLab) {
 		coherence[wLab->getAddr()].remove(*wLab);
