@@ -60,8 +60,8 @@ public:
 	}
 
 	GraphBuilder &withEnabledBAM(bool bam) {
-		if (bam)
-			graph->enableBAM();
+		// if (bam)
+		// 	graph->enableBAM();
 		return *this;
 	}
 
