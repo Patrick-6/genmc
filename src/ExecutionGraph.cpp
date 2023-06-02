@@ -641,7 +641,7 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 		} else {
 			for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ) {
 				if (!preds.contains(sIt->getPos()))
-					lIt->second.erase(sIt++);
+					sIt = lIt->second.erase(sIt);
 				else
 					++sIt;
 			}
