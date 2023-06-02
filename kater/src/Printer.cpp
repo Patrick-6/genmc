@@ -127,7 +127,7 @@ ExecutionGraph::co_iterator
 	auto it = std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
 		return isHbOptRfBefore(read, lab.getPos());
 	});
-	if (it == g.co_end(addr) || it->view(0).contains(read))
+	if (it == g.co_end(addr) || it->view(#HB#).contains(read))
 		return it;
 	return ++it;
 }
