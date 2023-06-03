@@ -33,9 +33,9 @@ public:
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
 
-	bool isConsistent(const Event &e) override;
+	bool isConsistent(const EventLabel *lab) override;
 
-	bool isRecoveryValid(const Event &e) override;
+	bool isRecoveryValid(const EventLabel *lab) override;
 };
 
 #endif /* __TSO_DRIVER_HPP__ */

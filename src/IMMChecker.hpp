@@ -50,14 +50,14 @@ private:
 public:
 	IMMChecker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateSaved(const Event &e);
-	std::vector<View> calculateViews(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
+	std::vector<View> calculateViews(const EventLabel *lab);
 	bool isDepTracking();
-	bool isConsistent(const Event &e);
-	VerificationError checkErrors(const Event &e);
-	bool isRecoveryValid(const Event &e);
-	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
-	const View &getHbView(const Event &e);
+	bool isConsistent(const EventLabel *lab);
+	VerificationError checkErrors(const EventLabel *lab);
+	bool isRecoveryValid(const EventLabel *lab);
+	std::unique_ptr<VectorClock> getPPoRfBefore(const EventLabel *lab);
+	const View &getHbView(const EventLabel *lab);
 	std::vector<Event> getCoherentStores(SAddr addr, Event read);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
 	llvm::iterator_range<ExecutionGraph::co_iterator>
@@ -73,15 +73,15 @@ private:
 	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
 	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
 
-	void visitCalc0_0(const Event &e, View &calcRes);
-	void visitCalc0_1(const Event &e, View &calcRes);
-	void visitCalc0_2(const Event &e, View &calcRes);
-	void visitCalc0_3(const Event &e, View &calcRes);
-	void visitCalc0_4(const Event &e, View &calcRes);
-	void visitCalc0_5(const Event &e, View &calcRes);
-	void visitCalc0_6(const Event &e, View &calcRes);
+	void visitCalc0_0(const EventLabel *lab, View &calcRes);
+	void visitCalc0_1(const EventLabel *lab, View &calcRes);
+	void visitCalc0_2(const EventLabel *lab, View &calcRes);
+	void visitCalc0_3(const EventLabel *lab, View &calcRes);
+	void visitCalc0_4(const EventLabel *lab, View &calcRes);
+	void visitCalc0_5(const EventLabel *lab, View &calcRes);
+	void visitCalc0_6(const EventLabel *lab, View &calcRes);
 
-	View calculate0(const Event &e);
+	View calculate0(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_0;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
@@ -91,37 +91,37 @@ private:
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_5;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_6;
 
-	bool visitAcyclic0(const Event &e);
-	bool visitAcyclic1(const Event &e);
-	bool visitAcyclic2(const Event &e);
-	bool visitAcyclic3(const Event &e);
-	bool visitAcyclic4(const Event &e);
-	bool visitAcyclic5(const Event &e);
-	bool visitAcyclic6(const Event &e);
-	bool visitAcyclic7(const Event &e);
-	bool visitAcyclic8(const Event &e);
-	bool visitAcyclic9(const Event &e);
-	bool visitAcyclic10(const Event &e);
-	bool visitAcyclic11(const Event &e);
-	bool visitAcyclic12(const Event &e);
-	bool visitAcyclic13(const Event &e);
-	bool visitAcyclic14(const Event &e);
-	bool visitAcyclic15(const Event &e);
-	bool visitAcyclic16(const Event &e);
-	bool visitAcyclic17(const Event &e);
-	bool visitAcyclic18(const Event &e);
-	bool visitAcyclic19(const Event &e);
-	bool visitAcyclic20(const Event &e);
-	bool visitAcyclic21(const Event &e);
-	bool visitAcyclic22(const Event &e);
-	bool visitAcyclic23(const Event &e);
-	bool visitAcyclic24(const Event &e);
-	bool visitAcyclic25(const Event &e);
-	bool visitAcyclic26(const Event &e);
-	bool visitAcyclic27(const Event &e);
-	bool visitAcyclic28(const Event &e);
+	bool visitAcyclic0(const EventLabel *lab);
+	bool visitAcyclic1(const EventLabel *lab);
+	bool visitAcyclic2(const EventLabel *lab);
+	bool visitAcyclic3(const EventLabel *lab);
+	bool visitAcyclic4(const EventLabel *lab);
+	bool visitAcyclic5(const EventLabel *lab);
+	bool visitAcyclic6(const EventLabel *lab);
+	bool visitAcyclic7(const EventLabel *lab);
+	bool visitAcyclic8(const EventLabel *lab);
+	bool visitAcyclic9(const EventLabel *lab);
+	bool visitAcyclic10(const EventLabel *lab);
+	bool visitAcyclic11(const EventLabel *lab);
+	bool visitAcyclic12(const EventLabel *lab);
+	bool visitAcyclic13(const EventLabel *lab);
+	bool visitAcyclic14(const EventLabel *lab);
+	bool visitAcyclic15(const EventLabel *lab);
+	bool visitAcyclic16(const EventLabel *lab);
+	bool visitAcyclic17(const EventLabel *lab);
+	bool visitAcyclic18(const EventLabel *lab);
+	bool visitAcyclic19(const EventLabel *lab);
+	bool visitAcyclic20(const EventLabel *lab);
+	bool visitAcyclic21(const EventLabel *lab);
+	bool visitAcyclic22(const EventLabel *lab);
+	bool visitAcyclic23(const EventLabel *lab);
+	bool visitAcyclic24(const EventLabel *lab);
+	bool visitAcyclic25(const EventLabel *lab);
+	bool visitAcyclic26(const EventLabel *lab);
+	bool visitAcyclic27(const EventLabel *lab);
+	bool visitAcyclic28(const EventLabel *lab);
 
-	bool isAcyclic(const Event &e);
+	bool isAcyclic(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic0;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic1;
@@ -155,19 +155,19 @@ private:
 
 	uint16_t visitedAccepting = 0;
 
-	bool isRecAcyclic(const Event &e);
+	bool isRecAcyclic(const EventLabel *lab);
 
 
 	uint16_t visitedRecAccepting = 0;
-	void visitPPoRf0(const Event &e, DepView &pporf);
-	void visitPPoRf1(const Event &e, DepView &pporf);
-	void visitPPoRf2(const Event &e, DepView &pporf);
-	void visitPPoRf3(const Event &e, DepView &pporf);
-	void visitPPoRf4(const Event &e, DepView &pporf);
-	void visitPPoRf5(const Event &e, DepView &pporf);
-	void visitPPoRf6(const Event &e, DepView &pporf);
+	void visitPPoRf0(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf1(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf2(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf3(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf4(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf5(const EventLabel *lab, DepView &pporf);
+	void visitPPoRf6(const EventLabel *lab, DepView &pporf);
 
-	DepView calcPPoRfBefore(const Event &e);
+	DepView calcPPoRfBefore(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedPPoRf0;
 	static inline thread_local std::vector<NodeStatus> visitedPPoRf1;

@@ -34,8 +34,8 @@ void RC11Driver::updateLabelViews(EventLabel *lab)
 {
 	const auto &g = getGraph();
 
-	lab->setCalculated(RC11Checker(getGraph()).calculateSaved(lab->getPos()));
-	lab->setViews(RC11Checker(getGraph()).calculateViews(lab->getPos()));
+	lab->setCalculated(RC11Checker(getGraph()).calculateSaved(lab));
+	lab->setViews(RC11Checker(getGraph()).calculateViews(lab));
 }
 
 void RC11Driver::changeRf(Event read, Event store)
@@ -52,14 +52,14 @@ void RC11Driver::initConsCalculation()
 	return;
 }
 
-bool RC11Driver::isConsistent(const Event &e)
+bool RC11Driver::isConsistent(const EventLabel *lab)
 {
-	return RC11Checker(getGraph()).isConsistent(e);
+	return RC11Checker(getGraph()).isConsistent(lab);
 }
 
-VerificationError RC11Driver::checkErrors(const Event &e)
+VerificationError RC11Driver::checkErrors(const EventLabel *lab)
 {
-	return RC11Checker(getGraph()).checkErrors(e);
+	return RC11Checker(getGraph()).checkErrors(lab);
 }
 
 std::vector<Event>
@@ -82,13 +82,13 @@ RC11Driver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
 }
 
 std::unique_ptr<VectorClock>
-RC11Driver::getPrefixView(Event e)
+RC11Driver::getPrefixView(const EventLabel *lab)
 {
-	return RC11Checker(getGraph()).getPPoRfBefore(e);
+	return RC11Checker(getGraph()).getPPoRfBefore(lab);
 }
 
 const View &
-RC11Driver::getHbView(const Event &e)
+RC11Driver::getHbView(const EventLabel *lab)
 {
-	return RC11Checker(getGraph()).getHbView(e);
+	return RC11Checker(getGraph()).getHbView(lab);
 }

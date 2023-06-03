@@ -49,40 +49,40 @@ private:
 public:
 	TSOChecker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateSaved(const Event &e);
-	std::vector<View> calculateViews(const Event &e);
-	bool isConsistent(const Event &e);
-	bool isRecoveryValid(const Event &e);
-	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
+	std::vector<View> calculateViews(const EventLabel *lab);
+	bool isConsistent(const EventLabel *lab);
+	bool isRecoveryValid(const EventLabel *lab);
+	std::unique_ptr<VectorClock> getPPoRfBefore(const EventLabel *lab);
 
 private:
-	void visitCalc0_0(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_1(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_2(const Event &e, VSet<Event> &calcRes);
-	void visitCalc0_3(const Event &e, VSet<Event> &calcRes);
+	void visitCalc0_0(const EventLabel *lab, VSet<Event> &calcRes);
+	void visitCalc0_1(const EventLabel *lab, VSet<Event> &calcRes);
+	void visitCalc0_2(const EventLabel *lab, VSet<Event> &calcRes);
+	void visitCalc0_3(const EventLabel *lab, VSet<Event> &calcRes);
 
-	VSet<Event> calculate0(const Event &e);
+	VSet<Event> calculate0(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_0;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_2;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_3;
 
-	bool visitAcyclic0(const Event &e);
+	bool visitAcyclic0(const EventLabel *lab);
 
-	bool isAcyclic(const Event &e);
+	bool isAcyclic(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic0;
 
 	uint16_t visitedAccepting = 0;
 
-	bool isRecAcyclic(const Event &e);
+	bool isRecAcyclic(const EventLabel *lab);
 
 
 	uint16_t visitedRecAccepting = 0;
-	void visitPPoRf0(const Event &e, DepView &pporf);
+	void visitPPoRf0(const EventLabel *lab, DepView &pporf);
 
-	DepView calcPPoRfBefore(const Event &e);
+	DepView calcPPoRfBefore(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedPPoRf0;
 

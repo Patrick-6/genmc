@@ -46,7 +46,7 @@ void SCDriver::initConsCalculation()
 	return;
 }
 
-bool SCDriver::isConsistent(const Event &e)
+bool SCDriver::isConsistent(const EventLabel *lab)
 {
-	return SCChecker(getGraph()).isConsistent(e);
+	BUG();
 }

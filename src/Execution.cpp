@@ -168,16 +168,6 @@ void *Interpreter::getStaticAddr(SAddr addr) const
 	return (char *) staticValueMap.at(sBeg) + (addr.get() - sBeg.get());
 }
 
-/* Returns the initial value for the specified memory location */
-SVal Interpreter::getLocInitVal(SAddr addr, AAccess access)
-{
-	GenericValue result;
-
-	LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
-			    IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
-	return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
-}
-
 std::unique_ptr<SExpr<unsigned int>> Interpreter::getCurrentAnnotConcretized()
 {
 	auto *l = ECStack().back().CurInst->getPrevNode();

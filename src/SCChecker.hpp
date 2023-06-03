@@ -47,14 +47,12 @@ private:
 public:
 	SCChecker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateSaved(const Event &e);
-	std::vector<View> calculateViews(const Event &e);
-	bool isConsistent(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
+	std::vector<View> calculateViews(const EventLabel *lab);
+	bool isConsistent(const EventLabel *lab);
 
 private:
-	bool visitAcyclic0(const Event &e);
-
-	bool isAcyclic(const Event &e);
+	bool isAcyclic(const EventLabel *lab);
 
 	std::vector<NodeCountStatus> visitedAcyclic0;
 

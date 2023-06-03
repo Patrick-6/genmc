@@ -32,8 +32,8 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 {
 	const auto &g = getGraph();
 
-	lab->setCalculated(IMMChecker(getGraph()).calculateSaved(lab->getPos()));
-	lab->setViews(IMMChecker(getGraph()).calculateViews(lab->getPos()));
+	lab->setCalculated(IMMChecker(getGraph()).calculateSaved(lab));
+	lab->setViews(IMMChecker(getGraph()).calculateViews(lab));
 }
 
 void IMMDriver::changeRf(Event read, Event store)
@@ -49,15 +49,15 @@ void IMMDriver::initConsCalculation()
 	return;
 }
 
-bool IMMDriver::isConsistent(const Event &e)
+bool IMMDriver::isConsistent(const EventLabel *lab)
 {
-	return IMMChecker(getGraph()).isConsistent(e);
+	return IMMChecker(getGraph()).isConsistent(lab);
 }
 
 std::unique_ptr<VectorClock>
-IMMDriver::getPrefixView(Event e)
+IMMDriver::getPrefixView(const EventLabel *lab)
 {
-	return IMMChecker(getGraph()).getPPoRfBefore(e);
+	return IMMChecker(getGraph()).getPPoRfBefore(lab);
 }
 
 std::vector<Event>
@@ -80,7 +80,7 @@ IMMDriver::getCoherentPlacings(SAddr addr, Event read, bool isRMW)
 }
 
 const View &
-IMMDriver::getHbView(const Event &e)
+IMMDriver::getHbView(const EventLabel *lab)
 {
-	return IMMChecker(getGraph()).getHbView(e);
+	return IMMChecker(getGraph()).getHbView(lab);
 }

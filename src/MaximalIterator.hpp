@@ -99,8 +99,8 @@ inline maximal_iterator maximal_begin(const View &v) { return maximal_iterator(v
 inline maximal_iterator maximal_end(const View &v)   { return maximal_iterator(v, true); }
 inline maximal_range maximals(const View &v) { return maximal_range(maximal_begin(v), maximal_end(v)); }
 
-#define FOREACH_MAXIMAL(result, view)					\
+#define FOREACH_MAXIMAL(result, graph, view)				\
 	for (auto i = 0u; i < view.size(); i++)				\
-		if (auto p = Event(i, view.getMax(i)); true)
+		if (auto *pLab = graph.getEventLabel(Event(i, view.getMax(i))); true)
 
 #endif /*__MAXIMAL_ITERATOR_HPP__ */

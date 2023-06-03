@@ -29,8 +29,7 @@ TSODriver::TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::M
 
 void TSODriver::updateLabelViews(EventLabel *lab)
 {
-	lab->setCalculated(TSOChecker(getGraph()).calculateSaved(lab->getPos()));
-	lab->setViews(TSOChecker(getGraph()).calculateViews(lab->getPos()));
+	BUG();
 }
 
 void TSODriver::changeRf(Event read, Event store)
@@ -47,14 +46,15 @@ void TSODriver::initConsCalculation()
 	return;
 }
 
-bool TSODriver::isConsistent(const Event &e)
+bool TSODriver::isConsistent(const EventLabel *lab)
 {
-	if (e.thread == getGraph().getRecoveryRoutineId())
-		return TSOChecker(getGraph()).isRecoveryValid(e);
-	return TSOChecker(getGraph()).isConsistent(e);
+	BUG();
+	// if (lab->getThread() == getGraph().getRecoveryRoutineId())
+	// 	return TSOChecker(getGraph()).isRecoveryValid(lab);
+	// return TSOChecker(getGraph()).isConsistent(lab);
 }
 
-bool TSODriver::isRecoveryValid(const Event &e)
+bool TSODriver::isRecoveryValid(const EventLabel *lab)
 {
-	return TSOChecker(getGraph()).isRecoveryValid(e);
+	BUG();
 }

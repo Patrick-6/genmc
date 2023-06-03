@@ -33,12 +33,12 @@ public:
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
 
-	bool isConsistent(const Event &e) override;
-	VerificationError checkErrors(const Event &e) override {
+	bool isConsistent(const EventLabel *lab) override;
+	VerificationError checkErrors(const EventLabel *lab) override {
 		return VerificationError::VE_OK;
 	}
 	std::unique_ptr<VectorClock>
-	getPrefixView(Event e) override;
+	getPrefixView(const EventLabel *lab) override;
 
 	std::vector<Event>
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
@@ -48,7 +48,7 @@ public:
 	getCoherentPlacings(SAddr addr, Event read, bool isRMW)	override;
 
 	const View &
-	getHbView(const Event &e) override;
+	getHbView(const EventLabel *lab) override;
 };
 
 #endif /* __IMM_WB_DRIVER_HPP__ */

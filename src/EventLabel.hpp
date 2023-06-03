@@ -572,13 +572,8 @@ public:
 	bool wasAddedMax() const { return maximal; }
 	void setAddedMax(bool status) { maximal = status; }
 
-	/* Getter/setter for a the fence view of this memory access */
-	const DepView& getFenceView() const { return fenceView; }
-	void setFenceView(DepView &&v) { fenceView = std::move(v); }
-
 	virtual void reset() override {
 		EventLabel::reset();
-		fenceView.clear();
 		maximal = true;
 	}
 
@@ -593,9 +588,6 @@ private:
 
 	/* The size of the access performed (in bytes) */
 	AAccess access;
-
-	/* A view of fences that could be used by some memory models (e.g., LKMM) */
-	DepView fenceView;
 
 	/* Whether was mo-maximal when added */
 	bool maximal = true;
@@ -1146,12 +1138,9 @@ public:
 	bool isFinal() const { return hasAttr(WriteAttr::Final); }
 	bool isLocal() const { return hasAttr(WriteAttr::Local); }
 
-	/* Returns a list of the reads reading from this write */
-	const std::vector<Event>& getReadersList() const { return readerList; }
-
 	/* Iterators for readers */
-	using rf_iterator = std::vector<Event>::iterator;
-	using const_rf_iterator = std::vector<Event>::const_iterator;
+	using rf_iterator = std::vector<ReadLabel *>::iterator;
+	using const_rf_iterator = std::vector<ReadLabel *>::const_iterator;
 	using const_rf_range = llvm::iterator_range<const_rf_iterator>;
 
 	rf_iterator readers_begin() { return readerList.begin(); }
@@ -1162,16 +1151,10 @@ public:
 		return const_rf_range(readers_begin(), readers_end());
 	}
 
-	/* Getter/setter for a view representing the
-	 * release sequence of this write */
-	const View& getMsgView() const { return msgView; }
-	void setMsgView(View &&v) { msgView = std::move(v); }
 
 	virtual void reset() override {
 		MemAccessLabel::reset();
-		msgView.clear();
 		readerList.clear();
-		moIndex = -1;
 		wattr &= ~(WriteAttr::RevBlocker);
 	}
 
@@ -1184,39 +1167,25 @@ private:
 	friend class CoherenceCalculator;
 
 	/* Adds a read to the list of reads reading from the write */
-	void addReader(Event r) {
-		if (std::find(readerList.begin(), readerList.end(), r) ==
-		    readerList.end())
-			readerList.push_back(r);
+	void addReader(ReadLabel *rLab) {
+		if (std::find(readers_begin(), readers_end(), rLab) ==  readers_end())
+			readerList.push_back(rLab);
 	}
 
 	/* Removes all readers that satisfy predicate F */
 	template <typename F>
 	void removeReader(F cond) {
-		readerList.erase(std::remove_if(readerList.begin(),
-						readerList.end(), [&](Event r)
-						{ return cond(r); }),
-				 readerList.end());
+		readerList.erase(std::remove_if(readers_begin(),
+						readers_end(), [&](ReadLabel *rLab)
+						{ return cond(rLab); }),
+				 readers_end());
 	}
-
-	/* Returns the stored hint re. this label's position in MO */
-	int getMOIdxHint() const { return moIndex; }
-
-	/* Sets a hint re. this label's position in MO */
-	void setMOIdxHint(int hint) { moIndex = hint; }
 
 	/* The value written by this label */
 	SVal value;
 
-	/* View for the release sequence of the write */
-	View msgView;
-
 	/* List of reads reading from the write */
-	std::vector<Event> readerList;
-
-	/* A hint containing the index of this write in MO (-1 for unused).
-	 * (This should not be part of the public interface.) */
-	int moIndex = -1;
+	std::vector<ReadLabel *> readerList;
 
 	/* Attributes of the write */
 	WriteAttr wattr;

@@ -85,8 +85,8 @@ public:
 	using reverse_co_iterator = StoreList::reverse_iterator;
 	using const_reverse_co_iterator = StoreList::const_reverse_iterator;
 
-	using initrf_iterator = std::vector<Event>::iterator;
-	using const_initrf_iterator = std::vector<Event>::const_iterator;
+	using initrf_iterator = std::vector<ReadLabel *>::iterator;
+	using const_initrf_iterator = std::vector<ReadLabel *>::const_iterator;
 
 	iterator begin() { return events.begin(); };
 	iterator end() { return events.end(); };
@@ -323,7 +323,7 @@ public:
 		return Event(thread, getThreadSize(thread) - 1);
 	}
 	const EventLabel *getLastThreadLabel(int thread) const {
-		return getEventLabel(getLastThreadEvent(thread));
+		return getEventLabel(Event(thread, getThreadSize(thread)-1));
 	}
 	EventLabel *getLastThreadLabel(int thread) {
 		return const_cast<EventLabel *>(
@@ -570,13 +570,13 @@ protected:
 
 	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 
-	void addInitRfToLoc(SAddr addr, Event read) {
-		initRfs[addr].push_back(read);
+	void addInitRfToLoc(ReadLabel *rLab) {
+		initRfs[rLab->getAddr()].push_back(rLab);
 	}
 
-	void removeInitRfToLoc(SAddr addr, Event read) {
-		auto &locInits = initRfs[addr];
-		auto it = std::find(locInits.begin(), locInits.end(), read);
+	void removeInitRfToLoc(ReadLabel *rLab) {
+		auto &locInits = initRfs[rLab->getAddr()];
+		auto it = std::find(locInits.begin(), locInits.end(), rLab);
 		if (it != locInits.end())
 			locInits.erase(it);
 	}
@@ -598,8 +598,8 @@ protected:
 	/* The next available timestamp */
 	Stamp timestamp = 0;
 
-	std::unordered_map<SAddr, llvm::simple_ilist<WriteLabel>> coherence;
-	std::unordered_map<SAddr, std::vector<Event>> initRfs;
+	LocMap coherence;
+	std::unordered_map<SAddr, std::vector<ReadLabel *>> initRfs;
 
 	/* Pers: An object calculating persistency relations */
 	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */

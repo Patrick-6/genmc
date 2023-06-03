@@ -503,7 +503,15 @@ public:
 
   /* Helper functions */
   void replayExecutionBefore(const VectorClock &before);
-  SVal getLocInitVal(SAddr addr, AAccess access);
+
+  SVal getLocInitVal(SAddr addr, AAccess access) {
+    GenericValue result;
+
+    LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(addr),
+			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
+    return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
+  }
+
   unsigned int getTypeSize(Type *typ) const;
   SVal executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op);
 

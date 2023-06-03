@@ -50,14 +50,14 @@ private:
 public:
 	RC11Checker(ExecutionGraph &g) : g(g) {}
 
-	std::vector<VSet<Event>> calculateSaved(const Event &e);
-	std::vector<View> calculateViews(const Event &e);
+	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
+	std::vector<View> calculateViews(const EventLabel *lab);
 	bool isDepTracking();
-	bool isConsistent(const Event &e);
-	VerificationError checkErrors(const Event &e);
-	bool isRecoveryValid(const Event &e);
-	std::unique_ptr<VectorClock> getPPoRfBefore(const Event &e);
-	const View &getHbView(const Event &e);
+	bool isConsistent(const EventLabel *lab);
+	VerificationError checkErrors(const EventLabel *lab);
+	bool isRecoveryValid(const EventLabel *lab);
+	std::unique_ptr<VectorClock> getPPoRfBefore(const EventLabel *lab);
+	const View &getHbView(const EventLabel *lab);
 	std::vector<Event> getCoherentStores(SAddr addr, Event read);
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf);
 	llvm::iterator_range<ExecutionGraph::co_iterator>
@@ -73,15 +73,15 @@ private:
 	std::vector<Event> getMOOptRfAfter(const WriteLabel *sLab);
 	std::vector<Event> getMOInvOptRfAfter(const WriteLabel *sLab);
 
-	void visitCalc0_0(const Event &e, View &calcRes);
-	void visitCalc0_1(const Event &e, View &calcRes);
-	void visitCalc0_2(const Event &e, View &calcRes);
-	void visitCalc0_3(const Event &e, View &calcRes);
-	void visitCalc0_4(const Event &e, View &calcRes);
-	void visitCalc0_5(const Event &e, View &calcRes);
-	void visitCalc0_6(const Event &e, View &calcRes);
+	void visitCalc0_0(const EventLabel *lab, View &calcRes);
+	void visitCalc0_1(const EventLabel *lab, View &calcRes);
+	void visitCalc0_2(const EventLabel *lab, View &calcRes);
+	void visitCalc0_3(const EventLabel *lab, View &calcRes);
+	void visitCalc0_4(const EventLabel *lab, View &calcRes);
+	void visitCalc0_5(const EventLabel *lab, View &calcRes);
+	void visitCalc0_6(const EventLabel *lab, View &calcRes);
 
-	View calculate0(const Event &e);
+	View calculate0(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_0;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_1;
@@ -91,10 +91,10 @@ private:
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_5;
 	static inline thread_local std::vector<NodeStatus> visitedCalc0_6;
 
-	void visitInclusionLHS0_0(const Event &e);
-	void visitInclusionLHS0_1(const Event &e);
+	void visitInclusionLHS0_0(const EventLabel *lab);
+	void visitInclusionLHS0_1(const EventLabel *lab);
 
-	bool checkInclusion0(const Event &e);
+	bool checkInclusion0(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS0_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS0_1;
@@ -102,10 +102,10 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept0;
 	static inline thread_local std::vector<bool> rhsAccept0;
 
-	bool visitInclusionLHS1_0(const Event &e, const View &v);
-	bool visitInclusionLHS1_1(const Event &e, const View &v);
+	bool visitInclusionLHS1_0(const EventLabel *lab, const View &v);
+	bool visitInclusionLHS1_1(const EventLabel *lab, const View &v);
 
-	bool checkInclusion1(const Event &e);
+	bool checkInclusion1(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS1_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS1_1;
@@ -115,10 +115,10 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept1;
 	static inline thread_local std::vector<bool> rhsAccept1;
 
-	void visitInclusionLHS2_0(const Event &e);
-	void visitInclusionLHS2_1(const Event &e);
+	void visitInclusionLHS2_0(const EventLabel *lab);
+	void visitInclusionLHS2_1(const EventLabel *lab);
 
-	bool checkInclusion2(const Event &e);
+	bool checkInclusion2(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS2_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS2_1;
@@ -126,10 +126,10 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept2;
 	static inline thread_local std::vector<bool> rhsAccept2;
 
-	bool visitInclusionLHS3_0(const Event &e, const View &v);
-	bool visitInclusionLHS3_1(const Event &e, const View &v);
+	bool visitInclusionLHS3_0(const EventLabel *lab, const View &v);
+	bool visitInclusionLHS3_1(const EventLabel *lab, const View &v);
 
-	bool checkInclusion3(const Event &e);
+	bool checkInclusion3(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS3_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS3_1;
@@ -139,10 +139,10 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept3;
 	static inline thread_local std::vector<bool> rhsAccept3;
 
-	void visitInclusionLHS4_0(const Event &e);
-	void visitInclusionLHS4_1(const Event &e);
+	void visitInclusionLHS4_0(const EventLabel *lab);
+	void visitInclusionLHS4_1(const EventLabel *lab);
 
-	bool checkInclusion4(const Event &e);
+	bool checkInclusion4(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS4_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS4_1;
@@ -150,10 +150,10 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept4;
 	static inline thread_local std::vector<bool> rhsAccept4;
 
-	bool visitInclusionLHS5_0(const Event &e, const View &v);
-	bool visitInclusionLHS5_1(const Event &e, const View &v);
+	bool visitInclusionLHS5_0(const EventLabel *lab, const View &v);
+	bool visitInclusionLHS5_1(const EventLabel *lab, const View &v);
 
-	bool checkInclusion5(const Event &e);
+	bool checkInclusion5(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS5_0;
 	static inline thread_local std::vector<NodeStatus> visitedInclusionLHS5_1;
@@ -163,24 +163,24 @@ private:
 	static inline thread_local std::vector<bool> lhsAccept5;
 	static inline thread_local std::vector<bool> rhsAccept5;
 
-	bool visitAcyclic0(const Event &e);
-	bool visitAcyclic1(const Event &e);
-	bool visitAcyclic2(const Event &e);
-	bool visitAcyclic3(const Event &e);
-	bool visitAcyclic4(const Event &e);
-	bool visitAcyclic5(const Event &e);
-	bool visitAcyclic6(const Event &e);
-	bool visitAcyclic7(const Event &e);
-	bool visitAcyclic8(const Event &e);
-	bool visitAcyclic9(const Event &e);
-	bool visitAcyclic10(const Event &e);
-	bool visitAcyclic11(const Event &e);
-	bool visitAcyclic12(const Event &e);
-	bool visitAcyclic13(const Event &e);
-	bool visitAcyclic14(const Event &e);
-	bool visitAcyclic15(const Event &e);
+	bool visitAcyclic0(const EventLabel *lab);
+	bool visitAcyclic1(const EventLabel *lab);
+	bool visitAcyclic2(const EventLabel *lab);
+	bool visitAcyclic3(const EventLabel *lab);
+	bool visitAcyclic4(const EventLabel *lab);
+	bool visitAcyclic5(const EventLabel *lab);
+	bool visitAcyclic6(const EventLabel *lab);
+	bool visitAcyclic7(const EventLabel *lab);
+	bool visitAcyclic8(const EventLabel *lab);
+	bool visitAcyclic9(const EventLabel *lab);
+	bool visitAcyclic10(const EventLabel *lab);
+	bool visitAcyclic11(const EventLabel *lab);
+	bool visitAcyclic12(const EventLabel *lab);
+	bool visitAcyclic13(const EventLabel *lab);
+	bool visitAcyclic14(const EventLabel *lab);
+	bool visitAcyclic15(const EventLabel *lab);
 
-	bool isAcyclic(const Event &e);
+	bool isAcyclic(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic0;
 	static inline thread_local std::vector<NodeCountStatus> visitedAcyclic1;
@@ -201,13 +201,13 @@ private:
 
 	uint16_t visitedAccepting = 0;
 
-	bool isRecAcyclic(const Event &e);
+	bool isRecAcyclic(const EventLabel *lab);
 
 
 	uint16_t visitedRecAccepting = 0;
-	void visitPPoRf0(const Event &e, View &pporf);
+	void visitPPoRf0(const EventLabel *lab, View &pporf);
 
-	View calcPPoRfBefore(const Event &e);
+	View calcPPoRfBefore(const EventLabel *lab);
 
 	static inline thread_local std::vector<NodeStatus> visitedPPoRf0;
 
@@ -215,6 +215,8 @@ private:
 	std::vector<View> views;
 
 	ExecutionGraph &g;
+
+	static inline thread_local unsigned int maxSize = 0;
 
 	ExecutionGraph &getGraph() { return g; }
 	const ExecutionGraph &getGraph() const { return g; }

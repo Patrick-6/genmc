@@ -42,7 +42,6 @@ libgenmc_a_SOURCES = \
   Interpreter.cpp Interpreter.h \
   InterpreterEnumAPI.cpp InterpreterEnumAPI.hpp \
   IntrinsicLoweringPass.cpp IntrinsicLoweringPass.hpp \
-  SCChecker.cpp SCChecker.hpp \
   LabelVisitor.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \
@@ -76,7 +75,6 @@ libgenmc_a_SOURCES = \
   ThreadInfo.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
-  TSOChecker.cpp TSOChecker.hpp \
   TSODriver.cpp TSODriver.hpp \
   WorkSet.hpp WorkSet.cpp \
   value_ptr.hpp \

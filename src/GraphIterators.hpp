@@ -53,7 +53,7 @@ public:
 	using value_type = LabelT;
 	using difference_type = signed;
 	using pointer = LabelT *;
-	using reference = LabelT &;
+	using reference = LabelT *; /* ugly hack to avoid having UP refs */
 
 	using BaseT = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
 
@@ -218,74 +218,6 @@ using const_reverse_label_iterator = LabelIterator<const ExecutionGraph::ThreadL
 
 
 /*******************************************************************************
- **                         EventIterator Class
- ******************************************************************************/
-
-/*
- * Helper that overrides LabelIterator to iterate over events
- */
-template<typename ThreadT, typename ThreadItT, typename LabelT, typename LabelItT>
-class EventIterator : public LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT> {
-
-protected:
-	using Base = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
-
-public:
-	using value_type = Event;
-	using pointer = Event *;
-	using reference = Event &;
-
-	EventIterator() = default;
-
-	/* begin() constructor */
-	template<typename G>
-	EventIterator(G &g) : Base(g) {}
-
-	template<typename G>
-	EventIterator(G &g, bool) : Base(g, true) {}
-
-	template<typename G>
-	EventIterator(G &g, value_type e) : Base(g, e) {}
-
-	/*** Operators ***/
-	inline reference operator*() const { return (*this->label)->getPos(); }
-	inline pointer operator->() const { return &operator*(); }
-
-	EventIterator& operator++() {
-		return static_cast<EventIterator&>(Base::operator++());
-	}
-	EventIterator operator++(int) {
-		auto tmp = *this; Base::operator++(); return tmp;
-	}
-
-	EventIterator& operator--() {
-		return static_cast<EventIterator&>(Base::operator--());
-	}
-	inline EventIterator operator--(int) {
-		auto tmp = *this; Base::operator--(); return tmp;
-	}
-};
-
-using event_iterator = EventIterator<ExecutionGraph::ThreadList,
-				     ExecutionGraph::iterator,
-				     EventLabel,
-				     ExecutionGraph::Thread::iterator>;
-using const_event_iterator = EventIterator<const ExecutionGraph::ThreadList,
-					   ExecutionGraph::const_iterator,
-					   const EventLabel,
-					   ExecutionGraph::Thread::const_iterator>;
-
-using reverse_event_iterator = EventIterator<ExecutionGraph::ThreadList,
-					     ExecutionGraph::reverse_iterator,
-					     EventLabel,
-					     ExecutionGraph::Thread::reverse_iterator>;
-using const_reverse_event_iterator = EventIterator<const ExecutionGraph::ThreadList,
-						   ExecutionGraph::const_reverse_iterator,
-						   const EventLabel,
-						   ExecutionGraph::Thread::const_reverse_iterator>;
-
-
-/*******************************************************************************
  **                         label-iteration utilities
  ******************************************************************************/
 
@@ -307,54 +239,6 @@ inline const_label_iterator label_end(const ExecutionGraph &G)
 inline label_range labels(ExecutionGraph &G) { return label_range(label_begin(G), label_end(G)); }
 inline const_label_range labels(const ExecutionGraph &G) {
 	return const_label_range(label_begin(G), label_end(G));
-}
-
-
-/*******************************************************************************
- **                         event-iteration utilities
- ******************************************************************************/
-
-using event_range = llvm::iterator_range<event_iterator>;
-using const_event_range = llvm::iterator_range<const_event_iterator>;
-
-using reverse_event_range = llvm::iterator_range<reverse_event_iterator>;
-using const_reverse_event_range = llvm::iterator_range<const_reverse_event_iterator>;
-
-inline event_iterator event_begin(ExecutionGraph &G) { return event_iterator(G); }
-inline const_event_iterator event_begin(const ExecutionGraph &G)
-{
-	return const_event_iterator(G);
-}
-
-inline event_iterator event_end(ExecutionGraph &G)   { return event_iterator(G, true); }
-inline const_event_iterator event_end(const ExecutionGraph &G)
-{
-	return const_event_iterator(G, true);
-}
-
-inline event_range events(ExecutionGraph &G) { return event_range(event_begin(G), event_end(G)); }
-inline const_event_range events(const ExecutionGraph &G) {
-	return const_event_range(event_begin(G), event_end(G));
-}
-
-inline reverse_event_iterator event_rbegin(ExecutionGraph &G) { return reverse_event_iterator(G); }
-inline const_reverse_event_iterator event_rbegin(const ExecutionGraph &G)
-{
-	return const_reverse_event_iterator(G);
-}
-
-inline reverse_event_iterator event_rend(ExecutionGraph &G) { return reverse_event_iterator(G, true); }
-inline const_reverse_event_iterator event_rend(const ExecutionGraph &G)
-{
-	return const_reverse_event_iterator(G, true);
-}
-
-inline reverse_event_range revents(ExecutionGraph &G)
-{
-	return reverse_event_range(event_rbegin(G), event_rend(G));
-}
-inline const_reverse_event_range revents(const ExecutionGraph &G) {
-	return const_reverse_event_range(event_rbegin(G), event_rend(G));
 }
 
 
@@ -436,13 +320,13 @@ inline const_reverse_co_range co_preds(const ExecutionGraph &G, Event e)
 	return const_reverse_co_range(co_pred_begin(G, e), co_pred_end(G, e));
 }
 
-inline Event co_imm_pred(const ExecutionGraph &G, Event e)
+inline const EventLabel *co_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *wLab = G.getWriteLabel(e);
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	if (!wLab)
-		return Event::getBottom();
-	auto it = ExecutionGraph::const_co_iterator(G.getWriteLabel(e));
-	return it == G.co_begin(G.getWriteLabel(e)->getAddr()) ? Event::getBottom() : (--it)->getPos();
+		return nullptr;
+	auto it = ExecutionGraph::const_co_iterator(wLab);
+	return it == G.co_begin(wLab->getAddr()) ? nullptr : &*(--it);
 	// return G.getCoherenceCalculator()->co_imm_pred_begin(e);
 }
 
@@ -469,21 +353,21 @@ inline const_reverse_co_range co_imm_preds(const ExecutionGraph &G, const EventL
  **                         po-iteration utilities
  ******************************************************************************/
 
-using const_po_iterator = const_event_iterator;
-using const_reverse_po_iterator = const_reverse_event_iterator;
+using const_po_iterator = const_label_iterator;
+using const_reverse_po_iterator = const_reverse_label_iterator;
 
 using const_po_range = llvm::iterator_range<const_po_iterator>;
 using const_reverse_po_range = llvm::iterator_range<const_reverse_po_iterator>;
 
 inline const_po_iterator po_succ_begin(const ExecutionGraph &G, Event e)
 {
-	return const_event_iterator(G, e.next());
+	return const_po_iterator(G, e.next());
 }
 
 inline const_po_iterator po_succ_end(const ExecutionGraph &G, Event e)
 {
 	return e == G.getLastThreadEvent(e.thread) ? po_succ_begin(G, e) :
-		const_event_iterator(G, G.getLastThreadEvent(e.thread).next());
+		const_po_iterator(G, G.getLastThreadEvent(e.thread).next());
 }
 
 inline const_po_range po_succs(const ExecutionGraph &G, Event e)
@@ -496,9 +380,9 @@ inline const_po_range po_succs(const ExecutionGraph &G, const EventLabel *lab)
 	return po_succs(G, lab->getPos());
 }
 
-inline Event po_imm_succ(const ExecutionGraph &G, Event e)
+inline const EventLabel *po_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return e == G.getLastThreadEvent(e.thread) ? Event::getInitializer() : e.next();
+	return G.getNextLabel(lab);
 }
 
 inline const_po_range po_imm_succs(const ExecutionGraph &G, Event e)
@@ -513,13 +397,13 @@ inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *la
 
 inline const_reverse_po_iterator po_pred_begin(const ExecutionGraph &G, Event e)
 {
-	return const_reverse_event_iterator(G, e.prev());
+	return const_reverse_po_iterator(G, e.prev());
 }
 
 inline const_reverse_po_iterator po_pred_end(const ExecutionGraph &G, Event e)
 {
 	return e == G.getFirstThreadEvent(e.thread) ? po_pred_begin(G, e) :
-		const_reverse_event_iterator(G, G.getFirstThreadEvent(e.thread).prev());
+		const_reverse_po_iterator(G, G.getFirstThreadEvent(e.thread).prev());
 }
 
 inline const_reverse_po_range po_preds(const ExecutionGraph &G, Event e)
@@ -532,12 +416,12 @@ inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel
 	return po_preds(G, lab->getPos());
 }
 
-inline Event po_imm_pred(const ExecutionGraph &G, Event e)
+inline const EventLabel *po_imm_pred(const ExecutionGraph &G, Event e)
 {
-	return e.index > 0 ? e.prev() : Event::getBottom();
+	return G.getPreviousLabel(e);
 }
 
-inline Event po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
+inline const EventLabel *po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	return po_imm_pred(G, lab->getPos());
 }
@@ -595,8 +479,8 @@ namespace detail {
 		LocationFilter(const ExecutionGraph &g, const SAddr &a)
 			: graph(g), addr(a) {}
 
-		bool operator()(const Event &s) const {
-			auto *lab = llvm::dyn_cast<MemAccessLabel>(graph.getEventLabel(s));
+		bool operator()(const EventLabel *sLab) const {
+			auto *lab = llvm::dyn_cast<MemAccessLabel>(sLab);
 			return lab && lab->getAddr() == addr;
 		}
 	private:
@@ -611,6 +495,7 @@ namespace detail {
 
 		poloc_filter_iterator(IterT it, IterT end, LocationFilter filter)
 			: BaseT(it, end, filter) {}
+
 
 		poloc_filter_iterator& operator++() {
 			return static_cast<poloc_filter_iterator&>(BaseT::operator++());
@@ -635,8 +520,8 @@ namespace detail {
 	}
 } /* namespace detail */
 
-using const_poloc_iterator = ::detail::poloc_filter_iterator<const_event_iterator>;
-using const_reverse_poloc_iterator = ::detail::poloc_filter_iterator<const_reverse_event_iterator>;
+using const_poloc_iterator = ::detail::poloc_filter_iterator<const_label_iterator>;
+using const_reverse_poloc_iterator = ::detail::poloc_filter_iterator<const_reverse_label_iterator>;
 
 using const_poloc_range = llvm::iterator_range<const_poloc_iterator>;
 using const_reverse_poloc_range = llvm::iterator_range<const_reverse_poloc_iterator>;
@@ -752,8 +637,8 @@ namespace detail {
 		RfIntFilter(const ExecutionGraph &g, const Event &w)
 			: graph(g), write(w) {}
 
-		bool operator()(const Event &s) const {
-			auto *lab = graph.getReadLabel(s);
+		bool operator()(const EventLabel *rLab) const {
+			auto *lab = llvm::dyn_cast<ReadLabel>(rLab);
 			return lab && lab->getRf()->getPos() != write;
 		}
 	private:
@@ -766,8 +651,8 @@ namespace detail {
 		RfInvIntFilter(const ExecutionGraph &g, const Event &w)
 			: graph(g), write(w) {}
 
-		bool operator()(const Event &s) const {
-			auto *lab = graph.getWriteLabel(s);
+		bool operator()(const EventLabel *sLab) const {
+			auto *lab = llvm::dyn_cast<WriteLabel>(sLab);
 			return lab && lab->getPos() != write;
 		}
 	private:
@@ -889,14 +774,13 @@ inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 }
 
 
-using const_rf_inv_iterator = const_event_iterator;
-using const_rf_inv_range = llvm::iterator_range<const_event_iterator>;
+using const_rf_inv_iterator = const_label_iterator;
+using const_rf_inv_range = llvm::iterator_range<const_label_iterator>;
 
-inline Event rf_pred(const ExecutionGraph &G, Event e)
+inline const EventLabel *rf_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *rLab = G.getReadLabel(e);
-	return (!rLab || !rLab->getRf()) ?
-		Event::getBottom() : rLab->getRf()->getPos();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	return (!rLab || !rLab->getRf()) ? nullptr : rLab->getRf();
 }
 
 inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
@@ -915,8 +799,8 @@ namespace detail {
 		DiffThreadFilter(const ExecutionGraph &g, int t)
 			: graph(g), thread(t) {}
 
-		bool operator()(const Event &e) const {
-			return !e.isInitializer() && !e.isBottom() && e.thread != thread;
+		bool operator()(ReadLabel *rLab) const {
+			return rLab && rLab->getThread() != thread;
 		}
 	private:
 		const ExecutionGraph &graph;
@@ -968,10 +852,10 @@ inline const_rfe_range rfe_succs(const ExecutionGraph &G, const EventLabel *lab)
 using const_rfe_inv_iterator = const_rf_inv_iterator;
 using const_rfe_inv_range = llvm::iterator_range<const_rfe_inv_iterator>;
 
-inline Event rfe_pred(const ExecutionGraph &G, Event e)
+inline const EventLabel *rfe_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *rLab = G.getReadLabel(e);
-	return (rLab && rLab->readsExt()) ? rLab->getRf()->getPos() : Event::getBottom();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	return (rLab && rLab->readsExt()) ? rLab->getRf() : nullptr;
 }
 
 inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, Event e)
@@ -995,8 +879,8 @@ namespace detail {
 		SameThreadFilter(const ExecutionGraph &g, int t)
 			: graph(g), thread(t) {}
 
-		bool operator()(const Event &e) const {
-			return !e.isBottom() && (e.isInitializer() || e.thread == thread);
+		bool operator()(ReadLabel *rLab) const {
+			return rLab && rLab->getThread() == thread;
 		}
 	private:
 		const ExecutionGraph &graph;
@@ -1048,10 +932,10 @@ inline const_rfi_range rfi_succs(const ExecutionGraph &G, const EventLabel *lab)
 using const_rfi_inv_iterator = const_rf_inv_iterator;
 using const_rfi_inv_range = llvm::iterator_range<const_rfi_inv_iterator>;
 
-inline Event rfi_pred(const ExecutionGraph &G, Event e)
+inline const EventLabel *rfi_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *rLab = G.getReadLabel(e);
-	return (rLab && rLab->readsInt()) ? rLab->getRf()->getPos() : Event::getBottom();
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	return (rLab && rLab->readsInt()) ? rLab->getRf() : nullptr;
 }
 
 inline const_rfi_inv_range rfi_preds(const ExecutionGraph &G, Event e)
@@ -1064,21 +948,21 @@ inline const_rfi_inv_range rfi_preds(const ExecutionGraph &G, Event e)
  **                         tcreate-iteration utilities
  ******************************************************************************/
 
-using const_tc_iterator = const_event_iterator;
+using const_tc_iterator = const_label_iterator;
 using const_tc_range = llvm::iterator_range<const_tc_iterator>;
 
 inline const_tc_iterator tc_succ_begin(const ExecutionGraph &G, Event e)
 {
 	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
-	return tcLab ? const_event_iterator(G, Event(tcLab->getChildId(), 0)) :
-		event_end(G);
+	return tcLab ? const_tc_iterator(G, Event(tcLab->getChildId(), 0)) :
+		label_end(G);
 }
 
 inline const_tc_iterator tc_succ_end(const ExecutionGraph &G, Event e)
 {
 	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
-	return tcLab ? const_event_iterator(G, Event(tcLab->getChildId(), 1)) :
-		event_end(G);
+	return tcLab ? const_label_iterator(G, Event(tcLab->getChildId(), 1)) :
+		label_end(G);
 }
 
 inline const_tc_range tc_succs(const ExecutionGraph &G, Event e)
@@ -1095,15 +979,15 @@ inline const_tc_range tc_succs(const ExecutionGraph &G, const EventLabel *lab)
 inline const_tc_iterator tc_pred_begin(const ExecutionGraph &G, Event e)
 {
 	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
-	return tsLab ? const_event_iterator(G, tsLab->getParentCreate()) :
-		event_end(G);
+	return tsLab ? const_label_iterator(G, tsLab->getParentCreate()) :
+		label_end(G);
 }
 
 inline const_tc_iterator tc_pred_end(const ExecutionGraph &G, Event e)
 {
 	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
-	return tsLab ? const_event_iterator(G, tsLab->getParentCreate().next()) :
-		event_end(G);
+	return tsLab ? const_label_iterator(G, tsLab->getParentCreate().next()) :
+		label_end(G);
 }
 
 inline const_tc_range tc_preds(const ExecutionGraph &G, Event e)
@@ -1120,7 +1004,7 @@ inline const_tc_range tc_preds(const ExecutionGraph &G, const EventLabel *lab)
  **                         tjoin-iteration utilities
  ******************************************************************************/
 
-using const_tj_iterator = const_event_iterator;
+using const_tj_iterator = const_label_iterator;
 using const_tj_range = llvm::iterator_range<const_tj_iterator>;
 
 inline const_tj_iterator tj_succ_begin(const ExecutionGraph &G, Event e)
@@ -1128,7 +1012,7 @@ inline const_tj_iterator tj_succ_begin(const ExecutionGraph &G, Event e)
 	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
 	return (eLab && !eLab->getParentJoin().isInitializer()) ?
 		const_tj_iterator(G, eLab->getParentJoin()) :
-		event_end(G);
+		label_end(G);
 }
 
 inline const_tj_iterator tj_succ_end(const ExecutionGraph &G, Event e)
@@ -1136,7 +1020,7 @@ inline const_tj_iterator tj_succ_end(const ExecutionGraph &G, Event e)
 	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
 	return (eLab && !eLab->getParentJoin().isInitializer()) ?
 		const_tj_iterator(G, eLab->getParentJoin().next()) :
-		event_end(G);
+		label_end(G);
 }
 
 inline const_tj_range tj_succs(const ExecutionGraph &G, Event e)
@@ -1154,7 +1038,7 @@ inline const_tj_iterator tj_pred_begin(const ExecutionGraph &G, Event e)
 	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
 	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
 		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId())) :
-		event_end(G);
+		label_end(G);
 }
 
 inline const_tj_iterator tj_pred_end(const ExecutionGraph &G, Event e)
@@ -1162,7 +1046,7 @@ inline const_tj_iterator tj_pred_end(const ExecutionGraph &G, Event e)
 	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
 	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
 		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId()).next()) :
-		event_end(G);
+		label_end(G);
 }
 
 inline const_tj_range tj_preds(const ExecutionGraph &G, Event e)
@@ -1216,19 +1100,19 @@ inline Event fr_imm_succ_begin(const ExecutionGraph &G, Event e)
 // {
 // 	return G.fr_imm_pred_begin(addr, load);
 // }
-inline const_fr_inv_iterator fr_imm_pred_begin(const ExecutionGraph &G, Event e)
+inline const_fr_inv_iterator fr_imm_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *wLab = G.getWriteLabel(e);
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.fr_imm_pred_begin(wLab) : ::detail::sentinel;
 }
-inline const_fr_inv_iterator fr_imm_pred_end(const ExecutionGraph &G, Event e)
+inline const_fr_inv_iterator fr_imm_pred_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *wLab = G.getWriteLabel(e);
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? G.fr_imm_pred_end(wLab) : ::detail::sentinel;
 }
-inline const_fr_inv_range fr_imm_preds(const ExecutionGraph &G, Event e)
+inline const_fr_inv_range fr_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_fr_inv_range(fr_imm_pred_begin(G, e), fr_imm_pred_end(G, e));
+	return const_fr_inv_range(fr_imm_pred_begin(G, lab), fr_imm_pred_end(G, lab));
 }
 
 // inline const_fr_iterator fr_init_pred_begin(const ExecutionGraph &G, Event e)
@@ -1270,12 +1154,12 @@ namespace detail {
 		IDAndLocFilter(const ExecutionGraph &g, const SAddr &a, Event e)
 			: graph(g), addr(a), pos(e) {}
 
-		bool operator()(const Event &s) const {
-			if (auto *lab = llvm::dyn_cast<MemAccessLabel>(graph.getEventLabel(s)))
+		bool operator()(const EventLabel *sLab) const {
+			if (auto *lab = llvm::dyn_cast<MemAccessLabel>(sLab))
 				return lab->getPos() != pos && lab->getAddr() == addr;
-			if (auto *lab = llvm::dyn_cast<MallocLabel>(graph.getEventLabel(s)))
+			if (auto *lab = llvm::dyn_cast<MallocLabel>(sLab))
 				return lab->getPos() != pos && lab->contains(addr);
-			if (auto *lab = llvm::dyn_cast<FreeLabel>(graph.getEventLabel(s)))
+			if (auto *lab = llvm::dyn_cast<FreeLabel>(sLab))
 				return lab->getPos() != pos && lab->contains(addr);
 			return false;
 		}
@@ -1302,30 +1186,28 @@ namespace detail {
 	};
 } /* namespace detail */
 
-using const_sameloc_iterator = ::detail::sameloc_filter_iterator<const_event_iterator>;
+using const_sameloc_iterator = ::detail::sameloc_filter_iterator<const_label_iterator>;
 using const_sameloc_range = llvm::iterator_range<const_sameloc_iterator>;
 
-inline const_sameloc_iterator sameloc_begin(const ExecutionGraph &G, Event e)
+inline const_sameloc_iterator sameloc_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
 	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	return hasLocation(lab) ? const_sameloc_iterator(event_begin(G), event_end(G),
+	return hasLocation(lab) ? const_sameloc_iterator(label_begin(G), label_end(G),
 							 IDAndLocFilter(G, getLocation(lab), lab->getPos())) :
-		const_sameloc_iterator(event_end(G), event_end(G),
+		const_sameloc_iterator(label_end(G), label_end(G),
 				       IDAndLocFilter(G, SAddr(), lab->getPos()));
 }
 
-inline const_sameloc_iterator sameloc_end(const ExecutionGraph &G, Event e)
+inline const_sameloc_iterator sameloc_end(const ExecutionGraph &G, const EventLabel *lab)
 {
 	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
 	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_sameloc_iterator(event_end(G), event_end(G), IDAndLocFilter(G, addr, lab->getPos()));
+	return const_sameloc_iterator(label_end(G), label_end(G), IDAndLocFilter(G, addr, lab->getPos()));
 }
 
-inline const_sameloc_range samelocs(const ExecutionGraph &G, Event e)
+inline const_sameloc_range samelocs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_sameloc_range(sameloc_begin(G, e), sameloc_end(G, e));
+	return const_sameloc_range(sameloc_begin(G, lab), sameloc_end(G, lab));
 }
 
 
@@ -1339,8 +1221,8 @@ namespace detail {
 		AllocFilter(const ExecutionGraph &g, const SAddr &a)
 			: graph(g), addr(a) {}
 
-		bool operator()(const Event &s) const {
-			auto *lab = llvm::dyn_cast<MallocLabel>(graph.getEventLabel(s));
+		bool operator()(const EventLabel *sLab) const {
+			auto *lab = llvm::dyn_cast<MallocLabel>(sLab);
 			return lab && lab->contains(addr);
 		}
 	private:
@@ -1365,8 +1247,8 @@ namespace detail {
 	};
 } /* namespace detail */
 
-using const_alloc_iterator = ::detail::alloc_filter_iterator<const_event_iterator>;
-using const_reverse_alloc_iterator = ::detail::alloc_filter_iterator<const_reverse_event_iterator>;
+using const_alloc_iterator = ::detail::alloc_filter_iterator<const_label_iterator>;
+using const_reverse_alloc_iterator = ::detail::alloc_filter_iterator<const_reverse_label_iterator>;
 
 using const_alloc_range = llvm::iterator_range<const_alloc_iterator>;
 using const_reverse_alloc_range = llvm::iterator_range<const_reverse_alloc_iterator>;
@@ -1375,9 +1257,9 @@ inline const_alloc_iterator alloc_begin(const ExecutionGraph &G, Event e)
 {
 	using namespace ::detail;
 	auto *lab = G.getEventLabel(e);
-	return hasLocation(lab) ? const_alloc_iterator(event_begin(G), event_end(G),
+	return hasLocation(lab) ? const_alloc_iterator(label_begin(G), label_end(G),
 						       AllocFilter(G, getLocation(lab))) :
-		const_alloc_iterator(event_end(G), event_end(G),
+		const_alloc_iterator(label_end(G), label_end(G),
 				     AllocFilter(G, SAddr()));
 }
 
@@ -1386,7 +1268,7 @@ inline const_alloc_iterator alloc_end(const ExecutionGraph &G, Event e)
 	using namespace ::detail;
 	auto *lab = G.getEventLabel(e);
 	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_alloc_iterator(event_end(G), event_end(G),
+	return const_alloc_iterator(label_end(G), label_end(G),
 				    AllocFilter(G, addr));
 }
 

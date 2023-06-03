@@ -24,67 +24,22 @@
 
 #include "SCChecker.hpp"
 
-std::vector<VSet<Event>> SCChecker::calculateSaved(const Event &e)
+std::vector<VSet<Event>> SCChecker::calculateSaved(const EventLabel *lab)
 {
-	return std::move(saved);
+	BUG();
 }
 
-std::vector<View> SCChecker::calculateViews(const Event &e)
+std::vector<View> SCChecker::calculateViews(const EventLabel *lab)
 {
-	return std::move(views);
+	BUG();
 }
 
-bool SCChecker::visitAcyclic0(const Event &e)
+bool SCChecker::isAcyclic(const EventLabel *lab)
 {
-	auto &g = getGraph();
-	auto *lab = g.getEventLabel(e);
-	auto t = 0u;
-
-	++visitedAccepting;
-	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto &p : po_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : rf_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : co_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	for (auto &p : fr_imm_preds(g, lab->getPos())) {
-		auto &node = visitedAcyclic0[g.getEventLabel(p)->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(p))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	--visitedAccepting;
-	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
-	return true;
+	BUG();
 }
 
-bool SCChecker::isAcyclic(const Event &e)
+bool SCChecker::isConsistent(const EventLabel *lab)
 {
-	visitedAccepting = 0;
-	visitedAcyclic0.clear();
-	visitedAcyclic0.resize(g.getMaxStamp().get() + 1);
-	return true
-		&& visitAcyclic0(e);
-}
-
-bool SCChecker::isConsistent(const Event &e)
-{
-	return isAcyclic(e);
+	BUG();
 }

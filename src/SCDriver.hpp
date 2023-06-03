@@ -33,7 +33,7 @@ public:
 	void changeRf(Event read, Event store) override;
 	void initConsCalculation() override;
 
-	bool isConsistent(const Event &e);
+	bool isConsistent(const EventLabel *lab);
 };
 
 #endif /* __SC_DRIVER_HPP__ */
