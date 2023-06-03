@@ -89,6 +89,10 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 				if (!preds->contains(rLab->getRf()->getPos()))
 					rLab->setRf(nullptr);
 			}
+			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
+				if (eLab->getParentJoin() && !preds->contains(eLab->getParentJoin()->getPos()))
+					eLab->setParentJoin(nullptr);
+			}
 		}
 	}
 

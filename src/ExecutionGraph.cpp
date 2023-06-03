@@ -741,10 +741,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				other.trackCoherenceAtLoc(mLab->getAddr());
 			if (auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(nLab))
 				;
-			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab)) {
-				if (eLab->getParentJoin() && !v.contains(eLab->getParentJoin()->getPos()))
-					eLab->setParentJoin(nullptr);
-			}
 		}
 	}
 
@@ -765,9 +761,12 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 			if (eLab->getParentJoin()) {
-				BUG_ON(!other.containsPos(eLab->getParentJoin()->getPos()));
-				auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(other.getEventLabel(eLab->getParentJoin()->getPos()));
-				eLab->setParentJoin(jLab);
+				if (!v.contains(eLab->getParentJoin()->getPos())) {
+					eLab->setParentJoin(nullptr);
+				} else {
+					auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(other.getEventLabel(eLab->getParentJoin()->getPos()));
+					eLab->setParentJoin(jLab);
+				}
 			}
 		}
 
