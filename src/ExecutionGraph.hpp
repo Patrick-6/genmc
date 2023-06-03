@@ -130,6 +130,10 @@ public:
 	const_co_iterator co_succ_end(const WriteLabel *lab) const {
 		return co_end(lab->getAddr());
 	}
+	const WriteLabel *co_imm_succ(const WriteLabel *lab) const {
+		auto it = co_succ_begin(lab);
+		return it != co_succ_end(lab) ? nullptr : &*it;
+	}
 
 	reverse_co_iterator co_pred_begin(WriteLabel *lab) {
 		return ++reverse_co_iterator(lab);
@@ -142,6 +146,13 @@ public:
 	}
 	const_reverse_co_iterator co_pred_end(const WriteLabel *lab) const {
 		return co_rend(lab->getAddr());
+	}
+	const WriteLabel *co_imm_pred(const WriteLabel *lab) const {
+		auto it = co_pred_begin(lab);
+		return it == co_pred_end(lab) ? nullptr : &*(it);
+	}
+	WriteLabel *co_imm_pred(WriteLabel *lab) {
+		return const_cast<WriteLabel *>(static_cast<const ExecutionGraph &>(*this).co_imm_pred(lab));
 	}
 
 	co_iterator fr_succ_begin(ReadLabel *rLab) {
@@ -157,6 +168,10 @@ public:
 	}
 	const_co_iterator fr_succ_end(const ReadLabel *rLab) const {
 		return co_end(rLab->getAddr());
+	}
+	const WriteLabel *fr_imm_succ(const ReadLabel *rLab) const {
+		auto it = fr_succ_begin(rLab);
+		return it == fr_succ_end(rLab) ? nullptr : &*it;
 	}
 
 	WriteLabel::rf_iterator fr_imm_pred_begin(WriteLabel *wLab) {

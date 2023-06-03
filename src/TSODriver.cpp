@@ -41,11 +41,6 @@ void TSODriver::changeRf(Event read, Event store)
 	return;
 }
 
-void TSODriver::initConsCalculation()
-{
-	return;
-}
-
 bool TSODriver::isConsistent(const EventLabel *lab)
 {
 	BUG();

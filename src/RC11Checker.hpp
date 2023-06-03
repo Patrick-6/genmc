@@ -216,8 +216,6 @@ private:
 
 	ExecutionGraph &g;
 
-	static inline thread_local unsigned int maxSize = 0;
-
 	ExecutionGraph &getGraph() { return g; }
 	const ExecutionGraph &getGraph() const { return g; }
 };

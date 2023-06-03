@@ -1705,8 +1705,12 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 	}
 
 	auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(addLabelToGraph(std::move(lab)));
-
 	auto cid = jLab->getChildId();
+
+	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(g.getLastThreadLabel(cid));
+	BUG_ON(!eLab);
+	eLab->setParentJoin(jLab);
+
 	if (cid < 0 || long (g.getNumThreads()) <= cid || cid == thr.id) {
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
 		if (cid == thr.id)
@@ -1739,7 +1743,7 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 				unblockThread(pLab->getPos());
 			}
 		}
-	} /* FIXME: Thread return values? */
+	}
 }
 
 void GenMCDriver::handleFenceLKMM(std::unique_ptr<FenceLabel> fLab)

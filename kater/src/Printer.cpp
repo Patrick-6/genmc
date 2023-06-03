@@ -307,8 +307,8 @@ const std::unordered_map<Relation::Builtin, Printer::RelationOut> Printer::relat
         {Relation::rf,		{ "rf_succs",        "rf_pred"}},
         {Relation::rfe,		{ "rfe_succs",       "rfe_pred"}},
         {Relation::rfi,		{ "rfi_succs",       "rfi_pred"}},
-        {Relation::tc,		{ "tc_succs",        "tc_preds"}},
-        {Relation::tj,		{ "tj_succs",        "tj_preds"}},
+        {Relation::tc,		{ "tc_succ",         "tc_pred"}},
+        {Relation::tj,		{ "tj_succ",         "tj_pred"}},
         {Relation::mo_imm,	{ "co_imm_succs",    "co_imm_pred"}},
         {Relation::moe,		{ "co_imm_succs",    "?"}},
         {Relation::moi,		{ "co_imm_succs",    "?"}},
@@ -376,7 +376,9 @@ void Printer::printRelation(std::ostream& ostr, const std::string &res,
 		    r->getRelation()->toBuiltin() == Relation::Builtin::rfi ||
 		    r->getRelation()->toBuiltin() == Relation::Builtin::mo_imm ||
 		    r->getRelation()->toBuiltin() == Relation::Builtin::moe ||
-		    r->getRelation()->toBuiltin() == Relation::Builtin::moi)
+		    r->getRelation()->toBuiltin() == Relation::Builtin::moi ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::tj ||
+		    r->getRelation()->toBuiltin() == Relation::Builtin::tc)
 			ostr << "if (auto " << res << " = " << s << "(g, " << arg << "); " << res << ")";
 		else if (r->getRelation()->toBuiltin() == Relation::Builtin::data_imm ||
 			 r->getRelation()->toBuiltin() == Relation::Builtin::ctrl_imm ||

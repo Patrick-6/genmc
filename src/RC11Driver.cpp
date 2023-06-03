@@ -47,11 +47,6 @@ void RC11Driver::changeRf(Event read, Event store)
 	return;
 }
 
-void RC11Driver::initConsCalculation()
-{
-	return;
-}
-
 bool RC11Driver::isConsistent(const EventLabel *lab)
 {
 	return RC11Checker(getGraph()).isConsistent(lab);

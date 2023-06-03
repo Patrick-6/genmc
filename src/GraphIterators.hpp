@@ -277,75 +277,44 @@ namespace detail {
 	inline const_reverse_co_iterator coRevSentinel;
 };
 
-
-inline const_store_iterator co_succ_begin(const ExecutionGraph &G, Event e)
-{
-	auto *wLab = G.getWriteLabel(e);
-	return wLab ? G.co_succ_begin(wLab) : ::detail::coSentinel;
-}
-inline const_store_iterator co_succ_end(const ExecutionGraph &G, Event e)
-{
-	auto *wLab = G.getWriteLabel(e);
-	return wLab ? G.co_succ_end(wLab) : ::detail::coSentinel;
-}
-
-inline const_store_range co_succs(const ExecutionGraph &G, Event e)
-{
-	return const_store_range(co_succ_begin(G, e), co_succ_end(G, e));
-}
-
-inline Event co_imm_succ_begin(const ExecutionGraph &G, Event e)
-{
-	auto *wLab = G.getWriteLabel(e);
-	if (!wLab)
-		return Event::getBottom();
-	auto it = ++const_store_iterator(wLab);
-	return it != G.co_succ_end(wLab) ? Event::getBottom() : it->getPos();
-	// return G.getCoherenceCalculator()->co_imm_succ_begin(e);
-}
-
-
-inline const_reverse_co_iterator co_pred_begin(const ExecutionGraph &G, Event e)
-{
-	auto *wLab = G.getWriteLabel(e);
-	return wLab ? G.co_pred_begin(wLab) : ::detail::coRevSentinel;
-}
-inline const_reverse_co_iterator co_pred_end(const ExecutionGraph &G, Event e)
-{
-	auto *wLab = G.getWriteLabel(e);
-	return wLab ? G.co_pred_end(wLab) : ::detail::coRevSentinel;
-}
-inline const_reverse_co_range co_preds(const ExecutionGraph &G, Event e)
-{
-	return const_reverse_co_range(co_pred_begin(G, e), co_pred_end(G, e));
-}
-
-inline const EventLabel *co_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
+inline const_store_iterator co_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
-	if (!wLab)
-		return nullptr;
-	auto it = ExecutionGraph::const_co_iterator(wLab);
-	return it == G.co_begin(wLab->getAddr()) ? nullptr : &*(--it);
-	// return G.getCoherenceCalculator()->co_imm_pred_begin(e);
+	return wLab ? G.co_succ_begin(wLab) : ::detail::coSentinel;
+}
+inline const_store_iterator co_succ_end(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return wLab ? G.co_succ_end(wLab) : ::detail::coSentinel;
+}
+inline const_store_range co_succs(const ExecutionGraph &G, const EventLabel *lab)
+{
+	return const_store_range(co_succ_begin(G, lab), co_succ_end(G, lab));
+}
+inline const WriteLabel *co_imm_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return !wLab ? nullptr : G.co_imm_succ(wLab);
 }
 
-inline const_reverse_co_range co_imm_preds(const ExecutionGraph &G, SAddr addr, Event store)
+inline const_reverse_co_iterator co_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	BUG(); // FIXME: remove
-	// return const_reverse_store_range(co_imm_pred_begin(G, addr, store),
-	// 				 co_imm_pred_end(G, addr, store));
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return wLab ? G.co_pred_begin(wLab) : ::detail::coRevSentinel;
 }
-inline llvm::iterator_range<WriteLabel::const_rf_iterator> co_imm_preds(const ExecutionGraph &G, Event e)
-// inline const_reverse_store_range co_imm_preds(const ExecutionGraph &G, Event e)
+inline const_reverse_co_iterator co_pred_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	BUG(); // FIXME: remove
-	// return const_reverse_store_range(co_imm_pred_begin(G, e), co_imm_pred_end(G, e));
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return wLab ? G.co_pred_end(wLab) : ::detail::coRevSentinel;
 }
-inline const_reverse_co_range co_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
+inline const_reverse_co_range co_preds(const ExecutionGraph &G, const EventLabel *lab)
 {
-	BUG(); // FIXME: remove
-	// return co_imm_preds(G, lab->getPos());
+	return const_reverse_co_range(co_pred_begin(G, lab), co_pred_end(G, lab));
+}
+inline const WriteLabel *co_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
+	return !wLab ? nullptr : G.co_imm_pred(wLab);
 }
 
 
@@ -385,15 +354,6 @@ inline const EventLabel *po_imm_succ(const ExecutionGraph &G, const EventLabel *
 	return G.getNextLabel(lab);
 }
 
-inline const_po_range po_imm_succs(const ExecutionGraph &G, Event e)
-{
-	BUG(); // FIXME: Delete
-}
-inline const_po_range po_imm_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	BUG(); // FIXME: Delete
-}
-
 
 inline const_reverse_po_iterator po_pred_begin(const ExecutionGraph &G, Event e)
 {
@@ -415,25 +375,9 @@ inline const_reverse_po_range po_preds(const ExecutionGraph &G, const EventLabel
 {
 	return po_preds(G, lab->getPos());
 }
-
-inline const EventLabel *po_imm_pred(const ExecutionGraph &G, Event e)
-{
-	return G.getPreviousLabel(e);
-}
-
 inline const EventLabel *po_imm_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return po_imm_pred(G, lab->getPos());
-}
-
-inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	BUG();
-}
-
-inline const_reverse_po_range po_imm_preds(const ExecutionGraph &G, const Event &e)
-{
-	BUG();
+	return G.getPreviousLabel(lab);
 }
 
 
@@ -751,26 +695,22 @@ namespace detail {
 	inline const_rf_iterator sentinel;
 };
 
-inline const_rf_iterator rf_succ_begin(const ExecutionGraph &G, Event e)
+inline const_rf_iterator rf_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *wLab = G.getWriteLabel(e);
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? wLab->readers_begin() : ::detail::sentinel;
 }
 
-inline const_rf_iterator rf_succ_end(const ExecutionGraph &G, Event e)
+inline const_rf_iterator rf_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *wLab = G.getWriteLabel(e);
+	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return wLab ? wLab->readers_end() : ::detail::sentinel;
 }
 
 
-inline const_rf_range rf_succs(const ExecutionGraph &G, Event e)
-{
-	return const_rf_range(rf_succ_begin(G, e), rf_succ_end(G, e));
-}
 inline const_rf_range rf_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return rf_succs(G, lab->getPos());
+	return const_rf_range(rf_succ_begin(G, lab), rf_succ_end(G, lab));
 }
 
 
@@ -781,11 +721,6 @@ inline const EventLabel *rf_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 	return (!rLab || !rLab->getRf()) ? nullptr : rLab->getRf();
-}
-
-inline const_rf_inv_range rf_preds(const ExecutionGraph &G, Event e)
-{
-	BUG(); // FIXME: Compatibility remnant; remove
 }
 
 
@@ -827,27 +762,21 @@ namespace detail {
 using const_rfe_iterator = ::detail::rfe_filter_iterator<const_rf_iterator>;
 using const_rfe_range = llvm::iterator_range<const_rfe_iterator>;
 
-inline const_rfe_iterator rfe_succ_begin(const ExecutionGraph &G, Event e)
+inline const_rfe_iterator rfe_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_rfe_iterator(rf_succ_begin(G, e), rf_succ_end(G, e),
-				  ::detail::DiffThreadFilter(G, e.thread));
+	return const_rfe_iterator(rf_succ_begin(G, lab), rf_succ_end(G, lab),
+				  ::detail::DiffThreadFilter(G, lab->getThread()));
 }
-
-inline const_rfe_iterator rfe_succ_end(const ExecutionGraph &G, Event e)
+inline const_rfe_iterator rfe_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_rfe_iterator(rf_succ_end(G, e), rf_succ_end(G, e),
-				  ::detail::DiffThreadFilter(G, e.thread));
-}
-
-
-inline const_rfe_range rfe_succs(const ExecutionGraph &G, Event e)
-{
-	return const_rfe_range(rfe_succ_begin(G, e), rfe_succ_end(G, e));
+	return const_rfe_iterator(rf_succ_end(G, lab), rf_succ_end(G, lab),
+				  ::detail::DiffThreadFilter(G, lab->getThread()));
 }
 inline const_rfe_range rfe_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return rfe_succs(G, lab->getPos());
+	return const_rfe_range(rfe_succ_begin(G, lab), rfe_succ_end(G, lab));
 }
+
 
 using const_rfe_inv_iterator = const_rf_inv_iterator;
 using const_rfe_inv_range = llvm::iterator_range<const_rfe_inv_iterator>;
@@ -856,16 +785,6 @@ inline const EventLabel *rfe_pred(const ExecutionGraph &G, const EventLabel *lab
 {
 	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 	return (rLab && rLab->readsExt()) ? rLab->getRf() : nullptr;
-}
-
-inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, Event e)
-{
-	BUG(); // FIXME: remove
-}
-
-inline const_rfe_inv_range rfe_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	BUG(); // FIXME: remove
 }
 
 
@@ -907,26 +826,19 @@ namespace detail {
 using const_rfi_iterator = ::detail::rfi_filter_iterator<const_rf_iterator>;
 using const_rfi_range = llvm::iterator_range<const_rfi_iterator>;
 
-inline const_rfi_iterator rfi_succ_begin(const ExecutionGraph &G, Event e)
+inline const_rfi_iterator rfi_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_rfi_iterator(rf_succ_begin(G, e), rf_succ_end(G, e),
-				  ::detail::SameThreadFilter(G, e.thread));
+	return const_rfi_iterator(rf_succ_begin(G, lab), rf_succ_end(G, lab),
+				  ::detail::SameThreadFilter(G, lab->getThread()));
 }
-
-inline const_rfi_iterator rfi_succ_end(const ExecutionGraph &G, Event e)
+inline const_rfi_iterator rfi_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_rfi_iterator(rf_succ_end(G, e), rf_succ_end(G, e),
-				  ::detail::SameThreadFilter(G, e.thread));
-}
-
-
-inline const_rfi_range rfi_succs(const ExecutionGraph &G, Event e)
-{
-	return const_rfi_range(rfi_succ_begin(G, e), rfi_succ_end(G, e));
+	return const_rfi_iterator(rf_succ_end(G, lab), rf_succ_end(G,lab),
+				  ::detail::SameThreadFilter(G, lab->getThread()));
 }
 inline const_rfi_range rfi_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return rfi_succs(G, lab->getPos());
+	return const_rfi_range(rfi_succ_begin(G, lab), rfi_succ_end(G, lab));
 }
 
 using const_rfi_inv_iterator = const_rf_inv_iterator;
@@ -938,65 +850,20 @@ inline const EventLabel *rfi_pred(const ExecutionGraph &G, const EventLabel *lab
 	return (rLab && rLab->readsInt()) ? rLab->getRf() : nullptr;
 }
 
-inline const_rfi_inv_range rfi_preds(const ExecutionGraph &G, Event e)
-{
-	BUG(); // FIXME: remove
-}
-
 
 /*******************************************************************************
  **                         tcreate-iteration utilities
  ******************************************************************************/
 
-using const_tc_iterator = const_label_iterator;
-using const_tc_range = llvm::iterator_range<const_tc_iterator>;
-
-inline const_tc_iterator tc_succ_begin(const ExecutionGraph &G, Event e)
+inline const ThreadStartLabel *tc_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
-	return tcLab ? const_tc_iterator(G, Event(tcLab->getChildId(), 0)) :
-		label_end(G);
+	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(lab);
+	return tcLab ? G.getFirstThreadLabel(tcLab->getChildId()) : nullptr;
 }
-
-inline const_tc_iterator tc_succ_end(const ExecutionGraph &G, Event e)
+inline const ThreadCreateLabel *tc_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(e));
-	return tcLab ? const_label_iterator(G, Event(tcLab->getChildId(), 1)) :
-		label_end(G);
-}
-
-inline const_tc_range tc_succs(const ExecutionGraph &G, Event e)
-{
-	return const_tc_range(tc_succ_begin(G, e), tc_succ_end(G, e));
-}
-
-inline const_tc_range tc_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return tc_succs(G, lab->getPos());
-}
-
-
-inline const_tc_iterator tc_pred_begin(const ExecutionGraph &G, Event e)
-{
-	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
-	return tsLab ? const_label_iterator(G, tsLab->getParentCreate()) :
-		label_end(G);
-}
-
-inline const_tc_iterator tc_pred_end(const ExecutionGraph &G, Event e)
-{
-	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(G.getEventLabel(e));
-	return tsLab ? const_label_iterator(G, tsLab->getParentCreate().next()) :
-		label_end(G);
-}
-
-inline const_tc_range tc_preds(const ExecutionGraph &G, Event e)
-{
-	return const_tc_range(tc_pred_begin(G, e), tc_pred_end(G, e));
-}
-inline const_tc_range tc_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return tc_preds(G, lab->getPos());
+	auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(lab);
+	return tsLab ? llvm::dyn_cast<ThreadCreateLabel>(G.getEventLabel(tsLab->getParentCreate())) : nullptr;
 }
 
 
@@ -1004,58 +871,17 @@ inline const_tc_range tc_preds(const ExecutionGraph &G, const EventLabel *lab)
  **                         tjoin-iteration utilities
  ******************************************************************************/
 
-using const_tj_iterator = const_label_iterator;
-using const_tj_range = llvm::iterator_range<const_tj_iterator>;
-
-inline const_tj_iterator tj_succ_begin(const ExecutionGraph &G, Event e)
+inline const ThreadJoinLabel *tj_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
-	return (eLab && !eLab->getParentJoin().isInitializer()) ?
-		const_tj_iterator(G, eLab->getParentJoin()) :
-		label_end(G);
+	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab);
+	return !eLab ? nullptr : eLab->getParentJoin();
 }
 
-inline const_tj_iterator tj_succ_end(const ExecutionGraph &G, Event e)
+inline const ThreadFinishLabel *tj_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(G.getEventLabel(e));
-	return (eLab && !eLab->getParentJoin().isInitializer()) ?
-		const_tj_iterator(G, eLab->getParentJoin().next()) :
-		label_end(G);
-}
-
-inline const_tj_range tj_succs(const ExecutionGraph &G, Event e)
-{
-	return const_tj_range(tj_succ_begin(G, e), tj_succ_end(G, e));
-}
-inline const_tj_range tj_succs(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return tj_succs(G, lab->getPos());
-}
-
-
-inline const_tj_iterator tj_pred_begin(const ExecutionGraph &G, Event e)
-{
-	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
+	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(lab);
 	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
-		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId())) :
-		label_end(G);
-}
-
-inline const_tj_iterator tj_pred_end(const ExecutionGraph &G, Event e)
-{
-	auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(G.getEventLabel(e));
-	return (tjLab && llvm::isa<ThreadFinishLabel>(G.getLastThreadLabel(tjLab->getChildId()))) ?
-		const_tj_iterator(G, G.getLastThreadEvent(tjLab->getChildId()).next()) :
-		label_end(G);
-}
-
-inline const_tj_range tj_preds(const ExecutionGraph &G, Event e)
-{
-	return const_tj_range(tj_pred_begin(G, e), tj_pred_end(G, e));
-}
-inline const_tj_range tj_preds(const ExecutionGraph &G, const EventLabel *lab)
-{
-	return tj_preds(G, lab->getPos());
+		static_cast<const ThreadFinishLabel *>(G.getLastThreadLabel(tjLab->getChildId())) : nullptr;
 }
 
 
@@ -1073,33 +899,26 @@ using const_fr_inv_iterator = WriteLabel::const_rf_iterator;
 using const_fr_inv_range = llvm::iterator_range<const_fr_inv_iterator>;
 
 
-inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, Event e)
+inline const_fr_iterator fr_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *rLab = G.getReadLabel(e);
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 	return rLab ? G.fr_succ_begin(rLab) : ::detail::coSentinel;
 }
-inline const_fr_iterator fr_succ_end(const ExecutionGraph &G, Event e)
+inline const_fr_iterator fr_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	auto *rLab = G.getReadLabel(e);
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
 	return rLab ? G.fr_succ_end(rLab) : ::detail::coSentinel;
 }
-inline const_fr_range fr_succs(const ExecutionGraph &G, Event e)
+inline const_fr_range fr_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_fr_range(fr_succ_begin(G, e), fr_succ_end(G, e));
+	return const_fr_range(fr_succ_begin(G, lab), fr_succ_end(G, lab));
+}
+inline const WriteLabel *fr_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+	return !rLab ? nullptr : G.fr_imm_succ(rLab);
 }
 
-inline Event fr_imm_succ_begin(const ExecutionGraph &G, Event e)
-{
-	auto *rLab = G.getReadLabel(e);
-	if (!rLab)
-		return Event::getBottom();
-	return G.fr_succ_begin(rLab) == G.fr_succ_end(rLab) ? Event::getBottom() : G.fr_succ_begin(rLab)->getPos();
-}
-
-// inline const_fr_iterator fr_imm_pred_begin(const ExecutionGraph &G, SAddr addr, Event load)
-// {
-// 	return G.fr_imm_pred_begin(addr, load);
-// }
 inline const_fr_inv_iterator fr_imm_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
@@ -1114,34 +933,6 @@ inline const_fr_inv_range fr_imm_preds(const ExecutionGraph &G, const EventLabel
 {
 	return const_fr_inv_range(fr_imm_pred_begin(G, lab), fr_imm_pred_end(G, lab));
 }
-
-// inline const_fr_iterator fr_init_pred_begin(const ExecutionGraph &G, Event e)
-// {
-// 	return G.getCoherenceCalculator()->fr_init_pred_begin(e);
-// }
-// inline const_fr_iterator fr_init_pred_begin(const ExecutionGraph &G, const EventLabel *lab)
-// {
-// 	return fr_init_pred_begin(G, lab->getPos());
-// }
-
-// inline const_fr_iterator fr_init_pred_end(const ExecutionGraph &G, Event e)
-// {
-// 	return G.getCoherenceCalculator()->fr_init_pred_end(e);
-// }
-// inline const_fr_iterator fr_init_pred_end(const ExecutionGraph &G, const EventLabel *lab)
-// {
-// 	return fr_init_pred_end(G, lab->getPos());
-// }
-
-// inline const_fr_range fr_init_preds(const ExecutionGraph &G, Event e)
-// {
-// 	return const_fr_range(fr_init_pred_begin(G, e), fr_init_pred_end(G, e));
-// }
-// inline const_fr_range fr_init_preds(const ExecutionGraph &G, const EventLabel *lab)
-// {
-// 	return fr_init_preds(G, lab->getPos());
-// }
-
 
 
 /*******************************************************************************

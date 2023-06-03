@@ -756,10 +756,6 @@ private:
 	 * This effectively changes the label, hence this method is virtual */
 	virtual void changeRf(Event read, Event store) = 0;
 
-	/* Performs the necessary initializations for the
-	 * consistency calculation */
-	virtual void initConsCalculation() = 0;
-
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const EventLabel *lab) { ERROR("Unimplemented cons\n"); };
 	virtual bool isRecoveryValid(const EventLabel *lab) { ERROR("Unimplemented pers\n"); };

@@ -92,12 +92,12 @@ void IMMChecker::visitCalc0_2(const EventLabel *lab, View &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_5(pLab, calcRes);
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
@@ -421,14 +421,14 @@ bool IMMChecker::visitAcyclic4(const EventLabel *lab)
 	auto &g = getGraph();
 
 	visitedAcyclic4[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic0[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic0[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
 			return false;
@@ -449,14 +449,14 @@ bool IMMChecker::visitAcyclic4(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic5[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic5(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic5[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic5(pLab))
 			return false;
@@ -516,14 +516,14 @@ bool IMMChecker::visitAcyclic6(const EventLabel *lab)
 	auto &g = getGraph();
 
 	visitedAcyclic6[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -766,14 +766,14 @@ bool IMMChecker::visitAcyclic12(const EventLabel *lab)
 	auto &g = getGraph();
 
 	visitedAcyclic12[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -1253,14 +1253,14 @@ bool IMMChecker::visitAcyclic20(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic21[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic21[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic21(pLab))
 			return false;
@@ -2063,12 +2063,12 @@ void IMMChecker::visitPPoRf6(const EventLabel *lab, DepView &pporf)
 		if (status == NodeStatus::unseen)
 			visitPPoRf0(pLab, pporf);
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedPPoRf6[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(pLab, pporf);
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedPPoRf6[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf6(pLab, pporf);

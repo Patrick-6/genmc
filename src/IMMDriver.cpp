@@ -44,11 +44,6 @@ void IMMDriver::changeRf(Event read, Event store)
 	g.changeRf(read, store);
 }
 
-void IMMDriver::initConsCalculation()
-{
-	return;
-}
-
 bool IMMDriver::isConsistent(const EventLabel *lab)
 {
 	return IMMChecker(getGraph()).isConsistent(lab);

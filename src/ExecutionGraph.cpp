@@ -680,6 +680,10 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 				if (!preds->contains(rLab->getRf()->getPos()))
 					rLab->setRf(nullptr);
 			}
+			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
+				if (eLab->getParentJoin() && !preds->contains(eLab->getParentJoin()->getPos()))
+					eLab->setParentJoin(nullptr);
+			}
 			/* No special action for CreateLabels; we can
 			 * keep the begin event of the child the since
 			 * it will not be deleted */
@@ -737,8 +741,10 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				other.trackCoherenceAtLoc(mLab->getAddr());
 			if (auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(nLab))
 				;
-			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab))
-				;
+			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(nLab)) {
+				if (eLab->getParentJoin() && !v.contains(eLab->getParentJoin()->getPos()))
+					eLab->setParentJoin(nullptr);
+			}
 		}
 	}
 
@@ -757,6 +763,14 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				if (v.contains(oLab->getPos()))
 					wLab->addReader(other.getReadLabel(oLab->getPos()));
 		}
+		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
+			if (eLab->getParentJoin()) {
+				BUG_ON(!other.containsPos(eLab->getParentJoin()->getPos()));
+				auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(other.getEventLabel(eLab->getParentJoin()->getPos()));
+				eLab->setParentJoin(jLab);
+			}
+		}
+
 	}
 
 	/* Finally, copy coherence info */

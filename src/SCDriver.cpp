@@ -41,11 +41,6 @@ void SCDriver::changeRf(Event read, Event store)
 	return;
 }
 
-void SCDriver::initConsCalculation()
-{
-	return;
-}
-
 bool SCDriver::isConsistent(const EventLabel *lab)
 {
 	BUG();

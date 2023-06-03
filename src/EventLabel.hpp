@@ -2015,15 +2015,17 @@ class ThreadFinishLabel : public EventLabel {
 
 public:
 	ThreadFinishLabel(Event pos, llvm::AtomicOrdering ord, SVal retVal)
-		: EventLabel(EL_ThreadFinish, pos, ord, EventDeps()),
-		  parentJoin(Event::getInitializer()), retVal(retVal) {}
+		: EventLabel(EL_ThreadFinish, pos, ord, EventDeps()), retVal(retVal) {}
 
 	ThreadFinishLabel(Event pos, SVal retVal)
 		: ThreadFinishLabel(pos, llvm::AtomicOrdering::Release, retVal) {}
 
-	/* Returns the join() operation waiting on this thread (or the
-	 * initializer event, if no such operation exists) */
-	Event getParentJoin() const { return parentJoin; }
+	/* Returns the join() operation waiting on this thread or
+	   NULL if no such operation exists (yet) */
+	ThreadJoinLabel *getParentJoin() const { return parentJoin; }
+
+	/* Sets the corresponding join() event */
+	void setParentJoin(ThreadJoinLabel *jLab) { parentJoin = jLab; }
 
 	/* Returns the return value of this thread */
 	SVal getRetVal() const { return retVal; }
@@ -2032,19 +2034,17 @@ public:
 
 	virtual void reset() override {
 		EventLabel::reset();
-		parentJoin = Event::getInitializer();
+		parentJoin = nullptr;
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_ThreadFinish; }
 
 private:
-	/* Sets the corresponding join() event */
-	void setParentJoin(Event j) { parentJoin = j; }
 
 	/* Position of corresponding join() event in the graph
-	 * (INIT if such event does not exist) */
-	Event parentJoin;
+	 * (NULL if such event does not exist) */
+	ThreadJoinLabel *parentJoin = nullptr;
 
 	/* Return value of the thread */
 	SVal retVal;

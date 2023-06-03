@@ -97,12 +97,12 @@ void RC11Checker::visitCalc0_2(const EventLabel *lab, View &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_3(pLab, calcRes);
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
@@ -538,14 +538,14 @@ bool RC11Checker::visitAcyclic0(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -839,14 +839,14 @@ bool RC11Checker::visitAcyclic7(const EventLabel *lab)
 	auto &g = getGraph();
 
 	visitedAcyclic7[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic3[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
 			return false;
@@ -874,14 +874,14 @@ bool RC11Checker::visitAcyclic7(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic8[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic8[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic8(pLab))
 			return false;
@@ -1080,14 +1080,14 @@ bool RC11Checker::visitAcyclic12(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -1439,12 +1439,12 @@ void RC11Checker::visitPPoRf0(const EventLabel *lab, View &pporf)
 
 	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::entered;
 	pporf.updateIdx(lab->getPos());
-	for (auto *pLab : tc_preds(g, lab)) {
+	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedPPoRf0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf0(pLab, pporf);
 	}
-	for (auto *pLab : tj_preds(g, lab)) {
+	if (auto pLab = tj_pred(g, lab); pLab) {
 		auto status = visitedPPoRf0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitPPoRf0(pLab, pporf);
