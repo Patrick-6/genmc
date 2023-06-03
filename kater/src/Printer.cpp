@@ -324,8 +324,8 @@ Printer::Printer(const std::string &dirPrefix, const std::string &outPrefix)
 
 	/* Construct all the names to be used */
 	std::transform(name.begin(), name.end(), std::back_inserter(prefix), ::toupper);
-	className = prefix + "Checker";
-	guardName = std::string("__") + prefix + "_CHECKER_HPP__";
+	className = prefix + "Driver";
+	guardName = std::string("__") + prefix + "_DRIVER_HPP__";
 
 	/* Open required streams */
 	if (outPrefix != "") {
@@ -415,6 +415,7 @@ void Printer::printHppHeader()
               << "\n"
               << "#include \"config.h\"\n"
               << "#include \"ExecutionGraph.hpp\"\n"
+	      << "#include \"GenMCDriver.hpp\"\n"
               << "#include \"GraphIterators.hpp\"\n"
               << "#include \"MaximalIterator.hpp\"\n"
               << "#include \"PersistencyChecker.hpp\"\n"
@@ -423,7 +424,7 @@ void Printer::printHppHeader()
               << "#include <cstdint>\n"
               << "#include <vector>\n"
               << "\n"
-              << "class " << className << " {\n"
+              << "class " << className << " : public GenMCDriver {\n"
               << "\n"
               << "private:\n"
               << "\tenum class NodeStatus : unsigned char { unseen, entered, "
@@ -438,21 +439,23 @@ void Printer::printHppHeader()
               << "\t};\n"
               << "\n"
               << "public:\n"
-              << "\t" << className << "(ExecutionGraph &g) : g(g) {}\n"
+	      << "\t" << className << "(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,\n"
+	      << "\t\tstd::unique_ptr<ModuleInfo> MI);\n"
               << "\n"
               << "\tstd::vector<VSet<Event>> calculateSaved(const EventLabel *lab);\n"
               << "\tstd::vector<View> calculateViews(const EventLabel *lab);\n"
-              << "\tbool isDepTracking();\n"
-              << "\tbool isConsistent(const EventLabel *lab);\n"
-              << "\tVerificationError checkErrors(const EventLabel *lab);\n"
-              << "\tbool isRecoveryValid(const EventLabel *lab);\n"
-              << "\tstd::unique_ptr<VectorClock> getPPoRfBefore(const EventLabel *lab);\n"
-              << "\tconst View &getHbView(const EventLabel *lab);\n"
-              << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read);\n"
+              << "\tvoid updateLabelViews(EventLabel *lab) override;\n"
+              << "\tbool isDepTracking() const override;\n"
+              << "\tbool isConsistent(const EventLabel *lab) override;\n"
+              << "\tVerificationError checkErrors(const EventLabel *lab) override;\n"
+              << "\tbool isRecoveryValid(const EventLabel *lab) override;\n"
+              << "\tstd::unique_ptr<VectorClock> getPrefixView(const EventLabel *lab) override;\n"
+              << "\tconst View &getHbView(const EventLabel *lab) override;\n"
+              << "\tstd::vector<Event> getCoherentStores(SAddr addr, Event read) override;\n"
               << "\tstd::vector<Event> getCoherentRevisits(const WriteLabel "
-                 "*sLab, const VectorClock &pporf);\n"
+                 "*sLab, const VectorClock &pporf) override;\n"
               << "\tllvm::iterator_range<ExecutionGraph::co_iterator>\n"
-	      << "\tgetCoherentPlacings(SAddr addr, Event store, bool isRMW);\n"
+	      << "\tgetCoherentPlacings(SAddr addr, Event store, bool isRMW) override;\n"
 	      << "\n"
 	      << "private:\n"
 	      << "\tbool isWriteRfBefore(Event a, Event b);\n"
@@ -472,6 +475,11 @@ void Printer::printCppHeader()
 	      << katerNotice << "\n";
 
 	cpp() << "#include \"" << className << ".hpp\"\n"
+	      << "#include \"ModuleInfo.hpp\"\n"
+	      << "\n"
+	      << className << "::" << className << "(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,\n"
+	      << "\t\tstd::unique_ptr<ModuleInfo> MI)\n"
+	      << "\t: GenMCDriver(conf, std::move(mod), std::move(MI)) {}\n"
 	      << "\n";
 }
 
@@ -480,10 +488,6 @@ void Printer::printHppFooter()
 	hpp() << "\tstd::vector<VSet<Event>> saved;\n"
 	      << "\tstd::vector<View> views;\n"
 	      << "\n"
-	      << "\tExecutionGraph &g;\n"
-	      << "\n"
-	      << "\tExecutionGraph &getGraph() { return g; }\n"
-	      << "\tconst ExecutionGraph &getGraph() const { return g; }\n"
 	      << "};\n"
 	      << "\n"
 	      << "#endif /* " << guardName << " */\n";
@@ -554,7 +558,14 @@ void Printer::outputCpp(const CNFAs &cnfas)
 	      << "}\n"
 	      << "\n";
 
-	cpp() << "bool " << className << "::isDepTracking()\n"
+	cpp() << "void " << className << "::updateLabelViews(EventLabel *lab)\n"
+	      << "{\n"
+	      << "\tlab->setCalculated(calculateSaved(lab));\n"
+	      << "\tlab->setViews(calculateViews(lab))\n;"
+	      << "}\n"
+	      << "\n";
+
+	cpp() << "bool " << className << "::isDepTracking() const\n"
 	      << "{\n"
 	      << "\treturn " << cnfas.isDepTracking() << ";\n"
 	      << "}\n"
@@ -595,7 +606,7 @@ void Printer::outputCpp(const CNFAs &cnfas)
 
 	/* pporf-before getter */
 	printPPoRfCpp(cnfas.getPPoRf().first, cnfas.getPPoRf().second);
-	cpp() << "std::unique_ptr<VectorClock> " << className << "::getPPoRfBefore(const EventLabel *lab)\n"
+	cpp() << "std::unique_ptr<VectorClock> " << className << "::getPrefixView(const EventLabel *lab)\n"
 	      << "{\n"
 	      << "\treturn LLVM_MAKE_UNIQUE<" << (cnfas.getPPoRf().second ? "DepView" : "View")
 	      				      << ">(calcPPoRfBefore(lab));\n"
@@ -652,7 +663,7 @@ void Printer::printAcyclicHpp(const NFA &nfa)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeCountStatus> visitedAcyclic" << ids[&*s] << ";\n";
+		hpp() << "\tstd::vector<NodeCountStatus> visitedAcyclic" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 
@@ -698,6 +709,8 @@ void Printer::printAcyclicCpp(const NFA &nfa)
 	/* Print a "isAcyclicX" for the automaton */
 	cpp() << "bool " << className << "::isAcyclic(const EventLabel *lab)\n"
 	      << "{\n"
+	      << "\tauto &g = getGraph();\n"
+	      << "\n"
 	      << "\tvisitedAccepting = 0;\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
 		cpp() << "\tvisitedAcyclic" << ids[&*s] << ".clear();\n"
@@ -736,7 +749,7 @@ void Printer::printRecoveryHpp(const NFA &nfa)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeCountStatus> visitedRecovery" << ids[&*s] << ";\n";
+		hpp() << "\tstd::vector<NodeCountStatus> visitedRecovery" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 
@@ -813,7 +826,7 @@ void Printer::printCalculatorHpp(const NFA &nfa, unsigned id, VarStatus status)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
+		hpp() << "\tstd::vector<NodeStatus> visitedCalc" << GET_ID(id, ids[&*s]) << ";\n";
 	});
 	hpp() << "\n";
 }
@@ -860,7 +873,9 @@ void Printer::printCalculatorCpp(const NFA &nfa, unsigned id, VarStatus status)
 
 	cpp() << ((status == VarStatus::View) ? "View " : "VSet<Event> ") << className << "::calculate" << id << "(const EventLabel *lab)\n"
 	      << "{\n"
-	      << "\t" << ((status == VarStatus::View) ? "View" : "VSet<Event>") << " calcRes;\n";
+	      << "\tauto &g = getGraph();\n"
+	      << "\t" << ((status == VarStatus::View) ? "View" : "VSet<Event>") << " calcRes;\n"
+	      << "\n";
 	if (status == VarStatus::View)
 		cpp() << "\tcalcRes.updateIdx(lab->getPos().prev());\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
@@ -892,7 +907,7 @@ void Printer::printPPoRfHpp(const NFA &nfa, bool deps)
 
 	/* status arrays */
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedPPoRf" << ids[&*s] << ";\n";
+		hpp() << "\tstd::vector<NodeStatus> visitedPPoRf" << ids[&*s] << ";\n";
 	});
 	hpp() << "\n";
 }
@@ -926,6 +941,7 @@ void Printer::printPPoRfCpp(const NFA &nfa, bool deps)
 
 	cpp() << (deps ? "DepView " : "View ") << className << "::calcPPoRfBefore(const EventLabel *lab)\n"
 	      << "{\n"
+	      << "\tauto &g = getGraph();\n"
 	      << "\t" << (deps ? "DepView" : "View") << " pporf;\n"
 	      << "\tpporf.updateIdx(lab->getPos());\n";
 	std::for_each(nfa.states_begin(), nfa.states_end(), [&](auto &s){
@@ -967,16 +983,16 @@ void Printer::printInclusionHpp(const NFA &lhs, const NFA &rhs, unsigned id, std
 
 	/* status arrays */
 	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ";\n";
+		hpp() << "\tstd::vector<NodeStatus> visitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ";\n";
 	});
 	std::for_each(rhs.states_begin(), rhs.states_end(), [&](auto &s){
-		hpp() << "\tstatic inline thread_local std::vector<NodeStatus> visitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << ";\n";
+		hpp() << "\tstd::vector<NodeStatus> visitedInclusionRHS" << GET_ID(id, idsRHS[&*s]) << ";\n";
 	});
 	hpp() << "\n";
 
 	/* caches for inclusion checks */
-	hpp() << "\tstatic inline thread_local std::vector<bool> lhsAccept" << id << ";\n"
-	      << "\tstatic inline thread_local std::vector<bool> rhsAccept" << id << ";\n"
+	hpp() << "\tstd::vector<bool> lhsAccept" << id << ";\n"
+	      << "\tstd::vector<bool> rhsAccept" << id << ";\n"
 	      << "\n";
 }
 
@@ -1011,6 +1027,7 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id, std
 
 		cpp() << "bool " << className << "::checkInclusion" << id << "(const EventLabel *lab)\n"
 		      << "{\n"
+		      << "\tauto &g = getGraph();\n"
 		      << "\tauto &v = lab->view(" << getCalcIdx(*rhsViewIdx) << ");\n"
 		      << "\n";
 		      std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
@@ -1073,7 +1090,9 @@ void Printer::printInclusionCpp(const NFA &lhs, const NFA &rhs, unsigned id, std
 	});
 
 	cpp() << "bool " << className << "::checkInclusion" << id << "(const EventLabel *lab)\n"
-	      << "{\n";
+	      << "{\n"
+	      << "\tauto &g = getGraph();\n"
+	      << "\n";
 	std::for_each(lhs.states_begin(), lhs.states_end(), [&](auto &s){
 		cpp() << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ".clear();\n"
 		      << "\tvisitedInclusionLHS" << GET_ID(id, idsLHS[&*s]) << ".resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);\n";

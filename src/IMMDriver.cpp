@@ -36,14 +36,6 @@ void IMMDriver::updateLabelViews(EventLabel *lab)
 	lab->setViews(IMMChecker(getGraph()).calculateViews(lab));
 }
 
-void IMMDriver::changeRf(Event read, Event store)
-{
-	auto &g = getGraph();
-
-	/* Change the reads-from relation in the graph */
-	g.changeRf(read, store);
-}
-
 bool IMMDriver::isConsistent(const EventLabel *lab)
 {
 	return IMMChecker(getGraph()).isConsistent(lab);

@@ -59,7 +59,6 @@ libgenmc_a_SOURCES = \
   Parser.cpp Parser.hpp \
   PromoteMemIntrinsicPass.cpp PromoteMemIntrinsicPass.hpp \
   PropagateAssumesPass.cpp PropagateAssumesPass.hpp \
-  RC11Checker.cpp RC11Checker.hpp \
   RC11Driver.cpp RC11Driver.hpp \
   Revisit.cpp Revisit.hpp \
   RevisitSet.cpp RevisitSet.hpp \

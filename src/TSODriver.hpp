@@ -30,7 +30,6 @@ public:
 		 std::unique_ptr<ModuleInfo> MI);
 
 	void updateLabelViews(EventLabel *lab) override;
-	void changeRf(Event read, Event store) override;
 
 	bool isConsistent(const EventLabel *lab) override;
 

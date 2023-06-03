@@ -32,15 +32,6 @@ void TSODriver::updateLabelViews(EventLabel *lab)
 	BUG();
 }
 
-void TSODriver::changeRf(Event read, Event store)
-{
-	auto &g = getGraph();
-
-	/* Change the reads-from relation in the graph */
-	g.changeRf(read, store);
-	return;
-}
-
 bool TSODriver::isConsistent(const EventLabel *lab)
 {
 	BUG();

@@ -752,10 +752,6 @@ private:
 	 * The reads are ordered in reverse-addition order */
 	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
 
-	/* Changes the reads-from edge for the specified label.
-	 * This effectively changes the label, hence this method is virtual */
-	virtual void changeRf(Event read, Event store) = 0;
-
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const EventLabel *lab) { ERROR("Unimplemented cons\n"); };
 	virtual bool isRecoveryValid(const EventLabel *lab) { ERROR("Unimplemented pers\n"); };
@@ -771,6 +767,8 @@ private:
 	getCoherentPlacings(SAddr addr, Event read, bool isRMW) {
 		ERROR("Unimplemented cohpl\n");
 	}
+
+	virtual bool isDepTracking() const { ERROR("deptracking\n"); }
 
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be

@@ -1567,10 +1567,12 @@ bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
 
 bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
+	auto &g = getGraph();
+
 	bool found = false;
 	while (!found) {
 		found = true;
-		changeRf(rLab->getPos(), rfs.back());
+		g.changeRf(rLab->getPos(), rfs.back());
 		if (!isConsistent(rLab)) {
 			found = false;
 			rfs.erase(rfs.end() - 1);
@@ -1598,12 +1600,13 @@ bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 
 void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
+	auto &g = getGraph();
 	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](Event &r){
-		  changeRf(rLab->getPos(), r);
+		  g.changeRf(rLab->getPos(), r);
 		  return !isRecoveryValid(ProgramPoint::step);
 	}), rfs.end());
 	BUG_ON(rfs.empty());
-	changeRf(rLab->getPos(), rfs[0]);
+	g.changeRf(rLab->getPos(), rfs[0]);
 	return;
 }
 
@@ -1994,7 +1997,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		return std::nullopt;
 
 	/* ... add an appropriate label with a random rf */
-	changeRf(lab->getPos(), stores.back());
+	g.changeRf(lab->getPos(), stores.back());
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, stores))
@@ -2403,7 +2406,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 			addLabelToGraph(BWaitReadLabel::create(b, pLab->getOrdering(), pLab->getAddr(),
 							       pLab->getSize(), pLab->getType(),
 							       pLab->getDeps())));
-		changeRf(rLab->getPos(), sLab->getPos());
+		g.changeRf(rLab->getPos(), sLab->getPos());
 		rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
 	});
 	return true;
@@ -2523,7 +2526,7 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 	BUG_ON(!llvm::isa<LockCasReadLabel>(rLab) || !llvm::isa<UnlockWriteLabel>(sLab));
 	BUG_ON(!llvm::isa<BlockLabel>(g.getEventLabel(rLab->getPos().next())));
 	g.removeLast(rLab->getThread());
-	changeRf(rLab->getPos(), sLab->getPos());
+	g.changeRf(rLab->getPos(), sLab->getPos());
 	rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
 
 	completeRevisitedRMW(rLab);
@@ -2875,7 +2878,7 @@ void GenMCDriver::repairLock(LockCasReadLabel *lab)
 		if (llvm::isa<LockCasWriteLabel>(posRf) || llvm::isa<TrylockCasWriteLabel>(posRf)) {
 			auto prev = posRf->getPos().prev();
 			if (g.getMatchingUnlock(prev).isInitializer()) {
-				changeRf(lab->getPos(), posRf->getPos());
+				g.changeRf(lab->getPos(), posRf->getPos());
 				threadPrios = { posRf->getPos() };
 				blockThread(lab->getPos().next(), BlockageType::LockNotAcq);
 				return;
@@ -2978,7 +2981,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	auto rev = llvm::dyn_cast<ReadRevisit>(&ri)->getRev();
 	BUG_ON(!rLab);
 
-	changeRf(rLab->getPos(), rev);
+	g.changeRf(rLab->getPos(), rev);
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
 	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
 
@@ -3097,7 +3100,7 @@ SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
 	if (inRecoveryMode())
 		drLab->setOrdering(llvm::AtomicOrdering::Monotonic);
 	auto *lab = llvm::dyn_cast<DskReadLabel>(addLabelToGraph(std::move(drLab)));
-	changeRf(lab->getPos(), validStores[0]);
+	g.changeRf(lab->getPos(), validStores[0]);
 
 	/* ... filter out all option that make the recovery invalid */
 	filterInvalidRecRfs(lab, validStores);
