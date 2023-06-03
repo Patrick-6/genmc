@@ -356,14 +356,11 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 		return getMinimumStampEvent(pending);
 	}
 
-	/* Slowpath: scan the graph */
-	std::for_each(label_begin(*this), label_end(*this), [&](const EventLabel *lab){
-			     auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-			     if (rLab && rLab->getRf() == pLab->getRf() &&
-				 rLab->getAddr() == pLab->getAddr() &&
-				 rLab->getPos() != pLab->getPos() && isRMWLoad(rLab))
+	/* Slowpath: scan init rfs */
+	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()), [&](auto *rLab){
+			     if (rLab->getRf() == pLab->getRf() && rLab != pLab && isRMWLoad(rLab))
 				     pending.push_back(rLab->getPos());
-		     });
+	});
 	return getMinimumStampEvent(pending);
 }
 
