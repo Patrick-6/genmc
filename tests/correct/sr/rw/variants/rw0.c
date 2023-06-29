@@ -14,11 +14,13 @@ void *thread_n(void *unused)
 
 int main()
 {
-	pthread_t t1, t2;
+	pthread_t t1, t2, t3;
 
 	if (pthread_create(&t1, NULL, thread_n, NULL))
 		abort();
 	if (pthread_create(&t2, NULL, thread_n, NULL))
+		abort();
+	if (pthread_create(&t3, NULL, thread_n, NULL))
 		abort();
 
 	return 0;

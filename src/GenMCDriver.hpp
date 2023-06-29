@@ -345,6 +345,20 @@ protected:
 	SVal getReadRetValueAndMaybeBlock(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
+	int getSymmPredTid(int tid) const;
+	int getSymmSuccTid(int tid) const;
+	bool isEcoBefore(const EventLabel *lab, int tid) const;
+	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
+	bool isPlacedSymmetrically(const BackwardRevisit &br, const EventLabel *lab);
+	bool isSymmPorfBefore(const EventLabel *lab, int tid);
+	bool isPredSymmetryOK(const EventLabel *lab, int tid);
+	bool isPredSymmetryOK(const EventLabel *lab);
+	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
+	bool isSuccSymmetryOK(const EventLabel *lab);
+	bool isSymmetryOK(const EventLabel *lab);
+	void calcSymmView(Event e, VectorClock &v);
+	std::unique_ptr<VectorClock> calcSymmView(const EventLabel *lab);
+
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(const AAccess &a);
 
@@ -608,6 +622,10 @@ private:
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
 	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+
+	bool isExecutionValid(const EventLabel *lab) {
+		return isSymmetryOK(lab) && isConsistent(lab);
+	}
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */

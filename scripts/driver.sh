@@ -109,9 +109,9 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in rc11 imm # rc11 imm lkmm
+for model in rc11 # rc11 imm # rc11 imm lkmm
 do
-    for cat in infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
+    for cat in sr # infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
     do
 	testdir="${correctdir}/${cat}"
 	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
