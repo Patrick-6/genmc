@@ -121,7 +121,7 @@ public:
 	}
 	const WriteLabel *co_imm_succ(const WriteLabel *lab) const {
 		auto it = co_succ_begin(lab);
-		return it != co_succ_end(lab) ? nullptr : &*it;
+		return it == co_succ_end(lab) ? nullptr : &*it;
 	}
 
 	reverse_co_iterator co_pred_begin(WriteLabel *lab) {
