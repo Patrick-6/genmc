@@ -1639,6 +1639,7 @@ View RC11Driver::calcPPoRfBefore(const EventLabel *lab) const
 	visitPPoRf0(lab, pporf);
 	return pporf;
 }
+
 std::unique_ptr<VectorClock> RC11Driver::calculatePrefixView(const EventLabel *lab) const
 {
 	return std::make_unique<View>(calcPPoRfBefore(lab));

@@ -559,8 +559,6 @@ bool GenMCDriver::isExecutionBlocked() const
 				   return bLab || thr.isBlocked(); });
 }
 
-std::vector<std::string> execs;
-
 void GenMCDriver::handleExecutionEnd()
 {
 	/* LAPOR: Check lock-well-formedness */
@@ -585,10 +583,6 @@ void GenMCDriver::handleExecutionEnd()
 			checkLiveness();
 		return;
 	}
-	std::string str;
-	llvm::raw_string_ostream output(str);
-	printGraph(false, output);
-	execs.push_back(output.str());
 
 	if (getConf()->printExecGraphs && !getConf()->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
@@ -644,11 +638,6 @@ void GenMCDriver::run()
 {
 	/* Explore all graphs and print the results */
 	explore();
-	std::sort(execs.begin(), execs.end());
-	// for (auto i = 1u; i < execs.size(); i++) {
-	// 	// if (execs[i] == execs[i-1])
-	// 		llvm::dbgs() << execs[i] << "\n";
-	// }
 	return;
 }
 
@@ -1343,15 +1332,7 @@ void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Ev
 int GenMCDriver::getSymmPredTid(int tid) const
 {
 	auto &g = getGraph();
-	auto symm = g.getFirstThreadLabel(tid)->getSymmetricTid();
-	if (symm == -1)
-		return symm;
-
-	/* Check if there is anyone else symmetric to SYMM */
-	for (auto i = tid-1; i >= 0; i--)
-		if (g.getFirstThreadLabel(i)->getSymmetricTid() == symm)
-			return i;
-	return symm; /* no one else */
+	return g.getFirstThreadLabel(tid)->getSymmetricTid();
 }
 
 int GenMCDriver::getSymmSuccTid(int tid) const
@@ -1408,35 +1389,6 @@ bool GenMCDriver::isEcoSymmetric(const EventLabel *lab, int tid) const
 	return g.co_imm_succ(wLab) == llvm::dyn_cast<WriteLabel>(symmLab);
 }
 
-bool GenMCDriver::isPlacedSymmetrically(const BackwardRevisit &br, const EventLabel *lab)
-{
-	auto &g = getGraph();
-	if (!llvm::isa<MemAccessLabel>(lab))
-		return false;
-
-	auto &v = br.getViewNoRel();
-	while (true) {
-		auto symm = getSymmSuccTid(lab->getThread());
-		if (symm == -1 || !isEcoSymmetric(lab, symm) || !sharePrefixSR(symm, lab->getPos()))
-			return false;
-		auto *symmLab = g.getEventLabel(Event(symm, lab->getIndex()));
-		if (v->contains(symmLab->getPos()))
-			return true;
-		lab = symmLab;
-	}
-}
-
-bool GenMCDriver::isSymmPorfBefore(const EventLabel *lab, int tid)
-{
-	auto &g = getGraph();
-	auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
-	if (!rLab)
-		return false;
-
-	auto symmPos = Event(tid, rLab->getIndex());
-	return getPrefixView(rLab->getRf()).contains(symmPos);
-}
-
 bool GenMCDriver::isPredSymmetryOK(const EventLabel *lab, int symm)
 {
 	auto &g = getGraph();
@@ -1449,8 +1401,7 @@ bool GenMCDriver::isPredSymmetryOK(const EventLabel *lab, int symm)
 	if (symmLab->getKind() != lab->getKind())
 		return true;
 
-	return !isEcoBefore(lab, symm) // || isSymmPorfBefore(symmLab, lab->getThread())
-		;
+	return !isEcoBefore(lab, symm);
 }
 
 bool GenMCDriver::isPredSymmetryOK(const EventLabel *lab)
@@ -1478,8 +1429,7 @@ bool GenMCDriver::isSuccSymmetryOK(const EventLabel *lab, int symm)
 	if (symmLab->getKind() != lab->getKind())
 		return true;
 
-	return !isEcoBefore(symmLab, lab->getThread()) // || isSymmPorfBefore(lab, symm)
-		;
+	return !isEcoBefore(symmLab, lab->getThread());
 }
 
 bool GenMCDriver::isSuccSymmetryOK(const EventLabel *lab)
@@ -1498,28 +1448,25 @@ bool GenMCDriver::isSuccSymmetryOK(const EventLabel *lab)
 bool GenMCDriver::isSymmetryOK(const EventLabel *lab)
 {
 	auto &g = getGraph();
-	auto okp = isPredSymmetryOK(lab);
-	auto oks = isSuccSymmetryOK(lab);
-	auto ok = okp && oks;
-	// if (!ok) {
-	// 	llvm::dbgs() << "symmtry NOT OK @ " << lab->getPos() << "P: " << okp << ", S: " << oks  << "\n";;
-	// 	printGraph();
-	// 	llvm::dbgs() << "\n";
-	// }
-	return ok;
+	return isPredSymmetryOK(lab) && isSuccSymmetryOK(lab);
 }
 
 void GenMCDriver::calcSymmView(Event e, VectorClock &v)
 {
 	auto t = getSymmPredTid(e.thread);
-	if (t == -1)
-		return;
+	// if (t == -1)
+	// 	return;
 
 	for (auto i = e.index; i > 0; i--) {
 		auto p = Event(t, i);
-		if (sharePrefixSR(t, p)) {
-			v.update(getPrefixView(getGraph().getEventLabel(p)));
+		if (t != -1 && sharePrefixSR(e.thread, p)) {
+			v.update(*getPrefixViewPure(getGraph().getEventLabel(p)));
+			v.updateIdx(p);
 			calcSymmView(p, v);
+		}
+		if (auto *rLab = getGraph().getReadLabel(Event(e.thread, i))) {
+			if (rLab->getRf())
+				calcSymmView(rLab->getRf()->getPos(), v);
 		}
 	}
 }
@@ -1539,21 +1486,25 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 		return false;
 	// if (g.getThreadSize(tid) <= pos.index)
 	// 	return false;
+
 	for (auto j = 1u; j < std::min((long)pos.index, (long)g.getThreadSize(tid)); j++) {
 		auto *labA = g.getEventLabel(Event(tid, j));
 		auto *labB = g.getEventLabel(Event(pos.thread, j));
 
+		// if (labA->getKind() != labB->getKind())
+		// 	return false;
 		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
 			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
 			if (!rLabB) return false;
-		        if (rLabA->getRf()->getThread() == tid && rLabB->getRf()->getThread() == pos.thread
-			    && rLabA->getRf()->getIndex() == rLabB->getRf()->getIndex())
-				continue;
+		        // if (rLabA->getRf()->getThread() == tid && rLabB->getRf()->getThread() == pos.thread
+			//     && rLabA->getRf()->getIndex() == rLabB->getRf()->getIndex())
+			// 	continue;
 			if (rLabA->getRf() != rLabB->getRf())
 				return false;
 		}
-		if (llvm::isa<WriteLabel>(labA))
-			return false;
+		// if (auto *wLabA = llvm::dyn_cast<WriteLabel>(labA))
+		// 	if (!wLabA->isLocal())
+		// 		return false;
 	}
 	return true;
 }
@@ -1577,13 +1528,14 @@ void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Eve
 	if (!lab || lab->getAddr() != rLab->getAddr() || lab->getSize() != lab->getSize())
 		return;
 
+	if (!g.isRMWLoad(lab))
+		return;
+
 	/* Remove stores that will be explored symmetrically */
 	auto rfStamp = lab->getRf()->getStamp();
-	auto st = (g.isRMWLoad(lab)) ? rfStamp + 1 : rfStamp;
-	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](Event s) {
-				    auto *sLab = g.getEventLabel(s);
-				    return sLab->getStamp() < st;
-		     }), stores.end());
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](auto s) {
+		return lab->getRf()->getPos() == s;
+	}), stores.end());
 	return;
 }
 
@@ -1703,7 +1655,8 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (!isSymmetryOK(wLab) || !checkAtomicity(wLab) || !isConsistent(wLab)) {
+	if (// !isSymmetryOK(wLab) ||
+	    !checkAtomicity(wLab) || !isConsistent(wLab)) {
 		getEE()->block(BlockageType::Cons);
 		moot();
 		return false;
@@ -1739,9 +1692,8 @@ bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo 
 	/* First, check that the two threads are actually similar */
 	if (cInfo.id == info.id ||
 	    cInfo.parentId != info.parentId ||
-	    cInfo.funId != info.funId//  ||
-	    // cInfo.arg != info.arg
-		)
+	    cInfo.funId != info.funId ||
+	    cInfo.arg != info.arg)
 		return false;
 
 	/* Then make sure that there is no memory access in between the spawn events */
@@ -2039,9 +1991,9 @@ bool GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event
 
 bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
-	// /* Symmetry reduction */
-	// if (getConf()->symmetryReduction)
-	// 	filterSymmetricStoresSR(lab, stores);
+	/* Symmetry reduction */
+	if (getConf()->symmetryReduction)
+		filterSymmetricStoresSR(lab, stores);
 
 	/* BAM */
 	if (!getConf()->disableBAM)
@@ -2211,48 +2163,13 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 	ERROR_ON(getConf()->ipr && placesRange.begin() != placesRange.end(),
 		 "Unordered writes found. Please use -disable-ipr.\n");
 
-	std::vector<WriteLabel *> cos;
-	for (auto it = placesRange.begin(), ie = placesRange.end(); it != ie; ++it) {
-
-		/* We cannot place the write just before the write of an RMW */
-		if (g.isRMWStore(it->getPos()))
-			continue;
-
-		cos.push_back(&*it);
-
-		// /* Push the stack item */
-		// if (!inRecoveryMode())
-		// 	addToWorklist(lab->getStamp(),
-				      // LLVM_MAKE_UNIQUE<WriteForwardRevisit>(lab->getPos(), it->getPos()));
+	/* We cannot place the write just before the write of an RMW or during recovery */
+	for (auto &succLab : placesRange) {
+		if (!g.isRMWStore(succLab.getPos()) && !inRecoveryMode())
+			addToWorklist(lab->getStamp(),
+				      std::make_unique<WriteForwardRevisit>(lab->getPos(), succLab.getPos()));
 	}
 	g.addStoreToCO(lab, placesRange.end());
-	if (g.co_succ_begin(lab) != g.co_succ_end(lab))
-		cos.push_back(&*g.co_succ_begin(lab));
-	else
-		cos.push_back(nullptr);
-
-	bool found = false;
-	while (!found) {
-		found = true;
-		g.removeStoreFromCO(lab);
-		g.addStoreToCO(lab, cos.back() == nullptr ? g.co_end(lab->getAddr()) : ExecutionGraph::co_iterator(cos.back()));
-		if (!isSymmetryOK(lab) || !isConsistent(lab)) {
-			found = false;
-			cos.erase(cos.end() - 1);
-			BUG_ON(cos.empty());
-		}
-		if (found)
-			break;
-	}
-	g.removeStoreFromCO(lab);
-	g.addStoreToCO(lab, cos.back() == nullptr ? g.co_end(lab->getAddr()) : ExecutionGraph::co_iterator(cos.back()));
-	cos.pop_back();
-	for (auto &co : cos) {
-		/* Push the stack item */
-		if (!inRecoveryMode())
-			addToWorklist(lab->getStamp(),
-				      std::make_unique<WriteForwardRevisit>(lab->getPos(), co->getPos()));
-	}
 }
 
 void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
@@ -2700,13 +2617,6 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 {
 	auto &g =getGraph();
 
-	// /* Symmetry reduction */
-	// if (getConf()->symmetryReduction) {
-	// 	auto tid = g.getFirstThreadLabel(sLab->getThread())->getSymmetricTid();
-	// 	if (tid != -1 && sharePrefixSR(tid, sLab->getPos()))
-	// 		return true;
-	// }
-
 	/* BAM */
 	if (!getConf()->disableBAM) {
 		if (auto *faiLab = llvm::dyn_cast<BIncFaiWriteLabel>(sLab)) {
@@ -2936,7 +2846,7 @@ bool GenMCDriver::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 	if (succIt == succE)
 		return true;
 
-	return r.getViewNoRel()->contains(succIt->getPos()) || isPlacedSymmetrically(r, &*succIt);;
+	return r.getViewNoRel()->contains(succIt->getPos());
 }
 
 bool wasAddedMaximally(const EventLabel *lab)
@@ -2961,9 +2871,9 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 		    prefixContainsSameLoc(r, &lab))
 			continue;
 
-		if (!wasAddedMaximally(&lab) && !isPlacedSymmetrically(r, &lab))
+		if (!wasAddedMaximally(&lab))
 			return false;
-		if (isCoBeforeSavedPrefix(r, &lab) && !isPlacedSymmetrically(r, &lab))
+		if (isCoBeforeSavedPrefix(r, &lab))
 			return false;
 		if (hasBeenRevisitedByDeleted(r, &lab))
 			return false;
@@ -3203,7 +3113,7 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 	g.removeStoreFromCO(wLab);
 	g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(ri.getSucc())));
 	wLab->setAddedMax(false);
-	return isSymmetryOK(wLab) && calcRevisits(wLab);
+	return calcRevisits(wLab);
 }
 
 bool GenMCDriver::revisitOptional(const OptionalForwardRevisit &oi)

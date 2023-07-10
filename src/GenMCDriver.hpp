@@ -349,8 +349,6 @@ protected:
 	int getSymmSuccTid(int tid) const;
 	bool isEcoBefore(const EventLabel *lab, int tid) const;
 	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
-	bool isPlacedSymmetrically(const BackwardRevisit &br, const EventLabel *lab);
-	bool isSymmPorfBefore(const EventLabel *lab, int tid);
 	bool isPredSymmetryOK(const EventLabel *lab, int tid);
 	bool isPredSymmetryOK(const EventLabel *lab);
 	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
@@ -800,9 +798,16 @@ private:
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
 	const VectorClock &getPrefixView(const EventLabel *lab) const {
-		if (!lab->hasPrefixView())
-			lab->setPrefixView(calculatePrefixView(lab));
+		if (!lab->hasPrefixView()) {
+			auto v = calculatePrefixView(lab);
+			const_cast<GenMCDriver *>(this)->calcSymmView(lab->getPos(), *v);
+			lab->setPrefixView(std::move(v));
+		}
 		return lab->getPrefixView();
+	}
+
+	virtual std::unique_ptr<VectorClock> getPrefixViewPure(const EventLabel *lab) {
+		return calculatePrefixView(lab);
 	}
 
 	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const = 0;
