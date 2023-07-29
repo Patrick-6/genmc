@@ -569,6 +569,7 @@ public:
 	/* Returns the packed access */
 	AAccess getAccess() const { return access; }
 
+	/* Helper flag for maximality checks */
 	bool wasAddedMax() const { return maximal; }
 	void setAddedMax(bool status) { maximal = status; }
 
