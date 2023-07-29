@@ -34,8 +34,7 @@ ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
-	auto *iLab = addLabelToGraph(
-		ThreadStartLabel::create(Event::getInitializer(), Event::getInitializer()));
+	auto *iLab = addLabelToGraph(InitLabel::create());
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
 	return;
@@ -349,17 +348,17 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 
 	/* Fastpath: non-init rf */
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(pLab->getRf())) {
-		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](auto *rLab){
-				if (isRMWLoad(rLab) && rLab != pLab)
-					pending.push_back(rLab->getPos());
+		std::for_each(wLab->readers_begin(), wLab->readers_end(), [&](auto &rLab){
+				if (isRMWLoad(&rLab) && &rLab != pLab)
+					pending.push_back(rLab.getPos());
 			});
 		return getMinimumStampEvent(pending);
 	}
 
 	/* Slowpath: scan init rfs */
-	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()), [&](auto *rLab){
-			     if (rLab->getRf() == pLab->getRf() && rLab != pLab && isRMWLoad(rLab))
-				     pending.push_back(rLab->getPos());
+	std::for_each(init_rf_begin(pLab->getAddr()), init_rf_end(pLab->getAddr()), [&](auto &rLab){
+			     if (rLab.getRf() == pLab->getRf() && &rLab != pLab && isRMWLoad(&rLab))
+				     pending.push_back(rLab.getPos());
 	});
 	return getMinimumStampEvent(pending);
 }
@@ -463,7 +462,7 @@ bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false
 void ExecutionGraph::trackCoherenceAtLoc(SAddr addr)
 {
 	coherence[addr];
-	initRfs[addr];
+	getInitLabel()->initRfs.emplace(addr, CopyableIList<ReadLabel>());
 }
 
 /************************************************************
@@ -475,12 +474,12 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	auto *lab = getLastThreadLabel(thread);
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 		if (auto *wLab = llvm::dyn_cast_or_null<WriteLabel>(rLab->getRf())) {
-			wLab->removeReader([&](ReadLabel *oLab){ return oLab == rLab; });
+			wLab->removeReader([&](ReadLabel &oLab){ return &oLab == rLab; });
 		}
 	}
 	if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-		for (auto *rLab : wLab->readers()) {
-			rLab->setRf(nullptr);
+		for (auto &rLab : wLab->readers()) {
+			rLab.setRf(nullptr);
 		}
 	}
 	resizeThread(lab->getPos());
@@ -574,7 +573,7 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	if (oldRfLab && containsPos(oldRfLab->getPos())) {
 		BUG_ON(!containsLab(oldRfLab));
 		if (auto *oldLab = llvm::dyn_cast<WriteLabel>(oldRfLab))
-			oldLab->removeReader([&](ReadLabel *oLab){ return oLab == rLab; });
+			oldLab->removeReader([&](ReadLabel &oLab){ return &oLab == rLab; });
 		else if (oldRfLab->getPos().isInitializer())
 			removeInitRfToLoc(rLab);
 	}
@@ -629,12 +628,12 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 		}
 	}
 
-	auto rIt = initRfs.begin();
+	auto rIt = getInitLabel()->initRfs.begin();
 	for (auto lIt = coherence.begin(); lIt != coherence.end(); /* empty */) {
 		/* Should we keep this memory location lying around? */
 		if (!keep.count(lIt->first)) {
 			lIt = coherence.erase(lIt);
-			rIt = initRfs.erase(rIt);
+			rIt = getInitLabel()->initRfs.erase(rIt);
 		} else {
 			for (auto sIt = lIt->second.begin(); sIt != lIt->second.end(); ) {
 				if (!preds.contains(sIt->getPos()))
@@ -642,14 +641,9 @@ void ExecutionGraph::removeAfter(const VectorClock &preds)
 				else
 					++sIt;
 			}
-			// lIt->second.erase(std::remove_if(lIt->second.begin(), lIt->second.end(),
-			// 				[&](auto &lab)
-			// 					{ return !preds.contains(lab.getPos()); }),
-			// 		 lIt->second.end());
-			rIt->second.erase(std::remove_if(rIt->second.begin(), rIt->second.end(),
-							[&](auto *rLab)
-								{ return !preds.contains(rLab->getPos()); }),
-					 rIt->second.end());
+			getInitLabel()->removeReader(lIt->first, [&](auto &rLab){
+				return !preds.contains(rLab.getPos());
+			});
 			++lIt;
 			++rIt;
 		}
@@ -669,8 +663,8 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 		for (auto j = 0u; j <= preds->getMax(i); j++) {
 			auto *lab = getEventLabel(Event(i, j));
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				wLab->removeReader([&](ReadLabel *rLab){
-					return !preds->contains(rLab->getPos());
+				wLab->removeReader([&](ReadLabel &rLab){
+					return !preds->contains(rLab.getPos());
 				});
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
@@ -730,8 +724,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 			}
 			auto *nLab = other.addLabelToGraph(getEventLabel(Event(i, j))->clone());
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(nLab)) {
-				const_cast<WriteLabel *>(wLab)->removeReader([&v](ReadLabel *rLab){
-					return !v.contains(rLab->getPos());
+				const_cast<WriteLabel *>(wLab)->removeReader([&v](ReadLabel &rLab){
+					return !v.contains(rLab.getPos());
 				});
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(nLab))
@@ -751,10 +745,10 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 						    rLab->getRf()->getPos()));
 		}
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			wLab->removeReader([](auto *rLab){ return true; });
-			for (auto *oLab : getWriteLabel(lab->getPos())->readers())
-				if (v.contains(oLab->getPos()))
-					wLab->addReader(other.getReadLabel(oLab->getPos()));
+			wLab->removeReader([](auto &rLab){ return true; });
+			for (auto &oLab : getWriteLabel(lab->getPos())->readers())
+				if (v.contains(oLab.getPos()))
+					wLab->addReader(other.getReadLabel(oLab.getPos()));
 		}
 		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 			if (eLab->getParentJoin()) {
@@ -785,9 +779,10 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 			}
 	}
 	for (auto it = loc_begin(); it != loc_end(); ++it) {
+		auto &initRfs = getInitLabel()->initRfs;
 		for (auto rIt = initRfs.at(it->first).begin(); rIt != initRfs.at(it->first).end(); ++rIt) {
-			if (v.contains(*rIt)) {
-				other.addInitRfToLoc(other.getReadLabel((*rIt)->getPos()));
+			if (v.contains(rIt->getPos())) {
+				other.addInitRfToLoc(other.getReadLabel(rIt->getPos()));
 			}
 		}
 	}
@@ -844,8 +839,7 @@ void ExecutionGraph::validate(void)
 			}
 
 			if (auto *rfLab = llvm::dyn_cast<WriteLabel>(rLab->getRf())) {
-				if (std::find(rfLab->readers_begin(), rfLab->readers_end(), rLab) ==
-				    rfLab->readers_end()) {
+				if (std::all_of(rfLab->readers_begin(), rfLab->readers_end(), [rLab](auto &oLab){ return &oLab != rLab; })) {
 					llvm::errs() << "Not in RF's readers list: " << rLab->getPos() << "\n";
 					llvm::errs() << *this << "\n";
 					BUG();
@@ -855,31 +849,31 @@ void ExecutionGraph::validate(void)
 		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
 			if (isRMWStore(wLab) &&
 			    std::count_if(wLab->readers_begin(), wLab->readers_end(),
-					  [&](auto *rLab){ return isRMWLoad(rLab); }) > 1) {
+					  [&](auto &rLab){ return isRMWLoad(&rLab); }) > 1) {
 				llvm::errs() << "Atomicity violation: " << wLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();
 			}
 
 			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
-					[&](auto *rLab){ return !containsPosNonEmpty(rLab->getPos()); })) {
+					[&](auto &rLab){ return !containsPosNonEmpty(rLab.getPos()); })) {
 				llvm::errs() << "Non-existent/non-read reader: " << wLab->getPos() << "\n";
 				llvm::errs() << "Readers: ";
 				for (auto &rLab : wLab->readers())
-					llvm::errs() << rLab->getPos() << " ";
+					llvm::errs() << rLab.getPos() << " ";
 				llvm::errs() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();
 			}
 
 			if (std::any_of(wLab->readers_begin(), wLab->readers_end(),
-					[&](auto *rLab){ return rLab->getRf() != wLab; })) {
+					[&](auto &rLab){ return rLab.getRf() != wLab; })) {
 				llvm::errs() << "RF not properly set: " << wLab->getPos() << "\n";
 				llvm::errs() << *this << "\n";
 				BUG();
 			}
 			for (auto it = wLab->readers_begin(), ie = wLab->readers_end(); it != ie; ++it) {
-				if (!containsPosNonEmpty((*it)->getPos())) {
+				if (!containsPosNonEmpty(it->getPos())) {
 					llvm::errs() << "Readers list has garbage: " << *it << "\n";
 					llvm::errs() << *this << "\n";
 					BUG();

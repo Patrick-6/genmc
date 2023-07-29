@@ -81,9 +81,9 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 			/* Otherwise, remove 'pointers' to it, in an
 			 * analogous manner cutToView(). */
 			if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-				wLab->removeReader([&](ReadLabel *rLab){
-					return !preds->contains(rLab->getPos());
-						   });
+				wLab->removeReader([&](ReadLabel &rLab){
+					return !preds->contains(rLab.getPos());
+				});
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
 				if (!preds->contains(rLab->getRf()->getPos()))

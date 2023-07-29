@@ -734,8 +734,8 @@ namespace detail {
 		DiffThreadFilter(const ExecutionGraph &g, int t)
 			: graph(g), thread(t) {}
 
-		bool operator()(ReadLabel *rLab) const {
-			return rLab && rLab->getThread() != thread;
+		bool operator()(const ReadLabel &rLab) const {
+			return rLab.getThread() != thread;
 		}
 	private:
 		const ExecutionGraph &graph;
@@ -798,8 +798,8 @@ namespace detail {
 		SameThreadFilter(const ExecutionGraph &g, int t)
 			: graph(g), thread(t) {}
 
-		bool operator()(ReadLabel *rLab) const {
-			return rLab && rLab->getThread() == thread;
+		bool operator()(const ReadLabel &rLab) const {
+			return rLab.getThread() == thread;
 		}
 	private:
 		const ExecutionGraph &graph;

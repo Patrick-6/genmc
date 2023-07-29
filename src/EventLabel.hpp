@@ -44,6 +44,23 @@
 
 class DskAccessLabel;
 class ExecutionGraph;
+class ReadLabel;
+
+template<typename T, class ...Options>
+class CopyableIList : public llvm::simple_ilist<T, Options...> {
+
+	using BaseT = llvm::simple_ilist<T, Options...>;
+
+public:
+	CopyableIList() = default;
+	CopyableIList(const CopyableIList &other) : BaseT(BaseT()) {}
+	CopyableIList(CopyableIList &&other) = default;
+
+	CopyableIList &operator=(const CopyableIList &other) {
+		*this = std::move(BaseT());
+	}
+	CopyableIList &operator=(CopyableIList &&other) = default;
+};
 
 /*******************************************************************************
  **                        EventLabel Class (Abstract)
@@ -66,6 +83,8 @@ public:
 		EL_Block,
 		EL_Optional,
 		EL_ThreadStart,
+		EL_Init,
+		EL_ThreadStartEnd,
 		EL_ThreadFinish,
 		EL_ThreadCreate,
 		EL_ThreadJoin,
@@ -601,7 +620,7 @@ private:
 
 /* The label for reads. All special read types (e.g., FAI, CAS) should inherit
  * from this class */
-class ReadLabel : public MemAccessLabel {
+class ReadLabel : public MemAccessLabel, public llvm::ilist_node<ReadLabel> {
 
 public:
 	using AnnotT = SExpr<ModuleID::ID>;
@@ -1140,12 +1159,17 @@ public:
 	bool isLocal() const { return hasAttr(WriteAttr::Local); }
 
 	/* Iterators for readers */
-	using rf_iterator = std::vector<ReadLabel *>::iterator;
-	using const_rf_iterator = std::vector<ReadLabel *>::const_iterator;
+	using ReaderList = CopyableIList<ReadLabel>;
+	using rf_iterator = ReaderList::iterator;
+	using const_rf_iterator = ReaderList::const_iterator;
+	using rf_range = llvm::iterator_range<rf_iterator>;
 	using const_rf_range = llvm::iterator_range<const_rf_iterator>;
 
 	rf_iterator readers_begin() { return readerList.begin(); }
 	rf_iterator readers_end() { return readerList.end(); }
+	rf_range readers() {
+		return rf_range(readers_begin(), readers_end());
+	}
 	const_rf_iterator readers_begin() const { return readerList.begin(); }
 	const_rf_iterator readers_end() const { return readerList.end(); }
 	const_rf_range readers() const {
@@ -1169,24 +1193,27 @@ private:
 
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(ReadLabel *rLab) {
-		if (std::find(readers_begin(), readers_end(), rLab) ==  readers_end())
-			readerList.push_back(rLab);
+		BUG_ON(std::find_if(readers_begin(), readers_end(), [rLab](ReadLabel &oLab){
+			return oLab.getPos() == rLab->getPos(); }) != readers_end());
+		readerList.push_back(*rLab);
 	}
 
 	/* Removes all readers that satisfy predicate F */
 	template <typename F>
 	void removeReader(F cond) {
-		readerList.erase(std::remove_if(readers_begin(),
-						readers_end(), [&](ReadLabel *rLab)
-						{ return cond(rLab); }),
-				 readers_end());
+		for (auto it = readers_begin(); it != readers_end(); ) {
+			if (cond(*it))
+				it = readerList.erase(it);
+			else
+				++it;
+		}
 	}
 
 	/* The value written by this label */
 	SVal value;
 
 	/* List of reads reading from the write */
-	std::vector<ReadLabel *> readerList;
+	ReaderList readerList;
 
 	/* Attributes of the write */
 	WriteAttr wattr;
@@ -1973,6 +2000,10 @@ protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
+	ThreadStartLabel(EventLabelKind kind, Event pos, Event pc)
+		: EventLabel(kind, pos, llvm::AtomicOrdering::Acquire, EventDeps()),
+		  parentCreate(pc) {}
+
 public:
 	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event pc, int symm = -1)
 		: EventLabel(EL_ThreadStart, pos, ord, EventDeps()),
@@ -1989,7 +2020,7 @@ public:
 	DEFINE_CREATE_CLONE(ThreadStartLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_ThreadStart; }
+	static bool classofKind(EventLabelKind k) { return k >= EL_ThreadStart && k <= EL_ThreadStartEnd; }
 
 private:
 	/* The position of the corresponding create opeartion */
@@ -2496,6 +2527,61 @@ public:
 private:
 	SAddr addr;
 };
+
+
+/*******************************************************************************
+ **                          InitLabel Class
+ ******************************************************************************/
+
+/* Represents the INIT label of the graph, modeling the initialization of all
+ * memory locaitons. The first thread is special in that it does not start with
+ * a ThreadStartLabel as the other threads do */
+class InitLabel : public ThreadStartLabel {
+
+private:
+	using ReaderList = CopyableIList<ReadLabel>;
+
+protected:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
+public:
+	InitLabel() : ThreadStartLabel(EL_Init, Event::getInitializer(), Event::getInitializer()) {}
+
+	using rf_iterator = ReaderList::iterator;
+	using const_rf_iterator = ReaderList::const_iterator;
+
+	rf_iterator rf_begin(SAddr addr) { return initRfs[addr].begin(); }
+	const_rf_iterator rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
+	rf_iterator rf_end(SAddr addr) { return initRfs[addr].end(); }
+	const_rf_iterator rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+
+	DEFINE_CREATE_CLONE(InitLabel)
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_Init; }
+
+private:
+	void addReader(ReadLabel *rLab) {
+		BUG_ON(std::find_if(rf_begin(rLab->getAddr()), rf_end(rLab->getAddr()), [rLab](ReadLabel &oLab){
+			return oLab.getPos() == rLab->getPos(); }) != rf_end(rLab->getAddr()));
+		initRfs[rLab->getAddr()].push_back(*rLab);
+	}
+
+	/* Removes all readers that satisfy predicate F */
+	template <typename F>
+	void removeReader(SAddr addr, F cond) {
+		for (auto it = rf_begin(addr); it != rf_end(addr); ) {
+			if (cond(*it))
+				it = initRfs[addr].erase(it);
+			else
+				++it;
+		}
+	}
+
+	std::unordered_map<SAddr, ReaderList> initRfs;
+};
+
 
 
 /*******************************************************************************

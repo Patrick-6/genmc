@@ -85,8 +85,8 @@ public:
 	using reverse_co_iterator = StoreList::reverse_iterator;
 	using const_reverse_co_iterator = StoreList::const_reverse_iterator;
 
-	using initrf_iterator = std::vector<ReadLabel *>::iterator;
-	using const_initrf_iterator = std::vector<ReadLabel *>::const_iterator;
+	using initrf_iterator = InitLabel::rf_iterator;
+	using const_initrf_iterator = InitLabel::const_rf_iterator;
 
 	iterator begin() { return events.begin(); };
 	iterator end() { return events.end(); };
@@ -113,10 +113,10 @@ public:
 	reverse_co_iterator co_rend(SAddr addr) { return coherence[addr].rend(); }
 	const_reverse_co_iterator co_rend(SAddr addr) const { return coherence.at(addr).rend(); }
 
-	initrf_iterator init_rf_begin(SAddr addr) { return initRfs[addr].begin(); }
-	const_initrf_iterator init_rf_begin(SAddr addr) const { return initRfs.at(addr).begin(); };
-	initrf_iterator init_rf_end(SAddr addr) { return initRfs[addr].end(); }
-	const_initrf_iterator init_rf_end(SAddr addr) const { return initRfs.at(addr).end(); }
+	initrf_iterator init_rf_begin(SAddr addr) { return getInitLabel()->rf_begin(addr); }
+	const_initrf_iterator init_rf_begin(SAddr addr) const { return getInitLabel()->rf_begin(addr); };
+	initrf_iterator init_rf_end(SAddr addr) { return getInitLabel()->rf_end(addr); }
+	const_initrf_iterator init_rf_end(SAddr addr) const { return getInitLabel()->rf_end(addr); }
 
 	co_iterator co_succ_begin(WriteLabel *lab) {
 		return ++co_iterator(lab);
@@ -233,6 +233,13 @@ public:
 
 
 	/* Event addition/removal methods */
+
+	const InitLabel *getInitLabel() const {
+		return static_cast<const InitLabel *>(getEventLabel(Event(0, 0)));
+	}
+	InitLabel *getInitLabel() {
+		return const_cast<InitLabel *>(static_cast<const ExecutionGraph &>(*this).getInitLabel());
+	}
 
 	/* Returns the maximum stamp used */
 	Stamp getMaxStamp() const { return timestamp; }
@@ -586,14 +593,13 @@ protected:
 	void copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) const;
 
 	void addInitRfToLoc(ReadLabel *rLab) {
-		initRfs[rLab->getAddr()].push_back(rLab);
+		getInitLabel()->addReader(rLab);
 	}
 
 	void removeInitRfToLoc(ReadLabel *rLab) {
-		auto &locInits = initRfs[rLab->getAddr()];
-		auto it = std::find(locInits.begin(), locInits.end(), rLab);
-		if (it != locInits.end())
-			locInits.erase(it);
+		getInitLabel()->removeReader(rLab->getAddr(), [&](auto &lab){
+			return &lab == rLab;
+		});
 	}
 
 	void removeAfter(const VectorClock &preds);
@@ -614,7 +620,6 @@ protected:
 	Stamp timestamp = 0;
 
 	LocMap coherence;
-	std::unordered_map<SAddr, std::vector<ReadLabel *>> initRfs;
 
 	/* Pers: An object calculating persistency relations */
 	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */

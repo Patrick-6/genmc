@@ -641,7 +641,7 @@ bool RC11Driver::visitAcyclic2(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab))if (pLab->isSC()) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true)if (pLab->isSC()) {
 		auto &node = visitedAcyclic15[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(pLab))
 			return false;
@@ -655,7 +655,7 @@ bool RC11Driver::visitAcyclic2(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab)) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic0[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
 			return false;
@@ -669,7 +669,7 @@ bool RC11Driver::visitAcyclic2(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab)) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -1088,7 +1088,7 @@ bool RC11Driver::visitAcyclic12(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab)) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic12[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic12(pLab))
 			return false;
@@ -1137,7 +1137,7 @@ bool RC11Driver::visitAcyclic12(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab)) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -1190,7 +1190,7 @@ bool RC11Driver::visitAcyclic14(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	for (auto *pLab : fr_imm_preds(g, lab)) {
+	for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic12[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic12(pLab))
 			return false;
@@ -1312,7 +1312,7 @@ bool RC11Driver::visitAcyclic15(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto *pLab : fr_imm_preds(g, lab))if (pLab->isSC()) {
+	if (lab->isSC())for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true)if (pLab->isSC()) {
 		auto &node = visitedAcyclic15[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic15(pLab))
 			return false;
@@ -1340,7 +1340,7 @@ bool RC11Driver::visitAcyclic15(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto *pLab : fr_imm_preds(g, lab)) {
+	if (lab->isSC())for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic0[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
 			return false;
@@ -1368,7 +1368,7 @@ bool RC11Driver::visitAcyclic15(const EventLabel *lab)
 		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
 			return false;
 	}
-	if (lab->isSC())for (auto *pLab : fr_imm_preds(g, lab)) {
+	if (lab->isSC())for (auto &oLab : fr_imm_preds(g, lab)) if (auto *pLab = &oLab; true) {
 		auto &node = visitedAcyclic13[pLab->getStamp().get()];
 		if (node.status == NodeStatus::unseen && !visitAcyclic13(pLab))
 			return false;
@@ -1519,8 +1519,8 @@ bool RC11Driver::isWriteRfBefore(Event a, Event b)
 
 	BUG_ON(!llvm::isa<WriteLabel>(lab));
 	auto *wLab = static_cast<const WriteLabel *>(lab);
-	for (auto *rLab : wLab->readers())
-		if (before.contains(rLab->getPos()))
+	for (auto &rLab : wLab->readers())
+		if (before.contains(rLab.getPos()))
 			return true;
 	return false;
 }
@@ -1548,8 +1548,8 @@ bool RC11Driver::isHbOptRfBefore(const Event e, const Event write)
 	if (sLab->view(0).contains(e))
 		return true;
 
-	for (auto *rLab : sLab->readers()) {
-		if (rLab->view(0).contains(e))
+	for (auto &rLab : sLab->readers()) {
+		if (rLab.view(0).contains(e))
 			return true;
 	}
 	return false;
@@ -1632,17 +1632,16 @@ std::vector<Event>
 RC11Driver::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	std::vector<Event> after;
-	std::vector<ReadLabel *> rfAfter;
 
-	const auto &g = getGraph();
+	auto &g = getGraph();
 	std::for_each(g.co_succ_begin(sLab), g.co_succ_end(sLab),
 		      [&](auto &wLab){
 			      after.push_back(wLab.getPos());
-			      rfAfter.insert(rfAfter.end(), wLab.readers_begin(), wLab.readers_end());
+			      std::transform(wLab.readers_begin(), wLab.readers_end(), std::back_inserter(after), [](const ReadLabel &rLab){
+				      return rLab.getPos();
+			      });
 	});
-	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after), [](ReadLabel *rLab){
-		return rLab->getPos();
-	});
+
 	return after;
 }
 
@@ -1651,16 +1650,14 @@ RC11Driver::getMOInvOptRfAfter(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	std::vector<Event> after;
-	std::vector<ReadLabel *> rfAfter;
 
 	/* First, add (mo;rf?)-before */
 	std::for_each(g.co_pred_begin(sLab),
 		      g.co_pred_end(sLab), [&](auto &wLab){
 			      after.push_back(wLab.getPos());
-			      rfAfter.insert(rfAfter.end(), wLab.readers_begin(), wLab.readers_end());
-	});
-	std::transform(rfAfter.begin(), rfAfter.end(), std::back_inserter(after), [](ReadLabel *rLab){
-		return rLab->getPos();
+			      std::transform(wLab.readers_begin(), wLab.readers_end(), std::back_inserter(after), [](const ReadLabel &rLab){
+				      return rLab.getPos();
+			      });
 	});
 
 	/* Then, we add the reader list for the initializer */

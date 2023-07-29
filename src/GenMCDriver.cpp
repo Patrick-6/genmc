@@ -515,8 +515,8 @@ void GenMCDriver::checkHelpingCasAnnotation()
 				[&](auto &sLab){
 			return hLab->getExpected() == sLab.getVal() &&
 				std::none_of(sLab.readers_begin(), sLab.readers_end(),
-					    [&](auto *rLab){
-						    return llvm::isa<HelpedCasReadLabel>(rLab);
+					    [&](auto &rLab){
+						    return llvm::isa<HelpedCasReadLabel>(&rLab);
 					    });
 		}))
 			ERROR("Helped/Helping CAS annotation error! "
@@ -2458,9 +2458,9 @@ bool GenMCDriver::isConflictingNonRevBlocker(const EventLabel *pLab, const Write
 		return false;
 	if (sLab2->getThread() <= sLab->getThread())
 		return false;
-	return std::any_of(sLab2->readers_begin(), sLab2->readers_end(), [&](auto *rLab){
-				return rLab->getStamp() < sLab2->getStamp() &&
-					!prefix->contains(rLab->getPos());
+	return std::any_of(sLab2->readers_begin(), sLab2->readers_end(), [&](auto &rLab){
+				return rLab.getStamp() < sLab2->getStamp() &&
+					!prefix->contains(rLab.getPos());
 		});
 }
 
@@ -2633,7 +2633,7 @@ bool isFixedHoleInView(const ExecutionGraph &g, const EventLabel *lab, const Dep
 {
 	if (auto *wLabB = llvm::dyn_cast<WriteLabel>(lab))
 		return std::any_of(wLabB->readers_begin(), wLabB->readers_end(),
-				   [&v](ReadLabel *oLab){ return v.contains(oLab->getPos()); });
+				   [&v](auto &oLab){ return v.contains(oLab.getPos()); });
 
 	auto *rLabB = llvm::dyn_cast<ReadLabel>(lab);
 	if (!rLabB)
@@ -2653,7 +2653,7 @@ bool isFixedHoleInView(const ExecutionGraph &g, const EventLabel *lab, const Dep
 	if (g.isRMWLoad(rLabB)) {
 		auto *wLabB = g.getWriteLabel(rLabB->getPos().next());
 		return std::any_of(wLabB->readers_begin(), wLabB->readers_end(),
-				   [&v](ReadLabel *oLab){ return v.contains(oLab->getPos()); });
+				   [&v](auto &oLab){ return v.contains(oLab.getPos()); });
 	}
 	return false;
 }
