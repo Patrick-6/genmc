@@ -1,7 +1,5 @@
 AC_INIT([GenMC], [0.8], [michalis@mpi-sws.org], [genmc], [https://plv.mpi-sws.org/genmc])
 
-AC_CONFIG_SUBDIRS([kater])
-
 m4_include([m4/ax_llvm.m4])
 m4_include([m4/ax_clang.m4])
 m4_include([m4/ax_git_commit.m4])

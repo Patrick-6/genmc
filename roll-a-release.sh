@@ -29,7 +29,7 @@ set -e
 
 # update local github mirror
 cd "${INTERNAL_PATH}"
-git diff "${COMMIT}"..dev --binary -- . ':!./.gitlab-ci.yml' ':!./gitlab-ci' ':!./scripts/check-regression.sh' ':!./scripts/run-parallel.sh' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./Dockerfile' ':!./.dockerignore' ':!./roll-a-release.sh' ':!./doc/manual.org' > "${PATCH_PATH}"
+git diff "${COMMIT}"..dev --binary -- . ':!./.gitmodules' ':!./.gitlab-ci.yml' ':!./gitlab-ci' ':!./scripts/check-regression.sh' ':!./scripts/run-parallel.sh' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./Dockerfile' ':!./.dockerignore' ':!./roll-a-release.sh' ':!./doc/manual.org' > "${PATCH_PATH}"
 git checkout master && git merge dev && git tag "v${VERSION}"
 git push origin master && git push origin "v${VERSION}"
 

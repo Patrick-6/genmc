@@ -1,3 +1,0 @@
-let sc = (po | rf | mo | fr)
-
-acyclic sc
