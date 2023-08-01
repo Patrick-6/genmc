@@ -304,8 +304,8 @@ Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAdd
 
 Event ExecutionGraph::getMalloc(const SAddr &addr) const
 {
-	auto it = std::find_if(label_begin(*this), label_end(*this), [&](const EventLabel *lab){
-				       if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab))
+	auto it = std::find_if(label_begin(*this), label_end(*this), [&](auto &lab){
+				       if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab))
 					       return aLab->contains(addr);
 				       return false;
 				});
@@ -391,8 +391,8 @@ std::vector<Event> ExecutionGraph::getInitRfsAtLoc(SAddr addr) const
 {
 	std::vector<Event> result;
 
-	for (const auto *lab : labels(*this)) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab))
+	for (const auto &lab : labels(*this)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab))
 			if (rLab->getRf() && rLab->getRf()->getPos().isInitializer() && rLab->getAddr() == addr)
 				result.push_back(rLab->getPos());
 	}
@@ -511,11 +511,11 @@ bool ExecutionGraph::isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const
 
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 {
-	for (const auto *lab : labels(*this)) {
-		if (!isRMWLoad(lab))
+	for (const auto &lab : labels(*this)) {
+		if (!isRMWLoad(&lab))
 			continue;
 
-		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab->getRf()->getPos() == store && rLab->getAddr() == ptr)
 			return true;
 	}
@@ -524,11 +524,11 @@ bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
 
 bool ExecutionGraph::isStoreReadBySettledRMW(Event store, SAddr ptr, const VectorClock &prefix) const
 {
-	for (const auto *lab : labels(*this)) {
-		if (!isRMWLoad(lab))
+	for (const auto &lab : labels(*this)) {
+		if (!isRMWLoad(&lab))
 			continue;
 
-		auto *rLab = llvm::dyn_cast<ReadLabel>(lab);
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
 		if (rLab->getRf()->getPos() != store || rLab->getAddr() != ptr)
 			continue;
 
@@ -692,9 +692,9 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 void ExecutionGraph::compressStampsAfter(Stamp st)
 {
 	resetStamp(st + 1);
-	for (auto *lab : labels(*this)) {
-		if (lab->getStamp() > st)
-			lab->setStamp(nextStamp());
+	for (auto &lab : labels(*this)) {
+		if (lab.getStamp() > st)
+			lab.setStamp(nextStamp());
 	}
 }
 
@@ -735,8 +735,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 		}
 	}
 
-	for (auto *lab : labels(other)) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+	for (auto &lab : labels(other)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
 			BUG_ON(!rLab->getRf());
 			if (!other.containsPos(rLab->getRf()->getPos()))
 				rLab->setRf(nullptr);
@@ -744,13 +744,13 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				rLab->setRf(other.getEventLabel(
 						    rLab->getRf()->getPos()));
 		}
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&lab)) {
 			wLab->removeReader([](auto &rLab){ return true; });
-			for (auto &oLab : getWriteLabel(lab->getPos())->readers())
+			for (auto &oLab : getWriteLabel(lab.getPos())->readers())
 				if (v.contains(oLab.getPos()))
 					wLab->addReader(other.getReadLabel(oLab.getPos()));
 		}
-		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
+		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(&lab)) {
 			if (eLab->getParentJoin()) {
 				if (!v.contains(eLab->getParentJoin()->getPos())) {
 					eLab->setParentJoin(nullptr);
@@ -827,8 +827,8 @@ bool ExecutionGraph::isRMWLoad(const EventLabel *lab) const
 
 void ExecutionGraph::validate(void)
 {
-	for (auto *lab : labels(*this)) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+	for (auto &lab : labels(*this)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
 			if (!rLab->getRf())
 				continue;
 
@@ -846,7 +846,7 @@ void ExecutionGraph::validate(void)
 				}
 			}
 		}
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&lab)) {
 			if (isRMWStore(wLab) &&
 			    std::count_if(wLab->readers_begin(), wLab->readers_end(),
 					  [&](auto &rLab){ return isRMWLoad(&rLab); }) > 1) {

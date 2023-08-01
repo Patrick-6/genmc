@@ -53,7 +53,7 @@ public:
 	using value_type = LabelT;
 	using difference_type = signed;
 	using pointer = LabelT *;
-	using reference = LabelT *; /* ugly hack to avoid having UP refs */
+	using reference = LabelT &; /* ugly hack to avoid having UP refs */
 
 	using BaseT = LabelIterator<ThreadT, ThreadItT, LabelT, LabelItT>;
 
@@ -126,8 +126,8 @@ public:
 
 
 	/*** Operators ***/
-	inline pointer operator*() const { return &**label; }
-	inline pointer operator->() const { return operator*(); }
+	inline reference operator*() const { return **label; }
+	inline pointer operator->() const { return &operator*(); }
 
 	template<typename U = ThreadItT,
 		 typename std::enable_if_t<std::is_same<U, decltype(
@@ -423,8 +423,8 @@ namespace detail {
 		LocationFilter(const ExecutionGraph &g, const SAddr &a)
 			: graph(g), addr(a) {}
 
-		bool operator()(const EventLabel *sLab) const {
-			auto *lab = llvm::dyn_cast<MemAccessLabel>(sLab);
+		bool operator()(const EventLabel &sLab) const {
+			auto *lab = llvm::dyn_cast<MemAccessLabel>(&sLab);
 			return lab && lab->getAddr() == addr;
 		}
 	private:
@@ -581,8 +581,8 @@ namespace detail {
 		RfIntFilter(const ExecutionGraph &g, const Event &w)
 			: graph(g), write(w) {}
 
-		bool operator()(const EventLabel *rLab) const {
-			auto *lab = llvm::dyn_cast<ReadLabel>(rLab);
+		bool operator()(const EventLabel &rLab) const {
+			auto *lab = llvm::dyn_cast<ReadLabel>(&rLab);
 			return lab && lab->getRf()->getPos() != write;
 		}
 	private:
@@ -595,8 +595,8 @@ namespace detail {
 		RfInvIntFilter(const ExecutionGraph &g, const Event &w)
 			: graph(g), write(w) {}
 
-		bool operator()(const EventLabel *sLab) const {
-			auto *lab = llvm::dyn_cast<WriteLabel>(sLab);
+		bool operator()(const EventLabel &sLab) const {
+			auto *lab = llvm::dyn_cast<WriteLabel>(&sLab);
 			return lab && lab->getPos() != write;
 		}
 	private:
@@ -945,12 +945,12 @@ namespace detail {
 		IDAndLocFilter(const ExecutionGraph &g, const SAddr &a, Event e)
 			: graph(g), addr(a), pos(e) {}
 
-		bool operator()(const EventLabel *sLab) const {
-			if (auto *lab = llvm::dyn_cast<MemAccessLabel>(sLab))
+		bool operator()(const EventLabel &sLab) const {
+			if (auto *lab = llvm::dyn_cast<MemAccessLabel>(&sLab))
 				return lab->getPos() != pos && lab->getAddr() == addr;
-			if (auto *lab = llvm::dyn_cast<MallocLabel>(sLab))
+			if (auto *lab = llvm::dyn_cast<MallocLabel>(&sLab))
 				return lab->getPos() != pos && lab->contains(addr);
-			if (auto *lab = llvm::dyn_cast<FreeLabel>(sLab))
+			if (auto *lab = llvm::dyn_cast<FreeLabel>(&sLab))
 				return lab->getPos() != pos && lab->contains(addr);
 			return false;
 		}
@@ -1012,8 +1012,8 @@ namespace detail {
 		AllocFilter(const ExecutionGraph &g, const SAddr &a)
 			: graph(g), addr(a) {}
 
-		bool operator()(const EventLabel *sLab) const {
-			auto *lab = llvm::dyn_cast<MallocLabel>(sLab);
+		bool operator()(const EventLabel &sLab) const {
+			auto *lab = llvm::dyn_cast<MallocLabel>(&sLab);
 			return lab && lab->contains(addr);
 		}
 	private:

@@ -459,7 +459,7 @@ Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
 {
 	auto first = Event(pos.thread, 0);
 	auto it = std::find_if(po_succ_begin(g, first), po_succ_end(g, first),
-			    [&](auto *lab){ return llvm::isa<EmptyLabel>(lab); });
+			    [&](auto &lab){ return llvm::isa<EmptyLabel>(&lab); });
 	return it == po_succ_end(g, first) ? g.getLastThreadEvent(pos.thread).next() : it->getPos();
 }
 
@@ -1082,30 +1082,30 @@ bool GenMCDriver::checkForMemoryRaces(const MemAccessLabel *mLab)
 	const WriteLabel *initLab = nullptr;
 	const FreeLabel *potHazLab = nullptr;
 
-	for (const auto *oLab : labels(g)) {
-		if (auto *fLab = llvm::dyn_cast<FreeLabel>(oLab)) {
+	for (const auto &oLab : labels(g)) {
+		if (auto *fLab = llvm::dyn_cast<FreeLabel>(&oLab)) {
 			if (fLab->contains(mLab->getAddr())) {
 				if (!llvm::isa<HpRetireLabel>(fLab)) {
-					reportError(mLab->getPos(), VerificationError::VE_AccessFreed, "", oLab->getPos());
+					reportError(mLab->getPos(), VerificationError::VE_AccessFreed, "", fLab->getPos());
 					return true;
 				}
 				potHazLab = fLab;
 			}
 		}
-		if (auto *aLab = llvm::dyn_cast<MallocLabel>(oLab)) {
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&oLab)) {
 			if (aLab->contains(mLab->getAddr())) {
 				if (!before.contains(aLab->getPos())) {
 					reportError(mLab->getPos(), VerificationError::VE_AccessNonMalloc,
 						   "The allocating operation (malloc()) "
 						   "does not happen-before the memory access!",
-						   oLab->getPos());
+						    aLab->getPos());
 					return true;
 				} else {
 					allocLab = aLab;
 				}
 			}
 		}
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(oLab)) {
+		if (auto *wLab = llvm::dyn_cast<WriteLabel>(&oLab)) {
 			if (wLab->getAddr() == mLab->getAddr() && before.contains(wLab->getPos()))
 				initLab = wLab;
 		}
@@ -1141,21 +1141,21 @@ bool GenMCDriver::checkForMemoryRaces(const FreeLabel *fLab)
 	const MallocLabel *m = nullptr; /* There must be a malloc() before the free() */
 	const MemAccessLabel *potHazLab = nullptr;
 
-	for (const auto *lab : labels(g)) {
-		if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+	for (const auto &lab : labels(g)) {
+		if (auto *aLab = llvm::dyn_cast<MallocLabel>(&lab)) {
 			if (aLab->getAllocAddr() == ptr &&
 			    before.contains(aLab->getPos())) {
 				m = aLab;
 			}
 		}
-		if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
+		if (auto *dLab = llvm::dyn_cast<FreeLabel>(&lab)) {
 			if (dLab->getFreedAddr() == ptr &&
 			    dLab->getPos() != fLab->getPos()) {
 				reportError(fLab->getPos(), VerificationError::VE_DoubleFree, "", dLab->getPos());
 				return true;
 			}
 		}
-		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab)) {
 			if (mLab->getAddr() == ptr && !before.contains(mLab->getPos())) {
 				if (!llvm::isa<HpRetireLabel>(fLab)) {
 					reportError(fLab->getPos(), VerificationError::VE_AccessFreed, "", mLab->getPos());
@@ -1200,14 +1200,14 @@ void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 	return;
 }
 
-const MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
+MallocLabel *findAllocatingLabel(ExecutionGraph &g, const SAddr &addr)
 {
-	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto *lab){
-		auto *mLab = llvm::dyn_cast<MallocLabel>(lab);
+	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab){
+		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
 		return mLab && mLab->contains(addr);
 	});
 	if (labIt != label_end(g))
-		return llvm::dyn_cast<MallocLabel>(*labIt);
+		return llvm::dyn_cast<MallocLabel>(&*labIt);
 	return nullptr;
 }
 
@@ -1886,8 +1886,8 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores)
 {
 	auto &g = getGraph();
-	return (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *oLab){
-		auto *orLab = llvm::dyn_cast<SpeculativeReadLabel>(oLab);
+	return (std::any_of(label_begin(g), label_end(g), [&](auto &oLab){
+		auto *orLab = llvm::dyn_cast<SpeculativeReadLabel>(&oLab);
 		return orLab && orLab->getAddr() == lab->getAddr() &&
 			!getHbView(lab).contains(orLab->getPos()) &&
 			orLab->getPos() != lab->getPos();
@@ -2753,16 +2753,16 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 	auto &g = getGraph();
         auto v = getRevisitView(r);
 
-	for (const auto *lab : labels(g)) {
-		if ((lab->getPos() != r.getPos() && v->contains(lab->getPos())) ||
-		    prefixContainsSameLoc(r, lab))
+	for (const auto &lab : labels(g)) {
+		if ((lab.getPos() != r.getPos() && v->contains(lab.getPos())) ||
+		    prefixContainsSameLoc(r, &lab))
 			continue;
 
-		if (isCoBeforeSavedPrefix(r, lab))
+		if (isCoBeforeSavedPrefix(r, &lab))
 			return false;
-		if (hasBeenRevisitedByDeleted(r, lab))
+		if (hasBeenRevisitedByDeleted(r, &lab))
 			return false;
-		if (!wasAddedMaximally(lab))
+		if (!wasAddedMaximally(&lab))
 			return false;
 	}
 	return true;
@@ -2812,8 +2812,8 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 	auto *revLab = og->getReadLabel(br->getPos());
 
 	og->compressStampsAfter(revLab->getStamp());
-	for (auto *lab : labels(*og)) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
+	for (auto &lab : labels(*og)) {
+		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
 			if (rLab && prefix.contains(rLab->getPos()))
 				rLab->setRevisitStatus(false);
 		}
@@ -3200,8 +3200,8 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return llvm::dyn_cast<OptionalLabel>(g.getEventLabel(lab->getPos()))->isExpanded();
 
-	if (std::any_of(label_begin(g), label_end(g), [&](const EventLabel *lab){
-		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
+	if (std::any_of(label_begin(g), label_end(g), [&](auto &lab){
+		auto *oLab = llvm::dyn_cast<OptionalLabel>(&lab);
 		return oLab && !oLab->isExpandable();
 	}))
 		lab->setExpandable(false);
@@ -3313,8 +3313,8 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 
 	/* All stores in the RMW chain need to be read from at most 1 read,
 	 * and there need to be no other stores that are not hb-before lab */
-	for (auto *lab : labels(g)) {
-		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+	for (auto &lab : labels(g)) {
+		if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab)) {
 			if (mLab->getAddr() == wLab->getAddr() && !llvm::isa<FaiReadLabel>(mLab) &&
 			    !llvm::isa<FaiWriteLabel>(mLab) && !getHbView(wLab).contains(mLab->getPos()))
 				return false;
