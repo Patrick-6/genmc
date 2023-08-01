@@ -36,7 +36,6 @@ libgenmc_a_SOURCES = \
   GenMCDriver.cpp GenMCDriver.hpp \
   GraphBuilder.hpp \
   GraphIterators.hpp \
-  IMMChecker.cpp IMMChecker.hpp \
   IMMDriver.cpp IMMDriver.hpp \
   InstAnnotator.cpp InstAnnotator.hpp \
   Interpreter.cpp Interpreter.h \
