@@ -1,4 +1,4 @@
-SUBDIRS = src include kater
+SUBDIRS = src include
 
 .PHONY: test ftest
 test:
@@ -16,6 +16,3 @@ ctest:
 rtest:
 	$(MAKE) -C src
 	cd $(top_builddir)/scripts && ./randomize-driver.sh
-
-kat:
-	$(MAKE) -C kater
