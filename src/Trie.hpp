@@ -27,7 +27,8 @@
 
 /*
  * This class defines a generic trie structure with the only
- * restriction being that trie keys need to be sequences.
+ * restriction being that trie keys need to be sequences that
+ * support random access iterators.
  *
  * Inspired by the Trie class in LLVM 2.9.
  */
@@ -126,15 +127,15 @@ public:
 			*it = n;
 		}
 
-		QueryResult query(const Seq& s) const {
+		QueryResult query(typename Seq::const_iterator sBeg, typename Seq::const_iterator sEnd) const {
 			unsigned i, l;
-			unsigned l1 = s.size();
+			unsigned l1 = std::distance(sBeg, sEnd);
 			unsigned l2 = label().size();
 
 			/* Find the length of common part */
 			l = std::min(l1, l2);
 			i = 0;
-			while ((i < l) && (s[i] == label()[i]))
+			while ((i < l) && (*(sBeg + i) == label()[i]))
 				++i;
 
 			if (i == l) { // One is prefix of another, find who is who
@@ -177,17 +178,18 @@ public:
 		if (s.empty())
 			return false;
 
-		Seq s1(s);
+		auto sBeg = s.begin();
+		auto sEnd = s.end();
 		while (tNode == NULL) {
-			auto id = s1[0];
+			auto id = *sBeg;
 			if (auto *nNode = cNode->getEdge(id)) {
-				auto r = nNode->query(s1);
+				auto r = nNode->query(sBeg, sEnd);
 
 				switch (r) {
 				case Node::QueryResult::Same:
 					return false;
 				case Node::QueryResult::StringIsPrefix: {
-					auto index = s1.size();
+					auto index = std::distance(sBeg, sEnd);
 					nNode = splitEdge(cNode, id, index);
 					nNode->setData(std::move(data));
 					return true;
@@ -196,19 +198,19 @@ public:
 					BUG();
 					return false;
 				case Node::QueryResult::LabelIsPrefix:
-					s1 = Seq(s1.begin() + nNode->label().size(), s1.end());
+					sBeg = sBeg + nNode->label().size();
 					cNode = nNode;
 					break;
 				default: {
 					auto index = static_cast<std::underlying_type_t<
 						typename Node::QueryResult>>(r);
 					nNode = splitEdge(cNode, id, index);
-					tNode = addNode(std::move(data), Seq(s1.begin() + index, s1.end()));
+					tNode = addNode(std::move(data), Seq(sBeg + index, sEnd));
 					nNode->addEdge(tNode);
 				}
 				}
 			} else {
-				tNode = addNode(std::move(data), s1);
+				tNode = addNode(std::move(data), Seq(sBeg, sEnd));
 				cNode->addEdge(tNode);
 			}
 		}
@@ -222,11 +224,12 @@ public:
 		if (s.empty())
 			return &cNode->data();
 
-		Seq s1(s);
+		auto sBeg = s.begin();
+		auto sEnd = s.end();
 		while (tNode == nullptr) {
-			auto Id = s1[0];
+			auto Id = *sBeg;
 			if (auto *nNode = cNode->getEdge(Id)) {
-				auto r = nNode->query(s1);
+				auto r = nNode->query(sBeg, sEnd);
 
 				switch (r) {
 				case Node::QueryResult::Same:
@@ -238,7 +241,7 @@ public:
 					BUG();
 					return nullptr;
 				case Node::QueryResult::LabelIsPrefix:
-					s1 = Seq(s1.begin() + nNode->label().size(), s1.end());
+					sBeg = sBeg + nNode->label().size();
 					cNode = nNode;
 					break;
 				default:
