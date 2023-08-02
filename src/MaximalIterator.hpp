@@ -101,6 +101,6 @@ inline maximal_range maximals(const View &v) { return maximal_range(maximal_begi
 
 #define FOREACH_MAXIMAL(result, graph, view)				\
 	for (auto i = 0u; i < view.size(); i++)				\
-		if (auto *pLab = graph.getEventLabel(Event(i, view.getMax(i))); true)
+		if (auto *result = graph.getEventLabel(Event(i, view.getMax(i))); true)
 
 #endif /*__MAXIMAL_ITERATOR_HPP__ */
