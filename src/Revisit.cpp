@@ -68,7 +68,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const Revisit &item)
 		auto &bi = static_cast<const BackwardRevisit &>(item);
 		s << bi.getKind() << "(" << bi.getPos() << ": ["
 		  << bi.getRev() << ", ";
-		s << *bi.getPrefixNoRel();
+		s << *bi.getViewNoRel();
 		s << "]";
 		break;
 	}

@@ -1497,9 +1497,9 @@ View RC11Driver::calcPPoRfBefore(const EventLabel *lab) const
 	visitPPoRf0(lab, pporf);
 	return pporf;
 }
-std::unique_ptr<VectorClock> RC11Driver::getPrefixView(const EventLabel *lab) const
+std::unique_ptr<VectorClock> RC11Driver::calculatePrefixView(const EventLabel *lab) const
 {
-	return LLVM_MAKE_UNIQUE<View>(calcPPoRfBefore(lab));
+	return LLVM_MAKE_UNIQUE<View>(const_cast<RC11Driver *>(this)->calcPPoRfBefore(lab));
 }
 
 const View &RC11Driver::getHbView(const EventLabel *lab) const

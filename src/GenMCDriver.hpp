@@ -531,11 +531,11 @@ private:
 	 * (This function can be abused and also be utilized for returning the view
 	 * of "fictional" revisits, e.g., the view of an event in a maximal path.) */
 	std::unique_ptr<VectorClock>
-	getRevisitView(const BackwardRevisit &r) const;
+	getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab, const WriteLabel *midLab = nullptr) const;
 
 	/* Returnes true if the revisit R will delete LAB from the graph */
 	bool revisitDeletesEvent(const BackwardRevisit &r, const EventLabel *lab) const {
-		auto v = getRevisitView(r);
+		auto &v = r.getViewNoRel();
 		return !v->contains(lab->getPos()) && !prefixContainsSameLoc(r, lab);
 	}
 
@@ -773,7 +773,15 @@ private:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	virtual std::unique_ptr<VectorClock> getPrefixView(const EventLabel *lab) const;
+	const VectorClock &getPrefixView(const EventLabel *lab) const {
+		if (!lab->hasPrefixView())
+			lab->setPrefixView(calculatePrefixView(lab));
+		return lab->getPrefixView();
+	}
+
+	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const {
+		ERROR("Unimplemented prefix\n");
+	}
 
 	virtual const View &getHbView(const EventLabel *lab) const {
 		ERROR("Unimplemented hbview\n");

@@ -226,6 +226,12 @@ public:
 #endif
 	}
 
+	bool hasPrefixView() const { return prefixView.get() != nullptr; }
+	const VectorClock &getPrefixView() const { return *prefixView; }
+	void setPrefixView(std::unique_ptr<VectorClock> v) const {
+		prefixView = std::move(v);
+	}
+
 	void setCalculated(std::vector<VSet<Event>> &&calc) {
 		calculatedRels = std::move(calc);
 	}
@@ -337,6 +343,8 @@ private:
 
 	/* The stamp of this label in the execution graph */
 	std::optional<Stamp> stamp = std::nullopt;
+
+	mutable value_ptr<VectorClock, VectorClockCloner> prefixView = nullptr;
 
 	/* Saved calculations */
 	std::vector<VSet<Event>> calculatedRels;

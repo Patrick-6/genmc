@@ -1821,14 +1821,14 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 
 	/* Remove atomicity violations */
 	auto &g = getGraph();
-	auto before = getPrefixView(lab);
+	auto &before = getPrefixView(lab);
 	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](const Event &s){
 		auto oldVal = getWriteValue(g.getEventLabel(s), lab->getAddr(), lab->getAccess());
-		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), *before))
+		if (llvm::isa<FaiReadLabel>(lab) && g.isStoreReadBySettledRMW(s, lab->getAddr(), before))
 			return true;
 		if (auto *rLab = llvm::dyn_cast<CasReadLabel>(lab)) {
 			if (oldVal == rLab->getExpected() &&
-			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), *before))
+			    g.isStoreReadBySettledRMW(s, rLab->getAddr(), before))
 				return true;
 		}
 		return false;
@@ -2073,8 +2073,8 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
-	auto prefix = getPrefixView(sLab);
-	auto loads = getCoherentRevisits(sLab, *prefix);
+	auto &prefix = getPrefixView(sLab);
+	auto loads = getCoherentRevisits(sLab, prefix);
 	std::sort(loads.begin(), loads.end(), [&g](const Event &l1, const Event &l2){
 		return g.getEventLabel(l1)->getStamp() > g.getEventLabel(l2)->getStamp();
 	});
@@ -2452,15 +2452,15 @@ bool GenMCDriver::isConflictingNonRevBlocker(const EventLabel *pLab, const Write
 	auto *sLab2 = llvm::dyn_cast<WriteLabel>(g.getEventLabel(s));
 	if (sLab2->getPos() == sLab->getPos() || !g.isRMWStore(sLab2))
 		return false;
-	auto prefix = getPrefixView(sLab);
-	if (prefix->contains(sLab2->getPos()) &&
+	auto &prefix = getPrefixView(sLab);
+	if (prefix.contains(sLab2->getPos()) &&
 	    !(pLab && pLab->getStamp() < sLab2->getStamp()))
 		return false;
 	if (sLab2->getThread() <= sLab->getThread())
 		return false;
 	return std::any_of(sLab2->readers_begin(), sLab2->readers_end(), [&](auto &rLab){
 				return rLab.getStamp() < sLab2->getStamp() &&
-					!prefix->contains(rLab.getPos());
+					!prefix.contains(rLab.getPos());
 		});
 }
 
@@ -2544,15 +2544,15 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 	return true;
 }
 
-std::unique_ptr<VectorClock>
-GenMCDriver::getPrefixView(const EventLabel *lab) const
-{
-	auto &g = getGraph();
-	// if (!getConf()->isDepTrackingModel)
-	// 	return  std::make_unique<View>(g.getEventLabel(e)->getPorfView());
-	// return std::make_unique<DepView>(g.getEventLabel(e)->getPPoRfView());
-	ERROR("Unimplemented view");
-}
+// std::unique_ptr<VectorClock>
+// GenMCDriver::getPrefixView(const EventLabel *lab) const
+// {
+// 	auto &g = getGraph();
+// 	// if (!getConf()->isDepTrackingModel)
+// 	// 	return  std::make_unique<View>(g.getEventLabel(e)->getPorfView());
+// 	// return std::make_unique<DepView>(g.getEventLabel(e)->getPPoRfView());
+// 	ERROR("Unimplemented view");
+// }
 
 void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds, const VectorClock &pporf)
 {
@@ -2579,15 +2579,14 @@ void updatePredsWithPrefixView(const ExecutionGraph &g, VectorClock &preds, cons
 }
 
 std::unique_ptr<VectorClock>
-GenMCDriver::getRevisitView(const BackwardRevisit &r) const
+GenMCDriver::getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab, const WriteLabel *midLab /* = nullptr */) const
 {
 	auto &g = getGraph();
-	auto *rLab = g.getReadLabel(r.getPos());
 	auto preds = g.getPredsView(rLab->getPos());
 
-	updatePredsWithPrefixView(g, *preds, *r.getPrefixNoRel());
-	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-		updatePredsWithPrefixView(g, *preds, *br->getMidPrefixNoRel());
+	updatePredsWithPrefixView(g, *preds, getPrefixView(sLab));
+	if (midLab)
+		updatePredsWithPrefixView(g, *preds, getPrefixView(midLab));
 	return std::move(preds);
 }
 
@@ -2595,7 +2594,7 @@ std::unique_ptr<BackwardRevisit>
 GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
 {
 	if (!getConf()->helper)
-		return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab, getPrefixView(sLab));
+		return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));
 
 	auto &g = getGraph();
 
@@ -2606,13 +2605,14 @@ GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *s
 		pending.next() : Event::getInitializer();
 
 	/* If there is, do an optimized backward revisit */
-	auto prefix = getPrefixView(sLab);
+	auto &prefix = getPrefixView(sLab);
 	if (!pending.isInitializer() &&
-	    !getPrefixView(g.getEventLabel(pending))->contains(rLab->getPos()) &&
+	    !getPrefixView(g.getEventLabel(pending)).contains(rLab->getPos()) &&
 	    rLab->getStamp() < g.getEventLabel(pending)->getStamp() &&
-	    !prefix->contains(pending))
-		return LLVM_MAKE_UNIQUE<BackwardRevisitHELPER>(rLab->getPos(), sLab->getPos(), std::move(prefix), pending, getPrefixView(g.getEventLabel(pending)));
-	return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab, std::move(prefix));
+	    !prefix.contains(pending))
+		return LLVM_MAKE_UNIQUE<BackwardRevisitHELPER>(rLab->getPos(), sLab->getPos(),
+							       getRevisitView(rLab, sLab, g.getWriteLabel(pending)), pending);
+	return LLVM_MAKE_UNIQUE<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));
 }
 
 bool GenMCDriver::prefixContainsMatchingLock(const BackwardRevisit &r, const EventLabel *lab)
@@ -2622,10 +2622,10 @@ bool GenMCDriver::prefixContainsMatchingLock(const BackwardRevisit &r, const Eve
 	auto l = getGraph().getMatchingLock(lab->getPos());
 	if (l.isInitializer())
 		return false;
-	if (r.getPrefixNoRel()->contains(l))
+	if (getPrefixView(getGraph().getWriteLabel(r.getRev())).contains(l))
 		return true;
 	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r))
-		return br->getMidPrefixNoRel()->contains(l);
+		return getPrefixView(getGraph().getWriteLabel(br->getMid())).contains(l);
 	return false;
 }
 
@@ -2669,11 +2669,11 @@ bool GenMCDriver::prefixContainsSameLoc(const BackwardRevisit &r,
 	 * an event is "part" of WLAB's pporf view (even if it is not contained in it).
 	 * Similar actions are taken in {WB,MO}Calculator */
 	auto &g = getGraph();
-	auto &v = *llvm::dyn_cast<DepView>(&*r.getPrefixNoRel());
+	auto &v = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(r.getRev())));
 	if (lab->getIndex() <= v.getMax(lab->getThread()) && isFixedHoleInView(g, lab, v))
 		return true;
 	if (auto *br = llvm::dyn_cast<BackwardRevisitHELPER>(&r)) {
-		auto &hv = *llvm::dyn_cast<DepView>(&*br->getMidPrefixNoRel());
+		auto &hv = *llvm::dyn_cast<DepView>(&getPrefixView(g.getEventLabel(br->getMid())));
 		return lab->getIndex() <= hv.getMax(lab->getThread()) && isFixedHoleInView(g, lab, hv);
 	}
 	return false;
@@ -2687,8 +2687,8 @@ bool GenMCDriver::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
 		return false;
 
 	auto *rfLab = lab->getRf();
-	auto v = getRevisitView(r);
-	return !v->contains(rfLab->getPos()) &&
+	auto &v = *r.getViewNoRel();
+	return !v.contains(rfLab->getPos()) &&
 		rfLab->getStamp() > lab->getStamp() &&
 		!prefixContainsSameLoc(r, rfLab) &&
 		!prefixContainsMatchingLock(r, rfLab) // ULTRA NECESSARY FOR LOCKS (IPR?
@@ -2702,7 +2702,7 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 		return false;
 
 	auto &g = getGraph();
-        auto v = getRevisitView(r);
+        auto &v = r.getViewNoRel();
 	auto w = llvm::isa<ReadLabel>(mLab) ? llvm::dyn_cast<ReadLabel>(mLab)->getRf()->getPos() : mLab->getPos();
 	auto succIt = g.getWriteLabel(w) ? g.co_succ_begin(g.getWriteLabel(w)) : g.co_begin(mLab->getAddr());
 	auto succE = g.getWriteLabel(w) ? g.co_succ_end(g.getWriteLabel(w)) : g.co_end(mLab->getAddr());
@@ -2715,7 +2715,7 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 			      // 		    sLab->getPos() != r.getRev()))
 			      // 		      llvm::dbgs() << "HEY THERE " << r << " " << g << "\n" << sLab->getPPoRfView() << "\n";
 			      return v->contains(sLab.getPos()) &&
-				      mLab->getIndex() > getPrefixView(&sLab)->getMax(mLab->getThread()) &&
+				      mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread()) &&
 				     // mLab->getIndex() > r.getPrefixNoRel()->getMax(mLab->getThread()) &&
 				     sLab.getPos() != r.getRev();
 		      });
@@ -2733,7 +2733,7 @@ bool GenMCDriver::coherenceSuccRemainInGraph(const BackwardRevisit &r)
 	if (succIt == succE)
 		return true;
 
-	return getRevisitView(r)->contains(succIt->getPos());
+	return r.getViewNoRel()->contains(succIt->getPos());
 }
 
 bool wasAddedMaximally(const EventLabel *lab)
@@ -2751,18 +2751,18 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 		return false;
 
 	auto &g = getGraph();
-        auto v = getRevisitView(r);
+        auto &v = r.getViewNoRel();
 
 	for (const auto &lab : labels(g)) {
 		if ((lab.getPos() != r.getPos() && v->contains(lab.getPos())) ||
 		    prefixContainsSameLoc(r, &lab))
 			continue;
 
+		if (!wasAddedMaximally(&lab))
+			return false;
 		if (isCoBeforeSavedPrefix(r, &lab))
 			return false;
 		if (hasBeenRevisitedByDeleted(r, &lab))
-			return false;
-		if (!wasAddedMaximally(&lab))
 			return false;
 	}
 	return true;
@@ -2771,7 +2771,7 @@ bool GenMCDriver::isMaximalExtension(const BackwardRevisit &r)
 bool GenMCDriver::revisitModifiesGraph(const BackwardRevisit &r) const
 {
 	auto &g = getGraph();
-	auto v = getRevisitView(r);
+	auto &v = r.getViewNoRel();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		if (v->getMax(i) + 1 != (long) g.getThreadSize(i) &&
 		    !g.getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
@@ -2795,7 +2795,7 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 	auto &g = getGraph();
 
 	/* Adjust the view that will be used for copying */
-	auto &prefix = *br->getPrefixNoRel();
+	auto &prefix = getPrefixView(g.getEventLabel(br->getRev()));
 	if (auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(br)) {
 		if (auto *dv = llvm::dyn_cast<DepView>(v)) {
 			dv->addHole(brh->getMid());
@@ -3041,7 +3041,13 @@ bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 {
 	auto &g = getGraph();
-	auto v = getRevisitView(br);
+
+	/* Recalculate the view because some B labels might have been
+	 * removed */
+	auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(&br);
+        auto v = getRevisitView(g.getReadLabel(br.getPos()),
+                                 g.getWriteLabel(br.getRev()),
+				 brh ? g.getWriteLabel(brh->getMid()) : nullptr);
 	auto og = copyGraph(&br, &*v);
 
 	pushExecution({std::move(og), LocalQueueT()});
@@ -3495,9 +3501,9 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 					     getReadValue(&lab);
 			     });
 
-	auto before = getPrefixView(g.getEventLabel(errorEvent))->clone();
+	auto before = getPrefixView(g.getEventLabel(errorEvent)).clone();
 	if (!confEvent.isInitializer())
-		before->update(*getPrefixView(g.getEventLabel(confEvent)));
+		before->update(getPrefixView(g.getEventLabel(confEvent)));
 
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";

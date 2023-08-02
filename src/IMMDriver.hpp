@@ -59,7 +59,7 @@ public:
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab) const override;
 	bool isRecoveryValid(const EventLabel *lab) const override;
-	std::unique_ptr<VectorClock> getPrefixView(const EventLabel *lab) const override;
+	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
 	std::vector<Event> getCoherentStores(SAddr addr, Event read) override;
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;

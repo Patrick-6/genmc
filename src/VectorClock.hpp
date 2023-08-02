@@ -94,4 +94,11 @@ private:
 	VectorClockKind kind;
 };
 
+/* Helper cloner class */
+struct VectorClockCloner {
+	VectorClock *operator()(const VectorClock &x) const { return x.clone().release(); }
+	// VectorClock *operator()(VectorClock &&x) const { return new VectorClock(std::move(x)); }
+};
+
+
 #endif /* __VECTOR_CLOCK_HPP__ */

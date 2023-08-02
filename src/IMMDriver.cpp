@@ -2194,9 +2194,9 @@ DepView IMMDriver::calcPPoRfBefore(const EventLabel *lab) const
 	visitPPoRf6(lab, pporf);
 	return pporf;
 }
-std::unique_ptr<VectorClock> IMMDriver::getPrefixView(const EventLabel *lab) const
+std::unique_ptr<VectorClock> IMMDriver::calculatePrefixView(const EventLabel *lab) const
 {
-	return LLVM_MAKE_UNIQUE<DepView>(calcPPoRfBefore(lab));
+	return LLVM_MAKE_UNIQUE<DepView>(const_cast<IMMDriver *>(this)->calcPPoRfBefore(lab));
 }
 
 const View &IMMDriver::getHbView(const EventLabel *lab) const
