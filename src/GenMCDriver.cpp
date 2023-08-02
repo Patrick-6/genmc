@@ -2545,7 +2545,7 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 }
 
 std::unique_ptr<VectorClock>
-GenMCDriver::getPrefixView(const EventLabel *lab)
+GenMCDriver::getPrefixView(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	// if (!getConf()->isDepTrackingModel)

@@ -31,9 +31,9 @@ public:
 
 	void updateLabelViews(EventLabel *lab) override;
 
-	bool isConsistent(const EventLabel *lab) override;
+	bool isConsistent(const EventLabel *lab) const override;
 
-	bool isRecoveryValid(const EventLabel *lab) override;
+	bool isRecoveryValid(const EventLabel *lab) const override;
 };
 
 #endif /* __TSO_DRIVER_HPP__ */

@@ -32,7 +32,7 @@ void TSODriver::updateLabelViews(EventLabel *lab)
 	BUG();
 }
 
-bool TSODriver::isConsistent(const EventLabel *lab)
+bool TSODriver::isConsistent(const EventLabel *lab) const
 {
 	BUG();
 	// if (lab->getThread() == getGraph().getRecoveryRoutineId())
@@ -40,7 +40,7 @@ bool TSODriver::isConsistent(const EventLabel *lab)
 	// return TSOChecker(getGraph()).isConsistent(lab);
 }
 
-bool TSODriver::isRecoveryValid(const EventLabel *lab)
+bool TSODriver::isRecoveryValid(const EventLabel *lab) const
 {
 	BUG();
 }

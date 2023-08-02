@@ -753,9 +753,9 @@ private:
 	virtual std::vector<Event> getRevisitableApproximation(const WriteLabel *sLab);
 
 	/* Returns true if the current graph is consistent when E is added */
-	virtual bool isConsistent(const EventLabel *lab) { ERROR("Unimplemented cons\n"); };
-	virtual bool isRecoveryValid(const EventLabel *lab) { ERROR("Unimplemented pers\n"); };
-	virtual VerificationError checkErrors(const EventLabel *lab) { ERROR("Unimplemented error\n"); };
+	virtual bool isConsistent(const EventLabel *lab) const { ERROR("Unimplemented cons\n"); };
+	virtual bool isRecoveryValid(const EventLabel *lab) const { ERROR("Unimplemented pers\n"); };
+	virtual VerificationError checkErrors(const EventLabel *lab) const { ERROR("Unimplemented error\n"); };
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) {
 		ERROR("Unimplemented cohrev\n");
@@ -773,9 +773,9 @@ private:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	virtual std::unique_ptr<VectorClock> getPrefixView(const EventLabel *lab);
+	virtual std::unique_ptr<VectorClock> getPrefixView(const EventLabel *lab) const;
 
-	virtual const View &getHbView(const EventLabel *lab) {
+	virtual const View &getHbView(const EventLabel *lab) const {
 		ERROR("Unimplemented hbview\n");
 	}
 
