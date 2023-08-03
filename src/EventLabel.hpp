@@ -313,6 +313,7 @@ public:
 		stamp = std::nullopt;
 		calculatedRels.clear();
 		calculatedViews.clear();
+		prefixView = nullptr;
 	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
