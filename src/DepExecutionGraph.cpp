@@ -89,9 +89,24 @@ void DepExecutionGraph::cutToStamp(Stamp stamp)
 				if (!preds->contains(rLab->getRf()->getPos()))
 					rLab->setRf(nullptr);
 			}
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
+					mLab->setAlloc(nullptr);
+			}
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 				if (eLab->getParentJoin() && !preds->contains(eLab->getParentJoin()->getPos()))
 					eLab->setParentJoin(nullptr);
+			}
+			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
+				if (dLab->getAlloc() && !preds->contains(dLab->getAlloc()))
+					dLab->setAlloc(nullptr);
+			}
+			if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+				if (aLab->getFree() && !preds->contains(aLab->getFree()->getPos()))
+					aLab->setFree(nullptr);
+				aLab->removeAccess([&](MemAccessLabel &mLab){
+					return !preds->contains(mLab.getPos());
+				});
 			}
 		}
 	}

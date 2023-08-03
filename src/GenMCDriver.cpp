@@ -1981,6 +1981,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		reportError(lab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return std::nullopt; /* This execution will be blocked */
 	}
+	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
 	VerificationError err;
 	if (!getConf()->disableRaceDetection && (err = checkErrors(lab)) != VerificationError::VE_OK) {
@@ -2101,8 +2102,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		reportError(lab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return;
 	}
+	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
-	VerificationError err;
+        VerificationError err;
 	if (!getConf()->disableRaceDetection && (err = checkErrors(lab)) != VerificationError::VE_OK) {
 		reportError(lab->getPos(), err);
 		return;
@@ -2197,12 +2199,15 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 
 	/* Find the size of the area deallocated */
 	auto size = 0u;
-	auto alloc = g.getMallocCounterpart(&*dLab);
-	if (!alloc.isInitializer())
-		size = llvm::dyn_cast<MallocLabel>(g.getEventLabel(alloc))->getAllocSize();
+	auto alloc = findAllocatingLabel(g, dLab->getFreedAddr());
+	if (alloc) {
+		size = alloc->getAllocSize();
+		alloc->setFree(&*dLab);
+	}
 
 	/* Add a label with the appropriate store */
 	dLab->setFreedSize(size);
+	dLab->setAlloc(alloc);
 	auto *lab = addLabelToGraph(std::move(dLab));
 
 	/* Check whether there is any memory race */
@@ -2715,7 +2720,8 @@ bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLab
 			      // 		    sLab->getPos() != r.getRev()))
 			      // 		      llvm::dbgs() << "HEY THERE " << r << " " << g << "\n" << sLab->getPPoRfView() << "\n";
 			      return v->contains(sLab.getPos()) &&
-				      mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread()) &&
+				      (!getConf()->isDepTrackingModel ||
+				       mLab->getIndex() > getPrefixView(&sLab).getMax(mLab->getThread())) &&
 				     // mLab->getIndex() > r.getPrefixNoRel()->getMax(mLab->getThread()) &&
 				     sLab.getPos() != r.getRev();
 		      });

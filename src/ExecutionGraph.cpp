@@ -592,6 +592,14 @@ void ExecutionGraph::changeRf(Event read, Event store)
 	}
 }
 
+void ExecutionGraph::addAlloc(MallocLabel *aLab, MemAccessLabel *mLab)
+{
+	if (aLab) {
+		mLab->setAlloc(aLab);
+		aLab->addAccess(mLab);
+	}
+}
+
 /*
  * In the case where the events are not added out-of-order in the graph
  * (i.e., an event has a larger timestamp than all its po-predecessors)
@@ -671,9 +679,24 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 				if (!preds->contains(rLab->getRf()->getPos()))
 					rLab->setRf(nullptr);
 			}
+			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+				if (mLab->getAlloc() && !preds->contains(mLab->getAlloc()))
+					mLab->setAlloc(nullptr);
+			}
 			if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(lab)) {
 				if (eLab->getParentJoin() && !preds->contains(eLab->getParentJoin()->getPos()))
 					eLab->setParentJoin(nullptr);
+			}
+			if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
+				if (dLab->getAlloc() && !preds->contains(dLab->getAlloc()))
+					dLab->setAlloc(nullptr);
+			}
+			if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+				if (aLab->getFree() && !preds->contains(aLab->getFree()->getPos()))
+					aLab->setFree(nullptr);
+				aLab->removeAccess([&](MemAccessLabel &mLab){
+					return !preds->contains(mLab.getPos());
+				});
 			}
 			/* No special action for CreateLabels; we can
 			 * keep the begin event of the child the since
@@ -750,17 +773,49 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 				if (v.contains(oLab.getPos()))
 					wLab->addReader(other.getReadLabel(oLab.getPos()));
 		}
-		if (auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(&lab)) {
-			if (eLab->getParentJoin()) {
-				if (!v.contains(eLab->getParentJoin()->getPos())) {
-					eLab->setParentJoin(nullptr);
-				} else {
-					auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(other.getEventLabel(eLab->getParentJoin()->getPos()));
-					eLab->setParentJoin(jLab);
-				}
+		auto *mLab = llvm::dyn_cast<MemAccessLabel>(&lab);
+		if (mLab && mLab->getAlloc()) {
+			if (!other.containsPos(mLab->getAlloc()->getPos())) {
+				mLab->setAlloc(nullptr);
+			} else {
+				auto *aLab = llvm::dyn_cast<MallocLabel>(
+					other.getEventLabel(mLab->getAlloc()->getPos()));
+				mLab->setAlloc(aLab);
 			}
 		}
-
+		auto *eLab = llvm::dyn_cast<ThreadFinishLabel>(&lab);
+		if (eLab && eLab->getParentJoin()) {
+			if (!v.contains(eLab->getParentJoin()->getPos())) {
+				eLab->setParentJoin(nullptr);
+			} else {
+				auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(other.getEventLabel(eLab->getParentJoin()->getPos()));
+				eLab->setParentJoin(jLab);
+			}
+		}
+		auto *aLab = llvm::dyn_cast<MallocLabel>(&lab);
+		if (aLab && aLab->getFree()) {
+			if (!v.contains(aLab->getFree()->getPos())) {
+				aLab->setFree(nullptr);
+			} else {
+				auto *dLab = llvm::dyn_cast<FreeLabel>(other.getEventLabel(aLab->getFree()->getPos()));
+				aLab->setFree(dLab);
+			}
+		}
+		if (aLab) {
+			aLab->removeAccess([](auto &mLab){ return true; });
+			for (auto &oLab : llvm::dyn_cast<MallocLabel>(getEventLabel(lab.getPos()))->accesses())
+				if (v.contains(oLab.getPos()))
+					aLab->addAccess(llvm::dyn_cast<MemAccessLabel>(other.getEventLabel(oLab.getPos())));
+		}
+		auto *dLab = llvm::dyn_cast<FreeLabel>(&lab);
+		if (dLab && dLab->getAlloc()) {
+			if (!v.contains(dLab->getAlloc()->getPos())) {
+				dLab->setAlloc(nullptr);
+			} else {
+				auto *aLab = llvm::dyn_cast<MallocLabel>(other.getEventLabel(dLab->getAlloc()->getPos()));
+				dLab->setAlloc(aLab);
+			}
+		}
 	}
 
 	/* Finally, copy coherence info */

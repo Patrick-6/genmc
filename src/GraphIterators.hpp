@@ -1006,71 +1006,53 @@ inline const_sameloc_range samelocs(const ExecutionGraph &G, const EventLabel *l
  **                         alloc-iteration utilities
  ******************************************************************************/
 
-namespace detail {
-	struct AllocFilter {
-		AllocFilter() = delete;
-		AllocFilter(const ExecutionGraph &g, const SAddr &a)
-			: graph(g), addr(a) {}
-
-		bool operator()(const EventLabel &sLab) const {
-			auto *lab = llvm::dyn_cast<MallocLabel>(&sLab);
-			return lab && lab->contains(addr);
-		}
-	private:
-		const ExecutionGraph &graph;
-		const SAddr addr;
-	};
-
-	template<typename IterT>
-	struct alloc_filter_iterator : public llvm::filter_iterator<IterT, AllocFilter> {
-	public:
-		using BaseT = llvm::filter_iterator<IterT, AllocFilter>;
-
-		alloc_filter_iterator(IterT it, IterT end, AllocFilter filter)
-			: BaseT(it, end, filter) {}
-
-		alloc_filter_iterator& operator++() {
-			return static_cast<alloc_filter_iterator&>(BaseT::operator++());
-		}
-		alloc_filter_iterator operator++(int) {
-			auto tmp = *this; BaseT::operator++(); return tmp;
-		}
-	};
-} /* namespace detail */
-
-using const_alloc_iterator = ::detail::alloc_filter_iterator<const_label_iterator>;
-using const_reverse_alloc_iterator = ::detail::alloc_filter_iterator<const_reverse_label_iterator>;
-
+using const_alloc_iterator = MallocLabel::const_access_iterator;
 using const_alloc_range = llvm::iterator_range<const_alloc_iterator>;
-using const_reverse_alloc_range = llvm::iterator_range<const_reverse_alloc_iterator>;
 
-inline const_alloc_iterator alloc_begin(const ExecutionGraph &G, Event e)
+namespace detail {
+	inline const_alloc_iterator allocSentinel;
+};
+
+inline const_alloc_iterator alloc_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
 {
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	return hasLocation(lab) ? const_alloc_iterator(label_begin(G), label_end(G),
-						       AllocFilter(G, getLocation(lab))) :
-		const_alloc_iterator(label_end(G), label_end(G),
-				     AllocFilter(G, SAddr()));
+	auto *aLab = llvm::dyn_cast<MallocLabel>(lab);
+	return aLab ? aLab->accesses_begin() : ::detail::allocSentinel;
 }
 
-inline const_alloc_iterator alloc_end(const ExecutionGraph &G, Event e)
+inline const_alloc_iterator alloc_succ_end(const ExecutionGraph &G, const EventLabel *lab)
 {
-	using namespace ::detail;
-	auto *lab = G.getEventLabel(e);
-	auto addr = hasLocation(lab) ? getLocation(lab) : SAddr();
-	return const_alloc_iterator(label_end(G), label_end(G),
-				    AllocFilter(G, addr));
+	auto *aLab = llvm::dyn_cast<MallocLabel>(lab);
+	return aLab ? aLab->accesses_end() : ::detail::allocSentinel;
 }
 
-inline const_alloc_range allocs(const ExecutionGraph &G, Event e)
+
+inline const_alloc_range alloc_succs(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return const_alloc_range(alloc_begin(G, e), alloc_end(G, e));
+	return const_alloc_range(alloc_succ_begin(G, lab), alloc_succ_end(G, lab));
 }
 
-inline const_alloc_range allocs(const ExecutionGraph &G, const EventLabel *lab)
+
+inline const MallocLabel *alloc_pred(const ExecutionGraph &G, const EventLabel *lab)
 {
-	return allocs(G, lab->getPos());
+	auto *aLab = llvm::dyn_cast<MemAccessLabel>(lab);
+	return (!aLab || !aLab->getAlloc()) ? nullptr : aLab->getAlloc();
+}
+
+
+/*******************************************************************************
+ **                         alloc-iteration utilities
+ ******************************************************************************/
+
+inline const FreeLabel *free_succ(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *aLab = llvm::dyn_cast<MallocLabel>(lab);
+	return (!aLab || !aLab->getFree()) ? nullptr : aLab->getFree();
+}
+
+inline const MallocLabel *free_pred(const ExecutionGraph &G, const EventLabel *lab)
+{
+	auto *dLab = llvm::dyn_cast<FreeLabel>(lab);
+	return (!dLab || !dLab->getAlloc()) ? nullptr : dLab->getAlloc();
 }
 
 #endif /* __GRAPH_ITERATORS_HPP__ */

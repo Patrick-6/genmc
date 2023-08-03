@@ -131,11 +131,13 @@ private:
 
 	bool visitInclusionLHS3_0(const EventLabel *lab, const View &v) const;
 	bool visitInclusionLHS3_1(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS3_2(const EventLabel *lab, const View &v) const;
 
 	bool checkInclusion3(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS3_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS3_1;
+	mutable std::vector<NodeStatus> visitedInclusionLHS3_2;
 	mutable std::vector<NodeStatus> visitedInclusionRHS3_0;
 	mutable std::vector<NodeStatus> visitedInclusionRHS3_1;
 
@@ -144,11 +146,13 @@ private:
 
 	void visitInclusionLHS4_0(const EventLabel *lab) const;
 	void visitInclusionLHS4_1(const EventLabel *lab) const;
+	void visitInclusionLHS4_2(const EventLabel *lab) const;
 
 	bool checkInclusion4(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS4_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS4_1;
+	mutable std::vector<NodeStatus> visitedInclusionLHS4_2;
 
 	mutable std::vector<bool> lhsAccept4;
 	mutable std::vector<bool> rhsAccept4;

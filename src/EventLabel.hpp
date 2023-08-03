@@ -567,6 +567,7 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_LockZNESpinEnd; }
 };
 
+class MallocLabel;
 
 /*******************************************************************************
  **                       MemAccessLabel Class (Abstract)
@@ -574,7 +575,7 @@ public:
 
 /* This label abstracts the common functionality that loads and stores have
  * (e.g., asking for the address of such a label) */
-class MemAccessLabel : public EventLabel {
+class MemAccessLabel : public EventLabel, public llvm::ilist_node<MemAccessLabel> {
 
 protected:
 	MemAccessLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
@@ -601,9 +602,16 @@ public:
 	bool wasAddedMax() const { return maximal; }
 	void setAddedMax(bool status) { maximal = status; }
 
+	/* Getter for allocating event */
+	MallocLabel *getAlloc() const { return allocLab; }
+	MallocLabel *getAlloc() { return allocLab; }
+
+	void setAlloc(MallocLabel *lab) { allocLab = lab; }
+
 	virtual void reset() override {
 		EventLabel::reset();
 		maximal = true;
+		allocLab = nullptr;
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -620,6 +628,9 @@ private:
 
 	/* Whether was mo-maximal when added */
 	bool maximal = true;
+
+	/* The allocation event corresponding to this access */
+	MallocLabel *allocLab = nullptr;
 };
 
 
@@ -2096,6 +2107,8 @@ private:
  **                        MallocLabel Class
  ******************************************************************************/
 
+class FreeLabel;
+
 /* Corresponds to a memory-allocating operation (e.g., malloc()) */
 class MallocLabel : public EventLabel {
 
@@ -2130,6 +2143,29 @@ public:
 	SAddr getAllocAddr() const { return allocAddr; }
 	void setAllocAddr(SAddr addr) { allocAddr = addr; }
 
+	/* Getter/setter for the corresponding free label*/
+	FreeLabel *getFree() const { return dLab; }
+	FreeLabel *getFree() { return dLab; }
+	void setFree(FreeLabel *dLab) { dLab = dLab; }
+
+	/* Iterators for accesses */
+	using AccessList = CopyableIList<MemAccessLabel>;
+	using access_iterator = AccessList::iterator;
+	using const_access_iterator = AccessList::const_iterator;
+	using access_range = llvm::iterator_range<access_iterator>;
+	using const_access_range = llvm::iterator_range<const_access_iterator>;
+
+	access_iterator accesses_begin() { return accessList.begin(); }
+	access_iterator accesses_end() { return accessList.end(); }
+	access_range accesses() {
+		return access_range(accesses_begin(), accesses_end());
+	}
+	const_access_iterator accesses_begin() const { return accessList.begin(); }
+	const_access_iterator accesses_end() const { return accessList.end(); }
+	const_access_range accesses() const {
+		return const_access_range(accesses_begin(), accesses_end());
+	}
+
 	/* Returns the size of this allocation */
 	unsigned int getAllocSize() const { return allocSize; }
 
@@ -2157,12 +2193,40 @@ public:
 	 * Returns null if no such info is found. */
 	const NameInfo *getNameInfo() const { return nameInfo; }
 
+	virtual void reset() override {
+		EventLabel::reset();
+		dLab = nullptr;
+		accessList.clear();
+	}
+
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k == EL_Malloc; }
 
 private:
+	void addAccess(MemAccessLabel *mLab) {
+		BUG_ON(std::find_if(accesses_begin(), accesses_end(), [mLab](auto &oLab){
+			return oLab.getPos() == mLab->getPos(); }) != accesses_end());
+		accessList.push_back(*mLab);
+	}
+
+	template <typename F>
+	void removeAccess(F cond) {
+		for (auto it = accesses_begin(); it != accesses_end(); ) {
+			if (cond(*it))
+				it = accessList.erase(it);
+			else
+				++it;
+		}
+	}
+
 	/* The address returned by malloc() */
 	SAddr allocAddr;
+
+	/* The corresponding free label (if it exists) */
+	FreeLabel *dLab = nullptr;
+
+	/* Accesses on the allocated location */
+	AccessList accessList;
 
 	/* The size of the requested allocation */
 	unsigned int allocSize;
@@ -2220,12 +2284,22 @@ public:
 	unsigned int getFreedSize() const { return freedSize; }
 	void setFreedSize(unsigned int size) { freedSize = size; }
 
+	/* Getter/setter for the corresponding allocating event */
+	MallocLabel *getAlloc() const { return aLab; }
+	MallocLabel *getAlloc() { return aLab; }
+	void setAlloc(MallocLabel *aLab) { aLab = aLab; }
+
 	/* Returns true if ADDR is contained within the deallocated block */
 	bool contains(SAddr addr) const {
 		return getFreedAddr() <= addr && addr < getFreedAddr() + getFreedSize();
 	}
 
 	DEFINE_CREATE_CLONE(FreeLabel)
+
+	virtual void reset() override {
+		EventLabel::reset();
+		aLab = nullptr;
+	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
 	static bool classofKind(EventLabelKind k) { return k >= EL_Free && k <= EL_FreeLast; }
@@ -2236,6 +2310,9 @@ private:
 
 	/* The size of the memory freed */
 	unsigned int freedSize;
+
+	/* The corresponding allocation */
+	MallocLabel *aLab = nullptr;
 };
 
 
