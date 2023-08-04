@@ -2924,11 +2924,11 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	);
 
 	/* If the revisited label became an RMW, add the store part and revisit */
+	repairDanglingLocks();
 	if (auto *sLab = completeRevisitedRMW(rLab))
 		return calcRevisits(sLab);
 
 	/* Blocked lock -> prioritize locking thread */
-	repairDanglingLocks();
 	if (llvm::isa<LockCasReadLabel>(rLab)) {
 		blockThread(rLab->getPos().next(), BlockageType::LockNotAcq);
 		threadPrios = {rLab->getRf()->getPos()};
