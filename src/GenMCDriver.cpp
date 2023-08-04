@@ -2202,13 +2202,13 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	auto alloc = findAllocatingLabel(g, dLab->getFreedAddr());
 	if (alloc) {
 		size = alloc->getAllocSize();
-		alloc->setFree(&*dLab);
 	}
 
 	/* Add a label with the appropriate store */
 	dLab->setFreedSize(size);
 	dLab->setAlloc(alloc);
 	auto *lab = addLabelToGraph(std::move(dLab));
+	alloc->setFree(llvm::dyn_cast<FreeLabel>(lab));
 
 	/* Check whether there is any memory race */
 	// checkForMemoryRaces(llvm::dyn_cast<FreeLabel>(lab));

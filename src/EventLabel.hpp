@@ -2146,7 +2146,7 @@ public:
 	/* Getter/setter for the corresponding free label*/
 	FreeLabel *getFree() const { return dLab; }
 	FreeLabel *getFree() { return dLab; }
-	void setFree(FreeLabel *dLab) { dLab = dLab; }
+	void setFree(FreeLabel *lab) { dLab = lab; }
 
 	/* Iterators for accesses */
 	using AccessList = CopyableIList<MemAccessLabel>;
@@ -2287,7 +2287,7 @@ public:
 	/* Getter/setter for the corresponding allocating event */
 	MallocLabel *getAlloc() const { return aLab; }
 	MallocLabel *getAlloc() { return aLab; }
-	void setAlloc(MallocLabel *aLab) { aLab = aLab; }
+	void setAlloc(MallocLabel *lab) { aLab = lab; }
 
 	/* Returns true if ADDR is contained within the deallocated block */
 	bool contains(SAddr addr) const {
