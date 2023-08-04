@@ -1561,13 +1561,15 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 
 #define IMPLEMENT_CAS_VISIT(nameR, nameW)				\
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
-		ret = CALL_DRIVER(handleLoad, nameR ## Label::create( \
-			currPos(), I.getSuccessOrdering(), ptr, \
+		ret = CALL_DRIVER_RESET_IF_NONE(handleLoad, nameR ## Label::create( \
+			currPos(), I.getSuccessOrdering(), ptr, 	\
 			size, atyp, GV_TO_SVAL(cmpVal, typ),		\
-			GV_TO_SVAL(newVal, typ), getWriteAttr(I), GET_DEPS(lDeps))).value(); \
-		cmpRes = ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
+			GV_TO_SVAL(newVal, typ), getWriteAttr(I), GET_DEPS(lDeps))); \
+		if (!ret.has_value())					\
+			return;						\
+		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
 		updateDataDeps(getCurThr().id, &I, currPos());		\
-		updateAddrPoDeps(getCurThr().id, I.getPointerOperand()); \
+		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());\
 		if (!getCurThr().isBlocked() && cmpRes) {		\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
 						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
@@ -1580,7 +1582,8 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 	}
 
 	/* Check whether this is some special CAS; in such cases we also need a snapshot */
-	SVal ret, cmpRes;
+        std::optional<SVal> ret;
+	SVal cmpRes;
 	switch (switchPair(getCasKinds(I))) {
 		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
 		IMPLEMENT_CAS_VISIT(HelpedCasRead, HelpedCasWrite);
@@ -1596,7 +1599,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		BUG();
 	}
 
-	result.AggregateVal.push_back(SVAL_TO_GV(ret, typ));
+	result.AggregateVal.push_back(SVAL_TO_GV(*ret, typ));
 	result.AggregateVal.push_back(INT_TO_GV(Type::getInt1Ty(I.getContext()), cmpRes));
 	SetValue(&I, result, ECStack().back());
 	return;
@@ -1664,12 +1667,14 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 
 #define IMPLEMENT_FAI_VISIT(nameR, nameW)				\
 	case switchPair(EventLabel::EventLabelKind::EL_ ## nameR, EventLabel::EventLabelKind::EL_ ## nameW): { \
-		ret = CALL_DRIVER(handleLoad, nameR ## Label::create( \
+		ret = CALL_DRIVER_RESET_IF_NONE(handleLoad, nameR ## Label::create( \
 					  currPos(), I.getOrdering(), ptr, size, atyp, \
-					  I.getOperation(), val, getWriteAttr(I), GET_DEPS(deps))).value(); \
+					  I.getOperation(), val, getWriteAttr(I), GET_DEPS(deps))); \
+		if (!ret.has_value())					\
+			return;						\
 		updateDataDeps(getCurThr().id, &I, currPos());		\
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand()); \
-		auto newVal = executeAtomicRMWOperation(ret, val, size, I.getOperation()); \
+		auto newVal = executeAtomicRMWOperation(*ret, val, size, I.getOperation()); \
 		if (!getCurThr().isBlocked())	{			\
 			CALL_DRIVER(handleStore, 		\
 				    nameW ## Label::create(currPos(), I.getOrdering(), ptr, size, \
@@ -1679,7 +1684,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 	}
 
 	/* Check whether this is a special FAI */
-	SVal ret;
+	std::optional<SVal> ret;
 	switch (switchPair(getFaiKinds(I))) {
 		IMPLEMENT_FAI_VISIT(FaiRead, FaiWrite);
 		IMPLEMENT_FAI_VISIT(NoRetFaiRead, NoRetFaiWrite);
@@ -1687,7 +1692,7 @@ void Interpreter::visitAtomicRMWInst(AtomicRMWInst &I)
 		BUG();
 	}
 
-	SetValue(&I, SVAL_TO_GV(ret, typ), ECStack().back());
+	SetValue(&I, SVAL_TO_GV(*ret, typ), ECStack().back());
 	return;
 }
 
