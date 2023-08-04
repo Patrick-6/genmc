@@ -323,8 +323,7 @@ Interpreter::callExternalFunction(Function *F,
     errs() << "Tried to execute an unknown external function: "
       << *F->getType() << " __main\n";
   else
-    report_fatal_error("Tried to execute an unknown external function: " +
-                       F->getName());
+    ERROR("Tried to execute an unknown external function: " + F->getName());
 #ifndef USE_LIBFFI
   errs() << "Recompiling LLVM with --enable-libffi might help.\n";
 #endif
