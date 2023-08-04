@@ -204,7 +204,7 @@ using label_iterator = LabelIterator<ExecutionGraph::ThreadList,
 				     ExecutionGraph::Thread::iterator>;
 using const_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 					   ExecutionGraph::const_iterator,
-					   const EventLabel,
+					   EventLabel,
 					   ExecutionGraph::Thread::const_iterator>;
 
 using reverse_label_iterator = LabelIterator<ExecutionGraph::ThreadList,
@@ -213,7 +213,7 @@ using reverse_label_iterator = LabelIterator<ExecutionGraph::ThreadList,
 					     ExecutionGraph::Thread::reverse_iterator>;
 using const_reverse_label_iterator = LabelIterator<const ExecutionGraph::ThreadList,
 						   ExecutionGraph::const_reverse_iterator,
-						   const EventLabel,
+						   EventLabel,
 						   ExecutionGraph::Thread::const_reverse_iterator>;
 
 
