@@ -537,7 +537,7 @@ static GenericValue lle_X_memset(FunctionType *FT,
 
 static GenericValue lle_X_memcpy(FunctionType *FT,
                                  const std::vector<GenericValue> &Args) {
-  ERROR("Invalid call to memset()!\n");
+  ERROR("Invalid call to memcpy()!\n");
 
   // memcpy(GVTOP(Args[0]), GVTOP(Args[1]),
   //        (size_t)(Args[2].IntVal.getLimitedValue()));
