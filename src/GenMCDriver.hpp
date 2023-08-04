@@ -487,12 +487,6 @@ private:
 	/* Returns true if MLAB (allocated @ ALAB) is protected by a hazptr */
 	bool isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const;
 
-	/* Checks for memory races (e.g., double free, access freed memory, etc)
-	 * whenever a read/write/free is added, and calls visitError() if a race is found.
-	 * Returns whether a race was found */
-	bool checkForMemoryRaces(const MemAccessLabel *mLab);
-	bool checkForMemoryRaces(const FreeLabel *lab);
-
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
