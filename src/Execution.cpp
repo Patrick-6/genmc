@@ -73,9 +73,9 @@ using namespace llvm;
 ({									\
 	llvm::GenericValue __result;					\
 	if (auto *iTyp = llvm::dyn_cast<IntegerType>(typ))		\
-		__result.IntVal = APInt(iTyp->getBitWidth(), val.get(), iTyp->getSignBit()); \
+		__result.IntVal = APInt(iTyp->getBitWidth(), (val).get(), iTyp->getSignBit()); \
 	else								\
-		__result.PointerVal = (void *) val.get();		\
+		__result.PointerVal = (void *) (val).get();		\
 	__result;							\
 })
 
@@ -83,9 +83,9 @@ using namespace llvm;
 ({									\
 	SVal __result;							\
 	if (auto *iTyp = llvm::dyn_cast<IntegerType>(typ))		\
-		__result = val.IntVal.getLimitedValue();		\
+		__result = (val).IntVal.getLimitedValue();		\
 	else								\
-		__result = (uintptr_t) val.PointerVal;			\
+		__result = (uintptr_t) (val).PointerVal;		\
 	__result;							\
 })
 
