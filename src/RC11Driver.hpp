@@ -94,81 +94,98 @@ private:
 	mutable std::vector<NodeStatus> visitedCalc0_5;
 	mutable std::vector<NodeStatus> visitedCalc0_6;
 
-	void visitInclusionLHS0_0(const EventLabel *lab) const;
-	void visitInclusionLHS0_1(const EventLabel *lab) const;
+	bool visitInclusionLHS0_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS0_1(const EventLabel *lab, const View &v) const;
 
 	bool checkInclusion0(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS0_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS0_1;
+	mutable std::vector<NodeStatus> visitedInclusionRHS0_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS0_1;
 
 	mutable std::vector<bool> lhsAccept0;
 	mutable std::vector<bool> rhsAccept0;
 
-	bool visitInclusionLHS1_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS1_1(const EventLabel *lab, const View &v) const;
+	void visitInclusionLHS1_0(const EventLabel *lab) const;
+	void visitInclusionLHS1_1(const EventLabel *lab) const;
 
 	bool checkInclusion1(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS1_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS1_1;
-	mutable std::vector<NodeStatus> visitedInclusionRHS1_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS1_1;
 
 	mutable std::vector<bool> lhsAccept1;
 	mutable std::vector<bool> rhsAccept1;
 
-	void visitInclusionLHS2_0(const EventLabel *lab) const;
-	void visitInclusionLHS2_1(const EventLabel *lab) const;
+	bool visitInclusionLHS2_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS2_1(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS2_2(const EventLabel *lab, const View &v) const;
 
 	bool checkInclusion2(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS2_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS2_1;
+	mutable std::vector<NodeStatus> visitedInclusionLHS2_2;
+	mutable std::vector<NodeStatus> visitedInclusionRHS2_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS2_1;
 
 	mutable std::vector<bool> lhsAccept2;
 	mutable std::vector<bool> rhsAccept2;
 
-	bool visitInclusionLHS3_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS3_1(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS3_2(const EventLabel *lab, const View &v) const;
+	void visitInclusionLHS3_0(const EventLabel *lab) const;
+	void visitInclusionLHS3_1(const EventLabel *lab) const;
+	void visitInclusionLHS3_2(const EventLabel *lab) const;
 
 	bool checkInclusion3(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS3_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS3_1;
 	mutable std::vector<NodeStatus> visitedInclusionLHS3_2;
-	mutable std::vector<NodeStatus> visitedInclusionRHS3_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS3_1;
 
 	mutable std::vector<bool> lhsAccept3;
 	mutable std::vector<bool> rhsAccept3;
 
-	void visitInclusionLHS4_0(const EventLabel *lab) const;
-	void visitInclusionLHS4_1(const EventLabel *lab) const;
-	void visitInclusionLHS4_2(const EventLabel *lab) const;
+	bool visitInclusionLHS4_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS4_1(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS4_2(const EventLabel *lab, const View &v) const;
 
 	bool checkInclusion4(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS4_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS4_1;
 	mutable std::vector<NodeStatus> visitedInclusionLHS4_2;
+	mutable std::vector<NodeStatus> visitedInclusionRHS4_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS4_1;
 
 	mutable std::vector<bool> lhsAccept4;
 	mutable std::vector<bool> rhsAccept4;
 
-	bool visitInclusionLHS5_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS5_1(const EventLabel *lab, const View &v) const;
+	void visitInclusionLHS5_0(const EventLabel *lab) const;
+	void visitInclusionLHS5_1(const EventLabel *lab) const;
+	void visitInclusionLHS5_2(const EventLabel *lab) const;
 
 	bool checkInclusion5(const EventLabel *lab) const;
 
 	mutable std::vector<NodeStatus> visitedInclusionLHS5_0;
 	mutable std::vector<NodeStatus> visitedInclusionLHS5_1;
-	mutable std::vector<NodeStatus> visitedInclusionRHS5_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS5_1;
+	mutable std::vector<NodeStatus> visitedInclusionLHS5_2;
 
 	mutable std::vector<bool> lhsAccept5;
 	mutable std::vector<bool> rhsAccept5;
+
+	bool visitInclusionLHS6_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS6_1(const EventLabel *lab, const View &v) const;
+
+	bool checkInclusion6(const EventLabel *lab) const;
+
+	mutable std::vector<NodeStatus> visitedInclusionLHS6_0;
+	mutable std::vector<NodeStatus> visitedInclusionLHS6_1;
+	mutable std::vector<NodeStatus> visitedInclusionRHS6_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS6_1;
+
+	mutable std::vector<bool> lhsAccept6;
+	mutable std::vector<bool> rhsAccept6;
 
 	bool visitAcyclic0(const EventLabel *lab) const;
 	bool visitAcyclic1(const EventLabel *lab) const;
