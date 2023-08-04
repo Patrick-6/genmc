@@ -367,6 +367,9 @@ protected:
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
 			 ProgramPoint p = ProgramPoint::step);
 
+	/* Returns true if MLAB is protected by a hazptr */
+	bool isHazptrProtected(const MemAccessLabel *mLab) const;
+
 private:
 	/*** Worklist-related ***/
 
@@ -487,9 +490,6 @@ private:
 	 * if there are more than one stores annotated as final at the time WLAB
 	 * is added, visitError() is called */
 	void checkFinalAnnotations(const WriteLabel *wLab);
-
-	/* Returns true if MLAB (allocated @ ALAB) is protected by a hazptr */
-	bool isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const;
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);

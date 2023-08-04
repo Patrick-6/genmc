@@ -1073,11 +1073,13 @@ bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */
 	return getGraph().isCoMaximal(addr, e, checkCache, getCheckConsType(p));
 }
 
-bool GenMCDriver::isHazptrProtected(const MallocLabel *aLab, const MemAccessLabel *mLab) const
+bool GenMCDriver::isHazptrProtected(const MemAccessLabel *mLab) const
 {
 	auto &g = getGraph();
 	BUG_ON(!mLab->getAddr().isDynamic());
 
+	auto *aLab = mLab->getAlloc();
+	BUG_ON(!aLab);
 	auto *pLab = llvm::dyn_cast_or_null<HpProtectLabel>(
 		g.getPreviousLabelST(mLab, [&](const EventLabel *lab){
 			auto *pLab = llvm::dyn_cast<HpProtectLabel>(lab);
