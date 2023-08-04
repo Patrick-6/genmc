@@ -865,12 +865,36 @@ void GenMCDriver::explore()
 				return;
 			}
 			auto pos = item->getPos();
-			validExecution = restrictAndRevisit(stamp, std::move(item)) && isConsistent(getGraph().getEventLabel(pos));
-			/* If an extra event is added, re-check consistency */
-			if (validExecution && getGraph().isRMWLoad(pos))
-				validExecution = isConsistent(getGraph().getNextLabel(pos));
+			validExecution = restrictAndRevisit(stamp, std::move(item)) && isRevisitValid(pos);
 		}
 	}
+}
+
+bool readsUninitializedMem(const ReadLabel *lab)
+{
+	return lab->getAddr().isDynamic() && lab->getRf()->getPos().isInitializer();
+}
+
+bool GenMCDriver::isRevisitValid(Event pos)
+{
+	auto &g = getGraph();
+	auto *mLab = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(pos));
+
+	/* E.g., for optional revisits, do nothing */
+	if (!mLab)
+		return true;
+
+	if (!isConsistent(mLab))
+		return false;
+
+	auto *rLab = llvm::dyn_cast<ReadLabel>(mLab);
+	if (rLab && readsUninitializedMem(rLab)) {
+		reportError(pos, VerificationError::VE_UninitializedMem);
+		return false;
+	}
+
+	/* If an extra event is added, re-check consistency */
+	return g.isRMWLoad(pos) ? isConsistent(g.getNextLabel(pos)) : true;
 }
 
 bool GenMCDriver::isExecutionDrivenByGraph(const EventLabel *lab)
@@ -1092,7 +1116,7 @@ void GenMCDriver::checkForDataRaces(const MemAccessLabel *lab)
 	return;
 }
 
-MallocLabel *findAllocatingLabel(ExecutionGraph &g, const SAddr &addr)
+MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
 {
 	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab){
 		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
@@ -1103,7 +1127,7 @@ MallocLabel *findAllocatingLabel(ExecutionGraph &g, const SAddr &addr)
 	return nullptr;
 }
 
-bool GenMCDriver::isAccessValid(const MemAccessLabel *lab)
+bool GenMCDriver::isAccessValid(const MemAccessLabel *lab) const
 {
 	/* Make sure that the interperter is aware of this static variable */
 	if (!lab->getAddr().isDynamic())
@@ -1895,6 +1919,11 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, stores))
 		return std::nullopt;
+
+	if (readsUninitializedMem(lab)) {
+		reportError(lab->getPos(), VerificationError::VE_UninitializedMem);
+		return std::nullopt;
+	}
 
 	GENMC_DEBUG(
 		if (getConf()->vLevel >= VerbosityLevel::V3) {

@@ -388,6 +388,10 @@ private:
 	 * Exhaustively explores all  consistent executions of a program */
 	void explore();
 
+	/* Returns whether a revisit results to a valid execution
+	 * (e.g., consistent, accessing allocated memory, etc) */
+	bool isRevisitValid(Event pos);
+
 	/* Returns true if this driver is shutting down */
 	bool isHalting() const;
 
@@ -455,7 +459,7 @@ private:
 	void resetThreadPrioritization();
 
 	/* Returns whether LAB accesses a valid location.  */
-	bool isAccessValid(const MemAccessLabel *lab);
+	bool isAccessValid(const MemAccessLabel *lab) const;
 
 	/* Checks for data races when a read/write is added, and calls
 	 * visitError() if a race is found. */
