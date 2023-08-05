@@ -56,11 +56,13 @@ void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src,
 void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
 		   const std::vector<Value *> &args, Type *typ)
 {
-	BUG_ON(!typ->isIntegerTy());
+	BUG_ON(!typ->isIntegerTy() && !typ->isPointerTy());
 	BUG_ON(!isa<ConstantInt>(argVal));
 
+	auto &DL = builder.GetInsertBlock()->getParent()->getParent()->getDataLayout();
+	auto sizeInBits = typ->isIntegerTy() ? typ->getIntegerBitWidth() : DL.getPointerTypeSizeInBits(typ);
 	long int ival = dyn_cast<ConstantInt>(argVal)->getSExtValue();
-	Value *val = Constant::getIntegerValue(typ, APInt(typ->getIntegerBitWidth(), ival));
+	Value *val = Constant::getIntegerValue(typ, APInt(sizeInBits, ival));
 
 	Value *dstGEP = builder.CreateInBoundsGEP(dyn_cast<PointerType>(dst->getType())->getElementType(),
 						  dst, args, "memset.dst.gep");
