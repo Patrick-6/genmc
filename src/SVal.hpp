@@ -155,7 +155,7 @@ private:
 
 	int compareSigned(const SVal& v) const {
 		auto lhsSext = getSigned();
-		auto rhsSext = getSigned();
+		auto rhsSext = v.getSigned();
 		return lhsSext < rhsSext ? -1 : lhsSext > rhsSext;
 	}
 
