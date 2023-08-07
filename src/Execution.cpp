@@ -1625,13 +1625,13 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, A
 	case AtomicRMWInst::Xor:
 		return oldVal ^ val;
 	case AtomicRMWInst::Max:
-		return APIntOps::smax(APInt(size.getBits(), oldVal.get()), APInt(size.getBits(), val.get())).getLimitedValue();
+		return SVal(oldVal).signExtendBottom(size.getBits()).sgt(SVal(val).signExtendBottom(size.getBits())) ? oldVal : val;
 	case AtomicRMWInst::Min:
-		return APIntOps::smin(APInt(size.getBits(), oldVal.get()), APInt(size.getBits(), val.get())).getLimitedValue();
+		return SVal(oldVal).signExtendBottom(size.getBits()).slt(SVal(val).signExtendBottom(size.getBits())) ? oldVal : val;
 	case AtomicRMWInst::UMax:
-		return oldVal.get() > val.get() ? oldVal : val;
+		return oldVal.ugt(val) ? oldVal : val;
 	case AtomicRMWInst::UMin:
-		return oldVal.get() < val.get() ? oldVal : val;
+		return oldVal.ult(val) ? oldVal : val;
 	default:
 		WARN_ONCE("invalid-rmw-op",
 			  "Unsupported operation in RMW instruction!\n");
