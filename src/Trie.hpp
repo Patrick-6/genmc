@@ -28,12 +28,13 @@
 /*
  * This class defines a generic trie structure with the only
  * restriction being that trie keys need to be sequences that
- * support random access iterators.
+ * support random access iterators, and that have comparable
+ * elements.
  *
  * Inspired by the Trie class in LLVM 2.9.
  */
 
-template<typename Seq, typename Payload>
+template<typename Seq, typename Payload, typename ValCmp = std::less<typename Seq::value_type>>
 class Trie {
 
 public:
@@ -103,10 +104,10 @@ public:
 		/* Node comparators */
 		struct NodeCmp {
 			bool operator() (const Node *n1, const Node *n2) {
-				return (n1->label()[0] < n2->label()[0]);
+				return ValCmp()(n1->label()[0], n2->label()[0]);
 			}
 			bool operator() (const Node *n, value_type id) {
-				return (n->label()[0] < id);
+				return ValCmp()(n->label()[0], id);
 			}
 		};
 

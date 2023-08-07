@@ -61,7 +61,7 @@ public:
 	}
 
 	/* Returns a (limited) representation of the Value as a boolean */
-	bool getBool() const { return (!!*this).get(); }
+	bool getBool() const { return (!!*this); }
 
 	/* Sign-extends the number in the bottom B bits of X to SVal::width
 	 * Pre: 0 < B <= SVal::width */
@@ -130,16 +130,13 @@ public:
 	IMPL_BINOP(<<);
 	IMPL_BINOP(>>);
 
-	SVal operator!() const {
-		SVal n(*this);
-		n.value = !value;
-		return n;
+	SVal operator~() const {
+		return SVal(~this->value);
 	}
 
-	operator bool() const {
-		return !!value;
+	explicit operator bool() const {
+		return !!this->value;
 	}
-	uint64_t operator()() const { return value; }
 
 	std::string toString(bool sign = false) const {
 		return sign ? std::to_string(getSigned()) : std::to_string(get());
@@ -161,6 +158,12 @@ private:
 
 	/* The actual value */
 	Value value;
+};
+
+struct SValUCmp {
+	bool operator()(const SVal &lhs, const SVal &rhs) {
+		return lhs.ult(rhs);
+	}
 };
 
 #endif /* __SVAL_HPP__ */

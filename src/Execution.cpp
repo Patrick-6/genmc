@@ -1567,10 +1567,10 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 			GV_TO_SVAL(newVal, typ), getWriteAttr(I), GET_DEPS(lDeps))); \
 		if (!ret.has_value())					\
 			return;						\
-		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ); \
+		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ);		\
 		updateDataDeps(getCurThr().id, &I, currPos());		\
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());\
-		if (!getCurThr().isBlocked() && cmpRes) {		\
+		if (!getCurThr().isBlocked() && cmpRes) {	\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
 						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
 						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
@@ -1583,7 +1583,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 
 	/* Check whether this is some special CAS; in such cases we also need a snapshot */
         std::optional<SVal> ret;
-	SVal cmpRes;
+	int cmpRes;
 	switch (switchPair(getCasKinds(I))) {
 		IMPLEMENT_CAS_VISIT(CasRead, CasWrite);
 		IMPLEMENT_CAS_VISIT(HelpedCasRead, HelpedCasWrite);
@@ -4044,7 +4044,7 @@ SVal Interpreter::executeReadFS(void *file, Type *intTyp, void *buf, Type *bufEl
 
 	/* Read the inode size and check whether we are reading past EOF */
 	auto iSize = readInodeSizeFS(inode, intTyp, deps);
-	if (offset >= (iSize)) {
+	if (offset.sge(iSize)) {
 		nr = SVal(0);
 		return nr;
 	}

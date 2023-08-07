@@ -51,7 +51,8 @@ protected:
 	using LocalQueueT = std::map<uint32_t, WorkSet>;
 	using ValuePrefixT = std::unordered_map<unsigned int,
 						Trie<std::vector<SVal>,
-						     std::vector<std::unique_ptr<EventLabel>>>
+						     std::vector<std::unique_ptr<EventLabel>>,
+						     SValUCmp>
 						>;
 
 public:
