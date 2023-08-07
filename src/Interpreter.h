@@ -509,7 +509,7 @@ public:
 
     LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(access.getAddr()),
 			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
-    return SVal(access.isSigned() ? result.IntVal.getSExtValue() : result.IntVal.getLimitedValue());
+    return SVal(result.IntVal.getLimitedValue());
   }
 
   unsigned int getTypeSize(Type *typ) const;

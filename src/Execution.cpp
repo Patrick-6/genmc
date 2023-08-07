@@ -1567,7 +1567,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 			GV_TO_SVAL(newVal, typ), getWriteAttr(I), GET_DEPS(lDeps))); \
 		if (!ret.has_value())					\
 			return;						\
-		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ).signExtendBottom(size * 8); \
+		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ); \
 		updateDataDeps(getCurThr().id, &I, currPos());		\
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());\
 		if (!getCurThr().isBlocked() && cmpRes) {		\
@@ -1613,9 +1613,9 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, A
 			     "Atomic xchg support is experimental under dependency-tracking models!\n");
 		return val;
 	case AtomicRMWInst::Add:
-		return (oldVal + val).signExtendBottom(size.getBits());
+		return (oldVal + val);
 	case AtomicRMWInst::Sub:
-		return (oldVal - val).signExtendBottom(size.getBits());
+		return (oldVal - val);
 	case AtomicRMWInst::And:
 		return oldVal & val;
 	case AtomicRMWInst::Nand:
@@ -1625,9 +1625,9 @@ SVal Interpreter::executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, A
 	case AtomicRMWInst::Xor:
 		return oldVal ^ val;
 	case AtomicRMWInst::Max:
-		return oldVal.getSigned() > val.getSigned() ? oldVal : val;
+		return APIntOps::smax(APInt(size.getBits(), oldVal.get()), APInt(size.getBits(), val.get())).getLimitedValue();
 	case AtomicRMWInst::Min:
-		return oldVal.getSigned() < val.getSigned() ? oldVal : val;
+		return APIntOps::smin(APInt(size.getBits(), oldVal.get()), APInt(size.getBits(), val.get())).getLimitedValue();
 	case AtomicRMWInst::UMax:
 		return oldVal.get() > val.get() ? oldVal : val;
 	case AtomicRMWInst::UMin:
