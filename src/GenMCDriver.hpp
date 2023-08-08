@@ -565,6 +565,10 @@ private:
 	 * Returns true if yes, and false (+moot) otherwise  */
 	bool checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads);
 
+	/* Calculates all possible coherence placings for SLAB and
+	 * pushes them to the worklist. */
+	void calcCoOrderings(WriteLabel *sLab);
+
 	/* Calculates revisit options and pushes them to the worklist.
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);

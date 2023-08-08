@@ -2006,6 +2006,21 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 	return loads;
 }
 
+void GenMCDriver::calcCoOrderings(WriteLabel *lab)
+{
+	/* Find all possible placings in coherence for this store */
+	auto &g = getGraph();
+	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+
+	/* We cannot place the write just before the write of an RMW or during recovery */
+	for (auto &succLab : placesRange) {
+		if (!g.isRMWStore(succLab.getPos()) && !inRecoveryMode())
+			addToWorklist(lab->getStamp(),
+				      LLVM_MAKE_UNIQUE<WriteForwardRevisit>(lab->getPos(), succLab.getPos()));
+	}
+	g.addStoreToCO(lab, placesRange.end());
+}
+
 void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 {
 	if (isExecutionDrivenByGraph(&*wLab))
@@ -2034,25 +2049,11 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 	}
 
-	/* Find all possible placings in coherence for this store */
-	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
-
 	/* It is always consistent to add the store at the end of MO */
 	if (llvm::isa<BIncFaiWriteLabel>(lab) && lab->getVal() == SVal(0))
 		lab->setVal(getBarrierInitValue(lab->getAccess()));
 
-	for (auto it = placesRange.begin(), ie = placesRange.end(); it != ie; ++it) {
-
-		/* We cannot place the write just before the write of an RMW */
-		if (g.isRMWStore(it->getPos()))
-			continue;
-
-		/* Push the stack item */
-		if (!inRecoveryMode())
-			addToWorklist(lab->getStamp(),
-				      LLVM_MAKE_UNIQUE<WriteForwardRevisit>(lab->getPos(), it->getPos()));
-	}
-	g.addStoreToCO(lab, placesRange.end());
+	calcCoOrderings(lab);
 
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
 	bool cons = ensureConsistentStore(lab);
