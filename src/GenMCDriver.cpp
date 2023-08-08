@@ -2900,6 +2900,31 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	return lab;
 }
 
+bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
+{
+	auto &g = getGraph();
+	auto *wLab = g.getWriteLabel(ri.getPos());
+	BUG_ON(!wLab);
+
+	g.removeStoreFromCO(wLab);
+	g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(ri.getSucc())));
+	wLab->setAddedMax(false);
+	repairDanglingLocks();
+	return calcRevisits(wLab);
+}
+
+bool GenMCDriver::revisitOptional(const OptionalForwardRevisit &oi)
+{
+	auto &g = getGraph();
+	auto *oLab = llvm::dyn_cast<OptionalLabel>(g.getEventLabel(oi.getPos()));
+
+	--result.exploredBlocked;
+	BUG_ON(!oLab);
+	oLab->setExpandable(false);
+	oLab->setExpanded(true);
+	return true;
+}
+
 bool GenMCDriver::revisitRead(const Revisit &ri)
 {
 	BUG_ON(!llvm::isa<ReadRevisit>(&ri));
@@ -2948,20 +2973,9 @@ bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 	auto &g =getGraph();
 	auto *lab = g.getEventLabel(fr.getPos());
 	if (auto *mi = llvm::dyn_cast<WriteForwardRevisit>(&fr)) {
-		auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
-		BUG_ON(!wLab);
-		g.removeStoreFromCO(wLab);
-		g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(mi->getSucc())));
-		wLab->setAddedMax(false);
-		repairDanglingLocks();
-		return calcRevisits(wLab);
+		return revisitWrite(*mi);
 	} else if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&fr)) {
-		auto *oLab = llvm::dyn_cast<OptionalLabel>(lab);
-		--result.exploredBlocked;
-		BUG_ON(!oLab);
-		oLab->setExpandable(false);
-		oLab->setExpanded(true);
-		return true;
+		return revisitOptional(*oi);
 	}
 	auto *ri = llvm::dyn_cast<ReadForwardRevisit>(&fr);
 	BUG_ON(!ri);

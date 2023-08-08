@@ -569,6 +569,15 @@ private:
 	 * Returns true if the current exploration should continue */
 	bool calcRevisits(const WriteLabel *lab);
 
+	/* Modifies the graph accordingly when revisiting a write (MO).
+	 * May trigger backward-revisit explorations.
+	 * Returns whether the resulting graph should be explored. */
+	bool revisitWrite(const WriteForwardRevisit &wi);
+
+	/* Modifies the graph accordingly when revisiting an optional.
+	 * Returns true if the resulting graph should be explored */
+	bool revisitOptional(const OptionalForwardRevisit &oi);
+
 	/* Modifies (but not restricts) the graph when we are revisiting a read.
 	 * Returns true if the resulting graph should be explored. */
 	bool revisitRead(const Revisit &s);
