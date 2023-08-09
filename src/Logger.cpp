@@ -20,7 +20,7 @@
 
 #include "Logger.hpp"
 
-std::ostream& operator<<(std::ostream& s, LogLevel l)
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, LogLevel l)
 {
 	switch (l) {
 	case LogLevel::Error:

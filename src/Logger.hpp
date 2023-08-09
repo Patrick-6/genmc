@@ -21,8 +21,7 @@
 #ifndef __LOGGER_HPP__
 #define __LOGGER_HPP__
 
-#include <iostream>
-#include <sstream>
+#include <llvm/Support/raw_ostream.h>
 
 enum class LogLevel {
 	Quiet,
@@ -37,12 +36,12 @@ enum class LogLevel {
 #endif
 };
 
-std::ostream& operator<<(std::ostream& rhs, const LogLevel l);
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const LogLevel l);
 
 class Logger {
 
 public:
-	Logger(LogLevel l = LogLevel::Warning) {
+	Logger(LogLevel l = LogLevel::Warning) : buffer_(str_) {
 		buffer_ << l << ": ";
 	}
 
@@ -58,11 +57,12 @@ public:
 		 * 2. Stream ops are atomic according to POSIX:
 		 *    http://www.gnu.org/s/libc/manual/html_node/Streams-and-Threads.html
 		 */
-		std::cerr << buffer_.str();
+		llvm::errs() << buffer_.str();
 	}
 
 private:
-	std::ostringstream buffer_;
+	std::string str_;
+	llvm::raw_string_ostream buffer_;
 };
 
 static inline LogLevel logLevel = LogLevel::Tip;
