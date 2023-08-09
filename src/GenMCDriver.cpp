@@ -827,8 +827,11 @@ std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
 {
 	std::vector<ThreadInfo> tis;
 	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
+		auto *bLab = g.getFirstThreadLabel(i);
+		if (!g.containsPos(bLab->getParentCreate()))
+			continue;
 		auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(
-			g.getEventLabel(g.getFirstThreadLabel(i)->getParentCreate()));
+			g.getEventLabel(bLab->getParentCreate()));
 		BUG_ON(!tcLab);
 		tis.push_back(tcLab->getChildInfo());
 	}
