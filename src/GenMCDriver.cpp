@@ -3007,7 +3007,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	 * try submitting the job instead */
 	auto *tp = getThreadPool();
 	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
-		if (isConsistent(g.getEventLabel(br.getPos())))
+		if (isRevisitValid(br.getPos()))
 			tp->submit(extractState());
 		popExecution();
 		return false;
