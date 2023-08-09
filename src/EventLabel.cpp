@@ -102,6 +102,9 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_ThreadStart:
 		s << "THREAD_START";
 		break;
+	case EventLabel::EL_Init:
+		s << "INIT";
+		break;
 	case EventLabel::EL_ThreadFinish:
 		s << "THREAD_END";
 		break;

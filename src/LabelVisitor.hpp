@@ -53,6 +53,7 @@ public:
 			VISIT_LABEL(Block);
 			VISIT_LABEL(Optional);
 			VISIT_LABEL(ThreadStart);
+			VISIT_LABEL(Init);
 			VISIT_LABEL(ThreadFinish);
 			VISIT_LABEL(ThreadCreate);
 			VISIT_LABEL(ThreadJoin);
@@ -119,6 +120,7 @@ public:
 	void visitEmptyLabel(const EmptyLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitBlockLabel(const BlockLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitOptionalLabel(const OptionalLabel &lab) { return DELEGATE_LABEL(EventLabel); }
+	void visitInitLabel(const InitLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitThreadStartLabel(const ThreadStartLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitThreadFinishLabel(const ThreadFinishLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitThreadCreateLabel(const ThreadCreateLabel &lab) { return DELEGATE_LABEL(EventLabel); }
