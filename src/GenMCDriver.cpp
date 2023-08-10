@@ -931,29 +931,44 @@ void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 
 	auto &g = getGraph();
 
+	/* Extract value prefix and cached data */
 	auto [vals, last] = extractValPrefix(lab->getPos());
 	auto *data = retrieveCachedSuccessors(lab->getThread(), vals);
-	if (data) {
-		if (data->empty() || data->back()->getIndex() < lab->getIndex()) {
-			BUG_ON(data->empty() && last.index + 1 != lab->getIndex());
-			BUG_ON(!data->empty() && data->back()->getIndex() + 1 != lab->getIndex());
-			auto cLab = lab->clone();
-			cLab->reset();
-			(*data).push_back(std::move(cLab));
-		}
-	} else {
-		std::vector<std::unique_ptr<EventLabel>> labs;
-		for (auto i = last.index + 1; i < lab->getIndex(); i++) {
-			auto cLab = g.getEventLabel(Event(lab->getThread(), i))->clone();
-			cLab->reset();
-			labs.push_back(std::move(cLab));
-		}
-		auto cLab = lab->clone();
+
+	/*
+	 * Check if there are any new data to cache.
+	 * (For dep-tracking, we could optimize toIdx and collect until
+	 * a new (non-empty) label with a value is found.)
+	 */
+	auto fromIdx = (!data || data->empty()) ? last.index : data->back()->getIndex();
+	auto toIdx = lab->getIndex();
+	if (data && !data->empty() && data->back()->getIndex() >= toIdx)
+		return;
+
+	/*
+	 * Go ahead and collect the new data. We have to be careful when
+	 * cloning LAB because it has not been added to the graph yet.
+	 */
+	std::vector<std::unique_ptr<EventLabel>> labs;
+	for (auto i = fromIdx + 1; i <= toIdx; i++) {
+		auto cLab = (i == lab->getIndex()) ? lab->clone() : g.getEventLabel(Event(lab->getThread(), i))->clone();
 		cLab->reset();
 		labs.push_back(std::move(cLab));
+	}
+
+	/* Is there an existing entry? */
+	if (!data) {
 		auto res = seenPrefixes[lab->getThread()].addSeq(vals, std::move(labs));
 		BUG_ON(!res);
+		return;
 	}
+
+	BUG_ON(data->empty() && last.index >= lab->getIndex());
+	BUG_ON(!data->empty() && data->back()->getIndex() + 1 != lab->getIndex());
+
+	data->reserve(data->size() + labs.size());
+	std::move(std::begin(labs), std::end(labs), std::back_inserter(*data));
+	labs.clear();
 }
 
 /* Given an event in the graph, returns the value of it */
