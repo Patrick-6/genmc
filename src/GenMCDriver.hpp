@@ -106,11 +106,12 @@ public:
 		SAddrAllocator alloctor;
 		llvm::BitVector fds;
 		ValuePrefixT cache;
+		Event lastAdded;
 
 		State() = delete;
 		State(State &&) = default;
 		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor,
-		      llvm::BitVector &&fds, ValuePrefixT &&cache);
+		      llvm::BitVector &&fds, ValuePrefixT &&cache, Event la);
 		~State();
 	};
 

@@ -100,8 +100,8 @@ bool GenMCDriver::popExecution()
 }
 
 GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a,
-			  llvm::BitVector &&fds, ValuePrefixT &&c)
-	: graph(std::move(g)), alloctor(std::move(a)), fds(std::move(fds)), cache(std::move(c)) {}
+			  llvm::BitVector &&fds, ValuePrefixT &&c, Event la)
+	: graph(std::move(g)), alloctor(std::move(a)), fds(std::move(fds)), cache(std::move(c)), lastAdded(la) {}
 GenMCDriver::State::~State() = default;
 
 void GenMCDriver::initFromState(std::unique_ptr<State> s)
@@ -111,6 +111,7 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 	alloctor = std::move(s->alloctor);
 	fds = std::move(s->fds);
 	seenPrefixes = std::move(s->cache);
+	lastAdded = s->lastAdded;
 }
 
 std::unique_ptr<GenMCDriver::State>
