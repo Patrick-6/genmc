@@ -22,7 +22,6 @@
 #include "ExecutionGraph.hpp"
 #include "GraphIterators.hpp"
 #include "Parser.hpp"
-#include "PersistencyChecker.hpp"
 #include <llvm/IR/DebugInfo.h>
 
 /************************************************************
@@ -30,7 +29,7 @@
  ***********************************************************/
 
 ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
-	: persChecker(nullptr), warnOnGraphSize(maxSize)
+	: warnOnGraphSize(maxSize)
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -429,14 +428,7 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
  ** Calculation of [(po U rf)*] predecessors and successors
  ***********************************************************/
 
-void ExecutionGraph::addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc)
-{
-	persChecker = std::move(pc);
-	return;
-}
-
-bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */,
-				 CheckConsType t /* = fast */)
+bool ExecutionGraph::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */)
 {
 	// auto *cc = getCoherenceCalculator();
 
@@ -726,8 +718,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	/* First, populate calculators, etc */
 	other.timestamp = timestamp;
 
-	if (persChecker.get())
-		other.persChecker = persChecker->clone(other);
 	other.recoveryTID = recoveryTID;
 
 	other.bam = bam;

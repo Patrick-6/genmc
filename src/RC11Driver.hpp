@@ -30,7 +30,6 @@
 #include "GenMCDriver.hpp"
 #include "GraphIterators.hpp"
 #include "MaximalIterator.hpp"
-#include "PersistencyChecker.hpp"
 #include "VerificationError.hpp"
 #include "VSet.hpp"
 #include <cstdint>

@@ -23,8 +23,6 @@
 
 #include "config.h"
 #include "AdjList.hpp"
-#include "Calculator.hpp"
-#include "DriverGraphEnumAPI.hpp"
 #include "DepInfo.hpp"
 #include "Error.hpp"
 #include "Event.hpp"
@@ -38,7 +36,6 @@
 #include <unordered_map>
 
 class PSCCalculator;
-class PersistencyChecker;
 
 /*******************************************************************************
  **                           ExecutionGraph Class
@@ -59,16 +56,8 @@ public:
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
 
-	/* Should be used for the contruction of execution graphs */
-	class Builder;
-
-protected:
-	/* Constructor should only be called from the builder */
-	friend class GraphBuilder;
-	ExecutionGraph(unsigned warnOnGraphSize = UINT_MAX);
-	ExecutionGraph(const ExecutionGraph &og);
-
 public:
+	ExecutionGraph(unsigned warnOnGraphSize = UINT_MAX);
 	virtual ~ExecutionGraph();
 
 	/* Iterators */
@@ -449,22 +438,10 @@ public:
 
 	/* Calculation of relations in the graph */
 
-	/* Pers: Adds a persistency checker to the graph */
-	void addPersistencyChecker(std::unique_ptr<PersistencyChecker> pc);
-
-	/* Pers: Returns the persistency checker */
-	PersistencyChecker *getPersChecker() const {
-		return persChecker.get();
-	}
-	PersistencyChecker *getPersChecker() {
-		return persChecker.get();
-	}
-
 	std::vector<Event> getInitRfsAtLoc(SAddr addr) const;
 
 	/* Returns true if e is maximal in addr */
-	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
-			 CheckConsType t = CheckConsType::fast);
+	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
 
 
 	/* Boolean helper functions */
@@ -626,9 +603,6 @@ protected:
 	Stamp timestamp = 0;
 
 	LocMap coherence;
-
-	/* Pers: An object calculating persistency relations */
-	std::unique_ptr<PersistencyChecker> persChecker; /* nullptr in ctor */
 
 	/* Pers: The ID of the recovery routine.
 	 * It should be -1 if not in recovery mode, or have the

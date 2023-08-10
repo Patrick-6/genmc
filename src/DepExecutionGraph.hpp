@@ -34,12 +34,9 @@
  */
 class DepExecutionGraph : public ExecutionGraph {
 
-protected:
-	/* Constructor should only be called from the builder */
-	friend class GraphBuilder;
+public:
 	DepExecutionGraph(unsigned int warnOnGraphSize = UINT_MAX) : ExecutionGraph(warnOnGraphSize) {}
 
-public:
 	std::vector<Event> getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const override;
 
 	std::unique_ptr<VectorClock>

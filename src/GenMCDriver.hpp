@@ -346,18 +346,8 @@ protected:
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(const AAccess &a);
 
-	/* Returns the type of consistency types we need to perform at
-	 * P according to the configuration */
-	CheckConsType getCheckConsType(ProgramPoint p) const;
-
-	/* Returns true if we should check persistency at p */
-	bool shouldCheckPers(ProgramPoint p);
-
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
-
-	/* Pers: Returns true if current recovery routine is valid */
-	bool isRecoveryValid(ProgramPoint p);
 
 	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
 	bool threadReadsMaximal(int tid);
@@ -366,8 +356,7 @@ protected:
 	void checkLiveness();
 
 	/* Returns true if E is maximal in ADDR at P*/
-	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false,
-			 ProgramPoint p = ProgramPoint::step);
+	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
 
 	/* Returns true if MLAB is protected by a hazptr */
 	bool isHazptrProtected(const MemAccessLabel *mLab) const;

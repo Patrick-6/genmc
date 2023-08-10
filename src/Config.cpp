@@ -84,23 +84,6 @@ clDotGraphFile("dump-error-graph", llvm::cl::init(""), llvm::cl::value_desc("fil
 	       llvm::cl::cat(clGeneral),
 	       llvm::cl::desc("Dump an error graph to a file (DOT format)"));
 
-static llvm::cl::opt<CheckConsType>
-clCheckConsType("check-consistency-type", llvm::cl::init(CheckConsType::slow), llvm::cl::cat(clGeneral),
-		llvm::cl::desc("Type of (configurable) consistency checks"),
-		llvm::cl::values(
-			clEnumValN(CheckConsType::slow, "slow", "Approximation check"),
-			clEnumValN(CheckConsType::full, "full", "Full checks")
-		    ));
-
-static llvm::cl::opt<ProgramPoint>
-clCheckConsPoint("check-consistency-point", llvm::cl::init(ProgramPoint::error), llvm::cl::cat(clGeneral),
-		 llvm::cl::desc("Points at which consistency is checked"),
-		 llvm::cl::values(
-			 clEnumValN(ProgramPoint::error, "error", "At errors only"),
-			 clEnumValN(ProgramPoint::exec,  "exec",  "At the end of each execution"),
-			 clEnumValN(ProgramPoint::step,  "step",  "At each program step")
-		    ));
-
 static llvm::cl::opt<bool>
 clCheckLiveness("check-liveness", llvm::cl::cat(clGeneral),
 		llvm::cl::desc("Check for liveness violations"));
@@ -126,15 +109,6 @@ clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGener
 static llvm::cl::opt<bool>
 clPersevere("persevere", llvm::cl::cat(clPersistency),
 	    llvm::cl::desc("Enable persistency checks (Persevere)"));
-
-static llvm::cl::opt<ProgramPoint>
-clCheckPersPoint("check-persistency-point", llvm::cl::init(ProgramPoint::step), llvm::cl::cat(clPersistency),
-		 llvm::cl::desc("Points at which persistency is checked"),
-		 llvm::cl::values(
-			 clEnumValN(ProgramPoint::error, "error", "At errors only"),
-			 clEnumValN(ProgramPoint::exec,  "exec",  "At the end of each execution"),
-			 clEnumValN(ProgramPoint::step,  "step",  "At each program step")
-		    ));
 
 static llvm::cl::opt<unsigned int>
 clBlockSize("block-size", llvm::cl::cat(clPersistency), llvm::cl::init(2),
@@ -298,9 +272,6 @@ void Config::checkConfigOptions() const
 	if (clLAPOR && clModelType == ModelType::LKMM) {
 		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
 	}
-	if (clLAPOR && clCheckConsPoint < ProgramPoint::step) {
-		WARN("LAPOR requires pointwise consistency steps.\n");
-	}
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
@@ -336,8 +307,6 @@ void Config::saveConfigOptions()
 	symmetryReduction = clSymmetryReduction;
 	helper = clHelper;
 	printErrorTrace = clPrintErrorTrace;
-	checkConsType = clCheckConsType;
-	checkConsPoint = (LAPOR ? ProgramPoint::step : clCheckConsPoint);
 	checkLiveness = clCheckLiveness;
 	instructionCaching = !clDisableInstructionCaching;
 	disableRaceDetection = clDisableRaceDetection;
@@ -346,7 +315,6 @@ void Config::saveConfigOptions()
 
 	/* Save persistency options */
 	persevere = clPersevere;
-	checkPersPoint = clCheckPersPoint;
 	blockSize = clBlockSize;
 	maxFileSize = clMaxFileSize;
 	journalData = clJournalData;

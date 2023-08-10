@@ -21,7 +21,6 @@
 #include "config.h"
 #include "TSODriver.hpp"
 #include "Interpreter.h"
-#include "TSOChecker.hpp"
 
 TSODriver::TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		   std::unique_ptr<ModuleInfo> MI)

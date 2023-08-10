@@ -21,7 +21,7 @@
 #ifndef __CONFIG_HPP__
 #define __CONFIG_HPP__
 
-#include "DriverGraphEnumAPI.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "Verbosity.hpp"
 #include "VSet.hpp"
 
@@ -45,8 +45,6 @@ public:
 	bool LAPOR;
 	bool symmetryReduction;
 	bool helper;
-	CheckConsType checkConsType;
-	ProgramPoint checkConsPoint;
 	bool checkLiveness;
 	bool printErrorTrace;
 	std::string dotFile;
@@ -57,7 +55,6 @@ public:
 
 	/*** Persistency options ***/
 	bool persevere;
-	ProgramPoint checkPersPoint;
 	unsigned int blockSize;
 	unsigned int maxFileSize;
 	JournalDataFS journalData;

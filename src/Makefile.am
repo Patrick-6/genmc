@@ -18,7 +18,6 @@ libgenmc_a_SOURCES = \
   DepInfo.cpp DepInfo.hpp \
   DepTracker.hpp \
   DepView.cpp DepView.hpp \
-  DriverGraphEnumAPI.hpp \
   DriverFactory.hpp \
   EliminateAnnotationsPass.cpp EliminateAnnotationsPass.hpp \
   EliminateCASPHIsPass.cpp EliminateCASPHIsPass.hpp \
@@ -35,7 +34,6 @@ libgenmc_a_SOURCES = \
   ExternalFunctions.cpp \
   FunctionInlinerPass.cpp FunctionInlinerPass.hpp \
   GenMCDriver.cpp GenMCDriver.hpp \
-  GraphBuilder.hpp \
   GraphIterators.hpp \
   IMMDriver.cpp IMMDriver.hpp \
   InstAnnotator.cpp InstAnnotator.hpp \

@@ -20,9 +20,9 @@
 
 #include "config.h"
 #include "Config.hpp"
+#include "DepExecutionGraph.hpp"
 #include "DriverHandlerDispatcher.hpp"
 #include "Error.hpp"
-#include "GraphBuilder.hpp"
 #include "LLVMModule.hpp"
 #include "Logger.hpp"
 #include "GenMCDriver.hpp"
@@ -50,10 +50,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInitializer()),
 	  shouldHalt(false)
 {
-	/* Set up an suitable execution graph with appropriate relations */
-	auto execGraph = GraphBuilder(userConf->isDepTrackingModel, userConf->warnOnGraphSize)
-		.withEnabledPersevere(userConf->persevere, userConf->blockSize)
-		.withEnabledBAM(!userConf->disableBAM).build();
+	/* Set up the execution context */
+	auto execGraph = userConf->isDepTrackingModel ?
+		std::make_unique<DepExecutionGraph>(userConf->warnOnGraphSize) :
+		std::make_unique<ExecutionGraph>(userConf->warnOnGraphSize);
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
 
 	/* Create an interpreter for the program's instructions */
@@ -1071,26 +1071,9 @@ SVal GenMCDriver::getRecReadRetValue(const ReadLabel *rLab)
 	return getWriteValue(g.getEventLabel(rf), rLab->getAccess());
 }
 
-CheckConsType GenMCDriver::getCheckConsType(ProgramPoint p) const
+bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */)
 {
-	/* Always check consistency on error, or at user-specified points.
-	 * Assume that extensions that require more extensive checks have
-	 * enabled them during config */
-	if (p <= getConf()->checkConsPoint)
-		return (p == ProgramPoint::error ? CheckConsType::full : getConf()->checkConsType);
-	return CheckConsType::fast;
-}
-
-bool GenMCDriver::shouldCheckPers(ProgramPoint p)
-{
-	/* Always check consistency on error, or at user-specified points */
-	return p <= getConf()->checkPersPoint;
-}
-
-bool GenMCDriver::isCoMaximal(SAddr addr, Event e, bool checkCache /* = false */,
-			      ProgramPoint p /* = step */)
-{
-	return getGraph().isCoMaximal(addr, e, checkCache, getCheckConsType(p));
+	return getGraph().isCoMaximal(addr, e, checkCache);
 }
 
 bool GenMCDriver::isHazptrProtected(const MemAccessLabel *mLab) const
@@ -1248,20 +1231,6 @@ void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 		return;
 	}
 	return;
-}
-
-bool GenMCDriver::isRecoveryValid(ProgramPoint p)
-{
-	/* If we are not in the recovery routine, nothing to do */
-	if (!inRecoveryMode())
-		return true;
-
-	/* Fastpath: No fixpoint is required */
-	auto check = shouldCheckPers(p);
-	if (!check)
-		return true;
-
-	return getGraph().isRecoveryValid();
 }
 
 bool GenMCDriver::threadReadsMaximal(int tid)
@@ -1541,7 +1510,7 @@ void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> 
 	auto &g = getGraph();
 	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](Event &r){
 		  g.changeRf(rLab->getPos(), r);
-		  return !isRecoveryValid(ProgramPoint::step);
+		  return !isRecoveryValid(rLab);
 	}), rfs.end());
 	BUG_ON(rfs.empty());
 	g.changeRf(rLab->getPos(), rfs[0]);
@@ -2270,7 +2239,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s, const std::string 
 	if (getEE()->getExecState() == llvm::ExecutionState::Replay)
 		return;
 
-	if (inRecoveryMode() && !isRecoveryValid(ProgramPoint::error)) {
+	if (inRecoveryMode() && !isRecoveryValid(g.getEventLabel(pos))) {
 		thr.block(BlockageType::Error);
 		return;
 	}
