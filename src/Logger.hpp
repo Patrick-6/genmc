@@ -22,8 +22,8 @@
 #define __LOGGER_HPP__
 
 #include "Verbosity.hpp"
-
 #include <llvm/Support/raw_ostream.h>
+#include <set>
 
 class Logger {
 
@@ -32,7 +32,7 @@ public:
 		buffer_ << l;
 	}
 
-	template <typename T>
+	template<typename T>
 	Logger &operator<<(const T &msg) {
 		buffer_ << msg;
 		return *this;
@@ -47,15 +47,42 @@ public:
 		llvm::errs() << buffer_.str();
 	}
 
-private:
+protected:
 	std::string str_;
 	llvm::raw_string_ostream buffer_;
+};
+
+/* A logger that logs each message only once */
+class LoggerOnce : public Logger {
+
+public:
+	LoggerOnce(const std::string &id, VerbosityLevel l = VerbosityLevel::Warning)
+		: Logger(l), id(id) {}
+
+	template<typename T>
+	LoggerOnce &operator<<(const T &msg) {
+		if (ids.count(id)) {
+			this->str_.clear();
+			return *this;
+		}
+		ids.insert(id);
+		Logger::operator<<(msg);
+		return *this;
+	}
+
+private:
+	const std::string &id;
+	static thread_local inline std::set<std::string> ids;
 };
 
 static inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 
 #define LOG(level)				\
-	if (level < logLevel) ;			\
+	if (level > logLevel) ;			\
 	else Logger(level)
+
+#define LOG_ONCE(id, level)			\
+	if (level > logLevel) ;			\
+	else LoggerOnce(id, level)
 
 #endif /* __LOGGER_HPP__ */
