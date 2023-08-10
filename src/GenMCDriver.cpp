@@ -24,6 +24,7 @@
 #include "Error.hpp"
 #include "GraphBuilder.hpp"
 #include "LLVMModule.hpp"
+#include "Logger.hpp"
 #include "GenMCDriver.hpp"
 #include "Interpreter.h"
 #include "GraphIterators.hpp"
@@ -1947,10 +1948,8 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	}
 
 	GENMC_DEBUG(
-		if (getConf()->vLevel >= VerbosityLevel::V3) {
-			llvm::dbgs() << "--- Added load " << lab->getPos() << "\n";
-			printGraph();
-		}
+		LOG(VerbosityLevel::Debug2)
+		<< "--- Added load " << lab->getPos() << "\n" << getGraph();
 	);
 
 	/* Check whether the load forces us to reconsider some existing event */
@@ -2076,12 +2075,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
 	bool cons = ensureConsistentStore(lab);
 
-	GENMC_DEBUG(
-		if (getConf()->vLevel >= VerbosityLevel::V3) {
-			llvm::dbgs() << "--- Added store " << lab->getPos() << "\n";
-			printGraph();
-		}
-	);
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug2)
+		     << "--- Added store " << lab->getPos() << "\n" << getGraph(); );
+
 	if (!inRecoveryMode())
 		calcRevisits(lab);
 
@@ -2479,13 +2475,8 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 
 	completeRevisitedRMW(rLab);
 
-	GENMC_DEBUG(
-		if (getConf()->vLevel >= VerbosityLevel::V2) {
-			llvm::dbgs() << "--- In-place revisiting " << rLab->getPos()
-			<< " <-- " << sLab->getPos() << "\n";
-			printGraph();
-		}
-	);
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug1) << "--- In-place revisiting "
+		     << rLab->getPos() << " <-- " << sLab->getPos() << "\n" << getGraph(); );
 
 	EE->getThrById(rLab->getThread()).unblock();
 	threadPrios = {rLab->getPos()};
@@ -2959,14 +2950,9 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
 	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
 
-	GENMC_DEBUG(
-		if (getConf()->vLevel >= VerbosityLevel::V2) {
-			llvm::dbgs() << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")
-			<< " revisiting " << ri.getPos()
-			<< " <-- " << rev << "\n";
-			printGraph();
-		}
-	);
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug1)
+		     << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")
+		     << " revisiting " << ri.getPos() << " <-- " << rev << "\n" << getGraph(); );
 
 	/* If the revisited label became an RMW, add the store part and revisit */
 	repairDanglingLocks();

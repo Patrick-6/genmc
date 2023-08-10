@@ -22,6 +22,7 @@
 #define __CONFIG_HPP__
 
 #include "DriverGraphEnumAPI.hpp"
+#include "Verbosity.hpp"
 #include "VSet.hpp"
 
 #include <string>
@@ -29,9 +30,6 @@
 
 enum class ModelType { SC, TSO, RC11, IMM, LKMM };
 enum class SchedulePolicy { ltr, wf, random };
-#ifdef ENABLE_GENMC_DEBUG
-enum class VerbosityLevel { V0, V1, V2, V3 };
-#endif
 
 struct Config {
 

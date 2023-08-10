@@ -45,7 +45,7 @@ libgenmc_a_SOURCES = \
   LabelVisitor.hpp \
   LoadAnnotationPass.cpp LoadAnnotationPass.hpp \
   LocalSimplifyCFGPass.cpp LocalSimplifyCFGPass.hpp \
-  Logger.cpp Logger.hpp \
+  Logger.hpp \
   LLVMModule.cpp LLVMModule.hpp \
   LLVMUtils.cpp LLVMUtils.hpp \
   LoopUnrollPass.cpp LoopUnrollPass.hpp \
@@ -78,6 +78,7 @@ libgenmc_a_SOURCES = \
   TSODriver.cpp TSODriver.hpp \
   WorkSet.hpp WorkSet.cpp \
   value_ptr.hpp \
+  Verbosity.hpp Verbosity.cpp \
   VectorClock.hpp VectorClock.cpp \
   VerificationError.hpp VerificationError.cpp \
   View.hpp View.cpp \

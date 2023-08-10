@@ -18,19 +18,19 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Logger.hpp"
+#include "Verbosity.hpp"
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, LogLevel l)
+llvm::raw_ostream& operator<<(llvm::raw_ostream& s, VerbosityLevel l)
 {
 	switch (l) {
-	case LogLevel::Error:
-		s << "ERROR";
+	case VerbosityLevel::Error:
+		s << "ERROR: ";
 		break;
-	case LogLevel::Warning:
-		s << "WARNING";
+	case VerbosityLevel::Warning:
+		s << "WARNING: ";
 		break;
-	case LogLevel::Tip:
-		s << "Tip";
+	case VerbosityLevel::Tip:
+		s << "Tip: ";
 		break;
 	default:
 		break;

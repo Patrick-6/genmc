@@ -18,44 +18,25 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOGGER_HPP__
-#define __LOGGER_HPP__
-
-#include "Verbosity.hpp"
+#ifndef __VERBOSITY_HPP__
+#define __VERBOSITY_HPP__
 
 #include <llvm/Support/raw_ostream.h>
 
-class Logger {
 
-public:
-	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_) {
-		buffer_ << l;
-	}
-
-	template <typename T>
-	Logger &operator<<(const T &msg) {
-		buffer_ << msg;
-		return *this;
-	}
-
-	~Logger() {
-		/*
-		 * 1. We don't have to flush --- this is stderr
-		 * 2. Stream ops are atomic according to POSIX:
-		 *    http://www.gnu.org/s/libc/manual/html_node/Streams-and-Threads.html
-		 */
-		llvm::errs() << buffer_.str();
-	}
-
-private:
-	std::string str_;
-	llvm::raw_string_ostream buffer_;
+enum class VerbosityLevel {
+	Quiet,
+	Error,
+	Warning,
+	Tip,
+#ifdef ENABLE_GENMC_DEBUG
+	Debug1,
+	Debug2,
+	Debug3,
+	Debug4,
+#endif
 };
 
-static inline VerbosityLevel logLevel = VerbosityLevel::Tip;
+llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const VerbosityLevel l);
 
-#define LOG(level)				\
-	if (level < logLevel) ;			\
-	else Logger(level)
-
-#endif /* __LOGGER_HPP__ */
+#endif /* __VERBOSITY_HPP__ */

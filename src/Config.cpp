@@ -21,6 +21,7 @@
 #include "config.h"
 #include "Config.hpp"
 #include "Error.hpp"
+#include "Logger.hpp"
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
@@ -244,6 +245,20 @@ clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
 
 
+llvm::cl::opt<VerbosityLevel>
+clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::Tip),
+	 llvm::cl::desc("Choose verbosity level:"),
+	 llvm::cl::values(
+		 clEnumValN(VerbosityLevel::Quiet, "v0", "Quiet (no logging)"),
+		 clEnumValN(VerbosityLevel::Error, "v1", "Print errors only"),
+		 clEnumValN(VerbosityLevel::Warning, "v2", "Print warnings"),
+		 clEnumValN(VerbosityLevel::Tip, "v3", "Print tips")
+#ifdef ENABLE_GENMC_DEBUG
+		 ,clEnumValN(VerbosityLevel::Debug1, "v4", "Print revisits considered")
+		 ,clEnumValN(VerbosityLevel::Debug2, "v5", "Print graph after each memory access")
+#endif /* ifdef ENABLE_GENMC_DEBUG */
+		 ));
+
 #ifdef ENABLE_GENMC_DEBUG
 static llvm::cl::opt<bool>
 clPrintBlockedExecs("print-blocked-execs", llvm::cl::cat(clDebugging),
@@ -264,16 +279,6 @@ clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
-
-llvm::cl::opt<VerbosityLevel>
-clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::V0),
-	 llvm::cl::desc("Choose verbosity level:"),
-	 llvm::cl::values(
-		 clEnumValN(VerbosityLevel::V0, "v0", "No verbosity"),
-		 clEnumValN(VerbosityLevel::V1, "v1", "Print stamps on executions"),
-		 clEnumValN(VerbosityLevel::V2, "v2", "Print restricted executions"),
-		 clEnumValN(VerbosityLevel::V3, "v3", "Print execution after each instruction")
-		 ));
 #endif /* ENABLE_GENMC_DEBUG */
 
 
@@ -368,14 +373,17 @@ void Config::saveConfigOptions()
 	printExecGraphs = clPrintExecGraphs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;
+	vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
 	printBlockedExecs = clPrintBlockedExecs;
 	printStamps = clPrintStamps;
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
-	vLevel = clVLevel;
 #endif
+
+	/* Set (global) log state */
+	logLevel = vLevel;
 }
 
 void Config::getConfigOptions(int argc, char **argv)
