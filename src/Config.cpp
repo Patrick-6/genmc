@@ -250,6 +250,10 @@ clPrintBlockedExecs("print-blocked-execs", llvm::cl::cat(clDebugging),
 		    llvm::cl::desc("Print blocked execution graphs"));
 
 static llvm::cl::opt<bool>
+clPrintStamps("print-stamps", llvm::cl::cat(clDebugging),
+	      llvm::cl::desc("Print stamps in execution graphs"));
+
+static llvm::cl::opt<bool>
 clColorAccesses("color-accesses", llvm::cl::cat(clDebugging),
 		llvm::cl::desc("Color accesses depending on revisitability"));
 
@@ -366,6 +370,7 @@ void Config::saveConfigOptions()
 	transformFile = clTransformFile;
 #ifdef ENABLE_GENMC_DEBUG
 	printBlockedExecs = clPrintBlockedExecs;
+	printStamps = clPrintStamps;
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;

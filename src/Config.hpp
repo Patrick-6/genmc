@@ -88,6 +88,7 @@ public:
 	unsigned int warnOnGraphSize;
 #ifdef ENABLE_GENMC_DEBUG
 	bool printBlockedExecs;
+	bool printStamps;
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;

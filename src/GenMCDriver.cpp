@@ -3419,10 +3419,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 			);
 			s << printer.toString(*lab);
 			GENMC_DEBUG(s.resetColor(););
-			GENMC_DEBUG(
-				if (getConf()->vLevel >= VerbosityLevel::V1)
-					s << " @ " << lab->getStamp();
-			);
+			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab->getStamp(); );
 			if (printMetadata && thr.prefixLOC[j].first && shouldPrintLOC(lab)) {
 				executeMDPrint(lab, thr.prefixLOC[j], getConf()->inputFile, s);
 			}
