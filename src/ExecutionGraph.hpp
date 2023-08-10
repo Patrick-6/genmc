@@ -568,6 +568,11 @@ public:
 	virtual std::unique_ptr<ExecutionGraph>
 	getCopyUpTo(const VectorClock &v) const;
 
+	std::unique_ptr<ExecutionGraph>
+	clone() const {
+		return getCopyUpTo(*getViewFromStamp(getMaxStamp()));
+	}
+
 	/* Overloaded operators */
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g);
 
