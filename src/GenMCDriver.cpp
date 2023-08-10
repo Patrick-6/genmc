@@ -117,9 +117,12 @@ void GenMCDriver::initFromState(std::unique_ptr<State> s)
 std::unique_ptr<GenMCDriver::State>
 GenMCDriver::extractState()
 {
+	auto cache = std::move(seenPrefixes);
+	seenPrefixes.clear();
+	auto &g = execStack.back().graph;
 	return std::make_unique<State>(
-		std::move(execStack.back().graph), std::move(alloctor),
-		std::move(fds), std::move(seenPrefixes));
+		g->clone(), SAddrAllocator(alloctor),
+		llvm::BitVector(fds), std::move(cache), lastAdded);
 }
 
 /* Returns a fresh address to be used from the interpreter */
@@ -3021,7 +3024,6 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
 		if (isRevisitValid(br.getPos()))
 			tp->submit(extractState());
-		popExecution();
 		return false;
 	}
 	return true;
