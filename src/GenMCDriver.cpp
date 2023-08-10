@@ -451,6 +451,8 @@ GenMCDriver::extractValPrefix(Event pos)
 		} else if (auto *oLab = llvm::dyn_cast<OptionalLabel>(lab)) {
 			vals.push_back(SVal(oLab->isExpanded()));
 			last = lab->getPos();
+		} else {
+			BUG_ON(lab->hasValue());
 		}
 	}
 	return {vals, last};
