@@ -300,6 +300,11 @@ public:
 		return isDependable(getKind());
 	}
 
+	/* Whether this label carries a value */
+	bool hasValue() const {
+		return hasValue(getKind());
+	}
+
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
@@ -326,6 +331,13 @@ private:
 
 	static inline bool isDependable(EventLabelKind k) {
 		return (k >= EL_Read && k <= EL_LastRead) || k == EL_Malloc;
+	}
+
+	static inline bool hasValue(EventLabelKind k) {
+		return (k >= EL_Read && k <= EL_LastRead) ||
+			(k >= EL_ThreadStart && k <= EL_ThreadStartEnd) ||
+			k == EL_ThreadJoin ||
+			k == EL_Optional;
 	}
 
 	void setStamp(Stamp s) { stamp = s; }
