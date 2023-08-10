@@ -2904,7 +2904,7 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
 		driver->reportError(currPos(),
-			   VerificationError::VE_Allocaiton, "Invalid size in malloc()");
+			   VerificationError::VE_Allocation, "Invalid size in malloc()");
 		return;
 	}
 
@@ -2929,12 +2929,12 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto size = ArgVals[1].IntVal.getLimitedValue();
 
 	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1))) {
-		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
+		driver->reportError(currPos(), VerificationError::VE_Allocation,
 				    "Invalid alignment in aligned_alloc()");
 		return;
 	}
 	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align)) {
-		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
+		driver->reportError(currPos(), VerificationError::VE_Allocation,
 				    "Invalid size in aligned_alloc()");
 		return;
 	}
@@ -2953,7 +2953,7 @@ void Interpreter::callPMalloc(Function *F, const std::vector<GenericValue> &ArgV
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
-		driver->reportError(currPos(), VerificationError::VE_Allocaiton,
+		driver->reportError(currPos(), VerificationError::VE_Allocation,
 			   "Invalid size in malloc()");
 		return;
 	}

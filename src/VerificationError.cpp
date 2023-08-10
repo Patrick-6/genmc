@@ -56,7 +56,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Attempt to free non-allocated memory";
 	case VerificationError::VE_DoubleFree:
 		return s << "Double-free error";
-	case VerificationError::VE_Allocaiton:
+	case VerificationError::VE_Allocation:
 		return s << "Allocation error";
 	case VerificationError::VE_UninitializedMem:
 		return s << "Attempt to read from uninitialized memory";

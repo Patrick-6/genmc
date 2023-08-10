@@ -54,7 +54,7 @@ enum class VerificationError {
 	VE_RaceFreeMalloc,
 	VE_FreeNonMalloc,
 	VE_DoubleFree,
-	VE_Allocaiton,
+	VE_Allocation,
 	VE_InvalidAccessBegin,
 	VE_UninitializedMem,
 	VE_AccessNonMalloc,
