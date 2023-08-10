@@ -804,6 +804,9 @@ private:
 	void checkForDuplicateRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
 #endif
 
+	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
+					     const VerificationError &r);
+
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
@@ -853,9 +856,6 @@ private:
 
 	/* Dbg: Random-number generator for scheduling randomization */
 	MyRNG rng;
-
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
-					     const VerificationError &r);
 };
 
 #endif /* __GENMC_DRIVER_HPP__ */
