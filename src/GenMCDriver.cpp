@@ -603,7 +603,7 @@ void GenMCDriver::handleRecoveryStart()
 		psb.push_back(Event::getInitializer());
 	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
-	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back());
+	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(), ThreadInfo(tid, psb.back().thread, 0, 0));
 	auto *lab = addLabelToGraph(std::move(tsLab));
 
 	/* Create a thread for the interpreter, and appropriately
@@ -828,12 +828,8 @@ std::vector<ThreadInfo> createExecutionContext(const ExecutionGraph &g)
 	std::vector<ThreadInfo> tis;
 	for (auto i = 1u; i < g.getNumThreads(); i++) { // skip main
 		auto *bLab = g.getFirstThreadLabel(i);
-		if (!g.containsPos(bLab->getParentCreate()))
-			continue;
-		auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(
-			g.getEventLabel(bLab->getParentCreate()));
-		BUG_ON(!tcLab);
-		tis.push_back(tcLab->getChildInfo());
+		BUG_ON(!bLab);
+		tis.push_back(bLab->getThreadInfo());
 	}
 	return tis;
 }
@@ -1010,9 +1006,7 @@ SVal GenMCDriver::getStartValue(const ThreadStartLabel *bLab) const
 	if (bLab->getPos().isInitializer() || bLab->getThread() == g.getRecoveryRoutineId())
 		return SVal();
 
-	auto *tcLab = llvm::dyn_cast<ThreadCreateLabel>(g.getEventLabel(bLab->getParentCreate()));
-	BUG_ON(!tcLab);
-	return tcLab->getChildInfo().arg;
+	return bLab->getThreadInfo().arg;
 }
 
 SVal GenMCDriver::getBarrierInitValue(const AAccess &access)
@@ -1542,8 +1536,8 @@ void GenMCDriver::handleThreadKill(std::unique_ptr<ThreadKillLabel> kLab)
 bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo &info) const
 {
 	auto &g = getGraph();
-	auto cParent = llvm::dyn_cast<ThreadStartLabel>(g.getEventLabel(Event(candidate, 0)))->getParentCreate();
-	auto &cInfo = llvm::dyn_cast<ThreadCreateLabel>(g.getEventLabel(cParent))->getChildInfo();
+	auto cParent = g.getFirstThreadLabel(candidate)->getParentCreate();
+	auto &cInfo = g.getFirstThreadLabel(candidate)->getThreadInfo();
 
 	/* First, check that the two threads are actually similar */
 	if (cInfo.id == info.id ||
@@ -1610,7 +1604,7 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 	}
 	auto symm = getConf()->symmetryReduction ?
 		getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
-	auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), symm);
+	auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab->getChildInfo(), symm);
 	addLabelToGraph(std::move(tsLab));
 	return cid;
 }

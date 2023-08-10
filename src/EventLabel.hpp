@@ -2019,17 +2019,22 @@ protected:
 
 	ThreadStartLabel(EventLabelKind kind, Event pos, Event pc)
 		: EventLabel(kind, pos, llvm::AtomicOrdering::Acquire, EventDeps()),
-		  parentCreate(pc) {}
+		  parentCreate(pc), threadInfo() {}
 
 public:
-	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event pc, int symm = -1)
+	ThreadStartLabel(Event pos, llvm::AtomicOrdering ord, Event pc,
+			 ThreadInfo tinfo, int symm = -1)
 		: EventLabel(EL_ThreadStart, pos, ord, EventDeps()),
-		  parentCreate(pc), symmetricTid(symm) {}
-	ThreadStartLabel(Event pos, Event pc, int symm = -1)
-		: ThreadStartLabel(pos, llvm::AtomicOrdering::Acquire, pc, symm) {}
+		  parentCreate(pc), threadInfo(tinfo), symmetricTid(symm) {}
+	ThreadStartLabel(Event pos, Event pc, ThreadInfo tinfo, int symm = -1)
+		: ThreadStartLabel(pos, llvm::AtomicOrdering::Acquire, pc, tinfo, symm) {}
 
 	/* Returns the position of the corresponding create operation */
 	Event getParentCreate() const { return parentCreate; }
+
+	/* Getters for the thread's info */
+	const ThreadInfo &getThreadInfo() const { return threadInfo; }
+	ThreadInfo &getThreadInfo() { return threadInfo; }
 
 	/* SR: Returns the id of a symmetric thread, or -1 if no symmetric thread exists  */
 	int getSymmetricTid() const { return symmetricTid; }
@@ -2042,6 +2047,9 @@ public:
 private:
 	/* The position of the corresponding create opeartion */
 	Event parentCreate;
+
+	/* Information about this thread */
+	ThreadInfo threadInfo;
 
 	/* SR: The tid a symmetric thread (currently: minimum among all) */
 	int symmetricTid = -1;
