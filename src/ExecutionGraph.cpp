@@ -959,10 +959,10 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const ExecutionGraph &g)
 	s << "\n";
 
 	for (auto lIt = g.loc_begin(), lE = g.loc_end(); lIt != lE; ++lIt) {
-		llvm::dbgs() << lIt->first << ": ";
+		s << lIt->first << ": ";
 		for (auto sIt = g.co_begin(lIt->first); sIt != g.co_end(lIt->first); ++sIt)
-			llvm::dbgs() << sIt->getPos() << " ";
-		llvm::dbgs() << "\n";
+			s << sIt->getPos() << " ";
+		s << "\n";
 	}
 	return s;
 }
