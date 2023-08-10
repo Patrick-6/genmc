@@ -325,7 +325,7 @@ private:
 	}
 
 	static inline bool isDependable(EventLabelKind k) {
-		return k == EL_Read || k == EL_Malloc;
+		return (k >= EL_Read && k <= EL_LastRead) || k == EL_Malloc;
 	}
 
 	void setStamp(Stamp s) { stamp = s; }
