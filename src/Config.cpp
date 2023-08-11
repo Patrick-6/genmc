@@ -194,7 +194,7 @@ clTransformFile("transform-output", llvm::cl::init(""),	llvm::cl::value_desc("fi
 		llvm::cl::cat(clDebugging),
 		llvm::cl::desc("Output the transformed LLVM code to file"));
 static llvm::cl::opt<unsigned int>
-clWarnOnGraphSize("warn-on-graph-size", llvm::cl::init(42042), llvm::cl::value_desc("N"),
+clWarnOnGraphSize("warn-on-graph-size", llvm::cl::init(1024), llvm::cl::value_desc("N"),
 		  llvm::cl::cat(clDebugging), llvm::cl::desc("Warn about graphs larger than N"));
 llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
