@@ -81,13 +81,13 @@ public:
 	std::string transformFile;
 	std::string programEntryFun;
 	unsigned int warnOnGraphSize;
+	VerbosityLevel vLevel;
 #ifdef ENABLE_GENMC_DEBUG
 	bool printBlockedExecs;
 	bool printStamps;
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
-	VerbosityLevel vLevel;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */
