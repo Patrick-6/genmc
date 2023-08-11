@@ -27,6 +27,10 @@
 
 class Logger {
 
+protected:
+	/* So that derived classes can bypass the initial write to buffer */
+	Logger(VerbosityLevel l, bool) : buffer_(str_) {}
+
 public:
 	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_) {
 		buffer_ << l;
@@ -56,18 +60,27 @@ protected:
 class LoggerOnce : public Logger {
 
 public:
+	/* In principle, we could just append to the buffer and check whether the
+	 * ID has been encountered before at destruction. This class is extra verbose
+	 * so that we avoid writing to the buffer altogether if we have seen this ID */
 	LoggerOnce(const std::string &id, VerbosityLevel l = VerbosityLevel::Warning)
-		: Logger(l), id(id) {}
+		: Logger(l, true), id(id) {
+		if (!ids.count(id))
+			buffer_ << l;
+	}
 
 	template<typename T>
 	LoggerOnce &operator<<(const T &msg) {
 		if (ids.count(id)) {
-			this->str_.clear();
 			return *this;
 		}
-		ids.insert(id);
-		Logger::operator<<(msg);
-		return *this;
+		return static_cast<LoggerOnce&>(Logger::operator<<(msg));
+	}
+
+	~LoggerOnce() {
+		if (!ids.count(id)) {
+			ids.insert(id);
+		}
 	}
 
 private:
@@ -75,7 +88,7 @@ private:
 	static thread_local inline std::set<std::string> ids;
 };
 
-static inline VerbosityLevel logLevel = VerbosityLevel::Tip;
+inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 
 #define LOG(level)				\
 	if (level > logLevel) ;			\

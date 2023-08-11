@@ -52,8 +52,8 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 {
 	/* Set up the execution context */
 	auto execGraph = userConf->isDepTrackingModel ?
-		std::make_unique<DepExecutionGraph>(userConf->warnOnGraphSize) :
-		std::make_unique<ExecutionGraph>(userConf->warnOnGraphSize);
+		std::make_unique<DepExecutionGraph>() :
+		std::make_unique<ExecutionGraph>();
 	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
 
 	/* Create an interpreter for the program's instructions */
@@ -925,6 +925,11 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
 	updateLabelViews(addedLab);
 	lastAdded = addedLab->getPos();
+	if (addedLab->getIndex() >= getConf()->warnOnGraphSize) {
+		LOG_ONCE("large-graph", VerbosityLevel::Tip)
+			<< "The execution graph seems quite large. "
+			<< "Consider bounding all loops or using -unroll\n";
+	}
 	return addedLab;
 }
 

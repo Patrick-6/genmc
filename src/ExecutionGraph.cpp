@@ -28,8 +28,7 @@
  ** Class constructors/destructors
  ***********************************************************/
 
-ExecutionGraph::ExecutionGraph(unsigned maxSize /* UINT_MAX */)
-	: warnOnGraphSize(maxSize)
+ExecutionGraph::ExecutionGraph()
 {
 	/* Create an entry for main() and push the "initializer" label */
 	events.push_back({});
@@ -418,8 +417,6 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 		events[pos.thread].push_back(std::move(lab));
 	}
 	BUG_ON(pos.index > events[pos.thread].size());
-	WARN_ON_ONCE(pos.index > warnOnGraphSize, "large-graph",
-		     "Graph too large! Are all loops bounded?\n");
 	return getEventLabel(pos);
 }
 
@@ -837,7 +834,7 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 
 std::unique_ptr<ExecutionGraph> ExecutionGraph::getCopyUpTo(const VectorClock &v) const
 {
-	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph(warnOnGraphSize));
+	auto og = std::unique_ptr<ExecutionGraph>(new ExecutionGraph());
 	copyGraphUpTo(*og, v);
 	return og;
 }

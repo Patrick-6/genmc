@@ -35,7 +35,7 @@
 class DepExecutionGraph : public ExecutionGraph {
 
 public:
-	DepExecutionGraph(unsigned int warnOnGraphSize = UINT_MAX) : ExecutionGraph(warnOnGraphSize) {}
+	DepExecutionGraph() : ExecutionGraph() {}
 
 	std::vector<Event> getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const override;
 

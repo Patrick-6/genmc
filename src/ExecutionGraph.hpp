@@ -57,7 +57,7 @@ public:
 	using LocMap = std::unordered_map<SAddr, StoreList>;
 
 public:
-	ExecutionGraph(unsigned warnOnGraphSize = UINT_MAX);
+	ExecutionGraph();
 	virtual ~ExecutionGraph();
 
 	/* Iterators */
