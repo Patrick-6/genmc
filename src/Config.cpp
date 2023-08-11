@@ -226,7 +226,7 @@ clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::Tip),
 		 clEnumValN(VerbosityLevel::Quiet, "v0", "Quiet (no logging)"),
 		 clEnumValN(VerbosityLevel::Error, "v1", "Print errors only"),
 		 clEnumValN(VerbosityLevel::Warning, "v2", "Print warnings"),
-		 clEnumValN(VerbosityLevel::Tip, "v3", "Print tips")
+		 clEnumValN(VerbosityLevel::Tip, "v3", "Print tips (default)")
 #ifdef ENABLE_GENMC_DEBUG
 		 ,clEnumValN(VerbosityLevel::Debug1, "v4", "Print revisits considered")
 		 ,clEnumValN(VerbosityLevel::Debug2, "v5", "Print graph after each memory access")
