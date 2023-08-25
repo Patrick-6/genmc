@@ -665,7 +665,7 @@ void ExecutionGraph::cutToStamp(Stamp stamp)
 				});
 			}
 			if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-				if (!preds->contains(rLab->getRf()->getPos()))
+				if (rLab->getRf() && !preds->contains(rLab->getRf()->getPos()))
 					rLab->setRf(nullptr);
 			}
 			if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
@@ -746,8 +746,8 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 	}
 
 	for (auto &lab : labels(other)) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(&lab)) {
-			BUG_ON(!rLab->getRf());
+		auto *rLab = llvm::dyn_cast<ReadLabel>(&lab);
+		if (rLab && rLab->getRf()) {
 			if (!other.containsPos(rLab->getRf()->getPos()))
 				rLab->setRf(nullptr);
 			else
