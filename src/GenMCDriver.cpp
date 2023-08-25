@@ -1885,7 +1885,8 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	 * consistency checks may be triggered if the access is invalid */
 	g.trackCoherenceAtLoc(rLab->getAddr());
 
-	rLab->setAnnot(EE->getCurrentAnnotConcretized());
+	if (!rLab->getAnnot())
+		rLab->setAnnot(EE->getCurrentAnnotConcretized());
 	cacheEventLabel(&*rLab);
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
