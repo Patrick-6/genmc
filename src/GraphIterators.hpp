@@ -248,6 +248,8 @@ inline const_label_range labels(const ExecutionGraph &G) {
 
 using const_store_iterator = ExecutionGraph::const_co_iterator;
 using const_store_range = llvm::iterator_range<const_store_iterator>;
+using const_reverse_store_iterator = ExecutionGraph::const_reverse_co_iterator;
+using const_reverse_store_range = llvm::iterator_range<const_reverse_store_iterator>;
 
 inline const_store_iterator store_begin(const ExecutionGraph &G, SAddr addr)
 {
@@ -260,6 +262,19 @@ inline const_store_iterator store_end(const ExecutionGraph &G, SAddr addr)
 inline const_store_range stores(const ExecutionGraph &G, SAddr addr)
 {
 	return const_store_range(store_begin(G, addr), store_end(G, addr));
+}
+
+inline const_reverse_store_iterator store_rbegin(const ExecutionGraph &G, SAddr addr)
+{
+	return G.co_rbegin(addr);
+}
+inline const_reverse_store_iterator store_rend(const ExecutionGraph &G, SAddr addr)
+{
+	return G.co_rend(addr);
+}
+inline const_reverse_store_range rstores(const ExecutionGraph &G, SAddr addr)
+{
+	return const_reverse_store_range(store_rbegin(G, addr), store_rend(G, addr));
 }
 
 
