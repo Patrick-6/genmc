@@ -426,7 +426,7 @@ void GenMCDriver::handleExecutionStart()
 		/* Otherwise, initialize ECStacks in interpreter */
 		auto &thr = getEE()->getThrById(i);
 		BUG_ON(!thr.ECStack.empty() || thr.isBlocked());
-		thr.ECStack.push_back(thr.initSF);
+		thr.ECStack = thr.initEC;
 	}
 
 	/* Then, set up thread prioritization and interpreter's state */

@@ -4758,7 +4758,7 @@ void Interpreter::replayExecutionBefore(const VectorClock &before)
 		if (thr.isMain())
 			thr.ECStack = mainECStack;
 		else
-			thr.ECStack = {thr.initSF};
+			thr.ECStack = thr.initEC;
 		thr.prefixLOC.clear();
 		thr.prefixLOC.resize(before.getMax(i) + 2); /* Grow since it can be accessed */
 		scheduleThread(i);
@@ -4808,7 +4808,7 @@ int Interpreter::runAsMain(const std::string &main)
 	setupMain(FindFunctionNamed(main), {"prog"}, nullptr);
 	setupStaticCtorsDtors(false);
 
-	mainECStack = ECStack();
+	mainECStack = getThrById(0).initEC = ECStack();
 	setProgramState(llvm::ProgramState::Main);
 	driver->handleExecutionStart();
 	run();

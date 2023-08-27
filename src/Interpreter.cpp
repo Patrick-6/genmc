@@ -122,8 +122,8 @@ void Interpreter::setupRecoveryRoutine(int tid)
 	callFunction(recoveryRoutine, {}, nullptr);
 
 	/* Also set up initSF, if it is the first invocation */
-	if (!getThrById(tid).initSF.CurFunction)
-		getThrById(tid).initSF = ECStack().back();
+	if (getThrById(tid).initEC.empty())
+		getThrById(tid).initEC = ECStack();
 	return;
 }
 

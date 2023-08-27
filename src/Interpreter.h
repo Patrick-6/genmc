@@ -168,7 +168,7 @@ public:
 	llvm::Function *threadFun;
 	SVal threadArg;
 	std::vector<llvm::ExecutionContext> ECStack;
-	llvm::ExecutionContext initSF;
+	std::vector<llvm::ExecutionContext> initEC;
 	std::unordered_map<const void *, llvm::GenericValue> tls;
 	unsigned int globalInstructions;
 	unsigned int globalInstSnap;
@@ -199,12 +199,12 @@ protected:
 	friend class Interpreter;
 
 	Thread(llvm::Function *F, int id)
-		: id(id), parentId(-1), threadFun(F), initSF(), globalInstructions(0),
+		: id(id), parentId(-1), threadFun(F), initEC(), globalInstructions(0),
 		  blocked(BlockageType::NotBlocked), rng(seed) {}
 
 	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
 		: id(id), parentId(pid), threadFun(F), threadArg(arg),
-		  initSF(SF), globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed) {}
+		  initEC({SF}), globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed) {}
 };
 
 llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
