@@ -100,6 +100,9 @@ static llvm::cl::opt<bool>
 clDisableBAM("disable-bam", llvm::cl::cat(clGeneral),
 	     llvm::cl::desc("Disable optimized barrier handling (BAM)"));
 static llvm::cl::opt<bool>
+clDisableIPR("disable-ipr", llvm::cl::cat(clGeneral),
+	     llvm::cl::desc("Disable in-place revisiting"));
+static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
@@ -311,6 +314,7 @@ void Config::saveConfigOptions()
 	instructionCaching = !clDisableInstructionCaching;
 	disableRaceDetection = clDisableRaceDetection;
 	disableBAM = clDisableBAM;
+	ipr = !clDisableIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistency options */

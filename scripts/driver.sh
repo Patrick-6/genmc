@@ -111,7 +111,7 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 imm # rc11 imm lkmm
 do
-    for cat in infr litmus saver helper liveness synthetic data-structures # fs lkmm # lapor
+    for cat in infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
     do
 	testdir="${correctdir}/${cat}"
 	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
@@ -124,7 +124,11 @@ do
 	    continue
 	fi
 	check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
-	    [[ ! "${GENMCFLAGS}" =~ "policy=random" ]] && check_blocked="yes"
+	    [[ (! "${GENMCFLAGS}" =~ "policy=random") ]] && check_blocked="yes"
+	if [[ "${cat}" == "ipr" && "${model}" != "imm" ]]
+	then
+	    check_blocked="yes"
+	fi
 	source "${DIR}/runcorrect.sh" # the env variables for runcorrect.sh are set
 	increase_total_time
     done

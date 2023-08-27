@@ -700,6 +700,12 @@ public:
 	 * execution graph is responsible for making such changes */
 	void setRevisitStatus(bool status) { revisitable = status; }
 
+	/* Returns true if the read was revisited in-place */
+	bool isIPR() const { return ipr; }
+
+	/* Sets the IPR status for this read */
+	void setIPRStatus(bool status) { ipr = status; }
+
 	/* SAVer: Getter/setter for the annotation expression */
 	const AnnotT *getAnnot() const { return annotExpr.get(); }
 	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
@@ -708,6 +714,7 @@ public:
 		MemAccessLabel::reset();
 		setRf(nullptr);
 		revisitable = true;
+		ipr = false;
 	}
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
@@ -726,6 +733,9 @@ private:
 
 	/* Revisitability status */
 	bool revisitable;
+
+	/* Whether the read has been revisited in place */
+	bool ipr;
 
 	/* SAVer: Expression for annotatable loads. This needs to have
 	 * heap-value semantics so that it does not create concurrency issues */

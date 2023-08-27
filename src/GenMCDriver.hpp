@@ -502,6 +502,9 @@ private:
 	/* BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
 
+	/* IPR: Tries to revisit blocked reads in-place */
+	bool tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
+
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
 
@@ -657,12 +660,18 @@ private:
 	 * Returns true if the optimization succeeded */
 	bool tryRevisitLockInPlace(const BackwardRevisit &r);
 
+	bool isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab);
+	void revisitInPlace(const BackwardRevisit &br);
+
 	/* Opt: Repairs the reads-from edge of a dangling lock */
 	void repairLock(LockCasReadLabel *lab);
 
 	/* Opt: Repairs some locks that may be "dangling", as part of the
 	 * in-place revisiting of locks */
 	void repairDanglingLocks();
+
+	void repairRead(ReadLabel *lab);
+	void repairDanglingReads();
 
 	/* Opt: Finds the last memory access that is visible to other threads;
 	 * return nullptr if no such access is found */

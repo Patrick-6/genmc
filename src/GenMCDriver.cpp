@@ -2010,6 +2010,8 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 			addToWorklist(lab->getStamp(),
 				      LLVM_MAKE_UNIQUE<WriteForwardRevisit>(lab->getPos(), succLab.getPos()));
 	}
+	ERROR_ON(getConf()->ipr && placesRange.begin() != placesRange.end(),
+		 "Unordered writes found. Please use -disable-ipr.\n");
 	g.addStoreToCO(lab, placesRange.end());
 }
 
@@ -2331,6 +2333,38 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 	return true;
 }
 
+bool GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads)
+{
+	if (!getConf()->ipr || isDepTracking())
+		return false;
+
+	auto &g = getGraph();
+
+	std::vector<Event> toIPR;
+	loads.erase(std::remove_if(loads.begin(), loads.end(), [&](auto &l){
+		auto blocked = isAssumeBlocked(g.getReadLabel(l), sLab);
+		if (blocked)
+			toIPR.push_back(l);
+		return blocked;
+	}), loads.end());
+
+	for (auto &l : toIPR)
+		revisitInPlace(*constructBackwardRevisit(g.getReadLabel(l), sLab));
+
+	/* We also have to filter out some regular revisits */
+	auto pending = g.getPendingRMW(sLab);
+	if (!pending.isInitializer()) {
+		loads.erase(std::remove_if(loads.begin(), loads.end(), [&](auto &l){
+			auto *rLab = g.getReadLabel(l);
+			auto *rfLab = rLab->getRf();
+			return rLab->getAnnot() && // must be like that
+				rfLab->getStamp() > rLab->getStamp() &&
+				!getPrefixView(sLab).contains(rfLab->getPos());
+		}), loads.end());
+	}
+	return false; /* we still have to perform the rest of the revisits */
+}
+
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
 {
 	if (!getConf()->helper)
@@ -2420,6 +2454,11 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 		}
 	}
 
+	if (getConf()->ipr && !isDepTracking()) {
+		if (tryOptimizeIPRs(sLab, loads))
+			return true;
+	}
+
 	/* Helper: 1) Do not bother with revisits that will lead to unconfirmed reads
 	           2) Do not bother exploring if a RevBlocker is being re-added	*/
 	if (getConf()->helper) {
@@ -2456,6 +2495,39 @@ bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
 	EE->getThrById(rLab->getThread()).unblock();
 	threadPrios = {rLab->getPos()};
 	return true;
+}
+
+bool GenMCDriver::isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab)
+{
+	auto &g = getGraph();
+	using Evaluator = SExprEvaluator<ModuleID::ID>;
+
+	return !llvm::isa<CasReadLabel>(rLab) &&
+		rLab->getAnnot() &&
+		!Evaluator().evaluate(rLab->getAnnot(), getReadValue(rLab));
+}
+
+void GenMCDriver::revisitInPlace(const BackwardRevisit &br)
+{
+	auto &g = getGraph();
+	auto *rLab = g.getReadLabel(br.getPos());
+	const auto *sLab = g.getWriteLabel(br.getRev());
+
+	BUG_ON(!llvm::isa<ReadLabel>(rLab));
+	if (g.getNextLabel(rLab))
+		g.removeLast(rLab->getThread());
+	g.changeRf(rLab->getPos(), sLab->getPos());
+	rLab->setAddedMax(true); // always true for atomicity violations
+	rLab->setIPRStatus(true);
+
+	completeRevisitedRMW(rLab);
+
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug1) << "--- In-place revisiting "
+		     << rLab->getPos() << " <-- " << sLab->getPos() << "\n" << getGraph(); );
+
+	EE->resetThread(rLab->getThread());
+	EE->getThrById(rLab->getThread()).ECStack = EE->getThrById(rLab->getThread()).initEC;
+	threadPrios = {rLab->getPos()};
 }
 
 // std::unique_ptr<VectorClock>
@@ -2597,7 +2669,7 @@ bool GenMCDriver::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
 					    const EventLabel *eLab)
 {
 	auto *lab = llvm::dyn_cast<ReadLabel>(eLab);
-	if (!lab)
+	if (!lab || lab->isIPR())
 		return false;
 
 	auto *rfLab = lab->getRf();
@@ -2820,6 +2892,34 @@ void GenMCDriver::repairDanglingLocks()
 	return;
 }
 
+void GenMCDriver::repairRead(ReadLabel *lab)
+{
+	auto &g = getGraph();
+
+	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr())) ? Event::getInitializer() : store_rbegin(g, lab->getAddr())->getPos();
+	g.changeRf(lab->getPos(), last);
+	lab->setAddedMax(true);
+	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());
+}
+
+void GenMCDriver::repairDanglingReads()
+{
+	if (!getConf()->ipr)
+		return;
+
+	auto &g = getGraph();
+
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(i));
+		if (!rLab)
+			continue;
+		if (!rLab->getRf()) {
+			repairRead(rLab);
+		}
+	}
+	return;
+}
+
 WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	/* Handle non-RMW cases first */
@@ -2895,6 +2995,7 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 	g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(ri.getSucc())));
 	wLab->setAddedMax(false);
 	repairDanglingLocks();
+	repairDanglingReads();
 	return calcRevisits(wLab);
 }
 
@@ -2924,6 +3025,9 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	g.changeRf(rLab->getPos(), rev);
 	auto *fri = llvm::dyn_cast<ReadForwardRevisit>(&ri);
 	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
+	rLab->setIPRStatus(false);
+
+	repairDanglingReads();
 
 	GENMC_DEBUG( LOG(VerbosityLevel::Debug1)
 		     << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")

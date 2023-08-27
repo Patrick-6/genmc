@@ -1,5 +1,5 @@
-  | -DN=1
-  | -DN=2
-  | -DN=3
-  | -DN=4
-  | -DN=5
+-disable-ipr   | -DN=1
+-disable-ipr   | -DN=2
+-disable-ipr   | -DN=3
+-disable-ipr   | -DN=4
+-disable-ipr   | -DN=5

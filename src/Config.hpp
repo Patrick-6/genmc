@@ -51,6 +51,7 @@ public:
 	bool instructionCaching;
 	bool disableRaceDetection;
 	bool disableBAM;
+	bool ipr;
 	bool disableStopOnSystemError;
 
 	/*** Persistency options ***/
