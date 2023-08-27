@@ -221,6 +221,9 @@ static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
 		  llvm::cl::desc("Print explored execution graphs"));
 
+static llvm::cl::opt<bool>
+clPrintBlockedExecs("print-blocked-execs", llvm::cl::cat(clDebugging),
+		    llvm::cl::desc("Print blocked execution graphs"));
 
 llvm::cl::opt<VerbosityLevel>
 clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::Tip),
@@ -236,11 +239,8 @@ clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::Tip),
 #endif /* ifdef ENABLE_GENMC_DEBUG */
 		 ));
 
-#ifdef ENABLE_GENMC_DEBUG
-static llvm::cl::opt<bool>
-clPrintBlockedExecs("print-blocked-execs", llvm::cl::cat(clDebugging),
-		    llvm::cl::desc("Print blocked execution graphs"));
 
+#ifdef ENABLE_GENMC_DEBUG
 static llvm::cl::opt<bool>
 clPrintStamps("print-stamps", llvm::cl::cat(clDebugging),
 	      llvm::cl::desc("Print stamps in execution graphs"));
@@ -256,6 +256,10 @@ clValidateExecGraphs("validate-exec-graphs", llvm::cl::cat(clDebugging),
 static llvm::cl::opt<bool>
 clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 		      llvm::cl::desc("Count duplicate executions (adds runtime overhead)"));
+
+static llvm::cl::opt<bool>
+clCountMootExecs("count-moot-execs", llvm::cl::cat(clDebugging),
+		 llvm::cl::desc("Count moot executions"));
 #endif /* ENABLE_GENMC_DEBUG */
 
 
@@ -352,6 +356,7 @@ void Config::saveConfigOptions()
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
+	countMootExecs = clCountMootExecs;
 #endif
 
 	/* Set (global) log state */

@@ -89,6 +89,7 @@ public:
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
+	bool countMootExecs;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

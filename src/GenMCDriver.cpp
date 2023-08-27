@@ -563,20 +563,21 @@ void GenMCDriver::handleExecutionEnd()
 	if (getConf()->LAPOR && !isLockWellFormedLAPOR())
 		WARN_ONCE("lapor-not-well-formed", "Execution not lock-well-formed!\n");
 
+	if (isMoot()) {
+		GENMC_DEBUG( ++result.exploredMoot; );
+		return;
+	}
+
 	/* Helper: Check helping CAS annotation */
-	if (getConf()->helper && !isMoot())
+	if (getConf()->helper)
 		checkHelpingCasAnnotation();
 
 	/* Ignore the execution if some assume has failed */
-	if (isExecutionBlocked() || isMoot()) {
-		GENMC_DEBUG(
-			if (getConf()->printBlockedExecs)
-				printGraph();
-		);
+	if (isExecutionBlocked()) {
 		++result.exploredBlocked;
-		if (isMoot())
-			++result.exploredMoot;
-		if (getConf()->checkLiveness && !isMoot())
+		if (getConf()->printBlockedExecs)
+			printGraph();
+		if (getConf()->checkLiveness)
 			checkLiveness();
 		return;
 	}

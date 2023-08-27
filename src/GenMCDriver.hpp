@@ -61,14 +61,15 @@ public:
 		VerificationError status; /* Whether the verification completed successfully */
 		unsigned explored;        /* Number of complete executions explored */
 		unsigned exploredBlocked; /* Number of blocked executions explored */
-		unsigned exploredMoot;
 #ifdef ENABLE_GENMC_DEBUG
+		unsigned exploredMoot;    /* Number of moot executions _encountered_ */
 		unsigned duplicates;      /* Number of duplicate executions explored */
 #endif
 		std::string message;      /* A message to be printed */
 
-		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0), exploredMoot(0),
+		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0),
 #ifdef ENABLE_GENMC_DEBUG
+			   exploredMoot(0),
 			   duplicates(0),
 #endif
 			   message() {}
@@ -81,8 +82,8 @@ public:
 			}
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
-			exploredMoot += other.exploredMoot;
 #ifdef ENABLE_GENMC_DEBUG
+			exploredMoot += other.exploredMoot;
 			duplicates += other.duplicates;
 #endif
 			return *this;
