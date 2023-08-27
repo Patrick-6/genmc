@@ -178,7 +178,7 @@ runvariants() {
 	    failure=1
 	else
 	    # if no diff was found (or the diff is suppressed), check non-zero status
-	    if test "$status" -gt 42
+	    if test "$status" -ne 42
 	    then
 		failure_status="$status"
 		outcome_failure=1
