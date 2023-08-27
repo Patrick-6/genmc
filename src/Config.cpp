@@ -348,11 +348,11 @@ void Config::saveConfigOptions()
 	printRandomScheduleSeed = clPrintRandomScheduleSeed;
 	randomScheduleSeed = clRandomScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
+	printBlockedExecs = clPrintBlockedExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
 	transformFile = clTransformFile;
 	vLevel = clVLevel;
 #ifdef ENABLE_GENMC_DEBUG
-	printBlockedExecs = clPrintBlockedExecs;
 	printStamps = clPrintStamps;
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
