@@ -505,6 +505,9 @@ private:
 	/* IPR: Tries to revisit blocked reads in-place */
 	bool tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
 
+	/* Opt: Tries to revisit locks in-place */
+	bool tryOptimizeLocks(const WriteLabel *sLab, std::vector<Event> &loads);
+
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
 
@@ -656,11 +659,10 @@ private:
 	 * there are other speculative (unconfirmed) reads */
 	bool filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
 
-	/* Opt: Tries to in-place revisit a read that is part of a lock.
-	 * Returns true if the optimization succeeded */
-	bool tryRevisitLockInPlace(const BackwardRevisit &r);
-
+	/* IPR: Returns true if RLAB is a possible IPR from SLAB */
 	bool isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab);
+
+	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
 
 	/* Opt: Repairs the reads-from edge of a dangling lock */

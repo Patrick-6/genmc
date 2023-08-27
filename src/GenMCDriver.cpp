@@ -721,6 +721,7 @@ void GenMCDriver::restrictGraph(Stamp stamp)
 	 * BEGINs). Fix their stamps too. */
 	getGraph().cutToStamp(stamp);
 	getGraph().compressStampsAfter(stamp);
+	repairDanglingReads();
 	return;
 }
 
@@ -2365,6 +2366,27 @@ bool GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 	return false; /* we still have to perform the rest of the revisits */
 }
 
+bool GenMCDriver::tryOptimizeLocks(const WriteLabel *sLab, std::vector<Event> &loads)
+{
+	if (!llvm::isa<LockCasWriteLabel>(sLab) && !llvm::isa<UnlockWriteLabel>(sLab))
+		return false;
+
+	auto &g = getGraph();
+
+	std::vector<Event> toIPR;
+	loads.erase(std::remove_if(loads.begin(), loads.end(), [&](auto &l){
+		auto *rLab = g.getReadLabel(l);
+		auto blocked = llvm::isa<LockCasReadLabel>(rLab) && llvm::isa<LockCasWriteLabel>(rLab->getRf());
+		if (blocked)
+			toIPR.push_back(l);
+		return blocked;
+	}), loads.end());
+
+	for (auto &l : toIPR)
+		revisitInPlace(*constructBackwardRevisit(g.getReadLabel(l), sLab));
+	return false; /* we still have to perform the rest of the revisits */
+}
+
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
 {
 	if (!getConf()->helper)
@@ -2454,10 +2476,13 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 		}
 	}
 
+	/* IPR + locks */
 	if (getConf()->ipr && !isDepTracking()) {
 		if (tryOptimizeIPRs(sLab, loads))
 			return true;
 	}
+	if (tryOptimizeLocks(sLab, loads))
+		return true;
 
 	/* Helper: 1) Do not bother with revisits that will lead to unconfirmed reads
 	           2) Do not bother exploring if a RevBlocker is being re-added	*/
@@ -2467,34 +2492,6 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 			return true;
 	}
 	return false;
-}
-
-bool GenMCDriver::tryRevisitLockInPlace(const BackwardRevisit &r)
-{
-	auto &g = getGraph();
-	auto *EE = getEE();
-
-	if (g.getLastThreadEvent(r.getPos().thread).prev() != r.getPos() ||
-	    revisitModifiesGraph(r))
-		return false;
-
-	auto *rLab = g.getReadLabel(r.getPos());
-	const auto *sLab = g.getWriteLabel(r.getRev());
-
-	BUG_ON(!llvm::isa<LockCasReadLabel>(rLab) || !llvm::isa<UnlockWriteLabel>(sLab));
-	BUG_ON(!llvm::isa<BlockLabel>(g.getEventLabel(rLab->getPos().next())));
-	g.removeLast(rLab->getThread());
-	g.changeRf(rLab->getPos(), sLab->getPos());
-	rLab->setAddedMax(isCoMaximal(rLab->getAddr(), rLab->getRf()->getPos()));
-
-	completeRevisitedRMW(rLab);
-
-	GENMC_DEBUG( LOG(VerbosityLevel::Debug1) << "--- In-place revisiting "
-		     << rLab->getPos() << " <-- " << sLab->getPos() << "\n" << getGraph(); );
-
-	EE->getThrById(rLab->getThread()).unblock();
-	threadPrios = {rLab->getPos()};
-	return true;
 }
 
 bool GenMCDriver::isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab)
@@ -2676,9 +2673,7 @@ bool GenMCDriver::hasBeenRevisitedByDeleted(const BackwardRevisit &r,
 	auto &v = *r.getViewNoRel();
 	return !v.contains(rfLab->getPos()) &&
 		rfLab->getStamp() > lab->getStamp() &&
-		!prefixContainsSameLoc(r, rfLab) &&
-		!prefixContainsMatchingLock(r, rfLab) // ULTRA NECESSARY FOR LOCKS (IPR?
-		;
+		!prefixContainsSameLoc(r, rfLab);
 }
 
 bool GenMCDriver::isCoBeforeSavedPrefix(const BackwardRevisit &r, const EventLabel *lab)
@@ -2843,13 +2838,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 		if (!isMaximalExtension(*br))
 			break;
 
-		/* Optimize handling of lock operations */
-		if (llvm::isa<LockCasReadLabel>(rLab) && llvm::isa<UnlockWriteLabel>(sLab)) {
-			if (tryRevisitLockInPlace(*br))
-				break;
-			moot();
-		}
-
 		addToWorklist(sLab->getStamp(), std::move(br));
 	}
 
@@ -2904,9 +2892,6 @@ void GenMCDriver::repairRead(ReadLabel *lab)
 
 void GenMCDriver::repairDanglingReads()
 {
-	if (!getConf()->ipr)
-		return;
-
 	auto &g = getGraph();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
@@ -2994,8 +2979,6 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 	g.removeStoreFromCO(wLab);
 	g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(ri.getSucc())));
 	wLab->setAddedMax(false);
-	repairDanglingLocks();
-	repairDanglingReads();
 	return calcRevisits(wLab);
 }
 
@@ -3027,14 +3010,11 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 	rLab->setAddedMax(fri ? fri->isMaximal() : isCoMaximal(rLab->getAddr(), rev));
 	rLab->setIPRStatus(false);
 
-	repairDanglingReads();
-
 	GENMC_DEBUG( LOG(VerbosityLevel::Debug1)
 		     << "--- " << (llvm::isa<BackwardRevisit>(ri) ? "Backward" : "Forward")
 		     << " revisiting " << ri.getPos() << " <-- " << rev << "\n" << getGraph(); );
 
 	/* If the revisited label became an RMW, add the store part and revisit */
-	repairDanglingLocks();
 	if (auto *sLab = completeRevisitedRMW(rLab))
 		return calcRevisits(sLab);
 
