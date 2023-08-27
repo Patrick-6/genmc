@@ -76,6 +76,7 @@ public:
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
+	bool printBlockedExecs;
 	SchedulePolicy schedulePolicy;
 	std::string randomScheduleSeed;
 	bool printRandomScheduleSeed;
@@ -84,7 +85,6 @@ public:
 	unsigned int warnOnGraphSize;
 	VerbosityLevel vLevel;
 #ifdef ENABLE_GENMC_DEBUG
-	bool printBlockedExecs;
 	bool printStamps;
 	bool colorAccesses;
 	bool validateExecGraphs;
