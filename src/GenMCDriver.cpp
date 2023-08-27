@@ -3060,6 +3060,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 
 	pushExecution({std::move(og), LocalQueueT()});
 
+	repairDanglingReads();
 	auto ok = revisitRead(br);
 	BUG_ON(!ok);
 
