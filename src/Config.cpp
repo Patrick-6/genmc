@@ -236,6 +236,7 @@ clVLevel(llvm::cl::cat(clDebugging), llvm::cl::init(VerbosityLevel::Tip),
 #ifdef ENABLE_GENMC_DEBUG
 		 ,clEnumValN(VerbosityLevel::Debug1, "v4", "Print revisits considered")
 		 ,clEnumValN(VerbosityLevel::Debug2, "v5", "Print graph after each memory access")
+		 ,clEnumValN(VerbosityLevel::Debug3, "v6", "Print rf options considered")
 #endif /* ifdef ENABLE_GENMC_DEBUG */
 		 ));
 

@@ -1907,6 +1907,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
 	BUG_ON(stores.empty());
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Rfs: " << format(stores) << "\n"; );
 
 	/* Try to minimize the number of rfs */
 	if (!filterOptimizeRfs(lab, stores))
@@ -1914,6 +1915,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	/* ... add an appropriate label with a random rf */
 	g.changeRf(lab->getPos(), stores.back());
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Rfs (optimized): " << format(stores) << "\n"; );
 
 	/* ... and make sure that the rf we end up with is consistent */
 	if (!ensureConsistentRf(lab, stores))
@@ -2826,11 +2828,13 @@ bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
-
 	auto loads = getRevisitableApproximation(sLab);
+
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Revisitable: " << format(loads) << "\n"; );
 	if (tryOptimizeRevisits(sLab, loads))
 		return true;
 
+	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Revisitable (optimized): " << format(loads) << "\n"; );
 	for (auto &l : loads) {
 		auto *rLab = g.getReadLabel(l);
 		BUG_ON(!rLab);
