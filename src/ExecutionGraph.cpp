@@ -471,6 +471,10 @@ void ExecutionGraph::removeLast(unsigned int thread)
 			rLab.setRf(nullptr);
 		}
 	}
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab)) {
+		if (auto *aLab = llvm::dyn_cast_or_null<MallocLabel>(mLab->getAlloc()))
+			aLab->removeAccess([&](auto &oLab){ return &oLab == mLab; });
+	}
 	resizeThread(lab->getPos());
 }
 
