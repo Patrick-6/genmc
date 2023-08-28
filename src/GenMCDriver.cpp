@@ -2972,6 +2972,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	} else {
 		g.addStoreToCO(lab, g.co_begin(lab->getAddr()));
 	}
+	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 	return lab;
 }
 
