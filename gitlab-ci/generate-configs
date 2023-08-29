@@ -116,6 +116,7 @@ rtest_stage() {
     echo "  stage: rtest"
     echo "  script:"
     echo "    - make rtest"
+    echo "    - GENMCFLAGS=\"-disable-instruction-caching\" make rtest"
     echo ""
 }
 

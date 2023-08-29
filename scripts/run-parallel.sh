@@ -60,7 +60,7 @@ run_correct() {
     expected=""
     for i in `seq 1 ${RUNS}`
     do
-	result=$("${GENMC}" -mo -nthreads="${threads}" ${correct[$name]} 2>&1)
+	result=$("${GENMC}" -nthreads="${threads}" ${correct[$name]} 2>&1)
 	if [[ "$?" -ne 0 ]]
 	then
 	    echo "XXX"

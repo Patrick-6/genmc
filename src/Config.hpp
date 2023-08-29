@@ -21,17 +21,15 @@
 #ifndef __CONFIG_HPP__
 #define __CONFIG_HPP__
 
-#include "DriverGraphEnumAPI.hpp"
+#include "InterpreterEnumAPI.hpp"
+#include "Verbosity.hpp"
 #include "VSet.hpp"
 
 #include <string>
 
 
-enum class ModelType { rc11, imm, lkmm };
+enum class ModelType { SC, TSO, RC11, IMM, LKMM };
 enum class SchedulePolicy { ltr, wf, random };
-#ifdef ENABLE_GENMC_DEBUG
-enum class VerbosityLevel { V0, V1, V2, V3 };
-#endif
 
 struct Config {
 
@@ -43,23 +41,21 @@ public:
 	/*** Exploration options ***/
 	ModelType model;
 	bool isDepTrackingModel;
-	CoherenceType coherence;
 	unsigned int threads;
 	bool LAPOR;
 	bool symmetryReduction;
 	bool helper;
-	CheckConsType checkConsType;
-	ProgramPoint checkConsPoint;
 	bool checkLiveness;
 	bool printErrorTrace;
 	std::string dotFile;
+	bool instructionCaching;
 	bool disableRaceDetection;
 	bool disableBAM;
+	bool ipr;
 	bool disableStopOnSystemError;
 
 	/*** Persistency options ***/
 	bool persevere;
-	ProgramPoint checkPersPoint;
 	unsigned int blockSize;
 	unsigned int maxFileSize;
 	JournalDataFS journalData;
@@ -80,18 +76,20 @@ public:
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
+	bool printBlockedExecs;
 	SchedulePolicy schedulePolicy;
 	std::string randomScheduleSeed;
 	bool printRandomScheduleSeed;
 	std::string transformFile;
 	std::string programEntryFun;
 	unsigned int warnOnGraphSize;
+	VerbosityLevel vLevel;
 #ifdef ENABLE_GENMC_DEBUG
-	bool printBlockedExecs;
+	bool printStamps;
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
-	VerbosityLevel vLevel;
+	bool countMootExecs;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

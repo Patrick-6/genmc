@@ -50,8 +50,11 @@ enum class JournalDataFS { writeback, ordered, journal };
 /* Types of allocations in the interpreter */
 enum class AddressSpace { AS_User, AS_Internal };
 
+/* Storage duration */
+enum class StorageDuration { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
+
 /* Storage types */
-enum class Storage { ST_Static, ST_Automatic, ST_Heap, ST_StorageLast };
+enum class StorageType { ST_Volatile, ST_Durable, ST_StorageLast };
 
 /* Modeled functions -- (CAUTION: Order matters) */
 enum class InternalFunctions {
@@ -80,6 +83,7 @@ enum class InternalFunctions {
 	FN_AtExit,
 	FN_Malloc,
 	FN_MallocAligned,
+	FN_PMalloc,
 	FN_HazptrAlloc,
 	FN_MallocLast,
 	FN_Free,
@@ -106,7 +110,7 @@ enum class InternalFunctions {
 	FN_PwriteFS,
 	FN_PersBarrierFS,
 	FN_LastInvRecFS,
-	/* Invalid rec ops */
+	/* Invalid FS rec ops */
 	FN_ReadFS,
 	FN_PreadFS,
 	FN_FsyncFS,
@@ -121,6 +125,9 @@ enum class InternalFunctions {
 	FN_RCUReadUnlockLKMM,
 	FN_SynchronizeRCULKMM,
 	/* LKMM ops */
+
+	FN_CLFlush,
+	/* Pers ops */
 };
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
@@ -187,22 +194,6 @@ inline bool isFsInvalidRecCode(InternalFunctions code)
 	return (code >= InternalFunctions::FN_CreatFS && code <= InternalFunctions::FN_LastInvRecFS);
 }
 
-/* Some basic system error codes for the user -- should match include/errno.h */
-enum class SystemError {
-	SE_EPERM   = 1,
-	SE_ENOENT  = 2,
-	SE_EIO     = 5,
-	SE_EBADF   = 9,
-	SE_ENOMEM  = 12,
-	SE_EEXIST  = 17,
-	SE_EINVAL  = 22,
-	SE_EMFILE  = 24,
-	SE_ENFILE  = 23,
-	SE_ETXTBSY = 26,
-	SE_EFBIG   = 27,
-	SE_ESPIPE  = 29,
-};
-
 /* Should match our internal definitions */
 
 #define GENMC_ATTR_LOCAL   0x00000001
@@ -216,22 +207,6 @@ enum class SystemError {
 
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
 #define GENMC_KIND(flags) ((flags) & (0xffff0000))
-
-/* For compilers that do not have a recent enough lib{std}c++ */
-#ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
-struct EnumClassHash {
-	template <typename T>
-	std::size_t operator()(T t) const {
-		return static_cast<std::size_t>(t);
-	}
-};
-#define ENUM_HASH(t) EnumClassHash
-#else
-#define ENUM_HASH(t) std::hash<t>
-#endif
-
-extern SystemError systemErrorNumber; // just to inform the driver
-extern const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)> errorList;
 
 extern llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
 				     const BlockageType &b);

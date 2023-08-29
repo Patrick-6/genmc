@@ -37,7 +37,7 @@ The LLVM versions currently supported are:
 
 ##### GNU/Linux
 
-In order to use the tool on a Debian-based installation, you will need the
+In order to use the tool on a Debian-based installation, you need the
 following packages:
 
 		autoconf  automake  clang  llvm  llvm-dev  libffi-dev

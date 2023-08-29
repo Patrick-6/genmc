@@ -80,7 +80,7 @@ void printResults(const std::shared_ptr<const Config> &conf,
 	auto end = std::chrono::high_resolution_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
-	if (res.status == GenMCDriver::Status::VS_OK)
+	if (res.status == VerificationError::VE_OK)
 		llvm::outs() << "No errors were detected.\n";
 	else
 		llvm::outs() << res.message;
@@ -93,9 +93,11 @@ void printResults(const std::shared_ptr<const Config> &conf,
 	if (res.exploredBlocked) {
 		llvm::outs() << "\nNumber of blocked executions seen: " << res.exploredBlocked;
 	}
-	if (res.exploredMoot) {
-		llvm::outs() << " (" << res.exploredMoot << " mooted)";
-	}
+	GENMC_DEBUG(
+		if (conf->countMootExecs) {
+			llvm::outs() << " (+ " << res.exploredMoot << " mooted)";
+		};
+	);
 	llvm::outs() << "\nTotal wall-clock time: "
 		     << llvm::format("%.2f", elapsed.count() * 1e-3)
 		     << "s\n";
@@ -112,7 +114,7 @@ int main(int argc, char **argv)
 		auto mod = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
 		auto res = GenMCDriver::verify(conf, std::move(mod));
 		printResults(conf, begin, res);
-		return res.status == GenMCDriver::Status::VS_OK ? 0 : EVERIFY;
+		return res.status == VerificationError::VE_OK ? 0 : EVERIFY;
 	}
 
 	std::unique_ptr<llvm::Module> module;
@@ -123,5 +125,5 @@ int main(int argc, char **argv)
 	printResults(conf, begin, res);
 
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
-	return res.status == GenMCDriver::Status::VS_OK ? 0 : EVERIFY;
+	return res.status == VerificationError::VE_OK ? 0 : EVERIFY;
 }

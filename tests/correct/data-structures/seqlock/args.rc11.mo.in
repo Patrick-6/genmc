@@ -1,1 +1,1 @@
-  | -I../tests/correct/data-structures/seqlock-atomic/
+-disable-ipr   | -I../tests/correct/data-structures/seqlock-atomic/

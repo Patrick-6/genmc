@@ -23,8 +23,9 @@
 
 #include "Config.hpp"
 #include "IMMDriver.hpp"
-#include "LKMMDriver.hpp"
 #include "RC11Driver.hpp"
+#include "SCDriver.hpp"
+#include "TSODriver.hpp"
 #include <llvm/IR/Module.h>
 
 class DriverFactory {
@@ -39,17 +40,18 @@ class DriverFactory {
 	template<typename... Ts>
 	static std::unique_ptr<GenMCDriver>
 	create(ThreadPool *pool, std::shared_ptr<const Config> conf, Ts&&... params) {
+
+#define CREATE_MODEL_DRIVER(_model)					\
+		case ModelType::_model:					\
+			driver = new _model##Driver(std::move(conf), std::forward<Ts>(params)...); \
+			break
+
 		GenMCDriver *driver = nullptr;
 		switch (conf->model) {
-		case ModelType::rc11:
-			driver = new RC11Driver(std::move(conf), std::forward<Ts>(params)...);
-			break;
-		case ModelType::imm:
-			driver = new IMMDriver(std::move(conf), std::forward<Ts>(params)...);
-			break;
-		case ModelType::lkmm:
-			driver = new LKMMDriver(std::move(conf), std::forward<Ts>(params)...);
-			break;
+			CREATE_MODEL_DRIVER(SC);
+			CREATE_MODEL_DRIVER(TSO);
+			CREATE_MODEL_DRIVER(RC11);
+			CREATE_MODEL_DRIVER(IMM);
 		default:
 			BUG();
 		}

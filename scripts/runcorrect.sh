@@ -24,7 +24,7 @@ GenMC="${GenMC:-$DIR/../src/genmc}"
 source "${DIR}/terminal.sh"
 
 model="${model:-rc11}"
-coherence="${coherence:-wb}"
+coherence="${coherence:-mo}"
 testdir="${testdir:-${DIR}/../tests/correct/litmus}"
 
 runtime=0
@@ -170,7 +170,7 @@ runvariants() {
     for t in $dir/variants/*.c $dir/variants/*.cpp
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" "-${coherence}" $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
+	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    failure_output="${output}"
