@@ -51,8 +51,7 @@ static llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::SC,   "sc",   "SC memory model"),
 		    clEnumValN(ModelType::RC11, "rc11", "RC11 memory model"),
-		    clEnumValN(ModelType::IMM,  "imm",  "IMM memory model"),
-		    clEnumValN(ModelType::LKMM, "lkmm", "LKMM memory model")
+		    clEnumValN(ModelType::IMM,  "imm",  "IMM memory model")
 		    ),
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::init(ModelType::RC11),
@@ -276,9 +275,6 @@ void printVersion(llvm::raw_ostream &s)
 void Config::checkConfigOptions() const
 {
 	/* Check exploration options */
-	if (clLAPOR && clModelType == ModelType::LKMM) {
-		ERROR("LAPOR usage is temporarily disabled under LKMM.\n");
-	}
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
@@ -308,7 +304,7 @@ void Config::saveConfigOptions()
 	/* Save exploration options */
 	dotFile = clDotGraphFile;
 	model = clModelType;
-	isDepTrackingModel = (model == ModelType::IMM || model == ModelType::LKMM);
+	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
 	symmetryReduction = clSymmetryReduction;
