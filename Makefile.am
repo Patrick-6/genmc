@@ -16,3 +16,6 @@ ctest:
 rtest:
 	$(MAKE) -C src
 	cd $(top_builddir)/scripts && ./randomize-driver.sh
+
+@DX_RULES@
+MOSTLYCLEANFILES = DX_CLEANFILES

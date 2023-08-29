@@ -12,6 +12,8 @@ genmc
 *.ll
 *.out
 
+doc/doxygen
+
 Makefile
 Makefile.in
 aclocal.m4
