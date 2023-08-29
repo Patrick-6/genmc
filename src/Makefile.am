@@ -73,7 +73,6 @@ libgenmc_a_SOURCES = \
   ThreadInfo.hpp \
   ThreadPinner.cpp ThreadPinner.hpp \
   ThreadPool.cpp ThreadPool.hpp \
-  TSODriver.cpp TSODriver.hpp \
   WorkSet.hpp WorkSet.cpp \
   value_ptr.hpp \
   Verbosity.hpp Verbosity.cpp \

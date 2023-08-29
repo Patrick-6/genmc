@@ -25,7 +25,6 @@
 #include "IMMDriver.hpp"
 #include "RC11Driver.hpp"
 #include "SCDriver.hpp"
-#include "TSODriver.hpp"
 #include <llvm/IR/Module.h>
 
 class DriverFactory {
@@ -49,7 +48,6 @@ class DriverFactory {
 		GenMCDriver *driver = nullptr;
 		switch (conf->model) {
 			CREATE_MODEL_DRIVER(SC);
-			CREATE_MODEL_DRIVER(TSO);
 			CREATE_MODEL_DRIVER(RC11);
 			CREATE_MODEL_DRIVER(IMM);
 		default:
