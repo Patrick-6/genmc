@@ -71,7 +71,7 @@ public:
 	bool loadAnnot;
 	bool assumePropagation;
 	bool confirmAnnot;
-	bool scDetector;
+	bool mmDetector;
 
 	/*** Debugging options ***/
 	bool inputFromBitcodeFile;

@@ -163,8 +163,8 @@ namespace LLVMModule {
 		OptPM.add(createLocalSimplifyCFGPass());
 		OptPM.add(createEliminateAnnotationsPass());
 		OptPM.add(createEliminateRedundantInstPass());
-		if (conf->scDetector)
-			OptPM.add(createSCDetectorPass(&PI));
+		if (conf->mmDetector)
+			OptPM.add(createMMDetectorPass(&PI));
 
 		modified = OptPM.run(mod);
 

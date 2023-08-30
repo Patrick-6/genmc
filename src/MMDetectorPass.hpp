@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SC_DETECTOR_PASS_HPP__
-#define __SC_DETECTOR_PASS_HPP__
+#ifndef __MM_DETECTOR_PASS_HPP__
+#define __MM_DETECTOR_PASS_HPP__
 
 #include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
@@ -28,12 +28,12 @@
 class PassModuleInfo;
 enum class ModelType : std::uint8_t;
 
-class SCDetectorPass : public llvm::ModulePass {
+class MMDetectorPass : public llvm::ModulePass {
 
 public:
 	static char ID;
 
-	SCDetectorPass() : llvm::ModulePass(ID) {}
+	MMDetectorPass() : llvm::ModulePass(ID) {}
 
 	void setPassModuleInfo(PassModuleInfo *I) { PI = I; }
 
@@ -45,4 +45,4 @@ protected:
 	PassModuleInfo *PI = nullptr;
 };
 
-#endif /* __MDATA_COLLECTION_PASS_HPP__ */
+#endif /* __MM_DETECTOR_PASS_HPP__ */

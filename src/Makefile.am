@@ -52,6 +52,7 @@ libgenmc_a_SOURCES = \
   MaximalIterator.hpp \
   MDataCollectionPass.hpp MDataCollectionPass.cpp \
   MemAccess.hpp \
+  MMDetectorPass.cpp MMDetectorPass.hpp \
   ModuleID.hpp \
   ModuleInfo.cpp ModuleInfo.hpp \
   NameInfo.cpp NameInfo.hpp \
@@ -69,7 +70,6 @@ libgenmc_a_SOURCES = \
   SExprVisitor.tcc SExprVisitor.hpp \
   Stamp.cpp Stamp.hpp \
   SVal.cpp SVal.hpp \
-  SCDetectorPass.cpp SCDetectorPass.hpp \
   SpinAssumePass.cpp SpinAssumePass.hpp \
   WBIterator.hpp \
   ThreadInfo.hpp \

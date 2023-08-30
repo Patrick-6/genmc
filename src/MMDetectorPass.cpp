@@ -19,7 +19,7 @@
  */
 
 #include "config.h"
-#include "SCDetectorPass.hpp"
+#include "MMDetectorPass.hpp"
 #include "ModuleInfo.hpp"
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
@@ -32,7 +32,7 @@
 
 using namespace llvm;
 
-void SCDetectorPass::setDeterminedMM(ModelType m)
+void MMDetectorPass::setDeterminedMM(ModelType m)
 {
 	PI->determinedMM = m;
 }
@@ -48,7 +48,7 @@ bool isRANAOrdering(AtomicOrdering o)
 	return o == AO::Acquire || o == AO::Release || o == AO::AcquireRelease || o == AtomicOrdering::NotAtomic;
 }
 
-bool SCDetectorPass::runOnModule(Module &M)
+bool MMDetectorPass::runOnModule(Module &M)
 {
 	auto isSC = true;
 	auto isRA = true;
@@ -101,12 +101,12 @@ bool SCDetectorPass::runOnModule(Module &M)
 	return false;
 }
 
-ModulePass *createSCDetectorPass(PassModuleInfo *PI)
+ModulePass *createMMDetectorPass(PassModuleInfo *PI)
 {
-	auto *p = new SCDetectorPass();
+	auto *p = new MMDetectorPass();
 	p->setPassModuleInfo(PI);
 	return p;
 }
 
-char SCDetectorPass::ID = 42;
-static RegisterPass<SCDetectorPass> P("sc-detector-casts", "Checks whether all accesses are SC.");
+char MMDetectorPass::ID = 42;
+static RegisterPass<MMDetectorPass> P("sc-detector-casts", "Checks whether all accesses are SC.");
