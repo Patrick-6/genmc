@@ -56,7 +56,7 @@ public:
 	void updateLabelViews(EventLabel *lab) override;
 	bool isDepTracking() const override;
 	bool isConsistent(const EventLabel *lab) const override;
-	VerificationError checkErrors(const EventLabel *lab) const override;
+	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;
 	bool isRecoveryValid(const EventLabel *lab) const override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;

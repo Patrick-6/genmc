@@ -1883,8 +1883,9 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
 	VerificationError err;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab)) != VerificationError::VE_OK) {
-		reportError(lab->getPos(), err);
+	const EventLabel *racy = nullptr;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK) {
+		reportError(lab->getPos(), err, "", racy);
 		return std::nullopt;
 	}
 
@@ -2025,8 +2026,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
         VerificationError err;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab)) != VerificationError::VE_OK) {
-		reportError(lab->getPos(), err);
+	const EventLabel *racy = nullptr;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK) {
+		reportError(lab->getPos(), err, "", racy);
 		return;
 	}
 
@@ -2114,8 +2116,9 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 
 	/* Check whether there is any memory race */
 	VerificationError err;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab)) != VerificationError::VE_OK)
-		reportError(lab->getPos(), err);
+	const EventLabel *racy = nullptr;
+	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK)
+		reportError(lab->getPos(), err, "", racy);
 	return;
 }
 

@@ -56,7 +56,7 @@ public:
 	void updateLabelViews(EventLabel *lab) override;
 	bool isDepTracking() const override;
 	bool isConsistent(const EventLabel *lab) const override;
-	VerificationError checkErrors(const EventLabel *lab) const override;
+	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;
 	bool isRecoveryValid(const EventLabel *lab) const override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
@@ -98,6 +98,8 @@ private:
 	mutable std::vector<bool> lhsAccept0;
 	mutable std::vector<bool> rhsAccept0;
 
+	mutable const EventLabel *racyLab0 = nullptr;
+
 	void visitInclusionLHS1_0(const EventLabel *lab) const;
 	void visitInclusionLHS1_1(const EventLabel *lab) const;
 
@@ -108,6 +110,8 @@ private:
 
 	mutable std::vector<bool> lhsAccept1;
 	mutable std::vector<bool> rhsAccept1;
+
+	mutable const EventLabel *racyLab1 = nullptr;
 
 	bool visitInclusionLHS2_0(const EventLabel *lab, const View &v) const;
 	bool visitInclusionLHS2_1(const EventLabel *lab, const View &v) const;
@@ -124,6 +128,8 @@ private:
 	mutable std::vector<bool> lhsAccept2;
 	mutable std::vector<bool> rhsAccept2;
 
+	mutable const EventLabel *racyLab2 = nullptr;
+
 	void visitInclusionLHS3_0(const EventLabel *lab) const;
 	void visitInclusionLHS3_1(const EventLabel *lab) const;
 	void visitInclusionLHS3_2(const EventLabel *lab) const;
@@ -136,6 +142,8 @@ private:
 
 	mutable std::vector<bool> lhsAccept3;
 	mutable std::vector<bool> rhsAccept3;
+
+	mutable const EventLabel *racyLab3 = nullptr;
 
 	bool visitInclusionLHS4_0(const EventLabel *lab, const View &v) const;
 	bool visitInclusionLHS4_1(const EventLabel *lab, const View &v) const;
@@ -152,6 +160,8 @@ private:
 	mutable std::vector<bool> lhsAccept4;
 	mutable std::vector<bool> rhsAccept4;
 
+	mutable const EventLabel *racyLab4 = nullptr;
+
 	void visitInclusionLHS5_0(const EventLabel *lab) const;
 	void visitInclusionLHS5_1(const EventLabel *lab) const;
 	void visitInclusionLHS5_2(const EventLabel *lab) const;
@@ -164,6 +174,23 @@ private:
 
 	mutable std::vector<bool> lhsAccept5;
 	mutable std::vector<bool> rhsAccept5;
+
+	mutable const EventLabel *racyLab5 = nullptr;
+
+	bool visitInclusionLHS6_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS6_1(const EventLabel *lab, const View &v) const;
+
+	bool checkInclusion6(const EventLabel *lab) const;
+
+	mutable std::vector<NodeStatus> visitedInclusionLHS6_0;
+	mutable std::vector<NodeStatus> visitedInclusionLHS6_1;
+	mutable std::vector<NodeStatus> visitedInclusionRHS6_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS6_1;
+
+	mutable std::vector<bool> lhsAccept6;
+	mutable std::vector<bool> rhsAccept6;
+
+	mutable const EventLabel *racyLab6 = nullptr;
 
 	bool visitAcyclic0(const EventLabel *lab) const;
 

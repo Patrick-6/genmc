@@ -253,8 +253,10 @@ bool RC11Driver::visitInclusionLHS0_0(const EventLabel *lab, const View &v) cons
 	auto &g = getGraph();
 
 	visitedInclusionLHS0_0[lab->getStamp().get()] = NodeStatus::entered;
-	if (!v.contains(lab->getPos()))
+	if (!v.contains(lab->getPos())) {
+		racyLab0 = lab;
 		return false;
+	}
 	visitedInclusionLHS0_0[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
@@ -338,8 +340,10 @@ bool RC11Driver::checkInclusion1(const EventLabel *lab) const
 
 	visitInclusionLHS1_1(lab);
 	for (auto i = 0u; i < lhsAccept1.size(); i++) {
-		if (lhsAccept1[i] && !rhsAccept1[i])
+		if (lhsAccept1[i] && !rhsAccept1[i]) {
+			racyLab1 = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
+		}
 	}
 	return true;
 }
@@ -349,8 +353,10 @@ bool RC11Driver::visitInclusionLHS2_0(const EventLabel *lab, const View &v) cons
 	auto &g = getGraph();
 
 	visitedInclusionLHS2_0[lab->getStamp().get()] = NodeStatus::entered;
-	if (!v.contains(lab->getPos()))
+	if (!v.contains(lab->getPos())) {
+		racyLab2 = lab;
 		return false;
+	}
 	visitedInclusionLHS2_0[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
@@ -455,8 +461,10 @@ bool RC11Driver::checkInclusion3(const EventLabel *lab) const
 
 	visitInclusionLHS3_2(lab);
 	for (auto i = 0u; i < lhsAccept3.size(); i++) {
-		if (lhsAccept3[i] && !rhsAccept3[i])
+		if (lhsAccept3[i] && !rhsAccept3[i]) {
+			racyLab3 = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
+		}
 	}
 	return true;
 }
@@ -466,8 +474,10 @@ bool RC11Driver::visitInclusionLHS4_0(const EventLabel *lab, const View &v) cons
 	auto &g = getGraph();
 
 	visitedInclusionLHS4_0[lab->getStamp().get()] = NodeStatus::entered;
-	if (!v.contains(lab->getPos()))
+	if (!v.contains(lab->getPos())) {
+		racyLab4 = lab;
 		return false;
+	}
 	visitedInclusionLHS4_0[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
@@ -567,8 +577,10 @@ bool RC11Driver::checkInclusion5(const EventLabel *lab) const
 
 	visitInclusionLHS5_2(lab);
 	for (auto i = 0u; i < lhsAccept5.size(); i++) {
-		if (lhsAccept5[i] && !rhsAccept5[i])
+		if (lhsAccept5[i] && !rhsAccept5[i]) {
+			racyLab5 = &*std::find_if(label_begin(g), label_end(g), [&](auto &lab){ return lab.getStamp() == i; });
 			return false;
+		}
 	}
 	return true;
 }
@@ -578,8 +590,10 @@ bool RC11Driver::visitInclusionLHS6_0(const EventLabel *lab, const View &v) cons
 	auto &g = getGraph();
 
 	visitedInclusionLHS6_0[lab->getStamp().get()] = NodeStatus::entered;
-	if (!v.contains(lab->getPos()))
+	if (!v.contains(lab->getPos())) {
+		racyLab6 = lab;
 		return false;
+	}
 	visitedInclusionLHS6_0[lab->getStamp().get()] = NodeStatus::left;
 	return true;
 }
@@ -636,22 +650,43 @@ bool RC11Driver::checkInclusion6(const EventLabel *lab) const
 		&& visitInclusionLHS6_1(lab, v);
 }
 
-VerificationError RC11Driver::checkErrors(const EventLabel *lab) const
+VerificationError RC11Driver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
 {
-	if (!checkInclusion0(lab))
-		 return VerificationError::VE_AccessNonMalloc;
-	if (!checkInclusion1(lab))
-		 return VerificationError::VE_DoubleFree;
-	if (!checkInclusion2(lab))
-		 return VerificationError::VE_AccessFreed;
-	if (!checkInclusion3(lab))
-		 return VerificationError::VE_AccessFreed;
-	if (!checkInclusion4(lab))
-		 return VerificationError::VE_AccessFreed;
-	if (!checkInclusion5(lab))
-		 return VerificationError::VE_AccessFreed;
-	if (!checkInclusion6(lab))
-		 return VerificationError::VE_RaceNotAtomic;
+	if (!checkInclusion0(lab)) {
+		race = racyLab0;
+		return VerificationError::VE_AccessNonMalloc;
+	}
+
+	if (!checkInclusion1(lab)) {
+		race = racyLab1;
+		return VerificationError::VE_DoubleFree;
+	}
+
+	if (!checkInclusion2(lab)) {
+		race = racyLab2;
+		return VerificationError::VE_AccessFreed;
+	}
+
+	if (!checkInclusion3(lab)) {
+		race = racyLab3;
+		return VerificationError::VE_AccessFreed;
+	}
+
+	if (!checkInclusion4(lab)) {
+		race = racyLab4;
+		return VerificationError::VE_AccessFreed;
+	}
+
+	if (!checkInclusion5(lab)) {
+		race = racyLab5;
+		return VerificationError::VE_AccessFreed;
+	}
+
+	if (!checkInclusion6(lab)) {
+		race = racyLab6;
+		return VerificationError::VE_RaceNotAtomic;
+	}
+
 	return VerificationError::VE_OK;
 }
 
