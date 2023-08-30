@@ -170,7 +170,7 @@ runvariants() {
     for t in $dir/variants/*.c $dir/variants/*.cpp
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
+	output=`"${GenMC}" ${GENMCFLAGS} "-${model}" -disable-mm-detector $genmc_args -- ${CFLAGS} ${clang_args} "${t}" 2>&1`
 	if test "$?" -ne 0
 	then
 	    failure_output="${output}"
