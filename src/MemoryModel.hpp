@@ -21,8 +21,28 @@
 #ifndef __MEMORY_MODEL_HPP__
 #define __MEMORY_MODEL_HPP__
 
+#include "Error.hpp"
+
 #include <cstdint>
+#include <string>
 
 enum class ModelType : std::uint8_t { SC, RA, RC11, IMM };
+
+inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &m)
+{
+	switch (m) {
+	case ModelType::SC:
+		return s << "SC";
+	case ModelType::RA:
+		return s << "RA";
+	case ModelType::RC11:
+		return s << "RC11";
+	case ModelType::IMM:
+		return s << "IMM";
+	default:
+		PRINT_BUGREPORT_INFO_ONCE("missing-model-name", "Unknown memory model name");
+		return s;
+	}
+}
 
 #endif /* __MEMORY_MODEL_HPP__ */

@@ -667,8 +667,8 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::uniqu
 	if (conf->scDetector && MI->determinedMM.has_value() && *MI->determinedMM != conf->model) {
 		conf->model = *MI->determinedMM;
 		conf->isDepTrackingModel = (conf->model == ModelType::IMM);
-		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to SC. "
-					 << "You can disable this behavior with -disable-sc-detector.\n";
+		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to " << conf->model
+					 << ". You can disable this behavior with -disable-sc-detector.\n";
 	}
 
 	/* Spawn a single or multiple drivers depending on the configuration */

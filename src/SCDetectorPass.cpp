@@ -42,42 +42,62 @@ bool isSCNAOrdering(AtomicOrdering o)
 	return o == AtomicOrdering::SequentiallyConsistent || o == AtomicOrdering::NotAtomic;
 }
 
+bool isRANAOrdering(AtomicOrdering o)
+{
+	using AO = AtomicOrdering;
+	return o == AO::Acquire || o == AO::Release || o == AO::AcquireRelease || o == AtomicOrdering::NotAtomic;
+}
+
 bool SCDetectorPass::runOnModule(Module &M)
 {
-	bool isSC = true;
+	auto isSC = true;
+	auto isRA = true;
 	for (auto &F : M) {
-		for (auto &I : F) {
+		for (auto &I : instructions(F)) {
 			if (auto *li = dyn_cast<LoadInst>(&I)) {
 				if (!isSCNAOrdering(li->getOrdering())) {
 					isSC = false;
-					break;
+				}
+				if (!isRANAOrdering(li->getOrdering())) {
+					isRA = false;
 				}
 			} else if (auto *si = dyn_cast<StoreInst>(&I)) {
 				if (!isSCNAOrdering(si->getOrdering())) {
 					isSC = false;
-					break;
+				}
+				if (!isRANAOrdering(si->getOrdering())) {
+					isRA = false;
 				}
 			} else if (auto *casi = dyn_cast<AtomicCmpXchgInst>(&I)) {
 				if (!isSCNAOrdering(casi->getSuccessOrdering()) ||
 				    !isSCNAOrdering(casi->getFailureOrdering())) {
 					isSC = false;
-					break;
+				}
+				if (!isRANAOrdering(casi->getSuccessOrdering()) ||
+				    !isRANAOrdering(casi->getFailureOrdering())) {
+					isRA = false;
 				}
 			} else if (auto *faii = dyn_cast<AtomicRMWInst>(&I)) {
 				if (!isSCNAOrdering(faii->getOrdering())) {
 					isSC = false;
-					break;
+				}
+				if (!isRANAOrdering(faii->getOrdering())) {
+					isRA = false;
 				}
 			} else if (auto *fi = dyn_cast<FenceInst>(&I)) {
 				if (!isSCNAOrdering(fi->getOrdering())) {
 					isSC = false;
-					break;
+				}
+				if (!isRANAOrdering(fi->getOrdering())) {
+					isRA = false;
 				}
 			}
 		}
 	}
 	if (isSC)
 		setDeterminedMM(ModelType::SC);
+	if (isRA)
+		setDeterminedMM(ModelType::RA);
 	return false;
 }
 
