@@ -260,7 +260,7 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
-			 Event confEvent = Event::getInitializer());
+			 const EventLabel *racyLab = nullptr);
 
 	virtual ~GenMCDriver();
 
@@ -732,7 +732,7 @@ private:
 
 	/* Prints the source-code instructions leading to Event e.
 	 * Assumes that debugging information have already been collected */
-	void printTraceBefore(Event e, llvm::raw_ostream &ss = llvm::dbgs());
+	void printTraceBefore(const EventLabel *lab, llvm::raw_ostream &ss = llvm::dbgs());
 
 	/* Helper for printTraceBefore() that prints events according to po U rf */
 	void recPrintTraceBefore(const Event &e, View &a,
@@ -749,7 +749,7 @@ private:
 	/* Outputs the current graph into a file (DOT format),
 	 * and visually marks events e and c (conflicting).
 	 * Assumes debugging information have already been collected  */
-	void dotPrintToFile(const std::string &filename, Event e, Event c);
+	void dotPrintToFile(const std::string &filename, const EventLabel *errLab, const EventLabel *racyLab);
 
 
 	/*** To be overrided by instances of the Driver ***/
@@ -769,7 +769,7 @@ private:
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const EventLabel *lab) const = 0;
 	virtual bool isRecoveryValid(const EventLabel *lab) const = 0;
-	virtual VerificationError checkErrors(const EventLabel *lab) const = 0;
+	virtual VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const = 0;
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) = 0;
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) = 0;

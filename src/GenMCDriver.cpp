@@ -1147,7 +1147,7 @@ void GenMCDriver::checkLockValidity(const ReadLabel *rLab, const std::vector<Eve
 	});
 	if (rfIt != rfs.cend())
 		reportError(rLab->getPos(), VerificationError::VE_UninitializedMem,
-			   "Called lock() on destroyed mutex!", *rfIt);
+			    "Called lock() on destroyed mutex!", getGraph().getEventLabel(*rfIt));
 }
 
 void GenMCDriver::checkUnlockValidity(const WriteLabel *wLab)
@@ -1179,7 +1179,7 @@ void GenMCDriver::checkBInitValidity(const WriteLabel *lab)
 	});
 
 	if (sIt != store_end(g, wLab->getAddr()))
-		reportError(wLab->getPos(), VerificationError::VE_InvalidBInit, "Called barrier_init() multiple times!", sIt->getPos());
+		reportError(wLab->getPos(), VerificationError::VE_InvalidBInit, "Called barrier_init() multiple times!", &*sIt);
 	else if (wLab->getVal() == SVal(0))
 		reportError(wLab->getPos(), VerificationError::VE_InvalidBInit, "Called barrier_init() with 0!");
 	return;
@@ -1199,7 +1199,7 @@ void GenMCDriver::checkBIncValidity(const ReadLabel *rLab, const std::vector<Eve
 		return rfVal == SVal(0);
 	}))
 		reportError(rLab->getPos(), VerificationError::VE_AccessFreed,
-			    "Called barrier_wait() on destroyed barrier!", bLab->getRf()->getPos());
+			    "Called barrier_wait() on destroyed barrier!", bLab->getRf());
 }
 
 void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
@@ -2217,8 +2217,9 @@ GenMCDriver::getReplayView() const
 	return v;
 }
 
-void GenMCDriver::reportError(Event pos, VerificationError s, const std::string &err /* = "" */,
-			      Event confEvent /* = INIT */)
+void GenMCDriver::reportError(Event pos, VerificationError s,
+			      const std::string &err /* = "" */,
+			      const EventLabel *racyLab /* = nullptr */)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
@@ -2232,12 +2233,11 @@ void GenMCDriver::reportError(Event pos, VerificationError s, const std::string 
 	if (inReplay())
 		return;
 
-	if (inRecoveryMode() && !isRecoveryValid(g.getEventLabel(pos))) {
+	auto *errLab = g.getEventLabel(pos);
+	if (inRecoveryMode() && !isRecoveryValid(errLab)) {
 		thr.block(BlockageType::Error);
 		return;
 	}
-
-	const EventLabel *errLab = g.getEventLabel(pos);
 
 	/* If this is an invalid access, change the RF of the offending
 	 * event to BOTTOM, so that we do not try to get its value.
@@ -2256,16 +2256,16 @@ void GenMCDriver::reportError(Event pos, VerificationError s, const std::string 
 
 	out << "Error detected: " << s << "!\n";
 	out << "Event " << errLab->getPos() << " ";
-	if (!confEvent.isInitializer())
-		out << "conflicts with event " << confEvent << " ";
+	if (racyLab)
+		out << "conflicts with event " << racyLab->getPos() << " ";
 	out << "in graph:\n";
 	printGraph(true, out);
 
 	/* Print error trace leading up to the violating event(s) */
 	if (getConf()->printErrorTrace) {
-		printTraceBefore(errLab->getPos(), out);
-		if (!confEvent.isInitializer())
-			printTraceBefore(confEvent, out);
+		printTraceBefore(errLab, out);
+		if (racyLab)
+			printTraceBefore(racyLab, out);
 	}
 
 	/* Print the specific error message */
@@ -2274,7 +2274,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s, const std::string 
 
 	/* Dump the graph into a file (DOT format) */
 	if (getConf()->dotFile != "")
-		dotPrintToFile(getConf()->dotFile, errLab->getPos(), confEvent);
+		dotPrintToFile(getConf()->dotFile, errLab, racyLab);
 
 	getEE()->restoreState(std::move(iState));
 
@@ -3468,7 +3468,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 }
 
 void GenMCDriver::dotPrintToFile(const std::string &filename,
-				 Event errorEvent, Event confEvent)
+				 const EventLabel *errLab, const EventLabel *confLab)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
@@ -3481,9 +3481,9 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 					     getReadValue(&lab);
 			     });
 
-	auto before = getPrefixView(g.getEventLabel(errorEvent)).clone();
-	if (!confEvent.isInitializer())
-		before->update(getPrefixView(g.getEventLabel(confEvent)));
+	auto before = getPrefixView(errLab).clone();
+	if (confLab)
+		before->update(getPrefixView(confLab));
 
 	/* Create a directed graph graph */
 	ss << "strict digraph {\n";
@@ -3515,7 +3515,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename,
 			}
 
 			ss << ">"
-			   << (lab->getPos() == errorEvent  || lab->getPos() == confEvent ?
+			   << (lab->getPos() == errLab->getPos()  || lab->getPos() == confLab->getPos() ?
 			       ",style=filled,fillcolor=yellow" : "")
 			   << "]\n";
 		}
@@ -3591,11 +3591,11 @@ void GenMCDriver::recPrintTraceBefore(const Event &e, View &a,
 	return;
 }
 
-void GenMCDriver::printTraceBefore(Event e, llvm::raw_ostream &s /* = llvm::dbgs() */)
+void GenMCDriver::printTraceBefore(const EventLabel *lab, llvm::raw_ostream &s /* = llvm::dbgs() */)
 {
-	s << "Trace to " << e << ":\n";
+	s << "Trace to " << lab->getPos() << ":\n";
 
 	/* Linearize (po U rf) and print trace */
 	View a;
-	recPrintTraceBefore(e, a, s);
+	recPrintTraceBefore(lab->getPos(), a, s);
 }
