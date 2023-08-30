@@ -28,7 +28,7 @@
 #include <string>
 
 
-enum class ModelType { SC, RC11, IMM };
+enum class ModelType { SC, RA, RC11, IMM };
 enum class SchedulePolicy { ltr, wf, random };
 
 struct Config {

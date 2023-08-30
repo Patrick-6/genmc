@@ -23,6 +23,7 @@
 
 #include "Config.hpp"
 #include "IMMDriver.hpp"
+#include "RADriver.hpp"
 #include "RC11Driver.hpp"
 #include "SCDriver.hpp"
 #include <llvm/IR/Module.h>
@@ -48,6 +49,7 @@ class DriverFactory {
 		GenMCDriver *driver = nullptr;
 		switch (conf->model) {
 			CREATE_MODEL_DRIVER(SC);
+			CREATE_MODEL_DRIVER(RA);
 			CREATE_MODEL_DRIVER(RC11);
 			CREATE_MODEL_DRIVER(IMM);
 		default:

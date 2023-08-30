@@ -50,7 +50,8 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 static llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::SC,   "sc",   "SC memory model"),
-		    clEnumValN(ModelType::RC11, "rc11", "RC11 memory model"),
+		    clEnumValN(ModelType::RA,   "ra",   "RA+RLX memory model"),
+		    clEnumValN(ModelType::RC11, "rc11", "RC11 memory model (default)"),
 		    clEnumValN(ModelType::IMM,  "imm",  "IMM memory model")
 		    ),
 	    llvm::cl::cat(clGeneral),
