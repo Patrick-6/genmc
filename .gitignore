@@ -5,6 +5,7 @@ genmc
 *.bak
 *.backup
 .*.sw[a-z]
+.cache
 
 *.a
 *.o
