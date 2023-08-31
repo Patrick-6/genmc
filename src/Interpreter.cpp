@@ -45,6 +45,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Module.h>
 #include <cstring>
+#include <optional>
 
 using namespace llvm;
 
@@ -513,7 +514,13 @@ void Interpreter::setupStaticCtorsDtors(Module &module, bool isDtors)
 
 		// Setup the ctor/dtor SF and quit
 		if (Function *F = dyn_cast<Function>(FP))
-			setupFunctionCall(F, None);
+			setupFunctionCall(F,
+#if LLVM_VERSION_MAJOR >= 16
+					  std::nullopt
+#else
+					  None
+#endif
+				);
 
 		// FIXME: It is marginally lame that we just do nothing here if we see an
 		// entry we don't recognize. It might not be unreasonable for the verifier

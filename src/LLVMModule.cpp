@@ -137,17 +137,16 @@ namespace LLVMModule {
 
 		llvm::initializeCore(Registry);
 		llvm::initializeScalarOpts(Registry);
-		llvm::initializeObjCARCOpts(Registry);
 		llvm::initializeVectorization(Registry);
 		llvm::initializeIPO(Registry);
 		llvm::initializeAnalysis(Registry);
-#ifdef HAVE_LLVM_INITIALIZE_IPA
-		llvm::initializeIPA(Registry);
-#endif
 		llvm::initializeTransformUtils(Registry);
 		llvm::initializeInstCombine(Registry);
-		llvm::initializeInstrumentation(Registry);
 		llvm::initializeTarget(Registry);
+#if LLVM_MAJOR_VERSION < 16
+		llvm::initializeObjCARCOpts(Registry);
+		llvm::initializeInstrumentation(Registry);
+#endif
 
 		OptPM.add(createDeclareInternalsPass());
 		OptPM.add(createDefineLibcFunsPass());
