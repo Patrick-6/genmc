@@ -1711,8 +1711,8 @@ int GenMCDriver::getSymmetricTidSR(Event parent, const ThreadInfo &childInfo) co
 	auto &g = getGraph();
 	auto *EE = getEE();
 
-	for (auto i = g.getNumThreads() - 1; i > 0; i--)
-		if (i != childInfo.id && isSymmetricToSR(i, parent, childInfo))
+	for (auto i = childInfo.id - 1; i > 0; i--)
+		if (isSymmetricToSR(i, parent, childInfo))
 			return i;
 	return -1;
 }
