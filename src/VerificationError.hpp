@@ -60,6 +60,7 @@ enum class VerificationError {
 	VE_AccessNonMalloc,
 	VE_AccessFreed,
 	VE_InvalidAccessEnd,
+	VE_InvalidCreate,
 	VE_InvalidJoin,
 	VE_InvalidUnlock,
 	VE_InvalidBInit,

@@ -3015,6 +3015,12 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	ExecutionContext SF;
 	GenericValue val, result;
 
+	if (!calledFun) {
+		driver->reportError(currPos(), VerificationError::VE_InvalidCreate,
+				    "Invalid argument in pthread_create(): NULL pointer");
+		return;
+	}
+
 	/* First, set up the stack frame for the new function.
 	 * Calling function needs to take only one argument ... */
 	SF.CurFunction = calledFun;

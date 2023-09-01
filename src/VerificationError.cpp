@@ -64,6 +64,8 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 		return s << "Attempt to access non-allocated memory";
 	case VerificationError::VE_AccessFreed:
 		return s << "Attempt to access freed memory";
+	case VerificationError::VE_InvalidCreate:
+		return s << "Invalid create() operation";
 	case VerificationError::VE_InvalidJoin:
 		return s << "Invalid join() operation";
 	case VerificationError::VE_InvalidUnlock:
