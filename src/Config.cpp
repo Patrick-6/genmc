@@ -67,8 +67,8 @@ clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
 
 static llvm::cl::opt<bool>
-clSymmetryReduction("sr", llvm::cl::cat(clGeneral),
-		    llvm::cl::desc("Enable Symmetry Reduction"));
+clDisableSymmetryReduction("-disable-sr", llvm::cl::cat(clGeneral),
+			   llvm::cl::desc("Disable symmetry reduction"));
 
 static llvm::cl::opt<bool>
 clHelper("helper", llvm::cl::cat(clGeneral),
@@ -312,7 +312,7 @@ void Config::saveConfigOptions()
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
-	symmetryReduction = clSymmetryReduction;
+	symmetryReduction = !clDisableSymmetryReduction;
 	helper = clHelper;
 	printErrorTrace = clPrintErrorTrace;
 	checkLiveness = clCheckLiveness;
