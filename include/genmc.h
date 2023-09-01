@@ -21,6 +21,32 @@ void __VERIFIER_assume(int) __attribute__ ((__nothrow__));
 int __VERIFIER_nondet_int(void) __attribute__ ((__nothrow__));
 
 /*
+ * An (opaque) datatype used by GenMC's thread functions,
+ * __VERIFIER_spawn* and __VERIFIER_join (see below).
+ */
+typedef __VERIFIER_thread_t __VERIFIER_thread_t;
+
+/*
+ * Spawns a thread with argument ARG running FUNC.
+ * Returns the spawned thread's TID.
+ */
+__attribute__ ((__nothrow__, always_inline)) static inline
+__VERIFIER_thread_t __VERIFIER_spawn (void *(*__start_routine) (void *),
+				      void *__restrict __arg)
+{
+	return __VERIFIER_thread_create(NULL, __start_routine, __arg);
+}
+
+/*
+ * Joins thread TH and returns its result.
+ */
+__attribute__ ((always_inline, always_inline)) static inline
+void *__VERIFIER_join (__VERIFIER_thread_t __th)
+{
+	return __VERIFIER_thread_join(__th);
+}
+
+/*
  * Marker functions that can be used to mark the
  * beginning and end of spinloops that are not automatically
  * transformed to assume() statements by GenMC.
