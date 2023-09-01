@@ -38,12 +38,35 @@ __VERIFIER_thread_t __VERIFIER_spawn (void *(*__start_routine) (void *),
 }
 
 /*
+ * Spawns a thread with argument ARG running FUNC as symmetric to TH.
+ * Returns the spawned thread's TID.
+ */
+__attribute__ ((__nothrow__, always_inline)) static inline
+__VERIFIER_thread_t __VERIFIER_spawn_symmetric (void *(*__start_routine) (void *),
+						void *__restrict __arg,
+						__VERIFIER_thread_t __th)
+{
+	return __VERIFIER_thread_create_symmetric(NULL, __start_routine, __arg, __th);
+}
+
+/*
  * Joins thread TH and returns its result.
  */
 __attribute__ ((always_inline, always_inline)) static inline
 void *__VERIFIER_join (__VERIFIER_thread_t __th)
 {
 	return __VERIFIER_thread_join(__th);
+}
+
+/*
+ * Helper function that joins thread TH, which was spawned as symmetric.
+ * This function merely ensures that the result of the joined thread is
+ * not going to be used.
+ */
+__attribute__ ((always_inline, always_inline)) static inline
+void __VERIFIER_join_symmetric (__VERIFIER_thread_t __th)
+{
+	__VERIFIER_join(__th);
 }
 
 /*

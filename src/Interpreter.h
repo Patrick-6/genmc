@@ -734,6 +734,7 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(Free);
   DECLARE_CUSTOM_OPCODE(ThreadSelf);
   DECLARE_CUSTOM_OPCODE(ThreadCreate);
+  DECLARE_CUSTOM_OPCODE(ThreadCreateSymmetric);
   DECLARE_CUSTOM_OPCODE(ThreadJoin);
   DECLARE_CUSTOM_OPCODE(ThreadExit);
   DECLARE_CUSTOM_OPCODE(AtExit);

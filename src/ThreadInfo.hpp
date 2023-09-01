@@ -29,10 +29,11 @@ struct ThreadInfo {
 	int parentId;
 	unsigned int funId;
 	SVal arg;
+	int symmId = -1;
 
 	ThreadInfo() = default;
-	ThreadInfo(int id, int parentId, unsigned funId, SVal arg)
-		: id(id), parentId(parentId), funId(funId), arg(arg) {}
+	ThreadInfo(int id, int parentId, unsigned funId, SVal arg, int symm = -1)
+		: id(id), parentId(parentId), funId(funId), arg(arg), symmId(symm) {}
 };
 
 #endif /* __THREAD_INFO_HPP__ */

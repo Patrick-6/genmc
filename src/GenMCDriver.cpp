@@ -1689,30 +1689,53 @@ bool GenMCDriver::isSymmetricToSR(int candidate, Event parent, const ThreadInfo 
 	auto cParent = g.getFirstThreadLabel(candidate)->getParentCreate();
 	auto &cInfo = g.getFirstThreadLabel(candidate)->getThreadInfo();
 
+	/* A tip to print to the user in case two threads look
+	 * symmetric, but we cannot deem it */
+	auto tipSymmetry = [&](){
+		LOG_ONCE("possible-symmetry", VerbosityLevel::Tip)
+			<< "Threads (" << getEE()->getThrById(cInfo.id)
+			<< ") and (" << getEE()->getThrById(info.id)
+			<< ") could benefit from symmetry reduction."
+			<< " Consider using __VERIFIER_spawn_symmetric().\n";
+	};
+
 	/* First, check that the two threads are actually similar */
 	if (cInfo.id == info.id ||
 	    cInfo.parentId != info.parentId ||
 	    cInfo.funId != info.funId ||
-	    cInfo.arg != info.arg)
+	    cInfo.arg != info.arg) {
+		if (cInfo.funId == info.funId && cInfo.parentId == info.parentId)
+			tipSymmetry();
 		return false;
+	}
 
 	/* Then make sure that there is no memory access in between the spawn events */
 	auto mm = std::minmax(parent.index, cParent.index);
 	auto minI = mm.first;
 	auto maxI = mm.second;
-	for (auto j = minI; j < maxI; j++)
-		if (llvm::isa<MemAccessLabel>(g.getEventLabel(Event(parent.thread, j))))
+	for (auto j = minI; j < maxI; j++) {
+		if (llvm::isa<MemAccessLabel>(g.getEventLabel(Event(parent.thread, j)))) {
+			tipSymmetry();
 			return false;
+		}
+	}
 	return true;
 }
 
-int GenMCDriver::getSymmetricTidSR(Event parent, const ThreadInfo &childInfo) const
+int GenMCDriver::getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadInfo &childInfo) const
 {
+	if (!getConf()->symmetryReduction)
+		return -1;
+
+	/* Has the user provided any info? */
+	if (childInfo.symmId != -1)
+		return childInfo.symmId;
+
 	auto &g = getGraph();
 	auto *EE = getEE();
 
 	for (auto i = childInfo.id - 1; i > 0; i--)
-		if (isSymmetricToSR(i, parent, childInfo))
+		if (isSymmetricToSR(i, tcLab->getPos(), childInfo))
 			return i;
 	return -1;
 }
@@ -1752,8 +1775,7 @@ int GenMCDriver::handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab)
 		BUG_ON(g.getThreadSize(cid) != 1);
 		g.removeLast(cid);
 	}
-	auto symm = getConf()->symmetryReduction ?
-		getSymmetricTidSR(lab->getPos(), lab->getChildInfo()) : -1;
+	auto symm = getSymmetricTidSR(lab, lab->getChildInfo());
 	auto tsLab = ThreadStartLabel::create(Event(cid, 0), lab->getPos(), lab->getChildInfo(), symm);
 	addLabelToGraph(std::move(tsLab));
 	return cid;
