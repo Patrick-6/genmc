@@ -355,7 +355,6 @@ protected:
 	bool isSuccSymmetryOK(const EventLabel *lab);
 	bool isSymmetryOK(const EventLabel *lab);
 	void calcSymmView(Event e, VectorClock &v);
-	std::unique_ptr<VectorClock> calcSymmView(const EventLabel *lab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(const AAccess &a);
@@ -772,7 +771,9 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab) = 0;
+	virtual void updateMMViews(EventLabel *lab) = 0;
+
+	void updateLabelViews(EventLabel *lab);
 
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
@@ -798,16 +799,7 @@ private:
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
 	const VectorClock &getPrefixView(const EventLabel *lab) const {
-		if (!lab->hasPrefixView()) {
-			auto v = calculatePrefixView(lab);
-			const_cast<GenMCDriver *>(this)->calcSymmView(lab->getPos(), *v);
-			lab->setPrefixView(std::move(v));
-		}
 		return lab->getPrefixView();
-	}
-
-	virtual std::unique_ptr<VectorClock> getPrefixViewPure(const EventLabel *lab) {
-		return calculatePrefixView(lab);
 	}
 
 	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const = 0;

@@ -228,6 +228,7 @@ public:
 
 	bool hasPrefixView() const { return prefixView.get() != nullptr; }
 	const VectorClock &getPrefixView() const { return *prefixView; }
+	VectorClock &getPrefixView() { return *prefixView; }
 	void setPrefixView(std::unique_ptr<VectorClock> v) const {
 		prefixView = std::move(v);
 	}

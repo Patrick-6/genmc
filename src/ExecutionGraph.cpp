@@ -35,6 +35,7 @@ ExecutionGraph::ExecutionGraph()
 	auto *iLab = addLabelToGraph(InitLabel::create());
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
+	iLab->setPrefixView(std::make_unique<View>());
 	return;
 }
 

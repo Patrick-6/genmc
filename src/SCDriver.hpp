@@ -53,7 +53,7 @@ public:
 
 	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
 	std::vector<View> calculateViews(const EventLabel *lab);
-	void updateLabelViews(EventLabel *lab) override;
+	void updateMMViews(EventLabel *lab) override;
 	bool isDepTracking() const override;
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;

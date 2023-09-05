@@ -951,6 +951,17 @@ EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	return addedLab;
 }
 
+void GenMCDriver::updateLabelViews(EventLabel *lab)
+{
+	updateMMViews(lab);
+	if (!getConf()->symmetryReduction)
+		return;
+
+	auto &v = lab->getPrefixView();
+	calcSymmView(lab->getPos(), v);
+	return;
+}
+
 void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 {
 	if (!getConf()->instructionCaching)
@@ -1454,28 +1465,19 @@ bool GenMCDriver::isSymmetryOK(const EventLabel *lab)
 void GenMCDriver::calcSymmView(Event e, VectorClock &v)
 {
 	auto t = getSymmPredTid(e.thread);
-	// if (t == -1)
-	// 	return;
+	if (t == -1)
+		return;
 
 	for (auto i = e.index; i > 0; i--) {
 		auto p = Event(t, i);
-		if (t != -1 && sharePrefixSR(e.thread, p)) {
-			v.update(*getPrefixViewPure(getGraph().getEventLabel(p)));
-			v.updateIdx(p);
-			calcSymmView(p, v);
-		}
-		if (auto *rLab = getGraph().getReadLabel(Event(e.thread, i))) {
-			if (rLab->getRf())
-				calcSymmView(rLab->getRf()->getPos(), v);
+		if (sharePrefixSR(e.thread, p)) {
+			v.update(getPrefixView(getGraph().getEventLabel(p)));
+			if (auto *rLab = getGraph().getReadLabel(p)) {
+				v.update(getPrefixView(rLab->getRf()));
+			}
+			break;
 		}
 	}
-}
-
-std::unique_ptr<VectorClock> GenMCDriver::calcSymmView(const EventLabel *lab)
-{
-	auto v = std::make_unique<View>(*llvm::dyn_cast<View>(&getPrefixView(lab)));
-	calcSymmView(lab->getPos().prev(), *v);
-	return v;
 }
 
 bool GenMCDriver::sharePrefixSR(int tid, Event pos) const

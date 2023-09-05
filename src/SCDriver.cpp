@@ -107,11 +107,12 @@ std::vector<View> SCDriver::calculateViews(const EventLabel *lab)
 	return std::move(views);
 }
 
-void SCDriver::updateLabelViews(EventLabel *lab)
+void SCDriver::updateMMViews(EventLabel *lab)
 {
 	lab->setCalculated(calculateSaved(lab));
-	lab->setViews(calculateViews(lab))
-;}
+	lab->setViews(calculateViews(lab));
+	lab->setPrefixView(calculatePrefixView(lab));
+}
 
 bool SCDriver::isDepTracking() const
 {
@@ -640,44 +641,19 @@ bool SCDriver::isRecoveryValid(const EventLabel *lab) const
 	return isRecAcyclic(lab);
 }
 
-void SCDriver::visitPPoRf0(const EventLabel *lab, View &pporf) const
-{
-	auto &g = getGraph();
-
-	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::entered;
-	pporf.updateIdx(lab->getPos());
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedPPoRf0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(pLab, pporf);
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedPPoRf0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(pLab, pporf);
-	}
-	if (auto pLab = rfe_pred(g, lab); pLab) {
-		auto status = visitedPPoRf0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(pLab, pporf);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedPPoRf0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitPPoRf0(pLab, pporf);
-	}
-	visitedPPoRf0[lab->getStamp().get()] = NodeStatus::left;
-}
-
 View SCDriver::calcPPoRfBefore(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	View pporf;
 	pporf.updateIdx(lab->getPos());
-	visitedPPoRf0.clear();
-	visitedPPoRf0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-
-	visitPPoRf0(lab, pporf);
+	auto *pLab = g.getPreviousLabel(lab);
+	pporf.update(pLab->getPrefixView());
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
+		pporf.update(rLab->getRf()->getPrefixView());
+	if (auto *tsLab = llvm::dyn_cast<ThreadStartLabel>(pLab))
+		pporf.update(g.getEventLabel(tsLab->getParentCreate())->getPrefixView());
+	if (auto *tjLab = llvm::dyn_cast<ThreadJoinLabel>(pLab))
+		pporf.update(g.getLastThreadLabel(tjLab->getChildId())->getPrefixView());
 	return pporf;
 }
 std::unique_ptr<VectorClock> SCDriver::calculatePrefixView(const EventLabel *lab) const
