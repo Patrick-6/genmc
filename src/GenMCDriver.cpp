@@ -958,7 +958,7 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 		return;
 
 	auto &v = lab->getPrefixView();
-	calcSymmView(lab->getPos(), v);
+	updatePrefixWithSymmetriesSR(lab->getPos(), v);
 	return;
 }
 
@@ -1462,7 +1462,7 @@ bool GenMCDriver::isSymmetryOK(const EventLabel *lab)
 	return isPredSymmetryOK(lab) && isSuccSymmetryOK(lab);
 }
 
-void GenMCDriver::calcSymmView(Event e, VectorClock &v)
+void GenMCDriver::updatePrefixWithSymmetriesSR(Event e, VectorClock &v)
 {
 	auto t = getSymmPredTid(e.thread);
 	if (t == -1)
@@ -1639,7 +1639,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 	while (!found) {
 		found = true;
 		g.changeRf(rLab->getPos(), rfs.back());
-		if (!isSymmetryOK(rLab) || !isConsistent(rLab)) {
+		if (!isExecutionValid(rLab)) {
 			found = false;
 			rfs.erase(rfs.end() - 1);
 			BUG_ON(!getConf()->LAPOR && rfs.empty());
@@ -1657,8 +1657,7 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
 {
-	if (// !isSymmetryOK(wLab) ||
-	    !checkAtomicity(wLab) || !isConsistent(wLab)) {
+	if (!checkAtomicity(wLab) || !isExecutionValid(wLab)) {
 		getEE()->block(BlockageType::Cons);
 		moot();
 		return false;
@@ -3624,10 +3623,10 @@ void GenMCDriver::printGraph(bool printMetadata /* false */, llvm::raw_ostream &
 		for (auto j = 1u; j < g.getThreadSize(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 			s << "\t";
-			// GENMC_DEBUG(
-			// 	if (getConf()->colorAccesses)
-			// 		s.changeColor(getLabelColor(lab));
-			// );
+			GENMC_DEBUG(
+				if (getConf()->colorAccesses)
+					s.changeColor(getLabelColor(lab));
+			);
 			s << printer.toString(*lab);
 			GENMC_DEBUG(s.resetColor(););
 			GENMC_DEBUG(if (getConf()->printStamps) s << " @ " << lab->getStamp(); );
