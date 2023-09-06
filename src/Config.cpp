@@ -67,7 +67,7 @@ clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
 
 static llvm::cl::opt<bool>
-clDisableSymmetryReduction("-disable-sr", llvm::cl::cat(clGeneral),
+clDisableSymmetryReduction("disable-sr", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Disable symmetry reduction"));
 
 static llvm::cl::opt<bool>
