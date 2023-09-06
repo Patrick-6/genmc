@@ -729,6 +729,8 @@ private:
 	/* SR: Returns the (greatest) ID of a thread that is symmetric to PARENT/INFO */
 	int getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadInfo &info) const;
 
+	int calcLargestSymmPrefixBeforeSR(int tid, Event pos) const;
+
 	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
 	bool sharePrefixSR(int tid, Event pos) const;
 

@@ -1468,47 +1468,47 @@ void GenMCDriver::calcSymmView(Event e, VectorClock &v)
 	if (t == -1)
 		return;
 
-	for (auto i = e.index; i > 0; i--) {
-		auto p = Event(t, i);
-		if (sharePrefixSR(e.thread, p)) {
-			v.update(getPrefixView(getGraph().getEventLabel(p)));
-			if (auto *rLab = getGraph().getReadLabel(p)) {
-				v.update(getPrefixView(rLab->getRf()));
-			}
-			break;
-		}
+	auto si = calcLargestSymmPrefixBeforeSR(t, e);
+	auto *symmLab = getGraph().getEventLabel({t, si});
+	v.update(getPrefixView(symmLab));
+	if (auto *rLab = llvm::dyn_cast<ReadLabel>(symmLab)) {
+		v.update(getPrefixView(rLab->getRf()));
 	}
 }
 
-bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
+int GenMCDriver::calcLargestSymmPrefixBeforeSR(int tid, Event pos) const
 {
 	auto &g = getGraph();
 
 	if (tid < 0 || tid >= g.getNumThreads())
-		return false;
-	// if (g.getThreadSize(tid) <= pos.index)
-	// 	return false;
+		return -1;
 
-	for (auto j = 1u; j < std::min((long)pos.index, (long)g.getThreadSize(tid)); j++) {
+	auto limit = std::min((long)pos.index, (long)g.getThreadSize(tid)-1);
+	for (auto j = 0; j < limit; j++) {
 		auto *labA = g.getEventLabel(Event(tid, j));
 		auto *labB = g.getEventLabel(Event(pos.thread, j));
 
-		// if (labA->getKind() != labB->getKind())
-		// 	return false;
+		if (labA->getKind() != labB->getKind())
+			return j-1;
 		if (auto *rLabA = llvm::dyn_cast<ReadLabel>(labA)) {
 			auto *rLabB = llvm::dyn_cast<ReadLabel>(labB);
-			if (!rLabB) return false;
-		        // if (rLabA->getRf()->getThread() == tid && rLabB->getRf()->getThread() == pos.thread
-			//     && rLabA->getRf()->getIndex() == rLabB->getRf()->getIndex())
-			// 	continue;
+		        if (rLabA->getRf()->getThread() == tid &&
+			    rLabB->getRf()->getThread() == pos.thread &&
+			    rLabA->getRf()->getIndex() == rLabB->getRf()->getIndex())
+				continue;
 			if (rLabA->getRf() != rLabB->getRf())
-				return false;
+				return j-1;
 		}
-		// if (auto *wLabA = llvm::dyn_cast<WriteLabel>(labA))
-		// 	if (!wLabA->isLocal())
-		// 		return false;
+		if (auto *wLabA = llvm::dyn_cast<WriteLabel>(labA))
+			if (!wLabA->isLocal())
+				return j-1;
 	}
-	return true;
+	return limit;
+}
+
+bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
+{
+	return calcLargestSymmPrefixBeforeSR(tid, pos) == pos.index;
 }
 
 void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const
