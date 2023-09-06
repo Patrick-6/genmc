@@ -1,1 +1,1 @@
--disable-ipr   | -DN=100
+-disable-ipr -disable-sr   | -DN=100
