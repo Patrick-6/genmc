@@ -2517,7 +2517,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 
 bool GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads)
 {
-	if (!getConf()->ipr || isDepTracking())
+	if (!getConf()->ipr)
 		return false;
 
 	auto &g = getGraph();
@@ -2651,7 +2651,7 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 	}
 
 	/* IPR + locks */
-	if (getConf()->ipr && !isDepTracking()) {
+	if (getConf()->ipr) {
 		if (tryOptimizeIPRs(sLab, loads))
 			return true;
 	}

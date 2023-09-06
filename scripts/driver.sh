@@ -109,9 +109,9 @@ initialize_results
 
 # First, run the test cases in the correct/ directory
 correctdir="${DIR}/../tests/correct"
-for model in rc11 # rc11 imm # rc11 imm lkmm
+for model in rc11 imm # rc11 imm lkmm
 do
-    for cat in sr # infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
+    for cat in infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
     do
 	testdir="${correctdir}/${cat}"
 	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
@@ -134,34 +134,34 @@ do
     done
 done
 
-# # Then, run the testcases in the wrong/ directory
-# header_printed=""
-# wrongdir="${DIR}/../tests/wrong"
-# for model in rc11 imm
-# do
-#     for cat in safety liveness infr racy memory locking barriers helper # fs
-#     do
-# 	# under IMM, only run safety and liveness tests
-# 	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
-# 	then
-# 	    continue
-# 	fi
-# 	testdir="${wrongdir}/${cat}"
-# 	if [[ "${cat}" == "liveness" || "${cat}" == "helper" ]]
-# 	then
-# 	    coherence="mo"
-# 	else
-# 	    coherence="wb"
-# 	fi
-# 	suppress_diff=1
-# 	# if test "${cat}" = "memory" -o "${cat}" = "fs"
-# 	# then
-# 	#     suppress_diff=1
-# 	# fi
-# 	source "${DIR}/runwrong.sh"
-# 	increase_total_time
-#     done
-# done
+# Then, run the testcases in the wrong/ directory
+header_printed=""
+wrongdir="${DIR}/../tests/wrong"
+for model in rc11 imm
+do
+    for cat in safety liveness infr racy memory locking barriers helper # fs
+    do
+	# under IMM, only run safety and liveness tests
+	if test "${model}" = "imm" -a "${cat}" != "safety" -a "${cat}" != "liveness"
+	then
+	    continue
+	fi
+	testdir="${wrongdir}/${cat}"
+	if [[ "${cat}" == "liveness" || "${cat}" == "helper" ]]
+	then
+	    coherence="mo"
+	else
+	    coherence="wb"
+	fi
+	suppress_diff=1
+	# if test "${cat}" = "memory" -o "${cat}" = "fs"
+	# then
+	#     suppress_diff=1
+	# fi
+	source "${DIR}/runwrong.sh"
+	increase_total_time
+    done
+done
 
 # Print results
 print_results

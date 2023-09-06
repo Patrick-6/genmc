@@ -286,6 +286,11 @@ void Config::checkConfigOptions() const
 	if (clHelper && clSchedulePolicy == SchedulePolicy::random) {
 		ERROR("Helper cannot be used with -schedule-policy=random.\n");
 	}
+	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
+		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
+		clDisableSymmetryReduction = true;
+		clDisableIPR = true;
+	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
