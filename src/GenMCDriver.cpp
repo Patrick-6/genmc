@@ -958,7 +958,7 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 		return;
 
 	auto &v = lab->getPrefixView();
-	updatePrefixWithSymmetriesSR(lab->getPos(), v);
+	updatePrefixWithSymmetriesSR(lab);
 	return;
 }
 
@@ -1462,13 +1462,14 @@ bool GenMCDriver::isSymmetryOK(const EventLabel *lab)
 	return isPredSymmetryOK(lab) && isSuccSymmetryOK(lab);
 }
 
-void GenMCDriver::updatePrefixWithSymmetriesSR(Event e, VectorClock &v)
+void GenMCDriver::updatePrefixWithSymmetriesSR(EventLabel *lab)
 {
-	auto t = getSymmPredTid(e.thread);
+	auto t = getSymmPredTid(lab->getThread());
 	if (t == -1)
 		return;
 
-	auto si = calcLargestSymmPrefixBeforeSR(t, e);
+	auto &v = lab->getPrefixView();
+	auto si = calcLargestSymmPrefixBeforeSR(t, lab->getPos());
 	auto *symmLab = getGraph().getEventLabel({t, si});
 	v.update(getPrefixView(symmLab));
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(symmLab)) {

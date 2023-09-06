@@ -354,7 +354,7 @@ protected:
 	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
 	bool isSuccSymmetryOK(const EventLabel *lab);
 	bool isSymmetryOK(const EventLabel *lab);
-	void updatePrefixWithSymmetriesSR(Event e, VectorClock &v);
+	void updatePrefixWithSymmetriesSR(EventLabel *lab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(const AAccess &a);
