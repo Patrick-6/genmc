@@ -2184,8 +2184,9 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 	auto &g = getGraph();
 	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
 
-	ERROR_ON(getConf()->ipr && placesRange.begin() != placesRange.end(),
-		 "Unordered writes found. Please use -disable-ipr.\n");
+	ERROR_ON((getConf()->ipr || getConf()->symmetryReduction) &&
+		 placesRange.begin() != placesRange.end(),
+		 "Unordered writes found. Please use -disable-ipr and -disable-sr.\n");
 
 	/* We cannot place the write just before the write of an RMW or during recovery */
 	for (auto &succLab : placesRange) {
