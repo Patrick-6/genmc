@@ -6,6 +6,9 @@ genmc
 *.backup
 .*.sw[a-z]
 .cache
+.deps
+
+*.gcno
 
 *.a
 *.o
@@ -32,3 +35,4 @@ install-sh
 missing
 stamp-*
 ylwrap
+test-driver

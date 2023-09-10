@@ -106,10 +106,12 @@ libgenmc_a_SOURCES = \
 
 TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh
 
-AM_CXXFLAGS = -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\"
+AM_CXXFLAGS = -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\" $(COVERAGE_CXXFLAGS)
 bin_PROGRAMS = genmc
 genmc_SOURCES = src/main.cpp
-genmc_LDADD = libgenmc.a -lpthread
+genmc_LDADD = libgenmc.a -lpthread $(COVERAGE_LDFLAGS)
+
+include Makefile.am.coverage
 
 @DX_RULES@
 MOSTLYCLEANFILES = DX_CLEANFILES

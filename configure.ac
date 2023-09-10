@@ -5,7 +5,7 @@ m4_include([m4/ax_clang.m4])
 m4_include([m4/ax_git_commit.m4])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
 m4_include([m4/ax_prog_doxygen.m4])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+m4_include([m4/gcov.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 
 AM_SILENT_RULES([yes])
@@ -83,6 +83,12 @@ DX_XML_FEATURE(OFF)
 DX_PDF_FEATURE(OFF)
 DX_PS_FEATURE(OFF)
 DX_INIT_DOXYGEN(genmc, [doc/Doxyfile], [doc/doxygen])
+
+## Enable coverage checks
+AC_TDD_GCOV
+AC_SUBST(COVERAGE_CFLAGS)
+AC_SUBST(COVERAGE_CXXFLAGS)
+AC_SUBST(COVERAGE_LDFLAGS)
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile include/Makefile])
