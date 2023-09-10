@@ -800,8 +800,10 @@ private:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	const VectorClock &getPrefixView(const EventLabel *lab) const {
-		return lab->getPrefixView();
+        const VectorClock &getPrefixView(const EventLabel *lab) const {
+		if (!lab->hasPrefixView())
+			lab->setPrefixView(calculatePrefixView(lab));
+                return lab->getPrefixView();
 	}
 
 	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const = 0;

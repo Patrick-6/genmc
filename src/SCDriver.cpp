@@ -646,7 +646,10 @@ View SCDriver::calcPPoRfBefore(const EventLabel *lab) const
 	auto &g = getGraph();
 	View pporf;
 	pporf.updateIdx(lab->getPos());
+
 	auto *pLab = g.getPreviousLabel(lab);
+	if (!pLab)
+		return pporf;
 	pporf.update(pLab->getPrefixView());
 	if (auto *rLab = llvm::dyn_cast<ReadLabel>(pLab))
 		pporf.update(rLab->getRf()->getPrefixView());
