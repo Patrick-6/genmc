@@ -115,3 +115,10 @@ include Makefile.am.coverage
 
 @DX_RULES@
 MOSTLYCLEANFILES = DX_CLEANFILES
+
+if LINT
+lint-local: $(libgenmc_a_SOURCES) $(genmc_SOURCES)
+	-$(CPPLINT) -header-filter='^(?!llvm/).+' -config-file='$(top_builddir)/.clang-tidy' $^
+
+check-local: lint-local
+endif
