@@ -20,7 +20,7 @@
 
 # Get binary's full path
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-GenMC="${GenMC:-$DIR/../src/genmc}"
+GenMC="${GenMC:-$DIR/../genmc}"
 
 source "${DIR}/terminal.sh"
 

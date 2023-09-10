@@ -107,7 +107,7 @@ ftest_stage() {
     echo ".test:llvm_job: &ftest"
     echo "  stage: ftest"
     echo "  script:"
-    echo "    - make ftest"
+    echo "    - ./scripts/fast-driver.sh"
     echo ""
 }
 
@@ -115,8 +115,8 @@ rtest_stage() {
     echo ".test:llvm_job: &rtest"
     echo "  stage: rtest"
     echo "  script:"
-    echo "    - make rtest"
-    echo "    - GENMCFLAGS=\"-disable-instruction-caching\" make rtest"
+    echo "    - ./scripts/randomize-driver.sh"
+    echo "    - GENMCFLAGS=\"-disable-instruction-caching\" ./scripts/randomize-driver.sh"
     echo ""
 }
 
@@ -126,7 +126,7 @@ test_stage() {
     echo "  only:"
     echo "    - schedules "
     echo "  script:"
-    echo "    - make test"
+    echo "    - ./scripts/driver.sh"
     echo ""
 }
 

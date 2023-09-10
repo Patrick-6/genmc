@@ -59,7 +59,7 @@ For a default build issue:
 		./configure
 		make
 
-This will leave the `genmc` executable in the `src` directory.
+This will leave the `genmc` executable in the build directory.
 You can either run it from there (as in the examples below), or issue
 `make install`.
 
@@ -68,7 +68,7 @@ executable in parallel and will also run a subset of all the tests
 that come with the system to see if the system was built correctly or
 not:
 
-		make -j ctest
+		make -j check
 
 ##### Mac OS X
 
@@ -83,11 +83,11 @@ For a default build issue:
 
 * To see a list of available options run:
 
-		./src/genmc --help
+		./genmc --help
 
 * To run a particular testcase run:
 
-		./src/genmc [options] <file>
+		./genmc [options] <file>
 
 * For more detailed usage examples please refer to the [manual](doc/manual.pdf).
 

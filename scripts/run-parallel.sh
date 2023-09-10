@@ -33,7 +33,7 @@ fi
 NR_CPUS=$(nproc) # max number of cores
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 TEST_DIR="${DIR}/../tests"
-GENMC="${GENMC:-${DIR}/../src/genmc}"
+GENMC="${GENMC:-${DIR}/../genmc}"
 RUNS="${RUNS:-3}"
 
 source "${DIR}/terminal.sh"

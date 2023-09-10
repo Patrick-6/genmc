@@ -6,6 +6,7 @@ m4_include([m4/ax_git_commit.m4])
 m4_include([m4/ax_cxx_compile_stdcxx.m4])
 m4_include([m4/ax_prog_doxygen.m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 
 AM_SILENT_RULES([yes])
 
