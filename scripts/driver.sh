@@ -123,6 +123,10 @@ do
 	then
 	    continue
 	fi
+	if [[ "${model}" == "imm" && "${cat}" == "sr" ]]
+	then
+	    continue
+	fi
 	check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
 	    [[ (! "${GENMCFLAGS}" =~ "policy=random") ]] && check_blocked="yes"
 	if [[ "${cat}" == "ipr" && "${model}" != "imm" ]]
