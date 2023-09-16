@@ -658,16 +658,17 @@ void GenMCDriver::halt(VerificationError status)
 
 GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod)
 {
-	auto MI = std::make_unique<ModuleInfo>(*mod);
+	auto modInfo = std::make_unique<ModuleInfo>(*mod);
 
 	/* Prepare the module for verification */
-	LLVMModule::transformLLVMModule(*mod, *MI, conf);
-	if (conf->transformFile != "")
+	LLVMModule::transformLLVMModule(*mod, *modInfo, conf);
+	if (!conf->transformFile.empty()) {
 		LLVMModule::printLLVMModule(*mod, conf->transformFile);
+	}
 
 	/* Perhaps override the MM under which verification will take place */
-	if (conf->mmDetector && MI->determinedMM.has_value() && *MI->determinedMM != conf->model) {
-		conf->model = *MI->determinedMM;
+	if (conf->mmDetector && modInfo->determinedMM.has_value() && isStrongerThan(*modInfo->determinedMM, conf->model)) {
+		conf->model = *modInfo->determinedMM;
 		conf->isDepTrackingModel = (conf->model == ModelType::IMM);
 		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to " << conf->model
 					 << ". You can disable this behavior with -disable-mm-detector.\n";
@@ -675,7 +676,7 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::uniqu
 
 	/* Spawn a single or multiple drivers depending on the configuration */
 	if (conf->threads == 1) {
-		auto driver = DriverFactory::create(conf, std::move(mod), std::move(MI));
+		auto driver = DriverFactory::create(conf, std::move(mod), std::move(modInfo));
 		driver->run();
 		return driver->getResult();
 	}
@@ -683,13 +684,14 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::uniqu
 	std::vector<std::future<GenMCDriver::Result>> futures;
 	{
 		/* Then, fire up the drivers */
-		ThreadPool tp(conf, mod, MI);
-		futures = tp.waitForTasks();
+		ThreadPool pool(conf, mod, modInfo);
+		futures = pool.waitForTasks();
 	}
 
 	GenMCDriver::Result res;
-	for (auto &f : futures)
+	for (auto &f : futures) {
 		res += f.get();
+	}
 	return res;
 }
 
