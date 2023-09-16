@@ -28,9 +28,9 @@
 
 enum class ModelType : std::uint8_t { SC = 0, RA = 1, RC11 = 2, IMM = 3 };
 
-inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &m)
+inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &model)
 {
-	switch (m) {
+	switch (model) {
 	case ModelType::SC:
 		return s << "SC";
 	case ModelType::RA:
