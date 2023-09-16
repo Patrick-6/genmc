@@ -26,7 +26,7 @@
 #include <cstdint>
 #include <string>
 
-enum class ModelType : std::uint8_t { SC, RA, RC11, IMM };
+enum class ModelType : std::uint8_t { SC = 0, RA = 1, RC11 = 2, IMM = 3 };
 
 inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &m)
 {
@@ -43,6 +43,18 @@ inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &m)
 		PRINT_BUGREPORT_INFO_ONCE("missing-model-name", "Unknown memory model name");
 		return s;
 	}
+}
+
+inline bool isStrongerThan(ModelType model, ModelType other)
+{
+	static const bool lookup[4][4] = {
+		//             SC     RA   RC11    IMM
+		/* SC   */ {false, true, true, true},
+		/* RA   */ {false, false, true, true},
+		/* RC11 */ {false, false, false, true},
+		/* IMM  */ {false, false, false, false},
+	};
+	return lookup[static_cast<size_t>(model)][static_cast<size_t>(other)];
 }
 
 #endif /* __MEMORY_MODEL_HPP__ */
