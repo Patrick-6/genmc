@@ -46,7 +46,7 @@
  ***********************************************************/
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-			 std::unique_ptr<ModuleInfo> MI)
+			 std::unique_ptr<ModuleInfo> modInfo)
 	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInitializer()),
 	  shouldHalt(false)
 {
@@ -58,16 +58,16 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 	/* Create an interpreter for the program's instructions */
 	std::string buf;
-	EE = std::unique_ptr<llvm::Interpreter>((llvm::Interpreter *)
-		llvm::Interpreter::create(std::move(mod), std::move(MI), this, getConf(),
-					  getAddrAllocator(), &buf));
+	EE = llvm::Interpreter::create(std::move(mod), std::move(modInfo), this, getConf(),
+				       getAddrAllocator(), &buf);
 
 	/* Set up a random-number generator (for the scheduler) */
 	std::random_device rd;
-	auto seedVal = (userConf->randomScheduleSeed != "") ?
+	auto seedVal = (!userConf->randomScheduleSeed.empty()) ?
 		(MyRNG::result_type) stoull(userConf->randomScheduleSeed) : rd();
-	if (userConf->printRandomScheduleSeed)
+	if (userConf->printRandomScheduleSeed) {
 		llvm::outs() << "Seed: " << seedVal << "\n";
+	}
 	rng.seed(seedVal);
 
 	/*
@@ -77,8 +77,9 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	 * user code.
 	 */
 	std::string ErrorStr;
-	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(0, &ErrorStr))
+	if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr)) {
 		WARN("Could not resolve symbols in the program: " + ErrorStr);
+	}
 }
 
 GenMCDriver::~GenMCDriver() = default;
@@ -699,7 +700,6 @@ void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
 
 {
 	getWorkqueue()[stamp.get()].add(std::move(item));
-	return;
 }
 
 std::pair<Stamp, WorkSet::ItemT>
@@ -707,8 +707,9 @@ GenMCDriver::getNextItem()
 {
 	auto &workqueue = getWorkqueue();
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit) {
-		if (rit->second.empty())
+		if (rit->second.empty()) {
 			continue;
+		}
 
 		return {rit->first, rit->second.getNext()};
 	}

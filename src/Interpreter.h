@@ -463,9 +463,10 @@ public:
 
   /// create - Create an interpreter ExecutionEngine. This can never fail.
   ///
-  static ExecutionEngine *create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-				 GenMCDriver *driver, const Config *userConf,
-				 SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
+  static std::unique_ptr<Interpreter>
+      create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
+	     GenMCDriver *driver, const Config *userConf,
+	     SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
 
   /// run - Start execution with the specified function and arguments.
   ///
