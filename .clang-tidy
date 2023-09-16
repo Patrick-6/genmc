@@ -15,3 +15,10 @@ Checks: |
   modernize-*,
   performance-*,
   readability-*,
+CheckOptions:
+- key: readability-identifier-length.IgnoredVariableNames
+  value: 'g|EE|l|r|s|w|f|b|br|v|hb'
+- key: readability-identifier-length.IgnoredLoopCounterNames
+  value: 'i|j|k|g|EE|l|r|s|w|f|b|br|v|hb'
+- key: readability-identifier-length.IgnoredParameterNames
+  value: 'g|EE|l|r|s|w|f|b|br|v|hb'
