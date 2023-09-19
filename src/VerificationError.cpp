@@ -49,9 +49,11 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 	case VerificationError::VE_Liveness:
 		return s << "Liveness violation";
 	case VerificationError::VE_RaceNotAtomic:
-		return s << "Non-Atomic race";
+		return s << "Non-atomic race";
+	case VerificationError::VE_WWRace:
+		return s << "Write-write race";
 	case VerificationError::VE_RaceFreeMalloc:
-		return s << "Malloc-Free race";
+		return s << "Malloc-free race";
 	case VerificationError::VE_FreeNonMalloc:
 		return s << "Attempt to free non-allocated memory";
 	case VerificationError::VE_DoubleFree:

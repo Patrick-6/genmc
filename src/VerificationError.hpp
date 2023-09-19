@@ -51,15 +51,18 @@ enum class VerificationError {
 	VE_Recovery,
 	VE_Liveness,
 	VE_RaceNotAtomic,
+	VE_WWRace,
 	VE_RaceFreeMalloc,
 	VE_FreeNonMalloc,
 	VE_DoubleFree,
 	VE_Allocation,
+
 	VE_InvalidAccessBegin,
 	VE_UninitializedMem,
 	VE_AccessNonMalloc,
 	VE_AccessFreed,
 	VE_InvalidAccessEnd,
+
 	VE_InvalidCreate,
 	VE_InvalidJoin,
 	VE_InvalidUnlock,
