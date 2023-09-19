@@ -74,6 +74,11 @@ enum class VerificationError {
 	VE_SystemError,
 };
 
+inline bool isHardError(VerificationError err)
+{
+	return err != VerificationError::VE_OK && err != VerificationError::VE_WWRace;
+}
+
 /* For compilers that do not have a recent enough lib{std}c++ */
 #ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
 struct EnumClassHash {
