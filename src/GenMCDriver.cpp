@@ -47,7 +47,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> modInfo)
-	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInitializer()),
+	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInit()),
 	  shouldHalt(false)
 {
 	/* Set up the execution context */
@@ -395,7 +395,7 @@ void GenMCDriver::deprioritizeThread(const UnlockLabelLAPOR *uLab)
 void GenMCDriver::resetExplorationOptions()
 {
 	unmoot();
-	setRescheduledRead(Event::getInitializer());
+	setRescheduledRead(Event::getInit());
 	resetThreadPrioritization();
 }
 
@@ -611,7 +611,7 @@ void GenMCDriver::handleRecoveryStart()
 	auto psb = g.collectAllEvents([&](const EventLabel *lab)
 				      { return llvm::isa<DskPbarrierLabel>(lab); });
 	if (psb.empty())
-		psb.push_back(Event::getInitializer());
+		psb.push_back(Event::getInit());
 	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
 	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(), ThreadInfo(tid, psb.back().thread, 0, 0));
@@ -1965,7 +1965,7 @@ void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &
 	if (!getConf()->helper || !g.isConfirming(lab))
 		return;
 
-	auto sc = Event::getInitializer();
+	auto sc = Event::getInit();
 	auto *rLab = llvm::dyn_cast<ReadLabel>(
 		g.getEventLabel(g.getMatchingSpeculativeRead(lab->getPos(), &sc)));
 	ERROR_ON(!rLab, "Confirming annotation error! Does the speculative "
@@ -2027,7 +2027,7 @@ bool GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event
 		return true;
 
 	if (isRescheduledRead(lab->getPos())) {
-		setRescheduledRead(Event::getInitializer());
+		setRescheduledRead(Event::getInit());
 		return true;
 	}
 
@@ -2147,7 +2147,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		checkBIncValidity(lab, stores);
 
 	if (isRescheduledRead(lab->getPos()))
-		setRescheduledRead(Event::getInitializer());
+		setRescheduledRead(Event::getInit());
 
 	/* If this is the last part of barrier_wait() check whether we should block */
 	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
@@ -2599,7 +2599,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 		return wLab.getPos() != sLab->getPos() && wLab.getVal() == sLab->getVal();
 	});
 	if (sLab->getAddr().isStatic() &&
-	    getWriteValue(g.getEventLabel(Event::getInitializer()), sLab->getAccess()) == sLab->getVal())
+	    getWriteValue(g.getEventLabel(Event::getInit()), sLab->getAccess()) == sLab->getVal())
 		++valid;
 	WARN_ON_ONCE(valid > 0, "helper-aba-found",
 		     "Possible ABA pattern! Consider running without -helper.\n");
@@ -2610,7 +2610,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 		if (!g.isConfirming(lab))
 			return false;
 
-		auto sc = Event::getInitializer();
+		auto sc = Event::getInit();
 		auto *pLab = llvm::dyn_cast<ReadLabel>(
 			g.getEventLabel(g.getMatchingSpeculativeRead(lab->getPos(), &sc)));
 		ERROR_ON(!pLab, "Confirming CAS annotation error! "
@@ -2767,7 +2767,7 @@ GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *s
 	auto pending = g.getPendingRMW(sLab);
 	auto *pLab = llvm::dyn_cast_or_null<WriteLabel>(g.getNextLabel(pending));
 	pending = (!pending.isInitializer() && pLab->hasAttr(WriteAttr::RevBlocker)) ?
-		pending.next() : Event::getInitializer();
+		pending.next() : Event::getInit();
 
 	/* If there is, do an optimized backward revisit */
 	auto &prefix = getPrefixView(sLab);
@@ -3060,7 +3060,7 @@ void GenMCDriver::repairRead(ReadLabel *lab)
 {
 	auto &g = getGraph();
 
-	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr())) ? Event::getInitializer() : store_rbegin(g, lab->getAddr())->getPos();
+	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr())) ? Event::getInit() : store_rbegin(g, lab->getAddr())->getPos();
 	g.changeRf(lab->getPos(), last);
 	lab->setAddedMax(true);
 	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());

@@ -89,7 +89,7 @@ public:
 protected:
 	const View &view;
 	View::const_iterator curr;
-	Event e = Event::getInitializer();
+	Event e = Event::getInit();
 };
 
 using maximal_iterator = MaximalIterator;

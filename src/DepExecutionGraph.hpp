@@ -36,7 +36,7 @@ class DepExecutionGraph : public ExecutionGraph {
 
 public:
 	DepExecutionGraph() : ExecutionGraph() {
-		getEventLabel(Event::getInitializer())->setPrefixView(std::make_unique<DepView>());
+		getEventLabel(Event::getInit())->setPrefixView(std::make_unique<DepView>());
 	}
 
 	std::vector<Event> getRevisitable(const WriteLabel *sLab, const VectorClock &pporf) const override;

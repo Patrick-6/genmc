@@ -2655,7 +2655,7 @@ protected:
 	friend class DepExecutionGraph;
 
 public:
-	InitLabel() : ThreadStartLabel(EL_Init, Event::getInitializer(), Event::getInitializer()) {}
+	InitLabel() : ThreadStartLabel(EL_Init, Event::getInit(), Event::getInit()) {}
 
 	using rf_iterator = ReaderList::iterator;
 	using const_rf_iterator = ReaderList::const_iterator;

@@ -866,7 +866,7 @@ private:
 	Event readToReschedule;
 
 	/* Opt: Keeps track of the last event added for scheduling opt */
-	Event lastAdded = Event::getInitializer();
+	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
 	Result result;

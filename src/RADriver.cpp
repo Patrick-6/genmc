@@ -966,7 +966,7 @@ RADriver::getCoherentStores(SAddr addr, Event read)
 	 */
 	auto begIt = splitLocMOBefore(addr, read);
 	if (begIt == g.co_begin(addr))
-		stores.push_back(Event::getInitializer());
+		stores.push_back(Event::getInit());
 	else {
 		stores.push_back((--begIt)->getPos());
 		++begIt;
