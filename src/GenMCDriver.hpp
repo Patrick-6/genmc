@@ -59,24 +59,19 @@ protected:
 public:
 	/* Verification result */
 	struct Result {
-		VerificationError status; /* Whether the verification completed successfully */
-		unsigned explored;        /* Number of complete executions explored */
-		unsigned exploredBlocked; /* Number of blocked executions explored */
+		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
+		unsigned explored{};        /* Number of complete executions explored */
+		unsigned exploredBlocked{}; /* Number of blocked executions explored */
 #ifdef ENABLE_GENMC_DEBUG
-		unsigned exploredMoot;    /* Number of moot executions _encountered_ */
-		unsigned duplicates;      /* Number of duplicate executions explored */
+		unsigned exploredMoot{};    /* Number of moot executions _encountered_ */
+		unsigned duplicates{};      /* Number of duplicate executions explored */
 #endif
+                std::string message{};      /* A message to be printed */
 		VSet<VerificationError> warnings{}; /* The warnings encountered */
-		std::string message;      /* A message to be printed */
 
-		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0),
-#ifdef ENABLE_GENMC_DEBUG
-			   exploredMoot(0),
-			   duplicates(0),
-#endif
-			   message() {}
+		Result() = default;
 
-                Result &operator+=(const Result &other) {
+                auto operator+=(const Result &other) -> Result& {
 			/* Propagate latest error */
 			if (other.status != VerificationError::VE_OK)
 				status = other.status;
@@ -97,9 +92,14 @@ public:
 		std::unique_ptr<ExecutionGraph> graph;
 		LocalQueueT workqueue;
 
-		Execution() = delete;
-		Execution(Execution &&) = default;
+                Execution() = delete;
 		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution& = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution& = default;
+
 		~Execution();
 	};
 
@@ -112,9 +112,14 @@ public:
 		Event lastAdded;
 
 		State() = delete;
-		State(State &&) = default;
 		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor,
 		      llvm::BitVector &&fds, ValuePrefixT &&cache, Event la);
+
+		State(const State &) = delete;
+		auto operator=(const State &) -> State& = delete;
+		State(State &&) = default;
+		auto operator=(State &&) -> State& = default;
+
 		~State();
 	};
 
