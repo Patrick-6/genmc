@@ -16,9 +16,10 @@ LINUX_HEADER="default:
   artifacts:
     expire_in: 1 week
     paths:
-      - ./
+      - $CI_PROJECT_DIR
     exclude:
       - .git/
+      - .git/**/*
 "
 MACOS_HEADER="default:
   tags:
@@ -26,9 +27,10 @@ MACOS_HEADER="default:
   artifacts:
     expire_in: 1 week
     paths:
-      - ./
+      - $CI_PROJECT_DIR
     exclude:
       - .git/
+      - .git/**/*
 "
 
 ## supported versions
