@@ -1,1 +1,1 @@
--helper | 
+-helper -disable-sr -disable-ipr |

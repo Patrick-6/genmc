@@ -962,7 +962,37 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 
 	auto &v = lab->getPrefixView();
 	updatePrefixWithSymmetriesSR(lab);
-	return;
+}
+
+VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
+{
+	if (getConf()->disableRaceDetection)
+		return VerificationError::VE_OK;
+
+	/* Check for hard errors */
+	const EventLabel *racyLab = nullptr;
+	auto err = checkErrors(lab, racyLab);
+	if (err != VerificationError::VE_OK) {
+		reportError(lab->getPos(), err, "", racyLab);
+		return err;
+	}
+
+        /* Check whether there are any unreported warnings... */
+	std::vector<const EventLabel *> races;
+	auto newWarnings = checkWarnings(lab, getResult().warnings, races);
+
+	/* ... and report them */
+	auto i = 0U;
+	for (auto &wcode : newWarnings) {
+		auto hardError = (getConf()->symmetryReduction || getConf()->ipr) && wcode == VerificationError::VE_WWRace;
+		auto msg = hardError ? "Warning treated as an error due to symmetry reduction/in-place revisiting.\n"
+				       "You can use -disable-sr and -disable-ipr to disable these features."s : ""s;
+		reportError(lab->getPos(), wcode, msg, races[i++], hardError);
+		if (hardError)
+			return wcode;
+	}
+	getResult().warnings.insert(newWarnings.begin(), newWarnings.end());
+	return VerificationError::VE_OK;
 }
 
 void GenMCDriver::cacheEventLabel(const EventLabel *lab)
@@ -2077,12 +2107,8 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	}
 	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
-	VerificationError err;
-	const EventLabel *racy = nullptr;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK) {
-		reportError(lab->getPos(), err, "", racy);
+	if (checkForRaces(lab) != VerificationError::VE_OK)
 		return std::nullopt;
-	}
 
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
@@ -2187,10 +2213,6 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 	auto &g = getGraph();
 	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
 
-	ERROR_ON((getConf()->ipr || getConf()->symmetryReduction) &&
-		 placesRange.begin() != placesRange.end(),
-		 "Unordered writes found. Please use -disable-ipr and -disable-sr.\n");
-
 	/* We cannot place the write just before the write of an RMW or during recovery */
 	for (auto &succLab : placesRange) {
 		if (!g.isRMWStore(succLab.getPos()) && !inRecoveryMode())
@@ -2222,13 +2244,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	}
 	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 
-        VerificationError err;
-	const EventLabel *racy = nullptr;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK) {
-		reportError(lab->getPos(), err, "", racy);
-		return;
-	}
-
 	/* It is always consistent to add the store at the end of MO */
 	if (llvm::isa<BIncFaiWriteLabel>(lab) && lab->getVal() == SVal(0))
 		lab->setVal(getBarrierInitValue(lab->getAccess()));
@@ -2240,6 +2255,9 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	GENMC_DEBUG( LOG(VerbosityLevel::Debug2)
 		     << "--- Added store " << lab->getPos() << "\n" << getGraph(); );
+
+        if (cons && checkForRaces(lab) != VerificationError::VE_OK)
+		return;
 
 	if (!inRecoveryMode() && !inReplay())
 		calcRevisits(lab);
@@ -2311,11 +2329,7 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 	alloc->setFree(llvm::dyn_cast<FreeLabel>(lab));
 
 	/* Check whether there is any memory race */
-	VerificationError err;
-	const EventLabel *racy = nullptr;
-	if (!getConf()->disableRaceDetection && (err = checkErrors(lab, racy)) != VerificationError::VE_OK)
-		reportError(lab->getPos(), err, "", racy);
-	return;
+	checkForRaces(lab);
 }
 
 void GenMCDriver::handleRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lLab)

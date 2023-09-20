@@ -66,6 +66,7 @@ public:
 		unsigned exploredMoot;    /* Number of moot executions _encountered_ */
 		unsigned duplicates;      /* Number of duplicate executions explored */
 #endif
+		VSet<VerificationError> warnings{}; /* The warnings encountered */
 		std::string message;      /* A message to be printed */
 
 		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0),
@@ -86,6 +87,7 @@ public:
 			exploredMoot += other.exploredMoot;
 			duplicates += other.duplicates;
 #endif
+			warnings.insert(other.warnings);
 			return *this;
 		}
 	};
@@ -775,7 +777,8 @@ private:
 	 * Needs to be called every time a new label is added to the graph */
 	virtual void updateMMViews(EventLabel *lab) = 0;
 
-	void updateLabelViews(EventLabel *lab);
+        void updateLabelViews(EventLabel *lab);
+        VerificationError checkForRaces(const EventLabel *lab);
 
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
@@ -789,6 +792,8 @@ private:
 	virtual bool isConsistent(const EventLabel *lab) const = 0;
 	virtual bool isRecoveryValid(const EventLabel *lab) const = 0;
 	virtual VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const = 0;
+	virtual std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported,
+							     std::vector<const EventLabel *> &races) const = 0;
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) = 0;
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) = 0;

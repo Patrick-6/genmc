@@ -96,6 +96,73 @@ View SCDriver::calculate0(const EventLabel *lab)
 	visitCalc0_1(lab, calcRes);
 	return calcRes;
 }
+void SCDriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
+{
+	auto &g = getGraph();
+
+	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::entered;
+	calcRes.update(lab->view(1));
+	calcRes.updateIdx(lab->getPos());
+	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void SCDriver::visitCalc1_1(const EventLabel *lab, View &calcRes)
+{
+	auto &g = getGraph();
+
+	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc1_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_0(pLab, calcRes);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc1_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_2(pLab, calcRes);
+	}
+	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void SCDriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
+{
+	auto &g = getGraph();
+
+	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedCalc1_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_0(pLab, calcRes);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedCalc1_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_0(pLab, calcRes);
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCalc1_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_0(pLab, calcRes);
+	}
+	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::left;
+}
+
+View SCDriver::calculate1(const EventLabel *lab)
+{
+	auto &g = getGraph();
+	View calcRes;
+
+	calcRes.updateIdx(lab->getPos().prev());
+	visitedCalc1_0.clear();
+	visitedCalc1_0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedCalc1_1.clear();
+	visitedCalc1_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedCalc1_2.clear();
+	visitedCalc1_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+
+	visitCalc1_1(lab, calcRes);
+	return calcRes;
+}
 std::vector<VSet<Event>> SCDriver::calculateSaved(const EventLabel *lab)
 {
 	return std::move(saved);
@@ -104,6 +171,7 @@ std::vector<VSet<Event>> SCDriver::calculateSaved(const EventLabel *lab)
 std::vector<View> SCDriver::calculateViews(const EventLabel *lab)
 {
 	views.push_back(calculate0(lab));
+	views.push_back(calculate1(lab));
 	return std::move(views);
 }
 
@@ -252,13 +320,13 @@ bool SCDriver::visitInclusionLHS2_2(const EventLabel *lab, const View &v) const
 
 	visitedInclusionLHS2_2[lab->getStamp().get()] = NodeStatus::entered;
 	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-		auto status = visitedInclusionLHS2_1[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen && !visitInclusionLHS2_1(pLab, v))
+		auto status = visitedInclusionLHS2_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen && !visitInclusionLHS2_0(pLab, v))
 			return false;
 	}
 	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
-		auto status = visitedInclusionLHS2_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen && !visitInclusionLHS2_0(pLab, v))
+		auto status = visitedInclusionLHS2_1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen && !visitInclusionLHS2_1(pLab, v))
 			return false;
 	}
 	visitedInclusionLHS2_2[lab->getStamp().get()] = NodeStatus::left;
@@ -521,6 +589,46 @@ bool SCDriver::checkInclusion6(const EventLabel *lab) const
 		&& visitInclusionLHS6_1(lab, v);
 }
 
+bool SCDriver::visitInclusionLHS7_0(const EventLabel *lab, const View &v) const
+{
+	auto &g = getGraph();
+
+	visitedInclusionLHS7_0[lab->getStamp().get()] = NodeStatus::entered;
+	if (!v.contains(lab->getPos())) {
+		racyLab7 = lab;
+		return false;
+	}
+	visitedInclusionLHS7_0[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool SCDriver::visitInclusionLHS7_1(const EventLabel *lab, const View &v) const
+{
+	auto &g = getGraph();
+
+	visitedInclusionLHS7_1[lab->getStamp().get()] = NodeStatus::entered;
+	if (llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab)) {
+		auto status = visitedInclusionLHS7_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen && !visitInclusionLHS7_0(pLab, v))
+			return false;
+	}
+	visitedInclusionLHS7_1[lab->getStamp().get()] = NodeStatus::left;
+	return true;
+}
+
+bool SCDriver::checkInclusion7(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+	auto &v = lab->view(1);
+
+	visitedInclusionLHS7_0.clear();
+	visitedInclusionLHS7_0.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	visitedInclusionLHS7_1.clear();
+	visitedInclusionLHS7_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
+	return true
+		&& visitInclusionLHS7_1(lab, v);
+}
+
 VerificationError SCDriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
 {
 	if (!checkInclusion0(lab)) {
@@ -559,6 +667,18 @@ VerificationError SCDriver::checkErrors(const EventLabel *lab, const EventLabel 
 	}
 
 	return VerificationError::VE_OK;
+}
+
+std::vector<VerificationError> SCDriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
+{
+	std::vector<VerificationError> result;
+
+	if (seenWarnings.count(VerificationError::VE_WWRace) == 0 && !checkInclusion7(lab)) {
+		racyLabs.push_back(racyLab7);
+		result.push_back(VerificationError::VE_WWRace);
+	}
+
+	return result;
 }
 
 bool SCDriver::visitAcyclic0(const EventLabel *lab) const
