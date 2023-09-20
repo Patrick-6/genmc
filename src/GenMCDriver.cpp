@@ -2455,7 +2455,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 
 	out << "Error detected: " << s << "!\n";
 	out << "Event " << errLab->getPos() << " ";
-	if (racyLab)
+	if (racyLab != nullptr)
 		out << "conflicts with event " << racyLab->getPos() << " ";
 	out << "in graph:\n";
 	printGraph(true, out);
@@ -2463,7 +2463,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 	/* Print error trace leading up to the violating event(s) */
 	if (getConf()->printErrorTrace) {
 		printTraceBefore(errLab, out);
-		if (racyLab)
+		if (racyLab != nullptr)
 			printTraceBefore(racyLab, out);
 	}
 
