@@ -2257,7 +2257,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	if (llvm::isa<BInitWriteLabel>(lab))
 		checkBInitValidity(lab);
 	checkFinalAnnotations(lab);
-	return;
 }
 
 void GenMCDriver::handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab)
