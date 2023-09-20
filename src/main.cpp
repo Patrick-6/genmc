@@ -80,8 +80,9 @@ void printResults(const std::shared_ptr<const Config> &conf,
 	auto end = std::chrono::high_resolution_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
+	llvm::outs() << res.message;
 	llvm::outs() << (res.status == VerificationError::VE_OK ?
-			"No errors were detected.\n" : res.message)
+			"No errors were detected.\n" : "Verification unsuccessful.\n")
 		     << "Number of complete executions explored: " << res.explored;
 	GENMC_DEBUG(
 		llvm::outs() << ((conf->countDuplicateExecs) ?

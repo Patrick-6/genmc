@@ -75,12 +75,11 @@ public:
 #endif
 			   message() {}
 
-		Result &operator+=(const Result &other) {
+                Result &operator+=(const Result &other) {
 			/* Propagate latest error */
-			if (other.status != VerificationError::VE_OK) {
+			if (other.status != VerificationError::VE_OK)
 				status = other.status;
-				message = other.message;
-			}
+			message += other.message;
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
 #ifdef ENABLE_GENMC_DEBUG
@@ -261,7 +260,7 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
-			 const EventLabel *racyLab = nullptr);
+			 const EventLabel *racyLab = nullptr, bool shouldHalt = true);
 
 	virtual ~GenMCDriver();
 

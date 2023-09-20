@@ -2418,7 +2418,8 @@ GenMCDriver::getReplayView() const
 
 void GenMCDriver::reportError(Event pos, VerificationError s,
 			      const std::string &err /* = "" */,
-			      const EventLabel *racyLab /* = nullptr */)
+			      const EventLabel *racyLab /* = nullptr */,
+			      bool shouldHalt /* = true */)
 {
 	auto &g = getGraph();
 	auto &thr = getEE()->getCurThr();
@@ -2453,7 +2454,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 
 	llvm::raw_string_ostream out(result.message);
 
-	out << "Error detected: " << s << "!\n";
+	out << (isHardError(s) ? "Error: " : "Warning: ") << s << "!\n";
 	out << "Event " << errLab->getPos() << " ";
 	if (racyLab != nullptr)
 		out << "conflicts with event " << racyLab->getPos() << " ";
@@ -2477,7 +2478,8 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 
 	getEE()->restoreState(std::move(iState));
 
-	halt(s);
+	if (shouldHalt)
+		halt(s);
 }
 
 bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads)
