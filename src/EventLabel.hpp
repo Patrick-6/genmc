@@ -306,6 +306,13 @@ public:
 		return hasValue(getKind());
 	}
 
+	/* Returns true if this event can be revisited */
+	bool isRevisitable() const { return revisitable; }
+
+	/* Makes the relevant event revisitable/non-revisitable. The
+	 * execution graph is responsible for making such changes */
+	void setRevisitStatus(bool status) { revisitable = status; }
+
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
@@ -320,6 +327,7 @@ public:
 		calculatedRels.clear();
 		calculatedViews.clear();
 		prefixView = nullptr;
+		revisitable = true;
 	}
 
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
@@ -365,6 +373,9 @@ private:
 
 	/* Saved views */
 	std::vector<View> calculatedViews;
+
+	/* Revisitability status */
+	bool revisitable = true;
 };
 
 #define DEFINE_CREATE_CLONE(name)					\
@@ -664,7 +675,7 @@ protected:
 		  SAddr loc, ASize size, AType type, EventLabel *rfLab = nullptr,
 		  AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, loc, size, type, deps),
-		  readsFrom(rfLab), revisitable(true), annotExpr(std::move(annot)) {}
+		  readsFrom(rfLab), annotExpr(std::move(annot)) {}
 public:
 	ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
 		  AType type, EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
@@ -694,13 +705,6 @@ public:
 				   getRf()->getThread() == getThread());
 	}
 
-	/* Returns true if this read can be revisited */
-	bool isRevisitable() const { return revisitable; }
-
-	/* Makes the relevant read revisitable/non-revisitable. The
-	 * execution graph is responsible for making such changes */
-	void setRevisitStatus(bool status) { revisitable = status; }
-
 	/* Returns true if the read was revisited in-place */
 	bool isIPR() const { return ipr; }
 
@@ -714,7 +718,6 @@ public:
 	virtual void reset() override {
 		MemAccessLabel::reset();
 		setRf(nullptr);
-		revisitable = true;
 		ipr = false;
 	}
 
@@ -731,9 +734,6 @@ private:
 
 	/* Position of the write it is reading from in the graph */
 	EventLabel *readsFrom;
-
-	/* Revisitability status */
-	bool revisitable;
 
 	/* Whether the read has been revisited in place */
 	bool ipr;
