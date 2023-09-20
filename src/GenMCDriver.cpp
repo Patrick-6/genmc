@@ -2472,7 +2472,7 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 		out << err << "\n";
 
 	/* Dump the graph into a file (DOT format) */
-	if (getConf()->dotFile != "")
+	if (!getConf()->dotFile.empty())
 		dotPrintToFile(getConf()->dotFile, errLab, racyLab);
 
 	getEE()->restoreState(std::move(iState));
