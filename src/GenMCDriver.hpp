@@ -147,7 +147,8 @@ public:
 	void halt(VerificationError status);
 
 	/* Returns the result of the verification procedure */
-	Result getResult() const { return result; }
+        const Result &getResult() const { return result; }
+	Result &getResult() { return result; }
 
 	/* Creates driver instance(s) and starts verification for the given module. */
 	static Result verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod);
