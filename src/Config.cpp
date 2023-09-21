@@ -67,8 +67,8 @@ clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
 
 static llvm::cl::opt<bool>
-clSymmetryReduction("sr", llvm::cl::cat(clGeneral),
-		    llvm::cl::desc("Enable Symmetry Reduction"));
+clDisableSymmetryReduction("disable-sr", llvm::cl::cat(clGeneral),
+			   llvm::cl::desc("Disable symmetry reduction"));
 
 static llvm::cl::opt<bool>
 clHelper("helper", llvm::cl::cat(clGeneral),
@@ -286,6 +286,11 @@ void Config::checkConfigOptions() const
 	if (clHelper && clSchedulePolicy == SchedulePolicy::random) {
 		ERROR("Helper cannot be used with -schedule-policy=random.\n");
 	}
+	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
+		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
+		clDisableSymmetryReduction = true;
+		clDisableIPR = true;
+	}
 
 	/* Check debugging options */
 	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
@@ -312,7 +317,7 @@ void Config::saveConfigOptions()
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
-	symmetryReduction = clSymmetryReduction;
+	symmetryReduction = !clDisableSymmetryReduction;
 	helper = clHelper;
 	printErrorTrace = clPrintErrorTrace;
 	checkLiveness = clCheckLiveness;

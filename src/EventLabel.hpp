@@ -228,6 +228,7 @@ public:
 
 	bool hasPrefixView() const { return prefixView.get() != nullptr; }
 	const VectorClock &getPrefixView() const { return *prefixView; }
+	VectorClock &getPrefixView() { return *prefixView; }
 	void setPrefixView(std::unique_ptr<VectorClock> v) const {
 		prefixView = std::move(v);
 	}
@@ -2654,7 +2655,7 @@ protected:
 	friend class DepExecutionGraph;
 
 public:
-	InitLabel() : ThreadStartLabel(EL_Init, Event::getInitializer(), Event::getInitializer()) {}
+	InitLabel() : ThreadStartLabel(EL_Init, Event::getInit(), Event::getInit()) {}
 
 	using rf_iterator = ReaderList::iterator;
 	using const_rf_iterator = ReaderList::const_iterator;

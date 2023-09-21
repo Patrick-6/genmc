@@ -5,6 +5,12 @@ genmc
 *.bak
 *.backup
 .*.sw[a-z]
+.cache
+.deps
+*.dirstamp
+compile_commands.json
+
+*.gcno
 
 *.a
 *.o
@@ -31,3 +37,4 @@ install-sh
 missing
 stamp-*
 ylwrap
+test-driver

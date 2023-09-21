@@ -78,6 +78,7 @@ enum class InternalFunctions {
 	FN_NoSideEffectsLast,
 	/* No side effects */
 	FN_ThreadCreate,
+	FN_ThreadCreateSymmetric,
 	FN_ThreadJoin,
 	FN_ThreadExit,
 	FN_AtExit,

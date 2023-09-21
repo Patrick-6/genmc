@@ -53,10 +53,11 @@ public:
 
 	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
 	std::vector<View> calculateViews(const EventLabel *lab);
-	void updateLabelViews(EventLabel *lab) override;
+	void updateMMViews(EventLabel *lab) override;
 	bool isDepTracking() const override;
 	bool isConsistent(const EventLabel *lab) const override;
 	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;
+	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const;
 	bool isRecoveryValid(const EventLabel *lab) const override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
@@ -92,6 +93,16 @@ private:
 	mutable std::vector<NodeStatus> visitedCalc0_4;
 	mutable std::vector<NodeStatus> visitedCalc0_5;
 	mutable std::vector<NodeStatus> visitedCalc0_6;
+
+	void visitCalc1_0(const EventLabel *lab, View &calcRes);
+	void visitCalc1_1(const EventLabel *lab, View &calcRes);
+	void visitCalc1_2(const EventLabel *lab, View &calcRes);
+
+	View calculate1(const EventLabel *lab);
+
+	mutable std::vector<NodeStatus> visitedCalc1_0;
+	mutable std::vector<NodeStatus> visitedCalc1_1;
+	mutable std::vector<NodeStatus> visitedCalc1_2;
 
 	bool visitInclusionLHS0_0(const EventLabel *lab, const View &v) const;
 	bool visitInclusionLHS0_1(const EventLabel *lab, const View &v) const;
@@ -199,6 +210,21 @@ private:
 	mutable std::vector<bool> rhsAccept6;
 
 	mutable const EventLabel *racyLab6 = nullptr;
+
+	bool visitInclusionLHS7_0(const EventLabel *lab, const View &v) const;
+	bool visitInclusionLHS7_1(const EventLabel *lab, const View &v) const;
+
+	bool checkInclusion7(const EventLabel *lab) const;
+
+	mutable std::vector<NodeStatus> visitedInclusionLHS7_0;
+	mutable std::vector<NodeStatus> visitedInclusionLHS7_1;
+	mutable std::vector<NodeStatus> visitedInclusionRHS7_0;
+	mutable std::vector<NodeStatus> visitedInclusionRHS7_1;
+
+	mutable std::vector<bool> lhsAccept7;
+	mutable std::vector<bool> rhsAccept7;
+
+	mutable const EventLabel *racyLab7 = nullptr;
 
 
 	bool isAcyclic(const EventLabel *lab) const ;

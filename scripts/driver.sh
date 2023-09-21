@@ -20,7 +20,7 @@
 
 # Get binary's full path
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-GenMC="${GenMC:-$DIR/../src/genmc}"
+GenMC="${GenMC:-$DIR/../genmc}"
 
 source "${DIR}/terminal.sh"
 
@@ -111,7 +111,7 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 imm # rc11 imm lkmm
 do
-    for cat in infr litmus saver ipr helper liveness synthetic data-structures # fs lkmm lapor
+    for cat in infr litmus saver ipr sr helper liveness synthetic data-structures # fs lkmm lapor
     do
 	testdir="${correctdir}/${cat}"
 	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
@@ -120,6 +120,10 @@ do
 	    continue
 	fi
 	if [[ "${cat}" == "helper" && "${GENMCFLAGS}" =~ "policy=random" ]]
+	then
+	    continue
+	fi
+	if [[ "${model}" == "imm" && "${cat}" == "sr" ]]
 	then
 	    continue
 	fi

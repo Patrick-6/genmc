@@ -3015,6 +3015,12 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	ExecutionContext SF;
 	GenericValue val, result;
 
+	if (!calledFun) {
+		driver->reportError(currPos(), VerificationError::VE_InvalidCreate,
+				    "Invalid argument in pthread_create(): NULL pointer");
+		return;
+	}
+
 	/* First, set up the stack frame for the new function.
 	 * Calling function needs to take only one argument ... */
 	SF.CurFunction = calledFun;
@@ -3026,14 +3032,22 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	/* Then, inform the driver about the thread creation */
 	auto deps = makeEventDeps(nullptr, nullptr, getCtrlDeps(getCurThr().id),
 				  getAddrPoDeps(getCurThr().id), nullptr);
+	int symm = ArgVals.size() > 3 ? ArgVals[3].IntVal.getLimitedValue() : -1;
 	auto info = ThreadInfo(-1, currPos().thread, MI->idInfo.VID.at(calledFun),
-			       (uintptr_t) ArgVals[2].PointerVal);
+			       (uintptr_t) ArgVals[2].PointerVal, symm);
 	auto tid = CALL_DRIVER(handleThreadCreate,
 			       ThreadCreateLabel::create(currPos(), info, GET_DEPS(deps)));
 
 	/* ... and return the TID of the created thread to the caller */
 	Type *typ = F->getReturnType();
 	returnValueToCaller(typ, INT_TO_GV(typ, tid));
+}
+
+
+void Interpreter::callThreadCreateSymmetric(Function *F, const std::vector<GenericValue> &ArgVals,
+					    const std::unique_ptr<EventDeps> &specialDeps)
+{
+	callThreadCreate(F, ArgVals, specialDeps);
 }
 
 /* callPthreadJoin - Call to pthread_join() function */
@@ -4624,6 +4638,7 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(Free);
 		CALL_INTERNAL_FUNCTION(ThreadSelf);
 		CALL_INTERNAL_FUNCTION(ThreadCreate);
+		CALL_INTERNAL_FUNCTION(ThreadCreateSymmetric);
 		CALL_INTERNAL_FUNCTION(ThreadJoin);
 		CALL_INTERNAL_FUNCTION(ThreadExit);
 		CALL_INTERNAL_FUNCTION(AtExit);

@@ -53,9 +53,10 @@ extern "C" void LLVMLinkInInterpreter() { }
 
 /// create - Create a new interpreter object.  This can never fail.
 ///
-ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-				     GenMCDriver *driver, const Config *userConf,
-				     SAddrAllocator &alloctor, std::string* ErrStr) {
+std::unique_ptr<Interpreter>
+Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
+		    GenMCDriver *driver, const Config *userConf,
+		    SAddrAllocator &alloctor, std::string* ErrStr) {
   // Tell this Module to materialize everything and release the GVMaterializer.
   if (Error Err = M->materializeAll()) {
     std::string Msg;
@@ -67,7 +68,7 @@ ExecutionEngine *Interpreter::create(std::unique_ptr<Module> M, std::unique_ptr<
     // We got an error, just return 0
     return nullptr;
   }
-  return new Interpreter(std::move(M), std::move(MI), driver, userConf, alloctor);
+  return std::make_unique<Interpreter>(std::move(M), std::move(MI), driver, userConf, alloctor);
 }
 
 /* Thread::seed is ODR-used -- we need to provide a definition (C++14) */

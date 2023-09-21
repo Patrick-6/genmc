@@ -35,6 +35,7 @@ ExecutionGraph::ExecutionGraph()
 	auto *iLab = addLabelToGraph(InitLabel::create());
 	iLab->setCalculated({{}});
 	iLab->setViews({{}});
+	iLab->setPrefixView(std::make_unique<View>());
 	return;
 }
 
@@ -60,7 +61,7 @@ Event ExecutionGraph::getPreviousNonTrivial(const Event e) const
 		if (isNonTrivial(Event(e.thread, i)))
 			return Event(e.thread, i);
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const
@@ -72,7 +73,7 @@ Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) cons
 				return wLab->getPos();
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) const
@@ -154,7 +155,7 @@ Event ExecutionGraph::getMatchingLock(const Event unlock) const
 			}
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getMatchingUnlock(const Event lock) const
@@ -181,7 +182,7 @@ Event ExecutionGraph::getMatchingUnlock(const Event lock) const
 			}
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getMatchingRCUUnlockLKMM(Event lock) const
@@ -222,7 +223,7 @@ Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = null
 				return rLab->getPos();
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
@@ -242,7 +243,7 @@ Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) co
 		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab))
 			unlocks.push_back(uLab->getLockAddr());
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getMatchingUnlockLAPOR(const Event lock) const
@@ -269,7 +270,7 @@ Event ExecutionGraph::getMatchingUnlockLAPOR(const Event lock) const
 			}
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr loc) const
@@ -283,7 +284,7 @@ Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr 
 		}
 
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAddr loc) const
@@ -297,7 +298,7 @@ Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAdd
 		}
 
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getMalloc(const SAddr &addr) const
@@ -307,7 +308,7 @@ Event ExecutionGraph::getMalloc(const SAddr &addr) const
 					       return aLab->contains(addr);
 				       return false;
 				});
-	return it != label_end(*this) ? it->getPos() : Event::getInitializer();
+	return it != label_end(*this) ? it->getPos() : Event::getInit();
 }
 
 Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const
@@ -321,13 +322,13 @@ Event ExecutionGraph::getMallocCounterpart(const FreeLabel *fLab) const
 			}
 		}
 	}
-	return Event::getInitializer();
+	return Event::getInit();
 }
 
 Event ExecutionGraph::getMinimumStampEvent(const std::vector<Event> &es) const
 {
 	if (es.empty())
-		return Event::getInitializer();
+		return Event::getInit();
 	return *std::min_element(es.begin(), es.end(), [&](const Event &e1, const Event &e2){
 		return getEventLabel(e1)->getStamp() < getEventLabel(e2)->getStamp();
 	});
@@ -337,7 +338,7 @@ Event ExecutionGraph::getPendingRMW(const WriteLabel *sLab) const
 {
 	/* If this is _not_ an RMW event, return an empty vector */
 	if (!isRMWStore(sLab))
-		return Event::getInitializer();
+		return Event::getInit();
 
 	/* Otherwise, scan for other RMWs that successfully read the same val */
 	auto *pLab = llvm::dyn_cast<ReadLabel>(getPreviousLabel(sLab));

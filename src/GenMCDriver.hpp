@@ -59,34 +59,30 @@ protected:
 public:
 	/* Verification result */
 	struct Result {
-		VerificationError status; /* Whether the verification completed successfully */
-		unsigned explored;        /* Number of complete executions explored */
-		unsigned exploredBlocked; /* Number of blocked executions explored */
+		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
+		unsigned explored{};        /* Number of complete executions explored */
+		unsigned exploredBlocked{}; /* Number of blocked executions explored */
 #ifdef ENABLE_GENMC_DEBUG
-		unsigned exploredMoot;    /* Number of moot executions _encountered_ */
-		unsigned duplicates;      /* Number of duplicate executions explored */
+		unsigned exploredMoot{};    /* Number of moot executions _encountered_ */
+		unsigned duplicates{};      /* Number of duplicate executions explored */
 #endif
-		std::string message;      /* A message to be printed */
+                std::string message{};      /* A message to be printed */
+		VSet<VerificationError> warnings{}; /* The warnings encountered */
 
-		Result() : status(VerificationError::VE_OK), explored(0), exploredBlocked(0),
-#ifdef ENABLE_GENMC_DEBUG
-			   exploredMoot(0),
-			   duplicates(0),
-#endif
-			   message() {}
+		Result() = default;
 
-		Result &operator+=(const Result &other) {
+                auto operator+=(const Result &other) -> Result& {
 			/* Propagate latest error */
-			if (other.status != VerificationError::VE_OK) {
+			if (other.status != VerificationError::VE_OK)
 				status = other.status;
-				message = other.message;
-			}
+			message += other.message;
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
 #ifdef ENABLE_GENMC_DEBUG
 			exploredMoot += other.exploredMoot;
 			duplicates += other.duplicates;
 #endif
+			warnings.insert(other.warnings);
 			return *this;
 		}
 	};
@@ -96,9 +92,14 @@ public:
 		std::unique_ptr<ExecutionGraph> graph;
 		LocalQueueT workqueue;
 
-		Execution() = delete;
-		Execution(Execution &&) = default;
+                Execution() = delete;
 		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution& = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution& = default;
+
 		~Execution();
 	};
 
@@ -111,9 +112,14 @@ public:
 		Event lastAdded;
 
 		State() = delete;
-		State(State &&) = default;
 		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor,
 		      llvm::BitVector &&fds, ValuePrefixT &&cache, Event la);
+
+		State(const State &) = delete;
+		auto operator=(const State &) -> State& = delete;
+		State(State &&) = default;
+		auto operator=(State &&) -> State& = default;
+
 		~State();
 	};
 
@@ -147,7 +153,8 @@ public:
 	void halt(VerificationError status);
 
 	/* Returns the result of the verification procedure */
-	Result getResult() const { return result; }
+        const Result &getResult() const { return result; }
+	Result &getResult() { return result; }
 
 	/* Creates driver instance(s) and starts verification for the given module. */
 	static Result verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod);
@@ -260,7 +267,7 @@ public:
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
 	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
-			 const EventLabel *racyLab = nullptr);
+			 const EventLabel *racyLab = nullptr, bool shouldHalt = true);
 
 	virtual ~GenMCDriver();
 
@@ -344,6 +351,17 @@ protected:
 	 * (e.g., bottom) also blocks the currently running thread. */
 	SVal getReadRetValueAndMaybeBlock(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
+
+	int getSymmPredTid(int tid) const;
+	int getSymmSuccTid(int tid) const;
+	bool isEcoBefore(const EventLabel *lab, int tid) const;
+	bool isEcoSymmetric(const EventLabel *lab, int tid) const;
+	bool isPredSymmetryOK(const EventLabel *lab, int tid);
+	bool isPredSymmetryOK(const EventLabel *lab);
+	bool isSuccSymmetryOK(const EventLabel *lab, int tid);
+	bool isSuccSymmetryOK(const EventLabel *lab);
+	bool isSymmetryOK(const EventLabel *lab);
+	void updatePrefixWithSymmetriesSR(EventLabel *lab);
 
 	/* Returns the value with which a barrier at PTR has been initialized */
 	SVal getBarrierInitValue(const AAccess &a);
@@ -609,6 +627,10 @@ private:
 	 * and determines the order in which these options should be explored */
 	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
+	bool isExecutionValid(const EventLabel *lab) {
+		return isSymmetryOK(lab) && isConsistent(lab);
+	}
+
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
 	 * if that is dictated by the CLI options */
 	bool ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs);
@@ -712,7 +734,9 @@ private:
 	bool isSymmetricToSR(int candidate, Event parent, const ThreadInfo &info) const;
 
 	/* SR: Returns the (greatest) ID of a thread that is symmetric to PARENT/INFO */
-	int getSymmetricTidSR(Event parent, const ThreadInfo &info) const;
+	int getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadInfo &info) const;
+
+	int calcLargestSymmPrefixBeforeSR(int tid, Event pos) const;
 
 	/* SR: Returns true if TID has the same prefix up to POS.INDEX as POS.THREAD */
 	bool sharePrefixSR(int tid, Event pos) const;
@@ -756,7 +780,10 @@ private:
 
 	/* Updates lab with model-specific information.
 	 * Needs to be called every time a new label is added to the graph */
-	virtual void updateLabelViews(EventLabel *lab) = 0;
+	virtual void updateMMViews(EventLabel *lab) = 0;
+
+        void updateLabelViews(EventLabel *lab);
+        VerificationError checkForRaces(const EventLabel *lab);
 
 	/* Returns an approximation of consistent rfs for RLAB.
 	 * The rfs are ordered according to CO */
@@ -770,6 +797,8 @@ private:
 	virtual bool isConsistent(const EventLabel *lab) const = 0;
 	virtual bool isRecoveryValid(const EventLabel *lab) const = 0;
 	virtual VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const = 0;
+	virtual std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &reported,
+							     std::vector<const EventLabel *> &races) const = 0;
 	virtual std::vector<Event>
 	getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) = 0;
 	virtual std::vector<Event> getCoherentStores(SAddr addr, Event read) = 0;
@@ -781,10 +810,10 @@ private:
 	/* Returns a vector clock representing the prefix of e.
 	 * Depending on whether dependencies are tracked, the prefix can be
 	 * either (po U rf) or (AR U rf) */
-	const VectorClock &getPrefixView(const EventLabel *lab) const {
+        const VectorClock &getPrefixView(const EventLabel *lab) const {
 		if (!lab->hasPrefixView())
 			lab->setPrefixView(calculatePrefixView(lab));
-		return lab->getPrefixView();
+                return lab->getPrefixView();
 	}
 
 	virtual std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const = 0;
@@ -837,7 +866,7 @@ private:
 	Event readToReschedule;
 
 	/* Opt: Keeps track of the last event added for scheduling opt */
-	Event lastAdded = Event::getInitializer();
+	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
 	Result result;

@@ -80,17 +80,15 @@ void printResults(const std::shared_ptr<const Config> &conf,
 	auto end = std::chrono::high_resolution_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
-	if (res.status == VerificationError::VE_OK)
-		llvm::outs() << "No errors were detected.\n";
-	else
-		llvm::outs() << res.message;
-
-	llvm::outs() << "Number of complete executions explored: " << res.explored;
+	llvm::outs() << res.message;
+	llvm::outs() << (res.status == VerificationError::VE_OK ?
+			"No errors were detected.\n" : "Verification unsuccessful.\n")
+		     << "Number of complete executions explored: " << res.explored;
 	GENMC_DEBUG(
 		llvm::outs() << ((conf->countDuplicateExecs) ?
 				 " (" + std::to_string(res.duplicates) + " duplicates)" : "");
 		);
-	if (res.exploredBlocked) {
+	if (res.exploredBlocked != 0U) {
 		llvm::outs() << "\nNumber of blocked executions seen: " << res.exploredBlocked;
 	}
 	GENMC_DEBUG(
@@ -109,17 +107,16 @@ int main(int argc, char **argv)
 	auto ctx = std::make_unique<llvm::LLVMContext>();
 	auto conf = std::make_shared<Config>();
 
-	conf->getConfigOptions(argc, argv);
-	if (conf->inputFromBitcodeFile) {
-		auto mod = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
-		auto res = GenMCDriver::verify(conf, std::move(mod));
-		printResults(conf, begin, res);
-		return res.status == VerificationError::VE_OK ? 0 : EVERIFY;
-	}
+        conf->getConfigOptions(argc, argv);
 
 	std::unique_ptr<llvm::Module> module;
-	if (!compileInput(conf, ctx, module))
-		return ECOMPILE;
+        if (conf->inputFromBitcodeFile) {
+		module = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
+        } else {
+		if (!compileInput(conf, ctx, module)) {
+			return ECOMPILE;
+		}
+	}
 
 	auto res = GenMCDriver::verify(conf, std::move(module));
 	printResults(conf, begin, res);

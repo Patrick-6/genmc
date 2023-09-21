@@ -51,15 +51,19 @@ enum class VerificationError {
 	VE_Recovery,
 	VE_Liveness,
 	VE_RaceNotAtomic,
+	VE_WWRace,
 	VE_RaceFreeMalloc,
 	VE_FreeNonMalloc,
 	VE_DoubleFree,
 	VE_Allocation,
+
 	VE_InvalidAccessBegin,
 	VE_UninitializedMem,
 	VE_AccessNonMalloc,
 	VE_AccessFreed,
 	VE_InvalidAccessEnd,
+
+	VE_InvalidCreate,
 	VE_InvalidJoin,
 	VE_InvalidUnlock,
 	VE_InvalidBInit,
@@ -69,6 +73,11 @@ enum class VerificationError {
 	VE_MixedSize,
 	VE_SystemError,
 };
+
+inline bool isHardError(VerificationError err)
+{
+	return err != VerificationError::VE_OK && err != VerificationError::VE_WWRace;
+}
 
 /* For compilers that do not have a recent enough lib{std}c++ */
 #ifndef STDLIBCPP_SUPPORTS_ENUM_MAP_KEYS
