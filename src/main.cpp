@@ -24,22 +24,21 @@
 #include "Error.hpp"
 #include "LLVMModule.hpp"
 
-#include <cstdlib>
-#include <cmath>
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <set>
 
-std::string getOutFilename(const std::shared_ptr<const Config> &conf)
+auto getOutFilename(const std::shared_ptr<const Config> & /*conf*/) -> std::string
 {
 	return "/tmp/__genmc.ll";
 }
 
-std::string
-buildCompilationArgs(const std::shared_ptr<const Config> &conf)
+auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> std::string
 {
 	std::string args;
 
@@ -49,7 +48,7 @@ buildCompilationArgs(const std::shared_ptr<const Config> &conf)
 	args += " -disable-O0-optnone";
 #endif
 	args += " -g"; /* Compile with -g to get debugging mdata */
-	for (auto &f : conf->cflags)
+	for (const auto &f : conf->cflags)
 		args += " " + f;
 	args += " -I" SRC_INCLUDE_DIR;
 	args += " -I" INCLUDE_DIR;
@@ -62,13 +61,13 @@ buildCompilationArgs(const std::shared_ptr<const Config> &conf)
 	return args;
 }
 
-bool compileInput(const std::shared_ptr<const Config> &conf,
+auto compileInput(const std::shared_ptr<const Config> &conf,
 		  const std::unique_ptr<llvm::LLVMContext> &ctx,
-		  std::unique_ptr<llvm::Module> &module)
+		  std::unique_ptr<llvm::Module> &module) -> bool
 {
-	auto path = CLANGPATH;
+	const auto *path = CLANGPATH;
 	auto command = path + buildCompilationArgs(conf);
-	if (std::system(command.c_str()))
+	if (std::system(command.c_str()) != 0)
 		return false;
 
 	module = LLVMModule::parseLLVMModule(getOutFilename(conf), ctx);
@@ -139,7 +138,7 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 		     << "s\n";
 }
 
-int main(int argc, char **argv)
+auto main(int argc, char **argv) -> int
 {
 	auto begin = std::chrono::high_resolution_clock::now();
 	auto conf = std::make_shared<Config>();
