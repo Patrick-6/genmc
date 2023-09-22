@@ -3278,7 +3278,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 		return llvm::isa<SpeculativeReadLabel>(oLab);
 	});
 
-	if (llvm::isa<SpeculativeReadLabel>(rLab) || oLab)
+	if (getConf()->helper && (llvm::isa<SpeculativeReadLabel>(rLab) || oLab))
 		threadPrios = {rLab->getPos()};
 	return true;
 }
