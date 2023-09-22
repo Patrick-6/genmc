@@ -107,6 +107,9 @@ static llvm::cl::opt<bool>
 clDisableIPR("disable-ipr", llvm::cl::cat(clGeneral),
 	     llvm::cl::desc("Disable in-place revisiting"));
 static llvm::cl::opt<bool>
+clDisableLockIPR("disable-lock-ipr", llvm::cl::cat(clGeneral),
+	     llvm::cl::desc("Disable in-place revisiting of locks"));
+static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
@@ -354,6 +357,7 @@ void Config::saveConfigOptions()
 	disableRaceDetection = clDisableRaceDetection;
 	disableBAM = clDisableBAM;
 	ipr = !clDisableIPR;
+	lockIpr = !clDisableLockIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistency options */

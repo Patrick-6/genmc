@@ -2771,7 +2771,8 @@ bool GenMCDriver::tryOptimizeRevisits(const WriteLabel *sLab, std::vector<Event>
 		if (tryOptimizeIPRs(sLab, loads))
 			return true;
 	}
-	if (tryOptimizeLocks(sLab, loads))
+
+	if (getConf()->lockIpr && tryOptimizeLocks(sLab, loads))
 		return true;
 
 	/* Helper: 1) Do not bother with revisits that will lead to unconfirmed reads
