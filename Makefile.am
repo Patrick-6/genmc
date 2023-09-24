@@ -83,7 +83,6 @@ libgenmc_a_SOURCES = \
   src/RADriver.cpp src/RADriver.hpp \
   src/RC11Driver.cpp src/RC11Driver.hpp \
   src/Revisit.cpp src/Revisit.hpp \
-  src/RevisitSet.cpp src/RevisitSet.hpp \
   src/SAddr.cpp src/SAddr.hpp \
   src/SAddrAllocator.hpp \
   src/SCDriver.cpp src/SCDriver.hpp \

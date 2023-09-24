@@ -25,7 +25,6 @@
 #include "DepInfo.hpp"
 #include "EventLabel.hpp"
 #include "ExecutionGraph.hpp"
-#include "RevisitSet.hpp"
 #include "SAddrAllocator.hpp"
 #include "Trie.hpp"
 #include "VerificationError.hpp"
