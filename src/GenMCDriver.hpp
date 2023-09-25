@@ -842,9 +842,6 @@ private:
 	/* The thread pool this driver may belong to */
 	ThreadPool *pool = nullptr;
 
-	/* The source code of the program under test */
-	std::string sourceCode;
-
 	/* User configuration */
 	std::shared_ptr<const Config> userConf;
 
