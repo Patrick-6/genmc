@@ -3220,11 +3220,10 @@ bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 {
 	auto &g =getGraph();
 	auto *lab = g.getEventLabel(fr.getPos());
-	if (auto *mi = llvm::dyn_cast<WriteForwardRevisit>(&fr)) {
+	if (auto *mi = llvm::dyn_cast<WriteForwardRevisit>(&fr))
 		return revisitWrite(*mi);
-	} else if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&fr)) {
+	if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&fr))
 		return revisitOptional(*oi);
-	}
 	auto *ri = llvm::dyn_cast<ReadForwardRevisit>(&fr);
 	BUG_ON(!ri);
 	return revisitRead(*ri);
@@ -3265,14 +3264,13 @@ bool GenMCDriver::restrictAndRevisit(Stamp stamp, WorkSet::ItemT item)
 	getExecution().restrict(stamp);
 
 	lastAdded = item->getPos();
-	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item)) {
+	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item))
 		return forwardRevisit(*fr);
-	} else if (auto *br = llvm::dyn_cast<BackwardRevisit>(&*item)) {
+	if (auto *br = llvm::dyn_cast<BackwardRevisit>(&*item)) {
 		return backwardRevisit(*br);
-	} else {
-		BUG();
-		return false;
 	}
+	BUG();
+	return false;
 }
 
 SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
