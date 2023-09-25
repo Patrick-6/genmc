@@ -3224,6 +3224,8 @@ bool GenMCDriver::forwardRevisit(const ForwardRevisit &fr)
 		return revisitWrite(*mi);
 	if (auto *oi = llvm::dyn_cast<OptionalForwardRevisit>(&fr))
 		return revisitOptional(*oi);
+	if (auto *rr = llvm::dyn_cast<RerunForwardRevisit>(&fr))
+		return true;
 	auto *ri = llvm::dyn_cast<ReadForwardRevisit>(&fr);
 	BUG_ON(!ri);
 	return revisitRead(*ri);
