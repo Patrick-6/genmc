@@ -39,6 +39,7 @@ public:
 
 	/*** Exploration options ***/
 	ModelType model;
+	bool estimate;
 	bool isDepTrackingModel;
 	unsigned int threads;
 	bool LAPOR;
@@ -74,6 +75,7 @@ public:
 	bool mmDetector;
 
 	/*** Debugging options ***/
+	unsigned int estimationBudget;
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
 	bool printBlockedExecs;
@@ -89,7 +91,8 @@ public:
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
-	bool countMootExecs;
+        bool countMootExecs;
+	bool printEstimationStats;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

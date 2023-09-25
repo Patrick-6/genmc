@@ -25,10 +25,12 @@
 #include "LLVMModule.hpp"
 
 #include <cstdlib>
+#include <cmath>
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <set>
 
 std::string getOutFilename(const std::shared_ptr<const Config> &conf)
@@ -73,17 +75,53 @@ bool compileInput(const std::shared_ptr<const Config> &conf,
 	return true;
 }
 
-void printResults(const std::shared_ptr<const Config> &conf,
-		  const std::chrono::high_resolution_clock::time_point &begin,
-		  const GenMCDriver::Result &res)
+void transformInput(const std::shared_ptr<Config> &conf,
+                    llvm::Module &module, ModuleInfo &modInfo)
+{
+	LLVMModule::transformLLVMModule(module, modInfo, conf);
+	if (!conf->transformFile.empty())
+		LLVMModule::printLLVMModule(module, conf->transformFile);
+
+	/* Perhaps override the MM under which verification will take place */
+	if (conf->mmDetector && modInfo.determinedMM.has_value() && isStrongerThan(*modInfo.determinedMM, conf->model)) {
+		conf->model = *modInfo.determinedMM;
+		conf->isDepTrackingModel = (conf->model == ModelType::IMM);
+		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to " << conf->model
+					 << ". You can disable this behavior with -disable-mm-detector.\n";
+	}
+}
+
+void printEstimationResults(const std::shared_ptr<const Config> &conf,
+			    const GenMCDriver::Result &res)
+{
+	llvm::outs() << res.message;
+	llvm::outs() << (res.status == VerificationError::VE_OK ? "*** Estimation complete.\n": "*** Estimation unsuccessful.\n");
+
+        auto mean = res.estimationMean;
+        auto sqMean = res.estimationSqMean;
+        llvm::outs() << "Total executions estimate: " << (long long) mean << " (+- " << (long long) std::sqrt(sqMean - mean * mean) << ")\n";
+        GENMC_DEBUG(
+		if (conf->printEstimationStats)
+			llvm::outs() << "Estimation moot: " << res.exploredMoot << "\n"
+				     << "Estimation blocked: " << res.exploredBlocked << "\n"
+				     << "Estimation complete: " << res.explored << "\n";
+	);
+
+	LOG(VerbosityLevel::Tip) << "For better performance, you can disable state-space estimation with --disable-estimation.\n";
+}
+
+void printVerificationResults(const std::shared_ptr<const Config> &conf,
+			      const std::chrono::high_resolution_clock::time_point &begin,
+			      const GenMCDriver::Result &res)
 {
 	auto end = std::chrono::high_resolution_clock::now();
 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
 	llvm::outs() << res.message;
 	llvm::outs() << (res.status == VerificationError::VE_OK ?
-			"No errors were detected.\n" : "Verification unsuccessful.\n")
-		     << "Number of complete executions explored: " << res.explored;
+			 "*** Verification complete. No errors were detected.\n" : "*** Verification unsuccessful.\n");
+
+	llvm::outs() << "Number of complete executions explored: " << res.explored;
 	GENMC_DEBUG(
 		llvm::outs() << ((conf->countDuplicateExecs) ?
 				 " (" + std::to_string(res.duplicates) + " duplicates)" : "");
@@ -104,22 +142,39 @@ void printResults(const std::shared_ptr<const Config> &conf,
 int main(int argc, char **argv)
 {
 	auto begin = std::chrono::high_resolution_clock::now();
-	auto ctx = std::make_unique<llvm::LLVMContext>();
 	auto conf = std::make_shared<Config>();
 
         conf->getConfigOptions(argc, argv);
 
+	llvm::outs() << PACKAGE_NAME " v" PACKAGE_VERSION
+	<< " (LLVM " LLVM_VERSION ")\n"
+	<< "Copyright (C) 2023 MPI-SWS. All rights reserved.\n\n";
+
+	auto ctx = std::make_unique<llvm::LLVMContext>(); // *dtor after module's*
 	std::unique_ptr<llvm::Module> module;
         if (conf->inputFromBitcodeFile) {
 		module = LLVMModule::parseLLVMModule(conf->inputFile, ctx);
-        } else {
-		if (!compileInput(conf, ctx, module)) {
-			return ECOMPILE;
-		}
+        } else if (!compileInput(conf, ctx, module)) {
+		return ECOMPILE;
+	}
+	llvm::outs() << "*** Compilation complete.\n";
+
+	/* Perform the necessary transformations */
+	auto modInfo = std::make_unique<ModuleInfo>(*module);
+	transformInput(conf, *module, *modInfo);
+	llvm::outs() << "*** Transformation complete.\n";
+
+	/* Estimate the state space */
+	if (conf->estimate) {
+		auto res = GenMCDriver::estimate(conf, module, modInfo);
+		printEstimationResults(conf, res);
+		if (res.status != VerificationError::VE_OK)
+			return EVERIFY;
 	}
 
-	auto res = GenMCDriver::verify(conf, std::move(module));
-	printResults(conf, begin, res);
+	/* Go ahead and try to verify */
+	auto res = GenMCDriver::verify(conf, std::move(module), std::move(modInfo));
+	printVerificationResults(conf, begin, res);
 
 	/* TODO: Check globalContext.destroy() and llvm::shutdown() */
 	return res.status == VerificationError::VE_OK ? 0 : EVERIFY;

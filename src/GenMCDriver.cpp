@@ -54,7 +54,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 	auto execGraph = userConf->isDepTrackingModel ?
 		std::make_unique<DepExecutionGraph>() :
 		std::make_unique<ExecutionGraph>();
-	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()));
+	execStack.emplace_back(std::move(execGraph), std::move(LocalQueueT()), std::move(ChoiceMap()));
 
 	/* Create an interpreter for the program's instructions */
 	std::string buf;
@@ -69,6 +69,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 		llvm::outs() << "Seed: " << seedVal << "\n";
 	}
 	rng.seed(seedVal);
+	estRng.seed(rd());
 
 	/*
 	 * Make sure we can resolve symbols in the program as well. We use 0
@@ -84,9 +85,10 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 
 GenMCDriver::~GenMCDriver() = default;
 
-GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w)
-	: graph(std::move(g)), workqueue(std::move(w)) {}
+GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&m)
+: graph(std::move(g)), workqueue(std::move(w)), choices(std::move(m)) {}
 GenMCDriver::Execution::~Execution() = default;
+
 
 void repairRead(ExecutionGraph &g, ReadLabel *lab)
 {
@@ -132,10 +134,23 @@ void GenMCDriver::Execution::restrictWorklist(Stamp stamp)
 		workqueue.erase(i);
 }
 
+void GenMCDriver::Execution::restrictChoices(Stamp stamp)
+{
+	auto &choices = getChoiceMap();
+	for (auto cit = choices.begin(); cit != choices.end(); ) {
+		if (cit->first > stamp.get()) {
+			cit = choices.erase(cit);
+		} else {
+			++cit;
+		}
+	}
+}
+
 void GenMCDriver::Execution::restrict(Stamp stamp)
 {
 	restrictGraph(stamp);
 	restrictWorklist(stamp);
+	restrictChoices(stamp);
 }
 
 void GenMCDriver::pushExecution(Execution &&e)
@@ -151,15 +166,15 @@ bool GenMCDriver::popExecution()
 	return !execStack.empty();
 }
 
-GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&a,
+GenMCDriver::State::State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m, SAddrAllocator &&a,
 			  llvm::BitVector &&fds, ValuePrefixT &&c, Event la)
-	: graph(std::move(g)), alloctor(std::move(a)), fds(std::move(fds)), cache(std::move(c)), lastAdded(la) {}
+: graph(std::move(g)), choices(std::move(m)), alloctor(std::move(a)), fds(std::move(fds)), cache(std::move(c)), lastAdded(la) {}
 GenMCDriver::State::~State() = default;
 
 void GenMCDriver::initFromState(std::unique_ptr<State> s)
 {
 	execStack.clear();
-	execStack.emplace_back(std::move(s->graph), LocalQueueT());
+	execStack.emplace_back(std::move(s->graph), LocalQueueT(), std::move(s->choices));
 	alloctor = std::move(s->alloctor);
 	fds = std::move(s->fds);
 	seenPrefixes = std::move(s->cache);
@@ -171,9 +186,8 @@ GenMCDriver::extractState()
 {
 	auto cache = std::move(seenPrefixes);
 	seenPrefixes.clear();
-	auto &g = execStack.back().graph;
 	return std::make_unique<State>(
-		g->clone(), SAddrAllocator(alloctor),
+		getGraph().clone(), ChoiceMap(getChoiceMap()), SAddrAllocator(alloctor),
 		llvm::BitVector(fds), std::move(cache), lastAdded);
 }
 
@@ -567,7 +581,7 @@ Event findNextLabelToAdd(const ExecutionGraph &g, Event pos)
 
 bool GenMCDriver::tryOptimizeScheduling(Event pos)
 {
-	if (!getConf()->instructionCaching)
+	if (!getConf()->instructionCaching || inEstimationMode())
 		return false;
 
 	auto next = findNextLabelToAdd(getGraph(), pos);
@@ -652,6 +666,42 @@ bool GenMCDriver::isExecutionBlocked() const
 				   return bLab || thr.isBlocked(); });
 }
 
+void GenMCDriver::updateStSpaceEstimation()
+{
+	auto &choices = getChoiceMap();
+	auto current = std::accumulate(choices.begin(), choices.end(), 1LL,
+				       [](auto &sum, auto &kv) { return sum *= kv.second.size(); });
+
+	auto weightedCurrent = (long double) current / getConf()->estimationBudget;
+	result.estimationMean += weightedCurrent;
+	result.estimationSqMean += (weightedCurrent * current);
+        // if (result.explored + result.exploredBlocked <
+        // getConf()->estimateRuns) { 	auto &g = getGraph();
+
+        // 	MyDist dist(0, choices.size()-1);
+        //         auto readIdx = dist(rng);
+        // 	auto cIt = choices.begin();
+        //         std::advance(cIt, readIdx);
+        // 	auto readStamp = cIt->first;
+        // 	auto *rLab = &*std::find_if(label_begin(g), label_end(g),
+        // [&](auto &lab){ return lab.getStamp() == readStamp; });
+
+        // 	MyDist dist2(0, choices[readStamp].size()-1);
+        // 	auto storeIdx = dist2(rng);
+        // 	auto *wLab = g.getEventLabel(choices[readStamp][storeIdx]);
+
+        // 	if (rLab->getStamp() < wLab->getStamp()) {
+        // 		llvm::dbgs() << "wlab is " << *wLab << "\n";
+        // 		addToWorklist(wLab->getStamp(),
+        // constructBackwardRevisit(llvm::dyn_cast<ReadLabel>(rLab),
+        // llvm::dyn_cast<WriteLabel>(wLab))); 	} else {
+        // 		addToWorklist(rLab->getStamp(),
+        // std::make_unique<ReadForwardRevisit>(rLab->getPos(),
+        // wLab->getPos()));
+        // 	}
+        // }
+}
+
 void GenMCDriver::handleExecutionEnd()
 {
 	/* LAPOR: Check lock-well-formedness */
@@ -666,6 +716,14 @@ void GenMCDriver::handleExecutionEnd()
 	/* Helper: Check helping CAS annotation */
 	if (getConf()->helper)
 		checkHelpingCasAnnotation();
+
+	/* If under estimation mode, guess the total.
+	 * (This may run a few times, but that's OK.)*/
+	if (inEstimationMode()) {
+		updateStSpaceEstimation();
+		if (--getRemainingEstBudget() > 0)
+			addToWorklist(0, std::make_unique<RerunForwardRevisit>());
+	}
 
 	/* Ignore the execution if some assume has failed */
 	if (isExecutionBlocked()) {
@@ -747,24 +805,8 @@ void GenMCDriver::halt(VerificationError status)
 		getThreadPool()->halt();
 }
 
-GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod)
+GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod, std::unique_ptr<ModuleInfo> modInfo)
 {
-	auto modInfo = std::make_unique<ModuleInfo>(*mod);
-
-	/* Prepare the module for verification */
-	LLVMModule::transformLLVMModule(*mod, *modInfo, conf);
-	if (!conf->transformFile.empty()) {
-		LLVMModule::printLLVMModule(*mod, conf->transformFile);
-	}
-
-	/* Perhaps override the MM under which verification will take place */
-	if (conf->mmDetector && modInfo->determinedMM.has_value() && isStrongerThan(*modInfo->determinedMM, conf->model)) {
-		conf->model = *modInfo->determinedMM;
-		conf->isDepTrackingModel = (conf->model == ModelType::IMM);
-		LOG(VerbosityLevel::Tip) << "Automatically adjusting memory model to " << conf->model
-					 << ". You can disable this behavior with -disable-mm-detector.\n";
-	}
-
 	/* Spawn a single or multiple drivers depending on the configuration */
 	if (conf->threads == 1) {
 		auto driver = DriverFactory::create(conf, std::move(mod), std::move(modInfo));
@@ -786,8 +828,19 @@ GenMCDriver::Result GenMCDriver::verify(std::shared_ptr<Config> conf, std::uniqu
 	return res;
 }
 
-void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
+GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
+					  const std::unique_ptr<llvm::Module> &mod,
+					  const std::unique_ptr<ModuleInfo> &modInfo)
+{
+	auto estCtx = std::make_unique<llvm::LLVMContext>();
+	auto newmod = LLVMModule::cloneModule(mod, estCtx);
+	auto newMI = modInfo->clone(*newmod);
+	auto driver = DriverFactory::create(conf, std::move(newmod), std::move(newMI), GenMCDriver::EstimationMode{conf->estimationBudget});
+	driver->run();
+	return driver->getResult();
+}
 
+void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
 {
 	getWorkqueue()[stamp.get()].add(std::move(item));
 }
@@ -854,6 +907,9 @@ bool GenMCDriver::scheduleAtomicity()
 
 bool GenMCDriver::scheduleNormal()
 {
+	if (inEstimationMode())
+		return scheduleNextWFR();
+
 	switch (getConf()->schedulePolicy) {
 	case SchedulePolicy::ltr:
 		return scheduleNextLTR();
@@ -1737,23 +1793,16 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 {
 	auto &g = getGraph();
 
-	bool found = false;
-	while (!found) {
-		found = true;
-		g.changeRf(rLab->getPos(), rfs.back());
-		if (!isExecutionValid(rLab)) {
-			found = false;
-			rfs.erase(rfs.end() - 1);
-			BUG_ON(!getConf()->LAPOR && rfs.empty());
-			if (rfs.empty())
-				break;
-		}
-	}
+	rfs.erase(std::remove_if(rfs.begin(), rfs.end(), [&](auto &rf){
+		g.changeRf(rLab->getPos(), rf);
+		return !isExecutionValid(rLab);
+	}), rfs.end());
 
-	if (!found) {
+	if (rfs.empty()) {
 		getEE()->block(BlockageType::Cons);
 		return false;
 	}
+	g.changeRf(rLab->getPos(), rfs.back());
 	return true;
 }
 
@@ -2139,9 +2188,44 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 			return false;
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
-	if (lab->getAnnot())
+	if (lab->getAnnot() && !inEstimationMode())
 		filterValuesFromAnnotSAVER(lab, stores);
 	return true;
+}
+
+void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab, std::vector<Event> &stores)
+{
+	auto &g = getGraph();
+	if (!llvm::isa<CasReadLabel>(rLab) && !llvm::isa<FaiReadLabel>(rLab))
+		return;
+
+	const auto *casLab = llvm::dyn_cast<CasReadLabel>(rLab);
+	auto valueMakesSuccessfulRMW = [&casLab, rLab](auto &&val){ return !casLab || val == casLab->getExpected(); };
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](auto &s){
+		auto *sLab = g.getEventLabel(s);
+		if (auto *iLab = llvm::dyn_cast<InitLabel>(sLab))
+			return std::any_of(iLab->rf_begin(rLab->getAddr()), iLab->rf_end(rLab->getAddr()), [&](auto &rLab){
+				return g.isRMWLoad(&rLab) && valueMakesSuccessfulRMW(getReadValue(&rLab));
+			});
+		return std::any_of(rf_succ_begin(g, sLab), rf_succ_end(g, sLab), [&](auto &rLab){
+			return g.isRMWLoad(&rLab) && valueMakesSuccessfulRMW(getReadValue(&rLab));
+		});
+	}), stores.end());
+}
+
+void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores)
+{
+	auto &choices = getChoiceMap();
+	choices[rLab->getStamp().get()] = stores;
+}
+
+void GenMCDriver::pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores)
+{
+	auto &g = getGraph();
+
+	MyDist dist(0, stores.size()-1);
+	auto random = dist(estRng);
+	g.changeRf(rLab->getPos(), stores[random]);
 }
 
 std::optional<SVal>
@@ -2198,6 +2282,13 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (readsUninitializedMem(lab)) {
 		reportError(lab->getPos(), VerificationError::VE_UninitializedMem);
 		return std::nullopt;
+	}
+
+	if (inEstimationMode()) {
+		updateStSpaceChoices(lab, stores);
+		filterAtomicityViolations(lab, stores);
+		pickRandomRf(lab, stores);
+		return getWriteValue(lab->getRf(), lab->getAccess());
 	}
 
 	GENMC_DEBUG(
@@ -2275,11 +2366,36 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 	return loads;
 }
 
+void GenMCDriver::pickRandomCo(WriteLabel *sLab,
+			       const llvm::iterator_range<ExecutionGraph::co_iterator> &placesRange)
+{
+	auto &g = getGraph();
+
+	MyDist dist(0, std::distance(placesRange.begin(), placesRange.end()));
+	auto random = dist(estRng);
+	g.addStoreToCO(sLab, std::next(placesRange.begin(), (long long) random));
+}
+
+void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab, const std::vector<Event> &stores)
+{
+	auto &choices = getChoiceMap();
+	choices[wLab->getStamp().get()] = stores;
+}
+
 void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 {
 	/* Find all possible placings in coherence for this store */
 	auto &g = getGraph();
 	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+
+	if (inEstimationMode()) {
+		std::vector<Event> cos;
+		std::transform(placesRange.begin(), placesRange.end(), std::back_inserter(cos), [&](auto &lab){ return lab.getPos(); });
+		cos.push_back(Event::getBottom());
+		pickRandomCo(lab, placesRange);
+		updateStSpaceChoices(lab, cos);
+		return;
+	}
 
 	/* We cannot place the write just before the write of an RMW or during recovery */
 	for (auto &succLab : placesRange) {
@@ -2513,6 +2629,11 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 	/* If we this is a replay (might happen if one LLVM instruction
 	 * maps to many MC events), do not get into an infinite loop... */
 	if (inReplay())
+		return;
+
+	/* Ignore soft errors under estimation mode.
+	 * These are going to be reported later on anyway */
+	if (!shouldHalt && inEstimationMode())
 		return;
 
 	auto *errLab = g.getEventLabel(pos);
@@ -3045,6 +3166,27 @@ GenMCDriver::copyGraph(const BackwardRevisit *br, VectorClock *v) const
 	return og;
 }
 
+GenMCDriver::ChoiceMap
+GenMCDriver::createChoiceMapForCopy(const ExecutionGraph &og) const
+{
+	const auto &g = getGraph();
+	const auto &choices = getChoiceMap();
+	ChoiceMap result;
+
+	for (auto &lab : labels(g)) {
+		if (!og.containsPos(lab.getPos()) || !choices.count(lab.getStamp().get()))
+			continue;
+
+		auto oldStamp = lab.getStamp();
+		auto newStamp = og.getEventLabel(lab.getPos())->getStamp();
+		for (const auto &e : choices.at(oldStamp.get())) {
+			if (og.containsPos(e))
+				result[newStamp.get()].insert(e);
+		}
+	}
+	return result;
+}
+
 bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<Event> &loads)
 {
 	if (!getConf()->helper || !sLab->hasAttr(WriteAttr::RevBlocker))
@@ -3064,6 +3206,16 @@ bool GenMCDriver::checkRevBlockHELPER(const WriteLabel *sLab, const std::vector<
 	return true;
 }
 
+void GenMCDriver::updateStSpaceChoices(const std::vector<Event> &loads, const WriteLabel *sLab)
+{
+	auto &g = getGraph();
+	auto &choices = getChoiceMap();
+	for (const auto &l : loads) {
+		const auto *rLab = g.getReadLabel(l);
+		choices[rLab->getStamp().get()].insert(sLab->getPos());
+	}
+}
+
 bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
@@ -3072,6 +3224,12 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Revisitable: " << format(loads) << "\n"; );
 	if (tryOptimizeRevisits(sLab, loads))
 		return true;
+
+	/* If operating in estimation mode, don't actually revisit */
+	if (inEstimationMode()) {
+		updateStSpaceChoices(loads, sLab);
+		return checkAtomicity(sLab) && checkRevBlockHELPER(sLab, loads) && !isMoot();
+	}
 
 	GENMC_DEBUG( LOG(VerbosityLevel::Debug3) << "Revisitable (optimized): " << format(loads) << "\n"; );
 	for (auto &l : loads) {
@@ -3240,10 +3398,12 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	auto *brh = llvm::dyn_cast<BackwardRevisitHELPER>(&br);
         auto v = getRevisitView(g.getReadLabel(br.getPos()),
                                  g.getWriteLabel(br.getRev()),
-				 brh ? g.getWriteLabel(brh->getMid()) : nullptr);
-	auto og = copyGraph(&br, &*v);
+				brh ? g.getWriteLabel(brh->getMid()) : nullptr);
 
-	pushExecution({std::move(og), LocalQueueT()});
+	auto og = copyGraph(&br, &*v);
+	auto m = createChoiceMapForCopy(*og);
+
+	pushExecution({std::move(og), LocalQueueT(), std::move(m)});
 
 	repairDanglingReads(getGraph());
 	auto ok = revisitRead(br);

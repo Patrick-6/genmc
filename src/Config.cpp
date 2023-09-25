@@ -58,6 +58,10 @@ clModelType(llvm::cl::values(
 	    llvm::cl::init(ModelType::RC11),
 	    llvm::cl::desc("Choose model type:"));
 
+static llvm::cl::opt<bool>
+clDisableEstimation("disable-estimation", llvm::cl::cat(clGeneral),
+	llvm::cl::desc("Do not estimate the state-space size before verifying the program"));
+
 static llvm::cl::opt<unsigned int>
 clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
 	      llvm::cl::desc("Number of threads to be used in the exploration"));
@@ -186,6 +190,11 @@ clDisableMMDetector("disable-mm-detector", llvm::cl::cat(clTransformation),
 
 /*** Debugging options ***/
 
+static llvm::cl::opt<unsigned int>
+clEstimationBudget("estimation-budget", llvm::cl::init(1000),
+	llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Number of allotted rounds for state-space estimation"));
+
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
 		       llvm::cl::value_desc("fun_name"), llvm::cl::cat(clDebugging),
@@ -265,6 +274,10 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 static llvm::cl::opt<bool>
 clCountMootExecs("count-moot-execs", llvm::cl::cat(clDebugging),
 		 llvm::cl::desc("Count moot executions"));
+
+static llvm::cl::opt<bool>
+clPrintEstimationStats("print-estimation-stats", llvm::cl::cat(clDebugging),
+		 llvm::cl::desc("Prints estimations statistics"));
 #endif /* ENABLE_GENMC_DEBUG */
 
 
@@ -315,6 +328,8 @@ void Config::saveConfigOptions()
 	/* Save exploration options */
 	dotFile = clDotGraphFile;
 	model = clModelType;
+	estimate = !clDisableEstimation;
+	estimationBudget = clEstimationBudget;
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
@@ -364,7 +379,8 @@ void Config::saveConfigOptions()
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
-	countMootExecs = clCountMootExecs;
+        countMootExecs = clCountMootExecs;
+	printEstimationStats = clPrintEstimationStats;
 #endif
 
 	/* Set (global) log state */
