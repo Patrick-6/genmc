@@ -68,6 +68,7 @@ enum class InternalFunctions {
 	FN_LockZNESpinEnd,
 	FN_Assume,
 	/* Assume calls */
+
 	FN_KillThread,
 	FN_NondetInt,
 	FN_ThreadSelf,
@@ -77,6 +78,7 @@ enum class InternalFunctions {
 	FN_HazptrClear,
 	FN_NoSideEffectsLast,
 	/* No side effects */
+
 	FN_ThreadCreate,
 	FN_ThreadCreateSymmetric,
 	FN_ThreadJoin,
@@ -193,6 +195,16 @@ inline bool isFsInodeCode(InternalFunctions code)
 inline bool isFsInvalidRecCode(InternalFunctions code)
 {
 	return (code >= InternalFunctions::FN_CreatFS && code <= InternalFunctions::FN_LastInvRecFS);
+}
+
+inline bool hasGlobalLoadSemantics(const std::string &name)
+{
+	if (!isInternalFunction(name))
+		return false;
+
+	using IF = InternalFunctions;
+	auto &code = internalFunNames.at(name);
+	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock || code == IF::FN_BarrierWait || isFsCode(code);
 }
 
 /* Should match our internal definitions */

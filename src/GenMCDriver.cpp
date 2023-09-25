@@ -301,8 +301,7 @@ bool GenMCDriver::scheduleNextWF()
 		if (!isSchedulable(i))
 			continue;
 
-		if (EE->getThrById(i).globalInstructions != 0 &&
-		    g.containsPos(Event(i, EE->getThrById(i).globalInstructions))) {
+		if (g.containsPos(Event(i, EE->getThrById(i).globalInstructions+1))) {
 			EE->scheduleThread(i);
 			return true;
 		}
