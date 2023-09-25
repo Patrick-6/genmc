@@ -589,7 +589,6 @@ void GenMCDriver::handleExecutionEnd()
 	if (getConf()->printExecGraphs && !getConf()->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
 	++result.explored;
-	return;
 }
 
 void GenMCDriver::handleRecoveryStart()
@@ -640,7 +639,6 @@ void GenMCDriver::run()
 {
 	/* Explore all graphs and print the results */
 	explore();
-	return;
 }
 
 bool GenMCDriver::isHalting() const
