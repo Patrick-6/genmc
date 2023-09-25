@@ -140,6 +140,7 @@ print_variant_condensed_results() {
 	((tests_success++))
     fi
 
+    local i
     # replace previous results
     for ((i=0;i<1000;i++)); do printf "\r"; done
 
