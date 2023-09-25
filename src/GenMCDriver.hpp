@@ -435,6 +435,8 @@ private:
 	 * instructions to run and it is not blocked) */
 	bool isSchedulable(int thread) const;
 
+	int getFirstSchedulableSymmetric(int tid);
+
 	/* Ensures the scheduler respects atomicity */
 	bool scheduleAtomicity();
 
@@ -448,6 +450,7 @@ private:
 	/* Helpers for schedule according to a policy */
 	bool scheduleNextLTR();
 	bool scheduleNextWF();
+	bool scheduleNextWFR();
 	bool scheduleNextRandom();
 
 	/* Tries to schedule the next instruction according to the

@@ -208,6 +208,7 @@ clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(S
 		 llvm::cl::values(
 			 clEnumValN(SchedulePolicy::ltr,     "ltr",      "Left-to-right"),
 			 clEnumValN(SchedulePolicy::wf,      "wf",       "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::wfr,     "wfr",      "Writes-first-random"),
 			 clEnumValN(SchedulePolicy::random,  "random",   "Random")
 			 ));
 

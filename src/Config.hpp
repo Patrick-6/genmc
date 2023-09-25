@@ -28,7 +28,7 @@
 
 #include <string>
 
-enum class SchedulePolicy { ltr, wf, random };
+enum class SchedulePolicy { ltr, wf, wfr, random };
 
 struct Config {
 

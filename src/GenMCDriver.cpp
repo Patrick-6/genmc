@@ -332,6 +332,60 @@ bool GenMCDriver::scheduleNextWF()
 	return false;
 }
 
+int GenMCDriver::getFirstSchedulableSymmetric(int tid)
+{
+	if (!getConf()->symmetryReduction)
+		return tid;
+
+	auto firstSched = tid;
+	auto symm = getSymmPredTid(tid);
+	while (symm != -1) {
+		if (isSchedulable(symm))
+			firstSched = symm;
+		symm = getSymmPredTid(symm);
+	}
+	return firstSched;
+}
+
+bool GenMCDriver::scheduleNextWFR()
+{
+	auto &g = getGraph();
+	auto *EE = getEE();
+
+	/* First, schedule based on the EG */
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		if (!isSchedulable(i))
+			continue;
+
+		if (g.containsPos(Event(i, EE->getThrById(i).globalInstructions+1))) {
+			EE->scheduleThread(i);
+			return true;
+		}
+	}
+
+	std::vector<int> nonwrites;
+	std::vector<int> writes;
+	for (auto i = 0u; i < g.getNumThreads(); i++) {
+		if (!isSchedulable(i))
+			continue;
+
+		if (!isNextThreadInstLoad(i)) {
+			writes.push_back(i);
+		} else {
+			nonwrites.push_back(i);
+		}
+	}
+
+	std::vector<int> &selection = !writes.empty() ? writes : nonwrites;
+	if (selection.empty())
+		return false;
+
+	MyDist dist(0, selection.size()-1);
+	auto candidate = selection[dist(rng)];
+	EE->scheduleThread(getFirstSchedulableSymmetric(static_cast<int>(candidate)));
+	return true;
+}
+
 bool GenMCDriver::scheduleNextRandom()
 {
 	auto &g = getGraph();
@@ -346,21 +400,8 @@ bool GenMCDriver::scheduleNextRandom()
 		if (!isSchedulable(i))
 			continue;
 
-		/* SR: Symmetric threads have to always be executed in order */
-		if (getConf()->symmetryReduction) {
-			std::vector<int> symmTs = {static_cast<int>(i)};
-			auto symm = getSymmPredTid(i);
-			while (symm != -1) {
-				if (isSchedulable(symm))
-					symmTs.push_back(symm);
-				symm = getSymmPredTid(symm);
-			}
-			EE->scheduleThread(symmTs.back());
-			return true;
-		}
-
 		/* Found a not-yet-complete thread; schedule it */
-		EE->scheduleThread(i);
+		EE->scheduleThread(getFirstSchedulableSymmetric(static_cast<int>(i)));
 		return true;
 	}
 
@@ -792,6 +833,8 @@ bool GenMCDriver::scheduleNormal()
 		return scheduleNextLTR();
 	case SchedulePolicy::wf:
 		return scheduleNextWF();
+	case SchedulePolicy::wfr:
+		return scheduleNextWFR();
 	case SchedulePolicy::random:
 		return scheduleNextRandom();
 	default:
