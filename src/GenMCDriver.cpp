@@ -1048,6 +1048,7 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
         /* Check whether there are any unreported warnings... */
 	std::vector<const EventLabel *> races;
 	auto newWarnings = checkWarnings(lab, getResult().warnings, races);
+	getResult().warnings.insert(newWarnings.begin(), newWarnings.end());
 
 	/* ... and report them */
 	auto i = 0U;
@@ -1059,7 +1060,6 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 		if (hardError)
 			return wcode;
 	}
-	getResult().warnings.insert(newWarnings.begin(), newWarnings.end());
 	return VerificationError::VE_OK;
 }
 
