@@ -50,13 +50,13 @@ class ThreadPool;
 class GenMCDriver {
 
 protected:
-	using LocalQueueT = std::map<uint32_t, WorkSet>;
+	using LocalQueueT = std::map<Stamp, WorkSet>;
 	using ValuePrefixT = std::unordered_map<unsigned int,
 						Trie<std::vector<SVal>,
 						     std::vector<std::unique_ptr<EventLabel>>,
 						     SValUCmp>
 						>;
-	using ChoiceMap = std::map<uint32_t, VSet<Event>>;
+	using ChoiceMap = std::map<Stamp, VSet<Event>>;
 
 public:
 	/* The operating mode of the driver */

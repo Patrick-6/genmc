@@ -123,11 +123,11 @@ void GenMCDriver::Execution::restrictGraph(Stamp stamp)
 
 void GenMCDriver::Execution::restrictWorklist(Stamp stamp)
 {
-	std::vector<int> idxsToRemove;
+	std::vector<Stamp> idxsToRemove;
 
 	auto &workqueue = getWorkqueue();
 	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
-		if (rit->first > stamp.get() && rit->second.empty())
+		if (rit->first > stamp && rit->second.empty())
 			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
 
 	for (auto &i : idxsToRemove)
@@ -842,7 +842,7 @@ GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
 
 void GenMCDriver::addToWorklist(Stamp stamp, WorkSet::ItemT item)
 {
-	getWorkqueue()[stamp.get()].add(std::move(item));
+	getWorkqueue()[stamp].add(std::move(item));
 }
 
 std::pair<Stamp, WorkSet::ItemT>
@@ -2216,7 +2216,7 @@ void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab, std::vector<E
 void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores)
 {
 	auto &choices = getChoiceMap();
-	choices[rLab->getStamp().get()] = stores;
+	choices[rLab->getStamp()] = stores;
 }
 
 void GenMCDriver::pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores)
@@ -2379,7 +2379,7 @@ void GenMCDriver::pickRandomCo(WriteLabel *sLab,
 void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab, const std::vector<Event> &stores)
 {
 	auto &choices = getChoiceMap();
-	choices[wLab->getStamp().get()] = stores;
+	choices[wLab->getStamp()] = stores;
 }
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab)
@@ -3174,12 +3174,12 @@ GenMCDriver::createChoiceMapForCopy(const ExecutionGraph &og) const
 	ChoiceMap result;
 
 	for (auto &lab : labels(g)) {
-		if (!og.containsPos(lab.getPos()) || !choices.count(lab.getStamp().get()))
+		if (!og.containsPos(lab.getPos()) || !choices.count(lab.getStamp()))
 			continue;
 
 		auto oldStamp = lab.getStamp();
 		auto newStamp = og.getEventLabel(lab.getPos())->getStamp();
-		for (const auto &e : choices.at(oldStamp.get())) {
+		for (const auto &e : choices.at(oldStamp)) {
 			if (og.containsPos(e))
 				result[newStamp.get()].insert(e);
 		}
@@ -3212,7 +3212,7 @@ void GenMCDriver::updateStSpaceChoices(const std::vector<Event> &loads, const Wr
 	auto &choices = getChoiceMap();
 	for (const auto &l : loads) {
 		const auto *rLab = g.getReadLabel(l);
-		choices[rLab->getStamp().get()].insert(sLab->getPos());
+		choices[rLab->getStamp()].insert(sLab->getPos());
 	}
 }
 
