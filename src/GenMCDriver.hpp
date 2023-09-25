@@ -57,6 +57,11 @@ protected:
 						>;
 
 public:
+	/* The operating mode of the driver */
+	struct VerificationMode {};
+	struct EstimationMode { unsigned int budget; };
+	using Mode = std::variant<VerificationMode, EstimationMode>;
+
 	/* Verification result */
 	struct Result {
 		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
@@ -260,7 +265,7 @@ public:
 protected:
 
 	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::unique_ptr<ModuleInfo> MI);
+		    std::unique_ptr<ModuleInfo> MI, Mode = VerificationMode{});
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -838,6 +843,9 @@ private:
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
+
+	/* The operating mode of the driver */
+	Mode mode = VerificationMode{};
 
 	/* The thread pool this driver may belong to */
 	ThreadPool *pool = nullptr;

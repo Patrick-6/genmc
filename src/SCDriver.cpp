@@ -26,8 +26,8 @@
 #include "ModuleInfo.hpp"
 
 SCDriver::SCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		std::unique_ptr<ModuleInfo> MI)
-	: GenMCDriver(conf, std::move(mod), std::move(MI)) {}
+		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
+	: GenMCDriver(conf, std::move(mod), std::move(MI), mode) {}
 
 void SCDriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
 {

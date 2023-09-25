@@ -49,7 +49,7 @@ private:
 
 public:
 	RADriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		std::unique_ptr<ModuleInfo> MI);
+		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode = GenMCDriver::VerificationMode{});
 
 	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
 	std::vector<View> calculateViews(const EventLabel *lab);
