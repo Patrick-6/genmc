@@ -87,22 +87,6 @@ public:
 		}
 	};
 
-	/* Represents the execution at a given point */
-	struct Execution {
-		std::unique_ptr<ExecutionGraph> graph;
-		LocalQueueT workqueue;
-
-                Execution() = delete;
-		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
-
-		Execution(const Execution &) = delete;
-		auto operator=(const Execution &) -> Execution& = delete;
-		Execution(Execution &&) = default;
-		auto operator=(Execution &&) -> Execution& = default;
-
-		~Execution();
-	};
-
 	/* Driver (global) state */
 	struct State {
 		std::unique_ptr<ExecutionGraph> graph;
@@ -124,6 +108,8 @@ public:
 	};
 
 private:
+	struct Execution;
+
 	static bool isInvalidAccessError(VerificationError s) {
 		return VerificationError::VE_InvalidAccessBegin <= s &&
 			s <= VerificationError::VE_InvalidAccessEnd;
@@ -286,12 +272,17 @@ protected:
 	/* Returns a pointer to the interpreter */
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
-	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return *execStack.back().graph; }
-	const ExecutionGraph &getGraph() const { return *execStack.back().graph; }
+	/* Returns a reference to the current execution */
+	Execution &getExecution() { return execStack.back(); }
+	const Execution &getExecution() const { return execStack.back(); }
 
-	LocalQueueT &getWorkqueue() { return execStack.back().workqueue; }
-	const LocalQueueT &getWorkqueue() const { return execStack.back().workqueue; }
+	/* Returns a reference to the current graph */
+	ExecutionGraph &getGraph() { return getExecution().getGraph(); }
+	const ExecutionGraph &getGraph() const { return getExecution().getGraph(); }
+
+	LocalQueueT &getWorkqueue() { return getExecution().getWorkqueue(); }
+	const LocalQueueT &getWorkqueue() const { return getExecution().getWorkqueue(); }
+
 
 	/* Pushes E to the execution stack. */
 	void pushExecution(Execution &&e);
@@ -382,6 +373,36 @@ protected:
 	bool isHazptrProtected(const MemAccessLabel *mLab) const;
 
 private:
+	/* Represents the execution at a given point */
+	struct Execution {
+                Execution() = delete;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution& = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution& = default;
+
+		/* Returns a reference to the current graph */
+		ExecutionGraph &getGraph() { return *graph; }
+		const ExecutionGraph &getGraph() const { return *graph; }
+
+		LocalQueueT &getWorkqueue() { return workqueue; }
+		const LocalQueueT &getWorkqueue() const { return workqueue; }
+
+		void restrict(Stamp stamp);
+
+		~Execution();
+
+	private:
+		/* Removes all items with stamp >= STAMP from the list */
+		void restrictWorklist(Stamp stamp);
+		void restrictGraph(Stamp stamp);
+
+		std::unique_ptr<ExecutionGraph> graph;
+		LocalQueueT workqueue;
+	};
+
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
@@ -391,9 +412,6 @@ private:
 	 * A default-constructed item means that the list is empty */
 	std::pair<Stamp, WorkSet::ItemT>
 	getNextItem();
-
-	/* Restricts the worklist only to entries that were added before STAMP */
-	void restrictWorklist(Stamp stamp);
 
 
 	/*** Exploration-related ***/
@@ -617,9 +635,6 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* Removes all labels with stamp >= ST from the graph */
-	void restrictGraph(Stamp st);
-
 	/* Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */
 	std::unique_ptr<ExecutionGraph>
@@ -690,16 +705,6 @@ private:
 
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
-
-	/* Opt: Repairs the reads-from edge of a dangling lock */
-	void repairLock(LockCasReadLabel *lab);
-
-	/* Opt: Repairs some locks that may be "dangling", as part of the
-	 * in-place revisiting of locks */
-	void repairDanglingLocks();
-
-	void repairRead(ReadLabel *lab);
-	void repairDanglingReads();
 
 	/* Opt: Finds the last memory access that is visible to other threads;
 	 * return nullptr if no such access is found */

@@ -88,6 +88,56 @@ GenMCDriver::Execution::Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT
 	: graph(std::move(g)), workqueue(std::move(w)) {}
 GenMCDriver::Execution::~Execution() = default;
 
+void repairRead(ExecutionGraph &g, ReadLabel *lab)
+{
+	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr())) ? Event::getInit() : store_rbegin(g, lab->getAddr())->getPos();
+	g.changeRf(lab->getPos(), last);
+	lab->setAddedMax(true);
+	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());
+}
+
+void repairDanglingReads(ExecutionGraph &g)
+{
+	for (auto i = 0U; i < g.getNumThreads(); i++) {
+		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(i));
+		if (!rLab)
+			continue;
+		if (!rLab->getRf()) {
+			repairRead(g, rLab);
+		}
+	}
+}
+
+void GenMCDriver::Execution::restrictGraph(Stamp stamp)
+{
+	/* Restrict the graph (and relations). It can be the case that
+	 * events with larger stamp remain in the graph (e.g.,
+	 * BEGINs). Fix their stamps too. */
+	auto &g = getGraph();
+	g.cutToStamp(stamp);
+	g.compressStampsAfter(stamp);
+	repairDanglingReads(g);
+}
+
+void GenMCDriver::Execution::restrictWorklist(Stamp stamp)
+{
+	std::vector<int> idxsToRemove;
+
+	auto &workqueue = getWorkqueue();
+	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
+		if (rit->first > stamp.get() && rit->second.empty())
+			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
+
+	for (auto &i : idxsToRemove)
+		workqueue.erase(i);
+}
+
+void GenMCDriver::Execution::restrict(Stamp stamp)
+{
+	restrictGraph(stamp);
+	restrictWorklist(stamp);
+}
+
 void GenMCDriver::pushExecution(Execution &&e)
 {
 	execStack.push_back(std::move(e));
@@ -754,30 +804,6 @@ GenMCDriver::getNextItem()
 		return {rit->first, rit->second.getNext()};
 	}
 	return {0, nullptr};
-}
-
-void GenMCDriver::restrictWorklist(Stamp stamp)
-{
-	std::vector<int> idxsToRemove;
-
-	auto &workqueue = getWorkqueue();
-	for (auto rit = workqueue.rbegin(); rit != workqueue.rend(); ++rit)
-		if (rit->first > stamp.get() && rit->second.empty())
-			idxsToRemove.push_back(rit->first); // TODO: break out of loop?
-
-	for (auto &i : idxsToRemove)
-		workqueue.erase(i);
-}
-
-void GenMCDriver::restrictGraph(Stamp stamp)
-{
-	/* Restrict the graph (and relations). It can be the case that
-	 * events with larger stamp remain in the graph (e.g.,
-	 * BEGINs). Fix their stamps too. */
-	getGraph().cutToStamp(stamp);
-	getGraph().compressStampsAfter(stamp);
-	repairDanglingReads();
-	return;
 }
 
 
@@ -3062,67 +3088,6 @@ bool GenMCDriver::calcRevisits(const WriteLabel *sLab)
 	return checkAtomicity(sLab) && checkRevBlockHELPER(sLab, loads) && !isMoot();
 }
 
-void GenMCDriver::repairLock(LockCasReadLabel *lab)
-{
-	auto &g = getGraph();
-
-	for (auto rit = g.co_rbegin(lab->getAddr()), re = g.co_rend(lab->getAddr()); rit != re; ++rit) {
-		auto *posRf = llvm::dyn_cast<WriteLabel>(&*rit);
-		if (llvm::isa<LockCasWriteLabel>(posRf) || llvm::isa<TrylockCasWriteLabel>(posRf)) {
-			auto prev = posRf->getPos().prev();
-			if (g.getMatchingUnlock(prev).isInitializer()) {
-				g.changeRf(lab->getPos(), posRf->getPos());
-				threadPrios = { posRf->getPos() };
-				blockThread(lab->getPos().next(), BlockageType::LockNotAcq);
-				return;
-			}
-		}
-	}
-	BUG();
-}
-
-void GenMCDriver::repairDanglingLocks()
-{
-	auto &g = getGraph();
-
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto *lLab = llvm::dyn_cast<LockCasReadLabel>(g.getEventLabel(g.getLastThreadEvent(i)));
-		if (!lLab)
-			continue;
-		if (!lLab->getRf()) {
-			repairLock(lLab);
-			break; /* Only one such lock may exist at all times */
-		}
-		BUG_ON(!g.containsPos(lLab->getRf()->getPos()));
-	}
-	return;
-}
-
-void GenMCDriver::repairRead(ReadLabel *lab)
-{
-	auto &g = getGraph();
-
-	auto last = (store_rbegin(g, lab->getAddr()) == store_rend(g, lab->getAddr())) ? Event::getInit() : store_rbegin(g, lab->getAddr())->getPos();
-	g.changeRf(lab->getPos(), last);
-	lab->setAddedMax(true);
-	lab->setIPRStatus(g.getEventLabel(last)->getStamp() > lab->getStamp());
-}
-
-void GenMCDriver::repairDanglingReads()
-{
-	auto &g = getGraph();
-
-	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getLastThreadLabel(i));
-		if (!rLab)
-			continue;
-		if (!rLab->getRf()) {
-			repairRead(rLab);
-		}
-	}
-	return;
-}
-
 WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 {
 	/* Handle non-RMW cases first */
@@ -3279,7 +3244,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 
 	pushExecution({std::move(og), LocalQueueT()});
 
-	repairDanglingReads();
+	repairDanglingReads(getGraph());
 	auto ok = revisitRead(br);
 	BUG_ON(!ok);
 
@@ -3297,8 +3262,7 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 bool GenMCDriver::restrictAndRevisit(Stamp stamp, WorkSet::ItemT item)
 {
 	/* First, appropriately restrict the worklist and the graph */
-	restrictWorklist(stamp);
-	restrictGraph(stamp);
+	getExecution().restrict(stamp);
 
 	lastAdded = item->getPos();
 	if (auto *fr = llvm::dyn_cast<ForwardRevisit>(&*item)) {
