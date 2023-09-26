@@ -47,8 +47,7 @@
 
 GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 			 std::unique_ptr<ModuleInfo> modInfo, Mode mode /* = VerificationMode{} */)
-	: userConf(conf), result(), fds(20), isMootExecution(false), readToReschedule(Event::getInit()),
-	shouldHalt(false), mode(mode)
+	: userConf(std::move(conf)), mode(mode)
 {
 	/* Set up the execution context */
 	auto execGraph = userConf->isDepTrackingModel ?

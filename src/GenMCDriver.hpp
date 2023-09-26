@@ -902,6 +902,8 @@ private:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 					     const VerificationError &r);
 
+	static constexpr unsigned int defaultFdNum = 20;
+
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
@@ -925,7 +927,7 @@ private:
 	SAddrAllocator alloctor;
 
 	/* Pers: A bitvector of available file descriptors */
-	llvm::BitVector fds;
+	llvm::BitVector fds{defaultFdNum};
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
@@ -935,19 +937,19 @@ private:
 	std::vector<Event> threadPrios;
 
 	/* Opt: Whether this execution is moot (locking) */
-	bool isMootExecution;
+	bool isMootExecution = false;
 
 	/* Opt: Whether a particular read needs to be repaired during rescheduling */
-	Event readToReschedule;
+	Event readToReschedule = Event::getInit();
 
 	/* Opt: Keeps track of the last event added for scheduling opt */
 	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
-	Result result;
+	Result result{};
 
 	/* Whether we are stopping the exploration (e.g., due to an error found) */
-	bool shouldHalt;
+	bool shouldHalt = false;
 
 	/* Dbg: Random-number generators for scheduling/estimation randomization */
 	MyRNG rng;
