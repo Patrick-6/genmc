@@ -2352,7 +2352,6 @@ void GenMCDriver::annotateStoreHELPER(WriteLabel *wLab)
 	else
 		llvm::dyn_cast<CasReadLabel>(pLab)->setAttr(WriteAttr::RevBlocker);
 	wLab->setAttr(WriteAttr::RevBlocker);
-	return;
 }
 
 std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sLab)
@@ -2467,7 +2466,6 @@ void GenMCDriver::handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab)
 		return;
 
 	addLabelToGraph(std::move(hpLab));
-	return;
 }
 
 SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
@@ -2522,7 +2520,6 @@ void GenMCDriver::handleRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lLab)
 		return;
 
 	addLabelToGraph(std::move(lLab));
-	return;
 }
 
 void GenMCDriver::handleRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> uLab)
@@ -2531,7 +2528,6 @@ void GenMCDriver::handleRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> uLab)
 		return;
 
 	addLabelToGraph(std::move(uLab));
-	return;
 }
 
 void GenMCDriver::handleRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> fLab)
@@ -2540,7 +2536,6 @@ void GenMCDriver::handleRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> fLab)
 		return;
 
 	addLabelToGraph(std::move(fLab));
-	return;
 }
 
 const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) const
