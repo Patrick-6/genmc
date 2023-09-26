@@ -2940,7 +2940,7 @@ GenMCDriver::getRevisitView(const ReadLabel *rLab, const WriteLabel *sLab, const
 }
 
 std::unique_ptr<BackwardRevisit>
-GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab)
+GenMCDriver::constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab) const
 {
 	if (!getConf()->helper)
 		return std::make_unique<BackwardRevisit>(rLab, sLab, getRevisitView(rLab, sLab));

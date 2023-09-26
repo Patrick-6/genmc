@@ -606,7 +606,7 @@ private:
 
 	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
 	std::unique_ptr<BackwardRevisit>
-	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
+	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab) const;
 
 	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
 	 * (This function can be abused and also be utilized for returning the view
