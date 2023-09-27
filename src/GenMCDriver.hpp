@@ -46,6 +46,8 @@ namespace llvm {
 }
 class ModuleInfo;
 class ThreadPool;
+class BoundDecider;
+enum class BoundCalculationStrategy;
 
 class GenMCDriver {
 
@@ -69,11 +71,13 @@ public:
 		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
 		unsigned explored{};             /* Number of complete executions explored */
 		unsigned exploredBlocked{};      /* Number of blocked executions explored */
+		unsigned boundExceeding{};       /* Number of bound-exceeding executions explored */
 		long double estimationMean{};    /* The mean of estimations */
 		long double estimationVariance{};/* The (biased) variance of the estimations */
 #ifdef ENABLE_GENMC_DEBUG
 		unsigned exploredMoot{};         /* Number of moot executions _encountered_ */
 		unsigned duplicates{};           /* Number of duplicate executions explored */
+		llvm::IndexedMap<int> exploredBounds{}; /* Number of complete executions not exceeding each bound */
 #endif
                 std::string message{};           /* A message to be printed */
 		VSet<VerificationError> warnings{}; /* The warnings encountered */
@@ -87,10 +91,15 @@ public:
 			message += other.message;
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
+			boundExceeding += other.boundExceeding;
 			estimationMean += other.estimationMean;
 			estimationVariance += other.estimationVariance;
 #ifdef ENABLE_GENMC_DEBUG
 			exploredMoot += other.exploredMoot;
+			/* Bound-blocked executions are calculated at the end */
+			exploredBounds.grow(other.exploredBounds.size() - 1);
+			for (auto i = 0U; i < other.exploredBounds.size(); i++)
+				exploredBounds[i] += other.exploredBounds[i];
 			duplicates += other.duplicates;
 #endif
 			warnings.insert(other.warnings);
@@ -703,7 +712,9 @@ private:
 	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
 	bool isExecutionValid(const EventLabel *lab) {
-		return isSymmetryOK(lab) && isConsistent(lab);
+		return isSymmetryOK(lab) &&
+		       isConsistent(lab) &&
+		       !partialExecutionExceedsBound();
 	}
 
 	/* Removes rfs from "rfs" until a consistent option for rLab is found,
@@ -821,6 +832,20 @@ private:
 	 * Has to run at the end of an execution */
 	void updateStSpaceEstimation();
 
+
+	/*** Bound-related  ***/
+
+	bool executionExceedsBound(BoundCalculationStrategy strategy) const;
+
+	bool fullExecutionExceedsBound() const;
+
+	bool partialExecutionExceedsBound() const;
+
+#ifdef ENABLE_GENMC_DEBUG
+	/* Update bounds histogram with the current, complete execution */
+	void trackExecutionBound();
+#endif
+
 	/*** Output-related ***/
 
 	/* Returns a view to be used when replaying */
@@ -929,6 +954,9 @@ private:
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
+
+	/* Decider used to bound the exploration */
+	std::unique_ptr<BoundDecider> bounder;
 
 	/* Opt: Which thread(s) the scheduler should prioritize
 	 * (empty if none) */

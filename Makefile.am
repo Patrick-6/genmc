@@ -27,8 +27,10 @@ libgenmc_a_SOURCES = \
   src/ASize.cpp src/ASize.hpp \
   src/BisimilarityCheckerPass.cpp src/BisimilarityCheckerPass.hpp \
   src/Bitmask.hpp \
+  src/BoundDecider.cpp src/BoundDecider.hpp \
   src/CallInfoCollectionPass.cpp src/CallInfoCollectionPass.hpp \
   src/CodeCondenserPass.cpp src/CodeCondenserPass.hpp \
+  src/ContextBoundDecider.cpp src/ContextBoundDecider.hpp \
   src/Calculator.hpp \
   src/CallInstWrapper.hpp \
   src/ConfirmationAnnotationPass.cpp src/ConfirmationAnnotationPass.hpp \
@@ -83,6 +85,7 @@ libgenmc_a_SOURCES = \
   src/RADriver.cpp src/RADriver.hpp \
   src/RC11Driver.cpp src/RC11Driver.hpp \
   src/Revisit.cpp src/Revisit.hpp \
+  src/RoundBoundDecider.cpp src/RoundBoundDecider.hpp \
   src/SAddr.cpp src/SAddr.hpp \
   src/SAddrAllocator.hpp \
   src/SCDriver.cpp src/SCDriver.hpp \

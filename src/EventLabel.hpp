@@ -313,6 +313,9 @@ public:
 	 * execution graph is responsible for making such changes */
 	void setRevisitStatus(bool status) { revisitable = status; }
 
+	/* Returns true if this event cannot be revisited or deleted */
+	bool isStable() const;
+
 	/* Necessary for multiple inheritance + LLVM-style RTTI to work */
 	static bool classofKind(EventLabelKind K) { return true; }
 	static DskAccessLabel *castToDskAccessLabel(const EventLabel *);
@@ -2691,7 +2694,11 @@ private:
 	std::unordered_map<SAddr, ReaderList> initRfs;
 };
 
-
+inline bool EventLabel::isStable() const
+{
+	auto *mLab = llvm::dyn_cast<MemAccessLabel>(this);
+	return !isRevisitable() || (mLab && !mLab->wasAddedMax());
+}
 
 /*******************************************************************************
  **                             Static methods
