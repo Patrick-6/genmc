@@ -105,8 +105,6 @@ void printEstimationResults(const std::shared_ptr<const Config> &conf,
 				     << "Estimation blocked: " << res.exploredBlocked << "\n"
 				     << "Estimation complete: " << res.explored << "\n";
 	);
-
-	LOG(VerbosityLevel::Tip) << "For better performance, you can disable state-space estimation with --disable-estimation.\n";
 }
 
 void printVerificationResults(const std::shared_ptr<const Config> &conf,
@@ -165,6 +163,7 @@ auto main(int argc, char **argv) -> int
 
 	/* Estimate the state space */
 	if (conf->estimate) {
+		LOG(VerbosityLevel::Tip) << "Estimating state-space size. For better performance, you can use --disable-estimation.\n";
 		auto res = GenMCDriver::estimate(conf, module, modInfo);
 		printEstimationResults(conf, res);
 		if (res.status != VerificationError::VE_OK)
