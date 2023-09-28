@@ -215,20 +215,20 @@ llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
 		 llvm::cl::desc("Choose the scheduling policy:"),
 		 llvm::cl::values(
-			 clEnumValN(SchedulePolicy::ltr,     "ltr",      "Left-to-right"),
-			 clEnumValN(SchedulePolicy::wf,      "wf",       "Writes-first (default)"),
-			 clEnumValN(SchedulePolicy::wfr,     "wfr",      "Writes-first-random"),
-			 clEnumValN(SchedulePolicy::random,  "random",   "Random")
+			 clEnumValN(SchedulePolicy::ltr,      "ltr",      "Left-to-right"),
+			 clEnumValN(SchedulePolicy::wf,       "wf",       "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::wfr,      "wfr",      "Writes-first-random"),
+			 clEnumValN(SchedulePolicy::arbitrary,"arbitrary","Arbitrary")
 			 ));
 
 static llvm::cl::opt<bool>
-clPrintRandomScheduleSeed("print-random-schedule-seed", llvm::cl::cat(clDebugging),
-			     llvm::cl::desc("Print the seed used for randomized scheduling"));
+clPrintArbitraryScheduleSeed("print-schedule-seed", llvm::cl::cat(clDebugging),
+			     llvm::cl::desc("Print the seed used for arbitrary scheduling"));
 
 static llvm::cl::opt<std::string>
-clRandomScheduleSeed("random-schedule-seed", llvm::cl::init(""),
+clArbitraryScheduleSeed("schedule-seed", llvm::cl::init(""),
 			llvm::cl::value_desc("seed"), llvm::cl::cat(clDebugging),
-			llvm::cl::desc("Seed to be used for randomized scheduling"));
+			llvm::cl::desc("Seed to be used for arbitrary scheduling"));
 
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
@@ -297,8 +297,8 @@ void Config::checkConfigOptions() const
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
-	if (clHelper && clSchedulePolicy == SchedulePolicy::random) {
-		ERROR("Helper cannot be used with -schedule-policy=random.\n");
+	if (clHelper && clSchedulePolicy == SchedulePolicy::arbitrary) {
+		ERROR("Helper cannot be used with -schedule-policy=arbitrary.\n");
 	}
 	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
@@ -307,11 +307,11 @@ void Config::checkConfigOptions() const
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
-		WARN("--print-random-schedule-seed used without -schedule-policy=random.\n");
+	if (clSchedulePolicy != SchedulePolicy::arbitrary && clPrintArbitraryScheduleSeed) {
+		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
-	if (clSchedulePolicy != SchedulePolicy::random && clRandomScheduleSeed != "") {
-		WARN("--random-schedule-seed used without -schedule-policy=random.\n");
+	if (clSchedulePolicy != SchedulePolicy::arbitrary && !clArbitraryScheduleSeed.empty()) {
+		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
 
 	/* Make sure filename is a regular file */
@@ -367,8 +367,8 @@ void Config::saveConfigOptions()
 	programEntryFun = clProgramEntryFunction;
 	warnOnGraphSize = clWarnOnGraphSize;
 	schedulePolicy = clSchedulePolicy;
-	printRandomScheduleSeed = clPrintRandomScheduleSeed;
-	randomScheduleSeed = clRandomScheduleSeed;
+	printRandomScheduleSeed = clPrintArbitraryScheduleSeed;
+	randomScheduleSeed = clArbitraryScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
 	printBlockedExecs = clPrintBlockedExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;

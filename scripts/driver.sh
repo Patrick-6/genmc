@@ -119,7 +119,7 @@ do
 	then
 	    continue
 	fi
-	if [[ "${cat}" == "helper" && "${GENMCFLAGS}" =~ "policy=random" ]]
+	if [[ "${cat}" == "helper" && "${GENMCFLAGS}" =~ "policy=arbitrary" ]]
 	then
 	    continue
 	fi
@@ -128,7 +128,7 @@ do
 	    continue
 	fi
 	check_blocked="" && [[ "${cat}" == "saver" || "${cat}" == "helper" ]] &&
-	    [[ (! "${GENMCFLAGS}" =~ "policy=random") ]] && check_blocked="yes"
+	    [[ (! "${GENMCFLAGS}" =~ "policy=arbitrary") ]] && check_blocked="yes"
 	if [[ "${cat}" == "ipr" && "${model}" != "imm" ]]
 	then
 	    check_blocked="yes"

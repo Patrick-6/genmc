@@ -916,7 +916,7 @@ bool GenMCDriver::scheduleNormal()
 		return scheduleNextWF();
 	case SchedulePolicy::wfr:
 		return scheduleNextWFR();
-	case SchedulePolicy::random:
+	case SchedulePolicy::arbitrary:
 		return scheduleNextRandom();
 	default:
 		BUG();
