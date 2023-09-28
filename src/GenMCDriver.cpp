@@ -1100,7 +1100,7 @@ void GenMCDriver::updateLabelViews(EventLabel *lab)
 
 VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 {
-	if (getConf()->disableRaceDetection)
+	if (getConf()->disableRaceDetection || inEstimationMode())
 		return VerificationError::VE_OK;
 
 	/* Check for hard errors */
