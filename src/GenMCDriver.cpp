@@ -1131,7 +1131,7 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 
 void GenMCDriver::cacheEventLabel(const EventLabel *lab)
 {
-	if (!getConf()->instructionCaching)
+	if (!getConf()->instructionCaching || inEstimationMode())
 		return;
 
 	auto &g = getGraph();
