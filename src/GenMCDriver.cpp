@@ -1010,7 +1010,7 @@ void GenMCDriver::explore()
 				return;
 			}
 			auto pos = item->getPos();
-			validExecution = restrictAndRevisit(stamp, std::move(item)) && isRevisitValid(pos);
+			validExecution = restrictAndRevisit(stamp, item) && isRevisitValid(*item);
 		}
 	}
 }
@@ -1020,9 +1020,10 @@ bool readsUninitializedMem(const ReadLabel *lab)
 	return lab->getAddr().isDynamic() && lab->getRf()->getPos().isInitializer();
 }
 
-bool GenMCDriver::isRevisitValid(Event pos)
+bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 {
 	auto &g = getGraph();
+	auto pos = revisit.getPos();
 	auto *mLab = llvm::dyn_cast<MemAccessLabel>(g.getEventLabel(pos));
 
 	/* E.g., for optional revisits, do nothing */
@@ -3407,14 +3408,14 @@ bool GenMCDriver::backwardRevisit(const BackwardRevisit &br)
 	 * try submitting the job instead */
 	auto *tp = getThreadPool();
 	if (tp && tp->getRemainingTasks() < 8 * tp->size()) {
-		if (isRevisitValid(br.getPos()))
+		if (isRevisitValid(br))
 			tp->submit(extractState());
 		return false;
 	}
 	return true;
 }
 
-bool GenMCDriver::restrictAndRevisit(Stamp stamp, WorkSet::ItemT item)
+bool GenMCDriver::restrictAndRevisit(Stamp stamp, const WorkSet::ItemT &item)
 {
 	/* First, appropriately restrict the worklist and the graph */
 	getExecution().restrict(stamp);

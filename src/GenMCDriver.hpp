@@ -462,7 +462,7 @@ private:
 
 	/* Returns whether a revisit results to a valid execution
 	 * (e.g., consistent, accessing allocated memory, etc) */
-	bool isRevisitValid(Event pos);
+	bool isRevisitValid(const Revisit &revisit);
 
 	/* Returns true if this driver is shutting down */
 	bool isHalting() const;
@@ -673,7 +673,7 @@ private:
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(Stamp st, WorkSet::ItemT s);
+	bool restrictAndRevisit(Stamp st, const WorkSet::ItemT &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
