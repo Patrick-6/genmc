@@ -306,7 +306,7 @@ inline const_store_range co_succs(const ExecutionGraph &G, const EventLabel *lab
 {
 	return const_store_range(co_succ_begin(G, lab), co_succ_end(G, lab));
 }
-inline const WriteLabel *co_imm_succ_begin(const ExecutionGraph &G, const EventLabel *lab)
+inline const WriteLabel *co_imm_succ(const ExecutionGraph &G, const EventLabel *lab)
 {
 	auto *wLab = llvm::dyn_cast<WriteLabel>(lab);
 	return !wLab ? nullptr : G.co_imm_succ(wLab);
