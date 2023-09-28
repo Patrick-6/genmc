@@ -3570,7 +3570,7 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 
 	auto *oLab = llvm::dyn_cast<OptionalLabel>(addLabelToGraph(std::move(lab)));
 
-	if (oLab->isExpandable())
+	if (!inEstimationMode() && oLab->isExpandable())
 		addToWorklist(oLab->getStamp(), std::make_unique<OptionalForwardRevisit>(oLab->getPos()));
 	return false; /* should not be expanded yet */
 }
