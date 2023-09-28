@@ -2229,13 +2229,19 @@ void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<
 	choices[rLab->getStamp()] = stores;
 }
 
-void GenMCDriver::pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores)
+std::optional<SVal> GenMCDriver::pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores)
 {
 	auto &g = getGraph();
 
 	MyDist dist(0, stores.size()-1);
 	auto random = dist(estRng);
 	g.changeRf(rLab->getPos(), stores[random]);
+
+	if (readsUninitializedMem(rLab)) {
+		reportError(rLab->getPos(), VerificationError::VE_UninitializedMem);
+		return std::nullopt;
+	}
+	return getWriteValue(rLab->getRf(), rLab->getAccess());
 }
 
 std::optional<SVal>
@@ -2313,8 +2319,7 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (inEstimationMode()) {
 		updateStSpaceChoices(lab, stores);
 		filterAtomicityViolations(lab, stores);
-		pickRandomRf(lab, stores);
-		return getWriteValue(lab->getRf(), lab->getAccess());
+		return pickRandomRf(lab, stores);
 	}
 
 	GENMC_DEBUG(
