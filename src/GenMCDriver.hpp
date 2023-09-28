@@ -67,15 +67,15 @@ public:
 	/* Verification result */
 	struct Result {
 		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
-		unsigned explored{};            /* Number of complete executions explored */
-		unsigned exploredBlocked{};     /* Number of blocked executions explored */
-		long double estimationMean{};   /* The mean of estimations */
-		long double estimationSqMean{}; /* The square mean of estimations */
+		unsigned explored{};             /* Number of complete executions explored */
+		unsigned exploredBlocked{};      /* Number of blocked executions explored */
+		long double estimationMean{};    /* The mean of estimations */
+		long double estimationVariance{};/* The (biased) variance of the estimations */
 #ifdef ENABLE_GENMC_DEBUG
-		unsigned exploredMoot{};        /* Number of moot executions _encountered_ */
-		unsigned duplicates{};          /* Number of duplicate executions explored */
+		unsigned exploredMoot{};         /* Number of moot executions _encountered_ */
+		unsigned duplicates{};           /* Number of duplicate executions explored */
 #endif
-                std::string message{};          /* A message to be printed */
+                std::string message{};           /* A message to be printed */
 		VSet<VerificationError> warnings{}; /* The warnings encountered */
 
 		Result() = default;
@@ -88,7 +88,7 @@ public:
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
 			estimationMean += other.estimationMean;
-			estimationSqMean += other.estimationSqMean;
+			estimationVariance += other.estimationVariance;
 #ifdef ENABLE_GENMC_DEBUG
 			exploredMoot += other.exploredMoot;
 			duplicates += other.duplicates;
@@ -386,13 +386,17 @@ protected:
 		return std::holds_alternative<EstimationMode>(mode);
 	}
 
-	/* Est: Returns the remaining estimation budget.
-	 * Assumes estimation mode */
-	const unsigned int &getRemainingEstBudget() const {
-		return std::get<EstimationMode>(mode).budget;
-	}
-	unsigned int &getRemainingEstBudget() {
-		return std::get<EstimationMode>(mode).budget;
+	/* Est: Returns true if the estimation seems "good enough" */
+	bool shouldStopEstimating() {
+		auto remainingBudget = --std::get<EstimationMode>(mode).budget;
+		if (remainingBudget == 0)
+			return true;
+
+		auto totalExplored = result.explored + result.exploredBlocked;
+		auto sd = std::sqrt(result.estimationVariance);
+		return (totalExplored >= getConf()->estimationMin) &&
+		       (sd <= result.estimationMean / getConf()->sdThreshold ||
+			totalExplored > result.estimationMean);
 	}
 
 	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */

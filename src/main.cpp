@@ -98,14 +98,17 @@ auto getElapsedSecs(const std::chrono::high_resolution_clock::time_point &begin)
 }
 
 void printEstimationResults(const std::shared_ptr<const Config> &conf,
+			    const std::chrono::high_resolution_clock::time_point &begin,
 			    const GenMCDriver::Result &res)
 {
 	llvm::outs() << res.message;
 	llvm::outs() << (res.status == VerificationError::VE_OK ? "*** Estimation complete.\n": "*** Estimation unsuccessful.\n");
 
-        auto mean = res.estimationMean;
-        auto sqMean = res.estimationSqMean;
-        llvm::outs() << "Total executions estimate: " << (long long) mean << " (+- " << (long long) std::sqrt(sqMean - mean * mean) << ")\n";
+        auto mean = std::llround(res.estimationMean);
+        auto sd = std::llround(std::sqrt(res.estimationVariance));
+	auto meanTimeSecs = getElapsedSecs(begin) / (res.explored + res.exploredBlocked);
+        llvm::outs() << "Total executions estimate: " << mean << " (+- " << sd << ")\n";
+        llvm::outs() << "Time to completion estimate: " << llvm::format("%.2Lf", meanTimeSecs * mean) << "s\n";
         GENMC_DEBUG(
 		if (conf->printEstimationStats)
 			llvm::outs() << "Estimation moot: " << res.exploredMoot << "\n"
@@ -169,7 +172,7 @@ auto main(int argc, char **argv) -> int
 	if (conf->estimate) {
 		LOG(VerbosityLevel::Tip) << "Estimating state-space size. For better performance, you can use --disable-estimation.\n";
 		auto res = GenMCDriver::estimate(conf, module, modInfo);
-		printEstimationResults(conf, res);
+		printEstimationResults(conf, begin, res);
 		if (res.status != VerificationError::VE_OK)
 			return EVERIFY;
 	}

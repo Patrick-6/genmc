@@ -75,7 +75,9 @@ public:
 	bool mmDetector;
 
 	/*** Debugging options ***/
-	unsigned int estimationBudget;
+	unsigned int estimationMax;
+	unsigned int estimationMin;
+	unsigned int sdThreshold;
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
 	bool printBlockedExecs;

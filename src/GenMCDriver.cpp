@@ -667,13 +667,23 @@ bool GenMCDriver::isExecutionBlocked() const
 
 void GenMCDriver::updateStSpaceEstimation()
 {
+	/* Calculate current sample */
 	auto &choices = getChoiceMap();
-	auto current = std::accumulate(choices.begin(), choices.end(), 1LL,
-				       [](auto &sum, auto &kv) { return sum *= kv.second.size(); });
+	auto sample = std::accumulate(choices.begin(), choices.end(), 1LL,
+				      [](auto &sum, auto &kv) { return sum *= kv.second.size(); });
 
-	auto weightedCurrent = (long double) current / getConf()->estimationBudget;
-	result.estimationMean += weightedCurrent;
-	result.estimationSqMean += (weightedCurrent * current);
+	/* This is the (i+1)-th exploration */
+	auto totalExplored = (long double) result.explored + result.exploredBlocked + 1L;
+
+	/* As the estimation might stop dynamically, we can't just
+	 * normalize over the max samples to avoid overflows. Instead,
+	 * use Welford's online algorithm to calculate mean and
+	 * variance. */
+	auto prevM = result.estimationMean;
+	auto prevV = result.estimationVariance;
+	result.estimationMean += (sample - prevM) / totalExplored;
+	result.estimationVariance += (sample - prevM) / totalExplored * (sample - result.estimationMean) -
+				     prevV / totalExplored;
         // if (result.explored + result.exploredBlocked <
         // getConf()->estimateRuns) { 	auto &g = getGraph();
 
@@ -720,7 +730,7 @@ void GenMCDriver::handleExecutionEnd()
 	 * (This may run a few times, but that's OK.)*/
 	if (inEstimationMode()) {
 		updateStSpaceEstimation();
-		if (--getRemainingEstBudget() > 0)
+		if (!shouldStopEstimating())
 			addToWorklist(0, std::make_unique<RerunForwardRevisit>());
 	}
 
@@ -834,7 +844,7 @@ GenMCDriver::Result GenMCDriver::estimate(std::shared_ptr<const Config> conf,
 	auto estCtx = std::make_unique<llvm::LLVMContext>();
 	auto newmod = LLVMModule::cloneModule(mod, estCtx);
 	auto newMI = modInfo->clone(*newmod);
-	auto driver = DriverFactory::create(conf, std::move(newmod), std::move(newMI), GenMCDriver::EstimationMode{conf->estimationBudget});
+	auto driver = DriverFactory::create(conf, std::move(newmod), std::move(newMI), GenMCDriver::EstimationMode{conf->estimationMax});
 	driver->run();
 	return driver->getResult();
 }

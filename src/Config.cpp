@@ -191,9 +191,19 @@ clDisableMMDetector("disable-mm-detector", llvm::cl::cat(clTransformation),
 /*** Debugging options ***/
 
 static llvm::cl::opt<unsigned int>
-clEstimationBudget("estimation-budget", llvm::cl::init(1000),
-	llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
-	llvm::cl::desc("Number of allotted rounds for state-space estimation"));
+clEstimationMax("estimation-max", llvm::cl::init(1000),
+		llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Number of maximum allotted rounds for state-space estimation"));
+
+static llvm::cl::opt<unsigned int>
+clEstimationMin("estimation-min", llvm::cl::init(10),
+		llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Number of minimum alloted round for state-space estimation"));
+
+static llvm::cl::opt<unsigned int>
+clEstimationSdThreshold("estimation-threshold", llvm::cl::init(10),
+			llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+			llvm::cl::desc("Deviation threshold % under which estimation is deemed good enough"));
 
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
@@ -329,7 +339,9 @@ void Config::saveConfigOptions()
 	dotFile = clDotGraphFile;
 	model = clModelType;
 	estimate = !clDisableEstimation;
-	estimationBudget = clEstimationBudget;
+	estimationMax = clEstimationMax;
+	estimationMin = clEstimationMin;
+	sdThreshold = clEstimationSdThreshold;
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
