@@ -90,6 +90,13 @@ void transformInput(const std::shared_ptr<Config> &conf,
 	}
 }
 
+auto getElapsedSecs(const std::chrono::high_resolution_clock::time_point &begin) -> long double
+{
+	static constexpr long double secToMillFactor = 1e-3L;
+	auto now = std::chrono::high_resolution_clock::now();
+	return std::chrono::duration_cast<std::chrono::milliseconds>(now - begin).count() * secToMillFactor;
+}
+
 void printEstimationResults(const std::shared_ptr<const Config> &conf,
 			    const GenMCDriver::Result &res)
 {
@@ -111,9 +118,6 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 			      const std::chrono::high_resolution_clock::time_point &begin,
 			      const GenMCDriver::Result &res)
 {
-	auto end = std::chrono::high_resolution_clock::now();
-	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
-
 	llvm::outs() << res.message;
 	llvm::outs() << (res.status == VerificationError::VE_OK ?
 			 "*** Verification complete. No errors were detected.\n" : "*** Verification unsuccessful.\n");
@@ -132,7 +136,7 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 		};
 	);
 	llvm::outs() << "\nTotal wall-clock time: "
-		     << llvm::format("%.2f", elapsed.count() * 1e-3)
+		     << llvm::format("%.2Lf", getElapsedSecs(begin))
 		     << "s\n";
 }
 
