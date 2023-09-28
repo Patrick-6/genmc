@@ -2294,6 +2294,22 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		return std::nullopt;
 	}
 
+	/* If this is the last part of barrier_wait() check whether we should block */
+	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
+	if (llvm::isa<BWaitReadLabel>(lab) &&
+	    retVal != getBarrierInitValue(lab->getAccess())) {
+		if (!getConf()->disableBAM) {
+			auto pos = lab->getPos();
+			g.removeLast(pos.thread);
+			blockThread(pos, BlockageType::Barrier);
+			return {retVal};
+		}
+		getEE()->getCurThr().block(BlockageType::Barrier);
+	}
+
+	if (isRescheduledRead(lab->getPos()))
+		setRescheduledRead(Event::getInit());
+
 	if (inEstimationMode()) {
 		updateStSpaceChoices(lab, stores);
 		filterAtomicityViolations(lab, stores);
@@ -2314,22 +2330,6 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		checkLockValidity(lab, stores);
 	if (llvm::isa<BIncFaiReadLabel>(lab))
 		checkBIncValidity(lab, stores);
-
-	if (isRescheduledRead(lab->getPos()))
-		setRescheduledRead(Event::getInit());
-
-	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
-	if (llvm::isa<BWaitReadLabel>(lab) &&
-	    retVal != getBarrierInitValue(lab->getAccess())) {
-		if (!getConf()->disableBAM) {
-			auto pos = lab->getPos();
-			g.removeLast(pos.thread);
-			blockThread(pos, BlockageType::Barrier);
-			return {retVal};
-		}
-		getEE()->getCurThr().block(BlockageType::Barrier);
-	}
 
 	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s){
