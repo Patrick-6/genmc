@@ -382,14 +382,14 @@ bool GenMCDriver::scheduleNextWF()
 		if (fallback == -1)
 			fallback = i;
 		if (!isNextThreadInstLoad(i)) {
-			EE->scheduleThread(i);
+			EE->scheduleThread(getFirstSchedulableSymmetric(i));
 			return true;
 		}
 	}
 
 	/* Otherwise, try to schedule the fallback thread */
 	if (fallback != -1) {
-		EE->scheduleThread(fallback);
+		EE->scheduleThread(getFirstSchedulableSymmetric(fallback));
 		return true;
 	}
 	return false;
