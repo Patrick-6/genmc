@@ -11,7 +11,7 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 AM_SILENT_RULES([yes])
 
 AC_PROG_CXX
-AX_CXX_COMPILE_STDCXX([17], [noext], [mandatory])
+AX_CXX_COMPILE_STDCXX([20], [noext], [mandatory])
 
 AC_PROG_RANLIB
 AM_PROG_AR
