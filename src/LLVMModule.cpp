@@ -143,7 +143,7 @@ namespace LLVMModule {
 		llvm::initializeTransformUtils(Registry);
 		llvm::initializeInstCombine(Registry);
 		llvm::initializeTarget(Registry);
-#if LLVM_MAJOR_VERSION < 16
+#if LLVM_VERSION_MAJOR < 16
 		llvm::initializeObjCARCOpts(Registry);
 		llvm::initializeInstrumentation(Registry);
 #endif
