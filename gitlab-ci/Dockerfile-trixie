@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM debian:trixie
 LABEL maintainer="michalis@mpi-sws.org"
 
 WORKDIR /root
@@ -6,13 +6,12 @@ WORKDIR /root
 RUN export TERM='xterm-256color'
 
 RUN apt-get update
-RUN apt-get install -y -qq wget gnupg gnupg2 libtinfo5 bc \
+RUN apt-get install -y -qq wget gnupg gnupg2 bc \
     autoconf make automake libffi-dev zlib1g-dev libedit-dev \
     libxml2-dev xz-utils g++ clang git bsdmainutils coreutils
 
 RUN apt-get install -y -qq \
-    clang-7   libclang-7-dev   llvm-7   llvm-7-dev \
-    clang-11  libclang-11-dev  llvm-11  llvm-11-dev
+    clang-16  llvm-16   llvm-16-dev
 
 # COPY fetch_deps.sh ./fetch_deps.sh
 # RUN ./fetch_deps.sh
