@@ -29,6 +29,7 @@ then
     exit 1
 fi
 
+# set -e
 
 NR_CPUS=$(nproc) # max number of cores
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -71,7 +72,9 @@ run_correct() {
 	expected="${expected:-${execs}}"
 	if test "${expected}" != "${execs}"
 	then
-	    echo "DIFF"
+	    echo "DIFF: ${expected} vs ${execs}"
+	    echo "OUTPUT:"
+	    echo "${result}"
 	    return 2
 	fi
 	total_time=$(echo "${total_time}+${time}" | bc -l)
