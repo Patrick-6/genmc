@@ -45,7 +45,7 @@ declare -A correct; declare -a corder
 
 correct["lastzero(19)"]=" -- -DN=19 ${TEST_DIR}/correct/synthetic/lastzero/variants/lastzero0.c"; corder+=("lastzero(19)")
 correct["indexer(17)"]=" -- -DN=17 ${TEST_DIR}/correct/synthetic/indexer/variants/indexer0.c"; corder+=("indexer(17)")
-correct["mcs-spinlock(4)"]=" -unroll=4 -- -DN=4 -I${TEST_DIR}/correct/data-structures/mcs_spinlock ${TEST_DIR}/correct/data-structures/mcs_spinlock/variants/main0.c"; corder+=("mcs-spinlock(4)")
+correct["mcs-spinlock(4)"]=" -unroll=4 -disable-sr -disable-ipr -- -DN=4 -I${TEST_DIR}/correct/data-structures/mcs_spinlock ${TEST_DIR}/correct/data-structures/mcs_spinlock/variants/main0.c"; corder+=("mcs-spinlock(4)")
 
 declare -A wrong; declare -a worder
 
