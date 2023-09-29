@@ -86,7 +86,7 @@ run_wrong() {
     threads=$2
     for i in `seq 1 ${RUNS}`
     do
-	result=$("${GENMC}" -mo -nthreads="${threads}" ${wrong[$name]} 2>&1)
+	result=$("${GENMC}" -nthreads="${threads}" ${wrong[$name]} 2>&1)
 	if [[ "$?" -ne 42 ]]
 	then
 	    echo "XXX"
