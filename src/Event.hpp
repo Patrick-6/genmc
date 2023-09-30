@@ -24,6 +24,8 @@
 #include <llvm/ADT/Hashing.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <compare>
+
 /**
  * Represents the position of a given label in an execution graph.
  */
@@ -51,25 +53,20 @@ struct Event {
 	/** Returns the po-successor. No bounds checking is performed  */
 	[[nodiscard]] auto next() const -> Event { return {thread, index+1}; };
 
-	inline auto operator==(const Event &e) const -> bool {
-		return e.index == index && e.thread == thread;
+	inline auto operator==(const Event &) const -> bool = default;
+	inline auto operator<=>(const Event &other) const -> std::partial_ordering {
+		return this->thread == other.thread ?
+		       this->index <=> other.index :
+		       std::partial_ordering::unordered;
 	}
-	inline auto operator!=(const Event &e) const -> bool {
-		return !(*this == e);
-	}
-	inline auto operator<(const Event &e) const -> bool {
-		return (index < e.index) || (index == e.index && thread < e.thread);
-	}
-	inline auto operator>(const Event &e) const -> bool {
-		return (index > e.index) || (index == e.index && thread > e.thread);
-	}
+
 	inline auto operator++() -> Event& {
 		++index;
 		return *this;
 	}
 	inline auto operator++(int) -> Event {
 		auto tmp = *this;
-		++index;
+		operator++();
 		return tmp;
 	}
 	inline auto operator--() -> Event& {
@@ -78,7 +75,7 @@ struct Event {
 	}
 	inline auto operator--(int) -> Event {
 		auto tmp = *this;
-		--index;
+		operator--();
 		return tmp;
 	}
 
