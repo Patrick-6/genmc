@@ -669,8 +669,8 @@ void GenMCDriver::updateStSpaceEstimation()
 {
 	/* Calculate current sample */
 	auto &choices = getChoiceMap();
-	auto sample = std::accumulate(choices.begin(), choices.end(), 1LL,
-				      [](auto &sum, auto &kv) { return sum *= kv.second.size(); });
+	auto sample = std::accumulate(choices.begin(), choices.end(), 1.0L,
+				      [](auto sum, auto &kv) { return sum *= kv.second.size(); });
 
 	/* This is the (i+1)-th exploration */
 	auto totalExplored = (long double) result.explored + result.exploredBlocked + 1L;
