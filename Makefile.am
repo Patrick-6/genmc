@@ -95,6 +95,7 @@ libgenmc_a_SOURCES = \
   src/ThreadInfo.hpp \
   src/ThreadPinner.cpp src/ThreadPinner.hpp \
   src/ThreadPool.cpp src/ThreadPool.hpp \
+  src/TSODriver.cpp src/TSODriver.hpp \
   src/WorkSet.hpp src/WorkSet.cpp \
   src/value_ptr.hpp \
   src/Verbosity.hpp src/Verbosity.cpp \
