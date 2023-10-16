@@ -25,8 +25,8 @@
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #define ECOMPILE 5
@@ -70,19 +70,19 @@
 
 /* Useful for debugging (naive generalized printing doesn't work for llvm::raw_ostream) */
 template<typename T>
-llvm::raw_ostream& print(llvm::raw_ostream &out, const T &val)
+auto print(llvm::raw_ostream &out, const T &val) -> llvm::raw_ostream&
 {
 	return (out << val);
 }
 
 template<typename T1, typename T2>
-llvm::raw_ostream& print(llvm::raw_ostream &out, const std::pair<T1, T2> &val)
+auto print(llvm::raw_ostream &out, const std::pair<T1, T2> &val) -> llvm::raw_ostream&
 {
 	return (out << "(" << val.first << ", " << val.second << ")");
 }
 
 template <typename Container>
-std::string format(const Container &c)
+auto format(const Container &c) -> std::string
 {
 	std::string str;
 	llvm::raw_string_ostream out(str);
@@ -95,7 +95,7 @@ std::string format(const Container &c)
 }
 
 template <typename T1, typename T2>
-std::string format(const std::pair<T1, T2> &p)
+auto format(const std::pair<T1, T2> &p) -> std::string
 {
 	std::string str;
 	llvm::raw_string_ostream out(str);
