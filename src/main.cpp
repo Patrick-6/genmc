@@ -35,7 +35,14 @@
 
 auto getOutFilename(const std::shared_ptr<const Config> & /*conf*/) -> std::string
 {
-	return "/tmp/__genmc.ll";
+	static char filenameTemplate[] = "/tmp/__genmc.ll.XXXXXX";
+	static bool createdFilename = false;
+
+	if (!createdFilename) {
+		close(mkstemp(filenameTemplate));
+		createdFilename = true;
+	}
+	return {filenameTemplate};
 }
 
 auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> std::string
@@ -43,10 +50,8 @@ auto buildCompilationArgs(const std::shared_ptr<const Config> &conf) -> std::str
 	std::string args;
 
 	args += " -fno-discard-value-names";
-#ifdef HAVE_CLANG_DISABLE_OPTNONE
 	args += " -Xclang";
 	args += " -disable-O0-optnone";
-#endif
 	args += " -g"; /* Compile with -g to get debugging mdata */
 	for (const auto &f : conf->cflags)
 		args += " " + f;
