@@ -106,7 +106,7 @@ libgenmc_a_SOURCES = \
 
 TESTS=scripts/fast-driver.sh scripts/randomize-driver.sh
 
-AM_CXXFLAGS = -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_builddir)/include\" $(COVERAGE_CXXFLAGS)
+AM_CXXFLAGS = -DINCLUDE_DIR=\"$(pkgincludedir)/$(pkg)\" -DSRC_INCLUDE_DIR=\"$(abs_top_srcdir)/include\" $(COVERAGE_CXXFLAGS)
 bin_PROGRAMS = genmc
 genmc_SOURCES = src/main.cpp
 genmc_LDADD = libgenmc.a -lpthread $(COVERAGE_LDFLAGS)
@@ -118,7 +118,7 @@ MOSTLYCLEANFILES = DX_CLEANFILES
 
 if LINT
 lint-local: $(libgenmc_a_SOURCES) $(genmc_SOURCES)
-	-$(CPPLINT) -header-filter='^(?!llvm/).+' -config-file='$(top_builddir)/.clang-tidy' $^
+	-$(CPPLINT) -header-filter='^(?!llvm/).+' -config-file='$(top_srcdir)/.clang-tidy' $^
 
 check-local: lint-local
 endif
