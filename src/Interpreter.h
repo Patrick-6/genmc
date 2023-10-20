@@ -745,7 +745,8 @@ private:  // Helper functions
   DECLARE_CUSTOM_OPCODE(MutexTrylock);
   DECLARE_CUSTOM_OPCODE(MutexDestroy);
   DECLARE_CUSTOM_OPCODE(BarrierInit);
-  DECLARE_CUSTOM_OPCODE(BarrierWait);
+  DECLARE_CUSTOM_OPCODE(BarrierWaitInc);
+  DECLARE_CUSTOM_OPCODE(BarrierWaitRead);
   DECLARE_CUSTOM_OPCODE(BarrierDestroy);
   DECLARE_CUSTOM_OPCODE(HazptrAlloc);
   DECLARE_CUSTOM_OPCODE(HazptrProtect);

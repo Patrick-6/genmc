@@ -299,9 +299,6 @@ void *Interpreter::getInodeAddrFromName(const std::string &filename) const
 	return dynState.nameToInodeAddr.at(filename);
 }
 
-/* Should match include/pthread.h (or barrier/mutex/thread decls) */
-#define GENMC_PTHREAD_BARRIER_SERIAL_THREAD -1
-
 /* Should match the definitions in include/unistd.h */
 #define GENMC_SEEK_SET	0	/* Seek from beginning of file.  */
 #define GENMC_SEEK_CUR	1	/* Seek from current position.  */
@@ -3201,8 +3198,8 @@ void Interpreter::callBarrierInit(Function *F, const std::vector<GenericValue> &
 	return;
 }
 
-void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &ArgVals,
-				  const std::unique_ptr<EventDeps> &specialDeps)
+void Interpreter::callBarrierWaitInc(Function *F, const std::vector<GenericValue> &ArgVals,
+				     const std::unique_ptr<EventDeps> &specialDeps)
 {
 	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
 	auto *typ = F->getReturnType();
@@ -3224,13 +3221,24 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 		    BIncFaiWriteLabel::create(currPos(), AtomicOrdering::AcquireRelease,
 					      barrier, asize, atyp, newVal, GET_DEPS(specialDeps)));
 
-	CALL_DRIVER(handleLoad,
-		    BWaitReadLabel::create(currPos(), AtomicOrdering::Acquire,
-					   barrier, asize, atyp, GET_DEPS(specialDeps))).value();
+	returnValueToCaller(typ, SVAL_TO_GV(newVal, typ));
+	return;
+}
 
-	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
-		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);
-	returnValueToCaller(typ, result);
+void Interpreter::callBarrierWaitRead(Function *F, const std::vector<GenericValue> &ArgVals,
+				      const std::unique_ptr<EventDeps> &specialDeps)
+{
+	auto *barrier = (GenericValue *) GVTOP(ArgVals[0]);
+	auto *typ = F->getReturnType();
+	auto asize = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	auto val = CALL_DRIVER_RESET_IF_NONE(handleLoad,
+				 	     BWaitReadLabel::create(currPos(), AtomicOrdering::Acquire,
+							barrier, asize, atyp, GET_DEPS(specialDeps)));
+	if (!val.has_value())
+		return;
+	returnValueToCaller(typ, SVAL_TO_GV(*val, typ));
 	return;
 }
 
@@ -4648,7 +4656,8 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(MutexTrylock);
 		CALL_INTERNAL_FUNCTION(MutexDestroy);
 		CALL_INTERNAL_FUNCTION(BarrierInit);
-		CALL_INTERNAL_FUNCTION(BarrierWait);
+		CALL_INTERNAL_FUNCTION(BarrierWaitInc);
+		CALL_INTERNAL_FUNCTION(BarrierWaitRead);
 		CALL_INTERNAL_FUNCTION(BarrierDestroy);
 		CALL_INTERNAL_FUNCTION(HazptrAlloc);
 		CALL_INTERNAL_FUNCTION(HazptrProtect);

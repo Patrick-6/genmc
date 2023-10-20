@@ -98,7 +98,8 @@ enum class InternalFunctions {
 	FN_MutexTrylock,
 	FN_MutexDestroy,
 	FN_BarrierInit,
-	FN_BarrierWait,
+	FN_BarrierWaitInc,
+	FN_BarrierWaitRead,
 	FN_BarrierDestroy,
 
 	FN_OpenFS,
@@ -204,7 +205,8 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 
 	using IF = InternalFunctions;
 	auto &code = internalFunNames.at(name);
-	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock || code == IF::FN_BarrierWait || isFsCode(code);
+	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock ||
+	       code == IF::FN_BarrierWaitInc || code == IF::FN_BarrierWaitRead || isFsCode(code);
 }
 
 /* Should match our internal definitions */

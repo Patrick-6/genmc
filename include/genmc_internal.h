@@ -155,7 +155,8 @@ extern int __VERIFIER_barrier_init (__VERIFIER_barrier_t *__restrict __barrier,
 
 extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier) __attribute__ ((__nothrow__));
 
-extern int __VERIFIER_barrier_wait (__VERIFIER_barrier_t *__barrier) __attribute__ ((__nothrow__));
+extern int __VERIFIER_barrier_wait_inc (__VERIFIER_barrier_t *__barrier) __attribute__ ((__nothrow__));
+extern int __VERIFIER_barrier_wait_read (__VERIFIER_barrier_t *__barrier) __attribute__ ((__nothrow__));
 
 extern int __VERIFIER_barrier_destroy (__VERIFIER_barrier_t *__barrier) __attribute__ ((__nothrow__));
 
