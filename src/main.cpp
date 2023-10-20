@@ -32,6 +32,7 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <unistd.h>
 
 auto getOutFilename(const std::shared_ptr<const Config> & /*conf*/) -> std::string
 {
