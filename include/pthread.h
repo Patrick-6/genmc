@@ -609,9 +609,7 @@ int pthread_barrier_init(pthread_barrier_t *__restrict __barrier,
 __attribute__ ((always_inline)) static inline
 int pthread_barrier_wait(pthread_barrier_t *__barrier)
 {
-	int __new_val = __VERIFIER_barrier_wait_inc(__barrier);
-	__VERIFIER_barrier_wait_read(__barrier);
-	return __new_val == 0 ? 0 : PTHREAD_BARRIER_SERIAL_THREAD;
+	return __VERIFIER_barrier_wait(__barrier);
 }
 
 /* Destroy a previously dynamically initialized barrier BARRIER.  */
