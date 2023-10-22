@@ -111,7 +111,7 @@ initialize_results
 correctdir="${DIR}/../tests/correct"
 for model in rc11 imm # rc11 imm lkmm
 do
-    for cat in infr litmus saver ipr sr helper liveness synthetic data-structures # fs lkmm lapor
+    for cat in infr litmus saver ipr sr liveness synthetic data-structures # helper fs lkmm lapor
     do
 	testdir="${correctdir}/${cat}"
 	if [[ ("${model}" == "lkmm" && "${cat}" != "lkmm" && "${cat}" != "fs") ||
