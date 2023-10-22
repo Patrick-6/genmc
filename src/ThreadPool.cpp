@@ -48,9 +48,8 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 
 	results_.push_back(std::move(t.get_future()));
 
-	workers_.push_back(std::thread(std::move(t), i, std::move(d)));
+	workers_.emplace_back(std::move(t), i, std::move(d));
 	pinner_.pin(workers_.back(), i);
-	return;
 }
 
 void ThreadPool::submit(ThreadPool::TaskT t)
@@ -59,7 +58,6 @@ void ThreadPool::submit(ThreadPool::TaskT t)
 	incRemainingTasks();
 	queue_.push(std::move(t));
 	stateCV_.notify_one();
-	return;
 }
 
 ThreadPool::TaskT ThreadPool::tryPopPoolQueue()
@@ -78,7 +76,7 @@ ThreadPool::TaskT ThreadPool::popTask()
 	while (true) {
 		if (auto t = tryPopPoolQueue())
 			return t;
-		else if (auto t = tryStealOtherQueue())
+		if (auto t = tryStealOtherQueue())
 			return t;
 
 		if (shouldHalt() || getRemainingTasks() == 0)
@@ -92,7 +90,7 @@ ThreadPool::TaskT ThreadPool::popTask()
 
 std::vector<std::future<GenMCDriver::Result>> ThreadPool::waitForTasks()
 {
-	while (!shouldHalt() && getRemainingTasks())
+	while (!shouldHalt() && getRemainingTasks() > 0)
 		std::this_thread::yield();
 
 	return std::move(results_);
