@@ -38,8 +38,9 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 			driver->run();
 
 			/* If that was the last task, notify everyone */
+			std::lock_guard<std::mutex> lock(stateMtx_);
 			if (decRemainingTasks() == 0) {
-				halt();
+				stateCV_.notify_all();
 				break;
 			}
 		}
@@ -79,10 +80,9 @@ ThreadPool::TaskT ThreadPool::popTask()
 		if (auto t = tryStealOtherQueue())
 			return t;
 
+		std::unique_lock<std::mutex> lock(stateMtx_);
 		if (shouldHalt() || getRemainingTasks() == 0)
 			return nullptr;
-
-		std::unique_lock<std::mutex> lock(stateMtx_);
 		stateCV_.wait(lock);
 	}
 	return nullptr;
