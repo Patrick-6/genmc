@@ -2304,13 +2304,9 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) &&
 	    retVal != getBarrierInitValue(lab->getAccess())) {
-		if (!getConf()->disableBAM) {
-			auto pos = lab->getPos();
-			g.removeLast(pos.thread);
-			blockThread(pos, BlockageType::Barrier);
+		blockThread(lab->getPos().next(), BlockageType::Barrier);
+		if (!getConf()->disableBAM)
 			return {retVal};
-		}
-		getEE()->getCurThr().block(BlockageType::Barrier);
 	}
 
 	if (isRescheduledRead(lab->getPos()))
@@ -2712,18 +2708,23 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 					     if (!bLab || bLab->getType() != BlockageType::Barrier)
 						     return false;
 					     auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
-						     g.getPreviousLabel(lab));
+								g.getPreviousLabel(lab->getPos().prev()));
 					     return pLab->getAddr() == sLab->getAddr();
 	});
-	if (bs.size() > iVal.get() || loads.size() > 0)
+	auto unblockedLoads = std::count_if(loads.begin(), loads.end(), [&](auto &l){
+		auto *nLab = llvm::dyn_cast_or_null<BlockLabel>(g.getNextLabel(l));
+		return !nLab;
+	});
+	if (bs.size() > iVal.get() || unblockedLoads > 0)
 		WARN_ONCE("bam-well-formed", "Execution not barrier-well-formed!\n");
 
 	std::for_each(bs.begin(), bs.end(), [&](const Event &b){
-		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b));
+		auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(g.getPreviousLabel(b.prev()));
 		BUG_ON(!pLab);
 		unblockThread(b);
+		g.removeLast(b.thread);
 		auto *rLab = llvm::dyn_cast<ReadLabel>(
-			addLabelToGraph(BWaitReadLabel::create(b, pLab->getOrdering(), pLab->getAddr(),
+			addLabelToGraph(BWaitReadLabel::create(b.prev(), pLab->getOrdering(), pLab->getAddr(),
 							       pLab->getSize(), pLab->getType(),
 							       pLab->getDeps())));
 		g.changeRf(rLab->getPos(), sLab->getPos());
