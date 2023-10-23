@@ -26,6 +26,7 @@
 #include "Verbosity.hpp"
 #include "VSet.hpp"
 
+#include <optional>
 #include <string>
 
 enum class SchedulePolicy { ltr, wf, wfr, arbitrary };
@@ -63,7 +64,7 @@ public:
 	bool disableDelalloc;
 
 	/*** Transformation options ***/
-	int unroll;
+	std::optional<int> unroll;
 	VSet<std::string> noUnrollFuns;
 	bool castElimination;
 	bool inlineFunctions;

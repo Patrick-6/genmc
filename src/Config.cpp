@@ -368,7 +368,7 @@ void Config::saveConfigOptions()
 	disableDelalloc = clDisableDelalloc;
 
 	/* Save transformation options */
-	unroll = clLoopUnroll;
+	unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
 	noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
 	loopJumpThreading = !clDisableLoopJumpThreading;
 	castElimination = !clDisableCastElimination;
