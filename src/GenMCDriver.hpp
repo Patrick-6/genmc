@@ -274,6 +274,10 @@ public:
 	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
 			 const EventLabel *racyLab = nullptr, bool shouldHalt = true);
 
+	/* Helper that reports an unreported warning only if it hasn't reported before.
+	 * Returns true if the warning should be treated as an error according to the config. */
+	bool reportWarningOnce(Event pos, VerificationError r, const EventLabel *racyLab = nullptr);
+
 	virtual ~GenMCDriver();
 
 protected:

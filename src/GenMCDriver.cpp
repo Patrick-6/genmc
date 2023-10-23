@@ -1050,7 +1050,9 @@ bool GenMCDriver::isRevisitValid(const Revisit &revisit)
 	}
 
 	/* If an extra event is added, re-check consistency */
-	return g.isRMWLoad(pos) ? isExecutionValid(g.getNextLabel(pos)) : true;
+	auto *nLab = g.getNextLabel(pos);
+	return !g.isRMWLoad(pos) ||
+	       (isExecutionValid(nLab) && checkForRaces(nLab) == VerificationError::VE_OK);
 }
 
 bool GenMCDriver::isExecutionDrivenByGraph(const EventLabel *lab)
@@ -1114,16 +1116,11 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
         /* Check whether there are any unreported warnings... */
 	std::vector<const EventLabel *> races;
 	auto newWarnings = checkWarnings(lab, getResult().warnings, races);
-	getResult().warnings.insert(newWarnings.begin(), newWarnings.end());
 
 	/* ... and report them */
 	auto i = 0U;
 	for (auto &wcode : newWarnings) {
-		auto hardError = (getConf()->symmetryReduction || getConf()->ipr) && wcode == VerificationError::VE_WWRace;
-		auto msg = hardError ? "Warning treated as an error due to symmetry reduction/in-place revisiting.\n"
-				       "You can use -disable-sr and -disable-ipr to disable these features."s : ""s;
-		reportError(lab->getPos(), wcode, msg, races[i++], hardError);
-		if (hardError)
+		if (reportWarningOnce(lab->getPos(), wcode, races[i++]))
 			return wcode;
 	}
 	return VerificationError::VE_OK;
@@ -2298,9 +2295,12 @@ void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab, const std::vector
 
 void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 {
-	/* Find all possible placings in coherence for this store */
+	/* Find all possible placings in coherence for this store.
+	 * If appropriate, print a WW-race warning (if this moots, exploration will anyway be cut).
+	 * Printing happens after choices are updated, to not invalidate iterators */
 	auto &g = getGraph();
 	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+	auto *racyWrite = placesRange.begin() != placesRange.end() ? &*placesRange.begin() : nullptr;
 
 	if (inEstimationMode()) {
 		std::vector<Event> cos;
@@ -2308,6 +2308,8 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 		cos.push_back(Event::getBottom());
 		pickRandomCo(lab, placesRange);
 		updateStSpaceChoices(lab, cos);
+		if (racyWrite)
+			reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, racyWrite);
 		return;
 	}
 
@@ -2318,6 +2320,8 @@ void GenMCDriver::calcCoOrderings(WriteLabel *lab)
 				      std::make_unique<WriteForwardRevisit>(lab->getPos(), succLab.getPos()));
 	}
 	g.addStoreToCO(lab, placesRange.end());
+	if (racyWrite)
+		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, racyWrite);
 }
 
 void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
@@ -2593,6 +2597,21 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 
 	if (shouldHalt)
 		halt(s);
+}
+
+bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
+				    const EventLabel *racyLab /* = nullptr */)
+{
+	auto &knownWarnings = getResult().warnings;
+	if (knownWarnings.count(wcode) > 0)
+		return false;
+
+	auto hardError = (getConf()->symmetryReduction || getConf()->ipr) && wcode == VerificationError::VE_WWRace;
+	auto msg = hardError ? "Warning treated as an error due to symmetry reduction/in-place revisiting.\n"
+			       "You can use -disable-sr and -disable-ipr to disable these features."s : ""s;
+	reportError(pos, wcode, msg, racyLab, hardError);
+	knownWarnings.insert(wcode);
+	return hardError;
 }
 
 bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads)
