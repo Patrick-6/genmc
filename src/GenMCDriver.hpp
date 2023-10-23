@@ -743,16 +743,6 @@ private:
 	 * read that is part of a lock() op  */
 	bool filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
-	/* Helper: Filters out RFs that will make the CAS fail */
-	void filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores);
-
-	/* Helper: Returns true if there is a speculative read that hasn't been confirmed */
-	bool existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores);
-
-	/* Helper: Ensures a speculative read will not be added if
-	 * there are other speculative (unconfirmed) reads */
-	bool filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
-
 	/* Estimation: Filters outs stores read by RMW loads */
 	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
 

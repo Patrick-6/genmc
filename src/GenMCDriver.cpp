@@ -2086,93 +2086,6 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	return rfs;
 }
 
-void GenMCDriver::filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores)
-{
-	auto &g = getGraph();
-	if (!getConf()->helper || !g.isConfirming(lab))
-		return;
-
-	auto sc = Event::getInit();
-	auto *rLab = llvm::dyn_cast<ReadLabel>(
-		g.getEventLabel(g.getMatchingSpeculativeRead(lab->getPos(), &sc)));
-	ERROR_ON(!rLab, "Confirming annotation error! Does the speculative "
-		 "read always precede the confirming operation?\n");
-
-	/* Print a warning if there are ABAs */
-	auto specVal = getWriteValue(rLab->getRf(), rLab->getAccess());
-	auto valid = std::count_if(stores.begin(), stores.end(), [&](const Event &s){
-		return getWriteValue(g.getEventLabel(s), rLab->getAccess()) == specVal;
-	});
-	WARN_ON_ONCE(valid > 1, "helper-aba-found",
-		     "Possible ABA pattern on variable " + getVarName(rLab->getAddr()) +
-		     "! Consider running without -helper.\n");
-
-	/* Do not optimize if there are intervening SC accesses */
-	if (!sc.isInitializer())
-		return;
-
-	BUG_ON(stores.empty());
-
-	/* Demand that the confirming read reads the speculated value (exact rf) */
-	auto maximal = stores.back();
-	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](const Event &s){
-		return s != rLab->getRf()->getPos();
-	}), stores.end());
-
-	/* ... and if no such value exists, block indefinitely */
-	if (stores.empty()) {
-		stores.push_back(maximal);
-		blockThreadTryMoot(lab->getPos().next(), BlockageType::Confirmation);
-		return;
-	}
-
-	/* deprioritize thread upon confirmation */
-	if (!threadPrios.empty() &&
-	    llvm::isa<SpeculativeReadLabel>(getGraph().getEventLabel(threadPrios[0])))
-		threadPrios.clear();
-	return;
-}
-
-bool GenMCDriver::existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores)
-{
-	auto &g = getGraph();
-	return (std::any_of(label_begin(g), label_end(g), [&](auto &oLab){
-		auto *orLab = llvm::dyn_cast<SpeculativeReadLabel>(&oLab);
-		return orLab && orLab->getAddr() == lab->getAddr() &&
-			!getHbView(lab).contains(orLab->getPos()) &&
-			orLab->getPos() != lab->getPos();
-	}) &&
-		std::find_if(stores.begin(), stores.end(), [&](const Event &s){
-			return llvm::isa<ConfirmingCasWriteLabel>(g.getEventLabel(s)) &&
-				s.index > lab->getIndex() && s.thread == lab->getThread();
-		}) == stores.end());
-}
-
-bool GenMCDriver::filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores)
-{
-	if (!getConf()->helper || !llvm::isa<SpeculativeReadLabel>(lab))
-		return true;
-
-	if (isRescheduledRead(lab->getPos())) {
-		setRescheduledRead(Event::getInit());
-		return true;
-	}
-
-	/* If there exist any speculative reads the confirming read of which has not been added,
-	 * prioritize those and discard current rfs; otherwise, prioritize ourselves */
-	if (existsPendingSpeculation(lab, stores)) {
-		std::swap(stores[0], stores.back());
-		stores.resize(1);
-		auto pos = lab->getPos();
-		getGraph().removeLast(pos.thread);
-		blockThread(pos, BlockageType::ReadOptBlock);
-		return false;
-	}
-
-	threadPrios = { lab->getPos() };
-	return true;
-}
-
 bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	/* Symmetry reduction */
@@ -2186,15 +2099,6 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 	/* Locking */
 	if (llvm::isa<LockCasReadLabel>(lab))
 		if (!filterAcquiredLocks(lab, stores))
-			return false;
-
-	/* Helper: Try to read speculated value (affects maximality status) */
-	if (getConf()->helper && getGraph().isConfirming(lab))
-		filterConfirmingRfs(lab, stores);
-
-	/* Helper: If there are pending confirmations, prioritize those */
-	if (getConf()->helper && llvm::isa<SpeculativeReadLabel>(lab))
-		if (!filterUnconfirmedReads(lab, stores))
 			return false;
 
 	/* If this load is annotatable, keep values that will not leed to blocking */
