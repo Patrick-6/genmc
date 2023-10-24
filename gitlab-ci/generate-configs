@@ -88,7 +88,7 @@ LINUX_ANCHOR_FUN=anchor_linux
 MACOS_ANCHOR_FUN=anchor_macos
 
 ## pipeline stages -- we assume the first stage is a build stage
-LINUX_STAGES="build ftest rtest concurrency test regression"
+LINUX_STAGES="build ftest rtest concurrency bounding test regression"
 MACOS_STAGES="build ftest" ## only run quick stages for macos
 
 LINUX_CONFIG_CMD='./configure --with-llvm=`llvm-config-${LLVM_VERSION} --prefix` || (cat config.log; false)'
@@ -127,6 +127,14 @@ concurrency_stage() {
     echo "  stage: concurrency"
     echo "  script:"
     echo "    - ./scripts/run-parallel.sh"
+    echo ""
+}
+
+bounding_stage() {
+    echo ".test:llvm_job: &bounding"
+    echo "  stage: bounding"
+    echo "  script:"
+    echo "    - ./scripts/bound-driver.sh --debug"
     echo ""
 }
 
