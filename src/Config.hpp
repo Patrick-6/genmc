@@ -28,7 +28,7 @@
 
 #include <string>
 
-enum class SchedulePolicy { ltr, wf, random };
+enum class SchedulePolicy { ltr, wf, wfr, arbitrary };
 
 struct Config {
 
@@ -39,6 +39,7 @@ public:
 
 	/*** Exploration options ***/
 	ModelType model;
+	bool estimate;
 	bool isDepTrackingModel;
 	unsigned int threads;
 	bool LAPOR;
@@ -74,6 +75,9 @@ public:
 	bool mmDetector;
 
 	/*** Debugging options ***/
+	unsigned int estimationMax;
+	unsigned int estimationMin;
+	unsigned int sdThreshold;
 	bool inputFromBitcodeFile;
 	bool printExecGraphs;
 	bool printBlockedExecs;
@@ -89,7 +93,8 @@ public:
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
-	bool countMootExecs;
+        bool countMootExecs;
+	bool printEstimationStats;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

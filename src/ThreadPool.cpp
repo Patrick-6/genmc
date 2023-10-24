@@ -38,8 +38,9 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 			driver->run();
 
 			/* If that was the last task, notify everyone */
+			std::lock_guard<std::mutex> lock(stateMtx_);
 			if (decRemainingTasks() == 0) {
-				halt();
+				stateCV_.notify_all();
 				break;
 			}
 		}
@@ -48,9 +49,8 @@ void ThreadPool::addWorker(unsigned int i, std::unique_ptr<GenMCDriver> d)
 
 	results_.push_back(std::move(t.get_future()));
 
-	workers_.push_back(std::thread(std::move(t), i, std::move(d)));
+	workers_.emplace_back(std::move(t), i, std::move(d));
 	pinner_.pin(workers_.back(), i);
-	return;
 }
 
 void ThreadPool::submit(ThreadPool::TaskT t)
@@ -59,7 +59,6 @@ void ThreadPool::submit(ThreadPool::TaskT t)
 	incRemainingTasks();
 	queue_.push(std::move(t));
 	stateCV_.notify_one();
-	return;
 }
 
 ThreadPool::TaskT ThreadPool::tryPopPoolQueue()
@@ -78,13 +77,12 @@ ThreadPool::TaskT ThreadPool::popTask()
 	while (true) {
 		if (auto t = tryPopPoolQueue())
 			return t;
-		else if (auto t = tryStealOtherQueue())
+		if (auto t = tryStealOtherQueue())
 			return t;
 
+		std::unique_lock<std::mutex> lock(stateMtx_);
 		if (shouldHalt() || getRemainingTasks() == 0)
 			return nullptr;
-
-		std::unique_lock<std::mutex> lock(stateMtx_);
 		stateCV_.wait(lock);
 	}
 	return nullptr;
@@ -92,7 +90,7 @@ ThreadPool::TaskT ThreadPool::popTask()
 
 std::vector<std::future<GenMCDriver::Result>> ThreadPool::waitForTasks()
 {
-	while (!shouldHalt() && getRemainingTasks())
+	while (!shouldHalt() && getRemainingTasks() > 0)
 		std::this_thread::yield();
 
 	return std::move(results_);

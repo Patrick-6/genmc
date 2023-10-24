@@ -37,6 +37,7 @@ public:
 		RV_FRevRead,
 		RV_FRevMO,
 		RV_FRevOpt,
+		RV_FRevRerun,
 		RV_FRevLast,
 		RV_BRev,
 		RV_BRevHelper,
@@ -180,6 +181,21 @@ public:
 
 	static bool classof(const Revisit *item) {
 		return item->getKind() == RV_FRevOpt;
+	}
+};
+
+
+/*
+ * RerunForwardRevisit class - Represents an execution "rerun".
+ * Helpful e.g., when operating under EstimationMode
+ */
+class RerunForwardRevisit : public ForwardRevisit {
+
+public:
+	RerunForwardRevisit() : ForwardRevisit(RV_FRevRerun, Event::getInit()) {}
+
+	static bool classof(const Revisit *item) {
+		return item->getKind() == RV_FRevRerun;
 	}
 };
 

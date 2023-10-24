@@ -58,12 +58,12 @@ out_new="${out_dir}/${res_prefix}_${NEW_COMMIT}.out"
 make clean
 git checkout "${OLD_COMMIT}"
 make -j `nproc`
-TERM=xterm-mono "${DIR}"/fast-driver.sh > "${out_old}"
+TERM=xterm-mono GENMCFLAGS="-disable-estimation" "${DIR}"/fast-driver.sh > "${out_old}"
 
 make clean
 git checkout "${NEW_COMMIT}"
 make -j `nproc`
-TERM=xterm-mono "${DIR}"/fast-driver.sh > "${out_new}"
+TERM=xterm-mono GENMCFLAGS="-disable-estimation" "${DIR}"/fast-driver.sh > "${out_new}"
 
 # keep only name/model/co + time for tests
 out_old_filtered="${out_dir}/${res_prefix}_${OLD_COMMIT}_filtered.out"

@@ -22,8 +22,8 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef __RC11_DRIVER_HPP__
-#define __RC11_DRIVER_HPP__
+#ifndef __TSO_DRIVER_HPP__
+#define __TSO_DRIVER_HPP__
 
 #include "config.h"
 #include "ExecutionGraph.hpp"
@@ -35,7 +35,7 @@
 #include <cstdint>
 #include <vector>
 
-class RC11Driver : public GenMCDriver {
+class TSODriver : public GenMCDriver {
 
 private:
 	enum class NodeStatus : unsigned char { unseen, entered, left };
@@ -48,7 +48,7 @@ private:
 	};
 
 public:
-	RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+	TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode = GenMCDriver::VerificationMode{});
 
 	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
@@ -89,20 +89,12 @@ private:
 	void visitCalc1_0(const EventLabel *lab, View &calcRes);
 	void visitCalc1_1(const EventLabel *lab, View &calcRes);
 	void visitCalc1_2(const EventLabel *lab, View &calcRes);
-	void visitCalc1_3(const EventLabel *lab, View &calcRes);
-	void visitCalc1_4(const EventLabel *lab, View &calcRes);
-	void visitCalc1_5(const EventLabel *lab, View &calcRes);
-	void visitCalc1_6(const EventLabel *lab, View &calcRes);
 
 	View calculate1(const EventLabel *lab);
 
 	mutable std::vector<NodeStatus> visitedCalc1_0;
 	mutable std::vector<NodeStatus> visitedCalc1_1;
 	mutable std::vector<NodeStatus> visitedCalc1_2;
-	mutable std::vector<NodeStatus> visitedCalc1_3;
-	mutable std::vector<NodeStatus> visitedCalc1_4;
-	mutable std::vector<NodeStatus> visitedCalc1_5;
-	mutable std::vector<NodeStatus> visitedCalc1_6;
 
 	bool visitInclusionLHS0_0(const EventLabel *lab, const View &v) const;
 	bool visitInclusionLHS0_1(const EventLabel *lab, const View &v) const;
@@ -230,18 +222,6 @@ private:
 	bool visitAcyclic1(const EventLabel *lab) const;
 	bool visitAcyclic2(const EventLabel *lab) const;
 	bool visitAcyclic3(const EventLabel *lab) const;
-	bool visitAcyclic4(const EventLabel *lab) const;
-	bool visitAcyclic5(const EventLabel *lab) const;
-	bool visitAcyclic6(const EventLabel *lab) const;
-	bool visitAcyclic7(const EventLabel *lab) const;
-	bool visitAcyclic8(const EventLabel *lab) const;
-	bool visitAcyclic9(const EventLabel *lab) const;
-	bool visitAcyclic10(const EventLabel *lab) const;
-	bool visitAcyclic11(const EventLabel *lab) const;
-	bool visitAcyclic12(const EventLabel *lab) const;
-	bool visitAcyclic13(const EventLabel *lab) const;
-	bool visitAcyclic14(const EventLabel *lab) const;
-	bool visitAcyclic15(const EventLabel *lab) const;
 
 	bool isAcyclic(const EventLabel *lab) const ;
 
@@ -249,18 +229,6 @@ private:
 	mutable std::vector<NodeCountStatus> visitedAcyclic1;
 	mutable std::vector<NodeCountStatus> visitedAcyclic2;
 	mutable std::vector<NodeCountStatus> visitedAcyclic3;
-	mutable std::vector<NodeCountStatus> visitedAcyclic4;
-	mutable std::vector<NodeCountStatus> visitedAcyclic5;
-	mutable std::vector<NodeCountStatus> visitedAcyclic6;
-	mutable std::vector<NodeCountStatus> visitedAcyclic7;
-	mutable std::vector<NodeCountStatus> visitedAcyclic8;
-	mutable std::vector<NodeCountStatus> visitedAcyclic9;
-	mutable std::vector<NodeCountStatus> visitedAcyclic10;
-	mutable std::vector<NodeCountStatus> visitedAcyclic11;
-	mutable std::vector<NodeCountStatus> visitedAcyclic12;
-	mutable std::vector<NodeCountStatus> visitedAcyclic13;
-	mutable std::vector<NodeCountStatus> visitedAcyclic14;
-	mutable std::vector<NodeCountStatus> visitedAcyclic15;
 
 	mutable uint16_t visitedAccepting = 0;
 
@@ -279,4 +247,4 @@ private:
 
 };
 
-#endif /* __RC11_DRIVER_HPP__ */
+#endif /* __TSO_DRIVER_HPP__ */

@@ -26,8 +26,8 @@
 #include "ModuleInfo.hpp"
 
 RC11Driver::RC11Driver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		std::unique_ptr<ModuleInfo> MI)
-	: GenMCDriver(conf, std::move(mod), std::move(MI)) {}
+		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
+	: GenMCDriver(conf, std::move(mod), std::move(MI), mode) {}
 
 void RC11Driver::visitCalc0_0(const EventLabel *lab, View &calcRes)
 {

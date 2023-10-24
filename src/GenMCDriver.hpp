@@ -25,7 +25,6 @@
 #include "DepInfo.hpp"
 #include "EventLabel.hpp"
 #include "ExecutionGraph.hpp"
-#include "RevisitSet.hpp"
 #include "SAddrAllocator.hpp"
 #include "Trie.hpp"
 #include "VerificationError.hpp"
@@ -37,8 +36,10 @@
 #include <ctime>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <random>
 #include <unordered_set>
+#include <variant>
 
 namespace llvm {
 	class Interpreter;
@@ -49,24 +50,32 @@ class ThreadPool;
 class GenMCDriver {
 
 protected:
-	using LocalQueueT = std::map<uint32_t, WorkSet>;
+	using LocalQueueT = std::map<Stamp, WorkSet>;
 	using ValuePrefixT = std::unordered_map<unsigned int,
 						Trie<std::vector<SVal>,
 						     std::vector<std::unique_ptr<EventLabel>>,
 						     SValUCmp>
 						>;
+	using ChoiceMap = std::map<Stamp, VSet<Event>>;
 
 public:
+	/* The operating mode of the driver */
+	struct VerificationMode {};
+	struct EstimationMode { unsigned int budget; };
+	using Mode = std::variant<VerificationMode, EstimationMode>;
+
 	/* Verification result */
 	struct Result {
 		VerificationError status = VerificationError::VE_OK; /* Whether the verification completed successfully */
-		unsigned explored{};        /* Number of complete executions explored */
-		unsigned exploredBlocked{}; /* Number of blocked executions explored */
+		unsigned explored{};             /* Number of complete executions explored */
+		unsigned exploredBlocked{};      /* Number of blocked executions explored */
+		long double estimationMean{};    /* The mean of estimations */
+		long double estimationVariance{};/* The (biased) variance of the estimations */
 #ifdef ENABLE_GENMC_DEBUG
-		unsigned exploredMoot{};    /* Number of moot executions _encountered_ */
-		unsigned duplicates{};      /* Number of duplicate executions explored */
+		unsigned exploredMoot{};         /* Number of moot executions _encountered_ */
+		unsigned duplicates{};           /* Number of duplicate executions explored */
 #endif
-                std::string message{};      /* A message to be printed */
+                std::string message{};           /* A message to be printed */
 		VSet<VerificationError> warnings{}; /* The warnings encountered */
 
 		Result() = default;
@@ -78,6 +87,8 @@ public:
 			message += other.message;
 			explored += other.explored;
 			exploredBlocked += other.exploredBlocked;
+			estimationMean += other.estimationMean;
+			estimationVariance += other.estimationVariance;
 #ifdef ENABLE_GENMC_DEBUG
 			exploredMoot += other.exploredMoot;
 			duplicates += other.duplicates;
@@ -87,33 +98,19 @@ public:
 		}
 	};
 
-	/* Represents the execution at a given point */
-	struct Execution {
-		std::unique_ptr<ExecutionGraph> graph;
-		LocalQueueT workqueue;
-
-                Execution() = delete;
-		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w);
-
-		Execution(const Execution &) = delete;
-		auto operator=(const Execution &) -> Execution& = delete;
-		Execution(Execution &&) = default;
-		auto operator=(Execution &&) -> Execution& = default;
-
-		~Execution();
-	};
-
 	/* Driver (global) state */
 	struct State {
 		std::unique_ptr<ExecutionGraph> graph;
+		ChoiceMap choices;
 		SAddrAllocator alloctor;
 		llvm::BitVector fds;
 		ValuePrefixT cache;
 		Event lastAdded;
 
 		State() = delete;
-		State(std::unique_ptr<ExecutionGraph> g, SAddrAllocator &&alloctor,
-		      llvm::BitVector &&fds, ValuePrefixT &&cache, Event la);
+		State(std::unique_ptr<ExecutionGraph> g, ChoiceMap &&m,
+		      SAddrAllocator &&alloctor, llvm::BitVector &&fds,
+		      ValuePrefixT &&cache, Event la);
 
 		State(const State &) = delete;
 		auto operator=(const State &) -> State& = delete;
@@ -124,6 +121,8 @@ public:
 	};
 
 private:
+	struct Execution;
+
 	static bool isInvalidAccessError(VerificationError s) {
 		return VerificationError::VE_InvalidAccessBegin <= s &&
 			s <= VerificationError::VE_InvalidAccessEnd;
@@ -157,7 +156,13 @@ public:
 	Result &getResult() { return result; }
 
 	/* Creates driver instance(s) and starts verification for the given module. */
-	static Result verify(std::shared_ptr<Config> conf, std::unique_ptr<llvm::Module> mod);
+	static Result verify(std::shared_ptr<const Config> conf,
+			     std::unique_ptr<llvm::Module> mod,
+			     std::unique_ptr<ModuleInfo> modInfo);
+
+        static Result estimate(std::shared_ptr<const Config> conf,
+                               const std::unique_ptr<llvm::Module> &mod,
+                               const std::unique_ptr<ModuleInfo> &modInfo);
 
 	/* Gets/sets the thread pool this driver should account to */
 	ThreadPool *getThreadPool() { return pool; }
@@ -269,12 +274,16 @@ public:
 	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
 			 const EventLabel *racyLab = nullptr, bool shouldHalt = true);
 
+	/* Helper that reports an unreported warning only if it hasn't reported before.
+	 * Returns true if the warning should be treated as an error according to the config. */
+	bool reportWarningOnce(Event pos, VerificationError r, const EventLabel *racyLab = nullptr);
+
 	virtual ~GenMCDriver();
 
 protected:
 
 	GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		    std::unique_ptr<ModuleInfo> MI);
+		    std::unique_ptr<ModuleInfo> MI, Mode = VerificationMode{});
 
 	/* No copying or copy-assignment of this class is allowed */
 	GenMCDriver(GenMCDriver const&) = delete;
@@ -286,12 +295,19 @@ protected:
 	/* Returns a pointer to the interpreter */
 	llvm::Interpreter *getEE() const { return EE.get(); }
 
-	/* Returns a reference to the current graph */
-	ExecutionGraph &getGraph() { return *execStack.back().graph; }
-	const ExecutionGraph &getGraph() const { return *execStack.back().graph; }
+	/* Returns a reference to the current execution */
+	Execution &getExecution() { return execStack.back(); }
+	const Execution &getExecution() const { return execStack.back(); }
 
-	LocalQueueT &getWorkqueue() { return execStack.back().workqueue; }
-	const LocalQueueT &getWorkqueue() const { return execStack.back().workqueue; }
+	/* Returns a reference to the current graph */
+	ExecutionGraph &getGraph() { return getExecution().getGraph(); }
+	const ExecutionGraph &getGraph() const { return getExecution().getGraph(); }
+
+	LocalQueueT &getWorkqueue() { return getExecution().getWorkqueue(); }
+	const LocalQueueT &getWorkqueue() const { return getExecution().getWorkqueue(); }
+
+	ChoiceMap &getChoiceMap() { return getExecution().getChoiceMap(); }
+	const ChoiceMap &getChoiceMap() const { return getExecution().getChoiceMap(); }
 
 	/* Pushes E to the execution stack. */
 	void pushExecution(Execution &&e);
@@ -369,6 +385,24 @@ protected:
 	/* Pers: Returns true if we are currently running the recovery routine */
 	bool inRecoveryMode() const;
 
+	/* Est: Returns true if we are currently running in estimation mode */
+	bool inEstimationMode() const {
+		return std::holds_alternative<EstimationMode>(mode);
+	}
+
+	/* Est: Returns true if the estimation seems "good enough" */
+	bool shouldStopEstimating() {
+		auto remainingBudget = --std::get<EstimationMode>(mode).budget;
+		if (remainingBudget == 0)
+			return true;
+
+		auto totalExplored = result.explored + result.exploredBlocked;
+		auto sd = std::sqrt(result.estimationVariance);
+		return (totalExplored >= getConf()->estimationMin) &&
+		       (sd <= result.estimationMean / getConf()->sdThreshold ||
+			totalExplored > result.estimationMean);
+	}
+
 	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
 	bool threadReadsMaximal(int tid);
 
@@ -382,6 +416,41 @@ protected:
 	bool isHazptrProtected(const MemAccessLabel *mLab) const;
 
 private:
+	/* Represents the execution at a given point */
+	struct Execution {
+                Execution() = delete;
+		Execution(std::unique_ptr<ExecutionGraph> g, LocalQueueT &&w, ChoiceMap &&cm);
+
+		Execution(const Execution &) = delete;
+		auto operator=(const Execution &) -> Execution& = delete;
+		Execution(Execution &&) = default;
+		auto operator=(Execution &&) -> Execution& = default;
+
+		/* Returns a reference to the current graph */
+		ExecutionGraph &getGraph() { return *graph; }
+		const ExecutionGraph &getGraph() const { return *graph; }
+
+		LocalQueueT &getWorkqueue() { return workqueue; }
+		const LocalQueueT &getWorkqueue() const { return workqueue; }
+
+		ChoiceMap &getChoiceMap() { return choices; }
+		const ChoiceMap &getChoiceMap() const { return choices; }
+
+		void restrict(Stamp stamp);
+
+		~Execution();
+
+	private:
+		/* Removes all items with stamp >= STAMP from the list */
+		void restrictWorklist(Stamp stamp);
+		void restrictGraph(Stamp stamp);
+		void restrictChoices(Stamp stamp);
+
+		std::unique_ptr<ExecutionGraph> graph;
+		ChoiceMap choices;
+		LocalQueueT workqueue;
+	};
+
 	/*** Worklist-related ***/
 
 	/* Adds an appropriate entry to the worklist */
@@ -392,9 +461,6 @@ private:
 	std::pair<Stamp, WorkSet::ItemT>
 	getNextItem();
 
-	/* Restricts the worklist only to entries that were added before STAMP */
-	void restrictWorklist(Stamp stamp);
-
 
 	/*** Exploration-related ***/
 
@@ -404,7 +470,7 @@ private:
 
 	/* Returns whether a revisit results to a valid execution
 	 * (e.g., consistent, accessing allocated memory, etc) */
-	bool isRevisitValid(Event pos);
+	bool isRevisitValid(const Revisit &revisit);
 
 	/* Returns true if this driver is shutting down */
 	bool isHalting() const;
@@ -435,6 +501,8 @@ private:
 	 * instructions to run and it is not blocked) */
 	bool isSchedulable(int thread) const;
 
+	int getFirstSchedulableSymmetric(int tid);
+
 	/* Ensures the scheduler respects atomicity */
 	bool scheduleAtomicity();
 
@@ -448,6 +516,7 @@ private:
 	/* Helpers for schedule according to a policy */
 	bool scheduleNextLTR();
 	bool scheduleNextWF();
+	bool scheduleNextWFR();
 	bool scheduleNextRandom();
 
 	/* Tries to schedule the next instruction according to the
@@ -518,6 +587,12 @@ private:
 	 * If another label exists in the specified position, it is replaced. */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
+	/* Est: Picks (and sets) a random RF among some possible options */
+        std::optional<SVal> pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores);
+
+	/* Est: Picks (and sets) a random CO among some possible options */
+	void pickRandomCo(WriteLabel *sLab, const llvm::iterator_range<ExecutionGraph::co_iterator> &coRange);
+
 	/* BAM: Tries to optimize barrier-related revisits */
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
 
@@ -539,7 +614,7 @@ private:
 
 	/* Constructs a BackwardRevisit representing RLAB <- SLAB */
 	std::unique_ptr<BackwardRevisit>
-	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab);
+	constructBackwardRevisit(const ReadLabel *rLab, const WriteLabel *sLab) const;
 
 	/* Given a revisit RLAB <- WLAB, returns the view of the resulting graph.
 	 * (This function can be abused and also be utilized for returning the view
@@ -606,7 +681,7 @@ private:
 
 	/* Adjusts the graph and the worklist according to the backtracking option S.
 	 * Returns true if the resulting graph should be explored */
-	bool restrictAndRevisit(Stamp st, WorkSet::ItemT s);
+	bool restrictAndRevisit(Stamp st, const WorkSet::ItemT &s);
 
 	/* If rLab is the read part of an RMW operation that now became
 	 * successful, this function adds the corresponding write part.
@@ -614,13 +689,13 @@ private:
 	 * if the event was not an RMW, or was an unsuccessful one */
 	WriteLabel *completeRevisitedRMW(const ReadLabel *rLab);
 
-	/* Removes all labels with stamp >= ST from the graph */
-	void restrictGraph(Stamp st);
-
 	/* Copies the current EG according to BR's view V.
 	 * May modify V but will not execute BR in the copy. */
 	std::unique_ptr<ExecutionGraph>
 	copyGraph(const BackwardRevisit *br, VectorClock *v) const;
+
+	ChoiceMap
+	createChoiceMapForCopy(const ExecutionGraph &og) const;
 
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
@@ -672,31 +747,14 @@ private:
 	 * read that is part of a lock() op  */
 	bool filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
 
-	/* Helper: Filters out RFs that will make the CAS fail */
-	void filterConfirmingRfs(const ReadLabel *lab, std::vector<Event> &stores);
-
-	/* Helper: Returns true if there is a speculative read that hasn't been confirmed */
-	bool existsPendingSpeculation(const ReadLabel *lab, const std::vector<Event> &stores);
-
-	/* Helper: Ensures a speculative read will not be added if
-	 * there are other speculative (unconfirmed) reads */
-	bool filterUnconfirmedReads(const ReadLabel *lab, std::vector<Event> &stores);
+	/* Estimation: Filters outs stores read by RMW loads */
+	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
 
 	/* IPR: Returns true if RLAB is a possible IPR from SLAB */
 	bool isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab);
 
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
-
-	/* Opt: Repairs the reads-from edge of a dangling lock */
-	void repairLock(LockCasReadLabel *lab);
-
-	/* Opt: Repairs some locks that may be "dangling", as part of the
-	 * in-place revisiting of locks */
-	void repairDanglingLocks();
-
-	void repairRead(ReadLabel *lab);
-	void repairDanglingReads();
 
 	/* Opt: Finds the last memory access that is visible to other threads;
 	 * return nullptr if no such access is found */
@@ -747,6 +805,21 @@ private:
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
 	bool filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
 
+
+	/*** Estimation-related ***/
+
+	/* Registers that RLAB can read from all stores in STORES */
+	void updateStSpaceChoices(const ReadLabel *rLab, const std::vector<Event> &stores);
+
+	/* Registers that each L in LOADS can read from SLAB */
+	void updateStSpaceChoices(const std::vector<Event> &loads, const WriteLabel *sLab);
+
+	/* Registers that SLAB can be after each S in STORES */
+	void updateStSpaceChoices(const WriteLabel *sLab, const std::vector<Event> &stores);
+
+	/* Makes an estimation about the state space and updates the current one.
+	 * Has to run at the end of an execution */
+	void updateStSpaceEstimation();
 
 	/*** Output-related ***/
 
@@ -827,15 +900,17 @@ private:
 	friend llvm::raw_ostream& operator<<(llvm::raw_ostream &s,
 					     const VerificationError &r);
 
+	static constexpr unsigned int defaultFdNum = 20;
+
 	/* Random generator facilities used */
 	using MyRNG  = std::mt19937;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 
+	/* The operating mode of the driver */
+	Mode mode = VerificationMode{};
+
 	/* The thread pool this driver may belong to */
 	ThreadPool *pool = nullptr;
-
-	/* The source code of the program under test */
-	std::string sourceCode;
 
 	/* User configuration */
 	std::shared_ptr<const Config> userConf;
@@ -850,7 +925,7 @@ private:
 	SAddrAllocator alloctor;
 
 	/* Pers: A bitvector of available file descriptors */
-	llvm::BitVector fds;
+	llvm::BitVector fds{defaultFdNum};
 
 	/* Opt: Cached labels for optimized scheduling */
 	ValuePrefixT seenPrefixes;
@@ -860,22 +935,23 @@ private:
 	std::vector<Event> threadPrios;
 
 	/* Opt: Whether this execution is moot (locking) */
-	bool isMootExecution;
+	bool isMootExecution = false;
 
 	/* Opt: Whether a particular read needs to be repaired during rescheduling */
-	Event readToReschedule;
+	Event readToReschedule = Event::getInit();
 
 	/* Opt: Keeps track of the last event added for scheduling opt */
 	Event lastAdded = Event::getInit();
 
 	/* Verification result to be returned to caller */
-	Result result;
+	Result result{};
 
 	/* Whether we are stopping the exploration (e.g., due to an error found) */
-	bool shouldHalt;
+	bool shouldHalt = false;
 
-	/* Dbg: Random-number generator for scheduling randomization */
+	/* Dbg: Random-number generators for scheduling/estimation randomization */
 	MyRNG rng;
+	MyRNG estRng;
 };
 
 #endif /* __GENMC_DRIVER_HPP__ */

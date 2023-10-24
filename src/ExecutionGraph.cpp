@@ -460,6 +460,14 @@ void ExecutionGraph::removeLast(unsigned int thread)
 		if (auto *aLab = llvm::dyn_cast_or_null<MallocLabel>(mLab->getAlloc()))
 			aLab->removeAccess([&](auto &oLab){ return &oLab == mLab; });
 	}
+	if (auto *dLab = llvm::dyn_cast<FreeLabel>(lab)) {
+		dLab->getAlloc()->setFree(nullptr);
+	}
+	if (auto *aLab = llvm::dyn_cast<MallocLabel>(lab)) {
+		if (auto *dLab = llvm::dyn_cast_or_null<FreeLabel>(aLab->getFree()))
+			dLab->setAlloc(nullptr);
+	}
+	/* Nothing to do for create/join: childId remains the same */
 	resizeThread(lab->getPos());
 }
 

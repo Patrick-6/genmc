@@ -22,14 +22,14 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#include "RADriver.hpp"
+#include "TSODriver.hpp"
 #include "ModuleInfo.hpp"
 
-RADriver::RADriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
+TSODriver::TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
 		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode /* = GenMCDriver::VerificationMode{} */)
 	: GenMCDriver(conf, std::move(mod), std::move(MI), mode) {}
 
-void RADriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
+void TSODriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
 {
 	auto &g = getGraph();
 
@@ -39,55 +39,25 @@ void RADriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
 	visitedCalc0_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitCalc0_1(const EventLabel *lab, View &calcRes)
+void TSODriver::visitCalc0_1(const EventLabel *lab, View &calcRes)
 {
 	auto &g = getGraph();
 
 	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::entered;
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (llvm::isa<ThreadStartLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_6(pLab, calcRes);
-	}
-	if (llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_6(pLab, calcRes);
-	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && !lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_6(pLab, calcRes);
-	}
-	if (llvm::isa<ThreadStartLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(pLab, calcRes);
-	}
-	if (llvm::isa<ThreadJoinLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(pLab, calcRes);
-	}
-	if (llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && !lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isAtLeastAcquire() && lab->isAtLeastRelease() || llvm::isa<FenceLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCalc0_2[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_2(pLab, calcRes);
 	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc0_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_0(pLab, calcRes);
+	}
 	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitCalc0_2(const EventLabel *lab, View &calcRes)
+void TSODriver::visitCalc0_2(const EventLabel *lab, View &calcRes)
 {
 	auto &g = getGraph();
 
@@ -102,107 +72,15 @@ void RADriver::visitCalc0_2(const EventLabel *lab, View &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
 	}
-	if (lab->isAtLeastAcquire())if (auto pLab = rf_pred(g, lab); pLab)if (pLab->isAtLeastRelease()) {
+	if (auto pLab = rf_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc0_0(pLab, calcRes);
-	}
-	if (lab->isAtLeastAcquire())if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_5[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_5(pLab, calcRes);
-	}
-	if (lab->isAtLeastAcquire())if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
 	}
 	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitCalc0_3(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_3[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadFinishLabel>(pLab)) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadCreateLabel>(pLab)) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<FenceLabel>(pLab) && pLab->isAtLeastRelease() && !pLab->isAtLeastAcquire() || llvm::isa<FenceLabel>(pLab) && pLab->isAtLeastAcquire() && pLab->isAtLeastRelease() || llvm::isa<FenceLabel>(pLab) && pLab->isSC()) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
-	}
-	visitedCalc0_3[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void RADriver::visitCalc0_4(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_4[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = rf_pred(g, lab); pLab)if (pLab->isAtLeastRelease()) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_5[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_5(pLab, calcRes);
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_3[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_3(pLab, calcRes);
-	}
-	visitedCalc0_4[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void RADriver::visitCalc0_5(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_5[lab->getStamp().get()] = NodeStatus::entered;
-	if (g.isRMWStore(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (g.isRMWLoad(pLab)) {
-		auto status = visitedCalc0_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(pLab, calcRes);
-	}
-	visitedCalc0_5[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void RADriver::visitCalc0_6(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_6[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_6(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_4[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_4(pLab, calcRes);
-	}
-	visitedCalc0_6[lab->getStamp().get()] = NodeStatus::left;
-}
-
-View RADriver::calculate0(const EventLabel *lab)
+View TSODriver::calculate0(const EventLabel *lab)
 {
 	auto &g = getGraph();
 	View calcRes;
@@ -214,19 +92,11 @@ View RADriver::calculate0(const EventLabel *lab)
 	visitedCalc0_1.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
 	visitedCalc0_2.clear();
 	visitedCalc0_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_3.clear();
-	visitedCalc0_3.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_4.clear();
-	visitedCalc0_4.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_5.clear();
-	visitedCalc0_5.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
-	visitedCalc0_6.clear();
-	visitedCalc0_6.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
 
 	visitCalc0_1(lab, calcRes);
 	return calcRes;
 }
-void RADriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
+void TSODriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
 {
 	auto &g = getGraph();
 
@@ -236,29 +106,11 @@ void RADriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
 	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitCalc1_1(const EventLabel *lab, View &calcRes)
+void TSODriver::visitCalc1_1(const EventLabel *lab, View &calcRes)
 {
 	auto &g = getGraph();
 
 	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc1_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc1_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_2(pLab, calcRes);
-	}
-	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::left;
-}
-
-void RADriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
-{
-	auto &g = getGraph();
-
-	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::entered;
 	if (auto pLab = tc_pred(g, lab); pLab) {
 		auto status = visitedCalc1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
@@ -274,10 +126,28 @@ void RADriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
 		if (status == NodeStatus::unseen)
 			visitCalc1_0(pLab, calcRes);
 	}
+	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::left;
+}
+
+void TSODriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
+{
+	auto &g = getGraph();
+
+	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::entered;
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc1_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_0(pLab, calcRes);
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto status = visitedCalc1_1[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_1(pLab, calcRes);
+	}
 	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
-View RADriver::calculate1(const EventLabel *lab)
+View TSODriver::calculate1(const EventLabel *lab)
 {
 	auto &g = getGraph();
 	View calcRes;
@@ -290,34 +160,34 @@ View RADriver::calculate1(const EventLabel *lab)
 	visitedCalc1_2.clear();
 	visitedCalc1_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
 
-	visitCalc1_1(lab, calcRes);
+	visitCalc1_2(lab, calcRes);
 	return calcRes;
 }
-std::vector<VSet<Event>> RADriver::calculateSaved(const EventLabel *lab)
+std::vector<VSet<Event>> TSODriver::calculateSaved(const EventLabel *lab)
 {
 	return std::move(saved);
 }
 
-std::vector<View> RADriver::calculateViews(const EventLabel *lab)
+std::vector<View> TSODriver::calculateViews(const EventLabel *lab)
 {
 	views.push_back(calculate0(lab));
 	views.push_back(calculate1(lab));
 	return std::move(views);
 }
 
-void RADriver::updateMMViews(EventLabel *lab)
+void TSODriver::updateMMViews(EventLabel *lab)
 {
 	lab->setCalculated(calculateSaved(lab));
 	lab->setViews(calculateViews(lab));
 	lab->setPrefixView(calculatePrefixView(lab));
 }
 
-bool RADriver::isDepTracking() const
+bool TSODriver::isDepTracking() const
 {
 	return 0;
 }
 
-bool RADriver::visitInclusionLHS0_0(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS0_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -330,7 +200,7 @@ bool RADriver::visitInclusionLHS0_0(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS0_1(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS0_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -344,7 +214,7 @@ bool RADriver::visitInclusionLHS0_1(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::checkInclusion0(const EventLabel *lab) const
+bool TSODriver::checkInclusion0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	auto &v = lab->view(0);
@@ -357,7 +227,7 @@ bool RADriver::checkInclusion0(const EventLabel *lab) const
 		&& visitInclusionLHS0_1(lab, v);
 }
 
-void RADriver::visitInclusionLHS1_0(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS1_0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -366,7 +236,7 @@ void RADriver::visitInclusionLHS1_0(const EventLabel *lab) const
 	visitedInclusionLHS1_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitInclusionLHS1_1(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS1_1(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -394,7 +264,7 @@ void RADriver::visitInclusionLHS1_1(const EventLabel *lab) const
 	visitedInclusionLHS1_1[lab->getStamp().get()] = NodeStatus::left;
 }
 
-bool RADriver::checkInclusion1(const EventLabel *lab) const
+bool TSODriver::checkInclusion1(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -417,7 +287,7 @@ bool RADriver::checkInclusion1(const EventLabel *lab) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS2_0(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS2_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -430,7 +300,7 @@ bool RADriver::visitInclusionLHS2_0(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS2_1(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS2_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -444,7 +314,7 @@ bool RADriver::visitInclusionLHS2_1(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS2_2(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS2_2(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -463,7 +333,7 @@ bool RADriver::visitInclusionLHS2_2(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::checkInclusion2(const EventLabel *lab) const
+bool TSODriver::checkInclusion2(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	auto &v = lab->view(0);
@@ -478,7 +348,7 @@ bool RADriver::checkInclusion2(const EventLabel *lab) const
 		&& visitInclusionLHS2_2(lab, v);
 }
 
-void RADriver::visitInclusionLHS3_0(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS3_0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -487,7 +357,7 @@ void RADriver::visitInclusionLHS3_0(const EventLabel *lab) const
 	visitedInclusionLHS3_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitInclusionLHS3_1(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS3_1(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -500,7 +370,7 @@ void RADriver::visitInclusionLHS3_1(const EventLabel *lab) const
 	visitedInclusionLHS3_1[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitInclusionLHS3_2(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS3_2(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -513,7 +383,7 @@ void RADriver::visitInclusionLHS3_2(const EventLabel *lab) const
 	visitedInclusionLHS3_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
-bool RADriver::checkInclusion3(const EventLabel *lab) const
+bool TSODriver::checkInclusion3(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -538,7 +408,7 @@ bool RADriver::checkInclusion3(const EventLabel *lab) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS4_0(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS4_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -551,7 +421,7 @@ bool RADriver::visitInclusionLHS4_0(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS4_1(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS4_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -565,7 +435,7 @@ bool RADriver::visitInclusionLHS4_1(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS4_2(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS4_2(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -579,7 +449,7 @@ bool RADriver::visitInclusionLHS4_2(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::checkInclusion4(const EventLabel *lab) const
+bool TSODriver::checkInclusion4(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	auto &v = lab->view(0);
@@ -594,7 +464,7 @@ bool RADriver::checkInclusion4(const EventLabel *lab) const
 		&& visitInclusionLHS4_2(lab, v);
 }
 
-void RADriver::visitInclusionLHS5_0(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS5_0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -603,7 +473,7 @@ void RADriver::visitInclusionLHS5_0(const EventLabel *lab) const
 	visitedInclusionLHS5_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitInclusionLHS5_1(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS5_1(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -616,7 +486,7 @@ void RADriver::visitInclusionLHS5_1(const EventLabel *lab) const
 	visitedInclusionLHS5_1[lab->getStamp().get()] = NodeStatus::left;
 }
 
-void RADriver::visitInclusionLHS5_2(const EventLabel *lab) const
+void TSODriver::visitInclusionLHS5_2(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -629,7 +499,7 @@ void RADriver::visitInclusionLHS5_2(const EventLabel *lab) const
 	visitedInclusionLHS5_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
-bool RADriver::checkInclusion5(const EventLabel *lab) const
+bool TSODriver::checkInclusion5(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
@@ -654,7 +524,7 @@ bool RADriver::checkInclusion5(const EventLabel *lab) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS6_0(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS6_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -667,7 +537,7 @@ bool RADriver::visitInclusionLHS6_0(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS6_1(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS6_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -706,7 +576,7 @@ bool RADriver::visitInclusionLHS6_1(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::checkInclusion6(const EventLabel *lab) const
+bool TSODriver::checkInclusion6(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	auto &v = lab->view(0);
@@ -719,7 +589,7 @@ bool RADriver::checkInclusion6(const EventLabel *lab) const
 		&& visitInclusionLHS6_1(lab, v);
 }
 
-bool RADriver::visitInclusionLHS7_0(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS7_0(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -732,7 +602,7 @@ bool RADriver::visitInclusionLHS7_0(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::visitInclusionLHS7_1(const EventLabel *lab, const View &v) const
+bool TSODriver::visitInclusionLHS7_1(const EventLabel *lab, const View &v) const
 {
 	auto &g = getGraph();
 
@@ -746,7 +616,7 @@ bool RADriver::visitInclusionLHS7_1(const EventLabel *lab, const View &v) const
 	return true;
 }
 
-bool RADriver::checkInclusion7(const EventLabel *lab) const
+bool TSODriver::checkInclusion7(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	auto &v = lab->view(1);
@@ -759,7 +629,7 @@ bool RADriver::checkInclusion7(const EventLabel *lab) const
 		&& visitInclusionLHS7_1(lab, v);
 }
 
-VerificationError RADriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
+VerificationError TSODriver::checkErrors(const EventLabel *lab, const EventLabel *&race) const
 {
 	if (!checkInclusion0(lab)) {
 		race = racyLab0;
@@ -799,7 +669,7 @@ VerificationError RADriver::checkErrors(const EventLabel *lab, const EventLabel 
 	return VerificationError::VE_OK;
 }
 
-std::vector<VerificationError> RADriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
+std::vector<VerificationError> TSODriver::checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const
 {
 	std::vector<VerificationError> result;
 
@@ -811,31 +681,281 @@ std::vector<VerificationError> RADriver::checkWarnings(const EventLabel *lab, co
 	return result;
 }
 
-bool RADriver::isAcyclic(const EventLabel *lab) const
+bool TSODriver::visitAcyclic0(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ReadLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadStartLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (g.isRMWStore(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	return true;
+}
+
+bool TSODriver::visitAcyclic1(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedAcyclic1[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	visitedAcyclic1[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	return true;
+}
+
+bool TSODriver::visitAcyclic2(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	visitedAcyclic2[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic2(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<WriteLabel>(pLab) && pLab->isSC()) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	visitedAcyclic2[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	return true;
+}
+
+bool TSODriver::visitAcyclic3(const EventLabel *lab) const
+{
+	auto &g = getGraph();
+
+	++visitedAccepting;
+	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	if (llvm::isa<ReadLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic2(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = co_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = rfe_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ReadLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadStartLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (g.isRMWStore(pLab)) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<ReadLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<WriteLabel>(pLab) && pLab->isSC()) {
+		auto &node = visitedAcyclic3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+			return false;
+	}
+	--visitedAccepting;
+	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	return true;
+}
+
+bool TSODriver::isAcyclic(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
 	visitedAccepting = 0;
-	return true;
+	visitedAcyclic0.clear();
+	visitedAcyclic0.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic1.clear();
+	visitedAcyclic1.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic2.clear();
+	visitedAcyclic2.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic3.clear();
+	visitedAcyclic3.resize(g.getMaxStamp().get() + 1);
+	return true
+		&& visitAcyclic3(lab);
 }
 
-bool RADriver::isConsistent(const EventLabel *lab) const
+bool TSODriver::isConsistent(const EventLabel *lab) const
 {
 	return isAcyclic(lab);
 }
 
-bool RADriver::isRecAcyclic(const EventLabel *lab) const
+bool TSODriver::isRecAcyclic(const EventLabel *lab) const
 {
 	visitedRecAccepting = 0;
 	return true;
 }
 
-bool RADriver::isRecoveryValid(const EventLabel *lab) const
+bool TSODriver::isRecoveryValid(const EventLabel *lab) const
 {
 	return isRecAcyclic(lab);
 }
 
-View RADriver::calcPPoRfBefore(const EventLabel *lab) const
+View TSODriver::calcPPoRfBefore(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 	View pporf;
@@ -853,18 +973,18 @@ View RADriver::calcPPoRfBefore(const EventLabel *lab) const
 		pporf.update(g.getLastThreadLabel(tjLab->getChildId())->getPrefixView());
 	return pporf;
 }
-std::unique_ptr<VectorClock> RADriver::calculatePrefixView(const EventLabel *lab) const
+std::unique_ptr<VectorClock> TSODriver::calculatePrefixView(const EventLabel *lab) const
 {
 	return std::make_unique<View>(calcPPoRfBefore(lab));
 }
 
-const View &RADriver::getHbView(const EventLabel *lab) const
+const View &TSODriver::getHbView(const EventLabel *lab) const
 {
 	return lab->view(0);
 }
 
 
-bool RADriver::isWriteRfBefore(Event a, Event b)
+bool TSODriver::isWriteRfBefore(Event a, Event b)
 {
 	auto &g = getGraph();
 	auto &before = g.getEventLabel(b)->view(0);
@@ -882,7 +1002,7 @@ bool RADriver::isWriteRfBefore(Event a, Event b)
 }
 
 std::vector<Event>
-RADriver::getInitRfsAtLoc(SAddr addr)
+TSODriver::getInitRfsAtLoc(SAddr addr)
 {
 	std::vector<Event> result;
 
@@ -894,7 +1014,7 @@ RADriver::getInitRfsAtLoc(SAddr addr)
 	return result;
 }
 
-bool RADriver::isHbOptRfBefore(const Event e, const Event write)
+bool TSODriver::isHbOptRfBefore(const Event e, const Event write)
 {
 	auto &g = getGraph();
 	const EventLabel *lab = g.getEventLabel(write);
@@ -912,7 +1032,7 @@ bool RADriver::isHbOptRfBefore(const Event e, const Event write)
 }
 
 ExecutionGraph::co_iterator
-RADriver::splitLocMOBefore(SAddr addr, Event e)
+TSODriver::splitLocMOBefore(SAddr addr, Event e)
 {
 	auto &g = getGraph();
 	auto rit = std::find_if(g.co_rbegin(addr), g.co_rend(addr), [&](auto &lab){
@@ -925,7 +1045,7 @@ RADriver::splitLocMOBefore(SAddr addr, Event e)
 }
 
 ExecutionGraph::co_iterator
-RADriver::splitLocMOAfterHb(SAddr addr, const Event read)
+TSODriver::splitLocMOAfterHb(SAddr addr, const Event read)
 {
 	auto &g = getGraph();
 
@@ -944,7 +1064,7 @@ RADriver::splitLocMOAfterHb(SAddr addr, const Event read)
 }
 
 ExecutionGraph::co_iterator
-RADriver::splitLocMOAfter(SAddr addr, const Event e)
+TSODriver::splitLocMOAfter(SAddr addr, const Event e)
 {
 	auto &g = getGraph();
 	return std::find_if(g.co_begin(addr), g.co_end(addr), [&](auto &lab){
@@ -953,7 +1073,7 @@ RADriver::splitLocMOAfter(SAddr addr, const Event e)
 }
 
 std::vector<Event>
-RADriver::getCoherentStores(SAddr addr, Event read)
+TSODriver::getCoherentStores(SAddr addr, Event read)
 {
 	auto &g = getGraph();
 	std::vector<Event> stores;
@@ -985,7 +1105,7 @@ RADriver::getCoherentStores(SAddr addr, Event read)
 }
 
 std::vector<Event>
-RADriver::getMOOptRfAfter(const WriteLabel *sLab)
+TSODriver::getMOOptRfAfter(const WriteLabel *sLab)
 {
 	std::vector<Event> after;
 	std::vector<const ReadLabel *> rfAfter;
@@ -1004,7 +1124,7 @@ RADriver::getMOOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-RADriver::getMOInvOptRfAfter(const WriteLabel *sLab)
+TSODriver::getMOInvOptRfAfter(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	std::vector<Event> after;
@@ -1028,7 +1148,7 @@ RADriver::getMOInvOptRfAfter(const WriteLabel *sLab)
 }
 
 std::vector<Event>
-RADriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
+TSODriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 {
 	auto &g = getGraph();
 	auto ls = g.getRevisitable(sLab, pporf);
@@ -1076,7 +1196,7 @@ RADriver::getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf)
 }
 
 llvm::iterator_range<ExecutionGraph::co_iterator>
-RADriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+TSODriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
 	auto &g = getGraph();
 

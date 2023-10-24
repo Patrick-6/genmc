@@ -160,7 +160,7 @@ runvariants() {
     for t in $dir/variants/*.c $dir/variants/*.cpp
     do
 	vars=$((vars+1))
-	output=`"${GenMC}" "-${model}" -disable-mm-detector "${unroll}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} ${t} 2>&1`
+	output=`"${GenMC}" "-${model}" -disable-estimation -disable-mm-detector "${unroll}" -print-error-trace $(echo ${checker_args[@]}) -- ${CFLAGS} ${test_args} ${t} 2>&1`
 	status="$?"
 	trace=`echo "${output}" | awk '!/status|Total wall-clock time/ {print $0 }' > tmp.trace`
 	diff_file="${t%.*}.${model}.${coherence}.trace" &&

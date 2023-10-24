@@ -50,6 +50,7 @@ clInputFile(llvm::cl::Positional, llvm::cl::Required, llvm::cl::desc("<input fil
 static llvm::cl::opt<ModelType>
 clModelType(llvm::cl::values(
 		    clEnumValN(ModelType::SC,   "sc",   "SC memory model"),
+		    clEnumValN(ModelType::TSO,  "tso",  "TSO memory model"),
 		    clEnumValN(ModelType::RA,   "ra",   "RA+RLX memory model"),
 		    clEnumValN(ModelType::RC11, "rc11", "RC11 memory model (default)"),
 		    clEnumValN(ModelType::IMM,  "imm",  "IMM memory model")
@@ -57,6 +58,10 @@ clModelType(llvm::cl::values(
 	    llvm::cl::cat(clGeneral),
 	    llvm::cl::init(ModelType::RC11),
 	    llvm::cl::desc("Choose model type:"));
+
+static llvm::cl::opt<bool>
+clDisableEstimation("disable-estimation", llvm::cl::cat(clGeneral),
+	llvm::cl::desc("Do not estimate the state-space size before verifying the program"));
 
 static llvm::cl::opt<unsigned int>
 clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
@@ -186,6 +191,21 @@ clDisableMMDetector("disable-mm-detector", llvm::cl::cat(clTransformation),
 
 /*** Debugging options ***/
 
+static llvm::cl::opt<unsigned int>
+clEstimationMax("estimation-max", llvm::cl::init(1000),
+		llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Number of maximum allotted rounds for state-space estimation"));
+
+static llvm::cl::opt<unsigned int>
+clEstimationMin("estimation-min", llvm::cl::init(10),
+		llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+		llvm::cl::desc("Number of minimum alloted round for state-space estimation"));
+
+static llvm::cl::opt<unsigned int>
+clEstimationSdThreshold("estimation-threshold", llvm::cl::init(10),
+			llvm::cl::value_desc("N"), llvm::cl::cat(clDebugging),
+			llvm::cl::desc("Deviation threshold % under which estimation is deemed good enough"));
+
 static llvm::cl::opt<std::string>
 clProgramEntryFunction("program-entry-function", llvm::cl::init("main"),
 		       llvm::cl::value_desc("fun_name"), llvm::cl::cat(clDebugging),
@@ -206,19 +226,20 @@ llvm::cl::opt<SchedulePolicy>
 clSchedulePolicy("schedule-policy", llvm::cl::cat(clDebugging), llvm::cl::init(SchedulePolicy::wf),
 		 llvm::cl::desc("Choose the scheduling policy:"),
 		 llvm::cl::values(
-			 clEnumValN(SchedulePolicy::ltr,     "ltr",      "Left-to-right"),
-			 clEnumValN(SchedulePolicy::wf,      "wf",       "Writes-first (default)"),
-			 clEnumValN(SchedulePolicy::random,  "random",   "Random")
+			 clEnumValN(SchedulePolicy::ltr,      "ltr",      "Left-to-right"),
+			 clEnumValN(SchedulePolicy::wf,       "wf",       "Writes-first (default)"),
+			 clEnumValN(SchedulePolicy::wfr,      "wfr",      "Writes-first-random"),
+			 clEnumValN(SchedulePolicy::arbitrary,"arbitrary","Arbitrary")
 			 ));
 
 static llvm::cl::opt<bool>
-clPrintRandomScheduleSeed("print-random-schedule-seed", llvm::cl::cat(clDebugging),
-			     llvm::cl::desc("Print the seed used for randomized scheduling"));
+clPrintArbitraryScheduleSeed("print-schedule-seed", llvm::cl::cat(clDebugging),
+			     llvm::cl::desc("Print the seed used for arbitrary scheduling"));
 
 static llvm::cl::opt<std::string>
-clRandomScheduleSeed("random-schedule-seed", llvm::cl::init(""),
+clArbitraryScheduleSeed("schedule-seed", llvm::cl::init(""),
 			llvm::cl::value_desc("seed"), llvm::cl::cat(clDebugging),
-			llvm::cl::desc("Seed to be used for randomized scheduling"));
+			llvm::cl::desc("Seed to be used for arbitrary scheduling"));
 
 static llvm::cl::opt<bool>
 clPrintExecGraphs("print-exec-graphs", llvm::cl::cat(clDebugging),
@@ -264,6 +285,10 @@ clCountDuplicateExecs("count-duplicate-execs", llvm::cl::cat(clDebugging),
 static llvm::cl::opt<bool>
 clCountMootExecs("count-moot-execs", llvm::cl::cat(clDebugging),
 		 llvm::cl::desc("Count moot executions"));
+
+static llvm::cl::opt<bool>
+clPrintEstimationStats("print-estimation-stats", llvm::cl::cat(clDebugging),
+		 llvm::cl::desc("Prints estimations statistics"));
 #endif /* ENABLE_GENMC_DEBUG */
 
 
@@ -283,8 +308,8 @@ void Config::checkConfigOptions() const
 	if (clLAPOR) {
 		ERROR("LAPOR is temporarily disabled.\n");
 	}
-	if (clHelper && clSchedulePolicy == SchedulePolicy::random) {
-		ERROR("Helper cannot be used with -schedule-policy=random.\n");
+	if (clHelper && clSchedulePolicy == SchedulePolicy::arbitrary) {
+		ERROR("Helper cannot be used with -schedule-policy=arbitrary.\n");
 	}
 	if (clModelType == ModelType::IMM && (!clDisableIPR || !clDisableSymmetryReduction)) {
 		WARN("In-place revisiting and symmetry reduction have no effect under IMM\n");
@@ -293,11 +318,11 @@ void Config::checkConfigOptions() const
 	}
 
 	/* Check debugging options */
-	if (clSchedulePolicy != SchedulePolicy::random && clPrintRandomScheduleSeed) {
-		WARN("--print-random-schedule-seed used without -schedule-policy=random.\n");
+	if (clSchedulePolicy != SchedulePolicy::arbitrary && clPrintArbitraryScheduleSeed) {
+		WARN("--print-schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
-	if (clSchedulePolicy != SchedulePolicy::random && clRandomScheduleSeed != "") {
-		WARN("--random-schedule-seed used without -schedule-policy=random.\n");
+	if (clSchedulePolicy != SchedulePolicy::arbitrary && !clArbitraryScheduleSeed.empty()) {
+		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
 
 	/* Make sure filename is a regular file */
@@ -314,6 +339,10 @@ void Config::saveConfigOptions()
 	/* Save exploration options */
 	dotFile = clDotGraphFile;
 	model = clModelType;
+	estimate = !clDisableEstimation;
+	estimationMax = clEstimationMax;
+	estimationMin = clEstimationMin;
+	sdThreshold = clEstimationSdThreshold;
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
 	LAPOR = clLAPOR;
@@ -351,8 +380,8 @@ void Config::saveConfigOptions()
 	programEntryFun = clProgramEntryFunction;
 	warnOnGraphSize = clWarnOnGraphSize;
 	schedulePolicy = clSchedulePolicy;
-	printRandomScheduleSeed = clPrintRandomScheduleSeed;
-	randomScheduleSeed = clRandomScheduleSeed;
+	printRandomScheduleSeed = clPrintArbitraryScheduleSeed;
+	randomScheduleSeed = clArbitraryScheduleSeed;
 	printExecGraphs = clPrintExecGraphs;
 	printBlockedExecs = clPrintBlockedExecs;
 	inputFromBitcodeFile = clInputFromBitcodeFile;
@@ -363,7 +392,8 @@ void Config::saveConfigOptions()
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
-	countMootExecs = clCountMootExecs;
+        countMootExecs = clCountMootExecs;
+	printEstimationStats = clPrintEstimationStats;
 #endif
 
 	/* Set (global) log state */
