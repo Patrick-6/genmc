@@ -684,31 +684,6 @@ void GenMCDriver::updateStSpaceEstimation()
 	result.estimationMean += (sample - prevM) / totalExplored;
 	result.estimationVariance += (sample - prevM) / totalExplored * (sample - result.estimationMean) -
 				     prevV / totalExplored;
-        // if (result.explored + result.exploredBlocked <
-        // getConf()->estimateRuns) { 	auto &g = getGraph();
-
-        // 	MyDist dist(0, choices.size()-1);
-        //         auto readIdx = dist(rng);
-        // 	auto cIt = choices.begin();
-        //         std::advance(cIt, readIdx);
-        // 	auto readStamp = cIt->first;
-        // 	auto *rLab = &*std::find_if(label_begin(g), label_end(g),
-        // [&](auto &lab){ return lab.getStamp() == readStamp; });
-
-        // 	MyDist dist2(0, choices[readStamp].size()-1);
-        // 	auto storeIdx = dist2(rng);
-        // 	auto *wLab = g.getEventLabel(choices[readStamp][storeIdx]);
-
-        // 	if (rLab->getStamp() < wLab->getStamp()) {
-        // 		llvm::dbgs() << "wlab is " << *wLab << "\n";
-        // 		addToWorklist(wLab->getStamp(),
-        // constructBackwardRevisit(llvm::dyn_cast<ReadLabel>(rLab),
-        // llvm::dyn_cast<WriteLabel>(wLab))); 	} else {
-        // 		addToWorklist(rLab->getStamp(),
-        // std::make_unique<ReadForwardRevisit>(rLab->getPos(),
-        // wLab->getPos()));
-        // 	}
-        // }
 }
 
 void GenMCDriver::handleExecutionEnd()
