@@ -135,7 +135,11 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 	GENMC_DEBUG(
 		llvm::outs() << ((conf->countDuplicateExecs) ?
 				 " (" + std::to_string(res.duplicates) + " duplicates)" : "");
-		);
+	);
+	if (res.boundExceeding) {
+		BUG_ON(conf->boundType == BoundType::round);
+		llvm::outs() << " (" + std::to_string(res.boundExceeding) + " exceeded bound)";
+	}
 	if (res.exploredBlocked != 0U) {
 		llvm::outs() << "\nNumber of blocked executions seen: " << res.exploredBlocked;
 	}
@@ -143,6 +147,16 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 		if (conf->countMootExecs) {
 			llvm::outs() << " (+ " << res.exploredMoot << " mooted)";
 		};
+		if (conf->boundsHistogram) {
+			llvm::outs() << "\nBounds histogram:";
+			auto executions = 0u;
+			for (auto i = 0u; i < res.exploredBounds.size(); i++) {
+				executions += res.exploredBounds[i];
+				llvm::outs() << " " << executions;
+			}
+			if (!executions)
+				llvm::outs() << " 0";
+		}
 	);
 	llvm::outs() << "\nTotal wall-clock time: "
 		     << llvm::format("%.2Lf", getElapsedSecs(begin))

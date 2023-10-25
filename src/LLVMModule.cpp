@@ -179,8 +179,8 @@ namespace LLVMModule {
 		BndPM.add(createEscapeCheckerPass());
 		if (conf->spinAssume)
 			BndPM.add(createSpinAssumePass(conf->checkLiveness));
-		if (conf->unroll >= 0)
-			BndPM.add(createLoopUnrollPass(conf->unroll, conf->noUnrollFuns));
+		if (conf->unroll.has_value())
+			BndPM.add(createLoopUnrollPass(*conf->unroll, conf->noUnrollFuns));
 
 		modified |= BndPM.run(mod);
 

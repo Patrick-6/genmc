@@ -67,6 +67,25 @@ static llvm::cl::opt<unsigned int>
 clThreads("nthreads", llvm::cl::cat(clGeneral), llvm::cl::init(1),
 	      llvm::cl::desc("Number of threads to be used in the exploration"));
 
+static llvm::cl::opt<int>
+clBound("bound", llvm::cl::cat(clGeneral),
+		 llvm::cl::init(-1), llvm::cl::value_desc("N"),
+		 llvm::cl::desc("Do not explore executions exceeding given bound"));
+
+static llvm::cl::opt<BoundType>
+clBoundType("bound-type", llvm::cl::cat(clGeneral), llvm::cl::init(BoundType::round),
+	    llvm::cl::desc("Choose type for -bound:"),
+	    llvm::cl::values(
+			     clEnumValN(BoundType::context, "context", "Context bound"),
+			     clEnumValN(BoundType::round,  "round",  "Round-robin bound")
+			     ));
+
+#ifdef ENABLE_GENMC_DEBUG
+static llvm::cl::opt<bool>
+clBoundsHistogram("bounds-histogram", llvm::cl::cat(clDebugging),
+	llvm::cl::desc("Produce bounds histogram"));
+#endif /* ifdef ENABLE_GENMC_DEBUG */
+
 static llvm::cl::opt<bool>
 clLAPOR("lapor", llvm::cl::cat(clGeneral),
 	llvm::cl::desc("Enable Lock-Aware Partial Order Reduction (LAPOR)"));
@@ -106,6 +125,9 @@ clDisableBAM("disable-bam", llvm::cl::cat(clGeneral),
 static llvm::cl::opt<bool>
 clDisableIPR("disable-ipr", llvm::cl::cat(clGeneral),
 	     llvm::cl::desc("Disable in-place revisiting"));
+static llvm::cl::opt<bool>
+clDisableLockIPR("disable-lock-ipr", llvm::cl::cat(clGeneral),
+	     llvm::cl::desc("Disable in-place revisiting of locks"));
 static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
@@ -325,6 +347,30 @@ void Config::checkConfigOptions() const
 		WARN("--schedule-seed used without -schedule-policy=arbitrary.\n");
 	}
 
+	/* Check bounding options */
+	if (clBound != -1 && clModelType != ModelType::SC) {
+		ERROR("Bounding can only be used with --sc.\n");
+	}
+	GENMC_DEBUG(
+		ERROR_ON(clBound != -1 && clBoundsHistogram,
+			"Bounds histogram cannot be used when bounding.\n");
+	);
+	if (clBound == -1 && clBoundType.getNumOccurrences() > 0) {
+		WARN("--bound-type used without --bound.\n");
+	}
+
+	/* Sanitize bounding options */
+	bool bounding = (clBound != -1);
+	GENMC_DEBUG(bounding |= clBoundsHistogram;);
+	if (bounding &&
+	    (clLAPOR || clHelper || !clDisableBAM || !clDisableSymmetryReduction ||
+	     !clDisableIPR || !clDisableLockIPR || clSchedulePolicy != SchedulePolicy::ltr)) {
+		WARN("LAPOR/Helper/BAM/SR/IPR have no effect when --bound is used. Scheduling defaults to LTR.\n");
+		clLAPOR = clHelper = false;
+		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = clDisableLockIPR = true;
+		clSchedulePolicy = SchedulePolicy::ltr;
+	}
+
 	/* Make sure filename is a regular file */
 	if (!llvm::sys::fs::is_regular_file(clInputFile))
 		ERROR("Input file is not a regular file!\n");
@@ -345,6 +391,8 @@ void Config::saveConfigOptions()
 	sdThreshold = clEstimationSdThreshold;
 	isDepTrackingModel = (model == ModelType::IMM);
 	threads = clThreads;
+	bound = clBound >= 0 ? std::optional(clBound.getValue()) : std::nullopt;
+	boundType = clBoundType;
 	LAPOR = clLAPOR;
 	symmetryReduction = !clDisableSymmetryReduction;
 	helper = clHelper;
@@ -354,6 +402,7 @@ void Config::saveConfigOptions()
 	disableRaceDetection = clDisableRaceDetection;
 	disableBAM = clDisableBAM;
 	ipr = !clDisableIPR;
+	lockIpr = !clDisableLockIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistency options */
@@ -364,7 +413,7 @@ void Config::saveConfigOptions()
 	disableDelalloc = clDisableDelalloc;
 
 	/* Save transformation options */
-	unroll = clLoopUnroll;
+	unroll = clLoopUnroll >= 0 ? std::optional(clLoopUnroll.getValue()) : std::nullopt;
 	noUnrollFuns.insert(clNoUnrollFuns.begin(), clNoUnrollFuns.end());
 	loopJumpThreading = !clDisableLoopJumpThreading;
 	castElimination = !clDisableCastElimination;
@@ -392,10 +441,10 @@ void Config::saveConfigOptions()
 	colorAccesses = clColorAccesses;
 	validateExecGraphs = clValidateExecGraphs;
 	countDuplicateExecs = clCountDuplicateExecs;
-        countMootExecs = clCountMootExecs;
+	countMootExecs = clCountMootExecs;
 	printEstimationStats = clPrintEstimationStats;
+	boundsHistogram = clBoundsHistogram;
 #endif
-
 	/* Set (global) log state */
 	logLevel = vLevel;
 }

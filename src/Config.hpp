@@ -26,9 +26,11 @@
 #include "Verbosity.hpp"
 #include "VSet.hpp"
 
+#include <optional>
 #include <string>
 
 enum class SchedulePolicy { ltr, wf, wfr, arbitrary };
+enum class BoundType { context, round };
 
 struct Config {
 
@@ -42,6 +44,8 @@ public:
 	bool estimate;
 	bool isDepTrackingModel;
 	unsigned int threads;
+	std::optional<unsigned int> bound;
+	BoundType boundType;
 	bool LAPOR;
 	bool symmetryReduction;
 	bool helper;
@@ -52,6 +56,7 @@ public:
 	bool disableRaceDetection;
 	bool disableBAM;
 	bool ipr;
+	bool lockIpr;
 	bool disableStopOnSystemError;
 
 	/*** Persistency options ***/
@@ -62,7 +67,7 @@ public:
 	bool disableDelalloc;
 
 	/*** Transformation options ***/
-	int unroll;
+	std::optional<unsigned> unroll;
 	VSet<std::string> noUnrollFuns;
 	bool castElimination;
 	bool inlineFunctions;
@@ -95,6 +100,7 @@ public:
 	bool countDuplicateExecs;
         bool countMootExecs;
 	bool printEstimationStats;
+	bool boundsHistogram;
 #endif
 
 	/* Parses the CLI options and initialized the respective fields */

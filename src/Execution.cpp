@@ -3209,16 +3209,16 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 	auto asize = getTypeSize(typ);
 	auto atyp = TYPE_TO_ATYPE(typ);
 
-	auto oldVal = CALL_DRIVER(handleLoad,
+	auto oldVal = CALL_DRIVER_RESET_IF_NONE(handleLoad,
 				  BIncFaiReadLabel::create(currPos(), AtomicOrdering::AcquireRelease,
 							   barrier, asize, atyp, AtomicRMWInst::BinOp::Sub,
-							   SVal(1), GET_DEPS(specialDeps))).value();
+							   SVal(1), GET_DEPS(specialDeps)));
 
 	/* If the barrier was uninitialized and we blocked, abort */
-	if (oldVal.getSigned() <= 0 || getCurThr().isBlocked())
+	if (!oldVal.has_value() || oldVal->getSigned() <= 0 || getCurThr().isBlocked())
 		return;
 
-	auto newVal = executeAtomicRMWOperation(oldVal, SVal(1), asize, AtomicRMWInst::BinOp::Sub);
+	auto newVal = executeAtomicRMWOperation(*oldVal, SVal(1), asize, AtomicRMWInst::BinOp::Sub);
 
 	CALL_DRIVER(handleStore,
 		    BIncFaiWriteLabel::create(currPos(), AtomicOrdering::AcquireRelease,
@@ -3226,7 +3226,7 @@ void Interpreter::callBarrierWait(Function *F, const std::vector<GenericValue> &
 
 	CALL_DRIVER(handleLoad,
 		    BWaitReadLabel::create(currPos(), AtomicOrdering::Acquire,
-					   barrier, asize, atyp, GET_DEPS(specialDeps))).value();
+					   barrier, asize, atyp, GET_DEPS(specialDeps)));
 
 	auto result = (newVal != SVal(0)) ? INT_TO_GV(typ, 0)
 		: INT_TO_GV(typ, GENMC_PTHREAD_BARRIER_SERIAL_THREAD);

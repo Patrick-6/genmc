@@ -70,7 +70,7 @@ llvm::FunctionPass *createLoadAnnotationPass(AnnotationInfo<llvm::Instruction *,
 /*
  * Unrolls a loop N times, unless the loop is in a function present in NOUNROLLFUNS
  */
-llvm::Pass *createLoopUnrollPass(int n, const VSet<std::string> &noUnrollFuns = {});
+llvm::Pass *createLoopUnrollPass(unsigned int depth, const VSet<std::string> &noUnrollFuns = {});
 
 /*
  * Performs jump-threading for some simple classes of loops.
