@@ -743,7 +743,7 @@ void GenMCDriver::handleExecutionEnd()
 		printGraph(); /* Delay printing if persevere is enabled */
 
 	GENMC_DEBUG(
-		if (getConf()->boundsHistogram)
+		if (getConf()->boundsHistogram && !inEstimationMode())
 			trackExecutionBound();
 	);
 
@@ -1070,7 +1070,7 @@ bool GenMCDriver::isExecutionDrivenByGraph(const EventLabel *lab)
 
 bool GenMCDriver::executionExceedsBound(BoundCalculationStrategy strategy) const
 {
-	if (!getConf()->bound.has_value())
+	if (!getConf()->bound.has_value() || inEstimationMode())
 		return false;
 
 	return bounder->doesExecutionExceedBound(getGraph(), *getConf()->bound, strategy);
