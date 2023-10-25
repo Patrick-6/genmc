@@ -597,7 +597,7 @@ private:
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
 	/* Est: Picks (and sets) a random RF among some possible options */
-        std::optional<SVal> pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores);
+        std::optional<SVal> pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores);
 
 	/* Est: Picks (and sets) a random CO among some possible options */
 	void pickRandomCo(WriteLabel *sLab, const llvm::iterator_range<ExecutionGraph::co_iterator> &coRange);

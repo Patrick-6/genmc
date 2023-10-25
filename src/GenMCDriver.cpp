@@ -2164,9 +2164,14 @@ void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<
 	choices[rLab->getStamp()] = stores;
 }
 
-std::optional<SVal> GenMCDriver::pickRandomRf(ReadLabel *rLab, const std::vector<Event> &stores)
+std::optional<SVal> GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores)
 {
 	auto &g = getGraph();
+
+	stores.erase(std::remove_if(stores.begin(), stores.end(), [&](auto &s){
+		g.changeRf(rLab->getPos(), s);
+		return !isExecutionValid(rLab);
+	}), stores.end());
 
 	MyDist dist(0, stores.size()-1);
 	auto random = dist(estRng);
