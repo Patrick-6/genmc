@@ -160,7 +160,7 @@ regression_stage() {
     echo ""
 }
 
-for os in LINUX; do
+for os in LINUX MACOS; do
     {
 	# print workflow
 	echo "### WORKFLOW"
