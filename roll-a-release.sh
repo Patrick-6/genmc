@@ -36,7 +36,7 @@ git push origin master && git push origin "v${VERSION}"
 # update github
 cd "${EXTERNAL_PATH}"
 git checkout master && git apply "${PATCH_PATH}"
-autoreconf --install && ./configure && make ftest
+autoreconf --install && ./configure && ./scripts/fast-driver.sh
 git add -A && git commit -s -m "Release GenMC v${VERSION}" && git tag "v${VERSION}"
 git push origin master && git push origin "v${VERSION}"
 git clean -dfX

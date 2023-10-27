@@ -7,7 +7,7 @@ RUN export TERM='xterm-256color'
 
 # fetch all necessary packages
 RUN apt-get update
-RUN apt-get install -y -qq wget gnupg gnupg2 libtinfo5 bc \
+RUN apt-get install -y -qq wget gnupg gnupg2 \
     autoconf make automake libffi-dev zlib1g-dev libedit-dev \
     libxml2-dev xz-utils g++ clang git util-linux
 RUN apt-get install -y -qq clang-15 llvm-15 llvm-15-dev
