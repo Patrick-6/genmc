@@ -706,8 +706,6 @@ void ExecutionGraph::copyGraphUpTo(ExecutionGraph &other, const VectorClock &v) 
 
 	other.recoveryTID = recoveryTID;
 
-	other.bam = bam;
-
 	/* Then, copy the appropriate events */
 	// FIXME: The reason why we resize to num of threads instead of v.size() is
 	// to keep the same size as the interpreter threads.

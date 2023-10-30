@@ -606,9 +606,6 @@ protected:
 	 * value of the recovery routine otherwise. */
 	int recoveryTID = -1;
 
-	/* BAM: Flag indicating how we should treat barrier operations */
-	bool bam = false;
-
 	/* Dbg: Size of graphs which triggers a warning */
 	unsigned int warnOnGraphSize = UINT_MAX;
 };
