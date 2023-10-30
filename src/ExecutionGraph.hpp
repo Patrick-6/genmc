@@ -605,9 +605,6 @@ protected:
 	 * It should be -1 if not in recovery mode, or have the
 	 * value of the recovery routine otherwise. */
 	int recoveryTID = -1;
-
-	/* Dbg: Size of graphs which triggers a warning */
-	unsigned int warnOnGraphSize = UINT_MAX;
 };
 
 #endif /* __EXECUTION_GRAPH_HPP__ */
