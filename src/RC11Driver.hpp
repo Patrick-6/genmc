@@ -226,43 +226,51 @@ private:
 
 	mutable const EventLabel *racyLab7 = nullptr;
 
-	bool visitAcyclic0(const EventLabel *lab) const;
-	bool visitAcyclic1(const EventLabel *lab) const;
-	bool visitAcyclic2(const EventLabel *lab) const;
-	bool visitAcyclic3(const EventLabel *lab) const;
-	bool visitAcyclic4(const EventLabel *lab) const;
-	bool visitAcyclic5(const EventLabel *lab) const;
-	bool visitAcyclic6(const EventLabel *lab) const;
-	bool visitAcyclic7(const EventLabel *lab) const;
-	bool visitAcyclic8(const EventLabel *lab) const;
-	bool visitAcyclic9(const EventLabel *lab) const;
-	bool visitAcyclic10(const EventLabel *lab) const;
-	bool visitAcyclic11(const EventLabel *lab) const;
-	bool visitAcyclic12(const EventLabel *lab) const;
-	bool visitAcyclic13(const EventLabel *lab) const;
-	bool visitAcyclic14(const EventLabel *lab) const;
-	bool visitAcyclic15(const EventLabel *lab) const;
+	bool visitAcyclic0_0(const EventLabel *lab) const;
+	bool visitAcyclic0_1(const EventLabel *lab) const;
+	bool visitAcyclic0_2(const EventLabel *lab) const;
+	bool visitAcyclic0_3(const EventLabel *lab) const;
+	bool visitAcyclic0_4(const EventLabel *lab) const;
+	bool visitAcyclic0_5(const EventLabel *lab) const;
+	bool visitAcyclic0_6(const EventLabel *lab) const;
+	bool visitAcyclic0_7(const EventLabel *lab) const;
+	bool visitAcyclic0_8(const EventLabel *lab) const;
+	bool visitAcyclic0_9(const EventLabel *lab) const;
+	bool visitAcyclic0_10(const EventLabel *lab) const;
+	bool visitAcyclic0_11(const EventLabel *lab) const;
+	bool visitAcyclic0_12(const EventLabel *lab) const;
+	bool visitAcyclic0_13(const EventLabel *lab) const;
+	bool visitAcyclic0_14(const EventLabel *lab) const;
+	bool visitAcyclic0_15(const EventLabel *lab) const;
 
-	bool isAcyclic(const EventLabel *lab) const ;
+	bool isAcyclic0(const EventLabel *lab) const;
 
-	mutable std::vector<NodeCountStatus> visitedAcyclic0;
-	mutable std::vector<NodeCountStatus> visitedAcyclic1;
-	mutable std::vector<NodeCountStatus> visitedAcyclic2;
-	mutable std::vector<NodeCountStatus> visitedAcyclic3;
-	mutable std::vector<NodeCountStatus> visitedAcyclic4;
-	mutable std::vector<NodeCountStatus> visitedAcyclic5;
-	mutable std::vector<NodeCountStatus> visitedAcyclic6;
-	mutable std::vector<NodeCountStatus> visitedAcyclic7;
-	mutable std::vector<NodeCountStatus> visitedAcyclic8;
-	mutable std::vector<NodeCountStatus> visitedAcyclic9;
-	mutable std::vector<NodeCountStatus> visitedAcyclic10;
-	mutable std::vector<NodeCountStatus> visitedAcyclic11;
-	mutable std::vector<NodeCountStatus> visitedAcyclic12;
-	mutable std::vector<NodeCountStatus> visitedAcyclic13;
-	mutable std::vector<NodeCountStatus> visitedAcyclic14;
-	mutable std::vector<NodeCountStatus> visitedAcyclic15;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_0;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_1;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_2;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_3;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_4;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_5;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_6;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_7;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_8;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_9;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_10;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_11;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_12;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_13;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_14;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_15;
 
-	mutable uint16_t visitedAccepting = 0;
+	mutable uint16_t visitedAccepting0 = 0;
+	bool shouldVisitAcyclic0_0(const EventLabel *lab) const;
+	bool shouldVisitAcyclic0_1(const EventLabel *lab) const;
+
+	bool shouldVisitAcyclic0(void) const;
+
+	mutable std::vector<NodeStatus> shouldVisitedAcyclic0_0;
+	mutable std::vector<NodeStatus> shouldVisitedAcyclic0_1;
+
 
 	bool isRecAcyclic(const EventLabel *lab) const;
 

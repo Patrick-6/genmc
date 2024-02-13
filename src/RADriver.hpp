@@ -227,11 +227,6 @@ private:
 	mutable const EventLabel *racyLab7 = nullptr;
 
 
-	bool isAcyclic(const EventLabel *lab) const ;
-
-
-	mutable uint16_t visitedAccepting = 0;
-
 	bool isRecAcyclic(const EventLabel *lab) const;
 
 

@@ -36,6 +36,21 @@ void TSODriver::visitCalc0_0(const EventLabel *lab, View &calcRes)
 	visitedCalc0_0[lab->getStamp().get()] = NodeStatus::entered;
 	calcRes.update(lab->view(0));
 	calcRes.updateIdx(lab->getPos());
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedCalc0_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(pLab, calcRes);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedCalc0_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(pLab, calcRes);
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCalc0_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc0_2(pLab, calcRes);
+	}
 	visitedCalc0_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -44,11 +59,6 @@ void TSODriver::visitCalc0_1(const EventLabel *lab, View &calcRes)
 	auto &g = getGraph();
 
 	visitedCalc0_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc0_2[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_2(pLab, calcRes);
-	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCalc0_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
@@ -62,21 +72,8 @@ void TSODriver::visitCalc0_2(const EventLabel *lab, View &calcRes)
 	auto &g = getGraph();
 
 	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
-		auto status = visitedCalc0_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc0_0(pLab, calcRes);
-	}
+	calcRes.update(lab->view(0));
+	calcRes.updateIdx(lab->getPos());
 	visitedCalc0_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -103,6 +100,21 @@ void TSODriver::visitCalc1_0(const EventLabel *lab, View &calcRes)
 	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::entered;
 	calcRes.update(lab->view(1));
 	calcRes.updateIdx(lab->getPos());
+	if (auto pLab = tc_pred(g, lab); pLab) {
+		auto status = visitedCalc1_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_2(pLab, calcRes);
+	}
+	if (auto pLab = tj_pred(g, lab); pLab) {
+		auto status = visitedCalc1_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_2(pLab, calcRes);
+	}
+	if (auto pLab = rf_pred(g, lab); pLab) {
+		auto status = visitedCalc1_2[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen)
+			visitCalc1_2(pLab, calcRes);
+	}
 	visitedCalc1_0[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -111,17 +123,7 @@ void TSODriver::visitCalc1_1(const EventLabel *lab, View &calcRes)
 	auto &g = getGraph();
 
 	visitedCalc1_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = tc_pred(g, lab); pLab) {
-		auto status = visitedCalc1_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(pLab, calcRes);
-	}
-	if (auto pLab = tj_pred(g, lab); pLab) {
-		auto status = visitedCalc1_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(pLab, calcRes);
-	}
-	if (auto pLab = rf_pred(g, lab); pLab) {
+	if (auto pLab = po_imm_pred(g, lab); pLab) {
 		auto status = visitedCalc1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitCalc1_0(pLab, calcRes);
@@ -134,16 +136,8 @@ void TSODriver::visitCalc1_2(const EventLabel *lab, View &calcRes)
 	auto &g = getGraph();
 
 	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc1_0[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_0(pLab, calcRes);
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto status = visitedCalc1_1[pLab->getStamp().get()];
-		if (status == NodeStatus::unseen)
-			visitCalc1_1(pLab, calcRes);
-	}
+	calcRes.update(lab->view(1));
+	calcRes.updateIdx(lab->getPos());
 	visitedCalc1_2[lab->getStamp().get()] = NodeStatus::left;
 }
 
@@ -160,7 +154,7 @@ View TSODriver::calculate1(const EventLabel *lab)
 	visitedCalc1_2.clear();
 	visitedCalc1_2.resize(g.getMaxStamp().get() + 1, NodeStatus::unseen);
 
-	visitCalc1_2(lab, calcRes);
+	visitCalc1_1(lab, calcRes);
 	return calcRes;
 }
 std::vector<VSet<Event>> TSODriver::calculateSaved(const EventLabel *lab)
@@ -241,22 +235,22 @@ void TSODriver::visitInclusionLHS1_1(const EventLabel *lab) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS1_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<HpRetireLabel>(pLab)) {
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS1_0(pLab);
 	}
-	if (llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS1_0(pLab);
 	}
-	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<HpRetireLabel>(pLab)) {
+	if (true && llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS1_0(pLab);
 	}
-	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
+	if (true && llvm::isa<HpRetireLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS1_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS1_0(pLab);
@@ -319,12 +313,12 @@ bool TSODriver::visitInclusionLHS2_2(const EventLabel *lab, const View &v) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS2_2[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
 		auto status = visitedInclusionLHS2_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS2_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
+	if (true && llvm::isa<FreeLabel>(lab) && !llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
 		auto status = visitedInclusionLHS2_1[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS2_1(pLab, v))
 			return false;
@@ -362,7 +356,7 @@ void TSODriver::visitInclusionLHS3_1(const EventLabel *lab) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS3_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = free_succ(g, lab); pLab)if (llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
+	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<FreeLabel>(pLab) && !llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS3_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS3_0(pLab);
@@ -426,7 +420,7 @@ bool TSODriver::visitInclusionLHS4_1(const EventLabel *lab, const View &v) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS4_1[lab->getStamp().get()] = NodeStatus::entered;
-	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
+	for (auto &tmp : alloc_succs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
 		auto status = visitedInclusionLHS4_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS4_0(pLab, v))
 			return false;
@@ -440,7 +434,12 @@ bool TSODriver::visitInclusionLHS4_2(const EventLabel *lab, const View &v) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS4_2[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
+	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab)if (true && llvm::isa<MemAccessLabel>(pLab) && llvm::dyn_cast<MemAccessLabel>(pLab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(pLab))) {
+		auto status = visitedInclusionLHS4_0[pLab->getStamp().get()];
+		if (status == NodeStatus::unseen && !visitInclusionLHS4_0(pLab, v))
+			return false;
+	}
+	if (true && llvm::isa<HpRetireLabel>(lab))if (auto pLab = free_pred(g, lab); pLab) {
 		auto status = visitedInclusionLHS4_1[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS4_1(pLab, v))
 			return false;
@@ -478,7 +477,7 @@ void TSODriver::visitInclusionLHS5_1(const EventLabel *lab) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS5_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (auto pLab = free_succ(g, lab); pLab)if (llvm::isa<HpRetireLabel>(pLab)) {
+	if (auto pLab = free_succ(g, lab); pLab)if (true && llvm::isa<HpRetireLabel>(pLab)) {
 		auto status = visitedInclusionLHS5_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS5_0(pLab);
@@ -491,7 +490,7 @@ void TSODriver::visitInclusionLHS5_2(const EventLabel *lab) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS5_2[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(lab)))if (auto pLab = alloc_pred(g, lab); pLab) {
+	if (true && llvm::isa<MemAccessLabel>(lab) && llvm::dyn_cast<MemAccessLabel>(lab)->getAddr().isDynamic() && !isHazptrProtected(llvm::dyn_cast<MemAccessLabel>(lab)))if (auto pLab = alloc_pred(g, lab); pLab) {
 		auto status = visitedInclusionLHS5_1[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen)
 			visitInclusionLHS5_1(pLab);
@@ -542,32 +541,32 @@ bool TSODriver::visitInclusionLHS6_1(const EventLabel *lab, const View &v) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS6_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<ReadLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab) && pLab->isNotAtomic()) {
+	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab) && pLab->isNotAtomic()) {
+	if (true && lab->isNotAtomic() && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<ReadLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<ReadLabel>(pLab) && pLab->isNotAtomic()) {
+	if (true && lab->isNotAtomic() && llvm::isa<ReadLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab) && lab->isNotAtomic())for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<ReadLabel>(pLab)) {
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab) && lab->isNotAtomic())for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab)) {
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<ReadLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
 	}
-	if (llvm::isa<ReadLabel>(lab) && lab->isNotAtomic())for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab)) {
+	if (true && llvm::isa<ReadLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && pLab->isNotAtomic() && llvm::isa<WriteLabel>(pLab)) {
 		auto status = visitedInclusionLHS6_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS6_0(pLab, v))
 			return false;
@@ -607,7 +606,7 @@ bool TSODriver::visitInclusionLHS7_1(const EventLabel *lab, const View &v) const
 	auto &g = getGraph();
 
 	visitedInclusionLHS7_1[lab->getStamp().get()] = NodeStatus::entered;
-	if (llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (llvm::isa<WriteLabel>(pLab)) {
+	if (true && llvm::isa<WriteLabel>(lab))for (auto &tmp : samelocs(g, lab)) if (auto *pLab = &tmp; true)if (true && llvm::isa<WriteLabel>(pLab)) {
 		auto status = visitedInclusionLHS7_0[pLab->getStamp().get()];
 		if (status == NodeStatus::unseen && !visitInclusionLHS7_0(pLab, v))
 			return false;
@@ -681,267 +680,273 @@ std::vector<VerificationError> TSODriver::checkWarnings(const EventLabel *lab, c
 	return result;
 }
 
-bool TSODriver::visitAcyclic0(const EventLabel *lab) const
+bool TSODriver::visitAcyclic0_0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ReadLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	visitedAcyclic0_0[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::entered };
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadStartLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadJoinLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<FenceLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (g.isRMWStore(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ThreadStartLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
+		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	visitedAcyclic0[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	visitedAcyclic0_0[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::left };
 	return true;
 }
 
-bool TSODriver::visitAcyclic1(const EventLabel *lab) const
+bool TSODriver::visitAcyclic0_1(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	visitedAcyclic1[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	visitedAcyclic0_1[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::entered };
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	visitedAcyclic1[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	visitedAcyclic0_1[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::left };
 	return true;
 }
 
-bool TSODriver::visitAcyclic2(const EventLabel *lab) const
+bool TSODriver::visitAcyclic0_2(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	visitedAcyclic2[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
+	visitedAcyclic0_2[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::entered };
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<WriteLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic2(pLab))
+		auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<WriteLabel>(pLab) && pLab->isSC()) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	visitedAcyclic2[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	visitedAcyclic0_2[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::left };
 	return true;
 }
 
-bool TSODriver::visitAcyclic3(const EventLabel *lab) const
+bool TSODriver::visitAcyclic0_3(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	++visitedAccepting;
-	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::entered };
-	if (llvm::isa<ReadLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic2[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic2(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
+	++visitedAccepting0;
+	visitedAcyclic0_3[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::entered };
 	if (auto pLab = co_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
 	for (auto &tmp : fr_imm_preds(g, lab)) if (auto *pLab = &tmp; true) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
 	if (auto pLab = rfe_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ReadLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadStartLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<WriteLabel>(pLab) && ((llvm::isa<ReadLabel>(pLab) && g.isRMWLoad(pLab)) || (llvm::isa<WriteLabel>(pLab) && g.isRMWStore(pLab)))) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<ThreadJoinLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<FenceLabel>(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ReadLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (auto pLab = po_imm_pred(g, lab); pLab)if (g.isRMWStore(pLab)) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<FenceLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ThreadJoinLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (llvm::isa<ReadLabel>(lab) && lab->isSC())if (auto pLab = po_imm_pred(g, lab); pLab)if (llvm::isa<WriteLabel>(pLab) && pLab->isSC()) {
-		auto &node = visitedAcyclic3[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic3(pLab))
+	if (auto pLab = po_imm_pred(g, lab); pLab)if (true && llvm::isa<ThreadStartLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+	if (true && lab->isSC() && llvm::isa<ReadLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab)if (true && pLab->isSC() && llvm::isa<WriteLabel>(pLab)) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
-			return false;
-	}
-	if (llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
-			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	if (llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic1[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic1(pLab))
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_3[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_3(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
 	if (auto pLab = po_imm_pred(g, lab); pLab) {
-		auto &node = visitedAcyclic0[pLab->getStamp().get()];
-		if (node.status == NodeStatus::unseen && !visitAcyclic0(pLab))
+		auto &node = visitedAcyclic0_0[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_0(pLab))
 			return false;
-		else if (node.status == NodeStatus::entered && visitedAccepting > node.count)
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
 			return false;
 	}
-	--visitedAccepting;
-	visitedAcyclic3[lab->getStamp().get()] = { visitedAccepting, NodeStatus::left };
+	if (true && lab->isSC() && llvm::isa<ReadLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_2[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_2(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<WriteLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<FenceLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<ThreadCreateLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	if (true && llvm::isa<ThreadFinishLabel>(lab))if (auto pLab = po_imm_pred(g, lab); pLab) {
+		auto &node = visitedAcyclic0_1[pLab->getStamp().get()];
+		if (node.status == NodeStatus::unseen && !visitAcyclic0_1(pLab))
+			return false;
+		else if (node.status == NodeStatus::entered && visitedAccepting0 > node.count)
+			return false;
+	}
+	--visitedAccepting0;
+	visitedAcyclic0_3[lab->getStamp().get()] = { visitedAccepting0, NodeStatus::left };
 	return true;
 }
 
-bool TSODriver::isAcyclic(const EventLabel *lab) const
+bool TSODriver::isAcyclic0(const EventLabel *lab) const
 {
 	auto &g = getGraph();
 
-	visitedAccepting = 0;
-	visitedAcyclic0.clear();
-	visitedAcyclic0.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic1.clear();
-	visitedAcyclic1.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic2.clear();
-	visitedAcyclic2.resize(g.getMaxStamp().get() + 1);
-	visitedAcyclic3.clear();
-	visitedAcyclic3.resize(g.getMaxStamp().get() + 1);
+
+	if (!shouldVisitAcyclic0())
+		return true;
+
+	visitedAccepting0 = 0;
+	visitedAcyclic0_0.clear();
+	visitedAcyclic0_0.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic0_1.clear();
+	visitedAcyclic0_1.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic0_2.clear();
+	visitedAcyclic0_2.resize(g.getMaxStamp().get() + 1);
+	visitedAcyclic0_3.clear();
+	visitedAcyclic0_3.resize(g.getMaxStamp().get() + 1);
 	return true
-		&& visitAcyclic3(lab);
+		&& visitAcyclic0_3(lab);
 }
 
 bool TSODriver::isConsistent(const EventLabel *lab) const
 {
-	return isAcyclic(lab);
+
+	return true
+		&& isAcyclic0(lab);
 }
 
 bool TSODriver::isRecAcyclic(const EventLabel *lab) const

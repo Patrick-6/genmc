@@ -218,19 +218,20 @@ private:
 
 	mutable const EventLabel *racyLab7 = nullptr;
 
-	bool visitAcyclic0(const EventLabel *lab) const;
-	bool visitAcyclic1(const EventLabel *lab) const;
-	bool visitAcyclic2(const EventLabel *lab) const;
-	bool visitAcyclic3(const EventLabel *lab) const;
+	bool visitAcyclic0_0(const EventLabel *lab) const;
+	bool visitAcyclic0_1(const EventLabel *lab) const;
+	bool visitAcyclic0_2(const EventLabel *lab) const;
+	bool visitAcyclic0_3(const EventLabel *lab) const;
 
-	bool isAcyclic(const EventLabel *lab) const ;
+	bool isAcyclic0(const EventLabel *lab) const;
 
-	mutable std::vector<NodeCountStatus> visitedAcyclic0;
-	mutable std::vector<NodeCountStatus> visitedAcyclic1;
-	mutable std::vector<NodeCountStatus> visitedAcyclic2;
-	mutable std::vector<NodeCountStatus> visitedAcyclic3;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_0;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_1;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_2;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_3;
 
-	mutable uint16_t visitedAccepting = 0;
+	mutable uint16_t visitedAccepting0 = 0;
+	bool shouldVisitAcyclic0(void) const { return true; };
 
 	bool isRecAcyclic(const EventLabel *lab) const;
 

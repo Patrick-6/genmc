@@ -119,69 +119,83 @@ private:
 
 	mutable const EventLabel *racyLab0 = nullptr;
 
-	bool visitAcyclic0(const EventLabel *lab) const;
-	bool visitAcyclic1(const EventLabel *lab) const;
-	bool visitAcyclic2(const EventLabel *lab) const;
-	bool visitAcyclic3(const EventLabel *lab) const;
-	bool visitAcyclic4(const EventLabel *lab) const;
-	bool visitAcyclic5(const EventLabel *lab) const;
-	bool visitAcyclic6(const EventLabel *lab) const;
-	bool visitAcyclic7(const EventLabel *lab) const;
-	bool visitAcyclic8(const EventLabel *lab) const;
-	bool visitAcyclic9(const EventLabel *lab) const;
-	bool visitAcyclic10(const EventLabel *lab) const;
-	bool visitAcyclic11(const EventLabel *lab) const;
-	bool visitAcyclic12(const EventLabel *lab) const;
-	bool visitAcyclic13(const EventLabel *lab) const;
-	bool visitAcyclic14(const EventLabel *lab) const;
-	bool visitAcyclic15(const EventLabel *lab) const;
-	bool visitAcyclic16(const EventLabel *lab) const;
-	bool visitAcyclic17(const EventLabel *lab) const;
-	bool visitAcyclic18(const EventLabel *lab) const;
-	bool visitAcyclic19(const EventLabel *lab) const;
-	bool visitAcyclic20(const EventLabel *lab) const;
-	bool visitAcyclic21(const EventLabel *lab) const;
-	bool visitAcyclic22(const EventLabel *lab) const;
-	bool visitAcyclic23(const EventLabel *lab) const;
-	bool visitAcyclic24(const EventLabel *lab) const;
-	bool visitAcyclic25(const EventLabel *lab) const;
-	bool visitAcyclic26(const EventLabel *lab) const;
-	bool visitAcyclic27(const EventLabel *lab) const;
-	bool visitAcyclic28(const EventLabel *lab) const;
+	bool visitAcyclic0_0(const EventLabel *lab) const;
+	bool visitAcyclic0_1(const EventLabel *lab) const;
+	bool visitAcyclic0_2(const EventLabel *lab) const;
+	bool visitAcyclic0_3(const EventLabel *lab) const;
+	bool visitAcyclic0_4(const EventLabel *lab) const;
+	bool visitAcyclic0_5(const EventLabel *lab) const;
+	bool visitAcyclic0_6(const EventLabel *lab) const;
+	bool visitAcyclic0_7(const EventLabel *lab) const;
+	bool visitAcyclic0_8(const EventLabel *lab) const;
+	bool visitAcyclic0_9(const EventLabel *lab) const;
+	bool visitAcyclic0_10(const EventLabel *lab) const;
+	bool visitAcyclic0_11(const EventLabel *lab) const;
+	bool visitAcyclic0_12(const EventLabel *lab) const;
+	bool visitAcyclic0_13(const EventLabel *lab) const;
+	bool visitAcyclic0_14(const EventLabel *lab) const;
+	bool visitAcyclic0_15(const EventLabel *lab) const;
 
-	bool isAcyclic(const EventLabel *lab) const ;
+	bool isAcyclic0(const EventLabel *lab) const;
 
-	mutable std::vector<NodeCountStatus> visitedAcyclic0;
-	mutable std::vector<NodeCountStatus> visitedAcyclic1;
-	mutable std::vector<NodeCountStatus> visitedAcyclic2;
-	mutable std::vector<NodeCountStatus> visitedAcyclic3;
-	mutable std::vector<NodeCountStatus> visitedAcyclic4;
-	mutable std::vector<NodeCountStatus> visitedAcyclic5;
-	mutable std::vector<NodeCountStatus> visitedAcyclic6;
-	mutable std::vector<NodeCountStatus> visitedAcyclic7;
-	mutable std::vector<NodeCountStatus> visitedAcyclic8;
-	mutable std::vector<NodeCountStatus> visitedAcyclic9;
-	mutable std::vector<NodeCountStatus> visitedAcyclic10;
-	mutable std::vector<NodeCountStatus> visitedAcyclic11;
-	mutable std::vector<NodeCountStatus> visitedAcyclic12;
-	mutable std::vector<NodeCountStatus> visitedAcyclic13;
-	mutable std::vector<NodeCountStatus> visitedAcyclic14;
-	mutable std::vector<NodeCountStatus> visitedAcyclic15;
-	mutable std::vector<NodeCountStatus> visitedAcyclic16;
-	mutable std::vector<NodeCountStatus> visitedAcyclic17;
-	mutable std::vector<NodeCountStatus> visitedAcyclic18;
-	mutable std::vector<NodeCountStatus> visitedAcyclic19;
-	mutable std::vector<NodeCountStatus> visitedAcyclic20;
-	mutable std::vector<NodeCountStatus> visitedAcyclic21;
-	mutable std::vector<NodeCountStatus> visitedAcyclic22;
-	mutable std::vector<NodeCountStatus> visitedAcyclic23;
-	mutable std::vector<NodeCountStatus> visitedAcyclic24;
-	mutable std::vector<NodeCountStatus> visitedAcyclic25;
-	mutable std::vector<NodeCountStatus> visitedAcyclic26;
-	mutable std::vector<NodeCountStatus> visitedAcyclic27;
-	mutable std::vector<NodeCountStatus> visitedAcyclic28;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_0;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_1;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_2;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_3;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_4;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_5;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_6;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_7;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_8;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_9;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_10;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_11;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_12;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_13;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_14;
+	mutable std::vector<NodeCountStatus> visitedAcyclic0_15;
 
-	mutable uint16_t visitedAccepting = 0;
+	mutable uint16_t visitedAccepting0 = 0;
+	bool shouldVisitAcyclic0_0(const EventLabel *lab) const;
+	bool shouldVisitAcyclic0_1(const EventLabel *lab) const;
+
+	bool shouldVisitAcyclic0(void) const;
+
+	mutable std::vector<NodeStatus> shouldVisitedAcyclic0_0;
+	mutable std::vector<NodeStatus> shouldVisitedAcyclic0_1;
+
+	bool visitAcyclic1_0(const EventLabel *lab) const;
+	bool visitAcyclic1_1(const EventLabel *lab) const;
+	bool visitAcyclic1_2(const EventLabel *lab) const;
+	bool visitAcyclic1_3(const EventLabel *lab) const;
+	bool visitAcyclic1_4(const EventLabel *lab) const;
+	bool visitAcyclic1_5(const EventLabel *lab) const;
+	bool visitAcyclic1_6(const EventLabel *lab) const;
+	bool visitAcyclic1_7(const EventLabel *lab) const;
+	bool visitAcyclic1_8(const EventLabel *lab) const;
+	bool visitAcyclic1_9(const EventLabel *lab) const;
+	bool visitAcyclic1_10(const EventLabel *lab) const;
+	bool visitAcyclic1_11(const EventLabel *lab) const;
+	bool visitAcyclic1_12(const EventLabel *lab) const;
+
+	bool isAcyclic1(const EventLabel *lab) const;
+
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_0;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_1;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_2;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_3;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_4;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_5;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_6;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_7;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_8;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_9;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_10;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_11;
+	mutable std::vector<NodeCountStatus> visitedAcyclic1_12;
+
+	mutable uint16_t visitedAccepting1 = 0;
+	bool shouldVisitAcyclic1(void) const { return true; };
 
 	bool isRecAcyclic(const EventLabel *lab) const;
 
