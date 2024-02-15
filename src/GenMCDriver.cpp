@@ -2266,9 +2266,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
-	/* ReadOpt events may no longer be valid if lab is an unlock */
-	validateReadOpts(lab);
-
 	if (!isAccessValid(lab)) {
 		reportError(lab->getPos(), VerificationError::VE_AccessNonMalloc);
 		return;
@@ -2299,6 +2296,7 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	checkReconsiderFaiSpinloop(lab);
 	if (llvm::isa<HelpedCasWriteLabel>(lab))
 		unblockWaitingHelping();
+	checkReconsiderReadOpts(lab);
 
 	/* Check for races */
 	if (llvm::isa<UnlockWriteLabel>(lab))
@@ -2654,7 +2652,7 @@ bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, SVal val)
 	return true;
 }
 
-void GenMCDriver::validateReadOpts(const WriteLabel *sLab)
+void GenMCDriver::checkReconsiderReadOpts(const WriteLabel *sLab)
 {
 	auto &g = getGraph();
 	for (auto i = 0U; i < g.getNumThreads(); i++) {

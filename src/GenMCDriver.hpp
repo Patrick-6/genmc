@@ -609,9 +609,6 @@ private:
 	 * Returns whether if the label was removed */
 	bool removeCASReadIfBlocks(const ReadLabel *rLab, SVal val);
 
-	/* Opt: Remove possibly invalidated ReadOpt events */
-	void validateReadOpts(const WriteLabel *sLab);
-
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
 
@@ -747,6 +744,9 @@ private:
 	/* SAVer: Checks whether the addition of an event changes our
 	 * perspective of a potential spinloop */
 	void checkReconsiderFaiSpinloop(const MemAccessLabel *lab);
+
+	/* Opt: Remove possibly invalidated ReadOpt events */
+	void checkReconsiderReadOpts(const WriteLabel *sLab);
 
 	/* SAVer: Given the end of a potential FAI-ZNE spinloop,
 	 * returns true if it is indeed a spinloop */
