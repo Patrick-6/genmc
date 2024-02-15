@@ -1859,7 +1859,7 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 		return {getJoinValue(llvm::dyn_cast<ThreadJoinLabel>(g.getEventLabel(lab->getPos())))};
 
 	if (!llvm::isa<ThreadFinishLabel>(g.getLastThreadLabel(lab->getChildId()))) {
-		blockThread(JoinBlockLabel::create(lab->getPos()));
+		blockThread(JoinBlockLabel::create(lab->getPos(), lab->getChildId()));
 		return std::nullopt;
 	}
 
@@ -1904,10 +1904,8 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
 		auto *pLab = llvm::dyn_cast<JoinBlockLabel>(g.getLastThreadLabel(i));
-		if (pLab) {
-			/* If parent thread is waiting for me, relieve it.
-			 * We do not keep track of who is waiting for whom now,
-			 * so just unblock everyone. */
+		if (pLab && pLab->getChildId() == lab->getThread()) {
+			/* If parent thread is waiting for me, relieve it */
 			unblockThread(pLab->getPos());
 		}
 	}

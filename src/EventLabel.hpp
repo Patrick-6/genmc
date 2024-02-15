@@ -88,7 +88,6 @@ public:
 
 		EL_TerminatorBegin,
 		EL_BlockBegin,
-		EL_JoinBlock,
 		EL_SpinloopBlock,
 		EL_FaiZNEBlock,
 		EL_LockZNEBlock,
@@ -99,6 +98,7 @@ public:
 		EL_BarrierBlock,
 		EL_ErrorBlock,
 		EL_UserBlock,
+		EL_JoinBlock,
 		EL_ReadOptBlock,
 		EL_BlockEnd,
 		EL_ThreadKill,
@@ -518,7 +518,6 @@ public:								\
 	static bool classofKind(EventLabelKind k) { return k == EL_ ## _class_kind ## Block; } \
 };
 
-BLOCK_PURE_SUBCLASS(Join);
 BLOCK_PURE_SUBCLASS(Spinloop);
 BLOCK_PURE_SUBCLASS(FaiZNE);
 BLOCK_PURE_SUBCLASS(LockZNE);
@@ -529,6 +528,28 @@ BLOCK_PURE_SUBCLASS(LockNotRel);
 BLOCK_PURE_SUBCLASS(Barrier);
 BLOCK_PURE_SUBCLASS(Error);
 BLOCK_PURE_SUBCLASS(User);
+
+/*
+ * Represents that a thread cannot be scheduled until a child
+ * one terminates (i.e., it is blocked due to a join()).
+ * (Similar to ReadOptBlock below.)
+ */
+class JoinBlockLabel : public BlockLabel {
+
+public:
+	JoinBlockLabel(Event pos, unsigned childId)
+		: BlockLabel(EL_JoinBlock, pos), childId(childId) {}
+
+	const unsigned &getChildId() const { return childId; }
+
+	DEFINE_CREATE_CLONE(JoinBlockLabel)
+
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k == EL_JoinBlock; }
+
+private:
+	const unsigned int childId{}; // the child waiting on
+};
 
 /*
  * A temporary block label (mostly used to optimize IPRs).  The
