@@ -1380,7 +1380,6 @@ void GenMCDriver::checkLiveness()
 		return;
 
 	const auto &g = getGraph();
-	const auto *EE = getEE();
 
 	/* Collect all threads blocked at spinloops */
 	std::vector<int> spinBlocked;
@@ -1593,7 +1592,6 @@ bool GenMCDriver::sharePrefixSR(int tid, Event pos) const
 void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
 	auto t = getSymmPredTid(rLab->getThread());
 
 	/* If there is no symmetric thread, exit */
@@ -1671,7 +1669,6 @@ bool GenMCDriver::writesBeforeHelpedContainedInView(const HelpedCasReadLabel *la
 bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
 
 	auto hs = g.collectAllEvents([&](const EventLabel *lab){
 		auto *rLab = llvm::dyn_cast<HelpedCasReadLabel>(lab);
@@ -1685,7 +1682,7 @@ bool GenMCDriver::checkHelpingCasCondition(const HelpingCasLabel *hLab)
 	if (hs.empty())
 		return false;
 
-	if (std::any_of(hs.begin(), hs.end(), [&g, EE, this](const Event &h){
+	if (std::any_of(hs.begin(), hs.end(), [&g, this](const Event &h){
 		auto *hLab = llvm::dyn_cast<HelpedCasReadLabel>(g.getEventLabel(h));
 		auto &view = getHbView(hLab);
 		return !writesBeforeHelpedContainedInView(hLab, view);
@@ -1800,7 +1797,6 @@ int GenMCDriver::getSymmetricTidSR(const ThreadCreateLabel *tcLab, const ThreadI
 		return childInfo.symmId;
 
 	auto &g = getGraph();
-	auto *EE = getEE();
 
 	for (auto i = childInfo.id - 1; i > 0; i--)
 		if (isSymmetricToSR(i, tcLab->getPos(), childInfo))
@@ -1853,7 +1849,6 @@ std::optional<SVal>
 GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 {
 	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
 
 	if (isExecutionDrivenByGraph(&*lab))
 		return {getJoinValue(llvm::dyn_cast<ThreadJoinLabel>(g.getEventLabel(lab->getPos())))};
@@ -1870,9 +1865,9 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 	BUG_ON(!eLab);
 	eLab->setParentJoin(jLab);
 
-	if (cid < 0 || long (g.getNumThreads()) <= cid || cid == thr.id) {
+	if (cid < 0 || long (g.getNumThreads()) <= cid || cid == jLab->getThread()) {
 		std::string err = "ERROR: Invalid TID in pthread_join(): " + std::to_string(cid);
-		if (cid == thr.id)
+		if (cid == jLab->getThread())
 			err += " (TID cannot be the same as the calling thread)";
 		reportError(jLab->getPos(), VerificationError::VE_InvalidJoin, err);
 		return {SVal(0)};
@@ -1889,19 +1884,11 @@ GenMCDriver::handleThreadJoin(std::unique_ptr<ThreadJoinLabel> lab)
 void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
-	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph(&*eLab))
 		return;
 
 	auto *lab = addLabelToGraph(std::move(eLab));
-	if (thr.id == 0) {
-		if (partialExecutionExceedsBound())
-			moot();
-		return;
-	}
-
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
 		auto *pLab = llvm::dyn_cast<JoinBlockLabel>(g.getLastThreadLabel(i));
 		if (pLab && pLab->getChildId() == lab->getThread()) {
@@ -1909,7 +1896,6 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 			unblockThread(pLab->getPos());
 		}
 	}
-
 	if (partialExecutionExceedsBound())
 		moot();
 }
@@ -2072,7 +2058,6 @@ GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 {
 	auto &g = getGraph();
 	auto *EE = getEE();
-	auto &thr = EE->getCurThr();
 
 	if (inRecoveryMode() && rLab->getAddr().isVolatile())
 		return {getRecReadRetValue(rLab.get())};
@@ -2254,7 +2239,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	auto &g = getGraph();
-	auto *EE = getEE();
 
 	/* If it's a valid access, track coherence for this location */
 	g.trackCoherenceAtLoc(wLab->getAddr());
@@ -2315,8 +2299,6 @@ void GenMCDriver::handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab)
 SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
-	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph(&*aLab)) {
 		auto *lab = llvm::dyn_cast<MallocLabel>(g.getEventLabel(aLab->getPos()));
@@ -2335,8 +2317,6 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
-	auto &thr = EE->getCurThr();
 
 	if (isExecutionDrivenByGraph(&*dLab))
 		return;
@@ -2458,7 +2438,6 @@ void GenMCDriver::reportError(Event pos, VerificationError s,
 			      bool shouldHalt /* = true */)
 {
 	auto &g = getGraph();
-	auto &thr = getEE()->getCurThr();
 
 	/* If we have already detected an error, no need to report another */
 	if (isHalting())
@@ -3329,7 +3308,6 @@ bool GenMCDriver::restrictAndRevisit(Stamp stamp, const WorkSet::ItemT &item)
 SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
 
 	if (isExecutionDrivenByGraph(&*drLab)) {
 		auto *rLab = llvm::dyn_cast<DskReadLabel>(g.getEventLabel(drLab->getPos()));
@@ -3432,7 +3410,6 @@ bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 		return true;
 
 	/* Before adding it to the graph, ensure that the helped CAS exists */
-	auto &thr = getEE()->getCurThr();
 	if (!checkHelpingCasCondition(&*hLab)) {
 		blockThread(HelpedCASBlockLabel::create(hLab->getPos()));
 		return false;
@@ -3579,7 +3556,6 @@ bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
 void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 {
 	auto &g = getGraph();
-	auto *EE = getEE();
 
 	/* If we are actually replaying this one, it is not a spin loop*/
 	if (isExecutionDrivenByGraph(&*lab))
