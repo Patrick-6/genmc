@@ -605,9 +605,9 @@ private:
 	/* IPR: Tries to revisit blocked reads in-place */
 	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
 
-	/* IPR: Tries to remove a CAS that would block by reading val
-	 * and returns whether it succeeded */
-	bool tryRemoveBlockedCAS(const ReadLabel *rLab, SVal val);
+	/* IPR: Removes a CAS that blocks when reading val.
+	 * Returns whether if the label was removed */
+	bool removeCASReadIfBlocks(const ReadLabel *rLab, SVal val);
 
 	/* Opt: Remove possibly invalidated ReadOpt events */
 	void validateReadOpts(const WriteLabel *sLab);

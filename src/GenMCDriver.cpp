@@ -2017,7 +2017,7 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 
 	if (!inEstimationMode() && !isRescheduledRead(lab->getPos())) {
 		auto val = getWriteValue(getGraph().getWriteLabel(stores.back()));
-		if (tryRemoveBlockedCAS(lab, val))
+		if (removeCASReadIfBlocks(lab, val))
 			return false;
 	}
 	return true;
@@ -2640,7 +2640,7 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 	return;
 }
 
-bool GenMCDriver::tryRemoveBlockedCAS(const ReadLabel *rLab, SVal val)
+bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, SVal val)
 {
 	if (getConf()->bound.has_value() || !llvm::isa<CasReadLabel>(rLab) ||
 					    !willBeAssumeBlocked(rLab, val))
@@ -3245,7 +3245,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 		     << " revisiting " << ri.getPos() << " <-- " << rev << "\n" << getGraph(); );
 
 	/*  Try to remove the read from the execution */
-	if (tryRemoveBlockedCAS(rLab, getWriteValue(g.getWriteLabel(rev))))
+	if (removeCASReadIfBlocks(rLab, getWriteValue(g.getWriteLabel(rev))))
 		return true;
 
 	/* If the revisited label became an RMW, add the store part and revisit */
