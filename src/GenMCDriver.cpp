@@ -529,7 +529,7 @@ void GenMCDriver::checkHelpingCasAnnotation()
 	/* If we were waiting for a helped CAS that did not appear, complain */
 	auto &g = getGraph();
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
-		if (auto *bLab = llvm::dyn_cast<HelpedCASBlockLabel>(g.getLastThreadLabel(i)))
+		if (llvm::isa<HelpedCASBlockLabel>(g.getLastThreadLabel(i)))
 			ERROR("Helped/Helping CAS annotation error! Does helped CAS always execute?\n");
 	}
 
@@ -2576,8 +2576,7 @@ bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std:
 	/* Otherwise, revisit in place */
 	auto &g = getGraph();
 	auto bs = g.collectAllEvents([&](const EventLabel *lab){
-					     auto *bLab = llvm::dyn_cast<BarrierBlockLabel>(lab);
-					     if (!bLab)
+					     if (!llvm::isa<BarrierBlockLabel>(lab))
 						     return false;
 					     auto *pLab = llvm::dyn_cast<BIncFaiWriteLabel>(
 								g.getPreviousLabel(lab->getPos().prev()));
