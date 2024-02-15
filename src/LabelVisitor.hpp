@@ -50,7 +50,18 @@ public:
 	void visit(const EventLabel &lab) {
 		switch(lab.getKind()) {
 			VISIT_LABEL(Empty);
-			VISIT_LABEL(Block);
+			VISIT_LABEL(JoinBlock);
+			VISIT_LABEL(SpinloopBlock);
+			VISIT_LABEL(FaiZNEBlock);
+			VISIT_LABEL(LockZNEBlock);
+			VISIT_LABEL(HelpedCASBlock);
+			VISIT_LABEL(ConfirmationBlock);
+			VISIT_LABEL(LockNotAcqBlock);
+			VISIT_LABEL(LockNotRelBlock);
+			VISIT_LABEL(BarrierBlock);
+			VISIT_LABEL(ErrorBlock);
+			VISIT_LABEL(UserBlock);
+			VISIT_LABEL(ReadOptBlock);
 			VISIT_LABEL(Optional);
 			VISIT_LABEL(ThreadStart);
 			VISIT_LABEL(Init);
@@ -118,8 +129,21 @@ public:
 	visit##TO_CLASS(static_cast<const TO_CLASS&>(lab))
 
 	void visitEmptyLabel(const EmptyLabel &lab) { return DELEGATE_LABEL(EventLabel); }
-	void visitBlockLabel(const BlockLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitOptionalLabel(const OptionalLabel &lab) { return DELEGATE_LABEL(EventLabel); }
+
+	void visitJoinBlockLabel(const JoinBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitSpinloopBlockLabel(const SpinloopBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitFaiZNEBlockLabel(const FaiZNEBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitLockZNEBlockLabel(const LockZNEBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitHelpedCASBlockLabel(const HelpedCASBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitConfirmationBlockLabel(const ConfirmationBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitLockNotAcqBlockLabel(const LockNotAcqBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitLockNotRelBlockLabel(const LockNotRelBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitBarrierBlockLabel(const BarrierBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitErrorBlockLabel(const ErrorBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitUserBlockLabel(const UserBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+	void visitReadOptBlockLabel(const ReadOptBlockLabel &lab) { return DELEGATE_LABEL(BlockLabel); }
+
 	void visitInitLabel(const InitLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitThreadStartLabel(const ThreadStartLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 	void visitThreadFinishLabel(const ThreadFinishLabel &lab) { return DELEGATE_LABEL(EventLabel); }
@@ -193,6 +217,9 @@ public:
 	 */
 	void visitMemAccessLabel(const MemAccessLabel &lab) { return DELEGATE_LABEL(EventLabel); }
 
+	/* Similar to the above, but for blocked labels */
+	void visitBlockLabel(const BlockLabel &lab) { return DELEGATE_LABEL(EventLabel); }
+
 	/*
 	 * If no one else could handle this particular instruction,
 	 * call the generic handler
@@ -250,11 +277,6 @@ public:
 			PRINT_BUGREPORT_INFO_ONCE("val-printing",
 						  "Unhandled type for value predicate!\n");
 		}
-	}
-
-	void visitBlockLabel(const BlockLabel &lab) {
-		DELEGATE_LABEL(EventLabel);
-		out << " [" << lab.getType() << "]";
 	}
 
 	void visitReadLabel(const ReadLabel &lab) {

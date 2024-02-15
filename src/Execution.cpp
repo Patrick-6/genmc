@@ -1581,7 +1581,7 @@ void Interpreter::visitAtomicCmpXchgInst(AtomicCmpXchgInst &I)
 		cmpRes = *ret == GV_TO_SVAL(cmpVal, typ);		\
 		updateDataDeps(getCurThr().id, &I, currPos());		\
 		updateAddrPoDeps(getCurThr().id, I.getPointerOperand());\
-		if (!getCurThr().isBlocked() && cmpRes) {	\
+		if (cmpRes) {						\
 			auto sDeps = makeEventDeps(getDataDeps(getCurThr().id, I.getPointerOperand()), \
 						   getDataDeps(getCurThr().id, I.getNewValOperand()), \
 						   getCtrlDeps(getCurThr().id), getAddrPoDeps(thr.id), nullptr); \
@@ -2799,8 +2799,11 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 	// 	return;
 	// }
 
+	auto *I = ECStack().back().CurInst->getPrevNode();
+	auto annot = ReadLabel::AnnotVP(NeExpr<AnnotID>::create(RegisterExpr<AnnotID>::create(size.getBits(), MI->idInfo.VID.at(I)),
+								ConcreteExpr<AnnotID>::create(size.getBits(), 1)).release());
 	auto ret = CALL_DRIVER_RESET_IF_NONE(handleLoad,
-					     LockCasReadLabel::create(currPos(), addr, size, GET_DEPS(deps)));
+					     LockCasReadLabel::create(currPos(), addr, size, std::move(annot), GET_DEPS(deps)));
 	if (!ret.has_value())
 		return;
 
@@ -2809,8 +2812,7 @@ void Interpreter::handleLock(SAddr addr, ASize size, const EventDeps *deps)
 			CALL_DRIVER(handleStore,
 				    LockCasWriteLabel::create(currPos(), addr, size, GET_DEPS(deps)));
 		else
-			CALL_DRIVER(handleBlock,
-				    BlockLabel::create(currPos(), BlockageType::LockNotAcq));
+			CALL_DRIVER(handleBlock, LockNotAcqBlockLabel::create(currPos()));
 	}
 }
 
@@ -2869,7 +2871,7 @@ void Interpreter::callSpinEnd(Function *F, const std::vector<GenericValue> &ArgV
 {
 	/* XXX: If we ever remove EE blocking, account for blocked events in liveness */
 	if (!ArgVals[0].IntVal.getBoolValue())
-		CALL_DRIVER(handleBlock, BlockLabel::create(currPos(), BlockageType::Spinloop));
+		CALL_DRIVER(handleBlock, SpinloopBlockLabel::create(currPos()));
 }
 
 void Interpreter::callFaiZNESpinEnd(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -2895,7 +2897,7 @@ void Interpreter::callAssume(Function *F, const std::vector<GenericValue> &ArgVa
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.getBoolValue())
-		CALL_DRIVER(handleBlock, BlockLabel::create(currPos(), BlockageType::User));
+		CALL_DRIVER(handleBlock, UserBlockLabel::create(currPos()));
 }
 
 void Interpreter::callNondetInt(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3146,8 +3148,11 @@ void Interpreter::callMutexTrylock(Function *F, const std::vector<GenericValue> 
 	GenericValue result;
 
 	/* Dependencies already set by the EE */
+	auto *I = ECStack().back().CurInst->getPrevNode();
+	auto annot = ReadLabel::AnnotVP(NeExpr<AnnotID>::create(RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
+								ConcreteExpr<AnnotID>::create(ASize(size).getBits(), 1)).release());
 	auto ret = CALL_DRIVER(handleLoad,
-			       TrylockCasReadLabel::create(currPos(), ptr, size, GET_DEPS(specialDeps))).value();
+			       TrylockCasReadLabel::create(currPos(), ptr, size, std::move(annot), GET_DEPS(specialDeps))).value();
 
 	auto cmpRes = ret == SVal(0);
 	if (cmpRes)

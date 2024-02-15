@@ -372,9 +372,8 @@ protected:
 
 	/* Returns the value that a read is reading. This function should be
 	 * used when calculating the value that we should return to the
-	 * interpreter; if the read is reading from an invalid place
-	 * (e.g., bottom) also blocks the currently running thread. */
-	SVal getReadRetValueAndMaybeBlock(const ReadLabel *rLab);
+	 * interpreter. */
+	std::optional<SVal> getReadRetValue(const ReadLabel *rLab);
 	SVal getRecReadRetValue(const ReadLabel *rLab);
 
 	int getSymmPredTid(int tid) const;
@@ -500,12 +499,6 @@ private:
 	/* Resets some options before the beginning of a new execution */
 	void resetExplorationOptions();
 
-	/* Sets up a prioritization scheme among threads */
-	void prioritizeThreads();
-
-	/* Deprioritizes the current thread */
-	void deprioritizeThread(const UnlockLabelLAPOR *uLab);
-
 	/* Returns true if THREAD is schedulable (i.e., there are more
 	 * instructions to run and it is not blocked) */
 	bool isSchedulable(int thread) const;
@@ -532,11 +525,11 @@ private:
 	 * chosen policy */
 	bool scheduleNormal();
 
-	/* Blocks thread at POS with type T */
-	void blockThread(Event pos, BlockageType t);
+	/* Blocks thread with BLAB (needs to be maximal) */
+	void blockThread(std::unique_ptr<BlockLabel> bLab);
 
 	/* Blocks thread at POS with type T. Tries to moot afterward */
-	void blockThreadTryMoot(Event pos, BlockageType t);
+	void blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab);
 
 	/* Unblocks thread at POS */
 	void unblockThread(Event pos);
@@ -576,6 +569,10 @@ private:
 	 * is added, visitError() is called */
 	void checkFinalAnnotations(const WriteLabel *wLab);
 
+	/* Checks whether the IPR optimization is valid (i.e., no WW-races),
+	 * and reports an error if it's not. Returns the validity result */
+	void checkIPRValidity(const ReadLabel *rLab);
+
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);
 
@@ -606,10 +603,14 @@ private:
 	bool tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab, std::vector<Event> &loads);
 
 	/* IPR: Tries to revisit blocked reads in-place */
-	bool tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
+	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
 
-	/* Opt: Tries to revisit locks in-place */
-	bool tryOptimizeLocks(const WriteLabel *sLab, std::vector<Event> &loads);
+	/* IPR: Tries to remove a CAS that would block by reading val
+	 * and returns whether it succeeded */
+	bool tryRemoveBlockedCAS(const ReadLabel *rLab, SVal val);
+
+	/* Opt: Remove possibly invalidated ReadOpt events */
+	void validateReadOpts(const WriteLabel *sLab);
 
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
@@ -754,15 +755,11 @@ private:
 	/* BAM: Filters out unnecessary rfs for LAB when BAM is enabled */
 	void filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores);
 
-	/* Opt: Futher reduces the set of available read-from options for a
-	 * read that is part of a lock() op  */
-	bool filterAcquiredLocks(const ReadLabel *rLab, std::vector<Event> &stores);
-
 	/* Estimation: Filters outs stores read by RMW loads */
 	void filterAtomicityViolations(const ReadLabel *lab, std::vector<Event> &stores);
 
-	/* IPR: Returns true if RLAB is a possible IPR from SLAB */
-	bool isAssumeBlocked(const ReadLabel *rLab, const WriteLabel *sLab);
+	/* IPR: Returns true if RLAB would block when reading val */
+	bool willBeAssumeBlocked(const ReadLabel *rLab, SVal val);
 
 	/* IPR: Performs BR in-place */
 	void revisitInPlace(const BackwardRevisit &br);
@@ -778,13 +775,6 @@ private:
 
 	/* LKMM: Helper for visiting LKMM fences */
 	void handleFenceLKMM(std::unique_ptr<FenceLabel> fLab);
-
-	/* LAPOR: Returns whether the current execution is lock-well-formed */
-	bool isLockWellFormedLAPOR() const;
-
-	/* LAPOR: Helper for visiting a lock()/unlock() event */
-	void handleLockLAPOR(std::unique_ptr<LockLabelLAPOR> lab);
-	void handleUnlockLAPOR(std::unique_ptr<UnlockLabelLAPOR> uLab);
 
 	/* Helper: Wake up any threads blocked on a helping CAS */
 	void unblockWaitingHelping();
@@ -814,7 +804,7 @@ private:
 	void filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Event> &stores) const;
 
 	/* SAVer: Filters stores that will lead to an assume-blocked execution */
-	bool filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
+	void filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &stores);
 
 
 	/*** Estimation-related ***/

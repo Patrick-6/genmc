@@ -28,8 +28,41 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 	case EventLabel::EL_Empty:
 		s << "EMPTY";
 		break;
-	case EventLabel::EL_Block:
-		s << "BLOCK";
+	case EventLabel::EL_JoinBlock:
+		s << "BLOCK[join]";
+		break;
+	case EventLabel::EL_SpinloopBlock:
+		s << "BLOCK[spinloop]";
+		break;
+	case EventLabel::EL_FaiZNEBlock:
+		s << "BLOCK[Fai-zne]";
+		break;
+	case EventLabel::EL_LockZNEBlock:
+		s << "BLOCK[Lock-zne]";
+		break;
+	case EventLabel::EL_HelpedCASBlock:
+		s << "BLOCK[helped-cas]";
+		break;
+	case EventLabel::EL_ConfirmationBlock:
+		s << "BLOCK[conf]";
+		break;
+	case EventLabel::EL_LockNotAcqBlock:
+		s << "BLOCK[lock-unacq]";
+		break;
+	case EventLabel::EL_LockNotRelBlock:
+		s << "BLOCK[lock-unrel]";
+		break;
+	case EventLabel::EL_BarrierBlock:
+		s << "BLOCK[barrier]";
+		break;
+	case EventLabel::EL_ErrorBlock:
+		s << "BLOCK[error]";
+		break;
+	case EventLabel::EL_UserBlock:
+		s << "BLOCK[user]";
+		break;
+	case EventLabel::EL_ReadOptBlock:
+		s << "BLOCK[read-opt]";
 		break;
 	case EventLabel::EL_ThreadKill:
 		s << "KILL";

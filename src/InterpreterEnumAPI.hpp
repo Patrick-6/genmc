@@ -26,24 +26,6 @@
 #include <string>
 #include <unordered_map>
 
-/* The different reasons a thread might block */
-enum class BlockageType {
-	NotBlocked,
-	ThreadJoin,
-	Spinloop,
-	FaiZNESpinloop,
-	LockZNESpinloop,
-	HelpedCas,
-	Confirmation,
-	ReadOptBlock,
-	LockNotAcq,
-	LockNotRel,
-	Barrier,
-	Cons,
-	Error,
-	User,
-};
-
 /* Pers: Journaling mount options */
 enum class JournalDataFS { writeback, ordered, journal };
 
@@ -220,8 +202,5 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
 #define GENMC_KIND(flags) ((flags) & (0xffff0000))
-
-extern llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-				     const BlockageType &b);
 
 #endif /* __INTERPRETER_ENUM_API_HPP__ */

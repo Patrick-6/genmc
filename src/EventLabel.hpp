@@ -80,19 +80,38 @@ public:
 	 * It is public to allow clients perform a switch() on it */
 	enum EventLabelKind {
 		EL_Empty,
-		EL_Block,
 		EL_Optional,
+
 		EL_ThreadStart,
 		EL_Init,
 		EL_ThreadStartEnd,
+
+		EL_TerminatorBegin,
+		EL_BlockBegin,
+		EL_JoinBlock,
+		EL_SpinloopBlock,
+		EL_FaiZNEBlock,
+		EL_LockZNEBlock,
+		EL_HelpedCASBlock,
+		EL_ConfirmationBlock,
+		EL_LockNotAcqBlock,
+		EL_LockNotRelBlock,
+		EL_BarrierBlock,
+		EL_ErrorBlock,
+		EL_UserBlock,
+		EL_ReadOptBlock,
+		EL_BlockEnd,
+		EL_ThreadKill,
 		EL_ThreadFinish,
+		EL_TerminatorLast,
+
 		EL_ThreadCreate,
 		EL_ThreadJoin,
-		EL_ThreadKill,
 		EL_LoopBegin,
 		EL_SpinStart,
 		EL_FaiZNESpinEnd,
 		EL_LockZNESpinEnd,
+
 		EL_MemAccessBegin,
 		EL_Read,
 		EL_BWaitRead,
@@ -131,6 +150,7 @@ public:
 		EL_LastDskWrite,
 		EL_LastWrite,
 		EL_MemAccessEnd,
+
 		EL_Fence,
 		EL_DskFsync,
 		EL_DskSync,
@@ -138,10 +158,12 @@ public:
 		EL_SmpFenceLKMM,
 		EL_RCUSyncLKMM,
 		EL_LastFence,
+
 		EL_Malloc,
 		EL_Free,
 		EL_HpRetire,
 		EL_FreeLast,
+
 		EL_HpProtect,
 		EL_LockLAPOR,
 		EL_UnlockLAPOR,
@@ -338,7 +360,7 @@ public:
 
 private:
 	static inline bool isTerminator(EventLabelKind k) {
-		return k == EL_Block || k == EL_ThreadKill || k == EL_ThreadFinish;
+		return (k >= EL_TerminatorBegin && k <= EL_TerminatorLast);
 	}
 
 	static inline bool isDependable(EventLabelKind k) {
@@ -471,23 +493,64 @@ public:
  **                            BlockLabel Class
  ******************************************************************************/
 
-/* A label that represents a blockage event */
+/* An abstract label that represents a blockage. Subclasses denote the blockage type */
 class BlockLabel : public EventLabel {
 
+protected:
+	BlockLabel(EventLabelKind k, Event pos)
+		: EventLabel(k, pos, llvm::AtomicOrdering::NotAtomic, EventDeps()) {}
+
 public:
-	BlockLabel(Event pos, BlockageType t, const EventDeps &deps = EventDeps())
-		: EventLabel(EL_Block, pos, llvm::AtomicOrdering::NotAtomic, deps),
-		  type(t) {}
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
+	static bool classofKind(EventLabelKind k) { return k >= EL_BlockBegin && k <= EL_BlockEnd; }
+};
 
-	BlockageType getType() const { return type; }
+#define BLOCK_PURE_SUBCLASS(_class_kind)			\
+class _class_kind ## BlockLabel : public BlockLabel {		\
+								\
+public:								\
+	_class_kind ## BlockLabel(Event pos) 			\
+	: BlockLabel(EL_ ## _class_kind ## Block, pos) {}	\
+								\
+	DEFINE_CREATE_CLONE(_class_kind ## BlockLabel)		\
+								\
+	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }     \
+	static bool classofKind(EventLabelKind k) { return k == EL_ ## _class_kind ## Block; } \
+};
 
-	DEFINE_CREATE_CLONE(BlockLabel)
+BLOCK_PURE_SUBCLASS(Join);
+BLOCK_PURE_SUBCLASS(Spinloop);
+BLOCK_PURE_SUBCLASS(FaiZNE);
+BLOCK_PURE_SUBCLASS(LockZNE);
+BLOCK_PURE_SUBCLASS(HelpedCAS);
+BLOCK_PURE_SUBCLASS(Confirmation);
+BLOCK_PURE_SUBCLASS(LockNotAcq);
+BLOCK_PURE_SUBCLASS(LockNotRel);
+BLOCK_PURE_SUBCLASS(Barrier);
+BLOCK_PURE_SUBCLASS(Error);
+BLOCK_PURE_SUBCLASS(User);
+
+/*
+ * A temporary block label (mostly used to optimize IPRs).  The
+ * presence of such a label indicates that the corresponding thread
+ * should not be considered for scheduling (though this may be
+ * reconsidered whenever events in a given address are added).
+ */
+class ReadOptBlockLabel : public BlockLabel {
+
+public:
+	ReadOptBlockLabel(Event pos, SAddr addr)
+		: BlockLabel(EL_ReadOptBlock, pos), addr(addr) {}
+
+	const SAddr &getAddr() const { return addr; }
+
+	DEFINE_CREATE_CLONE(ReadOptBlockLabel)
 
 	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_Block; }
+	static bool classofKind(EventLabelKind k) { return k == EL_ReadOptBlock; }
 
 private:
-	BlockageType type;
+	SAddr addr; // the address waiting on
 };
 
 
@@ -1058,20 +1121,21 @@ protected:
 public:
 	LockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 			 AType type, SVal exp, SVal swap, WriteAttr wattr,
-			 EventLabel *rfLab, const EventDeps &deps = EventDeps())
-		: CasReadLabel(EL_LockCasRead, pos, ord, addr, size, type, exp,
-			       swap, wattr, rfLab, nullptr, deps) {}
-	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
+			 EventLabel *rfLab, AnnotVP annot = nullptr,
 			 const EventDeps &deps = EventDeps())
+		: CasReadLabel(EL_LockCasRead, pos, ord, addr, size, type, exp,
+			       swap, wattr, rfLab, std::move(annot), deps) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
+			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: LockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				   AType::Signed, SVal(0), SVal(1), wattr,
-				   rfLab, deps) {}
+				   rfLab, std::move(annot), deps) {}
 	LockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
+			 AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+	: LockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps) {}
+	LockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
 			 const EventDeps &deps = EventDeps())
-		: LockCasReadLabel(pos, addr, size, wattr, nullptr, deps) {}
-	LockCasReadLabel(Event pos, SAddr addr, ASize size,
-			 const EventDeps &deps = EventDeps())
-		: LockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
+	: LockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps) {}
 
 	DEFINE_CREATE_CLONE(LockCasReadLabel)
 
@@ -1094,20 +1158,20 @@ protected:
 public:
 	TrylockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 			    AType type, SVal exp, SVal swap, WriteAttr wattr,
-			    EventLabel *rfLab, const EventDeps &deps = EventDeps())
+			    EventLabel *rfLab, AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: CasReadLabel(EL_TrylockCasRead, pos, ord, addr, size, type,
-			       exp, swap, wattr, rfLab, nullptr, deps) {}
+			       exp, swap, wattr, rfLab, std::move(annot), deps) {}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr, EventLabel *rfLab,
-			    const EventDeps &deps = EventDeps())
+			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
 		: TrylockCasReadLabel(pos, llvm::AtomicOrdering::Acquire, addr, size,
 				      AType::Signed, SVal(0), SVal(1), wattr,
-				      rfLab, deps) {}
+				      rfLab, std::move(annot), deps) {}
 	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, WriteAttr wattr,
+			    AnnotVP annot = nullptr, const EventDeps &deps = EventDeps())
+	: TrylockCasReadLabel(pos, addr, size, wattr, nullptr, std::move(annot), deps) {}
+	TrylockCasReadLabel(Event pos, SAddr addr, ASize size, AnnotVP annot = nullptr,
 			    const EventDeps &deps = EventDeps())
-		: TrylockCasReadLabel(pos, addr, size, wattr, nullptr, deps) {}
-	TrylockCasReadLabel(Event pos, SAddr addr, ASize size,
-			    const EventDeps &deps = EventDeps())
-		: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, deps) {}
+	: TrylockCasReadLabel(pos, addr, size, WriteAttr::None, std::move(annot), deps) {}
 
 	DEFINE_CREATE_CLONE(TrylockCasReadLabel)
 

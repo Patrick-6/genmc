@@ -56,7 +56,6 @@ public:
 	bool disableRaceDetection;
 	bool disableBAM;
 	bool ipr;
-	bool lockIpr;
 	bool disableStopOnSystemError;
 
 	/*** Persistency options ***/

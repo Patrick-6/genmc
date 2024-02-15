@@ -126,9 +126,6 @@ static llvm::cl::opt<bool>
 clDisableIPR("disable-ipr", llvm::cl::cat(clGeneral),
 	     llvm::cl::desc("Disable in-place revisiting"));
 static llvm::cl::opt<bool>
-clDisableLockIPR("disable-lock-ipr", llvm::cl::cat(clGeneral),
-	     llvm::cl::desc("Disable in-place revisiting of locks"));
-static llvm::cl::opt<bool>
 clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 			   llvm::cl::desc("Do not stop verification on system errors"));
 
@@ -364,10 +361,10 @@ void Config::checkConfigOptions() const
 	GENMC_DEBUG(bounding |= clBoundsHistogram;);
 	if (bounding &&
 	    (clLAPOR || clHelper || !clDisableBAM || !clDisableSymmetryReduction ||
-	     !clDisableIPR || !clDisableLockIPR || clSchedulePolicy != SchedulePolicy::ltr)) {
+	     !clDisableIPR || clSchedulePolicy != SchedulePolicy::ltr)) {
 		WARN("LAPOR/Helper/BAM/SR/IPR have no effect when --bound is used. Scheduling defaults to LTR.\n");
 		clLAPOR = clHelper = false;
-		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = clDisableLockIPR = true;
+		clDisableBAM = clDisableSymmetryReduction = clDisableIPR = true;
 		clSchedulePolicy = SchedulePolicy::ltr;
 	}
 
@@ -402,7 +399,6 @@ void Config::saveConfigOptions()
 	disableRaceDetection = clDisableRaceDetection;
 	disableBAM = clDisableBAM;
 	ipr = !clDisableIPR;
-	lockIpr = !clDisableLockIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
 
 	/* Save persistency options */
