@@ -2656,9 +2656,6 @@ bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, SVal val)
 
 void GenMCDriver::validateReadOpts(const WriteLabel *sLab)
 {
-	if (!llvm::isa<WriteLabel>(sLab))
-		return;
-
 	auto &g = getGraph();
 	for (auto i = 0U; i < g.getNumThreads(); i++) {
 		auto *bLab = llvm::dyn_cast<ReadOptBlockLabel>(g.getLastThreadLabel(i));
@@ -2666,7 +2663,6 @@ void GenMCDriver::validateReadOpts(const WriteLabel *sLab)
 			continue;
 		unblockThread(bLab->getPos());
 	}
-
 }
 
 void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads)
