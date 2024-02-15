@@ -38,8 +38,8 @@ struct EnableBitmaskOperators<T>		\
 
 #define DEFINE_BINARY_OPERATOR(_op)					\
 template<typename Enum>							\
+auto operator _op(Enum lhs, Enum rhs) ->				\
 typename std::enable_if<EnableBitmaskOperators<Enum>::enable, Enum>::type \
-operator _op(Enum lhs, Enum rhs)					\
 {									\
 	using underlying = typename std::underlying_type<Enum>::type;	\
 	return static_cast<Enum>(static_cast<underlying>(lhs) _op static_cast<underlying>(rhs)); \
@@ -50,24 +50,24 @@ DEFINE_BINARY_OPERATOR(&);
 DEFINE_BINARY_OPERATOR(^);
 
 template<typename Enum>
+auto operator ~(Enum rhs) -> 						\
 typename std::enable_if<EnableBitmaskOperators<Enum>::enable, Enum>::type \
-operator ~(Enum rhs)							\
 {									\
 	using underlying = typename std::underlying_type<Enum>::type;	\
 	return static_cast<Enum>(~static_cast<underlying>(rhs));	\
 }
 
 template<typename Enum>
+auto operator !(Enum rhs) -> 						\
 typename std::enable_if<EnableBitmaskOperators<Enum>::enable, bool>::type \
-operator !(Enum rhs)							\
 {									\
 	return rhs == static_cast<Enum>(0);				\
 }
 
 #define DEFINE_ASSIGNMENT_OPERATOR(_op)					\
 template<typename Enum>							\
+auto operator _op ## =(Enum &lhs, Enum rhs) ->				\
 typename std::enable_if<EnableBitmaskOperators<Enum>::enable, Enum>::type \
-operator _op ## =(Enum &lhs, Enum rhs)					\
 {									\
 	using underlying = typename std::underlying_type<Enum>::type;	\
 	lhs = static_cast<Enum>(static_cast<underlying>(lhs) _op static_cast<underlying>(rhs)); \

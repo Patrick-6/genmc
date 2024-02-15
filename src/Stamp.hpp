@@ -42,24 +42,12 @@ public:
 	constexpr Stamp(const Stamp &other) = default;
 	constexpr Stamp(Stamp &&other) = default;
 
-	inline bool operator==(const Stamp &v) const {
-		return v.value == value;
-	}
-	inline bool operator!=(const Stamp &v) const {
-		return !(*this == v);
-	}
-	inline bool operator<=(const Stamp &v) const {
-		return value <= v.value;
-	}
-	inline bool operator<(const Stamp &v) const {
-		return value < v.value;
-	}
-	inline bool operator>=(const Stamp &v) const {
-		return !(*this < v);
-	}
-	inline bool operator>(const Stamp &v) const {
-		return !(*this <= v);
-	}
+	~Stamp() = default;
+
+	auto operator=(const Stamp &other) -> Stamp & = default;
+	auto operator=(Stamp &&other) -> Stamp & = default;
+
+	inline auto operator<=>(const Stamp &other) const = default;
 
 #define IMPL_STAMP_BINOP(_op)			  \
 	Stamp &operator _op##= (uint32_t v) {	  \
@@ -75,28 +63,25 @@ public:
 	IMPL_STAMP_BINOP(+);
 	IMPL_STAMP_BINOP(-);
 
-	Stamp &operator++() {
+	auto operator++() -> Stamp & {
 		return (*this) += 1;
 	}
-	Stamp operator++(int) {
+	auto operator++(int) -> Stamp {
 		auto tmp = *this; ++*this; return tmp;
 	}
 
-	Stamp &operator--() {
+	auto operator--() -> Stamp & {
 		return (*this) -= 1;
 	}
-	Stamp operator--(int) {
+	auto operator--(int) -> Stamp {
 		auto tmp = *this; --*this; return tmp;
 	}
 
-	Stamp &operator=(const Stamp &other) = default;
-	Stamp &operator=(Stamp &&other) = default;
-
 	/* Type-system hole */
-	uint32_t get() const { return value; }
-	uint32_t operator()() const { return get(); }
+	[[nodiscard]] auto get() const -> uint32_t { return value; }
+	auto operator()() const -> uint32_t { return get(); }
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const Stamp &s);
+	friend auto operator<<(llvm::raw_ostream& rhs, const Stamp &s) -> llvm::raw_ostream&;
 
 private:
 	Value value;

@@ -26,9 +26,15 @@
 #include <cstdint>
 #include <string>
 
-enum class ModelType : std::uint8_t { SC = 0, TSO = 1, RA = 2, RC11 = 3, IMM = 4 };
+enum class ModelType : std::uint8_t {
+	SC = 0,
+	TSO = 1,
+	RA = 2,
+	RC11 = 3,
+	IMM = 4
+};
 
-inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &model)
+inline auto operator<<(llvm::raw_ostream& s, const ModelType &model) -> llvm::raw_ostream&
 {
 	switch (model) {
 	case ModelType::SC:
@@ -47,7 +53,7 @@ inline llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const ModelType &mode
 	}
 }
 
-inline bool isStrongerThan(ModelType model, ModelType other)
+inline auto isStrongerThan(ModelType model, ModelType other) -> bool
 {
 	static const bool lookup[5][5] = {
 		//          SC     TSO    RA     RC11   IMM

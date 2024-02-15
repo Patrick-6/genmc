@@ -37,6 +37,6 @@ enum class VerbosityLevel {
 #endif
 };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs, const VerbosityLevel l);
+auto operator<<(llvm::raw_ostream& rhs, VerbosityLevel l) -> llvm::raw_ostream&;
 
 #endif /* __VERBOSITY_HPP__ */

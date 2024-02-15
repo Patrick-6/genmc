@@ -40,32 +40,31 @@ public:
 	using Value = uint64_t;
 	static constexpr unsigned width = sizeof(Value) * CHAR_BIT;
 
-public:
 	/* Constructors/destructors */
 	SVal() : value(0) {}
 	SVal(uint64_t v) : value(v) {}
 
 	/* Returns a (limited) representation of this Value */
-	uint64_t get() const { return value; }
+	[[nodiscard]] auto get() const -> uint64_t { return value; }
 
 	/* Returns a (limited) signed representation of this Value */
-	int64_t getSigned() const {
+	[[nodiscard]] auto getSigned() const -> int64_t {
 		int64_t tmp;
 		std::memcpy(&tmp, &value, sizeof(tmp));
 		return tmp;
 	}
 
 	/* Returns a pointer representation of this Value */
-	void *getPointer() const {
+	[[nodiscard]] auto getPointer() const -> void * {
 		return (void *) (uintptr_t) value;
 	}
 
 	/* Returns a (limited) representation of the Value as a boolean */
-	bool getBool() const { return (!!*this); }
+	[[nodiscard]] auto getBool() const -> bool { return (!!*this); }
 
 	/* Sign-extends the number in the bottom B bits of X to SVal::width
 	 * Pre: 0 < B <= SVal::width */
-	SVal &signExtendBottom(unsigned b) {
+	auto signExtendBottom(unsigned b) -> SVal & {
 		BUG_ON(b == 0 || b > width);
 		value = int64_t(get() << (width - b)) >> (width - b);
 		return *this;
@@ -73,38 +72,38 @@ public:
 
 	/* Equality operators */
 
-	inline bool operator==(const SVal &v) const {
+	inline auto operator==(const SVal &v) const -> bool {
 		return v.value == value;
 	}
-	inline bool operator!=(const SVal &v) const {
+	inline auto operator!=(const SVal &v) const -> bool {
 		return !(*this == v);
 	}
 
 	/* Comparison operators */
 
         /* Returns true if *this < v if both are considered unsigned */
-	bool ult(const SVal &v) const { return compare(v) < 0; }
+	[[nodiscard]] auto ult(const SVal &v) const -> bool { return compare(v) < 0; }
 
 	/* Returns true if *this < v if both are considered signed */
-	bool slt(const SVal &v) const { return compareSigned(v) < 0; }
+	[[nodiscard]] auto slt(const SVal &v) const -> bool { return compareSigned(v) < 0; }
 
 	/* Returns true if *this <= v when both are considered unsigned */
-	bool ule(const SVal &v) const { return compare(v) <= 0; }
+	[[nodiscard]] auto ule(const SVal &v) const -> bool { return compare(v) <= 0; }
 
 	/* Returns true if *this <= RHS when both are considered signed */
-	bool sle(const SVal &v) const { return compareSigned(v) <= 0; }
+	[[nodiscard]] auto sle(const SVal &v) const -> bool { return compareSigned(v) <= 0; }
 
 	/* Returns true if *this > RHS when both are considered unsigned */
-	bool ugt(const SVal &v) const { return !ule(v); }
+	[[nodiscard]] auto ugt(const SVal &v) const -> bool { return !ule(v); }
 
 	/* Returns true if *this > RHS when both are considered signed */
-	bool sgt(const SVal &v) const { return !sle(v); }
+	[[nodiscard]] auto sgt(const SVal &v) const -> bool { return !sle(v); }
 
 	/* Returns true if *this >= RHS when both are considered unsigned */
-	bool uge(const SVal &v) const { return !ult(v); }
+	[[nodiscard]] auto uge(const SVal &v) const -> bool { return !ult(v); }
 
 	/* Returns true if *this >= RHS when both are considered signed */
-	bool sge(const SVal &v) const { return !slt(v); }
+	[[nodiscard]] auto sge(const SVal &v) const -> bool { return !slt(v); }
 
 	/* Binary operators */
 
@@ -130,27 +129,27 @@ public:
 	IMPL_BINOP(<<);
 	IMPL_BINOP(>>);
 
-	SVal operator~() const {
-		return SVal(~this->value);
+	auto operator~() const -> SVal {
+		return {~this->value};
 	}
 
 	explicit operator bool() const {
 		return !!this->value;
 	}
 
-	std::string toString(bool sign = false) const {
+	[[nodiscard]] auto toString(bool sign = false) const -> std::string {
 		return sign ? std::to_string(getSigned()) : std::to_string(get());
 	}
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-					     const SVal &v);
+	friend auto operator<<(llvm::raw_ostream& rhs,
+			       const SVal &v) -> llvm::raw_ostream&;
 
 private:
-	int compare(const SVal& v) const {
+	[[nodiscard]] auto compare(const SVal& v) const -> int {
 		return this->value < v.value ? -1 : this->value > v.value;
 	}
 
-	int compareSigned(const SVal& v) const {
+	[[nodiscard]] auto compareSigned(const SVal& v) const -> int {
 		auto lhsSext = getSigned();
 		auto rhsSext = v.getSigned();
 		return lhsSext < rhsSext ? -1 : lhsSext > rhsSext;
@@ -161,7 +160,7 @@ private:
 };
 
 struct SValUCmp {
-	bool operator()(const SVal &lhs, const SVal &rhs) {
+	auto operator()(const SVal &lhs, const SVal &rhs) -> bool {
 		return lhs.ult(rhs);
 	}
 };

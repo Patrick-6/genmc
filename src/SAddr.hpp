@@ -58,102 +58,86 @@ protected:
 
 	static constexpr Width limit = addressMask;
 
-	static SAddr create(Width storageMask, Width value, bool durable, bool internal) {
+	static auto create(Width storageMask, Width value, bool durable, bool internal) -> SAddr {
 		BUG_ON(value >= SAddr::limit);
 		Width fresh = 0;
 		fresh |= storageMask;
 		fresh ^= (-(unsigned long)(!!durable) ^ fresh) & durableMask;
 		fresh ^= (-(unsigned long)(!!internal) ^ fresh) & internalMask;
 		fresh |= value;
-		return SAddr(fresh);
+		return {fresh};
 	}
 
 public:
 	SAddr() : addr(0) {}
-	SAddr(Width a) : addr(a) {}
-	SAddr(void *a) : addr((Width) a) {}
+	SAddr(Width addr) : addr(addr) {}
+	SAddr(void *addr) : addr((Width) addr) {}
 
 	/* Helper methods to create a new address */
 	template <typename... Ts>
-	static SAddr createStatic(Ts&&... params) {
+	static auto createStatic(Ts&&... params) -> SAddr {
 		return create(staticMask, std::forward<Ts>(params)...);
 	}
 	template <typename... Ts>
-	static SAddr createHeap(Ts&&... params) {
+	static auto createHeap(Ts&&... params) -> SAddr {
 		return create(0, std::forward<Ts>(params)...);
 	}
 	template <typename... Ts>
-	static SAddr createAutomatic(Ts&&... params) {
+	static auto createAutomatic(Ts&&... params) -> SAddr {
 		return create(automaticMask, std::forward<Ts>(params)...);
 	}
 
 	/* Return information regarding the address */
-	bool isStatic() const { return addr & staticMask; }
-	bool isDynamic() const { return !isStatic(); }
-	bool isAutomatic() const { return addr & automaticMask; }
-	bool isHeap() const { return !isAutomatic(); }
-	bool isInternal() const { return addr & internalMask; }
-	bool isUser() const { return !isInternal(); }
-	bool isDurable() const { return addr & durableMask; }
-	bool isVolatile() const { return !isDurable(); }
-	bool isNull() const { return addr == 0; }
+	[[nodiscard]] auto isStatic() const -> bool { return addr & staticMask; }
+	[[nodiscard]] auto isDynamic() const -> bool { return !isStatic(); }
+	[[nodiscard]] auto isAutomatic() const -> bool { return addr & automaticMask; }
+	[[nodiscard]] auto isHeap() const -> bool { return !isAutomatic(); }
+	[[nodiscard]] auto isInternal() const -> bool { return addr & internalMask; }
+	[[nodiscard]] auto isUser() const -> bool { return !isInternal(); }
+	[[nodiscard]] auto isDurable() const -> bool { return addr & durableMask; }
+	[[nodiscard]] auto isVolatile() const -> bool { return !isDurable(); }
+	[[nodiscard]] auto isNull() const -> bool { return addr == 0; }
 
 	/* Whether two addresses are on the same storage */
-	bool sameStorageAs(const SAddr &a) const {
-		return (addr & storageMask) == (a.addr & storageMask);
+	[[nodiscard]] auto sameStorageAs(const SAddr &other) const -> bool {
+		return (addr & storageMask) == (other.addr & storageMask);
 	}
 
 	/* Return an address aligned to the previous word boundary */
-	SAddr align() const {
+	[[nodiscard]] auto align() const -> SAddr {
 		return ((Width) (addr >> wordSize) << wordSize);
 	}
 
-	Width get() const { return addr; }
+	[[nodiscard]] auto get() const -> Width { return addr; }
 
-	inline bool operator==(const SAddr &a) const {
-		return a.addr == addr;
-	}
-	inline bool operator!=(const SAddr &a) const {
-		return !(*this == a);
-	}
-	inline bool operator<=(const SAddr &a) const {
-		return addr <= a.addr;
-	}
-	inline bool operator<(const SAddr &a) const {
-		return addr < a.addr;
-	}
-	inline bool operator>=(const SAddr &a) const {
-		return !(*this < a);
-	}
-	inline bool operator>(const SAddr &a) const {
-		return !(*this <= a);
-	}
-	SAddr operator+(const ASize &size) const {
+	inline auto operator<=>(const SAddr &other) const = default;
+
+	auto operator+(const ASize &size) const -> SAddr {
 		SAddr s(*this);
 		s.addr += size.get();
 		return s;
 	};
-	SAddr operator-(const ASize &size) const {
+	auto operator-(const ASize &size) const -> SAddr {
 		SAddr s(*this);
 		s.addr -= size.get();
 		return s;
 	};
-	Width operator-(const SAddr &a) const {
-		return this->get() - a.get();
+	auto operator-(const SAddr &other) const -> Width {
+		return this->get() - other.get();
 	};
-	SAddr operator>>(unsigned int num) const {
+	auto operator>>(unsigned int num) const -> SAddr {
 		SAddr s(*this);
 		s.addr >>= num;
 		return s;
 	}
-	SAddr operator<<(unsigned int num) const {
+	auto operator<<(unsigned int num) const -> SAddr {
 		SAddr s(*this);
 		s.addr <<= num;
 		return s;
 	}
 
-	friend llvm::raw_ostream& operator<<(llvm::raw_ostream& rhs,
-					     const SAddr &addr);
+	friend auto operator<<(llvm::raw_ostream& rhs,
+			       const SAddr &addr) -> llvm::raw_ostream&;
 
 private:
 	/* The actual address */
@@ -163,11 +147,11 @@ private:
 namespace std {
 	template<>
 	struct hash<SAddr> {
-		std::size_t operator()(const SAddr &a) const {
+		auto operator()(const SAddr &addr) const -> std::size_t {
 			using std::hash;
-			return hash<SAddr::Width>()(a.get());
+			return hash<SAddr::Width>()(addr.get());
 		};
 	};
-}
+} // namespace std
 
 #endif /* __SADDR_HPP__ */
