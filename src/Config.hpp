@@ -23,8 +23,8 @@
 
 #include "InterpreterEnumAPI.hpp"
 #include "MemoryModel.hpp"
-#include "Verbosity.hpp"
 #include "VSet.hpp"
+#include "Verbosity.hpp"
 
 #include <optional>
 #include <string>
@@ -97,7 +97,7 @@ public:
 	bool colorAccesses;
 	bool validateExecGraphs;
 	bool countDuplicateExecs;
-        bool countMootExecs;
+	bool countMootExecs;
 	bool printEstimationStats;
 	bool boundsHistogram;
 #endif

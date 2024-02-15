@@ -20,7 +20,7 @@
 
 #include "ASize.hpp"
 
-auto operator<<(llvm::raw_ostream& s, const ASize &size) -> llvm::raw_ostream&
+auto operator<<(llvm::raw_ostream &s, const ASize &size) -> llvm::raw_ostream &
 {
 	s << size.get();
 	return s;

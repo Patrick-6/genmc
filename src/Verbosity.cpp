@@ -20,7 +20,7 @@
 
 #include "Verbosity.hpp"
 
-auto operator<<(llvm::raw_ostream& s, VerbosityLevel l) -> llvm::raw_ostream&
+auto operator<<(llvm::raw_ostream &s, VerbosityLevel l) -> llvm::raw_ostream &
 {
 	switch (l) {
 	case VerbosityLevel::Error:

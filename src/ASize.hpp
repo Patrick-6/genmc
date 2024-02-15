@@ -21,8 +21,8 @@
 #ifndef __ASIZE_HPP__
 #define __ASIZE_HPP__
 
-#include "config.h"
 #include "Error.hpp"
+#include "config.h"
 
 #include <climits>
 #include <cstdint>
@@ -54,8 +54,7 @@ public:
 	inline auto operator<=>(const ASize &other) const = default;
 	auto operator()() const -> Size { return size; }
 
-	friend auto operator<<(llvm::raw_ostream& rhs,
-			       const ASize &s) -> llvm::raw_ostream&;
+	friend auto operator<<(llvm::raw_ostream &rhs, const ASize &s) -> llvm::raw_ostream &;
 
 private:
 	/* The actual size */

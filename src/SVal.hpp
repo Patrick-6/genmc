@@ -21,11 +21,11 @@
 #ifndef __SVAL_HPP__
 #define __SVAL_HPP__
 
-#include "config.h"
 #include "Error.hpp"
+#include "config.h"
 
-#include <cstdint>
 #include <climits>
+#include <cstdint>
 
 /*
  * Represents a value to be written to memory. All values are represented as
@@ -48,23 +48,23 @@ public:
 	[[nodiscard]] auto get() const -> uint64_t { return value; }
 
 	/* Returns a (limited) signed representation of this Value */
-	[[nodiscard]] auto getSigned() const -> int64_t {
+	[[nodiscard]] auto getSigned() const -> int64_t
+	{
 		int64_t tmp;
 		std::memcpy(&tmp, &value, sizeof(tmp));
 		return tmp;
 	}
 
 	/* Returns a pointer representation of this Value */
-	[[nodiscard]] auto getPointer() const -> void * {
-		return (void *) (uintptr_t) value;
-	}
+	[[nodiscard]] auto getPointer() const -> void * { return (void *)(uintptr_t)value; }
 
 	/* Returns a (limited) representation of the Value as a boolean */
 	[[nodiscard]] auto getBool() const -> bool { return (!!*this); }
 
 	/* Sign-extends the number in the bottom B bits of X to SVal::width
 	 * Pre: 0 < B <= SVal::width */
-	auto signExtendBottom(unsigned b) -> SVal & {
+	auto signExtendBottom(unsigned b) -> SVal &
+	{
 		BUG_ON(b == 0 || b > width);
 		value = int64_t(get() << (width - b)) >> (width - b);
 		return *this;
@@ -72,16 +72,12 @@ public:
 
 	/* Equality operators */
 
-	inline auto operator==(const SVal &v) const -> bool {
-		return v.value == value;
-	}
-	inline auto operator!=(const SVal &v) const -> bool {
-		return !(*this == v);
-	}
+	inline auto operator==(const SVal &v) const -> bool { return v.value == value; }
+	inline auto operator!=(const SVal &v) const -> bool { return !(*this == v); }
 
 	/* Comparison operators */
 
-        /* Returns true if *this < v if both are considered unsigned */
+	/* Returns true if *this < v if both are considered unsigned */
 	[[nodiscard]] auto ult(const SVal &v) const -> bool { return compare(v) < 0; }
 
 	/* Returns true if *this < v if both are considered signed */
@@ -107,15 +103,17 @@ public:
 
 	/* Binary operators */
 
-#define IMPL_BINOP(_op)				  \
-	SVal operator _op (const SVal &v) const { \
-		SVal n(*this);			  \
-		n.value _op##= v.value;		  \
-		return n;			  \
-	}					  \
-	SVal &operator _op##= (const SVal &v) {	  \
-		value _op##= v.value; 		  \
-		return *this;			  \
+#define IMPL_BINOP(_op)                                                                            \
+	SVal operator _op(const SVal &v) const                                                     \
+	{                                                                                          \
+		SVal n(*this);                                                                     \
+		n.value _op## = v.value;                                                           \
+		return n;                                                                          \
+	}                                                                                          \
+	SVal &operator _op##=(const SVal &v)                                                       \
+	{                                                                                          \
+		value _op## = v.value;                                                             \
+		return *this;                                                                      \
 	}
 
 	IMPL_BINOP(+);
@@ -129,27 +127,25 @@ public:
 	IMPL_BINOP(<<);
 	IMPL_BINOP(>>);
 
-	auto operator~() const -> SVal {
-		return {~this->value};
-	}
+	auto operator~() const -> SVal { return {~this->value}; }
 
-	explicit operator bool() const {
-		return !!this->value;
-	}
+	explicit operator bool() const { return !!this->value; }
 
-	[[nodiscard]] auto toString(bool sign = false) const -> std::string {
+	[[nodiscard]] auto toString(bool sign = false) const -> std::string
+	{
 		return sign ? std::to_string(getSigned()) : std::to_string(get());
 	}
 
-	friend auto operator<<(llvm::raw_ostream& rhs,
-			       const SVal &v) -> llvm::raw_ostream&;
+	friend auto operator<<(llvm::raw_ostream &rhs, const SVal &v) -> llvm::raw_ostream &;
 
 private:
-	[[nodiscard]] auto compare(const SVal& v) const -> int {
+	[[nodiscard]] auto compare(const SVal &v) const -> int
+	{
 		return this->value < v.value ? -1 : this->value > v.value;
 	}
 
-	[[nodiscard]] auto compareSigned(const SVal& v) const -> int {
+	[[nodiscard]] auto compareSigned(const SVal &v) const -> int
+	{
 		auto lhsSext = getSigned();
 		auto rhsSext = v.getSigned();
 		return lhsSext < rhsSext ? -1 : lhsSext > rhsSext;
@@ -160,9 +156,7 @@ private:
 };
 
 struct SValUCmp {
-	auto operator()(const SVal &lhs, const SVal &rhs) -> bool {
-		return lhs.ult(rhs);
-	}
+	auto operator()(const SVal &lhs, const SVal &rhs) -> bool { return lhs.ult(rhs); }
 };
 
 #endif /* __SVAL_HPP__ */

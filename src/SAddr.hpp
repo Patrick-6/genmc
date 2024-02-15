@@ -21,9 +21,9 @@
 #ifndef __SADDR_HPP__
 #define __SADDR_HPP__
 
-#include "config.h"
-#include "Error.hpp"
 #include "ASize.hpp"
+#include "Error.hpp"
+#include "config.h"
 
 #include <cstdint>
 
@@ -49,16 +49,18 @@ public:
 protected:
 	static constexpr Width wordSize = 3;
 
-	static constexpr Width staticMask = (Width) 1 << 63;
-	static constexpr Width automaticMask = (Width) 1 << 62;
-	static constexpr Width internalMask = (Width) 1 << 61;
-	static constexpr Width durableMask = (Width) 1 << 60;
-	static constexpr Width storageMask = staticMask | automaticMask | internalMask | durableMask;
+	static constexpr Width staticMask = (Width)1 << 63;
+	static constexpr Width automaticMask = (Width)1 << 62;
+	static constexpr Width internalMask = (Width)1 << 61;
+	static constexpr Width durableMask = (Width)1 << 60;
+	static constexpr Width storageMask = staticMask | automaticMask | internalMask |
+					     durableMask;
 	static constexpr Width addressMask = durableMask - 1;
 
 	static constexpr Width limit = addressMask;
 
-	static auto create(Width storageMask, Width value, bool durable, bool internal) -> SAddr {
+	static auto create(Width storageMask, Width value, bool durable, bool internal) -> SAddr
+	{
 		BUG_ON(value >= SAddr::limit);
 		Width fresh = 0;
 		fresh |= storageMask;
@@ -71,19 +73,19 @@ protected:
 public:
 	SAddr() : addr(0) {}
 	SAddr(Width addr) : addr(addr) {}
-	SAddr(void *addr) : addr((Width) addr) {}
+	SAddr(void *addr) : addr((Width)addr) {}
 
 	/* Helper methods to create a new address */
-	template <typename... Ts>
-	static auto createStatic(Ts&&... params) -> SAddr {
+	template <typename... Ts> static auto createStatic(Ts &&...params) -> SAddr
+	{
 		return create(staticMask, std::forward<Ts>(params)...);
 	}
-	template <typename... Ts>
-	static auto createHeap(Ts&&... params) -> SAddr {
+	template <typename... Ts> static auto createHeap(Ts &&...params) -> SAddr
+	{
 		return create(0, std::forward<Ts>(params)...);
 	}
-	template <typename... Ts>
-	static auto createAutomatic(Ts&&... params) -> SAddr {
+	template <typename... Ts> static auto createAutomatic(Ts &&...params) -> SAddr
+	{
 		return create(automaticMask, std::forward<Ts>(params)...);
 	}
 
@@ -99,45 +101,48 @@ public:
 	[[nodiscard]] auto isNull() const -> bool { return addr == 0; }
 
 	/* Whether two addresses are on the same storage */
-	[[nodiscard]] auto sameStorageAs(const SAddr &other) const -> bool {
+	[[nodiscard]] auto sameStorageAs(const SAddr &other) const -> bool
+	{
 		return (addr & storageMask) == (other.addr & storageMask);
 	}
 
 	/* Return an address aligned to the previous word boundary */
-	[[nodiscard]] auto align() const -> SAddr {
-		return ((Width) (addr >> wordSize) << wordSize);
+	[[nodiscard]] auto align() const -> SAddr
+	{
+		return ((Width)(addr >> wordSize) << wordSize);
 	}
 
 	[[nodiscard]] auto get() const -> Width { return addr; }
 
 	inline auto operator<=>(const SAddr &other) const = default;
 
-	auto operator+(const ASize &size) const -> SAddr {
+	auto operator+(const ASize &size) const -> SAddr
+	{
 		SAddr s(*this);
 		s.addr += size.get();
 		return s;
 	};
-	auto operator-(const ASize &size) const -> SAddr {
+	auto operator-(const ASize &size) const -> SAddr
+	{
 		SAddr s(*this);
 		s.addr -= size.get();
 		return s;
 	};
-	auto operator-(const SAddr &other) const -> Width {
-		return this->get() - other.get();
-	};
-	auto operator>>(unsigned int num) const -> SAddr {
+	auto operator-(const SAddr &other) const -> Width { return this->get() - other.get(); };
+	auto operator>>(unsigned int num) const -> SAddr
+	{
 		SAddr s(*this);
 		s.addr >>= num;
 		return s;
 	}
-	auto operator<<(unsigned int num) const -> SAddr {
+	auto operator<<(unsigned int num) const -> SAddr
+	{
 		SAddr s(*this);
 		s.addr <<= num;
 		return s;
 	}
 
-	friend auto operator<<(llvm::raw_ostream& rhs,
-			       const SAddr &addr) -> llvm::raw_ostream&;
+	friend auto operator<<(llvm::raw_ostream &rhs, const SAddr &addr) -> llvm::raw_ostream &;
 
 private:
 	/* The actual address */
@@ -145,13 +150,13 @@ private:
 };
 
 namespace std {
-	template<>
-	struct hash<SAddr> {
-		auto operator()(const SAddr &addr) const -> std::size_t {
-			using std::hash;
-			return hash<SAddr::Width>()(addr.get());
-		};
+template <> struct hash<SAddr> {
+	auto operator()(const SAddr &addr) const -> std::size_t
+	{
+		using std::hash;
+		return hash<SAddr::Width>()(addr.get());
 	};
+};
 } // namespace std
 
 #endif /* __SADDR_HPP__ */

@@ -21,8 +21,8 @@
 #ifndef __INTERPRETER_ENUM_API_HPP__
 #define __INTERPRETER_ENUM_API_HPP__
 
-#include <llvm/Support/raw_ostream.h>
 #include <config.h>
+#include <llvm/Support/raw_ostream.h>
 #include <string>
 #include <unordered_map>
 
@@ -117,10 +117,7 @@ enum class InternalFunctions {
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
 
-inline bool isInternalFunction(const std::string &name)
-{
-	return internalFunNames.count(name);
-}
+inline bool isInternalFunction(const std::string &name) { return internalFunNames.count(name); }
 
 inline bool isCleanInternalFunction(const std::string &name)
 {
@@ -128,12 +125,14 @@ inline bool isCleanInternalFunction(const std::string &name)
 		return false;
 
 	auto &code = internalFunNames.at(name);
-	return code >= InternalFunctions::FN_AssertFail && code <= InternalFunctions::FN_NoSideEffectsLast;
+	return code >= InternalFunctions::FN_AssertFail &&
+	       code <= InternalFunctions::FN_NoSideEffectsLast;
 }
 
 inline bool isErrorFunction(const std::string &name)
 {
-	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::FN_AssertFail;
+	return isInternalFunction(name) &&
+	       internalFunNames.at(name) == InternalFunctions::FN_AssertFail;
 }
 
 inline bool isAssumeFunction(const std::string &name)
@@ -156,12 +155,14 @@ inline bool isAllocFunction(const std::string &name)
 
 inline bool isMutexCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_MutexInit && code <= InternalFunctions::FN_MutexDestroy);
+	return (code >= InternalFunctions::FN_MutexInit &&
+		code <= InternalFunctions::FN_MutexDestroy);
 }
 
 inline bool isBarrierCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_BarrierInit && code <= InternalFunctions::FN_BarrierDestroy);
+	return (code >= InternalFunctions::FN_BarrierInit &&
+		code <= InternalFunctions::FN_BarrierDestroy);
 }
 
 inline bool isFsCode(InternalFunctions code)
@@ -176,7 +177,8 @@ inline bool isFsInodeCode(InternalFunctions code)
 
 inline bool isFsInvalidRecCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_CreatFS && code <= InternalFunctions::FN_LastInvRecFS);
+	return (code >= InternalFunctions::FN_CreatFS &&
+		code <= InternalFunctions::FN_LastInvRecFS);
 }
 
 inline bool hasGlobalLoadSemantics(const std::string &name)
@@ -186,18 +188,19 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 
 	using IF = InternalFunctions;
 	auto &code = internalFunNames.at(name);
-	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock || code == IF::FN_BarrierWait || isFsCode(code);
+	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock ||
+	       code == IF::FN_BarrierWait || isFsCode(code);
 }
 
 /* Should match our internal definitions */
 
-#define GENMC_ATTR_LOCAL   0x00000001
-#define GENMC_ATTR_FINAL   0x00000002
+#define GENMC_ATTR_LOCAL 0x00000001
+#define GENMC_ATTR_FINAL 0x00000002
 
-#define GENMC_KIND_NONVR   0x00010000
-#define GENMC_KIND_HELPED  0x00020000
+#define GENMC_KIND_NONVR 0x00010000
+#define GENMC_KIND_HELPED 0x00020000
 #define GENMC_KIND_HELPING 0x00040000
-#define GENMC_KIND_SPECUL  0x00080000
+#define GENMC_KIND_SPECUL 0x00080000
 #define GENMC_KIND_CONFIRM 0x00100000
 
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))

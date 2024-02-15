@@ -21,8 +21,7 @@
 #include "EventLabel.hpp"
 #include "LabelVisitor.hpp"
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
-			      const EventLabel::EventLabelKind k)
+llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)
 {
 	switch (k) {
 	case EventLabel::EL_Empty:
@@ -190,24 +189,30 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s,
 		s << "RCU_SYNC";
 		break;
 	default:
-		PRINT_BUGREPORT_INFO_ONCE("print-label-type",
-					  "Cannot print label type");
+		PRINT_BUGREPORT_INFO_ONCE("print-label-type", "Cannot print label type");
 		s << "UNKNOWN";
 		break;
 	}
 	return s;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const llvm::AtomicOrdering o)
+llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering o)
 {
 	switch (o) {
-	case llvm::AtomicOrdering::NotAtomic : return s << "na";
-	case llvm::AtomicOrdering::Unordered : return s << "un";
-	case llvm::AtomicOrdering::Monotonic : return s << "rlx";
-	case llvm::AtomicOrdering::Acquire   : return s << "acq";
-	case llvm::AtomicOrdering::Release   : return s << "rel";
-	case llvm::AtomicOrdering::AcquireRelease : return s << "ar";
-	case llvm::AtomicOrdering::SequentiallyConsistent : return s << "sc";
+	case llvm::AtomicOrdering::NotAtomic:
+		return s << "na";
+	case llvm::AtomicOrdering::Unordered:
+		return s << "un";
+	case llvm::AtomicOrdering::Monotonic:
+		return s << "rlx";
+	case llvm::AtomicOrdering::Acquire:
+		return s << "acq";
+	case llvm::AtomicOrdering::Release:
+		return s << "rel";
+	case llvm::AtomicOrdering::AcquireRelease:
+		return s << "ar";
+	case llvm::AtomicOrdering::SequentiallyConsistent:
+		return s << "sc";
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-ordering-type", "Cannot print ordering");
 		return s;
@@ -215,23 +220,30 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const llvm::AtomicOrdering o
 	return s;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const SmpFenceType t)
+llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const SmpFenceType t)
 {
 	switch (t) {
-	case SmpFenceType::MB : return s << "mb";
-	case SmpFenceType::WMB : return s << "wmb";
-	case SmpFenceType::RMB : return s << "rmb";
-	case SmpFenceType::MBBA: return s << "ba";
-	case SmpFenceType::MBAA: return s << "aa";
-	case SmpFenceType::MBAS: return s << "as";
-	case SmpFenceType::MBAUL: return s << "aul";
+	case SmpFenceType::MB:
+		return s << "mb";
+	case SmpFenceType::WMB:
+		return s << "wmb";
+	case SmpFenceType::RMB:
+		return s << "rmb";
+	case SmpFenceType::MBBA:
+		return s << "ba";
+	case SmpFenceType::MBAA:
+		return s << "aa";
+	case SmpFenceType::MBAS:
+		return s << "as";
+	case SmpFenceType::MBAUL:
+		return s << "aul";
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-fence-type", "Cannot print fence type");
 	}
 	return s;
 }
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream& s, const EventLabel &lab)
+llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel &lab)
 {
 	s << LabelPrinter().toString(lab);
 	return s;

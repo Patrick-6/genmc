@@ -21,8 +21,8 @@
 #ifndef GENMC_STAMP_HPP
 #define GENMC_STAMP_HPP
 
-#include "config.h"
 #include "Error.hpp"
+#include "config.h"
 
 #include <cstdint>
 
@@ -49,39 +49,43 @@ public:
 
 	inline auto operator<=>(const Stamp &other) const = default;
 
-#define IMPL_STAMP_BINOP(_op)			  \
-	Stamp &operator _op##= (uint32_t v) {	  \
-		value _op##= v; 		  \
-		return *this;			  \
-	}					  \
-	Stamp operator _op (uint32_t v) const {	  \
-		Stamp n(*this);			  \
-		n += v;				  \
-		return n;			  \
+#define IMPL_STAMP_BINOP(_op)                                                                      \
+	Stamp &operator _op##=(uint32_t v)                                                         \
+	{                                                                                          \
+		value _op## = v;                                                                   \
+		return *this;                                                                      \
+	}                                                                                          \
+	Stamp operator _op(uint32_t v) const                                                       \
+	{                                                                                          \
+		Stamp n(*this);                                                                    \
+		n += v;                                                                            \
+		return n;                                                                          \
 	}
 
 	IMPL_STAMP_BINOP(+);
 	IMPL_STAMP_BINOP(-);
 
-	auto operator++() -> Stamp & {
-		return (*this) += 1;
-	}
-	auto operator++(int) -> Stamp {
-		auto tmp = *this; ++*this; return tmp;
+	auto operator++() -> Stamp & { return (*this) += 1; }
+	auto operator++(int) -> Stamp
+	{
+		auto tmp = *this;
+		++*this;
+		return tmp;
 	}
 
-	auto operator--() -> Stamp & {
-		return (*this) -= 1;
-	}
-	auto operator--(int) -> Stamp {
-		auto tmp = *this; --*this; return tmp;
+	auto operator--() -> Stamp & { return (*this) -= 1; }
+	auto operator--(int) -> Stamp
+	{
+		auto tmp = *this;
+		--*this;
+		return tmp;
 	}
 
 	/* Type-system hole */
 	[[nodiscard]] auto get() const -> uint32_t { return value; }
 	auto operator()() const -> uint32_t { return get(); }
 
-	friend auto operator<<(llvm::raw_ostream& rhs, const Stamp &s) -> llvm::raw_ostream&;
+	friend auto operator<<(llvm::raw_ostream &rhs, const Stamp &s) -> llvm::raw_ostream &;
 
 private:
 	Value value;
