@@ -25,14 +25,21 @@
 #include <llvm/Support/raw_ostream.h>
 #include <set>
 
-class Logger {
+struct out_tag {};
+struct err_tag {};
+
+template <typename U> class Logger {
 
 protected:
 	/* So that derived classes can bypass the initial write to buffer */
 	Logger(VerbosityLevel l, bool) : buffer_(str_) {}
 
 public:
-	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_) { buffer_ << l; }
+	Logger(VerbosityLevel l = VerbosityLevel::Warning) : buffer_(str_)
+	{
+		if (std::is_same<U, err_tag>::value)
+			buffer_ << l;
+	}
 
 	template <typename T> Logger &operator<<(const T &msg)
 	{
@@ -43,11 +50,14 @@ public:
 	~Logger()
 	{
 		/*
-		 * 1. We don't have to flush --- this is stderr
+		 * 1. We don't have to flush (automatic for stderr; don't care for stdout)
 		 * 2. Stream ops are atomic according to POSIX:
 		 *    http://www.gnu.org/s/libc/manual/html_node/Streams-and-Threads.html
 		 */
-		llvm::errs() << buffer_.str();
+		if (std::is_same<U, out_tag>::value)
+			llvm::outs() << buffer_.str();
+		else
+			llvm::errs() << buffer_.str();
 	}
 
 protected:
@@ -56,17 +66,17 @@ protected:
 };
 
 /* A logger that logs each message only once */
-class LoggerOnce : public Logger {
+template <typename U> class LoggerOnce : public Logger<U> {
 
 public:
 	/* In principle, we could just append to the buffer and check whether the
 	 * ID has been encountered before at destruction. This class is extra verbose
 	 * so that we avoid writing to the buffer altogether if we have seen this ID */
 	LoggerOnce(const std::string &id, VerbosityLevel l = VerbosityLevel::Warning)
-		: Logger(l, true), id(id)
+		: Logger<U>(l, true), id(id)
 	{
 		if (!ids.count(id))
-			buffer_ << l;
+			this->buffer_ << l;
 	}
 
 	template <typename T> LoggerOnce &operator<<(const T &msg)
@@ -74,7 +84,7 @@ public:
 		if (ids.count(id)) {
 			return *this;
 		}
-		return static_cast<LoggerOnce &>(Logger::operator<<(msg));
+		return static_cast<LoggerOnce &>(Logger<U>::operator<<(msg));
 	}
 
 	~LoggerOnce()
@@ -95,12 +105,24 @@ inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		Logger(level)
+		Logger<err_tag>(level)
 
 #define LOG_ONCE(id, level)                                                                        \
 	if (level > logLevel)                                                                      \
 		;                                                                                  \
 	else                                                                                       \
-		LoggerOnce(id, level)
+		LoggerOnce<err_tag>(id, level)
+
+#define PRINT(level)                                                                               \
+	if (level > logLevel)                                                                      \
+		;                                                                                  \
+	else                                                                                       \
+		Logger<out_tag>(level)
+
+#define PRINT_ONCE(level)                                                                          \
+	if (level > logLevel)                                                                      \
+		;                                                                                  \
+	else                                                                                       \
+		Logger<out_tag>(level)
 
 #endif /* __LOGGER_HPP__ */
