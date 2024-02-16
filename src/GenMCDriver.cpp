@@ -1634,7 +1634,7 @@ void GenMCDriver::filterSymmetricStoresSR(const ReadLabel *rLab, std::vector<Eve
 void GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<Event> &validStores)
 {
 	/* Locks are treated as annotated CASes */
-	if (!rLab->getAnnot() && !llvm::isa<LockCasReadLabel>(rLab))
+	if (!rLab->getAnnot())
 		return;
 
 	using Evaluator = SExprEvaluator<ModuleID::ID>;
