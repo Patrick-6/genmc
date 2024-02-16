@@ -109,17 +109,19 @@ void printEstimationResults(const std::shared_ptr<const Config> &conf,
 			    const std::chrono::high_resolution_clock::time_point &begin,
 			    const GenMCDriver::Result &res)
 {
-	llvm::outs() << res.message;
-	llvm::outs() << (res.status == VerificationError::VE_OK ? "*** Estimation complete.\n"
-								: "*** Estimation unsuccessful.\n");
+	PRINT(VerbosityLevel::Error) << res.message;
+	PRINT(VerbosityLevel::Error)
+		<< (res.status == VerificationError::VE_OK ? "*** Estimation complete.\n"
+							   : "*** Estimation unsuccessful.\n");
 
 	auto mean = std::llround(res.estimationMean);
 	auto sd = std::llround(std::sqrt(res.estimationVariance));
 	auto meanTimeSecs = getElapsedSecs(begin) / (res.explored + res.exploredBlocked);
-	llvm::outs() << "Total executions estimate: " << mean << " (+- " << sd << ")\n";
-	llvm::outs() << "Time to completion estimate: "
-		     << llvm::format("%.2Lf", meanTimeSecs * mean) << "s\n";
-	GENMC_DEBUG(if (conf->printEstimationStats) llvm::outs()
+	PRINT(VerbosityLevel::Error)
+		<< "Total executions estimate: " << mean << " (+- " << sd << ")\n"
+		<< "Time to completion estimate: " << llvm::format("%.2Lf", meanTimeSecs * mean)
+		<< "s\n";
+	GENMC_DEBUG(if (conf->printEstimationStats) PRINT(VerbosityLevel::Error)
 			    << "Estimation moot: " << res.exploredMoot << "\n"
 			    << "Estimation blocked: " << res.exploredBlocked << "\n"
 			    << "Estimation complete: " << res.explored << "\n";);
@@ -129,39 +131,43 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 			      const std::chrono::high_resolution_clock::time_point &begin,
 			      const GenMCDriver::Result &res)
 {
-	llvm::outs() << res.message;
-	llvm::outs() << (res.status == VerificationError::VE_OK
-				 ? "*** Verification complete. No errors were detected.\n"
-				 : "*** Verification unsuccessful.\n");
+	PRINT(VerbosityLevel::Error) << res.message;
+	PRINT(VerbosityLevel::Error)
+		<< (res.status == VerificationError::VE_OK
+			    ? "*** Verification complete. No errors were detected.\n"
+			    : "*** Verification unsuccessful.\n");
 
-	llvm::outs() << "Number of complete executions explored: " << res.explored;
-	GENMC_DEBUG(
-		llvm::outs() << ((conf->countDuplicateExecs)
-					 ? " (" + std::to_string(res.duplicates) + " duplicates)"
-					 : ""););
+	PRINT(VerbosityLevel::Error) << "Number of complete executions explored: " << res.explored;
+	GENMC_DEBUG(PRINT(VerbosityLevel::Error)
+			    << ((conf->countDuplicateExecs)
+					? " (" + std::to_string(res.duplicates) + " duplicates)"
+					: ""););
 	if (res.boundExceeding) {
 		BUG_ON(conf->boundType == BoundType::round);
-		llvm::outs() << " (" + std::to_string(res.boundExceeding) + " exceeded bound)";
+		PRINT(VerbosityLevel::Error)
+			<< " (" + std::to_string(res.boundExceeding) + " exceeded bound)";
 	}
 	if (res.exploredBlocked != 0U) {
-		llvm::outs() << "\nNumber of blocked executions seen: " << res.exploredBlocked;
+		PRINT(VerbosityLevel::Error)
+			<< "\nNumber of blocked executions seen: " << res.exploredBlocked;
 	}
 	GENMC_DEBUG(
 		if (conf->countMootExecs) {
-			llvm::outs() << " (+ " << res.exploredMoot << " mooted)";
+			PRINT(VerbosityLevel::Error) << " (+ " << res.exploredMoot << " mooted)";
 		};
 		if (conf->boundsHistogram) {
-			llvm::outs() << "\nBounds histogram:";
+			PRINT(VerbosityLevel::Error) << "\nBounds histogram:";
 			auto executions = 0u;
 			for (auto i = 0u; i < res.exploredBounds.size(); i++) {
 				executions += res.exploredBounds[i];
-				llvm::outs() << " " << executions;
+				PRINT(VerbosityLevel::Error) << " " << executions;
 			}
 			if (!executions)
-				llvm::outs() << " 0";
+				PRINT(VerbosityLevel::Error) << " 0";
 		});
-	llvm::outs() << "\nTotal wall-clock time: " << llvm::format("%.2Lf", getElapsedSecs(begin))
-		     << "s\n";
+	PRINT(VerbosityLevel::Error)
+		<< "\nTotal wall-clock time: " << llvm::format("%.2Lf", getElapsedSecs(begin))
+		<< "s\n";
 }
 
 auto main(int argc, char **argv) -> int
@@ -171,8 +177,9 @@ auto main(int argc, char **argv) -> int
 
 	conf->getConfigOptions(argc, argv);
 
-	llvm::outs() << PACKAGE_NAME " v" PACKAGE_VERSION << " (LLVM " LLVM_VERSION ")\n"
-		     << "Copyright (C) 2023 MPI-SWS. All rights reserved.\n\n";
+	PRINT(VerbosityLevel::Error)
+		<< PACKAGE_NAME " v" PACKAGE_VERSION << " (LLVM " LLVM_VERSION ")\n"
+		<< "Copyright (C) 2024 MPI-SWS. All rights reserved.\n\n";
 
 	auto ctx = std::make_unique<llvm::LLVMContext>(); // *dtor after module's*
 	std::unique_ptr<llvm::Module> module;
@@ -181,12 +188,12 @@ auto main(int argc, char **argv) -> int
 	} else if (!compileInput(conf, ctx, module)) {
 		return ECOMPILE;
 	}
-	llvm::outs() << "*** Compilation complete.\n";
+	PRINT(VerbosityLevel::Error) << "*** Compilation complete.\n";
 
 	/* Perform the necessary transformations */
 	auto modInfo = std::make_unique<ModuleInfo>(*module);
 	transformInput(conf, *module, *modInfo);
-	llvm::outs() << "*** Transformation complete.\n";
+	PRINT(VerbosityLevel::Error) << "*** Transformation complete.\n";
 
 	/* Estimate the state space */
 	if (conf->estimate) {

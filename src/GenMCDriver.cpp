@@ -72,7 +72,7 @@ GenMCDriver::GenMCDriver(std::shared_ptr<const Config> conf, std::unique_ptr<llv
 			       ? (MyRNG::result_type)stoull(userConf->randomScheduleSeed)
 			       : rd();
 	if (userConf->printRandomScheduleSeed) {
-		llvm::outs() << "Seed: " << seedVal << "\n";
+		PRINT(VerbosityLevel::Error) << "Seed: " << seedVal << "\n";
 	}
 	rng.seed(seedVal);
 	estRng.seed(rd());
