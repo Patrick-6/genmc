@@ -43,7 +43,6 @@
 #include <optional>
 
 class DskAccessLabel;
-class ExecutionGraph;
 class ReadLabel;
 
 template <typename T, class... Options>
@@ -173,10 +172,6 @@ public:
 	};
 
 protected:
-	/* ExecutionGraph needs to be a friend to call the constructors */
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	EventLabel(EventLabelKind k, Event p, llvm::AtomicOrdering o,
 		   const EventDeps &deps = EventDeps())
 		: kind(k), position(p), ordering(o), deps(deps)
@@ -343,6 +338,9 @@ public:
 	friend llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const EventLabel &lab);
 
 private:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
 	static inline bool isTerminator(EventLabelKind k)
 	{
 		return (k >= EL_TerminatorBegin && k <= EL_TerminatorLast);
@@ -736,9 +734,6 @@ public:
 	using AnnotVP = value_ptr<AnnotT, SExprCloner<ModuleID::ID>>;
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	ReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size,
 		  AType type, EventLabel *rfLab = nullptr, AnnotVP annot = nullptr,
 		  const EventDeps &deps = EventDeps())
@@ -801,6 +796,9 @@ public:
 	static bool classofKind(EventLabelKind k) { return k >= EL_Read && k <= EL_LastRead; }
 
 private:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
 	/* Changes the reads-from edge for this label. This should only
 	 * be called from the execution graph to update other relevant
 	 * information as well */
@@ -819,10 +817,6 @@ private:
 
 #define READ_PURE_SUBCLASS(_class_kind)                                                            \
 	class _class_kind##ReadLabel : public ReadLabel {                                          \
-                                                                                                   \
-	protected:                                                                                 \
-		friend class ExecutionGraph;                                                       \
-		friend class DepExecutionGraph;                                                    \
                                                                                                    \
 	public:                                                                                    \
 		_class_kind##ReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, \
@@ -858,10 +852,6 @@ READ_PURE_SUBCLASS(Confirming);
 /* Specialization of ReadLabel for the read part of a barrier_wait() op */
 class BWaitReadLabel : public ReadLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
 		       EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
@@ -891,9 +881,6 @@ public:
 class FaiReadLabel : public ReadLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	FaiReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, llvm::AtomicRMWInst::BinOp op, SVal val, WriteAttr wattr,
 		     EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
@@ -961,10 +948,6 @@ private:
 #define FAIREAD_PURE_SUBCLASS(_class_kind)                                                         \
 	class _class_kind##FaiReadLabel : public FaiReadLabel {                                    \
                                                                                                    \
-	protected:                                                                                 \
-		friend class ExecutionGraph;                                                       \
-		friend class DepExecutionGraph;                                                    \
-                                                                                                   \
 	public:                                                                                    \
 		_class_kind##FaiReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,         \
 					  ASize size, AType type, llvm::AtomicRMWInst::BinOp op,   \
@@ -1014,9 +997,6 @@ FAIREAD_PURE_SUBCLASS(BInc);
 class CasReadLabel : public ReadLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	CasReadLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		     AType type, SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
 		     AnnotVP annot, const EventDeps &deps = EventDeps())
@@ -1083,10 +1063,6 @@ private:
 #define CASREAD_PURE_SUBCLASS(_class_kind)                                                         \
 	class _class_kind##CasReadLabel : public CasReadLabel {                                    \
                                                                                                    \
-	protected:                                                                                 \
-		friend class ExecutionGraph;                                                       \
-		friend class DepExecutionGraph;                                                    \
-                                                                                                   \
 	public:                                                                                    \
 		_class_kind##CasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,         \
 					  ASize size, AType type, SVal exp, SVal swap,             \
@@ -1134,10 +1110,6 @@ CASREAD_PURE_SUBCLASS(Confirming);
 /* Specialization of CasReadLabel for lock CASes */
 class LockCasReadLabel : public CasReadLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	LockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			 SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
@@ -1172,10 +1144,6 @@ public:
 /* Specialization of CasReadLabel for trylock CASes */
 class TrylockCasReadLabel : public CasReadLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	TrylockCasReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			    SVal exp, SVal swap, WriteAttr wattr, EventLabel *rfLab,
@@ -1209,10 +1177,6 @@ public:
 
 /* Models a read from the disk (e.g., via read()) */
 class DskReadLabel : public ReadLabel, public DskAccessLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	DskReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
@@ -1255,9 +1219,6 @@ public:
 class WriteLabel : public MemAccessLabel, public llvm::ilist_node<WriteLabel> {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	WriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		   AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: MemAccessLabel(k, pos, ord, addr, size, type, deps), value(val), wattr(wattr)
@@ -1319,7 +1280,8 @@ public:
 	static bool classofKind(EventLabelKind k) { return k >= EL_Write && k <= EL_LastWrite; }
 
 private:
-	friend class CoherenceCalculator;
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
 
 	/* Adds a read to the list of reads reading from the write */
 	void addReader(ReadLabel *rLab)
@@ -1358,10 +1320,6 @@ private:
 /* Specialization of writes for unlock events */
 class UnlockWriteLabel : public WriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	UnlockWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			 SVal val, const EventDeps &deps = EventDeps())
@@ -1385,10 +1343,6 @@ public:
 /* Specialization of writes for barrier initializations */
 class BInitWriteLabel : public WriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	BInitWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			SVal val, const EventDeps &deps = EventDeps())
@@ -1407,10 +1361,6 @@ public:
 
 /* Specialization of writes for barrier destruction */
 class BDestroyWriteLabel : public WriteLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	BDestroyWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
@@ -1433,9 +1383,6 @@ fetch-and-add, fetch-and-sub, etc) */
 class FaiWriteLabel : public WriteLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	FaiWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		      AType type, SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
 		: WriteLabel(k, pos, ord, addr, size, type, val, wattr, deps)
@@ -1467,10 +1414,6 @@ public:
 /* Specialization of FaiWriteLabel for non-value-returning FAIs */
 class NoRetFaiWriteLabel : public FaiWriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	NoRetFaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			   SVal val, WriteAttr wattr = WriteAttr::None,
@@ -1490,10 +1433,6 @@ public:
 
 /* Specialization of FaiWriteLabel for barrier FAIs */
 class BIncFaiWriteLabel : public FaiWriteLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	BIncFaiWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
@@ -1520,9 +1459,6 @@ public:
 class CasWriteLabel : public WriteLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	CasWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		      AType type, SVal val, WriteAttr wattr = WriteAttr::None,
 		      const EventDeps &deps = EventDeps())
@@ -1547,10 +1483,6 @@ public:
 
 #define CASWRITE_PURE_SUBCLASS(_class_kind)                                                        \
 	class _class_kind##CasWriteLabel : public CasWriteLabel {                                  \
-                                                                                                   \
-	protected:                                                                                 \
-		friend class ExecutionGraph;                                                       \
-		friend class DepExecutionGraph;                                                    \
                                                                                                    \
 	public:                                                                                    \
 		_class_kind##CasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,        \
@@ -1580,10 +1512,6 @@ CASWRITE_PURE_SUBCLASS(Confirming);
 /* Specialization of CasWriteLabel for lock CASes */
 class LockCasWriteLabel : public CasWriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	LockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			  SVal val, WriteAttr wattr, const EventDeps &deps = EventDeps())
@@ -1610,10 +1538,6 @@ public:
 
 /* Specialization of CasWriteLabel for trylock CASes */
 class TrylockCasWriteLabel : public CasWriteLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	TrylockCasWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
@@ -1645,9 +1569,6 @@ public:
 class DskWriteLabel : public WriteLabel, public DskAccessLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	DskWriteLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size,
 		      AType type, SVal val, void *mapping, const EventDeps &deps = EventDeps())
 		: WriteLabel(k, pos, ord, addr, size, type, val, deps), DskAccessLabel(k),
@@ -1703,10 +1624,6 @@ private:
 /* Models a disk write that writes metadata */
 class DskMdWriteLabel : public DskWriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	DskMdWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			SVal val, void *mapping, std::pair<void *, void *> ordDataRange,
@@ -1752,10 +1669,6 @@ private:
 /* Models a write to a directory on disk */
 class DskDirWriteLabel : public DskWriteLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	DskDirWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
 			 SVal val, void *mapping, const EventDeps &deps = EventDeps())
@@ -1789,10 +1702,6 @@ public:
 /* Models a write to disk that marks the beginning or end of a disk transaction.
  * (We assume that each transaction affects only one inode.) */
 class DskJnlWriteLabel : public DskWriteLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	DskJnlWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
@@ -1837,9 +1746,6 @@ private:
 class FenceLabel : public EventLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	FenceLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord,
 		   const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps)
@@ -1862,10 +1768,6 @@ public:
 
 /* Represents an fsync() operation */
 class DskFsyncLabel : public FenceLabel, public DskAccessLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	DskFsyncLabel(Event pos, llvm::AtomicOrdering ord, const void *inode, unsigned int size,
@@ -1918,10 +1820,6 @@ private:
 /* Represents an operation that synchronizes writes to persistent storage (e.g, sync()) */
 class DskSyncLabel : public FenceLabel, public DskAccessLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	DskSyncLabel(Event pos, llvm::AtomicOrdering ord, const EventDeps &deps = EventDeps())
 		: FenceLabel(EL_DskSync, pos, ord, deps), DskAccessLabel(EL_DskSync)
@@ -1958,10 +1856,6 @@ public:
  * all events before this label will have persisted when the
  * recovery routine runs */
 class DskPbarrierLabel : public FenceLabel, public DskAccessLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	DskPbarrierLabel(Event pos, llvm::AtomicOrdering ord, const EventDeps &deps = EventDeps())
@@ -2002,10 +1896,6 @@ inline bool isStrong(SmpFenceType t) { return t == SmpFenceType::MB || t >= SmpF
 
 /* Represents a non-C11-type fence (LKMM only) */
 class SmpFenceLabelLKMM : public FenceLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	SmpFenceLabelLKMM(Event pos, llvm::AtomicOrdering ord, SmpFenceType t,
@@ -2050,10 +1940,6 @@ private:
 /* Corresponds to a the beginning of a grace period */
 class RCUSyncLabelLKMM : public FenceLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	RCUSyncLabelLKMM(Event pos, const EventDeps &deps = EventDeps())
 		: FenceLabel(EL_RCUSyncLKMM, pos, llvm::AtomicOrdering::SequentiallyConsistent,
@@ -2075,10 +1961,6 @@ private:
 
 /* This label denotes the creation of a thread (via, e.g., pthread_create()) */
 class ThreadCreateLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	ThreadCreateLabel(Event pos, llvm::AtomicOrdering ord, ThreadInfo childInfo,
@@ -2114,10 +1996,6 @@ private:
 /* Represents a join() operation (e.g., pthread_join()) */
 class ThreadJoinLabel : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	ThreadJoinLabel(Event pos, llvm::AtomicOrdering ord, unsigned int childId,
 			const EventDeps &deps = EventDeps())
@@ -2147,10 +2025,6 @@ private:
 /* Represents the abnormal termination of a thread */
 class ThreadKillLabel : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	ThreadKillLabel(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_ThreadKill, pos, llvm::AtomicOrdering::NotAtomic, deps)
@@ -2171,9 +2045,6 @@ public:
 class ThreadStartLabel : public EventLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	ThreadStartLabel(EventLabelKind kind, Event pos, Event pc)
 		: EventLabel(kind, pos, llvm::AtomicOrdering::Acquire, EventDeps()),
 		  parentCreate(pc), threadInfo()
@@ -2229,9 +2100,6 @@ private:
  * same thread */
 class ThreadFinishLabel : public EventLabel {
 
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	ThreadFinishLabel(Event pos, llvm::AtomicOrdering ord, SVal retVal)
 		: EventLabel(EL_ThreadFinish, pos, ord, EventDeps()), retVal(retVal)
@@ -2279,10 +2147,6 @@ class FreeLabel;
 
 /* Corresponds to a memory-allocating operation (e.g., malloc()) */
 class MallocLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	MallocLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
@@ -2376,6 +2240,9 @@ public:
 	static bool classofKind(EventLabelKind k) { return k == EL_Malloc; }
 
 private:
+	friend class ExecutionGraph;
+	friend class DepExecutionGraph;
+
 	void addAccess(MemAccessLabel *mLab)
 	{
 		BUG_ON(std::find_if(accesses_begin(), accesses_end(), [mLab](auto &oLab) {
@@ -2433,9 +2300,6 @@ private:
 class FreeLabel : public EventLabel {
 
 protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 	FreeLabel(EventLabelKind k, Event pos, llvm::AtomicOrdering ord, SAddr addr,
 		  unsigned int size, const EventDeps &deps = EventDeps())
 		: EventLabel(k, pos, ord, deps), freeAddr(addr), freedSize(size)
@@ -2504,10 +2368,6 @@ private:
 /* Corresponds to a hazptr retire operation */
 class HpRetireLabel : public FreeLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	HpRetireLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, unsigned int size,
 		      const EventDeps &deps = EventDeps())
@@ -2532,10 +2392,6 @@ public:
 
 /* Specialization of writes for hazptr protect events */
 class HpProtectLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	HpProtectLabel(Event pos, llvm::AtomicOrdering ord, SAddr hpAddr, SAddr protAddr,
@@ -2570,10 +2426,6 @@ private:
 /* Corresponds to a label modeling a lock operation --under LAPOR only-- */
 class LockLabelLAPOR : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	LockLabelLAPOR(Event pos, llvm::AtomicOrdering ord, SAddr addr,
 		       const EventDeps &deps = EventDeps())
@@ -2603,10 +2455,6 @@ private:
 /* Corresponds to a label modeling an unlock operation --under LAPOR only-- */
 class UnlockLabelLAPOR : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	UnlockLabelLAPOR(Event pos, llvm::AtomicOrdering ord, SAddr addr,
 			 const EventDeps &deps = EventDeps())
@@ -2635,10 +2483,6 @@ private:
 
 /* In contrast to HelpedCAS, a HelpingCAS is a dummy event*/
 class HelpingCasLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	HelpingCasLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
@@ -2688,10 +2532,6 @@ private:
 /* Corresponds to the beginning of a file-opening operation (e.g., open()) */
 class DskOpenLabel : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	DskOpenLabel(Event pos, llvm::AtomicOrdering ord, const std::string &fileName, SVal fd,
 		     const EventDeps &deps = EventDeps())
@@ -2729,10 +2569,6 @@ private:
 /* Corresponds to the beginning of an RCU read-side critical section */
 class RCULockLabelLKMM : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	RCULockLabelLKMM(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_RCULockLKMM, pos, llvm::AtomicOrdering::Acquire, deps)
@@ -2751,10 +2587,6 @@ public:
 /* Corresponds to the ending of an RCU read-side critical section */
 class RCUUnlockLabelLKMM : public EventLabel {
 
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
-
 public:
 	RCUUnlockLabelLKMM(Event pos, const EventDeps &deps = EventDeps())
 		: EventLabel(EL_RCUUnlockLKMM, pos, llvm::AtomicOrdering::Release, deps)
@@ -2772,10 +2604,6 @@ public:
 
 /* Represents a cache line flush */
 class CLFlushLabel : public EventLabel {
-
-protected:
-	friend class ExecutionGraph;
-	friend class DepExecutionGraph;
 
 public:
 	CLFlushLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr,
@@ -2809,8 +2637,6 @@ class InitLabel : public ThreadStartLabel {
 
 private:
 	using ReaderList = CopyableIList<ReadLabel>;
-
-protected:
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
