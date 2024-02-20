@@ -347,10 +347,6 @@ public:
 		return getPreviousNonEmptyLabel(lab->getPos());
 	}
 
-	/* Returns the previous non-trivial predecessor of e.
-	 * Returns INIT in case no such event is found */
-	Event getPreviousNonTrivial(const Event e) const;
-
 	/* Returns the first event in the thread tid */
 	Event getFirstThreadEvent(int tid) const { return Event(tid, 0); }
 
@@ -408,25 +404,6 @@ public:
 	 * (If SC is non-null and an SC event is in-between the confirmation,
 	 * SC is set to that event) */
 	Event getMatchingSpeculativeRead(Event conf, Event *sc = nullptr) const;
-
-	/* LAPOR: Returns the last lock that is not matched before "upperLimit".
-	 * If no such event exists, returns INIT */
-	Event getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const;
-
-	/* LAPOR: Returns the unlock that matches "lock". If no such event
-	 * exists, returns INIT */
-	Event getMatchingUnlockLAPOR(const Event lock) const;
-
-	/* LAPOR: Returns the last lock at location "loc" before "upperLimit".
-	 * If no such event exists, returns INIT */
-	Event getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr addr) const;
-
-	/* LAPOR: Returns the last unlock at location "loc" before "upperLimit".
-	 * If no such event exists, returns INIT */
-	Event getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAddr addr) const;
-
-	/* LAPOR: Returns a linear extension of LB */
-	std::vector<Event> getLbOrderingLAPOR() const;
 
 	/* Returns the allocating event for ADDR.
 	 * Assumes that only one such event may exist */
@@ -504,14 +481,6 @@ public:
 	{
 		return containsPos(e) && !llvm::isa<EmptyLabel>(getEventLabel(e));
 	}
-
-	/* Returns true if the event should be taken into account when
-	 * calculating some relation (e.g., hb, ar, etc) */
-	bool isNonTrivial(const Event e) const;
-	bool isNonTrivial(const EventLabel *lab) const;
-
-	/* LAPOR: Returns true if the critical section started by lLab is empty */
-	bool isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const;
 
 	/* Return true if its argument is the load/store part of a successful RMW */
 	bool isRMWLoad(const EventLabel *lab) const;

@@ -55,15 +55,6 @@ const EventLabel *ExecutionGraph::getPreviousNonEmptyLabel(Event e) const
 	return getEventLabel(Event(e.thread, 0));
 }
 
-Event ExecutionGraph::getPreviousNonTrivial(const Event e) const
-{
-	for (auto i = e.index - 1; i >= 0; i--) {
-		if (isNonTrivial(Event(e.thread, i)))
-			return Event(e.thread, i);
-	}
-	return Event::getInit();
-}
-
 Event ExecutionGraph::getLastThreadStoreAtLoc(Event upperLimit, SAddr addr) const
 {
 	for (auto j = upperLimit.index - 1; j > 0; j--) {
@@ -223,79 +214,6 @@ Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = null
 		if (auto *rLab = llvm::dyn_cast<SpeculativeReadLabel>(lab)) {
 			if (rLab->getAddr() == cLab->getAddr())
 				return rLab->getPos();
-		}
-	}
-	return Event::getInit();
-}
-
-Event ExecutionGraph::getLastThreadUnmatchedLockLAPOR(const Event upperLimit) const
-{
-	std::vector<SAddr> unlocks;
-
-	for (auto j = upperLimit.index; j >= 0; j--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-
-		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
-			if (std::find_if(unlocks.rbegin(), unlocks.rend(), [&](SAddr addr) {
-				    return lLab->getLockAddr() == addr;
-			    }) == unlocks.rend())
-				return lLab->getPos();
-		}
-
-		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab))
-			unlocks.push_back(uLab->getLockAddr());
-	}
-	return Event::getInit();
-}
-
-Event ExecutionGraph::getMatchingUnlockLAPOR(const Event lock) const
-{
-	std::vector<Event> locLocks;
-
-	const EventLabel *lockL = getEventLabel(lock);
-	BUG_ON(!llvm::isa<LockLabelLAPOR>(lockL));
-	auto *lLab = static_cast<const LockLabelLAPOR *>(lockL);
-
-	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
-		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
-
-		if (auto *slLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
-			if (slLab->getLockAddr() == lLab->getLockAddr())
-				locLocks.push_back(slLab->getPos());
-		}
-		if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab)) {
-			if (uLab->getLockAddr() == lLab->getLockAddr()) {
-				if (locLocks.empty())
-					return uLab->getPos();
-				else
-					locLocks.pop_back();
-			}
-		}
-	}
-	return Event::getInit();
-}
-
-Event ExecutionGraph::getLastThreadLockAtLocLAPOR(const Event upperLimit, SAddr loc) const
-{
-	for (auto j = upperLimit.index; j >= 0; j--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-
-		if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab)) {
-			if (lLab->getLockAddr() == loc)
-				return lLab->getPos();
-		}
-	}
-	return Event::getInit();
-}
-
-Event ExecutionGraph::getLastThreadUnlockAtLocLAPOR(const Event upperLimit, SAddr loc) const
-{
-	for (auto j = upperLimit.index; j >= 0; j--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, j));
-
-		if (auto *lLab = llvm::dyn_cast<UnlockLabelLAPOR>(lab)) {
-			if (lLab->getLockAddr() == loc)
-				return lLab->getPos();
 		}
 	}
 	return Event::getInit();
@@ -473,26 +391,6 @@ void ExecutionGraph::removeLast(unsigned int thread)
 	}
 	/* Nothing to do for create/join: childId remains the same */
 	resizeThread(lab->getPos());
-}
-
-bool ExecutionGraph::isNonTrivial(const Event e) const { return isNonTrivial(getEventLabel(e)); }
-
-bool ExecutionGraph::isNonTrivial(const EventLabel *lab) const
-{
-	if (auto *lLab = llvm::dyn_cast<LockLabelLAPOR>(lab))
-		return isCSEmptyLAPOR(lLab);
-	return llvm::isa<MemAccessLabel>(lab) || llvm::isa<FenceLabel>(lab);
-}
-
-bool ExecutionGraph::isCSEmptyLAPOR(const LockLabelLAPOR *lLab) const
-{
-	if (lLab->getIndex() == getThreadSize(lLab->getThread()) - 1)
-		return true;
-
-	auto *nLab = getEventLabel(lLab->getPos().next());
-	if (auto *uLab = llvm::dyn_cast<UnlockLabelLAPOR>(nLab))
-		return lLab->getLockAddr() == uLab->getLockAddr();
-	return false;
 }
 
 bool ExecutionGraph::isStoreReadByExclusiveRead(Event store, SAddr ptr) const
