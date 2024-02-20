@@ -87,40 +87,6 @@ Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) co
 	return Event(upperLimit.thread, 0);
 }
 
-Event ExecutionGraph::getLastThreadRelease(Event upperLimit) const
-{
-	for (int i = upperLimit.index - 1; i > 0; i--) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
-		if (llvm::isa<ThreadCreateLabel>(lab) || llvm::isa<ThreadFinishLabel>(lab) ||
-		    llvm::isa<UnlockLabelLAPOR>(lab)) {
-			return Event(upperLimit.thread, i);
-		}
-		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {
-			if (fLab->isAtLeastRelease())
-				return Event(upperLimit.thread, i);
-		}
-		if (auto *wLab = llvm::dyn_cast<WriteLabel>(lab)) {
-			if (wLab->isAtLeastRelease())
-				return Event(upperLimit.thread, i);
-		}
-	}
-	return Event(upperLimit.thread, 0);
-}
-
-/* Assumes that all events prior to upperLimit have already been added */
-std::vector<Event> ExecutionGraph::getThreadAcquiresAndFences(Event upperLimit) const
-{
-	std::vector<Event> result;
-
-	result.push_back(Event(upperLimit.thread, 0));
-	for (int i = 1u; i < upperLimit.index; i++) {
-		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
-		if (llvm::isa<FenceLabel>(lab) || lab->isAtLeastAcquire())
-			result.push_back(lab->getPos());
-	}
-	return result;
-}
-
 Event ExecutionGraph::getMatchingLock(const Event unlock) const
 {
 	std::vector<Event> locUnlocks;
@@ -176,26 +142,6 @@ Event ExecutionGraph::getMatchingUnlock(const Event lock) const
 		}
 	}
 	return Event::getInit();
-}
-
-Event ExecutionGraph::getMatchingRCUUnlockLKMM(Event lock) const
-{
-	std::vector<Event> locks;
-
-	BUG_ON(!llvm::isa<RCULockLabelLKMM>(getEventLabel(lock)));
-	for (auto j = lock.index + 1; j < getThreadSize(lock.thread); j++) {
-		const EventLabel *lab = getEventLabel(Event(lock.thread, j));
-
-		if (auto *lLab = llvm::dyn_cast<RCULockLabelLKMM>(lab))
-			locks.push_back(lLab->getPos());
-
-		if (auto *uLab = llvm::dyn_cast<RCUUnlockLabelLKMM>(lab)) {
-			if (locks.empty())
-				return uLab->getPos();
-			locks.pop_back();
-		}
-	}
-	return getLastThreadEvent(lock.thread).next();
 }
 
 Event ExecutionGraph::getMatchingSpeculativeRead(Event conf, Event *sc /* = nullptr */) const

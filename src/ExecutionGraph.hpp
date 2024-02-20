@@ -380,12 +380,6 @@ public:
 	 * If it's not a fence, then it has to be at location addr */
 	Event getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) const;
 
-	/* Returns the last release before upperLimit in the latter's thread */
-	Event getLastThreadRelease(Event upperLimit) const;
-
-	/* Returns a list of acquire (R or F) in upperLimit's thread (before it) */
-	std::vector<Event> getThreadAcquiresAndFences(const Event upperLimit) const;
-
 	/* Returns the lock that matches UNLOCK.
 	 * If no such event exists, returns INIT */
 	Event getMatchingLock(const Event unlock) const;
@@ -394,10 +388,6 @@ public:
 	 * read part of a lock operation. If no such event exists,
 	 * returns INIT */
 	Event getMatchingUnlock(const Event lock) const;
-
-	/* Returns the RCU unlock that matches LOCK. If such an event does not exist,
-	 * it returns the (non-existing event) at thread size */
-	Event getMatchingRCUUnlockLKMM(Event lock) const;
 
 	/* Helper: Returns the last speculative read in CONF's location that
 	 * is not matched. If no such event exists, returns INIT.
