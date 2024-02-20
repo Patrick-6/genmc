@@ -56,8 +56,14 @@ public:
 	using StoreList = llvm::simple_ilist<WriteLabel>;
 	using LocMap = std::unordered_map<SAddr, StoreList>;
 
-public:
 	ExecutionGraph();
+
+	ExecutionGraph(const ExecutionGraph &) = delete;
+	ExecutionGraph(ExecutionGraph &&) = default;
+
+	auto operator=(const ExecutionGraph &) -> ExecutionGraph & = delete;
+	auto operator=(ExecutionGraph &&) -> ExecutionGraph & = default;
+
 	virtual ~ExecutionGraph();
 
 	/* Iterators */
