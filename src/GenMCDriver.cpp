@@ -937,9 +937,14 @@ void GenMCDriver::explore()
 	}
 }
 
+bool isUninitializedAccess(const SAddr &addr, const Event &pos)
+{
+	return addr.isDynamic() && pos.isInitializer();
+}
+
 bool readsUninitializedMem(const ReadLabel *lab)
 {
-	return lab->getAddr().isDynamic() && lab->getRf()->getPos().isInitializer();
+	return isUninitializedAccess(lab->getAddr(), lab->getRf()->getPos());
 }
 
 bool GenMCDriver::isRevisitValid(const Revisit &revisit)
@@ -2020,12 +2025,11 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 	if (!getConf()->disableBAM)
 		filterConflictingBarriers(lab, stores);
 
-	/* If this load is annotatable, keep values that will not leed to blocking */
+	/* Keep values that do not lead to blocking */
 	filterValuesFromAnnotSAVER(lab, stores);
 
-	if (!inEstimationMode() && !isRescheduledRead(lab->getPos())) {
-		auto val = getWriteValue(getGraph().getWriteLabel(stores.back()));
-		if (removeCASReadIfBlocks(lab, val))
+	if (!isRescheduledRead(lab->getPos())) {
+		if (removeCASReadIfBlocks(lab, getGraph().getEventLabel(stores.back())))
 			return false;
 	}
 	return true;
@@ -2667,10 +2671,14 @@ void GenMCDriver::tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &lo
 	return;
 }
 
-bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, SVal val)
+bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab)
 {
-	if (getConf()->bound.has_value() || !llvm::isa<CasReadLabel>(rLab) ||
-	    !willBeAssumeBlocked(rLab, val))
+	if (isUninitializedAccess(rLab->getAddr(), sLab->getPos()) ||
+	    getConf()->bound.has_value() || !llvm::isa<CasReadLabel>(rLab))
+		return false;
+
+	auto val = getWriteValue(sLab, rLab->getAccess());
+	if (!willBeAssumeBlocked(rLab, val))
 		return false;
 
 	auto &g = getGraph();
@@ -3274,7 +3282,7 @@ bool GenMCDriver::revisitRead(const Revisit &ri)
 			    << getGraph(););
 
 	/*  Try to remove the read from the execution */
-	if (removeCASReadIfBlocks(rLab, getWriteValue(g.getWriteLabel(rev))))
+	if (removeCASReadIfBlocks(rLab, g.getEventLabel(rev)))
 		return true;
 
 	/* If the revisited label became an RMW, add the store part and revisit */

@@ -598,9 +598,10 @@ private:
 	/* IPR: Tries to revisit blocked reads in-place */
 	void tryOptimizeIPRs(const WriteLabel *sLab, std::vector<Event> &loads);
 
-	/* IPR: Removes a CAS that blocks when reading val.
-	 * Returns whether if the label was removed */
-	bool removeCASReadIfBlocks(const ReadLabel *rLab, SVal val);
+	/* IPR: Removes a CAS that blocks when reading from SLAB.
+	 * Returns whether if the label was removed
+	 * (Returns false if RLAB reads from unallocated memory.) */
+	bool removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel *sLab);
 
 	/* Helper: Optimizes revisits of reads that will lead to a failed speculation */
 	void optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vector<Event> &loads);
