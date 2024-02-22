@@ -2978,7 +2978,7 @@ void Interpreter::handleSystemError(SystemError code, const std::string &msg)
 {
 	if (stopOnSystemErrors) {
 		systemErrorNumber = code;
-		driver->reportError(currPos(), VerificationError::VE_SystemError, msg);
+		driver->reportError({currPos(), VerificationError::VE_SystemError, msg});
 	} else {
 		WARN_ONCE(errorList.at(code), msg + "\n");
 		CALL_DRIVER(handleStore, WriteLabel::create(currPos(), AtomicOrdering::Monotonic,
@@ -3046,7 +3046,7 @@ void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &A
 					    std::string((char *)getStaticAddr(GVTOP(ArgVals[0])))
 				  : "Unknown";
 
-	driver->reportError(currPos(), errT, err);
+	driver->reportError({currPos(), errT, err});
 }
 
 void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3122,8 +3122,8 @@ void Interpreter::callMalloc(Function *F, const std::vector<GenericValue> &ArgVa
 			     const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
-		driver->reportError(currPos(), VerificationError::VE_Allocation,
-				    "Invalid size in malloc()");
+		driver->reportError(
+			{currPos(), VerificationError::VE_Allocation, "Invalid size in malloc()"});
 		return;
 	}
 
@@ -3147,13 +3147,13 @@ void Interpreter::callMallocAligned(Function *F, const std::vector<GenericValue>
 	auto size = ArgVals[1].IntVal.getLimitedValue();
 
 	if (!ArgVals[0].IntVal.isStrictlyPositive() || (align & (align - 1))) {
-		driver->reportError(currPos(), VerificationError::VE_Allocation,
-				    "Invalid alignment in aligned_alloc()");
+		driver->reportError({currPos(), VerificationError::VE_Allocation,
+				     "Invalid alignment in aligned_alloc()"});
 		return;
 	}
 	if (!ArgVals[1].IntVal.isStrictlyPositive() || (size % align)) {
-		driver->reportError(currPos(), VerificationError::VE_Allocation,
-				    "Invalid size in aligned_alloc()");
+		driver->reportError({currPos(), VerificationError::VE_Allocation,
+				     "Invalid size in aligned_alloc()"});
 		return;
 	}
 
@@ -3171,8 +3171,8 @@ void Interpreter::callPMalloc(Function *F, const std::vector<GenericValue> &ArgV
 			      const std::unique_ptr<EventDeps> &specialDeps)
 {
 	if (!ArgVals[0].IntVal.isStrictlyPositive()) {
-		driver->reportError(currPos(), VerificationError::VE_Allocation,
-				    "Invalid size in malloc()");
+		driver->reportError(
+			{currPos(), VerificationError::VE_Allocation, "Invalid size in malloc()"});
 		return;
 	}
 
@@ -3221,8 +3221,8 @@ void Interpreter::callThreadCreate(Function *F, const std::vector<GenericValue> 
 	GenericValue val, result;
 
 	if (!calledFun) {
-		driver->reportError(currPos(), VerificationError::VE_InvalidCreate,
-				    "Invalid argument in pthread_create(): NULL pointer");
+		driver->reportError({currPos(), VerificationError::VE_InvalidCreate,
+				     "Invalid argument in pthread_create(): NULL pointer"});
 		return;
 	}
 
@@ -3936,8 +3936,8 @@ void Interpreter::callOpenFS(Function *F, const std::vector<GenericValue> &ArgVa
 	/* ... and truncate if necessary */
 	if (flags.get() & GENMC_O_TRUNC) {
 		if (!(GENMC_OPEN_FMODE(flags.get()) & GENMC_FMODE_WRITE)) {
-			driver->reportError(currPos(), VerificationError::VE_InvalidTruncate,
-					    "File is not open for writing");
+			driver->reportError({currPos(), VerificationError::VE_InvalidTruncate,
+					     "File is not open for writing"});
 			returnValueToCaller(F->getReturnType(), INT_TO_GV(F->getReturnType(), -1));
 			return;
 		}
@@ -4852,8 +4852,8 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 
 	/* Make sure we are not trying to make an invalid call during recovery */
 	if (getProgramState() == ProgramState::Recovery && isInvalidRecCall(fCode, ArgVals)) {
-		driver->reportError(currPos(), VerificationError::VE_InvalidRecoveryCall,
-				    F->getName().str() + "() cannot be called during recovery");
+		driver->reportError({currPos(), VerificationError::VE_InvalidRecoveryCall,
+				     F->getName().str() + "() cannot be called during recovery"});
 		return;
 	}
 

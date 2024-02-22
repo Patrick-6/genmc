@@ -39,6 +39,7 @@
 #include <numeric>
 #include <random>
 #include <unordered_set>
+#include <utility>
 #include <variant>
 
 namespace llvm {
@@ -129,6 +130,22 @@ public:
 		auto operator=(State &&) -> State & = default;
 
 		~State();
+	};
+
+	/** Details for an error to be reported */
+	struct ErrorDetails {
+		ErrorDetails() = default;
+		ErrorDetails(Event pos, VerificationError r, std::string err = std::string(),
+			     const EventLabel *racyLab = nullptr, bool shouldHalt = true)
+			: pos(pos), type(r), msg(std::move(err)), racyLab(racyLab),
+			  shouldHalt(shouldHalt)
+		{}
+
+		Event pos{};
+		VerificationError type{};
+		std::string msg{};
+		const EventLabel *racyLab{};
+		bool shouldHalt = true;
 	};
 
 private:
@@ -272,8 +289,7 @@ public:
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
-	void reportError(Event pos, VerificationError r, const std::string &err = std::string(),
-			 const EventLabel *racyLab = nullptr, bool shouldHalt = true);
+	void reportError(const ErrorDetails &details);
 
 	/* Helper that reports an unreported warning only if it hasn't reported before.
 	 * Returns true if the warning should be treated as an error according to the config. */
@@ -535,26 +551,14 @@ private:
 	/* Resets the prioritization scheme */
 	void resetThreadPrioritization();
 
-	/* Returns whether LAB accesses a valid location.  */
-	bool isAccessValid(const MemAccessLabel *lab) const;
+	/* If LAB accesses a valid location, reports an error  */
+	VerificationError checkAccessValidity(const MemAccessLabel *lab);
 
-	/* Performs POSIX checks whenever a lock event is added.
-	 * Given its list of possible rfs, makes sure it cannot read
-	 * from a destroyed lock.
-	 * Appropriately calls visitErro() and terminates */
-	void checkLockValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
+	/* If LAB accesses an uninitialized location, erports an error */
+	VerificationError checkInitializedMem(const ReadLabel *lab);
 
-	/* Performs POSIX checks whenever an unlock event is added.
-	 * Appropriately calls visitError() and terminates */
-	void checkUnlockValidity(const WriteLabel *wLab);
-
-	/* Perfoms POSIX checks whenever a barrier_init event is added.
-	 Appropriately calls visitError() and terminates */
-	void checkBInitValidity(const WriteLabel *wLab);
-
-	/* Perfoms POSIX checks whenever a barrier_wait event is added.
-	 Appropriately calls visitError() and terminates */
-	void checkBIncValidity(const ReadLabel *rLab, const std::vector<Event> &rfs);
+	/* If LAB accesses improperly initialized memory, erports an error */
+	VerificationError checkInitializedMem(const WriteLabel *lab);
 
 	/* Checks whether final annotations are used properly in a program:
 	 * if there are more than one stores annotated as final at the time WLAB
