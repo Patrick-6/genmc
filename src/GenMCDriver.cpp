@@ -2026,10 +2026,9 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 	/* Keep values that do not lead to blocking */
 	filterValuesFromAnnotSAVER(lab, stores);
 
-	if (!isRescheduledRead(lab->getPos())) {
-		if (removeCASReadIfBlocks(lab, getGraph().getEventLabel(stores.back())))
-			return false;
-	}
+	if (!isRescheduledRead(lab->getPos()) &&
+	    removeCASReadIfBlocks(lab, getGraph().getEventLabel(stores.back())))
+		return false;
 	return true;
 }
 
