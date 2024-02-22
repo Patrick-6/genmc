@@ -1014,6 +1014,9 @@ bool GenMCDriver::inReplay() const
 EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto &g = getGraph();
+
+	if (lab->getIndex() > 0)
+		cacheEventLabel(&*lab);
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
 	updateLabelViews(addedLab);
 	lastAdded = addedLab->getPos();
@@ -2111,7 +2114,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	if (!rLab->getAnnot())
 		rLab->setAnnot(EE->getCurrentAnnotConcretized());
-	cacheEventLabel(&*rLab);
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
 	if (!isAccessValid(lab)) {
@@ -2346,7 +2348,6 @@ SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 	/* Fix and add label to the graph; return the new address */
 	if (aLab->getAllocAddr() == SAddr())
 		aLab->setAllocAddr(getFreshAddr(&*aLab));
-	cacheEventLabel(&*aLab);
 	auto *lab = llvm::dyn_cast<MallocLabel>(addLabelToGraph(std::move(aLab)));
 	return SVal(lab->getAllocAddr().get());
 }
@@ -2451,7 +2452,8 @@ void GenMCDriver::handleBlock(std::unique_ptr<BlockLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return;
 
-	auto &g = getGraph();
+	/* Call addLabelToGraph first to cache the label */
+	addLabelToGraph(lab->clone());
 	blockThreadTryMoot(std::move(lab));
 }
 
@@ -3215,7 +3217,6 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 		BUG();
 	}
 	BUG_ON(!wLab);
-	cacheEventLabel(&*wLab);
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	BUG_ON(!rLab->getRf());
 	if (auto *rfLab = llvm::dyn_cast<WriteLabel>(rLab->getRf())) {
@@ -3466,12 +3467,12 @@ bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 	if (isExecutionDrivenByGraph(&*hLab))
 		return true;
 
-	/* Before adding it to the graph, ensure that the helped CAS exists */
-	if (!checkHelpingCasCondition(&*hLab)) {
-		blockThread(HelpedCASBlockLabel::create(hLab->getPos()));
+	/* Ensure that the helped CAS exists */
+	auto *lab = llvm::dyn_cast<HelpingCasLabel>(addLabelToGraph(std::move(hLab)));
+	if (!checkHelpingCasCondition(lab)) {
+		blockThread(HelpedCASBlockLabel::create(lab->getPos()));
 		return false;
 	}
-	addLabelToGraph(std::move(hLab));
 	return true;
 }
 
@@ -3627,7 +3628,8 @@ void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
 	if (isExecutionDrivenByGraph(&*lab))
 		return;
 
-	blockThreadTryMoot(LockZNEBlockLabel::create(lab->getPos()));
+	auto *zLab = addLabelToGraph(std::move(lab));
+	blockThreadTryMoot(LockZNEBlockLabel::create(zLab->getPos()));
 }
 
 /************************************************************
