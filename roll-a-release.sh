@@ -27,6 +27,13 @@ set -e
 
 [ $# -gt 0 ] && COMMIT=$1 && shift
 
+# cannot run this on a dumb terminal (TERM = dumb)
+if [[ $TERM == "dumb" ]]
+then
+    echo "Do not release from a dumb terminal. Merging might be required."
+    exit 1
+fi
+
 # update local github mirror
 cd "${INTERNAL_PATH}"
 git diff "${COMMIT}"..dev --binary -- . ':!./.gitmodules' ':!./.gitlab-ci.yml' ':!./gitlab-ci' ':!./scripts/check-regression.sh' ':!./scripts/run-parallel.sh' ':!./clean-artifacts.sh' ':!./export-github-patch.sh' ':!./Dockerfile' ':!./.dockerignore' ':!./roll-a-release.sh' ':!./doc/manual.org' > "${PATCH_PATH}"
@@ -35,8 +42,8 @@ git push origin master && git push origin "v${VERSION}"
 
 # update github
 cd "${EXTERNAL_PATH}"
-git checkout master && git apply "${PATCH_PATH}"
-autoreconf --install && ./configure && ./scripts/fast-driver.sh
+git checkout master && git apply --whitespace=fix "${PATCH_PATH}"
+autoreconf --install && ./configure && make -j8 && ./scripts/fast-driver.sh
 git add -A && git commit -s -m "Release GenMC v${VERSION}" && git tag "v${VERSION}"
 git push origin master && git push origin "v${VERSION}"
 git clean -dfX
