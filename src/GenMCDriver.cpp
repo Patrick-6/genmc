@@ -1004,14 +1004,31 @@ bool GenMCDriver::inReplay() const
 	return getEE()->getExecState() == llvm::ExecutionState::Replay;
 }
 
+MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
+{
+	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab) {
+		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
+		return mLab && mLab->contains(addr);
+	});
+	if (labIt != label_end(g))
+		return llvm::dyn_cast<MallocLabel>(&*labIt);
+	return nullptr;
+}
+
 EventLabel *GenMCDriver::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 {
 	auto &g = getGraph();
 
+	/* Cache the event before updating views (inits are added w/ tcreate) */
 	if (lab->getIndex() > 0)
 		cacheEventLabel(&*lab);
+
+	/* Add and update views */
 	auto *addedLab = g.addLabelToGraph(std::move(lab));
 	updateLabelViews(addedLab);
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(addedLab))
+		g.addAlloc(findAllocatingLabel(g, mLab->getAddr()), mLab);
+
 	lastAdded = addedLab->getPos();
 	if (addedLab->getIndex() >= getConf()->warnOnGraphSize) {
 		LOG_ONCE("large-graph", VerbosityLevel::Tip)
@@ -1229,23 +1246,12 @@ bool GenMCDriver::isHazptrProtected(const MemAccessLabel *mLab) const
 	return true;
 }
 
-MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
-{
-	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab) {
-		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
-		return mLab && mLab->contains(addr);
-	});
-	if (labIt != label_end(g))
-		return llvm::dyn_cast<MallocLabel>(&*labIt);
-	return nullptr;
-}
-
 VerificationError GenMCDriver::checkAccessValidity(const MemAccessLabel *lab)
 {
 	/* Static variable validity is handled by the interpreter. *
 	 * Dynamic accesses are valid if they access allocated memory */
 	if ((!lab->getAddr().isDynamic() && !getEE()->isStaticallyAllocated(lab->getAddr())) ||
-	    (lab->getAddr().isDynamic() && !findAllocatingLabel(getGraph(), lab->getAddr()))) {
+	    (lab->getAddr().isDynamic() && !lab->getAlloc())) {
 		reportError({lab->getPos(), VerificationError::VE_AccessNonMalloc});
 		return VerificationError::VE_AccessNonMalloc;
 	}
@@ -2100,13 +2106,9 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		rLab->setAnnot(EE->getCurrentAnnotConcretized());
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
-	if (checkAccessValidity(lab) != VerificationError::VE_OK)
+	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
+	    checkForRaces(lab) != VerificationError::VE_OK)
 		return std::nullopt; /* This execution will be blocked */
-
-	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
-
-	if (checkForRaces(lab) != VerificationError::VE_OK)
-		return std::nullopt;
 
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
@@ -2261,17 +2263,14 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 
 	if (getConf()->helper && g.isRMWStore(&*wLab))
 		annotateStoreHELPER(&*wLab);
+	if (llvm::isa<BIncFaiWriteLabel>(&*wLab) && wLab->getVal() == SVal(0))
+		wLab->setVal(getBarrierInitValue(wLab->getAccess()));
 
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
-	if (checkAccessValidity(lab) != VerificationError::VE_OK)
+	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
+	    checkInitializedMem(lab) != VerificationError::VE_OK)
 		return;
-
-	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
-
-	/* It is always consistent to add the store at the end of MO */
-	if (llvm::isa<BIncFaiWriteLabel>(lab) && lab->getVal() == SVal(0))
-		lab->setVal(getBarrierInitValue(lab->getAccess()));
 
 	calcCoOrderings(lab);
 
@@ -2294,9 +2293,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	if (llvm::isa<HelpedCasWriteLabel>(lab))
 		unblockWaitingHelping();
 	checkReconsiderReadOpts(lab);
-
-	if (checkInitializedMem(lab) != VerificationError::VE_OK)
-		return;
 	checkFinalAnnotations(lab);
 }
 
@@ -3196,7 +3192,6 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	} else {
 		g.addStoreToCO(lab, g.co_begin(lab->getAddr()));
 	}
-	g.addAlloc(findAllocatingLabel(g, lab->getAddr()), lab);
 	return lab;
 }
 
