@@ -516,7 +516,8 @@ private:
 	 * chosen policy */
 	bool scheduleNormal();
 
-	/* Blocks thread with BLAB (needs to be maximal) */
+	/* Blocks thread with BLAB. BLAB needs to either replace
+	 * the last label or be maximal */
 	void blockThread(std::unique_ptr<BlockLabel> bLab);
 
 	/* Blocks thread at POS with type T. Tries to moot afterward */

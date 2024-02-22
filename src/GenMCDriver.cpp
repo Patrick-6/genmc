@@ -792,7 +792,10 @@ void GenMCDriver::blockThread(std::unique_ptr<BlockLabel> bLab)
 	 *   2) If addLabelToGraph() does extra stuff (e.g., event caching) we absolutely
 	 *      don't want to do that here. blockThread() should be safe to call from
 	 *      anywhere in the code, with no unexpected side-effects */
-	getGraph().addLabelToGraph(std::move(bLab));
+	auto &g = getGraph();
+	if (bLab->getPos() == g.getLastThreadEvent(bLab->getThread()))
+		g.removeLast(bLab->getThread());
+	g.addLabelToGraph(std::move(bLab));
 }
 
 void GenMCDriver::blockThreadTryMoot(std::unique_ptr<BlockLabel> bLab)
@@ -976,11 +979,8 @@ bool GenMCDriver::isExecutionDrivenByGraph(const EventLabel *lab)
 {
 	const auto &g = getGraph();
 	auto curr = lab->getPos();
-	auto replay = (curr.index < g.getThreadSize(curr.thread)) &&
-		      !llvm::isa<EmptyLabel>(g.getEventLabel(curr));
-	if (!replay && !llvm::isa<MallocLabel>(lab) && !llvm::isa<ReadLabel>(lab))
-		cacheEventLabel(lab);
-	return replay;
+	return (curr.index < g.getThreadSize(curr.thread)) &&
+	       !llvm::isa<EmptyLabel>(g.getEventLabel(curr));
 }
 
 bool GenMCDriver::executionExceedsBound(BoundCalculationStrategy strategy) const
@@ -1944,7 +1944,6 @@ void GenMCDriver::handleFence(std::unique_ptr<FenceLabel> fLab)
 		return;
 
 	addLabelToGraph(std::move(fLab));
-	return;
 }
 
 void GenMCDriver::handleCLFlush(std::unique_ptr<CLFlushLabel> fLab)
@@ -1953,7 +1952,6 @@ void GenMCDriver::handleCLFlush(std::unique_ptr<CLFlushLabel> fLab)
 		return;
 
 	addLabelToGraph(std::move(fLab));
-	return;
 }
 
 void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
@@ -1962,8 +1960,6 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 	auto *EE = getEE();
 
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
-		auto &thr = EE->getThrById(i);
-
 		/* Is there any thread blocked on a potential spinloop? */
 		auto *eLab = llvm::dyn_cast<FaiZNEBlockLabel>(g.getLastThreadLabel(i));
 		if (!eLab)
@@ -1985,7 +1981,6 @@ void GenMCDriver::checkReconsiderFaiSpinloop(const MemAccessLabel *lab)
 			addLabelToGraph(FaiZNESpinEndLabel::create(pos));
 		}
 	}
-	return;
 }
 
 std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
@@ -2681,11 +2676,7 @@ bool GenMCDriver::removeCASReadIfBlocks(const ReadLabel *rLab, const EventLabel 
 	if (!willBeAssumeBlocked(rLab, val))
 		return false;
 
-	auto &g = getGraph();
-	auto pos = rLab->getPos();
-	auto addr = rLab->getAddr();
-	g.removeLast(pos.thread);
-	blockThread(ReadOptBlockLabel::create(pos, addr));
+	blockThread(ReadOptBlockLabel::create(rLab->getPos(), rLab->getAddr()));
 	return true;
 }
 
@@ -3582,9 +3573,7 @@ void GenMCDriver::handleSpinStart(std::unique_ptr<SpinStartLabel> lab)
 			return; /* found event w/ side-effects */
 	}
 	/* Spinloop detected */
-	auto stPos = stLab->getPos();
-	g.removeLast(stPos.thread);
-	blockThreadTryMoot(SpinloopBlockLabel::create(stPos));
+	blockThreadTryMoot(SpinloopBlockLabel::create(stLab->getPos()));
 }
 
 bool GenMCDriver::areFaiZNEConstraintsSat(const FaiZNESpinEndLabel *lab)
@@ -3629,12 +3618,8 @@ void GenMCDriver::handleFaiZNESpinEnd(std::unique_ptr<FaiZNESpinEndLabel> lab)
 		return;
 
 	auto *zLab = llvm::dyn_cast<FaiZNESpinEndLabel>(addLabelToGraph(std::move(lab)));
-	if (areFaiZNEConstraintsSat(&*zLab)) {
-		auto pos = zLab->getPos();
-		g.removeLast(pos.thread);
-		blockThreadTryMoot(FaiZNEBlockLabel::create(pos));
-	}
-	return;
+	if (areFaiZNEConstraintsSat(zLab))
+		blockThreadTryMoot(FaiZNEBlockLabel::create(zLab->getPos()));
 }
 
 void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
