@@ -53,8 +53,8 @@ struct Event {
 	/** Returns the po-successor. No bounds checking is performed  */
 	[[nodiscard]] auto next() const -> Event { return {thread, index + 1}; };
 
-	inline auto operator==(const Event &) const -> bool = default;
-	inline auto operator<=>(const Event &other) const -> std::partial_ordering
+	[[nodiscard]] inline auto operator==(const Event &) const -> bool = default;
+	[[nodiscard]] inline auto operator<=>(const Event &other) const -> std::partial_ordering
 	{
 		return this->thread == other.thread ? this->index <=> other.index
 						    : std::partial_ordering::unordered;
@@ -83,7 +83,7 @@ struct Event {
 		return tmp;
 	}
 
-	friend auto hash_value(const Event &e) -> llvm::hash_code
+	static auto hash_value(const Event &e) -> llvm::hash_code
 	{
 		return llvm::hash_combine(e.thread, e.index);
 	};
