@@ -25,13 +25,13 @@
 #ifndef __TSO_DRIVER_HPP__
 #define __TSO_DRIVER_HPP__
 
+#include "config.h"
 #include "ExecutionGraph.hpp"
 #include "GenMCDriver.hpp"
 #include "GraphIterators.hpp"
 #include "MaximalIterator.hpp"
-#include "VSet.hpp"
 #include "VerificationError.hpp"
-#include "config.h"
+#include "VSet.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -49,25 +49,20 @@ private:
 
 public:
 	TSODriver(std::shared_ptr<const Config> conf, std::unique_ptr<llvm::Module> mod,
-		  std::unique_ptr<ModuleInfo> MI,
-		  GenMCDriver::Mode mode = GenMCDriver::VerificationMode{});
+		std::unique_ptr<ModuleInfo> MI, GenMCDriver::Mode mode = GenMCDriver::VerificationMode{});
 
 	std::vector<VSet<Event>> calculateSaved(const EventLabel *lab);
 	std::vector<View> calculateViews(const EventLabel *lab);
 	void updateMMViews(EventLabel *lab) override;
 	bool isDepTracking() const override;
 	bool isConsistent(const EventLabel *lab) const override;
-	VerificationError checkErrors(const EventLabel *lab,
-				      const EventLabel *&race) const override;
-	std::vector<VerificationError>
-	checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings,
-		      std::vector<const EventLabel *> &racyLabs) const;
+	VerificationError checkErrors(const EventLabel *lab, const EventLabel *&race) const override;
+	std::vector<VerificationError> checkWarnings(const EventLabel *lab, const VSet<VerificationError> &seenWarnings, std::vector<const EventLabel *> &racyLabs) const;
 	bool isRecoveryValid(const EventLabel *lab) const override;
 	std::unique_ptr<VectorClock> calculatePrefixView(const EventLabel *lab) const override;
 	const View &getHbView(const EventLabel *lab) const override;
 	std::vector<Event> getCoherentStores(SAddr addr, Event read) override;
-	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab,
-					       const VectorClock &pporf) override;
+	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab, const VectorClock &pporf) override;
 	llvm::iterator_range<ExecutionGraph::co_iterator>
 	getCoherentPlacings(SAddr addr, Event store, bool isRMW) override;
 
@@ -86,6 +81,7 @@ private:
 	void visitCalc0_2(const EventLabel *lab, View &calcRes);
 
 	View calculate0(const EventLabel *lab);
+	const View &getHbStableView(const EventLabel *lab) const { return lab->view(0); }
 
 	mutable std::vector<NodeStatus> visitedCalc0_0;
 	mutable std::vector<NodeStatus> visitedCalc0_1;
@@ -96,130 +92,136 @@ private:
 	void visitCalc1_2(const EventLabel *lab, View &calcRes);
 
 	View calculate1(const EventLabel *lab);
+	const View &getPorfStableView(const EventLabel *lab) const { return lab->view(1); }
 
 	mutable std::vector<NodeStatus> visitedCalc1_0;
 	mutable std::vector<NodeStatus> visitedCalc1_1;
 	mutable std::vector<NodeStatus> visitedCalc1_2;
 
-	bool visitInclusionLHS0_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS0_1(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS0_0(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS0_1(const EventLabel *lab, const View &v) const;
 
-	bool checkInclusion0(const EventLabel *lab) const;
+	bool checkRace0(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS0_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS0_1;
-	mutable std::vector<NodeStatus> visitedInclusionRHS0_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS0_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS0_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS0_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS0_0;
+	mutable std::vector<NodeStatus> visitedRaceRHS0_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS0_2;
 
-	mutable std::vector<bool> lhsAccept0;
-	mutable std::vector<bool> rhsAccept0;
+	mutable std::vector<bool> lhsAcceptRace0;
+	mutable std::vector<bool> rhsAcceptRace0;
 
 	mutable const EventLabel *racyLab0 = nullptr;
 
-	void visitInclusionLHS1_0(const EventLabel *lab) const;
-	void visitInclusionLHS1_1(const EventLabel *lab) const;
+	void visitRaceLHS1_0(const EventLabel *lab) const;
+	void visitRaceLHS1_1(const EventLabel *lab) const;
 
-	bool checkInclusion1(const EventLabel *lab) const;
+	bool checkRace1(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS1_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS1_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS1_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS1_1;
 
-	mutable std::vector<bool> lhsAccept1;
-	mutable std::vector<bool> rhsAccept1;
+	mutable std::vector<bool> lhsAcceptRace1;
+	mutable std::vector<bool> rhsAcceptRace1;
 
 	mutable const EventLabel *racyLab1 = nullptr;
 
-	bool visitInclusionLHS2_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS2_1(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS2_2(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS2_0(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS2_1(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS2_2(const EventLabel *lab, const View &v) const;
 
-	bool checkInclusion2(const EventLabel *lab) const;
+	bool checkRace2(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS2_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS2_1;
-	mutable std::vector<NodeStatus> visitedInclusionLHS2_2;
-	mutable std::vector<NodeStatus> visitedInclusionRHS2_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS2_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS2_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS2_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS2_2;
+	mutable std::vector<NodeStatus> visitedRaceRHS2_0;
+	mutable std::vector<NodeStatus> visitedRaceRHS2_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS2_2;
 
-	mutable std::vector<bool> lhsAccept2;
-	mutable std::vector<bool> rhsAccept2;
+	mutable std::vector<bool> lhsAcceptRace2;
+	mutable std::vector<bool> rhsAcceptRace2;
 
 	mutable const EventLabel *racyLab2 = nullptr;
 
-	void visitInclusionLHS3_0(const EventLabel *lab) const;
-	void visitInclusionLHS3_1(const EventLabel *lab) const;
-	void visitInclusionLHS3_2(const EventLabel *lab) const;
+	void visitRaceLHS3_0(const EventLabel *lab) const;
+	void visitRaceLHS3_1(const EventLabel *lab) const;
+	void visitRaceLHS3_2(const EventLabel *lab) const;
 
-	bool checkInclusion3(const EventLabel *lab) const;
+	bool checkRace3(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS3_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS3_1;
-	mutable std::vector<NodeStatus> visitedInclusionLHS3_2;
+	mutable std::vector<NodeStatus> visitedRaceLHS3_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS3_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS3_2;
 
-	mutable std::vector<bool> lhsAccept3;
-	mutable std::vector<bool> rhsAccept3;
+	mutable std::vector<bool> lhsAcceptRace3;
+	mutable std::vector<bool> rhsAcceptRace3;
 
 	mutable const EventLabel *racyLab3 = nullptr;
 
-	bool visitInclusionLHS4_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS4_1(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS4_2(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS4_0(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS4_1(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS4_2(const EventLabel *lab, const View &v) const;
 
-	bool checkInclusion4(const EventLabel *lab) const;
+	bool checkRace4(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS4_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS4_1;
-	mutable std::vector<NodeStatus> visitedInclusionLHS4_2;
-	mutable std::vector<NodeStatus> visitedInclusionRHS4_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS4_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS4_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS4_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS4_2;
+	mutable std::vector<NodeStatus> visitedRaceRHS4_0;
+	mutable std::vector<NodeStatus> visitedRaceRHS4_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS4_2;
 
-	mutable std::vector<bool> lhsAccept4;
-	mutable std::vector<bool> rhsAccept4;
+	mutable std::vector<bool> lhsAcceptRace4;
+	mutable std::vector<bool> rhsAcceptRace4;
 
 	mutable const EventLabel *racyLab4 = nullptr;
 
-	void visitInclusionLHS5_0(const EventLabel *lab) const;
-	void visitInclusionLHS5_1(const EventLabel *lab) const;
-	void visitInclusionLHS5_2(const EventLabel *lab) const;
+	void visitRaceLHS5_0(const EventLabel *lab) const;
+	void visitRaceLHS5_1(const EventLabel *lab) const;
+	void visitRaceLHS5_2(const EventLabel *lab) const;
 
-	bool checkInclusion5(const EventLabel *lab) const;
+	bool checkRace5(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS5_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS5_1;
-	mutable std::vector<NodeStatus> visitedInclusionLHS5_2;
+	mutable std::vector<NodeStatus> visitedRaceLHS5_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS5_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS5_2;
 
-	mutable std::vector<bool> lhsAccept5;
-	mutable std::vector<bool> rhsAccept5;
+	mutable std::vector<bool> lhsAcceptRace5;
+	mutable std::vector<bool> rhsAcceptRace5;
 
 	mutable const EventLabel *racyLab5 = nullptr;
 
-	bool visitInclusionLHS6_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS6_1(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS6_0(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS6_1(const EventLabel *lab, const View &v) const;
 
-	bool checkInclusion6(const EventLabel *lab) const;
+	bool checkRace6(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS6_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS6_1;
-	mutable std::vector<NodeStatus> visitedInclusionRHS6_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS6_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS6_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS6_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS6_0;
+	mutable std::vector<NodeStatus> visitedRaceRHS6_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS6_2;
 
-	mutable std::vector<bool> lhsAccept6;
-	mutable std::vector<bool> rhsAccept6;
+	mutable std::vector<bool> lhsAcceptRace6;
+	mutable std::vector<bool> rhsAcceptRace6;
 
 	mutable const EventLabel *racyLab6 = nullptr;
 
-	bool visitInclusionLHS7_0(const EventLabel *lab, const View &v) const;
-	bool visitInclusionLHS7_1(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS7_0(const EventLabel *lab, const View &v) const;
+	bool visitRaceLHS7_1(const EventLabel *lab, const View &v) const;
 
-	bool checkInclusion7(const EventLabel *lab) const;
+	bool checkRace7(const EventLabel *lab) const;
 
-	mutable std::vector<NodeStatus> visitedInclusionLHS7_0;
-	mutable std::vector<NodeStatus> visitedInclusionLHS7_1;
-	mutable std::vector<NodeStatus> visitedInclusionRHS7_0;
-	mutable std::vector<NodeStatus> visitedInclusionRHS7_1;
+	mutable std::vector<NodeStatus> visitedRaceLHS7_0;
+	mutable std::vector<NodeStatus> visitedRaceLHS7_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS7_0;
+	mutable std::vector<NodeStatus> visitedRaceRHS7_1;
+	mutable std::vector<NodeStatus> visitedRaceRHS7_2;
 
-	mutable std::vector<bool> lhsAccept7;
-	mutable std::vector<bool> rhsAccept7;
+	mutable std::vector<bool> lhsAcceptRace7;
+	mutable std::vector<bool> rhsAcceptRace7;
 
 	mutable const EventLabel *racyLab7 = nullptr;
 
@@ -238,7 +240,9 @@ private:
 	mutable uint16_t visitedAccepting0 = 0;
 	bool shouldVisitAcyclic0(void) const { return true; };
 
+
 	bool isRecAcyclic(const EventLabel *lab) const;
+
 
 	mutable uint16_t visitedRecAccepting = 0;
 	void visitPPoRf0(const EventLabel *lab, View &pporf) const;
@@ -249,6 +253,7 @@ private:
 
 	mutable std::vector<VSet<Event>> saved;
 	mutable std::vector<View> views;
+
 };
 
 #endif /* __TSO_DRIVER_HPP__ */
