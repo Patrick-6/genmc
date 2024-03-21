@@ -33,6 +33,7 @@
 #include <llvm/ADT/StringMap.h>
 
 #include <memory>
+#include <ranges>
 #include <unordered_map>
 
 class PSCCalculator;
@@ -92,6 +93,9 @@ public:
 	reverse_iterator rend() { return events.rend(); };
 	const_reverse_iterator rbegin() const { return events.rbegin(); };
 	const_reverse_iterator rend() const { return events.rend(); };
+
+	auto thr_ids() const { return std::views::iota(0, (int)getNumThreads()); }
+	auto thr_ids() { return std::views::iota(0, (int)getNumThreads()); }
 
 	loc_iterator loc_begin() { return coherence.begin(); }
 	const_loc_iterator loc_begin() const { return coherence.begin(); };
