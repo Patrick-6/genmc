@@ -245,6 +245,7 @@ public:
 	void setCalculated(std::vector<VSet<Event>> &&calc) { calculatedRels = std::move(calc); }
 
 	void setViews(std::vector<View> &&views) { calculatedViews = std::move(views); }
+	void addView(View &&view) { calculatedViews.emplace_back(view); }
 
 	/* Iterators for calculated relations */
 	calc_const_range calculated(size_t i) const
