@@ -18,21 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ELIMINATE_CASTS_PASS_HPP__
-#define __ELIMINATE_CASTS_PASS_HPP__
+#ifndef GENMC_ELIMINATE_CASTS_PASS_HPP
+#define GENMC_ELIMINATE_CASTS_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class EliminateCastsPass : public llvm::FunctionPass {
+using namespace llvm;
 
+class EliminateCastsPass : public PassInfoMixin<EliminateCastsPass> {
 public:
-	static char ID;
-
-	EliminateCastsPass() : llvm::FunctionPass(ID) {}
-
-	bool runOnFunction(llvm::Function &F) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __ELIMINATE_CASTS_PASS_HPP__ */
+#endif /* GENMC_ELIMINATE_CASTS_PASS_HPP */

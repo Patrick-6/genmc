@@ -24,7 +24,6 @@
 #include "VSet.hpp"
 #include "config.h"
 
-#include <llvm/Analysis/AssumptionCache.h>
 #include <llvm/Analysis/ValueTracking.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Dominators.h>
@@ -36,9 +35,6 @@
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Module.h>
-#if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
-#include <llvm/Transforms/Utils.h>
-#endif
 #include <llvm/Transforms/Utils/PromoteMemToReg.h>
 
 using namespace llvm;
@@ -71,30 +67,23 @@ using namespace llvm;
 
 #define GET_INST_SYNC_SCOPE(i) i->getSyncScopeID()
 
-void EliminateCastsPass::getAnalysisUsage(AnalysisUsage &AU) const
-{
-	AU.addRequired<AssumptionCacheTracker>();
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.setPreservesCFG();
-}
-
 /* Opaque pointers should render this pass obsolete */
 #if LLVM_VERSION_MAJOR <= 14
 
-static bool haveSameSizePointees(const Type *p1, const Type *p2, const DataLayout &DL)
+static auto haveSameSizePointees(const Type *p1, const Type *p2, const DataLayout &DL) -> bool
 {
-	auto *pTy1 = dyn_cast<PointerType>(p1);
-	auto *pTy2 = dyn_cast<PointerType>(p2);
+	const auto *pTy1 = dyn_cast<PointerType>(p1);
+	const auto *pTy2 = dyn_cast<PointerType>(p2);
 
 	return pTy1 && pTy2 &&
 	       DL.getTypeAllocSize(pTy1->getElementType()) ==
 		       DL.getTypeAllocSize(pTy2->getElementType());
 }
 
-static bool isUnpromotablePureHelper(User *u, std::vector<Instruction *> &aliases);
+static auto isUnpromotablePureHelper(User *u, std::vector<Instruction *> &aliases) -> bool;
 
 /* Return whether u is pure; if it is, it will be returned in ALIASES with its aliases */
-static bool isUserPure(User *u, std::vector<Instruction *> &aliases)
+static auto isUserPure(User *u, std::vector<Instruction *> &aliases) -> bool
 {
 	/* We only allow direct, non-volatile loads and stores, as well as "pure"
 	 * bitcasts (only used by direct, non-volatile loads and stores).
@@ -102,12 +91,15 @@ static bool isUserPure(User *u, std::vector<Instruction *> &aliases)
 	 * allocas.) */
 	if (auto *li = dyn_cast<LoadInst>(u)) {
 		return !li->isVolatile();
-	} else if (auto *si = dyn_cast<StoreInst>(u)) {
+	}
+	if (auto *si = dyn_cast<StoreInst>(u)) {
 		/* Don't allow a store OF the U, only INTO the U */
 		return !si->isVolatile() && si->getOperand(0) != aliases.back();
-	} else if (auto *ii = dyn_cast<IntrinsicInst>(u)) {
+	}
+	if (auto *ii = dyn_cast<IntrinsicInst>(u)) {
 		return IS_LIFETIME_START_OR_END(ii) || IS_DROPPABLE(ii);
-	} else if (auto *bci = dyn_cast<BitCastInst>(u)) {
+	}
+	if (auto *bci = dyn_cast<BitCastInst>(u)) {
 		if (ONLY_USED_BY_MARKERS_OR_DROPPABLE(bci))
 			return true;
 		if (!haveSameSizePointees(bci->getSrcTy(), bci->getDestTy(),
@@ -115,22 +107,24 @@ static bool isUserPure(User *u, std::vector<Instruction *> &aliases)
 			return false;
 		aliases.push_back(bci);
 		return isUnpromotablePureHelper(bci, aliases);
-	} else if (auto *gepi = dyn_cast<GetElementPtrInst>(u)) {
+	}
+	if (auto *gepi = dyn_cast<GetElementPtrInst>(u)) {
 		return gepi->hasAllZeroIndices() && ONLY_USED_BY_MARKERS_OR_DROPPABLE(gepi);
-	} else if (auto *asci = dyn_cast<AddrSpaceCastInst>(u)) {
+	}
+	if (auto *asci = dyn_cast<AddrSpaceCastInst>(u)) {
 		return onlyUsedByLifetimeMarkers(asci);
 	}
 	/* All other cases are not safe*/
 	return false;
 }
 
-static bool isUnpromotablePureHelper(User *i, std::vector<Instruction *> &aliases)
+static auto isUnpromotablePureHelper(User *i, std::vector<Instruction *> &aliases) -> bool
 {
 	return std::all_of(i->users().begin(), i->users().end(),
 			   [&aliases](User *u) { return isUserPure(u, aliases); });
 }
 
-static bool isUnpromotablePure(Instruction *i, std::vector<Instruction *> &aliases)
+static auto isUnpromotablePure(Instruction *i, std::vector<Instruction *> &aliases) -> bool
 {
 	aliases.push_back(i);
 	auto pure = isUnpromotablePureHelper(i, aliases);
@@ -139,8 +133,8 @@ static bool isUnpromotablePure(Instruction *i, std::vector<Instruction *> &alias
 	return pure;
 }
 
-static Instruction::CastOps isEliminableCastPair(const CastInst *CI1, const CastInst *CI2,
-						 const DataLayout &DL)
+static auto isEliminableCastPair(const CastInst *CI1, const CastInst *CI2, const DataLayout &DL)
+	-> Instruction::CastOps
 {
 	Type *SrcTy = CI1->getSrcTy();
 	Type *MidTy = CI1->getDestTy();
@@ -163,7 +157,7 @@ static Instruction::CastOps isEliminableCastPair(const CastInst *CI1, const Cast
 	return Instruction::CastOps(Res);
 }
 
-static Value *isLoadCastedFromSameSrcType(const LoadInst *li, CastInst &ci)
+static auto isLoadCastedFromSameSrcType(const LoadInst *li, CastInst &ci) -> Value *
 {
 	auto *M = li->getModule();
 	auto &DL = M->getDataLayout();
@@ -202,7 +196,7 @@ static void replaceAndMarkDelete(Instruction *toDel, Value *toRepl,
 		deleted->insert(toDel);
 }
 
-static Instruction *castToType(Value *a, Type *typ, Instruction *insertBefore)
+static auto castToType(Value *a, Type *typ, Instruction *insertBefore) -> Instruction *
 {
 	if (a->getType()->isPointerTy() && typ->isPointerTy())
 		return new BitCastInst(a, typ, "", insertBefore);
@@ -249,7 +243,6 @@ static void transformStoredBitcast(CastInst &ci, StoreInst *si, VSet<Instruction
 	auto *store = new StoreInst(cast, ci.getOperand(0), si->isVolatile(), GET_INST_ALIGN(si),
 				    si->getOrdering(), GET_INST_SYNC_SCOPE(si), si);
 	replaceAndMarkDelete(si, store);
-	return;
 }
 
 static void transformLoadedBitcast(CastInst &ci, LoadInst *li, VSet<Instruction *> &deleted)
@@ -261,14 +254,13 @@ static void transformLoadedBitcast(CastInst &ci, LoadInst *li, VSet<Instruction 
 				  li);
 	auto *cast = castToType(load, li->getType(), li);
 	replaceAndMarkDelete(li, cast, &deleted);
-	return;
 }
 
 /* Performs some common transformations on the cast and deletes it, if necessary.
  * Returns true if the transformation succeeded (and the caller should delete CI),
  * and sets TRANSFORMED to its replacement. */
-static bool commonCastTransforms(CastInst &ci, std::vector<Instruction *> &aliases,
-				 VSet<Instruction *> &deleted)
+static auto commonCastTransforms(CastInst &ci, std::vector<Instruction *> &aliases,
+				 VSet<Instruction *> &deleted) -> bool
 {
 	const DataLayout &DL = ci.getModule()->getDataLayout();
 	Value *src = ci.getOperand(0);
@@ -325,7 +317,7 @@ static bool commonCastTransforms(CastInst &ci, std::vector<Instruction *> &alias
 	return false;
 }
 
-static bool eliminateAllocaCasts(std::vector<Instruction *> &aliases)
+static auto eliminateAllocaCasts(std::vector<Instruction *> &aliases) -> bool
 {
 	if (aliases.empty())
 		return false;
@@ -357,7 +349,7 @@ static bool eliminateAllocaCasts(std::vector<Instruction *> &aliases)
 	return eliminated;
 }
 
-static bool eliminateCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
+static auto eliminateCasts(Function &F, DominatorTree &DT) -> bool
 {
 	auto &eBB = F.getEntryBlock();
 	bool changed = true;
@@ -441,7 +433,7 @@ static bool introduceAllocaCasts(AllocaInst *ai)
 	return false;
 }
 
-static bool introduceCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
+static bool introduceCasts(Function &F, DominatorTree &DT)
 {
 	auto &eBB = F.getEntryBlock();
 	auto modified = false;
@@ -464,22 +456,13 @@ static bool introduceCasts(Function &F, DominatorTree &DT, AssumptionCache &AC)
 }
 #endif /* LLVM_VERSION_MAJOR <= 14 */
 
-bool EliminateCastsPass::runOnFunction(Function &F)
+auto EliminateCastsPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
 #if LLVM_VERSION_MAJOR <= 14
-	return eliminateCasts(F, DT, AC);
+	auto modified = eliminateCasts(F, DT);
 #else
-	return introduceCasts(F, DT, AC);
+	auto modified = introduceCasts(F, DT);
 #endif
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::none();
 }
-
-Pass *createEliminateCastsPass()
-{
-	auto *p = new EliminateCastsPass();
-	return p;
-}
-
-char EliminateCastsPass::ID = 42;
-static llvm::RegisterPass<EliminateCastsPass> P("elim-casts", "Eliminates certain forms of casts.");

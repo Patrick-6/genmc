@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MDATA_COLLECTION_PASS_HPP__
-#define __MDATA_COLLECTION_PASS_HPP__
+#ifndef GENMC_MDATA_COLLECTION_PASS_HPP
+#define GENMC_MDATA_COLLECTION_PASS_HPP
 
 #include "ModuleInfo.hpp"
 #include "NameInfo.hpp"
@@ -28,26 +28,23 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
 
+#include <llvm/Passes/PassBuilder.h>
+
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-class MDataCollectionPass : public llvm::ModulePass {
+using namespace llvm;
+
+class MDataInfo : public AnalysisInfoMixin<MDataInfo> {
 
 public:
-	static char ID;
+	using Result = PassModuleInfo;
+	auto run(Module &M, ModuleAnalysisManager &AM) -> Result;
 
-	MDataCollectionPass() : llvm::ModulePass(ID) {}
+	auto collectMData(Module &M) -> MDataInfo::Result;
 
-	void setPassModuleInfo(PassModuleInfo *I) { PI = I; }
-
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
-	virtual bool runOnModule(llvm::Module &M) override;
-
-protected:
-	void collectVarName(llvm::Module &M, unsigned int ptr, llvm::Type *typ, llvm::DIType *dit,
-			    std::string nameBuilder, NameInfo &names);
-
+private:
 	/* Collects name info for a global variable */
 	void collectGlobalInfo(llvm::GlobalVariable &v, llvm::Module &M);
 
@@ -71,38 +68,58 @@ protected:
 	void initializeFilenameEntry(llvm::Value *v);
 
 	/* Check whether the respective information exist */
-	bool hasGlobalInfo(llvm::Value *gv) const { return PI->varInfo.globalInfo[gv].get(); }
-	bool hasLocalInfo(llvm::Value *lv) const { return PI->varInfo.localInfo[lv].get(); }
-	bool hasInternalInfo(const std::string &key) const
+	auto hasGlobalInfo(llvm::Value *gv) const -> bool
 	{
-		return PI->varInfo.internalInfo[key].get();
+		return PMI.varInfo.globalInfo.contains(gv);
+	}
+	auto hasLocalInfo(llvm::Value *lv) const -> bool
+	{
+		return PMI.varInfo.localInfo.contains(lv);
+	}
+	auto hasInternalInfo(const std::string &key) const -> bool
+	{
+		return PMI.varInfo.internalInfo.contains(key);
 	}
 
 	/* Getters for collected naming info */
-	std::shared_ptr<NameInfo> &getGlobalInfo(llvm::Value *gv)
+	auto getGlobalInfo(llvm::Value *gv) -> std::shared_ptr<NameInfo> &
 	{
-		return PI->varInfo.globalInfo[gv];
+		return PMI.varInfo.globalInfo[gv];
 	}
-	std::shared_ptr<NameInfo> &getLocalInfo(llvm::Value *lv)
+	auto getLocalInfo(llvm::Value *lv) -> std::shared_ptr<NameInfo> &
 	{
-		return PI->varInfo.localInfo[lv];
+		return PMI.varInfo.localInfo[lv];
 	}
-	std::shared_ptr<NameInfo> &getInternalInfo(const std::string &key)
+	auto getInternalInfo(const std::string &key) -> std::shared_ptr<NameInfo> &
 	{
-		return PI->varInfo.internalInfo[key];
+		return PMI.varInfo.internalInfo[key];
 	}
 
-	void collectFilename(const std::string &name) { PI->filenames.insert(name); }
+	void collectFilename(const std::string &name) { PMI.filenames.insert(name); }
 
-private:
+	friend AnalysisInfoMixin<MDataInfo>;
+	static inline AnalysisKey Key;
+
 	/* Maps allocas to the metadata of the variable allocated */
 	std::unordered_map<llvm::AllocaInst *, llvm::DILocalVariable *> allocaMData;
+
+	PassModuleInfo PMI;
+};
+
+class MDataCollectionPass : public AnalysisInfoMixin<MDataCollectionPass> {
+public:
+	MDataCollectionPass(PassModuleInfo &PMI) : PMI(PMI) {}
+
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses;
+
+private:
+	MDataInfo info{};
 
 	/* We have to extract the necessary information out of this pass.
 	 * If we try to get them in another pass (e.g., w/ getAnalysis()),
 	 * then a new instance of this pass may be created (e.g., if the pass
 	 * gets invalidated), and we will lose all the data we have collected.  */
-	PassModuleInfo *PI = nullptr;
+	PassModuleInfo &PMI;
 };
 
-#endif /* __MDATA_COLLECTION_PASS_HPP__ */
+#endif /* GENMC_MDATA_COLLECTION_PASS_HPP */

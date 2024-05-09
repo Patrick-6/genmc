@@ -18,21 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ELIMINATE_UNUSED_CODE_PASS_HPP__
-#define __ELIMINATE_UNUSED_CODE_PASS_HPP__
+#ifndef GENMC_ELIMINATE_UNUSED_CODE_PASS_HPP
+#define GENMC_ELIMINATE_UNUSED_CODE_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class EliminateUnusedCodePass : public llvm::FunctionPass {
+using namespace llvm;
 
+class EliminateUnusedCodePass : public PassInfoMixin<EliminateUnusedCodePass> {
 public:
-	static char ID;
-
-	EliminateUnusedCodePass() : llvm::FunctionPass(ID) {}
-
-	bool runOnFunction(llvm::Function &F) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __ELIMINATE_UNUSED_CODE_PASS_HPP__ */
+#endif /* GENMC_ELIMINATE_UNUSED_CODE_PASS_HPP */

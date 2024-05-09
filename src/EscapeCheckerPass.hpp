@@ -18,18 +18,21 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ESCAPE_CHECKER_PASS_HPP__
-#define __ESCAPE_CHECKER_PASS_HPP__
+#ifndef GENMC_ESCAPE_CHECKER_PASS_HPP
+#define GENMC_ESCAPE_CHECKER_PASS_HPP
 
+#include "CallInfoCollectionPass.hpp"
 #include "VSet.hpp"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include <llvm/Analysis/PostDominators.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
 
-#include <string>
+#include <llvm/Passes/PassBuilder.h>
+
+#include <ranges>
 #include <unordered_map>
 #include <vector>
+
+using namespace llvm;
+
+class EscapeAnalysis;
 
 /*
  * This class is responsible for identifying allocations that escape
@@ -37,65 +40,65 @@
  * (For the purposes of this pass, global memory is mem2reg could not
  * deem local. We may have to make it smarter in the future. )
  */
-class EscapeInfo {
+class EscapeAnalysisResult {
 
 public:
-	EscapeInfo() = default;
-
-	void setLoadsEscape(bool loadsEscape) { loadsEscape = loadsEscape; }
+	EscapeAnalysisResult(bool loadsEscape = true) : loadsEscape_(loadsEscape) {}
 
 	/* Whether we consider loads as escape points */
-	bool canLoadsEscape() const { return loadsEscape; }
+	auto canLoadsEscape() const -> bool { return loadsEscape_; }
 
 	/* (Re)-calculates the esacape points for each instruction of F */
-	void calculate(llvm::Function &F, const VSet<llvm::Function *> &allocFuns,
-		       llvm::AliasAnalysis &AA);
+	void calculate(Function &F, const CallAnalysisResult &CAR);
 
 	/* Returns true if V escapes in F */
-	bool escapes(const llvm::Value *v) const;
+	auto escapes(const Value *v) const -> bool;
 
 	/* Returns true if all escape points of A are dominated by B.
 	 * If there are no escape points, returns true. */
-	bool escapesAfter(const llvm::Value *a, const llvm::Instruction *b,
-			  llvm::DominatorTree &DT) const;
+	auto escapesAfter(const Value *a, const Instruction *b, DominatorTree &DT) const -> bool;
 
 	/* If VAL represents local memory, returns the respective allocating instructions */
-	llvm::Instruction *writesDynamicMemory(llvm::Value *val /*, llvm::AliasAnalysis &AA */);
+	auto writesDynamicMemory(Value *val /*, AliasAnalysis &AA */) -> Instruction *;
 
-	VSet<llvm::Instruction *>::const_iterator alloc_begin() const { return allocs.begin(); }
-	VSet<llvm::Instruction *>::const_iterator alloc_end() const { return allocs.end(); }
+	auto alloc_begin() const -> VSet<Instruction *>::const_iterator { return allocs_.begin(); }
+	auto alloc_end() const -> VSet<Instruction *>::const_iterator { return allocs_.end(); }
 
 	/* For debugging */
-	void print(llvm::raw_ostream &s) const;
+	void print(raw_ostream &s) const;
 
 private:
-	using EPT = std::unordered_map<const llvm::Value *, std::vector<const llvm::Instruction *>>;
+	using EPT = std::unordered_map<const Value *, std::vector<const Instruction *>>;
 
-	bool loadsEscape = true;
+	bool loadsEscape_ = true;
 	EPT escapePoints;
-	VSet<llvm::Instruction *> allocs;
+	VSet<Instruction *> allocs_;
 };
 
 /*
  * Populates an EscapeInfo object for the function the pass runs on.
  */
-class EscapeCheckerPass : public llvm::FunctionPass {
-
+class EscapeAnalysis : public AnalysisInfoMixin<EscapeAnalysis> {
 public:
-	EscapeCheckerPass() : llvm::FunctionPass(ID) {}
+	using Result = std::unordered_map<Function *, EscapeAnalysisResult>;
 
-	void setLoadsEscape(bool loadsEscape = true) { EI.setLoadsEscape(loadsEscape); }
-
-	bool runOnFunction(llvm::Function &F) override;
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
-
-	EscapeInfo &getEscapeInfo() { return EI; }
-	const EscapeInfo &getEscapeInfo() const { return EI; }
-
-	static char ID;
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> Result;
 
 private:
-	EscapeInfo EI;
+	friend AnalysisInfoMixin<EscapeAnalysis>;
+	static inline AnalysisKey Key;
+
+	Result result_;
 };
 
-#endif /* __ESCAPE_CHECKER_PASS_HPP__ */
+class EscapeCheckerPass : public AnalysisInfoMixin<EscapeCheckerPass> {
+public:
+	EscapeCheckerPass(EscapeAnalysis::Result &EAR) : EAR_(EAR) {}
+
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses;
+
+private:
+	EscapeAnalysis::Result &EAR_;
+};
+
+#endif /* GENMC_ESCAPE_CHECKER_PASS_HPP_ */

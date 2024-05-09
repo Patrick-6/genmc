@@ -18,29 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __INTRINSIC_LOWERING_PASS_HPP__
-#define __INTRINSIC_LOWERING_PASS_HPP__
+#ifndef GENMC_INTRINSIC_LOWERING_PASS_HPP
+#define GENMC_INTRINSIC_LOWERING_PASS_HPP
 
-#include <llvm/Analysis/LoopPass.h>
-#include <llvm/CodeGen/IntrinsicLowering.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class IntrinsicLoweringPass : public llvm::ModulePass {
+using namespace llvm;
 
+class IntrinsicLoweringPass : public PassInfoMixin<IntrinsicLoweringPass> {
 public:
-	static char ID;
-	const llvm::DataLayout &dataLayout;
-	llvm::IntrinsicLowering *IL;
-
-	IntrinsicLoweringPass(const llvm::DataLayout &TD)
-		: llvm::ModulePass(ID), dataLayout(TD), IL(new llvm::IntrinsicLowering(TD))
-	{}
-	~IntrinsicLoweringPass() { delete IL; }
-	virtual bool runOnModule(llvm::Module &M);
-
-protected:
-	bool runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &M);
+	auto run(Function &M, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __INTRINSIC_LOWERING_PASS_HPP__ */
+#endif /* GENMC_INTRINSIC_LOWERING_PASS_HPP */

@@ -18,37 +18,42 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __BISIMILARITY_CHECKER_PASS_HPP__
-#define __BISIMILARITY_CHECKER_PASS_HPP__
+#ifndef GENMC_BISIMILARITY_CHECKER_PASS_HPP
+#define GENMC_BISIMILARITY_CHECKER_PASS_HPP
 
 #include <llvm/IR/Function.h>
-#include <llvm/Pass.h>
-
-#include <unordered_map>
+#include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 
-class BisimilarityCheckerPass : public FunctionPass {
-
+class BisimilarityAnalysis : public AnalysisInfoMixin<BisimilarityAnalysis> {
 public:
 	using BisimilarityPoint = std::pair<Instruction *, Instruction *>;
+	using Result = std::vector<BisimilarityPoint>;
 
-	static char ID;
-
-	BisimilarityCheckerPass() : FunctionPass(ID) {}
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
-	virtual bool doInitialization(Module &M) override;
-	virtual bool runOnFunction(Function &F) override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> Result;
 
 	/* Returns all bisimilar points in a given function */
-	const std::vector<BisimilarityPoint> &getFuncBsPoints(Function *F)
-	{
-		return funcBsPoints[F];
-	}
+	auto getFuncBsPoints(Function &F) -> Result { return funcBsPoints_; }
 
 private:
-	/* Bisimilar points for all functions of the module */
-	std::unordered_map<Function *, std::vector<BisimilarityPoint>> funcBsPoints;
+	friend AnalysisInfoMixin<BisimilarityAnalysis>;
+	static inline AnalysisKey Key;
+
+	/* Bisimilar points for a function */
+	std::vector<BisimilarityPoint> funcBsPoints_;
 };
 
-#endif /* __BISIMILARITY_CHECKER_PASS_HPP__ */
+class BisimilarityCheckerPass : public AnalysisInfoMixin<BisimilarityCheckerPass> {
+public:
+	BisimilarityCheckerPass(std::vector<BisimilarityAnalysis::BisimilarityPoint> &bsps)
+		: bsps_(bsps)
+	{}
+
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
+
+private:
+	std::vector<BisimilarityAnalysis::BisimilarityPoint> &bsps_;
+};
+
+#endif /* GENMC_BISIMILARITY_CHECKER_PASS_HPP */

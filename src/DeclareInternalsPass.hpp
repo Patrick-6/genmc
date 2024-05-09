@@ -18,17 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DECLARE_INTERNALS_PASS_HPP__
-#define __DECLARE_INTERNALS_PASS_HPP__
+#ifndef GENMC_DECLARE_INTERNALS_PASS_HPP
+#define GENMC_DECLARE_INTERNALS_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class DeclareInternalsPass : public llvm::ModulePass {
+using namespace llvm;
+
+class DeclareInternalsPass : public PassInfoMixin<DeclareInternalsPass> {
 public:
-	static char ID;
-
-	DeclareInternalsPass() : ModulePass(ID){};
-	virtual bool runOnModule(llvm::Module &M);
+	auto run(Module &M, ModuleAnalysisManager &AM) -> PreservedAnalyses;
 };
 
-#endif /* __DECLARE_INTERNALS_PASS_HPP__ */
+#endif /* GENMC_DECLARE_INTERNALS_PASS_HPP */

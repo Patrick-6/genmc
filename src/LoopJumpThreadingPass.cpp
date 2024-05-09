@@ -27,21 +27,16 @@
 
 using namespace llvm;
 
-void LoopJumpThreadingPass::getAnalysisUsage(AnalysisUsage &au) const
-{
-	LoopPass::getAnalysisUsage(au);
-}
+auto inLoopBody(Loop *l, BasicBlock *bb) -> bool { return l->contains(bb) && bb != l->getHeader(); }
 
-bool inLoopBody(Loop *l, BasicBlock *bb) { return l->contains(bb) && bb != l->getHeader(); }
-
-bool isNonTrivialUser(User *u, PHINode *criticalPHI)
+auto isNonTrivialUser(User *u, PHINode *criticalPHI) -> bool
 {
 	auto *p = dyn_cast<PHINode>(u);
 	return !p || std::any_of(p->user_begin(), p->user_end(),
 				 [criticalPHI](User *us) { return us != criticalPHI; });
 }
 
-bool isCriticalPHIUsedTrivially(Loop *l, PHINode *criticalPHI)
+auto isCriticalPHIUsedTrivially(Loop *l, PHINode *criticalPHI) -> bool
 {
 	return std::none_of(criticalPHI->user_begin(), criticalPHI->user_end(), [&](User *u) {
 		auto *p = dyn_cast<Instruction>(u)->getParent();
@@ -52,7 +47,7 @@ bool isCriticalPHIUsedTrivially(Loop *l, PHINode *criticalPHI)
 	});
 }
 
-bool areNonCriticalPHIsUsedInBody(Loop *l, PHINode *criticalPHI)
+auto areNonCriticalPHIsUsedInBody(Loop *l, PHINode *criticalPHI) -> bool
 {
 	for (auto &phi : l->getHeader()->phis()) {
 		if (&phi == criticalPHI)
@@ -75,13 +70,13 @@ bool areNonCriticalPHIsUsedInBody(Loop *l, PHINode *criticalPHI)
  * are OK because if we prove that the header always jumps to the body,
  * then these uses can be replaced with the initial value.
  */
-bool loopUsesHeaderPHIsTrivially(Loop *l, PHINode *criticalPHI)
+auto loopUsesHeaderPHIsTrivially(Loop *l, PHINode *criticalPHI) -> bool
 {
 	return isCriticalPHIUsedTrivially(l, criticalPHI) &&
 	       !areNonCriticalPHIsUsedInBody(l, criticalPHI);
 }
 
-PHINode *getPHIConstEntryValueUsedInCond(Loop *l)
+auto getPHIConstEntryValueUsedInCond(Loop *l) -> PHINode *
 {
 	for (auto iit = l->getHeader()->begin(); auto phi = dyn_cast<PHINode>(iit); ++iit) {
 		for (auto &v : phi->incoming_values()) {
@@ -95,7 +90,7 @@ PHINode *getPHIConstEntryValueUsedInCond(Loop *l)
 	return nullptr;
 }
 
-std::unique_ptr<SExpr<Value *>> generateExprJumpsToBody(Loop *l)
+auto generateExprJumpsToBody(Loop *l) -> std::unique_ptr<SExpr<Value *>>
 {
 	auto condExp = InstAnnotator().annotateBBCond(l->getHeader(), l->getLoopPredecessor());
 	auto *bi = dyn_cast<BranchInst>(l->getHeader()->getTerminator());
@@ -107,7 +102,7 @@ std::unique_ptr<SExpr<Value *>> generateExprJumpsToBody(Loop *l)
 	return NotExpr<Value *>::create(std::move(condExp));
 }
 
-bool entryAlwaysJumpsToBody(Loop *l)
+auto entryAlwaysJumpsToBody(Loop *l) -> bool
 {
 	/* Make sure that the header (conditionally) jumps at the body */
 	auto *h = l->getHeader();
@@ -125,7 +120,7 @@ bool entryAlwaysJumpsToBody(Loop *l)
 	return (numSeen == 0) && res.getBool();
 }
 
-bool invertLoop(Loop *l, PHINode *criticalPHI)
+auto invertLoop(Loop *l, PHINode *criticalPHI) -> bool
 {
 	auto *ph = l->getLoopPredecessor();
 	auto *phbi = dyn_cast<BranchInst>(ph->getTerminator());
@@ -178,31 +173,27 @@ bool invertLoop(Loop *l, PHINode *criticalPHI)
 	return true;
 }
 
-bool LoopJumpThreadingPass::runOnLoop(Loop *l, LPPassManager &lpm)
+auto LoopJumpThreadingPass::run(Loop &L, LoopAnalysisManager &AM, LoopStandardAnalysisResults &AR,
+				LPMUpdater &U) -> PreservedAnalyses
 {
 	/* The whole point is to get rid of Φ-nodes in the header... */
-	if (!isa<PHINode>(*l->getHeader()->begin()))
-		return false;
+	if (!isa<PHINode>(L.getHeader()->begin()))
+		return PreservedAnalyses::all();
 
 	/* If the header has multiple predecessors, skip */
-	if (!l->getLoopPredecessor())
-		return false;
+	if (!L.getLoopPredecessor())
+		return PreservedAnalyses::all();
 
 	/*
 	 * The header needs to have at least one constant incoming
 	 * from the entry, so that we can evaluate the header condition
 	 */
-	auto *criticalPHI = getPHIConstEntryValueUsedInCond(l);
+	auto *criticalPHI = getPHIConstEntryValueUsedInCond(&L);
 	if (!criticalPHI)
-		return false;
+		return PreservedAnalyses::all();
 
-	if (entryAlwaysJumpsToBody(l))
-		return invertLoop(l, criticalPHI);
-	return false;
+	if (entryAlwaysJumpsToBody(&L))
+		return invertLoop(&L, criticalPHI) ? PreservedAnalyses::none()
+						   : PreservedAnalyses::all();
+	return PreservedAnalyses::all();
 }
-
-Pass *createLoopJumpThreadingPass() { return new LoopJumpThreadingPass(); }
-
-char LoopJumpThreadingPass::ID = 42;
-static RegisterPass<LoopJumpThreadingPass> P("loop-jump-threading",
-					     "Performs jump threading for simple loop headers.");

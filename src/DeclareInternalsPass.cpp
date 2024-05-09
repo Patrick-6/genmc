@@ -27,6 +27,9 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
+#include <llvm/Support/raw_ostream.h>
 
 using namespace llvm;
 
@@ -44,7 +47,7 @@ auto declareInternal(Module &M, const std::string &name, Type *retTyp,
 	return true;
 }
 
-bool DeclareInternalsPass::runOnModule(Module &M)
+PreservedAnalyses DeclareInternalsPass::run(Module &M, ModuleAnalysisManager &AM)
 {
 	bool modified = false;
 
@@ -63,11 +66,24 @@ bool DeclareInternalsPass::runOnModule(Module &M)
 				    Type::getVoidTy(M.getContext()), {});
 	modified |= declareInternal(M, "__VERIFIER_lockZNE_spin_end",
 				    Type::getVoidTy(M.getContext()), {});
-	return modified;
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
 
-ModulePass *createDeclareInternalsPass() { return new DeclareInternalsPass(); }
-
-char DeclareInternalsPass::ID = 42;
-static llvm::RegisterPass<DeclareInternalsPass> P("declare-internals",
-						  "Declares internal functions.");
+//-----------------------------------------------------------------------------
+// New PM Registration
+//-----------------------------------------------------------------------------
+auto getDeclareInternalsPluginInfo() -> PassPluginLibraryInfo
+{
+	return {LLVM_PLUGIN_API_VERSION, "DeclareInternals", LLVM_VERSION_STRING,
+		[](PassBuilder &PB) {
+			PB.registerPipelineParsingCallback(
+				[](StringRef Name, ModulePassManager &MPM,
+				   ArrayRef<PassBuilder::PipelineElement>) {
+					if (Name == "declare-internals") {
+						MPM.addPass(DeclareInternalsPass());
+						return true;
+					}
+					return false;
+				});
+		}};
+}

@@ -32,21 +32,19 @@
 
 using namespace llvm;
 
-void MMDetectorPass::setDeterminedMM(ModelType m) { PI->determinedMM = m; }
-
-bool isSCNAOrdering(AtomicOrdering o)
+auto isSCNAOrdering(AtomicOrdering o) -> bool
 {
 	return o == AtomicOrdering::SequentiallyConsistent || o == AtomicOrdering::NotAtomic;
 }
 
-bool isRANAOrdering(AtomicOrdering o)
+auto isRANAOrdering(AtomicOrdering o) -> bool
 {
 	using AO = AtomicOrdering;
 	return o == AO::Acquire || o == AO::Release || o == AO::AcquireRelease ||
 	       o == AtomicOrdering::NotAtomic;
 }
 
-bool MMDetectorPass::runOnModule(Module &M)
+auto MMAnalysis::run(Module &M, ModuleAnalysisManager &MAM) -> MMAnalysis::Result
 {
 	auto isSC = true;
 	auto isRA = true;
@@ -93,18 +91,12 @@ bool MMDetectorPass::runOnModule(Module &M)
 		}
 	}
 	if (isSC)
-		setDeterminedMM(ModelType::SC);
-	if (isRA)
-		setDeterminedMM(ModelType::RA);
-	return false;
+		return {ModelType::SC};
+	return isRA ? std::make_optional(ModelType::RA) : std::nullopt;
 }
 
-ModulePass *createMMDetectorPass(PassModuleInfo *PI)
+auto MMDetectorPass::run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses
 {
-	auto *p = new MMDetectorPass();
-	p->setPassModuleInfo(PI);
-	return p;
+	PMI.determinedMM = MAM.getResult<MMAnalysis>(M);
+	return PreservedAnalyses::all();
 }
-
-char MMDetectorPass::ID = 42;
-static RegisterPass<MMDetectorPass> P("sc-detector-casts", "Checks whether all accesses are SC.");

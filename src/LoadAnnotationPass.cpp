@@ -18,20 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
-
+#include "LoadAnnotationPass.hpp"
 #include "Error.hpp"
 #include "InstAnnotator.hpp"
 #include "LLVMUtils.hpp"
-#include "LoadAnnotationPass.hpp"
 #include "SExpr.hpp"
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instructions.h>
 
 using namespace llvm;
-
-void LoadAnnotationPass::getAnalysisUsage(llvm::AnalysisUsage &au) const { au.setPreservesAll(); }
 
 /* Helper for getSourceLoads() -- see below */
 void calcSourceLoads(Instruction *i, VSet<PHINode *> phis, std::vector<Instruction *> &source)
@@ -71,10 +67,13 @@ void calcSourceLoads(Instruction *i, VSet<PHINode *> phis, std::vector<Instructi
 			}
 		}
 	}
-	return;
 }
 
-std::vector<Instruction *> LoadAnnotationPass::getSourceLoads(CallInst *assm) const
+/*
+ * Returns the source loads of an assume statement, that is,
+ * loads the result of which is used in the assume.
+ */
+auto getSourceLoads(CallInst *assm) -> std::vector<Instruction *>
 {
 	VSet<PHINode *> phis;
 	std::vector<Instruction *> source;
@@ -86,9 +85,11 @@ std::vector<Instruction *> LoadAnnotationPass::getSourceLoads(CallInst *assm) co
 	return source;
 }
 
-std::vector<Instruction *>
-LoadAnnotationPass::filterAnnotatableFromSource(CallInst *assm,
-						const std::vector<Instruction *> &source) const
+/*
+ * Given an assume's source loads, returns the annotatable ones.
+ */
+auto filterAnnotatableFromSource(CallInst *assm, const std::vector<Instruction *> &source)
+	-> std::vector<Instruction *>
 {
 	std::vector<Instruction *> result;
 
@@ -125,16 +126,19 @@ LoadAnnotationPass::filterAnnotatableFromSource(CallInst *assm,
 	return result;
 }
 
-std::vector<Instruction *> LoadAnnotationPass::getAnnotatableLoads(CallInst *assm) const
+/*
+ * Returns all of ASSM's annotatable loads
+ */
+auto getAnnotatableLoads(CallInst *assm) -> std::vector<Instruction *>
 {
 	if (!isAssumeFunction(getCalledFunOrStripValName(*assm)))
-		return std::vector<Instruction *>(); /* yet another check... */
+		return {}; /* yet another check... */
 
 	auto sourceLoads = getSourceLoads(assm);
 	return filterAnnotatableFromSource(assm, sourceLoads);
 }
 
-bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
+auto LoadAnnotationAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> Result
 {
 	InstAnnotator annotator;
 
@@ -143,19 +147,16 @@ bool LoadAnnotationPass::runOnFunction(llvm::Function &F)
 			if (isAssumeFunction(getCalledFunOrStripValName(*a))) {
 				auto loads = getAnnotatableLoads(a);
 				for (auto *l : loads) {
-					LAI.annotMap[l] = annotator.annotate(l);
+					result_.annotMap[l] = annotator.annotate(l);
 				}
 			}
 		}
 	}
-	return false;
+	return result_;
 }
 
-FunctionPass *createLoadAnnotationPass(AnnotationInfo<Instruction *, Value *> &LAI)
+auto LoadAnnotationPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	return new LoadAnnotationPass(LAI);
+	LAI_ = FAM.getResult<LoadAnnotationAnalysis>(F);
+	return PreservedAnalyses::all();
 }
-
-char LoadAnnotationPass::ID = 42;
-// static llvm::RegisterPass<LoadAnnotationPass> P("annotate-loads",
-// 						"Annotates loads used by assume() statements.");

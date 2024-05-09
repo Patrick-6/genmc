@@ -18,23 +18,20 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __FUNCTION_INLINER_PASS_HPP__
-#define __FUNCTION_INLINER_PASS_HPP__
+#ifndef GENMC_FUNCTION_INLINER_PASS_HPP
+#define GENMC_FUNCTION_INLINER_PASS_HPP
+
+#include <llvm/IR/PassManager.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
 
 #include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
 
-class FunctionInlinerPass : public llvm::ModulePass {
+using namespace llvm;
 
+class FunctionInlinerPass : public PassInfoMixin<FunctionInlinerPass> {
 public:
-	FunctionInlinerPass() : llvm::ModulePass(ID) {}
-
-	virtual bool runOnModule(llvm::Module &M);
-	void getAnalysisUsage(llvm::AnalysisUsage &au) const;
-
-	static char ID;
-
-private:
+	auto run(Module &M, ModuleAnalysisManager &AM) -> PreservedAnalyses;
 };
 
-#endif /* __FUNCTION_INLINER_PASS_HPP__ */
+#endif /* GENMC_FUNCTION_INLINER_PASS_HPP */

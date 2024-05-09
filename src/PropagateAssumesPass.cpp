@@ -22,7 +22,6 @@
 #include "Error.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
-#include "config.h"
 
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Dominators.h>
@@ -36,9 +35,7 @@
 
 using namespace llvm;
 
-void PropagateAssumesPass::getAnalysisUsage(AnalysisUsage &au) const { au.setPreservesAll(); }
-
-bool isAssumeFalse(Instruction *i)
+auto isAssumeFalse(Instruction *i) -> bool
 {
 	auto *ci = dyn_cast<CallInst>(i);
 	if (!ci || !isAssumeFunction(getCalledFunOrStripValName(*ci)))
@@ -48,7 +45,7 @@ bool isAssumeFalse(Instruction *i)
 	return arg && arg->isZero();
 }
 
-bool jumpsOnLoadResult(Value *cond)
+auto jumpsOnLoadResult(Value *cond) -> bool
 {
 	auto *sc = stripCastsConstOps(cond);
 	if (isa<LoadInst>(sc))
@@ -62,14 +59,14 @@ bool jumpsOnLoadResult(Value *cond)
 	return false;
 }
 
-Value *getOtherSuccCondition(BranchInst *bi, BasicBlock *succ)
+auto getOtherSuccCondition(BranchInst *bi, BasicBlock *succ) -> Value *
 {
 	if (bi->getSuccessor(1) == succ)
 		return bi->getCondition();
 	return BinaryOperator::CreateNot(bi->getCondition(), "", bi);
 }
 
-bool propagateAssumeToPred(CallInst *assume, BasicBlock *pred)
+auto propagateAssumeToPred(CallInst *assume, BasicBlock *pred) -> bool
 {
 	auto *bi = dyn_cast<BranchInst>(pred->getTerminator());
 	if (!bi || bi->isUnconditional())
@@ -99,7 +96,7 @@ bool propagateAssumeToPred(CallInst *assume, BasicBlock *pred)
 	return true;
 }
 
-bool propagateAssume(CallInst *assume)
+auto propagateAssume(CallInst *assume) -> bool
 {
 	auto *bb = assume->getParent();
 	return std::accumulate(pred_begin(bb), pred_end(bb), false,
@@ -108,22 +105,12 @@ bool propagateAssume(CallInst *assume)
 			       });
 }
 
-bool PropagateAssumesPass::runOnFunction(llvm::Function &F)
+auto PropagateAssumesPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
 	auto modified = false;
 
 	for (auto &bb : F)
 		if (isAssumeFalse(&*bb.begin()))
 			modified |= propagateAssume(dyn_cast<CallInst>(&*bb.begin()));
-	return modified;
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-Pass *createPropagateAssumesPass()
-{
-	auto *p = new PropagateAssumesPass();
-	return p;
-}
-
-char PropagateAssumesPass::ID = 42;
-static llvm::RegisterPass<PropagateAssumesPass> P("propagate-assumes",
-						  "Propagates assume(0) upwards.");

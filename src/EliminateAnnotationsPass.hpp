@@ -18,21 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ELIMINATE_ANNOTATIONS_PASS_HPP__
-#define __ELIMINATE_ANNOTATIONS_PASS_HPP__
+#ifndef GENMC_ELIMINATE_ANNOTATIONS_PASS_HPP
+#define GENMC_ELIMINATE_ANNOTATIONS_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class EliminateAnnotationsPass : public llvm::FunctionPass {
+using namespace llvm;
 
+class EliminateAnnotationsPass : public PassInfoMixin<EliminateAnnotationsPass> {
 public:
-	static char ID;
-
-	EliminateAnnotationsPass() : llvm::FunctionPass(ID) {}
-
-	bool runOnFunction(llvm::Function &F) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __ELIMINATE_ANNOTATIONS_PASS_HPP__ */
+#endif /* GENMC_ELIMINATE_ANNOTATIONS_PASS_HPP */

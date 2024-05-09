@@ -32,6 +32,8 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Instructions.h>
 
+#include "value_ptr.hpp"
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -73,7 +75,7 @@ template <typename Key> struct VariableInfo {
  */
 template <typename K, typename V> struct AnnotationInfo {
 
-	using AnnotUM = std::unordered_map<K, std::unique_ptr<SExpr<V>>>;
+	using AnnotUM = std::unordered_map<K, value_ptr<SExpr<V>, SExprCloner<V>>>;
 
 	void clear() { annotMap.clear(); }
 

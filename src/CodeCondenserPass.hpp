@@ -18,22 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __CODE_CONDENSER_PASS_HPP__
-#define __CODE_CONDENSER_PASS_HPP__
+#ifndef GENMC_CODE_CONDENSER_PASS_HPP
+#define GENMC_CODE_CONDENSER_PASS_HPP
 
-#include <llvm/IR/Function.h>
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 
-class CodeCondenserPass : public FunctionPass {
-
+class CodeCondenserPass : public PassInfoMixin<CodeCondenserPass> {
 public:
-	static char ID;
-
-	CodeCondenserPass() : FunctionPass(ID) {}
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnFunction(Function &F) override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __CODE_CONDENSER_PASS_HPP__ */
+#endif /* GENMC_CODE_CONDENSER_PASS_HPP */

@@ -22,7 +22,7 @@
 #include "Error.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
-#include "config.h"
+
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Function.h>
@@ -31,14 +31,7 @@
 
 using namespace llvm;
 
-void ConfirmationAnnotationPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	au.addRequired<DominatorTreeWrapperPass>();
-	au.addRequired<LoopInfoWrapperPass>();
-	au.setPreservesAll();
-}
-
-bool isSpinEndCall(Instruction *i)
+auto isSpinEndCall(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -54,7 +47,7 @@ bool isSpinEndCall(Instruction *i)
  * returns a candidate confirmation instruction: either a CAS or a CMP
  * between two loads.
  */
-Instruction *getConfirmationCandidate(Instruction *i)
+auto getConfirmationCandidate(Instruction *i) -> Instruction *
 {
 	auto *si = stripCastsConstOps(i);
 	if (auto *ei = dyn_cast<ExtractValueInst>(si))
@@ -77,7 +70,7 @@ Instruction *getConfirmationCandidate(Instruction *i)
  * returns the common candidate confirmation instruction among
  * the block's predecessors.
  */
-Instruction *getCommonConfirmationFromPreds(BasicBlock *bb)
+auto getCommonConfirmationFromPreds(BasicBlock *bb) -> Instruction *
 {
 	Instruction *conf = nullptr;
 	if (std::all_of(pred_begin(bb), pred_end(bb), [&conf](const BasicBlock *pred) {
@@ -102,20 +95,21 @@ Instruction *getCommonConfirmationFromPreds(BasicBlock *bb)
  * (e.g., by checking that the loads read from the same place).
  * This should be done separately later.
  */
-Instruction *spinEndsOnConfirmation(CallInst *ci)
+auto spinEndsOnConfirmation(CallInst *ci) -> Instruction *
 {
 	auto *endValue = ci->getArgOperand(0);
 	if (auto *i = dyn_cast<Instruction>(endValue)) {
 		return getConfirmationCandidate(i);
-	} else if (auto *c = dyn_cast<Constant>(endValue)) {
+	}
+	if (auto *c = dyn_cast<Constant>(endValue)) {
 		if (c->getType()->isIntegerTy() && c->isZeroValue())
 			return getCommonConfirmationFromPreds(ci->getParent());
 	}
 	return nullptr;
 }
 
-std::pair<LoadInst *, Instruction *> getConfirmationPair(Instruction *i, LoopInfo &LI,
-							 DominatorTree &DT)
+auto getConfirmationPair(Instruction *i, LoopInfo &LI, DominatorTree &DT)
+	-> std::pair<LoadInst *, Instruction *>
 {
 	LoadInst *spec = nullptr;
 	Instruction *conf = nullptr;
@@ -184,15 +178,8 @@ void annotate(Function &F, LoopInfo &LI, DominatorTree &DT)
 	}
 }
 
-bool ConfirmationAnnotationPass::runOnFunction(llvm::Function &F)
+auto ConfirmationAnnotationPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	annotate(F, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
-		 getAnalysis<DominatorTreeWrapperPass>().getDomTree());
-	return false;
+	annotate(F, FAM.getResult<LoopAnalysis>(F), FAM.getResult<DominatorTreeAnalysis>(F));
+	return PreservedAnalyses::all();
 }
-
-FunctionPass *createConfirmationAnnotationPass() { return new ConfirmationAnnotationPass(); }
-
-char ConfirmationAnnotationPass::ID = 42;
-static llvm::RegisterPass<ConfirmationAnnotationPass>
-	P("annotate-confirmation", "Annotates loads used in confirmation patterns.");

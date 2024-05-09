@@ -18,22 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DEFINE_LIBC_FUNS_PASS_HPP__
-#define __DEFINE_LIBC_FUNS_PASS_HPP__
+#ifndef GENMC_DEFINE_LIBC_FUNS_PASS_HPP
+#define GENMC_DEFINE_LIBC_FUNS_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class DefineLibcFunsPass : public llvm::ModulePass {
+using namespace llvm;
 
+class DefineLibcFunsPass : public PassInfoMixin<DefineLibcFunsPass> {
 public:
-	static char ID;
-
-	DefineLibcFunsPass() : ModulePass(ID){};
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnModule(llvm::Module &M);
-
-protected:
-	virtual void replaceFunWithNop(llvm::Module &M, std::string name);
+	auto run(Module &M, ModuleAnalysisManager &AM) -> PreservedAnalyses;
 };
 
-#endif /* __DEFINE_LIBC_FUNS_PASS_HPP__ */
+#endif /* GENMC_DEFINE_LIBC_FUNS_PASS_HPP */

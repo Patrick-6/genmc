@@ -41,6 +41,7 @@
 #include "Config.hpp"
 #include "Error.hpp"
 #include "Interpreter.h"
+#include "LLVMUtils.hpp"
 #include <cstring>
 #include <llvm/CodeGen/IntrinsicLowering.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -185,7 +186,7 @@ void Interpreter::collectStaticAddresses(SAddrAllocator &alloctor)
 	auto *M = Modules.back().get();
 	std::vector<std::pair<const GlobalVariable *, void *>> toReinitialize;
 
-	for (auto &v : M->getGlobalList()) {
+	for (auto &v : GLOBALS(*M)) {
 		char *ptr = static_cast<char *>(GVTOP(getConstantValue(&v)));
 		unsigned int typeSize = getDataLayout().getTypeAllocSize(v.getValueType());
 

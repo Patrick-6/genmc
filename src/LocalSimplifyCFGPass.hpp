@@ -18,21 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOCAL_SIMPLIFY_CFG_PASS_HPP__
-#define __LOCAL_SIMPLIFY_CFG_PASS_HPP__
+#ifndef GENMC_LOCAL_SIMPLIFY_CFG_PASS_HPP
+#define GENMC_LOCAL_SIMPLIFY_CFG_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class LocalSimplifyCFGPass : public llvm::FunctionPass {
+using namespace llvm;
 
+class LocalSimplifyCFGPass : public PassInfoMixin<LocalSimplifyCFGPass> {
 public:
-	static char ID;
-
-	LocalSimplifyCFGPass() : llvm::FunctionPass(ID) {}
-
-	bool runOnFunction(llvm::Function &F) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __LOCAL_SIMPLIFY_CFG_PASS_HPP__ */
+#endif /* GENMC_LOCAL_SIMPLIFY_CFG_PASS_HPP */

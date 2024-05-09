@@ -38,11 +38,12 @@
 
 using namespace llvm;
 
-void EliminateUnusedCodePass::getAnalysisUsage(AnalysisUsage &AU) const { AU.setPreservesCFG(); }
+auto isEliminable(Instruction *i) -> bool
+{
+	return !MAY_BE_MEM_DEPENDENT(*i) && !i->isTerminator();
+}
 
-bool isEliminable(Instruction *i) { return !MAY_BE_MEM_DEPENDENT(*i) && !i->isTerminator(); }
-
-static bool eliminateUnusedCode(Function &F)
+static auto eliminateUnusedCode(Function &F) -> bool
 {
 	SmallPtrSet<Instruction *, 16> alive;
 	SmallSetVector<Instruction *, 16> worklist;
@@ -78,13 +79,7 @@ static bool eliminateUnusedCode(Function &F)
 	return !worklist.empty();
 }
 
-bool EliminateUnusedCodePass::runOnFunction(Function &F) { return eliminateUnusedCode(F); }
-
-Pass *createEliminateUnusedCodePass()
+auto EliminateUnusedCodePass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	auto *p = new EliminateUnusedCodePass();
-	return p;
+	return eliminateUnusedCode(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-char EliminateUnusedCodePass::ID = 42;
-static llvm::RegisterPass<EliminateUnusedCodePass> P("elim-unused-code", "Eliminates unused code.");
