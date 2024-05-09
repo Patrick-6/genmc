@@ -20,7 +20,8 @@
 
 #include "DeclareInternalsPass.hpp"
 #include "Error.hpp"
-#include <config.h>
+
+#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
@@ -29,14 +30,14 @@
 
 using namespace llvm;
 
-bool declareInternal(Module &M, const std::string &name, Type *retTyp,
-		     const ArrayRef<Type *> &argTyps)
+auto declareInternal(Module &M, const std::string &name, Type *retTyp,
+		     const ArrayRef<Type *> &argTyps) -> bool
 {
 	auto *fun = M.getFunction(name);
 	if (fun)
 		return false;
 
-	auto funTyp = FunctionType::get(retTyp, argTyps, false);
+	auto *funTyp = FunctionType::get(retTyp, argTyps, false);
 	auto funAttrs = AttributeList::get(M.getContext(), AttributeList::FunctionIndex,
 					   std::vector<Attribute::AttrKind>({Attribute::NoUnwind}));
 	M.getOrInsertFunction(name, funTyp, funAttrs);
@@ -48,7 +49,7 @@ bool DeclareInternalsPass::runOnModule(Module &M)
 	bool modified = false;
 
 	modified |= declareInternal(M, "__VERIFIER_assume", Type::getVoidTy(M.getContext()),
-				    {Type::getInt32Ty(M.getContext())});
+				    {Type::getInt1Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_kill_thread", Type::getVoidTy(M.getContext()),
 				    {Type::getInt1Ty(M.getContext())});
 	modified |= declareInternal(M, "__VERIFIER_opt_begin", Type::getInt1Ty(M.getContext()), {});
