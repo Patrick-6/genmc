@@ -845,33 +845,7 @@ private:
 
 READ_PURE_SUBCLASS(Speculative);
 READ_PURE_SUBCLASS(Confirming);
-
-/*******************************************************************************
- **                         BWaitReadLabel Class
- ******************************************************************************/
-
-/* Specialization of ReadLabel for the read part of a barrier_wait() op */
-class BWaitReadLabel : public ReadLabel {
-
-public:
-	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
-		       EventLabel *rfLab, AnnotVP annot, const EventDeps &deps = EventDeps())
-		: ReadLabel(EL_BWaitRead, pos, ord, loc, size, type, rfLab, std::move(annot), deps)
-	{}
-	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
-		       EventLabel *rfLab, const EventDeps &deps = EventDeps())
-		: BWaitReadLabel(pos, ord, loc, size, type, rfLab, nullptr, deps)
-	{}
-	BWaitReadLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc, ASize size, AType type,
-		       const EventDeps &deps = EventDeps())
-		: BWaitReadLabel(pos, ord, loc, size, type, nullptr, nullptr, deps)
-	{}
-
-	DEFINE_CREATE_CLONE(BWaitReadLabel)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_BWaitRead; }
-};
+READ_PURE_SUBCLASS(BWait);
 
 /*******************************************************************************
  **                         FaiReadLabel Class
