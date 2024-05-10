@@ -3032,8 +3032,9 @@ void Interpreter::handleUnlock(SAddr addr, ASize size, const EventDeps *deps)
 	// 	return;
 	// }
 
-	CALL_DRIVER(handleStore, UnlockWriteLabel::create(currPos(), addr, size, GET_DEPS(deps)));
-	return;
+	CALL_DRIVER(handleStore,
+		    UnlockWriteLabel::create(currPos(), AtomicOrdering::Release, addr, size,
+					     AType::Signed, SVal(0), GET_DEPS(deps)));
 }
 
 void Interpreter::callAssertFail(Function *F, const std::vector<GenericValue> &ArgVals,

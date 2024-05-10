@@ -1288,66 +1288,32 @@ private:
 	WriteAttr wattr;
 };
 
-/*******************************************************************************
- **                         UnlockWriteLabel Class
- ******************************************************************************/
+#define WRITE_PURE_SUBCLASS(_class_kind)                                                           \
+	class _class_kind##WriteLabel : public WriteLabel {                                        \
+                                                                                                   \
+	public:                                                                                    \
+		_class_kind##WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc,            \
+					ASize size, AType type, SVal val, WriteAttr wattr,         \
+					const EventDeps &deps = EventDeps())                       \
+			: WriteLabel(EL_##_class_kind##Write, pos, ord, loc, size, type, val,      \
+				     wattr, deps)                                                  \
+		{}                                                                                 \
+		_class_kind##WriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr loc,            \
+					ASize size, AType type, SVal val,                          \
+					const EventDeps &deps = EventDeps())                       \
+			: _class_kind                                                              \
+			  ##WriteLabel(pos, ord, loc, size, type, val, WriteAttr::None, deps)      \
+		{}                                                                                 \
+                                                                                                   \
+		DEFINE_CREATE_CLONE(_class_kind##WriteLabel)                                       \
+                                                                                                   \
+		static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); } \
+		static bool classofKind(EventLabelKind k) { return k == EL_##_class_kind##Write; } \
+	};
 
-/* Specialization of writes for unlock events */
-class UnlockWriteLabel : public WriteLabel {
-
-public:
-	UnlockWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			 SVal val, const EventDeps &deps = EventDeps())
-		: WriteLabel(EL_UnlockWrite, pos, ord, addr, size, type, val, deps)
-	{}
-	UnlockWriteLabel(Event pos, SAddr addr, ASize size, const EventDeps &deps = EventDeps())
-		: UnlockWriteLabel(pos, llvm::AtomicOrdering::Release, addr, size, AType::Signed,
-				   SVal(0), deps)
-	{}
-
-	DEFINE_CREATE_CLONE(UnlockWriteLabel)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_UnlockWrite; }
-};
-
-/*******************************************************************************
- **                         BInitWriteLabel Class
- ******************************************************************************/
-
-/* Specialization of writes for barrier initializations */
-class BInitWriteLabel : public WriteLabel {
-
-public:
-	BInitWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			SVal val, const EventDeps &deps = EventDeps())
-		: WriteLabel(EL_BInitWrite, pos, ord, addr, size, type, val, deps)
-	{}
-
-	DEFINE_CREATE_CLONE(BInitWriteLabel)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_BInitWrite; }
-};
-
-/*******************************************************************************
- **                         BDestroyWriteLabel Class
- ******************************************************************************/
-
-/* Specialization of writes for barrier destruction */
-class BDestroyWriteLabel : public WriteLabel {
-
-public:
-	BDestroyWriteLabel(Event pos, llvm::AtomicOrdering ord, SAddr addr, ASize size, AType type,
-			   SVal val, const EventDeps &deps = EventDeps())
-		: WriteLabel(EL_BDestroyWrite, pos, ord, addr, size, type, val, deps)
-	{}
-
-	DEFINE_CREATE_CLONE(BDestroyWriteLabel)
-
-	static bool classof(const EventLabel *lab) { return classofKind(lab->getKind()); }
-	static bool classofKind(EventLabelKind k) { return k == EL_BDestroyWrite; }
-};
+WRITE_PURE_SUBCLASS(Unlock);
+WRITE_PURE_SUBCLASS(BInit);
+WRITE_PURE_SUBCLASS(BDestroy);
 
 /*******************************************************************************
  **                         FaiWriteLabel Class
