@@ -328,8 +328,8 @@ std::unique_ptr<EventDeps> Interpreter::updateFunArgDeps(unsigned int tid, Funct
 		for (auto i = SF.Caller.arg_begin(), e = SF.Caller.arg_end(); i != e; ++i) {
 			updateCtrlDeps(tid, *i);
 		}
-	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode)) {
-		/* We have addr dependency on the argument of mutex/barrier calls */
+	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode) || isCondVarCode(iFunCode)) {
+		/* We have addr dependency on the argument of mutex/barrier/condvar calls */
 		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()), nullptr,
 				     getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
 	}

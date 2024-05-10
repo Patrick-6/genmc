@@ -39,27 +39,27 @@
 #ifndef LLI_INTERPRETER_H
 #define LLI_INTERPRETER_H
 
-#include "InterpreterEnumAPI.hpp"
+#include "CallInstWrapper.hpp"
 #include "Config.hpp"
 #include "DepTracker.hpp"
+#include "InterpreterEnumAPI.hpp"
 #include "MemAccess.hpp"
 #include "ModuleInfo.hpp"
-#include "ThreadInfo.hpp"
 #include "SAddr.hpp"
 #include "SAddrAllocator.hpp"
 #include "SVal.hpp"
-#include "View.hpp"
-#include "CallInstWrapper.hpp"
+#include "ThreadInfo.hpp"
 #include "VerificationError.hpp"
+#include "View.hpp"
 #include "value_ptr.hpp"
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/DataLayout.h>
+#include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/InstVisitor.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/Support/DataTypes.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/raw_ostream.h>
@@ -70,51 +70,51 @@
 #include <unordered_set>
 
 /* Some helpers for GenericValues */
-#define INT_TO_GV(typ, val)						\
-({							                \
-	llvm::GenericValue __ret;					\
-	__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true); \
-	__ret;								\
-})
+#define INT_TO_GV(typ, val)                                                                        \
+	({                                                                                         \
+		llvm::GenericValue __ret;                                                          \
+		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true);              \
+		__ret;                                                                             \
+	})
 
-#define PTR_TO_GV(ptr)							\
-({							                \
-	llvm::GenericValue __ret;					\
-	__ret.PointerVal = (void *) (ptr);				\
-	__ret;								\
-})
+#define PTR_TO_GV(ptr)                                                                             \
+	({                                                                                         \
+		llvm::GenericValue __ret;                                                          \
+		__ret.PointerVal = (void *)(ptr);                                                  \
+		__ret;                                                                             \
+	})
 
-#define GET_ZERO_GV(typ)				\
-({							\
-	llvm::GenericValue __ret;			\
-	if (typ->isPointerTy())				\
-		__ret = PTR_TO_GV(nullptr);		\
-	else						\
-		__ret = INT_TO_GV(typ, 0);		\
-	__ret;						\
-})
+#define GET_ZERO_GV(typ)                                                                           \
+	({                                                                                         \
+		llvm::GenericValue __ret;                                                          \
+		if (typ->isPointerTy())                                                            \
+			__ret = PTR_TO_GV(nullptr);                                                \
+		else                                                                               \
+			__ret = INT_TO_GV(typ, 0);                                                 \
+		__ret;                                                                             \
+	})
 
 class GenMCDriver;
 
-#define INT_TO_GV(typ, val)						\
-({							                \
-	llvm::GenericValue __ret;					\
-	__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true); \
-	__ret;								\
-})
+#define INT_TO_GV(typ, val)                                                                        \
+	({                                                                                         \
+		llvm::GenericValue __ret;                                                          \
+		__ret.IntVal = llvm::APInt((typ)->getIntegerBitWidth(), (val), true);              \
+		__ret;                                                                             \
+	})
 
-#define PTR_TO_GV(ptr)							\
-({							                \
-	llvm::GenericValue __ret;					\
-	__ret.PointerVal = (void *) (ptr);				\
-	__ret;								\
-})
+#define PTR_TO_GV(ptr)                                                                             \
+	({                                                                                         \
+		llvm::GenericValue __ret;                                                          \
+		__ret.PointerVal = (void *)(ptr);                                                  \
+		__ret;                                                                             \
+	})
 
 namespace llvm {
 
 class IntrinsicLowering;
 struct FunctionInfo;
-template<typename T> class generic_gep_type_iterator;
+template <typename T> class generic_gep_type_iterator;
 class ConstantExpr;
 typedef generic_gep_type_iterator<User::const_op_iterator> gep_type_iterator;
 
@@ -126,31 +126,31 @@ typedef std::vector<GenericValue> ValuePlaneTy;
 // when stack frames are popped
 //
 class AllocaHolder {
-   std::vector<void *> allocas;
+	std::vector<void *> allocas;
 
- public:
-   using Allocas = std::vector<void *>;
+public:
+	using Allocas = std::vector<void *>;
 
-   AllocaHolder() {}
+	AllocaHolder() {}
 
-   void add(void *mem) { allocas.push_back(mem); }
-   const Allocas &get() const { return allocas; }
+	void add(void *mem) { allocas.push_back(mem); }
+	const Allocas &get() const { return allocas; }
 };
 
 // ExecutionContext struct - This struct represents one stack frame currently
 // executing.
 //
 struct ExecutionContext {
-  Function             *CurFunction;// The currently executing function
-  BasicBlock           *CurBB;      // The currently executing BB
-  BasicBlock::iterator  CurInst;    // The next instruction to execute
-  CallInstWrapper       Caller;     // Holds the call that called subframes.
-                                    // NULL if main func or debugger invoked fn
-  std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
-  std::vector<GenericValue>  VarArgs; // Values passed through an ellipsis
-  AllocaHolder Allocas;            // Track memory allocated by alloca
+	Function *CurFunction;			// The currently executing function
+	BasicBlock *CurBB;			// The currently executing BB
+	BasicBlock::iterator CurInst;		// The next instruction to execute
+	CallInstWrapper Caller;			// Holds the call that called subframes.
+						// NULL if main func or debugger invoked fn
+	std::map<Value *, GenericValue> Values; // LLVM values used in this invocation
+	std::vector<GenericValue> VarArgs;	// Values passed through an ellipsis
+	AllocaHolder Allocas;			// Track memory allocated by alloca
 
-  ExecutionContext() : CurFunction(nullptr), CurBB(nullptr), CurInst(nullptr) {}
+	ExecutionContext() : CurFunction(nullptr), CurBB(nullptr), CurInst(nullptr) {}
 };
 
 /* The different reasons a thread might block */
@@ -177,7 +177,7 @@ enum class BlockageType {
 class Thread {
 
 public:
-	using MyRNG  = std::minstd_rand;
+	using MyRNG = std::minstd_rand;
 	using MyDist = std::uniform_int_distribution<MyRNG::result_type>;
 	static constexpr int seed = 1995;
 
@@ -193,7 +193,7 @@ public:
 	BasicBlock::iterator curInstSnap;
 	BlockageType blocked;
 	MyRNG rng;
-	std::vector<std::pair<int, std::string> > prefixLOC;
+	std::vector<std::pair<int, std::string>> prefixLOC;
 
 	bool isMain() const { return id == 0; }
 
@@ -203,12 +203,14 @@ public:
 	BlockageType getBlockageType() const { return blocked; }
 
 	/* Useful for one-to-many instr->events correspondence */
-	void takeSnapshot()   {
+	void takeSnapshot()
+	{
 		globalInstSnap = globalInstructions;
 		curInstSnap = --ECStack.back().CurInst;
 		++ECStack.back().CurInst;
 	}
-	void rollToSnapshot() {
+	void rollToSnapshot()
+	{
 		globalInstructions = globalInstSnap;
 		ECStack.back().CurInst = curInstSnap;
 	}
@@ -218,28 +220,22 @@ protected:
 
 	Thread(llvm::Function *F, int id)
 		: id(id), parentId(-1), threadFun(F), initEC(), globalInstructions(0),
-		  blocked(BlockageType::NotBlocked), rng(seed) {}
+		  blocked(BlockageType::NotBlocked), rng(seed)
+	{}
 
 	Thread(llvm::Function *F, SVal arg, int id, int pid, const llvm::ExecutionContext &SF)
-		: id(id), parentId(pid), threadFun(F), threadArg(arg),
-		  initEC({SF}), globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed) {}
+		: id(id), parentId(pid), threadFun(F), threadArg(arg), initEC({SF}),
+		  globalInstructions(0), blocked(BlockageType::NotBlocked), rng(seed)
+	{}
 };
 
-llvm::raw_ostream& operator<<(llvm::raw_ostream &s, const Thread &thr);
+llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const Thread &thr);
 
 /* Pers: The state of the program -- i.e., part of the program being interpreted */
-enum class ProgramState {
-	Ctors,
-	Main,
-	Dtors,
-	Recovery
-};
+enum class ProgramState { Ctors, Main, Dtors, Recovery };
 
 /* The state of the current execution */
-enum class ExecutionState {
-	Normal,
-	Replay
-};
+enum class ExecutionState { Normal, Replay };
 
 struct DynamicComponents {
 
@@ -261,11 +257,11 @@ struct DynamicComponents {
 	 * said name (the contents should have the address of the file's inode) */
 	std::unordered_map<std::string, void *> nameToInodeAddr;
 
-	GenericValue ExitValue;          // The return value of the called function
+	GenericValue ExitValue; // The return value of the called function
 
 	// AtExitHandlers - List of functions to call when the program exits,
 	// registered with the atexit() library function.
-	std::vector<Function*> AtExitHandlers;
+	std::vector<Function *> AtExitHandlers;
 };
 
 using InterpreterState = DynamicComponents;
@@ -275,614 +271,612 @@ using InterpreterState = DynamicComponents;
 class Interpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
 
 public:
-  using AnnotID = ModuleID::ID;
-  using AnnotT = SExpr<AnnotID>;
+	using AnnotID = ModuleID::ID;
+	using AnnotT = SExpr<AnnotID>;
 
 protected:
+	/*** Static components (once set, do not change) ***/
 
-  /*** Static components (once set, do not change) ***/
+	/* Information about the module under test */
+	std::unique_ptr<ModuleInfo> MI;
 
-  /* Information about the module under test */
-  std::unique_ptr<ModuleInfo> MI;
+	/* List of thread-local variables, with their initializing values */
+	std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
 
-  /* List of thread-local variables, with their initializing values */
-  std::unordered_map<const void *, llvm::GenericValue> threadLocalVars;
+	/* Mapping between static allocation beginning and the actual addresses of
+	 * global variables (where their contents are stored) */
+	std::unordered_map<SAddr, void *> staticValueMap;
 
-  /* Mapping between static allocation beginning and the actual addresses of
-   * global variables (where their contents are stored) */
-  std::unordered_map<SAddr, void *> staticValueMap;
+	/* Keep all static ranges that have been allocated */
+	VSet<std::pair<SAddr, SAddr>> staticAllocas;
 
-  /* Keep all static ranges that have been allocated */
-  VSet<std::pair<SAddr, SAddr> > staticAllocas;
+	/* Maintain the relationship between SAddr and global variables,
+	 * so that we can get naming information */
+	std::unordered_map<SAddr, Value *> staticNames;
 
-  /* Maintain the relationship between SAddr and global variables,
-   * so that we can get naming information */
-  std::unordered_map<SAddr, Value *> staticNames;
+	/* (Composition) pointer to the driver */
+	GenMCDriver *driver;
 
-  /* (Composition) pointer to the driver */
-  GenMCDriver *driver;
+	Function *mainFun = nullptr;
 
-  Function *mainFun = nullptr;
+	/* Whether the driver should be called on system errors */
+	bool stopOnSystemErrors;
 
-  /* Whether the driver should be called on system errors */
-  bool stopOnSystemErrors;
+	/* Where system errors return values should be stored (if required) */
+	SAddr errnoAddr;
+	Type *errnoTyp;
 
-  /* Where system errors return values should be stored (if required) */
-  SAddr errnoAddr;
-  Type *errnoTyp;
+	/* Pers: The recovery routine to run */
+	Function *recoveryRoutine = nullptr;
 
-  /* Pers: The recovery routine to run */
-  Function *recoveryRoutine = nullptr;
+	/* This is not exactly static but is reset to the same value each time*/
+	std::vector<ExecutionContext> mainECStack;
 
-  /* This is not exactly static but is reset to the same value each time*/
-  std::vector<ExecutionContext> mainECStack;
+	IntrinsicLowering *IL;
 
-  IntrinsicLowering *IL;
+	/*** Dynamic components (change during verification) ***/
 
-  /*** Dynamic components (change during verification) ***/
-
-  DynamicComponents dynState;
+	DynamicComponents dynState;
 
 public:
-  explicit Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-		       GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor);
-  virtual ~Interpreter();
+	explicit Interpreter(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
+			     GenMCDriver *driver, const Config *userConf, SAddrAllocator &alloctor);
+	virtual ~Interpreter();
 
-  std::unique_ptr<InterpreterState> saveState();
-  void restoreState(std::unique_ptr<InterpreterState>);
+	std::unique_ptr<InterpreterState> saveState();
+	void restoreState(std::unique_ptr<InterpreterState>);
 
-  Thread &constructAddThreadFromInfo(const ThreadInfo &ti) {
-	  auto *calledFun = dyn_cast<Function>(const_cast<Value *>(MI->idInfo.IDV.at(ti.funId)));
-	  BUG_ON(!calledFun);
-	  ExecutionContext SF;
+	Thread &constructAddThreadFromInfo(const ThreadInfo &ti)
+	{
+		auto *calledFun =
+			dyn_cast<Function>(const_cast<Value *>(MI->idInfo.IDV.at(ti.funId)));
+		BUG_ON(!calledFun);
+		ExecutionContext SF;
 
-	  SF.CurFunction = calledFun;
-	  SF.CurBB = &calledFun->front();
-	  SF.CurInst = SF.CurBB->begin();
+		SF.CurFunction = calledFun;
+		SF.CurBB = &calledFun->front();
+		SF.CurInst = SF.CurBB->begin();
 
-	  SF.Values[&*calledFun->arg_begin()] = PTR_TO_GV(ti.arg.get());
-	  return createAddNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
-  }
-  void setExecutionContext(const std::vector<ThreadInfo> &tis) {
-	  dynState.threads.clear();
-	  createAddMainThread();
-	  for (auto &ti : tis)
-		  constructAddThreadFromInfo(ti);
-  }
+		SF.Values[&*calledFun->arg_begin()] = PTR_TO_GV(ti.arg.get());
+		return createAddNewThread(calledFun, ti.arg, ti.id, ti.parentId, SF);
+	}
+	void setExecutionContext(const std::vector<ThreadInfo> &tis)
+	{
+		dynState.threads.clear();
+		createAddMainThread();
+		for (auto &ti : tis)
+			constructAddThreadFromInfo(ti);
+	}
 
-#define CALL_DRIVER(method, ...)					\
-	({								\
-		if (getProgramState() != ProgramState::Recovery ||	\
-		    #method != "handleLoad") {				\
-			incPos();					\
-		}							\
-		driver->method(__VA_ARGS__);				\
+#define CALL_DRIVER(method, ...)                                                                   \
+	({                                                                                         \
+		if (getProgramState() != ProgramState::Recovery || #method != "handleLoad") {      \
+			incPos();                                                                  \
+		}                                                                                  \
+		driver->method(__VA_ARGS__);                                                       \
 	})
 
 /* When replaying, we don't decrease the pos so we don't get into an
  * infinite loop, e.g., if the last instruction reads bottom.
  * (Besides, the amount of replaying should be well-defined.)
  */
-#define CALL_DRIVER_RESET_IF_NONE(method, ...)			\
-	({							\
-		incPos();					\
-		auto ret = driver->method(__VA_ARGS__);		\
-		if (!ret.has_value() && getExecState() != ExecutionState::Replay) { \
-			decPos();				\
-			--ECStack().back().CurInst;		\
-		} else if (getProgramState() == ProgramState::Recovery && \
-			   #method == "handleLoad") { \
-			decPos();					\
-		}						\
-		ret;						\
+#define CALL_DRIVER_RESET_IF_NONE(method, ...)                                                     \
+	({                                                                                         \
+		incPos();                                                                          \
+		auto ret = driver->method(__VA_ARGS__);                                            \
+		if (!ret.has_value() && getExecState() != ExecutionState::Replay) {                \
+			decPos();                                                                  \
+			--ECStack().back().CurInst;                                                \
+		} else if (getProgramState() == ProgramState::Recovery &&                          \
+			   #method == "handleLoad") {                                              \
+			decPos();                                                                  \
+		}                                                                                  \
+		ret;                                                                               \
 	})
 
-#define CALL_DRIVER_RESET_IF_FALSE(method, ...)			\
-	({							\
-		incPos();					\
-		auto ret = driver->method(__VA_ARGS__);		\
-		if (!ret) {					\
-			decPos();				\
-			--ECStack().back().CurInst;		\
-		}						\
-		ret;						\
+#define CALL_DRIVER_RESET_IF_FALSE(method, ...)                                                    \
+	({                                                                                         \
+		incPos();                                                                          \
+		auto ret = driver->method(__VA_ARGS__);                                            \
+		if (!ret) {                                                                        \
+			decPos();                                                                  \
+			--ECStack().back().CurInst;                                                \
+		}                                                                                  \
+		ret;                                                                               \
 	})
 
-  /* Blocks the current execution */
-  void block(BlockageType t = BlockageType::Error ) {
-	  std::for_each(threads_begin(), threads_end(), [&](Thread &thr){ thr.block(t); });
-  }
+	/* Blocks the current execution */
+	void block(BlockageType t = BlockageType::Error)
+	{
+		std::for_each(threads_begin(), threads_end(), [&](Thread &thr) { thr.block(t); });
+	}
 
-   /* Resets all thread info to their initial values */
-  void resetThread(unsigned int id);
+	/* Resets all thread info to their initial values */
+	void resetThread(unsigned int id);
 
-  /* Resets the interpreter at the beginning of a new execution */
-  void reset();
+	/* Resets the interpreter at the beginning of a new execution */
+	void reset();
 
-  /* Pers: Setups the execution context for the recovery routine
-   * in thread TID. Assumes that the thread has already been added
-   * to the thread list. */
-  void setupRecoveryRoutine(int tid);
+	/* Pers: Setups the execution context for the recovery routine
+	 * in thread TID. Assumes that the thread has already been added
+	 * to the thread list. */
+	void setupRecoveryRoutine(int tid);
 
-  /* Pers: Does cleanups after the recovery routine has run */
-  void cleanupRecoveryRoutine(int tid);
+	/* Pers: Does cleanups after the recovery routine has run */
+	void cleanupRecoveryRoutine(int tid);
 
-  /* Creates a new thread and adds it to the thread list */
-  Thread &createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
-			    const llvm::ExecutionContext &SF);
+	/* Creates a new thread and adds it to the thread list */
+	Thread &createAddNewThread(llvm::Function *F, SVal arg, int tid, int pid,
+				   const llvm::ExecutionContext &SF);
 
-  /* Pers: Creates a thread for the recovery routine and adds it to
-   * the thread list */
-  Thread &createAddRecoveryThread(int tid);
+	/* Pers: Creates a thread for the recovery routine and adds it to
+	 * the thread list */
+	Thread &createAddRecoveryThread(int tid);
 
-  /* Sets-up the specified thread for execution */
-  void scheduleThread(int tid) { dynState.currentThread = tid; }
+	/* Sets-up the specified thread for execution */
+	void scheduleThread(int tid) { dynState.currentThread = tid; }
 
-  /* Returns the currently executing thread */
-  Thread& getCurThr() { return dynState.threads[dynState.currentThread]; }
-  const Thread &getCurThr() const { return dynState.threads.at(dynState.currentThread); }
+	/* Returns the currently executing thread */
+	Thread &getCurThr() { return dynState.threads[dynState.currentThread]; }
+	const Thread &getCurThr() const { return dynState.threads.at(dynState.currentThread); }
 
-  /* Returns the thread with the specified ID (taken from the graph) */
-  Thread& getThrById(int id) { return dynState.threads[id]; };
-  const Thread& getThrById(int id) const { return dynState.threads[id]; };
+	/* Returns the thread with the specified ID (taken from the graph) */
+	Thread &getThrById(int id) { return dynState.threads[id]; };
+	const Thread &getThrById(int id) const { return dynState.threads[id]; };
 
-  unsigned int getNumThreads() const { return dynState.threads.size(); }
+	unsigned int getNumThreads() const { return dynState.threads.size(); }
 
-  using thread_iterator = std::vector<Thread>::iterator;
-  using const_thread_iterator = std::vector<Thread>::const_iterator;
-  using thread_range = iterator_range<thread_iterator>;
-  using const_thread_range = iterator_range<const_thread_iterator>;
+	using thread_iterator = std::vector<Thread>::iterator;
+	using const_thread_iterator = std::vector<Thread>::const_iterator;
+	using thread_range = iterator_range<thread_iterator>;
+	using const_thread_range = iterator_range<const_thread_iterator>;
 
-  const_thread_iterator threads_begin() const { return dynState.threads.begin(); }
-  const_thread_iterator threads_end() const { return dynState.threads.end(); }
-  thread_iterator threads_begin() { return dynState.threads.begin(); }
-  thread_iterator threads_end() { return dynState.threads.end(); }
-  const_thread_range threads() const { return const_thread_range(threads_begin(), threads_end()); }
-  thread_range threads() { return thread_range(threads_begin(), threads_end()); }
+	const_thread_iterator threads_begin() const { return dynState.threads.begin(); }
+	const_thread_iterator threads_end() const { return dynState.threads.end(); }
+	thread_iterator threads_begin() { return dynState.threads.begin(); }
+	thread_iterator threads_end() { return dynState.threads.end(); }
+	const_thread_range threads() const
+	{
+		return const_thread_range(threads_begin(), threads_end());
+	}
+	thread_range threads() { return thread_range(threads_begin(), threads_end()); }
 
-  /* Returns the stack frame of the currently executing thread */
-  std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
+	/* Returns the stack frame of the currently executing thread */
+	std::vector<ExecutionContext> &ECStack() { return getCurThr().ECStack; }
 
-  /* Returns the current (global) position (thread, index) interpreted */
-  Event currPos() const { return Event(getCurThr().id, getCurThr().globalInstructions); };
-  Event nextPos() const { return currPos().next(); };
-  Event incPos() {
-	  auto &thr = getCurThr();
-	  return Event(thr.id, ++thr.globalInstructions);
-  };
-  Event decPos() {
-	  auto &thr = getCurThr();
-	  return Event(thr.id, --thr.globalInstructions);
-  };
+	/* Returns the current (global) position (thread, index) interpreted */
+	Event currPos() const { return Event(getCurThr().id, getCurThr().globalInstructions); };
+	Event nextPos() const { return currPos().next(); };
+	Event incPos()
+	{
+		auto &thr = getCurThr();
+		return Event(thr.id, ++thr.globalInstructions);
+	};
+	Event decPos()
+	{
+		auto &thr = getCurThr();
+		return Event(thr.id, --thr.globalInstructions);
+	};
 
-  /* Query interpreter's state */
-  ProgramState getProgramState() const { return dynState.programState; }
-  ExecutionState getExecState() const { return dynState.execState; }
+	/* Query interpreter's state */
+	ProgramState getProgramState() const { return dynState.programState; }
+	ExecutionState getExecState() const { return dynState.execState; }
 
-  /* Annotation information */
+	/* Annotation information */
 
-  /* Returns annotation information for the instruction I */
-  const AnnotT *getAnnotation(Instruction *I) const {
-	  auto id = MI->idInfo.VID[I];
-	  return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get() : nullptr;
-  }
+	/* Returns annotation information for the instruction I */
+	const AnnotT *getAnnotation(Instruction *I) const
+	{
+		auto id = MI->idInfo.VID[I];
+		return MI->annotInfo.annotMap.count(id) ? MI->annotInfo.annotMap.at(id).get()
+							: nullptr;
+	}
 
-  /* Returns (concretized) annotation information for the
-   * current instruction (assuming we're executing it) */
-  std::unique_ptr<AnnotT> getCurrentAnnotConcretized();
+	/* Returns (concretized) annotation information for the
+	 * current instruction (assuming we're executing it) */
+	std::unique_ptr<AnnotT> getCurrentAnnotConcretized();
 
-  /* Memory pools checks */
+	/* Memory pools checks */
 
-  /* Returns true if the interpreter has allocated space for the specified static */
-  bool isStaticallyAllocated(SAddr addr) const;
-  void *getStaticAddr(SAddr addr) const;
-  std::string getStaticName(SAddr addr) const;
+	/* Returns true if the interpreter has allocated space for the specified static */
+	bool isStaticallyAllocated(SAddr addr) const;
+	void *getStaticAddr(SAddr addr) const;
+	std::string getStaticName(SAddr addr) const;
 
-  /// runAtExitHandlers - Run any functions registered by the program's calls to
-  /// atexit(3), which we intercept and store in AtExitHandlers.
-  ///
-  void runAtExitHandlers();
+	/// runAtExitHandlers - Run any functions registered by the program's calls to
+	/// atexit(3), which we intercept and store in AtExitHandlers.
+	///
+	void runAtExitHandlers();
 
-  /// create - Create an interpreter ExecutionEngine. This can never fail.
-  ///
-  static std::unique_ptr<Interpreter>
-      create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI,
-	     GenMCDriver *driver, const Config *userConf,
-	     SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
+	/// create - Create an interpreter ExecutionEngine. This can never fail.
+	///
+	static std::unique_ptr<Interpreter>
+	create(std::unique_ptr<Module> M, std::unique_ptr<ModuleInfo> MI, GenMCDriver *driver,
+	       const Config *userConf, SAddrAllocator &alloctor, std::string *ErrorStr = nullptr);
 
-  /// run - Start execution with the specified function and arguments.
-  ///
+	/// run - Start execution with the specified function and arguments.
+	///
 #ifdef LLVM_EXECUTION_ENGINE_RUN_FUNCTION_VECTOR
-  virtual GenericValue runFunction(Function *F,
-				   const std::vector<GenericValue> &ArgValues);
+	virtual GenericValue runFunction(Function *F, const std::vector<GenericValue> &ArgValues);
 #else
-  virtual GenericValue runFunction(Function *F,
-				   llvm::ArrayRef<GenericValue> ArgValues);
+	virtual GenericValue runFunction(Function *F, llvm::ArrayRef<GenericValue> ArgValues);
 #endif
 
-  void *getPointerToNamedFunction(const std::string &Name,
-                                  bool AbortOnFailure = true) {
-    // FIXME: not implemented.
-    return nullptr;
-  }
+	void *getPointerToNamedFunction(const std::string &Name, bool AbortOnFailure = true)
+	{
+		// FIXME: not implemented.
+		return nullptr;
+	}
 
-  void *getPointerToNamedFunction(llvm::StringRef Name,
-                                  bool AbortOnFailure = true) {
-    // FIXME: not implemented.
-    return nullptr;
-  };
+	void *getPointerToNamedFunction(llvm::StringRef Name, bool AbortOnFailure = true)
+	{
+		// FIXME: not implemented.
+		return nullptr;
+	};
 
-  /// recompileAndRelinkFunction - For the interpreter, functions are always
-  /// up-to-date.
-  ///
-  void *recompileAndRelinkFunction(Function *F) {
-    return getPointerToFunction(F);
-  }
+	/// recompileAndRelinkFunction - For the interpreter, functions are always
+	/// up-to-date.
+	///
+	void *recompileAndRelinkFunction(Function *F) { return getPointerToFunction(F); }
 
-  /// freeMachineCodeForFunction - The interpreter does not generate any code.
-  ///
-  void freeMachineCodeForFunction(Function *F) { }
+	/// freeMachineCodeForFunction - The interpreter does not generate any code.
+	///
+	void freeMachineCodeForFunction(Function *F) {}
 
+	/* Helper functions */
+	void replayExecutionBefore(const VectorClock &before);
 
-  /* Helper functions */
-  void replayExecutionBefore(const VectorClock &before);
+	SVal getLocInitVal(const AAccess &access)
+	{
+		GenericValue result;
 
-  SVal getLocInitVal(const AAccess &access) {
-    GenericValue result;
-
-    LoadValueFromMemory(result, (llvm::GenericValue *) getStaticAddr(access.getAddr()),
+		LoadValueFromMemory(
+			result, (llvm::GenericValue *)getStaticAddr(access.getAddr()),
 			IntegerType::get(Modules.back()->getContext(), access.getSize().get() * 8));
-    return SVal(result.IntVal.getLimitedValue());
-  }
+		return SVal(result.IntVal.getLimitedValue());
+	}
 
-  unsigned int getTypeSize(Type *typ) const;
-  SVal executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op);
+	unsigned int getTypeSize(Type *typ) const;
+	SVal executeAtomicRMWOperation(SVal oldVal, SVal val, ASize size, AtomicRMWInst::BinOp op);
 
-  // Methods used to execute code:
-  // Place a call on the stack
-  void callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
-		    const std::unique_ptr<EventDeps> &specialDeps);
+	// Methods used to execute code:
+	// Place a call on the stack
+	void callFunction(Function *F, const std::vector<GenericValue> &ArgVals,
+			  const std::unique_ptr<EventDeps> &specialDeps);
 
-  /* callFunction() wrappers to be called before running a function */
-  void setupFunctionCall(Function *F, ArrayRef<GenericValue> ArgValues);
-  void setupStaticCtorsDtors(Module &M, bool isDtors);
-  void setupStaticCtorsDtors(bool isDtors);
-  void setupMain(Function *Fn,
-		 const std::vector<std::string> &argv,
-		 const char * const * envp);
+	/* callFunction() wrappers to be called before running a function */
+	void setupFunctionCall(Function *F, ArrayRef<GenericValue> ArgValues);
+	void setupStaticCtorsDtors(Module &M, bool isDtors);
+	void setupStaticCtorsDtors(bool isDtors);
+	void setupMain(Function *Fn, const std::vector<std::string> &argv, const char *const *envp);
 
-  void run();                // Execute instructions until nothing left to do
+	void run(); // Execute instructions until nothing left to do
 
-  /* run() wrappers */
-  int runAsMain(const std::string &main);
-  void runRecovery();
+	/* run() wrappers */
+	int runAsMain(const std::string &main);
+	void runRecovery();
 
-  // Opcode Implementations
-  void visitReturnInst(ReturnInst &I);
-  void visitBranchInst(BranchInst &I);
-  void visitSwitchInst(SwitchInst &I);
-  void visitIndirectBrInst(IndirectBrInst &I);
+	// Opcode Implementations
+	void visitReturnInst(ReturnInst &I);
+	void visitBranchInst(BranchInst &I);
+	void visitSwitchInst(SwitchInst &I);
+	void visitIndirectBrInst(IndirectBrInst &I);
 
-  void visitBinaryOperator(BinaryOperator &I);
-  void visitICmpInst(ICmpInst &I);
-  void visitFCmpInst(FCmpInst &I);
-  void visitAllocaInst(AllocaInst &I);
-  void visitLoadInst(LoadInst &I);
-  void visitStoreInst(StoreInst &I);
-  void visitGetElementPtrInst(GetElementPtrInst &I);
-  void visitPHINode(PHINode &PN) {
-    llvm_unreachable("PHI nodes already handled!");
-  }
-  void visitTruncInst(TruncInst &I);
-  void visitZExtInst(ZExtInst &I);
-  void visitSExtInst(SExtInst &I);
-  void visitFPTruncInst(FPTruncInst &I);
-  void visitFPExtInst(FPExtInst &I);
-  void visitUIToFPInst(UIToFPInst &I);
-  void visitSIToFPInst(SIToFPInst &I);
-  void visitFPToUIInst(FPToUIInst &I);
-  void visitFPToSIInst(FPToSIInst &I);
-  void visitPtrToIntInst(PtrToIntInst &I);
-  void visitIntToPtrInst(IntToPtrInst &I);
-  void visitBitCastInst(BitCastInst &I);
-  void visitSelectInst(SelectInst &I);
+	void visitBinaryOperator(BinaryOperator &I);
+	void visitICmpInst(ICmpInst &I);
+	void visitFCmpInst(FCmpInst &I);
+	void visitAllocaInst(AllocaInst &I);
+	void visitLoadInst(LoadInst &I);
+	void visitStoreInst(StoreInst &I);
+	void visitGetElementPtrInst(GetElementPtrInst &I);
+	void visitPHINode(PHINode &PN) { llvm_unreachable("PHI nodes already handled!"); }
+	void visitTruncInst(TruncInst &I);
+	void visitZExtInst(ZExtInst &I);
+	void visitSExtInst(SExtInst &I);
+	void visitFPTruncInst(FPTruncInst &I);
+	void visitFPExtInst(FPExtInst &I);
+	void visitUIToFPInst(UIToFPInst &I);
+	void visitSIToFPInst(SIToFPInst &I);
+	void visitFPToUIInst(FPToUIInst &I);
+	void visitFPToSIInst(FPToSIInst &I);
+	void visitPtrToIntInst(PtrToIntInst &I);
+	void visitIntToPtrInst(IntToPtrInst &I);
+	void visitBitCastInst(BitCastInst &I);
+	void visitSelectInst(SelectInst &I);
 
-  void visitCallInstWrapper(CallInstWrapper CIW);
+	void visitCallInstWrapper(CallInstWrapper CIW);
 #if LLVM_VERSION_MAJOR < 11
-  void visitCallSite(CallSite  CS) { visitCallInstWrapper(CallInstWrapper(CS)); }
+	void visitCallSite(CallSite CS) { visitCallInstWrapper(CallInstWrapper(CS)); }
 #else
-  void visitCallBase(CallBase &CB) { visitCallInstWrapper(CallInstWrapper(CB)); }
+	void visitCallBase(CallBase &CB) { visitCallInstWrapper(CallInstWrapper(CB)); }
 #endif
-  void visitUnreachableInst(UnreachableInst &I);
+	void visitUnreachableInst(UnreachableInst &I);
 
-  void visitShl(BinaryOperator &I);
-  void visitLShr(BinaryOperator &I);
-  void visitAShr(BinaryOperator &I);
+	void visitShl(BinaryOperator &I);
+	void visitLShr(BinaryOperator &I);
+	void visitAShr(BinaryOperator &I);
 
-  void visitVAArgInst(VAArgInst &I);
-  void visitExtractElementInst(ExtractElementInst &I);
-  void visitInsertElementInst(InsertElementInst &I);
-  void visitShuffleVectorInst(ShuffleVectorInst &I);
+	void visitVAArgInst(VAArgInst &I);
+	void visitExtractElementInst(ExtractElementInst &I);
+	void visitInsertElementInst(InsertElementInst &I);
+	void visitShuffleVectorInst(ShuffleVectorInst &I);
 
-  void visitExtractValueInst(ExtractValueInst &I);
-  void visitInsertValueInst(InsertValueInst &I);
+	void visitExtractValueInst(ExtractValueInst &I);
+	void visitInsertValueInst(InsertValueInst &I);
 
-  void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
-  void visitAtomicRMWInst(AtomicRMWInst &I);
-  void visitFenceInst(FenceInst &I);
+	void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I);
+	void visitAtomicRMWInst(AtomicRMWInst &I);
+	void visitFenceInst(FenceInst &I);
 
-  bool isInlineAsm(CallInstWrapper CIW, std::string *asmStr);
-  void visitInlineAsm(CallInstWrapper CIW, const std::string &asmString);
+	bool isInlineAsm(CallInstWrapper CIW, std::string *asmStr);
+	void visitInlineAsm(CallInstWrapper CIW, const std::string &asmString);
 
-  void visitInstruction(Instruction &I) {
-    errs() << I << "\n";
-    llvm_unreachable("Instruction not interpretable yet!");
-  }
+	void visitInstruction(Instruction &I)
+	{
+		errs() << I << "\n";
+		llvm_unreachable("Instruction not interpretable yet!");
+	}
 
-  GenericValue callExternalFunction(Function *F,
-                                    const std::vector<GenericValue> &ArgVals);
-  void exitCalled(GenericValue GV);
+	GenericValue callExternalFunction(Function *F, const std::vector<GenericValue> &ArgVals);
+	void exitCalled(GenericValue GV);
 
-  void addAtExitHandler(Function *F) {
-    dynState.AtExitHandlers.push_back(F);
-  }
+	void addAtExitHandler(Function *F) { dynState.AtExitHandlers.push_back(F); }
 
-  GenericValue *getFirstVarArg () {
-    return &(ECStack().back ().VarArgs[0]);
-  }
+	GenericValue *getFirstVarArg() { return &(ECStack().back().VarArgs[0]); }
 
-private:  // Helper functions
-  GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I,
-                                   gep_type_iterator E, ExecutionContext &SF);
+private: // Helper functions
+	GenericValue executeGEPOperation(Value *Ptr, gep_type_iterator I, gep_type_iterator E,
+					 ExecutionContext &SF);
 
-  // SwitchToNewBasicBlock - Start execution in a new basic block and run any
-  // PHI nodes in the top of the block.  This is used for intraprocedural
-  // control flow.
-  //
-  void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
+	// SwitchToNewBasicBlock - Start execution in a new basic block and run any
+	// PHI nodes in the top of the block.  This is used for intraprocedural
+	// control flow.
+	//
+	void SwitchToNewBasicBlock(BasicBlock *Dest, ExecutionContext &SF);
 
-  void *getPointerToFunction(Function *F) { return (void*)F; }
-  void *getPointerToBasicBlock(BasicBlock *BB) { return (void*)BB; }
+	void *getPointerToFunction(Function *F) { return (void *)F; }
+	void *getPointerToBasicBlock(BasicBlock *BB) { return (void *)BB; }
 
-  void initializeExecutionEngine() { }
-  void initializeExternalFunctions();
-  GenericValue getConstantExprValue(ConstantExpr *CE, ExecutionContext &SF);
-  GenericValue getOperandValue(Value *V, ExecutionContext &SF);
-  GenericValue executeTruncInst(Value *SrcVal, Type *DstTy,
-                                ExecutionContext &SF);
-  GenericValue executeSExtInst(Value *SrcVal, Type *DstTy,
-                               ExecutionContext &SF);
-  GenericValue executeZExtInst(Value *SrcVal, Type *DstTy,
-                               ExecutionContext &SF);
-  GenericValue executeFPTruncInst(Value *SrcVal, Type *DstTy,
-                                  ExecutionContext &SF);
-  GenericValue executeFPExtInst(Value *SrcVal, Type *DstTy,
-                                ExecutionContext &SF);
-  GenericValue executeFPToUIInst(Value *SrcVal, Type *DstTy,
-                                 ExecutionContext &SF);
-  GenericValue executeFPToSIInst(Value *SrcVal, Type *DstTy,
-                                 ExecutionContext &SF);
-  GenericValue executeUIToFPInst(Value *SrcVal, Type *DstTy,
-                                 ExecutionContext &SF);
-  GenericValue executeSIToFPInst(Value *SrcVal, Type *DstTy,
-                                 ExecutionContext &SF);
-  GenericValue executePtrToIntInst(Value *SrcVal, Type *DstTy,
-                                   ExecutionContext &SF);
-  GenericValue executeIntToPtrInst(Value *SrcVal, Type *DstTy,
-                                   ExecutionContext &SF);
-  GenericValue executeBitCastInst(Value *SrcVal, Type *DstTy,
-                                  ExecutionContext &SF);
-  GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal,
-                                    Type *Ty, ExecutionContext &SF);
-  std::vector<GenericValue> translateExternalCallArgs(Function *F,
-						      const std::vector<GenericValue> &Args) const;
-  void returnValueToCaller(Type *RetTy, GenericValue Result);
-  void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result, ReturnInst *retI = nullptr);
+	void initializeExecutionEngine() {}
+	void initializeExternalFunctions();
+	GenericValue getConstantExprValue(ConstantExpr *CE, ExecutionContext &SF);
+	GenericValue getOperandValue(Value *V, ExecutionContext &SF);
+	GenericValue executeTruncInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeSExtInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeZExtInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeFPTruncInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeFPExtInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeFPToUIInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeFPToSIInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeUIToFPInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeSIToFPInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executePtrToIntInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeIntToPtrInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeBitCastInst(Value *SrcVal, Type *DstTy, ExecutionContext &SF);
+	GenericValue executeCastOperation(Instruction::CastOps opcode, Value *SrcVal, Type *Ty,
+					  ExecutionContext &SF);
+	std::vector<GenericValue>
+	translateExternalCallArgs(Function *F, const std::vector<GenericValue> &Args) const;
+	void returnValueToCaller(Type *RetTy, GenericValue Result);
+	void popStackAndReturnValueToCaller(Type *RetTy, GenericValue Result,
+					    ReturnInst *retI = nullptr);
 
-  void handleSystemError(SystemError code, const std::string &msg);
+	void handleSystemError(SystemError code, const std::string &msg);
 
-  SVal getInodeTransStatus(void *inode, Type *intTyp);
-  void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
-  SVal readInodeSizeFS(void *inode, Type *intTyp,
-		       const std::unique_ptr<EventDeps> &deps);
-  void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
-			 const std::unique_ptr<EventDeps> &deps);
-  void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize,
-			     SVal ordDataBegin, SVal ordDataEnd);
-  void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset,
-		       int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
-  void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset,
-			int count, Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
-  void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
+	SVal getInodeTransStatus(void *inode, Type *intTyp);
+	void setInodeTransStatus(void *inode, Type *intTyp, SVal status);
+	SVal readInodeSizeFS(void *inode, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
+	void updateInodeSizeFS(void *inode, Type *intTyp, SVal newSize,
+			       const std::unique_ptr<EventDeps> &deps);
+	void updateInodeDisksizeFS(void *inode, Type *intTyp, SVal newSize, SVal ordDataBegin,
+				   SVal ordDataEnd);
+	void writeDataToDisk(void *buf, int bufOffset, void *inode, int inodeOffset, int count,
+			     Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
+	void readDataFromDisk(void *inode, int inodeOffset, void *buf, int bufOffset, int count,
+			      Type *dataTyp, const std::unique_ptr<EventDeps> &deps);
+	void updateDirNameInode(const std::string &name, Type *intTyp, SVal inode);
 
-  SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
-  SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
-  SVal executeInodeCreateFS(const std::string &name, Type *intTyp,
-			    const std::unique_ptr<EventDeps> &deps);
-  SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp,
+	SVal checkOpenFlagsFS(SVal &flags, Type *intTyp);
+	SVal executeInodeLookupFS(const std::string &name, Type *intTyp);
+	SVal executeInodeCreateFS(const std::string &name, Type *intTyp,
+				  const std::unique_ptr<EventDeps> &deps);
+	SVal executeLookupOpenFS(const std::string &filename, SVal &flags, Type *intTyp,
+				 const std::unique_ptr<EventDeps> &deps);
+	SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
 			   const std::unique_ptr<EventDeps> &deps);
-  SVal executeOpenFS(const std::string &filename, SVal flags, SVal inode, Type *intTyp,
-		     const std::unique_ptr<EventDeps> &deps);
 
-  void executeReleaseFileFS(void *fileDesc, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
-  SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
-  SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
-		       SVal newInode, Type *intTyp);
-  SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
-  SVal executeUnlinkFS(const std::string &pathname, Type *intTyp);
+	void executeReleaseFileFS(void *fileDesc, Type *intTyp,
+				  const std::unique_ptr<EventDeps> &deps);
+	SVal executeCloseFS(SVal fd, Type *intTyp, const std::unique_ptr<EventDeps> &deps);
+	SVal executeRenameFS(const std::string &oldpath, SVal oldInode, const std::string &newpath,
+			     SVal newInode, Type *intTyp);
+	SVal executeLinkFS(const std::string &newpath, SVal oldInode, Type *intTyp);
+	SVal executeUnlinkFS(const std::string &pathname, Type *intTyp);
 
-
-  SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp,
-			 const std::unique_ptr<EventDeps> &deps);
-  SVal executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
-		     SVal count, const std::unique_ptr<EventDeps> &deps);
-  void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
-  SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
-			    SVal &wOffset, const std::unique_ptr<EventDeps> &deps);
-  bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size,
-				   SVal offset, SVal count, SVal &dSize);
-  SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp, SVal wOffset,
-			      SVal count, const std::unique_ptr<EventDeps> &deps);
-  SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset, SVal count,
-		      const std::unique_ptr<EventDeps> &deps);
-  SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
-		      const std::unique_ptr<EventDeps> &deps);
-  void executeFsyncFS(void *inode, Type *intTyp);
-
-  void setProgramState(ProgramState s) { dynState.programState = s; }
-  void setExecState(ExecutionState s) { dynState.execState = s; }
-
-  void handleLock(SAddr addr, ASize size, const EventDeps *deps);
-  void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
-
-  /* Custom Opcode Implementations */
-#define DECLARE_CUSTOM_OPCODE(_name)						  \
-	void call ## _name(Function *F, const std::vector<GenericValue> &ArgVals, \
-			   const std::unique_ptr<EventDeps> &specialDeps)
-
-  DECLARE_CUSTOM_OPCODE(AssertFail);
-  DECLARE_CUSTOM_OPCODE(OptBegin);
-  DECLARE_CUSTOM_OPCODE(LoopBegin);
-  DECLARE_CUSTOM_OPCODE(RecAssertFail);
-  DECLARE_CUSTOM_OPCODE(SpinStart);
-  DECLARE_CUSTOM_OPCODE(SpinEnd);
-  DECLARE_CUSTOM_OPCODE(FaiZNESpinEnd);
-  DECLARE_CUSTOM_OPCODE(LockZNESpinEnd);
-  DECLARE_CUSTOM_OPCODE(KillThread);
-  DECLARE_CUSTOM_OPCODE(Assume);
-  DECLARE_CUSTOM_OPCODE(NondetInt);
-  DECLARE_CUSTOM_OPCODE(Malloc);
-  DECLARE_CUSTOM_OPCODE(MallocAligned);
-  DECLARE_CUSTOM_OPCODE(PMalloc);
-  DECLARE_CUSTOM_OPCODE(Free);
-  DECLARE_CUSTOM_OPCODE(ThreadSelf);
-  DECLARE_CUSTOM_OPCODE(ThreadCreate);
-  DECLARE_CUSTOM_OPCODE(ThreadCreateSymmetric);
-  DECLARE_CUSTOM_OPCODE(ThreadJoin);
-  DECLARE_CUSTOM_OPCODE(ThreadExit);
-  DECLARE_CUSTOM_OPCODE(AtExit);
-  DECLARE_CUSTOM_OPCODE(MutexInit);
-  DECLARE_CUSTOM_OPCODE(MutexLock);
-  DECLARE_CUSTOM_OPCODE(MutexUnlock);
-  DECLARE_CUSTOM_OPCODE(MutexTrylock);
-  DECLARE_CUSTOM_OPCODE(MutexDestroy);
-  DECLARE_CUSTOM_OPCODE(BarrierInit);
-  DECLARE_CUSTOM_OPCODE(BarrierWait);
-  DECLARE_CUSTOM_OPCODE(BarrierDestroy);
-  DECLARE_CUSTOM_OPCODE(HazptrAlloc);
-  DECLARE_CUSTOM_OPCODE(HazptrProtect);
-  DECLARE_CUSTOM_OPCODE(HazptrClear);
-  DECLARE_CUSTOM_OPCODE(HazptrFree);
-  DECLARE_CUSTOM_OPCODE(HazptrRetire);
-  DECLARE_CUSTOM_OPCODE(OpenFS);
-  DECLARE_CUSTOM_OPCODE(CreatFS);
-  DECLARE_CUSTOM_OPCODE(CloseFS);
-  DECLARE_CUSTOM_OPCODE(RenameFS);
-  DECLARE_CUSTOM_OPCODE(LinkFS);
-  DECLARE_CUSTOM_OPCODE(UnlinkFS);
-  DECLARE_CUSTOM_OPCODE(TruncateFS);
-  DECLARE_CUSTOM_OPCODE(ReadFS);
-  DECLARE_CUSTOM_OPCODE(WriteFS);
-  DECLARE_CUSTOM_OPCODE(SyncFS);
-  DECLARE_CUSTOM_OPCODE(FsyncFS);
-  DECLARE_CUSTOM_OPCODE(PreadFS);
-  DECLARE_CUSTOM_OPCODE(PwriteFS);
-  DECLARE_CUSTOM_OPCODE(LseekFS);
-  DECLARE_CUSTOM_OPCODE(PersBarrierFS);
-  DECLARE_CUSTOM_OPCODE(SmpFenceLKMM);
-  DECLARE_CUSTOM_OPCODE(RCUReadLockLKMM);
-  DECLARE_CUSTOM_OPCODE(RCUReadUnlockLKMM);
-  DECLARE_CUSTOM_OPCODE(SynchronizeRCULKMM);
-  DECLARE_CUSTOM_OPCODE(CLFlush);
-
-  void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
+	SVal executeTruncateFS(SVal inode, SVal length, Type *intTyp,
+			       const std::unique_ptr<EventDeps> &deps);
+	SVal executeReadFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
+			   SVal count, const std::unique_ptr<EventDeps> &deps);
+	void zeroDskRangeFS(void *inode, SVal start, SVal end, Type *writeIntTyp);
+	SVal executeWriteChecksFS(void *inode, Type *intTyp, SVal flags, SVal offset, SVal count,
+				  SVal &wOffset, const std::unique_ptr<EventDeps> &deps);
+	bool shouldUpdateInodeDisksizeFS(void *inode, Type *intTyp, SVal size, SVal offset,
+					 SVal count, SVal &dSize);
+	SVal executeBufferedWriteFS(void *inode, Type *intTyp, void *buf, Type *bufElemTyp,
+				    SVal wOffset, SVal count,
+				    const std::unique_ptr<EventDeps> &deps);
+	SVal executeWriteFS(void *file, Type *intTyp, void *buf, Type *bufElemTyp, SVal offset,
+			    SVal count, const std::unique_ptr<EventDeps> &deps);
+	SVal executeLseekFS(void *file, Type *intTyp, SVal offset, SVal whence,
 			    const std::unique_ptr<EventDeps> &deps);
+	void executeFsyncFS(void *inode, Type *intTyp);
 
-  void freeAllocas(const AllocaHolder &allocas);
+	void setProgramState(ProgramState s) { dynState.programState = s; }
+	void setExecState(ExecutionState s) { dynState.execState = s; }
 
-  /* Collects the addresses (and some naming information) for all variables with
-   * static storage. Also calculates the starting address of the allocation pool */
-  void collectStaticAddresses(SAddrAllocator &alloctor);
+	void handleLock(SAddr addr, ASize size, const EventDeps *deps);
+	void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
 
-  /* Sets up how some errors will be reported to the user */
-  void setupErrorPolicy(Module *M, const Config *userConf);
+	/* Custom Opcode Implementations */
+#define DECLARE_CUSTOM_OPCODE(_name)                                                               \
+	void call##_name(Function *F, const std::vector<GenericValue> &ArgVals,                    \
+			 const std::unique_ptr<EventDeps> &specialDeps)
 
-  /* Pers: Sets up information about the modeled filesystem */
-  void setupFsInfo(Module *M, const Config *userConf);
+	DECLARE_CUSTOM_OPCODE(AssertFail);
+	DECLARE_CUSTOM_OPCODE(OptBegin);
+	DECLARE_CUSTOM_OPCODE(LoopBegin);
+	DECLARE_CUSTOM_OPCODE(RecAssertFail);
+	DECLARE_CUSTOM_OPCODE(SpinStart);
+	DECLARE_CUSTOM_OPCODE(SpinEnd);
+	DECLARE_CUSTOM_OPCODE(FaiZNESpinEnd);
+	DECLARE_CUSTOM_OPCODE(LockZNESpinEnd);
+	DECLARE_CUSTOM_OPCODE(KillThread);
+	DECLARE_CUSTOM_OPCODE(Assume);
+	DECLARE_CUSTOM_OPCODE(NondetInt);
+	DECLARE_CUSTOM_OPCODE(Malloc);
+	DECLARE_CUSTOM_OPCODE(MallocAligned);
+	DECLARE_CUSTOM_OPCODE(PMalloc);
+	DECLARE_CUSTOM_OPCODE(Free);
+	DECLARE_CUSTOM_OPCODE(ThreadSelf);
+	DECLARE_CUSTOM_OPCODE(ThreadCreate);
+	DECLARE_CUSTOM_OPCODE(ThreadCreateSymmetric);
+	DECLARE_CUSTOM_OPCODE(ThreadJoin);
+	DECLARE_CUSTOM_OPCODE(ThreadExit);
+	DECLARE_CUSTOM_OPCODE(AtExit);
+	DECLARE_CUSTOM_OPCODE(MutexInit);
+	DECLARE_CUSTOM_OPCODE(MutexLock);
+	DECLARE_CUSTOM_OPCODE(MutexUnlock);
+	DECLARE_CUSTOM_OPCODE(MutexTrylock);
+	DECLARE_CUSTOM_OPCODE(MutexDestroy);
+	DECLARE_CUSTOM_OPCODE(CondVarInit);
+	DECLARE_CUSTOM_OPCODE(CondVarWait);
+	DECLARE_CUSTOM_OPCODE(CondVarSignal);
+	DECLARE_CUSTOM_OPCODE(CondVarBcast);
+	DECLARE_CUSTOM_OPCODE(CondVarDestroy);
+	DECLARE_CUSTOM_OPCODE(BarrierInit);
+	DECLARE_CUSTOM_OPCODE(BarrierWait);
+	DECLARE_CUSTOM_OPCODE(BarrierDestroy);
+	DECLARE_CUSTOM_OPCODE(HazptrAlloc);
+	DECLARE_CUSTOM_OPCODE(HazptrProtect);
+	DECLARE_CUSTOM_OPCODE(HazptrClear);
+	DECLARE_CUSTOM_OPCODE(HazptrFree);
+	DECLARE_CUSTOM_OPCODE(HazptrRetire);
+	DECLARE_CUSTOM_OPCODE(OpenFS);
+	DECLARE_CUSTOM_OPCODE(CreatFS);
+	DECLARE_CUSTOM_OPCODE(CloseFS);
+	DECLARE_CUSTOM_OPCODE(RenameFS);
+	DECLARE_CUSTOM_OPCODE(LinkFS);
+	DECLARE_CUSTOM_OPCODE(UnlinkFS);
+	DECLARE_CUSTOM_OPCODE(TruncateFS);
+	DECLARE_CUSTOM_OPCODE(ReadFS);
+	DECLARE_CUSTOM_OPCODE(WriteFS);
+	DECLARE_CUSTOM_OPCODE(SyncFS);
+	DECLARE_CUSTOM_OPCODE(FsyncFS);
+	DECLARE_CUSTOM_OPCODE(PreadFS);
+	DECLARE_CUSTOM_OPCODE(PwriteFS);
+	DECLARE_CUSTOM_OPCODE(LseekFS);
+	DECLARE_CUSTOM_OPCODE(PersBarrierFS);
+	DECLARE_CUSTOM_OPCODE(SmpFenceLKMM);
+	DECLARE_CUSTOM_OPCODE(RCUReadLockLKMM);
+	DECLARE_CUSTOM_OPCODE(RCUReadUnlockLKMM);
+	DECLARE_CUSTOM_OPCODE(SynchronizeRCULKMM);
+	DECLARE_CUSTOM_OPCODE(CLFlush);
 
-  /* Adds the specified thread to the list */
-  Thread &addNewThread(Thread &&thread);
+	void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
+				  const std::unique_ptr<EventDeps> &deps);
 
-  /* Creates an entry for the main() function. More information are
-   * filled from the execution engine when the exploration starts */
-  Thread &createAddMainThread();
+	void freeAllocas(const AllocaHolder &allocas);
 
-  /* Dependency tracking */
+	/* Collects the addresses (and some naming information) for all variables with
+	 * static storage. Also calculates the starting address of the allocation pool */
+	void collectStaticAddresses(SAddrAllocator &alloctor);
 
-  DepTracker *getDepTracker() { return &*dynState.depTracker; }
-  const DepTracker *getDepTracker() const { return &*dynState.depTracker; }
+	/* Sets up how some errors will be reported to the user */
+	void setupErrorPolicy(Module *M, const Config *userConf);
 
-  std::unique_ptr<EventDeps>
-  makeEventDeps(const DepInfo *addr, const DepInfo *data,
-		const DepInfo *ctrl, const DepInfo *addrPo,
-		const DepInfo *cas);
+	/* Pers: Sets up information about the modeled filesystem */
+	void setupFsInfo(Module *M, const Config *userConf);
 
-  const DepInfo *getDataDeps(unsigned int tid, Value *i) {
-    return getDepTracker() ? getDepTracker()->getDataDeps(tid, i) : nullptr;
-  }
-  const DepInfo *getAddrPoDeps(unsigned int tid) {
-    return getDepTracker() ? getDepTracker()->getAddrPoDeps(tid) : nullptr;
-  }
-  const DepInfo *getCtrlDeps(unsigned int tid) {
-    return getDepTracker() ? getDepTracker()->getCtrlDeps(tid) : nullptr;
-  }
+	/* Adds the specified thread to the list */
+	Thread &addNewThread(Thread &&thread);
 
-  void updateDataDeps(unsigned int tid, Value *dst, Value *src) {
-    if (getDepTracker())
-      getDepTracker()->updateDataDeps(tid, dst, src);
-  }
-  void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e) {
-    if (getDepTracker())
-      getDepTracker()->updateDataDeps(tid, dst, *e);
-  }
-  void updateDataDeps(unsigned int tid, Value *dst, Event e) {
-    if (getDepTracker())
-      getDepTracker()->updateDataDeps(tid, dst, e);
-  }
-  void updateAddrPoDeps(unsigned int tid, Value *src) {
-    if (getDepTracker())
-      getDepTracker()->updateAddrPoDeps(tid, src);
-  }
-  void updateCtrlDeps(unsigned int tid, Value *src) {
-    if (getDepTracker())
-      getDepTracker()->updateCtrlDeps(tid, src);
-  }
+	/* Creates an entry for the main() function. More information are
+	 * filled from the execution engine when the exploration starts */
+	Thread &createAddMainThread();
 
-  std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
-  void updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS);
+	/* Dependency tracking */
 
-  void clearDeps(unsigned int tid) {
-    if (getDepTracker())
-      getDepTracker()->clearDeps(tid);
-  }
+	DepTracker *getDepTracker() { return &*dynState.depTracker; }
+	const DepTracker *getDepTracker() const { return &*dynState.depTracker; }
 
-  /* Gets naming information for value V (or value with key KEY), if it is
-   * an internal variable with no value correspondence */
-  const NameInfo *getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
-				 const VariableInfo<ModuleID::ID>::InternalKey &key = {});
+	std::unique_ptr<EventDeps> makeEventDeps(const DepInfo *addr, const DepInfo *data,
+						 const DepInfo *ctrl, const DepInfo *addrPo,
+						 const DepInfo *cas);
 
-  /* Pers: Returns the address of the file description referenced by FD */
-  void *getFileFromFd(int fd) const;
+	const DepInfo *getDataDeps(unsigned int tid, Value *i)
+	{
+		return getDepTracker() ? getDepTracker()->getDataDeps(tid, i) : nullptr;
+	}
+	const DepInfo *getAddrPoDeps(unsigned int tid)
+	{
+		return getDepTracker() ? getDepTracker()->getAddrPoDeps(tid) : nullptr;
+	}
+	const DepInfo *getCtrlDeps(unsigned int tid)
+	{
+		return getDepTracker() ? getDepTracker()->getCtrlDeps(tid) : nullptr;
+	}
 
-  /* Pers: Tracks that the address of the file description of FD is FILEADDR */
-  void setFdToFile(int fd, void *fileAddr);
+	void updateDataDeps(unsigned int tid, Value *dst, Value *src)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateDataDeps(tid, dst, src);
+	}
+	void updateDataDeps(unsigned int tid, Value *dst, const DepInfo *e)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateDataDeps(tid, dst, *e);
+	}
+	void updateDataDeps(unsigned int tid, Value *dst, Event e)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateDataDeps(tid, dst, e);
+	}
+	void updateAddrPoDeps(unsigned int tid, Value *src)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateAddrPoDeps(tid, src);
+	}
+	void updateCtrlDeps(unsigned int tid, Value *src)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateCtrlDeps(tid, src);
+	}
 
-  /* Pers: Directory operations */
-  void *getDirInode() const;
-  void *getInodeAddrFromName(const std::string &filename) const;
+	std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
+	void updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS);
 
+	void clearDeps(unsigned int tid)
+	{
+		if (getDepTracker())
+			getDepTracker()->clearDeps(tid);
+	}
+
+	/* Gets naming information for value V (or value with key KEY), if it is
+	 * an internal variable with no value correspondence */
+	const NameInfo *getVarNameInfo(Value *v, StorageDuration sd, AddressSpace spc,
+				       const VariableInfo<ModuleID::ID>::InternalKey &key = {});
+
+	/* Pers: Returns the address of the file description referenced by FD */
+	void *getFileFromFd(int fd) const;
+
+	/* Pers: Tracks that the address of the file description of FD is FILEADDR */
+	void setFdToFile(int fd, void *fileAddr);
+
+	/* Pers: Directory operations */
+	void *getDirInode() const;
+	void *getInodeAddrFromName(const std::string &filename) const;
 };
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif

@@ -114,6 +114,7 @@ public:
 		EL_BWaitRead,
 		EL_SpeculativeRead,
 		EL_ConfirmingRead,
+		EL_CondVarWaitRead,
 		EL_FaiRead,
 		EL_NoRetFaiRead,
 		EL_BIncFaiRead,
@@ -130,6 +131,10 @@ public:
 		EL_UnlockWrite,
 		EL_BInitWrite,
 		EL_BDestroyWrite,
+		EL_CondVarInitWrite,
+		EL_CondVarSignalWrite,
+		EL_CondVarBcastWrite,
+		EL_CondVarDestroyWrite,
 		EL_FaiWrite,
 		EL_NoRetFaiWrite,
 		EL_BIncFaiWrite,
@@ -846,6 +851,7 @@ private:
 READ_PURE_SUBCLASS(Speculative);
 READ_PURE_SUBCLASS(Confirming);
 READ_PURE_SUBCLASS(BWait);
+READ_PURE_SUBCLASS(CondVarWait);
 
 /*******************************************************************************
  **                         FaiReadLabel Class
@@ -1314,6 +1320,10 @@ private:
 WRITE_PURE_SUBCLASS(Unlock);
 WRITE_PURE_SUBCLASS(BInit);
 WRITE_PURE_SUBCLASS(BDestroy);
+WRITE_PURE_SUBCLASS(CondVarInit);
+WRITE_PURE_SUBCLASS(CondVarSignal);
+WRITE_PURE_SUBCLASS(CondVarBcast);
+WRITE_PURE_SUBCLASS(CondVarDestroy);
 
 /*******************************************************************************
  **                         FaiWriteLabel Class

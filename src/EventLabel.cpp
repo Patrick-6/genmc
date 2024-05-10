@@ -81,6 +81,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 		break;
 	case EventLabel::EL_Read:
 	case EventLabel::EL_BWaitRead:
+	case EventLabel::EL_CondVarWaitRead:
 	case EventLabel::EL_SpeculativeRead:
 	case EventLabel::EL_ConfirmingRead:
 		s << "R";
@@ -115,6 +116,10 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabel
 	case EventLabel::EL_Write:
 	case EventLabel::EL_BInitWrite:
 	case EventLabel::EL_BDestroyWrite:
+	case EventLabel::EL_CondVarInitWrite:
+	case EventLabel::EL_CondVarSignalWrite:
+	case EventLabel::EL_CondVarBcastWrite:
+	case EventLabel::EL_CondVarDestroyWrite:
 	case EventLabel::EL_UnlockWrite:
 		s << "W";
 		break;

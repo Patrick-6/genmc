@@ -82,6 +82,11 @@ enum class InternalFunctions {
 	FN_BarrierInit,
 	FN_BarrierWait,
 	FN_BarrierDestroy,
+	FN_CondVarInit,
+	FN_CondVarWait,
+	FN_CondVarSignal,
+	FN_CondVarBcast,
+	FN_CondVarDestroy,
 
 	FN_OpenFS,
 	FN_CreatFS,
@@ -165,6 +170,12 @@ inline bool isBarrierCode(InternalFunctions code)
 		code <= InternalFunctions::FN_BarrierDestroy);
 }
 
+inline bool isCondVarCode(InternalFunctions code)
+{
+	return (code >= InternalFunctions::FN_CondVarInit &&
+		code <= InternalFunctions::FN_CondVarDestroy);
+}
+
 inline bool isFsCode(InternalFunctions code)
 {
 	return (code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastFS);
@@ -189,7 +200,7 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 	using IF = InternalFunctions;
 	auto &code = internalFunNames.at(name);
 	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock ||
-	       code == IF::FN_BarrierWait || isFsCode(code);
+	       code == IF::FN_BarrierWait || code == IF::FN_CondVarWait || isFsCode(code);
 }
 
 /* Should match our internal definitions */

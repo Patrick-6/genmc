@@ -3464,6 +3464,104 @@ void Interpreter::callBarrierDestroy(Function *F, const std::vector<GenericValue
 	return;
 }
 
+void Interpreter::callCondVarInit(Function *F, const std::vector<GenericValue> &ArgVals,
+				  const std::unique_ptr<EventDeps> &specialDeps)
+{
+	GenericValue *cvar = (GenericValue *)GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *)GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
+	auto size = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	if (attr)
+		WARN_ONCE("pthread-cvar-init-arg",
+			  "Ignoring non-null argument given to pthread_cond_init.\n");
+
+	CALL_DRIVER(handleStore, WriteLabel::create(currPos(), AtomicOrdering::NotAtomic, cvar,
+						    size, atyp, SVal(0), GET_DEPS(specialDeps)));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+}
+
+void Interpreter::callCondVarWait(Function *F, const std::vector<GenericValue> &ArgVals,
+				  const std::unique_ptr<EventDeps> &specialDeps)
+{
+	GenericValue *cvar = (GenericValue *)GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *)GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
+	auto size = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	auto *I = ECStack().back().CurInst->getPrevNode();
+	auto annot = ReadLabel::AnnotVP(
+		SgtExpr<AnnotID>::create(
+			RegisterExpr<AnnotID>::create(ASize(size).getBits(), MI->idInfo.VID.at(I)),
+			ConcreteExpr<AnnotID>::create(ASize(size).getBits(), 0))
+			.release());
+	auto val = CALL_DRIVER(handleLoad, CondVarWaitReadLabel::create(
+						   currPos(), AtomicOrdering::Monotonic, cvar, size,
+						   atyp, GET_DEPS(specialDeps)))
+			   .value();
+
+	returnValueToCaller(typ, SVAL_TO_GV(val, typ));
+}
+
+void Interpreter::callCondVarSignal(Function *F, const std::vector<GenericValue> &ArgVals,
+				    const std::unique_ptr<EventDeps> &specialDeps)
+{
+	GenericValue *cvar = (GenericValue *)GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *)GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
+	auto size = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	CALL_DRIVER(handleStore,
+		    CondVarSignalWriteLabel::create(currPos(), AtomicOrdering::Monotonic, cvar,
+						    size, atyp, SVal(1), GET_DEPS(specialDeps)));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+}
+
+void Interpreter::callCondVarBcast(Function *F, const std::vector<GenericValue> &ArgVals,
+				   const std::unique_ptr<EventDeps> &specialDeps)
+{
+	GenericValue *cvar = (GenericValue *)GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *)GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
+	auto size = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	CALL_DRIVER(handleStore,
+		    CondVarBcastWriteLabel::create(currPos(), AtomicOrdering::Monotonic, cvar, size,
+						   atyp, SVal(1), GET_DEPS(specialDeps)));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+}
+
+void Interpreter::callCondVarDestroy(Function *F, const std::vector<GenericValue> &ArgVals,
+				     const std::unique_ptr<EventDeps> &specialDeps)
+{
+	GenericValue *cvar = (GenericValue *)GVTOP(ArgVals[0]);
+	GenericValue *attr = (GenericValue *)GVTOP(ArgVals[1]);
+	auto *typ = F->getReturnType();
+	auto size = getTypeSize(typ);
+	auto atyp = TYPE_TO_ATYPE(typ);
+
+	CALL_DRIVER(handleStore,
+		    CondVarDestroyWriteLabel::create(currPos(), AtomicOrdering::Monotonic, cvar,
+						     size, atyp, SVal(-1), GET_DEPS(specialDeps)));
+
+	GenericValue result;
+	result.IntVal = APInt(typ->getIntegerBitWidth(), 0);
+	returnValueToCaller(typ, result);
+}
+
 void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &ArgVals,
 				  const std::unique_ptr<EventDeps> &specialDeps)
 {
@@ -3476,7 +3574,6 @@ void Interpreter::callHazptrAlloc(Function *F, const std::vector<GenericValue> &
 						StorageType::ST_Volatile, AddressSpace::AS_Internal,
 						GET_DEPS(deps)));
 	returnValueToCaller(F->getReturnType(), SVAL_TO_GV(address, F->getReturnType()));
-	return;
 }
 
 void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -3486,7 +3583,6 @@ void Interpreter::callHazptrProtect(Function *F, const std::vector<GenericValue>
 	auto *ptr = GVTOP(ArgVals[1]);
 
 	CALL_DRIVER(handleHpProtect, HpProtectLabel::create(currPos(), hp, ptr));
-	return;
 }
 
 void Interpreter::callHazptrClear(Function *F, const std::vector<GenericValue> &ArgVals,
@@ -4887,6 +4983,11 @@ void Interpreter::callInternalFunction(Function *F, const std::vector<GenericVal
 		CALL_INTERNAL_FUNCTION(BarrierInit);
 		CALL_INTERNAL_FUNCTION(BarrierWait);
 		CALL_INTERNAL_FUNCTION(BarrierDestroy);
+		CALL_INTERNAL_FUNCTION(CondVarInit);
+		CALL_INTERNAL_FUNCTION(CondVarWait);
+		CALL_INTERNAL_FUNCTION(CondVarSignal);
+		CALL_INTERNAL_FUNCTION(CondVarBcast);
+		CALL_INTERNAL_FUNCTION(CondVarDestroy);
 		CALL_INTERNAL_FUNCTION(HazptrAlloc);
 		CALL_INTERNAL_FUNCTION(HazptrProtect);
 		CALL_INTERNAL_FUNCTION(HazptrClear);

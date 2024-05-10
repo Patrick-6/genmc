@@ -75,6 +75,7 @@ public:
 			VISIT_LABEL(LockZNESpinEnd);
 			VISIT_LABEL(Read);
 			VISIT_LABEL(BWaitRead);
+			VISIT_LABEL(CondVarWaitRead);
 			VISIT_LABEL(SpeculativeRead);
 			VISIT_LABEL(ConfirmingRead);
 			VISIT_LABEL(FaiRead);
@@ -90,6 +91,10 @@ public:
 			VISIT_LABEL(UnlockWrite);
 			VISIT_LABEL(BInitWrite);
 			VISIT_LABEL(BDestroyWrite);
+			VISIT_LABEL(CondVarInitWrite);
+			VISIT_LABEL(CondVarSignalWrite);
+			VISIT_LABEL(CondVarBcastWrite);
+			VISIT_LABEL(CondVarDestroyWrite);
 			VISIT_LABEL(FaiWrite);
 			VISIT_LABEL(NoRetFaiWrite);
 			VISIT_LABEL(BIncFaiWrite);
@@ -198,6 +203,10 @@ public:
 
 	void visitReadLabel(const ReadLabel &lab) { return DELEGATE_LABEL(MemAccessLabel); }
 	void visitBWaitReadLabel(const BWaitReadLabel &lab) { return DELEGATE_LABEL(ReadLabel); }
+	void visitCondVarWaitReadLabel(const CondVarWaitReadLabel &lab)
+	{
+		return DELEGATE_LABEL(ReadLabel);
+	}
 	void visitSpeculativeReadLabel(const SpeculativeReadLabel &lab)
 	{
 		return DELEGATE_LABEL(ReadLabel);
@@ -243,6 +252,22 @@ public:
 	}
 	void visitBInitWriteLabel(const BInitWriteLabel &lab) { return DELEGATE_LABEL(WriteLabel); }
 	void visitBDestroyWriteLabel(const BDestroyWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(WriteLabel);
+	}
+	void visitCondVarInitWriteLabel(const CondVarInitWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(WriteLabel);
+	}
+	void visitCondVarSignalWriteLabel(const CondVarSignalWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(WriteLabel);
+	}
+	void visitCondVarBcastWriteLabel(const CondVarBcastWriteLabel &lab)
+	{
+		return DELEGATE_LABEL(WriteLabel);
+	}
+	void visitCondVarDestroyWriteLabel(const CondVarDestroyWriteLabel &lab)
 	{
 		return DELEGATE_LABEL(WriteLabel);
 	}
