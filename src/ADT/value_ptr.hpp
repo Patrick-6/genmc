@@ -44,8 +44,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VALUE_PTR_HPP__
-#define __VALUE_PTR_HPP__
+#ifndef GENMC_VALUE_PTR_HPP
+#define GENMC_VALUE_PTR_HPP
 #include <memory>
 
 #ifdef _MSC_VER
@@ -197,4 +197,4 @@ public:
 
 #undef DECLSPEC_EMPTY_BASES
 
-#endif /* __VALUE_PTR_HPP__ */
+#endif /* GENMC_VALUE_PTR_HPP */

@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SADDR_ALLOCATOR_HPP__
-#define __SADDR_ALLOCATOR_HPP__
+#ifndef GENMC_SADDR_ALLOCATOR_HPP
+#define GENMC_SADDR_ALLOCATOR_HPP
 
 #include "Error.hpp"
 #include "SAddr.hpp"
@@ -76,4 +76,4 @@ private:
 	SAddr::Width heapPool = 1; /* avoid allocating null */
 };
 
-#endif /* __SADDR_ALLOCATOR_HPP__ */
+#endif /* GENMC_SADDR_ALLOCATOR_HPP */

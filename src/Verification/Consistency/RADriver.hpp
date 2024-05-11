@@ -22,8 +22,8 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef __RA_DRIVER_HPP__
-#define __RA_DRIVER_HPP__
+#ifndef GENMC_RA_DRIVER_HPP
+#define GENMC_RA_DRIVER_HPP
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
@@ -267,4 +267,4 @@ private:
 	mutable std::vector<View> views;
 };
 
-#endif /* __RA_DRIVER_HPP__ */
+#endif /* GENMC_RA_DRIVER_HPP */

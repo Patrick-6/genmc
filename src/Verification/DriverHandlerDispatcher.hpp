@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DRIVER_HANDLER_DISPATCHER_HPP__
-#define __DRIVER_HANDLER_DISPATCHER_HPP__
+#ifndef GENMC_DRIVER_HANDLER_DISPATCHER_HPP
+#define GENMC_DRIVER_HANDLER_DISPATCHER_HPP
 
 #include "ExecutionGraph/EventLabel.hpp"
 #include "ExecutionGraph/LabelVisitor.hpp"
@@ -190,4 +190,4 @@ protected:
 	GenMCDriver *driver;
 };
 
-#endif /* __DRIVER_HANDLER_DISPATCHER_HPP__ */
+#endif /* GENMC_DRIVER_HANDLER_DISPATCHER_HPP */

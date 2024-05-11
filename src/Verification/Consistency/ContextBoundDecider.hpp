@@ -18,8 +18,8 @@
  * Author: Iason Marmanis <imarmanis@mpi-sws.org>
  */
 
-#ifndef __CONTEXT_BOUND_DECIDER_HPP__
-#define __CONTEXT_BOUND_DECIDER_HPP__
+#ifndef GENMC_CONTEXT_BOUND_DECIDER_HPP
+#define GENMC_CONTEXT_BOUND_DECIDER_HPP
 
 #include "ADT/View.hpp"
 #include "BoundDecider.hpp"
@@ -39,4 +39,4 @@ private:
 #endif
 };
 
-#endif /* __CONTEXT_BOUND_DECIDER_HPP__ */
+#endif /* GENMC_CONTEXT_BOUND_DECIDER_HPP */

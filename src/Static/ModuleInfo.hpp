@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MODULE_INFO_HPP__
-#define __MODULE_INFO_HPP__
+#ifndef GENMC_MODULE_INFO_HPP
+#define GENMC_MODULE_INFO_HPP
 
 #include "ADT/VSet.hpp"
 #include "Config/Config.hpp"
@@ -168,4 +168,4 @@ private:
 	const llvm::Module &mod;
 };
 
-#endif /* __MODULE_INFO_HPP__ */
+#endif /* GENMC_MODULE_INFO_HPP */

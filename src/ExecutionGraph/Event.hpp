@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __EVENT_HPP__
-#define __EVENT_HPP__
+#ifndef GENMC_EVENT_HPP
+#define GENMC_EVENT_HPP
 
 #include <llvm/ADT/Hashing.h>
 #include <llvm/Support/raw_ostream.h>
@@ -116,4 +116,4 @@ struct EventHasher {
 	}
 };
 
-#endif /* __EVENT_HPP__ */
+#endif /* GENMC_EVENT_HPP */

@@ -54,4 +54,4 @@ private:
 	PassModuleInfo &PMI;
 };
 
-#endif /* __MM_DETECTOR_PASS_HPP__ */
+#endif /* GENMC_MM_DETECTOR_PASS_HPP */

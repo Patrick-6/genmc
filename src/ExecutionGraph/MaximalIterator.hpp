@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MAXIMAL_ITERATOR_HPP__
-#define __MAXIMAL_ITERATOR_HPP__
+#ifndef GENMC_MAXIMAL_ITERATOR_HPP
+#define GENMC_MAXIMAL_ITERATOR_HPP
 
 #include "ADT/View.hpp"
 #include "config.h"

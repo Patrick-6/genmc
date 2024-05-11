@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VSET_HPP__
-#define __VSET_HPP__
+#ifndef GENMC_VSET_HPP
+#define GENMC_VSET_HPP
 
 #include <functional>
 #include <initializer_list>
@@ -98,4 +98,4 @@ public:
 
 #include "VSet.tcc"
 
-#endif /* __VSET_HPP__ */
+#endif /* GENMC_VSET_HPP */

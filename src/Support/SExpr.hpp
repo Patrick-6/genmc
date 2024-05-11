@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __S_EXPR_HPP__
-#define __S_EXPR_HPP__
+#ifndef GENMC_S_EXPR_HPP
+#define GENMC_S_EXPR_HPP
 
 #include "Error.hpp"
 #include "SVal.hpp"
@@ -679,4 +679,4 @@ COMPARISON_EXPR_CLASS(Sge)
 
 #include "SExpr.tcc"
 
-#endif /* __S_EXPR_HPP__ */
+#endif /* GENMC_S_EXPR_HPP */

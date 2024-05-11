@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOGGER_HPP__
-#define __LOGGER_HPP__
+#ifndef GENMC_LOGGER_HPP
+#define GENMC_LOGGER_HPP
 
 #include "Config/Verbosity.hpp"
 #include <llvm/Support/raw_ostream.h>
@@ -125,4 +125,4 @@ inline VerbosityLevel logLevel = VerbosityLevel::Tip;
 	else                                                                                       \
 		Logger<out_tag>(level)
 
-#endif /* __LOGGER_HPP__ */
+#endif /* GENMC_LOGGER_HPP */

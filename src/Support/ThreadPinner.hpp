@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __THREAD_PINNER_HPP__
-#define __THREAD_PINNER_HPP__
+#ifndef GENMC_THREAD_PINNER_HPP
+#define GENMC_THREAD_PINNER_HPP
 
 #include "config.h"
 #include <thread>
@@ -78,4 +78,4 @@ public:
 
 #endif /* HAVE_LIBHWLOC */
 
-#endif /* __THREAD_PINNER_HPP__ */
+#endif /* GENMC_THREAD_PINNER_HPP */

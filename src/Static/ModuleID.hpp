@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MODULE_ID_HPP__
-#define __MODULE_ID_HPP__
+#ifndef GENMC_MODULE_ID_HPP
+#define GENMC_MODULE_ID_HPP
 
 #include <llvm/IR/Value.h>
 
@@ -40,4 +40,4 @@ struct ModuleID {
 	}
 };
 
-#endif /* __MODULE_ID_HPP__ */
+#endif /* GENMC_MODULE_ID_HPP */

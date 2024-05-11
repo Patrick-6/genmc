@@ -22,8 +22,8 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef __RC11_DRIVER_HPP__
-#define __RC11_DRIVER_HPP__
+#ifndef GENMC_RC11_DRIVER_HPP
+#define GENMC_RC11_DRIVER_HPP
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
@@ -324,4 +324,4 @@ private:
 	mutable std::vector<View> views;
 };
 
-#endif /* __RC11_DRIVER_HPP__ */
+#endif /* GENMC_RC11_DRIVER_HPP */

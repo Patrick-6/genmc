@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DEP_TRACKER_HPP__
-#define __DEP_TRACKER_HPP__
+#ifndef GENMC_DEP_TRACKER_HPP
+#define GENMC_DEP_TRACKER_HPP
 
 #include "ExecutionGraph/DepInfo.hpp"
 #include <llvm/IR/Instruction.h>
@@ -92,4 +92,4 @@ struct DepTrackerCloner {
 	// DepTracker *operator()(DepTracker &&x) const { return new DepTracker(std::move(x)); }
 };
 
-#endif /* __DEP_TRACKER_HPP__ */
+#endif /* GENMC_DEP_TRACKER_HPP */

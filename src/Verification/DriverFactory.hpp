@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DRIVER_FACTORY_HPP__
-#define __DRIVER_FACTORY_HPP__
+#ifndef GENMC_DRIVER_FACTORY_HPP
+#define GENMC_DRIVER_FACTORY_HPP
 
 #include "Config/Config.hpp"
 #include "Verification/Consistency/IMMDriver.hpp"
@@ -64,4 +64,4 @@ public:
 	}
 };
 
-#endif /* __DRIVER_FACTORY_HPP__ */
+#endif /* GENMC_DRIVER_FACTORY_HPP */

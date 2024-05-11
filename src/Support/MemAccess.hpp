@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MEM_ACCESS_HPP__
-#define __MEM_ACCESS_HPP__
+#ifndef GENMC_MEM_ACCESS_HPP
+#define GENMC_MEM_ACCESS_HPP
 
 #include "Error.hpp"
 #include "SAddr.hpp"
@@ -81,4 +81,4 @@ private:
 	AType type;
 };
 
-#endif /* __MEM_ACCESS_HPP__ */
+#endif /* GENMC_MEM_ACCESS_HPP */

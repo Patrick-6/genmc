@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __EXECUTION_GRAPH_HPP__
-#define __EXECUTION_GRAPH_HPP__
+#ifndef GENMC_EXECUTION_GRAPH_HPP
+#define GENMC_EXECUTION_GRAPH_HPP
 
 #include "ADT/AdjList.hpp"
 #include "ADT/VectorClock.hpp"
@@ -607,4 +607,4 @@ protected:
 	int recoveryTID = -1;
 };
 
-#endif /* __EXECUTION_GRAPH_HPP__ */
+#endif /* GENMC_EXECUTION_GRAPH_HPP */

@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ASIZE_HPP__
-#define __ASIZE_HPP__
+#ifndef GENMC_ASIZE_HPP
+#define GENMC_ASIZE_HPP
 
 #include "Error.hpp"
 #include "config.h"
@@ -61,4 +61,4 @@ private:
 	Size size;
 };
 
-#endif /* __ASIZE_HPP__ */
+#endif /* GENMC_ASIZE_HPP */

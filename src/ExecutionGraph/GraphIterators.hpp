@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __GRAPH_ITERATORS_HPP__
-#define __GRAPH_ITERATORS_HPP__
+#ifndef GENMC_GRAPH_ITERATORS_HPP
+#define GENMC_GRAPH_ITERATORS_HPP
 
 #include "ExecutionGraph.hpp"
 #include "config.h"
@@ -1087,4 +1087,4 @@ inline const MallocLabel *free_pred(const ExecutionGraph &G, const EventLabel *l
 	return (!dLab || !dLab->getAlloc()) ? nullptr : dLab->getAlloc();
 }
 
-#endif /* __GRAPH_ITERATORS_HPP__ */
+#endif /* GENMC_GRAPH_ITERATORS_HPP */

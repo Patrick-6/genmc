@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#ifndef __REVISIT_HPP__
-#define __REVISIT_HPP__
+#ifndef GENMC_REVISIT_HPP
+#define GENMC_REVISIT_HPP
 
 #include "ExecutionGraph/EventLabel.hpp"
 
@@ -372,4 +372,4 @@ template <class FromTy> struct cast_convert_val<const ::ReadRevisit, FromTy *, F
 
 } /* namespace llvm */
 
-#endif /* __REVISIT_HPP__ */
+#endif /* GENMC_REVISIT_HPP */

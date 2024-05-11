@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VERIFICATION_ERROR_HPP__
-#define __VERIFICATION_ERROR_HPP__
+#ifndef GENMC_VERIFICATION_ERROR_HPP
+#define GENMC_VERIFICATION_ERROR_HPP
 
 #include "Support/Error.hpp"
 
@@ -97,4 +97,4 @@ extern const std::unordered_map<SystemError, std::string, ENUM_HASH(SystemError)
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &st);
 
-#endif /* __VERIFICATION_ERROR_HPP__ */
+#endif /* GENMC_VERIFICATION_ERROR_HPP */

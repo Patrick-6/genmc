@@ -22,8 +22,8 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef __IMM_DRIVER_HPP__
-#define __IMM_DRIVER_HPP__
+#ifndef GENMC_IMM_DRIVER_HPP
+#define GENMC_IMM_DRIVER_HPP
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
@@ -256,4 +256,4 @@ private:
 	mutable std::vector<View> views;
 };
 
-#endif /* __IMM_DRIVER_HPP__ */
+#endif /* GENMC_IMM_DRIVER_HPP */

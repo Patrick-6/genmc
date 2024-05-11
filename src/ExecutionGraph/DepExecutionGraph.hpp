@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DEP_EXECUTION_GRAPH_HPP__
-#define __DEP_EXECUTION_GRAPH_HPP__
+#ifndef GENMC_DEP_EXECUTION_GRAPH_HPP
+#define GENMC_DEP_EXECUTION_GRAPH_HPP
 
 #include "ExecutionGraph.hpp"
 
@@ -50,4 +50,4 @@ public:
 	std::unique_ptr<ExecutionGraph> getCopyUpTo(const VectorClock &v) const override;
 };
 
-#endif /* __DEP_EXECUTION_GRAPH_HPP__ */
+#endif /* GENMC_DEP_EXECUTION_GRAPH_HPP */

@@ -18,8 +18,8 @@
  * Author: Iason Marmanis <imarmanis@mpi-sws.org>
  */
 
-#ifndef __ROUND_BOUND_DECIDER_HPP__
-#define __ROUND_BOUND_DECIDER_HPP__
+#ifndef GENMC_ROUND_BOUND_DECIDER_HPP
+#define GENMC_ROUND_BOUND_DECIDER_HPP
 
 #include "BoundDecider.hpp"
 #include "ExecutionGraph/Event.hpp"
@@ -36,4 +36,4 @@ private:
 #endif
 };
 
-#endif /* __ROUND_BOUND_DECIDER_HPP__ */
+#endif /* GENMC_ROUND_BOUND_DECIDER_HPP */

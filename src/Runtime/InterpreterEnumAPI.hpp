@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __INTERPRETER_ENUM_API_HPP__
-#define __INTERPRETER_ENUM_API_HPP__
+#ifndef GENMC_INTERPRETER_ENUM_API_HPP
+#define GENMC_INTERPRETER_ENUM_API_HPP
 
 #include <config.h>
 #include <llvm/Support/raw_ostream.h>
@@ -217,4 +217,4 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 #define GENMC_ATTR(flags) ((flags) & (0x0000ffff))
 #define GENMC_KIND(flags) ((flags) & (0xffff0000))
 
-#endif /* __INTERPRETER_ENUM_API_HPP__ */
+#endif /* GENMC_INTERPRETER_ENUM_API_HPP */

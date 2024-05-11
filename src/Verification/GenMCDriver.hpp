@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __GENMC_DRIVER_HPP__
-#define __GENMC_DRIVER_HPP__
+#ifndef GENMC_GENMC_DRIVER_HPP
+#define GENMC_GENMC_DRIVER_HPP
 
 #include "ADT/Trie.hpp"
 #include "Config/Config.hpp"
@@ -968,4 +968,4 @@ private:
 	MyRNG estRng;
 };
 
-#endif /* __GENMC_DRIVER_HPP__ */
+#endif /* GENMC_GENMC_DRIVER_HPP */

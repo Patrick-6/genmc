@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MATRIX_2D_HPP__
-#define __MATRIX_2D_HPP__
+#ifndef GENMC_MATRIX_2D_HPP
+#define GENMC_MATRIX_2D_HPP
 
 #include <vector>
 
@@ -172,4 +172,4 @@ private:
 
 #include "Matrix2D.tcc"
 
-#endif /* __MATRIX_2D_HPP__ */
+#endif /* GENMC_MATRIX_2D_HPP */

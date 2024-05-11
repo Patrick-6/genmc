@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __NAME_INFO_HPP__
-#define __NAME_INFO_HPP__
+#ifndef GENMC_NAME_INFO_HPP
+#define GENMC_NAME_INFO_HPP
 
 #include "Error.hpp"
 #include "config.h"
@@ -61,4 +61,4 @@ private:
 	OffsetInfo info;
 };
 
-#endif /* __NAME_INFO_HPP__ */
+#endif /* GENMC_NAME_INFO_HPP */

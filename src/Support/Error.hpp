@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ERROR_HPP__
-#define __ERROR_HPP__
+#ifndef GENMC_ERROR_HPP
+#define GENMC_ERROR_HPP
 
 #include "Logger.hpp"
 #include <llvm/Support/Debug.h>
@@ -119,4 +119,4 @@ template <typename T1, typename T2> auto format(const std::pair<T1, T2> &p) -> s
 	return out.str();
 }
 
-#endif /* __ERROR_HPP__ */
+#endif /* GENMC_ERROR_HPP */

@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LLVM_UTILS_HPP__
-#define __LLVM_UTILS_HPP__
+#ifndef GENMC_LLVM_UTILS_HPP
+#define GENMC_LLVM_UTILS_HPP
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/EventAttr.hpp"
@@ -248,4 +248,4 @@ bool EliminateUnreachableBlocks(Function &F, DomTreeUpdater *DTU = nullptr,
 void replaceUsesWithIf(llvm::Value *Old, llvm::Value *New,
 		       llvm::function_ref<bool(llvm::Use &U)> ShouldReplace);
 
-#endif /* __LLVM_UTILS_HPP__ */
+#endif /* GENMC_LLVM_UTILS_HPP */

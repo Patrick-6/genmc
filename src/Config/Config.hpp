@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __CONFIG_HPP__
-#define __CONFIG_HPP__
+#ifndef GENMC_CONFIG_HPP
+#define GENMC_CONFIG_HPP
 
 #include "ADT/VSet.hpp"
 #include "Config/MemoryModel.hpp"
@@ -110,4 +110,4 @@ private:
 	void saveConfigOptions();
 };
 
-#endif /* __CONFIG_HPP__ */
+#endif /* GENMC_CONFIG_HPP */

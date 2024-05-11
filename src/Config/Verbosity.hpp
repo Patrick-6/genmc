@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VERBOSITY_HPP__
-#define __VERBOSITY_HPP__
+#ifndef GENMC_VERBOSITY_HPP
+#define GENMC_VERBOSITY_HPP
 
 #include <llvm/Support/raw_ostream.h>
 
@@ -38,4 +38,4 @@ enum class VerbosityLevel {
 
 auto operator<<(llvm::raw_ostream &rhs, VerbosityLevel l) -> llvm::raw_ostream &;
 
-#endif /* __VERBOSITY_HPP__ */
+#endif /* GENMC_VERBOSITY_HPP */

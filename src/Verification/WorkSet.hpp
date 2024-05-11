@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <mixaskok@gmail.com>
  */
 
-#ifndef __WORK_SET_HPP__
-#define __WORK_SET_HPP__
+#ifndef GENMC_WORK_SET_HPP
+#define GENMC_WORK_SET_HPP
 
 #include "Verification/Revisit.hpp"
 #include <llvm/Support/Casting.h>
@@ -73,4 +73,4 @@ private:
 	WorkSetT wset_;
 };
 
-#endif /* __WORK_SET_HPP__ */
+#endif /* GENMC_WORK_SET_HPP */

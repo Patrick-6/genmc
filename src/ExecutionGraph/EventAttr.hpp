@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __EVENT_ATTR_HPP__
-#define __EVENT_ATTR_HPP__
+#ifndef GENMC_EVENT_ATTR_HPP
+#define GENMC_EVENT_ATTR_HPP
 
 #include "ADT/Bitmask.hpp"
 
@@ -36,4 +36,4 @@ enum class WriteAttr {
 
 ENABLE_BITMASK_OPERATORS(WriteAttr);
 
-#endif /* __EVENT_ATTR_HPP__ */
+#endif /* GENMC_EVENT_ATTR_HPP */

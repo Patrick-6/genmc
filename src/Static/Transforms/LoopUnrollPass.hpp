@@ -47,4 +47,4 @@ private:
 	VSet<std::string> noUnroll_;
 };
 
-#endif /* __LOOP_UNROLL_PASS_HPP__ */
+#endif /* GENMC_LOOP_UNROLL_PASS_HPP */

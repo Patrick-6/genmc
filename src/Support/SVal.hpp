@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SVAL_HPP__
-#define __SVAL_HPP__
+#ifndef GENMC_SVAL_HPP
+#define GENMC_SVAL_HPP
 
 #include "Error.hpp"
 #include "config.h"
@@ -159,4 +159,4 @@ struct SValUCmp {
 	auto operator()(const SVal &lhs, const SVal &rhs) -> bool { return lhs.ult(rhs); }
 };
 
-#endif /* __SVAL_HPP__ */
+#endif /* GENMC_SVAL_HPP */

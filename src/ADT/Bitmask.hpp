@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __BITMASK_HPP__
-#define __BITMASK_HPP__
+#ifndef GENMC_BITMASK_HPP
+#define GENMC_BITMASK_HPP
 
 #include <type_traits>
 
@@ -76,4 +76,4 @@ DEFINE_ASSIGNMENT_OPERATOR(|);
 DEFINE_ASSIGNMENT_OPERATOR(&);
 DEFINE_ASSIGNMENT_OPERATOR(^);
 
-#endif /* __BITMASK_HPP__ */
+#endif /* GENMC_BITMASK_HPP */

@@ -38,4 +38,4 @@ private:
 	bool markStarts_{};
 };
 
-#endif /* __SPIN_ASSUME_PASS_HPP__ */
+#endif /* GENMC_SPIN_ASSUME_PASS_HPP */

@@ -22,8 +22,8 @@
  * CAUTION: This file is generated automatically by Kater -- DO NOT EDIT.
  *******************************************************************************/
 
-#ifndef __TSO_DRIVER_HPP__
-#define __TSO_DRIVER_HPP__
+#ifndef GENMC_TSO_DRIVER_HPP
+#define GENMC_TSO_DRIVER_HPP
 
 #include "ADT/VSet.hpp"
 #include "ExecutionGraph/ExecutionGraph.hpp"
@@ -258,4 +258,4 @@ private:
 	mutable std::vector<View> views;
 };
 
-#endif /* __TSO_DRIVER_HPP__ */
+#endif /* GENMC_TSO_DRIVER_HPP */

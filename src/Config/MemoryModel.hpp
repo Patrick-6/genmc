@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MEMORY_MODEL_HPP__
-#define __MEMORY_MODEL_HPP__
+#ifndef GENMC_MEMORY_MODEL_HPP
+#define GENMC_MEMORY_MODEL_HPP
 
 #include "Support/Error.hpp"
 #include "config.h"
@@ -61,4 +61,4 @@ inline auto isStrongerThan(ModelType model, ModelType other) -> bool
 	return lookup[static_cast<size_t>(model)][static_cast<size_t>(other)];
 }
 
-#endif /* __MEMORY_MODEL_HPP__ */
+#endif /* GENMC_MEMORY_MODEL_HPP */

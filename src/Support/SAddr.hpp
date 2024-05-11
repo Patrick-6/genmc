@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SADDR_HPP__
-#define __SADDR_HPP__
+#ifndef GENMC_SADDR_HPP
+#define GENMC_SADDR_HPP
 
 #include "ASize.hpp"
 #include "Error.hpp"
@@ -159,4 +159,4 @@ template <> struct hash<SAddr> {
 };
 } // namespace std
 
-#endif /* __SADDR_HPP__ */
+#endif /* GENMC_SADDR_HPP */

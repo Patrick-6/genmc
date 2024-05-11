@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __ADJ_LIST_HPP__
-#define __ADJ_LIST_HPP__
+#ifndef GENMC_ADJ_LIST_HPP
+#define GENMC_ADJ_LIST_HPP
 
 #include <llvm/ADT/BitVector.h>
 #include <llvm/Support/raw_ostream.h>
@@ -197,4 +197,4 @@ private:
 
 #include "AdjList.tcc"
 
-#endif /* __ADJ_LIST_HPP__ */
+#endif /* GENMC_ADJ_LIST_HPP */

@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __S_EXPR_VISITOR_HPP__
-#define __S_EXPR_VISITOR_HPP__
+#ifndef GENMC_S_EXPR_VISITOR_HPP
+#define GENMC_S_EXPR_VISITOR_HPP
 
 #include "ADT/VSet.hpp"
 #include "Static/ModuleID.hpp"
@@ -490,4 +490,4 @@ private:
 
 #include "SExprVisitor.tcc"
 
-#endif /* __S_EXPR_VISITOR_HPP__ */
+#endif /* GENMC_S_EXPR_VISITOR_HPP */

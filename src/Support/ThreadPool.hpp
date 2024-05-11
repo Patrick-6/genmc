@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __THREAD_POOL_HPP__
-#define __THREAD_POOL_HPP__
+#ifndef GENMC_THREAD_POOL_HPP
+#define GENMC_THREAD_POOL_HPP
 
 #include "ExecutionGraph/ExecutionGraph.hpp"
 #include "Static/LLVMModule.hpp"
@@ -246,4 +246,4 @@ private:
 	ThreadJoiner joiner_;
 };
 
-#endif /* __THREAD_POOL_HPP__ */
+#endif /* GENMC_THREAD_POOL_HPP */

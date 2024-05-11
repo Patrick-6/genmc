@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __INST_ANNOTATOR_HPP__
-#define __INST_ANNOTATOR_HPP__
+#ifndef GENMC_INST_ANNOTATOR_HPP
+#define GENMC_INST_ANNOTATOR_HPP
 
 #include "ADT/VSet.hpp"
 #include "Support/Error.hpp"
@@ -114,4 +114,4 @@ private:
 	InstAnnotMap annotMap;
 };
 
-#endif /* __INST_ANNOTATOR_HPP__ */
+#endif /* GENMC_INST_ANNOTATOR_HPP */

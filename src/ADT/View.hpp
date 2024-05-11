@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VIEW_HPP__
-#define __VIEW_HPP__
+#ifndef GENMC_VIEW_HPP
+#define GENMC_VIEW_HPP
 
 #include "ADT/VectorClock.hpp"
 #include "ExecutionGraph/Event.hpp"
@@ -101,4 +101,4 @@ public:
 	static bool classof(const VectorClock *vc) { return vc->getKind() == VC_View; }
 };
 
-#endif /* __VIEW_HPP__ */
+#endif /* GENMC_VIEW_HPP */

@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __THREAD_INFO_HPP__
-#define __THREAD_INFO_HPP__
+#ifndef GENMC_THREAD_INFO_HPP
+#define GENMC_THREAD_INFO_HPP
 
 #include "SVal.hpp"
 #include "config.h"
@@ -37,4 +37,4 @@ struct ThreadInfo {
 	{}
 };
 
-#endif /* __THREAD_INFO_HPP__ */
+#endif /* GENMC_THREAD_INFO_HPP */

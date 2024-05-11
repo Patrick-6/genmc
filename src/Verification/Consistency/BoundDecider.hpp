@@ -18,8 +18,8 @@
  * Author: Iason Marmanis <imarmanis@mpi-sws.org>
  */
 
-#ifndef __BOUND_DECIDER_HPP__
-#define __BOUND_DECIDER_HPP__
+#ifndef GENMC_BOUND_DECIDER_HPP
+#define GENMC_BOUND_DECIDER_HPP
 
 #include <memory>
 
@@ -63,4 +63,4 @@ private:
 	const ExecutionGraph *graph = nullptr;
 };
 
-#endif /* __BOUND_DECIDER_HPP__ */
+#endif /* GENMC_BOUND_DECIDER_HPP */

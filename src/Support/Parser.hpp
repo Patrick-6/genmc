@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __PARSER_HPP__
-#define __PARSER_HPP__
+#ifndef GENMC_PARSER_HPP
+#define GENMC_PARSER_HPP
 
 #include <fstream>
 #include <iostream>
@@ -41,4 +41,4 @@ public:
 				       llvm::raw_ostream &os = llvm::dbgs());
 };
 
-#endif /* __PARSER_HPP__ */
+#endif /* GENMC_PARSER_HPP */

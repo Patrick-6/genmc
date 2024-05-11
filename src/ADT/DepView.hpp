@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DEP_VIEW_HPP__
-#define __DEP_VIEW_HPP__
+#ifndef GENMC_DEP_VIEW_HPP
+#define GENMC_DEP_VIEW_HPP
 
 #include "ADT/VSet.hpp"
 #include "ADT/VectorClock.hpp"
@@ -150,4 +150,4 @@ private:
 	HoleView holes_;
 };
 
-#endif /* __DEP_VIEW_HPP__ */
+#endif /* GENMC_DEP_VIEW_HPP */

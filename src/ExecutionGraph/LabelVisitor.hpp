@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LABEL_VISITOR_HPP__
-#define __LABEL_VISITOR_HPP__
+#ifndef GENMC_LABEL_VISITOR_HPP
+#define GENMC_LABEL_VISITOR_HPP
 
 #include "ExecutionGraph/EventLabel.hpp"
 #include "Support/Error.hpp"
@@ -585,4 +585,4 @@ public:
 	void visitEventLabel(const EventLabel &lab) { out << lab.getKind(); }
 };
 
-#endif /* __LABEL_VISITOR_HPP__ */
+#endif /* GENMC_LABEL_VISITOR_HPP */

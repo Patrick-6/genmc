@@ -18,8 +18,8 @@ n * You should have received a copy of the GNU General Public License
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __DEP_INFO_HPP__
-#define __DEP_INFO_HPP__
+#ifndef GENMC_DEP_INFO_HPP
+#define GENMC_DEP_INFO_HPP
 
 #include "ADT/VSet.hpp"
 #include "Event.hpp"
@@ -92,4 +92,4 @@ struct EventDeps {
 	DepInfo cas;
 };
 
-#endif /* __DEP_INFO_HPP__ */
+#endif /* GENMC_DEP_INFO_HPP */

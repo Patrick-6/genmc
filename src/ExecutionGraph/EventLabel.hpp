@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __EVENTLABEL_HPP__
-#define __EVENTLABEL_HPP__
+#ifndef GENMC_EVENTLABEL_HPP
+#define GENMC_EVENTLABEL_HPP
 
 #include "ADT/DepView.hpp"
 #include "ADT/VSet.hpp"
@@ -2795,4 +2795,4 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const llvm::AtomicOrdering
 llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const EventLabel::EventLabelKind k);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const SmpFenceType t);
 
-#endif /* __EVENTLABEL_HPP__ */
+#endif /* GENMC_EVENTLABEL_HPP */

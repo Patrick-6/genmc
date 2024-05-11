@@ -18,8 +18,8 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __VECTOR_CLOCK_HPP__
-#define __VECTOR_CLOCK_HPP__
+#ifndef GENMC_VECTOR_CLOCK_HPP
+#define GENMC_VECTOR_CLOCK_HPP
 
 #include "ExecutionGraph/Event.hpp"
 #include <llvm/Support/Casting.h>
@@ -100,4 +100,4 @@ struct VectorClockCloner {
 	// VectorClock *operator()(VectorClock &&x) const { return new VectorClock(std::move(x)); }
 };
 
-#endif /* __VECTOR_CLOCK_HPP__ */
+#endif /* GENMC_VECTOR_CLOCK_HPP */
