@@ -18,10 +18,10 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "Config.hpp"
-#include "DriverFactory.hpp"
-#include "Error.hpp"
-#include "LLVMModule.hpp"
+#include "Config/Config.hpp"
+#include "Static/LLVMModule.hpp"
+#include "Support/Error.hpp"
+#include "Verification/DriverFactory.hpp"
 #include "config.h"
 
 #include <chrono>
