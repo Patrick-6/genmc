@@ -491,13 +491,6 @@ public:
 		return isRMWStore(sLab) && !getPendingRMW(sLab).isInitializer();
 	}
 
-	/* Helper: Returns true if RLAB is a confirming operation */
-	bool isConfirming(const ReadLabel *rLab) const
-	{
-		return llvm::isa<ConfirmingReadLabel>(rLab) ||
-		       llvm::isa<ConfirmingCasReadLabel>(rLab);
-	}
-
 	/* Returns true if store is read a successful RMW in the location ptr */
 	bool isStoreReadByExclusiveRead(Event store, SAddr addr) const;
 

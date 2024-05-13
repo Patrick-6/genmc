@@ -2323,7 +2323,7 @@ const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) co
 	for (auto pos = start.prev(); pos.index > 0; --pos) {
 		auto *lab = g.getEventLabel(pos);
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			if (getConf()->helper && g.isConfirming(rLab))
+			if (getConf()->helper && rLab->isConfirming())
 				continue;
 			if (rLab->getRf()) {
 				auto *wLab = llvm::dyn_cast<WriteLabel>(rLab->getRf());
@@ -2629,7 +2629,7 @@ void GenMCDriver::optimizeUnconfirmedRevisits(const WriteLabel *sLab, std::vecto
 		std::remove_if(loads.begin(), loads.end(),
 			       [&](const Event &l) {
 				       auto *lab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(l));
-				       if (!g.isConfirming(lab))
+				       if (!lab->isConfirming())
 					       return false;
 
 				       auto sc = Event::getInit();

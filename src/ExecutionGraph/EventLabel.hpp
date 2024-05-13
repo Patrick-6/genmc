@@ -696,6 +696,9 @@ public:
 	/* Sets the IPR status for this read */
 	void setIPRStatus(bool status) { ipr = status; }
 
+	/* Helper: Whether this is a confirmation read */
+	bool isConfirming() const { return isConfirming(getKind()); }
+
 	/* SAVer: Getter/setter for the annotation expression */
 	const AnnotT *getAnnot() const { return annotExpr.get(); }
 	void setAnnot(std::unique_ptr<AnnotT> annot) { annotExpr = std::move(annot); }
@@ -719,6 +722,8 @@ public:
 	}
 
 private:
+	static inline bool isConfirming(EventLabelKind k);
+
 	friend class ExecutionGraph;
 	friend class DepExecutionGraph;
 
@@ -1854,6 +1859,11 @@ inline bool EventLabel::hasValue(EventLabelKind k)
 }
 
 inline bool EventLabel::hasLocation(EventLabelKind k) { return MemAccessLabel::classofKind(k); }
+
+inline bool ReadLabel::isConfirming(EventLabelKind k)
+{
+	return ConfirmingReadLabel::classofKind(k) || ConfirmingCasReadLabel::classofKind(k);
+}
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const llvm::AtomicOrdering o);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &rhs, const EventLabel::EventLabelKind k);
