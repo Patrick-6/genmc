@@ -877,7 +877,7 @@ private:
 
 	/* Returns true if the current graph is consistent when E is added */
 	virtual bool isConsistent(const EventLabel *lab) const = 0;
-	virtual bool isRecoveryValid(const EventLabel *lab) const = 0;
+	virtual bool isRecoveryValid(const EventLabel *lab) const { return true; }
 	virtual VerificationError checkErrors(const EventLabel *lab,
 					      const EventLabel *&race) const = 0;
 	virtual std::vector<VerificationError>
