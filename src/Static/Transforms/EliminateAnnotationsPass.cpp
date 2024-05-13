@@ -45,7 +45,7 @@ auto isAnnotationBegin(Instruction *i) -> bool
 
 	auto name = getCalledFunOrStripValName(*ci);
 	return isInternalFunction(name) &&
-	       internalFunNames.at(name) == InternalFunctions::FN_AnnotateBegin;
+	       internalFunNames.at(name) == InternalFunctions::AnnotateBegin;
 }
 
 auto isAnnotationEnd(Instruction *i) -> bool
@@ -56,7 +56,7 @@ auto isAnnotationEnd(Instruction *i) -> bool
 
 	auto name = getCalledFunOrStripValName(*ci);
 	return isInternalFunction(name) &&
-	       internalFunNames.at(name) == InternalFunctions::FN_AnnotateEnd;
+	       internalFunNames.at(name) == InternalFunctions::AnnotateEnd;
 }
 
 auto getAnnotationValue(CallInst *ci) -> uint64_t

@@ -533,11 +533,11 @@ auto isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, ModuleAnalysisManager &MA
 			auto name = getCalledFunOrStripValName(*ci);
 			if (isInternalFunction(name)) {
 				auto icode = internalFunNames.at(name);
-				if (icode == InternalFunctions::FN_MutexLock) {
+				if (icode == InternalFunctions::MutexLock) {
 					locks.insert(ci);
 					return;
 				}
-				if (icode == InternalFunctions::FN_MutexUnlock) {
+				if (icode == InternalFunctions::MutexUnlock) {
 					unlocks.insert(ci);
 					return;
 				}

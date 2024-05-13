@@ -718,69 +718,10 @@ private: // Helper functions
 	void handleUnlock(SAddr addr, ASize size, const EventDeps *deps);
 
 	/* Custom Opcode Implementations */
-#define DECLARE_CUSTOM_OPCODE(_name)                                                               \
-	void call##_name(Function *F, const std::vector<GenericValue> &ArgVals,                    \
-			 const std::unique_ptr<EventDeps> &specialDeps)
-
-	DECLARE_CUSTOM_OPCODE(AssertFail);
-	DECLARE_CUSTOM_OPCODE(OptBegin);
-	DECLARE_CUSTOM_OPCODE(LoopBegin);
-	DECLARE_CUSTOM_OPCODE(RecAssertFail);
-	DECLARE_CUSTOM_OPCODE(SpinStart);
-	DECLARE_CUSTOM_OPCODE(SpinEnd);
-	DECLARE_CUSTOM_OPCODE(FaiZNESpinEnd);
-	DECLARE_CUSTOM_OPCODE(LockZNESpinEnd);
-	DECLARE_CUSTOM_OPCODE(KillThread);
-	DECLARE_CUSTOM_OPCODE(Assume);
-	DECLARE_CUSTOM_OPCODE(NondetInt);
-	DECLARE_CUSTOM_OPCODE(Malloc);
-	DECLARE_CUSTOM_OPCODE(MallocAligned);
-	DECLARE_CUSTOM_OPCODE(PMalloc);
-	DECLARE_CUSTOM_OPCODE(Free);
-	DECLARE_CUSTOM_OPCODE(ThreadSelf);
-	DECLARE_CUSTOM_OPCODE(ThreadCreate);
-	DECLARE_CUSTOM_OPCODE(ThreadCreateSymmetric);
-	DECLARE_CUSTOM_OPCODE(ThreadJoin);
-	DECLARE_CUSTOM_OPCODE(ThreadExit);
-	DECLARE_CUSTOM_OPCODE(AtExit);
-	DECLARE_CUSTOM_OPCODE(MutexInit);
-	DECLARE_CUSTOM_OPCODE(MutexLock);
-	DECLARE_CUSTOM_OPCODE(MutexUnlock);
-	DECLARE_CUSTOM_OPCODE(MutexTrylock);
-	DECLARE_CUSTOM_OPCODE(MutexDestroy);
-	DECLARE_CUSTOM_OPCODE(CondVarInit);
-	DECLARE_CUSTOM_OPCODE(CondVarWait);
-	DECLARE_CUSTOM_OPCODE(CondVarSignal);
-	DECLARE_CUSTOM_OPCODE(CondVarBcast);
-	DECLARE_CUSTOM_OPCODE(CondVarDestroy);
-	DECLARE_CUSTOM_OPCODE(BarrierInit);
-	DECLARE_CUSTOM_OPCODE(BarrierWait);
-	DECLARE_CUSTOM_OPCODE(BarrierDestroy);
-	DECLARE_CUSTOM_OPCODE(HazptrAlloc);
-	DECLARE_CUSTOM_OPCODE(HazptrProtect);
-	DECLARE_CUSTOM_OPCODE(HazptrClear);
-	DECLARE_CUSTOM_OPCODE(HazptrFree);
-	DECLARE_CUSTOM_OPCODE(HazptrRetire);
-	DECLARE_CUSTOM_OPCODE(OpenFS);
-	DECLARE_CUSTOM_OPCODE(CreatFS);
-	DECLARE_CUSTOM_OPCODE(CloseFS);
-	DECLARE_CUSTOM_OPCODE(RenameFS);
-	DECLARE_CUSTOM_OPCODE(LinkFS);
-	DECLARE_CUSTOM_OPCODE(UnlinkFS);
-	DECLARE_CUSTOM_OPCODE(TruncateFS);
-	DECLARE_CUSTOM_OPCODE(ReadFS);
-	DECLARE_CUSTOM_OPCODE(WriteFS);
-	DECLARE_CUSTOM_OPCODE(SyncFS);
-	DECLARE_CUSTOM_OPCODE(FsyncFS);
-	DECLARE_CUSTOM_OPCODE(PreadFS);
-	DECLARE_CUSTOM_OPCODE(PwriteFS);
-	DECLARE_CUSTOM_OPCODE(LseekFS);
-	DECLARE_CUSTOM_OPCODE(PersBarrierFS);
-	DECLARE_CUSTOM_OPCODE(SmpFenceLKMM);
-	DECLARE_CUSTOM_OPCODE(RCUReadLockLKMM);
-	DECLARE_CUSTOM_OPCODE(RCUReadUnlockLKMM);
-	DECLARE_CUSTOM_OPCODE(SynchronizeRCULKMM);
-	DECLARE_CUSTOM_OPCODE(CLFlush);
+#define HANDLE_FUNCTION(NUM, FUN, NAME)                                                            \
+	void call##NAME(Function *F, const std::vector<GenericValue> &ArgVals,                     \
+			const std::unique_ptr<EventDeps> &specialDeps);
+#include "Runtime/InternalFunction.def"
 
 	void callInternalFunction(Function *F, const std::vector<GenericValue> &ArgVals,
 				  const std::unique_ptr<EventDeps> &deps);

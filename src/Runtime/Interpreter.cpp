@@ -322,14 +322,16 @@ std::unique_ptr<EventDeps> Interpreter::updateFunArgDeps(unsigned int tid, Funct
 		return nullptr;
 	}
 
-	auto iFunCode = internalFunNames.at(name);
-	if (iFunCode == InternalFunctions::FN_Assume) {
-		/* We have ctrl dependency on the argument of an assume() */
+	/* We have ctrl dependency on the argument of an assume() */
+	if (isAssumeFunction(name)) {
 		for (auto i = SF.Caller.arg_begin(), e = SF.Caller.arg_end(); i != e; ++i) {
 			updateCtrlDeps(tid, *i);
 		}
-	} else if (isMutexCode(iFunCode) || isBarrierCode(iFunCode) || isCondVarCode(iFunCode)) {
-		/* We have addr dependency on the argument of mutex/barrier/condvar calls */
+		return nullptr;
+	}
+	/* We have addr dependency on the argument of mutex/barrier/condvar calls */
+	auto iFunCode = internalFunNames.at(name);
+	if (isMutexCode(iFunCode) || isBarrierCode(iFunCode) || isCondVarCode(iFunCode)) {
 		return makeEventDeps(getDataDeps(tid, *SF.Caller.arg_begin()), nullptr,
 				     getCtrlDeps(tid), getAddrPoDeps(tid), nullptr);
 	}

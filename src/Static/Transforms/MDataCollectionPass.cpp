@@ -184,103 +184,6 @@ void MDataInfo::collectMemCpyInfo(MemCpyInst *mi, Module &M)
 		*info = collectVarName(M, dst->getAllocatedType(), ditc);
 }
 
-/* We need to take special care so that these internal types
- * actually match the ones used by the ExecutionEngine */
-void MDataInfo::collectInternalInfo(Module &M)
-{
-	/* We need to find out the size of an integer and the size of a pointer
-	 * in this platform. HACK: since all types can be safely converted to
-	 * void *, we take the size of a void * to see how many bytes are
-	 * necessary to represent a pointer, and get the integer type from
-	 * main()'s return type... */
-	auto *main = M.getFunction("main");
-	if (!main || !main->getReturnType()->isIntegerTy()) {
-		WARN_ONCE("internal-mdata",
-			  "Could not get "
-			  "naming info for internal variable. "
-			  "(Does main() return int?)\n"
-			  "Please submit a bug report to " PACKAGE_BUGREPORT "\n");
-		return;
-	}
-
-	auto &DL = M.getDataLayout();
-	auto *intTyp = main->getReturnType();
-	auto intByteWidth = DL.getTypeAllocSize(intTyp);
-
-	auto *intPtrTyp = intTyp->getPointerTo();
-	auto intPtrByteWidth = DL.getTypeAllocSize(intPtrTyp);
-
-	/* struct file */
-	auto offset = 0u;
-	auto &fileInfo = getInternalInfo("file");
-	fileInfo = std::make_shared<NameInfo>();
-
-	fileInfo->addOffsetInfo(offset, ".inode");
-	fileInfo->addOffsetInfo((offset += intPtrByteWidth), ".count");
-	fileInfo->addOffsetInfo((offset += intByteWidth), ".flags");
-	fileInfo->addOffsetInfo((offset += intByteWidth), ".pos_lock");
-	fileInfo->addOffsetInfo((offset += intByteWidth), ".pos");
-
-	/* struct inode */
-	offset = 0;
-	auto &inodeInfo = getInternalInfo("inode");
-	inodeInfo = std::make_shared<NameInfo>();
-
-	inodeInfo->addOffsetInfo(offset, ".lock");
-	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_size");
-	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_transaction");
-	inodeInfo->addOffsetInfo((offset += intByteWidth), ".i_disksize");
-	inodeInfo->addOffsetInfo((offset += intByteWidth), ".data");
-}
-
-auto isSyscallWPathname(CallInst *CI) -> bool
-{
-	/* Use getCalledValue() to deal with indirect invocations too */
-	auto name = getCalledFunOrStripValName(*CI);
-	if (!isInternalFunction(name))
-		return false;
-
-	auto icode = internalFunNames.at(name);
-	return isFsInodeCode(icode);
-}
-
-void MDataInfo::initializeFilenameEntry(Value *v)
-{
-#if LLVM_VERSION_MAJOR < 15
-	if (auto *CE = dyn_cast<ConstantExpr>(v)) {
-		auto filename =
-			dyn_cast<ConstantDataArray>(
-				dyn_cast<GlobalVariable>(CE->getOperand(0))->getInitializer())
-				->getAsCString()
-				.str();
-#else
-	if (auto *CE = dyn_cast<Constant>(v)) {
-		auto filename =
-			dyn_cast<ConstantDataArray>(CE->getOperand(0))->getAsCString().str();
-#endif
-		collectFilename(filename);
-	} else {
-		ERROR("Non-constant expression in filename\n");
-	}
-}
-
-void MDataInfo::collectFilenameInfo(CallInst *CI, Module &M)
-{
-	auto *F = CI->getCalledFunction();
-	auto ai = CI->arg_begin();
-
-	/* Fetch the first argument of the syscall as a string.
-	 * We simply initialize the entries in the map; they will be
-	 * populated with actual addresses from the EE */
-	initializeFilenameEntry(CI->getArgOperand(0));
-
-	/* For some syscalls we capture the second argument as well */
-	auto fCode = internalFunNames.at(F->getName().str());
-	if (fCode == InternalFunctions::FN_RenameFS || fCode == InternalFunctions::FN_LinkFS) {
-		initializeFilenameEntry(CI->getArgOperand(1));
-	}
-}
-
 auto MDataInfo::run(Module &M, ModuleAnalysisManager &AM) -> Result
 {
 	/* First, get type information for user's global variables */
@@ -294,15 +197,8 @@ auto MDataInfo::run(Module &M, ModuleAnalysisManager &AM) -> Result
 				collectLocalInfo(dd, M);
 			if (auto *mi = dyn_cast<MemCpyInst>(&I))
 				collectMemCpyInfo(mi, M);
-			if (auto *ci = dyn_cast<CallInst>(&I)) {
-				if (isSyscallWPathname(ci))
-					collectFilenameInfo(ci, M);
-			}
 		}
 	}
-
-	/* Finally, collect internal type information */
-	collectInternalInfo(M);
 	return PMI;
 }
 

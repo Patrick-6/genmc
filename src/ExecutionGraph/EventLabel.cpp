@@ -24,174 +24,134 @@
 llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const EventLabel::EventLabelKind k)
 {
 	switch (k) {
-	case EventLabel::EL_Empty:
-		s << "EMPTY";
-		break;
-	case EventLabel::EL_JoinBlock:
-		s << "BLOCK[join]";
-		break;
-	case EventLabel::EL_SpinloopBlock:
-		s << "BLOCK[spinloop]";
-		break;
-	case EventLabel::EL_FaiZNEBlock:
-		s << "BLOCK[Fai-zne]";
-		break;
-	case EventLabel::EL_LockZNEBlock:
-		s << "BLOCK[Lock-zne]";
-		break;
-	case EventLabel::EL_HelpedCASBlock:
-		s << "BLOCK[helped-cas]";
-		break;
-	case EventLabel::EL_ConfirmationBlock:
-		s << "BLOCK[conf]";
-		break;
-	case EventLabel::EL_LockNotAcqBlock:
-		s << "BLOCK[lock-unacq]";
-		break;
-	case EventLabel::EL_LockNotRelBlock:
-		s << "BLOCK[lock-unrel]";
-		break;
-	case EventLabel::EL_BarrierBlock:
-		s << "BLOCK[barrier]";
-		break;
-	case EventLabel::EL_ErrorBlock:
-		s << "BLOCK[error]";
-		break;
-	case EventLabel::EL_UserBlock:
-		s << "BLOCK[user]";
-		break;
-	case EventLabel::EL_ReadOptBlock:
-		s << "BLOCK[read-opt]";
-		break;
-	case EventLabel::EL_ThreadKill:
-		s << "KILL";
-		break;
-	case EventLabel::EL_Optional:
-		s << "OPTIONAL";
-		break;
-	case EventLabel::EL_LoopBegin:
-		s << "LOOP_BEGIN";
-		break;
-	case EventLabel::EL_SpinStart:
-		s << "SPIN_START";
-		break;
-	case EventLabel::EL_FaiZNESpinEnd:
-	case EventLabel::EL_LockZNESpinEnd:
-		s << "ZNE_SPIN_END";
-		break;
-	case EventLabel::EL_Read:
-	case EventLabel::EL_BWaitRead:
-	case EventLabel::EL_CondVarWaitRead:
-	case EventLabel::EL_SpeculativeRead:
-	case EventLabel::EL_ConfirmingRead:
-		s << "R";
-		break;
-	case EventLabel::EL_FaiRead:
-	case EventLabel::EL_BIncFaiRead:
-	case EventLabel::EL_NoRetFaiRead:
-		s << "UR";
-		break;
-	case EventLabel::EL_FaiWrite:
-	case EventLabel::EL_BIncFaiWrite:
-	case EventLabel::EL_NoRetFaiWrite:
-		s << "UW";
-		break;
-	case EventLabel::EL_CasRead:
-	case EventLabel::EL_LockCasRead:
-	case EventLabel::EL_TrylockCasRead:
-	case EventLabel::EL_HelpedCasRead:
-	case EventLabel::EL_ConfirmingCasRead:
-		s << "CR";
-		break;
-	case EventLabel::EL_CasWrite:
-	case EventLabel::EL_LockCasWrite:
-	case EventLabel::EL_TrylockCasWrite:
-	case EventLabel::EL_HelpedCasWrite:
-	case EventLabel::EL_ConfirmingCasWrite:
-		s << "CW";
-		break;
-	case EventLabel::EL_HelpingCas:
-		s << "HELPING_CAS";
-		break;
-	case EventLabel::EL_Write:
-	case EventLabel::EL_BInitWrite:
-	case EventLabel::EL_BDestroyWrite:
-	case EventLabel::EL_CondVarInitWrite:
-	case EventLabel::EL_CondVarSignalWrite:
-	case EventLabel::EL_CondVarBcastWrite:
-	case EventLabel::EL_CondVarDestroyWrite:
-	case EventLabel::EL_UnlockWrite:
-		s << "W";
-		break;
-	case EventLabel::EL_Fence:
-	case EventLabel::EL_SmpFenceLKMM:
-		s << "F";
-		break;
-	case EventLabel::EL_CLFlush:
-		s << "CLF";
-		break;
-	case EventLabel::EL_ThreadCreate:
-		s << "THREAD_CREATE";
-		break;
-	case EventLabel::EL_ThreadJoin:
-		s << "THREAD_JOIN";
-		break;
-	case EventLabel::EL_ThreadStart:
+	case EventLabel::ThreadStart:
 		s << "THREAD_START";
 		break;
-	case EventLabel::EL_Init:
+	case EventLabel::Init:
 		s << "INIT";
 		break;
-	case EventLabel::EL_ThreadFinish:
+	case EventLabel::JoinBlock:
+		s << "BLOCK[join]";
+		break;
+	case EventLabel::SpinloopBlock:
+		s << "BLOCK[spinloop]";
+		break;
+	case EventLabel::FaiZNEBlock:
+		s << "BLOCK[Fai-zne]";
+		break;
+	case EventLabel::LockZNEBlock:
+		s << "BLOCK[Lock-zne]";
+		break;
+	case EventLabel::HelpedCASBlock:
+		s << "BLOCK[helped-cas]";
+		break;
+	case EventLabel::ConfirmationBlock:
+		s << "BLOCK[conf]";
+		break;
+	case EventLabel::LockNotAcqBlock:
+		s << "BLOCK[lock-unacq]";
+		break;
+	case EventLabel::LockNotRelBlock:
+		s << "BLOCK[lock-unrel]";
+		break;
+	case EventLabel::BarrierBlock:
+		s << "BLOCK[barrier]";
+		break;
+	case EventLabel::ErrorBlock:
+		s << "BLOCK[error]";
+		break;
+	case EventLabel::UserBlock:
+		s << "BLOCK[user]";
+		break;
+	case EventLabel::ReadOptBlock:
+		s << "BLOCK[read-opt]";
+		break;
+	case EventLabel::ThreadKill:
+		s << "KILL";
+		break;
+	case EventLabel::ThreadFinish:
 		s << "THREAD_END";
 		break;
-	case EventLabel::EL_Malloc:
+	case EventLabel::Read:
+	case EventLabel::BWaitRead:
+	case EventLabel::CondVarWaitRead:
+	case EventLabel::SpeculativeRead:
+	case EventLabel::ConfirmingRead:
+		s << "R";
+		break;
+	case EventLabel::CasRead:
+	case EventLabel::LockCasRead:
+	case EventLabel::TrylockCasRead:
+	case EventLabel::HelpedCasRead:
+	case EventLabel::ConfirmingCasRead:
+		s << "CR";
+		break;
+	case EventLabel::FaiRead:
+	case EventLabel::BIncFaiRead:
+	case EventLabel::NoRetFaiRead:
+		s << "UR";
+		break;
+	case EventLabel::Write:
+	case EventLabel::BInitWrite:
+	case EventLabel::BDestroyWrite:
+	case EventLabel::CondVarInitWrite:
+	case EventLabel::CondVarSignalWrite:
+	case EventLabel::CondVarBcastWrite:
+	case EventLabel::CondVarDestroyWrite:
+	case EventLabel::UnlockWrite:
+		s << "W";
+		break;
+	case EventLabel::CasWrite:
+	case EventLabel::LockCasWrite:
+	case EventLabel::TrylockCasWrite:
+	case EventLabel::HelpedCasWrite:
+	case EventLabel::ConfirmingCasWrite:
+		s << "CW";
+		break;
+	case EventLabel::FaiWrite:
+	case EventLabel::BIncFaiWrite:
+	case EventLabel::NoRetFaiWrite:
+		s << "UW";
+		break;
+	case EventLabel::Fence:
+		s << "F";
+		break;
+	case EventLabel::Malloc:
 		s << "MALLOC";
 		break;
-	case EventLabel::EL_Free:
+	case EventLabel::Free:
 		s << "FREE";
 		break;
-	case EventLabel::EL_HpRetire:
+	case EventLabel::HpRetire:
 		s << "HP_RETIRE";
 		break;
-	case EventLabel::EL_HpProtect:
+	case EventLabel::ThreadCreate:
+		s << "THREAD_CREATE";
+		break;
+	case EventLabel::ThreadJoin:
+		s << "THREAD_JOIN";
+		break;
+	case EventLabel::HelpingCas:
+		s << "HELPING_CAS";
+		break;
+	case EventLabel::HpProtect:
 		s << "HP_PROTECT";
+	case EventLabel::Optional:
+		s << "OPTIONAL";
 		break;
-	case EventLabel::EL_LockLAPOR:
-		s << "LAPOR_LOCK";
+	case EventLabel::LoopBegin:
+		s << "LOOP_BEGIN";
 		break;
-	case EventLabel::EL_UnlockLAPOR:
-		s << "LAPOR_UNLOCK";
+	case EventLabel::SpinStart:
+		s << "SPIN_START";
 		break;
-	case EventLabel::EL_DskOpen:
-		s << "FOPEN";
+	case EventLabel::FaiZNESpinEnd:
+	case EventLabel::LockZNESpinEnd:
+		s << "ZNE_SPIN_END";
 		break;
-	case EventLabel::EL_DskRead:
-		s << "DR";
 		break;
-	case EventLabel::EL_DskWrite:
-	case EventLabel::EL_DskMdWrite:
-	case EventLabel::EL_DskDirWrite:
-	case EventLabel::EL_DskJnlWrite:
-		s << "DW";
-		break;
-	case EventLabel::EL_DskFsync:
-		s << "FSYNC";
-		break;
-	case EventLabel::EL_DskSync:
-		s << "SYNC";
-		break;
-	case EventLabel::EL_DskPbarrier:
-		s << "PERSISTENCY_BARRIER";
-		break;
-	case EventLabel::EL_RCULockLKMM:
-		s << "RCU_LOCK";
-		break;
-	case EventLabel::EL_RCUUnlockLKMM:
-		s << "RCU_UNLOCK";
-		break;
-	case EventLabel::EL_RCUSyncLKMM:
-		s << "RCU_SYNC";
+	case EventLabel::Empty:
+		s << "EMPTY";
 		break;
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-label-type", "Cannot print label type");
@@ -221,29 +181,6 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const llvm::AtomicOrdering o
 	default:
 		PRINT_BUGREPORT_INFO_ONCE("print-ordering-type", "Cannot print ordering");
 		return s;
-	}
-	return s;
-}
-
-llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const SmpFenceType t)
-{
-	switch (t) {
-	case SmpFenceType::MB:
-		return s << "mb";
-	case SmpFenceType::WMB:
-		return s << "wmb";
-	case SmpFenceType::RMB:
-		return s << "rmb";
-	case SmpFenceType::MBBA:
-		return s << "ba";
-	case SmpFenceType::MBAA:
-		return s << "aa";
-	case SmpFenceType::MBAS:
-		return s << "as";
-	case SmpFenceType::MBAUL:
-		return s << "aul";
-	default:
-		PRINT_BUGREPORT_INFO_ONCE("print-fence-type", "Cannot print fence type");
 	}
 	return s;
 }

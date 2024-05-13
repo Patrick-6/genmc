@@ -251,7 +251,7 @@ bool GenMCDriver::isSchedulable(int thread) const
 {
 	auto &thr = getEE()->getThrById(thread);
 	auto *lab = getGraph().getLastThreadLabel(thread);
-	return !thr.ECStack.empty() && !lab->isTerminator();
+	return !thr.ECStack.empty() && !llvm::isa<TerminatorLabel>(lab);
 }
 
 bool GenMCDriver::schedulePrioritized()
@@ -473,8 +473,7 @@ std::pair<std::vector<SVal>, Event> GenMCDriver::extractValPrefix(Event pos)
 	for (auto i = 0u; i < pos.index; i++) {
 		auto *lab = g.getEventLabel(Event(pos.thread, i));
 		if (auto *rLab = llvm::dyn_cast<ReadLabel>(lab)) {
-			auto *drLab = llvm::dyn_cast<DskReadLabel>(rLab);
-			vals.push_back(drLab ? getDskReadValue(drLab) : getReadValue(rLab));
+			vals.push_back(getReadValue(rLab));
 			last = lab->getPos();
 		} else if (auto *jLab = llvm::dyn_cast<ThreadJoinLabel>(lab)) {
 			vals.push_back(getJoinValue(jLab));
@@ -662,37 +661,38 @@ void GenMCDriver::handleExecutionEnd()
 
 void GenMCDriver::handleRecoveryStart()
 {
-	if (isExecutionBlocked())
-		return;
+	BUG();
+	// if (isExecutionBlocked())
+	// 	return;
 
-	auto &g = getGraph();
-	auto *EE = getEE();
+	// auto &g = getGraph();
+	// auto *EE = getEE();
 
-	/* Make sure that a thread for the recovery routine is
-	 * added only once in the execution graph*/
-	if (g.getRecoveryRoutineId() == -1)
-		g.addRecoveryThread();
+	// /* Make sure that a thread for the recovery routine is
+	//  * added only once in the execution graph*/
+	// if (g.getRecoveryRoutineId() == -1)
+	// 	g.addRecoveryThread();
 
-	/* We will create a start label for the recovery thread.
-	 * We synchronize with a persistency barrier, if one exists,
-	 * otherwise, we synchronize with nothing */
-	auto tid = g.getRecoveryRoutineId();
-	auto psb = g.collectAllEvents(
-		[&](const EventLabel *lab) { return llvm::isa<DskPbarrierLabel>(lab); });
-	if (psb.empty())
-		psb.push_back(Event::getInit());
-	ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
+	// /* We will create a start label for the recovery thread.
+	//  * We synchronize with a persistency barrier, if one exists,
+	//  * otherwise, we synchronize with nothing */
+	// auto tid = g.getRecoveryRoutineId();
+	// auto psb = g.collectAllEvents(
+	// 	[&](const EventLabel *lab) { return llvm::isa<DskPbarrierLabel>(lab); });
+	// if (psb.empty())
+	// 	psb.push_back(Event::getInit());
+	// ERROR_ON(psb.size() > 1, "Usage of only one persistency barrier is allowed!\n");
 
-	auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(),
-					      ThreadInfo(tid, psb.back().thread, 0, 0));
-	auto *lab = addLabelToGraph(std::move(tsLab));
+	// auto tsLab = ThreadStartLabel::create(Event(tid, 0), psb.back(),
+	// 				      ThreadInfo(tid, psb.back().thread, 0, 0));
+	// auto *lab = addLabelToGraph(std::move(tsLab));
 
-	/* Create a thread for the interpreter, and appropriately
-	 * add it to the thread list (pthread_create() style) */
-	EE->createAddRecoveryThread(tid);
+	// /* Create a thread for the interpreter, and appropriately
+	//  * add it to the thread list (pthread_create() style) */
+	// EE->createAddRecoveryThread(tid);
 
-	/* Finally, do all necessary preparations in the interpreter */
-	getEE()->setupRecoveryRoutine(tid);
+	// /* Finally, do all necessary preparations in the interpreter */
+	// getEE()->setupRecoveryRoutine(tid);
 	return;
 }
 
@@ -1205,7 +1205,7 @@ std::optional<SVal> GenMCDriver::getReadRetValue(const ReadLabel *rLab)
 	/* Reading a non-init barrier value means that the thread should block */
 	auto res = getReadValue(rLab);
 	BUG_ON(llvm::isa<BWaitReadLabel>(rLab) && res != getBarrierInitValue(rLab->getAccess()) &&
-	       !getGraph().getLastThreadLabel(rLab->getThread())->isTerminator());
+	       !llvm::isa<TerminatorLabel>(getGraph().getLastThreadLabel(rLab->getThread())));
 	return {res};
 }
 
@@ -1921,28 +1921,7 @@ void GenMCDriver::handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab)
 		moot();
 }
 
-void GenMCDriver::handleFenceLKMM(std::unique_ptr<FenceLabel> fLab)
-{
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
-}
-
 void GenMCDriver::handleFence(std::unique_ptr<FenceLabel> fLab)
-{
-	if (llvm::isa<SmpFenceLabelLKMM>(&*fLab)) {
-		handleFenceLKMM(std::move(fLab));
-		return;
-	}
-
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
-}
-
-void GenMCDriver::handleCLFlush(std::unique_ptr<CLFlushLabel> fLab)
 {
 	if (isExecutionDrivenByGraph(&*fLab))
 		return;
@@ -2296,14 +2275,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	checkFinalAnnotations(lab);
 }
 
-void GenMCDriver::handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab)
-{
-	if (isExecutionDrivenByGraph(&*hpLab))
-		return;
-
-	addLabelToGraph(std::move(hpLab));
-}
-
 SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
 {
 	auto &g = getGraph();
@@ -2343,30 +2314,6 @@ void GenMCDriver::handleFree(std::unique_ptr<FreeLabel> dLab)
 
 	/* Check whether there is any memory race */
 	checkForRaces(lab);
-}
-
-void GenMCDriver::handleRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lLab)
-{
-	if (isExecutionDrivenByGraph(&*lLab))
-		return;
-
-	addLabelToGraph(std::move(lLab));
-}
-
-void GenMCDriver::handleRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> uLab)
-{
-	if (isExecutionDrivenByGraph(&*uLab))
-		return;
-
-	addLabelToGraph(std::move(uLab));
-}
-
-void GenMCDriver::handleRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> fLab)
-{
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
 }
 
 const MemAccessLabel *GenMCDriver::getPreviousVisibleAccessLabel(Event start) const
@@ -3012,14 +2959,14 @@ bool GenMCDriver::revisitModifiesGraph(const BackwardRevisit &r) const
 	auto &v = r.getViewNoRel();
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
 		if (v->getMax(i) + 1 != (long)g.getThreadSize(i) &&
-		    !g.getEventLabel(Event(i, v->getMax(i) + 1))->isTerminator())
+		    !llvm::isa<TerminatorLabel>(g.getEventLabel(Event(i, v->getMax(i) + 1))))
 			return true;
 		if (!getConf()->isDepTrackingModel)
 			continue;
 		for (auto j = 0u; j < g.getThreadSize(i); j++) {
 			auto *lab = g.getEventLabel(Event(i, j));
 			if (!v->contains(lab->getPos()) && !llvm::isa<EmptyLabel>(lab) &&
-			    !lab->isTerminator())
+			    !llvm::isa<TerminatorLabel>(lab))
 				return true;
 		}
 	}
@@ -3166,7 +3113,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	std::unique_ptr<WriteLabel> wLab = nullptr;
 
 #define CREATE_COUNTERPART(name)                                                                   \
-	case EventLabel::EL_##name##Read:                                                          \
+	case EventLabel::name##Read:                                                               \
 		wLab = name##WriteLabel::create(rLab->getPos().next(), rLab->getOrdering(),        \
 						rLab->getAddr(), rLab->getSize(), rLab->getType(), \
 						result, wattr);                                    \
@@ -3329,106 +3276,6 @@ bool GenMCDriver::restrictAndRevisit(Stamp stamp, const WorkSet::ItemT &item)
 	return false;
 }
 
-SVal GenMCDriver::handleDskRead(std::unique_ptr<DskReadLabel> drLab)
-{
-	auto &g = getGraph();
-
-	if (isExecutionDrivenByGraph(&*drLab)) {
-		auto *rLab = llvm::dyn_cast<DskReadLabel>(g.getEventLabel(drLab->getPos()));
-		BUG_ON(!rLab);
-		return getDskReadValue(rLab);
-	}
-
-	/* Make the graph aware of a (potentially) new memory location */
-	g.trackCoherenceAtLoc(drLab->getAddr());
-
-	/* Get all stores to this location from which we can read from */
-	auto validStores = getRfsApproximation(&*drLab);
-	BUG_ON(validStores.empty());
-
-	/* ... and add an appropriate label with a particular rf */
-	if (inRecoveryMode())
-		drLab->setOrdering(llvm::AtomicOrdering::Monotonic);
-	auto *lab = llvm::dyn_cast<DskReadLabel>(addLabelToGraph(std::move(drLab)));
-	g.changeRf(lab->getPos(), validStores[0]);
-
-	/* ... filter out all option that make the recovery invalid */
-	filterInvalidRecRfs(lab, validStores);
-
-	/* Push all the other alternatives choices to the Stack */
-	for (auto it = validStores.begin() + 1; it != validStores.end(); ++it)
-		addToWorklist(lab->getStamp(),
-			      std::make_unique<ReadForwardRevisit>(lab->getPos(), *it));
-	return getDskWriteValue(g.getEventLabel(validStores[0]), lab->getAccess());
-}
-
-void GenMCDriver::handleDskWrite(std::unique_ptr<DskWriteLabel> wLab)
-{
-	if (isExecutionDrivenByGraph(&*wLab))
-		return;
-
-	auto &g = getGraph();
-
-	g.trackCoherenceAtLoc(wLab->getAddr());
-
-	/* Disk writes should always be hb-ordered */
-	auto placesRange = getCoherentPlacings(wLab->getAddr(), wLab->getPos(), false);
-	BUG_ON(placesRange.begin() != placesRange.end());
-
-	/* Safe to _only_ add it at the end of MO */
-	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
-	g.addStoreToCO(lab, placesRange.end());
-
-	calcRevisits(lab);
-	return;
-}
-
-SVal GenMCDriver::handleDskOpen(std::unique_ptr<DskOpenLabel> oLab)
-{
-	auto &g = getGraph();
-
-	if (isExecutionDrivenByGraph(&*oLab)) {
-		auto *lab = llvm::dyn_cast<DskOpenLabel>(g.getEventLabel(oLab->getPos()));
-		BUG_ON(!lab);
-		return lab->getFd();
-	}
-
-	/* We get a fresh file descriptor for this open() */
-	auto fd = getFreshFd();
-	ERROR_ON(fd == -1, "Too many calls to open()!\n");
-
-	oLab->setFd(SVal(fd));
-	auto *lab = llvm::dyn_cast<DskOpenLabel>(addLabelToGraph(std::move(oLab)));
-	return lab->getFd();
-}
-
-void GenMCDriver::handleDskFsync(std::unique_ptr<DskFsyncLabel> fLab)
-{
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
-	return;
-}
-
-void GenMCDriver::handleDskSync(std::unique_ptr<DskSyncLabel> fLab)
-{
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
-	return;
-}
-
-void GenMCDriver::handleDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab)
-{
-	if (isExecutionDrivenByGraph(&*fLab))
-		return;
-
-	addLabelToGraph(std::move(fLab));
-	return;
-}
-
 bool GenMCDriver::handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab)
 {
 	if (isExecutionDrivenByGraph(&*hLab))
@@ -3462,15 +3309,6 @@ bool GenMCDriver::handleOptional(std::unique_ptr<OptionalLabel> lab)
 		addToWorklist(oLab->getStamp(),
 			      std::make_unique<OptionalForwardRevisit>(oLab->getPos()));
 	return false; /* should not be expanded yet */
-}
-
-void GenMCDriver::handleLoopBegin(std::unique_ptr<LoopBeginLabel> bLab)
-{
-	if (isExecutionDrivenByGraph(&*bLab))
-		return;
-
-	addLabelToGraph(std::move(bLab));
-	return;
 }
 
 bool GenMCDriver::isWriteEffectful(const WriteLabel *wLab)
@@ -3600,6 +3438,12 @@ void GenMCDriver::handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab)
 	blockThreadTryMoot(LockZNEBlockLabel::create(zLab->getPos()));
 }
 
+void GenMCDriver::handleDummy(std::unique_ptr<EventLabel> lab)
+{
+	if (!isExecutionDrivenByGraph(&*lab))
+		addLabelToGraph(std::move(lab));
+}
+
 /************************************************************
  ** Printing facilities
  ***********************************************************/
@@ -3672,12 +3516,7 @@ void GenMCDriver::printGraph(bool printMetadata /* false */,
 {
 	auto &g = getGraph();
 	LabelPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
-			     [this](const ReadLabel &lab) {
-				     return llvm::isa<DskReadLabel>(&lab)
-						    ? getDskReadValue(
-							      llvm::dyn_cast<DskReadLabel>(&lab))
-						    : getReadValue(&lab);
-			     });
+			     [this](const ReadLabel &lab) { return getReadValue(&lab); });
 
 	/* Print the graph */
 	for (auto i = 0u; i < g.getNumThreads(); i++) {
@@ -3733,12 +3572,7 @@ void GenMCDriver::dotPrintToFile(const std::string &filename, const EventLabel *
 	std::ofstream fout(filename);
 	llvm::raw_os_ostream ss(fout);
 	DotPrinter printer([this](const SAddr &saddr) { return getVarName(saddr); },
-			   [this](const ReadLabel &lab) {
-				   return llvm::isa<DskReadLabel>(&lab)
-						  ? getDskReadValue(
-							    llvm::dyn_cast<DskReadLabel>(&lab))
-						  : getReadValue(&lab);
-			   });
+			   [this](const ReadLabel &lab) { return getReadValue(&lab); });
 
 	auto before = getPrefixView(errLab).clone();
 	if (confLab)

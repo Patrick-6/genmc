@@ -38,8 +38,7 @@ auto isSpinEndCall(Instruction *i) -> bool
 		return false;
 
 	auto name = getCalledFunOrStripValName(*ci);
-	return isInternalFunction(name) &&
-	       internalFunNames.at(name) == InternalFunctions::FN_SpinEnd;
+	return isSpinEndFunction(name);
 }
 
 /*

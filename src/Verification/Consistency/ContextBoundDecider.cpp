@@ -36,7 +36,7 @@ auto isEnabled(const ExecutionGraph &g, const View &v, int t) -> bool
 {
 	auto last = Event(t, v.getMax(t));
 	const auto *llab = g.getEventLabel(last);
-	if (llab->isTerminator())
+	if (llvm::isa<TerminatorLabel>(llab))
 		return false;
 
 	/* If thread has no more events in the current execution,

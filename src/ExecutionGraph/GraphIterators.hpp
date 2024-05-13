@@ -477,17 +477,12 @@ public:
 	}
 };
 
-static inline bool hasLocation(const EventLabel *lab)
-{
-	return llvm::isa<MemAccessLabel>(lab) || llvm::isa<CLFlushLabel>(lab);
-}
+static inline bool hasLocation(const EventLabel *lab) { return lab->hasLocation(); }
 
 static inline SAddr getLocation(const EventLabel *lab)
 {
 	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(lab))
 		return mLab->getAddr();
-	if (auto *fLab = llvm::dyn_cast<CLFlushLabel>(lab))
-		return fLab->getAddr();
 	return SAddr();
 }
 } /* namespace detail */

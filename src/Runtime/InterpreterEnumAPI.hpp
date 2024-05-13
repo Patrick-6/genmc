@@ -38,86 +38,10 @@ enum class StorageDuration { SD_Static, SD_Automatic, SD_Heap, SD_StorageLast };
 /* Storage types */
 enum class StorageType { ST_Volatile, ST_Durable, ST_StorageLast };
 
-/* Modeled functions -- (CAUTION: Order matters) */
+/* Modeled functions */
 enum class InternalFunctions {
-	FN_AssertFail,
-	FN_OptBegin,
-	FN_LoopBegin,
-	FN_SpinStart,
-
-	FN_SpinEnd,
-	FN_FaiZNESpinEnd,
-	FN_LockZNESpinEnd,
-	FN_Assume,
-	/* Assume calls */
-
-	FN_KillThread,
-	FN_NondetInt,
-	FN_ThreadSelf,
-	FN_AnnotateBegin,
-	FN_AnnotateEnd,
-	FN_HazptrProtect,
-	FN_HazptrClear,
-	FN_NoSideEffectsLast,
-	/* No side effects */
-
-	FN_ThreadCreate,
-	FN_ThreadCreateSymmetric,
-	FN_ThreadJoin,
-	FN_ThreadExit,
-	FN_AtExit,
-	FN_Malloc,
-	FN_MallocAligned,
-	FN_PMalloc,
-	FN_HazptrAlloc,
-	FN_MallocLast,
-	FN_Free,
-	FN_HazptrFree,
-	FN_HazptrRetire,
-	FN_MutexInit,
-	FN_MutexLock,
-	FN_MutexUnlock,
-	FN_MutexTrylock,
-	FN_MutexDestroy,
-	FN_BarrierInit,
-	FN_BarrierWait,
-	FN_BarrierDestroy,
-	FN_CondVarInit,
-	FN_CondVarWait,
-	FN_CondVarSignal,
-	FN_CondVarBcast,
-	FN_CondVarDestroy,
-
-	FN_OpenFS,
-	FN_CreatFS,
-	FN_RenameFS,
-	FN_LinkFS,
-	FN_UnlinkFS,
-	FN_TruncateFS,
-	FN_LastInodeFS,
-	/* Inode ops */
-	FN_WriteFS,
-	FN_PwriteFS,
-	FN_PersBarrierFS,
-	FN_LastInvRecFS,
-	/* Invalid FS rec ops */
-	FN_ReadFS,
-	FN_PreadFS,
-	FN_FsyncFS,
-	FN_SyncFS,
-	FN_LseekFS,
-	FN_CloseFS,
-	FN_LastFS,
-	/* FS ops */
-
-	FN_SmpFenceLKMM,
-	FN_RCUReadLockLKMM,
-	FN_RCUReadUnlockLKMM,
-	FN_SynchronizeRCULKMM,
-	/* LKMM ops */
-
-	FN_CLFlush,
-	/* Pers ops */
+#define HANDLE_FUNCTION(NUM, FUN, NAME) NAME = NUM,
+#include "Runtime/InternalFunction.def"
 };
 
 extern const std::unordered_map<std::string, InternalFunctions> internalFunNames;
@@ -129,15 +53,23 @@ inline bool isCleanInternalFunction(const std::string &name)
 	if (!isInternalFunction(name))
 		return false;
 
-	auto &code = internalFunNames.at(name);
-	return code >= InternalFunctions::FN_AssertFail &&
-	       code <= InternalFunctions::FN_NoSideEffectsLast;
+	auto code =
+		static_cast<std::underlying_type_t<InternalFunctions>>(internalFunNames.at(name));
+	return
+#define FIRST_PURE_FUNCTION(NUM) code >= NUM &&
+#define LAST_PURE_FUNCTION(NUM) code <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool isErrorFunction(const std::string &name)
 {
 	return isInternalFunction(name) &&
-	       internalFunNames.at(name) == InternalFunctions::FN_AssertFail;
+	       internalFunNames.at(name) == InternalFunctions::AssertFail;
+}
+
+inline bool isSpinEndFunction(const std::string &name)
+{
+	return isInternalFunction(name) && internalFunNames.at(name) == InternalFunctions::SpinEnd;
 }
 
 inline bool isAssumeFunction(const std::string &name)
@@ -145,8 +77,12 @@ inline bool isAssumeFunction(const std::string &name)
 	if (!isInternalFunction(name))
 		return false;
 
-	auto &code = internalFunNames.at(name);
-	return code >= InternalFunctions::FN_SpinEnd && code <= InternalFunctions::FN_Assume;
+	auto code =
+		static_cast<std::underlying_type_t<InternalFunctions>>(internalFunNames.at(name));
+	return
+#define FIRST_ASSUME_FUNCTION(NUM) code >= NUM &&
+#define LAST_ASSUME_FUNCTION(NUM) code <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool isAllocFunction(const std::string &name)
@@ -154,42 +90,39 @@ inline bool isAllocFunction(const std::string &name)
 	if (!isInternalFunction(name))
 		return false;
 
-	auto &code = internalFunNames.at(name);
-	return code >= InternalFunctions::FN_Malloc && code <= InternalFunctions::FN_MallocLast;
+	auto code =
+		static_cast<std::underlying_type_t<InternalFunctions>>(internalFunNames.at(name));
+	return
+#define FIRST_ALLOC_FUNCTION(NUM) code >= NUM &&
+#define LAST_ALLOC_FUNCTION(NUM) code <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool isMutexCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_MutexInit &&
-		code <= InternalFunctions::FN_MutexDestroy);
+	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
+	return
+#define FIRST_MUTEX_FUNCTION(NUM) codeI >= NUM &&
+#define LAST_MUTEX_FUNCTION(NUM) codeI <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool isBarrierCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_BarrierInit &&
-		code <= InternalFunctions::FN_BarrierDestroy);
+	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
+	return
+#define FIRST_BARRIER_FUNCTION(NUM) codeI >= NUM &&
+#define LAST_BARRIER_FUNCTION(NUM) codeI <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool isCondVarCode(InternalFunctions code)
 {
-	return (code >= InternalFunctions::FN_CondVarInit &&
-		code <= InternalFunctions::FN_CondVarDestroy);
-}
-
-inline bool isFsCode(InternalFunctions code)
-{
-	return (code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastFS);
-}
-
-inline bool isFsInodeCode(InternalFunctions code)
-{
-	return (code >= InternalFunctions::FN_OpenFS && code <= InternalFunctions::FN_LastInodeFS);
-}
-
-inline bool isFsInvalidRecCode(InternalFunctions code)
-{
-	return (code >= InternalFunctions::FN_CreatFS &&
-		code <= InternalFunctions::FN_LastInvRecFS);
+	auto codeI = static_cast<std::underlying_type_t<InternalFunctions>>(code);
+	return
+#define FIRST_CONDVAR_FUNCTION(NUM) codeI >= NUM &&
+#define LAST_CONDVAR_FUNCTION(NUM) codeI <= NUM;
+#include "Runtime/InternalFunction.def"
 }
 
 inline bool hasGlobalLoadSemantics(const std::string &name)
@@ -198,9 +131,9 @@ inline bool hasGlobalLoadSemantics(const std::string &name)
 		return false;
 
 	using IF = InternalFunctions;
-	auto &code = internalFunNames.at(name);
-	return code == IF::FN_MutexLock || code == IF::FN_MutexTrylock ||
-	       code == IF::FN_BarrierWait || code == IF::FN_CondVarWait || isFsCode(code);
+	auto code = internalFunNames.at(name);
+	return code == IF::MutexLock || code == IF::MutexTrylock || code == IF::BarrierWait ||
+	       code == IF::CondVarWait;
 }
 
 /* Should match our internal definitions */

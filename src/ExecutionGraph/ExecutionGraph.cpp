@@ -70,8 +70,7 @@ Event ExecutionGraph::getLastThreadReleaseAtLoc(Event upperLimit, SAddr addr) co
 {
 	for (int i = upperLimit.index - 1; i > 0; i--) {
 		const EventLabel *lab = getEventLabel(Event(upperLimit.thread, i));
-		if (llvm::isa<ThreadCreateLabel>(lab) || llvm::isa<ThreadFinishLabel>(lab) ||
-		    llvm::isa<UnlockLabelLAPOR>(lab)) {
+		if (llvm::isa<ThreadCreateLabel>(lab) || llvm::isa<ThreadFinishLabel>(lab)) {
 			return Event(upperLimit.thread, i);
 		}
 		if (auto *fLab = llvm::dyn_cast<FenceLabel>(lab)) {

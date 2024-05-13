@@ -51,21 +51,11 @@ private:
 	/* Collects name info for a stack variable */
 	void collectLocalInfo(llvm::DbgDeclareInst *DD, llvm::Module &M);
 
-	/* Collect name info for internal types */
-	void collectInternalInfo(llvm::Module &M);
-
-	/* Collect info about the files used */
-	void collectFilenameInfo(llvm::CallInst *DD, llvm::Module &M);
-
 	/*
 	 * Collects name info about global variables w/ private linkage
 	 * used in memory intrinsics
 	 */
 	void collectMemCpyInfo(llvm::MemCpyInst *MI, llvm::Module &M);
-
-	/* Marks V's name as used in the module.
-	 * Reports an error if the name is not a constant  */
-	void initializeFilenameEntry(llvm::Value *v);
 
 	/* Check whether the respective information exist */
 	auto hasGlobalInfo(llvm::Value *gv) const -> bool

@@ -206,48 +206,43 @@ public:
 
 	/*** Instruction-related actions ***/
 
+	/* A thread has just finished execution, nothing for the interpreter */
+	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
+
+	/* A thread has terminated abnormally */
+	void handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
+
+	/* This method blocks the current thread  */
+	void handleBlock(std::unique_ptr<BlockLabel> bLab);
+
 	/* Returns the value this load reads */
 	std::optional<SVal> handleLoad(std::unique_ptr<ReadLabel> rLab);
-
-	/* A function modeling a write to disk has been interpreted.
-	 * Returns the value read */
-	SVal handleDskRead(std::unique_ptr<DskReadLabel> rLab);
 
 	/* A store has been interpreted, nothing for the interpreter */
 	void handleStore(std::unique_ptr<WriteLabel> wLab);
 
-	/* A function modeling a write to disk has been interpreted */
-	void handleDskWrite(std::unique_ptr<DskWriteLabel> wLab);
+	/* A fence has been interpreted, nothing for the interpreter */
+	void handleFence(std::unique_ptr<FenceLabel> fLab);
+
+	/* Returns an appropriate result for malloc() */
+	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab);
+
+	/* A call to free() has been interpreted, nothing for the intepreter */
+	void handleFree(std::unique_ptr<FreeLabel> dLab);
+
+	/* Returns the TID of the newly created thread */
+	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab);
+
+	/* Returns an appropriate result for pthread_join() */
+	std::optional<SVal> handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab);
 
 	/* A helping CAS operation has been interpreter.
 	 * Returns whether the helped CAS is present. */
 	bool handleHelpingCas(std::unique_ptr<HelpingCasLabel> hLab);
 
-	/* A function modeling the beginning of the opening of a file.
-	 * The interpreter will get back the file descriptor */
-	SVal handleDskOpen(std::unique_ptr<DskOpenLabel> oLab);
-
-	/* An fsync() operation has been interpreted */
-	void handleDskFsync(std::unique_ptr<DskFsyncLabel> fLab);
-
-	/* A sync() operation has been interpreted */
-	void handleDskSync(std::unique_ptr<DskSyncLabel> fLab);
-
-	/* A call to __VERIFIER_pbarrier() has been interpreted */
-	void handleDskPbarrier(std::unique_ptr<DskPbarrierLabel> fLab);
-
-	/* A fence has been interpreted, nothing for the interpreter */
-	void handleFence(std::unique_ptr<FenceLabel> fLab);
-
-	/* A cache line flush has been interpreted, nothing for the interpreter */
-	void handleCLFlush(std::unique_ptr<CLFlushLabel> fLab);
-
 	/* A call to __VERIFIER_opt_begin() has been interpreted.
 	 * Returns whether the block should expand */
 	bool handleOptional(std::unique_ptr<OptionalLabel> lab);
-
-	/* A call to __VERIFIER_loop_begin() has been interpreted */
-	void handleLoopBegin(std::unique_ptr<LoopBeginLabel> lab);
 
 	/* A call to __VERIFIER_spin_start() has been interpreted */
 	void handleSpinStart(std::unique_ptr<SpinStartLabel> lab);
@@ -258,34 +253,8 @@ public:
 	/* A call to __VERIFIER_lockZNE_spin_end() has been interpreted */
 	void handleLockZNESpinEnd(std::unique_ptr<LockZNESpinEndLabel> lab);
 
-	/* A thread has terminated abnormally */
-	void handleThreadKill(std::unique_ptr<ThreadKillLabel> lab);
-
-	/* Returns the TID of the newly created thread */
-	int handleThreadCreate(std::unique_ptr<ThreadCreateLabel> tcLab);
-
-	/* Returns an appropriate result for pthread_join() */
-	std::optional<SVal> handleThreadJoin(std::unique_ptr<ThreadJoinLabel> jLab);
-
-	/* A thread has just finished execution, nothing for the interpreter */
-	void handleThreadFinish(std::unique_ptr<ThreadFinishLabel> eLab);
-
-	/* __VERIFIER_hp_protect() has been called */
-	void handleHpProtect(std::unique_ptr<HpProtectLabel> hpLab);
-
-	/* Returns an appropriate result for malloc() */
-	SVal handleMalloc(std::unique_ptr<MallocLabel> aLab);
-
-	/* A call to free() has been interpreted, nothing for the intepreter */
-	void handleFree(std::unique_ptr<FreeLabel> dLab);
-
-	/* This method blocks the current thread  */
-	void handleBlock(std::unique_ptr<BlockLabel> bLab);
-
-	/* LKMM: Handle RCU functions */
-	void handleRCULockLKMM(std::unique_ptr<RCULockLabelLKMM> lab);
-	void handleRCUUnlockLKMM(std::unique_ptr<RCUUnlockLabelLKMM> lab);
-	void handleRCUSyncLKMM(std::unique_ptr<RCUSyncLabelLKMM> lab);
+	/* A generic helper for dummy events */
+	void handleDummy(std::unique_ptr<EventLabel> lab);
 
 	/* This method either blocks the offending thread (e.g., if the
 	 * execution is invalid), or aborts the exploration */
@@ -354,21 +323,11 @@ protected:
 
 	/* Returns the value written by a disk write */
 	SVal getDskWriteValue(const EventLabel *wLab, const AAccess &a);
-	SVal getDskWriteValue(const DskWriteLabel *wLab)
-	{
-		return getDskWriteValue(wLab, wLab->getAccess());
-	}
 
 	/* Returns the value read by a read */
 	SVal getReadValue(const ReadLabel *rLab)
 	{
 		return getWriteValue(rLab->getRf(), rLab->getAccess());
-	}
-
-	/* Returns the value read by a disk read */
-	SVal getDskReadValue(const DskReadLabel *rLab)
-	{
-		return getDskWriteValue(rLab->getRf(), rLab->getAccess());
 	}
 
 	/* Returns the value returned by the terminated thread */
