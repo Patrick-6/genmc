@@ -134,7 +134,7 @@ void printVerificationResults(const std::shared_ptr<const Config> &conf,
 	PRINT(VerbosityLevel::Error) << res.message;
 	PRINT(VerbosityLevel::Error)
 		<< (res.status == VerificationError::VE_OK
-			    ? "*** Verification complete. No errors were detected.\n"
+			    ? "*** Verification complete.\nNo errors were detected.\n"
 			    : "*** Verification unsuccessful.\n");
 
 	PRINT(VerbosityLevel::Error) << "Number of complete executions explored: " << res.explored;
