@@ -648,6 +648,8 @@ void GenMCDriver::handleExecutionEnd()
 		return;
 	}
 
+	if (getConf()->warnUnfreedMemory)
+		checkUnfreedMemory();
 	if (getConf()->printExecGraphs && !getConf()->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
 
@@ -1353,7 +1355,9 @@ void GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
 	auto racyIt = std::find_if(store_begin(g, rLab->getAddr()), store_end(g, rLab->getAddr()),
 				   [&](auto &wLab) { return wLab.hasAttr(WriteAttr::WWRacy); });
 	if (racyIt != store_end(g, rLab->getAddr())) {
-		auto msg = "Warning treated as an error due to in-place revisiting.\n"
+		auto msg = "Unordered writes do not constitute a bug per se, though they often "
+			   "indicate faulty design.\n"
+			   "This warning is treated as an error due to in-place revisiting (IPR).\n"
 			   "You can use -disable-ipr to disable this feature."s;
 		reportError({racyIt->getPos(), VerificationError::VE_WWRace, msg, nullptr, true});
 	}
@@ -1413,6 +1417,21 @@ void GenMCDriver::checkLiveness()
 			     "Non-terminating spinloop: thread " + std::to_string(nonTermTID)});
 	}
 	return;
+}
+
+void GenMCDriver::checkUnfreedMemory()
+{
+	if (isHalting())
+		return;
+
+	auto &g = getGraph();
+	const MallocLabel *unfreedAlloc = nullptr;
+	if (std::ranges::any_of(labels(g), [&](auto &lab) {
+		    unfreedAlloc = llvm::dyn_cast<MallocLabel>(&lab);
+		    return unfreedAlloc && unfreedAlloc->getFree() == nullptr;
+	    })) {
+		reportWarningOnce(unfreedAlloc->getPos(), VerificationError::VE_UnfreedMemory);
+	}
 }
 
 void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores)
@@ -2453,7 +2472,7 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 				    const EventLabel *racyLab /* = nullptr */)
 {
 	/* Helper function to determine whether the warning should be treated as an error */
-	auto isHardError = [&](auto &wcode) {
+	auto shouldUpgradeWarning = [&](auto &wcode) {
 		if (wcode != VerificationError::VE_WWRace)
 			return std::make_pair(false, ""s);
 		if (!getConf()->symmetryReduction && !getConf()->ipr)
@@ -2461,7 +2480,7 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 
 		auto &g = getGraph();
 		auto *lab = g.getEventLabel(pos);
-		auto hardError =
+		auto upgrade =
 			(getConf()->symmetryReduction &&
 			 std::any_of(g.getThreadList().begin(), g.getThreadList().end(),
 				     [&](auto &thr) {
@@ -2475,27 +2494,30 @@ bool GenMCDriver::reportWarningOnce(Event pos, VerificationError wcode,
 				 return rLab && rLab->getAnnot();
 			 }));
 		auto [cause, cli] =
-			getConf()->ipr ? std::make_pair("in-place revisiting"s, "-disable-ipr"s)
-				       : std::make_pair("symmetry reduction"s, "-disable-sr"s);
-		auto msg = hardError ? ("Warning treated as an error due to " + cause +
-					".\n"
-					"You can use " +
-					cli + " to disable these features."s)
-				     : ""s;
-		return std::make_pair(hardError, msg);
+			getConf()->ipr
+				? std::make_pair("in-place revisiting (IPR)"s, "-disable-ipr"s)
+				: std::make_pair("symmetry reduction (SR)"s, "-disable-sr"s);
+		auto msg = "Unordered writes do not constitute a bug per se, though they often "
+			   "indicate faulty design.\n" +
+			   (upgrade ? ("This warning is treated as an error due to " + cause +
+				       ".\n"
+				       "You can use " +
+				       cli + " to disable these features."s)
+				    : ""s);
+		return std::make_pair(upgrade, msg);
 	};
 
 	/* If the warning has been seen before, only report it if it's an error */
-	auto [hardError, msg] = isHardError(wcode);
+	auto [upgradeWarning, msg] = shouldUpgradeWarning(wcode);
 	auto &knownWarnings = getResult().warnings;
-	if (hardError || knownWarnings.count(wcode) == 0) {
-		reportError({pos, wcode, msg, racyLab, hardError});
+	if (upgradeWarning || knownWarnings.count(wcode) == 0) {
+		reportError({pos, wcode, msg, racyLab, upgradeWarning});
 	}
 	if (knownWarnings.count(wcode) == 0)
 		knownWarnings.insert(wcode);
 	if (wcode == VerificationError::VE_WWRace)
 		getGraph().getWriteLabel(pos)->setAttr(WriteAttr::WWRacy);
-	return hardError;
+	return upgradeWarning;
 }
 
 bool GenMCDriver::tryOptimizeBarrierRevisits(const BIncFaiWriteLabel *sLab,

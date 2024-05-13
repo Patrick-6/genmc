@@ -113,6 +113,9 @@ static llvm::cl::opt<bool> clDisableIPR("disable-ipr", llvm::cl::cat(clGeneral),
 static llvm::cl::opt<bool>
 	clDisableStopOnSystemError("disable-stop-on-system-error", llvm::cl::cat(clGeneral),
 				   llvm::cl::desc("Do not stop verification on system errors"));
+static llvm::cl::opt<bool>
+	clDisableWarnUnfreedMemory("disable-warn-on-unfreed-memory", llvm::cl::cat(clGeneral),
+				   llvm::cl::desc("Do not warn about unfreed memory"));
 
 /*** Persistency options ***/
 
@@ -367,6 +370,7 @@ void Config::saveConfigOptions()
 	disableBAM = clDisableBAM;
 	ipr = !clDisableIPR;
 	disableStopOnSystemError = clDisableStopOnSystemError;
+	warnUnfreedMemory = !clDisableWarnUnfreedMemory;
 
 	/* Save persistency options */
 	persevere = clPersevere;

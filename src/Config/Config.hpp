@@ -57,6 +57,7 @@ public:
 	bool disableBAM;
 	bool ipr;
 	bool disableStopOnSystemError;
+	bool warnUnfreedMemory;
 
 	/*** Persistency options ***/
 	bool persevere;

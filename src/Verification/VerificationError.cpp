@@ -50,7 +50,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &s, const VerificationError &st)
 	case VerificationError::VE_RaceNotAtomic:
 		return s << "Non-atomic race";
 	case VerificationError::VE_WWRace:
-		return s << "Write-write race";
+		return s << "Unordered writes";
+	case VerificationError::VE_UnfreedMemory:
+		return s << "Unfreed memory";
 	case VerificationError::VE_RaceFreeMalloc:
 		return s << "Malloc-free race";
 	case VerificationError::VE_FreeNonMalloc:

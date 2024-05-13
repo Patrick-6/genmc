@@ -46,12 +46,15 @@ enum class SystemError {
 /* Different errors that might be encountered during verification.
  * Public to enable the interpreter utilize it */
 enum class VerificationError {
+	VE_NonErrorBegin,
 	VE_OK,
+	VE_WWRace,
+	VE_UnfreedMemory,
+	VE_NonErrorLast,
 	VE_Safety,
 	VE_Recovery,
 	VE_Liveness,
 	VE_RaceNotAtomic,
-	VE_WWRace,
 	VE_RaceFreeMalloc,
 	VE_FreeNonMalloc,
 	VE_DoubleFree,
@@ -76,7 +79,8 @@ enum class VerificationError {
 
 inline bool isHardError(VerificationError err)
 {
-	return err != VerificationError::VE_OK && err != VerificationError::VE_WWRace;
+	return !(err >= VerificationError::VE_NonErrorBegin &&
+		 err <= VerificationError::VE_NonErrorLast);
 }
 
 /* For compilers that do not have a recent enough lib{std}c++ */

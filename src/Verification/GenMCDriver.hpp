@@ -382,8 +382,11 @@ protected:
 	/* Liveness: Checks whether a spin-blocked thread reads co-maximal values */
 	bool threadReadsMaximal(int tid);
 
-	/* Liveness: Calls visitError() if there is a liveness violation */
+	/* Liveness: Reports an error on liveness violations */
 	void checkLiveness();
+
+	/* Reports an error if there is unfreed memory */
+	void checkUnfreedMemory();
 
 	/* Returns true if E is maximal in ADDR at P*/
 	bool isCoMaximal(SAddr addr, Event e, bool checkCache = false);
