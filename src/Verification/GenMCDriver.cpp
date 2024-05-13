@@ -648,15 +648,14 @@ void GenMCDriver::handleExecutionEnd()
 		return;
 	}
 
-	if (fullExecutionExceedsBound())
-		++result.boundExceeding;
-
 	if (getConf()->printExecGraphs && !getConf()->persevere)
 		printGraph(); /* Delay printing if persevere is enabled */
 
 	GENMC_DEBUG(if (getConf()->boundsHistogram && !inEstimationMode()) trackExecutionBound(););
 
 	++result.explored;
+	if (fullExecutionExceedsBound())
+		++result.boundExceeding;
 }
 
 void GenMCDriver::handleRecoveryStart()
