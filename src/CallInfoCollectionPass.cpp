@@ -33,13 +33,8 @@
 
 using namespace llvm;
 
-void CallInfoCollectionPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	au.setPreservesAll();
-}
-
-bool hasSideEffects(Function *F, SmallVector<Function *, 4> &chain, VSet<Function *> &clean,
-		    VSet<Function *> &dirty)
+auto hasSideEffects(Function *F, SmallVector<Function *, 4> &chain, VSet<Function *> &clean,
+		    VSet<Function *> &dirty) -> bool
 {
 	if (!F || dirty.count(F))
 		return true;
@@ -70,13 +65,13 @@ bool hasSideEffects(Function *F, SmallVector<Function *, 4> &chain, VSet<Functio
 	return false;
 }
 
-bool hasSideEffects(Function *F, VSet<Function *> &clean, VSet<Function *> &dirty)
+auto hasSideEffects(Function *F, VSet<Function *> &clean, VSet<Function *> &dirty) -> bool
 {
 	SmallVector<Function *, 4> chain;
 	return hasSideEffects(F, chain, clean, dirty);
 }
 
-bool isAllocating(Function *F)
+auto isAllocating(Function *F) -> bool
 {
 	if (!F->getReturnType()->isPointerTy())
 		return false;
@@ -94,25 +89,25 @@ bool isAllocating(Function *F)
 	});
 }
 
-bool CallInfoCollectionPass::runOnModule(Module &M)
+auto CallAnalysis::run(Module &M, ModuleAnalysisManager &MAM) -> Result
 {
 	VSet<Function *> dirty;
 
-	clean.clear();
-	alloc.clear();
+	result_.clean.clear();
+	result_.alloc.clear();
 	for (auto &F : M) {
-		if (hasSideEffects(&F, clean, dirty))
+		if (hasSideEffects(&F, result_.clean, dirty))
 			dirty.insert(&F);
 		else
-			clean.insert(&F);
+			result_.clean.insert(&F);
 		if (isAllocating(&F))
-			alloc.insert(&F);
+			result_.alloc.insert(&F);
 	}
-	return false;
+	return result_;
 }
 
-ModulePass *createCallInfoCollectionPass() { return new CallInfoCollectionPass(); }
-
-char CallInfoCollectionPass::ID = 42;
-static llvm::RegisterPass<CallInfoCollectionPass>
-	P("call-info-collection", "Collects information about side-effect-free functions.");
+auto CallAnalysisPass::run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses
+{
+	AR_ = MAM.getResult<CallAnalysis>(M);
+	return PreservedAnalyses::all();
+}

@@ -40,6 +40,12 @@ typedef llvm::TerminatorInst TerminatorInst;
 typedef llvm::Instruction TerminatorInst;
 #endif
 
+#if LLVM_VERSION_MAJOR < 17
+#define GLOBALS(M) (M).getGlobalList()
+#else
+#define GLOBALS(M) (M).globals()
+#endif
+
 /*
  * Returns true if o1 and o2 are the same ordering as far as a load
  * operation is concerned. This catches cases where e.g.,

@@ -33,14 +33,7 @@
 
 using namespace llvm;
 
-void FunctionInlinerPass::getAnalysisUsage(AnalysisUsage &au) const
-{
-	au.addRequired<DominatorTreeWrapperPass>();
-	au.addRequired<DeclareInternalsPass>();
-	au.addRequired<MDataCollectionPass>();
-}
-
-bool isInlinable(CallGraph &CG, CallGraphNode *node, SmallVector<CallGraphNode *, 4> &chain)
+auto isInlinable(CallGraph &CG, CallGraphNode *node, SmallVector<CallGraphNode *, 4> &chain) -> bool
 {
 	/* Base cases: indirect/empty/recursive calls */
 	auto *F = node->getFunction();
@@ -60,25 +53,24 @@ bool isInlinable(CallGraph &CG, CallGraphNode *node, SmallVector<CallGraphNode *
 	return true;
 }
 
-bool isInlinable(CallGraph &CG, Function &F)
+auto isInlinable(CallGraph &CG, Function &F) -> bool
 {
 	SmallVector<CallGraphNode *, 4> chain;
 	return isInlinable(CG, CG[&F], chain);
 }
 
-bool inlineCall(CallInst *ci)
+auto inlineCall(CallInst *ci) -> bool
 {
 	llvm::InlineFunctionInfo ifi;
 
 #if LLVM_VERSION_MAJOR >= 11
-	BUG_ON(!InlineFunction(*ci, ifi).isSuccess());
+	return InlineFunction(*ci, ifi).isSuccess();
 #else
-	BUG_ON(!InlineFunction(ci, ifi));
+	return InlineFunction(ci, ifi);
 #endif
-	return true;
 }
 
-bool inlineFunction(Module &M, Function *toInline)
+auto inlineFunction(Module &M, Function *toInline) -> bool
 {
 	std::vector<CallInst *> calls;
 	for (auto &F : M) {
@@ -92,12 +84,14 @@ bool inlineFunction(Module &M, Function *toInline)
 		}
 	}
 
-	bool changed = false;
-	std::for_each(calls.begin(), calls.end(), [&](CallInst *ci) { changed |= inlineCall(ci); });
+	auto changed = false;
+	for (auto *ci : calls) {
+		changed |= inlineCall(ci);
+	}
 	return changed;
 }
 
-bool FunctionInlinerPass::runOnModule(Module &M)
+auto FunctionInlinerPass::run(Module &M, ModuleAnalysisManager &AM) -> PreservedAnalyses
 {
 	CallGraph CG(M);
 
@@ -107,11 +101,5 @@ bool FunctionInlinerPass::runOnModule(Module &M)
 			changed |= inlineFunction(M, &F);
 		}
 	}
-	return changed;
+	return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-ModulePass *createFunctionInlinerPass() { return new FunctionInlinerPass(); }
-
-char FunctionInlinerPass::ID = 42;
-static llvm::RegisterPass<FunctionInlinerPass> P("function-inliner",
-						 "Inlines all non-recursive functions.");

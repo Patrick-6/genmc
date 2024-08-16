@@ -18,38 +18,48 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __CALL_INFO_COLLECTION_PASS_HPP__
-#define __CALL_INFO_COLLECTION_PASS_HPP__
+#ifndef GENMC_CALL_INFO_COLLECTION_PASS_HPP
+#define GENMC_CALL_INFO_COLLECTION_PASS_HPP
 
 #include "VSet.hpp"
-#include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-#include <string>
-#include <unordered_map>
-#include <vector>
+namespace llvm {
+class Function;
+} // namespace llvm
 
-class CallInfoCollectionPass : public llvm::ModulePass {
+using namespace llvm;
 
-public:
-	using CallSet = VSet<llvm::Function *>;
+class CallAnalysis;
 
-	CallInfoCollectionPass() : llvm::ModulePass(ID) {}
+struct CallAnalysisResult {
+	using CallSet = VSet<Function *>;
 
-	/* Returns the set of side-effect-free calls */
-	const CallSet &getCleanCalls() const { return clean; }
-
-	/* Returns the set of (non-builtin) allocating calls */
-	const CallSet &getAllocCalls() const { return alloc; }
-
-	virtual bool runOnModule(llvm::Module &M);
-	void getAnalysisUsage(llvm::AnalysisUsage &au) const;
-
-	static char ID;
-
-private:
 	CallSet clean;
 	CallSet alloc;
 };
 
-#endif /* __CALL_INFO_COLLECTION_PASS_HPP__ */
+class CallAnalysis : public AnalysisInfoMixin<CallAnalysis> {
+public:
+	using Result = CallAnalysisResult;
+
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> Result;
+
+private:
+	friend AnalysisInfoMixin<CallAnalysis>;
+	static inline AnalysisKey Key;
+
+	CallAnalysisResult result_;
+};
+
+class CallAnalysisPass : public AnalysisInfoMixin<CallAnalysisPass> {
+public:
+	CallAnalysisPass(CallAnalysisResult &AR) : AR_(AR) {}
+
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses;
+
+private:
+	CallAnalysisResult &AR_;
+};
+
+#endif /* GENMC_CALL_INFO_COLLECTION_PASS_HPP */

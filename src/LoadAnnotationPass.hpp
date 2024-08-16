@@ -18,44 +18,38 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOAD_ANNOTATION_PASS_HPP__
-#define __LOAD_ANNOTATION_PASS_HPP__
+#ifndef GENMC_LOAD_ANNOTATION_PASS_HPP
+#define GENMC_LOAD_ANNOTATION_PASS_HPP
 
 #include "ModuleInfo.hpp"
 #include <llvm/IR/Instructions.h>
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 
-class LoadAnnotationPass : public FunctionPass {
+using LoadAnnotationAnalysisResult = AnnotationInfo<Instruction *, Value *>;
 
+class LoadAnnotationAnalysis : public AnalysisInfoMixin<LoadAnnotationAnalysis> {
 public:
-	static char ID;
-	AnnotationInfo<Instruction *, Value *> &LAI;
+	using Result = LoadAnnotationAnalysisResult;
 
-	LoadAnnotationPass(AnnotationInfo<Instruction *, Value *> &LAI)
-		: FunctionPass(ID), LAI(LAI){};
-
-	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
-	virtual bool runOnFunction(Function &F);
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> Result;
 
 private:
-	/*
-	 * Returns the source loads of an assume statement, that is,
-	 * loads the result of which is used in the assume.
-	 */
-	std::vector<Instruction *> getSourceLoads(CallInst *assm) const;
+	friend AnalysisInfoMixin<LoadAnnotationAnalysis>;
+	static inline AnalysisKey Key;
 
-	/*
-	 * Given an assume's source loads, returns the annotatable ones.
-	 */
-	std::vector<Instruction *>
-	filterAnnotatableFromSource(CallInst *assm, const std::vector<Instruction *> &source) const;
-
-	/*
-	 * Returns all of ASSM's annotatable loads
-	 */
-	std::vector<Instruction *> getAnnotatableLoads(CallInst *assm) const;
+	Result result_;
 };
 
-#endif /* __LOAD_ANNOTATION_PASS_HPP__ */
+class LoadAnnotationPass : public AnalysisInfoMixin<LoadAnnotationPass> {
+public:
+	LoadAnnotationPass(LoadAnnotationAnalysisResult &LAI) : LAI_(LAI) {}
+
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
+
+private:
+	LoadAnnotationAnalysisResult &LAI_;
+};
+
+#endif /* GENMC_LOAD_ANNOTATION_PASS_HPP_ */

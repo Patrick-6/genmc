@@ -19,8 +19,10 @@
  */
 
 #include "IntrinsicLoweringPass.hpp"
-#include "config.h"
+
 #include <llvm/ADT/Twine.h>
+#include <llvm/CodeGen/IntrinsicLowering.h>
+#include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstrTypes.h>
@@ -30,11 +32,14 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 
-bool IntrinsicLoweringPass::runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &M)
+using namespace llvm;
+
+auto runOnBasicBlock(BasicBlock &BB, IntrinsicLowering *IL) -> bool
 {
-	bool modified = false;
+	auto &M = *BB.getParent()->getParent();
+	auto modified = false;
 	for (auto it = BB.begin(); it != BB.end();) {
-		llvm::IntrinsicInst *I = llvm::dyn_cast<llvm::IntrinsicInst>(&*it);
+		auto *I = llvm::dyn_cast<IntrinsicInst>(&*it);
 		/* Iterator is incremented in order for it not to be invalidated */
 		++it;
 		/* If the instruction is not an intrinsic call, skip it */
@@ -58,7 +63,13 @@ bool IntrinsicLoweringPass::runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &
 			modified = true;
 			break;
 		case llvm::Intrinsic::trap: {
-			/* Lower calls to @llvm.trap to abort() calls */
+			/*
+			 * Check for calls to @llvm.trap. Such calls may occur if LLVM
+			 * detects a NULL pointer dereference in the CFG and simplify
+			 * it to a trap call. In order for this to happen, the program
+			 * has to be compiled with -O1 or -O2.
+			 * We lower such calls to abort() (@trap could also be erased from M)
+			 */
 			auto FC = M.getOrInsertFunction("abort",
 							llvm::Type::getVoidTy(M.getContext()));
 #if LLVM_VERSION_MAJOR < 9
@@ -84,34 +95,14 @@ bool IntrinsicLoweringPass::runOnBasicBlock(llvm::BasicBlock &BB, llvm::Module &
 	return modified;
 }
 
-bool IntrinsicLoweringPass::runOnModule(llvm::Module &M)
+auto IntrinsicLoweringPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	bool modified = false;
+	auto ILUP = std::make_unique<IntrinsicLowering>(F.getParent()->getDataLayout());
+
 	/* Scan through the instructions and lower intrinsic calls */
-	for (auto &F : M)
-		for (auto &BB : F)
-			modified |= runOnBasicBlock(BB, M);
+	auto modified = false;
+	for (auto &BB : F)
+		modified |= runOnBasicBlock(BB, &*ILUP);
 
-	/*
-	 * Check for calls to @llvm.trap. Such calls may occur if LLVM
-	 * detects a NULL pointer dereference in the CFG and simplify
-	 * it to a trap call. In order for this to happen, the program
-	 * has to be compiled with -O1 or -O2.
-	 */
-	if (llvm::Function *trapDecl = M.getFunction("llvm.trap")) {
-		trapDecl->eraseFromParent();
-		modified = true;
-	}
-	return modified;
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-llvm::ModulePass *createIntrinsicLoweringPass(llvm::Module &M)
-{
-#ifdef LLVM_EXECUTIONENGINE_DATALAYOUT_PTR
-	return new IntrinsicLoweringPass(*M.getDataLayout());
-#else
-	return new IntrinsicLoweringPass(M.getDataLayout());
-#endif
-}
-
-char IntrinsicLoweringPass::ID = 42;

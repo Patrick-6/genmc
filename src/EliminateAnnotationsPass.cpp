@@ -37,14 +37,7 @@ using namespace llvm;
 #define POSTDOM_PASS PostDominatorTreeWrapperPass
 #define GET_POSTDOM_PASS() getAnalysis<POSTDOM_PASS>().getPostDomTree();
 
-void EliminateAnnotationsPass::getAnalysisUsage(AnalysisUsage &AU) const
-{
-	AU.addRequired<DominatorTreeWrapperPass>();
-	AU.addRequired<POSTDOM_PASS>();
-	AU.setPreservesAll();
-}
-
-bool isAnnotationBegin(Instruction *i)
+auto isAnnotationBegin(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -55,7 +48,7 @@ bool isAnnotationBegin(Instruction *i)
 	       internalFunNames.at(name) == InternalFunctions::FN_AnnotateBegin;
 }
 
-bool isAnnotationEnd(Instruction *i)
+auto isAnnotationEnd(Instruction *i) -> bool
 {
 	auto *ci = llvm::dyn_cast<CallInst>(i);
 	if (!ci)
@@ -66,14 +59,14 @@ bool isAnnotationEnd(Instruction *i)
 	       internalFunNames.at(name) == InternalFunctions::FN_AnnotateEnd;
 }
 
-uint64_t getAnnotationValue(CallInst *ci)
+auto getAnnotationValue(CallInst *ci) -> uint64_t
 {
 	auto *funArg = llvm::dyn_cast<ConstantInt>(ci->getOperand(0));
 	BUG_ON(!funArg);
 	return funArg->getValue().getLimitedValue();
 }
 
-bool annotateInstructions(CallInst *begin, CallInst *end)
+auto annotateInstructions(CallInst *begin, CallInst *end) -> bool
 {
 	if (!begin || !end)
 		return false;
@@ -105,8 +98,8 @@ bool annotateInstructions(CallInst *begin, CallInst *end)
 	return true;
 }
 
-CallInst *findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends, DominatorTree &DT,
-			  PostDominatorTree &PDT)
+auto findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends, DominatorTree &DT,
+		     PostDominatorTree &PDT) -> CallInst *
 {
 	auto it = std::find_if(ends.begin(), ends.end(), [&](auto *ei) {
 		return getAnnotationValue(begin) == getAnnotationValue(ei) &&
@@ -122,43 +115,33 @@ CallInst *findMatchingEnd(CallInst *begin, const std::vector<CallInst *> &ends, 
 	return *it;
 }
 
-bool EliminateAnnotationsPass::runOnFunction(Function &F)
+auto EliminateAnnotationsPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	std::vector<CallInst *> begins, ends;
+	std::vector<CallInst *> begins;
+	std::vector<CallInst *> ends;
 
-	std::for_each(inst_begin(F), inst_end(F), [&](auto &i) {
+	for (auto &i : instructions(F)) {
 		if (isAnnotationBegin(&i))
 			begins.push_back(dyn_cast<CallInst>(&i));
 		else if (isAnnotationEnd(&i))
 			ends.push_back(dyn_cast<CallInst>(&i));
-	});
+	}
 
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	auto &PDT = GET_POSTDOM_PASS();
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
+	auto &PDT = FAM.getResult<PostDominatorTreeAnalysis>(F);
 	VSet<Instruction *> toDelete;
 
 	auto changed = false;
-	std::for_each(begins.begin(), begins.end(), [&](auto *bi) {
+	for (auto *bi : begins) {
 		auto *ei = findMatchingEnd(bi, ends, DT, PDT);
 		BUG_ON(!ei);
 		changed |= annotateInstructions(bi, ei);
 		toDelete.insert(bi);
 		toDelete.insert(ei);
-	});
-
+	}
 	for (auto *i : toDelete) {
 		i->eraseFromParent();
 		changed = true;
 	}
-	return changed;
+	return changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-Pass *createEliminateAnnotationsPass()
-{
-	auto *p = new EliminateAnnotationsPass();
-	return p;
-}
-
-char EliminateAnnotationsPass::ID = 42;
-static llvm::RegisterPass<EliminateAnnotationsPass> P("elim-annots",
-						      "Eliminates intrinsic annotations.");

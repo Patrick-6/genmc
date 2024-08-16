@@ -31,15 +31,14 @@
 
 using namespace llvm;
 
-void EliminateRedundantInstPass::getAnalysisUsage(AnalysisUsage &au) const {}
-
-static bool isRedundantCastPair(const CastInst *ci1, const CastInst *ci2, const DataLayout &DL)
+static auto isRedundantCastPair(const CastInst *ci1, const CastInst *ci2, const DataLayout &DL)
+	-> bool
 {
 	return ci1->getSrcTy() == ci2->getDestTy() &&
 	       DL.getTypeAllocSize(ci1->getDestTy()) >= DL.getTypeAllocSize(ci1->getSrcTy());
 }
 
-static bool eliminateRedundantInst(Function &F)
+static auto eliminateRedundantInst(Function &F) -> bool
 {
 	const DataLayout &DL = F.getParent()->getDataLayout();
 	auto modified = false;
@@ -64,14 +63,7 @@ static bool eliminateRedundantInst(Function &F)
 	return modified;
 }
 
-bool EliminateRedundantInstPass::runOnFunction(Function &F) { return eliminateRedundantInst(F); }
-
-Pass *createEliminateRedundantInstPass()
+auto EliminateRedundantInstPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	auto *p = new EliminateRedundantInstPass();
-	return p;
+	return eliminateRedundantInst(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-char EliminateRedundantInstPass::ID = 42;
-static llvm::RegisterPass<EliminateRedundantInstPass> P("eliminate-redundant-inst",
-							"Removes some redundant instructions.");

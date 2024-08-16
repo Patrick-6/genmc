@@ -18,31 +18,40 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __MM_DETECTOR_PASS_HPP__
-#define __MM_DETECTOR_PASS_HPP__
+#ifndef GENMC_MM_DETECTOR_PASS_HPP
+#define GENMC_MM_DETECTOR_PASS_HPP
 
-#include <llvm/Analysis/LoopPass.h>
-#include <llvm/IR/Module.h>
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
+
+#include <optional>
+
+using namespace llvm;
 
 class PassModuleInfo;
 enum class ModelType : std::uint8_t;
 
-class MMDetectorPass : public llvm::ModulePass {
-
+class MMAnalysis : public AnalysisInfoMixin<MMAnalysis> {
 public:
-	static char ID;
+	using Result = std::optional<ModelType>;
+	auto run(Module &M, ModuleAnalysisManager &AM) -> Result;
 
-	MMDetectorPass() : llvm::ModulePass(ID) {}
+	auto calculate(Module &M) -> Result;
 
-	void setPassModuleInfo(PassModuleInfo *I) { PI = I; }
+private:
+	friend AnalysisInfoMixin<MMAnalysis>;
+	static inline AnalysisKey Key;
 
-	virtual bool runOnModule(llvm::Module &M);
+	ModelType model{};
+};
 
-protected:
-	void setDeterminedMM(ModelType m);
+class MMDetectorPass : public AnalysisInfoMixin<MMDetectorPass> {
+public:
+	MMDetectorPass(PassModuleInfo &PMI) : PMI(PMI) {}
 
-	PassModuleInfo *PI = nullptr;
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses;
+
+private:
+	PassModuleInfo &PMI;
 };
 
 #endif /* __MM_DETECTOR_PASS_HPP__ */

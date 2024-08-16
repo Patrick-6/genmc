@@ -23,42 +23,55 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Passes/PassPlugin.h>
 
-void DefineLibcFunsPass::getAnalysisUsage(llvm::AnalysisUsage &AU) const {}
+using namespace llvm;
 
-void DefineLibcFunsPass::replaceFunWithNop(llvm::Module &M, std::string name)
+void replaceFunWithNop(Module &M, std::string name)
 {
-	llvm::Function *F = M.getFunction(name);
+	auto *F = M.getFunction(name);
 	if (!F || !F->isDeclaration())
 		return;
 
-	llvm::Value *res = 0;
-	llvm::Type *retTy = F->getReturnType();
+	Value *res = nullptr;
+	Type *retTy = F->getReturnType();
 	if (retTy->isIntegerTy())
-		res = llvm::ConstantInt::get(retTy, 0);
+		res = ConstantInt::get(retTy, 0);
 	else if (retTy->isVoidTy())
-		res = 0;
+		res = nullptr;
 	else if (retTy->isPointerTy())
-		res = llvm::ConstantPointerNull::get(static_cast<llvm::PointerType *>(retTy));
+		res = ConstantPointerNull::get(dyn_cast<PointerType>(retTy));
 	else
 		WARN("Could not add definition for " + name + "!\n");
 
-	llvm::BasicBlock *BB = llvm::BasicBlock::Create(F->getContext(), "", F);
-	llvm::ReturnInst::Create(F->getContext(), res, BB);
-	return;
+	auto *BB = BasicBlock::Create(F->getContext(), "", F);
+	ReturnInst::Create(F->getContext(), res, BB);
 }
 
-bool DefineLibcFunsPass::runOnModule(llvm::Module &M)
+auto DefineLibcFunsPass::run(Module &M, ModuleAnalysisManager &AM) -> PreservedAnalyses
 {
 	replaceFunWithNop(M, "fclose");
 	replaceFunWithNop(M, "fopen");
 	replaceFunWithNop(M, "fflush");
 	replaceFunWithNop(M, "fprintf");
-	return true;
+	return PreservedAnalyses::all();
 }
 
-llvm::ModulePass *createDefineLibcFunsPass() { return new DefineLibcFunsPass(); }
-
-char DefineLibcFunsPass::ID = 42;
-static llvm::RegisterPass<DefineLibcFunsPass> X("define-libc",
-						"Define some standard libc functions.");
+//-----------------------------------------------------------------------------
+// New PM Registration
+//-----------------------------------------------------------------------------
+auto getDefineLibcFunsPluginInfo() -> PassPluginLibraryInfo
+{
+	return {LLVM_PLUGIN_API_VERSION, "DefineLibcFuns", LLVM_VERSION_STRING,
+		[](PassBuilder &PB) {
+			PB.registerPipelineParsingCallback(
+				[](StringRef Name, ModulePassManager &MPM,
+				   ArrayRef<PassBuilder::PipelineElement>) {
+					if (Name == "define-libc-funs") {
+						MPM.addPass(DefineLibcFunsPass());
+						return true;
+					}
+					return false;
+				});
+		}};
+}

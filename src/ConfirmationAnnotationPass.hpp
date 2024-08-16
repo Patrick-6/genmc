@@ -18,24 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __CONFIRMATION_ANNOTATION_PASS_HPP__
-#define __CONFIRMATION_ANNOTATION_PASS_HPP__
+#ifndef GENMC_CONFIRMATION_ANNOTATION_PASS_HPP
+#define GENMC_CONFIRMATION_ANNOTATION_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
 using namespace llvm;
 
-class ConfirmationAnnotationPass : public FunctionPass {
-
+class ConfirmationAnnotationPass : public PassInfoMixin<ConfirmationAnnotationPass> {
 public:
-	ConfirmationAnnotationPass() : FunctionPass(ID){};
-
-	virtual void getAnalysisUsage(AnalysisUsage &AU) const;
-	virtual bool runOnFunction(Function &F);
-
-	static char ID;
-
-private:
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __CONFIRMATION_ANNOTATION_PASS_HPP__ */
+#endif /* GENMC_CONFIRMATION_ANNOTATION_PASS_HPP */

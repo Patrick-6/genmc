@@ -24,8 +24,10 @@
 #include <llvm/IR/CFG.h>
 #include <llvm/IR/Instructions.h>
 
+#include <utility>
+
 using namespace llvm;
-using BsPoint = BisimilarityCheckerPass::BisimilarityPoint;
+using BsPoint = BisimilarityAnalysis::BisimilarityPoint;
 using Constraint = std::pair<Value *, Value *>;
 
 /*
@@ -34,25 +36,16 @@ using Constraint = std::pair<Value *, Value *>;
  */
 struct ConstrainedBsPoint {
 	BsPoint p;
-	std::vector<Constraint> constraints;
+	std::vector<Constraint> constraints{};
 
-	ConstrainedBsPoint(BsPoint p) : p(p), constraints() {}
-	ConstrainedBsPoint(BsPoint p, const std::vector<Constraint> &cs) : p(p), constraints(cs) {}
+	ConstrainedBsPoint(BsPoint p) : p(std::move(p)) {}
+	ConstrainedBsPoint(BsPoint p, std::vector<Constraint> cs) : p(p), constraints(std::move(cs))
+	{}
 };
 
-void BisimilarityCheckerPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	au.setPreservesAll();
-}
-
-bool BisimilarityCheckerPass::doInitialization(Module &M)
-{
-	funcBsPoints.clear();
-	return false;
-}
-
 /* Given a list of candidates, returns the ones that are satisfiables */
-std::vector<BsPoint> getSatisfiableCandidates(const std::vector<ConstrainedBsPoint> &candidates)
+auto getSatisfiableCandidates(const std::vector<ConstrainedBsPoint> &candidates)
+	-> std::vector<BsPoint>
 {
 	std::vector<BsPoint> bsPoints;
 
@@ -67,7 +60,7 @@ std::vector<BsPoint> getSatisfiableCandidates(const std::vector<ConstrainedBsPoi
  * Returns whether the bisimilarity point BSP will satisfy the constraint C.
  * (We can later refine this using something similar to FunctionComparator.)
  */
-bool solvesConstraint(const BsPoint &bsp, const Constraint &c)
+auto solvesConstraint(const BsPoint &bsp, const Constraint &c) -> bool
 {
 	if (auto *c1 = llvm::dyn_cast<Instruction>(c.first))
 		if (auto *c2 = llvm::dyn_cast<Instruction>(c.second))
@@ -98,15 +91,15 @@ void filterCandidateConstraints(BsPoint &bsp, const std::vector<Constraint> &cs,
 			}
 		}
 	}
-	candidates.push_back(ConstrainedBsPoint(bsp, cs));
-	return;
+	candidates.emplace_back(bsp, cs);
 }
 
-bool calcOperatorConstraints(Instruction *a, Instruction *b, std::vector<Constraint> &constraints)
+auto calcOperatorConstraints(Instruction *a, Instruction *b, std::vector<Constraint> &constraints)
+	-> bool
 {
 	std::vector<Constraint> cs;
 
-	for (auto i = 0u; i < a->getNumOperands(); i++) {
+	for (auto i = 0U; i < a->getNumOperands(); i++) {
 		auto *opA = a->getOperand(i);
 		auto *opB = b->getOperand(i);
 
@@ -115,7 +108,7 @@ bool calcOperatorConstraints(Instruction *a, Instruction *b, std::vector<Constra
 				continue;
 			return false;
 		}
-		cs.push_back(std::make_pair(opA, opB));
+		cs.emplace_back(opA, opB);
 	}
 	constraints.insert(constraints.end(), cs.begin(), cs.end());
 	return true;
@@ -143,26 +136,26 @@ void calcBsPointCandidates(Instruction *a, Instruction *b,
 		filterCandidateConstraints(bsp, cs, candidates);
 		calcBsPointCandidates(a->getPrevNode(), b->getPrevNode(), candidates);
 	}
-	return;
 }
 
 /* Returns the bisimilarity points of a function starting from (A, B)*/
-std::vector<BsPoint> getBsPoints(Instruction *a, Instruction *b)
+auto getBsPoints(Instruction *a, Instruction *b) -> std::vector<BsPoint>
 {
 	std::vector<ConstrainedBsPoint> candidates;
 	calcBsPointCandidates(a, b, candidates);
 	return getSatisfiableCandidates(candidates);
 }
 
-bool BisimilarityCheckerPass::runOnFunction(Function &F)
+auto BisimilarityAnalysis::run(Function &F, FunctionAnalysisManager &FAM) -> Result
 {
+	funcBsPoints_.clear();
 	for (auto bit = F.begin(), be = F.end(); bit != be; ++bit) {
 		/* Only handle 2 preds for the time being (assumption used below) */
 		if (std::distance(pred_begin(&*bit), pred_end(&*bit)) != 2)
 			continue;
 
-		auto b1 = *pred_begin(&*bit);	  /* pred 1 */
-		auto b2 = *(++pred_begin(&*bit)); /* pred 2 */
+		auto *b1 = *pred_begin(&*bit);	   /* pred 1 */
+		auto *b2 = *(++pred_begin(&*bit)); /* pred 2 */
 
 		/* Skip if the predecessors are the same */
 		if (b1 == b2)
@@ -185,18 +178,18 @@ bool BisimilarityCheckerPass::runOnFunction(Function &F)
 				sameState = false;
 		}
 		if (sameState)
-			funcBsPoints[&F].insert(funcBsPoints[&F].end(), ps.begin(), ps.end());
+			funcBsPoints_.insert(funcBsPoints_.end(), ps.begin(), ps.end());
 	}
 
-	auto &bsps = funcBsPoints[&F];
+	auto &bsps = funcBsPoints_;
 	std::sort(bsps.begin(), bsps.end());
 	bsps.erase(std::unique(bsps.begin(), bsps.end()), bsps.end());
 
-	return false;
+	return funcBsPoints_;
 }
 
-FunctionPass *createBisimilarityCheckerPass() { return new BisimilarityCheckerPass(); }
-
-char BisimilarityCheckerPass::ID = 42;
-static llvm::RegisterPass<BisimilarityCheckerPass>
-	P("bisimilarity-checker", "Calculates bisimilar points in all functions.");
+auto BisimilarityCheckerPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
+{
+	bsps_ = FAM.getResult<BisimilarityAnalysis>(F);
+	return PreservedAnalyses::all();
+}

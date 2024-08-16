@@ -34,12 +34,7 @@
 
 using namespace llvm;
 
-void EliminateCASPHIsPass::getAnalysisUsage(AnalysisUsage &AU) const
-{
-	AU.addRequired<DominatorTreeWrapperPass>();
-}
-
-ExtractValueInst *hasPHIIncomingExtract(llvm::PHINode *phi)
+auto hasPHIIncomingExtract(llvm::PHINode *phi) -> ExtractValueInst *
 {
 	for (Value *val : phi->incoming_values())
 		if (auto *ei = dyn_cast<ExtractValueInst>(val))
@@ -53,7 +48,8 @@ ExtractValueInst *hasPHIIncomingExtract(llvm::PHINode *phi)
  * Populates TODELETE with the instructions that need to be erased.
  * May leave the CFG in an invalid state, requiring cleanup.
  */
-bool tryEliminateCASPHI(llvm::PHINode *phi, DominatorTree &DT, std::vector<Instruction *> &toDelete)
+auto tryEliminateCASPHI(llvm::PHINode *phi, DominatorTree &DT, std::vector<Instruction *> &toDelete)
+	-> bool
 {
 	/* The PHI must have exactly two incomings... */
 	if (phi->getNumIncomingValues() != 2)
@@ -112,12 +108,12 @@ bool tryEliminateCASPHI(llvm::PHINode *phi, DominatorTree &DT, std::vector<Instr
 	return true;
 }
 
-bool EliminateCASPHIsPass::runOnFunction(Function &F)
+auto EliminateCASPHIsPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
 	std::vector<Instruction *> toDelete;
 	auto modified = false;
 
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
 	for (auto &BB : F) {
 		for (auto it = BB.begin(); auto phi = llvm::dyn_cast<llvm::PHINode>(it); ++it)
 			modified |= tryEliminateCASPHI(phi, DT, toDelete);
@@ -126,15 +122,5 @@ bool EliminateCASPHIsPass::runOnFunction(Function &F)
 	EliminateUnreachableBlocks(F);
 	std::for_each(toDelete.begin(), toDelete.end(),
 		      [](Instruction *i) { i->eraseFromParent(); });
-	return modified;
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-Pass *createEliminateCASPHIsPass()
-{
-	auto *p = new EliminateCASPHIsPass();
-	return p;
-}
-
-char EliminateCASPHIsPass::ID = 42;
-static llvm::RegisterPass<EliminateCASPHIsPass> P("elim-cas-phis",
-						  "Eliminates certain CAS-related PHIs.");

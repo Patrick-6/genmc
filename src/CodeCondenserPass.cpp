@@ -33,20 +33,15 @@
 #include <unordered_map>
 
 using namespace llvm;
-using BsPoint = BisimilarityCheckerPass::BisimilarityPoint;
+using BsPoint = BisimilarityAnalysis::BisimilarityPoint;
 
-void CodeCondenserPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
+auto CodeCondenserPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	au.addRequired<BisimilarityCheckerPass>();
-}
-
-bool CodeCondenserPass::runOnFunction(Function &F)
-{
-	auto &bsps = getAnalysis<BisimilarityCheckerPass>().getFuncBsPoints(&F);
+	auto bsps = FAM.getResult<BisimilarityAnalysis>(F);
 
 	/* Map blocks to bisimilarity points */
 	std::unordered_map<BasicBlock *, std::vector<BsPoint>> bbsToBsps;
-	for (auto &p : bsps)
+	for (const auto &p : bsps)
 		bbsToBsps[p.first->getParent()].push_back(p);
 
 	/* Condense the code: */
@@ -81,7 +76,7 @@ bool CodeCondenserPass::runOnFunction(Function &F)
 				if (!term)
 					continue;
 
-				for (auto i = 0u; i < term->getNumSuccessors(); i++)
+				for (auto i = 0U; i < term->getNumSuccessors(); i++)
 					if (term->getSuccessor(i) == aNewBB)
 						term->setSuccessor(i, bNewBB);
 			}
@@ -90,11 +85,5 @@ bool CodeCondenserPass::runOnFunction(Function &F)
 	}
 	/* Clear unnecessary blocks */
 	EliminateUnreachableBlocks(F);
-	return true;
+	return PreservedAnalyses::none();
 }
-
-FunctionPass *createCodeCondenserPass() { return new CodeCondenserPass(); }
-
-char CodeCondenserPass::ID = 42;
-static llvm::RegisterPass<CodeCondenserPass>
-	P("code-condenser", "Reduces the size of the code by leveraging bisimilarity information.");

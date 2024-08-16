@@ -18,49 +18,55 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#include "config.h"
-
-#include "Error.hpp"
 #include "LLVMModule.hpp"
-#include "Passes.hpp"
+#include "BisimilarityCheckerPass.hpp"
+#include "CallInfoCollectionPass.hpp"
+#include "CodeCondenserPass.hpp"
+#include "ConfirmationAnnotationPass.hpp"
+#include "DeclareInternalsPass.hpp"
+#include "DefineLibcFunsPass.hpp"
+#include "EliminateAnnotationsPass.hpp"
+#include "EliminateCASPHIsPass.hpp"
+#include "EliminateCastsPass.hpp"
+#include "EliminateRedundantInstPass.hpp"
+#include "EliminateUnusedCodePass.hpp"
+#include "Error.hpp"
+#include "EscapeCheckerPass.hpp"
+#include "FunctionInlinerPass.hpp"
+#include "IntrinsicLoweringPass.hpp"
+#include "LoadAnnotationPass.hpp"
+#include "LocalSimplifyCFGPass.hpp"
+#include "LoopJumpThreadingPass.hpp"
+#include "LoopUnrollPass.hpp"
+#include "MDataCollectionPass.hpp"
+#include "MMDetectorPass.hpp"
+#include "PromoteMemIntrinsicPass.hpp"
+#include "PropagateAssumesPass.hpp"
 #include "SExprVisitor.hpp"
-#include <llvm/InitializePasses.h>
-#if defined(HAVE_LLVM_BITCODE_READERWRITER_H)
-#include <llvm/Bitcode/ReaderWriter.h>
-#else
+#include "SpinAssumePass.hpp"
+
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
-#endif
-#if defined(HAVE_LLVM_PASSMANAGER_H)
-#include <llvm/PassManager.h>
-#elif defined(HAVE_LLVM_IR_PASSMANAGER_H)
-#include <llvm/IR/PassManager.h>
-#endif
-#if defined(HAVE_LLVM_IR_LEGACYPASSMANAGER_H)
-#include <llvm/IR/LegacyPassManager.h>
-#endif
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/IRReader/IRReader.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
-#include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Transforms/IPO.h>
+#include <llvm/Transforms/IPO/DeadArgumentElimination.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
-#include <llvm/Transforms/Scalar.h>
-#if defined(HAVE_LLVM_TRANSFORMS_UTILS_H)
-#include <llvm/Transforms/Utils.h>
-#endif
-
-#define PassManager llvm::legacy::PassManager
+#include <llvm/Transforms/Scalar/JumpThreading.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
 
 namespace LLVMModule {
 
-std::unique_ptr<llvm::Module> parseLLVMModule(const std::string &filename,
-					      const std::unique_ptr<llvm::LLVMContext> &ctx)
+auto parseLLVMModule(const std::string &filename, const std::unique_ptr<llvm::LLVMContext> &ctx)
+	-> std::unique_ptr<llvm::Module>
 {
 	llvm::SMDiagnostic err;
 
@@ -72,8 +78,8 @@ std::unique_ptr<llvm::Module> parseLLVMModule(const std::string &filename,
 	return std::move(mod);
 }
 
-std::unique_ptr<llvm::Module> cloneModule(const std::unique_ptr<llvm::Module> &mod,
-					  const std::unique_ptr<llvm::LLVMContext> &ctx)
+auto cloneModule(const std::unique_ptr<llvm::Module> &mod,
+		 const std::unique_ptr<llvm::LLVMContext> &ctx) -> std::unique_ptr<llvm::Module>
 {
 	/* Roundtrip the module to a stream and then back into the new context */
 	std::string str;
@@ -96,7 +102,6 @@ void initializeVariableInfo(ModuleInfo &MI, PassModuleInfo &PI)
 			MI.varInfo.localInfo[MI.idInfo.VID.at(kv.first)] = kv.second;
 	}
 	MI.varInfo.internalInfo = PI.varInfo.internalInfo;
-	return;
 }
 
 void initializeAnnotationInfo(ModuleInfo &MI, PassModuleInfo &PI)
@@ -113,7 +118,6 @@ void initializeAnnotationInfo(ModuleInfo &MI, PassModuleInfo &PI)
 void initializeFsInfo(ModuleInfo &MI, PassModuleInfo &PI)
 {
 	MI.fsInfo.filenames.insert(PI.filenames.begin(), PI.filenames.end());
-	return;
 }
 
 void initializeModuleInfo(ModuleInfo &MI, PassModuleInfo &PI)
@@ -123,93 +127,118 @@ void initializeModuleInfo(ModuleInfo &MI, PassModuleInfo &PI)
 	initializeAnnotationInfo(MI, PI);
 	initializeFsInfo(MI, PI);
 	MI.determinedMM = PI.determinedMM;
-	return;
 }
 
-bool transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
-			 const std::shared_ptr<const Config> &conf)
+auto transformLLVMModule(llvm::Module &mod, ModuleInfo &MI,
+			 const std::shared_ptr<const Config> &conf) -> bool
 {
-	llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
 	PassModuleInfo PI;
-	PassManager OptPM, BndPM;
-	bool modified;
 
-	llvm::initializeCore(Registry);
-	llvm::initializeScalarOpts(Registry);
-	llvm::initializeVectorization(Registry);
-	llvm::initializeIPO(Registry);
-	llvm::initializeAnalysis(Registry);
-	llvm::initializeTransformUtils(Registry);
-	llvm::initializeInstCombine(Registry);
-	llvm::initializeTarget(Registry);
-#if LLVM_VERSION_MAJOR < 16
-	llvm::initializeObjCARCOpts(Registry);
-	llvm::initializeInstrumentation(Registry);
-#endif
+	/* NOTE: The order between the analyses, the builder and the managers matters */
 
-	OptPM.add(createDeclareInternalsPass());
-	OptPM.add(createDefineLibcFunsPass());
-	OptPM.add(createMDataCollectionPass(&PI));
+	/* First, register the analyses that we are about to use.
+	 * We also use an (unused) pass builder to load default analyses */
+	llvm::LoopAnalysisManager lam;
+	llvm::CGSCCAnalysisManager cgam;
+	llvm::FunctionAnalysisManager fam;
+	llvm::ModuleAnalysisManager mam;
+
+	mam.registerPass([&] { return MDataInfo(); });
+	mam.registerPass([&] { return MMAnalysis(); });
+	mam.registerPass([&] { return CallAnalysis(); });
+	mam.registerPass([&] { return EscapeAnalysis(); });
+	fam.registerPass([&] { return BisimilarityAnalysis(); });
+	fam.registerPass([&] { return LoadAnnotationAnalysis(); });
+
+	llvm::PassBuilder pb;
+	pb.registerModuleAnalyses(mam);
+	pb.registerCGSCCAnalyses(cgam);
+	pb.registerFunctionAnalyses(fam);
+	pb.registerLoopAnalyses(lam);
+	pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+	/* Then create two pass managers: a basic one and one that
+	runs some loop passes */
+	llvm::ModulePassManager basicOptsMGR;
+
+	basicOptsMGR.addPass(DeclareInternalsPass());
+	basicOptsMGR.addPass(DefineLibcFunsPass());
+	basicOptsMGR.addPass(MDataCollectionPass(PI));
 	if (conf->inlineFunctions)
-		OptPM.add(createFunctionInlinerPass());
-	OptPM.add(createPromoteMemIntrinsicPass());
-	OptPM.add(createIntrinsicLoweringPass(mod));
-	if (conf->castElimination)
-		OptPM.add(createEliminateCastsPass());
-	OptPM.add(llvm::createPromoteMemoryToRegisterPass());
-	OptPM.add(llvm::createDeadArgEliminationPass());
-	OptPM.add(createLocalSimplifyCFGPass());
-	OptPM.add(createEliminateAnnotationsPass());
-	OptPM.add(createEliminateRedundantInstPass());
+		basicOptsMGR.addPass(FunctionInlinerPass());
+	{
+		llvm::FunctionPassManager fpm;
+		/* Run after the inliner because it might generate new memcpys */
+		fpm.addPass(PromoteMemIntrinsicPass());
+		fpm.addPass(IntrinsicLoweringPass());
+		if (conf->castElimination)
+			fpm.addPass(EliminateCastsPass());
+		fpm.addPass(PromotePass());
+		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
+	}
+	basicOptsMGR.addPass(DeadArgumentEliminationPass());
+	{
+		llvm::FunctionPassManager fpm;
+		fpm.addPass(LocalSimplifyCFGPass());
+		fpm.addPass(EliminateAnnotationsPass());
+		fpm.addPass(EliminateRedundantInstPass());
+		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
+	}
 	if (conf->mmDetector)
-		OptPM.add(createMMDetectorPass(&PI));
+		basicOptsMGR.addPass(MMDetectorPass(PI));
 
-	modified = OptPM.run(mod);
+	auto preserved = basicOptsMGR.run(mod, mam);
 
-	BndPM.add(createEliminateCASPHIsPass());
-	BndPM.add(llvm::createJumpThreadingPass());
-	BndPM.add(createEliminateUnusedCodePass());
-	BndPM.add(createBisimilarityCheckerPass());
-	if (conf->codeCondenser && !conf->checkLiveness)
-		BndPM.add(createCodeCondenserPass());
-	if (conf->loopJumpThreading)
-		BndPM.add(createLoopJumpThreadingPass());
-	BndPM.add(createCallInfoCollectionPass());
-	BndPM.add(createEscapeCheckerPass());
+	llvm::ModulePassManager loopOptsMGR;
+
+	{
+		llvm::FunctionPassManager fpm;
+		fpm.addPass(EliminateCASPHIsPass());
+		fpm.addPass(llvm::JumpThreadingPass());
+		fpm.addPass(EliminateUnusedCodePass());
+		if (conf->codeCondenser && !conf->checkLiveness)
+			fpm.addPass(CodeCondenserPass());
+		if (conf->loopJumpThreading)
+			fpm.addPass(createFunctionToLoopPassAdaptor(LoopJumpThreadingPass()));
+		loopOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
+	}
 	if (conf->spinAssume)
-		BndPM.add(createSpinAssumePass(conf->checkLiveness));
+		loopOptsMGR.addPass(SpinAssumePass(conf->checkLiveness));
 	if (conf->unroll.has_value())
-		BndPM.add(createLoopUnrollPass(*conf->unroll, conf->noUnrollFuns));
-
-	modified |= BndPM.run(mod);
+		loopOptsMGR.addPass(
+			createModuleToFunctionPassAdaptor(createFunctionToLoopPassAdaptor(
+				LoopUnrollPass(*conf->unroll, conf->noUnrollFuns))));
+	preserved.intersect(loopOptsMGR.run(mod, mam));
 
 	/* Run annotation passes last so that the module is stable */
-	if (conf->assumePropagation)
-		OptPM.add(createPropagateAssumesPass());
-	if (conf->confirmAnnot)
-		OptPM.add(createConfirmationAnnotationPass());
-	if (conf->loadAnnot)
-		OptPM.add(createLoadAnnotationPass(PI.annotInfo));
-	modified |= OptPM.run(mod);
+	{
+		llvm::FunctionPassManager fpm;
+		if (conf->assumePropagation)
+			fpm.addPass(PropagateAssumesPass());
+		if (conf->confirmAnnot)
+			fpm.addPass(ConfirmationAnnotationPass());
+		if (conf->loadAnnot)
+			fpm.addPass(LoadAnnotationPass(PI.annotInfo));
+		basicOptsMGR.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
+	}
+
+	preserved.intersect(basicOptsMGR.run(mod, mam));
 
 	initializeModuleInfo(MI, PI);
 
 	assert(!llvm::verifyModule(mod, &llvm::dbgs()));
-	return modified;
+	return true;
 }
 
 void printLLVMModule(llvm::Module &mod, const std::string &out)
 {
-	PassManager PM;
-	std::error_code errs;
-
 	auto flags =
 #if LLVM_VERSION_MAJOR < 13
 		llvm::sys::fs::F_None;
 #else
 		llvm::sys::fs::OF_None;
 #endif
-
+	std::error_code errs;
 	auto os = std::make_unique<llvm::raw_fd_ostream>(out.c_str(), errs, flags);
 
 	/* TODO: Do we need an exception? If yes, properly handle it */
@@ -217,10 +246,7 @@ void printLLVMModule(llvm::Module &mod, const std::string &out)
 		WARN("Failed to write transformed module to file " + out + ": " + errs.message());
 		return;
 	}
-
-	PM.add(llvm::createPrintModulePass(*os));
-	PM.run(mod);
-	return;
+	mod.print(*os, nullptr);
 }
 
 } // namespace LLVMModule

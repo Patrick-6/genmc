@@ -20,7 +20,6 @@
 
 #include "PromoteMemIntrinsicPass.hpp"
 #include "Error.hpp"
-#include "FunctionInlinerPass.hpp"
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/DebugInfo.h>
@@ -33,31 +32,26 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 
+#include <ranges>
+
 using namespace llvm;
 
-void PromoteMemIntrinsicPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	/* Run after the inliner because it might generate new memcpys */
-	// au.addRequired<FunctionInlinerPass>();
-}
-
-bool isPromotableMemIntrinsicOperand(Value *op)
+auto isPromotableMemIntrinsicOperand(Value *op) -> bool
 {
 	// Constant to capture MemSet too
 	return isa<Constant>(op) || isa<AllocaInst>(op) || isa<GetElementPtrInst>(op);
 }
 
-Type *getPromotionGEPType(Value *op)
+auto getPromotionGEPType(Value *op) -> Type *
 {
 	BUG_ON(!isPromotableMemIntrinsicOperand(op));
 	if (auto *v = dyn_cast<GlobalVariable>(op))
 		return v->getValueType();
-	else if (auto *ai = dyn_cast<AllocaInst>(op))
+	if (auto *ai = dyn_cast<AllocaInst>(op))
 		return ai->getAllocatedType();
-	else if (auto *gepi = dyn_cast<GetElementPtrInst>(op))
+	if (auto *gepi = dyn_cast<GetElementPtrInst>(op))
 		return gepi->getResultElementType();
-	else
-		BUG();
+	BUG();
 }
 
 void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src, const std::vector<Value *> &args,
@@ -69,7 +63,6 @@ void promoteMemCpy(IRBuilder<> &builder, Value *dst, Value *src, const std::vect
 		builder.CreateInBoundsGEP(getPromotionGEPType(dst), dst, args, "memcpy.dst.gep");
 	Value *srcLoad = builder.CreateLoad(typ, srcGEP, "memcpy.src.load");
 	Value *dstStore = builder.CreateStore(srcLoad, dstGEP);
-	return;
 }
 
 void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
@@ -87,7 +80,6 @@ void promoteMemSet(IRBuilder<> &builder, Value *dst, Value *argVal,
 	Value *dstGEP =
 		builder.CreateInBoundsGEP(getPromotionGEPType(dst), dst, args, "memset.dst.gep");
 	Value *dstStore = builder.CreateStore(val, dstGEP);
-	return;
 }
 
 template <typename F>
@@ -124,7 +116,7 @@ void promoteMemIntrinsic(Type *typ, std::vector<Value *> &args, F &&promoteFun)
 	return;
 }
 
-bool canPromoteMemIntrinsic(MemIntrinsic *MI)
+auto canPromoteMemIntrinsic(MemIntrinsic *MI) -> bool
 {
 	/* Skip if length is not a constant */
 	ConstantInt *length = dyn_cast<ConstantInt>(MI->getLength());
@@ -172,7 +164,7 @@ bool canPromoteMemIntrinsic(MemIntrinsic *MI)
 	return true;
 }
 
-bool PromoteMemIntrinsicPass::tryPromoteMemCpy(MemCpyInst *MI, Module &M)
+auto tryPromoteMemCpy(MemCpyInst *MI, SmallVector<llvm::MemIntrinsic *, 8> &promoted) -> bool
 {
 	if (!canPromoteMemIntrinsic(MI))
 		return false;
@@ -195,7 +187,7 @@ bool PromoteMemIntrinsicPass::tryPromoteMemCpy(MemCpyInst *MI, Module &M)
 	return true;
 }
 
-bool PromoteMemIntrinsicPass::tryPromoteMemSet(MemSetInst *MS, Module &M)
+auto tryPromoteMemSet(MemSetInst *MS, SmallVector<MemIntrinsic *, 8> &promoted) -> bool
 {
 	if (!canPromoteMemIntrinsic(MS))
 		return false;
@@ -218,9 +210,9 @@ bool PromoteMemIntrinsicPass::tryPromoteMemSet(MemSetInst *MS, Module &M)
 	return true;
 }
 
-void PromoteMemIntrinsicPass::removePromoted()
+void removePromoted(std::ranges::input_range auto &&promoted)
 {
-	for (auto MI : promoted) {
+	for (auto *MI : promoted) {
 
 		/* Are MI's operands used anywhere else? */
 		BitCastInst *dst = dyn_cast<BitCastInst>(MI->getRawDest());
@@ -234,35 +226,21 @@ void PromoteMemIntrinsicPass::removePromoted()
 		if (src && src->hasNUses(0))
 			src->eraseFromParent();
 	}
-
-	promoted.clear(); // fix canpromote functions that produce warnings
 }
 
-bool PromoteMemIntrinsicPass::runOnModule(Module &M)
+auto PromoteMemIntrinsicPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	/* We assume that no new intrinsics are going to be generated */
-	if (hasPromoted)
-		return false;
-
-	bool modified = false;
-
 	/* Locate mem intrinsics of interest */
-	for (auto &F : M) {
-		for (auto it = inst_iterator(F), ei = inst_end(F); it != ei; ++it) {
-			if (auto *MI = dyn_cast<MemCpyInst>(&*it))
-				modified |= tryPromoteMemCpy(MI, M);
-			if (auto *MS = dyn_cast<MemSetInst>(&*it))
-				modified |= tryPromoteMemSet(MS, M);
-		}
+	SmallVector<llvm::MemIntrinsic *, 8> promoted;
+	auto modified = false;
+	for (auto &I : instructions(F)) {
+		if (auto *MI = dyn_cast<MemCpyInst>(&I))
+			modified |= tryPromoteMemCpy(MI, promoted);
+		if (auto *MS = dyn_cast<MemSetInst>(&I))
+			modified |= tryPromoteMemSet(MS, promoted);
 	}
 
 	/* Erase promoted intrinsics from the code */
-	removePromoted();
-	hasPromoted = true;
-
-	return modified;
+	removePromoted(promoted);
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-ModulePass *createPromoteMemIntrinsicPass() { return new PromoteMemIntrinsicPass(); }
-
-char PromoteMemIntrinsicPass::ID = 42;

@@ -35,12 +35,7 @@
 
 using namespace llvm;
 
-void LocalSimplifyCFGPass::getAnalysisUsage(AnalysisUsage &au) const
-{
-	au.addRequired<EliminateCASPHIsPass>();
-}
-
-static bool foldSuccessors(BasicBlock *bb)
+static auto foldSuccessors(BasicBlock *bb) -> bool
 {
 	auto *bi = dyn_cast<BranchInst>(bb->getTerminator());
 	if (!bi || !bi->isConditional())
@@ -50,7 +45,7 @@ static bool foldSuccessors(BasicBlock *bb)
 	       tryThreadSuccessor(bi, bi->getSuccessor(1));
 }
 
-static bool localSimplifyCFG(Function &F)
+static auto localSimplifyCFG(Function &F) -> bool
 {
 	auto modified = false;
 
@@ -84,14 +79,7 @@ static bool localSimplifyCFG(Function &F)
 	return modified;
 }
 
-bool LocalSimplifyCFGPass::runOnFunction(Function &F) { return localSimplifyCFG(F); }
-
-Pass *createLocalSimplifyCFGPass()
+auto LocalSimplifyCFGPass::run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses
 {
-	auto *p = new LocalSimplifyCFGPass();
-	return p;
+	return localSimplifyCFG(F) ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-char LocalSimplifyCFGPass::ID = 42;
-static llvm::RegisterPass<LocalSimplifyCFGPass>
-	P("local-simplify-cfg", "Performs some local simplifications to the CFG.");

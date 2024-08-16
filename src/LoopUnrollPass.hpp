@@ -18,39 +18,33 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOOP_UNROLL_PASS_HPP__
-#define __LOOP_UNROLL_PASS_HPP__
+#ifndef GENMC_LOOP_UNROLL_PASS_HPP
+#define GENMC_LOOP_UNROLL_PASS_HPP
 
 #include "VSet.hpp"
-#include "config.h"
-#include <llvm/Pass.h>
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-#include <llvm/ADT/StringRef.h>
-#endif
 #include <llvm/Analysis/LoopInfo.h>
 #include <llvm/Analysis/LoopPass.h>
-#include <llvm/Transforms/Utils/Cloning.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class LoopUnrollPass : public llvm::LoopPass {
+using namespace llvm;
 
+class LoopUnrollPass : public PassInfoMixin<LoopUnrollPass> {
 public:
-	static char ID;
-
 	LoopUnrollPass(unsigned int depth, const VSet<std::string> &noUnrollFuns = {})
-		: llvm::LoopPass(ID), unrollDepth(depth), noUnroll(noUnrollFuns){};
+		: unrollDepth_(depth), noUnroll_(noUnrollFuns)
+	{}
 
-	bool shouldUnroll(llvm::Loop *l) const
-	{
-		return !noUnroll.count((*l->block_begin())->getParent()->getName().str());
-	}
-
-	virtual llvm::StringRef getPassName() const { return "LoopUnrollPass"; }
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
-	virtual bool runOnLoop(llvm::Loop *l, llvm::LPPassManager &LPM);
+	auto run(Loop &L, LoopAnalysisManager &AM, LoopStandardAnalysisResults &AR, LPMUpdater &U)
+		-> PreservedAnalyses;
 
 private:
-	unsigned int unrollDepth;
-	VSet<std::string> noUnroll;
+	auto shouldUnroll(llvm::Loop *l) const -> bool
+	{
+		return !noUnroll_.count((*l->block_begin())->getParent()->getName().str());
+	}
+
+	unsigned int unrollDepth_{};
+	VSet<std::string> noUnroll_;
 };
 
 #endif /* __LOOP_UNROLL_PASS_HPP__ */

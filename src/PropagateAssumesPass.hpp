@@ -18,21 +18,16 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __PROPAGATE_ASSUMES_PASS_HPP__
-#define __PROPAGATE_ASSUMES_PASS_HPP__
+#ifndef GENMC_PROPAGATE_ASSUMES_PASS_HPP
+#define GENMC_PROPAGATE_ASSUMES_PASS_HPP
 
-#include <llvm/Pass.h>
+#include <llvm/Passes/PassBuilder.h>
 
-class PropagateAssumesPass : public llvm::FunctionPass {
+using namespace llvm;
 
+class PropagateAssumesPass : public PassInfoMixin<PropagateAssumesPass> {
 public:
-	static char ID;
-
-	PropagateAssumesPass() : llvm::FunctionPass(ID) {}
-
-	bool runOnFunction(llvm::Function &F) override;
-
-	void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
+	auto run(Function &F, FunctionAnalysisManager &FAM) -> PreservedAnalyses;
 };
 
-#endif /* __PROPAGATE_ASSUMES_PASS_HPP__ */
+#endif /* GENMC_PROPAGATE_ASSUMES_PASS_HPP */

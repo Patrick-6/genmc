@@ -18,28 +18,17 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __LOOP_THREAD_JUMPING_PASS_HPP__
-#define __LOOP_THREAD_JUMPING_PASS_HPP__
+#ifndef GENMC_LOOP_THREAD_JUMPING_PASS_HPP
+#define GENMC_LOOP_THREAD_JUMPING_PASS_HPP
 
-#include "config.h"
+#include <llvm/Passes/PassBuilder.h>
 
-#include <llvm/Pass.h>
-#ifdef LLVM_PASS_GETPASSNAME_IS_STRINGREF
-#include <llvm/ADT/StringRef.h>
-#endif
-#include <llvm/Analysis/LoopPass.h>
+using namespace llvm;
 
-class LoopJumpThreadingPass : public llvm::LoopPass {
-
+class LoopJumpThreadingPass : public PassInfoMixin<LoopJumpThreadingPass> {
 public:
-	static char ID;
-
-	LoopJumpThreadingPass() : llvm::LoopPass(ID) {}
-
-protected:
-	virtual llvm::StringRef getPassName() const { return "LoopJumpThreadingPass"; }
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &au) const;
-	virtual bool runOnLoop(llvm::Loop *l, llvm::LPPassManager &LPM);
+	auto run(Loop &L, LoopAnalysisManager &AM, LoopStandardAnalysisResults &AR, LPMUpdater &U)
+		-> PreservedAnalyses;
 };
 
-#endif /* __LOOP_THREAD_JUMPING_PASS_HPP__ */
+#endif /* GENMC_LOOP_THREAD_JUMPING_PASS_HPP */

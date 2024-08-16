@@ -23,7 +23,8 @@
 #include "Error.hpp"
 #include "InterpreterEnumAPI.hpp"
 #include "LLVMUtils.hpp"
-#include "config.h"
+
+#include <llvm/IR/Dominators.h>
 #include <llvm/IR/InstIterator.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
@@ -32,13 +33,14 @@ using namespace llvm;
 
 /* EscapeInfo impl */
 
-bool EscapeInfo::escapes(const Value *v) const
+bool EscapeAnalysisResult::escapes(const Value *v) const
 {
 	auto it = escapePoints.find(v);
 	return it == escapePoints.cend() ? false : !it->second.empty();
 }
 
-bool EscapeInfo::escapesAfter(const Value *a, const Instruction *b, DominatorTree &DT) const
+bool EscapeAnalysisResult::escapesAfter(const Value *a, const Instruction *b,
+					DominatorTree &DT) const
 {
 	auto it = escapePoints.find(a);
 	return it == escapePoints.cend()
@@ -47,7 +49,7 @@ bool EscapeInfo::escapesAfter(const Value *a, const Instruction *b, DominatorTre
 				     [&](const Instruction *p) { return DT.dominates(b, p); });
 }
 
-Instruction *EscapeInfo::writesDynamicMemory(Value *val /*, AliasAnalysis &AA */)
+auto EscapeAnalysisResult::writesDynamicMemory(Value *val /*, AliasAnalysis &AA */) -> Instruction *
 {
 	auto *ptr = dyn_cast<Instruction>(val);
 	if (!ptr)
@@ -77,17 +79,18 @@ Instruction *EscapeInfo::writesDynamicMemory(Value *val /*, AliasAnalysis &AA */
 	// 		   });
 }
 
-void EscapeInfo::calculate(llvm::Function &F, const VSet<Function *> &allocFuns,
-			   llvm::AliasAnalysis &AA)
+void EscapeAnalysisResult::calculate(Function &F, const CallAnalysisResult &CAR)
 {
+	const auto &allocFuns = CAR.alloc;
+
 	/* First, collect all allocations */
-	std::for_each(inst_begin(F), inst_end(F), [&](Instruction &i) {
+	for (auto &i : instructions(F)) {
 		if (isAlloc(&i, &allocFuns))
-			allocs.insert(&i);
-	});
+			allocs_.insert(&i);
+	}
 
 	/* Then, process them one by one (we need the list fixed before processing) */
-	for (auto *i : allocs) {
+	for (auto *i : allocs_) {
 		std::vector<Instruction *> worklist = {i};
 		VSet<const Instruction *> visited;
 
@@ -148,7 +151,7 @@ void EscapeInfo::calculate(llvm::Function &F, const VSet<Function *> &allocFuns,
 	}
 }
 
-void EscapeInfo::print(llvm::raw_ostream &s) const
+void EscapeAnalysisResult::print(raw_ostream &s) const
 {
 	for (auto P : escapePoints) {
 		s << P.first->getName() << " has " << P.second.size() << " escape point(s): [";
@@ -158,30 +161,20 @@ void EscapeInfo::print(llvm::raw_ostream &s) const
 	}
 }
 
-/*  Pass impl */
+/*  Analysis impl */
 
-void EscapeCheckerPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
+auto EscapeAnalysis::run(Module &M, ModuleAnalysisManager &MAM) -> Result
 {
-	au.addRequiredTransitive<AAResultsWrapperPass>(); /* required but unused for now */
-	au.addRequired<CallInfoCollectionPass>();
-	au.setPreservesAll();
+	auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+	auto &CAR = MAM.getResult<CallAnalysis>(M);
+	for (auto &F : M | std::views::filter([&](auto &F) { return !F.isDeclaration(); })) {
+		result_[&F].calculate(F, CAR);
+	}
+	return result_;
 }
 
-bool EscapeCheckerPass::runOnFunction(llvm::Function &F)
+auto EscapeCheckerPass::run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses
 {
-	EI.calculate(F, getAnalysis<CallInfoCollectionPass>().getAllocCalls(),
-		     getAnalysis<AAResultsWrapperPass>().getAAResults());
-	return false;
+	EAR_ = MAM.getResult<EscapeAnalysis>(M);
+	return PreservedAnalyses::all();
 }
-
-llvm::Pass *createEscapeCheckerPass(bool loadsEscape /* = true */)
-{
-	auto *p = new EscapeCheckerPass();
-	p->setLoadsEscape(loadsEscape);
-	return p;
-}
-
-char EscapeCheckerPass::ID = 42;
-static llvm::RegisterPass<EscapeCheckerPass> P("escape-checker",
-					       "Gathers information about allocations that "
-					       "might escape the function.");

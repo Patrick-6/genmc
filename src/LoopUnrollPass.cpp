@@ -52,19 +52,12 @@ typedef llvm::Instruction TerminatorInst;
 
 using namespace llvm;
 
-void LoopUnrollPass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	LoopPass::getAnalysisUsage(au);
-	au.addRequired<DeclareInternalsPass>();
-	au.addPreserved<DeclareInternalsPass>();
-}
-
 /*
  * Returns a PHI node the only purpose of which is to serve as the
  * bound variable for this loop.  It does not set up the arguments for
  * the PHI node.
  */
-PHINode *createBoundInit(Loop *l)
+auto createBoundInit(Loop *l) -> PHINode *
 {
 	Function *parentFun = (*l->block_begin())->getParent();
 	Type *int32Typ = Type::getInt32Ty(parentFun->getContext());
@@ -77,7 +70,7 @@ PHINode *createBoundInit(Loop *l)
  * Returns an instruction which decrements the bound variable for this loop (BOUNDVAL).
  * The returned value should be later checked in order to bound the loop.
  */
-BinaryOperator *createBoundDecrement(Loop *l, PHINode *boundVal)
+auto createBoundDecrement(Loop *l, PHINode *boundVal) -> BinaryOperator *
 {
 	Function *parentFun = (*l->block_begin())->getParent();
 	Type *int32Typ = Type::getInt32Ty(parentFun->getContext());
@@ -100,34 +93,25 @@ void addBoundCmpAndSpinEndBefore(Loop *l, PHINode *val, BinaryOperator *decVal)
 
 	BUG_ON(!endLoopFun);
 	CallInst::Create(endLoopFun, {cmp}, "", decVal);
-	return;
 }
 
-bool LoopUnrollPass::runOnLoop(Loop *l, LPPassManager &lpm)
+auto LoopUnrollPass::run(Loop &L, LoopAnalysisManager &AM, LoopStandardAnalysisResults &AR,
+			 LPMUpdater &U) -> PreservedAnalyses
 {
-	if (!shouldUnroll(l))
-		return false;
+	if (!shouldUnroll(&L))
+		return PreservedAnalyses::all();
 
-	PHINode *val = createBoundInit(l);
-	BinaryOperator *dec = createBoundDecrement(l, val);
-	Type *int32Typ = Type::getInt32Ty((*l->block_begin())->getParent()->getContext());
+	PHINode *val = createBoundInit(&L);
+	BinaryOperator *dec = createBoundDecrement(&L, val);
+	Type *int32Typ = Type::getInt32Ty((*L.block_begin())->getParent()->getContext());
 
 	/* Adjust incoming values for the bound variable */
-	for (BasicBlock *bb : predecessors(l->getHeader()))
-		val->addIncoming(l->contains(bb) ? (Value *)dec
-						 : (Value *)ConstantInt::get(int32Typ, unrollDepth),
+	for (BasicBlock *bb : predecessors(L.getHeader()))
+		val->addIncoming(L.contains(bb) ? (Value *)dec
+						: (Value *)ConstantInt::get(int32Typ, unrollDepth_),
 				 bb);
 
 	/* Finally, compare the bound and block if it reaches zero */
-	addBoundCmpAndSpinEndBefore(l, val, dec);
-	return true;
+	addBoundCmpAndSpinEndBefore(&L, val, dec);
+	return PreservedAnalyses::none();
 }
-
-Pass *createLoopUnrollPass(unsigned int depth, const VSet<std::string> &noUnrollFuns /* = {} */)
-{
-	return new LoopUnrollPass(depth, noUnrollFuns);
-}
-
-char LoopUnrollPass::ID = 42;
-// static RegisterPass<LoopUnrollPass> P("loop-unroll",
-// 					    "Unrolls all loops at LLVM-IR level.");

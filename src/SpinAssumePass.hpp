@@ -18,37 +18,24 @@
  * Author: Michalis Kokologiannakis <michalis@mpi-sws.org>
  */
 
-#ifndef __SPIN_ASSUME_PASS_HPP__
-#define __SPIN_ASSUME_PASS_HPP__
+#ifndef GENMC_SPIN_ASSUME_PASS_HPP
+#define GENMC_SPIN_ASSUME_PASS_HPP
 
 #include "VSet.hpp"
-#include <llvm/Analysis/LoopPass.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/Pass.h>
 
-class SpinAssumePass : public llvm::LoopPass {
+#include <llvm/Passes/PassBuilder.h>
 
-protected:
-	bool isPathToHeaderEffectFree(llvm::BasicBlock *latch, llvm::Loop *l,
-				      bool &checkDynamically);
-	bool isPathToHeaderFAIZNE(llvm::BasicBlock *latch, llvm::Loop *l,
-				  llvm::Instruction *&lastEffect);
-	bool isPathToHeaderLockZNE(llvm::BasicBlock *latch, llvm::Loop *l,
-				   llvm::Instruction *&lastEffect);
+using namespace llvm;
 
+class SpinAssumePass : public PassInfoMixin<SpinAssumePass> {
 public:
-	static char ID;
+	SpinAssumePass(bool markStarts = false) : markStarts_(markStarts) {}
 
-	SpinAssumePass() : llvm::LoopPass(ID){};
-
-	void markSpinloopStarts(bool mark) { markStarts = mark; }
-
-	virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
-	virtual bool runOnLoop(llvm::Loop *L, llvm::LPPassManager &LPM);
+	auto run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses;
 
 private:
 	/* Whether we should mark spinloop starts */
-	bool markStarts = false;
+	bool markStarts_{};
 };
 
 #endif /* __SPIN_ASSUME_PASS_HPP__ */

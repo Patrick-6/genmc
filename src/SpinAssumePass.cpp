@@ -30,6 +30,7 @@
 #include "SExprVisitor.hpp"
 #include "SpinAssumePass.hpp"
 #include "VSet.hpp"
+#include <llvm/Analysis/LoopAnalysisManager.h>
 #include <llvm/Analysis/LoopPass.h>
 #include <llvm/Analysis/PostDominators.h>
 #include <llvm/IR/Constants.h>
@@ -57,16 +58,6 @@ using namespace llvm;
 #define INSERT_PREHEADER_FOR_LOOP(L, DT, LI) llvm::InsertPreheaderForLoop(L, DT, LI, false)
 #endif
 
-void SpinAssumePass::getAnalysisUsage(llvm::AnalysisUsage &au) const
-{
-	au.addRequired<DominatorTreeWrapperPass>();
-	au.addRequired<POSTDOM_PASS>();
-	au.addRequired<DeclareInternalsPass>();
-	au.addRequired<CallInfoCollectionPass>();
-	au.addRequired<EscapeCheckerPass>();
-	au.setPreservesAll();
-}
-
 void getLoopCASs(const Loop *l, SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 {
 	for (auto bb = l->block_begin(); bb != l->block_end(); ++bb) {
@@ -75,12 +66,11 @@ void getLoopCASs(const Loop *l, SmallVector<const AtomicCmpXchgInst *, 4> &cass)
 				cass.push_back(casi);
 		}
 	}
-	return;
 }
 
-bool isBlockPHIClean(const BasicBlock *bb) { return !isa<PHINode>(&*bb->begin()); }
+auto isBlockPHIClean(const BasicBlock *bb) -> bool { return !isa<PHINode>(&*bb->begin()); }
 
-bool accessSameVariable(const Value *p1, const Value *p2)
+auto accessSameVariable(const Value *p1, const Value *p2) -> bool
 {
 	/* Check if they are trivially the same */
 	if (p1 == p2)
@@ -337,7 +327,7 @@ bool tryGetCASResultExtracts(const std::vector<AtomicCmpXchgInst *> &cass,
  * will return false.)
  */
 bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, BasicBlock *latch,
-			     Loop *l, const CallInfoCollectionPass::CallSet &cleanSet)
+			     Loop *l, const CallAnalysisResult::CallSet &cleanSet)
 {
 	if (cass.empty())
 		return true;
@@ -368,19 +358,25 @@ bool failedCASesLeadToHeader(const std::vector<AtomicCmpXchgInst *> &cass, Basic
 	return true;
 }
 
-bool isStoreLocal(StoreInst *si, EscapeInfo &EI, DominatorTree &DT)
+bool isStoreLocal(StoreInst *si, EscapeAnalysisResult &EAR, DominatorTree &DT)
 {
 	/* A store is local if it is either marked or writes to dynamic memory */
 	auto attr = getWriteAttr(*si);
-	auto *alloc = EI.writesDynamicMemory(si->getPointerOperand());
-	return (alloc && EI.escapesAfter(alloc, si, DT)) || !!(attr & WriteAttr::Local);
+	auto *alloc = EAR.writesDynamicMemory(si->getPointerOperand());
+	return (alloc && EAR.escapesAfter(alloc, si, DT)) || !!(attr & WriteAttr::Local);
 }
 
-bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &checkDynamically)
+bool isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, ModuleAnalysisManager &MAM,
+			      bool &checkDynamically)
 {
-	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
-	auto &EI = getAnalysis<EscapeCheckerPass>().getEscapeInfo();
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+	auto &FAM =
+		MAM.getResult<FunctionAnalysisManagerModuleProxy>(*latch->getParent()->getParent())
+			.getManager();
+	auto &EAR = MAM.getResult<EscapeAnalysis>(*latch->getParent()->getParent());
+	auto &CAR = MAM.getResult<CallAnalysis>(*latch->getParent()->getParent());
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(*latch->getParent());
+	auto &cleanSet = CAR.clean;
+
 	auto effects = false;
 	std::vector<AtomicCmpXchgInst *> cass;
 
@@ -392,7 +388,7 @@ bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &
 		}
 		/* Local stores are allowed */
 		if (auto *si = dyn_cast<StoreInst>(&i)) {
-			if (isStoreLocal(si, EI, DT))
+			if (isStoreLocal(si, EAR[latch->getParent()], DT))
 				return;
 		}
 		effects |= hasSideEffects(&i, &cleanSet);
@@ -413,7 +409,8 @@ bool SpinAssumePass::isPathToHeaderEffectFree(BasicBlock *latch, Loop *l, bool &
 	return casOK;
 }
 
-template <typename F> bool checkConstantsCondition(const Value *v1, const Value *v2, F &&cond)
+template <typename F>
+auto checkConstantsCondition(const Value *v1, const Value *v2, F &&cond) -> bool
 {
 	auto c1 = dyn_cast<ConstantInt>(v1);
 	auto c2 = dyn_cast<ConstantInt>(v2);
@@ -424,7 +421,7 @@ template <typename F> bool checkConstantsCondition(const Value *v1, const Value 
 	return cond(c1->getValue(), c2->getValue());
 }
 
-bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
+auto areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b) -> bool
 {
 	using namespace llvm;
 	using BinOp = AtomicRMWInst::BinOp;
@@ -454,15 +451,23 @@ bool areCancelingBinops(const AtomicRMWInst *a, const AtomicRMWInst *b)
 	return false;
 }
 
-bool dominatesAndPostdominates(Instruction *a, Instruction *b, DominatorTree &DT,
-			       PostDominatorTree &PDT)
+auto dominatesAndPostdominates(Instruction *a, Instruction *b, DominatorTree &DT,
+			       PostDominatorTree &PDT) -> bool
 {
 	return DT.dominates(a, b) && PDT.dominates(a->getParent(), b->getParent());
 }
 
-bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instruction *&lastEffect)
+auto isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, ModuleAnalysisManager &MAM,
+			  Instruction *&lastEffect) -> bool
 {
-	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto &FAM =
+		MAM.getResult<FunctionAnalysisManagerModuleProxy>(*latch->getParent()->getParent())
+			.getManager();
+	auto &CAR = MAM.getResult<CallAnalysis>(*latch->getParent()->getParent());
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(*latch->getParent());
+	auto &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*latch->getParent());
+	auto &cleanSet = CAR.clean;
+
 	auto effects = false;
 	VSet<AtomicCmpXchgInst *> cass;
 	VSet<AtomicRMWInst *> fais;
@@ -484,8 +489,6 @@ bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instructio
 		return false;
 
 	/* Check domination conditions; we need more checks here due to the (unordered) VSet */
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	auto &PDT = GET_POSTDOM_PASS();
 
 	AtomicRMWInst *inci = nullptr;
 	AtomicRMWInst *deci = nullptr;
@@ -511,9 +514,17 @@ bool SpinAssumePass::isPathToHeaderFAIZNE(BasicBlock *latch, Loop *l, Instructio
 	return true;
 }
 
-bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instruction *&lastEffect)
+auto isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, ModuleAnalysisManager &MAM,
+			   Instruction *&lastEffect) -> bool
 {
-	auto &cleanSet = getAnalysis<CallInfoCollectionPass>().getCleanCalls();
+	auto &FAM =
+		MAM.getResult<FunctionAnalysisManagerModuleProxy>(*latch->getParent()->getParent())
+			.getManager();
+	auto &CAR = MAM.getResult<CallAnalysis>(*latch->getParent()->getParent());
+	auto &DT = FAM.getResult<DominatorTreeAnalysis>(*latch->getParent());
+	auto &PDT = FAM.getResult<PostDominatorTreeAnalysis>(*latch->getParent());
+	auto &cleanSet = CAR.clean;
+
 	auto effects = false;
 	VSet<CallInst *> locks;
 	VSet<CallInst *> unlocks;
@@ -545,8 +556,6 @@ bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instructi
 	if (effects || locks.size() != 1 || unlocks.size() != 1 || !phis.empty())
 		return false;
 
-	auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-	auto &PDT = GET_POSTDOM_PASS();
 	auto lDomU = dominatesAndPostdominates(locks[0], unlocks[0], DT, PDT);
 	if (!lDomU || !accessSameVariable(*locks[0]->arg_begin(), *unlocks[0]->arg_begin()))
 		return false;
@@ -555,7 +564,7 @@ bool SpinAssumePass::isPathToHeaderLockZNE(BasicBlock *latch, Loop *l, Instructi
 	return true;
 }
 
-Value *getOrCreateExitingCondition(BasicBlock *header, Instruction *term)
+auto getOrCreateExitingCondition(BasicBlock *header, Instruction *term) -> Value *
 {
 	if (auto *ibr = dyn_cast<IndirectBrInst>(term))
 		return ConstantInt::getFalse(term->getContext());
@@ -578,7 +587,6 @@ void addLoopBeginCallBeforeTerm(BasicBlock *preheader)
 
 	auto *ci = CallInst::Create(beginFun, {}, "", term);
 	ci->setMetadata("dbg", term->getMetadata("dbg"));
-	return;
 }
 
 void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
@@ -590,7 +598,6 @@ void addSpinEndCallBeforeTerm(BasicBlock *latch, BasicBlock *header)
 	auto *cond = getOrCreateExitingCondition(header, term);
 	auto *ci = CallInst::Create(endFun, {cond}, "", term);
 	ci->setMetadata("dbg", term->getMetadata("dbg"));
-	return;
 }
 
 void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header,
@@ -601,7 +608,6 @@ void addPotentialSpinEndCallBeforeLastFai(BasicBlock *latch, BasicBlock *header,
 
 	auto *ci = CallInst::Create(endFun, {}, "", lastEffect);
 	ci->setMetadata("dbg", lastEffect->getMetadata("dbg"));
-	return;
 }
 
 void addPotentialSpinEndCallBeforeUnlock(BasicBlock *latch, BasicBlock *header,
@@ -612,7 +618,6 @@ void addPotentialSpinEndCallBeforeUnlock(BasicBlock *latch, BasicBlock *header,
 
 	auto *ci = CallInst::Create(endFun, {}, "", lastEffect);
 	ci->setMetadata("dbg", lastEffect->getMetadata("dbg"));
-	return;
 }
 
 void addSpinStartCall(Loop *l)
@@ -624,7 +629,7 @@ void addSpinStartCall(Loop *l)
 	auto *ci = CallInst::Create(startFun, {}, "", i);
 }
 
-bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
+auto checkLoop(Loop *l, ModuleAnalysisManager &MAM, bool markStarts) -> bool
 {
 	auto *header = l->getHeader();
 
@@ -639,17 +644,17 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 	auto checkDynamically = false;
 	llvm::Instruction *lastZNEEffect = nullptr;
 	for (auto &latch : latches) {
-		if (isPathToHeaderFAIZNE(latch, l, lastZNEEffect)) {
+		if (isPathToHeaderFAIZNE(latch, l, MAM, lastZNEEffect)) {
 			checkDynamically = true;
 			modified = true;
 			addPotentialSpinEndCallBeforeLastFai(latch, header, lastZNEEffect);
-		} else if (isPathToHeaderLockZNE(latch, l, lastZNEEffect)) {
+		} else if (isPathToHeaderLockZNE(latch, l, MAM, lastZNEEffect)) {
 			/* Check for lockZNE before effect-free paths,
 			 * as locks are function calls too...  */
 			checkDynamically = true;
 			modified = true;
 			addPotentialSpinEndCallBeforeUnlock(latch, header, lastZNEEffect);
-		} else if (isPathToHeaderEffectFree(latch, l, checkDynamically)) {
+		} else if (isPathToHeaderEffectFree(latch, l, MAM, checkDynamically)) {
 			/* If we have to dynamically validate the loop,
 			 * the above check will return false, but the path
 			 * may be checked dynamically */
@@ -667,26 +672,30 @@ bool SpinAssumePass::runOnLoop(Loop *l, LPPassManager &lpm)
 		addSpinStartCall(l);
 		/* DSA also requires us to know when we actually enter the loop;
 		 * mark the beginning anyway to compose with liveness checks and nested loops */
-		auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-		auto &LI = lpm.getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+		auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(
+				       *header->getParent()->getParent())
+				    .getManager();
+		auto &DT = FAM.getResult<DominatorTreeAnalysis>(*header->getParent());
+		auto &LI = FAM.getResult<LoopAnalysis>(*header->getParent());
 		auto *ph = INSERT_PREHEADER_FOR_LOOP(l, &DT, &LI);
 		addLoopBeginCallBeforeTerm(ph);
 	}
 
-	/* If the transformation applied did not apply in all backedges, this is indeed a loop */
-	if (!spinloop)
-		return modified;
-	/* An actual spinloop: we used to remove it from the loop list but let's keep it */
+	/* Two cases:
+	 * 1) If the transformation applied did not apply in all backedges, this is indeed a loop
+	 * 2) An actual spinloop: we used to remove it from the loop list but let's keep it */
 	return modified;
 }
 
-Pass *createSpinAssumePass(bool markStarts /* = false */)
+auto SpinAssumePass::run(Module &M, ModuleAnalysisManager &MAM) -> PreservedAnalyses
 {
-	auto *p = new SpinAssumePass();
-	p->markSpinloopStarts(markStarts);
-	return p;
+	auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
+	auto modified = false;
+	for (auto &F : M | std::views::filter([&](auto &F) { return !F.isDeclaration(); })) {
+		auto &LI = FAM.getResult<LoopAnalysis>(F);
+		for (auto &L : std::views::reverse(LI.getLoopsInPreorder())) {
+			modified |= checkLoop(L, MAM, markStarts_);
+		}
+	}
+	return modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
-
-char SpinAssumePass::ID = 42;
-static llvm::RegisterPass<SpinAssumePass> P("spin-assume",
-					    "Performs GenMC's spin-assume transformation.");
