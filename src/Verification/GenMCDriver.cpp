@@ -1007,6 +1007,10 @@ bool GenMCDriver::inReplay() const
 
 MallocLabel *findAllocatingLabel(const ExecutionGraph &g, const SAddr &addr)
 {
+	/* Don't iterate over the graph if you don't have to */
+	if (!addr.isDynamic())
+		return nullptr;
+
 	auto labIt = std::find_if(label_begin(g), label_end(g), [&](auto &lab) {
 		auto *mLab = llvm::dyn_cast<MallocLabel>(&lab);
 		return mLab && mLab->contains(addr);
