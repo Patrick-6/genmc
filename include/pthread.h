@@ -32,8 +32,8 @@ extern "C"
 typedef __VERIFIER_attr_t pthread_attr_t;
 typedef __VERIFIER_barrier_t pthread_barrier_t;
 typedef __VERIFIER_barrierattr_t pthread_barrierattr_t;
-typedef __VERIFIER_cond_t pthread_cond_t;
-typedef __VERIFIER_condattr_t pthread_condattr_t;
+/* typedef __VERIFIER_cond_t pthread_cond_t; */
+/* typedef __VERIFIER_condattr_t pthread_condattr_t; */
 /* typedef int pthread_key_t; */
 typedef __VERIFIER_mutex_t pthread_mutex_t;
 typedef __VERIFIER_mutexattr_t pthread_mutexattr_t;
@@ -499,54 +499,54 @@ int pthread_mutex_unlock(pthread_mutex_t *__mutex)
 /* 					  int __pref) ; */
 
 
-/* Functions for handling conditional variables.  */
+/* /\* Functions for handling conditional variables.  *\/ */
 
-/* Initialize condition variable COND using attributes ATTR, or use
-   the default values if later is NULL.  */
-__attribute__ ((always_inline)) static inline
-int pthread_cond_init(pthread_cond_t *__restrict __cond,
-		      const pthread_condattr_t *__restrict __cond_attr)
-{
-	__VERIFIER_cond_init(__cond, __cond_attr);
-	return 0;
-}
+/* /\* Initialize condition variable COND using attributes ATTR, or use */
+/*    the default values if later is NULL.  *\/ */
+/* __attribute__ ((always_inline)) static inline */
+/* int pthread_cond_init(pthread_cond_t *__restrict __cond, */
+/* 		      const pthread_condattr_t *__restrict __cond_attr) */
+/* { */
+/* 	__VERIFIER_cond_init(__cond, __cond_attr); */
+/* 	return 0; */
+/* } */
 
-/* Destroy condition variable COND.  */
-__attribute__ ((always_inline)) static inline
-int pthread_cond_destroy(pthread_cond_t *__cond)
-{
-	__VERIFIER_cond_destroy(__cond);
-	return 0;
-}
+/* /\* Destroy condition variable COND.  *\/ */
+/* __attribute__ ((always_inline)) static inline */
+/* int pthread_cond_destroy(pthread_cond_t *__cond) */
+/* { */
+/* 	__VERIFIER_cond_destroy(__cond); */
+/* 	return 0; */
+/* } */
 
-/* Wake up one thread waiting for condition variable COND.  */
-__attribute__ ((always_inline)) static inline
-int pthread_cond_signal(pthread_cond_t *__cond)
-{
-	__VERIFIER_cond_signal(__cond);
-	return 0;
-}
+/* /\* Wake up one thread waiting for condition variable COND.  *\/ */
+/* __attribute__ ((always_inline)) static inline */
+/* int pthread_cond_signal(pthread_cond_t *__cond) */
+/* { */
+/* 	__VERIFIER_cond_signal(__cond); */
+/* 	return 0; */
+/* } */
 
-/* Wake up all threads waiting for condition variables COND.  */
-__attribute__ ((always_inline)) static inline
-int pthread_cond_broadcast (pthread_cond_t *__cond)
-{
-	__VERIFIER_cond_bcast(__cond);
-	return 0;
-}
+/* /\* Wake up all threads waiting for condition variables COND.  *\/ */
+/* __attribute__ ((always_inline)) static inline */
+/* int pthread_cond_broadcast (pthread_cond_t *__cond) */
+/* { */
+/* 	__VERIFIER_cond_bcast(__cond); */
+/* 	return 0; */
+/* } */
 
-/* Wait for condition variable COND to be signaled or broadcast.
-   MUTEX is assumed to be locked before. */
-__attribute__ ((always_inline)) static inline
-int pthread_cond_wait (pthread_cond_t *__restrict __cond,
-		       pthread_mutex_t *__restrict __mutex)
-{
-	pthread_mutex_unlock(__mutex);
-	int val = __VERIFIER_cond_wait(__cond);
-	__VERIFIER_assume(val > 0);
-	pthread_mutex_lock(__mutex);
-	return 0;
-}
+/* /\* Wait for condition variable COND to be signaled or broadcast. */
+/*    MUTEX is assumed to be locked before. *\/ */
+/* __attribute__ ((always_inline)) static inline */
+/* int pthread_cond_wait (pthread_cond_t *__restrict __cond, */
+/* 		       pthread_mutex_t *__restrict __mutex) */
+/* { */
+/* 	pthread_mutex_unlock(__mutex); */
+/* 	int val = __VERIFIER_cond_wait(__cond); */
+/* 	__VERIFIER_assume(val > 0); */
+/* 	pthread_mutex_lock(__mutex); */
+/* 	return 0; */
+/* } */
 
 /* /\* Wait for condition variable COND to be signaled or broadcast until */
 /*    ABSTIME.  MUTEX is assumed to be locked before.  ABSTIME is an */
