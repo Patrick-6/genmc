@@ -373,7 +373,7 @@ typename SExprEvaluator<T>::RetTy SExprEvaluator<T>::visitTruncExpr(TruncExpr<T>
 template<typename T>
 typename SExprEvaluator<T>::RetTy SExprEvaluator<T>::visitNotExpr(NotExpr<T> &e)
 {
-	return !e.getKid(0);
+	return SVal(!e.getKid(0));
 }
 
 #define IMPLEMENT_BINOP(op)					\
