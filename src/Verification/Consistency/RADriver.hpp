@@ -68,8 +68,7 @@ public:
 	std::vector<Event> getCoherentStores(SAddr addr, Event read) override;
 	std::vector<Event> getCoherentRevisits(const WriteLabel *sLab,
 					       const VectorClock &pporf) override;
-	llvm::iterator_range<ExecutionGraph::co_iterator>
-	getCoherentPlacings(SAddr addr, Event store, bool isRMW) override;
+	std::vector<Event> getCoherentPlacings(SAddr addr, Event read, bool isRMW) override;
 
 private:
 	bool isWriteRfBefore(Event a, Event b);

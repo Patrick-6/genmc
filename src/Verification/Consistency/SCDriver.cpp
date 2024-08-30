@@ -1042,28 +1042,33 @@ std::vector<Event> SCDriver::getCoherentRevisits(const WriteLabel *sLab, const V
 	return ls;
 }
 
-llvm::iterator_range<ExecutionGraph::co_iterator>
-SCDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
+std::vector<Event> SCDriver::getCoherentPlacings(SAddr addr, Event store, bool isRMW)
 {
 	auto &g = getGraph();
+	std::vector<Event> result;
 
 	/* If it is an RMW store, there is only one possible position in MO */
 	if (isRMW) {
-		if (auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()))) {
-			auto *rfLab = rLab->getRf();
-			BUG_ON(!rfLab);
-			if (auto *wLab = llvm::dyn_cast<WriteLabel>(rfLab)) {
-				auto wIt = g.co_succ_begin(wLab);
-				return llvm::iterator_range<ExecutionGraph::co_iterator>(wIt, wIt);
-			}
-			return llvm::iterator_range<ExecutionGraph::co_iterator>(g.co_begin(addr),
-										 g.co_begin(addr));
-		}
-		BUG();
+		auto *rLab = llvm::dyn_cast<ReadLabel>(g.getEventLabel(store.prev()));
+		BUG_ON(!rLab);
+		auto *rfLab = rLab->getRf();
+		BUG_ON(!rfLab);
+		result.push_back(rfLab->getPos());
+		return result;
 	}
 
 	/* Otherwise, we calculate the full range and add the store */
 	auto rangeBegin = splitLocMOBefore(addr, store);
 	auto rangeEnd = (isDepTracking()) ? splitLocMOAfter(addr, store) : g.co_end(addr);
-	return llvm::iterator_range(rangeBegin, rangeEnd);
+	auto cos = llvm::iterator_range(rangeBegin, rangeEnd) |
+		   std::views::filter([&](auto &sLab) { return !g.isRMWStore(sLab.getPos()); }) |
+		   std::views::transform([&](auto &sLab) {
+			   auto *pLab = g.co_imm_pred(&sLab);
+			   return pLab ? pLab->getPos() : Event::getInit();
+		   });
+	std::ranges::copy(cos, std::back_inserter(result));
+	result.push_back(rangeEnd == g.co_end(addr)   ? g.co_max(addr)->getPos()
+			 : !g.co_imm_pred(&*rangeEnd) ? Event::getInit()
+						      : g.co_imm_pred(&*rangeEnd)->getPos());
+	return result;
 }

@@ -1058,6 +1058,12 @@ VerificationError GenMCDriver::checkForRaces(const EventLabel *lab)
 	if (getConf()->disableRaceDetection || inEstimationMode())
 		return VerificationError::VE_OK;
 
+	/* Bounding: extensibility not guaranteed; RD should be disabled */
+	if (llvm::isa<WriteLabel>(lab) && !checkAtomicity(llvm::dyn_cast<WriteLabel>(lab))) {
+		BUG_ON(!getConf()->bound.has_value());
+		return VerificationError::VE_OK;
+	}
+
 	/* Check for hard errors */
 	const EventLabel *racyLab = nullptr;
 	auto err = checkErrors(lab, racyLab);
@@ -1690,8 +1696,11 @@ void GenMCDriver::filterValuesFromAnnotSAVER(const ReadLabel *rLab, std::vector<
 	BUG_ON(validStores.empty());
 }
 
-void GenMCDriver::unblockWaitingHelping()
+void GenMCDriver::unblockWaitingHelping(const WriteLabel *lab)
 {
+	if (!llvm::isa<HelpedCasWriteLabel>(lab))
+		return;
+
 	/* FIXME: We have to wake up all threads waiting on helping CASes,
 	 * as we don't know which ones are from the same CAS */
 	for (auto i = 0u; i < getGraph().getNumThreads(); i++) {
@@ -1751,31 +1760,49 @@ bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
 	return true;
 }
 
-std::optional<Event> GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
+std::optional<Event> GenMCDriver::findConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	auto &g = getGraph();
 
+	/* For the non-bounding case, maximal extensibility guarantees consistency */
+	if (!getConf()->bound.has_value()) {
+		g.changeRf(rLab->getPos(), rfs.back());
+		return {rfs.back()};
+	}
+
+	/* Otherwise, search for a consistent rf */
 	while (!rfs.empty()) {
 		g.changeRf(rLab->getPos(), rfs.back());
 		if (isExecutionValid(rLab))
-			break;
+			return {rfs.back()};
 		rfs.erase(rfs.end() - 1);
 	}
-	if (!rfs.empty())
-		return {rfs.back()};
 
-	BUG_ON(!getConf()->bound.has_value());
+	/* If none is found, tough luck */
 	moot();
 	return std::nullopt;
 }
 
-bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
+std::optional<Event> GenMCDriver::findConsistentCo(WriteLabel *wLab, std::vector<Event> &cos)
 {
-	if (!checkAtomicity(wLab) || !isExecutionValid(wLab)) {
-		moot();
-		return false;
+	auto &g = getGraph();
+
+	/* Similarly to the read case: rely on extensibility */
+	g.addStoreToCOAfter(wLab, g.getEventLabel(cos.back()));
+	if (!getConf()->bound.has_value())
+		return {cos.back()};
+
+	/* In contrast to the read case, we need to be a bit more careful:
+	 * the consistent choice might not satisfy atomicity, but we should
+	 * keep it around to try revisits */
+	while (!cos.empty()) {
+		g.moveStoreCOAfter(wLab, g.getEventLabel(cos.back()));
+		if (isExecutionValid(wLab))
+			return {cos.back()};
+		cos.erase(cos.end() - 1);
 	}
-	return true;
+	moot();
+	return std::nullopt;
 }
 
 void GenMCDriver::filterInvalidRecRfs(const ReadLabel *rLab, std::vector<Event> &rfs)
@@ -2136,7 +2163,7 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 		filterAtomicityViolations(lab, stores);
 		rf = pickRandomRf(lab, stores);
 	} else {
-		rf = ensureConsistentRf(lab, stores);
+		rf = findConsistentRf(lab, stores);
 		/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 		for (const auto &s : stores | std::views::take(stores.size() - 1)) {
 			auto status = false; /* MO messes with the status */
@@ -2157,7 +2184,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
 	}
-
 	return {retVal};
 }
 
@@ -2197,14 +2223,30 @@ std::vector<Event> GenMCDriver::getRevisitableApproximation(const WriteLabel *sL
 	return loads;
 }
 
-void GenMCDriver::pickRandomCo(WriteLabel *sLab,
-			       const llvm::iterator_range<ExecutionGraph::co_iterator> &placesRange)
+void GenMCDriver::pickRandomCo(WriteLabel *sLab, std::vector<Event> &cos)
 {
 	auto &g = getGraph();
 
-	MyDist dist(0, std::distance(placesRange.begin(), placesRange.end()));
+	g.addStoreToCOAfter(sLab, g.getEventLabel(cos.back()));
+	cos.erase(std::remove_if(cos.begin(), cos.end(),
+				 [&](auto &s) {
+					 g.moveStoreCOAfter(sLab, g.getEventLabel(s));
+					 return !isExecutionValid(sLab);
+				 }),
+		  cos.end());
+
+	/* Extensibility is not guaranteed if an RMW read is not reading maximally
+	 * (during estimation, reads read from arbitrary places anyway).
+	 * If that is the case, we have to ensure that estimation won't stop. */
+	if (cos.empty()) {
+		moot();
+		addToWorklist(0, std::make_unique<RerunForwardRevisit>());
+		return;
+	}
+
+	MyDist dist(0, cos.size() - 1);
 	auto random = dist(estRng);
-	g.addStoreToCO(sLab, std::next(placesRange.begin(), (long long)random));
+	g.moveStoreCOAfter(sLab, g.getEventLabel(cos[random]));
 }
 
 void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab, const std::vector<Event> &stores)
@@ -2213,38 +2255,14 @@ void GenMCDriver::updateStSpaceChoices(const WriteLabel *wLab, const std::vector
 	choices[wLab->getStamp()] = stores;
 }
 
-void GenMCDriver::calcCoOrderings(WriteLabel *lab)
+void GenMCDriver::calcCoOrderings(WriteLabel *lab, const std::vector<Event> &cos)
 {
-	/* Find all possible placings in coherence for this store.
-	 * If appropriate, print a WW-race warning (if this moots, exploration will anyway
-	 * be cut). Printing happens after choices are updated, to not invalidate iterators
-	 */
 	auto &g = getGraph();
-	auto placesRange = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
-	auto *racyWrite = placesRange.begin() != placesRange.end() ? &*placesRange.begin()
-								   : nullptr;
 
-	if (inEstimationMode()) {
-		std::vector<Event> cos;
-		std::transform(placesRange.begin(), placesRange.end(), std::back_inserter(cos),
-			       [&](auto &lab) { return lab.getPos(); });
-		cos.push_back(Event::getBottom());
-		pickRandomCo(lab, placesRange);
-		updateStSpaceChoices(lab, cos);
-		if (racyWrite)
-			reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, racyWrite);
-		return;
+	for (auto &pred : cos | std::views::take(cos.size() - 1)) {
+		addToWorklist(lab->getStamp(),
+			      std::make_unique<WriteForwardRevisit>(lab->getPos(), pred));
 	}
-
-	/* We cannot place the write just before the write of an RMW or during recovery */
-	for (auto &succLab : placesRange) {
-		if (!g.isRMWStore(succLab.getPos()) && !inRecoveryMode())
-			addToWorklist(lab->getStamp(), std::make_unique<WriteForwardRevisit>(
-							       lab->getPos(), succLab.getPos()));
-	}
-	g.addStoreToCO(lab, placesRange.end());
-	if (racyWrite)
-		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace, racyWrite);
 }
 
 void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
@@ -2265,31 +2283,40 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
-	    checkInitializedMem(lab) != VerificationError::VE_OK)
+	    checkInitializedMem(lab) != VerificationError::VE_OK ||
+	    checkFinalAnnotations(lab) != VerificationError::VE_OK ||
+	    checkForRaces(lab) != VerificationError::VE_OK)
 		return;
 
-	calcCoOrderings(lab);
+	checkReconsiderFaiSpinloop(lab);
+	unblockWaitingHelping(lab);
+	checkReconsiderReadOpts(lab);
 
-	/* If the graph is not consistent (e.g., w/ LAPOR) stop the exploration */
-	bool cons = ensureConsistentStore(lab);
+	/* Find all possible placings in coherence for this store, and
+	 * print a WW-race warning if appropriate (if this moots,
+	 * exploration will anyway be cut) */
+	auto cos = getCoherentPlacings(lab->getAddr(), lab->getPos(), g.isRMWStore(lab));
+	if (cos.size() > 1) {
+		reportWarningOnce(lab->getPos(), VerificationError::VE_WWRace,
+				  g.getEventLabel(cos[0]));
+	}
+
+	std::optional<Event> co;
+	if (inEstimationMode()) {
+		pickRandomCo(lab, cos);
+		updateStSpaceChoices(lab, cos);
+	} else {
+		co = findConsistentCo(lab, cos);
+		calcCoOrderings(lab, cos);
+	}
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added store " << lab->getPos() << "\n"
 						<< getGraph(););
 
-	if (cons && checkForRaces(lab) != VerificationError::VE_OK)
+	if (inRecoveryMode() || inReplay())
 		return;
 
-	if (!inRecoveryMode() && !inReplay())
-		calcRevisits(lab);
-
-	if (!cons)
-		return;
-
-	checkReconsiderFaiSpinloop(lab);
-	if (llvm::isa<HelpedCasWriteLabel>(lab))
-		unblockWaitingHelping();
-	checkReconsiderReadOpts(lab);
-	checkFinalAnnotations(lab);
+	calcRevisits(lab);
 }
 
 SVal GenMCDriver::handleMalloc(std::unique_ptr<MallocLabel> aLab)
@@ -3154,11 +3181,7 @@ WriteLabel *GenMCDriver::completeRevisitedRMW(const ReadLabel *rLab)
 	BUG_ON(!wLab);
 	auto *lab = llvm::dyn_cast<WriteLabel>(addLabelToGraph(std::move(wLab)));
 	BUG_ON(!rLab->getRf());
-	if (auto *rfLab = llvm::dyn_cast<WriteLabel>(rLab->getRf())) {
-		g.addStoreToCO(lab, ExecutionGraph::co_iterator(g.co_succ_begin(rfLab)));
-	} else {
-		g.addStoreToCO(lab, g.co_begin(lab->getAddr()));
-	}
+	g.addStoreToCOAfter(lab, rLab->getRf());
 	return lab;
 }
 
@@ -3168,8 +3191,7 @@ bool GenMCDriver::revisitWrite(const WriteForwardRevisit &ri)
 	auto *wLab = g.getWriteLabel(ri.getPos());
 	BUG_ON(!wLab);
 
-	g.removeStoreFromCO(wLab);
-	g.addStoreToCO(wLab, ExecutionGraph::co_iterator(g.getWriteLabel(ri.getSucc())));
+	g.moveStoreCOAfter(wLab, g.getEventLabel(ri.getPred()));
 	wLab->setAddedMax(false);
 	return calcRevisits(wLab);
 }

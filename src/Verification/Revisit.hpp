@@ -146,19 +146,19 @@ private:
 class WriteForwardRevisit : public ForwardRevisit {
 
 protected:
-	WriteForwardRevisit(Kind k, Event p, Event moSucc) : ForwardRevisit(k, p), moSucc(moSucc) {}
+	WriteForwardRevisit(Kind k, Event p, Event moPred) : ForwardRevisit(k, p), moPred(moPred) {}
 
 public:
-	WriteForwardRevisit(Event p, Event moSucc) : WriteForwardRevisit(RV_FRevMO, p, moSucc) {}
+	WriteForwardRevisit(Event p, Event moPred) : WriteForwardRevisit(RV_FRevMO, p, moPred) {}
 
-	/* Returns the new MO successor of the event for which
+	/** Returns the new MO predecessor of the event for which
 	 * we are exploring alternative exploration options */
-	Event getSucc() const { return moSucc; }
+	Event getPred() const { return moPred; }
 
 	static bool classof(const Revisit *item) { return item->getKind() == RV_FRevMO; }
 
 private:
-	Event moSucc;
+	Event moPred;
 };
 
 /*

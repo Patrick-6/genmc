@@ -275,11 +275,30 @@ public:
 	 * (Maintains well-formedness for read removals.) */
 	EventLabel *addLabelToGraph(std::unique_ptr<EventLabel> lab);
 
-	void addStoreToCO(WriteLabel *wLab, co_iterator it)
+	void addStoreToCOBefore(WriteLabel *wLab, WriteLabel *succLab)
 	{
-		coherence[wLab->getAddr()].insert(it, *wLab);
+		coherence[wLab->getAddr()].insert(co_iterator(succLab), *wLab);
 	}
+	void addStoreToCOAfter(WriteLabel *wLab, EventLabel *predLab)
+	{
+		auto *predLabW = llvm::dyn_cast<WriteLabel>(predLab);
+		coherence[wLab->getAddr()].insert(
+			predLabW ? ++co_iterator(*predLabW) : co_begin(wLab->getAddr()), *wLab);
+	}
+
 	void removeStoreFromCO(WriteLabel *wLab) { coherence[wLab->getAddr()].remove(*wLab); }
+
+	void moveStoreCOBefore(WriteLabel *wLab, WriteLabel *succLab)
+	{
+		removeStoreFromCO(wLab);
+		addStoreToCOBefore(wLab, succLab);
+	}
+
+	void moveStoreCOAfter(WriteLabel *wLab, EventLabel *predLab)
+	{
+		removeStoreFromCO(wLab);
+		addStoreToCOAfter(wLab, predLab);
+	}
 
 	/* Removes the last event from THREAD.
 	 * If it is a read, updates the rf-lists.
