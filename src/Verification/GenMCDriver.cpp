@@ -2105,6 +2105,9 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
 	    checkForRaces(lab) != VerificationError::VE_OK)
 		return std::nullopt; /* This execution will be blocked */
+	checkIPRValidity(lab);
+	/* Check whether the load forces us to reconsider some existing event */
+	checkReconsiderFaiSpinloop(lab);
 
 	if (!isRescheduledRead(lab->getPos()) &&
 	    removeCASReadIfBlocks(lab, g.co_max(lab->getAddr())))
@@ -2140,9 +2143,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 			return {retVal};
 	}
 
-	if (lab->getAnnot())
-		checkIPRValidity(lab);
-
 	if (inEstimationMode()) {
 		updateStSpaceChoices(lab, stores);
 		filterAtomicityViolations(lab, stores);
@@ -2151,9 +2151,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added load " << lab->getPos() << "\n"
 						<< getGraph(););
-
-	/* Check whether the load forces us to reconsider some existing event */
-	checkReconsiderFaiSpinloop(lab);
 
 	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
 	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s) {
