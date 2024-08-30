@@ -527,8 +527,8 @@ private:
 
 	/* Checks whether final annotations are used properly in a program:
 	 * if there are more than one stores annotated as final at the time WLAB
-	 * is added, visitError() is called */
-	void checkFinalAnnotations(const WriteLabel *wLab);
+	 * is added, reports an error */
+	VerificationError checkFinalAnnotations(const WriteLabel *wLab);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);

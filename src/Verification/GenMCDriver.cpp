@@ -1328,15 +1328,15 @@ VerificationError GenMCDriver::checkInitializedMem(const WriteLabel *wLab)
 	return VerificationError::VE_OK;
 }
 
-void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
+VerificationError GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 {
 	if (!getConf()->helper)
-		return;
+		return VerificationError::VE_OK;
 
 	auto &g = getGraph();
 
 	if (g.hasLocMoreThanOneStore(wLab->getAddr()))
-		return;
+		return VerificationError::VE_OK;
 	if ((wLab->isFinal() &&
 	     std::any_of(store_begin(g, wLab->getAddr()), store_end(g, wLab->getAddr()),
 			 [&](auto &sLab) { return !getHbView(wLab).contains(sLab.getPos()); })) ||
@@ -1345,9 +1345,9 @@ void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 			 [&](auto &sLab) { return sLab.isFinal(); }))) {
 		reportError({wLab->getPos(), VerificationError::VE_Annotation,
 			     "Multiple stores at final location!"});
-		return;
+		return VerificationError::VE_Annotation;
 	}
-	return;
+	return VerificationError::VE_OK;
 }
 
 VerificationError GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
