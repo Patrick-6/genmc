@@ -1751,7 +1751,7 @@ bool GenMCDriver::checkAtomicity(const WriteLabel *wLab)
 	return true;
 }
 
-bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
+std::optional<Event> GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &rfs)
 {
 	auto &g = getGraph();
 
@@ -1761,13 +1761,12 @@ bool GenMCDriver::ensureConsistentRf(const ReadLabel *rLab, std::vector<Event> &
 			break;
 		rfs.erase(rfs.end() - 1);
 	}
-
 	if (!rfs.empty())
-		return true;
+		return {rfs.back()};
 
 	BUG_ON(!getConf()->bound.has_value());
 	moot();
-	return false;
+	return std::nullopt;
 }
 
 bool GenMCDriver::ensureConsistentStore(const WriteLabel *wLab)
@@ -2070,7 +2069,7 @@ void GenMCDriver::updateStSpaceChoices(const ReadLabel *rLab, const std::vector<
 	choices[rLab->getStamp()] = stores;
 }
 
-std::optional<SVal> GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores)
+Event GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<Event> &stores)
 {
 	auto &g = getGraph();
 
@@ -2084,10 +2083,7 @@ std::optional<SVal> GenMCDriver::pickRandomRf(ReadLabel *rLab, std::vector<Event
 	MyDist dist(0, stores.size() - 1);
 	auto random = dist(estRng);
 	g.changeRf(rLab->getPos(), stores[random]);
-
-	if (checkInitializedMem(rLab) != VerificationError::VE_OK)
-		return std::nullopt;
-	return getWriteValue(rLab->getRf(), rLab->getAccess());
+	return stores[random];
 }
 
 std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
@@ -2131,43 +2127,37 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto stores = getRfsApproximation(lab);
 	BUG_ON(stores.empty());
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs: " << format(stores) << "\n";);
-
-	/* Try to minimize the number of rfs */
 	filterOptimizeRfs(lab, stores);
-
-	/* ... add an appropriate label with a random rf */
-	g.changeRf(lab->getPos(), stores.back());
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs (optimized): " << format(stores) << "\n";);
 
-	/* ... and make sure that the rf we end up with is consistent and respects the bound
-	 */
-	if (!ensureConsistentRf(lab, stores))
-		return std::nullopt;
-
-	if (checkInitializedMem(lab) != VerificationError::VE_OK)
-		return std::nullopt;
-
-	/* If this is the last part of barrier_wait() check whether we should block */
-	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
-	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
-		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
-	}
-
+	std::optional<Event> rf = std::nullopt;
 	if (inEstimationMode()) {
 		updateStSpaceChoices(lab, stores);
 		filterAtomicityViolations(lab, stores);
-		return pickRandomRf(lab, stores);
+		rf = pickRandomRf(lab, stores);
+	} else {
+		rf = ensureConsistentRf(lab, stores);
+		/* Push all the other alternatives choices to the Stack (many maximals for wb) */
+		for (const auto &s : stores | std::views::take(stores.size() - 1)) {
+			auto status = false; /* MO messes with the status */
+			addToWorklist(lab->getStamp(), std::make_unique<ReadForwardRevisit>(
+							       lab->getPos(), s, status));
+		}
 	}
+
+	/* Ensured the selected rf comes from an initialized memory location */
+	if (!rf.has_value() || checkInitializedMem(lab) != VerificationError::VE_OK)
+		return std::nullopt;
 
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug2) << "--- Added load " << lab->getPos() << "\n"
 						<< getGraph(););
 
-	/* Push all the other alternatives choices to the Stack (many maximals for wb) */
-	std::for_each(stores.begin(), stores.end() - 1, [&](const Event &s) {
-		auto status = false; /* MO messes with the status */
-		addToWorklist(lab->getStamp(),
-			      std::make_unique<ReadForwardRevisit>(lab->getPos(), s, status));
-	});
+	/* If this is the last part of barrier_wait() check whether we should block */
+	auto retVal = getWriteValue(g.getEventLabel(*rf), lab->getAccess());
+	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
+		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
+	}
+
 	return {retVal};
 }
 
