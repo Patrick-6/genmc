@@ -668,7 +668,7 @@ private:
 	/* Given a list of stores that it is consistent to read-from,
 	 * filters out options that can be skipped (according to the conf),
 	 * and determines the order in which these options should be explored */
-	bool filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
+	void filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores);
 
 	bool isExecutionValid(const EventLabel *lab)
 	{

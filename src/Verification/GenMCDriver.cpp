@@ -2007,7 +2007,7 @@ std::vector<Event> GenMCDriver::getRfsApproximation(const ReadLabel *lab)
 	return rfs;
 }
 
-bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
+void GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &stores)
 {
 	/* Symmetry reduction */
 	if (getConf()->symmetryReduction)
@@ -2019,11 +2019,6 @@ bool GenMCDriver::filterOptimizeRfs(const ReadLabel *lab, std::vector<Event> &st
 
 	/* Keep values that do not lead to blocking */
 	filterValuesFromAnnotSAVER(lab, stores);
-
-	if (!isRescheduledRead(lab->getPos()) &&
-	    removeCASReadIfBlocks(lab, getGraph().getEventLabel(stores.back())))
-		return false;
-	return true;
 }
 
 void GenMCDriver::filterAtomicityViolations(const ReadLabel *rLab, std::vector<Event> &stores)
@@ -2111,14 +2106,19 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	    checkForRaces(lab) != VerificationError::VE_OK)
 		return std::nullopt; /* This execution will be blocked */
 
+	if (!isRescheduledRead(lab->getPos()) &&
+	    removeCASReadIfBlocks(lab, g.co_max(lab->getAddr())))
+		return std::nullopt;
+	if (isRescheduledRead(lab->getPos()))
+		setRescheduledRead(Event::getInit());
+
 	/* Get an approximation of the stores we can read from */
 	auto stores = getRfsApproximation(lab);
 	BUG_ON(stores.empty());
 	GENMC_DEBUG(LOG(VerbosityLevel::Debug3) << "Rfs: " << format(stores) << "\n";);
 
 	/* Try to minimize the number of rfs */
-	if (!filterOptimizeRfs(lab, stores))
-		return std::nullopt;
+	filterOptimizeRfs(lab, stores);
 
 	/* ... add an appropriate label with a random rf */
 	g.changeRf(lab->getPos(), stores.back());
@@ -2140,8 +2140,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 			return {retVal};
 	}
 
-	if (isRescheduledRead(lab->getPos()))
-		setRescheduledRead(Event::getInit());
 	if (lab->getAnnot())
 		checkIPRValidity(lab);
 
