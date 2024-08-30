@@ -516,20 +516,19 @@ private:
 	/* If LAB accesses a valid location, reports an error  */
 	VerificationError checkAccessValidity(const MemAccessLabel *lab);
 
-	/* If LAB accesses an uninitialized location, erports an error */
+	/* If LAB accesses an uninitialized location, reports an error */
 	VerificationError checkInitializedMem(const ReadLabel *lab);
 
-	/* If LAB accesses improperly initialized memory, erports an error */
+	/* If LAB accesses improperly initialized memory, reports an error */
 	VerificationError checkInitializedMem(const WriteLabel *lab);
+
+	/* If LAB is an IPR read in a location with WW-races, reports an error */
+	VerificationError checkIPRValidity(const ReadLabel *rLab);
 
 	/* Checks whether final annotations are used properly in a program:
 	 * if there are more than one stores annotated as final at the time WLAB
 	 * is added, visitError() is called */
 	void checkFinalAnnotations(const WriteLabel *wLab);
-
-	/* Checks whether the IPR optimization is valid (i.e., no WW-races),
-	 * and reports an error if it's not. Returns the validity result */
-	void checkIPRValidity(const ReadLabel *rLab);
 
 	/* Returns true if the exploration is guided by a graph */
 	bool isExecutionDrivenByGraph(const EventLabel *lab);

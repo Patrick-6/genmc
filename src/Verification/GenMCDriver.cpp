@@ -1350,21 +1350,23 @@ void GenMCDriver::checkFinalAnnotations(const WriteLabel *wLab)
 	return;
 }
 
-void GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
+VerificationError GenMCDriver::checkIPRValidity(const ReadLabel *rLab)
 {
 	if (!rLab->getAnnot() || !getConf()->ipr)
-		return;
+		return VerificationError::VE_OK;
 
 	auto &g = getGraph();
 	auto racyIt = std::find_if(store_begin(g, rLab->getAddr()), store_end(g, rLab->getAddr()),
 				   [&](auto &wLab) { return wLab.hasAttr(WriteAttr::WWRacy); });
-	if (racyIt != store_end(g, rLab->getAddr())) {
-		auto msg = "Unordered writes do not constitute a bug per se, though they often "
-			   "indicate faulty design.\n"
-			   "This warning is treated as an error due to in-place revisiting (IPR).\n"
-			   "You can use -disable-ipr to disable this feature."s;
-		reportError({racyIt->getPos(), VerificationError::VE_WWRace, msg, nullptr, true});
-	}
+	if (racyIt == store_end(g, rLab->getAddr()))
+		return VerificationError::VE_OK;
+
+	auto msg = "Unordered writes do not constitute a bug per se, though they often "
+		   "indicate faulty design.\n"
+		   "This warning is treated as an error due to in-place revisiting (IPR).\n"
+		   "You can use -disable-ipr to disable this feature."s;
+	reportError({racyIt->getPos(), VerificationError::VE_WWRace, msg, nullptr, true});
+	return VerificationError::VE_WWRace;
 }
 
 bool GenMCDriver::threadReadsMaximal(int tid)
@@ -2103,12 +2105,14 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
 
 	if (checkAccessValidity(lab) != VerificationError::VE_OK ||
-	    checkForRaces(lab) != VerificationError::VE_OK)
+	    checkForRaces(lab) != VerificationError::VE_OK ||
+	    checkIPRValidity(lab) != VerificationError::VE_OK)
 		return std::nullopt; /* This execution will be blocked */
-	checkIPRValidity(lab);
+
 	/* Check whether the load forces us to reconsider some existing event */
 	checkReconsiderFaiSpinloop(lab);
 
+	/* If a CAS read cannot be added maximally, reschedule */
 	if (!isRescheduledRead(lab->getPos()) &&
 	    removeCASReadIfBlocks(lab, g.co_max(lab->getAddr())))
 		return std::nullopt;
