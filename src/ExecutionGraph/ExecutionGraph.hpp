@@ -160,6 +160,17 @@ public:
 			static_cast<const ExecutionGraph &>(*this).co_imm_pred(lab));
 	}
 
+	const EventLabel *co_max(SAddr addr) const
+	{
+		return co_begin(addr) == co_end(addr) ? (EventLabel *)getInitLabel()
+						      : (EventLabel *)&*co_rbegin(addr);
+	}
+	EventLabel *co_max(SAddr addr)
+	{
+		return const_cast<EventLabel *>(
+			static_cast<const ExecutionGraph &>(*this).co_max(addr));
+	}
+
 	co_iterator fr_succ_begin(ReadLabel *rLab)
 	{
 		auto *wLab = llvm::dyn_cast<WriteLabel>(rLab->getRf());
