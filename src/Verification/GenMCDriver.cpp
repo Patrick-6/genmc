@@ -1442,13 +1442,21 @@ void GenMCDriver::checkUnfreedMemory()
 
 void GenMCDriver::filterConflictingBarriers(const ReadLabel *lab, std::vector<Event> &stores)
 {
-	if (getConf()->disableBAM || !llvm::isa<BIncFaiReadLabel>(lab))
+	if (getConf()->disableBAM ||
+	    (!llvm::isa<BIncFaiReadLabel>(lab) && !llvm::isa<BWaitReadLabel>(lab)))
 		return;
+
+	/* barrier_wait()'s plain load should read maximally */
+	if (auto *rLab = llvm::dyn_cast<BWaitReadLabel>(lab)) {
+		std::swap(stores[0], stores.back());
+		stores.resize(1);
+		return;
+	}
 
 	/* barrier_wait()'s FAI loads should not read from conflicting stores */
 	auto &g = getGraph();
 	stores.erase(std::remove_if(stores.begin(), stores.end(),
-				    [&](const Event &s) {
+				    [&](auto &s) {
 					    return g.isStoreReadByExclusiveRead(s, lab->getAddr());
 				    }),
 		     stores.end());
@@ -2143,8 +2151,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	auto retVal = getWriteValue(g.getEventLabel(stores.back()), lab->getAccess());
 	if (llvm::isa<BWaitReadLabel>(lab) && retVal != getBarrierInitValue(lab->getAccess())) {
 		blockThread(BarrierBlockLabel::create(lab->getPos().next()));
-		if (!getConf()->disableBAM)
-			return {retVal};
 	}
 
 	if (inEstimationMode()) {
