@@ -2124,13 +2124,6 @@ std::optional<SVal> GenMCDriver::handleLoad(std::unique_ptr<ReadLabel> rLab)
 	if (isExecutionDrivenByGraph(&*rLab))
 		return getReadRetValue(llvm::dyn_cast<ReadLabel>(g.getEventLabel(rLab->getPos())));
 
-	/* First, we have to check whether the access is valid. This has to
-	 * happen here because we may query the interpreter for this location's
-	 * value in order to determine whether this load is going to be an RMW.
-	 * Coherence needs to be tracked before validity is established, as
-	 * consistency checks may be triggered if the access is invalid */
-	g.trackCoherenceAtLoc(rLab->getAddr());
-
 	if (!rLab->getAnnot())
 		rLab->setAnnot(EE->getCurrentAnnotConcretized());
 	auto *lab = llvm::dyn_cast<ReadLabel>(addLabelToGraph(std::move(rLab)));
@@ -2271,9 +2264,6 @@ void GenMCDriver::handleStore(std::unique_ptr<WriteLabel> wLab)
 		return;
 
 	auto &g = getGraph();
-
-	/* If it's a valid access, track coherence for this location */
-	g.trackCoherenceAtLoc(wLab->getAddr());
 
 	if (getConf()->helper && g.isRMWStore(&*wLab))
 		annotateStoreHELPER(&*wLab);

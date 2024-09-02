@@ -276,6 +276,10 @@ EventLabel *ExecutionGraph::addLabelToGraph(std::unique_ptr<EventLabel> lab)
 	if (!lab->hasStamp())
 		lab->setStamp(nextStamp());
 
+	/* Track coherence if necessary */
+	if (auto *mLab = llvm::dyn_cast<MemAccessLabel>(&*lab))
+		trackCoherenceAtLoc(mLab->getAddr());
+
 	auto pos = lab->getPos();
 	if (pos.index < events[pos.thread].size()) {
 		auto eLab = getEventLabel(pos);
