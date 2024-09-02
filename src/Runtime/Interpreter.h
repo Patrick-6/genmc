@@ -792,6 +792,11 @@ private: // Helper functions
 		if (getDepTracker())
 			getDepTracker()->updateCtrlDeps(tid, src);
 	}
+	void updateCtrlDeps(unsigned int tid, Event e)
+	{
+		if (getDepTracker())
+			getDepTracker()->updateCtrlDeps(tid, e);
+	}
 
 	std::unique_ptr<EventDeps> updateFunArgDeps(unsigned int tid, Function *F);
 	void updateInternalFunRetDeps(unsigned int tid, Function *F, Instruction *CS);

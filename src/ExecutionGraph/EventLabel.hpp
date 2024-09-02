@@ -1849,7 +1849,7 @@ inline bool EventLabel::isStable() const
 
 inline bool EventLabel::isDependable(EventLabelKind k)
 {
-	return ReadLabel::classofKind(k) || k == Malloc;
+	return ReadLabel::classofKind(k) || k == Malloc || k == Optional;
 }
 
 inline bool EventLabel::hasValue(EventLabelKind k)

@@ -3053,6 +3053,7 @@ void Interpreter::callOptBegin(Function *F, const std::vector<GenericValue> &Arg
 			       const std::unique_ptr<EventDeps> &specialDeps)
 {
 	auto expand = CALL_DRIVER(handleOptional, OptionalLabel::create(currPos()));
+	updateCtrlDeps(getCurThr().id, currPos()); // add a ctrl dep on optionals
 
 	GenericValue result;
 	result.IntVal = APInt(F->getReturnType()->getIntegerBitWidth(), expand, true); // signed
